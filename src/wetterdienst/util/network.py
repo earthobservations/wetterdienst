@@ -116,6 +116,10 @@ class File:
     answer differently: a cached body says nothing about what the server has now, while one that
     has just come off the wire cannot have changed in the meantime (GH-1947).
     """
+    cached_at: float | None = None
+    """When the copy the body is of was made, as `time.time()` has it, from when its download began; None where the body
+    is not held in the cache (the cache is off, or the download failed). For a provider whose source dates its files, to
+    tell which copy a date is of (GH-2567)."""
 
     def raise_if_exception(self) -> None:
         """Raise an exception if the content is not a BytesIO object.
@@ -1442,6 +1446,10 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
             # the same url in another thread or process never sees this one's half-written file,
             # and a body that fails part-way leaves nothing behind (GH-2493)
             temp = f"{blob}.{uuid.uuid4().hex}.tmp"
+            # the copy is as old as its body is, which the server began to send when this was asked for: a body that
+            # takes a while to arrive holds what the file was at the start of it, not at the end (fsspec stamps the
+            # entry when the fetch is over)
+            started = time.time()
             try:
                 self.fs.get_file(path, temp, **fetch_kwargs)
                 try:
@@ -1456,6 +1464,7 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
                     # `open` has turned a text mode into a binary one by now and wraps the handle itself
                     return BytesIO(Path(temp).read_bytes())
                 self._make_local_details(path)
+                self._metadata.cached_files[-1][path]["time"] = started
                 self.save_cache()
             finally:
                 # best effort: an unlink that fails must not replace the bytes in hand or the error
@@ -2111,7 +2120,14 @@ def download_file(
                     # info, header and all, before any of the handlers below are reached
                     raise _without_credentials(e, sent_credentials=sent_credentials) from None
                 log.info(f"Read file {shown} from cache" if served_from_cache else f"Downloaded file {shown}")
-                return File(url=url, content=BytesIO(payload), status=200, from_cache=served_from_cache)
+                copy = getattr(filesystem, "_check_file", lambda _url: False)(url)
+                return File(
+                    url=url,
+                    content=BytesIO(payload),
+                    status=200,
+                    from_cache=served_from_cache,
+                    cached_at=float(copy[0]["time"]) if copy else None,
+                )
     except Exception as e:
         failed = _failed_file(url, e, sent_credentials=sent_credentials)
         if failed is None:

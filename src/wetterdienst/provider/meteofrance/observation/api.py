@@ -756,17 +756,7 @@ def _get_climate_resources(resolution_name: str, settings: Settings) -> list[dic
         return []
     # when the copy of the listing was made, which is what its dates are as of: the time of the request where the cache
     # holds none, as with the cache off
-    listed_at = (
-        cached_file_time(
-            url,
-            settings.cache_dir,
-            CacheExpiry.METAINDEX,
-            settings.fsspec_client_kwargs,
-            cache_disable=settings.cache_disable,
-            use_certifi=settings.use_certifi,
-        )
-        or time.time()
-    )
+    listed_at = file.cached_at or time.time()
     return [{**resource, _LISTED_AT: listed_at} for resource in json.loads(file.content.read()).get("resources", [])]
 
 
@@ -935,7 +925,7 @@ def _download_climate_resources(resources: list[dict], settings: Settings) -> di
     return files_by_url
 
 
-def _resource_date(resource: dict, settings: Settings) -> datetime | None:
+def _resource_date(resource: dict, file: File) -> datetime | None:
     """Give the date of the copy of a resource that is read: the listing's, and no later than the copy is.
 
     The listing says when the file last changed, and the copy of it that is read, which may be an older one (the file
@@ -945,14 +935,7 @@ def _resource_date(resource: dict, settings: Settings) -> datetime | None:
     updated = _resource_updated(resource)
     if updated is None:
         return None
-    made = cached_file_time(
-        resource["url"],
-        settings.cache_dir,
-        _resource_cache_ttl(resource),
-        settings.fsspec_client_kwargs,
-        cache_disable=settings.cache_disable,
-        use_certifi=settings.use_certifi,
-    )
+    made = file.cached_at
     return updated if made is None else min(updated, datetime.fromtimestamp(made, tz=ZoneInfo("UTC")))
 
 
@@ -1069,7 +1052,7 @@ class MeteoFranceObservationValues(TimeseriesValues):
             df = df.filter(pl.col("NUM_POSTE").eq(station_id))
             if not df.is_empty():
                 # the date of the copy read travels with its rows (`_note_files_with_rows`)
-                updated = _resource_date(resource, settings)
+                updated = _resource_date(resource, file)
                 dfs.append(df.with_columns(pl.lit(updated, dtype=pl.Datetime("us", "UTC")).alias(_UPDATED)))
         if not dfs:
             return pl.DataFrame()

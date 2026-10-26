@@ -210,8 +210,10 @@ what the answer is missing:
   read from. For `meteofrance/observation` it is the `last_modified` of the listing of data.gouv.fr, which is cached
   for 12 hours, so it may lag a file that was refreshed since by up to that time, and `retrieved_at` less
   `data_updated_at` is no exact age of the data. A copy of a file made before the date the listing gives it is
-  fetched again, and replaced only once the new one has arrived: where the host of the files does not answer, the
-  answer is made of the copy from before and has the date that copy was made, and not the listing's later one.
+  fetched again, and replaced only once the new one has arrived: where the host of the files does not answer, an
+  archive file that is cached for good (the years before last) is read from the copy from before, and has the date
+  that copy was made and not the listing's later one. A file of the current period, cached for 5 minutes, whose copy
+  has expired is not served stale: the request fails with the download error, as before.
   NDJSON and CSV answers of `values` are streamed and their head goes out before the stations are read, so the
   newest date is not known: they say `null`, and the header is left out. A JSON answer of the same request has the
   exact one, and so has the NDJSON of the command line, which renders the whole result at once. It is the "date of
