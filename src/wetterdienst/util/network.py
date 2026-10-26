@@ -1523,25 +1523,51 @@ def _take_last_modified(filesystem: object, url: str) -> dt.datetime | None:
     return None if registry is None else registry.pop(url, None)
 
 
-def _reload_metadata(filesystem: WholeFileCacheFileSystem) -> bool:
-    """Read the metadata file again into what a caching filesystem holds, and say whether that worked.
+def _metadata_stamp(filesystem: WholeFileCacheFileSystem) -> tuple[int, int, int] | None:
+    """Name the state of the metadata file by what the file system says of it: modification time, size, inode.
 
-    A read that fails leaves the view the filesystem had, which is what a lookup that only asks is to go on with. That
-    is for a failure that passes: on Windows the file is not readable while another process replaces it
-    (`PermissionError`). A file that is cut short stays an error, as it was: the save of the next fetch reads it too.
+    `None` for a file that is not there. The inode is in it because a save replaces the file.
     """
     try:
-        filesystem.load_cache()
+        status = (Path(filesystem.storage[-1]) / "cache").stat()
+    except OSError:
+        return None
+    return status.st_mtime_ns, status.st_size, status.st_ino
+
+
+def _refresh_metadata(filesystem: WholeFileCacheFileSystem) -> None:
+    """Bring what a caching filesystem holds up to what the metadata file says now, where that has moved.
+
+    Skipped where the file is the one this filesystem last read or wrote (`_metadata_stamp`, taken by its `load_cache`
+    and `save_cache`): a miss on an unchanged file is free, which matters for a directory of tens of thousands of
+    entries (the file is megabytes) that is asked about each file before it is fetched. Otherwise the file is read
+    and *merged* into what is held, as fsspec's own save merges: an entry only this filesystem holds is kept (another
+    process may have written the file from a read older than that entry, and the next save of this filesystem writes
+    it back, as it does on a filesystem that never reloaded), and where both hold one the later `time` wins.
+
+    A read that fails leaves the view as it was, which is what a lookup that only asks is to go on with. That is for a
+    failure that passes: on Windows the file is not readable while another process replaces it (`PermissionError`). A
+    file that is cut short stays an error, as it was: the save of the next fetch reads it too.
+    """
+    try:
+        with _cache_dir_lock:
+            if filesystem._wd_metadata_stamp == _metadata_stamp(filesystem):  # noqa: SLF001
+                return
+            held = filesystem._metadata.cached_files[-1]  # noqa: SLF001
+            filesystem.load_cache()
+            fresh = filesystem._metadata.cached_files[-1]  # noqa: SLF001
+            for key, detail in held.items():
+                if key not in fresh or fresh[key]["time"] < detail["time"]:
+                    fresh[key] = detail
     except Exception:
         log.debug("Could not read the cache metadata again, keeping what is held", exc_info=True)
-        return False
-    return True
 
 
 def _held_in_view(filesystem: object, url: str) -> Literal[False] | tuple[dict[str, Any], str]:
-    """Say whether a caching filesystem's view of the metadata holds a copy of a url, without reading the file again.
+    """Say whether a caching filesystem's view of the metadata holds a copy of a url, without a reload of its own.
 
-    False for a filesystem that does not cache.
+    fsspec's own read of the file after `cache_check` (10 s) can still run inside it. False for a filesystem that does
+    not cache.
     """
     if isinstance(filesystem, WholeFileCacheFileSystem):
         return WholeFileCacheFileSystem._check_file(filesystem, url)  # noqa: SLF001
@@ -1555,7 +1581,8 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
     `save_cache` are what a download goes through, `pop_from_cache` is how MOSMIX drops a truncated
     run, `clear_expired_cache` is the sweep, and `clear_cache` deletes the file along with the
     blobs. fsspec resolves all five on the class rather than on the instance, so an override here is
-    what its own internal calls reach as well.
+    what its own internal calls reach as well. `_check_file`, which fsspec asks the view, is
+    overridden to read the file again where the view holds no usable copy (GH-3452).
 
     `_open` is overridden for another reason: to fetch a missing file without fsspec's `exists`
     probe, and to record it only once it has arrived (GH-2467). It reaches the metadata file through
@@ -1565,12 +1592,16 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
     def load_cache(self) -> None:
         """Read the metadata file, with no other thread in the middle of replacing it."""
         with _cache_dir_lock:
+            # before the read: a file replaced during it then differs from the stamp, and is read again
+            stamp = _metadata_stamp(self)
             super().load_cache()
+            self._wd_metadata_stamp = stamp
 
     def save_cache(self) -> None:
         """Read, merge and replace the metadata file, with no other thread reading or replacing it."""
         with _cache_dir_lock:
             super().save_cache()
+            self._wd_metadata_stamp = _metadata_stamp(self)
 
     def _check_file(
         self, path: str, refetch_before: float | None = None
@@ -1581,16 +1612,15 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
         has ended, so a thread can hold a filesystem that other threads (or processes) have cached into since it last
         read the file: it reads it only when built and after `cache_check` (10 s). Such a view says no to a copy that
         is there, and the file is fetched again (GH-3452). A hit costs nothing more than before; a miss reads the
-        file once, which the fetch that follows saves it through anyway. So does a copy older than `refetch_before`,
-        which another thread may have fetched again since. A read that fails leaves the answer the view gave, and a
-        read that fsspec made in this very call is not made twice.
+        file again if it has changed since this filesystem read or wrote it (`_refresh_metadata`). So does a copy
+        older than `refetch_before`, which another thread may have fetched again since. The view is asked again once
+        it has been refreshed, and also where it was not: another thread on this very filesystem may have moved it
+        while this one looked.
         """
-        read_before = self.last_cache
         held = super()._check_file(path)
         if held and not (refetch_before is not None and held[0]["time"] < refetch_before):
             return held
-        if self.last_cache != read_before or not _reload_metadata(self):
-            return held
+        _refresh_metadata(self)
         return super()._check_file(path)
 
     def pop_from_cache(self, path: str) -> None:
@@ -1598,7 +1628,7 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
         with _cache_dir_lock:
             if not self._metadata.check_file(self._strip_protocol(path), None):
                 # the copy may be one another thread cached since this view was read, which is then not dropped
-                _reload_metadata(self)
+                _refresh_metadata(self)
             blob = Path(self.storage[-1]) / self._mapper(self._strip_protocol(path))
             super().pop_from_cache(path)
             with contextlib.suppress(OSError):
@@ -1695,20 +1725,13 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
                     log.debug(f"Could not replace {blob}, serving {path} from the fetched copy", exc_info=True)
                     # `open` has turned a text mode into a binary one by now and wraps the handle itself
                     return BytesIO(Path(temp).read_bytes())
-                # what fsspec's `_make_local_details` records, with the time of the start of the fetch: made before
-                # the lock, because it asks the server (`ukey`)
-                detail = {
-                    "original": path,
-                    "fn": self._mapper(path),
-                    "blocks": True,
-                    "time": started,
-                    "uid": self.fs.ukey(path),
-                }
                 # the record and its save as one step for the lock: a thread that reads the metadata file again
-                # replaces what the filesystem holds, and one that did between the two took the new entry with it
-                # when this filesystem is used by more than one thread (the reader of a forecast moves threads)
+                # replaces what the filesystem holds, and keeps the entries it held only after that, so one that
+                # came between the record and the line that sets its time would find the entry missing (a filesystem
+                # used by more than one thread: the reader of a forecast moves threads)
                 with _cache_dir_lock:
-                    self._metadata.update_file(path, detail)
+                    self._make_local_details(path)
+                    self._metadata.cached_files[-1][path]["time"] = started
                     self.save_cache()
                 # after the entry: a copy is dated once the cache holds it. Written whether or not this fetch had a
                 # date, so that a copy fetched anew over an older one does not keep the older one's
