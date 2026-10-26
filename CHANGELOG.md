@@ -22,8 +22,8 @@ Types of changes:
   updated (UTC; `null` where the source states none), with the `X-Wetterdienst-Data-Updated-At`
   header where it is set, and a `data_updated_at` field on the values, interpolation and summary
   results. It is filled for `meteofrance/observation` from the files it reads (the newest
-  `last_modified` of data.gouv.fr, the date Etalab 2.0 asks for), `null` for every other network.
-  `schema_version` stays `"1"` (GH-2567)
+  `last_modified` of data.gouv.fr, the date Etalab 2.0 asks for), `null` for every other network and
+  for a streamed answer (NDJSON, CSV of `values`). `schema_version` stays `"1"` (GH-2567)
 
 ## [0.175.0] - 2026-10-25
 
