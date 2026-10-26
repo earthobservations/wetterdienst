@@ -220,6 +220,12 @@ come from other hosts. There is no `v-html` or `innerHTML`, so provider text ren
 (`wd_settings`) in `localStorage` and the language in a cookie, no data. The compose file's app is the dev server, for
 development, not exposure (#3096).
 
+Who may frame a page: only the app's own origin (`frame-ancestors 'self'` and `X-Frame-Options: SAMEORIGIN`), except
+for `/widget`, which any origin may frame because it is meant to sit on other sites. The widget reads one station's
+forecast through two `GET` requests of the app's own origin, holds nothing a visitor enters or the app keeps, and has
+no control that does more than read: its two links open in a new tab. The widget's assets are subresources, not
+documents, and keep the headers they had (`app/tests/unit/security-headers.test.ts`, `app/tests/e2e/csp.spec.ts`).
+
 ### Supply chain
 
 `uv.lock` pins every dependency with hashes; a release younger than 3 days is not taken (`exclude-newer`). `uv audit`

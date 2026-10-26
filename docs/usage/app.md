@@ -33,6 +33,26 @@ A request the backend refuses shows what the backend answered: one over a [limit
 and how to narrow it, a provider that is down says so and the request can be made again. See
 [Troubleshooting](troubleshooting.md) for what the answers mean.
 
+## Embed the forecast on another site
+
+`/widget` is the one page of the app that another site may put in a frame; every other page answers
+`frame-ancestors 'self'`. It shows the MOSMIX forecast of one station and nothing else: it reads the data and has no
+control that does more, and its two links (the full forecast and the project) open in a new tab. Pick the
+station on the Forecast page: its address ends in `?station=<station-id>`. Then put this on your page, with the
+address of your instance in place of the hosted one if you run your own:
+
+```html
+<iframe
+  src="https://wetterdienst.eobs.org/widget?station=<station-id>&theme=light"
+  title="Weather forecast"
+  width="100%" height="640"
+  style="border: 0"
+  loading="lazy"></iframe>
+```
+
+`theme=dark` or `theme=light` sets the colours; leave it out to follow the visitor's setting. If your page has a
+Content Security Policy of its own, it has to allow the app's origin in `frame-src` (or `child-src`).
+
 ## Run your own
 
 The app needs a backend. The simplest is the Docker image of each, from the registry of the project, on a network

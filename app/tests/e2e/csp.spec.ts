@@ -41,6 +41,21 @@ test.describe('the policy the page is sent with', () => {
   })
 })
 
+test.describe('who may frame a page', () => {
+  test('any origin may frame the widget, and no other page', async ({ request }) => {
+    const widget = (await request.get('/widget?station=10381')).headers()
+    expect(directive(widget['content-security-policy']!, 'frame-ancestors')).toEqual(['*'])
+    expect(widget['x-frame-options']).toBeUndefined()
+
+    for (const path of ['/', '/meteogram', '/explorer', '/docs', '/widgets', '/api/version']) {
+      const headers = (await request.get(path)).headers()
+      expect(headers['x-frame-options'], path).toBe('SAMEORIGIN')
+      if (headers['content-security-policy'])
+        expect(directive(headers['content-security-policy'], 'frame-ancestors'), path).toEqual(['\'self\''])
+    }
+  })
+})
+
 test.describe('a page held to its policy', () => {
   test('runs its own scripts and does not run an inline script that is injected', async ({ page, baseURL }) => {
     const violations: string[] = []

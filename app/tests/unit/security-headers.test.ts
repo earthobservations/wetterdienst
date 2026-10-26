@@ -43,6 +43,25 @@ describe('security headers', () => {
     expect(imgSrc).toContain('https://*.tile.openstreetmap.org')
   })
 
+  it('lets any origin frame the widget, and only the widget', async () => {
+    const config = await loadConfig()
+    const rules = config.routeRules as Record<string, any>
+
+    expect(rules['/widget'].security.headers).toEqual({
+      contentSecurityPolicy: { 'frame-ancestors': ['*'] },
+      xFrameOptions: false,
+    })
+    // nothing else is relaxed: no other rule touches who may frame, and the page's policy and X-Frame-Options
+    // are the app's own and the default of nuxt-security (`SAMEORIGIN`)
+    for (const [path, rule] of Object.entries(rules)) {
+      if (path === '/widget')
+        continue
+      expect(JSON.stringify(rule), path).not.toMatch(/frame-ancestors|xFrameOptions|X-Frame-Options/i)
+    }
+    expect(policyOf(config)['frame-ancestors']).toEqual(['\'self\''])
+    expect(config.security.headers.xFrameOptions).toBeUndefined()
+  })
+
   it('allows no CDN: the DuckDB-wasm and Swagger UI files are the app\'s own (GH-3094)', async () => {
     const config = await loadConfig()
     const policy = policyOf(config)
