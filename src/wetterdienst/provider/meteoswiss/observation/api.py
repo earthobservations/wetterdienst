@@ -15,7 +15,7 @@ import polars as pl
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.quality_flags import calm, clear_sentinels, join_quality_flags, unpivot_with_raw
 from wetterdienst.model.request import TimeseriesRequest
-from wetterdienst.model.values import TimeseriesValues
+from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.meteoswiss.observation.metadata import MeteoswissObservationMetadata
 from wetterdienst.util.network import download_file, fetchable_link
 
@@ -115,36 +115,29 @@ class MeteoswissObservationValues(TimeseriesValues):
                 # breaks the concat below. The columns are named by the file's own header.
                 infer_schema=False,
             )
-            dfs.append(file_df)
-            # when MeteoSwiss last wrote the file, if it gave the station readings in the window (GH-2567)
-            columns = [name for name in file_df.columns if name not in ("station_abbr", "reference_timestamp")]
-            stamped = file_df.select(
-                pl.col("reference_timestamp")
-                .str.to_datetime("%d.%m.%Y %H:%M", strict=False, time_zone="UTC")
-                .alias("timestamp"),
-                pl.when(pl.any_horizontal(pl.col(column).is_not_null() for column in columns))
-                .then(pl.lit(1))
-                .alias("value"),
+            # when MeteoSwiss last wrote the file travels with its rows (`_note_files_with_rows`, GH-2567)
+            dfs.append(
+                file_df.with_columns(pl.lit(csv_file.last_modified, dtype=pl.Datetime("us", "UTC")).alias(UPDATED))
             )
-            if self._has_rows_in_window(stamped, value="value"):
-                self._note_data_updated(csv_file.last_modified)
         if not dfs:
             return pl.DataFrame()
         df = pl.concat(dfs, how="diagonal")
-        parameter_columns = [col for col in df.columns if col not in ("station_abbr", "reference_timestamp")]
+        parameter_columns = [col for col in df.columns if col not in ("station_abbr", "reference_timestamp", UPDATED)]
         # the 0 of a calm wind, beside a speed of 0, keeping its text as the `raw:` token (GH-3222)
         for direction, speed in _WIND_SPEED_OF_DIRECTION.items():
             if direction in df.columns and speed in df.columns:
                 df = clear_sentinels(df, [direction], calm(pl.col(speed)))
-        df = unpivot_with_raw(df, index=["reference_timestamp"], on=parameter_columns)
+        df = unpivot_with_raw(df, index=["reference_timestamp", UPDATED], on=parameter_columns)
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`), and so is the
         # reading of the value as a number
-        return df.select(
+        df = df.select(
             pl.col("parameter").str.to_lowercase(),
             pl.col("reference_timestamp").str.to_datetime("%d.%m.%Y %H:%M", strict=False).alias("timestamp"),
             pl.col("value"),
             join_quality_flags(None, raw=pl.col("raw")),
+            UPDATED,
         )
+        return self._note_files_with_rows(df, dataset)
 
 
 @dataclass

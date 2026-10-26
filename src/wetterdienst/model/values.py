@@ -27,7 +27,7 @@ from wetterdienst.model.schema import (
     WIDE_VALUE_DTYPE,
 )
 from wetterdienst.model.unit import UnitConverter
-from wetterdienst.util.datetime import newest
+from wetterdienst.util.datetime import is_plausible_update, newest
 from wetterdienst.util.logging import TqdmToLogger
 from wetterdienst.util.response_warnings import (
     MISSING_VALUE_MARKER,
@@ -53,6 +53,8 @@ log = logging.getLogger(__name__)
 _UnitT = TypeVar("_UnitT", bound="ParameterModel | DatasetModel", default=Any)
 
 # The columns of a provider's frame that the core cannot make up. A frame without one cannot be made to fit.
+#: the column a provider whose source dates its files hands its rows over with, the date of the file of each row
+UPDATED = "updated"
 _REQUIRED_COLUMNS = ("parameter", "timestamp", "value")
 
 
@@ -201,9 +203,11 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
 
         For a provider whose source says when what it serves was last updated, called with each such date it reads:
         the result of the station carries the newest one, as `data_updated_at`. A date the source does not state is
-        not made up, and not noting any leaves the result's null, so a provider that has none does nothing.
+        not made up, and not noting any leaves the result's null, so a provider that has none does nothing. A date that
+        is no plausible one (`is_plausible_update`: before 1990, or later than a day from now) is not noted, whatever
+        the source of it is: the answer is not dated by a mistake.
         """
-        if updated is not None:
+        if updated is not None and is_plausible_update(updated):
             self._data_updated.append(updated)
 
     def _convert_units(self, df: pl.DataFrame, dataset: DatasetModel) -> pl.DataFrame:
@@ -343,30 +347,82 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             ),
         )
 
-    def _has_rows_in_window(self, df: pl.DataFrame, column: str = "timestamp", *, value: str | None = None) -> bool:
-        """Tell whether a provider's frame has a row inside the window of the request, as `_filter_by_window` cuts it.
+    def _window_stamp(self, df: pl.DataFrame, column: str = "timestamp") -> pl.Expr | None:
+        """Give the stamps of a provider's frame as the UTC datetimes the core cuts the window on, null where it cannot.
 
-        For a provider that dates its answer by the files it read (`_note_data_updated`): a file counts only if rows of
-        it are in the answer, and one read because its period was selected, whose rows all lie outside the window, is
-        not. A frame with no row is none. Without a window every row is in. The stamp may be a date or a datetime,
-        with or without a zone (none is UTC, as everywhere else); a column that is neither cannot be told, and every
-        row of it counts. Where the nulls are dropped and the frame is long (a column `value` names), only a row with a
-        value counts. What this does not see is what the core cuts after it: the requested parameters of a dataset
-        the provider reads whole, and a value the core reads as null (a text that is no number).
+        The stamp may be a date or a datetime, with or without a zone (none is UTC, as everywhere else); a column that
+        is neither (a text) cannot be told.
         """
-        if value is not None and value in df.columns and self.sr.options.drop_nulls_effective:
-            df = df.filter(pl.col(value).is_not_null())
-        if df.is_empty():
-            return False
-        if not self.sr.start or column not in df.columns:
-            return True
+        if column not in df.columns:
+            return None
         dtype = df.schema[column]
         if dtype != pl.Date and not isinstance(dtype, pl.Datetime):
-            return True
+            return None
         stamp = pl.col(column).cast(pl.Datetime("us")) if dtype == pl.Date else pl.col(column)
         if dtype == pl.Date or getattr(dtype, "time_zone", None) is None:
             stamp = stamp.dt.replace_time_zone("UTC")
+        return stamp
+
+    def _has_rows_in_window(
+        self,
+        df: pl.DataFrame,
+        column: str = "timestamp",
+        *,
+        value: str | None = None,
+        columns: Iterable[str] | None = None,
+    ) -> bool:
+        """Tell whether a provider's frame has a row inside the window of the request, as `_filter_by_window` cuts it.
+
+        For a provider that dates its answer by the files it read (`_note_data_updated`) and cannot carry the date of a
+        file with its rows (`_note_files_with_rows` does): a file counts only if rows of it are in the answer, and one
+        read because its period was selected, whose rows all lie outside the window, is not. A frame with no row is
+        none. Without a window every row is in, and a column that cannot be told counts every row. Where the nulls are
+        dropped and the frame is long (a column `value` names), only a row with a value counts, and where it is wide
+        (the `columns` that are requested), only a row with a value in one of them.
+        """
+        if self.sr.options.drop_nulls_effective:
+            if value is not None and value in df.columns:
+                df = df.filter(pl.col(value).is_not_null())
+            elif columns is not None:
+                present = [name for name in columns if name in df.columns]
+                df = df.filter(pl.any_horizontal(pl.col(name).is_not_null() for name in present)) if present else df
+        if df.is_empty():
+            return False
+        stamp = self._window_stamp(df, column)
+        if not self.sr.start or stamp is None:
+            return True
         return not df.filter(stamp.is_between(self.sr.start, self.sr.end, closed="both")).is_empty()
+
+    def _note_files_with_rows(self, df: pl.DataFrame, dataset: DatasetModel) -> pl.DataFrame:
+        """Note the date of each file that holds rows the answer keeps, and give the frame without the dates (GH-2567).
+
+        For a provider whose source dates its files: the frame it hands over has, beside each row, the date of the file
+        the row is of in the column `UPDATED` (null for a file that has none). The date of a file is the answer's "date
+        of the most recent update" only for a file that has rows in the answer, or the answer would be dated by data it
+        has not got. A row is kept as the core keeps it: of a requested parameter, inside the window, and, where the
+        shape drops the rows without a value, with a value; of the rows of one reading the first is kept, in the order
+        the provider hands them over. The core cuts the frame after this one, so what it cuts here it would cut there.
+        A frame whose stamp is a text cannot be cut by the window, and every row of it counts.
+        """
+        requested = {
+            parameter.name_original
+            for parameter in self.sr.parameters
+            if parameter.dataset.resolution.name == dataset.resolution.name and parameter.dataset.name == dataset.name
+        }
+        # the core keeps the first of the rows of one reading (a period overlap, a file that is read twice) and drops
+        # the others, then the rows without a value: the files whose rows are the ones it keeps are the ones that date
+        # the answer, so it is done here in the same order, on the same key and before the rows without a value go
+        df = df.unique(subset=["parameter", "timestamp"], keep="first", maintain_order=True)
+        kept = pl.col("parameter").is_in(requested)
+        stamp = self._window_stamp(df)
+        if self.sr.start and stamp is not None:
+            kept &= stamp.is_between(self.sr.start, self.sr.end, closed="both")
+        if self.sr.options.drop_nulls_effective:
+            kept &= pl.col("value").is_not_null()
+        for updated in df.filter(kept).get_column(UPDATED).drop_nulls().unique():
+            self._note_data_updated(updated)
+        # the core drops any column of its own accord (`shape_provider_frame`); this is so that it need not
+        return df.drop(UPDATED)
 
     def _empty_values_df(self) -> pl.DataFrame:
         """Build the frame a request that collected nothing returns, carrying its schema.

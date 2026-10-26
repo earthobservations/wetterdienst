@@ -17,7 +17,7 @@ from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, group_parameters_by_dataset
 from wetterdienst.model.quality_flags import SPEED_BESIDE, Sentinel, calm, join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
-from wetterdienst.model.values import TimeseriesValues
+from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.noaa.ghcn.metadata import (
     DAILY_PARAMETER_MULTIPLICATION_FACTORS,
     NoaaGhcnMetadata,
@@ -231,7 +231,7 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
     ) -> pl.DataFrame:
         if parameter_or_dataset.resolution.value == Resolution.HOURLY:
             return self._collect_station_parameter_for_hourly(station_id=station_id, dataset=parameter_or_dataset)
-        return self._collect_station_parameter_for_daily(station_id=station_id)
+        return self._collect_station_parameter_for_daily(station_id=station_id, dataset=parameter_or_dataset)
 
     def _collect_station_parameter_for_hourly(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
         from typing import cast  # noqa: PLC0415
@@ -334,12 +334,12 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
             value.alias("value"),
             join_quality_flags(pl.col("quality"), measurement=pl.col("measurement"), source=pl.col("source"), raw=raw),
         ).drop("quality", "measurement", "source", SPEED_BESIDE)
-        # when NCEI last wrote the file of the station, if it gave readings in the window (GH-2567)
-        if self._has_rows_in_window(df, value="value"):
-            self._note_data_updated(file.last_modified)
-        return df
+        # when NCEI last wrote the file of the station travels with its rows (`_note_files_with_rows`, GH-2567)
+        return self._note_files_with_rows(
+            df.with_columns(pl.lit(file.last_modified, dtype=pl.Datetime("us", "UTC")).alias(UPDATED)), dataset
+        )
 
-    def _collect_station_parameter_for_daily(self, station_id: str) -> pl.DataFrame:
+    def _collect_station_parameter_for_daily(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
         """Collect station parameter for daily resolution."""
         from typing import cast  # noqa: PLC0415
 
@@ -413,9 +413,10 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
         # the date is handed over as it is, which the core reads as midnight UTC. The date is the station's own
         # observing day, which the readme gives no zone for, and a stamp shifted by the station's offset (Tokyo 15:00
         # UTC the day before) was dropped by a request for that one day, whose bounds are 00:00 UTC (GH-2683).
-        # when NCEI last wrote the file of the station, if it gave readings in the window (GH-2567)
-        if self._has_rows_in_window(df, value="value"):
-            self._note_data_updated(file.last_modified)
+        # when NCEI last wrote the file of the station travels with its rows (`_note_files_with_rows`, GH-2567)
+        df = self._note_files_with_rows(
+            df.with_columns(pl.lit(file.last_modified, dtype=pl.Datetime("us", "UTC")).alias(UPDATED)), dataset
+        )
         return self._apply_daily_factors(df)
 
     @staticmethod

@@ -24,7 +24,7 @@ from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel, group_parameters_by_dataset
 from wetterdienst.model.request import TimeseriesRequest
-from wetterdienst.model.values import TimeseriesValues
+from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.chmi.observation.metadata import LAST_YEAR, ChmiObservationMetadata
 from wetterdienst.provider.chmi.observation.parser import (
     parse_chmi_stations,
@@ -196,10 +196,9 @@ class ChmiObservationValues(TimeseriesValues):
         self._written[url] = file.last_modified
         return file.content.read()
 
-    def _note_written(self, url: str, df: pl.DataFrame) -> None:
-        """Note when CHMI wrote a file, if it gave the station readings in the window (GH-2567)."""
-        if self._has_rows_in_window(df, value="value"):
-            self._note_data_updated(self._written.get(url))
+    def _dated(self, url: str, df: pl.DataFrame) -> pl.DataFrame:
+        """Give the rows of a file with the date CHMI wrote it, which `_note_files_with_rows` notes (GH-2567)."""
+        return df.with_columns(pl.lit(self._written.get(url), dtype=pl.Datetime("us", "UTC")).alias(UPDATED))
 
     def _collect_element(
         self,
@@ -227,8 +226,7 @@ class ChmiObservationValues(TimeseriesValues):
                 if content is not None:
                     df = parse_chmi_values_subdaily(content, element=element)
                     if not df.is_empty():
-                        frames.append(df)
-                        self._note_written(url, df)
+                        frames.append(self._dated(url, df))
             return frames
         url = f"{_BASE_URL}/data/{config['path']}/{category}/{config['prefix']}-{station_id}-{element}.csv"
         content = self._download(url, settings, station_id)
@@ -246,8 +244,7 @@ class ChmiObservationValues(TimeseriesValues):
             )
         if df.is_empty():
             return []
-        self._note_written(url, df)
-        return [df]
+        return [self._dated(url, df)]
 
     def _warn_if_ended(self, parameter: ParameterModel, last_year: int, hint: str) -> None:
         """Tell, once for the request, that the window reaches years in which the source publishes no such element.
@@ -311,7 +308,7 @@ class ChmiObservationValues(TimeseriesValues):
             return pl.DataFrame()
 
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`)
-        return pl.concat(frames)
+        return self._note_files_with_rows(pl.concat(frames), dataset)
 
 
 @dataclass

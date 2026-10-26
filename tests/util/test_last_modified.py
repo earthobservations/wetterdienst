@@ -7,6 +7,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import TYPE_CHECKING
 
@@ -74,6 +75,10 @@ class _Source(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         server = self.server
         server.requests.append(self.path)
+        if server.fail:
+            self.send_response(500)
+            self.end_headers()
+            return
         if self.path == "/redirect":
             self.send_response(302)
             self.send_header("Location", "/file.txt")
@@ -114,6 +119,7 @@ def source() -> Iterator[ThreadingHTTPServer]:
     server.requests = []
     server.last_modified = FIRST
     server.body = b"first body"
+    server.fail = False
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
@@ -353,3 +359,37 @@ def test_the_dates_a_filesystem_remembers_are_bounded() -> None:
 
     assert len(registry) <= 256
     assert registry["https://example.invalid/999"] is None
+
+
+def test_a_copy_fetched_again_before_a_time_has_the_new_date_and_a_failed_refetch_leaves_the_old_copy_its_own(
+    source: ThreadingHTTPServer, tmp_path: Path
+) -> None:
+    """`refetch_before` makes a copy made earlier be fetched again, and the date goes with the copy that is held."""
+    url = _url(source)
+    first = download_file(url, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR)
+    source.last_modified = SECOND
+    source.body = b"second body"
+    source.fail = True
+
+    failed = download_file(url, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR, refetch_before=time.time() + 60)
+    held = download_file(url, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR)
+
+    assert failed.status == 500
+    assert failed.last_modified is None
+    # the copy that was held is read again as it was, with the date of the server for it
+    assert held.from_cache is True
+    assert held.content.read() == b"first body"
+    assert held.last_modified == _utc(FIRST) == first.last_modified
+    assert held.cached_at == first.cached_at
+
+    source.fail = False
+    refetched = download_file(url, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR, refetch_before=time.time() + 60)
+    after = download_file(url, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR)
+
+    assert refetched.from_cache is False
+    assert refetched.content.read() == b"second body"
+    assert refetched.last_modified == _utc(SECOND)
+    assert after.from_cache is True
+    assert after.last_modified == _utc(SECOND)
+    assert after.cached_at == refetched.cached_at
+    assert after.cached_at > first.cached_at

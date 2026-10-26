@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, cast
@@ -25,11 +26,17 @@ from wetterdienst.model.quality_flags import (
     with_speed_beside,
 )
 from wetterdienst.model.request import TimeseriesRequest
-from wetterdienst.model.values import TimeseriesValues
+from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.meteofrance.observation.metadata import MeteoFranceObservationMetadata
 from wetterdienst.util.archive import gunzip
-from wetterdienst.util.datetime import parse_source_date
-from wetterdienst.util.network import RedirectRefusedError, download_file, download_files, fetchable_link
+from wetterdienst.util.datetime import is_plausible_update, parse_source_date
+from wetterdienst.util.network import (
+    RedirectRefusedError,
+    cached_file_time,
+    download_file,
+    download_files,
+    fetchable_link,
+)
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel, ParameterModel
@@ -37,6 +44,10 @@ if TYPE_CHECKING:
     from wetterdienst.util.network import File
 
 log = logging.getLogger(__name__)
+
+#: the member of a resource that carries the time its listing was read, as `time.time()` has it
+_LISTED_AT = "listed_at"
+#: the column that carries the date of the file a row is of, from the listing, until the rows the answer keeps are known
 
 # "Données climatologiques de base" (daily / monthly), sharded per French department.
 # data.gouv.fr dataset ids. Used to discover the exact current resource URLs at request time
@@ -742,7 +753,10 @@ def _get_climate_resources(resolution_name: str, settings: Settings) -> list[dic
     file.raise_if_exception()
     if isinstance(file.content, Exception):
         return []
-    return json.loads(file.content.read()).get("resources", [])
+    # when the copy of the listing was made, which is what its dates are as of: the time of the request where the cache
+    # holds none, as with the cache off
+    listed_at = file.cached_at or time.time()
+    return [{**resource, _LISTED_AT: listed_at} for resource in json.loads(file.content.read()).get("resources", [])]
 
 
 def _match_department_resources(resources: list[dict], prefix: str, suffix: str) -> list[dict]:
@@ -810,6 +824,26 @@ def _resource_overlaps_request(
     return max_year >= start_date.year and min_year <= end_date.year
 
 
+def _resource_updated(resource: dict) -> datetime | None:
+    """Read the date the listing gives a resource, None where it gives none or none that can be one (GH-2567)."""
+    updated = parse_source_date(resource.get("last_modified"))
+    return updated if updated is not None and is_plausible_update(updated) else None
+
+
+def _refetch_before(resource: dict) -> float | None:
+    """Give the time before which a copy of a resource is not the file the listing describes, None where it names none.
+
+    A copy made before the file last changed is not the file, and neither is one made before the listing was read
+    that says it has: so before the earlier of the two. Where the listing dates a file in the future, that is the time
+    it was read, which a copy made after it is not older than, and the file is fetched again once for a listing
+    and not for every request.
+    """
+    updated = _resource_updated(resource)
+    if updated is None:
+        return None
+    return min(updated.timestamp(), resource.get(_LISTED_AT, time.time()))
+
+
 def _download_climate_resources(resources: list[dict], settings: Settings) -> dict[str, File]:
     """Download resources concurrently (grouped by cache ttl), keyed by url.
 
@@ -823,6 +857,12 @@ def _download_climate_resources(resources: list[dict], settings: Settings) -> di
         resources_by_ttl.setdefault(_resource_cache_ttl(resource), []).append(resource)
     for ttl, ttl_resources in resources_by_ttl.items():
         urls = [resource["url"] for resource in ttl_resources]
+        # a copy made before the file last changed, as the listing says, is not the file: it is asked for again, so
+        # that the date the answer takes from the listing and the data it takes from the copy are of one file (GH-2567).
+        # One that was made after stays, so an unchanged file is downloaded once for as long as its ttl holds it
+        refetch_before = {
+            resource["url"]: before for resource in ttl_resources if (before := _refetch_before(resource)) is not None
+        }
         files = download_files(
             urls=urls,
             cache_dir=settings.cache_dir,
@@ -830,6 +870,7 @@ def _download_climate_resources(resources: list[dict], settings: Settings) -> di
             client_kwargs=settings.fsspec_client_kwargs,
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
+            refetch_before=refetch_before,
         )
         files_by_url.update(zip(urls, files, strict=True))
         # retrying is only worthwhile for likely-transient failures; a missing connection or a
@@ -854,8 +895,47 @@ def _download_climate_resources(resources: list[dict], settings: Settings) -> di
                     client_kwargs=settings.fsspec_client_kwargs,
                     cache_disable=settings.cache_disable,
                     use_certifi=settings.use_certifi,
+                    refetch_before=refetch_before.get(url),
+                )
+        # the copy that was to be replaced is still held where the new one did not arrive, and is served: the host of
+        # the files is another than the listing's, and an outage of it is no reason to answer nothing where the answer
+        # was there. Its date is its own (`_resource_date`), not the listing's
+        for url in refetch_before:
+            if isinstance(files_by_url[url].content, Exception) and (
+                cached_file_time(
+                    url,
+                    settings.cache_dir,
+                    ttl,
+                    settings.fsspec_client_kwargs,
+                    cache_disable=settings.cache_disable,
+                    use_certifi=settings.use_certifi,
+                )
+                is not None
+            ):
+                log.warning(f"Could not download {url} again, which changed: its copy from before is read.")
+                files_by_url[url] = download_file(
+                    url=url,
+                    cache_dir=settings.cache_dir,
+                    ttl=ttl,
+                    client_kwargs=settings.fsspec_client_kwargs,
+                    cache_disable=settings.cache_disable,
+                    use_certifi=settings.use_certifi,
                 )
     return files_by_url
+
+
+def _resource_date(resource: dict, file: File) -> datetime | None:
+    """Give the date of the copy of a resource that is read: the listing's, and no later than the copy is.
+
+    The listing says when the file last changed, and the copy of it that is read, which may be an older one (the file
+    host was down when it was fetched again), holds what the file was when the copy was made: so the date is the
+    earlier of the two, and not a change the copy does not hold. None where the listing gives no date (GH-2567).
+    """
+    updated = _resource_updated(resource)
+    if updated is None:
+        return None
+    made = file.cached_at
+    return updated if made is None else min(updated, datetime.fromtimestamp(made, tz=ZoneInfo("UTC")))
 
 
 # Météo-France's canonical station metadata registry (~14.7k stations, ~2MB single CSV), built
@@ -894,15 +974,6 @@ _STATIONS_REGISTRY_SCHEMA = {
 
 class MeteoFranceObservationValues(TimeseriesValues):
     """Values class for Météo-France observation data."""
-
-    def _has_row_in_window(
-        self, df: pl.DataFrame, date_column: str, resolution_name: str, fu_hours: _FuHours | None
-    ) -> bool:
-        """Tell whether a station's rows of one file have one inside the window of the request, as the core cuts it."""
-        if not self.sr.start:
-            return True
-        stamped = _parse_climate_date(pl.col(date_column), resolution_name, fu_hours)
-        return bool(df.select(stamped.is_between(self.sr.start, self.sr.end, closed="both").any()).item())
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -951,13 +1022,9 @@ class MeteoFranceObservationValues(TimeseriesValues):
             )
             df = df.filter(pl.col("NUM_POSTE").eq(station_id))
             if not df.is_empty():
-                dfs.append(df)
-                # the date data.gouv.fr gives the file, in the listing the request has read, counts only for a file
-                # that holds a row of this station inside the window: the newest of those is the answer's "date of the
-                # most recent update" that the Licence Ouverte asks for, and a file whose rows are not in the answer
-                # would date it later than the data it has (GH-2567)
-                if self._has_row_in_window(df, date_column, resolution_name, fu_hours):
-                    self._note_data_updated(parse_source_date(resource.get("last_modified")))
+                # the date of the copy read travels with its rows (`_note_files_with_rows`)
+                updated = _resource_date(resource, file)
+                dfs.append(df.with_columns(pl.lit(updated, dtype=pl.Datetime("us", "UTC")).alias(UPDATED)))
         if not dfs:
             return pl.DataFrame()
         if resolution_name in _FU_CONVERTED_RESOLUTIONS and fu_hours is None and department.startswith(("97", "98")):
@@ -966,13 +1033,14 @@ class MeteoFranceObservationValues(TimeseriesValues):
         # the value and the code of a parameter travel together through the unpivot, as the fields of one struct
         df = df.select(
             date_column,
+            UPDATED,
             *(
                 pl.struct(pl.col(name).alias("value"), pl.col(flag_columns[name]).alias("quality_flags")).alias(name)
                 for name in parameter_columns
             ),
         ).unpivot(
             on=parameter_columns,
-            index=[date_column],
+            index=[date_column, UPDATED],
             variable_name="parameter",
             value_name="value",
         )
@@ -986,7 +1054,7 @@ class MeteoFranceObservationValues(TimeseriesValues):
         # alone (the files hold none: GH-2719) and now keeps its text too
         value, raw = null_sentinels(pl.col("value"), *_sentinels(resolution_name), non_numeric=True)
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`)
-        return df.select(
+        df = df.select(
             # kept as published (e.g. "RR", "TN"), matching the case of name_original in the
             # metadata below; the base class matches requested parameters against this column
             # using an exact, case-sensitive comparison against parameter.name_original
@@ -996,7 +1064,9 @@ class MeteoFranceObservationValues(TimeseriesValues):
             # the validation code (9 filtered, 0 protected, 1 validated, 2 doubtful), verbatim and null where the
             # source leaves it blank (GH-2018)
             join_quality_flags(pl.col("quality_flags"), raw=raw),
+            UPDATED,
         )
+        return self._note_files_with_rows(df, dataset)
 
 
 def _sentinels(resolution_name: str) -> list[Sentinel]:

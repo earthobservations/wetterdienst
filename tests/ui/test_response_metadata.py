@@ -758,7 +758,8 @@ def test_a_network_states_its_update_date_where_its_values_class_notes_one(provi
     import sys  # noqa: PLC0415
 
     values_class = Wetterdienst.resolve(provider, network)._values  # noqa: SLF001
-    notes = "self._note_data_updated(" in inspect.getsource(sys.modules[values_class.__module__])
+    source = inspect.getsource(sys.modules[values_class.__module__])
+    notes = "self._note_data_updated(" in source or "self._note_files_with_rows(" in source
 
     assert notes == ((provider, network) in DATA_UPDATED_STATED), f"{provider}/{network}: the lists and the code differ"
 

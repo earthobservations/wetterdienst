@@ -18,7 +18,7 @@ from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, build_metadata_model
 from wetterdienst.model.quality_flags import join_quality_flags
 from wetterdienst.model.request import TimeseriesRequest
-from wetterdienst.model.values import TimeseriesValues
+from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.imgw.fileindex import keep_files_overlapping, list_files_for_interval
 from wetterdienst.provider.imgw.metadata import _METADATA
 from wetterdienst.util.archive import open_zip
@@ -618,11 +618,8 @@ class ImgwMeteorologyValues(TimeseriesValues[DatasetModel]):
                 file_schema=file_schema,
             )
             if not df.is_empty():
-                data.append(df)
-                # the archive gave this station readings in the window: when IMGW wrote it is the date of what is read
-                # (GH-2567 asks for the date of the update)
-                if self._has_rows_in_window(df, value="value"):
-                    self._note_data_updated(file.last_modified)
+                # the date IMGW wrote the archive travels with its rows (`_note_files_with_rows`, GH-2567)
+                data.append(df.with_columns(pl.lit(file.last_modified, dtype=pl.Datetime("us", "UTC")).alias(UPDATED)))
         try:
             df = pl.concat(data)
         except ValueError:
@@ -630,7 +627,7 @@ class ImgwMeteorologyValues(TimeseriesValues[DatasetModel]):
         if df.is_empty():
             return pl.DataFrame()
         # the dates are IMGW's own, read as UTC by the core
-        return df
+        return self._note_files_with_rows(df, parameter_or_dataset)
 
     def _parse_file(
         self,

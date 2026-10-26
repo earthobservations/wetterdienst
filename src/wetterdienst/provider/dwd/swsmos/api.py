@@ -31,7 +31,7 @@ from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
 from wetterdienst.model.quality_flags import join_quality_flags, null_sentinels, raw_column, unpivot_with_raw
 from wetterdienst.model.request import TimeseriesRequest
-from wetterdienst.model.values import TimeseriesValues
+from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.dwd.swsmos.metadata import DwdSwsmosMetadata
 from wetterdienst.util.archive import bunzip2
 from wetterdienst.util.enumeration import parse_enumeration_from_template
@@ -396,10 +396,10 @@ class DwdSwsmosValues(TimeseriesValues):
             join_quality_flags(None, raw=pl.col("raw")),
         )
         # a forecast is dated by its model run and not by the file it was published in: the run its file is named for
-        # (GH-2567 asks for the date of the update), for a run that has steps in the window
-        if self._has_rows_in_window(df, value="value"):
-            self._note_data_updated(self._run_issued)
-        return df
+        # (GH-2567 asks for the date of the update), for a run that has steps the answer keeps
+        return self._note_files_with_rows(
+            df.with_columns(pl.lit(self._run_issued, dtype=pl.Datetime("us", "UTC")).alias(UPDATED)), dataset
+        )
 
 
 @dataclass

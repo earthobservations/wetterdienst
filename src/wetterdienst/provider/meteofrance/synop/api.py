@@ -24,7 +24,7 @@ from wetterdienst.model.quality_flags import (
     with_speed_beside,
 )
 from wetterdienst.model.request import TimeseriesRequest
-from wetterdienst.model.values import TimeseriesValues
+from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.meteofrance.synop.metadata import MeteoFranceSynopMetadata
 from wetterdienst.util.archive import gunzip
 from wetterdienst.util.network import download_file
@@ -36,8 +36,13 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 # "Archive Synop OMM" dataset on data.gouv.fr: one gzipped csv per year, covering all ~190
-# SYNOP stations at their native 3-hourly reporting interval
-_SYNOP_ENDPOINT = "https://meteofrance.s3.sbg.io.cloud.ovh.net/data/synchro_ftp/OBS/SYNOP/synop_{year}.csv.gz"
+# SYNOP stations at their native 3-hourly reporting interval. The yearly files are the resources data.gouv.fr lists
+# under `data/OBS/SYNOP/`. The `data/synchro_ftp/OBS/SYNOP/` copy of the same names is a mirror that stopped being
+# refreshed: on 2026-10-26 its synop_2026.csv.gz (23.3 MB) ended at 2026-09-08T21:00Z and was last modified on
+# 2026-09-09, the maintained file (27.7 MB, same 65 columns, every row of the mirror in it unchanged) ended at
+# 2026-10-25T21:00Z. The finished years are the same bytes in both (2025 checked), so only the current year differs.
+# The station list is not in `data/OBS/SYNOP/` (404): data.gouv.fr lists it under `synchro_ftp`
+_SYNOP_ENDPOINT = "https://meteofrance.s3.sbg.io.cloud.ovh.net/data/OBS/SYNOP/synop_{year}.csv.gz"
 _SYNOP_STATIONS_ENDPOINT = "https://meteofrance.s3.sbg.io.cloud.ovh.net/data/synchro_ftp/OBS/SYNOP/postes_synop.geojson"
 # earliest year for which a yearly archive is published
 _SYNOP_ARCHIVE_START_YEAR = 1996
@@ -182,25 +187,15 @@ class MeteoFranceSynopValues(TimeseriesValues):
             df = pl.read_csv(gunzip(file), separator=";", schema=_SYNOP_CSV_SCHEMA, columns=read_columns)
             df = df.filter(pl.col("geo_id_wmo").eq(station_id))
             if not df.is_empty():
-                dfs.append(df)
-                # the file of the year gave this station readings in the window: when Météo-France wrote it is the date
-                # of what is read, which the Licence Ouverte asks for (GH-2567)
-                stamped = df.select(
-                    pl.col("validity_time")
-                    .str.to_datetime("%Y-%m-%dT%H:%M:%SZ", strict=False, time_zone="UTC")
-                    .alias("timestamp"),
-                    pl.when(pl.any_horizontal(pl.col(column).is_not_null() for column in parameter_columns))
-                    .then(pl.lit(1))
-                    .alias("value"),
-                )
-                if self._has_rows_in_window(stamped, value="value"):
-                    self._note_data_updated(file.last_modified)
+                # the date Météo-France wrote the file of the year travels with its rows (`_note_files_with_rows`), the
+                # date of the most recent update that the Licence Ouverte asks for (GH-2567)
+                dfs.append(df.with_columns(pl.lit(file.last_modified, dtype=pl.Datetime("us", "UTC")).alias(UPDATED)))
         if not dfs:
             return pl.DataFrame()
         df = pl.concat(dfs, how="diagonal")
         df = df.unpivot(
             on=parameter_columns,
-            index=["validity_time"],
+            index=["validity_time", UPDATED],
             variable_name="parameter",
             value_name="value",
         )
@@ -217,12 +212,14 @@ class MeteoFranceSynopValues(TimeseriesValues):
             non_numeric=True,
         )
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`)
-        return df.select(
+        df = df.select(
             pl.col("parameter").str.to_lowercase(),
             pl.col("validity_time").str.to_datetime("%Y-%m-%dT%H:%M:%SZ", strict=False).alias("timestamp"),
             value.alias("value"),
             join_quality_flags(None, raw=raw),
+            UPDATED,
         )
+        return self._note_files_with_rows(df, dataset)
 
 
 @dataclass

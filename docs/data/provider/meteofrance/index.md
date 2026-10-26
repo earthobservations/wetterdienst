@@ -17,10 +17,12 @@ Météo-France publishes two distinct open data products as part of its Open Gov
 Météo-France data is published under the [Etalab Open License 2.0](https://www.data.gouv.fr/pages/legal/licences/etalab-2.0),
 which asks for the source and the date of the most recent update of the information reused. The answers of
 `observation` report that date as `data_updated_at` of their [`metadata`](../../../usage/restapi.md#response-metadata)
-(the newest `last_modified` data.gouv.fr gives the files that hold a row of the station inside the window asked for, as
-the listing said when it was read, which is cached for 12 hours) and in the `X-Wetterdienst-Data-Updated-At` header;
-those of `synop` report the `Last-Modified` of the year files read, which is when Météo-France last wrote them, the
-newest of those that held the station inside the window asked for.
+(the newest `last_modified` data.gouv.fr gives the files that hold a row of the answer, as the listing said when it
+was read, which is cached for 12 hours) and in the `X-Wetterdienst-Data-Updated-At` header; those of `synop`
+report the `Last-Modified` of the year files whose rows the answer keeps, which is when Météo-France last wrote them. A copy of a file made before the date the listing gives it is downloaded again, and
+replaced once the new one has arrived: if the file host does not answer, an archive file that is cached for good (the
+years before last) is read from the copy from before and dated as of the time it was made. A file of the current
+period, whose copy is kept for 5 minutes, is not served stale once that has passed: the download error is raised.
 
 ```{toctree}
 :hidden:

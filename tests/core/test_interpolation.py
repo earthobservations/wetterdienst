@@ -1571,3 +1571,9 @@ def test_interpolate_and_summarize_collect_the_dates_of_the_stations_that_gave_a
     named = set(result.df_stations.get_column("station_id"))
     assert named
     assert result.data_updated_at == max(dates[station_id] for station_id in named)
+    if method == "summarize":
+        # all four gave a value and were noted, and the three that are not named in the result, one of which is newer
+        # than the nearest, do not date it
+        assert named == {"00001"}
+        assert max(dates.values()) > dates["00001"]
+        assert result.data_updated_at == dates["00001"]

@@ -705,3 +705,64 @@ def test_a_frame_of_nulls_has_rows_only_where_the_nulls_are_kept(*, drop_nulls: 
     )
 
     assert values._has_rows_in_window(frame, value="value") is expected  # noqa: SLF001
+
+
+def test_meteofrance_synop_a_file_with_only_a_parameter_that_was_not_asked_for_does_not_date_the_answer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The newest file holds a value of the station, but of a parameter the request did not name: it is cut later."""
+    schema = list(synop_api._SYNOP_CSV_SCHEMA)  # noqa: SLF001
+
+    def file(stamp: str, **values: str) -> bytes:
+        row = {"geo_id_wmo": "07005", "validity_time": stamp, **values}
+        lines = [";".join(schema), ";".join(row.get(column, "") for column in schema)]
+        return gzip.compress("\n".join(lines).encode("utf8"))
+
+    files = {
+        "synop_2023": (file("2023-12-31T18:00:00Z", t="280.0"), OLD),
+        "synop_2024": (file("2024-01-01T18:00:00Z", ff="3.0"), NEWER),
+    }
+
+    def download_file(*, url: str, **_: object) -> File:
+        content, written = next(entry for part, entry in files.items() if part in url)
+        return File(url=url, content=BytesIO(content), status=200, last_modified=written)
+
+    monkeypatch.setattr(synop_api, "download_file", download_file)
+    request = MeteoFranceSynopRequest(
+        parameters=[("subdaily", "data", "temperature_air_2m")],
+        start=dt.datetime(2023, 12, 31, tzinfo=UTC),
+        end=dt.datetime(2024, 1, 2, tzinfo=UTC),
+        settings=Settings(cache_disable=True),
+    )
+
+    result = stations_result(request, "subdaily", "data", "07005").values().all()
+
+    assert not result.df.is_empty()
+    assert result.data_updated_at == OLD
+
+
+def test_ipma_a_feed_without_a_row_of_a_requested_parameter_does_not_date_the_answer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The feed holds a temperature of the station only, and the request asks for the humidity: no row, no date."""
+
+    def download_file(url: str, **_: object) -> File:
+        if url.endswith("observations.json"):
+            return File(url=url, content=BytesIO(_IPMA_FEED), status=200, last_modified=OLD)
+        return File(url=url, content=BytesIO(_IPMA_STATIONS), status=200, last_modified=NEWER)
+
+    monkeypatch.setattr(ipma_api, "download_file", download_file)
+    result = (
+        IpmaObservationRequest(
+            parameters=[("hourly", "data", "humidity_relative_mean")],
+            start=dt.datetime(2026, 10, 10, 11, tzinfo=UTC),
+            end=dt.datetime(2026, 10, 10, 14, tzinfo=UTC),
+            settings=Settings(cache_disable=True),
+        )
+        .filter_by_station_id("1200579")
+        .values()
+        .all()
+    )
+
+    assert result.df.is_empty()
+    assert result.data_updated_at is None

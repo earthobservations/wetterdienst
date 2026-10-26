@@ -66,6 +66,7 @@ from wetterdienst.util.listing_cache import (
 from wetterdienst.util.provider_hosts import clean_host, hosts_of_provider, provider_of
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from types import SimpleNamespace
 
     from wetterdienst.settings import Settings
@@ -123,8 +124,13 @@ class File:
 
     The header of the response the body in hand came from: for a file served from the cache, the one the cached copy
     came with, kept beside it (`_write_sidecar`). `None` for a copy cached before that was kept, for a header that is
-    no date (`parse_http_date`) and for a failed download. Never the time of the request (GH-2567).
+    no date (`parse_http_date`) and for a failed download. Never the time of the request (GH-2567). It is the
+    server's date of the file, where `cached_at` is when this library made the copy: two different times.
     """
+    cached_at: float | None = None
+    """When the copy the body is of was made, as `time.time()` has it, from when its download began; None where the body
+    is not held in the cache (the cache is off, or the download failed). For a provider whose source dates its files, to
+    tell which copy a date is of (GH-2567)."""
 
     def raise_if_exception(self) -> None:
         """Raise an exception if the content is not a BytesIO object.
@@ -1559,8 +1565,13 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
             return super()._open(path, mode=mode, **kwargs)
         # the ceiling `download_file` was given, for the fetch below; the filesystem holds the default
         fetch_kwargs = {"max_bytes": kwargs.pop("max_bytes")} if "max_bytes" in kwargs else {}
+        # the time (as `time.time()` has it) before which a copy is no longer the file: a copy made earlier is fetched
+        # again, and is replaced only once the new one is whole, so that a fetch that fails leaves it where it was
+        refetch_before = kwargs.pop("refetch_before", None)
         path = self._strip_protocol(path)
         cached = self._check_file(path)
+        if cached and refetch_before is not None and cached[0]["time"] < refetch_before:
+            cached = False
         # where the date of what is read is left for `download_file` (`_take_last_modified`): on the filesystem this
         # one wraps, because an attribute of this one is not found where `__getattribute__` answers for the wrapped
         registry = _last_modified_registry(self)
@@ -1579,6 +1590,10 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
             # the same url in another thread or process never sees this one's half-written file,
             # and a body that fails part-way leaves nothing behind (GH-2493)
             temp = f"{blob}.{uuid.uuid4().hex}.tmp"
+            # the copy is as old as its body is, which the server began to send when this was asked for: a body that
+            # takes a while to arrive holds what the file was at the start of it, not at the end (fsspec stamps the
+            # entry when the fetch is over)
+            started = time.time()
             try:
                 if registry is not None:
                     registry.pop(path, None)
@@ -1598,6 +1613,7 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
                     # `open` has turned a text mode into a binary one by now and wraps the handle itself
                     return BytesIO(Path(temp).read_bytes())
                 self._make_local_details(path)
+                self._metadata.cached_files[-1][path]["time"] = started
                 self.save_cache()
                 # after the entry: a copy is dated once the cache holds it. Written whether or not this fetch had a
                 # date, so that a copy fetched anew over an older one does not keep the older one's
@@ -2165,6 +2181,7 @@ def download_file(
     use_certifi: bool = False,
     attempts: int = 2,
     max_bytes: int | None = None,
+    refetch_before: float | None = None,
 ) -> File:
     """Download a specified file from the server.
 
@@ -2186,6 +2203,9 @@ def download_file(
             late is worth no more than none.
         max_bytes: The most the body may be, `MAX_DOWNLOAD_BYTES` if not given. A body held in the cache is
             returned as it is, whatever its size: the ceiling is for what is fetched.
+        refetch_before: A time, as `time.time()` has it, before which a copy held in the cache is fetched again, for a
+            file that is known to have changed since. The copy stays where it is until the new one has arrived, so a
+            download that fails is a failure and the copy is still held for a call without this to be served from.
 
     Returns:
         A BytesIO object containing the downloaded file.
@@ -2229,7 +2249,10 @@ def download_file(
                     # read-only or full cache dir and the metadata load on a truncated file, and an
                     # exception escaping here carries a traceback whose frame holds `client_kwargs`
                     # -- the Authorization header -- which is exactly what the handler below drops
-                    served_from_cache = bool(getattr(filesystem, "_check_file", lambda _url: False)(url))
+                    held = getattr(filesystem, "_check_file", lambda _url: False)(url)
+                    served_from_cache = bool(held) and not (
+                        refetch_before is not None and held[0]["time"] < refetch_before
+                    )
                     # said after the probe rather than before it, because before it this could only
                     # guess -- and it guessed "Downloading" for every cache hit, which is the one
                     # thing a reader of the log could already tell was not happening. Said per
@@ -2240,7 +2263,10 @@ def download_file(
                     )
                     # a date left by an earlier read of this url is not this read's
                     _take_last_modified(filesystem, url)
-                    payload = filesystem.cat_file(url, **({} if max_bytes is None else {"max_bytes": max_bytes}))
+                    fetch_kwargs: dict[str, float] = {} if max_bytes is None else {"max_bytes": max_bytes}
+                    if refetch_before is not None and isinstance(filesystem, WholeFileCacheFileSystem):
+                        fetch_kwargs["refetch_before"] = refetch_before
+                    payload = filesystem.cat_file(url, **fetch_kwargs)
                     _refuse_unannounced_compression(url, payload)
                 except Exception as e:  # noqa: BLE001 -- re-raised, never swallowed
                     # scrubbed here as well as on the way out, because stamina's retry hook logs
@@ -2248,12 +2274,14 @@ def download_file(
                     # info, header and all, before any of the handlers below are reached
                     raise _without_credentials(e, sent_credentials=sent_credentials) from None
                 log.info(f"Read file {shown} from cache" if served_from_cache else f"Downloaded file {shown}")
+                copy = getattr(filesystem, "_check_file", lambda _url: False)(url)
                 return File(
                     url=url,
                     content=BytesIO(payload),
                     status=200,
                     from_cache=served_from_cache,
                     last_modified=_take_last_modified(filesystem, url),
+                    cached_at=float(copy[0]["time"]) if copy else None,
                 )
     except Exception as e:
         failed = _failed_file(url, e, sent_credentials=sent_credentials)
@@ -2353,6 +2381,39 @@ def drop_cached_file(
         filesystem.pop_from_cache(url)
     except Exception:  # noqa: BLE001 -- best effort, the entry expires on its own
         log.debug("Could not drop %s from the cache", _without_url_secrets(url), exc_info=False)
+
+
+def cached_file_time(
+    url: str,
+    cache_dir: Path,
+    ttl: CacheExpiry = CacheExpiry.NO_CACHE,
+    client_kwargs: dict | None = None,
+    *,
+    cache_disable: bool = False,
+    use_certifi: bool = False,
+) -> float | None:
+    """Tell when the copy `download_file` holds for a url was made, as `time.time()` has it; None where none is held.
+
+    Takes the arguments the download was made with, as `drop_cached_file` does, since they name the cache. Read from
+    the metadata file and not from this thread's memory of it: the copy was most likely made by another thread.
+    Never raises: a cache that cannot be read holds no copy.
+    """
+    try:
+        filesystem = NetworkFilesystemManager.get(
+            cache_dir=cache_dir,
+            cache_expiry=ttl,
+            client_kwargs=client_kwargs,
+            cache_disable=cache_disable,
+            use_certifi=use_certifi,
+        )
+        if not isinstance(filesystem, WholeFileCacheFileSystem):
+            return None
+        filesystem.load_cache()
+        held = filesystem._check_file(url)  # noqa: SLF001
+        return float(held[0]["time"]) if held else None
+    except Exception:  # noqa: BLE001 -- best effort: no copy known is no date from it
+        log.debug("Could not read the time of the copy of %s", _without_url_secrets(url), exc_info=False)
+        return None
 
 
 def _header_value(value: object) -> str:
@@ -2611,8 +2672,12 @@ def download_files(
     *,
     cache_disable: bool = False,
     use_certifi: bool = False,
+    refetch_before: Mapping[str, float] | None = None,
 ) -> list[File]:
-    """Download multiple files from the server concurrently."""
+    """Download multiple files from the server concurrently.
+
+    `refetch_before` names, by url, the time before which the copy held of a file is fetched again (`download_file`).
+    """
     noun = "file" if len(urls) == 1 else "files"
     # what is wanted, not what will happen: which of these the cache answers is not known until each
     # one has been asked, and the line below says it once they all have
@@ -2627,6 +2692,7 @@ def download_files(
                     client_kwargs=client_kwargs,
                     cache_disable=cache_disable,
                     use_certifi=use_certifi,
+                    refetch_before=(refetch_before or {}).get(file),
                 ),
                 urls,
             ),

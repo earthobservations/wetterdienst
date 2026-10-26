@@ -542,3 +542,24 @@ def test_nulls_and_nans_in_a_frame_do_not_make_a_result_unequal_to_itself() -> N
     )
     first = ValuesResult(stations=_stations(), df=frame)
     assert first == ValuesResult(stations=_stations(), df=frame.clone())
+
+
+@pytest.mark.parametrize(
+    ("cut", "is_empty"),
+    [
+        pytest.param(lambda result: result.filtered_by_sql("value > 100"), True, id="sql-nothing-left"),
+        pytest.param(lambda result: result.filtered_by_sql("value > 0"), False, id="sql-rows-left"),
+        pytest.param(lambda result: result.filtered_by_date("1900-01-01"), True, id="date-nothing-left"),
+    ],
+)
+def test_a_result_with_no_rows_left_is_of_no_file(cut: object, *, is_empty: bool) -> None:
+    """The date the source states stays with the rows that are left, and a result of none has none (GH-2567)."""
+    pytest.importorskip("duckdb")
+    updated = dt.datetime(2026, 10, 26, 6, tzinfo=dt.UTC)
+    result = dataclasses.replace(_every_result()["values"], data_updated_at=updated)
+
+    cut_result = cut(result)  # ty: ignore[call-non-callable]
+
+    assert cut_result.df.is_empty() is is_empty
+    assert cut_result.data_updated_at == (None if is_empty else updated)
+    assert result.data_updated_at == updated

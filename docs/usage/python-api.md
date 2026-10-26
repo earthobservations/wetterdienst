@@ -739,7 +739,10 @@ each format those it takes, which is what the command line, the REST API and the
 `to_dict` and `to_ogc_feature_collection` return dictionaries typed as `StationsDict`, `ValuesDict`,
 `InterpolatedValuesDict`, `SummarizedValuesDict` and `HistoryDict`, and the `...OgcFeatureCollection` of each, which
 are importable from `wetterdienst.model.result` to annotate a function that takes or returns one. The block that
-`with_metadata` adds is a `ResultMetadata`: the `provider`, the `producer` and `data_updated_at`, the date the source states for the data (UTC, `null` where it states none and for a list of stations). `to_target` writes to a file or a database, see [Export](#export).
+`with_metadata` adds is a `ResultMetadata`: the `provider`, the `producer` and `data_updated_at`, the date the source
+states for the data (UTC, `null` where it states none, for a list of stations and for a history; a result cut down by
+`filtered_by_date` or `filtered_by_sql` keeps it, and has none where no row is left). `to_target` writes to a file or a
+database, see [Export](#export).
 
 #### To Dict
 

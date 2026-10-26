@@ -281,6 +281,7 @@ def test_imgw_hydrology_reads_a_headerless_daily_file_by_column_position(monkeyp
     values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
         request=SimpleNamespace(settings=Settings()),
         start=None,
+        parameters=[],
         options=SimpleNamespace(drop_nulls_effective=False),
     )
     monkeypatch.setattr(values, "_get_urls", lambda _dataset: ["unused"])

@@ -192,7 +192,7 @@ class DwdObservationValues(TimeseriesValues):
             raise TypeError(msg)
         # after the periods have settled the stamps they share: the archive of a period whose rows were all dropped for
         # another's, or lie outside the window, is not what the answer was read from
-        self._note_written_of_periods_with_rows(result, written)
+        self._note_written_of_periods_with_rows(result, written, dataset)
         df = self._tidy_up_df(result.drop(_PERIOD_RANK, _HAS_VALUE))
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`), and so is the number:
         # the value is the text of the file (the parser maps the sentinels and decodes the letters, it does not
@@ -201,16 +201,21 @@ class DwdObservationValues(TimeseriesValues):
         return df.select("parameter", "timestamp", "value", "quality_flags")
 
     def _note_written_of_periods_with_rows(
-        self, df: pl.DataFrame, written: dict[int, list[dt.datetime | None]]
+        self, df: pl.DataFrame, written: dict[int, list[dt.datetime | None]], dataset: DatasetModel
     ) -> None:
         """Note when DWD wrote the archives of each period that has a row in the answer, by the rank of the period.
 
-        A row counts where it is inside the window and, where the nulls are dropped, has a value in some parameter of
-        the dataset. The requested parameters are the core's to cut, which this does not see.
+        A row counts where it is inside the window and, where the nulls are dropped, has a value in a requested
+        parameter of the dataset. A value the core reads as null although the archive wrote a text for it is out of
+        sight.
         """
-        rows = df.filter(pl.col(_HAS_VALUE)) if self.sr.options.drop_nulls_effective else df
+        requested = [
+            parameter.name_original
+            for parameter in self.sr.parameters
+            if parameter.dataset.resolution.name == dataset.resolution.name and parameter.dataset.name == dataset.name
+        ]
         for rank, dates in written.items():
-            if self._has_rows_in_window(rows.filter(pl.col(_PERIOD_RANK) == rank)):
+            if self._has_rows_in_window(df.filter(pl.col(_PERIOD_RANK) == rank), columns=requested):
                 for updated in dates:
                     self._note_data_updated(updated)
 

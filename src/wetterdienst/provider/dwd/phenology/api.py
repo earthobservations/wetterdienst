@@ -32,7 +32,7 @@ from wetterdienst.metadata.period import Period
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
 from wetterdienst.model.quality_flags import join_quality_flags
 from wetterdienst.model.request import TimeseriesRequest
-from wetterdienst.model.values import TimeseriesValues
+from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.dwd.phenology.metadata import (
     DWD_PHENOLOGY_OBJECT_IDS,
     DWD_PHENOLOGY_PATHS,
@@ -280,14 +280,14 @@ class DwdPhenologyValues(TimeseriesValues):
             loaded = self._load(dataset, period)
             # a file with nothing in it for the request has no columns to filter by
             if not loaded.is_empty() and not (df := loaded.filter(pl.col("station_id").eq(station_id))).is_empty():
-                frames.append(df)
-                # the file of the period has rows of the station in the window (GH-2567)
-                if self._has_rows_in_window(df):
-                    self._note_data_updated(self._written.get((dataset.name, period)))
+                # when DWD wrote the file of the period travels with its rows (`_note_files_with_rows`, GH-2567)
+                written = self._written.get((dataset.name, period))
+                frames.append(df.with_columns(pl.lit(written, dtype=pl.Datetime("us", "UTC")).alias(UPDATED)))
         if not frames:
             return pl.DataFrame()
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`)
-        return pl.concat(frames).select("parameter", "timestamp", "value", "quality_flags")
+        df = pl.concat(frames).select("parameter", "timestamp", "value", "quality_flags", UPDATED)
+        return self._note_files_with_rows(df, dataset)
 
 
 @dataclass

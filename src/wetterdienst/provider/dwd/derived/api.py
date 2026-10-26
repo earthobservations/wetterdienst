@@ -567,7 +567,7 @@ class DwdDerivedValues(TimeseriesValues):
                 data.append(df)
                 # the file gave this station a reading in the window: when DWD wrote it is the date of what is read
                 # (GH-2567 asks for the date of the update)
-                if self._has_rows_in_window(df):
+                if self._has_rows_in_window(df, value="value"):
                     self._note_data_updated(downloaded_file.last_modified)
 
         if len(data) == 0:
@@ -634,8 +634,13 @@ class DwdDerivedValues(TimeseriesValues):
 
         # the file of a period whose rows were all dropped for another's, or lie outside the window, is not what the
         # answer was read from
+        requested = [
+            parameter.name_original
+            for parameter in self.sr.parameters
+            if parameter.dataset.resolution.name == dataset.resolution.name and parameter.dataset.name == dataset.name
+        ]
         for rank, dates in written.items():
-            if self._has_rows_in_window(result.filter(pl.col(_PERIOD_RANK) == rank)):
+            if self._has_rows_in_window(result.filter(pl.col(_PERIOD_RANK) == rank), columns=requested):
                 for updated in dates:
                     self._note_data_updated(updated)
         df = self._tidy_up_df(result.drop(_PERIOD_RANK))
