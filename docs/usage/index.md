@@ -23,6 +23,7 @@ to do.
 | --- | --- |
 | [Command line interface](cli.md) | every command and its options, as the help prints them |
 | [REST API](restapi.md) | the endpoints, the response metadata, limits, streaming and errors |
+| [Getting more than the limit](large-requests.md) | what to do about a request refused for its size: narrow it, stream it, ask in slices, leave the server |
 | [MCP server](mcp.md) | the same data as tools for an assistant |
 | [Web app](app.md) | the explorer, forecasts, stripes, providers and glossary, and how to run your own |
 
@@ -57,6 +58,7 @@ export.md
 settings.md
 cli.md
 restapi.md
+large-requests.md
 mcp.md
 app.md
 docker.md
