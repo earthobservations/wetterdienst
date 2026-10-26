@@ -10,8 +10,11 @@ API, covering 1-minute, hourly, daily and monthly resolution. No authentication 
 ## License
 
 SMHI open data is published under
-[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). See the
-[SMHI open data explorer](https://www.smhi.se/data/sok-oppna-data-i-utforskaren) for details.
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); SMHI asks to be named as the source and
+for a note if you changed the data. SMHI's
+[terms of use](https://www.smhi.se/data/om-smhis-data/villkor-for-anvandning) (in Swedish) also ask
+that only documented APIs are used, that downloads are not repeated needlessly and that the
+time-limited caching its metadata allows is used.
 
 ```{toctree}
 :hidden:
