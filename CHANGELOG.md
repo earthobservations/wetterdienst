@@ -41,6 +41,13 @@ Types of changes:
 
 ### Changed
 
+- The MCP `instructions` have a forecast workflow (`stations` near the place's coordinates on
+  `dwd/mosmix`, then `values`) and say which networks reach beyond their provider's country:
+  `dwd/mosmix` and `dwd/dmo` (dataset `icon`) have stations worldwide and `noaa/ghcn` is global,
+  while `dwd/observation` is Germany. A model had refused a forecast for Los Angeles because DWD is
+  German. The `country` and `country_code` of a provider are described as the operator's, not the
+  extent of its data, in the OpenAPI schema and the `providers` tool; the answers are unchanged
+  (GH-3456)
 - The `attribution` that `meteoswiss/observation` and `metoffice/observation` report with every
   answer is the credit line their providers state: "Source: MeteoSwiss" (was "© MeteoSwiss
   (Federal Office of Meteorology and Climatology)") and the citation of the CEDA record of MIDAS

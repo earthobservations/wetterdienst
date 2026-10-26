@@ -75,9 +75,13 @@ class Provider(BaseModel):
     name_short: str = Field(description="The short name to write beside a flag, `DWD`.")
     name_local: str
     name_english: str
-    country: str
+    country: str = Field(
+        description="The country of the agency that runs the provider, not the extent of its data: `dwd` is German, "
+        "and its forecast networks `mosmix` and `dmo` have stations worldwide.",
+    )
     country_code: str | None = Field(
-        description="ISO 3166-1 alpha-2 code of the country; null for a provider of several countries.",
+        description="ISO 3166-1 alpha-2 code of that country, the operator's and not the extent of its data; null for "
+        "a provider of several countries.",
     )
     license: LicenseModel | None = Field(
         description="The terms the provider publishes its data under; null where it states none.",

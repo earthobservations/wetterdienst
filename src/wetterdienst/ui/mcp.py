@@ -85,6 +85,23 @@ default, plus NOAA, ECCC, Météo-France and more). These tools mirror its REST 
             parameters="daily/climate_summary/temperature_air_mean_2m",
             stations="01975", periods="recent")
 
+## Typical workflow: weather forecast for a place
+For "forecast for <place>", anywhere in the world, use a forecast network. Look up the place's coordinates yourself:
+1. `stations` near them (`rank` = the N nearest, or `distance` in km):
+     stations(provider="dwd", network="mosmix", parameters="hourly/large", latitude=34.05, longitude=-118.24, rank=3)
+   Take the nearest `station_id` ("72295", Los Angeles).
+2. `values` for it:
+     values(provider="dwd", network="mosmix", parameters="hourly/large/temperature_air_2m", stations="72295")
+
+## Which network for what
+A provider's `country` is the country of the agency that runs it, NOT the extent of its data: DWD is German, \
+its forecasts are worldwide. Decide by the network's `kind` (`coverage` / `providers`):
+- observed weather (`observation`): mostly national, in the provider's `country` (`dwd/observation` is \
+Germany only); `noaa/ghcn` is global.
+- forecasts (`forecast`): `dwd/mosmix` and `dwd/dmo` (dataset `icon`; `icon_eu` is Europe) have stations on \
+every continent, so a forecast for Tokyo or Los Angeles is no reason to refuse. `dwd/swsmos` (road forecast) is \
+Germany only.
+
 ## Choosing a tool
 For "what was/is the weather at <place>" ALWAYS use `stations` then `values` -- that is the only \
 path to measured weather, and the correct default. This holds even when the request names a \
@@ -102,9 +119,9 @@ plain-language "summary". `history` is different again: it returns a station's *
 `glossary` answers what a parameter *means* and which unit its values come back in -- use it when \
 the user asks what something is, or what unit a number is in. It is not a way to find data: it \
 knows nothing about providers or stations, so `coverage` remains the tool for "which parameters \
-does this provider have". `providers` answers what a provider *is* -- its country, the licence its data \
-is published under and the credit line to give, and what its networks offer -- and is the tool for \
-"may I reuse this data" and "which providers cover this country".
+does this provider have". `providers` answers what a provider *is* -- the country of its operator (not \
+where its stations are), the licence its data is published under and the credit line to give, and what \
+its networks offer -- and is the tool for "may I reuse this data" and "which providers cover this country".
 
 `auth` checks the credentials this server holds for one provider and network that needs them \
 (e.g. aemet/observation): `valid` is true when the provider accepted them, false when it rejected \
@@ -112,7 +129,8 @@ them or none are configured, and null when that could not be told (treat it as u
 rejected). `coverage` does not check them and has no `valid`: it says whether they are `configured`.
 
 ## Conventions
-- provider/network: use "dwd"/"observation" for German ground observations (the common case). Call \
+- provider/network: use "dwd"/"observation" for German ground observations (the common case), "dwd"/"mosmix" \
+for a forecast. Call \
 `coverage` with no arguments to list every provider/network.
 - parameters: "resolution/dataset" (e.g. "daily/kl") for a whole dataset, or \
 "resolution/dataset/parameter" (e.g. "daily/climate_summary/temperature_air_mean_2m") for a single \
