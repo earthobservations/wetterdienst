@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-10-25
+
 ### Added
 
 - `[Docker]` The app image has a `HEALTHCHECK`: it asks the page at `/` on the server's own port
@@ -30,6 +32,13 @@ Types of changes:
 
 ### Changed
 
+- The app has a new icon: four weather tiles (sun, rain, wind, temperature). It is the tab icon
+  (`/icon.svg`, with a 32 px `/favicon.ico` for browsers that ask for that), the iOS home-screen
+  icon (`/apple-touch-icon.png`) and the logo in the header and the widget. `/favicon.ico` is a
+  real ICO now, no PNG under that name (GH-3431)
+- The backend URL is private runtime config now, so no page carries it any more. Set it with
+  `NUXT_API_BASE` (the compose file and the docs do); the old `NUXT_PUBLIC_API_BASE` is read
+  while `NUXT_API_BASE` is not set, so a deployment keeps working until it is renamed (GH-3096)
 - `[Map]` The station map loads no image from Cloudflare or GitHub any more: its markers are
   leaflet's own images, served by the app, and the selected marker is the same image tinted green
   and drawn larger. The Content Security Policy's `img-src` drops `cdnjs.cloudflare.com`,
@@ -37,6 +46,21 @@ Types of changes:
   two (GH-3420)
 - `[Build]` `compose.yml` publishes the app on `127.0.0.1:4000`, no longer on every interface; set
   `WETTERDIENST_BIND_HOST=0.0.0.0` to open it to the network (GH-3096)
+- `[Build]` `pnpm dev` listens on `localhost`, no longer on every interface, so Nuxt DevTools is
+  reachable from this machine only; `HOST=0.0.0.0 pnpm dev` opens it to the network. The dev
+  container sets `HOST=0.0.0.0` itself (GH-3096)
+
+### Deprecated
+
+- `NUXT_PUBLIC_API_BASE`: the server logs one warning when it starts with it set, and a future
+  release stops reading it. Rename it to `NUXT_API_BASE`, the value stays the same (GH-3096)
+
+### Security
+
+- `[Docker]` The app image carries a build provenance signed with the GitHub Actions identity of
+  the workflow through Sigstore, from this release on: `gh attestation verify
+  oci://ghcr.io/earthobservations/wetterdienst-app:<version> --repo earthobservations/wetterdienst`
+  checks it. An unsigned BuildKit provenance and an SBOM per platform come with it (GH-3346)
 
 ## [0.35.0] - 2026-10-24
 
@@ -1569,7 +1593,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.35.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.36.0...HEAD
+[0.36.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.35.0...app-v0.36.0
 [0.35.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.34.0...app-v0.35.0
 [0.34.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.33.0...app-v0.34.0
 [0.33.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.32.0...app-v0.33.0

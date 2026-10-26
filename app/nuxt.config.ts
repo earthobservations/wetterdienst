@@ -16,6 +16,13 @@ export default defineNuxtConfig({
   app: {
     head: {
       title: 'Wetterdienst',
+      // the icon of the tab and the home screen (GH-3431): the SVG for current browsers, the 32 px ICO for the
+      // ones that ask for `/favicon.ico` and crawlers, the PNG for iOS. All three are files of `public/`.
+      link: [
+        { rel: 'icon', type: 'image/svg+xml', href: '/icon.svg' },
+        { rel: 'icon', href: '/favicon.ico', sizes: '32x32' },
+        { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
+      ],
     },
   },
 
@@ -76,8 +83,10 @@ export default defineNuxtConfig({
     fallbackToApi: false,
   },
 
+  // No `host`: `nuxt dev` listens on localhost, where Nuxt DevTools is reachable by this machine only (GH-3096).
+  // The dev container sets `HOST=0.0.0.0` (compose.yml, docker/app.Dockerfile), because a published port
+  // reaches nothing that listens on the loopback of the container.
   devServer: {
-    host: '0.0.0.0',
     port: 4000,
   },
 
@@ -98,10 +107,10 @@ export default defineNuxtConfig({
     // The origins whose pages may read the app's answers, a list separated by commas (`NUXT_CORS_ALLOWED_ORIGINS`):
     // none, so only the app's own page does (GH-3095). `server/middleware/cors.ts`.
     corsAllowedOrigins: '',
-    public: {
-      // Allow overriding the backend API base via environment (NUXT_PUBLIC_API_BASE or API_BASE)
-      apiBase: 'http://localhost:7890/api',
-    },
+    // The backend's `/api` URL, which the app's proxies call (`server/utils/apiBase.ts`). Private, so no page
+    // carries it, and set at run time by `NUXT_API_BASE` (GH-3096). Empty means: the old `NUXT_PUBLIC_API_BASE`
+    // if that is set (deprecated), else `http://localhost:7890/api`.
+    apiBase: '',
   },
 
   vite: {

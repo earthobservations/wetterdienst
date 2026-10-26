@@ -212,7 +212,12 @@ jobs:
           outputs: type=image,name=ghcr.io/${{ env.IMAGE_NAME_APP }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=app-${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=app-${{ matrix.arch }}
-          provenance: false
+          # BuildKit attaches a SLSA provenance and an SBOM to the digest as extra manifests of an image
+          # index (platform unknown/unknown), which the merge job below carries into the manifest list.
+          # The SBOM generator is pinned by tag and digest like the base images; Dependabot does not read
+          # this line, so move it by hand (docker/buildkit-syft-scanner releases)
+          provenance: mode=max
+          attests: type=sbom,generator=docker/buildkit-syft-scanner:1.12.0@sha256:ae4f3b554449e7e25548e7d8ccc029d17357348e30c6e3df01b92bc93654d6a9
 
       - name: Export digest
         env:
@@ -230,9 +235,9 @@ jobs:
           retention-days: 1
 
   # Combines the per-platform digests into a single multi-arch manifest under
-  # the real tags, then deploys. Not on pull requests: the last step calls the Coolify deploy
-  # hook, which redeploys the live site, and a proposed change must not do that. The backend
-  # workflow guards its publish jobs the same way.
+  # the real tags; the attest and deploy jobs follow it. Not on pull requests: the deploy job calls the
+  # Coolify deploy hook, which redeploys the live site, and a proposed change must not do that. The
+  # backend workflow guards its publish jobs the same way.
   docker_app_merge:
     needs: [ docker_meta, docker_app_build ]
     if: ${{ github.event_name != 'pull_request' }}
@@ -240,6 +245,8 @@ jobs:
     timeout-minutes: 15
     permissions:
       packages: write
+    outputs:
+      digest: ${{ steps.digest.outputs.digest }}
 
     steps:
       # no checkout: nothing here reads the repository, only the digests the build jobs uploaded
@@ -283,6 +290,57 @@ jobs:
           first_tag=$(head -n1 <<< "$META_TAGS")
           docker buildx imagetools inspect "$first_tag"
 
+      # the digest of the manifest list, which every tag points to, is what the attest job signs
+      - name: Read the digest of the manifest list
+        id: digest
+        env:
+          META_TAGS: ${{ needs.docker_meta.outputs.tags }}
+        run: |
+          first_tag=$(head -n1 <<< "$META_TAGS")
+          digest=$(docker buildx imagetools inspect "$first_tag" --format '{{json .Manifest}}' | jq -r .digest)
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::no digest for ${first_tag}"; exit 1; }
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+
+  # Signs a SLSA build provenance of the manifest list with the GitHub Actions identity of this workflow,
+  # through Sigstore, and stores it in the GitHub attestations API and next to the image in the registry
+  # (`gh attestation verify`). It has the tokens that sign and push and runs no code of the project. The
+  # merge job has neither `id-token` nor `attestations`, and the secrets of the deploy hook are in the
+  # `docker_app_deploy` job, which has no token at all. The two do not wait for each other, so a failed
+  # deploy does not skip the attestation and the reverse. The per-platform provenance and SBOM that
+  # BuildKit made in the build jobs are unsigned records in the registry.
+  docker_app_attest:
+    needs: docker_app_merge
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      attestations: write
+      id-token: write
+      packages: write
+
+    steps:
+      - name: Login to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ github.token }}
+
+      - name: Attest the provenance of the image
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ghcr.io/${{ env.IMAGE_NAME_APP }}
+          subject-digest: ${{ needs.docker_app_merge.outputs.digest }}
+          push-to-registry: true
+          # the storage record needs `artifact-metadata: write`, and verification does not read it
+          create-storage-record: false
+
+  # Holds the Coolify secrets and nothing else: no checkout, no registry login, no token. It waits for the
+  # manifest list only, so the deploy hook and the attestation are independent of each other.
+  docker_app_deploy:
+    needs: docker_app_merge
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
       # the secrets are read from the environment, not written into the script: a template in `run:`
       # is expanded into the shell source before it runs
       - name: Deploy to Coolify

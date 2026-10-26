@@ -9,8 +9,10 @@ the net under moving the shaping of the frame (the identity columns, the empty f
 
 from __future__ import annotations
 
+import dataclasses
 import datetime as dt
 from io import BytesIO
+from typing import TYPE_CHECKING
 
 import polars as pl
 import pytest
@@ -20,8 +22,13 @@ from wetterdienst.model.schema import LONG_SCHEMA
 from wetterdienst.provider.chmi.observation import ChmiObservationRequest
 from wetterdienst.provider.chmi.observation import api as chmi_api
 from wetterdienst.util.network import File
+from wetterdienst.util.response_warnings import begin_response, recorded_warnings
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 CHEB = "0-20000-0-11406"
+BRNO = "0-20000-0-11723"
 UTC = dt.UTC
 
 _DAILY_T = (
@@ -71,6 +78,29 @@ _HOURLY_SRA1H = (
     f"{CHEB},SRA1H,2020-01-01T00:00Z,0.0,T,0.0,\n"
     f"{CHEB},SRA1H,2020-01-01T01:00Z,0.3,,0.0,\n"
 )
+_HOURLY_P_DECEMBER_2024 = (
+    "STATION,ELEMENT,DT,VALUE,FLAG,QUALITY,\n"
+    f"{CHEB},P,2024-12-31T22:00Z,967.5,,0.0,\n"
+    f"{CHEB},P,2024-12-31T23:00Z,967.2,,0.0,\n"
+)
+_HOURLY_P_HM_DECEMBER_2024 = (
+    "STATION,ELEMENT,DT,VALUE,FLAG,QUALITY,\n"
+    f"{CHEB},P_hm,2024-12-31T22:00Z,1029.1,,0.0,\n"
+    f"{CHEB},P_hm,2024-12-31T23:00Z,1028.8,,0.0,\n"
+)
+_HOURLY_P_HM_JANUARY_2025 = (
+    "STATION,ELEMENT,DT,VALUE,FLAG,QUALITY,\n"
+    f"{CHEB},P_hm,2025-01-01T00:00Z,1028.6,,0.0,\n"
+    f"{CHEB},P_hm,2025-01-01T01:00Z,1028.0,,0.0,\n"
+)
+
+
+@pytest.fixture(autouse=True)
+def _a_clean_record() -> Iterator[None]:
+    """Start each test without the warnings an earlier one recorded in this thread, and leave none behind."""
+    begin_response()
+    yield
+    begin_response()
 
 
 def _serve(monkeypatch: pytest.MonkeyPatch, files: dict[str, str]) -> list[str]:
@@ -208,3 +238,122 @@ def test_chmi_subdaily_without_a_date_range_comes_out_as_the_empty_long_form(mon
     assert df.schema == pl.Schema(LONG_SCHEMA)
     assert df.is_empty()
     assert asked == []
+
+
+def test_chmi_hourly_sea_level_pressure_is_its_own_parameter_and_the_station_pressure_ends_with_2024(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A window over the turn of the year reads P_hm on both sides, P up to 2024 only, and says why P stops (GH-3413).
+
+    The source has no `P` file from 2025 on and publishes `P_hm` (the pressure reduced to sea level) in every year:
+    two quantities, so `P_hm` is `pressure_air_sea_level` and not `pressure_air_site` under another element. The
+    files of `P` of 2025 are not asked for, and the warning is told once for the request, not once for each of its
+    two stations.
+    """
+    asked = _serve(
+        monkeypatch,
+        {
+            f"1h-{station}-{element}-{month}.csv": body
+            for station in (CHEB, BRNO)
+            for element, month, body in (
+                ("P", "202412", _HOURLY_P_DECEMBER_2024),
+                ("P_hm", "202412", _HOURLY_P_HM_DECEMBER_2024),
+                ("P_hm", "202501", _HOURLY_P_HM_JANUARY_2025),
+            )
+        },
+    )
+    request = ChmiObservationRequest(
+        parameters=[("hourly", "data", "pressure_air_site"), ("hourly", "data", "pressure_air_sea_level")],
+        start=dt.datetime(2024, 12, 31, 22, tzinfo=UTC),
+        end=dt.datetime(2025, 1, 1, 1, tzinfo=UTC),
+        settings=_settings(),
+        options=_options(drop_nulls=True),
+    )
+    one = stations_result(request, "hourly", "data", CHEB)
+    both = pl.concat([one.df, one.df.with_columns(pl.lit(BRNO).alias("station_id"))])
+    with caplog.at_level("WARNING"):
+        df = dataclasses.replace(one, df=both, _df_all=both).values().all().df
+    assert df["station_id"].unique().sort().to_list() == [CHEB, BRNO]
+    for station in (CHEB, BRNO):
+        by_parameter = {
+            parameter: part.sort("timestamp")["value"].to_list()
+            for (parameter,), part in df.filter(pl.col("station_id").eq(station)).group_by("parameter")
+        }
+        assert by_parameter == {
+            "pressure_air_site": [967.5, 967.2],
+            "pressure_air_sea_level": [1029.1, 1028.8, 1028.6, 1028.0],
+        }
+    assert not any("-P-2025" in url for url in asked)
+    assert any("-P_hm-202501" in url for url in asked)
+    (warning,) = recorded_warnings()
+    assert warning["code"] == "parameter-ended"
+    assert "pressure_air_site" in warning["message"]
+    assert "after 2024" in warning["message"]
+    assert "pressure_air_sea_level" in warning["message"]
+    assert len([record for record in caplog.records if record.levelname == "WARNING"]) == 1
+
+
+def test_chmi_hourly_station_pressure_in_a_window_ending_in_2024_has_no_warning(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The warning is for a window that reaches past the last year, not for every hourly request."""
+    _serve(monkeypatch, {f"1h-{CHEB}-P-202412.csv": _HOURLY_P_DECEMBER_2024})
+    df = _values(
+        "hourly", start=dt.datetime(2024, 12, 31, 22, tzinfo=UTC), end=dt.datetime(2024, 12, 31, 23, tzinfo=UTC)
+    )
+    assert df["parameter"].unique().to_list() == ["pressure_air_site"]
+    assert recorded_warnings() == []
+
+
+def test_chmi_hourly_window_after_2024_is_the_empty_frame_with_the_reason_for_the_station_pressure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Asked for P alone in 2025, the answer is empty as before, and now tells that CHMI has no such file."""
+    asked = _serve(monkeypatch, {f"1h-{CHEB}-P_hm-202501.csv": _HOURLY_P_HM_JANUARY_2025})
+    request = ChmiObservationRequest(
+        parameters=[("hourly", "data", "pressure_air_site")],
+        start=dt.datetime(2025, 1, 1, tzinfo=UTC),
+        end=dt.datetime(2025, 1, 1, 1, tzinfo=UTC),
+        settings=_settings(),
+        options=_options(drop_nulls=True),
+    )
+    df = stations_result(request, "hourly", "data", CHEB).values().all().df
+    assert df.schema == pl.Schema(LONG_SCHEMA)
+    assert df.is_empty()
+    assert not any("-P-2025" in url for url in asked)
+    assert [warning["code"] for warning in recorded_warnings()] == ["parameter-ended"]
+
+
+def test_chmi_hourly_window_after_2024_of_another_parameter_has_no_warning(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The dataset is read as a whole, but the warning is for the parameter that was asked for."""
+    _serve(monkeypatch, {f"1h-{CHEB}-Td-202501.csv": _HOURLY_TD.replace("2020", "2025")})
+    request = ChmiObservationRequest(
+        parameters=[("hourly", "data", "temperature_dew_point_2m")],
+        start=dt.datetime(2025, 1, 1, tzinfo=UTC),
+        end=dt.datetime(2025, 1, 1, 1, tzinfo=UTC),
+        settings=_settings(),
+        options=_options(drop_nulls=True),
+    )
+    df = stations_result(request, "hourly", "data", CHEB).values().all().df
+    assert df["parameter"].unique().to_list() == ["temperature_dew_point_2m"]
+    assert recorded_warnings() == []
+
+
+def test_chmi_hourly_downloads_the_elements_asked_for_and_the_whole_dataset_asks_for_all(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The dataset is read as a whole, but a request for one parameter fetches the files of that element only."""
+    asked = _serve(monkeypatch, {f"1h-{CHEB}-P-202401.csv": _HOURLY_P_DECEMBER_2024.replace("2024-12", "2024-01")})
+    one = ChmiObservationRequest(
+        parameters=[("hourly", "data", "pressure_air_site")],
+        start=dt.datetime(2024, 1, 1, tzinfo=UTC),
+        end=dt.datetime(2024, 2, 1, tzinfo=UTC),
+        settings=_settings(),
+        options=_options(drop_nulls=True),
+    )
+    stations_result(one, "hourly", "data", CHEB).values().all()
+    assert {url.rsplit("-", 2)[-2] for url in asked} == {"P"}
+    asked.clear()
+    whole = _values("hourly", start=dt.datetime(2024, 1, 1, tzinfo=UTC), end=dt.datetime(2024, 2, 1, tzinfo=UTC))
+    assert whole["parameter"].unique().to_list() == ["pressure_air_site"]
+    assert {url.rsplit("-", 2)[-2] for url in asked} == {"Td", "SRA1H", "P", "P_hm"}

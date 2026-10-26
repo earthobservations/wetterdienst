@@ -5,7 +5,7 @@ already existing services - mostly governmental services. To simplify the implem
 data models, enumerations and classes that should be used in order to adapt whatever API is offered by a service to the
 general scheme of wetterdienst with some handful of attributes to define each API and streamline internal workflows. The
 following paragraphs describe how we can/may/should implement a new weather service in wetterdienst as far as our own
-experience goes. We'll give examples based on the `DwdObservationRequest` implementation.
+experience goes. We'll give examples based on the `DwdObservationRequest` implementation. How the pieces fit together is in the [Architecture](architecture.md).
 
 
 ## Step 1: Metadata
@@ -293,3 +293,30 @@ be narrower than that range where its source's own records or precision allow it
 narrower entries are named in `test_physical_ranges.py`, and the `raw` text is the number as it is written. A model's amount that is a little below its floor (-0.02 mm of rain) is `Floor(0.0)`: the floor, with the number as `raw`. A wide frame keeps the text beside each
 column with `clear_sentinels` and `unpivot_with_raw`. Add a stub of the source with the sentinel written as the source writes it to
 `tests/provider/value_stubs.py` and name each `raw:` token it must carry in `tokens`.
+
+## Step 4: What a new provider brings with it
+
+The tests hold every provider to the same rules, and fail until a new one has what they look for:
+
+- **A provider page** under `docs/data/provider/<provider>/`, with its resolutions, datasets and the parameter tables,
+  and an entry in the [overview](../data/overview.md). `tests/test_docs.py` compares them with the metadata and the
+  registry, and the README states how many services there are.
+- **Its licence and credit line**: `license` and `attribution` in the metadata (Step 1). A provider that states no
+  terms declares `"license": None` and is named with the reason in `LICENSE_NOT_STATED` of
+  `tests/ui/test_response_metadata.py`.
+- **A stub of its station catalogue** in `tests/provider/station_catalogue_stubs.py`: rows of the real list, served
+  through the provider's own reader. The rules of `tests/provider/station_catalogue.py` apply to it, and to the live
+  list in `test_station_catalogues_live.py` (marker `remote`). A provider of one country adds its bounding box to
+  `COUNTRY_BBOX` there, so that a station outside the country is found.
+- **A stub of its values** in `tests/provider/value_stubs.py`, or the network and the reason it has none yet in
+  `NO_STUB` (Step 3).
+- **An offline test** of the request, built from a response of the source as it is served, so that it runs without
+  the network (`uv run poe "test:offline"` runs the selection on its own; a test that reaches upstream carries the
+  `remote` marker). A test under `tests/provider` that goes through `TimeseriesValues` is held to the generous
+  ranges of `tests/provider/physical_ranges.py`; one that serves numbers that are no readings carries
+  `@pytest.mark.synthetic_values`. A network with no offline fixture is named with the reason in
+  `NO_VALUES_FIXTURE` or `NO_STATIONS_FIXTURE` of `tests/provider/test_frames_snapshot.py`.
+- **The snapshots**: `uv run poe "frames:snapshot"` records the frames the core handed out for the new tests, and
+  `uv run poe "contracts:snapshot"` the Python surface, which lists the request class, and the OpenAPI document and
+  the command line help where the provider adds an option. The diff of both is read in the pull request.
+- **A changelog entry** for what a caller can observe, with the issue number.

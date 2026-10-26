@@ -75,7 +75,7 @@ Layered flow: `Request → StationsResult → ValuesResult`.
 - **`TimeseriesValues`** (`model/values.py`): abstract base for fetching observation data, bound to a `StationsResult`.
 - **`StationsResult` / `ValuesResult`** (`model/result.py`): wrap polars DataFrames; provide `to_dict/to_json/to_ogc_feature_collection/to_file/to_target`, DuckDB SQL filtering, and plotting.
 - **`Settings`** (`settings.py`): the host's pydantic settings, process-wide and read by providers; env vars prefixed `WD_` (cache, network client, certifi, BUFR, REST SQL, provider auth via `WD_AUTH__*`). Per-request behaviour is not here.
-- **`Options`** (`options.py`): frozen pydantic settings per request, passed as `options=` (an `Options` or a dict); how values come back (shape, units, skipping) and the interpolation distances. Env vars prefixed `WD_TS_`. The old `Settings` `ts_*` paths are a deprecation shim in `settings.py` (warns, forwards to `Options`).
+- **`Options`** (`options.py`): frozen pydantic settings per request, passed as `options=` (an `Options` or a dict); how values come back (shape, units, skipping) and the interpolation distances. Env vars prefixed `WD_TS_`. The old `Settings` `ts_*` paths are gone: `Settings` refuses them with an error that names the option to pass instead (`refuse_removed_ts_settings` in `settings.py`).
 
 ### Metadata system
 
@@ -100,19 +100,19 @@ DWD has multiple networks: `observation`, `mosmix`, `dmo`, `road`, `radar`, `der
 
 ### Network / caching
 
-All HTTP goes through `util/network.py`, wrapping fsspec with TTL caching and `stamina` retry logic. Cache dir is configurable via `WD_CACHE_DIR`. A connection that cannot be made is a `NoInternetError` (URL in the message, the OS error as `__cause__`), raised by `File.raise_if_exception` and by the file listings for every provider, catalogues included; a provider that reads `file.content` itself must `raise` it, never answer an empty frame. Only a listing of a directory that is not there, or is empty, is `[]`.
+All HTTP goes through `util/network.py`, wrapping fsspec with TTL caching and `stamina` retry logic. Cache dir is configurable via `WD_CACHE_DIR`. A connection that cannot be made is a `NoInternetError` (URL in the message, the OS error as `__cause__`), raised by `File.raise_if_exception` and by the file listings for every provider, catalogues included; a provider that reads `file.content` itself must `raise` it, never answer an empty frame. `list_remote_files_fsspec` answers `[]` for a directory that is not there, or is empty; `list_remote_directory_fsspec` raises `FileNotFoundError` for one that is not there.
 
 ### UI layer
 
 - **CLI** (`ui/cli.py`): click-based.
 - **REST API** (`ui/restapi.py`): FastAPI app mirroring the CLI; starts via `wetterdienst restapi`.
 - **MCP** (`ui/mcp.py`): Model Context Protocol server exposing the same tools.
-- **App** (`app/`): Nuxt 3 SPA (SSR disabled) calling the REST API; `NUXT_PUBLIC_API_BASE` sets the backend URL.
+- **App** (`app/`): Nuxt 3 SPA (SSR disabled) calling the REST API; `NUXT_API_BASE` (private runtime config `apiBase`; the old `NUXT_PUBLIC_API_BASE` still works, deprecated) sets the backend URL.
 
 ### Export / interpolation
 
 - `ExportMixin` (`io/export.py`): export to CSV/JSON/Excel/Zarr files, SQLite/PostgreSQL/CrateDB/InfluxDB, and DuckDB SQL (`[export]` extra).
-- `core/interpolate.py` and `core/summarize.py`: spatial interpolation and weighted summarization for a target point (`[interpolation]` extra: scipy, shapely, utm).
+- `core/interpolate.py` and `core/summarize.py`: spatial interpolation and weighted summarization for a target point (`interpolate()` needs the `[interpolation]` extra: scipy, shapely, utm; `summarize()` needs no extra).
 
 Optional dependency groups include `export`, `interpolation`, `restapi`, `sql`, `mcp`, `bufr`.
 

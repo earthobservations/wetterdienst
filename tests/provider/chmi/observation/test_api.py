@@ -3,7 +3,7 @@
 """Tests for CHMI observation provider."""
 
 import datetime as dt
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from io import BytesIO
 from zoneinfo import ZoneInfo
 
@@ -12,22 +12,32 @@ import pytest
 
 from tests.provider.value_stubs import stations_result
 from wetterdienst.exceptions import DownloadError, NoInternetError
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.schema import LONG_SCHEMA, STATIONS_SCHEMA
 from wetterdienst.provider.chmi.observation import ChmiObservationRequest
 from wetterdienst.provider.chmi.observation import api as chmi_api
 from wetterdienst.provider.chmi.observation.api import _RESOLUTION_CONFIG, ChmiObservationValues
-from wetterdienst.provider.chmi.observation.metadata import ChmiObservationMetadata
+from wetterdienst.provider.chmi.observation.metadata import LAST_YEAR, ChmiObservationMetadata
 from wetterdienst.provider.chmi.observation.parser import (
     parse_chmi_values_aggregate,
     parse_chmi_values_daily,
     parse_chmi_values_subdaily,
 )
 from wetterdienst.settings import Settings
-from wetterdienst.util.network import File
+from wetterdienst.util.network import File, list_remote_files_fsspec
+from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
 CHEB = "0-20000-0-11406"
 UTC = ZoneInfo("UTC")
+
+
+@pytest.fixture(autouse=True)
+def _a_clean_record() -> Iterator[None]:
+    """Start each test without the warnings an earlier one recorded in this thread, and leave none behind."""
+    begin_response()
+    yield
+    begin_response()
 
 
 def _read(df: pl.DataFrame) -> pl.DataFrame:
@@ -450,6 +460,38 @@ def test_chmi_observation_values_hourly() -> None:
     assert _value_of(df, "temperature_dew_point_2m", when) == pytest.approx(-3.9)
     assert _value_of(df, "pressure_air_site", when) == pytest.approx(975.8)
     assert _value_of(df, "precipitation_amount", when) == pytest.approx(0.0)
+    assert _value_of(df, "pressure_air_sea_level", when) == pytest.approx(1037.7)
+
+
+@pytest.mark.remote
+def test_chmi_observation_values_hourly_after_2024_have_the_sea_level_pressure_only() -> None:
+    """CHMI publishes `P_hm` for 2025 and the answer says that `P` is not (GH-3413)."""
+    df = _values("hourly", dt.datetime(2025, 1, 1, tzinfo=UTC), dt.datetime(2025, 1, 1, 1, tzinfo=UTC))
+    when = dt.datetime(2025, 1, 1, tzinfo=UTC)
+    assert _value_of(df, "pressure_air_sea_level", when) == pytest.approx(1028.6)
+    assert "pressure_air_site" not in df["parameter"].unique().to_list()
+    assert [warning["code"] for warning in recorded_warnings()] == ["parameter-ended"]
+
+
+@pytest.mark.remote
+def test_chmi_observation_hourly_station_pressure_has_no_file_after_2024() -> None:
+    """The upstream fact `LAST_YEAR` rests on: the directories of 2025 and later list no `P` file (GH-3413).
+
+    The reader no longer asks for those files, so only the listing can see CHMI publish them again; this test is red
+    then, and the entry of `LAST_YEAR` is to go.
+    """
+    settings = Settings(cache_disable=True)
+    last_year = LAST_YEAR["hourly"]["P"][0]
+    url = f"{chmi_api._BASE_URL}/data/1hour/synop/"  # noqa: SLF001
+    # a year directory that is not there (2026 is not, 2026-10-25) lists as no file
+    for year in range(last_year + 1, dt.datetime.now(tz=UTC).year + 1):
+        names = [
+            name.rsplit("/", 1)[-1]
+            for name in list_remote_files_fsspec(f"{url}{year}/", settings, CacheExpiry.METAINDEX)
+        ]
+        assert names or year > last_year + 1, f"CHMI lists no hourly file for {year}"
+        assert not [name for name in names if "-P-" in name], f"CHMI publishes hourly P files for {year}"
+        assert not names or any("-P_hm-" in name for name in names)
 
 
 @pytest.mark.remote

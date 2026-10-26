@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.175.0] - 2026-10-25
+
 ### Added
 
 - `[Docker]` The backend image has a `HEALTHCHECK`: it asks `/health` on the port the server
@@ -24,6 +26,9 @@ Types of changes:
   default) now routes through a proxy such as Traefik on this one, which sends traffic only to
   containers that are healthy or have no health state. `docker run --no-healthcheck` switches it
   off (GH-3346)
+- `chmi/observation` hourly has `pressure_air_sea_level` (CHMI's `P_hm`, the pressure reduced to
+  sea level, published for 2018 to 2025): another quantity than the station-level
+  `pressure_air_site`, not a rename of it. The pressure tendency `ppp` is not read (GH-3413)
 
 ### Changed
 
@@ -43,6 +48,41 @@ Types of changes:
   needs the new one. The hourly elevation of UKW00015033 now follows the daily one (47.9 to 49.1 m)
   when both resolutions are requested. One table serves both lists and turns a row only while it
   lists the position that was checked, so a list NOAA corrects is read as it is (GH-3384)
+
+### Fixed
+
+- `chmi/observation` hourly `pressure_air_site` returned no rows from 2025 on without a word:
+  CHMI publishes that station pressure (`P`) for 2018 to 2024 only. A window that reaches past 2024
+  now answers with the warning `parameter-ended` saying so (and pointing to `pressure_air_sea_level`
+  and the `10_minutes` resolution, which still publishes it), and the files that do not exist are
+  no longer asked for (GH-3413)
+- `wetterdienst restapi --reload` now writes the `INFO` lines of the package and, with `--debug`,
+  its debug lines: the worker that uvicorn spawns configured no logging, so the log held uvicorn's
+  access lines only (GH-3390)
+- The debug line of a file that `chmi/observation` or `metoffice/observation` does not find names
+  its URL without the query, as the other providers do, where it named the URL as requested
+  (GH-3394)
+
+### Security
+
+- The wheel and sdist of a release carry a PEP 740 attestation on PyPI, which
+  `pypi-attestations verify pypi` checks (GH-3346)
+- `[Docker]` The backend image carries a build provenance signed with the GitHub Actions identity
+  of the workflow through Sigstore, which
+  `gh attestation verify oci://ghcr.io/earthobservations/wetterdienst:<version> --repo
+  earthobservations/wetterdienst` checks, and an unsigned BuildKit provenance and SBOM per
+  platform (the registry lists them as `unknown/unknown` manifests). Releases before this one have
+  none; see "Release provenance" in `.github/SECURITY.md` (GH-3346)
+- A redirect from `https` down to `http` is refused for every session again; 0.174.0 let a session
+  without a credential follow it. Nothing needs to change: no provider needs the hop, which was
+  data.gouv.fr's maintenance page. A request that data.gouv.fr redirects to
+  `http://sorry.data.gouv.fr` is now a `DownloadError` saying that data.gouv.fr is in maintenance
+  (HTTP 502 in the REST API), and `meteofrance/observation` does not ask it twice (GH-3400)
+- Follow-up and redirect URLs are limited to the provider's own hosts: a redirect, and a link an
+  answer names (next page, `datos`, asset, measure), is followed only to a host that the provider
+  lists (its API and the store of its files). A link is fetched over `https` only. Any other
+  host, one under the provider's own domain included, is refused with a `DownloadError` that
+  names the host and the provider; 0.174.0 held them to the provider's registered domain (GH-3339)
 
 ## [0.174.0] - 2026-10-24
 
@@ -74,19 +114,6 @@ Types of changes:
   logger `wetterdienst`; the loggers of other libraries, `fsspec` and `aiohttp` among them, stay
   at `INFO`. The hint of a removed `debug` parameter now names `wetterdienst restapi --debug`
   (GH-3388)
-- A download follows a redirect from `https` down to `http` again, within the registered domain of
-  the request, when the session is given no credential (no credential header, `auth`, cookies,
-  `trust_env`, proxy or middleware among the `fsspec_client_kwargs`): the stations of `meteofrance/observation`
-  failed with "a redirect from https to http was not followed" where data.gouv.fr answered with
-  such a hop. The body of that hop is not protected on the way. With a credential, a redirect to
-  another registered domain, and the dropping of credentials at a change of origin, nothing
-  changes; the error names the host of a refused hop (GH-3398)
-- `wetterdienst restapi --reload` now writes the `INFO` lines of the package and, with `--debug`,
-  its debug lines: the worker that uvicorn spawns configured no logging, so the log held uvicorn's
-  access lines only (GH-3390)
-- The debug line of a file that `chmi/observation` or `metoffice/observation` does not find names
-  its URL without the query, as the other providers do, where it named the URL as requested
-  (GH-3394)
 
 ### Security
 
@@ -6568,7 +6595,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.174.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.175.0...HEAD
+[0.175.0]: https://github.com/earthobservations/wetterdienst/compare/v0.174.0...v0.175.0
 [0.174.0]: https://github.com/earthobservations/wetterdienst/compare/v0.173.0...v0.174.0
 [0.173.0]: https://github.com/earthobservations/wetterdienst/compare/v0.172.0...v0.173.0
 [0.172.0]: https://github.com/earthobservations/wetterdienst/compare/v0.171.0...v0.172.0

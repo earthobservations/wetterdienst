@@ -9,7 +9,7 @@ import type { PrivacyPolicy } from './de'
 
 export const privacy: PrivacyPolicy = {
   title: 'Privacy policy',
-  updated: 'Last updated: 25 October 2026',
+  updated: 'Last updated: 26 October 2026',
   binding: 'This is a translation. The German version (Datenschutzerklärung) is the legally binding one.',
   intro: 'This policy describes which personal data is processed when you visit wetterdienst.eobs.org and when you use the REST API and the MCP server of Wetterdienst. There are no user accounts, no registration, no analytics or tracking services and no advertising.',
   controller: {

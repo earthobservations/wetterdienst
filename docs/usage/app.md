@@ -42,15 +42,22 @@ of their own so that the app can reach the backend by its name:
 docker network create wetterdienst
 docker run -d --network wetterdienst --name backend ghcr.io/earthobservations/wetterdienst
 docker run -d --network wetterdienst --name app --publish=4000:4000 \
-    --env NUXT_PUBLIC_API_BASE=http://backend:7890/api \
+    --env NUXT_API_BASE=http://backend:7890/api \
     ghcr.io/earthobservations/wetterdienst-app
 ```
 
-The app is then at <http://localhost:4000>. `NUXT_PUBLIC_API_BASE` is the backend's `/api` (or `/api/v1`) URL, as the
-app's server reaches it: only the server reads it, the browser only talks to the app, which proxies `/api`, the
-interactive API reference at `/docs` and `/openapi.json`, and the [MCP endpoint](mcp.md) `/mcp/v1` to the backend.
+The app is then at <http://localhost:4000>. `NUXT_API_BASE` is the backend's `/api` (or `/api/v1`) URL, as the
+app's server reaches it: only the server reads it (no page carries it), the browser only talks to the app, which
+proxies `/api`, the interactive API reference at `/docs` and `/openapi.json`, and the [MCP endpoint](mcp.md)
+`/mcp/v1` to the backend.
 The image of the backend listens on port 7890, see [Docker](docker.md). Every other option below is an environment
 variable too, read when the server starts: no rebuild.
+
+```{note}
+`NUXT_API_BASE` was `NUXT_PUBLIC_API_BASE` before the backend URL became private. The old name is still read when
+`NUXT_API_BASE` is not set, and the server logs a warning when it starts; it will be removed in a future release.
+Rename the variable in your deployment, the value stays the same.
+```
 
 From a checkout of the repository, Docker Compose builds both and reloads them when the sources change:
 
@@ -70,10 +77,11 @@ pnpm from the `app` directory (`pnpm install`, then `pnpm dev` for a development
 ```bash
 cd app
 pnpm install
-pnpm dev    # port 4000, looking for the backend at http://localhost:7890/api
+pnpm dev    # port 4000 on localhost, looking for the backend at http://localhost:7890/api
 ```
 
-The app looks for the backend at `http://localhost:7890/api` unless `NUXT_PUBLIC_API_BASE` says otherwise.
+The app looks for the backend at `http://localhost:7890/api` unless `NUXT_API_BASE` says otherwise.
+The development server (with Nuxt DevTools) listens on `localhost`; `HOST=0.0.0.0 pnpm dev` opens it to the network.
 
 The app is released on its own, with its own [changelog](https://github.com/earthobservations/wetterdienst/blob/main/CHANGELOG_APP.md),
 as a pair with the backend: run versions of the two that were released together, as an app that is older than its
@@ -139,7 +147,7 @@ update.**
 Nothing the browser runs comes from a CDN. The query panel's DuckDB-wasm (about 35 MB, about 5 MB over the wire)
 and Swagger UI (about 1.6 MB) at `/docs` are files of the app (`/_nuxt/` and `/_swagger-ui/`), so the Content
 Security Policy allows no script or worker from any other origin, and no `'unsafe-eval'`. The icons are the app's
-own too (`/_nuxt_icon`). The app calls OpenStreetMap for map tiles and GitHub for the avatars on the About page; the map's
-marker images are leaflet's own, served by the app.
+own too (`/_nuxt_icon`), and so are the map's marker images (leaflet's own). The app calls OpenStreetMap for map tiles
+and GitHub for the avatars on the About page, nothing else.
 
 The app does not forward the cookies or the `Authorization` of a client to the backend, on `/api` or on `/mcp`.

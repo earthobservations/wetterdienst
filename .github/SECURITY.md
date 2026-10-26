@@ -32,6 +32,45 @@ Out of scope: vulnerabilities in upstream data provider services (DWD, NOAA, etc
 authentication, TLS or CORS headers, which is [by design](#the-rest-api-and-mcp); a caller of the library or the CLI
 doing what the host's user may do; anyone who can already write to the cache directory or set the server's environment.
 
+## Release provenance
+
+What a release publishes to show where it was built, and how to check it. All of it is made by the release
+workflows of this repository (`release.yml`, `docker-publish.yml`, `docker-publish-app.yml`); none of it exists for
+releases made before it was added.
+
+- **PyPI.** Each wheel and sdist carries a [PEP 740](https://peps.python.org/pep-0740/) publish attestation, signed
+  with the identity of the trusted-publisher job of `release.yml` through Sigstore. PyPI shows it on the file's page
+  and serves it at `https://pypi.org/integrity/wetterdienst/<version>/<file>/provenance`. To check a file against
+  this repository:
+
+  ```bash
+  uvx pypi-attestations verify pypi --repository https://github.com/earthobservations/wetterdienst \
+      pypi:wetterdienst-<version>-py3-none-any.whl
+  ```
+
+  `pip download wetterdienst==<version> --no-deps` followed by the same command with the downloaded path verifies the
+  file you hold.
+- **Images** (`ghcr.io/earthobservations/wetterdienst` and `ghcr.io/earthobservations/wetterdienst-app`). The manifest
+  list of each release has a SLSA build provenance, signed with the GitHub Actions identity of the workflow that
+  built it through Sigstore (a certificate of the public-good Sigstore instance, recorded in its transparency log).
+  This checks that the image you pulled is the one that workflow pushed:
+
+  ```bash
+  gh attestation verify oci://ghcr.io/earthobservations/wetterdienst:<version> --repo earthobservations/wetterdienst
+  ```
+
+  BuildKit also attaches, to each platform, an unsigned provenance (`mode=max`) and an SBOM, as extra manifests of
+  the image index (they list as `unknown/unknown`). They describe the build and its contents; being unsigned they are
+  only as trustworthy as the registry:
+
+  ```bash
+  docker buildx imagetools inspect ghcr.io/earthobservations/wetterdienst:<version> --format '{{json .Provenance}}'
+  docker buildx imagetools inspect ghcr.io/earthobservations/wetterdienst:<version> --format '{{json .SBOM}}'
+  ```
+
+An attestation says which workflow and commit produced an artifact, not that the code is free of defects, and the
+dependencies in the image or the wheel are not vetted by it.
+
 ## Threat model
 
 What the project defends against and what it leaves to whoever runs it, checked against the code and the tests named.
@@ -46,9 +85,9 @@ memory, CPU and outbound connections; the cache directory; the browser of an app
 2. *REST API and MCP* (`wetterdienst restapi`; `/mcp` is the same app, stateless, present with the `[mcp]` extra). The
    caller is anonymous and untrusted. Every route of `/api` is a `GET`.
 3. *The app* (`app/`). Its Nuxt server proxies `/api`, `/mcp`, `/docs` and `/openapi.json` to the backend at
-   `NUXT_PUBLIC_API_BASE`; the browser calls its own origin only. It holds no secret.
+   `NUXT_API_BASE`; the browser calls its own origin only. It holds no secret.
 4. *Upstream providers.* Their addresses are fixed in the provider's code, but for the links a few of them follow and
-   the redirects any of them answers with, both held to the provider's own domain (see [Upstream data](#upstream-data));
+   the redirects any of them answers with, both held to the provider's own hosts (see [Upstream data](#upstream-data));
    what they send is data, never trusted.
 
 ### The REST API and MCP
@@ -113,18 +152,23 @@ logs leave them out (`tests/test_settings.py`: `test_credentials_do_not_appear_i
 Providers are trusted for their address, not their content. Provider and network come from a fixed registry, parameters
 are checked against its metadata, and a station is checked before it becomes part of a URL (GH-3084). Their address is
 not the whole story: seven providers (AEMET, KNMI, NWS, Hub'Eau, MeteoSwiss, Météo-France and EA) fetch a URL that the
-upstream's answer names (a `next` page, a `datos`, measure or asset link). Such a link is fetched only on the registered
-domain of the address the provider asked, over `https` (an `http` link of the same domain is read as `https`), or on a
-host the provider lists for it: the S3 bucket of KNMI's pre-signed links and the object store of Météo-France's files
-(`fetchable_link`, `util/network.py`; GH-3339). A redirect is followed only within the registered domain of the request,
-never from `https` down to `http` by a session that holds a credential; a keyless one follows that hop, whose answer is
-then not protected on the way (GH-3398). A credential header, whatever its name, is dropped where it changes the
-origin (`_check_redirect`; GH-3338, GH-3339); a refused link or redirect is a `DownloadError`. The registered domain is
-told without the public suffix list (`gov.uk`, `data.gouv.fr` and a few more labels are treated as suffixes, and a name
-under `amazonaws.com` or `ovh.net` is its own domain), and a host name is not resolved, so **an upstream that is
-compromised can still make the server fetch from the hosts of its own domain**, and a name of that domain pointing at
-an internal address would be fetched. A link in an HTML directory listing is kept only below the listed directory, on
-its host, and not where it steps from `https` down to `http`. `file://` and bare paths are refused by the HTTP client.
+upstream's answer names (a `next` page, a `datos`, measure or asset link). Each provider has a list of its own hosts
+(`PROVIDER_HOSTS`, `util/provider_hosts.py`: the API and, where the files are served from another host, that host, such
+as the S3 bucket of KNMI's pre-signed links and the object store of Météo-France's files). Such a link is fetched only
+at a host of the provider that the request started at, over `https` (an `http` link is read as `https`) and on the
+default port (`fetchable_link`, `util/network.py`; GH-3339). A redirect is followed only to a host of that provider,
+never from `https` down to `http`, whatever the session holds (`_check_redirect`; 0.174.0 let a session without a
+credential follow that hop, withdrawn in GH-3400). A credential header, whatever its name, is dropped where it changes
+the origin (GH-3338, GH-3339); a refused link or redirect is a `DownloadError` that names the host and the provider. A
+request that started at data.gouv.fr and is redirected to `sorry.data.gouv.fr`, its maintenance page, is told before
+the host bound and is a `DownloadError` that says the site is in maintenance. A host that no provider lists (a test
+server, an address a caller fetches by hand) is held to its
+registered domain, told without the public suffix list (`gov.uk`, `data.gouv.fr` and a few more labels are treated as
+suffixes, and a name under `amazonaws.com` or `ovh.net` is its own domain). A host name is not resolved, so **an
+upstream that is compromised can still make the server fetch from the hosts of its own provider**, and a name of one of
+them pointing at an internal address would be fetched. A link in an HTML directory listing is kept only below the
+listed directory, on its host, and not where it steps from `https` down to `http`. `file://` and bare paths are refused
+by the HTTP client.
 
 XML is parsed with entities off, no network and no DTD, each option passed rather than left to a default
 (`util/xml.py`, the one parser of FMI, DWD alerts, MOSMIX and DMO; a test fails for a module that builds its own).
@@ -166,12 +210,13 @@ immutable to look at the names of its tables, and reads nothing else from it.
 
 ### The app
 
-No secret: the backend URL is public by name (`NUXT_PUBLIC_API_BASE`), and the server forwards neither cookies nor
-`Authorization` to the backend (`app/tests/unit/mcp-proxy.test.ts`). The page runs under a Content Security Policy with
+No secret: the backend URL is a private key of Nuxt's runtime config (`NUXT_API_BASE`, GH-3096), so no page carries
+it (the old public `NUXT_PUBLIC_API_BASE` is read as a deprecated fallback),
+and the server forwards neither cookies nor `Authorization` to the backend (`app/tests/unit/mcp-proxy.test.ts`). The page runs under a Content Security Policy with
 a nonce per response, no `'unsafe-inline'` or `'unsafe-eval'` for scripts, and scripts, workers and requests on its own
 origin (`app/tests/e2e/csp.spec.ts`, `app/tests/unit/security-headers.test.ts`). Nothing the browser runs comes from a
-CDN, so there is no third-party script for subresource integrity to cover; only map tiles, avatars and marker images
-come from other hosts. There is no `v-html` or `innerHTML`, so provider text renders as text. The app stores UI settings
+CDN, so there is no third-party script for subresource integrity to cover; only map tiles and avatars come from
+other hosts (the map's marker images are leaflet's own, served by the app). There is no `v-html` or `innerHTML`, so provider text renders as text. The app stores UI settings
 (`wd_settings`) in `localStorage` and the language in a cookie, no data. The compose file's app is the dev server, for
 development, not exposure (#3096).
 

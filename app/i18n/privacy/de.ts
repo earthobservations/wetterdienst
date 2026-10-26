@@ -37,7 +37,7 @@ export interface PrivacyPolicy {
 
 export const privacy: PrivacyPolicy = {
   title: 'Datenschutzerklärung',
-  updated: 'Stand: 25. Oktober 2026',
+  updated: 'Stand: 26. Oktober 2026',
   intro: 'Diese Erklärung beschreibt, welche personenbezogenen Daten beim Besuch von wetterdienst.eobs.org und bei der Nutzung der REST-API und des MCP-Servers von Wetterdienst verarbeitet werden. Es gibt keine Benutzerkonten, keine Registrierung, keine Analyse- oder Tracking-Dienste und keine Werbung.',
   controller: {
     title: 'Verantwortlicher',

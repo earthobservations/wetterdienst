@@ -23,6 +23,10 @@ RUN apk add --no-cache curl
 
 COPY app ./
 
+# The dev server listens on localhost unless told otherwise, which a published port cannot reach in a
+# container. compose.yml publishes it on 127.0.0.1 of the host (GH-3096).
+ENV HOST=0.0.0.0
+
 EXPOSE 4000
 
 CMD ["pnpm", "run", "dev"]

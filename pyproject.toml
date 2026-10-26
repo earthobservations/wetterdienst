@@ -1,6 +1,6 @@
 [project]
 name = "wetterdienst"
-version = "0.174.0"
+version = "0.175.0"
 authors = [
     { name = "Benjamin Gutzmann", email = "benjamin@eobs.org" },
     { name = "Andreas Motl", email = "andreas.motl@panodata.org" },
@@ -488,6 +488,7 @@ log_format = "%(asctime)-15s.%(msecs)03d [%(name)-35s] %(levelname)-8s: %(messag
 log_level = "DEBUG"
 markers = [
     "remote: Tests accessing the internet.",
+    "resolver_fails: Hosts a runner's resolver fails to resolve (host, ..., platform=): a remote test skips on them.",
     "slow: Slow tests.",
     "sql: All tests related to SQL.",
     "explorer: All tests related to the explorer UI.",
