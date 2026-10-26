@@ -33,15 +33,18 @@ def _values(
     *,
     drop_nulls: bool = True,
     year: int = 2024,
+    end: datetime | None = None,
 ) -> pl.DataFrame:
     """Read rows through the reader as the columns of the source's file, empty where a row has none."""
     schema = list(synop_api._SYNOP_CSV_SCHEMA)  # noqa: SLF001
     lines = [";".join(schema)] + [";".join(row.get(column, "") for column in schema) for row in rows]
-    serve(monkeypatch, synop_api, {f"synop_{year}": gzip.compress("\n".join(lines).encode("utf8"))})
+    serve(
+        monkeypatch, synop_api, {f"/data/OBS/SYNOP/synop_{year}.csv.gz": gzip.compress("\n".join(lines).encode("utf8"))}
+    )
     request = MeteoFranceSynopRequest(
         parameters=[("subdaily", "data", parameter) for parameter in parameters],
         start=datetime(year, 1, 1, tzinfo=UTC),
-        end=datetime(year, 1, 2, tzinfo=UTC),
+        end=end or datetime(year, 1, 2, tzinfo=UTC),
         settings=Settings(cache_disable=True),
         options=Options(drop_nulls=drop_nulls),
     )
@@ -96,6 +99,35 @@ def test_meteofrance_synop_api_trace_of_precipitation_is_zero(monkeypatch: pytes
         "precipitation_amount_last_12h": [0.0, 0.0],
         "precipitation_amount_last_24h": [0.0, 5.5],
     }
+
+
+def test_meteofrance_synop_api_reads_the_maintained_yearly_file_not_the_stale_mirror(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that the yearly file is the one data.gouv.fr lists, which runs on past the mirror's end.
+
+    `data/synchro_ftp/OBS/SYNOP/synop_2026.csv.gz` ended at 2026-09-08T21:00Z (last modified 2026-09-09) while
+    `data/OBS/SYNOP/synop_2026.csv.gz`, the resource of the dataset, ended at 2026-10-25T21:00Z (both read on
+    2026-10-26). The rows are those of PARIS-MONTSOURIS (07156) in the latter at 2026-09-09T00:00Z (t=288.25 K) and
+    2026-10-25T21:00Z (t=283.65 K), the first and the last hours the mirror does not hold, moved to 07005. The stub
+    answers for the maintained path only, so a read of the mirror fails.
+    """
+    rows = [
+        {"geo_id_wmo": "07005", "validity_time": "2026-09-09T00:00:00Z", "t": "288.25"},
+        {"geo_id_wmo": "07005", "validity_time": "2026-10-25T21:00:00Z", "t": "283.65"},
+    ]
+    df = _values(
+        monkeypatch,
+        rows,
+        ["temperature_air_2m"],
+        year=2026,
+        end=datetime(2026, 10, 26, tzinfo=UTC),
+    )
+    assert df.get_column("timestamp").to_list() == [
+        datetime(2026, 9, 9, 0, tzinfo=UTC),
+        datetime(2026, 10, 25, 21, tzinfo=UTC),
+    ]
+    assert df.get_column("value").round(2).to_list() == [15.1, 10.5]
 
 
 def test_meteofrance_synop_api_a_station_absent_from_the_file_is_the_empty_long_form(

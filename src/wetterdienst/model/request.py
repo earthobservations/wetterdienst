@@ -61,7 +61,7 @@ from wetterdienst.model.schema import (
 from wetterdienst.model.util import create_station_id_from_string
 from wetterdienst.options import resolve_options
 from wetterdienst.settings import Settings
-from wetterdienst.util.datetime import parse_date_window
+from wetterdienst.util.datetime import newest, parse_date_window
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.extras import import_optional
 from wetterdienst.util.logging import get_one_line_logger
@@ -1187,8 +1187,9 @@ class TimeseriesRequest:
         place_in_utm(lat, lon)
         if df_all is None:
             df_all = self.all().df
+        data_updated: dict[str, dt.datetime] = {}
         df_interpolated = self._as_asked(
-            get_interpolated_df(self._for_estimating(), lat, lon, elevation, df_all=df_all)
+            get_interpolated_df(self._for_estimating(), lat, lon, elevation, df_all=df_all, data_updated=data_updated)
         )
         # the elevation belongs in the name: two elevations at one point are two different
         # answers, and sharing an id would merge them wherever the id is what identifies a series
@@ -1220,6 +1221,11 @@ class TimeseriesRequest:
         return InterpolatedValuesResult(
             df=df_interpolated,
             stations=stations_result,
+            data_updated_at=newest(
+                data_updated[station_id]
+                for station_id in df_stations.get_column("station_id").unique()
+                if station_id in data_updated
+            ),
             latlon=latlon,
             elevation=elevation,
         )
@@ -1303,8 +1309,9 @@ class TimeseriesRequest:
         lat, lon = float(lat), float(lon)
         if df_all is None:
             df_all = self.all().df
+        data_updated: dict[str, dt.datetime] = {}
         summarized_values = self._as_asked(
-            get_summarized_df(self._for_estimating(), lat, lon, elevation, df_all=df_all)
+            get_summarized_df(self._for_estimating(), lat, lon, elevation, df_all=df_all, data_updated=data_updated)
         )
         # the elevation belongs in the name: two elevations at one point are two different
         # answers, and sharing an id would merge them wherever the id is what identifies a series
@@ -1333,6 +1340,11 @@ class TimeseriesRequest:
         return SummarizedValuesResult(
             df=summarized_values,
             stations=stations_result,
+            data_updated_at=newest(
+                data_updated[station_id]
+                for station_id in df_stations.get_column("station_id").unique()
+                if station_id in data_updated
+            ),
             latlon=latlon,
             elevation=elevation,
         )

@@ -8,9 +8,12 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from wetterdienst.util.datetime import (
+    is_plausible_update,
+    newest,
     parse_date,
     parse_date_span,
     parse_date_window,
+    parse_source_date,
     raster_minutes,
     round_minutes,
 )
@@ -87,3 +90,52 @@ def test_parse_date_window() -> None:
     # an instant is a window of itself, so a filter closed on both sides keeps exactly it
     instant = dt.datetime(2020, 2, 2, 2, tzinfo=utc)
     assert parse_date_window("2020-02-02T02") == (instant, instant)
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        pytest.param(
+            "2026-10-26T06:54:51.123000+00:00", dt.datetime(2026, 10, 26, 6, 54, 51, 123000, tzinfo=dt.UTC), id="utc"
+        ),
+        pytest.param(
+            "2026-10-26T08:54:51+02:00", dt.datetime(2026, 10, 26, 6, 54, 51, tzinfo=dt.UTC), id="another zone is UTC"
+        ),
+        pytest.param("2026-10-26T06:54:51", dt.datetime(2026, 10, 26, 6, 54, 51, tzinfo=dt.UTC), id="no zone is UTC"),
+        pytest.param("2026-10-26T06:54:51Z", dt.datetime(2026, 10, 26, 6, 54, 51, tzinfo=dt.UTC), id="Z"),
+        pytest.param("", None, id="empty"),
+        pytest.param("yesterday", None, id="no date"),
+        pytest.param(None, None, id="none"),
+        pytest.param(20261026, None, id="not text"),
+        pytest.param("9999-12-31T23:59:59-01:00", None, id="UTC time out of range"),
+        pytest.param("0001-01-01T00:00:00+01:00", None, id="UTC time before the first year"),
+        pytest.param("1970-01-01T00:00:00+00:00", None, id="the epoch is no date of an update"),
+        pytest.param("1989-12-31T23:59:59+00:00", None, id="before 1990"),
+        pytest.param("1990-01-01T00:00:00+00:00", dt.datetime(1990, 1, 1, tzinfo=dt.UTC), id="1990"),
+    ],
+)
+def test_parse_source_date(text: object, expected: dt.datetime | None) -> None:
+    """The date a source states for an update is read into UTC, and what is no plausible date is none (GH-2567)."""
+    assert parse_source_date(text) == expected
+
+
+def test_is_plausible_update_allows_a_clock_that_is_a_little_ahead() -> None:
+    """A source whose clock is a few hours ahead of ours is dated as it says; a day beyond that is not plausible."""
+    now = dt.datetime.now(dt.UTC)
+
+    assert is_plausible_update(now - dt.timedelta(days=30))
+    assert is_plausible_update(now + dt.timedelta(hours=3))
+    assert not is_plausible_update(now + dt.timedelta(days=2))
+    assert not is_plausible_update(dt.datetime(1989, 12, 31, tzinfo=dt.UTC))
+    assert not is_plausible_update(dt.datetime(9999, 12, 31, tzinfo=dt.UTC))
+    assert is_plausible_update(dt.datetime(2026, 1, 1))  # noqa: DTZ001 (read as UTC)
+
+
+def test_newest() -> None:
+    """The newest of some dates, one without a zone read as UTC, none for no date."""
+    old = dt.datetime(2026, 1, 1, tzinfo=dt.UTC)
+    new = dt.datetime(2026, 10, 26, 7, tzinfo=dt.timezone(dt.timedelta(hours=1)))
+
+    assert newest([old, new]) == new
+    assert newest([dt.datetime(2026, 1, 1)]) == old  # noqa: DTZ001 (read as UTC)
+    assert newest([]) is None
