@@ -36,7 +36,7 @@ _LhmtObservationMetadataSpec = {
     "extent": {
         "scope": "national",
         "continents": ["europe"],
-        "countries": ["LT"],
+        "country_codes": ["LT"],
         "bbox": [20.9, 53.8, 26.9, 56.5],
     },
     "timezone": "Europe/Vilnius",

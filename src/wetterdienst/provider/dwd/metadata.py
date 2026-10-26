@@ -24,6 +24,6 @@ _METADATA: dict[str, Any] = {
 EXTENT_GERMANY: dict[str, Any] = {
     "scope": "national",
     "continents": ["europe"],
-    "countries": ["DE"],
+    "country_codes": ["DE"],
     "bbox": [5.8, 47.2, 15.1, 55.1],
 }

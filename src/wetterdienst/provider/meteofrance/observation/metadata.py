@@ -20,7 +20,7 @@ _MeteoFranceObservationMetadataSpec = {
     "extent": {
         "scope": "national",
         "continents": ["africa", "antarctica", "europe", "north_america", "oceania", "south_america"],
-        "countries": ["FR"],
+        "country_codes": ["FR"],
         "bbox": [-179.0, -67.0, 172.0, 52.0],
     },
     "timezone": "Europe/Paris",

@@ -62,7 +62,7 @@ _DwdPoiMetadataSpec = {
     "extent": {
         "scope": "regional",
         "continents": ["africa", "asia", "europe"],
-        "countries": [],
+        "country_codes": [],
         "bbox": [-32.0, 27.0, 129.0, 79.0],
     },
     "timezone": "Europe/Berlin",

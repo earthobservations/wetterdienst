@@ -31,7 +31,7 @@ _FmiObservationMetadataSpec = {
     "extent": {
         "scope": "national",
         "continents": ["antarctica", "europe"],
-        "countries": ["FI"],
+        "country_codes": ["FI"],
         "bbox": [-14.0, -74.0, 32.0, 70.2],
     },
     "timezone": "Europe/Helsinki",

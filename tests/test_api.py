@@ -511,7 +511,12 @@ def _minimal_metadata() -> dict:
         "attribution": None,
         "url": "https://example.com",
         "kind": "observation",
-        "extent": {"scope": "national", "continents": ["europe"], "countries": ["DE"], "bbox": [5.8, 47.2, 15.1, 55.1]},
+        "extent": {
+            "scope": "national",
+            "continents": ["europe"],
+            "country_codes": ["DE"],
+            "bbox": [5.8, 47.2, 15.1, 55.1],
+        },
         "timezone": "Europe/Berlin",
         "resolutions": [
             {
@@ -1389,7 +1394,7 @@ def test_a_parameter_nothing_describes_reads_the_canonical_description() -> None
             "extent": {
                 "scope": "regional",
                 "continents": ["europe"],
-                "countries": [],
+                "country_codes": [],
                 "bbox": [0.0, 40.0, 10.0, 50.0],
             },
             "timezone": "UTC",

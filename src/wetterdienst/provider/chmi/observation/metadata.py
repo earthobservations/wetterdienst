@@ -124,7 +124,7 @@ _ChmiObservationMetadataSpec = {
     "extent": {
         "scope": "national",
         "continents": ["europe"],
-        "countries": ["CZ"],
+        "country_codes": ["CZ"],
         "bbox": [12.0, 48.5, 18.9, 51.1],
     },
     "timezone": "Europe/Prague",

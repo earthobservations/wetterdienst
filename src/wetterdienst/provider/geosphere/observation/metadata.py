@@ -20,7 +20,7 @@ _GeosphereObservationMetadataSpec = {
     "extent": {
         "scope": "national",
         "continents": ["europe"],
-        "countries": ["AT"],
+        "country_codes": ["AT"],
         "bbox": [9.4, 46.3, 17.3, 49.1],
     },
     "timezone": "Europe/Vienna",

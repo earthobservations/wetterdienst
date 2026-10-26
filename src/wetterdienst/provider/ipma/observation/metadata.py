@@ -41,7 +41,7 @@ _IpmaObservationMetadataSpec = {
     "extent": {
         "scope": "national",
         "continents": ["africa", "europe"],  # Madeira and the Selvagens are named, as the Canary Islands are for AEMET
-        "countries": ["PT"],
+        "country_codes": ["PT"],
         "bbox": [-31.5, 30.0, -6.1, 42.2],
     },
     "timezone": "Europe/Lisbon",

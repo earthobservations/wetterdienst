@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import importlib
 import logging
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, NoReturn, TypeAlias, overload
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, NoReturn, TypeAlias, cast, overload
 
 from pydantic import ValidationError
 from pydantic_settings import SettingsError
@@ -25,6 +25,9 @@ if TYPE_CHECKING:
     StandaloneRequest: TypeAlias = type[DwdRadarValues | DwdWeatherAlertRequest]
 
 log = logging.getLogger(__name__)
+
+#: the members of a network in the list of every network, in the order the answer gives them
+_LISTED_ORDER = ("name_short", "country", "kind", "scope", "url", "auth", "configured", "date_required")
 
 #: the problems with the settings already logged, so a listing asked for again does not repeat them
 _REPORTED_SETTINGS_PROBLEMS: set[tuple[str, ...]] = set()
@@ -355,13 +358,15 @@ class Wetterdienst:
                     if cls.is_standalone(provider, network):
                         standalone = cls.resolve_standalone(provider, network)
                         # no metadata model, so what the network is comes from its request class; and no credentials
-                        listed[network] = {
+                        entry = {
                             **standalone.listing,
                             "scope": standalone.terms.extent.scope,
                             "auth": False,
                             "configured": True,
                             "date_required": False,
                         }
+                        # in the order of a timeseries network's entry below: name, country, kind, scope, url, ...
+                        listed[network] = cast("CoverageNetwork", {key: entry[key] for key in _LISTED_ORDER})
                         continue
                     api = cls.resolve(provider, network)
                 except ImportError as e:

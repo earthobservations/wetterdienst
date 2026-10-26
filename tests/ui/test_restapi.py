@@ -8552,9 +8552,13 @@ def test_coverage_schema_in_openapi(client: TestClient) -> None:
     # how far the network reaches, not where its provider is (GH-3456): the scope only, the extent is `/api/providers`
     assert properties["scope"]["enum"] == ["global", "national", "regional"]
     # one `Extent` schema for `/api/providers` and the datasets of `/api/coverage`, so a generator sees one type
-    extent = {"scope", "continents", "countries", "bbox"}
+    extent = {"scope", "continents", "country_codes", "bbox"}
     assert shape("Extent") == (extent, {"scope", "continents", "bbox"})
     assert "CoverageExtent" not in components
+    assert "ExtentDict" not in components
+    # arrays, as the model has tuples (`prefixItems` would be a different shape for a client)
+    assert components["Extent"]["properties"]["bbox"]["type"] == "array"
+    assert "prefixItems" not in components["Extent"]["properties"]["bbox"]
     assert shape("CoverageResolution") == ({"description", "datasets"}, {"description", "datasets"})
     # the extent of the dataset, its own or its network's (GH-3456)
     assert shape("CoverageDataset") == (

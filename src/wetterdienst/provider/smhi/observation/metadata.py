@@ -24,7 +24,7 @@ _SmhiObservationMetadataSpec = {
     "extent": {
         "scope": "national",
         "continents": ["europe"],
-        "countries": ["SE"],
+        "country_codes": ["SE"],
         "bbox": [10.9, 55.0, 24.2, 69.1],
     },
     "timezone": "Europe/Stockholm",

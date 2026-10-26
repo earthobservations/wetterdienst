@@ -159,7 +159,7 @@ _DmiObservationMetadataSpec = {
     "extent": {
         "scope": "national",
         "continents": ["europe", "north_america"],
-        "countries": ["DK"],
+        "country_codes": ["DK"],
         "bbox": [-75.0, 54.0, 16.0, 84.0],
     },
     "timezone": "Europe/Copenhagen",

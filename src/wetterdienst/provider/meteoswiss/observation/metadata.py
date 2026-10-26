@@ -22,7 +22,7 @@ _MeteoswissObservationMetadataSpec = {
     "extent": {
         "scope": "national",
         "continents": ["europe"],
-        "countries": ["CH"],
+        "country_codes": ["CH"],
         "bbox": [5.9, 45.7, 10.6, 47.9],
     },
     "timezone": "Europe/Zurich",

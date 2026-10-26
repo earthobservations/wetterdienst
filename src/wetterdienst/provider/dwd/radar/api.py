@@ -153,7 +153,7 @@ class DwdRadarValues:  # noqa: PLW1641
         url="https://opendata.dwd.de/weather/radar/",
         # the products are grids and composites over Germany and the countries around it (declared from the
         # documentation of DWD, no station list to hold it to)
-        extent=Extent(scope="national", continents=["europe"], countries=["DE"], bbox=[1.0, 45.0, 18.0, 56.0]),
+        extent=Extent(scope="national", continents=["europe"], country_codes=["DE"], bbox=[1.0, 45.0, 18.0, 56.0]),
     )
 
     def __new__(cls, *args: object, **kwargs: object) -> Self:  # noqa: ARG004

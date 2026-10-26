@@ -230,7 +230,7 @@ class DwdWeatherAlertRequest:
         url=DWD_ALERTS_BASE_URL,
         # the warnings are issued for the communes and districts of Germany, and for the sea around its coast
         # (declared from the documentation of DWD, no station list to hold it to)
-        extent=Extent(scope="national", continents=["europe"], countries=["DE"], bbox=[3.0, 47.0, 16.0, 56.0]),
+        extent=Extent(scope="national", continents=["europe"], country_codes=["DE"], bbox=[3.0, 47.0, 16.0, 56.0]),
     )
 
     def __init__(

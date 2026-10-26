@@ -157,7 +157,7 @@ _RmiObservationMetadataSpec = {
     "extent": {
         "scope": "national",
         "continents": ["europe"],
-        "countries": ["BE"],
+        "country_codes": ["BE"],
         "bbox": [2.5, 49.4, 6.5, 51.6],
     },
     "timezone": "Europe/Brussels",

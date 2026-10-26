@@ -13,7 +13,7 @@ _DwdDmoMetadataSpec = {
     "extent": {
         "scope": "global",
         "continents": ["africa", "antarctica", "asia", "europe", "north_america", "oceania", "south_america"],
-        "countries": [],
+        "country_codes": [],
         "bbox": [-180.0, -90.0, 180.0, 90.0],
     },
     "timezone": "Europe/Berlin",
@@ -33,7 +33,7 @@ _DwdDmoMetadataSpec = {
                     "extent": {
                         "scope": "regional",
                         "continents": ["africa", "asia", "europe"],
-                        "countries": [],
+                        "country_codes": [],
                         "bbox": [-13.0, 13.0, 50.0, 71.0],
                     },
                     "parameters": [

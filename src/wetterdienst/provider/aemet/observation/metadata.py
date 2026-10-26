@@ -78,11 +78,12 @@ _AemetObservationMetadataSpec = {
     "extent": {
         "scope": "national",
         "continents": ["africa", "antarctica", "europe"],
-        "countries": ["ES"],
+        "country_codes": ["ES"],
         # declared from the documentation of AEMET, no list was read (a key is needed): Spain with the Canary Islands,
         # Ceuta and Melilla (named for Africa, as Madeira is for IPMA), and the Spanish bases in Antarctica (Juan
         # Carlos I at 62.7 S, Gabriel de Castilla at 63.0 S) that AEMET runs weather stations at
-        "bbox": [-19.0, -64.0, 5.0, 44.0],
+        # the west edge is that of the bases (60.7 W), a box over the Atlantic that no station in between fills
+        "bbox": [-61.5, -64.0, 5.0, 44.0],
     },
     "timezone": "Europe/Madrid",
     "auth": True,

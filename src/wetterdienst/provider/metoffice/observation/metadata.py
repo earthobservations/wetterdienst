@@ -151,7 +151,7 @@ _MetOfficeObservationMetadataSpec = {
     "extent": {
         "scope": "national",
         "continents": ["europe"],
-        "countries": ["GB"],
+        "country_codes": ["GB"],
         # declared from the documentation of the Met Office (MIDAS Open on CEDA), no list was read (a token is needed):
         # the stations of the UK with the Channel Islands (49.2 N), Shetland (60.8 N) and the Outer Hebrides and
         # St Kilda (to 8.6 W), widened a degree and a half to the safe side

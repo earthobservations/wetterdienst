@@ -50,7 +50,7 @@ _ImgwHydrologyMetadataSpec = {
     "extent": {
         "scope": "national",
         "continents": ["europe"],
-        "countries": ["PL"],
+        "country_codes": ["PL"],
         "bbox": [14.1, 49.0, 24.2, 54.9],
     },
     "timezone": "Europe/Warsaw",

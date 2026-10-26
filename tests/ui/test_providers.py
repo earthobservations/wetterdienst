@@ -73,7 +73,7 @@ def test_the_country_code_is_an_alpha_2_code_or_null_for_several_countries(code:
         **declared["extent"],
         "scope": "regional",
         "continents": ["europe", "africa"],
-        "countries": [],
+        "country_codes": [],
     }
     if valid:
         assert MetadataModel.model_validate({**declared, "country_code": code}).country_code == code
@@ -304,12 +304,12 @@ def test_a_network_says_where_its_stations_are(client: TestClient) -> None:
         for network in provider["networks"]
     }
     assert len(extents) == body["metadata"]["counts"]["networks"]
-    # `countries` is left out of an answer where there are none and for a national network: it is the `country_code`
+    # `country_codes` is left out of an answer where there are none and for a national network: it is the `country_code`
     assert all(
-        {"scope", "continents", "bbox"} <= set(extent) <= {"scope", "continents", "countries", "bbox"}
+        {"scope", "continents", "bbox"} <= set(extent) <= {"scope", "continents", "country_codes", "bbox"}
         for extent in extents.values()
     )
-    assert all("countries" not in extent for extent in extents.values() if extent["scope"] != "regional")
+    assert all("country_codes" not in extent for extent in extents.values() if extent["scope"] != "regional")
     # DWD is German, and so is its observation network; its forecast lists are the world's
     assert extents["dwd/observation"]["scope"] == "national"
     assert extents["dwd/observation"]["bbox"] == [5.8, 47.2, 15.1, 55.1]
@@ -376,7 +376,7 @@ def test_the_mcp_tool_has_the_extent() -> None:
     networks = {n["network"]: n for n in asyncio.run(call())["providers"][0]["networks"]}
     assert networks["mosmix"]["extent"]["scope"] == "global"
     assert networks["observation"]["extent"]["scope"] == "national"
-    assert "countries" not in networks["observation"]["extent"]
+    assert "country_codes" not in networks["observation"]["extent"]
 
 
 def test_a_dataset_narrower_than_its_network_has_an_extent_of_its_own(client: TestClient) -> None:

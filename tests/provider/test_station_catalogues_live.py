@@ -158,10 +158,18 @@ def test_a_live_catalogue_is_sound(provider: str, network: str, resolution: str,
         fail_on_stale=False,
     )
     # every station is in the box the network declares as its extent (GH-3456), or its dataset where that is narrower
-    # (the European list of `dwd/dmo`), which is then held as the whole of its list: no wider than the stations, and
-    # on the continents it names
+    # (the European list of `dwd/dmo`). A dataset with an extent of its own is held as the whole of its list: no wider
+    # than the stations, and on the continents it names. So is a dataset that has none, where the network reaches
+    # beyond one country: it has to reach what its network says, or it is a narrower one that declares an extent of
+    # its own. (In a national network the box is the country's, which a dataset need not fill.)
     extent = extent_of(request.metadata, f"{resolution}/{dataset}")
-    assert_in_extent(stations, f"{key} {resolution}/{dataset}", extent, whole=extent != request.metadata.extent)
+    reaches_its_network = extent == request.metadata.extent and extent.scope != "national"
+    assert_in_extent(
+        stations,
+        f"{key} {resolution}/{dataset}",
+        extent,
+        whole=extent != request.metadata.extent or reaches_its_network,
+    )
 
 
 def _extent_cases() -> list[object]:

@@ -461,7 +461,17 @@ the resolutions and datasets they offer, with how many parameters each has. Noth
 credential is read, so it answers at once: `coverage` lists the parameters of a network and `auth` checks
 whether its credentials are accepted. `dwd/radar` and `dwd/alerts` are listed without resolutions.
 
-#### Extent
+```bash
+# Every provider, sorted by name.
+http localhost:7890/api/providers
+
+# One provider.
+http localhost:7890/api/providers provider==dwd
+```
+
+The command line is `wetterdienst about providers [--provider dwd]` and the MCP tool is `providers`.
+
+### Extent
 
 The `country` of a provider is the country of the agency that runs it, which says nothing of where its networks have
 stations: DWD is German, and the forecast lists of `dwd/mosmix` and `dwd/dmo` have stations on every continent. The
@@ -471,7 +481,7 @@ stations: DWD is German, and the forecast lists of `dwd/mosmix` and `dwd/dmo` ha
 | --- | --- |
 | `scope` | `global` (stations on at least five continents), `national` (one country, with its territories) or `regional` (everything between: one or several countries or continents) |
 | `continents` | the continents the network is meant to serve, in alphabetical order: `africa`, `antarctica`, `asia`, `europe`, `north_america`, `oceania`, `south_america`. **Descriptive**: declared by hand, a few outlying territories may be named or left out, and the `bbox` and the station lists are the exact answer. A territory is named where the network has stations there: the Canary Islands (`africa`) for AEMET and Madeira (`africa`) for IPMA, Greenland and the Caribbean `north_america`, Guam and Hawaii `oceania`, Turkey `europe` and, east of 34 degrees east, `asia` |
-| `countries` | only for `regional`, where the list is short and exact: the ISO 3166-1 alpha-2 codes of the countries the network is bound to. **Left out** where there are none, and for `national`: the country of a national network is the `country_code` of its provider (an overseas territory counts for its sovereign: Réunion is `FR`) |
+| `country_codes` | only for `regional`, where the list is short and exact: the ISO 3166-1 alpha-2 codes of the countries the network is bound to. **Left out** where there are none, and for `national`: the country of a national network is the `country_code` of its provider (an overseas territory counts for its sovereign: Réunion is `FR`) |
 | `bbox` | `[west, south, east, north]` in degrees, a whole degree written without its `.0`, around every station of the network, the Earth for `global`. It does not cross the antimeridian: a network with stations on both sides of it (Alaska and Guam) has the wide box |
 
 The extent is declared once, in the metadata of the network, and the tests hold it to the station list where the list can
@@ -488,16 +498,6 @@ dataset only where it has one, **a dataset without its own extent has its networ
 it; `coverage` of a network gives every dataset its extent, its own or its network's. A dataset of a national network
 is national. The extent does not change what a request answers: `stations` still
 lists what the network has.
-
-```bash
-# Every provider, sorted by name.
-http localhost:7890/api/providers
-
-# One provider.
-http localhost:7890/api/providers provider==dwd
-```
-
-The command line is `wetterdienst about providers [--provider dwd]` and the MCP tool is `providers`.
 
 ### Glossary
 

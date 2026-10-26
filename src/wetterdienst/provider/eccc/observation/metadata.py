@@ -24,7 +24,7 @@ _EcccObservationMetadataSpec = {
     "extent": {
         "scope": "national",
         "continents": ["north_america"],
-        "countries": ["CA"],
+        "country_codes": ["CA"],
         "bbox": [-142.0, 41.0, -52.0, 84.0],
     },
     "timezone": "UTC",

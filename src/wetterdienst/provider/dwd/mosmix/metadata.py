@@ -13,7 +13,7 @@ _DwdMosmixMetadataSpec = {
     "extent": {
         "scope": "global",
         "continents": ["africa", "antarctica", "asia", "europe", "north_america", "oceania", "south_america"],
-        "countries": [],
+        "country_codes": [],
         "bbox": [-180.0, -90.0, 180.0, 90.0],
     },
     "timezone": "Europe/Berlin",

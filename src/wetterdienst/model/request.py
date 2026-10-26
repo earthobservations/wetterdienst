@@ -38,7 +38,7 @@ from wetterdienst.model.metadata import (
     CoverageDataset,
     CoverageResolution,
     DatasetModel,
-    Extent,
+    ExtentDict,
     MetadataModel,
     ParameterModel,
     ResolutionModel,
@@ -720,7 +720,7 @@ class TimeseriesRequest:
                 if dataset_strings and not named(dataset, dataset_strings):
                     continue
                 # where the stations of the dataset are: its own where they are fewer than its network's, else the
-                # network's (a plain dict, as the rest of the answer; no `countries` where there are none)
+                # network's (a plain dict, as the rest of the answer; no `country_codes` where there are none)
                 extent = dataset.extent if dataset.extent is not None else cls.metadata.extent
                 described_datasets[dataset.name] = {
                     "description": dataset.description,
@@ -736,7 +736,7 @@ class TimeseriesRequest:
                         }
                         for parameter in dataset
                     ],
-                    "extent": cast("Extent", extent.model_dump(mode="json")),
+                    "extent": cast("ExtentDict", extent.model_dump(mode="json")),
                 }
             if not described_datasets:
                 continue

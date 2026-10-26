@@ -20,7 +20,7 @@ Types of changes:
 
 - Each network of `GET /api/providers` has an `extent`, where its stations are, which the `country`
   of its provider does not say: `scope` (`global`, `national`, `regional`), `continents`, `bbox`
-  `[west, south, east, north]` and, for a regional one, `countries`. A dataset narrower than its
+  `[west, south, east, north]` and, for a regional one, `country_codes`. A dataset narrower than its
   network has its own (`dwd/dmo` `icon_eu`). `GET /api/coverage` (and the CLI, the MCP tools and
   `Wetterdienst.discover()`) lists the `scope` of each network, and the coverage of one network
   gives each dataset its extent. `dwd/mosmix`, `dwd/dmo` and `noaa/ghcn` are global (GH-3456)

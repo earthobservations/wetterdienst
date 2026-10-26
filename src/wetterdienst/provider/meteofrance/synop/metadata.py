@@ -20,7 +20,7 @@ _MeteoFranceSynopMetadataSpec = {
     "extent": {
         "scope": "national",
         "continents": ["africa", "antarctica", "europe", "north_america", "oceania", "south_america"],
-        "countries": ["FR"],
+        "country_codes": ["FR"],
         "bbox": [-179.0, -67.0, 167.0, 52.0],
     },
     "timezone": "Europe/Paris",

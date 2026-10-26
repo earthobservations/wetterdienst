@@ -467,7 +467,7 @@ export interface NetworkExtent {
   scope: 'global' | 'national' | 'regional'
   continents: Array<'africa' | 'antarctica' | 'asia' | 'europe' | 'north_america' | 'oceania' | 'south_america'>
   /** ISO 3166-1 alpha-2 codes, for a `regional` network where the list is short and exact: absent otherwise, and for `national` it is the provider's `country_code` */
-  countries?: string[]
+  country_codes?: string[]
   /** `[west, south, east, north]` in degrees, around every station; not across the antimeridian */
   bbox: [number, number, number, number]
 }
