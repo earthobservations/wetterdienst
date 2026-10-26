@@ -454,7 +454,7 @@ ask the same question and give the same answer.
 ### Providers
 
 What each provider is, for a page that lists them or a client that has to credit the data: the names it goes
-by (`name_short` for a chip beside a flag, `name_english`, `name_local`), its country (`country_code` is the ISO 3166-1 alpha-2 code, null for a provider of several countries), the
+by (`name_short` for a chip beside a flag, `name_english`, `name_local`), the country of the agency that runs it (`country_code` is the ISO 3166-1 alpha-2 code, null for a provider of several countries; it is the operator's country, not the extent of its data: a network can have stations outside it), the
 terms it publishes its data under (`license`, as in the `metadata` of a data answer) and the credit line
 (`attribution`), and its networks with their `kind`, `extent`, source `url`, whether they need credentials (`auth`) and
 the resolutions and datasets they offer, with how many parameters each has. Nothing is downloaded and no

@@ -82,6 +82,11 @@ which tool not to reach for first (`interpolate` and `summarize` introduce an er
 request), how a parameter is written (`daily/climate_summary/temperature_air_mean_2m`) and how to read a result.
 The instructions and the descriptions of the tools are written for agents and are improved without a new version.
 
+The same two steps serve a network of any `kind` (`observation`, `forecast`, ...), for a place given by coordinates as
+well as by name. The `country` of a provider is the country of the agency that runs it, not the extent of its data, and
+the instructions tell the assistant not to conclude from it that a network cannot serve a place: it looks at the
+network's `kind` and at what `stations` returns near the place.
+
 An error comes back as the text of the REST problem, for instance
 `HTTP error 422: Unprocessable Content - limit: Input should be greater than or equal to 1`, and an argument a tool
 does not take is refused with the name of the one it takes (`station was renamed to stations`). No tool takes

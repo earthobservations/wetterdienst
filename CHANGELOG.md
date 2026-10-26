@@ -49,6 +49,12 @@ Types of changes:
 
 ### Changed
 
+- The MCP `instructions` say that the same `stations` then `values` steps serve a network of any
+  `kind`, for a place given by `latitude`, `longitude` and `rank`, and that a provider's `country`
+  is its operator's, not the extent of its data, so a model does not refuse a place because of it
+  (it had refused a forecast for Los Angeles because DWD is German). `Provider.country` and
+  `country_code` are described the same way in the OpenAPI schema and the `providers` tool; the
+  answers are unchanged (GH-3456)
 - The `attribution` that `meteoswiss/observation` and `metoffice/observation` report with every
   answer is the credit line their providers state: "Source: MeteoSwiss" (was "© MeteoSwiss
   (Federal Office of Meteorology and Climatology)") and the citation of the CEDA record of MIDAS
