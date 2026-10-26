@@ -226,6 +226,10 @@ forecast through two `GET` requests of the app's own origin, holds nothing a vis
 no control that does more than read: its two links open in a new tab. The widget's assets are subresources, not
 documents, and keep the headers they had (`app/tests/unit/security-headers.test.ts`, `app/tests/e2e/csp.spec.ts`).
 
+The rate limit counts the address of the connection; a header names the client only where the operator sets
+`NUXT_RATE_LIMIT_CLIENT_IP_HEADER`, which is right only if the proxy in front writes it and nothing reaches the app
+without that proxy (`docs/usage/app.md`, `app/tests/unit/rate-limit.test.ts`).
+
 ### Supply chain
 
 `uv.lock` pins every dependency with hashes; a release younger than 3 days is not taken (`exclude-newer`). `uv audit`
