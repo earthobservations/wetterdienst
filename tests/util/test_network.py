@@ -4418,3 +4418,131 @@ def test_a_listing_asks_once_for_a_failure_no_second_attempt_can_mend(
         with stamina.set_testing(True, attempts=3), pytest.raises(type(error)):
             list_remote_directory_fsspec("https://example.com/dir/", Settings(cache_dir=tmp_path))
         assert len(attempts) == 1
+
+
+class _ChangingFile(BaseHTTPRequestHandler):
+    """Serves `server.body`, which a test changes, at its pace and in its state, and records every request."""
+
+    def log_message(self, format: str, *args: object) -> None:  # noqa: A002
+        """Keep the test output quiet."""
+
+    def do_GET(self) -> None:
+        """Answer with the body the server holds when the request arrives, or with its status."""
+        self.server.requests.append(f"GET {self.path}")
+        if self.server.status != 200:
+            self.send_response(self.server.status)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        body = self.server.body
+        # a body cut short promises more than it sends, and the connection closing after it is the cut
+        self.send_response(200)
+        self.send_header("Content-Length", str(len(body) * (2 if self.server.cut else 1)))
+        self.end_headers()
+        self.wfile.write(body[:4])
+        self.wfile.flush()
+        time.sleep(self.server.slow)
+        self.wfile.write(body[4:])
+
+
+@pytest.fixture
+def changing_file() -> Iterator[ThreadingHTTPServer]:
+    """Run `_ChangingFile` on a port of its own; `server.url` is the address of its file."""
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _ChangingFile)
+    server.body = b"old-body"
+    server.status = 200
+    server.cut = False
+    server.slow = 0.0
+    server.requests = []
+    server.url = f"http://127.0.0.1:{server.server_port}/archive.csv.gz"
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield server
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_refetch_before_fetches_a_copy_made_before_it_and_leaves_one_made_after(
+    changing_file: ThreadingHTTPServer, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A copy older than `refetch_before` is fetched again over the valid one, and not one made after it (GH-2567)."""
+    url = changing_file.url
+    with stamina.set_testing(True, attempts=1), caplog.at_level(logging.INFO, logger="wetterdienst.util.network"):
+        first = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.INFINITE)
+        changing_file.body = b"new-body"
+        # made after: not fetched again, whatever the file is now
+        after = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.INFINITE, refetch_before=first.cached_at - 1)
+        caplog.clear()
+        before = download_file(
+            url=url, cache_dir=tmp_path, ttl=CacheExpiry.INFINITE, refetch_before=first.cached_at + 1
+        )
+        refetching = caplog.text
+        caplog.clear()
+        later = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.INFINITE)
+
+    assert (first.from_cache, first.content.getvalue()) == (False, b"old-body")
+    assert (after.from_cache, after.content.getvalue(), after.cached_at) == (True, b"old-body", first.cached_at)
+    assert (before.from_cache, before.content.getvalue()) == (False, b"new-body")
+    assert "Downloading file" in refetching
+    assert "from cache" not in refetching
+    assert before.cached_at is not None
+    assert before.cached_at > first.cached_at
+    assert (later.from_cache, later.content.getvalue(), later.cached_at) == (True, b"new-body", before.cached_at)
+    assert "Reading file" in caplog.text
+    assert changing_file.requests == ["GET /archive.csv.gz"] * 2
+
+
+@pytest.mark.parametrize("failure", ["status", "cut"])
+def test_a_refetch_that_fails_leaves_the_copy_to_be_served(
+    changing_file: ThreadingHTTPServer, tmp_path: Path, failure: str
+) -> None:
+    """The copy is replaced when the new body is whole, and a refetch that is refused or cut off leaves it (GH-2567)."""
+    url = changing_file.url
+    with stamina.set_testing(True, attempts=1):
+        first = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.INFINITE)
+        changing_file.body = b"new-body"
+        if failure == "status":
+            changing_file.status = 503
+        else:
+            changing_file.cut = True
+        refetch = download_file(
+            url=url, cache_dir=tmp_path, ttl=CacheExpiry.INFINITE, refetch_before=first.cached_at + 1
+        )
+        changing_file.status = 200
+        changing_file.cut = False
+        # and without it, the copy is the one that is read
+        kept = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.INFINITE)
+
+    assert isinstance(refetch.content, Exception)
+    assert refetch.cached_at is None
+    assert (kept.from_cache, kept.content.getvalue(), kept.cached_at) == (True, b"old-body", first.cached_at)
+
+
+def test_a_copy_is_as_old_as_its_download_began(changing_file: ThreadingHTTPServer, tmp_path: Path) -> None:
+    """A body that takes a while holds the file as it was when the download began, and is dated so (GH-2567).
+
+    The file changes while the body is on its way, and the listing says when. The copy that holds the old bytes was
+    made before that, so the call that has the time of the change as its `refetch_before` fetches it again, where
+    a copy stamped when the download was over would be taken for one of the new file.
+    """
+    url = changing_file.url
+    changing_file.slow = 1.0
+    changed: dict[str, float] = {}
+
+    def change() -> None:
+        time.sleep(0.3)
+        changing_file.body = b"new-body"
+        changed["at"] = time.time()
+
+    threading.Thread(target=change).start()
+    with stamina.set_testing(True, attempts=1):
+        first = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.INFINITE)
+        changing_file.slow = 0.0
+        again = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.INFINITE, refetch_before=changed["at"])
+
+    assert first.content.getvalue() == b"old-body"
+    assert first.cached_at is not None
+    assert first.cached_at < changed["at"]
+    assert (again.from_cache, again.content.getvalue()) == (False, b"new-body")

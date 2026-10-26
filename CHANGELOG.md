@@ -16,6 +16,20 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- The `metadata` block of every data answer has `data_updated_at`, when the source says its data
+  was last updated (UTC; `null` where it states none), with the `X-Wetterdienst-Data-Updated-At`
+  header where it is set. The values, interpolation and summary results have `data_updated_at`, and
+  so does the `metadata` of their `to_dict`, `to_json` and `to_ogc_feature_collection` with
+  `with_metadata=True`. `meteofrance/observation` fills it from the files whose rows the answer
+  keeps (the newest `last_modified` of data.gouv.fr, as Etalab 2.0 asks), and downloads a cached
+  file again when the listing dates it later than the copy, serving an archive's copy and its own
+  date if the file host does not answer (a current-period file whose copy expired still fails with
+  the download error); every other network, a list of stations, a history and a
+  streamed answer (NDJSON, CSV of `values`) say `null`. A result cut by `filtered_by_sql` keeps
+  the date of the result it was cut from. `schema_version` stays `"1"` (GH-2567)
+
 ### Fixed
 
 - `meteofrance/synop` reads the yearly files data.gouv.fr lists (`data/OBS/SYNOP/`), not the

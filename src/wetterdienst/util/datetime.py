@@ -258,6 +258,43 @@ def format_timestamp(value: dt.datetime) -> str:
     return value.astimezone(dt.UTC).isoformat(timespec="microseconds")
 
 
+def newest(dates: Iterable[dt.datetime]) -> dt.datetime | None:
+    """Give the newest of some dates, null for none; a date without a zone is read as UTC, as everywhere else."""
+    return max((d if d.tzinfo else d.replace(tzinfo=dt.UTC) for d in dates), default=None)
+
+
+#: the earliest date taken for the date of an update: what a source gives before it is no date of one (an epoch, a
+#: year 1 default), and an answer must not be dated by it
+EARLIEST_UPDATE = dt.datetime(1990, 1, 1, tzinfo=dt.UTC)
+
+
+def is_plausible_update(date: dt.datetime) -> bool:
+    """Tell whether a date a source states can be the date of an update: from 1990 to a day beyond now.
+
+    A source's clock may be a little ahead, so a day is allowed, and no more: a date that misleads is worse than none.
+    """
+    if date.tzinfo is None:
+        date = date.replace(tzinfo=dt.UTC)
+    return EARLIEST_UPDATE <= date <= dt.datetime.now(dt.UTC) + dt.timedelta(days=1)
+
+
+def parse_source_date(text: object) -> dt.datetime | None:
+    """Read the date a source states for an update as ISO 8601 text into UTC; null where it is no such date.
+
+    A text that is no ISO 8601 date, one whose UTC time is out of range (`9999-12-31T23:59:59-01:00`) and one before
+    1990 give none, so that a source's mistake does not fail the request. Whether the date is too late to be one of
+    an update is for the one who takes it (`is_plausible_update`), which a date that is not read from text passes too.
+    """
+    if not isinstance(text, str):
+        return None
+    try:
+        value = dt.datetime.fromisoformat(text)
+        value = value.replace(tzinfo=dt.UTC) if value.tzinfo is None else value.astimezone(dt.UTC)
+    except (ValueError, OverflowError):
+        return None
+    return None if value < EARLIEST_UPDATE else value
+
+
 def timestamps_to_string(df: pl.DataFrame, columns: Iterable[str] | None = None) -> pl.DataFrame:
     """Write the datetime columns of a frame as text in the format of `format_timestamp`, nulls staying null.
 
