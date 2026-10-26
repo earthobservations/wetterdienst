@@ -287,7 +287,7 @@ def test_an_accepted_station_does_not_hold_the_box_open() -> None:
     assert any("degrees south" in problem for problem in without_it)
 
 
-def test_a_catalogue_with_no_position_at_all_fails_the_extent_unless_told_apart() -> None:
+def test_a_catalogue_with_no_position_at_all_is_reported_by_the_extent_check() -> None:
     """With no position there is nothing to compare, and the check says so instead of passing."""
     stations = pl.DataFrame(
         {"station_id": ["01067"], "latitude": [None], "longitude": [None]},

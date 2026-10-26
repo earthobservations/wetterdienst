@@ -78,10 +78,10 @@ several countries), `copyright`, `license` (a `LicenseModel`, or `None` where th
 `country_codes` and the `bbox` `[west, south, east, north]`, which the station-catalogue tests hold to the list; the
 continents are declared by hand as the areas the network is meant to serve, see [Extent](../usage/restapi.md#extent)),
 `timezone` and, for a network that needs credentials, `auth`. A provider with several networks declares what they share
-once in a `_METADATA` dict of its own (DWD's is
-`provider/dwd/metadata.py`) and spreads it into each network's spec, as above. They are what the REST API's
-[`metadata` block](../usage/restapi.md#response-metadata) and the [providers](../usage/restapi.md#providers)
-listing report, so a provider that omits one fails validation instead of answering a null.
+once in a `_METADATA` dict of its own (DWD's is `provider/dwd/metadata.py`) and spreads it into each network's spec, as
+above. They are what the REST API's [`metadata` block](../usage/restapi.md#response-metadata) and the
+[providers](../usage/restapi.md#providers) listing report, so a provider that omits one fails validation instead of
+answering a null.
 
 The dict has a name of its own and the public name is bound to the model alone, which is what a type checker
 reads (mypy takes the first assignment of a name for its type).

@@ -104,11 +104,16 @@ EXTENT_ACCEPTED: dict[str, tuple[Accepted, ...]] = {
     "metno/frost": (
         Accepted(
             "coordinates_outside_extent",
-            "SN1039300 is listed at (52.209482, 14.120075), at Frankfurt (Oder) on the German-Polish border, almost "
-            "500 km south of the platforms of the North Sea. The position is met.no's own (its record, which a "
-            "client id gives, was not read: whether it is a Norwegian-run station abroad or a position that is "
-            "wrong is not known); the library passes it on, and the extent stays that of Norway",
-            where=lambda row: row["station_id"] == "SN1039300",
+            "SN1039300 is listed at (52.209482, 14.120075), in Germany. Its id is the WMO number 10393 times 100, "
+            "and DWD's list has 03015 Lindenberg (WMO 10393) at 52.2085, 14.1180, 200 m away (Frankfurt (Oder), "
+            "01426, is 30 km off): a foreign WMO station in Frost's list, whose position is very likely correct. "
+            "(Its record, which a client id gives, was not read.) The library passes it on, and the extent stays "
+            "that of Norway; the position is pinned, so a station that moves is not accepted",
+            where=lambda row: (
+                row["station_id"] == "SN1039300"
+                and row["latitude"] == pytest.approx(52.209482)
+                and row["longitude"] == pytest.approx(14.120075)
+            ),
         ),
     ),
 }
