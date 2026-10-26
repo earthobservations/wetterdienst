@@ -32,6 +32,7 @@ from wetterdienst.model.metadata import NetworkKind, ParameterSearch
 from wetterdienst.options import Options
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata
+from wetterdienst.ui import core as ui_core
 from wetterdienst.ui import restapi
 from wetterdienst.ui.core import (
     StripesData,
@@ -8348,6 +8349,8 @@ def test_coverage_and_auth_tell_a_credential_that_could_not_be_checked_as_null(
     frost = client.get("/api/coverage").json()["metno"]["frost"]
     assert (frost["auth"], frost["configured"], "valid" in frost) == (True, True, False)
     answer.update(status=401, content=Exception("401, message='Unauthorized'"))
+    # the answer that could not be told is kept for a few seconds only; the cache is cleared in place of waiting
+    ui_core._auth_probes.clear()  # noqa: SLF001
     assert client.get("/api/auth", params=params).json() == expected | {"valid": False}
     assert len(asked) == 2
     # the listing neither asks nor learns: a rejected client ID is told by `/api/auth` only
@@ -8384,7 +8387,7 @@ def _call_mcp_auth(arguments: dict[str, str]) -> dict[str, object]:
 def test_mcp_auth_tool_answers_as_the_route_does(
     client: TestClient, monkeypatch: pytest.MonkeyPatch, content: object, status: int, *, valid: bool | None
 ) -> None:
-    """The MCP `auth` tool is `/api/auth`: true, false or null, and the probe asked once per call (GH-2773)."""
+    """The MCP `auth` tool is `/api/auth`: true, false or null, and the probe asked once for both (GH-2773, GH-2607)."""
     from wetterdienst.util.network import File  # noqa: PLC0415
 
     monkeypatch.setenv("WD_AUTH__METNO_FROST", "client-id")
@@ -8400,8 +8403,9 @@ def test_mcp_auth_tool_answers_as_the_route_does(
 
     assert _call_mcp_auth(arguments) == expected
     assert len(asked) == 1
+    # the route is answered from the answer the tool got: the provider is probed once a minute per network
     assert client.get("/api/auth", params=arguments).json() == expected
-    assert len(asked) == 2
+    assert len(asked) == 1
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")

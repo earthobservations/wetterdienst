@@ -30,6 +30,14 @@ Types of changes:
   streamed answer (NDJSON, CSV of `values`) say `null`. A result cut by `filtered_by_sql` keeps
   the date of the result it was cut from. `schema_version` stays `"1"` (GH-2567)
 
+### Changed
+
+- `/api/auth` and the MCP `auth` tool probe the provider at most once a minute per network and
+  server process, and say so in their description. `metno/frost` and `aemet/observation` already
+  kept an accepted answer for a minute on disk; now a rejection is kept for up to 60 s too, a
+  `valid: null` for 5 s, and simultaneous calls share one probe. A changed or corrected credential
+  shows within a minute, a revoked one within two. The answer has the same shape (GH-2607)
+
 ### Fixed
 
 - `meteofrance/synop` reads the yearly files data.gouv.fr lists (`data/OBS/SYNOP/`), not the
