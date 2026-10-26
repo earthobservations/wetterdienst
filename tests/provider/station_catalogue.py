@@ -29,15 +29,22 @@ from typing import TYPE_CHECKING, Any, NamedTuple
 
 import polars as pl
 
+from wetterdienst.provider.eaufrance.hubeau import api as hubeau_api
+
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
     from wetterdienst.model.metadata import Extent, MetadataModel
 
+#: (south, north, west, east) in degrees
+Bbox = tuple[float, float, float, float]
+
 # (south, north, west, east) in degrees, generous: the rule catches a station in another country, not a station near
 # the border. A provider is left out where its catalogue is not one country's: the global lists (MOSMIX, DMO, SYNOP,
-# GHCN, POI), Hubeau with its overseas departments, the NWS with its Pacific and Caribbean territories
-COUNTRY_BBOX: dict[str, tuple[float, float, float, float]] = {
+# GHCN, POI), the NWS with its Pacific and Caribbean territories. Hubeau has overseas departments, so its country is
+# several boxes (GH-3468), the very boxes its reader swaps a misplaced position by: a station is in the country when it
+# is in one of them
+COUNTRY_BBOX: dict[str, Bbox | tuple[Bbox, ...]] = {
     "chmi/observation": (48.5, 51.1, 12.0, 18.9),
     "dmi/observation": (54.0, 84.0, -75.0, 16.0),  # Denmark with Greenland
     "dwd/derived": (47.2, 55.1, 5.8, 15.1),
@@ -45,6 +52,7 @@ COUNTRY_BBOX: dict[str, tuple[float, float, float, float]] = {
     "dwd/phenology": (47.2, 55.1, 5.8, 15.1),
     "dwd/road": (47.2, 55.1, 5.8, 15.1),
     "dwd/swsmos": (47.2, 55.1, 5.8, 15.1),
+    "eaufrance/hubeau": tuple(hubeau_api._AREAS.values()),  # noqa: SLF001
     "eccc/observation": (41.0, 84.0, -142.0, -52.0),
     "ea/hydrology": (49.8, 55.9, -6.0, 2.0),
     "fmi/observation": (59.0, 70.2, 19.0, 32.0),
@@ -226,16 +234,24 @@ def _violations(
     ]
 
 
-def _fits(lat: float | None, lon: float | None, bbox: tuple[float, float, float, float]) -> bool:
-    south, north, west, east = bbox
-    return lat is not None and lon is not None and south <= lat <= north and west <= lon <= east
+def boxes_of(bbox: Bbox | tuple[Bbox, ...]) -> tuple[Bbox, ...]:
+    """Give the boxes of a country: the one box, or the several of a country with territories far from it."""
+    return (bbox,) if isinstance(bbox[0], float | int) else bbox  # ty: ignore[invalid-return-type]
+
+
+def _fits(lat: float | None, lon: float | None, bbox: Bbox | tuple[Bbox, ...]) -> bool:
+    return (
+        lat is not None
+        and lon is not None
+        and any(south <= lat <= north and west <= lon <= east for south, north, west, east in boxes_of(bbox))
+    )
 
 
 def check_catalogue(
     df: pl.DataFrame,
     catalogue: str,
     *,
-    bbox: tuple[float, float, float, float] | None = None,
+    bbox: Bbox | tuple[Bbox, ...] | None = None,
     now: dt.datetime | None = None,
 ) -> list[Violation]:
     """Apply every rule to a catalogue and return the violations, which are not yet filtered by `Accepted`.
@@ -243,7 +259,8 @@ def check_catalogue(
     Args:
         df: the stations, with the base columns of a station request
         catalogue: how the failure names the catalogue, such as `chmi/observation daily/data`
-        bbox: the (south, north, west, east) box of the country the catalogue is published for, if it is one
+        bbox: the (south, north, west, east) box of the country the catalogue is published for, if it is one, or the
+            several boxes of a country with territories far from it: a station has to be in one of them
         now: the time the end of a station is held against, the present when None
 
     """
@@ -318,12 +335,14 @@ def check_catalogue(
                 hint = ", the latitude lost its sign"
             return f"({lat_}, {lon_}) is outside {bbox}{hint}"
 
-        south, north, west, east = bbox
+        in_the_country = pl.any_horizontal(
+            lat.is_between(south, north) & lon.is_between(west, east) for south, north, west, east in boxes_of(bbox)
+        )
         found += _violations(
             df,
             catalogue,
             "coordinates_outside_country",
-            lat.is_not_null() & lon.is_not_null() & ~(lat.is_between(south, north) & lon.is_between(west, east)),
+            lat.is_not_null() & lon.is_not_null() & ~in_the_country,
             outside,
         )
 
@@ -415,7 +434,7 @@ def assert_sound(
     df: pl.DataFrame,
     catalogue: str,
     *,
-    bbox: tuple[float, float, float, float] | None = None,
+    bbox: Bbox | tuple[Bbox, ...] | None = None,
     accepted: Iterable[Accepted] = (),
     now: dt.datetime | None = None,
     limit: int = 10,

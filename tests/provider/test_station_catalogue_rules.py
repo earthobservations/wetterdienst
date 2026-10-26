@@ -12,6 +12,7 @@ from tests.provider.station_catalogue import (
     COUNTRY_BBOX,
     RULES,
     Accepted,
+    Bbox,
     assert_sound,
     check_catalogue,
     has_encoding_damage,
@@ -55,7 +56,7 @@ def _frame(*stations: dict[str, Any]) -> pl.DataFrame:
     return pl.DataFrame(list(stations), schema=_SCHEMA, orient="row")
 
 
-def _rules_of(*stations: dict[str, Any], bbox: tuple[float, float, float, float] | None = _GERMANY) -> set[str]:
+def _rules_of(*stations: dict[str, Any], bbox: Bbox | tuple[Bbox, ...] | None = _GERMANY) -> set[str]:
     return {violation.rule for violation in check_catalogue(_frame(*stations), "test", bbox=bbox, now=_NOW)}
 
 
@@ -154,6 +155,25 @@ def test_the_country_is_only_held_against_a_catalogue_that_has_one() -> None:
     assert "coordinates_outside_country" not in _rules_of(far, bbox=None)
     # a station without a position breaks "missing", not "outside"
     assert _rules_of(_station(latitude=None, longitude=None)) == {"coordinates_missing"}
+
+
+def test_a_country_of_several_boxes_holds_a_station_to_any_of_them() -> None:
+    """France with its overseas departments is several boxes (GH-3468): in one is inside, the sea between is not."""
+    france = COUNTRY_BBOX["eaufrance/hubeau"]
+    assert len(france) > 1
+
+    def rules(latitude: float, longitude: float) -> set[str]:
+        return _rules_of(_station(latitude=latitude, longitude=longitude), bbox=france)
+
+    assert rules(48.85, 2.35) == set()  # Paris
+    assert rules(16.19, -61.66) == set()  # Guadeloupe
+    assert rules(-12.80, 45.21) == set()  # Mayotte
+    assert rules(35.11, 0.84) == {"coordinates_outside_country"}  # the Blavet as the referential lists it
+    assert rules(4.10, 49.99) == {"coordinates_outside_country"}  # Anor, swapped
+    assert rules(0.0, -30.0) == {"coordinates_outside_country"}
+    # a swapped position is told as one, by any of the boxes
+    (violation,) = check_catalogue(_frame(_station(latitude=4.10, longitude=49.99)), "test", bbox=france, now=_NOW)
+    assert "swapped" in violation.detail
 
 
 def test_the_same_id_in_two_datasets_is_not_a_duplicate() -> None:
