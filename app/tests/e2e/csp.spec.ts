@@ -148,3 +148,34 @@ test.describe('a page held to its policy', () => {
     expect(refused.filter(v => v.startsWith('script-src')).length).toBeGreaterThanOrEqual(2)
   })
 })
+
+test.describe('the station map', () => {
+  test('draws its marker images from the app: no request to Cloudflare or GitHub, no image the policy refuses (GH-3420)', async ({ page, baseURL }) => {
+    const requested: string[] = []
+    page.on('request', request => requested.push(request.url()))
+    await page.addInitScript(() => {
+      document.addEventListener('securitypolicyviolation', (event) => {
+        const w = window as unknown as { __csp?: string[] }
+        ;(w.__csp ??= []).push(`${event.violatedDirective}: ${event.blockedURI}`)
+      })
+    })
+    await mockBackend(page, baseURL!)
+    await page.goto('/explorer?provider=dwd&network=observation&resolution=daily&dataset=climate_summary&parameters=temperature_air_max_2m,temperature_air_mean_2m&mode=station')
+
+    await page.getByRole('button', { name: 'Choose on the map' }).click()
+    const marker = page.locator('img.leaflet-marker-icon').first()
+    await expect(marker).toBeVisible()
+    // the image decoded: it is drawn, not a broken one the policy or the network refused
+    await expect.poll(() => marker.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true)
+    const sources = await page.locator('img.leaflet-marker-icon, img.leaflet-marker-shadow').evaluateAll(
+      images => images.map(image => (image as HTMLImageElement).currentSrc),
+    )
+    expect(sources.length).toBeGreaterThan(0)
+    for (const source of sources)
+      expect(source.startsWith('data:') || source.startsWith(`${new URL(baseURL!).origin}/`), source).toBe(true)
+
+    const external = requested.filter(url => /cdnjs\.cloudflare\.com|raw\.githubusercontent\.com|unpkg\.com/.test(url))
+    expect(external).toEqual([])
+    expect(await page.evaluate(() => (window as unknown as { __csp?: string[] }).__csp ?? [])).toEqual([])
+  })
+})
