@@ -1526,8 +1526,9 @@ def _take_last_modified(filesystem: object, url: str) -> dt.datetime | None:
 def _reload_metadata(filesystem: WholeFileCacheFileSystem) -> bool:
     """Read the metadata file again into what a caching filesystem holds, and say whether that worked.
 
-    A file that cannot be read (truncated, locked, gone) leaves the view the filesystem had, which is what a
-    lookup that only asks is to go on with: a failed refresh is no failed download.
+    A read that fails leaves the view the filesystem had, which is what a lookup that only asks is to go on with. That
+    is for a failure that passes: on Windows the file is not readable while another process replaces it
+    (`PermissionError`). A file that is cut short stays an error, as it was: the save of the next fetch reads it too.
     """
     try:
         filesystem.load_cache()
@@ -1535,6 +1536,16 @@ def _reload_metadata(filesystem: WholeFileCacheFileSystem) -> bool:
         log.debug("Could not read the cache metadata again, keeping what is held", exc_info=True)
         return False
     return True
+
+
+def _held_in_view(filesystem: object, url: str) -> Literal[False] | tuple[dict[str, Any], str]:
+    """Say whether a caching filesystem's view of the metadata holds a copy of a url, without reading the file again.
+
+    False for a filesystem that does not cache.
+    """
+    if isinstance(filesystem, WholeFileCacheFileSystem):
+        return WholeFileCacheFileSystem._check_file(filesystem, url)  # noqa: SLF001
+    return False
 
 
 class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
@@ -1561,18 +1572,24 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
         with _cache_dir_lock:
             super().save_cache()
 
-    def _check_file(self, path: str) -> Literal[False] | tuple[dict[str, Any], str]:
-        """Say whether the cache holds an unexpired copy of a file, reading the metadata file again on a miss.
+    def _check_file(
+        self, path: str, refetch_before: float | None = None
+    ) -> Literal[False] | tuple[dict[str, Any], str]:
+        """Say whether the cache holds an unexpired copy of a file, reading the metadata file again where it is not.
 
         fsspec keeps one filesystem per thread ident and arguments, and an ident is handed out again once its thread
         has ended, so a thread can hold a filesystem that other threads (or processes) have cached into since it last
         read the file: it reads it only when built and after `cache_check` (10 s). Such a view says no to a copy that
         is there, and the file is fetched again (GH-3452). A hit costs nothing more than before; a miss reads the
-        file once, which the fetch that follows saves it through anyway. A file that cannot be read leaves the answer
-        the view gave.
+        file once, which the fetch that follows saves it through anyway. So does a copy older than `refetch_before`,
+        which another thread may have fetched again since. A read that fails leaves the answer the view gave, and a
+        read that fsspec made in this very call is not made twice.
         """
+        read_before = self.last_cache
         held = super()._check_file(path)
-        if held or not _reload_metadata(self):
+        if held and not (refetch_before is not None and held[0]["time"] < refetch_before):
+            return held
+        if self.last_cache != read_before or not _reload_metadata(self):
             return held
         return super()._check_file(path)
 
@@ -1630,10 +1647,12 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
         # a copy that no version which kept dates made (it has no record of one, not even of a missing date) is fetched
         # again, once: the new one has the record
         refetch_undated = kwargs.pop("refetch_undated", False)
+        # that `download_file` has just asked `_check_file`, which reads the metadata file again where it finds no
+        # usable copy: asking it again here would be the cost of a big directory a second time. Anyone else who opens
+        # a file (the reader of a forecast does) has not asked
+        checked = kwargs.pop("checked", False)
         path = self._strip_protocol(path)
-        # not `_check_file` of this class, which reads the metadata file again on a miss: `download_file` has just asked
-        # that, and a read again here is the cost of a big directory a second time
-        cached = super()._check_file(path)
+        cached = super()._check_file(path) if checked else self._check_file(path, refetch_before)
         if cached and refetch_before is not None and cached[0]["time"] < refetch_before:
             cached = False
         if cached and refetch_undated and not _has_sidecar_record(Path(cached[1])):
@@ -1676,9 +1695,21 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
                     log.debug(f"Could not replace {blob}, serving {path} from the fetched copy", exc_info=True)
                     # `open` has turned a text mode into a binary one by now and wraps the handle itself
                     return BytesIO(Path(temp).read_bytes())
-                self._make_local_details(path)
-                self._metadata.cached_files[-1][path]["time"] = started
-                self.save_cache()
+                # what fsspec's `_make_local_details` records, with the time of the start of the fetch: made before
+                # the lock, because it asks the server (`ukey`)
+                detail = {
+                    "original": path,
+                    "fn": self._mapper(path),
+                    "blocks": True,
+                    "time": started,
+                    "uid": self.fs.ukey(path),
+                }
+                # the record and its save as one step for the lock: a thread that reads the metadata file again
+                # replaces what the filesystem holds, and one that did between the two took the new entry with it
+                # when this filesystem is used by more than one thread (the reader of a forecast moves threads)
+                with _cache_dir_lock:
+                    self._metadata.update_file(path, detail)
+                    self.save_cache()
                 # after the entry: a copy is dated once the cache holds it. Written whether or not this fetch had a
                 # date, so that a copy fetched anew over an older one does not keep the older one's
                 _write_sidecar(Path(blob), last_modified, written)
@@ -2317,7 +2348,11 @@ def download_file(
                     # read-only or full cache dir and the metadata load on a truncated file, and an
                     # exception escaping here carries a traceback whose frame holds `client_kwargs`
                     # -- the Authorization header -- which is exactly what the handler below drops
-                    held = getattr(filesystem, "_check_file", lambda _url: False)(url)
+                    held = (
+                        filesystem._check_file(url, refetch_before)  # noqa: SLF001
+                        if isinstance(filesystem, _LockedWholeFileCacheFileSystem)
+                        else getattr(filesystem, "_check_file", lambda _url: False)(url)
+                    )
                     served_from_cache = (
                         bool(held)
                         and not (refetch_before is not None and held[0]["time"] < refetch_before)
@@ -2332,6 +2367,8 @@ def download_file(
                         f"Reading file {shown} from cache" if served_from_cache else f"Downloading file {shown}",
                     )
                     fetch_kwargs: dict[str, float] = {} if max_bytes is None else {"max_bytes": max_bytes}
+                    if isinstance(filesystem, _LockedWholeFileCacheFileSystem):
+                        fetch_kwargs["checked"] = True
                     if refetch_before is not None and isinstance(filesystem, WholeFileCacheFileSystem):
                         fetch_kwargs["refetch_before"] = refetch_before
                     if refetch_undated and isinstance(filesystem, WholeFileCacheFileSystem):
@@ -2344,7 +2381,7 @@ def download_file(
                     # info, header and all, before any of the handlers below are reached
                     raise _without_credentials(e, sent_credentials=sent_credentials) from None
                 log.info(f"Read file {shown} from cache" if served_from_cache else f"Downloaded file {shown}")
-                copy = getattr(filesystem, "_check_file", lambda _url: False)(url)
+                copy = _held_in_view(filesystem, url)
                 return File(
                     url=url,
                     content=BytesIO(payload),
@@ -2506,7 +2543,7 @@ def cached_file_time(
         if not isinstance(filesystem, WholeFileCacheFileSystem):
             return None
         filesystem.load_cache()
-        held = filesystem._check_file(url)  # noqa: SLF001
+        held = _held_in_view(filesystem, url)
         return float(held[0]["time"]) if held else None
     except Exception:  # noqa: BLE001 -- best effort: no copy known is no date from it
         log.debug("Could not read the time of the copy of %s", _without_url_secrets(url), exc_info=False)

@@ -4,7 +4,10 @@
 
 from __future__ import annotations
 
+import json
 import threading
+import time
+from collections import Counter
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import TYPE_CHECKING
 
@@ -29,6 +32,7 @@ if TYPE_CHECKING:
 
 class _Source(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
+        self.server.hits[self.path] += 1  # ty: ignore[unresolved-attribute]
         body = b"payload " + self.path.encode()
         self.send_response(200)
         self.send_header("Content-Length", str(len(body)))
@@ -43,6 +47,7 @@ class _Source(BaseHTTPRequestHandler):
 def source() -> Iterator[ThreadingHTTPServer]:
     """Serve a small body for every path."""
     server = ThreadingHTTPServer(("127.0.0.1", 0), _Source)
+    server.hits = Counter()  # ty: ignore[unresolved-attribute]
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
@@ -146,10 +151,14 @@ def test_a_copy_another_thread_cached_is_dropped_by_a_thread_that_keeps_its_file
     assert cached_file_time(url, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR) is None
 
 
-def test_a_hit_does_not_read_the_metadata_file_and_a_failed_read_keeps_the_view(
+def test_a_hit_reads_nothing_and_a_read_that_fails_on_a_miss_keeps_the_view(
     source: ThreadingHTTPServer, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A hit does not read the file (that of a big cache is megabytes), and a file that cannot be read is no failure."""
+    """A hit does not read the file (that of a big cache is megabytes), and a read that fails on a miss is no failure.
+
+    The read that fails is one that passes (on Windows, a file another process is replacing). A file cut short is
+    not that, and stays an error where it was.
+    """
     url = _url(source, "/file.txt")
     download_file(url, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR)
     reads: list[int] = []
@@ -178,6 +187,139 @@ def test_a_hit_does_not_read_the_metadata_file_and_a_failed_read_keeps_the_view(
     assert reads
     fetched = download_file(other, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR)
     assert (fetched.status, fetched.from_cache) == (200, False)
+
+
+def _metadata_on_disk(cache_dir: Path) -> dict:
+    (metadata_file,) = cache_dir.rglob("cache")
+    return json.loads(metadata_file.read_text(encoding="utf-8"))
+
+
+def test_a_thread_that_opens_a_file_directly_finds_what_another_thread_cached(
+    source: ThreadingHTTPServer, tmp_path: Path
+) -> None:
+    """`open` on the filesystem (the reader of a forecast does) is asked for the copy as `download_file` is."""
+    url = _url(source, "/kml.kmz")
+    mine = NetworkFilesystemManager.get(cache_dir=tmp_path, cache_expiry=CacheExpiry.ONE_HOUR, cache_disable=False)
+    _download_in_another_thread(url, tmp_path)
+
+    with mine.open(url, block_size=0) as handle:
+        assert handle.read() == b"payload /kml.kmz"
+
+    assert source.hits["/kml.kmz"] == 1  # ty: ignore[unresolved-attribute]
+
+
+def test_a_copy_older_than_refetch_before_is_asked_for_again_where_another_thread_fetched_it_since(
+    source: ThreadingHTTPServer, tmp_path: Path
+) -> None:
+    """A view that holds a copy too old for the caller reads the file again before it fetches."""
+    url = _url(source, "/r.txt")
+    download_file(url, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR)
+    time.sleep(0.05)
+    cut = time.time()
+    time.sleep(0.05)
+    refetched = _in_thread_result(
+        lambda: download_file(url, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR, refetch_before=cut)
+    )
+    assert not refetched.from_cache
+
+    again = download_file(url, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR, refetch_before=cut)
+
+    assert again.from_cache
+    assert source.hits["/r.txt"] == 2  # ty: ignore[unresolved-attribute]
+
+
+def _in_thread_result(function: Callable[[], File]) -> File:
+    answers: list[File] = []
+    _in_another_thread(lambda: answers.append(function()))
+    return answers[0]
+
+
+def test_a_miss_reads_the_metadata_file_once(
+    source: ThreadingHTTPServer, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A view older than `cache_check` is read again by fsspec on a lookup: that is the read of the miss."""
+    url = _url(source, "/file.txt")
+    download_file(url, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR)
+    mine = NetworkFilesystemManager.get(cache_dir=tmp_path, cache_expiry=CacheExpiry.ONE_HOUR, cache_disable=False)
+    reads: list[int] = []
+    original = _LockedWholeFileCacheFileSystem.load_cache
+
+    def counting(self: _LockedWholeFileCacheFileSystem) -> None:
+        reads.append(1)
+        original(self)
+
+    monkeypatch.setattr(_LockedWholeFileCacheFileSystem, "load_cache", counting)
+    other = _url(source, "/other.txt")
+
+    mine.last_cache = time.time() - 60
+    assert not cached_copy_is_held(other, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR)
+    assert len(reads) == 1
+
+    reads.clear()
+    assert cached_file_time(other, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR) is None
+    assert len(reads) == 1
+
+
+def test_a_reload_cannot_fall_between_the_record_of_a_fetch_and_its_save(
+    source: ThreadingHTTPServer, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """One filesystem used by two threads (the reader of a forecast moves threads) does not lose the entry it records.
+
+    A thread that reads the metadata file again replaces what the filesystem holds, which between the record of a
+    fetch and its save is the new entry. The other thread is started from inside the save, which is where the two
+    meet, and must wait for it.
+    """
+    mine = NetworkFilesystemManager.get(cache_dir=tmp_path, cache_expiry=CacheExpiry.ONE_HOUR, cache_disable=False)
+    url = _url(source, "/new.txt")
+    other = _url(source, "/never.txt")
+    original = _LockedWholeFileCacheFileSystem.save_cache
+    waited: list[bool] = []
+    readers: list[threading.Thread] = []
+
+    def save_with_a_reader_waiting(self: _LockedWholeFileCacheFileSystem) -> None:
+        reader = threading.Thread(target=lambda: self._check_file(other))
+        readers.append(reader)
+        reader.start()
+        reader.join(timeout=0.3)
+        waited.append(reader.is_alive())
+        original(self)
+
+    monkeypatch.setattr(_LockedWholeFileCacheFileSystem, "save_cache", save_with_a_reader_waiting)
+
+    with mine.open(url, block_size=0) as handle:
+        handle.read()
+    readers[0].join(timeout=30)
+
+    assert waited == [True]
+    assert url in _metadata_on_disk(tmp_path)
+
+
+def test_a_filesystem_that_another_thread_misses_on_loses_none_of_the_entries_it_records(
+    source: ThreadingHTTPServer, tmp_path: Path
+) -> None:
+    """The same, as a run: opens in one thread while another asks for copies that are not there. Bounded."""
+    mine = NetworkFilesystemManager.get(cache_dir=tmp_path, cache_expiry=CacheExpiry.ONE_HOUR, cache_disable=False)
+    stop = threading.Event()
+
+    def misses() -> None:
+        index = 0
+        while not stop.is_set():
+            mine._check_file(_url(source, f"/never/{index}"))  # noqa: SLF001
+            index += 1
+
+    thread = threading.Thread(target=misses)
+    thread.start()
+    urls = [_url(source, f"/c/{index}.txt") for index in range(150)]
+    try:
+        for url in urls:
+            with mine.open(url, block_size=0) as handle:
+                handle.read()
+    finally:
+        stop.set()
+        thread.join(timeout=30)
+
+    on_disk = _metadata_on_disk(tmp_path)
+    assert [url for url in urls if url not in on_disk] == []
 
 
 def test_the_second_download_files_finds_everything_the_first_cached(
