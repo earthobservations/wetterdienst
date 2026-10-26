@@ -246,6 +246,7 @@
   "tests/provider/meteofrance/synop/test_api.py::test_meteofrance_synop_api_dd_of_400_is_null": [["MeteoFranceSynopValues subdaily/data", "d9b22919", 8, "a11e1d135caf9c69"]],
   "tests/provider/meteofrance/synop/test_api.py::test_meteofrance_synop_api_gust_is_named_for_its_ten_minutes": [["MeteoFranceSynopValues subdaily/data", "d9b22919", 2, "0188de5e480d1df1"]],
   "tests/provider/meteofrance/synop/test_api.py::test_meteofrance_synop_api_obscured_sky_is_null": [["MeteoFranceSynopValues subdaily/data", "d9b22919", 3, "bbb9faff031d863a"]],
+  "tests/provider/meteofrance/synop/test_api.py::test_meteofrance_synop_api_reads_the_maintained_yearly_file_not_the_stale_mirror": [["MeteoFranceSynopValues subdaily/data", "d9b22919", 2, "3867c88d6a381d74"]],
   "tests/provider/meteofrance/synop/test_api.py::test_meteofrance_synop_api_trace_of_precipitation_is_zero": [["MeteoFranceSynopValues subdaily/data", "d9b22919", 10, "2d23506b5702dd74"]],
   "tests/provider/meteofrance/synop/test_api.py::test_meteofrance_synop_api_wind_is_named_for_its_ten_minutes": [["MeteoFranceSynopValues subdaily/data", "d9b22919", 4, "1ac45b604f7cfed8"]],
   "tests/provider/meteoswiss/observation/test_api.py::test_meteoswiss_observation_a_station_without_a_file_of_the_resolution_comes_out_as_the_empty_long_form": [["MeteoswissObservationValues daily/data", "d9b22919", 0, "e3b0c44298fc1c14"]],
