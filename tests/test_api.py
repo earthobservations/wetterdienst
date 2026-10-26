@@ -1632,7 +1632,7 @@ def test_discover_lists_metoffice_as_needing_a_credential(monkeypatch: pytest.Mo
         "name_short": "MetOffice",
         "country": "United Kingdom",
         "kind": "observation",
-        "extent": {"scope": "national", "continents": ["europe"], "countries": ["GB"], "bbox": [-9.0, 49.0, 2.5, 61.0]},
+        "extent": {"scope": "national", "continents": ["europe"], "bbox": [-10, 48.5, 3, 61.5]},
         "url": "https://catalogue.ceda.ac.uk/uuid/dbd451271eb04662beade68da43546e1/",
         "auth": True,
         "configured": False,
@@ -1670,7 +1670,8 @@ def test_discover_says_what_every_network_is() -> None:
                 "configured",
                 "date_required",
             }
-            assert set(entry["extent"]) == {"scope", "continents", "countries", "bbox"}, f"{provider}/{network}"
+            assert {"scope", "continents", "bbox"} <= set(entry["extent"]), f"{provider}/{network}"
+            assert set(entry["extent"]) <= {"scope", "continents", "countries", "bbox"}, f"{provider}/{network}"
             assert entry["name_short"], f"{provider}/{network}"
             assert entry["country"], f"{provider}/{network}"
             assert entry["url"].startswith("https://"), f"{provider}/{network}"

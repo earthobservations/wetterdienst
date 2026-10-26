@@ -304,13 +304,17 @@ def test_a_network_says_where_its_stations_are(client: TestClient) -> None:
         for network in provider["networks"]
     }
     assert len(extents) == body["metadata"]["counts"]["networks"]
-    assert all(set(extent) == {"scope", "continents", "countries", "bbox"} for extent in extents.values())
+    # `countries` is left out of an answer where there are none and for a national network: it is the `country_code`
+    assert all(
+        {"scope", "continents", "bbox"} <= set(extent) <= {"scope", "continents", "countries", "bbox"}
+        for extent in extents.values()
+    )
+    assert all("countries" not in extent for extent in extents.values() if extent["scope"] != "regional")
     # DWD is German, and so is its observation network; its forecast lists are the world's
     assert extents["dwd/observation"]["scope"] == "national"
-    assert extents["dwd/observation"]["countries"] == ["DE"]
+    assert extents["dwd/observation"]["bbox"] == [5.8, 47.2, 15.1, 55.1]
     assert extents["dwd/mosmix"]["scope"] == "global"
-    assert extents["dwd/mosmix"]["countries"] == []
-    assert extents["dwd/mosmix"]["bbox"] == [-180.0, -90.0, 180.0, 90.0]
+    assert extents["dwd/mosmix"]["bbox"] == [-180, -90, 180, 90]
     assert {"north_america", "south_america", "africa", "asia", "oceania"} <= set(extents["dwd/mosmix"]["continents"])
 
 
@@ -352,7 +356,8 @@ def test_the_mcp_tool_has_the_extent() -> None:
 
     networks = {n["network"]: n for n in asyncio.run(call())["providers"][0]["networks"]}
     assert networks["mosmix"]["extent"]["scope"] == "global"
-    assert networks["observation"]["extent"]["countries"] == ["DE"]
+    assert networks["observation"]["extent"]["scope"] == "national"
+    assert "countries" not in networks["observation"]["extent"]
 
 
 def test_a_dataset_narrower_than_its_network_has_an_extent_of_its_own(client: TestClient) -> None:
@@ -370,7 +375,7 @@ def test_a_dataset_narrower_than_its_network_has_an_extent_of_its_own(client: Te
     assert with_extent == {("dwd/dmo", "hourly", "icon_eu")}
     own = datasets["dwd/dmo", "hourly", "icon_eu"]["extent"]
     assert own["scope"] == "regional"
-    assert own["continents"][0] == "europe"
+    assert "europe" in own["continents"]
     assert datasets["dwd/dmo", "hourly", "icon"].keys() == {"name", "parameters"}
 
 
@@ -378,7 +383,7 @@ def test_the_coverage_of_a_dataset_says_where_it_is_narrower_than_its_network(cl
     """`/api/coverage` of a network lists `extent` of the datasets that have one, and leaves it out of the others."""
     coverage = client.get("/api/coverage", params={"provider": "dwd", "network": "dmo"}).json()
 
-    assert coverage["hourly"]["datasets"]["icon_eu"]["extent"]["bbox"] == [-13.0, 13.0, 50.0, 71.0]
+    assert coverage["hourly"]["datasets"]["icon_eu"]["extent"]["bbox"] == [-13, 13, 50, 71]
     assert "extent" not in coverage["hourly"]["datasets"]["icon"]
     mosmix = client.get("/api/coverage", params={"provider": "dwd", "network": "mosmix"}).json()
     assert all("extent" not in dataset for dataset in mosmix["hourly"]["datasets"].values())

@@ -59,7 +59,10 @@ _MetnoFrostMetadataSpec = {
         "scope": "national",
         "continents": ["europe"],
         "countries": ["NO"],
-        "bbox": [-10.0, 57.0, 32.0, 81.0],
+        # declared from the documentation of MET Norway, no list was read (a key is needed): Norway with Svalbard and
+        # Jan Mayen, and the platforms on the shelf of the North Sea (Ekofisk, 56.5 N), so the box reaches 55. The
+        # research stations in Antarctica and on Bouvetoya are not declared: the documentation does not say
+        "bbox": [-10.0, 55.0, 32.0, 81.0],
     },
     "timezone": "Europe/Oslo",
     "auth": True,

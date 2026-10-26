@@ -32,7 +32,7 @@ _DwdDmoMetadataSpec = {
                     # north, 12 west to 49 east on 2026-10-26), where `icon` is the world's
                     "extent": {
                         "scope": "regional",
-                        "continents": ["europe", "asia", "africa"],
+                        "continents": ["africa", "asia", "europe"],
                         "countries": [],
                         "bbox": [-13.0, 13.0, 50.0, 71.0],
                     },

@@ -227,3 +227,33 @@ def test_a_live_catalogue_has_its_data(key: str, resolution: str, dataset: str) 
         rules=index.rules,
         fail_on_stale=False,
     )
+
+
+@pytest.mark.remote
+@pytest.mark.slow
+def test_the_hubeau_referential_is_in_the_extent_of_its_network() -> None:
+    """Hold the stations of the referential of `eaufrance/hubeau` to its extent, as `_NOT_HELD` leaves it out (GH-3456).
+
+    The catalogue of the reader is made from the referential and from a request for each station's step, which takes
+    minutes; the referential is one request (`referentiel/stations?en_service=true`, 4,197 stations on 2026-10-26), and
+    its stations are the ones the catalogue lists. So the box and the continents are held to those: Metropolitan France
+    with Corsica, Guadeloupe, Martinique, Guyane, Reunion and Mayotte.
+    """
+    from wetterdienst import Settings  # noqa: PLC0415
+    from wetterdienst.metadata.cache import CacheExpiry  # noqa: PLC0415
+    from wetterdienst.provider.eaufrance.hubeau.api import _STATIONS_ENDPOINT, _paged_rows  # noqa: PLC0415
+
+    rows = _paged_rows(_STATIONS_ENDPOINT, Settings(cache_disable=True), ttl=CacheExpiry.FIVE_MINUTES, timeout=120)
+    stations = pl.DataFrame(
+        {
+            "station_id": [row["code_station"] for row in rows],
+            "latitude": [row.get("latitude_station") for row in rows],
+            "longitude": [row.get("longitude_station") for row in rows],
+        },
+        schema={"station_id": pl.String, "latitude": pl.Float64, "longitude": pl.Float64},
+    )
+
+    assert stations.height > 1000
+    assert_in_extent(
+        stations, "eaufrance/hubeau", Wetterdienst.resolve("eaufrance", "hubeau").metadata.extent, whole=True
+    )

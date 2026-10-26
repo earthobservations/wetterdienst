@@ -16,7 +16,7 @@ from wetterdienst.settings import Settings, check_settings
 from wetterdienst.util.extras import missing_dependency_message
 
 if TYPE_CHECKING:
-    from wetterdienst.model.metadata import CoverageExtent, CoverageNetwork
+    from wetterdienst.model.metadata import CoverageNetwork, Extent
     from wetterdienst.model.request import TimeseriesRequest
     from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest
     from wetterdienst.provider.dwd.radar import DwdRadarValues
@@ -331,7 +331,8 @@ class Wetterdienst:
 
         Per network: `name_short`, the provider's short name; `country`, the operator's; `url`, where the
         provider publishes the data; `kind`; `extent`, where the stations of the network are (`scope`,
-        `continents`, `countries`, `bbox`: the country says nothing of it, see `ExtentModel`); `auth` whether it
+        `continents`, `countries`, `bbox`: the country says nothing of it, see `Extent`; a plain dict, with
+        no `countries` where there are none or the network is national); `auth` whether it
         needs credentials, `configured` whether they are present; `date_required`.
 
         `kind` is what the network is. A timeseries network has stations and values, and is `observation`,
@@ -356,7 +357,7 @@ class Wetterdienst:
                         # no metadata model, so what the network is comes from its request class; and no credentials
                         listed[network] = {
                             **standalone.listing,
-                            "extent": cast("CoverageExtent", standalone.terms.extent.model_dump()),
+                            "extent": cast("Extent", standalone.terms.extent.model_dump(mode="json")),
                             "auth": False,
                             "configured": True,
                             "date_required": False,
@@ -373,7 +374,7 @@ class Wetterdienst:
                     "name_short": metadata.name_short,
                     "country": metadata.country,
                     "kind": metadata.kind,
-                    "extent": cast("CoverageExtent", metadata.extent.model_dump()),
+                    "extent": cast("Extent", metadata.extent.model_dump(mode="json")),
                     "url": metadata.url,
                     "auth": metadata.auth,
                     # not probed whether the credentials are accepted: that is a request to the provider per

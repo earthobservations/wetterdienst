@@ -8550,10 +8550,11 @@ def test_coverage_schema_in_openapi(client: TestClient) -> None:
     assert properties["name_short"] == {"type": "string", "title": "Name Short"}
     assert properties["kind"]["enum"] == list(get_args(NetworkKind))
     # where the stations are, not where the provider is (GH-3456)
-    assert properties["extent"] == {"$ref": "#/components/schemas/CoverageExtent"}
-    extent = {"scope", "continents", "countries", "bbox"}
-    assert shape("CoverageExtent") == (extent, extent)
-    assert components["CoverageExtent"]["properties"]["scope"]["enum"] == [
+    # one schema for `/api/providers` and `/api/coverage` alike, so that a client generator sees one type
+    assert properties["extent"] == {"$ref": "#/components/schemas/Extent"}
+    assert "CoverageExtent" not in components
+    assert shape("Extent") == ({"scope", "continents", "countries", "bbox"}, {"scope", "continents", "bbox"})
+    assert components["Extent"]["properties"]["scope"]["enum"] == [
         "global",
         "national",
         "regional",

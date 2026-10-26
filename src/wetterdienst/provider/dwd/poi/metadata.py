@@ -61,7 +61,7 @@ _DwdPoiMetadataSpec = {
     "kind": "observation",
     "extent": {
         "scope": "regional",
-        "continents": ["europe", "asia", "africa", "north_america"],
+        "continents": ["africa", "asia", "europe"],
         "countries": [],
         "bbox": [-32.0, 27.0, 129.0, 79.0],
     },

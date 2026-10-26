@@ -77,6 +77,8 @@ export interface CoverageNetworkInfo {
   name_short: string
   country: string
   kind: NetworkKind
+  /** Where the stations of the network are; absent from a backend that predates it */
+  extent?: NetworkExtent
   url: string
   auth: boolean
   configured: boolean
@@ -464,8 +466,8 @@ export interface NetworkExtent {
   /** `global`: stations on at least five continents; `national`: one country, with its territories; `regional`: everything between */
   scope: 'global' | 'national' | 'regional'
   continents: Array<'africa' | 'antarctica' | 'asia' | 'europe' | 'north_america' | 'oceania' | 'south_america'>
-  /** ISO 3166-1 alpha-2 codes: the one country of a `national` network, else empty */
-  countries: string[]
+  /** ISO 3166-1 alpha-2 codes, for a `regional` network where the list is short and exact: absent otherwise, and for `national` it is the provider's `country_code` */
+  countries?: string[]
   /** `[west, south, east, north]` in degrees, around every station; not across the antimeridian */
   bbox: [number, number, number, number]
 }

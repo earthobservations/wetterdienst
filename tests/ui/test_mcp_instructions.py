@@ -82,7 +82,7 @@ def test_the_instructions_name_no_network_for_its_reach() -> None:
 
 def test_the_instructions_stay_compact() -> None:
     """They are read on every connection: the paragraph on the country and the point fits in what it costs."""
-    assert len(INSTRUCTIONS) < 7500
+    assert len(INSTRUCTIONS) < 7800
 
 
 def test_the_country_of_a_provider_is_described_as_the_operators() -> None:

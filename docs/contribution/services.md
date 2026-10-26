@@ -74,7 +74,8 @@ The fields above `resolutions` say what the provider is, and none can be left ou
 `name_english`, `name_local`, `country`, `country_code` (the ISO 3166-1 alpha-2 code, or `None` for a provider of
 several countries), `copyright`, `license` (a `LicenseModel`, or `None` where the provider states no terms),
 `attribution` (the credit line, or `None`), `url`, `kind`, `extent` (where its stations are: `scope`, `continents`,
-`countries` and the `bbox` `[west, south, east, north]`, which the station-catalogue tests hold to the list, see
+`countries` and the `bbox` `[west, south, east, north]`, which the station-catalogue tests hold to the list; the continents
+are declared by hand as the areas the network is meant to serve, see
 [Extent](../usage/restapi.md#providers)), `timezone` and, for a network that needs credentials, `auth`. A provider with several networks declares them once in a `_METADATA` dict of its own (DWD's is
 `provider/dwd/metadata.py`) and spreads it into each network's spec, as above. They are what the REST API's
 [`metadata` block](../usage/restapi.md#response-metadata) and the [providers](../usage/restapi.md#providers)

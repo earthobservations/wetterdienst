@@ -30,7 +30,7 @@ _FmiObservationMetadataSpec = {
     "kind": "observation",
     "extent": {
         "scope": "national",
-        "continents": ["europe", "antarctica"],
+        "continents": ["antarctica", "europe"],
         "countries": ["FI"],
         "bbox": [-14.0, -74.0, 32.0, 70.2],
     },

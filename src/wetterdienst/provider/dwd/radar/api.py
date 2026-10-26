@@ -23,7 +23,7 @@ from wetterdienst.metadata.extension import Extension
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.renamed import refuse_renamed_arguments
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.model.metadata import ExtentModel, ProviderTerms
+from wetterdienst.model.metadata import Extent, ProviderTerms
 from wetterdienst.provider.dwd.metadata import _METADATA
 from wetterdienst.provider.dwd.radar.index import (
     create_fileindex_radar,
@@ -153,7 +153,7 @@ class DwdRadarValues:  # noqa: PLW1641
         url="https://opendata.dwd.de/weather/radar/",
         # the products are grids and composites over Germany and the countries around it (declared from the
         # documentation of DWD, no station list to hold it to)
-        extent=ExtentModel(scope="national", continents=["europe"], countries=["DE"], bbox=[1.0, 45.0, 18.0, 56.0]),
+        extent=Extent(scope="national", continents=["europe"], countries=["DE"], bbox=[1.0, 45.0, 18.0, 56.0]),
     )
 
     def __new__(cls, *args: object, **kwargs: object) -> Self:  # noqa: ARG004

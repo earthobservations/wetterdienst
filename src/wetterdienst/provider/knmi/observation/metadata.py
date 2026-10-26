@@ -25,7 +25,10 @@ _KnmiObservationMetadataSpec = {
         "scope": "national",
         "continents": ["europe", "north_america"],
         "countries": ["NL"],
-        "bbox": [-69.0, 12.0, 8.0, 54.0],
+        # declared from the documentation of KNMI, no list was read (a key is needed): the 10-minute stations include
+        # the Caribbean Netherlands (WMO block 78) and the platforms of the North Sea, north to F3-FB-1 (54.85 N) and
+        # A12 (55.4 N), so the box reaches 56
+        "bbox": [-69.0, 12.0, 8.0, 56.0],
     },
     "timezone": "Europe/Amsterdam",
     "auth": True,

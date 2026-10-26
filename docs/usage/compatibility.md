@@ -317,9 +317,7 @@ name as kept, and does not know how long ago it was renamed).
 
 Every answer says where the data comes from and under what terms (`metadata.provider`, and `GET /api/providers`):
 `license` with `spdx_id`, `name` and `url`, `attribution`, `copyright`, the names and the country of the provider
-(`country_code` is null for a provider of several countries) and, for each network, its `extent`: where its stations
-are, which the country of the provider does not say (`scope`, `continents`, `countries`, `bbox`; added after 0.175.0, in
-`/api/providers` and `/api/coverage`). The members are frozen with the answer's model. The
+(`country_code` is null for a provider of several countries). The members are frozen with the answer's model. The
 values are what the provider states, taken from its own terms: they change when a provider changes its terms or the
 library reads them more closely, which is a fix and not a break; `spdx_id` is null where the terms have none (ECCC,
 AEMET, IMGW, IPMA), and `license` is null only where a provider states no terms that could be read, which is then

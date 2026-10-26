@@ -17,7 +17,7 @@ from pydantic import ValidationError
 
 from tests.provider.station_catalogue import CONTINENT_BOXES, COUNTRY_BBOX
 from wetterdienst import Wetterdienst
-from wetterdienst.model.metadata import ExtentModel, MetadataModel
+from wetterdienst.model.metadata import Extent, MetadataModel, ProviderTerms
 
 # the networks whose declared box reaches beyond the box of their country, with the reason: a station of the network
 # is somewhere else (`COUNTRY_BBOX` of the same network says the rest: the box of the country it is accepted from)
@@ -29,7 +29,7 @@ BEYOND_THE_COUNTRY = {
 ALL_CONTINENTS = sorted(CONTINENT_BOXES)
 
 
-def _extents() -> dict[str, ExtentModel]:
+def _extents() -> dict[str, Extent]:
     """Give the extent of every network of the registry, a standalone one by its terms."""
     extents = {}
     for provider, networks in Wetterdienst.registry.items():
@@ -50,7 +50,7 @@ def test_every_network_declares_its_extent() -> None:
     """A network of the registry, standalone or not, has an extent, which `MetadataModel` requires."""
     extents = _extents()
     assert len(extents) == sum(len(networks) for networks in Wetterdienst.registry.values())
-    assert all(isinstance(extent, ExtentModel) for extent in extents.values())
+    assert all(isinstance(extent, Extent) for extent in extents.values())
 
 
 def test_a_declaration_without_its_extent_is_refused() -> None:
@@ -76,8 +76,7 @@ def test_a_national_network_is_in_the_country_of_its_provider() -> None:
 @pytest.mark.parametrize(
     ("changes", "message"),
     [
-        pytest.param({"scope": "national", "countries": []}, "names its one country", id="national-without-country"),
-        pytest.param({"scope": "national", "countries": ["DE", "FR"]}, "names its one country", id="national-two"),
+        pytest.param({"scope": "national", "countries": ["DE", "FR"]}, "one country's", id="national-two"),
         pytest.param({"scope": "global"}, "is bound to no country|box of the Earth", id="global-one-country"),
         pytest.param(
             {"scope": "global", "countries": [], "bbox": [-180.0, -90.0, 180.0, 90.0]},
@@ -113,10 +112,10 @@ def test_an_extent_that_contradicts_itself_is_refused(changes: dict[str, Any], m
     """The scope, the countries, the continents and the box are held to one another when the declaration is built."""
     declared = _declared(**changes)
     if not message:
-        assert ExtentModel.model_validate(declared).scope == "regional"
+        assert Extent.model_validate(declared).scope == "regional"
         return
     with pytest.raises(ValidationError, match=message):
-        ExtentModel.model_validate(declared)
+        Extent.model_validate(declared)
 
 
 def test_the_scope_is_what_the_continents_and_countries_say() -> None:
@@ -152,7 +151,7 @@ def test_a_dataset_narrower_than_its_network_declares_its_own_extent() -> None:
     assert set(declared) == {("dwd/dmo", "hourly/icon_eu")}
     icon_eu = declared["dwd/dmo", "hourly/icon_eu"]
     assert icon_eu.scope == "regional"
-    assert icon_eu.continents[0] == "europe"
+    assert "europe" in icon_eu.continents
     assert Wetterdienst.resolve("dwd", "dmo").metadata.hourly.icon.extent is None
 
 
@@ -221,3 +220,114 @@ def test_the_dwd_forecast_networks_are_global_and_the_german_ones_national() -> 
     assert extents["dwd/observation"].scope == "national"
     assert extents["dwd/observation"].countries == ["DE"]
     assert extents["noaa/ghcn"].scope == "global"
+
+
+# the continents of a network are declared by hand, as the areas it is meant to serve, and are descriptive: a territory
+# may be named or left out, and `bbox` and the station lists are the exact answer. The convention for an outlying
+# territory is "named if the network has stations there": the table lists those that are named, with the continent
+# and the reason, and `test_a_territory_is_named_where_the_convention_says` holds the declarations to it. For the
+# border cases that no network names by itself, a station counts for the box it is in (`CONTINENT_BOXES`): Turkey east
+# of 34 degrees east is Asia and Europe both, Turkey west of it and Cyprus are Europe, Russia is Europe west of 60
+# degrees east and Asia east of 34, the Azores are Europe, Greenland and the Caribbean are North America, Guam and
+# Hawaii are Oceania.
+NAMED_TERRITORIES = {
+    "aemet/observation": {
+        "africa": "the Canary Islands, Ceuta and Melilla",
+        "antarctica": "the Spanish bases (declared from documentation)",
+    },
+    "dmi/observation": {"north_america": "Greenland"},
+    "eaufrance/hubeau": {
+        "africa": "Reunion and Mayotte",
+        "north_america": "Guadeloupe and Martinique",
+        "south_america": "Guyane",
+    },
+    "fmi/observation": {"antarctica": "Aboa"},
+    "ipma/observation": {"africa": "Madeira and the Selvagens"},
+    "knmi/observation": {"north_america": "the Caribbean Netherlands"},
+    "meteofrance/observation": {
+        "africa": "Reunion, Mayotte",
+        "antarctica": "Dumont d'Urville",
+        "north_america": "the Antilles, Saint-Pierre-et-Miquelon",
+        "oceania": "New Caledonia, Polynesia, Wallis",
+        "south_america": "Guyane",
+    },
+    "meteofrance/synop": {
+        "africa": "Reunion, Mayotte",
+        "antarctica": "Dumont d'Urville",
+        "north_america": "the Antilles, Saint-Pierre-et-Miquelon",
+        "oceania": "New Caledonia, Polynesia, Wallis",
+        "south_america": "Guyane",
+    },
+    "nws/observation": {"oceania": "Hawaii, Guam, American Samoa"},
+}
+
+
+@pytest.mark.parametrize("key", sorted(NAMED_TERRITORIES))
+def test_a_territory_is_named_where_the_convention_says(key: str) -> None:
+    """A network that has stations in an outlying territory names its continent, the same way for every network."""
+    extent = _extents()[key]
+    assert set(NAMED_TERRITORIES[key]) <= set(extent.continents), key
+
+
+def test_the_continents_are_listed_in_alphabetical_order() -> None:
+    """Every extent names its continents in the one order, which is the order of the schema's enumeration."""
+    for key, extent in _extents().items():
+        assert extent.continents == sorted(extent.continents), key
+
+
+def _dmo_with(extent: dict[str, Any], dataset_extent: dict[str, Any]) -> dict[str, Any]:
+    """Give the declaration of `dwd/dmo`, with the extents of its network and of its `icon_eu` dataset changed."""
+    declared = Wetterdienst.resolve("dwd", "dmo").metadata.model_dump()
+    datasets = [
+        {**dataset, "extent": dataset_extent} if dataset["name"] == "icon_eu" else dataset
+        for dataset in declared["resolutions"][0]["datasets"]
+    ]
+    return {**declared, "extent": extent, "resolutions": [{**declared["resolutions"][0], "datasets": datasets}]}
+
+
+def test_a_dataset_of_a_national_network_is_national_and_of_the_providers_country() -> None:
+    """`dwd/observation` is Germany's: a dataset of it is no regional one, and names no other country than DE."""
+    german = _declared()
+    narrower = {**german, "bbox": [6.0, 48.0, 14.0, 54.0]}
+    assert MetadataModel.model_validate(_dmo_with(german, narrower)).extent.countries == ["DE"]
+    for changes, message in [
+        ({"scope": "regional", "countries": []}, "a dataset of a national network is national"),
+        ({"countries": ["FR"]}, "national extent names"),
+    ]:
+        with pytest.raises(ValidationError, match=message):
+            MetadataModel.model_validate(_dmo_with(german, {**narrower, **changes}))
+
+
+def test_a_dataset_extent_that_is_the_networks_in_another_order_is_refused() -> None:
+    """The comparison is of what the extents say, not of how their lists are ordered."""
+    network = {
+        "scope": "regional",
+        "continents": ["asia", "europe"],
+        "countries": [],
+        "bbox": [-10.0, 20.0, 60.0, 70.0],
+    }
+    reordered = {**network, "continents": ["europe", "asia"]}
+    with pytest.raises(ValidationError, match="which a dataset leaves out"):
+        MetadataModel.model_validate(_dmo_with(network, reordered))
+    assert Extent.model_validate(network).same_as(Extent.model_validate(reordered))
+
+
+def test_a_standalone_network_is_held_to_the_country_of_its_provider() -> None:
+    """`dwd/radar` has terms and no metadata model, and its national extent has to name the provider's country."""
+    terms = Wetterdienst.resolve_standalone("dwd", "radar").terms
+    assert terms.extent.countries == [terms.country_code]
+    fields = {name: getattr(terms, name) for name in terms.__dataclass_fields__}
+    with pytest.raises(ValueError, match="national extent names"):
+        ProviderTerms(**{**fields, "extent": Extent.model_validate(_declared(countries=["FR"]))})
+
+
+def test_an_extent_in_an_answer_is_short() -> None:
+    """In JSON, no `countries` for a national or a country-less network, and a whole degree without its `.0`."""
+    national = Extent.model_validate(_declared())
+    assert national.model_dump()["countries"] == ["DE"]
+    assert "countries" not in national.model_dump(mode="json")
+    regional = Extent.model_validate(
+        {"scope": "regional", "continents": ["europe"], "countries": ["DE", "FR"], "bbox": [-4.5, 42.0, 15.0, 55.0]}
+    )
+    assert regional.model_dump(mode="json")["countries"] == ["DE", "FR"]
+    assert regional.model_dump_json().count('"bbox":[-4.5,42,15,55]') == 1

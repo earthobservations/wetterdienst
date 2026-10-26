@@ -19,7 +19,7 @@ _MeteoFranceSynopMetadataSpec = {
     "kind": "observation",
     "extent": {
         "scope": "national",
-        "continents": ["europe", "north_america", "south_america", "africa", "oceania", "antarctica"],
+        "continents": ["africa", "antarctica", "europe", "north_america", "oceania", "south_america"],
         "countries": ["FR"],
         "bbox": [-179.0, -67.0, 167.0, 52.0],
     },

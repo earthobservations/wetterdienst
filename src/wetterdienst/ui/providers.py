@@ -15,10 +15,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 
 from pydantic import BaseModel, ConfigDict, Field, SerializerFunctionWrapHandler, model_serializer
+from pydantic.json_schema import SkipJsonSchema  # noqa: TC002, needed at runtime by pydantic
 
 from wetterdienst.api import Wetterdienst
 from wetterdienst.model.metadata import (  # noqa: TC001, needed at runtime by pydantic
-    ExtentModel,
+    Extent,
     LicenseModel,
     NetworkKind,
 )
@@ -39,7 +40,7 @@ class ProviderDataset(BaseModel):
 
     name: str
     parameters: int = Field(description="How many parameters the dataset has, which `/api/coverage` lists.")
-    extent: ExtentModel | None = Field(
+    extent: Extent | SkipJsonSchema[None] = Field(
         default=None,
         description="Where the stations of the dataset are, where that is less than its network's (`extent` of the "
         "network). Left out of the answer for a dataset that has the extent of its network.",
@@ -75,7 +76,7 @@ class ProviderNetwork(BaseModel):
         description="`observation`, `forecast` or `derived` for a network with stations and values; `radar` and "
         "`alerts` for a standalone one (`dwd/radar`, `dwd/alerts`), which has no resolutions to list.",
     )
-    extent: ExtentModel = Field(
+    extent: Extent = Field(
         description="Where the stations of the network are, which the `country` of its provider does not say.",
     )
     url: str = Field(description="Where the provider publishes the data of the network.")
