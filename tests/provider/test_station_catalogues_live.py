@@ -23,10 +23,18 @@ The networks that are held in their stub only, and those that cannot be held, ar
 
 from __future__ import annotations
 
+import polars as pl
 import pytest
 
 from tests.conftest import FROST_RESOLVER_ON_MACOS
-from tests.provider.station_catalogue import COUNTRY_BBOX, Accepted, assert_covered, assert_sound
+from tests.provider.station_catalogue import (
+    COUNTRY_BBOX,
+    Accepted,
+    assert_covered,
+    assert_in_extent,
+    assert_sound,
+    extent_of,
+)
 from tests.provider.station_catalogue_stubs import (
     CHMI_NAME,
     DWD_NAMES,
@@ -140,7 +148,8 @@ def _cases() -> list[object]:
 def test_a_live_catalogue_is_sound(provider: str, network: str, resolution: str, dataset: str) -> None:
     """Hold the whole live station list to the rules, naming the provider, station and rule that fails."""
     key = f"{provider}/{network}"
-    stations = Wetterdienst.resolve(provider, network)(parameters=[(resolution, dataset)]).all().df
+    request = Wetterdienst.resolve(provider, network)(parameters=[(resolution, dataset)])
+    stations = request.all().df
     assert_sound(
         stations,
         f"{key} {resolution}/{dataset}",
@@ -148,6 +157,51 @@ def test_a_live_catalogue_is_sound(provider: str, network: str, resolution: str,
         accepted=ACCEPTED.get(key, ()),
         fail_on_stale=False,
     )
+    # every station is in the box the network declares as its extent (GH-3456), or its dataset where that is narrower
+    # (the European list of `dwd/dmo`). A dataset with an extent of its own is held as the whole of its list: no wider
+    # than the stations, and on the continents it names. So is a dataset that has none, where the network reaches
+    # beyond one country: it has to reach what its network says, or it is a narrower one that declares an extent of
+    # its own. (In a national network the box is the country's, which a dataset need not fill.)
+    extent = extent_of(request.metadata, f"{resolution}/{dataset}")
+    reaches_its_network = extent == request.metadata.extent and extent.scope != "national"
+    assert_in_extent(
+        stations,
+        f"{key} {resolution}/{dataset}",
+        extent,
+        whole=extent != request.metadata.extent or reaches_its_network,
+    )
+
+
+def _extent_cases() -> list[object]:
+    """Give each network of `_cases` once, with the datasets held for it, to check its extent against the whole."""
+    datasets: dict[str, list[tuple[str, str]]] = {}
+    marks: dict[str, list[object]] = {}
+    for case in _cases():
+        provider, network, resolution, dataset = case.values  # ty: ignore[unresolved-attribute]
+        key = f"{provider}/{network}"
+        marks[key] = list(case.marks)  # ty: ignore[unresolved-attribute]
+        if resolution:
+            datasets.setdefault(key, []).append((resolution, dataset))
+    return [pytest.param(key, held, marks=marks[key], id=key) for key, held in datasets.items()]
+
+
+@pytest.mark.remote
+@pytest.mark.parametrize(("key", "held"), _extent_cases())
+def test_a_live_network_has_the_extent_it_declares(key: str, held: list[tuple[str, str]]) -> None:
+    """Hold the stations of all the datasets of a network to the extent it declares (GH-3456).
+
+    The box is no wider than the stations, each continent it names has a station, and a global network has stations
+    on five of them. The extent is of the network, so the lists of its datasets are held together: `dwd/dmo` is
+    global by its `icon` list and its `icon_eu` list is Europe. The box of a catalogue held to `COUNTRY_BBOX` is the
+    country's, which the stations need not fill: `EXTENT_SLACK` is the room the box may have on each side.
+    """
+    provider, network = key.split("/")
+    api = Wetterdienst.resolve(provider, network)
+    stations = pl.concat(
+        [api(parameters=[parameter]).all().df.select("station_id", "latitude", "longitude") for parameter in held],
+        how="vertical_relaxed",
+    )
+    assert_in_extent(stations, key, api.metadata.extent, whole=True)
 
 
 def _coverage_cases() -> list[object]:
@@ -180,4 +234,34 @@ def test_a_live_catalogue_has_its_data(key: str, resolution: str, dataset: str) 
         accepted=ACCEPTED_LIVE.get(key, ()),
         rules=index.rules,
         fail_on_stale=False,
+    )
+
+
+@pytest.mark.remote
+@pytest.mark.slow
+def test_the_hubeau_referential_is_in_the_extent_of_its_network() -> None:
+    """Hold the stations of the referential of `eaufrance/hubeau` to its extent, as `_NOT_HELD` leaves it out (GH-3456).
+
+    The catalogue of the reader is made from the referential and from a request for each station's step, which takes
+    minutes; the referential is one request (`referentiel/stations?en_service=true`, 4,197 stations on 2026-10-26), and
+    its stations are the ones the catalogue lists. So the box and the continents are held to those: Metropolitan France
+    with Corsica, Guadeloupe, Martinique, Guyane, Reunion and Mayotte.
+    """
+    from wetterdienst import Settings  # noqa: PLC0415
+    from wetterdienst.metadata.cache import CacheExpiry  # noqa: PLC0415
+    from wetterdienst.provider.eaufrance.hubeau.api import _STATIONS_ENDPOINT, _paged_rows  # noqa: PLC0415
+
+    rows = _paged_rows(_STATIONS_ENDPOINT, Settings(cache_disable=True), ttl=CacheExpiry.FIVE_MINUTES, timeout=120)
+    stations = pl.DataFrame(
+        {
+            "station_id": [row["code_station"] for row in rows],
+            "latitude": [row.get("latitude_station") for row in rows],
+            "longitude": [row.get("longitude_station") for row in rows],
+        },
+        schema={"station_id": pl.String, "latitude": pl.Float64, "longitude": pl.Float64},
+    )
+
+    assert stations.height > 1000
+    assert_in_extent(
+        stations, "eaufrance/hubeau", Wetterdienst.resolve("eaufrance", "hubeau").metadata.extent, whole=True
     )

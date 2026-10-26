@@ -324,6 +324,13 @@ AEMET, IMGW, IPMA), and `license` is null only where a provider states no terms 
 named with its reason in `LICENSE_NOT_STATED` of `tests/ui/test_response_metadata.py` (empty today). The licence of the
 data is the provider's, not wetterdienst's.
 
+`GET /api/providers` gives each network an `extent` (`scope`, `continents`, `country_codes`, `bbox`: where its stations are,
+see [Extent](restapi.md#extent)) and each dataset narrower than its network one of its own; `GET /api/coverage` gives
+the `scope` of each network and, of one network, the extent of each dataset. They are additive members (added after
+0.175.0). Their values are what the station lists show: they change when a list does (a network that reaches a new
+territory), which is a fix and not a break. `country_codes` is absent from an answer for a national or a country-less
+network, and `extent` from a dataset of `providers` that has its network's.
+
 The date the source states for the data of an answer is `metadata.data_updated_at` (and the
 `X-Wetterdienst-Data-Updated-At` header, `data_updated_at` of the values results and of their `metadata` with
 `with_metadata=True`, of a `RadarResult` and of a `DwdWeatherAlertResult`): `null` where the source states none or the library does not read

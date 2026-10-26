@@ -11,7 +11,7 @@ const { markerCluster } = vi.hoisted(() => ({
     leafletObject.addLayer(cluster)
     return {
       markerCluster: cluster,
-      markers: markers.map(() => ({ on: (_event: string, _handler: () => void) => {}, setIcon: () => {} })),
+      markers: markers.map(() => ({ on: (_event: string, _handler: () => void) => {}, setIcon: (_icon?: unknown) => {} })),
     }
   }),
 }))
@@ -53,6 +53,63 @@ describe('mapStations', () => {
     ])
     // Leaflet names a marker for a screen reader by its `alt`, "Marker" unless it is given one
     expect(markers.map(m => m.options.alt)).toEqual(markers.map(m => m.options.title))
+  })
+})
+
+describe('mapStations marker icons', () => {
+  const berlin = { station_id: '00001', name: 'Test Station', region: 'Berlin', latitude: 52.5, longitude: 13.4 }
+  const jan = { station_id: '01001', name: 'JAN MAYEN', region: null, latitude: 70.9, longitude: -8.7 }
+
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+
+  afterEach(() => {
+    wrapper?.unmount()
+    wrapper = undefined
+    // back to the implementation the mock was made with
+    markerCluster.mockReset()
+  })
+
+  // The options of the icon each marker was last given, by its index.
+  async function iconsFor(selectedStations: unknown[]) {
+    const setIcon = vi.fn()
+    markerCluster.mockImplementation(async ({ leafletObject, markers }: { leafletObject: { addLayer: (layer: object) => unknown }, markers: unknown[] }) => {
+      const cluster = { refreshClusters: () => {} }
+      leafletObject.addLayer(cluster)
+      const handed = markers.map((_, index) => ({
+        on: () => {},
+        setIcon: (icon?: unknown) => {
+          setIcon(index, icon)
+        },
+      }))
+      return { markerCluster: cluster, markers: handed }
+    })
+    wrapper = await mountSuspended(MapStations, { props: { stations: [berlin, jan], selectedStations, multiple: true } })
+    const vm = wrapper.vm as any
+    vm.map = { leafletObject: { getContainer: () => document.createElement('div'), addLayer: () => {}, removeLayer: () => {}, fitBounds: () => {} } }
+    await vm.onMapReady()
+    return Object.fromEntries(setIcon.mock.calls.map(([index, icon]) => [index, icon.options])) as Record<number, any>
+  }
+
+  it('serves every marker image from the app, none from a third party', async () => {
+    const icons = await iconsFor([berlin])
+    const { markers } = markerCluster.mock.calls[0]![0] as { markers: { options: { icon: { options: any } } }[] }
+    for (const options of [icons[0], icons[1], markers[0]!.options.icon.options]) {
+      for (const url of [options.iconUrl, options.iconRetinaUrl, options.shadowUrl])
+        expect(url, url).not.toMatch(/^(https?:)?\/\//)
+    }
+  })
+
+  it('tints the selected marker by CSS and draws it larger, so it is told apart without colour', async () => {
+    const icons = await iconsFor([berlin])
+
+    // the same image (the default's 2x, which is not stretched at the larger size), not another download
+    expect(icons[0].iconUrl).toBe(icons[1].iconRetinaUrl)
+    expect(icons[0].className).toBe('wd-marker-selected')
+    expect(icons[1].className).toBeUndefined()
+    expect(icons[0].iconSize[0]).toBeGreaterThan(icons[1].iconSize[0])
+    expect(icons[0].iconSize[1]).toBeGreaterThan(icons[1].iconSize[1])
+    // and its tip, the bottom centre, stands on the station as the other's does
+    expect(icons[0].iconAnchor).toEqual([Math.floor(icons[0].iconSize[0] / 2), icons[0].iconSize[1]])
   })
 })
 

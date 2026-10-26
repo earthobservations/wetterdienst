@@ -46,6 +46,12 @@ _EAHydrologyMetadataSpec = {
     "attribution": "Environment Agency",
     "url": "https://environment.data.gov.uk/",
     "kind": "observation",
+    "extent": {
+        "scope": "national",
+        "continents": ["europe"],
+        "country_codes": ["GB"],
+        "bbox": [-6.0, 49.8, 2.0, 55.9],
+    },
     "timezone": "Europe/London",
     "resolutions": [
         {

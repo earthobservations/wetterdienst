@@ -304,6 +304,15 @@ _HubeauMetadataSpec = {
     "attribution": "Eaufrance",
     "url": "https://www.eaufrance.fr/",
     "kind": "observation",
+    "extent": {
+        "scope": "national",
+        "continents": ["africa", "europe", "north_america", "south_america"],
+        "country_codes": ["FR"],
+        # Guadeloupe and Martinique, Guyane, Reunion, Mayotte and Corsica, read from the referential the reader lists
+        # the stations of (`referentiel/stations?en_service=true`, 4,197 stations on 2026-10-26: longitude -61.78 to
+        # 55.72, latitude -21.38 to 50.92), which `test_the_hubeau_referential_is_in_the_extent_of_its_network` reads
+        "bbox": [-62.0, -22.0, 56.0, 51.0],
+    },
     "timezone": "Europe/Paris",
     "resolutions": [
         {

@@ -41,7 +41,7 @@ against those files.
 from __future__ import annotations
 
 from wetterdienst.model.metadata import build_metadata_model
-from wetterdienst.provider.dwd.metadata import _METADATA
+from wetterdienst.provider.dwd.metadata import _METADATA, EXTENT_GERMANY
 
 # The two reporter groups, as ``directory: (dataset name prefix, prose name)``. The prefix keeps
 # the two apart where they observe the same plant, which most of them do.
@@ -1212,6 +1212,7 @@ _DwdPhenologyMetadataSpec = {
     "copyright": "© Deutscher Wetterdienst (DWD), Climate Data Center (CDC), phenology",
     "url": "https://opendata.dwd.de/climate_environment/CDC/observations_germany/phenology/",
     "kind": "observation",
+    "extent": EXTENT_GERMANY,
     "timezone": "Europe/Berlin",
     "resolutions": [
         {

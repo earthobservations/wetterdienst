@@ -32,7 +32,7 @@ from wetterdienst.exceptions import (
     RequestError,
 )
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.model.metadata import ProviderTerms
+from wetterdienst.model.metadata import Extent, ProviderTerms
 from wetterdienst.provider.dwd.alerts.metadata import (
     DWD_ALERTS_BASE_URL,
     DwdWeatherAlertGranularity,
@@ -228,6 +228,9 @@ class DwdWeatherAlertRequest:
         license=_METADATA["license"],
         attribution=_METADATA["attribution"],
         url=DWD_ALERTS_BASE_URL,
+        # the warnings are issued for the communes and districts of Germany, and for the sea around its coast
+        # (declared from the documentation of DWD, no station list to hold it to)
+        extent=Extent(scope="national", continents=["europe"], country_codes=["DE"], bbox=[3.0, 47.0, 16.0, 56.0]),
     )
 
     def __init__(

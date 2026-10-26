@@ -8543,14 +8543,29 @@ def test_coverage_schema_in_openapi(client: TestClient) -> None:
         return set(components[name]["properties"]), set(components[name].get("required", []))
 
     # no `valid`: whether the credentials are accepted is `/api/auth`'s to tell, one network at a time (GH-2641)
-    network = {"name_short", "country", "kind", "url", "auth", "configured", "date_required"}
+    network = {"name_short", "country", "kind", "scope", "url", "auth", "configured", "date_required"}
     assert shape("CoverageNetwork") == (network, network)
     properties = components["CoverageNetwork"]["properties"]
     # never null: a network that cannot be imported on the server is not listed (GH-2801)
     assert properties["name_short"] == {"type": "string", "title": "Name Short"}
     assert properties["kind"]["enum"] == list(get_args(NetworkKind))
+    # how far the network reaches, not where its provider is (GH-3456): the scope only, the extent is `/api/providers`
+    assert properties["scope"]["enum"] == ["global", "national", "regional"]
+    # one `Extent` schema for `/api/providers` and the datasets of `/api/coverage`, so a generator sees one type
+    extent = {"scope", "continents", "country_codes", "bbox"}
+    assert shape("Extent") == (extent, {"scope", "continents", "bbox"})
+    assert "CoverageExtent" not in components
+    assert "ExtentDict" not in components
+    # arrays, as the model has tuples (`prefixItems` would be a different shape for a client)
+    assert components["Extent"]["properties"]["bbox"]["type"] == "array"
+    assert "prefixItems" not in components["Extent"]["properties"]["bbox"]
     assert shape("CoverageResolution") == ({"description", "datasets"}, {"description", "datasets"})
-    assert shape("CoverageDataset") == ({"description", "parameters"}, {"description", "parameters"})
+    # the extent of the dataset, its own or its network's (GH-3456)
+    assert shape("CoverageDataset") == (
+        {"description", "parameters", "extent"},
+        {"description", "parameters", "extent"},
+    )
+    assert components["CoverageDataset"]["properties"]["extent"] == {"$ref": "#/components/schemas/Extent"}
     # lead_times is `dwd/dmo`'s alone: sent there, absent elsewhere
     required = {"name", "name_original", "unit_type", "unit", "description"}
     assert shape("CoverageParameter") == (required | {"lead_times"}, required)
