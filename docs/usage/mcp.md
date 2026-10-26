@@ -115,7 +115,9 @@ lets a server do: `DELETE` (ending a session; clients that send it on closing ca
 of messages from the server, of which a server of tools has none). A tool's answer is one body and is not streamed:
 the long answers are the ones that `format=ndjson` and `csv` stream on the REST API. A tool makes its request to the
 API in process, so it is held to the [limits](restapi.md#limits), the [timeout](restapi.md#timeout) and the
-[concurrency](restapi.md#concurrency) of the server like any request.
+[concurrency](restapi.md#concurrency) of the server like any request. A request that a tool is refused for its size is
+asked again for a window or fewer stations, or made from the library: see
+[Getting more than the limit](large-requests.md#from-an-assistant).
 
 ## Versioning
 
