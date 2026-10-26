@@ -28,7 +28,7 @@ from dataclasses import dataclass
 from http import HTTPStatus
 from io import BytesIO
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, ClassVar, Literal, TypeVar
+from typing import IO, TYPE_CHECKING, Any, ClassVar, Literal, TypeVar
 from urllib.parse import urljoin, urlparse, urlsplit, urlunsplit
 
 import stamina
@@ -1523,6 +1523,20 @@ def _take_last_modified(filesystem: object, url: str) -> dt.datetime | None:
     return None if registry is None else registry.pop(url, None)
 
 
+def _reload_metadata(filesystem: WholeFileCacheFileSystem) -> bool:
+    """Read the metadata file again into what a caching filesystem holds, and say whether that worked.
+
+    A file that cannot be read (truncated, locked, gone) leaves the view the filesystem had, which is what a
+    lookup that only asks is to go on with: a failed refresh is no failed download.
+    """
+    try:
+        filesystem.load_cache()
+    except Exception:
+        log.debug("Could not read the cache metadata again, keeping what is held", exc_info=True)
+        return False
+    return True
+
+
 class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
     """A `WholeFileCacheFileSystem` that reads and writes its metadata file under `_cache_dir_lock`.
 
@@ -1547,9 +1561,27 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
         with _cache_dir_lock:
             super().save_cache()
 
+    def _check_file(self, path: str) -> Literal[False] | tuple[dict[str, Any], str]:
+        """Say whether the cache holds an unexpired copy of a file, reading the metadata file again on a miss.
+
+        fsspec keeps one filesystem per thread ident and arguments, and an ident is handed out again once its thread
+        has ended, so a thread can hold a filesystem that other threads (or processes) have cached into since it last
+        read the file: it reads it only when built and after `cache_check` (10 s). Such a view says no to a copy that
+        is there, and the file is fetched again (GH-3452). A hit costs nothing more than before; a miss reads the
+        file once, which the fetch that follows saves it through anyway. A file that cannot be read leaves the answer
+        the view gave.
+        """
+        held = super()._check_file(path)
+        if held or not _reload_metadata(self):
+            return held
+        return super()._check_file(path)
+
     def pop_from_cache(self, path: str) -> None:
         """Drop one entry from the metadata file, which saves it, and the date kept beside its blob."""
         with _cache_dir_lock:
+            if not self._metadata.check_file(self._strip_protocol(path), None):
+                # the copy may be one another thread cached since this view was read, which is then not dropped
+                _reload_metadata(self)
             blob = Path(self.storage[-1]) / self._mapper(self._strip_protocol(path))
             super().pop_from_cache(path)
             with contextlib.suppress(OSError):
@@ -1599,7 +1631,9 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
         # again, once: the new one has the record
         refetch_undated = kwargs.pop("refetch_undated", False)
         path = self._strip_protocol(path)
-        cached = self._check_file(path)
+        # not `_check_file` of this class, which reads the metadata file again on a miss: `download_file` has just asked
+        # that, and a read again here is the cost of a big directory a second time
+        cached = super()._check_file(path)
         if cached and refetch_before is not None and cached[0]["time"] < refetch_before:
             cached = False
         if cached and refetch_undated and not _has_sidecar_record(Path(cached[1])):
@@ -1860,12 +1894,6 @@ class NetworkFilesystemManager:
                     cache_storage=str(real_cache_dir),
                     expiry_time=int(ttl_value),
                 )
-                # fsspec keeps one instance per thread and arguments, by the thread's ident, and an ident is handed
-                # out again once its thread has ended: the thread of a later `download_files` can be given the
-                # instance of an earlier one, which is not built again and holds the entries it had when it last
-                # saved, not the ones other threads cached since (GH-3452). Read from disk, an instance is as fresh
-                # as one that was just built; under the lock, as a build is
-                filesystem_effective.load_cache()
                 # the tidying is before the registry assignment below, and none of it able to raise: a
                 # cache that cannot be tidied must still be a cache that can be read.
                 #

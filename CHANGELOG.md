@@ -69,11 +69,11 @@ Types of changes:
 - `meteofrance/synop` reads the yearly files data.gouv.fr lists (`data/OBS/SYNOP/`), not the
   `synchro_ftp` copy of them, which stopped being refreshed on 2026-09-09: values of the current
   year now run to the day before today instead of ending on 2026-09-08 (GH-3447)
-- A file that `download_files` had cached was now and then fetched again by the next call, with
-  `File.from_cache` false (1 process in 10 on a four-file run, every one on twenty files): a thread
-  of the second call was handed the caching filesystem of an earlier thread, which kept the
-  entries it had read before the others saved theirs. It reads the cache metadata when it is handed
-  out (GH-3452)
+- A file that one call had cached was fetched again by a later call made in another thread, with
+  `File.from_cache` false: `download_files` (whose threads are new for every call), the main thread
+  and the workers of the REST server each read the cache metadata when they start and only again
+  after 10 s, so they did not see what another thread cached in between. A thread that finds no
+  copy now reads the metadata again before it fetches; a hit reads nothing more (GH-3452)
 
 ## [0.175.0] - 2026-10-25
 
