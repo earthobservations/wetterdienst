@@ -1219,7 +1219,7 @@ def _sweep_expired_blobs(
 
     * **A TTL that is not a positive number is not swept at all.** `CacheExpiry.INFINITE` is
       `False`, `int(False)` is `0`, and fsspec reads an expiry of zero as "everything is
-      expired" -- it removes every entry and then `rmtree`s the directory. `lhmt` and both
+      expired" -- it removes every entry. `lhmt` and both
       `meteofrance` providers use `INFINITE` for immutable archives, so the first such download
       in a fresh process would have destroyed the archive cache and re-fetched it. The read path
       gets this right (`_check_file` reads `if cfs.expiry and ...`); only the sweep did not.
@@ -1645,9 +1645,35 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
                 _sidecar_of(blob).unlink(missing_ok=True)
 
     def clear_expired_cache(self, expiry_time: float | None = None) -> None:
-        """Drop expired entries from the metadata file, which saves it, and the dates kept beside their blobs."""
+        """Drop the expired entries from the metadata file and their blobs and dates, and nothing else (GH-3467).
+
+        fsspec's own sweep removes the whole directory when it ends with no entry in the snapshot it holds, and the
+        snapshot of a process that starts on an empty directory is empty whatever the processes that started beside it
+        have written since. That took their copies, and the directory from under them: `FileExistsError` where one
+        was making it, copies fetched again. So an empty snapshot expires nothing, a snapshot with nothing expired in
+        it is not written back (it is the one place where a row another process added since is lost), and one with
+        every entry expired is written back empty, which fsspec's does not do because it removes the directory.
+        """
         with _cache_dir_lock:
-            super().clear_expired_cache(expiry_time)
+            self._check_cache()
+            # what another process has written since this was read is part of what is swept, not lost to it
+            _refresh_metadata(self)
+            held = self._metadata.cached_files[-1]
+            expiry = expiry_time or self.expiry
+            # no expiry is no expiry, as `_check_file` reads it: fsspec's reads a zero as "all of it has expired"
+            if (
+                not expiry
+                or not held
+                or not any(time.time() - _entry_time(detail) > expiry for detail in held.values())
+            ):
+                return
+            expired_blobs, now_empty = self._metadata.clear_expired(expiry)  # ty: ignore[invalid-argument-type]
+            for blob in expired_blobs:
+                Path(blob).unlink(missing_ok=True)
+            if now_empty:
+                # `clear_expired` writes the file only when something is left in it
+                self._metadata._save({}, str(Path(self.storage[-1]) / "cache"))  # noqa: SLF001
+            self._cache_size = None
             _drop_orphaned_sidecars(Path(self.storage[-1]))
 
     def clear_cache(self) -> None:
@@ -1961,9 +1987,9 @@ class NetworkFilesystemManager:
                 # the tidying is before the registry assignment below, and none of it able to raise: a
                 # cache that cannot be tidied must still be a cache that can be read.
                 #
-                # The mark goes after the sweep, not before: a sweep that leaves the cache empty has
-                # fsspec `rmtree` the whole directory and rebuild it, which takes the marker with it --
-                # and a directory whose marker is missing reads as one nothing has asked for in a month
+                # The mark goes after the sweep, not before: a sweep used to leave the cache empty by
+                # removing the whole directory, which took the marker with it (it no longer does: GH-3467)
+                # -- and a directory whose marker is missing reads as one nothing has asked for in a month
                 _sweep_expired_blobs(filesystem_effective, real_cache_dir, ttl_value)
                 _mark_cache_dir_used(real_cache_dir)
                 _reclaim_unreachable_cache_dirs(real_cache_dir.parent, keep=real_cache_dir)

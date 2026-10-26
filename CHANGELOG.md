@@ -86,6 +86,11 @@ Types of changes:
   and the workers of the REST server each read the cache metadata when they start and only again
   after 10 s, so they did not see what another thread cached in between. A thread that finds no
   copy now reads the metadata again before it fetches; a hit reads nothing more (GH-3452)
+- Several processes starting together on an empty cache directory (workers of a server, parallel
+  CLI runs, a CI matrix) no longer remove it under each other: the first sweep of a process took
+  the directory and the copies the others had just written, which raised `FileExistsError` or
+  `OSError` in some of them and sent others to a temporary cache directory. The sweep now removes
+  only the expired entries and their files (GH-3467)
 
 ## [0.175.0] - 2026-10-25
 

@@ -130,8 +130,13 @@ def make_private_dir(path: Path) -> None:
     try:
         path.mkdir(mode=0o700)
     except FileExistsError:
-        if not path.is_dir():
+        # a directory that was there when `mkdir` looked and is gone when this does is not an error: another process
+        # removed it, and it is made again (GH-3467)
+        if path.is_dir():
+            return
+        if path.exists() or path.is_symlink():
             raise
+        make_private_dir(path)
 
 
 def encode_listing(value: object) -> str:

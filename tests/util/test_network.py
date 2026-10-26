@@ -63,6 +63,7 @@ from wetterdienst.util.network import (
     _credential_headers,
     _is_superseded_layout,
     _legacy_cleanup_done,
+    _LockedWholeFileCacheFileSystem,
     _reclaim_done,
     _sends_credentials,
     _swept_dirs,
@@ -1719,7 +1720,7 @@ def test_a_sweep_that_fails_is_not_retried_and_does_not_fail_the_download(tmp_pa
         msg = "Cache metadata does not contain 'fn' for https://example.com/half-written"
         raise RuntimeError(msg)
 
-    with patch.object(WholeFileCacheFileSystem, "clear_expired_cache", clear_expired_cache):
+    with patch.object(_LockedWholeFileCacheFileSystem, "clear_expired_cache", clear_expired_cache):
         first = _blob_dir(tmp_path)
         second = _in_a_fresh_thread(lambda: _blob_dir(tmp_path))
 
@@ -1742,7 +1743,7 @@ def test_fsspec_is_never_handed_an_expiry_it_reads_as_zero(tmp_path: Path, cache
     def clear_expired_cache(_self: object, expiry_time: float | None = None) -> None:
         seen.append(expiry_time)
 
-    with patch.object(WholeFileCacheFileSystem, "clear_expired_cache", clear_expired_cache):
+    with patch.object(_LockedWholeFileCacheFileSystem, "clear_expired_cache", clear_expired_cache):
         # not `_blob_dir`: `NO_CACHE` is answered with a plain filesystem that has no storage at all
         NetworkFilesystemManager.get(cache_dir=tmp_path, cache_expiry=cache_expiry, cache_disable=False)
 
@@ -1777,7 +1778,7 @@ def test_no_thread_reaches_a_directory_while_it_is_being_swept(tmp_path: Path) -
         _blob_dir(tmp_path)
         arrived.set()
 
-    with patch.object(WholeFileCacheFileSystem, "clear_expired_cache", clear_expired_cache):
+    with patch.object(_LockedWholeFileCacheFileSystem, "clear_expired_cache", clear_expired_cache):
         sweeper = threading.Thread(target=lambda: _blob_dir(tmp_path))
         sweeper.start()
         assert sweeping.wait(timeout=10), "the first caller never started sweeping"
@@ -2006,7 +2007,7 @@ def test_no_filesystem_is_built_for_a_directory_while_it_is_being_tidied(
         may_finish.wait(timeout=10)
 
     monkeypatch.setattr(WholeFileCacheFileSystem, "__init__", counting_init)
-    monkeypatch.setattr(WholeFileCacheFileSystem, "clear_expired_cache", clear_expired_cache)
+    monkeypatch.setattr(_LockedWholeFileCacheFileSystem, "clear_expired_cache", clear_expired_cache)
 
     # seed a blob so the first registration has something to sweep
     storage = tmp_path / "fsspec" / "v2-ttl-TWELVE_HOURS"
@@ -2493,7 +2494,13 @@ def test_every_way_into_the_metadata_file_takes_the_cache_lock(
         thread.join()
         held.append(not free[0])
 
-    monkeypatch.setattr(WholeFileCacheFileSystem, method, record)
+    if method == "clear_expired_cache":
+        # fsspec's own is not what runs any more: this one reaches the file through the metadata, once it holds an
+        # entry that has expired
+        filesystem._metadata.cached_files[-1]["/a.txt"] = {"fn": "a", "time": 0.0}  # noqa: SLF001
+        monkeypatch.setattr(CacheMetadata, "clear_expired", lambda *_args: record(None) or ([], False))
+    else:
+        monkeypatch.setattr(WholeFileCacheFileSystem, method, record)
     getattr(filesystem, method)(*args)
 
     assert held == [True]
