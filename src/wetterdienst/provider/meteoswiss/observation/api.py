@@ -15,7 +15,7 @@ import polars as pl
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.quality_flags import calm, clear_sentinels, join_quality_flags, unpivot_with_raw
 from wetterdienst.model.request import TimeseriesRequest
-from wetterdienst.model.values import TimeseriesValues
+from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.meteoswiss.observation.metadata import MeteoswissObservationMetadata
 from wetterdienst.util.network import download_file, fetchable_link
 
@@ -105,35 +105,39 @@ class MeteoswissObservationValues(TimeseriesValues):
             csv_file.raise_if_exception()
             if isinstance(csv_file.content, Exception):
                 continue
+            file_df = pl.read_csv(
+                csv_file.content,
+                separator=";",
+                encoding="windows-1252",
+                # strings throughout, whatever the file populates: the set of populated columns
+                # differs between decade-chunked historical files, and an all-null column would
+                # otherwise be inferred as Boolean in one file and Float64 in another, which
+                # breaks the concat below. The columns are named by the file's own header.
+                infer_schema=False,
+            )
+            # when MeteoSwiss last wrote the file travels with its rows (`_note_files_with_rows`, GH-2567)
             dfs.append(
-                pl.read_csv(
-                    csv_file.content,
-                    separator=";",
-                    encoding="windows-1252",
-                    # strings throughout, whatever the file populates: the set of populated columns
-                    # differs between decade-chunked historical files, and an all-null column would
-                    # otherwise be inferred as Boolean in one file and Float64 in another, which
-                    # breaks the concat below. The columns are named by the file's own header.
-                    infer_schema=False,
-                ),
+                file_df.with_columns(pl.lit(csv_file.last_modified, dtype=pl.Datetime("us", "UTC")).alias(UPDATED))
             )
         if not dfs:
             return pl.DataFrame()
         df = pl.concat(dfs, how="diagonal")
-        parameter_columns = [col for col in df.columns if col not in ("station_abbr", "reference_timestamp")]
+        parameter_columns = [col for col in df.columns if col not in ("station_abbr", "reference_timestamp", UPDATED)]
         # the 0 of a calm wind, beside a speed of 0, keeping its text as the `raw:` token (GH-3222)
         for direction, speed in _WIND_SPEED_OF_DIRECTION.items():
             if direction in df.columns and speed in df.columns:
                 df = clear_sentinels(df, [direction], calm(pl.col(speed)))
-        df = unpivot_with_raw(df, index=["reference_timestamp"], on=parameter_columns)
+        df = unpivot_with_raw(df, index=["reference_timestamp", UPDATED], on=parameter_columns)
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`), and so is the
         # reading of the value as a number
-        return df.select(
+        df = df.select(
             pl.col("parameter").str.to_lowercase(),
             pl.col("reference_timestamp").str.to_datetime("%d.%m.%Y %H:%M", strict=False).alias("timestamp"),
             pl.col("value"),
             join_quality_flags(None, raw=pl.col("raw")),
+            UPDATED,
         )
+        return self._note_files_with_rows(df, dataset)
 
 
 @dataclass

@@ -31,7 +31,7 @@ from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
 from wetterdienst.model.quality_flags import join_quality_flags, null_sentinels, raw_column, unpivot_with_raw
 from wetterdienst.model.request import TimeseriesRequest
-from wetterdienst.model.values import TimeseriesValues
+from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.dwd.swsmos.metadata import DwdSwsmosMetadata
 from wetterdienst.util.archive import bunzip2
 from wetterdienst.util.enumeration import parse_enumeration_from_template
@@ -133,6 +133,8 @@ class DwdSwsmosValues(TimeseriesValues):
         # the run this request answers for, resolved and parsed once. `None` is "not looked up
         # yet"; an empty frame is "looked up, and there is nothing there". See `_run_frame`
         self._run_frame_cache: pl.DataFrame | None = None
+        # the model run of that frame, from the name of its file; `None` for the `LATEST` alias, which names none
+        self._run_issued: dt.datetime | None = None
 
     def _run_candidates(self, settings: Settings) -> list[tuple[str, CacheExpiry]]:
         """List the runs to try, newest first, with how long each may be answered from the cache.
@@ -324,6 +326,10 @@ class DwdSwsmosValues(TimeseriesValues):
                     df = _read_run(content, url, asked_again=True) if content is not None else None
                 if df is not None:
                     frame = df
+                    stamp = _RUN_FILE.match(url.rsplit("/", 1)[-1])
+                    self._run_issued = (
+                        dt.datetime.strptime(stamp.group(1), "%Y%m%d%H%M%S").replace(tzinfo=_UTC) if stamp else None
+                    )
                     break
             self._run_frame_cache = frame
         return self._run_frame_cache
@@ -343,10 +349,12 @@ class DwdSwsmosValues(TimeseriesValues):
         tread on each other's run.
         """
         self._run_frame_cache = None
+        self._run_issued = None
         try:
             yield from super().query()
         finally:
             self._run_frame_cache = None
+            self._run_issued = None
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -381,11 +389,16 @@ class DwdSwsmosValues(TimeseriesValues):
         )
         df = unpivot_with_raw(df, index=["timestamp"])
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`)
-        return df.select(
+        df = df.select(
             pl.col("parameter"),
             pl.col("timestamp"),
             pl.col("value"),
             join_quality_flags(None, raw=pl.col("raw")),
+        )
+        # a forecast is dated by its model run and not by the file it was published in: the run its file is named for
+        # (GH-2567 asks for the date of the update), for a run that has steps the answer keeps
+        return self._note_files_with_rows(
+            df.with_columns(pl.lit(self._run_issued, dtype=pl.Datetime("us", "UTC")).alias(UPDATED)), dataset
         )
 
 

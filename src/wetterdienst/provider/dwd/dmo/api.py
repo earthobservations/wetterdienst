@@ -31,7 +31,7 @@ from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DatasetModel, ParameterModel, group_parameters_by_dataset
 from wetterdienst.model.quality_flags import Floor, clear_sentinels, join_quality_flags, unpivot_with_raw
 from wetterdienst.model.request import TimeseriesRequest
-from wetterdienst.model.values import TimeseriesValues
+from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.dwd.catalogue import correct_station_positions
 from wetterdienst.provider.dwd.dmo.metadata import DwdDmoMetadata
 from wetterdienst.provider.dwd.mosmix.access import KMLReader
@@ -543,12 +543,18 @@ class DwdDmoValues(TimeseriesValues[DatasetModel]):
         df = unpivot_with_raw(df, index=["timestamp"])
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`); the stamp is a text,
         # which the core rejects, so it is read here, as the UTC its `Z` says
-        return df.select(
+        df = df.select(
             "parameter",
             pl.col("timestamp").str.to_datetime(format="%Y-%m-%dT%H:%M:%S.000Z", time_zone="UTC"),
             "value",
             # the "-" the file writes for a missing value (GH-2759)
             join_quality_flags(None, raw=pl.col("raw")),
+        )
+        # a forecast is dated by its model run and not by the file it was published in: the `IssueTime` of the run read
+        # (GH-2567 asks for the date of the update), for a run that has steps the answer keeps
+        issued = self.kml.metadata.get("issue_time")
+        return self._note_files_with_rows(
+            df.with_columns(pl.lit(issued, dtype=pl.Datetime("us", "UTC")).alias(UPDATED)), parameter_or_dataset
         )
 
     def read_dmo(self, station_id: str, dataset: DatasetModel, date: dt.datetime | DwdForecastDate) -> pl.DataFrame:

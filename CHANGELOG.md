@@ -26,9 +26,18 @@ Types of changes:
   keeps (the newest `last_modified` of data.gouv.fr, as Etalab 2.0 asks), and downloads a cached
   file again when the listing dates it later than the copy, serving an archive's copy and its own
   date if the file host does not answer (a current-period file whose copy expired still fails with
-  the download error); every other network, a list of stations, a history and a
+  the download error); a network whose source states none, a list of stations, a history and a
   streamed answer (NDJSON, CSV of `values`) say `null`. A result cut by `filtered_by_sql` keeps
   the date of the result it was cut from. `schema_version` stays `"1"` (GH-2567)
+- `data_updated_at` is also filled from the `Last-Modified` of the files an answer is read from, when
+  the source last wrote them (the newest of the files whose rows the answer keeps), for `dwd`
+  `observation`, `derived`, `phenology`, `poi` and `road`, `chmi`, `imgw`, `ipma`, `meteoswiss`,
+  `noaa/ghcn` and `meteofrance/synop`; for the forecasts `dwd/mosmix`, `dmo` and `swsmos` it is the
+  model run (`retrieved_at` less it is the age of the forecast), for `dwd/alerts` the newest `sent`,
+  and a `RadarResult` and a `DwdWeatherAlertResult` have it as well. A cached answer has the date of
+  its cached copy; one cached before this has none until it expires (12 hours at most) or the cache
+  is cleared, and `meteofrance/synop` downloads each finished year it holds once more for it, once.
+  FMI and SMHI send the time of the request as `Last-Modified` and stay `null` (GH-2567)
 
 ### Changed
 

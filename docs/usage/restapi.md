@@ -202,27 +202,62 @@ what the answer is missing:
   `station_id` column of its body.
 - **`retrieved_at`** is when the answer was made, in UTC. Whether the data came from the server's cache
   is not told.
-- **`data_updated_at`** is when the source says the data of the answer was last updated, in UTC, as the source
-  states it: the newest of the dates it states for the files whose rows the answer keeps (a file with no date adds
-  none and does not take one away). It is not the time the answer was made (that is `retrieved_at`), and it is `null`
-  where the source states no date or the library does not read it for the network (every network but
-  `meteofrance/observation` so far, and every list of stations): never `retrieved_at` in its place. It is the date
-  the source reported at the time the answer was made, which comes with the copy of the listing or the file it was
-  read from. For `meteofrance/observation` it is the `last_modified` of the listing of data.gouv.fr, which is cached
-  for 12 hours, so it may lag a file that was refreshed since by up to that time, and `retrieved_at` less
-  `data_updated_at` is no exact age of the data. A copy of a file made before the date the listing gives it is
-  fetched again, and replaced only once the new one has arrived: where the host of the files does not answer, an
-  archive file that is cached for good (the years before last) is read from the copy from before, and has the date
-  that copy was made and not the listing's later one. A file of the current period, cached for 5 minutes, whose copy
-  has expired is not served stale: the request fails with the download error, as before.
-  NDJSON and CSV answers of `values` are streamed and their head goes out before the stations are read, so the
-  newest date is not known: they say `null`, and the header is left out. A JSON answer of the same request has the
-  exact one, and so has the NDJSON of the command line, which renders the whole result at once. It is the "date of
-  the most recent update" that the Etalab Open Licence asks to be named with the source. The Python results carry it
-  as `data_updated_at`, and the `metadata` of `to_dict`, `to_json` and `to_ogc_feature_collection` with
-  `with_metadata=True` has it as a key of its own next to `provider` and `producer` (`null` for a list of
-  stations and for a history). A result cut down by `filtered_by_date` or `filtered_by_sql` keeps the date of the
-  result it was cut from, newer files whose rows were cut away included, and has none where no row is left.
+- **`data_updated_at`** is when the source last updated the data of the answer, in UTC: the newest such date over the
+  files the answer was read from, **a file that failed and one that gave the answer no row not among them** (see
+  "Which files count" below). It is not when the data was fetched (that is `retrieved_at`) and it is `null` where
+  there is none to give: never `retrieved_at` in its place. What the date is depends on what the source states:
+
+  - **A file the source dates** (the observations of DWD and its derived, phenology, POI and road networks, CHMI, IMGW,
+    IPMA, MeteoSwiss, NOAA GHCN and the SYNOP of Météo-France): when the source last wrote the file or files the answer
+    was built from, the `Last-Modified` of their download. A file written daily is dated daily, whether or not a value
+    in it changed, so the date says how current the copy is and not that the readings in it are new. A response whose
+    `Last-Modified` is not earlier than its own `Date` (a server that sends the time of the request), is not a date, or
+    is not there gives none, and the date of the request is never taken for it.
+  - **`meteofrance/observation`**: the newest `last_modified` that data.gouv.fr gives the files read, the date the
+    Etalab Open Licence 2.0 asks to be named with the source. Its listing is cached for 12 hours, so the date may lag a
+    file refreshed since by up to that time.
+  - **A forecast** (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`): the model run the forecast is of, not the file it was
+    published in, so it is the same for a run read again later, and `retrieved_at` less `data_updated_at` is how old the
+    run is. This is the age of a forecast only: for a file it is not the age of the data.
+  - **The warnings of `dwd/alerts`**: the newest `sent` of the warnings in the answer, which DWD states in each of them;
+    a snapshot with no warning has none.
+
+  The date is `null` for the networks whose source states none and whose responses carry no `Last-Modified` that is a
+  file's (FMI and SMHI send the time of the request), for those that need credentials and are not examined (AEMET,
+  KNMI, MET Norway, Met Office), for every list of stations, and for a streamed answer: NDJSON and CSV answers of
+  `values` write their head before the stations are read, so the newest date is not known, they say `null` and the
+  header is left out, where a JSON answer of the same request has the exact one. An answer made from the cache has the
+  date of the copy it was made from, however long ago it was cached. A copy cached before the library kept dates has
+  none until it expires (12 hours at most for the networks of DWD, CHMI, IMGW, IPMA, MeteoSwiss and NOAA) or the cache
+  is cleared, and `meteofrance/synop` downloads its finished years once more, once, to date them. For a file
+  `retrieved_at` less `data_updated_at` is how long ago the source wrote it, which is not how old the readings in it
+  are. The Python results carry it as `data_updated_at`, and the `metadata` of `to_dict`, `to_json` and
+  `to_ogc_feature_collection` with `with_metadata=True` has it as a key of its own next to `provider` and `producer`
+  (`null` for a list of stations). Which networks state a date, and why the others do not, is `DATA_UPDATED_STATED`
+  and `DATA_UPDATED_NOT_STATED` in `tests/ui/test_response_metadata.py`.
+
+  For `meteofrance/observation` a copy of a file made before the date the listing gives it is fetched again, and
+  replaced only once the new one has arrived: where the host of the files does not answer, an archive file that is
+  cached for good (the years before last) is read from the copy from before, and has the date that copy was made and
+  not the listing's later one. A file of the current period, cached for 5 minutes, whose copy has expired is not
+  served stale: the request fails with the download error. The NDJSON of the command line renders the whole result at
+  once and has the exact date. A result cut down by `filtered_by_date` or `filtered_by_sql` keeps the date of the
+  result it was cut from, newer files whose rows were cut away included, and has none where no row is left; a
+  history has none.
+
+  **Which files count.** A file dates the answer only where rows of it are in the answer: one that failed, one that
+  holds no row of the station, one whose rows all lie outside the window asked for, one that holds only parameters
+  that were not asked for, and one whose rows another file took the place of (the recent archive of DWD where the
+  historical one has the same stamps) are not counted, and where `drop_nulls` is on (the default) a row without a value
+  does not make a file count. The provider decides this on the frame it hands to the core, in the order the core cuts
+  it (the first row of a reading is kept, then the requested parameters, the window and the null policy), so two things
+  stay out of its sight, and a file that is in the answer for them only still counts: a value that the core reads as
+  null although the provider handed it over as a text (a text that is no number), and the stamp of `dwd/observation`,
+  which the provider shifts by an hour for an archive that DWD writes in MEZ only afterwards, so a window that begins or
+  ends within that hour of the rows of an archive can count it or leave it out wrongly. `dwd/observation` and
+  `dwd/derived` decide it for the archives of a period together, which are one file but for the 1 and 5 minute
+  precipitation of the historical period, and a forecast counts where one of its steps is in the answer.
+
 - **`counts`** is the stations in the answer and its rows: the items of `values` (one per timestamp in
   the wide shape), the stations listed, or the histories.
 - **`crs`** is the reference system of every position in the answer: WGS 84, longitude before latitude in
