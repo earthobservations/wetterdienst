@@ -1484,3 +1484,96 @@ def test_interpolate_and_summarize_take_an_elevation_any_resolution_of_a_station
     get_df = get_interpolated_df if method == "interpolate" else get_summarized_df
     df = get_df(request, latitude, longitude, 100.0)
     assert dict(df.select("resolution", "value").iter_rows()) == {"hourly": 5.0, "daily": 5.0}
+
+
+@pytest.mark.parametrize("method", ["interpolate", "summarize"])
+def test_interpolate_and_summarize_collect_the_dates_of_the_stations_that_gave_a_value(
+    monkeypatch: pytest.MonkeyPatch,
+    method: str,
+) -> None:
+    """The dates the source states for the stations an estimate is made from are handed back for the answer (GH-2567).
+
+    Each of four stations around the point has a date of its own, by the id of the station.
+    """
+    from wetterdienst.core.interpolate import get_interpolated_df  # noqa: PLC0415
+    from wetterdienst.core.summarize import get_summarized_df  # noqa: PLC0415
+    from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation.api import DwdObservationValues  # noqa: PLC0415
+
+    latitude, longitude = 50.0, 8.9
+    offsets = {"00001": (-0.03, -0.03), "00002": (-0.03, 0.03), "00003": (0.03, 0.03), "00004": (0.03, -0.03)}
+    # the nearest station is not the newest
+    dates = {
+        station_id: dt.datetime(2026, 10, day, tzinfo=ZoneInfo("UTC"))
+        for station_id, day in zip(offsets, (20, 23, 21, 22), strict=True)
+    }
+    stations = pl.DataFrame(
+        [
+            {
+                "resolution": "daily",
+                "dataset": "climate_summary",
+                "station_id": station_id,
+                "latitude": latitude + d_lat,
+                "longitude": longitude + d_lon,
+                "elevation": 100.0,
+                "distance": 4.0 + index / 10,
+            }
+            for index, (station_id, (d_lat, d_lon)) in enumerate(offsets.items())
+        ],
+    )
+    timestamp = dt.datetime(2021, 2, 1, tzinfo=ZoneInfo("UTC"))
+
+    def _filter_by_distance(
+        self: DwdObservationRequest,
+        latlon: tuple[float, float],  # noqa: ARG001
+        distance: float,  # noqa: ARG001
+        df_all: pl.DataFrame | None = None,  # noqa: ARG001
+    ) -> StationsResult:
+        return StationsResult(request=self, df=stations, _df_all=stations, _stations_filter=StationsFilter.BY_DISTANCE)
+
+    def _query(self: DwdObservationValues) -> Iterator[object]:  # noqa: ARG001
+        for station_id in offsets:
+            df = pl.DataFrame(
+                [
+                    {
+                        "station_id": station_id,
+                        "resolution": "daily",
+                        "dataset": "climate_summary",
+                        "parameter": "temperature_air_mean_2m",
+                        "timestamp": timestamp,
+                        "value": 5.0,
+                        "quality_flags": "10",
+                    }
+                ],
+            )
+            yield SimpleNamespace(df=df, data_updated_at=dates[station_id])
+
+    monkeypatch.setattr(DwdObservationRequest, "filter_by_distance", _filter_by_distance)
+    monkeypatch.setattr(DwdObservationValues, "query", _query)
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")], start=timestamp, end=timestamp
+    )
+    get_df = get_interpolated_df if method == "interpolate" else get_summarized_df
+    updated: dict[str, dt.datetime] = {}
+
+    df = get_df(request, latitude, longitude, data_updated=updated)
+
+    assert df.height == 1
+    # the dates of the stations that gave a value, by their ids
+    assert updated == dates
+
+    # and the result has the newest of the stations it names: all four of an interpolation, the nearest of a summary
+    result = (
+        request._interpolate((latitude, longitude), None, df_all=stations)  # noqa: SLF001
+        if method == "interpolate"
+        else request._summarize((latitude, longitude), None, df_all=stations)  # noqa: SLF001
+    )
+    named = set(result.df_stations.get_column("station_id"))
+    assert named
+    assert result.data_updated_at == max(dates[station_id] for station_id in named)
+    if method == "summarize":
+        # all four gave a value and were noted, and the three that are not named in the result, one of which is newer
+        # than the nearest, do not date it
+        assert named == {"00001"}
+        assert max(dates.values()) > dates["00001"]
+        assert result.data_updated_at == dates["00001"]

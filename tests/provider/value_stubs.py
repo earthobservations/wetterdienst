@@ -772,7 +772,7 @@ def _meteofrance_synop(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True)
         },
     ]
     lines = [";".join(schema)] + [";".join(row.get(column, "") for column in schema) for row in rows]
-    serve(monkeypatch, synop_api, {"synop_2024": gzip.compress("\n".join(lines).encode("utf8"))})
+    serve(monkeypatch, synop_api, {"/data/OBS/SYNOP/synop_2024.csv.gz": gzip.compress("\n".join(lines).encode("utf8"))})
     request = MeteoFranceSynopRequest(
         parameters=[
             ("subdaily", "data", "precipitation_amount_last_1h"),

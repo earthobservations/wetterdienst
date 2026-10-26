@@ -56,8 +56,12 @@ the station's series, and the other stations, are not touched. Other sensors of 
 
 Data is © RMI (Royal Meteorological Institute of Belgium) and licensed under
 [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
-See [geo.be — RMI AWS](https://www.geo.be/catalog/details/RMI_AWS_WFS) for further information
-and usage conditions.
+RMI's catalogue records of the 10-minute, hourly and daily data
+([`RMI_DATASET_AWS_10MIN`](https://opendata.meteo.be/geonetwork/srv/eng/catalog.search#/metadata/RMI_DATASET_AWS_10MIN),
+[`_1HOUR`](https://opendata.meteo.be/geonetwork/srv/eng/catalog.search#/metadata/RMI_DATASET_AWS_1HOUR),
+[`_1DAY`](https://opendata.meteo.be/geonetwork/srv/eng/catalog.search#/metadata/RMI_DATASET_AWS_1DAY))
+all state the licence (CC BY 4.0); the [opendata.meteo.be](https://opendata.meteo.be/) platform has the
+terms of use.
 
 ```{toctree}
 :hidden:

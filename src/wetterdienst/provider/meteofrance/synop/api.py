@@ -36,8 +36,13 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 # "Archive Synop OMM" dataset on data.gouv.fr: one gzipped csv per year, covering all ~190
-# SYNOP stations at their native 3-hourly reporting interval
-_SYNOP_ENDPOINT = "https://meteofrance.s3.sbg.io.cloud.ovh.net/data/synchro_ftp/OBS/SYNOP/synop_{year}.csv.gz"
+# SYNOP stations at their native 3-hourly reporting interval. The yearly files are the resources data.gouv.fr lists
+# under `data/OBS/SYNOP/`. The `data/synchro_ftp/OBS/SYNOP/` copy of the same names is a mirror that stopped being
+# refreshed: on 2026-10-26 its synop_2026.csv.gz (23.3 MB) ended at 2026-09-08T21:00Z and was last modified on
+# 2026-09-09, the maintained file (27.7 MB, same 65 columns, every row of the mirror in it unchanged) ended at
+# 2026-10-25T21:00Z. The finished years are the same bytes in both (2025 checked), so only the current year differs.
+# The station list is not in `data/OBS/SYNOP/` (404): data.gouv.fr lists it under `synchro_ftp`
+_SYNOP_ENDPOINT = "https://meteofrance.s3.sbg.io.cloud.ovh.net/data/OBS/SYNOP/synop_{year}.csv.gz"
 _SYNOP_STATIONS_ENDPOINT = "https://meteofrance.s3.sbg.io.cloud.ovh.net/data/synchro_ftp/OBS/SYNOP/postes_synop.geojson"
 # earliest year for which a yearly archive is published
 _SYNOP_ARCHIVE_START_YEAR = 1996

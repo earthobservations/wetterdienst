@@ -1714,6 +1714,26 @@ def test_docs_overview_names_every_provider() -> None:
     assert not dwd, f"the overview does not name the DWD networks {dwd}"
 
 
+def test_docs_api_reference_lists_the_class_of_every_network() -> None:
+    """Test that `library/api.md` documents the request class of every network of the registry, and only those."""
+    from wetterdienst import Wetterdienst  # noqa: PLC0415
+
+    classes = set()
+    for provider, networks in Wetterdienst.discover().items():
+        for network in networks:
+            api = (
+                Wetterdienst.resolve_standalone(provider, network)
+                if Wetterdienst.is_standalone(provider, network)
+                else Wetterdienst.resolve(provider, network)
+            )
+            classes.add(f"{api.__module__}.{api.__qualname__}")
+    text = (DOCS / "library" / "api.md").read_text(encoding="utf8")
+    documented = set(re.findall(r"^```\{autodoc2-object\} (\S+)$", text, flags=re.MULTILINE))
+    assert documented == classes, (
+        f"missing: {sorted(classes - documented)}, not a network class: {sorted(documented - classes)}"
+    )
+
+
 def test_docs_formatter_table_gives_the_keywords_of_each_formatter() -> None:
     """Test that the table of formatters on the Python API page is the keywords the results' methods take."""
     import inspect  # noqa: PLC0415

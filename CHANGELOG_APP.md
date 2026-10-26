@@ -16,6 +16,16 @@ Types of changes:
 
 ## [Unreleased]
 
+### Security
+
+- `[Widget]` `/widget` can be put in a frame of another site, as its documentation says it can:
+  the server sends it `frame-ancestors *` and no `X-Frame-Options` when the request line is
+  `/widget` or `/widget/`, the one page that is. Every other page, and `/widget` written another
+  way (`/Widget`, `/%77idget`, `/widget//`), answers only to the app's own origin. Behind a proxy
+  that rewrites the path, the server cannot see the spelling, so the page itself draws nothing
+  outside `/widget` while it is framed by another site. A self-hosted app gets the
+  same, there is no setting. The docs have an `<iframe>` to copy (GH-2607)
+
 ## [0.36.0] - 2026-10-25
 
 ### Added
