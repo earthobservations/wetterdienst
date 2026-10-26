@@ -17,6 +17,11 @@ The conditions of use at the foot of the API page add that content may be used f
 utilização não decorram finalidades lucrativas ou ofensivas" (as long as no profit-making or offensive purpose
 results); whether that binds users of the API is not stated, so ask IPMA before a commercial use.
 
+## Update date
+
+The `data_updated_at` of the [`metadata`](../../../usage/restapi.md#response-metadata) of an answer is when IPMA
+last wrote the all-stations feed the values were read from (its `Last-Modified`), not when a station reported.
+
 ```{toctree}
 :hidden:
 

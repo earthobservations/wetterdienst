@@ -26,7 +26,7 @@ from wetterdienst.model.quality_flags import (
     with_speed_beside,
 )
 from wetterdienst.model.request import TimeseriesRequest
-from wetterdienst.model.values import TimeseriesValues
+from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.meteofrance.observation.metadata import MeteoFranceObservationMetadata
 from wetterdienst.util.archive import gunzip
 from wetterdienst.util.datetime import is_plausible_update, parse_source_date
@@ -48,7 +48,6 @@ log = logging.getLogger(__name__)
 #: the member of a resource that carries the time its listing was read, as `time.time()` has it
 _LISTED_AT = "listed_at"
 #: the column that carries the date of the file a row is of, from the listing, until the rows the answer keeps are known
-_UPDATED = "updated"
 
 # "Données climatologiques de base" (daily / monthly), sharded per French department.
 # data.gouv.fr dataset ids. Used to discover the exact current resource URLs at request time
@@ -976,34 +975,6 @@ _STATIONS_REGISTRY_SCHEMA = {
 class MeteoFranceObservationValues(TimeseriesValues):
     """Values class for Météo-France observation data."""
 
-    def _note_files_with_rows(self, df: pl.DataFrame, dataset: DatasetModel) -> pl.DataFrame:
-        """Note the date of each file that holds rows the answer keeps, and give the frame without the dates (GH-2567).
-
-        The date data.gouv.fr gives a file, in the listing the request has read, is the answer's "date of the most
-        recent update" that the Licence Ouverte asks for only for a file that has rows in the answer, or the answer
-        would be dated by data it has not got. A row is kept as the core keeps it: of a requested parameter, inside
-        the window, and, where the shape drops the rows without a value, with a value. The core cuts the frame
-        after this one, so what it cuts here it would cut there.
-        """
-        requested = {
-            parameter.name_original
-            for parameter in self.sr.parameters
-            if parameter.dataset.resolution.name == dataset.resolution.name and parameter.dataset.name == dataset.name
-        }
-        # the core keeps the first of the rows of one reading (a period overlap, a file that is read twice) and drops
-        # the others, then the rows without a value: the files whose rows are the ones it keeps are the ones that date
-        # the answer, so it is done here in the same order, on the same key and before the rows without a value go
-        df = df.unique(subset=["parameter", "timestamp"], keep="first", maintain_order=True)
-        kept = pl.col("parameter").is_in(requested)
-        if self.sr.start:
-            kept &= pl.col("timestamp").is_between(self.sr.start, self.sr.end, closed="both")
-        if self.sr.options.drop_nulls_effective:
-            kept &= pl.col("value").is_not_null()
-        for updated in df.filter(kept).get_column(_UPDATED).drop_nulls().unique():
-            self._note_data_updated(updated)
-        # the core drops any column of its own accord (`shape_provider_frame`); this is so that it need not
-        return df.drop(_UPDATED)
-
     def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
@@ -1053,7 +1024,7 @@ class MeteoFranceObservationValues(TimeseriesValues):
             if not df.is_empty():
                 # the date of the copy read travels with its rows (`_note_files_with_rows`)
                 updated = _resource_date(resource, file)
-                dfs.append(df.with_columns(pl.lit(updated, dtype=pl.Datetime("us", "UTC")).alias(_UPDATED)))
+                dfs.append(df.with_columns(pl.lit(updated, dtype=pl.Datetime("us", "UTC")).alias(UPDATED)))
         if not dfs:
             return pl.DataFrame()
         if resolution_name in _FU_CONVERTED_RESOLUTIONS and fu_hours is None and department.startswith(("97", "98")):
@@ -1062,14 +1033,14 @@ class MeteoFranceObservationValues(TimeseriesValues):
         # the value and the code of a parameter travel together through the unpivot, as the fields of one struct
         df = df.select(
             date_column,
-            _UPDATED,
+            UPDATED,
             *(
                 pl.struct(pl.col(name).alias("value"), pl.col(flag_columns[name]).alias("quality_flags")).alias(name)
                 for name in parameter_columns
             ),
         ).unpivot(
             on=parameter_columns,
-            index=[date_column, _UPDATED],
+            index=[date_column, UPDATED],
             variable_name="parameter",
             value_name="value",
         )
@@ -1093,7 +1064,7 @@ class MeteoFranceObservationValues(TimeseriesValues):
             # the validation code (9 filtered, 0 protected, 1 validated, 2 doubtful), verbatim and null where the
             # source leaves it blank (GH-2018)
             join_quality_flags(pl.col("quality_flags"), raw=raw),
-            _UPDATED,
+            UPDATED,
         )
         return self._note_files_with_rows(df, dataset)
 

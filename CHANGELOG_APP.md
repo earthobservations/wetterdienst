@@ -21,6 +21,22 @@ Types of changes:
 - `[Proxy]` The `/mcp` proxy sends a request on only to the backend's `/mcp` and below: a path that
   resolves elsewhere (such as `/mcp/../health`) is answered a 404 problem, as the `/api` proxy
   answers one, and is not asked of the backend (GH-2607)
+
+## [0.37.0] - 2026-10-26
+
+### Changed
+
+- The app has a new icon: four weather tiles (sun, rain, wind, temperature). It is the tab icon
+  (`/icon.svg`, with a 32 px `/favicon.ico` for browsers that ask for that), the iOS home-screen
+  icon (`/apple-touch-icon.png`) and the logo in the header and the widget. `/favicon.ico` is a
+  real ICO now, no PNG under that name. The 0.36.0 image was built before the icon was merged and
+  has none of these files (GH-3431)
+
+### Security
+
+- `[Security headers]` The Content Security Policy lists only the hosts the app loads from: it no
+  longer allows images from `unpkg.com`, which nothing loads, nor fonts from any `https:` host, as
+  the app uses no web font (GH-2607)
 - `[Widget]` `/widget` can be put in a frame of another site, as its documentation says it can:
   the server sends it `frame-ancestors *` and no `X-Frame-Options` when the request line is
   `/widget` or `/widget/`, the one page that is. Every other page, and `/widget` written another
@@ -45,10 +61,6 @@ Types of changes:
 
 ### Changed
 
-- The app has a new icon: four weather tiles (sun, rain, wind, temperature). It is the tab icon
-  (`/icon.svg`, with a 32 px `/favicon.ico` for browsers that ask for that), the iOS home-screen
-  icon (`/apple-touch-icon.png`) and the logo in the header and the widget. `/favicon.ico` is a
-  real ICO now, no PNG under that name (GH-3431)
 - The backend URL is private runtime config now, so no page carries it any more. Set it with
   `NUXT_API_BASE` (the compose file and the docs do); the old `NUXT_PUBLIC_API_BASE` is read
   while `NUXT_API_BASE` is not set, so a deployment keeps working until it is renamed (GH-3096)
@@ -1601,7 +1613,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.36.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.37.0...HEAD
+[0.37.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.36.0...app-v0.37.0
 [0.36.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.35.0...app-v0.36.0
 [0.35.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.34.0...app-v0.35.0
 [0.34.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.33.0...app-v0.34.0

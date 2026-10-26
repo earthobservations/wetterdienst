@@ -25,7 +25,7 @@ from wetterdienst.model.metadata import (
 )
 from wetterdienst.model.quality_flags import OutOfRange, join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
-from wetterdienst.model.values import TimeseriesValues
+from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.dwd.metadata import _METADATA
 from wetterdienst.util.eccodes import bufr_file, require_bufr
 from wetterdienst.util.network import File, download_file, download_files, list_remote_files_fsspec
@@ -828,15 +828,20 @@ class DwdRoadValues(TimeseriesValues[DatasetModel]):
         # no readings but with the columns, so the filter has a station id to look for. The core makes of any frame
         # without a row the empty long form, and writes `station_id`, `resolution` and `dataset` itself
         df = df.filter(pl.col("station_id").eq(station_id))
+        # the date DWD wrote the file of a reading travels with it (`_note_files_with_rows`, GH-2567)
+        if UPDATED not in df.columns:
+            df = df.with_columns(pl.lit(None, dtype=pl.Datetime("us", "UTC")).alias(UPDATED))
         # a value no sensor can have produced is null, and keeps the number DWD wrote (`_RANGES`, GH-3222)
         value, raw = null_sentinels(pl.col("value"), *_OUT_OF_RANGE, text=False)
-        return df.select(
+        df = df.select(
             "parameter",
             "timestamp",
             value.alias("value"),
             # the internal 0 / 1 verdict (see `_quality`), written as a flag: "0", "1" or null
             join_quality_flags(pl.col("quality").cast(pl.Int8), raw=raw),
+            UPDATED,
         )
+        return self._note_files_with_rows(df, parameter_or_dataset)
 
     def _create_file_index_for_dwd_road_weather_station(
         self,
@@ -981,7 +986,13 @@ class DwdRoadValues(TimeseriesValues[DatasetModel]):
         parameters: list[ParameterModel],
     ) -> pl.DataFrame:
         """Parse the road weather station data from a given file and returns a DataFrame."""
-        data = [self.__parse_dwd_road_weather_data(file, parameters) for file in files]
+        # the date DWD wrote a file travels with its readings (`_note_files_with_rows`, GH-2567)
+        data = [
+            self.__parse_dwd_road_weather_data(file, parameters).with_columns(
+                pl.lit(file.last_modified, dtype=pl.Datetime("us", "UTC")).alias(UPDATED)
+            )
+            for file in files
+        ]
         if not data:
             return pl.DataFrame(schema=_PARSED_SCHEMA)
         # here rather than in the per-file parse: a sensor that has stopped can only be told from

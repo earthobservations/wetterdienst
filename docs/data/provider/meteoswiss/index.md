@@ -15,6 +15,12 @@ the source must be acknowledged as "Source: MeteoSwiss" (or the German, French o
 infrastructure, in particular high-frequency downloading of the same content.
 Check out the [Open Data Documentation](https://opendatadocs.meteoswiss.ch/) for further information.
 
+## Update date
+
+The `data_updated_at` of the [`metadata`](../../../usage/restapi.md#response-metadata) of an answer is when
+MeteoSwiss last wrote the file or files the values were read from (their `Last-Modified`), the newest of those that
+gave a reading.
+
 ```{toctree}
 :hidden:
 
