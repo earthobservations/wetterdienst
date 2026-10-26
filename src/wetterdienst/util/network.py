@@ -1860,6 +1860,12 @@ class NetworkFilesystemManager:
                     cache_storage=str(real_cache_dir),
                     expiry_time=int(ttl_value),
                 )
+                # fsspec keeps one instance per thread and arguments, by the thread's ident, and an ident is handed
+                # out again once its thread has ended: the thread of a later `download_files` can be given the
+                # instance of an earlier one, which is not built again and holds the entries it had when it last
+                # saved, not the ones other threads cached since (GH-3452). Read from disk, an instance is as fresh
+                # as one that was just built; under the lock, as a build is
+                filesystem_effective.load_cache()
                 # the tidying is before the registry assignment below, and none of it able to raise: a
                 # cache that cannot be tidied must still be a cache that can be read.
                 #

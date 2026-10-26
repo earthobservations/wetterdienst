@@ -382,7 +382,7 @@ def test_download_files_gives_each_file_its_own_date(source: ThreadingHTTPServer
     again = download_files(urls, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR)
 
     assert [file.last_modified for file in files] == [_utc(FIRST)] * 4
-    # from the cache or fetched again, which the metadata the threads share does not always keep an entry for
+    assert [file.from_cache for file in again] == [True] * 4
     assert [file.last_modified for file in again] == [_utc(FIRST)] * 4
 
 
