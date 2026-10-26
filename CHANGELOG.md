@@ -16,6 +16,11 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- MCP tools return non-JSON formats with schema-valid structured output and apply the single-answer row limit;
+  row-limit errors no longer recommend REST streaming formats to tool callers (GH-3464)
+
 ### Added
 
 - The `metadata` block of every data answer has `data_updated_at`, when the source says its data
