@@ -695,15 +695,21 @@ def _stub_dated(monkeypatch: pytest.MonkeyPatch, endpoint: str) -> None:
     monkeypatch.setattr(restapi, name[endpoint], lambda **kwargs: replace(fetch(**kwargs), data_updated_at=UPDATED))
 
 
-@pytest.mark.parametrize("endpoint", ENDPOINTS)
-@pytest.mark.parametrize("fmt", ["json", "geojson", "csv"])
+@pytest.mark.parametrize(
+    ("endpoint", "fmt"),
+    [
+        (endpoint, fmt)
+        for endpoint in ENDPOINTS
+        for fmt in ("json", "geojson", "csv")
+        # the CSV of values is streamed, which has none (below)
+        if (endpoint, fmt) != ("/api/values", "csv")
+    ],
+)
 def test_the_date_of_the_result_is_in_the_block_and_the_header(
     client: TestClient, monkeypatch: pytest.MonkeyPatch, endpoint: str, fmt: str
 ) -> None:
     """Every route of the block says it, in UTC as every timestamp is, and a CSV in the header alone."""
     _stub_dated(monkeypatch, endpoint)
-    if endpoint == "/api/values" and fmt == "csv":
-        _stub_stream_dated(monkeypatch)
 
     response = client.get(endpoint, params=_params(endpoint, format=fmt))
 
@@ -713,23 +719,51 @@ def test_the_date_of_the_result_is_in_the_block_and_the_header(
         assert response.json()["metadata"]["data_updated_at"] == UPDATED_TEXT
 
 
-def _stub_stream_dated(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Stream the values of one station that the source dates."""
+def _stub_two_dated_stations(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make two stations of the source with different dates the stations a request is answered by."""
     from tests.ui.test_restapi import _stub_stream  # noqa: PLC0415
 
-    _stub_stream(monkeypatch, [replace(_values_result_of_shape("long"), data_updated_at=UPDATED)])
+    values = _values_result_of_shape("long")
+    older = dt.datetime(2026, 10, 24, 6, tzinfo=dt.UTC)
+    stations_df = pl.concat([values.stations.df, values.stations.df.with_columns(pl.lit("01049").alias("station_id"))])
+    _stub_stream(
+        monkeypatch,
+        [replace(values, data_updated_at=older), replace(values, data_updated_at=UPDATED)],
+        stations_df=stations_df,
+    )
 
 
-def test_a_streamed_answer_has_the_date_of_the_first_station_it_read(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("fmt", ["ndjson", "csv"])
+def test_a_streamed_answer_has_no_date_where_the_stations_have_different_ones(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, fmt: str
 ) -> None:
-    """The head of an NDJSON answer goes out before the rest is read: it has the date as far as it is known."""
-    _stub_stream_dated(monkeypatch)
+    """A stream's head goes out before the last station is read, so the newest date is not known: null, no header."""
+    _stub_two_dated_stations(monkeypatch)
 
-    response = client.get("/api/values", params=_params("/api/values", format="ndjson"))
+    response = client.get("/api/values", params=_params("/api/values", format=fmt))
 
     assert response.status_code == 200, response.text
-    assert json.loads(response.text.splitlines()[0])["metadata"]["data_updated_at"] == UPDATED_TEXT
+    assert UPDATED_HEADER not in response.headers
+    if fmt == "ndjson":
+        assert json.loads(response.text.splitlines()[0])["metadata"]["data_updated_at"] is None
+
+
+def test_the_json_answer_of_the_same_stations_has_the_newest_date(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Where the stations are all read before the block is made, the newest of their dates is the answer's."""
+    values = _values_result_of_shape("long")
+    older = dt.datetime(2026, 10, 24, 6, tzinfo=dt.UTC)
+    _stub_result(monkeypatch, "/api/values")
+    monkeypatch.setattr(
+        restapi,
+        "get_values",
+        lambda **_kwargs: replace(values, data_updated_at=max(older, UPDATED)),
+    )
+
+    response = client.get("/api/values", params=_params("/api/values"))
+
+    assert response.json()["metadata"]["data_updated_at"] == UPDATED_TEXT
     assert response.headers[UPDATED_HEADER] == UPDATED_TEXT
 
 

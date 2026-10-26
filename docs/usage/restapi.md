@@ -207,8 +207,8 @@ what the answer is missing:
   network (every network but `meteofrance/observation` so far, and every list of stations): never `retrieved_at` in
   its place. An answer made from the cache has the date of the copy it was made from, so the difference of
   `retrieved_at` and `data_updated_at` is the age of the data, however long ago it was cached. NDJSON and CSV answers of
-  `values` are streamed and their head goes out before the stations are read, so they have the date of the first
-  station read. It is the "date of the most recent update" that the Etalab Open Licence asks to be named with the source.
+  `values` are streamed and their head goes out before the stations are read, so the newest date is not known: they
+  say `null`, and the header is left out. A JSON answer of the same request has the exact one. It is the "date of the most recent update" that the Etalab Open Licence asks to be named with the source.
 - **`counts`** is the stations in the answer and its rows: the items of `values` (one per timestamp in
   the wide shape), the stations listed, or the histories.
 - **`crs`** is the reference system of every position in the answer: WGS 84, longitude before latitude in
@@ -643,7 +643,7 @@ A stream without its `end` line was cut short. A failure after the response bega
 (`wetterdienst values --format=ndjson`), all at once.
 
 **CSV** is the CSV of the answer, with the header row once, sent in chunks. A CSV has no place for the block, so
-it is in the headers: `X-Wetterdienst-API-Version`, `-Schema-Version`, `-Retrieved-At`, `-Data-Updated-At` (where there is a date), `-Provider`, `-License`,
+it is in the headers: `X-Wetterdienst-API-Version`, `-Schema-Version`, `-Retrieved-At`, `-Provider`, `-License`,
 `-Attribution`, `-Stations` (the stations selected), and `Link: <licence>; rel="license"`. They go out before the
 first row, so `X-Wetterdienst-Rows` is left out, and `X-Wetterdienst-Warnings` has only what was raised by then. A
 failure after the response began cuts the connection, as CSV cannot say it; the server logs it.
