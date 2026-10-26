@@ -63,7 +63,7 @@ from wetterdienst.util.listing_cache import (
 from wetterdienst.util.provider_hosts import clean_host, hosts_of_provider, provider_of
 
 if TYPE_CHECKING:
-    from datetime import datetime
+    from collections.abc import Mapping
     from types import SimpleNamespace
 
     from wetterdienst.settings import Settings
@@ -1422,8 +1422,13 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
             return super()._open(path, mode=mode, **kwargs)
         # the ceiling `download_file` was given, for the fetch below; the filesystem holds the default
         fetch_kwargs = {"max_bytes": kwargs.pop("max_bytes")} if "max_bytes" in kwargs else {}
+        # the time (as `time.time()` has it) before which a copy is no longer the file: a copy made earlier is fetched
+        # again, and is replaced only once the new one is whole, so that a fetch that fails leaves it where it was
+        refetch_before = kwargs.pop("refetch_before", None)
         path = self._strip_protocol(path)
         cached = self._check_file(path)
+        if cached and refetch_before is not None and cached[0]["time"] < refetch_before:
+            cached = False
         if cached:
             _, blob = cached
         else:
@@ -2015,6 +2020,7 @@ def download_file(
     use_certifi: bool = False,
     attempts: int = 2,
     max_bytes: int | None = None,
+    refetch_before: float | None = None,
 ) -> File:
     """Download a specified file from the server.
 
@@ -2036,6 +2042,9 @@ def download_file(
             late is worth no more than none.
         max_bytes: The most the body may be, `MAX_DOWNLOAD_BYTES` if not given. A body held in the cache is
             returned as it is, whatever its size: the ceiling is for what is fetched.
+        refetch_before: A time, as `time.time()` has it, before which a copy held in the cache is fetched again, for a
+            file that is known to have changed since. The copy stays where it is until the new one has arrived, so a
+            download that fails is a failure and the copy is still held for a call without this to be served from.
 
     Returns:
         A BytesIO object containing the downloaded file.
@@ -2079,7 +2088,10 @@ def download_file(
                     # read-only or full cache dir and the metadata load on a truncated file, and an
                     # exception escaping here carries a traceback whose frame holds `client_kwargs`
                     # -- the Authorization header -- which is exactly what the handler below drops
-                    served_from_cache = bool(getattr(filesystem, "_check_file", lambda _url: False)(url))
+                    held = getattr(filesystem, "_check_file", lambda _url: False)(url)
+                    served_from_cache = bool(held) and not (
+                        refetch_before is not None and held[0]["time"] < refetch_before
+                    )
                     # said after the probe rather than before it, because before it this could only
                     # guess -- and it guessed "Downloading" for every cache hit, which is the one
                     # thing a reader of the log could already tell was not happening. Said per
@@ -2088,7 +2100,10 @@ def download_file(
                     log.info(
                         f"Reading file {shown} from cache" if served_from_cache else f"Downloading file {shown}",
                     )
-                    payload = filesystem.cat_file(url, **({} if max_bytes is None else {"max_bytes": max_bytes}))
+                    fetch_kwargs: dict[str, float] = {} if max_bytes is None else {"max_bytes": max_bytes}
+                    if refetch_before is not None and isinstance(filesystem, WholeFileCacheFileSystem):
+                        fetch_kwargs["refetch_before"] = refetch_before
+                    payload = filesystem.cat_file(url, **fetch_kwargs)
                     _refuse_unannounced_compression(url, payload)
                 except Exception as e:  # noqa: BLE001 -- re-raised, never swallowed
                     # scrubbed here as well as on the way out, because stamina's retry hook logs
@@ -2197,25 +2212,20 @@ def drop_cached_file(
         log.debug("Could not drop %s from the cache", _without_url_secrets(url), exc_info=False)
 
 
-def drop_cached_file_if_older_than(
+def cached_file_time(
     url: str,
-    modified: datetime,
     cache_dir: Path,
     ttl: CacheExpiry = CacheExpiry.NO_CACHE,
     client_kwargs: dict | None = None,
     *,
     cache_disable: bool = False,
     use_certifi: bool = False,
-) -> bool:
-    """Delete the copy `download_file` cached for a url if it was made before `modified`, so that it is asked again.
+) -> float | None:
+    """Tell when the copy `download_file` holds for a url was made, as `time.time()` has it; None where none is held.
 
-    For a provider whose listing says when each file was last changed, and whose copy of one is kept for a time (or
-    for ever) that does not follow it: a copy made before the file last changed is not the file, and what the listing
-    says of the file then does not say of the copy. A copy made after `modified` is left where it is, so a file that
-    does not change is fetched once for as long as the ttl holds it. Takes the arguments the download is made with,
-    as `drop_cached_file` does, since they name the cache.
-
-    Returns whether a copy was deleted. Never raises: a cache that cannot be read has no copy to be older.
+    Takes the arguments the download was made with, as `drop_cached_file` does, since they name the cache. Read from
+    the metadata file and not from this thread's memory of it: the copy was most likely made by another thread.
+    Never raises: a cache that cannot be read holds no copy.
     """
     try:
         filesystem = NetworkFilesystemManager.get(
@@ -2226,17 +2236,13 @@ def drop_cached_file_if_older_than(
             use_certifi=use_certifi,
         )
         if not isinstance(filesystem, WholeFileCacheFileSystem):
-            return False
-        # read from the disk, not from the memory of this thread: the copy was most likely made by another one
+            return None
         filesystem.load_cache()
         held = filesystem._check_file(url)  # noqa: SLF001
-        if not held or held[0]["time"] >= modified.timestamp():
-            return False
-        filesystem.pop_from_cache(url)
-    except Exception:  # noqa: BLE001 -- best effort: a copy that stays is read as before
-        log.debug("Could not check the copy of %s in the cache", _without_url_secrets(url), exc_info=False)
-        return False
-    return True
+        return float(held[0]["time"]) if held else None
+    except Exception:  # noqa: BLE001 -- best effort: no copy known is no date from it
+        log.debug("Could not read the time of the copy of %s", _without_url_secrets(url), exc_info=False)
+        return None
 
 
 def _header_value(value: object) -> str:
@@ -2495,8 +2501,12 @@ def download_files(
     *,
     cache_disable: bool = False,
     use_certifi: bool = False,
+    refetch_before: Mapping[str, float] | None = None,
 ) -> list[File]:
-    """Download multiple files from the server concurrently."""
+    """Download multiple files from the server concurrently.
+
+    `refetch_before` names, by url, the time before which the copy held of a file is fetched again (`download_file`).
+    """
     noun = "file" if len(urls) == 1 else "files"
     # what is wanted, not what will happen: which of these the cache answers is not known until each
     # one has been asked, and the line below says it once they all have
@@ -2511,6 +2521,7 @@ def download_files(
                     client_kwargs=client_kwargs,
                     cache_disable=cache_disable,
                     use_certifi=use_certifi,
+                    refetch_before=(refetch_before or {}).get(file),
                 ),
                 urls,
             ),

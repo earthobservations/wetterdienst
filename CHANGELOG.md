@@ -22,11 +22,12 @@ Types of changes:
   was last updated (UTC; `null` where it states none), with the `X-Wetterdienst-Data-Updated-At`
   header where it is set. The values, interpolation and summary results have `data_updated_at`, and
   so does the `metadata` of their `to_dict`, `to_json` and `to_ogc_feature_collection` with
-  `with_metadata=True`. `meteofrance/observation` fills it from the files that contributed rows
-  (the newest `last_modified` of data.gouv.fr, as Etalab 2.0 asks), and downloads a cached file
-  again when the listing dates it later than the copy; every other network, a list of stations, a
-  history and a streamed answer (NDJSON, CSV of `values`) say `null`. `schema_version` stays
-  `"1"` (GH-2567)
+  `with_metadata=True`. `meteofrance/observation` fills it from the files whose rows the answer
+  keeps (the newest `last_modified` of data.gouv.fr, as Etalab 2.0 asks), and downloads a cached
+  file again when the listing dates it later than the copy, serving the copy and its own date if
+  the file host does not answer; every other network, a list of stations, a history and a
+  streamed answer (NDJSON, CSV of `values`) say `null`. A result cut by `filtered_by_sql` keeps
+  the date of the result it was cut from. `schema_version` stays `"1"` (GH-2567)
 
 ## [0.175.0] - 2026-10-25
 

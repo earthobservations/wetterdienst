@@ -19,7 +19,9 @@ which asks for the source and the date of the most recent update of the informat
 `observation` report that date as `data_updated_at` of their [`metadata`](../../../usage/restapi.md#response-metadata)
 (the newest `last_modified` data.gouv.fr gives the files that hold a row of the answer, as the listing said when it
 was read, which is cached for 12 hours) and in the `X-Wetterdienst-Data-Updated-At` header; those of `synop` do not
-yet, and say `null`. A copy of a file made before the date the listing gives it is downloaded again.
+yet, and say `null`. A copy of a file made before the date the listing gives it is downloaded again, and
+replaced once the new one has arrived: if the file host does not answer, the copy from before is read and dated as of
+the time it was made.
 
 ```{toctree}
 :hidden:
