@@ -85,22 +85,11 @@ default, plus NOAA, ECCC, Météo-France and more). These tools mirror its REST 
             parameters="daily/climate_summary/temperature_air_mean_2m",
             stations="01975", periods="recent")
 
-## Typical workflow: weather forecast for a place
-For "forecast for <place>", anywhere in the world, use a forecast network. Look up the place's coordinates yourself:
-1. `stations` near them (`rank` = the N nearest, or `distance` in km):
-     stations(provider="dwd", network="mosmix", parameters="hourly/large", latitude=34.05, longitude=-118.24, rank=3)
-   Take the nearest `station_id` ("72295", Los Angeles).
-2. `values` for it:
-     values(provider="dwd", network="mosmix", parameters="hourly/large/temperature_air_2m", stations="72295")
-
-## Which network for what
-A provider's `country` is the country of the agency that runs it, NOT the extent of its data: DWD is German, \
-its forecasts are worldwide. Decide by the network's `kind` (`coverage` / `providers`):
-- observed weather (`observation`): mostly national, in the provider's `country` (`dwd/observation` is \
-Germany only); `noaa/ghcn` is global.
-- forecasts (`forecast`): `dwd/mosmix` and `dwd/dmo` (dataset `icon`; `icon_eu` is Europe) have stations on \
-every continent, so a forecast for Tokyo or Los Angeles is no reason to refuse. `dwd/swsmos` (road forecast) is \
-Germany only.
+The same two steps serve a network of any `kind` (`observation`, `forecast`, ...; see `coverage`). Without \
+a name, give `stations` a point: `latitude`, `longitude` and `rank` (the N nearest) or `distance` (km):
+     stations(provider=<provider>, network=<network>, parameters=<parameters>, latitude=<lat>, longitude=<lon>, rank=3)
+A provider's `country` is its operator's, NOT the extent of its data: never conclude from it that a network \
+cannot serve a place; look at its `kind` and at what `stations` returns near the place.
 
 ## Choosing a tool
 For "what was/is the weather at <place>" ALWAYS use `stations` then `values` -- that is the only \
@@ -129,8 +118,7 @@ them or none are configured, and null when that could not be told (treat it as u
 rejected). `coverage` does not check them and has no `valid`: it says whether they are `configured`.
 
 ## Conventions
-- provider/network: use "dwd"/"observation" for German ground observations (the common case), "dwd"/"mosmix" \
-for a forecast. Call \
+- provider/network: use "dwd"/"observation" for German ground observations (the common case). Call \
 `coverage` with no arguments to list every provider/network.
 - parameters: "resolution/dataset" (e.g. "daily/kl") for a whole dataset, or \
 "resolution/dataset/parameter" (e.g. "daily/climate_summary/temperature_air_mean_2m") for a single \

@@ -1454,12 +1454,11 @@ def providers(
 
     For every provider, or the one named with `provider`: the names it goes by, the country of the agency
     that runs it (`country_code` is the ISO 3166-1 alpha-2 code; it is the operator's country, not the extent
-    of its data: `dwd` is German and its forecast networks `mosmix` and `dmo` have stations worldwide, while
-    `dwd/observation` is Germany), the terms it publishes its data under (`license`, null where it states
-    none) and the credit line to give (`attribution`), and its networks, each with its `kind`, source `url`,
-    whether it needs credentials (`auth`) and the resolutions and datasets it offers, with how many parameters
-    each has. Nothing is downloaded and no credential is read, so it answers at once; `coverage` lists the
-    parameters of a network, and `auth` checks whether its credentials are accepted.
+    of its data: a network can have stations outside it), the terms it publishes its data under (`license`,
+    null where it states none) and the credit line to give (`attribution`), and its networks, each with its
+    `kind`, source `url`, whether it needs credentials (`auth`) and the resolutions and datasets it offers, with
+    how many parameters each has. Nothing is downloaded and no credential is read, so it answers at once;
+    `coverage` lists the parameters of a network, and `auth` checks whether its credentials are accepted.
     """
     begin_response()
 

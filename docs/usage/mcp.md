@@ -33,9 +33,7 @@ claude mcp add --transport http wetterdienst https://wetterdienst.eobs.org/mcp/v
 ```
 
 Then ask in words: "How warm was it in Kiel on 26 December 2025?" The assistant calls `stations` with the name and
-`values` with the station it got. For "What is the weather forecast for Los Angeles?" it looks up the coordinates, calls
-`stations` with them on the forecast network (`provider="dwd"`, `network="mosmix"`, `parameters="hourly/large"`,
-`latitude`, `longitude`, `rank`) and `values` with the nearest station, `72295`.
+`values` with the station it got.
 
 ## Run your own
 
@@ -84,19 +82,10 @@ which tool not to reach for first (`interpolate` and `summarize` introduce an er
 request), how a parameter is written (`daily/climate_summary/temperature_air_mean_2m`) and how to read a result.
 The instructions and the descriptions of the tools are written for agents and are improved without a new version.
 
-### Where a network reaches
-
-The `country` of a provider is the country of the agency that runs it, not the extent of its data, and the
-instructions say so: DWD is German, and a forecast from it is not a forecast for Germany. What decides is the `kind` of
-a network, which `coverage` and `providers` list:
-
-| For | Use | Reaches |
-| --- | --- | --- |
-| observed weather | `kind=observation`, for instance `dwd/observation` | mostly the provider's own country (`dwd/observation` is Germany only); `noaa/ghcn` is global |
-| a forecast | `kind=forecast`: `dwd/mosmix` (`hourly/large`) and `dwd/dmo` (dataset `icon`) | stations worldwide, on every continent; the `icon_eu` dataset of `dwd/dmo` is Europe, and `dwd/swsmos` (road forecast) is Germany |
-
-The lists of `dwd/mosmix` and `dwd/dmo` (`icon`) hold stations from Los Angeles (`72295`) to Tokyo (`47662`), Nairobi
-(`63740`), Buenos Aires (`87576`) and Sydney (`94767`). A test holds the instructions to this, and the lists to the claim.
+The same two steps serve a network of any `kind` (`observation`, `forecast`, ...), for a place given by coordinates as
+well as by name. The `country` of a provider is the country of the agency that runs it, not the extent of its data, and
+the instructions tell the assistant not to conclude from it that a network cannot serve a place: it looks at the
+network's `kind` and at what `stations` returns near the place.
 
 An error comes back as the text of the REST problem, for instance
 `HTTP error 422: Unprocessable Content - limit: Input should be greater than or equal to 1`, and an argument a tool
