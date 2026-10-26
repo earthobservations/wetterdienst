@@ -248,15 +248,15 @@ what the answer is missing:
   **Which files count.** A file dates the answer only where rows of it are in the answer: one that failed, one that
   holds no row of the station, one whose rows all lie outside the window asked for, one that holds only parameters
   that were not asked for, and one whose rows another file took the place of (the recent archive of DWD where the
-  historical one has a value for the same stamps) are not counted, and where `drop_nulls` is on (the default) a row without a value
-  does not make a file count. The provider decides this on the frame it hands to the core, in the order the core cuts
-  it (the rows of a reading are made one, the first with a value, then the requested parameters, the window and the
-  null policy), so two things stay out of its sight, and a file that is in the answer for them only still counts: a
-  value that the core reads as null although the provider handed it over as a text (a text that is no number), and the stamp of `dwd/observation`,
-  which the provider shifts by an hour for an archive that DWD writes in MEZ only afterwards, so a window that begins or
-  ends within that hour of the rows of an archive can count it or leave it out wrongly. `dwd/observation` and
-  `dwd/derived` decide it for the archives of a period together, which are one file but for the 1 and 5 minute
-  precipitation of the historical period, and a forecast counts where one of its steps is in the answer.
+  historical one has the same stamps) are not counted, and where `drop_nulls` is on (the default) a row without a value
+  does not make a file count. The provider decides this on the frame it hands to the core, in the order the core cuts it
+  (the first row of a reading that has a value is kept, then the requested parameters, the window and the null policy),
+  so two things stay out of its sight, and a file that is in the answer for them only still counts: a value that the
+  core reads as null although the provider handed it over as a text (a text that is no number), and the stamp of
+  `dwd/observation`, which the provider shifts by an hour for an archive that DWD writes in MEZ only afterwards, so a
+  window that begins or ends within that hour of the rows of an archive can count it or leave it out wrongly.
+  `dwd/observation` and `dwd/derived` decide it for the archives of a period together, which are one file but for the 1
+  and 5 minute precipitation of the historical period, and a forecast counts where one of its steps is in the answer.
 
 - **`counts`** is the stations in the answer and its rows: the items of `values` (one per timestamp in
   the wide shape), the stations listed, or the histories.

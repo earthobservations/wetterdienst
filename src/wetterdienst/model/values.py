@@ -65,7 +65,9 @@ def merge_duplicate_readings(df: pl.DataFrame, subset: Sequence[str]) -> pl.Data
     ``parameter`` and ``timestamp``). Which row of them is kept is the first, in the order the frame has them, that has
     a ``value``: a row without one that comes first no longer takes the reading with it, as it did when the first row
     was kept whatever it held. Where every row is null the first row is kept, and where two rows have different values
-    the first of them wins; one debug line says how many readings had such a conflict.
+    the first of them wins; one debug line says how many readings had such a conflict. A ``value`` that is still a
+    text (a provider's frame before the core shapes it) has a value where the core reads a finite number from it, as
+    `shape_provider_frame` does: ``""`` and ``"n/a"`` are none.
 
     The row is kept as it is, the other columns with it: ``quality_flags`` (and any other column) is the one of the row
     the value is of, so a value never carries the flag of another row. A reading whose rows are all null keeps the
@@ -86,20 +88,25 @@ def merge_duplicate_readings(df: pl.DataFrame, subset: Sequence[str]) -> pl.Data
     duplicated = df.select(keys).is_duplicated()
     if not duplicated.any():
         return df
-    # only the readings that have several rows are grouped: the rest, nearly all of a large frame, pass untouched
-    position = "__row"
-    conflicts = "__conflict"
+    # only the readings that have several rows are grouped: the rest, nearly all of a large frame, pass untouched.
+    # The helper columns are named so that no column of the frame has their name
+    position = _unused_name("row", df.columns)
+    conflicts = _unused_name("conflict", df.columns)
     indexed = df.with_row_index(position)
     others = [column for column in df.columns if column not in keys]
+    number = pl.col("value")
+    if df.schema["value"] == pl.String:
+        read = pl.col("value").str.strip_chars().cast(pl.Float64, strict=False)
+        number = pl.when(read.is_finite()).then(read)
     # the first row with a value, or the first row where none has one (`arg_max` of a boolean breaks a tie by no rule)
-    first_with_value = pl.int_range(pl.len()).filter(pl.col("value").is_not_null()).first().fill_null(0)
+    first_with_value = pl.int_range(pl.len()).filter(number.is_not_null()).first().fill_null(0)
     merged = (
         indexed.filter(duplicated)
         .group_by(keys, maintain_order=True)
         .agg(
             pl.col(position).first(),
             pl.col(others).get(first_with_value),
-            (pl.col("value").drop_nulls().n_unique() > 1).alias(conflicts),
+            (number.drop_nulls().n_unique() > 1).alias(conflicts),
         )
     )
     log.debug(
@@ -109,6 +116,13 @@ def merge_duplicate_readings(df: pl.DataFrame, subset: Sequence[str]) -> pl.Data
         int(merged.get_column(conflicts).sum()),
     )
     return pl.concat([indexed.filter(~duplicated), merged.select(indexed.columns)]).sort(position).select(df.columns)
+
+
+def _unused_name(name: str, columns: Sequence[str]) -> str:
+    """Give ``name``, with underscores in front until no column of ``columns`` has it."""
+    while name in columns:
+        name = f"_{name}"
+    return name
 
 
 def _can_be_cast(column: str, dtype: pl.DataType) -> bool:
@@ -478,9 +492,13 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         the row is of in the column `UPDATED` (null for a file that has none). The date of a file is the answer's "date
         of the most recent update" only for a file that has rows in the answer, or the answer would be dated by data it
         has not got. A row is kept as the core keeps it: of a requested parameter, inside the window, and, where the
-        shape drops the rows without a value, with a value; of the rows of one reading the first is kept, in the order
-        the provider hands them over. The core cuts the frame after this one, so what it cuts here it would cut there.
-        A frame whose stamp is a text cannot be cut by the window, and every row of it counts.
+        shape drops the rows without a value, with a value; of the rows of one reading the first that has a value is
+        kept (the first where none has one), in the order the provider hands them over, and the other columns, the
+        date of the file among them, are the ones of that row. The core cuts the frame after this one, so what it cuts
+        here it would cut there. A frame whose stamp is a text cannot be cut by the window, and every row of it
+        counts. A `value` that is still a text has a value where a finite number can be read from it, here as in the
+        core: `""` and `"n/a"` are none, though the rows without a value that are dropped after this are judged by
+        `is_not_null`, so a file whose only rows hold such a text still counts.
         """
         requested = {
             parameter.name_original

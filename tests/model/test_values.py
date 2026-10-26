@@ -1157,3 +1157,36 @@ def test_a_reading_given_by_two_rows_has_the_value_of_the_one_that_has_one(monke
 
     assert df.get_column("value").to_list() == [1.5, 2.5]
     assert df.get_column("quality_flags").to_list() == ["3", "1"]
+
+
+@pytest.mark.parametrize("blank", ["", " ", "n/a", "nan", "inf"])
+def test_merge_duplicate_readings_reads_a_text_that_is_no_number_as_no_value(blank: str) -> None:
+    """A frame whose `value` is still text (as the provider hands it over) has a value where a number can be read."""
+    df = pl.DataFrame(
+        {
+            "parameter": ["t", "t", "w", "w"],
+            "timestamp": [dt.datetime(2026, 1, 1, tzinfo=ZoneInfo("UTC"))] * 4,
+            "value": [blank, " 5.0 ", "1", "1.0"],
+            "quality_flags": ["a", "b", "c", "d"],
+        },
+    )
+
+    merged = merge_duplicate_readings(df, ["parameter", "timestamp"])
+
+    # the second row of "t" has the number; "1" and "1.0" of "w" are one number, so no conflict, and the first is kept
+    assert merged.get_column("value").to_list() == [" 5.0 ", "1"]
+    assert merged.get_column("quality_flags").to_list() == ["b", "c"]
+
+
+def test_merge_duplicate_readings_does_not_collide_with_a_column_of_its_own_names() -> None:
+    """The columns the merge adds beside the rows are named after none of the frame's."""
+    df = _readings(("01", "t", 0, None, "raw:-999"), ("01", "t", 0, 5.0, "3")).with_columns(
+        pl.Series("row", [1, 2]), pl.Series("conflict", ["a", "b"]), pl.Series("_row", [3, 4])
+    )
+
+    merged = merge_duplicate_readings(df, _READING)
+
+    assert merged.columns == df.columns
+    assert merged.row(0, named=True)["row"] == 2
+    assert merged.row(0, named=True)["conflict"] == "b"
+    assert merged.row(0, named=True)["_row"] == 4
