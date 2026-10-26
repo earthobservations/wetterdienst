@@ -84,11 +84,19 @@ def test_a_national_network_is_in_the_country_of_its_provider() -> None:
             "at least five continents",
             id="global-one-continent",
         ),
-        pytest.param({"scope": "continental", "countries": []}, "", id="continental-is-fine"),
+        pytest.param({"scope": "continental", "countries": []}, "Input should be", id="no-continental-scope"),
+        pytest.param({"scope": "regional", "countries": []}, "", id="regional-one-continent-is-fine"),
+        pytest.param({"scope": "regional", "countries": ["DE"]}, "which is a national one", id="regional-one-country"),
         pytest.param(
-            {"scope": "continental", "continents": ["europe", "asia"], "countries": []}, "one continent", id="c2"
+            {
+                "scope": "regional",
+                "continents": ALL_CONTINENTS,
+                "countries": [],
+                "bbox": [-180.0, -90.0, 180.0, 90.0],
+            },
+            "is a global one",
+            id="regional-is-global",
         ),
-        pytest.param({"scope": "regional", "countries": []}, "two to four continents", id="regional-one-continent"),
         pytest.param({"continents": []}, "at least 1", id="no-continent"),
         pytest.param({"continents": ["europe", "europe"]}, "twice", id="continent-twice"),
         pytest.param({"continents": ["atlantis"]}, "Input should be", id="no-such-continent"),
@@ -105,24 +113,68 @@ def test_an_extent_that_contradicts_itself_is_refused(changes: dict[str, Any], m
     """The scope, the countries, the continents and the box are held to one another when the declaration is built."""
     declared = _declared(**changes)
     if not message:
-        assert ExtentModel.model_validate(declared).scope == "continental"
+        assert ExtentModel.model_validate(declared).scope == "regional"
         return
     with pytest.raises(ValidationError, match=message):
         ExtentModel.model_validate(declared)
 
 
 def test_the_scope_is_what_the_continents_and_countries_say() -> None:
-    """Across the registry: global has five continents or more, continental one, regional two to four."""
+    """Across the registry: global has five continents and no country, national one country, regional not one."""
     for key, extent in _extents().items():
         if extent.scope == "global":
             assert len(extent.continents) >= 5, key
             assert extent.countries == [], key
-        elif extent.scope == "continental":
-            assert len(extent.continents) == 1, key
         elif extent.scope == "regional":
-            assert 2 <= len(extent.continents) <= 4, key
+            assert len(extent.countries) != 1, key
         else:
             assert len(extent.countries) == 1, key
+
+
+def _datasets_with_an_extent() -> list[tuple[str, str, Any]]:
+    """Give the datasets of the registry that declare an extent of their own: the network, the label and the extent."""
+    found = []
+    for key in _extents():
+        if Wetterdienst.is_standalone(*key.split("/")):
+            continue
+        for resolution in Wetterdienst.resolve(*key.split("/")).metadata:
+            found += [
+                (key, f"{resolution.name}/{dataset.name}", dataset.extent)
+                for dataset in resolution
+                if dataset.extent is not None
+            ]
+    return found
+
+
+def test_a_dataset_narrower_than_its_network_declares_its_own_extent() -> None:
+    """`dwd/dmo` is global and its `icon_eu` list is Europe's; a dataset that declares none has its network's."""
+    declared = {(key, label): extent for key, label, extent in _datasets_with_an_extent()}
+    assert set(declared) == {("dwd/dmo", "hourly/icon_eu")}
+    icon_eu = declared["dwd/dmo", "hourly/icon_eu"]
+    assert icon_eu.scope == "regional"
+    assert icon_eu.continents[0] == "europe"
+    assert Wetterdienst.resolve("dwd", "dmo").metadata.hourly.icon.extent is None
+
+
+def test_the_extent_of_a_dataset_lies_within_its_network() -> None:
+    """Across the registry; and the metadata model refuses a dataset extent that reaches beyond or is its network's."""
+    extents = _extents()
+    for key, label, extent in _datasets_with_an_extent():
+        west, south, east, north = extents[key].bbox
+        assert west <= extent.bbox[0], (key, label)
+        assert south <= extent.bbox[1], (key, label)
+        assert extent.bbox[2] <= east, (key, label)
+        assert extent.bbox[3] <= north, (key, label)
+        assert set(extent.continents) <= set(extents[key].continents), (key, label)
+
+    declared = Wetterdienst.resolve("dwd", "dmo").metadata.model_dump()
+    icon_eu = next(d for d in declared["resolutions"][0]["datasets"] if d["name"] == "icon_eu")
+    with pytest.raises(ValidationError, match="not within the network"):
+        MetadataModel.model_validate({**declared, "extent": _declared()})
+    # a network of the extent of its dataset: the dataset has nothing of its own to say
+    narrowed = {**declared, "extent": icon_eu["extent"]}
+    with pytest.raises(ValidationError, match="which a dataset leaves out"):
+        MetadataModel.model_validate(narrowed)
 
 
 @pytest.mark.parametrize(("key", "box"), sorted(COUNTRY_BBOX.items()))

@@ -41,6 +41,8 @@ export interface CoverageParameter {
 export interface CoverageDataset {
   description: string | null
   parameters: CoverageParameter[]
+  /** Only where the stations of the dataset are fewer than its network's; a dataset without it has its network's */
+  extent?: NetworkExtent
 }
 
 /**
@@ -447,6 +449,8 @@ export interface ProviderLicense {
 export interface ProviderDataset {
   name: string
   parameters: number
+  /** Only where the stations of the dataset are fewer than its network's; a dataset without it has its network's */
+  extent?: NetworkExtent
 }
 
 /** A resolution of a network, with its datasets */
@@ -457,8 +461,8 @@ export interface ProviderResolution {
 
 /** Where the stations of a network are, which the country of its provider does not say */
 export interface NetworkExtent {
-  /** `national`: one country, with its territories; `regional`: two to four continents, not the world */
-  scope: 'global' | 'continental' | 'national' | 'regional'
+  /** `global`: stations on at least five continents; `national`: one country, with its territories; `regional`: everything between */
+  scope: 'global' | 'national' | 'regional'
   continents: Array<'africa' | 'antarctica' | 'asia' | 'europe' | 'north_america' | 'oceania' | 'south_america'>
   /** ISO 3166-1 alpha-2 codes: the one country of a `national` network, else empty */
   countries: string[]

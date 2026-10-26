@@ -8555,12 +8555,12 @@ def test_coverage_schema_in_openapi(client: TestClient) -> None:
     assert shape("CoverageExtent") == (extent, extent)
     assert components["CoverageExtent"]["properties"]["scope"]["enum"] == [
         "global",
-        "continental",
         "national",
         "regional",
     ]
     assert shape("CoverageResolution") == ({"description", "datasets"}, {"description", "datasets"})
-    assert shape("CoverageDataset") == ({"description", "parameters"}, {"description", "parameters"})
+    # `extent` only for a dataset narrower than its network (`dwd/dmo` `icon_eu`): absent from the others (GH-3456)
+    assert shape("CoverageDataset") == ({"description", "parameters", "extent"}, {"description", "parameters"})
     # lead_times is `dwd/dmo`'s alone: sent there, absent elsewhere
     required = {"name", "name_original", "unit_type", "unit", "description"}
     assert shape("CoverageParameter") == (required | {"lead_times"}, required)

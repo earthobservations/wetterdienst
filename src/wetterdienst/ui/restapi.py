@@ -1401,11 +1401,14 @@ def coverage(
     resolutions=... or datasets=... (e.g. datasets="climate_summary") to discover parameter names.
 
     The list of every provider downloads nothing, so it answers at once. Per network it gives
-    `name_short`, `country`, `url` and `kind`. `kind` is `observation`, `forecast` or `derived` for a
+    `name_short`, `country`, `url`, `extent` (where its stations are, which `country` does not say) and
+    `kind`. `kind` is `observation`, `forecast` or `derived` for a
     timeseries network, which has stations and values (every network but two); `radar` and `alerts`
     are standalone (`dwd/radar`, `dwd/alerts`): the other endpoints answer 404 for them. For a network
     that needs credentials, `configured` says whether they are present; whether the provider accepts
-    them is not checked here, `/api/auth` (the MCP `auth` tool) does, for one network.
+    them is not checked here, `/api/auth` (the MCP `auth` tool) does, for one network. With a provider and
+    network, a dataset whose stations are fewer than its network's has an `extent` of its own, and one without
+    has its network's.
     """
     provider, network = request.provider, request.network
 
@@ -1454,11 +1457,13 @@ def providers(
 
     For every provider, or the one named with `provider`: the names it goes by, the country of the agency
     that runs it (`country_code` is the ISO 3166-1 alpha-2 code; it is the operator's country, not the extent
-    of its data: a network can have stations outside it), the terms it publishes its data under (`license`,
-    null where it states none) and the credit line to give (`attribution`), and its networks, each with its
-    `kind`, source `url`, whether it needs credentials (`auth`) and the resolutions and datasets it offers, with
-    how many parameters each has. Nothing is downloaded and no credential is read, so it answers at once;
-    `coverage` lists the parameters of a network, and `auth` checks whether its credentials are accepted.
+    of its data), the terms it publishes its data under (`license`, null where it states none) and the credit
+    line to give (`attribution`), and its networks, each with its `kind`, its `extent` (where its stations are:
+    `scope`, `continents`, `countries`, `bbox`), source `url`, whether it needs credentials (`auth`) and the
+    resolutions and datasets it offers, with how many parameters each has; a dataset whose stations are fewer
+    than its network's has an `extent` of its own, and one without has its network's. Nothing is downloaded
+    and no credential is read, so it answers at once; `coverage` lists the parameters of a network, and `auth`
+    checks whether its credentials are accepted.
     """
     begin_response()
 

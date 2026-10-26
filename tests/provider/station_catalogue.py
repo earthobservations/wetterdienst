@@ -32,7 +32,7 @@ import polars as pl
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
-    from wetterdienst.model.metadata import ExtentModel
+    from wetterdienst.model.metadata import ExtentModel, MetadataModel
 
 # (south, north, west, east) in degrees, generous: the rule catches a station in another country, not a station near
 # the border. A provider is left out where its catalogue is not one country's: the global lists (MOSMIX, DMO, SYNOP,
@@ -474,6 +474,19 @@ def check_extent(df: pl.DataFrame, network: str, extent: ExtentModel, *, whole: 
         if len(reached) < 5:
             problems.append(f"{network}: a global network has stations on {len(reached)} continents ({reached})")
     return problems
+
+
+def extent_of(metadata: MetadataModel, label: str) -> ExtentModel:
+    """Give the extent a catalogue is held to: its dataset's where it declares one, else its network's.
+
+    `label` is `resolution/dataset` as a stub names it, or `resolution+resolution/dataset` for a catalogue of two.
+    """
+    resolutions, _, dataset = label.rpartition("/")
+    for resolution in resolutions.split("+"):
+        own = metadata[resolution][dataset].extent
+        if own is not None:
+            return own
+    return metadata.extent
 
 
 def assert_in_extent(df: pl.DataFrame, network: str, extent: ExtentModel, *, whole: bool = False) -> None:

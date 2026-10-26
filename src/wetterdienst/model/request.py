@@ -36,6 +36,7 @@ from wetterdienst.metadata.renamed import refuse_renamed_arguments
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import (
     CoverageDataset,
+    CoverageExtent,
     CoverageResolution,
     DatasetModel,
     MetadataModel,
@@ -733,6 +734,9 @@ class TimeseriesRequest:
                         for parameter in dataset
                     ],
                 }
+                # only a dataset narrower than its network says so; the others have the extent of the network
+                if dataset.extent is not None:
+                    described_datasets[dataset.name]["extent"] = cast("CoverageExtent", dataset.extent.model_dump())
             if not described_datasets:
                 continue
             data[resolution.name] = {

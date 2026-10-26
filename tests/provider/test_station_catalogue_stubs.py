@@ -5,7 +5,7 @@
 import polars as pl
 import pytest
 
-from tests.provider.station_catalogue import assert_in_extent, assert_sound
+from tests.provider.station_catalogue import assert_in_extent, assert_sound, extent_of
 from tests.provider.station_catalogue_stubs import STUBS, Stub
 from wetterdienst import Wetterdienst
 from wetterdienst.model.schema import STATIONS_SCHEMA
@@ -42,8 +42,9 @@ def test_a_stub_catalogue_is_sound(stub: Stub, monkeypatch: pytest.MonkeyPatch) 
     # and in the box its network declares as its extent (GH-3456): a stub holds a few rows, so only the box is held
     # here; that the whole list is no wider or narrower than the box, and has stations on the continents the network
     # names, is held to the live list
-    provider, network = stub.catalogue.split(" ")[0].split("/")
-    assert_in_extent(stations, stub.catalogue, Wetterdienst.resolve(provider, network).metadata.extent)
+    key, label = stub.catalogue.split(" ")
+    provider, network = key.split("/")
+    assert_in_extent(stations, stub.catalogue, extent_of(Wetterdienst.resolve(provider, network).metadata, label))
 
 
 @pytest.mark.parametrize("stub", STUBS, ids=lambda stub: stub.catalogue)

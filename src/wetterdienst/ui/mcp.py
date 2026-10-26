@@ -89,7 +89,7 @@ The same two steps serve a network of any `kind` (`observation`, `forecast`, ...
 a name, give `stations` a point: `latitude`, `longitude` and `rank` (the N nearest) or `distance` (km):
      stations(provider=<provider>, network=<network>, parameters=<parameters>, latitude=<lat>, longitude=<lon>, rank=3)
 A provider's `country` is its operator's, NOT the extent of its data: never conclude from it that a network \
-cannot serve a place; look at its `kind` and at what `stations` returns near the place.
+cannot serve a place; look at its `kind`, its `extent` and at what `stations` returns near the place.
 
 ## Choosing a tool
 For "what was/is the weather at <place>" ALWAYS use `stations` then `values` -- that is the only \
@@ -110,7 +110,8 @@ the user asks what something is, or what unit a number is in. It is not a way to
 knows nothing about providers or stations, so `coverage` remains the tool for "which parameters \
 does this provider have". `providers` answers what a provider *is* -- the country of its operator (not \
 where its stations are), the licence its data is published under and the credit line to give, and what \
-its networks offer -- and is the tool for "may I reuse this data" and "which providers cover this country".
+its networks offer, with the `extent` of each (where its stations are) -- and is the tool for "may I reuse this \
+data" and "which providers' networks reach a place".
 
 `auth` checks the credentials this server holds for one provider and network that needs them \
 (e.g. aemet/observation): `valid` is true when the provider accepted them, false when it rejected \

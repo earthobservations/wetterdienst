@@ -353,3 +353,32 @@ def test_the_mcp_tool_has_the_extent() -> None:
     networks = {n["network"]: n for n in asyncio.run(call())["providers"][0]["networks"]}
     assert networks["mosmix"]["extent"]["scope"] == "global"
     assert networks["observation"]["extent"]["countries"] == ["DE"]
+
+
+def test_a_dataset_narrower_than_its_network_has_an_extent_of_its_own(client: TestClient) -> None:
+    """`dwd/dmo` is global and its `icon_eu` dataset is Europe's; every other dataset leaves `extent` out."""
+    body = client.get("/api/providers").json()
+
+    datasets = {
+        (f"{provider['provider']}/{network['network']}", resolution["name"], dataset["name"]): dataset
+        for provider in body["providers"]
+        for network in provider["networks"]
+        for resolution in network["resolutions"]
+        for dataset in resolution["datasets"]
+    }
+    with_extent = {key for key, dataset in datasets.items() if "extent" in dataset}
+    assert with_extent == {("dwd/dmo", "hourly", "icon_eu")}
+    own = datasets["dwd/dmo", "hourly", "icon_eu"]["extent"]
+    assert own["scope"] == "regional"
+    assert own["continents"][0] == "europe"
+    assert datasets["dwd/dmo", "hourly", "icon"].keys() == {"name", "parameters"}
+
+
+def test_the_coverage_of_a_dataset_says_where_it_is_narrower_than_its_network(client: TestClient) -> None:
+    """`/api/coverage` of a network lists `extent` of the datasets that have one, and leaves it out of the others."""
+    coverage = client.get("/api/coverage", params={"provider": "dwd", "network": "dmo"}).json()
+
+    assert coverage["hourly"]["datasets"]["icon_eu"]["extent"]["bbox"] == [-13.0, 13.0, 50.0, 71.0]
+    assert "extent" not in coverage["hourly"]["datasets"]["icon"]
+    mosmix = client.get("/api/coverage", params={"provider": "dwd", "network": "mosmix"}).json()
+    assert all("extent" not in dataset for dataset in mosmix["hourly"]["datasets"].values())

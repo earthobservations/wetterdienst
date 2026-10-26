@@ -33,6 +33,7 @@ from tests.provider.station_catalogue import (
     assert_covered,
     assert_in_extent,
     assert_sound,
+    extent_of,
 )
 from tests.provider.station_catalogue_stubs import (
     CHMI_NAME,
@@ -156,9 +157,11 @@ def test_a_live_catalogue_is_sound(provider: str, network: str, resolution: str,
         accepted=ACCEPTED.get(key, ()),
         fail_on_stale=False,
     )
-    # every station is in the box the network declares as its extent (GH-3456), a dataset that is a part of the
-    # network (the European list of `dwd/dmo`) as well as the whole
-    assert_in_extent(stations, f"{key} {resolution}/{dataset}", request.metadata.extent)
+    # every station is in the box the network declares as its extent (GH-3456), or its dataset where that is narrower
+    # (the European list of `dwd/dmo`), which is then held as the whole of its list: no wider than the stations, and
+    # on the continents it names
+    extent = extent_of(request.metadata, f"{resolution}/{dataset}")
+    assert_in_extent(stations, f"{key} {resolution}/{dataset}", extent, whole=extent != request.metadata.extent)
 
 
 def _extent_cases() -> list[object]:

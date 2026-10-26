@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 import polars as pl
 import pytest
 
-from tests.provider.station_catalogue import assert_in_extent, continent_counts
+from tests.provider.station_catalogue import assert_in_extent, check_extent, continent_counts, extent_of
 from tests.provider.station_catalogue_stubs import _serve, _stations
 from wetterdienst import Wetterdienst
 from wetterdienst.provider.dwd import catalogue as dwd_catalogue
@@ -103,3 +103,27 @@ def test_the_readers_put_a_station_of_each_continent_where_the_list_does(
     # a station on every continent the extent names, as far as the rows go: the live list holds the rest
     counts = continent_counts(stations.select(pl.col("latitude"), pl.col("longitude")))
     assert {continent for continent, count in counts.items() if count} >= set(CONTINENTS)
+
+
+def test_the_european_list_of_dmo_is_in_the_extent_of_its_dataset(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`icon_eu` has the stations of Europe, which the extent of the dataset says and the one of the network does not.
+
+    The list of the stub has a directory for Hamburg only, as the European model has none for Los Angeles.
+    """
+    _serve(monkeypatch, dmo_api, {"dmo_stationsliste_txt": _catalogue("\r\n")})
+    europe = [{"name": "single_stations/10147/"}]
+    monkeypatch.setattr(dmo_api, "list_remote_directory_fsspec", lambda *_args, **_kwargs: europe)
+    metadata = Wetterdienst.resolve("dwd", "dmo").metadata
+
+    stations = _stations(DwdDmoRequest, ("hourly", "icon_eu"))
+
+    assert stations["station_id"].to_list() == ["10147"]
+    own = extent_of(metadata, "hourly/icon_eu")
+    assert own != metadata.extent
+    assert own.scope == "regional"
+    assert_in_extent(stations, "dwd/dmo hourly/icon_eu", own)
+    # Los Angeles is in the box of the network and not in the box of the dataset
+    assert extent_of(metadata, "hourly/icon").bbox == metadata.extent.bbox
+    los_angeles = pl.DataFrame({"station_id": ["72295"], "latitude": [33.93], "longitude": [-118.4]})
+    assert not check_extent(los_angeles, "dwd/dmo", metadata.extent)
+    assert check_extent(los_angeles, "dwd/dmo hourly/icon_eu", own)

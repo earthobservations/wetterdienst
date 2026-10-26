@@ -1387,7 +1387,7 @@ def test_a_parameter_nothing_describes_reads_the_canonical_description() -> None
             "url": "https://example.org",
             "kind": "observation",
             "extent": {
-                "scope": "continental",
+                "scope": "regional",
                 "continents": ["europe"],
                 "countries": [],
                 "bbox": [0.0, 40.0, 10.0, 50.0],
