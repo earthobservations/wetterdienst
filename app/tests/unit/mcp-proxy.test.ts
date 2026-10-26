@@ -161,6 +161,9 @@ describe('the /mcp proxy and the path of the client', () => {
     '/mcp/%2E%2E/api/values',
     '/mcp/v1/../../openapi.json',
     '/mcp/./../docs',
+    '/mcp/..',
+    '/mcp/%2e%2e',
+    '/mcp/../mcp2',
   ])('does not leave /mcp for %s, and answers it a 404 problem without asking the backend', async (path) => {
     asked.length = 0
     const { status, body } = await rawRequest(path)
@@ -184,6 +187,19 @@ describe('the /mcp proxy and the path of the client', () => {
 
     expect(status).toBe(200)
     expect(JSON.parse(body).url).toBe('/mcp/v1?x=1')
+  })
+
+  it.each([
+    ['/mcp', '/mcp'],
+    ['/mcp/', '/mcp/'],
+    ['/mcp/v1/', '/mcp/v1/'],
+    ['/mcp/v1/./', '/mcp/v1/'],
+    ['/mcp?x=1', '/mcp?x=1'],
+  ])('sends %s on as %s', async (path, expected) => {
+    const { status, body } = await rawRequest(path)
+
+    expect(status).toBe(200)
+    expect(JSON.parse(body).url).toBe(expected)
   })
 
   it('takes an encoded slash as a character of a segment, not as one that could leave /mcp', async () => {

@@ -1,3 +1,5 @@
+import type { H3Event } from 'h3'
+
 // What the app's proxies share about the path of a request: the backend URL it names, and the answer when that
 // URL is not one the proxy is for. A proxy is for everything under one path of the backend (`/api`, `/mcp`).
 //
@@ -24,7 +26,7 @@ export function urlUnder(origin: string, path: string, prefix: string): string |
  * @param requestId The id the answer carries
  * @returns The problem, for the handler to return
  */
-export function answerNotFound(event: Parameters<typeof setResponseStatus>[0], requestId: string): ApiErrorResponse {
+export function answerNotFound(event: H3Event, requestId: string): ApiErrorResponse {
   setResponseStatus(event, 404)
   setResponseHeader(event, 'content-type', 'application/problem+json')
   setResponseHeader(event, 'x-request-id', requestId)

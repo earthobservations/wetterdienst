@@ -220,11 +220,9 @@ come from other hosts. There is no `v-html` or `innerHTML`, so provider text ren
 (`wd_settings`) in `localStorage` and the language in a cookie, no data. The compose file's app is the dev server, for
 development, not exposure (#3096).
 
-Each proxy answers only for its own path of the backend: a path that resolves elsewhere (`/api/../health`,
-`/mcp/../health`) is a 404 and is not asked of it (`app/tests/unit/proxy-forwards.test.ts`, `mcp-proxy.test.ts`). The
-rate limit counts the address of the connection; a header names the client only where the operator sets
-`NUXT_RATE_LIMIT_CLIENT_IP_HEADER`, which is right only if the proxy in front writes it and nothing reaches the app
-without that proxy (`docs/usage/app.md`, `app/tests/unit/rate-limit.test.ts`).
+The `/api` and `/mcp` proxies answer only for their own path of the backend: a path that resolves elsewhere
+(`/api/../health`, `/mcp/../health`) is a 404 and is not asked of it (`app/tests/unit/proxy-forwards.test.ts`,
+`mcp-proxy.test.ts`).
 
 ### Supply chain
 

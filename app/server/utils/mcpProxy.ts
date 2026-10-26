@@ -25,10 +25,10 @@ const PAYLOAD_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 export function mcpProxyHandler() {
   return defineEventHandler(async (event) => {
     const apiBase = useApiBase()
-    // Forward faithfully to the backend origin, preserving the incoming path and query string so that
-    // the exact `/mcp`, `/mcp/v1` (and a later `/mcp/v2`), a trailing slash, and any future sub-path all reach the backend as-is.
-    // The proxy is for what is under `/mcp`: a path that resolves to anything else (`/mcp/../health`) is a 404
-    // and is not fetched.
+    // Forward to the backend origin with the incoming path and query string, so that the exact `/mcp`, `/mcp/v1`
+    // (and a later `/mcp/v2`), a trailing slash, and any future sub-path reach the backend. The path is resolved
+    // first, as a URL is when it is fetched: the proxy is for what is under `/mcp`, and a path that resolves to
+    // anything else (`/mcp/../health`) is a 404 and is not fetched.
     const target = urlUnder(new URL(apiBase).origin, event.path, '/mcp')
     if (!target)
       return answerNotFound(event, requestIdOf(getRequestHeader(event, 'x-request-id')))

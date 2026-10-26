@@ -151,5 +151,5 @@ own too (`/_nuxt_icon`). The app calls OpenStreetMap, GitHub and Cloudflare for 
 marker images.
 
 The app does not forward the cookies or the `Authorization` of a client to the backend, on `/api` or on `/mcp`.
-Each proxy is for its own path of the backend and nothing else: a request whose path resolves to somewhere else
-(`/api/../health`, `/mcp/../health`) is a `404`, and the backend is not asked.
+The `/api` and `/mcp` proxies are for their own path of the backend and nothing else: a request whose path resolves
+to somewhere else (`/api/../health`, `/mcp/../health`) is a `404`, and the backend is not asked.

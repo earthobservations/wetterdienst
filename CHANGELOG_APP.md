@@ -16,7 +16,7 @@ Types of changes:
 
 ## [Unreleased]
 
-### Fixed
+### Security
 
 - `[Proxy]` The `/mcp` proxy sends a request on only to the backend's `/mcp` and below: a path that
   resolves elsewhere (such as `/mcp/../health`) is answered a 404 problem, as the `/api` proxy
