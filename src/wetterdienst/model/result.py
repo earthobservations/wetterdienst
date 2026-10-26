@@ -733,6 +733,14 @@ class _ValuesDict(_ValuesDictBody):
     metadata: NotRequired[_Metadata]
 
 
+_ValuesResultT = TypeVar("_ValuesResultT", bound="_ValuesResult[Any, Any]")
+
+
+def _undated_if_empty(result: _ValuesResultT) -> _ValuesResultT:
+    """Give the result with no `data_updated_at` where it has no rows left: one of no rows is of no file."""
+    return replace(result, data_updated_at=None) if result.df.is_empty() else result
+
+
 # What differs between the values results is what a row and the whole dictionary look like: an
 # interpolated row has `distance_mean`, a summarized one `distance`. The result is generic over those
 # two, so `to_dict()` is declared as what each returns without redeclaring the method in the subclass.
@@ -752,8 +760,8 @@ class _ValuesResult(_EqualByFields, ExportMixin, Generic[_RowsT, _DictT]):
     stations: StationsResult
     df: pl.DataFrame
     #: when the source says the data these values are made from was last updated: the newest such date over
-    #: what was read, UTC. Null where the source states none; never the time the data was fetched, which is
-    #: `retrieved_at` of the answer's `metadata` block (GH-2567)
+    #: what was read, UTC. Null where the source states none; never the time the answer was made, which is
+    #: `retrieved_at` of the answer's `metadata` block, and null for a result with no rows left (GH-2567)
     data_updated_at: datetime | None = None
 
     @property
@@ -853,7 +861,15 @@ class _ValuesResult(_EqualByFields, ExportMixin, Generic[_RowsT, _DictT]):
         the second, and a date carrying a time (``"2020-05-01T12"``) names one instant and is
         matched exactly. See :func:`wetterdienst.model.util.filter_by_date`.
         """
-        return replace(self, df=filter_by_date(self.df, date=date))
+        return _undated_if_empty(replace(self, df=filter_by_date(self.df, date=date)))
+
+    def filtered_by_sql(self, sql: str) -> Self:
+        """Filter the frame with the WHERE clause of an SQL query and return a new result of it.
+
+        This result is left as it is. The date the source states for the data is kept, and is none where no row is
+        left: a result of no rows is of no file.
+        """
+        return _undated_if_empty(super().filtered_by_sql(sql))
 
 
 class _ValuesOgcFeature(TypedDict):

@@ -202,19 +202,21 @@ what the answer is missing:
 - **`retrieved_at`** is when the answer was made, in UTC. Whether the data came from the server's cache
   is not told.
 - **`data_updated_at`** is when the source says the data of the answer was last updated, in UTC, as the source
-  states it: the newest of the dates it states for the files the answer was read from (a file with no date adds none
-  and does not take one away). It is not when the data was fetched (that is `retrieved_at`), and it is `null` where
-  the source states no date or the library does not read it for the network (every network but
+  states it: the newest of the dates it states for the files that contributed rows to the answer (a file with no
+  date adds none and does not take one away). It is not the time the answer was made (that is `retrieved_at`), and it
+  is `null` where the source states no date or the library does not read it for the network (every network but
   `meteofrance/observation` so far, and every list of stations): never `retrieved_at` in its place. It is the date
   the source reported at the time the answer was made, which comes with the copy of the listing or the file it was
-  read from: for `meteofrance/observation` the listing of data.gouv.fr is cached for 12 hours, so the date may lag a
-  file that was refreshed since by up to that time, and `retrieved_at` less `data_updated_at` is no exact age of the
-  data. NDJSON and CSV answers of `values` are streamed and their head goes out before the stations are read, so the
+  read from. For `meteofrance/observation` it is the `last_modified` of the listing of data.gouv.fr, which is cached
+  for 12 hours, so it may lag a file that was refreshed since by up to that time, and `retrieved_at` less
+  `data_updated_at` is no exact age of the data; a copy of a file made before its date in the listing is fetched
+  again, so the date and the values are of one file. NDJSON and CSV answers of `values` are streamed and their head goes out before the stations are read, so the
   newest date is not known: they say `null`, and the header is left out. A JSON answer of the same request has the
   exact one, and so has the NDJSON of the command line, which renders the whole result at once. It is the "date of
   the most recent update" that the Etalab Open Licence asks to be named with the source. The Python results carry it
   as `data_updated_at`, and the `metadata` of `to_dict`, `to_json` and `to_ogc_feature_collection` with
-  `with_metadata=True` has it as a key of its own next to `provider` and `producer` (`null` for a list of stations).
+  `with_metadata=True` has it as a key of its own next to `provider` and `producer` (`null` for a list of
+  stations and for a history).
 - **`counts`** is the stations in the answer and its rows: the items of `values` (one per timestamp in
   the wide shape), the stations listed, or the histories.
 - **`crs`** is the reference system of every position in the answer: WGS 84, longitude before latitude in

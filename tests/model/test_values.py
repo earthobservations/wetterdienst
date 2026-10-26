@@ -972,3 +972,26 @@ def test_a_reader_that_notes_no_date_leaves_the_result_undated(monkeypatch: pyte
 
     assert not result.df.is_empty()
     assert result.data_updated_at is None
+
+
+def test_a_date_that_is_no_plausible_one_does_not_date_the_result(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Whatever the source of a date is, one from the future or from before 1990 is not noted (GH-2567)."""
+    utc = ZoneInfo("UTC")
+    _stub_dwd_daily(station_ids=["00001"], data_year_by_station={"00001": 1990}, monkeypatch=monkeypatch)
+    _noting_dates(
+        monkeypatch,
+        {
+            "00001": [
+                dt.datetime.now(utc) + dt.timedelta(days=3),
+                dt.datetime(9999, 12, 31, tzinfo=utc),
+                dt.datetime(1970, 1, 1, tzinfo=utc),
+            ]
+        },
+    )
+
+    result = (
+        DwdObservationRequest(parameters=[("daily", "climate_summary", "temperature_air_mean_2m")]).all().values().all()
+    )
+
+    assert not result.df.is_empty()
+    assert result.data_updated_at is None

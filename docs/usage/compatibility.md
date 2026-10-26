@@ -326,9 +326,10 @@ data is the provider's, not wetterdienst's.
 
 The date the source states for the data of an answer is `metadata.data_updated_at` (and the
 `X-Wetterdienst-Data-Updated-At` header, `data_updated_at` of the values results and of their `metadata` with
-`with_metadata=True`): `null` where the source states none or the library does not read it for the network. It was added as a member of the block, which is an addition
-and leaves `schema_version` at `"1"`: that moves only when a member the block had changes or is gone. A network that
-states no date is named with its reason in `DATA_UPDATED_NOT_STATED` of `tests/ui/test_response_metadata.py`.
+`with_metadata=True`): `null` where the source states none or the library does not read it for the network. It was
+added as a member of the block, which is an addition and leaves `schema_version` at `"1"`: that moves only when a
+member the block had changes or is gone. A network that states no date is named with its reason in
+`DATA_UPDATED_NOT_STATED` of `tests/ui/test_response_metadata.py`.
 
 ## The host: settings, environment, extras
 

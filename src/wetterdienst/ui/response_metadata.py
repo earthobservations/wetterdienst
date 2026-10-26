@@ -221,7 +221,7 @@ class ResponseMetadata(BaseModel):
     data_updated_at: str | None = Field(
         description="When the source says the data of this answer was last updated, in UTC: the newest such date "
         "over what the answer was read from (a file without a date adds none), as the source states it, and "
-        "not when the data was fetched (`retrieved_at`). Null where the source states none or the library does not "
+        "not the time the answer was made (`retrieved_at`). Null where the source states none or the library does not "
         "read it for the network, as for a list of stations and a streamed answer (NDJSON, CSV), whose head goes out "
         "before the newest date is known. It is the date the source reported when the answer was made, with the copy "
         "of the listing or file it was read from: it may lag a file refreshed since by up to the time the listing is "

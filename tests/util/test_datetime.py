@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from wetterdienst.util.datetime import (
+    is_plausible_update,
     newest,
     parse_date,
     parse_date_span,
@@ -108,7 +109,9 @@ def test_parse_date_window() -> None:
         pytest.param(20261026, None, id="not text"),
         pytest.param("9999-12-31T23:59:59-01:00", None, id="UTC time out of range"),
         pytest.param("0001-01-01T00:00:00+01:00", None, id="UTC time before the first year"),
-        pytest.param("9999-12-31T23:59:59+00:00", None, id="far in the future"),
+        pytest.param("1970-01-01T00:00:00+00:00", None, id="the epoch is no date of an update"),
+        pytest.param("1989-12-31T23:59:59+00:00", None, id="before 1990"),
+        pytest.param("1990-01-01T00:00:00+00:00", dt.datetime(1990, 1, 1, tzinfo=dt.UTC), id="1990"),
     ],
 )
 def test_parse_source_date(text: object, expected: dt.datetime | None) -> None:
@@ -116,12 +119,16 @@ def test_parse_source_date(text: object, expected: dt.datetime | None) -> None:
     assert parse_source_date(text) == expected
 
 
-def test_parse_source_date_allows_a_clock_that_is_a_little_ahead() -> None:
+def test_is_plausible_update_allows_a_clock_that_is_a_little_ahead() -> None:
     """A source whose clock is a few hours ahead of ours is dated as it says; a day beyond that is not plausible."""
     now = dt.datetime.now(dt.UTC)
 
-    assert parse_source_date((now + dt.timedelta(hours=3)).isoformat()) is not None
-    assert parse_source_date((now + dt.timedelta(days=2)).isoformat()) is None
+    assert is_plausible_update(now - dt.timedelta(days=30))
+    assert is_plausible_update(now + dt.timedelta(hours=3))
+    assert not is_plausible_update(now + dt.timedelta(days=2))
+    assert not is_plausible_update(dt.datetime(1989, 12, 31, tzinfo=dt.UTC))
+    assert not is_plausible_update(dt.datetime(9999, 12, 31, tzinfo=dt.UTC))
+    assert is_plausible_update(dt.datetime(2026, 1, 1))  # noqa: DTZ001 (read as UTC)
 
 
 def test_newest() -> None:

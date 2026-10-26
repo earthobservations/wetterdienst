@@ -63,6 +63,7 @@ from wetterdienst.util.listing_cache import (
 from wetterdienst.util.provider_hosts import clean_host, hosts_of_provider, provider_of
 
 if TYPE_CHECKING:
+    from datetime import datetime
     from types import SimpleNamespace
 
     from wetterdienst.settings import Settings
@@ -2194,6 +2195,48 @@ def drop_cached_file(
         filesystem.pop_from_cache(url)
     except Exception:  # noqa: BLE001 -- best effort, the entry expires on its own
         log.debug("Could not drop %s from the cache", _without_url_secrets(url), exc_info=False)
+
+
+def drop_cached_file_if_older_than(
+    url: str,
+    modified: datetime,
+    cache_dir: Path,
+    ttl: CacheExpiry = CacheExpiry.NO_CACHE,
+    client_kwargs: dict | None = None,
+    *,
+    cache_disable: bool = False,
+    use_certifi: bool = False,
+) -> bool:
+    """Delete the copy `download_file` cached for a url if it was made before `modified`, so that it is asked again.
+
+    For a provider whose listing says when each file was last changed, and whose copy of one is kept for a time (or
+    for ever) that does not follow it: a copy made before the file last changed is not the file, and what the listing
+    says of the file then does not say of the copy. A copy made after `modified` is left where it is, so a file that
+    does not change is fetched once for as long as the ttl holds it. Takes the arguments the download is made with,
+    as `drop_cached_file` does, since they name the cache.
+
+    Returns whether a copy was deleted. Never raises: a cache that cannot be read has no copy to be older.
+    """
+    try:
+        filesystem = NetworkFilesystemManager.get(
+            cache_dir=cache_dir,
+            cache_expiry=ttl,
+            client_kwargs=client_kwargs,
+            cache_disable=cache_disable,
+            use_certifi=use_certifi,
+        )
+        if not isinstance(filesystem, WholeFileCacheFileSystem):
+            return False
+        # read from the disk, not from the memory of this thread: the copy was most likely made by another one
+        filesystem.load_cache()
+        held = filesystem._check_file(url)  # noqa: SLF001
+        if not held or held[0]["time"] >= modified.timestamp():
+            return False
+        filesystem.pop_from_cache(url)
+    except Exception:  # noqa: BLE001 -- best effort: a copy that stays is read as before
+        log.debug("Could not check the copy of %s in the cache", _without_url_secrets(url), exc_info=False)
+        return False
+    return True
 
 
 def _header_value(value: object) -> str:

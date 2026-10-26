@@ -29,7 +29,13 @@ from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.meteofrance.observation.metadata import MeteoFranceObservationMetadata
 from wetterdienst.util.archive import gunzip
 from wetterdienst.util.datetime import parse_source_date
-from wetterdienst.util.network import RedirectRefusedError, download_file, download_files, fetchable_link
+from wetterdienst.util.network import (
+    RedirectRefusedError,
+    download_file,
+    download_files,
+    drop_cached_file_if_older_than,
+    fetchable_link,
+)
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel, ParameterModel
@@ -37,6 +43,9 @@ if TYPE_CHECKING:
     from wetterdienst.util.network import File
 
 log = logging.getLogger(__name__)
+
+#: the column that carries the date of the file a row is of, from the listing, until the rows the answer keeps are known
+_UPDATED = "updated"
 
 # "Données climatologiques de base" (daily / monthly), sharded per French department.
 # data.gouv.fr dataset ids. Used to discover the exact current resource URLs at request time
@@ -823,6 +832,20 @@ def _download_climate_resources(resources: list[dict], settings: Settings) -> di
         resources_by_ttl.setdefault(_resource_cache_ttl(resource), []).append(resource)
     for ttl, ttl_resources in resources_by_ttl.items():
         urls = [resource["url"] for resource in ttl_resources]
+        # a copy made before the file last changed, as the listing says, is not the file: it is asked for again, so
+        # that the date the answer takes from the listing and the data it takes from the copy are of one file (GH-2567).
+        # One that was made after stays, so an unchanged file is downloaded once for as long as its ttl holds it
+        for resource in ttl_resources:
+            if (updated := parse_source_date(resource.get("last_modified"))) is not None:
+                drop_cached_file_if_older_than(
+                    resource["url"],
+                    updated,
+                    settings.cache_dir,
+                    ttl,
+                    settings.fsspec_client_kwargs,
+                    cache_disable=settings.cache_disable,
+                    use_certifi=settings.use_certifi,
+                )
         files = download_files(
             urls=urls,
             cache_dir=settings.cache_dir,
@@ -895,14 +918,28 @@ _STATIONS_REGISTRY_SCHEMA = {
 class MeteoFranceObservationValues(TimeseriesValues):
     """Values class for Météo-France observation data."""
 
-    def _has_row_in_window(
-        self, df: pl.DataFrame, date_column: str, resolution_name: str, fu_hours: _FuHours | None
-    ) -> bool:
-        """Tell whether a station's rows of one file have one inside the window of the request, as the core cuts it."""
-        if not self.sr.start:
-            return True
-        stamped = _parse_climate_date(pl.col(date_column), resolution_name, fu_hours)
-        return bool(df.select(stamped.is_between(self.sr.start, self.sr.end, closed="both").any()).item())
+    def _note_files_with_rows(self, df: pl.DataFrame, dataset: DatasetModel) -> pl.DataFrame:
+        """Note the date of each file that holds rows the answer keeps, and give the frame without the dates (GH-2567).
+
+        The date data.gouv.fr gives a file, in the listing the request has read, is the answer's "date of the most
+        recent update" that the Licence Ouverte asks for only for a file that has rows in the answer, or the answer
+        would be dated by data it has not got. A row is kept as the core keeps it: of a requested parameter, inside
+        the window, and, where the shape drops the rows without a value, with a value. The core cuts the frame
+        after this one, so what it cuts here it would cut there.
+        """
+        requested = {
+            parameter.name_original
+            for parameter in self.sr.parameters
+            if parameter.dataset.resolution.name == dataset.resolution.name and parameter.dataset.name == dataset.name
+        }
+        kept = pl.col("parameter").is_in(requested)
+        if self.sr.start:
+            kept &= pl.col("timestamp").is_between(self.sr.start, self.sr.end, closed="both")
+        if self.sr.options.drop_nulls_effective:
+            kept &= pl.col("value").is_not_null()
+        for updated in df.filter(kept).get_column(_UPDATED).drop_nulls().unique():
+            self._note_data_updated(updated)
+        return df.drop(_UPDATED)
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -951,13 +988,9 @@ class MeteoFranceObservationValues(TimeseriesValues):
             )
             df = df.filter(pl.col("NUM_POSTE").eq(station_id))
             if not df.is_empty():
-                dfs.append(df)
-                # the date data.gouv.fr gives the file, in the listing the request has read, counts only for a file
-                # that holds a row of this station inside the window: the newest of those is the answer's "date of the
-                # most recent update" that the Licence Ouverte asks for, and a file whose rows are not in the answer
-                # would date it later than the data it has (GH-2567)
-                if self._has_row_in_window(df, date_column, resolution_name, fu_hours):
-                    self._note_data_updated(parse_source_date(resource.get("last_modified")))
+                # the date the listing gives the file travels with its rows (`_note_files_with_rows`)
+                updated = parse_source_date(resource.get("last_modified"))
+                dfs.append(df.with_columns(pl.lit(updated, dtype=pl.Datetime("us", "UTC")).alias(_UPDATED)))
         if not dfs:
             return pl.DataFrame()
         if resolution_name in _FU_CONVERTED_RESOLUTIONS and fu_hours is None and department.startswith(("97", "98")):
@@ -966,13 +999,14 @@ class MeteoFranceObservationValues(TimeseriesValues):
         # the value and the code of a parameter travel together through the unpivot, as the fields of one struct
         df = df.select(
             date_column,
+            _UPDATED,
             *(
                 pl.struct(pl.col(name).alias("value"), pl.col(flag_columns[name]).alias("quality_flags")).alias(name)
                 for name in parameter_columns
             ),
         ).unpivot(
             on=parameter_columns,
-            index=[date_column],
+            index=[date_column, _UPDATED],
             variable_name="parameter",
             value_name="value",
         )
@@ -986,7 +1020,7 @@ class MeteoFranceObservationValues(TimeseriesValues):
         # alone (the files hold none: GH-2719) and now keeps its text too
         value, raw = null_sentinels(pl.col("value"), *_sentinels(resolution_name), non_numeric=True)
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`)
-        return df.select(
+        df = df.select(
             # kept as published (e.g. "RR", "TN"), matching the case of name_original in the
             # metadata below; the base class matches requested parameters against this column
             # using an exact, case-sensitive comparison against parameter.name_original
@@ -996,7 +1030,9 @@ class MeteoFranceObservationValues(TimeseriesValues):
             # the validation code (9 filtered, 0 protected, 1 validated, 2 doubtful), verbatim and null where the
             # source leaves it blank (GH-2018)
             join_quality_flags(pl.col("quality_flags"), raw=raw),
+            _UPDATED,
         )
+        return self._note_files_with_rows(df, dataset)
 
 
 def _sentinels(resolution_name: str) -> list[Sentinel]:

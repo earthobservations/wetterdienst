@@ -27,7 +27,7 @@ from wetterdienst.model.schema import (
     WIDE_VALUE_DTYPE,
 )
 from wetterdienst.model.unit import UnitConverter
-from wetterdienst.util.datetime import newest
+from wetterdienst.util.datetime import is_plausible_update, newest
 from wetterdienst.util.logging import TqdmToLogger
 from wetterdienst.util.response_warnings import (
     MISSING_VALUE_MARKER,
@@ -201,9 +201,11 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
 
         For a provider whose source says when what it serves was last updated, called with each such date it reads:
         the result of the station carries the newest one, as `data_updated_at`. A date the source does not state is
-        not made up, and not noting any leaves the result's null, so a provider that has none does nothing.
+        not made up, and not noting any leaves the result's null, so a provider that has none does nothing. A date that
+        is no plausible one (`is_plausible_update`: before 1990, or later than a day from now) is not noted, whatever
+        the source of it is: the answer is not dated by a mistake.
         """
-        if updated is not None:
+        if updated is not None and is_plausible_update(updated):
             self._data_updated.append(updated)
 
     def _convert_units(self, df: pl.DataFrame, dataset: DatasetModel) -> pl.DataFrame:
