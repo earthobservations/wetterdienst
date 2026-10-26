@@ -455,7 +455,7 @@ class Extent(BaseModel):
                 msg = f"{code!r} is no ISO 3166-1 alpha-2 code: two capital letters"
                 raise ValueError(msg)
         if len(set(value)) != len(value):
-            msg = f"country_codes names a country twice: {value}"
+            msg = f"country_codes names a country twice: {list(value)}"
             raise ValueError(msg)
         return value
 
@@ -816,13 +816,11 @@ class MetadataModel(BaseModel):
                         f"{label}: its bbox {list(own.bbox)} is not within the network's {list(network.bbox)}"
                     )
                 if not set(own.continents) <= set(network.continents):
-                    problems.append(
-                        f"{label}: its continents {own.continents} are not the network's {network.continents}"
-                    )
+                    ours, theirs = list(own.continents), list(network.continents)
+                    problems.append(f"{label}: its continents {ours} are not the network's {theirs}")
                 if network.country_codes and not set(own.country_codes) <= set(network.country_codes):
-                    problems.append(
-                        f"{label}: its country_codes {own.country_codes} are not the network's {network.country_codes}"
-                    )
+                    ours, theirs = list(own.country_codes), list(network.country_codes)
+                    problems.append(f"{label}: its country_codes {ours} are not the network's {theirs}")
                 problems += [f"{label}: {problem}" for problem in _extent_problems(own, self.country_code)]
                 if network.scope == "national" and own.scope != "national":
                     problems.append(f"{label}: a dataset of a national network is national, not {own.scope}")

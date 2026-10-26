@@ -280,13 +280,21 @@ def test_the_extent_of_a_network_is_hashable() -> None:
     """An extent is frozen and made of tuples, so it hashes, as the terms of a standalone network that hold it do."""
     extents = _extents()
     assert len({hash(extent) for extent in extents.values()}) > 1
-    assert hash(Wetterdienst.resolve_standalone("dwd", "radar").terms) == hash(
-        Wetterdienst.resolve_standalone("dwd", "radar").terms
-    )
-    assert extents["dwd/mosmix"] == Extent.model_validate_json(extents["dwd/mosmix"].model_dump_json())
+    # equal extents hash equal, however they were made
+    mosmix = extents["dwd/mosmix"]
+    copy = Extent.model_validate_json(mosmix.model_dump_json())
+    assert copy == mosmix
+    assert hash(copy) == hash(mosmix)
+    assert hash(Extent.model_validate(_declared())) == hash(Extent.model_validate(_declared()))
+    # the terms of both standalone networks hash, and are equal to themselves
+    for network in ("radar", "alerts"):
+        terms = Wetterdienst.resolve_standalone("dwd", network).terms
+        assert isinstance(hash(terms), int)
+        assert hash(terms) == hash(Wetterdienst.resolve_standalone("dwd", network).terms)
+        assert len({terms, Wetterdienst.resolve_standalone("dwd", network).terms}) == 1
     # arrays in JSON, as the schema says
-    assert isinstance(extents["dwd/mosmix"].model_dump(mode="json")["continents"], list)
-    assert isinstance(extents["dwd/mosmix"].model_dump(mode="json")["bbox"], list)
+    assert isinstance(mosmix.model_dump(mode="json")["continents"], list)
+    assert isinstance(mosmix.model_dump(mode="json")["bbox"], list)
 
 
 def test_discover_gives_the_extent_as_the_dict_its_annotation_says() -> None:

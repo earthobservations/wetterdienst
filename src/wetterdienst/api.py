@@ -26,9 +26,6 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-#: the members of a network in the list of every network, in the order the answer gives them
-_LISTED_ORDER = ("name_short", "country", "kind", "scope", "url", "auth", "configured", "date_required")
-
 #: the problems with the settings already logged, so a listing asked for again does not repeat them
 _REPORTED_SETTINGS_PROBLEMS: set[tuple[str, ...]] = set()
 
@@ -350,6 +347,8 @@ class Wetterdienst:
         it needs credentials for or what it is would be a guess. The reason is logged as a warning. Asking
         for the network itself still tells why, as `resolve` raises the import error (GH-2801).
         """
+        from wetterdienst.model.metadata import CoverageNetwork  # noqa: PLC0415
+
         result: dict[str, dict[str, CoverageNetwork]] = {}
         for provider, networks in cls.registry.items():
             listed: dict[str, CoverageNetwork] = {}
@@ -366,7 +365,9 @@ class Wetterdienst:
                             "date_required": False,
                         }
                         # in the order of a timeseries network's entry below: name, country, kind, scope, url, ...
-                        listed[network] = cast("CoverageNetwork", {key: entry[key] for key in _LISTED_ORDER})
+                        listed[network] = cast(
+                            "CoverageNetwork", {key: entry[key] for key in CoverageNetwork.__annotations__}
+                        )
                         continue
                     api = cls.resolve(provider, network)
                 except ImportError as e:
