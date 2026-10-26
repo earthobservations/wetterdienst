@@ -34,6 +34,10 @@ describe('stationSelection', () => {
     return wrapper
   }
 
+  // The wait that follows a gate: a request made after the list is in (a second one) is made while
+  // it is drawn. It can only miss under load, never fail a test that holds.
+  const settle = () => new Promise(resolve => setTimeout(resolve, 50))
+
   it('does not fetch the station list until the select menu is opened', async () => {
     let calls = 0
     registerEndpoint('/api/stations', () => {
@@ -51,7 +55,9 @@ describe('stationSelection', () => {
     vm.selectOpen = true
     await wrapper.vm.$nextTick()
 
-    await vi.waitFor(() => expect(calls).toBe(1))
+    await vi.waitFor(() => expect(vm.allStations).toEqual(stationsResponse.stations))
+    await settle()
+    expect(calls).toBe(1)
   })
 
   it('does not fetch the station list until the map picker is opened', async () => {
@@ -75,7 +81,9 @@ describe('stationSelection', () => {
     await mapToggle!.trigger('click')
     await wrapper.vm.$nextTick()
 
-    await vi.waitFor(() => expect(calls).toBe(1))
+    await vi.waitFor(() => expect(calls).toBeGreaterThan(0))
+    await settle()
+    expect(calls).toBe(1)
   })
 
   it('fetches immediately when stations need to be restored from a shared URL', async () => {
@@ -88,6 +96,7 @@ describe('stationSelection', () => {
     const wrapper = await mountSelection({ parameterSelection, initialStationIds: ['00001'], multiple: true })
     const vm = wrapper.vm as any
     await vi.waitFor(() => expect(vm.selectedStations).toEqual([expect.objectContaining({ station_id: '00001' })]))
+    await settle()
 
     expect(calls).toBe(1)
   })
@@ -142,9 +151,8 @@ describe('stationSelection', () => {
     const vm = wrapper.vm as any
     vm.selectOpen = true
     await wrapper.vm.$nextTick()
-    // the list is in; a second request, if there is one, is made while it is being drawn
     await vi.waitFor(() => expect(vm.allStations).toEqual(stationsResponse.stations))
-    await new Promise(resolve => setTimeout(resolve, 50))
+    await settle()
 
     expect(calls).toBe(1)
   })
@@ -164,14 +172,18 @@ describe('stationSelection', () => {
     vm.selectOpen = true
     await wrapper.vm.$nextTick()
     await vi.waitFor(() => expect(vm.allStations).toEqual(stationsResponse.stations))
+    await settle()
 
     expect(calls).toBe(1)
 
     await wrapper.setProps({
       parameterSelection: { ...parameterSelection, dataset: 'precipitation_more', parameters: ['precipitation_amount'] },
     })
-    await vi.waitFor(() => expect(calls).toBe(2))
+    await vi.waitFor(() => expect(calls).toBeGreaterThan(1))
     await vi.waitFor(() => expect(vm.allStations).toEqual(stationsResponse.stations))
+    await settle()
+
+    expect(calls).toBe(2)
   })
 
   describe('stations restored from a shared URL (GH-2959)', () => {

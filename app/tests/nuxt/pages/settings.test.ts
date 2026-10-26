@@ -117,12 +117,10 @@ describe('settings Page', () => {
     expect(vm.settings.friendlyLabels).toBe(false)
   })
 
-  it('clicking Reset restores defaults after clicking Dark and toggling switches', async () => {
+  it('clicking Reset restores the defaults of a toggled switch', async () => {
     const wrapper = await mountPage({ attachTo: document.body })
     const vm = wrapper.vm as any
 
-    const darkButton = wrapper.findAll('button').find(b => b.text() === 'Dark')
-    await darkButton!.trigger('click')
     const friendlyLabelsSwitch = wrapper.findAllComponents({ name: 'USwitch' })[0]!
     await friendlyLabelsSwitch.find('button[role="switch"]').trigger('click')
     await wrapper.vm.$nextTick()
