@@ -12,9 +12,12 @@ daily resolution. No authentication is required.
 ## License
 
 RMI AWS open data is published under
-[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), as RMI's own
-[catalogue record](https://opendata.meteo.be/geonetwork/srv/eng/catalog.search#/metadata/RMI_DATASET_AWS_10MIN)
-of the dataset states. The terms of the [opendata.meteo.be](https://opendata.meteo.be/) platform ask
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); RMI's own
+catalogue records of the 10-minute, hourly and daily data
+([`RMI_DATASET_AWS_10MIN`](https://opendata.meteo.be/geonetwork/srv/eng/catalog.search#/metadata/RMI_DATASET_AWS_10MIN),
+[`_1HOUR`](https://opendata.meteo.be/geonetwork/srv/eng/catalog.search#/metadata/RMI_DATASET_AWS_1HOUR),
+[`_1DAY`](https://opendata.meteo.be/geonetwork/srv/eng/catalog.search#/metadata/RMI_DATASET_AWS_1DAY))
+all say so. The terms of the [opendata.meteo.be](https://opendata.meteo.be/) platform ask
 that RMI is named as the source of the raw data, next to the information.
 
 ```{toctree}

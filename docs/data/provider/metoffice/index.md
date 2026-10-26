@@ -14,8 +14,10 @@ MIDAS Open is © Crown Copyright, Met Office and published under the
 [UK Open Government Licence v3.0](https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/),
 which permits copying, adaptation and commercial use with attribution. The
 [MIDAS Open dataset catalogue record](https://catalogue.ceda.ac.uk/uuid/dbd451271eb04662beade68da43546e1/)
-asks to cite the data with the citation it gives (the `attribution` of an answer is that
-citation, without the date of citation).
+gives the citation under "Citable as", and its
+[ISO record](https://catalogue.ceda.ac.uk/export/xml/gemini2.3/dbd451271eb04662beade68da43546e1.xml) says
+"you must cite them correctly using the citation given on the CEDA Data Catalogue record". The
+`attribution` of an answer is that citation, without the date of citation.
 
 ```{toctree}
 :hidden:

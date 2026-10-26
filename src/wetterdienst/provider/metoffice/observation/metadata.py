@@ -138,8 +138,9 @@ _MetOfficeObservationMetadataSpec = {
     "country_code": "GB",
     "copyright": "© Crown Copyright, Met Office, MIDAS Open, Open Government Licence v3.0",
     "license": OGL_UK_3_0,
-    # the CEDA ISO record of the collection: "attribution required ... you must cite them correctly using the
-    # citation given on the CEDA Data Catalogue record" (read 2026-10-26); that citation, without the
+    # the CEDA ISO record of the collection (https://catalogue.ceda.ac.uk/export/xml/gemini2.3/dbd451271eb04662beade68da43546e1.xml):
+    # "attribution required ... you must cite them correctly using the citation given on the CEDA Data Catalogue
+    # record" (read 2026-10-26); that citation is on the page of the record under "Citable as", here without the
     # "date of citation" it leaves to the user
     "attribution": (
         "Met Office (2019): Met Office MIDAS Open: UK Land Surface Stations Data (1853-current). "

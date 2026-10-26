@@ -45,10 +45,11 @@ _MetnoFrostMetadataSpec = {
     "country_code": "NO",
     "copyright": "© Norwegian Meteorological Institute (MET Norway)",
     "license": LicenseModel(
-        # MET Norway: "licensed under the Norwegian Licence for Open Government Data (NLOD) 2.0 and Creative Commons 4.0
-        # BY International licences" (https://api.met.no/doc/License, read 2026-10-26), written as it says, "and"
+        # MET Norway: "all data and products are licensed under the Norwegian Licence for Open Government Data
+        # (NLOD) 2.0 and Creative Commons 4.0 BY International licences" (https://api.met.no/doc/License, read
+        # 2026-10-26): both, so `AND`; the conditions of both apply (NLOD 2.0 § 5 and 6, CC BY 4.0 § 3)
         spdx_id="CC-BY-4.0 AND NLOD-2.0",
-        name="Norwegian Licence for Open Government Data 2.0 and Creative Commons Attribution 4.0 International",
+        name="Creative Commons Attribution 4.0 International and Norwegian Licence for Open Government Data 2.0",
         url="https://api.met.no/doc/License",
     ),
     "attribution": "Data from MET Norway",
