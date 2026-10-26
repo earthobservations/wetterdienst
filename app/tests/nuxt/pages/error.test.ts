@@ -15,6 +15,7 @@ const notFound = { statusCode: 404, statusMessage: 'Page not found', message: 'P
 const serverError = { statusCode: 500, statusMessage: 'Internal server error', message: 'Something broke', url: '/', fatal: true, unhandled: true }
 
 afterEach(() => {
+  vi.restoreAllMocks()
   framed.blank = false
   window.history.replaceState(null, '')
 })
@@ -56,11 +57,13 @@ describe('the error page', () => {
   })
 
   it('injects no script into the page: the Content Security Policy would refuse it', async () => {
-    await mountSuspended(ErrorPage, { props: { error: notFound as never } })
+    const wrapper = await mountSuspended(ErrorPage, { props: { error: notFound as never } })
 
-    const inline = [...document.head.querySelectorAll('script')].filter(script => script.textContent?.includes('history'))
+    // Nuxt's page puts its script at the end of the body (`tagPosition: 'bodyClose'`), so every script is looked at;
+    // the wrapper is not attached to the document, so the button is looked for in the wrapper
+    const inline = [...document.querySelectorAll('script')].filter(script => /history|data-back/.test(script.textContent ?? ''))
     expect(inline).toEqual([])
-    expect(document.querySelector('[data-back-previous]')).toBeNull()
+    expect(wrapper.find('[data-back-previous]').exists()).toBe(false)
   })
 
   it('has no back button where there is no page of the app to go back to', async () => {
@@ -71,6 +74,7 @@ describe('the error page', () => {
 
   it('has a back button where the router knows the page before, which goes back', async () => {
     window.history.replaceState({ back: '/about' }, '')
+    vi.spyOn(window.history, 'length', 'get').mockReturnValue(2)
     const back = vi.spyOn(useRouter(), 'back').mockImplementation(() => {})
     const wrapper = await mountSuspended(ErrorPage, { props: { error: notFound as never } })
 
@@ -79,6 +83,30 @@ describe('the error page', () => {
     expect(buttons[0]!.text()).toBe('Go back')
     await buttons[0]!.trigger('click')
     expect(back).toHaveBeenCalledOnce()
+  })
+
+  it('has a back button where the page was reached from a page of the app by a full load', async () => {
+    vi.spyOn(window.history, 'length', 'get').mockReturnValue(2)
+    vi.spyOn(document, 'referrer', 'get').mockReturnValue(`${window.location.origin}/about`)
+    const wrapper = await mountSuspended(ErrorPage, { props: { error: notFound as never } })
+
+    expect(wrapper.findAll('button')).toHaveLength(1)
+  })
+
+  it('has none where a tab was opened at the address: the referrer is the app\'s, and there is nothing to go back to', async () => {
+    vi.spyOn(window.history, 'length', 'get').mockReturnValue(1)
+    vi.spyOn(document, 'referrer', 'get').mockReturnValue(`${window.location.origin}/about`)
+    const wrapper = await mountSuspended(ErrorPage, { props: { error: notFound as never } })
+
+    expect(wrapper.findAll('button')).toHaveLength(0)
+  })
+
+  it('has none where the referrer is another site', async () => {
+    vi.spyOn(window.history, 'length', 'get').mockReturnValue(3)
+    vi.spyOn(document, 'referrer', 'get').mockReturnValue('https://example.org/link')
+    const wrapper = await mountSuspended(ErrorPage, { props: { error: notFound as never } })
+
+    expect(wrapper.findAll('button')).toHaveLength(0)
   })
 
   it('leaves every other error to Nuxt\'s own page', async () => {

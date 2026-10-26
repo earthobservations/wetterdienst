@@ -4,8 +4,8 @@ import type { NuxtError } from '#app'
 // `error.vue` gets); it is not a registered component, so it is imported. It draws every error but a 404.
 import NuxtErrorPage from '#app/components/nuxt-error-page.vue'
 
-// Drawn unless the page is framed by another origin outside the widget: then there is nothing to show, least of
-// all a 404 that prints the path it was asked for (`app/utils/frame-guard.ts`).
+// Drawn unless the page is framed by another origin outside the widget: then there is nothing to show
+// (`app/utils/frame-guard.ts`), which is also why none of what it draws names the path that was asked for.
 const props = defineProps<{ error: NuxtError }>()
 
 const { t, locale } = useI18n()
@@ -17,11 +17,15 @@ const blank = useFrameBlank()
 // drawn by Vue, in the language of the app, and has a link home that does not need a script.
 const notFound = computed(() => props.error.statusCode === 404)
 
-// a back button only where there is a page of the app to go back to, as in Nuxt's own page: the router's state
-// names the previous page of a client-side navigation, and the referrer the one a full load came from
+// A back button only where there is a page of the app to go back to, as in Nuxt's own page: the router's state names
+// the previous page of an in-app `showError(404)` (an unknown path that the router is asked for is a full load in
+// production, `serverPathFallback`), and a same-origin referrer the page a full load came from. Both need a history
+// to go back in: a tab opened by a link (`target="_blank"`, a middle click) has the referrer and no earlier entry,
+// and its button would do nothing.
 const canGoBack = ref(false)
 onMounted(() => {
-  canGoBack.value = Boolean(window.history.state?.back) || document.referrer.startsWith(`${window.location.origin}/`)
+  const fromApp = Boolean(window.history.state?.back) || document.referrer.startsWith(`${window.location.origin}/`)
+  canGoBack.value = fromApp && window.history.length > 1
 })
 
 useHead(() => notFound.value && !blank.value
