@@ -273,7 +273,7 @@ class DwdPhenologyValues(TimeseriesValues):
         stations = cast("DwdPhenologyRequest", self.sr.request)
         periods = _periods_for(cast("set[Period] | None", stations.periods), dataset)
         # oldest period first: where the periods overlap -- and recent reaches back into the years
-        # the last historical release already covers -- `_process_dataset` keeps the first row for a
+        # the last historical release already covers -- `_process_dataset` keeps the first row with a value for a
         # (parameter, timestamp), and the historical file is the one carrying the final quality marks
         frames = []
         for period in sorted(periods):

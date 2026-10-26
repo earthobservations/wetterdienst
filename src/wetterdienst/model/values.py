@@ -58,6 +58,59 @@ UPDATED = "updated"
 _REQUIRED_COLUMNS = ("parameter", "timestamp", "value")
 
 
+def merge_duplicate_readings(df: pl.DataFrame, subset: Sequence[str]) -> pl.DataFrame:
+    """Make one row of the rows that share a reading, each column taking its first non-null value (GH-3450).
+
+    Rows are one reading when they agree on ``subset`` (for the long form: ``station_id``, ``resolution``, ``dataset``,
+    ``parameter`` and ``timestamp``). Which row of them is kept is the first, in the order the frame has them, that has
+    a ``value``: a row without one that comes first no longer takes the reading with it, as it did when the first row
+    was kept whatever it held. Where every row is null the first row is kept, and where two rows have different values
+    the first of them wins; one debug line says how many readings had such a conflict.
+
+    The row is kept as it is, the other columns with it: ``quality_flags`` (and any other column) is the one of the row
+    the value is of, so a value never carries the flag of another row. A reading whose rows are all null keeps the
+    columns of its first row, ``raw:`` token and all. Nothing else changes: the rows keep the order of their first
+    appearance, the columns and the dtypes stay, and a frame without a duplicate is handed back as it is.
+
+    Args:
+        df: a frame with the column ``value`` (and, by ``subset``, the columns that identify a reading).
+        subset: the columns whose values identify a reading.
+
+    Returns:
+        The frame with one row per reading.
+
+    """
+    keys = list(subset)
+    if df.height < 2:
+        return df
+    duplicated = df.select(keys).is_duplicated()
+    if not duplicated.any():
+        return df
+    # only the readings that have several rows are grouped: the rest, nearly all of a large frame, pass untouched
+    position = "__row"
+    conflicts = "__conflict"
+    indexed = df.with_row_index(position)
+    others = [column for column in df.columns if column not in keys]
+    # the first row with a value, or the first row where none has one (`arg_max` of a boolean breaks a tie by no rule)
+    first_with_value = pl.int_range(pl.len()).filter(pl.col("value").is_not_null()).first().fill_null(0)
+    merged = (
+        indexed.filter(duplicated)
+        .group_by(keys, maintain_order=True)
+        .agg(
+            pl.col(position).first(),
+            pl.col(others).get(first_with_value),
+            (pl.col("value").drop_nulls().n_unique() > 1).alias(conflicts),
+        )
+    )
+    log.debug(
+        "%d rows share a reading with another and make %d readings, %d with different values (the first is kept)",
+        int(duplicated.sum()),
+        merged.height,
+        int(merged.get_column(conflicts).sum()),
+    )
+    return pl.concat([indexed.filter(~duplicated), merged.select(indexed.columns)]).sort(position).select(df.columns)
+
+
 def _can_be_cast(column: str, dtype: pl.DataType) -> bool:
     """Tell whether the core can make a column of this type the dtype the long form declares for it.
 
@@ -434,10 +487,11 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             for parameter in self.sr.parameters
             if parameter.dataset.resolution.name == dataset.resolution.name and parameter.dataset.name == dataset.name
         }
-        # the core keeps the first of the rows of one reading (a period overlap, a file that is read twice) and drops
-        # the others, then the rows without a value: the files whose rows are the ones it keeps are the ones that date
-        # the answer, so it is done here in the same order, on the same key and before the rows without a value go
-        df = df.unique(subset=["parameter", "timestamp"], keep="first", maintain_order=True)
+        # the core makes one row of the rows of one reading (a period overlap, a file that is read twice), the first one
+        # with a value, and then drops the rows without a value: the files whose rows are the ones it keeps are the ones
+        # that date the answer, so it is done here in the same order, on the same key and before the rows without a
+        # value go
+        df = merge_duplicate_readings(df, ["parameter", "timestamp"])
         kept = pl.col("parameter").is_in(requested)
         stamp = self._window_stamp(df)
         if self.sr.start and stamp is not None:
@@ -524,7 +578,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             return df
         if self.sr.options.convert_units:
             df = self._convert_units(df, dataset)
-        df = df.unique(subset=["resolution", "dataset", "parameter", "timestamp"], maintain_order=True)
+        df = merge_duplicate_readings(df, ["station_id", "resolution", "dataset", "parameter", "timestamp"])
         if QUALITY_FLAGS in df.columns:
             # the readings the source marked as missing may leave with the nulls; the answer still tells how many
             count_response_warning(
@@ -586,10 +640,10 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             core makes of it the empty frame of `LONG_SCHEMA` and contributes no rows; a provider need not build an
             empty schema of its own, and none is read.
 
-            The rows may come in any order, more than
-            once (the core keeps the first of the rows that share `resolution`, `dataset`, `parameter` and
-            `timestamp`), and outside the requested window (the core cuts it after, so a provider is free to narrow
-            what it downloads by it, not obliged to).
+            The rows may come in any order, more than once, and outside the requested window (the core cuts it
+            after, so a provider is free to narrow what it downloads by it, not obliged to). The core makes one row of
+            the rows that share `resolution`, `dataset`, `parameter` and `timestamp`: the first that has a `value`,
+            with its `quality_flags`, or the first row where none has one.
 
         Raises:
             NoInternetError: a connection that cannot be made, which is never answered by an empty frame.

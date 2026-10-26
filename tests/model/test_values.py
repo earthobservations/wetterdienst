@@ -1,6 +1,7 @@
 """Tests for shared TimeseriesValues behavior."""
 
 import datetime as dt
+import logging
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -8,7 +9,8 @@ import pytest
 from polars.testing import assert_frame_equal
 
 from wetterdienst.model.result import StationsFilter, StationsResult
-from wetterdienst.model.values import TimeseriesValues
+from wetterdienst.model.schema import LONG_SCHEMA
+from wetterdienst.model.values import TimeseriesValues, merge_duplicate_readings
 from wetterdienst.options import Options
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata, DwdObservationRequest
 from wetterdienst.provider.dwd.observation.api import DwdObservationValues
@@ -995,3 +997,163 @@ def test_a_date_that_is_no_plausible_one_does_not_date_the_result(monkeypatch: p
 
     assert not result.df.is_empty()
     assert result.data_updated_at is None
+
+
+_READING = ["station_id", "resolution", "dataset", "parameter", "timestamp"]
+
+
+def _readings(*rows: tuple[str, str, int, float | None, str | None]) -> pl.DataFrame:
+    """Build a long frame of (station, parameter, hour, value, quality_flags) rows of one hourly dataset."""
+    return pl.DataFrame(
+        {
+            "station_id": [row[0] for row in rows],
+            "resolution": ["hourly"] * len(rows),
+            "dataset": ["climate"] * len(rows),
+            "parameter": [row[1] for row in rows],
+            "timestamp": [dt.datetime(2026, 1, 1, row[2], tzinfo=ZoneInfo("UTC")) for row in rows],
+            "value": [row[3] for row in rows],
+            "quality_flags": [row[4] for row in rows],
+        },
+        schema={**LONG_SCHEMA},
+    )
+
+
+def test_merge_duplicate_readings_takes_the_value_of_the_second_row_where_the_first_has_none() -> None:
+    """A null first row no longer takes the reading with it (GH-3450), and the flag is the value's own."""
+    df = _readings(("01", "t", 0, None, "raw:-999"), ("01", "t", 0, 5.0, "3"))
+
+    merged = merge_duplicate_readings(df, _READING)
+
+    assert_frame_equal(merged, _readings(("01", "t", 0, 5.0, "3")))
+
+
+def test_merge_duplicate_readings_keeps_the_value_of_the_first_row_where_the_second_has_none() -> None:
+    """A null second row takes nothing from the first, and does not add its flag to it."""
+    df = _readings(("01", "t", 0, 5.0, "3"), ("01", "t", 0, None, "raw:-999"))
+
+    merged = merge_duplicate_readings(df, _READING)
+
+    assert_frame_equal(merged, _readings(("01", "t", 0, 5.0, "3")))
+
+
+def test_merge_duplicate_readings_keeps_the_first_of_two_values_and_counts_the_conflict(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Two different values keep the first, with its flag, and one debug line says how many readings conflicted."""
+    df = _readings(
+        ("01", "t", 0, 5.0, "3"),
+        ("01", "t", 0, 6.0, "1"),
+        # the same value twice is no conflict
+        ("01", "t", 1, 7.0, "3"),
+        ("01", "t", 1, 7.0, "1"),
+        # a value after a null is not one either
+        ("01", "t", 2, None, None),
+        ("01", "t", 2, 8.0, "1"),
+    )
+
+    with caplog.at_level(logging.DEBUG, logger="wetterdienst.model.values"):
+        merged = merge_duplicate_readings(df, _READING)
+
+    assert_frame_equal(merged, _readings(("01", "t", 0, 5.0, "3"), ("01", "t", 1, 7.0, "3"), ("01", "t", 2, 8.0, "1")))
+    assert "6 rows share a reading with another and make 3 readings, 1 with different values" in caplog.text
+
+
+def test_merge_duplicate_readings_hands_back_a_frame_without_duplicates_as_it_is() -> None:
+    """No two rows of one reading is the identity, and the object itself."""
+    df = _readings(("01", "t", 0, None, "raw:-999"), ("01", "t", 1, 5.0, "3"), ("01", "w", 0, 1.0, None))
+
+    assert merge_duplicate_readings(df, _READING) is df
+
+
+def test_merge_duplicate_readings_keeps_a_reading_with_no_value_as_its_first_row() -> None:
+    """Where every row of a reading is null the first stays, with the text the source wrote for it."""
+    df = _readings(("01", "t", 0, None, "raw:-999"), ("01", "t", 0, None, "raw:-99"))
+
+    assert_frame_equal(merge_duplicate_readings(df, _READING), _readings(("01", "t", 0, None, "raw:-999")))
+
+
+def test_merge_duplicate_readings_reads_each_parameter_and_each_station_on_its_own() -> None:
+    """A null of one parameter or station is not filled from the row of another that shares its timestamp."""
+    df = _readings(
+        ("01", "t", 0, None, None),
+        ("01", "w", 0, 3.0, "3"),
+        ("02", "t", 0, 4.0, "3"),
+        ("01", "t", 0, 5.0, "1"),
+        ("02", "w", 0, None, None),
+        ("02", "t", 0, None, "raw:-999"),
+        ("01", "w", 0, None, None),
+    )
+
+    merged = merge_duplicate_readings(df, _READING)
+
+    # in the order the readings first appeared in
+    assert_frame_equal(
+        merged,
+        _readings(
+            ("01", "t", 0, 5.0, "1"),
+            ("01", "w", 0, 3.0, "3"),
+            ("02", "t", 0, 4.0, "3"),
+            ("02", "w", 0, None, None),
+        ),
+    )
+
+
+def test_merge_duplicate_readings_keeps_the_order_of_the_rows_it_does_not_merge() -> None:
+    """The readings keep the order of their first row, whether they are merged or not."""
+    df = _readings(
+        ("01", "t", 3, 3.0, None),
+        ("01", "t", 1, None, None),
+        ("01", "t", 2, 2.0, None),
+        ("01", "t", 1, 1.0, "3"),
+        ("01", "t", 0, 0.0, None),
+    )
+
+    merged = merge_duplicate_readings(df, _READING)
+
+    assert merged.get_column("value").to_list() == [3.0, 1.0, 2.0, 0.0]
+    assert merged.columns == df.columns
+    assert merged.schema == df.schema
+
+
+def test_merge_duplicate_readings_takes_every_other_column_from_the_row_of_the_value() -> None:
+    """A column beside `value` (the date of a file) is the one of the row the value is of."""
+    df = _readings(("01", "t", 0, None, None), ("01", "t", 0, 5.0, "3")).with_columns(
+        pl.Series(
+            "updated",
+            [dt.datetime(2026, 1, 1, tzinfo=ZoneInfo("UTC")), dt.datetime(2026, 2, 1, tzinfo=ZoneInfo("UTC"))],
+        )
+    )
+
+    merged = merge_duplicate_readings(df, _READING)
+
+    assert merged.get_column("updated").to_list() == [dt.datetime(2026, 2, 1, tzinfo=ZoneInfo("UTC"))]
+
+
+def test_a_reading_given_by_two_rows_has_the_value_of_the_one_that_has_one(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The case of GH-3450 through the whole core: a provider hands two rows for one day, the first without a value."""
+    _stub_dwd_daily(station_ids=["00001"], data_year_by_station={"00001": 1990}, monkeypatch=monkeypatch)
+    utc = ZoneInfo("UTC")
+    name = DwdObservationMetadata.daily.climate_summary.temperature_air_mean_2m.name_original
+
+    def collect(self, station_id: str, parameter_or_dataset) -> pl.DataFrame:  # noqa: ANN001, ARG001
+        return pl.DataFrame(
+            {
+                "timestamp": [dt.datetime(1990, 1, day, tzinfo=utc) for day in (1, 1, 2, 2)],
+                "parameter": [name] * 4,
+                "value": [None, 1.5, 2.5, None],
+                "quality_flags": ["raw:-999", "3", "1", "raw:-999"],
+            },
+            schema_overrides={"value": pl.Float64},
+        )
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        start="1990-01-01",
+        end="1990-01-02",
+    )
+
+    df = request.filter_by_station_id("00001").values().all().df
+
+    assert df.get_column("value").to_list() == [1.5, 2.5]
+    assert df.get_column("quality_flags").to_list() == ["3", "1"]
