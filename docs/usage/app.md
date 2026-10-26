@@ -29,9 +29,11 @@ The settings of a request that the explorer offers are the [options](settings.md
 names the REST API takes them by. The app does not have the weather warnings of DWD (see [Alerts](../data/provider/dwd/alerts/index.md)
 for them) nor the radar products.
 
+<!-- GH-3459 (a draft, not merged): the Explorer is to change how it meets a refusal, see large-requests.md -->
 A request the backend refuses shows what the backend answered: one over a [limit](restapi.md#limits) says which
 and how to narrow it, a provider that is down says so and the request can be made again. See
-[Troubleshooting](troubleshooting.md) for what the answers mean.
+[Troubleshooting](troubleshooting.md) for what the answers mean. To get more than a limit allows, see
+[Getting more than the limit](large-requests.md#from-the-app).
 
 ## Embed the forecast on another site
 
@@ -193,3 +195,5 @@ own too (`/_nuxt_icon`). The app calls OpenStreetMap, GitHub and Cloudflare for 
 marker images.
 
 The app does not forward the cookies or the `Authorization` of a client to the backend, on `/api` or on `/mcp`.
+The `/api` and `/mcp` proxies are for their own path of the backend and nothing else: a request whose path resolves
+to somewhere else (`/api/../health`, `/mcp/../health`) is a `404`, and the backend is not asked.
