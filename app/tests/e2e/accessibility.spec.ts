@@ -44,6 +44,9 @@ function message(locale: Locale, key: string): string {
 
 type Page = import('@playwright/test').Page
 
+/** The SVG chart of the prototype (`MeteogramSvg.vue`): drawn once its plot is in the page */
+const svgChart = (page: Page) => page.locator('svg.mg-svg').first()
+
 interface Target {
   page: string
   path: string
@@ -57,6 +60,8 @@ const PAGES: Target[] = [
   { page: 'explorer', path: '/explorer' },
   { page: 'stripes', path: '/stripes' },
   { page: 'meteogram', path: '/meteogram' },
+  // the prototype of the forecast chart without Plotly (GH-3237): reachable by URL only
+  { page: 'meteogram-svg', path: '/meteogram-svg', ready: async (page) => { await expect(svgChart(page)).toBeVisible() } },
   { page: 'history', path: '/history' },
   {
     page: 'widget',
@@ -285,6 +290,37 @@ const STATES: State[] = [
       await expect(plotly(page)).toBeVisible()
       await page.getByRole('button', { name: message(locale, 'dataViewer.viewTable'), exact: true }).click()
       await expect(page.getByRole('table')).toBeVisible()
+    },
+  },
+  {
+    page: 'meteogram-svg',
+    state: 'chart-drawn',
+    path: '/meteogram-svg?station=01001',
+    reach: async (page) => {
+      await expect(svgChart(page)).toBeVisible()
+    },
+  },
+  {
+    page: 'meteogram-svg',
+    state: 'table-shown',
+    path: '/meteogram-svg?station=01001',
+    reach: async (page, locale) => {
+      await expect(svgChart(page)).toBeVisible()
+      await page.getByRole('button', { name: message(locale, 'dataViewer.viewTable'), exact: true }).click()
+      await expect(page.getByRole('table')).toBeVisible()
+    },
+  },
+  {
+    // the readout is an element of the page: scanned for contrast and names like the rest of it
+    page: 'meteogram-svg',
+    state: 'readout-shown',
+    path: '/meteogram-svg?station=01001',
+    reach: async (page) => {
+      await expect(svgChart(page)).toBeVisible()
+      await page.locator('.mg-card').scrollIntoViewIfNeeded()
+      const box = (await svgChart(page).boundingBox())!
+      await page.mouse.move(box.x + box.width * 0.4, box.y + 250, { steps: 4 })
+      await expect(page.getByTestId('mg-tooltip')).toBeVisible()
     },
   },
   {
@@ -752,6 +788,136 @@ test.describe('chart controls by keyboard', () => {
     await expect.poll(nameShown).toBe('block')
     await page.keyboard.press('Escape')
     await expect.poll(nameShown).toBe('none')
+  })
+})
+
+// The SVG chart of the prototype (`/meteogram-svg`, GH-3237) is operated by the keyboard, and its readout is an
+// element that meets WCAG 2.2 1.4.13 where Plotly's hover label cannot: dismissible, hoverable and persistent.
+test.describe('svg meteogram', () => {
+  test.describe.configure({ timeout: 60_000 })
+  const variant: Variant = { mode: 'light', locale: 'en' }
+
+  test.beforeEach(async ({ context, baseURL }) => {
+    await context.addCookies([{ name: 'wd_lang', value: 'en', url: baseURL! }])
+  })
+
+  async function drawn(page: Page, baseURL: string) {
+    await mockBackend(page, baseURL)
+    await open(page, '/meteogram-svg?station=01001', variant)
+    await expect(svgChart(page)).toBeVisible()
+    await page.locator('.mg-card').scrollIntoViewIfNeeded()
+  }
+
+  test('the chart is one tab stop that steps by the arrow keys, says where it is and is dismissed by Escape', async ({ page, baseURL }) => {
+    await drawn(page, baseURL!)
+    const chart = page.getByRole('figure')
+    await expect(chart).toHaveAttribute('tabindex', '0')
+    await expect(chart).toHaveAccessibleName(/JAN MAYEN/)
+    // the keys are listed in what describes it
+    for (const id of (await chart.getAttribute('aria-describedby'))!.split(' '))
+      await expect(page.locator(`[id="${id}"]`)).toHaveText(/\S/)
+
+    // reached by Tab from the control before it: the toolbar's last button, the reset
+    await page.getByRole('button', { name: message('en', 'meteogram.chart.resetZoom') }).focus()
+    await page.keyboard.press('Tab')
+    await expect(chart).toBeFocused()
+    const outline = await chart.evaluate(node => getComputedStyle(node).outlineStyle)
+    expect(outline).not.toBe('none')
+
+    const tooltip = page.getByTestId('mg-tooltip')
+    await expect(tooltip).toBeVisible()
+    const live = page.locator('p.sr-only[aria-live="polite"]')
+    const first = (await tooltip.locator('.font-semibold').textContent())!.trim()
+    await page.keyboard.press('ArrowRight')
+    await expect(tooltip.locator('.font-semibold')).not.toHaveText(first)
+    await expect(live).toContainText(/\d\d:\d\d/)
+    await page.keyboard.press('Shift+ArrowRight')
+    await page.keyboard.press('End')
+    await page.keyboard.press('Home')
+    await expect(tooltip.locator('.font-semibold')).toHaveText(first)
+
+    // Escape takes the readout away, with the focus where it is; the chart keeps it
+    await page.keyboard.press('Escape')
+    await expect(tooltip).toBeHidden()
+    await expect(chart).toBeFocused()
+    await page.keyboard.press('ArrowRight')
+    await expect(tooltip).toBeVisible()
+  })
+
+  test('the readout is hoverable, persistent and dismissible (1.4.13)', async ({ page, baseURL }) => {
+    await drawn(page, baseURL!)
+    const box = (await svgChart(page).boundingBox())!
+    const x = box.x + box.width * 0.35
+    const y = box.y + 250
+    const tooltip = page.getByTestId('mg-tooltip')
+    await page.mouse.move(x - 30, y)
+    await page.mouse.move(x, y, { steps: 4 })
+    await expect(tooltip).toBeVisible()
+
+    // persistent: it stays while the pointer rests
+    await page.waitForTimeout(1500)
+    await expect(tooltip).toBeVisible()
+
+    // hoverable: the pointer moves onto it, and it is still there, with its text there to be read
+    const tip = (await tooltip.boundingBox())!
+    await page.mouse.move(tip.x + tip.width / 2, tip.y + tip.height / 2, { steps: 12 })
+    await page.waitForTimeout(300)
+    await expect(tooltip).toBeVisible()
+    expect(await page.evaluate(() => document.elementFromPoint(
+      (document.querySelector('[data-testid="mg-tooltip"]') as HTMLElement).getBoundingClientRect().x + 20,
+      (document.querySelector('[data-testid="mg-tooltip"]') as HTMLElement).getBoundingClientRect().y + 20,
+    )?.closest('[data-testid="mg-tooltip"]') !== null)).toBe(true)
+
+    // dismissible: Escape, with the pointer where it is; it comes back when the pointer moves on to the plot
+    await page.keyboard.press('Escape')
+    await expect(tooltip).toBeHidden()
+    await page.mouse.move(x + 100, y - 100, { steps: 4 })
+    await page.mouse.move(x + 110, y - 100, { steps: 4 })
+    await expect(tooltip).toBeVisible()
+
+    // and it goes when the pointer leaves the chart
+    await page.mouse.move(box.x + box.width / 2, box.y - 150, { steps: 6 })
+    await expect(tooltip).toBeHidden()
+  })
+
+  test('the zoom is by buttons and keys, and does not animate under prefers-reduced-motion', async ({ page, baseURL }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await drawn(page, baseURL!)
+    const labels = () => svgChart(page).locator('.mg-axis-top text').count()
+    const before = await labels()
+    // the crosshair glides in a visitor who has not asked for less (its CSS); in this one it does not
+    const box = (await svgChart(page).boundingBox())!
+    await page.mouse.move(box.x + box.width * 0.4, box.y + 250, { steps: 3 })
+    await expect(page.getByTestId('mg-tooltip')).toBeVisible()
+    expect(await page.locator('.mg-cross').evaluate(node => getComputedStyle(node).transitionDuration)).toBe('0s')
+    await page.mouse.move(box.x + box.width / 2, box.y - 150, { steps: 3 })
+    const zoomOut = page.getByRole('button', { name: message('en', 'meteogram.chart.zoomOut') })
+    await expect(zoomOut).toBeDisabled()
+    await page.getByRole('button', { name: message('en', 'meteogram.chart.zoomIn') }).click()
+    await expect(zoomOut).toBeEnabled()
+    // at once, not tweened: the very next frame has the zoomed axis
+    await expect.poll(labels).not.toBe(before)
+
+    await page.getByRole('button', { name: message('en', 'meteogram.chart.resetZoom') }).click()
+    await expect(zoomOut).toBeDisabled()
+    await expect.poll(labels).toBe(before)
+    // by keys, with the chart focused
+    await page.getByRole('figure').focus()
+    await page.keyboard.press('+')
+    await expect(zoomOut).toBeEnabled()
+    await page.keyboard.press('0')
+    await expect(zoomOut).toBeDisabled()
+  })
+
+  test('the panel buttons say whether they are on, and the barbs are in the SVG', async ({ page, baseURL }) => {
+    await drawn(page, baseURL!)
+    expect(await page.locator('svg.mg-svg g.mg-barb').count()).toBeGreaterThan(5)
+    expect(await page.locator('canvas').count()).toBe(0)
+    const wind = page.getByRole('button', { name: message('en', 'meteogram.chart.panelWind'), exact: true })
+    await expect(wind).toHaveAttribute('aria-pressed', 'true')
+    await wind.click()
+    await expect(wind).toHaveAttribute('aria-pressed', 'false')
+    await expect(page.locator('svg.mg-svg g.mg-barb')).toHaveCount(0)
   })
 })
 
