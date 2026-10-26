@@ -23,6 +23,11 @@ Types of changes:
   (Federal Office of Meteorology and Climatology)") and the citation of the CEDA record of MIDAS
   Open (was "© Crown Copyright, Met Office, MIDAS Open"). The licences are unchanged; a caller
   that shows the credit shows the new text (GH-2567)
+- `metno/frost` reports its licence as `CC-BY-4.0 AND NLOD-2.0` (was `CC-BY-4.0 OR NLOD-2.0`), with
+  the name "Norwegian Licence for Open Government Data 2.0 and Creative Commons Attribution 4.0
+  International": MET Norway writes "NLOD 2.0 and CC BY 4.0", not "or". A caller that reads
+  `provider.license.spdx_id` or the `X-Wetterdienst-License` header sees the new expression;
+  nothing about crediting changes, `attribution` is still "Data from MET Norway" (GH-2567)
 
 ## [0.175.0] - 2026-10-25
 

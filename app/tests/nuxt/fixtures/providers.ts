@@ -77,7 +77,7 @@ export function providers(): Provider[] {
       name_english: 'Norwegian Meteorological Institute',
       country: 'Norway',
       country_code: 'NO',
-      license: { spdx_id: 'CC-BY-4.0 OR NLOD-2.0', name: 'CC BY 4.0 or NLOD 2.0', url: 'https://api.met.no/doc/License' },
+      license: { spdx_id: 'CC-BY-4.0 AND NLOD-2.0', name: 'NLOD 2.0 and CC BY 4.0', url: 'https://api.met.no/doc/License' },
       attribution: 'Data from the Norwegian Meteorological Institute',
       networks: [
         {
