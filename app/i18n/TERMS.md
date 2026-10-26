@@ -107,6 +107,11 @@ meant to be understood, not to be the last word, and **a review by a native spea
 
 - `pl` and `cs`: the whole catalogs and, since GH-2968, the three plural forms of the counts; since
   GH-2971 the fallbacks `common.requestFailed` and `common.backendError*`.
+- the text of the limit notice and of the note under the date range (GH-3457: `dataViewer.limit*` and
+  `dateRange.defaultNote`, `dateRange.clear`) in `pl`, `cs`, `lb` and `de-hh`; the unit plurals of `pl` and `cs`
+  (`dataViewer.limitUnit.*`, `limitStationsCount`, `limitParametersCount`) are the ones to look at first, and in
+  `pl` the "Aktualny wybór:" of the selection's counts, which stands where English says "You have selected" to
+  avoid a case; `de-hh` is German-looking where the Low German could not be told (`Reegen`, `Antwoort`, `Tietruum`).
 - `lb` (Luxembourgish): the whole catalog; the explorer mode descriptions, the SQL panel (`query.*`)
   and `history.colMethod` were English until GH-2970, and the fallbacks `common.requestFailed` and
   `common.backendError*` until GH-2971; they are the newest text. The dataset is a

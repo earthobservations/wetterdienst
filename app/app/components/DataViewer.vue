@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
 import type { Config as PlotlyConfig, Data as PlotlyData, Layout as PlotlyLayout } from 'plotly.js-basic-dist-min'
+import type { Station } from '#shared/types/api'
 import type { DataSettings } from '~/types/data-settings.type'
 import type { ParameterSelectionState } from '~/types/parameter-selection-state.type'
 import type { StationMode, StationSelectionState } from '~/types/station-selection-state.type'
 import { h } from 'vue'
+import LimitNotice from '~/components/LimitNotice.vue'
 import QueryPanel from '~/components/QueryPanel.vue'
 import { describeFetchError } from '~/utils/api-error'
 import { formatDate, formatNumber, plotlySeparators } from '~/utils/format'
+import { limitRefusal } from '~/utils/limit-refusal'
+import { windowForRefusal } from '~/utils/row-window'
 import { timestampDate } from '~/utils/timestamp'
 import { pinnedUnitTargets } from '~/utils/unit-targets'
 import { exportColumns, field, fieldText, valuesToCsv, valuesToJson } from '~/utils/values-export'
@@ -22,7 +26,13 @@ const props = defineProps<{
   unitTargetDefaults?: Record<string, string>
 }>()
 
+const emit = defineEmits<{
+  /** the window that fits what the server refused, to be written to the date fields; the request is asked again by the page */
+  applyRange: [range: { startDate: string, endDate: string }]
+}>()
+
 const { t, locale } = useI18n()
+const serverLimits = useServerLimits()
 const { parameterLabel, resolutionLabel, datasetLabel } = useParameterLabel()
 const { settings: appSettings } = useSettings()
 
@@ -252,14 +262,39 @@ const apiQuery = computed(() => {
   }
 })
 
+// What the selection comes to, as the refusal of a limit needs it to offer a window that fits (see
+// `limitNotice`): kept with the request it was sent as, as the selection moves on while the answer is
+// on its way. A point (interpolation, summary) has no stations, and its window is the range alone
+interface RefusalContext {
+  resolution: Resolution | undefined
+  records: { start_timestamp?: string | null, end_timestamp?: string | null }[]
+  stationCount: number
+  parameterCount: number
+  tidy: boolean
+  range: { startDate?: string, endDate?: string }
+}
+
+const refusalContext = computed((): RefusalContext => {
+  const stations: Partial<Station>[] = stationSelection.value.selection?.stations ?? []
+  const point = stationSelection.value.mode !== 'station'
+  return {
+    resolution: parameterSelection.value.resolution,
+    records: point ? [{}] : stations.map(station => ({ start_timestamp: station.start_timestamp, end_timestamp: station.end_timestamp })),
+    stationCount: point ? 0 : stations.length,
+    parameterCount: parameterSelection.value.parameters.length,
+    tidy: point || props.settings.shape !== 'wide',
+    range: { startDate: stationSelection.value.dateRange?.startDate, endDate: stationSelection.value.dateRange?.endDate },
+  }
+})
+
 // the request the selection makes: what Fetch sends, and what holdsSelection compares with
-const selectedRequest = computed(() => ({ ...selectedEndpoint.value, query: apiQuery.value }))
+const selectedRequest = computed(() => ({ ...selectedEndpoint.value, query: apiQuery.value, context: refusalContext.value }))
 
 // The request behind the table: set by Fetch alone, and the one the table's values are fetched with,
 // so the table, its error and a GeoJSON download of it answer to the same request whatever is
 // selected since. Bound to the live selection instead, the fetch kept a request of its own beside
 // this one, which a selection changed mid-fetch, or Clear, could part from what the table showed.
-interface ValuesRequest { endpoint: string, filename: string, mode: StationMode, query: Record<string, unknown> }
+interface ValuesRequest { endpoint: string, filename: string, mode: StationMode, query: Record<string, unknown>, context: RefusalContext }
 const fetchedRequest = shallowRef<ValuesRequest | null>(null)
 // the request Fetch sent last, which the table's values are fetched with; it becomes fetchedRequest
 // only once it has answered, so until then the table, the file name and GeoJSON keep to the last one
@@ -304,8 +339,81 @@ const fetchErrorMessage = computed(() => valuesError.value ? describeFetchError(
 
 const toast = useToast()
 
+// The refusal of a limit (400, `limit-exceeded`) is a state of the table area and not a failure: the
+// numbers of the refusal, what can be done and the ways on, in the page's language (GH-3457). Any other
+// failure is the error below, with the backend's text. A refusal the page has no wording for stays an
+// error: the stream limit, which the page never asks for, and the stations a point reaches, where the
+// remedy is the radius and not the selection
+function noticeFor(error: unknown, request: ValuesRequest | null) {
+  const refusal = limitRefusal(error)
+  if (!refusal || !request || refusal.limit === 'stream_rows')
+    return null
+  if (refusal.limit === 'stations' && request.mode !== 'station')
+    return null
+  return refusal
+}
+
+const limitNotice = computed(() => {
+  if (valuesPending.value || allValues.value.length > 0)
+    return null
+  const request = sentRequest.value
+  const refusal = valuesError.value ? noticeFor(valuesError.value, request) : null
+  if (!refusal || !request)
+    return null
+  const { context } = request
+  const stationMode = request.mode === 'station'
+  // a window helps against the rows, not against the stations
+  const window = refusal.limit === 'rows' && context.resolution
+    ? windowForRefusal({
+        requested: refusal.requested,
+        maximum: refusal.maximum,
+        resolution: context.resolution,
+        records: context.records,
+        parameterCount: context.parameterCount,
+        tidy: context.tidy,
+        range: context.range,
+      })
+    : null
+  const stream = serverLimits.value.max_stream_rows
+  // streamed, the rows are held to the stream limit (`values` only): offered where they fit it
+  const csv = refusal.limit === 'rows' && stationMode && (stream === 0 || refusal.requested <= stream)
+    ? streamedCsvHref(request)
+    : null
+  return {
+    refusal,
+    point: !stationMode,
+    stationCount: context.stationCount,
+    parameterCount: context.parameterCount,
+    window,
+    // the window is for the selection the refusal was for, not one made since
+    canApply: requestKey(request) === requestKey(selectedRequest.value),
+    csvHref: csv,
+    maxStreamRows: stream,
+  }
+})
+
+// The refused request as a link to its streamed CSV (`format=csv`, which the server holds to its stream
+// limit and not to the one of a single body): the browser saves it as it comes, where the app would hold
+// every row of it in memory. The same query, so that what is saved is what the table would have shown
+function streamedCsvHref(request: ValuesRequest): string {
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(request.query)) {
+    if (value !== undefined && value !== null && value !== '')
+      params.append(key, String(value))
+  }
+  params.set('format', 'csv')
+  return `${request.endpoint}?${params}`
+}
+
+// the notice takes its buttons with it when a window is applied and the request is made again: the
+// focus they held goes on to the table area, where the answer, or the notice again, arrives
+const noticeBox = ref<HTMLElement | null>(null)
+const card = ref<{ $el: HTMLElement } | null>(null)
+const contentBox = computed(() => card.value?.$el ?? null)
+useFocusAfterRetry(() => limitNotice.value !== null, noticeBox, contentBox)
+
 watch(valuesError, (err) => {
-  if (!err)
+  if (!err || noticeFor(err, sentRequest.value))
     return
   toast.add({
     title: t('dataViewer.fetchErrorToastTitle'),
@@ -1421,12 +1529,16 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
       </UCollapsible>
 
       <!-- Content -->
-      <UCard :ui="{ body: valuesPending ? 'flex items-center justify-center min-h-40' : '' }">
+      <UCard ref="card" tabindex="-1" class="outline-none" :ui="{ body: valuesPending ? 'flex items-center justify-center min-h-40' : '' }">
         <div v-if="valuesPending" class="flex items-center justify-center py-12">
           <UIcon name="i-lucide-loader-circle" class="w-8 h-8 animate-spin text-primary-500" />
         </div>
         <template v-else>
-          <div v-if="allValues.length === 0 && fetchErrorMessage" class="flex flex-col items-center justify-center gap-1 py-12 text-center text-red-600 dark:text-red-400">
+          <!-- a refusal of a limit, in either view: the table area says what it is and what can be done -->
+          <div v-if="limitNotice" ref="noticeBox">
+            <LimitNotice v-bind="limitNotice" @apply="emit('applyRange', { startDate: $event.startDate, endDate: $event.endDate })" />
+          </div>
+          <div v-else-if="allValues.length === 0 && fetchErrorMessage" class="flex flex-col items-center justify-center gap-1 py-12 text-center text-red-600 dark:text-red-400">
             <span class="font-medium">{{ t('dataViewer.fetchError') }}</span>
             <span class="text-sm">{{ fetchErrorMessage }}</span>
           </div>

@@ -626,7 +626,9 @@
     "errStartRequired": "Anfangsdatum is nödig",
     "errEndRequired": "Enndatum is nödig",
     "errEndAfterStart": "Enndatum mutt na dat Anfangsdatum liggen",
-    "errExceedsLimit": "Schätte {count} Weerten överschrieden dat Limit vun {max}. Grenz den Tietruum bitte in."
+    "errExceedsLimit": "Schätte {count} Weerten överschrieden dat Limit vun {max}. Grenz den Tietruum bitte in.",
+    "defaultNote": "Standard-Tietruum: de niegsten Daten ({span}, rund {rows} Reegen), dormit de Server se up eenmal schicken kann. Wisch den Tietruum, wenn du allens afragen wullt.",
+    "clear": "Tietruum wischen"
   },
   "map": {
     "centerAll": "Op all Stationen zentreren",
@@ -677,7 +679,26 @@
     "statMin": "Sietst",
     "statMax": "Hööchst",
     "statMean": "Middel",
-    "statSum": "Summ"
+    "statSum": "Summ",
+    "limitRowsTitle": "Tovöl Reegen för een Antwoort",
+    "limitRowsBody": "Disse Utwahl gifft rund {requested} Reegen, mehr as disse Server in een Antwoort schickt (Grenz: {maximum}).",
+    "limitStationsTitle": "Tovöl Stationen för een Afraag",
+    "limitStationsBody": "Du hest mehr Stationen utwählt, as disse Server in een Afraag liest: {requested} utwählt, {maximum} verlöövt.",
+    "limitNarrow": "Üm de Daten hier to sehn, maak de Utwahl lütter: Wähl en körtern Tietruum, weniger Parameter oder weniger Stationen. Du hest {stations} un {parameters} utwählt.",
+    "limitNarrowPoint": "Üm de Daten hier to sehn, maak de Utwahl lütter: Wähl en körtern Tietruum oder weniger Parameter. Du hest {parameters} utwählt.",
+    "limitNarrowStations": "Nimm Stationen ut de Utwahl rut un kiek di den Rest in en annern Schritt an. Du hest {stations} utwählt.",
+    "limitApply": "Blots de niegsten Daten wiesen ({span}, rund {rows} Reegen)",
+    "limitNoWindow": "Nich mal de körtste Tietruum passt in een Antwoort. Wähl weniger Parameter oder Stationen oder laad allens daal.",
+    "limitDownload": "Allens as CSV daalladen",
+    "limitDownloadHint": "De CSV warrt streamt un kann dorüm mehr Reegen hebben as een Antwoort.",
+    "limitDownloadHintMax": "De CSV warrt streamt un kann dorüm mehr Reegen hebben as een Antwoort: bit to {maximum}.",
+    "limitStationsCount": "{count} Station | {count} Stationen",
+    "limitParametersCount": "{count} Parameter | {count} Parameter",
+    "limitUnit": {
+      "days": "{count} Dag | {count} Daag",
+      "months": "{count} Maand | {count} Maanden",
+      "years": "{count} Johr | {count} Johren"
+    }
   },
   "query": {
     "enable": "Mit SQL-Afraag transformeren",

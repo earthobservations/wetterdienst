@@ -29,9 +29,9 @@ export type Handler = (url: URL, route: Route) => unknown | Promise<unknown>
 /** The answers by `/api/<path>`, to be replaced one by one where a state needs a different one */
 export type Handlers = Record<string, Handler>
 
-/** What a handler returns to answer with an error instead of a body */
+/** What a handler returns to answer with an error instead of a body; `extra` are the fields of a problem beside `detail` */
 export class ApiFailure {
-  constructor(readonly status: number, readonly detail: string) {}
+  constructor(readonly status: number, readonly detail: string, readonly extra: Record<string, unknown> = {}) {}
 }
 
 const DWD = { name_short: 'DWD', country: 'Germany', auth: false, configured: false, date_required: false }
@@ -396,7 +396,7 @@ export async function mockBackend(page: Page, baseURL: string, override: Handler
         }
         const body = await handler(url, route)
         if (body instanceof ApiFailure)
-          await route.fulfill({ status: body.status, json: { detail: body.detail } })
+          await route.fulfill({ status: body.status, json: { ...body.extra, detail: body.detail } })
         else
           await route.fulfill({ status: 200, json: body })
       }

@@ -626,7 +626,9 @@
     "errStartRequired": "La date de début est requise",
     "errEndRequired": "La date de fin est requise",
     "errEndAfterStart": "La date de fin doit être postérieure à la date de début",
-    "errExceedsLimit": "Les {count} valeurs estimées dépassent la limite de {max}. Restreins la plage de dates."
+    "errExceedsLimit": "Les {count} valeurs estimées dépassent la limite de {max}. Restreins la plage de dates.",
+    "defaultNote": "Plage par défaut : les données les plus récentes ({span}, environ {rows} lignes), pour que le serveur puisse les envoyer d'un coup. Supprime la plage de dates pour tout demander.",
+    "clear": "Supprimer la plage de dates"
   },
   "map": {
     "centerAll": "Centrer sur toutes les stations",
@@ -677,7 +679,26 @@
     "statMin": "Min",
     "statMax": "Max",
     "statMean": "Moyenne",
-    "statSum": "Somme"
+    "statSum": "Somme",
+    "limitRowsTitle": "Trop de lignes pour une seule réponse",
+    "limitRowsBody": "Cette sélection représente environ {requested} lignes, plus que ce serveur n'en envoie dans une réponse (limite : {maximum}).",
+    "limitStationsTitle": "Trop de stations pour une seule requête",
+    "limitStationsBody": "Tu as sélectionné plus de stations que ce serveur n'en lit dans une requête : {requested} sélectionnées, {maximum} autorisées.",
+    "limitNarrow": "Pour voir les données ici, réduis la sélection : choisis une plage de dates plus courte, moins de paramètres ou moins de stations. Tu as sélectionné {stations} et {parameters}.",
+    "limitNarrowPoint": "Pour voir les données ici, réduis la sélection : choisis une plage de dates plus courte ou moins de paramètres. Tu as sélectionné {parameters}.",
+    "limitNarrowStations": "Retire des stations de la sélection et regarde le reste dans une étape suivante. Tu as sélectionné {stations}.",
+    "limitApply": "Afficher seulement les données les plus récentes ({span}, environ {rows} lignes)",
+    "limitNoWindow": "Même la plage de dates la plus courte ne tient pas dans une seule réponse. Choisis moins de paramètres ou de stations, ou télécharge tout.",
+    "limitDownload": "Tout télécharger en CSV",
+    "limitDownloadHint": "Le CSV est transmis en flux continu, il peut donc contenir plus de lignes qu'une réponse.",
+    "limitDownloadHintMax": "Le CSV est transmis en flux continu, il peut donc contenir plus de lignes qu'une réponse : jusqu'à {maximum}.",
+    "limitStationsCount": "{count} station | {count} stations",
+    "limitParametersCount": "{count} paramètre | {count} paramètres",
+    "limitUnit": {
+      "days": "{count} jour | {count} jours",
+      "months": "{count} mois | {count} mois",
+      "years": "{count} an | {count} ans"
+    }
   },
   "query": {
     "enable": "Transformer avec une requête SQL",
