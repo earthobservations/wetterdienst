@@ -16,7 +16,7 @@ Types of changes:
 
 ## [Unreleased]
 
-### Changed
+### Security
 
 - `[Security headers]` The Content Security Policy lists only the hosts the app loads from: it no
   longer allows images from `unpkg.com`, which nothing loads, nor fonts from any `https:` host, as

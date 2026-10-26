@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { privacy as de } from '../../i18n/privacy/de'
+import { privacy as en } from '../../i18n/privacy/en'
 
 // nuxt.config.ts relies on the `defineNuxtConfig` auto-import (an identity
 // helper at runtime) and imports the tailwind vite plugin. Stub both so the
@@ -43,21 +45,34 @@ describe('security headers', () => {
     expect(imgSrc).toContain('https://*.tile.openstreetmap.org')
   })
 
-  it('allows the hosts the app loads images from, the ones the privacy policy names, and no whole scheme', async () => {
+  it('allows no host the privacy policy does not name, and no whole scheme or wildcard', async () => {
     const config = await loadConfig()
     const policy = policyOf(config)
 
-    const hosts = Object.values(policy).flat().filter(source => source.includes('://')).sort()
-    expect(hosts).toEqual([
-      'https://*.tile.openstreetmap.org',
-      'https://avatars.githubusercontent.com',
-      'https://cdnjs.cloudflare.com',
-      'https://raw.githubusercontent.com',
-    ])
+    const hosts = new Set<string>()
+    for (const [directive, sources] of Object.entries(policy)) {
+      for (const source of sources) {
+        // a keyword (`'self'`, `'none'`, a nonce) and the two schemes of data the page makes itself
+        if (source.startsWith('\'') || source === 'data:' || source === 'blob:')
+          continue
+        // everything else is a host: `https://host`, `https://*.host`, or a host with no scheme, never a bare
+        // scheme (`https:`, `http:`) or `*`, which allow every host
+        const match = /^https:\/\/((?:\*\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+)$/i.exec(source)
+        expect(match, `${directive}: ${source}`).not.toBeNull()
+        hosts.add(match![1]!.replace(/^\*\./, ''))
+      }
+    }
+
+    expect(hosts.size).toBeGreaterThan(0)
+    // each host the policy allows is named by every language of the privacy policy: a host cannot be added here
+    // without the text that tells a visitor of it
+    for (const [language, text] of Object.entries({ de, en })) {
+      const written = JSON.stringify(text)
+      for (const host of hosts)
+        expect(written, `${language}: ${host}`).toContain(host)
+    }
     // the app ships no web font of another origin: a font is its own file or a data URL
     expect(policy['font-src']).toEqual(['\'self\'', 'data:'])
-    for (const [directive, sources] of Object.entries(policy))
-      expect(sources, directive).not.toEqual(expect.arrayContaining(['https:']))
   })
 
   it('allows no CDN: the DuckDB-wasm and Swagger UI files are the app\'s own (GH-3094)', async () => {
