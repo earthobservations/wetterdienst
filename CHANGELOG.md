@@ -51,6 +51,12 @@ Types of changes:
 
 ### Fixed
 
+- Four pages stated what the code does not do. Interpolation said a negative search distance is a
+  400 on the REST API: it is a 422, and only a name that is no canonical parameter is a 400.
+  Python Examples said `RADOLAN_CDC` takes an hourly or daily resolution: `5_minutes` too.
+  Development said `poe test -k ...` selects tests: a task that is a sequence drops what follows
+  it and runs the whole suite, so the page now calls pytest. Web app called the app a Nuxt 3
+  one: it is Nuxt 4, and the page names no major version now (GH-2621)
 - `meteofrance/synop` reads the yearly files data.gouv.fr lists (`data/OBS/SYNOP/`), not the
   `synchro_ftp` copy of them, which stopped being refreshed on 2026-09-09: values of the current
   year now run to the day before today instead of ending on 2026-09-08 (GH-3447)

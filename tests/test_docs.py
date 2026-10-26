@@ -1512,6 +1512,28 @@ def test_docs_name_only_environment_variables_that_exist() -> None:
     assert not errors, "\n".join(errors)
 
 
+def test_docs_run_only_poe_tasks_that_exist_and_pass_arguments_only_to_a_command() -> None:
+    """Test that every ``poe`` task a page shows is one of `pyproject.toml`, and takes the arguments it is given.
+
+    A task that is a sequence (``test = ["test:parallel", "test:cflakes"]``) drops what follows it without a
+    word, so ``poe test -k test_cli`` runs the whole suite, and a page that shows it promises a selection it does
+    not make.
+    """
+    tasks = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf8"))["tool"]["poe"]["tasks"]
+    errors = []
+    for path in _prose_files():
+        for match in re.finditer(r"\bpoe\s+\"?([\w:-]+)\"?([^\n`#]*)", path.read_text(encoding="utf8")):
+            name, arguments = match.group(1), match.group(2).strip()
+            if name not in tasks:
+                # prose such as "poe is run by uv", which names no task
+                if arguments or not name.isalpha():
+                    errors.append(f"{path.relative_to(ROOT)}: `poe {name}` is not a task of pyproject.toml")
+                continue
+            if arguments and isinstance(tasks[name], list):
+                errors.append(f"{path.relative_to(ROOT)}: `poe {name} {arguments}`, a sequence, drops the arguments")
+    assert not errors, "\n".join(errors)
+
+
 def _table_names(text: str, heading: str) -> set[str]:
     """Give the first column of the first table after ``heading`` in a page."""
     _, _, rest = text.partition(heading)

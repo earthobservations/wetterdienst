@@ -189,8 +189,8 @@ radar data available at different locations within the DWD data repository:
 - [radolan cdc hourly](https://opendata.dwd.de/climate_environment/CDC/grids_germany/hourly/radolan/)
 - [radolan cdc 5 minutes](https://opendata.dwd.de/climate_environment/CDC/grids_germany/5_minutes/radolan/)
 
-For ``RADOLAN_CDC``-data, the time resolution parameter (either hourly or daily)
-must be specified.
+For ``RADOLAN_CDC``-data, the time resolution parameter (``DwdRadarResolution.MINUTE_5``,
+``HOURLY`` or ``DAILY``) must be specified.
 
 The ``start`` and ``end`` parameters can optionally be specified to obtain data from specific
 points in time: each a datetime or an ISO 8601 string, ``start`` also one of ``DwdRadarDate``
