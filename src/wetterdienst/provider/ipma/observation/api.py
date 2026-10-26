@@ -71,6 +71,8 @@ class IpmaObservationValues(TimeseriesValues):
             return None
         feed = parse_ipma_observations_feed(file.content.read())
         self._feed_cache = feed
+        # when IPMA last wrote the feed, which every station of the query is read from (GH-2567)
+        self._feed_written = file.last_modified
         return feed
 
     def _collect_station_parameter_or_dataset(
@@ -81,7 +83,10 @@ class IpmaObservationValues(TimeseriesValues):
         feed = self._observations_feed()
         if feed is None:
             return pl.DataFrame()
-        return extract_ipma_station_observations(feed, station_id=station_id)
+        df = extract_ipma_station_observations(feed, station_id=station_id)
+        if not df.is_empty():
+            self._note_data_updated(getattr(self, "_feed_written", None))
+        return df
 
 
 @dataclass

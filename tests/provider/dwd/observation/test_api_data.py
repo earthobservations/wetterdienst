@@ -898,7 +898,11 @@ def test_period_precedence_on_overlapping_timestamps(
         "create_file_list_for_climate_observations",
         lambda *args, **kwargs: pl.Series(["https://example.invalid/file.zip"]),  # noqa: ARG005
     )
-    monkeypatch.setattr(dwd_observation_api, "download_climate_observations_data", lambda *args, **kwargs: [object()])  # noqa: ARG005
+    monkeypatch.setattr(
+        dwd_observation_api,
+        "download_climate_observations_data",
+        lambda *args, **kwargs: [File(url="https://example.invalid/file.zip", content=BytesIO(), status=200)],  # noqa: ARG005
+    )
     monkeypatch.setattr(
         dwd_observation_api,
         "parse_climate_observations_data",
@@ -958,7 +962,11 @@ def test_a_value_that_is_no_number_is_null_and_counted_not_an_error(
         "create_file_list_for_climate_observations",
         lambda *args, **kwargs: pl.Series(["https://example.invalid/file.zip"]),  # noqa: ARG005
     )
-    monkeypatch.setattr(dwd_observation_api, "download_climate_observations_data", lambda *args, **kwargs: [object()])  # noqa: ARG005
+    monkeypatch.setattr(
+        dwd_observation_api,
+        "download_climate_observations_data",
+        lambda *args, **kwargs: [File(url="https://example.invalid/file.zip", content=BytesIO(), status=200)],  # noqa: ARG005
+    )
     monkeypatch.setattr(dwd_observation_api, "parse_climate_observations_data", lambda *_args: frame)
     request = DwdObservationRequest(
         parameters=[("hourly", "temperature_air")],

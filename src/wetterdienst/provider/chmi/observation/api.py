@@ -172,6 +172,9 @@ class ChmiObservationValues(TimeseriesValues):
         """Start the elements of the request that a warning was given for."""
         super().__post_init__()
         self._ended_reported: set[tuple[str, int]] = set()
+        # when CHMI wrote each file that `_download` returned (its `Last-Modified`), by url, for the files that go on to
+        # give readings to be noted (GH-2567)
+        self._written: dict[str, dt.datetime | None] = {}
 
     def _download(self, url: str, settings: Settings, station_id: str) -> bytes | None:
         file = download_file(
@@ -190,6 +193,7 @@ class ChmiObservationValues(TimeseriesValues):
         if isinstance(file.content, Exception):
             log.debug(f"No CHMI file {_without_url_secrets(url)} for station {station_id}: {file.content}")
             return None
+        self._written[url] = file.last_modified
         return file.content.read()
 
     def _collect_element(
@@ -219,6 +223,7 @@ class ChmiObservationValues(TimeseriesValues):
                     df = parse_chmi_values_subdaily(content, element=element)
                     if not df.is_empty():
                         frames.append(df)
+                        self._note_data_updated(self._written.get(url))
             return frames
         url = f"{_BASE_URL}/data/{config['path']}/{category}/{config['prefix']}-{station_id}-{element}.csv"
         content = self._download(url, settings, station_id)
@@ -234,7 +239,10 @@ class ChmiObservationValues(TimeseriesValues):
                 mdfunc=element_config[2],
                 has_month=config["has_month"],
             )
-        return [df] if not df.is_empty() else []
+        if df.is_empty():
+            return []
+        self._note_data_updated(self._written.get(url))
+        return [df]
 
     def _warn_if_ended(self, parameter: ParameterModel, last_year: int, hint: str) -> None:
         """Tell, once for the request, that the window reaches years in which the source publishes no such element.

@@ -146,6 +146,8 @@ class DwdPoiValues(TimeseriesValues):
         columns = [parameter.name_original for parameter in dataset.parameters if parameter.name_original in df.columns]
         if not columns:
             return pl.DataFrame()
+        # when DWD rewrote the file of the station, which is the date of the report in it (GH-2567)
+        self._note_data_updated(file.last_modified)
         df = df.select(
             pl.concat_str(
                 [

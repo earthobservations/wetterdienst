@@ -266,6 +266,8 @@ class ImgwHydrologyValues(TimeseriesValues[DatasetModel]):
             )
             if not df.is_empty():
                 data.append(df)
+                # the archive gave this station readings: when IMGW wrote it is the date of what is read (GH-2567)
+                self._note_data_updated(file.last_modified)
         try:
             df = pl.concat(data)
         except ValueError:

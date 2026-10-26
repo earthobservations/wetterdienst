@@ -133,6 +133,8 @@ class DwdSwsmosValues(TimeseriesValues):
         # the run this request answers for, resolved and parsed once. `None` is "not looked up
         # yet"; an empty frame is "looked up, and there is nothing there". See `_run_frame`
         self._run_frame_cache: pl.DataFrame | None = None
+        # the model run of that frame, from the name of its file; `None` for the `LATEST` alias, which names none
+        self._run_issued: dt.datetime | None = None
 
     def _run_candidates(self, settings: Settings) -> list[tuple[str, CacheExpiry]]:
         """List the runs to try, newest first, with how long each may be answered from the cache.
@@ -324,6 +326,10 @@ class DwdSwsmosValues(TimeseriesValues):
                     df = _read_run(content, url, asked_again=True) if content is not None else None
                 if df is not None:
                     frame = df
+                    stamp = _RUN_FILE.match(url.rsplit("/", 1)[-1])
+                    self._run_issued = (
+                        dt.datetime.strptime(stamp.group(1), "%Y%m%d%H%M%S").replace(tzinfo=_UTC) if stamp else None
+                    )
                     break
             self._run_frame_cache = frame
         return self._run_frame_cache
@@ -343,10 +349,12 @@ class DwdSwsmosValues(TimeseriesValues):
         tread on each other's run.
         """
         self._run_frame_cache = None
+        self._run_issued = None
         try:
             yield from super().query()
         finally:
             self._run_frame_cache = None
+            self._run_issued = None
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -367,6 +375,9 @@ class DwdSwsmosValues(TimeseriesValues):
         df = df.filter(pl.col("ID") == station_id)
         if df.is_empty():
             return pl.DataFrame()
+        # a forecast is dated by its model run and not by the file it was published in: the run its file is named for
+        # (GH-2567 asks for the date of the update)
+        self._note_data_updated(self._run_issued)
         columns = [p.name_original for p in dataset.parameters if p.name_original in df.columns]
         # a text that is no number is no reading (the run file read on 2026-10-12 holds none): it becomes null, and the
         # text stays beside the value as `raw:` (GH-2759)

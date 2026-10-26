@@ -129,6 +129,9 @@ class DwdObservationValues(TimeseriesValues):
             else:
                 periods_and_date_ranges.append((period, None))
         parameter_data = []
+        # when DWD wrote each archive that was read (the `Last-Modified` of its download), noted below once the
+        # readings of the station are known to hold rows (GH-2567)
+        written = []
         for rank, (period, date_ranges) in enumerate(periods_and_date_ranges):
             if period not in dataset.periods:
                 log.info(f"Skipping period {period} for {dataset.name}.")
@@ -150,6 +153,7 @@ class DwdObservationValues(TimeseriesValues):
                 log.info(f"No data downloaded for {dataset_identifier}. Skipping period.")
                 continue
             period_df = parse_climate_observations_data(filenames_and_files, dataset, period)
+            written.extend(file.last_modified for file in filenames_and_files)
             parameter_data.append(
                 period_df.with_columns(pl.lit(rank, dtype=pl.UInt8).alias(_PERIOD_RANK)),
             )
@@ -189,11 +193,18 @@ class DwdObservationValues(TimeseriesValues):
             raise TypeError(msg)
         parameter_df = result
         df = self._tidy_up_df(parameter_df)
+        self._note_written_if_rows(df, written)
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`), and so is the number:
         # the value is the text of the file (the parser maps the sentinels and decodes the letters, it does not
         # cast), which the core reads and counts where it is none. The stamp is the UTC the parser made it, shifted
         # in `_tidy_up_df` where the archive writes another zone
         return df.select("parameter", "timestamp", "value", "quality_flags")
+
+    def _note_written_if_rows(self, df: pl.DataFrame, written: list[dt.datetime | None]) -> None:
+        """Note when DWD wrote the archives that were read, once the readings of the station are known to hold rows."""
+        if not df.is_empty():
+            for updated in written:
+                self._note_data_updated(updated)
 
     @staticmethod
     def _tidy_up_df(df: pl.DataFrame) -> pl.DataFrame:

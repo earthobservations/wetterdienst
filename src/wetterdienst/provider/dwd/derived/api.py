@@ -565,6 +565,8 @@ class DwdDerivedValues(TimeseriesValues):
                 )
 
                 data.append(df)
+                # the file gave this station a reading: when DWD wrote it is the date of what is read (GH-2567)
+                self._note_data_updated(downloaded_file.last_modified)
 
         if len(data) == 0:
             return pl.DataFrame()
@@ -591,6 +593,8 @@ class DwdDerivedValues(TimeseriesValues):
         dataset = cast("DatasetModel", parameter_or_dataset)
         stations = cast("DwdDerivedRequest", self.sr.request)
         parameter_data = []
+        # when DWD wrote each file that was read, noted once the station is known to have readings (GH-2567)
+        written = []
         station_periods = cast("set[Period]", stations.periods) or set()
         # oldest period first, so that the rank taken from this order below is the precedence the overlaps are
         # settled on. Iterating the set directly left the order to the set's own, which varies from one
@@ -606,6 +610,7 @@ class DwdDerivedValues(TimeseriesValues):
                 continue
             filenames_and_files = download_climate_derived_data(remote_files, cast("Settings", stations.settings))
             period_df = parse_climate_derived_data(filenames_and_files, dataset)
+            written.extend(file.last_modified for file in filenames_and_files)
             parameter_data.append(period_df.with_columns(pl.lit(rank, dtype=pl.UInt8).alias(_PERIOD_RANK)))
 
         try:
@@ -626,6 +631,9 @@ class DwdDerivedValues(TimeseriesValues):
         # TODO droppable_columns
 
         df = self._tidy_up_df(result)
+        if not df.is_empty():
+            for updated in written:
+                self._note_data_updated(updated)
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`), and so is the number:
         # the value is still the text of the file, which the core reads and counts where it is none. The stamp is the
         # UTC the parser made it

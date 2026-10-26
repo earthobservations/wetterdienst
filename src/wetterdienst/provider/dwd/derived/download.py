@@ -64,6 +64,7 @@ def _unpack_climate_derived_data(file: File) -> File:
             # carried, not dropped: unpacking does not change where the bytes came from, and a
             # caller that finds the member corrupt is exactly who the flag is for
             from_cache=file.from_cache,
+            last_modified=file.last_modified,
         )
 
     try:
@@ -84,4 +85,5 @@ def _unpack_climate_derived_data(file: File) -> File:
         # carried, not dropped: unpacking does not change where the bytes came from, and a caller
         # that finds the member corrupt is exactly who the flag is for
         from_cache=file.from_cache,
+        last_modified=file.last_modified,
     )

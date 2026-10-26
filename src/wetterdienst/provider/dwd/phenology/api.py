@@ -217,6 +217,8 @@ class DwdPhenologyValues(TimeseriesValues):
         # the stations of the request straight away. Without this a 20-station request would parse
         # the same 160 MB file twenty times over.
         self._files: dict[tuple[str, Period], pl.DataFrame] = {}
+        # when DWD wrote each of those files (its `Last-Modified`), noted for the stations that have rows in it
+        self._written: dict[tuple[str, Period], dt.datetime | None] = {}
         self._station_ids: set[str] | None = None
 
     def _requested_station_ids(self) -> set[str]:
@@ -251,6 +253,7 @@ class DwdPhenologyValues(TimeseriesValues):
             # observations (GH-2461). A failed connection (NoInternetError) is raised as well (GH-2640)
             file.raise_if_exception()
             if not isinstance(file.content, Exception):
+                self._written[key] = file.last_modified
                 df = _parse_values(file.content.read(), DWD_PHENOLOGY_OBJECT_IDS[dataset.name])
                 if not df.is_empty():
                     df = df.filter(pl.col("station_id").is_in(self._requested_station_ids()))
@@ -278,6 +281,7 @@ class DwdPhenologyValues(TimeseriesValues):
             # a file with nothing in it for the request has no columns to filter by
             if not loaded.is_empty() and not (df := loaded.filter(pl.col("station_id").eq(station_id))).is_empty():
                 frames.append(df)
+                self._note_data_updated(self._written.get((dataset.name, period)))
         if not frames:
             return pl.DataFrame()
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`)

@@ -27,6 +27,7 @@ from wetterdienst.model.quality_flags import OutOfRange, join_quality_flags, nul
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.metadata import _METADATA
+from wetterdienst.util.datetime import newest
 from wetterdienst.util.eccodes import bufr_file, require_bufr
 from wetterdienst.util.network import File, download_file, download_files, list_remote_files_fsspec
 
@@ -813,6 +814,9 @@ class DwdRoadValues(TimeseriesValues[DatasetModel]):
         # the group parsed for the station asked about before this one, and the key it answers for.
         # See `_collect_data_by_station_group`
         self._group_cache: tuple[tuple[str, tuple[str, ...]], pl.DataFrame] | None = None
+        # when DWD wrote the newest of the files that gave the group its readings: the files of the group read last,
+        # as the cache above is (GH-2567)
+        self._group_written: dt.datetime | None = None
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -828,6 +832,8 @@ class DwdRoadValues(TimeseriesValues[DatasetModel]):
         # no readings but with the columns, so the filter has a station id to look for. The core makes of any frame
         # without a row the empty long form, and writes `station_id`, `resolution` and `dataset` itself
         df = df.filter(pl.col("station_id").eq(station_id))
+        if not df.is_empty():
+            self._note_data_updated(self._group_written)
         # a value no sensor can have produced is null, and keeps the number DWD wrote (`_RANGES`, GH-3222)
         value, raw = null_sentinels(pl.col("value"), *_OUT_OF_RANGE, text=False)
         return df.select(
@@ -982,6 +988,10 @@ class DwdRoadValues(TimeseriesValues[DatasetModel]):
     ) -> pl.DataFrame:
         """Parse the road weather station data from a given file and returns a DataFrame."""
         data = [self.__parse_dwd_road_weather_data(file, parameters) for file in files]
+        # the files that gave a reading: one that arrived but held none adds no date
+        self._group_written = newest(
+            file.last_modified for file, df in zip(files, data, strict=True) if file.last_modified and not df.is_empty()
+        )
         if not data:
             return pl.DataFrame(schema=_PARSED_SCHEMA)
         # here rather than in the per-file parse: a sensor that has stopped can only be told from

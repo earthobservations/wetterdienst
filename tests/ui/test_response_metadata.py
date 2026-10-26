@@ -296,6 +296,25 @@ def test_the_alerts_have_the_block(client: TestClient, monkeypatch: pytest.Monke
         assert list(body) == ["metadata", "snapshot", "alerts"]
 
 
+@pytest.mark.parametrize("fmt", ["json", "geojson", "csv"])
+def test_the_alerts_say_when_the_newest_of_them_was_sent(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, fmt: str
+) -> None:
+    """DWD states the time of each warning in its message: the newest is the date of the answer, in block and header."""
+    from tests.provider.dwd.alerts.test_api import _result_of_alerts_sent  # noqa: PLC0415
+    from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
+
+    result = _result_of_alerts_sent("2026-07-26T09:23:00+02:00", "2026-07-26T08:00:00+00:00")
+    monkeypatch.setattr(DwdWeatherAlertRequest, "query", lambda _self: result)
+
+    response = client.get("/api/alerts", params={"format": fmt})
+
+    assert response.status_code == 200, response.text
+    assert response.headers[UPDATED_HEADER] == "2026-07-26T08:00:00.000000+00:00"
+    if fmt != "csv":
+        assert response.json()["metadata"]["data_updated_at"] == "2026-07-26T08:00:00.000000+00:00"
+
+
 def test_the_alerts_on_the_command_line_are_the_ones_of_rest(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -609,46 +628,61 @@ UPDATED_TEXT = "2026-10-26T06:54:51.123000+00:00"
 #: the header that says it, left out where the answer has no date
 UPDATED_HEADER = "X-Wetterdienst-Data-Updated-At"
 
-#: the networks whose source states a date for the data a request reads, which the answer reports
-DATA_UPDATED_STATED: set[tuple[str, str]] = {("meteofrance", "observation")}
+#: the networks whose answers have a `data_updated_at`: where a request reads a file the source dates (data.gouv.fr for
+#: `meteofrance/observation`, the `Last-Modified` of the download for the others, `File.last_modified`) it is the newest
+#: such date over the files that gave readings; for a forecast it is the model run (`dwd/mosmix`, `dwd/dmo`,
+#: `dwd/swsmos`). The warnings of `dwd/alerts` (no time series network) have the newest `sent` of them
+DATA_UPDATED_STATED: set[tuple[str, str]] = {
+    ("chmi", "observation"),
+    ("dwd", "derived"),
+    ("dwd", "dmo"),
+    ("dwd", "mosmix"),
+    ("dwd", "observation"),
+    ("dwd", "phenology"),
+    ("dwd", "poi"),
+    ("dwd", "road"),
+    ("dwd", "swsmos"),
+    ("imgw", "hydrology"),
+    ("imgw", "meteorology"),
+    ("ipma", "observation"),
+    ("meteofrance", "observation"),
+    ("meteofrance", "synop"),
+    ("meteoswiss", "observation"),
+    ("noaa", "ghcn"),
+}
 
-_FILE_DATES = "the source dates each file it serves, which the library does not read yet"
-_NO_DATE = "the answers of the source carry no date of an update, only the time of what was observed or of the request"
+_NO_DATE = (
+    "the answers of the source carry no date of an update and its responses no `Last-Modified` "
+    "(sampled 2026-10-26), only the time of what was observed or of the request"
+)
+_TIME_OF_REQUEST = (
+    "the `Last-Modified` of its responses is the time of the request, not of a file (sampled 2026-10-26: "
+    "later than the `Date` of the response too for SMHI), so a date read from it would be made up"
+)
 #: the networks whose answers have no `data_updated_at` yet, with why. A network leaves it when its provider fills the
 #: date; it does not stay in it for one that does (`DATA_UPDATED_STATED`). Étalab asks for the date of the most recent
 #: update of the information reused, so the networks under it are named with what keeps their date from being stated
 DATA_UPDATED_NOT_STATED: dict[tuple[str, str], str] = {
     ("aemet", "observation"): "not examined: a key is needed to read it (GH-2567)",
-    ("chmi", "observation"): _FILE_DATES,
-    ("dmi", "observation"): "each value has the date it was calculated at, which the library does not read yet",
-    ("dwd", "observation"): _FILE_DATES,
-    ("dwd", "mosmix"): _FILE_DATES,
-    ("dwd", "dmo"): _FILE_DATES,
-    ("dwd", "road"): _FILE_DATES,
-    ("dwd", "swsmos"): _FILE_DATES,
-    ("dwd", "poi"): _FILE_DATES,
-    ("dwd", "phenology"): _FILE_DATES,
-    ("dwd", "derived"): _FILE_DATES,
+    (
+        "dmi",
+        "observation",
+    ): "each value has the date it was calculated at (`created`), the date of a reading and not of "
+    "a file, which the library does not read; the responses have no `Last-Modified` (GH-2567)",
     ("eccc", "observation"): _NO_DATE,
-    ("fmi", "observation"): _NO_DATE,
-    ("imgw", "hydrology"): _FILE_DATES,
-    ("imgw", "meteorology"): _FILE_DATES,
-    ("ipma", "observation"): _FILE_DATES,
+    ("fmi", "observation"): _TIME_OF_REQUEST,
     ("knmi", "observation"): "not examined: a key is needed to read it (GH-2567)",
     ("lhmt", "observation"): _NO_DATE,
-    ("noaa", "ghcn"): _FILE_DATES,
     ("rmi", "observation"): _NO_DATE,
     ("wsv", "pegel"): _NO_DATE,
     ("ea", "hydrology"): _NO_DATE,
     ("nws", "observation"): _NO_DATE,
-    ("eaufrance", "hubeau"): "the source states no date of an update, only the 5-minute cadence of its API (GH-2567)",
+    ("eaufrance", "hubeau"): "the source states no date of an update, only the 5-minute cadence of its API, and its "
+    "responses have no `Last-Modified` (GH-2567)",
     ("geosphere", "observation"): _NO_DATE,
-    ("meteofrance", "synop"): "the date of the file is the one of its object store, whose path is not data.gouv.fr's "
-    "(GH-2567)",
-    ("meteoswiss", "observation"): "the STAC item dates each asset, which the library does not read yet",
     ("metno", "frost"): "not examined: a client id is needed to read it (GH-2567)",
     ("metoffice", "observation"): "not examined: a token is needed to read it (GH-2567)",
-    ("smhi", "observation"): "the listing's `updated` is more likely the latest data hour than an update time",
+    ("smhi", "observation"): _TIME_OF_REQUEST,
 }
 
 
@@ -662,6 +696,18 @@ def test_every_network_states_its_update_date_or_says_why_not(provider: str, net
     license_ = Wetterdienst.resolve(provider, network).metadata.license
     if not_stated and license_ and license_.spdx_id == "etalab-2.0":
         assert "GH-2567" in not_stated, "the Licence Ouverte asks for the date of the most recent update"
+
+
+@pytest.mark.parametrize(("provider", "network"), _timeseries_networks())
+def test_a_network_states_its_update_date_where_its_values_class_notes_one(provider: str, network: str) -> None:
+    """The lists say what the code does: a values class that notes a date is stated, one that does not is not."""
+    import inspect  # noqa: PLC0415
+    import sys  # noqa: PLC0415
+
+    values_class = Wetterdienst.resolve(provider, network)._values  # noqa: SLF001
+    notes = "self._note_data_updated(" in inspect.getsource(sys.modules[values_class.__module__])
+
+    assert notes == ((provider, network) in DATA_UPDATED_STATED), f"{provider}/{network}: the lists and the code differ"
 
 
 def test_no_network_is_listed_that_does_not_exist() -> None:

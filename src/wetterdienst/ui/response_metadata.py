@@ -380,13 +380,23 @@ def _provider_terms(api: object) -> _ProviderTerms:
     return metadata if metadata is not None else api.terms  # ty: ignore[unresolved-attribute]
 
 
-def _block_without_result(api: object, request: ResolvedRequest, *, stations: int, rows: int) -> ResponseMetadata:
-    """Build the block of an answer that is made from no stations result: the provider's terms and the request."""
+def _block_without_result(
+    api: object,
+    request: ResolvedRequest,
+    *,
+    stations: int,
+    rows: int,
+    data_updated_at: dt.datetime | None = None,
+) -> ResponseMetadata:
+    """Build the block of an answer that is made from no stations result: the provider's terms and the request.
+
+    The date the source states for the data is the caller's to give, for an answer that has one (the warnings).
+    """
     return ResponseMetadata(
         api_version=API_VERSION,
         schema_version=SCHEMA_VERSION,
         retrieved_at=_retrieved_at(),
-        data_updated_at=None,
+        data_updated_at=None if data_updated_at is None else format_timestamp(data_updated_at),
         **describe_provider(_provider_terms(api)),
         request=request,
         counts=Counts(stations=stations, rows=rows),
@@ -438,8 +448,11 @@ def stripes_metadata(data: StripesData, request: StripesValuesRequest) -> Respon
     )
 
 
-def alerts_metadata(api: object, alerts: int) -> ResponseMetadata:
-    """Build the block of the warnings of `dwd/alerts` (`/api/alerts`), which are about no stations."""
+def alerts_metadata(api: object, alerts: int, data_updated_at: dt.datetime | None = None) -> ResponseMetadata:
+    """Build the block of the warnings of `dwd/alerts` (`/api/alerts`), which are about no stations.
+
+    `data_updated_at` is the newest `sent` of the warnings in the answer (`DwdWeatherAlertResult.data_updated_at`).
+    """
     return _block_without_result(
         api,
         ResolvedRequest(
@@ -447,6 +460,7 @@ def alerts_metadata(api: object, alerts: int) -> ResponseMetadata:
         ),
         stations=0,
         rows=alerts,
+        data_updated_at=data_updated_at,
     )
 
 

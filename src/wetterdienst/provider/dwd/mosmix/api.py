@@ -142,6 +142,9 @@ class DwdMosmixValues(TimeseriesValues[DatasetModel]):
         df = self.read_mosmix(station_id=station_id, dataset=parameter_or_dataset, date=issue)
         if df is None or df.is_empty():
             return pl.DataFrame()
+        # a forecast is dated by its model run and not by the file it was published in: the `IssueTime` of the run read
+        # (GH-2567 asks for the date of the update)
+        self._note_data_updated(self.kml.metadata.get("issue_time"))
         df = unpivot_with_raw(df, index=["timestamp"])
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`); the stamp is a text,
         # which the core rejects, so it is read here, as the UTC its `Z` says

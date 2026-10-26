@@ -254,6 +254,9 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
         # drop last line if it is a repeated header line
         if df.get_column("STATION").last() == "STATION":
             df = df[:-1, :]
+        if not df.is_empty():
+            # when NCEI last wrote the file of the station (GH-2567)
+            self._note_data_updated(file.last_modified)
         df = df.rename(
             {
                 "STATION": "station_id",
@@ -358,6 +361,9 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
             separator=",",
             has_header=True,
         )
+        if not df.is_empty():
+            # when NCEI last wrote the file of the station (GH-2567)
+            self._note_data_updated(file.last_modified)
         df = df.rename(str.lower).rename({"date": "timestamp"})
         df = df.select(
             cs.exclude(

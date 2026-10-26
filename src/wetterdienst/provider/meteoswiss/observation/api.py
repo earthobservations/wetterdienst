@@ -105,18 +105,20 @@ class MeteoswissObservationValues(TimeseriesValues):
             csv_file.raise_if_exception()
             if isinstance(csv_file.content, Exception):
                 continue
-            dfs.append(
-                pl.read_csv(
-                    csv_file.content,
-                    separator=";",
-                    encoding="windows-1252",
-                    # strings throughout, whatever the file populates: the set of populated columns
-                    # differs between decade-chunked historical files, and an all-null column would
-                    # otherwise be inferred as Boolean in one file and Float64 in another, which
-                    # breaks the concat below. The columns are named by the file's own header.
-                    infer_schema=False,
-                ),
+            file_df = pl.read_csv(
+                csv_file.content,
+                separator=";",
+                encoding="windows-1252",
+                # strings throughout, whatever the file populates: the set of populated columns
+                # differs between decade-chunked historical files, and an all-null column would
+                # otherwise be inferred as Boolean in one file and Float64 in another, which
+                # breaks the concat below. The columns are named by the file's own header.
+                infer_schema=False,
             )
+            dfs.append(file_df)
+            if not file_df.is_empty():
+                # when MeteoSwiss last wrote the file, which gave the station readings (GH-2567)
+                self._note_data_updated(csv_file.last_modified)
         if not dfs:
             return pl.DataFrame()
         df = pl.concat(dfs, how="diagonal")

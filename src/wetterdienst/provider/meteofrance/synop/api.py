@@ -183,6 +183,9 @@ class MeteoFranceSynopValues(TimeseriesValues):
             df = df.filter(pl.col("geo_id_wmo").eq(station_id))
             if not df.is_empty():
                 dfs.append(df)
+                # the file of the year gave this station readings: when Météo-France wrote it is the date of what is
+                # read, which the Licence Ouverte asks for (GH-2567)
+                self._note_data_updated(file.last_modified)
         if not dfs:
             return pl.DataFrame()
         df = pl.concat(dfs, how="diagonal")
