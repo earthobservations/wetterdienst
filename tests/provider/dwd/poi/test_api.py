@@ -142,9 +142,13 @@ def test_dwd_poi_values_are_converted_to_the_target_units() -> None:
     request = DwdPoiRequest(
         parameters=[("hourly", "data", "wind_speed_mean_last_10min"), ("hourly", "data", "visibility")]
     )
-    df = request.filter_by_station_id(["10147"]).values().all().df.drop_nulls("value")
+    # 10513 (Koeln/Bonn) reports the visibility; 10147 (Hamburg) and 10382 (Berlin-Tegel) had `---` in all rows on
+    # 2026-10-26, so a station is chosen that has one, and a station without any is a failure that says so
+    df = request.filter_by_station_id(["10513"]).values().all().df.drop_nulls("value")
     wind = df.filter(pl.col("parameter") == "wind_speed_mean_last_10min").get_column("value")
     visibility = df.filter(pl.col("parameter") == "visibility").get_column("value")
+    assert not wind.is_empty(), "10513 reports no wind speed, so there is nothing to convert"
+    assert not visibility.is_empty(), "10513 reports no visibility, so there is nothing to convert"
     assert wind.is_between(0.0, 60.0).all()
     # in kilometres this would be at most a two-digit number
     assert visibility.max() > 100.0
