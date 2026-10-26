@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- The `attribution` that `meteoswiss/observation` and `metoffice/observation` report with every
+  answer is the credit line their providers state: "Source: MeteoSwiss" (was "© MeteoSwiss
+  (Federal Office of Meteorology and Climatology)") and the citation of the CEDA record of MIDAS
+  Open (was "© Crown Copyright, Met Office, MIDAS Open"). The licences are unchanged; a caller
+  that shows the credit shows the new text (GH-2567)
+
 ## [0.175.0] - 2026-10-25
 
 ### Added
