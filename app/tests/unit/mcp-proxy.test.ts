@@ -1,7 +1,7 @@
 import type { IncomingMessage, Server, ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { Buffer } from 'node:buffer'
-import { createServer } from 'node:http'
+import { createServer, request as httpRequest } from 'node:http'
 import { createRequire } from 'node:module'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
@@ -12,10 +12,13 @@ const nuxtRequire = createRequire(createRequire(import.meta.url).resolve('nuxt/p
 const h3 = nuxtRequire('h3') as typeof import('h3')
 
 const servers: Server[] = []
+// the paths the backend was asked for
+const asked: string[] = []
 const config = { apiBase: '' }
 let app: string
 
 function backend(request: IncomingMessage, response: ServerResponse): void {
+  asked.push(request.url ?? '')
   const chunks: Buffer[] = []
   request.on('data', chunk => chunks.push(chunk))
   request.on('end', () => {
@@ -40,6 +43,8 @@ beforeAll(async () => {
     getRequestHeader: h3.getRequestHeader,
     readRawBody: h3.readRawBody,
     sendProxy: h3.sendProxy,
+    setResponseHeader: h3.setResponseHeader,
+    setResponseStatus: h3.setResponseStatus,
     useRuntimeConfig: () => config,
   }))
     vi.stubGlobal(name, value)
@@ -130,5 +135,61 @@ describe('the /mcp proxy and the answer of the backend', () => {
     expect(response.headers.get('server')).toBeNull()
     expect(response.headers.get('set-cookie')).toBeNull()
     expect(response.headers.get('alt-svc')).toBeNull()
+  })
+})
+
+// A request with the path as the client wrote it: `fetch` normalises `..` before it sends anything
+function rawRequest(path: string, method = 'GET', headers: Record<string, string> = {}, body?: string): Promise<{ status: number, body: string }> {
+  return new Promise((resolve, reject) => {
+    const { port } = new URL(app)
+    const request = httpRequest({ host: '127.0.0.1', port, path, method, headers }, (response) => {
+      let text = ''
+      response.on('data', (chunk) => {
+        text += chunk
+      })
+      response.on('end', () => resolve({ status: response.statusCode ?? 0, body: text }))
+    })
+    request.on('error', reject)
+    request.end(body)
+  })
+}
+
+describe('the /mcp proxy and the path of the client', () => {
+  it.each([
+    '/mcp/../health',
+    '/mcp/%2e%2e/health',
+    '/mcp/%2E%2E/api/values',
+    '/mcp/v1/../../openapi.json',
+    '/mcp/./../docs',
+  ])('does not leave /mcp for %s, and answers it a 404 problem without asking the backend', async (path) => {
+    asked.length = 0
+    const { status, body } = await rawRequest(path)
+
+    expect(status).toBe(404)
+    expect(JSON.parse(body).type).toBe('urn:wetterdienst:problem:not-found')
+    expect(asked).toEqual([])
+  })
+
+  it('answers a POST outside /mcp the same, whatever its body', async () => {
+    asked.length = 0
+    const { status } = await rawRequest('/mcp/../health', 'POST', { 'content-type': 'application/json' }, '{}')
+
+    expect(status).toBe(404)
+    expect(asked).toEqual([])
+  })
+
+  it('keeps a path that stays under /mcp, however it gets there', async () => {
+    asked.length = 0
+    const { status, body } = await rawRequest('/mcp/v2/../v1?x=1')
+
+    expect(status).toBe(200)
+    expect(JSON.parse(body).url).toBe('/mcp/v1?x=1')
+  })
+
+  it('takes an encoded slash as a character of a segment, not as one that could leave /mcp', async () => {
+    const { status, body } = await rawRequest('/mcp/..%2fhealth')
+
+    expect(status).toBe(200)
+    expect(JSON.parse(body).url).toMatch(/^\/mcp\/\.\.%2fhealth/i)
   })
 })
