@@ -1,7 +1,7 @@
 # Web app
 
 The web app is the way into the data for anyone who would rather click than write code: pick a station on a map,
-choose what to read, look at the numbers and download them. It is a single-page app (Nuxt 3, Vue 3, server-side
+choose what to read, look at the numbers and download them. It is a single-page app (Nuxt, Vue 3, server-side
 rendering off) that calls the [REST API](restapi.md) and nothing else, so everything it shows is what the API
 answers, with the same [licence and credit line](restapi.md#response-metadata) for the data. Its server serves the
 pages and proxies `/api`, `/mcp`, `/docs` and `/openapi.json` to the backend, so a browser only ever calls the

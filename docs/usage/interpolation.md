@@ -524,8 +524,8 @@ http localhost:7890/api/interpolate \
   interpolation_station_distance=='{"precipitation_amount": 25}'
 ```
 
-`/api/summarize` takes the same three under `summary_…`. A parameter name that is not canonical,
-or a negative distance, is answered with a 400 rather than silently ignored, and the resolution
+`/api/summarize` takes the same three under `summary_…`. A parameter name that is not canonical is
+answered with a 400 rather than silently ignored, a negative distance with a 422, and the resolution
 factors are not query parameters -- an instance scales by its own configuration.
 
 The work of one request is bounded: a distance given is at most 200 km (five times the default of 40 km for a

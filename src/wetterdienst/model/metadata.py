@@ -517,9 +517,9 @@ class LicenseModel(BaseModel):
     """The terms a provider publishes its data under, as the provider states them (GH-2561).
 
     `spdx_id` is the identifier of the licence in the SPDX list, or an SPDX expression where the
-    provider offers two (`CC-BY-4.0 OR NLOD-2.0`); null where the terms have no SPDX identifier,
-    which is then told by `name` and `url` alone. `url` is a page of the licence or of the provider's
-    own terms, whichever states them.
+    provider names two that both apply (`CC-BY-4.0 AND NLOD-2.0`, MET Norway's); null where the terms
+    have no SPDX identifier, which is then told by `name` and `url` alone. `url` is a page of the
+    licence or of the provider's own terms, whichever states them.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)

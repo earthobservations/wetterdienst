@@ -28,6 +28,9 @@ Types of changes:
 
 ### Security
 
+- `[Security headers]` The Content Security Policy lists only the hosts the app loads from: it no
+  longer allows images from `unpkg.com`, which nothing loads, nor fonts from any `https:` host, as
+  the app uses no web font (GH-2607)
 - `[Widget]` `/widget` can be put in a frame of another site, as its documentation says it can:
   the server sends it `frame-ancestors *` and no `X-Frame-Options` when the request line is
   `/widget` or `/widget/`, the one page that is. Every other page, and `/widget` written another
