@@ -201,14 +201,33 @@ what the answer is missing:
   `station_id` column of its body.
 - **`retrieved_at`** is when the answer was made, in UTC. Whether the data came from the server's cache
   is not told.
-- **`data_updated_at`** is when the source says the data of the answer was last updated, in UTC, as the source
-  states it: the newest such date over the files the answer was read from. It is not when the data was fetched
-  (that is `retrieved_at`), and it is `null` where the source states no date or the library does not read it for the
-  network (every network but `meteofrance/observation` so far, and every list of stations): never `retrieved_at` in
-  its place. An answer made from the cache has the date of the copy it was made from, so the difference of
-  `retrieved_at` and `data_updated_at` is the age of the data, however long ago it was cached. NDJSON and CSV answers of
-  `values` are streamed and their head goes out before the stations are read, so the newest date is not known: they
-  say `null`, and the header is left out. A JSON answer of the same request has the exact one. It is the "date of the most recent update" that the Etalab Open Licence asks to be named with the source.
+- **`data_updated_at`** is when the source last updated the data of the answer, in UTC: the newest such date over the
+  files the answer was read from, **a file that gave no reading and one that failed not among them**. It is not when
+  the data was fetched (that is `retrieved_at`) and it is `null` where there is none to give: never `retrieved_at` in
+  its place. What the date is depends on what the source states:
+
+  - **A file the source dates** (the observations of DWD and its derived, phenology, POI and road networks, CHMI, IMGW,
+    IPMA, MeteoSwiss, NOAA GHCN and the SYNOP of Météo-France): when the source last wrote the file or files the answer
+    was built from, the `Last-Modified` of their download. A file written daily is dated daily, whether or not a value
+    in it changed, so the date says how current the copy is and not that the readings in it are new. A response whose
+    `Last-Modified` is later than its own `Date`, is not a date, or is not there gives none, and the date of the
+    request is never taken for it.
+  - **`meteofrance/observation`**: the newest `last_modified` that data.gouv.fr gives the files read, the date the
+    Etalab Open Licence 2.0 asks to be named with the source.
+  - **A forecast** (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`): the model run the forecast is of, not the file it was
+    published in, so it is the same for a run read again later, and `retrieved_at` less `data_updated_at` is how old the
+    run is.
+  - **The warnings of `dwd/alerts`**: the newest `sent` of the warnings in the answer, which DWD states in each of them;
+    a snapshot with no warning has none.
+
+  The date is `null` for the networks whose source states none and whose responses carry no `Last-Modified` that is a
+  file's (FMI and SMHI send the time of the request), for those that need credentials and are not examined (AEMET,
+  KNMI, MET Norway, Met Office), for every list of stations, and for a streamed answer: NDJSON and CSV answers of
+  `values` write their head before the stations are read, so the newest date is not known, they say `null` and the
+  header is left out, where a JSON answer of the same request has the exact one. An answer made from the cache has the
+  date of the copy it was made from, so `retrieved_at` less `data_updated_at` is the age of the data, however long ago
+  it was cached; a copy cached before the library kept dates has none. Which networks state a date, and why the others
+  do not, is `DATA_UPDATED_STATED` and `DATA_UPDATED_NOT_STATED` in `tests/ui/test_response_metadata.py`.
 - **`counts`** is the stations in the answer and its rows: the items of `values` (one per timestamp in
   the wide shape), the stations listed, or the histories.
 - **`crs`** is the reference system of every position in the answer: WGS 84, longitude before latitude in

@@ -18,7 +18,8 @@ Météo-France data is published under the [Etalab Open License 2.0](https://www
 which asks for the source and the date of the most recent update of the information reused. The answers of
 `observation` report that date as `data_updated_at` of their [`metadata`](../../../usage/restapi.md#response-metadata)
 (the newest `last_modified` data.gouv.fr gives the files read) and in the `X-Wetterdienst-Data-Updated-At` header; those
-of `synop` do not yet, and say `null`.
+of `synop` report the `Last-Modified` of the year files read, which is when Météo-France last wrote them, the newest
+of those that gave the station a reading.
 
 ```{toctree}
 :hidden:

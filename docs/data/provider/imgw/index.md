@@ -31,6 +31,12 @@ high-value datasets. They are no standard licence, so the response metadata of t
 - The terms say nothing on caching, redistribution or serving the data through an API; the credit line is what
   they ask of whoever passes it on.
 
+## Update date
+
+The `data_updated_at` of the [`metadata`](../../../usage/restapi.md#response-metadata) of an answer is when IMGW
+last wrote the archive or archives the values were read from (their `Last-Modified`), the newest of those that gave a
+reading.
+
 ```{toctree}
 :hidden:
 
