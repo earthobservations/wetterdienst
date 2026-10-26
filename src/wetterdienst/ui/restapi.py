@@ -1678,6 +1678,8 @@ def _stream_values(
     results = itertools.chain([first], results) if first is not None else iter(())
     # the block as far as it is known before the first reading: the stations selected, no rows yet
     preview = limit_stations_to_rank(stations)
+    # no `data_updated_at`: the newest date of the stations is not known before the last is read, and a list of
+    # stations has none
     metadata = response_metadata(preview, request, rows=0)
     frames = (result.df for result in results)
     failure = _stream_failure(request, "stream values")
