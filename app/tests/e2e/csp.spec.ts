@@ -67,7 +67,7 @@ test.describe('a page framed by another origin', () => {
   // Behind a proxy that rewrites the path before it forwards it, `/%77idget`, `//widget` and `/widget//` arrive at
   // the server as `/widget`, which it frames freely, while the browser keeps the address it was given. The test is
   // that proxy: the frame is answered with the widget's own response, at the address the page was framed at.
-  const SPELLINGS = ['/%77idget', '//widget', '/widget//', '/WIDGET', '/Widget/']
+  const SPELLINGS = ['/%77idget', '//widget', '/widget//', '/WIDGET', '/Widget/', '/nonexistent']
 
   test('draws the widget, and nothing at an address that is not the widget\'s however the server answered it', async ({ page, baseURL }) => {
     const origin = new URL(baseURL!).origin

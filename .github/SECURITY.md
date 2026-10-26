@@ -222,17 +222,19 @@ development, not exposure (#3096).
 
 Who may frame a page: only the app's own origin (`frame-ancestors 'self'` and `X-Frame-Options: SAMEORIGIN`), except
 for `/widget`, which any origin may frame because it is meant to sit on other sites. The server decides on the request
-line it receives (`/widget` or `/widget/`, with or without a query, nothing decoded), not by a route rule, which matches the decoded
-path (`/%77idget`); a plugin sets the two headers after nuxt-security's (`app/server/plugins/widget-frame.ts`). That
-is the first layer. A proxy that rewrites the path before it forwards it (decoding `%77`, collapsing `//`, resolving
-`..`) presents the server with `/widget` for an address that is not, so it can still serve the app's shell with the
-relaxed headers. The second layer is the page, which knows the address it was loaded at: framed by another origin, it
-draws nothing outside the widget's route, not even the text of a 404, and stops every navigation away from it
-(`app/app/utils/frame-guard.ts`, `app/tests/unit/frame-guard.test.ts`, `app/tests/e2e/csp.spec.ts`). The widget reads
-one station's forecast through two `GET` requests of the app's own origin and holds nothing a visitor enters or the
-app keeps. What can be clicked in it is two links that open in a new tab and, where the chart could not be drawn, a
-button that draws it again and one that reloads the frame. Its assets are subresources, not documents, and keep the
-headers they had.
+line it receives (`/widget` or `/widget/`, with or without a query, nothing decoded), not by a route rule, which
+matches the decoded path (`/%77idget`); a plugin sets the two headers after nuxt-security's
+(`app/server/plugins/widget-frame.ts`). That is the first layer. A proxy that rewrites the path before it forwards it
+(decoding `%77`, collapsing `//`, resolving `..`) presents the server with `/widget` for an address that is not, so it
+can still serve the app's shell with the relaxed headers. The second layer is the page, which knows the address it
+was loaded at: framed by another origin (any ancestor of another origin counts, not only the top window), it draws
+nothing outside the widget's route, not even the text of a 404, and makes no request of the backend while it draws
+nothing (`app/app/utils/frame-guard.ts`, `app/app/app.vue`, `app/app/error.vue`; `app/tests/unit/frame-guard.test.ts`,
+`app/tests/nuxt/pages/error.test.ts`, `app/tests/e2e/csp.spec.ts`). The widget reads one station's forecast through
+three `GET` requests of the app's own origin (the backend's version, the station, its values) and holds nothing a
+visitor enters or the app keeps. What can be clicked in it is two links that open in a new tab and, where the chart
+could not be drawn, a button that draws it again and one that reloads the frame. Its assets are subresources, not
+documents, and keep the headers they had.
 
 The rate limit counts the address of the connection; a header names the client only where the operator sets
 `NUXT_RATE_LIMIT_CLIENT_IP_HEADER`, which is right only if the proxy in front writes it and nothing reaches the app

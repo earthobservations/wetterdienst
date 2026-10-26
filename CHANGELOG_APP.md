@@ -23,7 +23,7 @@ Types of changes:
   `/widget` or `/widget/`, the one page that is. Every other page, and `/widget` written another
   way (`/Widget`, `/%77idget`, `/widget//`), answers only to the app's own origin. Behind a proxy
   that rewrites the path, the server cannot see the spelling, so the page itself draws nothing
-  outside `/widget` and stays on it while it is framed by another site. A self-hosted app gets the
+  outside `/widget` while it is framed by another site. A self-hosted app gets the
   same, there is no setting. The docs have an `<iframe>` to copy (GH-2607)
 
 ## [0.36.0] - 2026-10-25

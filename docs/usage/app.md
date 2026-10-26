@@ -72,8 +72,8 @@ setting for it):
 
 If a reverse proxy in front of the app rewrites the path before it forwards it (decodes `%77`, collapses `//`, resolves
 `..`), the app cannot see what was asked for. The widget's page therefore also refuses to draw anything outside
-`/widget` while it is framed by another site, and does not follow a link away from it, so such an address shows a blank
-frame.
+`/widget` while it is framed by another site (by any ancestor of another origin, not only the top window), so such an
+address shows a blank frame.
 
 ## Run your own
 

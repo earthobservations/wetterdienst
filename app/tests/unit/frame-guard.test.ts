@@ -1,27 +1,31 @@
 import { describe, expect, it } from 'vitest'
-import { allowsNavigation, frameGuard, guardNavigation, isFramedByAnotherOrigin, isWidgetPath } from '../../app/utils/frame-guard'
+import { frameGuard, isFramedByAnotherOrigin, isWidgetPath } from '../../app/utils/frame-guard'
 
 // The page's own answer to being framed by another origin: behind a proxy that rewrites the path, the server
 // cannot tell the widget from another page, so the page does (app/utils/frame-guard.ts).
 
-/** A window whose `top` is `top`, or is another origin's: reading its location throws */
-function windowIn(top: 'self' | 'same-origin' | 'other-origin' | 'throws'): Pick<Window, 'self' | 'top'> {
-  const me = {} as Window
-  const win = { self: me, top: me } as Pick<Window, 'self' | 'top'>
-  if (top === 'same-origin') {
-    win.top = { location: { href: 'https://app.example/' } } as unknown as Window
-  }
-  else if (top === 'other-origin') {
-    win.top = new Proxy({}, { get() {
-      throw new DOMException('Blocked a frame from accessing a cross-origin frame.', 'SecurityError')
-    } }) as unknown as Window
-  }
-  else if (top === 'throws') {
-    Object.defineProperty(win, 'top', { get() {
-      throw new Error('no top')
-    } })
-  }
+type Kind = 'own' | 'other'
+
+/** A window of an origin: the address of one of this origin can be read, that of another origin throws */
+function make(kind: Kind, parent?: Window): Window {
+  const win = {} as Window
+  Object.defineProperty(win, 'parent', { get: () => parent ?? win })
+  Object.defineProperty(win, 'location', {
+    get: () => {
+      if (kind === 'other')
+        throw new DOMException('Blocked a frame from accessing a cross-origin frame.', 'SecurityError')
+      return { href: 'https://app.example/' }
+    },
+  })
   return win
+}
+
+/** The window of the page with the given ancestors, from its parent up to the top window, which is the last */
+function windowIn(...ancestors: Kind[]): Window {
+  let above: Window | undefined
+  for (const kind of [...ancestors].reverse())
+    above = make(kind, above)
+  return make('own', above)
 }
 
 describe('isWidgetPath', () => {
@@ -38,19 +42,35 @@ describe('isWidgetPath', () => {
 
 describe('isFramedByAnotherOrigin', () => {
   it('is false for a window that is its own top', () => {
-    expect(isFramedByAnotherOrigin(windowIn('self'))).toBe(false)
+    expect(isFramedByAnotherOrigin(windowIn())).toBe(false)
   })
 
-  it('is false in a frame of the app\'s own origin, which is the app itself', () => {
-    expect(isFramedByAnotherOrigin(windowIn('same-origin'))).toBe(false)
+  it('is false in frames of the app\'s own origin, all the way up, which is the app itself', () => {
+    expect(isFramedByAnotherOrigin(windowIn('own'))).toBe(false)
+    expect(isFramedByAnotherOrigin(windowIn('own', 'own', 'own'))).toBe(false)
   })
 
-  it('is true where the top window is another origin\'s, and its location cannot be read', () => {
-    expect(isFramedByAnotherOrigin(windowIn('other-origin'))).toBe(true)
+  it('is true where the parent is another origin\'s, and its location cannot be read', () => {
+    expect(isFramedByAnotherOrigin(windowIn('other'))).toBe(true)
   })
 
-  it('is true where asking for the top window throws: a window that cannot tell is framed', () => {
-    expect(isFramedByAnotherOrigin(windowIn('throws'))).toBe(true)
+  it('is true where a frame of another origin sits between the app and a top window of its own origin', () => {
+    expect(isFramedByAnotherOrigin(windowIn('other', 'own'))).toBe(true)
+    expect(isFramedByAnotherOrigin(windowIn('own', 'other', 'own'))).toBe(true)
+  })
+
+  it('is true where asking for an ancestor throws for another reason: a window that cannot tell is framed', () => {
+    const win = {} as Window
+    Object.defineProperty(win, 'parent', {
+      get: () => {
+        throw new Error('no parent')
+      },
+    })
+    expect(isFramedByAnotherOrigin(win)).toBe(true)
+  })
+
+  it('is true for a window too deep in frames to ask all the way up', () => {
+    expect(isFramedByAnotherOrigin(windowIn(...Array.from({ length: 40 }, () => 'own' as const)))).toBe(true)
   })
 })
 
@@ -65,54 +85,5 @@ describe('frameGuard', () => {
 
   it.each(['/widget', '/', '/explorer', '/Widget', undefined])('draws everything at %s where it is not framed', (path) => {
     expect(frameGuard(false, path)).toEqual({ blank: false })
-  })
-})
-
-describe('allowsNavigation', () => {
-  it('stops a navigation away from the widget where it is framed', () => {
-    for (const to of ['/', '/explorer', '/Widget', '/widgetx', undefined])
-      expect(allowsNavigation(true, to), String(to)).toBe(false)
-  })
-
-  it('lets a framed page stay on or return to the widget', () => {
-    expect(allowsNavigation(true, '/widget')).toBe(true)
-    expect(allowsNavigation(true, '/widget/')).toBe(true)
-  })
-
-  it('stops nothing where the page is not framed', () => {
-    for (const to of ['/', '/explorer', '/widget', undefined])
-      expect(allowsNavigation(false, to)).toBe(true)
-  })
-})
-
-describe('guardNavigation', () => {
-  /** A router that keeps the guards it is given, and runs them */
-  function routerWith() {
-    const guards: ((to: { path: string }) => false | undefined)[] = []
-    return {
-      router: { beforeEach: (guard: (to: { path: string }) => false | undefined) => void guards.push(guard) },
-      navigate: (path: string) => guards.every(guard => guard({ path }) !== false),
-      guards,
-    }
-  }
-
-  it('puts a guard on the router of a framed page that stops every navigation but one to the widget', () => {
-    const { router, navigate, guards } = routerWith()
-    guardNavigation(router, true)
-
-    expect(guards).toHaveLength(1)
-    expect(navigate('/widget')).toBe(true)
-    expect(navigate('/widget/')).toBe(true)
-    expect(navigate('/explorer')).toBe(false)
-    expect(navigate('/Widget')).toBe(false)
-    expect(navigate('/')).toBe(false)
-  })
-
-  it('leaves the router of a page that is not framed alone', () => {
-    const { router, guards, navigate } = routerWith()
-    guardNavigation(router, false)
-
-    expect(guards).toHaveLength(0)
-    expect(navigate('/explorer')).toBe(true)
   })
 })
