@@ -716,6 +716,32 @@ def test_summarized_values_to_ogc_feature_collection_with_metadata(
     assert data["metadata"] == metadata
 
 
+def test_the_metadata_of_a_result_has_the_date_the_source_states(
+    df_values: pl.DataFrame,
+    df_interpolated_values: pl.DataFrame,
+    df_summarized_values: pl.DataFrame,
+    stations_result_mock: StationsResult,
+) -> None:
+    """`data_updated_at` is in the metadata of every format of a result, in UTC, as REST has it (GH-2567)."""
+    updated = dt.datetime(2026, 10, 26, 8, 54, 51, tzinfo=dt.timezone(dt.timedelta(hours=2)))
+    text = "2026-10-26T06:54:51.000000+00:00"
+    values = ValuesResult(stations=stations_result_mock, df=df_values[0, :], data_updated_at=updated)
+    interpolated = InterpolatedValuesResult(
+        stations=stations_result_mock, df=df_interpolated_values, latlon=(1, 2), data_updated_at=updated
+    )
+    summarized = SummarizedValuesResult(
+        stations=stations_result_mock, df=df_summarized_values, latlon=(1, 2), data_updated_at=updated
+    )
+
+    for result in (values, interpolated, summarized):
+        assert result.to_dict(with_metadata=True)["metadata"]["data_updated_at"] == text
+        assert json.loads(result.to_json(with_metadata=True))["metadata"]["data_updated_at"] == text
+        assert result.to_ogc_feature_collection(with_metadata=True)["metadata"]["data_updated_at"] == text
+    # a list of stations has none, and the key is there
+    assert stations_result_mock.to_dict(with_metadata=True)["metadata"]["data_updated_at"] is None
+    assert stations_result_mock.to_ogc_feature_collection(with_metadata=True)["metadata"]["data_updated_at"] is None
+
+
 def test_filter_by_date(df_values: pl.DataFrame) -> None:
     """Test filter by date."""
     df = filter_by_date(df_values, "2019-12-28")

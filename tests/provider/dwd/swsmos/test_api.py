@@ -355,7 +355,7 @@ def test_swsmos_run_does_not_outlive_the_query(monkeypatch: pytest.MonkeyPatch) 
     result = values.all()
 
     assert not result.df.is_empty()
-    assert {field.name for field in dataclasses.fields(result)} == {"df", "stations"}
+    assert {field.name for field in dataclasses.fields(result)} == {"df", "stations", "data_updated_at"}
     assert values._run_frame_cache is None, "the run should be released with the walk that parsed it"  # noqa: SLF001
 
 
