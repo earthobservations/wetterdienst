@@ -67,7 +67,7 @@ test.describe('a page framed by another origin', () => {
   // Behind a proxy that rewrites the path before it forwards it, `/%77idget`, `//widget` and `/widget//` arrive at
   // the server as `/widget`, which it frames freely, while the browser keeps the address it was given. The test is
   // that proxy: the frame is answered with the widget's own response, at the address the page was framed at.
-  const SPELLINGS = ['/%77idget', '//widget', '/widget//']
+  const SPELLINGS = ['/%77idget', '//widget', '/widget//', '/WIDGET', '/Widget/']
 
   test('draws the widget, and nothing at an address that is not the widget\'s however the server answered it', async ({ page, baseURL }) => {
     const origin = new URL(baseURL!).origin
@@ -96,6 +96,15 @@ test.describe('a page framed by another origin', () => {
     finally {
       await new Promise(resolve => embedder.close(resolve))
     }
+  })
+})
+
+test.describe('the error page', () => {
+  test('is Nuxt\'s own for an unknown address, where the page is not framed', async ({ page }) => {
+    await page.goto('/nonexistent')
+
+    await expect(page.getByText('404').first()).toBeVisible()
+    await expect(page.getByText('Page not found').first()).toBeVisible()
   })
 })
 

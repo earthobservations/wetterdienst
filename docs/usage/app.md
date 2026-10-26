@@ -60,8 +60,9 @@ setting for it):
 - If your page has a Content Security Policy of its own, it has to allow the app's origin in `frame-src` (or
   `child-src`).
 - If you add `sandbox`, give it `allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox`. Without
-  `allow-same-origin` the widget's requests to `/api` come from an opaque origin, and the app refuses them (it answers
-  no CORS header, see below); the two popup tokens let its links open.
+  `allow-same-origin` the frame has an opaque origin, and the widget's own scripts and stylesheet (loaded with
+  `crossorigin` and an integrity hash) and its requests to `/api` are cross-origin requests, which the app does not
+  answer with a CORS header (see below), so nothing is drawn; the two popup tokens let its links open.
 - `/widget` is sent with `Cross-Origin-Resource-Policy: same-origin`, which a page that sets
   `Cross-Origin-Embedder-Policy: require-corp` or `credentialless` is refused the frame by. A page that sets none,
   which is most, is not affected.

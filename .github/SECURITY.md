@@ -222,7 +222,7 @@ development, not exposure (#3096).
 
 Who may frame a page: only the app's own origin (`frame-ancestors 'self'` and `X-Frame-Options: SAMEORIGIN`), except
 for `/widget`, which any origin may frame because it is meant to sit on other sites. The server decides on the request
-line it receives (`/widget` or `/widget/`, with a query, not decoded), not by a route rule, which matches the decoded
+line it receives (`/widget` or `/widget/`, with or without a query, nothing decoded), not by a route rule, which matches the decoded
 path (`/%77idget`); a plugin sets the two headers after nuxt-security's (`app/server/plugins/widget-frame.ts`). That
 is the first layer. A proxy that rewrites the path before it forwards it (decoding `%77`, collapsing `//`, resolving
 `..`) presents the server with `/widget` for an address that is not, so it can still serve the app's shell with the

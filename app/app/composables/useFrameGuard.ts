@@ -10,5 +10,5 @@ import { frameGuard, isFramedByAnotherOrigin } from '../utils/frame-guard'
 export function useFrameBlank() {
   const framed = import.meta.client && isFramedByAnotherOrigin(window)
   const route = useRoute()
-  return computed(() => frameGuard(framed, route.name).blank)
+  return computed(() => frameGuard(framed, route.path).blank)
 }

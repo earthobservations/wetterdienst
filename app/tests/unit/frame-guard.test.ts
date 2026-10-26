@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { allowsNavigation, frameGuard, isFramedByAnotherOrigin, WIDGET_ROUTE } from '../../app/utils/frame-guard'
+import { allowsNavigation, frameGuard, guardNavigation, isFramedByAnotherOrigin, isWidgetPath } from '../../app/utils/frame-guard'
 
 // The page's own answer to being framed by another origin: behind a proxy that rewrites the path, the server
 // cannot tell the widget from another page, so the page does (app/utils/frame-guard.ts).
@@ -24,6 +24,18 @@ function windowIn(top: 'self' | 'same-origin' | 'other-origin' | 'throws'): Pick
   return win
 }
 
+describe('isWidgetPath', () => {
+  it.each(['/widget', '/widget/'])('takes %s for the widget', (path) => {
+    expect(isWidgetPath(path)).toBe(true)
+  })
+
+  // the router matches these to the widget, case-insensitively; the server does not frame them freely, so neither
+  // does the page draw them
+  it.each(['/Widget', '/WIDGET', '/Widget/', '/widget//', '//widget', '/%77idget', '/widgetx', '/widget/x', '/', '', undefined])('does not take %s for the widget', (path) => {
+    expect(isWidgetPath(path)).toBe(false)
+  })
+})
+
 describe('isFramedByAnotherOrigin', () => {
   it('is false for a window that is its own top', () => {
     expect(isFramedByAnotherOrigin(windowIn('self'))).toBe(false)
@@ -43,33 +55,64 @@ describe('isFramedByAnotherOrigin', () => {
 })
 
 describe('frameGuard', () => {
-  it('draws the widget where it is framed', () => {
-    expect(frameGuard(true, WIDGET_ROUTE)).toEqual({ blank: false })
+  it.each(['/widget', '/widget/'])('draws the widget at %s where it is framed', (path) => {
+    expect(frameGuard(true, path)).toEqual({ blank: false })
   })
 
-  it.each(['index', 'explorer', 'meteogram', 'providers-provider', undefined, null])('draws nothing at %s where it is framed', (route) => {
-    expect(frameGuard(true, route)).toEqual({ blank: true })
+  it.each(['/', '/explorer', '/meteogram', '/providers/dwd', '/Widget', '/WIDGET', '/Widget/', '/widgetx', undefined])('draws nothing at %s where it is framed', (path) => {
+    expect(frameGuard(true, path)).toEqual({ blank: true })
   })
 
-  it.each([WIDGET_ROUTE, 'index', 'explorer', undefined])('draws everything at %s where it is not framed', (route) => {
-    expect(frameGuard(false, route)).toEqual({ blank: false })
+  it.each(['/widget', '/', '/explorer', '/Widget', undefined])('draws everything at %s where it is not framed', (path) => {
+    expect(frameGuard(false, path)).toEqual({ blank: false })
   })
 })
 
 describe('allowsNavigation', () => {
   it('stops a navigation away from the widget where it is framed', () => {
-    expect(allowsNavigation(true, 'index', false)).toBe(false)
-    expect(allowsNavigation(true, 'explorer', false)).toBe(false)
-    expect(allowsNavigation(true, undefined, false)).toBe(false)
+    for (const to of ['/', '/explorer', '/Widget', '/widgetx', undefined])
+      expect(allowsNavigation(true, to), String(to)).toBe(false)
   })
 
-  it('lets a framed page stay on or return to the widget, and load', () => {
-    expect(allowsNavigation(true, WIDGET_ROUTE, false)).toBe(true)
-    expect(allowsNavigation(true, 'index', true)).toBe(true)
+  it('lets a framed page stay on or return to the widget', () => {
+    expect(allowsNavigation(true, '/widget')).toBe(true)
+    expect(allowsNavigation(true, '/widget/')).toBe(true)
   })
 
   it('stops nothing where the page is not framed', () => {
-    for (const to of ['index', 'explorer', WIDGET_ROUTE, undefined])
-      expect(allowsNavigation(false, to, false)).toBe(true)
+    for (const to of ['/', '/explorer', '/widget', undefined])
+      expect(allowsNavigation(false, to)).toBe(true)
+  })
+})
+
+describe('guardNavigation', () => {
+  /** A router that keeps the guards it is given, and runs them */
+  function routerWith() {
+    const guards: ((to: { path: string }) => false | undefined)[] = []
+    return {
+      router: { beforeEach: (guard: (to: { path: string }) => false | undefined) => void guards.push(guard) },
+      navigate: (path: string) => guards.every(guard => guard({ path }) !== false),
+      guards,
+    }
+  }
+
+  it('puts a guard on the router of a framed page that stops every navigation but one to the widget', () => {
+    const { router, navigate, guards } = routerWith()
+    guardNavigation(router, true)
+
+    expect(guards).toHaveLength(1)
+    expect(navigate('/widget')).toBe(true)
+    expect(navigate('/widget/')).toBe(true)
+    expect(navigate('/explorer')).toBe(false)
+    expect(navigate('/Widget')).toBe(false)
+    expect(navigate('/')).toBe(false)
+  })
+
+  it('leaves the router of a page that is not framed alone', () => {
+    const { router, guards, navigate } = routerWith()
+    guardNavigation(router, false)
+
+    expect(guards).toHaveLength(0)
+    expect(navigate('/explorer')).toBe(true)
   })
 })
