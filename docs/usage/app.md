@@ -194,6 +194,11 @@ Security Policy allows no script or worker from any other origin, and no `'unsaf
 own too (`/_nuxt_icon`), and so are the map's marker images (Leaflet's own). The app calls OpenStreetMap for map tiles
 and GitHub for the avatars on the About page, nothing else.
 
+The licences of the packages the browser is served (the copyright notices their MIT, BSD, ISC and Apache terms ask to
+go with the code) are one file, `/third-party-licenses.txt`, linked from the footer. The production build writes it
+from the packages the bundle holds, so it is in the Docker image and in the release tarball, and the development server
+answers a note in its place.
+
 The app does not forward the cookies or the `Authorization` of a client to the backend, on `/api` or on `/mcp`.
 The `/api` and `/mcp` proxies are for their own path of the backend and nothing else: a request whose path resolves
 to somewhere else (`/api/../health`, `/mcp/../health`) is a `404`, and the backend is not asked.

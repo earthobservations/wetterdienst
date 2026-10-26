@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[Licences]` The app serves the licence notices of the third-party packages it ships to the
+  browser (Leaflet, Vue, Plotly, DuckDB-WASM, Swagger UI and the rest) at
+  `/third-party-licenses.txt`, linked from the footer as "Third-party licences". The production
+  build writes it from the packages in the bundle, so it is also in the Docker image and the
+  release tarball (GH-3469)
+
 ### Changed
 
 - `[Map]` The station map loads no image from Cloudflare or GitHub any more: its markers are
