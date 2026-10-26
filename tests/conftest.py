@@ -37,7 +37,18 @@ info = Info()
 
 #: the members of the `metadata` block that every JSON answer has, whatever was asked for
 RESPONSE_METADATA_ALWAYS = frozenset(
-    {"api_version", "schema_version", "retrieved_at", "provider", "producer", "request", "counts", "crs", "warnings"},
+    {
+        "api_version",
+        "schema_version",
+        "retrieved_at",
+        "data_updated_at",
+        "provider",
+        "producer",
+        "request",
+        "counts",
+        "crs",
+        "warnings",
+    },
 )
 #: the members `with_metadata` adds to the block
 RESPONSE_METADATA_HEAVY = frozenset({"parameters", "quality"})

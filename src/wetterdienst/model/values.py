@@ -27,6 +27,7 @@ from wetterdienst.model.schema import (
     WIDE_VALUE_DTYPE,
 )
 from wetterdienst.model.unit import UnitConverter
+from wetterdienst.util.datetime import newest
 from wetterdienst.util.logging import TqdmToLogger
 from wetterdienst.util.response_warnings import (
     MISSING_VALUE_MARKER,
@@ -183,6 +184,8 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
 
     sr: StationsResult
     unit_converter: UnitConverter = field(default_factory=UnitConverter)
+    #: the dates a provider noted while it collected the station in hand (`_note_data_updated`)
+    _data_updated: list[dt.datetime] = field(default_factory=list, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         """Post-initialization of the TimeseriesValues object."""
@@ -192,6 +195,16 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     def from_stations(cls, stations: StationsResult) -> TimeseriesValues:
         """Create a new instance of the class from a StationsResult object."""
         return cls(stations)
+
+    def _note_data_updated(self, updated: dt.datetime | None) -> None:
+        """Note the date the source states for data this station's frame is made from (GH-2567).
+
+        For a provider whose source says when what it serves was last updated, called with each such date it reads:
+        the result of the station carries the newest one, as `data_updated_at`. A date the source does not state is
+        not made up, and not noting any leaves the result's null, so a provider that has none does nothing.
+        """
+        if updated is not None:
+            self._data_updated.append(updated)
 
     def _convert_units(self, df: pl.DataFrame, dataset: DatasetModel) -> pl.DataFrame:
         """Convert values to metric units with help of conversion factors."""
@@ -250,6 +263,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             if self._begins_after_window(df_station_meta):
                 continue
             available_datasets = self._get_available_datasets(df_station_meta)
+            self._data_updated.clear()
             # Collect data for this station
             df = self._filter_by_window(self._collect_station_data(station_id, available_datasets))
             # judged after the window has been cut, not before it: a station whose record lies
@@ -285,7 +299,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             )
             df = df.sort(sort_columns)
             stations_collected += 1
-            yield ValuesResult(stations=self.sr, df=df)
+            yield ValuesResult(stations=self.sr, df=df, data_updated_at=newest(self._data_updated))
 
     def _begins_after_window(self, df_station_meta: pl.DataFrame) -> bool:
         """Whether the station index already says this station started after the window ended.
@@ -598,11 +612,14 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     def all(self) -> ValuesResult:
         """Collect all data for all stations and parameters and return a single DataFrame."""
         data = []
+        updated = []
 
         tqdm_out = TqdmToLogger(log, level=logging.INFO)
 
         for result in tqdm(self.query(), total=len(self.sr.station_id), file=tqdm_out):
             data.append(result.df)
+            if result.data_updated_at is not None:
+                updated.append(result.data_updated_at)
 
         if not data:
             # an ordinary outcome -- no station covered the requested window -- rather than an
@@ -615,7 +632,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
 
         df = pl.concat(data, how="diagonal")
 
-        return ValuesResult(stations=self.sr, df=df)
+        return ValuesResult(stations=self.sr, df=df, data_updated_at=newest(updated))
 
     def to_target(self, target: str, if_exists: Literal["replace", "append", "fail", "skip"] = "fail") -> None:
         """Wrap to_target of all queried results."""

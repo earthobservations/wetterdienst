@@ -133,6 +133,7 @@ what the answer is missing:
     "api_version": "1",
     "schema_version": "1",
     "retrieved_at": "2026-10-16T21:04:37.118220+00:00",
+    "data_updated_at": null,
     "provider": {
       "name_local": "Deutscher Wetterdienst",
       "name_english": "German Weather Service",
@@ -198,8 +199,16 @@ what the answer is missing:
   answer of up to 100 stations; for one of more `ids` is `null`, so a listing of a whole network does not carry
   its ids a second time, and `count` is how many there are. To have the ids of a large answer, read the
   `station_id` column of its body.
-- **`retrieved_at`** is when the answer was made, in UTC. Whether the data came from the server's cache,
-  and when the provider published it, are not told yet.
+- **`retrieved_at`** is when the answer was made, in UTC. Whether the data came from the server's cache
+  is not told.
+- **`data_updated_at`** is when the source says the data of the answer was last updated, in UTC, as the source
+  states it: the newest such date over the files the answer was read from. It is not when the data was fetched
+  (that is `retrieved_at`), and it is `null` where the source states no date or the library does not read it for the
+  network (every network but `meteofrance/observation` so far, and every list of stations): never `retrieved_at` in
+  its place. An answer made from the cache has the date of the copy it was made from, so the difference of
+  `retrieved_at` and `data_updated_at` is the age of the data, however long ago it was cached. NDJSON and CSV answers of
+  `values` are streamed and their head goes out before the stations are read, so they have the date of the first
+  station read. It is the "date of the most recent update" that the Etalab Open Licence asks to be named with the source.
 - **`counts`** is the stations in the answer and its rows: the items of `values` (one per timestamp in
   the wide shape), the stations listed, or the histories.
 - **`crs`** is the reference system of every position in the answer: WGS 84, longitude before latitude in
@@ -248,6 +257,7 @@ A format with no body to put the block in carries the same in headers, and so do
 | --- | --- |
 | `X-Wetterdienst-API-Version`, `X-Wetterdienst-Schema-Version` | `api_version` and `schema_version` |
 | `X-Wetterdienst-Retrieved-At` | `retrieved_at` |
+| `X-Wetterdienst-Data-Updated-At` | `data_updated_at`; left out where it is `null` |
 | `X-Wetterdienst-Provider` | the provider's English name |
 | `X-Wetterdienst-License` | the SPDX identifier of the licence, else its name; left out without a licence |
 | `Link` | `<licence url>; rel="license"`, left out without a licence |
@@ -633,7 +643,7 @@ A stream without its `end` line was cut short. A failure after the response bega
 (`wetterdienst values --format=ndjson`), all at once.
 
 **CSV** is the CSV of the answer, with the header row once, sent in chunks. A CSV has no place for the block, so
-it is in the headers: `X-Wetterdienst-API-Version`, `-Schema-Version`, `-Retrieved-At`, `-Provider`, `-License`,
+it is in the headers: `X-Wetterdienst-API-Version`, `-Schema-Version`, `-Retrieved-At`, `-Data-Updated-At` (where there is a date), `-Provider`, `-License`,
 `-Attribution`, `-Stations` (the stations selected), and `Link: <licence>; rel="license"`. They go out before the
 first row, so `X-Wetterdienst-Rows` is left out, and `X-Wetterdienst-Warnings` has only what was raised by then. A
 failure after the response began cuts the connection, as CSV cannot say it; the server logs it.

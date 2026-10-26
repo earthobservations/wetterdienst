@@ -5425,6 +5425,18 @@
             "title": "Retrieved At",
             "description": "When this answer was made, in UTC."
           },
+          "data_updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Updated At",
+            "description": "When the source says the data of this answer was last updated, in UTC: the newest such date over what the answer was read from, as the source states it, and not when the data was fetched (`retrieved_at`). Null where the source states none or the library does not read it for the network, as for a list of stations; an answer from the cache carries the date of the copy it was made from."
+          },
           "provider": {
             "$ref": "#/components/schemas/_Provider",
             "description": "Who published the data, under which licence (`license`, null where the provider states none) and with which credit line (`attribution`)."
@@ -5482,6 +5494,7 @@
           "api_version",
           "schema_version",
           "retrieved_at",
+          "data_updated_at",
           "provider",
           "producer",
           "request",

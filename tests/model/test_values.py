@@ -921,3 +921,54 @@ def test_widen_df_has_one_column_for_a_parameter_of_a_dataset_at_two_resolutions
     assert not [column for column in result.columns if column.endswith("_right")]
     assert result.columns.count("precipitation_amount") == 1
     assert sorted(result.get_column("precipitation_amount").to_list()) == [0.5, 0.5, 1.0]
+
+
+def _noting_dates(monkeypatch: pytest.MonkeyPatch, dates: dict[str, list[dt.datetime]]) -> None:
+    """Make the reader of DWD note the dates of a station, as a provider whose source states one does (GH-2567)."""
+    collect = DwdObservationValues._collect_station_parameter_or_dataset  # noqa: SLF001
+
+    def noting(self: DwdObservationValues, station_id: str, parameter_or_dataset) -> pl.DataFrame:  # noqa: ANN001
+        for date in dates.get(station_id, []):
+            self._note_data_updated(date)
+        # a date the source does not state is not noted, and changes nothing
+        self._note_data_updated(None)
+        return collect(self, station_id, parameter_or_dataset)
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", noting)
+
+
+def test_a_result_has_the_newest_date_the_reader_noted_for_its_station(monkeypatch: pytest.MonkeyPatch) -> None:
+    """One result per station, each with its own date; the date of `all()` is the newest of them (GH-2567).
+
+    A station that noted none has none, and does not take the one of the station before it.
+    """
+    utc = ZoneInfo("UTC")
+    stations = ["00001", "00002", "00003"]
+    _stub_dwd_daily(station_ids=stations, data_year_by_station=dict.fromkeys(stations, 1990), monkeypatch=monkeypatch)
+    _noting_dates(
+        monkeypatch,
+        {
+            "00001": [dt.datetime(2026, 10, 25, 6, tzinfo=utc), dt.datetime(2026, 10, 26, 6, tzinfo=utc)],
+            "00002": [dt.datetime(2026, 10, 24, 6, tzinfo=utc)],
+        },
+    )
+    values = DwdObservationRequest(parameters=[("daily", "climate_summary", "temperature_air_mean_2m")]).all().values()
+
+    assert [result.data_updated_at for result in values.query()] == [
+        dt.datetime(2026, 10, 26, 6, tzinfo=utc),
+        dt.datetime(2026, 10, 24, 6, tzinfo=utc),
+        None,
+    ]
+    assert values.all().data_updated_at == dt.datetime(2026, 10, 26, 6, tzinfo=utc)
+
+
+def test_a_reader_that_notes_no_date_leaves_the_result_undated(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A provider whose source states no date does nothing, and the answer has none rather than the time it was read."""
+    _stub_dwd_daily(station_ids=["00001"], data_year_by_station={"00001": 1990}, monkeypatch=monkeypatch)
+
+    result = (
+        DwdObservationRequest(parameters=[("daily", "climate_summary", "temperature_air_mean_2m")]).all().values().all()
+    )
+
+    assert not result.df.is_empty()
+    assert result.data_updated_at is None

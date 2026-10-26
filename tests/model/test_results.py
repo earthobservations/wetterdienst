@@ -108,7 +108,7 @@ def test_the_old_name_of_the_request_fails_with_the_new_one() -> None:
 
 def test_the_values_of_a_result_do_not_hold_the_reader_that_produced_them() -> None:
     """A values result is the stations and the frame, so that a kept result keeps no downloader alive."""
-    assert [field.name for field in dataclasses.fields(ValuesResult)] == ["df", "stations"]
+    assert [field.name for field in dataclasses.fields(ValuesResult)] == ["df", "stations", "data_updated_at"]
     stations = _stations()
     with pytest.raises(AttributeError, match=r"ValuesResult\.values is gone.*stations\.values\(\)"):
         _ = ValuesResult(stations=stations, df=_values_frame()).values  # ty: ignore[unresolved-attribute]
@@ -236,6 +236,7 @@ def _public(cls: type) -> list[str]:
 # the snapshot of the public surface that #2625 asks for).
 _FORMATS = ["to_csv", "to_dict", "to_format", "to_geojson", "to_image", "to_json", "to_ogc_feature_collection"]
 _VALUES_SURFACE = [
+    "data_updated_at",
     "df_stations",
     "filtered_by_date",
     "filtered_by_sql",
@@ -250,9 +251,9 @@ def test_the_fields_of_the_results_are_the_ones_the_library_promises() -> None:
     fields = {cls.__name__: [field.name for field in dataclasses.fields(cls)] for cls in _RESULTS}
     assert fields == {
         "StationsResult": ["df", "request", "_df_all", "_stations_filter", "_rank"],
-        "ValuesResult": ["df", "stations"],
-        "InterpolatedValuesResult": ["df", "stations", "latlon", "elevation"],
-        "SummarizedValuesResult": ["df", "stations", "latlon", "elevation"],
+        "ValuesResult": ["df", "stations", "data_updated_at"],
+        "InterpolatedValuesResult": ["df", "stations", "data_updated_at", "latlon", "elevation"],
+        "SummarizedValuesResult": ["df", "stations", "data_updated_at", "latlon", "elevation"],
         "HistoryResult": ["stations", "history"],
     }
 
@@ -506,6 +507,11 @@ def test_a_result_is_unhashable(name: str) -> None:
                 result, request=DwdObservationRequest(parameters="daily/kl", settings=Settings(cache_disable=True))
             ),
             id="request",
+        ),
+        pytest.param(
+            "values",
+            lambda result: dataclasses.replace(result, data_updated_at=dt.datetime(2026, 10, 26, tzinfo=dt.UTC)),
+            id="data-updated-at",
         ),
         pytest.param("interpolated", lambda result: dataclasses.replace(result, latlon=(51.0, 14.0)), id="latlon"),
         pytest.param("summarized", lambda result: dataclasses.replace(result, elevation=200.0), id="elevation"),

@@ -7,8 +7,11 @@ from __future__ import annotations
 import gzip
 import json
 import logging
+import threading
 from datetime import UTC, datetime
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from io import BytesIO
+from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -21,6 +24,9 @@ from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.schema import LONG_SCHEMA
 from wetterdienst.provider.meteofrance.observation import MeteoFranceObservationRequest, api
 from wetterdienst.util.network import File, RedirectRefusedError, UpstreamMaintenanceError
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.mark.remote
@@ -161,13 +167,23 @@ def _climate_gz(resolution: str, dataset: str, rows: list[dict[str, str]]) -> by
     return gzip.compress("\n".join(lines).encode("utf8"))
 
 
-def _serve_climate(monkeypatch: pytest.MonkeyPatch, files: dict[str, bytes]) -> list[str]:
+def _serve_climate(
+    monkeypatch: pytest.MonkeyPatch, files: dict[str, bytes], last_modified: dict[str, str] | None = None
+) -> list[str]:
     """Serve the period files of a dataset, by the title of their resource, and return the titles asked for.
 
     A file the test does not serve fails with a KeyError, and the titles asked for show whether the
-    request read the files it needs and no others.
+    request read the files it needs and no others. `last_modified` is the date data.gouv.fr gives a resource in the
+    listing, by its title, as it writes it; a resource not in it has none.
     """
-    resources = [{"title": title, "url": f"https://static.data.gouv.fr/{title}.csv.gz"} for title in files]
+    resources = [
+        {
+            "title": title,
+            "url": f"https://static.data.gouv.fr/{title}.csv.gz",
+            **({"last_modified": last_modified[title]} if title in (last_modified or {}) else {}),
+        }
+        for title in files
+    ]
     asked: list[str] = []
 
     def download_file(*args: str, url: str | None = None, **_: object) -> File:
@@ -768,3 +784,210 @@ def test_the_climate_downloads_ask_again_only_for_a_failure_that_may_pass(
     files = api._download_climate_resources([{"url": url}], Settings())  # noqa: SLF001
     assert isinstance(files[url].content, Exception)
     assert second_attempts == ([url] if asked_again else [])
+
+
+def _hourly_rows(station_id: str) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    return (
+        [{"NUM_POSTE": station_id, "AAAAMMJJHH": "2024061512", "T": "21.5"}],
+        [{"NUM_POSTE": station_id, "AAAAMMJJHH": "2025061512", "T": "23.5"}],
+    )
+
+
+def _hourly_updated(
+    monkeypatch: pytest.MonkeyPatch,
+    last_modified: dict[str, str],
+    start: datetime,
+    end: datetime,
+) -> datetime | None:
+    """Read hourly values of Toulouse in a window, with the listing dating its two period files, and give the date."""
+    previous, latest = _hourly_rows("31069001")
+    _serve_climate(monkeypatch, _hourly_files("31", previous, latest), last_modified)
+    request = MeteoFranceObservationRequest(
+        parameters=[("hourly", "core", "temperature_air_2m")],
+        start=start,
+        end=end,
+        settings=Settings(cache_disable=True),
+    )
+    result = stations_result(request, "hourly", "core", "31069001").values().all()
+    assert not result.df.is_empty()
+    return result.data_updated_at
+
+
+_PERIODS = ("HOR_departement_31_periode_2020-2024", "HOR_departement_31_periode_2025-2026")
+
+
+def test_meteofrance_observation_api_the_date_of_an_answer_is_the_newest_of_the_files_it_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The date is the newest `last_modified` of the files read: Étalab asks for the most recent update (GH-2567).
+
+    Both period files are read and the older-dated of them is the one read last, so the newest is not the last.
+    """
+    old, new = _PERIODS
+    dates = {old: "2026-10-26T06:54:51.123000+00:00", new: "2026-10-25T06:54:19+00:00"}
+
+    updated = _hourly_updated(monkeypatch, dates, _utc(2024, 6, 15), _utc(2025, 6, 16))
+
+    assert updated == datetime(2026, 10, 26, 6, 54, 51, 123000, tzinfo=UTC)
+
+
+def test_meteofrance_observation_api_a_window_in_one_file_has_the_date_of_that_file(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A request that reads the old file only says when the old file was updated, not the date of the newest one."""
+    old, new = _PERIODS
+    dates = {old: "2026-03-01T10:00:00+00:00", new: "2026-10-26T06:54:51+00:00"}
+
+    updated = _hourly_updated(monkeypatch, dates, _utc(2024, 6, 15), _utc(2024, 6, 16))
+
+    assert updated == datetime(2026, 3, 1, 10, tzinfo=UTC)
+
+
+def test_meteofrance_observation_api_a_date_without_a_zone_is_read_as_utc(monkeypatch: pytest.MonkeyPatch) -> None:
+    """data.gouv.fr writes its dates with an offset; one without is UTC, as every timestamp of the library is."""
+    old, new = _PERIODS
+
+    updated = _hourly_updated(
+        monkeypatch,
+        {old: "2026-03-01T10:00:00", new: "2026-03-01T11:00:00+01:00"},
+        _utc(2024, 6, 15),
+        _utc(2025, 6, 16),
+    )
+
+    assert updated == datetime(2026, 3, 1, 10, tzinfo=UTC)
+
+
+@pytest.mark.parametrize(
+    "dates",
+    [
+        pytest.param({}, id="no date in the listing"),
+        pytest.param({_PERIODS[0]: "", _PERIODS[1]: "yesterday"}, id="no date that reads"),
+    ],
+)
+def test_meteofrance_observation_api_no_date_in_the_listing_is_no_date_rather_than_the_time_of_the_request(
+    monkeypatch: pytest.MonkeyPatch, dates: dict[str, str]
+) -> None:
+    """A resource the listing does not date leaves the answer undated: the date is the source's, never made up."""
+    assert _hourly_updated(monkeypatch, dates, _utc(2024, 6, 15), _utc(2025, 6, 16)) is None
+
+
+def test_meteofrance_observation_api_a_file_with_a_date_is_not_made_undated_by_one_without(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The newest of the dates the source states: a resource without one adds none and takes none away."""
+    old, _ = _PERIODS
+
+    updated = _hourly_updated(monkeypatch, {old: "2026-03-01T10:00:00+00:00"}, _utc(2024, 6, 15), _utc(2025, 6, 16))
+
+    assert updated == datetime(2026, 3, 1, 10, tzinfo=UTC)
+
+
+def test_meteofrance_observation_api_the_date_is_of_the_station_and_a_file_that_was_not_downloaded_is_not_counted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A period file that is a 404 was not read, so its date says nothing of the data in the answer."""
+    old, new = _PERIODS
+    dates = {old: "2026-03-01T10:00:00+00:00", new: "2026-10-26T06:54:51+00:00"}
+    previous, _ = _hourly_rows("31069001")
+    resources = [
+        {"title": title, "url": f"https://static.data.gouv.fr/{title}.csv.gz", "last_modified": dates[title]}
+        for title in (old, new)
+    ]
+    files = {old: _climate_gz("hourly", "core", previous)}
+
+    def download_file(*args: str, url: str | None = None, **_: object) -> File:
+        url = url or args[0]
+        return File(url=url, content=BytesIO(json.dumps({"resources": resources}).encode("utf8")), status=200)
+
+    def download_files(urls: list[str], **_: object) -> list[File]:
+        found = []
+        for url in urls:
+            title = url.rsplit("/", 1)[1].removesuffix(".csv.gz")
+            found.append(
+                File(url=url, content=BytesIO(files[title]), status=200)
+                if title in files
+                else File(url=url, content=FileNotFoundError(url), status=404)
+            )
+        return found
+
+    monkeypatch.setattr(api, "download_file", download_file)
+    monkeypatch.setattr(api, "download_files", download_files)
+    request = MeteoFranceObservationRequest(
+        parameters=[("hourly", "core", "temperature_air_2m")],
+        start=_utc(2024, 6, 15),
+        end=_utc(2025, 6, 16),
+        settings=Settings(cache_disable=True),
+    )
+
+    result = stations_result(request, "hourly", "core", "31069001").values().all()
+
+    assert result.data_updated_at == datetime(2026, 3, 1, 10, tzinfo=UTC)
+
+
+def test_meteofrance_observation_api_a_cached_listing_gives_the_date_of_the_copy_it_is(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The listing is read through the cache, and the date is in its body: an answer carries the date of its copy.
+
+    The portal is stood in for by a server of this machine whose listing changes after the first request. Within the
+    time the listing is kept (`CacheExpiry.METAINDEX`) the second answer is made of the first listing, asks the
+    portal for nothing and has the date of the first copy, not of the portal's current one and not of the time it was
+    made. Once the cache is off it is the current one.
+    """
+    old, new = _PERIODS
+    previous, latest = _hourly_rows("31069001")
+    files = _hourly_files("31", previous, latest)
+    served: list[str] = []
+
+    class Portal(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            served.append(self.path)
+            updated = "2026-10-26T06:54:51+00:00" if len(served) == 1 else "2026-10-27T06:54:51+00:00"
+            resources = [
+                {"title": title, "url": f"{base}/{title}.csv.gz", "last_modified": updated} for title in (old, new)
+            ]
+            body = json.dumps({"resources": resources}).encode("utf8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *_args: object) -> None:
+            """Keep the output of the test clean."""
+
+    server = HTTPServer(("127.0.0.1", 0), Portal)
+    base = f"http://127.0.0.1:{server.server_port}"
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    monkeypatch.setattr(api, "_CLIMATE_BASE_URL", f"{base}/api/1/datasets/")
+    monkeypatch.setattr(
+        api,
+        "download_files",
+        lambda urls, **_: [
+            File(url=url, content=BytesIO(files[url.rsplit("/", 1)[1].removesuffix(".csv.gz")]), status=200)
+            for url in urls
+        ],
+    )
+
+    def updated(settings: Settings) -> datetime | None:
+        request = MeteoFranceObservationRequest(
+            parameters=[("hourly", "core", "temperature_air_2m")],
+            start=_utc(2024, 6, 15),
+            end=_utc(2025, 6, 16),
+            settings=settings,
+        )
+        return stations_result(request, "hourly", "core", "31069001").values().all().data_updated_at
+
+    try:
+        cached = Settings(cache_dir=tmp_path, cache_disable=False)
+        first = updated(cached)
+        second = updated(cached)
+        uncached = updated(Settings(cache_dir=tmp_path, cache_disable=True))
+    finally:
+        server.shutdown()
+        server.server_close()
+
+    assert first == second == datetime(2026, 10, 26, 6, 54, 51, tzinfo=UTC)
+    assert len(served) == 2
+    assert uncached == datetime(2026, 10, 27, 6, 54, 51, tzinfo=UTC)

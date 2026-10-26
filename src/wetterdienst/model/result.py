@@ -743,6 +743,10 @@ class _ValuesResult(_EqualByFields, ExportMixin, Generic[_RowsT, _DictT]):
 
     stations: StationsResult
     df: pl.DataFrame
+    #: when the source says the data these values are made from was last updated: the newest such date over
+    #: what was read, UTC. Null where the source states none; never the time the data was fetched, which is
+    #: `retrieved_at` of the answer's `metadata` block (GH-2567)
+    data_updated_at: datetime | None = None
 
     @property
     def df_stations(self) -> pl.DataFrame:

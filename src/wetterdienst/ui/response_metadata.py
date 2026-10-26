@@ -218,6 +218,12 @@ class ResponseMetadata(BaseModel):
     api_version: str
     schema_version: str
     retrieved_at: str = Field(description="When this answer was made, in UTC.")
+    data_updated_at: str | None = Field(
+        description="When the source says the data of this answer was last updated, in UTC: the newest such date "
+        "over what the answer was read from, as the source states it, and not when the data was fetched "
+        "(`retrieved_at`). Null where the source states none or the library does not read it for the network, as for a "
+        "list of stations; an answer from the cache carries the date of the copy it was made from.",
+    )
     provider: _Provider = Field(
         description="Who published the data, under which licence (`license`, null where the provider states "
         "none) and with which credit line (`attribution`).",
@@ -249,6 +255,15 @@ def _retrieved_at() -> str:
     return format_timestamp(dt.datetime.now(dt.UTC))
 
 
+def _data_updated_at(result: StationsResult | _ValuesResult[Any, Any], given: dt.datetime | None) -> str | None:
+    """Write the date the source states for the data of a result (GH-2567).
+
+    The result's own, or `given` where the block is made before the values are: a stations list has none.
+    """
+    updated = given or (None if isinstance(result, StationsResult) else result.data_updated_at)
+    return None if updated is None else format_timestamp(updated)
+
+
 def _unique(values: Any) -> list[str]:  # noqa: ANN401
     """Keep the first occurrence of each value, in order."""
     return list(dict.fromkeys(str(value) for value in values))
@@ -260,11 +275,14 @@ def response_metadata(
     *,
     heavy: bool | None = None,
     rows: int | None = None,
+    data_updated_at: dt.datetime | None = None,
 ) -> ResponseMetadata:
     """Build the block of the answer to `request`, which `result` is the result of.
 
     `heavy` adds the units and the quality legend, and is what `with_metadata` of the request asks for
     by default. `rows` is given where the answer holds something other than the rows of the result's frame.
+    `data_updated_at` is given where the block is made before the values are read, a streamed answer's, and
+    is the date of what has been read so far.
     """
     return result_metadata(
         result,
@@ -272,6 +290,7 @@ def response_metadata(
         network=request.network,
         heavy=request.with_metadata if heavy is None else heavy,
         rows=rows,
+        data_updated_at=data_updated_at,
     )
 
 
@@ -282,6 +301,7 @@ def result_metadata(
     network: str,
     heavy: bool,
     rows: int | None = None,
+    data_updated_at: dt.datetime | None = None,
 ) -> ResponseMetadata:
     """Build the block of an answer made from `result` when the request does not name the provider and network.
 
@@ -297,6 +317,7 @@ def result_metadata(
         api_version=API_VERSION,
         schema_version=SCHEMA_VERSION,
         retrieved_at=_retrieved_at(),
+        data_updated_at=_data_updated_at(result, data_updated_at),
         **_metadata_of(stations),
         request=ResolvedRequest(
             provider=provider.lower(),
@@ -372,6 +393,7 @@ def _block_without_result(api: object, request: ResolvedRequest, *, stations: in
         api_version=API_VERSION,
         schema_version=SCHEMA_VERSION,
         retrieved_at=_retrieved_at(),
+        data_updated_at=None,
         **describe_provider(_provider_terms(api)),
         request=request,
         counts=Counts(stations=stations, rows=rows),
@@ -461,6 +483,8 @@ def response_headers(metadata: ResponseMetadata) -> Mapping[str, str]:
         "X-Wetterdienst-Stations": str(metadata.counts.stations),
         "X-Wetterdienst-Rows": str(metadata.counts.rows),
     }
+    if metadata.data_updated_at is not None:
+        headers["X-Wetterdienst-Data-Updated-At"] = metadata.data_updated_at
     if (license_ := provider["license"]) is not None:
         headers["X-Wetterdienst-License"] = _header_text(_license_label(license_))
         headers["Link"] = f'<{license_["url"]}>; rel="license"'

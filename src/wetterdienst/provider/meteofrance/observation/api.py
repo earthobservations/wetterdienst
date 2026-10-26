@@ -28,6 +28,7 @@ from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.meteofrance.observation.metadata import MeteoFranceObservationMetadata
 from wetterdienst.util.archive import gunzip
+from wetterdienst.util.datetime import parse_source_date
 from wetterdienst.util.network import RedirectRefusedError, download_file, download_files, fetchable_link
 
 if TYPE_CHECKING:
@@ -936,6 +937,9 @@ class MeteoFranceObservationValues(TimeseriesValues):
             if isinstance(file.content, Exception):
                 log.warning(f"Failed to download {file.url}: {file.content}")
                 continue
+            # the date data.gouv.fr gives the file, in the listing the request has read: the newest of the files it
+            # reads is the answer's "date of the most recent update" that the Licence Ouverte asks for (GH-2567)
+            self._note_data_updated(parse_source_date(resource.get("last_modified")))
             df = pl.read_csv(
                 gunzip(file, limit=_MAX_UNPACKED_BYTES), separator=";", schema=schema, columns=read_columns
             )

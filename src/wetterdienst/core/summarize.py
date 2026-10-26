@@ -52,6 +52,7 @@ def get_summarized_df(
     elevation: float | None = None,
     *,
     df_all: pl.DataFrame | None = None,
+    data_updated: dict[str, dt.datetime] | None = None,
 ) -> pl.DataFrame:
     """Get summarized DataFrame.
 
@@ -62,6 +63,8 @@ def get_summarized_df(
         elevation: elevation of the point in metres, to bring the station's readings to
         df_all: the station list `request.all()` gave, for a caller that has it already; built here
             where left out
+        data_updated: a dict the date is put into that the source states for the data of each station that gave a
+            value (`data_updated_at` of its values), by `station_id`; the answer has the newest of those it was made of
 
     Returns:
         Summarized DataFrame
@@ -72,7 +75,7 @@ def get_summarized_df(
 
     """
     stations_dict, param_dict, dropped_for_elevation, unanswerable = request_stations(
-        request, latitude, longitude, elevation, df_all=df_all
+        request, latitude, longitude, elevation, df_all=df_all, data_updated=data_updated
     )
     df = calculate_summary(stations_dict, param_dict)
     report_elevation_exclusions(
@@ -93,6 +96,7 @@ def request_stations(
     elevation: float | None = None,
     *,
     df_all: pl.DataFrame | None = None,
+    data_updated: dict[str, dt.datetime] | None = None,
 ) -> tuple[dict, dict, dict[tuple[str, str, str], DroppedForElevation], set[tuple[str, str, str]]]:
     """Request stations.
 
@@ -161,6 +165,8 @@ def request_stations(
             elevation,
             dropped_for_elevation=dropped_for_elevation,
         ):
+            if data_updated is not None and result.data_updated_at is not None:
+                data_updated[station["station_id"]] = result.data_updated_at
             stations_dict[station["station_id"]] = (station["longitude"], station["latitude"], station["distance"])
     return stations_dict, param_dict, dropped_for_elevation, unanswerable
 

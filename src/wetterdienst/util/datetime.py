@@ -258,6 +258,22 @@ def format_timestamp(value: dt.datetime) -> str:
     return value.astimezone(dt.UTC).isoformat(timespec="microseconds")
 
 
+def newest(dates: Iterable[dt.datetime]) -> dt.datetime | None:
+    """Give the newest of some dates, null for none; a date without a zone is read as UTC, as everywhere else."""
+    return max((d if d.tzinfo else d.replace(tzinfo=dt.UTC) for d in dates), default=None)
+
+
+def parse_source_date(text: object) -> dt.datetime | None:
+    """Read the date a source states as ISO 8601 text into UTC; null for no date, or one that is no ISO 8601 date."""
+    if not isinstance(text, str):
+        return None
+    try:
+        value = dt.datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    return value.replace(tzinfo=dt.UTC) if value.tzinfo is None else value.astimezone(dt.UTC)
+
+
 def timestamps_to_string(df: pl.DataFrame, columns: Iterable[str] | None = None) -> pl.DataFrame:
     """Write the datetime columns of a frame as text in the format of `format_timestamp`, nulls staying null.
 
