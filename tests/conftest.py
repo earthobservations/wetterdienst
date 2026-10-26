@@ -877,6 +877,7 @@ def metadata() -> dict:
             "name_local": "Deutscher Wetterdienst",
             "url": "https://opendata.dwd.de/climate_environment/CDC/",
         },
+        "data_updated_at": None,
     }
 
 

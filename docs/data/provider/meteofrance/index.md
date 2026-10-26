@@ -17,8 +17,9 @@ Météo-France publishes two distinct open data products as part of its Open Gov
 Météo-France data is published under the [Etalab Open License 2.0](https://www.data.gouv.fr/pages/legal/licences/etalab-2.0),
 which asks for the source and the date of the most recent update of the information reused. The answers of
 `observation` report that date as `data_updated_at` of their [`metadata`](../../../usage/restapi.md#response-metadata)
-(the newest `last_modified` data.gouv.fr gives the files read) and in the `X-Wetterdienst-Data-Updated-At` header; those
-of `synop` do not yet, and say `null`.
+(the newest `last_modified` data.gouv.fr gives the files that hold a row of the station inside the window asked for, as
+the listing said when it was read, which is cached for 12 hours) and in the `X-Wetterdienst-Data-Updated-At` header;
+those of `synop` do not yet, and say `null`.
 
 ```{toctree}
 :hidden:

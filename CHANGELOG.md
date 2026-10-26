@@ -18,12 +18,13 @@ Types of changes:
 
 ### Added
 
-- The `metadata` block of every answer has `data_updated_at`, when the source says its data was last
-  updated (UTC; `null` where the source states none), with the `X-Wetterdienst-Data-Updated-At`
-  header where it is set, and a `data_updated_at` field on the values, interpolation and summary
-  results. It is filled for `meteofrance/observation` from the files it reads (the newest
-  `last_modified` of data.gouv.fr, the date Etalab 2.0 asks for), `null` for every other network and
-  for a streamed answer (NDJSON, CSV of `values`). `schema_version` stays `"1"` (GH-2567)
+- The `metadata` block of every data answer has `data_updated_at`, when the source says its data
+  was last updated (UTC; `null` where it states none), with the `X-Wetterdienst-Data-Updated-At`
+  header where it is set. The values, interpolation and summary results have `data_updated_at`, and
+  so does the `metadata` of their `to_dict`, `to_json` and `to_ogc_feature_collection` with
+  `with_metadata=True`. `meteofrance/observation` fills it from the files it reads (the newest
+  `last_modified` of data.gouv.fr, as Etalab 2.0 asks); every other network, a list of stations and
+  a streamed answer (NDJSON, CSV of `values`) say `null`. `schema_version` stays `"1"` (GH-2567)
 
 ## [0.175.0] - 2026-10-25
 

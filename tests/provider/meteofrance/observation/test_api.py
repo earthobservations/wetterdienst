@@ -798,9 +798,13 @@ def _hourly_updated(
     last_modified: dict[str, str],
     start: datetime,
     end: datetime,
+    rows: tuple[list[dict[str, str]], list[dict[str, str]]] | None = None,
 ) -> datetime | None:
-    """Read hourly values of Toulouse in a window, with the listing dating its two period files, and give the date."""
-    previous, latest = _hourly_rows("31069001")
+    """Read hourly values of Toulouse in a window, with the listing dating its two period files, and give the date.
+
+    `rows` are the rows of the two files, which hold a reading of the station in each by default.
+    """
+    previous, latest = rows or _hourly_rows("31069001")
     _serve_climate(monkeypatch, _hourly_files("31", previous, latest), last_modified)
     request = MeteoFranceObservationRequest(
         parameters=[("hourly", "core", "temperature_air_2m")],
@@ -991,3 +995,50 @@ def test_meteofrance_observation_api_a_cached_listing_gives_the_date_of_the_copy
     assert first == second == datetime(2026, 10, 26, 6, 54, 51, tzinfo=UTC)
     assert len(served) == 2
     assert uncached == datetime(2026, 10, 27, 6, 54, 51, tzinfo=UTC)
+
+
+def test_meteofrance_observation_api_a_file_without_a_row_of_the_station_does_not_date_the_answer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A station that closed in 2024 is only in the older file, and the date of the newer one is not its date.
+
+    Both files are read, as the request covers both years. The newer one was updated on the 26th of October 2026 and
+    holds another station; the data of this one has not changed since the older file was written.
+    """
+    old, new = _PERIODS
+    dates = {old: "2025-01-10T06:00:00+00:00", new: "2026-10-26T06:54:51+00:00"}
+    other = [{"NUM_POSTE": "31070001", "AAAAMMJJHH": "2025061512", "T": "23.5"}]
+    rows = ([{"NUM_POSTE": "31069001", "AAAAMMJJHH": "2024061512", "T": "21.5"}], other)
+
+    updated = _hourly_updated(monkeypatch, dates, _utc(2024, 6, 15), _utc(2025, 6, 16), rows)
+
+    assert updated == datetime(2025, 1, 10, 6, tzinfo=UTC)
+
+
+def test_meteofrance_observation_api_a_file_whose_rows_are_outside_the_window_does_not_date_the_answer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A window that ends at the turn of the year reads the file of 2025-2026 by its years, and drops its only row.
+
+    The row is of the station, in June 2025, and the window ends on 2025-01-01: the answer holds the older file's
+    row alone and has the date of the older file.
+    """
+    old, new = _PERIODS
+    dates = {old: "2025-01-10T06:00:00+00:00", new: "2026-10-26T06:54:51+00:00"}
+    rows = (
+        [{"NUM_POSTE": "31069001", "AAAAMMJJHH": "2024123112", "T": "3.5"}],
+        [{"NUM_POSTE": "31069001", "AAAAMMJJHH": "2025061512", "T": "23.5"}],
+    )
+    asked = _serve_climate(monkeypatch, _hourly_files("31", *rows), dates)
+    request = MeteoFranceObservationRequest(
+        parameters=[("hourly", "core", "temperature_air_2m")],
+        start=_utc(2024, 12, 31),
+        end=_utc(2025, 1, 1),
+        settings=Settings(cache_disable=True),
+    )
+
+    result = stations_result(request, "hourly", "core", "31069001").values().all()
+
+    assert sorted(asked) == sorted(_PERIODS)
+    assert result.df.height == 1
+    assert result.data_updated_at == datetime(2025, 1, 10, 6, tzinfo=UTC)

@@ -220,10 +220,12 @@ class ResponseMetadata(BaseModel):
     retrieved_at: str = Field(description="When this answer was made, in UTC.")
     data_updated_at: str | None = Field(
         description="When the source says the data of this answer was last updated, in UTC: the newest such date "
-        "over what the answer was read from, as the source states it, and not when the data was fetched "
-        "(`retrieved_at`). Null where the source states none or the library does not read it for the network, as for a "
-        "list of stations and a streamed answer (NDJSON, CSV), whose head goes out before the newest date is known; "
-        "an answer from the cache carries the date of the copy it was made from.",
+        "over what the answer was read from (a file without a date adds none), as the source states it, and "
+        "not when the data was fetched (`retrieved_at`). Null where the source states none or the library does not "
+        "read it for the network, as for a list of stations and a streamed answer (NDJSON, CSV), whose head goes out "
+        "before the newest date is known. It is the date the source reported when the answer was made, with the copy "
+        "of the listing or file it was read from: it may lag a file refreshed since by up to the time the listing is "
+        "cached.",
     )
     provider: _Provider = Field(
         description="Who published the data, under which licence (`license`, null where the provider states "
@@ -254,12 +256,6 @@ def _unit_symbol(parameter: ParameterModel, options: Options, converter: UnitCon
 def _retrieved_at() -> str:
     """Write the time an answer is made at."""
     return format_timestamp(dt.datetime.now(dt.UTC))
-
-
-def _data_updated_at(result: StationsResult | _ValuesResult[Any, Any]) -> str | None:
-    """Write the date the source states for the data of a result (GH-2567): a stations list has none."""
-    updated = None if isinstance(result, StationsResult) else result.data_updated_at
-    return None if updated is None else format_timestamp(updated)
 
 
 def _unique(values: Any) -> list[str]:  # noqa: ANN401
@@ -310,8 +306,7 @@ def result_metadata(
         api_version=API_VERSION,
         schema_version=SCHEMA_VERSION,
         retrieved_at=_retrieved_at(),
-        data_updated_at=_data_updated_at(result),
-        **_metadata_of(stations),
+        **_metadata_of(stations, None if isinstance(result, StationsResult) else result.data_updated_at),
         request=ResolvedRequest(
             provider=provider.lower(),
             network=network.lower(),
@@ -386,7 +381,6 @@ def _block_without_result(api: object, request: ResolvedRequest, *, stations: in
         api_version=API_VERSION,
         schema_version=SCHEMA_VERSION,
         retrieved_at=_retrieved_at(),
-        data_updated_at=None,
         **describe_provider(_provider_terms(api)),
         request=request,
         counts=Counts(stations=stations, rows=rows),
