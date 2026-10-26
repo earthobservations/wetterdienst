@@ -31,7 +31,8 @@ for them) nor the radar products.
 
 A request the backend refuses shows what the backend answered: one over a [limit](restapi.md#limits) says which
 and how to narrow it, a provider that is down says so and the request can be made again. See
-[Troubleshooting](troubleshooting.md) for what the answers mean.
+[Troubleshooting](troubleshooting.md) for what the answers mean. To get more than a limit allows, see
+[Getting more than the limit](large-requests.md#from-the-app).
 
 ## Embed the forecast on another site
 

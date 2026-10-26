@@ -12,6 +12,9 @@ and the [REST API](restapi.md) render a result through the same function, so the
 same output, the `metadata` block of the [response metadata](restapi.md#response-metadata) and a
 `settings` block with `--with-metadata` included.
 
+The command line has none of the limits of the REST API on the rows or stations of a request. A long record or a whole
+network is written with `--target` to a file or a database, see [Getting more than the limit](large-requests.md#leave-the-server).
+
 ## Exit codes
 
 What the command line promises across releases, its options and exit codes among it, is on the

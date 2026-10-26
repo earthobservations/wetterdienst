@@ -680,6 +680,14 @@ NOT_RUN: dict[tuple[str, str], str] = {
     ): "needs a `request` of its own",
     ("docs/usage/python-api.md", "except NoInternetError"): "shows how to catch an outage",
     ("docs/usage/python-examples.md", "wradlib"): "needs wradlib, which the project does not install",
+    (
+        "docs/usage/large-requests.md",
+        "# needs a server on localhost:7890",
+    ): "asks a server on localhost:7890, which a test does not start (the loops were run against a local one)",
+    (
+        "docs/usage/large-requests.md",
+        "# needs the dresden.csv",
+    ): "reads the file that the curl command above it saves, and `test_rest_samples_are_answered` makes that request",
 }
 
 #: the pages that cannot run as a whole, with the reason

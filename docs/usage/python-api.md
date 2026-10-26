@@ -885,6 +885,10 @@ A result writes itself to a file (CSV, JSON, Excel, Parquet, Feather, Zarr, NetC
 PostgreSQL, MySQL, CrateDB, InfluxDB) with `to_target(target)`, and `TimeseriesValues.to_target` does it station by
 station. The targets, the `if_exists` modes and the errors are on the [Export](export.md) page.
 
+The library has no limits on the rows or stations of a request, which the REST API and the MCP tools have. For a long
+record or many stations, `stations.values().query()` and `to_target` hold one station at a time; see
+[Getting more than the limit](large-requests.md#leave-the-server).
+
 ## Errors
 
 Every class of `wetterdienst.exceptions` derives from `WetterdienstError`
