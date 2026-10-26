@@ -394,7 +394,8 @@ def _probe_aemet_credentials(settings: Settings) -> bool | None:
 
     Only an acceptance stays in the cache, and only for `ONE_MINUTE` (AEMET's own rate-limit window):
     a refusal or a failure is dropped (GH-2750), so a key that is activated or a limit that lifts is
-    seen by the next probe, and a key that is revoked stops reading `True` within the minute.
+    seen by the next probe, and a key that is revoked stops reading `True` within the minute
+    (within two minutes through `/api/auth`, which keeps its answer for a minute as well).
     """
     if not settings.auth.aemet:
         return False

@@ -133,6 +133,7 @@ what the answer is missing:
     "api_version": "1",
     "schema_version": "1",
     "retrieved_at": "2026-10-16T21:04:37.118220+00:00",
+    "data_updated_at": null,
     "provider": {
       "name_local": "Deutscher Wetterdienst",
       "name_english": "German Weather Service",
@@ -183,8 +184,9 @@ what the answer is missing:
 ```
 
 - **`provider.license`** is the terms the provider publishes its data under: `spdx_id`, the identifier of
-  the licence in the [SPDX list](https://spdx.org/licenses/) (or an expression, `CC-BY-4.0 OR NLOD-2.0`,
-  where the provider offers two), `name` and `url`. `spdx_id` is `null` where the terms have none
+  the licence in the [SPDX list](https://spdx.org/licenses/) (or an expression, `CC-BY-4.0 AND NLOD-2.0`,
+  where the provider names two that both apply, as MET Norway does), `name` and `url`. `spdx_id` is `null` where the
+  terms have none
   (ECCC's licence agreement, AEMET's legal notice, IMGW's terms of data provision, IPMA's statement that the
   data may be reused with the source named). `url` is the licence, or the provider's own page that states it. The
   whole of `license` is `null` where the provider states no terms that could be read: no provider does at present,
@@ -198,8 +200,29 @@ what the answer is missing:
   answer of up to 100 stations; for one of more `ids` is `null`, so a listing of a whole network does not carry
   its ids a second time, and `count` is how many there are. To have the ids of a large answer, read the
   `station_id` column of its body.
-- **`retrieved_at`** is when the answer was made, in UTC. Whether the data came from the server's cache,
-  and when the provider published it, are not told yet.
+- **`retrieved_at`** is when the answer was made, in UTC. Whether the data came from the server's cache
+  is not told.
+- **`data_updated_at`** is when the source says the data of the answer was last updated, in UTC, as the source
+  states it: the newest of the dates it states for the files whose rows the answer keeps (a file with no date adds
+  none and does not take one away). It is not the time the answer was made (that is `retrieved_at`), and it is `null`
+  where the source states no date or the library does not read it for the network (every network but
+  `meteofrance/observation` so far, and every list of stations): never `retrieved_at` in its place. It is the date
+  the source reported at the time the answer was made, which comes with the copy of the listing or the file it was
+  read from. For `meteofrance/observation` it is the `last_modified` of the listing of data.gouv.fr, which is cached
+  for 12 hours, so it may lag a file that was refreshed since by up to that time, and `retrieved_at` less
+  `data_updated_at` is no exact age of the data. A copy of a file made before the date the listing gives it is
+  fetched again, and replaced only once the new one has arrived: where the host of the files does not answer, an
+  archive file that is cached for good (the years before last) is read from the copy from before, and has the date
+  that copy was made and not the listing's later one. A file of the current period, cached for 5 minutes, whose copy
+  has expired is not served stale: the request fails with the download error, as before.
+  NDJSON and CSV answers of `values` are streamed and their head goes out before the stations are read, so the
+  newest date is not known: they say `null`, and the header is left out. A JSON answer of the same request has the
+  exact one, and so has the NDJSON of the command line, which renders the whole result at once. It is the "date of
+  the most recent update" that the Etalab Open Licence asks to be named with the source. The Python results carry it
+  as `data_updated_at`, and the `metadata` of `to_dict`, `to_json` and `to_ogc_feature_collection` with
+  `with_metadata=True` has it as a key of its own next to `provider` and `producer` (`null` for a list of
+  stations and for a history). A result cut down by `filtered_by_date` or `filtered_by_sql` keeps the date of the
+  result it was cut from, newer files whose rows were cut away included, and has none where no row is left.
 - **`counts`** is the stations in the answer and its rows: the items of `values` (one per timestamp in
   the wide shape), the stations listed, or the histories.
 - **`crs`** is the reference system of every position in the answer: WGS 84, longitude before latitude in
@@ -248,6 +271,7 @@ A format with no body to put the block in carries the same in headers, and so do
 | --- | --- |
 | `X-Wetterdienst-API-Version`, `X-Wetterdienst-Schema-Version` | `api_version` and `schema_version` |
 | `X-Wetterdienst-Retrieved-At` | `retrieved_at` |
+| `X-Wetterdienst-Data-Updated-At` | `data_updated_at`; left out where it is `null` |
 | `X-Wetterdienst-Provider` | the provider's English name |
 | `X-Wetterdienst-License` | the SPDX identifier of the licence, else its name; left out without a licence |
 | `Link` | `<licence url>; rel="license"`, left out without a licence |
