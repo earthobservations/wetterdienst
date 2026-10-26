@@ -105,9 +105,11 @@ earlier one: `tools/list` and `tools/call` work without an `initialize`. A reque
 is served as one without. The two requests that belong to a session are answered with a 405, as the specification
 lets a server do: `DELETE` (ending a session; clients that send it on closing carry on) and `GET` (opening a stream
 of messages from the server, of which a server of tools has none). A tool's answer is one body and is not streamed:
-the long answers are the ones that `format=ndjson` and `csv` stream on the REST API. A tool makes its request to the
-API in process, so it is held to the [limits](restapi.md#limits), the [timeout](restapi.md#timeout) and the
-[concurrency](restapi.md#concurrency) of the server like any request.
+`format=csv` and `ndjson` are returned as complete text content, and chart formats as text or image content. These
+formats also include schema-valid structured output where the tool declares an output schema. MCP calls use the
+normal `max_rows` limit; only REST API requests stream `csv` and `ndjson` under `max_stream_rows`. A tool makes its
+request to the API in process, so it is held to the [limits](restapi.md#limits), the [timeout](restapi.md#timeout)
+and the [concurrency](restapi.md#concurrency) of the server like any request.
 
 ## Versioning
 

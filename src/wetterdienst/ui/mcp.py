@@ -23,7 +23,10 @@ become the parameter descriptions, so those live with the endpoints in ``restapi
 
 from __future__ import annotations
 
+import base64
+import json
 from typing import TYPE_CHECKING
+from urllib.parse import parse_qs
 
 from wetterdienst import __version__
 
@@ -44,6 +47,17 @@ _ASGI_BASE_URL = "http://wetterdienst.local"
 # The ASGI scope key that marks a tool's in-process request to the REST app.
 _TOOL_REQUEST_SCOPE_KEY = "wetterdienst.mcp_tool_request"
 
+# These formats have a body that is not JSON. FastMCP's OpenAPI tool returns them as content; the
+# `response_model` also declares a string alternative, so the MCP result can carry that same body
+# as structured output without dropping the text or changing the tool schema.
+_MCP_TEXT_FORMATS = frozenset({"csv", "ndjson", "html", "svg"})
+_MCP_BINARY_FORMATS = {
+    "png": "image/png",
+    "jpg": "image/jpeg",
+    "webp": "image/webp",
+    "pdf": "application/pdf",
+}
+
 
 def is_tool_request(scope: MutableMapping[str, Any]) -> bool:
     """Tell whether an ASGI request is an MCP tool's in-process request to the REST app.
@@ -63,13 +77,69 @@ def is_tool_request(scope: MutableMapping[str, Any]) -> bool:
 
 
 def _mark_tool_requests(app: ASGIApp) -> ASGIApp:
-    """Wrap the REST app so each request the tools send it carries the scope key `is_tool_request` checks."""
+    """Mark MCP requests and encode binary charts for the OpenAPI tool's JSON response parser."""
 
     async def marked(scope: Scope, receive: Receive, send: Send) -> None:
         scope[_TOOL_REQUEST_SCOPE_KEY] = True
-        await app(scope, receive, send)
+        if scope.get("type") != "http":
+            await app(scope, receive, send)
+            return
+
+        query = parse_qs(scope.get("query_string", b"").decode("ascii", errors="replace"))
+        default_format = "png" if scope.get("path", "").endswith("/stripes/image") else "json"
+        fmt = query.get("format", [default_format])[0]
+        media_type = _MCP_BINARY_FORMATS.get(fmt)
+        is_text_format = fmt in _MCP_TEXT_FORMATS
+        if media_type is None and not is_text_format:
+            await app(scope, receive, send)
+            return
+
+        messages: list[MutableMapping[str, Any]] = []
+
+        async def collect(message: MutableMapping[str, Any]) -> None:
+            messages.append(message)
+
+        await app(scope, receive, collect)
+        start = next((message for message in messages if message["type"] == "http.response.start"), None)
+        bodies = [message.get("body", b"") for message in messages if message["type"] == "http.response.body"]
+        response_type = ""
+        if start is not None:
+            response_type = next(
+                (
+                    value.decode("latin1").split(";", maxsplit=1)[0].lower()
+                    for name, value in start.get("headers", [])
+                    if name.lower() == b"content-type"
+                ),
+                "",
+            )
+
+        if start is None or start["status"] != 200 or (media_type is not None and response_type != media_type):
+            for message in messages:
+                await send(message)
+            return
+
+        if is_text_format:
+            encoded_body = b"".join(bodies).decode("utf-8")
+            body = json.dumps(encoded_body, separators=(",", ":")).encode("utf-8")
+        else:
+            data_uri = f"data:{media_type};base64,{base64.b64encode(b''.join(bodies)).decode('ascii')}"
+            body = json.dumps(data_uri, separators=(",", ":")).encode("utf-8")
+        headers = [
+            (name, value)
+            for name, value in start.get("headers", [])
+            if name.lower() not in {b"content-type", b"content-length"}
+        ]
+        headers.extend(((b"content-type", b"application/json"), (b"content-length", str(len(body)).encode("ascii"))))
+        await send({**start, "headers": headers})
+        await send({"type": "http.response.body", "body": body})
 
     return marked
+
+
+def _text_from_block(block: object) -> str | None:
+    """Get text from an MCP content block, if it is one."""
+    value = getattr(block, "text", None)
+    return value if isinstance(value, str) else None
 
 
 INSTRUCTIONS = """\
@@ -258,7 +328,10 @@ def build_mcp_server(rest_app: FastAPI) -> FastMCP:
 
     import httpx2  # noqa: PLC0415
     from fastmcp import FastMCP  # noqa: PLC0415
+    from fastmcp.server.middleware import Middleware  # noqa: PLC0415
     from fastmcp.server.providers.openapi import MCPType, OpenAPIProvider, RouteMap  # noqa: PLC0415
+    from fastmcp.tools import ToolResult  # noqa: PLC0415
+    from mcp.types import ImageContent, TextContent  # noqa: PLC0415
 
     route_maps = [RouteMap(pattern=pattern, mcp_type=MCPType.EXCLUDE) for pattern in _EXCLUDE_PATTERNS]
     # httpx2, not httpx: FastMCP 4 types ``OpenAPIProvider.client`` as ``httpx2.AsyncClient`` and
@@ -280,6 +353,72 @@ def build_mcp_server(rest_app: FastAPI) -> FastMCP:
         mcp_names=_TOOL_NAMES,
     )
 
+    class StructuredFormatResults(Middleware):
+        """Keep non-JSON REST formats valid against the structured MCP schemas."""
+
+        async def on_call_tool(
+            self,
+            context: MiddlewareContext[Any],
+            call_next: CallNext[Any, ToolResult],
+        ) -> ToolResult:
+            result = await call_next(context)
+            if result.is_error:
+                return result
+
+            arguments = context.message.arguments or {}
+            fmt = arguments.get("format")
+            structured = result.structured_content
+            result_value = structured.get("result") if structured is not None else None
+            if result_value is None:
+                result_value = next(
+                    (
+                        text
+                        for block in result.content
+                        if (text := _text_from_block(block)) is not None
+                        and text.startswith("data:")
+                        and ";base64," in text
+                    ),
+                    None,
+                )
+
+            if isinstance(result_value, str) and result_value.startswith("data:") and ";base64," in result_value:
+                media_type, encoded = result_value[5:].split(";base64,", maxsplit=1)
+                image_formats = {mime: name for name, mime in _MCP_BINARY_FORMATS.items() if name != "pdf"}
+                if (image_format := image_formats.get(media_type)) is not None:
+                    tool = await provider.get_tool(context.message.name)
+                    output = (
+                        {"result": f"{image_format.upper()} chart image attached."}
+                        if tool and tool.output_schema
+                        else None
+                    )
+                    return ToolResult(
+                        content=[ImageContent(type="image", data=encoded, mime_type=media_type)],
+                        structured_content=output,
+                        meta=result.meta,
+                    )
+                if media_type == _MCP_BINARY_FORMATS["pdf"]:
+                    return ToolResult(
+                        content=f"PDF chart as a base64 data URI: {result_value}",
+                        structured_content=structured,
+                        meta=result.meta,
+                    )
+
+            if fmt in _MCP_TEXT_FORMATS:
+                tool = await provider.get_tool(context.message.name)
+                if tool is not None and tool.output_schema and tool.output_schema.get("x-fastmcp-wrap-result"):
+                    output = (
+                        result_value
+                        if isinstance(result_value, str)
+                        else "".join(text for block in result.content if (text := _text_from_block(block)) is not None)
+                    )
+                    return ToolResult(
+                        content=[TextContent(type="text", text=output)],
+                        structured_content={"result": output},
+                        meta=result.meta,
+                    )
+
+            return result
+
     @asynccontextmanager
     async def lifespan(_server: FastMCP):  # noqa: ANN202
         # Tie the in-process httpx2 client to the server lifespan so it is closed on shutdown; this
@@ -297,5 +436,5 @@ def build_mcp_server(rest_app: FastAPI) -> FastMCP:
         instructions=INSTRUCTIONS,
         providers=[provider],
         lifespan=lifespan,
-        middleware=[_refuse_unknown_arguments(provider)],
+        middleware=[_refuse_unknown_arguments(provider), StructuredFormatResults()],
     )

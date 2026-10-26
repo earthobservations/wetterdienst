@@ -1528,7 +1528,7 @@ _STREAM_RESPONSES: dict[int | str, dict[str, Any]] = {
 }
 
 
-def _check_values_limits(stations: StationsResult, limits: Limits, *, streamed: bool) -> None:
+def _check_values_limits(stations: StationsResult, limits: Limits, *, streamed: bool, can_stream: bool = False) -> None:
     """Refuse a values request that reads too many stations or would return too many rows, before any download.
 
     Counted from the selection of stations, which the server holds already; the rows are an estimate and an upper
@@ -1536,7 +1536,7 @@ def _check_values_limits(stations: StationsResult, limits: Limits, *, streamed: 
     """
     check_station_count(selected_station_count(stations), limits)
     if limits.max_stream_rows if streamed else limits.max_rows:
-        check_rows(estimate_rows(stations), limits, streamed=streamed)
+        check_rows(estimate_rows(stations), limits, streamed=streamed, can_stream=can_stream)
 
 
 def _geo_limit_check(limits: Limits) -> Callable[[TimeseriesRequest], None]:
@@ -1762,8 +1762,9 @@ def stations(
     # lazily during value collection, and a plain listing returns just the N closest asked for
     stations_ = limit_stations_to_rank(limit_stations_to_window(stations_))
 
-    streamed = request.format in STREAM_FORMATS
-    check_rows(stations_.df.height, limits_of(settings), streamed=streamed)
+    tool_request = is_tool_request(http_request.scope)
+    streamed = request.format in STREAM_FORMATS and not tool_request
+    check_rows(stations_.df.height, limits_of(settings), streamed=streamed, can_stream=not tool_request)
 
     metadata = response_metadata(stations_, request)
     if streamed:
@@ -1849,9 +1850,18 @@ def values(
     options = _request_options(request, http_request.query_params.keys(), ValuesSettings)
     limits = limits_of(settings)
 
-    if _is_streamed(request):
+    streamed = _is_streamed(request)
+    tool_request = is_tool_request(http_request.scope)
+    if streamed and not tool_request:
         return _stream_values(api, request, settings, options, limits)
-    values_ = _values(api=api, request=request, settings=settings, options=options, limits=limits)
+    values_ = _values(
+        api=api,
+        request=request,
+        settings=settings,
+        options=options,
+        limits=limits,
+        can_stream=not tool_request and not request.sql_values,
+    )
 
     metadata = response_metadata(values_, request)
     content = render(values_, request, ValuesSettings, options, max_side=_MAX_IMAGE_SIDE, metadata=metadata)
@@ -2062,6 +2072,8 @@ def _values(
     settings: Settings,
     options: Options,
     limits: Limits,
+    *,
+    can_stream: bool = False,
 ) -> ValuesResult:
     """Collect values, telling the caller which failures are theirs to fix.
 
@@ -2075,7 +2087,7 @@ def _values(
             request=request,
             settings=settings,
             options=options,
-            check=lambda stations_: _check_values_limits(stations_, limits, streamed=False),
+            check=lambda stations_: _check_values_limits(stations_, limits, streamed=False, can_stream=can_stream),
         )
     except (AssertionError, HTTPException):
         # a request its model should have refused reached the lookup: our bug, which FastAPI answers

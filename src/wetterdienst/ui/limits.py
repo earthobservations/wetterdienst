@@ -131,7 +131,7 @@ def check_stations_in_reach(count: int, limits: Limits, *, distance: str) -> Non
         raise error
 
 
-def check_rows(rows: int, limits: Limits, *, streamed: bool) -> None:
+def check_rows(rows: int, limits: Limits, *, streamed: bool, can_stream: bool = False) -> None:
     """Refuse an answer of more rows than the limit of its kind, saying what to change.
 
     An answer sent as one body that would fit a stream is told to stream.
@@ -144,7 +144,7 @@ def check_rows(rows: int, limits: Limits, *, streamed: bool) -> None:
         name, what, advice = "stream_rows", "this server streams", f"{narrow}."
     else:
         name, what = "rows", "this server sends as one answer"
-        streamable = not limits.max_stream_rows or rows <= limits.max_stream_rows
+        streamable = can_stream and (not limits.max_stream_rows or rows <= limits.max_stream_rows)
         advice = (
             f"{narrow}, or use `format=ndjson` or `format=csv`, which are streamed and allow more."
             if streamable

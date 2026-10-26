@@ -127,6 +127,128 @@ def _call(
     return asyncio.run(run())
 
 
+def _call_result(app: FastAPI, tool: str, arguments: dict[str, object]) -> object:
+    """Call one tool through a real FastMCP client, preserving content and structured output for assertions."""
+    import httpx2  # noqa: PLC0415
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.client.transports import StreamableHttpTransport  # noqa: PLC0415
+
+    def factory(**kwargs: object) -> httpx2.AsyncClient:
+        kwargs.pop("transport", None)
+        return httpx2.AsyncClient(transport=httpx2.ASGITransport(app=app), **kwargs)
+
+    async def run() -> object:
+        async with app.router.lifespan_context(app):
+            transport = StreamableHttpTransport(f"http://testserver{MCP_PREFIX}", httpx_client_factory=factory)
+            async with Client(transport) as client:
+                return await client.call_tool(tool, arguments, raise_on_error=False)
+
+    return asyncio.run(run())
+
+
+@pytest.mark.parametrize(
+    ("fmt", "body"),
+    [
+        ("csv", "station_id,value\n01048,1\n"),
+        ("ndjson", '{"station_id":"01048","value":1}\n'),
+        ("html", "<html>chart</html>"),
+        ("svg", "<svg></svg>"),
+        ("png", b"\x89PNG\r\n\x1a\n"),
+        ("jpg", b"\xff\xd8\xff"),
+        ("webp", b"RIFF\x00\x00\x00\x00WEBP"),
+        ("pdf", b"%PDF-1.7"),
+    ],
+)
+def test_values_formats_return_content_and_schema_valid_output(
+    app: FastAPI, monkeypatch: pytest.MonkeyPatch, fmt: str, body: str | bytes
+) -> None:
+    """Non-JSON data and chart formats stay readable and satisfy their declared structured output schema."""
+    import base64  # noqa: PLC0415
+
+    monkeypatch.setattr(restapi, "_values", lambda **_kwargs: object())
+    monkeypatch.setattr(restapi, "response_metadata", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(restapi, "response_headers", lambda _metadata: {})
+    monkeypatch.setattr(restapi, "render", lambda *_args, **_kwargs: body)
+    arguments = {
+        "provider": "dwd",
+        "network": "observation",
+        "parameters": "daily/kl",
+        "stations": "01048",
+        "format": fmt,
+    }
+
+    result = _call_result(app, "values", arguments)
+
+    assert not result.is_error  # type: ignore[attr-defined]
+    if fmt in {"csv", "ndjson", "html", "svg"}:
+        assert result.structured_content["result"] == body  # type: ignore[attr-defined,index]
+        assert result.content[0].text == body  # type: ignore[attr-defined,index]
+    elif fmt in {"png", "jpg", "webp"}:
+        image = result.content[0]  # type: ignore[attr-defined,index]
+        assert image.type == "image"
+        assert image.mime_type == {"png": "image/png", "jpg": "image/jpeg", "webp": "image/webp"}[fmt]
+        assert base64.b64decode(image.data) == body
+        assert result.structured_content == {"result": f"{fmt.upper()} chart image attached."}  # type: ignore[attr-defined]
+    else:
+        assert result.structured_content["result"].startswith("data:application/pdf;base64,")  # type: ignore[attr-defined,index]
+        assert result.content[0].text.startswith("PDF chart as a base64 data URI:")  # type: ignore[attr-defined,index]
+
+
+def test_stripes_image_returns_an_image_block_without_an_output_schema(
+    app: FastAPI, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The binary climate-stripes tool exposes its PNG as native MCP image content, too."""
+    import base64  # noqa: PLC0415
+
+    image_bytes = b"\x89PNG\r\n\x1a\nstripe"
+
+    class Figure:
+        def to_image(self, *_args: object, **_kwargs: object) -> bytes:
+            return image_bytes
+
+    monkeypatch.setattr(restapi, "_plot_stripes", lambda _request: Figure())
+    monkeypatch.setattr(restapi, "require_kaleido", lambda: None)
+
+    result = _call_result(app, "stripes_image", {"kind": "temperature", "station": "01048"})
+
+    assert not result.is_error  # type: ignore[attr-defined]
+    image = result.content[0]  # type: ignore[attr-defined,index]
+    assert image.type == "image"
+    assert image.mime_type == "image/png"
+    assert base64.b64decode(image.data) == image_bytes
+
+
+@pytest.mark.usefixtures("stations")
+def test_mcp_values_row_refusal_uses_single_answer_limit_without_streaming_advice(
+    app: FastAPI, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """MCP renders CSV/NDJSON in one bounded answer; only REST streaming refusals recommend those formats."""
+    monkeypatch.setenv("WD_RESTAPI_MAX_ROWS", "1")
+    arguments = {
+        "provider": "dwd",
+        "network": "observation",
+        "parameters": "daily/kl",
+        "stations": "01048",
+        "timestamp": "2020-01-01/2020-01-31",
+        "format": "csv",
+    }
+
+    result = _call_result(app, "values", arguments)
+
+    assert result.is_error  # type: ignore[attr-defined]
+    refusal = " ".join(block.text for block in result.content if getattr(block, "type", None) == "text")  # type: ignore[attr-defined]
+    assert "more than the 1 this server sends as one answer" in refusal
+    assert "format=ndjson" not in refusal
+    assert "format=csv" not in refusal
+
+    rest_arguments = {**arguments, "format": "json"}
+    response = TestClient(app).get("/api/v1/values", params=rest_arguments)
+    assert response.status_code == 400
+    rest_detail = response.json()["detail"]
+    assert "format=ndjson" in rest_detail
+    assert "format=csv" in rest_detail
+
+
 @pytest.mark.parametrize("path", MCP_PATHS)
 def test_a_client_lists_the_tools_and_calls_one_at_either_path(app: FastAPI, stations: list[str], path: str) -> None:
     """A real MCP client, at `/mcp/v1` and at `/mcp`: the handshake, the tool list and a tool call."""
