@@ -220,6 +220,10 @@ come from other hosts. There is no `v-html` or `innerHTML`, so provider text ren
 (`wd_settings`) in `localStorage` and the language in a cookie, no data. The compose file's app is the dev server, for
 development, not exposure (#3096).
 
+The `/api` and `/mcp` proxies answer only for their own path of the backend: a path that resolves elsewhere
+(`/api/../health`, `/mcp/../health`) is a 404 and is not asked of it (`app/tests/unit/proxy-forwards.test.ts`,
+`mcp-proxy.test.ts`).
+
 Who may frame a page: only the app's own origin (`frame-ancestors 'self'` and `X-Frame-Options: SAMEORIGIN`), except
 for `/widget`, which any origin may frame because it is meant to sit on other sites. The server decides on the request
 line it receives (`/widget` or `/widget/`, with or without a query, nothing decoded), not by a route rule, which
