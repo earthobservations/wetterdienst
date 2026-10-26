@@ -3,7 +3,7 @@
 """DWD derived metadata."""
 
 from wetterdienst.model.metadata import build_metadata_model
-from wetterdienst.provider.dwd.metadata import _METADATA
+from wetterdienst.provider.dwd.metadata import _METADATA, EXTENT_GERMANY
 
 cooling_degree_hours_common_parameters = [
     {
@@ -31,6 +31,7 @@ cooling_degree_hours_common_parameters = [
 _DwdDerivedMetadataSpec = {
     **_METADATA,
     "kind": "derived",
+    "extent": EXTENT_GERMANY,
     "timezone": "Europe/Berlin",
     "resolutions": [
         {

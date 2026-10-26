@@ -19,6 +19,12 @@ _MeteoswissObservationMetadataSpec = {
     "attribution": "Source: MeteoSwiss",
     "url": "https://www.meteoswiss.admin.ch/",
     "kind": "observation",
+    "extent": {
+        "scope": "national",
+        "continents": ["europe"],
+        "country_codes": ["CH"],
+        "bbox": [5.9, 45.7, 10.6, 47.9],
+    },
     "timezone": "Europe/Zurich",
     "resolutions": [
         {

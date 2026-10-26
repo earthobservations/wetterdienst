@@ -85,7 +85,10 @@ The instructions and the descriptions of the tools are written for agents and ar
 The same two steps serve a network of any `kind` (`observation`, `forecast`, ...), for a place given by coordinates as
 well as by name. The `country` of a provider is the country of the agency that runs it, not the extent of its data, and
 the instructions tell the assistant not to conclude from it that a network cannot serve a place: it looks at the
-network's `kind` and at what `stations` returns near the place.
+network's `kind`, its [`extent`](restapi.md#extent) (where its stations are, in `providers`; `coverage` has the scope of every
+network and the extent of each dataset of one) and at
+what `stations` returns near the place. `providers` is the tool for which networks reach a place, as well as for the
+country, licence and credit line of a provider.
 
 An error comes back as the text of the REST problem, for instance
 `HTTP error 422: Unprocessable Content - limit: Input should be greater than or equal to 1`, and an argument a tool

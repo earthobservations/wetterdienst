@@ -14,10 +14,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, SerializerFunctionWrapHandler, model_serializer
+from pydantic.json_schema import SkipJsonSchema  # noqa: TC002, needed at runtime by pydantic
 
 from wetterdienst.api import Wetterdienst
-from wetterdienst.model.metadata import LicenseModel, NetworkKind  # noqa: TC001, needed at runtime by pydantic
+from wetterdienst.model.metadata import (  # noqa: TC001, needed at runtime by pydantic
+    Extent,
+    LicenseModel,
+    NetworkKind,
+)
 from wetterdienst.ui.response_metadata import CatalogueMetadata, catalogue_metadata
 from wetterdienst.util.logging import get_one_line_logger
 from wetterdienst.util.response_warnings import warn_response
@@ -35,6 +40,21 @@ class ProviderDataset(BaseModel):
 
     name: str
     parameters: int = Field(description="How many parameters the dataset has, which `/api/coverage` lists.")
+    extent: Extent | SkipJsonSchema[None] = Field(
+        default=None,
+        description="Where the stations of the dataset are, where that is less than its network's (`extent` of the "
+        "network). Left out of the answer for a dataset that has the extent of its network.",
+    )
+
+    # no return annotation, on purpose: pydantic makes the schema of the answer from it, and any type but the
+    # model's own would take the members of a dataset out of the OpenAPI document
+    @model_serializer(mode="wrap")
+    def _leave_out_the_extent_of_the_network(self, handler: SerializerFunctionWrapHandler):  # noqa: ANN202
+        """Leave `extent` out of a dataset that has none of its own, which the answer says by its absence."""
+        serialized = handler(self)
+        if serialized.get("extent") is None:
+            serialized.pop("extent", None)
+        return serialized
 
 
 class ProviderResolution(BaseModel):
@@ -56,6 +76,9 @@ class ProviderNetwork(BaseModel):
         description="`observation`, `forecast` or `derived` for a network with stations and values; `radar` and "
         "`alerts` for a standalone one (`dwd/radar`, `dwd/alerts`), which has no resolutions to list.",
     )
+    extent: Extent = Field(
+        description="Where the stations of the network are, which the `country` of its provider does not say.",
+    )
     url: str = Field(description="Where the provider publishes the data of the network.")
     copyright: str
     auth: bool = Field(
@@ -76,8 +99,8 @@ class Provider(BaseModel):
     name_local: str
     name_english: str
     country: str = Field(
-        description="The country of the agency that runs the provider, not the extent of its data: a network can have "
-        "stations outside it.",
+        description="The country of the agency that runs the provider, not the extent of its data: the `extent` of "
+        "each of its networks says where its stations are.",
     )
     country_code: str | None = Field(
         description="ISO 3166-1 alpha-2 code of that country, the operator's and not the extent of its data; null for "
@@ -112,6 +135,7 @@ def _network(provider: str, network: str) -> tuple[ProviderNetwork, MetadataMode
                 ProviderNetwork(
                     network=network,
                     kind=cast("NetworkKind", standalone.listing["kind"]),
+                    extent=terms.extent,
                     url=terms.url,
                     copyright=terms.copyright,
                     auth=False,
@@ -137,7 +161,10 @@ def _network(provider: str, network: str) -> tuple[ProviderNetwork, MetadataMode
     resolutions = [
         ProviderResolution(
             name=resolution.name,
-            datasets=[ProviderDataset(name=dataset.name, parameters=len(dataset.parameters)) for dataset in resolution],
+            datasets=[
+                ProviderDataset(name=dataset.name, parameters=len(dataset.parameters), extent=dataset.extent)
+                for dataset in resolution
+            ],
         )
         for resolution in metadata
     ]
@@ -145,6 +172,7 @@ def _network(provider: str, network: str) -> tuple[ProviderNetwork, MetadataMode
         ProviderNetwork(
             network=network,
             kind=metadata.kind,
+            extent=metadata.extent,
             url=metadata.url,
             copyright=metadata.copyright,
             auth=metadata.auth,

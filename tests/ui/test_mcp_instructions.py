@@ -48,10 +48,17 @@ def _text(*phrases: str) -> Callable[[str], bool]:
             "that it is no reason to refuse a place", _text("never conclude", "cannot serve a place"), id="refusal"
         ),
         pytest.param(
-            "what to look at instead", _text("`kind`", "what `stations` returns near the place"), id="instead"
+            "what to look at instead",
+            _text("`kind`", "its `extent`", "what `stations` returns near the place"),
+            id="instead",
         ),
         pytest.param(
             "the same steps for every kind", _text("same two steps", "any `kind`", "`forecast`"), id="every-kind"
+        ),
+        pytest.param(
+            "the providers tool as the one for what reaches a place",
+            _text("`providers`", "`extent` of each", "networks reach a place"),
+            id="providers",
         ),
         pytest.param(
             "a point for the stations", _text("`latitude`", "`longitude`", "`rank`", "`distance`"), id="point"
@@ -75,7 +82,7 @@ def test_the_instructions_name_no_network_for_its_reach() -> None:
 
 def test_the_instructions_stay_compact() -> None:
     """They are read on every connection: the paragraph on the country and the point fits in what it costs."""
-    assert len(INSTRUCTIONS) < 7500
+    assert len(INSTRUCTIONS) < 7600
 
 
 def test_the_country_of_a_provider_is_described_as_the_operators() -> None:
@@ -99,10 +106,10 @@ def _tools() -> dict[str, Any]:
 
 
 def test_the_providers_tool_says_what_its_country_is() -> None:
-    """The tool a model asks "which providers cover this country" is described with the operator's country."""
+    """The tool a model asks which networks reach a place is described with the operator's country and the extent."""
     description = _tools()["providers"].description or ""
 
-    assert _text("country of the agency that runs it", "not the extent of its data")(description)
+    assert _text("country of the agency that runs it", "not the extent of its data", "`extent`")(description)
 
 
 def test_the_example_names_arguments_the_tool_takes() -> None:
