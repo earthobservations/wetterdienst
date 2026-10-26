@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import importlib
 import logging
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, NoReturn, TypeAlias, cast, overload
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, NoReturn, TypeAlias, overload
 
 from pydantic import ValidationError
 from pydantic_settings import SettingsError
@@ -16,7 +16,7 @@ from wetterdienst.settings import Settings, check_settings
 from wetterdienst.util.extras import missing_dependency_message
 
 if TYPE_CHECKING:
-    from wetterdienst.model.metadata import CoverageNetwork, Extent
+    from wetterdienst.model.metadata import CoverageNetwork
     from wetterdienst.model.request import TimeseriesRequest
     from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest
     from wetterdienst.provider.dwd.radar import DwdRadarValues
@@ -330,9 +330,9 @@ class Wetterdienst:
         checks one network, as `/api/auth` and `wetterdienst about auth` do (GH-2641).
 
         Per network: `name_short`, the provider's short name; `country`, the operator's; `url`, where the
-        provider publishes the data; `kind`; `extent`, where the stations of the network are (`scope`,
-        `continents`, `countries`, `bbox`: the country says nothing of it, see `Extent`; a plain dict, with
-        no `countries` where there are none or the network is national); `auth` whether it
+        provider publishes the data; `kind`; `scope`, how far the network reaches (`global`, `national` or
+        `regional`, which the country does not say; the full `extent`, with the continents and the box, is in
+        `/api/providers` and in the coverage of one network, so that this list stays short); `auth` whether it
         needs credentials, `configured` whether they are present; `date_required`.
 
         `kind` is what the network is. A timeseries network has stations and values, and is `observation`,
@@ -357,7 +357,7 @@ class Wetterdienst:
                         # no metadata model, so what the network is comes from its request class; and no credentials
                         listed[network] = {
                             **standalone.listing,
-                            "extent": cast("Extent", standalone.terms.extent.model_dump(mode="json")),
+                            "scope": standalone.terms.extent.scope,
                             "auth": False,
                             "configured": True,
                             "date_required": False,
@@ -374,7 +374,7 @@ class Wetterdienst:
                     "name_short": metadata.name_short,
                     "country": metadata.country,
                     "kind": metadata.kind,
-                    "extent": cast("Extent", metadata.extent.model_dump(mode="json")),
+                    "scope": metadata.extent.scope,
                     "url": metadata.url,
                     "auth": metadata.auth,
                     # not probed whether the credentials are accepted: that is a request to the provider per

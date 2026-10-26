@@ -421,7 +421,7 @@ The list downloads nothing, so it answers at once. Each network of each provider
 | `country` | the country of the provider, `Germany` |
 | `url` | where the provider publishes the data |
 | `kind` | what the network is, see below |
-| `extent` | where the stations of the network are: `scope`, `continents`, `bbox` and, for `regional`, `countries`; see [Extent](#providers). A dataset narrower than its network has one of its own |
+| `scope` | how far the network reaches: `global`, `national` or `regional`, which `country` does not say. The list is kept short, so it has the scope only; the full [extent](#providers) is in `providers`, and in the coverage of one network, for each of its datasets |
 | `auth` | whether the network needs credentials |
 | `configured` | whether the server has them |
 | `date_required` | whether a dataset of the network needs the request to name `start` and `end` |
@@ -465,7 +465,7 @@ whether its credentials are accepted. `dwd/radar` and `dwd/alerts` are listed wi
 
 The `country` of a provider is the country of the agency that runs it, which says nothing of where its networks have
 stations: DWD is German, and the forecast lists of `dwd/mosmix` and `dwd/dmo` have stations on every continent. The
-`extent` of each network says where its stations are, in the answers of `providers` and of `coverage` alike:
+`extent` of each network says where its stations are, in the answer of `providers`, and `coverage` of one network gives the extent of each of its datasets (the list of every network has the `scope` only):
 
 | Member | |
 | --- | --- |
@@ -483,9 +483,10 @@ credential is needed) and `dwd/radar` and `dwd/alerts` (no stations), so their b
 
 A dataset whose stations are fewer than its network's has an `extent` of its own, which lies within the network's: `dwd/dmo`
 is global by its `icon` dataset, whose list has stations on every continent, and its `icon_eu` dataset is regional, the
-stations of Europe and the edges of Africa and Asia. `providers` and `coverage` (of a network) show the `extent` of a
-dataset only where it has one; **a dataset without its own extent has its network's**, and the member is absent from
-it. A dataset of a national network is national. The extent does not change what a request answers: `stations` still
+stations of Europe and the edges of Africa and Asia. `providers` shows the `extent` of a
+dataset only where it has one, **a dataset without its own extent has its network's**, and the member is absent from
+it; `coverage` of a network gives every dataset its extent, its own or its network's. A dataset of a national network
+is national. The extent does not change what a request answers: `stations` still
 lists what the network has.
 
 ```bash

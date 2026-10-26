@@ -41,7 +41,7 @@ export interface CoverageParameter {
 export interface CoverageDataset {
   description: string | null
   parameters: CoverageParameter[]
-  /** Only where the stations of the dataset are fewer than its network's; a dataset without it has its network's */
+  /** Where the stations of the dataset are: its own where they are fewer than its network's, else the network's */
   extent?: NetworkExtent
 }
 
@@ -77,8 +77,8 @@ export interface CoverageNetworkInfo {
   name_short: string
   country: string
   kind: NetworkKind
-  /** Where the stations of the network are; absent from a backend that predates it */
-  extent?: NetworkExtent
+  /** How far the network reaches; absent from a backend that predates it. The full extent is in `GET /api/providers` */
+  scope?: NetworkExtent['scope']
   url: string
   auth: boolean
   configured: boolean

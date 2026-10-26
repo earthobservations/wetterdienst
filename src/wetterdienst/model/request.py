@@ -719,6 +719,9 @@ class TimeseriesRequest:
             for dataset in resolution:
                 if dataset_strings and not named(dataset, dataset_strings):
                     continue
+                # where the stations of the dataset are: its own where they are fewer than its network's, else the
+                # network's (a plain dict, as the rest of the answer; no `countries` where there are none)
+                extent = dataset.extent if dataset.extent is not None else cls.metadata.extent
                 described_datasets[dataset.name] = {
                     "description": dataset.description,
                     "parameters": [
@@ -733,10 +736,8 @@ class TimeseriesRequest:
                         }
                         for parameter in dataset
                     ],
+                    "extent": cast("Extent", extent.model_dump(mode="json")),
                 }
-                # only a dataset narrower than its network says so; the others have the extent of the network
-                if dataset.extent is not None:
-                    described_datasets[dataset.name]["extent"] = cast("Extent", dataset.extent.model_dump(mode="json"))
             if not described_datasets:
                 continue
             data[resolution.name] = {

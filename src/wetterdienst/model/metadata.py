@@ -117,8 +117,9 @@ class CoverageNetwork(TypedDict):
     # `observation`, `forecast` and `derived` are the timeseries networks, which have stations and values; `radar`
     # and `alerts` are standalone, and the endpoints of the timeseries refuse them with a 404
     kind: NetworkKind
-    # where the stations of the network are, not where its provider is (GH-3456)
-    extent: Extent
+    # how far the network reaches, not where its provider is: this list is kept short, so it has the scope only, and the
+    # full extent is in `/api/providers` and, for each dataset, in the coverage of one network (GH-3456)
+    scope: ExtentScope
     url: str
     auth: bool
     configured: bool
@@ -144,9 +145,9 @@ class CoverageDataset(TypedDict):
 
     description: str | None
     parameters: list[CoverageParameter]
-    # only where the stations of the dataset are fewer than its network's (`dwd/dmo` `icon_eu`); a dataset without
-    # its own has the extent of its network (GH-3456)
-    extent: NotRequired[Extent]
+    # where the stations of the dataset are (GH-3456): its own where they are fewer than its network's (`dwd/dmo`
+    # `icon_eu`), else the network's
+    extent: Extent
 
 
 @with_config(ConfigDict(extra="forbid"))

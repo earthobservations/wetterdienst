@@ -1401,14 +1401,15 @@ def coverage(
     resolutions=... or datasets=... (e.g. datasets="climate_summary") to discover parameter names.
 
     The list of every provider downloads nothing, so it answers at once. Per network it gives
-    `name_short`, `country`, `url`, `extent` (where its stations are, which `country` does not say) and
-    `kind`. `kind` is `observation`, `forecast` or `derived` for a
+    `name_short`, `country`, `url`, `scope` (how far it reaches: `global`, `national` or `regional`, which `country`
+    does not say) and `kind`. `kind` is `observation`, `forecast` or `derived` for a
     timeseries network, which has stations and values (every network but two); `radar` and `alerts`
     are standalone (`dwd/radar`, `dwd/alerts`): the other endpoints answer 404 for them. For a network
     that needs credentials, `configured` says whether they are present; whether the provider accepts
     them is not checked here, `/api/auth` (the MCP `auth` tool) does, for one network. With a provider and
-    network, a dataset whose stations are fewer than its network's has an `extent` of its own, and one without
-    has its network's.
+    network, each dataset has its `extent` (where its stations are: `scope`, `continents`, `bbox`, and
+    `countries` for a regional one): the dataset's own where it is narrower than its network's, else the
+    network's. `providers` has the extent of every network.
     """
     provider, network = request.provider, request.network
 

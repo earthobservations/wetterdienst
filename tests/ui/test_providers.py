@@ -318,14 +318,30 @@ def test_a_network_says_where_its_stations_are(client: TestClient) -> None:
     assert {"north_america", "south_america", "africa", "asia", "oceania"} <= set(extents["dwd/mosmix"]["continents"])
 
 
-def test_the_coverage_of_every_network_says_where_its_stations_are(client: TestClient) -> None:
-    """`/api/coverage` lists the extent of a network as `/api/providers` does."""
+def test_the_list_of_every_network_has_the_scope_and_not_the_extent(client: TestClient) -> None:
+    """`/api/coverage` is kept short: it says how far each network reaches, and `/api/providers` where (GH-3456)."""
     providers = client.get("/api/providers").json()["providers"]
     coverage = client.get("/api/coverage").json()
 
     for provider in providers:
         for network in provider["networks"]:
-            assert coverage[provider["provider"]][network["network"]]["extent"] == network["extent"]
+            listed = coverage[provider["provider"]][network["network"]]
+            assert listed["scope"] == network["extent"]["scope"]
+            assert "extent" not in listed
+
+
+def test_the_coverage_of_a_network_has_the_full_extent_of_each_dataset(client: TestClient) -> None:
+    """With a provider and network, each dataset has its extent in full: its own, or else its network's."""
+    providers = client.get("/api/providers", params={"provider": "dwd"}).json()["providers"][0]["networks"]
+    network = next(n for n in providers if n["network"] == "mosmix")["extent"]
+
+    coverage = client.get("/api/coverage", params={"provider": "dwd", "network": "mosmix"}).json()
+
+    for resolution in coverage.values():
+        for dataset in resolution["datasets"].values():
+            assert dataset["extent"] == network
+    assert network["scope"] == "global"
+    assert network["bbox"] == [-180, -90, 180, 90]
 
 
 def test_the_command_line_says_where_the_stations_are(client: TestClient) -> None:
@@ -338,7 +354,10 @@ def test_the_command_line_says_where_the_stations_are(client: TestClient) -> Non
 
     result = CliRunner().invoke(cli, ["about", "coverage"])
     assert result.exit_code == 0, result.output
-    assert json.loads(result.stdout)["dwd"]["mosmix"]["extent"]["scope"] == "global"
+    assert json.loads(result.stdout)["dwd"]["mosmix"]["scope"] == "global"
+    result = CliRunner().invoke(cli, ["about", "coverage", "--provider=dwd", "--network=dmo"])
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["hourly"]["datasets"]["icon_eu"]["extent"]["scope"] == "regional"
 
 
 def test_the_mcp_tool_has_the_extent() -> None:
@@ -380,10 +399,32 @@ def test_a_dataset_narrower_than_its_network_has_an_extent_of_its_own(client: Te
 
 
 def test_the_coverage_of_a_dataset_says_where_it_is_narrower_than_its_network(client: TestClient) -> None:
-    """`/api/coverage` of a network lists `extent` of the datasets that have one, and leaves it out of the others."""
+    """`/api/coverage` of a network gives each dataset its own extent where it has one, else its network's."""
     coverage = client.get("/api/coverage", params={"provider": "dwd", "network": "dmo"}).json()
 
     assert coverage["hourly"]["datasets"]["icon_eu"]["extent"]["bbox"] == [-13, 13, 50, 71]
-    assert "extent" not in coverage["hourly"]["datasets"]["icon"]
-    mosmix = client.get("/api/coverage", params={"provider": "dwd", "network": "mosmix"}).json()
-    assert all("extent" not in dataset for dataset in mosmix["hourly"]["datasets"].values())
+    assert coverage["hourly"]["datasets"]["icon_eu"]["extent"]["scope"] == "regional"
+    assert coverage["hourly"]["datasets"]["icon"]["extent"]["scope"] == "global"
+
+
+def test_the_mcp_coverage_tool_is_short_for_every_network_and_full_for_one() -> None:
+    """The tool `coverage` has the scope of each network in its list, and the extent of each dataset of one network."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    async def call(arguments: dict[str, str]) -> dict[str, Any]:
+        async with Client(build_mcp_server(restapi.app)) as client:
+            return (await client.call_tool("coverage", arguments)).structured_content or {}
+
+    listed = asyncio.run(call({}))
+    assert listed["dwd"]["mosmix"]["scope"] == "global"
+    assert listed["dwd"]["observation"]["scope"] == "national"
+    assert all("extent" not in network for networks in listed.values() for network in networks.values())
+
+    one = asyncio.run(call({"provider": "dwd", "network": "dmo"}))
+    assert one["hourly"]["datasets"]["icon"]["extent"]["scope"] == "global"
+    assert one["hourly"]["datasets"]["icon_eu"]["extent"]["scope"] == "regional"

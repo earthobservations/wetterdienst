@@ -561,7 +561,7 @@
           "Catalogue"
         ],
         "summary": "Coverage",
-        "description": "List available data: providers/networks, or the resolutions, datasets and parameters within one.\n\nCall with no arguments to list every provider and its networks. Pass provider+network (e.g.\nprovider=\"dwd\", network=\"observation\") to list its resolutions/datasets/parameters; narrow with\nresolutions=... or datasets=... (e.g. datasets=\"climate_summary\") to discover parameter names.\n\nThe list of every provider downloads nothing, so it answers at once. Per network it gives\n`name_short`, `country`, `url`, `extent` (where its stations are, which `country` does not say) and\n`kind`. `kind` is `observation`, `forecast` or `derived` for a\ntimeseries network, which has stations and values (every network but two); `radar` and `alerts`\nare standalone (`dwd/radar`, `dwd/alerts`): the other endpoints answer 404 for them. For a network\nthat needs credentials, `configured` says whether they are present; whether the provider accepts\nthem is not checked here, `/api/auth` (the MCP `auth` tool) does, for one network. With a provider and\nnetwork, a dataset whose stations are fewer than its network's has an `extent` of its own, and one without\nhas its network's.",
+        "description": "List available data: providers/networks, or the resolutions, datasets and parameters within one.\n\nCall with no arguments to list every provider and its networks. Pass provider+network (e.g.\nprovider=\"dwd\", network=\"observation\") to list its resolutions/datasets/parameters; narrow with\nresolutions=... or datasets=... (e.g. datasets=\"climate_summary\") to discover parameter names.\n\nThe list of every provider downloads nothing, so it answers at once. Per network it gives\n`name_short`, `country`, `url`, `scope` (how far it reaches: `global`, `national` or `regional`, which `country`\ndoes not say) and `kind`. `kind` is `observation`, `forecast` or `derived` for a\ntimeseries network, which has stations and values (every network but two); `radar` and `alerts`\nare standalone (`dwd/radar`, `dwd/alerts`): the other endpoints answer 404 for them. For a network\nthat needs credentials, `configured` says whether they are present; whether the provider accepts\nthem is not checked here, `/api/auth` (the MCP `auth` tool) does, for one network. With a provider and\nnetwork, each dataset has its `extent` (where its stations are: `scope`, `continents`, `bbox`, and\n`countries` for a regional one): the dataset's own where it is narrower than its network's, else the\nnetwork's. `providers` has the extent of every network.",
         "operationId": "coverage_api_coverage_get",
         "parameters": [
           {
@@ -4424,7 +4424,8 @@
         "type": "object",
         "required": [
           "description",
-          "parameters"
+          "parameters",
+          "extent"
         ],
         "title": "CoverageDataset",
         "description": "A dataset of a resolution."
@@ -4450,8 +4451,14 @@
             ],
             "title": "Kind"
           },
-          "extent": {
-            "$ref": "#/components/schemas/Extent"
+          "scope": {
+            "type": "string",
+            "enum": [
+              "global",
+              "national",
+              "regional"
+            ],
+            "title": "Scope"
           },
           "url": {
             "type": "string",
@@ -4476,7 +4483,7 @@
           "name_short",
           "country",
           "kind",
-          "extent",
+          "scope",
           "url",
           "auth",
           "configured",
