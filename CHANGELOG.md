@@ -18,10 +18,11 @@ Types of changes:
 
 ### Changed
 
-- `/api/auth`, the MCP `auth` tool and `wetterdienst about auth` probe the provider at most once
-  a minute per network: a call within that time returns the answer of the one before, and a
-  `valid: null` is kept for 5 seconds only. The answer has the same shape. A credential changed
-  in the environment is known after a restart (GH-2607)
+- `/api/auth` and the MCP `auth` tool probe the provider at most once a minute per network and
+  server process, and say so in their description. `metno/frost` and `aemet/observation` already
+  kept an accepted answer for a minute on disk; now a rejection is kept for up to 60 s too, a
+  `valid: null` for 5 s, and simultaneous calls share one probe. A changed or corrected credential
+  shows within a minute, a revoked one within two. The answer has the same shape (GH-2607)
 
 ## [0.175.0] - 2026-10-25
 

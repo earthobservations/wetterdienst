@@ -12,10 +12,9 @@ from fastapi.testclient import TestClient
 from wetterdienst import Wetterdienst
 from wetterdienst.ui import core
 from wetterdienst.ui.core import (
-    AUTH_PROBE_TTL_SECONDS,
-    AUTH_PROBE_UNKNOWN_TTL_SECONDS,
+    _AUTH_PROBE_TTL_SECONDS,
+    _AUTH_PROBE_UNKNOWN_TTL_SECONDS,
     _ProbeCache,
-    clear_auth_probes,
     get_auth,
 )
 from wetterdienst.ui.restapi import app
@@ -50,7 +49,7 @@ def test_a_second_call_within_the_ttl_does_not_probe() -> None:
     clock, probe = _Clock(), _Probe([True, False])
     cache = _ProbeCache(clock)
     assert cache.get(KEY, probe) is True
-    clock.now += AUTH_PROBE_TTL_SECONDS - 1
+    clock.now += _AUTH_PROBE_TTL_SECONDS - 1
     assert cache.get(KEY, probe) is True
     assert probe.calls == 1
 
@@ -60,7 +59,7 @@ def test_a_call_after_the_ttl_probes_again() -> None:
     clock, probe = _Clock(), _Probe([True, False])
     cache = _ProbeCache(clock)
     assert cache.get(KEY, probe) is True
-    clock.now += AUTH_PROBE_TTL_SECONDS
+    clock.now += _AUTH_PROBE_TTL_SECONDS
     assert cache.get(KEY, probe) is False
     assert cache.get(KEY, probe) is False
     assert probe.calls == 2
@@ -71,7 +70,7 @@ def test_a_rejection_is_kept_as_long_as_an_acceptance() -> None:
     clock, probe = _Clock(), _Probe([False, True])
     cache = _ProbeCache(clock)
     assert cache.get(KEY, probe) is False
-    clock.now += AUTH_PROBE_UNKNOWN_TTL_SECONDS + 1
+    clock.now += _AUTH_PROBE_UNKNOWN_TTL_SECONDS + 1
     assert cache.get(KEY, probe) is False
     assert probe.calls == 1
 
@@ -81,13 +80,13 @@ def test_an_unknown_answer_is_kept_for_a_few_seconds_only() -> None:
     clock, probe = _Clock(), _Probe([None, True])
     cache = _ProbeCache(clock)
     assert cache.get(KEY, probe) is None
-    clock.now += AUTH_PROBE_UNKNOWN_TTL_SECONDS - 1
+    clock.now += _AUTH_PROBE_UNKNOWN_TTL_SECONDS - 1
     assert cache.get(KEY, probe) is None
     assert probe.calls == 1
     clock.now += 1
     assert cache.get(KEY, probe) is True
     assert probe.calls == 2
-    assert AUTH_PROBE_UNKNOWN_TTL_SECONDS < AUTH_PROBE_TTL_SECONDS
+    assert _AUTH_PROBE_UNKNOWN_TTL_SECONDS < _AUTH_PROBE_TTL_SECONDS
 
 
 def test_networks_are_answered_apart() -> None:
@@ -123,27 +122,28 @@ def test_a_probe_that_raises_leaves_nothing_behind() -> None:
 
 
 def test_concurrent_callers_make_one_probe() -> None:
-    """Callers arriving while the probe runs wait for it and reuse its answer."""
+    """Callers that start together wait for the probe that runs and reuse its answer."""
     threads_n = 12
     cache = _ProbeCache(_Clock())
-    started, release = threading.Event(), threading.Event()
+    # every thread and the test: nobody calls before all are ready, and the probe is held until all are let go
+    barrier = threading.Barrier(threads_n + 1, timeout=10)
+    release = threading.Event()
     calls: list[int] = []
     answers: list[bool | None] = []
 
     def probe() -> bool:
         calls.append(1)
-        started.set()
         assert release.wait(timeout=10)
         return True
 
     def call() -> None:
+        barrier.wait()
         answers.append(cache.get(KEY, probe))
 
     threads = [threading.Thread(target=call) for _ in range(threads_n)]
-    threads[0].start()
-    assert started.wait(timeout=10)
-    for thread in threads[1:]:
+    for thread in threads:
         thread.start()
+    barrier.wait()
     release.set()
     for thread in threads:
         thread.join(timeout=10)
@@ -175,9 +175,9 @@ def test_get_auth_probes_once_and_answers_the_same(probes: list[object]) -> None
 
 
 def test_get_auth_probes_again_after_the_cache_is_cleared(probes: list[object]) -> None:
-    """`clear_auth_probes` is the way round the cache."""
+    """The cache is cleared as a test does, to probe again."""
     get_auth(_Api, "metno", "frost")
-    clear_auth_probes()
+    core._auth_probes.clear()  # noqa: SLF001
     get_auth(_Api, "metno", "frost")
     assert len(probes) == 2
 
@@ -202,3 +202,35 @@ def test_the_rest_route_probes_once_in_a_minute(probes: list[object], monkeypatc
     expected = {"provider": "aemet", "network": "observation", "auth": True, "configured": True, "valid": True}
     assert bodies == [expected] * 3
     assert len(probes) == 1
+
+
+def test_every_spelling_of_a_network_is_one_probe_and_one_key(probes: list[object]) -> None:
+    """The key is the resolved network, so another spelling of its name neither probes again nor adds a key."""
+    api = Wetterdienst.resolve("metno", "frost")
+    assert Wetterdienst.resolve(" METNO", "frost ") is api
+    for provider, network in [("metno", "frost"), ("METNO", "Frost"), (" metno", "frost ")]:
+        get_auth(api, provider, network)
+    assert len(probes) == 1
+    assert len(core._auth_probes._entries) == 1  # noqa: SLF001
+
+
+def test_the_spellings_of_a_network_on_the_rest_route_are_one_probe(probes: list[object]) -> None:
+    """`/api/auth` resolves the name before the cache is asked, whichever way it is written."""
+    client = TestClient(app)
+    statuses = []
+    for provider in ["aemet", "AEMET", " aemet"]:
+        response = client.get("/api/auth", params={"provider": provider, "network": "observation"})
+        statuses.append(response.status_code)
+    assert statuses == [200, 200, 200]
+    assert len(probes) == 1
+    assert len(core._auth_probes._entries) == 1  # noqa: SLF001
+
+
+def test_an_unknown_network_adds_no_key(probes: list[object]) -> None:
+    """A name that does not resolve is refused before the cache is asked, and no probe or key comes of it."""
+    client = TestClient(app)
+    for provider, network in [("nonexistent", "fake"), ("metno", "nonexistent")]:
+        response = client.get("/api/auth", params={"provider": provider, "network": network})
+        assert response.status_code == 404
+    assert probes == []
+    assert core._auth_probes._entries == {}  # noqa: SLF001

@@ -1364,9 +1364,10 @@ def auth(
     `valid` is false whenever `configured` is false (a probe cannot be performed without credentials).
 
     This is the one call that probes the provider, for the one network asked about: one attempt that
-    gives up after a few seconds. `/api/coverage` does not probe, so ask here whether the credentials
-    of a network it lists as `configured` are accepted. The MCP tool and the CLI command
-    (`wetterdienst about auth`) are this call.
+    gives up after a few seconds. The answer may be up to a minute old: the provider is probed at most
+    once a minute per network (5 seconds after a `valid` of null). `/api/coverage` does not probe, so
+    ask here whether the credentials of a network it lists as `configured` are accepted. The MCP tool
+    and the CLI command (`wetterdienst about auth`) are this call.
     """
     provider, network = request.provider, request.network
 
