@@ -191,7 +191,7 @@ update.**
 Nothing the browser runs comes from a CDN. The query panel's DuckDB-wasm (about 35 MB, about 5 MB over the wire)
 and Swagger UI (about 1.6 MB) at `/docs` are files of the app (`/_nuxt/` and `/_swagger-ui/`), so the Content
 Security Policy allows no script or worker from any other origin, and no `'unsafe-eval'`. The icons are the app's
-own too (`/_nuxt_icon`), and so are the map's marker images (leaflet's own). The app calls OpenStreetMap for map tiles
+own too (`/_nuxt_icon`), and so are the map's marker images (Leaflet's own). The app calls OpenStreetMap for map tiles
 and GitHub for the avatars on the About page, nothing else.
 
 The app does not forward the cookies or the `Authorization` of a client to the backend, on `/api` or on `/mcp`.

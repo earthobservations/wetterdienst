@@ -19,7 +19,7 @@ Types of changes:
 ### Changed
 
 - `[Map]` The station map loads no image from Cloudflare or GitHub any more: its markers are
-  leaflet's own images, served by the app, and the selected marker is the same image tinted green
+  Leaflet's own images, served by the app, and the selected marker is the same image tinted green
   and drawn larger. The Content Security Policy's `img-src` drops `cdnjs.cloudflare.com` and
   `raw.githubusercontent.com`, and the privacy policy no longer names them (GH-3420)
 

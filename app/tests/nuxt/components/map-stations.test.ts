@@ -102,8 +102,8 @@ describe('mapStations marker icons', () => {
   it('tints the selected marker by CSS and draws it larger, so it is told apart without colour', async () => {
     const icons = await iconsFor([berlin])
 
-    // the same image, not another download
-    expect(icons[0].iconUrl).toBe(icons[1].iconUrl)
+    // the same image (the default's 2x, which is not stretched at the larger size), not another download
+    expect(icons[0].iconUrl).toBe(icons[1].iconRetinaUrl)
     expect(icons[0].className).toBe('wd-marker-selected')
     expect(icons[1].className).toBeUndefined()
     expect(icons[0].iconSize[0]).toBeGreaterThan(icons[1].iconSize[0])

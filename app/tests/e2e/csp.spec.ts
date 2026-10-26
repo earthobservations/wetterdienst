@@ -150,7 +150,7 @@ test.describe('a page held to its policy', () => {
 })
 
 test.describe('the station map', () => {
-  test('draws its marker images from the app: no request to Cloudflare or GitHub, no image the policy refuses (GH-3420)', async ({ page, baseURL }) => {
+  test('draws its marker images, the selected one too, from the app: no request to Cloudflare or GitHub, no image the policy refuses (GH-3420)', async ({ page, baseURL }) => {
     const requested: string[] = []
     page.on('request', request => requested.push(request.url()))
     await page.addInitScript(() => {
@@ -161,18 +161,24 @@ test.describe('the station map', () => {
     })
     await mockBackend(page, baseURL!)
     await page.goto('/explorer?provider=dwd&network=observation&resolution=daily&dataset=climate_summary&parameters=temperature_air_max_2m,temperature_air_mean_2m&mode=station')
-
     await page.getByRole('button', { name: 'Choose on the map' }).click()
-    const marker = page.locator('img.leaflet-marker-icon').first()
-    await expect(marker).toBeVisible()
-    // the image decoded: it is drawn, not a broken one the policy or the network refused
-    await expect.poll(() => marker.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true)
-    const sources = await page.locator('img.leaflet-marker-icon, img.leaflet-marker-shadow').evaluateAll(
-      images => images.map(image => (image as HTMLImageElement).currentSrc),
-    )
-    expect(sources.length).toBeGreaterThan(0)
-    for (const source of sources)
-      expect(source.startsWith('data:') || source.startsWith(`${new URL(baseURL!).origin}/`), source).toBe(true)
+
+    const origin = new URL(baseURL!).origin
+    const drawn = async (selector: string) => {
+      const images = page.locator(selector)
+      await expect(images.first()).toBeVisible()
+      // each image decoded: it is drawn, not a broken one that the policy or the network refused
+      await expect.poll(() => images.evaluateAll(list => list.every(image => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0))).toBe(true)
+      const sources = await images.evaluateAll(list => list.map(image => (image as HTMLImageElement).currentSrc))
+      for (const source of sources)
+        expect(source.startsWith('data:') || source.startsWith(`${origin}/`), source).toBe(true)
+    }
+
+    await drawn('img.leaflet-marker-icon:not(.wd-marker-selected)')
+    await drawn('img.leaflet-marker-shadow')
+    // a marker is picked: a click on it is intercepted by an overlapping button, so the event is sent to it
+    await page.locator('img.leaflet-marker-icon').first().dispatchEvent('click')
+    await drawn('img.leaflet-marker-icon.wd-marker-selected')
 
     const external = requested.filter(url => /cdnjs\.cloudflare\.com|raw\.githubusercontent\.com|unpkg\.com/.test(url))
     expect(external).toEqual([])

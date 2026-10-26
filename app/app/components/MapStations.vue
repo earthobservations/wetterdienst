@@ -20,7 +20,7 @@ const emit = defineEmits(['update:selectedStations'])
 if (import.meta.client && !window.L)
   window.L = L
 
-// The marker images are the ones leaflet ships, imported through the bundler so the app serves them
+// The marker images are the ones Leaflet ships, imported through the bundler so the app serves them
 // itself: no marker is requested from a third party. The selected marker is the same image tinted
 // green by CSS (`.wd-marker-selected`, below) and drawn larger, so it is told apart without colour too.
 const defaultIcon = L.icon({
@@ -33,7 +33,8 @@ const defaultIcon = L.icon({
   shadowSize: [41, 41],
 })
 const selectedIcon = L.icon({
-  iconUrl: markerIcon,
+  // the 2x image: at 33x54 the 1x one would be stretched and blurred
+  iconUrl: markerIcon2x,
   iconRetinaUrl: markerIcon2x,
   shadowUrl: markerShadow,
   iconSize: [33, 54],
@@ -290,8 +291,9 @@ watch([
 @import 'leaflet.markercluster/dist/MarkerCluster.css';
 @import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 
-/* The selected marker: leaflet's blue marker (hue 208) turned to green (hue about 130), and outlined in dark */
-.wd-marker-selected {
+/* The selected marker: Leaflet's blue marker (hue 208) turned to green (hue about 130), and outlined in dark.
+   Leaflet puts the icon's class on its shadow image too, which stays as it is */
+img.leaflet-marker-icon.wd-marker-selected {
   filter: hue-rotate(282deg) saturate(1.3) drop-shadow(0 0 1px #000);
 }
 </style>
