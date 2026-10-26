@@ -43,6 +43,23 @@ describe('security headers', () => {
     expect(imgSrc).toContain('https://*.tile.openstreetmap.org')
   })
 
+  it('allows the hosts the app loads images from, the ones the privacy policy names, and no whole scheme', async () => {
+    const config = await loadConfig()
+    const policy = policyOf(config)
+
+    const hosts = Object.values(policy).flat().filter(source => source.includes('://')).sort()
+    expect(hosts).toEqual([
+      'https://*.tile.openstreetmap.org',
+      'https://avatars.githubusercontent.com',
+      'https://cdnjs.cloudflare.com',
+      'https://raw.githubusercontent.com',
+    ])
+    // the app ships no web font of another origin: a font is its own file or a data URL
+    expect(policy['font-src']).toEqual(['\'self\'', 'data:'])
+    for (const [directive, sources] of Object.entries(policy))
+      expect(sources, directive).not.toEqual(expect.arrayContaining(['https:']))
+  })
+
   it('allows no CDN: the DuckDB-wasm and Swagger UI files are the app\'s own (GH-3094)', async () => {
     const config = await loadConfig()
     const policy = policyOf(config)
