@@ -1535,6 +1535,14 @@ def _metadata_stamp(filesystem: WholeFileCacheFileSystem) -> tuple[int, int, int
     return status.st_mtime_ns, status.st_size, status.st_ino
 
 
+def _entry_time(detail: object) -> float:
+    """Read when an entry of the metadata was made: 0 for one that says nothing usable, which any other beats."""
+    try:
+        return float(detail["time"]) if isinstance(detail, dict) else 0.0
+    except (KeyError, TypeError, ValueError):
+        return 0.0
+
+
 def _refresh_metadata(filesystem: WholeFileCacheFileSystem) -> None:
     """Bring what a caching filesystem holds up to what the metadata file says now, where that has moved.
 
@@ -1556,8 +1564,10 @@ def _refresh_metadata(filesystem: WholeFileCacheFileSystem) -> None:
             held = filesystem._metadata.cached_files[-1]  # noqa: SLF001
             filesystem.load_cache()
             fresh = filesystem._metadata.cached_files[-1]  # noqa: SLF001
+            # a record of the file that has no usable `time` counts as 0, so that it never raises once the view is
+            # replaced (the stamp would then keep the entries only this filesystem held from being read back)
             for key, detail in held.items():
-                if key not in fresh or fresh[key]["time"] < detail["time"]:
+                if key not in fresh or _entry_time(fresh[key]) < _entry_time(detail):
                     fresh[key] = detail
     except Exception:
         log.debug("Could not read the cache metadata again, keeping what is held", exc_info=True)
@@ -2552,7 +2562,8 @@ def cached_file_time(
     """Tell when the copy `download_file` holds for a url was made, as `time.time()` has it; None where none is held.
 
     Takes the arguments the download was made with, as `drop_cached_file` does, since they name the cache. Read from
-    the metadata file and not from this thread's memory of it: the copy was most likely made by another thread.
+    the metadata file, merged into this thread's memory of it, where the file has changed: the copy was most likely
+    made by another thread.
     Never raises: a cache that cannot be read holds no copy.
     """
     try:
@@ -2565,7 +2576,7 @@ def cached_file_time(
         )
         if not isinstance(filesystem, WholeFileCacheFileSystem):
             return None
-        filesystem.load_cache()
+        _refresh_metadata(filesystem)
         held = _held_in_view(filesystem, url)
         return float(held[0]["time"]) if held else None
     except Exception:  # noqa: BLE001 -- best effort: no copy known is no date from it

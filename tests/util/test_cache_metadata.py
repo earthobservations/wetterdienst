@@ -259,8 +259,14 @@ def test_a_miss_reads_the_metadata_file_once(
     assert not cached_copy_is_held(other, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR)
     assert len(reads) == 1
 
+    # `cached_file_time` refreshes as a lookup does: once for a file another thread changed, never for one that is not
     reads.clear()
     assert cached_file_time(other, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR) is None
+    assert reads == []
+    third = _url(source, "/third.txt")
+    _download_in_another_thread(third, tmp_path)
+    reads.clear()
+    assert cached_file_time(third, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR) is not None
     assert len(reads) == 1
 
 
@@ -348,6 +354,58 @@ def test_an_entry_another_process_dropped_is_written_back_by_the_thread_that_fet
 
     assert x in _metadata_on_disk(tmp_path)
     assert _in_thread_result(lambda: download_file(x, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR)).from_cache
+
+
+def _rewrite_metadata(cache_dir: Path, change: Callable[[dict], None]) -> None:
+    """Change the metadata file as another process's write would."""
+    (metadata_file,) = cache_dir.rglob("cache")
+    entries = json.loads(metadata_file.read_text(encoding="utf-8"))
+    change(entries)
+    metadata_file.write_text(json.dumps(entries), encoding="utf-8")
+
+
+def test_the_later_time_of_an_entry_wins_where_the_view_and_the_file_both_hold_it(
+    source: ThreadingHTTPServer, tmp_path: Path
+) -> None:
+    """The refresh merges as fsspec's save does: the newer of two records of a copy is the one kept, whichever side."""
+    older = _url(source, "/older.txt")
+    newer = _url(source, "/newer.txt")
+    download_file(older, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR)
+    download_file(newer, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR)
+    held = cached_file_time(older, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR)
+    assert held is not None
+    in_the_future = time.time() + 600
+
+    def change(entries: dict) -> None:
+        entries[older]["time"] = 0  # the file has an older record than the view
+        entries[newer]["time"] = in_the_future  # and a newer one
+
+    _rewrite_metadata(tmp_path, change)
+    assert not cached_copy_is_held(_url(source, "/never.txt"), cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR)
+
+    assert cached_file_time(older, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR) == held
+    assert cached_file_time(newer, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR) == in_the_future
+
+
+def test_an_entry_of_the_file_without_a_time_does_not_cost_the_view_what_only_it_holds(
+    source: ThreadingHTTPServer, tmp_path: Path
+) -> None:
+    """A record that says nothing usable is no failure, and the entries only this filesystem holds are kept."""
+    x = _url(source, "/x.txt")
+    y = _url(source, "/y.txt")
+    download_file(x, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR)
+    download_file(y, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR)
+
+    def change(entries: dict) -> None:
+        del entries[y]  # a record another process dropped
+        del entries[x]["time"]  # one that lost its time
+        entries["http://example.invalid/bad"] = {"original": "bad", "fn": "bad", "blocks": True, "time": "soon"}
+
+    _rewrite_metadata(tmp_path, change)
+
+    assert not cached_copy_is_held(_url(source, "/never.txt"), cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR)
+    assert cached_copy_is_held(x, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR)
+    assert cached_copy_is_held(y, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR)
 
 
 def test_a_view_that_another_thread_moved_while_this_one_looked_is_asked_again(
