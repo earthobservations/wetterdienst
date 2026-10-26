@@ -21,9 +21,9 @@ Types of changes:
 - `[Licences]` The app serves the licence notices of the packages in the browser bundle (Leaflet,
   Vue, Plotly, DuckDB-WASM, Swagger UI, ...) at `/third-party-licenses.txt`, linked from the
   footer as "Third-party licences". The production build writes it from the packages' own licence
-  files, so it is also in the Docker image and the release tarball. For DuckDB-WASM it adds the
-  licences of the code inside its files; for Plotly those of the bundled libraries that could be
-  identified, and the file says which are not reproduced (GH-3469)
+  files, so it is also in the Docker image and the release tarball. It adds the licences of the
+  code inside the DuckDB-WASM and Plotly files; the one library for which none could be obtained
+  is named in the file, which lists what was found and is no guarantee of completeness (GH-3469)
 
 ### Changed
 

@@ -98,7 +98,7 @@ test.describe('the file', () => {
     expect(needsMoreThanNotice(notices).map(entry => `${entry.name}@${entry.version}: ${entry.license}`)).toEqual([])
   })
 
-  test('has the notices of the code inside the DuckDB files and says which of Plotly\'s it does not reproduce', async ({ request }) => {
+  test('has the notices of the code inside the DuckDB, Plotly and marker cluster files', async ({ request }) => {
     const text = await (await request.get('/third-party-licenses.txt')).text()
     test.skip(text === DEVELOPMENT_NOTICE, 'the development server has no bundle to read the notices from')
 
@@ -107,8 +107,11 @@ test.describe('the file', () => {
     for (const needle of ['third_party/re2/LICENSE', 'third_party/zstd/LICENSE', 'third_party/mbedtls/LICENSE', 'js-sha256@0.11.1', 'ws@8.22.0'])
       expect(duckdb, needle).toContain(needle)
     const plotly = byName.get('plotly.js-basic-dist-min')!.body
-    expect(plotly).toContain('NOT reproduced')
-    expect(plotly).toContain('@plotly/d3@3.8.2')
+    // the unminified bundle's packages, at least the ones with a notice of their own that used to be dropped
+    for (const needle of ['@plotly/d3@3.8.2', 'maplibre-gl@4.7.1', 'tinycolor2@1.4.2', 'No licence text could be obtained for native-promise-only@0.8.1'])
+      expect(plotly, needle).toContain(needle)
+    expect(byName.get('leaflet.markercluster')!.body).toContain('literateprograms.org')
+    expect(text).toContain('not a legal guarantee of completeness')
     // the code of the build tools that is in every chunk
     for (const name of ['vite', 'rolldown', '@vitejs/plugin-vue'])
       expect(byName.has(name), name).toBe(true)

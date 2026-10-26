@@ -5,6 +5,8 @@ import { afterAll, describe, expect, it } from 'vitest'
 import {
   bundledLicenseComment,
   collectNotices,
+  commentAround,
+  exactText,
   findPackageChain,
   findPackageDir,
   needsMoreThanNotice,
@@ -96,8 +98,10 @@ describe('the notice of a package', () => {
     expect(duckdb.texts[0]!.text).toContain('DuckDB')
     // and the code inside the DuckDB files, whatever the package ships: DuckDB's own third_party/ and the worker's libraries
     const inside = duckdb.texts.find(entry => entry.file.startsWith('duckdb-wasm-third-party.txt'))!.text
-    for (const needle of ['08e34c447bae34eaee3723cac61f2878b6bdf787', 'third_party/re2/LICENSE', 'third_party/zstd/LICENSE', 'third_party/mbedtls/LICENSE', 'js-sha256@0.11.1', 'ws@8.22.0'])
+    for (const needle of ['08e34c447bae34eaee3723cac61f2878b6bdf787', 'third_party/re2/LICENSE', 'third_party/zstd/LICENSE', 'third_party/mbedtls/LICENSE', 'alp/algorithm/LICENSE', 'alprd/algorithm/LICENSE', 'Tencent/rapidjson', 'js-sha256@0.11.1', 'ws@8.22.0', 'wasm-feature-detect@1.6.1', 'web-worker@1.2.0', 'byte-identical'])
       expect(inside, needle).toContain(needle)
+    // the first line of a text keeps its indentation
+    expect(inside).toContain('---- duckdb/duckdb@v1.5.4 third_party/ska_sort/LICENSE ----\n\n          Copyright Malte Skarupke 2016.')
 
     const shipped = readNotice(makePackage(join(root, 'vaul-vue-2'), { name: 'vaul-vue', version: '9', license: 'ISC' }, { LICENSE: 'Their own text' }))
     expect(shipped.license).toBe('ISC')
@@ -111,8 +115,31 @@ describe('the notice of a package', () => {
 
     const notice = readNotice(makePackage(join(root, 'plotly'), { name: 'plotly.js-basic-dist-min', version: '3', license: 'MIT' }, { 'LICENSE': 'Plotly MIT', 'plotly-basic.min.js': file }))
     // its LICENSE, the libraries of the fallback with what it does not reproduce, and the comment the file ends with
-    expect(notice.texts.map(entry => entry.text)).toEqual(['Plotly MIT', expect.stringContaining('NOT reproduced'), expect.stringContaining('left-pad/index.js')])
-    expect(notice.texts[1]!.text).toContain('@plotly/d3@3.8.2')
+    expect(notice.texts.map(entry => entry.text)).toEqual(['Plotly MIT', expect.stringContaining('covered below'), expect.stringContaining('left-pad/index.js')])
+    // every package of the unminified bundle's "// node_modules/" comments, at the version of plotly.js v3.7.0's lock
+    const plotly = notice.texts[1]!.text
+    const packages = ['@plotly/d3', 'base64-arraybuffer', 'd3-format', 'd3-time', 'd3-time-format', 'events', 'fast-isnumeric', 'gl-mat4', 'has-hover', 'has-passive-events', 'is-browser', 'is-mobile', 'is-string-blank', 'maplibre-gl', 'mouse-event-offset', 'native-promise-only', 'object-assign', 'parse-svg-path', 'point-in-polygon', 'polybooljs', 'tinycolor2', 'world-calendars']
+    expect(packages).toHaveLength(22)
+    for (const name of packages)
+      expect(plotly, name).toMatch(new RegExp(`${name.replace(/[/.]/g, '\\$&')} \\d`))
+    expect(plotly).toContain('maplibre-gl@4.7.1 LICENSE')
+    // the one for which no text could be obtained is named in the header, and the ones that were dropped are not there
+    expect(plotly).toContain('No licence text could be obtained for native-promise-only@0.8.1')
+    for (const name of ['color-normalize', 'color-rgba', 'topojson-client'])
+      expect(plotly, name).not.toContain(name)
+  })
+
+  it('adds the notice a package embeds for code that is not its own, and keeps the indentation of a text', () => {
+    const source = 'var a\n\n\t/* Copyright (c) 2012 the authors listed at\n\thttp://en.literateprograms.org/Quickhull\n\tPermission is hereby granted */\n\n(function () {})'
+    expect(commentAround(source, 'literateprograms.org')).toBe('/* Copyright (c) 2012 the authors listed at\n\thttp://en.literateprograms.org/Quickhull\n\tPermission is hereby granted */')
+    expect(commentAround(source, 'nowhere')).toBeNull()
+    mkdirSync(join(root, 'markercluster2', 'dist'), { recursive: true })
+    writeFileSync(join(root, 'markercluster2', 'dist', 'leaflet.markercluster-src.js'), source)
+    const embedded = readNotice(makePackage(join(root, 'markercluster2'), { name: 'leaflet.markercluster', version: '1', license: 'MIT' }, { LICENSE: 'MIT' }))
+    expect(embedded.texts.map(entry => entry.file)).toEqual(['LICENSE', expect.stringContaining('QuickHull')])
+    expect(embedded.texts[1]!.text).toContain('literateprograms.org')
+
+    expect(exactText('\r\n\n   Indented first line\n\tsecond\n\n')).toBe('   Indented first line\n\tsecond')
   })
 
   it('reads the sidecar of Swagger UI, which is no licence file by name', () => {

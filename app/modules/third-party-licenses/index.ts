@@ -9,7 +9,8 @@ import { collectNotices, DEVELOPMENT_NOTICE, findPackageChain, needsMoreThanNoti
 // its chunks and assets hold (not the ones that only build the app), so a plugin of that build reads the module ids
 // of the finished bundle, and the file is made from the packages' own LICENSE and NOTICE files: a dependency that
 // reaches the bundle is in the file by construction, with nothing to keep up by hand. Nitro publishes it at the
-// root of the app, and the page's footer links to it. The file is a build product (`.nuxt/`), not a file of the
+// root of the app, and the page's footer links to it. The file is a build product (in Nuxt's build directory:
+// `node_modules/.cache/nuxt/.nuxt` for a production build, `.nuxt/` for the development server), not a file of the
 // repository.
 const FILE = 'third-party-licenses.txt'
 
@@ -38,7 +39,9 @@ export default defineNuxtModule({
 
     // the client build only: the server build holds no code the browser runs
     if (!nuxt.options.dev) {
-      // Vite writes the file names of an asset relative to its root, which is not the working directory
+      // Vite writes the file names of an asset relative to its root, which is not the working directory. Today the root
+      // is the source directory and no package is reached only as an asset, so this changes nothing yet: it keeps an
+      // asset-only package (a font, a WASM file) from being dropped silently when one is added.
       let root = nuxt.options.srcDir
       addVitePlugin({
         name: 'third-party-licenses',
