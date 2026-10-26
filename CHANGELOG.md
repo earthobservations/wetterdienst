@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `/api/auth`, the MCP `auth` tool and `wetterdienst about auth` probe the provider at most once
+  a minute per network: a call within that time returns the answer of the one before, and a
+  `valid: null` is kept for 5 seconds only. The answer has the same shape. A credential changed
+  in the environment is known after a restart (GH-2607)
+
 ## [0.175.0] - 2026-10-25
 
 ### Added

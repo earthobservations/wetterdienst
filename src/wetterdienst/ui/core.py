@@ -8,6 +8,8 @@ import json
 import logging
 import re
 import sys
+import threading
+import time
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from typing import TYPE_CHECKING, Annotated, Any, Literal, LiteralString, cast
@@ -1438,6 +1440,61 @@ class AuthAnswer(TypedDict):
     valid: bool | None
 
 
+# how long the answer of a probe is reused, in seconds: the provider is probed at most once in this time per network
+AUTH_PROBE_TTL_SECONDS = 60.0
+# the same for an answer that could not be told (`None`): short, so that an outage that ends is not reported for long
+AUTH_PROBE_UNKNOWN_TTL_SECONDS = 5.0
+
+
+class _ProbeEntry:
+    """The last answer of one probe, and until when it holds."""
+
+    def __init__(self) -> None:
+        self.lock = threading.Lock()
+        self.valid: bool | None = None
+        self.expires = float("-inf")
+
+
+class _ProbeCache:
+    """The answers of the credential probes, one per (provider, network), each reused for a short time.
+
+    Every caller of `get_auth` (the REST route, the MCP tool, the CLI) would otherwise make the provider
+    answer a request of its own. The answer is the probe's `valid` alone: the credential is neither a key nor
+    a value here. Each key has its own lock, held while its probe runs, so callers arriving meanwhile wait for
+    that answer and reuse it, and probes of different networks do not wait for each other.
+    """
+
+    def __init__(self, clock: Callable[[], float] = time.monotonic) -> None:
+        self._clock = clock
+        self._guard = threading.Lock()
+        self._entries: dict[tuple[str, str], _ProbeEntry] = {}
+
+    def get(self, key: tuple[str, str], probe: Callable[[], bool | None]) -> bool | None:
+        """Return the answer of `probe` for `key`, calling it only where the last answer has expired."""
+        with self._guard:
+            entry = self._entries.setdefault(key, _ProbeEntry())
+        with entry.lock:
+            if self._clock() < entry.expires:
+                return entry.valid
+            valid = probe()
+            ttl = AUTH_PROBE_UNKNOWN_TTL_SECONDS if valid is None else AUTH_PROBE_TTL_SECONDS
+            entry.valid, entry.expires = valid, self._clock() + ttl
+            return valid
+
+    def clear(self) -> None:
+        """Forget every answer, so that the next call probes."""
+        with self._guard:
+            self._entries.clear()
+
+
+_auth_probes = _ProbeCache()
+
+
+def clear_auth_probes() -> None:
+    """Forget the answers of the credential probes (for tests, which change the credentials in one process)."""
+    _auth_probes.clear()
+
+
 def get_auth(api: type[TimeseriesRequest] | StandaloneRequest, provider: str, network: str) -> AuthAnswer:
     """Check the credentials of one network, probing its provider where they are configured.
 
@@ -1447,6 +1504,10 @@ def get_auth(api: type[TimeseriesRequest] | StandaloneRequest, provider: str, ne
     and `valid` without a request; one whose credentials are missing is not `valid`, as a probe
     cannot be performed without them; one that is configured is `valid` as the probe tells, `None`
     when it could not (`Wetterdienst.is_valid`).
+
+    The provider is probed at most once a minute per network: a call within that time gets the answer
+    of the one before, and an answer of `None` is kept for a few seconds only. The credentials are
+    read from the environment at start, so a changed one is known after a restart.
     """
     from wetterdienst.api import Wetterdienst  # noqa: PLC0415
 
@@ -1458,7 +1519,7 @@ def get_auth(api: type[TimeseriesRequest] | StandaloneRequest, provider: str, ne
     elif not configured:
         valid = False
     else:
-        valid = Wetterdienst.is_valid(api)
+        valid = _auth_probes.get((provider, network), lambda: Wetterdienst.is_valid(api))
     return AuthAnswer(provider=provider, network=network, auth=requires_auth, configured=configured, valid=valid)
 
 
