@@ -220,11 +220,11 @@ _TOOL_TITLES: dict[str, tuple[str, bool]] = {
     "coverage": ("List available data", False),
     "glossary": ("Look up a parameter", False),
     "providers": ("Describe data providers", False),
-    "stations": ("Find weather stations", True),
-    "values": ("Get measured values", True),
+    "stations": ("Find stations", True),
+    "values": ("Get station values", True),
     "interpolate": ("Interpolate values for a point", True),
-    "summarize": ("Summarize values for a point", True),
-    "history": ("Get a station's history", True),
+    "summarize": ("Get nearest-station values for a point", True),
+    "history": ("Get a station's metadata history", True),
     "issues": ("List forecast issues", True),
     "alerts": ("Get weather alerts", True),
     "stripes_stations": ("Find climate stripes stations", True),
@@ -254,16 +254,14 @@ def _annotate_tool(
         raise KeyError(msg)
     title, open_world = _TOOL_TITLES[component.name]
     component.title = title
-    # validated from the names on the wire, which every release of the MCP types takes
-    # (the attributes of the newer ones are snake_case, the older ones' camelCase)
-    component.annotations = ToolAnnotations.model_validate(
-        {
-            "title": title,
-            "readOnlyHint": True,
-            "destructiveHint": False,
-            "idempotentHint": True,
-            "openWorldHint": open_world,
-        }
+    # keyword arguments, which the type checker holds to the fields; they go out on the wire as
+    # `readOnlyHint` and so on
+    component.annotations = ToolAnnotations(
+        title=title,
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=open_world,
     )
 
 

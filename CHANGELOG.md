@@ -18,7 +18,7 @@ Types of changes:
 
 ### Added
 
-- Every MCP tool has a `title` ("Find weather stations") and the annotations `readOnlyHint` true,
+- Every MCP tool has a `title` ("Find stations") and the annotations `readOnlyHint` true,
   `destructiveHint` false and `idempotentHint` true, which the Claude connectors directory
   requires and clients use to skip a confirmation. `openWorldHint` is false for `coverage`,
   `glossary` and `providers`, which answer from wetterdienst's own metadata, and true for the
