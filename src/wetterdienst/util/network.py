@@ -1238,9 +1238,10 @@ def _sweep_expired_blobs(
       a `PermissionError` for the builder rather than the harmless POSIX unlink. So a sweep that is
       ever re-armed after the first one needs a new answer to the first question, and the lock alone
       will not give it one. A download takes it for each load and save of the metadata, which keeps
-      the two from overlapping, but `clear_expired` saves the snapshot its own filesystem loaded
-      without merging the file first -- so a sweep taking its turn after a sibling's save still
-      writes over the rows that save added.
+      the two from overlapping, but when something has expired `clear_expired` saves the snapshot
+      without merging the file at that moment -- so a sweep taking its turn after a sibling's save
+      still writes over the rows that save added (the lock is per process; across processes it
+      stays open: GH-3485).
 
     Args:
         filesystem: The caching filesystem that owns this directory.
@@ -1511,6 +1512,30 @@ def _drop_orphaned_sidecars(directory: Path) -> None:
                 sidecar.unlink(missing_ok=True)
 
 
+def _remove_unclaimed_files(directory: Path, rows: dict[str, Any], older_than: float) -> None:
+    """Remove the files of a cache directory that no row names and that are older than `older_than` seconds.
+
+    What a sweep that removed the whole directory used to collect: a blob whose row another process's save dropped, the
+    `<blob>.<uuid>.tmp` of a fetch that was killed, a `cache-<random>` of a save that was. Left alone are the metadata
+    file, the marker, the blobs rows name and their sidecars. A copy being fetched, or fetched just now, is younger than
+    the expiry, so it is never taken. A removal that fails is skipped (Windows refuses one on a file that is open).
+    """
+    named = {str(detail["fn"]) for detail in rows.values() if isinstance(detail, dict) and "fn" in detail}
+    kept = {"cache", _CACHE_USE_MARKER}
+    cutoff = time.time() - older_than
+    try:
+        entries = list(directory.iterdir())
+    except OSError:
+        return
+    for entry in entries:
+        name = entry.name
+        if name in kept or name in named or name.removesuffix(_SIDECAR_SUFFIX) in named:
+            continue
+        with contextlib.suppress(OSError):
+            if entry.is_file() and entry.stat().st_mtime < cutoff:
+                entry.unlink(missing_ok=True)
+
+
 def _last_modified_registry(filesystem: object) -> dict[str, dt.datetime | None] | None:
     """Give the dict of `Last-Modified` dates that a filesystem, or the one it wraps, keeps for `download_file`."""
     registry = getattr(getattr(filesystem, "fs", filesystem), "last_modified_of", None)
@@ -1650,9 +1675,17 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
         fsspec's own sweep removes the whole directory when it ends with no entry in the snapshot it holds, and the
         snapshot of a process that starts on an empty directory is empty whatever the processes that started beside it
         have written since. That took their copies, and the directory from under them: `FileExistsError` where one
-        was making it, copies fetched again. So an empty snapshot expires nothing, a snapshot with nothing expired in
-        it is not written back (it is the one place where a row another process added since is lost), and one with
-        every entry expired is written back empty, which fsspec's does not do because it removes the directory.
+        was making it, copies fetched again. So the directory stays. The metadata file is read again first, so that a
+        row another process has written since is swept as it is rather than missed. An empty snapshot expires no
+        entry, and a snapshot with nothing expired in it is not written back. One with every entry expired is written
+        back empty, which fsspec's does not do because it removes the directory.
+
+        That removal was also the only thing that collected the files no row names (a blob whose row was lost, the
+        `<blob>.<uuid>.tmp` of a fetch that was killed), so those are collected here: the ones older than the expiry,
+        which a copy being fetched or just fetched never is.
+
+        Writing the file back after an expiry is still a read-merge-write that is not safe against another process
+        writing at that moment: a row it adds in between is lost (GH-3485).
         """
         with _cache_dir_lock:
             self._check_cache()
@@ -1661,20 +1694,22 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
             held = self._metadata.cached_files[-1]
             expiry = expiry_time or self.expiry
             # no expiry is no expiry, as `_check_file` reads it: fsspec's reads a zero as "all of it has expired"
-            if (
-                not expiry
-                or not held
-                or not any(time.time() - _entry_time(detail) > expiry for detail in held.values())
-            ):
+            if not expiry:
                 return
-            expired_blobs, now_empty = self._metadata.clear_expired(expiry)  # ty: ignore[invalid-argument-type]
-            for blob in expired_blobs:
-                Path(blob).unlink(missing_ok=True)
-            if now_empty:
-                # `clear_expired` writes the file only when something is left in it
-                self._metadata._save({}, str(Path(self.storage[-1]) / "cache"))  # noqa: SLF001
-            self._cache_size = None
-            _drop_orphaned_sidecars(Path(self.storage[-1]))
+            directory = Path(self.storage[-1])
+            if any(time.time() - _entry_time(detail) > expiry for detail in held.values()):
+                # fsspec annotates the expiry an int; a float is compared the same
+                expired_blobs, now_empty = self._metadata.clear_expired(expiry)  # ty: ignore[invalid-argument-type]
+                for blob in expired_blobs:
+                    # a blob another handle holds open is left to the next sweep (Windows: `PermissionError`)
+                    with contextlib.suppress(OSError):
+                        Path(blob).unlink(missing_ok=True)
+                if now_empty:
+                    # `clear_expired` writes the file only when something is left in it
+                    self._metadata._save({}, str(directory / "cache"))  # noqa: SLF001
+                self._cache_size = None
+            _remove_unclaimed_files(directory, self._metadata.cached_files[-1], expiry)
+            _drop_orphaned_sidecars(directory)
 
     def clear_cache(self) -> None:
         """Delete the directory, metadata file and all, and load the empty metadata back."""
@@ -1987,9 +2022,9 @@ class NetworkFilesystemManager:
                 # the tidying is before the registry assignment below, and none of it able to raise: a
                 # cache that cannot be tidied must still be a cache that can be read.
                 #
-                # The mark goes after the sweep, not before: a sweep used to leave the cache empty by
-                # removing the whole directory, which took the marker with it (it no longer does: GH-3467)
-                # -- and a directory whose marker is missing reads as one nothing has asked for in a month
+                # The mark goes after the sweep. The order no longer matters much: the sweep used to remove the
+                # whole directory and the marker with it (GH-3467), and a missing marker counts as a directory
+                # just used (`_last_used`), so that was never the way a live cache was reclaimed
                 _sweep_expired_blobs(filesystem_effective, real_cache_dir, ttl_value)
                 _mark_cache_dir_used(real_cache_dir)
                 _reclaim_unreachable_cache_dirs(real_cache_dir.parent, keep=real_cache_dir)

@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 import json
+import os
+import sys
 import time
 from pathlib import Path
 
@@ -106,6 +108,76 @@ def test_the_directory_that_is_removed_between_the_check_and_the_creation_is_mad
     assert target.is_dir()
 
 
+def _aged(path: Path, seconds: float) -> Path:
+    when = time.time() - seconds
+    os.utime(path, (when, when))
+    return path
+
+
+def test_a_sweep_collects_the_files_no_row_names_that_are_older_than_the_expiry(tmp_path: Path) -> None:
+    """What the removal of the whole directory used to collect and the sweep now leaves: orphans, and only old ones."""
+    storage = tmp_path / "fsspec" / "v2-ttl-ONE_HOUR"
+    live = _another_process_caches(storage)
+    sidecar = live.with_name(live.name + ".lm")
+    sidecar.write_text("{}", encoding="utf-8")
+    old_orphan = storage / "a-blob-whose-row-was-lost"
+    old_temp = storage / "a-blob.0123456789abcdef.tmp"
+    young_orphan = storage / "a-blob-fetched-just-now"
+    young_temp = storage / "a-blob.fedcba9876543210.tmp"
+    for orphan in (old_orphan, old_temp, young_orphan, young_temp):
+        orphan.write_bytes(b"payload")
+    _aged(old_orphan, 7200)
+    _aged(old_temp, 7200)
+    (storage / ".last-used").touch()
+    _aged(live, 7200)  # old, but a row names it
+    _aged(sidecar, 7200)
+    _aged(storage / "cache", 7200)
+    _aged(storage / ".last-used", 7200)
+    first = _view(storage)
+
+    first.clear_expired_cache(expiry_time=3600)
+
+    assert not old_orphan.exists()
+    assert not old_temp.exists()
+    assert young_orphan.is_file()
+    assert young_temp.is_file()
+    assert live.is_file()
+    assert sidecar.is_file()
+    assert (storage / "cache").is_file()
+    assert (storage / ".last-used").is_file()
+
+
+def test_a_blob_that_cannot_be_removed_does_not_stop_the_sweep(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Windows refuses to remove a file that is open: the metadata is saved by then, and the rest still goes."""
+    storage = tmp_path / "fsspec" / "v2-ttl-ONE_HOUR"
+    blob = _another_process_caches(storage)
+    entries = _entries(storage)
+    entries["/seeded.txt"]["time"] = time.time() - 7200
+    (storage / "cache").write_text(json.dumps(entries), encoding="utf-8")
+    orphan = storage / "an-orphan"
+    orphan.write_bytes(b"payload")
+    _aged(orphan, 7200)
+    first = _view(storage)
+    original = Path.unlink
+
+    def unlink(self: Path, *args: object, **kwargs: object) -> None:
+        if self == blob:
+            raise PermissionError(str(self))
+        original(self, *args, **kwargs)  # ty: ignore[invalid-argument-type]
+
+    monkeypatch.setattr(Path, "unlink", unlink)
+
+    first.clear_expired_cache(expiry_time=3600)
+
+    assert _entries(storage) == {}
+    assert not orphan.exists()
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Windows cannot replace the metadata file while another process has it open: PermissionError in "
+    "save_cache, which needs a cross-process lock (GH-3485)",
+)
 @pytest.mark.cflake
 def test_processes_that_start_together_on_an_empty_directory_neither_crash_nor_leave_it(tmp_path: Path) -> None:
     """Six fresh processes at a barrier, the same twelve urls: no `FileExistsError`, no process cut off from the others.

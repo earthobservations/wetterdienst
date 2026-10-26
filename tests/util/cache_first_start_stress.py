@@ -35,6 +35,11 @@ from wetterdienst.util.network import _cache_dir_fallbacks, download_files
 PATHS = [f"/first-start/{index}.txt" for index in range(12)]
 
 
+class _Server(ThreadingHTTPServer):
+    #: the default backlog is 5, which processes x threads connecting at once overflow (macOS resets the connection)
+    request_queue_size = 128
+
+
 class _Source(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         self.server.hits[self.path] += 1  # ty: ignore[unresolved-attribute]
@@ -60,8 +65,8 @@ class Round:
 
 def run_worker(cache_dir: str, urls: list[str], barrier: object, results: object) -> None:
     """One process: wait for the others, then download every url; reports a traceback or nothing to `results`."""
-    barrier.wait(timeout=120)  # type: ignore[attr-defined]
     try:
+        barrier.wait(timeout=120)  # type: ignore[attr-defined]
         files = download_files(urls, cache_dir=Path(cache_dir), ttl=CacheExpiry.ONE_HOUR)
         failed = [file.url for file in files if file.status != 200]
         results.put((f"status of {failed}" if failed else "", bool(_cache_dir_fallbacks)))  # type: ignore[attr-defined]
@@ -71,7 +76,7 @@ def run_worker(cache_dir: str, urls: list[str], barrier: object, results: object
 
 def run_round(directory: Path, processes: int = 6) -> Round:
     """Start `processes` together on `directory`, which is empty, and return what went wrong."""
-    server = ThreadingHTTPServer(("127.0.0.1", 0), _Source)
+    server = _Server(("127.0.0.1", 0), _Source)
     server.hits = Counter()  # ty: ignore[unresolved-attribute]
     serving = threading.Thread(target=server.serve_forever, daemon=True)
     serving.start()

@@ -1667,7 +1667,7 @@ def test_an_infinite_cache_is_never_swept(tmp_path: Path) -> None:
     """The sweep that looked like the whole fix destroys exactly the caches worth keeping (GH-1955).
 
     ``CacheExpiry.INFINITE`` is ``False``, ``int(False)`` is ``0``, and fsspec reads an expiry of
-    zero as "every entry is expired": it removes them all and then ``rmtree``s the directory.
+    zero as "every entry is expired": it removes them all (and, before GH-3467, the directory).
     ``lhmt`` and both ``meteofrance`` providers use ``INFINITE`` for immutable archives, so the
     first such download in a fresh process would have thrown the archive away and re-fetched it.
     """
@@ -1876,11 +1876,10 @@ def test_the_directory_being_registered_is_never_reclaimed(tmp_path: Path) -> No
 
 @pytest.mark.usefixtures("_fresh_cache_sweeps")
 def test_a_directory_that_has_just_been_used_says_so(tmp_path: Path) -> None:
-    """The mark has to survive the sweep that runs beside it.
+    """The directory has its mark once it is built, and the sweep that runs beside it leaves it there.
 
-    A sweep that leaves the cache empty has fsspec ``rmtree`` the whole directory and rebuild it,
-    which takes an already-written marker with it -- and a directory whose marker is missing reads
-    as one nothing has asked for in a month, which is how a live cache would be reclaimed.
+    The sweep used to remove the directory when it left the cache empty, and the marker with it
+    (GH-3467); it no longer does.
     """
     storage = _blob_dir(tmp_path, client_kwargs={"headers": {"Authorization": "Bearer mine"}})
 
