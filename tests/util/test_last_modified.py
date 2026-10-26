@@ -249,16 +249,29 @@ def test_a_cached_answer_keeps_the_date_of_the_copy_it_is(source: ThreadingHTTPS
     assert source.requests == ["/file.txt"]
 
 
+def _expire(url: str, cache_dir: Path) -> None:
+    """Make the entry of a url in the metadata file one written long ago, and have this thread read it.
+
+    On disk and not in the memory of the filesystem: a thread that finds no copy reads the file again, so an entry
+    that expired only in memory is a copy that is held.
+    """
+    filesystem = NetworkFilesystemManager.get(
+        cache_dir=cache_dir, cache_expiry=CacheExpiry.ONE_HOUR, cache_disable=False
+    )
+    (metadata_file,) = cache_dir.rglob("cache")
+    entries = json.loads(metadata_file.read_text(encoding="utf-8"))
+    entries[url]["time"] = 0
+    metadata_file.write_text(json.dumps(entries), encoding="utf-8")
+    filesystem.load_cache()
+
+
 def test_a_cached_copy_refreshed_has_the_new_date(source: ThreadingHTTPServer, tmp_path: Path) -> None:
     """A copy fetched anew over an expired one is dated by the new response, not the old copy's."""
     url = _url(source)
     download_file(url, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR)
     source.last_modified = SECOND
     source.body = b"second body"
-    filesystem = NetworkFilesystemManager.get(
-        cache_dir=tmp_path, cache_expiry=CacheExpiry.ONE_HOUR, cache_disable=False
-    )
-    filesystem._metadata.cached_files[-1][url]["time"] = 0  # noqa: SLF001 -- expired
+    _expire(url, tmp_path)
 
     refreshed = download_file(url, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR)
     again = download_file(url, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR)
@@ -277,10 +290,7 @@ def test_a_cached_copy_refreshed_without_a_date_has_none(source: ThreadingHTTPSe
     download_file(url, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR)
     source.last_modified = None
     source.body = b"second body"
-    filesystem = NetworkFilesystemManager.get(
-        cache_dir=tmp_path, cache_expiry=CacheExpiry.ONE_HOUR, cache_disable=False
-    )
-    filesystem._metadata.cached_files[-1][url]["time"] = 0  # noqa: SLF001 -- expired
+    _expire(url, tmp_path)
 
     refreshed = download_file(url, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR)
     again = download_file(url, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR)
@@ -382,7 +392,7 @@ def test_download_files_gives_each_file_its_own_date(source: ThreadingHTTPServer
     again = download_files(urls, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR)
 
     assert [file.last_modified for file in files] == [_utc(FIRST)] * 4
-    # from the cache or fetched again, which the metadata the threads share does not always keep an entry for
+    assert [file.from_cache for file in again] == [True] * 4
     assert [file.last_modified for file in again] == [_utc(FIRST)] * 4
 
 
