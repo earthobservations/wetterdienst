@@ -27,6 +27,7 @@ from wetterdienst.model.schema import (
     WIDE_VALUE_DTYPE,
 )
 from wetterdienst.model.unit import UnitConverter
+from wetterdienst.util.datetime import is_plausible_update, newest
 from wetterdienst.util.logging import TqdmToLogger
 from wetterdienst.util.response_warnings import (
     MISSING_VALUE_MARKER,
@@ -52,6 +53,8 @@ log = logging.getLogger(__name__)
 _UnitT = TypeVar("_UnitT", bound="ParameterModel | DatasetModel", default=Any)
 
 # The columns of a provider's frame that the core cannot make up. A frame without one cannot be made to fit.
+#: the column a provider whose source dates its files hands its rows over with, the date of the file of each row
+UPDATED = "updated"
 _REQUIRED_COLUMNS = ("parameter", "timestamp", "value")
 
 
@@ -183,6 +186,8 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
 
     sr: StationsResult
     unit_converter: UnitConverter = field(default_factory=UnitConverter)
+    #: the dates a provider noted while it collected the station in hand (`_note_data_updated`)
+    _data_updated: list[dt.datetime] = field(default_factory=list, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         """Post-initialization of the TimeseriesValues object."""
@@ -192,6 +197,18 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     def from_stations(cls, stations: StationsResult) -> TimeseriesValues:
         """Create a new instance of the class from a StationsResult object."""
         return cls(stations)
+
+    def _note_data_updated(self, updated: dt.datetime | None) -> None:
+        """Note the date the source states for data this station's frame is made from (GH-2567).
+
+        For a provider whose source says when what it serves was last updated, called with each such date it reads:
+        the result of the station carries the newest one, as `data_updated_at`. A date the source does not state is
+        not made up, and not noting any leaves the result's null, so a provider that has none does nothing. A date that
+        is no plausible one (`is_plausible_update`: before 1990, or later than a day from now) is not noted, whatever
+        the source of it is: the answer is not dated by a mistake.
+        """
+        if updated is not None and is_plausible_update(updated):
+            self._data_updated.append(updated)
 
     def _convert_units(self, df: pl.DataFrame, dataset: DatasetModel) -> pl.DataFrame:
         """Convert values to metric units with help of conversion factors."""
@@ -250,6 +267,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             if self._begins_after_window(df_station_meta):
                 continue
             available_datasets = self._get_available_datasets(df_station_meta)
+            self._data_updated.clear()
             # Collect data for this station
             df = self._filter_by_window(self._collect_station_data(station_id, available_datasets))
             # judged after the window has been cut, not before it: a station whose record lies
@@ -285,7 +303,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             )
             df = df.sort(sort_columns)
             stations_collected += 1
-            yield ValuesResult(stations=self.sr, df=df)
+            yield ValuesResult(stations=self.sr, df=df, data_updated_at=newest(self._data_updated))
 
     def _begins_after_window(self, df_station_meta: pl.DataFrame) -> bool:
         """Whether the station index already says this station started after the window ended.
@@ -328,6 +346,108 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                 closed="both",
             ),
         )
+
+    def _window_stamp(self, df: pl.DataFrame, column: str = "timestamp") -> pl.Expr | None:
+        """Give the stamps of a provider's frame as the UTC datetimes the core cuts the window on, null where it cannot.
+
+        The stamp may be a date or a datetime, with or without a zone (none is UTC, as everywhere else); a column that
+        is neither (a text) cannot be told.
+        """
+        if column not in df.columns:
+            return None
+        dtype = df.schema[column]
+        if dtype != pl.Date and not isinstance(dtype, pl.Datetime):
+            return None
+        stamp = pl.col(column).cast(pl.Datetime("us")) if dtype == pl.Date else pl.col(column)
+        if dtype == pl.Date or getattr(dtype, "time_zone", None) is None:
+            stamp = stamp.dt.replace_time_zone("UTC")
+        return stamp
+
+    def _has_rows_in_window(
+        self,
+        df: pl.DataFrame,
+        column: str = "timestamp",
+        *,
+        value: str | None = None,
+        columns: Iterable[str] | None = None,
+    ) -> bool:
+        """Tell whether a provider's frame has a row inside the window of the request, as `_filter_by_window` cuts it.
+
+        For a provider that dates its answer by the files it read (`_note_data_updated`) and cannot carry the date of a
+        file with its rows (`_note_files_with_rows` does): a file counts only if rows of it are in the answer, and one
+        read because its period was selected, whose rows all lie outside the window, is not. A frame with no row is
+        none. Without a window every row is in, and a column that cannot be told counts every row. Where the nulls are
+        dropped and the frame is long (a column `value` names), only a row with a value counts, and where it is wide
+        (the `columns` that are requested), only a row with a value in one of them.
+        """
+        if self.sr.options.drop_nulls_effective:
+            if value is not None and value in df.columns:
+                df = df.filter(pl.col(value).is_not_null())
+            elif columns is not None:
+                present = [name for name in columns if name in df.columns]
+                df = df.filter(pl.any_horizontal(pl.col(name).is_not_null() for name in present)) if present else df
+        if df.is_empty():
+            return False
+        stamp = self._window_stamp(df, column)
+        if not self.sr.start or stamp is None:
+            return True
+        return not df.filter(stamp.is_between(self.sr.start, self.sr.end, closed="both")).is_empty()
+
+    def _note_written_of_periods_with_rows(
+        self,
+        df: pl.DataFrame,
+        written: dict[int, list[dt.datetime | None]],
+        dataset: DatasetModel,
+        rank: str,
+    ) -> None:
+        """Note when the source wrote the files of each period that has a row in the answer (GH-2567).
+
+        For a provider that reads the periods of a dataset (the recent and the historical archive) into one wide frame
+        and has settled the stamps they share: `written` has the dates of the files of each period by its rank, and the
+        column `rank` of `df` has the rank of the period of each row. A period dates the answer where a row of it is
+        inside the window and, where the nulls are dropped, has a value in a requested parameter of the dataset. A
+        value the core reads as null although the file wrote a text for it is out of sight.
+        """
+        requested = [
+            parameter.name_original
+            for parameter in self.sr.parameters
+            if parameter.dataset.resolution.name == dataset.resolution.name and parameter.dataset.name == dataset.name
+        ]
+        for period, dates in written.items():
+            if self._has_rows_in_window(df.filter(pl.col(rank) == period), columns=requested):
+                for updated in dates:
+                    self._note_data_updated(updated)
+
+    def _note_files_with_rows(self, df: pl.DataFrame, dataset: DatasetModel) -> pl.DataFrame:
+        """Note the date of each file that holds rows the answer keeps, and give the frame without the dates (GH-2567).
+
+        For a provider whose source dates its files: the frame it hands over has, beside each row, the date of the file
+        the row is of in the column `UPDATED` (null for a file that has none). The date of a file is the answer's "date
+        of the most recent update" only for a file that has rows in the answer, or the answer would be dated by data it
+        has not got. A row is kept as the core keeps it: of a requested parameter, inside the window, and, where the
+        shape drops the rows without a value, with a value; of the rows of one reading the first is kept, in the order
+        the provider hands them over. The core cuts the frame after this one, so what it cuts here it would cut there.
+        A frame whose stamp is a text cannot be cut by the window, and every row of it counts.
+        """
+        requested = {
+            parameter.name_original
+            for parameter in self.sr.parameters
+            if parameter.dataset.resolution.name == dataset.resolution.name and parameter.dataset.name == dataset.name
+        }
+        # the core keeps the first of the rows of one reading (a period overlap, a file that is read twice) and drops
+        # the others, then the rows without a value: the files whose rows are the ones it keeps are the ones that date
+        # the answer, so it is done here in the same order, on the same key and before the rows without a value go
+        df = df.unique(subset=["parameter", "timestamp"], keep="first", maintain_order=True)
+        kept = pl.col("parameter").is_in(requested)
+        stamp = self._window_stamp(df)
+        if self.sr.start and stamp is not None:
+            kept &= stamp.is_between(self.sr.start, self.sr.end, closed="both")
+        if self.sr.options.drop_nulls_effective:
+            kept &= pl.col("value").is_not_null()
+        for updated in df.filter(kept).get_column(UPDATED).drop_nulls().unique():
+            self._note_data_updated(updated)
+        # the core drops any column of its own accord (`shape_provider_frame`); this is so that it need not
+        return df.drop(UPDATED)
 
     def _empty_values_df(self) -> pl.DataFrame:
         """Build the frame a request that collected nothing returns, carrying its schema.
@@ -598,11 +718,14 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     def all(self) -> ValuesResult:
         """Collect all data for all stations and parameters and return a single DataFrame."""
         data = []
+        updated = []
 
         tqdm_out = TqdmToLogger(log, level=logging.INFO)
 
         for result in tqdm(self.query(), total=len(self.sr.station_id), file=tqdm_out):
             data.append(result.df)
+            if result.data_updated_at is not None:
+                updated.append(result.data_updated_at)
 
         if not data:
             # an ordinary outcome -- no station covered the requested window -- rather than an
@@ -615,7 +738,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
 
         df = pl.concat(data, how="diagonal")
 
-        return ValuesResult(stations=self.sr, df=df)
+        return ValuesResult(stations=self.sr, df=df, data_updated_at=newest(updated))
 
     def to_target(self, target: str, if_exists: Literal["replace", "append", "fail", "skip"] = "fail") -> None:
         """Wrap to_target of all queried results."""

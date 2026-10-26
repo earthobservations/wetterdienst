@@ -16,6 +16,66 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- The `metadata` block of every data answer has `data_updated_at`, when the source says its data
+  was last updated (UTC; `null` where it states none), with the `X-Wetterdienst-Data-Updated-At`
+  header where it is set. The values, interpolation and summary results have `data_updated_at`, and
+  so does the `metadata` of their `to_dict`, `to_json` and `to_ogc_feature_collection` with
+  `with_metadata=True`. `meteofrance/observation` fills it from the files whose rows the answer
+  keeps (the newest `last_modified` of data.gouv.fr, as Etalab 2.0 asks), and downloads a cached
+  file again when the listing dates it later than the copy, serving an archive's copy and its own
+  date if the file host does not answer (a current-period file whose copy expired still fails with
+  the download error); a network whose source states none, a list of stations, a history and a
+  streamed answer (NDJSON, CSV of `values`) say `null`. A result cut by `filtered_by_sql` keeps
+  the date of the result it was cut from. `schema_version` stays `"1"` (GH-2567)
+- `data_updated_at` is also filled from the `Last-Modified` of the files an answer is read from, when
+  the source last wrote them (the newest of the files whose rows the answer keeps), for `dwd`
+  `observation`, `derived`, `phenology`, `poi` and `road`, `chmi`, `imgw`, `ipma`, `meteoswiss`,
+  `noaa/ghcn` and `meteofrance/synop`; for the forecasts `dwd/mosmix`, `dmo` and `swsmos` it is the
+  model run (`retrieved_at` less it is the age of the forecast), for `dwd/alerts` the newest `sent`,
+  and a `RadarResult` and a `DwdWeatherAlertResult` have it as well. A cached answer has the date of
+  its cached copy; one cached before this has none until it expires (12 hours at most) or the cache
+  is cleared, and `meteofrance/synop` downloads each finished year it holds once more for it, once.
+  FMI and SMHI send the time of the request as `Last-Modified` and stay `null` (GH-2567)
+
+### Changed
+
+- The MCP `instructions` say that the same `stations` then `values` steps serve a network of any
+  `kind`, for a place given by `latitude`, `longitude` and `rank`, and that a provider's `country`
+  is its operator's, not the extent of its data, so a model does not refuse a place because of it
+  (it had refused a forecast for Los Angeles because DWD is German). `Provider.country` and
+  `country_code` are described the same way in the OpenAPI schema and the `providers` tool; the
+  answers are unchanged (GH-3456)
+- The `attribution` that `meteoswiss/observation` and `metoffice/observation` report with every
+  answer is the credit line their providers state: "Source: MeteoSwiss" (was "© MeteoSwiss
+  (Federal Office of Meteorology and Climatology)") and the citation of the CEDA record of MIDAS
+  Open (was "© Crown Copyright, Met Office, MIDAS Open"). The licences are unchanged; a caller
+  that shows the credit shows the new text (GH-2567)
+- `metno/frost` reports its licence as `CC-BY-4.0 AND NLOD-2.0` (was `CC-BY-4.0 OR NLOD-2.0`), with
+  the name "Creative Commons Attribution 4.0 International and Norwegian Licence for Open
+  Government Data 2.0": MET Norway states that the data are licensed under both, not under one of
+  them. A caller that reads `provider.license.spdx_id` or the `X-Wetterdienst-License` header sees
+  the new expression, and the conditions of both licences apply to its use of the data; the credit
+  to give is the same, `attribution` is still "Data from MET Norway" (GH-2567)
+- `/api/auth` and the MCP `auth` tool probe the provider at most once a minute per network and
+  server process, and say so in their description. `metno/frost` and `aemet/observation` already
+  kept an accepted answer for a minute on disk; now a rejection is kept for up to 60 s too, a
+  `valid: null` for 5 s, and simultaneous calls share one probe. A changed or corrected credential
+  shows within a minute, a revoked one within two. The answer has the same shape (GH-2607)
+
+### Fixed
+
+- Four pages stated what the code does not do. Interpolation said a negative search distance is a
+  400 on the REST API: it is a 422, and only a name that is no canonical parameter is a 400.
+  Python Examples said `RADOLAN_CDC` takes an hourly or daily resolution: `5_minutes` too.
+  Development said `poe test -k ...` selects tests: a task that is a sequence drops what follows
+  it and runs the whole suite, so the page now calls pytest. Web app called the app a Nuxt 3
+  one: it is Nuxt 4, and the page names no major version now (GH-2621)
+- `meteofrance/synop` reads the yearly files data.gouv.fr lists (`data/OBS/SYNOP/`), not the
+  `synchro_ftp` copy of them, which stopped being refreshed on 2026-09-09: values of the current
+  year now run to the day before today instead of ending on 2026-09-08 (GH-3447)
+
 ## [0.175.0] - 2026-10-25
 
 ### Added

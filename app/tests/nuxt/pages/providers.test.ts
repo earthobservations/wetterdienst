@@ -68,7 +68,7 @@ describe('providers Page', () => {
     const card = (name: string) => cards.find(li => li.text().includes(name))!
 
     expect(card('German Weather Service').text()).toContain('CC-BY-4.0')
-    expect(card('Norwegian Meteorological Institute').text()).toContain('CC-BY-4.0 OR NLOD-2.0')
+    expect(card('Norwegian Meteorological Institute').text()).toContain('CC-BY-4.0 AND NLOD-2.0')
     expect(card('State Meteorological Agency of Spain').text()).toContain('No licence stated')
   })
 

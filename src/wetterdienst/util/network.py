@@ -8,6 +8,7 @@ import asyncio
 import atexit
 import base64
 import contextlib
+import datetime as dt
 import hashlib
 import ipaddress
 import json
@@ -41,6 +42,7 @@ from aiohttp import (
     ClientSSLError,
     ClientTimeout,
     TraceConfig,
+    TraceRequestEndParams,
     TraceRequestRedirectParams,
     TraceRequestStartParams,
 )
@@ -54,6 +56,7 @@ from fsspec.utils import isfilelike
 
 from wetterdienst.exceptions import CredentialRejectedError, DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.util.datetime import parse_http_date
 from wetterdienst.util.listing_cache import (
     STORE_FILENAME,
     ListingStore,
@@ -63,6 +66,7 @@ from wetterdienst.util.listing_cache import (
 from wetterdienst.util.provider_hosts import clean_host, hosts_of_provider, provider_of
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from types import SimpleNamespace
 
     from wetterdienst.settings import Settings
@@ -115,6 +119,18 @@ class File:
     answer differently: a cached body says nothing about what the server has now, while one that
     has just come off the wire cannot have changed in the meantime (GH-1947).
     """
+    last_modified: dt.datetime | None = None
+    """When the source last wrote the file, as its `Last-Modified` header says (UTC), `None` where it sent none.
+
+    The header of the response the body in hand came from: for a file served from the cache, the one the cached copy
+    came with, kept beside it (`_write_sidecar`). `None` for a copy cached before that was kept, for a header that is
+    no date (`parse_http_date`) and for a failed download. Never the time of the request (GH-2567). It is the
+    server's date of the file, where `cached_at` is when this library made the copy: two different times.
+    """
+    cached_at: float | None = None
+    """When the copy the body is of was made, as `time.time()` has it, from when its download began; None where the body
+    is not held in the cache (the cache is off, or the download failed). For a provider whose source dates its files, to
+    tell which copy a date is of (GH-2567)."""
 
     def raise_if_exception(self) -> None:
         """Raise an exception if the content is not a BytesIO object.
@@ -632,8 +648,45 @@ def _check_redirect(response: ClientResponse, headers: MutableMapping[str, str],
                 del headers[name]
 
 
+#: The key of the `Last-Modified` header in the dict a request is given to say what it saw (`trace_request_ctx`)
+_LAST_MODIFIED = "last-modified"
+_DATE = "date"
+
+
+#: How many dates a filesystem keeps at most: `download_file` takes its own at once, so what stays are those of the
+#: files another reader opened (the KML of a forecast) and nobody takes
+_MAX_REMEMBERED_DATES = 256
+
+
+def _remember_last_modified(registry: dict[str, dt.datetime | None], url: str, value: dt.datetime | None) -> None:
+    """Note the date of a file just read, for `download_file` to take, without growing for readers that do not."""
+    if len(registry) >= _MAX_REMEMBERED_DATES:
+        registry.clear()
+    registry[url] = value
+
+
+def _last_modified_of(seen: dict[str, str | None]) -> dt.datetime | None:
+    """Read the date a response says its file was written, `None` where it says none that can be taken.
+
+    A server that sends the time it makes its answer as the `Last-Modified` of it (SMHI and FMI do) says when it was
+    asked, not when the file was written, and a cache may hand such a date out after the `Date` it was made at. A
+    `Last-Modified` that is the `Date` of the same response or later is no file's: a server that has no time for a file
+    that is not there yet sends its own (RFC 9110 8.8.2.1), as FMI does, with the two equal to the second. A file
+    written in the very second it is asked for is lost with them, which costs a date and misleads nobody.
+    """
+    written = parse_http_date(seen.get(_LAST_MODIFIED))
+    answered = parse_http_date(seen.get(_DATE))
+    if written is not None and answered is not None and written >= answered:
+        return None
+    return written
+
+
 def _redirect_guard() -> TraceConfig:
-    """Build the trace of a session that applies `_check_redirect` to every redirect it follows."""
+    """Build the trace of a session that applies `_check_redirect` to every redirect it follows.
+
+    It also hands the `Last-Modified` of the response that ends a request to the caller that passed a dict as
+    `trace_request_ctx`, which is how a download learns the date of the file it fetched with no request of its own.
+    """
     trace = TraceConfig()
 
     async def remember_first_url(_session: object, context: SimpleNamespace, params: TraceRequestStartParams) -> None:
@@ -642,8 +695,16 @@ def _redirect_guard() -> TraceConfig:
     async def check_redirect(_session: object, context: SimpleNamespace, params: TraceRequestRedirectParams) -> None:
         _check_redirect(params.response, params.headers, context.first_url)
 
+    async def note_last_modified(_session: object, context: SimpleNamespace, params: TraceRequestEndParams) -> None:
+        # the response that ends the request, after any redirects: handed to whoever asked, if it asked
+        seen = getattr(context, "trace_request_ctx", None)
+        if isinstance(seen, dict):
+            seen[_LAST_MODIFIED] = params.response.headers.get("Last-Modified")
+            seen[_DATE] = params.response.headers.get("Date")
+
     trace.on_request_start.append(remember_first_url)
     trace.on_request_redirect.append(check_redirect)
+    trace.on_request_end.append(note_last_modified)
     return trace
 
 
@@ -926,6 +987,9 @@ class HTTPFileSystem(_HTTPFileSystem):
         """
         # Store use_certifi for later use
         self._use_certifi = use_certifi
+        #: The `Last-Modified` of the file each url last fetched whole, for `download_file` to take
+        #: (`_take_last_modified`)
+        self.last_modified_of: dict[str, dt.datetime | None] = {}
 
         # Every session is built here, so that every request of it passes the guard on redirects
         # (`_check_redirect`), and with our SSL context where certifi is asked for
@@ -994,11 +1058,14 @@ class HTTPFileSystem(_HTTPFileSystem):
         if start is not None or end is not None:
             return await super()._cat_file(url, start=start, end=end, **kwargs)
         max_bytes = MAX_DOWNLOAD_BYTES if max_bytes is None else max_bytes
-        kw = {**self.kwargs, **kwargs}
+        seen: dict[str, str | None] = {}
+        kw = {**self.kwargs, **kwargs, "trace_request_ctx": seen}
         session = await self.set_session()
         async with _within_time(MAX_DOWNLOAD_SECONDS), session.get(self.encode_url(url), **kw) as response:
             self._raise_not_found_for_status(response, url)
-            return await _read_capped(response, max_bytes)
+            payload = await _read_capped(response, max_bytes)
+        _remember_last_modified(self.last_modified_of, url, _last_modified_of(seen))
+        return payload
 
     async def _get_file(
         self,
@@ -1018,6 +1085,7 @@ class HTTPFileSystem(_HTTPFileSystem):
             target = lpath
         else:
             target = opened = open(str(lpath), "wb")  # noqa: ASYNC230, PTH123, SIM115
+        seen: dict[str, str | None] = {}
         try:
             async with _within_time(MAX_DOWNLOAD_SECONDS):
                 await super()._get_file(
@@ -1025,8 +1093,10 @@ class HTTPFileSystem(_HTTPFileSystem):
                     _CappedWriter(target, max_bytes),
                     chunk_size=chunk_size,
                     callback=callback,
+                    trace_request_ctx=seen,
                     **kwargs,
                 )
+            _remember_last_modified(self.last_modified_of, rpath, _last_modified_of(seen))
         finally:
             if opened is not None:
                 opened.close()
@@ -1356,6 +1426,103 @@ def _reclaim_unreachable_cache_dirs(fsspec_root: Path, keep: Path) -> None:
         log.info(f"Reclaimed {reclaimed / 1e6:.1f} MB from {removed} unreachable cache directories in {fsspec_root}")
 
 
+#: What is added to a blob's name for the file that keeps the `Last-Modified` it came with (GH-2567)
+_SIDECAR_SUFFIX = ".lm"
+
+
+def _sidecar_of(blob: Path) -> Path:
+    """Name the file beside a cached blob that holds the date the source gave it."""
+    return blob.with_name(blob.name + _SIDECAR_SUFFIX)
+
+
+def _write_sidecar(blob: Path, last_modified: dt.datetime | None, written: os.stat_result) -> None:
+    """Keep the `Last-Modified` a blob arrived with beside it, bound to the blob by its size and modification time.
+
+    The date cannot live in fsspec's own metadata record: its save merges a record into the one on disk and keeps the
+    disk's own fields, so the date of a copy fetched anew over an expired one would be the old copy's. A file of its own
+    is replaced whole, with the blob it describes. It says which blob that is: the size and the modification time of
+    the file as it was written (a rename keeps both), so that a blob another process put there since, or a copy cached
+    before dates were kept, is a blob it does not describe. A fetch whose response gave no date writes the record with
+    a null date: the copy has no date, and the record says it was made by a version that kept them
+    (`_has_sidecar_record`), which is what tells it from a copy made before. Never raises: a date lost is a null, not a
+    failed download.
+
+    Written under the lock of the cache directory and only if the blob is still the file `written` describes: of two
+    fetches that replace the blob one after the other, the one that comes later may write its sidecar first, and the
+    earlier one then finds a blob that is not its own and leaves the sidecar of the other where it is.
+    """
+    sidecar = _sidecar_of(blob)
+    temp = sidecar.with_name(f"{sidecar.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        with _cache_dir_lock:
+            current = blob.stat()
+            if (current.st_size, current.st_mtime_ns) != (written.st_size, written.st_mtime_ns):
+                return
+            record = {
+                "last_modified": None if last_modified is None else last_modified.isoformat(),
+                "size": written.st_size,
+                "mtime_ns": written.st_mtime_ns,
+            }
+            temp.write_text(json.dumps(record), encoding="utf-8")
+            os.replace(temp, sidecar)  # noqa: PTH105
+    except OSError:
+        log.debug(f"Failed keeping the date of {blob}", exc_info=True)
+    finally:
+        with contextlib.suppress(OSError):
+            temp.unlink(missing_ok=True)
+
+
+def _sidecar_record(blob: Path) -> dict | None:
+    """Read the record kept beside a cached blob: `None` for a blob with no sidecar, or one it does not describe."""
+    try:
+        record = json.loads(_sidecar_of(blob).read_text(encoding="utf-8"))
+        written = blob.stat()
+        if record["size"] != written.st_size or record["mtime_ns"] != written.st_mtime_ns:
+            return None
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    return record
+
+
+def _has_sidecar_record(blob: Path) -> bool:
+    """Tell whether the blob was cached by a version that kept dates: a record of it, with a date or without one."""
+    return _sidecar_record(blob) is not None
+
+
+def _read_sidecar(blob: Path) -> dt.datetime | None:
+    """Read the date a cached blob came with: `None` for a blob with no sidecar, or one it does not describe."""
+    record = _sidecar_record(blob)
+    try:
+        value = dt.datetime.fromisoformat(record["last_modified"]) if record else None
+    except (ValueError, KeyError, TypeError):
+        return None
+    return value.astimezone(dt.UTC) if value is not None and value.tzinfo is not None else None
+
+
+def _drop_orphaned_sidecars(directory: Path) -> None:
+    """Remove the sidecars whose blob is gone, which is what the sweep of an expired entry leaves of them."""
+    try:
+        sidecars = list(directory.glob(f"*{_SIDECAR_SUFFIX}"))
+    except OSError:
+        return
+    for sidecar in sidecars:
+        with contextlib.suppress(OSError):
+            if not sidecar.with_name(sidecar.name.removesuffix(_SIDECAR_SUFFIX)).exists():
+                sidecar.unlink(missing_ok=True)
+
+
+def _last_modified_registry(filesystem: object) -> dict[str, dt.datetime | None] | None:
+    """Give the dict of `Last-Modified` dates that a filesystem, or the one it wraps, keeps for `download_file`."""
+    registry = getattr(getattr(filesystem, "fs", filesystem), "last_modified_of", None)
+    return registry if isinstance(registry, dict) else None
+
+
+def _take_last_modified(filesystem: object, url: str) -> dt.datetime | None:
+    """Take the date the filesystem noted for the file it just read, once: `None` where it noted none."""
+    registry = _last_modified_registry(filesystem)
+    return None if registry is None else registry.pop(url, None)
+
+
 class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
     """A `WholeFileCacheFileSystem` that reads and writes its metadata file under `_cache_dir_lock`.
 
@@ -1381,14 +1548,18 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
             super().save_cache()
 
     def pop_from_cache(self, path: str) -> None:
-        """Drop one entry from the metadata file, which saves it."""
+        """Drop one entry from the metadata file, which saves it, and the date kept beside its blob."""
         with _cache_dir_lock:
+            blob = Path(self.storage[-1]) / self._mapper(self._strip_protocol(path))
             super().pop_from_cache(path)
+            with contextlib.suppress(OSError):
+                _sidecar_of(blob).unlink(missing_ok=True)
 
     def clear_expired_cache(self, expiry_time: float | None = None) -> None:
-        """Drop expired entries from the metadata file, which saves it."""
+        """Drop expired entries from the metadata file, which saves it, and the dates kept beside their blobs."""
         with _cache_dir_lock:
             super().clear_expired_cache(expiry_time)
+            _drop_orphaned_sidecars(Path(self.storage[-1]))
 
     def clear_cache(self) -> None:
         """Delete the directory, metadata file and all, and load the empty metadata back."""
@@ -1421,10 +1592,25 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
             return super()._open(path, mode=mode, **kwargs)
         # the ceiling `download_file` was given, for the fetch below; the filesystem holds the default
         fetch_kwargs = {"max_bytes": kwargs.pop("max_bytes")} if "max_bytes" in kwargs else {}
+        # the time (as `time.time()` has it) before which a copy is no longer the file: a copy made earlier is fetched
+        # again, and is replaced only once the new one is whole, so that a fetch that fails leaves it where it was
+        refetch_before = kwargs.pop("refetch_before", None)
+        # a copy that no version which kept dates made (it has no record of one, not even of a missing date) is fetched
+        # again, once: the new one has the record
+        refetch_undated = kwargs.pop("refetch_undated", False)
         path = self._strip_protocol(path)
         cached = self._check_file(path)
+        if cached and refetch_before is not None and cached[0]["time"] < refetch_before:
+            cached = False
+        if cached and refetch_undated and not _has_sidecar_record(Path(cached[1])):
+            cached = False
+        # where the date of what is read is left for `download_file` (`_take_last_modified`): on the filesystem this
+        # one wraps, because an attribute of this one is not found where `__getattribute__` answers for the wrapped
+        registry = _last_modified_registry(self)
         if cached:
             _, blob = cached
+            if registry is not None:
+                _remember_last_modified(registry, path, _read_sidecar(Path(blob)))
         else:
             # inline rather than a helper method: this class's `__getattribute__` hands any method
             # name fsspec does not list to the wrapped filesystem, which has no such method.
@@ -1436,8 +1622,15 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
             # the same url in another thread or process never sees this one's half-written file,
             # and a body that fails part-way leaves nothing behind (GH-2493)
             temp = f"{blob}.{uuid.uuid4().hex}.tmp"
+            # the copy is as old as its body is, which the server began to send when this was asked for: a body that
+            # takes a while to arrive holds what the file was at the start of it, not at the end (fsspec stamps the
+            # entry when the fetch is over)
+            started = time.time()
             try:
                 self.fs.get_file(path, temp, **fetch_kwargs)
+                # the date this fetch brought, and the file as written, which is what names the blob it becomes
+                last_modified = None if registry is None else registry.get(path)
+                written = Path(temp).stat()
                 try:
                     os.replace(temp, blob)  # noqa: PTH105
                 except PermissionError:
@@ -1450,7 +1643,11 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
                     # `open` has turned a text mode into a binary one by now and wraps the handle itself
                     return BytesIO(Path(temp).read_bytes())
                 self._make_local_details(path)
+                self._metadata.cached_files[-1][path]["time"] = started
                 self.save_cache()
+                # after the entry: a copy is dated once the cache holds it. Written whether or not this fetch had a
+                # date, so that a copy fetched anew over an older one does not keep the older one's
+                _write_sidecar(Path(blob), last_modified, written)
             finally:
                 # best effort: an unlink that fails must not replace the bytes in hand or the error
                 # the download met, which is what the caller's status and retry go by
@@ -2014,6 +2211,8 @@ def download_file(
     use_certifi: bool = False,
     attempts: int = 2,
     max_bytes: int | None = None,
+    refetch_before: float | None = None,
+    refetch_undated: bool = False,
 ) -> File:
     """Download a specified file from the server.
 
@@ -2035,6 +2234,12 @@ def download_file(
             late is worth no more than none.
         max_bytes: The most the body may be, `MAX_DOWNLOAD_BYTES` if not given. A body held in the cache is
             returned as it is, whatever its size: the ceiling is for what is fetched.
+        refetch_before: A time, as `time.time()` has it, before which a copy held in the cache is fetched again, for a
+            file that is known to have changed since. The copy stays where it is until the new one has arrived, so a
+            download that fails is a failure and the copy is still held for a call without this to be served from.
+        refetch_undated: Whether a copy that no version which kept the date of a download (`File.last_modified`) made is
+            fetched again, once. Such a copy has no record of its date beside it, not even of a missing one, where a
+            copy made since has one, so the new copy is held for good. Held in the same way as for `refetch_before`.
 
     Returns:
         A BytesIO object containing the downloaded file.
@@ -2078,7 +2283,12 @@ def download_file(
                     # read-only or full cache dir and the metadata load on a truncated file, and an
                     # exception escaping here carries a traceback whose frame holds `client_kwargs`
                     # -- the Authorization header -- which is exactly what the handler below drops
-                    served_from_cache = bool(getattr(filesystem, "_check_file", lambda _url: False)(url))
+                    held = getattr(filesystem, "_check_file", lambda _url: False)(url)
+                    served_from_cache = (
+                        bool(held)
+                        and not (refetch_before is not None and held[0]["time"] < refetch_before)
+                        and not (refetch_undated and not _has_sidecar_record(Path(held[1])))
+                    )
                     # said after the probe rather than before it, because before it this could only
                     # guess -- and it guessed "Downloading" for every cache hit, which is the one
                     # thing a reader of the log could already tell was not happening. Said per
@@ -2087,7 +2297,12 @@ def download_file(
                     log.info(
                         f"Reading file {shown} from cache" if served_from_cache else f"Downloading file {shown}",
                     )
-                    payload = filesystem.cat_file(url, **({} if max_bytes is None else {"max_bytes": max_bytes}))
+                    fetch_kwargs: dict[str, float] = {} if max_bytes is None else {"max_bytes": max_bytes}
+                    if refetch_before is not None and isinstance(filesystem, WholeFileCacheFileSystem):
+                        fetch_kwargs["refetch_before"] = refetch_before
+                    if refetch_undated and isinstance(filesystem, WholeFileCacheFileSystem):
+                        fetch_kwargs["refetch_undated"] = True
+                    payload = filesystem.cat_file(url, **fetch_kwargs)
                     _refuse_unannounced_compression(url, payload)
                 except Exception as e:  # noqa: BLE001 -- re-raised, never swallowed
                     # scrubbed here as well as on the way out, because stamina's retry hook logs
@@ -2095,7 +2310,15 @@ def download_file(
                     # info, header and all, before any of the handlers below are reached
                     raise _without_credentials(e, sent_credentials=sent_credentials) from None
                 log.info(f"Read file {shown} from cache" if served_from_cache else f"Downloaded file {shown}")
-                return File(url=url, content=BytesIO(payload), status=200, from_cache=served_from_cache)
+                copy = getattr(filesystem, "_check_file", lambda _url: False)(url)
+                return File(
+                    url=url,
+                    content=BytesIO(payload),
+                    status=200,
+                    from_cache=served_from_cache,
+                    last_modified=_take_last_modified(filesystem, url),
+                    cached_at=float(copy[0]["time"]) if copy else None,
+                )
     except Exception as e:
         failed = _failed_file(url, e, sent_credentials=sent_credentials)
         if failed is None:
@@ -2159,6 +2382,33 @@ def _failed_file(url: str, error: Exception, *, sent_credentials: bool = False) 
     return None
 
 
+def cached_copy_is_held(
+    url: str,
+    cache_dir: Path,
+    ttl: CacheExpiry = CacheExpiry.NO_CACHE,
+    client_kwargs: dict | None = None,
+    *,
+    cache_disable: bool = False,
+    use_certifi: bool = False,
+) -> bool:
+    """Tell whether the cache holds a copy of a url that a download with these arguments would serve.
+
+    Takes the arguments the download was made with, because they name the cache it went to. False where nothing is
+    cached (`NO_CACHE`, `cache_disable`) and where the cache cannot be read: never raises.
+    """
+    try:
+        filesystem = NetworkFilesystemManager.get(
+            cache_dir=cache_dir,
+            cache_expiry=ttl,
+            client_kwargs=client_kwargs,
+            cache_disable=cache_disable,
+            use_certifi=use_certifi,
+        )
+        return isinstance(filesystem, WholeFileCacheFileSystem) and bool(filesystem._check_file(url))  # noqa: SLF001
+    except Exception:  # noqa: BLE001 -- best effort, a copy not seen is a download made
+        return False
+
+
 def drop_cached_file(
     url: str,
     cache_dir: Path,
@@ -2194,6 +2444,39 @@ def drop_cached_file(
         filesystem.pop_from_cache(url)
     except Exception:  # noqa: BLE001 -- best effort, the entry expires on its own
         log.debug("Could not drop %s from the cache", _without_url_secrets(url), exc_info=False)
+
+
+def cached_file_time(
+    url: str,
+    cache_dir: Path,
+    ttl: CacheExpiry = CacheExpiry.NO_CACHE,
+    client_kwargs: dict | None = None,
+    *,
+    cache_disable: bool = False,
+    use_certifi: bool = False,
+) -> float | None:
+    """Tell when the copy `download_file` holds for a url was made, as `time.time()` has it; None where none is held.
+
+    Takes the arguments the download was made with, as `drop_cached_file` does, since they name the cache. Read from
+    the metadata file and not from this thread's memory of it: the copy was most likely made by another thread.
+    Never raises: a cache that cannot be read holds no copy.
+    """
+    try:
+        filesystem = NetworkFilesystemManager.get(
+            cache_dir=cache_dir,
+            cache_expiry=ttl,
+            client_kwargs=client_kwargs,
+            cache_disable=cache_disable,
+            use_certifi=use_certifi,
+        )
+        if not isinstance(filesystem, WholeFileCacheFileSystem):
+            return None
+        filesystem.load_cache()
+        held = filesystem._check_file(url)  # noqa: SLF001
+        return float(held[0]["time"]) if held else None
+    except Exception:  # noqa: BLE001 -- best effort: no copy known is no date from it
+        log.debug("Could not read the time of the copy of %s", _without_url_secrets(url), exc_info=False)
+        return None
 
 
 def _header_value(value: object) -> str:
@@ -2452,8 +2735,12 @@ def download_files(
     *,
     cache_disable: bool = False,
     use_certifi: bool = False,
+    refetch_before: Mapping[str, float] | None = None,
 ) -> list[File]:
-    """Download multiple files from the server concurrently."""
+    """Download multiple files from the server concurrently.
+
+    `refetch_before` names, by url, the time before which the copy held of a file is fetched again (`download_file`).
+    """
     noun = "file" if len(urls) == 1 else "files"
     # what is wanted, not what will happen: which of these the cache answers is not known until each
     # one has been asked, and the line below says it once they all have
@@ -2468,6 +2755,7 @@ def download_files(
                     client_kwargs=client_kwargs,
                     cache_disable=cache_disable,
                     use_certifi=use_certifi,
+                    refetch_before=(refetch_before or {}).get(file),
                 ),
                 urls,
             ),

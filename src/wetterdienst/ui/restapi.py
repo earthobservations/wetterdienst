@@ -1364,9 +1364,10 @@ def auth(
     `valid` is false whenever `configured` is false (a probe cannot be performed without credentials).
 
     This is the one call that probes the provider, for the one network asked about: one attempt that
-    gives up after a few seconds. `/api/coverage` does not probe, so ask here whether the credentials
-    of a network it lists as `configured` are accepted. The MCP tool and the CLI command
-    (`wetterdienst about auth`) are this call.
+    gives up after a few seconds. The answer may be up to a minute old: the provider is probed at most
+    once a minute per network (5 seconds after a `valid` of null). `/api/coverage` does not probe, so
+    ask here whether the credentials of a network it lists as `configured` are accepted. The MCP tool
+    and the CLI command (`wetterdienst about auth`) are this call.
     """
     provider, network = request.provider, request.network
 
@@ -1451,12 +1452,13 @@ def providers(
 ) -> Response:
     """Describe what each data provider is: its name, country, licence, credit line, source and networks.
 
-    For every provider, or the one named with `provider`: the names it goes by, its country (`country_code`
-    is the ISO 3166-1 alpha-2 code), the terms it publishes its data under (`license`, null where it states
-    none) and the credit line to give (`attribution`), and its networks, each with its `kind`, source `url`,
-    whether it needs credentials (`auth`) and the resolutions and datasets it offers, with how many parameters
-    each has. Nothing is downloaded and no credential is read, so it answers at once; `coverage` lists the
-    parameters of a network, and `auth` checks whether its credentials are accepted.
+    For every provider, or the one named with `provider`: the names it goes by, the country of the agency
+    that runs it (`country_code` is the ISO 3166-1 alpha-2 code; it is the operator's country, not the extent
+    of its data: a network can have stations outside it), the terms it publishes its data under (`license`,
+    null where it states none) and the credit line to give (`attribution`), and its networks, each with its
+    `kind`, source `url`, whether it needs credentials (`auth`) and the resolutions and datasets it offers, with
+    how many parameters each has. Nothing is downloaded and no credential is read, so it answers at once;
+    `coverage` lists the parameters of a network, and `auth` checks whether its credentials are accepted.
     """
     begin_response()
 
@@ -1677,6 +1679,8 @@ def _stream_values(
     results = itertools.chain([first], results) if first is not None else iter(())
     # the block as far as it is known before the first reading: the stations selected, no rows yet
     preview = limit_stations_to_rank(stations)
+    # no `data_updated_at`: the newest date of the stations is not known before the last is read, and a list of
+    # stations has none
     metadata = response_metadata(preview, request, rows=0)
     frames = (result.df for result in results)
     failure = _stream_failure(request, "stream values")

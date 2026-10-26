@@ -8,6 +8,7 @@ routes and nothing but the readers is stood in for.
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 import logging
 import os
@@ -22,6 +23,7 @@ from click.testing import CliRunner
 from fastapi.testclient import TestClient
 
 from tests.conftest import RESPONSE_METADATA_ALWAYS
+from tests.provider.test_data_updated_files import READERS
 from tests.ui.cli.test_cli_history import _stations_without_histories
 from tests.ui.test_restapi import _OBSERVATION, _station_of, _stub_result, _values_result_of_shape
 from wetterdienst import Options, Wetterdienst
@@ -293,6 +295,25 @@ def test_the_alerts_have_the_block(client: TestClient, monkeypatch: pytest.Monke
         assert list(body) == ["type", "metadata", "snapshot", "features"]
     else:
         assert list(body) == ["metadata", "snapshot", "alerts"]
+
+
+@pytest.mark.parametrize("fmt", ["json", "geojson", "csv"])
+def test_the_alerts_say_when_the_newest_of_them_was_sent(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, fmt: str
+) -> None:
+    """DWD states the time of each warning in its message: the newest is the date of the answer, in block and header."""
+    from tests.provider.dwd.alerts.test_api import _result_of_alerts_sent  # noqa: PLC0415
+    from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
+
+    result = _result_of_alerts_sent("2026-07-26T09:23:00+02:00", "2026-07-26T08:00:00+00:00")
+    monkeypatch.setattr(DwdWeatherAlertRequest, "query", lambda _self: result)
+
+    response = client.get("/api/alerts", params={"format": fmt})
+
+    assert response.status_code == 200, response.text
+    assert response.headers[UPDATED_HEADER] == "2026-07-26T08:00:00.000000+00:00"
+    if fmt != "csv":
+        assert response.json()["metadata"]["data_updated_at"] == "2026-07-26T08:00:00.000000+00:00"
 
 
 def test_the_alerts_on_the_command_line_are_the_ones_of_rest(
@@ -599,3 +620,322 @@ def test_the_licence_of_a_network_is_in_its_answer_even_where_it_is_null(
     assert provider["attribution"] is None
     assert "X-Wetterdienst-License" not in response.headers
     assert "Link" not in response.headers
+
+
+# --- the date the source states for the data (GH-2567) -----------------------------------------------
+
+UPDATED = dt.datetime(2026, 10, 26, 6, 54, 51, 123000, tzinfo=dt.UTC)
+UPDATED_TEXT = "2026-10-26T06:54:51.123000+00:00"
+#: the header that says it, left out where the answer has no date
+UPDATED_HEADER = "X-Wetterdienst-Data-Updated-At"
+
+#: the networks whose answers have a `data_updated_at`: where a request reads a file the source dates (data.gouv.fr for
+#: `meteofrance/observation`, the `Last-Modified` of the download for the others, `File.last_modified`) it is the newest
+#: such date over the files that gave readings; for a forecast it is the model run (`dwd/mosmix`, `dwd/dmo`,
+#: `dwd/swsmos`). The warnings of `dwd/alerts` (no time series network) have the newest `sent` of them
+DATA_UPDATED_STATED: set[tuple[str, str]] = {
+    ("chmi", "observation"),
+    ("dwd", "derived"),
+    ("dwd", "dmo"),
+    ("dwd", "mosmix"),
+    ("dwd", "observation"),
+    ("dwd", "phenology"),
+    ("dwd", "poi"),
+    ("dwd", "road"),
+    ("dwd", "swsmos"),
+    ("imgw", "hydrology"),
+    ("imgw", "meteorology"),
+    ("ipma", "observation"),
+    ("meteofrance", "observation"),
+    ("meteofrance", "synop"),
+    ("meteoswiss", "observation"),
+    ("noaa", "ghcn"),
+}
+
+_NO_DATE = (
+    "the answers of the source carry no date of an update and its responses no `Last-Modified` "
+    "(sampled 2026-10-26), only the time of what was observed or of the request"
+)
+_TIME_OF_REQUEST = (
+    "the `Last-Modified` of its responses is the time of the request, not of a file (sampled 2026-10-26: "
+    "later than the `Date` of the response too for SMHI), so a date read from it would be made up"
+)
+#: the networks whose answers have no `data_updated_at` yet, with why. A network leaves it when its provider fills the
+#: date; it does not stay in it for one that does (`DATA_UPDATED_STATED`). Étalab asks for the date of the most recent
+#: update of the information reused, so the networks under it are named with what keeps their date from being stated
+DATA_UPDATED_NOT_STATED: dict[tuple[str, str], str] = {
+    ("aemet", "observation"): "not examined: a key is needed to read it (GH-2567)",
+    (
+        "dmi",
+        "observation",
+    ): "each value has the date it was calculated at (`created`), the date of a reading and not of "
+    "a file, which the library does not read; the responses have no `Last-Modified` (GH-2567)",
+    ("eccc", "observation"): _NO_DATE,
+    ("fmi", "observation"): _TIME_OF_REQUEST,
+    ("knmi", "observation"): "not examined: a key is needed to read it (GH-2567)",
+    ("lhmt", "observation"): _NO_DATE,
+    ("rmi", "observation"): _NO_DATE,
+    ("wsv", "pegel"): _NO_DATE,
+    ("ea", "hydrology"): _NO_DATE,
+    ("nws", "observation"): _NO_DATE,
+    ("eaufrance", "hubeau"): "the source states no date of an update, only the 5-minute cadence of its API, and its "
+    "responses have no `Last-Modified` (GH-2567)",
+    ("geosphere", "observation"): _NO_DATE,
+    ("metno", "frost"): "not examined: a client id is needed to read it (GH-2567)",
+    ("metoffice", "observation"): "not examined: a token is needed to read it (GH-2567)",
+    ("smhi", "observation"): _TIME_OF_REQUEST,
+}
+
+
+@pytest.mark.parametrize(("provider", "network"), _timeseries_networks())
+def test_every_network_states_its_update_date_or_says_why_not(provider: str, network: str) -> None:
+    """A network is in exactly one of the two lists; where it is not stated the reason is written down."""
+    stated = (provider, network) in DATA_UPDATED_STATED
+    not_stated = DATA_UPDATED_NOT_STATED.get((provider, network))
+
+    assert stated != bool(not_stated), f"{provider}/{network} is in both of the lists, or in neither"
+    license_ = Wetterdienst.resolve(provider, network).metadata.license
+    if not_stated and license_ and license_.spdx_id == "etalab-2.0":
+        assert len(not_stated.split()) >= 8, "the Licence Ouverte asks for the date: say why it is not given"
+
+
+def _meteofrance_observation_result(monkeypatch: pytest.MonkeyPatch) -> Any:  # noqa: ANN401
+    """Read the hourly values of a station of Météo-France offline, the listing of data.gouv.fr dating its files."""
+    from tests.provider.meteofrance.observation.test_api import (  # noqa: PLC0415
+        _hourly_files,
+        _hourly_rows,
+        _serve_climate,
+    )
+    from tests.provider.value_stubs import stations_result  # noqa: PLC0415
+    from wetterdienst import Settings  # noqa: PLC0415
+    from wetterdienst.provider.meteofrance.observation import MeteoFranceObservationRequest  # noqa: PLC0415
+
+    previous, latest = _hourly_rows("31069001")
+    dates = {
+        "HOR_departement_31_periode_2020-2024": "2026-03-01T10:00:00+00:00",
+        "HOR_departement_31_periode_2025-2026": "2026-10-26T06:54:51+00:00",
+    }
+    _serve_climate(monkeypatch, _hourly_files("31", previous, latest), dates)
+    request = MeteoFranceObservationRequest(
+        parameters=[("hourly", "core", "temperature_air_2m")],
+        start=dt.datetime(2024, 6, 15, tzinfo=dt.UTC),
+        end=dt.datetime(2025, 6, 16, tzinfo=dt.UTC),
+        settings=Settings(cache_disable=True),
+    )
+    return stations_result(request, "hourly", "core", "31069001").values().all()
+
+
+#: a network read offline, which the registry above is tied to: a stated one has a date, a not stated one has none
+DATA_UPDATED_READ = {("meteofrance", "observation"): _meteofrance_observation_result, **READERS}
+
+
+def test_a_network_that_states_a_date_has_a_way_to_be_read_here() -> None:
+    """A network added to `DATA_UPDATED_STATED` adds the offline read that shows it gives a date."""
+    assert set(DATA_UPDATED_READ) >= DATA_UPDATED_STATED
+
+
+@pytest.mark.parametrize(("provider", "network"), list(DATA_UPDATED_READ))
+def test_the_registry_is_what_the_network_does(monkeypatch: pytest.MonkeyPatch, provider: str, network: str) -> None:
+    """A stated network gives a date, in the result and the block; one named as not stated gives none."""
+    result = DATA_UPDATED_READ[provider, network](monkeypatch)
+    block = response_metadata(result, SimpleNamespace(provider=provider, network=network, with_metadata=False))
+
+    assert not result.df.is_empty()
+    if (provider, network) in DATA_UPDATED_STATED:
+        assert result.data_updated_at is not None
+        assert block.data_updated_at is not None
+        assert (provider, network) not in DATA_UPDATED_NOT_STATED
+    else:
+        assert (provider, network) in DATA_UPDATED_NOT_STATED
+        assert result.data_updated_at is None
+        assert block.data_updated_at is None
+
+
+@pytest.mark.parametrize(("provider", "network"), _timeseries_networks())
+def test_a_network_states_its_update_date_where_its_values_class_notes_one(provider: str, network: str) -> None:
+    """The lists say what the code does: a values class that notes a date is stated, one that does not is not."""
+    import inspect  # noqa: PLC0415
+    import sys  # noqa: PLC0415
+
+    values_class = Wetterdienst.resolve(provider, network)._values  # noqa: SLF001
+    source = inspect.getsource(sys.modules[values_class.__module__])
+    notes = any(
+        call in source
+        for call in (
+            "self._note_data_updated(",
+            "self._note_files_with_rows(",
+            "self._note_written_of_periods_with_rows(",
+        )
+    )
+
+    assert notes == ((provider, network) in DATA_UPDATED_STATED), f"{provider}/{network}: the lists and the code differ"
+
+
+def test_no_network_is_listed_that_does_not_exist() -> None:
+    """A renamed or removed network is dropped from the lists."""
+    networks = set(_timeseries_networks())
+
+    assert set(DATA_UPDATED_NOT_STATED) <= networks
+    assert networks >= DATA_UPDATED_STATED
+
+
+@pytest.mark.parametrize("endpoint", ENDPOINTS)
+@pytest.mark.parametrize("fmt", ["json", "geojson"])
+def test_an_answer_without_a_date_says_null_and_has_no_header(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, endpoint: str, fmt: str
+) -> None:
+    """DWD states none, so the member is there and null: never the time of the request in its place."""
+    _stub_result(monkeypatch, endpoint)
+
+    response = client.get(endpoint, params=_params(endpoint, format=fmt))
+
+    assert response.status_code == 200, response.text
+    assert response.json()["metadata"]["data_updated_at"] is None
+    assert UPDATED_HEADER not in response.headers
+
+
+def _stub_dated(monkeypatch: pytest.MonkeyPatch, endpoint: str) -> None:
+    """Make the result of the route one that the source dates."""
+    _stub_result(monkeypatch, endpoint)
+    name = {"/api/values": "get_values", "/api/interpolate": "get_interpolate", "/api/summarize": "get_summarize"}
+    fetch = getattr(restapi, name[endpoint])
+    monkeypatch.setattr(restapi, name[endpoint], lambda **kwargs: replace(fetch(**kwargs), data_updated_at=UPDATED))
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "fmt"),
+    [
+        (endpoint, fmt)
+        for endpoint in ENDPOINTS
+        for fmt in ("json", "geojson", "csv")
+        # the CSV of values is streamed, which has none (below)
+        if (endpoint, fmt) != ("/api/values", "csv")
+    ],
+)
+def test_the_date_of_the_result_is_in_the_block_and_the_header(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, endpoint: str, fmt: str
+) -> None:
+    """Every route of the block says it, in UTC as every timestamp is, and a CSV in the header alone."""
+    _stub_dated(monkeypatch, endpoint)
+
+    response = client.get(endpoint, params=_params(endpoint, format=fmt))
+
+    assert response.status_code == 200, response.text
+    assert response.headers[UPDATED_HEADER] == UPDATED_TEXT
+    if fmt != "csv":
+        assert response.json()["metadata"]["data_updated_at"] == UPDATED_TEXT
+
+
+def _stub_two_dated_stations(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make two stations of the source with different dates the stations a request is answered by."""
+    from tests.ui.test_restapi import _stub_stream  # noqa: PLC0415
+
+    values = _values_result_of_shape("long")
+    older = dt.datetime(2026, 10, 24, 6, tzinfo=dt.UTC)
+    stations_df = pl.concat([values.stations.df, values.stations.df.with_columns(pl.lit("01049").alias("station_id"))])
+    _stub_stream(
+        monkeypatch,
+        [replace(values, data_updated_at=older), replace(values, data_updated_at=UPDATED)],
+        stations_df=stations_df,
+    )
+
+
+@pytest.mark.parametrize("fmt", ["ndjson", "csv"])
+def test_a_streamed_answer_has_no_date_where_the_stations_have_different_ones(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, fmt: str
+) -> None:
+    """A stream's head goes out before the last station is read, so the newest date is not known: null, no header."""
+    _stub_two_dated_stations(monkeypatch)
+
+    response = client.get("/api/values", params=_params("/api/values", format=fmt))
+
+    assert response.status_code == 200, response.text
+    assert UPDATED_HEADER not in response.headers
+    if fmt == "ndjson":
+        assert json.loads(response.text.splitlines()[0])["metadata"]["data_updated_at"] is None
+
+
+def test_the_json_answer_of_the_same_stations_has_the_newest_date(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Where the stations are all read before the block is made, the newest of their dates is the answer's."""
+    values = _values_result_of_shape("long")
+    older = dt.datetime(2026, 10, 24, 6, tzinfo=dt.UTC)
+    _stub_result(monkeypatch, "/api/values")
+    monkeypatch.setattr(
+        restapi,
+        "get_values",
+        lambda **_kwargs: replace(values, data_updated_at=max(older, UPDATED)),
+    )
+
+    response = client.get("/api/values", params=_params("/api/values"))
+
+    assert response.json()["metadata"]["data_updated_at"] == UPDATED_TEXT
+    assert response.headers[UPDATED_HEADER] == UPDATED_TEXT
+
+
+def test_a_date_in_another_zone_is_written_in_utc(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A provider hands over what its source gave; the block writes it as every timestamp of the library is."""
+    _stub_result(monkeypatch, "/api/values")
+    fetch = restapi.get_values
+    paris = dt.datetime(2026, 10, 26, 8, 54, 51, 123000, tzinfo=dt.timezone(dt.timedelta(hours=2)))
+    monkeypatch.setattr(restapi, "get_values", lambda **kwargs: replace(fetch(**kwargs), data_updated_at=paris))
+
+    response = client.get("/api/values", params=_params("/api/values"))
+
+    assert response.json()["metadata"]["data_updated_at"] == UPDATED_TEXT
+
+
+def test_a_stations_answer_and_the_other_blocks_have_no_date(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A list of stations is no data of a dated source here, and a history, issues or alerts block says null."""
+    stations = _values_result_of_shape("long").stations
+    monkeypatch.setattr(restapi, "get_stations", lambda **_kwargs: stations)
+
+    listing = client.get("/api/stations", params={**_OBSERVATION, "stations": "01048"})
+
+    assert listing.json()["metadata"]["data_updated_at"] is None
+    assert UPDATED_HEADER not in listing.headers
+    monkeypatch.setattr(restapi, "get_stations", lambda **_kwargs: _stations_without_histories())
+    history = client.get("/api/history", params={**_OBSERVATION, "stations": "02564"})
+    assert history.json()["metadata"]["data_updated_at"] is None
+
+
+def test_the_command_line_prints_the_date(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The command line renders the block the routes do, so the date is on its stdout too."""
+    from wetterdienst.ui import cli as cli_module  # noqa: PLC0415
+
+    _stub_dated(monkeypatch, "/api/values")
+    monkeypatch.setattr(cli_module, "get_values", restapi.get_values)
+
+    result = CliRunner().invoke(
+        cli, ["values", *(f"--{k}={v}" for k, v in {**_OBSERVATION, "stations": "01048"}.items())]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["metadata"]["data_updated_at"] == UPDATED_TEXT
+
+
+def test_the_command_line_ndjson_has_the_date_the_rest_stream_has_not(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The command line renders the whole result at once, so its NDJSON has the exact date; REST's stream says null."""
+    from wetterdienst.ui import cli as cli_module  # noqa: PLC0415
+
+    _stub_dated(monkeypatch, "/api/values")
+    monkeypatch.setattr(cli_module, "get_values", restapi.get_values)
+
+    result = CliRunner().invoke(
+        cli, ["values", *(f"--{k}={v}" for k, v in {**_OBSERVATION, "stations": "01048"}.items()), "--format=ndjson"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout.splitlines()[0])["metadata"]["data_updated_at"] == UPDATED_TEXT
+
+
+def test_the_block_of_a_result_has_the_date_the_result_carries() -> None:
+    """The python result is the source of the member: `data_updated_at` of the values, in the library's format."""
+    values = _values_result_of_shape("long")
+    request = SimpleNamespace(provider="dwd", network="observation", with_metadata=False)
+
+    assert response_metadata(values, request).data_updated_at is None
+    assert response_metadata(replace(values, data_updated_at=UPDATED), request).data_updated_at == UPDATED_TEXT

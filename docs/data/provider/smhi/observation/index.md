@@ -22,9 +22,9 @@ for a requested date range.
 ## License
 
 Data is © SMHI, licensed under
-[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). See
-[SMHI Open Data](https://www.smhi.se/data/sok-oppna-data-i-utforskaren) for further
-information and usage conditions.
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). See SMHI's
+[terms of use](https://www.smhi.se/data/om-smhis-data/villkor-for-anvandning) (in Swedish) for the
+conditions.
 
 ```{toctree}
 :hidden:

@@ -252,6 +252,22 @@ def test_the_latest_of_a_site_hdf5_product_is_the_file_named_latest(monkeypatch:
         )
 
 
+def test_a_radar_product_says_when_dwd_wrote_its_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The result has the `Last-Modified` of the file as `data_updated_at`, not the time of the product (GH-2567)."""
+    written = dt.datetime(2026, 10, 22, 11, 35, 4, tzinfo=UTC)
+
+    def download_file(url: str, **_: object) -> File:
+        return File(url=url, content=BytesIO(b"\x89HDF"), status=200, last_modified=written)
+
+    monkeypatch.setattr("wetterdienst.provider.dwd.radar.api.download_file", download_file)
+
+    (result,) = DwdRadarValues(
+        parameter=DwdRadarParameter.PE_ECHO_TOP, site=DwdRadarSite.BOO, start=DwdRadarDate.LATEST
+    ).query()
+
+    assert result.data_updated_at == written
+
+
 @pytest.mark.parametrize("fmt", [None, DwdRadarDataFormat.BINARY, DwdRadarDataFormat.HDF5])
 def test_radolan_is_listed_as_before_whatever_format_it_is_asked_in(fmt: DwdRadarDataFormat | None) -> None:
     """Test that the RADOLAN files, which are named bin and are HDF5, are not filtered as the HDF5 products are."""

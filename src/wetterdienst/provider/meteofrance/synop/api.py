@@ -24,20 +24,26 @@ from wetterdienst.model.quality_flags import (
     with_speed_beside,
 )
 from wetterdienst.model.request import TimeseriesRequest
-from wetterdienst.model.values import TimeseriesValues
+from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.meteofrance.synop.metadata import MeteoFranceSynopMetadata
 from wetterdienst.util.archive import gunzip
-from wetterdienst.util.network import download_file
+from wetterdienst.util.network import cached_copy_is_held, download_file
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel, ParameterModel
     from wetterdienst.settings import Settings
+    from wetterdienst.util.network import File
 
 log = logging.getLogger(__name__)
 
 # "Archive Synop OMM" dataset on data.gouv.fr: one gzipped csv per year, covering all ~190
-# SYNOP stations at their native 3-hourly reporting interval
-_SYNOP_ENDPOINT = "https://meteofrance.s3.sbg.io.cloud.ovh.net/data/synchro_ftp/OBS/SYNOP/synop_{year}.csv.gz"
+# SYNOP stations at their native 3-hourly reporting interval. The yearly files are the resources data.gouv.fr lists
+# under `data/OBS/SYNOP/`. The `data/synchro_ftp/OBS/SYNOP/` copy of the same names is a mirror that stopped being
+# refreshed: on 2026-10-26 its synop_2026.csv.gz (23.3 MB) ended at 2026-09-08T21:00Z and was last modified on
+# 2026-09-09, the maintained file (27.7 MB, same 65 columns, every row of the mirror in it unchanged) ended at
+# 2026-10-25T21:00Z. The finished years are the same bytes in both (2025 checked), so only the current year differs.
+# The station list is not in `data/OBS/SYNOP/` (404): data.gouv.fr lists it under `synchro_ftp`
+_SYNOP_ENDPOINT = "https://meteofrance.s3.sbg.io.cloud.ovh.net/data/OBS/SYNOP/synop_{year}.csv.gz"
 _SYNOP_STATIONS_ENDPOINT = "https://meteofrance.s3.sbg.io.cloud.ovh.net/data/synchro_ftp/OBS/SYNOP/postes_synop.geojson"
 # earliest year for which a yearly archive is published
 _SYNOP_ARCHIVE_START_YEAR = 1996
@@ -140,6 +146,51 @@ _SYNOP_CSV_SCHEMA = {
 }
 
 
+def _download_year(year: int, current_year: int, settings: Settings) -> File:
+    """Download the file of a year; a finished year cached before dates were kept is fetched once more (GH-2567).
+
+    The finished years are cached for good and are rewritten rarely, so a copy made by a version that did not keep the
+    `Last-Modified` of a download would never have a date: it is fetched once more, which dates it (a few to some
+    twenty megabytes a year, once), in one attempt. Where that fails, whatever the status, the copy that is held is read
+    as it was, with no date and with a warning that says so, and not an error: nobody who has the years cached is to
+    lose them for a date. Where no copy is held there is nothing to fetch once more, and the year is downloaded as any.
+    """
+    url = _SYNOP_ENDPOINT.format(year=year)
+    ttl = CacheExpiry.FIVE_MINUTES if year == current_year else CacheExpiry.INFINITE
+
+    def fetch(*, once_more: bool = False) -> File:
+        return download_file(
+            url=url,
+            cache_dir=settings.cache_dir,
+            ttl=ttl,
+            client_kwargs=settings.fsspec_client_kwargs,
+            cache_disable=settings.cache_disable,
+            use_certifi=settings.use_certifi,
+            attempts=1 if once_more else 2,
+            refetch_undated=once_more,
+        )
+
+    held = cached_copy_is_held(
+        url,
+        settings.cache_dir,
+        ttl,
+        settings.fsspec_client_kwargs,
+        cache_disable=settings.cache_disable,
+        use_certifi=settings.use_certifi,
+    )
+    if year == current_year or not held:
+        return fetch()
+    file = fetch(once_more=True)
+    if not isinstance(file.content, Exception):
+        return file
+    copy = fetch()
+    if not isinstance(copy.content, Exception):
+        log.warning(
+            f"{url} could not be downloaded again to date it ({file.content!r}): the copy held is read, with no date"
+        )
+    return copy
+
+
 class MeteoFranceSynopValues(TimeseriesValues):
     """Values class for Météo-France SYNOP data."""
 
@@ -162,14 +213,7 @@ class MeteoFranceSynopValues(TimeseriesValues):
         first_year = max(start_date.year, _SYNOP_ARCHIVE_START_YEAR)
         last_year = min(end_date.year, current_year)
         for year in range(first_year, last_year + 1):
-            file = download_file(
-                url=_SYNOP_ENDPOINT.format(year=year),
-                cache_dir=settings.cache_dir,
-                ttl=CacheExpiry.FIVE_MINUTES if year == current_year else CacheExpiry.INFINITE,
-                client_kwargs=settings.fsspec_client_kwargs,
-                cache_disable=settings.cache_disable,
-                use_certifi=settings.use_certifi,
-            )
+            file = _download_year(year, current_year, settings)
             # the year range above is already clamped to the archive's known coverage and each year's
             # file holds every station, so only the current year's, not yet published in early January,
             # can be missing: that 404 is dropped. Any other failure is an outage, and is raised
@@ -182,13 +226,15 @@ class MeteoFranceSynopValues(TimeseriesValues):
             df = pl.read_csv(gunzip(file), separator=";", schema=_SYNOP_CSV_SCHEMA, columns=read_columns)
             df = df.filter(pl.col("geo_id_wmo").eq(station_id))
             if not df.is_empty():
-                dfs.append(df)
+                # the date Météo-France wrote the file of the year travels with its rows (`_note_files_with_rows`), the
+                # date of the most recent update that the Licence Ouverte asks for (GH-2567)
+                dfs.append(df.with_columns(pl.lit(file.last_modified, dtype=pl.Datetime("us", "UTC")).alias(UPDATED)))
         if not dfs:
             return pl.DataFrame()
         df = pl.concat(dfs, how="diagonal")
         df = df.unpivot(
             on=parameter_columns,
-            index=["validity_time"],
+            index=["validity_time", UPDATED],
             variable_name="parameter",
             value_name="value",
         )
@@ -205,12 +251,14 @@ class MeteoFranceSynopValues(TimeseriesValues):
             non_numeric=True,
         )
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`)
-        return df.select(
+        df = df.select(
             pl.col("parameter").str.to_lowercase(),
             pl.col("validity_time").str.to_datetime("%Y-%m-%dT%H:%M:%SZ", strict=False).alias("timestamp"),
             value.alias("value"),
             join_quality_flags(None, raw=raw),
+            UPDATED,
         )
+        return self._note_files_with_rows(df, dataset)
 
 
 @dataclass

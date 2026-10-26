@@ -49,14 +49,15 @@ To run the whole test suite, which includes the tests that need the internet:
 uv run poe test
 ```
 
-In order to run only specific tests, invoke:
+`poe test` is a sequence of two pytest runs and drops what follows it, so a `-k` or `-m` behind it still runs the
+whole suite. To run only specific tests, call pytest:
 
 ```bash
 # Run tests by module name or function name.
-uv run poe test -k test_cli
+uv run pytest -k test_cli
 
 # Run tests by tags.
-uv run poe test -m "not (remote or slow)"
+uv run pytest -m "not (remote or slow)"
 ```
 
 `-m "not remote"` is the offline selection and the suite holds itself to it: every test that is

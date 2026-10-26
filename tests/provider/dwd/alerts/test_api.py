@@ -375,3 +375,26 @@ def test_an_unknown_keyword_is_refused_as_python_refuses_it() -> None:
         TypeError, match=r"^DwdWeatherAlertRequest\.__init__\(\) got an unexpected keyword argument 'bogus'$"
     ):
         DwdWeatherAlertRequest(bogus=1)
+
+
+def _result_of_alerts_sent(*sent: str) -> DwdWeatherAlertResult:
+    """Give the result of a snapshot whose warnings were each sent when the text says (one CAP message each)."""
+    messages = [CAP_XML.replace(b"2026-07-26T09:23:00+02:00", stamp.encode()) for stamp in sent]
+    df = DwdWeatherAlertRequest._build_dataframe(  # noqa: SLF001
+        DwdWeatherAlertRequest._parse_archive(_make_zip(*messages), _URL)  # noqa: SLF001
+    )
+    return DwdWeatherAlertResult(df, DwdWeatherAlertGranularity.COMMUNITY, DwdWeatherAlertLanguage.ENGLISH)
+
+
+def test_the_alerts_are_dated_by_the_newest_sent_of_them() -> None:
+    """The date of the answer is the newest `sent` of the warnings in it, in UTC, whichever zone DWD wrote it in."""
+    result = _result_of_alerts_sent(
+        "2026-07-26T09:23:00+02:00", "2026-07-26T08:00:00+00:00", "2026-07-25T23:59:00+00:00"
+    )
+
+    assert result.data_updated_at == dt.datetime(2026, 7, 26, 8, 0, tzinfo=UTC)
+
+
+def test_a_snapshot_without_a_warning_has_no_date() -> None:
+    """No warning says nothing of when it was updated: null, never the time of the request."""
+    assert _result_of_alerts_sent().data_updated_at is None

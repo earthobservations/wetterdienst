@@ -18,6 +18,12 @@ nothing; the national open data catalogue (data.gov.cz) names the licence and th
 ústav", for each dataset. CHMI gives no credit line of its own: name the author, link the licence and say if you
 changed the data.
 
+## Update date
+
+The `data_updated_at` of the [`metadata`](../../../usage/restapi.md#response-metadata) of an answer is when CHMI
+last wrote the file or files the values were read from (their `Last-Modified`), the newest of those that gave a
+reading.
+
 ```{toctree}
 :hidden:
 

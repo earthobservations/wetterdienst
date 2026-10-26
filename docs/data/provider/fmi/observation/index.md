@@ -22,9 +22,8 @@ requested date range.
 ## License
 
 Data is © Finnish Meteorological Institute, licensed under
-[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). See
-[FMI Open Data](https://en.ilmatieteenlaitos.fi/open-data) for further information and
-usage conditions.
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). See the
+[FMI open data licence](https://en.ilmatieteenlaitos.fi/open-data-licence) for the terms.
 
 ```{toctree}
 :hidden:

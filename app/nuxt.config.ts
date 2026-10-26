@@ -189,7 +189,7 @@ export default defineNuxtConfig({
         'worker-src': ['\'self\''],
         'child-src': ['\'self\''],
         'style-src': ['\'self\'', '\'unsafe-inline\''],
-        'font-src': ['\'self\'', 'https:', 'data:'],
+        'font-src': ['\'self\'', 'data:'],
         'base-uri': ['\'none\''],
         'form-action': ['\'self\''],
         'frame-ancestors': ['\'self\''],
@@ -204,6 +204,7 @@ export default defineNuxtConfig({
     // of the app now (GH-3094), a blob of the page's own before, which took the page's policy. nuxt-security sets
     // it for the page only, so the assets say it themselves.
     '/_nuxt/**': { headers: { 'Cross-Origin-Embedder-Policy': 'credentialless' } },
+    // Who may frame `/widget` is not a rule of this list: see `server/plugins/widget-frame.ts`.
   },
 
   nitro: {

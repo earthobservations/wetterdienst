@@ -98,7 +98,8 @@ request cannot take the server down; the answer names the limit and its value:
 `GET /api/version` reports the limits of an instance (`limits`), and a client can size its request before it is
 refused. A request has to be answered within `WD_RESTAPI_TIMEOUT` (60 seconds): a 504 `request-timeout` has
 downloaded what it could, so the same request again is likely to succeed. For a long series, ask in pieces (a year at
-a time) or from Python. See [Limits](restapi.md#limits) and [Timeout](restapi.md#timeout).
+a time) or from Python. See [Limits](restapi.md#limits) and [Timeout](restapi.md#timeout), and
+[Getting more than the limit](large-requests.md) for the ways to the data, in the order to try them.
 
 A server also works on only so many requests at once (`WD_RESTAPI_MAX_CONCURRENT`, 32 by default, `limits.max_concurrent`
 in `/api/version`): one past it is a 503 `server-busy` with `Retry-After`, and asking again after that time is

@@ -384,7 +384,7 @@ def render_alerts(result: DwdWeatherAlertResult, fmt: str, *, pretty: bool = Fal
     """
     from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
 
-    metadata = alerts_metadata(DwdWeatherAlertRequest, result.df.height)
+    metadata = alerts_metadata(DwdWeatherAlertRequest, result.df.height, result.data_updated_at)
     if fmt == "csv":
         return result.to_csv(), metadata
     data = result.to_dict() if fmt == "json" else result.to_ogc_feature_collection()

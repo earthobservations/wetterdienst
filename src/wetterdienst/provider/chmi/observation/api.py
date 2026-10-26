@@ -24,7 +24,7 @@ from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel, group_parameters_by_dataset
 from wetterdienst.model.request import TimeseriesRequest
-from wetterdienst.model.values import TimeseriesValues
+from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.chmi.observation.metadata import LAST_YEAR, ChmiObservationMetadata
 from wetterdienst.provider.chmi.observation.parser import (
     parse_chmi_stations,
@@ -172,6 +172,9 @@ class ChmiObservationValues(TimeseriesValues):
         """Start the elements of the request that a warning was given for."""
         super().__post_init__()
         self._ended_reported: set[tuple[str, int]] = set()
+        # when CHMI wrote each file that `_download` returned (its `Last-Modified`), by url, for the files that go on to
+        # give readings to be noted (GH-2567)
+        self._written: dict[str, dt.datetime | None] = {}
 
     def _download(self, url: str, settings: Settings, station_id: str) -> bytes | None:
         file = download_file(
@@ -190,7 +193,12 @@ class ChmiObservationValues(TimeseriesValues):
         if isinstance(file.content, Exception):
             log.debug(f"No CHMI file {_without_url_secrets(url)} for station {station_id}: {file.content}")
             return None
+        self._written[url] = file.last_modified
         return file.content.read()
+
+    def _dated(self, url: str, df: pl.DataFrame) -> pl.DataFrame:
+        """Give the rows of a file with the date CHMI wrote it, which `_note_files_with_rows` notes (GH-2567)."""
+        return df.with_columns(pl.lit(self._written.get(url), dtype=pl.Datetime("us", "UTC")).alias(UPDATED))
 
     def _collect_element(
         self,
@@ -218,7 +226,7 @@ class ChmiObservationValues(TimeseriesValues):
                 if content is not None:
                     df = parse_chmi_values_subdaily(content, element=element)
                     if not df.is_empty():
-                        frames.append(df)
+                        frames.append(self._dated(url, df))
             return frames
         url = f"{_BASE_URL}/data/{config['path']}/{category}/{config['prefix']}-{station_id}-{element}.csv"
         content = self._download(url, settings, station_id)
@@ -234,7 +242,9 @@ class ChmiObservationValues(TimeseriesValues):
                 mdfunc=element_config[2],
                 has_month=config["has_month"],
             )
-        return [df] if not df.is_empty() else []
+        if df.is_empty():
+            return []
+        return [self._dated(url, df)]
 
     def _warn_if_ended(self, parameter: ParameterModel, last_year: int, hint: str) -> None:
         """Tell, once for the request, that the window reaches years in which the source publishes no such element.
@@ -298,7 +308,7 @@ class ChmiObservationValues(TimeseriesValues):
             return pl.DataFrame()
 
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`)
-        return pl.concat(frames)
+        return self._note_files_with_rows(pl.concat(frames), dataset)
 
 
 @dataclass

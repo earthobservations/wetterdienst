@@ -35,6 +35,20 @@ The data as offered by the DWD through ``wetterdienst`` includes:
     - annual resolution: the day (`Jultag`) a plant reached a phase (flowering, leaf unfolding, harvest)
     - 110 plant datasets across two reporter groups, reaching back to 1925
 
+## Update date
+
+The `data_updated_at` of the [`metadata`](../../../usage/restapi.md#response-metadata) of an answer is what DWD
+states of when the data was last updated, by network:
+
+- **Files** (`observation`, `derived`, `phenology`, `poi`, `road`, and a `RadarResult` of `radar`): when DWD last wrote
+  the file or files the answer was built from, the `Last-Modified` of their download, the newest of those that have
+  rows in the answer. The daily archives of the observations are rewritten every day, so their date is that of the
+  rewrite and not a sign that a reading in them changed. An archive cached before the library kept the date has none
+  until its copy expires (12 hours at most) or the cache is cleared.
+- **Forecasts** (`mosmix`, `dmo`, `swsmos`): the model run the forecast is of, which the file states (`IssueTime`) or
+  its name does, and not when the run was published as a file.
+- **Alerts**: the newest `sent` of the warnings in the answer.
+
 For a quick overview of the work of the DWD check the current
 [dwd report](https://www.dwd.de/SharedDocs/downloads/DE/allgemein/zahlen_und_fakten.pdf?__blob=publicationFile&v=14)
 (only in german language).
