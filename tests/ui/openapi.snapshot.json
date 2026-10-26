@@ -487,7 +487,7 @@
           "Catalogue"
         ],
         "summary": "Auth",
-        "description": "Check whether the credentials for an auth-required provider are present and valid.\n\nReturns `{\"provider\": ..., \"network\": ..., \"auth\": bool, \"configured\": bool, \"valid\": bool | null}`.\nFor providers that do not require authentication, `auth` is false and `configured`/`valid` are true.\n`configured` reflects whether credentials are present (false as well while the settings are invalid);\n`valid` whether a probe request showed them accepted (true) or rejected (false). It is null when\nthe probe could not tell (no network, a timeout, a rate limit, an outage of the provider): that is\nnot a rejection, so treat null as unknown.\n`valid` is false whenever `configured` is false (a probe cannot be performed without credentials).\n\nThis is the one call that probes the provider, for the one network asked about: one attempt that\ngives up after a few seconds. `/api/coverage` does not probe, so ask here whether the credentials\nof a network it lists as `configured` are accepted. The MCP tool and the CLI command\n(`wetterdienst about auth`) are this call.",
+        "description": "Check whether the credentials for an auth-required provider are present and valid.\n\nReturns `{\"provider\": ..., \"network\": ..., \"auth\": bool, \"configured\": bool, \"valid\": bool | null}`.\nFor providers that do not require authentication, `auth` is false and `configured`/`valid` are true.\n`configured` reflects whether credentials are present (false as well while the settings are invalid);\n`valid` whether a probe request showed them accepted (true) or rejected (false). It is null when\nthe probe could not tell (no network, a timeout, a rate limit, an outage of the provider): that is\nnot a rejection, so treat null as unknown.\n`valid` is false whenever `configured` is false (a probe cannot be performed without credentials).\n\nThis is the one call that probes the provider, for the one network asked about: one attempt that\ngives up after a few seconds. The answer may be up to a minute old: the provider is probed at most\nonce a minute per network (5 seconds after a `valid` of null). `/api/coverage` does not probe, so\nask here whether the credentials of a network it lists as `configured` are accepted. The MCP tool\nand the CLI command (`wetterdienst about auth`) are this call.",
         "operationId": "auth_api_auth_get",
         "parameters": [
           {
@@ -4902,7 +4902,7 @@
           "url"
         ],
         "title": "LicenseModel",
-        "description": "The terms a provider publishes its data under, as the provider states them (GH-2561).\n\n`spdx_id` is the identifier of the licence in the SPDX list, or an SPDX expression where the\nprovider offers two (`CC-BY-4.0 OR NLOD-2.0`); null where the terms have no SPDX identifier,\nwhich is then told by `name` and `url` alone. `url` is a page of the licence or of the provider's\nown terms, whichever states them."
+        "description": "The terms a provider publishes its data under, as the provider states them (GH-2561).\n\n`spdx_id` is the identifier of the licence in the SPDX list, or an SPDX expression where the\nprovider names two that both apply (`CC-BY-4.0 AND NLOD-2.0`, MET Norway's); null where the terms\nhave no SPDX identifier, which is then told by `name` and `url` alone. `url` is a page of the\nlicence or of the provider's own terms, whichever states them."
       },
       "Limits": {
         "properties": {
@@ -5425,6 +5425,18 @@
             "title": "Retrieved At",
             "description": "When this answer was made, in UTC."
           },
+          "data_updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Updated At",
+            "description": "When the source says the data of this answer was last updated, in UTC: the newest such date over what the answer was read from (a file without a date adds none), as the source states it, and not the time the answer was made (`retrieved_at`). Null where the source states none or the library does not read it for the network, as for a list of stations and a streamed answer (NDJSON, CSV), whose head goes out before the newest date is known. It is the date the source reported when the answer was made, with the copy of the listing or file it was read from: it may lag a file refreshed since by up to the time the listing is cached."
+          },
           "provider": {
             "$ref": "#/components/schemas/_Provider",
             "description": "Who published the data, under which licence (`license`, null where the provider states none) and with which credit line (`attribution`)."
@@ -5482,6 +5494,7 @@
           "api_version",
           "schema_version",
           "retrieved_at",
+          "data_updated_at",
           "provider",
           "producer",
           "request",

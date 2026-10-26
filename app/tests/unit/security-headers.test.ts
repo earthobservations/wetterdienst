@@ -75,6 +75,18 @@ describe('security headers', () => {
     expect(policy['font-src']).toEqual(['\'self\'', 'data:'])
   })
 
+  it('leaves who may frame a page to the widget plugin: no route rule and no default of the config relaxes it', async () => {
+    const config = await loadConfig()
+    const rules = config.routeRules as Record<string, any>
+
+    // a route rule is matched on the decoded path, which `/%77idget` is the widget to, and the app's router is not
+    // (`server/utils/widgetFrame.ts`): no rule may touch who frames a page
+    for (const [path, rule] of Object.entries(rules))
+      expect(JSON.stringify(rule), path).not.toMatch(/frame-ancestors|xFrameOptions|X-Frame-Options/i)
+    expect(policyOf(config)['frame-ancestors']).toEqual(['\'self\''])
+    expect(config.security.headers.xFrameOptions).toBeUndefined()
+  })
+
   it('allows no CDN: the DuckDB-wasm and Swagger UI files are the app\'s own (GH-3094)', async () => {
     const config = await loadConfig()
     const policy = policyOf(config)

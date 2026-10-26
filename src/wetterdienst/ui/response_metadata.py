@@ -218,6 +218,15 @@ class ResponseMetadata(BaseModel):
     api_version: str
     schema_version: str
     retrieved_at: str = Field(description="When this answer was made, in UTC.")
+    data_updated_at: str | None = Field(
+        description="When the source says the data of this answer was last updated, in UTC: the newest such date "
+        "over what the answer was read from (a file without a date adds none), as the source states it, and "
+        "not the time the answer was made (`retrieved_at`). Null where the source states none or the library does not "
+        "read it for the network, as for a list of stations and a streamed answer (NDJSON, CSV), whose head goes out "
+        "before the newest date is known. It is the date the source reported when the answer was made, with the copy "
+        "of the listing or file it was read from: it may lag a file refreshed since by up to the time the listing is "
+        "cached.",
+    )
     provider: _Provider = Field(
         description="Who published the data, under which licence (`license`, null where the provider states "
         "none) and with which credit line (`attribution`).",
@@ -297,7 +306,7 @@ def result_metadata(
         api_version=API_VERSION,
         schema_version=SCHEMA_VERSION,
         retrieved_at=_retrieved_at(),
-        **_metadata_of(stations),
+        **_metadata_of(stations, None if isinstance(result, StationsResult) else result.data_updated_at),
         request=ResolvedRequest(
             provider=provider.lower(),
             network=network.lower(),
@@ -461,6 +470,8 @@ def response_headers(metadata: ResponseMetadata) -> Mapping[str, str]:
         "X-Wetterdienst-Stations": str(metadata.counts.stations),
         "X-Wetterdienst-Rows": str(metadata.counts.rows),
     }
+    if metadata.data_updated_at is not None:
+        headers["X-Wetterdienst-Data-Updated-At"] = metadata.data_updated_at
     if (license_ := provider["license"]) is not None:
         headers["X-Wetterdienst-License"] = _header_text(_license_label(license_))
         headers["Link"] = f'<{license_["url"]}>; rel="license"'

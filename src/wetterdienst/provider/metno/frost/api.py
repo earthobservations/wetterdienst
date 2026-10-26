@@ -45,8 +45,11 @@ _MetnoFrostMetadataSpec = {
     "country_code": "NO",
     "copyright": "© Norwegian Meteorological Institute (MET Norway)",
     "license": LicenseModel(
-        spdx_id="CC-BY-4.0 OR NLOD-2.0",
-        name="Creative Commons Attribution 4.0 International, or Norwegian Licence for Open Government Data 2.0",
+        # MET Norway: "all data and products are licensed under the Norwegian Licence for Open Government Data
+        # (NLOD) 2.0 and Creative Commons 4.0 BY International licences" (https://api.met.no/doc/License, read
+        # 2026-10-26): both, so `AND`; the conditions of both apply (NLOD 2.0 § 5 and 6, CC BY 4.0 § 3)
+        spdx_id="CC-BY-4.0 AND NLOD-2.0",
+        name="Creative Commons Attribution 4.0 International and Norwegian Licence for Open Government Data 2.0",
         url="https://api.met.no/doc/License",
     ),
     "attribution": "Data from MET Norway",
@@ -855,7 +858,8 @@ def _probe_frost_credentials(settings: Settings) -> bool | None:
 
     Only a 200 is cached: Frost answers a refusal or a failure with an HTTP error status, which
     `download_file` does not keep. It is kept for a minute and not an hour (GH-2750), so a client ID
-    that is revoked stops reading `True` within the minute.
+    that is revoked stops reading `True` within the minute (within two minutes through `/api/auth`, which
+    keeps its answer for a minute as well).
     """
     if not settings.auth.metno_frost:
         return False

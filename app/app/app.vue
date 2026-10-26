@@ -17,13 +17,16 @@ useHead({
 const uiLocale = computed(() => (locale.value === 'de' ? uiDe : uiEn))
 
 const route = useRoute()
-const isWidget = computed(() => route.path.startsWith('/widget'))
+// framed by another origin anywhere but the widget: nothing is drawn (app/utils/frame-guard.ts)
+const blank = useFrameBlank()
+const isWidget = computed(() => isWidgetPath(route.path))
 
 // Deliberately not awaited. A top-level `await` in the root component makes its setup async, and
 // with `ssr: false` that suspends the entire app -- header, page and footer -- behind this one
 // request, so every cold load stared at an empty screen until the backend answered. The footer
 // simply has nothing to show for the backend until the answer lands.
-const { data: versionData, status: versionStatus } = useFetch<{ version: string }>('/api/version')
+// A page that draws nothing (framed by another origin outside the widget) does not ask.
+const { data: versionData, status: versionStatus } = useFetch<{ version: string }>('/api/version', { immediate: !blank.value })
 
 const backendVersion = computed(() => {
   const version = versionData.value?.version
@@ -113,7 +116,8 @@ const items = computed<NavigationMenuItem[]>(() =>
 </script>
 
 <template>
-  <UApp :locale="uiLocale">
+  <div v-if="blank" />
+  <UApp v-else :locale="uiLocale">
     <!-- tells a screen reader which page the client-side navigation has arrived on (WCAG 4.1.3) -->
     <NuxtRouteAnnouncer />
     <UHeader v-if="!isWidget" :toggle="false">

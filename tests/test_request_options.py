@@ -225,7 +225,7 @@ def _estimate(
                 ],
                 schema_overrides={"value": pl.Float64},
             )
-            yield SimpleNamespace(df=df)
+            yield SimpleNamespace(df=df, data_updated_at=None)
 
     monkeypatch.setattr(DwdObservationRequest, "filter_by_distance", _filter_by_distance)
     monkeypatch.setattr(DwdObservationRequest, "all", _all)
