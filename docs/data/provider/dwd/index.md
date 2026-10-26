@@ -42,8 +42,9 @@ states of when the data was last updated, by network:
 
 - **Files** (`observation`, `derived`, `phenology`, `poi`, `road`, and a `RadarResult` of `radar`): when DWD last wrote
   the file or files the answer was built from, the `Last-Modified` of their download, the newest of those that have
-  rows in the answer. The daily archives of the observations are rewritten every day, so their date is that of the rewrite and
-  not a sign that a reading in them changed.
+  rows in the answer. The daily archives of the observations are rewritten every day, so their date is that of the
+  rewrite and not a sign that a reading in them changed. An archive cached before the library kept the date has none
+  until its copy expires (12 hours at most) or the cache is cleared.
 - **Forecasts** (`mosmix`, `dmo`, `swsmos`): the model run the forecast is of, which the file states (`IssueTime`) or
   its name does, and not when the run was published as a file.
 - **Alerts**: the newest `sent` of the warnings in the answer.

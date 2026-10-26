@@ -325,8 +325,8 @@ named with its reason in `LICENSE_NOT_STATED` of `tests/ui/test_response_metadat
 data is the provider's, not wetterdienst's.
 
 The date the source states for the data of an answer is `metadata.data_updated_at` (and the
-`X-Wetterdienst-Data-Updated-At` header, `data_updated_at` of the values results, of a `RadarResult` and of their
-`metadata` with `with_metadata=True`): `null` where the source states none or the library does not read
+`X-Wetterdienst-Data-Updated-At` header, `data_updated_at` of the values results and of their `metadata` with
+`with_metadata=True`, of a `RadarResult` and of a `DwdWeatherAlertResult`): `null` where the source states none or the library does not read
 it for the network. It was added as a member of the block, which is an addition and leaves `schema_version` at `"1"`:
 that moves only when a member the block had changes or is gone. What the date is depends on the network and is told in
 [the answer](restapi.md#response-metadata): the `Last-Modified` of the files read for a network that serves dated

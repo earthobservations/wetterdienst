@@ -634,15 +634,7 @@ class DwdDerivedValues(TimeseriesValues):
 
         # the file of a period whose rows were all dropped for another's, or lie outside the window, is not what the
         # answer was read from
-        requested = [
-            parameter.name_original
-            for parameter in self.sr.parameters
-            if parameter.dataset.resolution.name == dataset.resolution.name and parameter.dataset.name == dataset.name
-        ]
-        for rank, dates in written.items():
-            if self._has_rows_in_window(result.filter(pl.col(_PERIOD_RANK) == rank), columns=requested):
-                for updated in dates:
-                    self._note_data_updated(updated)
+        self._note_written_of_periods_with_rows(result, written, dataset, _PERIOD_RANK)
         df = self._tidy_up_df(result.drop(_PERIOD_RANK))
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`), and so is the number:
         # the value is still the text of the file, which the core reads and counts where it is none. The stamp is the

@@ -17,12 +17,15 @@ from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.util.datetime import parse_http_date
 from wetterdienst.util.network import (
     NetworkFilesystemManager,
+    _read_sidecar,
     _remember_last_modified,
+    _write_sidecar,
     download_file,
     download_files,
 )
 
 if TYPE_CHECKING:
+    import os
     from collections.abc import Iterator
     from pathlib import Path
 
@@ -60,13 +63,22 @@ def test_parse_http_date_reads_an_http_date_into_utc(header: str, expected: dt.d
         42,
         # the epoch a static server answers with when it does not know
         "Thu, 01 Jan 1970 00:00:00 GMT",
-        # a file is not written in the future, so that is a clock and no date
-        (dt.datetime.now(dt.UTC) + dt.timedelta(days=2)).strftime("%a, %d %b %Y %H:%M:%S GMT"),
     ],
 )
 def test_parse_http_date_gives_none_for_what_is_no_date(header: object) -> None:
     """Absent, garbage and impossible dates are no date, and never the time of the request."""
     assert parse_http_date(header) is None
+
+
+def test_parse_http_date_gives_none_for_a_date_in_the_future() -> None:
+    """A file is not written in the future, so that is a clock and no date.
+
+    Built here and not in the parameters: a test whose id holds the time of its collection is collected differently by
+    two workers on either side of a second.
+    """
+    two_days_on = (dt.datetime.now(dt.UTC) + dt.timedelta(days=2)).strftime("%a, %d %b %Y %H:%M:%S GMT")
+
+    assert parse_http_date(two_days_on) is None
 
 
 class _Source(BaseHTTPRequestHandler):
@@ -90,6 +102,16 @@ class _Source(BaseHTTPRequestHandler):
             body = b"x"
             self.send_response_only(200)
             self.send_header("Date", THIRD)
+            self.send_header("Last-Modified", FIRST)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if self.path == "/answered-when-written":
+            # the answer of a server that sends the time of the request as the date of the file: the two are equal
+            body = b"x"
+            self.send_response_only(200)
+            self.send_header("Date", FIRST)
             self.send_header("Last-Modified", FIRST)
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
@@ -184,6 +206,18 @@ def test_a_file_dated_after_the_answer_that_carries_it_has_no_date(
     """A `Last-Modified` later than the `Date` of its own response is the time of a request, not of a file."""
     uncached = download_file(_url(source, "/answered-before-written"), cache_dir=tmp_path, ttl=CacheExpiry.NO_CACHE)
     cached = download_file(_url(source, "/answered-before-written"), cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR)
+
+    assert uncached.last_modified is None
+    assert cached.last_modified is None
+
+
+def test_a_file_dated_the_second_of_the_answer_that_carries_it_has_no_date(
+    source: ThreadingHTTPServer,
+    tmp_path: Path,
+) -> None:
+    """A `Last-Modified` equal to the `Date` is the time of the request (FMI answers so), not of a file."""
+    uncached = download_file(_url(source, "/answered-when-written"), cache_dir=tmp_path, ttl=CacheExpiry.NO_CACHE)
+    cached = download_file(_url(source, "/answered-when-written"), cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR)
 
     assert uncached.last_modified is None
     assert cached.last_modified is None
@@ -393,3 +427,43 @@ def test_a_copy_fetched_again_before_a_time_has_the_new_date_and_a_failed_refetc
     assert after.last_modified == _utc(SECOND)
     assert after.cached_at == refetched.cached_at
     assert after.cached_at > first.cached_at
+
+
+@pytest.mark.parametrize("later_first", [True, False])
+def test_a_sidecar_of_a_fetch_whose_blob_was_replaced_since_is_not_written(
+    tmp_path: Path, *, later_first: bool
+) -> None:
+    """Two fetches replace one blob in turn: the sidecar of the one that is no longer the blob never covers the other.
+
+    A replaces the blob, B replaces it, and then the sidecars are written, in either order: only the one of B (the blob
+    now) is kept. Without the check the sidecar of A, written last, gave blob B the date of A.
+    """
+    blob = tmp_path / "blob"
+    stat_of_a = _replace(blob, b"the body of A")
+    stat_of_b = _replace(blob, b"the body of B, which is longer")
+    writes = [(_utc(SECOND), stat_of_b), (_utc(FIRST), stat_of_a)]
+
+    for date, stat in writes if later_first else reversed(writes):
+        _write_sidecar(blob, date, stat)
+
+    assert _read_sidecar(blob) == _utc(SECOND)
+
+
+def _replace(blob: Path, body: bytes) -> os.stat_result:
+    """Put a body where the blob is, as a fetch does, by renaming a file of its own onto it, and give its stat."""
+    temp = blob.with_name(f"{blob.name}.{len(body)}.tmp")
+    temp.write_bytes(body)
+    written = temp.stat()
+    temp.replace(blob)
+    return written
+
+
+def test_a_sidecar_is_not_written_for_a_blob_that_is_gone(tmp_path: Path) -> None:
+    """A copy swept away before its date was written has no date to keep, and nothing fails."""
+    blob = tmp_path / "blob"
+    written = _replace(blob, b"body")
+    blob.unlink()
+
+    _write_sidecar(blob, _utc(FIRST), written)
+
+    assert list(tmp_path.iterdir()) == []

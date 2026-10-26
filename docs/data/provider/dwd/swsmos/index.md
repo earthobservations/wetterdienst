@@ -21,9 +21,9 @@ temperature and road condition variables. See
 
 ## Update date
 
-A forecast is dated by its model run: the `data_updated_at` of the [`metadata`](../../../../usage/restapi.md#response-metadata) of an answer is the run the forecast is of
-(`the one the name of its file gives`), not the time DWD published the file, so it is the same however often the run is read, and `retrieved_at`
-less `data_updated_at` is how old the forecast is.
+A forecast is dated by its model run: the `data_updated_at` of the
+[`metadata`](../../../../usage/restapi.md#response-metadata) of an answer is the run the forecast is of (the one that the name of its file gives), not the time DWD published the file, so it
+is the same however often the run is read, and `retrieved_at` less `data_updated_at` is how old the forecast is.
 
 ```{toctree}
 :hidden:

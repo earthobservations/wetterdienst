@@ -21,8 +21,9 @@ warnings. The data faithfully follows the official
 
 ## Update date
 
-The `data_updated_at` of the [`metadata`](../../../../usage/restapi.md#response-metadata) of an answer is the newest `sent` of the warnings in it, which DWD states in each of
-them (a warning that is updated is sent again). A snapshot with no warning has none.
+The `data_updated_at` of the [`metadata`](../../../../usage/restapi.md#response-metadata) of an answer is the newest
+`sent` of the warnings in it, which DWD states in each of them (a warning that is updated is sent again). A snapshot
+with no warning has none.
 
 ## Historical snapshots
 

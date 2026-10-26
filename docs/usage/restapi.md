@@ -210,8 +210,8 @@ what the answer is missing:
     IPMA, MeteoSwiss, NOAA GHCN and the SYNOP of Météo-France): when the source last wrote the file or files the answer
     was built from, the `Last-Modified` of their download. A file written daily is dated daily, whether or not a value
     in it changed, so the date says how current the copy is and not that the readings in it are new. A response whose
-    `Last-Modified` is later than its own `Date`, is not a date, or is not there gives none, and the date of the
-    request is never taken for it.
+    `Last-Modified` is not earlier than its own `Date` (a server that sends the time of the request), is not a date, or
+    is not there gives none, and the date of the request is never taken for it.
   - **`meteofrance/observation`**: the newest `last_modified` that data.gouv.fr gives the files read, the date the
     Etalab Open Licence 2.0 asks to be named with the source. Its listing is cached for 12 hours, so the date may lag a
     file refreshed since by up to that time.
@@ -226,12 +226,14 @@ what the answer is missing:
   KNMI, MET Norway, Met Office), for every list of stations, and for a streamed answer: NDJSON and CSV answers of
   `values` write their head before the stations are read, so the newest date is not known, they say `null` and the
   header is left out, where a JSON answer of the same request has the exact one. An answer made from the cache has the
-  date of the copy it was made from, however long ago it was cached; a copy cached before the library kept dates has
-  none. For a file `retrieved_at` less `data_updated_at` is how long ago the source wrote it, which is not how old the
-  readings in it are. The Python results carry it as
-  `data_updated_at`, and the `metadata` of `to_dict`, `to_json` and `to_ogc_feature_collection` with
-  `with_metadata=True` has it as a key of its own next to `provider` and `producer` (`null` for a list of stations).
-  Which networks state a date, and why the others do not, is `DATA_UPDATED_STATED` and `DATA_UPDATED_NOT_STATED` in `tests/ui/test_response_metadata.py`.
+  date of the copy it was made from, however long ago it was cached. A copy cached before the library kept dates has
+  none until it expires (12 hours at most for the networks of DWD, CHMI, IMGW, IPMA, MeteoSwiss and NOAA) or the cache
+  is cleared, and `meteofrance/synop` downloads its finished years once more, once, to date them. For a file
+  `retrieved_at` less `data_updated_at` is how long ago the source wrote it, which is not how old the readings in it
+  are. The Python results carry it as `data_updated_at`, and the `metadata` of `to_dict`, `to_json` and
+  `to_ogc_feature_collection` with `with_metadata=True` has it as a key of its own next to `provider` and `producer`
+  (`null` for a list of stations). Which networks state a date, and why the others do not, is `DATA_UPDATED_STATED`
+  and `DATA_UPDATED_NOT_STATED` in `tests/ui/test_response_metadata.py`.
 
   For `meteofrance/observation` a copy of a file made before the date the listing gives it is fetched again, and
   replaced only once the new one has arrived: where the host of the files does not answer, an archive file that is

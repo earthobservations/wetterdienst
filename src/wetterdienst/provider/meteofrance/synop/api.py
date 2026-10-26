@@ -8,6 +8,7 @@ import json
 import logging
 from dataclasses import dataclass
 from datetime import datetime
+from http import HTTPStatus
 from typing import TYPE_CHECKING, cast
 from zoneinfo import ZoneInfo
 
@@ -32,6 +33,7 @@ from wetterdienst.util.network import download_file
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel, ParameterModel
     from wetterdienst.settings import Settings
+    from wetterdienst.util.network import File
 
 log = logging.getLogger(__name__)
 
@@ -46,6 +48,10 @@ _SYNOP_ENDPOINT = "https://meteofrance.s3.sbg.io.cloud.ovh.net/data/OBS/SYNOP/sy
 _SYNOP_STATIONS_ENDPOINT = "https://meteofrance.s3.sbg.io.cloud.ovh.net/data/synchro_ftp/OBS/SYNOP/postes_synop.geojson"
 # earliest year for which a yearly archive is published
 _SYNOP_ARCHIVE_START_YEAR = 1996
+# the years before this one are cached for good, and the library kept no date with a copy before this day (the
+# `Last-Modified` of a download, GH-2567): a copy made earlier is downloaded once more, which dates it, where it would
+# never be dated otherwise. One time only: the new copy is later than this
+_COPIES_WITHOUT_A_DATE_BEFORE = datetime(2026, 10, 27, tzinfo=ZoneInfo("UTC")).timestamp()
 
 # codes the source writes in place of a number (GH-2674); the file defines neither, they are read off the data:
 # `-0.1` in the precipitation columns is a trace (WMO element 013011 has a reference value of -1 at scale 1), some rain
@@ -145,6 +151,33 @@ _SYNOP_CSV_SCHEMA = {
 }
 
 
+def _download_year(year: int, current_year: int, settings: Settings) -> File:
+    """Download the file of a year; a finished year cached before dates were kept is fetched once more (GH-2567).
+
+    Where that fetch fails (offline, the host down) the copy that is held is served as it was, with no date, and not an
+    error: the years before this one never change, and nobody who has them cached is to lose them for a date.
+    """
+    ttl = CacheExpiry.FIVE_MINUTES if year == current_year else CacheExpiry.INFINITE
+
+    def fetch(refetch_before: float | None = None) -> File:
+        return download_file(
+            url=_SYNOP_ENDPOINT.format(year=year),
+            cache_dir=settings.cache_dir,
+            ttl=ttl,
+            client_kwargs=settings.fsspec_client_kwargs,
+            cache_disable=settings.cache_disable,
+            use_certifi=settings.use_certifi,
+            refetch_before=refetch_before,
+        )
+
+    if year == current_year:
+        return fetch()
+    file = fetch(_COPIES_WITHOUT_A_DATE_BEFORE)
+    if isinstance(file.content, Exception) and file.status != HTTPStatus.NOT_FOUND:
+        return fetch()
+    return file
+
+
 class MeteoFranceSynopValues(TimeseriesValues):
     """Values class for Météo-France SYNOP data."""
 
@@ -167,14 +200,7 @@ class MeteoFranceSynopValues(TimeseriesValues):
         first_year = max(start_date.year, _SYNOP_ARCHIVE_START_YEAR)
         last_year = min(end_date.year, current_year)
         for year in range(first_year, last_year + 1):
-            file = download_file(
-                url=_SYNOP_ENDPOINT.format(year=year),
-                cache_dir=settings.cache_dir,
-                ttl=CacheExpiry.FIVE_MINUTES if year == current_year else CacheExpiry.INFINITE,
-                client_kwargs=settings.fsspec_client_kwargs,
-                cache_disable=settings.cache_disable,
-                use_certifi=settings.use_certifi,
-            )
+            file = _download_year(year, current_year, settings)
             # the year range above is already clamped to the archive's known coverage and each year's
             # file holds every station, so only the current year's, not yet published in early January,
             # can be missing: that 404 is dropped. Any other failure is an outage, and is raised

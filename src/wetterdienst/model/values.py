@@ -393,6 +393,31 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             return True
         return not df.filter(stamp.is_between(self.sr.start, self.sr.end, closed="both")).is_empty()
 
+    def _note_written_of_periods_with_rows(
+        self,
+        df: pl.DataFrame,
+        written: dict[int, list[dt.datetime | None]],
+        dataset: DatasetModel,
+        rank: str,
+    ) -> None:
+        """Note when the source wrote the files of each period that has a row in the answer (GH-2567).
+
+        For a provider that reads the periods of a dataset (the recent and the historical archive) into one wide frame
+        and has settled the stamps they share: `written` has the dates of the files of each period by its rank, and the
+        column `rank` of `df` has the rank of the period of each row. A period dates the answer where a row of it is
+        inside the window and, where the nulls are dropped, has a value in a requested parameter of the dataset. A
+        value the core reads as null although the file wrote a text for it is out of sight.
+        """
+        requested = [
+            parameter.name_original
+            for parameter in self.sr.parameters
+            if parameter.dataset.resolution.name == dataset.resolution.name and parameter.dataset.name == dataset.name
+        ]
+        for period, dates in written.items():
+            if self._has_rows_in_window(df.filter(pl.col(rank) == period), columns=requested):
+                for updated in dates:
+                    self._note_data_updated(updated)
+
     def _note_files_with_rows(self, df: pl.DataFrame, dataset: DatasetModel) -> pl.DataFrame:
         """Note the date of each file that holds rows the answer keeps, and give the frame without the dates (GH-2567).
 

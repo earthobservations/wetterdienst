@@ -670,11 +670,13 @@ def _last_modified_of(seen: dict[str, str | None]) -> dt.datetime | None:
 
     A server that sends the time it makes its answer as the `Last-Modified` of it (SMHI and FMI do) says when it was
     asked, not when the file was written, and a cache may hand such a date out after the `Date` it was made at. A
-    `Last-Modified` later than the `Date` of the same response cannot be a file's (RFC 9110 8.8.2.1) and is no date.
+    `Last-Modified` that is the `Date` of the same response or later is no file's: a server that has no time for a file
+    that is not there yet sends its own (RFC 9110 8.8.2.1), as FMI does, with the two equal to the second. A file
+    written in the very second it is asked for is lost with them, which costs a date and misleads nobody.
     """
     written = parse_http_date(seen.get(_LAST_MODIFIED))
     answered = parse_http_date(seen.get(_DATE))
-    if written is not None and answered is not None and written > answered:
+    if written is not None and answered is not None and written >= answered:
         return None
     return written
 
@@ -1442,16 +1444,28 @@ def _write_sidecar(blob: Path, last_modified: dt.datetime | None, written: os.st
     the file as it was written (a rename keeps both), so that a blob another process put there since, or a copy cached
     before dates were kept, is a blob it does not describe. No date, or none the file could be written for, leaves no
     sidecar, and the copy has no date. Never raises: a date lost is a null, not a failed download.
+
+    Written under the lock of the cache directory and only if the blob is still the file `written` describes: of two
+    fetches that replace the blob one after the other, the one that comes later may write its sidecar first, and the
+    earlier one then finds a blob that is not its own and leaves the sidecar of the other where it is.
     """
     sidecar = _sidecar_of(blob)
     temp = sidecar.with_name(f"{sidecar.name}.{uuid.uuid4().hex}.tmp")
     try:
-        if last_modified is None:
-            sidecar.unlink(missing_ok=True)
-            return
-        record = {"last_modified": last_modified.isoformat(), "size": written.st_size, "mtime_ns": written.st_mtime_ns}
-        temp.write_text(json.dumps(record), encoding="utf-8")
-        os.replace(temp, sidecar)  # noqa: PTH105
+        with _cache_dir_lock:
+            current = blob.stat()
+            if (current.st_size, current.st_mtime_ns) != (written.st_size, written.st_mtime_ns):
+                return
+            if last_modified is None:
+                sidecar.unlink(missing_ok=True)
+                return
+            record = {
+                "last_modified": last_modified.isoformat(),
+                "size": written.st_size,
+                "mtime_ns": written.st_mtime_ns,
+            }
+            temp.write_text(json.dumps(record), encoding="utf-8")
+            os.replace(temp, sidecar)  # noqa: PTH105
     except OSError:
         log.debug(f"Failed keeping the date of {blob}", exc_info=True)
     finally:
@@ -1595,8 +1609,6 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
             # entry when the fetch is over)
             started = time.time()
             try:
-                if registry is not None:
-                    registry.pop(path, None)
                 self.fs.get_file(path, temp, **fetch_kwargs)
                 # the date this fetch brought, and the file as written, which is what names the blob it becomes
                 last_modified = None if registry is None else registry.get(path)
@@ -2261,8 +2273,6 @@ def download_file(
                     log.info(
                         f"Reading file {shown} from cache" if served_from_cache else f"Downloading file {shown}",
                     )
-                    # a date left by an earlier read of this url is not this read's
-                    _take_last_modified(filesystem, url)
                     fetch_kwargs: dict[str, float] = {} if max_bytes is None else {"max_bytes": max_bytes}
                     if refetch_before is not None and isinstance(filesystem, WholeFileCacheFileSystem):
                         fetch_kwargs["refetch_before"] = refetch_before

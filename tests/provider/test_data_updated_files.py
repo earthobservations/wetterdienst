@@ -352,6 +352,126 @@ def test_dwd_observation_a_period_whose_rows_are_outside_the_window_does_not_dat
     assert result.data_updated_at == OLD
 
 
+def _derived_periods(
+    monkeypatch: pytest.MonkeyPatch,
+    files: dict[Period, tuple[str, datetime]],
+) -> object:
+    """Read the daily soil of station 01001 for 1 and 2 January from a file of each period, written on given days."""
+    from tests.provider.value_stubs import _day  # noqa: PLC0415
+    from wetterdienst.provider.dwd.derived import DwdDerivedRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.derived import api as derived_api  # noqa: PLC0415
+
+    monkeypatch.setattr(
+        derived_api,
+        "create_file_list_for_climate_derived",
+        lambda _station, _dataset, period, *_, **__: pl.Series([f"https://example.invalid/{period.value}.txt"]),
+    )
+    monkeypatch.setattr(
+        derived_api,
+        "download_climate_derived_data",
+        lambda remote_files, *_, **__: [
+            File(
+                url=url,
+                content=BytesIO(files[Period(url.rsplit("/", 1)[-1].removesuffix(".txt"))][0].encode("latin-1")),
+                status=200,
+                last_modified=files[Period(url.rsplit("/", 1)[-1].removesuffix(".txt"))][1],
+            )
+            for url in remote_files.to_list()
+        ],
+    )
+    request = DwdDerivedRequest(
+        parameters=[("daily", "soil", "temperature_soil_mean_0_05m")],
+        periods=set(files),
+        start=_day(2026, 1, 1),
+        end=_day(2026, 1, 2),
+        settings=Settings(cache_disable=True),
+    )
+    return stations_result(request, "daily", "soil", "01001").values().all()
+
+
+_SOIL_JANUARY = "Stationsindex;Datum;TS05;eor\n         1001;20260101;    0.0;eor\n         1001;20260102;    0.1;eor\n"
+_SOIL_MARCH = "Stationsindex;Datum;TS05;eor\n         1001;20260301;    4.0;eor\n"
+
+
+def test_dwd_derived_a_period_with_no_row_in_the_answer_does_not_date_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The newer file of the recent period holds a March day, and the request is for January: it adds no date."""
+    result = _derived_periods(
+        monkeypatch, {Period.HISTORICAL: (_SOIL_JANUARY, OLD), Period.RECENT: (_SOIL_MARCH, NEWER)}
+    )
+
+    assert not result.df.is_empty()
+    assert result.data_updated_at == OLD
+
+
+def test_dwd_derived_the_period_that_has_the_rows_dates_the_answer(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With the January rows in the newer file the answer has its date, and the older file's is not the answer's."""
+    result = _derived_periods(
+        monkeypatch, {Period.HISTORICAL: (_SOIL_MARCH, OLD), Period.RECENT: (_SOIL_JANUARY, NEWER)}
+    )
+
+    assert result.data_updated_at == NEWER
+
+
+def test_meteofrance_synop_a_finished_year_cached_before_dates_were_kept_is_fetched_once_more(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A finished year is cached for good, so a copy of it with no date is fetched again; the current year is not."""
+    asked: list[tuple[str, float | None]] = []
+    year = dt.datetime.now(UTC).year
+
+    def download_file(*, url: str, refetch_before: float | None = None, **_: object) -> File:
+        asked.append((url.rsplit("/", 1)[-1], refetch_before))
+        return File(
+            url=url,
+            content=BytesIO(_synop_file(("07005", f"{url[-11:-7]}-01-01T18:00:00Z"))),
+            status=200,
+            last_modified=OLD,
+        )
+
+    monkeypatch.setattr(synop_api, "download_file", download_file)
+    request = MeteoFranceSynopRequest(
+        parameters=[("subdaily", "data", "temperature_air_2m")],
+        start=dt.datetime(year - 1, 1, 1, tzinfo=UTC),
+        end=dt.datetime(year, 1, 2, tzinfo=UTC),
+        settings=Settings(cache_disable=True),
+    )
+
+    stations_result(request, "subdaily", "data", "07005").values().all()
+
+    assert asked == [
+        (f"synop_{year - 1}.csv.gz", synop_api._COPIES_WITHOUT_A_DATE_BEFORE),  # noqa: SLF001
+        (f"synop_{year}.csv.gz", None),
+    ]
+
+
+def test_meteofrance_synop_a_finished_year_that_cannot_be_fetched_again_is_read_from_the_copy_held(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Where the one more fetch fails the held copy is read as it is, with no date, and not an error."""
+    year = dt.datetime.now(UTC).year - 1
+    asked: list[float | None] = []
+
+    def download_file(*, url: str, refetch_before: float | None = None, **_: object) -> File:
+        asked.append(refetch_before)
+        if refetch_before is not None:
+            return File(url=url, content=ConnectionError("down"), status=503)
+        return File(url=url, content=BytesIO(_synop_file(("07005", f"{year}-01-01T18:00:00Z"))), status=200)
+
+    monkeypatch.setattr(synop_api, "download_file", download_file)
+    request = MeteoFranceSynopRequest(
+        parameters=[("subdaily", "data", "temperature_air_2m")],
+        start=dt.datetime(year, 1, 1, tzinfo=UTC),
+        end=dt.datetime(year, 1, 2, tzinfo=UTC),
+        settings=Settings(cache_disable=True),
+    )
+
+    result = stations_result(request, "subdaily", "data", "07005").values().all()
+
+    assert not result.df.is_empty()
+    assert result.data_updated_at is None
+    assert asked == [synop_api._COPIES_WITHOUT_A_DATE_BEFORE, None]  # noqa: SLF001
+
+
 # --- one offline read of every network that dates what it reads: the registry of `tests/ui` runs them ---------
 
 
