@@ -479,7 +479,7 @@ class DwdSwsmosRequest(TimeseriesRequest):
         # drop stations flagged inactive (the ``Inaktiv`` column is empty for active stations)
         if "Inaktiv" in df.columns:
             df = df.filter(pl.col("Inaktiv").is_null() | (pl.col("Inaktiv").str.strip_chars() == ""))
-        return df.select(
+        df = df.select(
             pl.col("Kennung").alias("station_id"),
             # the catalogue pads some names with a trailing blank (`Darup `),
             # which an exact comparison of the name then misses
@@ -487,4 +487,7 @@ class DwdSwsmosRequest(TimeseriesRequest):
             pl.col("Breite").str.replace(",", ".").alias("latitude"),
             pl.col("Laenge").str.replace(",", ".").alias("longitude"),
             pl.col("Hoehe").str.replace(",", ".").alias("elevation"),
-        ).lazy()
+        )
+        # the catalogue of 2026-10-26 lists Q311 twice, as the same line; a row that is the same station again is
+        # one station (a different position under the same id is not, and stays for the catalogue rules to tell)
+        return df.unique(maintain_order=True).lazy()

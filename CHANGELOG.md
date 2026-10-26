@@ -72,6 +72,8 @@ Types of changes:
 
 ### Fixed
 
+- `dwd/swsmos` lists a station once when DWD's catalogue repeats its line (Q311, 2026-10-26): the
+  `stations` answer had it twice (GH-PRNUMBER)
 - Four pages stated what the code does not do. Interpolation said a negative search distance is a
   400 on the REST API: it is a 422, and only a name that is no canonical parameter is a 400.
   Python Examples said `RADOLAN_CDC` takes an hourly or daily resolution: `5_minutes` too.

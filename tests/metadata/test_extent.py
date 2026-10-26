@@ -245,7 +245,6 @@ FRENCH_OVERSEAS = {
 NAMED_TERRITORIES: dict[str, dict[str, tuple[str, float, float]]] = {
     "aemet/observation": {
         "africa": ("the Canary Islands (Las Palmas)", 28.1, -15.4),
-        "antarctica": ("Gabriel de Castilla, the Spanish base (declared from documentation)", -62.98, -60.68),
     },
     "dmi/observation": {"north_america": ("Greenland (Nuuk)", 64.2, -51.7)},
     "eaufrance/hubeau": {

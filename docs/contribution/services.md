@@ -18,11 +18,12 @@ following example reflects this structure for the `precipitation` dataset of the
 
 ```python
 from wetterdienst.model.metadata import build_metadata_model
-from wetterdienst.provider.dwd.metadata import _METADATA
+from wetterdienst.provider.dwd.metadata import _METADATA, EXTENT_GERMANY
 
 _DwdObservationMetadataSpec = {
     **_METADATA,  # what the provider is, shared by its networks, see below
     "kind": "observation",
+    "extent": EXTENT_GERMANY,  # where its stations are: scope, continents, country codes and bbox
     "timezone": "Europe/Berlin",
     "resolutions": [
         {
@@ -74,9 +75,10 @@ The fields above `resolutions` say what the provider is, and none can be left ou
 `name_english`, `name_local`, `country`, `country_code` (the ISO 3166-1 alpha-2 code, or `None` for a provider of
 several countries), `copyright`, `license` (a `LicenseModel`, or `None` where the provider states no terms),
 `attribution` (the credit line, or `None`), `url`, `kind`, `extent` (where its stations are: `scope`, `continents`,
-`country_codes` and the `bbox` `[west, south, east, north]`, which the station-catalogue tests hold to the list; the continents
-are declared by hand as the areas the network is meant to serve, see
-[Extent](../usage/restapi.md#extent)), `timezone` and, for a network that needs credentials, `auth`. A provider with several networks declares them once in a `_METADATA` dict of its own (DWD's is
+`country_codes` and the `bbox` `[west, south, east, north]`, which the station-catalogue tests hold to the list; the
+continents are declared by hand as the areas the network is meant to serve, see [Extent](../usage/restapi.md#extent)),
+`timezone` and, for a network that needs credentials, `auth`. A provider with several networks declares what they share
+once in a `_METADATA` dict of its own (DWD's is
 `provider/dwd/metadata.py`) and spreads it into each network's spec, as above. They are what the REST API's
 [`metadata` block](../usage/restapi.md#response-metadata) and the [providers](../usage/restapi.md#providers)
 listing report, so a provider that omits one fails validation instead of answering a null.
