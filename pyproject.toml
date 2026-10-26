@@ -477,7 +477,8 @@ DEP002 = [
 # tabula is tabula-py, which only the maintainers' radar-sites generator imports
 # (`provider/dwd/radar/sites.py`): no extra names it, because it needs a Java runtime (GH-2764)
 DEP001 = ["pyproj", "tabula"]
-DEP003 = ["pyproj"]
+# mcp_types is where fastmcp takes `ToolAnnotations` from (`ui/mcp.py`); it re-exports it nowhere
+DEP003 = ["mcp_types", "pyproj"]
 
 [tool.pytest.ini_options]
 addopts = "-rsfEX -p pytester --strict-markers --verbosity=3 --only-rerun FSTimeoutError --only-rerun ConnectionTimeoutError --only-rerun ClientResponseError"
