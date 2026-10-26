@@ -62,9 +62,17 @@ setting for it):
 - If you add `sandbox`, give it `allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox`. Without
   `allow-same-origin` the widget's requests to `/api` come from an opaque origin, and the app refuses them (it answers
   no CORS header, see below); the two popup tokens let its links open.
-- `/widget` is sent with `Cross-Origin-Resource-Policy: same-origin`. A page that sets
-  `Cross-Origin-Embedder-Policy: require-corp` may therefore be refused the frame; a page that sets none, which is
-  most, is not affected.
+- `/widget` is sent with `Cross-Origin-Resource-Policy: same-origin`, which a page that sets
+  `Cross-Origin-Embedder-Policy: require-corp` or `credentialless` is refused the frame by. A page that sets none,
+  which is most, is not affected.
+- The app is served from the root of its origin: it asks for `/api/...` and its files at absolute paths, and a base
+  path (`NUXT_APP_BASE_URL`, or a proxy that serves it under `/wd/`) is not supported. `/widget` is the only address
+  that is open to other sites, so `/wd/widget` is not, and a frame of it stays blank.
+
+If a reverse proxy in front of the app rewrites the path before it forwards it (decodes `%77`, collapses `//`, resolves
+`..`), the app cannot see what was asked for. The widget's page therefore also refuses to draw anything outside
+`/widget` while it is framed by another site, and does not follow a link away from it, so such an address shows a blank
+frame.
 
 ## Run your own
 

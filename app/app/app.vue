@@ -17,6 +17,8 @@ useHead({
 const uiLocale = computed(() => (locale.value === 'de' ? uiDe : uiEn))
 
 const route = useRoute()
+// framed by another origin anywhere but the widget: nothing is drawn (app/utils/frame-guard.ts)
+const blank = useFrameBlank()
 const isWidget = computed(() => route.path.startsWith('/widget'))
 
 // Deliberately not awaited. A top-level `await` in the root component makes its setup async, and
@@ -113,7 +115,8 @@ const items = computed<NavigationMenuItem[]>(() =>
 </script>
 
 <template>
-  <UApp :locale="uiLocale">
+  <div v-if="blank" />
+  <UApp v-else :locale="uiLocale">
     <!-- tells a screen reader which page the client-side navigation has arrived on (WCAG 4.1.3) -->
     <NuxtRouteAnnouncer />
     <UHeader v-if="!isWidget" :toggle="false">

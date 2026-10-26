@@ -1,3 +1,5 @@
+import type { AddressInfo } from 'node:net'
+import { createServer } from 'node:http'
 import { expect, test } from '@playwright/test'
 import { mockBackend } from './accessibility/mock-backend'
 
@@ -57,6 +59,42 @@ test.describe('who may frame a page', () => {
       expect(headers['x-frame-options'], path).toBe('SAMEORIGIN')
       if (headers['content-security-policy'])
         expect(directive(headers['content-security-policy'], 'frame-ancestors'), path).toEqual(['\'self\''])
+    }
+  })
+})
+
+test.describe('a page framed by another origin', () => {
+  // Behind a proxy that rewrites the path before it forwards it, `/%77idget`, `//widget` and `/widget//` arrive at
+  // the server as `/widget`, which it frames freely, while the browser keeps the address it was given. The test is
+  // that proxy: the frame is answered with the widget's own response, at the address the page was framed at.
+  const SPELLINGS = ['/%77idget', '//widget', '/widget//']
+
+  test('draws the widget, and nothing at an address that is not the widget\'s however the server answered it', async ({ page, baseURL }) => {
+    const origin = new URL(baseURL!).origin
+    // a page of another origin (the address of this machine, not its name), which is a server of its own: a browser
+    // does not let a page it takes for public frame one on this machine
+    const embedder = createServer((_request, response) => {
+      response.setHeader('content-type', 'text/html')
+      response.end(['/widget?station=10381', ...SPELLINGS].map((path, index) => `<iframe id="f${index}" src="${origin}${path}" width="600" height="400"></iframe>`).join(''))
+    })
+    await new Promise<void>(resolve => embedder.listen(0, '127.0.0.1', resolve))
+    try {
+      await page.route(url => url.origin === origin && SPELLINGS.includes(url.pathname), async (route) => {
+        await route.fulfill({ response: await route.fetch({ url: `${origin}/widget` }) })
+      })
+      await page.goto(`http://127.0.0.1:${(embedder.address() as AddressInfo).port}/`)
+
+      const widget = page.frameLocator('#f0')
+      await expect(widget.getByRole('img', { name: 'Wetterdienst' })).toBeVisible()
+      for (const [index, path] of SPELLINGS.entries()) {
+        const frame = page.frameLocator(`#f${index + 1}`)
+        await expect(frame.locator('body'), path).toHaveText('', { useInnerText: true })
+        await expect(frame.getByRole('img', { name: 'Wetterdienst' }), path).toHaveCount(0)
+        await expect(frame.getByText(/not found|404|Seite nicht gefunden/i), path).toHaveCount(0)
+      }
+    }
+    finally {
+      await new Promise(resolve => embedder.close(resolve))
     }
   })
 })
