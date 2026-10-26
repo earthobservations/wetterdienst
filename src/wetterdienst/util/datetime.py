@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import datetime as dt
+from email.utils import parsedate_to_datetime
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
@@ -272,6 +273,30 @@ def parse_source_date(text: object) -> dt.datetime | None:
     except ValueError:
         return None
     return value.replace(tzinfo=dt.UTC) if value.tzinfo is None else value.astimezone(dt.UTC)
+
+
+#: Slack allowed to a server whose clock runs ahead of ours, before a `Last-Modified` in the future is no date
+_CLOCK_SLACK = dt.timedelta(minutes=5)
+
+
+def parse_http_date(text: object) -> dt.datetime | None:
+    """Read the `Last-Modified` of a response (an HTTP-date, RFC 7231) into UTC; null for anything that is not one.
+
+    Null for no header, for text that is no date, for the epoch a static server falls back to when it does not know
+    (`Thu, 01 Jan 1970 00:00:00 GMT`), and for a date in the future, which a file cannot have been written at: none
+    of them is a date the source states, and a made-up one is worse than none (GH-2567). Never the time of the request.
+    """
+    if not isinstance(text, str) or not text.strip():
+        return None
+    try:
+        value = parsedate_to_datetime(text.strip())
+    except (TypeError, ValueError, IndexError):
+        return None
+    # an HTTP-date is GMT, which a parser that finds no zone leaves out
+    value = value.replace(tzinfo=dt.UTC) if value.tzinfo is None else value.astimezone(dt.UTC)
+    if value.year < 1971 or value > dt.datetime.now(dt.UTC) + _CLOCK_SLACK:
+        return None
+    return value
 
 
 def timestamps_to_string(df: pl.DataFrame, columns: Iterable[str] | None = None) -> pl.DataFrame:
