@@ -29,6 +29,7 @@ The settings of a request that the explorer offers are the [options](settings.md
 names the REST API takes them by. The app does not have the weather warnings of DWD (see [Alerts](../data/provider/dwd/alerts/index.md)
 for them) nor the radar products.
 
+<!-- GH-3459 (a draft, not merged): the Explorer is to change how it meets a refusal, see large-requests.md -->
 A request the backend refuses shows what the backend answered: one over a [limit](restapi.md#limits) says which
 and how to narrow it, a provider that is down says so and the request can be made again. See
 [Troubleshooting](troubleshooting.md) for what the answers mean. To get more than a limit allows, see

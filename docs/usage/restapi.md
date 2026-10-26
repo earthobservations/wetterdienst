@@ -590,8 +590,8 @@ http localhost:7890/api/values provider==dwd network==observation parameters==da
 http localhost:7890/api/values provider==dwd network==dmo parameters==hourly/icon/temperature_air_2m stations==01001
 ```
 
-A request that asks for more than the [limits](#limits) allow is refused; [Getting more than the limit](large-requests.md)
-shows how to get the data anyway.
+A request that asks for more than the [limits](#limits) allow is refused;
+[Getting more than the limit](large-requests.md) shows how to get the data anyway.
 
 ## SQL filters
 
@@ -667,8 +667,8 @@ with less data than its record makes the answer smaller. For `interpolate` and
 `summarize` it is the readings of the window for each parameter. So the time span of a request is bounded through
 the rows: a year of 1-minute readings of one parameter is 525,600 of them, a century of daily ones 36,500.
 
-An answer over `rows` that fits `stream_rows` is told to use `format=ndjson` or `format=csv`. What to do about a refusal,
-in the order to try it (a narrower request, a stream, slices, the library, a server of your own), is on
+An answer over `rows` that fits `stream_rows` is told to use `format=ndjson` or `format=csv`. What to do about a
+refusal, in the order to try it (a narrower request, a stream, slices, the library, a server of your own), is on
 [Getting more than the limit](large-requests.md).
 
 ## Streaming
@@ -779,8 +779,9 @@ and what follows is for an instance that others can reach (the
   design), `pdf`, or `/docs` and `/redoc`, which load their own from a CDN. Other headers (HSTS, a
   `Referrer-Policy`, a policy for those answers) are for the reverse proxy to add.
 - **SQL.** [`sql` and `sql_values`](#sql-filters) stay off until you set `WD_RESTAPI_SQL=true`.
-- **Limits.** The [limits](#limits) are the ones you set, and what a client that meets one is told is on
-  [Getting more than the limit](large-requests.md#run-your-own-server), which also says what raising one costs.
+- **Limits.** The [limits](#limits) are the ones you set. How to set them, and what raising one costs, is on
+  [Getting more than the limit](large-requests.md#run-your-own-server), which is also where a client that meets one is
+  sent.
 - **The cache directory.** `WD_CACHE_DIR` holds the downloaded bodies it caches and the directory listings, as JSON in
   a SQLite file; nothing in it is unpickled or run. Whoever can write there can still replace what the server caches,
   so keep it private to the user the server runs as (a directory wetterdienst makes gets mode 0o700; one that exists

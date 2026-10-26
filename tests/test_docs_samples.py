@@ -683,11 +683,11 @@ NOT_RUN: dict[tuple[str, str], str] = {
     (
         "docs/usage/large-requests.md",
         "# needs a server on localhost:7890",
-    ): "asks a server on localhost:7890, which a test does not start (the loops were run against a local one)",
+    ): "asks a server on localhost:7890: `test_docs_large_requests.py` runs them against the app",
     (
         "docs/usage/large-requests.md",
         "# needs the dresden.csv",
-    ): "reads the file that the curl command above it saves, and `test_rest_samples_are_answered` makes that request",
+    ): "reads the file of the curl command above it: `test_docs_large_requests.py` makes that request",
 }
 
 #: the pages that cannot run as a whole, with the reason

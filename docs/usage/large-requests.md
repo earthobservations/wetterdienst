@@ -26,11 +26,10 @@ An [assistant](#from-an-assistant) and the [app](#from-the-app) ask the same API
 
 ## Ask for less
 
-A request is counted before anything is downloaded, so a refusal costs nothing, and the text of it names the number
-that was exceeded. The rows of `values` are an estimate and an upper bound (see [Limits](restapi.md#limits) for how
-it is made): the readings each station can hold in the window, times the parameters. A request without a `timestamp`
-is counted over the whole record of its stations, which is why the first thing to add to a refused request is a
-window.
+A request is counted before any value is downloaded, so a refusal costs nothing, and its text names the number that was
+exceeded. The rows of `values` are an estimate and an upper bound (see [Limits](restapi.md#limits) for how it is made):
+the readings each station can hold in the window, times the parameters. Without a `timestamp` they are counted over the
+record of each station, so the first thing to add to a refused request is a window.
 
 The defaults, read from the settings, show what one parameter of one station comes to:
 
@@ -44,27 +43,34 @@ print(f"{'':>10} {'as one body':>12} {'streamed':>12}   years of one parameter o
 for resolution, per_day in READINGS_PER_DAY.items():
     body = settings.restapi_max_rows / per_day / 365.25
     streamed = settings.restapi_max_stream_rows / per_day / 365.25
-    print(f"{resolution:>10} {body:>12,.1f} {streamed:>12,.1f}")
+    print(f"{resolution:>10} {body:>12,.2f} {streamed:>12,.2f}")
 
 # rows a day are readings of the resolution, times parameters, times stations: hourly, 5 parameters, 20 stations
 print(f"\n{settings.restapi_max_rows // (24 * 5 * 20)} days of 24 * 5 * 20 rows fit in one body")
 ```
 
-So the limits meet 10-minute and finer data (ten years of one 10-minute parameter is about 526,000 rows), and anything with
-many stations and parameters; a century of daily readings of one station is 36,500 rows and never meets them. Three
-things narrow a request, each by the factor it removes:
+So one parameter of one station meets the limit of one body from a year of 1-minute readings (525,600 rows) or
+about five years of 5-minute readings, and the hourly records of DWD that reach back to the 1890s meet it too: the
+whole hourly record of Potsdam is more than a million rows a parameter. A whole dataset multiplies it: `daily/kl` is more than a
+dozen parameters, and the whole daily record of Potsdam comes to more than 680,000 rows. A century of daily readings of
+one parameter of one station is 36,500 rows and does not meet it. What narrows a request, each by the factor it
+removes:
 
 - **The window.** `timestamp=2020` is the year, `timestamp=2020-08` the month and `timestamp=2020-08-01/2020-08-05`
   the five days; a date covers everything it names, see [Values](restapi.md#values).
+- **The periods.** Where a provider reads per period (DWD does), a request without a `timestamp` is counted over the
+  release it reads: `periods=recent` is about the last two years, so the hourly parameter of Potsdam that is more than
+  a million rows over its whole record is about 17,500 with it.
 - **The parameters.** `daily/kl` is every parameter of the dataset; `daily/climate_summary/temperature_air_mean_2m` is
   one. In the long shape each parameter adds its rows; in the wide shape a timestamp is one row whatever the number of
   its parameters, so the wide shape counts less.
 - **The stations.** A list of ids, or a smaller `rank`, `distance` or bounding box. A `rank` counts as that many
-  stations, so `rank=250` of a `values` request is refused where the limit is 100.
+  stations, so `rank=250` of a `values` request is refused where the limit is 100, and `all=true` counts every station
+  of the network.
 
 `GET /api/version` reports the limits of the instance you are talking to under `limits`, and that is the number to
 size a request with: a server sets its own (see [Run your own server](#run-your-own-server)), and the defaults above
-are not the hosted instance's.
+need not be those of the instance.
 
 ```bash
 http localhost:7890/api/version
@@ -98,9 +104,9 @@ The same line reads ten million rows; it is a year of one station here so that i
 line, so a cut connection is the only sign of a failure after the answer began: `curl` ends a chunked transfer that
 stops before its last chunk with exit code 18, and a client of yours has to fail on it too.
 
-Polars reads the file lazily. A CSV is text, and polars guesses: `station_id` is `01048` and becomes the number 1048
-unless it is told, and `quality_flags` (`10` here, `G,measurement:T` elsewhere) is a number until a row says
-otherwise. Name both as strings:
+Polars reads the file lazily. A CSV is text, and polars guesses the types from the first rows: `station_id` `01048`
+becomes the number 1048 unless it is told, and `quality_flags` (`10` in the rows here, `G,measurement:T` in others) is
+read as a number, so that the read fails with a `ComputeError` at the first row that is text. Name both as strings:
 
 ```python
 # needs the dresden.csv of the curl command above
@@ -160,9 +166,9 @@ pl.scan_ndjson("rows.ndjson").group_by("station_id").agg(pl.col("value").mean())
 
 `requests` and `httpx` do the same with `iter_lines()` on a streamed response (`requests.get(url, stream=True)`,
 `httpx.stream("GET", url)`). `ndjson` refuses `sql_values` and `with_stations` (a 400), and `csv` with `sql_values` is
-one body, held to `rows`. A stream may run longer than the timeout, which holds between two chunks; but the first
-station is read before the response begins, so a station that takes longer than the timeout to download is a 504 (ask
-again: what was downloaded is cached).
+one body, held to `rows`. A stream may run longer than the timeout, which holds between two chunks. The first station is
+read before the response begins, so a station that takes longer than the timeout to download is a 504 (ask again: what
+was downloaded is cached); a later one is the last line of an NDJSON stream, `error`, and a cut connection of a CSV.
 
 ## Ask in slices
 
@@ -174,9 +180,11 @@ alone, and what the server downloaded is cached, so the second try is cheaper. P
 The window comes from the limit: the rows of a day are the readings a day holds at the resolution, times the
 parameters, times the stations, and as many whole days as fit under `max_rows` of `GET /api/version` are one call. The
 window is whole days written as dates (`2020-01-01/2020-01-31` is all of both days), so that two windows neither
-overlap nor leave a gap. A server that answers 429 (the web app limits what a client counts against it, see
-[Rate limit](app.md#rate-limit)), 503 or 504 says when to ask again in `Retry-After`; a 400 has to be rephrased, and
-its `detail` says how.
+overlap nor leave a gap. A server that answers 502, 503 or 504 (or 429, from the web app, see
+[Rate limit](app.md#rate-limit)) says when to ask again in `Retry-After`; a 400 has to be rephrased, and its `detail`
+says how. `get()` asks again up to five times and then raises, and a window that was read is a file
+(`slice-2020-01-03.parquet`), so that running the loop again begins where it stopped. A window without readings is a
+200 with no `values`, which writes no file.
 
 ```python
 # needs a server on localhost:7890
@@ -186,21 +194,24 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from pathlib import Path
 
 import polars as pl
 
 BASE = "http://localhost:7890/api"
+# 502, 503 and 504 of the server and 429 of the web app say in `Retry-After` when to ask again
+RETRY = {429, 502, 503, 504}
 
 
 def get(path: str, **query: str) -> dict:
-    """Ask the API and give the JSON of the answer; wait and ask again when it is busy or ran out of time."""
+    """Ask the API and give the JSON of the answer; wait and ask again when it says to, up to five times."""
     url = f"{BASE}/{path}?{urllib.parse.urlencode(query)}"
     for _ in range(5):
         try:
             with urllib.request.urlopen(url) as response:
                 return json.load(response)
         except urllib.error.HTTPError as error:
-            if error.code not in {429, 503, 504}:
+            if error.code not in RETRY:
                 # a 400 has to be rephrased: the body is the problem and its `detail` says how
                 raise RuntimeError(json.load(error)["detail"]) from error
             time.sleep(int(error.headers.get("Retry-After", 30)))
@@ -209,8 +220,21 @@ def get(path: str, **query: str) -> dict:
 
 limits = get("version")["limits"]
 
-# the readings a day holds at each resolution; a parameter is `resolution/dataset/parameter`
-READINGS_PER_DAY = {"1_minute": 1440, "5_minutes": 288, "10_minutes": 144, "hourly": 24, "daily": 1}
+# the readings a day holds at each resolution; the calendar ones hold fewer, so that a day each is on the safe side.
+# A parameter is `resolution/dataset/parameter`
+READINGS_PER_DAY = {
+    "1_minute": 1440,
+    "5_minutes": 288,
+    "6_minutes": 240,
+    "10_minutes": 144,
+    "15_minutes": 96,
+    "hourly": 24,
+    "6_hours": 4,
+    "subdaily": 24,
+    "daily": 1,
+    "monthly": 1,
+    "annual": 1,
+}
 
 
 def windows(start: dt.date, end: dt.date, parameters: list[str], stations: int):
@@ -226,31 +250,40 @@ def windows(start: dt.date, end: dt.date, parameters: list[str], stations: int):
         start = stop + dt.timedelta(days=1)
 
 
+def read_windows(name: str, first: dt.date, last: dt.date, parameters: list[str], stations: list[str]) -> None:
+    """Write the readings of the stations for each window to `name-<start>.parquet`, unless an earlier run did."""
+    for start, stop in windows(first, last, parameters, len(stations)):
+        path = Path(f"{name}-{start}.parquet")
+        if path.exists():
+            continue
+        answer = get(
+            "values",
+            provider="dwd",
+            network="observation",
+            parameters=",".join(parameters),
+            stations=",".join(stations),
+            timestamp=f"{start}/{stop}",
+        )
+        if answer["values"]:
+            frame = pl.DataFrame(answer["values"], infer_schema_length=None)
+            frame.with_columns(pl.col("timestamp").str.to_datetime(time_zone="UTC")).write_parquet(path)
+
+
 # 20 years of 10-minute readings: 1,051,200 rows, three calls with the default limit
 parameters = ["10_minutes/temperature_air/temperature_air_2m"]
-frames = []
-for start, stop in windows(dt.date(2000, 1, 1), dt.date(2019, 12, 31), parameters, stations=1):
-    answer = get(
-        "values",
-        provider="dwd",
-        network="observation",
-        parameters=",".join(parameters),
-        stations="01048",
-        timestamp=f"{start}/{stop}",
-    )
-    frames.append(pl.DataFrame(answer["values"], infer_schema_length=None))
-df = pl.concat(frames, how="vertical_relaxed")
+read_windows("slice", dt.date(2000, 1, 1), dt.date(2019, 12, 31), parameters, ["01048"])
+
+paths = sorted(Path().glob("slice-*.parquet"))
+df = pl.concat([pl.read_parquet(path) for path in paths], how="vertical_relaxed") if paths else pl.DataFrame()
 ```
 
 More stations than a call may read (100 by default) are batches of their ids. A `rank` has no offset (it is the nearest
 N, with N at most the limit), so the batches come from a listing: `stations` is held to the rows of the listing and not
-to the limit of stations, and with a `timestamp` it names only the stations that have a record in the window. The
-`metadata` of each answer carries `request.stations.ids`, the stations the answer holds (for up to 100 of them): one of
-the batch that is missing from it had no readings in that window. The window of each batch is cut for the size of the
-batch, so the two loops nest and each call fits both limits:
+to the limit of stations, and with a `timestamp` it names only the stations that have a record in the window. The window
+of each batch is cut for the size of the batch, so the two loops nest and each call fits both limits:
 
 ```python
-# needs a server on localhost:7890, and the get() and windows() of the example above
+# needs a server on localhost:7890, and what the example above defines
 parameters = ["daily/climate_summary/temperature_air_mean_2m"]
 first, last = dt.date(2024, 1, 1), dt.date(2024, 12, 31)
 
@@ -267,28 +300,18 @@ listing = get(
 )
 ids = [station["station_id"] for station in listing["stations"]]
 
-frames = []
 size = limits["max_stations"] or len(ids)  # 0 is no limit
 for i in range(0, len(ids), size):
-    batch = ids[i : i + size]
-    for start, stop in windows(first, last, parameters, len(batch)):
-        answer = get(
-            "values",
-            provider="dwd",
-            network="observation",
-            parameters=",".join(parameters),
-            stations=",".join(batch),
-            timestamp=f"{start}/{stop}",
-        )
-        read = answer["metadata"]["request"]["stations"]["ids"]
-        print(f"{start} to {stop}: {len(read)} of {len(batch)} stations had readings")
-        if answer["values"]:
-            frames.append(pl.DataFrame(answer["values"], infer_schema_length=None))
-df = pl.concat(frames, how="vertical_relaxed")
+    read_windows(f"batch{i // size}", first, last, parameters, ids[i : i + size])
+
+paths = sorted(Path().glob("batch*-*.parquet"))
+df = pl.concat([pl.read_parquet(path) for path in paths], how="vertical_relaxed") if paths else pl.DataFrame()
 ```
 
-On a server that sets no limit of stations, `ids` of an answer of more than 100 stations is `null`; read the
-`station_id` column of its `values` then.
+A request by `rank` or `name` reads stations that you did not name: the `metadata` of its answer lists them in
+`request.stations.ids`, up to 100 stations. Above that it is `null` (on a server whose limit of stations is above 100
+or 0), and `counts.stations` is how many stations the answer holds; read the `station_id` column of its `values` for
+which.
 
 ## Leave the server
 
@@ -298,9 +321,9 @@ the provider. What to choose is where the answer goes, not how much of it there 
 `TimeseriesValues.to_target` reads one station at a time and writes each as it is read, so a request holds one
 station's frame in memory, not the answer. A database takes the stations one after the other (`replace` for the first,
 `append` for the rest), and SQL does the rest. A file takes one frame: `append` is refused for files, so a request of
-several stations written to one `file://` target fails at the second station, and a file is written for each station
-instead and read together (Parquet, here, which polars and DuckDB read as one). The targets and the `if_exists` modes
-are on the [Export](export.md) page.
+several stations written to one `file://` target fails at the second station (the first is written by then, so a
+half of the answer is in the file), and a file is written for each station instead and read together (Parquet, here,
+which polars and DuckDB read as one). The targets and the `if_exists` modes are on the [Export](export.md) page.
 
 ```{code-cell}
 import tempfile
@@ -332,11 +355,12 @@ for result in stations.values().query():
     result.to_target(f"file://{directory}/{station_id}.parquet")
 print(pl.scan_parquet(directory / "*.parquet").group_by("station_id").len().sort("station_id").collect())
 
-# one file for both is refused at the second station
+# one file for both is refused at the second station, after the first was written
 try:
     stations.values().to_target(f"file://{directory}/all.parquet", if_exists="replace")
 except ExportRefusedError as error:
     print("refused:", error)
+print(pl.read_parquet(directory / "all.parquet").get_column("station_id").unique().to_list())
 ```
 
 The command line takes the same targets with `--target`, and writes the whole answer at once, so its memory is the size
@@ -374,7 +398,9 @@ says what else to set. In a container, pass them as environment variables of the
 The tools of the [MCP server](mcp.md) are routes of the REST API run in process, so a tool is held to the same limits,
 and the refusal comes back to the assistant as the text of the problem: `HTTP error 400: Bad Request - This request
 would return about 614,866 rows, more than the 500,000 this server sends as one answer. ...`. A tool answers one body
-and cannot stream, so the ways that apply are to ask for less and to ask in slices:
+and cannot stream. The refusal of a row limit nevertheless advises `format=ndjson` or `format=csv`, and the `values`
+tool lists both, but a call that uses one fails (tracked in GH-3464): that advice does not apply from an assistant.
+What does is to ask for less and to ask in slices:
 
 - Ask for a window: a day, a month or a year, "the daily maximum of 2024". The assistant can follow the refusal, which
   says what to shorten, and ask again for the next window.
@@ -384,6 +410,10 @@ and cannot stream, so the ways that apply are to ask for less and to ask in slic
   its context, which holds a small part of 500,000 rows.
 
 ## From the app
+
+<!-- GH-3459 (a draft, not merged): the Explorer is to start a default date range that fits and to meet a
+refusal with an explanation, "apply the window that fits" and a streamed CSV download. This section and the matching
+sentence of app.md ("A request the backend refuses ...") say what main does today and have to change when it lands. -->
 
 The Explorer calls the REST API, so a request it makes is held to the limits of the backend, and when one is exceeded
 it shows what the backend answered: the limit, the number the request came to and how to narrow it (see the
