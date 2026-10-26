@@ -84,7 +84,7 @@ class IpmaObservationValues(TimeseriesValues):
         if feed is None:
             return pl.DataFrame()
         df = extract_ipma_station_observations(feed, station_id=station_id)
-        if not df.is_empty():
+        if self._has_rows_in_window(df, value="value"):
             self._note_data_updated(getattr(self, "_feed_written", None))
         return df
 

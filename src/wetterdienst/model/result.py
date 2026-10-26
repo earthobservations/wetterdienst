@@ -98,6 +98,9 @@ class _Metadata(TypedDict):
 
     provider: _Provider
     producer: _Producer
+    #: when the source says the data was last updated, in UTC, in the library's timestamp format; null where it
+    #: states none, for a list of stations and for a history (GH-2567)
+    data_updated_at: str | None
 
 
 # Extra keys are allowed so the schema admits the station columns a provider adds to the core ones,
@@ -209,8 +212,11 @@ def describe_producer() -> _Producer:
     }
 
 
-def describe_provider(terms: _ProviderTerms) -> _Metadata:
-    """Give the `provider` and `producer` blocks of an answer: who published the data, under which terms, and us."""
+def describe_provider(terms: _ProviderTerms, data_updated_at: datetime | None = None) -> _Metadata:
+    """Give the `provider` and `producer` blocks of an answer: who published the data, under which terms, and us.
+
+    And `data_updated_at`, the date the source states for the data, where the answer has one (GH-2567).
+    """
     return {
         "provider": {
             "name_local": terms.name_local,
@@ -222,6 +228,7 @@ def describe_provider(terms: _ProviderTerms) -> _Metadata:
             "attribution": terms.attribution,
         },
         "producer": describe_producer(),
+        "data_updated_at": None if data_updated_at is None else format_timestamp(data_updated_at),
     }
 
 
@@ -290,15 +297,16 @@ def _factory_method(func: _MethodT) -> _MethodT:
     return cast("_MethodT", _FactoryMethod(cast("FunctionType", func)))
 
 
-def _metadata_of(stations: StationsResult) -> _Metadata:
+def _metadata_of(stations: StationsResult, data_updated_at: datetime | None = None) -> _Metadata:
     """Get the ``metadata`` block that the formats carry under ``with_metadata=True``.
 
-    It is the ``{"provider": {...}, "producer": {...}}`` block of the dictionary, JSON and GeoJSON formats, the
-    shape the REST API and the command line answer with. The provider's part is ``request.metadata`` (a
-    `MetadataModel`) as a dictionary, the producer's is ``Info()`` and the library's DOI. A caller who wants the
-    provider's metadata as an object reads ``stations.request.metadata``.
+    It is the ``{"provider": {...}, "producer": {...}, "data_updated_at": ...}`` block of the dictionary, JSON and
+    GeoJSON formats, the shape the REST API and the command line answer with. The provider's part is
+    ``request.metadata`` (a `MetadataModel`) as a dictionary, the producer's is ``Info()`` and the library's DOI, and
+    ``data_updated_at`` is the date the source states for the data (the result's own, null where there is none). A
+    caller who wants the provider's metadata as an object reads ``stations.request.metadata``.
     """
-    return describe_provider(stations.request.metadata)
+    return describe_provider(stations.request.metadata, data_updated_at)
 
 
 def _same(left: object, right: object) -> bool:
@@ -777,7 +785,7 @@ class _ValuesResult(_EqualByFields, ExportMixin, Generic[_RowsT, _DictT]):
         # assembled key by key, as the keys come in this order and two of them are optional
         data: dict[str, object] = {}
         if with_metadata:
-            data["metadata"] = _metadata_of(self.stations)
+            data["metadata"] = _metadata_of(self.stations, self.data_updated_at)
         if with_stations:
             data["stations"] = self.stations.to_dict(with_metadata=False)["stations"]
         data["values"] = self._to_dict(self.df)
@@ -940,7 +948,7 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
             )
         collection: _ValuesOgcFeatureCollectionData = {"type": "FeatureCollection", "features": features}
         if with_metadata:
-            return {"metadata": _metadata_of(self.stations), "data": collection}
+            return {"metadata": _metadata_of(self.stations, self.data_updated_at), "data": collection}
         return {"data": collection}
 
     def to_plot(self) -> go.Figure:
@@ -1337,7 +1345,7 @@ class InterpolatedValuesResult(_ValuesResult[list[_InterpolatedValuesItemDict], 
         }
         collection: _InterpolatedValuesOgcFeatureCollectionData = {"type": "FeatureCollection", "features": [feature]}
         if with_metadata:
-            return {"metadata": _metadata_of(self.stations), "data": collection}
+            return {"metadata": _metadata_of(self.stations, self.data_updated_at), "data": collection}
         return {"data": collection}
 
     def to_plot(self) -> go.Figure:
@@ -1530,7 +1538,7 @@ class SummarizedValuesResult(_ValuesResult[list[_SummarizedValuesItemDict], _Sum
         }
         collection: _SummarizedValuesOgcFeatureCollectionData = {"type": "FeatureCollection", "features": [feature]}
         if with_metadata:
-            return {"metadata": _metadata_of(self.stations), "data": collection}
+            return {"metadata": _metadata_of(self.stations, self.data_updated_at), "data": collection}
         return {"data": collection}
 
     def to_plot(self) -> go.Figure:

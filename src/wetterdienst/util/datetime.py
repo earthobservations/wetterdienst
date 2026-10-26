@@ -265,14 +265,20 @@ def newest(dates: Iterable[dt.datetime]) -> dt.datetime | None:
 
 
 def parse_source_date(text: object) -> dt.datetime | None:
-    """Read the date a source states as ISO 8601 text into UTC; null for no date, or one that is no ISO 8601 date."""
+    """Read the date a source states for an update as ISO 8601 text into UTC; null where it is no such date.
+
+    A text that is no ISO 8601 date, one whose UTC time is out of range (`9999-12-31T23:59:59-01:00`) and one
+    later than a day from now are no plausible date of an update, and give none: a date that misleads is worse than
+    none, and a source's mistake does not fail the request.
+    """
     if not isinstance(text, str):
         return None
     try:
         value = dt.datetime.fromisoformat(text)
-    except ValueError:
+        value = value.replace(tzinfo=dt.UTC) if value.tzinfo is None else value.astimezone(dt.UTC)
+    except (ValueError, OverflowError):
         return None
-    return value.replace(tzinfo=dt.UTC) if value.tzinfo is None else value.astimezone(dt.UTC)
+    return None if value > dt.datetime.now(dt.UTC) + dt.timedelta(days=1) else value
 
 
 #: Slack allowed to a server whose clock runs ahead of ours, before a `Last-Modified` in the future is no date

@@ -146,8 +146,6 @@ class DwdPoiValues(TimeseriesValues):
         columns = [parameter.name_original for parameter in dataset.parameters if parameter.name_original in df.columns]
         if not columns:
             return pl.DataFrame()
-        # when DWD rewrote the file of the station, which is the date of the report in it (GH-2567)
-        self._note_data_updated(file.last_modified)
         df = df.select(
             pl.concat_str(
                 [
@@ -161,6 +159,10 @@ class DwdPoiValues(TimeseriesValues):
             .alias("timestamp"),
             *[pl.col(column) for column in columns],
         )
+        # when DWD rewrote the file of the station, which is the date of the report in it, for a file with a report in
+        # the window (GH-2567)
+        if self._has_rows_in_window(df):
+            self._note_data_updated(file.last_modified)
         df = df.unpivot(index=["timestamp"], variable_name="parameter", value_name="value")
         df = with_speed_beside(
             df, _WIND_SPEED_OF_DIRECTION, on=["timestamp"], value=pl.col("value").str.replace(",", ".")

@@ -129,9 +129,9 @@ class DwdObservationValues(TimeseriesValues):
             else:
                 periods_and_date_ranges.append((period, None))
         parameter_data = []
-        # when DWD wrote each archive that was read (the `Last-Modified` of its download), noted below once the
-        # readings of the station are known to hold rows (GH-2567)
-        written = []
+        # when DWD wrote the archives each period read (the `Last-Modified` of their download), by the rank of the
+        # period: noted below for the periods whose rows are in the answer (GH-2567)
+        written: dict[int, list[dt.datetime | None]] = {}
         for rank, (period, date_ranges) in enumerate(periods_and_date_ranges):
             if period not in dataset.periods:
                 log.info(f"Skipping period {period} for {dataset.name}.")
@@ -153,7 +153,7 @@ class DwdObservationValues(TimeseriesValues):
                 log.info(f"No data downloaded for {dataset_identifier}. Skipping period.")
                 continue
             period_df = parse_climate_observations_data(filenames_and_files, dataset, period)
-            written.extend(file.last_modified for file in filenames_and_files)
+            written[rank] = [file.last_modified for file in filenames_and_files]
             parameter_data.append(
                 period_df.with_columns(pl.lit(rank, dtype=pl.UInt8).alias(_PERIOD_RANK)),
             )
@@ -181,7 +181,6 @@ class DwdObservationValues(TimeseriesValues):
         )
         parameter_df = parameter_df.sort([_PERIOD_RANK, _HAS_VALUE], descending=[False, True], maintain_order=True)
         parameter_df = parameter_df.unique(subset=["timestamp"], keep="first")
-        parameter_df = parameter_df.drop(_PERIOD_RANK, _HAS_VALUE)
         # the in-memory engine on purpose: polars 2 collects with the streaming engine by default, which is
         # slower here. Measured with polars 2.0.0 (benchmarks/dwd_observation_minute_1_precipitation.py, ten
         # stations): the `datetime_ranges` + `explode` of the historical 1 minute precipitation takes 2.2 times
@@ -191,20 +190,29 @@ class DwdObservationValues(TimeseriesValues):
         if not isinstance(result, pl.DataFrame):
             msg = "Expected DataFrame from collect()"
             raise TypeError(msg)
-        parameter_df = result
-        df = self._tidy_up_df(parameter_df)
-        self._note_written_if_rows(df, written)
+        # after the periods have settled the stamps they share: the archive of a period whose rows were all dropped for
+        # another's, or lie outside the window, is not what the answer was read from
+        self._note_written_of_periods_with_rows(result, written)
+        df = self._tidy_up_df(result.drop(_PERIOD_RANK, _HAS_VALUE))
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`), and so is the number:
         # the value is the text of the file (the parser maps the sentinels and decodes the letters, it does not
         # cast), which the core reads and counts where it is none. The stamp is the UTC the parser made it, shifted
         # in `_tidy_up_df` where the archive writes another zone
         return df.select("parameter", "timestamp", "value", "quality_flags")
 
-    def _note_written_if_rows(self, df: pl.DataFrame, written: list[dt.datetime | None]) -> None:
-        """Note when DWD wrote the archives that were read, once the readings of the station are known to hold rows."""
-        if not df.is_empty():
-            for updated in written:
-                self._note_data_updated(updated)
+    def _note_written_of_periods_with_rows(
+        self, df: pl.DataFrame, written: dict[int, list[dt.datetime | None]]
+    ) -> None:
+        """Note when DWD wrote the archives of each period that has a row in the answer, by the rank of the period.
+
+        A row counts where it is inside the window and, where the nulls are dropped, has a value in some parameter of
+        the dataset. The requested parameters are the core's to cut, which this does not see.
+        """
+        rows = df.filter(pl.col(_HAS_VALUE)) if self.sr.options.drop_nulls_effective else df
+        for rank, dates in written.items():
+            if self._has_rows_in_window(rows.filter(pl.col(_PERIOD_RANK) == rank)):
+                for updated in dates:
+                    self._note_data_updated(updated)
 
     @staticmethod
     def _tidy_up_df(df: pl.DataFrame) -> pl.DataFrame:

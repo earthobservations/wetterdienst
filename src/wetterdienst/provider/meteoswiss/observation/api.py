@@ -116,8 +116,17 @@ class MeteoswissObservationValues(TimeseriesValues):
                 infer_schema=False,
             )
             dfs.append(file_df)
-            if not file_df.is_empty():
-                # when MeteoSwiss last wrote the file, which gave the station readings (GH-2567)
+            # when MeteoSwiss last wrote the file, if it gave the station readings in the window (GH-2567)
+            columns = [name for name in file_df.columns if name not in ("station_abbr", "reference_timestamp")]
+            stamped = file_df.select(
+                pl.col("reference_timestamp")
+                .str.to_datetime("%d.%m.%Y %H:%M", strict=False, time_zone="UTC")
+                .alias("timestamp"),
+                pl.when(pl.any_horizontal(pl.col(column).is_not_null() for column in columns))
+                .then(pl.lit(1))
+                .alias("value"),
+            )
+            if self._has_rows_in_window(stamped, value="value"):
                 self._note_data_updated(csv_file.last_modified)
         if not dfs:
             return pl.DataFrame()

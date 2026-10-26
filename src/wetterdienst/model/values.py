@@ -343,6 +343,31 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             ),
         )
 
+    def _has_rows_in_window(self, df: pl.DataFrame, column: str = "timestamp", *, value: str | None = None) -> bool:
+        """Tell whether a provider's frame has a row inside the window of the request, as `_filter_by_window` cuts it.
+
+        For a provider that dates its answer by the files it read (`_note_data_updated`): a file counts only if rows of
+        it are in the answer, and one read because its period was selected, whose rows all lie outside the window, is
+        not. A frame with no row is none. Without a window every row is in. The stamp may be a date or a datetime,
+        with or without a zone (none is UTC, as everywhere else); a column that is neither cannot be told, and every
+        row of it counts. Where the nulls are dropped and the frame is long (a column `value` names), only a row with a
+        value counts. What this does not see is what the core cuts after it: the requested parameters of a dataset
+        the provider reads whole, and a value the core reads as null (a text that is no number).
+        """
+        if value is not None and value in df.columns and self.sr.options.drop_nulls_effective:
+            df = df.filter(pl.col(value).is_not_null())
+        if df.is_empty():
+            return False
+        if not self.sr.start or column not in df.columns:
+            return True
+        dtype = df.schema[column]
+        if dtype != pl.Date and not isinstance(dtype, pl.Datetime):
+            return True
+        stamp = pl.col(column).cast(pl.Datetime("us")) if dtype == pl.Date else pl.col(column)
+        if dtype == pl.Date or getattr(dtype, "time_zone", None) is None:
+            stamp = stamp.dt.replace_time_zone("UTC")
+        return not df.filter(stamp.is_between(self.sr.start, self.sr.end, closed="both")).is_empty()
+
     def _empty_values_df(self) -> pl.DataFrame:
         """Build the frame a request that collected nothing returns, carrying its schema.
 

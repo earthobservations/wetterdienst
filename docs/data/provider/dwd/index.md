@@ -41,8 +41,8 @@ The `data_updated_at` of the [`metadata`](../../../usage/restapi.md#response-met
 states of when the data was last updated, by network:
 
 - **Files** (`observation`, `derived`, `phenology`, `poi`, `road`, and a `RadarResult` of `radar`): when DWD last wrote
-  the file or files the answer was built from, the `Last-Modified` of their download, the newest of those that gave a
-  reading. The daily archives of the observations are rewritten every day, so their date is that of the rewrite and
+  the file or files the answer was built from, the `Last-Modified` of their download, the newest of those that have
+  rows in the answer. The daily archives of the observations are rewritten every day, so their date is that of the rewrite and
   not a sign that a reading in them changed.
 - **Forecasts** (`mosmix`, `dmo`, `swsmos`): the model run the forecast is of, which the file states (`IssueTime`) or
   its name does, and not when the run was published as a file.

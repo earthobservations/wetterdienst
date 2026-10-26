@@ -895,6 +895,15 @@ _STATIONS_REGISTRY_SCHEMA = {
 class MeteoFranceObservationValues(TimeseriesValues):
     """Values class for Météo-France observation data."""
 
+    def _has_row_in_window(
+        self, df: pl.DataFrame, date_column: str, resolution_name: str, fu_hours: _FuHours | None
+    ) -> bool:
+        """Tell whether a station's rows of one file have one inside the window of the request, as the core cuts it."""
+        if not self.sr.start:
+            return True
+        stamped = _parse_climate_date(pl.col(date_column), resolution_name, fu_hours)
+        return bool(df.select(stamped.is_between(self.sr.start, self.sr.end, closed="both").any()).item())
+
     def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
@@ -937,15 +946,18 @@ class MeteoFranceObservationValues(TimeseriesValues):
             if isinstance(file.content, Exception):
                 log.warning(f"Failed to download {file.url}: {file.content}")
                 continue
-            # the date data.gouv.fr gives the file, in the listing the request has read: the newest of the files it
-            # reads is the answer's "date of the most recent update" that the Licence Ouverte asks for (GH-2567)
-            self._note_data_updated(parse_source_date(resource.get("last_modified")))
             df = pl.read_csv(
                 gunzip(file, limit=_MAX_UNPACKED_BYTES), separator=";", schema=schema, columns=read_columns
             )
             df = df.filter(pl.col("NUM_POSTE").eq(station_id))
             if not df.is_empty():
                 dfs.append(df)
+                # the date data.gouv.fr gives the file, in the listing the request has read, counts only for a file
+                # that holds a row of this station inside the window: the newest of those is the answer's "date of the
+                # most recent update" that the Licence Ouverte asks for, and a file whose rows are not in the answer
+                # would date it later than the data it has (GH-2567)
+                if self._has_row_in_window(df, date_column, resolution_name, fu_hours):
+                    self._note_data_updated(parse_source_date(resource.get("last_modified")))
         if not dfs:
             return pl.DataFrame()
         if resolution_name in _FU_CONVERTED_RESOLUTIONS and fu_hours is None and department.startswith(("97", "98")):

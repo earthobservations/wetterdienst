@@ -196,6 +196,11 @@ class ChmiObservationValues(TimeseriesValues):
         self._written[url] = file.last_modified
         return file.content.read()
 
+    def _note_written(self, url: str, df: pl.DataFrame) -> None:
+        """Note when CHMI wrote a file, if it gave the station readings in the window (GH-2567)."""
+        if self._has_rows_in_window(df, value="value"):
+            self._note_data_updated(self._written.get(url))
+
     def _collect_element(
         self,
         station_id: str,
@@ -223,7 +228,7 @@ class ChmiObservationValues(TimeseriesValues):
                     df = parse_chmi_values_subdaily(content, element=element)
                     if not df.is_empty():
                         frames.append(df)
-                        self._note_data_updated(self._written.get(url))
+                        self._note_written(url, df)
             return frames
         url = f"{_BASE_URL}/data/{config['path']}/{category}/{config['prefix']}-{station_id}-{element}.csv"
         content = self._download(url, settings, station_id)
@@ -241,7 +246,7 @@ class ChmiObservationValues(TimeseriesValues):
             )
         if df.is_empty():
             return []
-        self._note_data_updated(self._written.get(url))
+        self._note_written(url, df)
         return [df]
 
     def _warn_if_ended(self, parameter: ParameterModel, last_year: int, hint: str) -> None:

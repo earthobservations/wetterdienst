@@ -375,9 +375,6 @@ class DwdSwsmosValues(TimeseriesValues):
         df = df.filter(pl.col("ID") == station_id)
         if df.is_empty():
             return pl.DataFrame()
-        # a forecast is dated by its model run and not by the file it was published in: the run its file is named for
-        # (GH-2567 asks for the date of the update)
-        self._note_data_updated(self._run_issued)
         columns = [p.name_original for p in dataset.parameters if p.name_original in df.columns]
         # a text that is no number is no reading (the run file read on 2026-10-12 holds none): it becomes null, and the
         # text stays beside the value as `raw:` (GH-2759)
@@ -392,12 +389,17 @@ class DwdSwsmosValues(TimeseriesValues):
         )
         df = unpivot_with_raw(df, index=["timestamp"])
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`)
-        return df.select(
+        df = df.select(
             pl.col("parameter"),
             pl.col("timestamp"),
             pl.col("value"),
             join_quality_flags(None, raw=pl.col("raw")),
         )
+        # a forecast is dated by its model run and not by the file it was published in: the run its file is named for
+        # (GH-2567 asks for the date of the update), for a run that has steps in the window
+        if self._has_rows_in_window(df, value="value"):
+            self._note_data_updated(self._run_issued)
+        return df
 
 
 @dataclass

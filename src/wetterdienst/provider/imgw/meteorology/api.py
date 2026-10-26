@@ -619,8 +619,10 @@ class ImgwMeteorologyValues(TimeseriesValues[DatasetModel]):
             )
             if not df.is_empty():
                 data.append(df)
-                # the archive gave this station readings: when IMGW wrote it is the date of what is read (GH-2567)
-                self._note_data_updated(file.last_modified)
+                # the archive gave this station readings in the window: when IMGW wrote it is the date of what is read
+                # (GH-2567 asks for the date of the update)
+                if self._has_rows_in_window(df, value="value"):
+                    self._note_data_updated(file.last_modified)
         try:
             df = pl.concat(data)
         except ValueError:

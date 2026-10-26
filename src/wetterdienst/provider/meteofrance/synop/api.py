@@ -183,9 +183,18 @@ class MeteoFranceSynopValues(TimeseriesValues):
             df = df.filter(pl.col("geo_id_wmo").eq(station_id))
             if not df.is_empty():
                 dfs.append(df)
-                # the file of the year gave this station readings: when Météo-France wrote it is the date of what is
-                # read, which the Licence Ouverte asks for (GH-2567)
-                self._note_data_updated(file.last_modified)
+                # the file of the year gave this station readings in the window: when Météo-France wrote it is the date
+                # of what is read, which the Licence Ouverte asks for (GH-2567)
+                stamped = df.select(
+                    pl.col("validity_time")
+                    .str.to_datetime("%Y-%m-%dT%H:%M:%SZ", strict=False, time_zone="UTC")
+                    .alias("timestamp"),
+                    pl.when(pl.any_horizontal(pl.col(column).is_not_null() for column in parameter_columns))
+                    .then(pl.lit(1))
+                    .alias("value"),
+                )
+                if self._has_rows_in_window(stamped, value="value"):
+                    self._note_data_updated(file.last_modified)
         if not dfs:
             return pl.DataFrame()
         df = pl.concat(dfs, how="diagonal")

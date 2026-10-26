@@ -254,9 +254,6 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
         # drop last line if it is a repeated header line
         if df.get_column("STATION").last() == "STATION":
             df = df[:-1, :]
-        if not df.is_empty():
-            # when NCEI last wrote the file of the station (GH-2567)
-            self._note_data_updated(file.last_modified)
         df = df.rename(
             {
                 "STATION": "station_id",
@@ -333,10 +330,14 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
             calm(pl.col(SPEED_BESIDE), where=pl.col("parameter").eq("wind_direction")),
             Sentinel(GHCNH_PRECIPITATION_MISSING, where=pl.col("parameter").eq("precipitation")),
         )
-        return df.with_columns(
+        df = df.with_columns(
             value.alias("value"),
             join_quality_flags(pl.col("quality"), measurement=pl.col("measurement"), source=pl.col("source"), raw=raw),
         ).drop("quality", "measurement", "source", SPEED_BESIDE)
+        # when NCEI last wrote the file of the station, if it gave readings in the window (GH-2567)
+        if self._has_rows_in_window(df, value="value"):
+            self._note_data_updated(file.last_modified)
+        return df
 
     def _collect_station_parameter_for_daily(self, station_id: str) -> pl.DataFrame:
         """Collect station parameter for daily resolution."""
@@ -361,9 +362,6 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
             separator=",",
             has_header=True,
         )
-        if not df.is_empty():
-            # when NCEI last wrote the file of the station (GH-2567)
-            self._note_data_updated(file.last_modified)
         df = df.rename(str.lower).rename({"date": "timestamp"})
         df = df.select(
             cs.exclude(
@@ -415,6 +413,9 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
         # the date is handed over as it is, which the core reads as midnight UTC. The date is the station's own
         # observing day, which the readme gives no zone for, and a stamp shifted by the station's offset (Tokyo 15:00
         # UTC the day before) was dropped by a request for that one day, whose bounds are 00:00 UTC (GH-2683).
+        # when NCEI last wrote the file of the station, if it gave readings in the window (GH-2567)
+        if self._has_rows_in_window(df, value="value"):
+            self._note_data_updated(file.last_modified)
         return self._apply_daily_factors(df)
 
     @staticmethod

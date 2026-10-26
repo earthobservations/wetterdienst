@@ -278,7 +278,11 @@ def test_imgw_hydrology_reads_a_headerless_daily_file_by_column_position(monkeyp
         archive.writestr("codz_2023_03.csv", csv)
     buffer.seek(0)
     values = ImgwHydrologyValues.__new__(ImgwHydrologyValues)
-    values.sr = SimpleNamespace(request=SimpleNamespace(settings=Settings()))  # ty: ignore[invalid-assignment]
+    values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
+        request=SimpleNamespace(settings=Settings()),
+        start=None,
+        options=SimpleNamespace(drop_nulls_effective=False),
+    )
     monkeypatch.setattr(values, "_get_urls", lambda _dataset: ["unused"])
     monkeypatch.setattr(
         imgw_hydrology_api,

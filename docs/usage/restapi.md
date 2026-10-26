@@ -202,9 +202,9 @@ what the answer is missing:
 - **`retrieved_at`** is when the answer was made, in UTC. Whether the data came from the server's cache
   is not told.
 - **`data_updated_at`** is when the source last updated the data of the answer, in UTC: the newest such date over the
-  files the answer was read from, **a file that gave no reading and one that failed not among them**. It is not when
-  the data was fetched (that is `retrieved_at`) and it is `null` where there is none to give: never `retrieved_at` in
-  its place. What the date is depends on what the source states:
+  files the answer was read from, **a file that failed and one that gave the answer no row not among them** (see
+  "Which files count" below). It is not when the data was fetched (that is `retrieved_at`) and it is `null` where
+  there is none to give: never `retrieved_at` in its place. What the date is depends on what the source states:
 
   - **A file the source dates** (the observations of DWD and its derived, phenology, POI and road networks, CHMI, IMGW,
     IPMA, MeteoSwiss, NOAA GHCN and the SYNOP of Météo-France): when the source last wrote the file or files the answer
@@ -213,10 +213,11 @@ what the answer is missing:
     `Last-Modified` is later than its own `Date`, is not a date, or is not there gives none, and the date of the
     request is never taken for it.
   - **`meteofrance/observation`**: the newest `last_modified` that data.gouv.fr gives the files read, the date the
-    Etalab Open Licence 2.0 asks to be named with the source.
+    Etalab Open Licence 2.0 asks to be named with the source. Its listing is cached for 12 hours, so the date may lag a
+    file refreshed since by up to that time.
   - **A forecast** (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`): the model run the forecast is of, not the file it was
     published in, so it is the same for a run read again later, and `retrieved_at` less `data_updated_at` is how old the
-    run is.
+    run is. This is the age of a forecast only: for a file it is not the age of the data.
   - **The warnings of `dwd/alerts`**: the newest `sent` of the warnings in the answer, which DWD states in each of them;
     a snapshot with no warning has none.
 
@@ -225,9 +226,24 @@ what the answer is missing:
   KNMI, MET Norway, Met Office), for every list of stations, and for a streamed answer: NDJSON and CSV answers of
   `values` write their head before the stations are read, so the newest date is not known, they say `null` and the
   header is left out, where a JSON answer of the same request has the exact one. An answer made from the cache has the
-  date of the copy it was made from, so `retrieved_at` less `data_updated_at` is the age of the data, however long ago
-  it was cached; a copy cached before the library kept dates has none. Which networks state a date, and why the others
-  do not, is `DATA_UPDATED_STATED` and `DATA_UPDATED_NOT_STATED` in `tests/ui/test_response_metadata.py`.
+  date of the copy it was made from, however long ago it was cached; a copy cached before the library kept dates has
+  none. For a file `retrieved_at` less `data_updated_at` is how long ago the source wrote it, which is not how old the
+  readings in it are. The Python results carry it as
+  `data_updated_at`, and the `metadata` of `to_dict`, `to_json` and `to_ogc_feature_collection` with
+  `with_metadata=True` has it as a key of its own next to `provider` and `producer` (`null` for a list of stations).
+  Which networks state a date, and why the others do not, is `DATA_UPDATED_STATED` and `DATA_UPDATED_NOT_STATED` in `tests/ui/test_response_metadata.py`.
+
+  **Which files count.** A file dates the answer only where rows of it are in the answer: one that failed, one that
+  holds no row of the station, one whose rows all lie outside the window asked for, and one whose rows another file
+  took the place of (the recent archive of DWD where the historical one has the same stamps) are not counted, and where
+  `drop_nulls` is on (the default) a row without a value does not make a file count. The provider decides this from the
+  frame it hands to the core, so two things stay out of its sight, and a file that is in the answer for them only still
+  counts: the requested parameters, where a file is read for a whole dataset (a file whose only rows in the window
+  are of a parameter that was not asked for), and a value that the core reads as null although the provider handed over
+  a text for it. The window is compared with the stamps as the provider reads them: `dwd/observation` shifts the stamps
+  of an archive that DWD writes in MEZ by an hour afterwards, so a window that ends or begins within that hour of the
+  file's rows can count or leave out an archive wrongly.
+
 - **`counts`** is the stations in the answer and its rows: the items of `values` (one per timestamp in
   the wide shape), the stations listed, or the histories.
 - **`crs`** is the reference system of every position in the answer: WGS 84, longitude before latitude in

@@ -281,7 +281,9 @@ class DwdPhenologyValues(TimeseriesValues):
             # a file with nothing in it for the request has no columns to filter by
             if not loaded.is_empty() and not (df := loaded.filter(pl.col("station_id").eq(station_id))).is_empty():
                 frames.append(df)
-                self._note_data_updated(self._written.get((dataset.name, period)))
+                # the file of the period has rows of the station in the window (GH-2567)
+                if self._has_rows_in_window(df):
+                    self._note_data_updated(self._written.get((dataset.name, period)))
         if not frames:
             return pl.DataFrame()
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`)

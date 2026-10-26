@@ -532,9 +532,6 @@ class DwdDmoValues(TimeseriesValues[DatasetModel]):
         df = self.read_dmo(station_id=station_id, dataset=parameter_or_dataset, date=issue)
         if df.is_empty():
             return df
-        # a forecast is dated by its model run and not by the file it was published in: the `IssueTime` of the run read
-        # (GH-2567 asks for the date of the update)
-        self._note_data_updated(self.kml.metadata.get("issue_time"))
         # ICON writes a little below 0 for the precipitation of a step now and then (-0.02 mm; 2769 of 459,732 values
         # of `RR1` in one run, to -0.10), which is no rain: 0.0, with the number kept as `raw:` (GH-3263). `Rad1h`
         # and `RadS3` stay as written
@@ -546,13 +543,18 @@ class DwdDmoValues(TimeseriesValues[DatasetModel]):
         df = unpivot_with_raw(df, index=["timestamp"])
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`); the stamp is a text,
         # which the core rejects, so it is read here, as the UTC its `Z` says
-        return df.select(
+        df = df.select(
             "parameter",
             pl.col("timestamp").str.to_datetime(format="%Y-%m-%dT%H:%M:%S.000Z", time_zone="UTC"),
             "value",
             # the "-" the file writes for a missing value (GH-2759)
             join_quality_flags(None, raw=pl.col("raw")),
         )
+        # a forecast is dated by its model run and not by the file it was published in: the `IssueTime` of the run read
+        # (GH-2567 asks for the date of the update), for a run that has steps in the window
+        if self._has_rows_in_window(df, value="value"):
+            self._note_data_updated(self.kml.metadata.get("issue_time"))
+        return df
 
     def read_dmo(self, station_id: str, dataset: DatasetModel, date: dt.datetime | DwdForecastDate) -> pl.DataFrame:
         """Read DMO data."""
