@@ -20,7 +20,7 @@ Types of changes:
 
 - `meteofrance/synop` reads the yearly files data.gouv.fr lists (`data/OBS/SYNOP/`), not the
   `synchro_ftp` copy of them, which stopped being refreshed on 2026-09-09: values of the current
-  year now run to the day before today instead of ending on 2026-09-08 (GH-XXXX)
+  year now run to the day before today instead of ending on 2026-09-08 (GH-3446)
 
 ## [0.175.0] - 2026-10-25
 
