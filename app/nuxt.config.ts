@@ -204,19 +204,7 @@ export default defineNuxtConfig({
     // of the app now (GH-3094), a blob of the page's own before, which took the page's policy. nuxt-security sets
     // it for the page only, so the assets say it themselves.
     '/_nuxt/**': { headers: { 'Cross-Origin-Embedder-Policy': 'credentialless' } },
-    // The widget is the one page meant to sit in a frame of another site (`/widget?station=...`, docs/usage/app.md):
-    // it reads weather data and has no control that does more, its two links open in a new tab. So its policy lets
-    // any origin frame it, and its `X-Frame-Options`, which could not name more than the app's own, is not sent.
-    // Every other page keeps `frame-ancestors 'self'` and `SAMEORIGIN`; a script, style or image of the widget is
-    // not a document, so `/_nuxt/**` needs no rule.
-    '/widget': {
-      security: {
-        headers: {
-          contentSecurityPolicy: { 'frame-ancestors': ['*'] },
-          xFrameOptions: false,
-        },
-      },
-    },
+    // Who may frame `/widget` is not a rule of this list: see `server/plugins/widget-frame.ts`.
   },
 
   nitro: {

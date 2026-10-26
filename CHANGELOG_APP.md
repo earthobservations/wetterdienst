@@ -16,11 +16,12 @@ Types of changes:
 
 ## [Unreleased]
 
-### Fixed
+### Security
 
-- `[Widget]` `/widget` can be put in a frame of another site, as its documentation says it can: the
-  page is sent with `frame-ancestors *` and without `X-Frame-Options`. Every other page still
-  answers only to the app's own origin. The docs have a snippet to copy (GH-2607)
+- `[Widget]` `/widget` can be put in a frame of another site, as its documentation says it can: it
+  is sent with `frame-ancestors *` and without `X-Frame-Options`, the one page that is. Every other
+  page, `/widget` under another spelling included, still answers only to the app's own origin. A
+  self-hosted app gets the same, there is no setting. The docs have an `<iframe>` to copy (GH-2607)
 
 ## [0.36.0] - 2026-10-25
 

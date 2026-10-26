@@ -42,12 +42,17 @@ test.describe('the policy the page is sent with', () => {
 })
 
 test.describe('who may frame a page', () => {
-  test('any origin may frame the widget, and no other page', async ({ request }) => {
-    const widget = (await request.get('/widget?station=10381')).headers()
-    expect(directive(widget['content-security-policy']!, 'frame-ancestors')).toEqual(['*'])
-    expect(widget['x-frame-options']).toBeUndefined()
+  test('any origin may frame the widget, in either spelling and with a query', async ({ request }) => {
+    for (const path of ['/widget', '/widget/', '/widget?station=10381', '/widget/?station=10381&theme=dark']) {
+      const headers = (await request.get(path)).headers()
+      expect(directive(headers['content-security-policy']!, 'frame-ancestors'), path).toEqual(['*'])
+      expect(headers['x-frame-options'], path).toBeUndefined()
+    }
+  })
 
-    for (const path of ['/', '/meteogram', '/explorer', '/docs', '/widgets', '/api/version']) {
+  test('no other page may be framed by another origin, not even by a path that reads as the widget once decoded', async ({ request }) => {
+    const paths = ['/', '/meteogram', '/explorer', '/docs', '/widgets', '/widgetx', '/Widget', '/%77idget', '/widge%74', '/%57idget', '/widget//', '/api/version']
+    for (const path of paths) {
       const headers = (await request.get(path)).headers()
       expect(headers['x-frame-options'], path).toBe('SAMEORIGIN')
       if (headers['content-security-policy'])

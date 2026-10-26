@@ -36,22 +36,35 @@ and how to narrow it, a provider that is down says so and the request can be mad
 ## Embed the forecast on another site
 
 `/widget` is the one page of the app that another site may put in a frame; every other page answers
-`frame-ancestors 'self'`. It shows the MOSMIX forecast of one station and nothing else: it reads the data and has no
-control that does more, and its two links (the full forecast and the project) open in a new tab. Pick the
-station on the Forecast page: its address ends in `?station=<station-id>`. Then put this on your page, with the
-address of your instance in place of the hosted one if you run your own:
+`frame-ancestors 'self'`. It shows the MOSMIX forecast of one station and nothing else: it reads the data, and the
+only things in it that can be clicked are its two links (the full forecast and the project), which open in a new tab,
+and the buttons that draw the chart again or reload the frame if it could not be drawn. Pick the station on the
+Forecast page: its address ends in `?station=<station-id>`. Then put this on your page, with the address of your
+instance in place of the hosted one if you run your own (`/widget` is open to every site on any instance, there is no
+setting for it):
 
 ```html
 <iframe
   src="https://wetterdienst.eobs.org/widget?station=<station-id>&theme=light"
   title="Weather forecast"
-  width="100%" height="640"
+  width="100%" height="700"
   style="border: 0"
-  loading="lazy"></iframe>
+  loading="lazy"
+  referrerpolicy="strict-origin-when-cross-origin"></iframe>
 ```
 
-`theme=dark` or `theme=light` sets the colours; leave it out to follow the visitor's setting. If your page has a
-Content Security Policy of its own, it has to allow the app's origin in `frame-src` (or `child-src`).
+- The chart is 540 px high and the frame holds a header and a footer around it: 700 px leaves no scroll bar.
+- `theme=dark` or `theme=light` sets the colours; leave it out to follow the visitor's setting. The browser keeps the
+  colours it was last given in the frame's own storage, so a visitor who has seen `theme=dark` keeps it until a
+  `theme` says otherwise, even if you drop the parameter later.
+- If your page has a Content Security Policy of its own, it has to allow the app's origin in `frame-src` (or
+  `child-src`).
+- If you add `sandbox`, give it `allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox`. Without
+  `allow-same-origin` the widget's requests to `/api` come from an opaque origin, and the app refuses them (it answers
+  no CORS header, see below); the two popup tokens let its links open.
+- `/widget` is sent with `Cross-Origin-Resource-Policy: same-origin`. A page that sets
+  `Cross-Origin-Embedder-Policy: require-corp` may therefore be refused the frame; a page that sets none, which is
+  most, is not affected.
 
 ## Run your own
 
