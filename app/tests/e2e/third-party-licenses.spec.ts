@@ -23,6 +23,12 @@ const NOT_IN_THE_BUNDLE: Record<string, string> = {
   'nuxt-security': 'a Nuxt module whose headers and middleware run on the server',
 }
 
+/** Whether the lockfile has a package of exactly this name and version (a key of its `packages:` section) */
+function inLockfile(name: string, version: string): boolean {
+  const key = `${name}@${version}`.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`^ {2}'?${key}'?:$`, 'm').test(lockfile)
+}
+
 interface Entry { name: string, version: string, license: string, body: string }
 
 function entries(text: string): Entry[] {
@@ -33,13 +39,15 @@ function entries(text: string): Entry[] {
 }
 
 test.describe('the footer', () => {
-  test('links the file, next to the privacy policy', async ({ page }) => {
+  test('links the file, next to the privacy policy', async ({ page, context, baseURL }) => {
+    // the label is in the language of the page, whatever the language of the browser
+    await context.addCookies([{ name: 'wd_lang', value: 'en', url: baseURL! }])
     await page.goto('/')
     await page.waitForLoadState('networkidle')
 
     const link = page.getByRole('contentinfo').locator('a[href="/third-party-licenses.txt"]')
     await expect(link).toBeVisible()
-    await expect(link).toHaveText(/licen[cs]es/i)
+    await expect(link).toHaveText('Third-party licences')
   })
 
   test('is not on the widget, which has no footer', async ({ page }) => {
@@ -79,7 +87,7 @@ test.describe('the file', () => {
 
     // the file is of this lockfile, not of an older install
     for (const entry of listed)
-      expect(lockfile.includes(`${entry.name}@${entry.version}`), `${entry.name}@${entry.version} is not in pnpm-lock.yaml`).toBe(true)
+      expect(inLockfile(entry.name, entry.version), `${entry.name}@${entry.version} is not in pnpm-lock.yaml`).toBe(true)
 
     // every entry carries the text of a licence, not only a name
     for (const entry of listed)
@@ -88,6 +96,22 @@ test.describe('the file', () => {
     // the ones that need more than a notice (LGPL, MPL, an advertising clause, an unknown licence) are a decision
     const notices = listed.map(entry => ({ ...entry, homepage: '', texts: [] }))
     expect(needsMoreThanNotice(notices).map(entry => `${entry.name}@${entry.version}: ${entry.license}`)).toEqual([])
+  })
+
+  test('has the notices of the code inside the DuckDB files and says which of Plotly\'s it does not reproduce', async ({ request }) => {
+    const text = await (await request.get('/third-party-licenses.txt')).text()
+    test.skip(text === DEVELOPMENT_NOTICE, 'the development server has no bundle to read the notices from')
+
+    const byName = new Map(entries(text).map(entry => [entry.name, entry]))
+    const duckdb = byName.get('@duckdb/duckdb-wasm')!.body
+    for (const needle of ['third_party/re2/LICENSE', 'third_party/zstd/LICENSE', 'third_party/mbedtls/LICENSE', 'js-sha256@0.11.1', 'ws@8.22.0'])
+      expect(duckdb, needle).toContain(needle)
+    const plotly = byName.get('plotly.js-basic-dist-min')!.body
+    expect(plotly).toContain('NOT reproduced')
+    expect(plotly).toContain('@plotly/d3@3.8.2')
+    // the code of the build tools that is in every chunk
+    for (const name of ['vite', 'rolldown', '@vitejs/plugin-vue'])
+      expect(byName.has(name), name).toBe(true)
   })
 
   test('has the notice of Leaflet, which the bundle used to drop', async ({ request }) => {

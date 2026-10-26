@@ -1,5 +1,6 @@
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs'
+import { dirname, isAbsolute, join, resolve } from 'node:path'
+import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 // The logic of the third-party notices (GH-3469), apart from Nuxt so that a test can read it: which packages a
@@ -66,11 +67,23 @@ function declaredLicense(pkg: Record<string, any>): string {
   return typeof field?.type === 'string' ? field.type : ''
 }
 
+/** A repository field as a URL a reader can open: `owner/repo`, `github:o/r`, `git@host:o/r.git`, `git://`, `git+ssh://` */
+export function repositoryUrl(repository: string): string {
+  const url = repository.trim()
+    .replace(/^git\+/, '')
+    .replace(/^git:\/\//, 'https://')
+    .replace(/^ssh:\/\/git@/, 'https://')
+    .replace(/^git@([^:/]+):/, 'https://$1/')
+    .replace(/^(github|gitlab|bitbucket):/, (_, host: string) => `https://${host}.${host === 'bitbucket' ? 'org' : 'com'}/`)
+    .replace(/\.git$/, '')
+  return /^[\w.-]+\/[\w.-]+$/.test(url) ? `https://github.com/${url}` : url
+}
+
 function homepageOf(pkg: Record<string, any>): string {
   if (typeof pkg.homepage === 'string')
     return pkg.homepage
   const repository = typeof pkg.repository === 'string' ? pkg.repository : pkg.repository?.url
-  return typeof repository === 'string' ? repository.replace(/^git\+/, '').replace(/\.git$/, '') : ''
+  return typeof repository === 'string' ? repositoryUrl(repository) : ''
 }
 
 /**
@@ -91,6 +104,22 @@ const UNDECLARED: Record<string, { license?: string, textFile?: string }> = {
   '@duckdb/duckdb-wasm': { textFile: 'duckdb-wasm.LICENSE' },
   '@iconify-json/lucide': { textFile: 'lucide.LICENSE' },
   '@iconify-json/heroicons': { textFile: 'heroicons.LICENSE' },
+}
+
+/**
+ * Texts added to a package whether or not it ships a licence of its own, for the code that is inside its files and
+ * has a licence of its own. Each file of `fallbacks/` says in its header where its texts are from and at which version.
+ * - @duckdb/duckdb-wasm: DuckDB's LICENSE, those of its `third_party/` and ICU, which the WASM modules link
+ *   statically, and js-sha256 and ws, which the worker bundles.
+ * - plotly.js-basic-dist-min: the libraries bundled in the file that can be identified in it; the header of the
+ *   file says which others are not reproduced.
+ * - vaul-vue is a port of Vaul (Emil Kowalski, MIT), which its README says; the repository's LICENSE of the port does
+ *   not carry Vaul's.
+ */
+const EXTRA_TEXTS: Record<string, { file: string, label: string }[]> = {
+  '@duckdb/duckdb-wasm': [{ file: 'duckdb-wasm-third-party.txt', label: 'the code inside the DuckDB files' }],
+  'plotly.js-basic-dist-min': [{ file: 'plotly-third-party.txt', label: 'the libraries bundled in the file' }],
+  'vaul-vue': [{ file: 'vaul.LICENSE', label: 'Vaul\'s, of which vaul-vue is a port' }],
 }
 
 /**
@@ -140,6 +169,8 @@ export function readNotice(dir: string): Notice {
     const info = JSON.parse(read('info.json'))
     texts.push({ file: 'info.json', text: `Icons by ${info.author?.name} (${info.author?.url}), licence ${info.license?.title} (${info.license?.url})` })
   }
+  for (const extra of EXTRA_TEXTS[notice.name] ?? [])
+    texts.push({ file: `${extra.file} (${extra.label})`, text: readFileSync(join(FALLBACKS, extra.file), 'utf8').trim() })
   const bundled = BUNDLED_COMMENT[notice.name]
   const comment = bundled ? bundledLicenseComment(read(bundled)) : null
   if (comment)
@@ -155,19 +186,71 @@ export function readNotice(dir: string): Notice {
  */
 export const SERVED_APART = ['swagger-ui-dist', '@iconify-json/lucide', '@iconify-json/heroicons', '@iconify-json/simple-icons']
 
-/** The notices of the packages a set of module ids and the packages served apart come from, one per name and version */
-export function collectNotices(moduleIds: Iterable<string>, resolvePackage: (name: string) => string | null): Notice[] {
+/**
+ * The directory of a package, looked for the way Node does: in the `node_modules` of the directory and of each one
+ * above it, from `from` up. This works for a package whose `exports` hide its package.json, which `require.resolve`
+ * of `<name>/package.json` does not. The real path, because pnpm links the packages.
+ */
+export function findPackageDir(name: string, from: string): string | null {
+  for (let dir = resolve(from); ; dir = dirname(dir)) {
+    const candidate = join(dir, 'node_modules', name)
+    if (existsSync(join(candidate, 'package.json')))
+      return realpathSync(candidate)
+    if (dirname(dir) === dir)
+      return null
+  }
+}
+
+/**
+ * The packages named in a chain (`['nuxt', '@nuxt/vite-builder', 'vite']`), each looked for from the one before:
+ * the way to a package that is a dependency of a dependency, which pnpm does not link into the app's `node_modules`.
+ */
+export function findPackageChain(chain: string[], from: string): string | null {
+  let dir: string | null = from
+  for (const name of chain) {
+    dir = findPackageDir(name, dir)
+    if (!dir)
+      return null
+  }
+  return dir
+}
+
+/**
+ * The code the build tools put in the chunks themselves, as the virtual modules they appear as, and the chain of
+ * packages that gets to it from the app: `rolldown/runtime.js` (the module wrapper), Vite's preload helper and
+ * modulepreload polyfill, and the export helper of @vitejs/plugin-vue.
+ */
+const BUILD_HELPERS: [prefix: string, chain: string[]][] = [
+  ['rolldown/', ['nuxt', '@nuxt/vite-builder', 'vite', 'rolldown']],
+  ['vite/', ['nuxt', '@nuxt/vite-builder', 'vite']],
+  ['plugin-vue:', ['nuxt', '@nuxt/vite-builder', '@vitejs/plugin-vue']],
+]
+
+/**
+ * The notices of the packages a set of module ids and the packages served apart come from, one per name and version.
+ * `resolvePackage` finds a package by a chain of names (see {@link findPackageChain}); `root` is what a relative id is
+ * relative to: Vite writes the file names of an asset relative to its root (`../node_modules/.pnpm/...`), where a
+ * module id is absolute.
+ */
+export function collectNotices(moduleIds: Iterable<string>, resolvePackage: (chain: string[]) => string | null, root = process.cwd()): Notice[] {
   const dirs = new Set<string>()
-  for (const id of moduleIds) {
-    const dir = packageDirOf(id)
+  const add = (dir: string | null) => {
     if (dir && existsSync(join(dir, 'package.json')))
       dirs.add(dir)
   }
-  for (const name of SERVED_APART) {
-    const dir = resolvePackage(name)
-    if (dir)
-      dirs.add(dir)
+  const helpers = new Set<string>()
+  for (const id of moduleIds) {
+    if (id.startsWith('\0')) {
+      const helper = BUILD_HELPERS.find(([prefix]) => id.startsWith(`\0${prefix}`))
+      if (helper)
+        helpers.add(helper[0])
+    }
+    add(packageDirOf(id.includes('node_modules') && !isAbsolute(id.replace(/^\0/, '')) ? resolve(root, id.replace(/^\0/, '')) : id))
   }
+  for (const prefix of helpers)
+    add(resolvePackage(BUILD_HELPERS.find(([candidate]) => candidate === prefix)![1]))
+  for (const name of SERVED_APART)
+    add(resolvePackage([name]))
   const byKey = new Map<string, Notice>()
   for (const dir of dirs) {
     const notice = readNotice(dir)
@@ -201,6 +284,10 @@ export function renderNotices(notices: Notice[]): string {
       'licence and notice files it ships, as they are, because those licences ask that the copyright notice and the',
       'permission text accompany the code. This file is generated by the production build from the packages the',
       'build holds (modules/third-party-licenses); the app itself is MIT-licensed.',
+      '',
+      'Code that is bundled inside one of the files below and cannot be told apart in it (a minified file) is',
+      'listed under that package only where its entry says so: the entry of plotly.js-basic-dist-min names the',
+      'libraries whose notices are not reproduced.',
       '',
       `${notices.length} packages.`,
     ].join('\n'),

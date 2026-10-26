@@ -1,8 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
-import { createRequire } from 'node:module'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 import { addVitePlugin, defineNuxtModule, useLogger } from 'nuxt/kit'
-import { collectNotices, DEVELOPMENT_NOTICE, needsMoreThanNotice, renderNotices } from './licenses'
+import { collectNotices, DEVELOPMENT_NOTICE, findPackageChain, needsMoreThanNotice, renderNotices } from './licenses'
 
 // The licence notices of what the browser is served (GH-3469), at `/third-party-licenses.txt`. The MIT, BSD, ISC
 // and Apache licences of the bundled packages ask that the copyright notice and the permission text go with the
@@ -18,17 +17,15 @@ export default defineNuxtModule({
   meta: { name: 'third-party-licenses' },
   setup(_options, nuxt) {
     const logger = useLogger('third-party-licenses')
-    const require = createRequire(import.meta.url)
     const dir = join(nuxt.options.buildDir, 'third-party-licenses')
     const file = join(dir, FILE)
 
-    const resolvePackage = (name: string) => {
-      try {
-        return dirname(require.resolve(`${name}/package.json`))
-      }
-      catch {
-        throw new Error(`third-party-licenses: cannot find ${name}, which the app serves to the browser (SERVED_APART)`)
-      }
+    // looked for from the app, the way Node does (pnpm links a dependency of a dependency only beside the dependency)
+    const resolvePackage = (chain: string[]) => {
+      const found = findPackageChain(chain, nuxt.options.rootDir)
+      if (!found)
+        throw new Error(`third-party-licenses: cannot find ${chain.join(' > ')}, which the build or the app serves to the browser`)
+      return found
     }
 
     // after Nuxt has emptied its build directory, which `setup` runs before
@@ -41,9 +38,14 @@ export default defineNuxtModule({
 
     // the client build only: the server build holds no code the browser runs
     if (!nuxt.options.dev) {
+      // Vite writes the file names of an asset relative to its root, which is not the working directory
+      let root = nuxt.options.srcDir
       addVitePlugin({
         name: 'third-party-licenses',
         apply: 'build',
+        configResolved(config) {
+          root = config.root
+        },
         generateBundle(_options, bundle) {
           const ids: string[] = []
           for (const output of Object.values(bundle)) {
@@ -52,7 +54,7 @@ export default defineNuxtModule({
             else
               ids.push(...(output.originalFileNames ?? []))
           }
-          const notices = collectNotices(ids, resolvePackage)
+          const notices = collectNotices(ids, resolvePackage, root)
           for (const notice of needsMoreThanNotice(notices))
             logger.warn(`${notice.name}@${notice.version} is under "${notice.license || 'no declared licence'}", which asks for more than a notice: read it`)
           mkdirSync(dir, { recursive: true })
@@ -69,7 +71,7 @@ export default defineNuxtModule({
     })
 
     nuxt.hook('nitro:config', (nitroConfig) => {
-      nitroConfig.publicAssets = [...(nitroConfig.publicAssets ?? []), { dir, baseURL: '/', maxAge: 86_400 }]
+      nitroConfig.publicAssets = [...(nitroConfig.publicAssets ?? []), { dir, baseURL: '/' }]
     })
   },
 })

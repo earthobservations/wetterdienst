@@ -1,15 +1,17 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { createRequire } from 'node:module'
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { join, relative } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import {
   bundledLicenseComment,
   collectNotices,
+  findPackageChain,
+  findPackageDir,
   needsMoreThanNotice,
   packageDirOf,
   readNotice,
   renderNotices,
+  repositoryUrl,
   SERVED_APART,
 } from '../../modules/third-party-licenses/licenses'
 
@@ -17,6 +19,7 @@ import {
 // read from the package, and what is written. That the file lists every package of the real bundle is
 // `tests/e2e/third-party-licenses.spec.ts`, which needs a production build.
 
+const realpathOf = (path: string) => realpathSync(path)
 const root = mkdtempSync(join(tmpdir(), 'wd-licenses-'))
 afterAll(() => rmSync(root, { recursive: true, force: true }))
 
@@ -84,15 +87,21 @@ describe('the notice of a package', () => {
 
     const vaul = readNotice(makePackage(join(root, 'vaul-vue'), { name: 'vaul-vue', version: '0.4.1' }))
     expect(vaul.license).toBe('MIT')
-    expect(vaul.texts).toHaveLength(1)
+    // the repository's LICENSE, and the licence of Vaul, of which it is a port
+    expect(vaul.texts.map(entry => entry.file)).toEqual([expect.stringContaining('vaul-vue.LICENSE'), expect.stringContaining('vaul.LICENSE')])
     expect(vaul.texts[0]!.text).toContain('Permission is hereby granted')
+    expect(vaul.texts[1]!.text).toContain('Emil Kowalski')
 
     const duckdb = readNotice(makePackage(join(root, 'duckdb'), { name: '@duckdb/duckdb-wasm', version: '1', license: 'MIT' }))
     expect(duckdb.texts[0]!.text).toContain('DuckDB')
+    // and the code inside the DuckDB files, whatever the package ships: DuckDB's own third_party/ and the worker's libraries
+    const inside = duckdb.texts.find(entry => entry.file.startsWith('duckdb-wasm-third-party.txt'))!.text
+    for (const needle of ['08e34c447bae34eaee3723cac61f2878b6bdf787', 'third_party/re2/LICENSE', 'third_party/zstd/LICENSE', 'third_party/mbedtls/LICENSE', 'js-sha256@0.11.1', 'ws@8.22.0'])
+      expect(inside, needle).toContain(needle)
 
     const shipped = readNotice(makePackage(join(root, 'vaul-vue-2'), { name: 'vaul-vue', version: '9', license: 'ISC' }, { LICENSE: 'Their own text' }))
     expect(shipped.license).toBe('ISC')
-    expect(shipped.texts).toEqual([{ file: 'LICENSE', text: 'Their own text' }])
+    expect(shipped.texts.map(entry => entry.text)).toEqual(['Their own text', expect.stringContaining('Emil Kowalski')])
   })
 
   it('adds the licence comments a bundled file ends with', () => {
@@ -101,19 +110,60 @@ describe('the notice of a package', () => {
     expect(bundledLicenseComment('var a=1')).toBeNull()
 
     const notice = readNotice(makePackage(join(root, 'plotly'), { name: 'plotly.js-basic-dist-min', version: '3', license: 'MIT' }, { 'LICENSE': 'Plotly MIT', 'plotly-basic.min.js': file }))
-    expect(notice.texts.map(entry => entry.text)).toEqual(['Plotly MIT', expect.stringContaining('left-pad/index.js')])
+    // its LICENSE, the libraries of the fallback with what it does not reproduce, and the comment the file ends with
+    expect(notice.texts.map(entry => entry.text)).toEqual(['Plotly MIT', expect.stringContaining('NOT reproduced'), expect.stringContaining('left-pad/index.js')])
+    expect(notice.texts[1]!.text).toContain('@plotly/d3@3.8.2')
+  })
+
+  it('reads the sidecar of Swagger UI, which is no licence file by name', () => {
+    const swagger = readNotice(makePackage(join(root, 'swagger'), { name: 'swagger-ui-dist', version: '5', license: 'Apache-2.0' }, { 'LICENSE': 'Apache', 'swagger-ui-bundle.js.LICENSE.txt': 'react and the rest', 'swagger-ui-es-bundle.js.LICENSE.txt': 'not served' }))
+    expect(swagger.texts).toEqual([{ file: 'LICENSE', text: 'Apache' }, { file: 'swagger-ui-bundle.js.LICENSE.txt', text: 'react and the rest' }])
+  })
+
+  it('gives a repository as a URL', () => {
+    const url = (repository: unknown) => readNotice(makePackage(join(root, `repo-${String(repository).length}-${Math.random()}`), { name: 'r', version: '1', repository })).homepage
+    expect(url('nuxt/icon')).toBe('https://github.com/nuxt/icon')
+    expect(url({ type: 'git', url: 'git+https://github.com/unjs/defu.git' })).toBe('https://github.com/unjs/defu')
+    expect(url({ url: 'git://github.com/o/r.git' })).toBe('https://github.com/o/r')
+    expect(url({ url: 'git@github.com:o/r.git' })).toBe('https://github.com/o/r')
+    expect(url({ url: 'git+ssh://git@github.com/o/r.git' })).toBe('https://github.com/o/r')
+    expect(url('github:o/r')).toBe('https://github.com/o/r')
+    expect(repositoryUrl('https://github.com/o/r')).toBe('https://github.com/o/r')
   })
 })
 
 describe('the packages of a bundle', () => {
   const served = new Map<string, string>()
-  const resolvePackage = (name: string) => served.get(name) ?? null
+  // a package by the chain of names to it, as the module finds it
+  const resolvePackage = (chain: string[]) => served.get(chain.join(' > ')) ?? null
 
   it('are one notice per name and version, from the module ids of every chunk, sorted by name', () => {
     const z = makePackage(join(root, 'bundle', 'node_modules', 'z'), { name: 'z', version: '1.0.0', license: 'MIT' })
     const b = makePackage(join(root, 'bundle', 'node_modules', '@s', 'b'), { name: '@s/b', version: '2.0.0', license: 'ISC' })
     const notices = collectNotices([`${z}/index.js`, `${z}/other.js`, `${b}/x.js?query`, '/app/app/app.vue', '\0virtual'], resolvePackage)
     expect(notices.map(notice => `${notice.name}@${notice.version}`)).toEqual(['@s/b@2.0.0', 'z@1.0.0'])
+  })
+
+  it('read an asset by the file name Vite gives it, relative to its root, as well as a module by its absolute id', () => {
+    const wasm = makePackage(join(root, 'rel', 'node_modules', '.pnpm', 'x@1', 'node_modules', '@x', 'wasm'), { name: '@x/wasm', version: '1.0.0', license: 'MIT' })
+    const viteRoot = join(root, 'rel', 'app')
+    const relativeId = relative(viteRoot, `${wasm}/dist/engine.wasm`)
+    expect(relativeId.startsWith('..')).toBe(true)
+    // from the Vite root it is the package; from anywhere else the same name is no file
+    expect(collectNotices([relativeId], resolvePackage, viteRoot).map(notice => notice.name)).toEqual(['@x/wasm'])
+    expect(collectNotices([relativeId], resolvePackage, join(root, 'elsewhere'))).toEqual([])
+  })
+
+  it('include the build tools whose code is in the chunks, which appear as virtual modules', () => {
+    const chain = (...names: string[]) => names.join(' > ')
+    served.set(chain('nuxt', '@nuxt/vite-builder', 'vite', 'rolldown'), makePackage(join(root, 'tools', 'rolldown'), { name: 'rolldown', version: '1.0.0', license: 'MIT' }))
+    served.set(chain('nuxt', '@nuxt/vite-builder', 'vite'), makePackage(join(root, 'tools', 'vite'), { name: 'vite', version: '8.0.0', license: 'MIT' }))
+    served.set(chain('nuxt', '@nuxt/vite-builder', '@vitejs/plugin-vue'), makePackage(join(root, 'tools', 'plugin-vue'), { name: '@vitejs/plugin-vue', version: '6.0.0', license: 'MIT' }))
+    const names = (ids: string[]) => collectNotices(ids, resolvePackage).map(notice => notice.name)
+    expect(names(['\0rolldown/runtime.js'])).toEqual(['rolldown'])
+    expect(names(['\0vite/preload-helper.js', '\0vite/modulepreload-polyfill.js'])).toEqual(['vite'])
+    expect(names(['\0plugin-vue:export-helper'])).toEqual(['@vitejs/plugin-vue'])
+    expect(names(['\0some-other-plugin:helper'])).toEqual([])
   })
 
   it('include what the app serves apart from its chunks', () => {
@@ -124,12 +174,26 @@ describe('the packages of a bundle', () => {
   })
 
   it('are all installed, and have a licence text, for what the app serves apart', () => {
-    const require = createRequire(import.meta.url)
     for (const name of SERVED_APART) {
-      const notice = readNotice(dirname(require.resolve(`${name}/package.json`)))
+      const notice = readNotice(findPackageDir(name, join(__dirname, '..', '..'))!)
       expect(notice.texts.length, name).toBeGreaterThan(0)
       expect(needsMoreThanNotice([notice]), name).toEqual([])
     }
+  })
+})
+
+describe('looking for a package', () => {
+  it('walks up the node_modules of each directory, as Node does, and through a chain', () => {
+    const base = join(root, 'walk')
+    makePackage(join(base, 'node_modules', 'a'), { name: 'a', version: '1.0.0' })
+    // b is a dependency of a, beside it in the store of pnpm and not in the app's node_modules
+    makePackage(join(base, 'node_modules', '.pnpm', 'a@1', 'node_modules', 'b'), { name: 'b', version: '2.0.0' })
+    makePackage(join(base, 'node_modules', '.pnpm', 'a@1', 'node_modules', 'a'), { name: 'a', version: '1.0.0' })
+    expect(findPackageDir('a', join(base, 'src', 'deep'))).toBe(realpathOf(join(base, 'node_modules', 'a')))
+    expect(findPackageDir('b', base)).toBeNull()
+    expect(findPackageDir('b', join(base, 'node_modules', '.pnpm', 'a@1', 'node_modules', 'a'))).toBe(realpathOf(join(base, 'node_modules', '.pnpm', 'a@1', 'node_modules', 'b')))
+    expect(findPackageChain(['a', 'b'], base)).toBeNull()
+    expect(findPackageChain(['nope'], base)).toBeNull()
   })
 })
 
