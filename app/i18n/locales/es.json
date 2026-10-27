@@ -427,6 +427,12 @@
     "openFull": "Abrir el pronóstico completo",
     "poweredBy": "Con la tecnología de Wetterdienst · DWD MOSMIX"
   },
+  "notFound": {
+    "title": "Página no encontrada",
+    "text": "No hay ninguna página en esta dirección. Comprueba la dirección o empieza desde la página de inicio.",
+    "home": "Ir a la página de inicio",
+    "back": "Volver"
+  },
   "stripes": {
     "title": "Franjas climáticas",
     "subtitle": "Visualiza tendencias climáticas a largo plazo con franjas de calentamiento/enfriamiento",
