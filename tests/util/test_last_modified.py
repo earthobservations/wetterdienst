@@ -360,7 +360,7 @@ def test_the_sweep_of_expired_copies_takes_their_sidecars(source: ThreadingHTTPS
     metadata_file.write_text(json.dumps(entries), encoding="utf-8")
     filesystem.load_cache()
 
-    # another entry keeps the directory from being removed whole
+    # another entry, so that the sweep leaves a row in the file and the dates of the other copy are the ones kept
     other = _url(source, "/other.txt")
     download_file(other, cache_dir=tmp_path, ttl=CacheExpiry.ONE_HOUR)
     filesystem.clear_expired_cache(expiry_time=3600)
