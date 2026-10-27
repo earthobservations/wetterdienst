@@ -16,8 +16,8 @@ function metaContent(selector: string): string[] {
 
 const canonical = () => document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')
 
-/** Waits until the head says what the check expects */
-const eventually = (check: () => void) => vi.waitFor(check, { timeout: 4000 })
+/** Waits until the head says what the check expects: a condition, so the wait ends when it holds and is long only on a loaded machine (a mount of the whole app took 9 s) */
+const eventually = (check: () => void) => vi.waitFor(check, { timeout: 12_000 })
 
 // The apps are not unmounted: the head of the pages after the first stops following the route once the first app is
 // gone (the test environment keeps one head for all of them).
