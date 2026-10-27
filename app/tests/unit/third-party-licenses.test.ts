@@ -121,7 +121,8 @@ describe('the notice of a package', () => {
     const packages = ['@plotly/d3', 'base64-arraybuffer', 'd3-format', 'd3-time', 'd3-time-format', 'events', 'fast-isnumeric', 'gl-mat4', 'has-hover', 'has-passive-events', 'is-browser', 'is-mobile', 'is-string-blank', 'maplibre-gl', 'mouse-event-offset', 'native-promise-only', 'object-assign', 'parse-svg-path', 'point-in-polygon', 'polybooljs', 'tinycolor2', 'world-calendars']
     expect(packages).toHaveLength(22)
     for (const name of packages)
-      expect(plotly, name).toMatch(new RegExp(`${name.replace(/[/.]/g, '\\$&')} \\d`))
+      // the name, a space and its version: some place where the name is followed by a space and a digit
+      expect(plotly.split(`${name} `).slice(1).some(rest => /^\d/.test(rest)), name).toBe(true)
     expect(plotly).toContain('maplibre-gl@4.7.1 LICENSE')
     // the one for which no text could be obtained is named in the header, and the ones that were dropped are not there
     expect(plotly).toContain('native-promise-only 0.8.1 has no licence text of its own below')
