@@ -427,6 +427,12 @@
     "openFull": "Otevřít úplnou předpověď",
     "poweredBy": "Pohání Wetterdienst · DWD MOSMIX"
   },
+  "notFound": {
+    "title": "Stránka nenalezena",
+    "text": "Na této adrese žádná stránka není. Zkontroluj adresu, nebo začni na úvodní stránce.",
+    "home": "Přejít na úvodní stránku",
+    "back": "Zpět"
+  },
   "stripes": {
     "title": "Klimatické pruhy",
     "subtitle": "Vizualizuj dlouhodobé klimatické trendy pomocí pruhů oteplování/ochlazování",

@@ -47,6 +47,12 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: where a provider hands over several rows for one reading (the same station,
+  parameter and timestamp), the answer has the first row that has a value, with that row's
+  `quality_flags`; it kept the first row even when it had none, and the value of the later row was
+  lost. A reading that was missing, or was dropped as null, is now filled where another row had a
+  value; two different values still keep the first. `data_updated_at` can now date such an answer
+  by the newer file whose row is kept. Nothing needs to be done (GH-3450)
 - The MCP `instructions` say that the same `stations` then `values` steps serve a network of any
   `kind`, for a place given by `latitude`, `longitude` and `rank`, and that a provider's `country`
   is its operator's, not the extent of its data, so a model does not refuse a place because of it
@@ -69,9 +75,17 @@ Types of changes:
   kept an accepted answer for a minute on disk; now a rejection is kept for up to 60 s too, a
   `valid: null` for 5 s, and simultaneous calls share one probe. A changed or corrected credential
   shows within a minute, a revoked one within two. The answer has the same shape (GH-2607)
+- **Breaking**: the positions of 54 `eaufrance/hubeau` stations change: the referential lists them
+  with latitude and longitude swapped (Anor at 4.10 N, 49.99 E, a point near Somalia), and they
+  now come back where they are (50.0 N, 4.1 E). A position is swapped when it lies in none of
+  metropolitan France, Guadeloupe and Martinique, Guyane, Reunion and Mayotte and the swapped one
+  lies in one; no station overseas is moved. `J543211003` (the Blavet), listed in Algeria, is not
+  moved. Nothing needs to be done; a filter on a station's old position needs the new one (GH-3468)
 
 ### Fixed
 
+- `dwd/swsmos` lists a station once when DWD's catalogue repeats its line (Q311, 2026-10-26): the
+  `stations` answer had it twice (GH-3474)
 - Four pages stated what the code does not do. Interpolation said a negative search distance is a
   400 on the REST API: it is a 422, and only a name that is no canonical parameter is a 400.
   Python Examples said `RADOLAN_CDC` takes an hourly or daily resolution: `5_minutes` too.

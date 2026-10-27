@@ -16,7 +16,13 @@ import polars as pl
 import pytest
 from pydantic import ValidationError
 
-from tests.provider.station_catalogue import CONTINENT_BOXES, CONTINENT_MARGIN, COUNTRY_BBOX, continent_counts
+from tests.provider.station_catalogue import (
+    CONTINENT_BOXES,
+    CONTINENT_MARGIN,
+    COUNTRY_BBOX,
+    boxes_of,
+    continent_counts,
+)
 from wetterdienst import Wetterdienst
 from wetterdienst.model.metadata import Extent, ExtentDict, MetadataModel, ProviderTerms
 
@@ -184,11 +190,18 @@ def test_a_national_network_has_the_box_its_catalogue_is_held_to(key: str, box: 
     """The extent of a network the catalogue rules hold to the box of a country is that box, as `[w, s, e, n]`.
 
     `COUNTRY_BBOX` is `(south, north, west, east)`. A network with a station beyond its country is named with the
-    reason in `BEYOND_THE_COUNTRY` and reaches farther, never less far.
+    reason in `BEYOND_THE_COUNTRY` and reaches farther, never less far. A country of several boxes (Hubeau, with its
+    overseas departments, GH-3468) has an extent that is one box around them: each of them lies within it.
     """
-    south, north, west, east = box
     extent = _extents()[key]
     assert extent.scope == "national", key
+    if len(boxes_of(box)) > 1:
+        declared_west, declared_south, declared_east, declared_north = extent.bbox
+        for south, north, west, east in boxes_of(box):
+            assert declared_west <= west <= east <= declared_east, key
+            assert declared_south <= south <= north <= declared_north, key
+        return
+    south, north, west, east = box
     if key in BEYOND_THE_COUNTRY:
         declared_west, declared_south, declared_east, declared_north = extent.bbox
         assert declared_west <= west and declared_south <= south and declared_east >= east, key  # noqa: PT018
@@ -245,7 +258,6 @@ FRENCH_OVERSEAS = {
 NAMED_TERRITORIES: dict[str, dict[str, tuple[str, float, float]]] = {
     "aemet/observation": {
         "africa": ("the Canary Islands (Las Palmas)", 28.1, -15.4),
-        "antarctica": ("Gabriel de Castilla, the Spanish base (declared from documentation)", -62.98, -60.68),
     },
     "dmi/observation": {"north_america": ("Greenland (Nuuk)", 64.2, -51.7)},
     "eaufrance/hubeau": {

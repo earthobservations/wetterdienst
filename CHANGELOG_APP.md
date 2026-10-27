@@ -23,6 +23,13 @@ Types of changes:
   and drawn larger. The Content Security Policy's `img-src` drops `cdnjs.cloudflare.com` and
   `raw.githubusercontent.com`, and the privacy policy no longer names them (GH-3420)
 
+### Fixed
+
+- `[Layout]` The page for an unknown address has its back button again: Nuxt's own page drew it with an
+  inline script, which the Content Security Policy refuses. The app draws the page itself now, in
+  the app's language (it was English, with no `lang` on the document), with a link to the home
+  page and a back button where there is a page to go back to (GH-3453)
+
 ### Security
 
 - `[Proxy]` The `/mcp` proxy sends a request on only to the backend's `/mcp` and below: a path that

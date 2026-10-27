@@ -37,7 +37,7 @@ from typing import TYPE_CHECKING, Any
 import polars as pl
 
 from tests.provider import station_data_index as data_index
-from tests.provider.station_catalogue import COUNTRY_BBOX, Accepted, has_encoding_damage
+from tests.provider.station_catalogue import COUNTRY_BBOX, Accepted, Bbox, has_encoding_damage
 from wetterdienst import Settings
 from wetterdienst.provider.aemet.observation import AemetObservationRequest
 from wetterdienst.provider.aemet.observation import api as aemet_api
@@ -122,8 +122,8 @@ class Stub:
     expected: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     @property
-    def bbox(self) -> tuple[float, float, float, float] | None:
-        """The country the catalogue is published for, if it is one."""
+    def bbox(self) -> Bbox | tuple[Bbox, ...] | None:
+        """The country the catalogue is published for, if it is one, in several boxes if it has far territories."""
         return COUNTRY_BBOX.get(self.catalogue.split(" ")[0])
 
 
@@ -153,6 +153,9 @@ def _dwd_swsmos(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         "C671;AD Südost ;1;1;53,508902;10,066938;4;A;\n"
         "H232;Darup ;1;1;51,932306;7,281613;150;;\n"
         "H266;Guetersloh ;1;1;51,854598;8,324234;76;;\n"
+        # the catalogue lists Q311 twice as the same line (2026-10-26)
+        "Q311;Ölbronn-Dürrn;1;1;48,986451;8,748363;249;K;\n"
+        "Q311;Ölbronn-Dürrn;1;1;48,986451;8,748363;249;K;\n"
     )
     _serve(monkeypatch, swsmos_api, {"swsKatalog": bz2.compress(catalogue.encode("latin-1"))})
     return _stations(DwdSwsmosRequest, ("hourly", "data"))
@@ -1317,7 +1320,10 @@ def _hubeau(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     # the referential of stations and the one of sites (2026-10-15), of which these are the stations of the Seine at
     # Paris (two stations of one site, with one position), the Garonne at La Reole, one without an altitude and a
     # system of altitude, and Goyaves in Guadeloupe (overseas); the observations, which a station's resolution is
-    # measured from, are made up: one every five minutes for each
+    # measured from, are made up: one every five minutes for each. The rows of 2026-10-26 are three of the 54
+    # stations the referential lists with latitude and longitude swapped (Anor, Planioles, Le Tech: longitude 50.0,
+    # 44.6 and 42.4, latitude 4.1, 2.0 and 2.6, which are points in Africa and the Indian Ocean), one in Mayotte, whose
+    # position is right with a longitude of 45 degrees and a latitude of -12.8, and the Blavet, listed in Algeria
     def station(
         site: str,
         station_id: str,
@@ -1362,6 +1368,30 @@ def _hubeau(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
             *("10110001", "1011000101", "La Grande Rivière à Goyaves à Petit-Bourg [Barbotteau]"),
             *((-61.658989597, 16.189402471), 0.0139, 0, "2012-11-11", "GUADELOUPE"),
         ),
+        station(
+            *("H0000002", "H000000201", "Le ruisseau d'Anor [Ruisseau des anorelles] à Anor"),
+            *((49.989435, 4.099322), None, None, "2025-09-16", "NORD"),
+        ),
+        station(
+            *("O8310002", "O831000201", "Le ruisseau de Planioles à Planioles"),
+            *((44.633866, 2.028415), 0.22918, 2, "2021-07-01", "LOT"),
+        ),
+        station(
+            *(
+                "Y0214011",
+                "Y021401101",
+                "Le Tech [Source Sainte Cécile - Ravin Sainte Cécile - Affluent du Tech] au Tech - Tech Sainte cécile",
+            ),
+            *((42.4174, 2.557169), 621.559, 3, "2008-10-20", "PYRENEES-ORIENTALES"),
+        ),
+        station(
+            *("30130001", "3013000101", "Le Mro wa Gouloué à Mamoudzou [Passamainty]"),
+            *((45.205680635, -12.800646373), None, None, "2010-02-04", "MAYOTTE"),
+        ),
+        station(
+            *("J5432110", "J543211003", "Le Blavet à Neulliac - Blavet Auquinian"),
+            *((0.840483401, 35.108562837), None, None, "2026-07-09", "MORBIHAN"),
+        ),
     ]
     sites = [
         {"code_site": "F7000001", "altitude_site": 26.0},
@@ -1381,6 +1411,25 @@ def _hubeau(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     }
     _serve(monkeypatch, hubeau_api, bodies)
     return _stations(HubeauRequest, ("5_minutes", "data"))
+
+
+HUBEAU_BLAVET = Accepted(
+    "coordinates_outside_country",
+    "the referential lists the Blavet at Neulliac (Morbihan) at latitude 35.1 and longitude 0.84, in Algeria; it is "
+    "no swapped pair (swapped it is in Kenya, in no area of France either), so the reader leaves it as the source "
+    "writes it (GH-3468)",
+    where=lambda row: row["station_id"] == "J543211003",
+)
+HUBEAU_EXPECTED = {
+    # the positions after the reader swapped them: Anor in Nord, Planioles in Lot, Le Tech in the Pyrenees-Orientales
+    "H000000201": {"latitude": 49.989435, "longitude": 4.099322},
+    "O831000201": {"latitude": 44.633866, "longitude": 2.028415},
+    "Y021401101": {"latitude": 42.4174, "longitude": 2.557169},
+    # and the stations it left alone: Mayotte, which is in its area as the source writes it (swapped it would be in
+    # the Atlantic off the Gironde), and the Blavet, which is in no area either way
+    "3013000101": {"latitude": -12.800646373, "longitude": 45.205680635},
+    "J543211003": {"latitude": 35.108562837, "longitude": 0.840483401},
+}
 
 
 WSV_NO_POSITION = Accepted(
@@ -1563,7 +1612,7 @@ STUBS = [
     Stub("meteoswiss/observation daily/data", _meteoswiss),
     Stub("rmi/observation 10_minutes/data", _rmi),
     Stub("smhi/observation hourly/data", _smhi),
-    Stub("eaufrance/hubeau 5_minutes/data", _hubeau),
+    Stub("eaufrance/hubeau 5_minutes/data", _hubeau, (HUBEAU_BLAVET,), expected=HUBEAU_EXPECTED),
     Stub("wsv/pegel 10_minutes+15_minutes/data", _wsv, (WSV_NO_POSITION, WSV_TIEL)),
     Stub("nws/observation hourly/data", _nws),
     Stub("meteofrance/observation daily/core", _meteofrance_observation, expected=METEOFRANCE_EXPECTED),
