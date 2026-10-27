@@ -138,6 +138,10 @@ RULES = (
 # where the reader does not join the list to the files
 COVERAGE_RULES = ("data_missing", "data_orphan")
 
+# the rule of `check_extent` (GH-3456): a station outside the box its network declares. An `Accepted` may cover it,
+# for a source that lists a station where the network is not
+EXTENT_RULES = ("coordinates_outside_extent",)
+
 # what a UTF-8 text read as Latin-1 or Windows-1252 turns into: the lead byte of a two-byte character (Ã, Â for the
 # Latin-1 letters, Å, Ä for Latin Extended-A such as ż and č) followed by a continuation byte read as a control
 # character, a symbol or one of the Windows-1252 punctuation marks (Ã¼ for ü, Ã\u0178 for ß, Å¼ for ż), â€ for a dash,
@@ -210,8 +214,8 @@ class Accepted:
 
     def __post_init__(self) -> None:
         """Refuse a rule that does not exist and an exception that gives no reason."""
-        if self.rule not in (*RULES, *COVERAGE_RULES):
-            msg = f"unknown rule {self.rule!r}, the rules are {', '.join((*RULES, *COVERAGE_RULES))}"
+        if self.rule not in (*RULES, *COVERAGE_RULES, *EXTENT_RULES):
+            msg = f"unknown rule {self.rule!r}, the rules are {', '.join((*RULES, *COVERAGE_RULES, *EXTENT_RULES))}"
             raise ValueError(msg)
         if not self.reason.strip():
             msg = f"the exception for {self.rule} has no reason"
@@ -464,7 +468,14 @@ def continent_counts(df: pl.DataFrame, margin: float = 0.0) -> dict[str, int]:
     return counts
 
 
-def check_extent(df: pl.DataFrame, network: str, extent: Extent, *, whole: bool = False) -> list[str]:
+def check_extent(
+    df: pl.DataFrame,
+    network: str,
+    extent: Extent,
+    *,
+    whole: bool = False,
+    accepted: Iterable[Accepted] = (),
+) -> list[str]:
     """Hold the stations of a network to the extent its metadata declares, and say what they break (GH-3456).
 
     Every station has to be in the declared box, which the extent of a dataset that is a part of the network (the
@@ -472,6 +483,9 @@ def check_extent(df: pl.DataFrame, network: str, extent: Extent, *, whole: bool 
     network, the rest is held too: the box is no more than `EXTENT_SLACK` degrees wider than the stations on each
     side, each continent it names has a station near its box (`CONTINENT_MARGIN`), and a global network has
     `GLOBAL_STATIONS_PER_CONTINENT` or more on five continents.
+
+    A station outside the box that an `Accepted` of the rule `coordinates_outside_extent` covers is no failure, and
+    is not one of the stations the box and the continents are compared with.
     """
     stations = df.filter(pl.col("latitude").is_not_null() & pl.col("longitude").is_not_null())
     if stations.is_empty():
@@ -480,15 +494,25 @@ def check_extent(df: pl.DataFrame, network: str, extent: Extent, *, whole: bool 
     outside = stations.filter(
         ~(pl.col("latitude").is_between(south, north) & pl.col("longitude").is_between(west, east))
     )
-    problems = [
-        f"{network}: station {row['station_id']} at ({row['latitude']}, {row['longitude']}) is outside the extent "
-        f"[west {west}, south {south}, east {east}, north {north}]"
-        for row in outside.head(5).iter_rows(named=True)
+    violations = [
+        Violation(network, "coordinates_outside_extent", row["station_id"], "outside the extent", row)
+        for row in outside.iter_rows(named=True)
     ]
-    if outside.height > 5:
-        problems.append(f"{network}: ... and {outside.height - 5} more stations outside the extent")
+    left, _ = unaccepted(violations, accepted)
+    problems = [
+        f"{network}: station {violation.station_id} at ({violation.row['latitude']}, {violation.row['longitude']}) "
+        f"is outside the extent [west {west}, south {south}, east {east}, north {north}]"
+        for violation in left[:5]
+    ]
+    if len(left) > 5:
+        problems.append(f"{network}: ... and {len(left) - 5} more stations outside the extent")
     if not whole:
         return problems
+    left_ids = {violation.station_id for violation in left}
+    excused = [violation.station_id for violation in violations if violation.station_id not in left_ids]
+    stations = stations.filter(~pl.col("station_id").is_in(excused))
+    if stations.is_empty():
+        return [*problems, f"{network}: no station is left in the extent, so it was not compared with the stations"]
     held = (
         stations["longitude"].min(),
         stations["latitude"].min(),
@@ -533,9 +557,16 @@ def extent_of(metadata: MetadataModel, label: str) -> Extent:
     return metadata.extent
 
 
-def assert_in_extent(df: pl.DataFrame, network: str, extent: Extent, *, whole: bool = False) -> None:
+def assert_in_extent(
+    df: pl.DataFrame,
+    network: str,
+    extent: Extent,
+    *,
+    whole: bool = False,
+    accepted: Iterable[Accepted] = (),
+) -> None:
     """Raise an `AssertionError` that lists what the stations of a network break of the extent it declares."""
-    problems = check_extent(df, network, extent, whole=whole)
+    problems = check_extent(df, network, extent, whole=whole, accepted=accepted)
     assert not problems, "\n".join(problems)
 
 
