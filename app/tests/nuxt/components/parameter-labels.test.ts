@@ -1,6 +1,6 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { getQuery } from 'h3'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { clearNuxtData } from '#app'
 import { ParameterSelection } from '#components'
@@ -35,12 +35,28 @@ async function setLocale(locale: string) {
   harness.unmount()
 }
 
+// A locale's messages are loaded on its first use, and the first mount of the selection loads its
+// lazy parts (below): together about a second on a quiet machine, several times that under load,
+// inside the 5 s of whichever test comes first. Pay it in a hook, where it is no part of what a
+// test measures.
+beforeAll(async () => {
+  for (const locale of locales)
+    await setLocale(locale)
+  await setLocale('en')
+}, 30_000)
+
 afterEach(async () => {
   await setLocale('en')
 })
 
 describe('parameterSelection names ids in the active locale', () => {
   const mounted: { unmount: () => void }[] = []
+
+  beforeAll(async () => {
+    const wrapper = await mountSelection()
+    mounted.pop()
+    wrapper.unmount()
+  }, 30_000)
 
   beforeEach(() => {
     clearNuxtData()
