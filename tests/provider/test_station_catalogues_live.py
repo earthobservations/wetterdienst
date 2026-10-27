@@ -29,6 +29,7 @@ import pytest
 from tests.conftest import FROST_RESOLVER_ON_MACOS
 from tests.provider.station_catalogue import (
     COUNTRY_BBOX,
+    FROST_FOREIGN_WMO,
     Accepted,
     assert_covered,
     assert_in_extent,
@@ -100,23 +101,7 @@ ACCEPTED: dict[str, tuple[Accepted, ...]] = {
 
 # the stations a live list has outside the extent of its network, with the reason (GH-3456): the box is where the
 # network is, so a station elsewhere is the source's, and the box is not widened to it
-EXTENT_ACCEPTED: dict[str, tuple[Accepted, ...]] = {
-    "metno/frost": (
-        Accepted(
-            "coordinates_outside_extent",
-            "SN1039300 is listed at (52.209482, 14.120075), in Germany. Its id is the WMO number 10393 times 100, "
-            "and DWD's list has 03015 Lindenberg (WMO 10393) at 52.2085, 14.1180, 200 m away (Frankfurt (Oder), "
-            "01426, is 30 km off): a foreign WMO station in Frost's list, whose position is very likely correct. "
-            "(Its record, which a client id gives, was not read.) The library passes it on, and the extent stays "
-            "that of Norway; the position is pinned, so a station that moves is not accepted",
-            where=lambda row: (
-                row["station_id"] == "SN1039300"
-                and row["latitude"] == pytest.approx(52.209482)
-                and row["longitude"] == pytest.approx(14.120075)
-            ),
-        ),
-    ),
-}
+EXTENT_ACCEPTED: dict[str, tuple[Accepted, ...]] = {"metno/frost": (FROST_FOREIGN_WMO,)}
 
 # the live catalogues that have no position for any station, by the source's design, and so no extent to hold them to
 # (the rule `coordinates_missing` of `ACCEPTED` says the same of them). Held only while that is so: a position that
