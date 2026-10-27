@@ -18,6 +18,11 @@ Types of changes:
 
 ### Added
 
+- Every MCP tool has a `title` ("Find stations") and the annotations `readOnlyHint` true,
+  `destructiveHint` false and `idempotentHint` true, which the Claude connectors directory
+  requires and clients use to skip a confirmation. `openWorldHint` is false for `coverage`,
+  `glossary` and `providers`, which answer from wetterdienst's own metadata, and true for the
+  tools that reach a provider's service. Names, arguments and descriptions are unchanged (GH-3482)
 - Each network of `GET /api/providers` has an `extent`, where its stations are, which the `country`
   of its provider does not say: `scope` (`global`, `national`, `regional`), `continents`, `bbox`
   `[west, south, east, north]` and, for a regional one, `country_codes`. A dataset narrower than its
