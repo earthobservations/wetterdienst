@@ -4429,7 +4429,12 @@ def test_a_listing_asks_once_for_a_failure_no_second_attempt_can_mend(
 
 
 class _ChangingFile(BaseHTTPRequestHandler):
-    """Serves `server.body`, which a test changes, at its pace and in its state, and records every request."""
+    """Serves `server.body`, which a test changes, in its state and at its pace, and records every request.
+
+    The pace is the test's: after the first bytes of a body the handler sets `server.sending` and waits for
+    `server.release`, which is set unless a test cleared it, so that the order of what happens while a body is on
+    its way is the order of the events and not of a sleep.
+    """
 
     def log_message(self, format: str, *args: object) -> None:  # noqa: A002
         """Keep the test output quiet."""
@@ -4449,7 +4454,8 @@ class _ChangingFile(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body[:4])
         self.wfile.flush()
-        time.sleep(self.server.slow)
+        self.server.sending.set()
+        self.server.release.wait(30)
         self.wfile.write(body[4:])
 
 
@@ -4460,7 +4466,9 @@ def changing_file() -> Iterator[ThreadingHTTPServer]:
     server.body = b"old-body"
     server.status = 200
     server.cut = False
-    server.slow = 0.0
+    server.sending = threading.Event()
+    server.release = threading.Event()
+    server.release.set()
     server.requests = []
     server.url = f"http://127.0.0.1:{server.server_port}/archive.csv.gz"
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -4536,18 +4544,28 @@ def test_a_copy_is_as_old_as_its_download_began(changing_file: ThreadingHTTPServ
     a copy stamped when the download was over would be taken for one of the new file.
     """
     url = changing_file.url
-    changing_file.slow = 1.0
+    changing_file.release.clear()
     changed: dict[str, float] = {}
 
     def change() -> None:
-        time.sleep(0.3)
-        changing_file.body = b"new-body"
-        changed["at"] = time.time()
+        try:
+            # the first bytes of the old body are on the wire: the file changes now, and not at a time of the clock
+            assert changing_file.sending.wait(30), "the server never began to send the body"
+            changing_file.body = b"new-body"
+            # `started` of the download was read before the first byte was sent, so a reading that is later than
+            # one taken now is later than it, where a clock that ticks coarsely would give the same time twice
+            now = at = time.time()
+            while at <= now:
+                at = time.time()
+            changed["at"] = at
+        finally:
+            changing_file.release.set()
 
-    threading.Thread(target=change).start()
+    worker = threading.Thread(target=change)
+    worker.start()
     with stamina.set_testing(True, attempts=1):
         first = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.INFINITE)
-        changing_file.slow = 0.0
+        worker.join(30)
         again = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.INFINITE, refetch_before=changed["at"])
 
     assert first.content.getvalue() == b"old-body"

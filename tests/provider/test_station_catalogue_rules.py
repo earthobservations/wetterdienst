@@ -10,6 +10,7 @@ import pytest
 
 from tests.provider.station_catalogue import (
     COUNTRY_BBOX,
+    FROST_FOREIGN_WMO,
     RULES,
     Accepted,
     Bbox,
@@ -285,6 +286,31 @@ def test_a_station_outside_the_extent_is_accepted_for_its_id_only() -> None:
     assert len(problems) == 1
     assert "SN2" in problems[0]
     assert not check_extent(stations.head(2), "metno/frost", extent, accepted=accepted)
+
+
+def test_the_foreign_wmo_stations_of_frost_are_accepted_by_their_id_and_a_norwegian_one_is_not() -> None:
+    """The ids that are a WMO number x 100 are accepted outside the box of Norway, and a Norwegian id is not.
+
+    The Norwegian ids outside the box include one of five digits that ends in 00 (SN99900), which a looser pattern
+    (a pattern that takes any number of digits before the 00) would take for a foreign one.
+    """
+    extent = Wetterdienst.resolve("metno", "frost").metadata.extent
+    foreign = ["SN743400", "SN623500", "SN1039300", "SN1240000"]
+    norwegian_outside = ["SN99900", "SN99999", "SN123456"]
+    stations = pl.DataFrame(
+        {
+            # SN18700 is Oslo, in the box
+            "station_id": ["SN18700", *foreign, *norwegian_outside],
+            "latitude": [59.94, 45.861, 52.927, 52.209, 51.93, 40.0, 40.0, 40.0],
+            "longitude": [10.72, 1.175, 4.781, 14.12, 15.52, 14.0, 14.0, 14.0],
+        }
+    )
+
+    problems = check_extent(stations, "metno/frost", extent, accepted=(FROST_FOREIGN_WMO,))
+
+    assert len(problems) == len(norwegian_outside)
+    for station_id, problem in zip(norwegian_outside, problems, strict=True):
+        assert station_id in problem
 
 
 def test_an_accepted_station_does_not_hold_the_box_open() -> None:

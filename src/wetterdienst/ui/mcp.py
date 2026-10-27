@@ -10,6 +10,8 @@ LLM agents -- which otherwise guess parameters and thrash -- this module adds:
   parameter syntax and how to read results (so agents don't re-request the same data in different
   formats),
 - clean tool names (``values`` instead of ``values_api_values_get``),
+- a ``title`` and the annotations (read-only, not destructive, idempotent, open world or not) on every
+  tool, which the Claude connectors directory requires and clients use to skip a confirmation (GH-3482),
 - the refusal of an argument a tool does not take, which FastMCP would drop,
 - an error that reads as prose: the REST API answers a tool's request with the text of its problem,
   not the object, so that the tool error does not carry a Python repr (``restapi._problem_response``), and
@@ -34,8 +36,14 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
     from fastmcp import FastMCP
     from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
-    from fastmcp.server.providers.openapi import OpenAPIProvider
+    from fastmcp.server.providers.openapi import (
+        OpenAPIProvider,
+        OpenAPIResource,
+        OpenAPIResourceTemplate,
+        OpenAPITool,
+    )
     from fastmcp.tools import ToolResult
+    from fastmcp.utilities.openapi import HTTPRoute
     from starlette.types import ASGIApp, Receive, Scope, Send
 
 # Internal ASGI base URL for the in-process httpx2 client that backs the tools.
@@ -199,6 +207,63 @@ _TOOL_NAMES = {
     "stripes_image_api_stripes_image_get": "stripes_image",
 }
 
+# The title of every tool, and whether it reaches a service outside wetterdienst (the ``openWorldHint``).
+# Every tool is a GET that only reads, so the other hints are the same for all. A tool without an entry here
+# is a tool the server must not ship: `_annotate_tool` raises for it, and FastMCP, which logs and swallows the
+# exception, would leave the tool without annotations, which `tests/ui/test_mcp_annotations.py` catches.
+#
+# False: the tool answers from wetterdienst's own metadata (`coverage`, `glossary`, `providers`) and never
+# makes a request to a provider. True: it fetches from a provider's service -- a station list, a file
+# listing or the values -- or probes it (`auth`, the one call that does so to check the credentials).
+_TOOL_TITLES: dict[str, tuple[str, bool]] = {
+    "auth": ("Check provider credentials", True),
+    "coverage": ("List available data", False),
+    "glossary": ("Look up a parameter", False),
+    "providers": ("Describe data providers", False),
+    "stations": ("Find stations", True),
+    "values": ("Get station values", True),
+    "interpolate": ("Interpolate values for a point", True),
+    "summarize": ("Get nearest-station values for a point", True),
+    "history": ("Get a station's metadata history", True),
+    "issues": ("List forecast issues", True),
+    "alerts": ("Get weather alerts", True),
+    "stripes_stations": ("Find climate stripes stations", True),
+    "stripes_values": ("Get climate stripes values", True),
+    "stripes_image": ("Render climate stripes", True),
+}
+
+
+def _annotate_tool(
+    route: HTTPRoute,  # noqa: ARG001
+    component: OpenAPITool | OpenAPIResource | OpenAPIResourceTemplate,
+) -> None:
+    """Give a tool its title and annotations, as the Claude connectors directory requires of every tool.
+
+    FastMCP calls this for each route it turns into a component, with the tool's friendly name already
+    set, and logs and swallows what it raises: a name without a `_TOOL_TITLES` entry leaves its tool
+    bare, which the tests refuse.
+    """
+    from fastmcp.server.providers.openapi import OpenAPITool  # noqa: PLC0415
+    from mcp_types import ToolAnnotations  # noqa: PLC0415
+
+    if not isinstance(component, OpenAPITool):
+        msg = f"{component.name} is a {type(component).__name__}, and every route is meant to be a tool"
+        raise TypeError(msg)
+    if component.name not in _TOOL_TITLES:
+        msg = f"the MCP tool {component.name} has no entry in _TOOL_TITLES"
+        raise KeyError(msg)
+    title, open_world = _TOOL_TITLES[component.name]
+    component.title = title
+    # keyword arguments, which the type checker holds to the fields; they go out on the wire as
+    # `readOnlyHint` and so on
+    component.annotations = ToolAnnotations(
+        title=title,
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=open_world,
+    )
+
 
 def _refuse_unknown_arguments(provider: OpenAPIProvider) -> Middleware:
     """Build the middleware that refuses a tool argument the tool does not take.
@@ -285,6 +350,7 @@ def build_mcp_server(rest_app: FastAPI) -> FastMCP:
         client=client,
         route_maps=route_maps,
         mcp_names=_TOOL_NAMES,
+        mcp_component_fn=_annotate_tool,
     )
 
     @asynccontextmanager
