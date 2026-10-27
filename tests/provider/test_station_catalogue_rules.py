@@ -10,6 +10,8 @@ import pytest
 
 from tests.provider.station_catalogue import (
     COUNTRY_BBOX,
+    EXTENT_LISTED,
+    FROST_ANTARCTIC,
     FROST_FOREIGN_WMO,
     RULES,
     Accepted,
@@ -311,6 +313,56 @@ def test_the_foreign_wmo_stations_of_frost_are_accepted_by_their_id_and_a_norweg
     assert len(problems) == len(norwegian_outside)
     for station_id, problem in zip(norwegian_outside, problems, strict=True):
         assert station_id in problem
+
+
+def test_the_antarctic_stations_of_frost_are_accepted_south_of_60_and_not_north_of_it() -> None:
+    """A station south of 60 S is accepted outside the box of Norway, one just north of it is still a failure."""
+    extent = Wetterdienst.resolve("metno", "frost").metadata.extent
+    stations = pl.DataFrame(
+        {
+            "station_id": ["SN18700", "SN99990", "SN92100", "SN1", "SN2"],
+            "latitude": [59.94, -72.012, -71.9563, -59.9, 0.0],
+            "longitude": [10.72, 2.5408, 2.4668, 2.5, 2.5],
+        }
+    )
+
+    problems = check_extent(stations, "metno/frost", extent, accepted=(FROST_ANTARCTIC,))
+
+    assert len(problems) == 2
+    assert "SN1 " in problems[0]
+    assert "SN2 " in problems[1]
+
+
+def test_a_station_outside_the_extent_is_named_once_and_all_of_them_are_named() -> None:
+    """The datasets of a network list a station each, which is one station, and the failure names every station."""
+    extent = Wetterdienst.resolve("metno", "frost").metadata.extent
+    ids = [f"SN{number}" for number in range(10, 30)]
+    one_dataset = pl.DataFrame({"station_id": ids, "latitude": [0.0] * 20, "longitude": [0.0] * 20})
+    stations = pl.concat([one_dataset] * 6)
+
+    problems = check_extent(stations, "metno/frost", extent)
+
+    assert len(problems) == 20
+    assert [station_id in problem for station_id, problem in zip(ids, problems, strict=True)] == [True] * 20
+    assert not any("more stations" in problem for problem in problems)
+
+
+def test_a_failure_names_no_more_than_the_listed_stations_and_counts_the_rest() -> None:
+    """A network that is wrong as a whole does not fill the log: the first stations are named and the rest counted."""
+    extent = Wetterdienst.resolve("metno", "frost").metadata.extent
+    count = EXTENT_LISTED + 7
+    stations = pl.DataFrame(
+        {
+            "station_id": [f"SN{number}" for number in range(count)],
+            "latitude": [0.0] * count,
+            "longitude": [0.0] * count,
+        }
+    )
+
+    problems = check_extent(stations, "metno/frost", extent)
+
+    assert len(problems) == EXTENT_LISTED + 1
+    assert problems[-1] == "metno/frost: ... and 7 more stations outside the extent"
 
 
 def test_an_accepted_station_does_not_hold_the_box_open() -> None:
