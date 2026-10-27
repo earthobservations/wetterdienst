@@ -1202,13 +1202,13 @@ def test_meteofrance_observation_api_the_first_of_the_rows_of_one_reading_dates_
     assert result.data_updated_at == datetime(2025, 1, 10, 6, tzinfo=UTC)
 
 
-def test_meteofrance_observation_api_a_row_the_core_keeps_without_a_value_does_not_date_the_answer(
+def test_meteofrance_observation_api_a_row_without_a_value_gives_its_reading_to_the_row_that_has_one(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The older file has no temperature at 12 h and the newer one has: the core keeps the first, then drops it.
+    """The older file has no temperature at 12 h and the newer one has: the core keeps the one with a value (GH-3450).
 
-    So the answer holds the older file's other reading alone, and the newer file, none of whose rows is kept, does
-    not date it.
+    So the answer holds the newer file's reading beside the older file's other one, and the newer file, whose row is
+    kept, dates it.
     """
     old, new = _PERIODS
     dates = {old: "2025-01-10T06:00:00+00:00", new: "2026-10-26T06:54:51+00:00"}
@@ -1229,8 +1229,8 @@ def test_meteofrance_observation_api_a_row_the_core_keeps_without_a_value_does_n
 
     result = stations_result(request, "hourly", "core", "31069001").values().all()
 
-    assert result.df.get_column("value").to_list() == [21.5]
-    assert result.data_updated_at == datetime(2025, 1, 10, 6, tzinfo=UTC)
+    assert result.df.get_column("value").to_list() == [22.5, 21.5]
+    assert result.data_updated_at == datetime(2026, 10, 26, 6, 54, 51, tzinfo=UTC)
 
 
 class _Portal:

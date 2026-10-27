@@ -47,6 +47,12 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: where a provider hands over several rows for one reading (the same station,
+  parameter and timestamp), the answer has the first row that has a value, with that row's
+  `quality_flags`; it kept the first row even when it had none, and the value of the later row was
+  lost. A reading that was missing, or was dropped as null, is now filled where another row had a
+  value; two different values still keep the first. `data_updated_at` can now date such an answer
+  by the newer file whose row is kept. Nothing needs to be done (GH-3450)
 - The MCP `instructions` say that the same `stations` then `values` steps serve a network of any
   `kind`, for a place given by `latitude`, `longitude` and `rank`, and that a provider's `country`
   is its operator's, not the extent of its data, so a model does not refuse a place because of it
