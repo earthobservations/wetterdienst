@@ -83,7 +83,7 @@ the walk comes to the station, it ends the file it is at and the provider's own 
 files side by side, takes the rest, so a provider whose stations have many files gains little (at the default of 4 it is
 not slower; with 1 or 2 stations ahead it can be). A fetch ahead raises nothing itself; after a failure other than a 404 (or a failing
 hook) nothing more is fetched ahead for that read. A file that is missing or failed is asked for again at its station's
-turn, so an outage can show up later than the first failed request.
+turn, so an outage can show up later than the first failed request, by up to twice the client timeout.
 
 What is limited: the fetch-ahead's own connections, to `fetch_ahead` for a read and to 8 per host for all the reads of a
 process (`HOST_CONNECTIONS` in `model/fetch_ahead.py`). What is not: the connections of the station in hand (the

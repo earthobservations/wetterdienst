@@ -25,7 +25,7 @@ Types of changes:
   and errors are unchanged. That is up to 4 more connections to the host beside the station's own
   download, and 8 per host at most for all reads of a process together (a station's own downloads
   are not counted); a missing or failed file is asked twice, ahead and at its turn, so an outage
-  can show up later, after up to twice the client timeout. `Settings(fetch_ahead=...)` or
+  can show up later, by up to twice the client timeout. `Settings(fetch_ahead=...)` or
   `WD_FETCH_AHEAD` sets the 4 (at most 8), 0 switches it off (GH-3454)
 
 ## [0.176.0] - 2026-10-27

@@ -70,8 +70,8 @@ class _Workers:
 
     Not a `ThreadPoolExecutor`: its threads are joined when the interpreter exits, so a walk that ended by an error or
     Ctrl-C would hold the exit until the downloads that were under way were over. A daemon thread that is cut off at
-    exit leaves at most the temporary file of a download, which the sweep of the cache collects (the blob is renamed
-    into place whole or not at all).
+    exit leaves at most a temporary file, which the sweep of the cache collects, or a copy without its date (the blob
+    is renamed into place whole or not at all, but its row is saved before the date is written beside it).
     """
 
     def __init__(self, size: int, prefix: str) -> None:
@@ -95,14 +95,15 @@ class _Workers:
     def _work(self) -> None:
         while (item := self._queue.get()) is not None:
             future, call, args = item
-            if not future.set_running_or_notify_cancel():
-                continue
-            try:
-                call(*args)
-            except BaseException as error:  # noqa: BLE001 -- handed to the future, which nobody asks
-                future.set_exception(error)
-            else:
-                future.set_result(None)
+            if future.set_running_or_notify_cancel():
+                try:
+                    call(*args)
+                except BaseException as error:  # noqa: BLE001 -- handed to the future, which nobody asks
+                    future.set_exception(error)
+                else:
+                    future.set_result(None)
+            # an idle thread holds on to nothing of the read it last worked for
+            del item, future, call, args
 
     def close(self) -> None:
         """Cancel what has not begun and tell the threads to end once what they are at is done."""
@@ -195,7 +196,8 @@ class FetchAhead:
                 counted (a ranked read stops after its rank): no more are fetched ahead than there are slots left.
 
         """
-        self._cache.pop(position - 1, None)
+        for passed in [key for key in self._cache if key < position]:
+            del self._cache[passed]
         try:
             if not self._failed.is_set():
                 self._plan_ahead(position, slots)

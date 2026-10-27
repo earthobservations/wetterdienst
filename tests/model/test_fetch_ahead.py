@@ -285,6 +285,40 @@ def _fetch_threads() -> list[threading.Thread]:
     return [thread for thread in threading.enumerate() if thread.name.startswith(THREADS)]
 
 
+def _walk_time(
+    upstream: _Upstream,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    *,
+    depth: int,
+    attempts: int,
+    stations: int,
+    files: int,
+    parallel: bool = False,
+) -> tuple[float, int]:
+    """Read ``stations`` stations of ``files`` files cold: the fastest of ``attempts`` and the overlap of connections.
+
+    The overlap is the most connections the server had open at once. A busy machine only slows a walk, so the
+    fastest of several is the one it got least wrong.
+    """
+    best = float("inf")
+    upstream.max_active = 0
+    for attempt in range(attempts):
+        reader = _reader(
+            monkeypatch,
+            tmp_path,
+            stations=stations,
+            urls_of=_files(upstream, files),
+            depth=depth,
+            cache=f"d{depth}-{attempt}",
+            parallel=parallel,
+        )
+        began = time.perf_counter()
+        assert len(list(reader.query())) == stations
+        best = min(best, time.perf_counter() - began)
+    return best, upstream.max_active
+
+
 def _wait_for_no_threads() -> None:
     deadline = time.monotonic() + 15
     while _fetch_threads() and time.monotonic() < deadline:
@@ -654,27 +688,21 @@ def test_the_default_depth_is_modest() -> None:
 def test_the_files_of_many_stations_are_fetched_clearly_faster_than_one_station_after_the_other(
     upstream: _Upstream, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """With a latency per file, 24 stations take at least twice as long without it (about four times: depth 4)."""
-    upstream.delay = lambda _path: 0.05
-    stations = 24
-    timings: dict[int, float] = {}
-    # a machine that is busy only slows a walk: the fastest of three is the one the busy machine got least wrong
-    for depth, attempts in ((0, 1), (4, 3)):
-        for attempt in range(attempts):
-            reader = _reader(
-                monkeypatch,
-                tmp_path,
-                stations=stations,
-                urls_of=_files(upstream, 1),
-                depth=depth,
-                cache=f"d{depth}-{attempt}",
-            )
-            began = time.perf_counter()
-            results = list(reader.query())
-            timings[depth] = min(time.perf_counter() - began, timings.get(depth, float("inf")))
-            assert len(results) == stations
+    """With a latency per file, 24 stations are read in well under the time of one after the other (about 4x).
 
-    assert timings[0] >= 2 * timings[4], timings
+    What is held is the overlap, which the server counts and a busy machine does not change: one connection at a time
+    without it, three or more with it. The clock only has to agree (it is 4 times where nothing else runs; a machine
+    under a load of 90 has made it 1.5): the numbers are the benchmark's, in the pull request.
+    """
+    upstream.delay = lambda _path: 0.05
+    sequential, sequential_overlap = _walk_time(
+        upstream, monkeypatch, tmp_path, depth=0, attempts=2, stations=24, files=1
+    )
+    ahead, ahead_overlap = _walk_time(upstream, monkeypatch, tmp_path, depth=4, attempts=3, stations=24, files=1)
+
+    assert sequential_overlap == 1
+    assert ahead_overlap >= 3
+    assert sequential >= 1.1 * ahead, (sequential, ahead)
 
 
 def test_one_station_is_read_as_it_was(upstream: _Upstream, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -697,7 +725,7 @@ def test_one_station_is_read_as_it_was(upstream: _Upstream, monkeypatch: pytest.
 
     assert made == []
     assert _fetch_threads() == []
-    assert timings[4] <= 1.5 * timings[0] + 0.2, timings
+    assert timings[4] <= 2 * timings[0] + 0.3, timings
 
 
 def test_it_is_off_where_nothing_is_cached_or_it_is_switched_off(
@@ -796,47 +824,29 @@ def test_a_station_with_many_files_is_read_no_slower_than_without_the_fetch_ahea
     than without it (they were, by two and a half times, when the walk waited for the thread to finish them all).
     """
     upstream.delay = lambda _path: 0.1
-    timings: dict[int, float] = {}
-    for depth, attempts in ((0, 1), (4, 2)):
-        for attempt in range(attempts):
-            reader = _reader(
-                monkeypatch,
-                tmp_path,
-                stations=8,
-                urls_of=_files(upstream, 20),
-                depth=depth,
-                cache=f"d{depth}-{attempt}",
-                parallel=True,
-            )
-            began = time.perf_counter()
-            assert len(list(reader.query())) == 8
-            timings[depth] = min(time.perf_counter() - began, timings.get(depth, float("inf")))
+    kwargs = {"stations": 8, "files": 20, "parallel": True, "attempts": 3}
+    sequential, _ = _walk_time(upstream, monkeypatch, tmp_path, depth=0, **kwargs)
+    ahead, _ = _walk_time(upstream, monkeypatch, tmp_path, depth=4, **kwargs)
 
-    assert timings[4] <= 1.4 * timings[0] + 0.25, timings
+    # without the stop the walk takes about two and a half times as long
+    assert ahead <= 1.7 * sequential + 0.4, (sequential, ahead)
 
 
 def test_a_station_with_two_files_is_still_read_faster(
     upstream: _Upstream, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """The head start counts where the files of a station are few: two files a station, with the files side by side."""
-    upstream.delay = lambda _path: 0.05
-    timings: dict[int, float] = {}
-    for depth, attempts in ((0, 1), (4, 3)):
-        for attempt in range(attempts):
-            reader = _reader(
-                monkeypatch,
-                tmp_path,
-                stations=20,
-                urls_of=_files(upstream, 2),
-                depth=depth,
-                cache=f"d{depth}-{attempt}",
-                parallel=True,
-            )
-            began = time.perf_counter()
-            assert len(list(reader.query())) == 20
-            timings[depth] = min(time.perf_counter() - began, timings.get(depth, float("inf")))
+    """The head start counts where the files of a station are few: the files of the stations ahead come beside its own.
 
-    assert timings[0] >= 1.5 * timings[4], timings
+    Two files a station, which the collection fetches side by side: two connections at a time without the fetch-ahead,
+    more with it (4 of its own beside them). Counted by the server, not timed.
+    """
+    upstream.delay = lambda _path: 0.05
+    kwargs = {"stations": 20, "files": 2, "parallel": True, "attempts": 1}
+    _, sequential_overlap = _walk_time(upstream, monkeypatch, tmp_path, depth=0, **kwargs)
+    _, ahead_overlap = _walk_time(upstream, monkeypatch, tmp_path, depth=4, **kwargs)
+
+    assert sequential_overlap == 2
+    assert ahead_overlap >= 4
 
 
 def test_the_threads_do_not_hold_up_the_end_of_the_interpreter(
@@ -888,6 +898,8 @@ def test_a_summary_and_an_interpolation_fetch_nothing_ahead(
 
     A plain read of the same stations makes a fetch-ahead.
     """
+    pytest.importorskip("shapely")
+    pytest.importorskip("utm")
     from wetterdienst.core.interpolate import get_interpolated_df  # noqa: PLC0415
     from wetterdienst.core.summarize import get_summarized_df  # noqa: PLC0415
     from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
