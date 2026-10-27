@@ -260,7 +260,7 @@ def test_the_hubeau_referential_is_in_the_extent_of_its_network() -> None:
     """Hold the stations of the referential of `eaufrance/hubeau` to its extent, as `_NOT_HELD` leaves it out (GH-3456).
 
     The catalogue of the reader is made from the referential and from a request for each station's step, which takes
-    minutes; the referential is one request (`referentiel/stations?en_service=true`, 4,197 stations on 2026-10-26), and
+    minutes; the referential is one request (`referentiel/stations?en_service=true`, 4,200 stations on 2026-10-27), and
     its stations are the ones the catalogue lists. So the box and the continents are held to those: Metropolitan France
     with Corsica, Guadeloupe, Martinique, Guyane, Reunion and Mayotte.
     """
