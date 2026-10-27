@@ -142,6 +142,9 @@ COVERAGE_RULES = ("data_missing", "data_orphan")
 # the rule of `check_extent` (GH-3456): a station outside the box its network declares. An `Accepted` may cover it,
 # for a source that lists a station where the network is not
 EXTENT_RULES = ("coordinates_outside_extent",)
+#: the stations outside the extent that a failure names, each once: the log of CI is all that is read of a live list
+#: that needs a key, so the remaining ones are named in full, and a network that is wrong as a whole is not
+EXTENT_LISTED = 100
 
 # what a UTF-8 text read as Latin-1 or Windows-1252 turns into: the lead byte of a two-byte character (Ã, Â for the
 # Latin-1 letters, Å, Ä for Latin Extended-A such as ż and č) followed by a continuation byte read as a control
@@ -239,6 +242,19 @@ FROST_FOREIGN_WMO = Accepted(
     "right and stations that are not in Norway. The library passes them on, and the extent stays that of Norway; "
     "a Norwegian id outside the box is still a failure",
     where=lambda row: re.fullmatch(r"SN\d{4,5}00", row["station_id"]) is not None,
+)
+
+
+# Norway has research stations in Antarctica (Troll and its surroundings in Queen Maud Land, near 72 S): a station south
+# of 60 S, the limit of the Antarctic Treaty, is taken for one of them. It lies outside the national extent, which stays
+# that of Norway (GH-3488). Known from the log of CI: SN99990 at (-72.012, 2.5408) and SN92100 at (-71.9563, 2.4668);
+# the list itself needs a key and was not read
+FROST_ANTARCTIC = Accepted(
+    "coordinates_outside_extent",
+    "Norway has research stations in Antarctica (Troll and its surroundings in Queen Maud Land, near 72 S), which "
+    "Frost lists with the others: SN99990 at (-72.012, 2.5408) and SN92100 at (-71.9563, 2.4668). A station south of "
+    "60 S, the limit of the Antarctic Treaty, is taken for one of them, and the extent stays that of Norway",
+    where=lambda row: row["latitude"] < -60.0,
 )
 
 
@@ -515,13 +531,16 @@ def check_extent(
         for row in outside.iter_rows(named=True)
     ]
     left, _ = unaccepted(violations, accepted)
+    # a station once, whatever the number of datasets that list it: the lists of the datasets of a network are held
+    # together, and the same station again is not another station to the reader of the failure
+    listed = list({violation.station_id: violation for violation in left}.values())
     problems = [
         f"{network}: station {violation.station_id} at ({violation.row['latitude']}, {violation.row['longitude']}) "
         f"is outside the extent [west {west}, south {south}, east {east}, north {north}]"
-        for violation in left[:5]
+        for violation in listed[:EXTENT_LISTED]
     ]
-    if len(left) > 5:
-        problems.append(f"{network}: ... and {len(left) - 5} more stations outside the extent")
+    if len(listed) > EXTENT_LISTED:
+        problems.append(f"{network}: ... and {len(listed) - EXTENT_LISTED} more stations outside the extent")
     if not whole:
         return problems
     left_ids = {violation.station_id for violation in left}
