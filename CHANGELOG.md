@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.176.0] - 2026-10-27
+
 ### Added
 
 - Every MCP tool has a `title` ("Find stations") and the annotations `readOnlyHint` true,
@@ -6692,7 +6694,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.175.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.176.0...HEAD
+[0.176.0]: https://github.com/earthobservations/wetterdienst/compare/v0.175.0...v0.176.0
 [0.175.0]: https://github.com/earthobservations/wetterdienst/compare/v0.174.0...v0.175.0
 [0.174.0]: https://github.com/earthobservations/wetterdienst/compare/v0.173.0...v0.174.0
 [0.173.0]: https://github.com/earthobservations/wetterdienst/compare/v0.172.0...v0.173.0

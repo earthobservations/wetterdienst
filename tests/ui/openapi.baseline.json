@@ -13,7 +13,7 @@
       "identifier": "MIT",
       "url": "https://github.com/earthobservations/wetterdienst/blob/main/LICENSE.md"
     },
-    "version": "0.175.0",
+    "version": "0.176.0",
     "x-api-version": "1"
   },
   "servers": [
@@ -487,7 +487,7 @@
           "Catalogue"
         ],
         "summary": "Auth",
-        "description": "Check whether the credentials for an auth-required provider are present and valid.\n\nReturns `{\"provider\": ..., \"network\": ..., \"auth\": bool, \"configured\": bool, \"valid\": bool | null}`.\nFor providers that do not require authentication, `auth` is false and `configured`/`valid` are true.\n`configured` reflects whether credentials are present (false as well while the settings are invalid);\n`valid` whether a probe request showed them accepted (true) or rejected (false). It is null when\nthe probe could not tell (no network, a timeout, a rate limit, an outage of the provider): that is\nnot a rejection, so treat null as unknown.\n`valid` is false whenever `configured` is false (a probe cannot be performed without credentials).\n\nThis is the one call that probes the provider, for the one network asked about: one attempt that\ngives up after a few seconds. `/api/coverage` does not probe, so ask here whether the credentials\nof a network it lists as `configured` are accepted. The MCP tool and the CLI command\n(`wetterdienst about auth`) are this call.",
+        "description": "Check whether the credentials for an auth-required provider are present and valid.\n\nReturns `{\"provider\": ..., \"network\": ..., \"auth\": bool, \"configured\": bool, \"valid\": bool | null}`.\nFor providers that do not require authentication, `auth` is false and `configured`/`valid` are true.\n`configured` reflects whether credentials are present (false as well while the settings are invalid);\n`valid` whether a probe request showed them accepted (true) or rejected (false). It is null when\nthe probe could not tell (no network, a timeout, a rate limit, an outage of the provider): that is\nnot a rejection, so treat null as unknown.\n`valid` is false whenever `configured` is false (a probe cannot be performed without credentials).\n\nThis is the one call that probes the provider, for the one network asked about: one attempt that\ngives up after a few seconds. The answer may be up to a minute old: the provider is probed at most\nonce a minute per network (5 seconds after a `valid` of null). `/api/coverage` does not probe, so\nask here whether the credentials of a network it lists as `configured` are accepted. The MCP tool\nand the CLI command (`wetterdienst about auth`) are this call.",
         "operationId": "auth_api_auth_get",
         "parameters": [
           {
@@ -561,7 +561,7 @@
           "Catalogue"
         ],
         "summary": "Coverage",
-        "description": "List available data: providers/networks, or the resolutions, datasets and parameters within one.\n\nCall with no arguments to list every provider and its networks. Pass provider+network (e.g.\nprovider=\"dwd\", network=\"observation\") to list its resolutions/datasets/parameters; narrow with\nresolutions=... or datasets=... (e.g. datasets=\"climate_summary\") to discover parameter names.\n\nThe list of every provider downloads nothing, so it answers at once. Per network it gives\n`name_short`, `country`, `url` and `kind`. `kind` is `observation`, `forecast` or `derived` for a\ntimeseries network, which has stations and values (every network but two); `radar` and `alerts`\nare standalone (`dwd/radar`, `dwd/alerts`): the other endpoints answer 404 for them. For a network\nthat needs credentials, `configured` says whether they are present; whether the provider accepts\nthem is not checked here, `/api/auth` (the MCP `auth` tool) does, for one network.",
+        "description": "List available data: providers/networks, or the resolutions, datasets and parameters within one.\n\nCall with no arguments to list every provider and its networks. Pass provider+network (e.g.\nprovider=\"dwd\", network=\"observation\") to list its resolutions/datasets/parameters; narrow with\nresolutions=... or datasets=... (e.g. datasets=\"climate_summary\") to discover parameter names.\n\nThe list of every provider downloads nothing, so it answers at once. Per network it gives\n`name_short`, `country`, `url`, `scope` (how far it reaches: `global`, `national` or `regional`, which `country`\ndoes not say) and `kind`. `kind` is `observation`, `forecast` or `derived` for a\ntimeseries network, which has stations and values (every network but two); `radar` and `alerts`\nare standalone (`dwd/radar`, `dwd/alerts`): the other endpoints answer 404 for them. For a network\nthat needs credentials, `configured` says whether they are present; whether the provider accepts\nthem is not checked here, `/api/auth` (the MCP `auth` tool) does, for one network. With a provider and\nnetwork, each dataset has its `extent` (where its stations are: `scope`, `continents`, `bbox`, and\n`country_codes` for a regional one): the dataset's own where it is narrower than its network's, else the\nnetwork's. `providers` has the extent of every network.",
         "operationId": "coverage_api_coverage_get",
         "parameters": [
           {
@@ -721,7 +721,7 @@
           "Catalogue"
         ],
         "summary": "Providers",
-        "description": "Describe what each data provider is: its name, country, licence, credit line, source and networks.\n\nFor every provider, or the one named with `provider`: the names it goes by, its country (`country_code`\nis the ISO 3166-1 alpha-2 code), the terms it publishes its data under (`license`, null where it states\nnone) and the credit line to give (`attribution`), and its networks, each with its `kind`, source `url`,\nwhether it needs credentials (`auth`) and the resolutions and datasets it offers, with how many parameters\neach has. Nothing is downloaded and no credential is read, so it answers at once; `coverage` lists the\nparameters of a network, and `auth` checks whether its credentials are accepted.",
+        "description": "Describe what each data provider is: its name, country, licence, credit line, source and networks.\n\nFor every provider, or the one named with `provider`: the names it goes by, the country of the agency\nthat runs it (`country_code` is the ISO 3166-1 alpha-2 code; it is the operator's country, not the extent\nof its data), the terms it publishes its data under (`license`, null where it states none) and the credit\nline to give (`attribution`), and its networks, each with its `kind`, its `extent` (where its stations are:\n`scope`, `continents`, `country_codes`, `bbox`), source `url`, whether it needs credentials (`auth`) and the\nresolutions and datasets it offers, with how many parameters each has; a dataset whose stations are fewer\nthan its network's has an `extent` of its own, and one without has its network's. Nothing is downloaded\nand no credential is read, so it answers at once; `coverage` lists the parameters of a network, and `auth`\nchecks whether its credentials are accepted.",
         "operationId": "providers_api_providers_get",
         "parameters": [
           {
@@ -4415,13 +4415,17 @@
             },
             "type": "array",
             "title": "Parameters"
+          },
+          "extent": {
+            "$ref": "#/components/schemas/Extent"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
           "description",
-          "parameters"
+          "parameters",
+          "extent"
         ],
         "title": "CoverageDataset",
         "description": "A dataset of a resolution."
@@ -4447,6 +4451,15 @@
             ],
             "title": "Kind"
           },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "global",
+              "national",
+              "regional"
+            ],
+            "title": "Scope"
+          },
           "url": {
             "type": "string",
             "title": "Url"
@@ -4470,6 +4483,7 @@
           "name_short",
           "country",
           "kind",
+          "scope",
           "url",
           "auth",
           "configured",
@@ -4619,6 +4633,66 @@
         "type": "object",
         "title": "Crs",
         "description": "The reference system of the positions in the answer."
+      },
+      "Extent": {
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "global",
+              "national",
+              "regional"
+            ],
+            "title": "Scope",
+            "description": "How far the network reaches: `global` (stations on at least five continents), `national` (one country, with its territories) or `regional` (everything between: one or several countries or continents)."
+          },
+          "continents": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "africa",
+                "antarctica",
+                "asia",
+                "europe",
+                "north_america",
+                "oceania",
+                "south_america"
+              ]
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Continents",
+            "description": "The continents the network is meant to serve, as the provider's own areas say: descriptive, so that a few outlying territories may be named or left out. `bbox` and the station lists are the exact answer."
+          },
+          "country_codes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Country Codes",
+            "description": "ISO 3166-1 alpha-2 codes of the countries a `regional` network is bound to, where that list is short and exact. Left out of an answer where empty, and for `national`: the country is the `country_code` of the provider.",
+            "default": []
+          },
+          "bbox": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "maxItems": 4,
+            "minItems": 4,
+            "title": "Bbox",
+            "description": "`[west, south, east, north]` in degrees, around every station of the network (the Earth for `global`). It does not cross the antimeridian: a network with stations on both sides of it has the wide box."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "scope",
+          "continents",
+          "bbox"
+        ],
+        "title": "Extent",
+        "description": "Where the stations of a network are, which the country of its provider does not say."
       },
       "GlossaryEntry": {
         "properties": {
@@ -4902,7 +4976,7 @@
           "url"
         ],
         "title": "LicenseModel",
-        "description": "The terms a provider publishes its data under, as the provider states them (GH-2561).\n\n`spdx_id` is the identifier of the licence in the SPDX list, or an SPDX expression where the\nprovider offers two (`CC-BY-4.0 OR NLOD-2.0`); null where the terms have no SPDX identifier,\nwhich is then told by `name` and `url` alone. `url` is a page of the licence or of the provider's\nown terms, whichever states them."
+        "description": "The terms a provider publishes its data under, as the provider states them (GH-2561).\n\n`spdx_id` is the identifier of the licence in the SPDX list, or an SPDX expression where the\nprovider names two that both apply (`CC-BY-4.0 AND NLOD-2.0`, MET Norway's); null where the terms\nhave no SPDX identifier, which is then told by `name` and `url` alone. `url` is a page of the\nlicence or of the provider's own terms, whichever states them."
       },
       "Limits": {
         "properties": {
@@ -5022,7 +5096,8 @@
           },
           "country": {
             "type": "string",
-            "title": "Country"
+            "title": "Country",
+            "description": "The country of the agency that runs the provider, not the extent of its data: the `extent` of each of its networks says where its stations are."
           },
           "country_code": {
             "anyOf": [
@@ -5034,7 +5109,7 @@
               }
             ],
             "title": "Country Code",
-            "description": "ISO 3166-1 alpha-2 code of the country; null for a provider of several countries."
+            "description": "ISO 3166-1 alpha-2 code of that country, the operator's and not the extent of its data; null for a provider of several countries."
           },
           "license": {
             "anyOf": [
@@ -5093,6 +5168,10 @@
             "type": "integer",
             "title": "Parameters",
             "description": "How many parameters the dataset has, which `/api/coverage` lists."
+          },
+          "extent": {
+            "$ref": "#/components/schemas/Extent",
+            "description": "Where the stations of the dataset are, where that is less than its network's (`extent` of the network). Left out of the answer for a dataset that has the extent of its network."
           }
         },
         "additionalProperties": false,
@@ -5121,6 +5200,10 @@
             ],
             "title": "Kind",
             "description": "`observation`, `forecast` or `derived` for a network with stations and values; `radar` and `alerts` for a standalone one (`dwd/radar`, `dwd/alerts`), which has no resolutions to list."
+          },
+          "extent": {
+            "$ref": "#/components/schemas/Extent",
+            "description": "Where the stations of the network are, which the `country` of its provider does not say."
           },
           "url": {
             "type": "string",
@@ -5159,6 +5242,7 @@
         "required": [
           "network",
           "kind",
+          "extent",
           "url",
           "copyright",
           "auth",
@@ -5425,6 +5509,18 @@
             "title": "Retrieved At",
             "description": "When this answer was made, in UTC."
           },
+          "data_updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Updated At",
+            "description": "When the source says the data of this answer was last updated, in UTC: the newest such date over what the answer was read from (a file without a date adds none), as the source states it, and not the time the answer was made (`retrieved_at`). Null where the source states none or the library does not read it for the network, as for a list of stations and a streamed answer (NDJSON, CSV), whose head goes out before the newest date is known. It is the date the source reported when the answer was made, with the copy of the listing or file it was read from: it may lag a file refreshed since by up to the time the listing is cached."
+          },
           "provider": {
             "$ref": "#/components/schemas/_Provider",
             "description": "Who published the data, under which licence (`license`, null where the provider states none) and with which credit line (`attribution`)."
@@ -5482,6 +5578,7 @@
           "api_version",
           "schema_version",
           "retrieved_at",
+          "data_updated_at",
           "provider",
           "producer",
           "request",
@@ -7543,5 +7640,5 @@
       "description": "This instance: its version and limits, its settings, and its health."
     }
   ],
-  "x-release": "0.175.0"
+  "x-release": "0.176.0"
 }
