@@ -153,6 +153,9 @@ def _dwd_swsmos(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         "C671;AD Südost ;1;1;53,508902;10,066938;4;A;\n"
         "H232;Darup ;1;1;51,932306;7,281613;150;;\n"
         "H266;Guetersloh ;1;1;51,854598;8,324234;76;;\n"
+        # the catalogue lists Q311 twice as the same line (2026-10-26)
+        "Q311;Ölbronn-Dürrn;1;1;48,986451;8,748363;249;K;\n"
+        "Q311;Ölbronn-Dürrn;1;1;48,986451;8,748363;249;K;\n"
     )
     _serve(monkeypatch, swsmos_api, {"swsKatalog": bz2.compress(catalogue.encode("latin-1"))})
     return _stations(DwdSwsmosRequest, ("hourly", "data"))
