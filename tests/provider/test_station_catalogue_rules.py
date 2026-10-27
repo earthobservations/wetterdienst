@@ -171,6 +171,8 @@ def test_a_country_of_several_boxes_holds_a_station_to_any_of_them() -> None:
         return _rules_of(_station(latitude=latitude, longitude=longitude), bbox=france)
 
     assert rules(48.85, 2.35) == set()  # Paris
+    assert rules(51.09, 2.54) == set()  # Bray-Dunes, the northernmost point of France (GH-3481)
+    assert rules(51.2, 2.54) == {"coordinates_outside_country"}  # beyond the Channel coast, in Belgium
     assert rules(16.19, -61.66) == set()  # Guadeloupe
     assert rules(-12.80, 45.21) == set()  # Mayotte
     assert rules(35.11, 0.84) == {"coordinates_outside_country"}  # the Blavet as the referential lists it
@@ -178,6 +180,9 @@ def test_a_country_of_several_boxes_holds_a_station_to_any_of_them() -> None:
     assert rules(0.0, -30.0) == {"coordinates_outside_country"}
     # a swapped position is told as one, by any of the boxes
     (violation,) = check_catalogue(_frame(_station(latitude=4.10, longitude=49.99)), "test", bbox=france, now=_NOW)
+    assert "swapped" in violation.detail
+    # and one at Bray-Dunes, where the box once stopped at 51.0, is told as swapped too (GH-3481)
+    (violation,) = check_catalogue(_frame(_station(latitude=2.54, longitude=51.09)), "test", bbox=france, now=_NOW)
     assert "swapped" in violation.detail
 
 
