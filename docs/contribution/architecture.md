@@ -65,7 +65,8 @@ that say how `df` was selected. Every filter (`filter_by_station_id`, `filter_by
 2. For each requested dataset the station has, call the provider's `_collect_station_parameter_or_dataset`: once per
    parameter, or once per dataset when the dataset is declared `grouped`.
 3. Shape what came back to the long form (`shape_provider_frame`), cut a `grouped` frame to the requested parameters,
-   convert units (unless `convert_units` is off), remove duplicates, and drop null values (unless the options keep them).
+   convert units (unless `convert_units` is off), make one row of the rows that share a reading (the first that has a
+   value, with its flags), and drop null values (unless the options keep them).
 4. Cut to the window, skip the station if it is empty or covered too sparsely (`skip_empty`), humanize the parameter
    names, widen if the shape is `wide`, and sort.
 

@@ -428,6 +428,12 @@
     "openFull": "Vollständige Vorhersage öffnen",
     "poweredBy": "Bereitgestellt von Wetterdienst · DWD MOSMIX"
   },
+  "notFound": {
+    "title": "Seite nicht gefunden",
+    "text": "Unter dieser Adresse gibt es keine Seite. Prüfe die Adresse oder starte auf der Startseite.",
+    "home": "Zur Startseite",
+    "back": "Zurück"
+  },
   "stripes": {
     "title": "Klimastreifen",
     "subtitle": "Langfristige Klimatrends als Wärme-/Kältestreifen darstellen",

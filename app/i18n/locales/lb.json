@@ -428,6 +428,12 @@
     "openFull": "Voll Prognos opmaachen",
     "poweredBy": "Ënnerstëtzt vu Wetterdienst · DWD MOSMIX"
   },
+  "notFound": {
+    "title": "Säit net fonnt",
+    "text": "Op dëser Adress gëtt et keng Säit. Kontrolléier d'Adress oder fänk op der Startsäit un.",
+    "home": "Op d'Startsäit",
+    "back": "Zréck"
+  },
   "stripes": {
     "title": "Klimasträifen",
     "subtitle": "Visualiséier laangfristeg Klimatrends mat Erwiermungs-/Ofkillungssträifen",

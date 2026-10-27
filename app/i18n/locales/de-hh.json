@@ -428,6 +428,12 @@
     "openFull": "Hele Utsicht apenmaken",
     "poweredBy": "Bereitstellt vun Wetterdienst · DWD MOSMIX"
   },
+  "notFound": {
+    "title": "Siet nich funnen",
+    "text": "Ünner disse Adress gifft dat keen Siet. Kiek de Adress na oder fang op de Startsiet an.",
+    "home": "Na de Startsiet",
+    "back": "Trüch"
+  },
   "stripes": {
     "title": "Klimastrepen",
     "subtitle": "Langfristige Klimatrends as Wärm-/Köölstrepen wiesen",

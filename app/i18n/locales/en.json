@@ -428,6 +428,12 @@
     "openFull": "Open full forecast",
     "poweredBy": "Powered by Wetterdienst · DWD MOSMIX"
   },
+  "notFound": {
+    "title": "Page not found",
+    "text": "There is no page at this address. Check the address, or start from the home page.",
+    "home": "Go to the home page",
+    "back": "Go back"
+  },
   "stripes": {
     "title": "Climate stripes",
     "subtitle": "Visualize long-term climate trends with warming/cooling stripes",

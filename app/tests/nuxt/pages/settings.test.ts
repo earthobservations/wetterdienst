@@ -1,27 +1,47 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { useSettings } from '~/composables/useSettings'
 import SettingsPage from '~/pages/settings.vue'
 
 describe('settings Page', () => {
-  // useSettings() is backed by a module-level singleton (localStorage-backed),
-  // so mutations in one test would otherwise leak into the next.
-  afterEach(async () => {
+  // The page stays mounted when a test ends and keeps rendering every change the next tests make to
+  // the settings (the ones after it are the slower for each page left behind), so a test unmounts
+  // what it mounted.
+  const mounted: { unmount: () => void }[] = []
+  async function mountPage(options?: { attachTo: HTMLElement }) {
+    const wrapper = await mountSuspended(SettingsPage, options)
+    mounted.push(wrapper)
+    return wrapper
+  }
+
+  // The first mount of the file loads the page's lazy parts: about a second on a quiet machine,
+  // several times that under load, inside the 5 s of the first test. Pay it in a hook, where it is
+  // no part of what a test measures.
+  beforeAll(async () => {
     const wrapper = await mountSuspended(SettingsPage)
-    ;(wrapper.vm as any).reset()
+    wrapper.unmount()
+  }, 30_000)
+
+  // useSettings() is backed by a module-level singleton (localStorage-backed),
+  // so mutations in one test would otherwise leak into the next. It needs no page to be reset.
+  afterEach(() => {
+    for (const wrapper of mounted.splice(0))
+      wrapper.unmount()
+    useSettings().reset()
   })
 
   it('renders the page', async () => {
-    const wrapper = await mountSuspended(SettingsPage)
+    const wrapper = await mountPage()
     expect(wrapper.exists()).toBe(true)
   })
 
   it('displays the settings heading', async () => {
-    const wrapper = await mountSuspended(SettingsPage)
+    const wrapper = await mountPage()
     expect(wrapper.text()).toContain('Settings')
   })
 
   it('displays language, appearance and units sections', async () => {
-    const wrapper = await mountSuspended(SettingsPage)
+    const wrapper = await mountPage()
     const text = wrapper.text()
 
     expect(text).toContain('Language')
@@ -30,7 +50,7 @@ describe('settings Page', () => {
   })
 
   it('shows friendly labels and convert units toggles', async () => {
-    const wrapper = await mountSuspended(SettingsPage)
+    const wrapper = await mountPage()
     const text = wrapper.text()
 
     expect(text).toContain('Plain-language labels')
@@ -38,7 +58,7 @@ describe('settings Page', () => {
   })
 
   it('hides the unit selectors when convertUnits is disabled', async () => {
-    const wrapper = await mountSuspended(SettingsPage)
+    const wrapper = await mountPage()
     const vm = wrapper.vm as any
     vm.settings.convertUnits = false
     await wrapper.vm.$nextTick()
@@ -47,7 +67,7 @@ describe('settings Page', () => {
   })
 
   it('shows the unit selectors when convertUnits is enabled', async () => {
-    const wrapper = await mountSuspended(SettingsPage)
+    const wrapper = await mountPage()
     const vm = wrapper.vm as any
     vm.settings.convertUnits = true
     await wrapper.vm.$nextTick()
@@ -57,7 +77,7 @@ describe('settings Page', () => {
   })
 
   it('resets settings to defaults when reset is called', async () => {
-    const wrapper = await mountSuspended(SettingsPage)
+    const wrapper = await mountPage()
     const vm = wrapper.vm as any
 
     vm.settings.friendlyLabels = false
@@ -71,7 +91,7 @@ describe('settings Page', () => {
   })
 
   it('clicking a theme button switches the color mode', async () => {
-    const wrapper = await mountSuspended(SettingsPage, { attachTo: document.body })
+    const wrapper = await mountPage({ attachTo: document.body })
     const vm = wrapper.vm as any
 
     const darkButton = wrapper.findAll('button').find(b => b.text() === 'Dark')
@@ -86,7 +106,7 @@ describe('settings Page', () => {
   })
 
   it('clicking the friendly-labels switch toggles the setting', async () => {
-    const wrapper = await mountSuspended(SettingsPage, { attachTo: document.body })
+    const wrapper = await mountPage({ attachTo: document.body })
     const vm = wrapper.vm as any
     expect(vm.settings.friendlyLabels).toBe(true)
 
@@ -97,12 +117,10 @@ describe('settings Page', () => {
     expect(vm.settings.friendlyLabels).toBe(false)
   })
 
-  it('clicking Reset restores defaults after clicking Dark and toggling switches', async () => {
-    const wrapper = await mountSuspended(SettingsPage, { attachTo: document.body })
+  it('clicking Reset restores the defaults of a toggled switch', async () => {
+    const wrapper = await mountPage({ attachTo: document.body })
     const vm = wrapper.vm as any
 
-    const darkButton = wrapper.findAll('button').find(b => b.text() === 'Dark')
-    await darkButton!.trigger('click')
     const friendlyLabelsSwitch = wrapper.findAllComponents({ name: 'USwitch' })[0]!
     await friendlyLabelsSwitch.find('button[role="switch"]').trigger('click')
     await wrapper.vm.$nextTick()

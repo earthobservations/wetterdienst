@@ -428,6 +428,12 @@
     "openFull": "Åbn fuld udsigt",
     "poweredBy": "Drevet af Wetterdienst · DWD MOSMIX"
   },
+  "notFound": {
+    "title": "Siden blev ikke fundet",
+    "text": "Der er ingen side på denne adresse. Tjek adressen, eller start på forsiden.",
+    "home": "Gå til forsiden",
+    "back": "Tilbage"
+  },
   "stripes": {
     "title": "Klimastriber",
     "subtitle": "Visualisér langsigtede klimatendenser med opvarmnings-/afkølingsstriber",

@@ -1,7 +1,7 @@
 import type { VueWrapper } from '@vue/test-utils'
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { setResponseStatus } from 'h3'
-import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { h, nextTick } from 'vue'
 import StationSelection from '~/components/StationSelection.vue'
 
@@ -18,6 +18,26 @@ const stationsResponse = {
 }
 
 describe('stationSelection', () => {
+  // The first mount of a file loads the component's lazy parts, which takes about a second on a
+  // quiet machine and several times that under load, inside the first test's 5 s. Pay it here,
+  // where it is no part of what a test measures.
+  beforeAll(async () => {
+    registerEndpoint('/api/stations', () => stationsResponse)
+    const wrapper = await mountSuspended(StationSelection, { props: { parameterSelection, multiple: true } })
+    wrapper.unmount()
+  }, 30_000)
+
+  // a component left mounted keeps reacting, and fetching, while the next test runs
+  async function mountSelection(props: InstanceType<typeof StationSelection>['$props'], options: Record<string, unknown> = {}) {
+    const wrapper = await mountSuspended(StationSelection, { props, attachTo: document.body, ...options })
+    onTestFinished(() => wrapper.unmount())
+    return wrapper
+  }
+
+  // The wait that follows a gate: a request made after the list is in (a second one) is made while
+  // it is drawn. It can only miss under load, never fail a test that holds.
+  const settle = () => new Promise(resolve => setTimeout(resolve, 50))
+
   it('does not fetch the station list until the select menu is opened', async () => {
     let calls = 0
     registerEndpoint('/api/stations', () => {
@@ -25,10 +45,7 @@ describe('stationSelection', () => {
       return stationsResponse
     })
 
-    const wrapper = await mountSuspended(StationSelection, {
-      props: { parameterSelection, multiple: true },
-      attachTo: document.body,
-    })
+    const wrapper = await mountSelection({ parameterSelection, multiple: true })
     await new Promise(resolve => setTimeout(resolve, 50))
     await wrapper.vm.$nextTick()
 
@@ -37,9 +54,9 @@ describe('stationSelection', () => {
     const vm = wrapper.vm as any
     vm.selectOpen = true
     await wrapper.vm.$nextTick()
-    await new Promise(resolve => setTimeout(resolve, 50))
-    await wrapper.vm.$nextTick()
 
+    await vi.waitFor(() => expect(vm.allStations).toEqual(stationsResponse.stations))
+    await settle()
     expect(calls).toBe(1)
   })
 
@@ -54,11 +71,7 @@ describe('stationSelection', () => {
     // leaflet.markercluster (CJS/PNG asset code that isn't happy-dom/Node-ESM
     // friendly and isn't what this test is about). The map's own rendering
     // is covered by e2e (real browser) tests instead.
-    const wrapper = await mountSuspended(StationSelection, {
-      props: { parameterSelection, multiple: true },
-      attachTo: document.body,
-      global: { stubs: { ClientOnly: true } },
-    })
+    const wrapper = await mountSelection({ parameterSelection, multiple: true }, { global: { stubs: { ClientOnly: true } } })
     await new Promise(resolve => setTimeout(resolve, 50))
     await wrapper.vm.$nextTick()
 
@@ -67,9 +80,9 @@ describe('stationSelection', () => {
     const mapToggle = wrapper.findAll('button').find(b => b.text().includes('Choose on the map'))
     await mapToggle!.trigger('click')
     await wrapper.vm.$nextTick()
-    await new Promise(resolve => setTimeout(resolve, 50))
-    await wrapper.vm.$nextTick()
 
+    await vi.waitFor(() => expect(calls).toBeGreaterThan(0))
+    await settle()
     expect(calls).toBe(1)
   })
 
@@ -80,16 +93,12 @@ describe('stationSelection', () => {
       return stationsResponse
     })
 
-    const wrapper = await mountSuspended(StationSelection, {
-      props: { parameterSelection, initialStationIds: ['00001'], multiple: true },
-      attachTo: document.body,
-    })
-    await new Promise(resolve => setTimeout(resolve, 50))
-    await wrapper.vm.$nextTick()
+    const wrapper = await mountSelection({ parameterSelection, initialStationIds: ['00001'], multiple: true })
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.selectedStations).toEqual([expect.objectContaining({ station_id: '00001' })]))
+    await settle()
 
     expect(calls).toBe(1)
-    const vm = wrapper.vm as any
-    expect(vm.selectedStations).toEqual([expect.objectContaining({ station_id: '00001' })])
   })
 
   it('resets stationsLoaded on a failed fetch, so reopening the picker retries', async () => {
@@ -102,18 +111,14 @@ describe('stationSelection', () => {
       return stationsResponse
     })
 
-    const wrapper = await mountSuspended(StationSelection, {
-      props: { parameterSelection, multiple: true },
-      attachTo: document.body,
-    })
+    const wrapper = await mountSelection({ parameterSelection, multiple: true })
     await new Promise(resolve => setTimeout(resolve, 50))
     await wrapper.vm.$nextTick()
 
     const vm = wrapper.vm as any
     vm.selectOpen = true
     await wrapper.vm.$nextTick()
-    await new Promise(resolve => setTimeout(resolve, 100))
-    await wrapper.vm.$nextTick()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Failed to load stations'))
 
     // A failed request must not be treated as "loaded" -- otherwise reopening
     // the picker would never retry, and the empty result would misleadingly
@@ -126,8 +131,7 @@ describe('stationSelection', () => {
     await wrapper.vm.$nextTick()
     vm.selectOpen = true
     await wrapper.vm.$nextTick()
-    await new Promise(resolve => setTimeout(resolve, 100))
-    await wrapper.vm.$nextTick()
+    await vi.waitFor(() => expect(vm.allStations).toEqual(stationsResponse.stations))
 
     expect(vm.stationsLoaded).toBe(true)
     expect(wrapper.text()).not.toContain('Failed to load stations')
@@ -143,15 +147,12 @@ describe('stationSelection', () => {
       return stationsResponse
     })
 
-    const wrapper = await mountSuspended(StationSelection, {
-      props: { parameterSelection, multiple: true },
-      attachTo: document.body,
-    })
+    const wrapper = await mountSelection({ parameterSelection, multiple: true })
     const vm = wrapper.vm as any
     vm.selectOpen = true
     await wrapper.vm.$nextTick()
-    await new Promise(resolve => setTimeout(resolve, 100))
-    await wrapper.vm.$nextTick()
+    await vi.waitFor(() => expect(vm.allStations).toEqual(stationsResponse.stations))
+    await settle()
 
     expect(calls).toBe(1)
   })
@@ -166,26 +167,23 @@ describe('stationSelection', () => {
       return stationsResponse
     })
 
-    const wrapper = await mountSuspended(StationSelection, {
-      props: { parameterSelection, multiple: true },
-      attachTo: document.body,
-    })
+    const wrapper = await mountSelection({ parameterSelection, multiple: true })
     const vm = wrapper.vm as any
     vm.selectOpen = true
     await wrapper.vm.$nextTick()
-    await new Promise(resolve => setTimeout(resolve, 100))
-    await wrapper.vm.$nextTick()
+    await vi.waitFor(() => expect(vm.allStations).toEqual(stationsResponse.stations))
+    await settle()
 
     expect(calls).toBe(1)
 
     await wrapper.setProps({
       parameterSelection: { ...parameterSelection, dataset: 'precipitation_more', parameters: ['precipitation_amount'] },
     })
-    await new Promise(resolve => setTimeout(resolve, 100))
-    await wrapper.vm.$nextTick()
+    await vi.waitFor(() => expect(calls).toBeGreaterThan(1))
+    await vi.waitFor(() => expect(vm.allStations).toEqual(stationsResponse.stations))
+    await settle()
 
     expect(calls).toBe(2)
-    expect(vm.allStations).toEqual(stationsResponse.stations)
   })
 
   describe('stations restored from a shared URL (GH-2959)', () => {
@@ -273,10 +271,7 @@ describe('stationSelection', () => {
       return stationsResponse
     })
 
-    const wrapper = await mountSuspended(StationSelection, {
-      props: { parameterSelection: { ...parameterSelection, parameters: [] }, multiple: true },
-      attachTo: document.body,
-    })
+    const wrapper = await mountSelection({ parameterSelection: { ...parameterSelection, parameters: [] }, multiple: true })
     await new Promise(resolve => setTimeout(resolve, 50))
     await wrapper.vm.$nextTick()
 
