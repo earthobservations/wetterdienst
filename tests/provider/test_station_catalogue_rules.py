@@ -20,6 +20,7 @@ from tests.provider.station_catalogue import (
     unaccepted,
 )
 from tests.provider.station_catalogue_stubs import question_mark_in_the_name
+from tests.provider.test_station_catalogues_live import FROST_FOREIGN_WMO
 from wetterdienst import Wetterdienst
 
 _NOW = dt.datetime(2026, 10, 10, tzinfo=dt.UTC)
@@ -285,6 +286,24 @@ def test_a_station_outside_the_extent_is_accepted_for_its_id_only() -> None:
     assert len(problems) == 1
     assert "SN2" in problems[0]
     assert not check_extent(stations.head(2), "metno/frost", extent, accepted=accepted)
+
+
+def test_the_foreign_wmo_stations_of_frost_are_accepted_by_their_id_and_a_norwegian_one_is_not() -> None:
+    """The ids that are a WMO number x 100 are accepted outside the box of Norway, and an id of five digits is not."""
+    extent = Wetterdienst.resolve("metno", "frost").metadata.extent
+    stations = pl.DataFrame(
+        {
+            "station_id": ["SN18700", "SN743400", "SN623500", "SN1039300", "SN1240000", "SN99999", "SN123456"],
+            "latitude": [59.94, 45.861, 52.927, 52.209, 51.93, 40.0, 40.0],
+            "longitude": [10.72, 1.175, 4.781, 14.12, 15.52, 14.0, 14.0],
+        }
+    )
+
+    problems = check_extent(stations, "metno/frost", extent, accepted=(FROST_FOREIGN_WMO,))
+
+    assert len(problems) == 2
+    assert "SN99999" in problems[0]
+    assert "SN123456" in problems[1]
 
 
 def test_an_accepted_station_does_not_hold_the_box_open() -> None:
