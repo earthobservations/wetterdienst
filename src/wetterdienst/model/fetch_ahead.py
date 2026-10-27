@@ -18,11 +18,12 @@ connections to one host, and nothing started that the consumer has not asked for
 from __future__ import annotations
 
 import logging
+import queue
 import threading
-from concurrent.futures import Future, ThreadPoolExecutor, wait
+from concurrent.futures import Future, wait
 from dataclasses import dataclass
 from http import HTTPStatus
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
 from wetterdienst.metadata.cache import CacheExpiry
@@ -64,12 +65,67 @@ def _host_slot(url: str) -> threading.BoundedSemaphore:
         return slot
 
 
+class _Workers:
+    """A few daemon threads that run what is submitted, and are let go of by `close`.
+
+    Not a `ThreadPoolExecutor`: its threads are joined when the interpreter exits, so a walk that ended by an error or
+    Ctrl-C would hold the exit until the downloads that were under way were over. A daemon thread that is cut off at
+    exit leaves at most the temporary file of a download, which the sweep of the cache collects (the blob is renamed
+    into place whole or not at all).
+    """
+
+    def __init__(self, size: int, prefix: str) -> None:
+        self._size = size
+        self._prefix = prefix
+        self._queue: queue.SimpleQueue[tuple[Future[None], Callable[..., None], tuple[Any, ...]] | None] = (
+            queue.SimpleQueue()
+        )
+        self._threads: list[threading.Thread] = []
+
+    def submit(self, call: Callable[..., None], *args: Any) -> Future[None]:  # noqa: ANN401
+        """Run ``call`` on one of the threads, which are started as they are needed up to the size."""
+        future: Future[None] = Future()
+        self._queue.put((future, call, args))
+        if len(self._threads) < self._size:
+            thread = threading.Thread(target=self._work, name=f"{self._prefix}-{len(self._threads)}", daemon=True)
+            self._threads.append(thread)
+            thread.start()
+        return future
+
+    def _work(self) -> None:
+        while (item := self._queue.get()) is not None:
+            future, call, args = item
+            if not future.set_running_or_notify_cancel():
+                continue
+            try:
+                call(*args)
+            except BaseException as error:  # noqa: BLE001 -- handed to the future, which nobody asks
+                future.set_exception(error)
+            else:
+                future.set_result(None)
+
+    def close(self) -> None:
+        """Cancel what has not begun and tell the threads to end once what they are at is done."""
+        while True:
+            try:
+                item = self._queue.get_nowait()
+            except queue.Empty:
+                break
+            if item is not None:
+                item[0].cancel()
+        for _ in self._threads:
+            self._queue.put(None)
+
+
 @dataclass(eq=False)
 class _Fetch:
     """The files of one station, fetched by one thread, one after the other."""
 
     urls: list[str]
     ttl: CacheExpiry
+    #: set when the walk comes to the station: what is under way ends, and the files left are the station's own
+    #: download's, which fetches a station's files side by side where this fetches them one after the other
+    stop: threading.Event
     future: Future[None] | None = None
 
 
@@ -117,7 +173,7 @@ class FetchAhead:
         self._stations = stations
         self._count = count
         self._files_of = files_of
-        self._executor: ThreadPoolExecutor | None = None
+        self._workers: _Workers | None = None
         self._fetches: dict[int, _Fetch] = {}
         #: the positions whose files have been asked of the provider, whether or not they are fetched ahead
         self._planned: set[int] = set()
@@ -125,7 +181,6 @@ class FetchAhead:
         #: (or is the business of the station in hand), so that two stations that read one file do not both fetch it
         self._seen: set[str] = set()
         self._cache: dict[int, tuple[str, list[DatasetModel]] | None] = {}
-        self._stopped = threading.Event()
         self._failed = threading.Event()
 
     def advance(self, position: int, slots: int | None = None) -> None:
@@ -141,6 +196,22 @@ class FetchAhead:
 
         """
         self._cache.pop(position - 1, None)
+        try:
+            if not self._failed.is_set():
+                self._plan_ahead(position, slots)
+        except Exception as error:  # noqa: BLE001 -- the stations of the walk meet it themselves, each at its turn
+            log.debug("Fetch-ahead: planning failed at position %d: %r", position, error)
+            self._failed.set()
+        fetch = self._fetches.pop(position, None)
+        if fetch is not None and fetch.future is not None:
+            # the station's own download fetches its files side by side, so what this has not fetched yet is left to
+            # it: the thread ends the file it is at, and one that has not begun at all is not begun
+            fetch.stop.set()
+            if not fetch.future.cancel():
+                wait([fetch.future])
+
+    def _plan_ahead(self, position: int, slots: int | None) -> None:
+        """Ask the provider for the files of the station at ``position`` and of those within the window after it."""
         if position not in self._planned:
             # the station the walk begins at is the provider's to download as it always did, but what it reads is
             # known so that a station that reads the same file is not fetched for it a second time
@@ -154,10 +225,6 @@ class FetchAhead:
                 if following not in self._planned:
                     self._plan(following, fetch=True)
             following += 1
-        fetch = self._fetches.pop(position, None)
-        # one that has not begun is left to the station's own download, which is what it would have been
-        if fetch is not None and fetch.future is not None and not fetch.future.cancel():
-            wait([fetch.future])
 
     def close(self) -> None:
         """Stop: nothing that has not begun is begun, and what has is not followed by another file.
@@ -166,9 +233,10 @@ class FetchAhead:
         provider's would, or leaves nothing (`_LockedWholeFileCacheFileSystem._open` writes to a file of its own and
         renames it). Does not wait for it, so the consumer that stops is not kept by it; its thread ends with it.
         """
-        self._stopped.set()
-        if self._executor is not None:
-            self._executor.shutdown(wait=False, cancel_futures=True)
+        for fetch in self._fetches.values():
+            fetch.stop.set()
+        if self._workers is not None:
+            self._workers.close()
         self._fetches.clear()
 
     def _station(self, position: int) -> tuple[str, list[DatasetModel]] | None:
@@ -183,29 +251,25 @@ class FetchAhead:
         if station is None:
             return
         station_id, datasets = station
-        try:
-            files = self._files_of(station_id, datasets)
-        except Exception as error:  # noqa: BLE001 -- the station's own collection meets it again, at its turn
-            log.debug("Fetch-ahead: no files named for station %s: %r", station_id, error)
-            self._failed.set()
-            return
+        # a hook that raises is guarded by `advance`: it stops the fetching, the station's own collection meets it
+        files = self._files_of(station_id, datasets)
         if files is None or files.ttl is CacheExpiry.NO_CACHE:
             return
         urls = [url for url in dict.fromkeys(files.urls) if url not in self._seen]
         self._seen.update(files.urls)
-        if not fetch or not urls or self._stopped.is_set():
+        if not fetch or not urls:
             return
-        if self._executor is None:
-            self._executor = ThreadPoolExecutor(max_workers=self._depth, thread_name_prefix="wetterdienst-fetch-ahead")
-        job = _Fetch(urls=urls, ttl=files.ttl)
+        if self._workers is None:
+            self._workers = _Workers(self._depth, "wetterdienst-fetch-ahead")
+        job = _Fetch(urls=urls, ttl=files.ttl, stop=threading.Event())
         self._fetches[position] = job
-        job.future = self._executor.submit(self._fetch, job)
+        job.future = self._workers.submit(self._fetch, job)
 
     def _fetch(self, job: _Fetch) -> None:
         """Download the files of one station into the cache, and say nothing of what goes wrong."""
         try:
             for url in job.urls:
-                if self._stopped.is_set() or self._failed.is_set():
+                if job.stop.is_set() or self._failed.is_set():
                     return
                 slot = _host_slot(url)
                 if not slot.acquire(blocking=False):

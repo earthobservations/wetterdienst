@@ -256,6 +256,9 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     unit_converter: UnitConverter = field(default_factory=UnitConverter)
     #: the dates a provider noted while it collected the station in hand (`_note_data_updated`)
     _data_updated: list[dt.datetime] = field(default_factory=list, init=False, repr=False, compare=False)
+    #: whether `query` may have the files of the next stations fetched while one is read (GH-3454); a caller that stops
+    #: the walk where the data says, not at a number it knows (interpolation, summary), sets it False
+    _fetch_ahead_allowed: bool = field(default=True, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         """Post-initialization of the TimeseriesValues object."""
@@ -441,7 +444,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             return None
         settings = self.sr.settings
         # where nothing is cached nothing that is fetched ahead is found again by the provider's own download
-        if not settings.fetch_ahead or settings.cache_disable:
+        if not settings.fetch_ahead or settings.cache_disable or not self._fetch_ahead_allowed:
             return None
 
         def station(position: int) -> tuple[str, list[DatasetModel]] | None:

@@ -211,8 +211,12 @@ def request_stations(
         # true of the request whatever the stations hold, so it is said without downloading them
         raise no_elevation_in_reach_error(unanswerable, elevation)
     tqdm_out = TqdmToLogger(log, level=logging.INFO)
+    values = stations_ranked.values()
+    # no files are fetched ahead of this walk: it stops where the stations found are enough, which only the data says,
+    # so what was fetched ahead of that point would be downloaded and never read (GH-3454)
+    values._fetch_ahead_allowed = False  # noqa: SLF001
     for result in tqdm(
-        stations_ranked.values().query(),
+        values.query(),
         total=len(stations_by_id),
         desc="querying stations for interpolation",
         unit="station",

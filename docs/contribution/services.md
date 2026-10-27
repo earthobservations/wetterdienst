@@ -253,7 +253,8 @@ A provider whose files are one set per station can also have them fetched while 
 implementing `_files_ahead(station_id, datasets)`, which names the URLs its collection downloads and the expiry it
 downloads them with (`FilesAhead`); see [Fetch-ahead](architecture.md#request-stations-values). The URLs must be the ones
 the collection asks for with that expiry, or what is fetched ahead is not found again. Files that every station reads
-(a file of the whole network) are fetched once, by whoever asks first.
+(a file of the whole network) are fetched once, by whoever asks first. The hook is held to the collection by a test that
+records the URLs and the expiry the collection really downloads with (`tests/model/test_files_ahead_hooks.py`).
 
 A provider hands over its rows and nothing else; the core shapes the frame (`shape_provider_frame` in
 `wetterdienst.model.values`, GH-2627). It writes the identity columns, casts `parameter` to String, `timestamp` to

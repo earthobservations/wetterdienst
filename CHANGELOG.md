@@ -19,12 +19,14 @@ Types of changes:
 ### Changed
 
 - A read of many stations of `dwd/observation`, `dwd/derived`, `chmi` or the daily synop of
-  `imgw/meteorology` fetches the files of the next 4 stations while one is parsed, with the cache
-  on: 100 stations of one small file took 17.5 s and now take 4.3 s against a local upstream of
-  120 ms latency. Answers, their order and errors are unchanged. It opens up to 4 connections to
-  the host beside the one of the station in hand, and no more than 8 per host for the whole
-  process; `Settings(fetch_ahead=...)` / `WD_FETCH_AHEAD` sets the 4 (at most 8), 0 switches it
-  off (GH-3454)
+  `imgw/meteorology` fetches the files of the next 4 stations into the cache while one is parsed
+  (not with `cache_disable`, nor for `interpolate` and `summarize`): 100 stations of one small file
+  took 17.5 s and now take 4.3 s against a local upstream of 120 ms latency. Answers, their order
+  and errors are unchanged. That is up to 4 more connections to the host beside the station's own
+  download, and 8 per host at most for all reads of a process together (a station's own downloads
+  are not counted); a missing or failed file is asked twice, ahead and at its turn, so an outage
+  can show up later, after up to twice the client timeout. `Settings(fetch_ahead=...)` or
+  `WD_FETCH_AHEAD` sets the 4 (at most 8), 0 switches it off (GH-3454)
 
 ## [0.176.0] - 2026-10-27
 

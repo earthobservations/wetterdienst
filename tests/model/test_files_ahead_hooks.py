@@ -9,25 +9,27 @@ from __future__ import annotations
 
 import contextlib
 import datetime as dt
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import polars as pl
 import pytest
 
 from tests.provider.value_stubs import stations_result
 from wetterdienst import Settings
-from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.chmi.observation import ChmiObservationRequest
 from wetterdienst.provider.chmi.observation import api as chmi_api
 from wetterdienst.provider.dwd.derived import DwdDerivedMetadata, DwdDerivedRequest
 from wetterdienst.provider.dwd.derived import api as derived_api
+from wetterdienst.provider.dwd.derived import download as derived_download
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.observation import api as observation_api
+from wetterdienst.provider.dwd.observation import download as observation_download
 from wetterdienst.provider.imgw.meteorology import ImgwMeteorologyRequest
 from wetterdienst.provider.imgw.meteorology import api as imgw_api
 from wetterdienst.util.network import File
 
 if TYPE_CHECKING:
+    from wetterdienst.metadata.cache import CacheExpiry
     from wetterdienst.metadata.period import Period
     from wetterdienst.model.values import TimeseriesValues
 
@@ -51,7 +53,7 @@ def test_dwd_observation_names_the_archives_it_downloads(
     monkeypatch: pytest.MonkeyPatch, resolution: str, dataset: str, parameter: str, periods: list[str]
 ) -> None:
     """The archives of every period of the station, with the date ranges the historical period is cut to."""
-    downloaded: list[str] = []
+    downloaded: list[tuple[str, CacheExpiry]] = []
 
     def file_list(
         station_id: str,
@@ -63,12 +65,13 @@ def test_dwd_observation_names_the_archives_it_downloads(
         name = getattr(dataset_, "name", "?")
         return pl.Series([f"https://x/{name}/{station_id}/{period.value}/{date_ranges}.zip"])
 
-    def download(remote_files: pl.Series, settings: Settings, dataset_: object = None) -> list[File]:  # noqa: ARG001
-        downloaded.extend(remote_files.to_list())
+    # the download of the archives is the collection's own, which asks `download_files` for them with an expiry
+    def download_files(urls: list[str], ttl: CacheExpiry, **_: object) -> list[File]:
+        downloaded.extend((url, ttl) for url in urls)
         return []
 
     monkeypatch.setattr(observation_api, "create_file_list_for_climate_observations", file_list)
-    monkeypatch.setattr(observation_api, "download_climate_observations_data", download)
+    monkeypatch.setattr(observation_download, "download_files", download_files)
     monkeypatch.setattr(
         observation_api.DwdObservationValues, "_get_historical_date_ranges", lambda *_, **__: ["20000101_20091231"]
     )
@@ -85,25 +88,25 @@ def test_dwd_observation_names_the_archives_it_downloads(
     named = values._files_ahead(STATION, [model])  # noqa: SLF001
 
     assert downloaded, "the collection downloaded nothing"
-    assert list(named.urls) == downloaded
-    assert named.ttl is CacheExpiry.FIVE_MINUTES
+    assert list(named.urls) == [url for url, _ in downloaded]
+    assert {ttl for _, ttl in downloaded} == {named.ttl}
 
 
 def test_dwd_derived_names_the_archives_it_downloads_and_none_of_a_technical_dataset(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The archives of the station for each period; the monthly files of the whole network are left to the first."""
-    downloaded: list[str] = []
+    downloaded: list[tuple[str, CacheExpiry]] = []
 
     def file_list(station_id: str, dataset: object, period: Period, settings: Settings) -> pl.Series:  # noqa: ARG001
         return pl.Series([f"https://x/{getattr(dataset, 'name', '?')}/{station_id}/{period.value}.zip"])
 
-    def download(remote_files: pl.Series, settings: Settings) -> list[File]:  # noqa: ARG001
-        downloaded.extend(remote_files.to_list())
+    def download_files(urls: list[str], ttl: CacheExpiry, **_: object) -> list[File]:
+        downloaded.extend((url, ttl) for url in urls)
         return []
 
     monkeypatch.setattr(derived_api, "create_file_list_for_climate_derived", file_list)
-    monkeypatch.setattr(derived_api, "download_climate_derived_data", download)
+    monkeypatch.setattr(derived_download, "download_files", download_files)
     request = DwdDerivedRequest(parameters=[("hourly", "radiation_global")], settings=_settings())
     values = stations_result(request, "hourly", "radiation_global", STATION).values()
     model = request.metadata["hourly"]["radiation_global"]
@@ -116,8 +119,8 @@ def test_dwd_derived_names_the_archives_it_downloads_and_none_of_a_technical_dat
     technical = values._files_ahead(STATION, [DwdDerivedMetadata.monthly.heating_degreedays])  # noqa: SLF001
 
     assert downloaded, "the collection downloaded nothing"
-    assert list(named.urls) == downloaded
-    assert named.ttl is CacheExpiry.FIVE_MINUTES
+    assert list(named.urls) == [url for url, _ in downloaded]
+    assert {ttl for _, ttl in downloaded} == {named.ttl}
     assert list(technical.urls) == []
 
 
@@ -133,9 +136,11 @@ def test_chmi_names_the_files_of_each_element_and_month_it_downloads(
 ) -> None:
     """One file for each element, and for the sub-daily layout one for each month of the window."""
     asked: list[str] = []
+    expiries: list[CacheExpiry] = []
 
-    def download_file(*args: str, url: str | None = None, **_: object) -> File:
+    def download_file(*args: str, url: str | None = None, ttl: CacheExpiry | None = None, **_: object) -> File:
         asked.append(url or args[0])
+        expiries.append(cast("CacheExpiry", ttl))
         return File(url=asked[-1], content=FileNotFoundError(asked[-1]), status=404)
 
     monkeypatch.setattr(chmi_api, "download_file", download_file)
@@ -149,7 +154,7 @@ def test_chmi_names_the_files_of_each_element_and_month_it_downloads(
 
     assert len(asked) > 1
     assert list(named.urls) == asked
-    assert named.ttl is CacheExpiry.TWELVE_HOURS
+    assert set(expiries) == {named.ttl}
 
 
 def test_chmi_names_only_the_elements_that_were_asked_for(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -193,9 +198,11 @@ def test_imgw_names_only_the_archives_that_one_station_reads(
 ) -> None:
     """The daily synop is archived per station; the files of the other datasets are those of every station."""
     downloaded: list[str] = []
+    expiries: list[CacheExpiry] = []
 
-    def download_files(urls: list[str], **_: object) -> list[File]:
+    def download_files(urls: list[str], ttl: CacheExpiry, **_: object) -> list[File]:
         downloaded.extend(urls)
+        expiries.append(ttl)
         return []
 
     monkeypatch.setattr(imgw_api, "download_files", download_files)
@@ -209,3 +216,4 @@ def test_imgw_names_only_the_archives_that_one_station_reads(
 
     assert downloaded == ["https://x/249180010.zip"]
     assert list(named.urls) == (downloaded if per_station else [])
+    assert expiries == [named.ttl]

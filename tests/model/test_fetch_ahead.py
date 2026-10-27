@@ -28,7 +28,7 @@ from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.observation.api import DwdObservationValues
 from wetterdienst.settings import Settings
-from wetterdienst.util.network import download_file
+from wetterdienst.util.network import download_file, download_files
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Sequence
@@ -73,6 +73,9 @@ class _Handler(BaseHTTPRequestHandler):
 
 class _Upstream(ThreadingHTTPServer):
     """A server that records what it was asked and how much at once."""
+
+    #: connections that wait to be accepted: the default of 5 resets some of the dozen a download of many files opens
+    request_queue_size = 128
 
     def __init__(self) -> None:
         super().__init__(("127.0.0.1", 0), _Handler)
@@ -160,14 +163,17 @@ def _fresh_host_slots(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(fetch_ahead, "_host_slots", {})
 
 
-def _stations_frame(station_ids: Sequence[str]) -> pl.DataFrame:
+def _stations_frame(station_ids: Sequence[str], late: Sequence[str] = ()) -> pl.DataFrame:
     utc = ZoneInfo("UTC")
     return pl.DataFrame(
         {
             "resolution": ["daily"] * len(station_ids),
             "dataset": ["climate_summary"] * len(station_ids),
             "station_id": list(station_ids),
-            "start_timestamp": [dt.datetime(1900, 1, 1, tzinfo=utc)] * len(station_ids),
+            "start_timestamp": [
+                dt.datetime(2025, 1, 1, tzinfo=utc) if station in late else dt.datetime(1900, 1, 1, tzinfo=utc)
+                for station in station_ids
+            ],
             "end_timestamp": [dt.datetime(2030, 1, 1, tzinfo=utc)] * len(station_ids),
             "latitude": [50.0 + index / 10 for index in range(len(station_ids))],
             "longitude": [8.0] * len(station_ids),
@@ -179,9 +185,17 @@ def _stations_frame(station_ids: Sequence[str]) -> pl.DataFrame:
 
 
 def _values_class(
-    urls_of: Callable[[str], list[str]], *, hook: bool = True, named: Callable[[str], list[str]] | None = None
+    urls_of: Callable[[str], list[str]],
+    *,
+    hook: bool = True,
+    named: Callable[[str], list[str]] | None = None,
+    parallel: bool = False,
 ) -> type[DwdObservationValues]:
-    """Make a provider whose files are the URLs `urls_of` gives for a station, as DWD's are, and `named` names."""
+    """Make a provider whose files are the URLs `urls_of` gives for a station, as DWD's are, and `named` names.
+
+    With ``parallel`` it downloads the files of a station side by side, through `download_files`, as DWD's
+    does; without, one after the other.
+    """
 
     class Values(DwdObservationValues):
         collected: list[tuple[str, float]]
@@ -196,15 +210,20 @@ def _values_class(
         ) -> pl.DataFrame:
             settings = self.sr.settings
             rows = []
-            for url in urls_of(station_id):
-                file = download_file(
-                    url=url,
-                    cache_dir=settings.cache_dir,
-                    ttl=CacheExpiry.FIVE_MINUTES,
-                    client_kwargs=settings.fsspec_client_kwargs,
-                    cache_disable=settings.cache_disable,
-                    use_certifi=settings.use_certifi,
-                )
+            urls = urls_of(station_id)
+            arguments = {
+                "cache_dir": settings.cache_dir,
+                "ttl": CacheExpiry.FIVE_MINUTES,
+                "client_kwargs": settings.fsspec_client_kwargs,
+                "cache_disable": settings.cache_disable,
+                "use_certifi": settings.use_certifi,
+            }
+            files = (
+                download_files(urls=urls, **arguments)
+                if parallel
+                else (download_file(url=url, **arguments) for url in urls)
+            )
+            for file in files:
                 if file.status != 404:
                     file.raise_if_exception()
                 if isinstance(file.content, Exception):
@@ -237,13 +256,23 @@ def _reader(
     cache: str = "cache",
     hook: bool = True,
     named: Callable[[str], list[str]] | None = None,
+    parallel: bool = False,
+    late: Sequence[int] = (),
 ) -> TimeseriesValues:
     """Build the values of ``stations`` stations numbered from 0, read from the cache directory ``cache``."""
     ids = [f"{index:05d}" for index in range(stations)]
-    monkeypatch.setattr(DwdObservationRequest, "_all", lambda self: _stations_frame(ids).lazy())  # noqa: ARG005
-    monkeypatch.setattr(DwdObservationRequest, "_values", _values_class(urls_of, hook=hook, named=named))
+    stations_frame = _stations_frame(ids, [ids[index] for index in late])
+    monkeypatch.setattr(DwdObservationRequest, "_all", lambda self: stations_frame.lazy())  # noqa: ARG005
+    monkeypatch.setattr(
+        DwdObservationRequest, "_values", _values_class(urls_of, hook=hook, named=named, parallel=parallel)
+    )
     settings = Settings(cache_dir=tmp_path / cache, fetch_ahead=depth)
-    request = DwdObservationRequest(parameters=PARAMETERS, settings=settings)
+    # the stations that begin in 2025 are passed over by a window that ends before
+    window = {
+        "start": dt.datetime(2000, 1, 1, tzinfo=ZoneInfo("UTC")),
+        "end": dt.datetime(2010, 1, 1, tzinfo=ZoneInfo("UTC")),
+    }
+    request = DwdObservationRequest(parameters=PARAMETERS, settings=settings, **(window if late else {}))
     return request.filter_by_station_id(ids).values()
 
 
@@ -336,6 +365,20 @@ def test_no_more_than_depth_stations_are_ahead_of_the_one_in_hand(
         assert upstream.stations_asked() == set(range(min(index + depth, stations - 1) + 1))
     with pytest.raises(StopIteration):
         next(results)
+
+
+def test_a_station_that_the_walk_passes_over_takes_no_place_in_the_window(
+    upstream: _Upstream, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Stations that begin after the window are not read, so the files of the next two that are read are fetched."""
+    reader = _reader(monkeypatch, tmp_path, stations=8, urls_of=_files(upstream, 1), depth=2, late=[1, 2])
+
+    results = reader.query()
+    next(results)
+    upstream.settle()
+
+    assert upstream.stations_asked() == {0, 3, 4}
+    results.close()
 
 
 def test_a_ranked_walk_fetches_no_station_beyond_its_rank(
@@ -741,3 +784,154 @@ def test_a_fetch_that_breaks_is_not_heard_of_and_stops_the_fetching(
     assert _station_ids(list(results)) == ["00002", "00003"]
 
     assert asked == {0, 1}
+
+
+def test_a_station_with_many_files_is_read_no_slower_than_without_the_fetch_ahead(
+    upstream: _Upstream, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A provider fetches the files of a station side by side, and the fetch-ahead fetches them one after the other.
+
+    So when the walk comes to a station whose files are not all there yet, the thread ends the file it is at and the
+    rest are the station's own download's, which takes them together: twenty files a station are not read slower
+    than without it (they were, by two and a half times, when the walk waited for the thread to finish them all).
+    """
+    upstream.delay = lambda _path: 0.1
+    timings: dict[int, float] = {}
+    for depth, attempts in ((0, 1), (4, 2)):
+        for attempt in range(attempts):
+            reader = _reader(
+                monkeypatch,
+                tmp_path,
+                stations=8,
+                urls_of=_files(upstream, 20),
+                depth=depth,
+                cache=f"d{depth}-{attempt}",
+                parallel=True,
+            )
+            began = time.perf_counter()
+            assert len(list(reader.query())) == 8
+            timings[depth] = min(time.perf_counter() - began, timings.get(depth, float("inf")))
+
+    assert timings[4] <= 1.4 * timings[0] + 0.25, timings
+
+
+def test_a_station_with_two_files_is_still_read_faster(
+    upstream: _Upstream, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The head start counts where the files of a station are few: two files a station, with the files side by side."""
+    upstream.delay = lambda _path: 0.05
+    timings: dict[int, float] = {}
+    for depth, attempts in ((0, 1), (4, 3)):
+        for attempt in range(attempts):
+            reader = _reader(
+                monkeypatch,
+                tmp_path,
+                stations=20,
+                urls_of=_files(upstream, 2),
+                depth=depth,
+                cache=f"d{depth}-{attempt}",
+                parallel=True,
+            )
+            began = time.perf_counter()
+            assert len(list(reader.query())) == 20
+            timings[depth] = min(time.perf_counter() - began, timings.get(depth, float("inf")))
+
+    assert timings[0] >= 1.5 * timings[4], timings
+
+
+def test_the_threads_do_not_hold_up_the_end_of_the_interpreter(
+    upstream: _Upstream, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The threads of the fetch-ahead are daemon threads: a walk that ends by an error does not wait at exit."""
+    upstream.gate = threading.Event()
+    reader = _reader(monkeypatch, tmp_path, stations=6, urls_of=_files(upstream, 1), depth=4)
+
+    results = reader.query()
+    next(results)
+    upstream.wait_for(4)
+    threads = _fetch_threads()
+    results.close()
+    upstream.gate.set()
+    _wait_for_no_threads()
+
+    assert len(threads) == 4
+    assert all(thread.daemon for thread in threads)
+
+
+def test_a_failure_to_plan_the_stations_ahead_is_not_heard_of_before_their_turn(
+    upstream: _Upstream, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """What is asked of a station ahead (its datasets, its window) is under the guard that stops the fetching ahead."""
+    reader = _reader(monkeypatch, tmp_path, stations=6, urls_of=_files(upstream, 1), depth=4)
+    original = type(reader)._requested_datasets  # noqa: SLF001
+    calls = []
+
+    def failing(self: TimeseriesValues, available: list[DatasetModel]) -> list[DatasetModel]:
+        calls.append(available)
+        if len(calls) == 3:
+            msg = "no datasets"
+            raise RuntimeError(msg)
+        return original(self, available)
+
+    monkeypatch.setattr(type(reader), "_requested_datasets", failing)
+
+    results = list(reader.query())
+
+    assert _station_ids(results) == [f"{index:05d}" for index in range(6)]
+    assert len(calls) == 3
+
+
+def test_a_summary_and_an_interpolation_fetch_nothing_ahead(
+    upstream: _Upstream, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """They stop the walk where the stations found are enough, which no number says: what was ahead is thrown away.
+
+    A plain read of the same stations makes a fetch-ahead.
+    """
+    from wetterdienst.core.interpolate import get_interpolated_df  # noqa: PLC0415
+    from wetterdienst.core.summarize import get_summarized_df  # noqa: PLC0415
+    from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
+
+    latitude, longitude = 50.0, 8.9
+    offsets = [(-0.03, -0.03), (-0.03, 0.03), (0.03, 0.03), (0.03, -0.03), (0.05, 0.0), (0.0, 0.05)]
+    stations = pl.DataFrame(
+        [
+            {
+                "resolution": "daily",
+                "dataset": "climate_summary",
+                "station_id": f"{index:05d}",
+                "latitude": latitude + d_lat,
+                "longitude": longitude + d_lon,
+                "elevation": 100.0,
+                "distance": 4.0 + index / 10,
+            }
+            for index, (d_lat, d_lon) in enumerate(offsets)
+        ],
+    )
+    reader = _reader(monkeypatch, tmp_path, stations=len(offsets), urls_of=_files(upstream, 1), depth=4)
+    request = reader.sr.request
+
+    def by_distance(
+        self: DwdObservationRequest,
+        latlon: tuple[float, float],  # noqa: ARG001
+        distance: float,  # noqa: ARG001
+        df_all: pl.DataFrame | None = None,  # noqa: ARG001
+    ) -> StationsResult:
+        return StationsResult(request=self, df=stations, _df_all=stations, _stations_filter=StationsFilter.BY_DISTANCE)
+
+    monkeypatch.setattr(DwdObservationRequest, "filter_by_distance", by_distance)
+    made: list[object] = []
+    original = FetchAhead.__init__
+
+    def counting(self: FetchAhead, **kwargs: object) -> None:
+        made.append(self)
+        original(self, **kwargs)  # ty: ignore[invalid-argument-type]
+
+    monkeypatch.setattr(FetchAhead, "__init__", counting)
+
+    assert len(list(reader.query())) == len(offsets)
+    assert len(made) == 1
+    made.clear()
+    for get_df in (get_summarized_df, get_interpolated_df):
+        get_df(request, latitude, longitude)
+    assert made == []
