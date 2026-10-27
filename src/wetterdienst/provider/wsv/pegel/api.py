@@ -257,6 +257,13 @@ _WsvPegelMetadataSpec = {
     "attribution": None,
     "url": "https://pegelonline.wsv.de/webservice/ueberblick",
     "kind": "observation",
+    "extent": {
+        "scope": "national",
+        "continents": ["europe"],
+        "country_codes": ["DE"],
+        # west of the box of Germany for TIEL, a gauge on the Waal in the Netherlands that PEGELONLINE lists
+        "bbox": [5.4, 47.2, 15.1, 55.1],
+    },
     "timezone": "Europe/Berlin",
     "resolutions": [
         {

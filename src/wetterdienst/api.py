@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import importlib
 import logging
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, NoReturn, TypeAlias, overload
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, NoReturn, TypeAlias, cast, overload
 
 from pydantic import ValidationError
 from pydantic_settings import SettingsError
@@ -329,9 +329,11 @@ class Wetterdienst:
         a listing of every provider must not wait for, so it is not told here: `Wetterdienst.is_valid(api)`
         checks one network, as `/api/auth` and `wetterdienst about auth` do (GH-2641).
 
-        Per network: `name_short`, the provider's short name; `country`; `url`, where the provider
-        publishes the data; `kind`; `auth` whether it needs credentials, `configured` whether they are
-        present; `date_required`.
+        Per network: `name_short`, the provider's short name; `country`, the operator's; `url`, where the
+        provider publishes the data; `kind`; `scope`, how far the network reaches (`global`, `national` or
+        `regional`, which the country does not say; the full `extent`, with the continents and the box, is in
+        `/api/providers` and in the coverage of one network, so that this list stays short); `auth` whether it
+        needs credentials, `configured` whether they are present; `date_required`.
 
         `kind` is what the network is. A timeseries network has stations and values, and is `observation`,
         `forecast` or `derived`; those are the networks `stations`, `values`, `history`, `interpolate` and
@@ -345,6 +347,8 @@ class Wetterdienst:
         it needs credentials for or what it is would be a guess. The reason is logged as a warning. Asking
         for the network itself still tells why, as `resolve` raises the import error (GH-2801).
         """
+        from wetterdienst.model.metadata import CoverageNetwork  # noqa: PLC0415
+
         result: dict[str, dict[str, CoverageNetwork]] = {}
         for provider, networks in cls.registry.items():
             listed: dict[str, CoverageNetwork] = {}
@@ -353,12 +357,17 @@ class Wetterdienst:
                     if cls.is_standalone(provider, network):
                         standalone = cls.resolve_standalone(provider, network)
                         # no metadata model, so what the network is comes from its request class; and no credentials
-                        listed[network] = {
+                        entry = {
                             **standalone.listing,
+                            "scope": standalone.terms.extent.scope,
                             "auth": False,
                             "configured": True,
                             "date_required": False,
                         }
+                        # in the order of a timeseries network's entry below: name, country, kind, scope, url, ...
+                        listed[network] = cast(
+                            "CoverageNetwork", {key: entry[key] for key in CoverageNetwork.__annotations__}
+                        )
                         continue
                     api = cls.resolve(provider, network)
                 except ImportError as e:
@@ -371,6 +380,7 @@ class Wetterdienst:
                     "name_short": metadata.name_short,
                     "country": metadata.country,
                     "kind": metadata.kind,
+                    "scope": metadata.extent.scope,
                     "url": metadata.url,
                     "auth": metadata.auth,
                     # not probed whether the credentials are accepted: that is a request to the provider per

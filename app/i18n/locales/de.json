@@ -62,6 +62,22 @@
     "kindRoadDesc": "Fahrbahnzustand und -temperaturen der DWD-Straßenwetterstationen, mitsamt deren Vorhersagen.",
     "aboutLink": "Über das Projekt und die Menschen dahinter"
   },
+  "seo": {
+    "title": "Wetterdienst – offene Wetter- und Klimadaten von nationalen Wetterdiensten",
+    "description": "Offene Wetter- und Klimadaten nationaler Wetterdienste, einheitlich abrufbar: Explorer, Vorhersage, Klimastreifen, REST-API und MCP-Server. Quelloffen und kostenlos.",
+    "noscript": "Wetterdienst braucht JavaScript, um Daten anzuzeigen.",
+    "pages": {
+      "explorer": "Anbieter, Parameter und Stationen auf der Karte wählen, Messwerte lesen, einen Punkt interpolieren und das Ergebnis als CSV, JSON oder GeoJSON herunterladen.",
+      "meteogram": "Die MOSMIX-Vorhersage einer DWD-Station als Meteogramm: Temperatur, Wind, Niederschlag, Bewölkung und Luftdruck.",
+      "stripes": "Klimastreifen für Temperatur oder Niederschlag einer DWD-Station.",
+      "history": "Wie sich eine DWD-Station im Lauf der Zeit verändert hat: Name, Standort und Messgeräte.",
+      "api": "Die REST-API und der MCP-Server von Wetterdienst: Formate und Beispiele für Stationen, Messwerte, Interpolation und Klimastreifen.",
+      "providers": "Die nationalen Wetterdienste hinter den Daten: Land, Lizenz, die anzugebende Quelle und was jeder anbietet.",
+      "glossary": "Was jeder Wetter- und Klimaparameter misst und in welcher Einheit seine Werte kommen, durchsuchbar nach Name und Größe.",
+      "about": "Über das Open-Source-Projekt Wetterdienst und die Menschen, die es pflegen.",
+      "support": "Wetterdienst unterstützen: Fehler melden, Code beitragen oder spenden."
+    }
+  },
   "values": {
     "title": "Wofür wir stehen",
     "lgbtq": "Wir stehen an der Seite der LGBTQI+-Community.",
@@ -111,7 +127,8 @@
     "copyright": "© {year} earthobservations",
     "legal": "Impressum",
     "privacy": "Datenschutz",
-    "about": "Über uns"
+    "about": "Über uns",
+    "licenses": "Lizenzen Dritter"
   },
   "language": {
     "switch": "Sprache wechseln",
@@ -426,6 +443,12 @@
     "stationNotFound": "Station nicht gefunden",
     "openFull": "Vollständige Vorhersage öffnen",
     "poweredBy": "Bereitgestellt von Wetterdienst · DWD MOSMIX"
+  },
+  "notFound": {
+    "title": "Seite nicht gefunden",
+    "text": "Unter dieser Adresse gibt es keine Seite. Prüfe die Adresse oder starte auf der Startseite.",
+    "home": "Zur Startseite",
+    "back": "Zurück"
   },
   "stripes": {
     "title": "Klimastreifen",

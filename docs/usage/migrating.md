@@ -1,7 +1,7 @@
 # Migrating from 0.139.0
 
-What to change in your code, scripts and deployment to move from wetterdienst 0.139.0 to 0.175.0, collected from
-the **Breaking** entries of the [changelog](../changelog.md) of the releases in between (0.140.0 to 0.175.0), grouped
+What to change in your code, scripts and deployment to move from wetterdienst 0.139.0 to 0.176.0, collected from
+the **Breaking** entries of the [changelog](../changelog.md) of the releases in between (0.140.0 to 0.176.0), grouped
 by what you touch, and checked against the code. The numbers are the issues the changelog names (`GH-2626`); the
 version says the release that made the change. For what stays stable from 1.0 on, see
 [Compatibility](compatibility.md).
@@ -13,7 +13,7 @@ parameter, column or parameter says `... was renamed to ...`. What cannot be ref
 [Values, units and timestamps](#values-units-and-timestamps) and [Failures](#failures). If you come from a release
 before 0.139.0, read the **Breaking** entries up to it first.
 
-The web app is released as a pair with the backend: `app-v0.37.0` goes with 0.175.0. Upgrade both
+The web app is released as a pair with the backend: `app-v0.38.0` goes with 0.176.0. Upgrade both
 ([The web app and the image](compatibility.md#the-web-app-and-the-image)).
 
 Two things that still worked in 0.172.0 are removed in 0.173.0, earlier than announced for 1.0.0:
@@ -137,9 +137,9 @@ this dataset`); the same applies to a name in a request, in a `parameter` filter
 `geo_station_distance` key. A name the source itself uses still selects its row (`wind_speed` of `metno/frost`,
 `wind_direction` of `eccc/observation` and of the Met Office hourly weather) and comes back under the new name. The
 rule is [The statistic in a name](../data/parameters.md#the-statistic-in-a-name), and its page lists every row of the
-0.175.0 renames by network, resolution and dataset.
+0.176.0 renames by network, resolution and dataset.
 
-Moves of the same parameter between 0.145.0 and 0.175.0 are shown from the name of 0.139.0 to the name of 0.175.0.
+Moves of the same parameter between 0.145.0 and 0.176.0 are shown from the name of 0.139.0 to the name of 0.176.0.
 
 These are hard breaks of the 0.x releases and stay refused, with their hint, after 1.0. A rename after 1.0 is different:
 the old name keeps working as an alias, with a warning, for at least two minor releases and goes only in a major
@@ -266,6 +266,8 @@ series you stored before does not join the new one. From 1.0 a correction of thi
 | --- | --- | --- | --- |
 | `noaa/ghcn` `daily` stations Torrevieja (SP000007038), Alice Holt Lodge (UKE00105927) and the RAF stations Molesworth, Chelveston, Bassingbourn and Huntington (UKW00015014, -15015, -15018, -15033) | placed east of Greenwich, 7 to 125 km off: `ghcnd-stations.txt` has lost the sign of their longitude | placed west of it, with a negative `longitude`; a filter on the old position needs the new one | 0.174.0, GH-2886 |
 | `noaa/ghcn` `hourly` stations Chelveston (UKW00015015) and Huntington (Alconbury, UKW00015033) | placed east of Greenwich, 73 and 29 km off: `ghcnh-station-list.csv` has lost the sign of their longitude (the elevation of UKW00015033 now follows the daily one, 47.9 to 49.1 m, when both resolutions are requested) | placed west of it, with a negative `longitude`; a filter on the old position needs the new one | 0.175.0, GH-3384 |
+| `eaufrance/hubeau` the 54 stations whose referential lists latitude and longitude swapped (Anor at 4.10 N, 49.99 E) | placed as the source lists them, a point near Somalia | placed where they are (Anor at 50.0 N, 4.1 E): swapped back when the listed position lies in none of metropolitan France, Guadeloupe and Martinique, Guyane, Reunion and Mayotte and the swapped one lies in one. `J543211003` (the Blavet) is not moved; a filter on the old position needs the new one | 0.176.0, GH-3468 |
+| every provider whose source hands several rows for one reading (the same station, parameter and timestamp) | the first row, even when it had no value, so a later row's value was lost | the first row that has a value, with that row's `quality_flags`; a reading that was null is filled where another row had a value. Nothing to change | 0.176.0, GH-3450 |
 | `nws/observation` `hourly` | the 12 observations an hour the endpoint serves | one for each station-hour, stamped with the full hour: the METAR or SPECI nearest to it, else the nearest 5-minute row. The minute of a report is gone | 0.155.0, GH-2857 |
 | `noaa/ghcn` `hourly` | every report of the file under its own minute (up to seven an hour) | one reading for each parameter and full hour, the nearest to the hour, stamped with it: the METAR of 14:53 is 15:00 | 0.158.0, GH-3000, GH-3016 |
 | `noaa/ghcn` `hourly` precipitation | every report | the one report of each UTC hour at the station's routine minute, else the last that is no SPECI | 0.156.0, GH-2841 |
@@ -286,7 +288,7 @@ series you stored before does not join the new one. From 1.0 a correction of thi
 | an empty result exited 1 (a window without readings, a selection that finds no station, a glossary filter that matches nothing) | exit 0, as REST answers 200: the sentence goes to stderr and stdout holds what REST answers (`{"values": []}`, the CSV header). A script that told "no data" by exit 1 tests the output; exit 1 now only means failure | 0.155.0, GH-2635 |
 | `wetterdienst stripes values` refusals exited 1 | exit 2, as click's usage errors do | 0.140.0, GH-2060 |
 | `wetterdienst issues` for DMO listed every lead time | `--lead-time long` for the long runs, short by default | 0.140.0, GH-2009 |
-| a download that failed printed a Python error | one line, exit 1 (`DownloadError`, `NoInternetError`) | 0.155.0 to 0.175.0, as under [Failures](#failures) |
+| a download that failed printed a Python error | one line, exit 1 (`DownloadError`, `NoInternetError`) | 0.155.0 to 0.176.0, as under [Failures](#failures) |
 
 ## REST API
 

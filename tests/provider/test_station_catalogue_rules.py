@@ -10,14 +10,20 @@ import pytest
 
 from tests.provider.station_catalogue import (
     COUNTRY_BBOX,
+    EXTENT_LISTED,
+    FROST_ANTARCTIC,
+    FROST_FOREIGN_WMO,
     RULES,
     Accepted,
+    Bbox,
     assert_sound,
     check_catalogue,
+    check_extent,
     has_encoding_damage,
     unaccepted,
 )
 from tests.provider.station_catalogue_stubs import question_mark_in_the_name
+from wetterdienst import Wetterdienst
 
 _NOW = dt.datetime(2026, 10, 10, tzinfo=dt.UTC)
 _SCHEMA = {
@@ -55,7 +61,7 @@ def _frame(*stations: dict[str, Any]) -> pl.DataFrame:
     return pl.DataFrame(list(stations), schema=_SCHEMA, orient="row")
 
 
-def _rules_of(*stations: dict[str, Any], bbox: tuple[float, float, float, float] | None = _GERMANY) -> set[str]:
+def _rules_of(*stations: dict[str, Any], bbox: Bbox | tuple[Bbox, ...] | None = _GERMANY) -> set[str]:
     return {violation.rule for violation in check_catalogue(_frame(*stations), "test", bbox=bbox, now=_NOW)}
 
 
@@ -156,6 +162,25 @@ def test_the_country_is_only_held_against_a_catalogue_that_has_one() -> None:
     assert _rules_of(_station(latitude=None, longitude=None)) == {"coordinates_missing"}
 
 
+def test_a_country_of_several_boxes_holds_a_station_to_any_of_them() -> None:
+    """France with its overseas departments is several boxes (GH-3468): in one is inside, the sea between is not."""
+    france = COUNTRY_BBOX["eaufrance/hubeau"]
+    assert len(france) > 1
+
+    def rules(latitude: float, longitude: float) -> set[str]:
+        return _rules_of(_station(latitude=latitude, longitude=longitude), bbox=france)
+
+    assert rules(48.85, 2.35) == set()  # Paris
+    assert rules(16.19, -61.66) == set()  # Guadeloupe
+    assert rules(-12.80, 45.21) == set()  # Mayotte
+    assert rules(35.11, 0.84) == {"coordinates_outside_country"}  # the Blavet as the referential lists it
+    assert rules(4.10, 49.99) == {"coordinates_outside_country"}  # Anor, swapped
+    assert rules(0.0, -30.0) == {"coordinates_outside_country"}
+    # a swapped position is told as one, by any of the boxes
+    (violation,) = check_catalogue(_frame(_station(latitude=4.10, longitude=49.99)), "test", bbox=france, now=_NOW)
+    assert "swapped" in violation.detail
+
+
 def test_the_same_id_in_two_datasets_is_not_a_duplicate() -> None:
     """Resolutions and datasets share a catalogue, so an id repeats across them without being listed twice."""
     assert _rules_of(_station(), _station(dataset="more_precip"), _station(resolution="hourly")) == set()
@@ -241,3 +266,133 @@ def test_a_rule_broken_everywhere_does_not_hide_the_others() -> None:
     )
     with pytest.raises(AssertionError, match="elevation_sentinel: station 'x'"):
         assert_sound(stations, "test", now=_NOW, limit=2)
+
+
+def test_a_station_outside_the_extent_is_accepted_for_its_id_only() -> None:
+    """An exception of `coordinates_outside_extent` covers the station it names, and nothing else outside the box."""
+    extent = Wetterdienst.resolve("metno", "frost").metadata.extent
+    stations = pl.DataFrame(
+        {
+            "station_id": ["SN18700", "SN1039300", "SN2"],
+            "latitude": [59.94, 52.209482, 40.0],
+            "longitude": [10.72, 14.120075, 14.0],
+        }
+    )
+    accepted = (
+        Accepted("coordinates_outside_extent", "listed in Germany", where=lambda row: row["station_id"] == "SN1039300"),
+    )
+
+    assert not check_extent(stations.head(1), "metno/frost", extent)
+    assert "SN1039300" in "\n".join(check_extent(stations.head(2), "metno/frost", extent))
+    problems = check_extent(stations, "metno/frost", extent, accepted=accepted)
+    assert len(problems) == 1
+    assert "SN2" in problems[0]
+    assert not check_extent(stations.head(2), "metno/frost", extent, accepted=accepted)
+
+
+def test_the_foreign_wmo_stations_of_frost_are_accepted_by_their_id_and_a_norwegian_one_is_not() -> None:
+    """The ids that are a WMO number x 100 are accepted outside the box of Norway, and a Norwegian id is not.
+
+    The Norwegian ids outside the box include one of five digits that ends in 00 (SN99900), which a looser pattern
+    (a pattern that takes any number of digits before the 00) would take for a foreign one.
+    """
+    extent = Wetterdienst.resolve("metno", "frost").metadata.extent
+    foreign = ["SN743400", "SN623500", "SN1039300", "SN1240000"]
+    norwegian_outside = ["SN99900", "SN99999", "SN123456"]
+    stations = pl.DataFrame(
+        {
+            # SN18700 is Oslo, in the box
+            "station_id": ["SN18700", *foreign, *norwegian_outside],
+            "latitude": [59.94, 45.861, 52.927, 52.209, 51.93, 40.0, 40.0, 40.0],
+            "longitude": [10.72, 1.175, 4.781, 14.12, 15.52, 14.0, 14.0, 14.0],
+        }
+    )
+
+    problems = check_extent(stations, "metno/frost", extent, accepted=(FROST_FOREIGN_WMO,))
+
+    assert len(problems) == len(norwegian_outside)
+    for station_id, problem in zip(norwegian_outside, problems, strict=True):
+        assert station_id in problem
+
+
+def test_the_antarctic_stations_of_frost_are_accepted_south_of_60_and_not_north_of_it() -> None:
+    """A station south of 60 S is accepted outside the box of Norway, one just north of it is still a failure."""
+    extent = Wetterdienst.resolve("metno", "frost").metadata.extent
+    stations = pl.DataFrame(
+        {
+            "station_id": ["SN18700", "SN99990", "SN92100", "SN1", "SN2"],
+            "latitude": [59.94, -72.012, -71.9563, -59.9, 0.0],
+            "longitude": [10.72, 2.5408, 2.4668, 2.5, 2.5],
+        }
+    )
+
+    problems = check_extent(stations, "metno/frost", extent, accepted=(FROST_ANTARCTIC,))
+
+    assert len(problems) == 2
+    assert "SN1 " in problems[0]
+    assert "SN2 " in problems[1]
+
+
+def test_a_station_outside_the_extent_is_named_once_and_all_of_them_are_named() -> None:
+    """The datasets of a network list a station each, which is one station, and the failure names every station."""
+    extent = Wetterdienst.resolve("metno", "frost").metadata.extent
+    ids = [f"SN{number}" for number in range(10, 30)]
+    one_dataset = pl.DataFrame({"station_id": ids, "latitude": [0.0] * 20, "longitude": [0.0] * 20})
+    stations = pl.concat([one_dataset] * 6)
+
+    problems = check_extent(stations, "metno/frost", extent)
+
+    assert len(problems) == 20
+    assert [station_id in problem for station_id, problem in zip(ids, problems, strict=True)] == [True] * 20
+    assert not any("more stations" in problem for problem in problems)
+
+
+def test_a_failure_names_no_more_than_the_listed_stations_and_counts_the_rest() -> None:
+    """A network that is wrong as a whole does not fill the log: the first stations are named and the rest counted."""
+    extent = Wetterdienst.resolve("metno", "frost").metadata.extent
+    count = EXTENT_LISTED + 7
+    stations = pl.DataFrame(
+        {
+            "station_id": [f"SN{number}" for number in range(count)],
+            "latitude": [0.0] * count,
+            "longitude": [0.0] * count,
+        }
+    )
+
+    problems = check_extent(stations, "metno/frost", extent)
+
+    assert len(problems) == EXTENT_LISTED + 1
+    assert problems[-1] == "metno/frost: ... and 7 more stations outside the extent"
+
+
+def test_an_accepted_station_does_not_hold_the_box_open() -> None:
+    """The box is compared with the stations that are in it, not with one the source lists elsewhere."""
+    extent = Wetterdienst.resolve("metno", "frost").metadata.extent
+    stations = pl.DataFrame(
+        {
+            "station_id": ["SN90450", "SN99910", "SN1039300"],
+            "latitude": [69.65, 70.9, 52.209482],
+            "longitude": [18.94, 29.0, 14.120075],
+        }
+    )
+    accepted = (Accepted("coordinates_outside_extent", "listed in Germany"),)
+
+    with_it = check_extent(stations, "metno/frost", extent, whole=True)
+    without_it = check_extent(stations, "metno/frost", extent, whole=True, accepted=accepted)
+
+    assert any("outside the extent" in problem for problem in with_it)
+    assert all("outside the extent" not in problem for problem in without_it)
+    assert any("degrees south" in problem for problem in without_it)
+
+
+def test_a_catalogue_with_no_position_at_all_is_reported_by_the_extent_check() -> None:
+    """With no position there is nothing to compare, and the check says so instead of passing."""
+    stations = pl.DataFrame(
+        {"station_id": ["01067"], "latitude": [None], "longitude": [None]},
+        schema={"station_id": pl.String, "latitude": pl.Float64, "longitude": pl.Float64},
+    )
+    extent = Wetterdienst.resolve("dwd", "derived").metadata.extent
+
+    assert check_extent(stations, "dwd/derived", extent) == [
+        "dwd/derived: the catalogue has no station with a position, so no extent was checked"
+    ]

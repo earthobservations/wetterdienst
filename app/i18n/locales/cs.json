@@ -62,6 +62,22 @@
     "kindRoadDesc": "Stav a teplota vozovky ze silničních stanic DWD, včetně jejich předpovědí.",
     "aboutLink": "O projektu a lidech za ním"
   },
+  "seo": {
+    "title": "Wetterdienst – otevřená data o počasí a klimatu od národních meteorologických služeb",
+    "description": "Otevřená data o počasí a klimatu od národních meteorologických služeb v jednotném formátu: průzkumník, předpověď, klimatické pruhy, REST API a server MCP. Open source a zdarma.",
+    "noscript": "Wetterdienst potřebuje k zobrazení dat JavaScript.",
+    "pages": {
+      "explorer": "Vyber poskytovatele, parametry a stanice na mapě, přečti si měření, interpoluj bod a stáhni výsledek jako CSV, JSON nebo GeoJSON.",
+      "meteogram": "Předpověď MOSMIX pro stanici DWD jako meteogram: teplota, vítr, srážky, oblačnost a tlak.",
+      "stripes": "Klimatické pruhy teploty nebo srážek pro stanici DWD.",
+      "history": "Jak se stanice DWD v čase měnila: název, poloha a přístroje.",
+      "api": "REST API a server MCP projektu Wetterdienst: formáty a příklady pro stanice, hodnoty, interpolaci a klimatické pruhy.",
+      "providers": "Národní meteorologické služby za daty: země, licence, uvedení zdroje a to, co každá nabízí.",
+      "glossary": "Co měří jednotlivé meteorologické a klimatické parametry a v jaké jednotce se vrací jejich hodnoty, s vyhledáváním podle názvu a veličiny.",
+      "about": "O open source projektu Wetterdienst a lidech, kteří ho spravují.",
+      "support": "Podpoř Wetterdienst: nahlas chybu, přispěj kódem nebo daruj."
+    }
+  },
   "values": {
     "title": "Za čím si stojíme",
     "lgbtq": "Podporujeme LGBTQI+ komunitu.",
@@ -111,7 +127,8 @@
     "copyright": "© {year} earthobservations",
     "legal": "Právní informace",
     "privacy": "Ochrana soukromí",
-    "about": "O projektu"
+    "about": "O projektu",
+    "licenses": "Licence třetích stran"
   },
   "language": {
     "switch": "Změnit jazyk",
@@ -426,6 +443,12 @@
     "stationNotFound": "Stanice nenalezena",
     "openFull": "Otevřít úplnou předpověď",
     "poweredBy": "Pohání Wetterdienst · DWD MOSMIX"
+  },
+  "notFound": {
+    "title": "Stránka nenalezena",
+    "text": "Na této adrese žádná stránka není. Zkontroluj adresu, nebo začni na úvodní stránce.",
+    "home": "Přejít na úvodní stránku",
+    "back": "Zpět"
   },
   "stripes": {
     "title": "Klimatické pruhy",

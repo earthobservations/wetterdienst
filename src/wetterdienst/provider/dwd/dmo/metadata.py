@@ -10,6 +10,12 @@ from wetterdienst.provider.dwd.metadata import _METADATA
 _DwdDmoMetadataSpec = {
     **_METADATA,
     "kind": "forecast",
+    "extent": {
+        "scope": "global",
+        "continents": ["africa", "antarctica", "asia", "europe", "north_america", "oceania", "south_america"],
+        "country_codes": [],
+        "bbox": [-180.0, -90.0, 180.0, 90.0],
+    },
     "timezone": "Europe/Berlin",
     "resolutions": [
         {
@@ -22,6 +28,14 @@ _DwdDmoMetadataSpec = {
                     "name": "icon_eu",
                     "name_original": "icon_eu",
                     "grouped": True,
+                    # the list of the regional model: Europe with the edges of Africa and Asia (13 to 70 degrees
+                    # north, 12 west to 49 east on 2026-10-26), where `icon` is the world's
+                    "extent": {
+                        "scope": "regional",
+                        "continents": ["africa", "asia", "europe"],
+                        "country_codes": [],
+                        "bbox": [-13.0, 13.0, 50.0, 71.0],
+                    },
                     "parameters": [
                         {
                             "name": "cloud_cover_above_7km",

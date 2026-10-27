@@ -215,10 +215,14 @@ it (the old public `NUXT_PUBLIC_API_BASE` is read as a deprecated fallback),
 and the server forwards neither cookies nor `Authorization` to the backend (`app/tests/unit/mcp-proxy.test.ts`). The page runs under a Content Security Policy with
 a nonce per response, no `'unsafe-inline'` or `'unsafe-eval'` for scripts, and scripts, workers and requests on its own
 origin (`app/tests/e2e/csp.spec.ts`, `app/tests/unit/security-headers.test.ts`). Nothing the browser runs comes from a
-CDN, so there is no third-party script for subresource integrity to cover; only map tiles, avatars and marker images
-come from other hosts. There is no `v-html` or `innerHTML`, so provider text renders as text. The app stores UI settings
-(`wd_settings`) in `localStorage` and the language in a cookie, no data. The compose file's app is the dev server, for
-development, not exposure (#3096).
+CDN, so there is no third-party script for subresource integrity to cover; only map tiles and avatars come from
+other hosts (the map's marker images are Leaflet's own, served by the app). There is no `v-html` or `innerHTML`, so
+provider text renders as text. The app stores UI settings (`wd_settings`) in `localStorage` and the language in a
+cookie, no data. The compose file's app is the dev server, for development, not exposure (#3096).
+
+The `/api` and `/mcp` proxies answer only for their own path of the backend: a path that resolves elsewhere
+(`/api/../health`, `/mcp/../health`) is a 404 and is not asked of it (`app/tests/unit/proxy-forwards.test.ts`,
+`mcp-proxy.test.ts`).
 
 Who may frame a page: only the app's own origin (`frame-ancestors 'self'` and `X-Frame-Options: SAMEORIGIN`), except
 for `/widget`, which any origin may frame because it is meant to sit on other sites. The server decides on the request

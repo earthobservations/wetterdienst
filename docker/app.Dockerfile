@@ -40,9 +40,8 @@ COPY app/public ./public
 COPY app/server ./server
 # the module that publishes Swagger UI's two files under /_swagger-ui/ (GH-3094)
 COPY app/modules ./modules
-# Seven components import from `shared/`. Every one of those is an `import type`, which the
-# transpiler strips before resolving, so the build survives without it -- until the first value
-# exported from there turns one of them into a real import and the image stops building.
+# `shared/` holds types the components import, and since GH-3497 values as well (`shared/utils/seo.ts`, which
+# the config, the pages and the server routes import): the build fails without it.
 COPY app/shared ./shared
 COPY app/nuxt.config.ts ./
 

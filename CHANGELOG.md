@@ -16,8 +16,21 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.176.0] - 2026-10-27
+
 ### Added
 
+- Every MCP tool has a `title` ("Find stations") and the annotations `readOnlyHint` true,
+  `destructiveHint` false and `idempotentHint` true, which the Claude connectors directory
+  requires and clients use to skip a confirmation. `openWorldHint` is false for `coverage`,
+  `glossary` and `providers`, which answer from wetterdienst's own metadata, and true for the
+  tools that reach a provider's service. Names, arguments and descriptions are unchanged (GH-3482)
+- Each network of `GET /api/providers` has an `extent`, where its stations are, which the `country`
+  of its provider does not say: `scope` (`global`, `national`, `regional`), `continents`, `bbox`
+  `[west, south, east, north]` and, for a regional one, `country_codes`. A dataset narrower than its
+  network has its own (`dwd/dmo` `icon_eu`). `GET /api/coverage` (and the CLI, the MCP tools and
+  `Wetterdienst.discover()`) lists the `scope` of each network, and the coverage of one network
+  gives each dataset its extent. `dwd/mosmix`, `dwd/dmo` and `noaa/ghcn` are global (GH-3456)
 - The `metadata` block of every data answer has `data_updated_at`, when the source says its data
   was last updated (UTC; `null` where it states none), with the `X-Wetterdienst-Data-Updated-At`
   header where it is set. The values, interpolation and summary results have `data_updated_at`, and
@@ -41,6 +54,18 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: where a provider hands over several rows for one reading (the same station,
+  parameter and timestamp), the answer has the first row that has a value, with that row's
+  `quality_flags`; it kept the first row even when it had none, and the value of the later row was
+  lost. A reading that was missing, or was dropped as null, is now filled where another row had a
+  value; two different values still keep the first. `data_updated_at` can now date such an answer
+  by the newer file whose row is kept. Nothing needs to be done (GH-3450)
+- The MCP `instructions` say that the same `stations` then `values` steps serve a network of any
+  `kind`, for a place given by `latitude`, `longitude` and `rank`, and that a provider's `country`
+  is its operator's, not the extent of its data, so a model does not refuse a place because of it
+  (it had refused a forecast for Los Angeles because DWD is German). `Provider.country` and
+  `country_code` are described the same way in the OpenAPI schema and the `providers` tool; the
+  answers are unchanged (GH-3456)
 - The `attribution` that `meteoswiss/observation` and `metoffice/observation` report with every
   answer is the credit line their providers state: "Source: MeteoSwiss" (was "© MeteoSwiss
   (Federal Office of Meteorology and Climatology)") and the citation of the CEDA record of MIDAS
@@ -57,9 +82,17 @@ Types of changes:
   kept an accepted answer for a minute on disk; now a rejection is kept for up to 60 s too, a
   `valid: null` for 5 s, and simultaneous calls share one probe. A changed or corrected credential
   shows within a minute, a revoked one within two. The answer has the same shape (GH-2607)
+- **Breaking**: the positions of 54 `eaufrance/hubeau` stations change: the referential lists them
+  with latitude and longitude swapped (Anor at 4.10 N, 49.99 E, a point near Somalia), and they
+  now come back where they are (50.0 N, 4.1 E). A position is swapped when it lies in none of
+  metropolitan France, Guadeloupe and Martinique, Guyane, Reunion and Mayotte and the swapped one
+  lies in one; no station overseas is moved. `J543211003` (the Blavet), listed in Algeria, is not
+  moved. Nothing needs to be done; a filter on a station's old position needs the new one (GH-3468)
 
 ### Fixed
 
+- `dwd/swsmos` lists a station once when DWD's catalogue repeats its line (Q311, 2026-10-26): the
+  `stations` answer had it twice (GH-3474)
 - Four pages stated what the code does not do. Interpolation said a negative search distance is a
   400 on the REST API: it is a 422, and only a name that is no canonical parameter is a 400.
   Python Examples said `RADOLAN_CDC` takes an hourly or daily resolution: `5_minutes` too.
@@ -69,6 +102,18 @@ Types of changes:
 - `meteofrance/synop` reads the yearly files data.gouv.fr lists (`data/OBS/SYNOP/`), not the
   `synchro_ftp` copy of them, which stopped being refreshed on 2026-09-09: values of the current
   year now run to the day before today instead of ending on 2026-09-08 (GH-3447)
+- A file that one call had cached was fetched again by a later call made in another thread, with
+  `File.from_cache` false: `download_files` (whose threads are new for every call), the main thread
+  and the workers of the REST server each read the cache metadata when they start and only again
+  after 10 s, so they did not see what another thread cached in between. A thread that finds no
+  copy now reads the metadata again before it fetches; a hit reads nothing more (GH-3452)
+- Several processes starting together on an empty cache directory (workers of a server, parallel
+  CLI runs, a CI matrix) no longer remove it under each other: the first sweep of a process took
+  the directory and the copies the others had just written, which raised `FileExistsError` or
+  `OSError` in some of them and sent others to a temporary cache directory. The sweep now removes
+  only the expired entries and the files no entry names that are older than the expiry and an
+  hour. On Windows, processes sharing a cache directory can still fail saving the metadata file
+  (`PermissionError`, GH-3485) (GH-3467)
 
 ## [0.175.0] - 2026-10-25
 
@@ -6649,7 +6694,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.175.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.176.0...HEAD
+[0.176.0]: https://github.com/earthobservations/wetterdienst/compare/v0.175.0...v0.176.0
 [0.175.0]: https://github.com/earthobservations/wetterdienst/compare/v0.174.0...v0.175.0
 [0.174.0]: https://github.com/earthobservations/wetterdienst/compare/v0.173.0...v0.174.0
 [0.173.0]: https://github.com/earthobservations/wetterdienst/compare/v0.172.0...v0.173.0

@@ -112,8 +112,13 @@ def test_dwd_poi_stations() -> None:
 
 @pytest.mark.remote
 def test_dwd_poi_values() -> None:
-    """A station's reports come back hourly, in UTC, for roughly the last day."""
-    request = DwdPoiRequest(parameters=[("hourly", "data")]).filter_by_station_id(["10147"])
+    """The reports of two stations come back hourly, in UTC, for roughly the last day (GH-3490).
+
+    Live by design. Two stations that report their columns every hour (Koeln/Bonn, Frankfurt), and the newest report
+    of both held to the age: Hamburg (10147) stopped reporting on 2026-10-26, its file being all `---` since, which
+    left the newest report it could return 16 hours old, and one station going dark fails no network.
+    """
+    request = DwdPoiRequest(parameters=[("hourly", "data")]).filter_by_station_id(["10513", "10637"])
     df = request.values().all().df
     assert not df.is_empty()
     assert set(df.columns) >= {
@@ -142,9 +147,13 @@ def test_dwd_poi_values_are_converted_to_the_target_units() -> None:
     request = DwdPoiRequest(
         parameters=[("hourly", "data", "wind_speed_mean_last_10min"), ("hourly", "data", "visibility")]
     )
-    df = request.filter_by_station_id(["10147"]).values().all().df.drop_nulls("value")
+    # 10513 (Koeln/Bonn) reports the visibility; 10147 (Hamburg) and 10382 (Berlin-Tegel) had `---` in all rows on
+    # 2026-10-26, so a station is chosen that has one, and a station without any is a failure that says so
+    df = request.filter_by_station_id(["10513"]).values().all().df.drop_nulls("value")
     wind = df.filter(pl.col("parameter") == "wind_speed_mean_last_10min").get_column("value")
     visibility = df.filter(pl.col("parameter") == "visibility").get_column("value")
+    assert not wind.is_empty(), "10513 reports no wind speed, so there is nothing to convert"
+    assert not visibility.is_empty(), "10513 reports no visibility, so there is nothing to convert"
     assert wind.is_between(0.0, 60.0).all()
     # in kilometres this would be at most a two-digit number
     assert visibility.max() > 100.0

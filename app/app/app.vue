@@ -1,22 +1,56 @@
 <script setup lang="ts">
 import type { NavigationMenuItem } from '@nuxt/ui'
 import { de as uiDe, en as uiEn } from '@nuxt/ui/locale'
+import { canonicalUrl, findSeoRoute, HOME_TITLE_KEY, isNotIndexed, siteOrigin } from '#shared/utils/seo'
 import pkg from '../package.json'
 
-const { t, locale } = useI18n()
+const { t, locale, localeProperties } = useI18n()
+const route = useRoute()
+
+// What a search engine and a link preview are told about the page (GH-3497). The server writes the same tags into the
+// shell for a crawler that runs no script (`server/plugins/seo-head.ts`); these replace them, in the language the
+// visitor chose. The pages are listed in `shared/utils/seo.ts`; a path that is not one (a provider's page, a 404) is
+// told as the site, with no canonical link of its own.
+const config = useRuntimeConfig()
+const seoRoute = computed(() => findSeoRoute(route.path))
+const homeTitle = computed(() => t(HOME_TITLE_KEY))
+const seoTitle = computed(() => seoRoute.value && seoRoute.value.title !== HOME_TITLE_KEY
+  ? `${t(seoRoute.value.title)} - Wetterdienst`
+  : homeTitle.value)
+const seoDescription = computed(() => t(seoRoute.value?.description ?? 'seo.description'))
+const canonical = computed(() => seoRoute.value ? canonicalUrl(config.public.siteUrl, seoRoute.value.path) : undefined)
+const iconUrl = computed(() => `${siteOrigin(config.public.siteUrl)}/apple-touch-icon.png`)
 
 // Keep <html lang> in sync with the active locale.
 useHead({
   htmlAttrs: { lang: locale },
+  // the title of a page that sets none: the home page's, and the one a page has until its own is set
   // a page names itself (`useHead({ title })`), and the document says whose page it is; the home page,
-  // which names nothing, is the application's own name
-  titleTemplate: title => title && title !== 'Wetterdienst' ? `${title} - Wetterdienst` : 'Wetterdienst',
+  // which names nothing, is the sentence that says what the site is
+  titleTemplate: title => title && title !== homeTitle.value ? `${title} - Wetterdienst` : homeTitle.value,
+})
+// no link at all where the path is no page of the index: an empty `href` would name the page itself
+useHead(() => ({ link: canonical.value ? [{ rel: 'canonical', href: canonical.value }] : [] }))
+useSeoMeta({
+  description: seoDescription,
+  robots: () => isNotIndexed(route.path) ? 'noindex' : undefined,
+  ogType: 'website',
+  ogSiteName: 'Wetterdienst',
+  ogTitle: seoTitle,
+  ogDescription: seoDescription,
+  ogUrl: canonical,
+  // `de-DE` of the locale, written the way Open Graph wants it (`de_DE`)
+  ogLocale: () => localeProperties.value.language?.replace('-', '_'),
+  ogImage: iconUrl,
+  twitterCard: 'summary',
+  twitterTitle: seoTitle,
+  twitterDescription: seoDescription,
+  twitterImage: iconUrl,
 })
 
 // Feed Nuxt UI's built-in component strings (table, select, …) the active locale.
 const uiLocale = computed(() => (locale.value === 'de' ? uiDe : uiEn))
 
-const route = useRoute()
 // framed by another origin anywhere but the widget: nothing is drawn (app/utils/frame-guard.ts)
 const blank = useFrameBlank()
 const isWidget = computed(() => isWidgetPath(route.path))
@@ -318,6 +352,12 @@ const items = computed<NavigationMenuItem[]>(() =>
           <NuxtLink to="/datenschutz" class="text-gray-500 dark:text-gray-400 hover:text-primary-700 dark:hover:text-primary-400 transition-colors">
             {{ t('footer.privacy') }}
           </NuxtLink>
+          <span class="hidden sm:inline text-gray-300 dark:text-gray-700" aria-hidden="true">·</span>
+          <!-- a file of the app (modules/third-party-licenses, GH-3469), not a page: a plain link, which the router
+               would otherwise take for a route -->
+          <a href="/third-party-licenses.txt" class="text-gray-500 dark:text-gray-400 hover:text-primary-700 dark:hover:text-primary-400 transition-colors">
+            {{ t('footer.licenses') }}
+          </a>
         </div>
         <!-- The stance closes the footer, as it closes the home page, and on a line of its own so
              it reads as a statement rather than as more entries in a link list. -->

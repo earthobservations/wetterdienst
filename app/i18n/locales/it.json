@@ -62,6 +62,22 @@
     "kindRoadDesc": "Condizioni e temperature del manto stradale dalle stazioni stradali del DWD, con le relative previsioni.",
     "aboutLink": "Il progetto e le persone che ci stanno dietro"
   },
+  "seo": {
+    "title": "Wetterdienst – dati meteorologici e climatici aperti dei servizi meteorologici nazionali",
+    "description": "Dati meteorologici e climatici aperti dei servizi meteorologici nazionali, in un unico formato: esploratore, previsioni, strisce climatiche, API REST e server MCP. Open source e gratuito.",
+    "noscript": "Wetterdienst ha bisogno di JavaScript per mostrare i dati.",
+    "pages": {
+      "explorer": "Scegli un fornitore, i parametri e le stazioni sulla mappa, leggi le misurazioni, interpola un punto e scarica il risultato come CSV, JSON o GeoJSON.",
+      "meteogram": "Le previsioni MOSMIX di una stazione del DWD come meteogramma: temperatura, vento, precipitazioni, nuvolosità e pressione.",
+      "stripes": "Le strisce climatiche della temperatura o delle precipitazioni di una stazione del DWD.",
+      "history": "Come è cambiata nel tempo una stazione del DWD: nome, posizione e strumenti.",
+      "api": "L'API REST e il server MCP di Wetterdienst: formati ed esempi per stazioni, valori, interpolazione e strisce climatiche.",
+      "providers": "I servizi meteorologici nazionali dietro i dati: paese, licenza, la fonte da citare e cosa offre ciascuno.",
+      "glossary": "Cosa misura ogni parametro meteorologico e climatico e in quale unità tornano i suoi valori, con ricerca per nome e grandezza.",
+      "about": "Informazioni sul progetto open source Wetterdienst e sulle persone che lo mantengono.",
+      "support": "Sostenere Wetterdienst: segnalare un problema, contribuire con codice o donare."
+    }
+  },
   "values": {
     "title": "Ciò in cui crediamo",
     "lgbtq": "Sosteniamo la comunità LGBTQI+.",
@@ -111,7 +127,8 @@
     "copyright": "© {year} earthobservations",
     "legal": "Note legali",
     "privacy": "Privacy",
-    "about": "Informazioni"
+    "about": "Informazioni",
+    "licenses": "Licenze di terze parti"
   },
   "language": {
     "switch": "Cambia lingua",
@@ -426,6 +443,12 @@
     "stationNotFound": "Stazione non trovata",
     "openFull": "Apri la previsione completa",
     "poweredBy": "Basato su Wetterdienst · DWD MOSMIX"
+  },
+  "notFound": {
+    "title": "Pagina non trovata",
+    "text": "Non c'è nessuna pagina a questo indirizzo. Controlla l'indirizzo o parti dalla pagina iniziale.",
+    "home": "Vai alla pagina iniziale",
+    "back": "Indietro"
   },
   "stripes": {
     "title": "Strisce climatiche",

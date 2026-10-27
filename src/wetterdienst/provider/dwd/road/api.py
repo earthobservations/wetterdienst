@@ -26,7 +26,7 @@ from wetterdienst.model.metadata import (
 from wetterdienst.model.quality_flags import OutOfRange, join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import UPDATED, TimeseriesValues
-from wetterdienst.provider.dwd.metadata import _METADATA
+from wetterdienst.provider.dwd.metadata import _METADATA, EXTENT_GERMANY
 from wetterdienst.util.eccodes import bufr_file, require_bufr
 from wetterdienst.util.network import File, download_file, download_files, list_remote_files_fsspec
 
@@ -46,6 +46,7 @@ TIME_COLUMNS = ("year", "month", "day", "hour", "minute")
 _DwdRoadMetadataSpec = {
     **_METADATA,
     "kind": "observation",
+    "extent": EXTENT_GERMANY,
     "timezone": "Europe/Berlin",
     "resolutions": [
         {

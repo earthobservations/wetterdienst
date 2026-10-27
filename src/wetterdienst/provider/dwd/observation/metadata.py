@@ -4,11 +4,12 @@
 
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import build_metadata_model
-from wetterdienst.provider.dwd.metadata import _METADATA
+from wetterdienst.provider.dwd.metadata import _METADATA, EXTENT_GERMANY
 
 _DwdObservationMetadataSpec = {
     **_METADATA,
     "kind": "observation",
+    "extent": EXTENT_GERMANY,
     "timezone": "Europe/Berlin",
     "resolutions": [
         {

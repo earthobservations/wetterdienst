@@ -2,6 +2,7 @@ import * as process from 'node:process'
 
 import tailwindcss from '@tailwindcss/vite'
 import { RATE_LIMIT_DEFAULTS } from './server/utils/rateLimit'
+import { DEFAULT_SITE_URL } from './shared/utils/seo'
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
@@ -15,7 +16,9 @@ export default defineNuxtConfig({
 
   app: {
     head: {
-      title: 'Wetterdienst',
+      // no `title`: the page's own (`app/app.vue`, the sentence that says what the site is, in the visitor's language) and
+      // the server's (`server/plugins/seo-head.ts`) are the document's, and a default here would be the title of a page
+      // that names none, with the app's name after it
       // the icon of the tab and the home screen (GH-3431): the SVG for current browsers, the 32 px ICO for the
       // ones that ask for `/favicon.ico` and crawlers, the PNG for iOS. All three are files of `public/`.
       link: [
@@ -111,6 +114,12 @@ export default defineNuxtConfig({
     // carries it, and set at run time by `NUXT_API_BASE` (GH-3096). Empty means: the old `NUXT_PUBLIC_API_BASE`
     // if that is set (deprecated), else `http://localhost:7890/api`.
     apiBase: '',
+    public: {
+      // The address the app is reached at, for what names the pages to the outside: the canonical link and `og:url` of
+      // each page, the sitemap and `robots.txt` (`shared/utils/seo.ts`, GH-3497). Public, because the page writes the
+      // canonical link itself. The hosted instance's; an instance of its own sets `NUXT_PUBLIC_SITE_URL` (docs/usage/app.md).
+      siteUrl: DEFAULT_SITE_URL,
+    },
   },
 
   vite: {
@@ -184,7 +193,7 @@ export default defineNuxtConfig({
         // is a question of its own (inline styles cannot run code).
         'default-src': ['\'self\''],
         'connect-src': ['\'self\''],
-        'img-src': ['\'self\'', 'data:', 'blob:', 'https://*.tile.openstreetmap.org', 'https://raw.githubusercontent.com', 'https://cdnjs.cloudflare.com', 'https://avatars.githubusercontent.com'],
+        'img-src': ['\'self\'', 'data:', 'blob:', 'https://*.tile.openstreetmap.org', 'https://avatars.githubusercontent.com'],
         'script-src': ['\'self\'', '\'nonce-{{nonce}}\'', '\'wasm-unsafe-eval\''],
         'worker-src': ['\'self\''],
         'child-src': ['\'self\''],

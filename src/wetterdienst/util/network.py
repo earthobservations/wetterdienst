@@ -28,7 +28,7 @@ from dataclasses import dataclass
 from http import HTTPStatus
 from io import BytesIO
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, ClassVar, Literal, TypeVar
+from typing import IO, TYPE_CHECKING, Any, ClassVar, Literal, TypeVar
 from urllib.parse import urljoin, urlparse, urlsplit, urlunsplit
 
 import stamina
@@ -1219,17 +1219,16 @@ def _sweep_expired_blobs(
 
     * **A TTL that is not a positive number is not swept at all.** `CacheExpiry.INFINITE` is
       `False`, `int(False)` is `0`, and fsspec reads an expiry of zero as "everything is
-      expired" -- it removes every entry and then `rmtree`s the directory. `lhmt` and both
+      expired" -- it removes every entry. `lhmt` and both
       `meteofrance` providers use `INFINITE` for immutable archives, so the first such download
       in a fresh process would have destroyed the archive cache and re-fetched it. The read path
       gets this right (`_check_file` reads `if cfs.expiry and ...`); only the sweep did not.
     * **The directory is marked swept before the attempt, not after.** `clear_expired` raises
       for a half-written entry -- exactly the case worth surviving -- and a sweep retried on
       every `register` would fail every download for this TTL rather than the one that met it.
-    * **Nothing is downloading into this directory while it runs**, which is what `clear_expired`
-      needs: it works from the snapshot its filesystem loaded and saves that snapshot back, so a
-      sweep beside a `download_files` thread pool would drop rows its siblings had just written and
-      orphan their blobs -- the leak this exists to close.
+    * **Nothing is downloading into this directory while it runs**, which is what the sweep
+      needs: a sweep beside a `download_files` thread pool could drop rows its siblings had just
+      written and orphan their blobs -- the leak this exists to close.
 
       What guarantees that is `_swept_dirs`, not the lock: this runs on the first `register` for a
       path, and until that returns no filesystem for the directory exists for anything to download
@@ -1238,9 +1237,10 @@ def _sweep_expired_blobs(
       a `PermissionError` for the builder rather than the harmless POSIX unlink. So a sweep that is
       ever re-armed after the first one needs a new answer to the first question, and the lock alone
       will not give it one. A download takes it for each load and save of the metadata, which keeps
-      the two from overlapping, but `clear_expired` saves the snapshot its own filesystem loaded
-      without merging the file first -- so a sweep taking its turn after a sibling's save still
-      writes over the rows that save added.
+      the two from overlapping, and the sweep reads the file again under the same hold
+      (`_refresh_metadata`), so the rows a sibling *thread* saved are merged in before it writes.
+      What stays open is another *process* saving between that read and the write, whose row is
+      lost: the lock is per process (GH-3485).
 
     Args:
         filesystem: The caching filesystem that owns this directory.
@@ -1511,6 +1511,32 @@ def _drop_orphaned_sidecars(directory: Path) -> None:
                 sidecar.unlink(missing_ok=True)
 
 
+def _remove_unclaimed_files(directory: Path, rows: dict[str, Any], older_than: float) -> None:
+    """Remove the files of a cache directory that no row names and that are older than `older_than` seconds.
+
+    What a sweep that removed the whole directory used to collect: a blob whose row another process's save dropped, the
+    `<blob>.<uuid>.tmp` of a fetch that was killed, a `cache-<random>` of a save that was. Left alone are the metadata
+    file, the marker, the blobs rows name and their sidecars. Not older than `older_than` or an hour, whichever is
+    longer: the file of a fetch in flight moves only when bytes arrive, so a stalled one is older than a short TTL (or a
+    timeout longer than it) and another process's sweep must not take it from under the fetch. A removal that fails is
+    skipped (Windows refuses one on a file that is open).
+    """
+    named = {str(detail["fn"]) for detail in rows.values() if isinstance(detail, dict) and "fn" in detail}
+    kept = {"cache", _CACHE_USE_MARKER}
+    cutoff = time.time() - max(older_than, _SUPERSEDED_GRACE_SECONDS)
+    try:
+        entries = list(directory.iterdir())
+    except OSError:
+        return
+    for entry in entries:
+        name = entry.name
+        if name in kept or name in named or name.removesuffix(_SIDECAR_SUFFIX) in named:
+            continue
+        with contextlib.suppress(OSError):
+            if entry.is_file() and entry.stat().st_mtime < cutoff:
+                entry.unlink(missing_ok=True)
+
+
 def _last_modified_registry(filesystem: object) -> dict[str, dt.datetime | None] | None:
     """Give the dict of `Last-Modified` dates that a filesystem, or the one it wraps, keeps for `download_file`."""
     registry = getattr(getattr(filesystem, "fs", filesystem), "last_modified_of", None)
@@ -1523,6 +1549,67 @@ def _take_last_modified(filesystem: object, url: str) -> dt.datetime | None:
     return None if registry is None else registry.pop(url, None)
 
 
+def _metadata_stamp(filesystem: WholeFileCacheFileSystem) -> tuple[int, int, int] | None:
+    """Name the state of the metadata file by what the file system says of it: modification time, size, inode.
+
+    `None` for a file that is not there. The inode is in it because a save replaces the file.
+    """
+    try:
+        status = (Path(filesystem.storage[-1]) / "cache").stat()
+    except OSError:
+        return None
+    return status.st_mtime_ns, status.st_size, status.st_ino
+
+
+def _entry_time(detail: object) -> float:
+    """Read when an entry of the metadata was made: 0 for one that says nothing usable, which any other beats."""
+    try:
+        return float(detail["time"]) if isinstance(detail, dict) else 0.0
+    except (KeyError, TypeError, ValueError):
+        return 0.0
+
+
+def _refresh_metadata(filesystem: WholeFileCacheFileSystem) -> None:
+    """Bring what a caching filesystem holds up to what the metadata file says now, where that has moved.
+
+    Skipped where the file is the one this filesystem last read or wrote (`_metadata_stamp`, taken by its `load_cache`
+    and `save_cache`): a miss on an unchanged file is free, which matters for a directory of tens of thousands of
+    entries (the file is megabytes) that is asked about each file before it is fetched. Otherwise the file is read
+    and *merged* into what is held, as fsspec's own save merges: an entry only this filesystem holds is kept (another
+    process may have written the file from a read older than that entry, and the next save of this filesystem writes
+    it back, as it does on a filesystem that never reloaded), and where both hold one the later `time` wins.
+
+    A read that fails leaves the view as it was, which is what a lookup that only asks is to go on with. That is for a
+    failure that passes: on Windows the file is not readable while another process replaces it (`PermissionError`). A
+    file that is cut short stays an error, as it was: the save of the next fetch reads it too.
+    """
+    try:
+        with _cache_dir_lock:
+            if filesystem._wd_metadata_stamp == _metadata_stamp(filesystem):  # noqa: SLF001
+                return
+            held = filesystem._metadata.cached_files[-1]  # noqa: SLF001
+            filesystem.load_cache()
+            fresh = filesystem._metadata.cached_files[-1]  # noqa: SLF001
+            # a record of the file that has no usable `time` counts as 0, so that it never raises once the view is
+            # replaced (the stamp would then keep the entries only this filesystem held from being read back)
+            for key, detail in held.items():
+                if key not in fresh or _entry_time(fresh[key]) < _entry_time(detail):
+                    fresh[key] = detail
+    except Exception:
+        log.debug("Could not read the cache metadata again, keeping what is held", exc_info=True)
+
+
+def _held_in_view(filesystem: object, url: str) -> Literal[False] | tuple[dict[str, Any], str]:
+    """Say whether a caching filesystem's view of the metadata holds a copy of a url, without a reload of its own.
+
+    fsspec's own read of the file after `cache_check` (10 s) can still run inside it. False for a filesystem that does
+    not cache.
+    """
+    if isinstance(filesystem, WholeFileCacheFileSystem):
+        return WholeFileCacheFileSystem._check_file(filesystem, url)  # noqa: SLF001
+    return False
+
+
 class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
     """A `WholeFileCacheFileSystem` that reads and writes its metadata file under `_cache_dir_lock`.
 
@@ -1530,7 +1617,8 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
     `save_cache` are what a download goes through, `pop_from_cache` is how MOSMIX drops a truncated
     run, `clear_expired_cache` is the sweep, and `clear_cache` deletes the file along with the
     blobs. fsspec resolves all five on the class rather than on the instance, so an override here is
-    what its own internal calls reach as well.
+    what its own internal calls reach as well. `_check_file`, which fsspec asks the view, is
+    overridden to read the file again where the view holds no usable copy (GH-3452).
 
     `_open` is overridden for another reason: to fetch a missing file without fsspec's `exists`
     probe, and to record it only once it has arrived (GH-2467). It reaches the metadata file through
@@ -1540,26 +1628,89 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
     def load_cache(self) -> None:
         """Read the metadata file, with no other thread in the middle of replacing it."""
         with _cache_dir_lock:
+            # before the read: a file replaced during it then differs from the stamp, and is read again
+            stamp = _metadata_stamp(self)
             super().load_cache()
+            self._wd_metadata_stamp = stamp
 
     def save_cache(self) -> None:
         """Read, merge and replace the metadata file, with no other thread reading or replacing it."""
         with _cache_dir_lock:
             super().save_cache()
+            self._wd_metadata_stamp = _metadata_stamp(self)
+
+    def _check_file(
+        self, path: str, refetch_before: float | None = None
+    ) -> Literal[False] | tuple[dict[str, Any], str]:
+        """Say whether the cache holds an unexpired copy of a file, reading the metadata file again where it is not.
+
+        fsspec keeps one filesystem per thread ident and arguments, and an ident is handed out again once its thread
+        has ended, so a thread can hold a filesystem that other threads (or processes) have cached into since it last
+        read the file: it reads it only when built and after `cache_check` (10 s). Such a view says no to a copy that
+        is there, and the file is fetched again (GH-3452). A hit costs nothing more than before; a miss reads the
+        file again if it has changed since this filesystem read or wrote it (`_refresh_metadata`). So does a copy
+        older than `refetch_before`, which another thread may have fetched again since. The view is asked again once
+        it has been refreshed, and also where it was not: another thread on this very filesystem may have moved it
+        while this one looked.
+        """
+        held = super()._check_file(path)
+        if held and not (refetch_before is not None and held[0]["time"] < refetch_before):
+            return held
+        _refresh_metadata(self)
+        return super()._check_file(path)
 
     def pop_from_cache(self, path: str) -> None:
         """Drop one entry from the metadata file, which saves it, and the date kept beside its blob."""
         with _cache_dir_lock:
+            if not self._metadata.check_file(self._strip_protocol(path), None):
+                # the copy may be one another thread cached since this view was read, which is then not dropped
+                _refresh_metadata(self)
             blob = Path(self.storage[-1]) / self._mapper(self._strip_protocol(path))
             super().pop_from_cache(path)
             with contextlib.suppress(OSError):
                 _sidecar_of(blob).unlink(missing_ok=True)
 
     def clear_expired_cache(self, expiry_time: float | None = None) -> None:
-        """Drop expired entries from the metadata file, which saves it, and the dates kept beside their blobs."""
+        """Drop the expired entries from the metadata file and their blobs and dates, and nothing else (GH-3467).
+
+        fsspec's own sweep removes the whole directory when it ends with no entry in the snapshot it holds, and the
+        snapshot of a process that starts on an empty directory is empty whatever the processes that started beside it
+        have written since. That took their copies, and the directory from under them: `FileExistsError` where one
+        was making it, copies fetched again. So the directory stays. The metadata file is read again first, so that a
+        row another process has written since is swept as it is rather than missed. An empty snapshot expires no
+        entry, and a snapshot with nothing expired in it is not written back. One with every entry expired is written
+        back empty, which fsspec's does not do because it removes the directory.
+
+        That removal was also the only thing that collected the files no row names (a blob whose row was lost, the
+        `<blob>.<uuid>.tmp` of a fetch that was killed), so those are collected here: the ones older than the expiry
+        and than an hour (`_remove_unclaimed_files`), which keeps the file of a fetch that is stalled but not dead.
+
+        Writing the file back after an expiry is still a read-merge-write that is not safe against another process
+        writing at that moment: a row it adds in between is lost (GH-3485).
+        """
         with _cache_dir_lock:
-            super().clear_expired_cache(expiry_time)
-            _drop_orphaned_sidecars(Path(self.storage[-1]))
+            self._check_cache()
+            # what another process has written since this was read is part of what is swept, not lost to it
+            _refresh_metadata(self)
+            held = self._metadata.cached_files[-1]
+            expiry = expiry_time or self.expiry
+            # no expiry is no expiry, as `_check_file` reads it: fsspec's reads a zero as "all of it has expired"
+            if not expiry:
+                return
+            directory = Path(self.storage[-1])
+            if any(time.time() - _entry_time(detail) > expiry for detail in held.values()):
+                # fsspec annotates the expiry an int; a float is compared the same
+                expired_blobs, now_empty = self._metadata.clear_expired(expiry)  # ty: ignore[invalid-argument-type]
+                for blob in expired_blobs:
+                    # a blob another handle holds open is left to the next sweep (Windows: `PermissionError`)
+                    with contextlib.suppress(OSError):
+                        Path(blob).unlink(missing_ok=True)
+                if now_empty:
+                    # `clear_expired` writes the file only when something is left in it
+                    self._metadata._save({}, str(directory / "cache"))  # noqa: SLF001
+                self._cache_size = None
+            _remove_unclaimed_files(directory, self._metadata.cached_files[-1], expiry)
+            _drop_orphaned_sidecars(directory)
 
     def clear_cache(self) -> None:
         """Delete the directory, metadata file and all, and load the empty metadata back."""
@@ -1598,8 +1749,12 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
         # a copy that no version which kept dates made (it has no record of one, not even of a missing date) is fetched
         # again, once: the new one has the record
         refetch_undated = kwargs.pop("refetch_undated", False)
+        # that `download_file` has just asked `_check_file`, which reads the metadata file again where it finds no
+        # usable copy: asking it again here would be the cost of a big directory a second time. Anyone else who opens
+        # a file (the reader of a forecast does) has not asked
+        checked = kwargs.pop("checked", False)
         path = self._strip_protocol(path)
-        cached = self._check_file(path)
+        cached = super()._check_file(path) if checked else self._check_file(path, refetch_before)
         if cached and refetch_before is not None and cached[0]["time"] < refetch_before:
             cached = False
         if cached and refetch_undated and not _has_sidecar_record(Path(cached[1])):
@@ -1642,9 +1797,14 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
                     log.debug(f"Could not replace {blob}, serving {path} from the fetched copy", exc_info=True)
                     # `open` has turned a text mode into a binary one by now and wraps the handle itself
                     return BytesIO(Path(temp).read_bytes())
-                self._make_local_details(path)
-                self._metadata.cached_files[-1][path]["time"] = started
-                self.save_cache()
+                # the record and its save as one step for the lock: a thread that reads the metadata file again
+                # replaces what the filesystem holds, and keeps the entries it held only after that, so one that
+                # came between the record and the line that sets its time would find the entry missing (a filesystem
+                # used by more than one thread: the reader of a forecast moves threads)
+                with _cache_dir_lock:
+                    self._make_local_details(path)
+                    self._metadata.cached_files[-1][path]["time"] = started
+                    self.save_cache()
                 # after the entry: a copy is dated once the cache holds it. Written whether or not this fetch had a
                 # date, so that a copy fetched anew over an older one does not keep the older one's
                 _write_sidecar(Path(blob), last_modified, written)
@@ -1863,9 +2023,9 @@ class NetworkFilesystemManager:
                 # the tidying is before the registry assignment below, and none of it able to raise: a
                 # cache that cannot be tidied must still be a cache that can be read.
                 #
-                # The mark goes after the sweep, not before: a sweep that leaves the cache empty has
-                # fsspec `rmtree` the whole directory and rebuild it, which takes the marker with it --
-                # and a directory whose marker is missing reads as one nothing has asked for in a month
+                # The mark goes after the sweep. The order no longer matters much: the sweep used to remove the
+                # whole directory and the marker with it (GH-3467), and a missing marker counts as a directory
+                # just used (`_last_used`), so that was never the way a live cache was reclaimed
                 _sweep_expired_blobs(filesystem_effective, real_cache_dir, ttl_value)
                 _mark_cache_dir_used(real_cache_dir)
                 _reclaim_unreachable_cache_dirs(real_cache_dir.parent, keep=real_cache_dir)
@@ -2283,7 +2443,11 @@ def download_file(
                     # read-only or full cache dir and the metadata load on a truncated file, and an
                     # exception escaping here carries a traceback whose frame holds `client_kwargs`
                     # -- the Authorization header -- which is exactly what the handler below drops
-                    held = getattr(filesystem, "_check_file", lambda _url: False)(url)
+                    held = (
+                        filesystem._check_file(url, refetch_before)  # noqa: SLF001
+                        if isinstance(filesystem, _LockedWholeFileCacheFileSystem)
+                        else getattr(filesystem, "_check_file", lambda _url: False)(url)
+                    )
                     served_from_cache = (
                         bool(held)
                         and not (refetch_before is not None and held[0]["time"] < refetch_before)
@@ -2298,6 +2462,8 @@ def download_file(
                         f"Reading file {shown} from cache" if served_from_cache else f"Downloading file {shown}",
                     )
                     fetch_kwargs: dict[str, float] = {} if max_bytes is None else {"max_bytes": max_bytes}
+                    if isinstance(filesystem, _LockedWholeFileCacheFileSystem):
+                        fetch_kwargs["checked"] = True
                     if refetch_before is not None and isinstance(filesystem, WholeFileCacheFileSystem):
                         fetch_kwargs["refetch_before"] = refetch_before
                     if refetch_undated and isinstance(filesystem, WholeFileCacheFileSystem):
@@ -2310,7 +2476,7 @@ def download_file(
                     # info, header and all, before any of the handlers below are reached
                     raise _without_credentials(e, sent_credentials=sent_credentials) from None
                 log.info(f"Read file {shown} from cache" if served_from_cache else f"Downloaded file {shown}")
-                copy = getattr(filesystem, "_check_file", lambda _url: False)(url)
+                copy = _held_in_view(filesystem, url)
                 return File(
                     url=url,
                     content=BytesIO(payload),
@@ -2458,7 +2624,8 @@ def cached_file_time(
     """Tell when the copy `download_file` holds for a url was made, as `time.time()` has it; None where none is held.
 
     Takes the arguments the download was made with, as `drop_cached_file` does, since they name the cache. Read from
-    the metadata file and not from this thread's memory of it: the copy was most likely made by another thread.
+    the metadata file, merged into this thread's memory of it, where the file has changed: the copy was most likely
+    made by another thread.
     Never raises: a cache that cannot be read holds no copy.
     """
     try:
@@ -2471,8 +2638,8 @@ def cached_file_time(
         )
         if not isinstance(filesystem, WholeFileCacheFileSystem):
             return None
-        filesystem.load_cache()
-        held = filesystem._check_file(url)  # noqa: SLF001
+        _refresh_metadata(filesystem)
+        held = _held_in_view(filesystem, url)
         return float(held[0]["time"]) if held else None
     except Exception:  # noqa: BLE001 -- best effort: no copy known is no date from it
         log.debug("Could not read the time of the copy of %s", _without_url_secrets(url), exc_info=False)

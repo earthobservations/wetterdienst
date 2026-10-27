@@ -33,6 +33,12 @@ _LhmtObservationMetadataSpec = {
     "attribution": "Lietuvos hidrometeorologijos tarnyba (LHMT)",
     "url": "https://api.meteo.lt/",
     "kind": "observation",
+    "extent": {
+        "scope": "national",
+        "continents": ["europe"],
+        "country_codes": ["LT"],
+        "bbox": [20.9, 53.8, 26.9, 56.5],
+    },
     "timezone": "Europe/Vilnius",
     "resolutions": [
         {

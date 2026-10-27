@@ -29,9 +29,11 @@ The settings of a request that the explorer offers are the [options](settings.md
 names the REST API takes them by. The app does not have the weather warnings of DWD (see [Alerts](../data/provider/dwd/alerts/index.md)
 for them) nor the radar products.
 
+<!-- GH-3459 (a draft, not merged): the Explorer is to change how it meets a refusal, see large-requests.md -->
 A request the backend refuses shows what the backend answered: one over a [limit](restapi.md#limits) says which
 and how to narrow it, a provider that is down says so and the request can be made again. See
-[Troubleshooting](troubleshooting.md) for what the answers mean.
+[Troubleshooting](troubleshooting.md) for what the answers mean. To get more than a limit allows, see
+[Getting more than the limit](large-requests.md#from-the-app).
 
 ## Embed the forecast on another site
 
@@ -129,6 +131,21 @@ The app is released on its own, with its own [changelog](https://github.com/eart
 as a pair with the backend: run versions of the two that were released together, as an app that is older than its
 backend can fail on a request the backend has since changed.
 
+## Search engines
+
+The pages are drawn by script, so the server writes what a crawler or a link preview that runs none needs into the
+HTML it sends: the title, the description, the canonical link and the `og:` and `twitter:` tags of the path, and a
+`<noscript>` text with links to the pages. The script then sets the same tags in the language of the visitor; the
+server writes German, or English for a visitor who chose it or whose browser asks for it first. `/sitemap.xml` lists
+the pages worth finding (the explorer, the forecast, the climate stripes, the API, the providers, the glossary, the
+project and legal pages) and `/robots.txt` names it. `/widget` and `/settings` ask not to be indexed, and a path
+that ends in `.xml` or `.txt` and is none of the app's files is a 404.
+
+Both files, and the canonical links, use the address that `NUXT_PUBLIC_SITE_URL` gives, which is
+`https://wetterdienst.eobs.org` unless you set it. Set it to the address your instance is reached at
+(`https://weather.example.org`, no path) if it is open to search engines; the variable is read when the server
+starts, no rebuild.
+
 ## Rate limit
 
 The server limits what costs something, per client. It counts the requests to
@@ -189,7 +206,14 @@ update.**
 Nothing the browser runs comes from a CDN. The query panel's DuckDB-wasm (about 35 MB, about 5 MB over the wire)
 and Swagger UI (about 1.6 MB) at `/docs` are files of the app (`/_nuxt/` and `/_swagger-ui/`), so the Content
 Security Policy allows no script or worker from any other origin, and no `'unsafe-eval'`. The icons are the app's
-own too (`/_nuxt_icon`). The app calls OpenStreetMap, GitHub and Cloudflare for map tiles, avatars and the map's
-marker images.
+own too (`/_nuxt_icon`), and so are the map's marker images (Leaflet's own). The app calls OpenStreetMap for map tiles
+and GitHub for the avatars on the About page, nothing else.
+
+The licences of the packages the browser is served (the copyright notices their MIT, BSD, ISC and Apache terms ask to
+go with the code) are one file, `/third-party-licenses.txt`, linked from the footer. The production build writes it
+from the packages the bundle holds, so it is in the Docker image and in the release tarball, and the development server
+answers a note in its place.
 
 The app does not forward the cookies or the `Authorization` of a client to the backend, on `/api` or on `/mcp`.
+The `/api` and `/mcp` proxies are for their own path of the backend and nothing else: a request whose path resolves
+to somewhere else (`/api/../health`, `/mcp/../health`) is a `404`, and the backend is not asked.

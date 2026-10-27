@@ -139,6 +139,10 @@ meant to be understood, not to be the last word, and **a review by a native spea
   `Stoff- oder Sandstorm`, `Sneedrieven`; `lb` `Gewitter`, `Niselreen`, `Deelweis wollekeg`,
   `Schnéigestéber`; `cs` `Polojasno` for "partly cloudy"; `pl` `Zamieć śnieżna`.
 
+- The footer link to the third-party licences (`footer.licenses`, GH-3469), in all four locales. Least
+  certain: `de-hh` `Lizenzen vun annere` and `lb` `Lizenze vun Drëtten` ("licences of others"); `cs`
+  `Licence třetích stran` and `pl` `Licencje stron trzecich` are the usual forms of "third-party licences".
+
 Nothing here says the other locales (`en`, `de`, `fr`, `es`, `it`, `nl`, `da`) were reviewed by a
 native speaker either; these four are the ones known not to have been.
 

@@ -39,6 +39,52 @@ Types of changes:
   the stations' records, which it refused. Dates you have edited are no longer replaced when you
   choose other stations (GH-3457)
 
+## [0.38.0] - 2026-10-27
+
+### Added
+
+- `[Licences]` The app serves the licence notices of the packages in the browser bundle (Leaflet,
+  Vue, Plotly, DuckDB-WASM, Swagger UI, ...) at `/third-party-licenses.txt`, linked from the
+  footer as "Third-party licences". The production build writes it from the packages' own licence
+  files, so it is also in the Docker image and the release tarball. It adds the licences of the
+  code inside the DuckDB-WASM, Plotly and marker cluster files, and names the one library whose
+  package and repository ship none. It lists what was found and is no guarantee of completeness
+  (GH-3469)
+- `[Search]` The app can be found by a search engine: every public page has a descriptive title
+  and description, a canonical link and `og:`/`twitter:` tags (the widget, the settings, a
+  provider's page and unknown paths have no canonical link), and the server writes them, with a
+  `<noscript>` text that links the pages, into the HTML it sends, for a crawler or link preview
+  that runs no script. `/sitemap.xml` lists the public pages and `/robots.txt` names it; both take
+  their addresses from the new setting `NUXT_PUBLIC_SITE_URL` (default
+  `https://wetterdienst.eobs.org`, read when the server starts): set it to the address of your own
+  instance. `/robots.txt` is a server route now, not a file, with the same rules as before
+  (everything allowed). `/widget` and `/settings` ask not to be indexed (GH-3497)
+
+### Changed
+
+- `[Map]` The station map loads no image from Cloudflare or GitHub any more: its markers are
+  Leaflet's own images, served by the app, and the selected marker is the same image tinted green
+  and drawn larger. The Content Security Policy's `img-src` drops `cdnjs.cloudflare.com` and
+  `raw.githubusercontent.com`, and the privacy policy no longer names them (GH-3420)
+
+### Fixed
+
+- `[Search]` An unknown path that ends in `.xml` or `.txt` (`/sitemap_index.xml`, `/ads.txt`) is a
+  404 and no longer the app's page with a 200, which a crawler read as the file (GH-3497)
+- `[Layout]` The page for an unknown address has its back button again: Nuxt's own page drew it
+  with an inline script, which the Content Security Policy refuses. The app draws the page itself
+  now, in the app's language (it was English, with no `lang` on the document), with a link to the
+  home page and a back button where there is a page to go back to (GH-3453)
+
+### Security
+
+- `[Build]` `serialize-javascript`, which the bundler uses at build time and which is not in the
+  app's output, is held to 7.1.3 or later through a `pnpm-workspace.yaml` override (the lockfile
+  has 7.1.4), which resolves its Dependabot alert (GH-3096)
+- `[Proxy]` The `/mcp` proxy sends a request on only to the backend's `/mcp` and below: a path that
+  resolves elsewhere (such as `/mcp/../health`) is answered a 404 problem, as the `/api` proxy
+  answers one, and is not asked of the backend (GH-2607)
+
 ## [0.37.0] - 2026-10-26
 
 ### Changed
@@ -1630,7 +1676,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.37.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.38.0...HEAD
+[0.38.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.37.0...app-v0.38.0
 [0.37.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.36.0...app-v0.37.0
 [0.36.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.35.0...app-v0.36.0
 [0.35.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.34.0...app-v0.35.0

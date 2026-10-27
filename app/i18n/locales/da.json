@@ -62,6 +62,22 @@
     "kindRoadDesc": "Vejbaneforhold og -temperaturer fra DWD's vejvejrstationer samt deres prognoser.",
     "aboutLink": "Om projektet og menneskene bag"
   },
+  "seo": {
+    "title": "Wetterdienst – åbne vejr- og klimadata fra nationale vejrtjenester",
+    "description": "Åbne vejr- og klimadata fra nationale vejrtjenester i ét format: udforsker, vejrudsigt, klimastriber, REST API og MCP-server. Open source og gratis.",
+    "noscript": "Wetterdienst kræver JavaScript for at vise data.",
+    "pages": {
+      "explorer": "Vælg en udbyder, parametre og stationer på kortet, læs målingerne, interpolér et punkt og download resultatet som CSV, JSON eller GeoJSON.",
+      "meteogram": "MOSMIX-prognosen for en DWD-station som meteogram: temperatur, vind, nedbør, skydække og lufttryk.",
+      "stripes": "Klimastriber for temperatur eller nedbør fra en DWD-station.",
+      "history": "Hvordan en DWD-station har ændret sig over tid: navn, placering og instrumenter.",
+      "api": "REST API'et og MCP-serveren til Wetterdienst: formater og eksempler for stationer, værdier, interpolation og klimastriber.",
+      "providers": "De nationale vejrtjenester bag dataene: land, licens, den kildeangivelse der skal gives, og hvad hver enkelt tilbyder.",
+      "glossary": "Hvad hver vejr- og klimaparameter måler, og i hvilken enhed værdierne kommer tilbage, med søgning på navn og størrelse.",
+      "about": "Om open source-projektet Wetterdienst og de mennesker, der vedligeholder det.",
+      "support": "Støt Wetterdienst: meld en fejl, bidrag med kode eller doner."
+    }
+  },
   "values": {
     "title": "Det, vi står for",
     "lgbtq": "Vi støtter LGBTQI+-fællesskabet.",
@@ -111,7 +127,8 @@
     "copyright": "© {year} earthobservations",
     "legal": "Juridisk meddelelse",
     "privacy": "Privatliv",
-    "about": "Om"
+    "about": "Om",
+    "licenses": "Tredjepartslicenser"
   },
   "language": {
     "switch": "Skift sprog",
@@ -426,6 +443,12 @@
     "stationNotFound": "Station ikke fundet",
     "openFull": "Åbn fuld udsigt",
     "poweredBy": "Drevet af Wetterdienst · DWD MOSMIX"
+  },
+  "notFound": {
+    "title": "Siden blev ikke fundet",
+    "text": "Der er ingen side på denne adresse. Tjek adressen, eller start på forsiden.",
+    "home": "Gå til forsiden",
+    "back": "Tilbage"
   },
   "stripes": {
     "title": "Klimastriber",

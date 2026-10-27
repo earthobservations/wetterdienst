@@ -44,7 +44,7 @@ module with a reason, together with a **Breaking** changelog entry; an entry tha
 fails as stale. A baseline is written only in a release commit, with `uv run poe contracts:baseline` (which writes the
 OpenAPI one too), and each says which release it is of (`x-release`), which a test holds to `pyproject.toml`; see
 [Release strategy](https://github.com/earthobservations/wetterdienst/blob/main/.github/RELEASE_STRATEGY.md).
-The baselines are those of 0.175.0 until the next release.
+The baselines are those of 0.176.0 until the next release.
 
 ## What counts as breaking
 
@@ -323,6 +323,13 @@ library reads them more closely, which is a fix and not a break; `spdx_id` is nu
 AEMET, IMGW, IPMA), and `license` is null only where a provider states no terms that could be read, which is then
 named with its reason in `LICENSE_NOT_STATED` of `tests/ui/test_response_metadata.py` (empty today). The licence of the
 data is the provider's, not wetterdienst's.
+
+`GET /api/providers` gives each network an `extent` (`scope`, `continents`, `country_codes`, `bbox`: where its stations are,
+see [Extent](restapi.md#extent)) and each dataset narrower than its network one of its own; `GET /api/coverage` gives
+the `scope` of each network and, of one network, the extent of each dataset. They are additive members (added after
+0.175.0). Their values are what the station lists show: they change when a list does (a network that reaches a new
+territory), which is a fix and not a break. `country_codes` is absent from an answer for a national or a country-less
+network, and `extent` from a dataset of `providers` that has its network's.
 
 The date the source states for the data of an answer is `metadata.data_updated_at` (and the
 `X-Wetterdienst-Data-Updated-At` header, `data_updated_at` of the values results and of their `metadata` with

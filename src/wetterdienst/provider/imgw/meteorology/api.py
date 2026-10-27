@@ -93,6 +93,12 @@ _QUALITY_ABSENT_DAY = "11"
 _ImgwMeteorologyMetadataSpec = {
     **_METADATA,
     "kind": "observation",
+    "extent": {
+        "scope": "national",
+        "continents": ["europe"],
+        "country_codes": ["PL"],
+        "bbox": [14.1, 49.0, 24.2, 54.9],
+    },
     "timezone": "Europe/Warsaw",
     "resolutions": [
         {

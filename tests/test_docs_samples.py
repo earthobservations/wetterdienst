@@ -680,6 +680,14 @@ NOT_RUN: dict[tuple[str, str], str] = {
     ): "needs a `request` of its own",
     ("docs/usage/python-api.md", "except NoInternetError"): "shows how to catch an outage",
     ("docs/usage/python-examples.md", "wradlib"): "needs wradlib, which the project does not install",
+    (
+        "docs/usage/large-requests.md",
+        "# needs a server on localhost:7890",
+    ): "asks a server on localhost:7890: `test_docs_large_requests.py` runs them against the app",
+    (
+        "docs/usage/large-requests.md",
+        "# needs the dresden.csv",
+    ): "reads the file of the curl command above it: `test_docs_large_requests.py` makes that request",
 }
 
 #: the pages that cannot run as a whole, with the reason
@@ -841,7 +849,7 @@ _LIMIT_VARIABLES = (
 @pytest.mark.slow
 @pytest.mark.parametrize("request_", REQUESTS, ids=[f"{r.where} {r.path}" for r in REQUESTS])
 def test_rest_samples_are_answered(request_: Request, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A request a page shows is answered with a 200 by the app, with the limits at their defaults and SQL on."""
+    """A request a page shows is answered with a 200 by the app, with the row and station limits at their defaults."""
     from starlette.testclient import TestClient  # noqa: PLC0415
 
     from wetterdienst.ui import restapi  # noqa: PLC0415
@@ -849,6 +857,9 @@ def test_rest_samples_are_answered(request_: Request, monkeypatch: pytest.Monkey
     for variable in _LIMIT_VARIABLES:
         monkeypatch.delenv(variable, raising=False)
     monkeypatch.setenv("WD_RESTAPI_SQL", "true")
+    # not the 60 s of the default: the interpolation of the first sample reads the whole record of 11 stations from a
+    # cold cache, one file after the other, and 504 was DWD's pace on a runner and not the sample (GH-3489)
+    monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "600")
     path = request_.path if request_.path.startswith("/api/v1") else "/api/v1" + request_.path.removeprefix("/api")
     response = TestClient(restapi.app).get(path, params=request_.query)
     for piece, (status, kind, unless, reason) in REST_KNOWN_FAILURES.items():

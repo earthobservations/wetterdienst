@@ -249,14 +249,14 @@ what the answer is missing:
   holds no row of the station, one whose rows all lie outside the window asked for, one that holds only parameters
   that were not asked for, and one whose rows another file took the place of (the recent archive of DWD where the
   historical one has the same stamps) are not counted, and where `drop_nulls` is on (the default) a row without a value
-  does not make a file count. The provider decides this on the frame it hands to the core, in the order the core cuts
-  it (the first row of a reading is kept, then the requested parameters, the window and the null policy), so two things
-  stay out of its sight, and a file that is in the answer for them only still counts: a value that the core reads as
-  null although the provider handed it over as a text (a text that is no number), and the stamp of `dwd/observation`,
-  which the provider shifts by an hour for an archive that DWD writes in MEZ only afterwards, so a window that begins or
-  ends within that hour of the rows of an archive can count it or leave it out wrongly. `dwd/observation` and
-  `dwd/derived` decide it for the archives of a period together, which are one file but for the 1 and 5 minute
-  precipitation of the historical period, and a forecast counts where one of its steps is in the answer.
+  does not make a file count. The provider decides this on the frame it hands to the core, in the order the core cuts it
+  (the first row of a reading that has a value is kept, then the requested parameters, the window and the null policy),
+  so two things stay out of its sight, and a file that is in the answer for them only still counts: a value that the
+  core reads as null although the provider handed it over as a text (a text that is no number), and the stamp of
+  `dwd/observation`, which the provider shifts by an hour for an archive that DWD writes in MEZ only afterwards, so a
+  window that begins or ends within that hour of the rows of an archive can count it or leave it out wrongly.
+  `dwd/observation` and `dwd/derived` decide it for the archives of a period together, which are one file but for the 1
+  and 5 minute precipitation of the historical period, and a forecast counts where one of its steps is in the answer.
 
 - **`counts`** is the stations in the answer and its rows: the items of `values` (one per timestamp in
   the wide shape), the stations listed, or the histories.
@@ -421,6 +421,7 @@ The list downloads nothing, so it answers at once. Each network of each provider
 | `country` | the country of the provider, `Germany` |
 | `url` | where the provider publishes the data |
 | `kind` | what the network is, see below |
+| `scope` | how far the network reaches: `global`, `national` or `regional`, which `country` does not say. The list is kept short, so it has the scope only; the full [extent](#providers) is in `providers`, and in the coverage of one network, for each of its datasets |
 | `auth` | whether the network needs credentials |
 | `configured` | whether the server has them |
 | `date_required` | whether a dataset of the network needs the request to name `start` and `end` |
@@ -453,9 +454,9 @@ ask the same question and give the same answer.
 ### Providers
 
 What each provider is, for a page that lists them or a client that has to credit the data: the names it goes
-by (`name_short` for a chip beside a flag, `name_english`, `name_local`), its country (`country_code` is the ISO 3166-1 alpha-2 code, null for a provider of several countries), the
+by (`name_short` for a chip beside a flag, `name_english`, `name_local`), the country of the agency that runs it (`country_code` is the ISO 3166-1 alpha-2 code, null for a provider of several countries; it is the operator's country, not the extent of its data: the `extent` of each network says where its stations are), the
 terms it publishes its data under (`license`, as in the `metadata` of a data answer) and the credit line
-(`attribution`), and its networks with their `kind`, source `url`, whether they need credentials (`auth`) and
+(`attribution`), and its networks with their `kind`, `extent`, source `url`, whether they need credentials (`auth`) and
 the resolutions and datasets they offer, with how many parameters each has. Nothing is downloaded and no
 credential is read, so it answers at once: `coverage` lists the parameters of a network and `auth` checks
 whether its credentials are accepted. `dwd/radar` and `dwd/alerts` are listed without resolutions.
@@ -469,6 +470,34 @@ http localhost:7890/api/providers provider==dwd
 ```
 
 The command line is `wetterdienst about providers [--provider dwd]` and the MCP tool is `providers`.
+
+### Extent
+
+The `country` of a provider is the country of the agency that runs it, which says nothing of where its networks have
+stations: DWD is German, and the forecast lists of `dwd/mosmix` and `dwd/dmo` have stations on every continent. The
+`extent` of each network says where its stations are, in the answer of `providers`, and `coverage` of one network gives the extent of each of its datasets (the list of every network has the `scope` only):
+
+| Member | |
+| --- | --- |
+| `scope` | `global` (stations on at least five continents), `national` (one country, with its territories) or `regional` (everything between: one or several countries or continents) |
+| `continents` | the continents the network is meant to serve, in alphabetical order: `africa`, `antarctica`, `asia`, `europe`, `north_america`, `oceania`, `south_america`. **Descriptive**: declared by hand, a few outlying territories may be named or left out, and the `bbox` and the station lists are the exact answer. A territory is named where the network has stations there: the Canary Islands (`africa`) for AEMET and Madeira (`africa`) for IPMA, Greenland and the Caribbean `north_america`, Guam and Hawaii `oceania`, Turkey `europe` and, east of 34 degrees east, `asia` |
+| `country_codes` | only for `regional`, where the list is short and exact: the ISO 3166-1 alpha-2 codes of the countries the network is bound to. **Left out** where there are none, and for `national`: the country of a national network is the `country_code` of its provider (an overseas territory counts for its sovereign: Réunion is `FR`) |
+| `bbox` | `[west, south, east, north]` in degrees, a whole degree written without its `.0`, around every station of the network, the Earth for `global`. It does not cross the antimeridian: a network with stations on both sides of it (Alaska and Guam) has the wide box |
+
+The extent is declared once, in the metadata of the network, and the tests hold it to the station list where the list can
+be read: every station is in the `bbox`, the `bbox` is no more than 5 degrees wider than the stations on any side, each
+continent it names has a station near its box, and a global network has stations on five. That is done for every network
+whose list is read without a credential (and for `eaufrance/hubeau` by its referential). **Declared from the provider's
+documentation, not read:** `aemet/observation`, `knmi/observation`, `metno/frost` and `metoffice/observation` (a
+credential is needed) and `dwd/radar` and `dwd/alerts` (no stations), so their boxes are wider than they need be.
+
+A dataset whose stations are fewer than its network's has an `extent` of its own, which lies within the network's: `dwd/dmo`
+is global by its `icon` dataset, whose list has stations on every continent, and its `icon_eu` dataset is regional, the
+stations of Europe and the edges of Africa and Asia. `providers` shows the `extent` of a
+dataset only where it has one, **a dataset without its own extent has its network's**, and the member is absent from
+it; `coverage` of a network gives every dataset its extent, its own or its network's. A dataset of a national network
+is national. The extent does not change what a request answers: `stations` still
+lists what the network has.
 
 ### Glossary
 
@@ -590,6 +619,9 @@ http localhost:7890/api/values provider==dwd network==observation parameters==da
 http localhost:7890/api/values provider==dwd network==dmo parameters==hourly/icon/temperature_air_2m stations==01001
 ```
 
+A request that asks for more than the [limits](#limits) allow is refused;
+[Getting more than the limit](large-requests.md) shows how to get the data anyway.
+
 ## SQL filters
 
 `sql` (stations and values: which stations) and `sql_values` (values, interpolate and summarize:
@@ -664,7 +696,9 @@ with less data than its record makes the answer smaller. For `interpolate` and
 `summarize` it is the readings of the window for each parameter. So the time span of a request is bounded through
 the rows: a year of 1-minute readings of one parameter is 525,600 of them, a century of daily ones 36,500.
 
-An answer over `rows` that fits `stream_rows` is told to use `format=ndjson` or `format=csv`.
+An answer over `rows` that fits `stream_rows` is told to use `format=ndjson` or `format=csv`. What to do about a
+refusal, in the order to try it (a narrower request, a stream, slices, the library, a server of your own), is on
+[Getting more than the limit](large-requests.md).
 
 ## Streaming
 
@@ -675,6 +709,9 @@ rows while the later stations are still downloaded. `json` and `geojson` are one
 ```bash
 http --stream localhost:7890/api/values provider==dwd network==observation parameters==daily/kl stations==1048,4411 timestamp==2020 format==ndjson
 ```
+
+Which of the two formats to take, and how to read a stream in Python, with polars or into a file with `curl`, is on
+[Getting more than the limit](large-requests.md#stream-it).
 
 **NDJSON** (`application/x-ndjson`) is one JSON object on a line, UTF-8:
 
@@ -771,6 +808,9 @@ and what follows is for an instance that others can reach (the
   design), `pdf`, or `/docs` and `/redoc`, which load their own from a CDN. Other headers (HSTS, a
   `Referrer-Policy`, a policy for those answers) are for the reverse proxy to add.
 - **SQL.** [`sql` and `sql_values`](#sql-filters) stay off until you set `WD_RESTAPI_SQL=true`.
+- **Limits.** The [limits](#limits) are the ones you set. How to set them, and what raising one costs, is on
+  [Getting more than the limit](large-requests.md#run-your-own-server), which is also where a client that meets one is
+  sent.
 - **The cache directory.** `WD_CACHE_DIR` holds the downloaded bodies it caches and the directory listings, as JSON in
   a SQLite file; nothing in it is unpickled or run. Whoever can write there can still replace what the server caches,
   so keep it private to the user the server runs as (a directory wetterdienst makes gets mode 0o700; one that exists
@@ -836,7 +876,7 @@ are these, and a kind keeps its status:
 | --- | --- | --- |
 | `urn:wetterdienst:problem:invalid-parameters` | 422 | A query parameter is unknown, malformed or invalid, or a selection that needs exactly one of several does not. `errors` has an entry for each invalid parameter. |
 | `urn:wetterdienst:problem:request-refused` | 400 | The request is understood and cannot be served as phrased: a window that ends before it starts, a parameter the network does not have, a point out of range. |
-| `urn:wetterdienst:problem:limit-exceeded` | 400 | The request would return more than the server allows. `limit` names the limit (`stations`, `rows` or `stream_rows`), `maximum` its value and `requested` what the request comes to; `detail` says how to narrow it. |
+| `urn:wetterdienst:problem:limit-exceeded` | 400 | The request would return more than the server allows. `limit` names the limit (`stations`, `rows` or `stream_rows`), `maximum` its value and `requested` what the request comes to; `detail` says how to narrow it, and [Getting more than the limit](large-requests.md) how to get the data anyway. |
 | `urn:wetterdienst:problem:image-too-large` | 400 | A chart would be longer than 8192 px on a side. |
 | `urn:wetterdienst:problem:host-not-allowed` | 400 | The `Host` of the request is not one the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). Reach the server by a name it lists. |
 | `urn:wetterdienst:problem:origin-not-allowed` | 400 | The `Origin` of a request to the MCP endpoint is not a host the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). A page of another origin cannot use the endpoint. |

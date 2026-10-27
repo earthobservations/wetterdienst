@@ -41,6 +41,8 @@ export interface CoverageParameter {
 export interface CoverageDataset {
   description: string | null
   parameters: CoverageParameter[]
+  /** Where the stations of the dataset are: its own where they are fewer than its network's, else the network's */
+  extent?: NetworkExtent
 }
 
 /**
@@ -75,6 +77,8 @@ export interface CoverageNetworkInfo {
   name_short: string
   country: string
   kind: NetworkKind
+  /** How far the network reaches; absent from a backend that predates it. The full extent is in `GET /api/providers` */
+  scope?: NetworkExtent['scope']
   url: string
   auth: boolean
   configured: boolean
@@ -447,6 +451,8 @@ export interface ProviderLicense {
 export interface ProviderDataset {
   name: string
   parameters: number
+  /** Only where the stations of the dataset are fewer than its network's; a dataset without it has its network's */
+  extent?: NetworkExtent
 }
 
 /** A resolution of a network, with its datasets */
@@ -455,10 +461,23 @@ export interface ProviderResolution {
   datasets: ProviderDataset[]
 }
 
+/** Where the stations of a network are, which the country of its provider does not say */
+export interface NetworkExtent {
+  /** `global`: stations on at least five continents; `national`: one country, with its territories; `regional`: everything between */
+  scope: 'global' | 'national' | 'regional'
+  continents: Array<'africa' | 'antarctica' | 'asia' | 'europe' | 'north_america' | 'oceania' | 'south_america'>
+  /** ISO 3166-1 alpha-2 codes, for a `regional` network where the list is short and exact: absent otherwise, and for `national` it is the provider's `country_code` */
+  country_codes?: string[]
+  /** `[west, south, east, north]` in degrees, around every station; not across the antimeridian */
+  bbox: [number, number, number, number]
+}
+
 /** A network of a provider, as `GET /api/providers` lists it: standalone ones (`radar`, `alerts`) have no resolutions */
 export interface ProviderNetwork {
   network: string
   kind: NetworkKind
+  /** Absent from a backend that predates it */
+  extent?: NetworkExtent
   /** Where the provider publishes the data of the network */
   url: string
   copyright: string

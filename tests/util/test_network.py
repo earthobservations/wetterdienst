@@ -63,6 +63,7 @@ from wetterdienst.util.network import (
     _credential_headers,
     _is_superseded_layout,
     _legacy_cleanup_done,
+    _LockedWholeFileCacheFileSystem,
     _reclaim_done,
     _sends_credentials,
     _swept_dirs,
@@ -1666,7 +1667,7 @@ def test_an_infinite_cache_is_never_swept(tmp_path: Path) -> None:
     """The sweep that looked like the whole fix destroys exactly the caches worth keeping (GH-1955).
 
     ``CacheExpiry.INFINITE`` is ``False``, ``int(False)`` is ``0``, and fsspec reads an expiry of
-    zero as "every entry is expired": it removes them all and then ``rmtree``s the directory.
+    zero as "every entry is expired": it removes them all (and, before GH-3467, the directory).
     ``lhmt`` and both ``meteofrance`` providers use ``INFINITE`` for immutable archives, so the
     first such download in a fresh process would have thrown the archive away and re-fetched it.
     """
@@ -1719,7 +1720,7 @@ def test_a_sweep_that_fails_is_not_retried_and_does_not_fail_the_download(tmp_pa
         msg = "Cache metadata does not contain 'fn' for https://example.com/half-written"
         raise RuntimeError(msg)
 
-    with patch.object(WholeFileCacheFileSystem, "clear_expired_cache", clear_expired_cache):
+    with patch.object(_LockedWholeFileCacheFileSystem, "clear_expired_cache", clear_expired_cache):
         first = _blob_dir(tmp_path)
         second = _in_a_fresh_thread(lambda: _blob_dir(tmp_path))
 
@@ -1742,7 +1743,7 @@ def test_fsspec_is_never_handed_an_expiry_it_reads_as_zero(tmp_path: Path, cache
     def clear_expired_cache(_self: object, expiry_time: float | None = None) -> None:
         seen.append(expiry_time)
 
-    with patch.object(WholeFileCacheFileSystem, "clear_expired_cache", clear_expired_cache):
+    with patch.object(_LockedWholeFileCacheFileSystem, "clear_expired_cache", clear_expired_cache):
         # not `_blob_dir`: `NO_CACHE` is answered with a plain filesystem that has no storage at all
         NetworkFilesystemManager.get(cache_dir=tmp_path, cache_expiry=cache_expiry, cache_disable=False)
 
@@ -1777,7 +1778,7 @@ def test_no_thread_reaches_a_directory_while_it_is_being_swept(tmp_path: Path) -
         _blob_dir(tmp_path)
         arrived.set()
 
-    with patch.object(WholeFileCacheFileSystem, "clear_expired_cache", clear_expired_cache):
+    with patch.object(_LockedWholeFileCacheFileSystem, "clear_expired_cache", clear_expired_cache):
         sweeper = threading.Thread(target=lambda: _blob_dir(tmp_path))
         sweeper.start()
         assert sweeping.wait(timeout=10), "the first caller never started sweeping"
@@ -1875,11 +1876,10 @@ def test_the_directory_being_registered_is_never_reclaimed(tmp_path: Path) -> No
 
 @pytest.mark.usefixtures("_fresh_cache_sweeps")
 def test_a_directory_that_has_just_been_used_says_so(tmp_path: Path) -> None:
-    """The mark has to survive the sweep that runs beside it.
+    """The directory has its mark once it is built, and the sweep that runs beside it leaves it there.
 
-    A sweep that leaves the cache empty has fsspec ``rmtree`` the whole directory and rebuild it,
-    which takes an already-written marker with it -- and a directory whose marker is missing reads
-    as one nothing has asked for in a month, which is how a live cache would be reclaimed.
+    The sweep used to remove the directory when it left the cache empty, and the marker with it
+    (GH-3467); it no longer does.
     """
     storage = _blob_dir(tmp_path, client_kwargs={"headers": {"Authorization": "Bearer mine"}})
 
@@ -2006,7 +2006,7 @@ def test_no_filesystem_is_built_for_a_directory_while_it_is_being_tidied(
         may_finish.wait(timeout=10)
 
     monkeypatch.setattr(WholeFileCacheFileSystem, "__init__", counting_init)
-    monkeypatch.setattr(WholeFileCacheFileSystem, "clear_expired_cache", clear_expired_cache)
+    monkeypatch.setattr(_LockedWholeFileCacheFileSystem, "clear_expired_cache", clear_expired_cache)
 
     # seed a blob so the first registration has something to sweep
     storage = tmp_path / "fsspec" / "v2-ttl-TWELVE_HOURS"
@@ -2493,7 +2493,13 @@ def test_every_way_into_the_metadata_file_takes_the_cache_lock(
         thread.join()
         held.append(not free[0])
 
-    monkeypatch.setattr(WholeFileCacheFileSystem, method, record)
+    if method == "clear_expired_cache":
+        # fsspec's own is not what runs any more: this one reaches the file through the metadata, once it holds an
+        # entry that has expired
+        filesystem._metadata.cached_files[-1]["/a.txt"] = {"fn": "a", "time": 0.0}  # noqa: SLF001
+        monkeypatch.setattr(CacheMetadata, "clear_expired", lambda *_args: record(None) or ([], False))
+    else:
+        monkeypatch.setattr(WholeFileCacheFileSystem, method, record)
     getattr(filesystem, method)(*args)
 
     assert held == [True]
@@ -4423,7 +4429,12 @@ def test_a_listing_asks_once_for_a_failure_no_second_attempt_can_mend(
 
 
 class _ChangingFile(BaseHTTPRequestHandler):
-    """Serves `server.body`, which a test changes, at its pace and in its state, and records every request."""
+    """Serves `server.body`, which a test changes, in its state and at its pace, and records every request.
+
+    The pace is the test's: after the first bytes of a body the handler sets `server.sending` and waits for
+    `server.release`, which is set unless a test cleared it, so that the order of what happens while a body is on
+    its way is the order of the events and not of a sleep.
+    """
 
     def log_message(self, format: str, *args: object) -> None:  # noqa: A002
         """Keep the test output quiet."""
@@ -4443,7 +4454,8 @@ class _ChangingFile(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body[:4])
         self.wfile.flush()
-        time.sleep(self.server.slow)
+        self.server.sending.set()
+        self.server.release.wait(30)
         self.wfile.write(body[4:])
 
 
@@ -4454,7 +4466,9 @@ def changing_file() -> Iterator[ThreadingHTTPServer]:
     server.body = b"old-body"
     server.status = 200
     server.cut = False
-    server.slow = 0.0
+    server.sending = threading.Event()
+    server.release = threading.Event()
+    server.release.set()
     server.requests = []
     server.url = f"http://127.0.0.1:{server.server_port}/archive.csv.gz"
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -4530,18 +4544,28 @@ def test_a_copy_is_as_old_as_its_download_began(changing_file: ThreadingHTTPServ
     a copy stamped when the download was over would be taken for one of the new file.
     """
     url = changing_file.url
-    changing_file.slow = 1.0
+    changing_file.release.clear()
     changed: dict[str, float] = {}
 
     def change() -> None:
-        time.sleep(0.3)
-        changing_file.body = b"new-body"
-        changed["at"] = time.time()
+        try:
+            # the first bytes of the old body are on the wire: the file changes now, and not at a time of the clock
+            assert changing_file.sending.wait(30), "the server never began to send the body"
+            changing_file.body = b"new-body"
+            # `started` of the download was read before the first byte was sent, so a reading that is later than
+            # one taken now is later than it, where a clock that ticks coarsely would give the same time twice
+            now = at = time.time()
+            while at <= now:
+                at = time.time()
+            changed["at"] = at
+        finally:
+            changing_file.release.set()
 
-    threading.Thread(target=change).start()
+    worker = threading.Thread(target=change)
+    worker.start()
     with stamina.set_testing(True, attempts=1):
         first = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.INFINITE)
-        changing_file.slow = 0.0
+        worker.join(30)
         again = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.INFINITE, refetch_before=changed["at"])
 
     assert first.content.getvalue() == b"old-body"

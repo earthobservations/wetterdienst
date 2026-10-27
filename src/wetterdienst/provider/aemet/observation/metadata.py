@@ -75,6 +75,14 @@ _AemetObservationMetadataSpec = {
     "attribution": "Source: AEMET",
     "url": "https://opendata.aemet.es/",
     "kind": "observation",
+    "extent": {
+        "scope": "national",
+        "continents": ["africa", "europe"],
+        "country_codes": ["ES"],
+        # Spain with the Canary Islands (named for Africa, as Madeira is for IPMA), Ceuta and Melilla. The station list
+        # (926 stations on 2026-10-26) has none of the Spanish bases in Antarctica, so the box does not reach them
+        "bbox": [-18.5, 27.5, 5.0, 44.0],
+    },
     "timezone": "Europe/Madrid",
     "auth": True,
     "resolutions": [
