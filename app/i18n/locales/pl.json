@@ -427,6 +427,12 @@
     "openFull": "Otwórz pełną prognozę",
     "poweredBy": "Obsługiwane przez Wetterdienst · DWD MOSMIX"
   },
+  "notFound": {
+    "title": "Nie znaleziono strony",
+    "text": "Pod tym adresem nie ma żadnej strony. Sprawdź adres albo zacznij od strony głównej.",
+    "home": "Przejdź do strony głównej",
+    "back": "Wstecz"
+  },
   "stripes": {
     "title": "Paski klimatyczne",
     "subtitle": "Wizualizuj długoterminowe trendy klimatyczne za pomocą pasków ocieplenia/ochłodzenia",

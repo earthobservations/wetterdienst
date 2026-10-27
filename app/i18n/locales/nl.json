@@ -427,6 +427,12 @@
     "openFull": "Volledige verwachting openen",
     "poweredBy": "Mogelijk gemaakt door Wetterdienst · DWD MOSMIX"
   },
+  "notFound": {
+    "title": "Pagina niet gevonden",
+    "text": "Op dit adres staat geen pagina. Controleer het adres of begin op de startpagina.",
+    "home": "Naar de startpagina",
+    "back": "Terug"
+  },
   "stripes": {
     "title": "Klimaatstrepen",
     "subtitle": "Visualiseer langetermijnklimaattrends met opwarmings-/afkoelingsstrepen",
