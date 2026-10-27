@@ -111,7 +111,8 @@
     "copyright": "© {year} earthobservations",
     "legal": "Legal notice",
     "privacy": "Privacy",
-    "about": "About"
+    "about": "About",
+    "licenses": "Third-party licences"
   },
   "language": {
     "switch": "Switch language",

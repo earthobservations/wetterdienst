@@ -111,7 +111,8 @@
     "copyright": "© {year} earthobservations",
     "legal": "Juridisk meddelelse",
     "privacy": "Privatliv",
-    "about": "Om"
+    "about": "Om",
+    "licenses": "Tredjepartslicenser"
   },
   "language": {
     "switch": "Skift sprog",
