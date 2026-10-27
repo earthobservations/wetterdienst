@@ -12,7 +12,9 @@ it, what was checked by hand, and what is known not to conform.
 - every page, as it is first shown, in light and dark mode and in English and German,
 - and, in light/English and dark/German, the states a first paint does not show: a station map with
   stations, a drawn chart (explorer, stripes, meteogram, widget), the table of the stripes' and the meteogram's values opened, the meteogram's compact day cards, an open
-  menu or popover, and an error notice.
+  menu or popover, an error notice, the explorer's notice for a request the server refused over a limit
+  (`values-limit-refused`, and at 320 px `values-limit-refused-narrow`) and the note under the date range that
+  says the page started one (`default-range-note`).
 
 The spec answers every `/api/*` request itself, in the browser (`tests/e2e/accessibility/mock-backend.ts`),
 so it reaches neither the backend nor a provider. Map tiles and every other request to another host are
@@ -139,6 +141,7 @@ WCAG 2.2 first, as axe has no rule for most of them.
 | 2.4.2 Page titled | **Was failing**: every page was titled `Wetterdienst`. Each page names itself now, and a navigation is announced (`NuxtRouteAnnouncer`). |
 | 2.2.2 Pause, stop, hide | **Was failing**: the emoji of the forecast's compact cards bounced for ever. They bounce once, and not at all under `prefers-reduced-motion`. Loading placeholders pulse while loading, which is a progress indication. |
 | 1.4.10 Reflow | No page scrolls sideways at 320 px (tested). A table or chart scrolls in its own box. |
+| 4.1.3 Status messages, 1.3.1, 2.4.3 Notice of a refused request (GH-3457) | A request the server refuses over a limit is a state of the table, not an error: its text (what the request comes to, what the server sends, what can be narrowed, with the selection's counts) is one `role="alert"` in a `section` that names itself by its heading, and the buttons (apply the window that fits, download everything as CSV) come after it in the tab order and outside the alert, so they are not read twice. A button's label wraps (320 px: no part of the notice reaches past the screen; tested), and it says what it does and how much, in the page's language. The notice raises no toast. When applying the window removes the notice while a button of it holds the focus, the focus goes to the table area (`useFocusAfterRetry`), which is where the answer, or the notice again, arrives. The note under the date range is a `role="status"` that is in the page before it has a text, and the description (`aria-describedby`) of both date fields. Tested in `tests/nuxt/components/limit-notice.test.ts`, `DateRangeSelector.test.ts` and the three states of the accessibility spec. |
 | 2.1.2, 2.4.3 on the narrow layout's menu | **Was failing**: the menu was a fixed overlay that Tab walked out of. It is a dialog. |
 
 The charts' text alternatives and keyboard access (#3145), checked on 2026-10-19:

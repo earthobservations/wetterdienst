@@ -649,7 +649,9 @@
     "errStartRequired": "Startdato er påkrævet",
     "errEndRequired": "Slutdato er påkrævet",
     "errEndAfterStart": "Slutdato skal være efter startdato",
-    "errExceedsLimit": "Estimerede {count} værdier overskrider grænsen på {max}. Indsnævr venligst datointervallet."
+    "errExceedsLimit": "Estimerede {count} værdier overskrider grænsen på {max}. Indsnævr venligst datointervallet.",
+    "defaultNote": "Standardinterval: de nyeste data ({span}, omkring {rows} rækker), så serveren kan sende dem på én gang. Ryd datointervallet for at bede om alt.",
+    "clear": "Ryd datointerval"
   },
   "map": {
     "centerAll": "Centrér på alle stationer",
@@ -700,7 +702,26 @@
     "statMin": "Min.",
     "statMax": "Maks.",
     "statMean": "Gennemsnit",
-    "statSum": "Sum"
+    "statSum": "Sum",
+    "limitRowsTitle": "For mange rækker til ét svar",
+    "limitRowsBody": "Dette valg giver omkring {requested} rækker, mere end denne server sender i ét svar (grænse: {maximum}).",
+    "limitStationsTitle": "For mange stationer til én forespørgsel",
+    "limitStationsBody": "Du har valgt flere stationer, end denne server læser i én forespørgsel: {requested} valgt, {maximum} tilladt.",
+    "limitNarrow": "For at se dem her skal du indsnævre valget: Vælg et kortere datointerval, færre parametre eller færre stationer. Du har valgt {stations} og {parameters}.",
+    "limitNarrowPoint": "For at se dem her skal du indsnævre valget: Vælg et kortere datointerval eller færre parametre. Du har valgt {parameters}.",
+    "limitNarrowStations": "Fjern stationer fra valget, og se resten i et ekstra trin. Du har valgt {stations}.",
+    "limitApply": "Vis kun de nyeste data ({span}, omkring {rows} rækker)",
+    "limitNoWindow": "Ikke engang det korteste datointerval passer i ét svar. Vælg færre parametre eller stationer, eller download alt.",
+    "limitDownload": "Download alt som CSV",
+    "limitDownloadHint": "CSV-filen streames og kan derfor indeholde flere rækker end ét svar.",
+    "limitDownloadHintMax": "CSV-filen streames og kan derfor indeholde flere rækker end ét svar: op til {maximum}.",
+    "limitStationsCount": "{count} station | {count} stationer",
+    "limitParametersCount": "{count} parameter | {count} parametre",
+    "limitUnit": {
+      "days": "{count} dag | {count} dage",
+      "months": "{count} måned | {count} måneder",
+      "years": "{count} år | {count} år"
+    }
   },
   "query": {
     "enable": "Transformér med SQL-forespørgsel",

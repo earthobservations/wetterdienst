@@ -649,7 +649,9 @@
     "errStartRequired": "Počáteční datum je povinné",
     "errEndRequired": "Koncové datum je povinné",
     "errEndAfterStart": "Koncové datum musí být pozdější než počáteční datum",
-    "errExceedsLimit": "Odhadovaných {count} hodnot překračuje limit {max}. Zuž prosím rozsah dat."
+    "errExceedsLimit": "Odhadovaných {count} hodnot překračuje limit {max}. Zuž prosím rozsah dat.",
+    "defaultNote": "Výchozí rozsah: nejnovější data ({span}, asi {rows} řádků), aby je server mohl poslat najednou. Smaž rozsah dat, pokud chceš požádat o všechno.",
+    "clear": "Smazat rozsah dat"
   },
   "map": {
     "centerAll": "Vycentrovat na všechny stanice",
@@ -700,7 +702,26 @@
     "statMin": "Min.",
     "statMax": "Max.",
     "statMean": "Průměr",
-    "statSum": "Součet"
+    "statSum": "Součet",
+    "limitRowsTitle": "Příliš mnoho řádků pro jednu odpověď",
+    "limitRowsBody": "Tento výběr dává asi {requested} řádků, tedy více, než tento server posílá v jedné odpovědi (limit: {maximum}).",
+    "limitStationsTitle": "Příliš mnoho stanic pro jeden požadavek",
+    "limitStationsBody": "Výběr obsahuje více stanic, než tento server čte v jednom požadavku: vybráno {requested}, povoleno {maximum}.",
+    "limitNarrow": "Aby se data zobrazila zde, zúži výběr: vyber kratší rozsah dat, méně parametrů nebo méně stanic. Aktuální výběr: {stations} a {parameters}.",
+    "limitNarrowPoint": "Aby se data zobrazila zde, zúži výběr: vyber kratší rozsah dat nebo méně parametrů. Aktuální výběr: {parameters}.",
+    "limitNarrowStations": "Odeber stanice z výběru a zbytek si prohlédni v dalším kroku. Aktuální výběr: {stations}.",
+    "limitApply": "Zobrazit jen nejnovější data ({span}, asi {rows} řádků)",
+    "limitNoWindow": "Ani nejkratší rozsah dat se nevejde do jedné odpovědi. Vyber méně parametrů nebo stanic, nebo stáhni vše.",
+    "limitDownload": "Stáhnout vše jako CSV",
+    "limitDownloadHint": "Soubor CSV se přenáší průběžně, proto může obsahovat více řádků než jedna odpověď.",
+    "limitDownloadHintMax": "Soubor CSV se přenáší průběžně, proto může obsahovat více řádků než jedna odpověď: až {maximum}.",
+    "limitStationsCount": "{count} stanice | {count} stanice | {count} stanic",
+    "limitParametersCount": "{count} parametr | {count} parametry | {count} parametrů",
+    "limitUnit": {
+      "days": "{count} den | {count} dny | {count} dní",
+      "months": "{count} měsíc | {count} měsíce | {count} měsíců",
+      "years": "{count} rok | {count} roky | {count} let"
+    }
   },
   "query": {
     "enable": "Transformovat pomocí SQL dotazu",

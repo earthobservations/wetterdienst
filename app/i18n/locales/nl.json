@@ -649,7 +649,9 @@
     "errStartRequired": "Begindatum is vereist",
     "errEndRequired": "Einddatum is vereist",
     "errEndAfterStart": "Einddatum moet na de begindatum liggen",
-    "errExceedsLimit": "Geschatte {count} waarden overschrijden de limiet van {max}. Beperk het datumbereik."
+    "errExceedsLimit": "Geschatte {count} waarden overschrijden de limiet van {max}. Beperk het datumbereik.",
+    "defaultNote": "Standaardbereik: de nieuwste gegevens ({span}, ongeveer {rows} rijen), zodat de server ze in één keer kan versturen. Wis het datumbereik om alles op te vragen.",
+    "clear": "Datumbereik wissen"
   },
   "map": {
     "centerAll": "Centreren op alle stations",
@@ -700,7 +702,26 @@
     "statMin": "Min.",
     "statMax": "Max.",
     "statMean": "Gemiddelde",
-    "statSum": "Som"
+    "statSum": "Som",
+    "limitRowsTitle": "Te veel rijen voor één antwoord",
+    "limitRowsBody": "Deze selectie komt neer op ongeveer {requested} rijen, meer dan deze server in één antwoord verstuurt (limiet: {maximum}).",
+    "limitStationsTitle": "Te veel stations voor één verzoek",
+    "limitStationsBody": "Je hebt meer stations geselecteerd dan deze server in één verzoek leest: {requested} geselecteerd, {maximum} toegestaan.",
+    "limitNarrow": "Om het hier te zien, maak je de selectie kleiner: kies een korter datumbereik, minder parameters of minder stations. Je hebt {stations} en {parameters} geselecteerd.",
+    "limitNarrowPoint": "Om het hier te zien, maak je de selectie kleiner: kies een korter datumbereik of minder parameters. Je hebt {parameters} geselecteerd.",
+    "limitNarrowStations": "Haal stations uit de selectie en bekijk de rest in een volgende stap. Je hebt {stations} geselecteerd.",
+    "limitApply": "Alleen de nieuwste gegevens tonen ({span}, ongeveer {rows} rijen)",
+    "limitNoWindow": "Zelfs het kortste datumbereik past niet in één antwoord. Kies minder parameters of stations, of download alles.",
+    "limitDownload": "Alles downloaden als CSV",
+    "limitDownloadHint": "De CSV wordt gestreamd en kan daarom meer rijen bevatten dan één antwoord.",
+    "limitDownloadHintMax": "De CSV wordt gestreamd en kan daarom meer rijen bevatten dan één antwoord: tot {maximum}.",
+    "limitStationsCount": "{count} station | {count} stations",
+    "limitParametersCount": "{count} parameter | {count} parameters",
+    "limitUnit": {
+      "days": "{count} dag | {count} dagen",
+      "months": "{count} maand | {count} maanden",
+      "years": "{count} jaar | {count} jaar"
+    }
   },
   "query": {
     "enable": "Transformeren met SQL-query",

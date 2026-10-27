@@ -16,6 +16,29 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[Explorer]` A request the server refuses over its limits (`limit-exceeded`: too many rows for
+  one answer, too many stations) is a state of the table in the page's language, with the numbers
+  as the language writes them and what the selection holds, in place of the server's English
+  text and a red error. For the rows it offers the newest window that fits (about 90 % of the
+  limit, rounded down to days, months or years for the resolution) as one button that fills the
+  date range and asks again, and the whole request as a streamed CSV download (`format=csv`,
+  which the server allows more rows). All eleven locales; pl, cs, lb and de-hh are not natively
+  reviewed (GH-3457)
+- `[Explorer]` A selection whose whole record is more than the server sends as one answer starts
+  with the newest window that fits in the date range, with a note under the fields that says so,
+  where the range was empty (the server's limits come from `GET /api/version`). "Clear date range"
+  empties it and keeps it empty (`range=all` in the link); dates you type, apply or share in a link
+  are never replaced (GH-3457)
+
+### Changed
+
+- `[Explorer]` A date range that is required (1, 5 and 10 minute data) is started with the newest
+  window of at most 100,000 values, which the form accepts, where it used to be the whole span of
+  the stations' records, which it refused. Dates you have edited are no longer replaced when you
+  choose other stations (GH-3457)
+
 ## [0.38.0] - 2026-10-27
 
 ### Added
