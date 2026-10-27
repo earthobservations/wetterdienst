@@ -36,7 +36,7 @@
   --color-ink-200: #e4e8ef;
   --color-ink-300: #ced5df;
   --color-ink-400: #9aa5b8;
-  --color-ink-500: #67758c;
+  --color-ink-500: #5c6b83;
   --color-ink-600: #465773;
   --color-ink-700: #304464;
   --color-ink-800: #17335f;
@@ -106,7 +106,7 @@
   --ui-border-accented: var(--ui-color-neutral-700);
 
   --ui-primary: var(--ui-color-primary-400);
-  /* brand-400 on the dark page is 7.0:1; the label on it is the page's own navy (7.0:1), 4.7:1 hovered (brand-300 is lighter) */
+  /* brand-400 on the dark page is 7.0:1; the label on it is the page's own navy (7.0:1), 9.7:1 on the hovered fill (brand-300) */
   --app-text-on-primary: var(--color-ink-950);
   --app-primary-hover: var(--ui-color-primary-300);
 }
@@ -152,6 +152,16 @@ h1, h2, h3 {
   :where(:root:not(.dark)) .hover\:text-primary\/75:hover {
     color: var(--ui-color-primary-800);
   }
+  /* A chip or a link that turns to the primary colour (and its 10 % tint) when hovered: shade 600 is 4.3:1 on the
+     tint, shade 700 5.2:1 */
+  :where(:root:not(.dark)) .hover\:text-primary:hover {
+    color: var(--ui-color-primary-700);
+  }
+  /* In dark mode the same 75 % of shade 400 is 4.5:1 on the page and 4.2:1 on a raised surface: it brightens to
+     shade 300 instead, which is what "hovered" means on a dark page */
+  :where(.dark) .hover\:text-primary\/75:hover {
+    color: var(--ui-color-primary-300);
+  }
 }
 
 /* The focus indicator of a keyboard user (WCAG 2.4.7, 1.4.11: 3:1 against what is behind it). Nuxt UI draws it as a
@@ -171,8 +181,8 @@ h1, h2, h3 {
   outline: 2px solid var(--app-focus-ring);
   outline-offset: 2px;
 }
-/* The map is a light surface in both modes (Leaflet's grey, and the tiles): it takes the ring of light mode */
-.leaflet-container:focus-visible,
+/* The map is a light surface in both modes (Leaflet's grey, and the tiles): what is focused inside it takes the ring
+   of light mode. The map's own ring lies outside it, on the page, and takes the ring of the mode. */
 .leaflet-container :focus-visible:not([tabindex="-1"]) {
   outline-color: var(--ui-color-primary-700);
 }

@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Design]` A new look with the colours of the logo: its blue is the primary colour, dark mode
+  is its navy, and the font is Figtree, served by the app itself. Every page stands in one shared
+  layout with the same side margins (wider for the explorer, stripes, forecast, history and
+  providers pages), with a new header, footer and page title, and the home page has a new hero.
+  Nothing behaves differently; the licence notices gain the font's licence (OFL-1.1) (GH-3518)
+
 ## [0.38.0] - 2026-10-27
 
 ### Added

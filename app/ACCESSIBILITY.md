@@ -61,21 +61,33 @@ What is left in it, and why it is not fixed in the app's own markup:
 - `aria-hidden-focus`, the error toast: the two focus proxies in Reka UI's toast viewport are
   `aria-hidden` and focusable. Also upstream.
 
-There is no `color-contrast` entry left. The brand green, `#00c950`, stays the fill of a solid primary
-button; its label is `#0f172b` (`--app-text-on-primary` in `app/assets/css/main.css`, set for the
-button in `app/app.config.ts`), 8.0:1 on the fill and 9.5:1 hovered in light mode, where the white
-label it replaces was 2.2:1 and 1.9:1. Dark mode has the same label on its lighter fill, as Nuxt UI
-already had it (10.0:1, and 6.1:1 hovered). A disabled button is exempt from 1.4.3 and from the scans; its
-label is at 75 % opacity with its fill (4.2:1 in light mode). Text in the primary colour on white is
-shade 700 and a fifth of the way to 800 (`.text-primary`), a hovered link button shade 800 (7.1:1; Nuxt UI's
-75 % of the first was 3.4:1), and a hovered chip of the home page shade 700 (4.9:1; shade 500 was 2.2:1).
-`tests/unit/button-contrast.test.ts` computes the hovered ratio of a solid button, as 75 % of the fill over
-the page; the hover scan measures the rest.
+There is no `color-contrast` entry left. The primary colour is the blue of the logo, `#2E6FD1` (`brand-600`),
+which is the fill of a solid primary button; its label is white (`--app-text-on-primary` in
+`app/assets/css/main.css`, set for the button in `app/app.config.ts`), 4.9:1 on the fill and 6.0:1 on the hovered
+fill (`brand-700`; Nuxt UI's own hover is 75 % of the fill over the page, where white is under 4.5:1). Dark mode has
+the logo's navy `#0B1A33` as the label on the lighter fill (`brand-400`, 7.0:1; 9.7:1 hovered on `brand-300`). A
+disabled button is exempt from 1.4.3 and from the scans; its label is at 75 % opacity with its fill. Text in the
+primary colour on white is shade 700 (`.text-primary`, 6.0:1; 5.2:1 on its own 10 % tint, where shade 600 is 4.4:1),
+a hovered link button shade 800 (8.2:1; Nuxt UI's 75 % of the first was under 4.5:1) and a hovered chip
+shade 700 (5.2:1 on its tint; shade 600 was 4.3:1). In dark mode a hovered link button brightens to shade 300 (75 % of
+shade 400 was 4.2:1 on a raised surface). Muted text is `ink-500` a
+quarter of the way to `ink-600` on white (5.8:1; 5.3:1 on `ink-100`; `ink-500` itself, which the pages' `text-gray-500` is, 5.4:1 and 4.9:1) and `ink-400` on dark (7.0:1 on the page, 5.0:1
+on the navy of the logo, the brightest surface). The page of dark mode is `ink-950`, the logo's `#0B1A33`; its raised
+surfaces are `ink-900` and `ink-800` (the logo's `#17335F`). The home page's developer band is navy in both modes and
+sets its own focus ring (`.app-on-dark`, `brand-300`, 8.7:1). `tests/unit/button-contrast.test.ts` reads the colours
+from `main.css` and computes the ratios of the solid button, its hover, in both modes; the hover scan measures the
+rest. The whole table is in the pull request of GH-3518 (it is computed by WCAG's formula, not estimated).
 
 The focus indicator is one solid 2 px outline for everything a keyboard reaches (`--app-focus-ring` in
-`main.css`: shade 700 of the primary colour on light, 4.9:1 on white, shade 400 on dark, 10:1; the map takes
-the light one in both modes). Nuxt UI's own is an outline at 25 % of the primary colour (1.2:1 to 1.7:1 on
-white) and a ring in the primary colour (2.2:1), and its menu search fields draw none; they stay, beside it.
+`main.css`: shade 700 of the primary colour on light, 6.0:1 on white, shade 400 on dark, 7.0:1 on the page and 5.0:1
+on the brightest surface; the map takes the light one in both modes). Nuxt UI's own is an outline at 25 % of the
+primary colour (under 2:1 on white) and a ring in the primary colour, and its menu search fields draw none; they
+stay, beside it.
+
+Decoration is hidden from assistive technology and carries no information: the stripes of the home page and of the
+developer band (`StripesBand`, a fixed pseudo-random line, not data), the colour wash behind each page, the icon
+tiles of the page headers (`PageHeader`) and the four-colour line of the footer. Nothing moves for ever; the entrance
+of the pages (`.app-rise`) and the lift of a card (`.app-lift`) exist only under `prefers-reduced-motion: no-preference`.
 
 There is no sepia mode. `main.css` once held a `html.sepia` block that redefined the `--ui-*` tokens, which
 nothing in the app ever set (`colorMode` knows `light`, `dark` and `system`, and the settings offer those

@@ -27,7 +27,7 @@ function token(name: string) {
 function labelIn(selector: string) {
   const block = new RegExp(`^${selector.replace('.', '\\.')} \\{([^}]*)\\}`, 'm')
   const value = [...css.matchAll(new RegExp(block.source, 'gm'))]
-    .map(match => /--app-text-on-primary:\s*([^;]+);/.exec(match[1]!)?.[1])
+    .map(match => /--app-text-on-primary:\s*([^\s;][^;]*);/.exec(match[1]!)?.[1])
     .find(Boolean)
   expect(value, `--app-text-on-primary in ${selector}`).toBeDefined()
   const token_ = /^var\(--color-([a-z0-9-]+)\)$/.exec(value!)?.[1]
