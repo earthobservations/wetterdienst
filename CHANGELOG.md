@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Security
+
+- `uv.lock` pins `authlib` 1.9.1 (was 1.8.0) and `dnspython` 2.9.0 (was 2.8.0), which close the
+  open Dependabot alerts for both. They come in only through the `mcp` extra (`fastmcp`), and
+  wetterdienst neither imports them nor serves an authenticated MCP endpoint, so its own code
+  did not reach the affected paths; a source install with the extra and the Docker image
+  (built from the lock) now carry the fixed versions (GH-3514)
+
 ## [0.177.0] - 2026-10-27
 
 ### Changed
