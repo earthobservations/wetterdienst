@@ -23,14 +23,13 @@ The networks that are held in their stub only, and those that cannot be held, ar
 
 from __future__ import annotations
 
-import re
-
 import polars as pl
 import pytest
 
 from tests.conftest import FROST_RESOLVER_ON_MACOS
 from tests.provider.station_catalogue import (
     COUNTRY_BBOX,
+    FROST_FOREIGN_WMO,
     Accepted,
     assert_covered,
     assert_in_extent,
@@ -99,20 +98,6 @@ ACCEPTED: dict[str, tuple[Accepted, ...]] = {
     "noaa/ghcn": (GHCN_NO_POSITION, GHCN_NAMES),
     "wsv/pegel": (WSV_NO_POSITION, WSV_TIEL),
 }
-
-# Frost lists the foreign SYNOP stations it holds beside the Norwegian ones: `SN` + the WMO number x 100, so six or
-# seven digits ending in `00`, where a Norwegian id has at most five (GH-3488)
-FROST_FOREIGN_WMO = Accepted(
-    "coordinates_outside_extent",
-    "Frost lists the foreign SYNOP stations it holds beside the Norwegian ones, as `SN` + the WMO number x 100 (six or "
-    "seven digits ending in 00; the Norwegian ids have at most five): SN1039300 is 10393 Lindenberg (DE; DWD's list "
-    "has 03015 at 52.2085, 14.1180, 200 m from the listed position), SN743400 is 07434 Limoges-Bellegarde (FR; NOAA's "
-    "isd-history has 45.863, 1.179), SN623500 is 06235 De Kooy (NL), SN848200 is 08482 Malaga (ES), SN1240000 is "
-    "12400 Zielona Gora (PL), SN1298200 is 12982 Szeged (HU): more than two hundred in all, with positions that are "
-    "right and stations that are not in Norway. The library passes them on, and the extent stays that of Norway; "
-    "a Norwegian id outside the box is still a failure",
-    where=lambda row: re.fullmatch(r"SN\d{4,5}00", row["station_id"]) is not None,
-)
 
 # the stations a live list has outside the extent of its network, with the reason (GH-3456): the box is where the
 # network is, so a station elsewhere is the source's, and the box is not widened to it

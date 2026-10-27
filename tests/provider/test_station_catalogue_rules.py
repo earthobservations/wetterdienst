@@ -10,6 +10,7 @@ import pytest
 
 from tests.provider.station_catalogue import (
     COUNTRY_BBOX,
+    FROST_FOREIGN_WMO,
     RULES,
     Accepted,
     Bbox,
@@ -20,7 +21,6 @@ from tests.provider.station_catalogue import (
     unaccepted,
 )
 from tests.provider.station_catalogue_stubs import question_mark_in_the_name
-from tests.provider.test_station_catalogues_live import FROST_FOREIGN_WMO
 from wetterdienst import Wetterdienst
 
 _NOW = dt.datetime(2026, 10, 10, tzinfo=dt.UTC)
@@ -289,21 +289,28 @@ def test_a_station_outside_the_extent_is_accepted_for_its_id_only() -> None:
 
 
 def test_the_foreign_wmo_stations_of_frost_are_accepted_by_their_id_and_a_norwegian_one_is_not() -> None:
-    """The ids that are a WMO number x 100 are accepted outside the box of Norway, and an id of five digits is not."""
+    """The ids that are a WMO number x 100 are accepted outside the box of Norway, and a Norwegian id is not.
+
+    The Norwegian ids outside the box include one of five digits that ends in 00 (SN99900), which a looser pattern
+    (a pattern that takes any number of digits before the 00) would take for a foreign one.
+    """
     extent = Wetterdienst.resolve("metno", "frost").metadata.extent
+    foreign = ["SN743400", "SN623500", "SN1039300", "SN1240000"]
+    norwegian_outside = ["SN99900", "SN99999", "SN123456"]
     stations = pl.DataFrame(
         {
-            "station_id": ["SN18700", "SN743400", "SN623500", "SN1039300", "SN1240000", "SN99999", "SN123456"],
-            "latitude": [59.94, 45.861, 52.927, 52.209, 51.93, 40.0, 40.0],
-            "longitude": [10.72, 1.175, 4.781, 14.12, 15.52, 14.0, 14.0],
+            # SN18700 is Oslo, in the box
+            "station_id": ["SN18700", *foreign, *norwegian_outside],
+            "latitude": [59.94, 45.861, 52.927, 52.209, 51.93, 40.0, 40.0, 40.0],
+            "longitude": [10.72, 1.175, 4.781, 14.12, 15.52, 14.0, 14.0, 14.0],
         }
     )
 
     problems = check_extent(stations, "metno/frost", extent, accepted=(FROST_FOREIGN_WMO,))
 
-    assert len(problems) == 2
-    assert "SN99999" in problems[0]
-    assert "SN123456" in problems[1]
+    assert len(problems) == len(norwegian_outside)
+    for station_id, problem in zip(norwegian_outside, problems, strict=True):
+        assert station_id in problem
 
 
 def test_an_accepted_station_does_not_hold_the_box_open() -> None:
