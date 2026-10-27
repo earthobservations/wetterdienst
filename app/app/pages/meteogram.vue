@@ -224,15 +224,8 @@ onMounted(async () => {
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('meteogram.title') }}
-      </h1>
-      <p class="text-gray-600 dark:text-gray-400">
-        {{ t('meteogram.subtitle') }}
-      </p>
-    </div>
+  <PageContainer wide>
+    <PageHeader :title="t('meteogram.title')" :lead="t('meteogram.subtitle')" icon="i-lucide-cloud-sun" tone="sun" />
 
     <UCollapsible v-model="showAbout">
       <UButton
@@ -370,5 +363,5 @@ onMounted(async () => {
         {{ t('meteogram.emptyHint') }}
       </p>
     </div>
-  </UContainer>
+  </PageContainer>
 </template>

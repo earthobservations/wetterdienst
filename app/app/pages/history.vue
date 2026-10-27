@@ -194,15 +194,8 @@ function clear() {
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('history.title') }}
-      </h1>
-      <p class="text-gray-600 dark:text-gray-400">
-        {{ t('history.subtitle') }}
-      </p>
-    </div>
+  <PageContainer wide>
+    <PageHeader :title="t('history.title')" :lead="t('history.subtitle')" icon="i-lucide-clock" tone="teal" />
 
     <UCollapsible v-model="showAbout">
       <UButton
@@ -750,5 +743,5 @@ function clear() {
         </div>
       </div>
     </UCard>
-  </UContainer>
+  </PageContainer>
 </template>

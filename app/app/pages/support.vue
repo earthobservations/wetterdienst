@@ -6,12 +6,8 @@ useHead({ title: () => t('support.title') })
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('support.title') }}
-      </h1>
-    </div>
+  <PageContainer>
+    <PageHeader :title="t('support.title')" icon="i-lucide-heart" tone="coral" />
 
     <UCard>
       <template #header>
@@ -93,5 +89,5 @@ useHead({ title: () => t('support.title') })
         </ul>
       </div>
     </UCard>
-  </UContainer>
+  </PageContainer>
 </template>

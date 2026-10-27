@@ -14,6 +14,9 @@ const MOSMIX = {
   parameters: ['ttt', 'td', 'ff', 'dd', 'fx1', 'n', 'nl', 'nm', 'nh', 'rr1c', 'ww', 'pppp', 'tx', 'tn'],
 }
 
+// embedded by other sites: no header, no footer, no page container (layouts/widget.vue)
+definePageMeta({ layout: 'widget' })
+
 const { t } = useI18n()
 
 // the title says which page this is: WCAG 2.4.2, and what a screen reader announces after a navigation

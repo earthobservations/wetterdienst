@@ -15,12 +15,8 @@ const hasPlaceholders = computed(() =>
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('impressum.title') }}
-      </h1>
-    </div>
+  <PageContainer>
+    <PageHeader :title="t('impressum.title')" icon="i-lucide-scale" tone="blue" />
 
     <!-- Reminder shown until the legally required placeholders are filled in. -->
     <UAlert
@@ -133,5 +129,5 @@ const hasPlaceholders = computed(() =>
         </template>
       </i18n-t>
     </UCard>
-  </UContainer>
+  </PageContainer>
 </template>

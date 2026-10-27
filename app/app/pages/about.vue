@@ -60,15 +60,8 @@ const people = computed(() => [
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('about.title') }}
-      </h1>
-      <p class="text-gray-600 dark:text-gray-400">
-        {{ t('about.subtitle') }}
-      </p>
-    </div>
+  <PageContainer>
+    <PageHeader :title="t('about.title')" :lead="t('about.subtitle')" icon="i-lucide-info" tone="blue" />
 
     <UCard>
       <template #header>
@@ -224,5 +217,5 @@ const people = computed(() => [
         </UButton>
       </div>
     </UCard>
-  </UContainer>
+  </PageContainer>
 </template>

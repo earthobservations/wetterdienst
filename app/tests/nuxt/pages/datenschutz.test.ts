@@ -140,8 +140,10 @@ describe('privacy policy page', () => {
       expect(legal.exists()).toBe(true)
       expect(privacy.exists()).toBe(true)
       expect(privacy.classes().sort()).toEqual(legal.classes().sort())
-      // the two are neighbours in the footer's row, not the header's nav
-      expect(privacy.element.parentElement).toBe(legal.element.parentElement)
+      // the two are neighbours in the footer's list (each in an item of its own), not the header's nav
+      expect(privacy.element.parentElement?.parentElement).toBe(legal.element.parentElement?.parentElement)
+      expect(legal.element.closest('footer')).not.toBeNull()
+      expect(privacy.element.closest('footer')).toBe(legal.element.closest('footer'))
     })
   })
 })
