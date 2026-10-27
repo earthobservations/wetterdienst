@@ -112,8 +112,13 @@ def test_dwd_poi_stations() -> None:
 
 @pytest.mark.remote
 def test_dwd_poi_values() -> None:
-    """A station's reports come back hourly, in UTC, for roughly the last day."""
-    request = DwdPoiRequest(parameters=[("hourly", "data")]).filter_by_station_id(["10147"])
+    """The reports of two stations come back hourly, in UTC, for roughly the last day (GH-3490).
+
+    Live by design. Two stations that report their columns every hour (Koeln/Bonn, Frankfurt), and the newest report
+    of both held to the age: Hamburg (10147) stopped reporting on 2026-10-26, its file being all `---` since, which
+    left the newest report it could return 16 hours old, and one station going dark fails no network.
+    """
+    request = DwdPoiRequest(parameters=[("hourly", "data")]).filter_by_station_id(["10513", "10637"])
     df = request.values().all().df
     assert not df.is_empty()
     assert set(df.columns) >= {
