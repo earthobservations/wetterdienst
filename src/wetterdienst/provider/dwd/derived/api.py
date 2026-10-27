@@ -18,6 +18,7 @@ import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.fetch_ahead import FilesAhead
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
 from wetterdienst.model.quality_flags import RAW_SUFFIX, join_quality_flags, unpivot_with_raw
 from wetterdienst.model.request import TimeseriesRequest
@@ -34,6 +35,8 @@ from wetterdienst.provider.dwd.derived.parser import parse_climate_derived_data
 from wetterdienst.util.network import File, download_file, list_remote_files_fsspec
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from wetterdienst import Period
     from wetterdienst.settings import Settings
 
@@ -573,6 +576,24 @@ class DwdDerivedValues(TimeseriesValues):
         if len(data) == 0:
             return pl.DataFrame()
         return pl.concat(data)
+
+    def _files_ahead(self, station_id: str, datasets: Sequence[DatasetModel]) -> FilesAhead:
+        """Name the files of the station that `download_climate_derived_data` downloads (GH-3454).
+
+        The technical datasets are files of a month for every station, which the station's collection reads one
+        after the other and are not named: the first station to need one downloads it.
+        """
+        from typing import cast  # noqa: PLC0415
+
+        stations = cast("DwdDerivedRequest", self.sr.request)
+        settings = cast("Settings", stations.settings)
+        urls: list[str] = []
+        for dataset in datasets:
+            if dataset in TECHNICAL_DATASETS:
+                continue
+            for period in sorted(cast("set[Period]", stations.periods) or set()):
+                urls += create_file_list_for_climate_derived(station_id, dataset, period, settings).to_list()
+        return FilesAhead(urls=urls, ttl=CacheExpiry.FIVE_MINUTES)
 
     def _collect_station_parameter_or_dataset(
         self,

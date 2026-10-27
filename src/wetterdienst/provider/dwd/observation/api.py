@@ -20,6 +20,7 @@ from wetterdienst.exceptions import MetaFileNotFoundError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.fetch_ahead import FilesAhead
 from wetterdienst.model.history import (
     History,
     TimeseriesHistory,
@@ -97,6 +98,40 @@ def _is_value_column(column: str) -> bool:
 class DwdObservationValues(TimeseriesValues):
     """Values class for DWD observation data."""
 
+    def _periods_and_date_ranges(
+        self, station_id: str, dataset: DatasetModel, settings: Settings
+    ) -> list[tuple[Period, list[str] | None]]:
+        """Give the periods to read of a station's dataset, oldest first, each with the date ranges of its files.
+
+        Oldest first, so that the rank taken from this order is the precedence the overlaps are settled on. Iterating
+        the set directly left the order to the set's own, which varies from one interpreter run to the next.
+        """
+        stations = cast("DwdObservationRequest", self.sr.request)
+        periods_and_date_ranges: list[tuple[Period, list[str] | None]] = []
+        for period in sorted(cast("set[Period]", stations.periods)):
+            if dataset.resolution.value in HIGH_RESOLUTIONS and period == Period.HISTORICAL:
+                date_ranges = self._get_historical_date_ranges(
+                    station_id,
+                    dataset,
+                    settings,
+                )
+                periods_and_date_ranges.append((period, date_ranges))
+            else:
+                periods_and_date_ranges.append((period, None))
+        return periods_and_date_ranges
+
+    def _files_ahead(self, station_id: str, datasets: Sequence[DatasetModel]) -> FilesAhead:
+        """Name the archives of the station, which `download_climate_observations_data` downloads (GH-3454)."""
+        settings = cast("Settings", self.sr.request.settings)
+        urls: list[str] = []
+        for dataset in datasets:
+            for period, date_ranges in self._periods_and_date_ranges(station_id, dataset, settings):
+                if period in dataset.periods:
+                    urls += create_file_list_for_climate_observations(
+                        station_id, dataset, period, settings, date_ranges
+                    ).to_list()
+        return FilesAhead(urls=urls, ttl=CacheExpiry.FIVE_MINUTES)
+
     def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
@@ -114,20 +149,7 @@ class DwdObservationValues(TimeseriesValues):
             dataset = parameter_or_dataset
         else:
             dataset = parameter_or_dataset.dataset
-        periods_and_date_ranges = []
-        # oldest period first, so that the rank taken from this order below is the precedence the
-        # overlaps are settled on. Iterating the set directly left the order to the set's own, which
-        # varies from one interpreter run to the next
-        for period in sorted(cast("set[Period]", stations.periods)):
-            if dataset.resolution.value in HIGH_RESOLUTIONS and period == Period.HISTORICAL:
-                date_ranges = self._get_historical_date_ranges(
-                    station_id,
-                    dataset,
-                    settings,
-                )
-                periods_and_date_ranges.append((period, date_ranges))
-            else:
-                periods_and_date_ranges.append((period, None))
+        periods_and_date_ranges = self._periods_and_date_ranges(station_id, dataset, settings)
         parameter_data = []
         # when DWD wrote the archives each period read (the `Last-Modified` of their download), by the rank of the
         # period: noted below for the periods whose rows are in the answer (GH-2567)

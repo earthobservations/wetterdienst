@@ -356,6 +356,26 @@ def _worker_unique_cache_dir(tmp_path_factory: pytest.TempPathFactory, worker_id
     del os.environ["WD_CACHE_DIR"]
 
 
+@pytest.fixture(autouse=True)
+def _no_fetch_ahead_unless_asked_for(request: pytest.FixtureRequest) -> Generator[None]:
+    """Have the tests read one station after the other: the fetch-ahead of the core (GH-3454) is off unless one asks.
+
+    A test that stands in for the collection of DWD's stations but leaves its file index to the network would have the
+    hook that names a station's files ask that index of the network from the thread of the test. A test that wants it
+    (`tests/model/test_fetch_ahead.py`) names the fixture `fetch_ahead_wanted`.
+
+    Not through the `monkeypatch` fixture: that is undone after the fixtures set up later, and a test that patches
+    what another autouse fixture of its own clears (`tests/util/test_eccodes.py`) needs its patch undone first.
+    """
+    from wetterdienst.model.values import TimeseriesValues  # noqa: PLC0415
+
+    original = TimeseriesValues._fetch_ahead  # noqa: SLF001
+    if "fetch_ahead_wanted" not in request.fixturenames:
+        TimeseriesValues._fetch_ahead = lambda self, groups: None  # type: ignore[method-assign]  # noqa: ARG005, SLF001
+    yield
+    TimeseriesValues._fetch_ahead = original  # type: ignore[method-assign]  # noqa: SLF001
+
+
 def _is_local_address(address: object) -> bool:
     """Say whether a socket address points at this machine.
 
