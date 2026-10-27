@@ -108,7 +108,7 @@ test.describe('the file', () => {
       expect(duckdb, needle).toContain(needle)
     const plotly = byName.get('plotly.js-basic-dist-min')!.body
     // the unminified bundle's packages, at least the ones with a notice of their own that used to be dropped
-    for (const needle of ['@plotly/d3@3.8.2', 'maplibre-gl@4.7.1', 'tinycolor2@1.4.2', 'No licence text could be obtained for native-promise-only@0.8.1'])
+    for (const needle of ['@plotly/d3@3.8.2', 'maplibre-gl@4.7.1', 'tinycolor2@1.4.2', 'native-promise-only 0.8.1 has no licence text of its own below'])
       expect(plotly, needle).toContain(needle)
     expect(byName.get('leaflet.markercluster')!.body).toContain('literateprograms.org')
     expect(text).toContain('not a legal guarantee of completeness')

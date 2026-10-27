@@ -5,9 +5,9 @@ carry the DuckDB source id 08e34c447b, which is commit 08e34c447bae34eaee3723cac
 github.com/duckdb/duckdb, the tag v1.5.4. The package ships no licence text, so the texts below are files of that
 commit, copied as they are: DuckDB's own LICENSE; the LICENSE of the ALP and ALP-RD compression code in src/; and
 every LICENSE (and NOTICES) file of the third_party/ directory and of the ICU copy. The third_party/ directory is
-listed as a whole because the package does not say which libraries each of its builds links: some of them (such
-as ICU, Parquet, Thrift, Snappy, Brotli, Snowball and jemalloc) are loadable extensions of the WASM build, which
-the browser downloads separately or not at all, and others (such as httplib) are linked.
+listed as a whole because the package does not say which libraries each of its builds links: some belong to
+extensions that the WASM build loads separately, or not at all (ICU, Snowball, and Parquet with the Thrift, Snappy
+and Brotli code it uses), jemalloc is not built for WASM, and others (such as httplib) are linked.
 
 Statically linked into the WASM modules besides DuckDB are Apache Arrow C++ 17.0.0 and RapidJSON. The LICENSE.txt
 and NOTICE.txt of Arrow C++ at the commit duckdb-wasm pins (6a2e19a852b367c72d7b12da4d104456491ed8b7) are
@@ -15,10 +15,11 @@ byte-identical to those of the apache-arrow JavaScript package, whose entry in t
 entry has to stay while this WASM is shipped); RapidJSON's license.txt is reproduced below from the commit
 duckdb-wasm pins (973dc9c06dcd3d035ebd039cfb9ea457721ec213).
 
-The worker (duckdb-browser-eh.worker.js) bundles js-sha256 and the browser stub of ws, and duckdb-browser.mjs
-bundles wasm-feature-detect and web-worker (per their source maps): their LICENSE files are from the npm
-packages, js-sha256 0.11.1, wasm-feature-detect 1.6.1 and web-worker 1.2.0 at the versions of duckdb-wasm's
-yarn.lock, and ws 8.22.0, the version in this app's lockfile (the stub has no version of its own).
+The worker (duckdb-browser-eh.worker.js) bundles js-sha256 and the browser stub of ws (and tslib, apache-arrow
+and flatbuffers, which have entries of their own in this file), and duckdb-browser.mjs bundles
+wasm-feature-detect and web-worker (per their source maps): the LICENSE files below are from the npm packages,
+js-sha256 0.11.1, wasm-feature-detect 1.6.1 and web-worker 1.2.0 at the versions of duckdb-wasm's yarn.lock, and
+ws 8.22.0, the version in this app's lockfile (the stub has no version of its own).
 
 ---- duckdb/duckdb@v1.5.4 LICENSE ----
 

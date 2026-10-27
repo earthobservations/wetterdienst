@@ -22,8 +22,9 @@ Types of changes:
   Vue, Plotly, DuckDB-WASM, Swagger UI, ...) at `/third-party-licenses.txt`, linked from the
   footer as "Third-party licences". The production build writes it from the packages' own licence
   files, so it is also in the Docker image and the release tarball. It adds the licences of the
-  code inside the DuckDB-WASM and Plotly files; the one library for which none could be obtained
-  is named in the file, which lists what was found and is no guarantee of completeness (GH-3469)
+  code inside the DuckDB-WASM, Plotly and marker cluster files, and names the one library whose
+  package and repository ship none. It lists what was found and is no guarantee of completeness
+  (GH-3469)
 
 ### Changed
 

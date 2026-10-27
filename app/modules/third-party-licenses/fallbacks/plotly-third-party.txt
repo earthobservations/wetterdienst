@@ -3,15 +3,19 @@ Notices for libraries bundled in plotly-basic.min.js (GH-3469)
 plotly.js 3.7.0 bundles its dependencies into the file, and the app's minifier drops their licence comments; the
 file keeps only the block at its end for native-promise-only, polybooljs and object-assign, which is reproduced
 with the package. The unminified file of the same release, plotly.js-basic-dist 3.7.0, marks each bundled module
-with a "// node_modules/<package>/..." comment, and the 22 packages it names are covered below:
+with a "// node_modules/<package>/..." comment, and the 22 packages it names are listed here:
 @plotly/d3 3.8.2, base64-arraybuffer 1.0.2, d3-format 1.4.5, d3-time 1.1.0, d3-time-format 2.2.3, events 3.3.0, fast-isnumeric 1.1.4, gl-mat4 1.2.0, has-hover 1.0.1, has-passive-events 1.0.0, is-browser 2.1.0, is-mobile 4.0.0, is-string-blank 1.0.1, maplibre-gl 4.7.1, mouse-event-offset 3.0.2, native-promise-only 0.8.1, object-assign 4.1.1, parse-svg-path 0.1.2, point-in-polygon 1.1.0, polybooljs 1.2.2, tinycolor2 1.4.2, world-calendars 1.0.4.
-Each text is the LICENSE file of the npm package at the version plotly.js v3.7.0's package-lock.json resolves
-(is-mobile's and has-hover's packages ship none: the LICENSE of their repositories, as it is now, is used and
-labelled). maplibre-gl 4.7.1 is included although it is a map library: the file embeds it.
-
-No licence text could be obtained for native-promise-only@0.8.1: neither its npm package nor its repository ships one.
-Its copyright line and licence name (MIT) are in the block of licence comments the file keeps, reproduced with the
-package plotly.js-basic-dist-min below.
+Each text is the licence file of the npm package at the version plotly.js v3.7.0's package-lock.json resolves, with
+these exceptions:
+- is-mobile 4.0.0 and has-hover 1.0.1 ship no licence file. The text given is the current file of their
+  repositories (LICENSE of juliangruber/is-mobile; `license` of dy/has-hover). The README.md of the is-mobile
+  4.0.0 package carries the same MIT terms (copyright 2013 Julian Gruber).
+- native-promise-only 0.8.1 has no licence text of its own below: neither its package nor its repository ships a
+  licence file. Its README states the MIT licence and points to http://getify.mit-license.org/, and the
+  "Bundled license information" block that the minified file keeps, reproduced at the end of this
+  entry, names the same licence with the copyright line "(c) Kyle Simpson".
+- maplibre-gl 4.7.1: the bundle embeds only maplibre-gl/dist/maplibre-gl.css (injected at runtime), not its
+  JavaScript; the text given is the package's root LICENSE.txt.
 
 ---- @plotly/d3@3.8.2 LICENSE ----
 
@@ -228,7 +232,7 @@ freely, subject to the following restrictions:
 
  3. This notice may not be removed or altered from any source distribution.
 
----- has-hover@1.0.1 LICENSE (the repository's current one, the npm package ships none) ----
+---- has-hover@1.0.1 license (the repository's current file of that name; the npm package ships none) ----
 
 MIT License
 
@@ -298,7 +302,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
----- is-mobile@4.0.0 LICENSE (the repository's current one, the npm package ships none) ----
+---- is-mobile@4.0.0 LICENSE (the repository's current file of that name; the npm package ships none) ----
 
 The MIT License (MIT)
 Copyright (c) 2013 Julian Gruber <julian@juliangruber.com>
