@@ -14,33 +14,52 @@ function contrast(a: string, b: string) {
   const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
   return (hi! + 0.05) / (lo! + 0.05)
 }
-// 75 % of the fill over the page: the hover state of Nuxt UI's solid button (bg-primary/75)
-function over(fill: string, page: string) {
-  const p = channels(page)
-  return `#${channels(fill).map((c, i) => Math.round(0.75 * c + 0.25 * p[i]!).toString(16).padStart(2, '0')).join('')}`
-}
 
 const css = readFileSync(fileURLToPath(new URL('../../app/assets/css/main.css', import.meta.url)), 'utf-8')
 
+// a colour of the theme (`--color-brand-600: #2e6fd1`)
+function token(name: string) {
+  const hex = new RegExp(`--color-${name}:\\s*(#[0-9a-f]{6})`, 'i').exec(css)?.[1]
+  expect(hex, `--color-${name} in main.css`).toBeDefined()
+  return hex!
+}
+// what a block of main.css (`:root {` or `.dark {`) says --app-text-on-primary is: a colour, or a token of the theme
+function labelIn(selector: string) {
+  const block = new RegExp(`^${selector.replace('.', '\\.')} \\{([^}]*)\\}`, 'm')
+  const value = [...css.matchAll(new RegExp(block.source, 'gm'))]
+    .map(match => /--app-text-on-primary:\s*([^;]+);/.exec(match[1]!)?.[1])
+    .find(Boolean)
+  expect(value, `--app-text-on-primary in ${selector}`).toBeDefined()
+  const token_ = /^var\(--color-([a-z0-9-]+)\)$/.exec(value!)?.[1]
+  return token_ ? token(token_) : value!
+}
+
 describe('the label of a solid primary button (--app-text-on-primary)', () => {
-  const label = /--app-text-on-primary:\s*(#[0-9a-f]{6})/i.exec(css)?.[1]
-
-  it('is set in main.css, for both colour modes', () => {
-    expect(label).toBeDefined()
-    // not redefined for .dark: one dark label serves the brand green and its lighter dark-mode shade
-    expect(css).not.toMatch(/\.dark\s*\{[^}]*--app-text-on-primary/)
+  it('is set in main.css for both colour modes, and the hovered fill with it', () => {
+    expect(labelIn(':root')).toMatch(/^#[0-9a-f]{6}$/i)
+    expect(labelIn('.dark')).toMatch(/^#[0-9a-f]{6}$/i)
+    expect(css).toMatch(/--app-primary-hover:\s*var\(--ui-color-primary-700\)/)
+    expect(css).toMatch(/--app-primary-hover:\s*var\(--ui-color-primary-300\)/)
   })
 
-  // Tailwind's green-500, the fill in light mode, over white; green-400, the fill in dark mode, over slate-900 (Nuxt UI's neutral)
+  // light: the logo's blue (brand-600) is the fill and brand-700 the hovered fill; dark: brand-400 and brand-300
   it.each([
-    ['light', '#00c950', '#ffffff'],
-    ['dark', '#05df72', '#0f172b'],
-  ])('clears 4.5:1 on the %s fill and on its hover', (_mode, fill, page) => {
-    expect(contrast(label!, fill)).toBeGreaterThanOrEqual(4.5)
-    expect(contrast(label!, over(fill, page))).toBeGreaterThanOrEqual(4.5)
+    ['light', ':root', 'brand-600', 'brand-700'],
+    ['dark', '.dark', 'brand-400', 'brand-300'],
+  ])('clears 4.5:1 on the %s fill and on its hover', (_mode, selector, fill, hover) => {
+    const label = labelIn(selector)
+    expect(contrast(label, token(fill))).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(label, token(hover))).toBeGreaterThanOrEqual(4.5)
   })
 
-  it('is what white was not (the reason for the dark label)', () => {
-    expect(contrast('#ffffff', '#00c950')).toBeLessThan(3)
+  it('is the logo\'s blue, #2e6fd1, that the light fill is', () => {
+    expect(token('brand-600').toLowerCase()).toBe('#2e6fd1')
+  })
+
+  // Nuxt UI's hovered fill is 75 % of the fill over the page: the reason the theme sets its own
+  it('is what Nuxt UI\'s own hover (75 % of the fill over white) would not clear', () => {
+    const [r, g, b] = channels(token('brand-600')).map(c => Math.round(0.75 * c + 0.25 * 255))
+    const hovered = `#${[r, g, b].map(c => c!.toString(16).padStart(2, '0')).join('')}`
+    expect(contrast(labelIn(':root'), hovered)).toBeLessThan(4.5)
   })
 })

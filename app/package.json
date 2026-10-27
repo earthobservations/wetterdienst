@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "@duckdb/duckdb-wasm": "1.33.1-dev57.0",
+    "@fontsource-variable/figtree": "^5.3.0",
     "@nuxt/icon": "^2.5.1",
     "@nuxt/ui": "^4.11.3",
     "@nuxtjs/i18n": "^10.6.0",
