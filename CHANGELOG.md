@@ -28,6 +28,13 @@ Types of changes:
   can show up later, by up to twice the client timeout. `Settings(fetch_ahead=...)` or
   `WD_FETCH_AHEAD` sets the 4 (at most 8), 0 switches it off (GH-3454)
 
+### Fixed
+
+- `eaufrance/hubeau` declares its `extent.bbox` up to 51.1 N, not 51.0: France reaches 51.09 N
+  (Bray-Dunes), so a correctly placed station there is no longer reported as outside the country
+  by the catalogue rules and a swapped one is corrected. The box of metropolitan France that
+  swaps a misplaced position moves with it (GH-3481)
+
 ## [0.176.0] - 2026-10-27
 
 ### Added
