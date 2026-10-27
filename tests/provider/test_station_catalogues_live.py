@@ -296,3 +296,41 @@ def test_the_hubeau_referential_is_in_the_extent_of_its_network() -> None:
     assert_in_extent(
         stations, "eaufrance/hubeau", Wetterdienst.resolve("eaufrance", "hubeau").metadata.extent, whole=True
     )
+
+
+@pytest.mark.remote
+def test_the_hubeau_referential_has_every_station_in_an_area_once_swapped() -> None:
+    """Hold the stations of the referential of `eaufrance/hubeau` to the areas of France once swapped (GH-3468).
+
+    One request, as `_NOT_HELD` leaves the catalogue out: after `_swap_misplaced_positions` every station is in
+    metropolitan France or an overseas department but the Blavet, which the referential lists in Algeria
+    (`HUBEAU_BLAVET`). A source that fixes it is no failure of ours, so a station fewer than that is not one either.
+    """
+    from wetterdienst import Settings  # noqa: PLC0415
+    from wetterdienst.metadata.cache import CacheExpiry  # noqa: PLC0415
+    from wetterdienst.provider.eaufrance.hubeau import api  # noqa: PLC0415
+
+    rows = api._paged_rows(  # noqa: SLF001
+        api._STATIONS_ENDPOINT,  # noqa: SLF001
+        Settings(cache_disable=True),
+        ttl=CacheExpiry.FIVE_MINUTES,
+        timeout=120,
+    )
+    stations = pl.DataFrame(
+        {
+            "station_id": [row["code_station"] for row in rows],
+            "latitude": [row.get("latitude_station") for row in rows],
+            "longitude": [row.get("longitude_station") for row in rows],
+        },
+        schema={"station_id": pl.String, "latitude": pl.Float64, "longitude": pl.Float64},
+    )
+
+    swapped = api._swap_misplaced_positions(stations)  # noqa: SLF001
+
+    assert swapped.height > 1000
+    # a station without a position is in no area either, which a filter on the area alone would drop, not report: a
+    # referential that renames or empties its position fields must fail here
+    assert swapped.select(pl.col("latitude", "longitude").is_null().sum()).row(0) == (0, 0)
+    in_an_area = api._in_an_area(pl.col("latitude"), pl.col("longitude")).fill_null(value=False)  # noqa: SLF001
+    outside = swapped.filter(~in_an_area)
+    assert set(outside["station_id"]) <= {"J543211003"}, outside

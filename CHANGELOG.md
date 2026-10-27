@@ -75,6 +75,12 @@ Types of changes:
   kept an accepted answer for a minute on disk; now a rejection is kept for up to 60 s too, a
   `valid: null` for 5 s, and simultaneous calls share one probe. A changed or corrected credential
   shows within a minute, a revoked one within two. The answer has the same shape (GH-2607)
+- **Breaking**: the positions of 54 `eaufrance/hubeau` stations change: the referential lists them
+  with latitude and longitude swapped (Anor at 4.10 N, 49.99 E, a point near Somalia), and they
+  now come back where they are (50.0 N, 4.1 E). A position is swapped when it lies in none of
+  metropolitan France, Guadeloupe and Martinique, Guyane, Reunion and Mayotte and the swapped one
+  lies in one; no station overseas is moved. `J543211003` (the Blavet), listed in Algeria, is not
+  moved. Nothing needs to be done; a filter on a station's old position needs the new one (GH-3468)
 
 ### Fixed
 
