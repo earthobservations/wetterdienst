@@ -107,7 +107,7 @@ describe('the sitemap', () => {
 
   it('takes the host from the setting, so an instance of its own names itself', () => {
     const urls = locs(sitemapXml('https://weather.example.org/'))
-    expect(urls.every(url => url!.startsWith('https://weather.example.org'))).toBe(true)
+    expect(urls.map(url => new URL(url!).origin)).toEqual(urls.map(() => 'https://weather.example.org'))
     expect(urls[0]).toBe('https://weather.example.org/')
     expect(robotsTxt('https://weather.example.org/')).toContain('Sitemap: https://weather.example.org/sitemap.xml\n')
   })
