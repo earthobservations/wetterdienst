@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.39.0] - 2026-10-28
+
 ### Security
 
 - `[Dependencies]` The lock file no longer holds `qs` 6.16.0 (GHSA-6pq8-jhm2-2vcw): it is
@@ -1661,7 +1663,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.38.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.39.0...HEAD
+[0.39.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.38.0...app-v0.39.0
 [0.38.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.37.0...app-v0.38.0
 [0.37.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.36.0...app-v0.37.0
 [0.36.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.35.0...app-v0.36.0
