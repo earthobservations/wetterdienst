@@ -289,6 +289,8 @@ const dataKinds = computed(() => [
           </ul>
           <p class="mt-4 text-sm text-muted">
             {{ t('home.dataProvidersDesc') }}
+          </p>
+          <p class="mt-1 flex flex-wrap gap-x-5 gap-y-1 text-sm">
             <NuxtLink to="/glossary" class="text-primary underline hover:no-underline">
               {{ t('home.glossaryHint') }}
             </NuxtLink>

@@ -32,6 +32,10 @@ export const NOTICE_ONLY_LICENSES = new Set([
   'CC0-1.0',
   'ISC',
   'MIT',
+  // the font (@fontsource-variable/figtree, GH-3518), read: the OFL asks that the copyright line and the licence text
+  // go with the font, which the file does (the whole text), that the font is not sold by itself, and that a modified
+  // font does not carry the reserved name; the app serves the files as they are
+  'OFL-1.1',
   'Unlicense',
 ])
 

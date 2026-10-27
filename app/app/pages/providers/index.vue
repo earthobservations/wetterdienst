@@ -54,7 +54,7 @@ function parameterCount(provider: Provider): number {
 </script>
 
 <template>
-  <PageContainer>
+  <PageContainer wide>
     <PageHeader :title="t('providers.title')" :lead="t('providers.subtitle')" icon="i-lucide-building-2" tone="teal" />
 
     <div class="flex flex-col sm:flex-row gap-2">
@@ -94,7 +94,7 @@ function parameterCount(provider: Provider): number {
       <p class="text-sm text-gray-500 dark:text-gray-400">
         {{ t('providers.shown', { shown: providers.length, count: data?.providers.length ?? 0 }) }}
       </p>
-      <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         <li v-for="provider in providers" :key="provider.provider">
           <NuxtLink :to="`/providers/${provider.provider}`" class="group block h-full">
             <UCard
