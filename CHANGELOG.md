@@ -30,6 +30,10 @@ Types of changes:
 
 ### Fixed
 
+- `dwd/observation`: a read of the historical period of a 1-, 5- or 10-minute dataset for a window
+  that no file of the station covers (the gap between two files, a window past the last one) no
+  longer downloads and parses every historical file of the station only for the rows to be
+  dropped. The answer is the same, the read is faster and makes fewer requests (GH-3505)
 - `eaufrance/hubeau` declares its `extent.bbox` up to 51.1 N, not 51.0: France reaches 51.09 N
   (Bray-Dunes), so a correctly placed station there is no longer reported as outside the country
   by the catalogue rules and a swapped one is corrected. The box of metropolitan France that

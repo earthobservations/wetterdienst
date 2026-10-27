@@ -54,10 +54,11 @@ def create_file_list_for_climate_observations(
 
     Date ranges are used to reduce the number of files to be downloaded based on the date range of the files.
     This is useful for hourly or more fine-grained data, where the number of files can be very large.
+    ``None`` selects every file of the station; an empty list selects none (a window no file covers).
     """
     file_index = create_file_index_for_climate_observations(dataset, period, settings)
     file_index = file_index.filter(pl.col("station_id").eq(station_id))
-    if date_ranges:
+    if date_ranges is not None:
         file_index = file_index.filter(pl.col("date_range").is_in(date_ranges))
     result = file_index.collect(background=False)
     if not isinstance(result, pl.DataFrame):
