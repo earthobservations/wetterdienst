@@ -476,8 +476,11 @@ DEP002 = [
 # installed, transitive where it is.
 # tabula is tabula-py, which only the maintainers' radar-sites generator imports
 # (`provider/dwd/radar/sites.py`): no extra names it, because it needs a Java runtime (GH-2764)
-DEP001 = ["pyproj", "tabula"]
-# mcp_types is where fastmcp takes `ToolAnnotations` from (`ui/mcp.py`); it re-exports it nowhere
+# mcp_types is where fastmcp takes `ToolAnnotations` from (`ui/mcp.py`), and fastmcp re-exports it
+# nowhere. It comes in transitively through fastmcp (the `mcp` extra; fastmcp-slim requires
+# mcp-types>=2,<3), so it is missing where that extra is not installed and transitive where it is;
+# declaring it would change uv.lock for a package fastmcp already brings.
+DEP001 = ["mcp_types", "pyproj", "tabula"]
 DEP003 = ["mcp_types", "pyproj"]
 
 [tool.pytest.ini_options]
