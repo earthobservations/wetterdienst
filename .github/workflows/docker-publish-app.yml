@@ -80,8 +80,12 @@ jobs:
           fi
 
           # 200 from something is not enough: it has to be our shell, with the client bundle
-          # mounted into it. SSR is off, so this page renders without the backend.
-          if ! grep -q '<title>Wetterdienst</title>' index.html || ! grep -q 'id="__nuxt"' index.html; then
+          # mounted into it. SSR is off, so this page renders without the backend. The title is not
+          # compared whole: the server writes it per path and language (GH-3497), and a request with
+          # no Accept-Language or cookie gets the German one, which starts with the app's name.
+          if ! grep -q '<title>Wetterdienst' index.html \
+            || ! grep -q 'id="__nuxt"' index.html \
+            || ! grep -q '<script[^>]*src="/_nuxt/' index.html; then
             echo "::error::the page served on :4000 is not the wetterdienst spa shell"
             head -c 2000 index.html
             docker logs wd-app
