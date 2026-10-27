@@ -319,8 +319,19 @@ def test_cli_values_json_with_metadata_with_stations(metadata: dict) -> None:
     ]
 
 
+def _indents_of(json_dumps_mock: MagicMock) -> list[int | None]:
+    """Give the `indent` of each call of the patched `json.dumps` that has one, in order.
+
+    The patch wraps the real function, as other code calls it too (the cache writes the date of a file with it, with no
+    indent), and a test that took the last call would be reading that.
+    """
+    indents = [call.kwargs["indent"] for call in json_dumps_mock.call_args_list if "indent" in call.kwargs]
+    assert indents, "the answer was not written with json.dumps and an indent"
+    return indents
+
+
 @pytest.mark.remote
-@mock.patch("json.dumps", create=True)
+@mock.patch("json.dumps", create=True, wraps=json.dumps)
 def test_cli_values_json_indent_false(json_dumps_mock: MagicMock) -> None:
     """Test pretty print."""
     invoke_wetterdienst_values_static(
@@ -336,11 +347,11 @@ def test_cli_values_json_indent_false(json_dumps_mock: MagicMock) -> None:
             "--pretty=false",
         ],
     )
-    assert json_dumps_mock.call_args.kwargs["indent"] is None
+    assert _indents_of(json_dumps_mock)[-1] is None
 
 
 @pytest.mark.remote
-@mock.patch("json.dumps", create=True)
+@mock.patch("json.dumps", create=True, wraps=json.dumps)
 def test_cli_values_json_indent_true(json_dumps_mock: MagicMock) -> None:
     """Test pretty print."""
     invoke_wetterdienst_values_static(
@@ -356,7 +367,7 @@ def test_cli_values_json_indent_true(json_dumps_mock: MagicMock) -> None:
             "--pretty=true",
         ],
     )
-    assert json_dumps_mock.call_args.kwargs["indent"] == 4
+    assert _indents_of(json_dumps_mock)[-1] == 4
 
 
 @pytest.mark.remote
@@ -435,7 +446,7 @@ def test_cli_values_geojson_pretty_false(json_dumps_mock: MagicMock) -> None:
             "--pretty=false",
         ],
     )
-    assert json_dumps_mock.call_args.kwargs["indent"] is None
+    assert _indents_of(json_dumps_mock)[-1] is None
 
 
 @pytest.mark.remote
@@ -455,7 +466,7 @@ def test_cli_values_geojson_pretty_true(json_dumps_mock: MagicMock) -> None:
             "--pretty=true",
         ],
     )
-    assert json_dumps_mock.call_args.kwargs["indent"] == 4
+    assert _indents_of(json_dumps_mock)[-1] == 4
 
 
 @pytest.mark.remote
