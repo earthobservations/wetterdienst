@@ -41,7 +41,8 @@ export function message(locale: SeoLocale, key: string): string {
 export function pickLocale(cookie: string | undefined, acceptLanguage: string | undefined): SeoLocale {
   if (cookie)
     return cookie.toLowerCase() === 'en' ? 'en' : 'de'
-  const first = (acceptLanguage ?? '').split(',', 1)[0]?.trim().toLowerCase() ?? ''
+  // the first entry's tag, without its weight (`en;q=0.9`)
+  const first = (acceptLanguage ?? '').split(',', 1)[0]?.split(';', 1)[0]?.trim().toLowerCase() ?? ''
   return first === 'en' || first.startsWith('en-') ? 'en' : 'de'
 }
 

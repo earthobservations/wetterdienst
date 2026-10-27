@@ -5,6 +5,7 @@ import { applySeoHead, message, pageTitle, pickLocale, seoHead } from '../../ser
 import {
   canonicalUrl,
   DEFAULT_SITE_URL,
+  escapeXml,
   findSeoRoute,
   isNotIndexed,
   isTextFilePath,
@@ -111,6 +112,17 @@ describe('the sitemap', () => {
     expect(robotsTxt('https://weather.example.org/')).toContain('Sitemap: https://weather.example.org/sitemap.xml\n')
   })
 
+  it('is well-formed XML with a host that holds characters XML reserves', () => {
+    const xml = sitemapXml('https://a"b&c\'d.example')
+    const urls = locs(xml)
+
+    expect(urls[1]).toBe('https://a&quot;b&amp;c&apos;d.example/explorer')
+    // every `&` starts an entity, and the entities read back as the host
+    expect(xml).not.toMatch(/&(?!amp;|lt;|gt;|quot;|apos;)/)
+    expect(urls[1]!.replaceAll('&quot;', '"').replaceAll('&apos;', '\'').replaceAll('&amp;', '&')).toBe('https://a"b&c\'d.example/explorer')
+    expect(escapeXml('<a b="c">&\'')).toBe('&lt;a b=&quot;c&quot;&gt;&amp;&apos;')
+  })
+
   it.each([undefined, '', 'not a url', 'ftp://example.org', 42])('falls back to the hosted instance for the setting %j', (value) => {
     expect(siteOrigin(value)).toBe(DEFAULT_SITE_URL)
   })
@@ -144,6 +156,21 @@ describe('canonical links', () => {
     expect(isNotIndexed('/about')).toBe(false)
     // an inherited name is no page
     expect(isNotIndexed('/constructor')).toBe(false)
+  })
+
+  it('take /Widget for /widget, as the router does, and keep the canonical link in lower case', () => {
+    expect(isNotIndexed('/Widget')).toBe(true)
+    expect(isNotIndexed('/SETTINGS/')).toBe(true)
+    expect(findSeoRoute('/ABOUT')?.path).toBe('/about')
+    expect(findSeoRoute('/Privacy')?.path).toBe('/datenschutz')
+    expect(canonicalUrl(DEFAULT_SITE_URL, '/ABOUT')).toBe('https://wetterdienst.eobs.org/about')
+    expect(canonicalUrl(DEFAULT_SITE_URL, '/Privacy')).toBe('https://wetterdienst.eobs.org/datenschutz')
+
+    const widget = seoHead('/Widget', 'en', DEFAULT_SITE_URL)
+    expect(widget.noindex).toBe(true)
+    expect(widget.tags).toContain('<meta name="robots" content="noindex">')
+    expect(widget.tags).not.toContain('rel="canonical"')
+    expect(seoHead('/ABOUT', 'en', DEFAULT_SITE_URL).tags).toContain('<link rel="canonical" href="https://wetterdienst.eobs.org/about">')
   })
 })
 
@@ -193,7 +220,7 @@ describe('the tags of the shell', () => {
   })
 
   it('escape what they are given', () => {
-    // only the origin of the setting is used, so there is no way out of an attribute by it
+    // the path of the setting is dropped (only its origin is used); the title is the text of a page and is escaped
     const sections = { head: [] as string[], bodyPrepend: [] as string[], htmlAttrs: [] as string[] }
     applySeoHead(sections, { ...seoHead('/', 'en', 'https://example.org/"><script>'), title: 'a < b & "c"' })
 
@@ -201,6 +228,19 @@ describe('the tags of the shell', () => {
     expect(written).toContain('<title>a &lt; b &amp; &quot;c&quot;</title>')
     expect(written).not.toContain('<script>')
     expect(written).toContain('<link rel="canonical" href="https://example.org/">')
+  })
+
+  it('escape an origin that holds characters of markup: a host may have an ampersand, an apostrophe or a quotation mark', () => {
+    // `new URL` accepts all three in a host and keeps them in `origin`
+    const sections = { head: [] as string[], bodyPrepend: [] as string[], htmlAttrs: [] as string[] }
+    applySeoHead(sections, seoHead('/about', 'en', 'https://a"b&c.example'))
+
+    const written = sections.head.join('')
+    expect(written).toContain('<link rel="canonical" href="https://a&quot;b&amp;c.example/about">')
+    expect(written).toContain('<meta property="og:url" content="https://a&quot;b&amp;c.example/about">')
+    expect(written).toContain('<meta property="og:image" content="https://a&quot;b&amp;c.example/apple-touch-icon.png">')
+    // the host closes no attribute early: every quotation mark of the tags is one of a tag's own
+    expect(written).not.toContain('a"b')
   })
 
   it('carry, for a browser without scripts, the name, the description and the links to the pages', () => {
@@ -253,6 +293,11 @@ describe('the language of the shell', () => {
     expect(pickLocale(undefined, 'en')).toBe('en')
     expect(pickLocale(undefined, 'de-DE,de;q=0.9,en;q=0.8')).toBe('de')
     expect(pickLocale(undefined, 'fr-FR')).toBe('de')
+    // a weight on the first entry is not part of its tag
+    expect(pickLocale(undefined, 'en;q=0.9')).toBe('en')
+    expect(pickLocale(undefined, 'en;q=1.0,de;q=0.5')).toBe('en')
+    expect(pickLocale(undefined, 'de;q=0.9')).toBe('de')
+    expect(pickLocale(undefined, 'en-GB;q=0.8, de')).toBe('en')
     // a crawler sends neither
     expect(pickLocale(undefined, undefined)).toBe('de')
   })
@@ -302,6 +347,12 @@ describe('the plugin that writes the shell', () => {
 
     expect(headers['x-robots-tag']).toBe('noindex')
     expect(html.head.join('')).toContain('<meta name="robots" content="noindex">')
+  })
+
+  it('does the same for the widget written /Widget, which the router shows as well', async () => {
+    const { headers } = await render('/Widget')
+
+    expect(headers['x-robots-tag']).toBe('noindex')
   })
 })
 

@@ -25,12 +25,13 @@ Types of changes:
   code inside the DuckDB-WASM, Plotly and marker cluster files, and names the one library whose
   package and repository ship none. It lists what was found and is no guarantee of completeness
   (GH-3469)
-- `[Search]` The app can be found by a search engine: every page has a descriptive title and
-  description, a canonical link and `og:`/`twitter:` tags, and the server writes them, with a
-  `<noscript>` text that links the pages, into the HTML it sends, for a crawler or link preview
-  that runs no script. `/sitemap.xml` lists the public pages and `/robots.txt` names it; both
-  take their addresses from `NUXT_PUBLIC_SITE_URL` (default `https://wetterdienst.eobs.org`).
-  `/widget` and `/settings` ask not to be indexed (GH-3497)
+- `[Search]` The app can be found by a search engine: every public page has a descriptive title
+  and description, a canonical link and `og:`/`twitter:` tags (the widget, the settings and
+  unknown paths have no canonical link), and the server writes them, with a `<noscript>` text that
+  links the pages, into the HTML it sends, for a crawler or link preview that runs no script.
+  `/sitemap.xml` lists the public pages and `/robots.txt` names it; both take their addresses from
+  `NUXT_PUBLIC_SITE_URL` (default `https://wetterdienst.eobs.org`). `/widget` and `/settings` ask
+  not to be indexed (GH-3497)
 
 ### Changed
 

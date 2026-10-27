@@ -80,7 +80,8 @@ describe('the head of the page', () => {
   })
 
   it('asks for the widget and the settings to be left out of the index, and names no canonical link for them', async () => {
-    for (const path of ['/widget', '/settings']) {
+    // `/Widget` is the widget to the router as well
+    for (const path of ['/widget', '/settings', '/Widget', '/SETTINGS']) {
       await openApp(path)
       expect(metaContent('meta[name="robots"]'), path).toEqual(['noindex'])
       expect(document.head.querySelector('link[rel="canonical"]'), path).toBeNull()

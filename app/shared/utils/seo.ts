@@ -68,7 +68,8 @@ export function normalizePath(path: string): string {
  * @returns The page, or `undefined` for one that is not in the index (or that is no page)
  */
 export function findSeoRoute(path: string): SeoRoute | undefined {
-  const wanted = normalizePath(path)
+  // the router takes `/About` for `/about`, so the lookup does; the canonical link is the route's own path
+  const wanted = normalizePath(path).toLowerCase()
   return SEO_ROUTES.find(route => route.path === wanted || route.aliases?.includes(wanted))
 }
 
@@ -79,7 +80,7 @@ export function findSeoRoute(path: string): SeoRoute | undefined {
  * @returns True for the pages of `NOT_INDEXED`
  */
 export function isNotIndexed(path: string): boolean {
-  return Object.hasOwn(NOT_INDEXED, normalizePath(path))
+  return Object.hasOwn(NOT_INDEXED, normalizePath(path).toLowerCase())
 }
 
 /**
@@ -115,6 +116,21 @@ export function canonicalUrl(siteUrl: unknown, path: string): string {
 }
 
 /**
+ * Text as it may stand in XML. An origin can hold `&`, `'` and `"` (`new URL('https://a&b.example').origin` keeps them).
+ *
+ * @param text Any text
+ * @returns The text with the five characters XML reserves written as entities
+ */
+export function escapeXml(text: string): string {
+  return text
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll('\'', '&apos;')
+}
+
+/**
  * The sitemap of the indexed pages (https://www.sitemaps.org/protocol.html): their canonical URLs, nothing else. No
  * `lastmod`, `changefreq` or `priority`, which the app has no true value for.
  *
@@ -122,7 +138,7 @@ export function canonicalUrl(siteUrl: unknown, path: string): string {
  * @returns The XML document
  */
 export function sitemapXml(siteUrl: unknown): string {
-  const urls = SEO_ROUTES.map(route => `  <url><loc>${canonicalUrl(siteUrl, route.path)}</loc></url>`)
+  const urls = SEO_ROUTES.map(route => `  <url><loc>${escapeXml(canonicalUrl(siteUrl, route.path))}</loc></url>`)
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
