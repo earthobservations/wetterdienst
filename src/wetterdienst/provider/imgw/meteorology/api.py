@@ -15,6 +15,7 @@ import portion
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.fetch_ahead import FilesAhead
 from wetterdienst.model.metadata import DatasetModel, build_metadata_model
 from wetterdienst.model.quality_flags import join_quality_flags
 from wetterdienst.model.request import TimeseriesRequest
@@ -27,6 +28,8 @@ from wetterdienst.util.network import File, download_file, download_files
 from wetterdienst.util.polars_util import read_csv_without_header
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
@@ -589,6 +592,18 @@ class ImgwMeteorologyValues(TimeseriesValues[DatasetModel]):
             },
         },
     }
+
+    def _files_ahead(self, station_id: str, datasets: Sequence[DatasetModel]) -> FilesAhead:
+        """Name the archives of the station that only it reads, which are those of the daily synop (GH-3454).
+
+        The files of the other datasets are one for each month or year for every station, which the first station to
+        need one downloads, and which the station after it finds in the cache.
+        """
+        urls: list[str] = []
+        for dataset in datasets:
+            if dataset.resolution.value == Resolution.DAILY and dataset.name == "synop":
+                urls += self._get_urls(dataset, station_id)
+        return FilesAhead(urls=urls, ttl=CacheExpiry.FIVE_MINUTES)
 
     def _collect_station_parameter_or_dataset(
         self,

@@ -17,6 +17,7 @@ from typing_extensions import TypeVar
 
 from wetterdienst.exceptions import ProviderContractError
 from wetterdienst.metadata.resolution import count_readings, reading_interval
+from wetterdienst.model.fetch_ahead import FetchAhead, FilesAhead
 from wetterdienst.model.metadata import group_parameters_by_dataset
 from wetterdienst.model.quality_flags import QUALITY_FLAGS, RAW_TOKEN
 from wetterdienst.model.result import StationsResult, ValuesResult
@@ -255,6 +256,9 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     unit_converter: UnitConverter = field(default_factory=UnitConverter)
     #: the dates a provider noted while it collected the station in hand (`_note_data_updated`)
     _data_updated: list[dt.datetime] = field(default_factory=list, init=False, repr=False, compare=False)
+    #: whether `query` may have the files of the next stations fetched while one is read (GH-3454); a caller that stops
+    #: the walk where the data says, not at a number it knows (interpolation, summary), sets it False
+    _fetch_ahead_allowed: bool = field(default=True, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         """Post-initialization of the TimeseriesValues object."""
@@ -320,14 +324,35 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         return conversions
 
     def query(self) -> Iterator[ValuesResult]:
-        """Query data for all stations and parameters and return a DataFrame for each station."""
+        """Query data for all stations and parameters and return a DataFrame for each station.
+
+        For a provider that names the files of a station beforehand (`_files_ahead`) the files of the next stations
+        are fetched while one is read, as many as `Settings.fetch_ahead` says (GH-3454). Nothing about the answer
+        depends on it: the stations come in the same order with the same rows, and a failure is the failure of the
+        station it was met at.
+        """
+        groups = list(self.sr.df.group_by(["station_id"], maintain_order=True))
+        ahead = self._fetch_ahead(groups)
+        try:
+            yield from self._query_stations(groups, ahead)
+        finally:
+            # a consumer that stops (a closed generator, an error, a streamed answer whose client has gone) starts
+            # nothing more: what is begun ends with its download, and a download never leaves a part of a file in
+            # the cache
+            if ahead is not None:
+                ahead.close()
+
+    def _query_stations(
+        self, groups: list[tuple[Any, pl.DataFrame]], ahead: FetchAhead | None
+    ) -> Iterator[ValuesResult]:
+        """Walk the stations in order, each one collected, cut to the window and shaped, as `query` yields them."""
         # the stations that returned values, which `filter_by_rank` counts its slots in
         stations_collected = 0
         # mapping of original to humanized parameter names is always the same
         hpm: dict[str, str] = {}
         if self.sr.options.humanize:
             hpm = self._create_humanized_parameters_mapping()
-        for (station_id,), df_station_meta in self.sr.df.group_by(["station_id"], maintain_order=True):
+        for position, ((station_id,), df_station_meta) in enumerate(groups):
             if stations_collected == self.sr._rank:  # noqa: SLF001
                 break
             station_id = cast("str", station_id)
@@ -335,6 +360,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                 continue
             available_datasets = self._get_available_datasets(df_station_meta)
             self._data_updated.clear()
+            self._advance_fetch_ahead(ahead, position, stations_collected)
             # Collect data for this station
             df = self._filter_by_window(self._collect_station_data(station_id, available_datasets))
             # judged after the window has been cut, not before it: a station whose record lies
@@ -371,6 +397,77 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             df = df.sort(sort_columns)
             stations_collected += 1
             yield ValuesResult(stations=self.sr, df=df, data_updated_at=newest(self._data_updated))
+
+    def _advance_fetch_ahead(self, ahead: FetchAhead | None, position: int, stations_collected: int) -> None:
+        """Have the files of the stations after ``position`` fetched, and wait for those of ``position``."""
+        if ahead is None:
+            return
+        rank = self.sr._rank  # noqa: SLF001
+        ahead.advance(position, None if rank is None else rank - stations_collected)
+
+    def _files_ahead(
+        self,
+        station_id: str,  # noqa: ARG002
+        datasets: Sequence[DatasetModel],  # noqa: ARG002
+    ) -> FilesAhead | None:
+        """Name the files this station's collection will download, for a provider whose files are one set per station.
+
+        Implemented by a provider to have the files of the next stations of a read fetched while one is parsed
+        (GH-3454): `query` calls it for the station in hand and for those a few ahead of it, in the thread that
+        consumes it, and the files are downloaded into the cache of the expiry named (`FilesAhead`) by a few threads.
+        Not implemented, which is what a provider that does not have it does, the files are downloaded when the
+        station is collected, one station after the other, as they always were.
+
+        What the provider's own collection downloads afterwards does not change: it asks for the same URLs, with
+        the same arguments, through `download_file` or `download_files`, and finds the files in the cache. So the
+        URLs must be those it will ask for, with the same ``ttl``: a URL it does not ask for is fetched for
+        nothing, and one it does ask for and this does not name is downloaded when its station is reached.
+
+        Raising is fine: it is not heard of, and the station's own collection meets the cause at its turn. Keep it
+        cheap, it is called a few times ahead of the walk in the thread of the consumer, and do not download from it
+        beyond what the provider's own collection downloads anyway (a listing, which is cached): the files it names
+        are fetched by the threads, and a file named by two stations is fetched once.
+
+        Args:
+            station_id: the station.
+            datasets: the datasets collected for it, as `_collect_station_data` collects them.
+
+        Returns:
+            The files and the expiry they are downloaded with, or None for a station that has none.
+
+        """
+        return None
+
+    def _fetch_ahead(self, groups: list[tuple[Any, pl.DataFrame]]) -> FetchAhead | None:
+        """Make the fetch-ahead of the walk over ``groups``, None where it has nothing to do or is not allowed to."""
+        if type(self)._files_ahead is TimeseriesValues._files_ahead or len(groups) < 2:  # noqa: SLF001
+            return None
+        settings = self.sr.settings
+        # where nothing is cached nothing that is fetched ahead is found again by the provider's own download
+        if not settings.fetch_ahead or settings.cache_disable or not self._fetch_ahead_allowed:
+            return None
+
+        def station(position: int) -> tuple[str, list[DatasetModel]] | None:
+            (station_id,), df_station_meta = groups[position]
+            if self._begins_after_window(df_station_meta):
+                return None
+            return cast("str", station_id), self._requested_datasets(self._get_available_datasets(df_station_meta))
+
+        return FetchAhead(
+            settings=settings,
+            depth=settings.fetch_ahead,
+            stations=station,
+            count=len(groups),
+            files_of=self._files_ahead,
+        )
+
+    def _requested_datasets(self, available_datasets: list[DatasetModel]) -> list[DatasetModel]:
+        """Give the datasets `_collect_station_data` collects for a station that has these, in its order."""
+        return [
+            dataset
+            for dataset, _ in group_parameters_by_dataset(cast("Iterable[ParameterModel]", self.sr.request.parameters))
+            if dataset in available_datasets
+        ]
 
     def _begins_after_window(self, df_station_meta: pl.DataFrame) -> bool:
         """Whether the station index already says this station started after the window ended.

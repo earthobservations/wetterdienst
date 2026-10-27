@@ -73,6 +73,26 @@ that say how `df` was selected. Every filter (`filter_by_station_id`, `filter_by
 A station that returns nothing in the window does not count towards a `filter_by_rank` selection, so the ranked walk
 goes on to the next one (`StationsResult._rank`).
 
+**Fetch-ahead.** A provider whose files are one set per station can name them beforehand by implementing
+`TimeseriesValues._files_ahead(station_id, datasets)`, which returns a `FilesAhead` (the URLs and the cache expiry the
+provider downloads them with). `query()` then has the files of the next `Settings.fetch_ahead` stations (4 by default,
+at most 8, 0 for none) downloaded into the cache by that many daemon threads while one station is parsed, and the
+provider's own download at the station's turn finds them there: `_collect_station_parameter_or_dataset` is not changed
+and is still what raises, at the station it raises at. A thread fetches the files of a station one after the other; when
+the walk comes to the station, it ends the file it is at and the provider's own download, which fetches a station's
+files side by side, takes the rest, so a provider whose stations have many files gains little (at the default of 4 it is
+not slower; with 1 or 2 stations ahead it can be). A fetch ahead raises nothing itself; after a failure other than a 404 (or a failing
+hook) nothing more is fetched ahead for that read. A file that is missing or failed is asked for again at its station's
+turn, so an outage can show up later than the first failed request, by up to twice the client timeout.
+
+What is limited: the fetch-ahead's own connections, to `fetch_ahead` for a read and to 8 per host for all the reads of a
+process (`HOST_CONNECTIONS` in `model/fetch_ahead.py`). What is not: the connections of the station in hand (the
+provider's own download, which may fetch its files side by side) and those of other reads. It is off where nothing is
+cached (`cache_disable`), for one station, for a provider that does not implement the hook, and for `interpolate` and
+`summarize` (`TimeseriesValues._fetch_ahead_allowed`), which stop where the data says. `dwd/observation`,
+`dwd/derived`, `chmi` and `imgw/meteorology` implement it; `dwd/phenology`, `dwd/road` and `meteofrance` read files of
+the whole network or of a department, which the first station downloads and the others find in the cache.
+
 The other results are made the same way. `history()` builds a `TimeseriesHistory` (`model/history.py`) from the
 request's `_history` and raises `NotImplementedError` when the provider has none; its hook is `_collect_station_history`.
 `InterpolatedValuesResult` and `SummarizedValuesResult` share their base with `ValuesResult` and come out of
@@ -215,7 +235,7 @@ Two pydantic-settings classes, kept apart on purpose ([the user's view](../usage
 | --- | --- | --- |
 | Belongs to | the host: one per process | one request |
 | Environment | `WD_*`, nested with `__` (`WD_AUTH__KNMI`) | `WD_TS_*` |
-| Holds | `cache_dir`, `cache_disable`, `fsspec_client_kwargs`, `use_certifi`, the credentials (`auth`), and the limits, timeout and allowed hosts of the REST API (`restapi_*`) | `shape`, `humanize`, `convert_units`, `unit_targets`, `skip_empty`, `skip_threshold`, `skip_criteria`, `drop_nulls`, `station_window_end_buffer`, and the interpolation distances (`geo_*`) |
+| Holds | `cache_dir`, `cache_disable`, `fsspec_client_kwargs`, `use_certifi`, `fetch_ahead`, the credentials (`auth`), and the limits, timeout and allowed hosts of the REST API (`restapi_*`) | `shape`, `humanize`, `convert_units`, `unit_targets`, `skip_empty`, `skip_threshold`, `skip_criteria`, `drop_nulls`, `station_window_end_buffer`, and the interpolation distances (`geo_*`) |
 | Read by | the providers (through `request.settings`), the network layer, `ui/` | the values, the interpolation and the summary; never a provider |
 | Passed as | `settings=` on the request (a `Settings` or a dict) | `options=` on the request (an `Options`, a dict, or none to take the environment) |
 | Mutable | by assignment, which is validated | no: frozen, `replace()` makes a changed copy |

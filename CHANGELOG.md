@@ -16,6 +16,18 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- A read of many stations of `dwd/observation`, `dwd/derived`, `chmi` or the daily synop of
+  `imgw/meteorology` fetches the files of the next 4 stations into the cache while one is parsed
+  (not with `cache_disable`, nor for `interpolate` and `summarize`): 100 stations of one small file
+  took 17.5 s and now take 4.3 s against a local upstream of 120 ms latency. Answers, their order
+  and errors are unchanged. That is up to 4 more connections to the host beside the station's own
+  download, and 8 per host at most for all reads of a process together (a station's own downloads
+  are not counted); a missing or failed file is asked twice, ahead and at its turn, so an outage
+  can show up later, by up to twice the client timeout. `Settings(fetch_ahead=...)` or
+  `WD_FETCH_AHEAD` sets the 4 (at most 8), 0 switches it off (GH-3454)
+
 ### Fixed
 
 - `eaufrance/hubeau` declares its `extent.bbox` up to 51.1 N, not 51.0: France reaches 51.09 N
