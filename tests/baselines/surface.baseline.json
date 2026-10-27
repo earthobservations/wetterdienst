@@ -39,6 +39,7 @@
     "auth",
     "cache_dir",
     "cache_disable",
+    "fetch_ahead",
     "fsspec_client_kwargs",
     "restapi_allowed_hosts",
     "restapi_max_concurrent",
@@ -202,5 +203,5 @@
     "smhi/observation": "wetterdienst.provider.smhi.observation.SmhiObservationRequest",
     "wsv/pegel": "wetterdienst.provider.wsv.pegel.WsvPegelRequest"
   },
-  "x-release": "0.176.0"
+  "x-release": "0.177.0"
 }
