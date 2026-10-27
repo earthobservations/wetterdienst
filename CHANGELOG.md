@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.177.0] - 2026-10-27
+
 ### Changed
 
 - A read of many stations of `dwd/observation`, `dwd/derived`, `chmi` or the daily synop of
@@ -6717,7 +6719,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.176.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.177.0...HEAD
+[0.177.0]: https://github.com/earthobservations/wetterdienst/compare/v0.176.0...v0.177.0
 [0.176.0]: https://github.com/earthobservations/wetterdienst/compare/v0.175.0...v0.176.0
 [0.175.0]: https://github.com/earthobservations/wetterdienst/compare/v0.174.0...v0.175.0
 [0.174.0]: https://github.com/earthobservations/wetterdienst/compare/v0.173.0...v0.174.0
