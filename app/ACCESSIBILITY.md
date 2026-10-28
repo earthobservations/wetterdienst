@@ -110,8 +110,13 @@ field, not on "the first dialog" (the drawer or the rail's popover can be open b
 something again), over the drawer (`drawer-palette`, 390 px) and over the rail's popover (`rail-popover-palette`,
 1100 px); `mobile-menu-open` is scanned too. When the layout changes under the keyboard, the focus stays on its link
 (the rail gaining its labels at 1280 px) or goes to the page (the drawer or the popover going away); a page with no
-focus gets none. When the palette closes and the control that opened it is gone (the window crossed 1024 px under it:
-the top bar's button, the drawer), the focus goes to the search button of the layout there is now. A page that is chosen
+focus gets none. When the palette closes and the focus would be left on the body, the focus goes to the search button of the layout there
+is (a visible one, the sidebar's, the rail's or the top bar's): that is the case where the control that opened it is gone
+(the window crossed 1024 px under it: the top bar's button, the drawer), and where it was opened with Ctrl or Cmd + K
+with nothing focused, and closed by Escape or a click outside. The next Tab then goes into the navigation, as the first
+one after the skip link would. Printing: the skip link, the sidebar, the bars and the footer are not printed (`print:hidden`,
+in the markup, so that it holds for a print of a page whose scripts did not run again), a dark page prints in the light
+colours (`plugins/print-light.client.ts`), and an e2e check holds the media rules. A page that is chosen
 in the palette closes the rail's settings popover that was open under it.
 
 There is no sepia mode. `main.css` once held a `html.sepia` block that redefined the `--ui-*` tokens, which

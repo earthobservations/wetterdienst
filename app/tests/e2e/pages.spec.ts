@@ -527,6 +527,75 @@ test.describe('The versions line', () => {
   })
 })
 
+test.describe('Printing', () => {
+  test('leaves out the skip link, the sidebar and the footer, and keeps the page', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/about')
+    await expect(page.locator('aside nav')).toBeVisible()
+    await page.emulateMedia({ media: 'print' })
+
+    await expect(page.locator('aside')).toBeHidden()
+    await expect(page.getByRole('link', { name: 'Skip to content' })).toBeHidden()
+    await expect(page.locator('footer')).toBeHidden()
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    // the page has the width of the paper, not what is left beside a sidebar
+    const main = (await page.locator('main#main').boundingBox())!
+    expect(main.x).toBe(0)
+  })
+
+  test('leaves out the top bar of a narrow window', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 800 })
+    await page.goto('/about')
+    await expect(page.locator('header[data-app-nav]')).toBeVisible()
+    await page.emulateMedia({ media: 'print' })
+
+    await expect(page.locator('header[data-app-nav]')).toBeHidden()
+  })
+
+  test('prints a dark page in the light colours, and puts it back', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/about')
+    // the class is in the page before the app is: the app has taken it up, and its listener is on, from here
+    await expect(page.locator('aside nav')).toBeVisible()
+    await expect(page.locator('html')).toHaveClass(/dark/)
+
+    await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')))
+    await expect(page.locator('html')).not.toHaveClass(/dark/)
+    await page.evaluate(() => window.dispatchEvent(new Event('afterprint')))
+    await expect(page.locator('html')).toHaveClass(/dark/)
+  })
+})
+
+test.describe('The widget in a frame', () => {
+  for (const background of ['#ffd54a', '#1c1c1c']) {
+    test(`reads on a page of ${background}, with no clipped text and no scroll`, async ({ page }) => {
+      // a page of the app's own origin (the frame-ancestors of the policy) with another background, framing the widget
+      await page.route('**/__embed', route => route.fulfill({
+        contentType: 'text/html',
+        body: `<!doctype html><body style="margin:0;padding:16px;background:${background}"><iframe id="w" src="/widget?station=10147" style="width:420px;height:420px;border:0"></iframe></body>`,
+      }))
+      await page.setViewportSize({ width: 600, height: 520 })
+      await page.goto('/__embed')
+      const frame = page.frameLocator('#w')
+      await expect(frame.getByText('Wetterdienst', { exact: false }).first()).toBeVisible()
+      await expect(frame.locator('a', { hasText: 'Open' })).toBeVisible()
+
+      const overflow = await frame.locator('body').evaluate(body => ({
+        sideways: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+        textOutside: [...body.querySelectorAll('span, a')].some((element) => {
+          const box = element.getBoundingClientRect()
+          return box.width > 0 && box.right > document.documentElement.clientWidth + 1
+        }),
+      }))
+      expect(overflow).toEqual({ sideways: false, textOutside: false })
+      // it draws its own background: the frame is white or near black, not the colour of the page behind
+      const colour = await frame.locator('div.min-h-screen.flex-col').first().evaluate(element => getComputedStyle(element).backgroundColor)
+      expect(colour).not.toBe('rgba(0, 0, 0, 0)')
+    })
+  }
+})
+
 test.describe('Support Page', () => {
   test('should be reachable from the navigation', async ({ page }) => {
     await page.goto('/')

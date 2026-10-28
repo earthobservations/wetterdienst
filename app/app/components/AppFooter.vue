@@ -17,7 +17,7 @@ const LINK = 'text-muted hover:text-highlighted transition-colors motion-reduce:
 </script>
 
 <template>
-  <footer class="mt-16 border-t border-default">
+  <footer class="mt-16 border-t border-default print:hidden">
     <UContainer class="flex max-w-(--app-width) flex-col gap-6 py-8">
       <!-- Each link in its own list item, so that no separator is left dangling at the end of a wrapped line. -->
       <ul class="flex flex-wrap gap-x-6 gap-y-2 text-sm">

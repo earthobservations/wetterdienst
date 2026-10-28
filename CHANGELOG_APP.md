@@ -28,6 +28,10 @@ Types of changes:
   heading is now the tagline. Providers show a country code, on the list, the home page and
   their own page, instead of a flag; the language list has no flags. The licence notices gain
   the fonts' licence (OFL-1.1) and the icon set's (GH-3518)
+- `[Widget]` The embeddable widget (`/widget`) takes the new colours and the new font; it still
+  draws its own background, so it reads on any page that frames it (GH-3518)
+- `[Print]` A page prints without the sidebar, the bars, the skip link and the footer, and a page
+  in dark mode prints in light colours (GH-3518)
 
 ### Fixed
 

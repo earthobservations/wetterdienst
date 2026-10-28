@@ -302,3 +302,20 @@ code, kbd, pre, samp {
     outline-offset: -2px;
   }
 }
+
+/* Print: the page on white paper in dark text, whatever the screen's scheme (plugins/print-light.client.ts takes the dark
+   class off while printing); the frame (sidebar, bars, footer) is `print:hidden` in the markup. */
+@media print {
+  :root {
+    color-scheme: light;
+  }
+  body {
+    background: #fff;
+  }
+  /* an icon is a mask over a background colour, which paper does not print unless it is asked to */
+  .iconify,
+  [class*="i-ph"] {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}

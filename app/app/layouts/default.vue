@@ -12,6 +12,9 @@ watch(() => route.path, () => {
   drawerOpen.value = false
 })
 
+// What is printed is the page: the skip link, the sidebar or rail, the top bar and the footer are `print:hidden` (a print is
+// not always made from a page whose scripts ran again, and the frame is laid out by the flag below, so the markup says it
+// itself), and `plugins/print-light.client.ts` prints a dark page in the light colours.
 // the sidebar is the large layout's: a drawer that is hidden with CSS would still hold the focus. The row layout is driven by
 // this flag too, not by a Tailwind breakpoint: Tailwind's are in rem, which a browser set to a larger default font size
 // makes wider than these pixels, and the rail and the page would stack
@@ -53,23 +56,23 @@ function skipToContent(event: Event) {
 </script>
 
 <template>
-  <div class="min-h-screen" :class="large ? 'flex' : ''">
+  <div class="min-h-screen print:block" :class="large ? 'flex' : ''">
     <a
       href="#main"
-      class="fixed left-3 top-3 z-50 -translate-y-24 rounded-md bg-default px-4 py-2 text-sm font-medium text-highlighted ring ring-default focus:translate-y-0"
+      class="fixed left-3 top-3 z-50 -translate-y-24 rounded-md print:hidden bg-default px-4 py-2 text-sm font-medium text-highlighted ring ring-default focus:translate-y-0"
       @click="skipToContent"
     >
       {{ t('nav.skip') }}
     </a>
 
-    <div v-if="large" data-app-nav class="shrink-0 border-e border-default" :class="wide ? 'w-(--app-sidebar-width)' : 'w-(--app-rail-width)'">
+    <div v-if="large" data-app-nav class="shrink-0 border-e border-default print:hidden" :class="wide ? 'w-(--app-sidebar-width)' : 'w-(--app-rail-width)'">
       <aside class="sticky top-0 h-screen">
         <AppNav :collapsed="!wide" />
       </aside>
     </div>
 
     <div class="flex min-w-0 flex-1 flex-col">
-      <header v-if="!large" data-app-nav class="sticky top-0 z-30 flex h-(--ui-header-height) items-center gap-2 border-b border-default bg-default/90 px-4 backdrop-blur sm:px-6">
+      <header v-if="!large" data-app-nav class="print:hidden sticky top-0 z-30 flex h-(--ui-header-height) items-center gap-2 border-b border-default bg-default/90 px-4 backdrop-blur sm:px-6">
         <NuxtLink to="/" class="flex items-center gap-2.5 rounded-md py-1 text-highlighted" aria-label="Wetterdienst">
           <img src="/icon.svg" alt="" class="size-7 rounded-md">
           <span class="text-base font-semibold tracking-tight">Wetterdienst</span>
