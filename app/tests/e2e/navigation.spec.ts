@@ -171,6 +171,21 @@ test.describe('the narrow layout', () => {
   })
 })
 
+test.describe('a tool on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 } })
+
+  // the result column of the workbench is no wider than the page: the forecast's row of day cards scrolls in its own
+  // box, and a chart or a table in theirs (WCAG 1.4.10)
+  for (const path of ['/meteogram?station=01001&compact=true', '/meteogram?station=01001', '/stripes?kind=temperature&station=00011']) {
+    test(`does not scroll sideways: ${path}`, async ({ page, baseURL }) => {
+      await open(page, baseURL!, path)
+      await page.waitForLoadState('networkidle').catch(() => {})
+      await page.waitForTimeout(500)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
+    })
+  }
+})
+
 test.describe('a low window', () => {
   // a desktop window at 400 % zoom, or a phone on its side: the bars stop being fixed (WCAG 1.4.10)
   test.use({ viewport: { width: 320, height: 256 } })

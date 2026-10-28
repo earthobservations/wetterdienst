@@ -20,6 +20,9 @@ defineSlots<{ setup: () => unknown, result: () => unknown }>()
 <style>
 .workbench {
   display: grid;
+  /* one column no wider than the page: an implicit column would grow to the widest thing in it (the forecast's row
+     of day cards, a table), and the page would scroll sideways */
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.5rem;
   align-items: start;
 }
