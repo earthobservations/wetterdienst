@@ -1482,17 +1482,19 @@ def providers(
     For every provider, or the one named with `provider`: the names it goes by, the country of the agency
     that runs it (`country_code` is the ISO 3166-1 alpha-2 code; it is the operator's country, not the extent
     of its data), the terms it publishes its data under (`license`, null where it states none) and the credit
-    line to give (`attribution`), and its networks, each with its `kind`, its `extent` (where its stations are:
-    `scope`, `continents`, `country_codes`, `bbox`), source `url`, whether it needs credentials (`auth`) and the
-    resolutions and datasets it offers, with how many parameters each has; a dataset whose stations are fewer
-    than its network's has an `extent` of its own, and one without has its network's. Nothing is downloaded
-    and no credential is read, so it answers at once; `coverage` lists the parameters of a network, and `auth`
-    checks whether its credentials are accepted.
+    line to cite (`attribution`; where it is null, cite the `copyright` of the network, the rights holder's
+    notice, which is shown for information), and its networks, each with its `kind`, its `extent` (where its
+    stations are: `scope`, `continents`, `country_codes`, `bbox`), source `url`, `copyright`, whether it needs
+    credentials (`auth`) and how many parameters it has. That short form is the default. With `datasets=true`
+    each network also lists the resolutions and datasets it offers, with how many parameters each has; a
+    dataset whose stations are fewer than its network's has an `extent` of its own, and one without has its
+    network's. Nothing is downloaded and no credential is read, so it answers at once; `coverage` lists the
+    parameters of a network, and `auth` checks whether its credentials are accepted.
     """
     begin_response()
 
     try:
-        answer = get_providers(request.provider)
+        answer = get_providers(request.provider, datasets=request.datasets)
     except ApiNotFoundError as e:
         raise HTTPException(
             status_code=404,

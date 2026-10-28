@@ -80,13 +80,31 @@ class ProviderNetwork(BaseModel):
         description="Where the stations of the network are, which the `country` of its provider does not say.",
     )
     url: str = Field(description="Where the provider publishes the data of the network.")
-    copyright: str
+    copyright: str = Field(
+        description="The rights holder and the product of the network, `© Deutscher Wetterdienst (DWD), radar "
+        "products`: a notice shown for information, never null. The credit line to cite is the `attribution` of the "
+        "provider; cite this one where that is null.",
+    )
     auth: bool = Field(
         description="Whether the network needs credentials; `/api/auth` tells whether they are accepted.",
     )
     date_required: bool = Field(description="Whether a request for a dataset of the network has to give a date.")
     parameters: int = Field(description="How many parameters the network has in all of its datasets.")
-    resolutions: list[ProviderResolution]
+    resolutions: list[ProviderResolution] | SkipJsonSchema[None] = Field(
+        default=None,
+        description="The resolutions of the network with the datasets of each and how many parameters it has: "
+        "only with `datasets=true`, and absent from the compact answer, which is the default. Empty for a standalone "
+        "network (`dwd/radar`, `dwd/alerts`). `/api/coverage` lists the parameters.",
+    )
+
+    # no return annotation, on purpose: see `ProviderDataset`
+    @model_serializer(mode="wrap")
+    def _leave_out_the_resolutions_not_asked_for(self, handler: SerializerFunctionWrapHandler):  # noqa: ANN202
+        """Leave `resolutions` out of the compact answer, which says it by its absence."""
+        serialized = handler(self)
+        if serialized.get("resolutions") is None:
+            serialized.pop("resolutions", None)
+        return serialized
 
 
 class Provider(BaseModel):
@@ -110,8 +128,8 @@ class Provider(BaseModel):
         description="The terms the provider publishes its data under; null where it states none.",
     )
     attribution: str | None = Field(
-        description="The credit line a user of the data has to give; null where the provider states none or asks for "
-        "none.",
+        description="The credit line to cite when the data is used, as the terms of the provider ask for it. Null "
+        "where the provider states none: cite the `copyright` of the network then, which names the rights holder.",
     )
     networks: list[ProviderNetwork]
 
@@ -125,7 +143,9 @@ class ProvidersAnswer(BaseModel):
     providers: list[Provider]
 
 
-def _network(provider: str, network: str) -> tuple[ProviderNetwork, MetadataModel | None] | None:
+def _network(
+    provider: str, network: str, *, datasets: bool = False
+) -> tuple[ProviderNetwork, MetadataModel | None] | None:
     """Describe a network, or None where it cannot be imported on this server: it is left out, and told as a warning."""
     try:
         if Wetterdienst.is_standalone(provider, network):
@@ -141,7 +161,7 @@ def _network(provider: str, network: str) -> tuple[ProviderNetwork, MetadataMode
                     auth=False,
                     date_required=False,
                     parameters=0,
-                    resolutions=[],
+                    resolutions=[] if datasets else None,
                 ),
                 None,
             )
@@ -178,14 +198,18 @@ def _network(provider: str, network: str) -> tuple[ProviderNetwork, MetadataMode
             auth=metadata.auth,
             date_required=any(dataset.date_required for resolution in metadata for dataset in resolution.datasets),
             parameters=sum(dataset.parameters for resolution in resolutions for dataset in resolution.datasets),
-            resolutions=resolutions,
+            resolutions=resolutions if datasets else None,
         ),
         metadata,
     )
 
 
-def get_providers(provider: str | None = None) -> ProvidersAnswer:
+def get_providers(provider: str | None = None, *, datasets: bool = False) -> ProvidersAnswer:
     """Describe every provider of the registry, sorted by name, or the one named.
+
+    The answer is the compact one unless `datasets` is true: every network then also lists its resolutions and the
+    datasets of each, with their parameter counts, which is most of the answer's size (`/api/coverage` lists the
+    parameters themselves).
 
     A provider is what its networks say of it; they agree (`tests/ui/test_providers.py` holds the registry to it), so
     the first network's declaration speaks for the provider. The standalone networks of `dwd` say the same by their
@@ -204,7 +228,11 @@ def get_providers(provider: str | None = None) -> ProvidersAnswer:
     providers: list[Provider] = []
     parameters: set[str] = set()
     for name in names:
-        networks = [described for network in Wetterdienst.registry[name] if (described := _network(name, network))]
+        networks = [
+            described
+            for network in Wetterdienst.registry[name]
+            if (described := _network(name, network, datasets=datasets))
+        ]
         declared = [metadata for _, metadata in networks if metadata is not None]
         if not declared:
             continue

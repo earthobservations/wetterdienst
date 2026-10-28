@@ -1225,24 +1225,32 @@ def coverage(
 
 @about.command("providers")
 @click.option("--provider", type=click.STRING, help="Only this provider. Without it, every provider. Example: dwd")
+@_bool_opt(
+    "--datasets",
+    default=False,
+    help="Also list the resolutions and datasets of every network, with their parameter counts. Default: false",
+)
 @debug_opt
 def providers(
     provider: str,
+    datasets: bool,  # noqa: FBT001
     debug: bool,  # noqa: FBT001
 ) -> None:
     """Describe what each data provider is: its name, country, licence, credit line, source and networks.
 
     Per provider: the names it goes by, its country and ISO 3166-1 alpha-2 `country_code`, the terms it publishes
-    its data under (`license`, null where it states none), the credit line to give (`attribution`), and its
-    networks with their `kind`, source `url`, whether they need credentials and the resolutions and datasets they
-    offer. Nothing is downloaded and no credential is read. `about coverage` lists the parameters of a network.
+    its data under (`license`, null where it states none), the credit line to cite (`attribution`; where it is
+    null, cite the `copyright` of the network, the rights holder's notice, which is shown for information), and
+    its networks with their `kind`, `extent`, source `url`, `copyright`, whether they need credentials and how
+    many parameters they have. With `--datasets` each network also lists the resolutions and datasets it offers.
+    Nothing is downloaded and no credential is read. `about coverage` lists the parameters of a network.
     """
     set_logging_level(debug=debug)
     begin_response()
 
-    request = ProvidersRequest.model_validate({"provider": provider})
+    request = ProvidersRequest.model_validate({"provider": provider, "datasets": datasets})
     try:
-        answer = get_providers(request.provider)
+        answer = get_providers(request.provider, datasets=request.datasets)
     except ApiNotFoundError as e:
         msg = f"{e} List them with: wetterdienst about providers"
         raise click.UsageError(msg) from e

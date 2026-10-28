@@ -331,6 +331,12 @@ the `scope` of each network and, of one network, the extent of each dataset. The
 territory), which is a fix and not a break. `country_codes` is absent from an answer for a national or a country-less
 network, and `extent` from a dataset of `providers` that has its network's.
 
+`GET /api/providers` (and `wetterdienst about providers`, the MCP tool `providers`, `get_providers`) answers the short
+form by default (changed after 0.178.0, a break before 1.0): a network has no `resolutions` member, and `datasets=true`
+(`--datasets`, `get_providers(datasets=True)`) brings it back with the content it always had. The member is absent
+from the default answer and is not an empty list; a caller that read it passes `datasets=true`. `attribution` is the
+credit line to cite and `copyright` the one to cite where it is null; both keep their values and their places.
+
 The date the source states for the data of an answer is `metadata.data_updated_at` (and the
 `X-Wetterdienst-Data-Updated-At` header, `data_updated_at` of the values results and of their `metadata` with
 `with_metadata=True`, of a `RadarResult` and of a `DwdWeatherAlertResult`): `null` where the source states none or the library does not read

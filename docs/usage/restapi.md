@@ -190,9 +190,10 @@ what the answer is missing:
   (ECCC's licence agreement, AEMET's legal notice, IMGW's terms of data provision, IPMA's statement that the
   data may be reused with the source named). `url` is the licence, or the provider's own page that states it. The
   whole of `license` is `null` where the provider states no terms that could be read: no provider does at present,
-  and it is then for the user to ask the provider. **`provider.attribution`** is the credit line to give, in the provider's own words where it
+  and it is then for the user to ask the provider. **`provider.attribution`** is the credit line to cite, in the provider's own words where it
   states one (DWD's "Source: Deutscher Wetterdienst") and else its name as the rights holder; `null` where the
-  provider states none or asks for none. `copyright` stays the free text it was.
+  provider states none or asks for none, and `copyright` is cited then; where both are there, `copyright` is the rights
+  holder's notice, shown for information.
 - **`request`** is the request as resolved, not as typed: `daily/kl` is the list of parameters it means,
   `periods` the periods read, `start` and `end` the window applied in UTC (`null` without one), and
   `stations` how they were selected (`filter`: `all`, `by_station_id`, `by_name`, `by_rank`,
@@ -456,10 +457,18 @@ ask the same question and give the same answer.
 What each provider is, for a page that lists them or a client that has to credit the data: the names it goes
 by (`name_short` for a chip beside a flag, `name_english`, `name_local`), the country of the agency that runs it (`country_code` is the ISO 3166-1 alpha-2 code, null for a provider of several countries; it is the operator's country, not the extent of its data: the `extent` of each network says where its stations are), the
 terms it publishes its data under (`license`, as in the `metadata` of a data answer) and the credit line
-(`attribution`), and its networks with their `kind`, `extent`, source `url`, whether they need credentials (`auth`) and
-the resolutions and datasets they offer, with how many parameters each has. Nothing is downloaded and no
-credential is read, so it answers at once: `coverage` lists the parameters of a network and `auth` checks
-whether its credentials are accepted. `dwd/radar` and `dwd/alerts` are listed without resolutions.
+(`attribution`), and its networks with their `kind`, `extent`, source `url`, `copyright`, whether they need
+credentials (`auth`) and how many parameters they have. That short form is the default (about 19,000 characters for
+every provider, 3,900 for `dwd`). With `datasets=true` each network also lists the resolutions and datasets it
+offers, with how many parameters each has (about 34,000 and 13,000); `dwd/radar` and `dwd/alerts` have an empty list.
+Nothing is downloaded and no credential is read, so it answers at once: `coverage` lists the parameters of a network
+and `auth` checks whether its credentials are accepted.
+
+**Which line to cite.** `attribution` is the credit line to cite: it is what the terms of the provider ask for, and
+it is null where the provider states none. Where it is null, cite the `copyright` of the network, which names the
+rights holder and the product (`© Deutscher Wetterdienst (DWD), radar products`) and is never null. Where both are
+there, `copyright` is the rights holder's notice, shown for information; the two are not merged, since one is the
+provider's and the other the network's, and their values are the provider's own words.
 
 ```bash
 # Every provider, sorted by name.
@@ -467,9 +476,13 @@ http localhost:7890/api/providers
 
 # One provider.
 http localhost:7890/api/providers provider==dwd
+
+# With the resolutions and datasets of each network.
+http localhost:7890/api/providers provider==dwd datasets==true
 ```
 
-The command line is `wetterdienst about providers [--provider dwd]` and the MCP tool is `providers`.
+The command line is `wetterdienst about providers [--provider dwd] [--datasets]` and the MCP tool is `providers`
+(`datasets` is an argument of it).
 
 ### Extent
 

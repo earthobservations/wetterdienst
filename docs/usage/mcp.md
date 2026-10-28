@@ -70,7 +70,7 @@ parameters are, see [one vocabulary](restapi.md#one-vocabulary)) and the same an
 | `history` | `/api/v1/history` | the changes of a station (name, position, instruments), not weather |
 | `issues` | `/api/v1/issues` | the model runs of a forecast network |
 | `coverage` | `/api/v1/coverage` | which providers, networks, resolutions, datasets and parameters there are |
-| `providers` | `/api/v1/providers` | what a provider is: country, licence, credit line, networks |
+| `providers` | `/api/v1/providers` | what a provider is: country, licence, credit line (`attribution`; `copyright` where it is null), networks; `datasets=true` adds their datasets |
 | `glossary` | `/api/v1/glossary` | what a parameter means and the unit it comes back in |
 | `auth` | `/api/v1/auth` | whether the credentials the server holds are accepted by one provider |
 | `alerts` | `/api/v1/alerts` | the weather warnings of DWD |

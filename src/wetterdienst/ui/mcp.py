@@ -117,9 +117,10 @@ plain-language "summary". `history` is different again: it returns a station's *
 the user asks what something is, or what unit a number is in. It is not a way to find data: it \
 knows nothing about providers or stations, so `coverage` remains the tool for "which parameters \
 does this provider have". `providers` answers what a provider *is* -- the country of its operator (not \
-where its stations are), the licence its data is published under and the credit line to give, and what \
-its networks offer, with the `extent` of each (where its stations are) -- and is the tool for "may I reuse this \
-data" and "which providers' networks reach a place".
+where its stations are), the licence of its data and the credit line to give, and its \
+networks, with the `extent` of each (where its stations are) -- and is the tool for "may I reuse this \
+data" and "which providers' networks reach a place". The answer is short; `datasets=true` adds each \
+network's datasets. Cite `attribution`, or the `copyright` where it is null.
 
 `auth` checks the credentials this server holds for one provider and network that needs them \
 (e.g. aemet/observation): `valid` is true when the provider accepted them, false when it rejected \

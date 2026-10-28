@@ -1,6 +1,6 @@
 import type { H3Event } from 'h3'
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
-import { setResponseStatus } from 'h3'
+import { getQuery, setResponseStatus } from 'h3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { clearNuxtData } from '#app'
 import ProviderPage from '~/pages/providers/[provider].vue'
@@ -30,6 +30,18 @@ afterEach(() => {
 })
 
 describe('provider Page', () => {
+  it('asks the backend for the datasets of every network, which its answer leaves out by default', async () => {
+    const queries: Array<Record<string, unknown>> = []
+    served = (event) => {
+      queries.push(getQuery(event))
+      return providersResponse()
+    }
+    await mountProvider('dwd')
+
+    expect(queries).toHaveLength(1)
+    expect(queries[0]).toMatchObject({ datasets: 'true' })
+  })
+
   it('names the provider, in English and in its own words, with its country', async () => {
     const wrapper = await mountProvider('dwd')
     const text = wrapper.text()

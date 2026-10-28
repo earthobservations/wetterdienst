@@ -69,5 +69,6 @@ see [Troubleshooting](troubleshooting.md).
 
 The library downloads from the providers' own open-data servers when you ask, and keeps what it downloaded in a
 [cache](python-api.md#caching). It holds no data of its own. The terms the data is published under differ per provider
-and are part of every answer of the REST API (`metadata.provider.license` and `attribution`); the
+and are part of every answer of the REST API (`metadata.provider.license` and `attribution`, the credit line to
+cite; `copyright` is the rights holder's notice, cited where `attribution` is null); the
 [provider pages](../data/index.md) give them.

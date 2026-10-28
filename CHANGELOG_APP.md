@@ -16,6 +16,12 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- The providers pages ask the backend for `GET /api/providers?datasets=true`, since the backend
+  answers the short form without it (GH-3536). A backend older than that change refuses the
+  parameter: release the app after the backend
+
 ## [0.39.0] - 2026-10-28
 
 ### Security
