@@ -17,15 +17,33 @@ watch(() => route.path, () => {
 // makes wider than these pixels, and the rail and the page would stack
 const large = useMediaQuery('(min-width: 1024px)')
 const wide = useMediaQuery('(min-width: 1280px)')
+
+// Where the focus is, taken before a change of layout draws the navigation anew (these watchers run before the page is
+// updated): in the navigation (the sidebar, the top bar, a drawer or a popover over the page), or nowhere in particular.
+function focusInNavigation(): Element | null {
+  const active = document.activeElement
+  return active && active !== document.body && active.closest('[data-app-nav], [role="dialog"]') ? active : null
+}
+
 watch(large, async (isLarge) => {
+  const had = focusInNavigation()
   if (isLarge)
     drawerOpen.value = false
   // what had the focus (the menu button, an open drawer or popover) is gone with the layout: the page takes it, not the
-  // body. A closing drawer or popover is given the time of its own exit first.
+  // body. A closing drawer or popover is given the time of its own exit first. A page that had no focus keeps none.
   await nextTick()
   await new Promise(resolve => setTimeout(resolve, 400))
-  if (!document.activeElement || document.activeElement === document.body)
-    document.getElementById('main')?.focus()
+  if (had && (!document.activeElement || document.activeElement === document.body))
+    document.getElementById('main')?.focus({ preventScroll: true })
+})
+
+// From 1280 px the rail has labels: its links are drawn anew, and one that had the focus is given it again
+watch(wide, async () => {
+  const link = document.activeElement?.closest('aside nav a[href]')
+  const href = link?.getAttribute('href')
+  await nextTick()
+  if (href && (!document.activeElement || document.activeElement === document.body))
+    document.querySelector<HTMLElement>(`aside nav a[href="${CSS.escape(href)}"]`)?.focus({ preventScroll: true })
 })
 
 function skipToContent(event: Event) {
@@ -44,14 +62,14 @@ function skipToContent(event: Event) {
       {{ t('nav.skip') }}
     </a>
 
-    <div v-if="large" class="shrink-0 border-e border-default" :class="wide ? 'w-(--app-sidebar-width)' : 'w-(--app-rail-width)'">
+    <div v-if="large" data-app-nav class="shrink-0 border-e border-default" :class="wide ? 'w-(--app-sidebar-width)' : 'w-(--app-rail-width)'">
       <aside class="sticky top-0 h-screen">
         <AppNav :collapsed="!wide" />
       </aside>
     </div>
 
     <div class="flex min-w-0 flex-1 flex-col">
-      <header v-if="!large" class="sticky top-0 z-30 flex h-(--ui-header-height) items-center gap-2 border-b border-default bg-default/90 px-4 backdrop-blur sm:px-6">
+      <header v-if="!large" data-app-nav class="sticky top-0 z-30 flex h-(--ui-header-height) items-center gap-2 border-b border-default bg-default/90 px-4 backdrop-blur sm:px-6">
         <NuxtLink to="/" class="flex items-center gap-2.5 rounded-md py-1 text-highlighted" aria-label="Wetterdienst">
           <img src="/icon.svg" alt="" class="size-7 rounded-md">
           <span class="text-base font-semibold tracking-tight">Wetterdienst</span>

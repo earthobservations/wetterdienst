@@ -111,6 +111,23 @@ async function mapWithStations(page: Page) {
   await expect(page.locator('.leaflet-marker-icon').first()).toBeVisible()
 }
 
+/** The palette's own dialog: the one with its search field, whatever else is open */
+const paletteField = (page: Page) => page.locator('[data-slot="root"] > [data-slot="input"] input')
+
+/** A search that finds something, then nothing, then something again: the palette's list is drawn anew each time */
+async function searchSequence(page: Page, locale: Locale) {
+  await expect(paletteField(page)).toBeVisible()
+  await page.keyboard.type('a')
+  await expect(page.getByRole('listbox').getByRole('option').first()).toBeVisible()
+  await page.keyboard.press('ControlOrMeta+a')
+  await page.keyboard.type('zzqqxx')
+  await expect(page.getByText(message(locale, 'nav.noResults'))).toBeVisible()
+  await page.keyboard.press('ControlOrMeta+a')
+  await page.keyboard.press('Backspace')
+  await page.keyboard.type('a')
+  await expect(page.getByRole('listbox').getByRole('option').first()).toBeVisible()
+}
+
 const STATES: State[] = [
   {
     page: 'explorer',
@@ -394,6 +411,34 @@ const STATES: State[] = [
       await page.keyboard.press('Backspace')
       await page.keyboard.type('a')
       await expect(page.getByRole('listbox').getByRole('option').first()).toBeVisible()
+    },
+  },
+  // the palette over the drawer or the rail's popover, which stay open behind it: the palette is found by its own field, not
+  // as the first dialog, and is held to the same list in each of its states
+  {
+    page: 'index',
+    state: 'drawer-palette',
+    keepFocus: true,
+    path: '/',
+    viewport: { width: 390, height: 844 },
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'header.menu'), exact: true }).click()
+      await page.getByRole('dialog').getByRole('button', { name: message(locale, 'nav.search'), exact: true }).click()
+      await searchSequence(page, locale)
+    },
+  },
+  {
+    page: 'index',
+    state: 'rail-popover-palette',
+    keepFocus: true,
+    path: '/',
+    viewport: { width: 1100, height: 800 },
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'common.settings'), exact: true }).click()
+      await expect(page.getByRole('dialog')).toBeVisible()
+      // Control, not Meta: the project's device is a Windows or Linux browser, whose shortcut Nuxt UI reads as Ctrl
+      await page.keyboard.press('Control+k')
+      await searchSequence(page, locale)
     },
   },
   // the navigation as a rail of icons (1024 to 1279 px), whose links are named by hidden labels, which axe holds to

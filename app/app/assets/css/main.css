@@ -246,6 +246,14 @@ code, kbd, pre, samp {
   }
 }
 
+/* Below 1024 px the top bar is sticky, 3.5 rem high: a focused element that the browser scrolls into view is kept clear of
+   it (WCAG 2.4.11). From 1024 px there is no bar over the page. */
+@media (max-width: 1023.98px) {
+  html {
+    scroll-padding-top: calc(var(--ui-header-height) + 0.5rem);
+  }
+}
+
 /* Reduced motion (WCAG 2.3.3): the slide of the drawer, the scale-in of the palette, the pulse of a placeholder and the
    turn of a spinner end at once, whichever component draws them. Nothing here moves for ever (2.2.2) either way. */
 @media (prefers-reduced-motion: reduce) {

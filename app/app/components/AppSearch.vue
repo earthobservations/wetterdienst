@@ -67,14 +67,23 @@ const close = computed(() => ({ 'aria-label': t('common.close') }) as never)
 // and a place in the tab order go on the scrolling list itself, which is what Nuxt UI 4.12 does (nuxt/ui#7096; the
 // workaround goes with the upgrade). The list is drawn anew when the results change (and gives way to the empty message),
 // so this is done again after every change of the palette's content, not only when it opens. In the empty state the field
-// still names an option that is gone (`aria-activedescendant`); that is dropped.
+// still names an option that is gone (`aria-activedescendant`); that is dropped. The palette is the one root that has a
+// search field of its own, not "the first dialog": the drawer or the rail's popover can be open behind it.
 let observer: MutationObserver | null = null
-let scheduled = 0
+let frame = 0
+let epoch = 0
+
+function paletteRoot(): Element | null {
+  for (const root of document.querySelectorAll('[data-slot="root"]')) {
+    if (root.querySelector(':scope > [data-slot="input"] input'))
+      return root
+  }
+  return null
+}
 
 function patchList() {
-  scheduled = 0
-  const dialog = document.querySelector('[role="dialog"]')
-  const root = dialog?.querySelector('[data-slot="root"]')
+  frame = 0
+  const root = paletteRoot()
   const wrapper = root?.querySelector(':scope > [data-slot="content"]')
   const list = wrapper?.querySelector('[data-slot="viewport"]')
   if (wrapper && wrapper.getAttribute('role') !== 'presentation') {
@@ -93,25 +102,40 @@ function patchList() {
     field.removeAttribute('aria-activedescendant')
 }
 
-watch(open, async (isOpen) => {
+function stopWatching() {
   observer?.disconnect()
   observer = null
+  if (frame)
+    cancelAnimationFrame(frame)
+  frame = 0
+}
+
+// Each opening and closing is an epoch: what was waited for in an earlier one (the palette's drawing, a frame) is not
+// acted on in a later, so a quick close and open attaches one observer, to the palette that is open.
+watch(open, async (isOpen) => {
+  const mine = ++epoch
+  stopWatching()
   if (!isOpen)
     return
   await nextTick()
+  for (let wait = 0; wait < 10 && !paletteRoot(); wait++) {
+    await new Promise(resolve => requestAnimationFrame(resolve))
+    if (mine !== epoch)
+      return
+  }
   await new Promise(resolve => requestAnimationFrame(resolve))
-  const dialog = document.querySelector('[role="dialog"]')
-  if (!dialog)
+  const root = paletteRoot()
+  if (mine !== epoch || !open.value || !root)
     return
   patchList()
   observer = new MutationObserver(() => {
-    if (!scheduled)
-      scheduled = requestAnimationFrame(patchList)
+    if (!frame)
+      frame = requestAnimationFrame(patchList)
   })
-  observer.observe(dialog, { childList: true, subtree: true })
+  observer.observe(root, { childList: true, subtree: true })
 })
 
-onBeforeUnmount(() => observer?.disconnect())
+onBeforeUnmount(stopWatching)
 
 watch(() => router.currentRoute.value.path, () => {
   open.value = false

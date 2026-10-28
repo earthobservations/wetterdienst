@@ -21,7 +21,11 @@ const themeOptions = computed(() => [
 </script>
 
 <template>
-  <UPopover :content="{ side: 'top', align: 'start' }">
+  <!-- in a short window (a 400 % zoom is 320 x 256 px) it keeps clear of the window's edge and scrolls inside itself -->
+  <UPopover
+    :content="{ side: 'top', align: 'start', collisionPadding: 8 }"
+    :ui="{ content: 'max-h-(--reka-popover-content-available-height) overflow-y-auto' }"
+  >
     <UButton
       icon="i-ph-gear-six"
       color="neutral"

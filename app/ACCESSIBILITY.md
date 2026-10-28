@@ -102,7 +102,15 @@ a drawer opened by the menu button is a dialog that keeps the focus, closes on E
 layout of the shell follows the same script flag as the sidebar, not a Tailwind breakpoint (rem), so that a browser
 set to a larger default font size does not stack the rail over the page. The current page carries
 `aria-current="page"`. The command palette (Ctrl or Cmd + K, or the search button) is a dialog with a labelled search
-field and a listbox; the `search-open` and `mobile-menu-open` states are scanned.
+field and a listbox. Nuxt UI 4.11 puts the listbox role on a wrapper and draws the list anew with every search, so
+`AppSearch.vue` sets the role, the name and the tab stop on the scrolling list after every change of the palette's
+content (a `MutationObserver`, one per opening, dropped when it closes or reopens), on the palette that has the search
+field, not on "the first dialog" (the drawer or the rail's popover can be open behind it). The scan holds it in the
+`search-open`, `search-typed`, `search-empty` and `search-recovered` states (a search that finds something, nothing, and
+something again), over the drawer (`drawer-palette`, 390 px) and over the rail's popover (`rail-popover-palette`,
+1100 px); `mobile-menu-open` is scanned too. When the layout changes under the keyboard, the focus stays on its link
+(the rail gaining its labels at 1280 px) or goes to the page (the drawer or the popover going away); a page with no
+focus gets none.
 
 There is no sepia mode. `main.css` once held a `html.sepia` block that redefined the `--ui-*` tokens, which
 nothing in the app ever set (`colorMode` knows `light`, `dark` and `system`, and the settings offer those
@@ -157,7 +165,7 @@ WCAG 2.2 first, as axe has no rule for most of them.
 | Criterion | Result |
 | --- | --- |
 | 2.4.7 Focus visible, 1.4.11 Non-text contrast of the focus indicator | The keyboard scan measures it at every stop. **Was failing** nearly everywhere: 382 stops, counted per page so that the header links count on each, in 27 of the light/English scans had under 3:1; see above. |
-| 2.4.11 Focus not obscured (minimum) | The keyboard scan checks it on every page and state. From 1024 px there is no sticky bar (the sidebar is a column beside the page and the skip link is the first stop); below it the top bar is sticky, 3.5 rem high, and the browser scrolls a focused element clear of it. Leaflet draws markers beyond what the map shows and lets Tab reach them: a marker that takes the focus now pans the map until it is in view (`MapStations.vue`). |
+| 2.4.11 Focus not obscured (minimum) | The keyboard scan checks it on every page and state. From 1024 px there is no sticky bar (the sidebar is a column beside the page and the skip link is the first stop); below it the top bar is sticky, 3.5 rem high, and `html` has a `scroll-padding-top` of its height and half a rem, so that a focused element the browser scrolls into view stops below it (an e2e test tabs back up a page at 390 px). Leaflet draws markers beyond what the map shows and lets Tab reach them: a marker that takes the focus now pans the map until it is in view (`MapStations.vue`). |
 | 2.5.7 Dragging movements | The map pans by drag, and by the arrow keys with the map focused, and zooms by its buttons and `+`/`-`; a station is also chosen in the list beside it. Plotly's charts zoom and pan by drag, with the modebar's buttons (zoom in, out, reset) as the single-pointer way. |
 | 2.5.8 Target size (minimum) | axe's `target-size` is among the tags scanned (wcag22aa), on every page and state in both modes: no entry. |
 | 3.2.6 Consistent help | The support, documentation, GitHub and PyPI links are in the groups of the navigation (the sidebar, the rail and the drawer, the same list) and the legal links in the footer of every page, in the same order. The widget has no header or footer by design. |

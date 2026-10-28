@@ -255,7 +255,16 @@ test.describe('The navigation as a rail of icons', () => {
 
 // A control that is only an icon: its icon is a mask over a background colour, which forced colours (Windows high
 // contrast) replaces by the canvas, so the icon has to be given the colour of the text instead.
+async function settled(page: Page) {
+  // a drawer, popover or dialog that is still sliding in is not where its screenshot will be taken
+  await page.evaluate(async () => {
+    await Promise.all(document.getAnimations().map(animation => animation.finished.catch(() => {})))
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+  })
+}
+
 async function iconIsPainted(page: Page, icon: Locator) {
+  await settled(page)
   const box = (await icon.boundingBox())!
   expect(box.width).toBeGreaterThan(0)
   const colours = await icon.evaluate((element) => {
@@ -285,7 +294,7 @@ async function iconIsPainted(page: Page, icon: Locator) {
 }
 
 test.describe('Forced colours', () => {
-  test.use({ forcedColors: 'active' })
+  test.use({ forcedColors: 'active', reducedMotion: 'reduce' })
 
   test('show the icons of the rail, and mark the current page', async ({ page }) => {
     await page.setViewportSize({ width: 1100, height: 800 })
@@ -381,6 +390,69 @@ test.describe('The focus when the layout changes', () => {
     await page.setViewportSize({ width: 800, height: 800 })
 
     await expect(page.locator('#main')).toBeFocused()
+  })
+
+  test('stays on a link of the rail when the window crosses 1280 px, in both directions', async ({ page }) => {
+    await page.setViewportSize({ width: 1100, height: 800 })
+    await page.goto('/')
+    await page.locator('aside nav a[href="/explorer"]').focus()
+
+    await page.setViewportSize({ width: 1300, height: 800 })
+    await expect(page.locator('aside nav a[href="/explorer"]')).toBeFocused()
+    await expect(page.locator('aside nav a[href="/explorer"]')).toContainText('Explorer')
+
+    await page.setViewportSize({ width: 1100, height: 800 })
+    await expect(page.locator('aside nav a[href="/explorer"]')).toBeFocused()
+  })
+
+  test('leaves a page that had no focus without one, and unscrolled, when the window crosses 1024 px', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 700 })
+    await page.goto('/settings')
+    expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true)
+
+    await page.setViewportSize({ width: 1300, height: 700 })
+    await page.waitForTimeout(700)
+
+    expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true)
+    expect(await page.evaluate(() => window.scrollY)).toBe(0)
+  })
+})
+
+test.describe('The sticky top bar', () => {
+  test('keeps a focused element clear of it, tabbing back up a page', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 700 })
+    await page.goto('/settings')
+    await page.locator('footer a').last().focus()
+    const bar = (await page.locator('header[data-app-nav]').boundingBox())!
+
+    for (let stop = 0; stop < 30; stop++) {
+      await page.keyboard.press('Shift+Tab')
+      await page.waitForTimeout(60)
+      const top = await page.evaluate(() => {
+        const active = document.activeElement
+        // the bar's own buttons are at the top of the window by design
+        return active && active !== document.body && !active.closest('header[data-app-nav]') ? active.getBoundingClientRect().top : null
+      })
+      if (top !== null)
+        expect(top, `stop ${stop}`).toBeGreaterThanOrEqual(bar.height - 1)
+    }
+  })
+})
+
+test.describe('The settings popover in a short window', () => {
+  test('stays inside the window at 320 x 256 px, and reaches its language field', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 256 })
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Menu', exact: true }).click()
+    await settled(page)
+    await page.getByRole('dialog').getByRole('button', { name: 'Settings', exact: true }).click()
+    await settled(page)
+    const popover = page.getByRole('dialog').last()
+    const box = (await popover.boundingBox())!
+
+    expect(box.y).toBeGreaterThanOrEqual(0)
+    expect(box.y + box.height).toBeLessThanOrEqual(256 + 1)
+    await expect(page.getByText('Language', { exact: true })).toBeInViewport()
   })
 })
 
