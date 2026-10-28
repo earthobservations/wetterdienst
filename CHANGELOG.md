@@ -44,6 +44,10 @@ Types of changes:
   `WRONG_VERSION_NUMBER`; an invalid session, `INVALID_SESSION_ID`) is retried like any other
   transient network error, where the first one failed the answer: `www.dwd.de` throws them now
   and then. A certificate that does not verify still fails at once (GH-3533)
+- The stations of a request for several datasets of `dwd/observation` or `dwd/derived` come in
+  one order: by station id, and the datasets of a station in the order the request names them.
+  They came in a different order from one request to the next, and so did the `stations` of a
+  values answer and the features of its OGC form. The values rows were not affected (GH-3551)
 
 ## [0.178.0] - 2026-10-28
 

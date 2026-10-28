@@ -907,5 +907,10 @@ class DwdObservationRequest(TimeseriesRequest):
             stations_df = pl.concat(stations)
         except ValueError:
             return pl.LazyFrame()
-        stations_df = stations_df.unique(subset=["resolution", "dataset", "station_id"], keep="first")
-        return stations_df.sort(by=[pl.col("station_id").cast(int)])
+        # both steps keep the order the rows came in, which is the order the request names its datasets in: a station
+        # of two datasets has two rows, and neither `unique` nor a sort on the id alone says which comes first, so the
+        # rows came in a different order from one request to the next (GH-3551)
+        stations_df = stations_df.unique(
+            subset=["resolution", "dataset", "station_id"], keep="first", maintain_order=True
+        )
+        return stations_df.sort(by=[pl.col("station_id").cast(int)], maintain_order=True)
