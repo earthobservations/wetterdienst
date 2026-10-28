@@ -44,6 +44,7 @@ from wetterdienst.model.metadata import parse_parameters
 from wetterdienst.model.request import (
     DEFAULT_NAME_RANK,
     DEFAULT_NAME_RANK_LISTING,
+    LISTING_WINDOW,
     TimeseriesRequest,
     limit_to_window,
 )
@@ -1771,16 +1772,42 @@ def get_stations(
     timestamp: str | None,
     settings: Settings,
     options: Options | None = None,
+    *,
+    listing: bool = False,
 ) -> StationsResult:
-    """Get stations based on request, by the one selection its model lets it make."""
+    """Get stations based on request, by the one selection its model lets it make.
+
+    Args:
+        api: the request class of the network
+        request: the request model
+        timestamp: the window of the request
+        settings: the settings of the host
+        options: the options of the request
+        listing: the caller answers with a stations *listing*, which it cuts to the window afterwards
+            (`limit_stations_to_window`). A warning about a station the provider lists without a position
+            (`position-unplaced`) is then told, for the whole list and for a search by place, only if the station
+            survives that cut; a station named by id, name or SQL is told whatever the cut does to it
+
+    """
+    token = LISTING_WINDOW.set(listing)
+    try:
+        return _select_stations(api, request, timestamp, settings, options)
+    finally:
+        LISTING_WINDOW.reset(token)
+
+
+def _select_stations(
+    api: type[TimeseriesRequest],
+    request: StationsRequest | ValuesRequest | HistoryRequest,
+    timestamp: str | None,
+    settings: Settings,
+    options: Options | None,
+) -> StationsResult:
+    """Make the one selection of stations that the request names."""
     r = _get_stations_request(api=api, request=request, timestamp=timestamp, settings=settings, options=options)
 
     if getattr(request, "all", False):
-        everything = r.all()
-        # `all()` is the list the filters select among and tells nothing of it; an answer that is the whole list
-        # holds every station the provider lists without a position, and says so
-        r._warn_unplaced(everything.df.get_column("station_id"))  # noqa: SLF001
-        return everything
+        return r.all()
 
     if request.stations:
         return r.filter_by_station_id(request.stations)

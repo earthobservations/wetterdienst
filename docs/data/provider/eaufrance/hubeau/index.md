@@ -28,8 +28,12 @@ the referential wrote as `raw:<latitude>,<longitude>`. It is there when the stat
 (selected by id, name or SQL, or the whole list) and when a search by place (a rank, a distance, a
 bounding box, an interpolation or a summary) had to leave it out, which every search by place of a
 resolution that lists the station does, whether or not the place is near where the source put it;
-a request for other stations, or for a resolution that does not list it, does not carry it. In
-the Python library the warning is also a log line, once for the process.
+a request for other stations, or for a resolution that does not list it, does not carry it. A
+stations listing for a window (`timestamp`) tells it for the whole list and for a search by place
+only if the station has a record in the window, as it would otherwise not be in the answer; a
+station named by id or SQL is told whatever the window does to it, and a name is matched among the
+stations with a record in the window like any other. In the Python library, where `all()` holds
+the station it is told too, and the warning is also a log line, once for the process.
 
 A site publishes no altitude for about a quarter of the stations, and a few publish 0 or a value
 no ground in France lies at (-999 m, or 12 km and more); their `elevation` is null. The altitude

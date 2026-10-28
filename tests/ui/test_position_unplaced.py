@@ -16,7 +16,7 @@ from __future__ import annotations
 import copy
 import json
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from click.testing import CliRunner
@@ -27,6 +27,9 @@ from wetterdienst.provider.eaufrance.hubeau import HubeauRequest, api
 from wetterdienst.ui import restapi
 from wetterdienst.ui.cli import cli
 from wetterdienst.util.response_warnings import begin_response, recorded_warnings
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 CODE = "position-unplaced"
 BLAVET = "J543211003"
@@ -126,15 +129,15 @@ def _cli(**query: str) -> list[dict[str, str]]:
 
 @pytest.mark.parametrize("selection", SELECTIONS)
 def test_the_library_tells_the_station_where_it_concerns_the_answer(selection: str, hubeau: HubeauRequest) -> None:
-    """Test that a filter records the warning for the answers that hold the Blavet or leave it out, and no other.
+    """Test that `all()` and the filters record the warning for the answers that hold the Blavet or leave it out.
 
-    `all()` is the list the filters select among and tells nothing; `get_stations` tells it for an answer that is the
-    list, which the REST and command line tests below hold.
+    A filter builds the list it selects among without telling it (`_stations_to_select_among`), so a request for
+    other stations carries nothing, where `all()` holds the whole list and tells it.
     """
     _library(hubeau, SELECTIONS[selection])
 
     codes = [warning["code"] for warning in recorded_warnings()]
-    assert codes == ([] if selection in NOT_TOLD or selection == "all" else [CODE])
+    assert codes == ([] if selection in NOT_TOLD else [CODE])
 
 
 @pytest.mark.parametrize("selection", SELECTIONS)
@@ -200,3 +203,70 @@ def test_stations_that_are_not_among_the_ids_are_not_named(hubeau: HubeauRequest
 
     hubeau._warn_unplaced([PARIS, BLAVET])  # noqa: SLF001
     assert [warning["code"] for warning in recorded_warnings()] == [CODE]
+
+
+#: a window before the Blavet opened (2026-07-09): it cannot have a reading in it
+BEFORE_IT_OPENED = {"timestamp": "2026-01-01"}
+#: and one after
+AFTER_IT_OPENED = {"timestamp": "2026-10-15"}
+#: the selections by place or of the whole list, which a window can leave the station out of
+WHOLE_LIST_OR_PLACE = [
+    name for name in TOLD if name not in {"id of the Blavet", "name of the Blavet", "sql of the Blavet"}
+]
+#: and those that name the station, which are told whatever the window does to it
+NAMING = ["id of the Blavet", "sql of the Blavet"]
+
+
+@pytest.mark.parametrize("surface", [_rest, _cli])
+@pytest.mark.parametrize("selection", WHOLE_LIST_OR_PLACE)
+def test_a_window_that_leaves_the_station_out_of_a_listing_takes_the_warning_with_it(
+    selection: str, surface: Callable[..., list[dict[str, str]]]
+) -> None:
+    """Test that a listing for a window before the Blavet opened, where it is not in the answer, has no warning."""
+    assert surface(**SELECTIONS[selection], **BEFORE_IT_OPENED) == []
+    assert [warning["code"] for warning in surface(**SELECTIONS[selection], **AFTER_IT_OPENED)] == [CODE]
+
+
+@pytest.mark.parametrize("surface", [_rest, _cli])
+def test_a_name_is_matched_among_the_stations_with_a_record_in_the_window(
+    surface: Callable[..., list[dict[str, str]]],
+) -> None:
+    """Test that a name selects among the stations that can have a reading in the window (GH-3026), as for any station.
+
+    The Blavet opened after a window before it, so it is not a candidate for the name and is not in the answer, nor
+    told; after the opening it is.
+    """
+    assert surface(**SELECTIONS["name of the Blavet"], **BEFORE_IT_OPENED) == []
+    assert [w["code"] for w in surface(**SELECTIONS["name of the Blavet"], **AFTER_IT_OPENED)] == [CODE]
+
+
+@pytest.mark.parametrize("surface", [_rest, _cli])
+@pytest.mark.parametrize("selection", NAMING)
+def test_a_station_named_in_a_listing_is_told_whatever_the_window_does_to_it(
+    selection: str, surface: Callable[..., list[dict[str, str]]]
+) -> None:
+    """Test that asking for the Blavet by id or SQL is told, though the window leaves it out of the answer."""
+    warnings = surface(**SELECTIONS[selection], **BEFORE_IT_OPENED)
+
+    assert [warning["code"] for warning in warnings] == [CODE]
+
+
+def test_the_library_does_not_cut_to_a_window_so_it_tells_the_station(hubeau: HubeauRequest) -> None:
+    """Test that `all()` of a request with a window holds the Blavet, as the library does not cut a listing to it."""
+    request = HubeauRequest(
+        parameters=[("5_minutes", "data")], start="2026-01-01", end="2026-01-02", settings=hubeau.settings
+    )
+    begin_response()
+
+    assert BLAVET in request.all().df.get_column("station_id").to_list()
+    assert [warning["code"] for warning in recorded_warnings()] == [CODE]
+
+
+def test_the_values_of_a_whole_list_are_told_once(hubeau: HubeauRequest, caplog: pytest.LogCaptureFixture) -> None:
+    """Test that `all().values().all()` carries the warning once, in the answer and in the log."""
+    with caplog.at_level(logging.DEBUG, logger=api.log.name):
+        stations = hubeau.all()
+        stations.values().all()
+
+    assert [warning["code"] for warning in recorded_warnings()] == [CODE]
+    assert [record.levelname for record in caplog.records if "Hub'Eau lists" in record.getMessage()] == ["WARNING"]

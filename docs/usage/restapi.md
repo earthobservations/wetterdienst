@@ -276,9 +276,9 @@ what the answer is missing:
   longitude puts it in the network's country, listed with a null position: `eaufrance/hubeau`; the
   answer has it when the station is in it, selected by `stations`, `name`, `sql` or `all`, or when a
   search by place, a `rank`, a `distance` or a bounding box, or an estimate by `interpolate` or
-  `summarize`, had to leave it out, which is every search by place of a resolution that lists it)
-  and
-  `deprecated-parameter` (issued when a parameter is deprecated; none is at the moment). Codes are added as
+  `summarize`, had to leave it out, which is every search by place of a resolution that lists it;
+  in a listing for a `timestamp`, the whole list and a search by place tell it only if the station
+  has a record in the window) and `deprecated-parameter` (issued when a parameter is deprecated; none is at the moment). Codes are added as
   more are told; a client reads the ones it knows.
 - **`api_version`** is the version of the API (`/api/version`), and **`schema_version`** that of this
   block, so that a stored answer can be told from one in a later shape.

@@ -1779,6 +1779,7 @@ def stations(
             timestamp=request.timestamp,
             settings=settings,
             options=options,
+            listing=True,
         )
     except AssertionError:
         # a request its model should have refused reached the lookup: our bug, which FastAPI answers
