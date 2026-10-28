@@ -125,13 +125,13 @@ of a comparison and record it (`tools_list` in the results file), so the wire co
    (`--kind failed --reason timeout`): a strategy that makes the model slower must show as a failure, not disappear. The
    timeout is capped at 540 s (`MCPBENCH_TIMEOUT`), under the 10 minutes `cleanup` waits for, since appending to a file does
    not move the mtime of its directory. A budget stop (exit 1, `end: error_max_budget_usd`) is a failed headline, not invalid.
-   **Replacing runs.** One invalid run in 140 must not stop a comparison: `compare` weights the cases equally by their valid
-   runs when only invalid runs make the repeats differ (and says how many), and refuses above 3 % of them. To replace them,
-   `bench.py rerun --results FILE --out-dir DIR [--case ID] [--tier T]` (`--dry-run` lists them) runs the invalid runs and
-   the repeats missing from the `repeats` of the file again, with the prompt, model, server and label of its `meta`, and
-   puts the records in the file with `needs_judging`: they count as failed until you have judged them (`is_answer`,
-   `facts_ok`, `passed`, `format_violation`) and removed the flag; `report` warns until then. A headless file only, and only
-   while the cases and the prompt are unchanged.
+   **Replacing runs.** One invalid run in 140 must not stop a comparison: `compare` gives every case the same number of
+   valid runs on both sides (the first k of each, k the smaller; it says how many it left out) and refuses above 3 % invalid.
+   To replace a run, do what the protocol does for any run: `bench.py run` with **the same arguments as the others** (the
+   prompt from `bench.py prompt`, the model, `server`, `--label`), `analyze` it, judge it, write the judged record as JSON and
+   `bench.py add-run --results FILE --run RUN.json`, which replaces the record of that (case, tier, repeat) or adds it, and
+   refuses a record that lacks a field or says `needs_judging`. There is no automatic re-run: a re-run needs the same
+   prompt, date, model and server as the first, and the judge's verdict, which only you have.
 4. **Judge** what needs reading, per run (below), then write the results file, print the table with
    `bench.py report`, and the comparison with `bench.py compare <previous> <results>` when `previous` is given.
 
@@ -208,16 +208,25 @@ with an unknown unit (`sun` is no `s`), with none, or when a second RESULT gives
 self-correction). For a **forecast** (a span) every RESULT figure written with an accepted unit must lie in the span.
 A column's `TABLE-UNIT` must name one of the unit tokens and some cell of a real table of the answer must equal the value
 in that unit; a `RESULT` line for the value is accepted too. Prose is judged by the other fact kinds as before.
-**The fallback.** An answer with no usable RESULT or TABLE-UNIT line is read tolerantly, as before: prose (the unit directly
-after the figure, in brackets, as `(unit °C)`, in brackets before it on its line, or alone on the line above), real tables
-(a markdown table, or two or more lines of the same cells with a separator row or a header without a digit; prose with
-commas is no table) by column, with the unit in the cell, the header, a `Unit` column, the row label or a sentence
-around it, and the same span rule for tables. It is reported as `unit_fallback` and **`format_violation`**: the model not
-following the format is a metric of its own (printed per case and tier as `format violations k/n`, and compared as
-the rate "follows the RESULT format"), not a silent pass, so that a token strategy that confuses the model shows up.
-Record `format_violation` (true if any unit fact of the run was read by the fallback or had a bare number or a malformed line)
-in the run. Because the prompt changed, **results files from before it are not comparable** (`compare` refuses on the
-prompt hash).
+**The unit slot** forgives slips: a trailing point, a remark in brackets (`°C (as returned)`, `mm (millimetres)`,
+`degrees Celsius (°C)`), `℃`, `ºC`, `m s⁻¹`, `%RH`, bold, bullets, quotes, fences, any case. A figure of fewer than two
+significant digits gets no rounding **only** in the unit the value was read in and only when the value has two or more:
+`1` is not 0.8404 as a fraction, but `4 h` for 4.12 h and `-1 °C` for -0.7 are roundings. Figures given for one thing (the
+same description, or one containing the other) must agree once converted to one unit: `14821 s` and `4.1 h`, `-0.7 °C` and
+`30.7 °F` are one value restated, `-0.7` and `-0.5` are not.
+**The fallback.** An answer with no usable RESULT or TABLE-UNIT line (or whose lines do not parse and do not pass) is read
+tolerantly, as before: prose (the unit directly after the figure, in brackets, as `(unit °C)`, in brackets before it on its
+line, or alone on the line above), real tables (a markdown table, or two or more lines of the same cells with a separator
+row or a header without a digit; prose with commas is no table) by column, with the unit in the cell, the header, a `Unit`
+column, the row label or a sentence around it, and the same span rule for tables. It is reported as `unit_fallback`. For a
+column with a `column` and a `row` (the CSV case) the TABLE-UNIT line may name the parameter or `value` (the column of the
+tool's own CSV), and the figure must stand in the row of the date. **`format_violation`** is computed by `bench.py` from the
+final answer of every run (`analyze` prints it; do not set it by hand): for a case with a `unit` fact it is true if the answer
+has no `RESULT:`/`TABLE-UNIT:` line, or any line that starts `RESULT:` and a number but does not parse with a unit; a case
+without a unit fact has `null`, and a prose line `Result: yes` is no RESULT line. The rate (printed as `format violations
+k/n` over the runs of the cases that ask for the format, and compared as "follows the RESULT format" like the other rates)
+is a metric of its own, not a silent pass, so that a token strategy that confuses the model shows up. Because the prompt
+changed, **results files from before it are not comparable** (`compare` refuses on the prompt hash).
 A pair marked `required` (Fahrenheit, when the question asks for it) must be there. The checkpoint `gets-the-unit`
 (`any_order`: before or after the values) lists the valid routes to the unit; the first checkpoint, reading the values, is
 the one required to pass.
@@ -228,10 +237,10 @@ Bash call, e.g. `uv run python -I -c "from wetterdienst import Wetterdienst; ...
 `Wetterdienst.resolve(provider, network)(parameters=..., ...).filter_by_station_id(...).values.all()`. It is
 independent of the MCP layer (a change to the tools or their answers does not reach it) but not of the library.
 
-**Three metrics, not one.** `passed` is the answer-reached headline (an answer within `max_steps`, from at least one call,
+**Four rates, not one.** `passed` is the answer-reached headline (an answer within `max_steps`, from at least one call,
 after the first checkpoint). It says nothing of whether the answer is right or what the agent did on the way: an answer
-from the wrong data can still pass. `facts_ok` and the violations (the share of runs with none) are therefore compared
-as metrics of their own, and a change is "no worse" only if all three are (see "Comparison").
+from the wrong data can still pass. `facts_ok`, the violations (the share of runs with none) and the format (the share that follow it, over the cases that ask
+for it) are therefore compared as rates of their own, and a change is "no worse" only if all four are (see "Comparison").
 
 ## The results file
 
@@ -267,22 +276,24 @@ prompt, the **mode** (headless or subagent) or whether the tools were **deferred
 told apart (one server version and one `label`; `--same-server` compares two runs of one server), or when more than 3 %
 of the runs of the *compared* cases are invalid. It compares only the (case, tier) whose case hash is unchanged and
 says how many it left out (only in the current file, with a changed case, only in the previous file); a tier whose
-resolved model ids differ is not compared. Per tier, pooled, it decides for each of three rates (passes, facts, share of
-runs with no violation) the difference of the new minus the previous with its 95 % Newcombe interval, as **one**
+resolved model ids differ is not compared; it refuses a file with a run still marked `needs_judging`. Every case is first
+cut down to the same number of valid runs on both sides (`_equalise`: the first k of each, k the smaller), so that pooling
+weights the cases alike and uses real counts only (no pseudo-counts: an extra repeat on one case or an invalid run cannot
+shrink the interval). Per tier, pooled, it decides for each of four rates (passes, facts, share of runs with no violation,
+share that follow the RESULT format) the difference of the new minus the previous with its 95 % Newcombe interval, as **one**
 non-inferiority decision: **no worse** if the lower bound is above minus 10 percentage points, **WORSE** if the upper
 bound is below minus 10 points (the drop is shown to be larger than tolerated), **inconclusive** otherwise; a drop that is
-real but within the margin is "no worse (a drop, lower but within the margin)". The tier is `NO WORSE` only if all three
-are, `WORSE` if any is. **The pool is only valid if every case has the same number of valid runs on both sides**: otherwise
-it prints INCONCLUSIVE with the reason, since pooling would weight the cases differently on each side and a case that
-collapsed on few runs could vanish in it. A case whose own rate fell by 40 points or more is printed with its counts
-whatever the pooled verdict says. Each of the three decisions has a one-sided error of 2.5 %, so about 7 % per tier
-that one of them is wrong in the same direction; the per-case Fisher tests are **hints** only (little power at 5 runs).
+real but within the margin is "no worse (a drop, lower but within the margin)", and one whose whole interval is below zero
+but not beyond the margin says "likely worse, more runs would decide". The tier is `NO WORSE` only if all four are, `WORSE`
+if any is. A case whose own rate fell by 40 points or more is printed with its counts whatever the pooled verdict says.
+Each decision has a one-sided error of 2.5 %, so about 10 % per tier that one of the four is wrong in the same direction;
+the per-case Fisher tests are **hints** only (little power at 5 runs).
 Not finding a difference is not "no worse": at a pass rate of 90 % it takes about 140 runs per side to show a margin of
-10 points (`required_runs`, printed for each of the three rates, the largest decides), and the default full run is 27 cases, 135 runs a side per tier at 5 repeats, 270 in all
+10 points (`required_runs`, printed for each rate, the largest decides), and the default full run is 27 cases, 135 runs a side per tier at 5 repeats, 270 in all
 (`needs_key` cases are skipped by default, so London is not in it), about enough at 90 % and not enough at 80 %. Steps, tool-result characters, context
 tokens at the first request, total and output tokens, and the calls whose result was saved to a file are printed as the
 median per case before and after and the paired difference. A token-efficiency change is "no worse and smaller" when
-all three rates are `no worse` and the sizes fell; the model, server, reference and Claude Code versions that differ
+all four rates are `no worse` and the sizes fell; the model, server, reference and Claude Code versions that differ
 are told first.
 
 ## Local server: comparing a change before release

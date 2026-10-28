@@ -2517,7 +2517,8 @@
             "pick": "the value, and the unit of the parameter in `metadata.parameters[].unit`"
           },
           "cross_check": {"tool": "glossary", "args": {"parameter": "precipitation_amount", "limit": 3}},
-          "column": "precipitation",
+          "column": "precipitation|^value$",
+          "row": "2026-10-16",
           "accepted": [
             {"tokens": ["mm", "millimeter", "millimeters", "millimetre", "millimetres", "l/m²", "l/m2"], "factor": 1},
             {"tokens": ["cm", "centimeter", "centimeters", "centimetre", "centimetres"], "factor": 0.1}

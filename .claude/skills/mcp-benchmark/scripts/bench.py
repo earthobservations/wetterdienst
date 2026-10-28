@@ -12,7 +12,7 @@ are compared on the same arithmetic.
     bench.py compare <previous.json> <results.json>                  what changed beyond noise
     bench.py run MODEL URL NAME PROMPT OUT [--timeout S] [--max-usd N]   one tested agent, headless (run_subject.sh)
     bench.py probe URL | tools-size [--server URL]                   does the server answer / what tools/list costs
-    bench.py rerun --results FILE --out-dir DIR [--case ID] [--tier T] [--dry-run]   fill in invalid runs and missing repeats
+    bench.py add-run --results FILE --run RUN.json                   put one judged run in, replacing its repeat
     bench.py cleanup                                                 remove the project dirs headless runs leave
     bench.py unit --case ID --fact ID --truth V [V2] --answer TEXT   the unit fact of a case against an answer
     bench.py hashes [--cases PATH]                                   hash of the cases file and of each case
@@ -63,7 +63,7 @@ CLEANUP_MIN_AGE = 600
 MAX_TIMEOUT = 540
 #: bump it when the arithmetic changes (what counts as a step, a checkpoint, a violation, an aggregate or a verdict):
 #: two results files of another logic version are not compared
-LOGIC_VERSION = 5
+LOGIC_VERSION = 7
 UTC = dt.timezone.utc  # noqa: UP017 - the script also runs on the python3 of a Mac, which is older than 3.11
 #: Claude Code puts a tool result that exceeds its limit in a file and answers with this notice; no Read tool to open it
 SPILL_RE = re.compile(r"^Error: result \(([\d,]+) characters\) exceeds maximum allowed")
@@ -514,6 +514,7 @@ def evaluate(case: dict[str, Any], run: dict[str, Any], defaults: dict[str, Any]
         "first_checkpoint_met": first_met,
         "violations": violations,
         "mechanical_pass": 1 <= steps <= case["max_steps"] and first_met and not run.get("invalid"),
+        "format_violation": format_violation(case, run["answer"]),
         "mechanical_facts": {
             fact["id"]: network_serves(run, fact) for fact in case.get("facts", []) if fact["kind"] == "network_serves_place"
         },
@@ -623,9 +624,9 @@ def aggregate(runs: list[dict[str, Any]]) -> dict[str, Any]:
         "spilled_calls": sum(r.get("spilled_calls", 0) for r in runs),
         "spill_unrecognised": sum(r.get("spill_unrecognised_calls", 0) for r in runs),
         "steps_median": _median([r["steps"] for r in runs]),
-        "steps_max": max((r["steps"] for r in runs), default=None),
+        "steps_max": max((r["steps"] for r in runs if r["steps"] is not None), default=None),
         "result_chars_median": _median([r["tool_result_chars_sum"] for r in runs]),
-        "result_chars_max": max((r["tool_result_chars_max"] for r in runs), default=None),
+        "result_chars_max": max((r["tool_result_chars_max"] for r in runs if r["tool_result_chars_max"] is not None), default=None),
         "output_tokens_median": _median([r["output_tokens"] for r in runs]),
         "context_tokens_first_median": _median([r["context_tokens_first"] for r in runs]),
         "total_tokens_median": _median([r["total_tokens"] for r in runs]),
@@ -672,9 +673,6 @@ def report(results: dict[str, Any]) -> str:
     if invalid:
         reasons = sorted({r.get("invalid_reason") or "?" for r in results["runs"] if r.get("invalid")})
         lines.append(f"\n{invalid} of {len(results['runs'])} runs are invalid (no server) and left out above: {'; '.join(reasons)}")
-    judging = sum(1 for r in results["runs"] if r.get("needs_judging"))
-    if judging:
-        lines.append(f"\nWARNING: {judging} runs were re-run and still need judging; they count as failed until then")
     spilled = sum(r.get("spilled_calls", 0) for r in results["runs"])
     if spilled:
         lines.append(
@@ -765,11 +763,26 @@ def _big_drops(prev_groups: dict[Any, list[dict[str, Any]]], cur_groups: dict[An
     return lines
 
 
-def _equal_weight(grouped: dict[Any, list[dict[str, Any]]], keys: list[Any], field: str) -> tuple[int, int]:
-    """Pool the cases of a tier with the same weight each: the mean of their rates, as counts of the nominal repeats."""
-    nominal = max(len(grouped[k]) for k in keys)
-    rates = [aggregate(grouped[k])[field] / aggregate(grouped[k])["n"] for k in keys if aggregate(grouped[k])["n"]]
-    return round(sum(rates) / len(rates) * nominal * len(rates)), nominal * len(rates)
+def _equalise(
+    prev_groups: dict[Any, list[dict[str, Any]]], cur_groups: dict[Any, list[dict[str, Any]]], keys: list[Any]
+) -> tuple[dict[Any, list[dict[str, Any]]], dict[Any, list[dict[str, Any]]], int]:
+    """Give every (case, tier) the same number of valid runs on both sides: the first k of each, k the smaller count.
+
+    No pseudo-counts: a case with more valid repeats on one side (an invalid run, or more repeats) is cut down to what
+    both sides have, in the order of their `repeat`, and the pooled counts are real runs. Give the number of valid runs left out.
+    """
+    prev_eq: dict[Any, list[dict[str, Any]]] = {}
+    cur_eq: dict[Any, list[dict[str, Any]]] = {}
+    dropped = 0
+    for key in keys:
+        a, b = (
+            sorted((r for r in grouped[key] if not r.get("invalid")), key=lambda r: r.get("repeat") or 0)
+            for grouped in (prev_groups, cur_groups)
+        )
+        smaller = min(len(a), len(b))
+        prev_eq[key], cur_eq[key] = a[:smaller], b[:smaller]
+        dropped += len(a) + len(b) - 2 * smaller
+    return prev_eq, cur_eq, dropped
 
 
 def compare_with_status(  # noqa: C901, PLR0911, PLR0912, PLR0915
@@ -784,11 +797,12 @@ def compare_with_status(  # noqa: C901, PLR0911, PLR0912, PLR0915
     It refuses when the counting or the conditions differ: the logic version, the defaults, the prompt, the mode, the
     deferral of the tools, two sides that cannot be told apart (the same server version and no differing `label`), or more
     than a few percent invalid runs among the compared ones. It compares only the (case, tier) whose hash is unchanged
-    and says how many it left out; a tier whose resolved model ids differ is not compared. Pooled per tier, the passes,
-    the facts and the share of runs without a violation are each decided with a Newcombe interval of the difference
-    against the margin, and only if every case has the same number of valid runs on both sides (pooling cases with
-    different numbers weights them differently on each side, and a collapsed case can vanish in the pool). The per case
-    Fisher tests are hints, and a case that fell by 40 points is printed whatever the verdict.
+    and says how many it left out; a tier whose resolved model ids differ is not compared. It refuses a file that has
+    a run still marked `needs_judging`. Every case is first cut down to the same number of valid runs on both sides
+    (the first k of each, `_equalise`), so that pooling weights the cases alike and no pseudo-counts are used. Pooled
+    per tier, the passes, the facts, the share of runs without a violation and the share that follow the RESULT format
+    are each decided with a Newcombe interval of the difference against the margin. The per case Fisher tests are
+    hints, and a case that fell by 40 points is printed whatever the verdict.
     """
     meta_p, meta_c = previous["meta"], current["meta"]
     out = []
@@ -815,6 +829,10 @@ def compare_with_status(  # noqa: C901, PLR0911, PLR0912, PLR0915
             f"the two sides cannot be told apart: both are {meta_p.get('server_version')!r} with the label {meta_p.get('label')!r}; "
             "give each side a label (the SHA of the checkout it serves, and whether it was dirty), or pass --same-server to compare two runs of one server"
         )
+    for label, results in (("previous", previous), ("current", current)):
+        judging = sum(1 for r in results["runs"] if r.get("needs_judging"))
+        if judging:
+            reasons.append(f"{judging} runs of the {label} file still need judging, and would count as failures")
     prev_groups, cur_groups = groups(previous), groups(current)
     comparable = [k for k in cur_groups if k in prev_groups and meta_p["case_hashes"].get(k[0]) == meta_c["case_hashes"].get(k[0])]
     for label, results, grouped in (("previous", previous, prev_groups), ("current", current, cur_groups)):
@@ -840,56 +858,37 @@ def compare_with_status(  # noqa: C901, PLR0911, PLR0912, PLR0915
         if models_p != models_c:
             out.append(f"POOLED {tier}: not compared, the resolved model ids differ: {models_p} -> {models_c}")
             continue
-        a, b = aggregate(prev), aggregate(cur)
+        prev_eq, cur_eq, dropped = _equalise(prev_groups, cur_groups, keys)
+        a, b = aggregate([r for k in keys for r in prev_eq[k]]), aggregate([r for k in keys for r in cur_eq[k]])
         if not a["n"] or not b["n"]:
             out.append(f"POOLED {tier}: no valid runs to compare")
             continue
-        uneven = [k for k in keys if aggregate(prev_groups[k])["n"] != aggregate(cur_groups[k])["n"]]
-        weighted = bool(uneven) and all(len(prev_groups[k]) == len(cur_groups[k]) for k in uneven)
-        if uneven and not weighted:
-            shown = ", ".join(
-                f"{k[0]} {aggregate(prev_groups[k])['n']} vs {aggregate(cur_groups[k])['n']}" for k in uneven[:3]
-            )
+        out.append(f"POOLED {tier} ({a['n']} runs on each side; margin {margin:.0%}):")
+        if dropped:
             out.append(
-                f"POOLED {tier}: INCONCLUSIVE, the number of valid runs per case differs between the files for {len(uneven)} cases "
-                f"({shown}); pooling would weight the cases differently on each side. Run the same repeats (`bench.py rerun` fills "
-                "them in), or read the cases one by one."
+                f"  {dropped} valid runs were left out so that every case has the same number of runs on both sides "
+                "(an invalid run, or more repeats on one side)"
             )
-            out.extend(_big_drops(prev_groups, cur_groups, keys))
-            continue
         verdicts = []
-        out.append(f"POOLED {tier} ({a['n']} runs before, {b['n']} after; margin {margin:.0%}):")
         needs = []
-        if weighted:
-            short = sum(len(prev_groups[k]) - aggregate(prev_groups[k])["n"] for k in keys) + sum(
-                len(cur_groups[k]) - aggregate(cur_groups[k])["n"] for k in keys
-            )
-            out.append(
-                f"  every case is weighted equally by its valid runs, because {short} runs were invalid (within the "
-                f"{MAX_INVALID_SHARE:.0%} tolerated); `bench.py rerun` replaces them"
-            )
-        for label, field in (("passed", "passed"), ("facts ok", "facts_ok"), ("no violation", "violation_free")):
-            if weighted:
-                (k1, n1), (k2, n2) = (_equal_weight(prev_groups, keys, field), _equal_weight(cur_groups, keys, field))
-            else:
-                k1, n1, k2, n2 = a[field], a["n"], b[field], b["n"]
+        rates = [("passed", "passed", "n"), ("facts ok", "facts_ok", "n"), ("no violation", "violation_free", "n")]
+        if a["format_runs"] and b["format_runs"]:
+            rates.append(("follows the RESULT format", "format_ok", "format_runs"))
+        for label, field, size in rates:
+            k1, n1 = (a["format_runs"] - a["format_violations"] if field == "format_ok" else a[field]), a[size]
+            k2, n2 = (b["format_runs"] - b["format_violations"] if field == "format_ok" else b[field]), b[size]
             verdict, text = _non_inferiority(label, k1, n1, k2, n2, margin)
             verdicts.append(verdict)
             out.append(f"  {text}")
             needs.append(required_runs(k1 / n1, margin))
-        if a["format_runs"] and b["format_runs"]:
-            good_a, good_b = a["format_runs"] - a["format_violations"], b["format_runs"] - b["format_violations"]
-            verdict, text = _non_inferiority("follows the RESULT format", good_a, a["format_runs"], good_b, b["format_runs"], margin)
-            verdicts.append(verdict)
-            out.append(f"  {text}")
         overall = "WORSE" if "WORSE" in verdicts else "NO WORSE" if all(v == "no worse" for v in verdicts) else "INCONCLUSIVE"
         out.append(
-            f"  => {overall}. Power: to show no worse than {margin:.0%} each of the three rates takes about {needs} runs per side "
-            f"(the largest, {max(needs)}, decides, since NO WORSE needs all three); there are {min(a['n'], b['n'])}. Fewer runs make "
+            f"  => {overall}. Power: to show no worse than {margin:.0%} the {len(rates)} rates take about {needs} runs per side "
+            f"(the largest, {max(needs)}, decides, since NO WORSE needs all {len(rates)}); there are {a['n']}. Fewer runs make "
             "INCONCLUSIVE the usual answer, which is not 'no worse'."
         )
-        out.extend(_big_drops(prev_groups, cur_groups, keys))
-        out.extend(_sizes(prev_groups, cur_groups, keys))
+        out.extend(_big_drops(prev_eq, cur_eq, keys))
+        out.extend(_sizes(prev_eq, cur_eq, keys))
     out.extend(f"hint {case} [{tier}]: {_hint(prev_groups[(case, tier)], cur_groups[(case, tier)])}" for case, tier in comparable)
     return "\n".join(out), False
 
@@ -942,8 +941,19 @@ def _number(raw: str) -> tuple[float, int, int]:
 
 
 def _norm_unit(text: str) -> str:
-    """Normalise a unit as written in a RESULT line: no brackets or surrounding blanks, one blank, lower case."""
-    return re.sub(r"\s+", " ", text.strip().strip("()[]").strip()).casefold()
+    """Normalise a unit as written in a RESULT line, or as listed in a fact, so that the two compare.
+
+    The unit may carry a trailing point, a parenthetical remark (`°C (as returned)`, `mm (millimetres)`,
+    `degrees Celsius (°C)`) or be in brackets; `\u2103` and `\u00baC` are `°C`, `m s\u207b\u00b9` is `m s-1`, `%RH` is `%`.
+    """
+    text = text.strip().replace("\u2103", "\u00b0C").replace("\u00ba", "\u00b0").replace("\u207b\u00b9", "-1")
+    if text[:1] in "([" and text[-1:] in ")]":
+        text = text[1:-1]
+    else:
+        stripped = re.sub(r"\s*\([^)]*\)\s*$", "", text)
+        text = stripped if stripped else text
+    text = re.sub(r"\s+", " ", text.rstrip(".,;:").strip())
+    return "%" if re.fullmatch(r"%\s*rh", text, re.IGNORECASE) else text.casefold()
 
 
 def _starts_with_unit(tail: str, token: str) -> bool:
@@ -984,23 +994,32 @@ def _pairs_bracketed(text: str, accepted: list[dict[str, Any]]) -> set[int]:
     return {i for i, pair in enumerate(accepted) if any(_bracketed(text, t) for t in pair["tokens"])}
 
 
+def _significant(value: float) -> int:
+    """Count the significant digits of a number as Python writes it (0.8404 has 4, -0.7 has 1)."""
+    return max(len(re.sub(r"\D", "", repr(abs(float(value))).split("e")[0]).lstrip("0")), 1)
+
+
 def _fitter(fact: dict[str, Any], truth: dict[str, float]) -> Any:  # noqa: ANN401
     """Make the function that says which accepted units a written figure is the value in.
 
     A figure fits a unit when it equals the value in it (`value * factor + offset`) within the fact's `tolerance` or
-    `margin` scaled to the unit, or within the rounding of the figure as written, whichever is wider. A figure with
-    fewer than two significant digits gets no rounding: `1` is not 0.8404 as a fraction.
+    `margin` scaled to the unit, or within the rounding of the figure as written, whichever is wider. One exception: a
+    figure of fewer than two significant digits gets no rounding in the unit the value was read in (factor 1, offset 0)
+    when the value has two or more, so `1` is not 0.8404 as a fraction; in another unit (`4` hours for 4.12) or for a
+    value of one digit (`-1` for -0.7) rounding is rounding.
     """
     accepted = fact["accepted"]
     span = "value" not in truth
     low, high = (truth["min"], truth["max"]) if span else (truth["value"], truth["value"])
     slack = fact.get("tolerance", fact.get("margin", 0))
+    truth_digits = max(_significant(low), _significant(high))
 
     def fitting(raw: str) -> tuple[float, list[int]]:
         number, decimals, significant = _number(raw)
-        rounding = 0.5 * 10**-decimals if significant >= 2 else 0  # noqa: PLR2004
         fits = []
         for i, pair in enumerate(accepted):
+            base = pair["factor"] == 1 and pair.get("offset", 0) == 0
+            rounding = 0 if significant < 2 and truth_digits >= 2 and base else 0.5 * 10**-decimals  # noqa: PLR2004
             wide = max(slack * abs(pair["factor"]), rounding) + 1e-9
             if low * pair["factor"] + pair.get("offset", 0) - wide <= number <= high * pair["factor"] + pair.get("offset", 0) + wide:
                 fits.append(i)
@@ -1072,28 +1091,21 @@ def _tables_of(answer: str) -> tuple[list[tuple[int, int, list[list[str]]]], str
     return tables, "\n".join("" if n in in_table else line for n, line in enumerate(lines))
 
 
-def _result_check(answer: str, fact: dict[str, Any], truth: dict[str, float]) -> dict[str, Any] | None:  # noqa: C901, PLR0912, PLR0915
-    """Check the `RESULT:` and `TABLE-UNIT:` lines of an answer; None if it has none the format allows.
+def format_lines(answer: str) -> tuple[list[dict[str, str]], list[tuple[str, str]], int]:
+    """Read the RESULT and TABLE-UNIT lines of an answer: the results, the column units, and how many lines are malformed.
 
-    `RESULT: <figure> <unit> | <what it is>` gives one value with its unit, `TABLE-UNIT: <column> | <unit>` the unit of
-    a column of a table. The unit must be written as one of the fact's `accepted` tokens (any case), nothing is read
-    from the prose. A figure that fits the value in an accepted unit passes with that unit's token and fails with
-    another accepted unit's, a forbidden one, an unknown one, or none; a second figure for the same thing fails. For a
-    forecast every figure written with an accepted unit must lie in the span.
+    A line counts after bullets, bold, quotes and backticks are stripped, and in any case. A RESULT line is one that
+    starts `RESULT:` and a number (a prose line `Result: yes` is none); it must give a unit. A TABLE-UNIT line must name
+    a column and a unit.
     """
-    accepted = fact["accepted"]
-    forbidden = {_norm_unit(t) for t in fact.get("forbidden_tokens", [])}
-    tokens = [{_norm_unit(t) for t in pair["tokens"]} for pair in accepted]
-    span = "value" not in truth
-    fitting = _fitter(fact, truth)
     results: list[dict[str, str]] = []
     column_units: list[tuple[str, str]] = []
     malformed = 0
     for raw in answer.split("\n"):
-        line = raw.strip().lstrip("-*•>` ").rstrip("` ")
-        if line[:7].upper() == "RESULT:":
+        line = raw.replace("**", "").strip().lstrip("-*\u2022>` ").rstrip("*` ")
+        if re.match(rf"RESULT:\s*{_NUMBER}", line, re.IGNORECASE):
             match = _RESULT_LINE.match(line)
-            if match:
+            if match and match["unit"].strip():
                 results.append(match.groupdict())
             else:
                 malformed += 1
@@ -1103,25 +1115,69 @@ def _result_check(answer: str, fact: dict[str, Any], truth: dict[str, float]) ->
                 column_units.append((match["column"], match["unit"]))
             else:
                 malformed += 1
+    return results, column_units, malformed
+
+
+def format_violation(case: dict[str, Any], answer: str) -> bool | None:
+    """Tell whether an answer broke the RESULT format, for a case that asks for it (one with a `unit` fact), else None.
+
+    Computed here, from the final answer, for every run, so that the rate has the same meaning in every file: a run
+    breaks the format if it has no RESULT or TABLE-UNIT line, or any line that does not parse as one.
+    """
+    if not any(f["kind"] == "unit" for f in case.get("facts", [])):
+        return None
+    results, column_units, malformed = format_lines(answer)
+    return not (results or column_units) or malformed > 0
+
+
+def _table_hit(answer: str, fact: dict[str, Any], fitting: Any, known: set[int]) -> str | None:  # noqa: ANN401
+    """Find the figure of the value in a table of the answer, in the row of the fact's `row` (a date) if it has one."""
+    tables, _ = _tables_of(answer)
+    for _, _, rows in tables:
+        for row in rows[1:]:
+            if "row" in fact and not any(fact["row"] in cell for cell in row):
+                continue
+            for cell in row:
+                masked = _mask(cell)
+                match = _FIGURE.search(masked)
+                if match and known & set(fitting(match.group(0))[1]):
+                    return match.group(0)
+    return None
+
+
+def _result_check(answer: str, fact: dict[str, Any], truth: dict[str, float]) -> dict[str, Any] | None:  # noqa: C901, PLR0912, PLR0915
+    """Check the `RESULT:` and `TABLE-UNIT:` lines of an answer; None if it has none the format allows.
+
+    `RESULT: <figure> <unit> | <what it is>` gives one value with its unit, `TABLE-UNIT: <column> | <unit>` the unit of
+    a column of a table. The unit must be written as one of the fact's `accepted` tokens (any case, with the slips
+    `_norm_unit` forgives), nothing is read from the prose. A figure that fits the value in an accepted unit passes with
+    that unit's token and fails with another accepted unit's, a forbidden one, an unknown one, or none. Figures given for
+    the same thing must agree once converted to one unit (a restatement in hours passes, a correction fails); that rule
+    is not for a forecast (a span), where many figures are given by design, and there every figure written with an
+    accepted unit must lie in the span.
+    """
+    accepted = fact["accepted"]
+    forbidden = {_norm_unit(t) for t in fact.get("forbidden_tokens", [])}
+    tokens = [{_norm_unit(t) for t in pair["tokens"]} for pair in accepted]
+    span = "value" not in truth
+    fitting = _fitter(fact, truth)
+    results, column_units, malformed = format_lines(answer)
     if not results and not column_units:
         return None
     ok_pairs: set[int] = set()
     ok_figures: list[str] = []
     failures: list[dict[str, str]] = []
-    format_violation = malformed > 0
-    seen: dict[str, str] = {}
+    format_violation_ = malformed > 0
+    stated: list[tuple[str, float, float, str]] = []
     for item in results:
         figure, unit, what = item["figure"], _norm_unit(item["unit"]), re.sub(r"\s+", " ", item["what"]).strip().casefold()
-        number, fits = fitting(figure)
+        number, decimals, _ = _number(figure)
+        _, fits = fitting(figure)
         known = {i for i, t in enumerate(tokens) if unit in t}
-        if what in seen and seen[what] != figure:
-            failures.append({"figure": figure, "reason": f"a second figure for the same thing ({seen[what]} and {figure})"})
-        seen.setdefault(what, figure)
-        if not unit:
-            format_violation = True
-            if fits:
-                failures.append({"figure": figure, "reason": "no unit in the RESULT line"})
-            continue
+        if known and not span:
+            pair = accepted[min(known)]
+            base = (number - pair.get("offset", 0)) / pair["factor"]
+            stated.append((what, base, 0.5 * 10**-decimals / abs(pair["factor"]), figure))
         if not fits:
             if span and known:
                 failures.append({"figure": figure, "reason": "a figure with a unit that lies outside the span"})
@@ -1136,19 +1192,22 @@ def _result_check(answer: str, fact: dict[str, Any], truth: dict[str, float]) ->
                 failures.append({"figure": figure, "reason": "its unit is not the unit its number is in"})
         else:
             failures.append({"figure": figure, "reason": f"the unit {item['unit'].strip()!r} is not one the case knows"})
+    same_thing: list[list[tuple[str, float, float, str]]] = []
+    for entry in stated:  # two descriptions are one thing when one contains the other (`daily mean`, `daily mean at Kiel`)
+        for group in same_thing:
+            if any(entry[0] in other[0] or other[0] in entry[0] for other in group):
+                group.append(entry)
+                break
+        else:
+            same_thing.append([entry])
+    for group in same_thing:
+        if max(v[1] for v in group) - min(v[1] for v in group) > max(v[2] for v in group):
+            failures.append({"figure": " and ".join(v[3] for v in group), "reason": f"the figures given for {group[0][0]!r} contradict each other"})
     if "column" in fact:
-        tables, _ = _tables_of(answer)
-        cells = [
-            cell
-            for _, _, rows in tables
-            for row_cells in rows[1:]
-            for cell in row_cells
-            if _FIGURE.fullmatch(_mask(cell).strip())
-        ]
         wanted = [(c, u) for c, u in column_units if re.search(fact["column"], c, re.IGNORECASE)]
         if not wanted and not ok_figures:
             failures.append({"figure": "", "reason": "no TABLE-UNIT line for the column"})
-            format_violation = True
+            format_violation_ = True
         for column, unit in wanted:
             unit_n = _norm_unit(unit)
             known = {i for i, t in enumerate(tokens) if unit_n in t}
@@ -1157,13 +1216,14 @@ def _result_check(answer: str, fact: dict[str, Any], truth: dict[str, float]) ->
             elif not known:
                 failures.append({"figure": column, "reason": f"the unit {unit!r} of the column is not one the case knows"})
             else:
-                hit = next((cell for cell in cells if known & set(fitting(cell)[1])), None)
+                hit = _table_hit(answer, fact, fitting, known)
                 if hit is None:
-                    failures.append({"figure": column, "reason": "no cell of a table equals the value in the unit declared for the column"})
+                    where = f" in the row of {fact['row']}" if "row" in fact else ""
+                    failures.append({"figure": column, "reason": f"no table has the value in the unit declared for the column{where}"})
                 else:
                     ok_pairs |= known
                     ok_figures.append(hit)
-    return _verdict(accepted, ok_pairs, ok_figures, failures, mode="result", format_violation=format_violation)
+    return _verdict(accepted, ok_pairs, ok_figures, failures, mode="result", format_violation=format_violation_, malformed=malformed)
 
 
 def _fallback_check(answer: str, fact: dict[str, Any], truth: dict[str, float]) -> dict[str, Any]:  # noqa: C901, PLR0912, PLR0915
@@ -1275,12 +1335,14 @@ def unit_check(answer: str, fact: dict[str, Any], truth: dict[str, float]) -> di
     """Check an answer's value and its unit against the judge's own reading of the value.
 
     The prompt asks for `RESULT:` lines (and `TABLE-UNIT:` lines for a table), which are read strictly and alone
-    (`_result_check`). An answer without them is read tolerantly (`_fallback_check`) and reported as
-    `format_violation` and `unit_fallback`: the model's following of the format is a metric of its own, not a pass.
-    `truth` is `{"value": v}` or, for a forecast, `{"min": a, "max": b}`.
+    (`_result_check`). An answer without them, or one whose lines do not parse and do not pass, is read tolerantly
+    (`_fallback_check`) and reported as `unit_fallback`; the `format_violation` of a run is `format_violation()`, computed
+    from the answer for every run. `truth` is `{"value": v}` or, for a forecast, `{"min": a, "max": b}`.
     """
     strict = _result_check(answer, fact, truth)
-    return strict if strict is not None else _fallback_check(answer, fact, truth)
+    if strict is not None and (strict["ok"] or not strict["malformed"]):
+        return strict
+    return _fallback_check(answer, fact, truth)
 
 
 # --------------------------------------------------------------------------------------------- the server and runs
@@ -1426,12 +1488,41 @@ def _claude_version(claude: str) -> str | None:
     return done.stdout.strip() or None
 
 
-def failed_run(case: dict[str, Any], tier: str, repeat: int, reason: str, *, invalid: bool = True) -> dict[str, Any]:
+def failed_run(
+    case: dict[str, Any],
+    tier: str,
+    repeat: int,
+    reason: str,
+    *,
+    invalid: bool = True,
+    transcript: Path | None = None,
+    defaults: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Make the record of a run that did not give an answer: invalid (no server) or failed (a timeout), with the reason.
 
     A server that does not answer or lists no tool says nothing about the model, so the run is `invalid`. A run that
-    timed out says something about it (a strategy that makes the model slower must show as a failure): it is a failed run.
+    timed out says something about it (a strategy that makes the model slower must show as a failure): it is a failed run,
+    with what its partial transcript measured (steps, tokens, sizes, violations) if there is one. Without a transcript
+    the metrics are None, never 0, so that the medians leave the run out and a timing-out strategy does not look smaller.
     """
+    measured: dict[str, Any] = {
+        "steps": None,
+        "tool_result_chars_sum": None,
+        "tool_result_chars_max": None,
+        "output_tokens": None,
+        "context_tokens_first": None,
+        "total_tokens": None,
+        "violations": [],
+        "calls": [],
+    }
+    checkpoints = {"k": 0, "n": len(case["checkpoints"]), "met": [], "first_missed": case["checkpoints"][0]["id"]}
+    if transcript is not None and transcript.is_file():
+        run = parse_transcript(transcript, "mcp__wetterdienst__")
+        verdict = evaluate(case, run, defaults or {})
+        measured.update({k: run[k] for k in measured if k in run and k not in {"calls"}})
+        measured["calls"] = [{k: v for k, v in c.items() if k != "result_head"} for c in run["calls"]]
+        measured["violations"] = verdict["violations"]
+        checkpoints = verdict["checkpoints"]
     return {
         "case": case["id"],
         "tier": tier,
@@ -1442,95 +1533,33 @@ def failed_run(case: dict[str, Any], tier: str, repeat: int, reason: str, *, inv
         "passed": False,
         "facts_ok": False,
         "is_answer": False,
-        "checkpoints": {"k": 0, "n": len(case["checkpoints"]), "met": [], "first_missed": case["checkpoints"][0]["id"]},
-        "violations": [],
-        "steps": 0,
+        "format_violation": None,
+        "checkpoints": checkpoints,
         "max_steps": case["max_steps"],
-        "tool_result_chars_sum": 0,
-        "tool_result_chars_max": 0,
-        "output_tokens": 0,
-        "context_tokens_first": None,
-        "total_tokens": 0,
-        "calls": [],
+        **measured,
     }
 
 
-def _analysis_record(case: dict[str, Any], tier: str, repeat: int, transcript: Path, defaults: dict[str, Any]) -> dict[str, Any]:
-    """Analyse a transcript into a results record that still needs the judge: failed until it has judged it."""
-    run = parse_transcript(transcript, "mcp__wetterdienst__")
-    verdict = evaluate(case, run, defaults)
-    sidecar = Path(f"{transcript}.meta.json")
-    calls = [{k: v for k, v in c.items() if k != "result_head"} for c in run["calls"]]
-    return {
-        **run,
-        **verdict,
-        "calls": calls,
-        "case": case["id"],
-        "tier": tier,
-        "repeat": repeat,
-        "is_answer": False,
-        "passed": False,
-        "facts_ok": False,
-        "needs_judging": True,
-        "run_meta": json.loads(sidecar.read_text(encoding="utf-8")) if sidecar.is_file() else None,
-    }
+_RUN_KEYS = ("case", "tier", "repeat", "passed", "facts_ok", "is_answer", "checkpoints", "violations", "steps", "max_steps")
 
 
-def rerun_targets(results: dict[str, Any], case: str | None = None, tier: str | None = None) -> list[tuple[str, str, int]]:
-    """List the (case, tier, repeat) a results file lacks: the invalid runs, and the repeats it has fewer of than `repeats`."""
-    wanted = int(results["meta"].get("repeats") or 0)
-    found = []
-    for (name, level), runs in groups(results).items():
-        if (case and name != case) or (tier and level != tier):
-            continue
-        have = {r.get("repeat") for r in runs if not r.get("invalid")}
-        found.extend((name, level, n) for n in range(1, max(wanted, len(runs)) + 1) if n not in have)
-    return sorted(found)
+def add_run(results_path: Path, record: dict[str, Any]) -> str:
+    """Put one judged run into a results file, replacing the record of the same (case, tier, repeat).
 
-
-def rerun(results_path: Path, out_dir: Path, case: str | None, tier: str | None, *, dry_run: bool = False) -> int:  # noqa: C901
-    """Re-run the invalid runs and the missing repeats of a headless results file, and put them in it for the judge.
-
-    The prompt is rendered again from the case and the date of the file, the model and the server come from its `meta`.
-    A record that replaces an invalid one carries `needs_judging` and counts as failed until the judge has set
-    `is_answer`, `facts_ok` and `passed` and removed the flag.
+    This is how a missing or invalid repeat is filled in: run it again with `bench.py run` and the same arguments as the
+    others, `analyze` it, judge it, and add it. A record that lacks a field the report reads, or that still says it
+    `needs_judging`, is refused, so that an unjudged run cannot count as a failure.
     """
+    missing = [k for k in _RUN_KEYS if k not in record or record[k] is None]
+    if missing or record.get("needs_judging"):
+        msg = f"the run lacks {missing} or still needs judging: judge it first"
+        raise ValueError(msg)
     results = json.loads(results_path.read_text(encoding="utf-8"))
-    meta = results["meta"]
-    data = load_cases()
-    targets = rerun_targets(results, case, tier)
-    for line in targets:
-        sys.stdout.write(f"{line[0]} [{line[1]}] repeat {line[2]}\n")
-    if dry_run or not targets:
-        return 0
-    if meta.get("mode") != "headless" or not str(meta.get("server", "")).startswith("http"):
-        sys.stderr.write("rerun: only a headless results file (a `server` URL in its meta) can be filled in this way\n")
-        return 2
-    if hashes(data)["cases"].get(targets[0][0]) != meta["case_hashes"].get(targets[0][0]) or prompt_version() != meta.get("prompt"):
-        sys.stderr.write("rerun: the cases or the prompt changed since the file was written: a re-run would not be the same run\n")
-        return 2
-    out_dir.mkdir(parents=True, exist_ok=True)
-    replaced = 0
-    for name, level, number in targets:
-        the_case = find_case(data, name)
-        prompt_file = out_dir / f"{name}-{level}-{number}.prompt"
-        prompt_file.write_text(render_prompt(the_case, meta["date"], "the wetterdienst tools"), encoding="utf-8")
-        transcript = out_dir / f"{name}-{level}-{number}.jsonl"
-        model = (meta.get("models") or {}).get(level, level)
-        code = run_subject(model, meta["server"], "wetterdienst", str(prompt_file), str(transcript), 300, 0.5, meta.get("label"))
-        if code in {2, 3}:
-            sys.stderr.write(f"rerun: {name} [{level}] repeat {number} did not run (exit {code}); the file is left as it is\n")
-            continue
-        record = _analysis_record(the_case, level, number, transcript, data.get("defaults", {}))
-        if code == 124:
-            record = {**record, "failure": "timeout"}
-        results["runs"] = [
-            r for r in results["runs"] if (r["case"], r["tier"], r.get("repeat")) != (name, level, number)
-        ] + [record]
-        replaced += 1
+    key = (record["case"], record["tier"], record["repeat"])
+    old = [r for r in results["runs"] if (r["case"], r["tier"], r.get("repeat")) == key]
+    results["runs"] = [r for r in results["runs"] if r not in old] + [record]
     results_path.write_text(json.dumps(results, indent=1, ensure_ascii=False), encoding="utf-8")
-    sys.stdout.write(f"{replaced} runs re-run; they need judging (`needs_judging`)\n")
-    return 0
+    return f"{'replaced' if old else 'added'} {key[0]} [{key[1]}] repeat {key[2]}: {len(results['runs'])} runs"
 
 
 def run_subject(  # noqa: PLR0913
@@ -1616,12 +1645,9 @@ def main(argv: list[str] | None = None) -> int:
     p_probe = sub.add_parser("probe")
     p_probe.add_argument("url")
     p_probe.add_argument("--label")
-    p_rerun = sub.add_parser("rerun")
-    p_rerun.add_argument("--results", type=Path, required=True)
-    p_rerun.add_argument("--out-dir", type=Path, required=True)
-    p_rerun.add_argument("--case")
-    p_rerun.add_argument("--tier")
-    p_rerun.add_argument("--dry-run", action="store_true")
+    p_add = sub.add_parser("add-run")
+    p_add.add_argument("--results", type=Path, required=True)
+    p_add.add_argument("--run", type=Path, required=True, help="the judged record of the run, as JSON")
     p_failed = sub.add_parser("failed-run")
     p_failed.add_argument("--case", required=True)
     p_failed.add_argument("--tier", required=True)
@@ -1629,6 +1655,7 @@ def main(argv: list[str] | None = None) -> int:
     p_failed.add_argument("--reason", required=True)
     p_failed.add_argument("--kind", choices=("invalid", "failed"), default="invalid", help="`failed` for a timeout (exit 124)")
     p_failed.add_argument("--cases", type=Path, default=CASES_PATH)
+    p_failed.add_argument("--transcript", type=Path, help="the partial transcript of a run that timed out")
     p_size = sub.add_parser("tools-size")
     p_size.add_argument("--server", default=HOSTED_MCP_URL)
     sub.add_parser("cleanup")
@@ -1674,11 +1701,24 @@ def main(argv: list[str] | None = None) -> int:
         print(f"removed {cleanup()} project directories of benchmark runs")
     elif args.command == "run":
         return run_subject(args.model, args.url, args.name, args.prompt, args.out, args.timeout, args.max_usd, args.label)
-    elif args.command == "rerun":
-        return rerun(args.results, args.out_dir, args.case, args.tier, dry_run=args.dry_run)
+    elif args.command == "add-run":
+        try:
+            print(add_run(args.results, json.loads(args.run.read_text(encoding="utf-8"))))
+        except ValueError as error:
+            sys.stderr.write(f"add-run: {error}\n")
+            return 2
     elif args.command == "failed-run":
         case = find_case(load_cases(args.cases), args.case)
-        print(json.dumps(failed_run(case, args.tier, args.repeat, args.reason, invalid=args.kind == "invalid"), indent=1))
+        record = failed_run(
+            case,
+            args.tier,
+            args.repeat,
+            args.reason,
+            invalid=args.kind == "invalid",
+            transcript=args.transcript,
+            defaults=load_cases(args.cases).get("defaults", {}),
+        )
+        print(json.dumps(record, indent=1, ensure_ascii=False))
     elif args.command == "unit":
         case = find_case(load_cases(args.cases), args.case)
         fact = next(f for f in case["facts"] if f["id"] == args.fact)

@@ -13,7 +13,6 @@ import http.server
 import importlib.util
 import json
 import math
-import sys
 import threading
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
@@ -420,7 +419,7 @@ def test_the_comparison_is_a_non_inferiority_claim_on_the_pooled_rates() -> None
     assert "passed 100/100 -> 100/100: difference +0.0%" in same
     assert "=> WORSE" in worse
     assert "=> INCONCLUSIVE" in few
-    assert "takes about" in few
+    assert "take about" in few
     assert "(the largest, 75, decides" in few
     assert "there are 5" in few
 
@@ -1009,16 +1008,17 @@ def test_a_run_leaves_the_probes_answer_and_the_label_next_to_its_transcript(
     assert side["wetterdienst_version"] == "9.9.9"
 
 
-def test_pooling_cases_with_unequal_repeats_is_not_a_verdict() -> None:
-    """A case that collapsed on few runs must not vanish in a pool that another case dominates."""
+def test_cases_with_unequal_repeats_are_cut_down_to_what_both_sides_have() -> None:
+    """Every case counts the first k valid runs of each side, k the smaller: real counts, no pseudo-counts."""
     before = _results({("a", "small"): 50, ("b", "small"): 25}, ns={("a", "small"): 50, ("b", "small"): 50})
     after = _results({("a", "small"): 300, ("b", "small"): 0}, ns={("a", "small"): 300, ("b", "small"): 10})
 
     text = bench.compare(before, after)
 
-    assert "POOLED small: INCONCLUSIVE, the number of valid runs per case differs" in text
-    assert "no worse" not in text
-    assert "big drop in b [small]: passed 25/50 -> 0/10" in text
+    assert "POOLED small (60 runs on each side" in text
+    assert "290 valid runs were left out so that every case has the same number of runs on both sides" in text
+    assert "big drop in b [small]: passed 10/10 -> 0/10" in text
+    assert "=> NO WORSE" not in text
 
 
 def test_a_collapsed_case_is_printed_next_to_a_no_worse_pool() -> None:
@@ -1239,11 +1239,44 @@ RESULT_ANSWERS = [
     ("units-kiel-celsius", {"value": -0.7}, "It was -0.7 K in prose.\nRESULT: -0.7 °C | daily mean", True),
     ("units-kiel-celsius", {"value": -0.7}, "It was -0.7 °C in prose.\nRESULT: -0.7 K | daily mean", False),
     ("units-kiel-celsius", {"value": -0.7}, "RESULT: -0.7 K | daily mean", False),
-    ("units-kiel-celsius", {"value": -0.7}, "RESULT: -0.7 | daily mean", False),
     ("units-kiel-celsius", {"value": -0.7}, "RESULT: 272.45 K | daily mean", False),
     ("units-kiel-celsius", {"value": -0.7}, "RESULT: -0.7 °F | daily mean", False),
     ("units-kiel-celsius", {"value": -0.7}, "RESULT: -0.7 °C | daily mean\nRESULT: 30.7 °C | daily mean", False),
     ("units-kiel-celsius", {"value": -0.7}, "RESULT: -0.7 degrees | daily mean", False),
+    # slips in the unit slot are forgiven
+    ("units-kiel-celsius", {"value": -0.7}, "RESULT: -0.7 °C. | daily mean", True),
+    ("units-kiel-celsius", {"value": -0.7}, "RESULT: -0.7 \N{DEGREE CELSIUS} | daily mean", True),
+    ("units-kiel-celsius", {"value": -0.7}, "RESULT: -0.7 \N{MASCULINE ORDINAL INDICATOR}C | daily mean", True),
+    ("units-kiel-celsius", {"value": -0.7}, "RESULT: -0.7 °C (as returned) | daily mean", True),
+    ("units-kiel-celsius", {"value": -0.7}, "RESULT: -0.7 degrees Celsius (°C) | daily mean", True),
+    ("units-kiel-celsius", {"value": -0.7}, "RESULT: -0.7 [°C] | daily mean", True),
+    ("units-kiel-celsius", {"value": -0.7}, "**RESULT:** -0.7 °C | daily mean", True),
+    ("units-kiel-celsius", {"value": -0.7}, "result: -0.7 °C | daily mean", True),
+    ("units-kiel-celsius", {"value": -0.7}, "RESULT: -1 °C | daily mean, rounded", True),
+    ("units-humidity-percent", {"value": 0.8404}, "RESULT: 84 %RH | humidity", True),
+    ("units-wind-speed", {"value": 3.0}, "RESULT: 3.0 m s\N{SUPERSCRIPT MINUS}\N{SUPERSCRIPT ONE} | wind", True),
+    ("units-sunshine-seconds", {"value": 14821.2}, "RESULT: 4 h | sunshine", True),
+    # restating the same thing in another unit is no contradiction, a correction is one
+    ("units-kiel-celsius", {"value": -0.7}, "RESULT: -0.7 °C | daily mean\nRESULT: -0.5 °C | daily mean", False),
+    (
+        "units-kiel-celsius",
+        {"value": -0.7},
+        "RESULT: 3.2 °C | daily mean air temperature\nRESULT: -0.7 °C | daily mean air temperature at Kiel",
+        False,
+    ),
+    ("units-kiel-celsius", {"value": -0.7}, "RESULT: -0.7 °C | daily mean\nRESULT: -3.1 °C | daily minimum", True),
+    ("units-sunshine-seconds", {"value": 14821.2}, "RESULT: 14821 s | sunshine\nRESULT: 4.1 h | sunshine", True),
+    ("units-sunshine-seconds", {"value": 14821.2}, "RESULT: 14821 s | sunshine\nRESULT: 2.0 h | sunshine", False),
+    ("units-fahrenheit", {"value": -0.7}, "RESULT: -0.7 °C | mean\nRESULT: 30.7 °F | mean", True),
+    ("units-wind-speed", {"value": 3.0}, "RESULT: 3.0 m/s | wind\nRESULT: 10.8 km/h | wind", True),
+    ("units-humidity-percent", {"value": 0.8404}, "RESULT: 0.84 fraction | humidity\nRESULT: 84 % | humidity", True),
+    ("units-kiel-celsius", {"value": -0.7}, "RESULT: -0.7 °C | mean\nRESULT: -0.70 °C | mean", True),
+    (
+        "units-lax-forecast-celsius",
+        {"min": 14.0, "max": 24.0},
+        "RESULT: 20 °C | forecast\nRESULT: 21 °C | forecast",
+        True,
+    ),
     ("units-fahrenheit", {"value": -0.7}, "RESULT: 30.7 °F | daily mean", True),
     ("units-fahrenheit", {"value": -0.7}, "RESULT: -0.7 °C | in Celsius\nRESULT: 30.7 °F | in Fahrenheit", True),
     ("units-fahrenheit", {"value": -0.7}, "RESULT: -0.7 °C | daily mean", False),
@@ -1254,7 +1287,6 @@ RESULT_ANSWERS = [
     ("units-humidity-percent", {"value": 0.8404}, "RESULT: 0.84 fraction | mean relative humidity", True),
     ("units-humidity-percent", {"value": 0.8404}, "RESULT: 0.84 % | mean relative humidity", False),
     ("units-humidity-percent", {"value": 0.8404}, "RESULT: 1 fraction | mean relative humidity", False),
-    ("units-humidity-percent", {"value": 0.8404}, "RESULT: 0.84 | mean relative humidity", False),
     ("units-sunshine-seconds", {"value": 14821.2}, "RESULT: 14821.2 s | sunshine", True),
     ("units-sunshine-seconds", {"value": 14821.2}, "RESULT: 14 821 s | sunshine", True),
     ("units-sunshine-seconds", {"value": 14821.2}, "RESULT: 14,821 seconds | sunshine", True),
@@ -1279,7 +1311,6 @@ RESULT_ANSWERS = [
     ),
     ("units-precipitation-mm", {"value": 15.5}, "RESULT: 15.5 cm | precipitation", False),
     ("units-precipitation-mm", {"value": 15.5}, "RESULT: 15.5 inches | precipitation", False),
-    ("units-precipitation-mm", {"value": 15.5}, "RESULT: 15.5 | precipitation", False),
     ("units-lax-forecast-celsius", {"min": 14.0, "max": 24.0}, "RESULT: 20 °C | 15:00\nRESULT: 21 °C | 18:00", True),
     (
         "units-lax-forecast-celsius",
@@ -1288,7 +1319,6 @@ RESULT_ANSWERS = [
         False,
     ),
     ("units-lax-forecast-celsius", {"min": 14.0, "max": 24.0}, "RESULT: 293 K | 15:00", False),
-    ("units-lax-forecast-celsius", {"min": 14.0, "max": 24.0}, "RESULT: 20 | 15:00", False),
     (
         "units-lax-forecast-celsius",
         {"min": 14.0, "max": 24.0},
@@ -1328,6 +1358,31 @@ RESULT_ANSWERS = [
     ),
     ("units-csv-with-unit", {"value": 15.5}, "TABLE-UNIT: precipitation_amount | mm", False),
     ("units-csv-with-unit", {"value": 15.5}, "RESULT: 15.5 mm | precipitation on 2026-10-16", True),
+    (
+        "units-csv-with-unit",
+        {"value": 15.5},
+        "date,precipitation_amount\n2026-10-16,15.5 mm\n\nTABLE-UNIT: precipitation_amount | mm (millimetres)",
+        True,
+    ),
+    # the tool's own CSV has a column `value`; the figure must be on the date asked for
+    (
+        "units-csv-with-unit",
+        {"value": 15.5},
+        "station_id,date,value\n01975,2026-10-15,0.0\n01975,2026-10-16,15.5\n\nTABLE-UNIT: value | mm",
+        True,
+    ),
+    (
+        "units-csv-with-unit",
+        {"value": 15.5},
+        "date,precipitation_amount\n2026-10-15,15.5\n2026-10-16,0.0\n\nTABLE-UNIT: precipitation_amount | mm",
+        False,
+    ),
+    (
+        "units-csv-with-unit",
+        {"value": 15.5},
+        "date,precipitation_amount\n2026-10-16,15.5\n\nTABLE-UNIT: precipitation_amount | mm\nTABLE-UNIT: date | text",
+        True,
+    ),
 ]
 
 
@@ -1361,6 +1416,7 @@ def test_an_answer_without_result_lines_is_read_tolerantly_and_reported() -> Non
     strict = bench.unit_check("RESULT: -0.7 °C | daily mean", fact, {"value": -0.7})
     fallback = bench.unit_check("The daily mean was -0.7 °C.", fact, {"value": -0.7})
     bare = bench.unit_check("RESULT: -0.7 | daily mean", fact, {"value": -0.7})
+    case = bench.find_case(bench.load_cases(), "units-kiel-celsius")
     malformed = bench.unit_check("RESULT: about -0.7 °C | daily mean\nThe mean was -0.7 °C.", fact, {"value": -0.7})
 
     assert (strict["mode"], strict["format_violation"], strict["ok"]) == ("result", False, True)
@@ -1370,7 +1426,8 @@ def test_an_answer_without_result_lines_is_read_tolerantly_and_reported() -> Non
         True,
         True,
     )
-    assert (bare["mode"], bare["format_violation"], bare["ok"]) == ("result", True, False)
+    assert (bare["mode"], bare["ok"]) == ("fallback", False)
+    assert bench.format_violation(case, "RESULT: -0.7 | daily mean") is True
     assert (malformed["mode"], malformed["format_violation"]) == ("fallback", True)
 
 
@@ -1468,6 +1525,19 @@ def test_the_one_letter_rule_holds_in_both_modes() -> None:
     assert bench.unit_check("RESULT: 14821 sun | sunshine", fact, truth)["ok"] is False
     assert bench.unit_check("RESULT: 14821 s | sunshine", fact, truth)["ok"] is True
     assert bench.unit_check("It shone 14821 s.", fact, truth)["ok"] is True
+    table = "date,sunshine\n2026-10-16,14821\n\nThe sun's duration, as the server returns it."
+    assert bench.unit_check(table, fact, truth)["ok"] is False, "the `s` of `sun's` names no unit of a table column"
+
+
+def test_a_forbidden_unit_is_named_as_forbidden_not_as_unknown() -> None:
+    """Kelvin is a unit the case forbids whatever the figure: the verdict says so, in both modes."""
+    fact = _unit_fact("units-kiel-celsius")
+
+    strict = bench.unit_check("RESULT: -0.7 K | daily mean", fact, {"value": -0.7})
+    loose = bench.unit_check("It was -0.7 K.", fact, {"value": -0.7})
+
+    assert "forbidden unit" in strict["failures"][0]["reason"]
+    assert "forbidden unit" in loose["failures"][0]["reason"]
 
 
 def test_the_big_drop_boundary_is_inclusive() -> None:
@@ -1505,17 +1575,34 @@ def test_the_format_is_a_rate_of_its_own() -> None:
     assert "30/50" in bench.report(after)
 
 
-def test_one_invalid_run_weights_the_cases_equally_instead_of_blocking_the_tier() -> None:
-    """Invalid runs within the 3 % are no reason for INCONCLUSIVE: cases count by their valid runs, and it says so."""
+def test_one_invalid_run_cuts_its_case_by_one_and_says_so() -> None:
+    """Invalid runs within the 3 % do not block the tier: the case counts 49 runs on both sides, and it says so."""
     keys = {(f"c{i}", "small"): 50 for i in range(2)}
     before = _results(keys, n=50)
     after = _results(keys, n=50, invalid={("c0", "small"): 1})
 
     text = bench.compare(before, after)
 
-    assert "INCONCLUSIVE, the number of valid runs per case differs" not in text
-    assert "every case is weighted equally by its valid runs, because 1 runs were invalid" in text
+    assert "POOLED small (99 runs on each side" in text
+    assert "1 valid runs were left out" in text
     assert "=> NO WORSE" in text
+
+
+def test_an_extra_run_on_one_case_does_not_turn_inconclusive_into_no_worse() -> None:
+    """27 cases of 5 repeats, one of 40: 165/170 against 152/170 is no verdict, and one invalid run changes nothing."""
+    names = [(f"c{i}", "small") for i in range(26)]
+    big = ("big", "small")
+    ns = {**dict.fromkeys(names, 5), big: 40}
+    before = _results({**dict.fromkeys(names, 5), big: 35}, ns=ns)
+    fell = {k: (4 if i < 13 else 5) for i, k in enumerate(names)}
+    after = _results({**fell, big: 35}, ns=ns)
+    again = _results({**fell, big: 35}, ns=ns, invalid={("c0", "small"): 1})
+
+    plain, one_invalid = bench.compare(before, after), bench.compare(before, again)
+
+    assert "=> NO WORSE" not in plain
+    assert "=> NO WORSE" not in one_invalid
+    assert "1 valid runs were left out" in one_invalid
 
 
 def test_a_timeout_is_a_failed_run_and_an_unreachable_server_an_invalid_one() -> None:
@@ -1528,6 +1615,48 @@ def test_a_timeout_is_a_failed_run_and_an_unreachable_server_an_invalid_one() ->
     assert (unreachable["invalid"], unreachable["invalid_reason"]) == (True, "the server did not answer (exit 3)")
     assert bench.aggregate([timed_out, unreachable])["n"] == 1
     assert bench.aggregate([timed_out, unreachable])["passed"] == 0
+
+
+def test_a_timeout_without_a_transcript_has_no_metrics_not_zeros(tmp_path: Path) -> None:
+    """A timed-out run that measured nothing is left out of the medians, so a slow strategy does not look smaller."""
+    case = bench.find_case(bench.load_cases(), "glossary-temperature-air-mean-2m")
+    nothing = bench.failed_run(case, "small", 1, "timeout", invalid=False)
+    real = {
+        **bench.failed_run(case, "small", 2, "x", invalid=False),
+        "steps": 4,
+        "tool_result_chars_sum": 900,
+        "tool_result_chars_max": 900,
+        "output_tokens": 70,
+        "context_tokens_first": 26000,
+        "total_tokens": 80000,
+    }
+    partial = _stream(tmp_path, _use("glossary", "a", parameter="temperature_air_mean_2m"), _result("a", "[]"))
+    measured = bench.failed_run(case, "small", 3, "timeout", invalid=False, transcript=partial, defaults=DEFAULTS)
+
+    assert nothing["steps"] is None
+    assert nothing["tool_result_chars_sum"] is None
+    assert bench.aggregate([nothing, real])["steps_median"] == 4
+    assert bench.aggregate([nothing, real])["result_chars_median"] == 900
+    assert bench.aggregate([nothing])["steps_median"] is None
+    assert (measured["steps"], measured["checkpoints"]["k"], measured["failure"], measured["passed"]) == (
+        1,
+        1,
+        "timeout",
+        False,
+    )
+
+
+def test_the_failed_run_command_takes_a_kind(capsys: pytest.CaptureFixture[str]) -> None:
+    """`--kind failed` records a timeout as a failed run, `--kind invalid` (the default) an unreachable server."""
+    base = ["failed-run", "--case", "glossary-temperature-air-mean-2m", "--tier", "small", "--repeat", "2"]
+
+    assert bench.main([*base, "--reason", "timeout", "--kind", "failed"]) == 0
+    failed = json.loads(capsys.readouterr().out)
+    assert bench.main([*base, "--reason", "no server"]) == 0
+    invalid = json.loads(capsys.readouterr().out)
+
+    assert (failed["invalid"], failed["failure"], failed["steps"]) == (False, "timeout", None)
+    assert (invalid["invalid"], invalid["invalid_reason"]) == (True, "no server")
 
 
 def test_the_timeout_is_capped_below_the_age_cleanup_waits_for(tmp_path: Path, mcp_url: str) -> None:
@@ -1587,58 +1716,55 @@ def test_a_subject_that_made_no_call_is_not_dropped_as_invalid(tmp_path: Path) -
     assert verdict["mechanical_pass"] is False
 
 
-def test_rerun_fills_in_the_invalid_runs_and_the_missing_repeats(
-    tmp_path: Path, mcp_url: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The invalid and missing repeats are run again, replace their records, and wait for the judge."""
-    fake = tmp_path / "claude"
-    tool = f"{PREFIX}glossary"
-    lines = [
-        {
-            "type": "system",
-            "subtype": "init",
-            "tools": [tool],
-            "mcp_servers": [{"name": "wetterdienst", "status": "connected"}],
-        },
-        _use("glossary", "a", parameter="temperature_air_mean_2m"),
-        _result("a", "[]"),
-        {"type": "result", "result": "mean air temperature, degree Celsius"},
-    ]
-    fake.write_text(
-        f"#!{sys.executable}\nimport sys\nif sys.argv[1] == '--version':\n    print('9.9.9')\nelse:\n"
-        + "".join(f"    print({json.dumps(json.dumps(line))})\n" for line in lines),
-        encoding="utf-8",
+def test_the_format_violation_is_computed_from_the_answer_for_cases_that_ask_for_it() -> None:
+    """A run breaks the format with no usable RESULT line or a malformed one; a case without a unit fact has none."""
+    units = bench.find_case(bench.load_cases(), "units-kiel-celsius")
+    glossary = bench.find_case(bench.load_cases(), "glossary-temperature-air-mean-2m")
+
+    assert bench.format_violation(units, "It was -0.7 °C.") is True
+    assert bench.format_violation(units, "RESULT: -0.7 °C | daily mean") is False
+    assert bench.format_violation(units, "**RESULT:** -0.7 °C | daily mean") is False
+    assert bench.format_violation(units, "RESULT: -0.7 | daily mean") is True
+    assert bench.format_violation(units, "RESULT: -0.7 °C | daily mean\nRESULT: 3 | broken") is True
+    assert bench.format_violation(units, "Result: it was cold.\nRESULT: -0.7 °C | daily mean") is False
+    assert bench.format_violation(glossary, "mean air temperature, degrees Celsius") is None
+    assert (
+        bench.evaluate(units, _run([_call("values", {"stations": ["02564"]})], "It was -0.7 °C."), DEFAULTS)[
+            "format_violation"
+        ]
+        is True
     )
-    fake.chmod(0o755)
-    monkeypatch.setattr(bench.shutil, "which", lambda _name: str(fake))
-    monkeypatch.setattr(bench.Path, "home", classmethod(lambda _cls: tmp_path / "home"))
-    data = bench.load_cases()
-    case = bench.find_case(data, "glossary-temperature-air-mean-2m")
-    results = _results({(case["id"], "small"): 1}, n=1)
-    results["meta"].update(
-        {
-            "server": mcp_url,
-            "models": {"small": "haiku"},
-            "date": "2026-10-28",
-            "repeats": 3,
-            "prompt": bench.prompt_version(),
-            "case_hashes": {case["id"]: bench.hashes(data)["cases"][case["id"]]},
-        }
-    )
-    results["runs"][0]["repeat"] = 1
-    results["runs"].append(bench.failed_run(case, "small", 2, "the server did not answer (exit 3)"))
+
+
+def test_a_comparison_refuses_runs_that_still_need_judging() -> None:
+    """An unjudged record counts as a failure and would push a side down: refuse, with the exit code."""
+    before = _results({("a", "small"): 5})
+    after = _results({("a", "small"): 5})
+    after["runs"][0]["needs_judging"] = True
+
+    text, refused = bench.compare_with_status(before, after)
+
+    assert refused is True
+    assert "1 runs of the current file still need judging" in text
+
+
+def test_a_run_is_added_to_a_results_file_by_its_repeat(tmp_path: Path) -> None:
+    """The replacement workflow: run the repeat as the others, judge it, add it; an unjudged record is refused."""
+    results = _results({("a", "small"): 2}, n=2)
+    for i, run in enumerate(results["runs"]):
+        run["repeat"] = i + 1
     path = tmp_path / "results.json"
     path.write_text(json.dumps(results), encoding="utf-8")
+    new = {**results["runs"][1], "repeat": 2, "passed": False, "is_answer": True, "steps": 3}
 
-    assert bench.rerun_targets(results) == [(case["id"], "small", 2), (case["id"], "small", 3)]
-    assert bench.rerun(path, tmp_path / "out", None, None, dry_run=True) == 0
-    assert bench.rerun(path, tmp_path / "out", None, None) == 0
-
-    after = json.loads(path.read_text(encoding="utf-8"))
-    again = sorted((r["repeat"], r["invalid"], r.get("needs_judging"), r["steps"]) for r in after["runs"])
-    assert again == [(1, False, None, 2), (2, False, True, 1), (3, False, True, 1)]
-    assert bench.rerun_targets(after) == []
-    assert "2 runs were re-run and still need judging" in bench.report(after)
+    assert bench.add_run(path, new) == "replaced a [small] repeat 2: 2 runs"
+    assert bench.add_run(path, {**new, "repeat": 3}) == "added a [small] repeat 3: 3 runs"
+    with pytest.raises(ValueError, match="needs judging"):
+        bench.add_run(path, {**new, "repeat": 4, "needs_judging": True})
+    with pytest.raises(ValueError, match="lacks"):
+        bench.add_run(path, {k: v for k, v in new.items() if k != "repeat"})
+    runs = json.loads(path.read_text(encoding="utf-8"))["runs"]
+    assert sorted((r["repeat"], r["steps"]) for r in runs) == [(1, 2), (2, 3), (3, 3)]
 
 
 def test_the_default_full_run_is_the_cases_that_need_no_key() -> None:

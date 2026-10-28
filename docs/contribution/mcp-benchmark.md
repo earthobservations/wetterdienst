@@ -93,18 +93,19 @@ results files from before the format are not comparable with later ones.
 
 `passed` is the answer-reached headline; it does not say that the answer is right or that the agent kept to the rules,
 so `facts ok` and the share of runs without a violation are compared as metrics of their own. `bench.py compare` is a
-**non-inferiority** claim on the pooled rates of a tier: for the passes, the facts and the runs without a violation it
+**non-inferiority** claim on the pooled rates of a tier: for the passes, the facts, the runs without a violation and the runs that follow the RESULT format it
 gives the difference with its 95 % interval and decides it as one test: "no worse" if the lower bound is above minus 10
 percentage points, "WORSE" if the upper bound is below minus 10 points, "inconclusive" otherwise (a real drop within the
-margin is said as such). The pool is only valid if every case has the same number of valid runs on both sides, else it
-prints INCONCLUSIVE with the reason, and a case whose own rate fell by 40 points is named whatever the verdict says.
-Not finding a difference is not "no worse": at a pass rate of 90 % it takes about 140 runs per side to show a margin of 10
+margin is said as such, and a likely one too). Every case is first cut down to the same number of valid runs on both sides (the first k of
+each, k the smaller; an invalid run or an extra repeat leaves runs out, and the output says how many), so that pooling uses
+real counts only and weights the cases alike, and a case whose own rate fell by 40 points is named whatever the verdict
+says. Not finding a difference is not "no worse": at a pass rate of 90 % it takes about 140 runs per side to show a margin of 10
 points, which the output prints for each rate next to the runs there are; the default full run is 27 cases, 135 runs a side per tier at 5 repeats, 270 in all
 (the case that needs a key is skipped). The Fisher test per case is a hint only. It **refuses** (exit code 4) when the prompt, the logic
 version of `bench.py`, the defaults, the mode (headless or subagent) or the deferral of the tools differ, when the two
 sides report one version and carry no differing `label`, or when more than 3 % of the compared runs are invalid (the server
 was not connected: those runs are left out of the rates and counted; a run that never ran is recorded with
-`bench.py failed-run`; a timeout is a failed run, not an invalid one); a tier whose resolved model ids differ is not compared. It compares only cases whose hash is
+`bench.py failed-run`; a timeout is a failed run, not an invalid one, with what its partial transcript measured or no metrics at all, never zeros); a tier whose resolved model ids differ is not compared. It compares only cases whose hash is
 unchanged and says how many it left out (only in the current file, changed, only in the previous file). Sizes
 (tool-result characters, context tokens at the first request, total and output tokens, calls whose result was saved to a
 file) are printed as medians per case before and after and the paired difference.

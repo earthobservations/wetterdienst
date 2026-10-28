@@ -70,7 +70,7 @@ FACT_FIELDS: dict[str, set[str]] = {
 }
 OPTIONAL_FACT_FIELDS = {"id", "description", "kind", "expected", "future_only", "answer_matches_any_of"}
 #: what a `unit` fact has besides: the judge's tolerance or margin, units that fail whatever the figure, the glossary
-UNIT_FACT_FIELDS = {"tolerance", "margin", "forbidden_tokens", "cross_check", "column"}
+UNIT_FACT_FIELDS = {"tolerance", "margin", "forbidden_tokens", "cross_check", "column", "row"}
 PAIR_FIELDS = {"tokens", "factor", "offset", "required"}
 CHECKPOINT_FIELDS = {"id", "description", "match", "any_order"}
 FORBIDDEN_KINDS = {"call", "repeat", "answer"}
