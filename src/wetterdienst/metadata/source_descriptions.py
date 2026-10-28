@@ -71,7 +71,9 @@ then the rest of the Geosphere rows, the IMGW rows and the Météo-France observ
 the second group: the ones translated, or derived from the canonical name, against the source's text), and
 the four IPMA rows that read the canonical sentence and the WSV parameters (GH-3136, the third group), and
 the DWD POI, MOSMIX, DMO, derived and SWSMOS rows (GH-3136, the fourth group), and the SMHI,
-CHMI, LHMT, Environment Agency and Hub'Eau rows (GH-3136, the fifth group). CHMI describes its elements only by
+CHMI, LHMT, Environment Agency and Hub'Eau rows (GH-3136, the fifth group), and the IPMA, NWS and Geosphere
+rows again against their live sources (GH-3136, the sixth group: the NWS temperature, dew point, wind and
+visibility rows now say the statistic and height the ASOS User's Guide gives). CHMI describes its elements only by
 name, unit, height and schedule (``metadata/meta2.csv``) and the Environment Agency by a table of parameter, period,
 statistic and unit on its reference page, so what those entries say about a window or a weighting is what the data
 show, with the evidence in a comment beside them; SMHI's windows are the ones its own CSV columns give; Hub'Eau
@@ -2624,8 +2626,13 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "barometricpressure"): (
             "air pressure reduced to mean sea level with the standard atmosphere, the altimeter setting"
         ),
+        # the ASOS User's Guide (https://www.weather.gov/media/asos/aum-toc.pdf, 3.1, read 2026-10-28): "ASOS provides
+        # a 5-minute average ambient air and dew point temperature every minute", reported "to the nearest tenth of a
+        # degree Celsius" in the T group of the hourly METAR. The guide gives no height for the hygrothermometer, and
+        # api.weather.gov (its OpenAPI document describes no observation property) none either (GH-3136)
         ("hourly", "data", "dewpoint"): (
-            "dew point temperature, to 0.1 °C in the METAR (the T group) and in whole degrees in the 5-minute rows"
+            "dew point temperature, the 5-minute average of the ASOS, to 0.1 °C in the METAR (the T group) and in "
+            "whole degrees in the 5-minute rows. The source states no height."
         ),
         # not declared: the endpoint's `maxTemperatureLast24Hours` and `minTemperatureLast24Hours` (the OpenAPI
         # document describes no property) came back null in all 49,688 observations of 108 stations read on
@@ -2660,25 +2667,40 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "air pressure at sea level, the SLP group of the METAR (the 5-minute rows carry none)"
         ),
         ("hourly", "data", "temperature"): (
-            "air temperature, to 0.1 °C in the METAR (the T group) and in whole degrees in the 5-minute rows"
+            "air temperature, the 5-minute average of the ASOS, to 0.1 °C in the METAR (the T group) and in whole "
+            "degrees in the 5-minute rows. The source states no height."
         ),
-        ("hourly", "data", "visibility"): "visibility range",
+        # the ASOS User's Guide, 4.2.2 and 4.2.3: "ASOS computes a running 10-minute harmonic mean once per minute" of
+        # the 1-minute visibilities, "rounded down to the nearest reportable visibility value", "Visibility in METAR is
+        # reported in statute miles (SM)" in steps of M1/4SM, 1/4SM, 1/2SM, ... 9SM and 10SM, and "visibilities of 10
+        # miles or greater are reported as 10SM" (the 5-minute rows of KORD on 2026-10-26 to 28 read 10 SM in 251 of
+        # 269, never more; 16,093.44 m is 10 SM, GH-3136)
+        ("hourly", "data", "visibility"): (
+            "visibility, the ASOS's harmonic mean over 10 minutes of the 1-minute values, reported in statute miles "
+            "in the METAR (rounded down to a step of the report, 10 SM at most) and returned in metres"
+        ),
         ("hourly", "data", "windchill"): (
             "wind chill temperature calculated by NWS (https://www.weather.gov/gjt/windchill)"
         ),
         # ASOS User's Guide: "ASOS reports a 2-minute average" of the wind direction, and of the speed, and the
         # reportable gust is "the highest gust stored in memory for the past 10 minutes"
+        # the guide, 3.2: "current federal standards for siting meteorological equipment specify (with some variance
+        # permitted) a height of 10 meters (32.8 feet). Typical ASOS wind sensor heights are 33 feet or 27 feet"
         ("hourly", "data", "winddirection"): (
-            "wind direction, the 2-minute average of the ASOS. The source's 0 (a calm wind) is null."
+            "wind direction, the 2-minute average of the ASOS, at about 10 m (the federal siting standard, with some "
+            "variance permitted). The source's 0 (a calm wind) is null."
         ),
         # the same guide, 3.2.2.2: "the greatest 5-second average speed observed during the past minute is stored in
         # memory as a gust for 10 minutes", and the highest of them is reported only if it is 3 knots or more above the
         # 2-minute average and exceeds the minimum 5-second wind of the 10 minutes by 10 knots or more
         ("hourly", "data", "windgust"): (
             "maximum wind gust of the past 10 minutes, the highest 5-second average wind speed the ASOS holds as "
-            "a gust, reported only when its gust criteria are met"
+            "a gust, reported only when its gust criteria are met, at about 10 m (the federal siting standard)"
         ),
-        ("hourly", "data", "windspeed"): "wind speed, the 2-minute average of the ASOS",
+        ("hourly", "data", "windspeed"): (
+            "wind speed, the 2-minute average of the ASOS, at about 10 m (the federal siting standard, with some "
+            "variance permitted)"
+        ),
     },
     "WsvPegelMetadata": {
         (resolution, "data", name_original): description
@@ -3653,7 +3675,8 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
     "NwsObservationMetadata": {
         ("hourly", "data"): (
             "Station observations (temperature, pressure, precipitation, etc.) for the US, one report for each "
-            "hour: the METAR or SPECI report nearest to the full hour, else the nearest 5-minute row."
+            "hour: the METAR or SPECI report nearest to the full hour, else the nearest 5-minute row; a quantity it "
+            "lacks (but the gust and the wind chill) is filled from the nearest other row of the hour."
         ),
     },
     "WsvPegelMetadata": {
