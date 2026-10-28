@@ -62,12 +62,13 @@ _HALF_HOUR = dt.timedelta(minutes=30)
 # SPECI lacked the temperature in 31 hours (QC flag `Z`, no control) while a verified 5-minute row of the same hour,
 # a median 0 minutes from the full hour, had it; dew point, humidity, pressure, sea level pressure, visibility and the
 # precipitation sums were lost the same way, and the wind speed in 88 hours of 1,694 (5.2 %). Another row of the hour
-# is the same reading a few minutes apart. The wind direction is filled with the wind speed: of 52 METARs of 8 stations
-# with a null direction (read 2026-10-28) 36 carry one in their raw text (`KBOS 270754Z 33007KT`), 14 are variable
-# (VRB) and 1 calm, so a null direction is mostly a gap of MADIS. The gust and the wind chill are not filled: a METAR
-# leaves the gust out when there is none (408 of 460 missing gusts were none), and the wind chill exists in the cold
-# only, so the null is the report's answer and a value from another instant (up to 30 minutes away) would
-# contradict it.
+# is the same reading a few minutes apart. The wind direction is filled only together with the wind speed, from the
+# same row. A METAR with a null speed and a null direction is a gap of MADIS (36 of 52 METARs with a null direction
+# carried one in their raw text, `KBOS 270754Z 33007KT`, read 2026-10-28), but a METAR that has a speed and no direction
+# says `VRB` (a week of 10 stations: 45 of 45 such METARs with a raw text), so it keeps its null and its own speed. The
+# gust and the wind chill are not filled: a METAR leaves the gust out when there is none (408 of 460 missing gusts were
+# none), and the wind chill exists in the cold only, so the null is the report's answer and a value from another
+# instant (up to 30 minutes away) would contradict it.
 _FILLED_FROM_THE_HOUR = (
     "temperature",
     "dewpoint",
@@ -76,7 +77,6 @@ _FILLED_FROM_THE_HOUR = (
     "sealevelpressure",
     "visibility",
     "windspeed",
-    "winddirection",
     "precipitationlasthour",
     "precipitationlast3hours",
     "precipitationlast6hours",
@@ -226,8 +226,9 @@ def _one_report_per_hour(df: pl.DataFrame) -> pl.DataFrame:
     kept observation has them, and a value the kept observation has is never replaced (GH-3480). Three rules go beyond
     "the nearest row that has it":
 
-    - the wind direction is filled with the wind speed: where the speed is filled the direction is the direction of
-      that row (none if it has none), else the nearest row that has a direction;
+    - the wind direction is filled only together with the wind speed, from the same row (none if that row has none):
+      a report that has a speed and no direction is a variable wind (`VRB`) and keeps both as they are. A report
+      with a calm direction (0) is given no speed;
     - `precipitationlasthour`, the running total since the last routine METAR, is taken from a report at or before the
       kept one, never from one filed later: the later report's total is repeated by the routine METAR of the next
       hour, and the hours would count the same rain twice;
@@ -247,7 +248,9 @@ def _one_report_per_hour(df: pl.DataFrame) -> pl.DataFrame:
         nulls_last=True,
         maintain_order=True,
     ).unique(subset="_hour", keep="first", maintain_order=True)
-    has_value = {name: pl.col(name).struct.field("value").is_not_null() for name in _FILLED_FROM_THE_HOUR}
+    has_value = {
+        name: pl.col(name).struct.field("value").is_not_null() for name in (*_FILLED_FROM_THE_HOUR, "winddirection")
+    }
 
     def donor_of(name: str) -> pl.Expr:
         """Give the quantity of the nearest observation of the hour that has it and may fill the kept one."""
@@ -263,34 +266,42 @@ def _one_report_per_hour(df: pl.DataFrame) -> pl.DataFrame:
         .agg(
             *(donor_of(name) for name in _FILLED_FROM_THE_HOUR),
             # the direction of the row the wind speed is taken from, which may have none
-            pl.col("winddirection").filter(has_value["windspeed"]).first().alias("_donor_wind_pair"),
+            pl.col("winddirection").filter(has_value["windspeed"]).first().alias("_donor_winddirection"),
         )
     )
-    # The direction goes with the speed: where the speed is filled the direction comes from the same row (and is
-    # left as it is if that row has none), else from the nearest row that has a direction.
-    speed_filled = ~has_value["windspeed"] & pl.col("_donor_windspeed").struct.field("value").is_not_null()
-    pair_has_direction = pl.col("_donor_wind_pair").struct.field("value").is_not_null()
-    direction_has_donor = pl.col("_donor_winddirection").struct.field("value").is_not_null()
-    direction = (
-        pl.when(has_value["winddirection"])
-        .then(pl.col("winddirection"))
-        .when(speed_filled & pair_has_direction)
-        .then(pl.col("_donor_wind_pair"))
-        .when(~speed_filled & direction_has_donor)
-        .then(pl.col("_donor_winddirection"))
-        .otherwise(pl.col("winddirection"))
+    # The speed is filled unless the kept report is calm: a direction of 0 is the calm wind of a METAR (`00000KT`), and
+    # a speed of another row beside it would contradict it.
+    speed_filled = (
+        ~has_value["windspeed"]
+        & pl.col("_donor_windspeed").struct.field("value").is_not_null()
+        & ~pl.col("winddirection").struct.field("value").eq(0).fill_null(value=False)
+    )
+    # The direction is filled together with the speed, from the same row, and never alone: a report that has a speed
+    # and no direction says so itself (`VRB05KT`). A row with a speed and a direction of 0 that do not agree (a calm
+    # direction beside a speed above 0) gives no direction.
+    donor_direction = pl.col("_donor_winddirection").struct.field("value")
+    donor_speed = pl.col("_donor_windspeed").struct.field("value")
+    direction_filled = (
+        speed_filled
+        & ~has_value["winddirection"]
+        & donor_direction.is_not_null()
+        & (donor_direction.ne(0) | donor_speed.eq(0))
     )
     return (
         kept.join(donors, on="_hour", how="left", maintain_order="left")
         .with_columns(
-            direction.alias("winddirection"),
+            pl.when(speed_filled).then(pl.col("_donor_windspeed")).otherwise(pl.col("windspeed")).alias("windspeed"),
+            pl.when(direction_filled)
+            .then(pl.col("_donor_winddirection"))
+            .otherwise(pl.col("winddirection"))
+            .alias("winddirection"),
             *(
                 pl.when(~has_value[name] & pl.col(f"_donor_{name}").struct.field("value").is_not_null())
                 .then(pl.col(f"_donor_{name}"))
                 .otherwise(pl.col(name))
                 .alias(name)
                 for name in _FILLED_FROM_THE_HOUR
-                if name != "winddirection"
+                if name != "windspeed"
             ),
         )
         .with_columns(pl.col("_hour").alias("timestamp"))
@@ -298,7 +309,7 @@ def _one_report_per_hour(df: pl.DataFrame) -> pl.DataFrame:
             "_hour",
             "_report",
             "_distance",
-            "_donor_wind_pair",
+            "_donor_winddirection",
             *(f"_donor_{name}" for name in _FILLED_FROM_THE_HOUR),
         )
     )

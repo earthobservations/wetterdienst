@@ -100,13 +100,18 @@ two rows (GH-3480):
   there in the cold only, so the null is the report's answer and a value of another instant, up to
   30 minutes away, would contradict it.
 
-The wind direction goes with the wind speed. Where the speed is filled, the direction is that of the
-same row (and stays null if that row has none). Where the report has a speed but no direction, it is
-taken from the nearest row that has one. A null direction is mostly a gap of MADIS, not a report of a
-variable wind: of 52 METARs with a null direction 36 carry one in their raw text (`KBOS 270754Z
-33007KT`), 14 are variable (`VRB`) and 1 calm. A variable wind of the report, which the endpoint
-also gives as no direction, is therefore filled when another row of the hour has a direction. A calm
-wind (direction 0, `raw:0`, GH-2794) is a value of the report and is not replaced.
+The wind direction is filled only together with the wind speed, from the same row: where the speed
+is filled, the direction is that of the row the speed comes from (and stays null if that row has
+none, or if its direction is a calm 0 beside a speed above 0). A report that has a speed keeps its
+own direction, null or not. The two cases differ in what the null means. A METAR whose speed and
+direction are both null is a gap of MADIS (of 52 METARs with a null direction, 36 carried one in
+their raw text, `KBOS 270754Z 33007KT`, read 2026-10-28). A METAR that has a speed and no direction
+is a variable wind: in a week of 10 stations all 45 such METARs with a raw text were `VRB`
+(`KMIA 211053Z VRB05KT`), so the report itself says there is no bearing, and a direction of a row up
+to 30 minutes away would contradict it. A calm wind (direction 0, `raw:0`, GH-2794) is a value of
+the report and is not replaced; a report with a calm direction and no speed is given no speed of
+another row beside it, and a calm row (speed 0, direction 0) that fills the speed brings its calm
+direction with it.
 
 `precipitation_amount_since_last_routine_report` is taken from a report filed at or before the kept
 one only; see the precipitation entry below.
@@ -132,7 +137,8 @@ How to read the values of the kept report:
   displaced, which was filed before it (KDEN 2026-10-15 00:00: the SPECI of 00:05 has none, the
   METAR of 23:53 says 0.0 mm, which is the value of the hour). A total of a report filed *after* the
   kept one is never used, because the next hour's METAR repeats it and the rain would be counted
-  twice. A routine METAR without the group keeps its null. The 3- and 6-hour amounts are filed with
+  twice. A routine METAR without the group keeps its null unless an earlier SPECI of that hour
+  carries it. The 3- and 6-hour amounts are filed with
   the synoptic METARs only and are empty in the others; for an hour in which a SPECI displaces the
   synoptic METAR they are taken from the METAR, whichever of the two was filed first (KDEN: the
   6-hour amount of the 23:53 METAR, the 00Z one, is the value of 00:00, though the report of 00:05

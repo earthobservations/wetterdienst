@@ -778,8 +778,10 @@ def test_nws_hourly_fills_every_quantity_of_the_list_and_none_of_the_others(monk
     """Test which quantities a gap is filled for: the core ones and the wind direction, not the gust and wind chill.
 
     A METAR leaves the gust out when there is none, and the wind chill is there in the cold only (GH-3480), so the
-    null is the report's own answer; a value of a row up to 30 minutes away is not. The null direction of a METAR is
-    mostly a gap of MADIS (36 of 52 carried one in their raw text, 2026-10-28), so it is filled with the speed.
+    null is the report's own answer; a value of a row up to 30 minutes away is not. The direction is filled
+    only together with a speed that is filled, from the same row: a METAR with a null speed and a null direction is
+    mostly a gap of MADIS (36 of 52 carried a direction in their raw text, 2026-10-28), one with a speed and no
+    direction is a variable wind (VRB).
     """
     filled = {
         "temperature": "temperature_air_2m",
@@ -909,16 +911,66 @@ def test_nws_hourly_does_not_take_the_direction_from_another_row_than_the_speed(
     assert got["wind_direction_mean_last_2min"] == (None, "Z")
 
 
-def test_nws_hourly_fills_the_wind_direction_of_a_report_that_has_a_speed(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that a report with a speed and no direction (mostly a gap of MADIS) takes the nearest direction."""
+def test_nws_hourly_leaves_the_variable_wind_of_a_report_its_own_direction(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a report with a speed and no direction keeps both: it is a variable wind (`VRB05KT`), not a gap.
+
+    A week of 10 stations (read 2026-10-28): all 45 METARs with a speed, no direction and a raw text were `VRB`. The
+    report says so itself, a bearing of a row up to 30 minutes away would contradict it.
+    """
+    kept = _raw_observation(_stamp("10-14 14:53"), report=True, windSpeed=(9.0, "V"), windDirection=(None, "Z"))
+    alone = _wind_of_the_hour(monkeypatch, [kept])
     observations = [
-        _raw_observation(_stamp("10-14 14:53"), report=True, windSpeed=(9.0, "V"), windDirection=(None, "Z")),
-        _raw_observation(_stamp("10-14 15:00"), windSpeed=(10.0, "V"), windDirection=(None, "Z")),
+        kept,
+        _raw_observation(_stamp("10-14 15:00"), windSpeed=(10.0, "V"), windDirection=(330.0, "S")),
         _raw_observation(_stamp("10-14 15:05"), windSpeed=(12.0, "V"), windDirection=(200.0, "S")),
     ]
     got = _wind_of_the_hour(monkeypatch, observations)
+    assert got["wind_direction_mean_last_2min"] == (None, "Z")
+    assert got["wind_speed_mean_last_2min"] == alone["wind_speed_mean_last_2min"]
+
+
+def test_nws_hourly_does_not_fill_a_direction_alone(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that no row has a speed: a direction of another row is not taken without the speed it belongs to."""
+    observations = [
+        _raw_observation(_stamp("10-14 14:53"), report=True, windSpeed=(None, "Z"), windDirection=(None, "Z")),
+        _raw_observation(_stamp("10-14 15:00"), windSpeed=(None, "Z"), windDirection=(200.0, "S")),
+    ]
+    got = _wind_of_the_hour(monkeypatch, observations)
+    assert got["wind_speed_mean_last_2min"] == (None, "Z")
+    assert got["wind_direction_mean_last_2min"] == (None, "Z")
+
+
+def test_nws_hourly_gives_a_calm_report_no_speed_of_another_row(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a calm direction (0, `raw:0`) without a speed does not get the speed of another row beside it."""
+    observations = [
+        _raw_observation(_stamp("10-14 14:53"), report=True, windSpeed=(None, "Z"), windDirection=(0.0, "V")),
+        _raw_observation(_stamp("10-14 15:00"), windSpeed=(10.0, "V"), windDirection=(200.0, "S")),
+    ]
+    got = _wind_of_the_hour(monkeypatch, observations)
+    assert got["wind_speed_mean_last_2min"] == (None, "Z")
+    assert got["wind_direction_mean_last_2min"] == (None, "V,raw:0")
+
+
+def test_nws_hourly_fills_a_calm_pair_of_a_row_together(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a calm row (speed 0, direction 0) fills the speed 0 and its calm direction, with `raw:0`, together."""
+    observations = [
+        _raw_observation(_stamp("10-14 14:53"), report=True, windSpeed=(None, "Z"), windDirection=(None, "Z")),
+        _raw_observation(_stamp("10-14 15:00"), windSpeed=(0.0, "V"), windDirection=(0.0, "V")),
+    ]
+    got = _wind_of_the_hour(monkeypatch, observations)
+    assert got["wind_speed_mean_last_2min"] == (0.0, "V")
+    assert got["wind_direction_mean_last_2min"] == (None, "V,raw:0")
+
+
+def test_nws_hourly_does_not_fill_a_calm_direction_beside_a_speed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a row whose direction 0 does not agree with its speed gives the speed and no calm direction."""
+    observations = [
+        _raw_observation(_stamp("10-14 14:53"), report=True, windSpeed=(None, "Z"), windDirection=(None, "Z")),
+        _raw_observation(_stamp("10-14 15:00"), windSpeed=(10.0, "V"), windDirection=(0.0, "V")),
+    ]
+    got = _wind_of_the_hour(monkeypatch, observations)
     assert got["wind_speed_mean_last_2min"][1] == "V"
-    assert got["wind_direction_mean_last_2min"] == (200.0, "S")
+    assert got["wind_direction_mean_last_2min"] == (None, "Z")
 
 
 def test_nws_hourly_keeps_the_calm_wind_of_the_kept_report(monkeypatch: pytest.MonkeyPatch) -> None:
