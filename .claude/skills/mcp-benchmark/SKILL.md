@@ -33,6 +33,7 @@ because one run of a model says little (Haiku passes or fails the same case on d
 | `repeats` | runs per case and tier | `1` |
 | `previous` | an earlier results file to compare with | none |
 | `reference` | where you read ground truth: the prefix of the MCP tools of a pinned server (default: the connector of this session, the released hosted server), or `python` (the library of this checkout, see below) | the connector |
+| `label` | what tells this side apart when two servers report one version (local `main` and a branch both say 0.178.0): the SHA of the checkout it serves, `+dirty` if it has changes; given to `probe`/`run` and kept in the results; `compare` refuses two sides with one version and one label | none |
 | `include_keys` | `1` to run `needs_key` cases; they run only if `coverage` says the network is `configured`. Never set, ask for or pass a credential. | skipped |
 
 ## The two modes, and what each leaves in the tested agent's context
@@ -67,8 +68,10 @@ connected, or with none of its tools, is **`invalid`**: it is left out of every 
 **Results above the limit of Claude Code are saved to a file** the subject cannot open (it has no Read tool): the
 transcript holds a notice (`result (358,696 characters) exceeds maximum allowed tokens ... saved to ...`), measured on the
 full stations list of DWD. 31,000 characters came through whole; the limit lies between that and 358,000. `bench.py` reads
-the real size out of the notice (`result_chars`, `spilled_calls`), so the size metrics are true, and a run whose answer
-depended on such a result failed to read it, which is what happened to it.
+the real size out of the notice (`result_chars`, `spilled_calls`), so the size metrics are true; the call is `spilled` and `ok: false` whatever `is_error` says, and a run whose answer
+depended on such a result failed to read it, which is what happened to it. `report` and `compare` print the spilled
+calls; a short result that talks of a saved file in other words is counted as `spill_unrecognised` and **warned about** in the
+report: the notice is not a documented format, and a change of it would otherwise make the sizes look small.
 
 **`mode=subagent`** spawns the subject with the Agent tool: `subagent_type: mcp-benchmark-subject`
 ([.claude/agents/mcp-benchmark-subject.md](../../agents/mcp-benchmark-subject.md), `tools:` limited to ToolSearch
@@ -98,7 +101,7 @@ of a comparison and record it (`tools_list` in the results file), so the wire co
    yourself (load them with ToolSearch if they are deferred), and that `claude` runs (`claude --version`,
    headless). Record today's date in UTC, the model you are, `python3 -I scripts/bench.py hashes`, and for the server
    under test `bench.py probe <url>` and `bench.py tools-size --server <url>`. A server that does not answer ends the run
-   here, before a model is paid for.
+   here, before a model is paid for. Pass `--label <sha>` to `probe` and to every `run` for a local server.
 2. **Run**, per case, tier and repeat (at most 4 at once; use `run_in_background` for Bash):
    - write the prompt: `python3 -I .claude/skills/mcp-benchmark/scripts/bench.py prompt <case-id> --today <date>
      > <scratchpad>/mcpbench-<case>-<tier>-<n>.prompt` (add `--tools "the tools named mcp__...__*"` in subagent mode);
@@ -111,7 +114,15 @@ of a comparison and record it (`tools_list` in the results file), so the wire co
    forbidden calls, repeats and answers, the size of the tool results (a result saved to a file counts by its real
    size), the output tokens, the context at the first and last request, the resolved model id, whether the run is
    `invalid` (no server), and the server version read from the results' JSON. A call no result answered is a step,
-   `ok: false`, and meets no checkpoint. Do not recount these yourself.
+   `ok: false`, and meets no checkpoint; a result saved to a file is `spilled`, `ok: false`. Headless runs also leave
+   `<transcript>.meta.json` (the probe's `serverInfo`, the wetterdienst version, the label, the `claude` version, the
+   mode), which `analyze` prints as `run_meta`: copy it into the results `meta`, so that even a run of the glossary (no
+   metadata block in its answer) says which server it ran on. A subagent transcript with none of the server's tools in it
+   (listed, deferred or called) is `invalid` as well. Do not recount these yourself.
+   A run that never ran (`run_subject.sh` exits 3, the server did not answer, or 124, the timeout; or any other failure
+   to start) is recorded with `bench.py failed-run --case <id> --tier <t> --repeat <n> --reason "..."`: an `invalid`
+   run with its reason, which the rates leave out and `report` counts, not a missing one and not a failure of the model.
+   A budget stop (exit 1, `end: error_max_budget_usd`) is a failed headline, not invalid.
 4. **Judge** what needs reading, per run (below), then write the results file, print the table with
    `bench.py report`, and the comparison with `bench.py compare <previous> <results>` when `previous` is given.
 
@@ -177,12 +188,20 @@ one. For a `unit` fact the judge reads the value **and** its unit from the *refe
 `with_metadata=true`, and the glossary as a cross-check (`cross_check`), never from the server under test alone, and runs
 `bench.py unit`. The rules it applies: a figure of the answer is the value if it equals the judge's value in one of the
 `accepted` units (`value * factor + offset`, within the fact's `tolerance` or `margin`, or the rounding of the figure as
-written); the unit must come **directly after the figure** (a sentence's "near" is that: the next word or symbol), or,
-for a figure in a table row, stand in the header or in the text of the answer; a unit that belongs to another accepted
+written, whichever is wider). Dates, times, years and station ids are not figures; `14,821` is 14821 and `0,84` is 0.84.
+**In prose** the unit must come directly after the figure (or in brackets after it: `-0.7 (°C)`); a comma or a word
+elsewhere in the sentence does not matter (`0.84, i.e. 84 %` passes on its `84 %`). A unit that belongs to another accepted
 unit than the one the number is in (`0.84 %` against 0.84 as a fraction), or one of `forbidden_tokens` (kelvin, whatever
-the figure), fails the answer; a figure with no unit next to it neither passes nor fails; a pair marked `required`
-(Fahrenheit, when the question asks for it) must be there. The checkpoint `gets-the-unit` (`any_order`: before or after
-the values) lists the valid routes to the unit; the first checkpoint, reading the values, is the one required to pass.
+the figure), fails the answer; a figure with no unit after it neither passes nor fails. A one-letter unit (`s`, `C`, `F`,
+`h`) only counts directly after a figure, never as a letter in a sentence. For a **forecast** (a span) every figure
+followed by an accepted unit must lie in the span, so `20 °C, at night 45 °C` fails. **A table** (a markdown table, or
+two or more lines of CSV or TSV with the same number of cells; a line of prose with a comma is no row) is read by column:
+the value column is the first column with a cell that fits the first accepted unit in which any cell fits, the other
+cells (`1.6`, `2`) are not figures of the value, and the unit is the header of the column, the cell, or a sentence outside
+the table that names it (`The column is in millimetres.`); a forbidden unit in the header, or a sentence naming another
+accepted unit and none of the right one, fails. A pair marked `required` (Fahrenheit, when the question asks for it) must
+be there. The checkpoint `gets-the-unit` (`any_order`: before or after the values) lists the valid routes to the unit;
+the first checkpoint, reading the values, is the one required to pass.
 A strategy that drops units from the default answer must pass them some other way, or these cases fail.
 
 **Reference `python`.** When you cannot reach a pinned server, read ground truth from the library of this checkout in a
@@ -202,7 +221,7 @@ into the repository, never committed). `bench.py report` and `compare` read it.
 
 ```json
 {"meta": {"date": "2026-10-28", "mode": "headless", "models": {"small": "haiku", "large": "sonnet"},
-          "judge_model": "<the model you are>", "server": "<url or prefix>", "server_version": "0.178.0",
+          "judge_model": "<the model you are>", "server": "<url or prefix>", "server_version": "0.178.0", "label": "<sha of the checkout, +dirty>",
           "reference": "<prefix or python>", "reference_version": "0.178.0", "claude_version": "2.1.308",
           "tools_deferred": false, "context_note": "<what remains in the context, per mode above>",
           "repeats": 5, "cases_file": "<hash>", "defaults": "<hash>", "logic": 3, "prompt": "<hash>",
@@ -224,21 +243,28 @@ pass did not (the model is behind what the case expects) or one that is not expe
 now), and the path of the file.
 
 **Comparison.** `bench.py compare previous results` is a **non-inferiority** claim, not a search for a difference. It
-refuses (and says why) when the logic version of `bench.py`, the `defaults` of the cases file, the prompt or the resolved
-model ids differ, or when more than 3 % of the runs of either file are invalid; it compares only the (case, tier) whose
-case hash is unchanged and says how many it skipped. Per tier, pooled, it gives for each of three rates (passes, facts,
-share of runs with no violation) the difference of the new minus the previous with its 95 % Newcombe interval, and
-calls it **no worse** if the lower bound is above minus 10 percentage points, **WORSE** if the whole interval is below
-zero, and **inconclusive** otherwise; the tier is `NO WORSE` only if all three are, `WORSE` if any is. Not finding a
-difference is not "no worse": at a pass rate of 90 % it takes about 140 runs per side to show a margin of 10 points
-(`required_runs`, printed), so a comparison of 20 cases at 5 repeats of a tier (100 runs a side) is usually
-inconclusive about small drops, and about a drop from 0.9 to 0.8 it will say so rather than guess. The per-case Fisher
-tests are printed as **hints** only (they have little power at 5 runs, and 40 of them are 40 chances for a chance
-flag, though Fisher's test is conservative and a false flag is rare). The pool lumps cases of unequal difficulty; read
-the cases that moved. Steps, tool-result characters, context tokens at the first request, total and output tokens are
-printed as the median per case before and after and the paired difference. A token-efficiency change is "no worse and
-smaller" when all three rates are `no worse` and the sizes fell; the model, mode, server, reference and Claude Code
-versions that differ are told first.
+**refuses** (prints why and exits with code 4) when the logic version of `bench.py`, the `defaults` of the cases file, the
+prompt, the **mode** (headless or subagent) or whether the tools were **deferred** differ, when the two sides cannot be
+told apart (one server version and one `label`; `--same-server` compares two runs of one server), or when more than 3 %
+of the runs of the *compared* cases are invalid. It compares only the (case, tier) whose case hash is unchanged and
+says how many it left out (only in the current file, with a changed case, only in the previous file); a tier whose
+resolved model ids differ is not compared. Per tier, pooled, it decides for each of three rates (passes, facts, share of
+runs with no violation) the difference of the new minus the previous with its 95 % Newcombe interval, as **one**
+non-inferiority decision: **no worse** if the lower bound is above minus 10 percentage points, **WORSE** if the upper
+bound is below minus 10 points (the drop is shown to be larger than tolerated), **inconclusive** otherwise; a drop that is
+real but within the margin is "no worse (a drop, lower but within the margin)". The tier is `NO WORSE` only if all three
+are, `WORSE` if any is. **The pool is only valid if every case has the same number of valid runs on both sides**: otherwise
+it prints INCONCLUSIVE with the reason, since pooling would weight the cases differently on each side and a case that
+collapsed on few runs could vanish in it. A case whose own rate fell by 40 points or more is printed with its counts
+whatever the pooled verdict says. Each of the three decisions has a one-sided error of 2.5 %, so about 7 % per tier
+that one of them is wrong in the same direction; the per-case Fisher tests are **hints** only (little power at 5 runs).
+Not finding a difference is not "no worse": at a pass rate of 90 % it takes about 140 runs per side to show a margin of
+10 points (`required_runs`, printed for each of the three rates, the largest decides), and the full set (28 cases) at 5
+repeats is 140 runs a side per tier, about enough at 90 % and not enough at 80 %. Steps, tool-result characters, context
+tokens at the first request, total and output tokens, and the calls whose result was saved to a file are printed as the
+median per case before and after and the paired difference. A token-efficiency change is "no worse and smaller" when
+all three rates are `no worse` and the sizes fell; the model, server, reference and Claude Code versions that differ
+are told first.
 
 ## Local server: comparing a change before release
 
@@ -247,6 +273,8 @@ the same limits and cache**, not only against the hosted one: a baseline of the 
 `main` by the host, the network and the deployed settings.
 
 ```bash
+# the same cache for both sides (and warm it with one run before the baseline)
+export WD_CACHE_DIR=$HOME/.cache/wetterdienst-mcpbench
 # baseline: main, in its own worktree and port
 git worktree add ../wd-main main && cd ../wd-main
 uv sync --python 3.13 --extra restapi --extra mcp --extra export --extra interpolation --extra sql   # one extra at a time on macOS if it fails
@@ -257,9 +285,10 @@ uv sync --python 3.13 --extra restapi --extra mcp --extra export --extra interpo
 uv run --python 3.13 wetterdienst restapi --listen 127.0.0.1:7892        # MCP at http://127.0.0.1:7892/mcp/v1
 ```
 
-Then `/mcp-benchmark server=http://127.0.0.1:7891/mcp/v1 repeats=5` for the baseline and the same with `:7892` and
-`previous=<the baseline's file>` for the change. `server=` takes any such URL in headless mode (the URL is checked
-with `bench.py probe` first). Give both the same `WD_CACHE_DIR` (or warm both with the same first run), since a cold cache
+Then `/mcp-benchmark server=http://127.0.0.1:7891/mcp/v1 label=$(git -C ../wd-main rev-parse --short HEAD) repeats=5` for the
+baseline and the same with `:7892`, the SHA of the branch (`+dirty` if `git status` is not clean) as the `label`, and
+`previous=<the baseline's file>` for the change: the two servers report one version, and the labels are what tells the files apart. `server=` takes any such URL in headless mode (the URL is checked
+with `bench.py probe` first). Both servers are started with the same `WD_CACHE_DIR` (exported above), since a cold cache
 changes the time and sometimes the answer; keep `reference=` the released hosted server for both, so the judge's ground
 truth does not move with the change. Tried 2026-10-28: a local `wetterdienst restapi --listen 127.0.0.1:7890` from a
 worktree answered `probe` with the same 14 tools and `tools-size` as the hosted 0.178.0, and a headless run of the glossary

@@ -87,22 +87,27 @@ other way, or these cases fail: the CSV case is the guard for it.
 `passed` is the answer-reached headline; it does not say that the answer is right or that the agent kept to the rules,
 so `facts ok` and the share of runs without a violation are compared as metrics of their own. `bench.py compare` is a
 **non-inferiority** claim on the pooled rates of a tier: for the passes, the facts and the runs without a violation it
-gives the difference with its 95 % interval and calls it "no worse" if the lower bound is above minus 10 percentage
-points, "WORSE" if the whole interval is below zero and "inconclusive" otherwise. Not finding a difference is not "no
-worse": at a pass rate of 90 % it takes about 140 runs per side to show a margin of 10 points, which the output prints
-next to the runs there are, so 5 repeats of 20 cases (100 runs a side) is usually inconclusive about a small drop. The
-Fisher test per case is a hint only. It refuses to compare when the prompt, the logic version of `bench.py`, the
-defaults or the resolved model ids differ, or when more than 3 % of the runs are invalid (the server was not connected:
-those runs are left out of the rates and counted), and it compares only cases whose hash is unchanged, saying how many
-it skipped. Sizes (tool-result characters, context tokens at the first request, total and output tokens) are printed
-as medians per case before and after and the paired difference.
+gives the difference with its 95 % interval and decides it as one test: "no worse" if the lower bound is above minus 10
+percentage points, "WORSE" if the upper bound is below minus 10 points, "inconclusive" otherwise (a real drop within the
+margin is said as such). The pool is only valid if every case has the same number of valid runs on both sides, else it
+prints INCONCLUSIVE with the reason, and a case whose own rate fell by 40 points is named whatever the verdict says.
+Not finding a difference is not "no worse": at a pass rate of 90 % it takes about 140 runs per side to show a margin of 10
+points, which the output prints for each rate next to the runs there are; the full set of 28 cases at 5 repeats is 140
+runs a side per tier. The Fisher test per case is a hint only. It **refuses** (exit code 4) when the prompt, the logic
+version of `bench.py`, the defaults, the mode (headless or subagent) or the deferral of the tools differ, when the two
+sides report one version and carry no differing `label`, or when more than 3 % of the compared runs are invalid (the server
+was not connected: those runs are left out of the rates and counted; a run that never ran is recorded with
+`bench.py failed-run`); a tier whose resolved model ids differ is not compared. It compares only cases whose hash is
+unchanged and says how many it left out (only in the current file, changed, only in the previous file). Sizes
+(tool-result characters, context tokens at the first request, total and output tokens, calls whose result was saved to a
+file) are printed as medians per case before and after and the paired difference.
 
 `run_subject.sh` stops with exit code 3 before a model is paid for when the MCP URL does not answer, 124 after a
 timeout (`MCPBENCH_TIMEOUT`, default 300 s), and ends a run at `MCPBENCH_MAX_USD` (default 0.50, checked with 0.001: it
 stops after the first turn). It removes the temporary directory and the project directory Claude Code makes for it in
 `~/.claude/projects`; `bench.py cleanup` removes what an interrupted run left. A tool result above the limit of Claude
 Code is saved to a file the tested agent cannot open (it has no Read tool); the transcript then holds a notice, and
-`bench.py` reads the real size out of it.
+`bench.py` reads the real size out of it; such a call is `spilled` and read nothing, and a short result that talks of a saved file in other words is warned about in the report.
 
 **What the benchmark cannot see.** The hosted `tools/list` is about 260,000 characters: 210,000 of `outputSchema`,
 39,000 of `inputSchema` and 10,000 of descriptions (`bench.py tools-size`). The context of the tested agent at its first
@@ -116,15 +121,29 @@ Run both sides on local servers in the same environment, each in its own worktre
 `WD_CACHE_DIR`:
 
 ```bash
+export WD_CACHE_DIR=$HOME/.cache/wetterdienst-mcpbench     # the same for both servers
 git worktree add ../wd-main main && cd ../wd-main
 uv sync --python 3.13 --extra restapi --extra mcp --extra export --extra interpolation --extra sql
 uv run --python 3.13 wetterdienst restapi --listen 127.0.0.1:7891      # MCP at http://127.0.0.1:7891/mcp/v1
 # in another terminal, the branch with the change, in its own worktree, on 7892
 ```
 
-Then `/mcp-benchmark server=http://127.0.0.1:7891/mcp/v1 repeats=5` for the baseline, the same with `:7892` and
-`previous=<the baseline's results>` for the change; `reference=` stays the released hosted server for both. A local
-server was tried: `probe`, `tools-size` and a headless glossary run against it worked.
+Then `/mcp-benchmark server=http://127.0.0.1:7891/mcp/v1 label=<sha of main> repeats=5` for the baseline, the same with
+`:7892`, the SHA of the branch (`+dirty` if it has changes) as the `label`, and `previous=<the baseline's results>` for the
+change. Both servers report one version, so the label is what tells the two files apart, and `compare` refuses without it.
+`reference=` stays the released hosted server for both. A local server was tried: `probe`, `tools-size` and a headless
+glossary run against it worked.
+
+## Known limits
+
+- The cases with a fixed date (Kiel and Frankfurt on 26 December 2025) are read from DWD's `recent` period now and from
+  `historical` once the date is older than about a year and a half (around mid-2027): the value should not change, and
+  the judge's own call decides, but the station list for the date may.
+- A benchmark of a model is noisy: one run says little, and the noise differs by case. Use repeats and read the cases that moved.
+- The headless runs reach the hosted server by URL, not through the claude.ai connector, and carry what Claude Code puts
+  in every session (its system prompt and the user's email).
+- The tested agent's results above the limit of Claude Code are saved to a file it cannot open (the notice is not a
+  documented format).
 
 The tested agent's log is not asked for: the counts come from the transcript the harness keeps (the stream-json of
 `claude -p`, or for a subagent the `output_file` the Agent tool returns, a detail of the harness).

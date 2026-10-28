@@ -336,6 +336,7 @@ def _results(
     passes: dict[tuple[str, str], int],
     n: int = 5,
     *,
+    ns: dict[tuple[str, str], int] | None = None,
     facts: dict[tuple[str, str], int] | None = None,
     violations: dict[tuple[str, str], int] | None = None,
     invalid: dict[tuple[str, str], int] | None = None,
@@ -348,6 +349,7 @@ def _results(
 
     The facts that held, the runs with a violation and the invalid runs (no server) are given the same way.
     """
+    ns = ns or {}
     facts = facts or {}
     violations = violations or {}
     invalid = invalid or {}
@@ -360,7 +362,7 @@ def _results(
             "facts_ok": i < facts.get((case, tier), k),
             "checkpoints": {"k": 1, "n": 2},
             "violations": ["v"] if i < violations.get((case, tier), 0) else [],
-            "invalid": i >= n - invalid.get((case, tier), 0),
+            "invalid": i >= ns.get((case, tier), n) - invalid.get((case, tier), 0),
             "steps": 2,
             "max_steps": 4,
             "tool_result_chars_sum": 1000 + 100 * i,
@@ -370,7 +372,7 @@ def _results(
             "total_tokens": 90000,
         }
         for (case, tier), k in passes.items()
-        for i in range(n)
+        for i in range(ns.get((case, tier), n))
     ]
     case_hashes = hashes or dict.fromkeys({c for c, _ in passes}, "h1")
     base = {
@@ -418,7 +420,8 @@ def test_the_comparison_is_a_non_inferiority_claim_on_the_pooled_rates() -> None
     assert "=> WORSE" in worse
     assert "=> INCONCLUSIVE" in few
     assert "takes about" in few
-    assert "runs per side; there are 5" in few
+    assert "(the largest, 75, decides" in few
+    assert "there are 5" in few
 
 
 def test_a_drop_in_facts_or_a_rise_in_violations_is_not_within_noise() -> None:
@@ -458,14 +461,16 @@ def test_the_comparison_skips_changed_cases() -> None:
 
     text = bench.compare(before, after)
 
-    assert "1 (case, tier) compared, 1 skipped" in text
+    assert "1 (case, tier) compared; left out: 0 only in the current file, 1 with a changed case" in text
     assert "hint b [small]" not in text
 
 
 @pytest.mark.parametrize(
     ("changed", "expected"),
     [
-        ({"prompt": "p2"}, "the prompt changed"),
+        ({"prompt": "p2"}, "the prompt differs"),
+        ({"mode": "subagent"}, "the mode (headless or subagent) differs"),
+        ({"tools_deferred": True}, "whether the tools were deferred differs"),
         ({"logic": 99}, "the logic version of bench.py differs"),
         ({"defaults": "d2"}, "the defaults of the cases file differs"),
     ],
@@ -488,7 +493,7 @@ def test_the_comparison_refuses_when_runs_are_invalid() -> None:
     before = _results({("a", "small"): 5}, n=40)
     after = _results({("a", "small"): 5}, n=40, invalid={("a", "small"): 4})
 
-    assert "10% of the current runs are invalid" in bench.compare(before, after)
+    assert "10% of the compared current runs are invalid" in bench.compare(before, after)
 
 
 def test_the_comparison_compares_the_resolved_model_ids() -> None:
@@ -620,6 +625,66 @@ UNIT_ANSWERS = [
     ("units-fahrenheit", {"value": -0.7}, "The daily mean was -0.7 °F.", False),
     ("units-fahrenheit", {"value": -0.7}, "The daily mean was 273 K.", False),
     ("units-fahrenheit", {"value": -0.7}, "The daily mean was 30.7 K.", False),
+    # prose with commas is prose, not a table row (a)
+    ("units-humidity-percent", {"value": 0.8404}, "The mean relative humidity was 0.84, i.e. 84 %.", True),
+    ("units-fahrenheit", {"value": -0.7}, "The mean was -0.7, which is 30.7 °F.", True),
+    ("units-fahrenheit", {"value": -0.7}, "On 26.12.2025 the mean at Kiel-Holtenau was 30.7 °F.", True),
+    (
+        "units-kiel-celsius",
+        {"value": -0.7},
+        "On Dec 26, 2025 the mean was -0.7 °C, the minimum -3.1 °C and the maximum 1.2 °C.",
+        True,
+    ),
+    ("units-kiel-celsius", {"value": -0.7}, "Kiel-Holtenau, 26 Dec 2025: -0.7 °C.", True),
+    ("units-precipitation-mm", {"value": 15.5}, "Unit: mm. (Other networks use inches.)\n15.5", False),
+    ("units-precipitation-mm", {"value": 15.5}, "It fell 15.5 mm. (Other networks use inches.)", True),
+    # a markdown table without commas, with the unit in the header (a)
+    ("units-kiel-celsius", {"value": -0.7}, "| date | mean (°C) |\n|---|---|\n| 2025-12-26 | -0.7 |", True),
+    ("units-kiel-celsius", {"value": -0.7}, "| date | mean (K) |\n|---|---|\n| 2025-12-26 | -0.7 |", False),
+    # a one-letter unit is only a unit directly after the figure (b)
+    ("units-sunshine-seconds", {"value": 14821.2}, "The sun's duration at Hamburg, 16 October 2026, was 14821.", False),
+    ("units-sunshine-seconds", {"value": 14821.2}, "The sun shone for 14821 at Hamburg.", False),
+    ("units-sunshine-seconds", {"value": 14821.2}, "The sun shone for 14821, in s.", False),
+    # a month name is no mask for a unit word that starts like one (c)
+    ("units-humidity-percent", {"value": 0.8404}, "The mean relative humidity was 0.84 decimal.", True),
+    ("units-humidity-percent", {"value": 0.8404}, "The mean relative humidity was 0.84 dimensionless.", True),
+    # brackets and thousands separators (d)
+    ("units-kiel-celsius", {"value": -0.7}, "The mean was -0.7 (°C).", True),
+    ("units-sunshine-seconds", {"value": 14821.2}, "The sun shone for 14,821 seconds.", True),
+    ("units-sunshine-seconds", {"value": 14821.2}, "The sun shone for 14,821 minutes.", False),
+    ("units-wind-speed", {"value": 3.0}, "The mean wind speed was 3,0 m/s.", True),
+    ("units-wind-speed", {"value": 3.0}, "Mean wind speed: 3.0 m s-1", True),
+    ("units-kiel-celsius", {"value": -0.7}, "Die Tagesmitteltemperatur betrug \N{MINUS SIGN}0,7 °C.", True),
+    # a table is read by its value column: another cell that fits another unit does not make it fail (e)
+    (
+        "units-csv-with-unit",
+        {"value": 15.5},
+        "date,precipitation_amount\n2026-10-14,0.0\n2026-10-15,1.6\n2026-10-16,15.5\n2026-10-17,2\n\nThe unit is mm.",
+        True,
+    ),
+    (
+        "units-csv-with-unit",
+        {"value": 15.5},
+        "station_id,date,precipitation_amount\n01975,2026-10-16,15.5\n\nThe precipitation column is in cm, not inches.",
+        False,
+    ),
+    (
+        "units-csv-with-unit",
+        {"value": 15.5},
+        "date,precipitation_amount\n2026-10-16,15.5\n\nThe column is in millimetres, as the glossary says.",
+        True,
+    ),
+    (
+        "units-csv-with-unit",
+        {"value": 15.5},
+        "date\tprecipitation_amount (mm)\n2026-10-16\t15.5",
+        True,
+    ),
+    # every temperature of a forecast with a unit must fit the span (f)
+    ("units-lax-forecast-celsius", {"min": 14.0, "max": 24.0}, "Tomorrow afternoon 20 °C, at night 45 °C.", False),
+    ("units-lax-forecast-celsius", {"min": 14.0, "max": 24.0}, "Tomorrow at 15:00 about 20°C, at 18:00 21 °C.", True),
+    ("units-lax-forecast-celsius", {"min": 14.0, "max": 24.0}, "Tomorrow afternoon about 68 °F (20 °C).", True),
+    ("units-lax-forecast-celsius", {"min": 14.0, "max": 24.0}, "Tomorrow afternoon 20 °C (293 K).", True),
 ]
 
 
@@ -915,3 +980,246 @@ def test_a_run_fails_fast_without_a_server_a_prompt_or_claude(
     assert bench.run_subject("haiku", "http://x/$(id)", "wetterdienst", str(prompt), out, 5, 0.1) == 2
     assert bench.run_subject("haiku", "http://127.0.0.1:1/mcp/v1", "wetterdienst", str(prompt), out, 5, 0.1) == 3
     assert bench.run_subject("haiku", mcp_url, "bad name", str(prompt), out, 5, 0.1) == 2
+    assert bench.run_subject("haiku", mcp_url, "wetterdienst", str(prompt), out, 5, 0.1, label="a b;c") == 2
+
+
+def test_a_run_leaves_the_probes_answer_and_the_label_next_to_its_transcript(
+    tmp_path: Path, mcp_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The sidecar holds what the probe said (a glossary run has no metadata block), the label and the mode."""
+    fake = tmp_path / "claude"
+    fake.write_text(
+        '#!/bin/sh\nif [ "$1" = "--version" ]; then echo 9.9.9; exit 0; fi\necho \'{"type":"result","result":"x"}\'\n',
+        encoding="utf-8",
+    )
+    fake.chmod(0o755)
+    prompt = tmp_path / "p.txt"
+    prompt.write_text("hi", encoding="utf-8")
+    out = tmp_path / "o.jsonl"
+    monkeypatch.setattr(bench.shutil, "which", lambda _name: str(fake))
+    monkeypatch.setattr(bench.Path, "home", classmethod(lambda _cls: tmp_path / "home"))
+
+    code = bench.run_subject("haiku", mcp_url, "wetterdienst", str(prompt), str(out), 20, 0.1, label="abc1234+dirty")
+
+    side = json.loads(Path(f"{out}.meta.json").read_text(encoding="utf-8"))
+    assert code == 0
+    assert out.read_text(encoding="utf-8").strip() == '{"type":"result","result":"x"}'
+    assert side["mode"] == "headless"
+    assert side["label"] == "abc1234+dirty"
+    assert side["claude_version"] == "9.9.9"
+    assert side["server_info"] == {"name": "Wetterdienst", "version": "9.9.9"}
+    assert side["wetterdienst_version"] == "9.9.9"
+
+
+def test_pooling_cases_with_unequal_repeats_is_not_a_verdict() -> None:
+    """A case that collapsed on few runs must not vanish in a pool that another case dominates."""
+    before = _results({("a", "small"): 50, ("b", "small"): 25}, ns={("a", "small"): 50, ("b", "small"): 50})
+    after = _results({("a", "small"): 300, ("b", "small"): 0}, ns={("a", "small"): 300, ("b", "small"): 10})
+
+    text = bench.compare(before, after)
+
+    assert "POOLED small: INCONCLUSIVE, the number of valid runs per case differs" in text
+    assert "no worse" not in text
+    assert "big drop in b [small]: passed 25/50 -> 0/10" in text
+
+
+def test_a_collapsed_case_is_printed_next_to_a_no_worse_pool() -> None:
+    """A pool of 20 cases that is no worse can hide one that fell to zero: it is named whatever the verdict says."""
+    cases = {(f"c{i}", "small"): 20 for i in range(20)}
+    before = _results(cases, n=20)
+    after = _results({**cases, ("c0", "small"): 0}, n=20)
+
+    text = bench.compare(before, after)
+
+    assert "=> NO WORSE" in text
+    assert "big drop in c0 [small]: passed 20/20 -> 0/20" in text
+
+
+@pytest.mark.parametrize(
+    ("before", "after", "verdict"),
+    [
+        ((900, 1000), (700, 1000), "WORSE"),
+        ((900, 1000), (820, 1000), "inconclusive"),
+        ((126, 140), (112, 140), "inconclusive"),
+        ((900, 1000), (880, 1000), "no worse"),
+    ],
+)
+def test_the_verdict_is_one_non_inferiority_decision(
+    before: tuple[int, int], after: tuple[int, int], verdict: str
+) -> None:
+    """No worse: the lower bound is above minus the margin. WORSE: the upper bound is below it. Else inconclusive."""
+    assert bench._non_inferiority("passed", *before, *after, 0.10)[0] == verdict  # noqa: SLF001
+
+
+def test_a_drop_within_the_margin_is_visible() -> None:
+    """A significant but tolerated drop is no worse and says it is a drop."""
+    verdict, text = bench._non_inferiority("passed", 1000, 1000, 950, 1000, 0.10)  # noqa: SLF001
+
+    assert verdict == "no worse"
+    assert "(a drop, lower but within the margin)" in text
+
+
+def test_a_refused_comparison_exits_with_a_code(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """The command line exits non-zero when it refuses, so that no script reads a verdict that is not there."""
+    ok = tmp_path / "ok.json"
+    other = tmp_path / "other.json"
+    ok.write_text(json.dumps(_results({("a", "small"): 5}, label="x")), encoding="utf-8")
+    other.write_text(json.dumps(_results({("a", "small"): 5}, mode="subagent", label="y")), encoding="utf-8")
+
+    assert bench.main(["compare", str(ok), str(ok), "--same-server"]) == 0
+    assert bench.main(["compare", str(ok), str(other)]) == 4
+    assert "the mode (headless or subagent) differs" in capsys.readouterr().out
+
+
+def test_two_sides_that_report_one_version_must_carry_labels() -> None:
+    """Local main and a branch say the same version: without a label that differs, the sides cannot be told apart."""
+    plain = _results({("a", "small"): 5}, server_version="0.178.0")
+    same_label = _results({("a", "small"): 5}, server_version="0.178.0", label="abc123")
+    other_label = _results({("a", "small"): 5}, server_version="0.178.0", label="def456")
+
+    assert "cannot be told apart" in bench.compare(plain, plain)
+    assert "cannot be told apart" in bench.compare(same_label, same_label)
+    assert "cannot be told apart" not in bench.compare(same_label, other_label)
+    assert "cannot be told apart" not in bench.compare(plain, plain, same_server=True)
+
+
+def test_cases_only_in_the_previous_file_are_counted() -> None:
+    """A case that left the file is left out and said so."""
+    before = _results({("a", "small"): 5, ("gone", "small"): 5})
+    after = _results({("a", "small"): 5})
+
+    assert "left out: 0 only in the current file, 0 with a changed case, 1 only in the previous file" in bench.compare(
+        before, after
+    )
+
+
+def test_the_invalid_share_is_counted_over_the_compared_cases_only() -> None:
+    """A case that is not compared does not count: 4 invalid runs of a skipped case are no reason to refuse."""
+    before = _results({("a", "small"): 40, ("b", "small"): 5}, n=40, hashes={"a": "h1", "b": "h1"})
+    after = _results(
+        {("a", "small"): 40, ("b", "small"): 5}, n=40, hashes={"a": "h1", "b": "h2"}, invalid={("b", "small"): 30}
+    )
+
+    text = bench.compare(before, after)
+
+    assert "not compared" not in text
+    assert "1 with a changed case" in text
+
+
+def test_a_run_that_never_ran_is_an_invalid_record_with_its_reason() -> None:
+    """Exit 3 or 124 of a run in the middle of a batch: the run is recorded as invalid, not missing and not failed."""
+    case = bench.find_case(bench.load_cases(), "glossary-temperature-air-mean-2m")
+    record = bench.failed_run(case, "small", 2, "the server did not answer (exit 3)")
+    results = {"meta": {}, "runs": [record, {**record, "repeat": 3}]}
+
+    assert record["invalid"] is True
+    assert record["invalid_reason"] == "the server did not answer (exit 3)"
+    assert bench.aggregate(results["runs"])["n"] == 0
+    assert "2 of 2 runs are invalid" in bench.report(results)
+
+
+def test_a_subagent_transcript_must_show_the_servers_tools(tmp_path: Path) -> None:
+    """A subagent's transcript has no init record: the server's tools must be listed or deferred in it, or called."""
+    attached = {
+        "type": "attachment",
+        "attachment": {"type": "deferred_tools_record", "entries": [{"name": f"{PREFIX}values"}]},
+    }
+    without = bench.parse_transcript(_stream(tmp_path, {"type": "attachment", "attachment": {"type": "date"}}), PREFIX)
+    deferred = bench.parse_transcript(_stream(tmp_path, attached, name="d.jsonl"), PREFIX)
+    called = bench.parse_transcript(_stream(tmp_path, _use("values", "a"), name="c.jsonl"), PREFIX)
+
+    assert without["invalid"] is True
+    assert "no tool of the server" in without["invalid_reason"]
+    assert deferred["invalid"] is False
+    assert called["invalid"] is False
+
+
+def test_a_spill_is_a_call_that_read_nothing_whatever_is_error_says(tmp_path: Path) -> None:
+    """The notice of a result saved to a file makes the call not ok and spilled even if `is_error` is false."""
+    notice = "Error: result (358,696 characters) exceeds maximum allowed tokens. Output has been saved to /x/y.txt."
+    run = bench.parse_transcript(
+        _stream(tmp_path, _use("stations", "a", all=True), _result("a", notice, error=False)), PREFIX
+    )
+
+    assert run["calls"][0]["spilled"] is True
+    assert run["calls"][0]["ok"] is False
+
+
+def test_an_unrecognised_spill_notice_is_warned_about(tmp_path: Path) -> None:
+    """A short result that talks of a file in words bench.py does not know is counted and warned about, not trusted."""
+    notice = "The output was too large and was stored at /home/x/.claude/projects/p/tool-results/mcp-stations.txt"
+    run = bench.parse_transcript(_stream(tmp_path, _use("stations", "a"), _result("a", notice)), PREFIX)
+    results = {
+        "meta": {},
+        "runs": [
+            {
+                **bench.failed_run(bench.find_case(bench.load_cases(), "alerts-kiel"), "small", 1, "x"),
+                "invalid": False,
+                "passed": False,
+                "spill_unrecognised_calls": run["spill_unrecognised_calls"],
+            }
+        ],
+    }
+
+    assert run["spill_unrecognised_calls"] == 1
+    assert "WARNING: 1 tool results look like a result saved to a file" in bench.report(results)
+
+
+def _project_dirs(home: Path) -> Path:
+    """Make the `.claude/projects` of a fake home."""
+    root = home / ".claude" / "projects"
+    root.mkdir(parents=True)
+    return root
+
+
+def test_cleanup_removes_only_old_directories_of_this_benchmarks_runs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Anchored to the slug of the temp dir, older than a few minutes, never through a symlink."""
+    import os  # noqa: PLC0415
+    import time  # noqa: PLC0415
+
+    home = tmp_path / "home"
+    root = _project_dirs(home)
+    monkeypatch.setattr(bench.Path, "home", classmethod(lambda _cls: home))
+    prefix = bench._run_prefix()  # noqa: SLF001
+    old, fresh, other_tmp = (
+        root / f"{prefix}AbC123",
+        root / f"{prefix}FRESH1",
+        root / "-Users-x-dev-mcpbench-subject-analysis",
+    )
+    for directory in (old, fresh, other_tmp):
+        (directory / "memory").mkdir(parents=True)
+    past = time.time() - 3600
+    for directory in (old, other_tmp):
+        os.utime(directory, (past, past))
+    target = tmp_path / "precious"
+    target.mkdir()
+    (target / "keep.txt").write_text("keep", encoding="utf-8")
+    (root / f"{prefix}LINKED").symlink_to(target, target_is_directory=True)
+    os.utime(root / f"{prefix}LINKED", (past, past), follow_symlinks=False)
+
+    assert bench.cleanup() == 1
+    assert not old.exists()
+    assert fresh.exists(), "a younger directory may be a run in progress"
+    assert other_tmp.exists(), "a real project whose path holds the word is not a benchmark run"
+    assert (target / "keep.txt").exists(), "a symlink is never followed"
+    assert (root / f"{prefix}LINKED").is_symlink()
+
+
+def test_the_directory_of_a_run_is_removed_at_once_and_only_that_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """After its own run the exact directory goes whatever its age; a name that is not the run's slug does not."""
+    home = tmp_path / "home"
+    root = _project_dirs(home)
+    monkeypatch.setattr(bench.Path, "home", classmethod(lambda _cls: home))
+    prefix = bench._run_prefix()  # noqa: SLF001
+    ours, theirs = root / f"{prefix}XyZ987", root / "-Users-x-mcpbench-subject-real-project"
+    ours.mkdir()
+    theirs.mkdir()
+
+    assert bench._remove_project_dir(f"{prefix}XyZ987") is True  # noqa: SLF001
+    assert bench._remove_project_dir("-Users-x-mcpbench-subject-real-project") is False  # noqa: SLF001
+    assert bench._remove_project_dir(f"../{prefix}XyZ987") is False  # noqa: SLF001
+    assert theirs.exists()

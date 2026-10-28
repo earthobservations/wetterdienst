@@ -1838,7 +1838,7 @@
                 "provider": "dwd",
                 "network": "observation",
                 "parameters": {"any_of": ["daily/climate_summary/temperature_air_mean_2m", "daily/climate_summary", "daily/kl"]},
-                "name": {"regex": "(?i)hamburg|kiel"},
+                "name": {"regex": "(?i)kiel"},
                 "timestamp": {"on_date": "2025-12-26"}
               }
             }
@@ -2088,7 +2088,7 @@
                 "provider": "dwd",
                 "network": "observation",
                 "parameters": {"any_of": ["daily/climate_summary/humidity_relative_mean", "daily/climate_summary", "daily/kl"]},
-                "name": {"regex": "(?i)hamburg|kiel"},
+                "name": {"regex": "(?i)hamburg"},
                 "timestamp": {"on_date": "2026-10-16"}
               }
             }
@@ -2178,7 +2178,7 @@
                 "provider": "dwd",
                 "network": "observation",
                 "parameters": {"any_of": ["daily/climate_summary/sunshine_duration", "daily/climate_summary", "daily/kl"]},
-                "name": {"regex": "(?i)hamburg|kiel"},
+                "name": {"regex": "(?i)hamburg"},
                 "timestamp": {"on_date": "2026-10-16"}
               }
             }
@@ -2266,7 +2266,7 @@
                 "provider": "dwd",
                 "network": "observation",
                 "parameters": {"any_of": ["daily/climate_summary/wind_speed_mean", "daily/climate_summary", "daily/kl"]},
-                "name": {"regex": "(?i)hamburg|kiel"},
+                "name": {"regex": "(?i)hamburg"},
                 "timestamp": {"on_date": "2026-10-16"}
               }
             }
@@ -2366,7 +2366,7 @@
                 "provider": "dwd",
                 "network": "observation",
                 "parameters": {"any_of": ["daily/climate_summary/precipitation_amount", "daily/climate_summary", "daily/kl"]},
-                "name": {"regex": "(?i)hamburg|kiel"},
+                "name": {"regex": "(?i)hamburg"},
                 "timestamp": {"on_date": "2026-10-16"}
               }
             }
@@ -2466,7 +2466,7 @@
                 "provider": "dwd",
                 "network": "observation",
                 "parameters": {"any_of": ["daily/climate_summary/precipitation_amount", "daily/climate_summary", "daily/kl"]},
-                "name": {"regex": "(?i)hamburg|kiel"},
+                "name": {"regex": "(?i)hamburg"},
                 "timestamp": {"on_date": "2026-10-16"}
               }
             }
@@ -2559,7 +2559,7 @@
                 "provider": "dwd",
                 "network": "observation",
                 "parameters": {"any_of": ["daily/climate_summary/temperature_air_mean_2m", "daily/climate_summary", "daily/kl"]},
-                "name": {"regex": "(?i)hamburg|kiel"},
+                "name": {"regex": "(?i)kiel"},
                 "timestamp": {"on_date": "2025-12-26"}
               }
             }
