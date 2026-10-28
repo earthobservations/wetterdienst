@@ -32,12 +32,14 @@ Types of changes:
   draws its own background, so it reads on any page that frames it (GH-3518)
 - `[Print]` A page prints without the sidebar, the bars, the skip link and the footer, and a page
   in dark mode prints in light colours, except its charts, which keep the colours of the screen.
-  A chart is scaled to the room it has on the narrowest usual paper (A4, 1 inch margins) instead
-  of being cut off at the edge of its card, and the page is put back if no afterprint comes
-  (GH-3518)
+  A chart wider than the room it has on the narrowest usual paper (A4, 1 inch margins) is scaled
+  to it for the print, instead of being cut off at the edge of its card (GH-3518)
 
 ### Fixed
 
+- `[Forecast]` The day cards of the forecast on a phone, and in the widget, no longer make the
+  page scroll sideways (by 420 to 520 px), and their row is a labelled region that a keyboard
+  can reach and scroll (GH-3518)
 - `[Stripes]` The climate stripes chart keeps up with its container: it widens when the window
   (or the sidebar beside it) gets wider, instead of staying at the width it was drawn at
   (GH-3518)

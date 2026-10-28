@@ -318,4 +318,19 @@ code, kbd, pre, samp {
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
   }
+  /* the page's gutters and the cards' paddings, narrower on paper (the gutters of the screen are for a window of 1440 px) */
+  [data-width] {
+    padding-inline: 1rem;
+  }
+  [data-slot="body"] {
+    padding-inline: 0.75rem;
+  }
+}
+/* The same, while `plugins/print-light.client.ts` is preparing a print (it sets `data-printing` and then measures how much
+   room a chart has on paper, which it can only read from a layout that has the print's gutters). */
+html[data-printing] [data-width] {
+  padding-inline: 1rem;
+}
+html[data-printing] [data-slot="body"] {
+  padding-inline: 0.75rem;
 }

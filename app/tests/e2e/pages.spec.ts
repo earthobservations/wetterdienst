@@ -614,37 +614,79 @@ test.describe('Charts on paper', () => {
       // a second beforeprint with no afterprint (some browsers) changes nothing and loses nothing
       await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')))
       expect(await taken()).toBeLessThanOrEqual(COLUMN)
+      // and a resize of the window while the print is prepared does not draw the chart at its container's width again
+      await page.setViewportSize({ width: 1400, height: 900 })
+      await page.waitForTimeout(500)
+      expect(await taken()).toBeLessThanOrEqual(COLUMN)
 
       await page.evaluate(() => window.dispatchEvent(new Event('afterprint')))
-      expect(Math.round(await width())).toBe(Math.round(screen))
+      await expect.poll(async () => Math.round(await width())).toBeGreaterThan(Math.round(screen) - 60)
     })
   }
 })
 
-test.describe('A print that sends no afterprint', () => {
-  test('puts the page back when the print media stops applying', async ({ page, baseURL }) => {
+test.describe('A print that comes and goes', () => {
+  test('stays prepared while the print media applies and stops applying, and is put back by afterprint', async ({ page, baseURL }) => {
+    // the browser's own print dialog sends beforeprint once and afterprint when it closes, and shows the preview again for each
+    // paper, margin or scale: the print media comes and goes in between, and every preview is of the prepared page
     await mockBackend(page, baseURL!)
     await page.emulateMedia({ colorScheme: 'dark' })
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto('/stripes?kind=temperature&station=00011')
     await page.getByRole('button', { name: 'Show', exact: true }).click()
-    const chart = page.locator('.js-plotly-plot').first()
-    await expect(chart.locator('.main-svg').first()).toBeVisible()
-    const screen = await chart.locator('.main-svg').first().evaluate(element => element.getBoundingClientRect().width)
+    const svg = page.locator('.js-plotly-plot .main-svg').first()
+    await expect(svg).toBeVisible()
+    const width = () => svg.evaluate(element => element.getBoundingClientRect().width)
+    const screen = await width()
 
-    await page.emulateMedia({ media: 'print' })
     await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')))
-    await expect(page.locator('html')).not.toHaveClass(/dark/)
-    expect(await chart.evaluate(element => element.style.zoom)).not.toBe('')
-
-    // the print is over (the media is the screen's again), and no afterprint came
+    await page.emulateMedia({ media: 'print' })
+    await page.emulateMedia({ media: 'screen' })
+    await page.emulateMedia({ media: 'print' })
     await page.emulateMedia({ media: 'screen' })
 
+    await expect(page.locator('html')).not.toHaveClass(/dark/)
+    await expect(page.locator('html')).toHaveAttribute('data-printing', '')
+    expect(await width()).toBeLessThan(screen - 200)
+
+    await page.evaluate(() => window.dispatchEvent(new Event('afterprint')))
     await expect(page.locator('html')).toHaveClass(/dark/)
     await expect(page.locator('html')).not.toHaveAttribute('data-printing', /.*/)
-    expect(await chart.evaluate(element => element.style.zoom)).toBe('')
-    expect(Math.round(await chart.locator('.main-svg').first().evaluate(element => element.getBoundingClientRect().width))).toBe(Math.round(screen))
+    await expect.poll(async () => Math.round(await width())).toBe(Math.round(screen))
   })
+
+  test('puts the page back when it goes', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await page.goto('/about')
+    await expect(page.locator('aside nav')).toBeVisible()
+    await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')))
+    await expect(page.locator('html')).not.toHaveClass(/dark/)
+
+    await page.evaluate(() => window.dispatchEvent(new Event('pagehide')))
+    await expect(page.locator('html')).toHaveClass(/dark/)
+  })
+})
+
+test.describe('Text spacing on the provider cards (WCAG 1.4.12)', () => {
+  for (const language of ['da', 'pl', 'cs', 'de']) {
+    test(`keeps every badge inside its card in ${language}, at 1280 and 1440 px`, async ({ page, baseURL }) => {
+      await mockBackend(page, baseURL!)
+      await page.context().addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
+      for (const width of [1280, 1440]) {
+        await page.setViewportSize({ width, height: 900 })
+        await page.goto('/providers')
+        await expect(page.locator('main#main li a').first()).toBeVisible()
+        // the spacing a reader may set, and no more (line 1.5, letters 0.12 em, words 0.16 em, paragraphs 2 em)
+        await page.addStyleTag({ content: '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; } p { margin-bottom: 2em !important; }' })
+        const outside = await page.evaluate(() => [...document.querySelectorAll('main#main li a')].flatMap((card) => {
+          const edge = card.getBoundingClientRect().right
+          return [...card.querySelectorAll('*')].filter(element => element.getBoundingClientRect().right > edge + 1).map(element => (element.textContent ?? '').trim().slice(0, 40))
+        }))
+        expect(outside, `${language} at ${width} px`).toEqual([])
+      }
+    })
+  }
 })
 
 test.describe('The palette', () => {

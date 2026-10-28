@@ -117,13 +117,18 @@ with nothing focused, and closed by Escape or a click outside. The next Tab then
 one after the skip link would. Printing: the skip link, the sidebar, the bars and the footer are not printed (`print:hidden`,
 in the markup, so that it holds for a print of a page whose scripts did not run again), a dark page prints in the light
 colours (`plugins/print-light.client.ts`), except its charts, which take theirs from the colour mode and keep the screen's
-(the forecast's light labels on white paper in a print from dark mode are known), and each Plotly chart is scaled to the room it has
-(`zoom`): the column of the narrowest usual paper (A4 with 1 inch margins, 602 px; Letter and the browser's default margins
-have more) less the paddings and borders of what it stands in, measured on the screen, so that it is whole in the card that
-clips it; it is scaled when the print starts and put back after it, and also when the print media stops applying or the page
-goes, for a browser that sends no `afterprint`. E2e checks hold the media rules, the scaling (what the chart and its insets
-take fits the column), the safety net and the day cards' scroller (a labelled region you can reach by keyboard, scanned on a
-phone for the forecast and the widget). A page that is chosen
+(the forecast's light labels on white paper in a print from dark mode are known), and each Plotly chart that is wider than the room it has
+is scaled to it (`zoom`) when the print starts and back after it, so that it is whole in the card that clips it: the room is
+the column of the narrowest usual paper (A4 with 1 inch margins, 602 px; Letter and the browser's default margins have
+more) less the paddings and borders around the chart, measured with the print's gutters and card paddings in force
+(`html[data-printing]`). A chart on paper is therefore about half the size of the screen's, and its type with it (4.5 to
+6 pt); drawing it again at the narrower width, which would keep the type size, does not survive a real print (the print starts
+before Plotly has finished: the chart comes out without its traces), so legibility on paper is a known limit. The print is
+prepared once, by `beforeprint`, and undone by `afterprint` (and `pagehide`): the browser's own print dialog shows its
+preview again for each paper, margin or scale, and the print media comes and goes in between, so nothing is undone when it
+does. While it is prepared Plotly's own resize handler is off, so that a resize does not draw a chart at its container's
+width again. E2e checks hold the media rules, the fit, the media coming and going, and the day cards' scroller (a labelled
+region you can reach by keyboard, scanned on a phone for the forecast and the widget). A page that is chosen
 in the palette closes the rail's settings popover that was open under it.
 
 There is no sepia mode. `main.css` once held a `html.sepia` block that redefined the `--ui-*` tokens, which

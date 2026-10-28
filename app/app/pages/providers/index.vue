@@ -145,6 +145,7 @@ function parameterCount(provider: Provider): number {
                   color="neutral"
                   variant="outline"
                   icon="i-ph-key"
+                  class="max-w-full whitespace-normal"
                 />
               </div>
             </UCard>
