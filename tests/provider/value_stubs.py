@@ -747,7 +747,11 @@ def _meteofrance_synop(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True)
     # synop_2024.csv.gz: ABBEVILLE 2024-01-01T18:00Z has rr6=-0.1 beside rr1=0.0, CHASSIRON 2024-01-03T06:00Z has n=101;
     # a calm is dd=0 beside ff=0 (3495 rows, all with ff=0) and north is dd=360 (3230 rows), as the WMO table has it;
     # the 400 is the file of 1996's own (14 rows, DUMONT D'URVILLE and EUROPA, dd=400 beside ff=1 or 2, GH-2873), here
-    # moved to 07005 at 2024-01-01T23:00Z
+    # moved to 07005 at 2024-01-01T23:00Z; tn12/tx12 are the 12 hour extremes of PARIS-MONTSOURIS (07156) at
+    # 2026-10-27T06:00Z and 18:00Z in synop_2026.csv.gz, moved to 07005 and to 2024-01-02 (read 2026-10-28). The file
+    # has no code for a missing reading: it is an empty field, which is what the reader nulls, and the 3-hourly steps
+    # between the two (here 12:00Z) leave both columns empty. The documentation (Descriptif technique, 2026-04-20)
+    # states no sentinel for them, and in the 2026 file they run from 242.65 to 316.75 K and 237.35 to 308.25 K
     schema = list(synop_api._SYNOP_CSV_SCHEMA)  # noqa: SLF001
     rows = [
         {
@@ -781,6 +785,9 @@ def _meteofrance_synop(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True)
             "dd": "0",
             "ff": "2",
         },
+        {"geo_id_wmo": "07005", "validity_time": "2024-01-02T06:00:00Z", "tn12": "285.75", "tx12": "287.85"},
+        {"geo_id_wmo": "07005", "validity_time": "2024-01-02T12:00:00Z", "t": "288.55"},
+        {"geo_id_wmo": "07005", "validity_time": "2024-01-02T18:00:00Z", "tn12": "285.75", "tx12": "289.35"},
     ]
     lines = [";".join(schema)] + [";".join(row.get(column, "") for column in schema) for row in rows]
     serve(monkeypatch, synop_api, {"/data/OBS/SYNOP/synop_2024.csv.gz": gzip.compress("\n".join(lines).encode("utf8"))})
@@ -791,9 +798,11 @@ def _meteofrance_synop(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True)
             ("subdaily", "data", "cloud_cover_total"),
             ("subdaily", "data", "wind_direction_mean_last_10min"),
             ("subdaily", "data", "wind_speed_mean_last_10min"),
+            ("subdaily", "data", "temperature_air_max_2m_last_12h"),
+            ("subdaily", "data", "temperature_air_min_2m_last_12h"),
         ],
         start=_day(2024, 1, 1),
-        end=_day(2024, 1, 2),
+        end=_day(2024, 1, 3),
         settings=_settings(),
         options=_options(drop_nulls),
     )
