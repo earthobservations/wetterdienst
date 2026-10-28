@@ -284,10 +284,10 @@ def as_outage(error: Exception, url: str) -> Exception:
     `DownloadError` `File.raise_if_exception` would raise, naming the file and with the failure as
     its `__cause__`. A failed connection is the `NoInternetError` it already is.
 
-    A TLS failure -- a certificate that does not verify, a handshake that fails -- is one too, though it
-    is not asked again (`_worth_retrying`): the host presented what it could not be trusted with, which is
-    no answer to the question, and it is the `DownloadError` that `File.raise_if_exception` raises for
-    it (GH-3022). So is a redirect that was not followed (`RedirectRefusedError`, GH-3339) and a body
+    A TLS failure -- a certificate that does not verify, a handshake that fails -- is one too, though a
+    certificate is not asked again (`_worth_retrying`): the host presented what it could not be trusted with,
+    which is no answer to the question, and it is the `DownloadError` that `File.raise_if_exception` raises
+    for it (GH-3022). So is a redirect that was not followed (`RedirectRefusedError`, GH-3339) and a body
     refused for its size, its time or an unannounced compression (`DownloadRefusedError`, GH-3340).
 
     Any other failure is returned as it was, for the caller to answer as before: a 404, a 4xx such as
@@ -2068,6 +2068,56 @@ class NetworkFilesystemManager:
         return cls._get_filesystems()[key]
 
 
+#: The ``reason`` of an ``ssl.SSLError`` that a server throws now and then and does not throw twice in a row.
+#: Not ``SSLV3_ALERT_HANDSHAKE_FAILURE``: a server with no cipher in common, or one that wants a client
+#: certificate, sends it on every attempt, and asking again only waits for the same answer.
+_TRANSIENT_TLS_REASONS = frozenset(
+    {
+        # the peer answered the ClientHello with something that is no TLS: a load balancer or a web tier
+        # that is restarting or overloaded
+        "WRONG_VERSION_NUMBER",
+        # a session-resumption ticket the server no longer honours
+        "INVALID_SESSION_ID",
+        # alerts that say the server failed, not that it refuses the client or its certificate
+        "SSLV3_ALERT_UNEXPECTED_MESSAGE",
+        "SSLV3_ALERT_BAD_RECORD_MAC",
+        "TLSV1_ALERT_INTERNAL_ERROR",
+    },
+)
+
+
+def _is_transient_tls_failure(error: BaseException) -> bool:
+    """Whether a TLS failure is a handshake hiccup of the server, which asking again can get past (GH-3533).
+
+    A failure that arrives as the aiohttp ``ClientSSLError`` is read by the ``ssl.SSLError`` underneath.
+    What it says is decided by its type and its ``reason``, which OpenSSL sets, not by its message:
+
+    - never a certificate that does not verify (``ssl.SSLCertVerificationError``, which is also
+      ``ssl.CertificateError``): an untrusted, expired or self-signed certificate or a name that does not
+      match is the same on every attempt, and it is a matter of configuration or of security that a retry
+      must not mask (GH-2618);
+    - an ``ssl.SSLError`` whose ``reason`` is one of ``_TRANSIENT_TLS_REASONS``: the web server of
+      ``www.dwd.de`` throws ``WRONG_VERSION_NUMBER`` and ``INVALID_SESSION_ID`` now and then, and answers
+      the same request a minute later;
+    - a connection cut in the middle of the handshake (``ssl.SSLEOFError``) or closed by the peer
+      (``ssl.SSLZeroReturnError``): a blip, as a dropped connection is. Through aiohttp and asyncio a server
+      that closes after the ClientHello arrives as a ``ClientConnectorError`` with a ``ConnectionResetError``,
+      which is asked again as a dropped connection, so on the paths of this library this branch is not
+      reached; it stays as a guard for an ``ssl.SSLError`` that is let out as it is.
+
+    Any other TLS failure is not asked for again: a protocol or a cipher the two cannot agree on (the
+    ``SSLV3_ALERT_HANDSHAKE_FAILURE`` of a server with no cipher in common, or one that wants a client
+    certificate) is a configuration, and so is a certificate the server refuses to accept.
+    """
+    if isinstance(error, ClientSSLError):
+        error = error.os_error
+    if isinstance(error, ssl.SSLCertVerificationError):
+        return False
+    if isinstance(error, (ssl.SSLEOFError, ssl.SSLZeroReturnError)):
+        return True
+    return isinstance(error, ssl.SSLError) and getattr(error, "reason", None) in _TRANSIENT_TLS_REASONS
+
+
 def _worth_retrying(error: Exception) -> bool:
     """Whether a failed post is worth a second attempt.
 
@@ -2080,14 +2130,17 @@ def _worth_retrying(error: Exception) -> bool:
     account, and asking again a tenth of a second later is how that gets worse rather than better;
     it comes back as the answer it is, for the caller to report.
 
-    Nor is a TLS failure, a certificate that does not verify or a handshake that fails: the same
-    server presents the same certificate, so asking again returns the same error after a delay and a
-    retry warning (GH-2618). aiohttp's ``ClientSSLError`` is a ``ClientConnectorError``, so it would
-    pass the test for a failed connection below; the listings raise the ``ssl.SSLError`` underneath,
-    which is none of the exceptions below and is named here to keep it so.
+    Nor is a TLS failure that is the same on every attempt: a certificate that does not verify, or a
+    handshake the two cannot agree on. The same server presents the same certificate, so asking again
+    returns the same error after a delay and a retry warning (GH-2618). A handshake that the server
+    only fumbled -- a wrong version number, an invalid session id -- is a blip like
+    any other and is asked again (``_is_transient_tls_failure``, GH-3533). aiohttp's ``ClientSSLError`` is
+    a ``ClientConnectorError``, so it would pass the test for a failed connection below whatever it is;
+    the listings raise the ``ssl.SSLError`` underneath, which is none of the exceptions below. Both are
+    decided here.
     """
     if isinstance(error, (ClientSSLError, ssl.SSLError)):
-        return False
+        return _is_transient_tls_failure(error)
     # ClientPayloadError is a body that stopped arriving mid-read, which is the same kind of blip
     # as a connection that never carried one -- and it is no subclass of ClientConnectionError
     if isinstance(error, (ClientConnectionError, ClientPayloadError, FSTimeoutError, TimeoutError)):
@@ -2108,10 +2161,11 @@ def _worth_retrying_download(error: Exception) -> bool:
 def _worth_retrying_listing(error: Exception) -> bool:
     """Whether a failed listing is worth another attempt: the same answer as for a post.
 
-    A connection or a timeout that failed, a body that stopped arriving, a 5xx. Not a TLS failure
-    (see ``_worth_retrying``), and not what is no blip either: a directory that is not there
-    (``FileNotFoundError``), a 4xx, or a programming error such as a ``ValueError``, all of which
-    the retry used to repeat as it repeated every exception (GH-2618).
+    A connection or a timeout that failed, a body that stopped arriving, a 5xx, a TLS handshake the
+    server fumbled. Not a certificate that does not verify (see ``_worth_retrying``), and not what is
+    no blip either: a directory that is not there (``FileNotFoundError``), a 4xx, or a programming
+    error such as a ``ValueError``, all of which the retry used to repeat as it repeated every
+    exception (GH-2618).
     """
     return _worth_retrying(error)
 
@@ -2166,9 +2220,11 @@ def _list_with_retries(list_once: Callable[[], _T], url: str) -> _T:
       with the failure as its ``__cause__``, as ``File.raise_if_exception`` raises them for a download
       (GH-2460). ``timed_out`` finds a timeout under it, so the REST API answers a 504 for it.
 
-    A TLS failure -- a certificate that does not verify, a handshake that fails -- is asked for once and
-    is a ``DownloadError`` too, with the bare ``ssl.SSLError`` as its ``__cause__``, as it is for a
-    download (GH-3099); the REST API answers a 502 for it, not a 500.
+    A TLS failure -- a certificate that does not verify, a handshake that fails -- is a ``DownloadError``
+    too, with the bare ``ssl.SSLError`` as its ``__cause__``, as it is for a download (GH-3099); the REST
+    API answers a 502 for it, not a 500. A certificate failure is asked for once, and so is a handshake
+    the two cannot agree on; a handshake the server fumbled (``_is_transient_tls_failure``, GH-3533) is
+    asked for as often as a reset is.
 
     Not a ``FileNotFoundError``, which is asked for once and raised as it is, and not a programming
     error. What is raised is raised outside the ``except`` blocks below, so that the aiohttp error is
@@ -2228,9 +2284,10 @@ def list_remote_files_fsspec(
         DownloadError: If the server answered badly: a connection reset or dropped, a timeout, a
             broken body, or an HTTP error status other than 404, naming the URL, the failure as its
             ``__cause__`` (GH-3004). A reset, a timeout, a broken body or a 5xx is asked for three
-            times before it is raised; a 4xx once. So is a certificate that does not verify or a TLS
-            handshake that fails, with the ``ssl.SSLError`` as its ``__cause__``, at the first
-            attempt: asking again would meet the same certificate (GH-3099).
+            times before it is raised, so is a TLS handshake the server fumbled (a wrong version
+            number, an invalid session id, GH-3533); a 4xx once. A certificate that does not verify
+            is raised at the first attempt, with the ``ssl.SSLError`` as its ``__cause__``: asking
+            again would meet the same certificate (GH-3099).
 
     """
     return _list_with_retries(lambda: _list_files_once(url, settings, cache_expiry), url)
@@ -2285,7 +2342,7 @@ def _list_files_once(url: str, settings: Settings, cache_expiry: CacheExpiry) ->
         # of whatever leaves here, so it is scrubbed before it does (GH-2603)
         raise _without_credentials(e, sent_credentials=False) from None
     # raised, and the retry around this asks again only where `_worth_retrying_listing` says it can
-    # help: not for this, a TLS failure being the same on every attempt (GH-2618)
+    # help: not for a certificate that does not verify, which is the same on every attempt (GH-2618)
     raise tls_failure
 
 
@@ -2349,7 +2406,7 @@ def _list_directory_once(url: str, settings: Settings, cache_expiry: CacheExpiry
         # an HTTP error status, scrubbed as in `list_remote_files_fsspec` (GH-2603)
         raise _without_credentials(e, sent_credentials=False) from None
     # raised, and the retry around this asks again only where `_worth_retrying_listing` says it can
-    # help: not for this, a TLS failure being the same on every attempt (GH-2618)
+    # help: not for a certificate that does not verify, which is the same on every attempt (GH-2618)
     raise failure
 
 
