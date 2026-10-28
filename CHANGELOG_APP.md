@@ -19,13 +19,15 @@ Types of changes:
 ### Changed
 
 - `[Design]` A new, quieter look: near-monochrome with the logo's blue as the one accent, the
-  Geist typeface and Phosphor icons (both served by the app itself), and one shared page layout
-  with the same side margins on every page. The top bar is gone: navigation is a sidebar with the
-  places in groups (a rail of icons on narrow desktops, a drawer on phones), the settings at its
-  foot with the app's and the backend's version beneath them (no longer in the footer), a
-  skip-to-content link, and a command palette on Ctrl or Cmd + K. Providers show a country code
-  instead of a flag, the language list has no flags. Nothing else behaves differently; the
-  licence notices gain the fonts' licence (OFL-1.1) and the icon set's (GH-3518)
+  Geist typeface and Phosphor icons (both served by the app itself), and one shared layout with
+  the same side margins on every page (the explorer, forecast, stripes, history and providers
+  pages use up to 80 rem, the text pages a narrower measure). The top bar is gone: navigation is
+  a sidebar with the places in groups (a rail of icons on narrow desktops, a drawer on phones),
+  the settings at its foot with the app's and the backend's version beneath them (no longer in
+  the footer), a skip-to-content link and a command palette on Ctrl or Cmd + K. The home page's
+  heading is now the tagline. Providers show a country code, on the list, the home page and
+  their own page, instead of a flag; the language list has no flags. The licence notices gain
+  the fonts' licence (OFL-1.1) and the icon set's (GH-3518)
 
 ## [0.39.0] - 2026-10-28
 

@@ -228,6 +228,30 @@ test.describe('Versions in the navigation', () => {
   })
 })
 
+test.describe('The navigation as a rail of icons', () => {
+  test.use({ viewport: { width: 1100, height: 800 } })
+
+  test('names every link for a screen reader, though the labels are not drawn', async ({ page }) => {
+    await page.goto('/')
+    const links = page.getByRole('navigation', { name: 'Menu' }).getByRole('link')
+    await expect(links.first()).toBeVisible()
+    const count = await links.count()
+    expect(count).toBeGreaterThanOrEqual(12)
+    for (let index = 0; index < count; index++)
+      await expect(links.nth(index)).toHaveAccessibleName(/\S/)
+    await expect(page.getByRole('navigation', { name: 'Menu' }).getByRole('link', { name: 'Explorer', exact: true })).toBeVisible()
+  })
+
+  test('has the page beside the rail, not under it', async ({ page }) => {
+    await page.goto('/')
+    const rail = (await page.locator('aside').boundingBox())!
+    const main = (await page.locator('main#main').boundingBox())!
+
+    expect(main.x).toBeGreaterThanOrEqual(rail.x + rail.width - 1)
+    expect(main.y).toBeLessThan(100)
+  })
+})
+
 test.describe('Support Page', () => {
   test('should be reachable from the navigation', async ({ page }) => {
     await page.goto('/')

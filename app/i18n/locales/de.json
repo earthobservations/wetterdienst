@@ -125,7 +125,8 @@
     "groupReference": "Nachschlagen",
     "groupProject": "Projekt",
     "versions": "App {app} · Backend {backend}",
-    "versionUnknown": "unbekannt"
+    "versionUnknown": "unbekannt",
+    "drawerDescription": "Seiten der App und Links zum Projekt"
   },
   "header": {
     "github": "GitHub",

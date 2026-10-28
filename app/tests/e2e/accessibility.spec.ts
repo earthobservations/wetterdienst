@@ -354,6 +354,28 @@ const STATES: State[] = [
       await expect(page.getByRole('dialog')).toBeVisible()
     },
   },
+  // the navigation as a rail of icons (1024 to 1279 px), whose links are named by hidden labels, which axe holds to
+  // (`link-name`); the spec's default window is wider and never shows it
+  {
+    page: 'index',
+    state: 'nav-rail',
+    path: '/',
+    viewport: { width: 1100, height: 800 },
+    reach: async (page, locale) => {
+      await expect(page.getByRole('navigation', { name: message(locale, 'header.menu') }).getByRole('link', { name: message(locale, 'nav.explorer'), exact: true })).toBeVisible()
+    },
+  },
+  {
+    page: 'index',
+    state: 'rail-settings-open',
+    keepFocus: true,
+    path: '/',
+    viewport: { width: 1100, height: 800 },
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'common.settings'), exact: true }).click()
+      await expect(page.getByRole('dialog')).toBeVisible()
+    },
+  },
 ]
 
 /** Opens `path` and waits until the app, in this variant, has taken the page up */

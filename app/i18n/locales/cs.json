@@ -125,7 +125,8 @@
     "groupReference": "Reference",
     "groupProject": "Projekt",
     "versions": "Aplikace {app} · Backend {backend}",
-    "versionUnknown": "neznámá"
+    "versionUnknown": "neznámá",
+    "drawerDescription": "Stránky aplikace a odkazy na projekt"
   },
   "header": {
     "github": "GitHub",

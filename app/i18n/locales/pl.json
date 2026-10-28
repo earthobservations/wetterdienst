@@ -125,7 +125,8 @@
     "groupReference": "Materiały",
     "groupProject": "Projekt",
     "versions": "Aplikacja {app} · Backend {backend}",
-    "versionUnknown": "nieznana"
+    "versionUnknown": "nieznana",
+    "drawerDescription": "Strony aplikacji i odnośniki do projektu"
   },
   "header": {
     "github": "GitHub",

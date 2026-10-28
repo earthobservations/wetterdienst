@@ -125,7 +125,8 @@
     "groupReference": "Nakieken",
     "groupProject": "Projekt",
     "versions": "App {app} · Backend {backend}",
-    "versionUnknown": "unbekannt"
+    "versionUnknown": "unbekannt",
+    "drawerDescription": "Sieten vun de App un Verwiesen na't Projekt"
   },
   "header": {
     "github": "GitHub",

@@ -125,7 +125,8 @@
     "groupReference": "Naslag",
     "groupProject": "Project",
     "versions": "App {app} · Backend {backend}",
-    "versionUnknown": "onbekend"
+    "versionUnknown": "onbekend",
+    "drawerDescription": "Pagina's van de app en links naar het project"
   },
   "header": {
     "github": "GitHub",

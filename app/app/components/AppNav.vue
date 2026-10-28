@@ -4,7 +4,7 @@ import type { NavigationMenuItem } from '@nuxt/ui'
 // The navigation of the app (GH-3518): the brand, the search, the places in three groups, and the settings. It is
 // the sidebar's content from 1024 px (icons only until 1280 px), and the drawer's below. The same list serves the
 // command palette (`useAppNav`).
-const props = withDefaults(defineProps<{ collapsed?: boolean }>(), { collapsed: false })
+const props = withDefaults(defineProps<{ collapsed?: boolean, shortcut?: boolean }>(), { collapsed: false, shortcut: true })
 const emit = defineEmits<{ navigate: [] }>()
 
 const { t } = useI18n()
@@ -31,7 +31,7 @@ const items = computed<NavigationMenuItem[][]>(() => groups.value.map(group => [
       <span v-if="!props.collapsed" class="text-base font-semibold tracking-tight">Wetterdienst</span>
     </NuxtLink>
 
-    <AppSearchButton :collapsed="props.collapsed" />
+    <AppSearchButton :collapsed="props.collapsed" :shortcut="props.shortcut" />
 
     <UNavigationMenu
       orientation="vertical"
@@ -39,7 +39,7 @@ const items = computed<NavigationMenuItem[][]>(() => groups.value.map(group => [
       :collapsed="props.collapsed"
       :tooltip="props.collapsed"
       :aria-label="t('header.menu')"
-      :ui="{ linkLabel: props.collapsed ? 'sr-only' : 'truncate' }"
+      :ui="{ linkLabel: props.collapsed ? 'sr-only inline' : 'truncate' }"
       class="min-h-0 flex-1 overflow-y-auto"
     />
 

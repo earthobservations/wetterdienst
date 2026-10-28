@@ -88,11 +88,15 @@ Decoration is hidden from assistive technology and carries no information: the s
 that remains, the pulse of a field that still needs a value, has a static ring under `prefers-reduced-motion`.
 
 Navigation (GH-3518): a skip link is the first stop of every page but the widget and moves the focus to `<main id="main">`.
-The places are one `<nav aria-label="Menu">` in a sidebar (a rail of icons from 1024 px, named by visually hidden labels
-and tooltips; below that a drawer opened by the menu button, a dialog that keeps the focus, closes on Escape and hands
-the focus back). The current page carries `aria-current="page"`. The command palette (Ctrl or Cmd + K, or the search
-button) is a dialog with a labelled search field and a listbox; the `search-open` and `mobile-menu-open` states are
-scanned.
+The places are one `<nav aria-label="Menu">` in a sidebar. From 1024 to 1279 px it is a rail of icons, whose links are named
+by visually hidden labels (`sr-only`; Nuxt UI hides a collapsed label with `hidden`, which the `ui` of the menu
+overrides) and by tooltips; the `nav-rail` and `rail-settings-open` states of the scan (axe `link-name`, at 1100 px,
+which the spec's default window never shows) and an e2e check of each link's accessible name hold this. Below 1024 px
+a drawer opened by the menu button is a dialog that keeps the focus, closes on Escape and hands the focus back. The row
+layout of the shell follows the same script flag as the sidebar, not a Tailwind breakpoint (rem), so that a browser
+set to a larger default font size does not stack the rail over the page. The current page carries
+`aria-current="page"`. The command palette (Ctrl or Cmd + K, or the search button) is a dialog with a labelled search
+field and a listbox; the `search-open` and `mobile-menu-open` states are scanned.
 
 There is no sepia mode. `main.css` once held a `html.sepia` block that redefined the `--ui-*` tokens, which
 nothing in the app ever set (`colorMode` knows `light`, `dark` and `system`, and the settings offer those

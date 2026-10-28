@@ -125,7 +125,8 @@
     "groupReference": "Riferimento",
     "groupProject": "Progetto",
     "versions": "App {app} · Backend {backend}",
-    "versionUnknown": "sconosciuta"
+    "versionUnknown": "sconosciuta",
+    "drawerDescription": "Pagine dell'app e link al progetto"
   },
   "header": {
     "github": "GitHub",

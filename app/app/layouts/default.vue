@@ -12,7 +12,9 @@ watch(() => route.path, () => {
   drawerOpen.value = false
 })
 
-// the sidebar is the large layout's: a drawer that is hidden with CSS would still hold the focus
+// the sidebar is the large layout's: a drawer that is hidden with CSS would still hold the focus. The row layout is driven by
+// this flag too, not by a Tailwind breakpoint: Tailwind's are in rem, which a browser set to a larger default font size
+// makes wider than these pixels, and the rail and the page would stack
 const large = useMediaQuery('(min-width: 1024px)')
 const wide = useMediaQuery('(min-width: 1280px)')
 watch(large, (isLarge) => {
@@ -27,7 +29,7 @@ function skipToContent(event: Event) {
 </script>
 
 <template>
-  <div class="min-h-screen lg:flex">
+  <div class="min-h-screen" :class="large ? 'flex' : ''">
     <a
       href="#main"
       class="fixed left-3 top-3 z-50 -translate-y-24 rounded-md bg-default px-4 py-2 text-sm font-medium text-highlighted ring ring-default focus:translate-y-0"
@@ -75,7 +77,7 @@ function skipToContent(event: Event) {
     v-model:open="drawerOpen"
     side="left"
     :title="t('header.menu')"
-    :description="t('nav.searchPlaceholder')"
+    :description="t('nav.drawerDescription')"
     :ui="{ content: 'max-w-xs', body: 'p-0 sm:p-0', header: 'absolute end-2 top-3 z-10 min-h-0 border-0 p-0', title: 'sr-only', description: 'sr-only' }"
   >
     <!-- the label in the language of the app, which Nuxt UI's own is only for the two it ships -->
@@ -83,7 +85,7 @@ function skipToContent(event: Event) {
       <UButton icon="i-ph-x" color="neutral" variant="ghost" :aria-label="t('common.close')" :class="ui.close()" />
     </template>
     <template #body>
-      <AppNav @navigate="drawerOpen = false" />
+      <AppNav :shortcut="false" @navigate="drawerOpen = false" />
     </template>
   </USlideover>
 
