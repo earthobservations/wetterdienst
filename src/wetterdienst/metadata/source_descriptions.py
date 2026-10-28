@@ -3353,6 +3353,21 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "ff",
         ): "Speed of the mean wind over 10 minutes, in whole m/s (the mean cut to the integer).",
         ("subdaily", "data", "t"): "Temperature.",
+        # the sheet: "tn12 température minimale sur 12 heures" and "tx12 température maximale sur 12 heures" (K); it
+        # names no hour. In the 2026 file (read 2026-10-28) 158 of 190 stations carry them (`tx24`/`tn24`: 35), 98 %
+        # of the values (89046 of 90410 maxima, 89047 of 91205 minima) at 06 and 18 UTC, the rest at 00, 12 and 21 UTC
+        ("subdaily", "data", "tn12"): (
+            'Minimum air temperature over the preceding 12 hours (the source: "température minimale sur 12 '
+            'heures"), given almost always at 06 and 18 UTC. Most stations report it, '
+            "where the 24 hour minimum is given by few. Where a report writes the same number in `tx12` "
+            "(Cayenne-Matoury, Le Raizet and Lamentin do at some hours), it is the maximum repeated and no "
+            "minimum: null, with the number kept as the `raw:` token of `quality_flags`."
+        ),
+        ("subdaily", "data", "tx12"): (
+            'Maximum air temperature over the preceding 12 hours (the source: "température maximale sur 12 '
+            'heures"), given almost always at 06 and 18 UTC. Most stations report it, '
+            "where the 24 hour maximum is given by few."
+        ),
     },
 }
 

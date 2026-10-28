@@ -101,6 +101,84 @@ def test_meteofrance_synop_api_trace_of_precipitation_is_zero(monkeypatch: pytes
     }
 
 
+def test_meteofrance_synop_api_the_twelve_hour_extremes_are_celsius_at_06_and_18_utc(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that tx12 and tn12 are offered, in degree Celsius, and that an empty field is no value (GH-3540).
+
+    The rows are those of PARIS-MONTSOURIS (07156) in synop_2026.csv.gz (read 2026-10-28) at 2026-10-26T18:00Z,
+    2026-10-27T06:00Z and 2026-10-27T18:00Z, moved to 07005 (`tx24` and `tn24` are empty for it in every row of
+    2025 and 2026), with the 3-hourly step of 2026-10-27T12:00Z between them, which has none of the four.
+    """
+    rows = [
+        {"geo_id_wmo": "07005", "validity_time": "2026-10-26T18:00:00Z", "tn12": "281.35", "tx12": "286.15"},
+        {"geo_id_wmo": "07005", "validity_time": "2026-10-27T06:00:00Z", "tn12": "285.75", "tx12": "287.85"},
+        {"geo_id_wmo": "07005", "validity_time": "2026-10-27T12:00:00Z", "t": "288.55"},
+        {"geo_id_wmo": "07005", "validity_time": "2026-10-27T18:00:00Z", "tn12": "285.75", "tx12": "289.35"},
+    ]
+    df = _values(
+        monkeypatch,
+        rows,
+        ["temperature_air_max_2m_last_12h", "temperature_air_min_2m_last_12h"],
+        year=2026,
+        end=datetime(2026, 10, 28, tzinfo=UTC),
+    )
+    by_parameter = {
+        str(parameter): (group.get_column("timestamp").to_list(), group.get_column("value").round(2).to_list())
+        for (parameter,), group in df.partition_by("parameter", as_dict=True).items()
+    }
+    assert by_parameter == {
+        "temperature_air_max_2m_last_12h": (
+            [
+                datetime(2026, 10, 26, 18, tzinfo=UTC),
+                datetime(2026, 10, 27, 6, tzinfo=UTC),
+                datetime(2026, 10, 27, 18, tzinfo=UTC),
+            ],
+            [13.0, 14.7, 16.2],
+        ),
+        "temperature_air_min_2m_last_12h": (
+            [
+                datetime(2026, 10, 26, 18, tzinfo=UTC),
+                datetime(2026, 10, 27, 6, tzinfo=UTC),
+                datetime(2026, 10, 27, 18, tzinfo=UTC),
+            ],
+            [8.2, 12.6, 12.6],
+        ),
+    }
+
+
+_COPIED_TN12 = [
+    # CAYENNE-MATOURY (81405) at 2026-07-01T00:00Z: tx12 and tn12 are the same 303.75 K (30.6 C) beside t 298.55 K
+    {"geo_id_wmo": "07005", "validity_time": "2024-01-01T00:00:00Z", "t": "298.55", "tn12": "303.75", "tx12": "303.75"},
+    # PARIS-MONTSOURIS (07156) at 2026-10-27T06:00Z: the two differ, both stay
+    {"geo_id_wmo": "07005", "validity_time": "2024-01-01T06:00:00Z", "t": "286.65", "tn12": "285.75", "tx12": "287.85"},
+    # a tx12 with no tn12 beside it has nothing to be compared with
+    {"geo_id_wmo": "07005", "validity_time": "2024-01-01T12:00:00Z", "tx12": "290.15"},
+]
+
+
+@pytest.mark.parametrize(
+    "parameters",
+    [["temperature_air_min_2m_last_12h"], ["temperature_air_min_2m_last_12h", "temperature_air_max_2m_last_12h"]],
+)
+def test_meteofrance_synop_api_a_tn12_that_copies_the_tx12_of_its_row_is_null_with_its_text(
+    monkeypatch: pytest.MonkeyPatch, parameters: list[str]
+) -> None:
+    """Test that tn12 is null, with `raw:303.75`, where it is the text of the tx12 beside it, and tx12 stays (GH-3540).
+
+    Cayenne-Matoury, Le Raizet and Lamentin write the maximum of the daytime into tn12 at some hours (1290 rows of the
+    2026 file, 1116 of 2025). The copy is read from the tx12 column of the row whether tx12 is asked for or not.
+    """
+    df = _values(monkeypatch, _COPIED_TN12, parameters, drop_nulls=False)
+    minimum = df.filter(pl.col("parameter") == "temperature_air_min_2m_last_12h")
+    assert minimum.get_column("value").round(2).to_list() == [None, 12.6, None]
+    assert minimum.get_column("quality_flags").to_list() == ["raw:303.75", None, None]
+    if len(parameters) == 2:
+        maximum = df.filter(pl.col("parameter") == "temperature_air_max_2m_last_12h")
+        assert maximum.get_column("value").round(2).to_list() == [30.6, 14.7, 17.0]
+        assert maximum.get_column("quality_flags").to_list() == [None, None, None]
+
+
 def test_meteofrance_synop_api_reads_the_maintained_yearly_file_not_the_stale_mirror(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -272,6 +350,36 @@ def test_meteofrance_synop_api_values() -> None:
     assert values.is_not_null().sum() > 0
     # temperature is converted from Kelvin to Celsius, so should be within a plausible range
     assert values.drop_nulls().is_between(-50, 50).all()
+
+
+@pytest.mark.remote
+def test_meteofrance_synop_api_the_twelve_hour_extremes_of_paris() -> None:
+    """Test that Paris-Montsouris, which reports no tx24 and tn24, has tx12 and tn12 at 06 and 18 UTC (GH-3540)."""
+    request = MeteoFranceSynopRequest(
+        parameters=[
+            ("subdaily", "data", "temperature_air_max_2m_last_12h"),
+            ("subdaily", "data", "temperature_air_min_2m_last_12h"),
+        ],
+        start=datetime(2026, 10, 19, tzinfo=ZoneInfo("UTC")),
+        end=datetime(2026, 10, 26, 23, tzinfo=ZoneInfo("UTC")),
+    ).filter_by_station_id("07156")
+    df = next(request.values().query()).df.drop_nulls("value")
+    # a station and stamp may be in the file more than once, so the stamps are counted, not the rows
+    wide = (
+        df.group_by("timestamp", "parameter")
+        .agg(pl.col("value").first())
+        .pivot(on="parameter", index="timestamp", values="value")
+        .sort("timestamp")
+    )
+    # 8 days of two reports a day
+    assert wide.height == 16
+    assert set(wide.get_column("timestamp").dt.hour().to_list()) == {6, 18}
+    assert wide.get_column("temperature_air_max_2m_last_12h").is_between(-5, 35).all()
+    assert wide.get_column("temperature_air_min_2m_last_12h").is_between(-5, 35).all()
+    assert (wide["temperature_air_max_2m_last_12h"] >= wide["temperature_air_min_2m_last_12h"]).all()
+    # the values of the file at 2026-10-26T18:00Z: tx12 286.15 K, tn12 281.35 K
+    last = wide.filter(pl.col("timestamp") == datetime(2026, 10, 26, 18, tzinfo=UTC)).to_dicts()[0]
+    assert round(last["temperature_air_max_2m_last_12h"], 2) == 13.0
 
 
 @pytest.mark.remote
