@@ -795,6 +795,23 @@ class TimeseriesRequest:
 
         """
 
+    def _warn_unplaced(self, station_ids: Iterable[str]) -> None:
+        """Tell, with `warn_response`, which of the stations a provider lists without a position it got wrong.
+
+        A provider whose source writes a position that cannot be (and cannot be corrected) hands the station on
+        without one, and overrides this to say so (`eaufrance/hubeau`, the code ``position-unplaced``). The core
+        calls it where the warning concerns the answer: with the ids of the stations an answer holds
+        (`filter_by_station_id`, `filter_by_name`, `filter_by_sql`, and the whole list where `get_stations` answers
+        with it), and with every id of the request's stations for a search by place (`filter_by_rank`,
+        `filter_by_distance`, `filter_by_bbox`, and so `interpolate` and `summarize`), which can never answer with a
+        station that has no position. `all()` itself tells nothing: it is the list the filters select among. An
+        override tells only the stations among the ids; this one tells nothing.
+
+        Args:
+            station_ids: the ids of the stations the answer holds, or that the search had to leave out
+
+        """
+
     def all(self) -> StationsResult:
         """Get all stations.
 
@@ -851,6 +868,8 @@ class TimeseriesRequest:
                 f"No station with station_id {', '.join(map(str, unknown))} for the requested parameters and "
                 f"periods of {type(self).__name__}.",
             )
+
+        self._warn_unplaced(df_station_id.get_column("station_id"))
 
         return StationsResult(
             request=self,
@@ -956,6 +975,7 @@ class TimeseriesRequest:
 
         if df.is_empty():
             log.info(f"No weather stations were found for name {name}")
+        self._warn_unplaced(df.get_column("station_id"))
 
         return StationsResult(
             request=self,
@@ -1024,6 +1044,9 @@ class TimeseriesRequest:
         located = df.filter(pl.col("distance").is_not_null()).sort(by=["distance", "station_id"])
         if located.is_empty() and not df.is_empty():
             log.info("None of the stations has a position to be ranked by")
+        # a search by place can never answer with a station that has no position: the ones the source got wrong
+        # are told, among all of the stations it searched
+        self._warn_unplaced(df_all.get_column("station_id"))
         df = located
         return StationsResult(
             request=self,
@@ -1113,6 +1136,8 @@ class TimeseriesRequest:
 
         if df.is_empty():
             log.info(f"No weather stations were found for bbox {left}/{bottom}/{top}/{right}")
+        # as `filter_by_rank` does: a station with no position is in no box
+        self._warn_unplaced(df_all.get_column("station_id"))
 
         return StationsResult(request=self, df=df, _df_all=df_all, _stations_filter=StationsFilter.BY_BBOX)
 
@@ -1132,6 +1157,7 @@ class TimeseriesRequest:
         df = ExportMixin._filter_by_sql(df_all, sql)  # noqa: SLF001
         if df.is_empty():
             log.info(f"No stations were found for sql {sql}")
+        self._warn_unplaced(df.get_column("station_id"))
         return StationsResult(request=self, df=df, _df_all=df_all, _stations_filter=StationsFilter.BY_SQL)
 
     def interpolate(self, latlon: tuple[float, float], elevation: float | None = None) -> InterpolatedValuesResult:

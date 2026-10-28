@@ -24,7 +24,12 @@ none of metropolitan France, Guadeloupe and Martinique, Guyane, Reunion and Mayo
 back when the swapped one lies in one of them, so that Anor is at 50.0 N, 4.1 E; no station
 overseas is moved. One that no swap puts right is listed with a null `latitude` and `longitude`,
 and the answer carries the warning `position-unplaced`, which names the station and the position
-the referential wrote as `raw:<latitude>,<longitude>`.
+the referential wrote as `raw:<latitude>,<longitude>`. It is there when the station is in the answer
+(selected by id, name or SQL, or the whole list) and when a search by place (a rank, a distance, a
+bounding box, an interpolation or a summary) had to leave it out, which every search by place of a
+resolution that lists the station does, whether or not the place is near where the source put it;
+a request for other stations, or for a resolution that does not list it, does not carry it. In
+the Python library the warning is also a log line, once for the process.
 
 A site publishes no altitude for about a quarter of the stations, and a few publish 0 or a value
 no ground in France lies at (-999 m, or 12 km and more); their `elevation` is null. The altitude

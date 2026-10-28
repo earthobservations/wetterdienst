@@ -312,7 +312,8 @@ def test_the_hubeau_referential_breaks_no_catalogue_rule_once_corrected() -> Non
         ttl=CacheExpiry.FIVE_MINUTES,
         timeout=120,
     )
-    stations = api._referential_stations(rows).with_columns(  # noqa: SLF001
+    corrected, _ = api._referential_stations(rows)  # noqa: SLF001
+    stations = corrected.with_columns(
         pl.lit("5_minutes").alias("resolution"),
         pl.lit("data").alias("dataset"),
         # the elevation of a station is its site's, which the sites referential gives

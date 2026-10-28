@@ -1776,7 +1776,11 @@ def get_stations(
     r = _get_stations_request(api=api, request=request, timestamp=timestamp, settings=settings, options=options)
 
     if getattr(request, "all", False):
-        return r.all()
+        everything = r.all()
+        # `all()` is the list the filters select among and tells nothing of it; an answer that is the whole list
+        # holds every station the provider lists without a position, and says so
+        r._warn_unplaced(everything.df.get_column("station_id"))  # noqa: SLF001
+        return everything
 
     if request.stations:
         return r.filter_by_station_id(request.stations)

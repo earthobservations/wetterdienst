@@ -658,7 +658,6 @@
   "tests/provider/ea/hydrology/test_api_daily_stamp.py::test_ea_daily_window_with_more_readings_than_days_keeps_the_last_day": [["EAHydrologyRequest", "61767a67", 1, "cf79fb9187dc3456"]],
   "tests/provider/ea/hydrology/test_api_daily_stamp.py::test_ea_reading_completeness_follows_the_quality_word_in_quality_flags": [["EAHydrologyRequest", "61767a67", 1, "cf79fb9187dc3456"]],
   "tests/provider/ea/hydrology/test_api_daily_stamp.py::test_ea_reading_quality_word_is_kept_in_quality_flags": [["EAHydrologyRequest", "61767a67", 1, "cf79fb9187dc3456"]],
-  "tests/provider/eaufrance/hubeau/test_api.py::test_a_station_request_warns_of_the_station_without_a_position": [["HubeauRequest", "fcb0ab9c", 10, "c5fedc9769fecb05"]],
   "tests/provider/eaufrance/hubeau/test_api.py::test_all_gives_the_referential_the_budget_of_the_other_requests": [["HubeauRequest", "fcb0ab9c", 1, "13148c49cad352e5"]],
   "tests/provider/eaufrance/hubeau/test_api.py::test_all_leaves_a_station_in_service_without_an_end": [["HubeauRequest", "fcb0ab9c", 2, "ed9b1b45ef731900"]],
   "tests/provider/eaufrance/hubeau/test_api.py::test_all_leaves_out_a_station_whose_interval_no_resolution_covers": [["HubeauRequest", "fcb0ab9c", 4, "c94c9baaa93fd1fe"]],

@@ -1316,7 +1316,9 @@ def _smhi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     return _stations(SmhiObservationRequest, ("hourly", "data"))
 
 
-def _hubeau(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+def hubeau_request(monkeypatch: pytest.MonkeyPatch) -> HubeauRequest:
+    """Serve the stub referential to the Hub'Eau reader, and give the request for the 5 minute stations."""
+
     # the referential of stations and the one of sites (2026-10-15), of which these are the stations of the Seine at
     # Paris (two stations of one site, with one position), the Garonne at La Reole, one without an altitude and a
     # system of altitude, and Goyaves in Guadeloupe (overseas); the observations, which a station's resolution is
@@ -1412,7 +1414,11 @@ def _hubeau(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         "observations_tr": json.dumps({"data": observations}).encode("utf8"),
     }
     _serve(monkeypatch, hubeau_api, bodies)
-    return _stations(HubeauRequest, ("5_minutes", "data"))
+    return HubeauRequest(parameters=[("5_minutes", "data")], settings=Settings(cache_disable=True))
+
+
+def _hubeau(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    return hubeau_request(monkeypatch).all().df
 
 
 HUBEAU_BLAVET = Accepted(
@@ -1423,12 +1429,18 @@ HUBEAU_BLAVET = Accepted(
     where=lambda row: row["station_id"] == "J543211003",
 )
 # known from the live referential of 2026-10-28 only, so it is held by the live test and not by the stub: 25 stations
-# (L040061201, L041000101, ...) are in service with an opening of 2026-11-01 and no closing
+# (L040061201, L041000101, ...) are in service with an opening of 2026-11-01 and no closing. Only an opening within
+# `HUBEAU_OPENING_SOON` of the time of the check is excused, so that a date of 2062 typed for 2026 still fails
+HUBEAU_OPENING_SOON = dt.timedelta(days=60)
 HUBEAU_NOT_OPENED = Accepted(
     "date_in_the_future",
     "the referential lists stations that are in service with an opening on a date to come (25 stations of the "
     "L series on 2026-10-28, opening on 2026-11-01), which the library passes on as the source gives it",
-    where=lambda row: row["end_timestamp"] is None,
+    where=lambda row: (
+        row["end_timestamp"] is None
+        and row["start_timestamp"] is not None
+        and row["start_timestamp"] <= dt.datetime.now(dt.UTC) + HUBEAU_OPENING_SOON
+    ),
 )
 HUBEAU_EXPECTED = {
     # the positions after the reader swapped them: Anor in Nord, Planioles in Lot, Le Tech in the Pyrenees-Orientales

@@ -30,11 +30,12 @@ Types of changes:
   (GH-3480)
 - **Breaking**: `eaufrance/hubeau` lists a station whose position lies in none of metropolitan
   France, Guadeloupe, Martinique, Guyane, Reunion and Mayotte, swapped or not, with a null
-  `latitude` and `longitude`, and the answer carries the warning `position-unplaced` naming it and
-  the position the source wrote. It is `J543211003` (the Blavet), which the referential lists in
-  Algeria and which was returned there; no search by place finds it now. Select it by
-  `station_id`. The 54 stations listed with latitude and longitude swapped stay corrected
-  (GH-3468)
+  `latitude` and `longitude`. The answer carries the warning `position-unplaced`, naming it and
+  the position the source wrote, when the station is in it or a search by place (rank, distance,
+  bounding box, interpolate, summarize) had to leave it out; a request for other stations has none.
+  It is `J543211003` (the Blavet), which the referential lists in Algeria and which was returned
+  there; no search by place finds it now. Select it by `station_id`. The 54 stations listed with
+  latitude and longitude swapped stay corrected (GH-3468)
 - A read of many stations of `smhi/observation` fetches the per-parameter files of the next 4
   stations into the cache while one is parsed, as `dwd/observation`, `chmi` and the others
   already do (not with `cache_disable`, nor for `interpolate` and `summarize`). Answers, their

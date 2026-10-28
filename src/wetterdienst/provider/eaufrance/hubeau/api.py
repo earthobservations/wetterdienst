@@ -8,7 +8,7 @@ import datetime as dt
 import json
 import logging
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from itertools import pairwise
 from typing import TYPE_CHECKING, ClassVar
 from zoneinfo import ZoneInfo
@@ -30,7 +30,7 @@ from wetterdienst.util.network import download_file, fetchable_link
 from wetterdienst.util.response_warnings import warn_response
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Iterable, Iterator
 
     from wetterdienst.settings import Settings
 
@@ -226,6 +226,10 @@ def _in_an_area(latitude: pl.Expr, longitude: pl.Expr) -> pl.Expr:
     )
 
 
+# the warnings already logged by this process, by their text: the answer of every request that concerns an unplaced
+# station records the warning (`warn_response`), but a library caller has it once in its log, as `_reported_steps` does
+_reported_unplaced: set[str] = set()
+
 #: the code of the warning that names the stations whose position the referential writes in no area of France, also
 #: swapped, and which are listed without one (GH-3468)
 POSITION_UNPLACED = "position-unplaced"
@@ -278,51 +282,59 @@ def _swap_misplaced_positions(df: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def _null_unplaced_positions(df: pl.DataFrame) -> pl.DataFrame:
+def _null_unplaced_positions(df: pl.DataFrame) -> tuple[pl.DataFrame, dict[str, str]]:
     """Give no position to the stations whose position is in no area of France, swapped or not (GH-3468).
 
     A position that is in none of ``_AREAS`` once `_swap_misplaced_positions` has run is the source's error and no
     swap puts it right: J543211003, the Blavet in Morbihan, is listed in Algeria and swapped it is in Kenya. The
-    station stays in the list with a null latitude and longitude, so that no search by place picks it, and the answer
-    says so in a warning of the code ``position-unplaced``, which names the stations and what the referential wrote
-    as ``raw:<latitude>,<longitude>``. A station that has no position to begin with is not one of these.
+    station stays in the list with a null latitude and longitude, so that no search by place picks it. What the
+    referential wrote is kept for `HubeauRequest._warn_unplaced`, which tells it where it concerns an answer. A
+    station that has no position to begin with is not one of these.
 
     Args:
         df: stations with ``station_id``, ``latitude`` and ``longitude`` columns
 
     Returns:
-        the stations, the unplaced with a null ``latitude`` and ``longitude``, in the same order
+        the stations, the unplaced with a null ``latitude`` and ``longitude``, in the same order; and for each
+        unplaced station its id and what the referential wrote, as ``raw:<latitude>,<longitude>``
 
     """
     latitude, longitude = pl.col("latitude"), pl.col("longitude")
     unplaced = latitude.is_not_null() & longitude.is_not_null() & ~_in_an_area(latitude, longitude)
     rows = df.filter(unplaced)
     if rows.is_empty():
-        return df
-    named = ", ".join(_written(row) for row in rows.head(_UNPLACED_LISTED).iter_rows(named=True))
-    more = f" and {rows.height - _UNPLACED_LISTED} more" if rows.height > _UNPLACED_LISTED else ""
-    one = rows.height == 1
-    warn_response(
-        log,
-        POSITION_UNPLACED,
-        f"Hub'Eau lists {'a station' if one else f'{rows.height} stations'} at a position in none of metropolitan "
+        return df, {}
+    written = {row["station_id"]: f"raw:{row['latitude']},{row['longitude']}" for row in rows.iter_rows(named=True)}
+    return (
+        df.with_columns(
+            pl.when(unplaced).then(None).otherwise(latitude).alias("latitude"),
+            pl.when(unplaced).then(None).otherwise(longitude).alias("longitude"),
+        ),
+        written,
+    )
+
+
+def _unplaced_message(written: dict[str, str]) -> str:
+    """Say which stations are listed without a position, and what the referential wrote for them."""
+    count = len(written)
+    one = count == 1
+    named = ", ".join(f"{station_id} {text}" for station_id, text in list(written.items())[:_UNPLACED_LISTED])
+    more = f" and {count - _UNPLACED_LISTED} more" if count > _UNPLACED_LISTED else ""
+    return (
+        f"Hub'Eau lists {'a station' if one else f'{count} stations'} at a position in none of metropolitan "
         f"France, Guadeloupe, Martinique, Guyane, Reunion and Mayotte, also with latitude and longitude swapped: "
         f"{'its' if one else 'their'} latitude and longitude are null, so no search by place finds "
-        f"{'it' if one else 'them'}. The referential wrote {named}{more}.",
-    )
-    return df.with_columns(
-        pl.when(unplaced).then(None).otherwise(latitude).alias("latitude"),
-        pl.when(unplaced).then(None).otherwise(longitude).alias("longitude"),
+        f"{'it' if one else 'them'}. The referential wrote {named}{more}."
     )
 
 
-def _referential_stations(rows: list[dict]) -> pl.DataFrame:
+def _referential_stations(rows: list[dict]) -> tuple[pl.DataFrame, dict[str, str]]:
     """Make the frame of the referential's stations, with a position the source got wrong put right or taken away.
 
     Returns:
         the stations under the names of the stations frame, one row for each station of the referential (the
         resolution a station transmits at is not in it), with `_swap_misplaced_positions` and then
-        `_null_unplaced_positions` applied
+        `_null_unplaced_positions` applied; and what that wrote of the stations it left without a position
 
     """
     df = pl.from_dicts(
@@ -567,6 +579,10 @@ class HubeauRequest(TimeseriesRequest):
 
     _endpoint = _STATIONS_ENDPOINT
 
+    # the stations the last `_all` left without a position, with what the referential wrote of it (`_warn_unplaced`).
+    # Filled in place, so that the copy `interpolate` and `summarize` make of the request has it too
+    _unplaced_positions: dict[str, str] = field(default_factory=dict, init=False, repr=False, compare=False)
+
     # `altitude_ref_alti_station` is the altitude of the gauge's zero in metres -- the datum a stage
     # is read from, below sea level on tidal reaches (-1.809 m at Bordeaux) -- not the ground the
     # station stands on. It goes in `gauge_zero`, as Pegelonline's does, and `elevation` is the
@@ -577,6 +593,24 @@ class HubeauRequest(TimeseriesRequest):
         "gauge_zero",
         "gauge_zero_datum",
     )
+
+    def _warn_unplaced(self, station_ids: Iterable[str]) -> None:
+        """Tell, once for the answer, which of the stations are listed without a position (GH-3468).
+
+        The core asks where the warning concerns the answer: for the stations it holds, or for every station when a
+        search by place had to leave them out. The warning is recorded for the answer of every request it concerns
+        and logged once by the process, as the next ones would repeat it.
+        """
+        if not self._unplaced_positions:
+            return
+        wanted = set(station_ids)
+        written = {station_id: text for station_id, text in self._unplaced_positions.items() if station_id in wanted}
+        if not written:
+            return
+        message = _unplaced_message(written)
+        first = message not in _reported_unplaced
+        _reported_unplaced.add(message)
+        warn_response(log, POSITION_UNPLACED, message, level=logging.WARNING if first else logging.DEBUG)
 
     def _observation_dates(self, url: str) -> pl.DataFrame:
         """Read the timestamps one observations query carries.
@@ -707,7 +741,9 @@ class HubeauRequest(TimeseriesRequest):
         rows = _paged_rows(self._endpoint, settings, ttl=CacheExpiry.METAINDEX, timeout=_REFERENTIAL_TIMEOUT)
         if not rows:
             return pl.LazyFrame()
-        df_raw = _referential_stations(rows)
+        df_raw, unplaced = _referential_stations(rows)
+        self._unplaced_positions.clear()
+        self._unplaced_positions.update(unplaced)
         df_raw = df_raw.with_columns(
             pl.col("code_systeme_alti_site")
             .replace_strict(_SYSTEME_ALTI_LABELS, default=pl.col("code_systeme_alti_site").cast(pl.String))

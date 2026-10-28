@@ -273,7 +273,11 @@ what the answer is missing:
   `parameter-ended` (the window reaches years in which the source no longer publishes a parameter, such as
   the hourly `pressure_air_site` of `chmi/observation` after 2024, so it has no values for them),
   `position-unplaced` (a station whose position the source writes where no swap of latitude and
-  longitude puts it in the network's country, listed with a null position: `eaufrance/hubeau`) and
+  longitude puts it in the network's country, listed with a null position: `eaufrance/hubeau`; the
+  answer has it when the station is in it, selected by `stations`, `name`, `sql` or `all`, or when a
+  search by place, a `rank`, a `distance` or a bounding box, or an estimate by `interpolate` or
+  `summarize`, had to leave it out, which is every search by place of a resolution that lists it)
+  and
   `deprecated-parameter` (issued when a parameter is deprecated; none is at the moment). Codes are added as
   more are told; a client reads the ones it knows.
 - **`api_version`** is the version of the API (`/api/version`), and **`schema_version`** that of this
