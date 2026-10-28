@@ -62,6 +62,16 @@ _MeteoFranceSynopMetadataSpec = {
                             "unit": "degree_kelvin",
                         },
                         {
+                            "name": "temperature_air_min_2m_last_12h",
+                            "name_original": "tn12",
+                            "unit": "degree_kelvin",
+                        },
+                        {
+                            "name": "temperature_air_max_2m_last_12h",
+                            "name_original": "tx12",
+                            "unit": "degree_kelvin",
+                        },
+                        {
                             "name": "temperature_air_min_2m_last_24h",
                             "name_original": "tn24",
                             "unit": "degree_kelvin",

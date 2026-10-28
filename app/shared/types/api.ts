@@ -18,8 +18,9 @@ export type Resolution
 
 /**
  * Parameter info returned in coverage response, as the backend's `discover()` builds it: every key
- * but `lead_times` is always sent, and `unit` is the unit the source publishes in, not the one
- * values come back in
+ * but `lead_times` is always sent, and `unit` is the unit the values come back in under the default
+ * options (the glossary's); the app does not read it, nor `unit_source`, the unit the provider
+ * publishes in, which the backend sends beside it
  */
 export interface CoverageParameter {
   name: string

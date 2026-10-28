@@ -16,6 +16,7 @@ import polars as pl
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.quality_flags import (
     SPEED_BESIDE,
+    NoReading,
     Sentinel,
     calm,
     join_quality_flags,
@@ -72,6 +73,17 @@ _SYNOP_SKY_OBSCURED = "101"
 _SYNOP_NO_WIND_DIRECTION = ("400",)
 _SYNOP_WIND_DIRECTION_COLUMN = "dd"
 _SYNOP_WIND_SPEED_OF_DIRECTION = {_SYNOP_WIND_DIRECTION_COLUMN: "ff"}
+
+# `tn12` is the minimum of the 12 hours and `tx12` the maximum, so they are equal only where the temperature held
+# still. Three overseas stations write the maximum of the daytime into `tn12` as well, at some hours: Cayenne-Matoury
+# (81405) at 00 UTC, Le Raizet (78897) and Lamentin (78925) at 00 and 18 UTC, 1296 rows of the 2026 file and 1116 of
+# 2025 (read 2026-10-28); Cayenne at 2026-07-01T00:00Z has `tx12` and `tn12` 303.75 K (30.6 C) beside `t` 298.55 K.
+# The file defines neither; a `tn12` that is the very text of the `tx12` of its own row is a copy, no minimum, so it is
+# null and keeps its text as the `raw` token (GH-3540). A `tn12` above the `t` of its stamp, or a `tx12` below it, is
+# not mapped: Kerguelen (61998) has 28 rows of either, up to 3.5 K, a timing offset that was not investigated
+_SYNOP_MINIMUM_12H = "tn12"
+_SYNOP_MAXIMUM_12H = "tx12"
+_SYNOP_MAXIMUM_BESIDE = "__tx12_beside"
 
 # explicit schema of the exact columns published by the source, read as strings throughout since
 # many columns are entirely empty for a given station or year, which would otherwise lead to
@@ -206,7 +218,9 @@ class MeteoFranceSynopValues(TimeseriesValues):
         end_date = self.sr.end or datetime.now(tz=ZoneInfo("UTC"))
         settings = cast("Settings", self.sr.request.settings)
         parameter_columns = [parameter.name_original for parameter in dataset]
-        read_columns = ["geo_id_wmo", "validity_time", *parameter_columns]
+        # the maximum of the 12 hours is read for the minimum to be held to it, whether it is asked for or not
+        beside = [_SYNOP_MAXIMUM_12H] if _SYNOP_MINIMUM_12H in parameter_columns else []
+        read_columns = ["geo_id_wmo", "validity_time", *dict.fromkeys([*parameter_columns, *beside])]
         dfs = []
         # clamp to the years actually covered by the archive: station opening dates (used as a
         # request start by e.g. the app) can predate 1996, and requesting a year
@@ -234,9 +248,13 @@ class MeteoFranceSynopValues(TimeseriesValues):
         if not dfs:
             return pl.DataFrame()
         df = pl.concat(dfs, how="diagonal")
+        if beside:
+            df = df.with_columns(pl.col(_SYNOP_MAXIMUM_12H).alias(_SYNOP_MAXIMUM_BESIDE))
+        else:
+            df = df.with_columns(pl.lit(None, dtype=pl.String).alias(_SYNOP_MAXIMUM_BESIDE))
         df = df.unpivot(
             on=parameter_columns,
-            index=["validity_time", UPDATED],
+            index=["validity_time", UPDATED, _SYNOP_MAXIMUM_BESIDE],
             variable_name="parameter",
             value_name="value",
         )
@@ -248,6 +266,13 @@ class MeteoFranceSynopValues(TimeseriesValues):
             Sentinel(_SYNOP_SKY_OBSCURED, where=pl.col("parameter").eq("n")),
             no_direction_code(*_SYNOP_NO_WIND_DIRECTION, where=pl.col("parameter").eq(_SYNOP_WIND_DIRECTION_COLUMN)),
             calm(pl.col(SPEED_BESIDE)),
+            NoReading(
+                pl.col("parameter").eq(_SYNOP_MINIMUM_12H)
+                & pl.col("value")
+                .str.strip_chars()
+                .cast(pl.Float64, strict=False)
+                .eq(pl.col(_SYNOP_MAXIMUM_BESIDE).str.strip_chars().cast(pl.Float64, strict=False))
+            ),
             # a missing reading is an empty field; a text that is no number was nulled by the cast alone
             # (the 2024 file holds none) and now keeps its text too
             non_numeric=True,
