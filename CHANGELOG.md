@@ -16,8 +16,26 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `meteofrance/synop` now offers the 12 h maximum and minimum temperature
+  (`temperature_air_max_2m_last_12h`, `temperature_air_min_2m_last_12h`; `tx12`, `tn12`), given
+  at 06 and 18 UTC by 158 of the 190 stations (2026), where `tx24`/`tn24` are given by 35 and
+  by none for Paris-Montsouris. Where `tn12` repeats the `tx12` of its own row (three overseas
+  stations at some hours: Cayenne-Matoury, Le Raizet, Lamentin) it is null, with the number kept as
+  `raw:` in `quality_flags` (GH-3540)
+
 ### Changed
 
+- **Breaking**: `coverage` (`/api/coverage`, the MCP tool, `about coverage`,
+  `TimeseriesRequest.discover()`) gives a parameter the unit its values come back in as `unit`
+  (`degree_celsius`, `decimal` for a percentage: what `glossary` gives, following the server's
+  `WD_TS_UNIT_TARGETS` and `WD_TS_CONVERT_UNITS`), where it gave the unit the provider publishes
+  (`degree_kelvin`, `percent`) for 362 of the 2048 parameters, and a model told a user "Kelvin".
+  That unit is the new `unit_source`, there only where it differs from `unit` (absent: the same).
+  Read `unit_source` where you used `unit` to know what the source holds or what
+  `convert_units=false` returns. `coverage` takes no options: a `unit_targets` of a `values`
+  request changes the values, not `unit` (GH-3537)
 - **Breaking**: `nws/observation` fills a gap of the observation it keeps for an hour from the
   nearest other observation of that hour (a verified 5-minute row for a METAR whose temperature
   is not controlled yet), with that row's `quality_flags`. These come back where they were null:
@@ -33,6 +51,17 @@ Types of changes:
   already do (not with `cache_disable`, nor for `interpolate` and `summarize`). Answers, their
   order and errors are unchanged; the connection limits and `Settings(fetch_ahead=...)` /
   `WD_FETCH_AHEAD` (0 switches it off) are those of GH-3454 (GH-3507)
+- The description of the `large` dataset of `dwd/mosmix`, which `coverage` reports and the docs
+  page carries, says that which elements a station gets, and at which hours, depend on the station:
+  `tx` and `tn` at 06 and 18 UTC for Berlin, 12 and 00 UTC for Tokyo, none for Los Angeles, and
+  that an element without a value for it is an answer with no rows (GH-3539)
+
+### Fixed
+
+- A download, post or listing whose TLS handshake the peer answers wrongly (a non-TLS answer,
+  `WRONG_VERSION_NUMBER`; an invalid session, `INVALID_SESSION_ID`) is retried like any other
+  transient network error, where the first one failed the answer: `www.dwd.de` throws them now
+  and then. A certificate that does not verify still fails at once (GH-3533)
 
 ## [0.178.0] - 2026-10-28
 

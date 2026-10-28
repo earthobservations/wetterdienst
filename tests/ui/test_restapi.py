@@ -508,6 +508,30 @@ def test_coverage_dwd_observation_dataset_climate_summary(client: TestClient) ->
     assert data["annual"]["datasets"].keys() == {"climate_summary"}
 
 
+def test_coverage_unit_is_the_unit_of_the_values_and_unit_source_the_providers(client: TestClient) -> None:
+    """Test that `coverage` reports the unit the values come back in, and the provider's own beside it (GH-3537)."""
+    response = client.get(
+        "/api/coverage",
+        params={"provider": "dwd", "network": "mosmix", "resolutions": "hourly", "datasets": "large"},
+    )
+    assert response.status_code == 200
+    parameters = {p["name"]: p for p in response.json()["hourly"]["datasets"]["large"]["parameters"]}
+    temperature = parameters["temperature_air_2m"]
+    assert (temperature["unit"], temperature["unit_source"]) == ("degree_celsius", "degree_kelvin")
+    probability = parameters["probability_precipitation_amount_gt_0_2mm_last_24h"]
+    assert (probability["unit"], probability["unit_source"]) == ("decimal", "percent")
+    # where the provider's unit is the one the values come in, the answer does not repeat it
+    unconverted = [p for p in parameters.values() if "unit_source" not in p]
+    assert unconverted
+    large = DwdMosmixRequest.metadata["hourly"]["large"]
+    assert all(p["unit"] == large[p["name"]].unit for p in unconverted)
+    # the glossary says the same of the quantity, which is what a reader who ignores `unit_source` is right by
+    glossary = {
+        e["name"]: e["unit"] for e in client.get("/api/glossary", params={"parameter": "temperature_air_2m"}).json()
+    }
+    assert glossary["temperature_air_2m"] == temperature["unit"]
+
+
 @pytest.mark.remote
 def test_coverage_wrong_only_provider_given(client: TestClient) -> None:
     """Test wrong request."""
@@ -8568,7 +8592,8 @@ def test_coverage_schema_in_openapi(client: TestClient) -> None:
     assert components["CoverageDataset"]["properties"]["extent"] == {"$ref": "#/components/schemas/Extent"}
     # lead_times is `dwd/dmo`'s alone: sent there, absent elsewhere
     required = {"name", "name_original", "unit_type", "unit", "description"}
-    assert shape("CoverageParameter") == (required | {"lead_times"}, required)
+    # `unit_source` is the provider's unit where that is not `unit`, absent where it is the same (GH-3537)
+    assert shape("CoverageParameter") == (required | {"lead_times", "unit_source"}, required)
     parameter = components["CoverageParameter"]["properties"]
     assert parameter["lead_times"]["items"] == {"enum": ["short", "long"], "type": "string"}
     assert parameter["unit_type"]["enum"] == list(get_args(UnitType))

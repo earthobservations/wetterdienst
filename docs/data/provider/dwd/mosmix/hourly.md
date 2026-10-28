@@ -75,7 +75,7 @@
 |------------------|------------------------------------------------------------------------------------------------------|
 | name             | large                                                                                                |
 | original name    | mosmix_l                                                                                             |
-| description      | Local forecast of 114 parameters for worldwide stations, 4 times a day with a lead-time of 240 hours |
+| description      | Local forecast of 114 parameters for worldwide stations, 4 times a day with a lead-time of 240 hours. Which elements a station gets, and at which hours, depend on the station: `tx` and `tn` are given at 06 and 18 UTC for Hamburg and Berlin, `tx` at 12 UTC and `tn` at 00 UTC for Tokyo, and not at all for Los Angeles, New York and Honolulu, which have no precipitation amount (`rr1c`, `rrdc`) either, and the probabilities `rd..` come at 06 and 07 UTC for Berlin, 06, 11 and 12 UTC for Los Angeles. An element a station has no value of is an answer with no rows, not an error. The hours in the parameter descriptions are DWD's, for Germany (run of 2026-10-28 09 UTC). |
 | description file | [here](https://opendata.dwd.de/weather/lib/MetElementDefinition.xml)                                 |
 | access           | [here](https://opendata.dwd.de/weather/local_forecasts/mos/MOSMIX_L/)                                |
 

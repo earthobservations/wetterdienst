@@ -3375,6 +3375,21 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "ff",
         ): "Speed of the mean wind over 10 minutes, in whole m/s (the mean cut to the integer).",
         ("subdaily", "data", "t"): "Temperature.",
+        # the sheet: "tn12 température minimale sur 12 heures" and "tx12 température maximale sur 12 heures" (K); it
+        # names no hour. In the 2026 file (read 2026-10-28) 158 of 190 stations carry them (`tx24`/`tn24`: 35), 98 %
+        # of the values (89046 of 90410 maxima, 89047 of 91205 minima) at 06 and 18 UTC, the rest at 00, 12 and 21 UTC
+        ("subdaily", "data", "tn12"): (
+            'Minimum air temperature over the preceding 12 hours (the source: "température minimale sur 12 '
+            'heures"), given almost always at 06 and 18 UTC. Most stations report it, '
+            "where the 24 hour minimum is given by few. Where a report writes the same number in `tx12` "
+            "(Cayenne-Matoury, Le Raizet and Lamentin do at some hours), it is the maximum repeated and no "
+            "minimum: null, with the number kept as the `raw:` token of `quality_flags`."
+        ),
+        ("subdaily", "data", "tx12"): (
+            'Maximum air temperature over the preceding 12 hours (the source: "température maximale sur 12 '
+            'heures"), given almost always at 06 and 18 UTC. Most stations report it, '
+            "where the 24 hour maximum is given by few."
+        ),
     },
 }
 
@@ -3602,7 +3617,13 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
             "Local forecast of 40 parameters for worldwide stations, 24 times a day with a lead-time of 240 hours."
         ),
         ("hourly", "large"): (
-            "Local forecast of 114 parameters for worldwide stations, 4 times a day with a lead-time of 240 hours."
+            "Local forecast of 114 parameters for worldwide stations, 4 times a day with a lead-time of 240 "
+            "hours. Which elements a station gets, and at which hours, depend on the station: `tx` and `tn` are "
+            "given at 06 and 18 UTC for Hamburg and Berlin, `tx` at 12 UTC and `tn` at 00 UTC for Tokyo, and not "
+            "at all for Los Angeles, New York and Honolulu, which have no precipitation amount (`rr1c`, `rrdc`) "
+            "either, and the probabilities `rd..` come at 06 and 07 UTC for Berlin, 06, 11 and 12 UTC for Los "
+            "Angeles. An element a station has no value of is an answer with no rows, not an error. The hours in "
+            "the parameter descriptions are DWD's, for Germany (run of 2026-10-28 09 UTC)."
         ),
     },
     "DwdRoadMetadata": {

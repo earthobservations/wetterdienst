@@ -9,7 +9,7 @@ import logging
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypeVar, cast
+from typing import TYPE_CHECKING, Annotated, Any, Literal, NotRequired, TypeVar, cast
 
 from pydantic import (
     BaseModel,
@@ -142,12 +142,28 @@ class ExtentDict(TypedDict):
 
 @with_config(ConfigDict(extra="forbid"))
 class CoverageParameter(TypedDict):
-    """A parameter of a dataset, with `unit` as the source publishes it, which is not always the unit values come in."""
+    """A parameter of a dataset, with the unit its values come back in and, where it differs, the provider's.
+
+    `unit` is the unit of the values for a caller who passes no options: the target of the `unit_type`, the one
+    `glossary` gives (`degree_celsius` for a temperature, `decimal` (0 to 1) for a percentage), under the
+    environment's `unit_targets` and `convert_units`. A `unit_targets` a caller passes to `values` is not
+    followed: `coverage` takes no options. `unit_source` is the unit the provider publishes the parameter in
+    (`degree_kelvin`, `percent`), which the values come in with `convert_units` off. Absent: the same as `unit`.
+    """
 
     name: str
     name_original: str
     unit_type: UnitType
     unit: str
+    unit_source: NotRequired[
+        Annotated[
+            str,
+            Field(
+                description="The unit the provider publishes the parameter in, which the values come in with "
+                "`convert_units` off. Absent: the same as `unit`.",
+            ),
+        ]
+    ]
     description: str | None
     # `dwd/dmo` only: the lead times whose run carries the parameter, `short` before `long`
     lead_times: NotRequired[list[Literal["short", "long"]]]
