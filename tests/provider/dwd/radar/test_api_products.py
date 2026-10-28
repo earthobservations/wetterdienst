@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 import pytest
+from freezegun import freeze_time
 
 from wetterdienst import Settings
 from wetterdienst.exceptions import InvalidEnumerationError, RequestError
@@ -44,11 +45,35 @@ from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 from wetterdienst.util.network import File
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     import polars as pl
 
 UTC = ZoneInfo("UTC")
 RADAR = "https://opendata.dwd.de/weather/radar"
 FILES = Path(__file__).parent / "files"
+
+
+def _made_between_clock_reads(make: Callable[[], DwdRadarValues]) -> tuple[DwdRadarValues, dt.datetime, dt.datetime]:
+    """Make a request and return it with a clock read before and one after, between which its own read lies."""
+    before = dt.datetime.now(UTC)
+    request = make()
+    after = dt.datetime.now(UTC)
+    assert isinstance(request.start, dt.datetime)
+    return request, before, after
+
+
+def _assert_slot_age(request: DwdRadarValues, before: dt.datetime, after: dt.datetime, lag: int) -> None:
+    """Assert that the slot of a MOST_RECENT request is `lag` to `lag + 5` minutes old at the clock read it made.
+
+    The request read the clock at some time `clock` with `before <= clock <= after`, and the slot is the 5 minute
+    slot of `clock - lag`: it is at least `lag` old at `clock`, so at `after`, and under `lag + 5` old at `clock`,
+    so at `before`. A read taken only after the request lies past a boundary of 5 minutes now and then.
+    """
+    assert request.start is not None
+    assert dt.timedelta(minutes=lag) <= after - request.start
+    assert before - request.start <= dt.timedelta(minutes=lag + 5)
+
 
 _VOL = "ras07-vol5minng01_sweeph5onem"
 _PCP = "ras07-pcpng01_sweeph5onem"
@@ -839,24 +864,27 @@ def test_the_most_recent_volume_of_the_sweeps_is_the_slot_10_minutes_before(
     parameter: DwdRadarParameter, subset: DwdRadarDataSubset | None
 ) -> None:
     """Test that the last sweeps of a volume, listed up to 485 s after its slot starts, are waited for (GH-3302)."""
-    request = DwdRadarValues(parameter=parameter, subset=subset, site=DwdRadarSite.BOO, start=DwdRadarDate.MOST_RECENT)
-    assert isinstance(request.start, dt.datetime)
-    now = dt.datetime.now(UTC)
+    request, before, after = _made_between_clock_reads(
+        lambda: DwdRadarValues(
+            parameter=parameter, subset=subset, site=DwdRadarSite.BOO, start=DwdRadarDate.MOST_RECENT
+        )
+    )
     # the slot started more than 600 s ago, longer than the 485 s of the longest listing of the last sweep
-    assert dt.timedelta(minutes=10) <= now - request.start <= dt.timedelta(minutes=15)
+    _assert_slot_age(request, before, after, lag=10)
     assert request.end - request.start == dt.timedelta(minutes=5) - dt.timedelta(seconds=1)
 
 
 def test_the_most_recent_sweep_of_the_precipitation_scan_keeps_the_slot_5_minutes_before() -> None:
     """Test that the one sweep of the precipitation scan, first listed within 240 s, is not made to wait longer."""
-    request = DwdRadarValues(
-        parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
-        subset=DwdRadarDataSubset.SIMPLE,
-        site=DwdRadarSite.BOO,
-        start=DwdRadarDate.MOST_RECENT,
+    request, before, after = _made_between_clock_reads(
+        lambda: DwdRadarValues(
+            parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
+            subset=DwdRadarDataSubset.SIMPLE,
+            site=DwdRadarSite.BOO,
+            start=DwdRadarDate.MOST_RECENT,
+        )
     )
-    assert isinstance(request.start, dt.datetime)
-    assert dt.timedelta(minutes=5) <= dt.datetime.now(UTC) - request.start <= dt.timedelta(minutes=10)
+    _assert_slot_age(request, before, after, lag=5)
 
 
 @pytest.mark.parametrize(
@@ -878,11 +906,56 @@ def test_the_most_recent_sweep_of_the_precipitation_scan_keeps_the_slot_5_minute
 )
 def test_the_most_recent_file_is_the_slot_before_the_publication_delay(parameter: DwdRadarParameter, lag: int) -> None:
     """Test that MOST_RECENT is the slot 5 minutes before now, 10 where DWD publishes later than 5 min."""
-    request = DwdRadarValues(parameter=parameter, start=DwdRadarDate.MOST_RECENT)
-    assert isinstance(request.start, dt.datetime)
-    now = dt.datetime.now(UTC)
-    assert dt.timedelta(minutes=lag) <= now - request.start <= dt.timedelta(minutes=lag + 5)
+    request, before, after = _made_between_clock_reads(
+        lambda: DwdRadarValues(parameter=parameter, start=DwdRadarDate.MOST_RECENT)
+    )
+    _assert_slot_age(request, before, after, lag=lag)
     assert request.end - request.start == dt.timedelta(minutes=5) - dt.timedelta(seconds=1)
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "lag"),
+    [
+        ({"parameter": DwdRadarParameter.RV_REFLECTIVITY}, 5),
+        ({"parameter": DwdRadarParameter.PZ_CAPPI}, 10),
+        ({"parameter": DwdRadarParameter.SWEEP_VOL_ZDR, "site": DwdRadarSite.BOO}, 10),
+        (
+            {
+                "parameter": DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
+                "subset": DwdRadarDataSubset.SIMPLE,
+                "site": DwdRadarSite.BOO,
+            },
+            5,
+        ),
+    ],
+)
+def test_the_slot_age_holds_when_a_slot_boundary_lies_between_the_reads_of_the_clock(
+    kwargs: dict[str, object], lag: int
+) -> None:
+    """Test that the age of a MOST_RECENT slot is checked against the clock reads around the request (GH-3510).
+
+    The request reads the clock itself, 0.5 ms before a boundary of 5 minutes; a test that reads it after the request
+    reads it 0.5 ms past the boundary and sees a slot that is 5 minutes older than the request made it.
+    """
+    boundary = dt.datetime(2026, 10, 27, 20, 55, tzinfo=UTC)
+    with freeze_time(boundary - dt.timedelta(milliseconds=1.5)) as clock:
+
+        def make() -> DwdRadarValues:
+            # the request reads the clock 0.5 ms before the boundary, and the next read lies 0.5 ms after it
+            clock.move_to(boundary - dt.timedelta(milliseconds=0.5))
+            request = DwdRadarValues(start=DwdRadarDate.MOST_RECENT, **kwargs)
+            clock.move_to(boundary + dt.timedelta(milliseconds=0.5))
+            return request
+
+        request, before, after = _made_between_clock_reads(make)
+        later = dt.datetime.now(UTC)
+
+    assert before < boundary <= after
+    assert request.start == boundary - dt.timedelta(minutes=lag + 5)
+    # the assertion that read the clock only after the request fails by 0.5 ms ...
+    assert later - request.start > dt.timedelta(minutes=lag + 5)
+    # ... the bracket holds
+    _assert_slot_age(request, before, after, lag=lag)
 
 
 @pytest.mark.parametrize("parameter", ["rw", "yw", "radolan_cdc"])

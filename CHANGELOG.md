@@ -16,6 +16,24 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- A read of many stations of `smhi/observation` fetches the per-parameter files of the next 4
+  stations into the cache while one is parsed, as `dwd/observation`, `chmi` and the others
+  already do (not with `cache_disable`, nor for `interpolate` and `summarize`). Answers, their
+  order and errors are unchanged; the connection limits and `Settings(fetch_ahead=...)` /
+  `WD_FETCH_AHEAD` (0 switches it off) are those of GH-3454 (GH-3507)
+
+## [0.178.0] - 2026-10-28
+
+### Security
+
+- `uv.lock` pins `authlib` 1.9.1 (was 1.8.0) and `dnspython` 2.9.0 (was 2.8.0), which close the
+  open Dependabot alerts for both. They come in only through the `mcp` extra (`fastmcp`), and
+  wetterdienst neither imports them nor serves an authenticated MCP endpoint, so its own code
+  did not reach the affected paths; a source install with the extra and the Docker image
+  (built from the lock) now carry the fixed versions (GH-3514)
+
 ## [0.177.0] - 2026-10-27
 
 ### Changed
@@ -6719,7 +6737,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.177.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.178.0...HEAD
+[0.178.0]: https://github.com/earthobservations/wetterdienst/compare/v0.177.0...v0.178.0
 [0.177.0]: https://github.com/earthobservations/wetterdienst/compare/v0.176.0...v0.177.0
 [0.176.0]: https://github.com/earthobservations/wetterdienst/compare/v0.175.0...v0.176.0
 [0.175.0]: https://github.com/earthobservations/wetterdienst/compare/v0.174.0...v0.175.0

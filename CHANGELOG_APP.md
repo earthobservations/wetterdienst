@@ -26,6 +26,16 @@ Types of changes:
   country code instead of a flag, the language list has no flags. Nothing else behaves
   differently; the licence notices gain the fonts' licence (OFL-1.1) and the icon set's (GH-3518)
 
+## [0.39.0] - 2026-10-28
+
+### Security
+
+- `[Dependencies]` The lock file no longer holds `qs` 6.16.0 (GHSA-6pq8-jhm2-2vcw): it is
+  floored at 6.16.1 by an override. The app never loads it (DuckDB-WASM declares it and its
+  files do not use it), so the shipped app was not affected. The `happy-dom` of the test
+  environment is 21.0.4 (GHSA-834v-8h66-3h79); it is a dev dependency and not in the app.
+  The CSP end-to-end test now reads script tags in any letter case (GH-3515)
+
 ## [0.38.0] - 2026-10-27
 
 ### Added
@@ -1663,7 +1673,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.38.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.39.0...HEAD
+[0.39.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.38.0...app-v0.39.0
 [0.38.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.37.0...app-v0.38.0
 [0.37.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.36.0...app-v0.37.0
 [0.36.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.35.0...app-v0.36.0
