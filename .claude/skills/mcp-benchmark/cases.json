@@ -1871,17 +1871,8 @@
           "id": "value-with-its-unit",
           "description": "the answer states -0.7 (the judge's own reading) with degrees Celsius, not as kelvin or Fahrenheit: '-0.7 K' fails",
           "kind": "unit",
-          "ignore_descriptions": [
-            "minim",
-            "maxim",
-            "lowest",
-            "highest",
-            "previous",
-            "day before",
-            "other station",
-            "another station",
-            "gust"
-          ],
+          "asked_descriptions": ["mean", "average", "mittel", "temperature"],
+          "ignore_descriptions": ["minim", "\\bmin\\b", "tmin", "maxim", "\\bmax\\b", "tmax", "\\blow\\b", "\\bhigh\\b", "normal", "climat", "dew", "day before", "day earlier", "earlier day", "previous day", "yesterday", "day after", "next day", "other station", "another station", "nearby", "\\b2025-12-(?!26\\b)\\d{2}\\b", "\\b(?!26\\b)\\d{1,2}\\.? ?dec"],
           "ground_truth": {
             "call": {
               "tool": "values",
@@ -2032,6 +2023,7 @@
           "id": "value-with-its-unit",
           "description": "every temperature the answer gives is a forecast hour within the span of the judge's own forecast, plus a margin, stated in degrees Celsius: a value of about 20 stated as 293 K (or as a bare number) fails",
           "kind": "unit",
+          "ignore_descriptions": ["minim", "\\bmin\\b", "maxim", "\\bmax\\b", "\\blow\\b", "\\bhigh\\b", "overnight", "day after", "next day", "yesterday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"],
           "ground_truth": {
             "call": {
               "tool": "values",
@@ -2134,17 +2126,8 @@
           "id": "value-with-its-unit",
           "description": "the answer says 84 % (or 0.84 as a fraction): the library returns 0.8404, so '0.84 %' fails",
           "kind": "unit",
-          "ignore_descriptions": [
-            "minim",
-            "maxim",
-            "lowest",
-            "highest",
-            "previous",
-            "day before",
-            "other station",
-            "another station",
-            "gust"
-          ],
+          "asked_descriptions": ["humidity", "feuchte", "mean", "average"],
+          "ignore_descriptions": ["minim", "\\bmin\\b", "tmin", "maxim", "\\bmax\\b", "tmax", "\\blow\\b", "\\bhigh\\b", "normal", "climat", "dew", "temperature", "day before", "day earlier", "earlier day", "previous day", "yesterday", "day after", "next day", "other station", "another station", "nearby", "\\b2026-10-(?!16\\b)\\d{2}\\b", "\\b(?!16\\b)\\d{1,2}\\.? ?oct"],
           "ground_truth": {
             "call": {
               "tool": "values",
@@ -2235,17 +2218,8 @@
           "id": "value-with-its-unit",
           "description": "the answer says about 14821 s, or the same time in minutes (247 min) or hours (4.1 h): '14821 minutes' or '14821 hours' fails",
           "kind": "unit",
-          "ignore_descriptions": [
-            "minim",
-            "maxim",
-            "lowest",
-            "highest",
-            "previous",
-            "day before",
-            "other station",
-            "another station",
-            "gust"
-          ],
+          "asked_descriptions": ["sun", "sonne", "shine", "duration"],
+          "ignore_descriptions": ["day length", "daylight", "possible", "astronom", "total", "month", "week", "so far", "minim", "\\bmin\\b", "tmin", "maxim", "\\bmax\\b", "tmax", "\\blow\\b", "\\bhigh\\b", "normal", "climat", "day before", "day earlier", "earlier day", "previous day", "yesterday", "day after", "next day", "other station", "another station", "nearby", "\\b2026-10-(?!16\\b)\\d{2}\\b", "\\b(?!16\\b)\\d{1,2}\\.? ?oct"],
           "ground_truth": {
             "call": {
               "tool": "values",
@@ -2334,17 +2308,8 @@
           "id": "value-with-its-unit",
           "description": "the answer says 3.0 m/s, or the same speed in km/h (10.8) or knots (5.8); '3.0 km/h' fails",
           "kind": "unit",
-          "ignore_descriptions": [
-            "minim",
-            "maxim",
-            "lowest",
-            "highest",
-            "previous",
-            "day before",
-            "other station",
-            "another station",
-            "gust"
-          ],
+          "asked_descriptions": ["wind", "mean", "average", "mittel"],
+          "ignore_descriptions": ["maxim", "\\bmax\\b", "peak", "gust", "böe", "\\blow\\b", "\\bhigh\\b", "minim", "\\bmin\\b", "normal", "climat", "day before", "day earlier", "earlier day", "previous day", "yesterday", "day after", "next day", "other station", "another station", "nearby", "\\b2026-10-(?!16\\b)\\d{2}\\b", "\\b(?!16\\b)\\d{1,2}\\.? ?oct"],
           "ground_truth": {
             "call": {
               "tool": "values",
@@ -2445,17 +2410,8 @@
           "id": "value-with-its-unit",
           "description": "the answer says 15.5 mm (or l/m2, the same thing); '15.5 cm' or '15.5 inches' fails",
           "kind": "unit",
-          "ignore_descriptions": [
-            "minim",
-            "maxim",
-            "lowest",
-            "highest",
-            "previous",
-            "day before",
-            "other station",
-            "another station",
-            "gust"
-          ],
+          "asked_descriptions": ["precip", "rain", "niederschlag", "amount"],
+          "ignore_descriptions": ["hourly", "per hour", "intensity", "total", "sum", "month", "week", "so far", "minim", "\\bmin\\b", "tmin", "maxim", "\\bmax\\b", "tmax", "\\blow\\b", "\\bhigh\\b", "normal", "climat", "day before", "day earlier", "earlier day", "previous day", "yesterday", "day after", "next day", "other station", "another station", "nearby", "\\b2026-10-(?!16\\b)\\d{2}\\b", "\\b(?!16\\b)\\d{1,2}\\.? ?oct"],
           "ground_truth": {
             "call": {
               "tool": "values",
@@ -2557,17 +2513,7 @@
           "id": "value-with-its-unit",
           "description": "the answer's table has 15.5 for 16 October and a TABLE-UNIT line gives the precipitation column the unit mm (or the answer's RESULT line does)",
           "kind": "unit",
-          "ignore_descriptions": [
-            "minim",
-            "maxim",
-            "lowest",
-            "highest",
-            "previous",
-            "day before",
-            "other station",
-            "another station",
-            "gust"
-          ],
+          "asked_descriptions": ["2026-10-16", "\\b16\\.\\s?10\\.", "\\b16(?:st|nd|rd|th)?\\.? ?oct", "oct\\w*\\.? 16\\b"],
           "ground_truth": {
             "call": {
               "tool": "values",
@@ -2583,7 +2529,7 @@
             "pick": "the value, and the unit of the parameter in `metadata.parameters[].unit`"
           },
           "cross_check": {"tool": "glossary", "args": {"parameter": "precipitation_amount", "limit": 3}},
-          "column": "precipitation|^value$",
+          "column": "precip|^value$",
           "row": "2026-10-16",
           "accepted": [
             {"tokens": ["mm", "millimeter", "millimeters", "millimetre", "millimetres", "l/m²", "l/m2"], "factor": 1},
@@ -2663,17 +2609,8 @@
           "id": "value-with-its-unit",
           "description": "the answer converts the judge's value (-0.7 C) correctly: 30.7 F (31 F passes, -0.7 F or 273 K fails); a value read with unit_targets in Fahrenheit passes too",
           "kind": "unit",
-          "ignore_descriptions": [
-            "minim",
-            "maxim",
-            "lowest",
-            "highest",
-            "previous",
-            "day before",
-            "other station",
-            "another station",
-            "gust"
-          ],
+          "asked_descriptions": ["mean", "average", "mittel", "temperature"],
+          "ignore_descriptions": ["minim", "\\bmin\\b", "tmin", "maxim", "\\bmax\\b", "tmax", "\\blow\\b", "\\bhigh\\b", "normal", "climat", "dew", "day before", "day earlier", "earlier day", "previous day", "yesterday", "day after", "next day", "other station", "another station", "nearby", "\\b2025-12-(?!26\\b)\\d{2}\\b", "\\b(?!26\\b)\\d{1,2}\\.? ?dec"],
           "ground_truth": {
             "call": {
               "tool": "values",

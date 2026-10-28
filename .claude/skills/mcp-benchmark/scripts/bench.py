@@ -25,6 +25,7 @@ tool returns, or `subagents/agent-<id>.jsonl` under the session directory, a det
 from __future__ import annotations
 
 import argparse
+import contextlib
 import datetime as dt
 import hashlib
 import json
@@ -43,6 +44,11 @@ from collections import Counter
 from fractions import Fraction
 from pathlib import Path
 from typing import Any
+
+try:
+    import fcntl
+except ImportError:  # Windows: `add-run` cannot lock the results file there
+    fcntl = None  # type: ignore[assignment]
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
 CASES_PATH = SKILL_DIR / "cases.json"
@@ -769,19 +775,48 @@ def _repeat_of(run: dict[str, Any], position: int) -> int:
     return number if isinstance(number, int) and not isinstance(number, bool) else position + 1
 
 
+def _repeats_of(results: dict[str, Any]) -> int | None:
+    """Give the repeats a results file was made with: `meta.repeats`, else the highest repeat number in it."""
+    declared = results["meta"].get("repeats")
+    if isinstance(declared, int) and not isinstance(declared, bool) and declared >= 1:
+        return declared
+    seen = [_repeat_of(r, i) for grouped in groups(results).values() for i, r in enumerate(grouped)]
+    return max(seen, default=None)
+
+
+def _repeat_problems(label: str, results: dict[str, Any], repeats: int) -> list[str]:
+    """List the runs of a results file whose repeat is outside 1..`repeats`, or that repeat a (case, tier, repeat)."""
+    problems = []
+    for (case, tier), grouped in groups(results).items():
+        numbers = [_repeat_of(r, i) for i, r in enumerate(grouped)]
+        outside = sorted({n for n in numbers if not 1 <= n <= repeats})
+        if outside:
+            problems.append(f"the {label} file has {case} [{tier}] with repeat {outside}, outside 1..{repeats}")
+        twice = sorted({n for n in numbers if numbers.count(n) > 1})
+        if twice:
+            problems.append(f"the {label} file has {case} [{tier}] with repeat {twice} more than once")
+    return problems
+
+
+def _missing(grouped: dict[Any, list[dict[str, Any]]], keys: list[Any], repeats: int) -> int:
+    """Count the repeats of 1..`repeats` that a side has no record of at all, over the (case, tier) in `keys`."""
+    return sum(repeats - len({_repeat_of(r, i) for i, r in enumerate(grouped[key])}) for key in keys)
+
+
 def _equalise(
-    prev_groups: dict[Any, list[dict[str, Any]]], cur_groups: dict[Any, list[dict[str, Any]]], keys: list[Any]
-) -> tuple[dict[Any, list[dict[str, Any]]], dict[Any, list[dict[str, Any]]], int, list[Any]]:
+    prev_groups: dict[Any, list[dict[str, Any]]], cur_groups: dict[Any, list[dict[str, Any]]], keys: list[Any], repeats: int
+) -> tuple[dict[Any, list[dict[str, Any]]], dict[Any, list[dict[str, Any]]], int, dict[Any, tuple[int, int, int]]]:
     """Pair the runs of every (case, tier) by repeat: only the repeats that are valid on both sides are kept.
 
-    No pseudo-counts and no bias towards the first repeats: an invalid run (a cold first repeat, say) on one side takes
-    its repeat out of the other side too, so that both sides count the same repeats. Give the runs left out, and the
-    (case, tier) that keep fewer than 60 % of their runs, for which a pooled verdict would say little.
+    No pseudo-counts and no bias towards the first repeats: an invalid or missing run on one side takes its repeat out
+    of the other side too, so that both sides count the same repeats. Give the runs left out, and for each (case, tier)
+    that keeps fewer than 60 % of the `repeats` the number kept and the valid runs of each side, for which a pooled
+    verdict would say little.
     """
     prev_eq: dict[Any, list[dict[str, Any]]] = {}
     cur_eq: dict[Any, list[dict[str, Any]]] = {}
     dropped = 0
-    thin = []
+    thin = {}
     for key in keys:
         valid = [
             {_repeat_of(r, i): r for i, r in enumerate(grouped[key]) if not r.get("invalid")} for grouped in (prev_groups, cur_groups)
@@ -789,8 +824,8 @@ def _equalise(
         shared = sorted(set(valid[0]) & set(valid[1]))
         prev_eq[key], cur_eq[key] = [valid[0][n] for n in shared], [valid[1][n] for n in shared]
         dropped += len(valid[0]) + len(valid[1]) - 2 * len(shared)
-        if len(shared) < 0.6 * max(len(prev_groups[key]), len(cur_groups[key])):
-            thin.append(key)
+        if len(shared) * 5 < 3 * repeats:  # under 60 %
+            thin[key] = (len(shared), len(valid[0]), len(valid[1]))
     return prev_eq, cur_eq, dropped, thin
 
 
@@ -804,14 +839,17 @@ def compare_with_status(  # noqa: C901, PLR0911, PLR0912, PLR0915
     """Compare two results files, as a non-inferiority claim on the pooled rates of each tier; give the text and whether it refused.
 
     It refuses when the counting or the conditions differ: the logic version, the defaults, the prompt, the mode, the
-    deferral of the tools, two sides that cannot be told apart (the same server version and no differing `label`), or more
-    than a few percent invalid runs among the compared ones. It compares only the (case, tier) whose hash is unchanged
-    and says how many it left out; a tier whose resolved model ids differ is not compared. It refuses a file that has
-    a run still marked `needs_judging`. Every case is first cut down to the same number of valid runs on both sides
-    (the first k of each, `_equalise`), so that pooling weights the cases alike and no pseudo-counts are used. Pooled
-    per tier, the passes, the facts, the share of runs without a violation and the share that follow the RESULT format
-    are each decided with a Newcombe interval of the difference against the margin. The per case Fisher tests are
-    hints, and a case that fell by 40 points is printed whatever the verdict.
+    deferral of the tools, two sides that cannot be told apart (the same server version and no differing `label`), two
+    files made with a different number of `repeats`, a repeat outside 1..`repeats` or given twice for a (case, tier), or more
+    than a few percent invalid or missing runs among the compared ones (a repeat of 1..`repeats` with no record counts as
+    missing: a timeout that was never recorded must not shrink a side unseen). It compares only the (case, tier) whose
+    hash is unchanged and says how many it left out; a tier whose resolved model ids differ is not compared. It refuses a
+    file that has a run still marked `needs_judging`. The runs are paired by repeat (`_equalise`): only the repeats that
+    are valid on both sides are kept, so that pooling weights the cases alike and no pseudo-counts are used; a case that
+    keeps under 60 % of the repeats makes the tier INCONCLUSIVE. Pooled per tier, the passes, the facts, the share of runs
+    without a violation and the share that follow the RESULT format are each decided with a Newcombe interval of the
+    difference against the margin. The per case Fisher tests are hints, and a case that fell by 40 points is printed
+    whatever the verdict.
     """
     meta_p, meta_c = previous["meta"], current["meta"]
     out = []
@@ -844,11 +882,26 @@ def compare_with_status(  # noqa: C901, PLR0911, PLR0912, PLR0915
             reasons.append(f"{judging} runs of the {label} file still need judging, and would count as failures")
     prev_groups, cur_groups = groups(previous), groups(current)
     comparable = [k for k in cur_groups if k in prev_groups and meta_p["case_hashes"].get(k[0]) == meta_c["case_hashes"].get(k[0])]
+    declared = [r["meta"].get("repeats") for r in (previous, current)]
+    if all(isinstance(n, int) and not isinstance(n, bool) for n in declared) and declared[0] != declared[1]:
+        reasons.append(f"the files were made with different repeats ({declared[0]} -> {declared[1]}): run both with the same number")
+    repeats = max(_repeats_of(previous) or 1, _repeats_of(current) or 1)
     for label, results, grouped in (("previous", previous, prev_groups), ("current", current, cur_groups)):
+        found = _repeat_problems(label, results, repeats)
+        reasons.extend(found[:3])
+        if len(found) > 3:  # noqa: PLR2004
+            reasons.append(f"the {label} file has {len(found) - 3} more cases with a repeat outside 1..{repeats} or given twice")
         runs = [r for k in comparable for r in grouped[k]]
-        share = sum(1 for r in runs if r.get("invalid")) / max(len(runs), 1)
+        invalid = sum(1 for r in runs if r.get("invalid"))
+        absent = _missing(grouped, comparable, repeats)
+        share = (invalid + absent) / max(repeats * len(comparable), 1)
         if share > MAX_INVALID_SHARE:
-            reasons.append(f"{share:.0%} of the compared {label} runs are invalid (no server), above {MAX_INVALID_SHARE:.0%}")
+            what = " and ".join(
+                part
+                for part in (f"{invalid} invalid (no server)" if invalid else "", f"{absent} missing (no record of the repeat)" if absent else "")
+                if part
+            )
+            reasons.append(f"{share:.0%} of the {repeats * len(comparable)} compared {label} runs are {what}, above {MAX_INVALID_SHARE:.0%}")
     if reasons:
         return "\n".join([*out, *(f"not compared: {reason}" for reason in reasons)]), True
     new_only = sum(1 for k in cur_groups if k not in prev_groups)
@@ -867,12 +920,13 @@ def compare_with_status(  # noqa: C901, PLR0911, PLR0912, PLR0915
         if models_p != models_c:
             out.append(f"POOLED {tier}: not compared, the resolved model ids differ: {models_p} -> {models_c}")
             continue
-        prev_eq, cur_eq, dropped, thin = _equalise(prev_groups, cur_groups, keys)
+        prev_eq, cur_eq, dropped, thin = _equalise(prev_groups, cur_groups, keys, repeats)
         if thin:
-            names = ", ".join(f"{k[0]}" for k in thin[:4])
+            names = ", ".join(f"{k[0]} ({kept} of {repeats}: previous {p} valid, current {c} valid)" for k, (kept, p, c) in list(thin.items())[:4])
             out.append(
-                f"POOLED {tier}: INCONCLUSIVE, the repeats that are valid on both sides leave fewer than 60 % of the runs of "
-                f"{len(thin)} cases ({names}): invalid runs depend on the order of the runs, and what is left would say little"
+                f"POOLED {tier}: INCONCLUSIVE, the repeats that are valid on both sides leave fewer than 60 % of the {repeats} repeats "
+                f"of {len(thin)} cases ({names}): a run that is invalid or missing on one side takes its repeat out of the other, "
+                "and what is left would say little"
             )
             out.extend(_big_drops(prev_eq, cur_eq, keys))
             continue
@@ -902,7 +956,7 @@ def compare_with_status(  # noqa: C901, PLR0911, PLR0912, PLR0915
             verdicts.append(verdict)
             out.append(f"  {text}")
             needs.append(required_runs(k1 / n1, margin))
-            sizes.append(n1)
+            sizes.append(min(n1, n2))
         overall = "WORSE" if "WORSE" in verdicts else "NO WORSE" if all(v == "no worse" for v in verdicts) else "INCONCLUSIVE"
         out.append(
             f"  => {overall}. Power: to show no worse than {margin:.0%} the {len(rates)} rates take about {needs} runs per side "
@@ -1053,6 +1107,8 @@ def _fitter(fact: dict[str, Any], truth: dict[str, float]) -> Any:  # noqa: ANN4
 def _verdict(accepted: list[dict[str, Any]], ok_pairs: set[int], ok_figures: list[str], failures: list[dict[str, str]], **extra: Any) -> dict[str, Any]:  # noqa: ANN401
     """Put the outcome of a check together: it passes with a right figure, no failure and every `required` unit present."""
     missing = [p["tokens"][0] for i, p in enumerate(accepted) if p.get("required") and i not in ok_pairs]
+    if not ok_figures and not failures:
+        failures = [{"figure": "", "reason": "no figure of the answer is the value in one of the accepted units"}]
     return {"ok": bool(ok_figures) and not failures and not missing, "ok_figures": ok_figures, "failures": failures, "required_missing": missing, **extra}
 
 
@@ -1152,13 +1208,52 @@ def format_violation(case: dict[str, Any], answer: str) -> bool | None:
     return not (results or column_units) or malformed > 0
 
 
+def _day_pattern(iso: str) -> re.Pattern[str]:
+    """Make the pattern that finds a day, given as `YYYY-MM-DD`, in the forms a table writes it.
+
+    `2026-10-16`, `16.10.2026` and `16.10.26` (zeros optional), `16/10/2026` and `10/16/2026`, `16 Oct 2026` and `October 16, 2026`.
+    """
+    year, month, day = (int(x) for x in iso.split("-"))
+    name = dt.date(year, month, day).strftime("%B")
+    d, m = rf"0?{day}", rf"0?{month}"
+    forms = [
+        rf"(?<!\d){re.escape(iso)}(?!\d)",
+        rf"(?<!\d){d}\.\s?{m}\.\s?(?:{year}|{year % 100:02d})(?!\d)",
+        rf"(?<!\d){d}/{m}/{year}(?!\d)",
+        rf"(?<!\d){m}/{d}/{year}(?!\d)",
+        rf"(?<!\d){d}(?:st|nd|rd|th)?\.?\s+(?:{name}|{name[:3]})\.?,?\s+{year}",
+        rf"(?:{name}|{name[:3]})\.?\s+{d}(?:st|nd|rd|th)?,?\s+{year}",
+    ]
+    return re.compile("|".join(forms), re.IGNORECASE)
+
+
+def _row_has_day(row: list[str], fact: dict[str, Any]) -> bool:
+    """Tell whether a table row is the row of the fact's `row` (a day as `YYYY-MM-DD`), however the table writes the date."""
+    pattern = _day_pattern(fact["row"])
+    return any(pattern.search(cell) for cell in row)
+
+
+def _is_asked(what: str, fact: dict[str, Any]) -> bool:
+    """Tell whether the description of a RESULT line is a claim about the quantity the question asks for.
+
+    It is when it matches one of the fact's `asked_descriptions` (a fact without them takes every description for one)
+    and none of its `ignore_descriptions`, which name the same words used for another quantity, day or station
+    (a minimum, the day before, a gust, another date). A figure that is not the value is held against the answer only
+    then: another line is the model's own addition, and its wording does not fail a right answer.
+    """
+    asked = fact.get("asked_descriptions")
+    if asked is not None and not any(re.search(rx, what, re.IGNORECASE) for rx in asked):
+        return False
+    return not any(re.search(rx, what, re.IGNORECASE) for rx in fact.get("ignore_descriptions", []))
+
+
 def _table_hit(answer: str, fact: dict[str, Any], fitting: Any, known: set[int]) -> str | None:  # noqa: ANN401
     """Find the figure of the value in a table of the answer: in the column the fact names, in the row of its date."""
     tables, _ = _tables_of(answer)
     for _, _, rows in tables:
         columns = [i for i, cell in enumerate(rows[0]) if re.search(fact["column"], cell, re.IGNORECASE)]
         for row in rows[1:]:
-            if "row" in fact and not any(fact["row"] in cell for cell in row):
+            if "row" in fact and not _row_has_day(row, fact):
                 continue
             for i in columns:
                 match = _FIGURE.search(_mask(row[i])) if i < len(row) else None
@@ -1172,15 +1267,25 @@ def _result_check(answer: str, fact: dict[str, Any], truth: dict[str, float]) ->
 
     `RESULT: <figure> <unit> | <what it is>` gives one value with its unit, `TABLE-UNIT: <column> | <unit>` the unit of
     a column of a table. The unit must be written as one of the fact's `accepted` tokens (any case, with the slips
-    `_norm_unit` forgives), nothing is read from the prose. A figure that fits the value in an accepted unit passes with
-    that unit's token and fails with another accepted unit's, a forbidden one, an unknown one, or none. Figures given for
-    the value: every RESULT figure written with an accepted unit must fit it (a restatement in another unit does, a
-    correction does not), unless its description matches one of the fact's `ignore_descriptions` (a minimum, the day
-    before); for a forecast (a span) every such figure must lie in the span.
+    `_norm_unit` forgives), nothing is read from the prose. The answer passes when a RESULT line gives the value in an
+    accepted unit (a restatement in another unit does too) and no line fails it. A line fails it when
+
+    - its unit is a forbidden one and the figure fits the value (`-0.7 K`);
+    - its figure is the value in the unit it was read in, written with another accepted unit (`0.84 %`, `15.5 cm`);
+    - its figure is not the value in its accepted unit, and its description is a claim about the asked quantity
+      (`_is_asked`: it matches `asked_descriptions`, if the fact has them, and no `ignore_descriptions`).
+
+    Another figure in an accepted unit (a minimum, a day before, a total) is the model's own addition and is no failure,
+    whatever its wording, and a line in a unit the case does not know (`5 days`, `11 km`, `0.7 degrees`) is none either:
+    it is not the value, and it does not pass the answer. For a forecast (a span) a figure outside the span counts as not
+    the value. A fact with a `column` also holds a table of the answer, if there is one, to the value (in the unit the
+    tool returns it in, unless a `TABLE-UNIT` line declares another) in that column and the row of its day, with or
+    without a `TABLE-UNIT` line.
     """
     accepted = fact["accepted"]
     forbidden = {_norm_unit(t) for t in fact.get("forbidden_tokens", [])}
     tokens = [{_norm_unit(t) for t in pair["tokens"]} for pair in accepted]
+    base = {i for i, pair in enumerate(accepted) if pair["factor"] == 1 and pair.get("offset", 0) == 0}
     span = "value" not in truth
     fitting = _fitter(fact, truth)
     results, column_units, malformed = format_lines(answer)
@@ -1190,25 +1295,34 @@ def _result_check(answer: str, fact: dict[str, Any], truth: dict[str, float]) ->
     ok_figures: list[str] = []
     failures: list[dict[str, str]] = []
     format_violation_ = malformed > 0
-    ignored = [re.compile(rx, re.IGNORECASE) for rx in fact.get("ignore_descriptions", [])]
     for item in results:
         figure, unit, what = item["figure"], _norm_unit(item["unit"]), re.sub(r"\s+", " ", item["what"]).strip().casefold()
         _, fits = fitting(figure)
+        fits_set = set(fits)
         known = {i for i, t in enumerate(tokens) if unit in t}
         if unit in forbidden:
             if fits:
                 failures.append({"figure": figure, "reason": f"written with the forbidden unit {item['unit'].strip()!r}"})
-        elif known & set(fits):
-            ok_pairs |= known & set(fits)
+        elif known & fits_set:
+            ok_pairs |= known & fits_set
             ok_figures.append(figure)
         elif known:  # a figure in an accepted unit that is not the value in that unit
-            if span:
-                failures.append({"figure": figure, "reason": "a figure with a unit that lies outside the span"})
-            elif not any(rx.search(what) for rx in ignored):
-                failures.append({"figure": figure, "reason": f"a figure in an accepted unit that is not the value ({what!r})"})
-        elif fits:
-            failures.append({"figure": figure, "reason": f"the unit {item['unit'].strip()!r} is not one the case knows"})
+            if fits_set & base:
+                failures.append({"figure": figure, "reason": f"the figure is the value in the unit it was read in, written with another unit ({item['unit'].strip()!r})"})
+            elif _is_asked(what, fact):
+                failures.append(
+                    {
+                        "figure": figure,
+                        "reason": f"a figure for the asked quantity ({what!r}) that is not the value"
+                        + (" and lies outside the span" if span else ""),
+                    }
+                )
     if "column" in fact:
+        table_failed = False
+        if _tables_of(answer)[0] and _table_hit(answer, fact, fitting, base or set(range(len(accepted)))) is None:
+            where = f" in the row of {fact['row']}" if "row" in fact else ""
+            failures.append({"figure": "", "reason": f"a table is given, but it does not hold the value in the column the case names{where}"})
+            table_failed = True
         wanted = [(c, u) for c, u in column_units if re.search(fact["column"], c, re.IGNORECASE)]
         if not wanted and not ok_figures:
             failures.append({"figure": "", "reason": "no TABLE-UNIT line for the column"})
@@ -1220,7 +1334,7 @@ def _result_check(answer: str, fact: dict[str, Any], truth: dict[str, float]) ->
                 failures.append({"figure": column, "reason": f"the column is declared in the forbidden unit {unit!r}"})
             elif not known:
                 failures.append({"figure": column, "reason": f"the unit {unit!r} of the column is not one the case knows"})
-            else:
+            elif not table_failed:
                 hit = _table_hit(answer, fact, fitting, known)
                 if hit is None:
                     where = f" in the row of {fact['row']}" if "row" in fact else ""
@@ -1290,7 +1404,7 @@ def _fallback_check(answer: str, fact: dict[str, Any], truth: dict[str, float]) 
     for _, _, rows in tables:
         header, body = rows[0], rows[1:]
         if "row" in fact:
-            body = [row for row in body if any(fact["row"] in cell for cell in row)]
+            body = [row for row in body if _row_has_day(row, fact)]
         named = [i for i, h in enumerate(header) if "column" in fact and re.search(fact["column"], h, re.IGNORECASE)]
         unit_column = next((i for i, h in enumerate(header) if re.fullmatch(r"units?", h.strip(), re.IGNORECASE)), None)
         for column in range(len(header)):
@@ -1550,8 +1664,18 @@ def failed_run(
 _RUN_KEYS = ("case", "tier", "repeat", "passed", "facts_ok", "is_answer", "checkpoints", "violations", "max_steps")
 
 
-def _check_record(record: dict[str, Any], meta: dict[str, Any]) -> list[str]:  # noqa: C901
-    """List what is wrong with a judged run that is to go into a results file: its fields, its types and its conditions."""
+def _is_int(value: Any) -> bool:  # noqa: ANN401
+    """Tell whether a value is an integer and not a boolean."""
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _check_record(record: dict[str, Any], meta: dict[str, Any]) -> list[str]:  # noqa: C901, PLR0912
+    """List what is wrong with a judged run that is to go into a results file: its fields, its types and its conditions.
+
+    The record of `failed-run` (its `kind` is `failed` or `invalid`) has no steps, no `run_meta` and no model, which is why
+    those are not asked of it; but it must say so honestly: a record that declares such a kind and still claims an answer is
+    refused.
+    """
     problems = []
     missing = [k for k in _RUN_KEYS if record.get(k) is None]
     if missing:
@@ -1563,11 +1687,32 @@ def _check_record(record: dict[str, Any], meta: dict[str, Any]) -> list[str]:  #
             problems.append(f"{key} is {record[key]!r}, not a boolean")
     if "invalid" in record and not isinstance(record["invalid"], bool):
         problems.append(f"invalid is {record['invalid']!r}, not a boolean")
-    if "repeat" in record and not (isinstance(record["repeat"], int) and not isinstance(record["repeat"], bool) and record["repeat"] >= 1):
+    if "repeat" in record and not (_is_int(record["repeat"]) and record["repeat"] >= 1):
         problems.append(f"repeat is {record['repeat']!r}, not a positive integer")
+    elif _is_int(meta.get("repeats")) and _is_int(record.get("repeat")) and record["repeat"] > meta["repeats"]:
+        problems.append(f"repeat is {record['repeat']}, but the file was made with repeats={meta['repeats']}")
+    checkpoints = record.get("checkpoints")
+    if "checkpoints" in record and not (
+        isinstance(checkpoints, dict) and _is_int(checkpoints.get("k")) and _is_int(checkpoints.get("n")) and 0 <= checkpoints["k"] <= checkpoints["n"]
+    ):
+        problems.append(f"checkpoints is {checkpoints!r}, not {{'k': int, 'n': int}} with k at most n")
+    if "violations" in record and not isinstance(record["violations"], list):
+        problems.append(f"violations is {record['violations']!r}, not a list")
     failed_kind = record.get("kind") in {"failed", "invalid"}
-    if not failed_kind and not isinstance(record.get("steps"), int):
+    if failed_kind and (
+        record.get("passed") is not False
+        or record.get("facts_ok") is not False
+        or record.get("is_answer") is not False
+        or record.get("invalid") is not (record["kind"] == "invalid")
+    ):
+        problems.append(
+            f"it declares kind {record['kind']!r} but claims an answer (passed, facts_ok and is_answer must be false, invalid "
+            "true only for kind 'invalid'): a run that gave an answer is analysed and judged like the others"
+        )
+    if not failed_kind and not _is_int(record.get("steps")):
         problems.append(f"steps is {record.get('steps')!r}: a run that gave no answer comes from `bench.py failed-run`, with its `kind`")
+    if not failed_kind and not (isinstance(record.get("model"), str) and record["model"].strip()):
+        problems.append(f"model is {record.get('model')!r}: the resolved model id of the run is needed (`analyze` reads it)")
     if record.get("case") not in meta.get("case_hashes", {}):
         problems.append(f"the case {record.get('case')!r} is not in the file")
     if failed_kind or not str(meta.get("mode")) == "headless":
@@ -1587,26 +1732,61 @@ def _check_record(record: dict[str, Any], meta: dict[str, Any]) -> list[str]:  #
     return problems
 
 
+@contextlib.contextmanager
+def _locked(path: Path) -> Any:  # noqa: ANN401
+    """Hold an exclusive lock on `<path>.lock` while a results file is read, changed and written (POSIX: macOS, Linux)."""
+    if fcntl is None:
+        msg = "add-run locks the results file with fcntl, which this platform does not have (the benchmark is for macOS and Linux)"
+        raise ValueError(msg)
+    with Path(f"{path}.lock").open("a", encoding="utf-8") as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+
+
+def _write_atomic(path: Path, text: str) -> None:
+    """Write a file whole or not at all: to a temporary file in the same directory, then `os.replace` over the original."""
+    descriptor, name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        if path.exists():
+            shutil.copymode(path, name)
+        Path(name).replace(path)
+    except BaseException:
+        Path(name).unlink(missing_ok=True)
+        raise
+
+
 def add_run(results_path: Path, record: dict[str, Any], *, replace_valid: bool = False) -> str:
     """Put one judged run into a results file, replacing the record of the same (case, tier, repeat).
 
     This is how a missing or invalid repeat is filled in: run it again with `bench.py run` and the same arguments as the
     others, `analyze` it, judge it, and add it (or add the record of `failed-run` for a run that timed out or found no
-    server). It is refused if a field is missing or of the wrong type, the case is not in the file, the run was made under
-    other conditions than the file (label, server version, model, mode, prompt, date), or it would replace a valid run
-    with an invalid one or a valid run with another without `replace_valid`.
+    server). It is refused if a field is missing or of the wrong type, the case is not in the file, the repeat is outside
+    1..`repeats`, the run was made under other conditions than the file (label, server version, model, mode, prompt, date),
+    or it would replace a valid run with an invalid one or a valid run with another without `replace_valid`.
+
+    Several `add-run`s may run at once (one per repeat that is being filled in): each takes a lock on `<file>.lock`,
+    reads the file, and writes it through a temporary file in the same directory and `os.replace`, so that none loses
+    another's record and a reader never sees half a file.
     """
-    results = json.loads(results_path.read_text(encoding="utf-8"))
-    problems = _check_record(record, results["meta"])
-    key = (record.get("case"), record.get("tier"), record.get("repeat"))
-    old = [r for r in results["runs"] if (r["case"], r["tier"], r.get("repeat")) == key]
-    if old and not problems and any(not r.get("invalid") for r in old) and not replace_valid:
-        problems.append(f"it would replace a valid run of {key[0]} [{key[1]}] repeat {key[2]}: pass --replace-valid if that is meant")
-    if problems:
-        msg = "; ".join(problems)
-        raise ValueError(msg)
-    results["runs"] = [r for r in results["runs"] if r not in old] + [record]
-    results_path.write_text(json.dumps(results, indent=1, ensure_ascii=False), encoding="utf-8")
+    with _locked(results_path):
+        results = json.loads(results_path.read_text(encoding="utf-8"))
+        problems = _check_record(record, results["meta"])
+        key = (record.get("case"), record.get("tier"), record.get("repeat"))
+        old = [r for r in results["runs"] if (r["case"], r["tier"], r.get("repeat")) == key]
+        if old and not problems and any(not r.get("invalid") for r in old) and not replace_valid:
+            problems.append(f"it would replace a valid run of {key[0]} [{key[1]}] repeat {key[2]}: pass --replace-valid if that is meant")
+        if problems:
+            msg = "; ".join(problems)
+            raise ValueError(msg)
+        results["runs"] = [r for r in results["runs"] if r not in old] + [record]
+        _write_atomic(results_path, json.dumps(results, indent=1, ensure_ascii=False))
     return f"{'replaced' if old else 'added'} {key[0]} [{key[1]}] repeat {key[2]}: {len(results['runs'])} runs"
 
 

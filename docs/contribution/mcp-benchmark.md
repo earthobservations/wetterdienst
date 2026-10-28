@@ -74,23 +74,31 @@ fails). A strategy that drops the unit from the default answer, a compact or col
 other way, or these cases fail: the CSV case is the guard for it.
 
 **The answer format.** The prompt asks every answer that gives a number to end with one line
-`RESULT: <number> <unit> | <what it is>` per figure (and `TABLE-UNIT: <column> | <unit>` per column of a table), and the
-unit check reads only those lines, strictly and deterministically. An answer without them is read tolerantly (prose and
+`RESULT: <number> <unit> | <what it is>` for each figure the question asks for and for no other (a minimum, a day before,
+a count, a distance get none; a forecast gets one per temperature named), with `TABLE-UNIT: <column> | <unit>` per column of
+a table, and the unit check reads only those lines, strictly and deterministically. An answer without them is read tolerantly (prose and
 tables) and counted as a **format violation**: whether the model follows the format is a metric of its own, printed and
 compared per tier, so that a token strategy that confuses the model shows up. The prompt is part of the hash, so
 results files from before the format are not comparable with later ones.
 
-**Cost and bias of the RESULT requirement.** The requirement is the same on both sides of a comparison, so it cancels in
-the paired differences. It is not neutral, though. It disfavours a compact format without units beyond the units cases: a
-model that has to state a unit may need an extra glossary or metadata call, which can reach `max_steps` in a case that asks
-for a number. It favours a strategy that returns fewer forecast hours, because a forecast gets one RESULT line for each
-temperature the model names, so the output tokens depend on how many figures it lists. And format compliance is measured in
-only the 8 of 27 cases that have a unit fact, so a change that only confuses the model's formatting shows in those.
+**Cost and bias of the RESULT requirement.** The requirement is the same on both sides of a comparison, but that does not
+make it cancel out: it works on a strategy through the model. It disfavours a compact format without units beyond the units
+cases: a model that has to state a unit may need an extra glossary or metadata call, which can reach `max_steps` in a case that
+asks for a number. It favours a strategy that returns fewer forecast hours only through the output tokens, because a forecast
+gets one RESULT line for each temperature the model names; the judge itself no longer depends on how many figures a model
+lists (an extra line is not held against it), so the pass rate does not move with a model's wordiness, but the output-token
+difference of a comparison still includes the RESULT lines. And format compliance is measured in only the 8 of 27 cases that
+have a unit fact, so a change that only confuses the model's formatting shows in those.
 
-**What the strict check judges.** A RESULT line that carries a number and a unit the case accepts must be the value
-(restating it in another unit passes; any other value in an accepted unit fails, unless its description names another
-quantity through the fact's `ignore_descriptions`); a table must hold the value in the column and the row (the date) the case
-names. The example in the prompt is made up and a test holds it to passing no case.
+**What the strict check judges.** The answer passes when a RESULT line gives the value in an accepted unit (restating it in
+another unit passes). It fails when a line gives the value in a forbidden unit (`-0.7 K`), gives the value in the unit it was
+read in with another unit (`0.84 %`, `15.5 cm`), or gives a figure that is not the value and *calls it the asked quantity*
+(its description matches the fact's `asked_descriptions` and none of its `ignore_descriptions`: `RESULT: 3.2 °C | daily
+mean` next to the right figure fails, `RESULT: 1.2 °C | daily max` or `RESULT: 5 days | window` does not). A fact with a
+`column` and a `row` also holds every table of the answer to the value in that column and the row of that day, with or
+without a `TABLE-UNIT` line. The wording lists are a judgement and are tried against both kinds of strings in the tests;
+an extra line worded in a way nobody foresaw is not a claim, so the check errs towards not failing a right answer for its
+wording. The example in the prompt is made up and a test holds it to passing no case.
 
 ## Read the result
 
@@ -110,15 +118,18 @@ so `facts ok` and the share of runs without a violation are compared as metrics 
 gives the difference with its 95 % interval and decides it as one test: "no worse" if the lower bound is above minus 10
 percentage points, "WORSE" if the upper bound is below minus 10 points, "inconclusive" otherwise (a real drop within the
 margin is said as such, and a likely one too). Every case is first cut down to the repeats that are valid on both sides
-(paired by repeat, so an invalid cold first repeat on one side leaves that repeat out of the other too; the output says how
-many runs it left out, and a case that keeps under 60 % of its runs makes the tier INCONCLUSIVE), so that pooling uses real
+(paired by repeat, so an invalid or missing cold first repeat on one side leaves that repeat out of the other too; the output
+says how many runs it left out, and a case that keeps under 60 % of the repeats makes the tier INCONCLUSIVE and says which side
+lacks them), so that pooling uses real
 counts only and weights the cases alike, and a case whose own rate fell by 40 points is named whatever the verdict says.
 Not finding a difference is not "no worse": at a pass rate of 90 % it takes about 140 runs per side to show a margin of 10
 points, which the output prints for each rate next to the runs there are; the default full run is 27 cases, 135 runs a side per tier at 5 repeats, 270 in all
 (the case that needs a key is skipped). The Fisher test per case is a hint only. It **refuses** (exit code 4) when the prompt, the logic
 version of `bench.py`, the defaults, the mode (headless or subagent) or the deferral of the tools differ, when the two
-sides report one version and carry no differing `label`, or when more than 3 % of the compared runs are invalid (the server
-was not connected: those runs are left out of the rates and counted; a run that never ran is recorded with
+sides report one version and carry no differing `label`, or when the two files were made with a different number of `repeats`, or hold a repeat outside 1..`repeats` or twice, or when
+more than 3 % of the compared runs are invalid or missing (invalid: the server was not connected, those runs are left out of
+the rates and counted; missing: a repeat with no record at all, which counts as lost so that a timeout nobody recorded cannot
+shrink a side unseen; a run that never ran is recorded with
 `bench.py failed-run`; a timeout is a failed run, not an invalid one, with what its partial transcript measured or no metrics at all, never zeros); a tier whose resolved model ids differ is not compared. It compares only cases whose hash is
 unchanged and says how many it left out (only in the current file, changed, only in the previous file). Sizes
 (tool-result characters, context tokens at the first request, total and output tokens, calls whose result was saved to a
@@ -159,6 +170,9 @@ glossary run against it worked.
 
 ## Known limits
 
+- The benchmark is for macOS and Linux. `bench.py add-run` locks the results file with `fcntl` (several of them can run at
+  once, one per repeat that is filled in, and keep all their records) and refuses to run where there is none, Windows.
+
 - The cases with a fixed date (Kiel and Frankfurt on 26 December 2025) are read from DWD's `recent` period now and from
   `historical` once the date is older than about a year and a half (around mid-2027): the value should not change, and
   the judge's own call decides, but the station list for the date may.
@@ -167,6 +181,13 @@ glossary run against it worked.
   in every session (its system prompt and the user's email).
 - The tested agent's results above the limit of Claude Code are saved to a file it cannot open (the notice is not a
   documented format).
+- The descriptions that decide whether an extra RESULT line is a claim about the asked quantity are word lists (`asked_descriptions`,
+  `ignore_descriptions` of a fact): a wrong figure that a model labels with a word of the ignore list (`RESULT: 5.2 m/s |
+  daily mean wind speed, the peak`) is not caught, and a right extra figure labelled with a word no list foresaw is not failed.
+- A table is found only if it has a markdown separator row or a header line without a digit and its cells are separated by a
+  pipe, a comma or a tab (a semicolon CSV is not a table to the check; its figures still need a RESULT line). A date in a
+  table is read as `2026-10-16`, `16.10.2026` (zeros and the year's century optional), `16/10/2026`, `10/16/2026`, `16 Oct 2026`
+  or `October 16, 2026`.
 - The unit check does not read: units written per time (`mm/day`), a German thousands point (`14.821 s`), a unit before the
   figure in a RESULT line, or a forecast figure in °F or K outside the span (it is ignored, not converted and checked). A
   case whose model writes these is a format violation or a failed fact, and the transcript says which.

@@ -14,6 +14,8 @@ import importlib.util
 import json
 import math
 import re
+import subprocess
+import sys
 import threading
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
@@ -494,7 +496,7 @@ def test_the_comparison_refuses_when_runs_are_invalid() -> None:
     before = _results({("a", "small"): 5}, n=40)
     after = _results({("a", "small"): 5}, n=40, invalid={("a", "small"): 4})
 
-    assert "10% of the compared current runs are invalid" in bench.compare(before, after)
+    assert "10% of the 40 compared current runs are 4 invalid (no server), above 3%" in bench.compare(before, after)
 
 
 def test_the_comparison_compares_the_resolved_model_ids() -> None:
@@ -1011,15 +1013,16 @@ def test_a_run_leaves_the_probes_answer_and_the_label_next_to_its_transcript(
 
 def test_both_sides_count_the_same_repeats_of_every_case() -> None:
     """A repeat that is missing on one side is taken out of the other: real counts, paired by repeat."""
-    before = _results({("a", "small"): 50, ("b", "small"): 25}, ns={("a", "small"): 50, ("b", "small"): 50})
-    after = _results({("a", "small"): 40, ("b", "small"): 0}, ns={("a", "small"): 40, ("b", "small"): 40})
+    cases = {(f"c{i}", "small"): 5 for i in range(40)}
+    before = _numbered(_results(cases, n=5))
+    after = _numbered(_results({**cases, ("c1", "small"): 0}, n=5))
+    after["runs"] = [r for r in after["runs"] if not (r["case"] in {"c2", "c3"} and r["repeat"] == 3)]
 
     text = bench.compare(before, after)
 
-    assert "POOLED small (80 runs on each side" in text
-    assert "20 valid runs were left out so that both sides count the same repeats of every case" in text
-    assert "big drop in b [small]: passed 25/40 -> 0/40" in text
-    assert "=> NO WORSE" not in text
+    assert "POOLED small (198 runs on each side" in text
+    assert "2 valid runs were left out so that both sides count the same repeats of every case" in text
+    assert "big drop in c1 [small]: passed 5/5 -> 0/5" in text
 
 
 def _numbered(results: dict[str, Any]) -> dict[str, Any]:
@@ -1064,8 +1067,9 @@ def test_a_tier_whose_shared_repeats_are_too_few_is_inconclusive() -> None:
     text = bench.compare(before, after)
 
     assert (
-        "POOLED small: INCONCLUSIVE, the repeats that are valid on both sides leave fewer than 60 % of the runs of 1 "
-        "cases (c0)" in text
+        "POOLED small: INCONCLUSIVE, the repeats that are valid on both sides leave fewer than 60 % of the 5 repeats "
+        "of 1 "
+        "cases (c0 (2 of 5: previous 5 valid, current 2 valid))" in text
     )
     assert "=> NO WORSE" not in text
 
@@ -1702,21 +1706,20 @@ def test_one_invalid_run_cuts_its_case_by_one_and_says_so() -> None:
     assert "=> NO WORSE" in text
 
 
-def test_an_extra_run_on_one_case_does_not_turn_inconclusive_into_no_worse() -> None:
-    """27 cases of 5 repeats, one of 40: 165/170 against 152/170 is no verdict, and one invalid run changes nothing."""
+def test_an_extra_run_on_one_case_is_a_repeat_outside_the_file_and_refused() -> None:
+    """27 cases of 5 repeats, one of 40: the file says `repeats` 5, so repeats 6 to 40 are an error, not a weight."""
     names = [(f"c{i}", "small") for i in range(26)]
     big = ("big", "small")
     ns = {**dict.fromkeys(names, 5), big: 40}
-    before = _results({**dict.fromkeys(names, 5), big: 35}, ns=ns)
+    before = _numbered(_results({**dict.fromkeys(names, 5), big: 35}, ns=ns, repeats=5))
     fell = {k: (4 if i < 13 else 5) for i, k in enumerate(names)}
-    after = _results({**fell, big: 35}, ns=ns)
-    again = _results({**fell, big: 35}, ns=ns, invalid={("c0", "small"): 1})
+    after = _numbered(_results({**fell, big: 35}, ns=ns, repeats=5))
 
-    plain, one_invalid = bench.compare(before, after), bench.compare(before, again)
+    text, refused = bench.compare_with_status(before, after)
 
-    assert "=> NO WORSE" not in plain
-    assert "=> NO WORSE" not in one_invalid
-    assert "1 valid runs were left out" in one_invalid
+    assert refused
+    assert "the previous file has big [small] with repeat [6, 7, 8" in text
+    assert "outside 1..5" in text
 
 
 def test_a_timeout_is_a_failed_run_and_an_unreachable_server_an_invalid_one() -> None:
@@ -1939,6 +1942,20 @@ def test_a_run_is_added_to_a_results_file_by_its_repeat(tmp_path: Path) -> None:
             },
             "prompt_template is 'OLD'",
         ),
+        (
+            {
+                "repeat": 3,
+                "run_meta": {
+                    "label": "L",
+                    "wetterdienst_version": "0.178.0",
+                    "model_requested": "haiku",
+                    "mode": "headless",
+                    "prompt_template": "p1",
+                    "prompt_date": "2026-10-29",
+                },
+            },
+            "prompt_date is '2026-10-29', the file's is '2026-10-28'",
+        ),
     ],
 )
 def test_add_run_refuses_a_record_that_does_not_belong_to_the_file(
@@ -2044,3 +2061,851 @@ def test_the_default_full_run_is_the_cases_that_need_no_key() -> None:
     assert n < len(cases)
     assert phrase in skill
     assert phrase in docs
+
+
+# ------------------------------------------------------------------------------- round 7: what the strict check holds
+
+KIEL, FAHRENHEIT, HUMIDITY, SUNSHINE = (
+    "units-kiel-celsius",
+    "units-fahrenheit",
+    "units-humidity-percent",
+    "units-sunshine-seconds",
+)
+WIND, PRECIP, CSV, LAX = (
+    "units-wind-speed",
+    "units-precipitation-mm",
+    "units-csv-with-unit",
+    "units-lax-forecast-celsius",
+)
+TRUTHS = {
+    KIEL: {"value": -0.7},
+    FAHRENHEIT: {"value": -0.7},
+    HUMIDITY: {"value": 0.8404},
+    SUNSHINE: {"value": 14821.2},
+    WIND: {"value": 3.0},
+    PRECIP: {"value": 15.5},
+    CSV: {"value": 15.5},
+    LAX: {"min": 17.1, "max": 21.8},
+}
+CSV5 = (
+    "```csv\ndate,precipitation_amount\n2026-10-14,0.0\n2026-10-15,1.6\n2026-10-16,15.5\n2026-10-17,0.2\n2026-10-18,0.0\n```\n"
+    "The column is in mm.\n"
+)
+PER_DATE = "\n".join(
+    f"RESULT: {v} mm | precipitation on 2026-10-{d}"
+    for d, v in [(14, "0.0"), (15, "1.6"), (16, "15.5"), (17, "0.2"), (18, "0.0")]
+)
+PER_DATE_BARE = "\n".join(
+    f"RESULT: {v} mm | 2026-10-{d}" for d, v in [(14, "0.0"), (15, "1.6"), (16, "15.5"), (17, "0.2"), (18, "0.0")]
+)
+
+
+def _csv(header: str, *rows: str) -> str:
+    """Make a fenced CSV block of a header and rows."""
+    return "```csv\n" + "\n".join([header, *rows]) + "\n```\n"
+
+
+#: (label, case, whether the answer passes, the answer): answers a model could give once the prompt asks for a RESULT
+#: line only for the figure asked. Another figure with a RESULT line is the model's own addition, no failure by its
+#: wording; a line that clearly gives a wrong value for the asked quantity still fails the answer.
+ADVERSARIAL_ANSWERS = [
+    ("a01 K mean + 'daily max'", KIEL, True, "RESULT: -0.7 °C | daily mean\nRESULT: 1.2 °C | daily max"),
+    ("a02 K mean + 'Tmin'", KIEL, True, "RESULT: -0.7 °C | daily mean (TMK)\nRESULT: -3.1 °C | Tmin"),
+    ("a03 K mean + high/low", KIEL, True, "RESULT: -0.7 °C | daily mean\nRESULT: 1.2 °C | high\nRESULT: -3.1 °C | low"),
+    (
+        "a04 K mean + 'yesterday'",
+        KIEL,
+        True,
+        "RESULT: -0.7 °C | daily mean on 26 Dec\nRESULT: 0.4 °C | daily mean the day earlier (25 Dec)",
+    ),
+    (
+        "a05 K mean + other date",
+        KIEL,
+        True,
+        "RESULT: -0.7 °C | daily mean on 2025-12-26\nRESULT: 0.4 °C | daily mean on 2025-12-25",
+    ),
+    (
+        "a06 K mean + dew point",
+        KIEL,
+        True,
+        "RESULT: -0.7 °C | daily mean air temperature\nRESULT: -2.4 °C | daily mean dew point",
+    ),
+    (
+        "a07 K mean + climate normal",
+        KIEL,
+        True,
+        "RESULT: -0.7 °C | daily mean\nRESULT: 2.1 °C | December normal 1991-2020",
+    ),
+    (
+        "a08 K wrong only, desc has 'minimum'",
+        KIEL,
+        False,
+        "RESULT: 0.4 °C | daily mean (average of minimum and maximum)",
+    ),
+    (
+        "a09 K hedge wrong labelled 'previous estimate' + right",
+        KIEL,
+        False,
+        "RESULT: 3.2 °C | daily mean (previous estimate)\nRESULT: -0.7 °C | daily mean",
+    ),
+    (
+        "a10 K '5 days | window' context line",
+        KIEL,
+        True,
+        "RESULT: -0.7 °C | daily mean\nRESULT: 5 days | window queried",
+    ),
+    ("a11 K '1 station | count'", KIEL, True, "RESULT: -0.7 °C | daily mean\nRESULT: 1 station | stations used"),
+    ("a12 F + '31 days' context", FAHRENHEIT, True, "RESULT: 30.7 °F | daily mean\nRESULT: 31 days | December"),
+    ("a13 F mean + 'daily max' in F", FAHRENHEIT, True, "RESULT: 30.7 °F | daily mean\nRESULT: 34.2 °F | daily max"),
+    (
+        "a14 F mean + mean in C rounded",
+        FAHRENHEIT,
+        True,
+        "RESULT: 30.7 °F | daily mean\nRESULT: -0.7 °C | daily mean (source unit)",
+    ),
+    ("a15 H mean + 'max' in %", HUMIDITY, True, "RESULT: 84 % | daily mean relative humidity\nRESULT: 97 % | max"),
+    ("a16 H % and bare fraction (malformed)", HUMIDITY, True, "RESULT: 84 % | mean\nRESULT: 0.84 | as a fraction"),
+    (
+        "a17 H mean + temperature line",
+        HUMIDITY,
+        True,
+        "RESULT: 84 % | mean relative humidity\nRESULT: 9.8 °C | mean air temperature",
+    ),
+    ("a18 W mean + 'peak'", WIND, True, "RESULT: 3.0 m/s | daily mean\nRESULT: 7.5 m/s | peak wind"),
+    (
+        "a19 W mean + '11 km' distance",
+        WIND,
+        True,
+        "RESULT: 3.0 m/s | daily mean wind speed\nRESULT: 11 km | distance from the city centre",
+    ),
+    ("a20 W mean + 'Tagesmaximum'", WIND, True, "RESULT: 3.0 m/s | Tagesmittel\nRESULT: 6.1 m/s | Tagesmaximum"),
+    (
+        "a21 S + day length",
+        SUNSHINE,
+        True,
+        "RESULT: 4.1 h | sunshine duration\nRESULT: 10.6 h | day length (astronomically possible)",
+    ),
+    (
+        "a22 S + % of possible",
+        SUNSHINE,
+        True,
+        "RESULT: 4.1 h | sunshine duration\nRESULT: 39 % | of the possible sunshine",
+    ),
+    ("a23 S + 'monthly total'", SUNSHINE, True, "RESULT: 4.1 h | sunshine on 16 Oct\nRESULT: 61.2 h | month so far"),
+    ("a24 P + other date", PRECIP, True, "RESULT: 15.5 mm | precipitation on 16 Oct\nRESULT: 0.4 mm | on 15 October"),
+    (
+        "a25 P + weekly total",
+        PRECIP,
+        True,
+        "RESULT: 15.5 mm | precipitation on 16 Oct\nRESULT: 17.3 mm | total 14-18 October",
+    ),
+    (
+        "a26 P + mm/h intensity",
+        PRECIP,
+        True,
+        "RESULT: 15.5 mm | daily precipitation\nRESULT: 4.2 mm | highest hourly amount",
+    ),
+    (
+        "a27 CSV + per-date RESULT lines",
+        CSV,
+        True,
+        CSV5 + "TABLE-UNIT: precipitation_amount | mm\n" + PER_DATE,
+    ),
+    (
+        "a28 CSV + total RESULT",
+        CSV,
+        True,
+        CSV5 + "TABLE-UNIT: precipitation_amount | mm\nRESULT: 17.3 mm | total precipitation 14-18 October",
+    ),
+    (
+        "a29 CSV + max-day RESULT",
+        CSV,
+        True,
+        CSV5 + "TABLE-UNIT: precipitation_amount | mm\nRESULT: 15.5 mm | wettest day (2026-10-16)",
+    ),
+    (
+        "a30 CSV per-date RESULT only (no TABLE-UNIT)",
+        CSV,
+        True,
+        CSV5 + PER_DATE_BARE,
+    ),
+    (
+        "a31 CSV wrong row but RESULT for 16th right",
+        CSV,
+        False,
+        _csv("date,precipitation_amount", "2026-10-15,15.5", "2026-10-16,1.6")
+        + "TABLE-UNIT: precipitation_amount | mm\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+    ),
+    ("a32 LAX + overnight low", LAX, True, "RESULT: 21 °C | tomorrow afternoon\nRESULT: 14 °C | overnight low"),
+    ("a33 LAX + day-after", LAX, True, "RESULT: 21 °C | tomorrow afternoon\nRESULT: 26 °C | Friday afternoon"),
+    (
+        "a34 K mean + F restatement",
+        KIEL,
+        True,
+        "RESULT: -0.7 °C | daily mean\nRESULT: 30.7 °F | the same in Fahrenheit",
+    ),
+    (
+        "a35 K wrong mean + highest-quality remark + right min??",
+        KIEL,
+        False,
+        "RESULT: -3.1 °C | daily minimum\nRESULT: 2.0 °C | daily mean",
+    ),
+    ("a36 K 'min.' abbreviation", KIEL, True, "RESULT: -0.7 °C | mean\nRESULT: -3.1 °C | min."),
+    ("a37 K 'Minimum' German", KIEL, True, "RESULT: -0.7 °C | Tagesmittel\nRESULT: -3.1 °C | Tagesminimum"),
+    (
+        "a38 K '20 °C' lines: no; elevation 27 m",
+        KIEL,
+        True,
+        "RESULT: -0.7 °C | daily mean\nRESULT: 27 m | station elevation",
+    ),
+    # a wrong figure for the asked quantity next to a right one labelled as another quantity (a hedge, not context)
+    (
+        "s1 days swapped, the right figure labelled day before",
+        PRECIP,
+        False,
+        "RESULT: 1.6 mm | precipitation on 2026-10-16\nRESULT: 15.5 mm | the day before (2026-10-15)",
+    ),
+    (
+        "s2 days swapped, the right figure labelled previous day",
+        KIEL,
+        False,
+        "RESULT: 0.4 °C | daily mean on 2025-12-26\nRESULT: -0.7 °C | daily mean on the previous day",
+    ),
+    (
+        "s3 max read as mean, the right figure labelled minimum",
+        KIEL,
+        False,
+        "RESULT: 1.2 °C | daily mean\nRESULT: -0.7 °C | daily minimum",
+    ),
+    (
+        "s4 wrong mean (highest hourly), the right figure labelled gust",
+        WIND,
+        False,
+        "RESULT: 5.2 m/s | daily mean wind speed (highest hourly)\nRESULT: 3.0 m/s | gust",
+    ),
+    (
+        "s5 wrong station, the right figure labelled another station",
+        HUMIDITY,
+        False,
+        "RESULT: 77 % | mean relative humidity at Hamburg-Fuhlsb\u00fcttel\nRESULT: 84 % | another station nearby",
+    ),
+    # the table is held to the value in the column and the row whenever one is given
+    (
+        "c1 shifted table, a RESULT for the 16th, no TABLE-UNIT",
+        CSV,
+        False,
+        _csv("date,precipitation_amount", "2026-10-14,0.0", "2026-10-15,15.5", "2026-10-16,1.6", "2026-10-17,0.2")
+        + "RESULT: 15.5 mm | precipitation on 2026-10-16",
+    ),
+    (
+        "c2 shifted table with a precip column, TABLE-UNIT and RESULT",
+        CSV,
+        False,
+        _csv("date,precip", "2026-10-14,0.0", "2026-10-15,15.5", "2026-10-16,1.6", "2026-10-17,0.2")
+        + "TABLE-UNIT: precip | mm\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+    ),
+    (
+        "c3 shifted table with a precip column, TABLE-UNIT only",
+        CSV,
+        False,
+        _csv("date,precip", "2026-10-14,0.0", "2026-10-15,15.5", "2026-10-16,1.6", "2026-10-17,0.2")
+        + "TABLE-UNIT: precip | mm",
+    ),
+    (
+        "c6 right table with a precip column and TABLE-UNIT precip",
+        CSV,
+        True,
+        _csv("date,precip", "2026-10-14,0.0", "2026-10-15,1.6", "2026-10-16,15.5", "2026-10-17,0.2")
+        + "TABLE-UNIT: precip | mm",
+    ),
+    (
+        "c7 right table with a dotted date and a precip column, RESULT only",
+        CSV,
+        True,
+        "date,precip\n15.10.2026,1.6\n16.10.2026,15.5\nRESULT: 15.5 mm | precipitation on 16.10.2026",
+    ),
+    (
+        "c8 shifted table with a dotted date, RESULT only",
+        CSV,
+        False,
+        "date,precip\n15.10.2026,15.5\n16.10.2026,1.6\nRESULT: 15.5 mm | precipitation on 16.10.2026",
+    ),
+    (
+        "c9 a table that is right in the wrong column, RESULT right",
+        CSV,
+        False,
+        "date,temperature,precipitation\n2026-10-16,15.5,1.6\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("label", "case_id", "expected", "answer"),
+    [pytest.param(*row, id=row[0].split()[0]) for row in ADVERSARIAL_ANSWERS],
+)
+def test_an_extra_result_line_fails_nothing_by_its_wording_but_a_wrong_asked_figure_does(
+    label: str,
+    case_id: str,
+    expected: bool,  # noqa: FBT001
+    answer: str,
+) -> None:
+    """The prompt asks for a RESULT line only for the asked figure, so another line is context, not a failure."""
+    result = bench.unit_check(answer, _unit_fact(case_id), TRUTHS[case_id])
+
+    assert result["ok"] is expected, (label, result["failures"])
+
+
+@pytest.mark.parametrize(
+    ("case_id", "description", "asked"),
+    [
+        # the asked quantity: the fact's words, whatever else the line says
+        (KIEL, "daily mean", True),
+        (KIEL, "Mean air temperature at Kiel-Holtenau", True),
+        (KIEL, "Tagesmittel", True),
+        (KIEL, "daily mean on 26 Dec", True),
+        (KIEL, "daily mean on 2025-12-26", True),
+        (KIEL, "daily mean (previous estimate)", True),
+        (KIEL, "temperature", True),
+        # another quantity, day or station: named by the ignore list, or not the asked words at all
+        (KIEL, "daily minimum", False),
+        (KIEL, "Tmin", False),
+        (KIEL, "min.", False),
+        (KIEL, "daily max", False),
+        (KIEL, "high", False),
+        (KIEL, "daily mean dew point", False),
+        (KIEL, "December normal 1991-2020", False),
+        (KIEL, "daily mean the day earlier (25 Dec)", False),
+        (KIEL, "daily mean on 2025-12-25", False),
+        (KIEL, "daily mean on the previous day", False),
+        (KIEL, "daily mean at another station", False),
+        (KIEL, "elevation of the station", False),
+        (KIEL, "value", False),
+        (PRECIP, "precipitation on 2026-10-16", True),
+        (PRECIP, "daily precipitation", True),
+        (PRECIP, "Niederschlag", True),
+        (PRECIP, "precipitation on 15 October", False),
+        (PRECIP, "precipitation on 2026-10-15", False),
+        (PRECIP, "highest hourly amount", False),
+        (PRECIP, "total precipitation 14-18 October", False),
+        (PRECIP, "precipitation the day before", False),
+        (HUMIDITY, "mean relative humidity", True),
+        (HUMIDITY, "Luftfeuchte", True),
+        (HUMIDITY, "mean air temperature", False),
+        (HUMIDITY, "humidity maximum", False),
+        (HUMIDITY, "dew point", False),
+        (SUNSHINE, "sunshine duration", True),
+        (SUNSHINE, "Sonnenscheindauer", True),
+        (SUNSHINE, "day length (astronomically possible)", False),
+        (SUNSHINE, "sunshine, month so far", False),
+        (SUNSHINE, "share of the possible sunshine", False),
+        (WIND, "daily mean wind speed (highest hourly)", True),
+        (WIND, "Tagesmittel", True),
+        (WIND, "peak wind", False),
+        (WIND, "wind gust", False),
+        (WIND, "Tagesmaximum", False),
+        (CSV, "precipitation on 2026-10-16", True),
+        (CSV, "precipitation on 16 Oct", True),
+        (CSV, "precipitation on 16.10.2026", True),
+        (CSV, "precipitation on 2026-10-15", False),
+        (CSV, "total precipitation 14-18 October", False),
+        # a forecast has no asked words: every line is a claim unless it names another time or a minimum
+        (LAX, "tomorrow afternoon", True),
+        (LAX, "15:00", True),
+        (LAX, "forecast air temperature", True),
+        (LAX, "overnight low", False),
+        (LAX, "Friday afternoon", False),
+        (LAX, "daily maximum", False),
+    ],
+)
+def test_the_descriptions_that_make_a_line_a_claim_about_the_asked_quantity(
+    case_id: str,
+    description: str,
+    asked: bool,  # noqa: FBT001
+) -> None:
+    """Both lists of a fact, tried both ways: what a line is called decides whether a wrong figure on it fails."""
+    assert bench._is_asked(description.casefold(), _unit_fact(case_id)) is asked  # noqa: SLF001
+
+
+def test_an_answer_whose_only_lines_are_exempt_has_a_reason_to_fail() -> None:
+    """No right figure and no failing line is still a failure, and the verdict says why."""
+    fact = _unit_fact(KIEL)
+
+    exempt = bench.unit_check("RESULT: 1.2 °C | daily max\nRESULT: -3.1 °C | daily minimum", fact, TRUTHS[KIEL])
+    unknown = bench.unit_check("RESULT: 5 days | window", fact, TRUTHS[KIEL])
+    fallback = bench.unit_check("It was cold.", fact, TRUTHS[KIEL])
+
+    for verdict in (exempt, unknown, fallback):
+        assert verdict["ok"] is False
+        assert [f["reason"] for f in verdict["failures"]] == [
+            "no figure of the answer is the value in one of the accepted units"
+        ]
+
+
+def test_a_unit_the_case_does_not_know_is_no_failure_and_no_pass() -> None:
+    """`5 days`, `11 km` and `0.7 degrees` are not the value and not wrong: they neither fail nor pass an answer."""
+    fact = _unit_fact(KIEL)
+    wind = _unit_fact(WIND)
+
+    assert bench.unit_check("RESULT: -0.7 °C | daily mean\nRESULT: 5 days | window", fact, TRUTHS[KIEL])["ok"] is True
+    assert (
+        bench.unit_check("RESULT: -0.7 °C | daily mean\nRESULT: -0.7 degrees | daily mean", fact, TRUTHS[KIEL])["ok"]
+        is True
+    )
+    assert bench.unit_check("RESULT: 3.0 m/s | wind\nRESULT: 11 km | distance", wind, TRUTHS[WIND])["ok"] is True
+    assert bench.unit_check("RESULT: -0.7 degrees | daily mean", fact, TRUTHS[KIEL])["ok"] is False
+    assert bench.unit_check("RESULT: 11 km | distance", wind, TRUTHS[WIND])["ok"] is False
+
+
+def test_the_value_in_the_unit_it_was_read_in_but_written_with_another_unit_fails_whatever_it_is_called() -> None:
+    """`0.84 %` for 84 % and `15.5 cm` for 15.5 mm are the unit error the units cases are for: nothing excuses them."""
+    humidity, rain = _unit_fact(HUMIDITY), _unit_fact(PRECIP)
+
+    assert (
+        bench.unit_check("RESULT: 84 % | mean\nRESULT: 0.84 % | as returned", humidity, TRUTHS[HUMIDITY])["ok"] is False
+    )
+    assert (
+        bench.unit_check("RESULT: 15.5 mm | precipitation\nRESULT: 15.5 cm | the day before", rain, TRUTHS[PRECIP])[
+            "ok"
+        ]
+        is False
+    )
+    assert (
+        bench.unit_check("RESULT: 15.5 mm | precipitation\nRESULT: 1.6 mm | the day before", rain, TRUTHS[PRECIP])["ok"]
+        is True
+    )
+
+
+@pytest.mark.parametrize(
+    ("cell", "found"),
+    [
+        ("2026-10-16", True),
+        ("16.10.2026", True),
+        ("16. 10. 2026", True),
+        ("16.10.26", True),
+        ("16.10.", False),
+        ("16/10/2026", True),
+        ("10/16/2026", True),
+        ("16 Oct 2026", True),
+        ("16 October 2026", True),
+        ("Oct 16, 2026", True),
+        ("October 16th, 2026", True),
+        ("2026-10-15", False),
+        ("15.10.2026", False),
+        ("116.10.2026", False),
+        ("2026-10-160", False),
+    ],
+)
+def test_the_row_of_a_table_is_found_in_the_forms_a_date_is_written(cell: str, found: bool) -> None:  # noqa: FBT001
+    """The CSV case's row is a day; a table may write it as the tool does or as a person does."""
+    assert bench._row_has_day(["x", cell], {"row": "2026-10-16"}) is found  # noqa: SLF001
+
+
+def test_the_prompt_asks_for_a_result_line_only_for_the_figures_the_question_asks_for() -> None:
+    """No line for a minimum, a day before, a count or a distance, and one per forecast temperature."""
+    prompt = (SKILL_DIR / "prompt.md").read_text(encoding="utf-8")
+
+    assert "one line for each figure the question asks for" in prompt
+    assert "Write no RESULT line for any other figure you mention" in prompt
+    assert "one for each forecast temperature you name" in prompt
+    assert "one line for each figure you give" not in prompt
+
+
+# ------------------------------------------------------------------- round 7: missing repeats, pairing, the 60 % rule
+
+
+def _file(
+    cases: int = 27,
+    repeats: int = 5,
+    *,
+    gone: set[tuple[str, int]] | None = None,
+    bad: set[tuple[str, int]] | None = None,
+    fail: set[tuple[str, int]] | None = None,
+    first: int = 1,
+    **meta: Any,  # noqa: ANN401
+) -> dict[str, Any]:
+    """Make a results file of `cases` cases with `repeats` numbered repeats, each passing unless it is in `fail`.
+
+    `gone` repeats have no record, `bad` ones are invalid runs; `first` is the number the first repeat gets.
+    """
+    names = [f"c{i}" for i in range(cases)]
+    results = _results(dict.fromkeys(((c, "small") for c in names), repeats), n=repeats, repeats=repeats, **meta)
+    runs = []
+    seen: dict[str, int] = {}
+    for run in results["runs"]:
+        position = seen[run["case"]] = seen.get(run["case"], -1) + 1
+        run["repeat"] = first + position
+        key = (run["case"], run["repeat"])
+        if key in (gone or set()):
+            continue
+        run["invalid"] = key in (bad or set())
+        run["passed"] = run["facts_ok"] = key not in (fail or set())
+        runs.append(run)
+    results["runs"] = runs
+    return results
+
+
+@pytest.mark.parametrize(
+    ("gone", "share"),
+    [
+        ({(f"c{i}", 5) for i in range(27)}, "20%"),
+        ({(f"c{i}", n) for i in range(27) for n in (4, 5)}, "40%"),
+    ],
+)
+def test_a_repeat_that_has_no_record_counts_as_missing_and_is_refused_beyond_three_percent(
+    gone: set[tuple[str, int]], share: str
+) -> None:
+    """A timeout nobody recorded must not shrink a side unseen: the file says `repeats`, the records are counted."""
+    text, refused = bench.compare_with_status(_file(), _file(gone=gone))
+
+    assert refused
+    assert f"{share} of the 135 compared current runs are" in text
+    assert "missing (no record of the repeat)" in text
+    assert "=> NO WORSE" not in text
+
+
+def test_a_few_missing_repeats_are_pooled_without_them_and_say_so() -> None:
+    """Three runs of 135 missing (2 %) are under the limit: the pairs that remain are compared, and counted."""
+    text, refused = bench.compare_with_status(_file(), _file(gone={("c0", 5), ("c1", 5), ("c2", 5)}))
+
+    assert not refused
+    assert "POOLED small (132 runs on each side" in text
+    assert "3 valid runs were left out" in text
+
+
+@pytest.mark.parametrize(
+    ("current", "message"),
+    [
+        (_file(first=0), "c0 [small] with repeat [0], outside 1..5"),
+        (_file(first=2), "c0 [small] with repeat [6], outside 1..5"),
+        (_file(repeats=10), "different repeats (5 -> 10)"),
+    ],
+)
+def test_a_repeat_outside_the_file_or_a_different_design_is_refused(current: dict[str, Any], message: str) -> None:
+    """Repeats are numbered 1..`repeats`; two files made with another number of them are not compared."""
+    text, refused = bench.compare_with_status(_file(), current)
+
+    assert refused
+    assert message in text
+
+
+def test_a_repeat_given_twice_is_refused() -> None:
+    """Five records of repeat 1 are not five repeats."""
+    current = _file()
+    for run in current["runs"]:
+        run["repeat"] = 1
+
+    text, refused = bench.compare_with_status(_file(), current)
+
+    assert refused
+    assert "c0 [small] with repeat [1] more than once" in text
+
+
+def test_a_long_list_of_bad_repeats_is_cut_to_a_few_lines() -> None:
+    """27 cases with a repeat 0 are three lines and a count, not 27 lines."""
+    text, refused = bench.compare_with_status(_file(), _file(first=0))
+
+    assert refused
+    assert "the current file has 24 more cases with a repeat outside 1..5 or given twice" in text
+    assert len(text.splitlines()) < 8
+
+
+def test_the_runs_are_paired_by_the_repeat_they_carry_not_by_their_place_in_the_file() -> None:
+    """A file lists repeats out of order, or without a gap-filling one: repeat 3 meets repeat 3."""
+    before = _file(cases=1, bad={("c0", 2)})
+    after = _file(cases=1)
+    after["runs"] = [r for r in after["runs"] if r["repeat"] != 4]
+    after["runs"].reverse()
+    keys = [("c0", "small")]
+
+    prev_eq, cur_eq, dropped, thin = bench._equalise(bench.groups(before), bench.groups(after), keys, 5)  # noqa: SLF001
+
+    assert [r["repeat"] for r in prev_eq[keys[0]]] == [1, 3, 5]
+    assert [r["repeat"] for r in cur_eq[keys[0]]] == [1, 3, 5]
+    assert dropped == 2  # 4 valid runs before, 4 after, 3 shared: 4 + 4 - 2 * 3
+    assert thin == {}
+
+
+def test_the_pairing_is_by_repeat_in_the_verdict_too() -> None:
+    """A repeat that fails on both sides but at different places in the file is one pair, not two."""
+    before = _file(cases=40, fail={("c0", 1)})
+    after = _file(cases=40, fail={("c0", 1)}, gone={("c1", 1)})
+    after["runs"].reverse()
+
+    text, refused = bench.compare_with_status(before, after)
+
+    assert not refused
+    assert "difference +0.0%" in text
+
+
+@pytest.mark.parametrize(
+    ("kept", "thin"),
+    [
+        (4, True),  # 40 %
+        (5, True),  # 50 %: under 60 %, which a threshold of 50 % would let through
+        (6, False),  # exactly 60 %
+        (7, False),
+    ],
+)
+def test_a_case_that_keeps_under_sixty_percent_of_its_repeats_makes_the_tier_inconclusive(
+    kept: int,
+    thin: bool,  # noqa: FBT001
+) -> None:
+    """The boundary of the 60 % rule at ten repeats, with the invalid repeats on both sides."""
+    bad = {("c0", n) for n in range(kept + 1, 11)}
+    before, after = _file(cases=40, repeats=10, bad=bad), _file(cases=40, repeats=10, bad=bad)
+
+    text, refused = bench.compare_with_status(before, after)
+
+    assert not refused, text
+    assert ("INCONCLUSIVE, the repeats that are valid on both sides leave fewer than 60 %" in text) is thin
+    assert (f"c0 ({kept} of 10: previous {kept} valid, current {kept} valid)" in text) is thin
+
+
+def test_the_sixty_percent_message_names_which_side_lacks_the_repeats() -> None:
+    """Invalid runs on one side, missing ones on the other: the message gives the valid runs of each."""
+    before = _file(cases=40, bad={("c0", 1), ("c0", 2)})
+    after = _file(cases=40, gone={("c0", 3), ("c0", 4)})
+
+    text, refused = bench.compare_with_status(before, after)
+
+    assert not refused, text
+    assert "c0 (1 of 5: previous 3 valid, current 3 valid)" in text
+    assert "a run that is invalid or missing on one side takes its repeat out of the other, " in text
+    assert "and what is left would say little\n" in text
+
+
+def test_the_power_line_counts_the_smaller_side() -> None:
+    """The runs there are for the smallest rate are those of the side that has fewer, not always the previous one."""
+    before, after = _file(), _file()
+    for run in before["runs"]:
+        run["format_violation"] = False
+    for run in after["runs"]:
+        run["format_violation"] = False if run["repeat"] <= 2 else None
+
+    text = bench.compare(before, after)
+
+    assert "there are 54 for the smallest rate" in text
+
+
+def test_the_comparison_docstring_describes_the_pairing() -> None:
+    """The docstring said the first k valid runs of each side were kept; the code pairs by repeat."""
+    doc = " ".join((bench.compare_with_status.__doc__ or "").split())
+
+    assert "first k" not in doc
+    assert "paired by repeat" in doc
+
+
+# ---------------------------------------------------------------------------------------- round 7: add-run
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        ({"repeat": 6}, "repeat is 6, but the file was made with repeats=5"),
+        ({"repeat": 0}, "not a positive integer"),
+        ({"checkpoints": "1/1"}, "checkpoints is '1/1'"),
+        ({"checkpoints": {"k": "1", "n": 2}}, "checkpoints is"),
+        ({"checkpoints": {"k": 3, "n": 2}}, "k at most n"),
+        ({"checkpoints": {"k": True, "n": 2}}, "checkpoints is"),
+        ({"violations": "none"}, "violations is 'none', not a list"),
+        ({"violations": 0}, "violations is 0, not a list"),
+        ({"model": None}, "model is None"),
+        ({"model": ""}, "model is ''"),
+        ({"steps": "3"}, "steps is '3'"),
+    ],
+)
+def test_add_run_checks_the_types_of_what_aggregate_reads(tmp_path: Path, change: dict[str, Any], message: str) -> None:
+    """`aggregate` sums `checkpoints` and counts `violations`; another shape would break the report later."""
+    path, new = _add_run_file(tmp_path)
+    path.write_text(
+        json.dumps(
+            {
+                **json.loads(path.read_text(encoding="utf-8")),
+                "meta": {**json.loads(path.read_text(encoding="utf-8"))["meta"], "repeats": 5},
+            }
+        ),
+        encoding="utf-8",
+    )
+    new = {**new, "repeat": 3, "model": "claude-haiku-5-5", "violations": [], "checkpoints": {"k": 1, "n": 2}}
+
+    with pytest.raises(ValueError, match=re.escape(message)):
+        bench.add_run(path, {**new, **change})
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"passed": True},
+        {"facts_ok": True},
+        {"is_answer": True},
+        {"invalid": False, "kind": "invalid"},
+        {"invalid": True, "kind": "failed"},
+    ],
+)
+def test_a_record_cannot_declare_a_failed_kind_and_claim_an_answer(tmp_path: Path, change: dict[str, Any]) -> None:
+    """`kind: failed` skips the steps and `run_meta` checks, which is only right for what `failed-run` writes."""
+    path, _ = _add_run_file(tmp_path)
+    case = bench.find_case(bench.load_cases(), "glossary-temperature-air-mean-2m")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["meta"]["case_hashes"][case["id"]] = "h"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    honest = bench.failed_run(case, "small", 3, "timeout", invalid=False)
+
+    assert bench.add_run(path, honest) == f"added {case['id']} [small] repeat 3: 3 runs"
+    with pytest.raises(ValueError, match="declares kind"):
+        bench.add_run(path, {**honest, "repeat": 4, **change})
+
+
+def test_add_run_writes_a_whole_file_or_none(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A write that fails half way leaves the old file and no temporary file next to it."""
+    path, new = _add_run_file(tmp_path)
+    before = path.read_text(encoding="utf-8")
+
+    def boom(_descriptor: int) -> None:
+        msg = "disk full"
+        raise OSError(msg)
+
+    monkeypatch.setattr(bench.os, "fsync", boom)
+    with pytest.raises(OSError, match="disk full"):
+        bench.add_run(path, {**new, "repeat": 3})
+
+    assert path.read_text(encoding="utf-8") == before
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["results.json", "results.json.lock"]
+
+
+def test_concurrent_add_runs_keep_every_record(tmp_path: Path) -> None:
+    """Twelve processes fill twelve repeats of a big results file at once; none may lose another's record."""
+    names = [f"c{i}" for i in range(12)]
+    results = _file(
+        cases=12,
+        bad={(c, n) for c in names for n in range(1, 6)},
+        label="L",
+        server_version="0.178.0",
+        models={"small": "haiku"},
+        date="2026-10-28",
+    )
+    run_meta = {
+        "mode": "headless",
+        "label": "L",
+        "model_requested": "haiku",
+        "wetterdienst_version": "0.178.0",
+        "prompt_template": "p1",
+        "prompt_date": "2026-10-28",
+    }
+    results["meta"]["prompt"] = "p1"
+    for run in results["runs"]:
+        run["calls"] = [{"tool": "values", "args": {"x": "y" * 200}} for _ in range(40)]
+    path = tmp_path / "results.json"
+    path.write_text(json.dumps(results), encoding="utf-8")
+    processes = []
+    for name in names:
+        record = {**next(r for r in results["runs"] if r["case"] == name and r["repeat"] == 3)}
+        record.update(
+            {"invalid": False, "passed": True, "facts_ok": True, "is_answer": True, "steps": 2, "run_meta": run_meta}
+        )
+        record_path = tmp_path / f"{name}.json"
+        record_path.write_text(json.dumps(record), encoding="utf-8")
+        processes.append(
+            subprocess.Popen(  # noqa: S603
+                [
+                    sys.executable,
+                    "-I",
+                    str(SKILL_DIR / "scripts" / "bench.py"),
+                    "add-run",
+                    "--results",
+                    str(path),
+                    "--run",
+                    str(record_path),
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+        )
+    codes = [process.wait() for process in processes]
+
+    runs = json.loads(path.read_text(encoding="utf-8"))["runs"]
+    assert codes == [0] * 12, [p.stderr.read() for p in processes if p.returncode]
+    assert len(runs) == 60
+    assert sum(1 for r in runs if r["repeat"] == 3 and not r["invalid"]) == 12
+
+
+def test_add_run_waits_for_the_lock_on_the_results_file(tmp_path: Path) -> None:
+    """While another process holds `<file>.lock`, `add-run` does not read or write the file."""
+    fcntl = pytest.importorskip("fcntl")
+    path, new = _add_run_file(tmp_path)
+    record = tmp_path / "new.json"
+    record.write_text(json.dumps({**new, "repeat": 3}), encoding="utf-8")
+    command = [
+        sys.executable,
+        "-I",
+        str(SKILL_DIR / "scripts" / "bench.py"),
+        "add-run",
+        "--results",
+        str(path),
+        "--run",
+        str(record),
+    ]
+
+    with Path(f"{path}.lock").open("a", encoding="utf-8") as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  # noqa: S603
+        try:
+            with pytest.raises(subprocess.TimeoutExpired):
+                process.wait(timeout=1.0)
+            assert len(json.loads(path.read_text(encoding="utf-8"))["runs"]) == 2
+        finally:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+    assert process.wait(timeout=30) == 0
+    assert len(json.loads(path.read_text(encoding="utf-8"))["runs"]) == 3
+
+
+def test_a_repeat_number_that_is_no_number_falls_back_to_the_place_in_the_file() -> None:
+    """A record without a usable `repeat` is numbered by its place; a boolean is not a number."""
+    assert bench._repeat_of({"repeat": 3}, 0) == 3  # noqa: SLF001
+    assert bench._repeat_of({}, 3) == 4  # noqa: SLF001
+    assert bench._repeat_of({"repeat": True}, 3) == 4  # noqa: SLF001
+    assert bench._repeat_of({"repeat": "2"}, 3) == 4  # noqa: SLF001
+
+
+def test_a_forecast_figure_outside_the_span_says_so_and_a_shifted_table_is_reported_once() -> None:
+    """The reasons of the verdict: a claim outside the span, and one table failure, not one per line of the answer."""
+    forecast = bench.unit_check("RESULT: 45 °C | tomorrow afternoon", _unit_fact(LAX), TRUTHS[LAX])
+    shifted = bench.unit_check(
+        _csv("date,precip", "2026-10-15,15.5", "2026-10-16,1.6") + "TABLE-UNIT: precip | mm",
+        _unit_fact(CSV),
+        TRUTHS[CSV],
+    )
+
+    assert [f["reason"] for f in forecast["failures"]] == [
+        "a figure for the asked quantity ('tomorrow afternoon') that is not the value and lies outside the span"
+    ]
+    assert [f["reason"] for f in shifted["failures"]] == [
+        "a table is given, but it does not hold the value in the column the case names in the row of 2026-10-16"
+    ]
+
+
+def test_a_big_drop_is_read_over_the_paired_repeats_only() -> None:
+    """Repeats 4 and 5 are invalid before and fail after: unpaired that is a drop of 40 points, paired there is none."""
+    before = _file(cases=40, bad={("c0", 4), ("c0", 5)})
+    after = _file(cases=40, fail={("c0", 4), ("c0", 5)})
+
+    text, refused = bench.compare_with_status(before, after)
+
+    assert not refused, text
+    assert "big drop" not in text
+    assert "difference +0.0%" in text
+
+
+def test_a_record_that_lacks_a_field_is_refused_and_the_wrong_unit_failure_is_named(tmp_path: Path) -> None:
+    """`add-run` names the fields a record lacks; the unit check names the unit error it found."""
+    path, new = _add_run_file(tmp_path)
+    lacking = {k: v for k, v in {**new, "repeat": 3}.items() if k != "facts_ok"}
+    wrong = bench.unit_check(
+        "RESULT: 84 % | mean\nRESULT: 0.84 % | as returned", _unit_fact(HUMIDITY), TRUTHS[HUMIDITY]
+    )
+
+    with pytest.raises(ValueError, match=re.escape("it lacks ['facts_ok']")):
+        bench.add_run(path, lacking)
+    assert [f["reason"] for f in wrong["failures"]] == [
+        "the figure is the value in the unit it was read in, written with another unit ('%')"
+    ]
