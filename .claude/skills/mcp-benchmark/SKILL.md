@@ -49,12 +49,30 @@ no memory index, no git status, no skill. What remains: Claude Code's own system
 harness, a block with the user's email address and the note about an empty auto-memory directory of the temporary
 directory. It talks to the server by URL, not through the claude.ai connector (`--strict-mcp-config` leaves the
 connectors out, and it was not tried whether one can be named headless); it is the same hosted server, over its
-own transport, and `server_version` in the results says which version. The login of the person who runs it pays
-for the model; no provider credential is passed.
+own transport; `bench.py probe <url>` gives its `serverInfo` (the wetterdienst version) and is run first, which
+records the version of the server under test. The login of the person who runs it pays for the model; no provider
+credential is passed.
+
+`run_subject.sh` is a wrapper of `bench.py run`, which **fails fast** instead of scoring a dead server as a model failure:
+exit 2 for a bad argument (a model, name or URL with characters it will not pass on, a prompt file that is not there, no
+`claude` on the PATH), exit 3 when the MCP URL does not answer or lists no tool, 124 after `MCPBENCH_TIMEOUT` seconds
+(default 300; `claude` has no `--max-turns`), and `claude`'s own code otherwise. `--max-budget-usd` (`MCPBENCH_MAX_USD`,
+default 0.50) was tried with 0.001 USD: the run stops after its first turn with `subtype: error_max_budget_usd` and a
+`tool_use` no result answered (a step that reads nothing). The script removes its temporary directory and the project
+directory Claude Code makes for it in `~/.claude/projects` (an empty `memory/`, or the file a too large result is saved
+in); `bench.py cleanup` sweeps what an interrupted run left. A transcript whose init record shows the server not
+connected, or with none of its tools, is **`invalid`**: it is left out of every rate, counted, printed by `report`, and
+`compare` refuses a file with more than 3 % of them.
+
+**Results above the limit of Claude Code are saved to a file** the subject cannot open (it has no Read tool): the
+transcript holds a notice (`result (358,696 characters) exceeds maximum allowed tokens ... saved to ...`), measured on the
+full stations list of DWD. 31,000 characters came through whole; the limit lies between that and 358,000. `bench.py` reads
+the real size out of the notice (`result_chars`, `spilled_calls`), so the size metrics are true, and a run whose answer
+depended on such a result failed to read it, which is what happened to it.
 
 **`mode=subagent`** spawns the subject with the Agent tool: `subagent_type: mcp-benchmark-subject`
 ([.claude/agents/mcp-benchmark-subject.md](../../agents/mcp-benchmark-subject.md), `tools:` limited to ToolSearch
-and the wetterdienst tools; a new agent file is only picked up when Claude Code is started anew, and if the type is
+and the wetterdienst tools; the wildcard form `mcp__server__*` in `tools:` is what the Claude Code documentation shows for agents, but no run could try it here; a new agent file is only picked up when Claude Code is started anew, and if the type is
 not found you are told, and may fall back to `general-purpose`, which has **all** tools: say so in the results) and
 `model` of the tier. What remains in this mode, because the harness injects it and the skill cannot remove it: the
 project's CLAUDE.md and AGENTS.md (which name this benchmark), the user's memory index, the git status, the user's
@@ -67,11 +85,20 @@ The mode, the deferral and the context attachments are recorded in the results f
 schemas can only be judged in `mode=headless`**: in subagent mode ToolSearch loads a schema on demand, so a slimmer
 one reaches the context only in part.
 
+**What the benchmark cannot see: the `outputSchema`.** The hosted `tools/list` is about 260,000 characters, of which
+about 210,000 are `outputSchema`, 39,000 `inputSchema` and 10,000 descriptions (`bench.py tools-size`, measured 2026-10-28,
+0.178.0). The context of the tested agent at its first request is 26.5k tokens, which only fits if Claude Code does not
+send the `outputSchema` to the model. A change that slims the output schemas therefore shows in `tools-size` and not in
+`context_tokens_first`; a change to the input schemas or the descriptions shows in both. Run `tools-size` for each side
+of a comparison and record it (`tools_list` in the results file), so the wire cost the benchmark cannot see is on the page.
+
 ## Protocol
 
 1. **Load.** Read `cases.json`; select cases and tiers. Make sure you can call the MCP tools of the `reference`
    yourself (load them with ToolSearch if they are deferred), and that `claude` runs (`claude --version`,
-   headless). Record today's date in UTC, the model you are, and `python3 -I scripts/bench.py hashes`.
+   headless). Record today's date in UTC, the model you are, `python3 -I scripts/bench.py hashes`, and for the server
+   under test `bench.py probe <url>` and `bench.py tools-size --server <url>`. A server that does not answer ends the run
+   here, before a model is paid for.
 2. **Run**, per case, tier and repeat (at most 4 at once; use `run_in_background` for Bash):
    - write the prompt: `python3 -I .claude/skills/mcp-benchmark/scripts/bench.py prompt <case-id> --today <date>
      > <scratchpad>/mcpbench-<case>-<tier>-<n>.prompt` (add `--tools "the tools named mcp__...__*"` in subagent mode);
@@ -81,15 +108,18 @@ one reaches the context only in part.
    prefix is `mcp__wetterdienst__` (headless) or the one you gave (subagent). It counts, from the transcript and not
    from what the agent says of itself: `steps` (calls of the server's tools only), `tool_searches` (not a step), any
    other tool called (Bash, WebFetch, Read, Write, Agent, ...: each is a violation), the ordered checkpoints, the
-   forbidden calls, repeats and answers, the size of the tool results, the output tokens, the context at the first and
-   last request, and the server version. Do not recount these yourself.
+   forbidden calls, repeats and answers, the size of the tool results (a result saved to a file counts by its real
+   size), the output tokens, the context at the first and last request, the resolved model id, whether the run is
+   `invalid` (no server), and the server version read from the results' JSON. A call no result answered is a step,
+   `ok: false`, and meets no checkpoint. Do not recount these yourself.
 4. **Judge** what needs reading, per run (below), then write the results file, print the table with
    `bench.py report`, and the comparison with `bench.py compare <previous> <results>` when `previous` is given.
 
 ## What you judge
 
 The script has given `steps`, the checkpoints, the violations and `mechanical_pass` (1 to `max_steps` steps and the
-**first checkpoint met**). You add:
+**first checkpoint met**, and the run valid), and for a `network_serves_place` fact its verdict (`mechanical_facts`,
+read from the stations the subject itself got listed, not from a call of yours). You add:
 
 1. **`is_answer`**: the final answer answers the question. A refusal, a request for clarification or a hand-off is
    none (for `unanswerable`, saying there is no data is the answer). `passed = mechanical_pass and is_answer`:
@@ -120,7 +150,7 @@ The script has given `steps`, the checkpoints, the violations and `mechanical_pa
 `$yesterday` yesterday's UTC date; `$last_7_days` the 7 UTC days up to and including yesterday as `A/B`;
 `$subject` the argument as the subject sent it (so that the same source is read); `$subject_snapshot` the
 `data_updated_at` of the subject's result of the same tool (so that warnings are read from the snapshot the subject
-read, not a later one). A source that publishes with a delay may hold fewer days than asked: take the span over
+read, not a later one; checked 2026-10-28: `alerts` with `timestamp` set to the `data_updated_at` of a snapshot returned that snapshot's warnings). A source that publishes with a delay may hold fewer days than asked: take the span over
 what your own call returns. When the tool's default answer is shallower than the pick needs (a depth option),
 ask for the deepest level the tool offers.
 
@@ -160,6 +190,11 @@ Bash call, e.g. `uv run python -I -c "from wetterdienst import Wetterdienst; ...
 `Wetterdienst.resolve(provider, network)(parameters=..., ...).filter_by_station_id(...).values.all()`. It is
 independent of the MCP layer (a change to the tools or their answers does not reach it) but not of the library.
 
+**Three metrics, not one.** `passed` is the answer-reached headline (an answer within `max_steps`, from at least one call,
+after the first checkpoint). It says nothing of whether the answer is right or what the agent did on the way: an answer
+from the wrong data can still pass. `facts_ok` and the violations (the share of runs with none) are therefore compared
+as metrics of their own, and a change is "no worse" only if all three are (see "Comparison").
+
 ## The results file
 
 Write `mcpbench-results-<YYYYMMDD-HHMM>.json` to your scratchpad directory (the one the system prompt names; never
@@ -170,9 +205,11 @@ into the repository, never committed). `bench.py report` and `compare` read it.
           "judge_model": "<the model you are>", "server": "<url or prefix>", "server_version": "0.178.0",
           "reference": "<prefix or python>", "reference_version": "0.178.0", "claude_version": "2.1.308",
           "tools_deferred": false, "context_note": "<what remains in the context, per mode above>",
-          "repeats": 5, "cases_file": "<hash>", "prompt": "<hash>", "case_hashes": {"<case id>": "<hash>"}},
+          "repeats": 5, "cases_file": "<hash>", "defaults": "<hash>", "logic": 3, "prompt": "<hash>",
+          "case_hashes": {"<case id>": "<hash>"}, "server_info": {"name": "Wetterdienst", "version": "0.178.0"},
+          "tools_list": {"description": 9877, "inputSchema": 39311, "outputSchema": 210404}},
  "runs": [{"case": "...", "tier": "small", "repeat": 1,
-           "...": "everything `bench.py analyze` printed, without `result_head`",
+           "...": "everything `bench.py analyze` printed, without `result_head` (`invalid`, `model`, `spilled_calls`, ...)",
            "is_answer": true, "passed": true, "facts_ok": true,
            "fact_results": {"<fact id>": "ok | fail: <why> | drift: <how>"}, "judge_note": ""}]}
 ```
@@ -180,17 +217,53 @@ into the repository, never committed). `bench.py report` and `compare` read it.
 ## Output
 
 Print `bench.py report`: per (case, tier) `passed k/N`, steps median/max against the limit, checkpoints met out of
-possible, violations, `facts ok k/N`, the median size of the tool results (characters) and the median output
-tokens, then one pooled row per tier. Under it: the cases that failed their headline, the cases where a tier that
-`tiers` expects to pass did not (the model is behind what the case expects) or one that is not expected to did
-(the case may be too easy now), and the path of the file.
+possible, violations, `facts ok k/N`, the median size of the tool results (characters), the median output tokens, the
+median context tokens at the first request and the median total tokens, then one pooled row per tier, and the number of
+invalid runs left out. Under it: the cases that failed their headline, the cases where a tier that `tiers` expects to
+pass did not (the model is behind what the case expects) or one that is not expected to did (the case may be too easy
+now), and the path of the file.
 
-**Comparison.** `bench.py compare previous results` compares only the (case, tier) whose case hash and prompt are
-unchanged, and says how many it skipped. It flags a pass rate as `REGRESSED` or `improved` only when Fisher's exact
-test (two-sided) gives p < 0.05 for the passes out of the repeats; otherwise "within noise". Do it per tier
-pooled first, since 20 cases at 5 repeats each is where one flag in 20 is chance. Steps, result size and output
-tokens are shown as medians, not flagged. The model, mode, server and reference versions that differ are told first. A
-token-efficiency change is "no worse" when the pooled pass rate and facts are within noise and the sizes fell.
+**Comparison.** `bench.py compare previous results` is a **non-inferiority** claim, not a search for a difference. It
+refuses (and says why) when the logic version of `bench.py`, the `defaults` of the cases file, the prompt or the resolved
+model ids differ, or when more than 3 % of the runs of either file are invalid; it compares only the (case, tier) whose
+case hash is unchanged and says how many it skipped. Per tier, pooled, it gives for each of three rates (passes, facts,
+share of runs with no violation) the difference of the new minus the previous with its 95 % Newcombe interval, and
+calls it **no worse** if the lower bound is above minus 10 percentage points, **WORSE** if the whole interval is below
+zero, and **inconclusive** otherwise; the tier is `NO WORSE` only if all three are, `WORSE` if any is. Not finding a
+difference is not "no worse": at a pass rate of 90 % it takes about 140 runs per side to show a margin of 10 points
+(`required_runs`, printed), so a comparison of 20 cases at 5 repeats of a tier (100 runs a side) is usually
+inconclusive about small drops, and about a drop from 0.9 to 0.8 it will say so rather than guess. The per-case Fisher
+tests are printed as **hints** only (they have little power at 5 runs, and 40 of them are 40 chances for a chance
+flag, though Fisher's test is conservative and a false flag is rare). The pool lumps cases of unequal difficulty; read
+the cases that moved. Steps, tool-result characters, context tokens at the first request, total and output tokens are
+printed as the median per case before and after and the paired difference. A token-efficiency change is "no worse and
+smaller" when all three rates are `no worse` and the sizes fell; the model, mode, server, reference and Claude Code
+versions that differ are told first.
+
+## Local server: comparing a change before release
+
+The hosted server is the released one. To judge a change, run **both sides on local servers in the same environment, with
+the same limits and cache**, not only against the hosted one: a baseline of the hosted server differs from a local
+`main` by the host, the network and the deployed settings.
+
+```bash
+# baseline: main, in its own worktree and port
+git worktree add ../wd-main main && cd ../wd-main
+uv sync --python 3.13 --extra restapi --extra mcp --extra export --extra interpolation --extra sql   # one extra at a time on macOS if it fails
+uv run --python 3.13 wetterdienst restapi --listen 127.0.0.1:7891        # MCP at http://127.0.0.1:7891/mcp/v1
+# the change: the PR's branch, in another worktree and port
+git worktree add ../wd-pr my-branch && cd ../wd-pr
+uv sync --python 3.13 --extra restapi --extra mcp --extra export --extra interpolation --extra sql
+uv run --python 3.13 wetterdienst restapi --listen 127.0.0.1:7892        # MCP at http://127.0.0.1:7892/mcp/v1
+```
+
+Then `/mcp-benchmark server=http://127.0.0.1:7891/mcp/v1 repeats=5` for the baseline and the same with `:7892` and
+`previous=<the baseline's file>` for the change. `server=` takes any such URL in headless mode (the URL is checked
+with `bench.py probe` first). Give both the same `WD_CACHE_DIR` (or warm both with the same first run), since a cold cache
+changes the time and sometimes the answer; keep `reference=` the released hosted server for both, so the judge's ground
+truth does not move with the change. Tried 2026-10-28: a local `wetterdienst restapi --listen 127.0.0.1:7890` from a
+worktree answered `probe` with the same 14 tools and `tools-size` as the hosted 0.178.0, and a headless run of the glossary
+case against it passed (1 step, 26.5k context tokens). Stop the servers when done.
 
 ## Case schema
 
@@ -211,7 +284,7 @@ token-efficiency change is "no worse" when the pooled pass rate and facts are wi
 
 A **match** is `{"tool": name | [names], "args": {...}, "ok": true | "any"}`. An argument rule is a literal (equal, ignoring
 case; a list, or a comma-separated string, matches when any element does), `{"any_of": [...]}`, `{"regex": "..."}`,
-`{"between": [lo, hi]}`, `{"contains_date": "YYYY-MM-DD"}` (a `timestamp` whose span holds that day), `{"present":
+`{"between": [lo, hi]}`, `{"on_date": "YYYY-MM-DD"}` (a `timestamp`, a date, an instant or an interval of them, that reaches into that day), `{"present":
 true}` or `{"absent": true}`. A `window_days_over` rule counts a call without a `timestamp` as unbounded. Provider,
 network, parameter and period literals must exist, which the offline test holds to the code: another valid path is a
 new alternative with literals, not a regex. A checkpoint accepts every valid path (any provider and network that serves

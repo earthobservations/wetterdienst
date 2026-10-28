@@ -65,6 +65,7 @@ FACT_FIELDS: dict[str, set[str]] = {
     "ground_truth_subset": {"ground_truth"},
     "ground_truth_set": {"ground_truth"},
     "unit": {"ground_truth", "accepted", "unit"},
+    "network_serves_place": {"places", "radius_km"},
     "no_measurements": set(),
 }
 OPTIONAL_FACT_FIELDS = {"id", "description", "kind", "expected", "future_only", "answer_matches_any_of"}
@@ -73,7 +74,7 @@ UNIT_FACT_FIELDS = {"tolerance", "margin", "forbidden_tokens", "cross_check"}
 PAIR_FIELDS = {"tokens", "factor", "offset", "required"}
 CHECKPOINT_FIELDS = {"id", "description", "match", "any_order"}
 FORBIDDEN_KINDS = {"call", "repeat", "answer"}
-RULE_KEYS = {"any_of", "regex", "between", "present", "absent", "contains_date"}
+RULE_KEYS = {"any_of", "regex", "between", "present", "absent", "on_date"}
 CASE_KEYS = {
     "id",
     "question",
@@ -106,6 +107,10 @@ SECRET_PATTERNS = (
 )
 PERSONAL_PATTERNS = (
     re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+"),
+    # the domains of the mailboxes people use; the pattern above catches any address, this names the likely ones
+    re.compile(
+        r"@(?:pm\.me|proton\.me|protonmail\.com|gmail\.com|googlemail\.com|outlook\.com|hotmail\.com|icloud\.com|gmx\.\w+|web\.de)\b"
+    ),
     # a phone number is written with a country code or with the area code in brackets; a list of station ids is not
     re.compile(r"(?<!\w)\+\d{1,3}[ -]?\(?\d{1,5}\)?[ -]?\d{3,}"),
     re.compile(r"\(0\d{2,5}\)[ -]?\d{4,}"),
@@ -141,7 +146,7 @@ REGEX_TESTS = (
     (
         "ambiguous-frankfurt",
         "names-station",
-        ["Frankfurt/Main, -1.2 C", "Frankfurt (Oder) station", "station 01420", "Frankfurt am Main-Westend"],
+        ["Frankfurt/Main, -1.2 C", "station 01424", "station 01420", "Frankfurt am Main-Westend"],
         ["I checked the order of the stations.", "Near the border it was cold.", "It was -1.0 C in Frankfurt."],
     ),
     (
@@ -168,6 +173,14 @@ REGEX_TESTS = (
         ["The provider needs credentials the server does not hold.", "It was 12 °C."],
         ["London is a big city."],
     ),
+)
+#: the made-up secrets and addresses the tests of the guard itself use, which the scan of the test files leaves out
+FIXTURES = (
+    "api_key=abcdef1234567890abcd",
+    "someone@example.org",
+    "someone@pm.me",
+    "+49 40 1234567",
+    "(040) 1234567",
 )
 PERSONAL_TESTS = (
     (["+49 40 1234567", "(040) 1234567", "someone@example.org"], ["105 106 107 4115", "02564 02961", "53.9 N, 10.7 E"]),
@@ -430,6 +443,19 @@ def _check_fact(cid: str, fact: dict[str, Any]) -> list[str]:  # noqa: C901
         found.append(f"{fid} has future_only {fact['future_only']!r}, not a boolean")
     if kind == "unit":
         found.extend(_check_unit_fact(fid, fact))
+    if kind == "network_serves_place":
+        places = fact.get("places")
+        if not (isinstance(places, list) and places):
+            found.append(f"{fid} has no list of places")
+        else:
+            for place in places:
+                ok = isinstance(place, dict) and isinstance(place.get("name"), str)
+                ok = ok and all(_is_number(place.get(k)) for k in ("latitude", "longitude"))
+                ok = ok and -90 <= place["latitude"] <= 90 and -180 <= place["longitude"] <= 180
+                if not ok:
+                    found.append(f"{fid} has a place without a name, latitude and longitude: {place!r}")
+        if not (_is_number(fact.get("radius_km")) and fact["radius_km"] > 0):
+            found.append(f"{fid} has radius_km {fact.get('radius_km')!r}, not a positive number")
     return found
 
 
@@ -647,12 +673,22 @@ def test_there_are_enough_cases_and_they_cover_the_tools(tools: dict[str, dict[s
 
 
 def test_the_skill_and_the_cases_hold_no_credential_or_personal_data() -> None:
-    """The text of the skill, its scripts and the cases has nothing that looks like a secret or a person's data."""
-    text = "".join(
-        path.read_text(encoding="utf-8")
-        for path in (CASES_FILE, SKILL_DIR / "SKILL.md", SKILL_DIR / "prompt.md", *SKILL_DIR.glob("scripts/*.*"))
-    )
+    """Nothing of the benchmark (skill, scripts, cases, agent, docs, tests) looks like a secret or personal data."""
+    root = Path(__file__).parents[2]
+    paths = [
+        CASES_FILE,
+        SKILL_DIR / "SKILL.md",
+        SKILL_DIR / "prompt.md",
+        *SKILL_DIR.glob("scripts/*.*"),
+        *(root / ".claude" / "agents").glob("mcp-benchmark*.md"),
+        root / "docs" / "contribution" / "mcp-benchmark.md",
+        *Path(__file__).parent.glob("test_mcp_benchmark_*.py"),
+    ]
+    text = "".join(path.read_text(encoding="utf-8") for path in paths)
+    for fixture in FIXTURES:
+        text = text.replace(fixture, "")
 
+    assert len(paths) >= 9
     assert [m.group(0) for p in (*SECRET_PATTERNS, *PERSONAL_PATTERNS) for m in p.finditer(text)] == []
 
 
@@ -775,6 +811,9 @@ def _mutated(data: dict[str, Any], old: str, new: str) -> dict[str, Any]:
         pytest.param("The other opt-in tool", "api_key=abcdef1234567890abcd", "credential", id="secret"),
         pytest.param("The other opt-in tool", "write to someone@example.org", "personal data", id="email"),
         pytest.param("The other opt-in tool", "call +49 40 1234567", "personal data", id="phone"),
+        pytest.param("The other opt-in tool", "write to someone@pm.me", "personal data", id="personal-mailbox"),
+        pytest.param('"latitude": -23.55', '"latitude": -123.55', "place without", id="place-out-of-range"),
+        pytest.param('"radius_km": 150', '"radius_km": -1', "radius_km", id="radius-not-positive"),
     ],
 )
 def test_a_stale_case_makes_it_fail(tools: dict[str, dict[str, Any]], old: str, new: str, expected: str) -> None:

@@ -84,9 +84,47 @@ other way, or these cases fail: the CSV case is the guard for it.
 | `facts ok` | the answer against ground truth the judge reads with its own calls; a forecast is only held to a plausible span of forecast hours, never to a number |
 | `result chars`, `out tokens` | the median size of the tool results and the output tokens: "shorter but no worse" is measured here |
 
-`bench.py compare` flags a change in the pass rate only when Fisher's exact test (two-sided, p < 0.05) says it is
-beyond noise, first per tier pooled, then per case; steps and sizes are shown as medians. It compares only the cases
-whose hash and the prompt are unchanged and says how many it skipped.
+`passed` is the answer-reached headline; it does not say that the answer is right or that the agent kept to the rules,
+so `facts ok` and the share of runs without a violation are compared as metrics of their own. `bench.py compare` is a
+**non-inferiority** claim on the pooled rates of a tier: for the passes, the facts and the runs without a violation it
+gives the difference with its 95 % interval and calls it "no worse" if the lower bound is above minus 10 percentage
+points, "WORSE" if the whole interval is below zero and "inconclusive" otherwise. Not finding a difference is not "no
+worse": at a pass rate of 90 % it takes about 140 runs per side to show a margin of 10 points, which the output prints
+next to the runs there are, so 5 repeats of 20 cases (100 runs a side) is usually inconclusive about a small drop. The
+Fisher test per case is a hint only. It refuses to compare when the prompt, the logic version of `bench.py`, the
+defaults or the resolved model ids differ, or when more than 3 % of the runs are invalid (the server was not connected:
+those runs are left out of the rates and counted), and it compares only cases whose hash is unchanged, saying how many
+it skipped. Sizes (tool-result characters, context tokens at the first request, total and output tokens) are printed
+as medians per case before and after and the paired difference.
+
+`run_subject.sh` stops with exit code 3 before a model is paid for when the MCP URL does not answer, 124 after a
+timeout (`MCPBENCH_TIMEOUT`, default 300 s), and ends a run at `MCPBENCH_MAX_USD` (default 0.50, checked with 0.001: it
+stops after the first turn). It removes the temporary directory and the project directory Claude Code makes for it in
+`~/.claude/projects`; `bench.py cleanup` removes what an interrupted run left. A tool result above the limit of Claude
+Code is saved to a file the tested agent cannot open (it has no Read tool); the transcript then holds a notice, and
+`bench.py` reads the real size out of it.
+
+**What the benchmark cannot see.** The hosted `tools/list` is about 260,000 characters: 210,000 of `outputSchema`,
+39,000 of `inputSchema` and 10,000 of descriptions (`bench.py tools-size`). The context of the tested agent at its first
+request is 26.5k tokens, which only fits if Claude Code does not send the `outputSchema` to the model, so slimming the
+output schemas shows in `tools-size` and not in `context_tokens_first`. Run `tools-size` for each side of a comparison.
+
+## Compare a change before release
+
+The hosted server is the released one, so a baseline against it differs from local `main` by host, network and settings.
+Run both sides on local servers in the same environment, each in its own worktree and port, with the same
+`WD_CACHE_DIR`:
+
+```bash
+git worktree add ../wd-main main && cd ../wd-main
+uv sync --python 3.13 --extra restapi --extra mcp --extra export --extra interpolation --extra sql
+uv run --python 3.13 wetterdienst restapi --listen 127.0.0.1:7891      # MCP at http://127.0.0.1:7891/mcp/v1
+# in another terminal, the branch with the change, in its own worktree, on 7892
+```
+
+Then `/mcp-benchmark server=http://127.0.0.1:7891/mcp/v1 repeats=5` for the baseline, the same with `:7892` and
+`previous=<the baseline's results>` for the change; `reference=` stays the released hosted server for both. A local
+server was tried: `probe`, `tools-size` and a headless glossary run against it worked.
 
 The tested agent's log is not asked for: the counts come from the transcript the harness keeps (the stream-json of
 `claude -p`, or for a subagent the `output_file` the Agent tool returns, a detail of the harness).
