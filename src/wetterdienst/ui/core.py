@@ -1277,6 +1277,15 @@ class ProvidersRequest(_RefusesRenamedParameters):
         str | None,
         Field(description="Only this provider, e.g. 'dwd'. Without it, every provider."),
     ] = None
+    with_datasets: Annotated[
+        bool,
+        Field(
+            description="Also list the resolutions and datasets of every network, with how many parameters each has. "
+            "Off by default: the answer is then the short form, which is enough for a licence, a credit line or the "
+            "providers of a country, and the lists are most of the size of the long one. `coverage` lists the "
+            "parameters of a network."
+        ),
+    ] = False
     pretty: _PrettyField = False
 
 

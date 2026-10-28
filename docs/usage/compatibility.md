@@ -325,11 +325,17 @@ named with its reason in `LICENSE_NOT_STATED` of `tests/ui/test_response_metadat
 data is the provider's, not wetterdienst's.
 
 `GET /api/providers` gives each network an `extent` (`scope`, `continents`, `country_codes`, `bbox`: where its stations are,
-see [Extent](restapi.md#extent)) and each dataset narrower than its network one of its own; `GET /api/coverage` gives
+see [Extent](restapi.md#extent)) and, with `with_datasets=true`, each dataset narrower than its network one of its own; `GET /api/coverage` gives
 the `scope` of each network and, of one network, the extent of each dataset. They are additive members (added after
 0.175.0). Their values are what the station lists show: they change when a list does (a network that reaches a new
 territory), which is a fix and not a break. `country_codes` is absent from an answer for a national or a country-less
-network, and `extent` from a dataset of `providers` that has its network's.
+network, and `extent` from a dataset of `providers` (with `with_datasets=true`) that has its network's.
+
+`GET /api/providers` (and `wetterdienst about providers`, the MCP tool `providers`, `get_providers`) answers the short
+form by default (changed after 0.178.0, a break before 1.0): a network has no `resolutions` member, and `with_datasets=true`
+(`--with-datasets`, `get_providers(with_datasets=True)`) brings it back with the content it always had. The member is absent
+from the default answer and is not an empty list; a caller that read it passes `with_datasets=true`. The option was never released under another name. `attribution` is the
+credit line to cite and `copyright` the one to cite where it is null; both keep their values and their places.
 
 The date the source states for the data of an answer is `metadata.data_updated_at` (and the
 `X-Wetterdienst-Data-Updated-At` header, `data_updated_at` of the values results and of their `metadata` with

@@ -11,10 +11,10 @@ from dataclasses import dataclass, fields, replace
 from datetime import datetime
 from enum import Enum
 from functools import update_wrapper
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, NotRequired, Protocol, Self, TypeVar, cast
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Generic, Literal, NotRequired, Protocol, Self, TypeVar, cast
 
 import polars as pl
-from pydantic import ConfigDict, with_config
+from pydantic import ConfigDict, Field, with_config
 
 # not `typing.TypedDict`: pydantic refuses that as a response model on Python below 3.12
 from typing_extensions import TypedDict
@@ -76,11 +76,23 @@ class _Provider(TypedDict):
     name_local: str
     name_english: str
     country: str
-    copyright: str
+    copyright: Annotated[
+        str,
+        Field(
+            description="The rights holder and the product of the network: a notice shown for information, never "
+            "null. The credit line to cite is `attribution`; cite this one where that is null.",
+        ),
+    ]
     url: str
     # null where the provider states no terms, or asks for no credit
     license: _License | None
-    attribution: str | None
+    attribution: Annotated[
+        str | None,
+        Field(
+            description="The credit line to cite when the data is used, as the terms of the provider ask for it. Null "
+            "where the provider states none: cite `copyright` then, which names the rights holder.",
+        ),
+    ]
 
 
 class _Producer(TypedDict):

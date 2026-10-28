@@ -486,7 +486,8 @@ export interface ProviderNetwork {
   date_required: boolean
   /** How many parameters the network has in all of its datasets */
   parameters: number
-  resolutions: ProviderResolution[]
+  /** Only with `with_datasets=true`: absent from the short answer, which is the backend's default, and from a backend that predates the parameter. Empty for a standalone network */
+  resolutions?: ProviderResolution[]
 }
 
 /** A provider of data, as `GET /api/providers` lists it */

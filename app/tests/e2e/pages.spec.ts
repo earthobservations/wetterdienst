@@ -30,7 +30,7 @@ test.describe('Home Page', () => {
       const held = new Promise<void>((resolve) => {
         release = resolve
       })
-      await page.route('**/api/providers', async (route) => {
+      await page.route(url => url.pathname === '/api/providers', async (route) => {
         await held
         await route.continue()
       })

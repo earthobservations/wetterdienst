@@ -42,7 +42,12 @@ import json
 from typing import Any
 
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a client
-ACCEPTED_BREAKS: dict[str, str] = {}
+ACCEPTED_BREAKS: dict[str, str] = {
+    "GET /api/v1/providers 200 application/json.providers[].networks[]: member resolutions is no longer always there": (
+        "the short answer is the default before 1.0 (GH-3536): `datasets=true` brings the member back as it was; a "
+        "Breaking entry of the changelog says so"
+    ),
+}
 
 _METHODS = frozenset({"get", "put", "post", "delete", "options", "head", "patch", "trace"})
 

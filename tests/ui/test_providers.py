@@ -146,7 +146,10 @@ def test_a_provider_carries_the_terms_its_metadata_declares() -> None:
 def test_the_networks_are_those_coverage_lists_with_what_they_offer(client: TestClient) -> None:
     """Each network says what `/api/coverage` says of it, and counts what its metadata holds."""
     coverage = client.get("/api/coverage").json()
-    providers = {provider["provider"]: provider for provider in client.get("/api/providers").json()["providers"]}
+    providers = {
+        provider["provider"]: provider
+        for provider in client.get("/api/providers", params={"with_datasets": "true"}).json()["providers"]
+    }
 
     assert set(providers) == set(coverage)
     for name, networks in coverage.items():
@@ -169,7 +172,7 @@ def test_the_networks_are_those_coverage_lists_with_what_they_offer(client: Test
 
 def test_the_standalone_networks_of_dwd_are_listed_without_resolutions(client: TestClient) -> None:
     """`dwd/radar` and `dwd/alerts` have no metadata model: they are listed with their kind and terms, no counts."""
-    (dwd,) = client.get("/api/providers", params={"provider": "dwd"}).json()["providers"]
+    (dwd,) = client.get("/api/providers", params={"provider": "dwd", "with_datasets": "true"}).json()["providers"]
 
     standalone = {network["network"]: network for network in dwd["networks"] if network["kind"] in ("radar", "alerts")}
     assert set(standalone) == {"radar", "alerts"}
@@ -381,7 +384,7 @@ def test_the_mcp_tool_has_the_extent() -> None:
 
 def test_a_dataset_narrower_than_its_network_has_an_extent_of_its_own(client: TestClient) -> None:
     """`dwd/dmo` is global and its `icon_eu` dataset is Europe's; every other dataset leaves `extent` out."""
-    body = client.get("/api/providers").json()
+    body = client.get("/api/providers", params={"with_datasets": "true"}).json()
 
     datasets = {
         (f"{provider['provider']}/{network['network']}", resolution["name"], dataset["name"]): dataset
@@ -428,3 +431,160 @@ def test_the_mcp_coverage_tool_is_short_for_every_network_and_full_for_one() -> 
     one = asyncio.run(call({"provider": "dwd", "network": "dmo"}))
     assert one["hourly"]["datasets"]["icon"]["extent"]["scope"] == "global"
     assert one["hourly"]["datasets"]["icon_eu"]["extent"]["scope"] == "regional"
+
+
+# the compact answer by default, the lists with `with_datasets=true`, and the credit line named (GH-3536)
+
+#: how much of the long answer the compact one may be, in characters of the JSON: 0.57 for every provider and 0.30
+#: for `dwd` when it was made, so a provider or a network to come moves neither much, and the lists of datasets,
+#: which are the rest, cannot come back unseen
+_COMPACT_SHARE = {None: 0.7, "dwd": 0.4}
+
+
+def _resolutions_of(body: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        network["resolutions"]
+        for provider in body["providers"]
+        for network in provider["networks"]
+        if "resolutions" in network
+    ]
+
+
+@pytest.mark.parametrize("provider", [None, "dwd"])
+def test_the_default_answer_is_compact(client: TestClient, provider: str | None) -> None:
+    """Without `with_datasets`, no network lists its resolutions and datasets, and the answer stays small."""
+    params = {"provider": provider} if provider else {}
+    response = client.get("/api/providers", params=params)
+    full = client.get("/api/providers", params={**params, "with_datasets": "true"})
+
+    body = response.json()
+    assert _resolutions_of(body) == []
+    share = len(response.text) / len(full.text)
+    assert share < _COMPACT_SHARE[provider], (
+        f"the default answer is {share:.0%} of the long one ({len(response.text)} of {len(full.text)} characters), "
+        f"more than the {_COMPACT_SHARE[provider]:.0%} it may be: the lists of datasets are back in it, or the "
+        "short form grew by a member that is no summary"
+    )
+    # everything else of a network is there: what a question of licence, credit or reach needs
+    for described in body["providers"]:
+        assert {"country", "country_code", "license", "attribution", "name_english"} <= set(described)
+        for network in described["networks"]:
+            assert set(network) == {
+                "network",
+                "kind",
+                "extent",
+                "url",
+                "copyright",
+                "auth",
+                "date_required",
+                "parameters",
+            }
+            assert network["copyright"]
+
+
+@pytest.mark.parametrize("provider", [None, "dwd"])
+def test_with_datasets_brings_the_lists_back_and_nothing_else_changes(client: TestClient, provider: str | None) -> None:
+    """`with_datasets=true` is the compact answer with `resolutions` in each network, those that metadata lists."""
+    params = {"provider": provider} if provider else {}
+    compact = client.get("/api/providers", params=params).json()
+    full = client.get("/api/providers", params={**params, "with_datasets": "true"}).json()
+
+    assert len(_resolutions_of(full)) == compact["metadata"]["counts"]["networks"]
+    for described in full["providers"]:
+        for network in described["networks"]:
+            if network["kind"] in ("radar", "alerts"):
+                assert network["resolutions"] == []
+                continue
+            metadata = Wetterdienst.resolve(described["provider"], network["network"]).metadata
+            assert [
+                (resolution["name"], [(d["name"], d["parameters"]) for d in resolution["datasets"]])
+                for resolution in network["resolutions"]
+            ] == [
+                (resolution.name, [(dataset.name, len(dataset.parameters)) for dataset in resolution])
+                for resolution in metadata
+            ]
+    assert len(json.dumps(full)) > 1.5 * len(json.dumps(compact))
+    # the same answer with the lists taken out
+    for described in full["providers"]:
+        for network in described["networks"]:
+            del network["resolutions"]
+    assert _untimed(full) == _untimed(compact)
+
+
+def test_with_datasets_false_is_the_default(client: TestClient) -> None:
+    """`with_datasets=false` is the answer without the parameter."""
+    assert _untimed(client.get("/api/providers", params={"with_datasets": "false"}).json()) == _untimed(
+        client.get("/api/providers").json()
+    )
+
+
+def test_the_command_line_and_the_python_function_have_the_option() -> None:
+    """`--with-datasets` and `get_providers(with_datasets=True)` give the lists; the default is the compact answer."""
+    compact = CliRunner().invoke(cli, ["about", "providers", "--provider=dwd"])
+    bare = CliRunner().invoke(cli, ["about", "providers", "--provider=dwd", "--with-datasets"])
+    explicit = CliRunner().invoke(cli, ["about", "providers", "--provider=dwd", "--with-datasets=true"])
+
+    assert compact.exit_code == bare.exit_code == explicit.exit_code == 0
+    assert _resolutions_of(json.loads(compact.stdout)) == []
+    assert _untimed(json.loads(bare.stdout)) == _untimed(json.loads(explicit.stdout))
+    assert len(_resolutions_of(json.loads(bare.stdout))) == len(json.loads(bare.stdout)["providers"][0]["networks"])
+    assert all(network.resolutions is None for network in get_providers("dwd").providers[0].networks)
+    assert all(
+        network.resolutions is not None for network in get_providers("dwd", with_datasets=True).providers[0].networks
+    )
+
+
+def test_the_mcp_tool_takes_with_datasets() -> None:
+    """The tool `providers` is compact, and lists the datasets with `with_datasets=true`."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    async def call(arguments: dict[str, Any]) -> dict[str, Any]:
+        async with Client(build_mcp_server(restapi.app)) as client:
+            return (await client.call_tool("providers", arguments)).structured_content or {}
+
+    assert _resolutions_of(asyncio.run(call({"provider": "dwd"}))) == []
+    assert len(_resolutions_of(asyncio.run(call({"provider": "dwd", "with_datasets": True})))) == len(
+        get_providers("dwd").providers[0].networks
+    )
+
+
+def test_every_network_has_a_copyright() -> None:
+    """`copyright` is the fallback credit line, so no network of any provider is without it."""
+    for provider in get_providers().providers:
+        for network in provider.networks:
+            assert network.copyright.strip(), f"{provider.provider}/{network.network}"
+
+
+def test_the_descriptions_name_the_credit_line_and_its_fallback() -> None:
+    """`attribution` is the line to cite, `copyright` the one to cite where it is null: said where a caller reads it."""
+    document = restapi.app.openapi()
+    schemas = document["components"]["schemas"]
+    attribution = schemas["Provider"]["properties"]["attribution"]["description"]
+    copyright_ = schemas["ProviderNetwork"]["properties"]["copyright"]["description"]
+    operation = document["paths"]["/api/v1/providers"]["get"]["description"]
+
+    for text in (attribution, copyright_, operation):
+        assert "cite" in text
+        assert "attribution" in text or "`copyright`" in text
+    assert "null" in attribution.lower()
+    assert "`copyright`" in attribution
+    assert "`attribution`" in copyright_
+    assert "null" in copyright_.lower()
+    assert "where it is null, cite the `copyright`" in operation
+
+    result = CliRunner().invoke(cli, ["about", "providers", "--help"])
+    assert "where it is null, cite the `copyright`" in " ".join(result.output.split())
+
+
+def test_the_mcp_instructions_name_the_credit_line_without_a_provider() -> None:
+    """The instructions say to cite `attribution`, and `copyright` where it is null, with no provider as an example."""
+    pytest.importorskip("fastmcp")
+    from wetterdienst.ui.mcp import INSTRUCTIONS  # noqa: PLC0415
+
+    text = " ".join(INSTRUCTIONS.split())
+    assert "Cite `attribution`, or the `copyright` where it is null" in text

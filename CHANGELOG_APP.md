@@ -16,6 +16,17 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- The app asks the backend for `GET /api/providers?with_datasets=true` (the home page's provider
+  chips and counts, the providers list and the detail pages share the request), since the backend
+  answers the short form without it (GH-3536). A network without `resolutions` is read as "not
+  listed" and shows its parameter count. A backend that predates the parameter refuses it with a
+  422, and the request is then made again without it, so this app works with either backend.
+  The app already deployed does not: against the new backend every provider detail page fails
+  (it reads `resolutions` unguarded) until this app is released. Release backend and app back to
+  back
+
 ## [0.39.0] - 2026-10-28
 
 ### Security
