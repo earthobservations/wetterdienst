@@ -561,7 +561,7 @@
           "Catalogue"
         ],
         "summary": "Coverage",
-        "description": "List available data: providers/networks, or the resolutions, datasets and parameters within one.\n\nCall with no arguments to list every provider and its networks. Pass provider+network (e.g.\nprovider=\"dwd\", network=\"observation\") to list its resolutions/datasets/parameters; narrow with\nresolutions=... or datasets=... (e.g. datasets=\"climate_summary\") to discover parameter names.\n\nThe list of every provider downloads nothing, so it answers at once. Per network it gives\n`name_short`, `country`, `url`, `scope` (how far it reaches: `global`, `national` or `regional`, which `country`\ndoes not say) and `kind`. `kind` is `observation`, `forecast` or `derived` for a\ntimeseries network, which has stations and values (every network but two); `radar` and `alerts`\nare standalone (`dwd/radar`, `dwd/alerts`): the other endpoints answer 404 for them. For a network\nthat needs credentials, `configured` says whether they are present; whether the provider accepts\nthem is not checked here, `/api/auth` (the MCP `auth` tool) does, for one network. With a provider and\nnetwork, each dataset has its `extent` (where its stations are: `scope`, `continents`, `bbox`, and\n`country_codes` for a regional one): the dataset's own where it is narrower than its network's, else the\nnetwork's. `providers` has the extent of every network.",
+        "description": "List available data: providers/networks, or the resolutions, datasets and parameters within one.\n\nCall with no arguments to list every provider and its networks. Pass provider+network (e.g.\nprovider=\"dwd\", network=\"observation\") to list its resolutions/datasets/parameters; narrow with\nresolutions=... or datasets=... (e.g. datasets=\"climate_summary\") to discover parameter names.\n\nThe list of every provider downloads nothing, so it answers at once. Per network it gives\n`name_short`, `country`, `url`, `scope` (how far it reaches: `global`, `national` or `regional`, which `country`\ndoes not say) and `kind`. `kind` is `observation`, `forecast` or `derived` for a\ntimeseries network, which has stations and values (every network but two); `radar` and `alerts`\nare standalone (`dwd/radar`, `dwd/alerts`): the other endpoints answer 404 for them. For a network\nthat needs credentials, `configured` says whether they are present; whether the provider accepts\nthem is not checked here, `/api/auth` (the MCP `auth` tool) does, for one network. With a provider and\nnetwork, each dataset has its `extent` (where its stations are: `scope`, `continents`, `bbox`, and\n`country_codes` for a regional one): the dataset's own where it is narrower than its network's, else the\nnetwork's. `providers` has the extent of every network.\n\nEach parameter has two units. `unit` is the unit its `values` come back in under the default options, the one\n`glossary` gives for its `unit_type` (`degree_celsius`, never Kelvin; `decimal`, 0 to 1, for a percentage).\n`unit_source` is the unit the provider publishes it in, which the values come in only with `convert_units=false`.\nThis takes no options: a `unit_targets` of your own changes what `values` return, not this answer.",
         "operationId": "coverage_api_coverage_get",
         "parameters": [
           {
@@ -4536,6 +4536,10 @@
             "type": "string",
             "title": "Unit"
           },
+          "unit_source": {
+            "type": "string",
+            "title": "Unit Source"
+          },
           "description": {
             "anyOf": [
               {
@@ -4566,10 +4570,11 @@
           "name_original",
           "unit_type",
           "unit",
+          "unit_source",
           "description"
         ],
         "title": "CoverageParameter",
-        "description": "A parameter of a dataset, with `unit` as the source publishes it, which is not always the unit values come in."
+        "description": "A parameter of a dataset, with the unit its values come back in and the unit its source publishes.\n\n`unit` is the unit of the values under the default options (`convert_units` on, the default `unit_targets`),\nthe one `glossary` gives for the `unit_type`: `degree_celsius` for a temperature, `decimal` (0 to 1) for a\npercentage. A caller who sets `unit_targets`, or turns `convert_units` off, gets another: `coverage` takes\nno options, so the answer does not follow them. `unit_source` is the unit the provider publishes the\nparameter in (`degree_kelvin`, `percent`), which is what the values come in with `convert_units` off. It is\nalways present, and equals `unit` where nothing is converted."
       },
       "CoverageResolution": {
         "properties": {

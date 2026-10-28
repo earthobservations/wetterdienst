@@ -18,6 +18,14 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: `coverage` (`/api/coverage`, the MCP tool, `about coverage`,
+  `TimeseriesRequest.discover()`) gives a parameter the unit its values come back in as `unit`
+  (`degree_celsius`, `decimal` for a percentage: what `glossary` gives, under the default options),
+  where it gave the unit the provider publishes (`degree_kelvin`, `percent`) for 362 of the 2048
+  parameters, and a model told a user "Kelvin". The provider's unit is the new `unit_source`, always
+  present beside `unit`. Read `unit_source` where you used `unit` to know what the source holds or
+  what `convert_units=false` returns. `coverage` takes no options: a `unit_targets` of yours changes
+  the values, not `unit` (GH-3537)
 - **Breaking**: `nws/observation` fills a gap of the observation it keeps for an hour from the
   nearest other observation of that hour (a verified 5-minute row for a METAR whose temperature
   is not controlled yet), with that row's `quality_flags`. These come back where they were null:

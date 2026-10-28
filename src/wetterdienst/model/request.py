@@ -59,6 +59,7 @@ from wetterdienst.model.schema import (
     TIMESTAMP_DTYPE,
     coerce,
 )
+from wetterdienst.model.unit import UnitConverter
 from wetterdienst.model.util import create_station_id_from_string
 from wetterdienst.options import resolve_options
 from wetterdienst.settings import Settings
@@ -651,13 +652,14 @@ class TimeseriesRequest:
 
             {resolution: {"description": ..., "datasets": {dataset: {"description": ...,
              "parameters": [{"name": ..., "name_original": ..., "unit_type": ..., "unit": ...,
-             "description": ...}]}}}}
+             "unit_source": ..., "description": ...}]}}}}
 
-        `unit` is the unit the source publishes in, which is not always the unit a request answers
-        with: a value is converted to its type's target unless the option `convert_units` is off, so
-        `dwd/road` reports `degree_kelvin` here and answers in °C, and `millimeter_per_second` here
-        and answers in mm/h. `UnitConverter.targets`, which the option `unit_targets` overrides, is the other
-        side.
+        `unit` is the unit the values come back in under the default options: the target of the `unit_type`
+        (`UnitConverter().targets`), which is what `glossary` gives, so `dwd/road` reports `degree_celsius` and
+        `millimeter_per_hour`. `unit_source` is the unit the provider publishes the parameter in
+        (`degree_kelvin`, `millimeter_per_second`), which the values come in with the option `convert_units`
+        off; it equals `unit` where nothing is converted. This takes no options and reads no environment: a
+        caller whose `unit_targets` (or `WD_TS_UNIT_TARGETS`) names another unit gets values in that one.
 
         Names are matched by either name of a resolution or dataset, in any case.
 
@@ -713,6 +715,9 @@ class TimeseriesRequest:
                 )
                 msg = f"Dataset '{name}' not found in {where}. Available datasets: {available}"
                 raise MetadataNotFoundError(msg)
+        # the unit the values come back in under the default options, from the table `values` and `glossary` read
+        # too, so that the three cannot differ
+        targets = UnitConverter().targets
         data: dict[str, CoverageResolution] = {}
         for resolution in selected:
             described_datasets: dict[str, CoverageDataset] = {}
@@ -729,7 +734,8 @@ class TimeseriesRequest:
                             "name": parameter.name,
                             "name_original": parameter.name_original,
                             "unit_type": parameter.unit_type,
-                            "unit": parameter.unit,
+                            "unit": targets[parameter.unit_type].name,
+                            "unit_source": parameter.unit,
                             # the source's own words for its own field, where we have them; the
                             # canonical, provider-independent sentence lives in the glossary
                             "description": parameter.description,

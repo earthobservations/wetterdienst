@@ -439,6 +439,17 @@ list, nor is a provider none of whose networks can be; the server logs why. Aski
 by name, `coverage` or `auth` with its provider and network, answers a 500, or a 501 where an
 optional package is missing, never a 404 as for a network that does not exist.
 
+With a provider and network, each parameter of a dataset carries two units:
+
+| Field | |
+| --- | --- |
+| `unit` | the unit the `values` of the parameter come back in under the default options, which is the unit `glossary` gives for its `unit_type`: `degree_celsius` for a temperature, `decimal` (0 to 1) for a percentage, `second` for a duration |
+| `unit_source` | the unit the provider publishes the parameter in (`degree_kelvin`, `percent`, `minute`); the unit of the values with `convert_units=false`. It is always present, and the same as `unit` where nothing is converted |
+
+`coverage` takes no options, so a `unit_targets` of your own changes what `values` return, not `unit`
+(`glossary` takes it and follows it). Up to 0.178.0 `unit` was the unit the provider publishes, which is
+now `unit_source`.
+
 The list leaves out whether the provider accepts the credentials of a network that has them, because
 that is a request to the provider. Ask for one network at a time, which gives up after a few seconds
 and answers `valid` as `true` or `false`, or `null` when it could not tell (treat `null` as unknown,

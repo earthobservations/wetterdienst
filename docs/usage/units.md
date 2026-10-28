@@ -52,6 +52,11 @@ unit_converter = UnitConverter()
 unit_converter.source_only_units
 ```
 
+The `unit` that `coverage` (`discover()`) gives a parameter is this target of its unit type, under the default
+options: the unit of its values, as `glossary` lists it. The unit the provider publishes the parameter in is
+`unit_source`, and what the values come in with `convert_units=False`. `coverage` takes no options, so it does not
+follow the `unit_targets` below.
+
 To set a different unit, you can use the `unit_targets` option of the request (`Options`). The following example
 shows how to convert the temperature to Fahrenheit:
 

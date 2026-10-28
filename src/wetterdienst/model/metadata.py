@@ -142,12 +142,21 @@ class ExtentDict(TypedDict):
 
 @with_config(ConfigDict(extra="forbid"))
 class CoverageParameter(TypedDict):
-    """A parameter of a dataset, with `unit` as the source publishes it, which is not always the unit values come in."""
+    """A parameter of a dataset, with the unit its values come back in and the unit its source publishes.
+
+    `unit` is the unit of the values under the default options (`convert_units` on, the default `unit_targets`),
+    the one `glossary` gives for the `unit_type`: `degree_celsius` for a temperature, `decimal` (0 to 1) for a
+    percentage. A caller who sets `unit_targets`, or turns `convert_units` off, gets another: `coverage` takes
+    no options, so the answer does not follow them. `unit_source` is the unit the provider publishes the
+    parameter in (`degree_kelvin`, `percent`), which is what the values come in with `convert_units` off. It is
+    always present, and equals `unit` where nothing is converted.
+    """
 
     name: str
     name_original: str
     unit_type: UnitType
     unit: str
+    unit_source: str
     description: str | None
     # `dwd/dmo` only: the lead times whose run carries the parameter, `short` before `long`
     lead_times: NotRequired[list[Literal["short", "long"]]]
