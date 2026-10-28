@@ -43,6 +43,10 @@ const items = computed<NavigationMenuItem[][]>(() => groups.value.map(group => [
       class="min-h-0 flex-1 overflow-y-auto"
     />
 
-    <SettingsMenu :collapsed="props.collapsed" @navigate="emit('navigate')" />
+    <div class="flex w-full flex-col gap-1">
+      <SettingsMenu :collapsed="props.collapsed" @navigate="emit('navigate')" />
+      <!-- in the rail there is no room for it: it is in the settings' popover there -->
+      <AppVersions v-if="!props.collapsed" class="px-2.5" />
+    </div>
   </div>
 </template>

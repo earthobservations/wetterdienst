@@ -123,7 +123,9 @@
     "noResults": "Intet fundet",
     "groupData": "Data",
     "groupReference": "Reference",
-    "groupProject": "Projekt"
+    "groupProject": "Projekt",
+    "versions": "App {app} · Backend {backend}",
+    "versionUnknown": "ukendt"
   },
   "header": {
     "github": "GitHub",

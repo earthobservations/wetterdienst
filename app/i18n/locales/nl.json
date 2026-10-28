@@ -123,7 +123,9 @@
     "noResults": "Niets gevonden",
     "groupData": "Gegevens",
     "groupReference": "Naslag",
-    "groupProject": "Project"
+    "groupProject": "Project",
+    "versions": "App {app} · Backend {backend}",
+    "versionUnknown": "onbekend"
   },
   "header": {
     "github": "GitHub",

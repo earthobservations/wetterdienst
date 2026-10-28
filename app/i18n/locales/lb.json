@@ -123,7 +123,9 @@
     "noResults": "Näischt fonnt",
     "groupData": "Daten",
     "groupReference": "Referenz",
-    "groupProject": "Projet"
+    "groupProject": "Projet",
+    "versions": "App {app} · Backend {backend}",
+    "versionUnknown": "onbekannt"
   },
   "header": {
     "github": "GitHub",

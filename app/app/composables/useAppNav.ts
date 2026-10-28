@@ -29,14 +29,14 @@ export function useAppNav() {
         page('/meteogram', 'i-ph-cloud-sun', t('nav.meteogram')),
         page('/stripes', 'i-ph-barcode', t('nav.stripes')),
         page('/history', 'i-ph-clock-counter-clockwise', t('nav.history')),
-        page('/providers', 'i-ph-buildings', t('nav.providers')),
+        page('/api', 'i-ph-brackets-curly', t('nav.api')),
       ],
     },
     {
       key: 'reference',
       label: t('nav.groupReference'),
       items: [
-        page('/api', 'i-ph-brackets-curly', t('nav.api')),
+        page('/providers', 'i-ph-buildings', t('nav.providers')),
         page('/glossary', 'i-ph-book-open-text', t('nav.glossary')),
         external('https://wetterdienst.readthedocs.io/', 'i-ph-books', t('common.documentation')),
       ],

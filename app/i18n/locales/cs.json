@@ -123,7 +123,9 @@
     "noResults": "Nic nenalezeno",
     "groupData": "Data",
     "groupReference": "Reference",
-    "groupProject": "Projekt"
+    "groupProject": "Projekt",
+    "versions": "Aplikace {app} · Backend {backend}",
+    "versionUnknown": "neznámá"
   },
   "header": {
     "github": "GitHub",

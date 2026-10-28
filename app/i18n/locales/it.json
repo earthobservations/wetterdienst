@@ -123,7 +123,9 @@
     "noResults": "Nessun risultato",
     "groupData": "Dati",
     "groupReference": "Riferimento",
-    "groupProject": "Progetto"
+    "groupProject": "Progetto",
+    "versions": "App {app} · Backend {backend}",
+    "versionUnknown": "sconosciuta"
   },
   "header": {
     "github": "GitHub",

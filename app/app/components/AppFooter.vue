@@ -1,24 +1,7 @@
 <script setup lang="ts">
-import pkg from '../../package.json'
-
-// The footer of every page but the widget (GH-3518): the legal links, the versions and the project's stance, in a
-// single quiet row on the column of the pages.
+// The footer of every page but the widget (GH-3518): the legal links and the project's stance, in a single quiet row on
+// the column of the pages. The versions of the app and of the backend are under the settings of the navigation.
 const { t } = useI18n()
-
-// Deliberately not awaited. A top-level `await` in the root component makes its setup async, and
-// with `ssr: false` that suspends the entire app -- header, page and footer -- behind this one
-// request, so every cold load stared at an empty screen until the backend answered. The footer
-// simply has nothing to show for the backend until the answer lands.
-const { data: versionData, status: versionStatus } = useFetch<{ version: string }>('/api/version')
-
-const backendVersion = computed(() => {
-  const version = versionData.value?.version
-  if (version)
-    return `v${version}`
-  // still in flight is not the same as answered-but-unusable, and only the latter is "unknown"
-  return versionStatus.value === 'pending' ? '…' : 'unknown'
-})
-const appVersion = pkg.version || 'unknown'
 
 // The same four statements the home page spells out, as icons here: the footer is on every page,
 // and four sentences at the foot of every one of them is a banner rather than a footer. The full
@@ -70,8 +53,6 @@ const LINK = 'text-muted hover:text-highlighted transition-colors motion-reduce:
       <div class="flex flex-col gap-4 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
         <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
           <span>{{ t('footer.copyright', { year: new Date().getFullYear() }) }}</span>
-          <span class="font-mono text-xs">App {{ appVersion === 'unknown' ? appVersion : `v${appVersion}` }}</span>
-          <span class="font-mono text-xs">Backend {{ backendVersion }}</span>
         </div>
         <!-- The stance closes the footer, as it closes the home page. -->
         <div class="flex items-center gap-4">

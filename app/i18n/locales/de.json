@@ -123,7 +123,9 @@
     "noResults": "Nichts gefunden",
     "groupData": "Daten",
     "groupReference": "Nachschlagen",
-    "groupProject": "Projekt"
+    "groupProject": "Projekt",
+    "versions": "App {app} · Backend {backend}",
+    "versionUnknown": "unbekannt"
   },
   "header": {
     "github": "GitHub",

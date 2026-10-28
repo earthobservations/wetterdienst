@@ -200,6 +200,34 @@ test.describe('Providers Page', () => {
   })
 })
 
+test.describe('Versions in the navigation', () => {
+  const LINE = /^App \d+\.\d+\.\d+ · Backend \d+\.\d+\.\d+/
+
+  test('are under the settings of the sidebar, the app\'s and the backend\'s', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/')
+
+    await expect(page.getByTestId('app-versions')).toHaveText(LINE)
+  })
+
+  test('are in the drawer of a phone', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Menu', exact: true }).click()
+
+    await expect(page.getByTestId('app-versions')).toHaveText(LINE)
+  })
+
+  test('are in the settings popover where the navigation is a rail of icons', async ({ page }) => {
+    await page.setViewportSize({ width: 1100, height: 800 })
+    await page.goto('/')
+    await expect(page.getByTestId('app-versions')).toHaveCount(0)
+    await page.getByRole('button', { name: 'Settings', exact: true }).click()
+
+    await expect(page.getByTestId('app-versions')).toHaveText(LINE)
+  })
+})
+
 test.describe('Support Page', () => {
   test('should be reachable from the navigation', async ({ page }) => {
     await page.goto('/')

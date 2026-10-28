@@ -82,6 +82,8 @@ const themeOptions = computed(() => [
           trailing-icon="i-ph-caret-right"
           @click="emit('navigate')"
         />
+
+        <AppVersions v-if="props.collapsed" class="px-2" />
       </div>
     </template>
   </UPopover>

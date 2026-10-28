@@ -22,9 +22,10 @@ Types of changes:
   Geist typeface and Phosphor icons (both served by the app itself), and one shared page layout
   with the same side margins on every page. The top bar is gone: navigation is a sidebar with the
   places in groups (a rail of icons on narrow desktops, a drawer on phones), the settings at its
-  foot, a skip-to-content link, and a command palette on Ctrl or Cmd + K. Providers show a
-  country code instead of a flag, the language list has no flags. Nothing else behaves
-  differently; the licence notices gain the fonts' licence (OFL-1.1) and the icon set's (GH-3518)
+  foot with the app's and the backend's version beneath them (no longer in the footer), a
+  skip-to-content link, and a command palette on Ctrl or Cmd + K. Providers show a country code
+  instead of a flag, the language list has no flags. Nothing else behaves differently; the
+  licence notices gain the fonts' licence (OFL-1.1) and the icon set's (GH-3518)
 
 ## [0.39.0] - 2026-10-28
 
