@@ -4309,6 +4309,215 @@ def test_the_retry_predicates_name_a_tls_failure_as_not_worth_asking_again(
     assert network._worth_retrying_download(error) is (worth_retrying or isinstance(error, FileNotFoundError))  # noqa: SLF001
 
 
+def _handshake_error(reason: str, kind: type[ssl.SSLError] = ssl.SSLError) -> ssl.SSLError:
+    """Build the ``ssl.SSLError`` OpenSSL raises for ``reason``, which Python only sets for an error made in C."""
+    error = kind(1, f"[SSL: {reason}] {reason.lower().replace('_', ' ')}")
+    error.reason = reason
+    return error
+
+
+def _handshake_failure(error: ssl.SSLError) -> ClientSSLError:
+    """Wrap an ``ssl.SSLError`` as aiohttp does for a failed connection."""
+    key = _tls_failure("handshake").args[0]
+    if isinstance(error, ssl.SSLCertVerificationError):
+        return ClientConnectorCertificateError(key, error)
+    return ClientConnectorSSLError(key, error)
+
+
+def _error_id(error: ssl.SSLError) -> str:
+    return getattr(error, "reason", None) or type(error).__name__
+
+
+_TRANSIENT_HANDSHAKE_ERRORS = [
+    _handshake_error("WRONG_VERSION_NUMBER"),
+    _handshake_error("INVALID_SESSION_ID"),
+    _handshake_error("UNEXPECTED_EOF_WHILE_READING"),
+    _handshake_error("SSLV3_ALERT_HANDSHAKE_FAILURE"),
+    _handshake_error("TLSV1_ALERT_INTERNAL_ERROR"),
+    ssl.SSLEOFError(8, "EOF occurred in violation of protocol"),
+    ssl.SSLZeroReturnError(6, "TLS/SSL connection has been closed (EOF)"),
+]
+_CERTIFICATE_ERRORS = [
+    ssl.SSLCertVerificationError(1, "[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed"),
+    ssl.SSLCertVerificationError("Hostname mismatch, certificate is not valid for 'example.com'"),
+    # a certificate error is told apart by its type, whatever reason it carries
+    _handshake_error("WRONG_VERSION_NUMBER", ssl.SSLCertVerificationError),
+    _handshake_error("TLSV1_ALERT_UNKNOWN_CA"),
+    _handshake_error("SSLV3_ALERT_BAD_CERTIFICATE"),
+]
+
+
+@pytest.mark.parametrize("wrapped", [False, True], ids=["bare", "aiohttp"])
+@pytest.mark.parametrize("error", _TRANSIENT_HANDSHAKE_ERRORS, ids=_error_id)
+def test_a_handshake_the_server_fumbled_is_worth_asking_again(error: ssl.SSLError, *, wrapped: bool) -> None:
+    """A handshake error that the server throws now and then is a blip: a post, a download, a listing (GH-3533)."""
+    failure = _handshake_failure(error) if wrapped else error
+    assert network._is_transient_tls_failure(failure)  # noqa: SLF001
+    assert network._worth_retrying(failure)  # noqa: SLF001
+    assert network._worth_retrying_listing(failure)  # noqa: SLF001
+    assert network._worth_retrying_download(failure)  # noqa: SLF001
+
+
+@pytest.mark.parametrize("wrapped", [False, True], ids=["bare", "aiohttp"])
+@pytest.mark.parametrize("error", _CERTIFICATE_ERRORS, ids=_error_id)
+def test_a_certificate_failure_is_never_worth_asking_again(error: ssl.SSLError, *, wrapped: bool) -> None:
+    """A certificate that does not verify, or a server that refuses ours, is the same on every attempt (GH-2618)."""
+    failure = _handshake_failure(error) if wrapped else error
+    assert not network._is_transient_tls_failure(failure)  # noqa: SLF001
+    assert not network._worth_retrying(failure)  # noqa: SLF001
+    assert not network._worth_retrying_listing(failure)  # noqa: SLF001
+    assert not network._worth_retrying_download(failure)  # noqa: SLF001
+
+
+def test_a_handshake_error_is_asked_again_by_a_download_and_a_post() -> None:
+    """A transient handshake error twice and then the answer is the answer, after three attempts (GH-3533)."""
+    error = _handshake_failure(_handshake_error("WRONG_VERSION_NUMBER"))
+    mock_fs = MagicMock()
+    mock_fs.cat_file.side_effect = [error, error, b"data"]
+
+    with (
+        stamina.set_testing(True, attempts=3),
+        patch("wetterdienst.util.network.NetworkFilesystemManager.get", return_value=mock_fs),
+    ):
+        downloaded = download_file(url="https://example.com/file.txt", cache_dir=Path(tempfile.gettempdir()))
+    with (
+        stamina.set_testing(True, attempts=3),
+        patch("wetterdienst.util.network.sync", side_effect=[error, error, (200, b"token")]) as mock_sync,
+    ):
+        posted = post_file("https://example.com/token")
+
+    assert mock_fs.cat_file.call_count == 3
+    assert mock_sync.call_count == 3
+    assert downloaded.status == posted.status == 200
+    assert isinstance(downloaded.content, BytesIO)
+    assert downloaded.content.read() == b"data"
+
+
+def test_a_handshake_error_that_never_goes_away_is_stored_as_a_tls_failure_after_the_attempts() -> None:
+    """The attempts used up, a download stores the ``ssl.SSLError`` underneath, as before the retry (GH-3533)."""
+    error = _handshake_failure(_handshake_error("INVALID_SESSION_ID"))
+    mock_fs = MagicMock()
+    mock_fs.cat_file.side_effect = error
+
+    with (
+        stamina.set_testing(True, attempts=3),
+        patch("wetterdienst.util.network.NetworkFilesystemManager.get", return_value=mock_fs),
+    ):
+        result = download_file(url="https://example.com/file.txt", cache_dir=Path(tempfile.gettempdir()))
+
+    assert mock_fs.cat_file.call_count == 3
+    assert result.status == 500
+    assert result.content is error.os_error
+    assert not result.is_no_internet_error
+    with pytest.raises(DownloadError) as raised:
+        result.raise_if_exception()
+    assert raised.value.__cause__ is error.os_error
+
+
+@pytest.mark.parametrize("error", _CERTIFICATE_ERRORS, ids=_error_id)
+def test_a_certificate_failure_is_asked_once_by_a_download_and_a_post(error: ssl.SSLError) -> None:
+    """A certificate failure, whichever way it arrives, is attempted once with three attempts allowed (GH-2618)."""
+    failure = _handshake_failure(error)
+    mock_fs = MagicMock()
+    mock_fs.cat_file.side_effect = failure
+
+    with (
+        stamina.set_testing(True, attempts=3),
+        patch("wetterdienst.util.network.NetworkFilesystemManager.get", return_value=mock_fs),
+        patch("wetterdienst.util.network.sync", side_effect=failure) as mock_sync,
+    ):
+        downloaded = download_file(url="https://example.com/file.txt", cache_dir=Path(tempfile.gettempdir()))
+        posted = post_file("https://example.com/token")
+
+    assert mock_fs.cat_file.call_count == 1
+    assert mock_sync.call_count == 1
+    assert downloaded.status == posted.status == 500
+    assert downloaded.content is posted.content is error
+
+
+@pytest.mark.parametrize("function", [list_remote_files_fsspec, list_remote_directory_fsspec])
+def test_a_listing_asks_again_for_a_handshake_the_server_fumbled(
+    function: Callable[..., object],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A listing that meets a transient handshake error twice is answered at the third attempt (GH-3533).
+
+    `www.dwd.de` answers its station catalogues with `WRONG_VERSION_NUMBER` now and then.
+    """
+    failure = _handshake_failure(_handshake_error("WRONG_VERSION_NUMBER"))
+    attempts = []
+
+    def flaky(_self: object, url: str, **_kwargs: object) -> list:
+        attempts.append(url)
+        if len(attempts) <= 2:
+            raise failure
+        return []
+
+    monkeypatch.setattr(HTTPFileSystem, "find", flaky)
+    monkeypatch.setattr(HTTPFileSystem, "ls", flaky)
+
+    with stamina.set_testing(True, attempts=3):
+        assert function("https://example.com/tls/", Settings(cache_dir=tmp_path)) == []
+
+    assert len(attempts) == 3
+
+
+@pytest.mark.parametrize("function", [list_remote_files_fsspec, list_remote_directory_fsspec])
+@pytest.mark.parametrize("wrapped", [False, True], ids=["bare", "aiohttp"])
+def test_a_listing_raises_a_handshake_error_that_never_goes_away_after_the_attempts(
+    function: Callable[..., object],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    *,
+    wrapped: bool,
+) -> None:
+    """A handshake error that every attempt meets is a `DownloadError` caused by the `ssl.SSLError` (GH-3533)."""
+    bare = _handshake_error("INVALID_SESSION_ID")
+    error = _handshake_failure(bare) if wrapped else bare
+    attempts = []
+
+    def fail(_self: object, url: str, **_kwargs: object) -> list:
+        attempts.append(url)
+        raise error
+
+    monkeypatch.setattr(HTTPFileSystem, "find", fail)
+    monkeypatch.setattr(HTTPFileSystem, "ls", fail)
+
+    with stamina.set_testing(True, attempts=3), pytest.raises(DownloadError) as raised:
+        function("https://example.com/tls/", Settings(cache_dir=tmp_path))
+
+    assert len(attempts) == 3
+    assert raised.value.__cause__ is bare
+    assert raised.value.__context__ is None
+    assert failure_status(raised.value) == 502
+
+
+@pytest.mark.parametrize("function", [list_remote_files_fsspec, list_remote_directory_fsspec])
+@pytest.mark.parametrize("error", _CERTIFICATE_ERRORS, ids=_error_id)
+def test_a_listing_asks_once_for_a_certificate_failure_however_it_arrives(
+    function: Callable[..., object],
+    error: ssl.SSLError,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A certificate that does not verify is attempted once by a listing, with three attempts allowed (GH-2618)."""
+    attempts = []
+
+    def fail(_self: object, url: str, **_kwargs: object) -> list:
+        attempts.append(url)
+        raise _handshake_failure(error)
+
+    monkeypatch.setattr(HTTPFileSystem, "find", fail)
+    monkeypatch.setattr(HTTPFileSystem, "ls", fail)
+
+    with stamina.set_testing(True, attempts=3), pytest.raises(DownloadError) as raised:
+        function("https://example.com/tls/", Settings(cache_dir=tmp_path))
+
+    assert len(attempts) == 1
+    assert raised.value.__cause__ is error
+
+
 @pytest.mark.parametrize("function", [list_remote_files_fsspec, list_remote_directory_fsspec])
 @pytest.mark.parametrize(
     "error",
