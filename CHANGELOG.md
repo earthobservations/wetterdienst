@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- A read of many stations of `smhi/observation` fetches the per-parameter files of the next 4
+  stations into the cache while one is parsed, as `dwd/observation`, `chmi` and the others
+  already do (not with `cache_disable`, nor for `interpolate` and `summarize`). Answers, their
+  order and errors are unchanged; the connection limits and `Settings(fetch_ahead=...)` /
+  `WD_FETCH_AHEAD` (0 switches it off) are those of GH-3454 (GH-3507)
+
 ## [0.178.0] - 2026-10-28
 
 ### Security

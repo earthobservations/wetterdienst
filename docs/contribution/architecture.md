@@ -90,7 +90,7 @@ process (`HOST_CONNECTIONS` in `model/fetch_ahead.py`). What is not: the connect
 provider's own download, which may fetch its files side by side) and those of other reads. It is off where nothing is
 cached (`cache_disable`), for one station, for a provider that does not implement the hook, and for `interpolate` and
 `summarize` (`TimeseriesValues._fetch_ahead_allowed`), which stop where the data says. `dwd/observation`,
-`dwd/derived`, `chmi` and `imgw/meteorology` implement it; `dwd/phenology`, `dwd/road` and `meteofrance` read files of
+`dwd/derived`, `chmi`, `imgw/meteorology` and `smhi/observation` implement it; `dwd/phenology`, `dwd/road` and `meteofrance` read files of
 the whole network or of a department, which the first station downloads and the others find in the cache.
 
 The other results are made the same way. `history()` builds a `TimeseriesHistory` (`model/history.py`) from the
