@@ -50,7 +50,7 @@ const shortcut = computed(() => isMac.value ? ['meta', 'K'] : ['ctrl', 'K'])
     :title="t('shell.search')"
     :description="t('shell.searchPlaceholder')"
     :close="false"
-    :ui="{ content: 'sm:max-w-2xl sm:top-[12vh] sm:translate-y-0 max-h-[min(36rem,calc(100dvh-2rem))]', header: 'sr-only', body: 'p-0 sm:p-0 flex flex-col min-h-0' }"
+    :ui="{ content: 'sm:max-w-2xl sm:top-[12vh] sm:translate-y-0 max-h-[min(36rem,calc(100dvh-2rem))] sm:max-h-[min(36rem,calc(100dvh-16vh))]', header: 'sr-only', body: 'p-0 sm:p-0 flex flex-col min-h-0' }"
   >
     <template #body>
       <AppSearchPalette @done="open = false" />

@@ -74,7 +74,8 @@ onMounted(() => {
       const stored = localStorage.getItem(LOCAL_STORAGE_KEY)
       if (stored !== null)
         compact.value = stored === 'true'
-      else if (window.innerWidth <= 640)
+      // in rem, so that a reader who has set a larger text size gets the compact view sooner (GH-3518)
+      else if (window.matchMedia('(max-width: 40rem)').matches)
         compact.value = true
     }
   }

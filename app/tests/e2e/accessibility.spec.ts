@@ -344,6 +344,38 @@ const STATES: State[] = [
       await expect(page.getByRole('navigation').last()).toBeVisible()
     },
   },
+  {
+    // the reference of the wide header, a disclosure of links (GH-3518)
+    page: 'index',
+    state: 'reference-open',
+    path: '/',
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'shell.reference'), exact: true }).click()
+      await expect(page.getByRole('link', { name: new RegExp(message(locale, 'nav.glossary')) }).first()).toBeVisible()
+    },
+  },
+  {
+    // the search of the header, a dialog with a list of every place (GH-3518)
+    page: 'index',
+    state: 'search-open',
+    keepFocus: true,
+    path: '/',
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'shell.search') }).click()
+      await expect(page.getByRole('dialog')).toBeVisible()
+      await expect(page.getByRole('option').first()).toBeVisible()
+    },
+  },
+  {
+    // the tab bar of the narrow layout, on a tool's page
+    page: 'stripes',
+    state: 'tab-bar',
+    path: '/stripes',
+    viewport: { width: 390, height: 844 },
+    reach: async (page, locale) => {
+      await expect(page.getByRole('navigation').getByRole('link', { name: message(locale, 'nav.stripes') })).toHaveAttribute('aria-current', 'page')
+    },
+  },
 ]
 
 /** Opens `path` and waits until the app, in this variant, has taken the page up */
@@ -785,7 +817,9 @@ test.describe('page titles', () => {
   test('a navigation within the app changes the title and announces the page', async ({ page, baseURL }) => {
     await mockBackend(page, baseURL!)
     await open(page, '/', { mode: 'light', locale: 'en' })
-    await page.getByRole('navigation').first().getByRole('link', { name: message('en', 'nav.glossary') }).click()
+    // the glossary is in the reference of the header, a disclosure (GH-3518)
+    await page.getByRole('navigation').first().getByRole('button', { name: message('en', 'shell.reference') }).click()
+    await page.getByRole('navigation').first().getByRole('link', { name: new RegExp(`^${message('en', 'nav.glossary')}`) }).click()
     await expect(page).toHaveTitle(`${message('en', 'glossary.title')} - Wetterdienst`)
     await expect(page.locator('.nuxt-route-announcer [aria-live]')).toHaveText(`${message('en', 'glossary.title')} - Wetterdienst`)
   })

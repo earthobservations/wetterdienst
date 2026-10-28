@@ -219,6 +219,8 @@
     font-feature-settings: "kern";
     line-height: 1.6;
     text-rendering: optimizeLegibility;
+    /* a word longer than its line (a Dutch or German compound at 320 px) breaks rather than pushes the page sideways */
+    overflow-wrap: break-word;
   }
   /* Station ids, codes and the numbers of a table keep their digits in columns */
   code,
@@ -547,6 +549,7 @@
   font-size: 1.125rem;
   line-height: 1.5;
   color: var(--ui-text-muted);
+  hyphens: auto;
 }
 .page-about {
   margin-top: 1.5rem;

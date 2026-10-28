@@ -7,8 +7,9 @@ import { inSection, TOOLS } from '~/utils/sections'
 // at the foot of the window (AppTabBar.vue) and the header keeps the logo, the search and the settings.
 const { t } = useI18n()
 const route = useRoute()
-// in rem, so that a reader who has set a larger text size gets the narrow layout sooner, as Tailwind's `lg:` does
-const wide = useMediaQuery('(min-width: 64rem)')
+// the search is labelled from 80 rem, where the header has room for the word; in rem, so that a reader who has set
+// a larger text size gets the shorter header sooner, as Tailwind's `xl:` does
+const wide = useMediaQuery('(min-width: 80rem)')
 </script>
 
 <template>
@@ -45,7 +46,7 @@ const wide = useMediaQuery('(min-width: 64rem)')
             icon="i-ph-heart"
             color="neutral"
             variant="ghost"
-            class="max-lg:hidden"
+            class="max-xl:hidden"
             :aria-label="t('nav.support')"
           />
         </UTooltip>

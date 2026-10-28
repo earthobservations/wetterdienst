@@ -44,7 +44,7 @@ const providersFailure = computed(() => providersError.value ? describeFetchErro
 // until the first answer there is nothing to list: the chips' place is held by as many placeholders as
 // there are providers today, so the block is about as tall before the answer as after
 const providersLoading = computed(() => providersPending.value && !providerList.value)
-const PLACEHOLDER_WIDTHS = ['w-14', 'w-24', 'w-20', 'w-28', 'w-16', 'w-24', 'w-20']
+const PLACEHOLDER_WIDTHS = ['w-20', 'w-28', 'w-24', 'w-32', 'w-20', 'w-28', 'w-24']
 const placeholders = Array.from({ length: 22 }, (_, index) => PLACEHOLDER_WIDTHS[index % PLACEHOLDER_WIDTHS.length])
 
 // Headline numbers: the providers and the parameters are the backend's counts (`GET /api/providers`, the

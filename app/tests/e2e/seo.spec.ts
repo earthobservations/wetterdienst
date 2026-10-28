@@ -89,7 +89,7 @@ test.describe('the page taking the tags over', () => {
     await expect(page).toHaveTitle('About - Wetterdienst')
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `${HOST}/about`)
 
-    await page.locator('a[href="/glossary"]').first().click()
+    await page.locator('a[href="/glossary"]:visible').first().click()
     await page.waitForURL('**/glossary')
     await expect(page).toHaveTitle('Glossary - Wetterdienst')
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `${HOST}/glossary`)

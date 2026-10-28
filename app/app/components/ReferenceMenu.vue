@@ -40,14 +40,14 @@ function onFocusout(event: FocusEvent) {
       class="nav-tab"
       :data-current="current || undefined"
       :aria-expanded="open"
-      :aria-controls="panelId"
+      :aria-controls="open ? panelId : undefined"
       @click="open = !open"
     >
       <span class="nav-label" :data-text="t('shell.reference')">{{ t('shell.reference') }}</span>
       <UIcon name="i-ph-caret-down" class="size-4 shrink-0 transition-transform duration-200" :class="open ? 'rotate-180' : ''" />
     </button>
     <div
-      v-show="open"
+      v-if="open"
       :id="panelId"
       class="reference-panel absolute start-0 top-full z-50 mt-2 w-[24rem] max-w-[calc(100vw-2rem)] rounded-xl bg-default p-2 ring ring-default shadow-xl"
     >
