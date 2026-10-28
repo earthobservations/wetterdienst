@@ -21,7 +21,9 @@ Types of changes:
 - `meteofrance/synop` now offers the 12 h maximum and minimum temperature
   (`temperature_air_max_2m_last_12h`, `temperature_air_min_2m_last_12h`; `tx12`, `tn12`), given
   at 06 and 18 UTC by 158 of the 190 stations (2026), where `tx24`/`tn24` are given by 35 and
-  by none for Paris-Montsouris (GH-3540)
+  by none for Paris-Montsouris. Where `tn12` repeats the `tx12` of its own row (three overseas
+  stations at some hours: Cayenne-Matoury, Le Raizet, Lamentin) it is null, with the number kept as
+  `raw:` in `quality_flags` (GH-3540)
 
 ### Changed
 

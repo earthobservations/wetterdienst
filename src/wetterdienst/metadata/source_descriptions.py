@@ -3359,7 +3359,9 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("subdaily", "data", "tn12"): (
             'Minimum air temperature over the preceding 12 hours (the source: "température minimale sur 12 '
             'heures"), given almost always at 06 and 18 UTC. Most stations report it, '
-            "where the 24 hour minimum is given by few."
+            "where the 24 hour minimum is given by few. Where a report writes the same number in `tx12` "
+            "(Cayenne-Matoury, Le Raizet and Lamentin do at some hours), it is the maximum repeated and no "
+            "minimum: null, with the number kept as the `raw:` token of `quality_flags`."
         ),
         ("subdaily", "data", "tx12"): (
             'Maximum air temperature over the preceding 12 hours (the source: "température maximale sur 12 '

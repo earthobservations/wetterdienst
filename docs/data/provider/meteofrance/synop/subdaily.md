@@ -30,7 +30,7 @@
 | {term}`wind_gust_max_last_10min` | raf10 | Gusts over the last 10 minutes, in m/s. | meter_per_second |
 | {term}`temperature_air_2m` | t | Temperature. | degree_kelvin |
 | {term}`temperature_dew_point_2m` | td | Dew point at 2 m above ground, the temperature at which the air would become saturated. | degree_kelvin |
-| {term}`temperature_air_min_2m_last_12h` | tn12 | Minimum air temperature over the preceding 12 hours (the source: "température minimale sur 12 heures"), given almost always at 06 and 18 UTC. Most stations report it, where the 24 hour minimum is given by few. | degree_kelvin |
+| {term}`temperature_air_min_2m_last_12h` | tn12 | Minimum air temperature over the preceding 12 hours (the source: "température minimale sur 12 heures"), given almost always at 06 and 18 UTC. Most stations report it, where the 24 hour minimum is given by few. Where a report writes the same number in `tx12` (Cayenne-Matoury, Le Raizet and Lamentin do at some hours), it is the maximum repeated and no minimum: null, with the number kept as the `raw:` token of `quality_flags`. | degree_kelvin |
 | {term}`temperature_air_max_2m_last_12h` | tx12 | Maximum air temperature over the preceding 12 hours (the source: "température maximale sur 12 heures"), given almost always at 06 and 18 UTC. Most stations report it, where the 24 hour maximum is given by few. | degree_kelvin |
 | {term}`temperature_air_min_2m_last_24h` | tn24 | Minimum air temperature at 2 m above ground over the preceding 24 hours. | degree_kelvin |
 | {term}`temperature_air_max_2m_last_24h` | tx24 | Maximum air temperature at 2 m above ground over the preceding 24 hours. | degree_kelvin |

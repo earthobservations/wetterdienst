@@ -785,6 +785,15 @@ def _meteofrance_synop(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True)
             "dd": "0",
             "ff": "2",
         },
+        # CAYENNE-MATOURY (81405) at 2026-07-01T00:00Z in synop_2026.csv.gz writes the maximum of the daytime into tn12
+        # too: tx12 and tn12 303.75 K (30.6 C) beside t 298.55 K (25.4 C); moved here (GH-3540)
+        {
+            "geo_id_wmo": "07005",
+            "validity_time": "2024-01-01T00:00:00Z",
+            "t": "298.55",
+            "tn12": "303.75",
+            "tx12": "303.75",
+        },
         {"geo_id_wmo": "07005", "validity_time": "2024-01-02T06:00:00Z", "tn12": "285.75", "tx12": "287.85"},
         {"geo_id_wmo": "07005", "validity_time": "2024-01-02T12:00:00Z", "t": "288.55"},
         {"geo_id_wmo": "07005", "validity_time": "2024-01-02T18:00:00Z", "tn12": "285.75", "tx12": "289.35"},
@@ -2088,12 +2097,14 @@ STUBS = [
             ("wind_direction_mean_last_10min", 400.0),
         ),
         # a trace is 0.0 with the code beside it; an obscured sky has no amount; a calm and a 400 are no direction,
-        # and north is 360
+        # and north is 360; a copied tn12 is a plausible temperature, so it is in `tokens` and not in `sentinels`
         tokens=(
             ("precipitation_amount_last_6h", "-0.1", 0.0),
             ("cloud_cover_total", "101", None),
             ("wind_direction_mean_last_10min", "0", None),
             ("wind_direction_mean_last_10min", "400", None),
+            # a tn12 that is the text of the tx12 beside it is a copy, no minimum
+            ("temperature_air_min_2m_last_12h", "303.75", None),
         ),
     ),
 ]
