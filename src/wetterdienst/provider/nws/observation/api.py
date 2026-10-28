@@ -57,6 +57,27 @@ _REPORT_MARKER = "precipitationlasthour"
 _PAGE_SIZE = 500
 # a report belongs to the full hour it is nearest to, so an hour reaches half an hour to either side of its full hour
 _HALF_HOUR = dt.timedelta(minutes=30)
+# The quantities a null of the kept observation is filled for, from the nearest other observation of the hour that has
+# the quantity (GH-3480). Measured on 15 stations over 5 days (read 2026-10-28, 1,766 station-hours), the kept METAR or
+# SPECI lacked the temperature in 31 hours (QC flag `Z`, no control) while a verified 5-minute row of the same hour,
+# a median 0 minutes from the full hour, had it; dew point, humidity, pressure, sea level pressure, visibility and the
+# precipitation sums were lost the same way, and the wind speed in 88 hours of 1,694 (5.2 %). Another row of the hour
+# is the same reading a few minutes apart. Not filled are the wind direction, the gust and the wind chill: a METAR
+# leaves the direction of a variable (VRB) wind out and the gust when there is none, and the wind chill exists in the
+# cold only, so the null is the report's answer and a value from another instant (up to 30 minutes away) would
+# contradict it.
+_FILLED_FROM_THE_HOUR = (
+    "temperature",
+    "dewpoint",
+    "relativehumidity",
+    "barometricpressure",
+    "sealevelpressure",
+    "visibility",
+    "windspeed",
+    "precipitationlasthour",
+    "precipitationlast3hours",
+    "precipitationlast6hours",
+)
 
 _NwsObservationMetadataSpec = {
     "name_short": "NWS",
@@ -188,24 +209,44 @@ def _one_report_per_hour(df: pl.DataFrame) -> pl.DataFrame:
     nothing, and `skip_empty` counts the rows of an hour by its truncated hour. Hours with no report at all keep the
     nearest 5-minute row. The result holds at most one row for each full hour, and for a day of 5-minute rows with
     one METAR an hour 24 rows.
+
+    A quantity the kept observation has no value for (a METAR whose temperature is not controlled yet, MADIS flag
+    `Z`) is taken from the other observation of the hour that has one: the nearest to the full hour, a report over a
+    5-minute row at the same distance, then the earlier. It comes whole, with the MADIS flag of the observation it is
+    taken from. Only the quantities of `_FILLED_FROM_THE_HOUR` are filled; the wind direction, the gust and the wind
+    chill stay as the kept observation has them, and a value the kept observation has is never replaced (GH-3480).
     """
     timestamp = pl.col("timestamp")
     hour = (timestamp + _HALF_HOUR).dt.truncate("1h")
+    df = df.with_columns(
+        hour.alias("_hour"),
+        pl.col(_REPORT_MARKER).is_not_null().alias("_report"),
+        (timestamp - hour).dt.total_microseconds().abs().alias("_distance"),
+    )
+    kept = df.sort(
+        ["_report", "_distance", "timestamp"],
+        descending=[True, False, False],
+        nulls_last=True,
+        maintain_order=True,
+    ).unique(subset="_hour", keep="first", maintain_order=True)
+    has_value = {name: pl.col(name).struct.field("value").is_not_null() for name in _FILLED_FROM_THE_HOUR}
+    donors = (
+        df.sort(["_distance", "_report", "timestamp"], descending=[False, True, False], maintain_order=True)
+        .group_by("_hour", maintain_order=True)
+        .agg(pl.col(name).filter(has_value[name]).first().alias(f"_donor_{name}") for name in _FILLED_FROM_THE_HOUR)
+    )
+    donor_columns = [f"_donor_{name}" for name in _FILLED_FROM_THE_HOUR]
     return (
-        df.with_columns(
-            hour.alias("_hour"),
-            pl.col(_REPORT_MARKER).is_not_null().alias("_report"),
-            (timestamp - hour).dt.total_microseconds().abs().alias("_distance"),
+        kept.join(donors, on="_hour", how="left", maintain_order="left")
+        .with_columns(
+            pl.when(~has_value[name] & pl.col(f"_donor_{name}").struct.field("value").is_not_null())
+            .then(pl.col(f"_donor_{name}"))
+            .otherwise(pl.col(name))
+            .alias(name)
+            for name in _FILLED_FROM_THE_HOUR
         )
-        .sort(
-            ["_report", "_distance", "timestamp"],
-            descending=[True, False, False],
-            nulls_last=True,
-            maintain_order=True,
-        )
-        .unique(subset="_hour", keep="first", maintain_order=True)
         .with_columns(pl.col("_hour").alias("timestamp"))
-        .drop("_hour", "_report", "_distance")
+        .drop("_hour", "_report", "_distance", *donor_columns)
     )
 
 

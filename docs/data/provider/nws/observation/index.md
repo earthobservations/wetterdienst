@@ -61,8 +61,10 @@ station-hour twice (GH-2857):
 3. of the reports the one nearest to the full hour is kept, and of two at the same distance the
    earlier one. That is the routine METAR, unless a SPECI was filed closer to the full hour: of
    the 25 hours of KDEN from 2026-10-14 12:00Z to 2026-10-15 12:00Z two keep a SPECI or a report of
-   another minute (00:05 and 05:56), which carries no sea level pressure. An hour that holds no
-   report at all keeps the 5-minute row nearest to its full hour.
+   another minute (00:05 and 05:56), which carries no sea level pressure of its own. An hour that holds no
+   report at all keeps the 5-minute row nearest to its full hour;
+4. a quantity the kept observation has no value for is filled from another observation of the
+   hour (see [Gaps of the kept observation](#gaps-of-the-kept-observation)).
 
 The kept observation is stamped with the full hour, 15:00 for the METAR of 14:54, as DWD and ECCC
 stamp their hourly readings. DWD's instant readings are those of about ten minutes before the stamp
@@ -78,6 +80,30 @@ endpoint is asked for half an hour more on either side, and what lies outside th
 after the choice, so the edge of a window holds what a longer window holds there, within the
 500-observation cap below.
 
+### Gaps of the kept observation
+
+The kept METAR or SPECI is not always complete: its temperature may not be controlled yet (MADIS
+flag `Z`, no value) while a verified 5-minute row of the same hour has one. In 15 stations over 5 days
+(read 2026-10-28, 1,766 station-hours) that was so for the temperature in 31 of 1,697 hours (1.8 %), and for
+the wind speed in 88 of 1,694 (5.2 %); the donor was a median 0 and 5 minutes from the full hour.
+For these quantities a missing value of the kept observation is therefore taken from the other
+observation of the same hour that has one, the nearest to the full hour (a report over a 5-minute row at
+the same distance, then the earlier), quantity by quantity, so two quantities of an hour may come from
+two rows (GH-3480):
+
+- filled: `temperature_air_2m`, `temperature_dew_point_2m`, `humidity_relative`,
+  `pressure_air_site_reduced`, `pressure_air_sea_level`, `visibility`, `wind_speed_mean_last_2min`,
+  `precipitation_amount_since_last_routine_report`, `precipitation_amount_last_3h` and
+  `precipitation_amount_last_6h`;
+- not filled: `wind_direction_mean_last_2min`, `wind_gust_max_last_10min` and
+  `temperature_wind_chill`. A METAR leaves the direction of a variable wind out, the gust when there is
+  none, and the wind chill is there in the cold only, so the null is the report's answer and a value of
+  another instant, up to 30 minutes away, would contradict it.
+
+A filled value comes with the `quality_flags` of the observation it is taken from, never with the
+`Z` of the one it fills, and a value the kept observation has is never replaced. An hour with one
+observation, or where no other observation has the quantity, keeps its null.
+
 How to read the values of the kept report:
 
 - `wind_speed`, `wind_direction`: the 2-minute averages ending at the report's time, not an hourly
@@ -92,9 +118,10 @@ How to read the values of the kept report:
   (GH-2841). A routine METAR therefore holds the full hour, and a series of these values is an
   hourly total except for an hour that keeps a SPECI, which holds the part that had fallen when it
   was filed (the hours of 00:00 and 06:00 at KDEN above). The 3- and 6-hour amounts are filed with
-  the synoptic METARs only and are empty in the others, and they are lost for an hour in which a
-  SPECI displaces the synoptic METAR (KDEN: the 6-hour amount of the 23:53 METAR, the 00Z one, is in
-  no row, because the report of 00:05 is nearer to 00:00);
+  the synoptic METARs only and are empty in the others; for an hour in which a SPECI displaces the
+  synoptic METAR they are taken from the METAR (KDEN: the 6-hour amount of the 23:53 METAR, the 00Z
+  one, is the value of 00:00, though the report of 00:05 is nearer to it and is the one kept), see
+  [Gaps of the kept observation](#gaps-of-the-kept-observation);
 - all other parameters are readings at the report's time.
 
 The endpoint answers at most 500 observations per request, about 40 hours, and the provider does
