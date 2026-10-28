@@ -16,6 +16,7 @@
   <a href="https://anaconda.org/conda-forge/wetterdienst"><img src="https://img.shields.io/conda/vn/conda-forge/wetterdienst.svg" alt="Conda version"/></a>
   <a href="https://pypi.org/project/wetterdienst/"><img src="https://img.shields.io/pypi/pyversions/wetterdienst.svg" alt="Python version compatibility"/></a>
   <a href="https://github.com/earthobservations/wetterdienst/blob/main/LICENSE.md"><img src="https://img.shields.io/github/license/earthobservations/wetterdienst" alt="Project license"/></a>
+  <a href="https://pepy.tech/projects/wetterdienst"><img src="https://static.pepy.tech/personalized-badge/wetterdienst?period=month&amp;units=international_system&amp;left_color=grey&amp;right_color=blue&amp;left_text=PyPI%20downloads/month" alt="PyPI downloads"/></a>
   <a href="https://doi.org/10.5281/zenodo.3960624"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.3960624.svg" alt="Citation reference"/></a>
 </p>
 
