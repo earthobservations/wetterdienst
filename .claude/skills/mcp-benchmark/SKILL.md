@@ -119,10 +119,19 @@ of a comparison and record it (`tools_list` in the results file), so the wire co
    mode), which `analyze` prints as `run_meta`: copy it into the results `meta`, so that even a run of the glossary (no
    metadata block in its answer) says which server it ran on. A subagent transcript with none of the server's tools in it
    (listed, deferred or called) is `invalid` as well. Do not recount these yourself.
-   A run that never ran (`run_subject.sh` exits 3, the server did not answer, or 124, the timeout; or any other failure
-   to start) is recorded with `bench.py failed-run --case <id> --tier <t> --repeat <n> --reason "..."`: an `invalid`
-   run with its reason, which the rates leave out and `report` counts, not a missing one and not a failure of the model.
-   A budget stop (exit 1, `end: error_max_budget_usd`) is a failed headline, not invalid.
+   A run that never ran because the server did not answer or listed no tool (`run_subject.sh` exit 3, or any failure to
+   start) is recorded with `bench.py failed-run --case <id> --tier <t> --repeat <n> --reason "..."`: an `invalid` run with
+   its reason, which the rates leave out and `report` counts. **A timeout (exit 124) is a failed run, not an invalid one**
+   (`--kind failed --reason timeout`): a strategy that makes the model slower must show as a failure, not disappear. The
+   timeout is capped at 540 s (`MCPBENCH_TIMEOUT`), under the 10 minutes `cleanup` waits for, since appending to a file does
+   not move the mtime of its directory. A budget stop (exit 1, `end: error_max_budget_usd`) is a failed headline, not invalid.
+   **Replacing runs.** One invalid run in 140 must not stop a comparison: `compare` weights the cases equally by their valid
+   runs when only invalid runs make the repeats differ (and says how many), and refuses above 3 % of them. To replace them,
+   `bench.py rerun --results FILE --out-dir DIR [--case ID] [--tier T]` (`--dry-run` lists them) runs the invalid runs and
+   the repeats missing from the `repeats` of the file again, with the prompt, model, server and label of its `meta`, and
+   puts the records in the file with `needs_judging`: they count as failed until you have judged them (`is_answer`,
+   `facts_ok`, `passed`, `format_violation`) and removed the flag; `report` warns until then. A headless file only, and only
+   while the cases and the prompt are unchanged.
 4. **Judge** what needs reading, per run (below), then write the results file, print the table with
    `bench.py report`, and the comparison with `bench.py compare <previous> <results>` when `previous` is given.
 
@@ -186,22 +195,32 @@ degrees Celsius as kelvin, and a change that makes the default answer compact (C
 unit over. The cases of kind `units` (`cases=kind:units`, 8 cases) require the answer to state the unit, and the right
 one. For a `unit` fact the judge reads the value **and** its unit from the *reference*'s `values` with
 `with_metadata=true`, and the glossary as a cross-check (`cross_check`), never from the server under test alone, and runs
-`bench.py unit`. The rules it applies: a figure of the answer is the value if it equals the judge's value in one of the
+`bench.py unit`. **The prompt asks for the structured part**, which is all the check reads: the answer ends with one line
+`RESULT: <number> <unit> | <what it is>` for each figure the question asks for (for a forecast, one per temperature named)
+and, for a table or CSV block, `TABLE-UNIT: <column> | <unit>` for each column that has a unit. The check is strict and
+deterministic: no sentence parsing, no table heuristics. A RESULT figure that equals the judge's value in one of the
 `accepted` units (`value * factor + offset`, within the fact's `tolerance` or `margin`, or the rounding of the figure as
-written, whichever is wider). Dates, times, years and station ids are not figures; `14,821` is 14821 and `0,84` is 0.84.
-**In prose** the unit must come directly after the figure (or in brackets after it: `-0.7 (°C)`); a comma or a word
-elsewhere in the sentence does not matter (`0.84, i.e. 84 %` passes on its `84 %`). A unit that belongs to another accepted
-unit than the one the number is in (`0.84 %` against 0.84 as a fraction), or one of `forbidden_tokens` (kelvin, whatever
-the figure), fails the answer; a figure with no unit after it neither passes nor fails. A one-letter unit (`s`, `C`, `F`,
-`h`) only counts directly after a figure, never as a letter in a sentence. For a **forecast** (a span) every figure
-followed by an accepted unit must lie in the span, so `20 °C, at night 45 °C` fails. **A table** (a markdown table, or
-two or more lines of CSV or TSV with the same number of cells; a line of prose with a comma is no row) is read by column:
-the value column is the first column with a cell that fits the first accepted unit in which any cell fits, the other
-cells (`1.6`, `2`) are not figures of the value, and the unit is the header of the column, the cell, or a sentence outside
-the table that names it (`The column is in millimetres.`); a forbidden unit in the header, or a sentence naming another
-accepted unit and none of the right one, fails. A pair marked `required` (Fahrenheit, when the question asks for it) must
-be there. The checkpoint `gets-the-unit` (`any_order`: before or after the values) lists the valid routes to the unit;
-the first checkpoint, reading the values, is the one required to pass.
+written; a figure of fewer than two significant digits gets no rounding, so `1` is not 0.8404 as a fraction) passes if its
+unit is one of that unit's tokens (any case: `°C`, `degC`, `Prozent`, ...). It fails with a **forbidden** unit (kelvin,
+whatever the figure), with another accepted unit than the one its number is in (`0.84 %` against 0.84 as a fraction,
+`14821 minutes`; only if the figure fits the first accepted unit, so another quantity such as `1.6 mm` is not a failure),
+with an unknown unit (`sun` is no `s`), with none, or when a second RESULT gives another figure for the same thing (a
+self-correction). For a **forecast** (a span) every RESULT figure written with an accepted unit must lie in the span.
+A column's `TABLE-UNIT` must name one of the unit tokens and some cell of a real table of the answer must equal the value
+in that unit; a `RESULT` line for the value is accepted too. Prose is judged by the other fact kinds as before.
+**The fallback.** An answer with no usable RESULT or TABLE-UNIT line is read tolerantly, as before: prose (the unit directly
+after the figure, in brackets, as `(unit °C)`, in brackets before it on its line, or alone on the line above), real tables
+(a markdown table, or two or more lines of the same cells with a separator row or a header without a digit; prose with
+commas is no table) by column, with the unit in the cell, the header, a `Unit` column, the row label or a sentence
+around it, and the same span rule for tables. It is reported as `unit_fallback` and **`format_violation`**: the model not
+following the format is a metric of its own (printed per case and tier as `format violations k/n`, and compared as
+the rate "follows the RESULT format"), not a silent pass, so that a token strategy that confuses the model shows up.
+Record `format_violation` (true if any unit fact of the run was read by the fallback or had a bare number or a malformed line)
+in the run. Because the prompt changed, **results files from before it are not comparable** (`compare` refuses on the
+prompt hash).
+A pair marked `required` (Fahrenheit, when the question asks for it) must be there. The checkpoint `gets-the-unit`
+(`any_order`: before or after the values) lists the valid routes to the unit; the first checkpoint, reading the values, is
+the one required to pass.
 A strategy that drops units from the default answer must pass them some other way, or these cases fail.
 
 **Reference `python`.** When you cannot reach a pinned server, read ground truth from the library of this checkout in a
@@ -224,7 +243,7 @@ into the repository, never committed). `bench.py report` and `compare` read it.
           "judge_model": "<the model you are>", "server": "<url or prefix>", "server_version": "0.178.0", "label": "<sha of the checkout, +dirty>",
           "reference": "<prefix or python>", "reference_version": "0.178.0", "claude_version": "2.1.308",
           "tools_deferred": false, "context_note": "<what remains in the context, per mode above>",
-          "repeats": 5, "cases_file": "<hash>", "defaults": "<hash>", "logic": 3, "prompt": "<hash>",
+          "repeats": 5, "cases_file": "<hash>", "defaults": "<hash>", "logic": "<LOGIC_VERSION of bench.py>", "prompt": "<hash>",
           "case_hashes": {"<case id>": "<hash>"}, "server_info": {"name": "Wetterdienst", "version": "0.178.0"},
           "tools_list": {"description": 9877, "inputSchema": 39311, "outputSchema": 210404}},
  "runs": [{"case": "...", "tier": "small", "repeat": 1,
@@ -259,8 +278,8 @@ collapsed on few runs could vanish in it. A case whose own rate fell by 40 point
 whatever the pooled verdict says. Each of the three decisions has a one-sided error of 2.5 %, so about 7 % per tier
 that one of them is wrong in the same direction; the per-case Fisher tests are **hints** only (little power at 5 runs).
 Not finding a difference is not "no worse": at a pass rate of 90 % it takes about 140 runs per side to show a margin of
-10 points (`required_runs`, printed for each of the three rates, the largest decides), and the full set (28 cases) at 5
-repeats is 140 runs a side per tier, about enough at 90 % and not enough at 80 %. Steps, tool-result characters, context
+10 points (`required_runs`, printed for each of the three rates, the largest decides), and the default full run is 27 cases, 135 runs a side per tier at 5 repeats, 270 in all
+(`needs_key` cases are skipped by default, so London is not in it), about enough at 90 % and not enough at 80 %. Steps, tool-result characters, context
 tokens at the first request, total and output tokens, and the calls whose result was saved to a file are printed as the
 median per case before and after and the paired difference. A token-efficiency change is "no worse and smaller" when
 all three rates are `no worse` and the sizes fell; the model, server, reference and Claude Code versions that differ

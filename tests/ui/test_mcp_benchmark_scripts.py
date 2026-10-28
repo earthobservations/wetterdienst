@@ -13,6 +13,7 @@ import http.server
 import importlib.util
 import json
 import math
+import sys
 import threading
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
@@ -389,7 +390,7 @@ def test_the_report_aggregates_repeats_and_pools_per_tier() -> None:
     """Per (case, tier): passes k/N, checkpoints, median and max steps, sizes; then one pooled row per tier."""
     table = bench.report(_results({("a", "small"): 4, ("b", "small"): 2}))
 
-    assert "| a [small] | 4/5 | 2/2 (4) | 5/10 | 0 | 4/5 | 1200 | 50 | 30000 | 90000 |" in table
+    assert "| a [small] | 4/5 | 2/2 (4) | 5/10 | 0 | 4/5 | 0/0 | 1200 | 50 | 30000 | 90000 | 0 |" in table
     assert "| **all cases [small]** | 6/10 |" in table
 
 
@@ -720,12 +721,9 @@ def test_dates_and_station_ids_are_no_figures_of_a_value() -> None:
     fact = _unit_fact("units-precipitation-mm")
     answer = "On 16 October 2026 at station 01975 (2026-10-16, 14:00 UTC) it was dry: 15.5 mm fell."
 
-    assert bench.unit_check(answer, fact, {"value": 15.5}) == {
-        "ok": True,
-        "ok_figures": ["15.5"],
-        "failures": [],
-        "required_missing": [],
-    }
+    result = bench.unit_check(answer, fact, {"value": 15.5})
+
+    assert (result["ok"], result["ok_figures"], result["failures"]) == (True, ["15.5"], [])
 
 
 def test_an_any_order_checkpoint_is_met_by_a_call_before_the_ones_it_follows() -> None:
@@ -1205,6 +1203,7 @@ def test_cleanup_removes_only_old_directories_of_this_benchmarks_runs(
     assert other_tmp.exists(), "a real project whose path holds the word is not a benchmark run"
     assert (target / "keep.txt").exists(), "a symlink is never followed"
     assert (root / f"{prefix}LINKED").is_symlink()
+    assert bench._remove_project_dir(f"{prefix}LINKED") is False, "a symlink is refused and not counted"  # noqa: SLF001
 
 
 def test_the_directory_of_a_run_is_removed_at_once_and_only_that_one(
@@ -1223,3 +1222,433 @@ def test_the_directory_of_a_run_is_removed_at_once_and_only_that_one(
     assert bench._remove_project_dir("-Users-x-mcpbench-subject-real-project") is False  # noqa: SLF001
     assert bench._remove_project_dir(f"../{prefix}XyZ987") is False  # noqa: SLF001
     assert theirs.exists()
+
+
+#: (case, what the judge read, an answer with RESULT lines, whether the unit check passes): read strictly and alone
+RESULT_ANSWERS = [
+    (
+        "units-kiel-celsius",
+        {"value": -0.7},
+        "The mean was -0.7 °C.\nRESULT: -0.7 °C | daily mean at Kiel-Holtenau",
+        True,
+    ),
+    ("units-kiel-celsius", {"value": -0.7}, "RESULT: -0.7 degC | daily mean", True),
+    ("units-kiel-celsius", {"value": -0.7}, "RESULT: \N{MINUS SIGN}0,7 °C | daily mean", True),
+    ("units-kiel-celsius", {"value": -0.7}, "RESULT: -0.7 °C | mean\nRESULT: -3.1 °C | the minimum", True),
+    ("units-kiel-celsius", {"value": -0.7}, "- RESULT: -0.7 °C | daily mean", True),
+    ("units-kiel-celsius", {"value": -0.7}, "It was -0.7 K in prose.\nRESULT: -0.7 °C | daily mean", True),
+    ("units-kiel-celsius", {"value": -0.7}, "It was -0.7 °C in prose.\nRESULT: -0.7 K | daily mean", False),
+    ("units-kiel-celsius", {"value": -0.7}, "RESULT: -0.7 K | daily mean", False),
+    ("units-kiel-celsius", {"value": -0.7}, "RESULT: -0.7 | daily mean", False),
+    ("units-kiel-celsius", {"value": -0.7}, "RESULT: 272.45 K | daily mean", False),
+    ("units-kiel-celsius", {"value": -0.7}, "RESULT: -0.7 °F | daily mean", False),
+    ("units-kiel-celsius", {"value": -0.7}, "RESULT: -0.7 °C | daily mean\nRESULT: 30.7 °C | daily mean", False),
+    ("units-kiel-celsius", {"value": -0.7}, "RESULT: -0.7 degrees | daily mean", False),
+    ("units-fahrenheit", {"value": -0.7}, "RESULT: 30.7 °F | daily mean", True),
+    ("units-fahrenheit", {"value": -0.7}, "RESULT: -0.7 °C | in Celsius\nRESULT: 30.7 °F | in Fahrenheit", True),
+    ("units-fahrenheit", {"value": -0.7}, "RESULT: -0.7 °C | daily mean", False),
+    ("units-fahrenheit", {"value": -0.7}, "RESULT: 30.7 K | daily mean", False),
+    ("units-fahrenheit", {"value": -0.7}, "RESULT: 33.3 °F | daily mean", False),
+    ("units-humidity-percent", {"value": 0.8404}, "RESULT: 84 % | mean relative humidity", True),
+    ("units-humidity-percent", {"value": 0.8404}, "RESULT: 84 Prozent | mean relative humidity", True),
+    ("units-humidity-percent", {"value": 0.8404}, "RESULT: 0.84 fraction | mean relative humidity", True),
+    ("units-humidity-percent", {"value": 0.8404}, "RESULT: 0.84 % | mean relative humidity", False),
+    ("units-humidity-percent", {"value": 0.8404}, "RESULT: 1 fraction | mean relative humidity", False),
+    ("units-humidity-percent", {"value": 0.8404}, "RESULT: 0.84 | mean relative humidity", False),
+    ("units-sunshine-seconds", {"value": 14821.2}, "RESULT: 14821.2 s | sunshine", True),
+    ("units-sunshine-seconds", {"value": 14821.2}, "RESULT: 14 821 s | sunshine", True),
+    ("units-sunshine-seconds", {"value": 14821.2}, "RESULT: 14,821 seconds | sunshine", True),
+    ("units-sunshine-seconds", {"value": 14821.2}, "RESULT: 1.48212e4 s | sunshine", True),
+    ("units-sunshine-seconds", {"value": 14821.2}, "RESULT: 14821 Sekunden | sunshine", True),
+    ("units-sunshine-seconds", {"value": 14821.2}, "RESULT: 4.1 h | sunshine", True),
+    ("units-sunshine-seconds", {"value": 14821.2}, "RESULT: 247 min | sunshine", True),
+    ("units-sunshine-seconds", {"value": 14821.2}, "RESULT: 14821 minutes | sunshine", False),
+    ("units-sunshine-seconds", {"value": 14821.2}, "RESULT: 14821 hours | sunshine", False),
+    ("units-sunshine-seconds", {"value": 14821.2}, "RESULT: 14821 sun | sunshine", False),
+    ("units-sunshine-seconds", {"value": 14821.2}, "RESULT: 14821 S | sunshine", True),
+    ("units-wind-speed", {"value": 3.0}, "RESULT: 3.0 m/s | mean wind speed", True),
+    ("units-wind-speed", {"value": 3.0}, "RESULT: 10.8 km/h | mean wind speed", True),
+    ("units-wind-speed", {"value": 3.0}, "RESULT: 3.0 km/h | mean wind speed", False),
+    ("units-wind-speed", {"value": 3.0}, "RESULT: 3 Bft | mean wind speed", False),
+    ("units-precipitation-mm", {"value": 15.5}, "RESULT: 15.5 mm | precipitation", True),
+    (
+        "units-precipitation-mm",
+        {"value": 15.5},
+        "RESULT: 15.5 mm | precipitation\nRESULT: 1.6 mm | the day before",
+        True,
+    ),
+    ("units-precipitation-mm", {"value": 15.5}, "RESULT: 15.5 cm | precipitation", False),
+    ("units-precipitation-mm", {"value": 15.5}, "RESULT: 15.5 inches | precipitation", False),
+    ("units-precipitation-mm", {"value": 15.5}, "RESULT: 15.5 | precipitation", False),
+    ("units-lax-forecast-celsius", {"min": 14.0, "max": 24.0}, "RESULT: 20 °C | 15:00\nRESULT: 21 °C | 18:00", True),
+    (
+        "units-lax-forecast-celsius",
+        {"min": 14.0, "max": 24.0},
+        "RESULT: 20 °C | 15:00\nRESULT: 45 °C | at night",
+        False,
+    ),
+    ("units-lax-forecast-celsius", {"min": 14.0, "max": 24.0}, "RESULT: 293 K | 15:00", False),
+    ("units-lax-forecast-celsius", {"min": 14.0, "max": 24.0}, "RESULT: 20 | 15:00", False),
+    (
+        "units-lax-forecast-celsius",
+        {"min": 14.0, "max": 24.0},
+        "RESULT: 68 °F | 15:00\nRESULT: 20 °C | 15:00 in Celsius",
+        True,
+    ),
+    # a table, with the unit of its column on a TABLE-UNIT line
+    (
+        "units-csv-with-unit",
+        {"value": 15.5},
+        "date,precipitation_amount\n2026-10-15,0.0\n2026-10-16,15.5\nTABLE-UNIT: precipitation_amount | mm",
+        True,
+    ),
+    (
+        "units-csv-with-unit",
+        {"value": 15.5},
+        "| date | precipitation_amount |\n|---|---|\n| 2026-10-16 | 15.5 |\n\nTABLE-UNIT: precipitation_amount | mm",
+        True,
+    ),
+    (
+        "units-csv-with-unit",
+        {"value": 15.5},
+        "date,precipitation_amount\n2026-10-15,1.6\n2026-10-16,15.5\n\nTABLE-UNIT: precipitation_amount | mm",
+        True,
+    ),
+    (
+        "units-csv-with-unit",
+        {"value": 15.5},
+        "date,precipitation_amount\n2026-10-16,15.5\n\nTABLE-UNIT: precipitation_amount | cm",
+        False,
+    ),
+    (
+        "units-csv-with-unit",
+        {"value": 15.5},
+        "date,precipitation_amount\n2026-10-16,15.5\n\nTABLE-UNIT: precipitation_amount | inches",
+        False,
+    ),
+    ("units-csv-with-unit", {"value": 15.5}, "TABLE-UNIT: precipitation_amount | mm", False),
+    ("units-csv-with-unit", {"value": 15.5}, "RESULT: 15.5 mm | precipitation on 2026-10-16", True),
+]
+
+
+@pytest.mark.parametrize(
+    ("case_id", "truth", "answer", "expected"),
+    [pytest.param(*row, id=f"{row[0]}-{i}") for i, row in enumerate(RESULT_ANSWERS)],
+)
+def test_the_result_lines_are_read_strictly_and_alone(
+    case_id: str,
+    truth: dict[str, float],
+    answer: str,
+    expected: bool,  # noqa: FBT001
+) -> None:
+    """A RESULT line with the right unit passes; the prose around it, right or wrong, does not decide."""
+    result = bench.unit_check(answer, _unit_fact(case_id), truth)
+
+    assert result["ok"] is expected, result
+    assert result["mode"] == "result"
+
+
+def test_every_unit_case_is_tried_with_result_lines_good_and_bad() -> None:
+    """Each unit case has RESULT-line answers of both kinds, as it has fallback ones."""
+    for case_id in {c["id"] for c in bench.load_cases()["cases"] if c["kind"] == "units"}:
+        verdicts = {row[3] for row in RESULT_ANSWERS if row[0] == case_id}
+        assert verdicts == {True, False}, case_id
+
+
+def test_an_answer_without_result_lines_is_read_tolerantly_and_reported() -> None:
+    """The fallback reads prose and tables, and says so: the format is a metric of its own, not a silent pass."""
+    fact = _unit_fact("units-kiel-celsius")
+    strict = bench.unit_check("RESULT: -0.7 °C | daily mean", fact, {"value": -0.7})
+    fallback = bench.unit_check("The daily mean was -0.7 °C.", fact, {"value": -0.7})
+    bare = bench.unit_check("RESULT: -0.7 | daily mean", fact, {"value": -0.7})
+    malformed = bench.unit_check("RESULT: about -0.7 °C | daily mean\nThe mean was -0.7 °C.", fact, {"value": -0.7})
+
+    assert (strict["mode"], strict["format_violation"], strict["ok"]) == ("result", False, True)
+    assert (fallback["mode"], fallback["format_violation"], fallback["unit_fallback"], fallback["ok"]) == (
+        "fallback",
+        True,
+        True,
+        True,
+    )
+    assert (bare["mode"], bare["format_violation"], bare["ok"]) == ("result", True, False)
+    assert (malformed["mode"], malformed["format_violation"]) == ("fallback", True)
+
+
+@pytest.mark.parametrize(
+    ("case_id", "truth", "answer", "expected"),
+    [
+        # a forecast table or list may carry no temperature outside the span, in the fallback too
+        (
+            "units-lax-forecast-celsius",
+            {"min": 14.0, "max": 24.0},
+            "| time | temp (°C) |\n|---|---|\n| 15:00 | 20 |\n| 18:00 | 45 |",
+            False,
+        ),
+        (
+            "units-lax-forecast-celsius",
+            {"min": 14.0, "max": 24.0},
+            "| time | temp |\n|---|---|\n| 15:00 | 20 °C |\n| 18:00 | 45 °C |",
+            False,
+        ),
+        (
+            "units-lax-forecast-celsius",
+            {"min": 14.0, "max": 24.0},
+            "- 15:00: 20 °C, clear\n- 18:00: 45 °C, clear",
+            False,
+        ),
+        (
+            "units-lax-forecast-celsius",
+            {"min": 14.0, "max": 24.0},
+            "| time | temp (°C) |\n|---|---|\n| 15:00 | 20 |\n| 18:00 | 21 |",
+            True,
+        ),
+        # prose over several lines with the same number of commas is prose, not a table
+        (
+            "units-kiel-celsius",
+            {"value": -0.7},
+            "- Mean at 2 m: -0.7 °C, the lowest of the week\n- Minimum at 2 m: -3.1 °C, at night",
+            True,
+        ),
+        (
+            "units-precipitation-mm",
+            {"value": 15.5},
+            "Precipitation at Hamburg on 16 October: 15.5 mm, a wet day\nPrevious day at Hamburg: 1.6 mm, light rain",
+            True,
+        ),
+        ("units-kiel-celsius", {"value": -0.7}, "- Mean: -0.7 K, as returned\n- Mean: -0.7 °C, converted", False),
+        # the unit in a column of its own, in a row label, or before the figure
+        (
+            "units-kiel-celsius",
+            {"value": -0.7},
+            "| Parameter | Value | Unit |\n|---|---|---|\n| temperature_air_mean_2m | -0.7 | °C |",
+            True,
+        ),
+        (
+            "units-kiel-celsius",
+            {"value": -0.7},
+            "| Parameter | Value | Unit |\n|---|---|---|\n| temperature_air_mean_2m | -0.7 | K |",
+            False,
+        ),
+        ("units-precipitation-mm", {"value": 15.5}, "date,precipitation_amount,unit\n2026-10-16,15.5,mm", True),
+        ("units-kiel-celsius", {"value": -0.7}, "| Parameter | Value |\n|---|---|\n| Mean (°C) | -0.7 |", True),
+        ("units-kiel-celsius", {"value": -0.7}, "Mean temperature (°C): -0.7", True),
+        ("units-kiel-celsius", {"value": -0.7}, "Temperature [°C]\n-0.7", True),
+        ("units-kiel-celsius", {"value": -0.7}, "Mean temperature [K]: -0.7", False),
+        ("units-kiel-celsius", {"value": -0.7}, "The mean was -0.7 (unit °C).", True),
+        # a figure with one significant digit is no rounded 0.8404
+        ("units-humidity-percent", {"value": 0.8404}, "The mean relative humidity was 1 (as a fraction).", False),
+        # thousands separators and exponents
+        ("units-sunshine-seconds", {"value": 14821.2}, "The sun shone for 14 821 s.", True),
+        ("units-sunshine-seconds", {"value": 14821.2}, "The sun shone for 14821\N{NARROW NO-BREAK SPACE}s.", True),
+        ("units-sunshine-seconds", {"value": 14821.2}, "The sun shone for 1.48212e4 s.", True),
+        ("units-sunshine-seconds", {"value": 14821.2}, "Die Sonne schien 14821 Sekunden.", True),
+        ("units-humidity-percent", {"value": 0.8404}, "Die Luftfeuchte war 84 Prozent.", True),
+    ],
+)
+def test_the_fallback_reads_the_layouts_models_use(
+    case_id: str,
+    truth: dict[str, float],
+    answer: str,
+    expected: bool,  # noqa: FBT001
+) -> None:
+    """Prose, lists and tables of several layouts, for an answer that left out the RESULT lines."""
+    result = bench.unit_check(answer, _unit_fact(case_id), truth)
+
+    assert result["ok"] is expected, result
+    assert result["mode"] == "fallback"
+    assert result["format_violation"] is True
+
+
+def test_the_one_letter_rule_holds_in_both_modes() -> None:
+    """`s` is a unit only as the unit of a figure: the `s` of `sun's` or a `sun` is none, in both modes."""
+    fact = _unit_fact("units-sunshine-seconds")
+    truth = {"value": 14821.2}
+
+    assert bench.unit_check("The sun's duration at Hamburg, 16 October 2026, was 14821.", fact, truth)["ok"] is False
+    assert bench.unit_check("RESULT: 14821 sun | sunshine", fact, truth)["ok"] is False
+    assert bench.unit_check("RESULT: 14821 s | sunshine", fact, truth)["ok"] is True
+    assert bench.unit_check("It shone 14821 s.", fact, truth)["ok"] is True
+
+
+def test_the_big_drop_boundary_is_inclusive() -> None:
+    """A case that fell by exactly 40 points (5/5 to 3/5) is named; one that fell by 20 is not."""
+    before = _results({("a", "small"): 5, ("b", "small"): 5})
+
+    assert "big drop in a [small]: passed 5/5 -> 3/5" in bench.compare(
+        before, _results({("a", "small"): 3, ("b", "small"): 5})
+    )
+    assert "big drop" not in bench.compare(before, _results({("a", "small"): 4, ("b", "small"): 5}))
+
+
+def test_a_drop_that_is_likely_worse_is_not_a_plain_inconclusive() -> None:
+    """126/140 to 100/140: the interval is below zero but not beyond the margin; it says more runs would decide."""
+    verdict, text = bench._non_inferiority("passed", 126, 140, 100, 140, 0.10)  # noqa: SLF001
+
+    assert verdict == "inconclusive"
+    assert "dropped: the whole interval is below zero but not beyond the margin" in text
+    assert "dropped" not in bench._non_inferiority("passed", 126, 140, 130, 140, 0.10)[1]  # noqa: SLF001
+
+
+def test_the_format_is_a_rate_of_its_own() -> None:
+    """A run that left out the RESULT lines is a format violation, counted and decided like the other rates."""
+    before = _results({("a", "small"): 50}, n=50)
+    after = _results({("a", "small"): 50}, n=50)
+    for run in before["runs"]:
+        run["format_violation"] = False
+    for i, run in enumerate(after["runs"]):
+        run["format_violation"] = i < 30
+
+    text = bench.compare(before, after)
+
+    assert "follows the RESULT format 50/50 -> 20/50" in text
+    assert "=> WORSE" in text
+    assert "30/50" in bench.report(after)
+
+
+def test_one_invalid_run_weights_the_cases_equally_instead_of_blocking_the_tier() -> None:
+    """Invalid runs within the 3 % are no reason for INCONCLUSIVE: cases count by their valid runs, and it says so."""
+    keys = {(f"c{i}", "small"): 50 for i in range(2)}
+    before = _results(keys, n=50)
+    after = _results(keys, n=50, invalid={("c0", "small"): 1})
+
+    text = bench.compare(before, after)
+
+    assert "INCONCLUSIVE, the number of valid runs per case differs" not in text
+    assert "every case is weighted equally by its valid runs, because 1 runs were invalid" in text
+    assert "=> NO WORSE" in text
+
+
+def test_a_timeout_is_a_failed_run_and_an_unreachable_server_an_invalid_one() -> None:
+    """A strategy that makes the model slower must show as a failure, not disappear from the rates."""
+    case = bench.find_case(bench.load_cases(), "glossary-temperature-air-mean-2m")
+    timed_out = bench.failed_run(case, "small", 1, "timeout", invalid=False)
+    unreachable = bench.failed_run(case, "small", 2, "the server did not answer (exit 3)")
+
+    assert (timed_out["invalid"], timed_out["failure"], timed_out["passed"]) == (False, "timeout", False)
+    assert (unreachable["invalid"], unreachable["invalid_reason"]) == (True, "the server did not answer (exit 3)")
+    assert bench.aggregate([timed_out, unreachable])["n"] == 1
+    assert bench.aggregate([timed_out, unreachable])["passed"] == 0
+
+
+def test_the_timeout_is_capped_below_the_age_cleanup_waits_for(tmp_path: Path, mcp_url: str) -> None:
+    """A run may not outlive the 10 minutes a directory must be old for `cleanup`: the cap is 540 s."""
+    prompt = tmp_path / "p.txt"
+    prompt.write_text("hi", encoding="utf-8")
+
+    assert bench.MAX_TIMEOUT < bench.CLEANUP_MIN_AGE
+    assert (
+        bench.run_subject(
+            "haiku", mcp_url, "wetterdienst", str(prompt), str(tmp_path / "o"), bench.MAX_TIMEOUT + 1, 0.1
+        )
+        == 2
+    )
+    assert bench.run_subject("haiku", mcp_url, "wetterdienst", str(prompt), str(tmp_path / "o"), 0, 0.1) == 2
+
+
+def _subagent_attachment(**names: list[str]) -> dict[str, Any]:
+    """Build the `deferred_tools_delta` attachment of a real subagent transcript: its keys, with names only."""
+    shape = {
+        "type": "deferred_tools_delta",
+        "addedNames": [],
+        "addedLines": [],
+        "removedNames": [],
+        "wireHiddenNames": [],
+        "readdedNames": [],
+        "surfacedNames": [],
+        "surfacedDefinitions": [],
+    }
+    return {"type": "attachment", "attachment": {**shape, **names}}
+
+
+@pytest.mark.parametrize("key", ["addedNames", "surfacedNames", "readdedNames"])
+def test_the_servers_tools_are_visible_in_any_list_of_a_real_subagent_transcript(tmp_path: Path, key: str) -> None:
+    """After the judge pre-loads the tools, a subject's tools are `surfaced`, not `added`: it is still a valid run."""
+    names = [f"{PREFIX}{tool}" for tool in ("stations", "values", "glossary")]
+    shown = bench.parse_transcript(_stream(tmp_path, _subagent_attachment(**{key: names})), PREFIX)
+    hidden = bench.parse_transcript(_stream(tmp_path, _subagent_attachment(), name="h.jsonl"), PREFIX)
+    other = bench.parse_transcript(
+        _stream(tmp_path, _subagent_attachment(addedNames=["WebFetch", "mcp__claude_ai_Gmail__x"]), name="o.jsonl"),
+        PREFIX,
+    )
+
+    assert shown["invalid"] is False
+    assert hidden["invalid"] is True
+    assert other["invalid"] is True
+
+
+def test_a_subject_that_made_no_call_is_not_dropped_as_invalid(tmp_path: Path) -> None:
+    """The failure a pass guards against (an answer with no tool call) must reach the rates, not vanish."""
+    names = [f"{PREFIX}values"]
+    run = bench.parse_transcript(_stream(tmp_path, _subagent_attachment(surfacedNames=names)), PREFIX)
+    verdict = bench.evaluate(CASE, {**run, "answer": "From memory: 20 C."}, DEFAULTS)
+
+    assert run["steps"] == 0
+    assert run["invalid"] is False
+    assert verdict["mechanical_pass"] is False
+
+
+def test_rerun_fills_in_the_invalid_runs_and_the_missing_repeats(
+    tmp_path: Path, mcp_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The invalid and missing repeats are run again, replace their records, and wait for the judge."""
+    fake = tmp_path / "claude"
+    tool = f"{PREFIX}glossary"
+    lines = [
+        {
+            "type": "system",
+            "subtype": "init",
+            "tools": [tool],
+            "mcp_servers": [{"name": "wetterdienst", "status": "connected"}],
+        },
+        _use("glossary", "a", parameter="temperature_air_mean_2m"),
+        _result("a", "[]"),
+        {"type": "result", "result": "mean air temperature, degree Celsius"},
+    ]
+    fake.write_text(
+        f"#!{sys.executable}\nimport sys\nif sys.argv[1] == '--version':\n    print('9.9.9')\nelse:\n"
+        + "".join(f"    print({json.dumps(json.dumps(line))})\n" for line in lines),
+        encoding="utf-8",
+    )
+    fake.chmod(0o755)
+    monkeypatch.setattr(bench.shutil, "which", lambda _name: str(fake))
+    monkeypatch.setattr(bench.Path, "home", classmethod(lambda _cls: tmp_path / "home"))
+    data = bench.load_cases()
+    case = bench.find_case(data, "glossary-temperature-air-mean-2m")
+    results = _results({(case["id"], "small"): 1}, n=1)
+    results["meta"].update(
+        {
+            "server": mcp_url,
+            "models": {"small": "haiku"},
+            "date": "2026-10-28",
+            "repeats": 3,
+            "prompt": bench.prompt_version(),
+            "case_hashes": {case["id"]: bench.hashes(data)["cases"][case["id"]]},
+        }
+    )
+    results["runs"][0]["repeat"] = 1
+    results["runs"].append(bench.failed_run(case, "small", 2, "the server did not answer (exit 3)"))
+    path = tmp_path / "results.json"
+    path.write_text(json.dumps(results), encoding="utf-8")
+
+    assert bench.rerun_targets(results) == [(case["id"], "small", 2), (case["id"], "small", 3)]
+    assert bench.rerun(path, tmp_path / "out", None, None, dry_run=True) == 0
+    assert bench.rerun(path, tmp_path / "out", None, None) == 0
+
+    after = json.loads(path.read_text(encoding="utf-8"))
+    again = sorted((r["repeat"], r["invalid"], r.get("needs_judging"), r["steps"]) for r in after["runs"])
+    assert again == [(1, False, None, 2), (2, False, True, 1), (3, False, True, 1)]
+    assert bench.rerun_targets(after) == []
+    assert "2 runs were re-run and still need judging" in bench.report(after)
+
+
+def test_the_default_full_run_is_the_cases_that_need_no_key() -> None:
+    """The skill and the docs state how many cases and runs a default full run is; the number is the file's."""
+    cases = bench.load_cases()["cases"]
+    n = sum(1 for c in cases if not c["needs_key"])
+    skill = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
+    docs = (Path(__file__).parents[2] / "docs" / "contribution" / "mcp-benchmark.md").read_text(encoding="utf-8")
+    phrase = f"{n} cases, {5 * n} runs a side per tier at 5 repeats, {10 * n} in all"
+
+    assert n < len(cases)
+    assert phrase in skill
+    assert phrase in docs

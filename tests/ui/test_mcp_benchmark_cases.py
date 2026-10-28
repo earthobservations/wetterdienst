@@ -70,7 +70,7 @@ FACT_FIELDS: dict[str, set[str]] = {
 }
 OPTIONAL_FACT_FIELDS = {"id", "description", "kind", "expected", "future_only", "answer_matches_any_of"}
 #: what a `unit` fact has besides: the judge's tolerance or margin, units that fail whatever the figure, the glossary
-UNIT_FACT_FIELDS = {"tolerance", "margin", "forbidden_tokens", "cross_check"}
+UNIT_FACT_FIELDS = {"tolerance", "margin", "forbidden_tokens", "cross_check", "column"}
 PAIR_FIELDS = {"tokens", "factor", "offset", "required"}
 CHECKPOINT_FIELDS = {"id", "description", "match", "any_order"}
 FORBIDDEN_KINDS = {"call", "repeat", "answer"}
@@ -495,6 +495,11 @@ def _check_unit_fact(fid: str, fact: dict[str, Any]) -> list[str]:  # noqa: C901
     truth = fact.get("ground_truth", {}).get("call", {}) if isinstance(fact.get("ground_truth"), dict) else {}
     if truth.get("tool") == "values" and truth.get("args", {}).get("with_metadata") is not True:
         found.append(f"{fid} reads the value without with_metadata=true, so it has no unit from the reference")
+    if "column" in fact:
+        try:
+            re.compile(fact["column"])
+        except (re.error, TypeError):
+            found.append(f"{fid} has a column that is no regex: {fact['column']!r}")
     check = fact.get("cross_check")
     if check is not None and not (isinstance(check, dict) and check.get("tool") == "glossary"):
         found.append(f"{fid} has a cross_check that is no glossary call")

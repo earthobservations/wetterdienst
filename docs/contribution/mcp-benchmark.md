@@ -73,6 +73,13 @@ the header of a table; a unit that belongs to another accepted unit than the one
 fails). A strategy that drops the unit from the default answer, a compact or columnar `values`, must pass it some
 other way, or these cases fail: the CSV case is the guard for it.
 
+**The answer format.** The prompt asks every answer that gives a number to end with one line
+`RESULT: <number> <unit> | <what it is>` per figure (and `TABLE-UNIT: <column> | <unit>` per column of a table), and the
+unit check reads only those lines, strictly and deterministically. An answer without them is read tolerantly (prose and
+tables) and counted as a **format violation**: whether the model follows the format is a metric of its own, printed and
+compared per tier, so that a token strategy that confuses the model shows up. The prompt is part of the hash, so
+results files from before the format are not comparable with later ones.
+
 ## Read the result
 
 | column | what it is |
@@ -92,18 +99,19 @@ percentage points, "WORSE" if the upper bound is below minus 10 points, "inconcl
 margin is said as such). The pool is only valid if every case has the same number of valid runs on both sides, else it
 prints INCONCLUSIVE with the reason, and a case whose own rate fell by 40 points is named whatever the verdict says.
 Not finding a difference is not "no worse": at a pass rate of 90 % it takes about 140 runs per side to show a margin of 10
-points, which the output prints for each rate next to the runs there are; the full set of 28 cases at 5 repeats is 140
-runs a side per tier. The Fisher test per case is a hint only. It **refuses** (exit code 4) when the prompt, the logic
+points, which the output prints for each rate next to the runs there are; the default full run is 27 cases, 135 runs a side per tier at 5 repeats, 270 in all
+(the case that needs a key is skipped). The Fisher test per case is a hint only. It **refuses** (exit code 4) when the prompt, the logic
 version of `bench.py`, the defaults, the mode (headless or subagent) or the deferral of the tools differ, when the two
 sides report one version and carry no differing `label`, or when more than 3 % of the compared runs are invalid (the server
 was not connected: those runs are left out of the rates and counted; a run that never ran is recorded with
-`bench.py failed-run`); a tier whose resolved model ids differ is not compared. It compares only cases whose hash is
+`bench.py failed-run`; a timeout is a failed run, not an invalid one); a tier whose resolved model ids differ is not compared. It compares only cases whose hash is
 unchanged and says how many it left out (only in the current file, changed, only in the previous file). Sizes
 (tool-result characters, context tokens at the first request, total and output tokens, calls whose result was saved to a
 file) are printed as medians per case before and after and the paired difference.
 
 `run_subject.sh` stops with exit code 3 before a model is paid for when the MCP URL does not answer, 124 after a
-timeout (`MCPBENCH_TIMEOUT`, default 300 s), and ends a run at `MCPBENCH_MAX_USD` (default 0.50, checked with 0.001: it
+timeout (`MCPBENCH_TIMEOUT`, default 300 s, at most 540: `cleanup` waits 10 minutes before it takes a directory for a
+finished run), and ends a run at `MCPBENCH_MAX_USD` (default 0.50, checked with 0.001: it
 stops after the first turn). It removes the temporary directory and the project directory Claude Code makes for it in
 `~/.claude/projects`; `bench.py cleanup` removes what an interrupted run left. A tool result above the limit of Claude
 Code is saved to a file the tested agent cannot open (it has no Read tool); the transcript then holds a notice, and

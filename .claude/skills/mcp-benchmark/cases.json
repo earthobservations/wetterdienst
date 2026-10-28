@@ -1899,6 +1899,7 @@
                 "degree Celsius",
                 "degree_celsius",
                 "Celsius",
+                "Grad Celsius",
                 "C"
               ],
               "factor": 1
@@ -2048,6 +2049,7 @@
                 "degree Celsius",
                 "degree_celsius",
                 "Celsius",
+                "Grad Celsius",
                 "C"
               ],
               "factor": 1
@@ -2141,7 +2143,7 @@
               "tokens": ["fraction", "(a fraction)", "a fraction", "as a fraction", "decimal", "dimensionless"],
               "factor": 1
             },
-            {"tokens": ["%", "percent", "per cent", "per-cent"], "factor": 100}
+            {"tokens": ["%", "percent", "per cent", "per-cent", "Prozent"], "factor": 100}
           ],
           "forbidden_tokens": [],
           "tolerance": 0.005,
@@ -2227,7 +2229,7 @@
           },
           "cross_check": {"tool": "glossary", "args": {"parameter": "sunshine_duration", "limit": 3}},
           "accepted": [
-            {"tokens": ["s", "sec", "secs", "second", "seconds"], "factor": 1},
+            {"tokens": ["s", "sec", "secs", "second", "seconds", "Sekunden", "Sekunde"], "factor": 1},
             {"tokens": ["min", "mins", "minute", "minutes"], "factor": 0.016667},
             {"tokens": ["h", "hr", "hrs", "hour", "hours"], "factor": 0.000277778}
           ],
@@ -2422,6 +2424,7 @@
                 "millimeters",
                 "millimetre",
                 "millimetres",
+                "Millimeter",
                 "l/m²",
                 "l/m2",
                 "liters per square meter",
@@ -2497,7 +2500,7 @@
       "facts": [
         {
           "id": "value-with-its-unit",
-          "description": "the answer's table (or text) gives 15.5 for 16 October with the unit mm, in the header of the column or in a sentence naming the column",
+          "description": "the answer's table has 15.5 for 16 October and a TABLE-UNIT line gives the precipitation column the unit mm (or the answer's RESULT line does)",
           "kind": "unit",
           "ground_truth": {
             "call": {
@@ -2514,6 +2517,7 @@
             "pick": "the value, and the unit of the parameter in `metadata.parameters[].unit`"
           },
           "cross_check": {"tool": "glossary", "args": {"parameter": "precipitation_amount", "limit": 3}},
+          "column": "precipitation",
           "accepted": [
             {"tokens": ["mm", "millimeter", "millimeters", "millimetre", "millimetres", "l/m²", "l/m2"], "factor": 1},
             {"tokens": ["cm", "centimeter", "centimeters", "centimetre", "centimetres"], "factor": 0.1}
@@ -2638,6 +2642,7 @@
                 "degree Celsius",
                 "degree_celsius",
                 "Celsius",
+                "Grad Celsius",
                 "C"
               ],
               "factor": 1
