@@ -15,7 +15,8 @@ import polars as pl
 from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.model.metadata import DatasetModel, ParameterModel
+from wetterdienst.model.fetch_ahead import FilesAhead
+from wetterdienst.model.metadata import DatasetModel, ParameterModel, group_parameters_by_dataset
 from wetterdienst.model.quality_flags import SPEED_BESIDE, Sentinel, calm, join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
@@ -24,6 +25,8 @@ from wetterdienst.provider.smhi.observation.parser import parse_smhi_csv
 from wetterdienst.util.network import as_outage, download_file, download_files
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
+
     from wetterdienst.settings import Settings
     from wetterdienst.util.network import File
 
@@ -66,7 +69,29 @@ _CLOUD_COVER_SKY_OBSCURED = Sentinel("113")
 _CLOUD_COVER_PARAMETER = "16"
 
 
-def _fetch(url: str, settings: Settings, ttl: CacheExpiry = CacheExpiry.FIVE_MINUTES) -> bytes | Exception:
+#: the expiry the series are downloaded with: the data is rolling, so it is short
+_SERIES_TTL = CacheExpiry.FIVE_MINUTES
+
+
+def _series_names(name_original: str) -> tuple[str, ...]:
+    """Give the SMHI parameters whose series are read for one: the parameter, and the speed beside a direction."""
+    speed = _WIND_SPEED_OF_DIRECTION.get(name_original)
+    return (name_original,) if speed is None else (name_original, speed)
+
+
+def _series_urls(station_id: str, name_original: str, resolution: Resolution) -> dict[str, str]:
+    """Give the URL of the series of one parameter of a station for each period of the resolution.
+
+    The one place they are put together: `SmhiObservationValues._read_series` downloads them and
+    `SmhiObservationValues._files_ahead` names them for the fetch-ahead (GH-3507).
+    """
+    return {
+        period: f"{_BASE_URL}/parameter/{name_original}/station/{station_id}/period/{period}/data.csv"
+        for period in _PERIODS_BY_RESOLUTION[resolution]
+    }
+
+
+def _fetch(url: str, settings: Settings, ttl: CacheExpiry = _SERIES_TTL) -> bytes | Exception:
     """Download an SMHI resource (CSV data or the station-list JSON), returning bytes or the error.
 
     Callers decide how to treat failures -- e.g. _collect_parameter suppresses a 404 (station
@@ -88,6 +113,24 @@ def _fetch(url: str, settings: Settings, ttl: CacheExpiry = CacheExpiry.FIVE_MIN
 
 class SmhiObservationValues(TimeseriesValues):
     """Values class for SMHI observation data."""
+
+    def _files_ahead(self, station_id: str, datasets: Sequence[DatasetModel]) -> FilesAhead:
+        """Name the series files of the station, which `_read_series` downloads (GH-3507).
+
+        One file for each period of the resolution and each requested parameter, and for a wind direction the file of
+        the speed beside it, which is read whether or not it was asked for. A station without the file of a direction
+        has its speed fetched for nothing, as the collection does not go on to it.
+        """
+        urls: dict[str, None] = {}
+        for dataset, parameters in group_parameters_by_dataset(
+            cast("Iterable[ParameterModel]", self.sr.request.parameters)
+        ):
+            if dataset not in datasets:
+                continue
+            for parameter in parameters:
+                for name in _series_names(parameter.name_original):
+                    urls.update(dict.fromkeys(_series_urls(station_id, name, dataset.resolution.value).values()))
+        return FilesAhead(urls=list(urls), ttl=_SERIES_TTL)
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -119,8 +162,9 @@ class SmhiObservationValues(TimeseriesValues):
         # the 0 of a calm wind and the 113 of a cloud cover are mapped before the value is read as a number, and
         # stay as a `raw:` token
         sentinels: tuple[Sentinel, ...] = ()
-        speed = _WIND_SPEED_OF_DIRECTION.get(parameter.name_original)
-        if speed is not None:
+        _, *beside = _series_names(parameter.name_original)
+        if beside:
+            (speed,) = beside
             # the speed of the same reading, which a station without it leaves null: a 0 beside it is no calm
             speeds = self._read_series(station_id, speed, resolution, settings)
             if speeds.is_empty():
@@ -144,10 +188,8 @@ class SmhiObservationValues(TimeseriesValues):
     @staticmethod
     def _read_series(station_id: str, name_original: str, resolution: Resolution, settings: Settings) -> pl.DataFrame:
         """Read the series of one parameter of a station, of every period, one row per timestamp as SMHI writes it."""
-        periods = _PERIODS_BY_RESOLUTION[resolution]
         frames = []
-        for period in periods:
-            url = f"{_BASE_URL}/parameter/{name_original}/station/{station_id}/period/{period}/data.csv"
+        for period, url in _series_urls(station_id, name_original, resolution).items():
             payload = _fetch(url, settings)
             if isinstance(payload, Exception):
                 # a 404 (FileNotFoundError) just means this station doesn't report this
