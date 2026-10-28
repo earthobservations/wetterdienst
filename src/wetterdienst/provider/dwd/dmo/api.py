@@ -666,8 +666,10 @@ class DwdDmoRequest(TimeseriesRequest):
     _coverage_cache: dict[str, set[str] | None] = dataclasses.field(default_factory=dict, repr=False)
     _placemark_cache: dict[str, pl.DataFrame | None] = dataclasses.field(default_factory=dict, repr=False)
     # whether the caller named a lead time: the request reads the short one where none was named, which is no
-    # asking (`parameter-without-rows` says what was asked for)
-    _lead_time_asked: bool = dataclasses.field(default=False, init=False, repr=False, compare=False)
+    # asking (`parameter-without-rows` says what was asked for). An argument so that `dataclasses.replace`, which
+    # hands over the lead time the request resolved to, hands this over as well; None, a request made by a caller,
+    # is worked out from the lead time given
+    _lead_time_asked: bool | None = dataclasses.field(default=None, repr=False, compare=False, kw_only=True)
 
     _url = (
         "https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/kml/"
@@ -809,7 +811,8 @@ class DwdDmoRequest(TimeseriesRequest):
             parse_enumeration_from_template(self.station_group, DwdDmoStationGroup)
             or DwdDmoStationGroup.SINGLE_STATIONS
         )
-        self._lead_time_asked = self.lead_time is not None
+        if self._lead_time_asked is None:
+            self._lead_time_asked = self.lead_time is not None
         self.lead_time = parse_enumeration_from_template(self.lead_time, DwdDmoLeadTime) or DwdDmoLeadTime.SHORT
         issue: str | dt.datetime | DwdForecastDate = self.issue
         # a datetime names no member of the enumeration, so only a string or a member is looked up

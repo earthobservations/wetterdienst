@@ -32,6 +32,7 @@ from tests.provider.metno.frost.test_values_failures import _failed as _frost_an
 from tests.provider.metno.frost.test_values_failures import _values as _frost_values
 from tests.provider.smhi.observation.test_api_download_failure import _STATION
 from tests.provider.smhi.observation.test_api_download_failure import _request as _smhi_request
+from tests.provider.value_stubs import stations_result
 from wetterdienst.provider.aemet.observation import api as aemet_api
 from wetterdienst.provider.smhi.observation import api as smhi_api
 from wetterdienst.util.network import File, _failed_file
@@ -254,3 +255,361 @@ def test_fmi_values_say_nothing_of_an_exception_report(
     start = dt.datetime(2024, 1, 1, tzinfo=dt.UTC)
     assert _fmi_values("hourly", start, start + dt.timedelta(hours=1)).is_empty()
     assert len(_told()) == (1 if told else 0)
+
+
+# the sites that a provider gives up on a file at, one test each: a note removed must fail one of them
+
+
+def _frost_kind(url: str) -> str:
+    """Tell which of the requests of Frost's values a URL is: the batch, one parameter, the listing, a series."""
+    if "availableTimeSeries" in url:
+        return "available"
+    if "timeseriesids=" in url:
+        return "series"
+    return "batch" if "," in url.split("elements=")[1].split("&", maxsplit=1)[0] else "single"
+
+
+def _empty_body(url: str) -> File:
+    return File(url=url, content=BytesIO(b""), status=200)
+
+
+_FROST_ANSWERS = {
+    "batch empty": {"batch": _empty_body},
+    "single empty": {"single": _empty_body},
+    "available empty": {"available": _empty_body},
+    "series 404": {"series": lambda url: _frost_answer(url, 404)},
+    "series empty": {"series": _empty_body},
+}
+
+
+def _frost_listing(url: str) -> File:
+    from tests.provider.metno.frost.test_values_failures import AVAILABLE  # noqa: PLC0415
+    from tests.provider.metno.frost.test_values_failures import _ok as frost_ok  # noqa: PLC0415
+
+    return frost_ok(url, AVAILABLE)
+
+
+@pytest.mark.parametrize("case", _FROST_ANSWERS)
+def test_frost_values_say_nothing_of_a_body_that_is_empty_or_a_series_that_is_gone(
+    monkeypatch: pytest.MonkeyPatch, case: str
+) -> None:
+    """A 200 with no body, and a series the listing just named that is not there, are files let go."""
+    answers = {
+        "batch": lambda url: _frost_answer(url, 404),
+        "single": lambda url: _frost_answer(url, 404),
+        "available": _frost_listing,
+        "series": lambda url: _frost_answer(url, 404),
+        **_FROST_ANSWERS[case],
+    }
+
+    values, _seen = _frost_values(monkeypatch, lambda url: answers[_frost_kind(url)](url))
+    begin_response()
+    assert values.all().df.is_empty()
+    assert _told() == []
+
+
+def test_frost_values_tell_of_a_series_that_frost_answers_has_no_data(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A 412 for a series is Frost's answer for none, and is told."""
+
+    def observations(url: str) -> File:
+        kind = _frost_kind(url)
+        if kind == "available":
+            return _frost_listing(url)
+        return _frost_answer(url, 412 if kind == "series" else 404)
+
+    values, _seen = _frost_values(monkeypatch, observations)
+    begin_response()
+    assert values.all().df.is_empty()
+    assert len(_told()) == 1
+
+
+# AEMET: the link of the data that an envelope of 200 named is not there
+
+
+def test_aemet_values_say_nothing_of_a_link_of_the_data_that_is_not_there(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An envelope that says 200 and a link that answers 404: the chunk is let go, not AEMET's answer of no data."""
+    link = "https://opendata.aemet.es/opendata/sh/0123abc"
+
+    def answer(url: str) -> File:
+        return _failed_file(url, FileNotFoundError(url)) if url == link else _envelope(url, 200, datos=link)
+
+    _aemet_serving(monkeypatch, answer)
+    begin_response()
+    assert _values("daily", years=1).is_empty()
+    assert _told() == []
+
+
+# dwd/road: a group of stations is read from one set of files, and each of its stations is told
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+@pytest.mark.parametrize(
+    "contents",
+    [
+        pytest.param([FileNotFoundError("x"), FileNotFoundError("x")], id="both withdrawn"),
+        pytest.param([FileNotFoundError("x"), BytesIO(b"x" * 142)], id="one withdrawn and one empty"),
+    ],
+)
+def test_road_weather_names_none_of_the_stations_of_a_group_a_file_of_which_was_withdrawn(
+    monkeypatch: pytest.MonkeyPatch, contents: list[Any]
+) -> None:
+    """The group is read once and cached for the stations after the first: it is let go for each of them."""
+    _stub_downloads(monkeypatch, contents, status=404)
+    begin_response()
+    assert _stub_stations(("A006", "A007")).values().all().df.is_empty()
+    assert _told() == []
+
+
+# dwd/observation and dwd/derived: a file the index listed that is not there
+
+
+@pytest.mark.parametrize("family", ["observation", "derived"])
+@pytest.mark.parametrize(("status", "raises"), [(404, False), (503, True)])
+def test_dwd_downloads_let_go_a_file_the_index_listed_that_is_not_there(
+    monkeypatch: pytest.MonkeyPatch, family: str, status: int, *, raises: bool
+) -> None:
+    """A 404 for a listed file is one withdrawn since; any other failure is an outage and raises, as it did."""
+    import polars as pl  # noqa: PLC0415
+
+    from wetterdienst import Settings  # noqa: PLC0415
+    from wetterdienst.exceptions import DownloadError  # noqa: PLC0415
+    from wetterdienst.provider.dwd.derived import download as derived_download  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation import download as observation_download  # noqa: PLC0415
+    from wetterdienst.util.response_warnings import collecting  # noqa: PLC0415
+
+    module = observation_download if family == "observation" else derived_download
+    function = (
+        observation_download.download_climate_observations_data
+        if family == "observation"
+        else derived_download.download_climate_derived_data
+    )
+    url = "https://opendata.dwd.de/climate_environment/CDC/x/produkt.zip"
+    content: Exception = DownloadError(url, "down") if raises else FileNotFoundError(url)
+    monkeypatch.setattr(module, "download_files", lambda **_kwargs: [File(url=url, content=content, status=status)])
+    letting_go: list[bool] = []
+
+    with collecting(letting_go.append):
+        if raises:
+            with pytest.raises(DownloadError):
+                function(pl.Series([url]), Settings(cache_disable=True))
+        else:
+            assert function(pl.Series([url]), Settings(cache_disable=True)) == []
+
+    assert bool(letting_go) is not raises
+
+
+# the parsers of dwd/observation and dwd/derived: a file that would not parse
+
+
+@pytest.mark.parametrize("family", ["observation", "derived"])
+@pytest.mark.parametrize("error", ["schema", "value"])
+def test_dwd_parsers_let_go_a_file_that_would_not_parse(
+    monkeypatch: pytest.MonkeyPatch, family: str, error: str
+) -> None:
+    """A file polars cannot read is skipped by the parser, which says so."""
+    import polars as pl  # noqa: PLC0415
+
+    from wetterdienst.metadata.period import Period  # noqa: PLC0415
+    from wetterdienst.provider.dwd.derived import parser as derived_parser  # noqa: PLC0415
+    from wetterdienst.provider.dwd.derived.metadata import DwdDerivedMetadata  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation import parser as observation_parser  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata  # noqa: PLC0415
+    from wetterdienst.util.response_warnings import collecting  # noqa: PLC0415
+
+    def broken(**_kwargs: object) -> None:
+        raise pl.exceptions.SchemaError("x") if error == "schema" else ValueError("x")
+
+    monkeypatch.setattr(pl, "scan_csv", broken)
+    file = File(url="https://example.org/produkt.txt", content=BytesIO(b"a;b\n1;2\n"), status=200)
+    letting_go: list[bool] = []
+
+    with collecting(letting_go.append):
+        if family == "observation":
+            observation_parser._parse_climate_observations_data(  # noqa: SLF001
+                file, DwdObservationMetadata.daily.climate_summary, Period.RECENT
+            )
+        else:
+            derived_parser._parse_climate_derived_data(file, next(iter(DwdDerivedMetadata["daily"])))  # noqa: SLF001
+
+    assert letting_go == [False]
+
+
+# the rest of the sites: SMHI's CSV, POI, Météo-France, SWSMOS, WSV
+
+
+def test_smhi_values_say_nothing_of_a_file_that_would_not_parse(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A CSV block the parser raises on is skipped by the provider, which says so."""
+
+    def download_files(urls: list[str], **_: object) -> list[File]:
+        body = json.dumps({"station": [_STATION]}).encode()
+        return [File(url=url, content=BytesIO(body), status=200) for url in urls]
+
+    def boom(_text: str) -> None:
+        msg = "malformed"
+        raise ValueError(msg)
+
+    monkeypatch.setattr(smhi_api, "download_files", download_files)
+    monkeypatch.setattr(smhi_api, "download_file", lambda url, **_: File(url=url, content=BytesIO(b"x"), status=200))
+    monkeypatch.setattr(smhi_api, "parse_smhi_csv", boom)
+    begin_response()
+    assert _smhi_request().values().all().df.is_empty()
+    assert _told() == []
+
+
+_POI_NO_ROWS = (
+    "surface observations;Parameter description;wind_speed_mean_last_10min\n"
+    "10147;Unit;km/h\n"
+    "Datum;Uhrzeit (UTC);Windgeschwindigkeit\n"
+).encode("latin-1")
+
+
+@pytest.mark.parametrize(
+    ("file", "told"),
+    [
+        pytest.param(lambda url: File(url=url, content=FileNotFoundError(url), status=404), False, id="withdrawn"),
+        pytest.param(lambda url: File(url=url, content=BytesIO(b""), status=200), False, id="empty while rewritten"),
+        pytest.param(lambda url: File(url=url, content=BytesIO(_POI_NO_ROWS), status=200), True, id="no report"),
+    ],
+)
+def test_poi_values_say_nothing_of_a_report_that_was_withdrawn_or_empty(
+    monkeypatch: pytest.MonkeyPatch, file: Callable[[str], File], *, told: bool
+) -> None:
+    """A report DWD withdrew since the catalogue was read, or is rewriting, is let go; one without a row is not."""
+    import datetime as dt  # noqa: PLC0415
+
+    from wetterdienst import Options, Settings  # noqa: PLC0415
+    from wetterdienst.provider.dwd.poi import DwdPoiRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.poi import api as poi_api  # noqa: PLC0415
+
+    monkeypatch.setattr(poi_api, "download_file", lambda *_a, url="u", **_k: file(url))
+    request = DwdPoiRequest(
+        parameters=[("hourly", "data", "wind_speed_mean_last_10min")],
+        start=dt.datetime(2026, 10, 11, tzinfo=dt.UTC),
+        end=dt.datetime(2026, 10, 13, tzinfo=dt.UTC),
+        settings=Settings(cache_disable=True),
+        options=Options(drop_nulls=False),
+    )
+    begin_response()
+    assert stations_result(request, "hourly", "data", "10147").values().all().df.is_empty()
+    assert len(_told()) == (1 if told else 0)
+
+
+def test_meteofrance_observation_says_nothing_of_a_period_file_the_portal_no_longer_has(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A period file the listing names and the portal answers 404 for is let go."""
+    from tests.provider.meteofrance.observation.test_api import _utc  # noqa: PLC0415
+    from tests.provider.meteofrance.observation.test_api import _values as mf_values  # noqa: PLC0415
+    from wetterdienst.provider.meteofrance.observation import api as mf_api  # noqa: PLC0415
+
+    title = "HOR_departement_31_periode_2020-2024"
+    resources = [{"title": title, "url": f"https://static.data.gouv.fr/{title}.csv.gz"}]
+
+    def download_file(*args: str, url: str | None = None, **_: object) -> File:
+        url = url or args[0]
+        return File(url=url, content=BytesIO(json.dumps({"resources": resources}).encode("utf8")), status=200)
+
+    def download_files(urls: list[str], **_: object) -> list[File]:
+        return [File(url=url, content=FileNotFoundError(url), status=404) for url in urls]
+
+    monkeypatch.setattr(mf_api, "download_file", download_file)
+    monkeypatch.setattr(mf_api, "download_files", download_files)
+    begin_response()
+    assert mf_values("hourly", "core", "temperature_air_2m", "31069001", _utc(2021, 1, 1), _utc(2021, 1, 2)).is_empty()
+    assert _told() == []
+
+
+def test_meteofrance_synop_says_nothing_of_the_year_that_is_not_published(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The current year's file, not yet published in early January (a 404), is let go."""
+    import datetime as dt  # noqa: PLC0415
+
+    from wetterdienst import Settings  # noqa: PLC0415
+    from wetterdienst.provider.meteofrance.synop import MeteoFranceSynopRequest  # noqa: PLC0415
+    from wetterdienst.provider.meteofrance.synop import api as synop_api  # noqa: PLC0415
+
+    year = dt.datetime.now(dt.UTC).year
+
+    def download_file(*_args: object, url: str = "u", **_kwargs: object) -> File:
+        return File(url=url, content=FileNotFoundError(url), status=404)
+
+    monkeypatch.setattr(synop_api, "download_file", download_file)
+    monkeypatch.setattr(synop_api, "cached_copy_is_held", lambda *_a, **_k: False)
+    request = MeteoFranceSynopRequest(
+        parameters=[("subdaily", "data", "temperature_air_2m")],
+        start=dt.datetime(year, 1, 1, tzinfo=dt.UTC),
+        end=dt.datetime(year, 1, 2, tzinfo=dt.UTC),
+        settings=Settings(cache_disable=True),
+    )
+    begin_response()
+    assert stations_result(request, "subdaily", "data", "07005").values().all().df.is_empty()
+    assert _told() == []
+
+
+def test_swsmos_says_nothing_of_a_run_that_could_not_be_fetched_for_any_station(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The run is every station's file: a station read after the first, from the frame kept, is not named either."""
+    from tests.provider.dwd.swsmos.test_api import _stub_stations as swsmos_stations  # noqa: PLC0415
+    from wetterdienst.provider.dwd.swsmos import api as sws_api  # noqa: PLC0415
+
+    listed = [f"{sws_api._BASE_URL}/{sws_api._LATEST_FILE}"]  # noqa: SLF001
+    monkeypatch.setattr(sws_api, "list_remote_files_fsspec", lambda *_a, **_k: listed)
+    monkeypatch.setattr(
+        sws_api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=FileNotFoundError("404"), status=404),
+    )
+    begin_response()
+    assert swsmos_stations(("A006", "B999")).values().all().df.is_empty()
+    assert _told() == []
+
+
+@pytest.mark.parametrize(("unit", "let_go"), [(None, True), ("furlong", True), ("cm", False)])
+def test_wsv_values_say_nothing_of_a_series_with_no_unit_or_an_unhandled_one(
+    monkeypatch: pytest.MonkeyPatch, unit: str | None, *, let_go: bool
+) -> None:
+    """A series skipped because its unit is not known is let go; one in a handled unit is read."""
+    from types import SimpleNamespace  # noqa: PLC0415
+
+    from wetterdienst import Settings  # noqa: PLC0415
+    from wetterdienst.provider.wsv.pegel import api as wsv_api  # noqa: PLC0415
+    from wetterdienst.util.response_warnings import collecting  # noqa: PLC0415
+
+    parameter, resolution = next(
+        (p, r.name)
+        for r in wsv_api.WsvPegelRequest.metadata
+        for dataset in r
+        for p in dataset
+        if p.name_original == "W"
+    )
+    equidistance = next(e for e, name in wsv_api._EQUIDISTANCE_TO_RESOLUTION.items() if name == resolution)  # noqa: SLF001
+    meta = wsv_api.TimeseriesMeta(unit=unit, equidistance=equidistance)
+    body = b'[{"timestamp": "2020-01-01T00:00:00+01:00", "value": 1.0}]'
+
+    def download_file(**kwargs: str) -> File:
+        return File(url=kwargs["url"], content=BytesIO(body), status=200)
+
+    monkeypatch.setattr(wsv_api, "download_file", download_file)
+    values = SimpleNamespace(
+        sr=SimpleNamespace(request=SimpleNamespace(settings=Settings(cache_disable=True))),
+        _timeseries_meta=lambda _settings: {("0001", "W"): meta},
+        _endpoint=wsv_api.WsvPegelValues._endpoint,  # noqa: SLF001
+    )
+    letting_go: list[bool] = []
+
+    with collecting(letting_go.append):
+        df = wsv_api.WsvPegelValues._collect_station_parameter_or_dataset(values, "0001", parameter)  # noqa: SLF001
+
+    assert bool(letting_go) is let_go
+    assert df.is_empty() is let_go
+
+
+@pytest.mark.parametrize("resolution", ["daily", "monthly", "annual", "hourly"])
+def test_aemet_values_say_nothing_of_a_chunk_that_failed_at_any_resolution(
+    monkeypatch: pytest.MonkeyPatch, resolution: str
+) -> None:
+    """Each of the places AEMET's values skip a chunk at lets it go: the daily, the yearly and the real-time one."""
+    _aemet_serving(monkeypatch, lambda url: _refused(url, 400))
+    begin_response()
+    assert _values(resolution, years=1).is_empty()
+    assert _told() == []

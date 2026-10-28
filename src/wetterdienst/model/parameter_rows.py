@@ -170,11 +170,11 @@ class ParameterRows:
         narrow = f" in {' and in '.join(phrase for phrase, _ in narrowed)}" if narrowed else ""
         hints = [hint for _, hint in narrowed if hint]
         if hints:
-            advice = f"The request did not fail; {' or '.join(hints)}."
+            advice = f"{' or '.join(hints).capitalize()}."
         elif self._reaches_the_present(dataset.resolution.name):
-            advice = "The request did not fail; the source may not have published this window yet."
+            advice = "The source may not have published this window yet; try again later."
         else:
-            advice = "The request did not fail; leave it out, or try another station or window."
+            advice = "Leave it out, or try another station or window."
         warn_response(
             log,
             PARAMETER_WITHOUT_ROWS,

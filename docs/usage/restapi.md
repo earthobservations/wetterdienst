@@ -295,14 +295,17 @@ what the answer is missing:
   answers with the others (a refused download, a file withdrawn since the listing, a timestamp that is not there,
   a maintenance page or an exception report answered with HTTP 200, a file that would not parse) tells the walk, and
   the station whose file was let go is not one of the stations named: the others still are, and where none is left
-  nothing is said. A download that failed and was made again with success is no file let go, and an answer that
-  says there is nothing (a 404 for a station that does not report the parameter, Frost's 412, an AEMET `estado` of
-  404) is the source's and is told. This is done for `aemet/observation`, `dwd/derived`, `dwd/observation`,
-  `dwd/poi`, `dwd/road`, `dwd/swsmos`, `fmi/observation`, `knmi/observation`, `meteofrance/observation`,
-  `meteofrance/synop`, `metno/frost` and `smhi/observation`; for any other provider a file it lets go without telling
-  is not known, so the warning may name a station whose file was let go. A parameter another warning already names
-  (`parameter-ended`) is not told again, nor is anything told for `interpolate` and `summarize`. In Python it is a
-  log line at level `WARNING`, as the other warnings that say a request returned less than it asked for are, and
+  nothing is said (a file that serves a whole station group or a whole network is every station's of it). A
+  download that failed and was made again with success is no file let go, and an answer that says there is nothing
+  (a 404 for a station that does not report the parameter, Frost's 412, an AEMET `estado` of 404, a month file of
+  `dwd/derived` that the index never listed) is the source's and is told. This is done for `aemet/observation`,
+  `dwd/derived`, `dwd/observation`, `dwd/poi`, `dwd/road`, `dwd/swsmos`, `fmi/observation`, `knmi/observation`,
+  `meteofrance/observation`, `meteofrance/synop`, `metno/frost`, `smhi/observation` and `wsv/pegel`, each at the
+  places where it lets a file go and no other; for any other provider a file it lets go without telling is not
+  known, so the warning may name a station whose file was let go. The message says nothing of the stations that were
+  let go, which the provider only logs. A parameter another warning already names (`parameter-ended`) is not told
+  again, nor is anything told for `interpolate` and `summarize`. In Python it is a log line at level `WARNING`, as
+  the other warnings that say a request returned less than it asked for are, and
   `wetterdienst.util.response_warnings.recorded_warnings` gives it after `begin_response()`, as the REST API and
   the command line do.
 - **`api_version`** is the version of the API (`/api/version`), and **`schema_version`** that of this

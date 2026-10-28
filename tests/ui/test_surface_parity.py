@@ -1267,7 +1267,7 @@ def test_a_named_parameter_without_a_row_is_told_with_the_stations(monkeypatch: 
     assert warning["stations"] == ["00001", "00002"]
     assert warning["message"] == (
         "The source has no values for daily/climate_summary/sunshine_duration at stations 00001, 00002 "
-        "from 2020-05-01 to 2020-05-03. The request did not fail; leave it out, or try another station or window."
+        "from 2020-05-01 to 2020-05-03. Leave it out, or try another station or window."
     )
     assert len(warning["message"]) <= 250
 
@@ -1483,7 +1483,7 @@ def test_periods_that_hold_back_the_source_are_said_to_be_the_reason(monkeypatch
 
     assert narrowed["message"] == (
         "The source has no values for daily/climate_summary/sunshine_duration at station 00001 from 2020-05-01 to "
-        "2020-05-03 in the periods asked for (recent). The request did not fail; try without `periods`."
+        "2020-05-03 in the periods asked for (recent). Try without `periods`."
     )
     assert "periods" not in all_periods["message"]
     assert "periods" not in unnarrowed["message"]
@@ -1562,11 +1562,11 @@ def test_a_run_and_a_lead_time_that_hold_back_the_source_are_named() -> None:
     (told,) = _rows_of(mosmix, large)
     assert told["message"] == (
         "The source has no values for hourly/large/temperature_air_max_2m_last_12h at station 10001 in the run issued "
-        "2026-10-28 09 UTC. The request did not fail; leave it out, or try another station or window."
+        "2026-10-28 09 UTC. Leave it out, or try another station or window."
     )
     (told,) = _rows_of(asked, icon)
     assert "in the run issued 2026-10-28 00 UTC and in the lead time asked for (short)." in told["message"]
-    assert told["message"].endswith("The request did not fail; try the other `lead_time`.")
+    assert told["message"].endswith("Try the other `lead_time`.")
     (told,) = _rows_of(default, icon)
     assert "lead time" not in told["message"]
     assert len(told["message"]) <= 250
@@ -1589,8 +1589,8 @@ def test_a_window_that_reaches_the_present_says_the_source_may_not_have_publishe
 
     (warning,) = _told([_EMPTY], ["00001"], window=window)
 
-    assert ("the source may not have published this window yet." in warning["message"]) is late
-    assert ("leave it out" in warning["message"]) is not late
+    assert ("may not have published this window yet" in warning["message"]) is late
+    assert ("Leave it out" in warning["message"]) is not late
     assert len(warning["message"]) <= 250
 
 
@@ -1657,3 +1657,23 @@ def test_a_file_let_go_outside_the_collection_of_a_station_is_nothing() -> None:
 
     note_skipped_download()
     note_skipped_download(whole_request=True)
+
+
+def test_the_lead_time_that_was_asked_for_survives_a_replaced_or_copied_request() -> None:
+    """`dataclasses.replace` hands over the lead time a request resolved to: a default must stay no asking (GH-3539)."""
+    import copy  # noqa: PLC0415
+    import dataclasses  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.dmo import DwdDmoRequest  # noqa: PLC0415
+
+    parameter = "hourly/icon/temperature_air_2m"
+    default = DwdDmoRequest(parameters=parameter)
+    asked = DwdDmoRequest(parameters=parameter, lead_time="long")
+    icon = default.metadata["hourly"]["icon"]
+
+    for made in (dataclasses.replace(default), copy.copy(default), copy.deepcopy(default)):
+        assert made._narrowed_by(icon) == []  # noqa: SLF001
+    for made in (dataclasses.replace(asked), copy.copy(asked), copy.deepcopy(asked)):
+        assert made._narrowed_by(icon) == [  # noqa: SLF001
+            ("the lead time asked for (long)", "try the other `lead_time`")
+        ]

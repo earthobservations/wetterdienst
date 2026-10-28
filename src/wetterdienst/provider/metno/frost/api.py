@@ -612,6 +612,7 @@ class MetnoFrostValues(TimeseriesValues):
             return pl.DataFrame()
         # a 200 with no body
         if file.is_empty:
+            note_skipped_download()
             return pl.DataFrame()
 
         df = pl.read_json(file.content)
@@ -717,6 +718,7 @@ class MetnoFrostValues(TimeseriesValues):
             return pl.DataFrame()
         # a 200 with no body
         if file.is_empty:
+            note_skipped_download()
             return pl.DataFrame()
 
         df = pl.read_json(file.content)
@@ -788,6 +790,7 @@ class MetnoFrostValues(TimeseriesValues):
             log.warning(f"Failed to download {avail_url}: {avail_file.content}")
             return pl.DataFrame()
         if avail_file.is_empty:
+            note_skipped_download()
             return pl.DataFrame()
 
         ts_list = json.loads(avail_file.content.read()).get("data", [])
@@ -827,12 +830,16 @@ class MetnoFrostValues(TimeseriesValues):
             )
             _raise_if_unanswered(obs_file)
             if obs_file.status in (404, 412):
+                # a series the listing just named, which is not there (404), is a file let go; 412 is Frost's no data
+                if obs_file.status == 404:
+                    note_skipped_download()
                 continue
             if isinstance(obs_file.content, Exception):
                 note_skipped_download()
                 log.warning(f"Failed to download {obs_url}: {obs_file.content}")
                 continue
             if obs_file.is_empty:
+                note_skipped_download()
                 continue
 
             df = pl.read_json(obs_file.content)

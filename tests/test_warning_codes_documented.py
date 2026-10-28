@@ -131,3 +131,53 @@ def test_an_undocumented_code_is_found() -> None:
     codes, _ = codes_in([ast.parse('warn_response(log, "no-such-code-anywhere", "m")')])
     told = set(re.findall(r"`([a-z]+(?:-[a-z]+)+)`", DOCS.read_text(encoding="utf-8")))
     assert codes - told == {"no-such-code-anywhere"}
+
+
+# the providers that tell the walk of a file they let go are the ones the docs name
+
+
+def _providers_calling(trees_by_path: dict[pathlib.Path, ast.Module]) -> set[str]:
+    """Give `provider/network` of every module under `provider/` that calls `note_skipped_download`."""
+    found: set[str] = set()
+    for path, tree in trees_by_path.items():
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and getattr(node.func, "id", getattr(node.func, "attr", None)) == (
+                "note_skipped_download"
+            ):
+                relative = path.relative_to(SRC / "provider").parts
+                found.add("/".join(relative[:2]))
+    return found
+
+
+def _providers_documented(text: str) -> set[str]:
+    """Give the `provider/network` the docs name between "This is done for" and the sentence on the other providers."""
+    match = re.search(r"This is done for (.*?); for any other provider", text, flags=re.DOTALL)
+    assert match, "the docs say which providers tell the walk of a file they let go"
+    return set(re.findall(r"`([a-z_]+/[a-z_]+)`", match.group(1)))
+
+
+def test_the_providers_that_let_a_file_go_are_the_ones_the_docs_name() -> None:
+    """The claim and the code cannot drift: a provider that calls `note_skipped_download` is in the docs, and back."""
+    trees = {path: ast.parse(path.read_text(encoding="utf-8")) for path in (SRC / "provider").rglob("*.py")}
+    called = _providers_calling(trees)
+    documented = _providers_documented(DOCS.read_text(encoding="utf-8"))
+
+    assert len(called) >= 10, "the scan finds the providers"
+    assert called == documented
+
+
+def test_the_providers_scan_reads_each_call_and_the_docs_sentence() -> None:
+    """A call by name or by attribute counts, a mention does not, and the docs sentence is read across its lines."""
+    trees = {
+        SRC / "provider" / "a" / "b" / "api.py": ast.parse(
+            "from x import note_skipped_download\nnote_skipped_download()"
+        ),
+        SRC / "provider" / "c" / "d" / "api.py": ast.parse("mod.note_skipped_download(whole_request=True)"),
+        SRC / "provider" / "e" / "f" / "api.py": ast.parse("from x import note_skipped_download"),
+    }
+    assert _providers_calling(trees) == {"a/b", "c/d"}
+    assert _providers_documented("This is done for `a/b`,\n  `c/d` and `g/h`; for any other provider `x/y`") == {
+        "a/b",
+        "c/d",
+        "g/h",
+    }

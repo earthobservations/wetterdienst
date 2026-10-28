@@ -13,6 +13,7 @@ from wetterdienst.exceptions import ProductFileNotFoundError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.util.archive import gunzip, open_zip
 from wetterdienst.util.network import File, download_files
+from wetterdienst.util.response_warnings import note_skipped_download
 
 if TYPE_CHECKING:
     import polars as pl
@@ -36,10 +37,14 @@ def download_climate_derived_data(
         use_certifi=settings.use_certifi,
     )
     # a 404 is a file that is not there, and is dropped; any other failure -- a timeout, a 5xx after
-    # the retries -- is an outage, which dropped would read as a station without data (GH-2430)
+    # the retries -- is an outage, which dropped would read as a station without data (GH-2430). The files are the
+    # ones the file index listed, so a 404 is one withdrawn (or renamed) since, which leaves the station's values
+    # missing: the provider lets it go, and says so
     for file in files:
         if file.status != 404:
             file.raise_if_exception()
+        else:
+            note_skipped_download()
     files = [file for file in files if isinstance(file.content, BytesIO)]
     # unpack the files
     return [_unpack_climate_derived_data(file) for file in files]

@@ -369,6 +369,9 @@ def _fetch_datos(url: str, settings: Settings, ttl: CacheExpiry) -> bytes | Exce
         return refused
     datos_file = _download_with_rate_limit_retry(datos_url, settings, ttl)
     if isinstance(datos_file.content, Exception):
+        # the envelope said 200 and named the data, which is not there: a chunk let go, whatever the status of the
+        # link, and not AEMET's answer that it has no data for the request (an `estado` of 404)
+        note_skipped_download()
         _drop_cached_body(file, settings, ttl, client_kwargs)
         return _as_outage(datos_file.content, datos_file.url, datos_file.status)
     payload = datos_file.content.read()
