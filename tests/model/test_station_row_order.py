@@ -100,6 +100,13 @@ def _rows(request: TimeseriesRequest) -> list[tuple[str, str, str]]:
     return request.all().df.select("station_id", "resolution", "dataset").rows()
 
 
+def _assert_same(actual: list[tuple[str, str, str]], expected: list[tuple[str, str, str]]) -> None:
+    """Compare two long lists of rows and name the first one that differs, not all of them."""
+    assert len(actual) == len(expected), f"{len(actual)} rows, expected {len(expected)}"
+    for index, (row, wanted) in enumerate(zip(actual, expected, strict=True)):
+        assert row == wanted, f"row {index} is {row}, expected {wanted}"
+
+
 def _expected(datasets: list[tuple[str, str]]) -> list[tuple[str, str, str]]:
     """Give the rows of a station in the order the request names its datasets, the stations by id."""
     return [(station_id, resolution, dataset) for station_id in _STATION_IDS for resolution, dataset in datasets]
@@ -180,10 +187,10 @@ def test_the_rank_and_the_distance_keep_the_datasets_of_a_station_in_request_ord
         request = DwdObservationRequest(parameters=_OBSERVATION, settings=Settings(cache_disable=True))
         ranked = request.filter_by_rank((50.0, 10.0), rank=5).df
         # a rank walks every located station by distance: the nearest five are the first of them
-        assert ranked.select("station_id", "resolution", "dataset").rows() == expected
+        _assert_same(ranked.select("station_id", "resolution", "dataset").rows(), expected)
         assert ranked.get_column("station_id").unique(maintain_order=True).to_list()[:5] == nearest
         within = request.filter_by_distance((50.0, 10.0), distance=0.5).df
-        assert within.select("station_id", "resolution", "dataset").rows() == expected[: len(nearest) * 3]
+        _assert_same(within.select("station_id", "resolution", "dataset").rows(), expected[: len(nearest) * 3])
 
 
 @pytest.mark.parametrize(

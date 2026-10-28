@@ -44,13 +44,13 @@ Types of changes:
   `WRONG_VERSION_NUMBER`; an invalid session, `INVALID_SESSION_ID`) is retried like any other
   transient network error, where the first one failed the answer: `www.dwd.de` throws them now
   and then. A certificate that does not verify still fails at once (GH-3533)
-- The stations come in one order from one request to the next: by station id for `dwd/observation`
-  and `dwd/derived`, with the datasets of a station in the order the request names them (they
-  changed with every request), and in the order of the catalogue for `smhi/observation`,
-  `dmi/observation` and `chmi/observation` (they changed with every request, for one dataset as
-  well). So do the `stations` of a values answer, the features of its OGC form, the walk of the
-  values over the stations and `filter_by_rank` / `filter_by_distance`. The values rows
-  of a station were not affected (GH-3551)
+- The stations come in one order from one request to the next, where they changed with every
+  request or process: by station id for `dwd/observation` and `dwd/derived`, in the order of the
+  catalogue for `smhi`, `dmi`, `chmi` and `hubeau`, and the datasets of a station in the
+  order the request names them (`eccc`, `dwd/dmo`, `knmi` followed the hash seed of the process).
+  So do the `stations` of a values, interpolate or summarize answer, the features of its OGC form
+  and `filter_by_rank` / `filter_by_distance`. The values rows of a station were not affected
+  (GH-3551)
 
 ## [0.178.0] - 2026-10-28
 

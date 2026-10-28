@@ -512,7 +512,9 @@ class DwdDerivedValues(TimeseriesValues):
         )
 
         station_periods = cast("set[Period]", cast("DwdDerivedRequest", self.sr.request).periods) or set()
-        for period in station_periods:
+        # oldest period first, as the other reads of the periods do: the set gives them in the order of the hash seed of
+        # the process, and where two periods hold a stamp the first row with a value wins (GH-3551)
+        for period in sorted(station_periods):
             if period not in parameter.dataset.periods:
                 log.info(f"Skipping period {period} for {parameter.name}.")
                 continue
