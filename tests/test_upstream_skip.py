@@ -5,10 +5,12 @@
 import errno
 import os
 import socket
+import ssl
 from unittest.mock import MagicMock
 
 import pytest
-from aiohttp import ClientResponseError, RequestInfo, ServerDisconnectedError
+from aiohttp import ClientConnectorSSLError, ClientResponseError, RequestInfo, ServerDisconnectedError
+from aiohttp.client_reqrep import ConnectionKey
 from fsspec.exceptions import FSTimeoutError
 from multidict import CIMultiDict, CIMultiDictProxy
 from yarl import URL
@@ -109,6 +111,38 @@ def test_an_answer_upstream_gave_still_fails_the_test(error: Exception) -> None:
         raised = caught
 
     assert raised is error
+
+
+def _wrong_version_number() -> ssl.SSLError:
+    """Build the error OpenSSL raises when a peer answers a ClientHello with something that is no TLS."""
+    error = ssl.SSLError(1, "[SSL: WRONG_VERSION_NUMBER] wrong version number")
+    error.reason = "WRONG_VERSION_NUMBER"  # only an error made in C has one
+    return error
+
+
+@pytest.mark.parametrize("wrapped", [False, True], ids=["bare", "aiohttp"])
+@pytest.mark.parametrize("through_download_error", [False, True], ids=["raised", "download-error"])
+def test_a_tls_failure_is_no_outage_even_though_the_library_asks_again_for_it(
+    *,
+    wrapped: bool,
+    through_download_error: bool,
+) -> None:
+    """A handshake the peer answered wrongly is asked again by the library (GH-3533), and still fails a test.
+
+    One that is still failing after those attempts is a failure to look at, not an outage to skip on:
+    `_worth_retrying` says yes to it, and the helper must not follow.
+    """
+    bare = _wrong_version_number()
+    key = ConnectionKey("example.com", 443, is_ssl=True, ssl=True, proxy=None, proxy_auth=None, proxy_headers_hash=None)
+    error: Exception = ClientConnectorSSLError(key, bare) if wrapped else bare
+    if through_download_error:
+        raised = DownloadError("https://example.com/file.txt", "TLS")
+        raised.__cause__ = error
+        error = raised
+
+    assert not conftest._is_upstream_outage(error)  # noqa: SLF001
+    with pytest.raises(type(error)), skip_if_upstream_unavailable():
+        raise error
 
 
 def test_skip_if_upstream_unavailable_decorates_a_test_function() -> None:
