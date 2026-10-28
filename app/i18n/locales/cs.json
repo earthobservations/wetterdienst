@@ -126,7 +126,8 @@
     "groupProject": "Projekt",
     "versions": "Aplikace {app} · Backend {backend}",
     "versionUnknown": "neznámá",
-    "drawerDescription": "Stránky aplikace a odkazy na projekt"
+    "drawerDescription": "Stránky aplikace a odkazy na projekt",
+    "current": "Aktuální"
   },
   "header": {
     "github": "GitHub",

@@ -29,6 +29,12 @@ Types of changes:
   their own page, instead of a flag; the language list has no flags. The licence notices gain
   the fonts' licence (OFL-1.1) and the icon set's (GH-3518)
 
+### Fixed
+
+- `[Stripes]` The climate stripes chart keeps up with its container: it widens when the window
+  (or the sidebar beside it) gets wider, instead of staying at the width it was drawn at
+  (GH-3518)
+
 ## [0.39.0] - 2026-10-28
 
 ### Security

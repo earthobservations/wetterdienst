@@ -121,6 +121,17 @@ export default defineAppConfig({
     commandPalette: {
       slots: {
         input: '[&>input]:h-12',
+        // The row under the cursor: a bar in the focus colour (6.0:1 on white, 7.0:1 on the dark page), not only a tint
+        // that is 1.1:1 against its neighbours. The current page, theme or language is a check (AppSearch), not a tint.
+        item: 'data-highlighted:not-data-disabled:before:bg-elevated data-highlighted:not-data-disabled:before:shadow-[inset_3px_0_0_var(--app-focus-ring)]',
+      },
+      variants: {
+        // the row of the route the page is on is not tinted either
+        active: {
+          true: {
+            item: 'before:bg-transparent',
+          },
+        },
       },
     },
   },

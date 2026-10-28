@@ -15,7 +15,8 @@
                     the primary button, the focus ring
      navy  #17335F  ink-800 and ink-950 #0B1A33: the neutral scale `ink` is tinted towards them; ink-950 is also the
                     dark-mode page
-     sun #FFC93C, teal #2BB3A3, coral #F0543C: the climate stripes and the charts, never the colour of text or chrome
+     sun #FFC93C, coral #F0543C (with a cream and a deep red between and beyond): the stripes of the home page, never the
+                    colour of text or chrome; the charts have their own palettes
    The ratios of every pair that carries text, a focus ring or a border are in the pull request of GH-3518 and in
    app/ACCESSIBILITY.md; they are computed, not estimated.
    ------------------------------------------------------------------------------------------------------------ */
@@ -60,10 +61,12 @@
   --color-gray-900: var(--color-ink-900);
   --color-gray-950: var(--color-ink-950);
 
-  /* the tiles of the logo: the stripes of the home page */
+  /* the warm end of the stripes of the home page (StripesBand): the logo's sun and coral, a cream between them and a
+     deeper red */
+  --color-sand: #ffe7a8;
   --color-sun: #ffc93c;
-  --color-teal: #2bb3a3;
   --color-coral: #f0543c;
+  --color-ember: #b8321f;
 }
 
 :root {
@@ -240,5 +243,54 @@ code, kbd, pre, samp {
   }
   100% {
     box-shadow: 0 0 0 0 color-mix(in oklab, var(--ui-primary) 0%, transparent);
+  }
+}
+
+/* Reduced motion (WCAG 2.3.3): the slide of the drawer, the scale-in of the palette, the pulse of a placeholder and the
+   turn of a spinner end at once, whichever component draws them. Nothing here moves for ever (2.2.2) either way. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Forced colours (Windows high contrast): the browser replaces background colours, and an icon is a mask over its
+   background colour, so every icon would vanish. An icon takes the colour of the text beside it (a system colour here,
+   GrayText in a disabled control), and what the current page, a highlighted palette row and the stripes show by a
+   background gets an outline of a system colour instead. The icon's colour is the system colour the text beside it has:
+   link text in a link, button text in a button, grey where disabled. */
+@media (forced-colors: active) {
+  .iconify,
+  [class*="i-ph"] {
+    forced-color-adjust: none;
+    background-color: currentColor;
+    color: CanvasText;
+  }
+  a .iconify,
+  a [class*="i-ph"] {
+    color: LinkText;
+  }
+  button .iconify,
+  button [class*="i-ph"] {
+    color: ButtonText;
+  }
+  :disabled .iconify,
+  :disabled [class*="i-ph"],
+  [aria-disabled="true"] .iconify,
+  [aria-disabled="true"] [class*="i-ph"] {
+    color: GrayText;
+  }
+  [aria-current="page"] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+  [role="option"][data-highlighted] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
   }
 }

@@ -84,14 +84,20 @@ primary colour (under 2:1 on white) and a ring in the primary colour, and its me
 stay, beside it.
 
 Decoration is hidden from assistive technology and carries no information: the stripes of the home page
-(`StripesBand`, a fixed pseudo-random line, not data) and the icons that stand beside a label. The one animation
-that remains, the pulse of a field that still needs a value, has a static ring under `prefers-reduced-motion`.
+(`StripesBand`, a fixed pseudo-random line, not data) and the icons that stand beside a label. Under
+`prefers-reduced-motion: reduce` every animation and transition ends at once (one rule in `main.css`: the slide of the drawer,
+the scale-in of the palette, the pulse of a placeholder, the turn of a spinner, the field that still needs a value, which
+keeps a static ring). Forced colours (Windows high contrast) replace background colours, so an icon, which is a mask over its
+background, is given the colour of the text (`forced-color-adjust: none` in `main.css`); the current page and the highlighted row
+of the palette get an outline instead of a tint. The e2e suite checks the icons of the rail, the top bar and the drawer
+with `forcedColors: 'active'`.
 
 Navigation (GH-3518): a skip link is the first stop of every page but the widget and moves the focus to `<main id="main">`.
 The places are one `<nav aria-label="Menu">` in a sidebar. From 1024 to 1279 px it is a rail of icons, whose links are named
 by visually hidden labels (`sr-only`; Nuxt UI hides a collapsed label with `hidden`, which the `ui` of the menu
-overrides) and by tooltips; the `nav-rail` and `rail-settings-open` states of the scan (axe `link-name`, at 1100 px,
-which the spec's default window never shows) and an e2e check of each link's accessible name hold this. Below 1024 px
+overrides) and by tooltips; the `nav-rail` state finds a link by its role and name, which it cannot while the label is `display: none`, and axe
+(`link-name`, at 1100 px, which the spec's default window never shows) then scans it, as it does `rail-settings-open`;
+an e2e check holds the accessible name of every link. Below 1024 px
 a drawer opened by the menu button is a dialog that keeps the focus, closes on Escape and hands the focus back. The row
 layout of the shell follows the same script flag as the sidebar, not a Tailwind breakpoint (rem), so that a browser
 set to a larger default font size does not stack the rail over the page. The current page carries
@@ -151,14 +157,14 @@ WCAG 2.2 first, as axe has no rule for most of them.
 | Criterion | Result |
 | --- | --- |
 | 2.4.7 Focus visible, 1.4.11 Non-text contrast of the focus indicator | The keyboard scan measures it at every stop. **Was failing** nearly everywhere: 382 stops, counted per page so that the header links count on each, in 27 of the light/English scans had under 3:1; see above. |
-| 2.4.11 Focus not obscured (minimum) | The keyboard scan checks it on every page and state. The sticky header hides no focused element. Leaflet draws markers beyond what the map shows and lets Tab reach them: a marker that takes the focus now pans the map until it is in view (`MapStations.vue`). |
+| 2.4.11 Focus not obscured (minimum) | The keyboard scan checks it on every page and state. From 1024 px there is no sticky bar (the sidebar is a column beside the page and the skip link is the first stop); below it the top bar is sticky, 3.5 rem high, and the browser scrolls a focused element clear of it. Leaflet draws markers beyond what the map shows and lets Tab reach them: a marker that takes the focus now pans the map until it is in view (`MapStations.vue`). |
 | 2.5.7 Dragging movements | The map pans by drag, and by the arrow keys with the map focused, and zooms by its buttons and `+`/`-`; a station is also chosen in the list beside it. Plotly's charts zoom and pan by drag, with the modebar's buttons (zoom in, out, reset) as the single-pointer way. |
 | 2.5.8 Target size (minimum) | axe's `target-size` is among the tags scanned (wcag22aa), on every page and state in both modes: no entry. |
-| 3.2.6 Consistent help | The support and documentation links are in the header (icons) and the footer of every page, in the same order; the narrow layout has them in its menu. The widget has no header or footer by design. |
+| 3.2.6 Consistent help | The support, documentation, GitHub and PyPI links are in the groups of the navigation (the sidebar, the rail and the drawer, the same list) and the legal links in the footer of every page, in the same order. The widget has no header or footer by design. |
 | 3.3.7 Redundant entry | Nothing is asked twice in a process. The explorer, forecast and stripes keep their selection in the URL, the settings in local storage. |
 | 3.3.8 Accessible authentication | The app has no log-in and no cognitive test. |
 | 2.4.2 Page titled | **Was failing**: every page was titled `Wetterdienst`. Each page names itself now, and a navigation is announced (`NuxtRouteAnnouncer`). |
-| 2.2.2 Pause, stop, hide | **Was failing**: the emoji of the forecast's compact cards bounced for ever. They bounce once, and not at all under `prefers-reduced-motion`. Loading placeholders pulse while loading, which is a progress indication. |
+| 2.2.2 Pause, stop, hide | **Was failing**: the emoji of the forecast's compact cards bounced for ever. They bounce once, and not at all under `prefers-reduced-motion`. Loading placeholders pulse while loading, which is a progress indication, and stand still under `prefers-reduced-motion`. |
 | 1.4.10 Reflow | No page scrolls sideways at 320 px (tested). A table or chart scrolls in its own box. |
 | 2.1.2, 2.4.3 on the narrow layout's menu | **Was failing**: the menu was a fixed overlay that Tab walked out of. It is a dialog. |
 

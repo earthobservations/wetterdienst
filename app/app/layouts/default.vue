@@ -17,9 +17,15 @@ watch(() => route.path, () => {
 // makes wider than these pixels, and the rail and the page would stack
 const large = useMediaQuery('(min-width: 1024px)')
 const wide = useMediaQuery('(min-width: 1280px)')
-watch(large, (isLarge) => {
+watch(large, async (isLarge) => {
   if (isLarge)
     drawerOpen.value = false
+  // what had the focus (the menu button, an open drawer or popover) is gone with the layout: the page takes it, not the
+  // body. A closing drawer or popover is given the time of its own exit first.
+  await nextTick()
+  await new Promise(resolve => setTimeout(resolve, 400))
+  if (!document.activeElement || document.activeElement === document.body)
+    document.getElementById('main')?.focus()
 })
 
 function skipToContent(event: Event) {
@@ -85,7 +91,7 @@ function skipToContent(event: Event) {
       <UButton icon="i-ph-x" color="neutral" variant="ghost" :aria-label="t('common.close')" :class="ui.close()" />
     </template>
     <template #body>
-      <AppNav :shortcut="false" @navigate="drawerOpen = false" />
+      <AppNav drawer @navigate="drawerOpen = false" />
     </template>
   </USlideover>
 

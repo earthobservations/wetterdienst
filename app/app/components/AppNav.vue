@@ -4,7 +4,9 @@ import type { NavigationMenuItem } from '@nuxt/ui'
 // The navigation of the app (GH-3518): the brand, the search, the places in three groups, and the settings. It is
 // the sidebar's content from 1024 px (icons only until 1280 px), and the drawer's below. The same list serves the
 // command palette (`useAppNav`).
-const props = withDefaults(defineProps<{ collapsed?: boolean, shortcut?: boolean }>(), { collapsed: false, shortcut: true })
+// `drawer`: the drawer of a phone, where the whole body scrolls when the window is short (a 400 % zoom is 320 x 256 px) and
+// there are no keys for the search to show; the sidebar has the full height of the window and scrolls its list alone.
+const props = withDefaults(defineProps<{ collapsed?: boolean, drawer?: boolean }>(), { collapsed: false, drawer: false })
 const emit = defineEmits<{ navigate: [] }>()
 
 const { t } = useI18n()
@@ -19,7 +21,10 @@ const items = computed<NavigationMenuItem[][]>(() => groups.value.map(group => [
 </script>
 
 <template>
-  <div class="flex h-full min-h-0 flex-col gap-4 py-4" :class="props.collapsed ? 'items-center px-2' : 'px-3'">
+  <div
+    class="flex flex-col gap-4 py-4"
+    :class="[props.collapsed ? 'items-center px-2' : 'px-3', props.drawer ? 'min-h-full' : 'h-full min-h-0']"
+  >
     <NuxtLink
       to="/"
       class="flex items-center gap-2.5 rounded-md px-2 py-1 text-highlighted"
@@ -31,7 +36,7 @@ const items = computed<NavigationMenuItem[][]>(() => groups.value.map(group => [
       <span v-if="!props.collapsed" class="text-base font-semibold tracking-tight">Wetterdienst</span>
     </NuxtLink>
 
-    <AppSearchButton :collapsed="props.collapsed" :shortcut="props.shortcut" />
+    <AppSearchButton :collapsed="props.collapsed" :shortcut="!props.drawer" />
 
     <UNavigationMenu
       orientation="vertical"
@@ -40,7 +45,7 @@ const items = computed<NavigationMenuItem[][]>(() => groups.value.map(group => [
       :tooltip="props.collapsed"
       :aria-label="t('header.menu')"
       :ui="{ linkLabel: props.collapsed ? 'sr-only inline' : 'truncate' }"
-      class="min-h-0 flex-1 overflow-y-auto"
+      :class="props.drawer ? 'flex-1' : 'min-h-0 flex-1 overflow-y-auto'"
     />
 
     <div class="flex w-full flex-col gap-1">

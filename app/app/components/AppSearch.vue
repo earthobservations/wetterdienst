@@ -21,7 +21,7 @@ const groups = computed<CommandPaletteGroup[]>(() => {
         icon: item.icon,
         to: item.to as string,
         target: item.target,
-        active: Boolean(item.active),
+        current: Boolean(item.active),
       })),
       ...(index === navGroups.value.length - 1 ? [settingsItem] : []),
     ],
@@ -38,7 +38,7 @@ const groups = computed<CommandPaletteGroup[]>(() => {
       ].map(option => ({
         label: option.label,
         icon: option.icon,
-        active: colorMode.preference === option.value,
+        current: colorMode.preference === option.value,
         onSelect: () => {
           colorMode.preference = option.value
         },
@@ -50,7 +50,7 @@ const groups = computed<CommandPaletteGroup[]>(() => {
       items: LANGUAGES.map(language => ({
         label: language.name,
         icon: 'i-ph-translate',
-        active: locale.value === language.value,
+        current: locale.value === language.value,
         onSelect: () => {
           void setLocale(language.value as typeof locale.value)
         },
@@ -63,25 +63,55 @@ const groups = computed<CommandPaletteGroup[]>(() => {
 const close = computed(() => ({ 'aria-label': t('common.close') }) as never)
 
 // Nuxt UI 4.11's palette puts role="listbox" on a wrapper around the scrolling list (axe: aria-required-children, and
-// a listbox without a name, and a scrolling list that cannot be focused). Its props reach none of it, so once the
-// palette is open the role, a name and a place in the tab order go on the scrolling list itself, which is what Nuxt UI
-// 4.12 does (nuxt/ui#7096); the workaround goes with the upgrade.
+// a listbox without a name, and a scrolling list that cannot be focused). Its props reach none of it, so the role, a name
+// and a place in the tab order go on the scrolling list itself, which is what Nuxt UI 4.12 does (nuxt/ui#7096; the
+// workaround goes with the upgrade). The list is drawn anew when the results change (and gives way to the empty message),
+// so this is done again after every change of the palette's content, not only when it opens. In the empty state the field
+// still names an option that is gone (`aria-activedescendant`); that is dropped.
+let observer: MutationObserver | null = null
+let scheduled = 0
+
+function patchList() {
+  scheduled = 0
+  const dialog = document.querySelector('[role="dialog"]')
+  const root = dialog?.querySelector('[data-slot="root"]')
+  const wrapper = root?.querySelector(':scope > [data-slot="content"]')
+  const list = wrapper?.querySelector('[data-slot="viewport"]')
+  if (wrapper && wrapper.getAttribute('role') !== 'presentation') {
+    wrapper.setAttribute('role', 'presentation')
+    wrapper.removeAttribute('aria-orientation')
+    wrapper.removeAttribute('aria-multiselectable')
+  }
+  if (list && list.getAttribute('role') !== 'listbox') {
+    list.setAttribute('role', 'listbox')
+    list.setAttribute('aria-label', t('nav.search'))
+    list.setAttribute('tabindex', '0')
+  }
+  const field = root?.querySelector('input')
+  const target = field?.getAttribute('aria-activedescendant')
+  if (field && target && !document.getElementById(target))
+    field.removeAttribute('aria-activedescendant')
+}
+
 watch(open, async (isOpen) => {
+  observer?.disconnect()
+  observer = null
   if (!isOpen)
     return
   await nextTick()
   await new Promise(resolve => requestAnimationFrame(resolve))
-  const wrapper = document.querySelector('[role="dialog"] [role="listbox"]')
-  const list = wrapper?.querySelector('[data-slot="viewport"]')
-  if (!wrapper || !list)
+  const dialog = document.querySelector('[role="dialog"]')
+  if (!dialog)
     return
-  wrapper.setAttribute('role', 'presentation')
-  wrapper.removeAttribute('aria-orientation')
-  wrapper.removeAttribute('aria-multiselectable')
-  list.setAttribute('role', 'listbox')
-  list.setAttribute('aria-label', t('nav.search'))
-  list.setAttribute('tabindex', '0')
+  patchList()
+  observer = new MutationObserver(() => {
+    if (!scheduled)
+      scheduled = requestAnimationFrame(patchList)
+  })
+  observer.observe(dialog, { childList: true, subtree: true })
 })
+
+onBeforeUnmount(() => observer?.disconnect())
 
 watch(() => router.currentRoute.value.path, () => {
   open.value = false
@@ -100,6 +130,13 @@ watch(() => router.currentRoute.value.path, () => {
   >
     <template #empty>
       {{ t('nav.noResults') }}
+    </template>
+    <!-- the current page, appearance or language: a check and, for a screen reader, its word, not a background -->
+    <template #item-trailing="{ item }">
+      <template v-if="(item as { current?: boolean }).current">
+        <UIcon name="i-ph-check" class="size-4 shrink-0" aria-hidden="true" />
+        <span class="sr-only">{{ t('nav.current') }}</span>
+      </template>
     </template>
   </UDashboardSearch>
 </template>

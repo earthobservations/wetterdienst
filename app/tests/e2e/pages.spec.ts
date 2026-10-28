@@ -1,3 +1,4 @@
+import type { Locator, Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
 
 test.describe('Home Page', () => {
@@ -249,6 +250,159 @@ test.describe('The navigation as a rail of icons', () => {
 
     expect(main.x).toBeGreaterThanOrEqual(rail.x + rail.width - 1)
     expect(main.y).toBeLessThan(100)
+  })
+})
+
+// A control that is only an icon: its icon is a mask over a background colour, which forced colours (Windows high
+// contrast) replaces by the canvas, so the icon has to be given the colour of the text instead.
+async function iconIsPainted(page: Page, icon: Locator) {
+  const box = (await icon.boundingBox())!
+  expect(box.width).toBeGreaterThan(0)
+  const colours = await icon.evaluate((element) => {
+    const style = getComputedStyle(element)
+    // the system colour of the canvas, which the page's own background is replaced by
+    const probe = document.createElement('div')
+    probe.style.backgroundColor = 'Canvas'
+    document.body.append(probe)
+    const canvas = getComputedStyle(probe).backgroundColor
+    probe.remove()
+    return { background: style.backgroundColor, text: style.color, canvas }
+  })
+  expect(colours.background, 'the icon is painted in the colour of the text').toBe(colours.text)
+  expect(colours.background, 'and not in that of the canvas').not.toBe(colours.canvas)
+  expect(colours.text, 'which is a system colour, not the colour of the page').not.toBe('rgb(34, 97, 190)')
+  // and the pixels differ from those of the same place with the icon hidden
+  const clip = { x: box.x, y: box.y, width: box.width, height: box.height }
+  const painted = await page.screenshot({ clip })
+  await icon.evaluate((element) => {
+    element.style.visibility = 'hidden'
+  })
+  const hidden = await page.screenshot({ clip })
+  await icon.evaluate((element) => {
+    element.style.visibility = ''
+  })
+  expect(painted.equals(hidden), 'the icon puts pixels on the page').toBe(false)
+}
+
+test.describe('Forced colours', () => {
+  test.use({ forcedColors: 'active' })
+
+  test('show the icons of the rail, and mark the current page', async ({ page }) => {
+    await page.setViewportSize({ width: 1100, height: 800 })
+    await page.goto('/explorer')
+    const nav = page.getByRole('navigation', { name: 'Menu' })
+    const links = nav.getByRole('link')
+    await expect(links.first()).toBeVisible()
+    const count = await links.count()
+    expect(count).toBeGreaterThanOrEqual(12)
+    for (let index = 0; index < count; index++)
+      await iconIsPainted(page, links.nth(index).locator('.iconify').first())
+    await iconIsPainted(page, page.locator('aside').getByRole('button', { name: 'Search', exact: true }).locator('.iconify').first())
+    await iconIsPainted(page, page.locator('aside').getByRole('button', { name: 'Settings', exact: true }).locator('.iconify').first())
+
+    const current = nav.locator('[aria-current="page"]')
+    await expect(current).toHaveCount(1)
+    expect(await current.evaluate(element => getComputedStyle(element).outlineStyle)).toBe('solid')
+  })
+
+  test('show the icon buttons of the top bar and of the drawer', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/')
+    await iconIsPainted(page, page.getByRole('banner').getByRole('button', { name: 'Search', exact: true }).locator('.iconify').first())
+    await page.getByRole('button', { name: 'Menu', exact: true }).click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    await iconIsPainted(page, dialog.getByRole('button', { name: 'Close', exact: true }).locator('.iconify').first())
+    await iconIsPainted(page, dialog.getByRole('link', { name: 'Explorer', exact: true }).locator('.iconify').first())
+  })
+
+  test('mark the current page of the sidebar', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/glossary')
+    const current = page.getByRole('navigation', { name: 'Menu' }).locator('[aria-current="page"]')
+    await expect(current).toHaveText('Glossary')
+    expect(await current.evaluate(element => getComputedStyle(element).outlineStyle)).toBe('solid')
+  })
+})
+
+test.describe('The drawer in a short window', () => {
+  for (const size of [{ width: 320, height: 256 }, { width: 640, height: 512 }]) {
+    test(`scrolls as a whole, and reaches the settings, at ${size.width} x ${size.height} px (400 % zoom)`, async ({ page }) => {
+      await page.setViewportSize(size)
+      await page.goto('/')
+      await page.getByRole('button', { name: 'Menu', exact: true }).click()
+      const dialog = page.getByRole('dialog')
+      await expect(dialog).toBeVisible()
+
+      // the list of places is not a small scroller of its own
+      const nav = dialog.getByRole('navigation', { name: 'Menu' })
+      const [client, scroll] = await nav.evaluate(element => [element.clientHeight, element.scrollHeight])
+      expect(scroll).toBeLessThanOrEqual(client + 1)
+      expect(client).toBeGreaterThan(size.height / 2)
+
+      const settings = dialog.getByRole('button', { name: 'Settings', exact: true })
+      await settings.scrollIntoViewIfNeeded()
+      await expect(settings).toBeInViewport()
+    })
+  }
+
+  test('has no keys beside the search on a phone, where the sidebar has them', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Menu', exact: true }).click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog.getByRole('button', { name: 'Search', exact: true })).toBeVisible()
+    await expect(dialog.locator('kbd')).toHaveCount(0)
+
+    await page.keyboard.press('Escape')
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await expect(page.locator('aside').getByRole('button', { name: 'Search', exact: true }).locator('kbd')).toHaveCount(2)
+  })
+})
+
+test.describe('The focus when the layout changes', () => {
+  test('goes to the page when the window widens under an open drawer', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Menu', exact: true }).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+
+    await page.setViewportSize({ width: 1300, height: 800 })
+
+    await expect(page.locator('#main')).toBeFocused()
+  })
+
+  test('goes to the page when the window narrows under the open settings of the rail', async ({ page }) => {
+    await page.setViewportSize({ width: 1100, height: 800 })
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Settings', exact: true }).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+
+    await page.setViewportSize({ width: 800, height: 800 })
+
+    await expect(page.locator('#main')).toBeFocused()
+  })
+})
+
+test.describe('The versions line', () => {
+  test('breaks a long version instead of widening the sidebar', async ({ page }) => {
+    await page.route('**/api/version', route => route.fulfill({ json: { version: `1.${'0'.repeat(60)}` } }))
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/')
+    const line = page.getByTestId('app-versions')
+    await expect(line).toContainText('Backend 1.0000')
+
+    const [client, scroll] = await line.evaluate(element => [element.clientWidth, element.scrollWidth])
+    expect(scroll).toBeLessThanOrEqual(client)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  })
+
+  test('is not made of an answer that is no version', async ({ page }) => {
+    await page.route('**/api/version', route => route.fulfill({ json: { version: { nested: true } } }))
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/')
+
+    await expect(page.getByTestId('app-versions')).toContainText('Backend unknown')
   })
 })
 

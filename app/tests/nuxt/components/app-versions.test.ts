@@ -107,4 +107,24 @@ describe('the versions under the settings', () => {
     await vi.waitFor(() => expect(retried.text()).toContain('Backend 0.178.0'))
     expect(asked).toBe(2)
   })
+
+  it.each([
+    ['an object', { name: '0.178.0' }],
+    ['a number', 178],
+    ['a text of 300 characters', 'x'.repeat(300)],
+  ])('does not take %s for a version', async (_, value) => {
+    served = () => ({ version: value })
+    const wrapper = await mountVersions()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('unknown'))
+
+    expect(wrapper.text()).toBe(`App ${pkg.version} · Backend unknown`)
+  })
+
+  it('breaks a long version where it must instead of widening the navigation', async () => {
+    served = () => ({ version: `1.${'0'.repeat(60)}` })
+    const wrapper = await mountVersions()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Backend 1.'))
+
+    expect(wrapper.classes()).toContain('[overflow-wrap:anywhere]')
+  })
 })

@@ -126,7 +126,8 @@
     "groupProject": "Projekt",
     "versions": "App {app} · Backend {backend}",
     "versionUnknown": "unbekannt",
-    "drawerDescription": "Seiten der App und Links zum Projekt"
+    "drawerDescription": "Seiten der App und Links zum Projekt",
+    "current": "Aktuell"
   },
   "header": {
     "github": "GitHub",

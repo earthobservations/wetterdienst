@@ -110,6 +110,9 @@ const showMap = ref(false)
 const showSettings = ref(true)
 const showAbout = ref(false)
 const plotContainer = ref<HTMLElement | null>(null)
+// the width the chart was drawn at, and what watches its container for another (see `followContainer`)
+let drawnWidth = 0
+let resizeObserver: ResizeObserver | null = null
 const isLoading = ref(false)
 const hasPlot = ref(false)
 const lastFetchedData = ref<StripesValuesResponse | null>(null)
@@ -449,6 +452,7 @@ async function drawStripes(data: StripesValuesResponse) {
   // Layout configuration
   const titleText = plotTitle(data)
   const containerWidth = plotContainer.value.clientWidth
+  drawnWidth = containerWidth
 
   const layout: Partial<Plotly.Layout> = {
     // the hover texts write the language's decimal separator, as Plotly writes a point otherwise
@@ -721,10 +725,28 @@ watch(selectedStationItem, (item) => {
   selectedStation.value = id ? stations.value.find(s => s.station_id === id) ?? null : null
 })
 
+// The drawing has a width of its own (it is not autosized: the downloaded image has another), so it follows its container
+// when the window, or the sidebar beside it, changes it: a wider window gets a wider chart, as the other charts do.
+function followContainer() {
+  const container = plotContainer.value
+  if (!container || !Plotly || !hasPlot.value || plotFailed.value)
+    return
+  const width = container.clientWidth
+  if (width > 0 && width !== drawnWidth) {
+    drawnWidth = width
+    Promise.resolve(Plotly.relayout(container, { width })).catch(() => {})
+  }
+}
+
 // Load Plotly dynamically on mount; a failure is told where the stripes are drawn
 onMounted(() => {
   ensurePlotly().catch(() => {})
+  if (plotContainer.value && typeof ResizeObserver !== 'undefined') {
+    resizeObserver = new ResizeObserver(followContainer)
+    resizeObserver.observe(plotContainer.value)
+  }
 })
+onBeforeUnmount(() => resizeObserver?.disconnect())
 </script>
 
 <template>

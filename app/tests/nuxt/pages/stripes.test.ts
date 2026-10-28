@@ -185,6 +185,84 @@ describe('stripes Page station map', () => {
   })
 })
 
+describe('stripes Page width', () => {
+  const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_timestamp: '1950-01-01', end_timestamp: '2020-01-01' }
+
+  // the page's observer of its chart's container, which a test calls by hand
+  let observers: Array<{ callback: () => void, observe: ReturnType<typeof vi.fn>, disconnect: ReturnType<typeof vi.fn> }> = []
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  beforeEach(() => {
+    observers = []
+    vi.stubGlobal('ResizeObserver', class {
+      observe = vi.fn()
+      disconnect = vi.fn()
+      constructor(public callback: () => void) {
+        observers.push(this)
+      }
+    })
+  })
+  afterEach(() => {
+    wrapper?.unmount()
+    wrapper = undefined
+    vi.unstubAllGlobals()
+  })
+
+  async function drawn(width: number) {
+    registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
+    registerEndpoint('/api/stripes/values', () => ({
+      series: { station },
+      values: [
+        { timestamp: '2019-01-01T00:00:00+00:00', value: 9.1 },
+        { timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 },
+      ],
+    }))
+    wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route: '/stripes?kind=precipitation' })
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
+    const container = wrapper.find('[role="figure"]').element as HTMLElement
+    Object.defineProperty(container, 'clientWidth', { configurable: true, value: width })
+    vm.selectedStation = station
+    await nextTick()
+    plotly.newPlot.mockClear()
+    plotly.relayout.mockClear()
+    await wrapper.findAll('button').find((b: { text: () => string }) => b.text() === 'Show')!.trigger('click')
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
+    return container
+  }
+
+  it('draws the chart as wide as its container, and widens it when the container widens', async () => {
+    const container = await drawn(900)
+    expect((plotly.newPlot.mock.lastCall as unknown as [unknown, unknown, { width: number }])[2].width).toBe(900)
+    expect(observers).toHaveLength(1)
+    expect(observers[0]!.observe).toHaveBeenCalledWith(container)
+
+    Object.defineProperty(container, 'clientWidth', { configurable: true, value: 1100 })
+    observers[0]!.callback()
+
+    expect(plotly.relayout).toHaveBeenCalledWith(container, { width: 1100 })
+  })
+
+  it('does not draw again for a container of the same width, nor for one that is hidden', async () => {
+    const container = await drawn(900)
+    plotly.relayout.mockClear()
+
+    observers[0]!.callback()
+    expect(plotly.relayout).not.toHaveBeenCalled()
+
+    Object.defineProperty(container, 'clientWidth', { configurable: true, value: 0 })
+    observers[0]!.callback()
+    expect(plotly.relayout).not.toHaveBeenCalled()
+  })
+
+  it('stops watching the container when the page goes', async () => {
+    await drawn(900)
+    wrapper!.unmount()
+    wrapper = undefined
+
+    expect(observers[0]!.disconnect).toHaveBeenCalled()
+  })
+})
+
 describe('stripes Page years', () => {
   const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_timestamp: '1950-01-01', end_timestamp: '2020-01-01' }
 

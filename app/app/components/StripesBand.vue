@@ -1,11 +1,21 @@
 <script setup lang="ts">
-// A band of vertical stripes in the manner of the climate stripes, in the colours of the logo: decoration only (the
+// A band of vertical stripes in the manner of the climate stripes, in the colours of the tokens of main.css (the logo's navy,
+// blue, sun and coral, and the tints between): decoration only (the
 // real stripes are the page of that name). The values are a fixed rising line with a fixed, seeded wobble, so the band
 // is the same on every load and in every test; nothing here is data.
 const props = withDefaults(defineProps<{ count?: number }>(), { count: 64 })
 
 // cold to warm: the logo's navy and blue, a pale blue, the cream between, then its sun and coral, and a deeper red
-const SCALE = ['#17335f', '#2e6fd1', '#6da5fb', '#c2dbff', '#ffe7a8', '#ffc93c', '#f0543c', '#b8321f']
+const SCALE = [
+  'var(--color-ink-800)',
+  'var(--color-brand-600)',
+  'var(--color-brand-400)',
+  'var(--color-brand-200)',
+  'var(--color-sand)',
+  'var(--color-sun)',
+  'var(--color-coral)',
+  'var(--color-ember)',
+]
 
 const bars = computed(() => {
   let seed = 7
@@ -23,12 +33,12 @@ const bars = computed(() => {
 
 <template>
   <svg
-    class="block w-full h-full"
+    class="block w-full h-full [forced-color-adjust:none]"
     :viewBox="`0 0 ${count} 1`"
     preserveAspectRatio="none"
     aria-hidden="true"
     focusable="false"
   >
-    <rect v-for="(color, index) in bars" :key="index" :x="index" y="0" width="1.02" height="1" :fill="color" />
+    <rect v-for="(color, index) in bars" :key="index" :x="index" y="0" width="1.02" height="1" :style="{ fill: color }" />
   </svg>
 </template>

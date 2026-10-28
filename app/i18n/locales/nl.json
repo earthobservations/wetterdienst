@@ -126,7 +126,8 @@
     "groupProject": "Project",
     "versions": "App {app} · Backend {backend}",
     "versionUnknown": "onbekend",
-    "drawerDescription": "Pagina's van de app en links naar het project"
+    "drawerDescription": "Pagina's van de app en links naar het project",
+    "current": "Huidig"
   },
   "header": {
     "github": "GitHub",

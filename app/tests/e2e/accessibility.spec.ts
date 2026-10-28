@@ -354,6 +354,48 @@ const STATES: State[] = [
       await expect(page.getByRole('dialog')).toBeVisible()
     },
   },
+  // the palette's list is drawn anew when the search changes, and gives way to a message when it finds nothing: each of
+  // these is scanned, in the order a search goes (the workaround of AppSearch.vue must hold in all of them)
+  {
+    page: 'index',
+    state: 'search-typed',
+    keepFocus: true,
+    path: '/',
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'nav.search'), exact: true }).click()
+      await expect(page.getByRole('dialog')).toBeVisible()
+      await page.keyboard.type('a')
+      await expect(page.getByRole('listbox').getByRole('option').first()).toBeVisible()
+    },
+  },
+  {
+    page: 'index',
+    state: 'search-empty',
+    keepFocus: true,
+    path: '/',
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'nav.search'), exact: true }).click()
+      await expect(page.getByRole('dialog')).toBeVisible()
+      await page.keyboard.type('zzqqxx')
+      await expect(page.getByRole('dialog').getByText(message(locale, 'nav.noResults'))).toBeVisible()
+    },
+  },
+  {
+    page: 'index',
+    state: 'search-recovered',
+    keepFocus: true,
+    path: '/',
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'nav.search'), exact: true }).click()
+      await expect(page.getByRole('dialog')).toBeVisible()
+      await page.keyboard.type('zzqqxx')
+      await expect(page.getByRole('dialog').getByText(message(locale, 'nav.noResults'))).toBeVisible()
+      await page.keyboard.press('ControlOrMeta+a')
+      await page.keyboard.press('Backspace')
+      await page.keyboard.type('a')
+      await expect(page.getByRole('listbox').getByRole('option').first()).toBeVisible()
+    },
+  },
   // the navigation as a rail of icons (1024 to 1279 px), whose links are named by hidden labels, which axe holds to
   // (`link-name`); the spec's default window is wider and never shows it
   {

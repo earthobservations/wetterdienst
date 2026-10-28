@@ -5,7 +5,7 @@ const { text } = useAppVersions()
 </script>
 
 <template>
-  <p class="font-mono text-[0.6875rem] leading-4 text-muted" data-testid="app-versions">
+  <p class="font-mono text-[0.6875rem] leading-4 text-muted [overflow-wrap:anywhere]" data-testid="app-versions">
     {{ text }}
   </p>
 </template>
