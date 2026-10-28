@@ -8,6 +8,7 @@ import os
 import platform
 import re
 import socket
+import ssl
 import sys
 import threading
 import time
@@ -20,7 +21,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 import pytest
-from aiohttp import ClientResponseError
+from aiohttp import ClientResponseError, ClientSSLError
 
 from wetterdienst import Info, Options, Settings
 from wetterdienst.exceptions import DownloadError, NoInternetError
@@ -167,6 +168,10 @@ def _is_upstream_outage(error: Exception, unresolved_hosts: Collection[str] = ()
             isinstance(cause, socket.gaierror) and _host_of(failure) in unresolved_hosts
         )
         return unanswered and _runner_has_network()
+    # a TLS failure is no outage for a test, though the library asks again for a handshake the server
+    # fumbled: one that is still failing after those attempts is a failure to look at (GH-3533)
+    if isinstance(failure, (ClientSSLError, ssl.SSLError)):
+        return False
     return isinstance(failure, Exception) and (
         _worth_retrying(failure)
         or _is_server_fault(failure)

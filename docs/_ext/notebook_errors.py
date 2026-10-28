@@ -187,8 +187,9 @@ def _host_did_not_answer(cause: tuple[str, str] | None) -> bool:
 def _download_failed_in_a_blip(cause: tuple[str, str] | None) -> bool:
     """Say whether the failure under a `DownloadError` is what `_worth_retrying` asks again for.
 
-    A timeout, a dropped connection, a body that stopped arriving mid-read, a 5xx. Not a TLS failure, a 4xx or a
-    missing file, and not a download that has no cause to tell.
+    A timeout, a dropped connection, a body that stopped arriving mid-read, a 5xx. Not a TLS failure
+    (`_worth_retrying` asks again for a handshake the peer answered wrongly, but one that survives the attempts is
+    no outage, as for `tests/conftest.py`), a 4xx or a missing file, and not a download that has no cause to tell.
     """
     if cause is None:
         return False
