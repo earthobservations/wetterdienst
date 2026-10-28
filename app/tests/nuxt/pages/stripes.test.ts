@@ -254,6 +254,19 @@ describe('stripes Page width', () => {
     expect(plotly.relayout).not.toHaveBeenCalled()
   })
 
+  it('leaves the chart alone while it is scaled for the paper', async () => {
+    const container = await drawn(900)
+    plotly.relayout.mockClear()
+    document.documentElement.dataset.printing = ''
+    Object.defineProperty(container, 'clientWidth', { configurable: true, value: 600 })
+    observers[0]!.callback()
+    expect(plotly.relayout).not.toHaveBeenCalled()
+
+    delete document.documentElement.dataset.printing
+    observers[0]!.callback()
+    expect(plotly.relayout).toHaveBeenCalledWith(container, { width: 600 })
+  })
+
   it('stops watching the container when the page goes', async () => {
     await drawn(900)
     wrapper!.unmount()

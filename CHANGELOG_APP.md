@@ -31,7 +31,8 @@ Types of changes:
 - `[Widget]` The embeddable widget (`/widget`) takes the new colours and the new font; it still
   draws its own background, so it reads on any page that frames it (GH-3518)
 - `[Print]` A page prints without the sidebar, the bars, the skip link and the footer, and a page
-  in dark mode prints in light colours (GH-3518)
+  in dark mode prints in light colours, except its charts, which keep the colours of the screen.
+  A chart is scaled to the width of the paper instead of cut off at its edge (GH-3518)
 
 ### Fixed
 

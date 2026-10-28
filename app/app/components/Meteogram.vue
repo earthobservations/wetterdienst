@@ -2190,7 +2190,8 @@ watch(
 
       <!-- Premium Compact Overview Grid -->
       <div v-else class="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-md p-4">
-        <div class="flex items-center justify-start gap-4 overflow-x-auto whitespace-nowrap py-1 px-1">
+        <!-- relative: the screen-reader texts inside it are positioned, and without a positioned scroller they escape it and widen the page -->
+        <div class="relative flex items-center justify-start gap-4 overflow-x-auto whitespace-nowrap py-1 px-1">
           <template v-for="(d, idx) in compactDays" :key="idx">
             <div
               class="inline-flex flex-col items-center justify-center text-center p-4 rounded-2xl border transition-all duration-300 min-w-[105px] flex-shrink-0" :class="[

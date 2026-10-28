@@ -729,7 +729,8 @@ watch(selectedStationItem, (item) => {
 // when the window, or the sidebar beside it, changes it: a wider window gets a wider chart, as the other charts do.
 function followContainer() {
   const container = plotContainer.value
-  if (!container || !Plotly || !hasPlot.value || plotFailed.value)
+  // not while the chart is scaled for the paper (plugins/print-light.client.ts)
+  if (!container || !Plotly || !hasPlot.value || plotFailed.value || document.documentElement.dataset.printing !== undefined)
     return
   const width = container.clientWidth
   if (width > 0 && width !== drawnWidth) {

@@ -1,5 +1,6 @@
 import type { Locator, Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
+import { mockBackend } from './accessibility/mock-backend'
 
 test.describe('Home Page', () => {
   test('should load the homepage', async ({ page }) => {
@@ -567,23 +568,91 @@ test.describe('Printing', () => {
   })
 })
 
+test.describe('Charts on paper', () => {
+  // A4 is about 718 CSS pixels wide with the browser's margins; a chart is drawn as wide as the window's page
+  const PAPER = 720
+  const EXPLORER = '/explorer?provider=dwd&network=observation&resolution=daily&dataset=climate_summary&parameters=temperature_air_max_2m,temperature_air_mean_2m&mode=station&stations=00011'
+  const charts = [
+    { name: 'the climate stripes', path: '/stripes?kind=temperature&station=00011', reach: async (page: Page) => {
+      await page.getByRole('button', { name: 'Show', exact: true }).click()
+    } },
+    { name: 'the forecast', path: '/meteogram?station=01001', reach: async () => {} },
+    { name: 'the explorer\'s chart', path: EXPLORER, reach: async (page: Page) => {
+      await page.getByRole('button', { name: 'Show', exact: true }).click()
+      await expect(page.getByRole('table').first()).toBeVisible()
+      await page.getByRole('button', { name: 'Show as chart', exact: true }).click()
+    } },
+  ]
+
+  for (const chart of charts) {
+    test(`scales ${chart.name} to the paper for the print, and back after it`, async ({ page, baseURL }) => {
+      await mockBackend(page, baseURL!)
+      await page.setViewportSize({ width: 1440, height: 900 })
+      await page.goto(chart.path)
+      await chart.reach(page)
+      const svg = page.locator('.js-plotly-plot .main-svg').first()
+      await expect(svg).toBeVisible()
+      const width = () => svg.evaluate(element => element.getBoundingClientRect().width)
+      const screen = await width()
+      expect(screen).toBeGreaterThan(PAPER)
+
+      await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')))
+      expect(await width()).toBeLessThanOrEqual(PAPER)
+      // a second beforeprint with no afterprint (some browsers) changes nothing and loses nothing
+      await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')))
+      expect(await width()).toBeLessThanOrEqual(PAPER)
+
+      await page.evaluate(() => window.dispatchEvent(new Event('afterprint')))
+      expect(Math.round(await width())).toBe(Math.round(screen))
+    })
+  }
+})
+
+test.describe('The palette', () => {
+  test('takes what was typed at once: Enter right after the letters opens the match, not the first entry', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/')
+    await expect(page.locator('aside nav')).toBeVisible()
+    await page.keyboard.press('Control+k')
+    await expect(page.locator('[data-slot="root"] > [data-slot="input"] input')).toBeVisible()
+    await page.keyboard.type('glo')
+    await page.keyboard.press('Enter')
+
+    await expect(page).toHaveURL(/\/glossary/)
+  })
+})
+
+test.describe('The forecast on a phone', () => {
+  test('does not scroll sideways once the day cards are drawn', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await page.setViewportSize({ width: 390, height: 800 })
+    await page.goto('/meteogram?station=01001')
+    await expect(page.locator('div.overflow-x-auto').first()).toBeVisible()
+
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  })
+})
+
 test.describe('The widget in a frame', () => {
   for (const background of ['#ffd54a', '#1c1c1c']) {
-    test(`reads on a page of ${background}, with no clipped text and no scroll`, async ({ page }) => {
+    test(`reads on a page of ${background}, with no clipped text and no scroll`, async ({ page, baseURL }) => {
+      await mockBackend(page, baseURL!)
       // a page of the app's own origin (the frame-ancestors of the policy) with another background, framing the widget
       await page.route('**/__embed', route => route.fulfill({
         contentType: 'text/html',
-        body: `<!doctype html><body style="margin:0;padding:16px;background:${background}"><iframe id="w" src="/widget?station=10147" style="width:420px;height:420px;border:0"></iframe></body>`,
+        body: `<!doctype html><body style="margin:0;padding:16px;background:${background}"><iframe id="w" src="/widget?station=01001" style="width:420px;height:420px;border:0"></iframe></body>`,
       }))
       await page.setViewportSize({ width: 600, height: 520 })
       await page.goto('/__embed')
       const frame = page.frameLocator('#w')
-      await expect(frame.getByText('Wetterdienst', { exact: false }).first()).toBeVisible()
       await expect(frame.locator('a', { hasText: 'Open' })).toBeVisible()
+      // the forecast is drawn (the day cards are its scroller), not the spinner: the measures below are of the page as it stays
+      await expect(frame.locator('div.overflow-x-auto').first()).toBeVisible()
 
       const overflow = await frame.locator('body').evaluate(body => ({
         sideways: document.documentElement.scrollWidth > document.documentElement.clientWidth,
-        textOutside: [...body.querySelectorAll('span, a')].some((element) => {
+        // what scrolls inside its own scroller (the day cards) is meant to be wider than the frame
+        textOutside: [...body.querySelectorAll('span, a')].filter(element => !element.closest('.overflow-x-auto')).some((element) => {
           const box = element.getBoundingClientRect()
           return box.width > 0 && box.right > document.documentElement.clientWidth + 1
         }),

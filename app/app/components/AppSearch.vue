@@ -164,6 +164,7 @@ watch(() => router.currentRoute.value.path, () => {
     v-model:open="open"
     :groups="groups"
     :color-mode="false"
+    :search-delay="0"
     :title="t('nav.search')"
     :description="t('nav.searchPlaceholder')"
     :placeholder="t('nav.searchPlaceholder')"
