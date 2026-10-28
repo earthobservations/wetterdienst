@@ -2069,6 +2069,8 @@ class NetworkFilesystemManager:
 
 
 #: The ``reason`` of an ``ssl.SSLError`` that a server throws now and then and does not throw twice in a row.
+#: Not ``SSLV3_ALERT_HANDSHAKE_FAILURE``: a server with no cipher in common, or one that wants a client
+#: certificate, sends it on every attempt, and asking again only waits for the same answer.
 _TRANSIENT_TLS_REASONS = frozenset(
     {
         # the peer answered the ClientHello with something that is no TLS: a load balancer or a web tier
@@ -2076,11 +2078,7 @@ _TRANSIENT_TLS_REASONS = frozenset(
         "WRONG_VERSION_NUMBER",
         # a session-resumption ticket the server no longer honours
         "INVALID_SESSION_ID",
-        # the connection was cut in the middle of the handshake or of a record (OpenSSL 3, Python 3.10+)
-        "UNEXPECTED_EOF_WHILE_READING",
-        "EOF_OCCURRED_IN_VIOLATION_OF_PROTOCOL",
         # alerts that say the server failed, not that it refuses the client or its certificate
-        "SSLV3_ALERT_HANDSHAKE_FAILURE",
         "SSLV3_ALERT_UNEXPECTED_MESSAGE",
         "SSLV3_ALERT_BAD_RECORD_MAC",
         "TLSV1_ALERT_INTERNAL_ERROR",
@@ -2098,14 +2096,18 @@ def _is_transient_tls_failure(error: BaseException) -> bool:
       ``ssl.CertificateError``): an untrusted, expired or self-signed certificate or a name that does not
       match is the same on every attempt, and it is a matter of configuration or of security that a retry
       must not mask (GH-2618);
-    - a connection cut in the middle of the handshake (``ssl.SSLEOFError``) or closed by the peer
-      (``ssl.SSLZeroReturnError``): a blip, as a dropped connection is;
     - an ``ssl.SSLError`` whose ``reason`` is one of ``_TRANSIENT_TLS_REASONS``: the web server of
       ``www.dwd.de`` throws ``WRONG_VERSION_NUMBER`` and ``INVALID_SESSION_ID`` now and then, and answers
-      the same request a minute later.
+      the same request a minute later;
+    - a connection cut in the middle of the handshake (``ssl.SSLEOFError``) or closed by the peer
+      (``ssl.SSLZeroReturnError``): a blip, as a dropped connection is. Through aiohttp and asyncio a server
+      that closes after the ClientHello arrives as a ``ClientConnectorError`` with a ``ConnectionResetError``,
+      which is asked again as a dropped connection, so on the paths of this library this branch is not
+      reached; it stays as a guard for an ``ssl.SSLError`` that is let out as it is.
 
-    Any other TLS failure is not asked for again: a protocol or a cipher the two cannot agree on is a
-    configuration, and so is a certificate the server refuses to accept.
+    Any other TLS failure is not asked for again: a protocol or a cipher the two cannot agree on (the
+    ``SSLV3_ALERT_HANDSHAKE_FAILURE`` of a server with no cipher in common, or one that wants a client
+    certificate) is a configuration, and so is a certificate the server refuses to accept.
     """
     if isinstance(error, ClientSSLError):
         error = error.os_error
@@ -2131,7 +2133,7 @@ def _worth_retrying(error: Exception) -> bool:
     Nor is a TLS failure that is the same on every attempt: a certificate that does not verify, or a
     handshake the two cannot agree on. The same server presents the same certificate, so asking again
     returns the same error after a delay and a retry warning (GH-2618). A handshake that the server
-    only fumbled -- a wrong version number, an invalid session id, a connection cut -- is a blip like
+    only fumbled -- a wrong version number, an invalid session id -- is a blip like
     any other and is asked again (``_is_transient_tls_failure``, GH-3533). aiohttp's ``ClientSSLError`` is
     a ``ClientConnectorError``, so it would pass the test for a failed connection below whatever it is;
     the listings raise the ``ssl.SSLError`` underneath, which is none of the exceptions below. Both are
