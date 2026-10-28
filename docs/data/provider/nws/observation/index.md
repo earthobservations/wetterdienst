@@ -93,12 +93,23 @@ two rows (GH-3480):
 
 - filled: `temperature_air_2m`, `temperature_dew_point_2m`, `humidity_relative`,
   `pressure_air_site_reduced`, `pressure_air_sea_level`, `visibility`, `wind_speed_mean_last_2min`,
-  `precipitation_amount_since_last_routine_report`, `precipitation_amount_last_3h` and
-  `precipitation_amount_last_6h`;
-- not filled: `wind_direction_mean_last_2min`, `wind_gust_max_last_10min` and
-  `temperature_wind_chill`. A METAR leaves the direction of a variable wind out, the gust when there is
-  none, and the wind chill is there in the cold only, so the null is the report's answer and a value of
-  another instant, up to 30 minutes away, would contradict it.
+  `wind_direction_mean_last_2min`, `precipitation_amount_since_last_routine_report`,
+  `precipitation_amount_last_3h` and `precipitation_amount_last_6h`;
+- not filled: `wind_gust_max_last_10min` and `temperature_wind_chill`. A METAR leaves the gust out
+  when there is none (408 of 460 missing gusts were none, read 2026-10-28), and the wind chill is
+  there in the cold only, so the null is the report's answer and a value of another instant, up to
+  30 minutes away, would contradict it.
+
+The wind direction goes with the wind speed. Where the speed is filled, the direction is that of the
+same row (and stays null if that row has none). Where the report has a speed but no direction, it is
+taken from the nearest row that has one. A null direction is mostly a gap of MADIS, not a report of a
+variable wind: of 52 METARs with a null direction 36 carry one in their raw text (`KBOS 270754Z
+33007KT`), 14 are variable (`VRB`) and 1 calm. A variable wind of the report, which the endpoint
+also gives as no direction, is therefore filled when another row of the hour has a direction. A calm
+wind (direction 0, `raw:0`, GH-2794) is a value of the report and is not replaced.
+
+`precipitation_amount_since_last_routine_report` is taken from a report filed at or before the kept
+one only; see the precipitation entry below.
 
 A filled value comes with the `quality_flags` of the observation it is taken from, never with the
 `Z` of the one it fills, and a value the kept observation has is never replaced. An hour with one
@@ -116,11 +127,16 @@ How to read the values of the kept report:
   add to it: at KDEN on 2026-10-14 three SPECI (10:27, 10:34, 10:42) and the METAR of 10:53 each
   read 0.3 mm, and the 6-hour amount at 11:53 is 0.8 mm
   (GH-2841). A routine METAR therefore holds the full hour, and a series of these values is an
-  hourly total except for an hour that keeps a SPECI, which holds the part that had fallen when it
-  was filed (the hours of 00:00 and 06:00 at KDEN above). The 3- and 6-hour amounts are filed with
+  hourly total except for an hour that keeps a SPECI. A SPECI that carries the group holds the part
+  that had fallen when it was filed. A SPECI without it takes the total of the routine METAR it
+  displaced, which was filed before it (KDEN 2026-10-15 00:00: the SPECI of 00:05 has none, the
+  METAR of 23:53 says 0.0 mm, which is the value of the hour). A total of a report filed *after* the
+  kept one is never used, because the next hour's METAR repeats it and the rain would be counted
+  twice. A routine METAR without the group keeps its null. The 3- and 6-hour amounts are filed with
   the synoptic METARs only and are empty in the others; for an hour in which a SPECI displaces the
-  synoptic METAR they are taken from the METAR (KDEN: the 6-hour amount of the 23:53 METAR, the 00Z
-  one, is the value of 00:00, though the report of 00:05 is nearer to it and is the one kept), see
+  synoptic METAR they are taken from the METAR, whichever of the two was filed first (KDEN: the
+  6-hour amount of the 23:53 METAR, the 00Z one, is the value of 00:00, though the report of 00:05
+  is nearer to it and is the one kept; no other hour holds it), see
   [Gaps of the kept observation](#gaps-of-the-kept-observation);
 - all other parameters are readings at the report's time.
 

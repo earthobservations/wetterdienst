@@ -551,7 +551,7 @@ def test_nws_hourly_keeps_one_report_an_hour(monkeypatch: pytest.MonkeyPatch) ->
     reports = {text: (temperature, pressure, rain) for text, _, temperature, pressure, rain in KDEN_REPORTS}
     assert temperature.get_column("value").to_list() == [reports[report][0] for _, report in KDEN_KEPT]
     # the reports that lie nearer to the full hour than the METAR carry no sea level pressure, which the METAR does:
-    # the hour takes it from the METAR (05:53 for 06:00) or from the 5-minute row that has it (23:53 for 00:00), GH-3480
+    # the hour takes it from the routine METAR the report displaced (05:53 for 06:00, 23:53 for 00:00), GH-3480
     pressure = dict(df.filter(pl.col("parameter") == "pressure_air_sea_level").select("timestamp", "value").rows())
     assert pressure[_stamp("10-14 15:00")] == pytest.approx(1017.7)
     assert pressure[_stamp("10-15 06:00")] == pytest.approx(1017.0)
@@ -562,6 +562,10 @@ def test_nws_hourly_keeps_one_report_an_hour(monkeypatch: pytest.MonkeyPatch) ->
         .rows()
     )
     assert precipitation[_stamp("10-14 15:00")] == pytest.approx(0.3)
+    # the SPECI of 00:05 says nothing of precipitation: the hour takes the amount of the METAR of 23:53 before it (0.0);
+    # the SPECI of 05:56 and the METAR of 05:53 before it both say nothing, which stays so
+    assert precipitation[_stamp("10-15 00:00")] == 0.0
+    assert precipitation[_stamp("10-15 06:00")] is None
 
 
 def test_nws_hourly_precipitation_is_the_running_total_of_the_report_that_closes_the_hour(
@@ -771,10 +775,11 @@ def test_nws_hourly_fills_the_gap_of_the_kept_report_from_the_verified_row_of_th
 
 
 def test_nws_hourly_fills_every_quantity_of_the_list_and_none_of_the_others(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test which quantities a gap is filled for: the core ones, not the wind direction, the gust and the wind chill.
+    """Test which quantities a gap is filled for: the core ones and the wind direction, not the gust and wind chill.
 
-    A METAR leaves the direction of a variable wind out, the gust when there is none, and the wind chill is there in
-    the cold only (GH-3480), so the null is the report's own answer; a value of a row up to 30 minutes away is not.
+    A METAR leaves the gust out when there is none, and the wind chill is there in the cold only (GH-3480), so the
+    null is the report's own answer; a value of a row up to 30 minutes away is not. The null direction of a METAR is
+    mostly a gap of MADIS (36 of 52 carried one in their raw text, 2026-10-28), so it is filled with the speed.
     """
     filled = {
         "temperature": "temperature_air_2m",
@@ -784,11 +789,11 @@ def test_nws_hourly_fills_every_quantity_of_the_list_and_none_of_the_others(monk
         "seaLevelPressure": "pressure_air_sea_level",
         "visibility": "visibility",
         "windSpeed": "wind_speed_mean_last_2min",
+        "windDirection": "wind_direction_mean_last_2min",
         "precipitationLast3Hours": "precipitation_amount_last_3h",
         "precipitationLast6Hours": "precipitation_amount_last_6h",
     }
     not_filled = {
-        "windDirection": "wind_direction_mean_last_2min",
         "windGust": "wind_gust_max_last_10min",
         "windChill": "temperature_wind_chill",
     }
@@ -831,6 +836,100 @@ def test_nws_hourly_fills_a_precipitation_sum_the_kept_report_lacks_from_another
         "precipitation_amount_since_last_routine_report": (0.3, "V"),
         "precipitation_amount_last_6h": (0.8, "V"),
     }
+
+
+def test_nws_hourly_does_not_fill_the_running_total_from_a_report_filed_after_the_kept_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that rain is not counted in two hours: `precipitationLastHour` is not taken from a later report (GH-3480).
+
+    The amount is a running total since the last routine METAR, which every report after it repeats until the next
+    routine one. Dry until the METAR of 14:53 (no precipitation group), a SPECI at 15:15 reports 0.5 mm since 14:53
+    and the METAR of 15:53 reports 1.0 mm since 14:53 (the rain of the SPECI included). The hour of 15:00 keeps the
+    METAR of 14:53, which says nothing: filled from the SPECI it would read 0.5 and the hour of 16:00 1.0, and a sum
+    over the two hours 1.5 mm for 1.0 mm of rain.
+    """
+    observations = [
+        _raw_observation(_stamp("10-14 13:53"), report=True),
+        _raw_observation(_stamp("10-14 14:53"), report=True),
+        _raw_observation(_stamp("10-14 15:15"), report=True, precipitationLastHour=(0.5, "C")),
+        _raw_observation(_stamp("10-14 15:53"), report=True, precipitationLastHour=(1.0, "C")),
+    ]
+    _serve_observations(monkeypatch, observations)
+    df = _hourly(
+        ["precipitation_amount_since_last_routine_report"],
+        _stamp("10-14 15:00"),
+        _stamp("10-14 16:00"),
+        Options(drop_nulls=False),
+    ).sort("timestamp")
+    assert df.select("timestamp", "value").rows() == [(_stamp("10-14 15:00"), None), (_stamp("10-14 16:00"), 1.0)]
+
+
+def test_nws_hourly_fills_the_running_total_of_a_report_from_the_report_before_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that a SPECI without a precipitation group takes the total of the routine METAR it displaced (GH-3480)."""
+    observations = [
+        _raw_observation(_stamp("10-14 14:53"), report=True, precipitationLastHour=(0.3, "V")),
+        _raw_observation(_stamp("10-14 15:02"), report=True),
+    ]
+    got = _hour_of(monkeypatch, observations, ["precipitation_amount_since_last_routine_report"])
+    assert got == {"precipitation_amount_since_last_routine_report": (0.3, "V")}
+
+
+def _wind_of_the_hour(monkeypatch: pytest.MonkeyPatch, observations: list[dict]) -> dict:
+    return _hour_of(monkeypatch, observations, ["wind_speed_mean_last_2min", "wind_direction_mean_last_2min"])
+
+
+def test_nws_hourly_fills_the_wind_direction_with_the_wind_speed_from_the_same_row(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that a kept report without speed and direction takes both from the nearest row that has a speed."""
+    observations = [
+        _raw_observation(_stamp("10-14 14:53"), report=True, windSpeed=(None, "Z"), windDirection=(None, "Z")),
+        _raw_observation(_stamp("10-14 15:00"), windSpeed=(10.0, "V"), windDirection=(330.0, "S")),
+        _raw_observation(_stamp("10-14 15:05"), windSpeed=(12.0, "V"), windDirection=(200.0, "V")),
+    ]
+    got = _wind_of_the_hour(monkeypatch, observations)
+    assert got["wind_speed_mean_last_2min"][1] == "V"
+    assert got["wind_direction_mean_last_2min"] == (330.0, "S")
+
+
+def test_nws_hourly_does_not_take_the_direction_from_another_row_than_the_speed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that where the row the speed comes from has no direction the direction stays as the report has it."""
+    observations = [
+        _raw_observation(_stamp("10-14 14:53"), report=True, windSpeed=(None, "Z"), windDirection=(None, "Z")),
+        _raw_observation(_stamp("10-14 15:00"), windSpeed=(10.0, "V"), windDirection=(None, "Z")),
+        _raw_observation(_stamp("10-14 15:05"), windSpeed=(12.0, "V"), windDirection=(200.0, "V")),
+    ]
+    got = _wind_of_the_hour(monkeypatch, observations)
+    assert got["wind_speed_mean_last_2min"][1] == "V"
+    assert got["wind_direction_mean_last_2min"] == (None, "Z")
+
+
+def test_nws_hourly_fills_the_wind_direction_of_a_report_that_has_a_speed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a report with a speed and no direction (mostly a gap of MADIS) takes the nearest direction."""
+    observations = [
+        _raw_observation(_stamp("10-14 14:53"), report=True, windSpeed=(9.0, "V"), windDirection=(None, "Z")),
+        _raw_observation(_stamp("10-14 15:00"), windSpeed=(10.0, "V"), windDirection=(None, "Z")),
+        _raw_observation(_stamp("10-14 15:05"), windSpeed=(12.0, "V"), windDirection=(200.0, "S")),
+    ]
+    got = _wind_of_the_hour(monkeypatch, observations)
+    assert got["wind_speed_mean_last_2min"][1] == "V"
+    assert got["wind_direction_mean_last_2min"] == (200.0, "S")
+
+
+def test_nws_hourly_keeps_the_calm_wind_of_the_kept_report(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a calm report (direction 0, speed 0) keeps its own `raw:0` and is not given a direction (GH-2794)."""
+    observations = [
+        _raw_observation(_stamp("10-14 14:53"), report=True, windSpeed=(0.0, "V"), windDirection=(0.0, "V")),
+        _raw_observation(_stamp("10-14 15:00"), windSpeed=(10.0, "V"), windDirection=(200.0, "S")),
+    ]
+    got = _wind_of_the_hour(monkeypatch, observations)
+    assert got["wind_direction_mean_last_2min"] == (None, "V,raw:0")
+    assert got["wind_speed_mean_last_2min"][0] == 0.0
 
 
 def test_nws_hourly_keeps_the_value_the_kept_report_has(monkeypatch: pytest.MonkeyPatch) -> None:
