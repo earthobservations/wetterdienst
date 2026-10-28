@@ -170,8 +170,11 @@ glossary run against it worked.
 
 ## Known limits
 
-- The benchmark is for macOS and Linux. `bench.py add-run` locks the results file with `fcntl` (several of them can run at
-  once, one per repeat that is filled in, and keep all their records) and refuses to run where there is none, Windows.
+- The benchmark is run on macOS and Linux. `bench.py add-run` locks the results file with `fcntl` (several of them can run at
+  once, one per repeat that is filled in, and keep all their records); where there is no `fcntl` (Windows) it takes no lock,
+  the write stays whole-or-none, and `add-run` must be run one at a time.
+- `add-run` does not check that a record's `tier` is one of the file's `meta.models`, nor that its resolved model id is the
+  one of the other runs of that tier (`compare` refuses a tier whose resolved ids differ, later).
 
 - The cases with a fixed date (Kiel and Frankfurt on 26 December 2025) are read from DWD's `recent` period now and from
   `historical` once the date is older than about a year and a half (around mid-2027): the value should not change, and
@@ -183,7 +186,8 @@ glossary run against it worked.
   documented format).
 - The descriptions that decide whether an extra RESULT line is a claim about the asked quantity are word lists (`asked_descriptions`,
   `ignore_descriptions` of a fact): a wrong figure that a model labels with a word of the ignore list (`RESULT: 5.2 m/s |
-  daily mean wind speed, the peak`) is not caught, and a right extra figure labelled with a word no list foresaw is not failed.
+  daily mean wind speed, the peak`) is not caught, and a right extra figure labelled with a word no list foresaw is not failed. They are a first judgement: revisit
+  them after the first baseline run, against the answers real models give.
 - A table is found only if it has a markdown separator row or a header line without a digit and its cells are separated by a
   pipe, a comma or a tab (a semicolon CSV is not a table to the check; its figures still need a RESULT line). A date in a
   table is read as `2026-10-16`, `16.10.2026` (zeros and the year's century optional), `16/10/2026`, `10/16/2026`, `16 Oct 2026`

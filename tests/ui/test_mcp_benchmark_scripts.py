@@ -2770,9 +2770,12 @@ def test_add_run_writes_a_whole_file_or_none(tmp_path: Path, monkeypatch: pytest
         bench.add_run(path, {**new, "repeat": 3})
 
     assert path.read_text(encoding="utf-8") == before
-    assert sorted(p.name for p in tmp_path.iterdir()) == ["results.json", "results.json.lock"]
+    assert sorted(p.name for p in tmp_path.iterdir()) == (
+        ["results.json"] if bench.fcntl is None else ["results.json", "results.json.lock"]
+    )
 
 
+@pytest.mark.skipif(bench.fcntl is None, reason="add-run takes no lock where there is no fcntl (Windows)")
 def test_concurrent_add_runs_keep_every_record(tmp_path: Path) -> None:
     """Twelve processes fill twelve repeats of a big results file at once; none may lose another's record."""
     names = [f"c{i}" for i in range(12)]

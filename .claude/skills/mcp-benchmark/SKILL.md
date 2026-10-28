@@ -141,8 +141,8 @@ of a comparison and record it (`tools_list` in the results file), so the wire co
    prompt template, prompt date) differs from the file's `meta`, a record that declares `kind` failed or invalid and still
    claims an answer (`passed`, `facts_ok`, `is_answer` true), and a replacement of a valid run (unless `--replace-valid`).
    It takes a lock on `<file>.lock` and writes through a temporary file and `os.replace`, so several `add-run`s at once (one
-   per repeat that is filled in) keep all their records; it needs `fcntl`, that is macOS or Linux (the benchmark is run on
-   those; Windows is not supported). There is no automatic re-run: a re-run needs the same prompt, date, model and server as the first, and the judge's verdict.
+   per repeat that is filled in) keep all their records; the lock is `fcntl`, so macOS or Linux (the benchmark is run on
+   those; where there is no `fcntl`, Windows, no lock is taken and `add-run` must be run one at a time). There is no automatic re-run: a re-run needs the same prompt, date, model and server as the first, and the judge's verdict.
 4. **Judge** what needs reading, per run (below), then write the results file, print the table with
    `bench.py report`, and the comparison with `bench.py compare <previous> <results>` when `previous` is given.
 
