@@ -10,6 +10,7 @@ are compared on the same arithmetic.
                                                                      steps, checkpoints, violations, size, tokens
     bench.py report <results.json>                                   the table and the aggregates
     bench.py compare <previous.json> <results.json>                  what changed beyond noise
+    bench.py unit --case ID --fact ID --truth V [V2] --answer TEXT   the unit fact of a case against an answer
     bench.py hashes [--cases PATH]                                   hash of the cases file and of each case
 
 A transcript is the stream-json of `claude -p` (headless) or the JSONL of a subagent (the `output_file` the Agent
@@ -337,10 +338,13 @@ def evaluate(case: dict[str, Any], run: dict[str, Any], defaults: dict[str, Any]
     met: list[str] = []
     missed: list[str] = []
     for checkpoint in case["checkpoints"]:
-        for index in range(position, len(calls)):
+        # an `any_order` checkpoint is met by any call of the run and does not move the walk
+        unordered = bool(checkpoint.get("any_order"))
+        for index in range(0 if unordered else position, len(calls)):
             if any(call_matches(calls[index], match, defaults) for match in checkpoint["match"]):
                 met.append(checkpoint["id"])
-                position = index
+                if not unordered:
+                    position = index
                 break
         else:
             missed.append(checkpoint["id"])
@@ -503,6 +507,95 @@ def compare(previous: dict[str, Any], current: dict[str, Any]) -> str:
     return "\n".join(out)
 
 
+# -------------------------------------------------------------------------------------------------------- units
+
+_MONTHS = "jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec"
+#: what is no figure of a value: dates, times, years and station ids, blanked out before the figures are read
+_NOT_A_FIGURE = re.compile(
+    r"\d{4}-\d{2}-\d{2}|\d{1,2}\.\s?\d{1,2}\.\s?\d{2,4}|\d{1,2}:\d{2}|\b(?:19|20)\d{2}\b|\b0\d{4}\b"
+    rf"|\b\d{{1,2}}(?:st|nd|rd|th)?\s+(?:{_MONTHS})[a-z]*|\b(?:{_MONTHS})[a-z]*\.?\s+\d{{1,2}}\b",
+    re.IGNORECASE,
+)
+_FIGURE = re.compile(r"(?<![\w.])[-−+]?\d+(?:[.,]\d+)?")
+_BLANKS = "   "
+
+
+def _starts_with_unit(tail: str, token: str) -> bool:
+    """Tell whether the text after a figure starts with a unit token (a whole word where the token ends in one)."""
+    text = tail.lstrip(_BLANKS)
+    if not text.lower().startswith(token.lower()):
+        return False
+    following = text[len(token) : len(token) + 1]
+    return not (token[-1].isalnum() and following.isalnum())
+
+
+def _in_text(text: str, token: str) -> bool:
+    """Tell whether a unit token is anywhere in a text as a word (so `_mm` of a column name counts)."""
+    return re.search(rf"(?<![A-Za-z]){re.escape(token)}(?![A-Za-z])", text, re.IGNORECASE) is not None
+
+
+def unit_check(answer: str, fact: dict[str, Any], truth: dict[str, float]) -> dict[str, Any]:  # noqa: C901, PLR0912
+    """Check the figure of a value and its unit in an answer against the judge's own reading of the value.
+
+    `truth` is `{"value": v}` or, for a forecast, `{"min": a, "max": b}`. A figure of the answer is a *candidate*
+    when it equals the value expressed in one of the `accepted` units (`value * factor + offset`, within the fact's
+    `tolerance` or `margin` scaled to that unit, or the rounding of the figure as written, whichever is wider).
+    The unit must follow the figure
+    directly (after blanks), or, for a figure in a table row, stand in the header or in the text. A candidate fails
+    when a unit follows that is a `forbidden_tokens` one or one that belongs to another accepted unit than the one
+    its number fits (`0.84 %` fits the fraction, not the percent); a figure with no unit after it is no failure but
+    no success either. The check passes with at least one candidate with its right unit, no failing candidate, and
+    every `required` unit present.
+    """
+    accepted = fact["accepted"]
+    forbidden = fact.get("forbidden_tokens", [])
+    low, high = (truth["value"], truth["value"]) if "value" in truth else (truth["min"], truth["max"])
+    slack = fact.get("tolerance", fact.get("margin", 0))
+    masked = _NOT_A_FIGURE.sub(lambda m: " " * len(m.group(0)), answer)
+    lines = answer.split("\n")
+    header = next((line for line in lines if "," in line and re.search("[A-Za-z]", line)), "")
+    text_lines = " ".join(line for line in lines if "," not in line)
+    ok_pairs: set[int] = set()
+    ok_figures: list[str] = []
+    failures: list[dict[str, str]] = []
+    for found in _FIGURE.finditer(masked):
+        raw = found.group(0)
+        number = float(raw.replace("−", "-").replace(",", "."))
+        decimals = len(re.split(r"[.,]", raw)[1]) if re.search(r"[.,]", raw) else 0
+        rounding = 0.5 * 10**-decimals
+
+        def fits_pair(pair: dict[str, Any], number: float = number, rounding: float = rounding) -> bool:
+            """The figure is the value in this unit, within the tolerance or the rounding of the figure, whichever is wider."""
+            wide = max(slack * abs(pair["factor"]), rounding) + 1e-9
+            return low * pair["factor"] + pair.get("offset", 0) - wide <= number <= high * pair["factor"] + pair.get("offset", 0) + wide
+
+        fits = [i for i, pair in enumerate(accepted) if fits_pair(pair)]
+        if not fits:
+            continue
+        tail = answer[found.end() : found.end() + 40].split("\n")[0]
+        row = "," in answer[: found.start()].rsplit("\n", 1)[-1] + answer[found.end() :].split("\n")[0]
+        present = {i for i, pair in enumerate(accepted) if any(_starts_with_unit(tail, t) for t in pair["tokens"])}
+        banned = [t for t in forbidden if _starts_with_unit(tail, t)]
+        if row and not present and not banned:
+            present = {i for i, pair in enumerate(accepted) if any(_in_text(f"{header} {text_lines}", t) for t in pair["tokens"])}
+            banned = [t for t in forbidden if _in_text(f"{header} {text_lines}", t)]
+        if banned:
+            failures.append({"figure": raw, "reason": f"followed by the forbidden unit {banned[0]!r}"})
+        elif present & set(fits):
+            ok_pairs |= present & set(fits)
+            ok_figures.append(raw)
+        elif present:
+            failures.append({"figure": raw, "reason": "its unit is not the unit its number is in"})
+    required = [i for i, pair in enumerate(accepted) if pair.get("required")]
+    missing = [accepted[i]["tokens"][0] for i in required if i not in ok_pairs]
+    return {
+        "ok": bool(ok_figures) and not failures and not missing,
+        "ok_figures": ok_figures,
+        "failures": failures,
+        "required_missing": missing,
+    }
+
+
 # --------------------------------------------------------------------------------------------------------- cli
 
 
@@ -518,10 +611,15 @@ def main(argv: list[str] | None = None) -> int:
     p_analyze.add_argument("transcript", type=Path)
     p_analyze.add_argument("--case", required=True)
     p_analyze.add_argument("--server", required=True)
+    p_unit = sub.add_parser("unit")
+    p_unit.add_argument("--case", required=True)
+    p_unit.add_argument("--fact", required=True)
+    p_unit.add_argument("--truth", type=float, nargs="+", required=True, help="the value, or the min and max of a span")
+    p_unit.add_argument("--answer", required=True)
     for name in ("report", "compare"):
         p = sub.add_parser(name)
         p.add_argument("files", nargs="+", type=Path)
-    for p in (p_prompt, p_analyze, sub.add_parser("hashes")):
+    for p in (p_prompt, p_analyze, p_unit, sub.add_parser("hashes")):
         p.add_argument("--cases", type=Path, default=CASES_PATH)
     args = parser.parse_args(argv)
     if args.command == "prompt":
@@ -532,6 +630,11 @@ def main(argv: list[str] | None = None) -> int:
         run = parse_transcript(args.transcript, args.server)
         verdict = evaluate(case, run, data.get("defaults", {}))
         print(json.dumps({"case": case["id"], **run, **verdict}, indent=1, ensure_ascii=False))
+    elif args.command == "unit":
+        case = find_case(load_cases(args.cases), args.case)
+        fact = next(f for f in case["facts"] if f["id"] == args.fact)
+        truth = {"value": args.truth[0]} if len(args.truth) == 1 else {"min": args.truth[0], "max": args.truth[1]}
+        print(json.dumps(unit_check(args.answer, fact, truth), indent=1, ensure_ascii=False))
     elif args.command == "hashes":
         print(json.dumps(hashes(load_cases(args.cases)), indent=1))
     elif args.command == "report":

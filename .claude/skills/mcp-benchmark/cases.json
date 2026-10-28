@@ -1795,6 +1795,846 @@
       "tiers": ["small", "large"],
       "needs_key": false,
       "notes": "A name that matches more than one station (Frankfurt/Main 01420, Frankfurt/Main-Westend 01424, and in principle Frankfurt (Oder)): a name search lists the candidates and the answer has to say which it took. The first hit is not always the main city station."
+    },
+    {
+      "id": "units-kiel-celsius",
+      "question": "What was the daily mean air temperature at DWD station 02564 (Kiel-Holtenau) on 26 December 2025? Give the number with its unit.",
+      "kind": "units",
+      "max_steps": 4,
+      "checkpoints": [
+        {
+          "id": "reads-values",
+          "description": "reads the values of the station for a window that holds the day",
+          "match": [
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {"any_of": ["daily/climate_summary/temperature_air_mean_2m", "daily/climate_summary", "daily/kl"]},
+                "stations": {"any_of": ["02564"]},
+                "timestamp": {"contains_date": "2025-12-26"}
+              }
+            },
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {"any_of": ["daily/climate_summary/temperature_air_mean_2m", "daily/climate_summary", "daily/kl"]},
+                "name": {"regex": "(?i)hamburg|kiel"},
+                "timestamp": {"contains_date": "2025-12-26"}
+              }
+            }
+          ]
+        },
+        {
+          "id": "gets-the-unit",
+          "description": "gets the unit by a valid route: the glossary, coverage, or a values call with with_metadata=true (CSV and the default JSON carry no unit); in any order relative to the others",
+          "any_order": true,
+          "match": [{"tool": "glossary"}, {"tool": "coverage"}, {"tool": "values", "args": {"with_metadata": true}}]
+        }
+      ],
+      "forbidden": [
+        {
+          "id": "estimates-instead",
+          "description": "uses interpolate or summarize for a plain question about a named place",
+          "kind": "call",
+          "match": {"tool": ["interpolate", "summarize"]}
+        },
+        {
+          "id": "repeats-values",
+          "description": "calls values more than twice with the same arguments",
+          "kind": "repeat",
+          "tool": "values",
+          "max_identical": 2
+        }
+      ],
+      "facts": [
+        {
+          "id": "value-with-its-unit",
+          "description": "the answer states -0.7 (the judge's own reading) with degrees Celsius, not as kelvin or Fahrenheit: '-0.7 K' fails",
+          "kind": "unit",
+          "ground_truth": {
+            "call": {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": ["daily/climate_summary/temperature_air_mean_2m"],
+                "stations": ["02564"],
+                "timestamp": "2025-12-26",
+                "with_metadata": true
+              }
+            },
+            "pick": "the value, and the unit of the parameter in `metadata.parameters[].unit`"
+          },
+          "cross_check": {"tool": "glossary", "args": {"parameter": "temperature_air_mean_2m", "limit": 3}},
+          "accepted": [
+            {
+              "tokens": [
+                "°C",
+                "° C",
+                "°c",
+                "degC",
+                "deg C",
+                "degrees C",
+                "degrees Celsius",
+                "degree Celsius",
+                "degree_celsius",
+                "Celsius",
+                "C"
+              ],
+              "factor": 1
+            }
+          ],
+          "forbidden_tokens": ["K", "kelvin", "°F", "F", "fahrenheit"],
+          "tolerance": 0.2,
+          "unit": "degree_celsius"
+        }
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "A value comes back without its unit in CSV and in the default JSON (GH-3546): the unit is in `metadata.parameters[].unit` of a JSON answer with `with_metadata=true`, in `glossary` and in `coverage`. A model that does not look the unit up may guess it: this case requires the right one. Station 02564 read -0.7 on 2026-10-28."
+    },
+    {
+      "id": "units-lax-forecast-celsius",
+      "question": "What air temperature is forecast for Los Angeles tomorrow afternoon? Give the number with its unit.",
+      "kind": "units",
+      "max_steps": 6,
+      "checkpoints": [
+        {
+          "id": "reads-forecast",
+          "description": "reads the forecast values of a Los Angeles station on a forecast network (by station, name or point), air temperature among them",
+          "match": [
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": {"any_of": ["mosmix", "dmo"]},
+                "parameters": {
+                  "any_of": [
+                    "hourly/small/temperature_air_2m",
+                    "hourly/large/temperature_air_2m",
+                    "hourly/small",
+                    "hourly/large",
+                    "hourly/icon/temperature_air_2m",
+                    "hourly/icon_eu/temperature_air_2m",
+                    "hourly/icon",
+                    "hourly/icon_eu"
+                  ]
+                },
+                "stations": {"any_of": ["72295"]}
+              }
+            },
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": {"any_of": ["mosmix", "dmo"]},
+                "parameters": {
+                  "any_of": [
+                    "hourly/small/temperature_air_2m",
+                    "hourly/large/temperature_air_2m",
+                    "hourly/small",
+                    "hourly/large",
+                    "hourly/icon/temperature_air_2m",
+                    "hourly/icon_eu/temperature_air_2m",
+                    "hourly/icon",
+                    "hourly/icon_eu"
+                  ]
+                },
+                "name": {"regex": "(?i)los angeles"}
+              }
+            },
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": {"any_of": ["mosmix", "dmo"]},
+                "parameters": {
+                  "any_of": [
+                    "hourly/small/temperature_air_2m",
+                    "hourly/large/temperature_air_2m",
+                    "hourly/small",
+                    "hourly/large",
+                    "hourly/icon/temperature_air_2m",
+                    "hourly/icon_eu/temperature_air_2m",
+                    "hourly/icon",
+                    "hourly/icon_eu"
+                  ]
+                },
+                "latitude": {"between": [33, 35]},
+                "longitude": {"between": [-119.5, -117]}
+              }
+            }
+          ]
+        },
+        {
+          "id": "gets-the-unit",
+          "description": "gets the unit by a valid route: the glossary, coverage, or a values call with with_metadata=true (CSV and the default JSON carry no unit); in any order relative to the others",
+          "any_order": true,
+          "match": [{"tool": "glossary"}, {"tool": "coverage"}, {"tool": "values", "args": {"with_metadata": true}}]
+        }
+      ],
+      "forbidden": [
+        {
+          "id": "estimates-instead",
+          "description": "uses interpolate or summarize for a plain question about a named place",
+          "kind": "call",
+          "match": {"tool": ["interpolate", "summarize"]}
+        },
+        {
+          "id": "wide-long-window",
+          "description": "asks for shape=wide over a window of more than 3 days, or without a window (overflows the client)",
+          "kind": "call",
+          "match": {"tool": "values", "args": {"shape": "wide"}},
+          "window_days_over": 3
+        },
+        {
+          "id": "repeats-values",
+          "description": "calls values more than twice with the same arguments",
+          "kind": "repeat",
+          "tool": "values",
+          "max_identical": 2
+        }
+      ],
+      "facts": [
+        {
+          "id": "value-with-its-unit",
+          "description": "every temperature the answer gives is a forecast hour within the span of the judge's own forecast, plus a margin, stated in degrees Celsius: a value of about 20 stated as 293 K (or as a bare number) fails",
+          "kind": "unit",
+          "ground_truth": {
+            "call": {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "mosmix",
+                "parameters": ["hourly/small/temperature_air_2m"],
+                "stations": ["72295"],
+                "periods": ["future"],
+                "with_metadata": true
+              }
+            },
+            "pick": "all air temperatures of the next 48 hours, and their unit in `metadata.parameters[].unit`"
+          },
+          "cross_check": {"tool": "glossary", "args": {"parameter": "temperature_air_2m", "limit": 3}},
+          "accepted": [
+            {
+              "tokens": [
+                "°C",
+                "° C",
+                "°c",
+                "degC",
+                "deg C",
+                "degrees C",
+                "degrees Celsius",
+                "degree Celsius",
+                "degree_celsius",
+                "Celsius",
+                "C"
+              ],
+              "factor": 1
+            }
+          ],
+          "forbidden_tokens": ["K", "kelvin", "°F", "F", "fahrenheit"],
+          "margin": 4,
+          "unit": "degree_celsius"
+        }
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "A forecast is never compared with a fixed number: the span of the judge's own call decides. MOSMIX comes back in the dataset's own source unit (kelvin) converted to Celsius by the library; a model that reads a raw kelvin figure from another route would state 293."
+    },
+    {
+      "id": "units-humidity-percent",
+      "question": "What was the daily mean relative humidity at Hamburg-Fuhlsbüttel (DWD station 01975) on 16 October 2026? Give the number with its unit.",
+      "kind": "units",
+      "max_steps": 4,
+      "checkpoints": [
+        {
+          "id": "reads-values",
+          "description": "reads the values of the station for a window that holds the day",
+          "match": [
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {"any_of": ["daily/climate_summary/humidity_relative_mean", "daily/climate_summary", "daily/kl"]},
+                "stations": {"any_of": ["01975"]},
+                "timestamp": {"contains_date": "2026-10-16"}
+              }
+            },
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {"any_of": ["daily/climate_summary/humidity_relative_mean", "daily/climate_summary", "daily/kl"]},
+                "name": {"regex": "(?i)hamburg|kiel"},
+                "timestamp": {"contains_date": "2026-10-16"}
+              }
+            }
+          ]
+        },
+        {
+          "id": "gets-the-unit",
+          "description": "gets the unit by a valid route: the glossary, coverage, or a values call with with_metadata=true (CSV and the default JSON carry no unit); in any order relative to the others",
+          "any_order": true,
+          "match": [{"tool": "glossary"}, {"tool": "coverage"}, {"tool": "values", "args": {"with_metadata": true}}]
+        }
+      ],
+      "forbidden": [
+        {
+          "id": "estimates-instead",
+          "description": "uses interpolate or summarize for a plain question about a named place",
+          "kind": "call",
+          "match": {"tool": ["interpolate", "summarize"]}
+        },
+        {
+          "id": "repeats-values",
+          "description": "calls values more than twice with the same arguments",
+          "kind": "repeat",
+          "tool": "values",
+          "max_identical": 2
+        }
+      ],
+      "facts": [
+        {
+          "id": "value-with-its-unit",
+          "description": "the answer says 84 % (or 0.84 as a fraction): the library returns 0.8404, so '0.84 %' fails",
+          "kind": "unit",
+          "ground_truth": {
+            "call": {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": ["daily/climate_summary/humidity_relative_mean"],
+                "stations": ["01975"],
+                "timestamp": "2026-10-16",
+                "with_metadata": true
+              }
+            },
+            "pick": "the value, and the unit of the parameter in `metadata.parameters[].unit`"
+          },
+          "cross_check": {"tool": "glossary", "args": {"parameter": "humidity_relative_mean", "limit": 3}},
+          "accepted": [
+            {
+              "tokens": ["fraction", "(a fraction)", "a fraction", "as a fraction", "decimal", "dimensionless"],
+              "factor": 1
+            },
+            {"tokens": ["%", "percent", "per cent", "per-cent"], "factor": 100}
+          ],
+          "forbidden_tokens": [],
+          "tolerance": 0.005,
+          "unit": "decimal"
+        }
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "The library returns a fraction (0.8404), not a percentage: a figure of 0.84 followed by % is wrong by a factor of 100. The unit of the values is `-` in the metadata and `decimal` in the glossary."
+    },
+    {
+      "id": "units-sunshine-seconds",
+      "question": "How long did the sun shine at Hamburg-Fuhlsbüttel (DWD station 01975) on 16 October 2026? Give the number with its unit.",
+      "kind": "units",
+      "max_steps": 4,
+      "checkpoints": [
+        {
+          "id": "reads-values",
+          "description": "reads the values of the station for a window that holds the day",
+          "match": [
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {"any_of": ["daily/climate_summary/sunshine_duration", "daily/climate_summary", "daily/kl"]},
+                "stations": {"any_of": ["01975"]},
+                "timestamp": {"contains_date": "2026-10-16"}
+              }
+            },
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {"any_of": ["daily/climate_summary/sunshine_duration", "daily/climate_summary", "daily/kl"]},
+                "name": {"regex": "(?i)hamburg|kiel"},
+                "timestamp": {"contains_date": "2026-10-16"}
+              }
+            }
+          ]
+        },
+        {
+          "id": "gets-the-unit",
+          "description": "gets the unit by a valid route: the glossary, coverage, or a values call with with_metadata=true (CSV and the default JSON carry no unit); in any order relative to the others",
+          "any_order": true,
+          "match": [{"tool": "glossary"}, {"tool": "coverage"}, {"tool": "values", "args": {"with_metadata": true}}]
+        }
+      ],
+      "forbidden": [
+        {
+          "id": "estimates-instead",
+          "description": "uses interpolate or summarize for a plain question about a named place",
+          "kind": "call",
+          "match": {"tool": ["interpolate", "summarize"]}
+        },
+        {
+          "id": "repeats-values",
+          "description": "calls values more than twice with the same arguments",
+          "kind": "repeat",
+          "tool": "values",
+          "max_identical": 2
+        }
+      ],
+      "facts": [
+        {
+          "id": "value-with-its-unit",
+          "description": "the answer says about 14821 s, or the same time in minutes (247 min) or hours (4.1 h): '14821 minutes' or '14821 hours' fails",
+          "kind": "unit",
+          "ground_truth": {
+            "call": {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": ["daily/climate_summary/sunshine_duration"],
+                "stations": ["01975"],
+                "timestamp": "2026-10-16",
+                "with_metadata": true
+              }
+            },
+            "pick": "the value, and the unit of the parameter in `metadata.parameters[].unit`"
+          },
+          "cross_check": {"tool": "glossary", "args": {"parameter": "sunshine_duration", "limit": 3}},
+          "accepted": [
+            {"tokens": ["s", "sec", "secs", "second", "seconds"], "factor": 1},
+            {"tokens": ["min", "mins", "minute", "minutes"], "factor": 0.016667},
+            {"tokens": ["h", "hr", "hrs", "hour", "hours"], "factor": 0.000277778}
+          ],
+          "forbidden_tokens": [],
+          "tolerance": 1,
+          "unit": "second"
+        }
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "The values are in seconds (14821.2 on 2026-10-16), not hours: a model that guesses reads the number as minutes or hours."
+    },
+    {
+      "id": "units-wind-speed",
+      "question": "What was the daily mean wind speed at Hamburg-Fuhlsbüttel (DWD station 01975) on 16 October 2026? Give the number with its unit.",
+      "kind": "units",
+      "max_steps": 4,
+      "checkpoints": [
+        {
+          "id": "reads-values",
+          "description": "reads the values of the station for a window that holds the day",
+          "match": [
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {"any_of": ["daily/climate_summary/wind_speed_mean", "daily/climate_summary", "daily/kl"]},
+                "stations": {"any_of": ["01975"]},
+                "timestamp": {"contains_date": "2026-10-16"}
+              }
+            },
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {"any_of": ["daily/climate_summary/wind_speed_mean", "daily/climate_summary", "daily/kl"]},
+                "name": {"regex": "(?i)hamburg|kiel"},
+                "timestamp": {"contains_date": "2026-10-16"}
+              }
+            }
+          ]
+        },
+        {
+          "id": "gets-the-unit",
+          "description": "gets the unit by a valid route: the glossary, coverage, or a values call with with_metadata=true (CSV and the default JSON carry no unit); in any order relative to the others",
+          "any_order": true,
+          "match": [{"tool": "glossary"}, {"tool": "coverage"}, {"tool": "values", "args": {"with_metadata": true}}]
+        }
+      ],
+      "forbidden": [
+        {
+          "id": "estimates-instead",
+          "description": "uses interpolate or summarize for a plain question about a named place",
+          "kind": "call",
+          "match": {"tool": ["interpolate", "summarize"]}
+        },
+        {
+          "id": "repeats-values",
+          "description": "calls values more than twice with the same arguments",
+          "kind": "repeat",
+          "tool": "values",
+          "max_identical": 2
+        }
+      ],
+      "facts": [
+        {
+          "id": "value-with-its-unit",
+          "description": "the answer says 3.0 m/s, or the same speed in km/h (10.8) or knots (5.8); '3.0 km/h' fails",
+          "kind": "unit",
+          "ground_truth": {
+            "call": {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": ["daily/climate_summary/wind_speed_mean"],
+                "stations": ["01975"],
+                "timestamp": "2026-10-16",
+                "with_metadata": true
+              }
+            },
+            "pick": "the value, and the unit of the parameter in `metadata.parameters[].unit`"
+          },
+          "cross_check": {"tool": "glossary", "args": {"parameter": "wind_speed_mean", "limit": 3}},
+          "accepted": [
+            {
+              "tokens": [
+                "m/s",
+                "m s-1",
+                "m s^-1",
+                "meter_per_second",
+                "meter per second",
+                "meters per second",
+                "metre per second",
+                "metres per second"
+              ],
+              "factor": 1
+            },
+            {"tokens": ["km/h", "kmh", "kph", "kilometers per hour", "kilometres per hour"], "factor": 3.6},
+            {"tokens": ["kn", "kt", "kts", "knot", "knots"], "factor": 1.94384}
+          ],
+          "forbidden_tokens": ["mph", "bft", "beaufort"],
+          "tolerance": 0.1,
+          "unit": "meter_per_second"
+        }
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "DWD publishes the daily mean wind speed in m/s, and so does the library; 3.0 km/h would be a wrong unit by a factor of 3.6."
+    },
+    {
+      "id": "units-precipitation-mm",
+      "question": "How much precipitation fell at Hamburg-Fuhlsbüttel (DWD station 01975) on 16 October 2026? Give the number with its unit.",
+      "kind": "units",
+      "max_steps": 4,
+      "checkpoints": [
+        {
+          "id": "reads-values",
+          "description": "reads the values of the station for a window that holds the day",
+          "match": [
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {"any_of": ["daily/climate_summary/precipitation_amount", "daily/climate_summary", "daily/kl"]},
+                "stations": {"any_of": ["01975"]},
+                "timestamp": {"contains_date": "2026-10-16"}
+              }
+            },
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {"any_of": ["daily/climate_summary/precipitation_amount", "daily/climate_summary", "daily/kl"]},
+                "name": {"regex": "(?i)hamburg|kiel"},
+                "timestamp": {"contains_date": "2026-10-16"}
+              }
+            }
+          ]
+        },
+        {
+          "id": "gets-the-unit",
+          "description": "gets the unit by a valid route: the glossary, coverage, or a values call with with_metadata=true (CSV and the default JSON carry no unit); in any order relative to the others",
+          "any_order": true,
+          "match": [{"tool": "glossary"}, {"tool": "coverage"}, {"tool": "values", "args": {"with_metadata": true}}]
+        }
+      ],
+      "forbidden": [
+        {
+          "id": "estimates-instead",
+          "description": "uses interpolate or summarize for a plain question about a named place",
+          "kind": "call",
+          "match": {"tool": ["interpolate", "summarize"]}
+        },
+        {
+          "id": "repeats-values",
+          "description": "calls values more than twice with the same arguments",
+          "kind": "repeat",
+          "tool": "values",
+          "max_identical": 2
+        }
+      ],
+      "facts": [
+        {
+          "id": "value-with-its-unit",
+          "description": "the answer says 15.5 mm (or l/m2, the same thing); '15.5 cm' or '15.5 inches' fails",
+          "kind": "unit",
+          "ground_truth": {
+            "call": {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": ["daily/climate_summary/precipitation_amount"],
+                "stations": ["01975"],
+                "timestamp": "2026-10-16",
+                "with_metadata": true
+              }
+            },
+            "pick": "the value, and the unit of the parameter in `metadata.parameters[].unit`"
+          },
+          "cross_check": {"tool": "glossary", "args": {"parameter": "precipitation_amount", "limit": 3}},
+          "accepted": [
+            {
+              "tokens": [
+                "mm",
+                "millimeter",
+                "millimeters",
+                "millimetre",
+                "millimetres",
+                "l/m²",
+                "l/m2",
+                "liters per square meter",
+                "litres per square metre"
+              ],
+              "factor": 1
+            },
+            {"tokens": ["cm", "centimeter", "centimeters", "centimetre", "centimetres"], "factor": 0.1}
+          ],
+          "forbidden_tokens": ["inch", "inches"],
+          "tolerance": 0.1,
+          "unit": "millimeter"
+        }
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "15.5 mm fell on 2026-10-16 (a day with rain, so the number is not 0)."
+    },
+    {
+      "id": "units-csv-with-unit",
+      "question": "Give me the daily precipitation at Hamburg-Fuhlsbüttel (DWD station 01975) for 14 to 18 October 2026 as a CSV table, and say which unit the precipitation column is in.",
+      "kind": "units",
+      "max_steps": 5,
+      "checkpoints": [
+        {
+          "id": "reads-values",
+          "description": "reads the values of the station for a window that holds the day",
+          "match": [
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {"any_of": ["daily/climate_summary/precipitation_amount", "daily/climate_summary", "daily/kl"]},
+                "stations": {"any_of": ["01975"]},
+                "timestamp": {"contains_date": "2026-10-16"}
+              }
+            },
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {"any_of": ["daily/climate_summary/precipitation_amount", "daily/climate_summary", "daily/kl"]},
+                "name": {"regex": "(?i)hamburg|kiel"},
+                "timestamp": {"contains_date": "2026-10-16"}
+              }
+            }
+          ]
+        },
+        {
+          "id": "gets-the-unit",
+          "description": "gets the unit by a valid route: the glossary, coverage, or a values call with with_metadata=true (CSV and the default JSON carry no unit); in any order relative to the others",
+          "any_order": true,
+          "match": [{"tool": "glossary"}, {"tool": "coverage"}, {"tool": "values", "args": {"with_metadata": true}}]
+        }
+      ],
+      "forbidden": [
+        {
+          "id": "estimates-instead",
+          "description": "uses interpolate or summarize for a plain question about a named place",
+          "kind": "call",
+          "match": {"tool": ["interpolate", "summarize"]}
+        },
+        {
+          "id": "repeats-values",
+          "description": "calls values more than twice with the same arguments",
+          "kind": "repeat",
+          "tool": "values",
+          "max_identical": 2
+        }
+      ],
+      "facts": [
+        {
+          "id": "value-with-its-unit",
+          "description": "the answer's table (or text) gives 15.5 for 16 October with the unit mm, in the header of the column or in a sentence naming the column",
+          "kind": "unit",
+          "ground_truth": {
+            "call": {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": ["daily/climate_summary/precipitation_amount"],
+                "stations": ["01975"],
+                "timestamp": "2026-10-16",
+                "with_metadata": true
+              }
+            },
+            "pick": "the value, and the unit of the parameter in `metadata.parameters[].unit`"
+          },
+          "cross_check": {"tool": "glossary", "args": {"parameter": "precipitation_amount", "limit": 3}},
+          "accepted": [
+            {"tokens": ["mm", "millimeter", "millimeters", "millimetre", "millimetres", "l/m²", "l/m2"], "factor": 1},
+            {"tokens": ["cm", "centimeter", "centimeters", "centimetre", "centimetres"], "factor": 0.1}
+          ],
+          "forbidden_tokens": ["inch", "inches"],
+          "tolerance": 0.1,
+          "unit": "millimeter"
+        },
+        {
+          "id": "gives-a-csv-table",
+          "description": "the answer holds a CSV block: a header line and rows with comma-separated fields",
+          "kind": "answer_regex",
+          "any_of": ["(?m)^[^\\n,]*[A-Za-z][^\\n,]*,[^\\n]+\\n[^\\n,]*\\d[^\\n,]*,[^\\n]+"]
+        }
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "The guard of a planned compact (CSV or columnar) default for `values`: CSV, long or wide, carries no unit, so a model that is asked for a CSV table must obtain the unit another way (the glossary, coverage, or JSON with `with_metadata=true`, which CSV ignores) and say it; a strategy that drops the unit must pass it (GH-3546). The model may use the CSV or the JSON format, or write the CSV itself."
+    },
+    {
+      "id": "units-fahrenheit",
+      "question": "What was the daily mean air temperature at DWD station 02564 (Kiel-Holtenau) on 26 December 2025, in degrees Fahrenheit?",
+      "kind": "units",
+      "max_steps": 4,
+      "checkpoints": [
+        {
+          "id": "reads-values",
+          "description": "reads the values of the station for a window that holds the day",
+          "match": [
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {"any_of": ["daily/climate_summary/temperature_air_mean_2m", "daily/climate_summary", "daily/kl"]},
+                "stations": {"any_of": ["02564"]},
+                "timestamp": {"contains_date": "2025-12-26"}
+              }
+            },
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {"any_of": ["daily/climate_summary/temperature_air_mean_2m", "daily/climate_summary", "daily/kl"]},
+                "name": {"regex": "(?i)hamburg|kiel"},
+                "timestamp": {"contains_date": "2025-12-26"}
+              }
+            }
+          ]
+        },
+        {
+          "id": "gets-the-unit",
+          "description": "gets the unit by a valid route: the glossary, coverage, or a values call with with_metadata=true (CSV and the default JSON carry no unit); in any order relative to the others",
+          "any_order": true,
+          "match": [{"tool": "glossary"}, {"tool": "coverage"}, {"tool": "values", "args": {"with_metadata": true}}]
+        }
+      ],
+      "forbidden": [
+        {
+          "id": "estimates-instead",
+          "description": "uses interpolate or summarize for a plain question about a named place",
+          "kind": "call",
+          "match": {"tool": ["interpolate", "summarize"]}
+        },
+        {
+          "id": "repeats-values",
+          "description": "calls values more than twice with the same arguments",
+          "kind": "repeat",
+          "tool": "values",
+          "max_identical": 2
+        }
+      ],
+      "facts": [
+        {
+          "id": "value-with-its-unit",
+          "description": "the answer converts the judge's value (-0.7 C) correctly: 30.7 F (31 F passes, -0.7 F or 273 K fails); a value read with unit_targets in Fahrenheit passes too",
+          "kind": "unit",
+          "ground_truth": {
+            "call": {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": ["daily/climate_summary/temperature_air_mean_2m"],
+                "stations": ["02564"],
+                "timestamp": "2025-12-26",
+                "with_metadata": true
+              }
+            },
+            "pick": "the value, and the unit of the parameter in `metadata.parameters[].unit`"
+          },
+          "cross_check": {"tool": "glossary", "args": {"parameter": "temperature_air_mean_2m", "limit": 3}},
+          "accepted": [
+            {
+              "tokens": [
+                "°F",
+                "° F",
+                "°f",
+                "degF",
+                "deg F",
+                "degrees F",
+                "degrees Fahrenheit",
+                "degree Fahrenheit",
+                "degree_fahrenheit",
+                "Fahrenheit",
+                "F"
+              ],
+              "factor": 1.8,
+              "offset": 32,
+              "required": true
+            },
+            {
+              "tokens": [
+                "°C",
+                "° C",
+                "°c",
+                "degC",
+                "deg C",
+                "degrees C",
+                "degrees Celsius",
+                "degree Celsius",
+                "degree_celsius",
+                "Celsius",
+                "C"
+              ],
+              "factor": 1
+            }
+          ],
+          "forbidden_tokens": ["K", "kelvin"],
+          "tolerance": 0.2,
+          "unit": "degree_celsius"
+        }
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "The value comes back in degrees Celsius; the conversion is the model's, or the server's with `unit_targets={'temperature': 'degree_fahrenheit'}`, which is a valid route. The Fahrenheit figure must be there, in the Fahrenheit unit, and be right."
     }
   ]
 }

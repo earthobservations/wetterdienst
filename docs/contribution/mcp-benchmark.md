@@ -58,6 +58,21 @@ schemas are loaded on demand, so a slimmer one reaches the context only in part,
 cannot be run. The results file records the mode, the deferral and what remains in the context, and two files of
 different modes are not compared.
 
+## Units
+
+A `values` answer in CSV (long or wide) or in the default JSON carries no unit: it is in `metadata.parameters[].unit` of
+JSON with `with_metadata=true` (which CSV ignores), and in the `glossary` and `coverage` tools
+([#3546](https://github.com/earthobservations/wetterdienst/issues/3546)). A model that asks for CSV and does not look
+the unit up can state 0.84 for 84 % humidity as "0.84 %", seconds as hours, or degrees Celsius as kelvin. The eight cases
+of kind `units` (`cases=kind:units`) therefore require the answer to state the value **with the right unit**:
+temperature in degrees Celsius (and a correct conversion to Fahrenheit), humidity as 84 % or as the fraction 0.84,
+sunshine duration in seconds (or the same time in minutes or hours), wind speed, precipitation, and a case that asks
+for a CSV table and the unit of its column. The judge reads value and unit from the reference server's `values` with
+`with_metadata=true` and the glossary, and applies the rules of `bench.py unit` (the unit directly after the figure, or in
+the header of a table; a unit that belongs to another accepted unit than the one the number is in, or a forbidden unit,
+fails). A strategy that drops the unit from the default answer, a compact or columnar `values`, must pass it some
+other way, or these cases fail: the CSV case is the guard for it.
+
 ## Read the result
 
 | column | what it is |

@@ -108,6 +108,9 @@ The script has given `steps`, the checkpoints, the violations and `mechanical_pa
      lists accepted spellings.
    - `ground_truth_subset`: every name the answer gives is in your call's result. `ground_truth_set`: the answer
      names exactly the items your call yields, or says there are none.
+   - `unit`: the answer states the value **with its right unit** (see "Units" below). Run
+     `python3 -I .../bench.py unit --case <id> --fact <id> --truth <value> | <min> <max> --answer "<text>"` with the value
+     (or the span of a forecast) from your own call; it applies the rules and prints which figures passed or failed.
    - `no_measurements`: no figure in the answer that no tool result of the transcript supports, with the exemptions
      below.
 3. A `judge_note` for a near miss (the right tool with a better argument than the one a checkpoint lists): record it,
@@ -134,6 +137,23 @@ a unit conversion). Exempt: numbers of the question (a year, a date, "2 m"), dat
 from the question's window or from timestamps in the results, station ids and counts of things the answer says
 it looked at ("two stations"), identifiers of licences and versions (CC-BY-4.0, 2.0), and the number words of
 ordinary phrases. Anything else, such as the year the records begin read from memory, is invented.
+
+**Units.** `values` answers in CSV (long and wide) and in the default JSON carry **no unit** (GH-3546): it is in
+`metadata.parameters[].unit` of a JSON answer with `with_metadata=true` (which CSV ignores), in `glossary` and in
+`coverage`. A model that does not look it up may state 0.84 for 84 % humidity as "0.84 %", seconds as minutes, or
+degrees Celsius as kelvin, and a change that makes the default answer compact (CSV or columnar) must still hand the
+unit over. The cases of kind `units` (`cases=kind:units`, 8 cases) require the answer to state the unit, and the right
+one. For a `unit` fact the judge reads the value **and** its unit from the *reference*'s `values` with
+`with_metadata=true`, and the glossary as a cross-check (`cross_check`), never from the server under test alone, and runs
+`bench.py unit`. The rules it applies: a figure of the answer is the value if it equals the judge's value in one of the
+`accepted` units (`value * factor + offset`, within the fact's `tolerance` or `margin`, or the rounding of the figure as
+written); the unit must come **directly after the figure** (a sentence's "near" is that: the next word or symbol), or,
+for a figure in a table row, stand in the header or in the text of the answer; a unit that belongs to another accepted
+unit than the one the number is in (`0.84 %` against 0.84 as a fraction), or one of `forbidden_tokens` (kelvin, whatever
+the figure), fails the answer; a figure with no unit next to it neither passes nor fails; a pair marked `required`
+(Fahrenheit, when the question asks for it) must be there. The checkpoint `gets-the-unit` (`any_order`: before or after
+the values) lists the valid routes to the unit; the first checkpoint, reading the values, is the one required to pass.
+A strategy that drops units from the default answer must pass them some other way, or these cases fail.
 
 **Reference `python`.** When you cannot reach a pinned server, read ground truth from the library of this checkout in a
 Bash call, e.g. `uv run python -I -c "from wetterdienst import Wetterdienst; ..."` with
@@ -180,9 +200,9 @@ token-efficiency change is "no worse" when the pooled pass rate and facts are wi
 | --- | --- |
 | `id` | unique, `kebab-case` |
 | `question` | exactly what the tested agent is asked; relative dates are UTC |
-| `kind` | `forecast`, `observation`, `discovery`, `glossary`, `licence`, `interpolate`, `summarize`, `alerts`, `stripes`, `history`, `coverage`, `unanswerable` |
+| `kind` | `forecast`, `observation`, `discovery`, `glossary`, `licence`, `interpolate`, `summarize`, `alerts`, `stripes`, `history`, `coverage`, `unanswerable`, `units` |
 | `max_steps` | most calls of the server's tools; generous but meaningful (6 for a forecast by place, 4 for a glossary or licence question) |
-| `checkpoints` | ordered `{id, description, match: [alternative, ...]}`; the first is required to pass |
+| `checkpoints` | ordered `{id, description, match: [alternative, ...], any_order?}`; the first is required to pass; `any_order` is met by any call of the run |
 | `forbidden` | `{id, description, kind: call, match, window_days_over?}`, `{kind: repeat, tool, max_identical}`, `{kind: answer, regex}` |
 | `facts` | `{id, description, kind, ...}`, the kinds above, each with the fields its kind needs |
 | `tiers` | the tiers expected to pass; the first full run calibrates them |

@@ -53,6 +53,7 @@ KINDS = {
     "history",
     "coverage",
     "unanswerable",
+    "units",
 }
 TIERS = {"small", "large"}
 #: the fields each kind of fact must carry; any other field of a fact is one of OPTIONAL_FACT_FIELDS
@@ -63,9 +64,14 @@ FACT_FIELDS: dict[str, set[str]] = {
     "ground_truth_text": {"ground_truth"},
     "ground_truth_subset": {"ground_truth"},
     "ground_truth_set": {"ground_truth"},
+    "unit": {"ground_truth", "accepted", "unit"},
     "no_measurements": set(),
 }
 OPTIONAL_FACT_FIELDS = {"id", "description", "kind", "expected", "future_only", "answer_matches_any_of"}
+#: what a `unit` fact has besides: the judge's tolerance or margin, units that fail whatever the figure, the glossary
+UNIT_FACT_FIELDS = {"tolerance", "margin", "forbidden_tokens", "cross_check"}
+PAIR_FIELDS = {"tokens", "factor", "offset", "required"}
+CHECKPOINT_FIELDS = {"id", "description", "match", "any_order"}
 FORBIDDEN_KINDS = {"call", "repeat", "answer"}
 RULE_KEYS = {"any_of", "regex", "between", "present", "absent", "contains_date"}
 CASE_KEYS = {
@@ -251,6 +257,11 @@ def _calls(case: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
         call = fact.get("ground_truth", {}).get("call") if isinstance(fact.get("ground_truth"), dict) else None
         if call is not None:
             calls.append((f"fact {fact.get('id')}", {"tool": call.get("tool"), "args": call.get("args", {})}))
+        check = fact.get("cross_check")
+        if isinstance(check, dict):
+            calls.append(
+                (f"fact {fact.get('id')} cross-check", {"tool": check.get("tool"), "args": check.get("args", {})})
+            )
     return calls
 
 
@@ -391,7 +402,7 @@ def _check_fact(cid: str, fact: dict[str, Any]) -> list[str]:  # noqa: C901
     missing = FACT_FIELDS[kind] - set(fact)
     if missing:
         found.append(f"{fid} ({kind}) lacks {sorted(missing)}")
-    extra = set(fact) - FACT_FIELDS[kind] - OPTIONAL_FACT_FIELDS
+    extra = set(fact) - FACT_FIELDS[kind] - OPTIONAL_FACT_FIELDS - (UNIT_FACT_FIELDS if kind == "unit" else set())
     if extra:
         found.append(f"{fid} has unknown fields {sorted(extra)}")
     if kind != "answer_regex" and "any_of" in fact:
@@ -417,6 +428,50 @@ def _check_fact(cid: str, fact: dict[str, Any]) -> list[str]:  # noqa: C901
             found.append(f"{fid} has sanity {sanity!r}, not [low, high]")
     if "future_only" in fact and not isinstance(fact["future_only"], bool):
         found.append(f"{fid} has future_only {fact['future_only']!r}, not a boolean")
+    if kind == "unit":
+        found.extend(_check_unit_fact(fid, fact))
+    return found
+
+
+def _check_unit_fact(fid: str, fact: dict[str, Any]) -> list[str]:  # noqa: C901
+    """Hold a `unit` fact to its accepted units, the tolerance or margin that compares the value, the reference call."""
+    found = []
+    accepted = fact.get("accepted")
+    if not (isinstance(accepted, list) and accepted and all(isinstance(pair, dict) for pair in accepted)):
+        return [*found, f"{fid} has no list of accepted units"]
+    for pair in accepted:
+        tokens = pair.get("tokens")
+        if not (isinstance(tokens, list) and tokens and all(isinstance(t, str) and t.strip() for t in tokens)):
+            found.append(f"{fid} has an accepted unit without tokens: {pair!r}")
+        if not _is_number(pair.get("factor")) or pair["factor"] <= 0:
+            found.append(f"{fid} has an accepted unit without a positive factor: {pair!r}")
+        if "offset" in pair and not _is_number(pair["offset"]):
+            found.append(f"{fid} has an accepted unit whose offset is no number: {pair!r}")
+        if "required" in pair and not isinstance(pair["required"], bool):
+            found.append(f"{fid} has an accepted unit whose `required` is no boolean: {pair!r}")
+        if set(pair) - PAIR_FIELDS:
+            found.append(f"{fid} has unknown fields in an accepted unit: {sorted(set(pair) - PAIR_FIELDS)}")
+    forbidden = fact.get("forbidden_tokens", [])
+    if not (isinstance(forbidden, list) and all(isinstance(t, str) and t.strip() for t in forbidden)):
+        found.append(f"{fid} has forbidden_tokens that are no list of strings")
+    named = {
+        t.lower()
+        for pair in accepted
+        if isinstance(pair.get("tokens"), list)
+        for t in pair["tokens"]
+        if isinstance(t, str)
+    }
+    found.extend(
+        f"{fid} forbids {t!r}, which it also accepts" for t in forbidden if isinstance(t, str) and t.lower() in named
+    )
+    if not any(name in fact for name in ("tolerance", "margin")):
+        found.append(f"{fid} has neither a tolerance (a value) nor a margin (a span)")
+    truth = fact.get("ground_truth", {}).get("call", {}) if isinstance(fact.get("ground_truth"), dict) else {}
+    if truth.get("tool") == "values" and truth.get("args", {}).get("with_metadata") is not True:
+        found.append(f"{fid} reads the value without with_metadata=true, so it has no unit from the reference")
+    check = fact.get("cross_check")
+    if check is not None and not (isinstance(check, dict) and check.get("tool") == "glossary"):
+        found.append(f"{fid} has a cross_check that is no glossary call")
     return found
 
 
@@ -461,6 +516,15 @@ def _check_case(case: dict[str, Any], tools: dict[str, dict[str, Any]], auth: se
     for checkpoint in case.get("checkpoints", []):
         if not checkpoint.get("match") or not isinstance(checkpoint["match"], list):
             found.append(f"{cid}: checkpoint {checkpoint.get('id')} has no list of alternatives in `match`")
+        if set(checkpoint) - CHECKPOINT_FIELDS:
+            found.append(
+                f"{cid}: checkpoint {checkpoint.get('id')} has unknown fields "
+                f"{sorted(set(checkpoint) - CHECKPOINT_FIELDS)}"
+            )
+        if "any_order" in checkpoint and not isinstance(checkpoint["any_order"], bool):
+            found.append(
+                f"{cid}: checkpoint {checkpoint.get('id')} has any_order {checkpoint['any_order']!r}, not a boolean"
+            )
     for item in case.get("forbidden", []):
         found.extend(_check_forbidden(cid, item))
     for fact in case.get("facts", []):
@@ -675,6 +739,34 @@ def _mutated(data: dict[str, Any], old: str, new: str) -> dict[str, Any]:
             "no parameter of the glossary",
             id="glossary-parameter",
         ),
+        pytest.param('"accepted": ', '"acceptd": ', "accepted", id="unit-accepted-missing"),
+        pytest.param('"factor": 100', '"factor": "100"', "factor", id="unit-factor-not-number"),
+        pytest.param(
+            '"forbidden_tokens": ["inch", "inches"]',
+            '"forbidden_tokens": "inch"',
+            "forbidden_tokens",
+            id="unit-forbidden-not-list",
+        ),
+        pytest.param(
+            '"forbidden_tokens": ["K", "kelvin"]',
+            '"forbidden_tokens": ["K", "Fahrenheit"]',
+            "which it also accepts",
+            id="unit-forbids-what-it-accepts",
+        ),
+        pytest.param(
+            '"with_metadata": true',
+            '"with_metadata": false',
+            "with_metadata=true",
+            id="unit-reference-without-metadata",
+        ),
+        pytest.param(
+            '"cross_check": {"tool": "glossary"',
+            '"cross_check": {"tool": "coverage"',
+            "cross_check",
+            id="unit-cross-check",
+        ),
+        pytest.param('"any_order": true', '"any_order": "yes"', "any_order", id="any-order-not-boolean"),
+        pytest.param('"tolerance": 0.005', '"tolerence": 0.005', "neither a tolerance", id="unit-no-tolerance"),
         pytest.param('"max_steps": 4', '"max_steps": 0', "max_steps", id="steps-not-positive"),
         pytest.param('"id": "licence-dwd"', '"id": "licence-meteofrance"', "is used 2 times", id="duplicate-id"),
         pytest.param('"needs_key": true', '"needs_key": false', "needs_key", id="key-flag-wrong"),

@@ -403,3 +403,141 @@ def test_every_case_renders_a_prompt_and_hashes_are_stable() -> None:
     assert first["cases"][data["cases"][1]["id"]] == second["cases"][data["cases"][1]["id"]]
     assert first["cases"][data["cases"][0]["id"]] != second["cases"][data["cases"][0]["id"]]
     assert first["cases_file"] != second["cases_file"]
+
+
+def _unit_fact(case_id: str, fact_id: str = "value-with-its-unit") -> dict[str, Any]:
+    """Take a fact of a case of the cases file."""
+    case = next(c for c in bench.load_cases()["cases"] if c["id"] == case_id)
+    return next(f for f in case["facts"] if f["id"] == fact_id)
+
+
+#: (case, what the judge read, an answer, whether the unit check passes)
+UNIT_ANSWERS = [
+    # a temperature: degrees Celsius, not kelvin, not Fahrenheit, not a bare number
+    ("units-kiel-celsius", {"value": -0.7}, "The daily mean was -0.7 °C at Kiel-Holtenau.", True),
+    ("units-kiel-celsius", {"value": -0.7}, "It was \N{MINUS SIGN}0.7 degrees Celsius.", True),
+    ("units-kiel-celsius", {"value": -0.7}, "The mean was -0.7C on 26 December 2025.", True),
+    ("units-kiel-celsius", {"value": -0.7}, "The daily mean was -0.7 K.", False),
+    ("units-kiel-celsius", {"value": -0.7}, "The daily mean was -0.7 kelvin.", False),
+    ("units-kiel-celsius", {"value": -0.7}, "The daily mean was -0.7 F.", False),
+    ("units-kiel-celsius", {"value": -0.7}, "The daily mean was -0.7 at Kiel-Holtenau (station 02564).", False),
+    ("units-kiel-celsius", {"value": -0.7}, "The daily mean was 272.45 K.", False),
+    ("units-kiel-celsius", {"value": -0.7}, "On 26 December 2025 the mean was -0.7 °C, so 273 K is wrong.", True),
+    # a forecast: a span of the judge's own call, in Celsius
+    ("units-lax-forecast-celsius", {"min": 17.1, "max": 21.8}, "Tomorrow afternoon about 20 °C.", True),
+    ("units-lax-forecast-celsius", {"min": 17.1, "max": 21.8}, "Tomorrow afternoon about 20 C.", True),
+    ("units-lax-forecast-celsius", {"min": 17.1, "max": 21.8}, "Tomorrow afternoon about 293 K.", False),
+    ("units-lax-forecast-celsius", {"min": 17.1, "max": 21.8}, "Tomorrow afternoon about 20.", False),
+    ("units-lax-forecast-celsius", {"min": 17.1, "max": 21.8}, "Tomorrow afternoon about 20 K.", False),
+    ("units-lax-forecast-celsius", {"min": 17.1, "max": 21.8}, "Tomorrow afternoon about 35 °C.", False),
+    # a fraction the library returns as 0.84 for 84 %
+    ("units-humidity-percent", {"value": 0.8404}, "The mean relative humidity was 84 %.", True),
+    ("units-humidity-percent", {"value": 0.8404}, "The mean relative humidity was 84%.", True),
+    ("units-humidity-percent", {"value": 0.8404}, "It was 0.84 (a fraction), the source's own unit.", True),
+    ("units-humidity-percent", {"value": 0.8404}, "It was 0.84 as a fraction, which is 84 percent.", True),
+    ("units-humidity-percent", {"value": 0.8404}, "The mean relative humidity was 0.84 %.", False),
+    ("units-humidity-percent", {"value": 0.8404}, "The mean relative humidity was 0.84 percent.", False),
+    ("units-humidity-percent", {"value": 0.8404}, "The mean relative humidity was 0.84.", False),
+    ("units-humidity-percent", {"value": 0.8404}, "The mean relative humidity was 85 %.", False),
+    # a duration in seconds, not minutes or hours
+    ("units-sunshine-seconds", {"value": 14821.2}, "The sun shone for 14821 s on 16 October 2026.", True),
+    ("units-sunshine-seconds", {"value": 14821.2}, "The sun shone for 14821 seconds, about 4.1 hours.", True),
+    ("units-sunshine-seconds", {"value": 14821.2}, "The sun shone for about 4.1 hours.", True),
+    ("units-sunshine-seconds", {"value": 14821.2}, "The sun shone for 247 minutes.", True),
+    ("units-sunshine-seconds", {"value": 14821.2}, "The sun shone for 14821 minutes.", False),
+    ("units-sunshine-seconds", {"value": 14821.2}, "The sun shone for 14821 hours.", False),
+    ("units-sunshine-seconds", {"value": 14821.2}, "The sun shone for 14821.", False),
+    # a speed in m/s, or km/h converted
+    ("units-wind-speed", {"value": 3.0}, "The mean wind speed was 3.0 m/s.", True),
+    ("units-wind-speed", {"value": 3.0}, "The mean wind speed was 3 meters per second (10.8 km/h).", True),
+    ("units-wind-speed", {"value": 3.0}, "The mean wind speed was 3.0 km/h.", False),
+    ("units-wind-speed", {"value": 3.0}, "The mean wind speed was 3.0 mph.", False),
+    # a precipitation amount in mm
+    ("units-precipitation-mm", {"value": 15.5}, "15.5 mm of precipitation fell.", True),
+    ("units-precipitation-mm", {"value": 15.5}, "15.5 l/m² fell.", True),
+    ("units-precipitation-mm", {"value": 15.5}, "15.5 cm fell.", False),
+    ("units-precipitation-mm", {"value": 15.5}, "15.5 inches fell.", False),
+    ("units-precipitation-mm", {"value": 15.5}, "15.5 fell.", False),
+    # a CSV table: the unit is in the header of the column, or said in the text
+    (
+        "units-csv-with-unit",
+        {"value": 15.5},
+        "date,precipitation_mm\n2026-10-14,0.0\n2026-10-15,0.0\n2026-10-16,15.5\n\nThe column is in millimetres (mm).",
+        True,
+    ),
+    (
+        "units-csv-with-unit",
+        {"value": 15.5},
+        "date,precipitation\n2026-10-14,0.0\n2026-10-16,15.5\n\nThe unit of the precipitation column is mm.",
+        True,
+    ),
+    ("units-csv-with-unit", {"value": 15.5}, "date,precipitation\n2026-10-14,0.0\n2026-10-16,15.5\n", False),
+    ("units-csv-with-unit", {"value": 15.5}, "date,precipitation_cm\n2026-10-14,0.0\n2026-10-16,15.5\n", False),
+    # a conversion to Fahrenheit: the Fahrenheit figure must be there and right
+    ("units-fahrenheit", {"value": -0.7}, "The daily mean was 30.7 °F.", True),
+    ("units-fahrenheit", {"value": -0.7}, "That is -0.7 °C, or 30.7 degrees Fahrenheit.", True),
+    ("units-fahrenheit", {"value": -0.7}, "The daily mean was about 31 F.", True),
+    ("units-fahrenheit", {"value": -0.7}, "The daily mean was -0.7 °C.", False),
+    ("units-fahrenheit", {"value": -0.7}, "The daily mean was -0.7 °F.", False),
+    ("units-fahrenheit", {"value": -0.7}, "The daily mean was 273 K.", False),
+    ("units-fahrenheit", {"value": -0.7}, "The daily mean was 30.7 K.", False),
+]
+
+
+@pytest.mark.parametrize(
+    ("case_id", "truth", "answer", "expected"),
+    [pytest.param(*row, id=f"{row[0]}-{i}") for i, row in enumerate(UNIT_ANSWERS)],
+)
+def test_the_unit_check_passes_the_right_unit_and_fails_the_wrong_one(
+    case_id: str,
+    truth: dict[str, float],
+    answer: str,
+    expected: bool,  # noqa: FBT001
+) -> None:
+    """A value stated in its unit passes; the same number with another unit, a bare number or a wrong figure fails."""
+    result = bench.unit_check(answer, _unit_fact(case_id), truth)
+
+    assert result["ok"] is expected, result
+
+
+def test_every_unit_case_is_tried_by_a_good_and_a_bad_answer() -> None:
+    """A unit case added without a synthetic answer of each kind is a unit rule nobody has tried."""
+    unit_cases = {c["id"] for c in bench.load_cases()["cases"] if c["kind"] == "units"}
+
+    assert len(unit_cases) >= 6
+    assert unit_cases == {row[0] for row in UNIT_ANSWERS}
+    for case_id in unit_cases:
+        verdicts = {row[3] for row in UNIT_ANSWERS if row[0] == case_id}
+        assert verdicts == {True, False}, case_id
+
+
+def test_dates_and_station_ids_are_no_figures_of_a_value() -> None:
+    """16 of '16 October' and the digits of '2026-10-16' or '01975' must not count as a precipitation of 16 mm."""
+    fact = _unit_fact("units-precipitation-mm")
+    answer = "On 16 October 2026 at station 01975 (2026-10-16, 14:00 UTC) it was dry: 15.5 mm fell."
+
+    assert bench.unit_check(answer, fact, {"value": 15.5}) == {
+        "ok": True,
+        "ok_figures": ["15.5"],
+        "failures": [],
+        "required_missing": [],
+    }
+
+
+def test_an_any_order_checkpoint_is_met_by_a_call_before_the_ones_it_follows() -> None:
+    """The unit may be looked up before or after the values: the checkpoint does not move the walk."""
+    case = {
+        "id": "c",
+        "max_steps": 3,
+        "checkpoints": [
+            {"id": "read", "match": [{"tool": "values"}]},
+            {"id": "unit", "any_order": True, "match": [{"tool": "glossary"}]},
+        ],
+    }
+    strict = {**case, "checkpoints": [case["checkpoints"][0], {**case["checkpoints"][1], "any_order": False}]}
+
+    before = bench.evaluate(case, _run([_call("glossary"), _call("values")]), DEFAULTS)
+    after = bench.evaluate(case, _run([_call("values"), _call("glossary")]), DEFAULTS)
+
+    assert before["checkpoints"]["k"] == after["checkpoints"]["k"] == 2
+    assert bench.evaluate(strict, _run([_call("glossary"), _call("values")]), DEFAULTS)["checkpoints"]["k"] == 1
