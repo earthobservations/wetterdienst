@@ -20,8 +20,9 @@ Types of changes:
 
 - **Breaking**: `providers` (REST, `about providers`, MCP) answers the short form by default: a
   network has no `resolutions`, and the answer is 43 % smaller (`dwd`: 13,154 to 3,913 characters).
-  Pass `datasets=true` (`--datasets`, `get_providers(datasets=True)`) to get them as before. Cite
-  `attribution`, or the network's `copyright` where it is null, as the descriptions now say (GH-3536)
+  Pass `with_datasets=true` (`--with-datasets`, `get_providers(with_datasets=True)`) to get them as
+  before. Cite `attribution`, or the network's `copyright` where it is null, as the descriptions
+  now say (GH-3536)
 - **Breaking**: `nws/observation` fills a gap of the observation it keeps for an hour from the
   nearest other observation of that hour (a verified 5-minute row for a METAR whose temperature
   is not controlled yet), with that row's `quality_flags`. These come back where they were null:

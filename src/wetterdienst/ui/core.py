@@ -1277,7 +1277,7 @@ class ProvidersRequest(_RefusesRenamedParameters):
         str | None,
         Field(description="Only this provider, e.g. 'dwd'. Without it, every provider."),
     ] = None
-    datasets: Annotated[
+    with_datasets: Annotated[
         bool,
         Field(
             description="Also list the resolutions and datasets of every network, with how many parameters each has. "

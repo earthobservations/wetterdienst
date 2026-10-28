@@ -93,8 +93,8 @@ class ProviderNetwork(BaseModel):
     resolutions: list[ProviderResolution] | SkipJsonSchema[None] = Field(
         default=None,
         description="The resolutions of the network with the datasets of each and how many parameters it has: "
-        "only with `datasets=true`, and absent from the compact answer, which is the default. Empty for a standalone "
-        "network (`dwd/radar`, `dwd/alerts`). `/api/coverage` lists the parameters.",
+        "only with `with_datasets=true`, and absent from the compact answer, which is the default. Empty for a "
+        "standalone network (`dwd/radar`, `dwd/alerts`). `/api/coverage` lists the parameters.",
     )
 
     # no return annotation, on purpose: see `ProviderDataset`
@@ -144,7 +144,7 @@ class ProvidersAnswer(BaseModel):
 
 
 def _network(
-    provider: str, network: str, *, datasets: bool = False
+    provider: str, network: str, *, with_datasets: bool = False
 ) -> tuple[ProviderNetwork, MetadataModel | None] | None:
     """Describe a network, or None where it cannot be imported on this server: it is left out, and told as a warning."""
     try:
@@ -161,7 +161,7 @@ def _network(
                     auth=False,
                     date_required=False,
                     parameters=0,
-                    resolutions=[] if datasets else None,
+                    resolutions=[] if with_datasets else None,
                 ),
                 None,
             )
@@ -198,16 +198,16 @@ def _network(
             auth=metadata.auth,
             date_required=any(dataset.date_required for resolution in metadata for dataset in resolution.datasets),
             parameters=sum(dataset.parameters for resolution in resolutions for dataset in resolution.datasets),
-            resolutions=resolutions if datasets else None,
+            resolutions=resolutions if with_datasets else None,
         ),
         metadata,
     )
 
 
-def get_providers(provider: str | None = None, *, datasets: bool = False) -> ProvidersAnswer:
+def get_providers(provider: str | None = None, *, with_datasets: bool = False) -> ProvidersAnswer:
     """Describe every provider of the registry, sorted by name, or the one named.
 
-    The answer is the compact one unless `datasets` is true: every network then also lists its resolutions and the
+    The answer is the compact one unless `with_datasets` is true: every network then also lists its resolutions and the
     datasets of each, with their parameter counts, which is most of the answer's size (`/api/coverage` lists the
     parameters themselves).
 
@@ -231,7 +231,7 @@ def get_providers(provider: str | None = None, *, datasets: bool = False) -> Pro
         networks = [
             described
             for network in Wetterdienst.registry[name]
-            if (described := _network(name, network, datasets=datasets))
+            if (described := _network(name, network, with_datasets=with_datasets))
         ]
         declared = [metadata for _, metadata in networks if metadata is not None]
         if not declared:

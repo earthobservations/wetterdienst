@@ -190,7 +190,7 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
               </NuxtLink>
             </p>
 
-            <template v-if="network.resolutions.length">
+            <template v-if="network.resolutions?.length">
               <p class="text-xs text-gray-500 dark:text-gray-400">
                 {{ t('providers.parametersCount', { count: network.parameters }) }}
               </p>
@@ -214,8 +214,12 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
                 </template>
               </dl>
             </template>
-            <p v-else class="text-sm text-gray-500 dark:text-gray-400">
+            <p v-else-if="network.resolutions" class="text-sm text-gray-500 dark:text-gray-400">
               {{ t('providers.noResolutions') }}
+            </p>
+            <!-- a backend that did not list the datasets: the count is all there is to show -->
+            <p v-else class="text-xs text-gray-500 dark:text-gray-400">
+              {{ t('providers.parametersCount', { count: network.parameters }) }}
             </p>
 
             <div class="flex flex-wrap gap-2">

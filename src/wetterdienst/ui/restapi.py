@@ -1485,7 +1485,7 @@ def providers(
     line to cite (`attribution`; where it is null, cite the `copyright` of the network, the rights holder's
     notice, which is shown for information), and its networks, each with its `kind`, its `extent` (where its
     stations are: `scope`, `continents`, `country_codes`, `bbox`), source `url`, `copyright`, whether it needs
-    credentials (`auth`) and how many parameters it has. That short form is the default. With `datasets=true`
+    credentials (`auth`) and how many parameters it has. That short form is the default. With `with_datasets=true`
     each network also lists the resolutions and datasets it offers, with how many parameters each has; a
     dataset whose stations are fewer than its network's has an `extent` of its own, and one without has its
     network's. Nothing is downloaded and no credential is read, so it answers at once; `coverage` lists the
@@ -1494,7 +1494,7 @@ def providers(
     begin_response()
 
     try:
-        answer = get_providers(request.provider, datasets=request.datasets)
+        answer = get_providers(request.provider, with_datasets=request.with_datasets)
     except ApiNotFoundError as e:
         raise HTTPException(
             status_code=404,

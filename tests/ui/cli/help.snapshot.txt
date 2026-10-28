@@ -171,16 +171,16 @@ Usage: wetterdienst about providers [OPTIONS]
   it publishes its data under (`license`, null where it states none), the credit line to cite
   (`attribution`; where it is null, cite the `copyright` of the network, the rights holder's notice,
   which is shown for information), and its networks with their `kind`, `extent`, source `url`,
-  `copyright`, whether they need credentials and how many parameters they have. With `--datasets`
-  each network also lists the resolutions and datasets it offers. Nothing is downloaded and no
-  credential is read. `about coverage` lists the parameters of a network.
+  `copyright`, whether they need credentials and how many parameters they have. Nothing is
+  downloaded and no credential is read. `--with-datasets` adds the resolutions and datasets each
+  network offers; `about coverage` lists the parameters of a network.
 
 Options:
-  --provider TEXT     Only this provider. Without it, every provider. Example: dwd
-  --datasets BOOLEAN  Also list the resolutions and datasets of every network, with their parameter
-                      counts. Default: false
-  --debug BOOLEAN     Log at debug level. Default: false
-  --help              Show this message and exit.
+  --provider TEXT          Only this provider. Without it, every provider. Example: dwd
+  --with-datasets BOOLEAN  Also list the resolutions and datasets of every network, with their
+                           parameter counts. Default: false
+  --debug BOOLEAN          Log at debug level. Default: false
+  --help                   Show this message and exit.
 
 
 $ wetterdienst alerts --help

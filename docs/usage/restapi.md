@@ -459,7 +459,7 @@ by (`name_short` for a chip beside a flag, `name_english`, `name_local`), the co
 terms it publishes its data under (`license`, as in the `metadata` of a data answer) and the credit line
 (`attribution`), and its networks with their `kind`, `extent`, source `url`, `copyright`, whether they need
 credentials (`auth`) and how many parameters they have. That short form is the default (about 19,000 characters for
-every provider, 3,900 for `dwd`). With `datasets=true` each network also lists the resolutions and datasets it
+every provider, 3,900 for `dwd`). With `with_datasets=true` each network also lists the resolutions and datasets it
 offers, with how many parameters each has (about 34,000 and 13,000); `dwd/radar` and `dwd/alerts` have an empty list.
 Nothing is downloaded and no credential is read, so it answers at once: `coverage` lists the parameters of a network
 and `auth` checks whether its credentials are accepted.
@@ -478,11 +478,11 @@ http localhost:7890/api/providers
 http localhost:7890/api/providers provider==dwd
 
 # With the resolutions and datasets of each network.
-http localhost:7890/api/providers provider==dwd datasets==true
+http localhost:7890/api/providers provider==dwd with_datasets==true
 ```
 
-The command line is `wetterdienst about providers [--provider dwd] [--datasets]` and the MCP tool is `providers`
-(`datasets` is an argument of it).
+The command line is `wetterdienst about providers [--provider dwd] [--with-datasets]` and the MCP tool is `providers`
+(`with_datasets` is an argument of it).
 
 ### Extent
 
@@ -506,9 +506,9 @@ credential is needed) and `dwd/radar` and `dwd/alerts` (no stations), so their b
 
 A dataset whose stations are fewer than its network's has an `extent` of its own, which lies within the network's: `dwd/dmo`
 is global by its `icon` dataset, whose list has stations on every continent, and its `icon_eu` dataset is regional, the
-stations of Europe and the edges of Africa and Asia. `providers` shows the `extent` of a
-dataset only where it has one, **a dataset without its own extent has its network's**, and the member is absent from
-it; `coverage` of a network gives every dataset its extent, its own or its network's. A dataset of a national network
+stations of Europe and the edges of Africa and Asia. `providers` shows the datasets only with
+`with_datasets=true`, and the `extent` of one only where it has one: **a dataset without its own extent has its network's**,
+and the member is absent from it; `coverage` of a network gives every dataset its extent, its own or its network's. A dataset of a national network
 is national. The extent does not change what a request answers: `stations` still
 lists what the network has.
 

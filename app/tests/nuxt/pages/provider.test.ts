@@ -30,7 +30,7 @@ afterEach(() => {
 })
 
 describe('provider Page', () => {
-  it('asks the backend for the datasets of every network, which its answer leaves out by default', async () => {
+  it('asks the backend for the datasets of every network, which its answer leaves out by default (with_datasets)', async () => {
     const queries: Array<Record<string, unknown>> = []
     served = (event) => {
       queries.push(getQuery(event))
@@ -39,7 +39,67 @@ describe('provider Page', () => {
     await mountProvider('dwd')
 
     expect(queries).toHaveLength(1)
-    expect(queries[0]).toMatchObject({ datasets: 'true' })
+    expect(queries[0]).toMatchObject({ with_datasets: 'true' })
+  })
+
+  it('shows the parameter count of a network the backend answered without its resolutions, and fails on nothing', async () => {
+    served = () => {
+      const answer = providersResponse()
+      for (const provider of answer.providers) {
+        for (const network of provider.networks)
+          delete network.resolutions
+      }
+      return answer
+    }
+    const wrapper = await mountProvider('dwd')
+    const observation = wrapper.findAll('li').find(li => li.find('h3').exists() && li.find('h3').text() === 'observation')!
+
+    expect(wrapper.text()).not.toContain('Request failed')
+    expect(observation.text()).toContain('Parameters: 12')
+    expect(observation.text()).not.toContain('Climate summary')
+    // not told to be no time series: the datasets are not listed, which is not that there are none
+    expect(observation.text()).not.toContain('Not a time series')
+    expect(hrefs(wrapper)).toContain('/explorer?provider=dwd&network=observation')
+  })
+
+  it('asks again without with_datasets of a backend that refuses it (422), and lists no datasets then', async () => {
+    const queries: Array<Record<string, unknown>> = []
+    served = (event) => {
+      const query = getQuery(event)
+      queries.push(query)
+      if (query.with_datasets !== undefined) {
+        setResponseStatus(event, 422)
+        return { detail: [{ type: 'extra_forbidden', loc: ['query', 'with_datasets'], msg: 'Extra inputs are not permitted' }] }
+      }
+      const answer = providersResponse()
+      for (const provider of answer.providers) {
+        for (const network of provider.networks)
+          delete network.resolutions
+      }
+      return answer
+    }
+    const wrapper = await mountProvider('dwd')
+
+    expect(queries).toHaveLength(2)
+    expect(queries[1]).not.toHaveProperty('with_datasets')
+    expect(wrapper.text()).not.toContain('Request failed')
+    expect(wrapper.text()).toContain('German Weather Service')
+    expect(wrapper.text()).toContain('Parameters: 12')
+  })
+
+  it('does not ask again where the backend failed otherwise', async () => {
+    const queries: Array<Record<string, unknown>> = []
+    served = (event) => {
+      queries.push(getQuery(event))
+      setResponseStatus(event, 502)
+      return { type: 'urn:wetterdienst:problem:backend-unreachable', title: 'Bad Gateway', status: 502, detail: 'The backend could not be reached.' }
+    }
+    const wrapper = await mountProvider('dwd')
+
+    // ofetch itself tries a 502 once more, with the same query: none is asked without the parameter
+    expect(queries.length).toBeGreaterThan(0)
+    expect(queries.every(query => query.with_datasets === 'true')).toBe(true)
+    expect(wrapper.text()).toContain('Request failed')
   })
 
   it('names the provider, in English and in its own words, with its country', async () => {

@@ -118,8 +118,8 @@ the user asks what something is, or what unit a number is in. It is not a way to
 knows nothing about providers or stations, so `coverage` remains the tool for "which parameters \
 does this provider have". `providers` answers what a provider *is* -- the country of its operator (not \
 where its stations are), the licence of its data and the credit line to give, and its \
-networks, with the `extent` of each (where its stations are) -- and is the tool for "may I reuse this \
-data" and "which providers' networks reach a place". The answer is short; `datasets=true` adds each \
+networks, with the `extent` of each -- and is the tool for "may I reuse this \
+data" and "which providers' networks reach a place". The answer is short; `with_datasets=true` adds each \
 network's datasets. Cite `attribution`, or the `copyright` where it is null.
 
 `auth` checks the credentials this server holds for one provider and network that needs them \
@@ -157,8 +157,8 @@ resolution, dataset and parameter, in timestamp order within each group. `qualit
 source's own flags as a string: the plain quality flag first, then `kind:code` tokens (`G,measurement:T,source:7`), \
 and a last `raw:<text>` token holds the source's text of a value it mapped from a missing-value code. \
 A parameter's LATEST timestamp is the LAST item of its group, not the last item of the array.
-- Responses are compact by default (just the `values`). Keep them small (and answer in fewer calls) \
-by querying a single "resolution/dataset/parameter" and -- if you only need one day -- a \
+- Responses are compact by default (just the `values`). Keep them small by \
+querying a single "resolution/dataset/parameter" and -- if you only need one day -- a \
 `timestamp` (e.g. timestamp="2026-07-25"; a station's most recent day is its `end_timestamp` from \
 `stations` where it has one; a null one means the provider gives no end, not that the data reaches \
 today). A date covers everything it names, so a day of hourly data is that day's 24 readings, \
@@ -170,8 +170,8 @@ rest is answered). Do not retry the same request; widen the `timestamp`, check t
 station. `stations` takes the same `timestamp` as `values` and lists only the stations that have a record \
 in it, so the nearest ones are not stations that closed long ago. A `name` gives `stations` its best five \
 matches and `values` the one best match; `rank` asks for another number.
-- The default JSON is already machine-readable — do NOT re-request the same data in a different \
-format (csv/wide/pretty) or with unrelated flags; that just wastes calls.
+- The default JSON is machine-readable: do NOT re-request it in another format (csv/wide/pretty) or \
+with unrelated flags.
 
 ## Example — recent mean air temperature at Hamburg-Fuhlsbüttel
   stations(provider="dwd", network="observation", parameters="daily/kl", name="Hamburg Fuhlsbüttel")
