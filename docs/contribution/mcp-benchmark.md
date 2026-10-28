@@ -80,6 +80,18 @@ tables) and counted as a **format violation**: whether the model follows the for
 compared per tier, so that a token strategy that confuses the model shows up. The prompt is part of the hash, so
 results files from before the format are not comparable with later ones.
 
+**Cost and bias of the RESULT requirement.** The requirement is the same on both sides of a comparison, so it cancels in
+the paired differences. It is not neutral, though. It disfavours a compact format without units beyond the units cases: a
+model that has to state a unit may need an extra glossary or metadata call, which can reach `max_steps` in a case that asks
+for a number. It favours a strategy that returns fewer forecast hours, because a forecast gets one RESULT line for each
+temperature the model names, so the output tokens depend on how many figures it lists. And format compliance is measured in
+only the 8 of 27 cases that have a unit fact, so a change that only confuses the model's formatting shows in those.
+
+**What the strict check judges.** A RESULT line that carries a number and a unit the case accepts must be the value
+(restating it in another unit passes; any other value in an accepted unit fails, unless its description names another
+quantity through the fact's `ignore_descriptions`); a table must hold the value in the column and the row (the date) the case
+names. The example in the prompt is made up and a test holds it to passing no case.
+
 ## Read the result
 
 | column | what it is |
@@ -89,6 +101,7 @@ results files from before the format are not comparable with later ones.
 | `checkpoints` | the expected intermediate steps met, out of possible, in order but not necessarily one after the other |
 | `violations` | behaviours the case forbids: `interpolate` for a plain weather question, `shape=wide` over a long window, a refusal for lack of a forecast network, the same call more than twice, and any tool other than the server's |
 | `facts ok` | the answer against ground truth the judge reads with its own calls; a forecast is only held to a plausible span of forecast hours, never to a number |
+| `format violations` | k/n of the runs of the cases that ask for the `RESULT:` format that left it out or broke it, computed from the final answer; its own rate in `compare` |
 | `result chars`, `out tokens` | the median size of the tool results and the output tokens: "shorter but no worse" is measured here |
 
 `passed` is the answer-reached headline; it does not say that the answer is right or that the agent kept to the rules,
@@ -96,10 +109,11 @@ so `facts ok` and the share of runs without a violation are compared as metrics 
 **non-inferiority** claim on the pooled rates of a tier: for the passes, the facts, the runs without a violation and the runs that follow the RESULT format it
 gives the difference with its 95 % interval and decides it as one test: "no worse" if the lower bound is above minus 10
 percentage points, "WORSE" if the upper bound is below minus 10 points, "inconclusive" otherwise (a real drop within the
-margin is said as such, and a likely one too). Every case is first cut down to the same number of valid runs on both sides (the first k of
-each, k the smaller; an invalid run or an extra repeat leaves runs out, and the output says how many), so that pooling uses
-real counts only and weights the cases alike, and a case whose own rate fell by 40 points is named whatever the verdict
-says. Not finding a difference is not "no worse": at a pass rate of 90 % it takes about 140 runs per side to show a margin of 10
+margin is said as such, and a likely one too). Every case is first cut down to the repeats that are valid on both sides
+(paired by repeat, so an invalid cold first repeat on one side leaves that repeat out of the other too; the output says how
+many runs it left out, and a case that keeps under 60 % of its runs makes the tier INCONCLUSIVE), so that pooling uses real
+counts only and weights the cases alike, and a case whose own rate fell by 40 points is named whatever the verdict says.
+Not finding a difference is not "no worse": at a pass rate of 90 % it takes about 140 runs per side to show a margin of 10
 points, which the output prints for each rate next to the runs there are; the default full run is 27 cases, 135 runs a side per tier at 5 repeats, 270 in all
 (the case that needs a key is skipped). The Fisher test per case is a hint only. It **refuses** (exit code 4) when the prompt, the logic
 version of `bench.py`, the defaults, the mode (headless or subagent) or the deferral of the tools differ, when the two
@@ -153,6 +167,9 @@ glossary run against it worked.
   in every session (its system prompt and the user's email).
 - The tested agent's results above the limit of Claude Code are saved to a file it cannot open (the notice is not a
   documented format).
+- The unit check does not read: units written per time (`mm/day`), a German thousands point (`14.821 s`), a unit before the
+  figure in a RESULT line, or a forecast figure in °F or K outside the span (it is ignored, not converted and checked). A
+  case whose model writes these is a format violation or a failed fact, and the transcript says which.
 
 The tested agent's log is not asked for: the counts come from the transcript the harness keeps (the stream-json of
 `claude -p`, or for a subagent the `output_file` the Agent tool returns, a detail of the harness).

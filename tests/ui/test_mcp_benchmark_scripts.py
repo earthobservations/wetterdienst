@@ -13,6 +13,7 @@ import http.server
 import importlib.util
 import json
 import math
+import re
 import threading
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
@@ -1008,16 +1009,64 @@ def test_a_run_leaves_the_probes_answer_and_the_label_next_to_its_transcript(
     assert side["wetterdienst_version"] == "9.9.9"
 
 
-def test_cases_with_unequal_repeats_are_cut_down_to_what_both_sides_have() -> None:
-    """Every case counts the first k valid runs of each side, k the smaller: real counts, no pseudo-counts."""
+def test_both_sides_count_the_same_repeats_of_every_case() -> None:
+    """A repeat that is missing on one side is taken out of the other: real counts, paired by repeat."""
     before = _results({("a", "small"): 50, ("b", "small"): 25}, ns={("a", "small"): 50, ("b", "small"): 50})
-    after = _results({("a", "small"): 300, ("b", "small"): 0}, ns={("a", "small"): 300, ("b", "small"): 10})
+    after = _results({("a", "small"): 40, ("b", "small"): 0}, ns={("a", "small"): 40, ("b", "small"): 40})
 
     text = bench.compare(before, after)
 
-    assert "POOLED small (60 runs on each side" in text
-    assert "290 valid runs were left out so that every case has the same number of runs on both sides" in text
-    assert "big drop in b [small]: passed 10/10 -> 0/10" in text
+    assert "POOLED small (80 runs on each side" in text
+    assert "20 valid runs were left out so that both sides count the same repeats of every case" in text
+    assert "big drop in b [small]: passed 25/40 -> 0/40" in text
+    assert "=> NO WORSE" not in text
+
+
+def _numbered(results: dict[str, Any]) -> dict[str, Any]:
+    """Give the runs of every case the repeat numbers 1, 2, ... in the order they are in."""
+    counts: dict[tuple[str, str], int] = {}
+    for run in results["runs"]:
+        key = (run["case"], run["tier"])
+        counts[key] = counts.get(key, 0) + 1
+        run["repeat"] = counts[key]
+    return results
+
+
+def test_a_cold_first_repeat_that_is_invalid_on_one_side_leaves_both_sides_together() -> None:
+    """Keeping the first k valid runs would drop a warm repeat of one side and a cold one of the other."""
+    cases = [f"c{i}" for i in range(27)]
+    before = _numbered(_results(dict.fromkeys(((c, "small") for c in cases), 5), n=5))
+    after = _numbered(_results(dict.fromkeys(((c, "small") for c in cases), 5), n=5))
+    for results in (before, after):
+        for run in results["runs"]:
+            if run["case"] in cases[:4] and run["repeat"] == 1:
+                run["passed"] = run["facts_ok"] = False  # a cold start fails on both sides
+    for run in after["runs"]:
+        if run["case"] in cases[:4] and run["repeat"] == 1:
+            run["invalid"] = True
+
+    text = bench.compare(before, after)
+
+    assert "difference +0.0%" in text
+    assert "4 valid runs were left out" in text
+    assert "=> NO WORSE" in text
+
+
+def test_a_tier_whose_shared_repeats_are_too_few_is_inconclusive() -> None:
+    """Invalid runs that depend on the order leave little in common: under 60 % of a case's runs, no verdict."""
+    cases = {(f"c{i}", "small"): 5 for i in range(30)}
+    before = _numbered(_results(cases, n=5))
+    after = _numbered(_results(cases, n=5))
+    for run in after["runs"]:
+        if run["case"] == "c0" and run["repeat"] in {2, 4, 5}:
+            run["invalid"] = True
+
+    text = bench.compare(before, after)
+
+    assert (
+        "POOLED small: INCONCLUSIVE, the repeats that are valid on both sides leave fewer than 60 % of the runs of 1 "
+        "cases (c0)" in text
+    )
     assert "=> NO WORSE" not in text
 
 
@@ -1257,7 +1306,58 @@ RESULT_ANSWERS = [
     ("units-wind-speed", {"value": 3.0}, "RESULT: 3.0 m s\N{SUPERSCRIPT MINUS}\N{SUPERSCRIPT ONE} | wind", True),
     ("units-sunshine-seconds", {"value": 14821.2}, "RESULT: 4 h | sunshine", True),
     # restating the same thing in another unit is no contradiction, a correction is one
-    ("units-kiel-celsius", {"value": -0.7}, "RESULT: -0.7 °C | daily mean\nRESULT: -0.5 °C | daily mean", False),
+    ("units-kiel-celsius", {"value": -0.7}, "RESULT: -0.7 °C | daily mean\nRESULT: -0.5 °C | daily mean", True),
+    (
+        "units-kiel-celsius",
+        {"value": -0.7},
+        "RESULT: 3.2 °C | daily mean air temperature\nRESULT: -0.7 °C | corrected value",
+        False,
+    ),
+    (
+        "units-kiel-celsius",
+        {"value": -0.7},
+        "RESULT: 3.2 °C | Kiel daily mean\nRESULT: -0.7 °C | daily mean air temperature at Kiel-Holtenau",
+        False,
+    ),
+    (
+        "units-kiel-celsius",
+        {"value": -0.7},
+        "RESULT: 3.2 °C | daily mean\nRESULT: -0.7 | daily mean\nIt was -0.7 °C.",
+        False,
+    ),
+    ("units-kiel-celsius", {"value": -0.7}, "1. RESULT: -0.7 °C | daily mean", True),
+    (
+        "units-precipitation-mm",
+        {"value": 15.5},
+        "RESULT: 15.5 mm | precipitation\nRESULT: 1.6 mm | the day before",
+        True,
+    ),
+    (
+        "units-precipitation-mm",
+        {"value": 15.5},
+        "RESULT: 15.5 mm | precipitation\nRESULT: 1.6 mm | precipitation on 2026-10-16",
+        False,
+    ),
+    ("units-precipitation-mm", {"value": 15.5}, "RESULT: 2 cm | precipitation", True),
+    ("units-precipitation-mm", {"value": 15.5}, "RESULT: 20 mm | precipitation", False),
+    ("units-precipitation-mm", {"value": 15.5}, "RESULT: 1 cm | precipitation", False),
+    ("units-wind-speed", {"value": 3.0}, "RESULT: 6 kn | wind", True),
+    ("units-wind-speed", {"value": 3.0}, "RESULT: 7 kn | wind", False),
+    (
+        "units-csv-with-unit",
+        {"value": 15.5},
+        "date,temperature,precipitation\n2026-10-16,15.5,1.6\n\nTABLE-UNIT: precipitation | mm",
+        False,
+    ),
+    (
+        "units-csv-with-unit",
+        {"value": 15.5},
+        (
+            "date,precipitation_amount\n2026-10-16,15.5\n\nTABLE-UNIT: precipitation_amount | mm\n"
+            "RESULT: 1.6 mm | precipitation on 2026-10-16"
+        ),
+        False,
+    ),
     (
         "units-kiel-celsius",
         {"value": -0.7},
@@ -1492,6 +1592,20 @@ def test_an_answer_without_result_lines_is_read_tolerantly_and_reported() -> Non
         ("units-kiel-celsius", {"value": -0.7}, "Temperature [°C]\n-0.7", True),
         ("units-kiel-celsius", {"value": -0.7}, "Mean temperature [K]: -0.7", False),
         ("units-kiel-celsius", {"value": -0.7}, "The mean was -0.7 (unit °C).", True),
+        # the column and the row of the date count in the fallback too
+        (
+            "units-csv-with-unit",
+            {"value": 15.5},
+            "date,precipitation_amount\n2026-10-15,15.5\n2026-10-16,0.0\n\nThe unit is mm.",
+            False,
+        ),
+        (
+            "units-csv-with-unit",
+            {"value": 15.5},
+            "date,temperature,precipitation\n2026-10-16,15.5,1.6\n\nThe unit is mm.",
+            False,
+        ),
+        ("units-csv-with-unit", {"value": 15.5}, "date,precipitation_amount\n2026-10-16,15.5\n\nThe unit is mm.", True),
         # a figure with one significant digit is no rounded 0.8404
         ("units-humidity-percent", {"value": 0.8404}, "The mean relative humidity was 1 (as a fraction).", False),
         # thousands separators and exponents
@@ -1748,23 +1862,175 @@ def test_a_comparison_refuses_runs_that_still_need_judging() -> None:
     assert "1 runs of the current file still need judging" in text
 
 
-def test_a_run_is_added_to_a_results_file_by_its_repeat(tmp_path: Path) -> None:
-    """The replacement workflow: run the repeat as the others, judge it, add it; an unjudged record is refused."""
-    results = _results({("a", "small"): 2}, n=2)
+def _add_run_file(tmp_path: Path) -> tuple[Path, dict[str, Any]]:
+    """Make a headless results file of two judged runs of case `a`, and a record that would fit into it."""
+    results = _results(
+        {("a", "small"): 2},
+        n=2,
+        label="L",
+        server_version="0.178.0",
+        models={"small": "haiku"},
+        date="2026-10-28",
+    )
     for i, run in enumerate(results["runs"]):
         run["repeat"] = i + 1
+    results["meta"]["prompt"] = "p1"
     path = tmp_path / "results.json"
     path.write_text(json.dumps(results), encoding="utf-8")
-    new = {**results["runs"][1], "repeat": 2, "passed": False, "is_answer": True, "steps": 3}
+    run_meta = {
+        "mode": "headless",
+        "label": "L",
+        "model_requested": "haiku",
+        "wetterdienst_version": "0.178.0",
+        "prompt_template": "p1",
+        "prompt_date": "2026-10-28",
+    }
+    return path, {
+        **results["runs"][1],
+        "repeat": 2,
+        "passed": False,
+        "is_answer": True,
+        "steps": 3,
+        "run_meta": run_meta,
+    }
 
-    assert bench.add_run(path, new) == "replaced a [small] repeat 2: 2 runs"
+
+def test_a_run_is_added_to_a_results_file_by_its_repeat(tmp_path: Path) -> None:
+    """The replacement workflow: run the repeat like the others, judge it, add it; a valid run stays unless told."""
+    path, new = _add_run_file(tmp_path)
+
+    assert bench.add_run(path, new, replace_valid=True) == "replaced a [small] repeat 2: 2 runs"
     assert bench.add_run(path, {**new, "repeat": 3}) == "added a [small] repeat 3: 3 runs"
-    with pytest.raises(ValueError, match="needs judging"):
-        bench.add_run(path, {**new, "repeat": 4, "needs_judging": True})
-    with pytest.raises(ValueError, match="lacks"):
-        bench.add_run(path, {k: v for k, v in new.items() if k != "repeat"})
     runs = json.loads(path.read_text(encoding="utf-8"))["runs"]
     assert sorted((r["repeat"], r["steps"]) for r in runs) == [(1, 2), (2, 3), (3, 3)]
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        ({"needs_judging": True}, "needs judging"),
+        ({"passed": "false"}, "passed is 'false', not a boolean"),
+        ({"repeat": "5"}, "repeat is '5', not a positive integer"),
+        ({"repeat": True}, "not a positive integer"),
+        ({"invalid": "yes"}, "invalid is 'yes', not a boolean"),
+        ({"case": "zzz"}, "the case 'zzz' is not in the file"),
+        ({"steps": None}, "steps is None"),
+        ({"run_meta": None}, "no `run_meta`"),
+        ({"repeat": 2}, "would replace a valid run of a [small] repeat 2"),
+        ({"repeat": 3, "run_meta": {"label": "OTHER"}}, "its label is 'OTHER', the file's is 'L'"),
+        (
+            {"repeat": 3, "run_meta": {"label": "L", "wetterdienst_version": "0.179.0"}},
+            "wetterdienst_version is '0.179.0'",
+        ),
+        (
+            {"repeat": 3, "run_meta": {"label": "L", "wetterdienst_version": "0.178.0", "model_requested": "sonnet"}},
+            "model_requested is 'sonnet'",
+        ),
+        (
+            {
+                "repeat": 3,
+                "run_meta": {
+                    "label": "L",
+                    "wetterdienst_version": "0.178.0",
+                    "model_requested": "haiku",
+                    "mode": "headless",
+                    "prompt_template": "OLD",
+                },
+            },
+            "prompt_template is 'OLD'",
+        ),
+    ],
+)
+def test_add_run_refuses_a_record_that_does_not_belong_to_the_file(
+    tmp_path: Path, change: dict[str, Any], message: str
+) -> None:
+    """A run made under other conditions, of another type, for another case or over a valid run does not go in."""
+    path, new = _add_run_file(tmp_path)
+    before = path.read_text(encoding="utf-8")
+
+    with pytest.raises(ValueError, match=re.escape(message)):
+        bench.add_run(path, {**new, **change})
+
+    assert path.read_text(encoding="utf-8") == before
+
+
+def test_add_run_takes_the_record_of_a_run_that_gave_no_answer_and_never_leaves_a_traceback(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A timeout or an unreachable server goes in with its `kind`; every refusal on the command line is exit 2."""
+    path, _ = _add_run_file(tmp_path)
+    case = bench.find_case(bench.load_cases(), "glossary-temperature-air-mean-2m")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["meta"]["case_hashes"][case["id"]] = "h"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    failed = bench.failed_run(case, "small", 3, "timeout", invalid=False)
+    record = tmp_path / "failed.json"
+    record.write_text(json.dumps(failed), encoding="utf-8")
+    bad = tmp_path / "bad.json"
+    bad.write_text("{", encoding="utf-8")
+
+    assert bench.main(["add-run", "--results", str(path), "--run", str(record)]) == 0
+    assert bench.main(["add-run", "--results", str(tmp_path / "nope.json"), "--run", str(record)]) == 2
+    assert bench.main(["add-run", "--results", str(path), "--run", str(tmp_path / "nope.json")]) == 2
+    assert bench.main(["add-run", "--results", str(path), "--run", str(bad)]) == 2
+    assert "add-run:" in capsys.readouterr().err
+    assert failed["kind"] == "failed"
+
+
+def test_the_prompts_example_is_no_cases_answer() -> None:
+    """A model that copies the prompt's example must not pass a unit check: it is made up, and no case expects it."""
+    prompt = (SKILL_DIR / "prompt.md").read_text(encoding="utf-8")
+    example = re.search(r"`RESULT: (?P<line>(?P<figure>[-\d.]+) (?P<unit>\S+) \| (?P<what>[^`]+))`", prompt)
+    assert example is not None
+    data = bench.load_cases()
+    text = json.dumps(data, ensure_ascii=False)
+    truths = {"units-lax-forecast-celsius": {"min": 14.0, "max": 24.0}}
+
+    assert not re.search(rf"(?<![\d.]){re.escape(example['figure'])}(?!\d)", text), (
+        "the example's figure is a number of a case"
+    )
+    for word in re.findall(r"[A-Z][a-z]{3,}|\d{4}-\d{2}-\d{2}", example["what"]):
+        assert word not in text, f"{word} of the example is in a case"
+    for case in (c for c in data["cases"] if c["kind"] == "units"):
+        fact = next(f for f in case["facts"] if f["kind"] == "unit")
+        value = next((r[1] for r in RESULT_ANSWERS if r[0] == case["id"]), {"value": 0})
+        assert bench.unit_check(f"RESULT: {example['line']}", fact, truths.get(case["id"], value))["ok"] is False, case[
+            "id"
+        ]
+
+
+def test_the_format_rate_is_over_the_cases_that_ask_for_it_and_says_when_it_is_not_compared() -> None:
+    """Denominators are the runs of the cases with a unit fact, not all runs; a side with none is named, not skipped."""
+    before = _results({("u", "small"): 5, ("g", "small"): 5})
+    after = _results({("u", "small"): 5, ("g", "small"): 5})
+    for results in (before, after):
+        for run in results["runs"]:
+            run["format_violation"] = False if run["case"] == "u" else None
+    without = _results({("u", "small"): 5, ("g", "small"): 5})
+
+    both = bench.compare(before, after)
+    one = bench.compare(before, without)
+
+    assert "follows the RESULT format 5/5 -> 5/5" in both
+    assert "format rate not compared: the current file has no run of a case that asks for the format" in one
+
+
+def test_the_step_maximum_is_none_for_runs_that_measured_no_step_and_the_sizes_use_paired_runs() -> None:
+    """A timed-out run without a transcript has no steps: the maximum is not 0. Sizes come from paired repeats."""
+    case = bench.find_case(bench.load_cases(), "glossary-temperature-air-mean-2m")
+    nothing = bench.failed_run(case, "small", 1, "timeout", invalid=False)
+    one = {**nothing, "steps": 3}
+
+    assert bench.aggregate([nothing])["steps_max"] is None
+    assert bench.aggregate([nothing, one])["steps_max"] == 3
+    before = _numbered(_results({("a", "small"): 35}, n=35))
+    after = _numbered(
+        _results({("a", "small"): 34}, n=34)
+    )  # repeat 35 is missing on this side, so it is left out of both
+
+    text = bench.compare(before, after)
+
+    assert "tool result chars: median per case 2650 -> 2650, paired difference (median over 1 cases) +0" in text
 
 
 def test_the_default_full_run_is_the_cases_that_need_no_key() -> None:

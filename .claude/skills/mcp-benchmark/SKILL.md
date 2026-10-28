@@ -125,13 +125,17 @@ of a comparison and record it (`tools_list` in the results file), so the wire co
    (`--kind failed --reason timeout`): a strategy that makes the model slower must show as a failure, not disappear. The
    timeout is capped at 540 s (`MCPBENCH_TIMEOUT`), under the 10 minutes `cleanup` waits for, since appending to a file does
    not move the mtime of its directory. A budget stop (exit 1, `end: error_max_budget_usd`) is a failed headline, not invalid.
-   **Replacing runs.** One invalid run in 140 must not stop a comparison: `compare` gives every case the same number of
-   valid runs on both sides (the first k of each, k the smaller; it says how many it left out) and refuses above 3 % invalid.
-   To replace a run, do what the protocol does for any run: `bench.py run` with **the same arguments as the others** (the
-   prompt from `bench.py prompt`, the model, `server`, `--label`), `analyze` it, judge it, write the judged record as JSON and
-   `bench.py add-run --results FILE --run RUN.json`, which replaces the record of that (case, tier, repeat) or adds it, and
-   refuses a record that lacks a field or says `needs_judging`. There is no automatic re-run: a re-run needs the same
-   prompt, date, model and server as the first, and the judge's verdict, which only you have.
+   **Replacing runs.** One invalid run in 140 must not stop a comparison: `compare` keeps, for every case, only the repeats
+   that are valid on **both** sides (an invalid cold first repeat on one side takes that repeat out of the other too; it says
+   how many runs it left out; a case that keeps under 60 % of its runs makes the tier INCONCLUSIVE) and refuses above 3 %
+   invalid. To replace a run, do what the protocol does for any run: `bench.py run` with **the same arguments as the others**
+   (the prompt from `bench.py prompt`, the model, `server`, `--label`), `analyze` it, judge it, write the judged record as JSON
+   and `bench.py add-run --results FILE --run RUN.json` (or the record of `failed-run`, which carries its `kind`, for a run that
+   timed out or found no server). `add-run` replaces the record of that (case, tier, repeat) or adds it, exits 2 with a
+   message on every refusal, and refuses: a missing field or one of the wrong type (a string for a boolean or a repeat), an
+   unjudged record, a case that is not in the file, a record whose `run_meta` (label, server version, model, mode, prompt
+   template, prompt date) differs from the file's `meta`, and a replacement of a valid run (unless `--replace-valid`). There is
+   no automatic re-run: a re-run needs the same prompt, date, model and server as the first, and the judge's verdict.
 4. **Judge** what needs reading, per run (below), then write the results file, print the table with
    `bench.py report`, and the comparison with `bench.py compare <previous> <results>` when `previous` is given.
 
@@ -197,35 +201,46 @@ one. For a `unit` fact the judge reads the value **and** its unit from the *refe
 `with_metadata=true`, and the glossary as a cross-check (`cross_check`), never from the server under test alone, and runs
 `bench.py unit`. **The prompt asks for the structured part**, which is all the check reads: the answer ends with one line
 `RESULT: <number> <unit> | <what it is>` for each figure the question asks for (for a forecast, one per temperature named)
-and, for a table or CSV block, `TABLE-UNIT: <column> | <unit>` for each column that has a unit. The check is strict and
-deterministic: no sentence parsing, no table heuristics. A RESULT figure that equals the judge's value in one of the
-`accepted` units (`value * factor + offset`, within the fact's `tolerance` or `margin`, or the rounding of the figure as
-written; a figure of fewer than two significant digits gets no rounding, so `1` is not 0.8404 as a fraction) passes if its
-unit is one of that unit's tokens (any case: `°C`, `degC`, `Prozent`, ...). It fails with a **forbidden** unit (kelvin,
-whatever the figure), with another accepted unit than the one its number is in (`0.84 %` against 0.84 as a fraction,
-`14821 minutes`; only if the figure fits the first accepted unit, so another quantity such as `1.6 mm` is not a failure),
-with an unknown unit (`sun` is no `s`), with none, or when a second RESULT gives another figure for the same thing (a
-self-correction). For a **forecast** (a span) every RESULT figure written with an accepted unit must lie in the span.
-A column's `TABLE-UNIT` must name one of the unit tokens and some cell of a real table of the answer must equal the value
-in that unit; a `RESULT` line for the value is accepted too. Prose is judged by the other fact kinds as before.
+and, for a table or CSV block, `TABLE-UNIT: <column> | <unit>` for each column that has a unit. The example in the prompt is
+made up (a wind speed at a place no case asks about); a test holds it to passing no case. The check is strict and
+deterministic: no sentence parsing, no table heuristics.
+
+**The rule for a single value.** Every RESULT line whose unit is one of the fact's accepted units is held to the value:
+- it passes if its figure equals the judge's value in that unit (`value * factor + offset`, within the fact's `tolerance`,
+  or within the rounding of the figure as written, half a unit of its last digit, in any accepted unit: `2 cm` is 15.5 mm
+  rounded, `20 mm` is not, `6 kn` is 3.0 m/s rounded, `7 kn` is not). A restatement in another accepted unit of the same
+  value passes;
+- otherwise it **fails the answer**, unless its description matches one of the fact's `ignore_descriptions` (regexes, in
+  `cases.json`: a minimum, the day before, a gust), which name other quantities than the one asked for;
+- a **forbidden** unit (kelvin) fails when the figure fits the value; an unknown unit fails when it fits; a unit that is
+  neither accepted nor forbidden and does not fit is ignored.
+For a **forecast** (a span) every RESULT figure with an accepted unit must lie in the span. A figure of fewer than two
+significant digits gets no rounding in the unit the value was read in when the value has two or more digits (`1` is not 0.8404
+as a fraction); in another unit or for a one-digit value it is rounding (`4 h` for 4.12 h, `-1 °C` for -0.7). A column's
+`TABLE-UNIT` must name one of the unit tokens, and a table of the answer must hold the value in that unit **in a column the
+fact's `column` regex names (`precipitation` or `value`, the column of the tool's own CSV) and in the row of the fact's `row`
+(the date)**; a RESULT line for the value is accepted too.
+
 **The unit slot** forgives slips: a trailing point, a remark in brackets (`°C (as returned)`, `mm (millimetres)`,
-`degrees Celsius (°C)`), `℃`, `ºC`, `m s⁻¹`, `%RH`, bold, bullets, quotes, fences, any case. A figure of fewer than two
-significant digits gets no rounding **only** in the unit the value was read in and only when the value has two or more:
-`1` is not 0.8404 as a fraction, but `4 h` for 4.12 h and `-1 °C` for -0.7 are roundings. Figures given for one thing (the
-same description, or one containing the other) must agree once converted to one unit: `14821 s` and `4.1 h`, `-0.7 °C` and
-`30.7 °F` are one value restated, `-0.7` and `-0.5` are not.
-**The fallback.** An answer with no usable RESULT or TABLE-UNIT line (or whose lines do not parse and do not pass) is read
-tolerantly, as before: prose (the unit directly after the figure, in brackets, as `(unit °C)`, in brackets before it on its
-line, or alone on the line above), real tables (a markdown table, or two or more lines of the same cells with a separator
-row or a header without a digit; prose with commas is no table) by column, with the unit in the cell, the header, a `Unit`
-column, the row label or a sentence around it, and the same span rule for tables. It is reported as `unit_fallback`. For a
-column with a `column` and a `row` (the CSV case) the TABLE-UNIT line may name the parameter or `value` (the column of the
-tool's own CSV), and the figure must stand in the row of the date. **`format_violation`** is computed by `bench.py` from the
-final answer of every run (`analyze` prints it; do not set it by hand): for a case with a `unit` fact it is true if the answer
-has no `RESULT:`/`TABLE-UNIT:` line, or any line that starts `RESULT:` and a number but does not parse with a unit; a case
-without a unit fact has `null`, and a prose line `Result: yes` is no RESULT line. The rate (printed as `format violations
-k/n` over the runs of the cases that ask for the format, and compared as "follows the RESULT format" like the other rates)
-is a metric of its own, not a silent pass, so that a token strategy that confuses the model shows up. Because the prompt
+`degrees Celsius (°C)`), `℃`, `ºC`, `m s⁻¹`, `%RH`, bold, bullets, numbered markers, quotes, fences, any case.
+
+**What counts as a malformed line, and what then.** A line that starts `RESULT:` and a number but gives no unit, or does not
+parse, is *malformed*: it is a format violation, and it is ignored. If **any** well-formed RESULT or TABLE-UNIT line exists,
+the strict rule applies to those lines alone (a malformed line does not make the rest lenient). Only an answer with **no**
+well-formed line is read by the **fallback**.
+
+**The fallback** reads tolerantly: prose (the unit directly after the figure, in brackets, as `(unit °C)`, in brackets before
+it on its line, or alone on the line above), real tables (a markdown table, or two or more lines of the same cells with a
+separator row or a header without a digit; prose with commas is no table) by column, with the unit in the cell, the header, a
+`Unit` column, the row label or a sentence around it, and the same span rule for tables. For a fact with a `column` and a
+`row` it too reads only the column named (leniently about the header's spelling: if no header matches, any column) and the
+row of the date. It is reported as `unit_fallback`.
+
+**`format_violation`** is computed by `bench.py` from the final answer of every run (`analyze` prints it; do not set it by
+hand): for a case with a `unit` fact it is true if the answer has no well-formed `RESULT:`/`TABLE-UNIT:` line, or any malformed
+one; a case without a unit fact has `null`, and a prose line `Result: yes` is no RESULT line. The rate (printed as `format
+violations k/n` over the runs of the cases that ask for the format, and compared as "follows the RESULT format" like the other
+rates) is a metric of its own, not a silent pass, so that a token strategy that confuses the model shows up. Because the prompt
 changed, **results files from before it are not comparable** (`compare` refuses on the prompt hash).
 A pair marked `required` (Fahrenheit, when the question asks for it) must be there. The checkpoint `gets-the-unit`
 (`any_order`: before or after the values) lists the valid routes to the unit; the first checkpoint, reading the values, is
@@ -277,9 +292,9 @@ told apart (one server version and one `label`; `--same-server` compares two run
 of the runs of the *compared* cases are invalid. It compares only the (case, tier) whose case hash is unchanged and
 says how many it left out (only in the current file, with a changed case, only in the previous file); a tier whose
 resolved model ids differ is not compared; it refuses a file with a run still marked `needs_judging`. Every case is first
-cut down to the same number of valid runs on both sides (`_equalise`: the first k of each, k the smaller), so that pooling
-weights the cases alike and uses real counts only (no pseudo-counts: an extra repeat on one case or an invalid run cannot
-shrink the interval). Per tier, pooled, it decides for each of four rates (passes, facts, share of runs with no violation,
+cut down to the repeats that are valid on both sides (`_equalise`: paired by `repeat`, no pseudo-counts, so that pooling uses
+real counts, weights the cases alike, and an invalid first repeat on one side cannot bias the other); a case that keeps under
+60 % of its runs makes the tier INCONCLUSIVE with the reason. Per tier, pooled, it decides for each of four rates (passes, facts, share of runs with no violation,
 share that follow the RESULT format) the difference of the new minus the previous with its 95 % Newcombe interval, as **one**
 non-inferiority decision: **no worse** if the lower bound is above minus 10 percentage points, **WORSE** if the upper
 bound is below minus 10 points (the drop is shown to be larger than tolerated), **inconclusive** otherwise; a drop that is
@@ -287,7 +302,8 @@ real but within the margin is "no worse (a drop, lower but within the margin)", 
 but not beyond the margin says "likely worse, more runs would decide". The tier is `NO WORSE` only if all four are, `WORSE`
 if any is. A case whose own rate fell by 40 points or more is printed with its counts whatever the pooled verdict says.
 Each decision has a one-sided error of 2.5 %, so about 10 % per tier that one of the four is wrong in the same direction;
-the per-case Fisher tests are **hints** only (little power at 5 runs).
+the per-case Fisher tests are **hints** only (little power at 5 runs). The format rate is left out, with a line saying so,
+when either file has no run of a case that asks for the format.
 Not finding a difference is not "no worse": at a pass rate of 90 % it takes about 140 runs per side to show a margin of
 10 points (`required_runs`, printed for each rate, the largest decides), and the default full run is 27 cases, 135 runs a side per tier at 5 repeats, 270 in all
 (`needs_key` cases are skipped by default, so London is not in it), about enough at 90 % and not enough at 80 %. Steps, tool-result characters, context
