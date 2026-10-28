@@ -17,6 +17,15 @@ is required.
 A station's `end_timestamp` is the closing date the referential gives it, and null where it gives
 none. Only stations in service are listed, and none of them had a closing date on 2026-10-07.
 
+The referential writes the position of some stations wrongly: on 2026-10-28, 54 metropolitan
+stations with latitude and longitude swapped (Anor at latitude 4.10 and longitude 49.99, a point
+near Somalia) and the Blavet (`J543211003`) at 35.1 N, 0.84 E, in Algeria. A position that lies in
+none of metropolitan France, Guadeloupe and Martinique, Guyane, Reunion and Mayotte is swapped
+back when the swapped one lies in one of them, so that Anor is at 50.0 N, 4.1 E; no station
+overseas is moved. One that no swap puts right is listed with a null `latitude` and `longitude`,
+and the answer carries the warning `position-unplaced`, which names the station and the position
+the referential wrote as `raw:<latitude>,<longitude>`.
+
 A site publishes no altitude for about a quarter of the stations, and a few publish 0 or a value
 no ground in France lies at (-999 m, or 12 km and more); their `elevation` is null. The altitude
 of the gauge's zero, the datum a stage is read from, is listed separately as `gauge_zero`, and the

@@ -1324,6 +1324,8 @@ def _hubeau(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     # stations the referential lists with latitude and longitude swapped (Anor, Planioles, Le Tech: longitude 50.0,
     # 44.6 and 42.4, latitude 4.1, 2.0 and 2.6, which are points in Africa and the Indian Ocean), one in Mayotte, whose
     # position is right with a longitude of 45 degrees and a latitude of -12.8, and the Blavet, listed in Algeria
+    # (latitude 35.1, longitude 0.84), all as the referential wrote them: the reader puts the first three right and
+    # gives the last no position
     def station(
         site: str,
         station_id: str,
@@ -1414,21 +1416,30 @@ def _hubeau(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
 
 
 HUBEAU_BLAVET = Accepted(
-    "coordinates_outside_country",
+    "coordinates_missing",
     "the referential lists the Blavet at Neulliac (Morbihan) at latitude 35.1 and longitude 0.84, in Algeria; it is "
-    "no swapped pair (swapped it is in Kenya, in no area of France either), so the reader leaves it as the source "
-    "writes it (GH-3468)",
+    "no swapped pair (swapped it is in Kenya, in no area of France either), so the reader gives it no position and "
+    "the answer says so in a warning (GH-3468)",
     where=lambda row: row["station_id"] == "J543211003",
+)
+# known from the live referential of 2026-10-28 only, so it is held by the live test and not by the stub: 25 stations
+# (L040061201, L041000101, ...) are in service with an opening of 2026-11-01 and no closing
+HUBEAU_NOT_OPENED = Accepted(
+    "date_in_the_future",
+    "the referential lists stations that are in service with an opening on a date to come (25 stations of the "
+    "L series on 2026-10-28, opening on 2026-11-01), which the library passes on as the source gives it",
+    where=lambda row: row["end_timestamp"] is None,
 )
 HUBEAU_EXPECTED = {
     # the positions after the reader swapped them: Anor in Nord, Planioles in Lot, Le Tech in the Pyrenees-Orientales
     "H000000201": {"latitude": 49.989435, "longitude": 4.099322},
     "O831000201": {"latitude": 44.633866, "longitude": 2.028415},
     "Y021401101": {"latitude": 42.4174, "longitude": 2.557169},
-    # and the stations it left alone: Mayotte, which is in its area as the source writes it (swapped it would be in
-    # the Atlantic off the Gironde), and the Blavet, which is in no area either way
+    # the station it left alone: Mayotte, which is in its area as the source writes it (swapped it would be in the
+    # Atlantic off the Gironde)
     "3013000101": {"latitude": -12.800646373, "longitude": 45.205680635},
-    "J543211003": {"latitude": 35.108562837, "longitude": 0.840483401},
+    # and the one it gave no position, the Blavet, which is in no area either way
+    "J543211003": {"latitude": None, "longitude": None},
 }
 
 

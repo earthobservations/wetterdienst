@@ -14,6 +14,7 @@ import pytest
 from aiohttp import ServerDisconnectedError
 from fsspec.exceptions import FSTimeoutError
 
+from tests.provider.station_catalogue_stubs import _hubeau
 from wetterdienst import Options, Settings
 from wetterdienst.exceptions import DownloadError
 from wetterdienst.metadata.cache import CacheExpiry
@@ -25,6 +26,7 @@ from wetterdienst.provider.eaufrance.hubeau.api import (
     _modal_steps,
 )
 from wetterdienst.util.network import File
+from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
 ALL_PARAMETERS = [(resolution, "data", "stage") for resolution in _STEP_TO_RESOLUTION.values()]
 
@@ -731,18 +733,123 @@ def test_swapping_leaves_the_other_stations_and_columns_as_they_are() -> None:
     assert result.schema == df.schema
 
 
-def test_swapping_reports_how_many_stations_it_swapped(caplog: pytest.LogCaptureFixture) -> None:
-    """Test that the number of stations whose position was swapped is logged at debug, and nothing when none was."""
+def test_swapping_reports_the_stations_it_swapped_as_the_source_wrote_them(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that the stations swapped are logged at debug with the pair the source wrote, and nothing when none was."""
     with caplog.at_level("DEBUG", logger=api.log.name):
         api._swap_misplaced_positions(_positions((4.1, 50.0), (2.0, 44.6), (48.0, 2.0)))  # noqa: SLF001
     assert [record.getMessage() for record in caplog.records if "swapped" in record.getMessage()] == [
-        "Hubeau: swapped latitude and longitude of 2 stations whose position is in no area of France"
+        (
+            "Hubeau: swapped latitude and longitude of 2 stations whose position is in no area of France, as the "
+            "referential wrote them: S0 raw:4.1,50.0, S1 raw:2.0,44.6"
+        )
     ]
 
     caplog.clear()
     with caplog.at_level("DEBUG", logger=api.log.name):
         api._swap_misplaced_positions(_positions((48.0, 2.0), (-12.8, 45.2)))  # noqa: SLF001
     assert not [record for record in caplog.records if "swapped" in record.getMessage()]
+
+
+def test_a_position_that_no_swap_puts_right_is_null_with_a_warning() -> None:
+    """Test that a station in no area either way, the Blavet, has no position, and the answer says so (GH-3468)."""
+    begin_response()
+    df = _positions((48.0, 2.0), (35.108562837, 0.840483401), (-12.8, 45.2), (None, 2.0), (None, None), (30.0, -40.0))
+
+    result = api._null_unplaced_positions(df)  # noqa: SLF001
+
+    assert result["station_id"].to_list() == [f"S{index}" for index in range(6)]
+    assert result["latitude"].to_list() == [48.0, None, -12.8, None, None, None]
+    assert result["longitude"].to_list() == [2.0, None, 45.2, 2.0, None, None]
+    assert result.schema == df.schema
+    assert recorded_warnings() == [
+        {
+            "code": "position-unplaced",
+            "message": "Hub'Eau lists 2 stations at a position in none of metropolitan France, Guadeloupe, "
+            "Martinique, Guyane, Reunion and Mayotte, also with latitude and longitude swapped: their latitude and "
+            "longitude are null, so no search by place finds them. The referential wrote "
+            "S1 raw:35.108562837,0.840483401, S5 raw:30.0,-40.0.",
+        }
+    ]
+
+
+def test_the_warning_of_one_unplaced_station_is_in_the_singular() -> None:
+    """Test that the warning names the one station the source wrote, and what it wrote, as a `raw:` token."""
+    begin_response()
+
+    api._null_unplaced_positions(_positions((48.0, 2.0), (35.108562837, 0.840483401)))  # noqa: SLF001
+
+    [warning] = recorded_warnings()
+    assert warning["code"] == api.POSITION_UNPLACED
+    assert warning["message"].startswith("Hub'Eau lists a station at a position in none of")
+    assert "their" not in warning["message"]
+    assert "its latitude and longitude are null, so no search by place finds it." in warning["message"]
+    assert warning["message"].endswith("The referential wrote S1 raw:35.108562837,0.840483401.")
+
+
+def test_the_warning_of_many_unplaced_stations_names_the_first_and_counts_the_rest() -> None:
+    """Test that a referential that goes wrong for many stations gets one warning of a readable length."""
+    begin_response()
+
+    api._null_unplaced_positions(_positions(*[(30.0, -40.0 + index) for index in range(13)]))  # noqa: SLF001
+
+    [warning] = recorded_warnings()
+    assert warning["message"].startswith("Hub'Eau lists 13 stations at a position")
+    assert "S9 raw:30.0,-31.0 and 3 more." in warning["message"]
+    assert "S10 raw" not in warning["message"]
+
+
+def test_nothing_unplaced_is_no_warning_and_no_change() -> None:
+    """Test that a frame whose positions are all in an area, or missing, is returned as it is, with no warning."""
+    begin_response()
+    df = _positions((48.0, 2.0), (-12.8, 45.2), (None, None))
+
+    assert api._null_unplaced_positions(df).equals(df)  # noqa: SLF001
+    assert recorded_warnings() == []
+
+
+def test_an_unplaced_station_is_a_log_line_outside_a_request(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that the library, used as one, logs the warning at warning level, as every `warn_response` does."""
+    with caplog.at_level("WARNING", logger=api.log.name):
+        api._null_unplaced_positions(_positions((35.108562837, 0.840483401)))  # noqa: SLF001
+
+    assert [record.levelname for record in caplog.records] == ["WARNING"]
+
+
+def test_the_referential_stations_are_swapped_before_the_rest_are_nulled() -> None:
+    """Test that Anor is swapped, Mayotte kept and the Blavet nulled, as one step reads the referential's rows."""
+    begin_response()
+
+    def row(station_id: str, longitude: float, latitude: float) -> dict[str, object]:
+        return {"code_station": station_id, "longitude_station": longitude, "latitude_station": latitude}
+
+    df = api._referential_stations(  # noqa: SLF001
+        [
+            row("H000000201", 49.989435, 4.099322),
+            row("3013000101", 45.205680635, -12.800646373),
+            row("J543211003", 0.840483401, 35.108562837),
+            row("F700000102", 2.365510635, 48.84468962),
+        ]
+    )
+
+    assert df.select("station_id", "latitude", "longitude").rows() == [
+        ("H000000201", 49.989435, 4.099322),
+        ("3013000101", -12.800646373, 45.205680635),
+        ("J543211003", None, None),
+        ("F700000102", 48.84468962, 2.365510635),
+    ]
+    assert [warning["code"] for warning in recorded_warnings()] == ["position-unplaced"]
+
+
+def test_a_station_request_warns_of_the_station_without_a_position(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the stations of the referential of 2026-10-26 come with the one warning, for the Blavet alone."""
+    begin_response()
+
+    stations = _hubeau(monkeypatch)
+
+    assert stations.filter(pl.col("latitude").is_null())["station_id"].to_list() == ["J543211003"]
+    [warning] = recorded_warnings()
+    assert warning["code"] == "position-unplaced"
+    assert warning["message"].endswith("The referential wrote J543211003 raw:35.108562837,0.840483401.")
 
 
 def test_the_extent_of_the_network_reaches_the_north_of_france() -> None:
