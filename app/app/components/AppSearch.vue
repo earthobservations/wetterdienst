@@ -112,11 +112,28 @@ function stopWatching() {
 
 // Each opening and closing is an epoch: what was waited for in an earlier one (the palette's drawing, a frame) is not
 // acted on in a later, so a quick close and open attaches one observer, to the palette that is open.
+// Closing the palette gives the focus back to what opened it. Where that is gone (the window crossed 1024 px under the
+// open palette: the top bar's button or the drawer is not there any more) the focus would be left on the body: it goes to
+// the search button of the layout there is now, or to the page.
+async function restoreFocus(mine: number) {
+  for (let wait = 0; wait < 60 && paletteRoot(); wait++)
+    await new Promise(resolve => requestAnimationFrame(resolve))
+  await new Promise(resolve => requestAnimationFrame(resolve))
+  if (mine !== epoch || open.value)
+    return
+  if (document.activeElement && document.activeElement !== document.body)
+    return
+  const button = [...document.querySelectorAll<HTMLElement>('[data-app-search]')].find(candidate => candidate.getClientRects().length > 0)
+  ;(button ?? document.getElementById('main'))?.focus({ preventScroll: true })
+}
+
 watch(open, async (isOpen) => {
   const mine = ++epoch
   stopWatching()
-  if (!isOpen)
+  if (!isOpen) {
+    await restoreFocus(mine)
     return
+  }
   await nextTick()
   for (let wait = 0; wait < 10 && !paletteRoot(); wait++) {
     await new Promise(resolve => requestAnimationFrame(resolve))

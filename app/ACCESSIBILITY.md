@@ -110,7 +110,9 @@ field, not on "the first dialog" (the drawer or the rail's popover can be open b
 something again), over the drawer (`drawer-palette`, 390 px) and over the rail's popover (`rail-popover-palette`,
 1100 px); `mobile-menu-open` is scanned too. When the layout changes under the keyboard, the focus stays on its link
 (the rail gaining its labels at 1280 px) or goes to the page (the drawer or the popover going away); a page with no
-focus gets none.
+focus gets none. When the palette closes and the control that opened it is gone (the window crossed 1024 px under it:
+the top bar's button, the drawer), the focus goes to the search button of the layout there is now. A page that is chosen
+in the palette closes the rail's settings popover that was open under it.
 
 There is no sepia mode. `main.css` once held a `html.sepia` block that redefined the `--ui-*` tokens, which
 nothing in the app ever set (`colorMode` knows `light`, `dark` and `system`, and the settings offer those

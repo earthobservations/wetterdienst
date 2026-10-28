@@ -408,13 +408,62 @@ test.describe('The focus when the layout changes', () => {
   test('leaves a page that had no focus without one, and unscrolled, when the window crosses 1024 px', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 700 })
     await page.goto('/settings')
+    // the app has taken the page up: the layout's watchers exist from here (a resize before this would test nothing)
+    await expect(page.locator('header[data-app-nav]')).toBeVisible()
     expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true)
 
     await page.setViewportSize({ width: 1300, height: 700 })
+    await expect(page.locator('aside nav')).toBeVisible()
     await page.waitForTimeout(700)
 
     expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true)
     expect(await page.evaluate(() => window.scrollY)).toBe(0)
+  })
+
+  test('goes to the search button of the new layout when the palette closes and the button that opened it is gone', async ({ page }) => {
+    await page.setViewportSize({ width: 900, height: 800 })
+    await page.goto('/')
+    await expect(page.locator('header[data-app-nav]')).toBeVisible()
+    await page.locator('header[data-app-nav] [data-app-search]').click()
+    await expect(page.locator('[data-slot="root"] > [data-slot="input"] input')).toBeVisible()
+
+    await page.setViewportSize({ width: 1300, height: 800 })
+    await expect(page.locator('aside nav')).toBeVisible()
+    await page.waitForTimeout(700)
+    await page.keyboard.press('Escape')
+
+    await expect(page.locator('aside [data-app-search]')).toBeFocused()
+  })
+
+  test('does the same for a palette opened from the drawer', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 800 })
+    await page.goto('/')
+    await expect(page.locator('header[data-app-nav]')).toBeVisible()
+    await page.getByRole('button', { name: 'Menu', exact: true }).click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Search', exact: true }).click()
+    await expect(page.locator('[data-slot="root"] > [data-slot="input"] input')).toBeVisible()
+
+    await page.setViewportSize({ width: 1300, height: 800 })
+    await expect(page.locator('aside nav')).toBeVisible()
+    await page.waitForTimeout(700)
+    await page.keyboard.press('Escape')
+
+    await expect(page.locator('aside [data-app-search]')).toBeFocused()
+  })
+
+  test('closes the settings popover of the rail when the palette opened over it goes to a page', async ({ page }) => {
+    await page.setViewportSize({ width: 1100, height: 800 })
+    await page.goto('/')
+    await page.locator('aside').getByRole('button', { name: 'Settings', exact: true }).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await page.keyboard.press('Control+k')
+    await expect(page.locator('[data-slot="root"] > [data-slot="input"] input')).toBeVisible()
+    await page.keyboard.type('glossar')
+    await expect(page.locator('[role="option"][data-highlighted]')).toHaveText('Glossary')
+    await page.keyboard.press('Enter')
+
+    await expect(page).toHaveURL(/\/glossary/)
+    await expect(page.getByRole('dialog')).toHaveCount(0)
   })
 })
 

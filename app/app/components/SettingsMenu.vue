@@ -4,6 +4,13 @@
 const props = withDefaults(defineProps<{ collapsed?: boolean }>(), { collapsed: false })
 const emit = defineEmits<{ navigate: [] }>()
 
+// the popover is closed by a new page too, whichever way it was reached (the command palette opens over it)
+const open = ref(false)
+const route = useRoute()
+watch(() => route.path, () => {
+  open.value = false
+})
+
 const { t, locale, setLocale } = useI18n()
 const colorMode = useColorMode()
 
@@ -23,6 +30,7 @@ const themeOptions = computed(() => [
 <template>
   <!-- in a short window (a 400 % zoom is 320 x 256 px) it keeps clear of the window's edge and scrolls inside itself -->
   <UPopover
+    v-model:open="open"
     :content="{ side: 'top', align: 'start', collisionPadding: 8 }"
     :ui="{ content: 'max-h-(--reka-popover-content-available-height) overflow-y-auto' }"
   >

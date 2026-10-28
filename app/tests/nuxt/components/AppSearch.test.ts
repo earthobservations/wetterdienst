@@ -88,4 +88,30 @@ describe('the palette\'s watch', () => {
     expect(active()).toHaveLength(0)
     wrapper.unmount()
   })
+
+  it('puts the list right in the palette, not in the first dialog of the page, where another is open before it', async () => {
+    // the drawer or the rail's popover, open behind the palette: a dialog that comes first in the page, with a root of its own
+    const other = document.createElement('div')
+    other.setAttribute('role', 'dialog')
+    other.innerHTML = '<div data-slot="root"><div data-slot="content" role="listbox"><div data-slot="viewport"></div></div></div>'
+    document.body.prepend(other)
+    const { wrapper, open } = await palette()
+    open.value = true
+    await vi.waitFor(() => expect(document.querySelectorAll('[role="dialog"]').length).toBeGreaterThanOrEqual(2))
+
+    // the palette's list is the one given the role of a listbox, with a name; the other dialog is left as it was
+    await vi.waitFor(() => {
+      const list = document.querySelector('[role="dialog"]:not([data-other]) [data-slot="root"] > [data-slot="input"]')
+        ?.closest('[data-slot="root"]')
+        ?.querySelector(':scope > [data-slot="content"] > [data-slot="viewport"]')
+      expect(list?.getAttribute('role')).toBe('listbox')
+      expect(list?.getAttribute('aria-label')).toBeTruthy()
+    })
+    expect(other.querySelector('[data-slot="content"]')?.getAttribute('role')).toBe('listbox')
+    expect(other.querySelector('[data-slot="viewport"]')?.getAttribute('role')).toBeNull()
+
+    open.value = false
+    wrapper.unmount()
+    other.remove()
+  })
 })

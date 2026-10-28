@@ -17,6 +17,7 @@ const open = useState('app-search-open', () => false)
     :square="props.collapsed"
     :block="!props.collapsed"
     :aria-label="t('nav.search')"
+    data-app-search
     :class="props.collapsed ? '' : 'justify-start font-normal text-muted'"
     @click="open = true"
   >
