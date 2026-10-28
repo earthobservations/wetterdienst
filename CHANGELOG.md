@@ -33,6 +33,10 @@ Types of changes:
   already do (not with `cache_disable`, nor for `interpolate` and `summarize`). Answers, their
   order and errors are unchanged; the connection limits and `Settings(fetch_ahead=...)` /
   `WD_FETCH_AHEAD` (0 switches it off) are those of GH-3454 (GH-3507)
+- The description of the `large` dataset of `dwd/mosmix`, which `coverage` reports and the docs
+  page carries, says that which elements a station gets, and at which hours, depend on the station:
+  `tx` and `tn` at 06 and 18 UTC for Berlin, 12 and 00 UTC for Tokyo, none for Los Angeles, and
+  that an element without a value for it is an answer with no rows (GH-3539)
 
 ### Fixed
 
