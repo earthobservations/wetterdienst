@@ -10,6 +10,33 @@ const { t, locale, setLocale } = useI18n()
 const colorMode = useColorMode()
 const { data: providerList } = useProviders()
 
+// Two things Nuxt UI's command palette leaves out, put on its list once it is there. The list is named by what it is
+// (WCAG 4.1.2, axe `aria-input-field-name`). And it is the box that scrolls, and takes the focus by Tab, so a keyboard
+// can scroll it (2.1.1, axe `scrollable-region-focusable`): its options are reached by the arrow keys from the field,
+// not by Tab, so nothing in the box could take it. A listbox is a widget that is focused by design; Nuxt UI's own
+// scrolling box inside it is a presentational one, which must not be.
+const wrap = useTemplateRef<HTMLElement>('wrap')
+function labelTheList() {
+  const list = wrap.value?.querySelector('[role="listbox"]')
+  if (!list)
+    return
+  if (list.getAttribute('aria-label') !== t('shell.search'))
+    list.setAttribute('aria-label', t('shell.search'))
+  // Reka renders it with -1; set again when it does, and only then, so this does not call itself
+  if (list.getAttribute('tabindex') !== '0')
+    list.setAttribute('tabindex', '0')
+}
+// again whenever the list is drawn anew
+let observer: MutationObserver | null = null
+onMounted(() => {
+  labelTheList()
+  if (wrap.value) {
+    observer = new MutationObserver(labelTheList)
+    observer.observe(wrap.value, { childList: true, subtree: true, attributes: true, attributeFilter: ['tabindex', 'aria-label'] })
+  }
+})
+onBeforeUnmount(() => observer?.disconnect())
+
 function page(section: { key: string, to: string, label: string, icon: string, description?: string }): CommandPaletteItem {
   return {
     id: section.key,
@@ -89,17 +116,19 @@ const groups = computed<CommandPaletteGroup<CommandPaletteItem>[]>(() => [
 </script>
 
 <template>
-  <UCommandPalette
-    :groups="groups"
-    :placeholder="t('shell.searchPlaceholder')"
-    :fuse="{ resultLimit: 30 }"
-    class="flex-1 min-h-0"
-    :ui="{ input: '[&_input]:text-base', label: 'text-xs uppercase tracking-wider text-muted font-semibold', item: 'py-2' }"
-  >
-    <template #empty>
-      <p class="py-8 text-center text-muted">
-        {{ t('shell.searchEmpty') }}
-      </p>
-    </template>
-  </UCommandPalette>
+  <div ref="wrap" class="flex min-h-0 flex-1 flex-col">
+    <UCommandPalette
+      :groups="groups"
+      :placeholder="t('shell.searchPlaceholder')"
+      :fuse="{ resultLimit: 30 }"
+      class="flex-1 min-h-0"
+      :ui="{ input: '[&_input]:text-base', content: 'flex-1 min-h-0 overflow-y-auto', viewport: 'overflow-visible flex-none', label: 'text-xs uppercase tracking-wider text-muted font-semibold', item: 'py-2' }"
+    >
+      <template #empty>
+        <p class="py-8 text-center text-muted">
+          {{ t('shell.searchEmpty') }}
+        </p>
+      </template>
+    </UCommandPalette>
+  </div>
 </template>

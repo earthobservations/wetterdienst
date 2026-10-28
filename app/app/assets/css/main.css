@@ -282,6 +282,11 @@
 .leaflet-container :focus-visible:not([tabindex="-1"]) {
   outline-color: var(--color-brand-700);
 }
+/* the ring of the map itself lies outside it, on the card: at night that is dark, where shade 700 is 2.3:1; shade 500
+   is 4.5:1 there (the markers' rings lie on the tiles, and keep shade 700) */
+.dark .leaflet-container:focus-visible {
+  outline-color: var(--color-brand-500);
+}
 
 /* ---- The frame of every page ----------------------------------------------------------------------------------- */
 .frame {
@@ -642,9 +647,10 @@
   /* Iconify draws an icon as a mask over its own background, and forced colours replace that background with the
      page's: the icon vanishes, and an icon-only button is an empty box. The icon keeps its background and paints it
      in the colour its parent's text is forced to (ButtonText in a button, LinkText in a link, HighlightText in a
-     selected option). */
+     selected option), not in a colour of its own (`text-primary`), which forced colours would not have replaced. */
   .iconify {
     forced-color-adjust: none;
+    color: inherit !important;
     background-color: currentColor !important;
   }
 }

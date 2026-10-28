@@ -1030,7 +1030,10 @@ function handleUnitTargetChange(unitType: string, value: string) {
               </div>
             </template>
           </UCollapsible>
-
+        </template>
+        <template #result>
+          <!-- Where and when, beside what: the data source and its map take the wide column, where the map has room
+               for its markers (WCAG 2.5.8), and the results follow under it -->
           <!-- Data Source Selection -->
           <UCard v-if="showModeSelection">
             <template #header>
@@ -1082,8 +1085,6 @@ function handleUnitTargetChange(unitType: string, value: string) {
               </div>
             </div>
           </UCard>
-        </template>
-        <template #result>
           <UCollapsible
             v-if="stationSelectionState.mode === 'station' && stationSelectionState.selection.stations.length > 0"
           >
@@ -1142,6 +1143,17 @@ function handleUnitTargetChange(unitType: string, value: string) {
             :station-selection="stationSelectionState" :settings="dataSettings" :lead-time="selectedLeadTime"
             :unit-target-defaults="unitTargetDefaults"
           />
+          <!-- where the result will be, until a place is chosen: the column of the result is not an empty hole -->
+          <div
+            v-else
+            class="rounded-xl border-2 border-dashed border-default p-12 text-center text-muted"
+            data-testid="explorer-empty"
+          >
+            <ToolTile tile="rain" icon="i-ph-compass-fill" size="2.5rem" class="mx-auto mb-3 opacity-80" />
+            <p class="text-sm">
+              {{ t('dataViewer.emptyHint') }}
+            </p>
+          </div>
         </template>
       </ToolWorkbench>
     </div>
