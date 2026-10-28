@@ -18,6 +18,16 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: `nws/observation` fills a gap of the observation it keeps for an hour from the
+  nearest other observation of that hour (a verified 5-minute row for a METAR whose temperature
+  is not controlled yet), with that row's `quality_flags`. These come back where they were null:
+  temperature, dew point, humidity, both pressures, visibility, wind speed and the three
+  precipitation sums (the temperature in 1.8 % of the hours measured, the wind speed in 5.2 %).
+  The wind direction comes only together with a filled speed, from the same row; a report that
+  has a speed keeps its own direction (null for a variable wind). The running total since the
+  last routine report is taken from an earlier report only. Gust and wind chill stay as the
+  report has them. A value the kept observation has is never replaced. Nothing needs to be done
+  (GH-3480)
 - A read of many stations of `smhi/observation` fetches the per-parameter files of the next 4
   stations into the cache while one is parsed, as `dwd/observation`, `chmi` and the others
   already do (not with `cache_disable`, nor for `interpolate` and `summarize`). Answers, their

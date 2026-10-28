@@ -13,6 +13,11 @@ Depending on the parameter selected following periods are supported:
 - **historical** - values based on data which have completed quality control
 - **recent** - newer values based on data which have not passed the full quality control yet
 
+For a timestamp that both periods hold, the answer takes the reading of the preferred period (historical over
+recent), even where that file has a missing-value marker (`-999`) and the other a value, as in
+[`dwd/observation`](../observation/index.md). None was found in a measurement of 2026-10 (480,880 readings
+of the hourly radiation and sunshine duration products).
+
 The derived products currently supported are:
 
 **Technical Products:**
