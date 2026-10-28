@@ -297,7 +297,7 @@ class SmhiObservationRequest(TimeseriesRequest):
             # the lists of two parameters may type a column differently (a whole-number height as integer), which
             # the core makes the declared type of once
             pl.concat(frames, how="vertical_relaxed")
-            .group_by("station_id")
+            .group_by("station_id", maintain_order=True)
             .agg(
                 pl.col("resolution").first(),
                 pl.col("dataset").first(),

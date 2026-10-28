@@ -721,7 +721,7 @@ class DwdDerivedRequest(TimeseriesRequest):
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
         )
 
-        return stations_data.sort(by=["station_id"])
+        return stations_data.sort(by=["station_id"], maintain_order=True)
 
     def _all(self) -> pl.LazyFrame:
         """Fetch station data for the given request.
@@ -756,6 +756,7 @@ class DwdDerivedRequest(TimeseriesRequest):
                         other=file_index_ids.lazy(),
                         on=["station_id"],
                         how="inner",
+                        maintain_order="left",
                     ).collect(background=False)
                     # a station with files and no line in the description is dropped by the join (GH-3258)
                     file_ids.update(file_index_ids.get_column("station_id"))

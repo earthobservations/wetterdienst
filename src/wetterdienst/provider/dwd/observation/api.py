@@ -892,6 +892,7 @@ class DwdObservationRequest(TimeseriesRequest):
                     other=file_index_ids.lazy(),
                     on=["station_id"],
                     how="inner",
+                    maintain_order="left",
                 ).collect(background=False)
                 # a station with files and no line in the description of its period is dropped by the join, which is
                 # told below for the periods together: the description of another period may have the line (GH-3258)
