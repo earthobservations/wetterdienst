@@ -215,6 +215,7 @@ def request_stations(
     # no files are fetched ahead of this walk: it stops where the stations found are enough, which only the data says,
     # so what was fetched ahead of that point would be downloaded and never read (GH-3454)
     values._fetch_ahead_allowed = False  # noqa: SLF001
+    values._warn_without_rows = False  # noqa: SLF001
     for result in tqdm(
         values.query(),
         total=len(stations_by_id),

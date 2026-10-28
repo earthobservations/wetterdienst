@@ -17,9 +17,12 @@ from __future__ import annotations
 
 import logging
 from contextvars import ContextVar
-from typing import Any
+from typing import TYPE_CHECKING, Any, NotRequired
 
 from typing_extensions import TypedDict
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 class ResponseWarning(TypedDict):
@@ -27,6 +30,11 @@ class ResponseWarning(TypedDict):
 
     code: str
     message: str
+    #: what the warning is about, where it is about one parameter: `resolution/dataset/parameter`, or
+    #: `resolution/dataset` for a whole dataset (`parameter-without-rows`)
+    parameter: NotRequired[str]
+    #: the stations the warning is about, as many as it lists (`parameter-without-rows`)
+    stations: NotRequired[list[str]]
 
 
 #: the code of the warning that counts the readings the source wrote a marker for, and its message
@@ -36,6 +44,9 @@ MISSING_VALUE_MARKER_MESSAGE = (
     "and are null; with drop_nulls they are not in the answer, without it the text the source wrote is the `raw:` "
     "token of their quality_flags."
 )
+
+#: the code of the warning that names a requested parameter the source holds no values for, at any station asked about
+PARAMETER_WITHOUT_ROWS = "parameter-without-rows"
 
 _RECORDED: ContextVar[list[ResponseWarning] | None] = ContextVar("wetterdienst_response_warnings", default=None)
 #: the warnings that count something across the whole request, by code: the count and the message, where `{count}` is
@@ -66,14 +77,27 @@ def count_response_warning(code: str, count: int, message: str) -> None:
     entry[0] += count
 
 
-def warn_response(log: logging.Logger, code: str, message: str, *, level: int = logging.WARNING) -> None:
+def warn_response(
+    log: logging.Logger,
+    code: str,
+    message: str,
+    *,
+    level: int = logging.WARNING,
+    parameter: str | None = None,
+    stations: Sequence[str] | None = None,
+) -> None:
     """Log `message` as `log` does at `level`, and record it under `code` for the answer of the request being served.
 
+    A warning about one `parameter` and its `stations` carries them as members beside the code and the message.
     A warning recorded twice, as an estimate asks the same stations for each parameter, is told once.
     """
     log.log(level, message)
     recorded = _RECORDED.get()
     warning: ResponseWarning = {"code": code, "message": message}
+    if parameter is not None:
+        warning["parameter"] = parameter
+    if stations is not None:
+        warning["stations"] = list(stations)
     if recorded is not None and warning not in recorded:
         recorded.append(warning)
 

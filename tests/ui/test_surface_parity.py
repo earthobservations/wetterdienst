@@ -30,6 +30,7 @@ from wetterdienst.provider.dwd.observation.api import DwdObservationValues
 from wetterdienst.ui import cli as cli_module
 from wetterdienst.ui import core, restapi
 from wetterdienst.ui.cli import cli
+from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
 if TYPE_CHECKING:
     import pathlib
@@ -1214,3 +1215,220 @@ def test_readings_dropped_for_being_a_missing_value_marker_are_counted(monkeypat
     # kept as null, the readings carry the marker in their flags, and are counted all the same
     assert {row["quality_flags"] for row in kept["values"] if row["value"] is None} == {"raw:-999"}
     assert kept["metadata"]["warnings"][0]["message"].startswith("2 readings")
+
+
+# a requested parameter the source holds no values for is told as such, once, on every surface (GH-3539)
+
+_EMPTY = "daily/kl/sunshine_duration"
+_EMPTY_NAME = "daily/climate_summary/sunshine_duration"
+_FULL = "daily/kl/temperature_air_mean_2m"
+_CODE = "parameter-without-rows"
+
+
+def _all_of_the_dataset() -> list[str]:
+    """Name every parameter of `daily/kl` as the source does."""
+    return [parameter.name_original for parameter in DwdObservationRequest.metadata["daily"]["kl"]]
+
+
+def _holding_none_of(monkeypatch: pytest.MonkeyPatch, *names: str, stations: set[str] | None = None) -> None:
+    """Have the source hold nothing of the parameters `names` (their original names), at `stations` if named."""
+    original = DwdObservationValues._collect_station_parameter_or_dataset  # noqa: SLF001
+
+    def collect(self: object, station_id: str, parameter_or_dataset: Any) -> pl.DataFrame:  # noqa: ANN401
+        df = original(self, station_id, parameter_or_dataset)
+        if stations is not None and station_id not in stations:
+            return df
+        return df.filter(~pl.col("parameter").is_in(names))
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+
+
+def _told(parameters: list[str] | str, stations: list[str], **kwargs: Any) -> list[dict[str, Any]]:  # noqa: ANN401
+    """Read the values in the library and give the warnings `parameter-without-rows` the answer would carry."""
+    begin_response()
+    request = DwdObservationRequest(parameters=parameters, start="2020-05-01", end="2020-05-03", **kwargs)
+    request.filter_by_station_id(stations).values().all()
+    return [warning for warning in recorded_warnings() if warning["code"] == _CODE]
+
+
+def test_a_named_parameter_without_a_row_is_told_with_the_stations(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The answer says the source holds none of it, naming the parameter and the stations, one warning for both."""
+    _holding_none_of(monkeypatch, "sdk")
+
+    (warning,) = _told([_EMPTY, _FULL], ["00001", "00002"])
+
+    assert warning["parameter"] == _EMPTY_NAME
+    assert warning["stations"] == ["00001", "00002"]
+    assert "no values for daily/climate_summary/sunshine_duration at stations 00001, 00002" in warning["message"]
+    assert "between 2020-05-01 00:00 and 2020-05-03 23:59 UTC" in warning["message"]
+    assert "not an error" in warning["message"]
+
+
+def test_a_parameter_with_rows_is_not_told(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A parameter that came back with rows has no warning, nor have the others of the request."""
+    assert _told([_FULL], ["00001"]) == []
+    _holding_none_of(monkeypatch, "sdk")
+    assert [w["parameter"] for w in _told([_EMPTY, _FULL], ["00001"])] == [_EMPTY_NAME]
+
+
+def test_a_parameter_that_one_of_the_stations_has_is_not_told(monkeypatch: pytest.MonkeyPatch) -> None:
+    """One station with a row is the source holding it: the warning is for a parameter no station has."""
+    _holding_none_of(monkeypatch, "sdk", stations={"00001"})
+
+    assert _told([_EMPTY], ["00001", "00002"]) == []
+    assert [w["stations"] for w in _told([_EMPTY], ["00001"])] == [["00001"]]
+
+
+def test_a_dataset_is_not_told_by_its_parameters_but_when_it_has_no_row_at_all(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A dataset asked for whole has a warning only when none of its parameters has a row, and then one."""
+    _holding_none_of(monkeypatch, "sdk", "rsk")
+    assert _told("daily/kl", ["00001"]) == []
+
+    _holding_none_of(monkeypatch, *_all_of_the_dataset())
+    (warning,) = _told("daily/kl", ["00001", "00002"])
+    assert warning["parameter"] == "daily/climate_summary"
+    assert warning["stations"] == ["00001", "00002"]
+    assert "any parameter of daily/climate_summary" in warning["message"]
+
+
+def test_a_parameter_named_in_an_empty_dataset_is_told_by_its_own_warning(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A parameter asked for by name beside its whole dataset keeps its warning, and the dataset adds none."""
+    _holding_none_of(monkeypatch, *_all_of_the_dataset())
+
+    assert [w["parameter"] for w in _told(["daily/kl", _EMPTY], ["00001"])] == [_EMPTY_NAME]
+
+
+def test_readings_all_null_and_dropped_are_no_rows(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A parameter whose readings are all null has no row once `drop_nulls` has dropped them; kept, it has rows."""
+    original = DwdObservationValues._collect_station_parameter_or_dataset  # noqa: SLF001
+
+    def nulls(self: object, station_id: str, parameter_or_dataset: Any) -> pl.DataFrame:  # noqa: ANN401
+        df = original(self, station_id, parameter_or_dataset)
+        return df.with_columns(
+            pl.when(pl.col("parameter") == "sdk").then(None).otherwise(pl.col("value")).alias("value")
+        )
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", nulls)
+
+    assert [w["parameter"] for w in _told([_EMPTY, _FULL], ["00001"])] == [_EMPTY_NAME]
+    assert _told([_EMPTY, _FULL], ["00001"], options={"drop_nulls": False}) == []
+
+
+def test_a_station_the_window_precedes_is_not_named(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A station that begins after the window ends was not read, and another warning or none explains it."""
+    _holding_none_of(monkeypatch, "sdk")
+    begin_response()
+    request = DwdObservationRequest(parameters=[_EMPTY], start="1935-01-01", end="1935-01-31")
+    request.filter_by_station_id(["00001", "00005"]).values().all()
+
+    (warning,) = [w for w in recorded_warnings() if w["code"] == _CODE]
+    assert warning["stations"] == ["00001"]
+
+
+def test_a_list_of_stations_is_cut_and_counted(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A parameter that a whole network lacks does not list every station: the first ones, and how many there are."""
+    _holding_none_of(monkeypatch, "sdk")
+    monkeypatch.setattr("wetterdienst.model.parameter_rows.MAX_STATIONS_LISTED", 2)
+
+    (warning,) = _told([_EMPTY], ["00001", "00002", "00003"])
+
+    assert warning["stations"] == ["00001", "00002"]
+    assert "3 stations, the first 2 of them 00001, 00002" in warning["message"]
+
+
+def test_an_estimate_does_not_tell_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A summary reads the stations around a point, most of which lack a parameter, and it does not warn of that."""
+    _holding_none_of(monkeypatch, "sdk")
+    begin_response()
+
+    DwdObservationRequest(parameters=[_EMPTY], start="2020-05-01", end="2020-05-03").summarize(_POINT)
+
+    assert [w for w in recorded_warnings() if w["code"] == _CODE] == []
+
+
+def _surfaces(parameters: str) -> dict[str, list[dict[str, Any]]]:
+    """Ask the library, the command line, REST (JSON and NDJSON) and the MCP tool for the values of one station."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    begin_response()
+    request = DwdObservationRequest(parameters=parameters, start="2020-05-01", end="2020-05-31 23:59:59")
+    request.filter_by_station_id("00001").values().all()
+    library = recorded_warnings()
+    cli_result = CliRunner().invoke(
+        cli,
+        [
+            "values",
+            "--provider=dwd",
+            "--network=observation",
+            f"--parameters={parameters}",
+            "--stations=00001",
+            "--timestamp=2020-05",
+        ],
+    )
+    assert cli_result.exit_code == 0, cli_result.output
+    rest_response = _rest("/api/values", parameters=parameters, stations="00001", timestamp="2020-05")
+    assert rest_response.status_code == 200, rest_response.text
+    streamed = _rest("/api/values", parameters=parameters, stations="00001", timestamp="2020-05", format="ndjson")
+    assert streamed.status_code == 200, streamed.text
+
+    async def call() -> Any:  # noqa: ANN401
+        async with Client(build_mcp_server(restapi.app)) as client:
+            result = await client.call_tool(
+                "values",
+                {
+                    "provider": "dwd",
+                    "network": "observation",
+                    "parameters": parameters,
+                    "stations": "00001",
+                    "timestamp": "2020-05",
+                },
+            )
+            return result.structured_content
+
+    answer = asyncio.run(call())
+    lines = [json.loads(line) for line in streamed.text.splitlines()]
+    assert _json(cli_result.stdout)["metadata"] == _json(rest_response.text)["metadata"]
+    return {
+        "library": library,
+        "cli": json.loads(cli_result.stdout)["metadata"]["warnings"],
+        "rest": rest_response.json()["metadata"]["warnings"],
+        "ndjson": lines[-1]["end"]["warnings"],
+        "mcp": answer.get("result", answer)["metadata"]["warnings"],
+    }
+
+
+def test_a_parameter_without_rows_is_told_alike_on_every_surface(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The library, the command line, REST (JSON and NDJSON) and the MCP tool say the same; REST sets the header."""
+    _holding_none_of(monkeypatch, "sdk")
+
+    told = _surfaces(_EMPTY)
+
+    assert [w["parameter"] for w in told["rest"]] == [_EMPTY_NAME]
+    assert told["rest"][0]["stations"] == ["00001"]
+    assert told["rest"][0]["message"].startswith("The source holds no values for daily/climate_summary/sunshine")
+    assert told["cli"] == told["rest"] == told["ndjson"] == told["mcp"] == told["library"]
+    rest = _rest("/api/values", parameters=_EMPTY, stations="00001", timestamp="2020-05")
+    assert rest.headers["X-Wetterdienst-Warnings"] == _CODE
+    assert rest.json()["metadata"]["counts"]["rows"] == 0
+
+
+def test_a_dataset_with_rows_is_told_of_nothing_on_every_surface(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A whole dataset one of whose parameters is empty has no warning, which is what the REST plumbing keeps of it."""
+    _holding_none_of(monkeypatch, "sdk")
+
+    assert _surfaces("daily/kl") == {surface: [] for surface in ("library", "cli", "rest", "ndjson", "mcp")}
+
+
+def test_a_dataset_without_rows_is_told_once_on_every_surface(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A whole dataset the source holds nothing of is one warning whatever the number of its parameters."""
+    _holding_none_of(monkeypatch, *_all_of_the_dataset())
+
+    told = _surfaces("daily/kl")
+
+    assert [w["parameter"] for w in told["rest"]] == ["daily/climate_summary"]
+    assert told["cli"] == told["rest"] == told["ndjson"] == told["mcp"] == told["library"]

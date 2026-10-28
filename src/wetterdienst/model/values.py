@@ -19,6 +19,7 @@ from wetterdienst.exceptions import ProviderContractError
 from wetterdienst.metadata.resolution import count_readings, reading_interval
 from wetterdienst.model.fetch_ahead import FetchAhead, FilesAhead
 from wetterdienst.model.metadata import group_parameters_by_dataset
+from wetterdienst.model.parameter_rows import ParameterRows
 from wetterdienst.model.quality_flags import QUALITY_FLAGS, RAW_TOKEN
 from wetterdienst.model.result import StationsResult, ValuesResult
 from wetterdienst.model.schema import (
@@ -259,6 +260,10 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     #: whether `query` may have the files of the next stations fetched while one is read (GH-3454); a caller that stops
     #: the walk where the data says, not at a number it knows (interpolation, summary), sets it False
     _fetch_ahead_allowed: bool = field(default=True, init=False, repr=False, compare=False)
+    #: whether `query` tells, at the end of the walk, the parameters of the request that no station had a row of
+    #: (`parameter-without-rows`, GH-3539); a caller that reads stations only to estimate between them (interpolation,
+    #: summary) sets it False, as a station without a parameter is what it expects there
+    _warn_without_rows: bool = field(default=True, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         """Post-initialization of the TimeseriesValues object."""
@@ -348,6 +353,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         """Walk the stations in order, each one collected, cut to the window and shaped, as `query` yields them."""
         # the stations that returned values, which `filter_by_rank` counts its slots in
         stations_collected = 0
+        rows = ParameterRows(self.sr.request, self.sr.start, self.sr.end, enabled=self._warn_without_rows)
         # mapping of original to humanized parameter names is always the same
         hpm: dict[str, str] = {}
         if self.sr.options.humanize:
@@ -359,10 +365,12 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             if self._begins_after_window(df_station_meta):
                 continue
             available_datasets = self._get_available_datasets(df_station_meta)
+            rows.examine(station_id, available_datasets)
             self._data_updated.clear()
             self._advance_fetch_ahead(ahead, position, stations_collected)
             # Collect data for this station
             df = self._filter_by_window(self._collect_station_data(station_id, available_datasets))
+            rows.note(df)
             # judged after the window has been cut, not before it: a station whose record lies
             # entirely outside the requested window returned data, but none that was asked for.
             # Counting it as collected spent one of `filter_by_rank`'s slots on an empty frame, so
@@ -397,6 +405,8 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             df = df.sort(sort_columns)
             stations_collected += 1
             yield ValuesResult(stations=self.sr, df=df, data_updated_at=newest(self._data_updated))
+        # only a walk read to its end says what it found: a failure raised before it, and one that is stopped is silent
+        rows.warn()
 
     def _advance_fetch_ahead(self, ahead: FetchAhead | None, position: int, stations_collected: int) -> None:
         """Have the files of the stations after ``position`` fetched, and wait for those of ``position``."""

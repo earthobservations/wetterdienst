@@ -45,6 +45,7 @@ from wetterdienst.model.metadata import (
     check_on_unknown,
     group_parameters_by_dataset,
     parse_parameters,
+    requested_by_kind,
 )
 from wetterdienst.model.result import (
     InterpolatedValuesResult,
@@ -356,6 +357,13 @@ class TimeseriesRequest:
     # within reach of the point once they are ranked, before the first value is downloaded, it refuses the request
     # by raising. The library sets none (`core.util.hold_stations_in_reach`)
     _check_reach: Callable[[int], None] | None = field(default=None, init=False, repr=False, compare=False)
+    # Not an argument: which of the parameters were asked for as a whole dataset (`(resolution, dataset)`) and which by
+    # their name (`(resolution, dataset, name_original)`), as `requested_by_kind` reads it in `__post_init__`. The
+    # flat `parameters` has lost that, and `parameter-without-rows` is told of a parameter by its name only
+    _requested_whole: frozenset[tuple[str, str]] = field(default=frozenset(), init=False, repr=False, compare=False)
+    _requested_named: frozenset[tuple[str, str, str]] = field(
+        default=frozenset(), init=False, repr=False, compare=False
+    )
 
     def __new__(cls, *args: object, **kwargs: object) -> Self:  # noqa: ARG004
         """Refuse a renamed argument before the dataclass __init__ rejects it without naming the new one.
@@ -400,6 +408,8 @@ class TimeseriesRequest:
                 error = InvalidParameterError(msg)
                 error.resolved = True
                 raise error from None
+        if self.parameters:
+            self._requested_whole, self._requested_named = requested_by_kind(requested, self.metadata)
         if not self.parameters:
             # with on_unknown="warn" the warnings parse_parameters logged say per parameter what was
             # wrong with it, but they are only visible to whoever configured logging, so name the

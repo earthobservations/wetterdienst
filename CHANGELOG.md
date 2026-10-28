@@ -16,6 +16,16 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- A response warning `parameter-without-rows` (REST, MCP, command line and, as a log line, Python)
+  names a requested parameter the source holds no values for, with `parameter` and `stations`,
+  where the answer used to be an empty header that read like a failed request (`TX`/`TN` of
+  `dwd/mosmix` for Los Angeles, `tx24` of `meteofrance/synop` for Paris). It is told for a
+  parameter asked for by name when no station has a row of it, and for a dataset asked for whole
+  only when no station has a row of any of its parameters. Asking again will not change it
+  (GH-3539)
+
 ### Changed
 
 - **Breaking**: `nws/observation` fills a gap of the observation it keeps for an hour from the

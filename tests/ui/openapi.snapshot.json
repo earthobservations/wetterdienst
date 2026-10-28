@@ -5598,6 +5598,17 @@
           "message": {
             "type": "string",
             "title": "Message"
+          },
+          "parameter": {
+            "type": "string",
+            "title": "Parameter"
+          },
+          "stations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Stations"
           }
         },
         "additionalProperties": false,

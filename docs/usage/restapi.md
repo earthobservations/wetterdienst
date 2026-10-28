@@ -271,9 +271,22 @@ what the answer is missing:
   `null` because the source wrote a marker for a missing value: with `drop_nulls` they are not in the
   answer, and this counts them; without it the `raw:` token of their `quality_flags` keeps the marker),
   `parameter-ended` (the window reaches years in which the source no longer publishes a parameter, such as
-  the hourly `pressure_air_site` of `chmi/observation` after 2024, so it has no values for them) and
-  `deprecated-parameter` (issued when a parameter is deprecated; none is at the moment). Codes are added as
-  more are told; a client reads the ones it knows.
+  the hourly `pressure_air_site` of `chmi/observation` after 2024, so it has no values for them),
+  `deprecated-parameter` (issued when a parameter is deprecated; none is at the moment),
+  `network-not-importable` (a network of `providers` that this server cannot import, which is left out) and
+  `parameter-without-rows` (a requested parameter that the source holds no values for, see below). Codes are
+  added as more are told; a client reads the ones it knows.
+
+  `parameter-without-rows` is not an error and asking again will not change it: the request succeeded and the
+  source has nothing of the parameter in the window. It also carries `parameter` (`resolution/dataset/parameter`,
+  or `resolution/dataset`) and `stations` (the stations it was asked at, the first ten if there are more). It is
+  told for a parameter asked for by its name when no station of the answer has a row of it, and for a dataset
+  asked for whole only when no station has a row of any of its parameters, so that a dataset with a few empty
+  parameters says nothing of them. A parameter that some stations have is not told for the ones that lack it. A
+  station that begins after the window is not read and not named, and one skipped by `skip_empty` had rows.
+  A parameter that another warning already names (`parameter-ended`) is not told again. Readings that are all null and left out by `drop_nulls` are no rows. `interpolate` and `summarize` do not tell
+  it. In Python it is a log line at level `INFO`, and `wetterdienst.util.response_warnings.recorded_warnings`
+  gives it after `begin_response()`, as the REST API and the command line do.
 - **`api_version`** is the version of the API (`/api/version`), and **`schema_version`** that of this
   block, so that a stored answer can be told from one in a later shape.
 
