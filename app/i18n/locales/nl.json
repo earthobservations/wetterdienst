@@ -118,6 +118,16 @@
     "glossary": "Woordenlijst",
     "support": "Ondersteuning"
   },
+  "shell": {
+    "skipToContent": "Naar de inhoud",
+    "mainNav": "Hoofdnavigatie",
+    "tools": "Hulpmiddelen",
+    "reference": "Naslag",
+    "project": "Project",
+    "search": "Zoeken",
+    "searchPlaceholder": "Ga naar een pagina, een aanbieder of een instelling",
+    "searchEmpty": "Niets gevonden"
+  },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",

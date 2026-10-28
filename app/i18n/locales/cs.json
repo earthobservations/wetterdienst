@@ -118,6 +118,16 @@
     "glossary": "Slovník",
     "support": "Podpora"
   },
+  "shell": {
+    "skipToContent": "Přejít na obsah",
+    "mainNav": "Hlavní navigace",
+    "tools": "Nástroje",
+    "reference": "Příručka",
+    "project": "Projekt",
+    "search": "Hledat",
+    "searchPlaceholder": "Přejít na stránku, poskytovatele nebo nastavení",
+    "searchEmpty": "Nic nenalezeno"
+  },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",

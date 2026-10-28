@@ -118,6 +118,16 @@
     "glossary": "Glossar",
     "support": "Ünnerstütten"
   },
+  "shell": {
+    "skipToContent": "Na'n Inholt springen",
+    "mainNav": "Hööftnavigatschoon",
+    "tools": "Warktüüch",
+    "reference": "Naslaan",
+    "project": "Projekt",
+    "search": "Söken",
+    "searchPlaceholder": "Na en Siet, en Anbeder oder en Instellen gahn",
+    "searchEmpty": "Nix funnen"
+  },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",

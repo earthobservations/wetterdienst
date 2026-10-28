@@ -118,6 +118,16 @@
     "glossary": "Glossaire",
     "support": "Aide"
   },
+  "shell": {
+    "skipToContent": "Aller au contenu",
+    "mainNav": "Navigation principale",
+    "tools": "Outils",
+    "reference": "Référence",
+    "project": "Projet",
+    "search": "Rechercher",
+    "searchPlaceholder": "Aller à une page, un fournisseur ou un réglage",
+    "searchEmpty": "Aucun résultat"
+  },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",

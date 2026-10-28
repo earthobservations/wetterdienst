@@ -118,6 +118,16 @@
     "glossary": "Glossar",
     "support": "Ënnerstëtzung"
   },
+  "shell": {
+    "skipToContent": "Op den Inhalt sprangen",
+    "mainNav": "Haaptnavigatioun",
+    "tools": "Instrumenter",
+    "reference": "Noschloen",
+    "project": "Projet",
+    "search": "Sichen",
+    "searchPlaceholder": "Op eng Säit, en Ubidder oder eng Astellung goen",
+    "searchEmpty": "Näischt fonnt"
+  },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",

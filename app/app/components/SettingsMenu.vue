@@ -9,16 +9,16 @@ const selectedLanguage = computed({
 })
 
 const themeOptions = computed(() => [
-  { value: 'system', label: t('settings.themeSystem'), icon: 'i-lucide-monitor' },
-  { value: 'light', label: t('settings.themeLight'), icon: 'i-lucide-sun' },
-  { value: 'dark', label: t('settings.themeDark'), icon: 'i-lucide-moon' },
+  { value: 'system', label: t('settings.themeSystem'), icon: 'i-ph-monitor' },
+  { value: 'light', label: t('settings.themeLight'), icon: 'i-ph-sun' },
+  { value: 'dark', label: t('settings.themeDark'), icon: 'i-ph-moon' },
 ])
 </script>
 
 <template>
   <UPopover>
     <UButton
-      icon="i-lucide-settings-2"
+      icon="i-ph-gear-six"
       color="neutral"
       variant="ghost"
       :aria-label="t('common.settings')"
@@ -65,12 +65,12 @@ const themeOptions = computed(() => [
         <UButton
           to="/settings"
           :label="t('settings.title')"
-          icon="i-lucide-sliders-horizontal"
+          icon="i-ph-sliders-horizontal"
           color="neutral"
           variant="ghost"
           size="sm"
           block
-          trailing-icon="i-lucide-chevron-right"
+          trailing-icon="i-ph-caret-right"
         />
       </div>
     </template>

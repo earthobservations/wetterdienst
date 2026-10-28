@@ -118,6 +118,16 @@
     "glossary": "Ordliste",
     "support": "Support"
   },
+  "shell": {
+    "skipToContent": "Gå til indhold",
+    "mainNav": "Hovednavigation",
+    "tools": "Værktøjer",
+    "reference": "Opslag",
+    "project": "Projekt",
+    "search": "Søg",
+    "searchPlaceholder": "Gå til en side, en udbyder eller en indstilling",
+    "searchEmpty": "Intet fundet"
+  },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
