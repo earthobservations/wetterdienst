@@ -240,7 +240,7 @@ test.describe('the typefaces', () => {
     expect(font.status()).toBe(200)
 
     await open(page, baseURL!, '/')
-    await page.evaluate(() => document.fonts.ready)
-    expect(await page.evaluate(() => document.fonts.check('16px "Atkinson Hyperlegible Next"'))).toBe(true)
+    // the page's text is set in it once it has come (a check of the face, which the page asks for itself)
+    await expect.poll(() => page.evaluate(() => document.fonts.check('16px "Atkinson Hyperlegible Next"')), { timeout: 10_000 }).toBe(true)
   })
 })
