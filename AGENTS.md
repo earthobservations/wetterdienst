@@ -108,7 +108,7 @@ All HTTP goes through `util/network.py`, wrapping fsspec with TTL caching and `s
 
 - **CLI** (`ui/cli.py`): click-based.
 - **REST API** (`ui/restapi.py`): FastAPI app mirroring the CLI; starts via `wetterdienst restapi`.
-- **MCP** (`ui/mcp.py`): Model Context Protocol server exposing the same tools.
+- **MCP** (`ui/mcp.py`): Model Context Protocol server exposing the same tools. `/mcp-benchmark` (`.claude/skills/mcp-benchmark/`) is a manual benchmark of whether a model reaches an answer with them within a number of steps: run by a person inside Claude, costs tokens, never by CI; its `cases.json` is held to the tools by `tests/ui/test_mcp_benchmark_cases.py`.
 - **App** (`app/`): Nuxt 3 SPA (SSR disabled) calling the REST API; `NUXT_API_BASE` (private runtime config `apiBase`; the old `NUXT_PUBLIC_API_BASE` still works, deprecated) sets the backend URL.
 
 ### Export / interpolation

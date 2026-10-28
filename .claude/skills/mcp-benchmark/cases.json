@@ -1,0 +1,790 @@
+{
+  "schema_version": 1,
+  "tiers": {
+    "small": "haiku",
+    "large": "sonnet"
+  },
+  "cases": [
+    {
+      "id": "forecast-los-angeles",
+      "question": "What is the weather forecast for Los Angeles for the next two days?",
+      "kind": "forecast",
+      "max_steps": 6,
+      "checkpoints": [
+        {
+          "id": "find-station",
+          "description": "finds a station near Los Angeles on the global forecast network, by name or by point",
+          "match": [
+            {"tool": "stations", "args": {"provider": "dwd", "network": "mosmix", "name": {"regex": "(?i)los angeles"}}},
+            {"tool": "stations", "args": {"provider": "dwd", "network": "mosmix", "latitude": {"between": [33, 35]}, "longitude": {"between": [-119.5, -117]}}}
+          ]
+        },
+        {
+          "id": "read-forecast",
+          "description": "reads the forecast values of that station (future period or a time window), air temperature among them",
+          "match": [
+            {"tool": "values", "args": {"provider": "dwd", "network": "mosmix", "parameters": {"any_of": ["hourly/small/temperature_air_2m", "hourly/large/temperature_air_2m", "hourly/small", "hourly/large"]}, "stations": {"any_of": ["72295"]}}},
+            {"tool": "values", "args": {"provider": "dwd", "network": "mosmix", "parameters": {"any_of": ["hourly/small/temperature_air_2m", "hourly/large/temperature_air_2m", "hourly/small", "hourly/large"]}, "name": {"regex": "(?i)los angeles"}}},
+            {"tool": "values", "args": {"provider": "dwd", "network": "mosmix", "parameters": {"any_of": ["hourly/small/temperature_air_2m", "hourly/large/temperature_air_2m", "hourly/small", "hourly/large"]}, "latitude": {"between": [33, 35]}, "longitude": {"between": [-119.5, -117]}}}
+          ]
+        }
+      ],
+      "forbidden": [
+        {"id": "refuses-the-forecast", "description": "refuses, or says no forecast is available, for a place the global forecast network serves (because the provider is German, or because it only found observations)", "kind": "answer", "regex": "(?i)(not eligible|only (covers|provides|for|available for) (germany|german)|german (weather )?(service|provider)[^.]{0,40}(only|cannot)|cannot[^.]{0,40}outside (of )?germany|(cannot|can.t|unable to|no way to)[^.]{0,40}forecast|no forecast (is |was )?(available|offered|found))"},
+        {"id": "estimates-instead", "description": "uses interpolate or summarize for a plain weather question", "kind": "call", "match": {"tool": ["interpolate", "summarize"]}},
+        {"id": "wide-long-window", "description": "asks for shape=wide over a window of more than 3 days", "kind": "call", "match": {"tool": "values", "args": {"shape": "wide"}}, "window_days_over": 3},
+        {"id": "repeats-values", "description": "calls values more than twice with the same arguments", "kind": "repeat", "tool": "values", "max_identical": 2}
+      ],
+      "facts": [
+        {"id": "names-place", "description": "the answer is about a station in the Los Angeles area", "kind": "answer_regex", "any_of": ["(?i)los angeles", "(?i)KLAX", "72295"]},
+        {
+          "id": "temperatures-plausible",
+          "description": "every air temperature the answer gives lies within the span of the forecast the judge reads itself, plus a margin (forecasts change between runs, so never a fixed number)",
+          "kind": "ground_truth_span",
+          "ground_truth": {"call": {"tool": "values", "args": {"provider": "dwd", "network": "mosmix", "parameters": ["hourly/small/temperature_air_2m"], "stations": ["72295"], "periods": ["future"]}}, "pick": "all air temperatures of the next 48 hours"},
+          "margin": 4,
+          "sanity": [-60, 60],
+          "unit": "degree_celsius"
+        }
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "Seen on 2026-10-28: a model refused because dwd/mosmix is a German provider (GH-3456). Station 72295 is KLAX. A name search also returns unrelated 'LOS ...' stations, so the first hit must be checked."
+    },
+    {
+      "id": "forecast-tokyo",
+      "question": "What is the weather forecast for Tokyo for the next two days?",
+      "kind": "forecast",
+      "max_steps": 6,
+      "checkpoints": [
+        {
+          "id": "find-station",
+          "description": "finds a station near Tokyo on the global forecast network, by name or by point",
+          "match": [
+            {"tool": "stations", "args": {"provider": "dwd", "network": "mosmix", "name": {"regex": "(?i)tok[yi]o"}}},
+            {"tool": "stations", "args": {"provider": "dwd", "network": "mosmix", "latitude": {"between": [34.8, 36.5]}, "longitude": {"between": [138.5, 140.5]}}}
+          ]
+        },
+        {
+          "id": "read-forecast",
+          "description": "reads the forecast values of a Tokyo station, air temperature among them",
+          "match": [
+            {"tool": "values", "args": {"provider": "dwd", "network": "mosmix", "parameters": {"any_of": ["hourly/small/temperature_air_2m", "hourly/large/temperature_air_2m", "hourly/small", "hourly/large"]}, "stations": {"any_of": ["47662", "47687", "47671"]}}},
+            {"tool": "values", "args": {"provider": "dwd", "network": "mosmix", "parameters": {"any_of": ["hourly/small/temperature_air_2m", "hourly/large/temperature_air_2m", "hourly/small", "hourly/large"]}, "name": {"regex": "(?i)tok[yi]o"}}},
+            {"tool": "values", "args": {"provider": "dwd", "network": "mosmix", "parameters": {"any_of": ["hourly/small/temperature_air_2m", "hourly/large/temperature_air_2m", "hourly/small", "hourly/large"]}, "latitude": {"between": [34.8, 36.5]}, "longitude": {"between": [138.5, 140.5]}}}
+          ]
+        }
+      ],
+      "forbidden": [
+        {"id": "refuses-the-forecast", "description": "refuses, or says no forecast is available, for a place the global forecast network serves (because the provider is German, or because it only found observations)", "kind": "answer", "regex": "(?i)(not eligible|only (covers|provides|for|available for) (germany|german)|german (weather )?(service|provider)[^.]{0,40}(only|cannot)|cannot[^.]{0,40}outside (of )?germany|(cannot|can.t|unable to|no way to)[^.]{0,40}forecast|no forecast (is |was )?(available|offered|found))"},
+        {"id": "estimates-instead", "description": "uses interpolate or summarize for a plain weather question", "kind": "call", "match": {"tool": ["interpolate", "summarize"]}},
+        {"id": "wide-long-window", "description": "asks for shape=wide over a window of more than 3 days", "kind": "call", "match": {"tool": "values", "args": {"shape": "wide"}}, "window_days_over": 3},
+        {"id": "repeats-values", "description": "calls values more than twice with the same arguments", "kind": "repeat", "tool": "values", "max_identical": 2}
+      ],
+      "facts": [
+        {"id": "names-place", "description": "the answer is about a station in the Tokyo area", "kind": "answer_regex", "any_of": ["(?i)tok[yi]o", "(?i)narita", "(?i)haneda", "4766\\d|47687|47671"]},
+        {
+          "id": "temperatures-plausible",
+          "description": "every air temperature the answer gives lies within the span of the forecast the judge reads itself, plus a margin",
+          "kind": "ground_truth_span",
+          "ground_truth": {"call": {"tool": "values", "args": {"provider": "dwd", "network": "mosmix", "parameters": ["hourly/small/temperature_air_2m"], "stations": ["47662"], "periods": ["future"]}}, "pick": "all air temperatures of the next 48 hours"},
+          "margin": 4,
+          "sanity": [-60, 60],
+          "unit": "degree_celsius"
+        }
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "Stations near Tokyo seen on 2026-10-28: 47662 TOKYO NARITA, 47687 TOKIO, 47671 TOKYO INTERNATIONAL. The name 'Tokyo' also matches the Japanese-spelled 'TOKIO'."
+    },
+    {
+      "id": "forecast-nairobi",
+      "question": "What is the weather forecast for Nairobi for the next two days?",
+      "kind": "forecast",
+      "max_steps": 6,
+      "checkpoints": [
+        {
+          "id": "find-station",
+          "description": "finds a station near Nairobi on the global forecast network, by name or by point",
+          "match": [
+            {"tool": "stations", "args": {"provider": "dwd", "network": "mosmix", "name": {"regex": "(?i)nairobi"}}},
+            {"tool": "stations", "args": {"provider": "dwd", "network": "mosmix", "latitude": {"between": [-2.2, -0.4]}, "longitude": {"between": [36, 37.6]}}}
+          ]
+        },
+        {
+          "id": "read-forecast",
+          "description": "reads the forecast values of a Nairobi station, air temperature among them",
+          "match": [
+            {"tool": "values", "args": {"provider": "dwd", "network": "mosmix", "parameters": {"any_of": ["hourly/small/temperature_air_2m", "hourly/large/temperature_air_2m", "hourly/small", "hourly/large"]}, "stations": {"any_of": ["63740"]}}},
+            {"tool": "values", "args": {"provider": "dwd", "network": "mosmix", "parameters": {"any_of": ["hourly/small/temperature_air_2m", "hourly/large/temperature_air_2m", "hourly/small", "hourly/large"]}, "name": {"regex": "(?i)nairobi"}}},
+            {"tool": "values", "args": {"provider": "dwd", "network": "mosmix", "parameters": {"any_of": ["hourly/small/temperature_air_2m", "hourly/large/temperature_air_2m", "hourly/small", "hourly/large"]}, "latitude": {"between": [-2.2, -0.4]}, "longitude": {"between": [36, 37.6]}}}
+          ]
+        }
+      ],
+      "forbidden": [
+        {"id": "refuses-the-forecast", "description": "refuses, or says no forecast is available, for a place the global forecast network serves (because the provider is German, or because it only found observations)", "kind": "answer", "regex": "(?i)(not eligible|only (covers|provides|for|available for) (germany|german)|german (weather )?(service|provider)[^.]{0,40}(only|cannot)|cannot[^.]{0,40}outside (of )?germany|(cannot|can.t|unable to|no way to)[^.]{0,40}forecast|no forecast (is |was )?(available|offered|found))"},
+        {"id": "estimates-instead", "description": "uses interpolate or summarize for a plain weather question", "kind": "call", "match": {"tool": ["interpolate", "summarize"]}},
+        {"id": "wide-long-window", "description": "asks for shape=wide over a window of more than 3 days", "kind": "call", "match": {"tool": "values", "args": {"shape": "wide"}}, "window_days_over": 3},
+        {"id": "repeats-values", "description": "calls values more than twice with the same arguments", "kind": "repeat", "tool": "values", "max_identical": 2}
+      ],
+      "facts": [
+        {"id": "names-place", "description": "the answer is about a station in the Nairobi area", "kind": "answer_regex", "any_of": ["(?i)nairobi", "63740", "(?i)HKJK"]},
+        {
+          "id": "temperatures-plausible",
+          "description": "every air temperature the answer gives lies within the span of the forecast the judge reads itself, plus a margin",
+          "kind": "ground_truth_span",
+          "ground_truth": {"call": {"tool": "values", "args": {"provider": "dwd", "network": "mosmix", "parameters": ["hourly/small/temperature_air_2m"], "stations": ["63740"], "periods": ["future"]}}, "pick": "all air temperatures of the next 48 hours"},
+          "margin": 4,
+          "sanity": [-60, 60],
+          "unit": "degree_celsius"
+        }
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "Station 63740 NAIROBI (HKJK) is the nearest to the city centre."
+    },
+    {
+      "id": "observation-paris-last-week",
+      "question": "What was the air temperature in Paris over the last 7 days?",
+      "kind": "observation",
+      "max_steps": 6,
+      "checkpoints": [
+        {
+          "id": "find-station",
+          "description": "finds the Paris station on a French observation network (by name or by point)",
+          "match": [
+            {"tool": "stations", "args": {"provider": "meteofrance", "network": {"any_of": ["synop", "observation"]}, "name": {"regex": "(?i)paris"}}},
+            {"tool": "stations", "args": {"provider": "meteofrance", "network": {"any_of": ["synop", "observation"]}, "latitude": {"between": [48.5, 49.2]}, "longitude": {"between": [1.9, 2.8]}}}
+          ]
+        },
+        {
+          "id": "read-window",
+          "description": "reads the air temperature of that station for a dated window (timestamp interval)",
+          "match": [
+            {"tool": "values", "args": {"provider": "meteofrance", "network": "synop", "parameters": {"any_of": ["subdaily/data/temperature_air_2m", "subdaily/data"]}, "timestamp": {"regex": "^\\d{4}-\\d{2}-\\d{2}.*/.*\\d{4}-\\d{2}-\\d{2}"}}},
+            {"tool": "values", "args": {"provider": "meteofrance", "network": "observation", "parameters": {"any_of": ["hourly/core/temperature_air_2m", "hourly/core", "daily/core/temperature_air_mean_2m", "daily/core"]}, "timestamp": {"regex": "^\\d{4}-\\d{2}-\\d{2}.*/.*\\d{4}-\\d{2}-\\d{2}"}}}
+          ]
+        }
+      ],
+      "forbidden": [
+        {"id": "wide-long-window", "description": "asks for shape=wide over a window of more than 3 days (overflows the client's token limit)", "kind": "call", "match": {"tool": "values", "args": {"shape": "wide"}}, "window_days_over": 3},
+        {"id": "estimates-instead", "description": "uses interpolate or summarize for a plain observation question", "kind": "call", "match": {"tool": ["interpolate", "summarize"]}},
+        {"id": "repeats-values", "description": "calls values more than twice with the same arguments", "kind": "repeat", "tool": "values", "max_identical": 2}
+      ],
+      "facts": [
+        {"id": "names-station", "description": "the answer names the Paris station used", "kind": "answer_regex", "any_of": ["(?i)montsouris", "07156", "(?i)paris"]},
+        {
+          "id": "temperatures-match",
+          "description": "the minimum, maximum and mean the answer gives lie within the span of the same station's readings that the judge reads itself, plus a margin of 1.5 K (the window is read as 'the 7 days up to yesterday', so a day more or less shifts the span a little)",
+          "kind": "ground_truth_span",
+          "ground_truth": {"call": {"tool": "values", "args": {"provider": "meteofrance", "network": "synop", "parameters": ["subdaily/data/temperature_air_2m"], "stations": ["07156"], "timestamp": "$last_7_days"}}, "pick": "all air temperatures of the window"},
+          "margin": 1.5,
+          "sanity": [-30, 50],
+          "unit": "degree_celsius"
+        }
+      ],
+      "tiers": ["large"],
+      "needs_key": false,
+      "notes": "meteofrance/synop is 3-hourly, station 07156 PARIS-MONTSOURIS. A window of 7 days in shape=wide overflowed the client's token limit on 2026-10-28; the long shape is fine. Window is judged from the date the run is made on."
+    },
+    {
+      "id": "providers-brazil",
+      "question": "Which weather data providers have data for Brazil?",
+      "kind": "discovery",
+      "max_steps": 8,
+      "checkpoints": [
+        {
+          "id": "look-at-providers",
+          "description": "looks at what the providers are (providers or coverage)",
+          "match": [
+            {"tool": ["providers", "coverage"]}
+          ]
+        },
+        {
+          "id": "probe-near-brazilian-city",
+          "description": "probes a global network for stations near a Brazilian place (there is no country filter): a point or a name inside Brazil",
+          "match": [
+            {"tool": "stations", "args": {"provider": {"any_of": ["dwd", "noaa", "meteofrance"]}, "network": {"any_of": ["mosmix", "dmo", "ghcn", "synop"]}, "latitude": {"between": [-34, 5]}, "longitude": {"between": [-74, -34]}}},
+            {"tool": "stations", "args": {"provider": {"any_of": ["dwd", "noaa", "meteofrance"]}, "network": {"any_of": ["mosmix", "dmo", "ghcn", "synop"]}, "name": {"regex": "(?i)(sao paulo|s.o paulo|rio de janeiro|brasilia|bras.lia|salvador|manaus|fortaleza|recife|porto alegre|belo horizonte|curitiba|bel.m)"}}},
+            {"tool": "stations", "args": {"provider": {"any_of": ["dwd", "noaa", "meteofrance"]}, "network": {"any_of": ["mosmix", "dmo", "ghcn", "synop"]}, "left": {"between": [-74, -34]}, "bottom": {"between": [-34, 5]}}}
+          ]
+        }
+      ],
+      "forbidden": [
+        {"id": "concludes-none", "description": "concludes that no provider has data for Brazil", "kind": "answer", "regex": "(?i)(no (weather )?(data )?provider|none of the providers|no provider|not (available|covered) for brazil|no data (for|in) brazil)"},
+        {"id": "repeats-stations", "description": "calls stations more than twice with the same arguments", "kind": "repeat", "tool": "stations", "max_identical": 2}
+      ],
+      "facts": [
+        {"id": "names-global-network", "description": "the answer names at least one network that serves Brazil: DWD mosmix or dmo, or NOAA ghcn", "kind": "answer_regex", "any_of": ["(?i)mosmix", "(?i)\\bdmo\\b", "(?i)ghcn", "(?i)noaa"]},
+        {
+          "id": "station-exists-in-brazil",
+          "description": "the judge probes a named network itself and finds a station within 150 km of Sao Paulo, so the claim is true",
+          "kind": "ground_truth_value",
+          "ground_truth": {"call": {"tool": "stations", "args": {"provider": "dwd", "network": "mosmix", "parameters": ["hourly/small/temperature_air_2m"], "latitude": -23.55, "longitude": -46.63, "rank": 1}}, "pick": "the distance of the nearest station, in km"},
+          "tolerance": 150,
+          "expected": 0,
+          "unit": "km",
+          "note": "A distance within 'expected' plus 'tolerance' passes; the judge repeats it for the network the answer names, when that is not dwd/mosmix"
+        }
+      ],
+      "tiers": ["large"],
+      "needs_key": false,
+      "notes": "No endpoint filters providers by country: the answer is a probe of the global networks (dwd/mosmix, dwd/dmo, noaa/ghcn) and of meteofrance (overseas territories border Brazil), read with the `extent` of each in `providers`. A national network of another continent does not serve Brazil."
+    },
+    {
+      "id": "observation-kiel-2025-12-26",
+      "question": "How warm was it in Kiel on 26 December 2025?",
+      "kind": "observation",
+      "max_steps": 4,
+      "checkpoints": [
+        {
+          "id": "find-station",
+          "description": "finds a Kiel station on dwd/observation (daily mean air temperature) or goes straight to values by name",
+          "match": [
+            {"tool": "stations", "args": {"provider": "dwd", "network": "observation", "name": {"regex": "(?i)kiel"}}},
+            {"tool": "values", "args": {"provider": "dwd", "network": "observation", "name": {"regex": "(?i)kiel"}}}
+          ]
+        },
+        {
+          "id": "read-day",
+          "description": "reads the daily air temperature of a Kiel station for that date",
+          "match": [
+            {"tool": "values", "args": {"provider": "dwd", "network": "observation", "parameters": {"any_of": ["daily/climate_summary/temperature_air_mean_2m", "daily/climate_summary", "daily/kl"]}, "stations": {"any_of": ["02564", "02961"]}, "timestamp": {"regex": "^2025-12-26"}}},
+            {"tool": "values", "args": {"provider": "dwd", "network": "observation", "parameters": {"any_of": ["daily/climate_summary/temperature_air_mean_2m", "daily/climate_summary", "daily/kl"]}, "name": {"regex": "(?i)kiel"}, "timestamp": {"regex": "^2025-12-26"}}}
+          ]
+        }
+      ],
+      "forbidden": [
+        {"id": "estimates-instead", "description": "uses interpolate or summarize for a named place with a past date", "kind": "call", "match": {"tool": ["interpolate", "summarize"]}},
+        {"id": "repeats-values", "description": "calls values more than twice with the same arguments", "kind": "repeat", "tool": "values", "max_identical": 2}
+      ],
+      "facts": [
+        {"id": "names-station", "description": "the answer names the station it used (Kiel has two: Kiel-Holtenau 02564 and Leuchtturm Kiel 02961)", "kind": "answer_regex", "any_of": ["(?i)holtenau", "(?i)leuchtturm", "02564", "02961"]},
+        {
+          "id": "mean-temperature",
+          "description": "the daily mean the answer gives equals the one the judge reads for the station the answer names",
+          "kind": "ground_truth_value",
+          "ground_truth": {"call": {"tool": "values", "args": {"provider": "dwd", "network": "observation", "parameters": ["daily/climate_summary/temperature_air_mean_2m"], "stations": ["$answer_station"], "timestamp": "2025-12-26"}}, "pick": "the value"},
+          "expected": -0.7,
+          "tolerance": 0.2,
+          "unit": "degree_celsius",
+          "note": "expected is the reading of 02564 on 2026-10-28, only there to see a drift of the source; the judge's own call decides"
+        }
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "The case of 2026-10-28: interpolate and summarize had been picked for a named place before GH-3456's wording. Station 02564 Kiel-Holtenau read -0.7 C that day."
+    },
+    {
+      "id": "glossary-temperature-air-mean-2m",
+      "question": "What does the parameter temperature_air_mean_2m mean, and in which unit is it returned?",
+      "kind": "glossary",
+      "max_steps": 4,
+      "checkpoints": [
+        {
+          "id": "looks-it-up",
+          "description": "asks the glossary for the parameter",
+          "match": [
+            {"tool": "glossary", "args": {"parameter": {"regex": "(?i)temperature_air_mean_2m|temperature_air_mean|temperature_air"}}}
+          ]
+        }
+      ],
+      "forbidden": [
+        {"id": "fetches-data", "description": "fetches station data to answer a question about a name", "kind": "call", "match": {"tool": ["values", "stations", "interpolate", "summarize"]}}
+      ],
+      "facts": [
+        {"id": "meaning", "description": "says it is the mean air temperature at 2 m above ground", "kind": "answer_regex", "any_of": ["(?i)mean[^.]{0,30}(air )?temperature", "(?i)average[^.]{0,30}temperature"]},
+        {
+          "id": "unit",
+          "description": "gives the unit the judge reads from the glossary itself (degree Celsius)",
+          "kind": "ground_truth_text",
+          "ground_truth": {"call": {"tool": "glossary", "args": {"parameter": "temperature_air_mean_2m", "limit": 3}}, "pick": "the unit of the entry"},
+          "answer_matches_any_of": ["(?i)celsius", "°C", "degree_celsius"]
+        }
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "The glossary answers with every entry that contains the text, so a broad name returns a long list: `limit` keeps it short."
+    },
+    {
+      "id": "licence-dwd",
+      "question": "Is DWD data free to reuse, and which credit line do I have to give?",
+      "kind": "licence",
+      "max_steps": 4,
+      "checkpoints": [
+        {
+          "id": "asks-providers",
+          "description": "asks the providers tool for DWD",
+          "match": [
+            {"tool": "providers", "args": {"provider": "dwd"}},
+            {"tool": "providers", "args": {"provider": {"absent": true}}}
+          ]
+        }
+      ],
+      "forbidden": [
+        {"id": "fetches-data", "description": "fetches station data to answer a licence question", "kind": "call", "match": {"tool": ["values", "stations", "interpolate", "summarize"]}}
+      ],
+      "facts": [
+        {"id": "licence", "description": "says the data is under CC BY 4.0, free to reuse with the credit", "kind": "answer_regex", "any_of": ["(?i)CC[ -]?BY[ -]?4\\.0", "(?i)creative commons attribution 4"]},
+        {
+          "id": "credit-line",
+          "description": "gives the credit line the judge reads from the providers answer (`attribution`: 'Source: Deutscher Wetterdienst')",
+          "kind": "ground_truth_text",
+          "ground_truth": {"call": {"tool": "providers", "args": {"provider": "dwd"}}, "pick": "the attribution of dwd"},
+          "answer_matches_any_of": ["(?i)source: deutscher wetterdienst", "(?i)quelle: deutscher wetterdienst"]
+        }
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "Two credit strings are in every answer: `metadata.provider.attribution` ('Source: Deutscher Wetterdienst') and `copyright` ('© Deutscher Wetterdienst (DWD), Climate Data Center (CDC)'). The `attribution` is the credit line; an answer that gives both and says which is the credit line passes."
+    },
+    {
+      "id": "licence-meteofrance",
+      "question": "Can I reuse Météo-France data commercially, and what attribution do I need?",
+      "kind": "licence",
+      "max_steps": 4,
+      "checkpoints": [
+        {
+          "id": "asks-providers",
+          "description": "asks the providers tool for Météo-France",
+          "match": [
+            {"tool": "providers", "args": {"provider": "meteofrance"}},
+            {"tool": "providers", "args": {"provider": {"absent": true}}}
+          ]
+        }
+      ],
+      "forbidden": [
+        {"id": "fetches-data", "description": "fetches station data to answer a licence question", "kind": "call", "match": {"tool": ["values", "stations", "interpolate", "summarize"]}}
+      ],
+      "facts": [
+        {"id": "licence", "description": "names the Etalab Open License 2.0", "kind": "answer_regex", "any_of": ["(?i)etalab", "(?i)licence ouverte"]},
+        {
+          "id": "credit-line",
+          "description": "gives the credit line the judge reads from the providers answer ('© Météo-France')",
+          "kind": "ground_truth_text",
+          "ground_truth": {"call": {"tool": "providers", "args": {"provider": "meteofrance"}}, "pick": "the attribution of meteofrance"},
+          "answer_matches_any_of": ["(?i)m.t.o-france"]
+        }
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "A licence question for a provider other than DWD: the answer must come from the `license` and `attribution` of that provider, not from the DWD one."
+    },
+    {
+      "id": "observation-vienna-yesterday",
+      "question": "What was the temperature in Vienna yesterday?",
+      "kind": "observation",
+      "max_steps": 6,
+      "checkpoints": [
+        {
+          "id": "find-station",
+          "description": "finds a Vienna station on the Austrian network, by name or by point",
+          "match": [
+            {"tool": "stations", "args": {"provider": "geosphere", "network": "observation", "name": {"regex": "(?i)(wien|vienna)"}}},
+            {"tool": "stations", "args": {"provider": "geosphere", "network": "observation", "latitude": {"between": [48, 48.5]}, "longitude": {"between": [16, 16.7]}}}
+          ]
+        },
+        {
+          "id": "read-day",
+          "description": "reads the air temperature of one Vienna station for yesterday (hourly or daily)",
+          "match": [
+            {"tool": "values", "args": {"provider": "geosphere", "network": "observation", "parameters": {"any_of": ["hourly/data/temperature_air_2m", "hourly/data", "daily/data/temperature_air_max_2m", "daily/data/temperature_air_min_2m", "daily/data/temperature_air_mean_minmax_2m", "10_minutes/data/temperature_air_2m"]}, "stations": {"any_of": ["105", "106", "107", "4115", "112"]}}},
+            {"tool": "values", "args": {"provider": "geosphere", "network": "observation", "parameters": {"any_of": ["hourly/data/temperature_air_2m", "hourly/data", "daily/data/temperature_air_max_2m", "daily/data/temperature_air_min_2m", "daily/data/temperature_air_mean_minmax_2m", "10_minutes/data/temperature_air_2m"]}, "name": {"regex": "(?i)(wien|vienna)"}}}
+          ]
+        }
+      ],
+      "forbidden": [
+        {"id": "estimates-instead", "description": "uses interpolate or summarize for a named place", "kind": "call", "match": {"tool": ["interpolate", "summarize"]}},
+        {"id": "refuses-as-german", "description": "refuses because the default provider is German", "kind": "answer", "regex": "(?i)(not eligible|only (covers|provides|for|available for) (germany|german))"},
+        {"id": "repeats-values", "description": "calls values more than twice with the same arguments", "kind": "repeat", "tool": "values", "max_identical": 2}
+      ],
+      "facts": [
+        {"id": "names-station", "description": "the answer names the Vienna station used (there are several: Wien Hohe Warte 105, Mariabrunn 106, Unterlaa 107, Stammersdorf 4115)", "kind": "answer_regex", "any_of": ["(?i)hohe warte", "(?i)mariabrunn", "(?i)unterlaa", "(?i)stammersdorf", "\\b(105|106|107|4115)\\b"]},
+        {
+          "id": "temperatures-match",
+          "description": "the temperatures the answer gives lie within the span of the named station's readings of yesterday that the judge reads itself, plus 0.6 K",
+          "kind": "ground_truth_span",
+          "ground_truth": {"call": {"tool": "values", "args": {"provider": "geosphere", "network": "observation", "parameters": ["hourly/data/temperature_air_2m"], "stations": ["$answer_station"], "timestamp": "$yesterday"}}, "pick": "all air temperatures of yesterday"},
+          "margin": 0.6,
+          "sanity": [-30, 45],
+          "unit": "degree_celsius"
+        }
+      ],
+      "tiers": ["large"],
+      "needs_key": false,
+      "notes": "An observation by name outside Germany that needs no key. 'Wien' matches five stations, so a model has to pick one and say so."
+    },
+    {
+      "id": "observation-london-yesterday",
+      "question": "What was the temperature in London yesterday?",
+      "kind": "observation",
+      "max_steps": 6,
+      "checkpoints": [
+        {
+          "id": "find-station",
+          "description": "looks for a London station on the UK observation network",
+          "match": [
+            {"tool": "stations", "args": {"provider": "metoffice", "network": "observation"}, "ok": "any"}
+          ]
+        }
+      ],
+      "forbidden": [
+        {"id": "estimates-instead", "description": "uses interpolate or summarize for a named place", "kind": "call", "match": {"tool": ["interpolate", "summarize"]}},
+        {"id": "repeats-values", "description": "calls values more than twice with the same arguments", "kind": "repeat", "tool": "values", "max_identical": 2}
+      ],
+      "facts": [
+        {"id": "honest-about-credentials", "description": "either the answer carries a temperature a tool result holds, or it says plainly that the provider needs credentials the server does not hold", "kind": "answer_regex", "any_of": ["(?i)credential", "(?i)token", "(?i)api key", "(?i)not configured", "(?i)authenticat", "(?i)\\d\\s?(°|degrees|celsius)"]},
+        {"id": "no-invented-numbers", "description": "no number in the answer that no tool result holds", "kind": "no_measurements"}
+      ],
+      "tiers": ["large"],
+      "needs_key": true,
+      "notes": "metoffice/observation needs a CEDA token. Skipped unless the person passes include_keys=1 AND the server reports the network as configured; never set a credential for this. Without them the case would only test the refusal, so it is off by default."
+    },
+    {
+      "id": "daily-min-max-hamburg",
+      "question": "What were the highest and the lowest air temperature at Hamburg-Fuhlsbüttel on 20 October 2026?",
+      "kind": "observation",
+      "max_steps": 5,
+      "checkpoints": [
+        {
+          "id": "find-station",
+          "description": "finds Hamburg-Fuhlsbüttel (01975) on dwd/observation, or goes straight to values by name",
+          "match": [
+            {"tool": "stations", "args": {"provider": "dwd", "network": "observation", "name": {"regex": "(?i)hamburg"}}},
+            {"tool": "values", "args": {"provider": "dwd", "network": "observation", "name": {"regex": "(?i)hamburg"}}},
+            {"tool": "values", "args": {"provider": "dwd", "network": "observation", "stations": {"any_of": ["01975"]}}}
+          ]
+        },
+        {
+          "id": "reads-max",
+          "description": "asks for the daily maximum air temperature",
+          "match": [
+            {"tool": "values", "args": {"provider": "dwd", "network": "observation", "parameters": {"any_of": ["daily/climate_summary/temperature_air_max_2m", "daily/climate_summary", "daily/kl"]}}}
+          ]
+        },
+        {
+          "id": "reads-min",
+          "description": "asks for the daily minimum air temperature (the same call may carry both)",
+          "match": [
+            {"tool": "values", "args": {"provider": "dwd", "network": "observation", "parameters": {"any_of": ["daily/climate_summary/temperature_air_min_2m", "daily/climate_summary", "daily/kl"]}}}
+          ]
+        }
+      ],
+      "forbidden": [
+        {"id": "estimates-instead", "description": "uses interpolate or summarize for a named station", "kind": "call", "match": {"tool": ["interpolate", "summarize"]}},
+        {"id": "repeats-values", "description": "calls values more than twice with the same arguments", "kind": "repeat", "tool": "values", "max_identical": 2}
+      ],
+      "facts": [
+        {
+          "id": "maximum",
+          "description": "the highest temperature the answer gives equals the daily maximum the judge reads",
+          "kind": "ground_truth_value",
+          "ground_truth": {"call": {"tool": "values", "args": {"provider": "dwd", "network": "observation", "parameters": ["daily/climate_summary/temperature_air_max_2m"], "stations": ["01975"], "timestamp": "2026-10-20"}}, "pick": "the value"},
+          "expected": 9.5,
+          "tolerance": 0.2,
+          "unit": "degree_celsius",
+          "note": "expected is the reading of 2026-10-28, only there to see a drift of the source"
+        },
+        {
+          "id": "minimum",
+          "description": "the lowest temperature the answer gives equals the daily minimum the judge reads",
+          "kind": "ground_truth_value",
+          "ground_truth": {"call": {"tool": "values", "args": {"provider": "dwd", "network": "observation", "parameters": ["daily/climate_summary/temperature_air_min_2m"], "stations": ["01975"], "timestamp": "2026-10-20"}}, "pick": "the value"},
+          "expected": 4.0,
+          "tolerance": 0.2,
+          "unit": "degree_celsius",
+          "note": "expected is the reading of 2026-10-28, only there to see a drift of the source"
+        }
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "Two parameters of one dataset. The values answer drops rows without a reading (`drop_nulls`) and says so only in a warning, so a model that gets one parameter and not the other must say which is missing, not repeat the other."
+    },
+    {
+      "id": "interpolate-between-stations",
+      "question": "Interpolate the daily mean air temperature for the point 52.52 N, 13.40 E on 26 December 2025 from the surrounding DWD stations.",
+      "kind": "interpolate",
+      "max_steps": 4,
+      "checkpoints": [
+        {
+          "id": "interpolates",
+          "description": "calls interpolate for the point, with the daily mean air temperature on that date",
+          "match": [
+            {"tool": "interpolate", "args": {"provider": "dwd", "network": "observation", "parameters": {"any_of": ["daily/climate_summary/temperature_air_mean_2m", "daily/climate_summary", "daily/kl"]}, "latitude": {"between": [52.4, 52.6]}, "longitude": {"between": [13.3, 13.5]}, "timestamp": {"regex": "^2025-12-26"}}}
+          ]
+        }
+      ],
+      "forbidden": [
+        {"id": "repeats-interpolate", "description": "calls interpolate more than twice with the same arguments", "kind": "repeat", "tool": "interpolate", "max_identical": 2}
+      ],
+      "facts": [
+        {
+          "id": "interpolated-value",
+          "description": "the value the answer gives equals the one the judge's own interpolate call returns",
+          "kind": "ground_truth_value",
+          "ground_truth": {"call": {"tool": "interpolate", "args": {"provider": "dwd", "network": "observation", "parameters": ["daily/climate_summary/temperature_air_mean_2m"], "latitude": 52.52, "longitude": 13.4, "timestamp": "2025-12-26"}}, "pick": "the value"},
+          "expected": -4.19,
+          "tolerance": 0.3,
+          "unit": "degree_celsius",
+          "note": "expected is the result of 2026-10-28, only there to see a drift"
+        },
+        {"id": "says-estimate", "description": "says the value is an interpolated estimate, not a measurement", "kind": "answer_regex", "any_of": ["(?i)interpolat", "(?i)estimate"]}
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "The opt-in tool, asked for by name: the right behaviour is to use it, as the instructions tell a model not to otherwise."
+    },
+    {
+      "id": "summarize-nearest-station",
+      "question": "For the point 53.9 N, 10.7 E, take the nearest station that has data and give me the daily mean air temperature of 26 December 2025, and say which station it came from.",
+      "kind": "summarize",
+      "max_steps": 4,
+      "checkpoints": [
+        {
+          "id": "summarizes",
+          "description": "calls summarize for the point, with the daily mean air temperature on that date",
+          "match": [
+            {"tool": "summarize", "args": {"provider": "dwd", "network": "observation", "parameters": {"any_of": ["daily/climate_summary/temperature_air_mean_2m", "daily/climate_summary", "daily/kl"]}, "latitude": {"between": [53.8, 54]}, "longitude": {"between": [10.6, 10.8]}, "timestamp": {"regex": "^2025-12-26"}}}
+          ]
+        }
+      ],
+      "forbidden": [
+        {"id": "repeats-summarize", "description": "calls summarize more than twice with the same arguments", "kind": "repeat", "tool": "summarize", "max_identical": 2}
+      ],
+      "facts": [
+        {
+          "id": "summarized-value",
+          "description": "the value the answer gives equals the one the judge's own summarize call returns",
+          "kind": "ground_truth_value",
+          "ground_truth": {"call": {"tool": "summarize", "args": {"provider": "dwd", "network": "observation", "parameters": ["daily/climate_summary/temperature_air_mean_2m"], "latitude": 53.9, "longitude": 10.7, "timestamp": "2025-12-26"}}, "pick": "the value"},
+          "tolerance": 0.2,
+          "unit": "degree_celsius"
+        },
+        {
+          "id": "names-source-station",
+          "description": "the answer names the station the value was taken from, as the judge's call reports it (`taken_station_id`)",
+          "kind": "ground_truth_text",
+          "ground_truth": {"call": {"tool": "summarize", "args": {"provider": "dwd", "network": "observation", "parameters": ["daily/climate_summary/temperature_air_mean_2m"], "latitude": 53.9, "longitude": 10.7, "timestamp": "2025-12-26"}}, "pick": "the taken_station_id"},
+          "answer_matches_any_of": ["\\b\\d{5}\\b"]
+        }
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "The other opt-in tool, asked for by what it does. `summarize` is not a text summary, which a small model has taken it for."
+    },
+    {
+      "id": "alerts-kiel",
+      "question": "Is there any official weather warning active right now for the city of Kiel? If so, which event and how severe?",
+      "kind": "alerts",
+      "max_steps": 4,
+      "checkpoints": [
+        {
+          "id": "reads-alerts",
+          "description": "reads the current warnings at district granularity (Kiel is a district-free city)",
+          "match": [
+            {"tool": "alerts", "args": {"granularity": "district"}},
+            {"tool": "alerts", "args": {"granularity": "community"}}
+          ]
+        }
+      ],
+      "forbidden": [
+        {"id": "repeats-alerts", "description": "calls alerts more than twice with the same arguments", "kind": "repeat", "tool": "alerts", "max_identical": 2},
+        {"id": "asks-for-weather-values", "description": "fetches observations for a warnings question", "kind": "call", "match": {"tool": ["values", "interpolate", "summarize"]}}
+      ],
+      "facts": [
+        {
+          "id": "matches-current-warnings",
+          "description": "the answer agrees with the warnings the judge reads itself: when the judge's call lists a warning whose area_names include Kiel, the answer names that event; when it lists none, the answer says there is none (warnings change within hours, so the judge reads its own call right after the run)",
+          "kind": "ground_truth_text",
+          "ground_truth": {"call": {"tool": "alerts", "args": {"granularity": "district", "language": "en"}}, "pick": "the events of the warnings whose area_names contain Kiel, or none"},
+          "answer_matches_any_of": ["(?i)no (active |official )?(weather )?(warning|alert)", "(?i)(warning|alert)"]
+        }
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "alerts returns every warning of Germany, each with its full GeoJSON geometry, which can overflow a client's token limit when many are active: a model that has to filter by area_names depends on the answer fitting. dwd/alerts is a standalone network (no provider/network arguments)."
+    },
+    {
+      "id": "stripes-potsdam",
+      "question": "Was the annual mean air temperature at Potsdam higher in 2024 than in 1991? Give both values.",
+      "kind": "stripes",
+      "max_steps": 4,
+      "checkpoints": [
+        {
+          "id": "reads-stripes-values",
+          "description": "reads the annual temperature series of Potsdam, for a span covering both years or one call per year",
+          "match": [
+            {"tool": "stripes_values", "args": {"kind": "temperature", "name": {"regex": "(?i)potsdam"}}},
+            {"tool": "stripes_values", "args": {"kind": "temperature", "station": {"any_of": ["03987"]}}}
+          ]
+        }
+      ],
+      "forbidden": [
+        {"id": "renders-image", "description": "renders an image to answer a question about two numbers", "kind": "call", "match": {"tool": "stripes_image"}},
+        {"id": "repeats-stripes", "description": "calls stripes_values more than twice with the same arguments", "kind": "repeat", "tool": "stripes_values", "max_identical": 2}
+      ],
+      "facts": [
+        {
+          "id": "value-2024",
+          "description": "the 2024 value the answer gives equals the one the judge reads",
+          "kind": "ground_truth_value",
+          "ground_truth": {"call": {"tool": "stripes_values", "args": {"kind": "temperature", "station": "03987", "start_year": 2024, "end_year": 2024}}, "pick": "the value"},
+          "expected": 11.77,
+          "tolerance": 0.1,
+          "unit": "degree_celsius"
+        },
+        {
+          "id": "value-1991",
+          "description": "the 1991 value the answer gives equals the one the judge reads",
+          "kind": "ground_truth_value",
+          "ground_truth": {"call": {"tool": "stripes_values", "args": {"kind": "temperature", "station": "03987", "start_year": 1991, "end_year": 1991}}, "pick": "the value"},
+          "tolerance": 0.1,
+          "unit": "degree_celsius"
+        }
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "stripes_values takes start_year and end_year, which keeps the answer to two rows; without them it is the whole record (130 years)."
+    },
+    {
+      "id": "history-kiel-holtenau",
+      "question": "DWD station 02564 (Kiel-Holtenau): what was its elevation in 1950, and what is it today?",
+      "kind": "history",
+      "max_steps": 4,
+      "checkpoints": [
+        {
+          "id": "reads-history",
+          "description": "reads the station's metadata history (geography section holds the elevation)",
+          "match": [
+            {"tool": "history", "args": {"provider": "dwd", "network": "observation", "stations": {"any_of": ["02564"]}}}
+          ]
+        }
+      ],
+      "forbidden": [
+        {"id": "reads-weather-instead", "description": "fetches measurements for a question about the station itself", "kind": "call", "match": {"tool": ["values", "interpolate", "summarize"]}},
+        {"id": "repeats-history", "description": "calls history more than twice with the same arguments", "kind": "repeat", "tool": "history", "max_identical": 2}
+      ],
+      "facts": [
+        {
+          "id": "elevation-1950",
+          "description": "the 1950 elevation the answer gives equals the geography entry of the judge's own history call that covers 1950",
+          "kind": "ground_truth_value",
+          "ground_truth": {"call": {"tool": "history", "args": {"provider": "dwd", "network": "observation", "parameters": ["daily/climate_summary"], "stations": ["02564"], "sections": ["geography"]}}, "pick": "station_elevation of the entry valid in 1950"},
+          "expected": 6,
+          "tolerance": 0.5,
+          "unit": "metre"
+        },
+        {
+          "id": "elevation-today",
+          "description": "the present elevation the answer gives equals the entry with no valid_to",
+          "kind": "ground_truth_value",
+          "ground_truth": {"call": {"tool": "history", "args": {"provider": "dwd", "network": "observation", "parameters": ["daily/climate_summary"], "stations": ["02564"], "sections": ["geography"]}}, "pick": "station_elevation of the entry with valid_to null"},
+          "expected": 28.41,
+          "tolerance": 0.5,
+          "unit": "metre"
+        }
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "history is metadata, not weather: a small model has taken it for 'weather history' before (2026-07 session). It also needs `parameters`, which the question does not give."
+    },
+    {
+      "id": "coverage-dwd-daily-climate-summary",
+      "question": "Which parameters does DWD's daily climate summary dataset offer? Name a few that concern temperature.",
+      "kind": "coverage",
+      "max_steps": 4,
+      "checkpoints": [
+        {
+          "id": "lists-dataset",
+          "description": "asks coverage for dwd/observation, narrowed to the daily climate_summary",
+          "match": [
+            {"tool": "coverage", "args": {"provider": "dwd", "network": "observation", "datasets": {"any_of": ["climate_summary"]}}},
+            {"tool": "coverage", "args": {"provider": "dwd", "network": "observation", "resolutions": {"any_of": ["daily"]}}}
+          ]
+        }
+      ],
+      "forbidden": [
+        {"id": "fetches-data", "description": "fetches station data to answer a question about what exists", "kind": "call", "match": {"tool": ["values", "stations", "interpolate", "summarize"]}}
+      ],
+      "facts": [
+        {"id": "names-temperature-parameter", "description": "names at least one temperature parameter of the dataset", "kind": "answer_regex", "any_of": ["temperature_air_mean_2m", "temperature_air_max_2m", "temperature_air_min_2m"]},
+        {
+          "id": "no-invented-names",
+          "description": "every parameter name the answer gives is in the judge's own coverage answer",
+          "kind": "ground_truth_subset",
+          "ground_truth": {"call": {"tool": "coverage", "args": {"provider": "dwd", "network": "observation", "resolutions": ["daily"], "datasets": ["climate_summary"]}}, "pick": "the parameter names of the daily climate_summary dataset"}
+        }
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "Without `datasets` the answer for dwd/observation lists every dataset of every resolution, which is long."
+    },
+    {
+      "id": "unanswerable-berlin-1500",
+      "question": "What was the weather in Berlin on 1 January 1500?",
+      "kind": "unanswerable",
+      "max_steps": 4,
+      "checkpoints": [
+        {
+          "id": "checks-the-server",
+          "description": "checks what the server has (any call of coverage, providers, stations or values) before it answers, rather than answering from memory",
+          "match": [
+            {"tool": ["coverage", "providers", "stations", "values", "glossary"], "ok": "any"}
+          ]
+        }
+      ],
+      "forbidden": [
+        {"id": "states-a-temperature", "description": "gives a temperature or other measurement for 1500", "kind": "answer", "regex": "(?i)(-?\\d+([.,]\\d+)?\\s?(°|degrees|celsius|mm|km/h|m/s|hpa))"},
+        {"id": "interpolates-the-past", "description": "uses interpolate or summarize to fabricate a value for 1500", "kind": "call", "match": {"tool": ["interpolate", "summarize"]}}
+      ],
+      "facts": [
+        {"id": "says-no-data", "description": "says the server has no data for that date (the records start in the 19th century at the earliest)", "kind": "answer_regex", "any_of": ["(?i)no (weather |measured |observational |instrumental )?(data|records?|measurements?|observations?)", "(?i)(not|n't|never) (available|recorded|measured)", "(?i)(before|predate|earlier than|too early)", "(?i)cannot|can't|unable"]},
+        {"id": "no-invented-numbers", "description": "no number in the answer that no tool result holds (the earliest record year, if named, is read from the server)", "kind": "no_measurements"}
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "The correct answer is a refusal inside a few steps. The failure is a plausible-sounding history of the winter of 1500 or a call for 1500 that returns an error the model then works around."
+    },
+    {
+      "id": "ambiguous-frankfurt",
+      "question": "What was the mean air temperature in Frankfurt on 26 December 2025?",
+      "kind": "observation",
+      "max_steps": 6,
+      "checkpoints": [
+        {
+          "id": "find-station",
+          "description": "looks for Frankfurt stations on dwd/observation (or goes straight to values by name)",
+          "match": [
+            {"tool": "stations", "args": {"provider": "dwd", "network": "observation", "name": {"regex": "(?i)frankfurt"}}},
+            {"tool": "values", "args": {"provider": "dwd", "network": "observation", "name": {"regex": "(?i)frankfurt"}}}
+          ]
+        },
+        {
+          "id": "read-day",
+          "description": "reads the daily mean air temperature of one of them for that date",
+          "match": [
+            {"tool": "values", "args": {"provider": "dwd", "network": "observation", "parameters": {"any_of": ["daily/climate_summary/temperature_air_mean_2m", "daily/climate_summary", "daily/kl"]}, "timestamp": {"regex": "^2025-12-26"}}}
+          ]
+        }
+      ],
+      "forbidden": [
+        {"id": "estimates-instead", "description": "uses interpolate or summarize for a named place", "kind": "call", "match": {"tool": ["interpolate", "summarize"]}},
+        {"id": "repeats-values", "description": "calls values more than twice with the same arguments", "kind": "repeat", "tool": "values", "max_identical": 2}
+      ],
+      "facts": [
+        {"id": "names-station", "description": "the answer names the station used, so the reader knows which Frankfurt it is (Frankfurt/Main 01420, Frankfurt/Main-Westend 01424, or Frankfurt (Oder))", "kind": "answer_regex", "any_of": ["(?i)frankfurt/main", "(?i)westend", "(?i)oder", "\\b(01420|01424)\\b"]},
+        {
+          "id": "mean-temperature",
+          "description": "the value the answer gives equals the one the judge reads for the station the answer names",
+          "kind": "ground_truth_value",
+          "ground_truth": {"call": {"tool": "values", "args": {"provider": "dwd", "network": "observation", "parameters": ["daily/climate_summary/temperature_air_mean_2m"], "stations": ["$answer_station"], "timestamp": "2025-12-26"}}, "pick": "the value"},
+          "tolerance": 0.2,
+          "unit": "degree_celsius"
+        }
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "A name that matches more than one station: a name search lists the candidates and the answer has to say which it took. The first hit is not always the main city station."
+    }
+  ]
+}
