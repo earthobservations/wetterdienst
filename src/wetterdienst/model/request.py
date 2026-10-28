@@ -96,6 +96,17 @@ _END_LAG_DEFAULT = dt.timedelta(days=2)
 _END_LAG = {Resolution.MONTHLY.value: dt.timedelta(days=62), Resolution.ANNUAL.value: dt.timedelta(days=732)}
 
 
+def end_lag(resolution: str, buffer_days: int | None = None) -> dt.timedelta:
+    """Give how long before now a source's data may be missing as it is not published yet, for a resolution.
+
+    The span a station's published end may lag (`limit_to_window`): `buffer_days` for every resolution where the
+    `station_window_end_buffer` option names one, else two days, 62 for monthly and 732 for annual.
+    """
+    if buffer_days is not None:
+        return dt.timedelta(days=buffer_days)
+    return _END_LAG.get(resolution, _END_LAG_DEFAULT)
+
+
 def limit_to_window(
     df: pl.DataFrame,
     start: dt.datetime | None,
@@ -360,6 +371,9 @@ class TimeseriesRequest:
     # Not an argument: which of the parameters were asked for as a whole dataset (`(resolution, dataset)`) and which by
     # their name (`(resolution, dataset, name_original)`), as `requested_by_kind` reads it in `__post_init__`. The
     # flat `parameters` has lost that, and `parameter-without-rows` is told of a parameter by its name only
+    # Not an argument: the periods a request asked for by name when that narrowed what it reads (`_selects_by_period`),
+    # which `parameter-without-rows` says it was held to; empty where none was asked for or all were
+    _periods_narrowed: frozenset[Period] = field(default=frozenset(), init=False, repr=False, compare=False)
     _requested_whole: frozenset[tuple[str, str]] = field(default=frozenset(), init=False, repr=False, compare=False)
     _requested_named: frozenset[tuple[str, str, str]] = field(
         default=frozenset(), init=False, repr=False, compare=False
@@ -418,7 +432,16 @@ class TimeseriesRequest:
             raise NoParametersFoundError(msg)
         # Has to follow the parameters, which say which datasets -- and so which periods -- were
         # asked for, and the timestamps, which a provider may derive the periods from
+        asked_for_periods = bool(self.periods)
         self.periods = self._resolve_periods(self.periods)
+        self._periods_narrowed = self._narrowing_periods(asked_for_periods=asked_for_periods)
+
+    def _narrowing_periods(self, *, asked_for_periods: bool) -> frozenset[Period]:
+        """Give the periods a request asked for when that holds back some of what its datasets publish, else none."""
+        periods = cast("set[Period]", self.periods)
+        if asked_for_periods and self._selects_by_period and periods != self.published_periods:
+            return frozenset(periods)
+        return frozenset()
 
     # Columns that should be contained within any stations information
     _base_columns: ClassVar = tuple(STATIONS_SCHEMA)
@@ -455,6 +478,17 @@ class TimeseriesRequest:
         no such release, or has not measured it, gets. A provider that reads per period and has one overrides it.
         """
         return None
+
+    def _narrowed_by(self) -> list[tuple[str, str]]:
+        """Name what the request asked for that holds back some of the source: a phrase and the option that did it.
+
+        What `parameter-without-rows` says the answer is of, so that a caller knows another period or run may hold
+        the values: the periods asked for where that narrowed what is read. A request with a run or a lead time adds
+        its own.
+        """
+        if not self._periods_narrowed:
+            return []
+        return [(f"the periods asked for ({_format_periods(self._periods_narrowed)})", "periods")]
 
     @classmethod
     def available_periods(cls) -> set[Period]:

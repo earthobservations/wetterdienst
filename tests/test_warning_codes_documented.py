@@ -6,17 +6,19 @@ from __future__ import annotations
 
 import ast
 import pathlib
+import re
+
+import pytest
 
 SRC = pathlib.Path(__file__).parent.parent / "src" / "wetterdienst"
 DOCS = pathlib.Path(__file__).parent.parent / "docs" / "usage" / "restapi.md"
-#: where the code is in the call of each function that raises a warning
+#: where the code is in the call of each function that raises a warning, by position (it may be given as `code=` too)
 _CODE_ARGUMENT = {"warn_response": 1, "count_response_warning": 0}
 
 
-def _codes_in_source() -> set[str]:
-    """Give the code of every call of `warn_response` and `count_response_warning`, constants resolved by name."""
-    trees = [ast.parse(path.read_text(encoding="utf-8")) for path in SRC.rglob("*.py")]
-    constants = {
+def _constants(trees: list[ast.Module]) -> dict[str, str]:
+    """Give the module-level names that are a text, by name: the constants a code is spelled by."""
+    return {
         target.id: node.value.value
         for tree in trees
         for node in tree.body
@@ -24,25 +26,103 @@ def _codes_in_source() -> set[str]:
         for target in node.targets
         if isinstance(target, ast.Name)
     }
+
+
+def _code_of(node: ast.expr, constants: dict[str, str]) -> str | None:
+    """Read the code a call is given as a text, a pattern with `*` where an f-string fills it in, or None if it can't.
+
+    A text, a name or an attribute (`module.CONSTANT`) of a constant, an f-string.
+    """
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.Name):
+        return constants.get(node.id)
+    if isinstance(node, ast.Attribute):
+        return constants.get(node.attr)
+    if isinstance(node, ast.JoinedStr):
+        parts = [
+            part.value if isinstance(part, ast.Constant) else "*"
+            for part in node.values
+            if isinstance(part, (ast.Constant, ast.FormattedValue))
+        ]
+        return "".join(str(part) for part in parts)
+    return None
+
+
+def codes_in(trees: list[ast.Module]) -> tuple[set[str], list[int]]:
+    """Give the codes of every call of `warn_response` and `count_response_warning`, and the lines of those not read."""
+    constants = _constants(trees)
     codes: set[str] = set()
+    unread: list[int] = []
     for tree in trees:
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue
             name = getattr(node.func, "id", getattr(node.func, "attr", None))
-            if name not in _CODE_ARGUMENT or len(node.args) <= _CODE_ARGUMENT[name]:
+            if name not in _CODE_ARGUMENT:
                 continue
-            argument = node.args[_CODE_ARGUMENT[name]]
-            if isinstance(argument, ast.Constant) and isinstance(argument.value, str):
-                codes.add(argument.value)
-            elif isinstance(argument, ast.Name) and argument.id in constants:
-                codes.add(constants[argument.id])
-    return codes
+            keyword = next((kw.value for kw in node.keywords if kw.arg == "code"), None)
+            position = _CODE_ARGUMENT[name]
+            argument = keyword if keyword is not None else node.args[position] if len(node.args) > position else None
+            code = _code_of(argument, constants) if argument is not None else None
+            if code is None:
+                unread.append(node.lineno)
+            else:
+                codes.add(code)
+    return codes, unread
+
+
+def _source_trees() -> list[ast.Module]:
+    return [ast.parse(path.read_text(encoding="utf-8")) for path in SRC.rglob("*.py")]
 
 
 def test_every_warning_code_is_in_the_docs() -> None:
     """A client reads the codes it knows, so a code that is raised and not told there is one nobody can know."""
-    codes = _codes_in_source()
+    codes, unread = codes_in(_source_trees())
+    assert unread == [], "a code the scan cannot read is one the docs cannot be held to: spell it as a constant"
     assert {"unknown-station", "parameter-without-rows", "missing-value-marker"} <= codes, "the scan finds the codes"
     text = DOCS.read_text(encoding="utf-8")
-    assert sorted(code for code in codes if f"`{code}`" not in text) == []
+    told = set(re.findall(r"`([a-z]+(?:-[a-z]+)+)`", text))
+    missing = [
+        code
+        for code in sorted(codes)
+        if not (any(re.fullmatch(code.replace("*", "[a-z-]+"), name) for name in told) if "*" in code else code in told)
+    ]
+    assert missing == []
+
+
+# the scan reads every form a code is spelled in
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param('warn_response(log, "plain-code", "m")', {"plain-code"}, id="text"),
+        pytest.param('warn_response(log, code="keyword-code", message="m")', {"keyword-code"}, id="keyword"),
+        pytest.param('X = "named-code"\nwarn_response(log, X, "m")', {"named-code"}, id="constant"),
+        pytest.param('X = "attribute-code"\nwarn_response(log, mod.X, "m")', {"attribute-code"}, id="attribute"),
+        pytest.param('count_response_warning("counted-code", 1, "m")', {"counted-code"}, id="counted"),
+        pytest.param(
+            'count_response_warning(count=1, code="counted-keyword", message="m")', {"counted-keyword"}, id="k"
+        ),
+        pytest.param('warn_response(log, f"{kind}-skipped", "m")', {"*-skipped"}, id="f-string"),
+        pytest.param('mod.warn_response(log, "method-code", "m")', {"method-code"}, id="called as an attribute"),
+    ],
+)
+def test_the_scan_reads_each_form_a_code_is_spelled_in(source: str, expected: set[str]) -> None:
+    """A text, a keyword, a constant by name or by attribute, a counted warning and an f-string are all read."""
+    codes, unread = codes_in([ast.parse(source)])
+    assert (codes, unread) == (expected, [])
+
+
+def test_the_scan_reports_a_code_it_cannot_read() -> None:
+    """A code that is computed is no code the docs can be held to, and the scan says where it is."""
+    assert codes_in([ast.parse("warn_response(log, make_code(), 'm')")]) == (set(), [1])
+    assert codes_in([ast.parse("warn_response(log)")]) == (set(), [1])
+
+
+def test_an_undocumented_code_is_found() -> None:
+    """The check that holds the docs to the codes fails for a code the docs do not name."""
+    codes, _ = codes_in([ast.parse('warn_response(log, "no-such-code-anywhere", "m")')])
+    told = set(re.findall(r"`([a-z]+(?:-[a-z]+)+)`", DOCS.read_text(encoding="utf-8")))
+    assert codes - told == {"no-such-code-anywhere"}

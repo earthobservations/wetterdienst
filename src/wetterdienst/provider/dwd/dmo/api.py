@@ -995,6 +995,16 @@ class DwdDmoRequest(TimeseriesRequest):
             return None
         return station_ids
 
+    def _narrowed_by(self) -> list[tuple[str, str]]:
+        """Add what the request asks of the run to what it is held to (`parameter-without-rows`)."""
+        narrowed = super()._narrowed_by()
+        if isinstance(self.issue, dt.datetime):
+            narrowed.append((f"the run issued {self.issue:%Y-%m-%d %H} UTC", "issue"))
+        if self.lead_time is not None:
+            lead_time = getattr(self.lead_time, "name", str(self.lead_time)).lower()
+            narrowed.append((f"the lead time asked for ({lead_time})", "lead_time"))
+        return narrowed
+
     def _all(self) -> pl.LazyFrame:
         """Get all stations from DMO."""
         from typing import cast  # noqa: PLC0415

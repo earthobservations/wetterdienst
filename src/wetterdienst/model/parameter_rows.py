@@ -5,8 +5,8 @@
 A request for a parameter at a station that has none of it is answered with a header and no rows, which is what the
 source holds (Los Angeles has no `TX` in MOSMIX, Paris no `tx24` in the synop reports) and reads exactly like a
 request that failed. `ParameterRows` watches the walk of `TimeseriesValues.query` and, when it is over, says so by a
-`parameter-without-rows` warning that names the parameter and the stations, so that a caller knows that asking again
-will not change it.
+`parameter-without-rows` warning that names the parameter and the stations, so that a caller knows that the request
+did not fail and that what it asked for is not in the source at the moment.
 
 When it fires, for each parameter of the request:
 
@@ -19,18 +19,34 @@ When it fires, for each parameter of the request:
 
 A row is a row of the answer, so a parameter whose readings were all null and left with `drop_nulls` has none. A station
 counts only for the datasets its index lists it for, and only if the window reaches its record (`start_timestamp`),
-and one skipped for having too few readings (`skip_empty`) had rows. A request that fails raises, and a walk that is
-not read to its end says nothing.
+and one skipped for having too few readings (`skip_empty`) had rows.
+
+It is not told where it would say what is not so:
+
+- the walk was not read to its end, or the request failed and raised;
+- a download failed and the provider went on without it (`downloads_failed`): what is missing may be missing for that,
+  which is no statement about the source, and asking again may answer;
+- a parameter another warning already names (`parameter-ended`).
+
+What it says is limited to what is known. It does not say that asking again gives the same answer: a window that
+reaches the present may be ahead of what the source has published (`It may not have published the latest of them yet`),
+and a request that narrowed itself by `periods` or by a run (`issue`) says that it did, and that another period or run
+may hold values.
 """
 
 from __future__ import annotations
 
 import datetime as dt
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from wetterdienst.model.metadata import ParameterModel
-from wetterdienst.util.response_warnings import PARAMETER_WITHOUT_ROWS, recorded_warnings, warn_response
+from wetterdienst.util.response_warnings import (
+    PARAMETER_WITHOUT_ROWS,
+    downloads_failed,
+    recorded_warnings,
+    warn_response,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -39,6 +55,7 @@ if TYPE_CHECKING:
 
     from wetterdienst.model.metadata import DatasetModel
     from wetterdienst.model.request import TimeseriesRequest
+    from wetterdienst.options import Options
 
 log = logging.getLogger(__name__)
 
@@ -65,25 +82,20 @@ class ParameterRows:
         """Hold the request's parameters and the window of the walk; `enabled` False reads nothing and says nothing."""
         self._request = request
         self._enabled = enabled
-        self._requested = {
-            (parameter.dataset.resolution.name, parameter.dataset.name)
-            for parameter in request.parameters
-            if isinstance(parameter, ParameterModel)
-        }
         self._start = start
         self._end = end
+        #: how many downloads had failed and been let go when the walk began, to tell one that fails in it
+        self._failures_before = downloads_failed() if enabled else 0
         #: the stations the walk read, by the dataset they were read for, in the order they came
         self._examined: dict[tuple[str, str], list[str]] = {}
         #: `(resolution, dataset, parameter)` of every row the walk found in the window
         self._with_rows: set[tuple[str, str, str]] = set()
 
     def examine(self, station_id: str, datasets: Iterable[DatasetModel]) -> None:
-        """Note that the station is read for those of these datasets that the request has parameters of."""
+        """Note that the station is read for these datasets, which the station index lists it for."""
         if not self._enabled:
             return
         for dataset in datasets:
-            if (dataset.resolution.name, dataset.name) not in self._requested:
-                continue
             stations = self._examined.setdefault((dataset.resolution.name, dataset.name), [])
             if station_id not in stations:
                 stations.append(station_id)
@@ -96,7 +108,8 @@ class ParameterRows:
 
     def warn(self) -> None:
         """Tell each parameter and dataset of the request that no station read had a row of, once."""
-        if not self._enabled:
+        # what is missing after a download that failed and was let go may be missing for that
+        if not self._enabled or downloads_failed() > self._failures_before:
             return
         request = self._request
         named = request._requested_named  # noqa: SLF001
@@ -124,7 +137,7 @@ class ParameterRows:
                     self._tell(name, f"any parameter of {name}", stations)
 
     def _tell(self, parameter: str, subject: str, stations: list[str]) -> None:
-        """Say that the source holds no values for `subject` at `stations`, in the window if the request had one."""
+        """Say that the source has no values for `subject` at `stations`, in the window and the periods asked for."""
         count = len(stations)
         listed = stations[:MAX_STATIONS_LISTED]
         if count == 1:
@@ -134,12 +147,38 @@ class ParameterRows:
         else:
             where = f"{count} stations, the first {MAX_STATIONS_LISTED} of them {', '.join(listed)}"
         window = f" between {_utc(self._start)} and {_utc(self._end)} UTC" if self._start and self._end else ""
+        narrowed = self._request._narrowed_by()  # noqa: SLF001
+        narrow = f" in {' and in '.join(phrase for phrase, _ in narrowed)}" if narrowed else ""
+        if narrowed:
+            options = " or ".join(f"`{option}`" for _, option in narrowed)
+            advice = (
+                f"The request succeeded and this is all the source holds in them: ask without {options}, or for "
+                "another one, which may hold values, or for another station or window, or leave it out."
+            )
+        else:
+            advice = (
+                "The request succeeded and this is what the source holds now: leave it out, or ask for another "
+                "station or window."
+            )
+        late = " It may not have published the latest of them yet." if self._reaches_the_present(parameter) else ""
         warn_response(
             log,
             PARAMETER_WITHOUT_ROWS,
-            f"The source holds no values for {subject} at {where}{window}. This is not an error, and asking again "
-            "will give the same answer: leave it out, or ask for another station or window.",
-            level=logging.INFO,
+            f"The source has no values for {subject} at {where}{window}{narrow}. {advice}{late}",
             parameter=parameter,
             stations=listed,
         )
+
+    def _reaches_the_present(self, parameter: str) -> bool:
+        """Tell whether the window ends where the source may not have published yet: within the lag of its resolution.
+
+        The lag is the one a station's published end is allowed (`end_lag`): how late a source is known to be.
+        A forecast has no such lag: its window lies ahead by design, and it has the run that was asked for.
+        """
+        from wetterdienst.model.request import end_lag  # noqa: PLC0415
+
+        if self._end is None or hasattr(self._request, "issue"):
+            return False
+        buffer = cast("Options", self._request.options).station_window_end_buffer
+        lag = end_lag(parameter.split("/", maxsplit=1)[0], buffer)
+        return self._end > dt.datetime.now(dt.UTC) - lag

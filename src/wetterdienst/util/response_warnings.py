@@ -16,6 +16,7 @@ library as a library, nothing is recorded and the call is a log line.
 from __future__ import annotations
 
 import logging
+import threading
 from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, NotRequired
 
@@ -54,6 +55,48 @@ _RECORDED: ContextVar[list[ResponseWarning] | None] = ContextVar("wetterdienst_r
 _COUNTED: ContextVar[dict[str, list[Any]] | None] = ContextVar("wetterdienst_counted_warnings", default=None)
 
 
+class _DownloadFailures:
+    """How many downloads of a walk failed and were left out of its answer, counted from any thread."""
+
+    def __init__(self) -> None:
+        self.count = 0
+        self._lock = threading.Lock()
+
+    def add(self) -> None:
+        with self._lock:
+            self.count += 1
+
+
+#: the downloads that failed and were let go, which a walk that reads its own count (`downloads_failed`) was watching
+_FAILURES: ContextVar[_DownloadFailures | None] = ContextVar("wetterdienst_download_failures", default=None)
+
+
+def downloads_failed() -> int:
+    """Give how many downloads have failed and been let go in this context, so that a walk can compare two readings.
+
+    A download that fails does not always fail the request: a provider logs it and goes on with the files it has, a
+    refusal of a rate limit among them. What is missing then may be missing for that reason, and the first reading
+    starts the count (the walk takes one before its first download).
+    """
+    failures = _FAILURES.get()
+    if failures is None:
+        failures = _DownloadFailures()
+        _FAILURES.set(failures)
+    return failures.count
+
+
+def note_download_failure() -> None:
+    """Note that a download failed and the request goes on without it: for a failure that is not the source's answer.
+
+    A file that is not there (a 404) is an answer and is not noted by the network layer; a provider that treats one as
+    a gap in its window (a file withdrawn since the listing, a timestamp not yet published) notes it itself. Nothing is
+    noted where no walk takes a reading (`downloads_failed`) first.
+    """
+    failures = _FAILURES.get()
+    if failures is not None:
+        failures.add()
+
+
 def begin_response() -> None:
     """Start recording the warnings of the request being served, forgetting those of an earlier one.
 
@@ -62,6 +105,7 @@ def begin_response() -> None:
     """
     _RECORDED.set([])
     _COUNTED.set({})
+    _FAILURES.set(None)
 
 
 def count_response_warning(code: str, count: int, message: str) -> None:

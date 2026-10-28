@@ -452,6 +452,13 @@ class DwdSwsmosRequest(TimeseriesRequest):
             for name in runs
         ]
 
+    def _narrowed_by(self) -> list[tuple[str, str]]:
+        """Add what the request asks of the run to what it is held to (`parameter-without-rows`)."""
+        narrowed = super()._narrowed_by()
+        if isinstance(self.issue, dt.datetime):
+            narrowed.append((f"the run issued {self.issue:%Y-%m-%d %H} UTC", "issue"))
+        return narrowed
+
     def _all(self) -> pl.LazyFrame:
         settings = cast("Settings", self.settings)
         file = download_file(

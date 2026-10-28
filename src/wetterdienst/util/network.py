@@ -8,6 +8,7 @@ import asyncio
 import atexit
 import base64
 import contextlib
+import contextvars
 import datetime as dt
 import hashlib
 import ipaddress
@@ -64,6 +65,7 @@ from wetterdienst.util.listing_cache import (
     remove_diskcache_leftovers,
 )
 from wetterdienst.util.provider_hosts import clean_host, hosts_of_provider, provider_of
+from wetterdienst.util.response_warnings import note_download_failure
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -2503,6 +2505,16 @@ def _failed_file(url: str, error: Exception, *, sent_credentials: bool = False) 
     download: a programming error, which is raised as it is.
     """
     shown = _without_url_secrets(url)
+    failed = _failed_file_of(url, error, shown, sent_credentials=sent_credentials)
+    # a file that is not there is the source's answer; every other failure is one a provider may let go and go on
+    # without the file, and what is missing then may be missing for that (`parameter-without-rows` is not told then)
+    if failed is not None and failed.status != HTTPStatus.NOT_FOUND:
+        note_download_failure()
+    return failed
+
+
+def _failed_file_of(url: str, error: Exception, shown: str, *, sent_credentials: bool) -> File | None:
+    """Make the `File` of a failed download of the kind `error` is, which `_failed_file` is the one place to ask for."""
     if isinstance(error, FileNotFoundError):
         log.info(f"Failed to download file {shown}.")
         return File(url=url, content=_without_credentials(error, sent_credentials=sent_credentials), status=404)
@@ -2912,10 +2924,14 @@ def download_files(
     # what is wanted, not what will happen: which of these the cache answers is not known until each
     # one has been asked, and the line below says it once they all have
     log.info(f"Fetching {len(urls)} {noun}.")
+    # each download runs in a copy of the context of the caller, which the threads would otherwise not have: what one
+    # notes of its failure (`note_download_failure`) is of the request it was made for
+    context = contextvars.copy_context()
     with ThreadPoolExecutor() as p:
         files = list(
             p.map(
-                lambda file: download_file(
+                lambda file: context.copy().run(
+                    download_file,
                     url=file,
                     cache_dir=cache_dir,
                     ttl=ttl,

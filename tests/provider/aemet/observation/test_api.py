@@ -669,7 +669,10 @@ def test_aemet_observation_values_failed_chunk_is_skipped_and_logged(
         df = _values(resolution, years=10)
     assert df.is_empty()
     assert len(attempted) == chunks
-    assert len([record for record in caplog.records if record.levelno == logging.WARNING]) == chunks
+    # the warnings of the provider, one for each chunk; the core says besides (`parameter-without-rows`) that the
+    # source has no values, which a failed download would make untrue, but this stub bypasses the network layer
+    skipped = [r for r in caplog.records if r.levelno == logging.WARNING and r.name.startswith("wetterdienst.provider")]
+    assert len(skipped) == chunks
 
 
 def test_aemet_observation_values_do_not_log_the_signature_of_the_datos_link(
@@ -682,7 +685,11 @@ def test_aemet_observation_values_do_not_log_the_signature_of_the_datos_link(
     with caplog.at_level(logging.INFO, logger="wetterdienst.provider.aemet"):
         df = _values("annual", years=10)
     assert df.is_empty()
-    warnings = [record.getMessage() for record in caplog.records if record.levelno == logging.WARNING]
+    warnings = [
+        record.getMessage()
+        for record in caplog.records
+        if record.levelno == logging.WARNING and record.name.startswith("wetterdienst.provider")
+    ]
     assert len(warnings) == 4
     assert all("https://opendata.aemet.es/opendata/sh/0123abc" in message for message in warnings)
     assert "X-Amz" not in caplog.text

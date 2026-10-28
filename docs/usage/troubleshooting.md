@@ -34,10 +34,13 @@ The usual reasons:
   out with a warning (`unknown-station` in the `metadata` of the REST answer, a log line in Python), and when none
   is left the result is empty. Ask `stations` with the same `parameters` first: it lists only the stations that have
   them.
-- **The source holds nothing of the parameter.** A station can have no values of an element at all, or none in the
+- **The source has nothing of the parameter.** A station can have no values of an element at all, or none in the
   window (Los Angeles has no `TX` or `TN` in MOSMIX, Paris no `tx24` in the synop reports). The answer says so
-  with a `parameter-without-rows` warning that names the parameter and the stations: it is not an error and
-  asking again gives the same answer, so ask for another station or window, or leave the parameter out.
+  with a `parameter-without-rows` warning that names the parameter and the stations: the request did not fail, and
+  this is what the source holds now. Leave the parameter out, or ask for another station or window; where the
+  warning names `periods` or a run (`issue`), another one may hold values, and where it says the source may not
+  have published the latest yet, a later request may. It is not told after a download that failed and was let go:
+  an empty answer then may be a failure of the source or of the connection, which a later request may clear.
 - **A name matched nothing.** A name is matched fuzzily with a threshold (`name_threshold`, 0.8 by default); lower it
   or look at the best matches (`rank`).
 - **Nulls were dropped.** The long shape drops rows without a value by default (`drop_nulls`); a reading the source

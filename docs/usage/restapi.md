@@ -277,16 +277,25 @@ what the answer is missing:
   `parameter-without-rows` (a requested parameter that the source holds no values for, see below). Codes are
   added as more are told; a client reads the ones it knows.
 
-  `parameter-without-rows` is not an error and asking again will not change it: the request succeeded and the
-  source has nothing of the parameter in the window. It also carries `parameter` (`resolution/dataset/parameter`,
-  or `resolution/dataset`) and `stations` (the stations it was asked at, the first ten if there are more). It is
-  told for a parameter asked for by its name when no station of the answer has a row of it, and for a dataset
-  asked for whole only when no station has a row of any of its parameters, so that a dataset with a few empty
-  parameters says nothing of them. A parameter that some stations have is not told for the ones that lack it. A
-  station that begins after the window is not read and not named, and one skipped by `skip_empty` had rows.
-  A parameter that another warning already names (`parameter-ended`) is not told again. Readings that are all null and left out by `drop_nulls` are no rows. `interpolate` and `summarize` do not tell
-  it. In Python it is a log line at level `INFO`, and `wetterdienst.util.response_warnings.recorded_warnings`
-  gives it after `begin_response()`, as the REST API and the command line do.
+  `parameter-without-rows` says that the request succeeded and the source has no values of a parameter that was
+  asked for, so that it is not taken for a failure and asked again in a loop. It carries `parameter`
+  (`resolution/dataset/parameter`, or `resolution/dataset`) and `stations` (the stations it was asked at, the
+  first ten if there are more). It is told for a parameter asked for by its name when no station of the answer
+  has a row of it, and for a dataset asked for whole only when no station has a row of any of its parameters, so
+  that a dataset with a few empty parameters says nothing of them. A parameter that some stations have is not
+  told for the ones that lack it. A station that begins after the window is not read and not named, one skipped
+  by `skip_empty` had rows, and readings that are all null and left out by `drop_nulls` are no rows. The message
+  says what it is limited to: the window, `the periods asked for` or `the run issued` where the request
+  narrowed itself by `periods`, `issue` or `lead_time` (another period or run may hold values), and, where the
+  window ends within the lag of the resolution (two days, for monthly 62 and for annual 732, or the
+  `station_window_end_buffer` option), that the source may not have published the latest yet. It makes no claim
+  about what a later request will find. It is not told where it could be false: when a download
+  failed and the provider went on without it (a refused request, a timeout, a file withdrawn since the listing, a
+  timestamp that is not there), where what is missing may be missing for that, nor for a parameter another warning
+  already names (`parameter-ended`), nor for `interpolate` and `summarize`. In Python it is a log line at level
+  `WARNING`, as the other warnings that say a request returned less than it asked for are, and
+  `wetterdienst.util.response_warnings.recorded_warnings` gives it after `begin_response()`, as the REST API and
+  the command line do.
 - **`api_version`** is the version of the API (`/api/version`), and **`schema_version`** that of this
   block, so that a stored answer can be told from one in a later shape.
 
