@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.178.0] - 2026-10-28
+
 ### Security
 
 - `uv.lock` pins `authlib` 1.9.1 (was 1.8.0) and `dnspython` 2.9.0 (was 2.8.0), which close the
@@ -6727,7 +6729,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.177.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.178.0...HEAD
+[0.178.0]: https://github.com/earthobservations/wetterdienst/compare/v0.177.0...v0.178.0
 [0.177.0]: https://github.com/earthobservations/wetterdienst/compare/v0.176.0...v0.177.0
 [0.176.0]: https://github.com/earthobservations/wetterdienst/compare/v0.175.0...v0.176.0
 [0.175.0]: https://github.com/earthobservations/wetterdienst/compare/v0.174.0...v0.175.0
