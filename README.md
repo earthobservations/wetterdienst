@@ -62,11 +62,13 @@ you need is what tells us what to build next. Hand in an issue or a PR.
 pip install wetterdienst           # from PyPI
 pip install "wetterdienst[export]" # with an extra
 pip install git+https://github.com/earthobservations/wetterdienst  # most recent
+conda install -c conda-forge wetterdienst  # from conda-forge, without extras
 ```
 
 Extras: `bufr`, `cratedb`, `duckdb`, `eccodes`, `excel`, `export`, `influxdb`, `interpolation`,
 `knmi`, `mcp`, `mysql`, `pdf`, `plotting`, `postgresql`, `radar`, `radarplus`, `restapi`, `sql`.
-Check the installation with `wetterdienst --help`.
+Check the installation with `wetterdienst --help`. On conda-forge the extras are packages of their own,
+such as `wetterdienst-with-interpolation`.
 
 On Linux, a process that imports ecCodes (`bufr` or `eccodes` extra) itself, before wetterdienst
 does, and then imports `pyproj` (which `radarplus` brings) can crash at exit
