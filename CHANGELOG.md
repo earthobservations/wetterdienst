@@ -44,6 +44,13 @@ Types of changes:
   order and errors are unchanged; the connection limits and `Settings(fetch_ahead=...)` /
   `WD_FETCH_AHEAD` (0 switches it off) are those of GH-3454 (GH-3507)
 
+### Fixed
+
+- A download, post or listing whose TLS handshake the peer answers wrongly (a non-TLS answer,
+  `WRONG_VERSION_NUMBER`; an invalid session, `INVALID_SESSION_ID`) is retried like any other
+  transient network error, where the first one failed the answer: `www.dwd.de` throws them now
+  and then. A certificate that does not verify still fails at once (GH-3533)
+
 ## [0.178.0] - 2026-10-28
 
 ### Security

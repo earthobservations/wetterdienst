@@ -206,8 +206,10 @@ answered. The cache is a directory of files, not a service: `Settings.cache_dir`
 
 **Retry.** `stamina` retries what may be a blip and nothing else. A download is tried twice, a listing three times; both
 retry a refused or dropped connection, a body that stopped arriving, a timeout and a 5xx, and a download also retries a
-404 once, because a file index can be read minutes before the files it names. A 4xx (a 429 included), a certificate that
-does not verify and a size or time cap (`MAX_DOWNLOAD_BYTES`, `MAX_DOWNLOAD_SECONDS`) are not retried.
+404 once, because a file index can be read minutes before the files it names. A TLS handshake the peer answers wrongly
+(`WRONG_VERSION_NUMBER`, `INVALID_SESSION_ID`) is retried as well; a certificate that does not verify never is, whatever
+else it says. A 4xx (a 429 included), a handshake the two cannot agree on and a size or time cap (`MAX_DOWNLOAD_BYTES`,
+`MAX_DOWNLOAD_SECONDS`) are not retried.
 
 **Failures.** The errors are told apart by what they mean to a caller, and every provider must keep them apart:
 
