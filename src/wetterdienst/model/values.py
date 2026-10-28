@@ -369,7 +369,8 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             self._data_updated.clear()
             self._advance_fetch_ahead(ahead, position, stations_collected)
             # Collect data for this station
-            df = self._filter_by_window(self._collect_station_data(station_id, available_datasets))
+            with rows.collecting(station_id):
+                df = self._filter_by_window(self._collect_station_data(station_id, available_datasets))
             rows.note(df)
             # judged after the window has been cut, not before it: a station whose record lies
             # entirely outside the requested window returned data, but none that was asked for.

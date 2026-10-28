@@ -29,7 +29,7 @@ from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.dwd.metadata import _METADATA, EXTENT_GERMANY
 from wetterdienst.util.eccodes import bufr_file, require_bufr
 from wetterdienst.util.network import File, download_file, download_files, list_remote_files_fsspec
-from wetterdienst.util.response_warnings import note_download_failure
+from wetterdienst.util.response_warnings import note_skipped_download
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Iterable
@@ -971,7 +971,7 @@ class DwdRoadValues(TimeseriesValues[DatasetModel]):
             # the readings of the files that arrived are returned, and those of the others are
             # missing: a gap in the window, which can also keep a stuck sensor below the count of
             # readings that marks it
-            note_download_failure()
+            note_skipped_download()
             log.warning(
                 f"{len(failed)} of {len(files)} files of {road_weather_station_group.value} could not be "
                 f"downloaded and their readings are missing (first: {failed[0].filename}, "

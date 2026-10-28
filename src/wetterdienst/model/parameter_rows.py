@@ -24,14 +24,13 @@ and one skipped for having too few readings (`skip_empty`) had rows.
 It is not told where it would say what is not so:
 
 - the walk was not read to its end, or the request failed and raised;
-- a download failed and the provider went on without it (`downloads_failed`): what is missing may be missing for that,
-  which is no statement about the source, and asking again may answer;
+- a station whose file the provider let go (`note_skipped_download`) is not one of the stations it names, as its
+  missing values may be missing for that: the other stations still count, and where none is left nothing is said;
 - a parameter another warning already names (`parameter-ended`).
 
-What it says is limited to what is known. It does not say that asking again gives the same answer: a window that
-reaches the present may be ahead of what the source has published (`It may not have published the latest of them yet`),
-and a request that narrowed itself by `periods` or by a run (`issue`) says that it did, and that another period or run
-may hold values.
+What it says is limited to what is known: the window, what narrowed the request (`periods`, a run, a lead time, for the
+datasets they narrowed), and that the source may not have published a window that reaches the present yet. A window
+that a narrowing explains gets no such note.
 """
 
 from __future__ import annotations
@@ -43,13 +42,14 @@ from typing import TYPE_CHECKING, cast
 from wetterdienst.model.metadata import ParameterModel
 from wetterdienst.util.response_warnings import (
     PARAMETER_WITHOUT_ROWS,
-    downloads_failed,
+    collecting,
     recorded_warnings,
     warn_response,
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterator
+    from contextlib import AbstractContextManager
 
     import polars as pl
 
@@ -63,9 +63,16 @@ log = logging.getLogger(__name__)
 MAX_STATIONS_LISTED = 10
 
 
-def _utc(moment: dt.datetime) -> str:
-    """Write a moment of the window as the minute of its UTC time."""
-    return moment.astimezone(dt.UTC).strftime("%Y-%m-%d %H:%M")
+def _window(start: dt.datetime | None, end: dt.datetime | None) -> str:
+    """Write the window as days where it is whole days of UTC, else as the minutes of its ends, and nothing if none."""
+    if start is None or end is None:
+        return ""
+    start, end = start.astimezone(dt.UTC), end.astimezone(dt.UTC)
+    if (start.hour, start.minute) == (0, 0) and (end.hour, end.minute) == (23, 59):
+        if start.date() == end.date():
+            return f" on {start:%Y-%m-%d}"
+        return f" from {start:%Y-%m-%d} to {end:%Y-%m-%d}"
+    return f" from {start:%Y-%m-%d %H:%M} to {end:%Y-%m-%d %H:%M} UTC"
 
 
 class ParameterRows:
@@ -84,14 +91,16 @@ class ParameterRows:
         self._enabled = enabled
         self._start = start
         self._end = end
-        #: how many downloads had failed and been let go when the walk began, to tell one that fails in it
-        self._failures_before = downloads_failed() if enabled else 0
+        #: the stations whose file the provider let go, which are no evidence that the source holds nothing
+        self._skipped: set[str] = set()
+        #: whether the provider let go a file that every station of the request is read from
+        self._skipped_all = False
         #: the stations the walk read, by the dataset they were read for, in the order they came
         self._examined: dict[tuple[str, str], list[str]] = {}
         #: `(resolution, dataset, parameter)` of every row the walk found in the window
         self._with_rows: set[tuple[str, str, str]] = set()
 
-    def examine(self, station_id: str, datasets: Iterable[DatasetModel]) -> None:
+    def examine(self, station_id: str, datasets: Iterator[DatasetModel] | list[DatasetModel]) -> None:
         """Note that the station is read for these datasets, which the station index lists it for."""
         if not self._enabled:
             return
@@ -99,6 +108,17 @@ class ParameterRows:
             stations = self._examined.setdefault((dataset.resolution.name, dataset.name), [])
             if station_id not in stations:
                 stations.append(station_id)
+
+    def collecting(self, station_id: str) -> AbstractContextManager[None]:
+        """Watch the collection of one station for a file the provider lets go (`note_skipped_download`)."""
+
+        def skipped(whole_request: bool) -> None:  # noqa: FBT001
+            if whole_request:
+                self._skipped_all = True
+            else:
+                self._skipped.add(station_id)
+
+        return collecting(skipped)
 
     def note(self, df: pl.DataFrame) -> None:
         """Note the parameters that a station's rows of the answer are of, in the long form the provider handed over."""
@@ -108,8 +128,7 @@ class ParameterRows:
 
     def warn(self) -> None:
         """Tell each parameter and dataset of the request that no station read had a row of, once."""
-        # what is missing after a download that failed and was let go may be missing for that
-        if not self._enabled or downloads_failed() > self._failures_before:
+        if not self._enabled or self._skipped_all:
             return
         request = self._request
         named = request._requested_named  # noqa: SLF001
@@ -122,22 +141,23 @@ class ParameterRows:
             if not isinstance(parameter, ParameterModel):
                 continue
             key = (parameter.dataset.resolution.name, parameter.dataset.name)
-            stations = self._examined.get(key)
+            # a station whose file was let go says nothing of what the source holds
+            stations = [station for station in self._examined.get(key, []) if station not in self._skipped]
             if not stations:
                 continue
             if (*key, parameter.name_original) in named:
                 if (*key, parameter.name_original) not in self._with_rows:
                     name = f"{key[0]}/{key[1]}/{parameter.name}"
                     if name not in explained:
-                        self._tell(name, name, stations)
+                        self._tell(name, name, stations, parameter.dataset)
             elif key in whole and key not in told_whole and key not in named_datasets:
                 told_whole.add(key)
                 if not any(row[:2] == key for row in self._with_rows):
                     name = f"{key[0]}/{key[1]}"
-                    self._tell(name, f"any parameter of {name}", stations)
+                    self._tell(name, f"any parameter of {name}", stations, parameter.dataset)
 
-    def _tell(self, parameter: str, subject: str, stations: list[str]) -> None:
-        """Say that the source has no values for `subject` at `stations`, in the window and the periods asked for."""
+    def _tell(self, parameter: str, subject: str, stations: list[str], dataset: DatasetModel) -> None:
+        """Say that the source has no values for `subject` at `stations`, in the window and as the request narrows."""
         count = len(stations)
         listed = stations[:MAX_STATIONS_LISTED]
         if count == 1:
@@ -146,30 +166,24 @@ class ParameterRows:
             where = f"stations {', '.join(listed)}"
         else:
             where = f"{count} stations, the first {MAX_STATIONS_LISTED} of them {', '.join(listed)}"
-        window = f" between {_utc(self._start)} and {_utc(self._end)} UTC" if self._start and self._end else ""
-        narrowed = self._request._narrowed_by()  # noqa: SLF001
+        narrowed = self._request._narrowed_by(dataset)  # noqa: SLF001
         narrow = f" in {' and in '.join(phrase for phrase, _ in narrowed)}" if narrowed else ""
-        if narrowed:
-            options = " or ".join(f"`{option}`" for _, option in narrowed)
-            advice = (
-                f"The request succeeded and this is all the source holds in them: ask without {options}, or for "
-                "another one, which may hold values, or for another station or window, or leave it out."
-            )
+        hints = [hint for _, hint in narrowed if hint]
+        if hints:
+            advice = f"The request did not fail; {' or '.join(hints)}."
+        elif self._reaches_the_present(dataset.resolution.name):
+            advice = "The request did not fail; the source may not have published this window yet."
         else:
-            advice = (
-                "The request succeeded and this is what the source holds now: leave it out, or ask for another "
-                "station or window."
-            )
-        late = " It may not have published the latest of them yet." if self._reaches_the_present(parameter) else ""
+            advice = "The request did not fail; leave it out, or try another station or window."
         warn_response(
             log,
             PARAMETER_WITHOUT_ROWS,
-            f"The source has no values for {subject} at {where}{window}{narrow}. {advice}{late}",
+            f"The source has no values for {subject} at {where}{_window(self._start, self._end)}{narrow}. {advice}",
             parameter=parameter,
             stations=listed,
         )
 
-    def _reaches_the_present(self, parameter: str) -> bool:
+    def _reaches_the_present(self, resolution: str) -> bool:
         """Tell whether the window ends where the source may not have published yet: within the lag of its resolution.
 
         The lag is the one a station's published end is allowed (`end_lag`): how late a source is known to be.
@@ -180,5 +194,5 @@ class ParameterRows:
         if self._end is None or hasattr(self._request, "issue"):
             return False
         buffer = cast("Options", self._request.options).station_window_end_buffer
-        lag = end_lag(parameter.split("/", maxsplit=1)[0], buffer)
+        lag = end_lag(resolution, buffer)
         return self._end > dt.datetime.now(dt.UTC) - lag

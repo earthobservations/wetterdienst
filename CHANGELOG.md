@@ -23,8 +23,8 @@ Types of changes:
   and `stations`, where the answer used to be an empty header that read like a failed request
   (`TX`/`TN` of `dwd/mosmix` for Los Angeles, `tx24` of `meteofrance/synop` for Paris). Told for
   a parameter asked for by name when no station has a row of it, and for a dataset asked for
-  whole only when none has a row of any of its parameters. It names the `periods`, run or
-  window it is limited to, and is not told after a download that failed and was let go (GH-3539)
+  whole only when none has a row of any of its parameters. It names the `periods`, run or lead
+  time it is limited to, and leaves out a station whose file the provider let go (GH-3539)
 
 ### Changed
 

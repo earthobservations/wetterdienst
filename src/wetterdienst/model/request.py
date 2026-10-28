@@ -479,16 +479,17 @@ class TimeseriesRequest:
         """
         return None
 
-    def _narrowed_by(self) -> list[tuple[str, str]]:
-        """Name what the request asked for that holds back some of the source: a phrase and the option that did it.
+    def _narrowed_by(self, dataset: DatasetModel) -> list[tuple[str, str | None]]:
+        """Name what the request asked for that holds back some of the source for a dataset: a phrase and a hint.
 
-        What `parameter-without-rows` says the answer is of, so that a caller knows another period or run may hold
-        the values: the periods asked for where that narrowed what is read. A request with a run or a lead time adds
-        its own.
+        What `parameter-without-rows` says the answer is of, so that a caller knows another period may hold the values:
+        the periods asked for where they leave out one the dataset publishes. The hint is what to ask instead, None
+        where there is none. A request with a run or a lead time adds its own.
         """
-        if not self._periods_narrowed:
-            return []
-        return [(f"the periods asked for ({_format_periods(self._periods_narrowed)})", "periods")]
+        asked = set(self._periods_narrowed) & set(dataset.periods)
+        if asked and set(dataset.periods) - asked:
+            return [(f"the periods asked for ({_format_periods(asked)})", "try without `periods`")]
+        return []
 
     @classmethod
     def available_periods(cls) -> set[Period]:

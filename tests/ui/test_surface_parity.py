@@ -1265,13 +1265,11 @@ def test_a_named_parameter_without_a_row_is_told_with_the_stations(monkeypatch: 
 
     assert warning["parameter"] == _EMPTY_NAME
     assert warning["stations"] == ["00001", "00002"]
-    assert "has no values for daily/climate_summary/sunshine_duration at stations 00001, 00002" in warning["message"]
-    assert "between 2020-05-01 00:00 and 2020-05-03 23:59 UTC" in warning["message"]
-    assert "The request succeeded and this is what the source holds now" in warning["message"]
-    # no promise about what asking again gives, and none of a period or a run that was not asked for
-    assert "again" not in warning["message"]
-    assert "periods" not in warning["message"]
-    assert "published the latest" not in warning["message"]
+    assert warning["message"] == (
+        "The source has no values for daily/climate_summary/sunshine_duration at stations 00001, 00002 "
+        "from 2020-05-01 to 2020-05-03. The request did not fail; leave it out, or try another station or window."
+    )
+    assert len(warning["message"]) <= 250
 
 
 def test_a_parameter_with_rows_is_not_told(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1460,7 +1458,7 @@ def test_rows_outside_the_window_are_no_rows_of_it(monkeypatch: pytest.MonkeyPat
     told = _told([_EMPTY, _FULL], ["00001"], window=("2020-06-01", "2020-06-02"))
 
     assert [w["parameter"] for w in told] == [_EMPTY_NAME, "daily/climate_summary/temperature_air_mean_2m"]
-    assert all("between 2020-06-01 00:00 and 2020-06-02 23:59 UTC" in w["message"] for w in told)
+    assert all("from 2020-06-01 to 2020-06-02." in w["message"] for w in told)
     assert _told([_FULL], ["00001"]) == []
     del monkeypatch
 
@@ -1476,43 +1474,102 @@ def test_a_station_that_is_not_listed_for_a_dataset_is_not_read_for_it(monkeypat
 
 
 def test_periods_that_hold_back_the_source_are_said_to_be_the_reason(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A request narrowed by `periods` says the answer is of those, and that another period may hold the values."""
+    """A request narrowed by `periods` says the answer is of those, and what to ask instead."""
     _holding_none_of(monkeypatch, "sdk")
 
     (narrowed,) = _told([_EMPTY], ["00001"], periods="recent")
     (all_periods,) = _told([_EMPTY], ["00001"], periods=["recent", "historical"])
     (unnarrowed,) = _told([_EMPTY], ["00001"])
 
-    assert "between 2020-05-01 00:00 and 2020-05-03 23:59 UTC in the periods asked for (recent)." in narrowed["message"]
-    assert "ask without `periods`" in narrowed["message"]
+    assert narrowed["message"] == (
+        "The source has no values for daily/climate_summary/sunshine_duration at station 00001 from 2020-05-01 to "
+        "2020-05-03 in the periods asked for (recent). The request did not fail; try without `periods`."
+    )
     assert "periods" not in all_periods["message"]
     assert "periods" not in unnarrowed["message"]
     # the same over REST
     rest = _rest("/api/values", parameters=_EMPTY, stations="00001", timestamp="2020-05", periods="recent")
-    assert rest.json()["metadata"]["warnings"][0]["message"] == narrowed["message"].replace(
-        "2020-05-03 23:59", "2020-05-31 23:59"
+    assert rest.json()["metadata"]["warnings"][0]["message"] == narrowed["message"].replace("2020-05-03", "2020-05-31")
+
+
+def test_the_periods_are_said_to_narrow_only_the_datasets_they_narrowed() -> None:
+    """`periods` of historical and recent leave out nothing of `daily/kl` and the `now` of the one-minute data."""
+    request = DwdObservationRequest(
+        parameters=[_EMPTY, "1_minute/precipitation/precipitation_amount"], periods=["historical", "recent"]
     )
+    daily = request.metadata["daily"]["climate_summary"]
+    minute = request.metadata["1_minute"]["precipitation"]
+
+    assert request._narrowed_by(daily) == []  # noqa: SLF001
+    assert request._narrowed_by(minute) == [  # noqa: SLF001
+        ("the periods asked for (historical, recent)", "try without `periods`")
+    ]
+
+
+def test_a_window_a_period_explains_gets_no_note_that_the_source_may_be_behind(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`periods=historical` and a window that ends yesterday: the period is the reason, not the lag of the source."""
+    _holding_none_of(monkeypatch, "sdk")
+    yesterday = (_TODAY - dt.timedelta(days=1)).strftime("%Y-%m-%d")
+
+    (warning,) = _told([_EMPTY], ["00001"], window=(yesterday, yesterday), periods="historical")
+
+    assert "in the periods asked for (historical)" in warning["message"]
+    assert "published" not in warning["message"]
+
+
+def _rows_of(request: Any, dataset: Any, window: tuple[dt.datetime, dt.datetime] | None = None) -> list[dict[str, Any]]:  # noqa: ANN401
+    """Give the warning a walk over one station that found no row of the request's only parameter tells."""
+    from wetterdienst.model.parameter_rows import ParameterRows  # noqa: PLC0415
+
+    begin_response()
+    rows = ParameterRows(request, *(window or (None, None)))
+    rows.examine("10001", [dataset])
+    rows.warn()
+    return recorded_warnings()
 
 
 def test_a_run_and_a_lead_time_that_hold_back_the_source_are_named() -> None:
-    """A forecast request for one run, or one lead time, says so in the answer's reason."""
+    """A forecast request for one run, or one lead time, says so; one that named neither does not (GH-3539)."""
     from wetterdienst.provider.dwd.dmo import DwdDmoRequest  # noqa: PLC0415
     from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest  # noqa: PLC0415
     from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest  # noqa: PLC0415
 
     issue = dt.datetime(2026, 10, 28, 9, tzinfo=UTC)
-    mosmix = DwdMosmixRequest(parameters="hourly/large", issue=issue)
+    parameter = "hourly/large/temperature_air_max_2m_last_12h"
+    mosmix = DwdMosmixRequest(parameters=parameter, issue=issue)
     swsmos = DwdSwsmosRequest(parameters="hourly/data", issue=issue)
-    dmo = DwdDmoRequest(parameters="hourly/icon", issue=issue, lead_time="short")
+    dmo_parameter = "hourly/icon/temperature_air_2m"
+    asked = DwdDmoRequest(parameters=dmo_parameter, issue=issue, lead_time="short")
+    default = DwdDmoRequest(parameters=dmo_parameter)
 
-    assert mosmix._narrowed_by() == [("the run issued 2026-10-28 09 UTC", "issue")]  # noqa: SLF001
-    assert swsmos._narrowed_by() == [("the run issued 2026-10-28 09 UTC", "issue")]  # noqa: SLF001
-    # DMO runs at 00 and 12 UTC
-    assert dmo._narrowed_by() == [  # noqa: SLF001
-        ("the run issued 2026-10-28 00 UTC", "issue"),
-        ("the lead time asked for (short)", "lead_time"),
+    large = mosmix.metadata["hourly"]["large"]
+    icon = asked.metadata["hourly"]["icon"]
+    assert mosmix._narrowed_by(large) == [("the run issued 2026-10-28 09 UTC", None)]  # noqa: SLF001
+    assert swsmos._narrowed_by(swsmos.metadata["hourly"]["data"]) == [  # noqa: SLF001
+        ("the run issued 2026-10-28 09 UTC", None)
     ]
-    assert DwdMosmixRequest(parameters="hourly/large")._narrowed_by() == []  # noqa: SLF001
+    # DMO runs at 00 and 12 UTC
+    assert asked._narrowed_by(icon) == [  # noqa: SLF001
+        ("the run issued 2026-10-28 00 UTC", None),
+        ("the lead time asked for (short)", "try the other `lead_time`"),
+    ]
+    # the short run is what a request reads where it named no lead time, which is no asking
+    assert default._narrowed_by(icon) == []  # noqa: SLF001
+    assert DwdMosmixRequest(parameters=parameter)._narrowed_by(large) == []  # noqa: SLF001
+
+    # through the warning: a run is named without a hint to ask for another (no run has Los Angeles' TX), a lead time
+    # with one, a request that named neither says neither
+    (told,) = _rows_of(mosmix, large)
+    assert told["message"] == (
+        "The source has no values for hourly/large/temperature_air_max_2m_last_12h at station 10001 in the run issued "
+        "2026-10-28 09 UTC. The request did not fail; leave it out, or try another station or window."
+    )
+    (told,) = _rows_of(asked, icon)
+    assert "in the run issued 2026-10-28 00 UTC and in the lead time asked for (short)." in told["message"]
+    assert told["message"].endswith("The request did not fail; try the other `lead_time`.")
+    (told,) = _rows_of(default, icon)
+    assert "lead time" not in told["message"]
+    assert len(told["message"]) <= 250
 
 
 @pytest.mark.parametrize(
@@ -1524,7 +1581,7 @@ def test_a_run_and_a_lead_time_that_hold_back_the_source_are_named() -> None:
         pytest.param(((_TODAY - dt.timedelta(days=30)).strftime("%Y-%m-%d"),) * 2, False, id="a month ago"),
     ],
 )
-def test_a_window_that_reaches_the_present_says_the_latest_may_not_be_published(
+def test_a_window_that_reaches_the_present_says_the_source_may_not_have_published_it(
     monkeypatch: pytest.MonkeyPatch, window: tuple[str, str], *, late: bool
 ) -> None:
     """The source lags by up to the lag of its resolution: a window that ends within it may be ahead of the source."""
@@ -1532,8 +1589,9 @@ def test_a_window_that_reaches_the_present_says_the_latest_may_not_be_published(
 
     (warning,) = _told([_EMPTY], ["00001"], window=window)
 
-    assert ("It may not have published the latest of them yet." in warning["message"]) is late
-    assert "asking again" not in warning["message"]
+    assert ("the source may not have published this window yet." in warning["message"]) is late
+    assert ("leave it out" in warning["message"]) is not late
+    assert len(warning["message"]) <= 250
 
 
 def test_a_forecast_window_is_not_ahead_of_a_source_that_has_not_published() -> None:
@@ -1544,4 +1602,58 @@ def test_a_forecast_window_is_not_ahead_of_a_source_that_has_not_published() -> 
     request = DwdMosmixRequest(parameters="hourly/large")
     rows = ParameterRows(request, dt.datetime(2099, 1, 1, tzinfo=UTC), dt.datetime(2099, 1, 2, tzinfo=UTC))
 
-    assert rows._reaches_the_present("hourly/large/temperature_air_max_2m_last_12h") is False  # noqa: SLF001
+    assert rows._reaches_the_present("hourly") is False  # noqa: SLF001
+
+
+def test_a_window_of_a_day_or_of_minutes_is_written_as_such() -> None:
+    """A window of whole days is told in days, one of hours in minutes of UTC."""
+    from wetterdienst.model.parameter_rows import _window  # noqa: PLC0415
+
+    day = dt.datetime(2020, 5, 1, tzinfo=UTC)
+    assert _window(day, day.replace(hour=23, minute=59)) == " on 2020-05-01"
+    assert _window(day, day.replace(day=3, hour=23, minute=59)) == " from 2020-05-01 to 2020-05-03"
+    assert _window(day.replace(hour=6), day.replace(hour=12)) == " from 2020-05-01 06:00 to 2020-05-01 12:00 UTC"
+    assert _window(None, None) == ""
+
+
+# a file the provider lets go drops its station from the warning, and no other
+
+
+def _letting_go(monkeypatch: pytest.MonkeyPatch, stations: set[str], *, whole_request: bool = False) -> None:
+    """Have the source hold nothing of `sdk`, and the provider let go a file of each of `stations` on the way."""
+    from wetterdienst.util.response_warnings import note_skipped_download  # noqa: PLC0415
+
+    original = DwdObservationValues._collect_station_parameter_or_dataset  # noqa: SLF001
+
+    def collect(self: object, station_id: str, parameter_or_dataset: Any) -> pl.DataFrame:  # noqa: ANN401
+        df = original(self, station_id, parameter_or_dataset)
+        if station_id in stations:
+            note_skipped_download(whole_request=whole_request)
+        return df.filter(pl.col("parameter") != "sdk")
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+
+
+def test_a_station_whose_file_was_let_go_is_not_named(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The other stations still count: one that failed does not take the parameter's warning from the rest."""
+    _letting_go(monkeypatch, {"00001"})
+
+    (warning,) = _told([_EMPTY], ["00001", "00002", "00003"])
+
+    assert warning["stations"] == ["00002", "00003"]
+    assert _told([_EMPTY], ["00001"]) == []
+
+
+def test_a_file_that_every_station_is_read_from_silences_the_warning(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A run that could not be read is every station's: nobody is named."""
+    _letting_go(monkeypatch, {"00001"}, whole_request=True)
+
+    assert _told([_EMPTY], ["00001", "00002"]) == []
+
+
+def test_a_file_let_go_outside_the_collection_of_a_station_is_nothing() -> None:
+    """The note is the collection's: a provider that calls it outside one (listing the stations) changes nothing."""
+    from wetterdienst.util.response_warnings import note_skipped_download  # noqa: PLC0415
+
+    note_skipped_download()
+    note_skipped_download(whole_request=True)

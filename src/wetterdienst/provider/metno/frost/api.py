@@ -28,6 +28,7 @@ from wetterdienst.util.network import (
     download_file,
     raise_if_credential_rejected,
 )
+from wetterdienst.util.response_warnings import note_skipped_download
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel
@@ -606,6 +607,7 @@ class MetnoFrostValues(TimeseriesValues):
                 station_id, dataset, parameters, start_date, end_date, settings, client_kwargs
             )
         if isinstance(file.content, Exception):
+            note_skipped_download()
             log.warning(f"Failed to download {url}: {file.content}")
             return pl.DataFrame()
         # a 200 with no body
@@ -710,6 +712,7 @@ class MetnoFrostValues(TimeseriesValues):
                 station_id, parameter, start_date, end_date, settings, client_kwargs
             )
         if isinstance(file.content, Exception):
+            note_skipped_download()
             log.warning(f"Failed to download {url}: {file.content}")
             return pl.DataFrame()
         # a 200 with no body
@@ -781,6 +784,7 @@ class MetnoFrostValues(TimeseriesValues):
         if avail_file.status in (404, 412):
             return pl.DataFrame()
         if isinstance(avail_file.content, Exception):
+            note_skipped_download()
             log.warning(f"Failed to download {avail_url}: {avail_file.content}")
             return pl.DataFrame()
         if avail_file.is_empty:
@@ -825,6 +829,7 @@ class MetnoFrostValues(TimeseriesValues):
             if obs_file.status in (404, 412):
                 continue
             if isinstance(obs_file.content, Exception):
+                note_skipped_download()
                 log.warning(f"Failed to download {obs_url}: {obs_file.content}")
                 continue
             if obs_file.is_empty:

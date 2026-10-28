@@ -665,6 +665,9 @@ class DwdDmoRequest(TimeseriesRequest):
     # per request, not per class: a listing read once should not outlive the settings it was read with
     _coverage_cache: dict[str, set[str] | None] = dataclasses.field(default_factory=dict, repr=False)
     _placemark_cache: dict[str, pl.DataFrame | None] = dataclasses.field(default_factory=dict, repr=False)
+    # whether the caller named a lead time: the request reads the short one where none was named, which is no
+    # asking (`parameter-without-rows` says what was asked for)
+    _lead_time_asked: bool = dataclasses.field(default=False, init=False, repr=False, compare=False)
 
     _url = (
         "https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/kml/"
@@ -806,6 +809,7 @@ class DwdDmoRequest(TimeseriesRequest):
             parse_enumeration_from_template(self.station_group, DwdDmoStationGroup)
             or DwdDmoStationGroup.SINGLE_STATIONS
         )
+        self._lead_time_asked = self.lead_time is not None
         self.lead_time = parse_enumeration_from_template(self.lead_time, DwdDmoLeadTime) or DwdDmoLeadTime.SHORT
         issue: str | dt.datetime | DwdForecastDate = self.issue
         # a datetime names no member of the enumeration, so only a string or a member is looked up
@@ -995,14 +999,14 @@ class DwdDmoRequest(TimeseriesRequest):
             return None
         return station_ids
 
-    def _narrowed_by(self) -> list[tuple[str, str]]:
+    def _narrowed_by(self, dataset: DatasetModel) -> list[tuple[str, str | None]]:
         """Add what the request asks of the run to what it is held to (`parameter-without-rows`)."""
-        narrowed = super()._narrowed_by()
+        narrowed = super()._narrowed_by(dataset)
         if isinstance(self.issue, dt.datetime):
-            narrowed.append((f"the run issued {self.issue:%Y-%m-%d %H} UTC", "issue"))
-        if self.lead_time is not None:
+            narrowed.append((f"the run issued {self.issue:%Y-%m-%d %H} UTC", None))
+        if self._lead_time_asked:
             lead_time = getattr(self.lead_time, "name", str(self.lead_time)).lower()
-            narrowed.append((f"the lead time asked for ({lead_time})", "lead_time"))
+            narrowed.append((f"the lead time asked for ({lead_time})", "try the other `lead_time`"))
         return narrowed
 
     def _all(self) -> pl.LazyFrame:

@@ -45,7 +45,9 @@ def _code_of(node: ast.expr, constants: dict[str, str]) -> str | None:
             for part in node.values
             if isinstance(part, (ast.Constant, ast.FormattedValue))
         ]
-        return "".join(str(part) for part in parts)
+        pattern = "".join(str(part) for part in parts)
+        # a code that is filled in entirely (`f"{kind}"`) matches any documented code and so checks nothing
+        return pattern if re.search(r"[a-z]", pattern) else None
     return None
 
 
@@ -119,6 +121,9 @@ def test_the_scan_reports_a_code_it_cannot_read() -> None:
     """A code that is computed is no code the docs can be held to, and the scan says where it is."""
     assert codes_in([ast.parse("warn_response(log, make_code(), 'm')")]) == (set(), [1])
     assert codes_in([ast.parse("warn_response(log)")]) == (set(), [1])
+    # an f-string that is nothing but a field reads as any code, which checks nothing
+    assert codes_in([ast.parse('warn_response(log, f"{kind}", "m")')]) == (set(), [1])
+    assert codes_in([ast.parse('warn_response(log, f"{kind}-{other}", "m")')]) == (set(), [1])
 
 
 def test_an_undocumented_code_is_found() -> None:

@@ -16,14 +16,14 @@ library as a library, nothing is recorded and the call is a log line.
 from __future__ import annotations
 
 import logging
-import threading
+from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, NotRequired
 
 from typing_extensions import TypedDict
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Iterator, Sequence
 
 
 class ResponseWarning(TypedDict):
@@ -55,46 +55,35 @@ _RECORDED: ContextVar[list[ResponseWarning] | None] = ContextVar("wetterdienst_r
 _COUNTED: ContextVar[dict[str, list[Any]] | None] = ContextVar("wetterdienst_counted_warnings", default=None)
 
 
-class _DownloadFailures:
-    """How many downloads of a walk failed and were left out of its answer, counted from any thread."""
-
-    def __init__(self) -> None:
-        self.count = 0
-        self._lock = threading.Lock()
-
-    def add(self) -> None:
-        with self._lock:
-            self.count += 1
+#: what a provider tells when it lets a file of the station being collected go (`note_skipped_download`): set by the
+#: walk of the values around the collection of one station, and `None` outside it
+_SKIPPING: ContextVar[Callable[[bool], None] | None] = ContextVar("wetterdienst_skipping", default=None)
 
 
-#: the downloads that failed and were let go, which a walk that reads its own count (`downloads_failed`) was watching
-_FAILURES: ContextVar[_DownloadFailures | None] = ContextVar("wetterdienst_download_failures", default=None)
+@contextmanager
+def collecting(note: Callable[[bool], None]) -> Iterator[None]:
+    """Have `note` told what a provider lets go while the block runs, which is the collection of one station."""
+    token = _SKIPPING.set(note)
+    try:
+        yield
+    finally:
+        _SKIPPING.reset(token)
 
 
-def downloads_failed() -> int:
-    """Give how many downloads have failed and been let go in this context, so that a walk can compare two readings.
+def note_skipped_download(*, whole_request: bool = False) -> None:
+    """Tell that the provider let a file go and answers without it: a station's readings may be missing for that.
 
-    A download that fails does not always fail the request: a provider logs it and goes on with the files it has, a
-    refusal of a rate limit among them. What is missing then may be missing for that reason, and the first reading
-    starts the count (the walk takes one before its first download).
+    For the places where a provider gives up on a file it expected to be there and goes on with the others: a
+    download that failed for good (a refusal, a file withdrawn since the listing, a timestamp not published), a body
+    that is an error in the guise of an answer (a maintenance page, an exception report), a file that would not
+    parse. Not for an answer that says there is nothing (a 404 for a station that does not report the parameter,
+    Frost's 412), nor for a download that failed and was made again with success. The station being collected is then
+    no evidence that the source holds nothing, and `parameter-without-rows` does not count it (`whole_request` for a
+    file that every station of the request is read from). Nothing happens outside the collection of a station.
     """
-    failures = _FAILURES.get()
-    if failures is None:
-        failures = _DownloadFailures()
-        _FAILURES.set(failures)
-    return failures.count
-
-
-def note_download_failure() -> None:
-    """Note that a download failed and the request goes on without it: for a failure that is not the source's answer.
-
-    A file that is not there (a 404) is an answer and is not noted by the network layer; a provider that treats one as
-    a gap in its window (a file withdrawn since the listing, a timestamp not yet published) notes it itself. Nothing is
-    noted where no walk takes a reading (`downloads_failed`) first.
-    """
-    failures = _FAILURES.get()
-    if failures is not None:
-        failures.add()
+    note = _SKIPPING.get()
+    if note is not None:
+        note(whole_request)
 
 
 def begin_response() -> None:
@@ -105,7 +94,6 @@ def begin_response() -> None:
     """
     _RECORDED.set([])
     _COUNTED.set({})
-    _FAILURES.set(None)
 
 
 def count_response_warning(code: str, count: int, message: str) -> None:

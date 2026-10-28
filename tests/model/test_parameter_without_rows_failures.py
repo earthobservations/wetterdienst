@@ -1,13 +1,14 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""A download that failed and was let go is no reason to say the source holds nothing (GH-3539).
+"""A file the provider let go is no evidence that the source holds nothing (GH-3539).
 
-Five providers log a download that failed and answer with what they have: the Frost discovery that was refused
-(429), an AEMET chunk, the road weather files withdrawn since the listing, a KNMI timestamp that is not there, an SMHI
-parameter file that was refused. What is missing then may be missing for that, and `parameter-without-rows` would tell
-a caller the opposite of what a retry would find: it is not told. A file that is not there (404) is the source's
-answer, and is still told. Each failure is made as the network layer makes it (`_failed_file`), as the stubs of the
-providers' own tests hand a `File` over directly.
+Providers log a file they gave up on and answer with the others: a refused download, an AEMET chunk, the road weather
+files withdrawn since the listing, a KNMI timestamp that is not there, an SMHI parameter file that was refused, an FMI
+exception report with HTTP 200. The station whose file was let go is not counted by `parameter-without-rows`
+(`note_skipped_download`), and the other stations are. An answer that says there is nothing (a 404 for a station that
+does not report the parameter, Frost's 412, an AEMET `estado` of 404), and a download that failed and was made again
+with success, are the source's answer and are still told. One test per family of providers, with the control that is
+the answer of the source.
 """
 
 from __future__ import annotations
@@ -21,10 +22,14 @@ import pytest
 from aiohttp import ClientResponseError
 
 from tests.conftest import BUFR_AVAILABLE
+from tests.provider.aemet.observation.test_api import BARCELONA, MADRID_RETIRO, _values
 from tests.provider.dwd.road.test_api import _stub_downloads, _stub_stations
+from tests.provider.fmi.observation.test_values_frames import _EXCEPTION_REPORT, _collection
+from tests.provider.fmi.observation.test_values_frames import _serve as _serve_fmi
+from tests.provider.fmi.observation.test_values_frames import _values as _fmi_values
 from tests.provider.knmi.observation.test_api import _daily_values, _serve_knmi
-from tests.provider.metno.frost.test_values_failures import _failed as _metno_404
-from tests.provider.metno.frost.test_values_failures import _values as _metno_values
+from tests.provider.metno.frost.test_values_failures import _failed as _frost_answer
+from tests.provider.metno.frost.test_values_failures import _values as _frost_values
 from tests.provider.smhi.observation.test_api_download_failure import _STATION
 from tests.provider.smhi.observation.test_api_download_failure import _request as _smhi_request
 from wetterdienst.provider.aemet.observation import api as aemet_api
@@ -41,65 +46,46 @@ if TYPE_CHECKING:
 CODE = "parameter-without-rows"
 
 
-def _refused(url: str, status: int = 429) -> File:
-    """Give a download the source refused, as the network layer hands it back."""
-    error = ClientResponseError(request_info=MagicMock(), history=(), status=status, message="refused")
-    file = _failed_file(url, error)
-    assert file is not None
-    assert file.status == status
-    return file
-
-
 def _told() -> list[dict[str, Any]]:
     """Give the warnings of `parameter-without-rows` that the request being served has recorded."""
     return [warning for warning in recorded_warnings() if warning["code"] == CODE]
 
 
-def test_a_refused_download_is_noted_and_a_missing_file_is_not() -> None:
-    """The network layer notes every failure but a 404, which is the answer of a source that has no such file."""
-    from wetterdienst.util.response_warnings import downloads_failed  # noqa: PLC0415
-
-    begin_response()
-    before = downloads_failed()
-    _failed_file("https://example.org/a", FileNotFoundError("not there"))
-    assert downloads_failed() == before
-    _refused("https://example.org/b", 404)
-    assert downloads_failed() == before
-    _refused("https://example.org/c", 429)
-    _failed_file("https://example.org/d", TimeoutError())
-    assert downloads_failed() == before + 2
+def _refused(url: str, status: int = 429) -> File:
+    """Give a download the source refused, as the network layer hands it back."""
+    error = ClientResponseError(request_info=MagicMock(), history=(), status=status, message="refused")
+    file = _failed_file(url, error)
+    assert file is not None
+    return file
 
 
-# met.no Frost: the discovery of the time series was refused (GH-2494)
+# met.no Frost: a 412 is Frost's answer for none, a refusal is a file let go
 
 
-@pytest.mark.parametrize(("refused", "told"), [(False, 1), (True, 0)], ids=["no time series", "discovery refused"])
-def test_frost_values_say_nothing_of_a_discovery_that_was_refused(
-    monkeypatch: pytest.MonkeyPatch, *, refused: bool, told: int
+@pytest.mark.parametrize(
+    ("status", "told"),
+    [(412, True), (404, True), (429, False), (500, False)],
+    ids=["412 is no data", "404 is no data", "429 refused", "500 failed"],
+)
+def test_frost_values_say_nothing_of_a_discovery_that_failed(
+    monkeypatch: pytest.MonkeyPatch, status: int, *, told: bool
 ) -> None:
-    """A 404 for the available time series is Frost's answer for none; a 429 for them is a failure."""
+    """Frost answers 412 or 404 for the available time series when there are none; anything else is let go."""
 
     def observations(url: str) -> File:
-        return _refused(url) if refused and "availableTimeSeries" in url else _metno_404(url, 404)
+        return _frost_answer(url, status) if "availableTimeSeries" in url else _frost_answer(url, 404)
 
-    values, _seen = _metno_values(monkeypatch, observations)
+    values, _seen = _frost_values(monkeypatch, observations)
     begin_response()
     assert values.all().df.is_empty()
-    assert len(_told()) == told
-    if told:
-        assert _told()[0]["stations"] == ["SN18700"]
+    assert [warning["stations"] for warning in _told()] == ([["SN18700"]] if told else [])
 
 
-# AEMET: a chunk that failed is skipped
+# AEMET: a chunk that failed is skipped; one that AEMET answered for with "no data" is the answer
 
 
-@pytest.mark.parametrize(("status", "told"), [(404, 1), (400, 0)], ids=["no data for the chunk", "chunk failed"])
-def test_aemet_values_say_nothing_of_a_chunk_that_failed(
-    monkeypatch: pytest.MonkeyPatch, status: int, told: int
-) -> None:
-    """A 404 is AEMET answering that it has no data for the chunk; any other 4xx is a request that failed."""
-    from tests.provider.aemet.observation.test_api import MADRID_RETIRO, _values  # noqa: PLC0415
-
+def _aemet_serving(monkeypatch: pytest.MonkeyPatch, answer: Callable[[str], File]) -> None:
+    """Serve the station list as two stations, and every request for values as `answer` says."""
     stations = json.dumps(
         [
             {
@@ -110,18 +96,81 @@ def test_aemet_values_say_nothing_of_a_chunk_that_failed(
                 "latitud": "402941N",
                 "longitud": "34041W",
             },
+            {
+                "indicativo": BARCELONA,
+                "nombre": "BARCELONA AEROPUERTO",
+                "provincia": "BARCELONA",
+                "altitud": "4",
+                "latitud": "412258N",
+                "longitud": "020412E",
+            },
         ]
     ).encode("latin-1")
     fetch = aemet_api._fetch_datos  # noqa: SLF001
+    retry = aemet_api._download_with_rate_limit_retry  # noqa: SLF001
 
-    def serving(url: str, settings: Settings, ttl: Any) -> bytes | Exception:  # noqa: ANN401
-        return stations if "todasestaciones" in url else fetch(url, settings, ttl)
+    def fetching(url: str, settings: Settings, ttl: object) -> bytes | Exception:
+        return stations if "todasestaciones" in url else fetch(url, settings, ttl)  # ty: ignore[invalid-argument-type]
 
-    monkeypatch.setattr(aemet_api, "_fetch_datos", serving)
-    monkeypatch.setattr(aemet_api, "_download_with_rate_limit_retry", lambda url, *_a, **_k: _refused(url, status))
+    def downloading(url: str, settings: Settings, ttl: object, **_kwargs: object) -> File:
+        # the retry is the provider's own, with no time to wait between attempts
+        return retry(url, settings, ttl, wait_initial=0.001, wait_max=0.001, max_retries=2)  # ty: ignore[invalid-argument-type]
+
+    monkeypatch.setattr(aemet_api, "_fetch_datos", fetching)
+    monkeypatch.setattr(aemet_api, "_download_with_rate_limit_retry", downloading)
+    monkeypatch.setattr(aemet_api, "download_file", lambda url, **_kwargs: answer(url))
+
+
+def _envelope(url: str, estado: int, **extra: str) -> File:
+    body = json.dumps({"estado": estado, "descripcion": "the answer", **extra}).encode()
+    return File(url=url, content=BytesIO(body), status=200)
+
+
+_AEMET_KINDS = [
+    pytest.param(lambda url: _refused(url, 400), False, id="400"),
+    pytest.param(lambda url: File(url=url, content=BytesIO(b"<html>maintenance</html>"), status=200), False, id="html"),
+    pytest.param(lambda url: _envelope(url, 400), False, id="estado 400 in a 200"),
+    pytest.param(lambda url: _envelope(url, 404), True, id="estado 404 is no data"),
+    pytest.param(lambda url: _failed_file(url, FileNotFoundError(url)), True, id="404 is no data"),
+]
+
+
+@pytest.mark.parametrize(("answer", "told"), _AEMET_KINDS)
+def test_aemet_values_say_nothing_of_a_chunk_that_was_let_go(
+    monkeypatch: pytest.MonkeyPatch, answer: Callable[[str], File], *, told: bool
+) -> None:
+    """A chunk that failed, or whose body is no answer (a page, an `estado` that is an error), is let go."""
+    _aemet_serving(monkeypatch, answer)
     begin_response()
     assert _values("daily", years=1).is_empty()
-    assert len(_told()) == told
+    assert len(_told()) == (1 if told else 0)
+
+
+def test_aemet_values_tell_of_a_chunk_that_failed_and_then_came_without_data(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A download that failed and was made again with success is no file let go: its answer is the source's."""
+    calls: list[str] = []
+
+    def answer(url: str) -> File:
+        calls.append(url)
+        # the first try of each request fails, the second is AEMET's answer that it has no data
+        return _refused(url, 503) if calls.count(url) == 1 else _envelope(url, 404)
+
+    _aemet_serving(monkeypatch, answer)
+    begin_response()
+    assert _values("daily", years=1).is_empty()
+    assert len(_told()) == 1
+    assert any(calls.count(url) == 2 for url in calls)
+
+
+def test_aemet_values_name_the_station_that_was_not_let_go(monkeypatch: pytest.MonkeyPatch) -> None:
+    """One station's chunk fails and the other's is AEMET's answer of no data: the warning names the other."""
+    _aemet_serving(
+        monkeypatch,
+        lambda url: _refused(url, 400) if f"/{MADRID_RETIRO}" in url else _envelope(url, 404),
+    )
+    begin_response()
+    assert _values("daily", years=1, station_ids=(MADRID_RETIRO, BARCELONA)).is_empty()
+    assert [warning["stations"] for warning in _told()] == [[BARCELONA]]
 
 
 # dwd/road: the files withdrawn since the listing
@@ -138,7 +187,7 @@ def test_road_weather_says_nothing_of_files_withdrawn_since_the_listing(monkeypa
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_road_weather_tells_of_files_that_hold_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Files that arrived and hold no reading are no failure: the station has none of the parameter, and it is told."""
+    """Files that arrived and hold no reading are no file let go: the station has none of the parameter."""
     _stub_downloads(monkeypatch, [BytesIO(b"x" * 142), BytesIO(b"x" * 142)])
     begin_response()
     assert _stub_stations().values().all().df.is_empty()
@@ -151,7 +200,7 @@ def test_road_weather_tells_of_files_that_hold_nothing(monkeypatch: pytest.Monke
 def test_knmi_values_say_nothing_of_a_timestamp_that_is_not_there(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """A file KNMI answers for with a 404 is skipped with a warning of its own, and the answer around it is a gap."""
+    """A file KNMI answers for with a 404 is a moment it does not have, which the provider skips and warns of."""
     _serve_knmi(monkeypatch, tmp_path, FileNotFoundError("not published"))
     begin_response()
     assert _daily_values(days=2).is_empty()
@@ -164,16 +213,14 @@ def test_knmi_values_say_nothing_of_a_timestamp_that_is_not_there(
 @pytest.mark.parametrize(
     ("serving", "told"),
     [
-        pytest.param(lambda url: _failed_file(url, FileNotFoundError("not found")), 1, id="not reported"),
-        pytest.param(lambda url: _refused(url, 403), 0, id="refused"),
+        pytest.param(lambda url: _failed_file(url, FileNotFoundError("not found")), True, id="not reported"),
+        pytest.param(lambda url: _refused(url, 403), False, id="refused"),
     ],
 )
 def test_smhi_values_say_nothing_of_a_file_that_was_refused(
-    monkeypatch: pytest.MonkeyPatch,
-    serving: Callable[[str], File],
-    told: int,
+    monkeypatch: pytest.MonkeyPatch, serving: Callable[[str], File], *, told: bool
 ) -> None:
-    """A 404 is SMHI answering that the station does not report the parameter; a refusal is a failure."""
+    """A 404 is SMHI answering that the station does not report the parameter; a refusal is a file let go."""
 
     def download_files(urls: list[str], **_: object) -> list[File]:
         body = json.dumps({"station": [_STATION]}).encode()
@@ -183,21 +230,27 @@ def test_smhi_values_say_nothing_of_a_file_that_was_refused(
     monkeypatch.setattr(smhi_api, "download_file", lambda url, **_: serving(url))
     begin_response()
     assert _smhi_request().values().all().df.is_empty()
-    assert len(_told()) == told
+    assert len(_told()) == (1 if told else 0)
 
 
-def test_a_failure_in_a_thread_of_download_files_is_noted_for_the_request(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+# FMI: an exception report is answered with HTTP 200
+
+
+@pytest.mark.parametrize(
+    ("answer", "told"),
+    [
+        pytest.param(_EXCEPTION_REPORT, False, id="exception report"),
+        pytest.param(_collection(), True, id="empty collection"),
+    ],
+)
+def test_fmi_values_say_nothing_of_an_exception_report(
+    monkeypatch: pytest.MonkeyPatch, answer: bytes, *, told: bool
 ) -> None:
-    """`download_files` downloads in threads, which have no context of their own: what they note is the caller's."""
-    from wetterdienst.util import network  # noqa: PLC0415
-    from wetterdienst.util.response_warnings import downloads_failed  # noqa: PLC0415
+    """FMI answers 200 for an error as well as for a station that reports nothing; only the second is told."""
+    import datetime as dt  # noqa: PLC0415
 
-    monkeypatch.setattr(network, "download_file", lambda url, **_: _refused(url))
+    _serve_fmi(monkeypatch, answer)
     begin_response()
-    before = downloads_failed()
-
-    files = network.download_files(["https://example.org/a", "https://example.org/b"], cache_dir=tmp_path)
-
-    assert [file.status for file in files] == [429, 429]
-    assert downloads_failed() == before + 2
+    start = dt.datetime(2024, 1, 1, tzinfo=dt.UTC)
+    assert _fmi_values("hourly", start, start + dt.timedelta(hours=1)).is_empty()
+    assert len(_told()) == (1 if told else 0)

@@ -41,6 +41,7 @@ from wetterdienst.util.network import (
     drop_cached_file,
     fetchable_link,
 )
+from wetterdienst.util.response_warnings import note_skipped_download
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -279,6 +280,17 @@ def _key_rejected() -> CredentialRejectedError:
     return credential_rejected("AEMET", "AEMET", "API key")
 
 
+def _note_skipped_chunk(payload: Exception) -> None:
+    """Tell that a chunk is left out of the answer, unless AEMET answered for it that it has no data (a 404).
+
+    Everything else that comes back as a failure is a chunk the reader lets go: a refusal, an envelope of an `estado`
+    that is no answer, a body that is no envelope (a maintenance page answered with HTTP 200).
+    """
+    if isinstance(payload, FileNotFoundError) or getattr(payload, "status", None) == HTTPStatus.NOT_FOUND:
+        return
+    note_skipped_download()
+
+
 def _raise_if_unanswered(payload: bytes | Exception) -> None:
     """Raise what `_fetch_datos` returned if it is not an answer to the request, or a refusal of the key.
 
@@ -488,6 +500,7 @@ class AemetObservationValues(TimeseriesValues):
         payload = _fetch_datos(url, settings, CacheExpiry.FIVE_MINUTES)
         _raise_if_unanswered(payload)
         if isinstance(payload, Exception):
+            _note_skipped_chunk(payload)
             log.warning(
                 f"Failed to acquire AEMET data for station {station_id}, chunk {url}: "
                 f"{_without_url_secrets_in(str(payload))}"
@@ -549,6 +562,7 @@ class AemetObservationValues(TimeseriesValues):
                 # AEMET answered, and the answer is no data for this chunk (a 404): this chunk is
                 # missing from the result. A rate limit that outlasted the retries is no answer
                 # and was raised above (GH-2989).
+                _note_skipped_chunk(payload)
                 log.warning(
                     f"Failed to acquire AEMET data for station {station_id}, chunk {url}: "
                     f"{_without_url_secrets_in(str(payload))}"
@@ -615,6 +629,7 @@ class AemetObservationValues(TimeseriesValues):
             payload = _fetch_datos(url, settings, CacheExpiry.FIVE_MINUTES)
             _raise_if_unanswered(payload)
             if isinstance(payload, Exception):
+                _note_skipped_chunk(payload)
                 log.warning(
                     f"Failed to acquire AEMET data for station {station_id}, chunk {url}: "
                     f"{_without_url_secrets_in(str(payload))}"

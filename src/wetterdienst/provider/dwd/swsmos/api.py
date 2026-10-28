@@ -36,6 +36,7 @@ from wetterdienst.provider.dwd.swsmos.metadata import DwdSwsmosMetadata
 from wetterdienst.util.archive import bunzip2
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
+from wetterdienst.util.response_warnings import note_skipped_download
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -331,6 +332,8 @@ class DwdSwsmosValues(TimeseriesValues):
                         dt.datetime.strptime(stamp.group(1), "%Y%m%d%H%M%S").replace(tzinfo=_UTC) if stamp else None
                     )
                     break
+            if frame.is_empty():
+                note_skipped_download(whole_request=True)
             self._run_frame_cache = frame
         return self._run_frame_cache
 
@@ -452,11 +455,11 @@ class DwdSwsmosRequest(TimeseriesRequest):
             for name in runs
         ]
 
-    def _narrowed_by(self) -> list[tuple[str, str]]:
+    def _narrowed_by(self, dataset: DatasetModel) -> list[tuple[str, str | None]]:
         """Add what the request asks of the run to what it is held to (`parameter-without-rows`)."""
-        narrowed = super()._narrowed_by()
+        narrowed = super()._narrowed_by(dataset)
         if isinstance(self.issue, dt.datetime):
-            narrowed.append((f"the run issued {self.issue:%Y-%m-%d %H} UTC", "issue"))
+            narrowed.append((f"the run issued {self.issue:%Y-%m-%d %H} UTC", None))
         return narrowed
 
     def _all(self) -> pl.LazyFrame:
