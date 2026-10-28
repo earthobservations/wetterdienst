@@ -1948,12 +1948,12 @@ def test_dmo_coverage_names_the_lead_times_whose_run_carries_each_parameter() ->
                 if run in published[dataset] and parameter["name_original"] in _DMO_SERVED_BY[run]
             ]
             assert parameter["lead_times"] == carried_by, (dataset, parameter["name"])
-            assert set(parameter) == {
+            # `unit_source` is there only where the provider's unit is not the one the values come in
+            assert set(parameter) - {"unit_source"} == {
                 "name",
                 "name_original",
                 "unit_type",
                 "unit",
-                "unit_source",
                 "description",
                 "lead_times",
             }

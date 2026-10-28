@@ -1542,9 +1542,10 @@ def get_glossary(
 ) -> list[GlossaryEntry]:
     """Return the canonical parameter vocabulary, optionally filtered.
 
-    `coverage` answers which parameters a given provider offers, with the unit each comes back in under the
-    default options; this answers what any of them means, for every provider, and the unit under the caller's
-    `unit_targets`, which `coverage` takes no option for.
+    `coverage` answers which parameters a given provider offers, with the unit each comes back in for a
+    request that passes no options (the environment's targets, as here); this answers what any of them means,
+    for every provider, and the unit under the `unit_targets` of the `options` given, which `coverage` takes
+    no option for.
 
     `parameter` matches as a substring, since the useful question over several hundred names is usually
     "everything about radiation" rather than one exact name. An exact name deliberately does *not*

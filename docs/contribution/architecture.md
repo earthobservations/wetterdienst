@@ -132,7 +132,7 @@ declaration fails when the module is imported.
 - **Periods and `date_required`** can be declared on the resolution and are copied to every dataset that does not
   declare its own.
 - **A parameter** declares the canonical `name`, the source's `name_original` and the `unit` the source publishes (`coverage`
-  reports it as `unit_source`, and as `unit` the target of its unit type, which is what the values come back in). It
+  reports it as `unit_source` where it differs from `unit`, the target of its unit type, which is what the values come back in). It
   does not declare a unit type: that is read from the canonical parameter table (`wetterdienst.metadata.parameter_table`)
   through the canonical name, so one quantity cannot have two unit types.
 - **Descriptions** may be declared (every level has a `description` field) and one a provider declares wins.
