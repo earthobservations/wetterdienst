@@ -413,6 +413,25 @@ const STATES: State[] = [
       await expect(page.getByRole('listbox').getByRole('option').first()).toBeVisible()
     },
   },
+  // the forecast's day cards, a scroller that has to be reachable by keyboard: on a phone, where the forecast is these cards
+  {
+    page: 'meteogram',
+    state: 'day-cards',
+    path: '/meteogram?station=01001',
+    viewport: { width: 390, height: 844 },
+    reach: async (page, locale) => {
+      await expect(page.getByRole('region', { name: message(locale, 'meteogram.chart.dayOverview') })).toBeVisible()
+    },
+  },
+  {
+    page: 'widget',
+    state: 'day-cards',
+    path: '/widget?station=01001',
+    viewport: { width: 390, height: 844 },
+    reach: async (page, locale) => {
+      await expect(page.getByRole('region', { name: message(locale, 'meteogram.chart.dayOverview') })).toBeVisible()
+    },
+  },
   // the palette over the drawer or the rail's popover, which stay open behind it: the palette is found by its own field, not
   // as the first dialog, and is held to the same list in each of its states
   {

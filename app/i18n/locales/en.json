@@ -439,7 +439,8 @@
         "cloudy": "Cloudy",
         "partlyCloudy": "Partly cloudy",
         "clear": "Sunny"
-      }
+      },
+      "dayOverview": "Day overview"
     },
     "orChooseMap": "or",
     "chooseOnMap": "Choose a station on the map",

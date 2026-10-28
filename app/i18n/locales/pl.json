@@ -439,7 +439,8 @@
         "cloudy": "Pochmurno",
         "partlyCloudy": "Częściowe zachmurzenie",
         "clear": "Słonecznie"
-      }
+      },
+      "dayOverview": "Przegląd dni"
     },
     "orChooseMap": "lub",
     "chooseOnMap": "Wybierz stację na mapie",

@@ -569,8 +569,9 @@ test.describe('Printing', () => {
 })
 
 test.describe('Charts on paper', () => {
-  // A4 is about 718 CSS pixels wide with the browser's margins; a chart is drawn as wide as the window's page
-  const PAPER = 720
+  // The column of A4 with 1 inch margins is 602 CSS pixels (718 with the browser's default 0.4 inch, Letter has more): what the
+  // chart takes, with the paddings and borders of what it stands in up to the page's column, must fit in that
+  const COLUMN = 602
   const EXPLORER = '/explorer?provider=dwd&network=observation&resolution=daily&dataset=climate_summary&parameters=temperature_air_max_2m,temperature_air_mean_2m&mode=station&stations=00011'
   const charts = [
     { name: 'the climate stripes', path: '/stripes?kind=temperature&station=00011', reach: async (page: Page) => {
@@ -593,19 +594,57 @@ test.describe('Charts on paper', () => {
       const svg = page.locator('.js-plotly-plot .main-svg').first()
       await expect(svg).toBeVisible()
       const width = () => svg.evaluate(element => element.getBoundingClientRect().width)
+      // the room the chart takes in the page's column: itself and the paddings and borders around it (as the page measures them)
+      const taken = () => svg.evaluate((element) => {
+        const chart = element.closest('.js-plotly-plot') as HTMLElement
+        let insets = 0
+        for (let ancestor: HTMLElement | null = chart; ancestor && ancestor !== document.body; ancestor = ancestor.parentElement) {
+          const style = getComputedStyle(ancestor)
+          insets += ['paddingLeft', 'paddingRight', 'borderLeftWidth', 'borderRightWidth'].reduce((sum, key) => sum + (Number.parseFloat((style as any)[key]) || 0), 0)
+          if (ancestor.hasAttribute('data-width'))
+            break
+        }
+        return element.getBoundingClientRect().width + insets
+      })
       const screen = await width()
-      expect(screen).toBeGreaterThan(PAPER)
+      expect(await taken()).toBeGreaterThan(COLUMN)
 
       await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')))
-      expect(await width()).toBeLessThanOrEqual(PAPER)
+      expect(await taken()).toBeLessThanOrEqual(COLUMN)
       // a second beforeprint with no afterprint (some browsers) changes nothing and loses nothing
       await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')))
-      expect(await width()).toBeLessThanOrEqual(PAPER)
+      expect(await taken()).toBeLessThanOrEqual(COLUMN)
 
       await page.evaluate(() => window.dispatchEvent(new Event('afterprint')))
       expect(Math.round(await width())).toBe(Math.round(screen))
     })
   }
+})
+
+test.describe('A print that sends no afterprint', () => {
+  test('puts the page back when the print media stops applying', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/stripes?kind=temperature&station=00011')
+    await page.getByRole('button', { name: 'Show', exact: true }).click()
+    const chart = page.locator('.js-plotly-plot').first()
+    await expect(chart.locator('.main-svg').first()).toBeVisible()
+    const screen = await chart.locator('.main-svg').first().evaluate(element => element.getBoundingClientRect().width)
+
+    await page.emulateMedia({ media: 'print' })
+    await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')))
+    await expect(page.locator('html')).not.toHaveClass(/dark/)
+    expect(await chart.evaluate(element => element.style.zoom)).not.toBe('')
+
+    // the print is over (the media is the screen's again), and no afterprint came
+    await page.emulateMedia({ media: 'screen' })
+
+    await expect(page.locator('html')).toHaveClass(/dark/)
+    await expect(page.locator('html')).not.toHaveAttribute('data-printing', /.*/)
+    expect(await chart.evaluate(element => element.style.zoom)).toBe('')
+    expect(Math.round(await chart.locator('.main-svg').first().evaluate(element => element.getBoundingClientRect().width))).toBe(Math.round(screen))
+  })
 })
 
 test.describe('The palette', () => {

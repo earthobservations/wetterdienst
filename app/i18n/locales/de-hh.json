@@ -439,7 +439,8 @@
         "cloudy": "Wulkig",
         "partlyCloudy": "Deelwies wulkig",
         "clear": "Sünnig"
-      }
+      },
+      "dayOverview": "Daagsöversicht"
     },
     "orChooseMap": "oder",
     "chooseOnMap": "Station op de Kaart utsöken",

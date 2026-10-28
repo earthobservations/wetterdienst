@@ -439,7 +439,8 @@
         "cloudy": "Skyet",
         "partlyCloudy": "Delvis skyet",
         "clear": "Solrigt"
-      }
+      },
+      "dayOverview": "Dagsoversigt"
     },
     "orChooseMap": "eller",
     "chooseOnMap": "Vælg en station på kortet",

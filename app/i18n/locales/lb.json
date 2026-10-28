@@ -439,7 +439,8 @@
         "cloudy": "Wollekeg",
         "partlyCloudy": "Deelweis wollekeg",
         "clear": "Sonneg"
-      }
+      },
+      "dayOverview": "Iwwersiicht vun den Deeg"
     },
     "orChooseMap": "oder",
     "chooseOnMap": "Wiel eng Statioun op der Kaart",

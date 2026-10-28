@@ -32,7 +32,9 @@ Types of changes:
   draws its own background, so it reads on any page that frames it (GH-3518)
 - `[Print]` A page prints without the sidebar, the bars, the skip link and the footer, and a page
   in dark mode prints in light colours, except its charts, which keep the colours of the screen.
-  A chart is scaled to the width of the paper instead of cut off at its edge (GH-3518)
+  A chart is scaled to the room it has on the narrowest usual paper (A4, 1 inch margins) instead
+  of being cut off at the edge of its card, and the page is put back if no afterprint comes
+  (GH-3518)
 
 ### Fixed
 

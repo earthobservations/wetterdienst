@@ -439,7 +439,8 @@
         "cloudy": "Nuvoloso",
         "partlyCloudy": "Parzialmente nuvoloso",
         "clear": "Soleggiato"
-      }
+      },
+      "dayOverview": "Panoramica dei giorni"
     },
     "orChooseMap": "o",
     "chooseOnMap": "Scegli una stazione sulla mappa",

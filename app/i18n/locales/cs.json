@@ -439,7 +439,8 @@
         "cloudy": "Zataženo",
         "partlyCloudy": "Polojasno",
         "clear": "Slunečno"
-      }
+      },
+      "dayOverview": "Přehled dnů"
     },
     "orChooseMap": "nebo",
     "chooseOnMap": "Vyber stanici na mapě",

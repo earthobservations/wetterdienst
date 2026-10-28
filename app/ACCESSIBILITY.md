@@ -117,9 +117,13 @@ with nothing focused, and closed by Escape or a click outside. The next Tab then
 one after the skip link would. Printing: the skip link, the sidebar, the bars and the footer are not printed (`print:hidden`,
 in the markup, so that it holds for a print of a page whose scripts did not run again), a dark page prints in the light
 colours (`plugins/print-light.client.ts`), except its charts, which take theirs from the colour mode and keep the screen's
-(the forecast's light labels on white paper in a print from dark mode are known), and each Plotly chart is scaled to the width of
-the paper (`zoom`, 700 px) for the print and back after it, instead of being cut off at the edge. E2e checks hold the media
-rules and the scaling. A page that is chosen
+(the forecast's light labels on white paper in a print from dark mode are known), and each Plotly chart is scaled to the room it has
+(`zoom`): the column of the narrowest usual paper (A4 with 1 inch margins, 602 px; Letter and the browser's default margins
+have more) less the paddings and borders of what it stands in, measured on the screen, so that it is whole in the card that
+clips it; it is scaled when the print starts and put back after it, and also when the print media stops applying or the page
+goes, for a browser that sends no `afterprint`. E2e checks hold the media rules, the scaling (what the chart and its insets
+take fits the column), the safety net and the day cards' scroller (a labelled region you can reach by keyboard, scanned on a
+phone for the forecast and the widget). A page that is chosen
 in the palette closes the rail's settings popover that was open under it.
 
 There is no sepia mode. `main.css` once held a `html.sepia` block that redefined the `--ui-*` tokens, which
