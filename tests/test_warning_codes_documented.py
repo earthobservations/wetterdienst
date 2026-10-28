@@ -136,32 +136,58 @@ def test_an_undocumented_code_is_found() -> None:
 # the providers that tell the walk of a file they let go are the ones the docs name
 
 
+def _names_of_the_note(tree: ast.Module) -> set[str]:
+    """Give the names a module calls `note_skipped_download` by: its own name, and any `import ... as` alias of it."""
+    names = {"note_skipped_download"}
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.ImportFrom, ast.Import)):
+            names.update(alias.asname for alias in node.names if alias.name == "note_skipped_download" and alias.asname)
+    return names
+
+
+def _calls_the_note(tree: ast.Module) -> bool:
+    """Tell whether a module calls `note_skipped_download` by name, by alias, or as an attribute of a module."""
+    names = _names_of_the_note(tree)
+    return any(
+        isinstance(node, ast.Call) and getattr(node.func, "id", getattr(node.func, "attr", None)) in names
+        for node in ast.walk(tree)
+    )
+
+
 def _providers_calling(trees_by_path: dict[pathlib.Path, ast.Module]) -> set[str]:
     """Give `provider/network` of every module under `provider/` that calls `note_skipped_download`."""
-    found: set[str] = set()
-    for path, tree in trees_by_path.items():
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Call) and getattr(node.func, "id", getattr(node.func, "attr", None)) == (
-                "note_skipped_download"
-            ):
-                relative = path.relative_to(SRC / "provider").parts
-                found.add("/".join(relative[:2]))
-    return found
+    return {
+        "/".join(path.relative_to(SRC / "provider").parts[:2])
+        for path, tree in trees_by_path.items()
+        if _calls_the_note(tree)
+    }
 
 
 def _providers_documented(text: str) -> set[str]:
     """Give the `provider/network` the docs name between "This is done for" and the sentence on the other providers."""
-    match = re.search(r"This is done for (.*?); for any other provider", text, flags=re.DOTALL)
+    match = re.search(r"This\s+is\s+done\s+for\s+(.*?);\s+for\s+any\s+other\s+provider", text, flags=re.DOTALL)
     assert match, "the docs say which providers tell the walk of a file they let go"
     return set(re.findall(r"`([a-z_]+/[a-z_]+)`", match.group(1)))
 
 
 def test_the_providers_that_let_a_file_go_are_the_ones_the_docs_name() -> None:
-    """The claim and the code cannot drift: a provider that calls `note_skipped_download` is in the docs, and back."""
-    trees = {path: ast.parse(path.read_text(encoding="utf-8")) for path in (SRC / "provider").rglob("*.py")}
-    called = _providers_calling(trees)
+    """The claim and the code cannot drift: a provider that calls `note_skipped_download` is in the docs, and back.
+
+    A helper outside `provider/` that calls it would hide which provider lets a file go, so there is none.
+    """
+    trees = {path: ast.parse(path.read_text(encoding="utf-8")) for path in SRC.rglob("*.py")}
+    outside = sorted(
+        str(path.relative_to(SRC))
+        for path, tree in trees.items()
+        if (SRC / "provider") not in path.parents and path.name != "response_warnings.py" and _calls_the_note(tree)
+    )
+    providers = {path: tree for path, tree in trees.items() if (SRC / "provider") in path.parents}
+    called = _providers_calling(providers)
     documented = _providers_documented(DOCS.read_text(encoding="utf-8"))
 
+    assert outside == [], (
+        "a helper outside provider/ calls note_skipped_download: name its providers in the docs by hand"
+    )
     assert len(called) >= 10, "the scan finds the providers"
     assert called == documented
 
@@ -174,8 +200,9 @@ def test_the_providers_scan_reads_each_call_and_the_docs_sentence() -> None:
         ),
         SRC / "provider" / "c" / "d" / "api.py": ast.parse("mod.note_skipped_download(whole_request=True)"),
         SRC / "provider" / "e" / "f" / "api.py": ast.parse("from x import note_skipped_download"),
+        SRC / "provider" / "g" / "h" / "api.py": ast.parse("from x import note_skipped_download as let_go\nlet_go()"),
     }
-    assert _providers_calling(trees) == {"a/b", "c/d"}
+    assert _providers_calling(trees) == {"a/b", "c/d", "g/h"}
     assert _providers_documented("This is done for `a/b`,\n  `c/d` and `g/h`; for any other provider `x/y`") == {
         "a/b",
         "c/d",

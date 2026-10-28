@@ -45,6 +45,9 @@ def download_climate_derived_data(
             file.raise_if_exception()
         else:
             note_skipped_download()
+            log.warning(
+                f"The file {file.url} that the file index lists is not on the server (404): its values are missing"
+            )
     files = [file for file in files if isinstance(file.content, BytesIO)]
     # unpack the files
     return [_unpack_climate_derived_data(file) for file in files]

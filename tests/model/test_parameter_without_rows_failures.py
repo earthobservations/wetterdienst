@@ -47,6 +47,16 @@ if TYPE_CHECKING:
 CODE = "parameter-without-rows"
 
 
+def _road_stations(station_ids: tuple[str, ...] = ("A006",)) -> Any:  # noqa: ANN401
+    """Stand road stations up with the window the dataset needs, as the REST API and the command line demand."""
+    import datetime as dt  # noqa: PLC0415
+
+    stations = _stub_stations(station_ids)
+    stations.request.start = dt.datetime(2026, 9, 13, tzinfo=dt.UTC)
+    stations.request.end = dt.datetime(2026, 9, 13, 23, tzinfo=dt.UTC)
+    return stations
+
+
 def _told() -> list[dict[str, Any]]:
     """Give the warnings of `parameter-without-rows` that the request being served has recorded."""
     return [warning for warning in recorded_warnings() if warning["code"] == CODE]
@@ -182,7 +192,7 @@ def test_road_weather_says_nothing_of_files_withdrawn_since_the_listing(monkeypa
     """A 404 there is a gap in the window (DWD removed the file), which the provider logs and answers around."""
     _stub_downloads(monkeypatch, [FileNotFoundError("x"), FileNotFoundError("x")], status=404)
     begin_response()
-    assert _stub_stations().values().all().df.is_empty()
+    assert _road_stations().values().all().df.is_empty()
     assert _told() == []
 
 
@@ -191,7 +201,7 @@ def test_road_weather_tells_of_files_that_hold_nothing(monkeypatch: pytest.Monke
     """Files that arrived and hold no reading are no file let go: the station has none of the parameter."""
     _stub_downloads(monkeypatch, [BytesIO(b"x" * 142), BytesIO(b"x" * 142)])
     begin_response()
-    assert _stub_stations().values().all().df.is_empty()
+    assert _road_stations().values().all().df.is_empty()
     assert [warning["stations"] for warning in _told()] == [["A006"]]
 
 
@@ -277,8 +287,10 @@ _FROST_ANSWERS = {
     "batch empty": {"batch": _empty_body},
     "single empty": {"single": _empty_body},
     "available empty": {"available": _empty_body},
-    "series 404": {"series": lambda url: _frost_answer(url, 404)},
     "series empty": {"series": _empty_body},
+    "batch failed": {"batch": lambda url: _frost_answer(url, 500)},
+    "single failed": {"single": lambda url: _frost_answer(url, 500)},
+    "series failed": {"series": lambda url: _frost_answer(url, 500)},
 }
 
 
@@ -290,9 +302,7 @@ def _frost_listing(url: str) -> File:
 
 
 @pytest.mark.parametrize("case", _FROST_ANSWERS)
-def test_frost_values_say_nothing_of_a_body_that_is_empty_or_a_series_that_is_gone(
-    monkeypatch: pytest.MonkeyPatch, case: str
-) -> None:
+def test_frost_values_say_nothing_of_a_body_that_is_empty(monkeypatch: pytest.MonkeyPatch, case: str) -> None:
     """A 200 with no body, and a series the listing just named that is not there, are files let go."""
     answers = {
         "batch": lambda url: _frost_answer(url, 404),
@@ -308,14 +318,21 @@ def test_frost_values_say_nothing_of_a_body_that_is_empty_or_a_series_that_is_go
     assert _told() == []
 
 
-def test_frost_values_tell_of_a_series_that_frost_answers_has_no_data(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A 412 for a series is Frost's answer for none, and is told."""
+@pytest.mark.parametrize("status", [404, 412])
+def test_frost_values_tell_of_a_series_that_frost_answers_has_no_data(
+    monkeypatch: pytest.MonkeyPatch, status: int
+) -> None:
+    """Frost's 404 and 412 are its answer for none, and are told.
+
+    The 404 is "No data was found for the query parameters" (a listed series may have a gap in the window), the 412 "No
+    available time series for the query parameters" (Frost's swagger of `/observations/v0`).
+    """
 
     def observations(url: str) -> File:
         kind = _frost_kind(url)
         if kind == "available":
             return _frost_listing(url)
-        return _frost_answer(url, 412 if kind == "series" else 404)
+        return _frost_answer(url, status if kind == "series" else 404)
 
     values, _seen = _frost_values(monkeypatch, observations)
     begin_response()
@@ -356,7 +373,7 @@ def test_road_weather_names_none_of_the_stations_of_a_group_a_file_of_which_was_
     """The group is read once and cached for the stations after the first: it is let go for each of them."""
     _stub_downloads(monkeypatch, contents, status=404)
     begin_response()
-    assert _stub_stations(("A006", "A007")).values().all().df.is_empty()
+    assert _road_stations(("A006", "A007")).values().all().df.is_empty()
     assert _told() == []
 
 
@@ -612,4 +629,68 @@ def test_aemet_values_say_nothing_of_a_chunk_that_failed_at_any_resolution(
     _aemet_serving(monkeypatch, lambda url: _refused(url, 400))
     begin_response()
     assert _values(resolution, years=1).is_empty()
+    assert _told() == []
+
+
+def test_wsv_values_tell_of_a_series_that_pegelonline_says_does_not_exist(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pegelonline answers a series it has not with 404 "Timeseries does not exist.": its answer, not a file let go."""
+    from types import SimpleNamespace  # noqa: PLC0415
+
+    from wetterdienst import Settings  # noqa: PLC0415
+    from wetterdienst.provider.wsv.pegel import api as wsv_api  # noqa: PLC0415
+    from wetterdienst.util.response_warnings import collecting  # noqa: PLC0415
+
+    parameter, resolution = next(
+        (p, r.name)
+        for r in wsv_api.WsvPegelRequest.metadata
+        for dataset in r
+        for p in dataset
+        if p.name_original == "W"
+    )
+    equidistance = next(e for e, name in wsv_api._EQUIDISTANCE_TO_RESOLUTION.items() if name == resolution)  # noqa: SLF001
+    meta = wsv_api.TimeseriesMeta(unit="cm", equidistance=equidistance)
+
+    def download_file(**kwargs: str) -> File:
+        return File(url=kwargs["url"], content=FileNotFoundError(kwargs["url"]), status=404)
+
+    monkeypatch.setattr(wsv_api, "download_file", download_file)
+    values = SimpleNamespace(
+        sr=SimpleNamespace(request=SimpleNamespace(settings=Settings(cache_disable=True))),
+        _timeseries_meta=lambda _settings: {("0001", "W"): meta},
+        _endpoint=wsv_api.WsvPegelValues._endpoint,  # noqa: SLF001
+    )
+    letting_go: list[bool] = []
+
+    with collecting(letting_go.append):
+        df = wsv_api.WsvPegelValues._collect_station_parameter_or_dataset(values, "0001", parameter)  # noqa: SLF001
+
+    assert df.is_empty()
+    assert letting_go == []
+
+
+def test_a_request_without_a_window_for_a_dataset_that_needs_one_is_not_told_of(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Python lets a request without a window through, and a provider answers nothing: nothing of the source."""
+    _aemet_serving(monkeypatch, lambda url: _refused(url, 400))
+    from wetterdienst import Settings  # noqa: PLC0415
+    from wetterdienst.provider.aemet.observation import AemetObservationRequest  # noqa: PLC0415
+
+    request = AemetObservationRequest(
+        parameters=[("daily", "data", "temperature_air_mean_2m")],
+        settings=Settings(auth={"aemet": "dummy-key-for-test"}),
+    )
+    begin_response()
+    assert request.filter_by_station_id(MADRID_RETIRO).values().all().df.is_empty()
+    assert _told() == []
+
+
+def test_fmi_values_say_nothing_of_a_fetch_that_failed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """FMI's 400 (a station it does not know, a stored query it no longer has) is a fetch that failed, and is let go."""
+    import datetime as dt  # noqa: PLC0415
+
+    _serve_fmi(monkeypatch, OSError("Unknown 'fmisid' value!"), status=400)
+    begin_response()
+    start = dt.datetime(2024, 1, 1, tzinfo=dt.UTC)
+    assert _fmi_values("hourly", start, start + dt.timedelta(hours=1)).is_empty()
     assert _told() == []

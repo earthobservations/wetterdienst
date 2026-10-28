@@ -54,6 +54,9 @@ Types of changes:
   `WRONG_VERSION_NUMBER`; an invalid session, `INVALID_SESSION_ID`) is retried like any other
   transient network error, where the first one failed the answer: `www.dwd.de` throws them now
   and then. A certificate that does not verify still fails at once (GH-3533)
+- A `dwd/dmo` request for a lead time its product does not publish (`lead_time=long` for
+  `icon_eu`, which has the short run alone) is refused as a 400 naming what the product
+  publishes, where it ended in a 500 (`Unable to find a 168 h forecast`) (GH-3539)
 
 ## [0.178.0] - 2026-10-28
 

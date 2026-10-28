@@ -1506,17 +1506,6 @@ def test_the_periods_are_said_to_narrow_only_the_datasets_they_narrowed() -> Non
     ]
 
 
-def test_a_window_a_period_explains_gets_no_note_that_the_source_may_be_behind(monkeypatch: pytest.MonkeyPatch) -> None:
-    """`periods=historical` and a window that ends yesterday: the period is the reason, not the lag of the source."""
-    _holding_none_of(monkeypatch, "sdk")
-    yesterday = (_TODAY - dt.timedelta(days=1)).strftime("%Y-%m-%d")
-
-    (warning,) = _told([_EMPTY], ["00001"], window=(yesterday, yesterday), periods="historical")
-
-    assert "in the periods asked for (historical)" in warning["message"]
-    assert "published" not in warning["message"]
-
-
 def _rows_of(request: Any, dataset: Any, window: tuple[dt.datetime, dt.datetime] | None = None) -> list[dict[str, Any]]:  # noqa: ANN401
     """Give the warning a walk over one station that found no row of the request's only parameter tells."""
     from wetterdienst.model.parameter_rows import ParameterRows  # noqa: PLC0415
@@ -1573,36 +1562,25 @@ def test_a_run_and_a_lead_time_that_hold_back_the_source_are_named() -> None:
 
 
 @pytest.mark.parametrize(
-    ("window", "late"),
+    "window",
     [
-        pytest.param(("2020-05-01", "2020-05-03"), False, id="past"),
-        pytest.param(("2099-05-01", "2099-05-03"), True, id="future"),
-        pytest.param((_TODAY.strftime("%Y-%m-%d"), _TODAY.strftime("%Y-%m-%d")), True, id="today"),
-        pytest.param(((_TODAY - dt.timedelta(days=30)).strftime("%Y-%m-%d"),) * 2, False, id="a month ago"),
+        pytest.param(("2020-05-01", "2020-05-03"), id="past"),
+        pytest.param(("2099-05-01", "2099-05-03"), id="future"),
+        pytest.param((_TODAY.strftime("%Y-%m-%d"), _TODAY.strftime("%Y-%m-%d")), id="today"),
     ],
 )
-def test_a_window_that_reaches_the_present_says_the_source_may_not_have_published_it(
-    monkeypatch: pytest.MonkeyPatch, window: tuple[str, str], *, late: bool
+def test_a_window_that_reaches_the_present_is_told_as_any_other(
+    monkeypatch: pytest.MonkeyPatch, window: tuple[str, str]
 ) -> None:
-    """The source lags by up to the lag of its resolution: a window that ends within it may be ahead of the source."""
+    """Nothing is said of the source being behind: a late source cannot be told from one that never reports it."""
     _holding_none_of(monkeypatch, "sdk")
 
     (warning,) = _told([_EMPTY], ["00001"], window=window)
 
-    assert ("may not have published this window yet" in warning["message"]) is late
-    assert ("Leave it out" in warning["message"]) is not late
+    assert "Leave it out, or try another station or window." in warning["message"]
+    assert "published" not in warning["message"]
+    assert "later" not in warning["message"]
     assert len(warning["message"]) <= 250
-
-
-def test_a_forecast_window_is_not_ahead_of_a_source_that_has_not_published() -> None:
-    """A forecast's window lies in the future by design, and it asked for a run: it has no such note."""
-    from wetterdienst.model.parameter_rows import ParameterRows  # noqa: PLC0415
-    from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest  # noqa: PLC0415
-
-    request = DwdMosmixRequest(parameters="hourly/large")
-    rows = ParameterRows(request, dt.datetime(2099, 1, 1, tzinfo=UTC), dt.datetime(2099, 1, 2, tzinfo=UTC))
-
-    assert rows._reaches_the_present("hourly") is False  # noqa: SLF001
 
 
 def test_a_window_of_a_day_or_of_minutes_is_written_as_such() -> None:
@@ -1677,3 +1655,55 @@ def test_the_lead_time_that_was_asked_for_survives_a_replaced_or_copied_request(
         assert made._narrowed_by(icon) == [  # noqa: SLF001
             ("the lead time asked for (long)", "try the other `lead_time`")
         ]
+
+
+@pytest.mark.parametrize(
+    ("arguments", "named"), [([], None), (["--lead-time=short"], "short"), (["--lead-time=long"], "long")]
+)
+def test_the_command_line_names_no_lead_time_unless_it_is_asked_for(
+    monkeypatch: pytest.MonkeyPatch, arguments: list[str], named: str | None
+) -> None:
+    """The option defaults to `short`, which is no asking: only a lead time that was typed is in the request."""
+    seen: list[Any] = []
+
+    def get_values(*, request: Any, **_kwargs: object) -> None:  # noqa: ANN401
+        seen.append(request.lead_time)
+        msg = "stop"
+        raise click.ClickException(msg)
+
+    monkeypatch.setattr(cli_module, "get_values", get_values)
+    result = CliRunner().invoke(
+        cli,
+        [
+            "values",
+            "--provider=dwd",
+            "--network=dmo",
+            "--parameters=hourly/icon/temperature_air_2m",
+            "--stations=10384",
+            *arguments,
+        ],
+    )
+
+    assert result.exit_code == 1, result.output
+    assert seen == [named]
+
+
+def test_the_other_lead_time_is_a_hint_only_for_a_product_that_publishes_it() -> None:
+    """`icon_eu` publishes the short run alone: asking for the other would be a 500, so it is not suggested."""
+    from wetterdienst.exceptions import ParameterNotCarriedError  # noqa: PLC0415
+    from wetterdienst.provider.dwd.dmo import DwdDmoRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.dmo.api import _refuse_parameters_the_run_does_not_carry  # noqa: PLC0415
+
+    icon = DwdDmoRequest(parameters="hourly/icon/temperature_air_2m", lead_time="short")
+    eu = DwdDmoRequest(parameters="hourly/icon_eu/wind_gust_max_last_3h", lead_time="short")
+
+    assert icon._narrowed_by(icon.metadata["hourly"]["icon"]) == [  # noqa: SLF001
+        ("the lead time asked for (short)", "try the other `lead_time`")
+    ]
+    assert eu._narrowed_by(eu.metadata["hourly"]["icon_eu"]) == [("the lead time asked for (short)", None)]  # noqa: SLF001
+
+    # and a lead time that a product does not publish is refused with a 400, not met as an IndexError later
+    long = DwdDmoRequest(parameters="hourly/icon_eu/wind_gust_max_last_3h", lead_time="long")
+    with pytest.raises(ParameterNotCarriedError, match=r"icon_eu publishes no 168 h run.*publishes: short"):
+        _refuse_parameters_the_run_does_not_carry(long.parameters, long.lead_time)  # ty: ignore[invalid-argument-type]
+    _refuse_parameters_the_run_does_not_carry(eu.parameters, eu.lead_time)  # ty: ignore[invalid-argument-type]

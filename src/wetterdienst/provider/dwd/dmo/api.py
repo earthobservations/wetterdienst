@@ -482,6 +482,17 @@ def _refuse_parameters_the_run_does_not_carry(parameters: list[ParameterModel], 
         )
         msg = f"DWD DMO's {lead_time.value:03d} h run, lead_time='{lead_time.name.lower()}', does not carry {named}"
         raise ParameterNotCarriedError(msg)
+    # and a run a product does not publish at all (`icon_eu` has the short one alone) is refused as well, rather than
+    # met later as `IndexError: Unable to find a 168 h forecast` (HTTP 500)
+    for dataset, _ in group_parameters_by_dataset(parameters):
+        published = _LEAD_TIMES_PUBLISHED.get(dataset.name, ())
+        if published and lead_time not in published:
+            names = ", ".join(_LEAD_TIME_NAMES[time] for time in published)
+            msg = (
+                f"DWD DMO's {dataset.name} publishes no {lead_time.value:03d} h run, "
+                f"lead_time='{lead_time.name.lower()}'; it publishes: {names}"
+            )
+            raise ParameterNotCarriedError(msg)
 
 
 class DwdDmoValues(TimeseriesValues[DatasetModel]):
@@ -1009,7 +1020,9 @@ class DwdDmoRequest(TimeseriesRequest):
             narrowed.append((f"the run issued {self.issue:%Y-%m-%d %H} UTC", None))
         if self._lead_time_asked:
             lead_time = getattr(self.lead_time, "name", str(self.lead_time)).lower()
-            narrowed.append((f"the lead time asked for ({lead_time})", "try the other `lead_time`"))
+            # the other lead time is a hint only where the product publishes a run for it (`icon_eu` has one)
+            other = len(_LEAD_TIMES_PUBLISHED.get(dataset.name, ())) > 1
+            narrowed.append((f"the lead time asked for ({lead_time})", "try the other `lead_time`" if other else None))
         return narrowed
 
     def _all(self) -> pl.LazyFrame:

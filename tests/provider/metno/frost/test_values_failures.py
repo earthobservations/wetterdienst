@@ -502,7 +502,8 @@ def _frost(payload: dict) -> Callable[[str], File]:
     def observations(url: str) -> File:
         t0, t1 = _frost_interval(url)
         rows = [row for row in payload["data"] if t0 <= dt.datetime.fromisoformat(row["referenceTime"]) < t1]
-        # no rows is a 412 ("No data found") from Frost, not an empty answer
+        # no rows is no data for Frost (404 "No data was found for the query parameters", 412 "No available time
+        # series for the query parameters, as here), not an empty answer
         return _ok(url, {"data": rows}) if rows else _failed(url, 412)
 
     return observations

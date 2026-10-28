@@ -28,16 +28,17 @@ It is not told where it would say what is not so:
   missing values may be missing for that: the other stations still count, and where none is left nothing is said;
 - a parameter another warning already names (`parameter-ended`).
 
-What it says is limited to what is known: the window, what narrowed the request (`periods`, a run, a lead time, for the
-datasets they narrowed), and that the source may not have published a window that reaches the present yet. A window
-that a narrowing explains gets no such note.
+What it says is limited to what is known: the window, and what narrowed the request (`periods`, a run, a lead time,
+for the datasets they narrowed). It says nothing of the source being behind for a window that reaches the present:
+the library cannot tell a source that is late from one that never reports the parameter (Paris `tx24`), and a
+hint of the first invites the retry the warning is there to stop.
 """
 
 from __future__ import annotations
 
 import datetime as dt
 import logging
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from wetterdienst.model.metadata import ParameterModel
 from wetterdienst.util.response_warnings import (
@@ -55,7 +56,6 @@ if TYPE_CHECKING:
 
     from wetterdienst.model.metadata import DatasetModel
     from wetterdienst.model.request import TimeseriesRequest
-    from wetterdienst.options import Options
 
 log = logging.getLogger(__name__)
 
@@ -141,8 +141,7 @@ class ParameterRows:
             if not isinstance(parameter, ParameterModel):
                 continue
             key = (parameter.dataset.resolution.name, parameter.dataset.name)
-            # a station whose file was let go says nothing of what the source holds
-            stations = [station for station in self._examined.get(key, []) if station not in self._skipped]
+            stations = self._stations_read(parameter.dataset)
             if not stations:
                 continue
             if (*key, parameter.name_original) in named:
@@ -155,6 +154,18 @@ class ParameterRows:
                 if not any(row[:2] == key for row in self._with_rows):
                     name = f"{key[0]}/{key[1]}"
                     self._tell(name, f"any parameter of {name}", stations, parameter.dataset)
+
+    def _stations_read(self, dataset: DatasetModel) -> list[str]:
+        """Give the stations the walk read for a dataset that can speak for what the source holds, else none.
+
+        A dataset that needs a window answers nothing to a request that names none (the REST API and the command line
+        refuse it, Python does not): that is no statement about the source. And a station whose file was let go says
+        nothing of what the source holds.
+        """
+        if self._start is None and dataset.date_required:
+            return []
+        key = (dataset.resolution.name, dataset.name)
+        return [station for station in self._examined.get(key, []) if station not in self._skipped]
 
     def _tell(self, parameter: str, subject: str, stations: list[str], dataset: DatasetModel) -> None:
         """Say that the source has no values for `subject` at `stations`, in the window and as the request narrows."""
@@ -169,12 +180,7 @@ class ParameterRows:
         narrowed = self._request._narrowed_by(dataset)  # noqa: SLF001
         narrow = f" in {' and in '.join(phrase for phrase, _ in narrowed)}" if narrowed else ""
         hints = [hint for _, hint in narrowed if hint]
-        if hints:
-            advice = f"{' or '.join(hints).capitalize()}."
-        elif self._reaches_the_present(dataset.resolution.name):
-            advice = "The source may not have published this window yet; try again later."
-        else:
-            advice = "Leave it out, or try another station or window."
+        advice = f"{' or '.join(hints).capitalize()}." if hints else "Leave it out, or try another station or window."
         warn_response(
             log,
             PARAMETER_WITHOUT_ROWS,
@@ -182,17 +188,3 @@ class ParameterRows:
             parameter=parameter,
             stations=listed,
         )
-
-    def _reaches_the_present(self, resolution: str) -> bool:
-        """Tell whether the window ends where the source may not have published yet: within the lag of its resolution.
-
-        The lag is the one a station's published end is allowed (`end_lag`): how late a source is known to be.
-        A forecast has no such lag: its window lies ahead by design, and it has the run that was asked for.
-        """
-        from wetterdienst.model.request import end_lag  # noqa: PLC0415
-
-        if self._end is None or hasattr(self._request, "issue"):
-            return False
-        buffer = cast("Options", self._request.options).station_window_end_buffer
-        lag = end_lag(resolution, buffer)
-        return self._end > dt.datetime.now(dt.UTC) - lag

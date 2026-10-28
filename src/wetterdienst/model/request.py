@@ -96,17 +96,6 @@ _END_LAG_DEFAULT = dt.timedelta(days=2)
 _END_LAG = {Resolution.MONTHLY.value: dt.timedelta(days=62), Resolution.ANNUAL.value: dt.timedelta(days=732)}
 
 
-def end_lag(resolution: str, buffer_days: int | None = None) -> dt.timedelta:
-    """Give how long before now a source's data may be missing as it is not published yet, for a resolution.
-
-    The span a station's published end may lag (`limit_to_window`): `buffer_days` for every resolution where the
-    `station_window_end_buffer` option names one, else two days, 62 for monthly and 732 for annual.
-    """
-    if buffer_days is not None:
-        return dt.timedelta(days=buffer_days)
-    return _END_LAG.get(resolution, _END_LAG_DEFAULT)
-
-
 def limit_to_window(
     df: pl.DataFrame,
     start: dt.datetime | None,

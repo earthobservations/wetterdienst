@@ -284,30 +284,32 @@ what the answer is missing:
   has a row of it, and for a dataset asked for whole only when no station has a row of any of its parameters, so
   that a dataset with a few empty parameters says nothing of them. A parameter that some stations have is not
   told for the ones that lack it. A station that begins after the window is not read and not named, one skipped
-  by `skip_empty` had rows, and readings that are all null and left out by `drop_nulls` are no rows. The message
-  gives the window, says `in the periods asked for` (for the datasets `periods` left a period out of), `in the run
-  issued` or `in the lead time asked for` where the request narrowed itself that way, and, where the window ends
-  within the lag of the resolution (two days, for monthly 62 and for annual 732, or the
-  `station_window_end_buffer` option) and nothing narrowed it, that the source may not have published it yet. It
-  makes no claim about what a later request will find.
+  by `skip_empty` had rows, and readings that are all null and left out by `drop_nulls` are no rows. A dataset that
+  needs a window, asked for in Python with none, is not told of: the provider answers nothing to it, and that says
+  nothing of the source. The message gives the window and says `in the periods asked for` (for the datasets `periods`
+  left a period out of), `in the run issued` or `in the lead time asked for` where the request narrowed itself that
+  way; the other `periods`, run or `lead_time` is suggested only where it can hold values (the `icon_eu` product has
+  no long run). It says nothing of the source being behind for a window that reaches the present, and nothing of what
+  a later request will find: a source that is late cannot be told from one that never reports the parameter.
 
   What it does not say is limited by what the library can see. A provider that gives up on a file it expected and
   answers with the others (a refused download, a file withdrawn since the listing, a timestamp that is not there,
   a maintenance page or an exception report answered with HTTP 200, a file that would not parse) tells the walk, and
   the station whose file was let go is not one of the stations named: the others still are, and where none is left
   nothing is said (a file that serves a whole station group or a whole network is every station's of it). A
-  download that failed and was made again with success is no file let go, and an answer that says there is nothing
-  (a 404 for a station that does not report the parameter, Frost's 412, an AEMET `estado` of 404, a month file of
-  `dwd/derived` that the index never listed) is the source's and is told. This is done for `aemet/observation`,
-  `dwd/derived`, `dwd/observation`, `dwd/poi`, `dwd/road`, `dwd/swsmos`, `fmi/observation`, `knmi/observation`,
-  `meteofrance/observation`, `meteofrance/synop`, `metno/frost`, `smhi/observation` and `wsv/pegel`, each at the
-  places where it lets a file go and no other; for any other provider a file it lets go without telling is not
-  known, so the warning may name a station whose file was let go. The message says nothing of the stations that were
-  let go, which the provider only logs. A parameter another warning already names (`parameter-ended`) is not told
-  again, nor is anything told for `interpolate` and `summarize`. In Python it is a log line at level `WARNING`, as
-  the other warnings that say a request returned less than it asked for are, and
-  `wetterdienst.util.response_warnings.recorded_warnings` gives it after `begin_response()`, as the REST API and
-  the command line do.
+  download that failed and was made again with success is no file let go, and what the source answers is told:
+  that it has nothing (a 404 for a station that does not report the parameter, Frost's 404 "No data was found for the
+  query parameters" and 412 "No available time series for the query parameters", an AEMET `estado` of 404,
+  Pegelonline's 404 "Timeseries does not exist.") or a month file of `dwd/derived` that the index never listed.
+  This is done for `aemet/observation`, `dwd/derived`, `dwd/observation`, `dwd/poi`, `dwd/road`, `dwd/swsmos`,
+  `fmi/observation`, `knmi/observation`, `meteofrance/observation`, `meteofrance/synop`, `metno/frost`,
+  `smhi/observation` and `wsv/pegel`, each at the places where it lets a file go and no other; for any other
+  provider a file it lets go without telling is not known, so the warning may name a station whose file was let go.
+  The message says nothing of the stations that were let go: the provider logs each at level `WARNING`. A parameter
+  another warning already names (`parameter-ended`) is not told again, nor is anything told for `interpolate` and
+  `summarize`. In Python it is a log line at level `WARNING`, as the other warnings that say a request returned less
+  than it asked for are, and `wetterdienst.util.response_warnings.recorded_warnings` gives it after
+  `begin_response()`, as the REST API and the command line do.
 - **`api_version`** is the version of the API (`/api/version`), and **`schema_version`** that of this
   block, so that a stored answer can be told from one in a later shape.
 

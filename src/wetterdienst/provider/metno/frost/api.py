@@ -613,6 +613,7 @@ class MetnoFrostValues(TimeseriesValues):
         # a 200 with no body
         if file.is_empty:
             note_skipped_download()
+            log.warning(f"Frost answered {file.url} with an empty body")
             return pl.DataFrame()
 
         df = pl.read_json(file.content)
@@ -719,6 +720,7 @@ class MetnoFrostValues(TimeseriesValues):
         # a 200 with no body
         if file.is_empty:
             note_skipped_download()
+            log.warning(f"Frost answered {file.url} with an empty body")
             return pl.DataFrame()
 
         df = pl.read_json(file.content)
@@ -791,6 +793,7 @@ class MetnoFrostValues(TimeseriesValues):
             return pl.DataFrame()
         if avail_file.is_empty:
             note_skipped_download()
+            log.warning(f"Frost answered {avail_file.url} with an empty body")
             return pl.DataFrame()
 
         ts_list = json.loads(avail_file.content.read()).get("data", [])
@@ -829,10 +832,9 @@ class MetnoFrostValues(TimeseriesValues):
                 use_certifi=settings.use_certifi,
             )
             _raise_if_unanswered(obs_file)
+            # Frost's own "no data": 404 "No data was found for the query parameters" (a series the listing named
+            # may have a gap in the window), 412 "No available time series for the query parameters"
             if obs_file.status in (404, 412):
-                # a series the listing just named, which is not there (404), is a file let go; 412 is Frost's no data
-                if obs_file.status == 404:
-                    note_skipped_download()
                 continue
             if isinstance(obs_file.content, Exception):
                 note_skipped_download()
@@ -840,6 +842,7 @@ class MetnoFrostValues(TimeseriesValues):
                 continue
             if obs_file.is_empty:
                 note_skipped_download()
+                log.warning(f"Frost answered {obs_file.url} with an empty body")
                 continue
 
             df = pl.read_json(obs_file.content)
