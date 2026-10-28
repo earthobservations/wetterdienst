@@ -21,7 +21,7 @@ export const privacy: PrivacyPolicy = {
   sections: [
     {
       id: 'hosting',
-      icon: 'i-lucide-server',
+      icon: 'i-ph-hard-drives',
       title: 'Hosting and processing on behalf of the controller',
       paragraphs: [
         'The service consists of two applications: the backend (REST API and MCP server, https://wetterdienst-backend.eobs.org) and this web app (https://wetterdienst.eobs.org). The web app\'s server forwards requests to /api and /mcp to the backend.',
@@ -30,7 +30,7 @@ export const privacy: PrivacyPolicy = {
     },
     {
       id: 'logs',
-      icon: 'i-lucide-file-clock',
+      icon: 'i-ph-clock-counter-clockwise',
       title: 'Log data',
       paragraphs: [
         'The backend writes one line per request to its container log. It contains the request line with the full URL including the query string, and a timestamp. The query string holds what the request asks for, such as provider, parameters, station IDs and coordinates. The client address shown there is the internal address of the reverse proxy in front of it, not the visitor\'s.',
@@ -42,7 +42,7 @@ export const privacy: PrivacyPolicy = {
     },
     {
       id: 'browser',
-      icon: 'i-lucide-cookie',
+      icon: 'i-ph-cookie',
       title: 'Cookie and local storage in the browser',
       paragraphs: [
         'The web app sets one functional cookie and keeps settings in your browser\'s local storage (localStorage). There are no tracking or advertising cookies. The web app does not pass cookies on to the backend.',
@@ -57,7 +57,7 @@ export const privacy: PrivacyPolicy = {
     },
     {
       id: 'third-parties',
-      icon: 'i-lucide-map',
+      icon: 'i-ph-map-trifold',
       title: 'Resources from third parties (map and images)',
       paragraphs: [
         'The web app loads fonts, icons and scripts from its own server. Only in the following cases does your browser request images directly from third parties. They receive your IP address, the time and your browser\'s details as a matter of how the web works, as well as the address of this web app (https://wetterdienst.eobs.org) as the origin of the request (Referer) and, for map tiles, the map section shown. The operator does not learn of this and has no influence on it.',
@@ -70,7 +70,7 @@ export const privacy: PrivacyPolicy = {
     },
     {
       id: 'links',
-      icon: 'i-lucide-external-link',
+      icon: 'i-ph-arrow-square-out',
       title: 'External links',
       paragraphs: [
         'The web app links to pages of third parties, such as GitHub, PyPI and the documentation. Data is transmitted to the respective provider only once you follow such a link; its own privacy policy applies there.',
@@ -78,7 +78,7 @@ export const privacy: PrivacyPolicy = {
     },
     {
       id: 'weather-data',
-      icon: 'i-lucide-cloud-sun',
+      icon: 'i-ph-cloud-sun',
       title: 'Weather data from the providers',
       paragraphs: [
         'The backend fetches the weather data from the open-data services of the respective providers (such as the German Weather Service and NOAA). Data of visitors is not passed on in doing so. The backend identifies itself with the User-Agent "wetterdienst/<version> (<operating system>)"; it contains no personal data.',
@@ -86,7 +86,7 @@ export const privacy: PrivacyPolicy = {
     },
     {
       id: 'mcp',
-      icon: 'i-lucide-bot',
+      icon: 'i-ph-robot',
       title: 'Use through Claude (MCP)',
       paragraphs: [
         'When the MCP server is used through Claude, the requests come from Anthropic\'s servers. The operator therefore sees Anthropic\'s address, not that of the end user. The content of the conversation does not reach the operator, only the arguments Claude chooses when it calls a tool (such as provider, parameters and stations). They appear in the log like any other request. Anthropic\'s processing of the conversation is outside the operator\'s influence; Anthropic\'s privacy notices apply to it.',
@@ -94,7 +94,7 @@ export const privacy: PrivacyPolicy = {
     },
     {
       id: 'recipients',
-      icon: 'i-lucide-share-2',
+      icon: 'i-ph-share-network',
       title: 'Sharing with third parties',
       paragraphs: [
         'Data is not shared with third parties, except for the processor named above, Hetzner. The providers named under "Resources from third parties" receive data directly from your browser, not from the operator.',
@@ -102,7 +102,7 @@ export const privacy: PrivacyPolicy = {
     },
     {
       id: 'rights',
-      icon: 'i-lucide-scale',
+      icon: 'i-ph-scales',
       title: 'Your rights',
       paragraphs: [
         'Under the GDPR you have the right of access (Art. 15), rectification (Art. 16), erasure (Art. 17), restriction of processing (Art. 18) and objection to processing based on legitimate interests (Art. 21). To exercise them, write to the email address above.',

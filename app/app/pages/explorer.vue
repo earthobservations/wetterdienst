@@ -386,9 +386,9 @@ watch(
 
 // Mode options for toggle
 const modeOptions = computed(() => [
-  { value: 'station' as const, label: t('explorer.modeStation'), icon: 'i-lucide-map-pin' },
-  { value: 'interpolation' as const, label: t('explorer.modeInterpolation'), icon: 'i-lucide-locate' },
-  { value: 'summary' as const, label: t('explorer.modeSummary'), icon: 'i-lucide-bar-chart-3' },
+  { value: 'station' as const, label: t('explorer.modeStation'), icon: 'i-ph-map-pin' },
+  { value: 'interpolation' as const, label: t('explorer.modeInterpolation'), icon: 'i-ph-crosshair' },
+  { value: 'summary' as const, label: t('explorer.modeSummary'), icon: 'i-ph-chart-bar' },
 ])
 
 // show mode/station/datasource cards once a dataset is chosen; parameters are needed only for the actual fetch
@@ -612,11 +612,11 @@ function handleUnitTargetChange(unitType: string, value: string) {
 
 <template>
   <PageContainer wide>
-    <PageHeader :title="t('explorer.title')" :lead="t('explorer.subtitle')" icon="i-lucide-compass" tone="blue" />
+    <PageHeader :title="t('explorer.title')" :lead="t('explorer.subtitle')" />
 
     <UCollapsible v-model="showAbout">
       <UButton
-        :label="t('explorer.aboutButton')" icon="i-lucide-info" variant="subtle" color="neutral" trailing-icon="i-lucide-chevron-down" block
+        :label="t('explorer.aboutButton')" icon="i-ph-info" variant="subtle" color="neutral" trailing-icon="i-ph-caret-down" block
         size="sm"
       />
       <template #content>
@@ -662,7 +662,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
     <UCard v-if="offersLeadTime" data-testid="lead-time">
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-clock" class="text-primary-500 shrink-0" />
+          <UIcon name="i-ph-clock" class="text-primary-500 shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('explorer.leadTime') }}
           </h2>
@@ -690,7 +690,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
     <UCard v-if="showModeSelection">
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-layers" class="text-primary-500 shrink-0" />
+          <UIcon name="i-ph-stack" class="text-primary-500 shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('explorer.mode') }}
           </h2>
@@ -717,10 +717,10 @@ function handleUnitTargetChange(unitType: string, value: string) {
         <UCollapsible v-if="stationSelectionState.mode !== 'station'">
           <UButton
             :label="t('explorer.modeHowItWorks')"
-            icon="i-lucide-info"
+            icon="i-ph-info"
             variant="ghost"
             color="neutral"
-            trailing-icon="i-lucide-chevron-down"
+            trailing-icon="i-ph-caret-down"
             size="xs"
           />
           <template #content>
@@ -737,10 +737,10 @@ function handleUnitTargetChange(unitType: string, value: string) {
     <UCollapsible v-if="showModeSelection">
       <UButton
         :label="t('explorer.settings')"
-        icon="i-lucide-settings-2"
+        icon="i-ph-gear-six"
         variant="subtle"
         color="neutral"
-        trailing-icon="i-lucide-chevron-down"
+        trailing-icon="i-ph-caret-down"
         block
         size="sm"
       />
@@ -749,7 +749,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
           <!-- Common settings -->
           <div class="p-4 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
             <div class="flex items-center gap-2 mb-3">
-              <UIcon name="i-lucide-settings" class="w-4 h-4 text-primary-500" />
+              <UIcon name="i-ph-gear-six" class="w-4 h-4 text-primary-500" />
               <div class="text-sm font-semibold text-gray-900 dark:text-white">
                 {{ t('explorer.generalSettings') }}
               </div>
@@ -766,7 +766,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
                   :label="t('explorer.unitTargets')"
                   variant="ghost"
                   color="neutral"
-                  trailing-icon="i-lucide-chevron-down"
+                  trailing-icon="i-ph-caret-down"
                   size="xs"
                 />
                 <template #content>
@@ -802,7 +802,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
             class="p-4 rounded-lg border-2 border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-950/30"
           >
             <div class="flex items-center gap-2 mb-3">
-              <UIcon name="i-lucide-table" class="w-4 h-4 text-primary-500" />
+              <UIcon name="i-ph-table" class="w-4 h-4 text-primary-500" />
               <div class="text-sm font-semibold text-gray-900 dark:text-white">
                 {{ t('explorer.valuesOptions') }}
               </div>
@@ -863,7 +863,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
             class="p-4 rounded-lg border-2 border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-950/30"
           >
             <div class="flex items-center gap-2 mb-3">
-              <UIcon name="i-lucide-locate" class="w-4 h-4 text-primary-500" />
+              <UIcon name="i-ph-crosshair" class="w-4 h-4 text-primary-500" />
               <div class="text-sm font-semibold text-gray-900 dark:text-white">
                 {{ t('explorer.interpolationOptions') }}
               </div>
@@ -892,7 +892,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
                   :label="t('explorer.advancedSettings')"
                   variant="ghost"
                   color="neutral"
-                  trailing-icon="i-lucide-chevron-down"
+                  trailing-icon="i-ph-caret-down"
                   size="xs"
                 />
                 <template #content>
@@ -966,7 +966,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
                         />
                         <span class="text-xs text-gray-500 dark:text-gray-400">km</span>
                         <UButton
-                          icon="i-lucide-trash-2"
+                          icon="i-ph-trash"
                           :aria-label="t('explorer.removeParameterDistance', { parameter: entry.paramName })"
                           color="error"
                           variant="ghost"
@@ -974,7 +974,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
                           @click="removeParameterDistance(entry.id, entry.paramName)"
                         />
                         <UTooltip v-if="!isValidParameter(entry.paramName)" :text="t('explorer.paramNotSelected')">
-                          <UIcon name="i-lucide-alert-circle" class="text-red-500 w-4 h-4" />
+                          <UIcon name="i-ph-warning-circle" class="text-red-500 w-4 h-4" />
                         </UTooltip>
                       </div>
 
@@ -982,7 +982,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
                       <div class="flex items-center gap-2">
                         <UButton
                           :label="t('explorer.addParameter')"
-                          icon="i-lucide-plus"
+                          icon="i-ph-plus"
                           color="neutral"
                           variant="ghost"
                           size="xs"
@@ -1040,7 +1040,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
     <UCard v-if="showModeSelection">
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-map-pin" class="text-primary-500 shrink-0" />
+          <UIcon name="i-ph-map-pin" class="text-primary-500 shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('explorer.dataSource') }}
           </h2>
@@ -1077,12 +1077,12 @@ function handleUnitTargetChange(unitType: string, value: string) {
         <USeparator v-if="showDateRangeSelector" />
 
         <div v-if="showDateRangeSelector" class="flex flex-col sm:flex-row gap-2">
-          <UButton :label="t('common.fetch')" icon="i-lucide-play" color="primary" :disabled="!canFetch" class="w-full" @click="fetchData" />
-          <UButton :label="t('common.clear')" icon="i-lucide-x" variant="outline" class="w-full" @click="clear" />
+          <UButton :label="t('common.fetch')" icon="i-ph-play" color="primary" :disabled="!canFetch" class="w-full" @click="fetchData" />
+          <UButton :label="t('common.clear')" icon="i-ph-x" variant="outline" class="w-full" @click="clear" />
         </div>
 
         <div v-if="dataViewerRef?.valuesPending" class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-          <UIcon name="i-lucide-loader-circle" class="animate-spin shrink-0" />
+          <UIcon name="i-ph-circle-notch" class="animate-spin shrink-0" />
           {{ t('common.loading') }}
         </div>
       </div>
@@ -1095,7 +1095,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
         :label="t('explorer.stationsDetails')"
         variant="subtle"
         color="neutral"
-        trailing-icon="i-lucide-chevron-down"
+        trailing-icon="i-ph-caret-down"
         block
       />
       <template #content>
@@ -1127,7 +1127,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
         :label="t('explorer.valuesDetails')"
         variant="subtle"
         color="neutral"
-        trailing-icon="i-lucide-chevron-down"
+        trailing-icon="i-ph-caret-down"
         block
       />
       <template #content>

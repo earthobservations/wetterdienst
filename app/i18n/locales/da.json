@@ -116,7 +116,14 @@
     "providers": "Udbydere",
     "api": "API",
     "glossary": "Ordliste",
-    "support": "Support"
+    "support": "Support",
+    "skip": "Gå til indhold",
+    "search": "Søg",
+    "searchPlaceholder": "Gå til en side eller skift en indstilling",
+    "noResults": "Intet fundet",
+    "groupData": "Data",
+    "groupReference": "Reference",
+    "groupProject": "Projekt"
   },
   "header": {
     "github": "GitHub",

@@ -116,7 +116,14 @@
     "providers": "Fornitori",
     "api": "API",
     "glossary": "Glossario",
-    "support": "Supporto"
+    "support": "Supporto",
+    "skip": "Vai al contenuto",
+    "search": "Cerca",
+    "searchPlaceholder": "Vai a una pagina o cambia un'impostazione",
+    "noResults": "Nessun risultato",
+    "groupData": "Dati",
+    "groupReference": "Riferimento",
+    "groupProject": "Progetto"
   },
   "header": {
     "github": "GitHub",

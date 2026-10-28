@@ -1990,7 +1990,7 @@ watch(
   <div>
     <UEmpty
       v-if="!values || values.length === 0"
-      icon="i-lucide-cloud-off"
+      icon="i-ph-cloud-slash"
       :title="t('meteogram.chart.noData')"
     />
 
@@ -2014,7 +2014,7 @@ watch(
               ]"
               @click="visiblePanels.temp = !visiblePanels.temp"
             >
-              <UIcon name="i-lucide-thermometer" class="w-3.5 h-3.5" />
+              <UIcon name="i-ph-thermometer" class="w-3.5 h-3.5" />
             </button>
 
             <button
@@ -2028,7 +2028,7 @@ watch(
               ]"
               @click="visiblePanels.wind = !visiblePanels.wind"
             >
-              <UIcon name="i-lucide-wind" class="w-3.5 h-3.5" />
+              <UIcon name="i-ph-wind" class="w-3.5 h-3.5" />
             </button>
 
             <button
@@ -2042,7 +2042,7 @@ watch(
               ]"
               @click="visiblePanels.precip = !visiblePanels.precip"
             >
-              <UIcon name="i-lucide-cloud-rain" class="w-3.5 h-3.5" />
+              <UIcon name="i-ph-cloud-rain" class="w-3.5 h-3.5" />
             </button>
 
             <button
@@ -2057,7 +2057,7 @@ watch(
               :disabled="compact"
               @click="visiblePanels.cloud = !visiblePanels.cloud"
             >
-              <UIcon name="i-lucide-cloud" class="w-3.5 h-3.5" />
+              <UIcon name="i-ph-cloud" class="w-3.5 h-3.5" />
             </button>
 
             <button
@@ -2071,7 +2071,7 @@ watch(
               ]"
               @click="visiblePanels.pressure = !visiblePanels.pressure"
             >
-              <UIcon name="i-lucide-gauge" class="w-3.5 h-3.5" />
+              <UIcon name="i-ph-gauge" class="w-3.5 h-3.5" />
             </button>
           </div>
 
@@ -2099,7 +2099,7 @@ watch(
           </div>
           <UButton
             v-if="!compact"
-            icon="i-lucide-rotate-ccw"
+            icon="i-ph-arrow-counter-clockwise"
             size="sm"
             variant="outline"
             color="neutral"
@@ -2107,7 +2107,7 @@ watch(
             @click="resetChart"
           />
           <UButton
-            :icon="compact ? 'i-lucide-chart-line' : 'i-lucide-layout-grid'"
+            :icon="compact ? 'i-ph-chart-line' : 'i-ph-squares-four'"
             size="sm"
             color="primary"
             :title="compactLabel"
@@ -2121,29 +2121,29 @@ watch(
       <!-- Summary stats: same order as the panel toggles (temp/wind/precip/cloud/pressure) -->
       <div v-if="summaryStats && !widget" class="flex flex-wrap gap-x-5 gap-y-2 px-1 text-sm">
         <div v-if="summaryStats.temp" class="flex items-center gap-1.5">
-          <UIcon name="i-lucide-thermometer" class="w-4 h-4 text-red-500 shrink-0" />
+          <UIcon name="i-ph-thermometer" class="w-4 h-4 text-red-500 shrink-0" />
           <span class="text-blue-600 dark:text-blue-400 font-semibold">{{ summaryStats.temp.min }}°</span>
           <span class="text-gray-500 dark:text-gray-400">/</span>
           <span class="text-red-600 dark:text-red-400 font-semibold">{{ summaryStats.temp.max }}°C</span>
         </div>
         <div class="flex items-center gap-1.5">
-          <UIcon name="i-lucide-wind" class="w-4 h-4 text-cyan-500 shrink-0" />
+          <UIcon name="i-ph-wind" class="w-4 h-4 text-cyan-500 shrink-0" />
           <span class="font-semibold text-gray-800 dark:text-gray-100">{{ formatNumber(summaryStats.gust, locale, 1) }}</span>
           <span class="text-gray-500 dark:text-gray-400 text-xs">m/s</span>
           <span class="text-cyan-700 dark:text-cyan-400 text-xs">({{ Math.round(summaryStats.gust * 3.6) }} km/h)</span>
         </div>
         <div class="flex items-center gap-1.5">
-          <UIcon name="i-lucide-cloud-rain" class="w-4 h-4 text-blue-500 shrink-0" />
+          <UIcon name="i-ph-cloud-rain" class="w-4 h-4 text-blue-500 shrink-0" />
           <span class="font-semibold text-gray-800 dark:text-gray-100">{{ formatNumber(summaryStats.precip, locale, 1) }}</span>
           <span class="text-gray-500 dark:text-gray-400 text-xs">mm</span>
         </div>
         <div class="flex items-center gap-1.5">
-          <UIcon name="i-lucide-cloud" class="w-4 h-4 text-slate-400 shrink-0" />
+          <UIcon name="i-ph-cloud" class="w-4 h-4 text-slate-400 shrink-0" />
           <span class="font-semibold text-gray-800 dark:text-gray-100">{{ summaryStats.cloud }}</span>
           <span class="text-gray-500 dark:text-gray-400 text-xs">%</span>
         </div>
         <div v-if="summaryStats.pressure" class="flex items-center gap-1.5">
-          <UIcon name="i-lucide-gauge" class="w-4 h-4 text-lime-500 shrink-0" />
+          <UIcon name="i-ph-gauge" class="w-4 h-4 text-lime-500 shrink-0" />
           <span class="font-semibold text-gray-800 dark:text-gray-100">{{ summaryStats.pressure.min }}–{{ summaryStats.pressure.max }}</span>
           <span class="text-gray-500 dark:text-gray-400 text-xs">hPa</span>
         </div>
@@ -2168,8 +2168,8 @@ watch(
                 <span class="block text-sm">{{ t('dataViewer.chartCodeNotLoaded') }}</span>
               </template>
             </span>
-            <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="renderChart()" />
-            <UButton v-if="chartCodeNotLoaded" :label="t('common.reloadPage')" icon="i-lucide-refresh-cw" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
+            <UButton :label="t('common.retry')" icon="i-ph-arrow-clockwise" size="sm" color="neutral" variant="outline" @click="renderChart()" />
+            <UButton v-if="chartCodeNotLoaded" :label="t('common.reloadPage')" icon="i-ph-arrows-clockwise" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
           </div>
           <!-- a figure, as the app's other charts, and no landmark; drawn without Plotly's modebar, it holds
                no controls of Plotly's to keep reachable. Described by what it shows; the table has the values -->

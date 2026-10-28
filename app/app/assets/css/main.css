@@ -1,23 +1,27 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
-/* Figtree, self-hosted (SIL OFL 1.1): the latin and latin-ext subsets, 20 kB each, fetched from this origin only
-   and only for the characters a page uses (unicode-range). It is in /third-party-licenses.txt like any package. */
-@import "@fontsource-variable/figtree/wght.css";
+/* Geist and Geist Mono, self-hosted (SIL OFL 1.1): the latin and latin-ext subsets (and the others, fetched only for the
+   characters a page uses: unicode-range), from this origin only. They are in /third-party-licenses.txt like any package. */
+@import "@fontsource-variable/geist/wght.css";
+@import "@fontsource-variable/geist-mono/wght.css";
 
 /* ------------------------------------------------------------------------------------------------------------
-   Design tokens (GH-3518). Everything below the app looks at comes from here: change a value once, and the pages,
-   the Nuxt UI components and the pre-existing `gray-*` utilities of the pages follow.
+   Design tokens (GH-3518). One idea: a quiet, near-monochrome page with a single accent. Everything the app looks at
+   comes from here: change a value once, and the pages, the Nuxt UI components and the pre-existing `gray-*` utilities
+   of the pages follow.
 
-   Colour: the four tiles of the logo (icon.svg) and its navy.
-     blue  #2E6FD1  the primary colour: a scale around it, `brand` (600 is the logo's blue)
-     navy  #17335F  ink-800, the dark surfaces' accent
-     ink   #0B1A33  ink-950, the dark-mode page; the neutral scale `ink` is tinted towards the navy
-     sun #FFC93C, teal #2BB3A3, coral #F0543C: accents of tiles, charts and decoration, never the colour of text
+   Colour: the logo (icon.svg), used sparingly.
+     blue  #2E6FD1  the one accent: a scale around it, `brand` (600 is the logo's blue); links, the current page,
+                    the primary button, the focus ring
+     navy  #17335F  ink-800 and ink-950 #0B1A33: the neutral scale `ink` is tinted towards them; ink-950 is also the
+                    dark-mode page
+     sun #FFC93C, teal #2BB3A3, coral #F0543C: the climate stripes and the charts, never the colour of text or chrome
    The ratios of every pair that carries text, a focus ring or a border are in the pull request of GH-3518 and in
    app/ACCESSIBILITY.md; they are computed, not estimated.
    ------------------------------------------------------------------------------------------------------------ */
 @theme static {
-  --font-sans: "Figtree Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   --color-brand-50: #eff5fe;
   --color-brand-100: #deebfe;
@@ -56,35 +60,27 @@
   --color-gray-900: var(--color-ink-900);
   --color-gray-950: var(--color-ink-950);
 
-  /* the accents of the logo's tiles */
+  /* the tiles of the logo: the stripes of the home page */
   --color-sun: #ffc93c;
   --color-teal: #2bb3a3;
   --color-coral: #f0543c;
 }
 
 :root {
-  /* shape: Nuxt UI derives rounded-md/lg/xl from this (1.5x, 2x, 3x) */
-  --ui-radius: 0.375rem;
-  --ui-header-height: 4rem;
+  /* shape: Nuxt UI derives rounded-md/lg/xl from this (1.5x, 2x, 3x): 6 px controls, 8 px panels */
+  --ui-radius: 0.25rem;
+  --ui-header-height: 3.5rem;
   --ui-container: 80rem;
 
-  /* page widths: `PageContainer`. The same gutters on both (UContainer: 1rem, 1.5rem from 640 px, 2rem from 1024 px)
-     and the header and the footer sit on the wide one */
-  --app-width-default: 56rem;
-  --app-width-wide: 80rem;
+  /* the frame (layouts/default.vue): a sidebar from 1024 px (a rail of icons until 1280 px), the page beside it. Every
+     page stands in the same container (PageContainer), so its left and right distances are the same on all of them */
+  --app-sidebar-width: 15rem;
+  --app-rail-width: 4rem;
+  --app-width: 80rem;
+  --app-measure: 46rem;
 
   /* spacing: one scale for the vertical rhythm of pages and sections */
-  --app-space-section: clamp(2.5rem, 2rem + 2vw, 4rem);
-  --app-space-block: 1.5rem;
-
-  /* elevation, in the navy of the logo */
-  --app-shadow-sm: 0 1px 2px rgb(11 26 51 / 0.05), 0 1px 1px rgb(11 26 51 / 0.03);
-  --app-shadow-md: 0 1px 2px rgb(11 26 51 / 0.05), 0 8px 24px -8px rgb(11 26 51 / 0.14);
-  --app-shadow-lg: 0 2px 4px rgb(11 26 51 / 0.05), 0 24px 48px -16px rgb(11 26 51 / 0.22);
-
-  /* motion */
-  --app-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
-  --app-duration: 180ms;
+  --app-space-section: clamp(3rem, 2rem + 3vw, 5rem);
 
   /* the primary fill is the logo's blue: white on it is 4.9:1, and 6.0:1 hovered (brand-700) */
   --ui-primary: var(--ui-color-primary-600);
@@ -92,11 +88,7 @@
   --app-primary-hover: var(--ui-color-primary-700);
 }
 .dark {
-  --app-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
-  --app-shadow-md: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -8px rgb(0 0 0 / 0.45);
-  --app-shadow-lg: 0 2px 4px rgb(0 0 0 / 0.3), 0 24px 48px -16px rgb(0 0 0 / 0.6);
-
-  /* the page is the logo's dark navy, its cards the next step up, and the navy of the logo the step after */
+  /* the page is the logo's dark navy, its panels the next step up */
   --ui-bg: var(--ui-color-neutral-950);
   --ui-bg-muted: var(--ui-color-neutral-900);
   --ui-bg-elevated: var(--ui-color-neutral-900);
@@ -116,9 +108,16 @@ html {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
-/* the type scale: headings tighter and heavier than body text */
+/* the type scale: large, tight headings; the weights are 600 and 500, never bold */
 h1, h2, h3 {
-  letter-spacing: -0.015em;
+  letter-spacing: -0.025em;
+  font-weight: 600;
+}
+h1 {
+  letter-spacing: -0.035em;
+}
+code, kbd, pre, samp {
+  font-family: var(--font-mono);
 }
 
 /* Colour contrast, WCAG 2.2 AA (4.5:1 for text). Nuxt UI's defaults miss it in two places; each is moved the least
@@ -187,35 +186,6 @@ h1, h2, h3 {
   outline-color: var(--ui-color-primary-700);
 }
 
-/* ------------------------------------------------------------------------------------------------------------
-   Motion. Subtle, and none under prefers-reduced-motion: the pages rise a few pixels as they come in, cards lift
-   a little under the pointer. Nothing moves for ever (WCAG 2.2.2).
-   ------------------------------------------------------------------------------------------------------------ */
-@media (prefers-reduced-motion: no-preference) {
-  .app-rise {
-    animation: app-rise 520ms var(--app-ease) backwards;
-    animation-delay: calc(var(--app-delay, 0) * 70ms);
-  }
-  .app-lift {
-    transition: transform var(--app-duration) var(--app-ease), box-shadow var(--app-duration) var(--app-ease);
-  }
-  .app-lift:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--app-shadow-md);
-  }
-}
-@keyframes app-rise {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-
 /* Undo Tailwind v4 preflight that breaks Plotly's stacked SVG layout.
    Plotly layers multiple <svg class="main-svg"> that must overlap;
    Tailwind's `svg { display: block }` causes them to stack vertically. */
@@ -271,22 +241,4 @@ h1, h2, h3 {
   100% {
     box-shadow: 0 0 0 0 color-mix(in oklab, var(--ui-primary) 0%, transparent);
   }
-}
-
-/* The wash behind the head of every page (layouts/default.vue): the logo's blue and sun, faint, fading out */
-.app-backdrop {
-  background:
-    radial-gradient(48rem 20rem at 8% -4rem, color-mix(in oklab, var(--color-brand-600) 14%, transparent), transparent 70%),
-    radial-gradient(40rem 18rem at 96% -6rem, color-mix(in oklab, var(--color-sun) 16%, transparent), transparent 70%);
-}
-.dark .app-backdrop {
-  background:
-    radial-gradient(48rem 22rem at 8% -4rem, color-mix(in oklab, var(--color-brand-600) 30%, transparent), transparent 70%),
-    radial-gradient(40rem 18rem at 96% -6rem, color-mix(in oklab, var(--color-teal) 14%, transparent), transparent 70%);
-}
-
-/* A dark band in light mode too (the developer block of the home page): the focus ring is the light one there, as
-   shade 700 of the blue is 1.6:1 on the navy */
-.app-on-dark {
-  --app-focus-ring: var(--color-brand-300);
 }

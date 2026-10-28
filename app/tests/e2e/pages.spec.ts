@@ -201,12 +201,11 @@ test.describe('Providers Page', () => {
 })
 
 test.describe('Support Page', () => {
-  test('should be reachable from the header icon', async ({ page }) => {
+  test('should be reachable from the navigation', async ({ page }) => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
-    // Support is not a nav entry: it is a heart in the header's project links, and a footer link.
-    // Both are named "Support", hence the scoping.
-    await page.getByRole('banner').getByRole('link', { name: /support/i }).click()
+    // Support is in the navigation's project group, and a footer link. Both are named "Support", hence the scoping.
+    await page.getByRole('navigation').getByRole('link', { name: /support/i }).click()
 
     await expect(page).toHaveURL(/\/support/)
   })
@@ -358,7 +357,7 @@ test.describe('Settings Page', () => {
   test('should navigate to the settings page', async ({ page }) => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
-    // The header icon opens a quick-settings popover; the full settings
+    // The settings button of the navigation opens a quick-settings popover; the full settings
     // page is reached via the "Settings" link inside that popover.
     await page.getByRole('button', { name: 'Settings', exact: true }).click()
     await page.getByRole('link', { name: 'Settings', exact: true }).click()

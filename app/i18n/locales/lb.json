@@ -116,7 +116,14 @@
     "providers": "Ubidder",
     "api": "API",
     "glossary": "Glossar",
-    "support": "Ënnerstëtzung"
+    "support": "Ënnerstëtzung",
+    "skip": "Zum Inhalt sprangen",
+    "search": "Sichen",
+    "searchPlaceholder": "Op eng Säit goen oder eng Astellung änneren",
+    "noResults": "Näischt fonnt",
+    "groupData": "Daten",
+    "groupReference": "Referenz",
+    "groupProject": "Projet"
   },
   "header": {
     "github": "GitHub",

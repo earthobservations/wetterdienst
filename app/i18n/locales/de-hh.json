@@ -116,7 +116,14 @@
     "providers": "Anbeder",
     "api": "API",
     "glossary": "Glossar",
-    "support": "Ünnerstütten"
+    "support": "Ünnerstütten",
+    "skip": "Na'n Inhalt springen",
+    "search": "Söken",
+    "searchPlaceholder": "Op ene Siet gahn oder wat instellen",
+    "noResults": "Nix funnen",
+    "groupData": "Daten",
+    "groupReference": "Nakieken",
+    "groupProject": "Projekt"
   },
   "header": {
     "github": "GitHub",

@@ -729,15 +729,15 @@ onMounted(() => {
 
 <template>
   <PageContainer wide>
-    <PageHeader :title="t('stripes.title')" :lead="t('stripes.subtitle')" icon="i-lucide-bar-chart-big" tone="coral" />
+    <PageHeader :title="t('stripes.title')" :lead="t('stripes.subtitle')" />
 
     <UCollapsible v-model="showAbout">
       <UButton
         :label="t('stripes.aboutButton')"
-        icon="i-lucide-info"
+        icon="i-ph-info"
         variant="subtle"
         color="neutral"
-        trailing-icon="i-lucide-chevron-down"
+        trailing-icon="i-ph-caret-down"
         block
         size="sm"
       />
@@ -756,7 +756,7 @@ onMounted(() => {
     <UCard class="mb-6">
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-map-pin" class="text-primary-500 shrink-0" />
+          <UIcon name="i-ph-map-pin" class="text-primary-500 shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('explorer.dataSource') }}
           </h2>
@@ -786,17 +786,17 @@ onMounted(() => {
           <UCollapsible v-model="showMap" class="mt-3">
             <UButton
               :label="t('stripes.chooseOnMap')"
-              icon="i-lucide-map-pin"
+              icon="i-ph-map-pin"
               variant="subtle"
               color="primary"
-              trailing-icon="i-lucide-chevron-down"
+              trailing-icon="i-ph-caret-down"
               block
               size="sm"
             />
             <template #content>
               <ClientOnly>
                 <p class="flex items-center justify-center gap-2 mt-3 text-sm text-gray-500 dark:text-gray-400">
-                  <UIcon name="i-lucide-hand-pointer-2" class="w-4 h-4 text-primary-500" />
+                  <UIcon name="i-ph-hand-pointing" class="w-4 h-4 text-primary-500" />
                   {{ t('stripes.mapHint') }}
                 </p>
                 <MapStations
@@ -837,10 +837,10 @@ onMounted(() => {
 
         <div class="flex flex-col sm:flex-row gap-2">
           <UButton
-            :label="t('common.fetch')" icon="i-lucide-play" color="primary" :disabled="!selectedStation || isLoading"
+            :label="t('common.fetch')" icon="i-ph-play" color="primary" :disabled="!selectedStation || isLoading"
             :loading="isLoading" class="w-full" @click="fetchAndPlotStripes"
           />
-          <UButton :label="t('common.clear')" icon="i-lucide-x" variant="outline" class="w-full" :disabled="!hasPlot && !isLoading && !fetchError" @click="clearStripes" />
+          <UButton :label="t('common.clear')" icon="i-ph-x" variant="outline" class="w-full" :disabled="!hasPlot && !isLoading && !fetchError" @click="clearStripes" />
         </div>
       </div>
     </UCard>
@@ -848,10 +848,10 @@ onMounted(() => {
     <UCollapsible v-model="showSettings">
       <UButton
         :label="t('stripes.settingsTitle')"
-        icon="i-lucide-settings-2"
+        icon="i-ph-gear-six"
         variant="subtle"
         color="neutral"
-        trailing-icon="i-lucide-chevron-down"
+        trailing-icon="i-ph-caret-down"
         block
         size="sm"
       />
@@ -872,7 +872,7 @@ onMounted(() => {
     <UCard class="mb-6">
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-bar-chart-big" class="text-primary-500 shrink-0" />
+          <UIcon name="i-ph-chart-bar" class="text-primary-500 shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('stripes.visualizationTitle') }}
           </h2>
@@ -882,7 +882,7 @@ onMounted(() => {
       <div>
         <div v-if="isLoading" class="flex items-center justify-center h-64">
           <div class="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-            <UIcon name="i-lucide-loader-circle" class="animate-spin" />
+            <UIcon name="i-ph-circle-notch" class="animate-spin" />
             {{ t('stripes.loadingViz') }}
           </div>
         </div>
@@ -895,7 +895,7 @@ onMounted(() => {
           <span class="text-sm">{{ fetchError }}</span>
         </div>
         <div v-else-if="!hasPlot" class="flex flex-col items-center justify-center h-64 gap-3 text-gray-500 dark:text-gray-400">
-          <UIcon name="i-lucide-bar-chart-big" class="w-12 h-12 opacity-30" />
+          <UIcon name="i-ph-chart-bar" class="w-12 h-12 opacity-30" />
           <p class="text-sm">
             {{ t('stripes.emptyHint') }}
           </p>
@@ -916,8 +916,8 @@ onMounted(() => {
               <span class="block text-sm">{{ t('dataViewer.chartCodeNotLoaded') }}</span>
             </template>
           </span>
-          <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="lastFetchedData && plotStripes(lastFetchedData)" />
-          <UButton v-if="plotlyNotLoaded" :label="t('common.reloadPage')" icon="i-lucide-refresh-cw" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
+          <UButton :label="t('common.retry')" icon="i-ph-arrow-clockwise" size="sm" color="neutral" variant="outline" @click="lastFetchedData && plotStripes(lastFetchedData)" />
+          <UButton v-if="plotlyNotLoaded" :label="t('common.reloadPage')" icon="i-ph-arrows-clockwise" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
         </div>
         <!-- a figure, not an image: Plotly's own controls in it stay reachable; nor a landmark -->
         <div
@@ -948,7 +948,7 @@ onMounted(() => {
           >
             <UButton
               :label="t('stripes.downloadImage')" color="primary" variant="outline"
-              icon="i-lucide-download" class="w-full justify-center"
+              icon="i-ph-download-simple" class="w-full justify-center"
             />
           </UDropdownMenu>
         </div>

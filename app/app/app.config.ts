@@ -1,15 +1,61 @@
-// The theme of the app (GH-3518). The colours are the scales declared in assets/css/main.css (`brand`, the blue of the
-// logo, and `ink`, a neutral scale tinted towards the logo's navy); the components below are shaped here, once, so that
-// no page restyles a card or a button of its own.
+// The theme of the app (GH-3518). The look is a few tokens (assets/css/main.css): the scales `brand` (the blue of the
+// logo, the one accent) and `ink` (neutrals tinted towards the logo's navy), a small radius, hairline borders and no
+// shadows. The components below are shaped here, once, so that no page restyles a card or a button of its own.
+// The icons are Phosphor (`i-ph-*`), including the ones Nuxt UI draws itself.
 export default defineAppConfig({
   ui: {
     colors: {
       primary: 'brand',
       neutral: 'ink',
     },
+    icons: {
+      arrowDown: 'i-ph-arrow-down',
+      arrowLeft: 'i-ph-arrow-left',
+      arrowRight: 'i-ph-arrow-right',
+      arrowUp: 'i-ph-arrow-up',
+      caution: 'i-ph-warning-circle',
+      check: 'i-ph-check',
+      chevronDoubleLeft: 'i-ph-caret-double-left',
+      chevronDoubleRight: 'i-ph-caret-double-right',
+      chevronDown: 'i-ph-caret-down',
+      chevronLeft: 'i-ph-caret-left',
+      chevronRight: 'i-ph-caret-right',
+      chevronUp: 'i-ph-caret-up',
+      close: 'i-ph-x',
+      copy: 'i-ph-copy',
+      copyCheck: 'i-ph-check-square',
+      dark: 'i-ph-moon',
+      drag: 'i-ph-dots-six-vertical',
+      ellipsis: 'i-ph-dots-three',
+      error: 'i-ph-x-circle',
+      external: 'i-ph-arrow-up-right',
+      eye: 'i-ph-eye',
+      eyeOff: 'i-ph-eye-slash',
+      file: 'i-ph-file',
+      folder: 'i-ph-folder',
+      folderOpen: 'i-ph-folder-open',
+      hash: 'i-ph-hash',
+      info: 'i-ph-info',
+      light: 'i-ph-sun',
+      loading: 'i-ph-circle-notch',
+      menu: 'i-ph-list',
+      minus: 'i-ph-minus',
+      panelClose: 'i-ph-sidebar-simple',
+      panelOpen: 'i-ph-sidebar-simple',
+      plus: 'i-ph-plus',
+      reload: 'i-ph-arrow-counter-clockwise',
+      search: 'i-ph-magnifying-glass',
+      stop: 'i-ph-stop',
+      star: 'i-ph-star',
+      success: 'i-ph-check-circle',
+      system: 'i-ph-desktop',
+      tip: 'i-ph-lightbulb',
+      upload: 'i-ph-upload-simple',
+      warning: 'i-ph-warning',
+    },
     button: {
       slots: {
-        base: 'rounded-lg font-medium transition-colors duration-150 motion-reduce:transition-none',
+        base: 'rounded-md font-medium transition-colors duration-150 motion-reduce:transition-none',
       },
       compoundVariants: [
         // The label of a solid primary button is --app-text-on-primary (white on the logo's blue, 4.9:1; the dark
@@ -21,60 +67,60 @@ export default defineAppConfig({
           variant: 'solid',
           class: 'text-(color:--app-text-on-primary) hover:bg-(--app-primary-hover)',
         },
+        // One accent: the primary colour is for the one thing a page asks of you (the solid button), for links and for
+        // the current page. A soft or outlined primary button is quiet, in the neutral scale.
+        {
+          color: 'primary',
+          variant: 'soft',
+          class: 'bg-elevated text-default hover:bg-accented',
+        },
+        {
+          color: 'primary',
+          variant: 'outline',
+          class: 'text-default ring ring-inset ring-accented hover:bg-elevated',
+        },
       ],
     },
     card: {
       slots: {
-        root: 'rounded-xl shadow-(--app-shadow-sm)',
+        root: 'rounded-lg',
         header: 'p-4 sm:px-6',
         body: 'p-4 sm:p-6',
       },
     },
     alert: {
       slots: {
-        root: 'rounded-xl',
+        root: 'rounded-lg',
       },
     },
     badge: {
       slots: {
-        base: 'rounded-full font-medium',
+        base: 'rounded-md font-medium',
       },
-    },
-    input: {
-      slots: {
-        base: 'rounded-lg',
-      },
-    },
-    select: {
-      slots: {
-        base: 'rounded-lg',
-      },
-    },
-    selectMenu: {
-      slots: {
-        base: 'rounded-lg',
-      },
-    },
-    textarea: {
-      slots: {
-        base: 'rounded-lg',
-      },
+      compoundVariants: [
+        {
+          color: 'primary',
+          variant: 'subtle',
+          class: 'bg-elevated text-default ring ring-inset ring-default',
+        },
+      ],
     },
     tabs: {
       slots: {
-        list: 'rounded-xl',
-        indicator: 'rounded-lg',
-        trigger: 'rounded-lg',
+        list: 'rounded-lg',
+        indicator: 'rounded-md',
+        trigger: 'rounded-md',
       },
     },
     navigationMenu: {
       slots: {
-        link: 'rounded-lg',
+        link: 'rounded-md',
+        linkLabel: 'truncate',
       },
     },
-    header: {
+    commandPalette: {
       slots: {
-        root: 'bg-default/80 backdrop-blur-md',
+        input: '[&>input]:h-12',
       },
     },
   },

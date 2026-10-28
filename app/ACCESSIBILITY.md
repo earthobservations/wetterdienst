@@ -73,8 +73,7 @@ shade 700 (5.2:1 on its tint; shade 600 was 4.3:1). In dark mode a hovered link 
 shade 400 was 4.2:1 on a raised surface). Muted text is `ink-500` a
 quarter of the way to `ink-600` on white (5.8:1; 5.3:1 on `ink-100`; `ink-500` itself, which the pages' `text-gray-500` is, 5.4:1 and 4.9:1) and `ink-400` on dark (7.0:1 on the page, 5.0:1
 on the navy of the logo, the brightest surface). The page of dark mode is `ink-950`, the logo's `#0B1A33`; its raised
-surfaces are `ink-900` and `ink-800` (the logo's `#17335F`). The home page's developer band is navy in both modes and
-sets its own focus ring (`.app-on-dark`, `brand-300`, 8.7:1). `tests/unit/button-contrast.test.ts` reads the colours
+surfaces are `ink-900` and `ink-800` (the logo's `#17335F`). `tests/unit/button-contrast.test.ts` reads the colours
 from `main.css` and computes the ratios of the solid button, its hover, in both modes; the hover scan measures the
 rest. The whole table is in the pull request of GH-3518 (it is computed by WCAG's formula, not estimated).
 
@@ -84,10 +83,16 @@ on the brightest surface; the map takes the light one in both modes). Nuxt UI's 
 primary colour (under 2:1 on white) and a ring in the primary colour, and its menu search fields draw none; they
 stay, beside it.
 
-Decoration is hidden from assistive technology and carries no information: the stripes of the home page and of the
-developer band (`StripesBand`, a fixed pseudo-random line, not data), the colour wash behind each page, the icon
-tiles of the page headers (`PageHeader`) and the four-colour line of the footer. Nothing moves for ever; the entrance
-of the pages (`.app-rise`) and the lift of a card (`.app-lift`) exist only under `prefers-reduced-motion: no-preference`.
+Decoration is hidden from assistive technology and carries no information: the stripes of the home page
+(`StripesBand`, a fixed pseudo-random line, not data) and the icons that stand beside a label. The one animation
+that remains, the pulse of a field that still needs a value, has a static ring under `prefers-reduced-motion`.
+
+Navigation (GH-3518): a skip link is the first stop of every page but the widget and moves the focus to `<main id="main">`.
+The places are one `<nav aria-label="Menu">` in a sidebar (a rail of icons from 1024 px, named by visually hidden labels
+and tooltips; below that a drawer opened by the menu button, a dialog that keeps the focus, closes on Escape and hands
+the focus back). The current page carries `aria-current="page"`. The command palette (Ctrl or Cmd + K, or the search
+button) is a dialog with a labelled search field and a listbox; the `search-open` and `mobile-menu-open` states are
+scanned.
 
 There is no sepia mode. `main.css` once held a `html.sepia` block that redefined the `--ui-*` tokens, which
 nothing in the app ever set (`colorMode` knows `light`, `dark` and `system`, and the settings offer those

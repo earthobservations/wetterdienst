@@ -195,15 +195,15 @@ function clear() {
 
 <template>
   <PageContainer wide>
-    <PageHeader :title="t('history.title')" :lead="t('history.subtitle')" icon="i-lucide-clock" tone="teal" />
+    <PageHeader :title="t('history.title')" :lead="t('history.subtitle')" />
 
     <UCollapsible v-model="showAbout">
       <UButton
         :label="t('history.aboutButton')"
-        icon="i-lucide-info"
+        icon="i-ph-info"
         variant="subtle"
         color="neutral"
-        trailing-icon="i-lucide-chevron-down"
+        trailing-icon="i-ph-caret-down"
         block
         size="sm"
       />
@@ -227,7 +227,7 @@ function clear() {
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-map-pin" class="text-primary-500 shrink-0" />
+          <UIcon name="i-ph-map-pin" class="text-primary-500 shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('explorer.dataSource') }}
           </h2>
@@ -249,7 +249,7 @@ function clear() {
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-filter" class="text-primary-500 shrink-0" />
+          <UIcon name="i-ph-funnel" class="text-primary-500 shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('history.sectionsTitle') }}
           </h2>
@@ -264,15 +264,15 @@ function clear() {
           class="w-full"
         />
         <div class="flex flex-col sm:flex-row gap-2">
-          <UButton :label="t('common.fetch')" icon="i-lucide-play" color="primary" :disabled="!canFetch" class="w-full" @click="run" />
-          <UButton :label="t('common.clear')" icon="i-lucide-x" variant="outline" class="w-full" @click="clear" />
+          <UButton :label="t('common.fetch')" icon="i-ph-play" color="primary" :disabled="!canFetch" class="w-full" @click="run" />
+          <UButton :label="t('common.clear')" icon="i-ph-x" variant="outline" class="w-full" @click="clear" />
         </div>
         <div v-if="pending" class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-          <UIcon name="i-lucide-loader-circle" class="animate-spin shrink-0" />
+          <UIcon name="i-ph-circle-notch" class="animate-spin shrink-0" />
           {{ t('common.loading') }}
         </div>
         <div v-if="fetchErrorMessage" class="flex items-center gap-2 text-sm text-red-600">
-          <UIcon name="i-lucide-alert-circle" class="shrink-0" />
+          <UIcon name="i-ph-warning-circle" class="shrink-0" />
           {{ t('history.error') }}: {{ fetchErrorMessage }}
         </div>
       </div>
@@ -281,7 +281,7 @@ function clear() {
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-table-2" class="text-primary-500 shrink-0" />
+          <UIcon name="i-ph-table" class="text-primary-500 shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('history.resultsTitle') }}
           </h2>
@@ -360,7 +360,7 @@ function clear() {
                   <!-- Station Info Card Header displays basic station info -->
                   <template #header>
                     <div class="flex items-center gap-2 flex-wrap">
-                      <UIcon name="i-lucide-map-pin" class="text-primary-500 shrink-0" />
+                      <UIcon name="i-ph-map-pin" class="text-primary-500 shrink-0" />
                       <h3 class="text-lg font-bold">
                         {{ t('history.stationIdPrefix') }}: {{ history.station_id }}
                         <span
@@ -382,7 +382,7 @@ function clear() {
                       <UButton
                         :label="t('history.nameHistory')"
                         variant="ghost"
-                        trailing-icon="i-lucide-chevron-down"
+                        trailing-icon="i-ph-caret-down"
                         block
                         class="mb-2"
                       />
@@ -470,7 +470,7 @@ function clear() {
                       <UButton
                         :label="t('history.parameterHistory')"
                         variant="ghost"
-                        trailing-icon="i-lucide-chevron-down"
+                        trailing-icon="i-ph-caret-down"
                         block
                         class="mb-2"
                       />
@@ -527,7 +527,7 @@ function clear() {
                       <UButton
                         :label="t('history.deviceHistory')"
                         variant="ghost"
-                        trailing-icon="i-lucide-chevron-down"
+                        trailing-icon="i-ph-caret-down"
                         block
                         class="mb-2"
                       />
@@ -584,7 +584,7 @@ function clear() {
                       <UButton
                         :label="t('history.geographyHistory')"
                         variant="ghost"
-                        trailing-icon="i-lucide-chevron-down"
+                        trailing-icon="i-ph-caret-down"
                         block
                         class="mb-2"
                       />
@@ -643,7 +643,7 @@ function clear() {
                       <UButton
                         :label="t('history.missingDataHistory')"
                         variant="ghost"
-                        trailing-icon="i-lucide-chevron-down"
+                        trailing-icon="i-ph-caret-down"
                         block
                         class="mb-2"
                       />

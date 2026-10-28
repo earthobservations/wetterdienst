@@ -51,12 +51,12 @@ const examples = [
 
 <template>
   <PageContainer>
-    <PageHeader :title="t('api.title')" :lead="t('api.subtitle')" icon="i-lucide-code" tone="teal" />
+    <PageHeader :title="t('api.title')" :lead="t('api.subtitle')" />
 
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-code-2" class="text-primary-500 shrink-0" />
+          <UIcon name="i-ph-code" class="text-primary-500 shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('api.endpointsTitle') }}
           </h2>
@@ -81,7 +81,7 @@ const examples = [
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-terminal" class="text-primary-500 shrink-0" />
+          <UIcon name="i-ph-terminal-window" class="text-primary-500 shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('api.examplesTitle') }}
           </h2>
@@ -105,7 +105,7 @@ const examples = [
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-file-json" class="text-primary-500 shrink-0" />
+          <UIcon name="i-ph-file-code" class="text-primary-500 shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('api.formatsTitle') }}
           </h2>
@@ -127,7 +127,7 @@ const examples = [
     <UCard v-if="mcpEnabled">
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-bot" class="text-primary-500 shrink-0" />
+          <UIcon name="i-ph-robot" class="text-primary-500 shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('api.mcpTitle') }}
           </h2>
@@ -152,7 +152,7 @@ const examples = [
         target="_blank"
         size="sm"
         variant="link"
-        icon="i-lucide-book-open"
+        icon="i-ph-book-open"
         class="px-0"
       >
         {{ t('api.mcpDocs') }}
@@ -162,7 +162,7 @@ const examples = [
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-list" class="text-primary-500 shrink-0" />
+          <UIcon name="i-ph-list-bullets" class="text-primary-500 shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('api.commonParamsTitle') }}
           </h2>

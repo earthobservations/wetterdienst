@@ -18,11 +18,13 @@ Types of changes:
 
 ### Changed
 
-- `[Design]` A new look with the colours of the logo: its blue is the primary colour, dark mode
-  is its navy, and the font is Figtree, served by the app itself. Every page stands in one shared
-  layout with the same side margins (wider for the explorer, stripes, forecast, history and
-  providers pages), with a new header, footer and page title, and the home page has a new hero.
-  Nothing behaves differently; the licence notices gain the font's licence (OFL-1.1) (GH-3518)
+- `[Design]` A new, quieter look: near-monochrome with the logo's blue as the one accent, the
+  Geist typeface and Phosphor icons (both served by the app itself), and one shared page layout
+  with the same side margins on every page. The top bar is gone: navigation is a sidebar with the
+  places in groups (a rail of icons on narrow desktops, a drawer on phones), the settings at its
+  foot, a skip-to-content link, and a command palette on Ctrl or Cmd + K. Providers show a
+  country code instead of a flag, the language list has no flags. Nothing else behaves
+  differently; the licence notices gain the fonts' licence (OFL-1.1) and the icon set's (GH-3518)
 
 ## [0.38.0] - 2026-10-27
 

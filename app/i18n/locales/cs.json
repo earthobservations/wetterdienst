@@ -116,7 +116,14 @@
     "providers": "Poskytovatelé",
     "api": "API",
     "glossary": "Slovník",
-    "support": "Podpora"
+    "support": "Podpora",
+    "skip": "Přejít na obsah",
+    "search": "Hledat",
+    "searchPlaceholder": "Přejít na stránku nebo změnit nastavení",
+    "noResults": "Nic nenalezeno",
+    "groupData": "Data",
+    "groupReference": "Reference",
+    "groupProject": "Projekt"
   },
   "header": {
     "github": "GitHub",

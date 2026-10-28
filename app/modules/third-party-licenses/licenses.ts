@@ -32,9 +32,9 @@ export const NOTICE_ONLY_LICENSES = new Set([
   'CC0-1.0',
   'ISC',
   'MIT',
-  // the font (@fontsource-variable/figtree, GH-3518), read: the OFL asks that the copyright line and the licence text
-  // go with the font, which the file does (the whole text), that the font is not sold by itself, and that a modified
-  // font does not carry the reserved name; the app serves the files as they are
+  // the fonts (@fontsource-variable/geist and geist-mono, GH-3518), read: the OFL asks that the copyright line and
+  // the licence text go with the font, which the file does (the whole text), that the font is not sold by itself, and
+  // that a modified font does not carry the reserved name; the app serves the files as they are
   'OFL-1.1',
   'Unlicense',
 ])
@@ -99,15 +99,14 @@ function homepageOf(pkg: Record<string, any>): string {
  * - @duckdb/duckdb-wasm declares MIT and ships no licence file; `fallbacks/duckdb-wasm.LICENSE` is the LICENSE of
  *   github.com/duckdb/duckdb-wasm.
  * - The Iconify icon sets (@iconify-json/*) ship an `info.json` (author, licence, link) and no licence text.
- *   `fallbacks/lucide.LICENSE` and `fallbacks/heroicons.LICENSE` are the LICENSE files of github.com/lucide-icons/lucide
- *   and github.com/tailwindlabs/heroicons; simple-icons is CC0 and asks for nothing, so its `info.json` is the text.
+ *   `fallbacks/phosphor.LICENSE` is the LICENSE file of github.com/phosphor-icons/core; simple-icons is CC0 and asks for
+ *   nothing, so its `info.json` is the text.
  */
 const UNDECLARED: Record<string, { license?: string, textFile?: string }> = {
   'suncalc': { license: 'BSD-2-Clause' },
   'vaul-vue': { license: 'MIT', textFile: 'vaul-vue.LICENSE' },
   '@duckdb/duckdb-wasm': { textFile: 'duckdb-wasm.LICENSE' },
-  '@iconify-json/lucide': { textFile: 'lucide.LICENSE' },
-  '@iconify-json/heroicons': { textFile: 'heroicons.LICENSE' },
+  '@iconify-json/ph': { textFile: 'phosphor.LICENSE' },
 }
 
 /**
@@ -214,7 +213,7 @@ export function readNotice(dir: string): Notice {
  * that the server answers with (the icons the page asks `/_nuxt_icon` for, from the three sets
  * `nuxt.config.ts` installs).
  */
-export const SERVED_APART = ['swagger-ui-dist', '@iconify-json/lucide', '@iconify-json/heroicons', '@iconify-json/simple-icons']
+export const SERVED_APART = ['swagger-ui-dist', '@iconify-json/ph', '@iconify-json/simple-icons']
 
 /**
  * The directory of a package, looked for the way Node does: in the `node_modules` of the directory and of each one

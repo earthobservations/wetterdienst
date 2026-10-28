@@ -344,6 +344,16 @@ const STATES: State[] = [
       await expect(page.getByRole('navigation').last()).toBeVisible()
     },
   },
+  {
+    page: 'index',
+    state: 'search-open',
+    keepFocus: true,
+    path: '/',
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'nav.search'), exact: true }).click()
+      await expect(page.getByRole('dialog')).toBeVisible()
+    },
+  },
 ]
 
 /** Opens `path` and waits until the app, in this variant, has taken the page up */

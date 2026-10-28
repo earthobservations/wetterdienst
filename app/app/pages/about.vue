@@ -29,13 +29,13 @@ const people = computed(() => [
     bio: `${t('about.maintainerBio')} ${t('about.maintainerText2')}`,
     githubAvatarId: '29654631',
     meta: [
-      { icon: 'i-lucide-map-pin', text: 'Hamburg' },
-      { icon: 'i-lucide-cake', text: t('about.maintainerAge', { age: age.value }) },
+      { icon: 'i-ph-map-pin', text: 'Hamburg' },
+      { icon: 'i-ph-cake', text: t('about.maintainerAge', { age: age.value }) },
     ],
     links: [
-      { icon: 'i-lucide-github', label: 'gutzbenj', to: 'https://github.com/gutzbenj' },
-      { icon: 'i-lucide-mail', label: 'benjamin@eobs.org', to: 'mailto:benjamin@eobs.org' },
-      { icon: 'i-lucide-linkedin', label: 'LinkedIn', to: 'https://www.linkedin.com/in/benjamin-gutzmann-3792b1141/' },
+      { icon: 'i-ph-github-logo', label: 'gutzbenj', to: 'https://github.com/gutzbenj' },
+      { icon: 'i-ph-envelope-simple', label: 'benjamin@eobs.org', to: 'mailto:benjamin@eobs.org' },
+      { icon: 'i-ph-linkedin-logo', label: 'LinkedIn', to: 'https://www.linkedin.com/in/benjamin-gutzmann-3792b1141/' },
       // rel="me" is what lets the Mastodon profile verify a link back to this site
       { icon: 'i-simple-icons-mastodon', label: '@gutzb3nj', to: 'https://mastodon.social/@gutzb3nj', rel: 'me noopener noreferrer' },
     ],
@@ -49,11 +49,11 @@ const people = computed(() => [
     // the city comes from the maintainer, who works with him; there is no age here because
     // Andreas has not published one, and his is not ours to go looking for
     meta: [
-      { icon: 'i-lucide-map-pin', text: 'Berlin' },
+      { icon: 'i-ph-map-pin', text: 'Berlin' },
     ],
     links: [
-      { icon: 'i-lucide-github', label: 'amotl', to: 'https://github.com/amotl' },
-      { icon: 'i-lucide-mail', label: 'andreas.motl@panodata.org', to: 'mailto:andreas.motl@panodata.org' },
+      { icon: 'i-ph-github-logo', label: 'amotl', to: 'https://github.com/amotl' },
+      { icon: 'i-ph-envelope-simple', label: 'andreas.motl@panodata.org', to: 'mailto:andreas.motl@panodata.org' },
     ],
   },
 ])
@@ -61,12 +61,12 @@ const people = computed(() => [
 
 <template>
   <PageContainer>
-    <PageHeader :title="t('about.title')" :lead="t('about.subtitle')" icon="i-lucide-info" tone="blue" />
+    <PageHeader :title="t('about.title')" :lead="t('about.subtitle')" />
 
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-info" class="text-primary-500 shrink-0" />
+          <UIcon name="i-ph-info" class="text-primary-500 shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('about.projectTitle') }}
           </h2>
@@ -90,7 +90,7 @@ const people = computed(() => [
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-users" class="text-primary-500 shrink-0" />
+          <UIcon name="i-ph-users" class="text-primary-500 shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('about.peopleTitle') }}
           </h2>
@@ -173,7 +173,7 @@ const people = computed(() => [
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-link" class="text-primary-500 shrink-0" />
+          <UIcon name="i-ph-link" class="text-primary-500 shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('about.linksTitle') }}
           </h2>
@@ -185,7 +185,7 @@ const people = computed(() => [
           target="_blank"
           size="sm"
           variant="outline"
-          icon="i-lucide-github"
+          icon="i-ph-github-logo"
         >
           {{ t('about.linkSource') }}
         </UButton>
@@ -194,7 +194,7 @@ const people = computed(() => [
           target="_blank"
           size="sm"
           variant="outline"
-          icon="i-lucide-book-open"
+          icon="i-ph-book-open"
         >
           {{ t('about.linkDocs') }}
         </UButton>
@@ -203,7 +203,7 @@ const people = computed(() => [
           target="_blank"
           size="sm"
           variant="outline"
-          icon="i-lucide-package"
+          icon="i-ph-package"
         >
           {{ t('about.linkPypi') }}
         </UButton>
@@ -211,7 +211,7 @@ const people = computed(() => [
           to="/support"
           size="sm"
           variant="outline"
-          icon="i-lucide-heart"
+          icon="i-ph-heart"
         >
           {{ t('about.linkSupport') }}
         </UButton>

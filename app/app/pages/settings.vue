@@ -13,9 +13,9 @@ const selectedLanguage = computed({
 })
 
 const themeOptions = computed(() => [
-  { value: 'system', label: t('settings.themeSystem'), icon: 'i-lucide-monitor' },
-  { value: 'light', label: t('settings.themeLight'), icon: 'i-lucide-sun' },
-  { value: 'dark', label: t('settings.themeDark'), icon: 'i-lucide-moon' },
+  { value: 'system', label: t('settings.themeSystem'), icon: 'i-ph-desktop' },
+  { value: 'light', label: t('settings.themeLight'), icon: 'i-ph-sun' },
+  { value: 'dark', label: t('settings.themeDark'), icon: 'i-ph-moon' },
 ])
 
 // The unit choices this page offers and stores. They are *not* applied to a request today: a query
@@ -57,13 +57,13 @@ function unitItems(units: readonly string[]) {
 
 <template>
   <PageContainer>
-    <PageHeader :title="t('settings.title')" :lead="t('settings.subtitle')" icon="i-lucide-settings-2" tone="blue" />
+    <PageHeader :title="t('settings.title')" :lead="t('settings.subtitle')" />
 
     <!-- Language -->
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-languages" class="text-primary-500 shrink-0" />
+          <UIcon name="i-ph-translate" class="text-primary-500 shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('settings.language') }}
           </h2>
@@ -81,7 +81,7 @@ function unitItems(units: readonly string[]) {
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-palette" class="text-primary-500 shrink-0" />
+          <UIcon name="i-ph-palette" class="text-primary-500 shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('settings.theme') }}
           </h2>
@@ -104,7 +104,7 @@ function unitItems(units: readonly string[]) {
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-ruler" class="text-primary-500 shrink-0" />
+          <UIcon name="i-ph-ruler" class="text-primary-500 shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('settings.units') }}
           </h2>
@@ -185,7 +185,7 @@ function unitItems(units: readonly string[]) {
       </p>
       <UButton
         :label="t('settings.reset')"
-        icon="i-lucide-rotate-ccw"
+        icon="i-ph-arrow-counter-clockwise"
         color="neutral"
         variant="outline"
         size="sm"

@@ -52,7 +52,7 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
     <UButton
       to="/providers"
       variant="link"
-      icon="i-lucide-arrow-left"
+      icon="i-ph-arrow-left"
       :label="t('providers.back')"
       class="-ml-2.5"
     />
@@ -61,7 +61,7 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
       v-if="failure"
       color="error"
       variant="subtle"
-      icon="i-lucide-alert-circle"
+      icon="i-ph-warning-circle"
       :title="t('common.requestFailed')"
       :description="failure"
       :actions="[{ label: t('common.retry'), onClick: () => refresh() }]"
@@ -69,14 +69,13 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
     <UEmpty v-else-if="pending && !data" loading :title="t('common.loading')" />
     <UEmpty
       v-else-if="!provider"
-      icon="i-lucide-building-2"
+      icon="i-ph-buildings"
       :title="t('providers.notFound', { provider: id })"
     />
     <template v-else>
-      <div class="flex items-start gap-4">
-        <span class="text-5xl leading-none" aria-hidden="true">{{ flagEmoji(provider.country_code) }}</span>
+      <div>
         <div class="min-w-0">
-          <h1 class="text-3xl font-bold break-words">
+          <h1 class="text-3xl font-semibold text-highlighted break-words sm:text-4xl">
             {{ provider.name_english }}
           </h1>
           <p v-if="provider.name_local !== provider.name_english" class="text-lg text-gray-600 dark:text-gray-400 break-words">
@@ -93,7 +92,7 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
       <UCard>
         <template #header>
           <div class="flex items-center gap-2">
-            <UIcon name="i-lucide-scale" class="text-primary-500 shrink-0" />
+            <UIcon name="i-ph-scales" class="text-primary-500 shrink-0" />
             <h2 class="text-lg font-bold">
               {{ t('providers.licenceTitle') }}
             </h2>
@@ -127,7 +126,7 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
               <q class="break-words">{{ provider.attribution }}</q>
               <UButton
                 v-if="canCopy"
-                :icon="copied ? 'i-lucide-check' : 'i-lucide-copy'"
+                :icon="copied ? 'i-ph-check' : 'i-ph-copy'"
                 :label="copied ? t('providers.copied') : t('providers.copy')"
                 color="neutral"
                 variant="ghost"
@@ -145,7 +144,7 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
       <UCard>
         <template #header>
           <div class="flex items-center gap-2">
-            <UIcon name="i-lucide-network" class="text-primary-500 shrink-0" />
+            <UIcon name="i-ph-graph" class="text-primary-500 shrink-0" />
             <h2 class="text-lg font-bold">
               {{ t('providers.networksTitle') }}
             </h2>
@@ -167,14 +166,14 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
                 :label="t('providers.keyRequired')"
                 color="neutral"
                 variant="outline"
-                icon="i-lucide-key-round"
+                icon="i-ph-key"
               />
               <UBadge
                 v-if="network.date_required"
                 :label="t('providers.dateRequired')"
                 color="neutral"
                 variant="outline"
-                icon="i-lucide-calendar"
+                icon="i-ph-calendar-blank"
               />
             </div>
             <p class="text-sm text-gray-600 dark:text-gray-400">
@@ -222,14 +221,14 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
               <UButton
                 v-if="TIMESERIES.includes(network.kind)"
                 :to="explorerLink(network)"
-                icon="i-lucide-compass"
+                icon="i-ph-compass"
                 :label="t('providers.openExplorer')"
                 size="sm"
               />
               <UButton
                 v-if="hasHistory(network)"
                 to="/history"
-                icon="i-lucide-clock"
+                icon="i-ph-clock"
                 :label="t('history.title')"
                 color="neutral"
                 variant="outline"

@@ -21,7 +21,7 @@ const operator = OPERATOR
 <template>
   <!-- the text is in a language of its own, which the interface may not be in (WCAG 3.1.2) -->
   <PageContainer :lang="policy === privacyDe ? 'de' : 'en'">
-    <PageHeader :title="policy.title" :lead="policy.updated" icon="i-lucide-shield-check" tone="teal" />
+    <PageHeader :title="policy.title" :lead="policy.updated" />
     <p v-if="policy.binding" class="text-sm text-muted">
       {{ policy.binding }}
     </p>
@@ -33,7 +33,7 @@ const operator = OPERATOR
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-user" class="text-primary-500 shrink-0" />
+          <UIcon name="i-ph-user" class="text-primary-500 shrink-0" />
           <h2 class="text-lg font-bold">
             {{ policy.controller.title }}
           </h2>
