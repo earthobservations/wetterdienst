@@ -44,6 +44,7 @@ def test_examples() -> None:
         dwd_obs_interpolate,
         dwd_obs_plot_german_weather_stations,
         dwd_obs_plot_hohenpeissenberg_warming_stripes,
+        dwd_obs_plot_hohenpeissenberg_warming_stripes_band,
         dwd_obs_plot_temperature_timeseries,
         dwd_obs_stations_filter_by_examples,
         dwd_obs_summarize,
@@ -55,10 +56,30 @@ def test_examples() -> None:
     assert dwd_obs_interpolate.main() is None
     assert dwd_obs_plot_german_weather_stations.main() is None
     assert dwd_obs_plot_hohenpeissenberg_warming_stripes.main() is None
+    assert dwd_obs_plot_hohenpeissenberg_warming_stripes_band.main() is None
     assert dwd_obs_plot_temperature_timeseries.main() is None
     assert dwd_obs_stations_filter_by_examples.main() is None
     assert dwd_obs_summarize.main() is None
     assert dwd_obs_values_sql.main() is None
+
+
+@pytest.mark.remote
+@pytest.mark.cflake
+def test_examples_warming_stripes_band() -> None:
+    """Test that the band of the README is drawn at 1600 x 200 px and that the example writes nothing as it stands."""
+    from examples.provider.dwd.observation import (  # noqa: PLC0415
+        dwd_obs_plot_hohenpeissenberg_warming_stripes_band,
+    )
+
+    band = dwd_obs_plot_hohenpeissenberg_warming_stripes_band
+    assert band.SAVE_PLOT is False
+    png = band.draw_band()
+    assert png[:8] == b"\x89PNG\r\n\x1a\n"
+    # the IHDR chunk follows the signature: its length and type, then width and height as 32-bit integers
+    assert (int.from_bytes(png[16:20], "big"), int.from_bytes(png[20:24], "big")) == (
+        band.WIDTH * band.SCALE,
+        band.HEIGHT * band.SCALE,
+    )
 
 
 @pytest.mark.remote
