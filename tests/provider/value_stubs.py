@@ -217,7 +217,18 @@ def _ipma(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFr
     # 2,170 kJ/m2, the clear sky of that noon at 38.7 N about 2,600) has three stations above the extraterrestrial
     # 3,260 kJ/m2 of the hour: 6211217 (3,867), 6211213 (3,752) and 1200512 (3,257), and 6211217 reads 3,961 at
     # 13 UTC. That is a station that reads high, not a code, so the value is not touched. IPMA's open-data page lists
-    # the files only and defines none of the fields.
+    # the files only and defines none of the fields. Read again on 2026-10-28 (the feed of 24 hours, 2,833 values of
+    # about 130 stations): 6211217 (Viana do Castelo - Fonte Louça, 41.75 N) reads 2,551 kJ/m2 at 13 UTC, 1.23 times
+    # the 2,082 of the median station and below the 2,850 the sky above holds; the 3,913 of mid October is out of the
+    # window. Four stations are above the extraterrestrial radiation of the hour (computed from the position and the
+    # time, either end of the hour): Portalegre (1200571, up to 1.27 times, 3,807 at 12 UTC), Paredes de Coura - Vascoes
+    # (6211213, 1.24), Ponta Delgada (1200512, 1.23) and Castro Marim (1210867, 1,395 kJ/m2 at 07 UTC, before the sun
+    # is up at 576, so a station on another clock). Not a unit: the median station is 0.73 of the extraterrestrial
+    # value, a kJ/m2 per hour that fits, a sum of 10 minutes or a MJ/m2 would be off by 6 or 1,000, and the reader's
+    # kJ/m2 to J/cm2 is exact (2,551.2 becomes 255.12). The documentation says "radiacao : radiacao solar (kJ/m2)"
+    # beside "valor acumulado da hora" for `precAcumulada` and "media da hora" for `humidade` and `pressao`, so it names
+    # no period for the radiation. A sensor that reads 20 to 27 % high is a fault the source documents no code for,
+    # and the range check (500,000 J/cm2) is not meant for it: left a value.
     # The feed read in full on 2026-10-21 (174 stations, 24 hours, 4,079 station hours; the Oct 19 feed again for
     # 203 stations) has the -99.0 in every field and nothing else that is a code: `intensidadeVento` and
     # `intensidadeVentoKM` are -99.0 in the same 415 hours (and agree to 0.04 km/h otherwise), the direction code 0
@@ -1328,7 +1339,14 @@ def _nws_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
 def _smhi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # The hourly `Sikt` (parameter 12, "momentanvärde, 1 gång/tim", meter) tops at 99999 m at some stations (809 and
     # 1,169 hours at two of them, GH-3135); the parameter's page names no code for it (2026-10-19), so it is read as
-    # the top of the sensor's range and left a value, as it is for NOAA's 16,093 m (ten miles). The 1 minute
+    # the top of the sensor's range and left a value, as it is for NOAA's 16,093 m (ten miles). Read again on
+    # 2026-10-28 (`latest-months` of the 168 active stations, 516,339 hours, every row quality `Y`, so the flag tells a
+    # code from a reading nowhere): 87 stations have 99999 m, 53,498 hours (10.4 %), and the other hours continue
+    # right up to it (163,943 between 50,000 and 99,998 m, 99,998 the highest), so 99999 is where the scale is cut
+    # ("100 km or more"), not a gap in it. It follows the air and not a fault: at Eskilstuna (96190), Mora (104580) and
+    # Gällivare (180760) the median humidity of the 99999 hours is 60, 71 and 71 % against 78, 92 and 91 % in the
+    # others, and the hours come in runs of up to 54, 118 and 66 in a row (dry clear spells). SMHI's parameter 12
+    # ("Sikt", "momentanvärde, 1 gång/tim", meter) and its knowledge bank name no code for it (2026-10-28). The 1 minute
     # parameters are read the same way (`latest-day`, 2026-10-21, two draws of 12 and 40 of the 586 stations with an
     # open end, of which ten had data: 88,651 values): the visibility (parameter 51, "medelvärde 1 min") has 99999 m
     # at several stations (854 of 6,068 minutes in the first draw, 11 to 464 of 1,527 at three stations of the second)
