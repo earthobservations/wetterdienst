@@ -38,6 +38,13 @@ Types of changes:
   `tx` and `tn` at 06 and 18 UTC for Berlin, 12 and 00 UTC for Tokyo, none for Los Angeles, and
   that an element without a value for it is an answer with no rows (GH-3539)
 
+### Fixed
+
+- A download, post or listing whose TLS handshake the peer answers wrongly (a non-TLS answer,
+  `WRONG_VERSION_NUMBER`; an invalid session, `INVALID_SESSION_ID`) is retried like any other
+  transient network error, where the first one failed the answer: `www.dwd.de` throws them now
+  and then. A certificate that does not verify still fails at once (GH-3533)
+
 ## [0.178.0] - 2026-10-28
 
 ### Security
