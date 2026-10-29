@@ -13,6 +13,10 @@ from wetterdienst.provider.wsv.pegel import WsvPegelRequest
 from wetterdienst.provider.wsv.pegel.api import _SOURCE_UNIT_FACTORS
 from wetterdienst.util.network import File
 
+# WSV is read by a window (`date_required`), and the reader refuses a request without one (GH-3562); the readings these
+# tests serve are of no date in particular
+WINDOW = {"start": "2000-01-01", "end": "2100-01-01"}
+
 
 def test_wsv_source_unit_factors_are_identity_for_the_declared_unit() -> None:
     """Test that every scaled parameter leaves the unit it is declared in untouched.
@@ -101,7 +105,13 @@ def test_wsv_wave_period_is_seconds() -> None:
     It was declared with a `wave_period` unit whose symbol was `1/s`, a frequency, and the source
     publishes seconds at one station and hundredths of a second at another.
     """
-    df = WsvPegelRequest(parameters=[("1_minute", "data", "wave_period")]).all().values().all().df.drop_nulls("value")
+    df = (
+        WsvPegelRequest(parameters=[("1_minute", "data", "wave_period")], **WINDOW)
+        .all()
+        .values()
+        .all()
+        .df.drop_nulls("value")
+    )
     assert not df.is_empty(), "no wave period data at any station"
     # asked of every station offering the parameter rather than of two named ones, so that a station
     # upstream stops publishing -- MELLUMPLATE's wave height has been stale for days -- without
@@ -120,7 +130,7 @@ def test_wsv_flow_direction_is_a_bearing() -> None:
     Pegelonline gives `R` the unit `MGN`, degrees relative to magnetic north, which had been read
     as a magnetic quantity and declared as magnetic field strength in A/m.
     """
-    df = WsvPegelRequest(parameters=[("5_minutes", "data", "flow_direction")]).all().values().all().df
+    df = WsvPegelRequest(parameters=[("5_minutes", "data", "flow_direction")], **WINDOW).all().values().all().df
     series = df.get_column("value").drop_nulls()
     assert not series.is_empty()
     assert series.min() >= 0
@@ -177,7 +187,7 @@ def test_wsv_timeseries_meta_is_not_cached_when_the_listing_is_unreachable(monke
 
     # deliberately not `.all()`: that eagerly downloads the 1.2 MB station listing, which would
     # make this a network test in all but the marker
-    request = WsvPegelRequest(parameters=[("1_minute", "data", "stage")])
+    request = WsvPegelRequest(parameters=[("1_minute", "data", "stage")], **WINDOW)
     values = WsvPegelValues(
         sr=StationsResult(
             request=request,
@@ -373,7 +383,7 @@ def test_wsv_unmapped_equidistance_is_not_served_under_a_neighbouring_resolution
     from wetterdienst.provider.wsv.pegel import api  # noqa: PLC0415
     from wetterdienst.provider.wsv.pegel.api import TimeseriesMeta, WsvPegelValues  # noqa: PLC0415
 
-    request = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")])
+    request = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")], **WINDOW)
     values = WsvPegelValues(
         sr=StationsResult(
             request=request,
@@ -493,7 +503,7 @@ def test_wsv_a_timeseries_between_measurements_returns_no_data(monkeypatch: pyte
 
     monkeypatch.setattr(api, "download_file", _download)
 
-    values = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().values().all()
+    values = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")], **WINDOW).all().values().all()
     assert values.df.is_empty()
 
 
@@ -606,7 +616,7 @@ def test_wsv_a_failed_values_download_names_the_file(monkeypatch: pytest.MonkeyP
     _stub_values_download(monkeypatch, FSTimeoutError(), 408)
 
     with pytest.raises(DownloadError, match=r"Failed to download .*measurements\.json: FSTimeoutError") as caught:
-        WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().values().all()
+        WsvPegelRequest(parameters=[("15_minutes", "data", "stage")], **WINDOW).all().values().all()
     assert isinstance(caught.value.__cause__, FSTimeoutError)
 
 
@@ -614,7 +624,7 @@ def test_wsv_a_values_download_that_is_missing_returns_no_data(monkeypatch: pyte
     """Test that a 404 still gives an empty frame rather than an error."""
     _stub_values_download(monkeypatch, FileNotFoundError("gone"), 404)
 
-    values = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().values().all()
+    values = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")], **WINDOW).all().values().all()
     assert values.df.is_empty()
 
 
@@ -623,7 +633,7 @@ def test_wsv_a_values_download_that_is_offline_raises(monkeypatch: pytest.Monkey
     _stub_values_download(monkeypatch, NoInternetError("offline"), 503)
 
     with pytest.raises(NoInternetError):
-        WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().values().all()
+        WsvPegelRequest(parameters=[("15_minutes", "data", "stage")], **WINDOW).all().values().all()
 
 
 def test_wsv_a_scaled_reading_that_is_no_number_is_null_and_does_not_raise(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -662,7 +672,7 @@ def test_wsv_a_scaled_reading_that_is_no_number_is_null_and_does_not_raise(monke
 
     monkeypatch.setattr(api, "download_file", _download)
 
-    values = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().values().all()
+    values = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")], **WINDOW).all().values().all()
     assert values.df.sort("timestamp").get_column("value").to_list() == [150.0, 250.0]
 
 
@@ -746,12 +756,12 @@ def test_wsv_visibility_and_reservoir_volume_come_back_as_published(monkeypatch:
 
     monkeypatch.setattr(api, "download_file", _download)
 
-    sight = WsvPegelRequest(parameters=[("1_minute", "data", "visibility")]).all().values().all().df
+    sight = WsvPegelRequest(parameters=[("1_minute", "data", "visibility")], **WINDOW).all().values().all().df
     assert sight.get_column("station_id").unique().to_list() == ["sight"]
     assert sight.get_column("parameter").unique().to_list() == ["visibility"]
     assert sight.sort("timestamp").get_column("value").to_list() == [19963.0, 921.9]
 
-    volume = WsvPegelRequest(parameters=[("15_minutes", "data", "volume_reservoir")]).all().values().all().df
+    volume = WsvPegelRequest(parameters=[("15_minutes", "data", "volume_reservoir")], **WINDOW).all().values().all().df
     assert volume.get_column("station_id").unique().to_list() == ["dam"]
     assert volume.get_column("parameter").unique().to_list() == ["volume_reservoir"]
     assert volume.get_column("value").to_list() == [10831274.0, 10831274.0]

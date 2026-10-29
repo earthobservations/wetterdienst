@@ -31,6 +31,11 @@ Types of changes:
 - `[Meteogram]` The compact view no longer makes the page scroll sideways on a narrow screen
   (320 px), where the weather words of its day cards lay outside the box that scrolls (GH-3406)
 
+- `[Accessibility]` A toast, an error of the Explorer for one, no longer hides the link of the
+  footer that the Tab key has reached ("Third-party licences" under it at 1280x720): while a toast
+  is shown the page has room for it at its foot and scrolls a focused element clear of it
+  (WCAG 2.4.11) (GH-3575)
+
 ## [0.39.0] - 2026-10-28
 
 ### Security

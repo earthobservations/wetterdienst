@@ -46,6 +46,7 @@ from wetterdienst.model.request import (
     DEFAULT_NAME_RANK_LISTING,
     TimeseriesRequest,
     limit_to_window,
+    require_window,
 )
 from wetterdienst.options import Options, SkipThreshold, StationWindowEndBuffer, options_from_mapping
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
@@ -214,8 +215,9 @@ _StreamFormatField = Annotated[
     Literal["json", "geojson", "csv", "ndjson", "html", "png", "jpg", "webp", "svg", "pdf"],
     Field(
         description="Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, "
-        "svg, pdf). ndjson, and csv as well, are sent as they are built, station by station, so they allow a "
-        "longer answer than the others: see the limits of the server."
+        "svg, pdf). Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to "
+        "the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the "
+        "limits of the server."
     ),
 ]
 _PrettyField = Annotated[bool, Field(description="Pretty-print JSON/GeoJSON output.")]
@@ -1739,13 +1741,16 @@ def _get_stations_request(
         msg = f"No valid parameters could be parsed from {request.parameters!r} for {api.__name__}"
         raise NoParametersFoundError(msg)
 
-    any_date_required = any(parameter.dataset.date_required for parameter in parameters)
-    if any_date_required and (not start_date or not end_date) and not isinstance(request, StationsRequest):
-        msg = "Start and end date required for single period datasets"
-        # a history request takes no window at all, so there is no option to tell its caller to pass
-        if isinstance(request, HistoryRequest):
-            raise StartDateEndDateError(msg)
-        raise DateRequiredError(msg)
+    # a stations request lists the stations of such a dataset without a window; the others need one
+    if not isinstance(request, StationsRequest):
+        try:
+            require_window(parameters, start_date, end_date)
+        except DateRequiredError as e:
+            # a history request takes no window at all, so there is no option to tell its caller to pass
+            if isinstance(request, HistoryRequest):
+                msg = "Start and end date required for single period datasets"
+                raise StartDateEndDateError(msg) from e
+            raise
 
     kwargs: dict[str, Any] = {
         # a dataset stays one entry, which the request reads as all its parameters: it then knows that none of them was

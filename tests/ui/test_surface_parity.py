@@ -1809,3 +1809,194 @@ def test_two_requests_in_one_response_each_tell_the_parameter_they_lack(monkeypa
     told = [w for w in recorded_warnings() if w["code"] == _CODE]
     assert [w["parameter"] for w in told] == [_EMPTY_NAME, _EMPTY_NAME]
     assert told[0]["message"] != told[1]["message"]
+
+
+# the stations whose file the provider let go are told alike on every surface, and not by an estimate (GH-3552)
+
+_FILE_SKIPPED = "file-skipped"
+
+
+def _withdrawing(monkeypatch: pytest.MonkeyPatch, *stations: str) -> None:
+    """Have the file of `stations` be one the index lists and DWD has withdrawn, through the provider's own download."""
+    from wetterdienst.provider.dwd.observation import download  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    original = DwdObservationValues._collect_station_parameter_or_dataset  # noqa: SLF001
+
+    def collect(self: DwdObservationValues, station_id: str, parameter_or_dataset: Any) -> pl.DataFrame:  # noqa: ANN401
+        if station_id in stations:
+            url = f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/{station_id}.zip"
+            download.download_climate_observations_data(pl.Series([url]), self.sr.request.settings)
+            return pl.DataFrame()
+        return original(self, station_id, parameter_or_dataset)
+
+    def withdrawn(urls: list[str], **_: object) -> list[File]:
+        return [File(url=url, content=FileNotFoundError(url), status=404) for url in urls]
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+    monkeypatch.setattr(download, "download_files", withdrawn)
+
+
+def test_a_file_let_go_is_told_alike_on_every_surface(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The library, the command line, REST (JSON and NDJSON) and the MCP tool say the same; REST sets the header."""
+    _withdrawing(monkeypatch, "00001")
+
+    told = _surfaces(_FULL)
+
+    (warning,) = told["rest"]
+    assert warning["code"] == _FILE_SKIPPED
+    assert warning["stations"] == ["00001"]
+    assert warning["message"].startswith("A file of station 00001 (daily/climate_summary) was not used")
+    assert told["cli"] == told["rest"] == told["ndjson"] == told["mcp"] == told["library"]
+    rest = _rest("/api/values", parameters=_FULL, stations="00001", timestamp="2020-05")
+    assert rest.headers["X-Wetterdienst-Warnings"] == _FILE_SKIPPED
+    assert rest.json()["metadata"]["counts"]["rows"] == 0
+
+
+def test_a_file_let_go_is_not_told_again_as_a_parameter_without_rows(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The station let go is the warning's, the one the source holds nothing at is `parameter-without-rows`'s."""
+    _holding_none_of(monkeypatch, "tmk")
+    _withdrawing(monkeypatch, "00001")
+    begin_response()
+
+    request = DwdObservationRequest(parameters=[_FULL], start="2020-05-01", end="2020-05-03")
+    assert request.filter_by_station_id(["00001", "00002"]).values().all().df.is_empty()
+
+    assert [(w["code"], w["stations"]) for w in recorded_warnings()] == [
+        (_FILE_SKIPPED, ["00001"]),
+        (_CODE, ["00002"]),
+    ]
+
+
+def test_nothing_let_go_is_told_of_on_any_surface() -> None:
+    """A request whose files were all read has no `file-skipped` warning on any surface."""
+    assert _surfaces(_FULL) == {surface: [] for surface in ("library", "cli", "rest", "ndjson", "mcp")}
+
+
+@pytest.mark.parametrize("estimate", ["summarize", "interpolate"])
+def test_an_estimate_does_not_tell_a_file_let_go(monkeypatch: pytest.MonkeyPatch, estimate: str) -> None:
+    """An estimate reads the stations around a point as candidates and goes on with the next one: it does not tell."""
+    _withdrawing(monkeypatch, "00001", "00002")
+    begin_response()
+
+    getattr(DwdObservationRequest(parameters=[_FULL], start="2020-05-01", end="2020-05-03"), estimate)(_POINT)
+
+    assert [w for w in recorded_warnings() if w["code"] == _FILE_SKIPPED] == []
+
+
+def test_a_station_a_rank_walk_passed_over_is_not_named(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The nearest station's file is let go and the walk goes on to the next ones: the answer is theirs, not partial."""
+    _withdrawing(monkeypatch, "00007")
+    begin_response()
+
+    request = DwdObservationRequest(parameters=[_FULL], start="2020-05-01", end="2020-05-03")
+    df = request.filter_by_rank(_POINT, rank=2).values().all().df
+
+    assert set(df["station_id"]) <= _DRESDEN
+    assert df["station_id"].n_unique() == 2
+    assert [w for w in recorded_warnings() if w["code"] == _FILE_SKIPPED] == []
+
+
+# a rank walk that replaced a station names it only if it did not fill its rank, any other pick always does (GH-3552)
+
+_EVERY_STATION = [station[0] for station in _STATIONS]
+
+
+def _partly_let_go(monkeypatch: pytest.MonkeyPatch, *stations: str) -> None:
+    """Have `stations` lose a file and come back with one day of three, which is 33 % of the window."""
+    from wetterdienst.provider.dwd.observation import download  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    original = DwdObservationValues._collect_station_parameter_or_dataset  # noqa: SLF001
+
+    def collect(self: DwdObservationValues, station_id: str, parameter_or_dataset: Any) -> pl.DataFrame:  # noqa: ANN401
+        df = original(self, station_id, parameter_or_dataset)
+        if station_id not in stations:
+            return df
+        url = f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/{station_id}.zip"
+        download.download_climate_observations_data(pl.Series([url]), self.sr.request.settings)
+        return df.filter(pl.col("timestamp") == dt.datetime(2020, 5, 1, tzinfo=UTC))
+
+    def withdrawn(urls: list[str], **_: object) -> list[File]:
+        return [File(url=url, content=FileNotFoundError(url), status=404) for url in urls]
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+    monkeypatch.setattr(download, "download_files", withdrawn)
+
+
+def _skipping_request() -> DwdObservationRequest:
+    """Make the request for the one parameter that skips a station below 60 % of the window."""
+    return DwdObservationRequest(
+        parameters=[_FULL],
+        start="2020-05-01",
+        end="2020-05-03",
+        options={"skip_empty": True, "skip_threshold": 0.6},
+    )
+
+
+def _file_skipped_stations() -> list[list[str]]:
+    return [w["stations"] for w in recorded_warnings() if w["code"] == _FILE_SKIPPED]
+
+
+def test_a_below_threshold_candidate_a_filled_rank_walk_replaced_is_not_named(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The nearest station lost a file and is below the threshold; the walk filled its rank with the next ones."""
+    _partly_let_go(monkeypatch, "00007")
+    begin_response()
+
+    df = _skipping_request().filter_by_rank(_POINT, rank=2).values().all().df
+
+    assert df["station_id"].n_unique() == 2
+    assert "00007" not in set(df["station_id"])
+    assert _file_skipped_stations() == []
+    assert [w["code"] for w in recorded_warnings()] == ["station-skipped"]
+
+
+def test_a_rank_walk_that_lost_every_file_names_every_candidate(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An outage that empties the walk leaves the answer empty: nothing was replaced, and all walked are told."""
+    _withdrawing(monkeypatch, *_EVERY_STATION)
+    begin_response()
+
+    df = _skipping_request().filter_by_rank(_POINT, rank=2).values().all().df
+
+    assert df.is_empty()
+    (stations,) = _file_skipped_stations()
+    assert set(stations) <= set(_EVERY_STATION)
+    assert {"00007", "00006", "00003"} <= set(stations)
+
+
+def test_a_rank_walk_that_ends_short_names_the_candidates_it_passed_over(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Only one station is left to fill two slots: the ones whose file was lost were not replaced, and are told."""
+    _withdrawing(monkeypatch, *(station for station in _EVERY_STATION if station != "00001"))
+    begin_response()
+
+    df = _skipping_request().filter_by_rank(_POINT, rank=2).values().all().df
+
+    assert set(df["station_id"]) == {"00001"}
+    (stations,) = _file_skipped_stations()
+    assert "00001" not in stations
+    assert {"00007", "00006", "00003"} <= set(stations)
+
+
+def test_skip_empty_with_ids_names_a_station_emptied_by_a_lost_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The station is missing from the answer because its file failed, not for lack of data: it is told."""
+    _withdrawing(monkeypatch, "00001")
+    begin_response()
+
+    df = _skipping_request().filter_by_station_id(["00001", "00002"]).values().all().df
+
+    assert set(df["station_id"]) == {"00002"}
+    assert _file_skipped_stations() == [["00001"]]
+
+
+def test_skip_empty_with_ids_names_a_station_below_the_threshold_after_a_lost_file(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Skipped for too few readings (`station-skipped`) because its file failed: this is told as well."""
+    _partly_let_go(monkeypatch, "00001")
+    begin_response()
+
+    df = _skipping_request().filter_by_station_id(["00001", "00002"]).values().all().df
+
+    assert set(df["station_id"]) == {"00002"}
+    assert _file_skipped_stations() == [["00001"]]
+    assert [w["code"] for w in recorded_warnings()] == ["station-skipped", _FILE_SKIPPED]
