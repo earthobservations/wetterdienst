@@ -60,21 +60,12 @@ const people = computed(() => [
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('about.title') }}
-      </h1>
-      <p class="text-gray-600 dark:text-gray-400">
-        {{ t('about.subtitle') }}
-      </p>
-    </div>
-
+  <AppPage :title="t('about.title')" :subtitle="t('about.subtitle')" width="text">
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-info" class="text-primary-500 shrink-0" />
-          <h2 class="text-lg font-bold">
+          <UIcon name="i-lucide-info" class="panel-icon" />
+          <h2 class="text-base font-semibold text-highlighted">
             {{ t('about.projectTitle') }}
           </h2>
         </div>
@@ -97,8 +88,8 @@ const people = computed(() => [
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-users" class="text-primary-500 shrink-0" />
-          <h2 class="text-lg font-bold">
+          <UIcon name="i-lucide-users" class="panel-icon" />
+          <h2 class="text-base font-semibold text-highlighted">
             {{ t('about.peopleTitle') }}
           </h2>
         </div>
@@ -170,7 +161,7 @@ const people = computed(() => [
         <a
           href="https://github.com/earthobservations/wetterdienst/blob/main/CONTRIBUTORS.md"
           target="_blank"
-          class="text-primary-700 dark:text-primary-500 underline hover:no-underline"
+          class="text-primary-700 dark:text-primary-400 underline hover:no-underline"
         >
           {{ t('about.contributorsLink') }}
         </a>
@@ -180,8 +171,8 @@ const people = computed(() => [
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-link" class="text-primary-500 shrink-0" />
-          <h2 class="text-lg font-bold">
+          <UIcon name="i-lucide-link" class="panel-icon" />
+          <h2 class="text-base font-semibold text-highlighted">
             {{ t('about.linksTitle') }}
           </h2>
         </div>
@@ -224,5 +215,5 @@ const people = computed(() => [
         </UButton>
       </div>
     </UCard>
-  </UContainer>
+  </AppPage>
 </template>

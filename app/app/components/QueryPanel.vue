@@ -548,7 +548,7 @@ onUnmounted(async () => {
     <UCard v-else class="mb-4">
       <template #header>
         <div class="flex items-center justify-between">
-          <h3 class="text-lg font-bold">
+          <h3 class="panel-title">
             {{ t('query.title') }}
           </h3>
           <div class="flex gap-2">

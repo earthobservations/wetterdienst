@@ -1,4 +1,7 @@
 <script setup lang="ts">
+// the classes of the trigger: the rail draws its buttons in its own colours (app.vue)
+defineProps<{ triggerClass?: string }>()
+
 const { t, locale, setLocale } = useI18n()
 const colorMode = useColorMode()
 
@@ -22,6 +25,7 @@ const themeOptions = computed(() => [
       color="neutral"
       variant="ghost"
       :aria-label="t('common.settings')"
+      :class="triggerClass"
     />
 
     <template #content>

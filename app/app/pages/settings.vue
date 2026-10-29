@@ -56,22 +56,13 @@ function unitItems(units: readonly string[]) {
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-2xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('settings.title') }}
-      </h1>
-      <p class="text-gray-600 dark:text-gray-400">
-        {{ t('settings.subtitle') }}
-      </p>
-    </div>
-
+  <AppPage :title="t('settings.title')" :subtitle="t('settings.subtitle')" width="text">
     <!-- Language -->
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-languages" class="text-primary-500 shrink-0" />
-          <h2 class="text-lg font-bold">
+          <UIcon name="i-lucide-languages" class="panel-icon" />
+          <h2 class="text-base font-semibold text-highlighted">
             {{ t('settings.language') }}
           </h2>
         </div>
@@ -88,8 +79,8 @@ function unitItems(units: readonly string[]) {
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-palette" class="text-primary-500 shrink-0" />
-          <h2 class="text-lg font-bold">
+          <UIcon name="i-lucide-palette" class="panel-icon" />
+          <h2 class="text-base font-semibold text-highlighted">
             {{ t('settings.theme') }}
           </h2>
         </div>
@@ -111,8 +102,8 @@ function unitItems(units: readonly string[]) {
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-ruler" class="text-primary-500 shrink-0" />
-          <h2 class="text-lg font-bold">
+          <UIcon name="i-lucide-ruler" class="panel-icon" />
+          <h2 class="text-base font-semibold text-highlighted">
             {{ t('settings.units') }}
           </h2>
         </div>
@@ -152,14 +143,14 @@ function unitItems(units: readonly string[]) {
             <div
               v-for="group in weatherUnitGroups"
               :key="group.key"
-              class="flex items-center justify-between gap-4"
+              class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1"
             >
               <label :for="`settings-unit-${group.key}`" class="text-sm">{{ t(group.label) }}</label>
               <USelect
                 :id="`settings-unit-${group.key}`"
                 v-model="settings.units[group.key]"
                 :items="unitItems(group.units)"
-                class="w-56"
+                class="w-full sm:w-56"
               />
             </div>
           </div>
@@ -171,14 +162,14 @@ function unitItems(units: readonly string[]) {
             <div
               v-for="group in otherUnitGroups"
               :key="group.key"
-              class="flex items-center justify-between gap-4"
+              class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1"
             >
               <label :for="`settings-unit-${group.key}`" class="text-sm">{{ t(group.label) }}</label>
               <USelect
                 :id="`settings-unit-${group.key}`"
                 v-model="settings.units[group.key]"
                 :items="unitItems(group.units)"
-                class="w-56"
+                class="w-full sm:w-56"
               />
             </div>
           </div>
@@ -199,5 +190,5 @@ function unitItems(units: readonly string[]) {
         @click="reset"
       />
     </div>
-  </UContainer>
+  </AppPage>
 </template>

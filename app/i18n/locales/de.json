@@ -116,12 +116,16 @@
     "providers": "Anbieter",
     "api": "API",
     "glossary": "Glossar",
-    "support": "Unterstützen"
+    "support": "Unterstützen",
+    "groupData": "Daten",
+    "groupReference": "Nachschlagen"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menü"
+    "menu": "Menü",
+    "skipToContent": "Zum Inhalt springen",
+    "navigation": "Hauptnavigation"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
@@ -581,7 +585,8 @@
     "modeInterpolationHow": "Sammelt Werte von Stationen, die den Zielpunkt räumlich umschließen, und erstellt daraus eine Triangulation (Delaunay + lineare Interpolation im UTM-Raum). Pro Zeitschritt entsteht ein synthetischer Wert an den genauen Zielkoordinaten – genauer als die nächste Station, besonders bei guter Stationsdichte. Mindestens 3 einschließende Stationen sowie ein Datumsbereich sind erforderlich. Bei Niederschlagsparametern wird zusätzlich eine Auftretensprüfung angewendet, um fehlerhafte Kleinstwerte zu vermeiden.",
     "modeSummaryHow": "Für jeden Parameter und jeden Zeitschritt wird vom Zielort ausgehend nach außen gesucht und der Wert der ersten Station mit gültigem Messwert übernommen – keine Schätzung, nur die nächste echte Messung. Die Ausgabe enthält die verwendete Stations-ID und deren Distanz, sodass die Datenherkunft immer nachvollziehbar ist. Ein Datumsbereich ist erforderlich.",
     "modeHowItWorks": "So funktioniert es",
-    "removeParameterDistance": "Entfernung für {parameter} löschen"
+    "removeParameterDistance": "Entfernung für {parameter} löschen",
+    "resultsEmpty": "Die Werte erscheinen hier, sobald ein Datensatz und eine Station gewählt sind."
   },
   "stationTable": {
     "stationId": "Stations-ID",
@@ -789,5 +794,18 @@
     "summary": "Zusammenfassung",
     "periods": "Zeiträume",
     "colMissingCount": "Anzahl fehlend"
+  },
+  "palette": {
+    "title": "Suche",
+    "hint": "↑ ↓ zum Auswählen, Enter zum Öffnen, Esc zum Schließen",
+    "placeholder": "Seiten, Darstellung, Sprache oder eine Vorhersagestation",
+    "pages": "Seiten",
+    "stations": "Vorhersagestationen",
+    "openForecast": "Vorhersage öffnen",
+    "current": "aktuell",
+    "empty": "Nichts passt zu deiner Suche.",
+    "results": "Treffer: {count}",
+    "purposeLegal": "Wer diese Seite betreibt und wie du ihn erreichst.",
+    "purposePrivacy": "Was diese Seite über dich erfasst und warum."
   }
 }

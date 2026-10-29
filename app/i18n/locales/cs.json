@@ -116,12 +116,16 @@
     "providers": "Poskytovatelé",
     "api": "API",
     "glossary": "Slovník",
-    "support": "Podpora"
+    "support": "Podpora",
+    "groupData": "Data",
+    "groupReference": "Příručka"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Nabídka"
+    "menu": "Nabídka",
+    "skipToContent": "Přejít na obsah",
+    "navigation": "Hlavní navigace"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
@@ -581,7 +585,8 @@
     "modeInterpolationHow": "Shromáždí hodnoty ze stanic, které prostorově obklopují cílový bod, a proloží jimi triangulaci (Delaunay + lineární interpolace v prostoru UTM). V každém časovém kroku vznikne syntetická hodnota přesně v zadaných souřadnicích – přesnější než výběr nejbližší stanice, zejména tam, kde je stanic dostatek. Vyžaduje alespoň 3 obklopující stanice a rozsah dat. U parametrů srážek se navíc používá kontrola výskytu, aby se zabránilo nesmyslným hodnotám blízkým nule.",
     "modeSummaryHow": "Pro každý parametr a každý časový krok prohledává okolí od cílového místa směrem ven a vybere první stanici s platným měřením – žádný odhad, jen nejbližší skutečné měření. Výstup obsahuje ID přispívající stanice a její vzdálenost, takže vždy přesně víš, odkud data pocházejí. Rozsah dat je povinný.",
     "modeHowItWorks": "Jak to funguje",
-    "removeParameterDistance": "Odebrat vzdálenost pro {parameter}"
+    "removeParameterDistance": "Odebrat vzdálenost pro {parameter}",
+    "resultsEmpty": "Hodnoty se zobrazí zde, jakmile vybereš datovou sadu a stanici."
   },
   "stationTable": {
     "stationId": "ID stanice",
@@ -789,5 +794,18 @@
     "summary": "Souhrn",
     "periods": "Období",
     "colMissingCount": "Počet chybějících"
+  },
+  "palette": {
+    "title": "Hledat",
+    "hint": "↑ ↓ pro výběr, Enter pro otevření, Esc pro zavření",
+    "placeholder": "Stránky, vzhled, jazyk nebo předpovědní stanice",
+    "pages": "Stránky",
+    "stations": "Předpovědní stanice",
+    "openForecast": "Otevřít předpověď",
+    "current": "aktuální",
+    "empty": "Tvému hledání nic neodpovídá.",
+    "results": "Výsledky: {count}",
+    "purposeLegal": "Kdo provozuje tento web a jak ho kontaktovat.",
+    "purposePrivacy": "Co o tobě tento web zaznamenává a proč."
   }
 }

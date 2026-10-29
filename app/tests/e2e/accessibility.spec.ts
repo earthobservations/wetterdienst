@@ -334,6 +334,35 @@ const STATES: State[] = [
     },
   },
   {
+    // the search, opened by its shortcut: the pages, the appearance and the languages
+    page: 'index',
+    state: 'search-open',
+    keepFocus: true,
+    path: '/',
+    reach: async (page, locale) => {
+      // the shortcut is listened for once the app has started, which the rail being drawn says (`ssr: false`)
+      await expect(page.locator('header button[aria-keyshortcuts]')).toBeVisible()
+      await page.keyboard.press('ControlOrMeta+k')
+      await expect(page.getByRole('dialog', { name: message(locale, 'palette.title') })).toBeVisible()
+      await expect(page.getByRole('option').first()).toBeVisible()
+    },
+  },
+  {
+    // and with a station found, the option the arrow keys made active a station
+    page: 'index',
+    state: 'search-stations',
+    keepFocus: true,
+    path: '/',
+    reach: async (page, locale) => {
+      await expect(page.locator('header button[aria-keyshortcuts]')).toBeVisible()
+      await page.keyboard.press('ControlOrMeta+k')
+      await page.getByRole('combobox', { name: message(locale, 'palette.title') }).fill('berlin')
+      const station = page.getByRole('group', { name: message(locale, 'palette.stations') }).getByRole('option')
+      await expect(station).toBeVisible()
+      await expect(station).toHaveAttribute('aria-selected', 'true')
+    },
+  },
+  {
     page: 'index',
     state: 'mobile-menu-open',
     keepFocus: true,

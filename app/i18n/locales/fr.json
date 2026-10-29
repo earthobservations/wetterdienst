@@ -116,12 +116,16 @@
     "providers": "Fournisseurs",
     "api": "API",
     "glossary": "Glossaire",
-    "support": "Aide"
+    "support": "Aide",
+    "groupData": "Données",
+    "groupReference": "Référence"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menu"
+    "menu": "Menu",
+    "skipToContent": "Aller au contenu",
+    "navigation": "Navigation principale"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
@@ -581,7 +585,8 @@
     "modeInterpolationHow": "Rassemble les valeurs des stations qui entourent spatialement ton point cible et ajuste une triangulation sur celles-ci (Delaunay + interpolation linéaire dans l'espace UTM). Chaque pas de temps produit une valeur synthétique à tes coordonnées exactes – plus précise que le choix de la station la plus proche, surtout lorsque la couverture en stations est bonne. Nécessite au moins 3 stations englobantes et une plage de dates. Les paramètres de précipitation appliquent en plus un contrôle d'occurrence afin d'éviter des valeurs parasites proches de zéro.",
     "modeSummaryHow": "Pour chaque paramètre et chaque pas de temps, parcourt les environs de ton lieu cible vers l'extérieur et retient la première station disposant d'une mesure valide – aucune estimation, seulement la mesure réelle la plus proche. La sortie contient l'ID de la station contributrice et sa distance, de sorte que tu sais toujours exactement d'où viennent les données. Une plage de dates est requise.",
     "modeHowItWorks": "Comment ça marche",
-    "removeParameterDistance": "Supprimer la distance de {parameter}"
+    "removeParameterDistance": "Supprimer la distance de {parameter}",
+    "resultsEmpty": "Les valeurs s'affichent ici dès qu'un jeu de données et une station sont choisis."
   },
   "stationTable": {
     "stationId": "Identifiant de station",
@@ -789,5 +794,18 @@
     "summary": "Synthèse",
     "periods": "Périodes",
     "colMissingCount": "Nombre de valeurs manquantes"
+  },
+  "palette": {
+    "title": "Rechercher",
+    "hint": "↑ ↓ pour choisir, Entrée pour ouvrir, Échap pour fermer",
+    "placeholder": "Pages, apparence, langue ou une station de prévision",
+    "pages": "Pages",
+    "stations": "Stations de prévision",
+    "openForecast": "Ouvrir sa prévision",
+    "current": "actuel",
+    "empty": "Rien ne correspond à ta recherche.",
+    "results": "Résultats : {count}",
+    "purposeLegal": "Qui exploite ce site et comment le joindre.",
+    "purposePrivacy": "Ce que ce site enregistre à ton sujet, et pourquoi."
   }
 }

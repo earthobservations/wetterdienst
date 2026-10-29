@@ -116,12 +116,16 @@
     "providers": "Aanbieders",
     "api": "API",
     "glossary": "Woordenlijst",
-    "support": "Ondersteuning"
+    "support": "Ondersteuning",
+    "groupData": "Data",
+    "groupReference": "Naslag"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menu"
+    "menu": "Menu",
+    "skipToContent": "Naar de inhoud",
+    "navigation": "Hoofdnavigatie"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
@@ -581,7 +585,8 @@
     "modeInterpolationHow": "Verzamelt waarden van stations die je doelpunt ruimtelijk omringen en legt daar een triangulatie overheen (Delaunay + lineaire interpolatie in UTM-ruimte). Elke tijdstap levert een synthetische waarde op je exacte coördinaten op – nauwkeuriger dan het dichtstbijzijnde station kiezen, vooral waar de stationsdekking goed is. Vereist minstens 3 omringende stations en een datumbereik. Voor neerslagparameters geldt bovendien een aanwezigheidscontrole om valse waarden dicht bij nul te voorkomen.",
     "modeSummaryHow": "Voor elke parameter en elke tijdstap wordt vanaf je doellocatie naar buiten gezocht en het eerste station met een geldige meting gekozen – geen schatting, alleen de dichtstbijzijnde echte meting. De uitvoer bevat de ID van het bijdragende station en de afstand ertoe, zodat je altijd precies weet waar de gegevens vandaan komen. Een datumbereik is vereist.",
     "modeHowItWorks": "Hoe het werkt",
-    "removeParameterDistance": "Afstand voor {parameter} verwijderen"
+    "removeParameterDistance": "Afstand voor {parameter} verwijderen",
+    "resultsEmpty": "De waarden verschijnen hier zodra een dataset en een station zijn gekozen."
   },
   "stationTable": {
     "stationId": "Station-id",
@@ -789,5 +794,18 @@
     "summary": "Samenvatting",
     "periods": "Perioden",
     "colMissingCount": "Aantal ontbrekend"
+  },
+  "palette": {
+    "title": "Zoeken",
+    "hint": "↑ ↓ om te kiezen, Enter om te openen, Esc om te sluiten",
+    "placeholder": "Pagina's, weergave, taal of een verwachtingsstation",
+    "pages": "Pagina's",
+    "stations": "Verwachtingsstations",
+    "openForecast": "Open de verwachting",
+    "current": "huidig",
+    "empty": "Niets komt overeen met je zoekopdracht.",
+    "results": "Resultaten: {count}",
+    "purposeLegal": "Wie deze site beheert en hoe je hem bereikt.",
+    "purposePrivacy": "Wat deze site over je vastlegt, en waarom."
   }
 }

@@ -16,6 +16,21 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[Search]` A search, from the button in the navigation or Ctrl+K / ⌘K on every page: it finds
+  the pages (each with a line on what it is for), switches the appearance and the language, and
+  opens the forecast of a DWD forecast station by its name or id. It is operated by keys alone
+  and announced to a screen reader as a combobox with a list (GH-3518)
+
+### Changed
+
+- `[Design]` A new look in the logo's colours: navigation in a navy rail on the left (a bar with
+  a menu on a narrow screen), one page container and header with the same gutters on every page,
+  and the forecast, stripes, Explorer and history with their controls beside the chart on a wide
+  window. Panels have hairlines instead of shadows, the text is set in Instrument Sans (served by
+  the app itself), and a "Skip to content" link leads past the navigation (GH-3518)
+
 ## [0.39.0] - 2026-10-28
 
 ### Security

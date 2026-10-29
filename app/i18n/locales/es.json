@@ -116,12 +116,16 @@
     "providers": "Proveedores",
     "api": "API",
     "glossary": "Glosario",
-    "support": "Ayuda"
+    "support": "Ayuda",
+    "groupData": "Datos",
+    "groupReference": "Referencia"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menú"
+    "menu": "Menú",
+    "skipToContent": "Saltar al contenido",
+    "navigation": "Navegación principal"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
@@ -581,7 +585,8 @@
     "modeInterpolationHow": "Reúne valores de las estaciones que rodean espacialmente tu punto objetivo y ajusta una triangulación entre ellas (Delaunay + interpolación lineal en el espacio UTM). Cada paso de tiempo produce un valor sintético en tus coordenadas exactas, más preciso que elegir la estación más cercana, sobre todo donde la cobertura de estaciones es buena. Requiere al menos 3 estaciones que rodeen el punto y un rango de fechas. En los parámetros de precipitación se aplica además una comprobación de ocurrencia para evitar valores espurios cercanos a cero.",
     "modeSummaryHow": "Para cada parámetro y cada paso de tiempo, busca hacia fuera desde tu ubicación objetivo y elige la primera estación con una lectura válida: sin estimación, solo la medición real más cercana. La salida incluye el ID de la estación que aporta el dato y su distancia, así que siempre sabes exactamente de dónde provienen los datos. Se requiere un rango de fechas.",
     "modeHowItWorks": "Cómo funciona",
-    "removeParameterDistance": "Eliminar la distancia de {parameter}"
+    "removeParameterDistance": "Eliminar la distancia de {parameter}",
+    "resultsEmpty": "Los valores aparecen aquí en cuanto se eligen un conjunto de datos y una estación."
   },
   "stationTable": {
     "stationId": "ID de estación",
@@ -789,5 +794,18 @@
     "summary": "Resumen",
     "periods": "Periodos",
     "colMissingCount": "Número de valores faltantes"
+  },
+  "palette": {
+    "title": "Buscar",
+    "hint": "↑ ↓ para elegir, Intro para abrir, Esc para cerrar",
+    "placeholder": "Páginas, apariencia, idioma o una estación de pronóstico",
+    "pages": "Páginas",
+    "stations": "Estaciones de pronóstico",
+    "openForecast": "Abrir su pronóstico",
+    "current": "actual",
+    "empty": "Nada coincide con tu búsqueda.",
+    "results": "Resultados: {count}",
+    "purposeLegal": "Quién gestiona este sitio y cómo contactar.",
+    "purposePrivacy": "Qué registra este sitio sobre ti y por qué."
   }
 }

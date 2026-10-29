@@ -32,6 +32,11 @@ export const NOTICE_ONLY_LICENSES = new Set([
   'CC0-1.0',
   'ISC',
   'MIT',
+  // the font of the app (@fontsource-variable/instrument-sans, GH-3518): the SIL Open Font License lets a font be
+  // bundled and redistributed with software on the condition that its copyright notice and the licence go with it,
+  // which this file does. Its other terms are for whoever sells the font on its own or changes it, which the app does
+  // not, and the font has no reserved font name.
+  'OFL-1.1',
   'Unlicense',
 ])
 

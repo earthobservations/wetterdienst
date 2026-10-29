@@ -116,12 +116,16 @@
     "providers": "Udbydere",
     "api": "API",
     "glossary": "Ordliste",
-    "support": "Support"
+    "support": "Support",
+    "groupData": "Data",
+    "groupReference": "Opslag"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menu"
+    "menu": "Menu",
+    "skipToContent": "Gå til indholdet",
+    "navigation": "Hovednavigation"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
@@ -581,7 +585,8 @@
     "modeInterpolationHow": "Indsamler værdier fra stationer, der rumligt omslutter dit målpunkt, og lægger en triangulering hen over dem (Delaunay + lineær interpolation i UTM-rum). Hvert tidstrin giver en syntetisk værdi i netop dine koordinater – mere præcist end at vælge den nærmeste station, især hvor stationsdækningen er god. Kræver mindst 3 omsluttende stationer og et datointerval. For nedbørsparametre anvendes desuden en forekomstkontrol for at undgå falske værdier tæt på nul.",
     "modeSummaryHow": "For hver parameter og hvert tidstrin søges der udad fra dit målsted, og den første station med en gyldig måling vælges – ingen estimering, blot den nærmeste egentlige måling. Outputtet indeholder ID'et på den bidragende station og dens afstand, så du altid ved præcis, hvor data kom fra. Et datointerval er påkrævet.",
     "modeHowItWorks": "Sådan fungerer det",
-    "removeParameterDistance": "Fjern afstanden for {parameter}"
+    "removeParameterDistance": "Fjern afstanden for {parameter}",
+    "resultsEmpty": "Værdierne vises her, så snart et datasæt og en station er valgt."
   },
   "stationTable": {
     "stationId": "Stations-id",
@@ -789,5 +794,18 @@
     "summary": "Opsummering",
     "periods": "Perioder",
     "colMissingCount": "Antal manglende"
+  },
+  "palette": {
+    "title": "Søg",
+    "hint": "↑ ↓ for at vælge, Enter for at åbne, Esc for at lukke",
+    "placeholder": "Sider, udseende, sprog eller en prognosestation",
+    "pages": "Sider",
+    "stations": "Prognosestationer",
+    "openForecast": "Åbn dens prognose",
+    "current": "aktuel",
+    "empty": "Intet passer til din søgning.",
+    "results": "Resultater: {count}",
+    "purposeLegal": "Hvem der driver dette websted, og hvordan du når dem.",
+    "purposePrivacy": "Hvad dette websted registrerer om dig, og hvorfor."
   }
 }
