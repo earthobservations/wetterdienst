@@ -13,6 +13,9 @@ LLM agents -- which otherwise guess parameters and thrash -- this module adds:
 - a ``title`` and the annotations (read-only, not destructive, idempotent, open world or not) on every
   tool, which the Claude connectors directory requires and clients use to skip a confirmation (GH-3482),
 - the refusal of an argument a tool does not take, which FastMCP would drop,
+- an answer in a format that is not JSON (csv, ndjson, html, svg, and the png, jpg, webp and pdf of a chart) as
+  content of the tool result: FastMCP answers a text body without structured content, which the output schema of
+  the tool refuses, and fails on a binary one (GH-3464),
 - an error that reads as prose: the REST API answers a tool's request with the text of its problem,
   not the object, so that the tool error does not carry a Python repr (``restapi._problem_response``), and
 - exclusion of the non-data endpoints (index, robots, health, version, settings) so the tool
@@ -25,6 +28,8 @@ become the parameter descriptions, so those live with the endpoints in ``restapi
 
 from __future__ import annotations
 
+import base64
+import json
 from typing import TYPE_CHECKING
 
 from wetterdienst import __version__
@@ -44,6 +49,7 @@ if TYPE_CHECKING:
     )
     from fastmcp.tools import ToolResult
     from fastmcp.utilities.openapi import HTTPRoute
+    from httpx2 import AsyncBaseTransport
     from starlette.types import ASGIApp, Receive, Scope, Send
 
 # Internal ASGI base URL for the in-process httpx2 client that backs the tools.
@@ -316,6 +322,120 @@ def _refuse_unknown_arguments(provider: OpenAPIProvider) -> Middleware:
     return RefuseUnknownArguments()
 
 
+# The key of the JSON that carries an answer which is not JSON from the REST app to the tool result.
+_BODY_KEY = "x-wetterdienst-body"
+# The media types that are text though they are not `text/*`.
+_TEXT_MEDIA_TYPES = frozenset({"application/x-ndjson", "image/svg+xml", "application/xml"})
+
+
+def _is_json(media_type: str) -> bool:
+    return media_type == "application/json" or media_type.endswith("+json")
+
+
+def _is_text(media_type: str) -> bool:
+    return media_type.startswith("text/") or media_type in _TEXT_MEDIA_TYPES
+
+
+def _carry_bodies_as_json(inner: AsyncBaseTransport) -> AsyncBaseTransport:
+    """Wrap the transport of the tools so that an answer that is not JSON reaches the tool as JSON that holds it.
+
+    FastMCP's tool for a route reads the answer as JSON. A text body it passes on as text content without structured
+    content, which the output schema of the tool refuses ("has an output schema but did not return structured
+    content"), and a binary body it fails to decode. So the body is put in a JSON object,
+    `{_BODY_KEY: {"media_type", "encoding", "body"}}`, which `_return_bodies_as_content` takes apart again into the
+    content blocks of the result (GH-3464). A failure (not a 2xx) is left as it is.
+    """
+    import httpx2  # noqa: PLC0415
+
+    class CarryBodiesAsJson(httpx2.AsyncBaseTransport):
+        async def handle_async_request(self, request: httpx2.Request) -> httpx2.Response:
+            response = await inner.handle_async_request(request)
+            media_type = response.headers.get("content-type", "").split(";")[0].strip().lower()
+            if not 200 <= response.status_code < 300 or not media_type or _is_json(media_type):
+                return response
+            body = await response.aread()
+            await response.aclose()
+            text = _is_text(media_type)
+            envelope = {
+                _BODY_KEY: {
+                    "media_type": media_type,
+                    "encoding": "text" if text else "base64",
+                    "body": body.decode("utf-8") if text else base64.b64encode(body).decode("ascii"),
+                }
+            }
+            return httpx2.Response(
+                response.status_code,
+                headers={"content-type": "application/json"},
+                content=json.dumps(envelope).encode("utf-8"),
+                request=request,
+            )
+
+        async def aclose(self) -> None:
+            await inner.aclose()
+
+    return CarryBodiesAsJson()
+
+
+def _envelope_of(result: ToolResult) -> dict[str, str] | None:
+    """Find the body `_carry_bodies_as_json` put in the structured content of a tool result, None if there is none."""
+    structured = result.structured_content
+    if not isinstance(structured, dict):
+        return None
+    # wrapped as `result` where the tool has an output schema that says so
+    candidate = structured.get(_BODY_KEY)
+    if candidate is None and isinstance(structured.get("result"), dict):
+        candidate = structured["result"].get(_BODY_KEY)
+    return candidate if isinstance(candidate, dict) else None
+
+
+def _return_bodies_as_content(provider: OpenAPIProvider) -> Middleware:
+    """Build the middleware that makes the body of an answer that is not JSON the content of the tool result.
+
+    A text body (csv, ndjson, html, svg) is a text content block, as the REST API answers it; an image (png, jpg,
+    webp) an image content block and any other binary body (pdf) an embedded resource. The structured content, which
+    the output schema of a tool requires, is a sentence about the answer: the schema of every tool that has one
+    admits a string as its `result` (the `str` of the REST route's response model), and the body is not repeated in
+    it.
+    """
+    from fastmcp.server.middleware import Middleware  # noqa: PLC0415
+    from fastmcp.tools import ToolResult  # noqa: PLC0415
+    from mcp_types import BlobResourceContents, EmbeddedResource, ImageContent, TextContent  # noqa: PLC0415
+
+    class ReturnBodiesAsContent(Middleware):
+        async def on_call_tool(
+            self,
+            context: MiddlewareContext[Any],
+            call_next: CallNext[Any, ToolResult],
+        ) -> ToolResult:
+            result = await call_next(context)
+            envelope = _envelope_of(result)
+            if envelope is None:
+                return result
+            media_type, body = envelope["media_type"], envelope["body"]
+            if envelope["encoding"] == "text":
+                block = TextContent(type="text", text=body)
+                kind = "text content"
+                size = len(body.encode("utf-8"))
+            elif media_type.startswith("image/"):
+                block = ImageContent(type="image", data=body, mime_type=media_type)
+                kind = "image content"
+                size = len(base64.b64decode(body))
+            else:
+                block = EmbeddedResource(
+                    type="resource",
+                    resource=BlobResourceContents(uri="wetterdienst://answer", mime_type=media_type, blob=body),
+                )
+                kind = "an embedded resource"
+                size = len(base64.b64decode(body))
+            tool = await provider.get_tool(context.message.name)
+            structured = None
+            if tool is not None and tool.output_schema is not None:
+                structured = {"result": f"The answer is {media_type} ({size:,} bytes), sent as {kind} of this result."}
+            return ToolResult(content=[block], structured_content=structured)
+
+    return ReturnBodiesAsContent()
+
+
 def build_mcp_server(rest_app: FastAPI) -> FastMCP:
     """Build the wetterdienst MCP server from the REST API app.
 
@@ -343,7 +463,9 @@ def build_mcp_server(rest_app: FastAPI) -> FastMCP:
     # tool error then carries the exception's own text -- a path of the server, say -- which the
     # REST API deliberately hides (GH-2767, GH-2984)
     client = httpx2.AsyncClient(
-        transport=httpx2.ASGITransport(app=_mark_tool_requests(rest_app), raise_app_exceptions=False),
+        transport=_carry_bodies_as_json(
+            httpx2.ASGITransport(app=_mark_tool_requests(rest_app), raise_app_exceptions=False)
+        ),
         base_url=_ASGI_BASE_URL,
     )
     provider = OpenAPIProvider(
@@ -371,5 +493,5 @@ def build_mcp_server(rest_app: FastAPI) -> FastMCP:
         instructions=INSTRUCTIONS,
         providers=[provider],
         lifespan=lifespan,
-        middleware=[_refuse_unknown_arguments(provider)],
+        middleware=[_refuse_unknown_arguments(provider), _return_bodies_as_content(provider)],
     )

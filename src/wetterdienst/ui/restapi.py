@@ -372,11 +372,15 @@ def _problem_response(
 
 
 def _problem_of(request: Request, error: StarletteHTTPException) -> JSONResponse:
-    """Answer with the problem an `HTTPException` is, the kind and the members it was raised with."""
+    """Answer with the problem an `HTTPException` is, the kind and the members it was raised with.
+
+    An MCP tool's request gets the `tool_detail` of the problem where it has one (`ProblemError`).
+    """
+    tool_detail = getattr(error, "tool_detail", None) if is_tool_request(request.scope) else None
     return _problem_response(
         request,
         error.status_code,
-        str(error.detail),
+        tool_detail or str(error.detail),
         kind_of(error),
         extra=getattr(error, "extra", None),
         headers=error.headers,
