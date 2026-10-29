@@ -508,6 +508,30 @@ def test_coverage_dwd_observation_dataset_climate_summary(client: TestClient) ->
     assert data["annual"]["datasets"].keys() == {"climate_summary"}
 
 
+def test_coverage_unit_is_the_unit_of_the_values_and_unit_source_the_providers(client: TestClient) -> None:
+    """Test that `coverage` reports the unit the values come back in, and the provider's own beside it (GH-3537)."""
+    response = client.get(
+        "/api/coverage",
+        params={"provider": "dwd", "network": "mosmix", "resolutions": "hourly", "datasets": "large"},
+    )
+    assert response.status_code == 200
+    parameters = {p["name"]: p for p in response.json()["hourly"]["datasets"]["large"]["parameters"]}
+    temperature = parameters["temperature_air_2m"]
+    assert (temperature["unit"], temperature["unit_source"]) == ("degree_celsius", "degree_kelvin")
+    probability = parameters["probability_precipitation_amount_gt_0_2mm_last_24h"]
+    assert (probability["unit"], probability["unit_source"]) == ("decimal", "percent")
+    # where the provider's unit is the one the values come in, the answer does not repeat it
+    unconverted = [p for p in parameters.values() if "unit_source" not in p]
+    assert unconverted
+    large = DwdMosmixRequest.metadata["hourly"]["large"]
+    assert all(p["unit"] == large[p["name"]].unit for p in unconverted)
+    # the glossary says the same of the quantity, which is what a reader who ignores `unit_source` is right by
+    glossary = {
+        e["name"]: e["unit"] for e in client.get("/api/glossary", params={"parameter": "temperature_air_2m"}).json()
+    }
+    assert glossary["temperature_air_2m"] == temperature["unit"]
+
+
 @pytest.mark.remote
 def test_coverage_wrong_only_provider_given(client: TestClient) -> None:
     """Test wrong request."""
@@ -1580,7 +1604,7 @@ def test_get_stations_request_mosmix_no_issue_defaults_to_latest() -> None:
 def test_get_stations_request_date_required_dataset_does_not_raise_for_stations_request() -> None:
     """_get_stations_request must NOT raise StartDateEndDateError for StationsRequest.
 
-    MetNo Frost marks its hourly, 10-minute, and 6-hour datasets as date_required=True.
+    MetNo Frost marks all its datasets as date_required=True.
     Previously the date-range check applied to StationsRequest too, so listing stations
     without a date range raised StartDateEndDateError and the Explorer showed no stations.
     """
@@ -8056,6 +8080,30 @@ def test_a_dataset_queried_by_a_window_without_a_timestamp_names_timestamp(
     assert response.json()["detail"] == "timestamp is required for this dataset"
 
 
+@pytest.mark.parametrize("resolution", ["10_minutes", "hourly", "6_hours", "daily", "monthly", "annual"])
+def test_metno_frost_values_without_a_timestamp_are_refused(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, resolution: str
+) -> None:
+    """Every Frost resolution is refused without a `timestamp`, as its reader has nothing to ask for (GH-3560).
+
+    The daily, monthly and annual datasets were not marked, so such a request answered 200 with no
+    rows. Refused before anything is downloaded; the client id is a dummy.
+    """
+    monkeypatch.setenv("WD_AUTH__METNO_FROST", "dummy-client-id")
+    response = client.get(
+        "/api/values",
+        params={
+            "provider": "metno",
+            "network": "frost",
+            "parameters": f"{resolution}/data",
+            "stations": "SN18700",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "timestamp is required for this dataset"
+
+
 @pytest.mark.parametrize(
     ("tool", "arguments"),
     [
@@ -8568,7 +8616,8 @@ def test_coverage_schema_in_openapi(client: TestClient) -> None:
     assert components["CoverageDataset"]["properties"]["extent"] == {"$ref": "#/components/schemas/Extent"}
     # lead_times is `dwd/dmo`'s alone: sent there, absent elsewhere
     required = {"name", "name_original", "unit_type", "unit", "description"}
-    assert shape("CoverageParameter") == (required | {"lead_times"}, required)
+    # `unit_source` is the provider's unit where that is not `unit`, absent where it is the same (GH-3537)
+    assert shape("CoverageParameter") == (required | {"lead_times", "unit_source"}, required)
     parameter = components["CoverageParameter"]["properties"]
     assert parameter["lead_times"]["items"] == {"enum": ["short", "long"], "type": "string"}
     assert parameter["unit_type"]["enum"] == list(get_args(UnitType))

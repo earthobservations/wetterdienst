@@ -38,6 +38,7 @@ from wetterdienst.metadata.renamed import refuse_renamed_arguments
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import (
     CoverageDataset,
+    CoverageParameter,
     CoverageResolution,
     DatasetModel,
     ExtentDict,
@@ -61,6 +62,7 @@ from wetterdienst.model.schema import (
     TIMESTAMP_DTYPE,
     coerce,
 )
+from wetterdienst.model.unit import UnitConverter
 from wetterdienst.model.util import create_station_id_from_string
 from wetterdienst.options import resolve_options
 from wetterdienst.settings import Settings
@@ -682,11 +684,14 @@ class TimeseriesRequest:
              "parameters": [{"name": ..., "name_original": ..., "unit_type": ..., "unit": ...,
              "description": ...}]}}}}
 
-        `unit` is the unit the source publishes in, which is not always the unit a request answers
-        with: a value is converted to its type's target unless the option `convert_units` is off, so
-        `dwd/road` reports `degree_kelvin` here and answers in °C, and `millimeter_per_second` here
-        and answers in mm/h. `UnitConverter.targets`, which the option `unit_targets` overrides, is the other
-        side.
+        `unit` is the unit the values come back in for a caller who passes no options: the target of the
+        `unit_type` in the unit converter `values` and `glossary` build from the environment
+        (`WD_TS_UNIT_TARGETS`, `WD_TS_CONVERT_UNITS`), so `dwd/road` reports `degree_celsius` and
+        `millimeter_per_hour`. `unit_source` is the unit the provider publishes the parameter in
+        (`degree_kelvin`, `millimeter_per_second`), which the values come in with `convert_units` off. It is
+        there only where it differs from `unit`: absent means the same, which keeps the answer from repeating
+        itself for the parameters nothing converts. A `unit_targets` a caller passes to `values` is not followed,
+        this taking no options.
 
         Names are matched by either name of a resolution or dataset, in any case.
 
@@ -742,6 +747,29 @@ class TimeseriesRequest:
                 )
                 msg = f"Dataset '{name}' not found in {where}. Available datasets: {available}"
                 raise MetadataNotFoundError(msg)
+        # the unit the values come back in for a caller who passes no options: the converter `values` and `glossary`
+        # build, with the targets of the environment, so that the three cannot differ. With `convert_units` off the
+        # values keep the source's unit
+        options = resolve_options(None)
+        converter = UnitConverter()
+        converter.update_targets(options.unit_targets)
+
+        def described(parameter: ParameterModel) -> CoverageParameter:
+            unit = converter.targets[parameter.unit_type].name if options.convert_units else parameter.unit
+            entry: CoverageParameter = {
+                "name": parameter.name,
+                "name_original": parameter.name_original,
+                "unit_type": parameter.unit_type,
+                "unit": unit,
+                # the source's own words for its own field, where we have them; the canonical,
+                # provider-independent sentence lives in the glossary
+                "description": parameter.description,
+            }
+            # only where it says something: absent is the same as `unit`, as most are (GH-3537)
+            if parameter.unit != unit:
+                entry["unit_source"] = parameter.unit
+            return entry
+
         data: dict[str, CoverageResolution] = {}
         for resolution in selected:
             described_datasets: dict[str, CoverageDataset] = {}
@@ -753,18 +781,7 @@ class TimeseriesRequest:
                 extent = dataset.extent if dataset.extent is not None else cls.metadata.extent
                 described_datasets[dataset.name] = {
                     "description": dataset.description,
-                    "parameters": [
-                        {
-                            "name": parameter.name,
-                            "name_original": parameter.name_original,
-                            "unit_type": parameter.unit_type,
-                            "unit": parameter.unit,
-                            # the source's own words for its own field, where we have them; the
-                            # canonical, provider-independent sentence lives in the glossary
-                            "description": parameter.description,
-                        }
-                        for parameter in dataset
-                    ],
+                    "parameters": [described(parameter) for parameter in dataset],
                     "extent": cast("ExtentDict", extent.model_dump(mode="json")),
                 }
             if not described_datasets:
