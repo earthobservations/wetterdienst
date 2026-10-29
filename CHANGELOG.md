@@ -72,6 +72,9 @@ Types of changes:
 - A `dwd/dmo` request for a lead time its product does not publish (`lead_time=long` for
   `icon_eu`, which has the short run alone) is refused as a 400 naming what the product
   publishes, where it ended in a 500 (`Unable to find a 168 h forecast`) (GH-3539)
+- The `missing-value-marker` warning of an answer counts the readings that are a marker for a
+  missing value inside the window the request asked for, where it counted those of every file read
+  (12,663 for a 3-day request at DWD station 00011, the whole archive) (GH-3550)
 
 ## [0.178.0] - 2026-10-28
 
