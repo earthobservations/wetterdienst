@@ -81,6 +81,11 @@ A request is typically defined by three arguments:
 - ``start``
 - ``end``
 
+A dataset the provider serves by a window (`date_required` in the coverage, as for MET Norway Frost, FMI, DMI
+or the WSV gauges) needs both: `stations.values()` raises `DateRequiredError`, a `ValueError`, naming the dataset
+when the request has none, as the REST API, the command line and MCP refuse it. Listing the stations needs no
+window.
+
 Parameters can be requested in different ways e.g.
 
 - using a tuple of resolution and dataset

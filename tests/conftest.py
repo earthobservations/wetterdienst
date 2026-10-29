@@ -823,6 +823,17 @@ def default_settings() -> Settings:
 
 
 @pytest.fixture
+def window_not_required(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Let a reader be built for a request that names no window, for a dataset that is read by one (GH-3562).
+
+    `TimeseriesValues` refuses such a request, so the code a provider keeps for it -- the first row of a collection
+    asked for, an open end, a URL without a window -- cannot be reached through the library. A test that holds that
+    code to what it did takes this fixture; it goes with the code.
+    """
+    monkeypatch.setattr("wetterdienst.model.values.require_window", lambda *_args, **_kwargs: None)
+
+
+@pytest.fixture
 def options_drop_nulls_false() -> Options:
     """Provide no drop nulls options."""
     return Options(drop_nulls=False)

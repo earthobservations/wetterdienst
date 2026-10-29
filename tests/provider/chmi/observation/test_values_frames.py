@@ -18,6 +18,7 @@ import polars as pl
 import pytest
 
 from tests.provider.value_stubs import _options, _settings, stations_result
+from wetterdienst.exceptions import DateRequiredError
 from wetterdienst.model.schema import LONG_SCHEMA
 from wetterdienst.provider.chmi.observation import ChmiObservationRequest
 from wetterdienst.provider.chmi.observation import api as chmi_api
@@ -231,12 +232,11 @@ def test_chmi_without_a_reading_comes_out_as_the_empty_long_form(
     assert df.is_empty()
 
 
-def test_chmi_subdaily_without_a_date_range_comes_out_as_the_empty_long_form(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The month files of the sub-daily resolutions are addressed by the range: with none, there is nothing to read."""
+def test_chmi_subdaily_without_a_date_range_is_refused_and_asks_for_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The month files of the sub-daily resolutions are addressed by the range: with none, the request is refused."""
     asked = _serve(monkeypatch, {f"10m-{CHEB}-T-202001.csv": _TEN_MINUTES_T_JANUARY})
-    df = _values("10_minutes")
-    assert df.schema == pl.Schema(LONG_SCHEMA)
-    assert df.is_empty()
+    with pytest.raises(DateRequiredError, match="The dataset 10_minutes/data needs a window"):
+        _values("10_minutes")
     assert asked == []
 
 

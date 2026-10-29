@@ -919,6 +919,8 @@ def test_noaa_ghcn_daily_values_are_stamped_though_the_first_row_has_no_position
             NoaaGhcnMetadata.daily.data.temperature_air_max_2m,
         ],
         settings=default_settings,
+        start="1938-01-01",
+        end="1938-12-31",
     )
     df = request.filter_by_station_id("AUM00011158").values().all().df
     assert sorted(df.select(pl.col("resolution"), "timestamp", "value").rows()) == [

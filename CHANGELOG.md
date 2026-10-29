@@ -18,6 +18,12 @@ Types of changes:
 
 ### Added
 
+- A response warning `file-skipped` (REST, MCP, command line and, as a log line at WARNING,
+  Python) names the stations whose file the provider let go (a refused download, a file withdrawn
+  since the listing, a maintenance page answered with HTTP 200, a file that would not parse), so
+  that a partial answer can be told from a whole one: one warning for the request, with
+  `stations` and the datasets read at them. Try again later. Not told for `interpolate` and
+  `summarize` (GH-3552)
 - A response warning `parameter-without-rows` (REST, MCP, command line and, as a log line at
   WARNING, Python) names a requested parameter the source has no values for, with `parameter`
   and `stations`, where the answer used to be an empty header that read like a failed request
@@ -34,11 +40,17 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: asking the Python API for the values of a `date_required` dataset without `start`
+  and `end` raises `DateRequiredError` (a `ValueError`) naming the dataset, from
+  `stations.values()` on, as REST, CLI and MCP already refused it. `noaa/ghcn`, `meteoswiss`,
+  `meteofrance`, `geosphere`, `eccc`, `imgw`, `dwd/road` and `ea` used to answer the whole record,
+  `wsv`, `nws`, `ipma` and `eaufrance/hubeau` a recent slice; `aemet` (daily to annual), `chmi`
+  (sub-daily), `dmi`, `fmi`, `knmi`, `lhmt`, `rmi` and `metno/frost` an empty frame. Pass `start`
+  and `end`; listing stations needs no window (GH-3562)
 - **Breaking**: the REST API, CLI and MCP refuse a `metno/frost` request for `daily`, `monthly` or
   `annual` values without a start and end date, as for the other resolutions (REST: 400,
   `timestamp` is required). Such a request was answered with no rows and no reason, as the source
-  is only asked within a window; the Python API still returns an empty frame. Pass a window
-  instead (GH-3560)
+  is only asked within a window. Pass a window instead (GH-3560, GH-3562)
 - **Breaking**: `coverage` (`/api/coverage`, the MCP tool, `about coverage`,
   `TimeseriesRequest.discover()`) gives a parameter the unit its values come back in as `unit`
   (`degree_celsius`, `decimal` for a percentage: what `glossary` gives, following the server's
@@ -101,6 +113,12 @@ Types of changes:
   with `drop_nulls` on (the default) or off: not those of a station `skip_empty` leaves out, nor of
   one a `rank` walk passes over for having no reading. `interpolate` and `summarize`, whose answer
   is an estimate, carry no such warning now (GH-3554)
+- The `station-skipped` warning is told for a station `skip_empty` leaves out whatever `drop_nulls`
+  is: with the nulls dropped (the default) a station that held nothing but missing values was left
+  out unsaid, and with them kept it was told. The warning is the same for both, and so is
+  `parameter-without-rows`: a parameter or dataset that held only missing values at a station left
+  out (wholly or with some readings) is no longer named there. The rows of an answer are unchanged
+  (GH-3567)
 
 ## [0.178.0] - 2026-10-28
 

@@ -121,11 +121,12 @@ def test_nws_url_names_the_window_in_utc_whatever_zone_it_was_asked_in(
     assert "end=2026-08-21T00%3A30%3A00Z" in url
 
 
+@pytest.mark.usefixtures("window_not_required")
 def test_nws_url_names_no_window_where_the_request_carries_no_dates() -> None:
     """Test that a request without dates asks for the endpoint's own default, a page of 500 observations.
 
-    `date_required` is enforced at the CLI and the REST API but not in the Python API, so a
-    request can reach the endpoint with nothing to narrow it to.
+    `TimeseriesValues` refuses a request without dates (GH-3562), so this takes the fixture that lets the
+    reader be built: the URL is what it asked for before.
     """
     request = NwsObservationRequest(parameters=[("hourly", "data", "temperature_air_2m")])
 
@@ -1187,8 +1188,9 @@ def test_nws_hourly_reads_the_report_of_an_hour_that_two_pages_split(monkeypatch
     assert all(value != round(value) for value in df.sort("timestamp").get_column("value").to_list()[1:])
 
 
+@pytest.mark.usefixtures("window_not_required")
 def test_nws_hourly_without_dates_reads_the_pages_to_the_end_of_the_week(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that a request without dates, which the Python API allows, is not cut at 500 observations (GH-2994)."""
+    """Test that a request without dates (no longer allowed) is not cut at 500 observations (GH-2994)."""
     urls = _serve_pages(monkeypatch, _three_days())
     request = NwsObservationRequest(
         parameters=[("hourly", "data", "temperature_air_2m")],

@@ -130,6 +130,7 @@ def test_geosphere_observation_request_window_carries_the_minutes(monkeypatch: p
 
 
 @freeze_time(datetime(2020, 12, 2, 13, 37, 21, tzinfo=ZoneInfo("UTC")))
+@pytest.mark.usefixtures("window_not_required")
 def test_geosphere_observation_open_ended_window_ends_on_the_hour(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that a request without dates ends its window on the hour, not on the current minute.
 
@@ -205,6 +206,7 @@ def _serve_archive(
     ],
 )
 @freeze_time(datetime(2020, 12, 2, 13, 37, 21, tzinfo=ZoneInfo("UTC")))
+@pytest.mark.usefixtures("window_not_required")
 def test_geosphere_observation_values_without_dates_stay_under_the_api_limit(
     monkeypatch: pytest.MonkeyPatch,
     resolution: str,
@@ -392,6 +394,7 @@ def _serve_archive_of_parameters(
     ],
 )
 @freeze_time(datetime(2020, 12, 2, 13, 37, 21, tzinfo=ZoneInfo("UTC")))
+@pytest.mark.usefixtures("window_not_required")
 def test_geosphere_observation_values_of_a_whole_dataset_batch_the_parameters(
     monkeypatch: pytest.MonkeyPatch,
     resolution: str,
@@ -459,6 +462,7 @@ def test_geosphere_observation_values_ask_for_the_requested_parameters_only(monk
     [("daily", "temperature_air_mean_minmax_2m"), ("monthly", "temperature_air_mean_2m")],
 )
 @freeze_time(datetime(2020, 12, 2, 13, 37, 21, tzinfo=ZoneInfo("UTC")))
+@pytest.mark.usefixtures("window_not_required")
 def test_geosphere_observation_values_of_one_daily_or_monthly_parameter_are_one_request(
     monkeypatch: pytest.MonkeyPatch,
     resolution: str,
