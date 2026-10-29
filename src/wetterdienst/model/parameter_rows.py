@@ -46,6 +46,7 @@ from wetterdienst.util.response_warnings import (
     collecting,
     recorded_warnings,
     warn_response,
+    watch_named_parameters,
 )
 
 if TYPE_CHECKING:
@@ -95,6 +96,8 @@ class ParameterRows:
         self._skipped: set[str] = set()
         #: whether the provider let go a file that every station of the request is read from
         self._skipped_all = False
+        #: the parameters another warning named while the walk went on (`parameter-ended`)
+        self._named = watch_named_parameters() if enabled else set()
         #: the stations the walk read, by the dataset they were read for, in the order they came
         self._examined: dict[tuple[str, str], list[str]] = {}
         #: `(resolution, dataset, parameter)` of every row the walk found in the window
@@ -135,7 +138,8 @@ class ParameterRows:
         whole = request._requested_whole  # noqa: SLF001
         named_datasets = {key[:2] for key in named}
         # a parameter another warning already names (`parameter-ended`) is explained, and not told again
-        explained = {warning.get("parameter") for warning in recorded_warnings()}
+        # (by the response if there is one, and by the log lines of this walk if there is not)
+        explained = self._named | {warning.get("parameter") for warning in recorded_warnings()}
         told_whole: set[tuple[str, str]] = set()
         for parameter in request.parameters:
             if not isinstance(parameter, ParameterModel):

@@ -1707,3 +1707,18 @@ def test_the_other_lead_time_is_a_hint_only_for_a_product_that_publishes_it() ->
     with pytest.raises(ParameterNotCarriedError, match=r"icon_eu publishes no 168 h run.*publishes: short"):
         _refuse_parameters_the_run_does_not_carry(long.parameters, long.lead_time)  # ty: ignore[invalid-argument-type]
     _refuse_parameters_the_run_does_not_carry(eu.parameters, eu.lead_time)  # ty: ignore[invalid-argument-type]
+
+
+def test_periods_that_change_nothing_are_not_said_to_be_the_reason(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`periods` the window would have read anyway are no reason: `try without periods` would answer the same."""
+    _holding_none_of(monkeypatch, "sdk")
+
+    (recent_for_recent,) = _told([_EMPTY], ["00001"], window=("2026-10-01", "2026-10-03"), periods="recent")
+    (historical_for_2020,) = _told([_EMPTY], ["00001"], periods="historical")
+    (recent_for_2020,) = _told([_EMPTY], ["00001"], periods="recent")
+
+    assert "periods" not in recent_for_recent["message"]
+    assert "periods" not in historical_for_2020["message"]
+    # the window of 2020 is read from `historical`, which `recent` leaves out
+    assert "in the periods asked for (recent). Try without `periods`." in recent_for_2020["message"]
+    assert "Leave it out, or try another station or window." in recent_for_recent["message"]

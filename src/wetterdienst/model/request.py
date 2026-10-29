@@ -365,6 +365,9 @@ class TimeseriesRequest:
     # Not an argument: the periods a request asked for by name when that narrowed what it reads (`_selects_by_period`),
     # which `parameter-without-rows` says it was held to; empty where none was asked for or all were
     _periods_narrowed: frozenset[Period] = field(default=frozenset(), init=False, repr=False, compare=False)
+    # Not an argument: the periods the request would have read had it not been given any (`_resolve_periods(None)`:
+    # those the window reaches), which `periods` is judged against, set where `_periods_narrowed` is
+    _periods_inferred: frozenset[Period] = field(default=frozenset(), init=False, repr=False, compare=False)
     _requested_whole: frozenset[tuple[str, str]] = field(default=frozenset(), init=False, repr=False, compare=False)
     _requested_named: frozenset[tuple[str, str, str]] = field(
         default=frozenset(), init=False, repr=False, compare=False
@@ -425,14 +428,14 @@ class TimeseriesRequest:
         # asked for, and the timestamps, which a provider may derive the periods from
         asked_for_periods = bool(self.periods)
         self.periods = self._resolve_periods(self.periods)
-        self._periods_narrowed = self._narrowing_periods(asked_for_periods=asked_for_periods)
+        self._note_narrowing_periods(asked_for_periods=asked_for_periods)
 
-    def _narrowing_periods(self, *, asked_for_periods: bool) -> frozenset[Period]:
-        """Give the periods a request asked for when that holds back some of what its datasets publish, else none."""
+    def _note_narrowing_periods(self, *, asked_for_periods: bool) -> None:
+        """Note the periods asked for if they leave some out, and the ones the window would have read without them."""
         periods = cast("set[Period]", self.periods)
         if asked_for_periods and self._selects_by_period and periods != self.published_periods:
-            return frozenset(periods)
-        return frozenset()
+            self._periods_narrowed = frozenset(periods)
+            self._periods_inferred = frozenset(self._resolve_periods(None))
 
     # Columns that should be contained within any stations information
     _base_columns: ClassVar = tuple(STATIONS_SCHEMA)
@@ -477,8 +480,11 @@ class TimeseriesRequest:
         the periods asked for where they leave out one the dataset publishes. The hint is what to ask instead, None
         where there is none. A request with a run or a lead time adds its own.
         """
-        asked = set(self._periods_narrowed) & set(dataset.periods)
-        if asked and set(dataset.periods) - asked:
+        published = set(dataset.periods)
+        asked = set(self._periods_narrowed) & published
+        # narrowed only where the window would have read a period that was left out: asking for `recent` for a
+        # window that only `recent` holds changes nothing, and `try without periods` would answer the same
+        if asked and (set(self._periods_inferred) & published) - asked:
             return [(f"the periods asked for ({_format_periods(asked)})", "try without `periods`")]
         return []
 

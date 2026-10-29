@@ -694,3 +694,56 @@ def test_fmi_values_say_nothing_of_a_fetch_that_failed(monkeypatch: pytest.Monke
     start = dt.datetime(2024, 1, 1, tzinfo=dt.UTC)
     assert _fmi_values("hourly", start, start + dt.timedelta(hours=1)).is_empty()
     assert _told() == []
+
+
+def test_frost_values_say_nothing_when_frost_was_not_asked(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Frost's daily data declare no window and its reader returns without asking for want of one: no claim."""
+    asked: list[str] = []
+
+    def observations(url: str) -> File:
+        asked.append(url)
+        msg = f"the source was asked for {url}"
+        raise AssertionError(msg)
+
+    values, _seen = _frost_values(
+        monkeypatch, observations, parameters=[("daily", "data", "temperature_air_mean_2m")], start=None, end=None
+    )
+    begin_response()
+    assert values.all().df.is_empty()
+    assert asked == []
+    assert _told() == []
+
+
+def test_chmi_hourly_window_after_2024_is_told_once_in_the_log_where_no_response_records_it(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Used as a library, no warning is recorded: the log lines must not say it twice either (GH-3539)."""
+    import datetime as dt  # noqa: PLC0415
+
+    from tests.provider.chmi.observation.test_values_frames import (  # noqa: PLC0415
+        _HOURLY_P_HM_JANUARY_2025,
+        CHEB,
+        _serve,
+    )
+    from tests.provider.value_stubs import _options, _settings  # noqa: PLC0415
+    from wetterdienst.provider.chmi.observation import ChmiObservationRequest  # noqa: PLC0415
+    from wetterdienst.util import response_warnings  # noqa: PLC0415
+
+    response_warnings._RECORDED.set(None)  # noqa: SLF001
+    _serve(monkeypatch, {f"1h-{CHEB}-P_hm-202501.csv": _HOURLY_P_HM_JANUARY_2025})
+    request = ChmiObservationRequest(
+        parameters=[("hourly", "data", "pressure_air_site")],
+        start=dt.datetime(2025, 1, 1, tzinfo=dt.UTC),
+        end=dt.datetime(2025, 1, 1, 1, tzinfo=dt.UTC),
+        settings=_settings(),
+        options=_options(drop_nulls=True),
+    )
+    with caplog.at_level("INFO"):
+        df = stations_result(request, "hourly", "data", CHEB).values().all().df
+
+    assert df.is_empty()
+    assert recorded_warnings() == []
+    named = [record.getMessage() for record in caplog.records if record.levelname == "WARNING"]
+    assert len(named) == 1
+    assert "CHMI publishes no hourly pressure_air_site" in named[0]
+    assert not [record for record in caplog.records if record.name == "wetterdienst.model.parameter_rows"]
