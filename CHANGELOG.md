@@ -96,9 +96,10 @@ Types of changes:
   loses a row another process saved in between (its file was then fetched again), the save no
   longer fails with `PermissionError` on Windows while another process has the metadata open, and a
   sweep no longer deletes a file another process has just fetched again. A holder that does not let
-  go costs the save or the sweep, skipped with a warning, and one wait of 10 s a minute; no request
-  fails. A killed process leaves no stale lock, and a file system without `flock` goes without the
-  lock (GH-3485)
+  go within 30 s costs one wait of that long, in which the process's other cache misses wait too,
+  and then the saves and sweeps of that directory for a minute, which are skipped with a warning;
+  reads go ahead without the lock, and no request fails. A killed process leaves no stale lock, and
+  a file system without `flock` goes without the lock (GH-3485)
 
 ## [0.178.0] - 2026-10-28
 

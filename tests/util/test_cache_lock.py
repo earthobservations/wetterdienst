@@ -239,7 +239,11 @@ def test_a_lock_left_by_a_process_that_was_killed_holds_nothing(
 
     assert Path(_lock_file(storage)).exists()  # what a killed process leaves
     caplog.clear()
-    # a timeout that a slow runner (Windows) does not come near unless the lock is held, and a save that is far under it
+    # the wait above marked the directory, and a marked one is only tried: the save below is to be a wait of its
+    # own, with a timeout that a slow runner (Windows) does not come near unless the lock is held, and a save far
+    # under it
+    network._cache_dirs_contended_until.clear()  # noqa: SLF001
+    network._cache_dirs_load_contended_until.clear()  # noqa: SLF001
     monkeypatch.setattr(network, "_CACHE_LOCK_TIMEOUT_SECONDS", 5.0)
     started = time.monotonic()
     mine.save_cache()
@@ -376,3 +380,91 @@ def test_the_reclaim_leaves_a_directory_that_is_held_and_takes_its_lock_file_wit
     assert not old.exists()
     assert not lock_file.exists()
     assert keep.is_dir()
+
+
+def test_a_successful_hold_ends_the_period_of_a_marked_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The mark is for as long as the holder is there: the first hold that gets the lock takes it away."""
+    monkeypatch.setattr(network, "_CACHE_LOCK_TIMEOUT_SECONDS", 0.2)
+    storage = _storage(tmp_path)
+    mine = _LockedWholeFileCacheFileSystem(fs=_source(), cache_storage=str(storage), expiry_time=3600)
+
+    with FileLock(_lock_file(storage)):
+        mine.cat_file("/mine.txt")
+    assert storage in network._cache_dirs_contended_until  # noqa: SLF001
+
+    mine.cat_file("/theirs.txt")  # the holder is gone, and a try is enough
+
+    assert storage not in network._cache_dirs_contended_until  # noqa: SLF001
+    assert _rows(storage) == ["/mine.txt", "/theirs.txt"]
+
+
+def test_the_period_of_a_marked_directory_runs_out_and_a_holder_that_is_still_there_is_waited_for_again(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A minute (here a fraction of a second) later the holder may have been stuck for that long and be gone, or not."""
+    monkeypatch.setattr(network, "_CACHE_LOCK_TIMEOUT_SECONDS", 0.3)
+    monkeypatch.setattr(network, "_CACHE_LOCK_CONTENDED_SECONDS", 0.6)
+    storage = _storage(tmp_path)
+    source = _source()
+    source.pipe_file("/third.txt", b"x")
+    source.pipe_file("/fourth.txt", b"x")
+    mine = _LockedWholeFileCacheFileSystem(fs=source, cache_storage=str(storage), expiry_time=3600)
+
+    with FileLock(_lock_file(storage)):
+        started = time.monotonic()
+        mine.cat_file("/mine.txt")  # waits, and marks
+        first = time.monotonic() - started
+        started = time.monotonic()
+        mine.cat_file("/theirs.txt")  # marked: only tried
+        marked = time.monotonic() - started
+        time.sleep(0.7)
+        started = time.monotonic()
+        mine.cat_file("/third.txt")  # the period is over: waits again
+        again = time.monotonic() - started
+
+    assert first >= 0.25
+    assert marked < 0.2
+    assert again >= 0.25
+
+
+def test_a_load_that_gives_up_does_not_mark_the_directory_for_saves(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A holder that lets go within seconds is contention: the save after a load's short wait waits for its own turn."""
+    monkeypatch.setattr(network, "_CACHE_LOCK_TIMEOUT_SECONDS", 2.0)
+    monkeypatch.setattr(network, "_CACHE_LOAD_WAIT_SECONDS", 0.2)
+    storage = _storage(tmp_path)
+    mine = _LockedWholeFileCacheFileSystem(fs=_source(), cache_storage=str(storage), expiry_time=3600)
+    holder = FileLock(_lock_file(storage), thread_local=False)  # released from the timer's thread
+    releaser = threading.Timer(0.5, holder.release)
+    holder.acquire()
+    try:
+        started = time.monotonic()
+        mine.load_cache()
+        loaded = time.monotonic() - started
+        assert storage not in network._cache_dirs_contended_until  # noqa: SLF001
+        assert storage in network._cache_dirs_load_contended_until  # noqa: SLF001
+        releaser.start()
+        mine.cat_file("/mine.txt")  # a save that waits the half second out
+    finally:
+        releaser.join()
+        if holder.is_locked:
+            holder.release()
+
+    assert 0.15 <= loaded < 1.0
+    assert _rows(storage) == ["/mine.txt"]
+
+
+def test_a_load_waits_one_second_at_most_whatever_the_timeout(tmp_path: Path) -> None:
+    """The load goes ahead without the lock whatever the answer, so it is not worth the 30 s a save is."""
+    storage = _storage(tmp_path)
+    mine = _LockedWholeFileCacheFileSystem(fs=_source(), cache_storage=str(storage), expiry_time=3600)
+
+    with FileLock(_lock_file(storage)):
+        started = time.monotonic()
+        mine.load_cache()
+        waited = time.monotonic() - started
+
+    assert 0.9 <= waited < 5

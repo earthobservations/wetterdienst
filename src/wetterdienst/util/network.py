@@ -1208,8 +1208,12 @@ _cache_dir_lock = threading.RLock()
 
 #: How long a process waits for another one that holds the lock file of a cache directory (GH-3485). What is held
 #: for is a read, a merge and a replace of one metadata file, or a sweep of one directory: well under a second for a
-#: directory of thousands of entries. Ten seconds is for a machine that is swapping, not for a process that is stuck.
-_CACHE_LOCK_TIMEOUT_SECONDS = 10.0
+#: directory of thousands of entries, over a second for tens of thousands. A waiter stands behind every other process
+#: that wants the lock, so with six of them saving into a directory of 40000 entries it waits for five holds of about
+#: 1.3 s each and more when it is unlucky: ten seconds ran out in one run of four there, and a wait that runs out is a
+#: lost row. Thirty seconds is for a busy directory, not for a process that is stuck, and a stuck one costs it only
+#: once a minute (`_CACHE_LOCK_CONTENDED_SECONDS`).
+_CACHE_LOCK_TIMEOUT_SECONDS = 30.0
 
 #: How long a load waits: it goes ahead without the lock whatever the answer, so it is not worth the whole timeout.
 _CACHE_LOAD_WAIT_SECONDS = 1.0
@@ -1218,8 +1222,15 @@ _CACHE_LOAD_WAIT_SECONDS = 1.0
 #: (see `_locked_across_processes`), so a holder that is stuck would cost every thread of this process a timeout for
 #: every file it downloads. Until this has passed the lock is only tried, never waited for, and the first hold that
 #: gets it ends the period. So a stuck holder costs one timeout a minute for each directory, and the threads that
-#: queue behind it find the directory marked.
+#: queue behind it find the directory marked. Only a wait of the whole timeout marks it for saves and sweeps: a
+#: holder that lets go within seconds is contention, not a stuck process, and a save that was only tried for a minute
+#: afterwards would lose its row to every other process that happened to hold the lock at that moment.
 _CACHE_LOCK_CONTENDED_SECONDS = 60.0
+
+#: How often the lock file is tried while it is waited for. `filelock` tries every 50 ms, which is unfair to a waiter
+#: against processes that take and release it in a hurry: a waiter that is not there at the moment it is free is left
+#: waiting while the others pass it between them, and the timeout runs out for a lock that is free most of the time.
+_CACHE_LOCK_POLL_SECONDS = 0.005
 
 #: The lock files this process has opened, by process id and path. The process id is in the key because a child made by
 #: `fork` inherits the table, and a lock object that was held (or only opened) in the parent is the parent's. One object
@@ -1227,8 +1238,12 @@ _CACHE_LOCK_CONTENDED_SECONDS = 60.0
 #: would wait for the first one, which is this very thread, for the whole timeout.
 _cache_dir_file_locks: dict[tuple[int, Path], FileLock] = {}
 
-#: The directories whose lock a wait has given up on, until when (`time.monotonic()`). Guarded by `_cache_dir_lock`.
+#: The directories whose lock a wait of the whole timeout has given up on, until when (`time.monotonic()`): saves,
+#: sweeps and loads only try them. Guarded by `_cache_dir_lock`.
 _cache_dirs_contended_until: dict[Path, float] = {}
+
+#: The same for a load's short wait that ran out: only loads, which go ahead without the lock anyway, stop waiting.
+_cache_dirs_load_contended_until: dict[Path, float] = {}
 
 
 def _lock_file_of(directory: Path) -> Path:
@@ -1249,11 +1264,12 @@ def _locked_across_processes(directory: Path, *, otherwise: str, wait: float | N
     one and wait for the other; and so that the lock file is only ever held by one thread of this process, which is
     what lets its count stand for reentrancy. It is held while the lock file is waited for, which is the price of that
     order (a thread that holds `_cache_dir_lock` and waits for the file lock of a thread that waits for it would
-    otherwise be possible): the wait is bounded by `wait` or `_CACHE_LOCK_TIMEOUT_SECONDS`, and after one that ran out
-    the directory is only tried for `_CACHE_LOCK_CONTENDED_SECONDS`, so that a stuck holder costs one timeout a minute
-    and not one per file. The lock is taken around the short critical sections (the read, merge and replace of the
-    metadata file; the rename of a fetched file onto its blob and the row for it; the sweep) and never around a
-    download.
+    otherwise be possible): the wait is bounded by `wait` or `_CACHE_LOCK_TIMEOUT_SECONDS`, and after a wait of the
+    whole timeout that ran out the directory is only tried for `_CACHE_LOCK_CONTENDED_SECONDS`, so that a stuck holder
+    costs one timeout a minute and not one per file, and every save and sweep of the directory in that minute. Every
+    cache miss of this process waits behind that wait, whatever the directory. The lock is taken around the short
+    critical sections (the read, merge and replace of the metadata file; the rename of a fetched file onto its blob and
+    the row for it; the sweep) and never around a download.
 
     The lock is `filelock`'s `flock` on POSIX and `msvcrt.locking` on Windows, and never its `SoftFileLock`
     (`fallback_to_soft=False`: a file system without `flock` answers `ENOSYS`, the lock is not taken and the caller goes
@@ -1275,8 +1291,9 @@ def _locked_across_processes(directory: Path, *, otherwise: str, wait: float | N
     Args:
         directory: The cache directory (the one with the metadata file in it).
         otherwise: What the caller does where it does not get the lock, for the log line.
-        wait: How many seconds to wait at most; the timeout where `None`. Zero tries once. A wait that runs out
-            marks the directory, whoever waited.
+        wait: How many seconds to wait at most; the timeout where `None`. Zero tries once. A wait of the whole
+            timeout that runs out marks the directory for saves, sweeps and loads; a load's shorter wait that runs
+            out marks it for loads alone.
 
     """
     with _cache_dir_lock:
@@ -1286,7 +1303,10 @@ def _locked_across_processes(directory: Path, *, otherwise: str, wait: float | N
             file_lock = _cache_dir_file_locks[key] = FileLock(
                 str(_lock_file_of(directory)), thread_local=False, fallback_to_soft=False
             )
-        contended = time.monotonic() < _cache_dirs_contended_until.get(directory, 0.0)
+        now = time.monotonic()
+        contended = now < _cache_dirs_contended_until.get(directory, 0.0)
+        if wait is not None:
+            contended = contended or now < _cache_dirs_load_contended_until.get(directory, 0.0)
         timeout = (
             0.0
             if contended
@@ -1297,18 +1317,25 @@ def _locked_across_processes(directory: Path, *, otherwise: str, wait: float | N
         acquired = False
         proceed = True
         try:
-            file_lock.acquire(timeout=timeout)
+            file_lock.acquire(timeout=timeout, poll_interval=_CACHE_LOCK_POLL_SECONDS)
             acquired = True
+            # the lock is free, so whatever held it is not stuck
             _cache_dirs_contended_until.pop(directory, None)
+            _cache_dirs_load_contended_until.pop(directory, None)
         except Timeout:
             proceed = False
-            if timeout > 0:
-                # a wait that ran out for good, not a try: the directory is marked, and the line is said once
+            if timeout > 0 and wait is None:
+                # a wait of the whole timeout that ran out, not a try: the directory is marked, said once
+                until = time.time() + _CACHE_LOCK_CONTENDED_SECONDS
                 _cache_dirs_contended_until[directory] = time.monotonic() + _CACHE_LOCK_CONTENDED_SECONDS
                 log.warning(
-                    f"Gave up waiting {timeout:g} s for another process that holds {file_lock.lock_file}, so "
-                    f"{otherwise}; it is only tried for the next {_CACHE_LOCK_CONTENDED_SECONDS:g} s"
+                    f"Gave up waiting {timeout:g} s for another process that holds {file_lock.lock_file}: until "
+                    f"{time.strftime('%H:%M:%S', time.localtime(until))} the saves and the sweeps of {directory} are "
+                    "skipped and its reads go ahead without the lock"
                 )
+            elif timeout > 0:
+                _cache_dirs_load_contended_until[directory] = time.monotonic() + _CACHE_LOCK_CONTENDED_SECONDS
+                log.debug(f"{file_lock.lock_file} is held by another process, so {otherwise}")
             else:
                 log.debug(f"{file_lock.lock_file} is held by another process, so {otherwise}")
         except Exception:
