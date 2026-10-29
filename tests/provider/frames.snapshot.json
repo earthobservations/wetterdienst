@@ -765,7 +765,7 @@
   "tests/provider/geosphere/observation/test_api.py::test_geosphere_observation_wind_direction_of_0_is_null_and_the_gust_direction_is_left_alone[10_minutes]": [["GeosphereObservationRequest", "af379c4e", 1, "2dcf6f53237b2be9"]],
   "tests/provider/geosphere/observation/test_api.py::test_geosphere_observation_wind_direction_of_0_is_null_and_the_gust_direction_is_left_alone[hourly]": [["GeosphereObservationRequest", "af379c4e", 1, "bdb017b2f3cda7d4"]],
   "tests/provider/geosphere/observation/test_api.py::test_geosphere_observation_windows_of_a_local_time_request_leave_no_gap": [["GeosphereObservationRequest", "af379c4e", 1, "2dcf6f53237b2be9"]],
-  "tests/provider/imgw/hydrology/test_api.py::test_imgw_hydrology_station_list_gives_the_river_its_kilometre_and_the_gauge_zero": [["ImgwHydrologyRequest", "fe19ffbc", 4, "1d97b97636c97a79"]],
+  "tests/provider/imgw/hydrology/test_api.py::test_imgw_hydrology_station_list_gives_the_river_its_kilometre_and_the_gauge_zero": [["ImgwHydrologyRequest", "fe19ffbc", 4, "291a65f93084a8a1"]],
   "tests/provider/imgw/hydrology/test_api.py::test_imgw_hydrology_station_list_reads_what_is_no_number_as_null": [["ImgwHydrologyRequest", "fe19ffbc", 1, "86b49c0e86baface"]],
   "tests/provider/imgw/meteorology/test_api.py::test_imgw_meteorology_station_list_gives_no_region": [["ImgwMeteorologyRequest", "1ac47b2e", 3, "4c1b36cf710fa8b9"]],
   "tests/provider/imgw/meteorology/test_api.py::test_imgw_meteorology_station_list_reads_the_elevation_as_a_number_and_what_is_none_as_null": [["ImgwMeteorologyRequest", "1ac47b2e", 2, "babce8e6a5cee3e9"]],

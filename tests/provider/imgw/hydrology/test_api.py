@@ -420,9 +420,9 @@ def test_imgw_hydrology_station_list_gives_the_river_its_kilometre_and_the_gauge
     _serve_station_list(
         monkeypatch,
         "1;149180010;Krzyżanowice;Odra (1);1927;49 59 37;18 17 14;184.806;713.04\r\n"
-        "269;154160150;Darłowo;Morze Bałtyckie (0);1819;54 26 25;16 22 40;-4.904;\r\n"
-        "270;154150060;Rościęcino;Parsęta (44);2024;54 06 55;15 36 26;;12.47\r\n"
-        "271;153140010;Świnoujście;Morze Bałtyckie (0);1850;53 54 36;14 14 50;-5.1;0\r\n",
+        "791;154160150;Darłowo;Morze Bałtyckie (0);1819;54 26 25;16 22 40;-4.904;\r\n"
+        "776;154150060;Rościęcino;Parsęta (44);2024;54 06 55;15 36 26;;12.47\r\n"
+        "634;153140010;Świnoujście;Morze Bałtyckie (0);1810;53 54 30;14 15 52;-4.915;0.0\r\n",
     )
 
     df = ImgwHydrologyRequest(parameters=[("daily", "hydrology")]).all().df
@@ -431,7 +431,7 @@ def test_imgw_hydrology_station_list_gives_the_river_its_kilometre_and_the_gauge
         ("149180010", "Odra (1)", 713.04, 184.806, None),
         ("154160150", "Morze Bałtyckie (0)", None, -4.904, None),
         ("154150060", "Parsęta (44)", 12.47, None, None),
-        ("153140010", "Morze Bałtyckie (0)", 0.0, -5.1, None),
+        ("153140010", "Morze Bałtyckie (0)", 0.0, -4.915, None),
     ]
     assert df.schema["river"] == pl.String
     assert df.schema["river_kilometer"] == pl.Float64
