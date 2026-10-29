@@ -45,6 +45,7 @@ from wetterdienst.model.request import (
     DEFAULT_NAME_RANK,
     DEFAULT_NAME_RANK_LISTING,
     TimeseriesRequest,
+    answer_cut_to_window,
     limit_to_window,
 )
 from wetterdienst.options import Options, SkipThreshold, StationWindowEndBuffer, options_from_mapping
@@ -1774,52 +1775,60 @@ def get_stations(
     settings: Settings,
     options: Options | None = None,
 ) -> StationsResult:
-    """Get stations based on request, by the one selection its model lets it make."""
-    r = _get_stations_request(api=api, request=request, timestamp=timestamp, settings=settings, options=options)
+    """Get stations based on request, by the one selection its model lets it make.
 
-    if getattr(request, "all", False):
-        return r.all()
+    The answers that call it are cut to the window (`timestamp`) afterwards, a stations listing by
+    `limit_stations_to_window` and the values of the stations by what each holds in it, so a station the provider
+    lists without a position (`position-unplaced`) is told, for the whole list and for a search by place, only if it
+    survives the cut (`answer_cut_to_window`); one named by id or SQL is told whatever the cut does to it. Without
+    a window the cut is no cut.
+    """
+    with answer_cut_to_window():
+        r = _get_stations_request(api=api, request=request, timestamp=timestamp, settings=settings, options=options)
 
-    if request.stations:
-        return r.filter_by_station_id(request.stations)
+        if getattr(request, "all", False):
+            return r.all()
 
-    name: str | None = getattr(request, "name", None)
-    if name:
-        # the rank asked for, else the default of what is asked: the best few of a listing, the best
-        # match of a fetch, which is the one `filter_by_name` has too (GH-2635)
-        default_rank = DEFAULT_NAME_RANK_LISTING if isinstance(request, StationsRequest) else DEFAULT_NAME_RANK
-        name_rank: int = getattr(request, "rank", None) or default_rank
-        # a request for a window matches the name among the stations that have a record in it, which
-        # `filter_by_name` does of its own accord, so that the best match is not one that closed long
-        # ago while a current station of the same name has the readings, and the best few of a listing
-        # are not ones that closed either (GH-3026)
-        return r.filter_by_name(name, rank=name_rank, threshold=getattr(request, "name_threshold", 0.8))
+        if request.stations:
+            return r.filter_by_station_id(request.stations)
 
-    latitude: float | None = getattr(request, "latitude", None)
-    longitude: float | None = getattr(request, "longitude", None)
-    rank: int | None = getattr(request, "rank", None)
-    distance: float | None = getattr(request, "distance", None)
+        name: str | None = getattr(request, "name", None)
+        if name:
+            # the rank asked for, else the default of what is asked: the best few of a listing, the best
+            # match of a fetch, which is the one `filter_by_name` has too (GH-2635)
+            default_rank = DEFAULT_NAME_RANK_LISTING if isinstance(request, StationsRequest) else DEFAULT_NAME_RANK
+            name_rank: int = getattr(request, "rank", None) or default_rank
+            # a request for a window matches the name among the stations that have a record in it, which
+            # `filter_by_name` does of its own accord, so that the best match is not one that closed long
+            # ago while a current station of the same name has the readings, and the best few of a listing
+            # are not ones that closed either (GH-3026)
+            return r.filter_by_name(name, rank=name_rank, threshold=getattr(request, "name_threshold", 0.8))
 
-    if latitude is not None and longitude is not None and rank is not None:
-        return r.filter_by_rank(latlon=(latitude, longitude), rank=rank)
+        latitude: float | None = getattr(request, "latitude", None)
+        longitude: float | None = getattr(request, "longitude", None)
+        rank: int | None = getattr(request, "rank", None)
+        distance: float | None = getattr(request, "distance", None)
 
-    if latitude is not None and longitude is not None and distance is not None:
-        return r.filter_by_distance(latlon=(latitude, longitude), distance=distance)
+        if latitude is not None and longitude is not None and rank is not None:
+            return r.filter_by_rank(latlon=(latitude, longitude), rank=rank)
 
-    left: float | None = getattr(request, "left", None)
-    bottom: float | None = getattr(request, "bottom", None)
-    right: float | None = getattr(request, "right", None)
-    top: float | None = getattr(request, "top", None)
-    if left is not None and bottom is not None and right is not None and top is not None:
-        return r.filter_by_bbox(left=left, bottom=bottom, right=right, top=top)
+        if latitude is not None and longitude is not None and distance is not None:
+            return r.filter_by_distance(latlon=(latitude, longitude), distance=distance)
 
-    sql: str | None = getattr(request, "sql", None)
-    if sql:
-        return r.filter_by_sql(sql)
+        left: float | None = getattr(request, "left", None)
+        bottom: float | None = getattr(request, "bottom", None)
+        right: float | None = getattr(request, "right", None)
+        top: float | None = getattr(request, "top", None)
+        if left is not None and bottom is not None and right is not None and top is not None:
+            return r.filter_by_bbox(left=left, bottom=bottom, right=right, top=top)
 
-    # not reached: the request models refuse a request that selects no stations, and say why
-    msg = f"{type(request).__name__} selects no stations"
-    raise AssertionError(msg)
+        sql: str | None = getattr(request, "sql", None)
+        if sql:
+            return r.filter_by_sql(sql)
+
+        # not reached: the request models refuse a request that selects no stations, and say why
+        msg = f"{type(request).__name__} selects no stations"
+        raise AssertionError(msg)
 
 
 def limit_stations_to_window(stations: StationsResult) -> StationsResult:

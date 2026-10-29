@@ -8,6 +8,8 @@ import copy
 import datetime as dt
 from abc import abstractmethod
 from collections.abc import Callable, Iterable, Iterator, Sequence
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, cast
 from zoneinfo import ZoneInfo
@@ -321,6 +323,34 @@ def shape_stations_frame(
         else:
             expressions.append(pl.col(column).cast(target))
     return df.select(expressions)
+
+
+# set while `all()` builds the list that a filter selects among: that list is not an answer, so it tells nothing
+_SELECTING: ContextVar[bool] = ContextVar("wetterdienst_selecting", default=False)
+#: set (`answer_cut_to_window`) while the stations of an answer that is cut to the window of the request are selected:
+#: by the user interfaces for a stations listing (`ui.core.limit_stations_to_window`) and the values of the stations
+#: (`ui.core.get_stations`), and by `interpolate` and `summarize` while they rank theirs. A warning about a station
+#: that the answer would have in it, or have to leave out of a search by place, is then told only for the stations
+#: that survive the cut (`TimeseriesRequest._within_answer_window`); outside it, as in a library `all()` or filter,
+#: nothing is cut to a window
+ANSWER_WINDOW: ContextVar[bool] = ContextVar("wetterdienst_answer_window", default=False)
+
+
+@contextmanager
+def answer_cut_to_window() -> Iterator[None]:
+    """Say, while the stations of an answer are selected, that the answer is cut to the window of the request.
+
+    Stations a provider lists without a position are warned about where the answer holds them or a search by place had
+    to leave them out (`TimeseriesRequest._warn_unplaced`); for an answer cut to the window, only the stations that
+    survive the cut count. A stations listing, the values of stations and an interpolation or a summary are cut
+    that way: the user interfaces select their stations in this context (`ui.core.get_stations`), and
+    `interpolate` and `summarize` rank theirs in it.
+    """
+    token = ANSWER_WINDOW.set(True)
+    try:
+        yield
+    finally:
+        ANSWER_WINDOW.reset(token)
 
 
 @dataclass
@@ -812,6 +842,42 @@ class TimeseriesRequest:
 
         """
 
+    def _warn_unplaced(self, df: pl.DataFrame, *, named: bool) -> None:
+        """Tell, with `warn_response`, which of the stations a provider lists without a position it got wrong.
+
+        A provider whose source writes a position that cannot be (and cannot be corrected) hands the station on
+        without one, and overrides this to say so (`eaufrance/hubeau`, the code ``position-unplaced``). The core calls
+        it where the warning concerns the answer: with the stations an answer holds (`all()`, `filter_by_station_id`,
+        `filter_by_name`, `filter_by_sql`), and with all the request's stations for a search by place
+        (`filter_by_rank`, `filter_by_distance`, `filter_by_bbox`, and so `interpolate` and `summarize`), which can
+        never answer with a station that has no position. The list a filter selects among
+        (`_stations_to_select_among`) tells nothing. An override tells only the stations it lists without a position
+        that are among those of `df`; this one tells nothing, and costs nothing.
+
+        Args:
+            df: the stations of the answer, or all of the request's stations for a search by place
+            named: the caller named the stations (by id, name or SQL): they are told whatever the window of the answer
+                does to them. Otherwise, for the whole list and a search by place, an override cuts `df` to the
+                window of the answer first (`_within_answer_window`), as only the stations that survive it would be in
+                the answer
+
+        """
+
+    def _within_answer_window(self, df: pl.DataFrame) -> pl.DataFrame:
+        """Cut the stations to those that would be in the answer when it is cut to the window of the request.
+
+        Only while the answer is cut to the window (`ANSWER_WINDOW`: a stations listing, the values of stations, an
+        estimate); a library `all()` or filter cuts nothing to it, so `df` is returned as it is there.
+        """
+        if not ANSWER_WINDOW.get():
+            return df
+        return limit_to_window(
+            df,
+            cast("dt.datetime | None", self.start),
+            cast("dt.datetime | None", self.end),
+            cast("Options", self.options).station_window_end_buffer,
+        )
+
     def all(self) -> StationsResult:
         """Get all stations.
 
@@ -830,12 +896,26 @@ class TimeseriesRequest:
         df = add_resolution_and_dataset(df, self._requested_datasets, provider=type(self).__name__)
         df = shape_stations_frame(df, columns=self._base_columns, provider=type(self).__name__)
 
+        if not _SELECTING.get():
+            self._warn_unplaced(df, named=False)
         return StationsResult(
             request=self,
             df=df,
             _df_all=df,
             _stations_filter=StationsFilter.ALL,
         )
+
+    def _stations_to_select_among(self) -> pl.DataFrame:
+        """Build the stations of the request that a filter or an estimate selects among.
+
+        The same list as `all()`, which tells a caller what it holds: this one is not the answer, so it tells nothing
+        (`_SELECTING`) and the filter tells what concerns its own answer.
+        """
+        token = _SELECTING.set(True)
+        try:
+            return self.all().df
+        finally:
+            _SELECTING.reset(token)
 
     def filter_by_station_id(self, station_id: str | tuple[str, ...] | list[str]) -> StationsResult:
         """Filter stations by station_id.
@@ -850,7 +930,7 @@ class TimeseriesRequest:
             StationsResult: Filtered stations, in catalogue order.
 
         """
-        df = self.all().df
+        df = self._stations_to_select_among()
 
         station_id_series = self._parse_station_id(pl.Series(name="station_id", values=to_list(station_id)))
 
@@ -868,6 +948,8 @@ class TimeseriesRequest:
                 f"No station with station_id {', '.join(map(str, unknown))} for the requested parameters and "
                 f"periods of {type(self).__name__}.",
             )
+
+        self._warn_unplaced(df_station_id, named=True)
 
         return StationsResult(
             request=self,
@@ -935,7 +1017,7 @@ class TimeseriesRequest:
         # frame was obtained (a frame the window has been applied to already is left as it is)
         # (`start` and `end` are datetimes once the request is built: `convert_timestamps`)
         df_all = limit_to_window(
-            self.all().df if df_all is None else df_all,
+            self._stations_to_select_among() if df_all is None else df_all,
             cast("dt.datetime | None", self.start),
             cast("dt.datetime | None", self.end),
             cast("Options", self.options).station_window_end_buffer,
@@ -973,6 +1055,7 @@ class TimeseriesRequest:
 
         if df.is_empty():
             log.info(f"No weather stations were found for name {name}")
+        self._warn_unplaced(df, named=True)
 
         return StationsResult(
             request=self,
@@ -1025,7 +1108,7 @@ class TimeseriesRequest:
         # setup spatial parameters
         q_lat, q_lon = latlon
         if df_all is None:
-            df_all = self.all().df
+            df_all = self._stations_to_select_among()
         latitudes = df_all.get_column("latitude").to_arrow()
         longitudes = df_all.get_column("longitude").to_arrow()
         distances = derive_nearest_neighbours(
@@ -1041,6 +1124,9 @@ class TimeseriesRequest:
         located = df.filter(pl.col("distance").is_not_null()).sort(by=["distance", "station_id"], maintain_order=True)
         if located.is_empty() and not df.is_empty():
             log.info("None of the stations has a position to be ranked by")
+        # a search by place can never answer with a station that has no position: the ones the source got wrong
+        # are told, among all of the stations it searched
+        self._warn_unplaced(df_all, named=False)
         df = located
         return StationsResult(
             request=self,
@@ -1121,7 +1207,7 @@ class TimeseriesRequest:
             msg = "bbox bottom border should be smaller then top"
             raise InvalidBoundingBoxError(msg)
 
-        df_all = self.all().df
+        df_all = self._stations_to_select_among()
 
         df = df_all.filter(
             pl.col("latitude").is_between(bottom, top, closed="both")
@@ -1130,6 +1216,8 @@ class TimeseriesRequest:
 
         if df.is_empty():
             log.info(f"No weather stations were found for bbox {left}/{bottom}/{top}/{right}")
+        # as `filter_by_rank` does: a station with no position is in no box
+        self._warn_unplaced(df_all, named=False)
 
         return StationsResult(request=self, df=df, _df_all=df_all, _stations_filter=StationsFilter.BY_BBOX)
 
@@ -1143,12 +1231,13 @@ class TimeseriesRequest:
             StationsResult: Filtered stations.
 
         """
-        df_all = self.all().df
+        df_all = self._stations_to_select_among()
         # the same filter a result runs, rather than a second copy of it naming the two timestamp
         # columns a stations frame happens to have and calling whatever comes back UTC
         df = ExportMixin._filter_by_sql(df_all, sql)  # noqa: SLF001
         if df.is_empty():
             log.info(f"No stations were found for sql {sql}")
+        self._warn_unplaced(df, named=True)
         return StationsResult(request=self, df=df, _df_all=df_all, _stations_filter=StationsFilter.BY_SQL)
 
     def interpolate(self, latlon: tuple[float, float], elevation: float | None = None) -> InterpolatedValuesResult:
@@ -1208,11 +1297,13 @@ class TimeseriesRequest:
         # a point UTM cannot place is refused before the station list is built, as the core does
         place_in_utm(lat, lon)
         if df_all is None:
-            df_all = self.all().df
+            df_all = self._stations_to_select_among()
         data_updated: dict[str, dt.datetime] = {}
-        df_interpolated = self._as_asked(
-            get_interpolated_df(self._for_estimating(), lat, lon, elevation, df_all=df_all, data_updated=data_updated)
-        )
+        with answer_cut_to_window():
+            interpolated = get_interpolated_df(
+                self._for_estimating(), lat, lon, elevation, df_all=df_all, data_updated=data_updated
+            )
+        df_interpolated = self._as_asked(interpolated)
         # the elevation belongs in the name: two elevations at one point are two different
         # answers, and sharing an id would merge them wherever the id is what identifies a series
         point = (
@@ -1270,7 +1361,7 @@ class TimeseriesRequest:
                 station listed at 0.0, 0.0 or named BOGUS.
 
         """
-        df_all = self.all().df
+        df_all = self._stations_to_select_among()
         latitude, longitude, station_elevation = self._get_position_by_station_id(station_id, df_all=df_all)
         return self._interpolate(
             (latitude, longitude),
@@ -1331,11 +1422,13 @@ class TimeseriesRequest:
         lat, lon = latlon
         lat, lon = float(lat), float(lon)
         if df_all is None:
-            df_all = self.all().df
+            df_all = self._stations_to_select_among()
         data_updated: dict[str, dt.datetime] = {}
-        summarized_values = self._as_asked(
-            get_summarized_df(self._for_estimating(), lat, lon, elevation, df_all=df_all, data_updated=data_updated)
-        )
+        with answer_cut_to_window():
+            summarized = get_summarized_df(
+                self._for_estimating(), lat, lon, elevation, df_all=df_all, data_updated=data_updated
+            )
+        summarized_values = self._as_asked(summarized)
         # the elevation belongs in the name: two elevations at one point are two different
         # answers, and sharing an id would merge them wherever the id is what identifies a series
         point = (
@@ -1388,7 +1481,7 @@ class TimeseriesRequest:
                 says.
 
         """
-        df_all = self.all().df
+        df_all = self._stations_to_select_among()
         latitude, longitude, station_elevation = self._get_position_by_station_id(station_id, df_all=df_all)
         return self._summarize(
             (latitude, longitude),
@@ -1472,7 +1565,7 @@ class TimeseriesRequest:
         """
         station_id = self._parse_station_id(pl.Series(values=to_list(station_id)))[0]
         if df_all is None:
-            df_all = self.all().df
+            df_all = self._stations_to_select_among()
         stations = df_all.filter(pl.col("station_id").eq(station_id))
         if stations.is_empty():
             msg = f"no station found for {station_id}"
