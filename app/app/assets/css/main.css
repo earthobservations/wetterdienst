@@ -70,7 +70,7 @@
 
 /* Placeholders and other dimmed text: grey-400 on white (2.6:1) and grey-500 on the dark page (3.7:1) miss 4.5:1.
    Dark takes the next lighter shade, which is what muted text already is there. Light takes a quarter of the way
-   from grey-500 to grey-600, so that it still clears 4.5:1 when a hovered field is tinted (4.9:1 on grey-100), and
+   from grey-500 to grey-600, so that it still clears 4.5:1 when a hovered field is tinted (about 4.8:1 on grey-100), and
    muted text takes the same colour, so that a placeholder does not read stronger than a description. */
 :root {
   --ui-text-dimmed: color-mix(in oklab, var(--ui-color-neutral-500), var(--ui-color-neutral-600) 25%);

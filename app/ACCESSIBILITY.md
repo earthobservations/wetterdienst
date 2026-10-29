@@ -69,7 +69,7 @@ draws a hovered solid button as 75 % of its fill over the page, which is 3.8:1 u
 goes a shade outwards instead (`--app-primary-hover`, set for the button in `app/app.config.ts`: 8.5:1 and 9.8:1).
 A hovered link goes the same way. The greys are Tailwind's at its own lightness steps, turned towards the logo's
 navy, so each pair keeps the contrast Tailwind's grey had (within 0.05). Muted text on light is a quarter of the
-way from grey-500 to grey-600 (4.9:1 on a hovered field). The navigation rail is the logo's navy in both modes:
+way from grey-500 to grey-600 (about 4.8:1 on a hovered field). The navigation rail is the logo's navy in both modes:
 its text is white (12.5:1) or grey-200, its dimmed text grey-300 (8.5:1). The four tiles of the logo carry the
 logo's ink (`#0b1a33`: 11.3:1 on the yellow, 6.7:1 on the teal, 5.0:1 on the coral) or white on the blue (4.9:1).
 A disabled button is exempt from 1.4.3 and from the scans.
