@@ -159,14 +159,11 @@ class ParameterRows:
                     self._tell(name, f"any parameter of {name}", stations, parameter.dataset)
 
     def _stations_read(self, dataset: DatasetModel) -> list[str]:
-        """Give the stations the walk read for a dataset that can speak for what the source holds, else none.
+        """Give the stations the walk read for a dataset, those whose file was let go left out.
 
-        A dataset that needs a window answers nothing to a request that names none (the REST API and the command line
-        refuse it, Python does not): that is no statement about the source. And a station whose file was let go says
-        nothing of what the source holds.
+        A station whose file was let go says nothing of what the source holds. (A dataset that needs a window never
+        gets here without one: the reader refuses the request, GH-3562.)
         """
-        if self._start is None and dataset.date_required:
-            return []
         key = (dataset.resolution.name, dataset.name)
         return [station for station in self._examined.get(key, []) if station not in self._skipped]
 

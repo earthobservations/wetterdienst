@@ -806,6 +806,7 @@ def test_eccc_a_window_of_recent_months_keeps_a_station_whose_monthly_list_dates
     }
 
 
+@pytest.mark.usefixtures("window_not_required")
 def test_eccc_years_of_a_request_without_dates_are_those_of_the_rows_of_each_collection(
     monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
 ) -> None:
@@ -831,6 +832,7 @@ def test_eccc_years_of_a_request_without_dates_are_those_of_the_rows_of_each_col
     ]
 
 
+@pytest.mark.usefixtures("window_not_required")
 def test_eccc_years_of_a_request_without_dates_reach_the_rows_before_the_first_date_of_the_station(
     monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
 ) -> None:
@@ -861,6 +863,7 @@ def test_eccc_years_of_a_request_without_dates_reach_the_rows_before_the_first_d
     assert years["climate-daily"] == list(range(1957, 1993))
 
 
+@pytest.mark.usefixtures("window_not_required")
 def test_eccc_hourly_and_monthly_years_end_with_the_last_row_not_with_the_last_date_of_the_station(
     monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
 ) -> None:
@@ -890,6 +893,7 @@ def test_eccc_hourly_and_monthly_years_end_with_the_last_row_not_with_the_last_d
     assert years["climate-monthly"] == list(range(1929, 1992))
 
 
+@pytest.mark.usefixtures("window_not_required")
 def test_eccc_a_collection_without_dates_is_not_listed_and_not_asked_for_anything(
     monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
 ) -> None:
@@ -954,6 +958,7 @@ def test_eccc_a_station_is_listed_for_monthly_only_if_it_has_a_monthly_summary(
         (("DLY_FIRST_DATE", "DLY_LAST_DATE"), "daily", "hourly", "climate-daily", "climate-hourly"),
     ],
 )
+@pytest.mark.usefixtures("window_not_required")
 def test_eccc_only_the_collection_without_a_first_date_is_not_listed(
     monkeypatch: pytest.MonkeyPatch,
     options_convert_units_false: Options,
@@ -1032,6 +1037,7 @@ def test_eccc_a_station_without_the_dates_of_a_collection_is_not_a_station_of_it
     assert monthly.all().df.get_column("station_id").to_list() == ["1", "2", "3"]
 
 
+@pytest.mark.usefixtures("window_not_required")
 def test_eccc_a_collection_without_a_row_is_asked_for_no_years(
     monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
 ) -> None:
@@ -1108,6 +1114,7 @@ def test_eccc_a_window_that_ends_before_the_first_date_of_the_station_skips_it(
     assert not [url for url in urls if "climate-hourly" in url]
 
 
+@pytest.mark.usefixtures("window_not_required")
 def test_eccc_a_request_without_dates_for_a_hand_built_result_asks_for_the_years_of_the_rows(
     monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
 ) -> None:
@@ -1148,6 +1155,7 @@ def test_eccc_a_request_without_dates_for_a_hand_built_result_asks_for_the_years
     assert daily == list(range(1929, 2001))
 
 
+@pytest.mark.usefixtures("window_not_required")
 def test_eccc_a_request_without_dates_offline_raises(
     monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
 ) -> None:
@@ -1168,6 +1176,7 @@ def test_eccc_a_request_without_dates_offline_raises(
         request.filter_by_station_id("925").values().all()
 
 
+@pytest.mark.usefixtures("window_not_required")
 def test_eccc_the_years_of_the_last_hours_of_the_utc_year_follow_the_last_hourly_row(
     monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
 ) -> None:
