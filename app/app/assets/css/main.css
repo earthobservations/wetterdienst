@@ -221,6 +221,9 @@
   body {
     background: var(--ui-bg);
     font-feature-settings: "kern";
+    /* a word longer than a phone's line (a parameter's name, a German compound under the wider letter spacing of
+       WCAG 1.4.12) breaks rather than push the page sideways */
+    overflow-wrap: break-word;
   }
   /* What is read is set in the serif: every heading of the app. Long words (German, Dutch, Luxembourgish) break
      at a syllable rather than run out of a phone's width */

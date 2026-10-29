@@ -23,7 +23,7 @@ export default defineAppConfig({
     // left edge. No `overflow-hidden`, so that the focus outline of a field on that edge is not cut off.
     card: {
       slots: {
-        root: 'rounded-none',
+        root: 'rounded-none overflow-visible',
         header: 'px-0 sm:px-0 pt-3 pb-1',
         body: 'px-0 sm:px-0 py-4 sm:py-5',
         footer: 'px-0 sm:px-0 py-3',

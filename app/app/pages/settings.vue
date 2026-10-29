@@ -146,14 +146,14 @@ function unitItems(units: readonly string[]) {
               <div
                 v-for="group in weatherUnitGroups"
                 :key="group.key"
-                class="flex items-center justify-between gap-4"
+                class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1"
               >
                 <label :for="`settings-unit-${group.key}`" class="text-sm">{{ t(group.label) }}</label>
                 <USelect
                   :id="`settings-unit-${group.key}`"
                   v-model="settings.units[group.key]"
                   :items="unitItems(group.units)"
-                  class="w-56"
+                  class="w-full sm:w-56"
                 />
               </div>
             </div>
@@ -165,14 +165,14 @@ function unitItems(units: readonly string[]) {
               <div
                 v-for="group in otherUnitGroups"
                 :key="group.key"
-                class="flex items-center justify-between gap-4"
+                class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1"
               >
                 <label :for="`settings-unit-${group.key}`" class="text-sm">{{ t(group.label) }}</label>
                 <USelect
                   :id="`settings-unit-${group.key}`"
                   v-model="settings.units[group.key]"
                   :items="unitItems(group.units)"
-                  class="w-56"
+                  class="w-full sm:w-56"
                 />
               </div>
             </div>
@@ -180,7 +180,7 @@ function unitItems(units: readonly string[]) {
         </div>
       </UCard>
 
-      <div class="flex items-center justify-between">
+      <div class="flex flex-wrap items-center justify-between gap-2">
         <p class="text-xs text-gray-500 dark:text-gray-400">
           {{ t('settings.savedHint') }}
         </p>

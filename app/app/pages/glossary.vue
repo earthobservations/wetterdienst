@@ -102,13 +102,13 @@ const entries = computed<GlossaryEntry[]>(() => {
             class="border-t border-gray-200 dark:border-gray-800 pt-3 first:border-t-0 first:pt-0"
           >
             <div class="flex items-baseline justify-between gap-3 flex-wrap">
-              <span class="font-medium">{{ parameterLabel(entry.name) }}</span>
+              <span class="font-medium min-w-0 [overflow-wrap:anywhere]">{{ parameterLabel(entry.name) }}</span>
               <span class="text-xs font-mono text-gray-500 dark:text-gray-400">{{ entry.unit_symbol || entry.unit }}</span>
             </div>
             <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
               {{ entry.description }}
             </p>
-            <p class="text-xs font-mono text-gray-500 dark:text-gray-400 mt-1">
+            <p class="text-xs font-mono text-gray-500 dark:text-gray-400 mt-1 [overflow-wrap:anywhere]">
               {{ entry.name }}
             </p>
           </div>
