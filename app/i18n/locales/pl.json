@@ -125,8 +125,22 @@
     "reference": "Informacje",
     "project": "Projekt",
     "search": "Szukaj",
-    "searchPlaceholder": "Przejdź do strony, dostawcy lub ustawienia",
-    "searchEmpty": "Brak wyników"
+    "searchPlaceholder": "Przejdź do strony, stacji, dostawcy lub ustawienia",
+    "searchEmpty": "Brak wyników",
+    "results": "Wyniki",
+    "resultsCount": "{count} wynik | {count} wyniki | {count} wyników",
+    "stations": "Prognoza dla stacji",
+    "stationsHint": "Wpisz co najmniej trzy litery, aby znaleźć stację",
+    "stationForecast": "Prognoza dla stacji {id}",
+    "keysHint": "↑ ↓ wybierz, Enter otwórz, Esc zamknij",
+    "desc": {
+      "support": "Zgłoś błąd, zaproponuj funkcję lub wesprzyj projekt",
+      "impressum": "Kto prowadzi tę stronę i jak się z nim skontaktować",
+      "privacy": "Co zapisuje wizyta i dlaczego",
+      "docs": "Jak używać biblioteki Python, wiersza poleceń i API",
+      "github": "Kod, zgłoszenia i pull requesty",
+      "pypi": "Zainstaluj bibliotekę Python przez pip"
+    }
   },
   "header": {
     "github": "GitHub",

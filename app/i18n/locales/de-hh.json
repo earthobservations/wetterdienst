@@ -125,8 +125,22 @@
     "reference": "Naslaan",
     "project": "Projekt",
     "search": "Söken",
-    "searchPlaceholder": "Na en Siet, en Anbeder oder en Instellen gahn",
-    "searchEmpty": "Nix funnen"
+    "searchPlaceholder": "Na en Siet, en Station, en Anbeder oder en Instellen gahn",
+    "searchEmpty": "Nix funnen",
+    "results": "Resultaten",
+    "resultsCount": "{count} Resultat | {count} Resultaten",
+    "stations": "Utsicht för en Station",
+    "stationsHint": "Tipp dree Bookstaven oder mehr, üm en Station to finnen",
+    "stationForecast": "Utsicht för Station {id}",
+    "keysHint": "↑ ↓ utsöken, Enter opmaken, Esc dichtmaken",
+    "desc": {
+      "support": "En Fehler mellen, wat Nees wünschen oder dat Projekt ünnerstütten",
+      "impressum": "Wokeen disse Siet bedrifft, un woans du em todrapen deist",
+      "privacy": "Wat en Besöök fasthöllt, un worüm",
+      "docs": "De Python-Bibliothek, de Kommandozeil un de API bruken",
+      "github": "De Code, de Issues un de Pull Requests",
+      "pypi": "De Python-Bibliothek mit pip installeren"
+    }
   },
   "header": {
     "github": "GitHub",

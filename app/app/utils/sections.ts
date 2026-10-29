@@ -35,16 +35,25 @@ export const REFERENCE: Section[] = [
 ]
 
 export const PROJECT: Section[] = [
-  { key: 'about', to: '/about', group: 'project', label: 'footer.about', icon: 'i-ph-info' },
-  { key: 'support', to: '/support', group: 'project', label: 'nav.support', icon: 'i-ph-heart' },
-  { key: 'settings', to: '/settings', group: 'project', label: 'common.settings', icon: 'i-ph-gear-six' },
+  { key: 'about', to: '/about', group: 'project', label: 'footer.about', description: 'about.subtitle', icon: 'i-ph-info' },
+  { key: 'support', to: '/support', group: 'project', label: 'nav.support', description: 'shell.desc.support', icon: 'i-ph-heart' },
+  { key: 'settings', to: '/settings', group: 'project', label: 'common.settings', description: 'settings.subtitle', icon: 'i-ph-gear-six' },
+]
+
+/** The home page, which is no section: the logo leads to it */
+export const HOME: Section = { key: 'home', to: '/', group: 'project', label: 'nav.home', description: 'home.tagline', icon: 'i-ph-house' }
+
+/** The legal pages: in the footer and the search, not in the navigation */
+export const LEGAL: Section[] = [
+  { key: 'impressum', to: '/impressum', group: 'project', label: 'footer.legal', description: 'shell.desc.impressum', icon: 'i-ph-identification-card' },
+  { key: 'privacy', to: '/datenschutz', group: 'project', label: 'footer.privacy', description: 'shell.desc.privacy', icon: 'i-ph-shield-check' },
 ]
 
 /** The project's places elsewhere: the documentation, the code and the package */
 export const EXTERNAL = [
-  { key: 'docs', to: 'https://wetterdienst.readthedocs.io/', label: 'common.documentation', icon: 'i-ph-book-open-text' },
-  { key: 'github', to: 'https://github.com/earthobservations/wetterdienst', label: 'header.github', icon: 'i-ph-github-logo' },
-  { key: 'pypi', to: 'https://pypi.org/project/wetterdienst', label: 'header.pypi', icon: 'i-ph-package' },
+  { key: 'docs', to: 'https://wetterdienst.readthedocs.io/', label: 'common.documentation', description: 'shell.desc.docs', icon: 'i-ph-book-open-text' },
+  { key: 'github', to: 'https://github.com/earthobservations/wetterdienst', label: 'header.github', description: 'shell.desc.github', icon: 'i-ph-github-logo' },
+  { key: 'pypi', to: 'https://pypi.org/project/wetterdienst', label: 'header.pypi', description: 'shell.desc.pypi', icon: 'i-ph-package' },
 ] as const
 
 export const SECTIONS: Section[] = [...TOOLS, ...REFERENCE, ...PROJECT]

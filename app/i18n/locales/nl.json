@@ -125,8 +125,22 @@
     "reference": "Naslag",
     "project": "Project",
     "search": "Zoeken",
-    "searchPlaceholder": "Ga naar een pagina, een aanbieder of een instelling",
-    "searchEmpty": "Niets gevonden"
+    "searchPlaceholder": "Ga naar een pagina, een station, een aanbieder of een instelling",
+    "searchEmpty": "Niets gevonden",
+    "results": "Resultaten",
+    "resultsCount": "{count} resultaat | {count} resultaten",
+    "stations": "Verwachting voor een station",
+    "stationsHint": "Typ drie letters of meer om een station te vinden",
+    "stationForecast": "Verwachting voor station {id}",
+    "keysHint": "↑ ↓ kiezen, Enter openen, Esc sluiten",
+    "desc": {
+      "support": "Een fout melden, een functie vragen of het project steunen",
+      "impressum": "Wie deze site beheert, en hoe je hen bereikt",
+      "privacy": "Wat een bezoek vastlegt, en waarom",
+      "docs": "De Python-bibliotheek, de opdrachtregel en de API gebruiken",
+      "github": "De code, de issues en de pull requests",
+      "pypi": "De Python-bibliotheek installeren met pip"
+    }
   },
   "header": {
     "github": "GitHub",

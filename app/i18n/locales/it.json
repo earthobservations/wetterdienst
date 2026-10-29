@@ -125,8 +125,22 @@
     "reference": "Riferimento",
     "project": "Progetto",
     "search": "Cerca",
-    "searchPlaceholder": "Vai a una pagina, un fornitore o un'impostazione",
-    "searchEmpty": "Nessun risultato"
+    "searchPlaceholder": "Vai a una pagina, una stazione, un fornitore o un'impostazione",
+    "searchEmpty": "Nessun risultato",
+    "results": "Risultati",
+    "resultsCount": "{count} risultato | {count} risultati",
+    "stations": "Previsioni per una stazione",
+    "stationsHint": "Scrivi tre lettere o più per trovare una stazione",
+    "stationForecast": "Previsioni per la stazione {id}",
+    "keysHint": "↑ ↓ per scegliere, Invio per aprire, Esc per chiudere",
+    "desc": {
+      "support": "Segnala un errore, chiedi una funzione o sostieni il progetto",
+      "impressum": "Chi gestisce questo sito e come contattarlo",
+      "privacy": "Cosa registra una visita, e perché",
+      "docs": "Come usare la libreria Python, la riga di comando e l'API",
+      "github": "Il codice, le segnalazioni e le pull request",
+      "pypi": "Installa la libreria Python con pip"
+    }
   },
   "header": {
     "github": "GitHub",

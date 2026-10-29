@@ -122,10 +122,10 @@ describe('plural forms', () => {
     expect(Object.keys(pluralForms).sort()).toEqual(locales)
   })
 
-  it('writes the counts of the four messages that have one in plural forms', () => {
+  it('writes the counts of the five messages that have one in plural forms', () => {
     // not a list of everything with a count: `dateRange.estimatedValues` and `errExceedsLimit` carry one
     // where one is no case, and `query.success` words it ("Returned rows: 1") so that it needs no form
-    expect(usedIn(ui.en!).sort()).toEqual(['dataViewer.copiedRows', 'dataViewer.valuesCount', 'dataViewer.valuesTransformed', 'glossary.count'])
+    expect(usedIn(ui.en!).sort()).toEqual(['dataViewer.copiedRows', 'dataViewer.valuesCount', 'dataViewer.valuesTransformed', 'glossary.count', 'shell.resultsCount'])
   })
 
   it.each(others)('has plural forms in %s for the messages that en has them in', (locale) => {

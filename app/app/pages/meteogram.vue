@@ -188,12 +188,15 @@ watch([selectedStation, selectedIssue], ([station, issue]) => {
   void router.replace({ query: q }).catch(() => {})
 })
 
-// Restore selected station and issue from URL query params on page load
-onMounted(async () => {
+// Restore selected station and issue from URL query params on page load, and when the URL names another station
+// while the page is shown (the search of the header goes to `/meteogram?station=…`, GH-3518)
+let requestedFromUrl: string | undefined
+async function restoreFromUrl() {
   const stationId = route.query.station as string | undefined
   const issueFromUrl = route.query.issue?.toString()
   if (!stationId)
     return
+  requestedFromUrl = stationId
   isRestoringFromUrl.value = true
   try {
     const res = await $fetch<{ stations: Station[] }>('/api/stations', {
@@ -219,6 +222,13 @@ onMounted(async () => {
     await nextTick()
     isRestoringFromUrl.value = false
   }
+}
+onMounted(restoreFromUrl)
+// the page's own choice is written to the URL as well (the watch above): only a station it did not choose is loaded
+// and a station asked for already (whose answer may still be coming, or was a failure) is not asked for again
+watch(() => route.query.station, (stationId) => {
+  if (stationId && stationId !== selectedStation.value?.station_id && stationId !== requestedFromUrl)
+    void restoreFromUrl()
 })
 </script>
 

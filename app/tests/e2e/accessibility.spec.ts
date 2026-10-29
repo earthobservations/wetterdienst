@@ -367,6 +367,22 @@ const STATES: State[] = [
     },
   },
   {
+    // the search with a query typed: the pages and providers it matches, and the forecast stations the backend found
+    page: 'index',
+    state: 'search-results',
+    keepFocus: true,
+    path: '/',
+    reach: async (page, locale) => {
+      // the shortcut is the app's: it listens once the page has been drawn
+      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+      await page.keyboard.press('Control+k')
+      await expect(page.getByRole('combobox', { name: message(locale, 'shell.search') })).toBeFocused()
+      await page.keyboard.type('ber')
+      await expect(page.getByRole('option', { name: /BERLIN-TEMPELHOF/ })).toBeVisible()
+      await page.keyboard.press('ArrowDown')
+    },
+  },
+  {
     // the tab bar of the narrow layout, on a tool's page
     page: 'stripes',
     state: 'tab-bar',

@@ -125,8 +125,22 @@
     "reference": "Reference",
     "project": "Project",
     "search": "Search",
-    "searchPlaceholder": "Go to a page, a provider or a setting",
-    "searchEmpty": "Nothing found"
+    "searchPlaceholder": "Go to a page, a station, a provider or a setting",
+    "searchEmpty": "Nothing found",
+    "results": "Results",
+    "resultsCount": "{count} result | {count} results",
+    "stations": "Forecast for a station",
+    "stationsHint": "Type three letters or more to find a station",
+    "stationForecast": "Forecast for station {id}",
+    "keysHint": "↑ ↓ to choose, Enter to open, Esc to close",
+    "desc": {
+      "support": "Report a bug, ask for a feature or support the project",
+      "impressum": "Who runs this site, and how to reach them",
+      "privacy": "What a visit records, and why",
+      "docs": "How to use the Python library, the command line and the API",
+      "github": "The code, the issues and the pull requests",
+      "pypi": "Install the Python library with pip"
+    }
   },
   "header": {
     "github": "GitHub",

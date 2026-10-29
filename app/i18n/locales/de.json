@@ -125,8 +125,22 @@
     "reference": "Nachschlagen",
     "project": "Projekt",
     "search": "Suchen",
-    "searchPlaceholder": "Zu einer Seite, einem Anbieter oder einer Einstellung springen",
-    "searchEmpty": "Nichts gefunden"
+    "searchPlaceholder": "Zu einer Seite, einer Station, einem Anbieter oder einer Einstellung springen",
+    "searchEmpty": "Nichts gefunden",
+    "results": "Ergebnisse",
+    "resultsCount": "{count} Treffer | {count} Treffer",
+    "stations": "Vorhersage für eine Station",
+    "stationsHint": "Tippe drei Buchstaben oder mehr, um eine Station zu finden",
+    "stationForecast": "Vorhersage für Station {id}",
+    "keysHint": "↑ ↓ wählen, Enter öffnen, Esc schließen",
+    "desc": {
+      "support": "Einen Fehler melden, eine Funktion wünschen oder das Projekt unterstützen",
+      "impressum": "Wer diese Seite betreibt und wie du ihn erreichst",
+      "privacy": "Was ein Besuch speichert, und warum",
+      "docs": "Die Python-Bibliothek, die Kommandozeile und die API nutzen",
+      "github": "Der Code, die Issues und die Pull Requests",
+      "pypi": "Die Python-Bibliothek mit pip installieren"
+    }
   },
   "header": {
     "github": "GitHub",

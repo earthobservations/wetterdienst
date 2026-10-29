@@ -91,6 +91,16 @@ test.describe('the search', () => {
     await expect(dialog).toBeHidden()
   })
 
+  test('opens by ⌘K as well, on any system, and the same keys close it', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/')
+    const dialog = page.getByRole('dialog', { name: en.shell.search })
+    await page.keyboard.press('Meta+k')
+    await expect(dialog).toBeVisible()
+    await expect(dialog.getByRole('combobox', { name: en.shell.search })).toBeFocused()
+    await page.keyboard.press('Meta+k')
+    await expect(dialog).toBeHidden()
+  })
+
   test('finds a provider by its short name', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/')
     await page.getByRole('button', { name: en.shell.search }).click()
@@ -116,8 +126,64 @@ test.describe('the search', () => {
     await open(page, baseURL!, '/')
     await page.keyboard.press('Control+k')
     await page.keyboard.type(en.settings.themeDark)
-    await page.getByRole('option', { name: en.settings.themeDark }).click()
+    await page.getByRole('option', { name: en.settings.themeDark }).first().click()
     await expect(page.locator('html')).toHaveClass(/dark/)
+  })
+
+  // the WAI-ARIA combobox pattern, by keys alone: the field keeps the focus and names the active option, the arrow keys
+  // move it, Tab stays in the dialog, Enter takes the option, Escape closes and gives the focus back
+  test('is operated by keys alone: a combobox with a listbox, in a dialog that keeps the focus', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/')
+    const button = page.getByRole('button', { name: en.shell.search })
+    await button.focus()
+    await page.keyboard.press('Enter')
+    const dialog = page.getByRole('dialog', { name: en.shell.search })
+    const field = dialog.getByRole('combobox', { name: en.shell.search })
+    await expect(field).toBeFocused()
+    await expect(field).toHaveAttribute('aria-expanded', 'true')
+    const list = dialog.getByRole('listbox', { name: en.shell.results })
+    await expect(field).toHaveAttribute('aria-controls', (await list.getAttribute('id'))!)
+
+    // the arrow keys move the active option, which is the one the field names and the only one selected
+    const activeName = () => page.evaluate(() => {
+      const id = document.activeElement?.getAttribute('aria-activedescendant')
+      return id ? document.getElementById(id)?.textContent?.trim() ?? null : null
+    })
+    const first = await activeName()
+    await page.keyboard.press('ArrowDown')
+    await expect.poll(activeName).not.toBe(first)
+    await expect(list.locator('[role="option"][aria-selected="true"]')).toHaveCount(1)
+    await page.keyboard.press('ArrowUp')
+    await expect.poll(activeName).toBe(first)
+
+    // Tab and Shift+Tab never leave the dialog
+    for (const key of ['Tab', 'Shift+Tab']) {
+      for (let stop = 0; stop < 6; stop++) {
+        await page.keyboard.press(key)
+        expect(await dialog.evaluate(node => node.contains(document.activeElement))).toBe(true)
+      }
+    }
+
+    // Escape closes it, and the focus is back on the button that opened it
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeHidden()
+    await expect(button).toBeFocused()
+  })
+
+  test('finds the forecast of a station by its name, and the forecast shows it', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/')
+    await page.keyboard.press('Control+k')
+    const dialog = page.getByRole('dialog', { name: en.shell.search })
+    await page.keyboard.type('berlin')
+    const station = dialog.getByRole('option', { name: /BERLIN-TEMPELHOF/ })
+    await expect(station).toBeVisible()
+    // the station is the first of its group, after the tools: walked to by keys, taken by Enter
+    for (let step = 0; step < 10 && await station.getAttribute('aria-selected') !== 'true'; step++)
+      await page.keyboard.press('ArrowDown')
+    await expect(station).toHaveAttribute('aria-selected', 'true')
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(/\/meteogram\?station=10384/)
+    await expect(page.getByText('BERLIN-TEMPELHOF').first()).toBeVisible()
   })
 })
 

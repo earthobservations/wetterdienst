@@ -125,8 +125,22 @@
     "reference": "Příručka",
     "project": "Projekt",
     "search": "Hledat",
-    "searchPlaceholder": "Přejít na stránku, poskytovatele nebo nastavení",
-    "searchEmpty": "Nic nenalezeno"
+    "searchPlaceholder": "Přejít na stránku, stanici, poskytovatele nebo nastavení",
+    "searchEmpty": "Nic nenalezeno",
+    "results": "Výsledky",
+    "resultsCount": "{count} výsledek | {count} výsledky | {count} výsledků",
+    "stations": "Předpověď pro stanici",
+    "stationsHint": "Napiš aspoň tři písmena a najdeš stanici",
+    "stationForecast": "Předpověď pro stanici {id}",
+    "keysHint": "↑ ↓ vybrat, Enter otevřít, Esc zavřít",
+    "desc": {
+      "support": "Nahlásit chybu, navrhnout funkci nebo podpořit projekt",
+      "impressum": "Kdo tento web provozuje a jak ho kontaktovat",
+      "privacy": "Co návštěva zaznamenává a proč",
+      "docs": "Jak používat knihovnu pro Python, příkazový řádek a API",
+      "github": "Kód, hlášení chyb a pull requesty",
+      "pypi": "Nainstalovat knihovnu pro Python pomocí pip"
+    }
   },
   "header": {
     "github": "GitHub",

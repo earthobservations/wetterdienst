@@ -20,10 +20,11 @@ Types of changes:
 
 - `[Design]` A new look: the four tools (forecast, explorer, climate stripes, station history)
   are tabs in the header and, on a phone, in a tab bar at the foot of the screen; providers,
-  glossary and API are under "Reference", and a search (Ctrl+K) goes to any page, provider,
-  theme or language. Every page has the same margins and a left-aligned title, the tools put
-  their settings beside the result on wide screens, and the app has its own fonts (Atkinson
-  Hyperlegible) and icons (Phosphor), in the logo's colours. Charts print at paper width (GH-3518)
+  glossary and API are under "Reference", and a search on every page (Ctrl+K) goes to any page,
+  a station's forecast or a provider, or sets the theme or the language. Every page has the same
+  margins and a left-aligned title, the tools put their settings beside the result on wide
+  screens, and the app has its own fonts (Atkinson Hyperlegible) and icons (Phosphor), in the
+  logo's colours. Charts print at paper width (GH-3518)
 
 ## [0.39.0] - 2026-10-28
 

@@ -125,8 +125,22 @@
     "reference": "Opslag",
     "project": "Projekt",
     "search": "Søg",
-    "searchPlaceholder": "Gå til en side, en udbyder eller en indstilling",
-    "searchEmpty": "Intet fundet"
+    "searchPlaceholder": "Gå til en side, en station, en udbyder eller en indstilling",
+    "searchEmpty": "Intet fundet",
+    "results": "Resultater",
+    "resultsCount": "{count} resultat | {count} resultater",
+    "stations": "Udsigt for en station",
+    "stationsHint": "Skriv tre bogstaver eller flere for at finde en station",
+    "stationForecast": "Udsigt for station {id}",
+    "keysHint": "↑ ↓ vælg, Enter åbn, Esc luk",
+    "desc": {
+      "support": "Meld en fejl, ønsk en funktion eller støt projektet",
+      "impressum": "Hvem der driver siden, og hvordan du kontakter dem",
+      "privacy": "Hvad et besøg registrerer, og hvorfor",
+      "docs": "Brug Python-biblioteket, kommandolinjen og API'et",
+      "github": "Koden, issues og pull requests",
+      "pypi": "Installer Python-biblioteket med pip"
+    }
   },
   "header": {
     "github": "GitHub",

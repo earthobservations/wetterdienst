@@ -125,8 +125,22 @@
     "reference": "Noschloen",
     "project": "Projet",
     "search": "Sichen",
-    "searchPlaceholder": "Op eng Säit, en Ubidder oder eng Astellung goen",
-    "searchEmpty": "Näischt fonnt"
+    "searchPlaceholder": "Op eng Säit, eng Statioun, en Ubidder oder eng Astellung goen",
+    "searchEmpty": "Näischt fonnt",
+    "results": "Resultater",
+    "resultsCount": "{count} Resultat | {count} Resultater",
+    "stations": "Prognos fir eng Statioun",
+    "stationsHint": "Tipp dräi Buschtawen oder méi, fir eng Statioun ze fannen",
+    "stationForecast": "Prognos fir d'Statioun {id}",
+    "keysHint": "↑ ↓ wielen, Enter opmaachen, Esc zoumaachen",
+    "desc": {
+      "support": "E Feeler mellen, eng Funktioun froen oder de Projet ënnerstëtzen",
+      "impressum": "Wien dëse Site bedreift, a wéi s du se erreechs",
+      "privacy": "Wat e Besuch festhält, a firwat",
+      "docs": "D'Python-Bibliothéik, d'Kommandozeil an d'API notzen",
+      "github": "De Code, d'Issues an d'Pull Requests",
+      "pypi": "D'Python-Bibliothéik mat pip installéieren"
+    }
   },
   "header": {
     "github": "GitHub",
