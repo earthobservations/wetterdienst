@@ -825,5 +825,19 @@
     "summary": "Tosamenfaat",
     "periods": "Tietrüüm",
     "colMissingCount": "Tahl fehlend"
+  },
+  "palette": {
+    "open": "Söken",
+    "title": "Sieden, Instellungen un Stationen söken",
+    "placeholder": "Siet, Instellen oder Station …",
+    "groupPages": "Sieden",
+    "groupStations": "Stationen op de Kaart",
+    "results": "Drapers: {count}",
+    "noResults": "Nix passt to „{query}“.",
+    "hint": "to'n Wesseln un Apenmaken; Esc maakt to",
+    "purposeMap": "De Stationen op en Kaart: Utsicht, Meetweerten un Klimastrepen vun en Oort",
+    "purposeSupport": "Fehler mellen, mitmaken oder spennen",
+    "purposeLegal": "Wokeen disse Siet bedrifft",
+    "purposePrivacy": "Wat disse Siet vun dien Besöök spiekert, un worüm"
   }
 }

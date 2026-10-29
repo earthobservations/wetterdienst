@@ -825,5 +825,19 @@
     "summary": "Synthèse",
     "periods": "Périodes",
     "colMissingCount": "Nombre de valeurs manquantes"
+  },
+  "palette": {
+    "open": "Rechercher",
+    "title": "Rechercher des pages, des paramètres et des stations",
+    "placeholder": "Page, paramètre ou station …",
+    "groupPages": "Pages",
+    "groupStations": "Stations sur la carte",
+    "results": "Résultats : {count}",
+    "noResults": "Rien ne correspond à « {query} ».",
+    "hint": "pour se déplacer et ouvrir ; Échap ferme",
+    "purposeMap": "Les stations sur une carte : prévisions, mesures et bandes climatiques d'un lieu",
+    "purposeSupport": "Signaler un problème, contribuer ou faire un don",
+    "purposeLegal": "Qui exploite ce site",
+    "purposePrivacy": "Ce que ce site garde de ta visite, et pourquoi"
   }
 }

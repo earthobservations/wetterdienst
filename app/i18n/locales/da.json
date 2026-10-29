@@ -825,5 +825,19 @@
     "summary": "Opsummering",
     "periods": "Perioder",
     "colMissingCount": "Antal manglende"
+  },
+  "palette": {
+    "open": "Søg",
+    "title": "Søg i sider, indstillinger og stationer",
+    "placeholder": "Side, indstilling eller station …",
+    "groupPages": "Sider",
+    "groupStations": "Stationer på kortet",
+    "results": "Resultater: {count}",
+    "noResults": "Intet passer til “{query}”.",
+    "hint": "for at flytte og åbne; Esc lukker",
+    "purposeMap": "Stationerne på et kort: udsigt, målinger og klimastriber for et sted",
+    "purposeSupport": "Meld et problem, bidrag eller donér",
+    "purposeLegal": "Hvem der driver dette websted",
+    "purposePrivacy": "Hvad dette websted gemmer om dit besøg, og hvorfor"
   }
 }

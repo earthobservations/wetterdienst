@@ -18,6 +18,8 @@ const props = defineProps<{
   place: { latitude: number, longitude: number } | null
   /** The name of the map, which says what it shows */
   label: string
+  /** Raised for a station picked outside the map (the address, the search): the map moves to it, once */
+  recentre?: number
 }>()
 
 const emit = defineEmits<{
@@ -129,11 +131,19 @@ function drawSelection() {
   }).addTo(map)
 }
 
-/** Brings the selection into view where it is not, without moving a map that already shows it */
+/** The pick from outside the map that it has moved to */
+let recentred = 0
+
+/** Brings the selection into view where it is not, without moving a map that already shows it; centres on a pick from outside */
 function reveal() {
   if (!map || !props.selected)
     return
   const target = L.latLng(props.selected.latitude, props.selected.longitude)
+  if ((props.recentre ?? 0) > recentred) {
+    recentred = props.recentre ?? 0
+    map.setView(target, Math.max(map.getZoom(), 8), { animate: !reducedMotion.value })
+    return
+  }
   if (map.getBounds().pad(-0.1).contains(target))
     return
   map.setView(target, Math.max(map.getZoom(), 7), { animate: !reducedMotion.value })
@@ -196,7 +206,7 @@ onBeforeUnmount(() => {
 
 watch(() => props.stations, () => dots?.redraw())
 watch(() => colorMode.value, () => dots?.redraw())
-watch(() => [props.selected, props.place], () => {
+watch(() => [props.selected, props.place, props.recentre], () => {
   drawSelection()
   reveal()
 })

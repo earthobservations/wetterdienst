@@ -825,5 +825,19 @@
     "summary": "Resümee",
     "periods": "Perioden",
     "colMissingCount": "Zuel vu Fehlenden"
+  },
+  "palette": {
+    "open": "Sichen",
+    "title": "Säiten, Astellungen a Statiounen sichen",
+    "placeholder": "Säit, Astellung oder Statioun …",
+    "groupPages": "Säiten",
+    "groupStations": "Statiounen op der Kaart",
+    "results": "Resultater: {count}",
+    "noResults": "Näischt passt op „{query}“.",
+    "hint": "fir ze wiesselen an opzemaachen; Esc mécht zou",
+    "purposeMap": "D'Statiounen op enger Kaart: Prognos, Miessungen a Klimasträifen vun enger Plaz",
+    "purposeSupport": "E Problem mellen, matmaachen oder spenden",
+    "purposeLegal": "Wien dëse Site bedreift",
+    "purposePrivacy": "Wat dëse Site vun dengem Besuch späichert, a firwat"
   }
 }

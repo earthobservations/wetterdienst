@@ -825,5 +825,19 @@
     "summary": "Souhrn",
     "periods": "Období",
     "colMissingCount": "Počet chybějících"
+  },
+  "palette": {
+    "open": "Hledat",
+    "title": "Hledat stránky, nastavení a stanice",
+    "placeholder": "Stránka, nastavení nebo stanice …",
+    "groupPages": "Stránky",
+    "groupStations": "Stanice na mapě",
+    "results": "Výsledky: {count}",
+    "noResults": "Nic neodpovídá „{query}“.",
+    "hint": "pro přesun a otevření; Esc zavře",
+    "purposeMap": "Stanice na mapě: předpověď, měření a klimatické pruhy místa",
+    "purposeSupport": "Nahlásit problém, přispět nebo darovat",
+    "purposeLegal": "Kdo provozuje tento web",
+    "purposePrivacy": "Co si tento web uchovává z tvé návštěvy a proč"
   }
 }

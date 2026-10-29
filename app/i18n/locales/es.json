@@ -825,5 +825,19 @@
     "summary": "Resumen",
     "periods": "Periodos",
     "colMissingCount": "Número de valores faltantes"
+  },
+  "palette": {
+    "open": "Buscar",
+    "title": "Buscar páginas, ajustes y estaciones",
+    "placeholder": "Página, ajuste o estación …",
+    "groupPages": "Páginas",
+    "groupStations": "Estaciones en el mapa",
+    "results": "Resultados: {count}",
+    "noResults": "Nada coincide con «{query}».",
+    "hint": "para moverte y abrir; Esc cierra",
+    "purposeMap": "Las estaciones en un mapa: pronóstico, mediciones y franjas climáticas de un lugar",
+    "purposeSupport": "Informar de un problema, contribuir o donar",
+    "purposeLegal": "Quién gestiona este sitio",
+    "purposePrivacy": "Qué guarda este sitio de tu visita, y por qué"
   }
 }

@@ -89,6 +89,49 @@ test.describe('Map (home page)', () => {
   })
 })
 
+// The search of the header (GH-3518): Ctrl+K or its button, on every page, by keys alone
+test.describe('Search', () => {
+  test('opens by Ctrl+K and goes to a page by Enter', async ({ page }) => {
+    await page.goto('/glossary')
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    await page.keyboard.press('Control+k')
+    await expect(page.getByRole('combobox')).toBeFocused()
+    await page.keyboard.type('providers')
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(/\/providers$/)
+  })
+
+  test('switches the appearance from its button, and gives the focus back on Escape', async ({ page }) => {
+    await page.goto('/about')
+    const button = page.getByRole('banner').getByRole('button', { name: 'Search', exact: true })
+    await button.click()
+    await page.keyboard.type('dark')
+    await page.keyboard.press('Enter')
+    await expect(page.locator('html')).toHaveClass(/dark/)
+
+    await button.click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog')).toBeHidden()
+    await expect(button).toBeFocused()
+  })
+
+  test('finds a forecast point and moves the map to it', async ({ page }) => {
+    // the list of the forecast points is a few thousand stations from the backend
+    test.setTimeout(120_000)
+    await page.goto('/api')
+    // the app has started, and listens for the shortcut
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    await page.keyboard.press('Control+k')
+    await expect(page.getByRole('combobox')).toBeFocused()
+    await page.keyboard.type('helgoland')
+    await expect(page.getByRole('option', { name: /HELGOLAND/i }).first()).toBeVisible({ timeout: 60_000 })
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(/\/\?station=/)
+    await expect(page.getByRole('heading', { level: 2, name: /HELGOLAND/i })).toBeVisible({ timeout: 60_000 })
+  })
+})
+
 test.describe('API Documentation Page', () => {
   test('should navigate to API page', async ({ page }) => {
     await page.goto('/')

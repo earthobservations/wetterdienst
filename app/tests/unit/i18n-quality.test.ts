@@ -329,6 +329,7 @@ const UI_SAME: Record<string, Same> = {
   'header.groupReference': { en: ['cs'], why: COGNATE },
   'header.groupProject': { en: ['nl'], de: ['cs', 'da', 'pl'], why: COGNATE },
   'atlas.count': { en: ['nl'], why: COGNATE },
+  'palette.groupPages': { en: ['fr'], why: COGNATE },
   'footer.copyright': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'settings.themeSystem': { en: ['da', 'de-hh', 'de', 'lb'], why: COGNATE },
   'settings.unitTemperature': { de: ['da'], why: COGNATE },

@@ -295,6 +295,8 @@ const sourceLabel = computed(() => `${datasetLabel(source.value.dataset)}, ${res
 
 // ---- the address follows what is shown --------------------------------------------------------------
 
+/** The addresses this page wrote itself, which the watch below is not to take as a pick from outside */
+const ownWrites = new Set<string>()
 watch([layer, source, selectedId, place], () => {
   const next: Record<string, string> = {}
   if (layer.value !== 'forecast')
@@ -308,8 +310,41 @@ watch([layer, source, selectedId, place], () => {
     next.lon = place.value.longitude.toFixed(4)
   }
   const now = Object.fromEntries(Object.entries(route.query).map(([key, value]) => [key, value?.toString() ?? '']))
-  if (JSON.stringify(now) !== JSON.stringify(next))
+  if (JSON.stringify(now) !== JSON.stringify(next)) {
+    ownWrites.add(JSON.stringify(next))
     void router.replace({ query: next }).catch(() => {})
+  }
+})
+
+// A station named by the address from outside the page (the search of the header, a link): the page takes it, on
+// the layer the address names, and the map moves to it. The page's own writes above name what it shows already.
+/** Counts the picks the map is to move to; the map moves once for each, as soon as the station is there */
+const recentre = ref(selectedId.value ? 1 : 0)
+/** A pick from outside the page, or the station the address opened the page with, waits to be announced until its station is there */
+let announceWhenFound = Boolean(selectedId.value)
+watch(() => [route.query.station, route.query.layer], ([station, named]) => {
+  const written = JSON.stringify(Object.fromEntries(Object.entries(route.query).map(([key, value]) => [key, value?.toString() ?? ''])))
+  if (ownWrites.delete(written))
+    return
+  const wantedLayer = ATLAS_LAYERS.includes(named as AtlasLayer) ? named as AtlasLayer : 'forecast'
+  const wantedStation = station?.toString() || null
+  if (wantedLayer === layer.value && wantedStation === selectedId.value)
+    return
+  layer.value = wantedLayer
+  if (wantedStation !== selectedId.value) {
+    selectedId.value = wantedStation
+    anchor.value = null
+    if (wantedStation)
+      recentre.value++
+    announceWhenFound = Boolean(wantedStation)
+  }
+})
+// told to a screen reader once its station is there, as a pick in the panel is
+watch(selected, (station) => {
+  if (station && announceWhenFound) {
+    announceWhenFound = false
+    announcement.value = t('atlas.chosen', { name: station.name ?? station.station_id })
+  }
 })
 
 // ---- on a phone, the map in view when it takes the focus ---------------------------------------------
@@ -719,6 +754,7 @@ const mapLabel = computed(() => t('atlas.mapLabel'))
         <AtlasMap
           :stations="stations"
           :selected="selected"
+          :recentre="recentre"
           :place="place"
           :label="mapLabel"
           @pick="onPick"

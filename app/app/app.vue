@@ -96,6 +96,25 @@ watch(wide, (isWide) => {
     mobileMenuOpen.value = false
 })
 
+// The search of the whole app (AppCommandPalette.vue): the header's button, and Ctrl+K or ⌘K from anywhere but
+// the widget. The shortcut is shown as the reader's system writes it
+const paletteOpen = ref(false)
+const shortcutLabel = ref('Ctrl K')
+onMounted(() => {
+  if (/Mac|iPhone|iPad/.test(navigator.platform))
+    shortcutLabel.value = '⌘K'
+})
+useEventListener(import.meta.client ? window : null, 'keydown', (event: KeyboardEvent) => {
+  if (isWidget.value || blank.value || event.key.toLowerCase() !== 'k' || !(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey)
+    return
+  event.preventDefault()
+  mobileMenuOpen.value = false
+  paletteOpen.value = !paletteOpen.value
+})
+watch(() => route.fullPath, () => {
+  paletteOpen.value = false
+})
+
 interface NavItem {
   label: string
   icon: string
@@ -176,6 +195,20 @@ const legalLinks = computed(() => [
       </nav>
 
       <div class="app-header-actions">
+        <!-- the search of the whole app, on every page: the button, or Ctrl+K / ⌘K anywhere -->
+        <button
+          type="button"
+          class="app-search"
+          aria-haspopup="dialog"
+          :aria-expanded="paletteOpen"
+          aria-keyshortcuts="Control+K Meta+K"
+          :aria-label="t('palette.open')"
+          @click="paletteOpen = true"
+        >
+          <UIcon name="i-lucide-search" class="size-[1.125rem] shrink-0" />
+          <span class="app-search-label" aria-hidden="true">{{ t('palette.open') }}</span>
+          <kbd class="app-search-kbd" aria-hidden="true">{{ shortcutLabel }}</kbd>
+        </button>
         <div class="hidden xl:flex items-center gap-0.5">
           <UTooltip v-for="link in externalLinks" :key="link.key" :text="link.label">
             <UButton :to="link.to" target="_blank" :icon="link.icon" color="neutral" variant="ghost" :aria-label="link.label" />
@@ -250,6 +283,8 @@ const legalLinks = computed(() => [
         </div>
       </template>
     </USlideover>
+
+    <AppCommandPalette v-if="!isWidget" v-model:open="paletteOpen" />
 
     <UMain id="main" tabindex="-1" class="app-main" :class="{ 'is-home': isHome }">
       <NuxtPage />
@@ -408,6 +443,52 @@ const legalLinks = computed(() => [
   align-items: center;
   gap: 0.125rem;
   margin-inline-start: auto;
+}
+
+/* the search: a field-like button that says what it is and its shortcut, an icon alone on a phone */
+.app-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 2.5rem;
+  min-height: 2.25rem;
+  margin-inline-end: 0.25rem;
+  padding: 0.25rem 0.625rem;
+  border: 1px solid var(--ui-border-accented);
+  border-radius: 999px;
+  background: var(--ui-bg);
+  color: var(--ui-text-toned);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+.app-search:hover {
+  border-color: var(--ui-text-muted);
+  color: var(--ui-text-highlighted);
+}
+.app-search-label,
+.app-search-kbd {
+  display: none;
+}
+/* with its words where the header has room for them: not beside the pages' words from 1280 px to 1440 px */
+@media (min-width: 640px) and (max-width: 1279.98px), (min-width: 1440px) {
+  .app-search {
+    padding-inline: 0.75rem 0.375rem;
+  }
+  .app-search-label {
+    display: inline;
+    min-width: 4rem;
+    text-align: start;
+  }
+  .app-search-kbd {
+    display: inline-flex;
+    padding: 0 0.375rem;
+    border: 1px solid var(--ui-border);
+    border-radius: 999px;
+    background: var(--ui-bg-muted);
+    color: var(--ui-text-muted);
+    font: 600 0.6875rem/1.25rem var(--font-sans);
+    white-space: nowrap;
+  }
 }
 
 .app-menu-heading {

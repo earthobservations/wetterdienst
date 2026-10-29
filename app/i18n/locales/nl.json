@@ -825,5 +825,19 @@
     "summary": "Samenvatting",
     "periods": "Perioden",
     "colMissingCount": "Aantal ontbrekend"
+  },
+  "palette": {
+    "open": "Zoeken",
+    "title": "Pagina's, instellingen en stations zoeken",
+    "placeholder": "Pagina, instelling of station …",
+    "groupPages": "Pagina's",
+    "groupStations": "Stations op de kaart",
+    "results": "Resultaten: {count}",
+    "noResults": "Niets past bij “{query}”.",
+    "hint": "om te verplaatsen en te openen; Esc sluit",
+    "purposeMap": "De stations op een kaart: verwachting, metingen en klimaatstrepen van een plaats",
+    "purposeSupport": "Een probleem melden, bijdragen of doneren",
+    "purposeLegal": "Wie deze site beheert",
+    "purposePrivacy": "Wat deze site van je bezoek bewaart, en waarom"
   }
 }

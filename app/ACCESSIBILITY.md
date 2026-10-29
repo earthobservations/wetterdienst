@@ -38,8 +38,10 @@ The same pages and states (in light/English and dark/German) are scanned twice m
 
 Beside the scans, `accessibility.spec.ts` drives widgets by keys alone (`keyboard operation`: the station
 picker, a collapsible, a menu, the narrow layout's menu, which is a dialog that keeps the focus and gives
-it back, and the home page's map, whose stations are chosen from the panel's list and whose centre, which the
-arrow keys move, is picked as a place by a button; `chart controls by keyboard`: Plotly's modebar, and the table of values that stands for the stripes
+it back, the home page's map, whose stations are chosen from the panel's list and whose centre, which the
+arrow keys move, is picked as a place by a button, and the search of the header, opened by Ctrl+K or its button:
+a dialog that keeps the focus, with a combobox whose arrow keys move the active option of its listbox
+(`aria-activedescendant`), Enter that takes it, and Escape that gives the focus back; `chart controls by keyboard`: Plotly's modebar, and the table of values that stands for the stripes
 and the meteogram, opened, reached and scrolled by keys; and Plotly's hover label and the names of its
 modebar buttons, which Escape dismisses until the pointer moves, 1.4.13), checks that every page has a title of its own that a navigation announces (`page titles`, 2.4.2,
 4.1.3) and that no page scrolls sideways at 320 px (`reflow at 320 px`, 1.4.10).

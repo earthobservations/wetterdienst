@@ -825,5 +825,19 @@
     "summary": "Summary",
     "periods": "Periods",
     "colMissingCount": "Missing count"
+  },
+  "palette": {
+    "open": "Search",
+    "title": "Search pages, settings and stations",
+    "placeholder": "Page, setting or station …",
+    "groupPages": "Pages",
+    "groupStations": "Stations on the map",
+    "results": "Results: {count}",
+    "noResults": "Nothing matches “{query}”.",
+    "hint": "to move and to open; Esc closes",
+    "purposeMap": "The stations on a map: the forecast, measurements and climate stripes of a place",
+    "purposeSupport": "Report a problem, contribute or donate",
+    "purposeLegal": "Who runs this site",
+    "purposePrivacy": "What this site keeps of your visit, and why"
   }
 }

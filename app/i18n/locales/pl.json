@@ -825,5 +825,19 @@
     "summary": "Podsumowanie",
     "periods": "Okresy",
     "colMissingCount": "Liczba braków"
+  },
+  "palette": {
+    "open": "Szukaj",
+    "title": "Szukaj stron, ustawień i stacji",
+    "placeholder": "Strona, ustawienie lub stacja …",
+    "groupPages": "Strony",
+    "groupStations": "Stacje na mapie",
+    "results": "Wyniki: {count}",
+    "noResults": "Nic nie pasuje do „{query}”.",
+    "hint": "aby przejść i otworzyć; Esc zamyka",
+    "purposeMap": "Stacje na mapie: prognoza, pomiary i paski klimatyczne danego miejsca",
+    "purposeSupport": "Zgłoś problem, współtwórz lub wesprzyj",
+    "purposeLegal": "Kto prowadzi tę stronę",
+    "purposePrivacy": "Co ta strona zachowuje z twojej wizyty i dlaczego"
   }
 }

@@ -825,5 +825,19 @@
     "summary": "Zusammenfassung",
     "periods": "Zeiträume",
     "colMissingCount": "Anzahl fehlend"
+  },
+  "palette": {
+    "open": "Suchen",
+    "title": "Seiten, Einstellungen und Stationen suchen",
+    "placeholder": "Seite, Einstellung oder Station …",
+    "groupPages": "Seiten",
+    "groupStations": "Stationen auf der Karte",
+    "results": "Treffer: {count}",
+    "noResults": "Nichts passt zu „{query}“.",
+    "hint": "zum Wechseln und Öffnen; Esc schließt",
+    "purposeMap": "Die Stationen auf einer Karte: Vorhersage, Messwerte und Klimastreifen eines Ortes",
+    "purposeSupport": "Fehler melden, mitmachen oder spenden",
+    "purposeLegal": "Wer diese Seite betreibt",
+    "purposePrivacy": "Was diese Seite von deinem Besuch speichert, und warum"
   }
 }
