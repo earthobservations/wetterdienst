@@ -273,7 +273,8 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     _window_parameters: list[pl.DataFrame] = field(default_factory=list, init=False, repr=False, compare=False)
     #: whether `query` tells, at the end of the walk, the parameters of the request that no station had a row of
     #: (`parameter-without-rows`, GH-3539); a caller that reads stations only to estimate between them (interpolation,
-    #: summary) sets it False, as a station without a parameter is what it expects there
+    #: summary) sets it False, as a station without a parameter is what it expects there; the stations whose file the
+    #: provider let go (`file-skipped`, GH-3552) are told by the same walk and so are left out there too
     _warn_without_rows: bool = field(default=True, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
@@ -394,6 +395,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             # request came back with nothing
             if df.is_empty():
                 self._leave_out_emptied(station_id, rows)
+                self._pass_over(rows, station_id)
                 continue
             if self.sr.options.skip_empty:
                 percentage = self._get_actual_percentage(df=df)
@@ -401,6 +403,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                     # a parameter that holds nothing but nulls is a row the station has, with the nulls kept
                     self._note_nulls_dropped(rows)
                     self._warn_station_skipped(station_id, percentage)
+                    self._pass_over(rows, station_id)
                     continue
             self._tell_missing_value_markers()
             if self.sr.options.humanize:
@@ -420,7 +423,17 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             stations_collected += 1
             yield ValuesResult(stations=self.sr, df=df, data_updated_at=newest(self._data_updated))
         # only a walk read to its end says what it found: a failure raised before it, and one that is stopped is silent
-        rows.warn()
+        rows.warn(rank_filled=stations_collected == self.sr._rank)  # noqa: SLF001
+
+    def _pass_over(self, rows: ParameterRows, station_id: str) -> None:
+        """Note that a rank walk passed a candidate over (an empty frame, or one below `skip_threshold`) for the next.
+
+        Only a rank walk replaces a station: a pick by ids, distance or name that drops one leaves the answer short of
+        it, which `file-skipped` tells if its file was let go (GH-3552). Whether the replacement filled the rank is
+        known at the end of the walk (`ParameterRows.warn`).
+        """
+        if self.sr._stations_filter == StationsFilter.BY_RANK:  # noqa: SLF001
+            rows.passed_over(station_id)
 
     def _warn_station_skipped(self, station_id: str, percentage: float) -> None:
         """Tell that `skip_empty` leaves the station out, for a share of actual values below the threshold."""
