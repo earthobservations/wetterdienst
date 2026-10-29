@@ -3,8 +3,9 @@
 """Tests that the name of every dataset is lower case (GH-3607).
 
 `shape_provider_frame` lower-cases the `dataset` column of every frame a provider hands the core, and the core compares
-that column, and builds the prefix of a wide column, from `parameter.dataset.name` (`_as_asked`, `_widen_df`). A name
-with upper case would never be equal to what the frame holds, so the rule is held here, for every network of the
+that column with the declared `dataset.name` in many places (the station and row filters of interpolate and summarize,
+`core/util.py`, the units and plot prefixes of `model/result.py`; `_as_asked` and `_widen_df` lower-case it). A name
+with upper case would never be equal to what the frame holds there, so the rule is held here, for every network of the
 registry, and not left to a provider to remember.
 """
 
