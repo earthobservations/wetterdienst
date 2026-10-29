@@ -19,6 +19,12 @@ with ship codes, so there is no fixed place to state. They stay in the list with
 `latitude` and `longitude`, and a search by distance or bounding box, an interpolation or a
 summary never picks them.
 
+The list also holds about 237 foreign SYNOP stations, with ids made of `SN` and the WMO number
+times 100 (`SN743400` is Limoges-Bellegarde in France, `SN623500` De Kooy in the Netherlands,
+`SN848200` Malaga in Spain). Frost serves observations for them, but mostly with short, recent
+series: those of Limoges and De Kooy start on 2026-10-26. They show up in `stations`, so
+check the dates a station has values for before relying on a long record.
+
 ## Time window
 
 Every resolution needs a window, because Frost is asked for one reference time range. The REST
