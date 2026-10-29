@@ -91,6 +91,13 @@ Types of changes:
   with `drop_nulls` on (the default) or off: not those of a station `skip_empty` leaves out, nor of
   one a `rank` walk passes over for having no reading. `interpolate` and `summarize`, whose answer
   is an estimate, carry no such warning now (GH-3554)
+- Processes that share a cache directory take turns on it, through a lock file beside each
+  directory (new dependency: `filelock`). The metadata read-merge-write no longer loses a row
+  another process saved in between (its file was then fetched again), the save no longer fails
+  with `PermissionError` on Windows while another process has the metadata open, and a sweep no
+  longer deletes a file another process has just fetched again. A process that waits for the lock
+  longer than 10 s skips its save or its sweep and logs a warning; it never fails a request. A
+  killed process leaves no stale lock (GH-3485)
 
 ## [0.178.0] - 2026-10-28
 
