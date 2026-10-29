@@ -1409,6 +1409,113 @@ def test_an_estimate_carries_no_missing_value_marker_warning(monkeypatch: pytest
     assert _the_missing_value_marker_warning() == []
 
 
+def _warning_codes_by_station() -> dict[str, list[str]]:
+    """Give the codes of the warnings recorded for the request, with the message of each `station-skipped`."""
+    return {
+        "station-skipped": [w["message"] for w in recorded_warnings() if w["code"] == "station-skipped"],
+        "parameter-without-rows": [w["message"] for w in recorded_warnings() if w["code"] == "parameter-without-rows"],
+    }
+
+
+@pytest.mark.parametrize("by", ["station_id", "rank"])
+@pytest.mark.parametrize("shape", ["long", "wide"])
+@pytest.mark.parametrize("skip_empty", [True, False])
+@pytest.mark.parametrize("drop_nulls", [True, False])
+def test_station_skipped_is_told_for_a_station_of_nulls_whatever_drop_nulls_is(
+    monkeypatch: pytest.MonkeyPatch, *, drop_nulls: bool, skip_empty: bool, shape: str, by: str
+) -> None:
+    """`skip_empty` leaves a station out and says so, with the nulls dropped (the default) or kept (GH-3567).
+
+    The first station holds nothing but markers, the second four readings. With the nulls dropped the first station's
+    frame is empty and used to be passed over unsaid; with them kept it is a frame of nulls, which `skip_empty` skips
+    and tells. A rank walk that does not have `skip_empty` passes it over (nulls dropped) or ends on it (nulls kept):
+    it is not skipped by `skip_empty` and nothing is told, as before. What the answer holds does not depend on this.
+    """
+    _stub_dwd_daily(
+        station_ids=["00001", "00002"], data_year_by_station={"00001": 1990, "00002": 1990}, monkeypatch=monkeypatch
+    )
+    _stub_marked_readings(monkeypatch, markers_of={"00001": 4, "00002": 0})
+    begin_response()
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        start="1990-01-01",
+        end="1990-01-04",
+        options=Options(drop_nulls=drop_nulls, skip_empty=skip_empty, skip_threshold=0.5, shape=shape),
+    )
+    stations = (
+        request.filter_by_station_id("00001")
+        if by == "station_id"
+        else request.filter_by_rank(latlon=(50.0, 8.0), rank=1)
+    )
+
+    df = stations.values().all().df
+
+    codes = _warning_codes_by_station()
+    if skip_empty:
+        assert codes["station-skipped"] == [
+            "station 00001 is skipped as percentage of actual values (0.0) is below threshold (0.5)."
+        ]
+    else:
+        assert codes["station-skipped"] == []
+    # the data is not what this changes: a station the walk leaves out is not in the answer, in either setting
+    # (the wide shape drops no nulls: `drop_nulls` is ignored there)
+    nulls_kept = not drop_nulls or shape == "wide"
+    in_answer = df.get_column("station_id").unique().to_list()
+    if by == "station_id":
+        assert in_answer == ([] if skip_empty or not nulls_kept else ["00001"])
+    else:
+        assert in_answer == (["00001"] if not skip_empty and nulls_kept else ["00002"])
+
+
+@pytest.mark.parametrize("shape", ["long", "wide"])
+@pytest.mark.parametrize("skip_empty", [True, False])
+def test_a_station_skip_empty_leaves_out_is_told_the_same_with_the_nulls_dropped_or_kept(
+    monkeypatch: pytest.MonkeyPatch, *, skip_empty: bool, shape: str
+) -> None:
+    """The warnings of a station of nulls that the request names are the same under `skip_empty`, nulls dropped or kept.
+
+    Besides `station-skipped`, `parameter-without-rows`: the station had rows (of nulls), so under `skip_empty` it
+    says nothing of them, as with the nulls kept. Without `skip_empty` the nulls dropped leave the parameter without
+    a row, as ever (and the station is in the answer, as a frame of nulls, only with them kept).
+    """
+    by_drop_nulls = {}
+    for drop_nulls in (True, False):
+        _stub_dwd_daily(station_ids=["00001"], data_year_by_station={"00001": 1990}, monkeypatch=monkeypatch)
+        _stub_marked_readings(monkeypatch, markers_of={"00001": 4})
+        begin_response()
+        request = DwdObservationRequest(
+            parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+            start="1990-01-01",
+            end="1990-01-04",
+            options=Options(drop_nulls=drop_nulls, skip_empty=skip_empty, skip_threshold=0.5, shape=shape),
+        )
+        request.filter_by_station_id("00001").values().all()
+        by_drop_nulls[drop_nulls] = _warning_codes_by_station()
+
+    if skip_empty or shape == "wide":
+        assert by_drop_nulls[True] == by_drop_nulls[False]
+    if skip_empty:
+        assert len(by_drop_nulls[True]["station-skipped"]) == 1
+        assert by_drop_nulls[True]["parameter-without-rows"] == []
+
+
+def test_a_station_with_no_reading_in_the_window_is_not_told_as_skipped(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A station with no row in the window at all is left out unsaid, with the nulls dropped or kept (GH-3567)."""
+    for drop_nulls in (True, False):
+        _stub_dwd_daily(station_ids=["00001"], data_year_by_station={"00001": 1980}, monkeypatch=monkeypatch)
+        begin_response()
+        request = DwdObservationRequest(
+            parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+            start="1990-01-01",
+            end="1990-01-04",
+            options=Options(drop_nulls=drop_nulls, skip_empty=True, skip_threshold=0.5),
+        )
+
+        request.filter_by_station_id("00001").values().all()
+
+        assert _warning_codes_by_station()["station-skipped"] == []
+
+
 @pytest.mark.parametrize("blank", ["", " ", "n/a", "nan", "inf"])
 def test_merge_duplicate_readings_reads_a_text_that_is_no_number_as_no_value(blank: str) -> None:
     """A frame whose `value` is still text (as the provider hands it over) has a value where a number can be read."""

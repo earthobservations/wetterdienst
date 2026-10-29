@@ -266,6 +266,10 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     #: the readings of the window that the source marked as missing, in the station in hand: counted by
     #: `_process_dataset`, told by `_query_stations` once the station is not left out (GH-3554)
     _markers_in_window: int = field(default=0, init=False, repr=False, compare=False)
+    #: under `skip_empty`, the parameters of the readings without a value that `drop_nulls` took out of the window, in
+    #: the station in hand: the rows the station has with the nulls kept, which tell `station-skipped` of a station
+    #: they empty just the same (GH-3567)
+    _nulls_in_window: list[pl.DataFrame] = field(default_factory=list, init=False, repr=False, compare=False)
     #: whether `query` tells, at the end of the walk, the parameters of the request that no station had a row of
     #: (`parameter-without-rows`, GH-3539); a caller that reads stations only to estimate between them (interpolation,
     #: summary) sets it False, as a station without a parameter is what it expects there
@@ -374,6 +378,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             rows.examine(station_id, available_datasets)
             self._data_updated.clear()
             self._markers_in_window = 0
+            self._nulls_in_window.clear()
             self._advance_fetch_ahead(ahead, position, stations_collected)
             # Collect data for this station
             with rows.collecting(station_id):
@@ -385,18 +390,13 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             # the ranked walk stopped short of the stations that do cover the window and the
             # request came back with nothing
             if df.is_empty():
+                self._skip_station_emptied_by_nulls(station_id, rows)
                 self._tell_missing_value_markers(emptied=True)
                 continue
             if self.sr.options.skip_empty:
                 percentage = self._get_actual_percentage(df=df)
                 if percentage < self.sr.options.skip_threshold:
-                    warn_response(
-                        log,
-                        "station-skipped",
-                        f"station {station_id} is skipped as percentage of actual values ({percentage}) "
-                        f"is below threshold ({self.sr.options.skip_threshold}).",
-                        level=logging.INFO,
-                    )
+                    self._warn_station_skipped(station_id, percentage)
                     continue
             self._tell_missing_value_markers()
             if self.sr.options.humanize:
@@ -417,6 +417,33 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             yield ValuesResult(stations=self.sr, df=df, data_updated_at=newest(self._data_updated))
         # only a walk read to its end says what it found: a failure raised before it, and one that is stopped is silent
         rows.warn()
+
+    def _warn_station_skipped(self, station_id: str, percentage: float) -> None:
+        """Tell that `skip_empty` leaves the station out, for a share of actual values below the threshold."""
+        warn_response(
+            log,
+            "station-skipped",
+            f"station {station_id} is skipped as percentage of actual values ({percentage}) "
+            f"is below threshold ({self.sr.options.skip_threshold}).",
+            level=logging.INFO,
+        )
+
+    def _skip_station_emptied_by_nulls(self, station_id: str, rows: ParameterRows) -> None:
+        """Tell `station-skipped` of a station whose readings in the window are all without a value, nulls dropped.
+
+        With the nulls kept such a station has a frame of nulls, which `skip_empty` leaves out and tells so, at 0 of
+        the readings the window holds. With them dropped (the long shape's default) the frame is empty, and is
+        left out all the same: told the same, and, as it is with the nulls kept, a station that had rows
+        (`parameter-without-rows` says nothing of the parameters of it). A station with no reading in the window at all
+        is none of this: left out unsaid, as it is with the nulls kept (GH-3567).
+        """
+        if not self.sr.options.skip_empty or not self._nulls_in_window:
+            return
+        nulls = pl.concat(self._nulls_in_window)
+        if nulls.is_empty():
+            return
+        rows.note(nulls)
+        self._warn_station_skipped(station_id, 0.0)
 
     def _tell_missing_value_markers(self, *, emptied: bool = False) -> None:
         """Add the markers of the station in hand to the warning of the request, unless the station is left out.
@@ -742,6 +769,14 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                 .height
             )
         if self.sr.options.drop_nulls_effective:
+            if self.sr.options.skip_empty:
+                # what the station has with the nulls kept, were `skip_empty` to leave it out (`_query_stations`)
+                self._nulls_in_window.append(
+                    self._filter_by_window(df)
+                    .filter(pl.col("value").is_null())
+                    .select("resolution", "dataset", "parameter")
+                    .unique()
+                )
             df = df.drop_nulls(subset=["value"])
         return df
 

@@ -265,8 +265,8 @@ what the answer is missing:
 - **`warnings`** is what the answer is missing but did not fail on, so that a partial answer can be told
   from a whole one. Each has a `code` that stays and a `message` that may be improved. The codes are
   `unknown-station` (an id of `stations` the network has no station for), `station-skipped` (a station with too
-  few readings, by `skip_empty` and `skip_threshold`), `period-not-published` and `period-not-narrowing`
-  (a period that was asked for and does not apply), `elevation-unknown` (the stations of unknown
+  few readings, by `skip_empty` and `skip_threshold`, whether `drop_nulls` is on or off), `period-not-published`
+  and `period-not-narrowing` (a period that was asked for and does not apply), `elevation-unknown` (the stations of unknown
   elevation that an estimate at an elevation had to leave out), `missing-value-marker` (readings that are
   `null` because the source wrote a marker for a missing value: with `drop_nulls` they are not in the
   answer, and this counts them; without it the `raw:` token of their `quality_flags` keeps the marker),
@@ -284,7 +284,8 @@ what the answer is missing:
   has a row of it, and for a dataset asked for whole only when no station has a row of any of its parameters, so
   that a dataset with a few empty parameters says nothing of them. A parameter that some stations have is not
   told for the ones that lack it. A station that begins after the window is not read and not named, one skipped
-  by `skip_empty` had rows, and readings that are all null and left out by `drop_nulls` are no rows. A dataset that
+  by `skip_empty` had rows (with `drop_nulls` too), and readings that are all null and left out by `drop_nulls` are
+  no rows. A dataset that
   needs a window, asked for in Python with none, is not told of: the provider answers nothing to it, and that says
   nothing of the source (nor is a reader that returns for want of a window without asking the source: it tells the walk, as
   Frost's does). The message gives the window and says `in the periods asked for` (for the datasets
