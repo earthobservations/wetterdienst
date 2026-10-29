@@ -241,24 +241,30 @@ decides.** For a fact with `column`, `column_names` and `row` (the CSV case), ea
 row of the fact's day (`2026-10-16`, `2026/10/16`, `20261016`, `16.10.2026`, `16.10.`, `16/10/2026`, `16-10-2026`, `16 Oct`,
 `Oct 16, 2026` ...; another year is another day, and the end of a range such as `15-16 Oct 2026` is not the day):
 
-- *Rows.* A table with the dates as columns is read transposed. A **long** table has a parameter column, that is a column named
-  `parameter`, `name` or `variable`, or one whose cells hold the canonical name (`precipitation_amount`): only the rows whose cell
-  *there* is the canonical name are read (else those of the one parameter whose name matches the `column` regex; two matching
-  parameters, or none, leave no row). A free-text cell in another column (`light precipitation`) never filters a row.
-- *Column.* The first of the fact's `column_names` that is a header (`precipitation_amount`, else `value`, the tool's own long CSV);
-  else the one header that matches the `column` regex (`precip`); two headers that match, and none exact, are ambiguous (e.g.
-  `precipitation_mm` and `precipitation_cm`) and the table decides nothing; else the one column a `TABLE-UNIT` line names with a
-  unit the case knows (`rain_mm | mm`; `quality | QN` is not one). A column with no such name (`rr`, `rain`) decides nothing.
-  Figures inside dates and times are never read.
-- *Unit.* Read only on the chosen column: its own `TABLE-UNIT` line, else the one line that is a spelling of its name
-  (`precipitation` for `precipitation_mm`, `precipitation amount` for `precipitation_amount`), else a unit of the case in its
-  header (`Precipitation (cm)`), else the unit the tool returns. The units a line declares for any other column (`quality | QN`,
+- *Rows.* A table with the dates as columns is read transposed. A **long** table has a parameter column: a column that holds the
+  canonical name (`precipitation_amount`), or one named `parameter`, `name` or `variable` that holds a name matching the
+  `column` regex. Only the rows whose cell *there* is the canonical name are read (else those of the one parameter whose name
+  matches the regex; two matching parameters, or none, leave no row). A `name` column of station names, and a note column
+  that says "precipitation", are no parameter column: the table is read as a wide one.
+- *Column.* The fact's first `column_names` entry if it is a header (`precipitation_amount`); else the one header that matches
+  the `column` regex, which names the precipitation and not its neighbours (`precip` without form, type, kind, max, min, 1h,
+  hour, intensity, flag, quality, qn); two headers that match, and none exact, are ambiguous (`precipitation_mm` and
+  `precipitation_cm`) and the table decides nothing; else the fact's other entry, `value` (the column of a long table, and of a
+  wide one only when nothing matched); else the one column a `TABLE-UNIT` line names with a unit of the case, accepted or
+  forbidden (`rain_mm | mm`; `quality | QN` is not one). A column with no such name (`rr`, `rain`) decides nothing. Figures inside
+  dates and times are never read.
+- *Unit.* Read only on the chosen column: its own `TABLE-UNIT` line, else (in a long table) the line that names the parameter
+  (`precipitation_amount | mm` for `value`), else the one line that is a spelling of its name (`precipitation` for
+  `precipitation_mm`, `precipitation amount` for `precipitation_amount`; two spellings with different units give none), else a
+  unit of the case in its header (`Precipitation (cm)`), else the unit the tool returns. The units a line declares for any other column (`quality | QN`,
   `date | UTC`, `wind_speed_mean | m/s`) are not read. A forbidden or unknown unit declared for the chosen column fails.
 - *Value.* A chosen column that gives the day two different values fails whatever the order; all of them equal the value, the
   table passes. A table that has the chosen column and a wrong value fails the answer beside a right table.
 
 The unit must be stated: by a `TABLE-UNIT` line (or the header) for the chosen column, or by a fitting RESULT line; a RESULT line
-for the value is also enough when the answer has no table.
+for the value is also enough when the answer has no table. When no RESULT line and no table gives the value, the failure says why
+each table decided nothing: no row of the day, `n` columns that may be the value (named), no column is the value, or the table
+holds the value but states no unit.
 
 **The unit slot** forgives slips: a trailing point, a remark in brackets (`°C (as returned)`, `mm (millimetres)`,
 `degrees Celsius (°C)`), `℃`, `ºC`, `m s⁻¹`, `%RH`, bold, bullets, numbered markers, quotes, fences, any case.
@@ -271,8 +277,9 @@ well-formed line is read by the **fallback**.
 
 **The fallback** reads tolerantly: prose (the unit directly after the figure, in brackets, as `(unit °C)`, in brackets before
 it on its line, or alone on the line above), real tables (a markdown table, or two or more lines of the same cells with a
-separator row or a header line; prose with commas is no table: a header line has no digit, or only names, that is cells with
-no figure, no sentence (five words at most, not ending in `.`, `!` or `?`)) by column, with the unit in the cell, the header, a
+separator row or a header line; prose with commas is no table: a header line is names only, that is cells that are no value
+(no signed or decimal figure, none that starts the cell) and no sentence (five words at most, not two words or more ending in
+`.`, `!` or `?`)) by column, with the unit in the cell, the header, a
 `Unit` column, the row label or a sentence around it, and the same span rule for tables. For a fact with a `column` and a
 `row` it too reads only the column named (leniently about the header's spelling: if no header matches, any column) and the
 row of the date. It is reported as `unit_fallback`.

@@ -97,13 +97,17 @@ read in with another unit (`0.84 %`, `15.5 cm`), or gives a figure that is not t
 mean` next to the right figure fails, `RESULT: 1.2 °C | daily max` or `RESULT: 5 days | window` does not). A fact with a
 `column` and a `row` (the CSV case) also reads **each table** of the answer, but a table decides only when it is unambiguous; in
 doubt it neither passes nor fails anything and the RESULT line decides. The value is on the row of the fact's day (the end of a
-range such as `15-16 Oct 2026` is not the day), in the column named `precipitation_amount` (else `value`, the tool's long CSV),
-else in the one header that matches `precip`, else in the one column a `TABLE-UNIT` line names with a unit the case knows; two
-headers that match (`precipitation_mm`, `precipitation_cm`) and a column with another name (`rr`) decide nothing. A table with a
-parameter column (`parameter`, `name`, `variable`, or one that holds `precipitation_amount`) is read on the rows of that
-parameter only; a free-text cell elsewhere filters nothing. The unit is read on that column only (its `TABLE-UNIT` line, a line
+range such as `15-16 Oct 2026` is not the day), in the column named `precipitation_amount`,
+else in the one header that matches the `column` regex (the precipitation, not `precipitation_form`, a type, a maximum, a quality
+or an hourly column), else in `value` (the column of the tool's long CSV), else in the one column a `TABLE-UNIT` line names with
+a unit of the case, accepted or forbidden; two headers that match (`precipitation_mm`, `precipitation_cm`) and a column with
+another name (`rr`) decide nothing. A table with a parameter column (a column that holds `precipitation_amount`, or `parameter`,
+`name` or `variable` holding a name of the quantity) is read on the rows of that parameter only; station names in a `name`
+column and a note that says "precipitation" make no parameter column, and the table is read as a wide one. The unit is read on that column only (its `TABLE-UNIT` line, a line
 that is a spelling of its name, a unit in its header, else the tool's unit); the units declared for other columns are never read.
-A column that gives the day two values fails. A table with the right column and a wrong value fails the answer beside a right one.
+A column that gives the day two values fails. A table whose column is chosen unambiguously and holds a wrong value fails the
+answer beside a right one; a table that defers (below) fails nothing, but if no RESULT line and no table gives the value, the
+failure names why each table deferred.
 A range or a compound figure in a RESULT line (`19-21 °C`,
 `4 h 7 min`) is a malformed line, a format violation, not a wrong value. The wording lists are a judgement and are tried against both kinds of strings in the tests;
 an extra line worded in a way nobody foresaw is not a claim, so the check errs towards not failing a right answer for its
@@ -201,10 +205,18 @@ glossary run against it worked.
   `ignore_descriptions` of a fact): a wrong figure that a model labels with a word of the ignore list (`RESULT: 5.2 m/s |
   daily mean wind speed, the peak`) is not caught, and a right extra figure labelled with a word no list foresaw is not failed. They are a first judgement: revisit
   them after the first baseline run, against the answers real models give.
-- A table is found only if it has a markdown separator row or a header line (no digit in it, or only names: cells that are no
-  figure and no sentence, five words at most, not ending in `.`, `!` or `?`; dates as columns count) and its cells are separated by
-  a pipe, a comma or a tab: a semicolon CSV is not a
-  table to the check (its figures still need a RESULT line). A date in a table is read as `2026-10-16`, `2026/10/16`,
+- A table is found only if it has a markdown separator row or a header line of names (cells that are no value, that is no signed
+  or decimal figure, none that starts the cell, none before a symbol such as `°C` or `%`, and no sentence: five words at most, not
+  two words or more ending in `.`, `!` or `?`; a figure in brackets or a whole number before a word, `quality (1-10)`,
+  `Precip. in 24 h (mm)`, belongs to a name; dates as columns count) and its cells are separated by a pipe, a comma or a tab. A
+  semicolon CSV is not a table to the check, and neither are quoted fields (`"precipitation, mm"` is split at the comma); their
+  figures still need a RESULT line.
+- A table **defers**, failing nothing and passing nothing, when it has no row of the day for the quantity, when two columns may
+  be the value (`precipitation_mm` and `precipitation_cm`, with none named `precipitation_amount`), when no column is named like
+  the quantity (`rr`, `rain`), and when a unit-less spelling of its column is declared twice with two units; the RESULT line
+  decides, so an answer without one fails. A column that a `TABLE-UNIT` line names with a unit of the case is taken for the value
+  whatever quantity it is (`snow_cm | cm` next to an unnamed `rr`). A range written with "to" (`2026-10-16 to 2026-10-18`) is not
+  recognised as a range: its row also counts as the 16th, and a different figure there makes the day ambiguous. A date in a table is read as `2026-10-16`, `2026/10/16`,
   `20261016`, `16.10.2026`, `16.10.26`, `16.10.` (zeros optional), `16/10/2026`, `16-10-2026`, `10/16/2026`, `16 Oct`,
   `Oct 16, 2026` or `16 October 2026`; another year is another day, month names in other languages are not read. A table with no row for the day, or none with a figure in it
   (a station list, a table of other days), fails nothing; one with the day's row and a wrong value does.

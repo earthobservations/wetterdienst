@@ -521,9 +521,12 @@ def _check_unit_fact(fid: str, fact: dict[str, Any]) -> list[str]:  # noqa: C901
         )
     names = fact.get("column_names")
     if "column" in fact and not (
-        isinstance(names, list) and names and all(isinstance(n, str) and re.search(fact["column"], n) for n in names)
+        isinstance(names, list)
+        and names
+        and all(isinstance(n, str) for n in names)
+        and re.search(fact["column"], names[0], re.IGNORECASE)
     ):
-        found.append(f"{fid} has a column but no column_names that its column regex matches: {names!r}")
+        found.append(f"{fid} has a column but no column_names whose first name its column regex matches: {names!r}")
     if "row" in fact and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(fact["row"])):
         found.append(f"{fid} has a row that is no day (YYYY-MM-DD): {fact['row']!r}")
     if "column" in fact:

@@ -2529,7 +2529,7 @@
             "pick": "the value, and the unit of the parameter in `metadata.parameters[].unit`"
           },
           "cross_check": {"tool": "glossary", "args": {"parameter": "precipitation_amount", "limit": 3}},
-          "column": "precip|^value$",
+          "column": "^(?!.*(?:form|type|kind|max|min|1h|hour|intensity|flag|quality|qn)).*precip",
           "column_names": ["precipitation_amount", "value"],
           "row": "2026-10-16",
           "accepted": [
