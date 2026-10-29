@@ -335,9 +335,6 @@ onMounted(() => {
             <img src="/icon.svg" alt="" class="size-5" width="20" height="20">
             Wetterdienst
           </p>
-          <p class="app-footer__tagline">
-            {{ t('home.tagline') }}
-          </p>
           <!-- The stance closes the footer, as it closes the home page: the four statements as icons, the full
                wording one hover away and the accessible name either way. -->
           <div class="flex flex-wrap items-center gap-x-3 gap-y-1">

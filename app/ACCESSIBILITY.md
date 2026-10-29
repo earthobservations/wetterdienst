@@ -68,7 +68,8 @@ Nuxt UI fades the fill to 75 % when it is hovered, which would take the white la
 and pressed fill is one shade darker in light mode (6.7:1) and one lighter in dark mode (8.8:1), set for the
 button in `app/app.config.ts`. A disabled button is exempt from 1.4.3 and from the scans. Text in the primary
 colour on white is shade 700 and a fifth of the way to 800 (`.text-primary`, 8.5:1), and a hovered link button
-shade 800. `tests/unit/button-contrast.test.ts` computes the ratios of the solid button at rest and hovered; the
+shade 800 (shade 300 in dark mode, where Nuxt UI's 75 % of shade 400 is 3.9:1). Text in the primary colour in dark
+mode is shade 400 (5.7:1); shade 500, which the green had there, is 3.6:1 for the blue. `tests/unit/button-contrast.test.ts` computes the ratios of the solid button at rest and hovered; the
 hover scan measures the rest.
 
 The three zones of the axis of time are in colours of the logo too: the past in its navy (12.5:1 on white), the
@@ -77,8 +78,8 @@ present in its yellow, which is too light for text and is a fill with a navy rin
 teal of the logo is 2.6:1). In dark mode the logo's own colours are light enough (6.9:1 to 12:1 on the page).
 
 The focus indicator is one solid 2 px outline for everything a keyboard reaches (`--app-focus-ring` in
-`main.css`: shade 700 of the primary colour on light, 8.8:1 on white, shade 400 on dark, 5.7:1; the map takes
-the light one in both modes). Nuxt UI's own is an outline at 25 % of the primary colour and a ring in the primary
+`main.css`: shade 700 of the primary colour on light, 8.8:1 on white, shade 400 on dark, 5.7:1; what takes the
+focus on the map takes the light one in both modes, the map's own ring, which lies on the page, the page's). Nuxt UI's own is an outline at 25 % of the primary colour and a ring in the primary
 colour, and its menu search fields draw none; they stay, beside it.
 
 There is no sepia mode. `main.css` once held a `html.sepia` block that redefined the `--ui-*` tokens, which

@@ -86,6 +86,10 @@
   :where(:root:not(.dark)) .hover\:text-primary\/75:hover {
     color: var(--ui-color-primary-800);
   }
+  /* and in dark mode one shade lighter: the blue at 75 % over the dark page is 3.9:1, shade 300 is 8.8:1 */
+  :where(.dark) .hover\:text-primary\/75:hover {
+    color: var(--ui-color-primary-300);
+  }
 }
 
 /* The focus indicator of a keyboard user (WCAG 2.4.7, 1.4.11: 3:1 against what is behind it). Nuxt UI draws
@@ -105,8 +109,9 @@
   outline: 2px solid var(--app-focus-ring);
   outline-offset: 2px;
 }
-/* The map is a light surface in both modes (Leaflet's grey, and the tiles): it takes the ring of light mode */
-.leaflet-container:focus-visible,
+/* The map is a light surface in both modes (Leaflet's grey, and the tiles): what takes the focus on it takes the
+   ring of light mode. The ring of the map itself lies outside it, on the page, and keeps the page's (the navy-blue
+   shade 700 is 2.1:1 on the dark page). */
 .leaflet-container :focus-visible:not([tabindex="-1"]) {
   outline-color: var(--ui-color-primary-700);
 }

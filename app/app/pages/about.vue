@@ -161,7 +161,7 @@ const people = computed(() => [
         <a
           href="https://github.com/earthobservations/wetterdienst/blob/main/CONTRIBUTORS.md"
           target="_blank"
-          class="text-primary-700 dark:text-primary-500 underline hover:no-underline"
+          class="text-primary-700 dark:text-primary-400 underline hover:no-underline"
         >
           {{ t('about.contributorsLink') }}
         </a>

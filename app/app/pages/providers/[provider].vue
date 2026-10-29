@@ -109,7 +109,7 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
                 :to="provider.license.url"
                 external
                 target="_blank"
-                class="text-primary-700 dark:text-primary-500 underline hover:no-underline"
+                class="text-primary-700 dark:text-primary-400 underline hover:no-underline"
               >
                 {{ provider.license.name }}
               </NuxtLink>
@@ -184,7 +184,7 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
                 :to="network.url"
                 external
                 target="_blank"
-                class="text-primary-700 dark:text-primary-500 underline hover:no-underline break-all"
+                class="text-primary-700 dark:text-primary-400 underline hover:no-underline break-all"
               >
                 {{ t('providers.source') }}
               </NuxtLink>

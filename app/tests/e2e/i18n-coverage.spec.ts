@@ -150,7 +150,7 @@ test.describe('the app can name what the backend serves', () => {
     expect(listed, 'the providers the home page links to, against those of the registry').toEqual(registered)
 
     // the first of the four numbers is the count of the providers
-    const stat = page.locator('.text-2xl').first()
+    const stat = page.locator('.home-stats__value').first()
     await expect(stat).toHaveText(String(registered.length))
 
     // and the second is the count of the parameters, the backend's own: not a number the page was written with
@@ -158,6 +158,6 @@ test.describe('the app can name what the backend serves', () => {
     expect(catalogue.ok(), 'the backend did not serve /api/providers').toBeTruthy()
     const { metadata } = await catalogue.json() as { metadata: { counts: { parameters: number } } }
     expect(metadata.counts.parameters, '/api/providers counted no parameters').toBeGreaterThan(0)
-    await expect(page.locator('.text-2xl').nth(1)).toHaveText(String(metadata.counts.parameters))
+    await expect(page.locator('.home-stats__value').nth(1)).toHaveText(String(metadata.counts.parameters))
   })
 })

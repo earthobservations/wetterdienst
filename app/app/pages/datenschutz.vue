@@ -52,7 +52,7 @@ const operator = OPERATOR
           {{ operator.country }}
         </p>
         <p class="text-gray-600 dark:text-gray-400">
-          {{ policy.controller.emailLabel }}: <a :href="`mailto:${operator.email}`" class="text-primary-700 dark:text-primary-500 underline hover:no-underline">{{ operator.email }}</a>
+          {{ policy.controller.emailLabel }}: <a :href="`mailto:${operator.email}`" class="text-primary-700 dark:text-primary-400 underline hover:no-underline">{{ operator.email }}</a>
         </p>
       </div>
     </UCard>
@@ -76,7 +76,7 @@ const operator = OPERATOR
           </li>
         </ul>
         <p v-if="section.link">
-          <a :href="section.link.href" target="_blank" rel="noopener noreferrer" class="text-primary-700 dark:text-primary-500 underline hover:no-underline">{{ section.link.label }}</a>
+          <a :href="section.link.href" target="_blank" rel="noopener noreferrer" class="text-primary-700 dark:text-primary-400 underline hover:no-underline">{{ section.link.label }}</a>
         </p>
       </div>
     </UCard>
