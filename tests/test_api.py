@@ -872,14 +872,22 @@ def test_api_eccc_observation(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
-@pytest.mark.xfail
 @pytest.mark.remote
 def test_api_imgw_hydrology(default_settings: Settings) -> None:
     """Test imgw hydrology API."""
-    request = ImgwHydrologyRequest(parameters=[("daily", "hydrology")], settings=default_settings).all()
+    request = ImgwHydrologyRequest(
+        parameters=[("daily", "hydrology")],
+        start="2023-01-01",
+        end="2023-01-31",
+        settings=default_settings,
+    ).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    assert _is_complete_stations_df(request.df)
+    # the station list of IMGW names neither the period of a station nor its elevation or region
+    assert _is_complete_stations_df(
+        request.df,
+        exclude_columns={"start_timestamp", "end_timestamp", "elevation", "region"},
+    )
     first_start_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
@@ -891,16 +899,19 @@ def test_api_imgw_hydrology(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
-@pytest.mark.xfail
 @pytest.mark.remote
 def test_api_imgw_meteorology(default_settings: Settings) -> None:
     """Test imgw meteorology API."""
-    request = ImgwMeteorologyRequest(parameters=[("daily", "climate")], settings=default_settings).filter_by_station_id(
-        "249200180",
-    )
+    request = ImgwMeteorologyRequest(
+        parameters=[("daily", "climate")],
+        start="2023-01-01",
+        end="2023-01-31",
+        settings=default_settings,
+    ).filter_by_station_id("249200180")
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    assert _is_complete_stations_df(request.df)
+    # the station list of IMGW names neither the period of a station nor its region
+    assert _is_complete_stations_df(request.df, exclude_columns={"start_timestamp", "end_timestamp", "region"})
     first_start_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
