@@ -76,7 +76,8 @@ measures the rest.
 
 The focus indicator is one solid 2 px outline for everything a keyboard reaches (`--app-focus-ring` in
 `main.css`: shade 700 of the primary colour on light, 6.7:1 on white, the logo's yellow `#ffc93c` on dark,
-12:1 on the page). The station pickers' maps take the light one in both modes, as they are light in both; the
+12:1 on the page). A marker or a zoom button of the station pickers' maps takes the light one in both modes, as
+those maps are light in both, and the map itself the ring of its mode, which lies outside it on the page; the
 home page's map draws its own inside its edge (shade 800 on the light map, the yellow on the dark one), as the
 edge of that map is the edge of the window on a phone. Nuxt UI's own is an outline at 25 % of the primary
 colour and a ring in the primary colour, and its menu search fields draw none; they stay, beside it.
