@@ -95,7 +95,7 @@ another unit passes). It fails when a line gives the value in a forbidden unit (
 read in with another unit (`0.84 %`, `15.5 cm`), or gives a figure that is not the value and *calls it the asked quantity*
 (its description matches the fact's `asked_descriptions` and none of its `ignore_descriptions`: `RESULT: 3.2 °C | daily
 mean` next to the right figure fails, `RESULT: 1.2 °C | daily max` or `RESULT: 5 days | window` does not). A fact with a
-`column` and a `row` also holds **every** table of the answer to the value on the row of that day, in the column a
+`column` and a `row` also holds **every table that has a row for that day** to the value on that row, in the column a
 `TABLE-UNIT` line names (else the header the fact names, else any column) and in the unit that line declares; a markdown
 table with the dates as columns is read transposed. A range or a compound figure in a RESULT line (`19-21 °C`,
 `4 h 7 min`) is a malformed line, a format violation, not a wrong value. The wording lists are a judgement and are tried against both kinds of strings in the tests;
@@ -196,8 +196,8 @@ glossary run against it worked.
   pipe, a comma or a tab: a semicolon CSV, and a CSV with the dates as columns (its first line holds digits), are not tables to
   the check (their figures still need a RESULT line); a markdown table with the dates as columns is read. A date in a table is
   read as `2026-10-16`, `16.10.2026`, `16.10.26`, `16.10.` (zeros optional), `16/10/2026`, `10/16/2026`, `16 Oct`,
-  `Oct 16, 2026` or `16 October 2026`; another year is another day. A second table of the answer that has no row of the day
-  (a station list, say) fails the answer, since every table is held to the value.
+  `Oct 16, 2026` or `16 October 2026`; another year is another day. A table with no row for the day, or none with a figure in it
+  (a station list, a table of other days), fails nothing; one with the day's row and a wrong value does.
 - The unit check does not read: units written per time (`mm/day`), a German thousands point (`14.821 s`), a unit before the
   figure in a RESULT line, or a forecast figure in °F or K outside the span (it is ignored, not converted and checked). A
   case whose model writes these is a format violation or a failed fact, and the transcript says which.

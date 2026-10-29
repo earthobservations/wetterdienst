@@ -1400,7 +1400,8 @@ def _read_table(
     the unit came from a `TABLE-UNIT` line, and the failures of a declared unit. The row is the one of the fact's day
     (a table with dates as columns is read transposed). The column is the one a `TABLE-UNIT` line names, else the
     columns whose header matches the fact's `column`, else any column that has a figure on that row. The unit is the
-    declared one, else the unit the tool returns the value in.
+    declared one, else the unit the tool returns the value in. A table with no row for the day, or none with a figure
+    in it (a station list, a table of other days), is not about the value and fails nothing.
     """
     day = _day_pattern(fact["row"])
     if any(day.search(cell) for cell in rows[0]):
@@ -1427,6 +1428,8 @@ def _read_table(
             failures.append({"figure": name, "reason": f"the unit {unit!r} of the column is not one the case knows"})
         elif (known or base or set(range(len(tokens)))) & set(fitting(figure)[1]):
             return figure, known or base or set(range(len(tokens))), unit is not None, failures
+    if candidates and not failures:  # the day has a row with a figure in it, and it is not the value
+        failures.append({"figure": "", "reason": f"a table of the answer does not hold the value on {fact['row']}"})
     return None, set(), False, failures
 
 
@@ -1506,15 +1509,7 @@ def _result_check(answer: str, fact: dict[str, Any], truth: dict[str, float]) ->
         for _, _, rows in tables:
             figure, pairs, from_line, bad = _read_table(rows, fact, fitting, declared, tokens, forbidden, base)
             failures.extend(bad)
-            if figure is None:
-                if not bad:
-                    failures.append(
-                        {
-                            "figure": "",
-                            "reason": f"a table of the answer does not hold the value in the row of {fact['row']}",
-                        }
-                    )
-            elif from_line:
+            if figure is not None and from_line:
                 ok_pairs |= pairs
                 ok_figures.append(figure)
         if not ok_figures and not failures:

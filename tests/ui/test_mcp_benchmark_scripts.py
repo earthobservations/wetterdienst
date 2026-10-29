@@ -2891,9 +2891,7 @@ def test_a_forecast_figure_outside_the_span_says_so_and_a_shifted_table_is_repor
     assert [f["reason"] for f in forecast["failures"]] == [
         "a figure for the asked quantity ('tomorrow afternoon') that is not the value and lies outside the span"
     ]
-    assert [f["reason"] for f in shifted["failures"]] == [
-        "a table of the answer does not hold the value in the row of 2026-10-16"
-    ]
+    assert [f["reason"] for f in shifted["failures"]] == ["a table of the answer does not hold the value on 2026-10-16"]
 
 
 def test_a_big_drop_is_read_over_the_paired_repeats_only() -> None:
@@ -3032,6 +3030,60 @@ ROUND_8_ANSWERS = [
         TRUTHS[CSV],
         True,
         INTRO + _days_csv("date,precipitation") + _days_md("precipitation") + "TABLE-UNIT: precipitation | mm",
+    ),
+    (
+        "t12b a station list beside a right CSV",
+        CSV,
+        TRUTHS[CSV],
+        True,
+        INTRO
+        + _days_csv("date,precipitation")
+        + "| station | name |\n| --- | --- |\n| 01975 | Hamburg-Fuhlsb\u00fcttel |\n"
+        + "TABLE-UNIT: precipitation | mm",
+    ),
+    (
+        "t12c a table of other days beside a right CSV",
+        CSV,
+        TRUTHS[CSV],
+        True,
+        INTRO
+        + _days_csv("date,precipitation")
+        + _days_md("precipitation", [("2026-10-01", "3.3"), ("2026-10-02", "0.1")])
+        + "TABLE-UNIT: precipitation | mm",
+    ),
+    (
+        "t12d a table whose day row has no figure beside a right CSV",
+        CSV,
+        TRUTHS[CSV],
+        True,
+        INTRO
+        + _days_csv("date,precipitation")
+        + "| date | remark |\n| --- | --- |\n| 2026-10-16 | the wettest day |\n"
+        + "TABLE-UNIT: precipitation | mm",
+    ),
+    (
+        "t12e a table of other days only, and a right RESULT line",
+        CSV,
+        TRUTHS[CSV],
+        True,
+        INTRO + _days_md("precipitation", [("2026-10-01", "3.3")]) + "RESULT: 15.5 mm | precipitation on 2026-10-16",
+    ),
+    (
+        "t12f a table of other days only, and nothing that states the value",
+        CSV,
+        TRUTHS[CSV],
+        False,
+        INTRO + _days_md("precipitation", [("2026-10-01", "3.3")]) + "TABLE-UNIT: precipitation | mm",
+    ),
+    (
+        "t12g a station list beside a day row with a wrong value",
+        CSV,
+        TRUTHS[CSV],
+        False,
+        INTRO
+        + _days_csv("date,precipitation", SHIFTED)
+        + "| station | name |\n| --- | --- |\n| 01975 | Hamburg |\n"
+        + "TABLE-UNIT: precipitation | mm",
     ),
     (
         "t13 a right table and a wrong one that names another column",

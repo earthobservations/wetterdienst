@@ -236,12 +236,14 @@ answer for its wording (the 38 answers of the round-7 review are in the tests).
 For a **forecast** (a span) a figure with an accepted unit outside the span counts as not the value. A figure of fewer than two
 significant digits gets no rounding in the unit the value was read in when the value has two or more digits (`1` is not 0.8404
 as a fraction); in another unit or for a one-digit value it is rounding (`4 h` for 4.12 h, `-1 °C` for -0.7). A column's
-`TABLE-UNIT` must name one of the unit tokens. **A fact with a `column` and a `row` holds EVERY table of the answer to the value
-on the row of its day** (`2026-10-16`, `16.10.2026`, `16.10.`, `16/10/2026`, `16 Oct`, `Oct 16, 2026` ...; a markdown table with
+`TABLE-UNIT` must name one of the unit tokens. **A fact with a `column` and a `row` holds every table of the answer that has the day's row to the value
+on that row** (`2026-10-16`, `16.10.2026`, `16.10.`, `16/10/2026`, `16 Oct`, `Oct 16, 2026` ...; a markdown table with
 the dates as columns is read transposed): in the column a `TABLE-UNIT` line names, else the columns whose header matches the
 fact's `column` regex (`precip`, which also takes `precipitation`, or `value`, the tool's own CSV), else any column that has a
 figure on that row; in the unit that line declares (`TABLE-UNIT: precipitation_cm | cm` reads the figures as centimetres), else
-the unit the tool returns. One wrong table fails the answer beside a right one. The unit must be stated: by a `TABLE-UNIT` line
+the unit the tool returns. Every table that has a row for that day with a figure in it is held to the value, so a wrong table fails the answer beside a right
+one; a table with no row for the day (a station list, a table of other days, a day row without a figure) is not about the value and
+fails nothing. The unit must be stated: by a `TABLE-UNIT` line
 for the column or by a fitting RESULT line; a RESULT line for the value is also enough when the answer has no table.
 
 **The unit slot** forgives slips: a trailing point, a remark in brackets (`°C (as returned)`, `mm (millimetres)`,
