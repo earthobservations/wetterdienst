@@ -77,6 +77,7 @@ UNIT_FACT_FIELDS = {
     "cross_check",
     "column",
     "row",
+    "column_names",
     "ignore_descriptions",
     "asked_descriptions",
 }
@@ -518,6 +519,11 @@ def _check_unit_fact(fid: str, fact: dict[str, Any]) -> list[str]:  # noqa: C901
         found.append(
             f"{fid} reads one value but has no asked_descriptions: every other line would be held against the answer"
         )
+    names = fact.get("column_names")
+    if "column" in fact and not (
+        isinstance(names, list) and names and all(isinstance(n, str) and re.search(fact["column"], n) for n in names)
+    ):
+        found.append(f"{fid} has a column but no column_names that its column regex matches: {names!r}")
     if "row" in fact and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(fact["row"])):
         found.append(f"{fid} has a row that is no day (YYYY-MM-DD): {fact['row']!r}")
     if "column" in fact:

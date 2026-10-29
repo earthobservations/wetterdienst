@@ -236,20 +236,29 @@ answer for its wording (the 38 answers of the round-7 review are in the tests).
 For a **forecast** (a span) a figure with an accepted unit outside the span counts as not the value. A figure of fewer than two
 significant digits gets no rounding in the unit the value was read in when the value has two or more digits (`1` is not 0.8404
 as a fraction); in another unit or for a one-digit value it is rounding (`4 h` for 4.12 h, `-1 °C` for -0.7). A column's
-`TABLE-UNIT` must name one of the unit tokens. **A fact with a `column` and a `row` holds every table of the answer that has the day's row to the value
-on that row** (`2026-10-16`, `2026/10/16`, `20261016`, `16.10.2026`, `16.10.`, `16/10/2026`, `16-10-2026`, `16 Oct`, `Oct 16, 2026` ...; a
-table with the dates as columns is read transposed; in a long table, `date,parameter,value`, only the rows that name the asked
-quantity): in the columns whose header matches the fact's `column` regex (`precip`, which also takes `precipitation`, or
-`value`, the tool's own CSV), else in the column a `TABLE-UNIT` line names with a unit the case knows (`rain_mm | mm`), else, when
-no table has either, in any column that has a figure on that row. A date, and a figure inside a date, is never the value. The unit
-is the one a `TABLE-UNIT` line declares for the column (`precipitation` is `precipitation_mm`, `precipitation amount` is
-`precipitation_amount`; `TABLE-UNIT: precipitation_cm | cm` reads the figures as centimetres), else the one in the header
-(`Precipitation (cm)`), else the unit the tool returns; the units a line declares for other columns (`quality | QN`,
-`date | UTC`) are not read. A day given more than once with different values in the column is ambiguous and fails, whatever the
-order of its rows. Every table that has a row for that day with a figure in it is held to the value, so a wrong table fails the answer beside a right
-one; a table with no row for the day, or with no column for the quantity when another table has one (a station list, a table of other
-days, a table of the day with a distance in it), is not about the value and fails nothing. The unit must be stated: by a `TABLE-UNIT` line
-for the column or by a fitting RESULT line; a RESULT line for the value is also enough when the answer has no table.
+`TABLE-UNIT` must name one of the unit tokens. **A table decides a verdict only when it is unambiguous; otherwise it neither passes nor fails anything, and the RESULT line
+decides.** For a fact with `column`, `column_names` and `row` (the CSV case), each table of the answer is read for the value on the
+row of the fact's day (`2026-10-16`, `2026/10/16`, `20261016`, `16.10.2026`, `16.10.`, `16/10/2026`, `16-10-2026`, `16 Oct`,
+`Oct 16, 2026` ...; another year is another day, and the end of a range such as `15-16 Oct 2026` is not the day):
+
+- *Rows.* A table with the dates as columns is read transposed. A **long** table has a parameter column, that is a column named
+  `parameter`, `name` or `variable`, or one whose cells hold the canonical name (`precipitation_amount`): only the rows whose cell
+  *there* is the canonical name are read (else those of the one parameter whose name matches the `column` regex; two matching
+  parameters, or none, leave no row). A free-text cell in another column (`light precipitation`) never filters a row.
+- *Column.* The first of the fact's `column_names` that is a header (`precipitation_amount`, else `value`, the tool's own long CSV);
+  else the one header that matches the `column` regex (`precip`); two headers that match, and none exact, are ambiguous (e.g.
+  `precipitation_mm` and `precipitation_cm`) and the table decides nothing; else the one column a `TABLE-UNIT` line names with a
+  unit the case knows (`rain_mm | mm`; `quality | QN` is not one). A column with no such name (`rr`, `rain`) decides nothing.
+  Figures inside dates and times are never read.
+- *Unit.* Read only on the chosen column: its own `TABLE-UNIT` line, else the one line that is a spelling of its name
+  (`precipitation` for `precipitation_mm`, `precipitation amount` for `precipitation_amount`), else a unit of the case in its
+  header (`Precipitation (cm)`), else the unit the tool returns. The units a line declares for any other column (`quality | QN`,
+  `date | UTC`, `wind_speed_mean | m/s`) are not read. A forbidden or unknown unit declared for the chosen column fails.
+- *Value.* A chosen column that gives the day two different values fails whatever the order; all of them equal the value, the
+  table passes. A table that has the chosen column and a wrong value fails the answer beside a right table.
+
+The unit must be stated: by a `TABLE-UNIT` line (or the header) for the chosen column, or by a fitting RESULT line; a RESULT line
+for the value is also enough when the answer has no table.
 
 **The unit slot** forgives slips: a trailing point, a remark in brackets (`°C (as returned)`, `mm (millimetres)`,
 `degrees Celsius (°C)`), `℃`, `ºC`, `m s⁻¹`, `%RH`, bold, bullets, numbered markers, quotes, fences, any case.
@@ -262,7 +271,8 @@ well-formed line is read by the **fallback**.
 
 **The fallback** reads tolerantly: prose (the unit directly after the figure, in brackets, as `(unit °C)`, in brackets before
 it on its line, or alone on the line above), real tables (a markdown table, or two or more lines of the same cells with a
-separator row or a header without a digit; prose with commas is no table) by column, with the unit in the cell, the header, a
+separator row or a header line; prose with commas is no table: a header line has no digit, or only names, that is cells with
+no figure, no sentence (five words at most, not ending in `.`, `!` or `?`)) by column, with the unit in the cell, the header, a
 `Unit` column, the row label or a sentence around it, and the same span rule for tables. For a fact with a `column` and a
 `row` it too reads only the column named (leniently about the header's spelling: if no header matches, any column) and the
 row of the date. It is reported as `unit_fallback`.
@@ -325,7 +335,7 @@ with a different number of `repeats` or hold a repeat outside 1..`repeats` or tw
 with the same hash in the current file's `meta.case_hashes` and whose tier is in its `meta.models`: **one of them with no run
 in the current file has every repeat missing** and counts toward the 3 % (a strategy that makes a case time out on every
 repeat and records none must not look like a smaller suite). `meta.case_hashes` and `meta.models` therefore list exactly the cases and tiers the run was
-made with (`cases=`, `tiers=`), not all of them: a subset run that lists them all is refused, and the reason says so; a `models` that
+made with (`cases=`, `tiers=`), not all of them: a (case, tier) it names and has no run of counts as missing, and the reason gives both causes (it was not selected: drop it from `meta`; it was selected and lost, a timeout or a dead server: record each of its repeats with `bench.py failed-run`); exactly 3 % is allowed; a `models` that
 is empty is refused as such. It lists, by name, the cases only in the current file, with a
 changed hash, and removed from the current file (or whose tier it no longer has), which stay out; a tier whose
 resolved model ids differ is not compared; it refuses a file with a run still marked `needs_judging`. Every case is first

@@ -95,11 +95,16 @@ another unit passes). It fails when a line gives the value in a forbidden unit (
 read in with another unit (`0.84 %`, `15.5 cm`), or gives a figure that is not the value and *calls it the asked quantity*
 (its description matches the fact's `asked_descriptions` and none of its `ignore_descriptions`: `RESULT: 3.2 °C | daily
 mean` next to the right figure fails, `RESULT: 1.2 °C | daily max` or `RESULT: 5 days | window` does not). A fact with a
-`column` and a `row` also holds **every table that has a row for that day** to the value on that row, in the column a
-header names for the quantity (`precip`, `value`; else a column a `TABLE-UNIT` line names with a unit the case knows, else
-any column when no table has either) and in the unit a `TABLE-UNIT` line declares for it (the units declared for other
-columns are not read); a table with the dates as columns is read transposed, a long table on the rows of the asked
-parameter, and a day with two different values is ambiguous. A range or a compound figure in a RESULT line (`19-21 °C`,
+`column` and a `row` (the CSV case) also reads **each table** of the answer, but a table decides only when it is unambiguous; in
+doubt it neither passes nor fails anything and the RESULT line decides. The value is on the row of the fact's day (the end of a
+range such as `15-16 Oct 2026` is not the day), in the column named `precipitation_amount` (else `value`, the tool's long CSV),
+else in the one header that matches `precip`, else in the one column a `TABLE-UNIT` line names with a unit the case knows; two
+headers that match (`precipitation_mm`, `precipitation_cm`) and a column with another name (`rr`) decide nothing. A table with a
+parameter column (`parameter`, `name`, `variable`, or one that holds `precipitation_amount`) is read on the rows of that
+parameter only; a free-text cell elsewhere filters nothing. The unit is read on that column only (its `TABLE-UNIT` line, a line
+that is a spelling of its name, a unit in its header, else the tool's unit); the units declared for other columns are never read.
+A column that gives the day two values fails. A table with the right column and a wrong value fails the answer beside a right one.
+A range or a compound figure in a RESULT line (`19-21 °C`,
 `4 h 7 min`) is a malformed line, a format violation, not a wrong value. The wording lists are a judgement and are tried against both kinds of strings in the tests;
 an extra line worded in a way nobody foresaw is not a claim, so the check errs towards not failing a right answer for its
 wording. The example in the prompt is made up and a test holds it to passing no case.
@@ -131,7 +136,7 @@ points, which the output prints for each rate next to the runs there are; the de
 (the case that needs a key is skipped). The Fisher test per case is a hint only. It **refuses** (exit code 4) when the prompt, the logic
 version of `bench.py`, the defaults, the mode (headless or subagent) or the deferral of the tools differ, when the two
 sides report one version and carry no differing `label`, or when the two files were made with a different number of `repeats`, or hold a repeat outside 1..`repeats` or twice, or when
-more than 3 % of the compared runs of one tier are invalid or missing (the verdict is per tier, so is the cap; invalid: the server was not connected, those runs are left out of
+more than 3 % of the compared runs of one tier are invalid or missing (the verdict is per tier, so is the cap; exactly 3 % is allowed; invalid: the server was not connected, those runs are left out of
 the rates and counted; missing: a repeat with no record at all, which counts as lost so that a timeout nobody recorded cannot
 shrink a side unseen; a run that never ran is recorded with
 `bench.py failed-run`; a timeout is a failed run, not an invalid one, with what its partial transcript measured or no metrics at all, never zeros); a tier whose resolved model ids differ is not compared. It compares the cases of the
@@ -139,7 +144,7 @@ previous file that the current file's `meta` names with the same hash (and the t
 current file has every repeat missing and counts toward the 3 %, so a case that timed out on every repeat and was never
 recorded is not a smaller suite; cases only in the current file, with a changed hash or removed stay out and are listed.
 `meta.case_hashes` and `meta.models` list what the run was made with, not every case and tier: a subset run is compared over what
-its `meta` names, a `meta` that names more than was run is refused with a reason that says so, and an empty `models` is refused. Sizes
+its `meta` names, a `meta` that names more than was run is refused with a reason that gives both causes (not selected: drop it from `meta`; selected and lost: record its runs with `bench.py failed-run`), and an empty `models` is refused. Sizes
 (tool-result characters, context tokens at the first request, total and output tokens, calls whose result was saved to a
 file) are printed as medians per case before and after and the paired difference.
 
@@ -196,8 +201,9 @@ glossary run against it worked.
   `ignore_descriptions` of a fact): a wrong figure that a model labels with a word of the ignore list (`RESULT: 5.2 m/s |
   daily mean wind speed, the peak`) is not caught, and a right extra figure labelled with a word no list foresaw is not failed. They are a first judgement: revisit
   them after the first baseline run, against the answers real models give.
-- A table is found only if it has a markdown separator row or a header line of names (letters, digits and brackets, no colon:
-  `date,temperature_air_mean_2m`; or dates) and its cells are separated by a pipe, a comma or a tab: a semicolon CSV is not a
+- A table is found only if it has a markdown separator row or a header line (no digit in it, or only names: cells that are no
+  figure and no sentence, five words at most, not ending in `.`, `!` or `?`; dates as columns count) and its cells are separated by
+  a pipe, a comma or a tab: a semicolon CSV is not a
   table to the check (its figures still need a RESULT line). A date in a table is read as `2026-10-16`, `2026/10/16`,
   `20261016`, `16.10.2026`, `16.10.26`, `16.10.` (zeros optional), `16/10/2026`, `16-10-2026`, `10/16/2026`, `16 Oct`,
   `Oct 16, 2026` or `16 October 2026`; another year is another day, month names in other languages are not read. A table with no row for the day, or none with a figure in it

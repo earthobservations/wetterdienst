@@ -3488,17 +3488,21 @@ def test_a_long_table_is_read_on_the_rows_of_the_asked_parameter() -> None:
     assert bench.unit_check(wrong + "TABLE-UNIT: value | mm", fact, TRUTHS[CSV])["ok"] is False
 
 
-def test_a_table_about_another_quantity_is_left_out_but_only_when_another_table_is_about_the_value() -> None:
-    """A table of the day with no column for the quantity is out when a table has one; alone, every column is read."""
+def test_a_table_with_no_column_for_the_quantity_decides_nothing_and_the_result_line_decides() -> None:
+    """A table about something else, or with a column nobody can tell is the value, neither passes nor fails."""
     fact = _unit_fact(CSV)
     event = "| date | event | km |\n| --- | --- | --- |\n| 2026-10-16 | front passed | 40 |\n"
     right = _days_csv("date,precipitation_amount") + "TABLE-UNIT: precipitation_amount | mm\n"
+    unnamed = _days_csv("date,rain", SHIFTED)
+    result = "RESULT: 15.5 mm | precipitation on 2026-10-16"
 
     assert bench.unit_check(INTRO + right + event, fact, TRUTHS[CSV])["ok"] is True
-    alone = bench.unit_check(
-        INTRO + _days_csv("date,rain", SHIFTED) + "RESULT: 15.5 mm | precipitation on 2026-10-16", fact, TRUTHS[CSV]
+    assert bench.unit_check(INTRO + unnamed + result, fact, TRUTHS[CSV])["ok"] is True
+    assert (
+        bench.unit_check(INTRO + unnamed + "RESULT: 9.9 mm | precipitation on 2026-10-16", fact, TRUTHS[CSV])["ok"]
+        is False
     )
-    assert alone["ok"] is False
+    assert bench.unit_check(INTRO + unnamed, fact, TRUTHS[CSV])["ok"] is False  # nothing states the value
 
 
 # ---- the cap is per tier; subset runs; an empty `models`
@@ -3540,7 +3544,8 @@ def test_one_lost_case_in_one_of_two_tiers_is_refused_and_the_message_says_what_
     assert refused
     assert "4% of the 135 compared current runs of the small tier are 5 missing" in text
     assert "1 of the (case, tier) have no run at all (c0)" in text
-    assert "list in them only the cases and tiers that were selected" in text
+    assert "they were not selected for this run" in text
+    assert "recorded with `bench.py failed-run`" in text
 
 
 def test_a_subset_run_is_compared_over_the_cases_and_tiers_its_meta_names() -> None:
@@ -3566,6 +3571,7 @@ def test_an_empty_models_is_a_clear_refusal_not_a_percentage() -> None:
     """`meta.models` that names no tier: the message says so, and does not count 100 % missing."""
     before, after = _two_tiers(), _two_tiers()
     after["meta"]["models"] = {}
+    after["runs"] = [r for r in after["runs"] if r["tier"] == "small"]
 
     text, refused = bench.compare_with_status(before, after)
 
@@ -3574,12 +3580,263 @@ def test_an_empty_models_is_a_clear_refusal_not_a_percentage() -> None:
     assert "missing" not in text
 
 
-def test_the_date_column_is_not_a_candidate_for_the_value_even_when_a_date_is_not_masked() -> None:
-    """`16.10.` is the day (no year) and reads as the figure 16.1: with a value of 16.1 it must not be taken for it."""
+# ------------------------------------------------------------------------------------------------------ round 10
+
+WIDE_R = "RESULT: 15.5 mm | precipitation on 2026-10-16"
+
+
+def _wide(header: str, *rows: str) -> str:
+    """Make a fenced CSV block of a header and rows, with the intro of the CSV case."""
+    return INTRO + _csv(header, *rows)
+
+
+def test_the_canonical_column_wins_over_other_columns_that_match_the_regex() -> None:
+    """`precipitation_form` or `precipitation_max_1h` next to `precipitation_amount` never decides."""
     fact = _unit_fact(CSV)
-    answer = INTRO + _csv("date,rain", "15.10.,0.0", "16.10.,9.9") + "RESULT: 16.1 mm | precipitation on 2026-10-16"
+    for header, values in (
+        ("date,precipitation_amount,precipitation_form", "15.5,6"),
+        ("date,precipitation_form,precipitation_amount", "6,15.5"),
+        ("date,precipitation_max_1h,precipitation_amount", "15.5,15.5"),
+    ):
+        right = _wide(header, f"2026-10-16,{values}") + "TABLE-UNIT: precipitation_amount | mm"
+        assert bench.unit_check(right, fact, TRUTHS[CSV])["ok"] is True, header
+    for header, values in (
+        ("date,precipitation_amount,precipitation_max_1h", "9.9,15.5"),
+        ("date,precipitation_max_1h,precipitation_amount", "15.5,9.9"),
+    ):
+        wrong = _wide(header, f"2026-10-16,{values}") + WIDE_R
+        assert bench.unit_check(wrong, fact, TRUTHS[CSV])["ok"] is False, header
 
-    result = bench.unit_check(answer, fact, {"value": 16.1})
 
-    assert result["ok"] is False
-    assert any("does not hold the value" in f["reason"] for f in result["failures"])
+def test_several_columns_that_match_and_none_that_is_canonical_decide_nothing() -> None:
+    """`precipitation_mm` and `precipitation_cm`: which is the value is a guess, so the RESULT line decides."""
+    fact = _unit_fact(CSV)
+    table = _wide("date,precipitation_mm,precipitation_cm", "2026-10-16,15.5,1.55")
+
+    assert bench.unit_check(table + "TABLE-UNIT: precipitation_mm | mm", fact, TRUTHS[CSV])["ok"] is False
+    assert bench.unit_check(table + WIDE_R, fact, TRUTHS[CSV])["ok"] is True
+    wrong = _wide("date,precipitation_mm,precipitation_cm", "2026-10-16,9.9,0.99") + WIDE_R
+    assert bench.unit_check(wrong, fact, TRUTHS[CSV])["ok"] is True
+
+
+def test_the_units_declared_for_other_columns_are_never_read() -> None:
+    """A declared unit the case does not know on a column that is not the value fails nothing, in any order."""
+    fact = _unit_fact(CSV)
+    for lines in (
+        "TABLE-UNIT: precipitation_form | dimensionless\nTABLE-UNIT: precipitation_amount | mm",
+        "TABLE-UNIT: precipitation_amount | mm\nTABLE-UNIT: precipitation_form | -",
+        "TABLE-UNIT: precipitation_form | -\nTABLE-UNIT: precipitation | mm",
+    ):
+        answer = _wide("date,precipitation_form,precipitation_amount", "2026-10-16,6,15.5") + lines
+        assert bench.unit_check(answer, fact, TRUTHS[CSV])["ok"] is True, lines
+
+
+def test_an_exact_table_unit_line_wins_over_a_line_that_is_only_a_spelling() -> None:
+    """`precipitation_mm | mm` is the unit of the column `precipitation_mm`, not `precipitation | cm`."""
+    fact = _unit_fact(CSV)
+    answer = (
+        _wide("date,precipitation_mm", "2026-10-16,15.5")
+        + "TABLE-UNIT: precipitation | cm\nTABLE-UNIT: precipitation_mm | mm"
+    )
+
+    assert bench.unit_check(answer, fact, TRUTHS[CSV])["ok"] is True
+    # two lines that are spellings and none exact: no unit is read from them, the tool's unit is
+    both = (
+        _wide("date,precipitation_mm", "2026-10-16,15.5")
+        + "TABLE-UNIT: precipitation | cm\nTABLE-UNIT: precip | mm\n"
+        + WIDE_R
+    )
+    assert bench.unit_check(both, fact, TRUTHS[CSV])["ok"] is True
+
+
+def test_a_unit_in_a_header_is_read_only_if_it_is_a_unit_of_the_case() -> None:
+    """`Precipitation (cm)` states centimetres; `Precipitation (daily)` states nothing."""
+    fact = _unit_fact(CSV)
+    cm = _wide("Date,Precipitation (cm)", "2026-10-16,1.55") + WIDE_R
+    daily = _wide("Date,Precipitation (daily)", "2026-10-16,15.5") + WIDE_R
+
+    assert bench.unit_check(cm, fact, TRUTHS[CSV])["ok"] is True
+    assert bench.unit_check(daily, fact, TRUTHS[CSV])["ok"] is True
+
+
+def test_only_a_column_with_a_unit_the_case_knows_is_chosen_by_its_table_unit_line() -> None:
+    """`rr | mm` is the value column of a table with a `quality | QN` column; with two such columns nobody can tell."""
+    fact = _unit_fact(CSV)
+    wrong = _wide("date,rr,quality", "2026-10-16,9.9,10") + "TABLE-UNIT: rr | mm\nTABLE-UNIT: quality | QN\n" + WIDE_R
+    right = _wide("date,rr,quality", "2026-10-16,15.5,10") + "TABLE-UNIT: rr | mm\nTABLE-UNIT: quality | QN"
+
+    assert bench.unit_check(wrong, fact, TRUTHS[CSV])["ok"] is False
+    assert bench.unit_check(right, fact, TRUTHS[CSV])["ok"] is True
+
+
+def test_a_long_table_is_filtered_on_its_parameter_column_only() -> None:
+    """A free-text cell never filters a row; `precipitation_form` is not `precipitation_amount`."""
+    fact = _unit_fact(CSV)
+    note = _wide("date,precipitation_amount,note", "2026-10-15,0.3,light precipitation", "2026-10-16,9.9,heavy rain")
+    assert bench.unit_check(note + WIDE_R, fact, TRUTHS[CSV])["ok"] is False  # the wide table is read as a wide table
+    long_ = _wide("date,parameter,value", "2026-10-16,precipitation_form,6", "2026-10-16,precipitation_amount,15.5")
+    assert bench.unit_check(long_ + "TABLE-UNIT: value | mm", fact, TRUTHS[CSV])["ok"] is True
+    several = _wide("date,parameter,value", "2026-10-16,precipitation_form,6", "2026-10-16,precipitation_max,15.5")
+    assert bench.unit_check(several + WIDE_R, fact, TRUTHS[CSV])["ok"] is True  # two parameters match: nothing decides
+    one = _wide("date,name,value", "2026-10-16,precipitation_max,9.9")
+    assert bench.unit_check(one + WIDE_R, fact, TRUTHS[CSV])["ok"] is False  # one parameter matches: it is the value
+    twice = _wide("date,variable,value", "2026-10-16,precipitation_amount,9.9", "2026-10-16,precipitation_amount,15.5")
+    assert bench.unit_check(twice + WIDE_R, fact, TRUTHS[CSV])["ok"] is False
+
+
+@pytest.mark.parametrize(
+    ("header", "is_table"),
+    [
+        ("date,precipitation: mm", True),
+        ("Date & time,Precipitation", True),
+        ("date,precipitation (rain+snow)", True),
+        ("#date,precipitation", True),
+        ("date,RR=precipitation", True),
+        ("date,precipitation,rain?", True),
+        ("date,24h_precipitation", True),
+        ("date,temperature_air_mean_2m", True),
+        ("Datum,Niederschlag (l/m\u00b2)", True),
+        ("date,precipitation \u2013 daily", True),
+        ("2026-10-15,2026-10-16", True),
+        ("date,precipitation l/m2", True),
+        ("The daily mean was -0.7 \u00b0C, just below freezing.", False),
+        ("Mean relative humidity at Hamburg on 16 October 2026 was 84 %, fairly humid.", False),
+        ("Tomorrow at Los Angeles, about 20 \u00b0C, then at night 45 \u00b0C, odd.", False),
+        ("- Mean: -0.7 K, as returned", False),
+        ("Hamburg, 15.5 mm", False),
+        ("The station is run by DWD, the German weather service.", True),
+    ],
+)
+def test_a_header_line_is_names_or_has_no_digit_and_prose_is_neither(header: str, is_table: bool) -> None:  # noqa: FBT001
+    """Two lines are a table if the first is names (any symbols, digits allowed) or has no digit."""
+    cells = len(header.split(",")) if "," in header else 1
+    data = ",".join(["2026-10-16"] + ["9.9"] * (cells - 1))
+
+    assert bool(bench._tables([header, data])) is (is_table and cells > 1)  # noqa: SLF001
+
+
+KIEL_PROSE = (
+    "The daily mean temperature at Kiel-Holtenau on 26 December 2025 was -0.7 {unit}, just below freezing.\n"
+    "The station is run by DWD, the German weather service."
+)
+HUMIDITY_PROSE = (
+    "Mean relative humidity at Hamburg on 16 October 2026 was {value} %, fairly humid.\n"
+    "The value comes from DWD, station 01975."
+)
+
+
+def test_the_prose_that_became_a_table_in_round_9_is_prose_again() -> None:
+    """Two prose lines with one comma each are read by the fallback, not as a table."""
+    kiel, humidity = _unit_fact("units-kiel-celsius"), _unit_fact("units-humidity-percent")
+
+    assert bench.unit_check(KIEL_PROSE.format(unit="\u00b0C"), kiel, TRUTHS[KIEL])["ok"] is True
+    assert bench.unit_check(KIEL_PROSE.format(unit="K"), kiel, TRUTHS[KIEL])["ok"] is False
+    assert bench.unit_check(HUMIDITY_PROSE.format(value="84"), humidity, TRUTHS[HUMIDITY])["ok"] is True
+    assert bench.unit_check(HUMIDITY_PROSE.format(value="0.84"), humidity, TRUTHS[HUMIDITY])["ok"] is False
+
+
+@pytest.mark.parametrize(
+    ("cell", "found"),
+    [
+        ("16 Oct 2026", True),
+        ("15-16 Oct 2026", False),
+        ("15 - 16 Oct 2026", False),
+        ("15\u201316 Oct 2026", False),
+        ("15.\u201316.10.", False),
+        ("15.\u201316.10.2026", False),
+        ("16-17 Oct 2026", False),
+        ("2026-10-15\u20132026-10-16", False),
+        ("2026-10-15 to 2026-10-16", True),
+        ("16.10.", True),
+    ],
+)
+def test_the_end_of_a_range_is_not_the_day(cell: str, found: bool) -> None:  # noqa: FBT001
+    """`15-16 Oct 2026` is two days at once; the row that gives it is not the row of the 16th."""
+    assert bench._row_has_day(["x", cell], DATE_ROW) is found  # noqa: SLF001
+
+
+def test_a_two_day_summary_row_does_not_make_a_day_ambiguous() -> None:
+    """The reviewer's table: the row `15-16 Oct 2026` with 15.8 is not a second value for the 16th."""
+    fact = _unit_fact(CSV)
+    answer = (
+        "| period | precipitation (mm) |\n|---|---|\n| 14 Oct 2026 | 0.0 |\n| 16 Oct 2026 | 15.5 |\n"
+        "| 15-16 Oct 2026 | 15.8 |\n\nTABLE-UNIT: precipitation | mm"
+    )
+
+    assert bench.unit_check(answer, fact, TRUTHS[CSV])["ok"] is True
+
+
+def test_a_timestamp_with_a_zone_offset_has_no_figure_in_it() -> None:
+    """`-05:00`, `+01:00`, `Z` and fractional seconds are part of the time, not figures."""
+    for cell in (
+        "2026-10-16T00:00:00-05:00",
+        "2026-10-16T00:00:00+01:00",
+        "2026-10-16T00:00:00Z",
+        "2026-10-16T06:30:15.123456+00:00",
+        "2026-10-16 06:00",
+    ):
+        assert bench._FIGURE.search(bench._mask(cell)) is None, cell  # noqa: SLF001
+
+
+@pytest.mark.parametrize(("lost", "refused"), [(3, False), (4, True)])
+def test_the_cap_is_three_percent_and_three_percent_exactly_is_allowed(lost: int, refused: bool) -> None:  # noqa: FBT001
+    """100 runs a side: three missing are exactly 3 %, four are 4 %."""
+    before, after = _file(cases=20), _file(cases=20)
+    after["runs"] = [r for r in after["runs"] if not (r["case"] == "c0" and r["repeat"] <= lost)]
+
+    text, was_refused = bench.compare_with_status(before, after)
+
+    assert was_refused is refused, text
+
+
+def test_prose_without_a_figure_or_a_full_stop_is_no_header_when_it_is_long_or_ends_a_sentence() -> None:
+    """Lines whose cells hold a digit but no figure: a sentence (full stop) or more than five words is not a name."""
+    full_stop = ["See 24h, sorry.", "Rain 24h, again."]
+    long_cell = ["Total for the last 24h today, ok", "Rain for the last 24h today, ok"]
+
+    assert bench._tables(full_stop) == []  # noqa: SLF001
+    assert bench._tables(long_cell) == []  # noqa: SLF001
+    assert bench._tables(["See 24h, sorry", "Rain 24h, again"]) != []  # noqa: SLF001
+
+
+def test_two_lines_that_spell_a_column_differently_state_no_unit_for_it() -> None:
+    """`precipitation | cm` and `precip | inches` are two spellings, none exact: neither is read."""
+    fact = _unit_fact(CSV)
+    answer = (
+        _wide("date,precipitation_mm", "2026-10-16,15.5")
+        + "TABLE-UNIT: precipitation | cm\nTABLE-UNIT: precip | inches\n"
+        + WIDE_R
+    )
+
+    assert bench.unit_check(answer, fact, TRUTHS[CSV])["ok"] is True
+
+
+def test_a_table_states_its_unit_only_through_a_table_unit_line_or_its_header() -> None:
+    """A right table in the tool's unit, with a TABLE-UNIT line for another column only, states nothing."""
+    fact = _unit_fact(CSV)
+    table = _wide("date,precipitation_amount", "2026-10-16,15.5")
+
+    assert bench.unit_check(table + "TABLE-UNIT: date | text", fact, TRUTHS[CSV])["ok"] is False
+    assert bench.unit_check(table + "TABLE-UNIT: precipitation_amount | mm", fact, TRUTHS[CSV])["ok"] is True
+
+
+def test_a_parameter_column_is_found_by_its_name_or_by_the_canonical_name_in_its_cells() -> None:
+    """`parameter`, `name`, `variable`, or a column that holds `precipitation_amount`: other parameters are out."""
+    fact = _unit_fact(CSV)
+    for column in ("parameter", "name", "variable"):
+        other = _wide(f"date,{column},value", "2026-10-16,temperature,15.5") + "TABLE-UNIT: value | mm"
+        assert bench.unit_check(other, fact, TRUTHS[CSV])["ok"] is False, (
+            column
+        )  # no row of the quantity: nothing is stated
+    unnamed = _wide(
+        "date,series,value", "2026-10-16,temperature_air_mean_2m,11.2", "2026-10-16,precipitation_amount,15.5"
+    )
+    assert bench.unit_check(unnamed + "TABLE-UNIT: value | mm", fact, TRUTHS[CSV])["ok"] is True
+
+
+def test_a_date_inside_a_value_cell_is_not_the_value() -> None:
+    """`(16.10.2026) 15.5 mm`: the date is blanked before the figure is read."""
+    fact = _unit_fact(CSV)
+    answer = _wide("date,precipitation_amount", "2026-10-15,(15.10.2026) 0.3 mm", "2026-10-16,(16.10.2026) 15.5 mm")
+
+    assert bench.unit_check(answer + "TABLE-UNIT: precipitation_amount | mm", fact, TRUTHS[CSV])["ok"] is True

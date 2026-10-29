@@ -70,7 +70,7 @@ CLEANUP_MIN_AGE = 600
 MAX_TIMEOUT = 540
 #: bump it when the arithmetic changes (what counts as a step, a checkpoint, a violation, an aggregate or a verdict):
 #: two results files of another logic version are not compared
-LOGIC_VERSION = 11
+LOGIC_VERSION = 12
 UTC = dt.timezone.utc  # noqa: UP017 - the script also runs on the python3 of a Mac, which is older than 3.11
 #: Claude Code puts a tool result that exceeds its limit in a file and answers with this notice; no Read tool to open it
 SPILL_RE = re.compile(r"^Error: result \(([\d,]+) characters\) exceeds maximum allowed")
@@ -989,8 +989,10 @@ def compare_with_status(  # noqa: C901
             if whole:
                 reason += (
                     f". {len(whole)} of the (case, tier) have no run at all ({', '.join(c for c, _ in whole[:4])}"
-                    f"{' ...' if len(whole) > 4 else ''}): the file's meta.case_hashes and meta.models name what the "
-                    "run was meant to hold, so list in them only the cases and tiers that were selected"
+                    f"{' ...' if len(whole) > 4 else ''}). Either they were not selected for this run, and "
+                    "meta.case_hashes and meta.models must list only what was selected; or they were selected and "
+                    "lost (a timeout, a server that did not answer), and each repeat must be recorded with "
+                    "`bench.py failed-run`"
                 )
             reasons.append(reason)
     if reasons:
@@ -1099,7 +1101,7 @@ _MONTHS = (
 #: what is no figure of a value: dates, times, years and station ids, blanked out before the figures are read
 _NOT_A_FIGURE = re.compile(
     r"\d{4}-\d{2}-\d{2}|\d{4}/\d{2}/\d{2}|\d{1,2}[./-]\s?\d{1,2}[./-]\s?\d{2,4}|\b\d{8}\b"
-    r"|[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?|\d{1,2}:\d{2}"
+    r"|[T ]\d{2}:\d{2}(?::\d{2})?|\d{1,2}:\d{2}"
     r"|\b(?:19|20)\d{2}\b|\b0\d{4}\b"
     rf"|\b\d{{1,2}}(?:st|nd|rd|th)?\.?\s+(?:{_MONTHS})\b|\b(?:{_MONTHS})\b\.?\s+\d{{1,2}}\b",
     re.IGNORECASE,
@@ -1265,24 +1267,31 @@ def _is_separator_row(line: str) -> bool:
     return len(cells) >= 2 and all(re.fullmatch(r":?-{2,}:?", c) for c in cells)
 
 
-def _is_header_row(cells: list[str]) -> bool:
-    """Tell whether the cells of a line are names, not figures: `date,temperature_air_mean_2m`, or dates as columns.
+def _is_name(cell: str) -> bool:
+    """Tell whether a cell is a name and not a figure or a sentence: a date does count (dates as columns)."""
+    text = cell.strip()
+    if _NOT_A_FIGURE.fullmatch(text):
+        return True
+    if re.search(rf"(?<![\w.]){_NUMBER}(?!\w)", text):  # a figure, with or without its unit, is no name
+        return False
+    return len(text.split()) <= 5 and not re.search(r"[.!?]$", text)
 
-    A name starts with a letter and holds no colon or comma; a date is one `_NOT_A_FIGURE` blanks out. A digit in a name
-    (`precip_24h`) is part of it; a prose line (`Mean at 2 m: -0.7 °C`) has a colon, a figure cell is no name.
+
+def _is_header_row(line: str) -> bool:
+    """Tell whether a line is the header of a table: it holds no digit, or every cell of it is a name.
+
+    A name may hold digits, `&`, `:`, `+`, `=`, `?` and the like (`temperature_air_mean_2m`, `Date & time`), but it
+    is no figure and no sentence (more than five words, or ending in `.`, `!` or `?`): a prose line such as `The
+    mean was -0.7 °C, just below freezing.` is no header, so two such lines are no table.
     """
-    return all(
-        re.fullmatch(r"[*`'\"]*[^\W\d][\w .()%/\-\[\]²³°*`'\"]*", cell.strip()) is not None
-        or _NOT_A_FIGURE.fullmatch(cell.strip()) is not None
-        for cell in cells
-    )
+    return not re.search(r"\d", line) or all(_is_name(cell) for cell in _split_cells(line))
 
 
 def _tables(lines: list[str]) -> list[tuple[int, int, list[list[str]]]]:
     """Find the real tables of an answer; give (first line, last line, rows) with the header as the first row.
 
     A table is two or more consecutive lines with the same number of cells (separated by pipes, commas or tabs) and
-    either a markdown separator row or a first line of names (a header, `_is_header_row`). Prose that happens to have
+    either a markdown separator row or a header line (`_is_header_row`). Prose that happens to have
     the same number of commas in two lines, a bullet list with figures, is no table.
     """
     found = []
@@ -1301,7 +1310,7 @@ def _tables(lines: list[str]) -> list[tuple[int, int, list[list[str]]]]:
         ):
             j += 1
         block = lines[i : j + 1]
-        if j > i and (any(_is_separator_row(line) for line in block) or _is_header_row(_split_cells(block[0]))):
+        if j > i and (any(_is_separator_row(line) for line in block) or _is_header_row(block[0])):
             rows = [_split_cells(line) for line in block if not _is_separator_row(line)]
             found.append((i, j, rows))
         i = j + 1
@@ -1380,6 +1389,7 @@ def _day_pattern(iso: str) -> re.Pattern[str]:
     months = rf"(?:{name}|{name[:3]})"
     # the day's own year, or none: another year (a four-digit number after the date) makes it another day
     year_or_none = rf"(?:,?\s*(?:{year}|{year % 100:02d})(?!\d)|(?!,?\s*\d))"
+    not_a_range_end = r"(?<![-\u2013\u2212])(?<![-\u2013\u2212]\s)"  # `15-16 Oct`, `15.\u201316.10.`: 16 ends a range
     forms = [
         rf"(?<!\d){re.escape(iso)}(?!\d)",
         rf"(?<!\d){d}\.\s?{m}\.{year_or_none}",
@@ -1390,7 +1400,7 @@ def _day_pattern(iso: str) -> re.Pattern[str]:
         rf"(?<!\d){d}(?:st|nd|rd|th)?\.?\s+{months}\b\.?{year_or_none}",
         rf"{months}\b\.?\s+{d}(?:st|nd|rd|th)?(?!\d){year_or_none}",
     ]
-    return re.compile("|".join(forms), re.IGNORECASE)
+    return re.compile(not_a_range_end + "(?:" + "|".join(forms) + ")", re.IGNORECASE)
 
 
 def _row_has_day(row: list[str], fact: dict[str, Any]) -> bool:
@@ -1418,7 +1428,79 @@ def _column_key(name: str) -> str:
     return re.sub(r"\s+", " ", name.strip().strip("`'\"*")).casefold()
 
 
-def _read_table(  # noqa: C901
+def _similar(a: str, b: str) -> bool:
+    """Tell whether two column names are one name in two spellings (`precipitation`, `precipitation_mm`)."""
+    x, y = (re.sub(r"[\W_]+", "", _column_key(name)) for name in (a, b))
+    return bool(x and y and (x in y or y in x))
+
+
+def _day_rows(rows: list[list[str]], fact: dict[str, Any]) -> tuple[list[str], list[list[str]]]:
+    """Give the header of a table and its rows of the fact's day.
+
+    A table with the dates as columns is read transposed. A long table has a parameter column (`parameter`, `name`,
+    `variable`, or any column that holds the fact's canonical name): only the rows whose cell there is the canonical
+    name are kept, else those of the one parameter whose name matches the fact's `column`, else none. A free-text cell
+    elsewhere never filters a row.
+    """
+    if any(_day_pattern(fact["row"]).search(cell) for cell in rows[0]):
+        rows = [list(column) for column in itertools.zip_longest(*rows, fillvalue="")]
+    header, canonical = rows[0], _column_key(fact["column_names"][0])
+    on_day = [row for row in rows[1:] if _row_has_day(row, fact)]
+    for i, name in enumerate(header):
+        if _column_key(name) in {"parameter", "name", "variable"} or any(
+            i < len(row) and _column_key(row[i]) == canonical for row in rows[1:]
+        ):
+            cells = [(row, _column_key(row[i])) for row in on_day if i < len(row)]
+            exact = [row for row, key in cells if key == canonical]
+            named = [(row, key) for row, key in cells if re.search(fact["column"], key, re.IGNORECASE)]
+            return header, exact or ([row for row, _ in named] if len({key for _, key in named}) == 1 else [])
+    return header, on_day
+
+
+def _asked_columns(
+    header: list[str],
+    on_day: list[list[str]],
+    fact: dict[str, Any],
+    column_units: list[tuple[str, str]],
+    known_units: set[str],
+) -> list[tuple[str, list[str]]]:
+    """Give the (name, figures of the day) of the columns that may be the value, by the first rule that finds any.
+
+    The figures inside dates are never read (`_mask`). Rules: the fact's canonical names in order
+    (`precipitation_amount`, else `value`); the headers that match its `column` regex; the columns a `TABLE-UNIT` line
+    names with a unit the case knows (`rain_mm | mm`, not `quality | QN`).
+    """
+    candidates = []
+    for i, name in enumerate(header):
+        cells = [row[i] for row in on_day if i < len(row)]
+        figures = [m.group(0) for cell in cells if (m := _FIGURE.search(_mask(cell)))]
+        if figures:
+            candidates.append((name, figures))
+    for key in (_column_key(name) for name in fact["column_names"]):
+        if found := [c for c in candidates if _column_key(c[0]) == key]:
+            return found
+    if found := [c for c in candidates if re.search(fact["column"], c[0], re.IGNORECASE)]:
+        return found
+    by_line = {_column_key(column): _norm_unit(unit) for column, unit in column_units}
+    return [c for c in candidates if by_line.get(_column_key(c[0])) in known_units]
+
+
+def _column_unit(name: str, column_units: list[tuple[str, str]], tokens: list[set[str]]) -> str | None:
+    """Give the unit a column is stated in, or None.
+
+    Its own `TABLE-UNIT` line, else the one line that is a spelling of its name (`precipitation` for
+    `precipitation_mm`), else the unit in its header (`Precipitation (cm)`); the lines of other columns are not read.
+    """
+    if unit := next((u for column, u in column_units if _column_key(column) == _column_key(name)), None):
+        return unit
+    spelled = {u for column, u in column_units if _similar(column, name)}
+    if len(spelled) == 1:
+        return spelled.pop()
+    in_header = re.search(r"[(\[]([^)\]]+)[)\]]\s*$", name)
+    return in_header[1] if in_header and any(_norm_unit(in_header[1]) in t for t in tokens) else None
+
+
+def _read_table(
     rows: list[list[str]],
     fact: dict[str, Any],
     fitting: Any,  # noqa: ANN401
@@ -1426,78 +1508,45 @@ def _read_table(  # noqa: C901
     tokens: list[set[str]],
     forbidden: set[str],
     base: set[int],
-    *,
-    any_column: bool,
-) -> tuple[str | None, set[int], bool, list[dict[str, str]], bool]:
-    """Read one table of the answer for the value of the fact's day.
+) -> tuple[str | None, set[int], bool, list[dict[str, str]]]:
+    """Read one table of the answer for the value of the fact's day; it decides only when it is unambiguous.
 
     Give the figure that is the value (None if the table does not hold it), the accepted units it was read in, whether
-    the unit came from a `TABLE-UNIT` line, the failures, and whether the table is about the value at all.
-
-    The rows are those of the fact's day (a table with the dates as columns is read transposed; in a long table, one
-    row per parameter, only the rows that name the asked quantity). The column is the one whose header matches the
-    fact's `column`, else one a `TABLE-UNIT` line names with a unit the case knows, else (`any_column`) any column
-    with a figure on those rows: the date column and the figures inside dates are never read. The unit is the one a
-    `TABLE-UNIT` line declares for the column (by its name, or, for the asked column, by the fact's `column` regex:
-    `precipitation` is `precipitation_mm`), else the unit the tool returns. The units a line declares for any other
-    column are not read. A table with no row for the day, or without such a column, is not about the value: it fails
-    nothing. A column that gives the day two different values is ambiguous and fails.
+    the unit was stated (a `TABLE-UNIT` line or the header), and the failures. A table that cannot be read with
+    certainty (no row of the day, no column or two columns that may be the value) gives no figure and no failure: it
+    neither passes nor fails anything, and the RESULT line decides. A column that gives the day two values fails.
     """
-    day = _day_pattern(fact["row"])
-
-    def asked(text: str) -> bool:
-        return re.search(fact["column"], text, re.IGNORECASE) is not None
-
-    if any(day.search(cell) for cell in rows[0]):
-        rows = [list(column) for column in itertools.zip_longest(*rows, fillvalue="")]
-    header = rows[0]
-    on_day = [row for row in rows[1:] if _row_has_day(row, fact)]
-    if any(asked(cell) for row in rows[1:] for cell in row):  # a long table: only the rows of the asked parameter
-        on_day = [row for row in on_day if any(asked(cell) for cell in row)]
-
-    def declared(name: str) -> str | None:
-        key = _column_key(name)
-        by_name = next((unit for column, unit in column_units if _column_key(column) == key), None)
-        by_regex = next((unit for column, unit in column_units if asked(name) and asked(column)), None)
-        in_header = re.search(r"[(\[]([^)\]]+)[)\]]\s*$", name)  # `Precipitation (cm)`: the unit is in the header
-        by_header = in_header[1] if in_header and any(_norm_unit(in_header[1]) in t for t in tokens) else None
-        return by_name or by_regex or by_header
-
-    candidates = []
-    for i, name in enumerate(header):
-        cells = [row[i] for row in on_day if i < len(row)]
-        figures = [m.group(0) for cell in cells if (m := _FIGURE.search(_mask(cell)))]
-        if figures and not any(day.search(cell) for cell in cells):
-            candidates.append((name, figures))
-    known_units = forbidden | set().union(*tokens)
-    chosen = [c for c in candidates if asked(c[0])]
-    if (
-        not chosen
-    ):  # else a column a TABLE-UNIT line names with a unit the case knows (`rain_mm | mm`, not `quality | QN`)
-        chosen = [c for c in candidates if (unit := declared(c[0])) and _norm_unit(unit) in known_units]
-    if not chosen and any_column:
-        chosen = candidates
-    failures: list[dict[str, str]] = []
-    for name, figures in chosen:
-        unit = declared(name)
-        known = {i for i, t in enumerate(tokens) if unit is not None and _norm_unit(unit) in t}
-        if unit is not None and _norm_unit(unit) in forbidden:
-            failures.append({"figure": name, "reason": f"the column is declared in the forbidden unit {unit!r}"})
-            continue
-        if unit is not None and not known:
-            failures.append({"figure": name, "reason": f"the unit {unit!r} of the column is not one the case knows"})
-            continue
-        pairs = known or base or set(range(len(tokens)))
-        fits = [bool(pairs & set(fitting(figure)[1])) for figure in figures]
-        if all(fits):
-            return figures[0], pairs, unit is not None, failures, True
-        if any(fits):
-            failures.append(
-                {"figure": name, "reason": f"the table gives the column more than one value on {fact['row']}"}
-            )
-    if chosen and not failures:  # the day has a row with a figure in it, and it is not the value
-        failures.append({"figure": "", "reason": f"a table of the answer does not hold the value on {fact['row']}"})
-    return None, set(), False, failures, bool(chosen)
+    header, on_day = _day_rows(rows, fact)
+    asked = _asked_columns(header, on_day, fact, column_units, forbidden | set().union(*tokens))
+    if len(asked) != 1:
+        return None, set(), False, []
+    name, figures = asked[0]
+    unit = _column_unit(name, column_units, tokens)
+    known = {i for i, t in enumerate(tokens) if unit is not None and _norm_unit(unit) in t}
+    if unit is not None and _norm_unit(unit) in forbidden:
+        return (
+            None,
+            set(),
+            False,
+            [{"figure": name, "reason": f"the column is declared in the forbidden unit {unit!r}"}],
+        )
+    if unit is not None and not known:
+        return (
+            None,
+            set(),
+            False,
+            [{"figure": name, "reason": f"the unit {unit!r} of the column is not one the case knows"}],
+        )
+    pairs = known or base or set(range(len(tokens)))
+    fits = [bool(pairs & set(fitting(figure)[1])) for figure in figures]
+    if all(fits):
+        return figures[0], pairs, unit is not None, []
+    reason = (
+        f"the table gives the column more than one value on {fact['row']}"
+        if any(fits)
+        else f"a table of the answer does not hold the value on {fact['row']}"
+    )
+    return None, set(), False, [{"figure": name, "reason": reason}]
 
 
 def _result_check(answer: str, fact: dict[str, Any], truth: dict[str, float]) -> dict[str, Any] | None:  # noqa: C901
@@ -1569,14 +1618,10 @@ def _result_check(answer: str, fact: dict[str, Any], truth: dict[str, float]) ->
                     }
                 )
     if "column" in fact:
-        tables = _tables_of(answer)[0]
-        args = (fact, fitting, column_units, tokens, forbidden, base)
-        reads = [_read_table(rows, *args, any_column=False) for _, _, rows in tables]
-        if not any(read[4] for read in reads):  # no table has a column for the quantity: read every column
-            reads = [_read_table(rows, *args, any_column=True) for _, _, rows in tables]
-        for figure, pairs, from_line, bad, _ in reads:
+        for _, _, rows in _tables_of(answer)[0]:
+            figure, pairs, stated, bad = _read_table(rows, fact, fitting, column_units, tokens, forbidden, base)
             failures.extend(bad)
-            if figure is not None and from_line:
+            if figure is not None and stated:
                 ok_pairs |= pairs
                 ok_figures.append(figure)
         if not ok_figures and not failures:

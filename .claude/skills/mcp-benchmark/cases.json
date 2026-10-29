@@ -2530,6 +2530,7 @@
           },
           "cross_check": {"tool": "glossary", "args": {"parameter": "precipitation_amount", "limit": 3}},
           "column": "precip|^value$",
+          "column_names": ["precipitation_amount", "value"],
           "row": "2026-10-16",
           "accepted": [
             {"tokens": ["mm", "millimeter", "millimeters", "millimetre", "millimetres", "l/m²", "l/m2"], "factor": 1},
