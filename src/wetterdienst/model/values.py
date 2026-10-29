@@ -695,10 +695,13 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             df = self._convert_units(df, dataset)
         df = merge_duplicate_readings(df, ["station_id", "resolution", "dataset", "parameter", "timestamp"])
         if QUALITY_FLAGS in df.columns:
-            # the readings the source marked as missing may leave with the nulls; the answer still tells how many
+            # the readings the source marked as missing may leave with the nulls; the answer still tells how many,
+            # of the window it is cut to (`_filter_by_window`, later) and not of the whole file
             count_response_warning(
                 MISSING_VALUE_MARKER,
-                df.filter(pl.col("value").is_null() & pl.col(QUALITY_FLAGS).str.contains(RAW_TOKEN)).height,
+                self._filter_by_window(df)
+                .filter(pl.col("value").is_null() & pl.col(QUALITY_FLAGS).str.contains(RAW_TOKEN))
+                .height,
                 MISSING_VALUE_MARKER_MESSAGE,
             )
         if self.sr.options.drop_nulls_effective:
