@@ -46,7 +46,6 @@ from wetterdienst.util.response_warnings import (
     collecting,
     recorded_warnings,
     warn_response,
-    watch_named_parameters,
 )
 
 if TYPE_CHECKING:
@@ -97,7 +96,7 @@ class ParameterRows:
         #: whether the provider let go a file that every station of the request is read from
         self._skipped_all = False
         #: the parameters another warning named while the walk went on (`parameter-ended`)
-        self._named = watch_named_parameters() if enabled else set()
+        self._named: set[str] = set()
         #: the stations the walk read, by the dataset they were read for, in the order they came
         self._examined: dict[tuple[str, str], list[str]] = {}
         #: `(resolution, dataset, parameter)` of every row the walk found in the window
@@ -121,7 +120,7 @@ class ParameterRows:
             else:
                 self._skipped.add(station_id)
 
-        return collecting(skipped)
+        return collecting(skipped, self._named)
 
     def note(self, df: pl.DataFrame) -> None:
         """Note the parameters that a station's rows of the answer are of, in the long form the provider handed over."""

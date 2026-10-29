@@ -49,8 +49,8 @@ MISSING_VALUE_MARKER_MESSAGE = (
 #: the code of the warning that names a requested parameter the source holds no values for, at any station asked about
 PARAMETER_WITHOUT_ROWS = "parameter-without-rows"
 
-#: the parameters a warning has named since a walk began to watch (`watch_named_parameters`), which the response
-#: warnings of the request cannot tell where nothing is recorded (the library as a library)
+#: the parameters a warning names while a walk collects one station (`collecting`), which the response warnings of
+#: the request cannot tell where nothing is recorded (the library as a library)
 _NAMED: ContextVar[set[str] | None] = ContextVar("wetterdienst_named_parameters", default=None)
 _RECORDED: ContextVar[list[ResponseWarning] | None] = ContextVar("wetterdienst_response_warnings", default=None)
 #: the warnings that count something across the whole request, by code: the count and the message, where `{count}` is
@@ -64,13 +64,21 @@ _SKIPPING: ContextVar[Callable[[bool], None] | None] = ContextVar("wetterdienst_
 
 
 @contextmanager
-def collecting(note: Callable[[bool], None]) -> Iterator[None]:
-    """Have `note` told what a provider lets go while the block runs, which is the collection of one station."""
-    token = _SKIPPING.set(note)
+def collecting(note: Callable[[bool], None], named: set[str] | None = None) -> Iterator[None]:
+    """Have `note` told what a provider lets go while the block runs, which is the collection of one station.
+
+    The `parameter` of every warning raised meanwhile is added to `named`, for a walk that must not say again what
+    another warning has said of a parameter (`parameter-without-rows` after `parameter-ended`): the warnings of the
+    request are not kept outside a response, but the log lines are written all the same, and would repeat. Both are
+    the block's alone, so that walks that overlap (interleaved, or one in the other's collection) keep to their own.
+    """
+    skipping = _SKIPPING.set(note)
+    watching = _NAMED.set(named)
     try:
         yield
     finally:
-        _SKIPPING.reset(token)
+        _NAMED.reset(watching)
+        _SKIPPING.reset(skipping)
 
 
 def note_skipped_download(*, whole_request: bool = False) -> None:
@@ -88,18 +96,6 @@ def note_skipped_download(*, whole_request: bool = False) -> None:
     note = _SKIPPING.get()
     if note is not None:
         note(whole_request)
-
-
-def watch_named_parameters() -> set[str]:
-    """Start collecting the `parameter` of every warning raised from now on, and give the set they are added to.
-
-    For a walk that must not say again what another warning has said of a parameter (`parameter-without-rows`
-    after `parameter-ended`): the warnings of the request are not kept outside a response, but the log lines are
-    written all the same, and would repeat.
-    """
-    named: set[str] = set()
-    _NAMED.set(named)
-    return named
 
 
 def begin_response() -> None:
@@ -141,7 +137,8 @@ def warn_response(
     """
     log.log(level, message)
     named = _NAMED.get()
-    if named is not None and parameter is not None:
+    # not the warning of this very code, which is raised after a walk, and must not silence another one
+    if named is not None and parameter is not None and code != PARAMETER_WITHOUT_ROWS:
         named.add(parameter)
     recorded = _RECORDED.get()
     warning: ResponseWarning = {"code": code, "message": message}

@@ -563,8 +563,8 @@ class MetnoFrostValues(TimeseriesValues):
         start_date = self.sr.start
         end_date = self.sr.end
         if not start_date or not end_date:
-            # nothing is asked of Frost without a window (its daily, monthly and annual datasets do not declare
-            # `date_required`), so the answer says nothing of what Frost holds
+            # nothing is asked of Frost without a window (REST and the command line demand one; Python does not), so
+            # the answer says nothing of what Frost holds: a reader that returns without asking tells the walk so
             note_skipped_download()
             return pl.DataFrame()
 

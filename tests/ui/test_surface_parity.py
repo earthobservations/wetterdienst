@@ -17,6 +17,7 @@ import re
 from typing import TYPE_CHECKING, Any
 
 import click
+import freezegun
 import polars as pl
 import pytest
 from click.testing import CliRunner, Result
@@ -30,6 +31,7 @@ from wetterdienst.provider.dwd.observation.api import DwdObservationValues
 from wetterdienst.ui import cli as cli_module
 from wetterdienst.ui import core, restapi
 from wetterdienst.ui.cli import cli
+from wetterdienst.util import response_warnings
 from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
 if TYPE_CHECKING:
@@ -1713,7 +1715,9 @@ def test_periods_that_change_nothing_are_not_said_to_be_the_reason(monkeypatch: 
     """`periods` the window would have read anyway are no reason: `try without periods` would answer the same."""
     _holding_none_of(monkeypatch, "sdk")
 
-    (recent_for_recent,) = _told([_EMPTY], ["00001"], window=("2026-10-01", "2026-10-03"), periods="recent")
+    # the `historical` release runs to the start of the current year: the clock stands where 2026-10 is `recent` alone
+    with freezegun.freeze_time("2026-10-29"):
+        (recent_for_recent,) = _told([_EMPTY], ["00001"], window=("2026-10-01", "2026-10-03"), periods="recent")
     (historical_for_2020,) = _told([_EMPTY], ["00001"], periods="historical")
     (recent_for_2020,) = _told([_EMPTY], ["00001"], periods="recent")
 
@@ -1722,3 +1726,58 @@ def test_periods_that_change_nothing_are_not_said_to_be_the_reason(monkeypatch: 
     # the window of 2020 is read from `historical`, which `recent` leaves out
     assert "in the periods asked for (recent). Try without `periods`." in recent_for_2020["message"]
     assert "Leave it out, or try another station or window." in recent_for_recent["message"]
+
+
+# walks that overlap keep to their own parameters named (`parameter-ended`) and their own stations
+
+
+def _parameter_rows_lines(caplog: pytest.LogCaptureFixture) -> list[str]:
+    return [r.getMessage() for r in caplog.records if r.name == "wetterdienst.model.parameter_rows"]
+
+
+def _walk(stations: list[str], parameters: list[str]) -> Any:  # noqa: ANN401
+    request = DwdObservationRequest(parameters=parameters, start="2020-05-01", end="2020-05-03")
+    return request.filter_by_station_id(stations).values().query()
+
+
+def test_walks_that_are_interleaved_each_tell_their_parameters(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Two generators read alternately in the library: neither walk's warning silences the other's."""
+    import itertools  # noqa: PLC0415
+
+    _holding_none_of(monkeypatch, "sdk")
+    response_warnings._RECORDED.set(None)  # noqa: SLF001
+    with caplog.at_level(logging.INFO):
+        for _ in itertools.zip_longest(_walk(["00001"], [_EMPTY, _FULL]), _walk(["00001", "00002"], [_EMPTY, _FULL])):
+            # a warning that names the parameter between the collections belongs to the stations of neither walk
+            response_warnings.warn_response(logging.getLogger(__name__), "another", "m", parameter=_EMPTY_NAME)
+
+    lines = _parameter_rows_lines(caplog)
+    assert len(lines) == 2
+    assert any("station 00001 " in line for line in lines)
+    assert any("stations 00001, 00002 " in line for line in lines)
+
+
+def test_a_walk_in_the_collection_of_another_does_not_silence_it(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A provider that reads values of its own while it collects a station: both walks tell their parameter."""
+    original = DwdObservationValues._collect_station_parameter_or_dataset  # noqa: SLF001
+    inside = []
+
+    def collect(self: object, station_id: str, parameter_or_dataset: Any) -> pl.DataFrame:  # noqa: ANN401
+        if not inside:
+            inside.append(station_id)
+            list(_walk(["00002"], [_EMPTY]))
+        return original(self, station_id, parameter_or_dataset).filter(pl.col("parameter") != "sdk")
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+    response_warnings._RECORDED.set(None)  # noqa: SLF001
+    with caplog.at_level(logging.INFO):
+        list(_walk(["00001"], [_EMPTY]))
+
+    lines = _parameter_rows_lines(caplog)
+    assert len(lines) == 2
+    assert any("station 00002 " in line for line in lines)
+    assert any("station 00001 " in line for line in lines)

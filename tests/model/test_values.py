@@ -1192,7 +1192,8 @@ def test_the_missing_value_marker_warning_counts_the_window_and_not_the_file(
 
     request.filter_by_station_id("00001").values().all()
 
-    warnings = recorded_warnings()
+    # with the nulls dropped the parameter has no row left, which `parameter-without-rows` tells besides
+    warnings = [warning for warning in recorded_warnings() if warning["code"] != "parameter-without-rows"]
     assert [warning["code"] for warning in warnings] == ["missing-value-marker"]
     assert warnings[0]["message"].startswith("2 readings of the source")
 

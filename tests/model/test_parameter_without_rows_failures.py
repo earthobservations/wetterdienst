@@ -696,22 +696,23 @@ def test_fmi_values_say_nothing_of_a_fetch_that_failed(monkeypatch: pytest.Monke
     assert _told() == []
 
 
-def test_frost_values_say_nothing_when_frost_was_not_asked(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Frost's daily data declare no window and its reader returns without asking for want of one: no claim."""
-    asked: list[str] = []
+def test_frost_values_say_nothing_when_frost_was_not_asked() -> None:
+    """Frost's reader returns without asking for want of a window (the guard of any dataset that has none): no claim."""
+    from types import SimpleNamespace  # noqa: PLC0415
 
-    def observations(url: str) -> File:
-        asked.append(url)
-        msg = f"the source was asked for {url}"
-        raise AssertionError(msg)
+    from wetterdienst.provider.metno.frost import MetnoFrostRequest  # noqa: PLC0415
+    from wetterdienst.provider.metno.frost.api import MetnoFrostValues  # noqa: PLC0415
+    from wetterdienst.util.response_warnings import collecting  # noqa: PLC0415
 
-    values, _seen = _frost_values(
-        monkeypatch, observations, parameters=[("daily", "data", "temperature_air_mean_2m")], start=None, end=None
-    )
-    begin_response()
-    assert values.all().df.is_empty()
-    assert asked == []
-    assert _told() == []
+    parameter = next(iter(MetnoFrostRequest.metadata["hourly"]["data"]))
+    values = SimpleNamespace(sr=SimpleNamespace(start=None, end=None))
+    letting_go: list[bool] = []
+
+    with collecting(letting_go.append):
+        df = MetnoFrostValues._collect_station_parameter_or_dataset(values, "SN18700", parameter)  # noqa: SLF001
+
+    assert df.is_empty()
+    assert letting_go == [False]
 
 
 def test_chmi_hourly_window_after_2024_is_told_once_in_the_log_where_no_response_records_it(

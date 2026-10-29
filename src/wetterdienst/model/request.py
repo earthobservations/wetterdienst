@@ -359,15 +359,15 @@ class TimeseriesRequest:
     # within reach of the point once they are ranked, before the first value is downloaded, it refuses the request
     # by raising. The library sets none (`core.util.hold_stations_in_reach`)
     _check_reach: Callable[[int], None] | None = field(default=None, init=False, repr=False, compare=False)
-    # Not an argument: which of the parameters were asked for as a whole dataset (`(resolution, dataset)`) and which by
-    # their name (`(resolution, dataset, name_original)`), as `requested_by_kind` reads it in `__post_init__`. The
-    # flat `parameters` has lost that, and `parameter-without-rows` is told of a parameter by its name only
     # Not an argument: the periods a request asked for by name when that narrowed what it reads (`_selects_by_period`),
     # which `parameter-without-rows` says it was held to; empty where none was asked for or all were
     _periods_narrowed: frozenset[Period] = field(default=frozenset(), init=False, repr=False, compare=False)
     # Not an argument: the periods the request would have read had it not been given any (`_resolve_periods(None)`:
     # those the window reaches), which `periods` is judged against, set where `_periods_narrowed` is
     _periods_inferred: frozenset[Period] = field(default=frozenset(), init=False, repr=False, compare=False)
+    # Not an argument: which of the parameters were asked for as a whole dataset (`(resolution, dataset)`) and which by
+    # their name (`(resolution, dataset, name_original)`), as `requested_by_kind` reads it in `__post_init__`. The
+    # flat `parameters` has lost that, and `parameter-without-rows` is told of a parameter by its name only
     _requested_whole: frozenset[tuple[str, str]] = field(default=frozenset(), init=False, repr=False, compare=False)
     _requested_named: frozenset[tuple[str, str, str]] = field(
         default=frozenset(), init=False, repr=False, compare=False
