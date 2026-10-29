@@ -1695,7 +1695,7 @@ def _stream_values(
     """
     try:
         stations = get_stations(
-            api=api, request=request, timestamp=request.timestamp, settings=settings, options=options, windowed=True
+            api=api, request=request, timestamp=request.timestamp, settings=settings, options=options
         )
         _check_values_limits(stations, limits, streamed=True)
         reader = stations.values()
@@ -1779,7 +1779,6 @@ def stations(
             timestamp=request.timestamp,
             settings=settings,
             options=options,
-            windowed=True,
         )
     except AssertionError:
         # a request its model should have refused reached the lookup: our bug, which FastAPI answers

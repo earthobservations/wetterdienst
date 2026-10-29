@@ -1503,7 +1503,7 @@ def stations(
     )
     try:
         stations_ = get_stations(
-            api=api, request=request, timestamp=request.timestamp, settings=settings, options=options, windowed=True
+            api=api, request=request, timestamp=request.timestamp, settings=settings, options=options
         )
     except Exception as e:
         # a parameter, bounding box or --sql the caller can rephrase is told in one line, as

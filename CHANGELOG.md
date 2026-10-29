@@ -32,8 +32,9 @@ Types of changes:
   France, Guadeloupe, Martinique, Guyane, Reunion and Mayotte, swapped or not, with a null
   `latitude` and `longitude`. The answer carries the warning `position-unplaced`, naming it and
   the position the source wrote, when the station is in it or a search by place (rank, distance,
-  bounding box, interpolate, summarize) had to leave it out, and, for a window, it has a record
-  in it; a request for other stations has none.
+  bounding box, interpolate, summarize) had to leave it out, and, for the `timestamp` of a listing,
+  values or estimate (and the `start` and `end` of `interpolate` and `summarize` in Python), it has
+  a record in the window; a request for other stations has none.
   It is `J543211003` (the Blavet), which the referential lists in Algeria and which was returned
   there; no search by place finds it now. Select it by `station_id`. The 54 stations listed with
   latitude and longitude swapped stay corrected (GH-3468)

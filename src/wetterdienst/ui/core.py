@@ -11,7 +11,6 @@ import sys
 import threading
 import time
 from collections.abc import Mapping, Sequence
-from contextlib import contextmanager
 from dataclasses import replace
 from typing import TYPE_CHECKING, Annotated, Any, Literal, LiteralString, cast
 
@@ -43,10 +42,10 @@ from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
 from wetterdienst.model.metadata import parse_parameters
 from wetterdienst.model.request import (
-    ANSWER_WINDOW,
     DEFAULT_NAME_RANK,
     DEFAULT_NAME_RANK_LISTING,
     TimeseriesRequest,
+    answer_cut_to_window,
     limit_to_window,
 )
 from wetterdienst.options import Options, SkipThreshold, StationWindowEndBuffer, options_from_mapping
@@ -57,7 +56,7 @@ from wetterdienst.util.logging import get_one_line_logger
 from wetterdienst.util.ui import read_list
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Hashable, Iterator
+    from collections.abc import Callable, Hashable
 
     import plotly.graph_objs as go
 
@@ -1773,97 +1772,61 @@ def get_stations(
     timestamp: str | None,
     settings: Settings,
     options: Options | None = None,
-    *,
-    windowed: bool = False,
 ) -> StationsResult:
     """Get stations based on request, by the one selection its model lets it make.
 
-    Args:
-        api: the request class of the network
-        request: the request model
-        timestamp: the window of the request
-        settings: the settings of the host
-        options: the options of the request
-        windowed: the answer is cut to the window afterwards: a stations listing (`limit_stations_to_window`), or the
-            values of the stations, of which one without a record in the window has none. A warning about a station
-            the provider lists without a position (`position-unplaced`) is then told, for the whole list and for a
-            search by place, only if the station survives that cut; a station named by id or SQL is told whatever the
-            cut does to it
-
+    The answers that call it are cut to the window (`timestamp`) afterwards, a stations listing by
+    `limit_stations_to_window` and the values of the stations by what each holds in it, so a station the provider
+    lists without a position (`position-unplaced`) is told, for the whole list and for a search by place, only if it
+    survives the cut (`answer_cut_to_window`); one named by id or SQL is told whatever the cut does to it. Without
+    a window the cut is no cut.
     """
-    with answer_cut_to_window(on=windowed):
-        return _select_stations(api, request, timestamp, settings, options)
+    with answer_cut_to_window():
+        r = _get_stations_request(api=api, request=request, timestamp=timestamp, settings=settings, options=options)
 
+        if getattr(request, "all", False):
+            return r.all()
 
-@contextmanager
-def answer_cut_to_window(*, on: bool = True) -> Iterator[None]:
-    """Say, while the stations of an answer are selected, that the answer is cut to the window of the request.
+        if request.stations:
+            return r.filter_by_station_id(request.stations)
 
-    Stations a provider lists without a position are warned about where the answer holds them or a search by place had
-    to leave them out (`TimeseriesRequest._warn_unplaced`); for an answer cut to the window, only the stations that
-    survive the cut count. A stations listing, the values of stations and an interpolation or a summary are cut
-    that way.
-    """
-    token = ANSWER_WINDOW.set(on)
-    try:
-        yield
-    finally:
-        ANSWER_WINDOW.reset(token)
+        name: str | None = getattr(request, "name", None)
+        if name:
+            # the rank asked for, else the default of what is asked: the best few of a listing, the best
+            # match of a fetch, which is the one `filter_by_name` has too (GH-2635)
+            default_rank = DEFAULT_NAME_RANK_LISTING if isinstance(request, StationsRequest) else DEFAULT_NAME_RANK
+            name_rank: int = getattr(request, "rank", None) or default_rank
+            # a request for a window matches the name among the stations that have a record in it, which
+            # `filter_by_name` does of its own accord, so that the best match is not one that closed long
+            # ago while a current station of the same name has the readings, and the best few of a listing
+            # are not ones that closed either (GH-3026)
+            return r.filter_by_name(name, rank=name_rank, threshold=getattr(request, "name_threshold", 0.8))
 
+        latitude: float | None = getattr(request, "latitude", None)
+        longitude: float | None = getattr(request, "longitude", None)
+        rank: int | None = getattr(request, "rank", None)
+        distance: float | None = getattr(request, "distance", None)
 
-def _select_stations(
-    api: type[TimeseriesRequest],
-    request: StationsRequest | ValuesRequest | HistoryRequest,
-    timestamp: str | None,
-    settings: Settings,
-    options: Options | None,
-) -> StationsResult:
-    """Make the one selection of stations that the request names."""
-    r = _get_stations_request(api=api, request=request, timestamp=timestamp, settings=settings, options=options)
+        if latitude is not None and longitude is not None and rank is not None:
+            return r.filter_by_rank(latlon=(latitude, longitude), rank=rank)
 
-    if getattr(request, "all", False):
-        return r.all()
+        if latitude is not None and longitude is not None and distance is not None:
+            return r.filter_by_distance(latlon=(latitude, longitude), distance=distance)
 
-    if request.stations:
-        return r.filter_by_station_id(request.stations)
+        left: float | None = getattr(request, "left", None)
+        bottom: float | None = getattr(request, "bottom", None)
+        right: float | None = getattr(request, "right", None)
+        top: float | None = getattr(request, "top", None)
+        if left is not None and bottom is not None and right is not None and top is not None:
+            return r.filter_by_bbox(left=left, bottom=bottom, right=right, top=top)
 
-    name: str | None = getattr(request, "name", None)
-    if name:
-        # the rank asked for, else the default of what is asked: the best few of a listing, the best
-        # match of a fetch, which is the one `filter_by_name` has too (GH-2635)
-        default_rank = DEFAULT_NAME_RANK_LISTING if isinstance(request, StationsRequest) else DEFAULT_NAME_RANK
-        name_rank: int = getattr(request, "rank", None) or default_rank
-        # a request for a window matches the name among the stations that have a record in it, which
-        # `filter_by_name` does of its own accord, so that the best match is not one that closed long
-        # ago while a current station of the same name has the readings, and the best few of a listing
-        # are not ones that closed either (GH-3026)
-        return r.filter_by_name(name, rank=name_rank, threshold=getattr(request, "name_threshold", 0.8))
+        sql: str | None = getattr(request, "sql", None)
+        if sql:
+            return r.filter_by_sql(sql)
 
-    latitude: float | None = getattr(request, "latitude", None)
-    longitude: float | None = getattr(request, "longitude", None)
-    rank: int | None = getattr(request, "rank", None)
-    distance: float | None = getattr(request, "distance", None)
-
-    if latitude is not None and longitude is not None and rank is not None:
-        return r.filter_by_rank(latlon=(latitude, longitude), rank=rank)
-
-    if latitude is not None and longitude is not None and distance is not None:
-        return r.filter_by_distance(latlon=(latitude, longitude), distance=distance)
-
-    left: float | None = getattr(request, "left", None)
-    bottom: float | None = getattr(request, "bottom", None)
-    right: float | None = getattr(request, "right", None)
-    top: float | None = getattr(request, "top", None)
-    if left is not None and bottom is not None and right is not None and top is not None:
-        return r.filter_by_bbox(left=left, bottom=bottom, right=right, top=top)
-
-    sql: str | None = getattr(request, "sql", None)
-    if sql:
-        return r.filter_by_sql(sql)
-
-    # not reached: the request models refuse a request that selects no stations, and say why
-    msg = f"{type(request).__name__} selects no stations"
-    raise AssertionError(msg)
+        # not reached: the request models refuse a request that selects no stations, and say why
+        msg = f"{type(request).__name__} selects no stations"
+        raise AssertionError(msg)
 
 
 def limit_stations_to_window(stations: StationsResult) -> StationsResult:
@@ -1931,7 +1894,6 @@ def get_values(
         timestamp=request.timestamp,
         settings=settings,
         options=options,
-        windowed=True,
     )
     if check is not None:
         check(stations_)
@@ -1973,15 +1935,14 @@ def get_interpolate(
     if check is not None:
         check(r)
 
-    with answer_cut_to_window():
-        if request.latitude is not None and request.longitude is not None:
-            values_ = r.interpolate((request.latitude, request.longitude), elevation=request.elevation)
-        elif request.station:
-            values_ = r.interpolate_by_station_id(request.station, elevation=request.elevation)
-        else:
-            # not reached: the request model refuses a request with neither a point nor a station
-            msg = f"{type(request).__name__} gives neither a point nor a station"
-            raise AssertionError(msg)
+    if request.latitude is not None and request.longitude is not None:
+        values_ = r.interpolate((request.latitude, request.longitude), elevation=request.elevation)
+    elif request.station:
+        values_ = r.interpolate_by_station_id(request.station, elevation=request.elevation)
+    else:
+        # not reached: the request model refuses a request with neither a point nor a station
+        msg = f"{type(request).__name__} gives neither a point nor a station"
+        raise AssertionError(msg)
 
     if request.sql_values:
         log.info(f"Filtering with SQL: {request.sql_values}")
@@ -2004,15 +1965,14 @@ def get_summarize(
     if check is not None:
         check(r)
 
-    with answer_cut_to_window():
-        if request.latitude is not None and request.longitude is not None:
-            values_ = r.summarize((request.latitude, request.longitude), elevation=request.elevation)
-        elif request.station:
-            values_ = r.summarize_by_station_id(request.station, elevation=request.elevation)
-        else:
-            # not reached: the request model refuses a request with neither a point nor a station
-            msg = f"{type(request).__name__} gives neither a point nor a station"
-            raise AssertionError(msg)
+    if request.latitude is not None and request.longitude is not None:
+        values_ = r.summarize((request.latitude, request.longitude), elevation=request.elevation)
+    elif request.station:
+        values_ = r.summarize_by_station_id(request.station, elevation=request.elevation)
+    else:
+        # not reached: the request model refuses a request with neither a point nor a station
+        msg = f"{type(request).__name__} gives neither a point nor a station"
+        raise AssertionError(msg)
 
     if request.sql_values:
         log.info(f"Filtering with SQL: {request.sql_values}")

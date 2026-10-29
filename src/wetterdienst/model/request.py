@@ -8,6 +8,7 @@ import copy
 import datetime as dt
 from abc import abstractmethod
 from collections.abc import Callable, Iterable, Iterator, Sequence
+from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, cast
@@ -330,6 +331,23 @@ _SELECTING: ContextVar[bool] = ContextVar("wetterdienst_selecting", default=Fals
 #: station that the answer would have in it, or have to leave out of a search by place, is then told only for the
 #: stations that survive the cut (`TimeseriesRequest._within_answer_window`)
 ANSWER_WINDOW: ContextVar[bool] = ContextVar("wetterdienst_answer_window", default=False)
+
+
+@contextmanager
+def answer_cut_to_window() -> Iterator[None]:
+    """Say, while the stations of an answer are selected, that the answer is cut to the window of the request.
+
+    Stations a provider lists without a position are warned about where the answer holds them or a search by place had
+    to leave them out (`TimeseriesRequest._warn_unplaced`); for an answer cut to the window, only the stations that
+    survive the cut count. A stations listing, the values of stations and an interpolation or a summary are cut
+    that way: the user interfaces select their stations in this context (`ui.core.get_stations`), and
+    `interpolate` and `summarize` rank theirs in it.
+    """
+    token = ANSWER_WINDOW.set(True)
+    try:
+        yield
+    finally:
+        ANSWER_WINDOW.reset(token)
 
 
 @dataclass
@@ -1263,9 +1281,11 @@ class TimeseriesRequest:
         if df_all is None:
             df_all = self._stations_to_select_among()
         data_updated: dict[str, dt.datetime] = {}
-        df_interpolated = self._as_asked(
-            get_interpolated_df(self._for_estimating(), lat, lon, elevation, df_all=df_all, data_updated=data_updated)
-        )
+        with answer_cut_to_window():
+            interpolated = get_interpolated_df(
+                self._for_estimating(), lat, lon, elevation, df_all=df_all, data_updated=data_updated
+            )
+        df_interpolated = self._as_asked(interpolated)
         # the elevation belongs in the name: two elevations at one point are two different
         # answers, and sharing an id would merge them wherever the id is what identifies a series
         point = (
@@ -1385,9 +1405,11 @@ class TimeseriesRequest:
         if df_all is None:
             df_all = self._stations_to_select_among()
         data_updated: dict[str, dt.datetime] = {}
-        summarized_values = self._as_asked(
-            get_summarized_df(self._for_estimating(), lat, lon, elevation, df_all=df_all, data_updated=data_updated)
-        )
+        with answer_cut_to_window():
+            summarized = get_summarized_df(
+                self._for_estimating(), lat, lon, elevation, df_all=df_all, data_updated=data_updated
+            )
+        summarized_values = self._as_asked(summarized)
         # the elevation belongs in the name: two elevations at one point are two different
         # answers, and sharing an id would merge them wherever the id is what identifies a series
         point = (

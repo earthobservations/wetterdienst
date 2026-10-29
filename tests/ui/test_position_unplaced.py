@@ -24,6 +24,7 @@ from click.testing import CliRunner
 from fastapi.testclient import TestClient
 
 from tests.provider.station_catalogue_stubs import hubeau_request
+from wetterdienst.model.request import ANSWER_WINDOW, answer_cut_to_window
 from wetterdienst.provider.eaufrance.hubeau import HubeauRequest, api
 from wetterdienst.ui import restapi
 from wetterdienst.ui.cli import cli
@@ -324,15 +325,40 @@ def test_the_values_of_a_station_named_by_id_are_told_whatever_the_window_does_t
     assert _answer("/api/values", stations=BLAVET, **AFTER_IT_OPENED) == [CODE]
 
 
-@pytest.mark.usefixtures("no_readings")
 def test_the_window_of_one_answer_is_not_kept_for_the_next() -> None:
-    """Test that the context of the window is reset after the request, whatever the answer was."""
-    from wetterdienst.model.request import ANSWER_WINDOW  # noqa: PLC0415
+    """Test that the context of the window is reset once the stations are selected, whatever the answer was.
 
-    _answer("/api/stations", all="true", **BEFORE_IT_OPENED)
-    _answer("/api/summarize", **NEAR_PARIS, **BEFORE_IT_OPENED)
-
+    The command line runs in the context of the test, where a REST request runs in a copy of it, so a missing reset
+    shows here and not there.
+    """
+    _cli(all="true", **BEFORE_IT_OPENED)
     assert ANSWER_WINDOW.get() is False
+
+    def fail_inside() -> None:
+        with answer_cut_to_window():
+            assert ANSWER_WINDOW.get() is True
+            raise RuntimeError
+
+    with pytest.raises(RuntimeError):
+        fail_inside()
+    assert ANSWER_WINDOW.get() is False
+
+
+@pytest.mark.usefixtures("no_readings")
+@pytest.mark.parametrize("estimate", ["interpolate", "summarize"])
+def test_the_library_cuts_an_estimate_to_its_window_as_the_user_interfaces_do(
+    estimate: str, hubeau: HubeauRequest
+) -> None:
+    """Test that `interpolate` and `summarize` tell the Blavet only if it has a record in the window of the request."""
+
+    def warnings_for(start: str, end: str) -> list[str]:
+        request = HubeauRequest(parameters=[("5_minutes", "data")], start=start, end=end, settings=hubeau.settings)
+        begin_response()
+        getattr(request, estimate)((48.85, 2.35))
+        return [warning["code"] for warning in recorded_warnings()]
+
+    assert warnings_for("2026-01-01", "2026-01-02") == []
+    assert warnings_for("2026-10-15", "2026-10-16") == [CODE]
 
 
 @pytest.mark.usefixtures("no_readings")
