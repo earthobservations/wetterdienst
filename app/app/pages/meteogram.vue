@@ -224,23 +224,16 @@ onMounted(async () => {
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('meteogram.title') }}
-      </h1>
-      <p class="text-gray-600 dark:text-gray-400">
-        {{ t('meteogram.subtitle') }}
-      </p>
-    </div>
+  <PageContainer wide>
+    <PageHeader :title="t('meteogram.title')" :lead="t('meteogram.subtitle')" />
 
     <UCollapsible v-model="showAbout">
       <UButton
         :label="t('meteogram.aboutButton')"
-        icon="i-lucide-info"
+        icon="i-ph-info"
         variant="subtle"
         color="neutral"
-        trailing-icon="i-lucide-chevron-down"
+        trailing-icon="i-ph-caret-down"
         block
         size="sm"
       />
@@ -260,7 +253,7 @@ onMounted(async () => {
     <UCard>
       <template #header>
         <div class="flex items-center gap-2 flex-wrap">
-          <UIcon name="i-lucide-map-pin" class="text-primary-500 shrink-0" />
+          <UIcon name="i-ph-map-pin" class="text-primary-500 shrink-0" />
           <span class="text-lg font-bold">{{ t('explorer.dataSource') }}</span>
           <div class="ml-auto flex items-center gap-2">
             <label for="meteogram-run" class="text-xs text-gray-500 dark:text-gray-400 shrink-0">{{ t('meteogram.runLabel') }}</label>
@@ -289,22 +282,22 @@ onMounted(async () => {
       <UCollapsible v-model="showMap">
         <UButton
           :label="t('meteogram.chooseOnMap')"
-          icon="i-lucide-map-pin"
+          icon="i-ph-map-pin"
           variant="subtle"
           color="primary"
-          trailing-icon="i-lucide-chevron-down"
+          trailing-icon="i-ph-caret-down"
           block
           @click="showMap = !showMap"
         />
         <template #content>
           <ClientOnly>
             <div v-if="mapLoading" class="flex items-center justify-center gap-3 py-8 text-gray-500 dark:text-gray-400">
-              <UIcon name="i-lucide-loader-circle" class="w-5 h-5 animate-spin text-primary-500" />
+              <UIcon name="i-ph-circle-notch" class="w-5 h-5 animate-spin text-primary-500" />
               <span>{{ t('stationSelection.loading') }}</span>
             </div>
             <template v-else-if="mapStations.length">
               <p v-if="!mapNotLoaded" class="flex items-center justify-center gap-2 mt-3 text-sm text-gray-500 dark:text-gray-400">
-                <UIcon name="i-lucide-hand-pointer-2" class="w-4 h-4 text-primary-500" />
+                <UIcon name="i-ph-hand-pointing" class="w-4 h-4 text-primary-500" />
                 {{ t('meteogram.mapHint') }}
               </p>
               <MapStations
@@ -321,7 +314,7 @@ onMounted(async () => {
 
     <!-- Loading state -->
     <div v-if="pending" class="flex items-center justify-center gap-3 py-12 text-gray-500 dark:text-gray-400">
-      <UIcon name="i-lucide-loader-circle" class="w-6 h-6 animate-spin text-primary-500" />
+      <UIcon name="i-ph-circle-notch" class="w-6 h-6 animate-spin text-primary-500" />
       <span>{{ t('meteogram.loading') }}</span>
     </div>
 
@@ -330,7 +323,7 @@ onMounted(async () => {
       v-else-if="error"
       color="error"
       variant="subtle"
-      icon="i-lucide-alert-circle"
+      icon="i-ph-warning-circle"
       :title="error"
     />
 
@@ -338,13 +331,13 @@ onMounted(async () => {
     <UCard v-else-if="selectedStation && values.length > 0">
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-cloud-sun" class="text-primary-500" />
+          <UIcon name="i-ph-cloud-sun" class="text-primary-500" />
           <span class="text-lg font-bold">{{ selectedStation.name }}</span>
           <span class="text-gray-500 dark:text-gray-400 text-sm">({{ selectedStation.station_id }})</span>
           <UButton
             :to="`/widget?station=${selectedStation.station_id}`"
             target="_blank"
-            icon="i-lucide-picture-in-picture"
+            icon="i-ph-picture-in-picture"
             size="xs"
             variant="ghost"
             color="neutral"
@@ -365,10 +358,10 @@ onMounted(async () => {
       v-else-if="!selectedStation"
       class="rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 p-16 text-center text-gray-500 dark:text-gray-400 space-y-2"
     >
-      <UIcon name="i-lucide-cloud-sun" class="w-12 h-12 mx-auto opacity-30" />
+      <UIcon name="i-ph-cloud-sun" class="w-12 h-12 mx-auto opacity-30" />
       <p class="text-sm">
         {{ t('meteogram.emptyHint') }}
       </p>
     </div>
-  </UContainer>
+  </PageContainer>
 </template>

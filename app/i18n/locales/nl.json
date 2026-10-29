@@ -116,7 +116,18 @@
     "providers": "Aanbieders",
     "api": "API",
     "glossary": "Woordenlijst",
-    "support": "Ondersteuning"
+    "support": "Ondersteuning",
+    "skip": "Naar de inhoud",
+    "search": "Zoeken",
+    "searchPlaceholder": "Ga naar een pagina of wijzig een instelling",
+    "noResults": "Niets gevonden",
+    "groupData": "Gegevens",
+    "groupReference": "Naslag",
+    "groupProject": "Project",
+    "versions": "App {app} · Backend {backend}",
+    "versionUnknown": "onbekend",
+    "drawerDescription": "Pagina's van de app en links naar het project",
+    "current": "Huidig"
   },
   "header": {
     "github": "GitHub",
@@ -428,7 +439,8 @@
         "cloudy": "Bewolkt",
         "partlyCloudy": "Half bewolkt",
         "clear": "Zonnig"
-      }
+      },
+      "dayOverview": "Dagoverzicht"
     },
     "orChooseMap": "of",
     "chooseOnMap": "Kies een station op de kaart",

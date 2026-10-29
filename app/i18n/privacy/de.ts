@@ -48,7 +48,7 @@ export const privacy: PrivacyPolicy = {
   sections: [
     {
       id: 'hosting',
-      icon: 'i-lucide-server',
+      icon: 'i-ph-hard-drives',
       title: 'Hosting und Auftragsverarbeitung',
       paragraphs: [
         'Der Dienst besteht aus zwei Anwendungen: dem Backend (REST-API und MCP-Server, https://wetterdienst-backend.eobs.org) und dieser Web-App (https://wetterdienst.eobs.org). Der Server der Web-App leitet Anfragen an /api und /mcp an das Backend weiter.',
@@ -57,7 +57,7 @@ export const privacy: PrivacyPolicy = {
     },
     {
       id: 'logs',
-      icon: 'i-lucide-file-clock',
+      icon: 'i-ph-clock-counter-clockwise',
       title: 'Protokolldaten (Logs)',
       paragraphs: [
         'Das Backend schreibt für jede Anfrage eine Zeile in sein Container-Protokoll. Sie enthält die Anfragezeile mit der vollständigen URL einschließlich Query-String und einen Zeitstempel. Im Query-String stehen die Angaben der Abfrage, etwa Anbieter, Parameter, Stationskennungen und Koordinaten. Die dort angezeigte Client-Adresse ist die interne Adresse des vorgeschalteten Reverse-Proxys, nicht die des Besuchers.',
@@ -69,7 +69,7 @@ export const privacy: PrivacyPolicy = {
     },
     {
       id: 'browser',
-      icon: 'i-lucide-cookie',
+      icon: 'i-ph-cookie',
       title: 'Cookie und lokaler Speicher im Browser',
       paragraphs: [
         'Die Web-App setzt ein funktionales Cookie und legt Einstellungen im lokalen Speicher (localStorage) Ihres Browsers ab. Es gibt keine Tracking- und keine Werbe-Cookies. Die Web-App leitet Cookies nicht an das Backend weiter.',
@@ -84,7 +84,7 @@ export const privacy: PrivacyPolicy = {
     },
     {
       id: 'third-parties',
-      icon: 'i-lucide-map',
+      icon: 'i-ph-map-trifold',
       title: 'Ressourcen von Dritten (Karte und Bilder)',
       paragraphs: [
         'Die Web-App lädt Schriften, Symbole und Skripte von ihrem eigenen Server. Nur in den folgenden Fällen fordert Ihr Browser Bilder direkt bei Dritten an. Diese erhalten dabei technisch bedingt Ihre IP-Adresse, den Zeitpunkt und die Angaben Ihres Browsers; außerdem die Adresse dieser Web-App (https://wetterdienst.eobs.org) als Herkunft der Anfrage (Referer) und, bei Kartenkacheln, den angezeigten Kartenausschnitt. Der Betreiber erfährt davon nichts und hat keinen Einfluss darauf.',
@@ -97,7 +97,7 @@ export const privacy: PrivacyPolicy = {
     },
     {
       id: 'links',
-      icon: 'i-lucide-external-link',
+      icon: 'i-ph-arrow-square-out',
       title: 'Externe Links',
       paragraphs: [
         'Die Web-App verweist auf Seiten Dritter, etwa GitHub, PyPI und die Dokumentation. Erst wenn Sie einem solchen Link folgen, werden Daten an den jeweiligen Anbieter übertragen; dort gilt dessen Datenschutzerklärung.',
@@ -105,7 +105,7 @@ export const privacy: PrivacyPolicy = {
     },
     {
       id: 'weather-data',
-      icon: 'i-lucide-cloud-sun',
+      icon: 'i-ph-cloud-sun',
       title: 'Wetterdaten der Anbieter',
       paragraphs: [
         'Das Backend ruft die Wetterdaten bei den offenen Datendiensten der jeweiligen Anbieter ab (etwa Deutscher Wetterdienst und NOAA). Daten der Besucherinnen und Besucher werden dabei nicht weitergegeben. Das Backend meldet sich mit dem User-Agent „wetterdienst/<Version> (<Betriebssystem>)“; er enthält keine personenbezogenen Angaben.',
@@ -113,7 +113,7 @@ export const privacy: PrivacyPolicy = {
     },
     {
       id: 'mcp',
-      icon: 'i-lucide-bot',
+      icon: 'i-ph-robot',
       title: 'Nutzung über Claude (MCP)',
       paragraphs: [
         'Wird der MCP-Server über Claude genutzt, kommen die Anfragen von den Servern von Anthropic. Der Betreiber sieht daher die Adresse von Anthropic, nicht die der Endnutzerin oder des Endnutzers. Der Inhalt der Unterhaltung erreicht den Betreiber nicht, nur die Argumente, die Claude für den Aufruf eines Werkzeugs wählt (etwa Anbieter, Parameter und Stationen). Sie stehen im Protokoll wie jede andere Anfrage. Die Verarbeitung der Unterhaltung durch Anthropic liegt außerhalb des Einflusses des Betreibers; dafür gelten die Datenschutzhinweise von Anthropic.',
@@ -121,7 +121,7 @@ export const privacy: PrivacyPolicy = {
     },
     {
       id: 'recipients',
-      icon: 'i-lucide-share-2',
+      icon: 'i-ph-share-network',
       title: 'Weitergabe an Dritte',
       paragraphs: [
         'Eine Weitergabe von Daten an Dritte findet nicht statt, mit Ausnahme des oben genannten Auftragsverarbeiters Hetzner. Die im Abschnitt „Ressourcen von Dritten“ genannten Anbieter erhalten Daten unmittelbar von Ihrem Browser, nicht vom Betreiber.',
@@ -129,7 +129,7 @@ export const privacy: PrivacyPolicy = {
     },
     {
       id: 'rights',
-      icon: 'i-lucide-scale',
+      icon: 'i-ph-scales',
       title: 'Ihre Rechte',
       paragraphs: [
         'Sie haben nach der DSGVO das Recht auf Auskunft (Art. 15), Berichtigung (Art. 16), Löschung (Art. 17), Einschränkung der Verarbeitung (Art. 18) und Widerspruch gegen die Verarbeitung auf Grundlage berechtigter Interessen (Art. 21). Wenden Sie sich dazu an die oben genannte E-Mail-Adresse.',

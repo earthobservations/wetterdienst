@@ -37,7 +37,6 @@ describe('provider Page', () => {
     expect(wrapper.find('h1').text()).toBe('German Weather Service')
     expect(text).toContain('Deutscher Wetterdienst')
     expect(text).toContain('Germany')
-    expect(text).toContain('🇩🇪')
     // the id a request names it by
     expect(wrapper.find('code').text()).toBe('dwd')
   })
@@ -122,7 +121,6 @@ describe('provider Page', () => {
     const wrapper = await mountProvider('eumetnet')
 
     expect(wrapper.text()).toContain('Several countries')
-    expect(wrapper.text()).toContain('🌐')
     expect(wrapper.text()).not.toContain('Europe')
   })
 

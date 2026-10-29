@@ -1,4 +1,6 @@
+import type { Locator, Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
+import { mockBackend } from './accessibility/mock-backend'
 
 test.describe('Home Page', () => {
   test('should load the homepage', async ({ page }) => {
@@ -200,13 +202,658 @@ test.describe('Providers Page', () => {
   })
 })
 
+test.describe('Versions in the navigation', () => {
+  const LINE = /^App \d+\.\d+\.\d+ · Backend \d+\.\d+\.\d+/
+
+  test('are under the settings of the sidebar, the app\'s and the backend\'s', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/')
+
+    await expect(page.getByTestId('app-versions')).toHaveText(LINE)
+  })
+
+  test('are in the drawer of a phone', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Menu', exact: true }).click()
+
+    await expect(page.getByTestId('app-versions')).toHaveText(LINE)
+  })
+
+  test('are in the settings popover where the navigation is a rail of icons', async ({ page }) => {
+    await page.setViewportSize({ width: 1100, height: 800 })
+    await page.goto('/')
+    await expect(page.getByTestId('app-versions')).toHaveCount(0)
+    await page.getByRole('button', { name: 'Settings', exact: true }).click()
+
+    await expect(page.getByTestId('app-versions')).toHaveText(LINE)
+  })
+})
+
+test.describe('The navigation as a rail of icons', () => {
+  test.use({ viewport: { width: 1100, height: 800 } })
+
+  test('names every link for a screen reader, though the labels are not drawn', async ({ page }) => {
+    await page.goto('/')
+    const links = page.getByRole('navigation', { name: 'Menu' }).getByRole('link')
+    await expect(links.first()).toBeVisible()
+    const count = await links.count()
+    expect(count).toBeGreaterThanOrEqual(12)
+    for (let index = 0; index < count; index++)
+      await expect(links.nth(index)).toHaveAccessibleName(/\S/)
+    await expect(page.getByRole('navigation', { name: 'Menu' }).getByRole('link', { name: 'Explorer', exact: true })).toBeVisible()
+  })
+
+  test('has the page beside the rail, not under it', async ({ page }) => {
+    await page.goto('/')
+    const rail = (await page.locator('aside').boundingBox())!
+    const main = (await page.locator('main#main').boundingBox())!
+
+    expect(main.x).toBeGreaterThanOrEqual(rail.x + rail.width - 1)
+    expect(main.y).toBeLessThan(100)
+  })
+})
+
+// A control that is only an icon: its icon is a mask over a background colour, which forced colours (Windows high
+// contrast) replaces by the canvas, so the icon has to be given the colour of the text instead.
+async function settled(page: Page) {
+  // a drawer, popover or dialog that is still sliding in is not where its screenshot will be taken
+  await page.evaluate(async () => {
+    await Promise.all(document.getAnimations().map(animation => animation.finished.catch(() => {})))
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+  })
+}
+
+async function iconIsPainted(page: Page, icon: Locator) {
+  await settled(page)
+  const box = (await icon.boundingBox())!
+  expect(box.width).toBeGreaterThan(0)
+  const colours = await icon.evaluate((element) => {
+    const style = getComputedStyle(element)
+    // the system colour of the canvas, which the page's own background is replaced by
+    const probe = document.createElement('div')
+    probe.style.backgroundColor = 'Canvas'
+    document.body.append(probe)
+    const canvas = getComputedStyle(probe).backgroundColor
+    probe.remove()
+    return { background: style.backgroundColor, text: style.color, canvas }
+  })
+  expect(colours.background, 'the icon is painted in the colour of the text').toBe(colours.text)
+  expect(colours.background, 'and not in that of the canvas').not.toBe(colours.canvas)
+  expect(colours.text, 'which is a system colour, not the colour of the page').not.toBe('rgb(34, 97, 190)')
+  // and the pixels differ from those of the same place with the icon hidden
+  const clip = { x: box.x, y: box.y, width: box.width, height: box.height }
+  const painted = await page.screenshot({ clip })
+  await icon.evaluate((element) => {
+    element.style.visibility = 'hidden'
+  })
+  const hidden = await page.screenshot({ clip })
+  await icon.evaluate((element) => {
+    element.style.visibility = ''
+  })
+  expect(painted.equals(hidden), 'the icon puts pixels on the page').toBe(false)
+}
+
+test.describe('Forced colours', () => {
+  test.use({ forcedColors: 'active', reducedMotion: 'reduce' })
+
+  test('show the icons of the rail, and mark the current page', async ({ page }) => {
+    await page.setViewportSize({ width: 1100, height: 800 })
+    await page.goto('/explorer')
+    const nav = page.getByRole('navigation', { name: 'Menu' })
+    const links = nav.getByRole('link')
+    await expect(links.first()).toBeVisible()
+    const count = await links.count()
+    expect(count).toBeGreaterThanOrEqual(12)
+    for (let index = 0; index < count; index++)
+      await iconIsPainted(page, links.nth(index).locator('.iconify').first())
+    await iconIsPainted(page, page.locator('aside').getByRole('button', { name: 'Search', exact: true }).locator('.iconify').first())
+    await iconIsPainted(page, page.locator('aside').getByRole('button', { name: 'Settings', exact: true }).locator('.iconify').first())
+
+    const current = nav.locator('[aria-current="page"]')
+    await expect(current).toHaveCount(1)
+    expect(await current.evaluate(element => getComputedStyle(element).outlineStyle)).toBe('solid')
+  })
+
+  test('show the icon buttons of the top bar and of the drawer', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/')
+    await iconIsPainted(page, page.getByRole('banner').getByRole('button', { name: 'Search', exact: true }).locator('.iconify').first())
+    await page.getByRole('button', { name: 'Menu', exact: true }).click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    await iconIsPainted(page, dialog.getByRole('button', { name: 'Close', exact: true }).locator('.iconify').first())
+    await iconIsPainted(page, dialog.getByRole('link', { name: 'Explorer', exact: true }).locator('.iconify').first())
+  })
+
+  test('mark the current page of the sidebar', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/glossary')
+    const current = page.getByRole('navigation', { name: 'Menu' }).locator('[aria-current="page"]')
+    await expect(current).toHaveText('Glossary')
+    expect(await current.evaluate(element => getComputedStyle(element).outlineStyle)).toBe('solid')
+  })
+})
+
+test.describe('The drawer in a short window', () => {
+  for (const size of [{ width: 320, height: 256 }, { width: 640, height: 512 }]) {
+    test(`scrolls as a whole, and reaches the settings, at ${size.width} x ${size.height} px (400 % zoom)`, async ({ page }) => {
+      await page.setViewportSize(size)
+      await page.goto('/')
+      await page.getByRole('button', { name: 'Menu', exact: true }).click()
+      const dialog = page.getByRole('dialog')
+      await expect(dialog).toBeVisible()
+
+      // the list of places is not a small scroller of its own
+      const nav = dialog.getByRole('navigation', { name: 'Menu' })
+      const [client, scroll] = await nav.evaluate(element => [element.clientHeight, element.scrollHeight])
+      expect(scroll).toBeLessThanOrEqual(client + 1)
+      expect(client).toBeGreaterThan(size.height / 2)
+
+      const settings = dialog.getByRole('button', { name: 'Settings', exact: true })
+      await settings.scrollIntoViewIfNeeded()
+      await expect(settings).toBeInViewport()
+    })
+  }
+
+  test('has no keys beside the search on a phone, where the sidebar has them', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Menu', exact: true }).click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog.getByRole('button', { name: 'Search', exact: true })).toBeVisible()
+    await expect(dialog.locator('kbd')).toHaveCount(0)
+
+    await page.keyboard.press('Escape')
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await expect(page.locator('aside').getByRole('button', { name: 'Search', exact: true }).locator('kbd')).toHaveCount(2)
+  })
+})
+
+test.describe('The focus when the layout changes', () => {
+  test('goes to the page when the window widens under an open drawer', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Menu', exact: true }).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+
+    await page.setViewportSize({ width: 1300, height: 800 })
+
+    await expect(page.locator('#main')).toBeFocused()
+  })
+
+  test('goes to the page when the window narrows under the open settings of the rail', async ({ page }) => {
+    await page.setViewportSize({ width: 1100, height: 800 })
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Settings', exact: true }).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+
+    await page.setViewportSize({ width: 800, height: 800 })
+
+    await expect(page.locator('#main')).toBeFocused()
+  })
+
+  test('stays on a link of the rail when the window crosses 1280 px, in both directions', async ({ page }) => {
+    await page.setViewportSize({ width: 1100, height: 800 })
+    await page.goto('/')
+    await page.locator('aside nav a[href="/explorer"]').focus()
+
+    await page.setViewportSize({ width: 1300, height: 800 })
+    await expect(page.locator('aside nav a[href="/explorer"]')).toBeFocused()
+    await expect(page.locator('aside nav a[href="/explorer"]')).toContainText('Explorer')
+
+    await page.setViewportSize({ width: 1100, height: 800 })
+    await expect(page.locator('aside nav a[href="/explorer"]')).toBeFocused()
+  })
+
+  test('leaves a page that had no focus without one, and unscrolled, when the window crosses 1024 px', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 700 })
+    await page.goto('/settings')
+    // the app has taken the page up: the layout's watchers exist from here (a resize before this would test nothing)
+    await expect(page.locator('header[data-app-nav]')).toBeVisible()
+    expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true)
+
+    await page.setViewportSize({ width: 1300, height: 700 })
+    await expect(page.locator('aside nav')).toBeVisible()
+    await page.waitForTimeout(700)
+
+    expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true)
+    expect(await page.evaluate(() => window.scrollY)).toBe(0)
+  })
+
+  test('goes to the search button of the new layout when the palette closes and the button that opened it is gone', async ({ page }) => {
+    await page.setViewportSize({ width: 900, height: 800 })
+    await page.goto('/')
+    await expect(page.locator('header[data-app-nav]')).toBeVisible()
+    await page.locator('header[data-app-nav] [data-app-search]').click()
+    await expect(page.locator('[data-slot="root"] > [data-slot="input"] input')).toBeVisible()
+
+    await page.setViewportSize({ width: 1300, height: 800 })
+    await expect(page.locator('aside nav')).toBeVisible()
+    await page.waitForTimeout(700)
+    await page.keyboard.press('Escape')
+
+    await expect(page.locator('aside [data-app-search]')).toBeFocused()
+  })
+
+  test('does the same for a palette opened from the drawer', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 800 })
+    await page.goto('/')
+    await expect(page.locator('header[data-app-nav]')).toBeVisible()
+    await page.getByRole('button', { name: 'Menu', exact: true }).click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Search', exact: true }).click()
+    await expect(page.locator('[data-slot="root"] > [data-slot="input"] input')).toBeVisible()
+
+    await page.setViewportSize({ width: 1300, height: 800 })
+    await expect(page.locator('aside nav')).toBeVisible()
+    await page.waitForTimeout(700)
+    await page.keyboard.press('Escape')
+
+    await expect(page.locator('aside [data-app-search]')).toBeFocused()
+  })
+
+  test('closes the settings popover of the rail when the palette opened over it goes to a page', async ({ page }) => {
+    await page.setViewportSize({ width: 1100, height: 800 })
+    await page.goto('/')
+    await page.locator('aside').getByRole('button', { name: 'Settings', exact: true }).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await page.keyboard.press('Control+k')
+    await expect(page.locator('[data-slot="root"] > [data-slot="input"] input')).toBeVisible()
+    await page.keyboard.type('glossar')
+    await expect(page.locator('[role="option"][data-highlighted]')).toHaveText('Glossary')
+    await page.keyboard.press('Enter')
+
+    await expect(page).toHaveURL(/\/glossary/)
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+  })
+})
+
+test.describe('A real print', () => {
+  test('leaves the focus on the sidebar link and the shell as it was (the paper is not a window of its width)', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/about')
+    await expect(page.locator('aside nav')).toBeVisible()
+    const link = page.locator('aside nav a[href="/glossary"]')
+    await link.focus()
+    const shell = await page.evaluate(() => document.querySelector('aside nav')!.getAttribute('aria-label'))
+
+    await page.pdf({ format: 'A4' })
+    await page.waitForTimeout(1000)
+
+    await expect(link).toBeFocused()
+    expect(await page.evaluate(() => document.querySelector('aside nav')?.getAttribute('aria-label'))).toBe(shell)
+  })
+})
+
+test.describe('The sticky top bar', () => {
+  test('keeps a focused element clear of it, tabbing back up a page', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 700 })
+    await page.goto('/settings')
+    await page.locator('footer a').last().focus()
+    const bar = (await page.locator('header[data-app-nav]').boundingBox())!
+
+    for (let stop = 0; stop < 30; stop++) {
+      await page.keyboard.press('Shift+Tab')
+      await page.waitForTimeout(60)
+      const top = await page.evaluate(() => {
+        const active = document.activeElement
+        // the bar's own buttons are at the top of the window by design
+        return active && active !== document.body && !active.closest('header[data-app-nav]') ? active.getBoundingClientRect().top : null
+      })
+      if (top !== null)
+        expect(top, `stop ${stop}`).toBeGreaterThanOrEqual(bar.height - 1)
+    }
+  })
+})
+
+test.describe('The settings popover in a short window', () => {
+  test('stays inside the window at 320 x 256 px, and reaches its language field', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 256 })
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Menu', exact: true }).click()
+    await settled(page)
+    await page.getByRole('dialog').getByRole('button', { name: 'Settings', exact: true }).click()
+    await settled(page)
+    const popover = page.getByRole('dialog').last()
+    const box = (await popover.boundingBox())!
+
+    expect(box.y).toBeGreaterThanOrEqual(0)
+    expect(box.y + box.height).toBeLessThanOrEqual(256 + 1)
+    await expect(page.getByText('Language', { exact: true })).toBeInViewport()
+  })
+})
+
+test.describe('The versions line', () => {
+  test('breaks a long version instead of widening the sidebar', async ({ page }) => {
+    await page.route('**/api/version', route => route.fulfill({ json: { version: `1.${'0'.repeat(60)}` } }))
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/')
+    const line = page.getByTestId('app-versions')
+    await expect(line).toContainText('Backend 1.0000')
+
+    const [client, scroll] = await line.evaluate(element => [element.clientWidth, element.scrollWidth])
+    expect(scroll).toBeLessThanOrEqual(client)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  })
+
+  test('is not made of an answer that is no version', async ({ page }) => {
+    await page.route('**/api/version', route => route.fulfill({ json: { version: { nested: true } } }))
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/')
+
+    await expect(page.getByTestId('app-versions')).toContainText('Backend unknown')
+  })
+})
+
+test.describe('Printing', () => {
+  test('leaves out the skip link, the sidebar and the footer, and keeps the page', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/about')
+    await expect(page.locator('aside nav')).toBeVisible()
+    await page.emulateMedia({ media: 'print' })
+
+    await expect(page.locator('aside')).toBeHidden()
+    await expect(page.getByRole('link', { name: 'Skip to content' })).toBeHidden()
+    await expect(page.locator('footer')).toBeHidden()
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    // the page has the width of the paper, not what is left beside a sidebar
+    const main = (await page.locator('main#main').boundingBox())!
+    expect(main.x).toBe(0)
+  })
+
+  test('leaves out the top bar of a narrow window', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 800 })
+    await page.goto('/about')
+    await expect(page.locator('header[data-app-nav]')).toBeVisible()
+    await page.emulateMedia({ media: 'print' })
+
+    await expect(page.locator('header[data-app-nav]')).toBeHidden()
+  })
+
+  test('prints a dark page in the light colours, and puts it back', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/about')
+    // the class is in the page before the app is: the app has taken it up, and its listener is on, from here
+    await expect(page.locator('aside nav')).toBeVisible()
+    await expect(page.locator('html')).toHaveClass(/dark/)
+
+    await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')))
+    await expect(page.locator('html')).not.toHaveClass(/dark/)
+    await page.evaluate(() => window.dispatchEvent(new Event('afterprint')))
+    await expect(page.locator('html')).toHaveClass(/dark/)
+  })
+})
+
+test.describe('Charts on paper', () => {
+  // The column of A4 with 1 inch margins is 602 CSS pixels (718 with the browser's default 0.4 inch, Letter has more): what the
+  // chart takes, with the paddings and borders of what it stands in up to the page's column, must fit in that
+  const COLUMN = 602
+  const EXPLORER = '/explorer?provider=dwd&network=observation&resolution=daily&dataset=climate_summary&parameters=temperature_air_max_2m,temperature_air_mean_2m&mode=station&stations=00011'
+  const charts = [
+    { name: 'the climate stripes', path: '/stripes?kind=temperature&station=00011', reach: async (page: Page) => {
+      await page.getByRole('button', { name: 'Show', exact: true }).click()
+    } },
+    { name: 'the forecast', path: '/meteogram?station=01001', reach: async () => {} },
+    { name: 'the explorer\'s chart', path: EXPLORER, reach: async (page: Page) => {
+      await page.getByRole('button', { name: 'Show', exact: true }).click()
+      await expect(page.getByRole('table').first()).toBeVisible()
+      await page.getByRole('button', { name: 'Show as chart', exact: true }).click()
+    } },
+  ]
+
+  for (const chart of charts) {
+    test(`scales ${chart.name} to the paper for the print, and back after it`, async ({ page, baseURL }) => {
+      await mockBackend(page, baseURL!)
+      await page.setViewportSize({ width: 1440, height: 900 })
+      await page.goto(chart.path)
+      await chart.reach(page)
+      const svg = page.locator('.js-plotly-plot .main-svg').first()
+      await expect(svg).toBeVisible()
+      const width = () => svg.evaluate(element => element.getBoundingClientRect().width)
+      // the room the chart takes in the page's column: itself and the paddings and borders around it (as the page measures them)
+      const taken = () => svg.evaluate((element) => {
+        const chart = element.closest('.js-plotly-plot') as HTMLElement
+        let insets = 0
+        for (let ancestor: HTMLElement | null = chart; ancestor && ancestor !== document.body; ancestor = ancestor.parentElement) {
+          const style = getComputedStyle(ancestor)
+          insets += ['paddingLeft', 'paddingRight', 'borderLeftWidth', 'borderRightWidth'].reduce((sum, key) => sum + (Number.parseFloat((style as any)[key]) || 0), 0)
+          if (ancestor.hasAttribute('data-width'))
+            break
+        }
+        return element.getBoundingClientRect().width + insets
+      })
+      const screen = await width()
+      expect(await taken()).toBeGreaterThan(COLUMN)
+
+      await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')))
+      expect(await taken()).toBeLessThanOrEqual(COLUMN)
+      // a second beforeprint with no afterprint (some browsers) changes nothing and loses nothing
+      await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')))
+      expect(await taken()).toBeLessThanOrEqual(COLUMN)
+      // and a resize of the window while the print is prepared does not draw the chart at its container's width again
+      await page.setViewportSize({ width: 1400, height: 900 })
+      await page.waitForTimeout(500)
+      expect(await taken()).toBeLessThanOrEqual(COLUMN)
+
+      await page.evaluate(() => window.dispatchEvent(new Event('afterprint')))
+      await expect.poll(async () => Math.round(await width())).toBeGreaterThan(Math.round(screen) - 60)
+    })
+  }
+})
+
+test.describe('A print that comes and goes', () => {
+  test('stays prepared while the print media applies and stops applying, and is put back by afterprint', async ({ page, baseURL }) => {
+    // the browser's own print dialog sends beforeprint once and afterprint when it closes, and shows the preview again for each
+    // paper, margin or scale: the print media comes and goes in between, and every preview is of the prepared page
+    await mockBackend(page, baseURL!)
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/stripes?kind=temperature&station=00011')
+    await page.getByRole('button', { name: 'Show', exact: true }).click()
+    const svg = page.locator('.js-plotly-plot .main-svg').first()
+    await expect(svg).toBeVisible()
+    const width = () => svg.evaluate(element => element.getBoundingClientRect().width)
+    const screen = await width()
+
+    await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')))
+    await page.emulateMedia({ media: 'print' })
+    await page.emulateMedia({ media: 'screen' })
+    await page.emulateMedia({ media: 'print' })
+    await page.emulateMedia({ media: 'screen' })
+
+    await expect(page.locator('html')).not.toHaveClass(/dark/)
+    await expect(page.locator('html')).toHaveAttribute('data-printing', '')
+    expect(await width()).toBeLessThan(screen - 200)
+
+    await page.evaluate(() => window.dispatchEvent(new Event('afterprint')))
+    await expect(page.locator('html')).toHaveClass(/dark/)
+    await expect(page.locator('html')).not.toHaveAttribute('data-printing', /.*/)
+    await expect.poll(async () => Math.round(await width())).toBe(Math.round(screen))
+  })
+
+  test('has one resize handler for a chart that was drawn again while the print was prepared', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await page.addInitScript(() => {
+      const active = new Set<EventListenerOrEventListenerObject>()
+      const add = window.addEventListener.bind(window)
+      const remove = window.removeEventListener.bind(window)
+      window.addEventListener = ((type: string, listener: any, options?: any) => {
+        if (type === 'resize')
+          active.add(listener)
+        return add(type, listener, options)
+      }) as typeof window.addEventListener
+      window.removeEventListener = ((type: string, listener: any, options?: any) => {
+        if (type === 'resize')
+          active.delete(listener)
+        return remove(type, listener, options)
+      }) as typeof window.removeEventListener
+      ;(window as any).__resizeHandlers = active
+    })
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/stripes?kind=temperature&station=00011')
+    await page.getByRole('button', { name: 'Show', exact: true }).click()
+    await expect(page.locator('.js-plotly-plot .main-svg').first()).toBeVisible()
+    const handlers = () => page.evaluate(() => {
+      const chart = document.querySelector('.js-plotly-plot') as any
+      const active = (window as any).__resizeHandlers as Set<unknown>
+      return { own: chart._responsiveChartHandler ? active.has(chart._responsiveChartHandler) : false, total: [...active].filter(handler => String(handler).includes('isHidden') || handler === chart._responsiveChartHandler).length }
+    })
+    expect((await handlers()).own).toBe(true)
+
+    await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')))
+    // drawn again while the print is prepared: purged and drawn anew, with a handler of its own
+    const old = await page.evaluate(() => {
+      const chart = document.querySelector('.js-plotly-plot') as any
+      const before = chart._responsiveChartHandler
+      const { data, layout } = chart
+      ;(window as any).Plotly.purge(chart)
+      return (window as any).Plotly.newPlot(chart, data, layout, { responsive: true }).then(() => {
+        ;(window as any).__old = before
+        return before !== chart._responsiveChartHandler
+      })
+    })
+    expect(old).toBe(true)
+    await page.evaluate(() => window.dispatchEvent(new Event('afterprint')))
+
+    const state = await page.evaluate(() => {
+      const chart = document.querySelector('.js-plotly-plot') as any
+      const active = (window as any).__resizeHandlers as Set<unknown>
+      return { newOne: active.has(chart._responsiveChartHandler), oldOne: active.has((window as any).__old) }
+    })
+    expect(state).toEqual({ newOne: true, oldOne: false })
+  })
+
+  test('puts the page back when it goes', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await page.goto('/about')
+    await expect(page.locator('aside nav')).toBeVisible()
+    await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')))
+    await expect(page.locator('html')).not.toHaveClass(/dark/)
+
+    await page.evaluate(() => window.dispatchEvent(new Event('pagehide')))
+    await expect(page.locator('html')).toHaveClass(/dark/)
+  })
+})
+
+test.describe('The provider cards, with the spacing a reader may set (WCAG 1.4.12) and without', () => {
+  // the backend's providers as they are (the licences with no identifier are sentences, and some providers need a key)
+  for (const language of ['da', 'pl', 'cs', 'de', 'fr']) {
+    test(`cut off no text and let none out of its card in ${language}, at 1280, 1440 and 1920 px`, async ({ page, baseURL }) => {
+      await page.context().addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
+      for (const width of [1280, 1440, 1920]) {
+        await page.setViewportSize({ width, height: 900 })
+        await page.goto('/providers')
+        await expect(page.locator('main#main li a').first()).toBeVisible()
+        for (const spacing of [false, true]) {
+          if (spacing) {
+            // the spacing a reader may set, and no more (line 1.5, letters 0.12 em, words 0.16 em, paragraphs 2 em)
+            await page.addStyleTag({ content: '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; } p { margin-bottom: 2em !important; }' })
+          }
+          const problems = await page.evaluate(() => [...document.querySelectorAll('main#main li a')].flatMap((card) => {
+            const edge = card.getBoundingClientRect().right
+            return [...card.querySelectorAll('*')].flatMap((element) => {
+              const text = (element.textContent ?? '').trim().slice(0, 40)
+              // out of the card, or cut off where it stands (an ellipsis, or a clip: more text than room)
+              const out = element.getBoundingClientRect().right > edge + 1 ? ['outside'] : []
+              const cut = element.scrollWidth > element.clientWidth + 1 ? ['cut'] : []
+              return [...out, ...cut].map(kind => `${kind}: ${text}`)
+            })
+          }))
+          expect(problems, `${language} at ${width} px${spacing ? ' with text spacing' : ''}`).toEqual([])
+        }
+      }
+    })
+  }
+})
+
+test.describe('The palette', () => {
+  test('takes what was typed at once: Enter right after the letters opens the match, not the first entry', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/')
+    await expect(page.locator('aside nav')).toBeVisible()
+    await page.keyboard.press('Control+k')
+    await expect(page.locator('[data-slot="root"] > [data-slot="input"] input')).toBeVisible()
+    await page.keyboard.type('glo')
+    await page.keyboard.press('Enter')
+
+    await expect(page).toHaveURL(/\/glossary/)
+  })
+})
+
+test.describe('The forecast on a phone', () => {
+  test('does not scroll sideways once the day cards are drawn', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await page.setViewportSize({ width: 390, height: 800 })
+    await page.goto('/meteogram?station=01001')
+    await expect(page.locator('div.overflow-x-auto').first()).toBeVisible()
+
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  })
+})
+
+test.describe('The wind barbs of the forecast on paper', () => {
+  test('are drawn at the size of the chart\'s own layout, not of its scaled box, when the window is resized while it is prepared', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/meteogram?station=01001')
+    const canvas = page.locator('.meteogram-overlay-canvas')
+    await expect(canvas).toBeAttached()
+    const sizes = () => canvas.evaluate((element) => {
+      const chart = element.parentElement as any
+      return { canvas: Number.parseFloat((element as HTMLCanvasElement).style.width), layout: chart._fullLayout.width, box: chart.querySelector('.main-svg').getBoundingClientRect().width }
+    })
+
+    await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')))
+    expect((await sizes()).box).toBeLessThan((await sizes()).layout)
+    await page.setViewportSize({ width: 1400, height: 900 })
+    await page.waitForTimeout(500)
+
+    const after = await sizes()
+    expect(after.canvas).toBeCloseTo(after.layout, 0)
+    expect(after.canvas).toBeGreaterThan(after.box)
+  })
+})
+
+test.describe('The widget in a frame', () => {
+  for (const background of ['#ffd54a', '#1c1c1c']) {
+    test(`reads on a page of ${background}, with no clipped text and no scroll`, async ({ page, baseURL }) => {
+      await mockBackend(page, baseURL!)
+      // a page of the app's own origin (the frame-ancestors of the policy) with another background, framing the widget
+      await page.route('**/__embed', route => route.fulfill({
+        contentType: 'text/html',
+        body: `<!doctype html><body style="margin:0;padding:16px;background:${background}"><iframe id="w" src="/widget?station=01001" style="width:420px;height:420px;border:0"></iframe></body>`,
+      }))
+      await page.setViewportSize({ width: 600, height: 520 })
+      await page.goto('/__embed')
+      const frame = page.frameLocator('#w')
+      await expect(frame.locator('a', { hasText: 'Open' })).toBeVisible()
+      // the forecast is drawn (the day cards are its scroller), not the spinner: the measures below are of the page as it stays
+      await expect(frame.locator('div.overflow-x-auto').first()).toBeVisible()
+
+      const overflow = await frame.locator('body').evaluate(body => ({
+        sideways: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+        // what scrolls inside its own scroller (the day cards) is meant to be wider than the frame
+        textOutside: [...body.querySelectorAll('span, a')].filter(element => !element.closest('.overflow-x-auto')).some((element) => {
+          const box = element.getBoundingClientRect()
+          return box.width > 0 && box.right > document.documentElement.clientWidth + 1
+        }),
+      }))
+      expect(overflow).toEqual({ sideways: false, textOutside: false })
+      // it draws its own background: the frame is white or near black, not the colour of the page behind
+      const colour = await frame.locator('div.min-h-screen.flex-col').first().evaluate(element => getComputedStyle(element).backgroundColor)
+      expect(colour).not.toBe('rgba(0, 0, 0, 0)')
+    })
+  }
+})
+
 test.describe('Support Page', () => {
-  test('should be reachable from the header icon', async ({ page }) => {
+  test('should be reachable from the navigation', async ({ page }) => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
-    // Support is not a nav entry: it is a heart in the header's project links, and a footer link.
-    // Both are named "Support", hence the scoping.
-    await page.getByRole('banner').getByRole('link', { name: /support/i }).click()
+    // Support is in the navigation's project group, and a footer link. Both are named "Support", hence the scoping.
+    await page.getByRole('navigation').getByRole('link', { name: /support/i }).click()
 
     await expect(page).toHaveURL(/\/support/)
   })
@@ -358,7 +1005,7 @@ test.describe('Settings Page', () => {
   test('should navigate to the settings page', async ({ page }) => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
-    // The header icon opens a quick-settings popover; the full settings
+    // The settings button of the navigation opens a quick-settings popover; the full settings
     // page is reached via the "Settings" link inside that popover.
     await page.getByRole('button', { name: 'Settings', exact: true }).click()
     await page.getByRole('link', { name: 'Settings', exact: true }).click()

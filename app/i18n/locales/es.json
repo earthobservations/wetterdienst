@@ -116,7 +116,18 @@
     "providers": "Proveedores",
     "api": "API",
     "glossary": "Glosario",
-    "support": "Ayuda"
+    "support": "Ayuda",
+    "skip": "Saltar al contenido",
+    "search": "Buscar",
+    "searchPlaceholder": "Ir a una página o cambiar un ajuste",
+    "noResults": "Sin resultados",
+    "groupData": "Datos",
+    "groupReference": "Referencia",
+    "groupProject": "Proyecto",
+    "versions": "App {app} · Servidor {backend}",
+    "versionUnknown": "desconocida",
+    "drawerDescription": "Páginas de la aplicación y enlaces del proyecto",
+    "current": "Actual"
   },
   "header": {
     "github": "GitHub",
@@ -428,7 +439,8 @@
         "cloudy": "Nublado",
         "partlyCloudy": "Parcialmente nublado",
         "clear": "Soleado"
-      }
+      },
+      "dayOverview": "Resumen de los días"
     },
     "orChooseMap": "o",
     "chooseOnMap": "Elegir una estación en el mapa",

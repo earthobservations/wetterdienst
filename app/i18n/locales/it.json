@@ -116,7 +116,18 @@
     "providers": "Fornitori",
     "api": "API",
     "glossary": "Glossario",
-    "support": "Supporto"
+    "support": "Supporto",
+    "skip": "Vai al contenuto",
+    "search": "Cerca",
+    "searchPlaceholder": "Vai a una pagina o cambia un'impostazione",
+    "noResults": "Nessun risultato",
+    "groupData": "Dati",
+    "groupReference": "Riferimento",
+    "groupProject": "Progetto",
+    "versions": "App {app} · Backend {backend}",
+    "versionUnknown": "sconosciuta",
+    "drawerDescription": "Pagine dell'app e link al progetto",
+    "current": "Attuale"
   },
   "header": {
     "github": "GitHub",
@@ -428,7 +439,8 @@
         "cloudy": "Nuvoloso",
         "partlyCloudy": "Parzialmente nuvoloso",
         "clear": "Soleggiato"
-      }
+      },
+      "dayOverview": "Panoramica dei giorni"
     },
     "orChooseMap": "o",
     "chooseOnMap": "Scegli una stazione sulla mappa",

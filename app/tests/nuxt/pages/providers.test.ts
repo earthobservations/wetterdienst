@@ -42,16 +42,16 @@ describe('providers Page', () => {
     expect(links).toContain('/providers/aemet')
   })
 
-  it('draws the flag of the country code, and a globe for a provider of several countries', async () => {
+  it('shows the country code, and a globe for a provider of several countries', async () => {
     const wrapper = await mountProviders()
     const text = wrapper.text()
 
-    expect(text).toContain('🇩🇪')
-    expect(text).toContain('🇪🇸')
-    expect(text).toContain('🌐')
+    expect(text).toContain('DE')
+    expect(text).toContain('ES')
+    expect(wrapper.find('[class*="globe-hemisphere-west"]').exists()).toBe(true)
     expect(text).toContain('Several countries')
-    // the flag is decoration: the country is written out beside it
-    expect(wrapper.findAll('[aria-hidden="true"]').map(el => el.text())).toContain('🇩🇪')
+    // the code is decoration: the country is written out beside it
+    expect(wrapper.findAll('[aria-hidden="true"]').map(el => el.text())).toContain('DE')
   })
 
   it('sorts by the English name', async () => {

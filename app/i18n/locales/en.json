@@ -116,7 +116,18 @@
     "providers": "Providers",
     "api": "API",
     "glossary": "Glossary",
-    "support": "Support"
+    "support": "Support",
+    "skip": "Skip to content",
+    "search": "Search",
+    "searchPlaceholder": "Go to a page or change a setting",
+    "noResults": "Nothing found",
+    "groupData": "Data",
+    "groupReference": "Reference",
+    "groupProject": "Project",
+    "versions": "App {app} · Backend {backend}",
+    "versionUnknown": "unknown",
+    "drawerDescription": "Places in the app and links to the project",
+    "current": "Current"
   },
   "header": {
     "github": "GitHub",
@@ -428,7 +439,8 @@
         "cloudy": "Cloudy",
         "partlyCloudy": "Partly cloudy",
         "clear": "Sunny"
-      }
+      },
+      "dayOverview": "Day overview"
     },
     "orChooseMap": "or",
     "chooseOnMap": "Choose a station on the map",

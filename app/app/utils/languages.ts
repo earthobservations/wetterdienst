@@ -1,5 +1,5 @@
 /**
- * Supported UI languages with their display name and flag.
+ * Supported UI languages with their display name.
  *
  * Keep this list in sync with the `locales` array in `nuxt.config.ts` and the
  * catalogs in `i18n/locales/*.json`. Used by the language pickers in the
@@ -8,24 +8,23 @@
 export interface LanguageOption {
   value: string
   name: string
-  flag: string
 }
 
 export const LANGUAGES: LanguageOption[] = [
-  { value: 'de', name: 'Deutsch', flag: '🇩🇪' },
-  { value: 'en', name: 'English', flag: '🇬🇧' },
-  { value: 'fr', name: 'Français', flag: '🇫🇷' },
-  { value: 'es', name: 'Español', flag: '🇪🇸' },
-  { value: 'it', name: 'Italiano', flag: '🇮🇹' },
-  { value: 'pl', name: 'Polski', flag: '🇵🇱' },
-  { value: 'nl', name: 'Nederlands', flag: '🇳🇱' },
-  { value: 'cs', name: 'Čeština', flag: '🇨🇿' },
-  { value: 'da', name: 'Dansk', flag: '🇩🇰' },
-  { value: 'lb', name: 'Lëtzebuergesch', flag: '🇱🇺' },
-  { value: 'de-hh', name: 'Hamburgisch', flag: '⚓' },
+  { value: 'de', name: 'Deutsch' },
+  { value: 'en', name: 'English' },
+  { value: 'fr', name: 'Français' },
+  { value: 'es', name: 'Español' },
+  { value: 'it', name: 'Italiano' },
+  { value: 'pl', name: 'Polski' },
+  { value: 'nl', name: 'Nederlands' },
+  { value: 'cs', name: 'Čeština' },
+  { value: 'da', name: 'Dansk' },
+  { value: 'lb', name: 'Lëtzebuergesch' },
+  { value: 'de-hh', name: 'Hamburgisch' },
 ]
 
-/** Items for a USelect/USelectMenu: "🇩🇪 Deutsch" with the locale code as value. */
+/** Items for a USelect/USelectMenu: "Deutsch" with the locale code as value. */
 export function languageSelectItems() {
-  return LANGUAGES.map(l => ({ label: `${l.flag} ${l.name}`, value: l.value }))
+  return LANGUAGES.map(l => ({ label: l.name, value: l.value }))
 }

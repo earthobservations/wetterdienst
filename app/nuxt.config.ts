@@ -72,7 +72,7 @@ export default defineNuxtConfig({
 
   devtools: { enabled: true },
 
-  // The icons come from this app's own server (GH-3111): the three sets are installed (`@iconify-json/*`) and
+  // The icons come from this app's own server (GH-3111): the sets are installed (`@iconify-json/*`) and
   // the server bundle serves them. `provider` is set because @nuxt/icon picks `iconify`, which asks
   // api.iconify.design for every icon, whenever `ssr` is false, as it is here. `localApiEndpoint` is outside
   // `/api`, which the app proxies to the backend. `fallbackToApi: false` keeps a name that no set has from
@@ -80,7 +80,7 @@ export default defineNuxtConfig({
   icon: {
     provider: 'server',
     serverBundle: {
-      collections: ['lucide', 'heroicons', 'simple-icons'],
+      collections: ['ph', 'simple-icons'],
     },
     localApiEndpoint: '/_nuxt_icon',
     fallbackToApi: false,

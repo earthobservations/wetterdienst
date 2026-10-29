@@ -83,14 +83,14 @@ describe('index Page', () => {
     await settled(wrapper)
     const chips = wrapper.findAll('[data-testid="home-providers"] a')
 
-    // by short name, in the order of the page's language, each with the flag of its country (a globe for several)
-    expect(chips.map(chip => chip.text())).toEqual(['🇪🇸 AEMET', '🇩🇪 DWD', '🌐 EUMETNET', '🇳🇴 met.no', '🇱🇺 MOSMIX'])
+    // by short name, in the order of the page's language, each with the code of its country (a globe for several)
+    expect(chips.map(chip => chip.text())).toEqual(['ES AEMET', 'DE DWD', 'EUMETNET', 'NO met.no', 'LU MOSMIX'])
     // and each leads to the page of the provider
     expect(chips.map(chip => chip.attributes('href'))).toEqual(
       ['/providers/aemet', '/providers/dwd', '/providers/eumetnet', '/providers/metno', '/providers/mosmix'],
     )
-    // the flag is decoration
-    expect(wrapper.findAll('[data-testid="home-providers"] [aria-hidden="true"]').map(el => el.text())).toContain('🇩🇪')
+    // the code is decoration
+    expect(wrapper.findAll('[data-testid="home-providers"] [aria-hidden="true"]').map(el => el.text())).toContain('DE')
   })
 
   it('counts the weather services from the answer, not from a number of its own', async () => {

@@ -116,7 +116,18 @@
     "providers": "Ubidder",
     "api": "API",
     "glossary": "Glossar",
-    "support": "Ënnerstëtzung"
+    "support": "Ënnerstëtzung",
+    "skip": "Zum Inhalt sprangen",
+    "search": "Sichen",
+    "searchPlaceholder": "Op eng Säit goen oder eng Astellung änneren",
+    "noResults": "Näischt fonnt",
+    "groupData": "Daten",
+    "groupReference": "Referenz",
+    "groupProject": "Projet",
+    "versions": "App {app} · Backend {backend}",
+    "versionUnknown": "onbekannt",
+    "drawerDescription": "Säiten vun der App a Linken zum Projet",
+    "current": "Aktuell"
   },
   "header": {
     "github": "GitHub",
@@ -428,7 +439,8 @@
         "cloudy": "Wollekeg",
         "partlyCloudy": "Deelweis wollekeg",
         "clear": "Sonneg"
-      }
+      },
+      "dayOverview": "Iwwersiicht vun den Deeg"
     },
     "orChooseMap": "oder",
     "chooseOnMap": "Wiel eng Statioun op der Kaart",

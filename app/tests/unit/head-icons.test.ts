@@ -30,8 +30,8 @@ describe('the icon of the app (GH-3431)', () => {
       expect(isFileOfPublic(link.href), link.href).toBe(true)
   })
 
-  it('shows, in the header of the app and of the widget, and on the page of the API reference, files of public/', () => {
-    const sources = ['app/app.vue', 'app/pages/widget.vue', 'server/routes/docs.ts']
+  it('shows, in the navigation and the top bar of the app and in the widget, and on the page of the API reference, files of public/', () => {
+    const sources = ['app/components/AppNav.vue', 'app/layouts/default.vue', 'app/pages/widget.vue', 'server/routes/docs.ts']
     for (const source of sources) {
       const text = readFileSync(join(APP, source), 'utf8')
       const hrefs = [...text.matchAll(/(?:<img src|<link rel="icon"[^>]*?href)="(\/[^"]+)"/g)].map(match => match[1]!)

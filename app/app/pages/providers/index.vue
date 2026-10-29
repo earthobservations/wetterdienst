@@ -54,20 +54,13 @@ function parameterCount(provider: Provider): number {
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-5xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('providers.title') }}
-      </h1>
-      <p class="text-gray-600 dark:text-gray-400">
-        {{ t('providers.subtitle') }}
-      </p>
-    </div>
+  <PageContainer wide>
+    <PageHeader :title="t('providers.title')" :lead="t('providers.subtitle')" />
 
     <div class="flex flex-col sm:flex-row gap-2">
       <UInput
         v-model="search"
-        icon="i-lucide-search"
+        icon="i-ph-magnifying-glass"
         :placeholder="t('providers.searchPlaceholder')"
         :aria-label="t('providers.searchPlaceholder')"
         class="flex-1"
@@ -86,7 +79,7 @@ function parameterCount(provider: Provider): number {
       v-if="failure"
       color="error"
       variant="subtle"
-      icon="i-lucide-alert-circle"
+      icon="i-ph-warning-circle"
       :title="t('common.requestFailed')"
       :description="failure"
       :actions="[{ label: t('common.retry'), onClick: () => refresh() }]"
@@ -94,24 +87,24 @@ function parameterCount(provider: Provider): number {
     <UEmpty v-else-if="pending && !data" loading :title="t('common.loading')" />
     <UEmpty
       v-else-if="!providers.length"
-      icon="i-lucide-building-2"
+      icon="i-ph-buildings"
       :title="t('providers.noResults')"
     />
     <template v-else>
       <p class="text-sm text-gray-500 dark:text-gray-400">
         {{ t('providers.shown', { shown: providers.length, count: data?.providers.length ?? 0 }) }}
       </p>
-      <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
         <li v-for="provider in providers" :key="provider.provider">
           <NuxtLink :to="`/providers/${provider.provider}`" class="group block h-full">
             <UCard
-              class="h-full transition-all group-hover:ring-2 group-hover:ring-primary-400"
+              class="h-full transition-colors group-hover:ring-accented motion-reduce:transition-none"
               :ui="{ body: 'flex flex-col gap-2 h-full' }"
             >
               <div class="flex items-start gap-3">
-                <span class="text-3xl leading-none" aria-hidden="true">{{ flagEmoji(provider.country_code) }}</span>
+                <ProviderMark :country="provider.country_code" class="mt-0.5 shrink-0" />
                 <div class="min-w-0">
-                  <h2 class="font-bold break-words">
+                  <h2 class="font-semibold break-words">
                     {{ provider.name_english }}
                   </h2>
                   <p v-if="provider.name_local !== provider.name_english" class="text-sm text-gray-600 dark:text-gray-400 break-words">
@@ -135,23 +128,26 @@ function parameterCount(provider: Provider): number {
                   color="neutral"
                   variant="subtle"
                 />
-                <!-- a licence with no SPDX identifier is told by its name, which can be a sentence: cut at
-                     the card's edge, and whole in the tooltip and on the provider's page -->
+                <!-- a licence with no SPDX identifier is told by its name, which can be a sentence: it wraps within the
+                     card (a label that is cut off with an ellipsis is lost to text spacing and to a narrow card) and is
+                     whole in the tooltip and on the provider's page -->
                 <UBadge
                   :label="licenceLabel(provider)"
                   :title="licenceLabel(provider)"
                   color="primary"
                   variant="subtle"
-                  icon="i-lucide-scale"
+                  icon="i-ph-scales"
                   class="max-w-full"
-                  :ui="{ label: 'truncate' }"
+                  :ui="{ base: 'whitespace-normal text-start', label: 'whitespace-normal break-words' }"
                 />
                 <UBadge
                   v-if="provider.networks.some(network => network.auth)"
                   :label="t('providers.keyRequired')"
                   color="neutral"
                   variant="outline"
-                  icon="i-lucide-key-round"
+                  icon="i-ph-key"
+                  class="max-w-full"
+                  :ui="{ base: 'whitespace-normal text-start', label: 'whitespace-normal break-words' }"
                 />
               </div>
             </UCard>
@@ -159,5 +155,5 @@ function parameterCount(provider: Provider): number {
         </li>
       </ul>
     </template>
-  </UContainer>
+  </PageContainer>
 </template>

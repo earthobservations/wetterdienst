@@ -61,21 +61,75 @@ What is left in it, and why it is not fixed in the app's own markup:
 - `aria-hidden-focus`, the error toast: the two focus proxies in Reka UI's toast viewport are
   `aria-hidden` and focusable. Also upstream.
 
-There is no `color-contrast` entry left. The brand green, `#00c950`, stays the fill of a solid primary
-button; its label is `#0f172b` (`--app-text-on-primary` in `app/assets/css/main.css`, set for the
-button in `app/app.config.ts`), 8.0:1 on the fill and 9.5:1 hovered in light mode, where the white
-label it replaces was 2.2:1 and 1.9:1. Dark mode has the same label on its lighter fill, as Nuxt UI
-already had it (10.0:1, and 6.1:1 hovered). A disabled button is exempt from 1.4.3 and from the scans; its
-label is at 75 % opacity with its fill (4.2:1 in light mode). Text in the primary colour on white is
-shade 700 and a fifth of the way to 800 (`.text-primary`), a hovered link button shade 800 (7.1:1; Nuxt UI's
-75 % of the first was 3.4:1), and a hovered chip of the home page shade 700 (4.9:1; shade 500 was 2.2:1).
-`tests/unit/button-contrast.test.ts` computes the hovered ratio of a solid button, as 75 % of the fill over
-the page; the hover scan measures the rest.
+There is no `color-contrast` entry left. The primary colour is the blue of the logo, `#2E6FD1` (`brand-600`),
+which is the fill of a solid primary button; its label is white (`--app-text-on-primary` in
+`app/assets/css/main.css`, set for the button in `app/app.config.ts`), 4.9:1 on the fill and 6.0:1 on the hovered
+fill (`brand-700`; Nuxt UI's own hover is 75 % of the fill over the page, where white is under 4.5:1). Dark mode has
+the logo's navy `#0B1A33` as the label on the lighter fill (`brand-400`, 7.0:1; 9.7:1 hovered on `brand-300`). A
+disabled button is exempt from 1.4.3 and from the scans; its label is at 75 % opacity with its fill. Text in the
+primary colour on white is shade 700 (`.text-primary`, 6.0:1; 5.2:1 on its own 10 % tint, where shade 600 is 4.4:1),
+a hovered link button shade 800 (8.2:1; Nuxt UI's 75 % of the first was under 4.5:1) and a hovered chip
+shade 700 (5.2:1 on its tint; shade 600 was 4.3:1). In dark mode a hovered link button brightens to shade 300 (75 % of
+shade 400 was 4.2:1 on a raised surface). Muted text is `ink-500` a
+quarter of the way to `ink-600` on white (5.8:1; 5.3:1 on `ink-100`; `ink-500` itself, which the pages' `text-gray-500` is, 5.4:1 and 4.9:1) and `ink-400` on dark (7.0:1 on the page, 5.0:1
+on the navy of the logo, the brightest surface). The page of dark mode is `ink-950`, the logo's `#0B1A33`; its raised
+surfaces are `ink-900` and `ink-800` (the logo's `#17335F`). `tests/unit/button-contrast.test.ts` reads the colours
+from `main.css` and computes the ratios of the solid button, its hover, in both modes; the hover scan measures the
+rest. The whole table is in the pull request of GH-3518 (it is computed by WCAG's formula, not estimated).
 
 The focus indicator is one solid 2 px outline for everything a keyboard reaches (`--app-focus-ring` in
-`main.css`: shade 700 of the primary colour on light, 4.9:1 on white, shade 400 on dark, 10:1; the map takes
-the light one in both modes). Nuxt UI's own is an outline at 25 % of the primary colour (1.2:1 to 1.7:1 on
-white) and a ring in the primary colour (2.2:1), and its menu search fields draw none; they stay, beside it.
+`main.css`: shade 700 of the primary colour on light, 6.0:1 on white, shade 400 on dark, 7.0:1 on the page and 5.0:1
+on the brightest surface; the map takes the light one in both modes). Nuxt UI's own is an outline at 25 % of the
+primary colour (under 2:1 on white) and a ring in the primary colour, and its menu search fields draw none; they
+stay, beside it.
+
+Decoration is hidden from assistive technology and carries no information: the stripes of the home page
+(`StripesBand`, a fixed pseudo-random line, not data) and the icons that stand beside a label. Under
+`prefers-reduced-motion: reduce` every animation and transition ends at once (one rule in `main.css`: the slide of the drawer,
+the scale-in of the palette, the pulse of a placeholder, the turn of a spinner, the field that still needs a value, which
+keeps a static ring). Forced colours (Windows high contrast) replace background colours, so an icon, which is a mask over its
+background, is given the colour of the text (`forced-color-adjust: none` in `main.css`); the current page and the highlighted row
+of the palette get an outline instead of a tint. The e2e suite checks the icons of the rail, the top bar and the drawer
+with `forcedColors: 'active'`.
+
+Navigation (GH-3518): a skip link is the first stop of every page but the widget and moves the focus to `<main id="main">`.
+The places are one `<nav aria-label="Menu">` in a sidebar. From 1024 to 1279 px it is a rail of icons, whose links are named
+by visually hidden labels (`sr-only`; Nuxt UI hides a collapsed label with `hidden`, which the `ui` of the menu
+overrides) and by tooltips; the `nav-rail` state finds a link by its role and name, which it cannot while the label is `display: none`, and axe
+(`link-name`, at 1100 px, which the spec's default window never shows) then scans it, as it does `rail-settings-open`;
+an e2e check holds the accessible name of every link. Below 1024 px
+a drawer opened by the menu button is a dialog that keeps the focus, closes on Escape and hands the focus back. The row
+layout of the shell follows the same script flag as the sidebar, not a Tailwind breakpoint (rem), so that a browser
+set to a larger default font size does not stack the rail over the page. The current page carries
+`aria-current="page"`. The command palette (Ctrl or Cmd + K, or the search button) is a dialog with a labelled search
+field and a listbox. Nuxt UI 4.11 puts the listbox role on a wrapper and draws the list anew with every search, so
+`AppSearch.vue` sets the role, the name and the tab stop on the scrolling list after every change of the palette's
+content (a `MutationObserver`, one per opening, dropped when it closes or reopens), on the palette that has the search
+field, not on "the first dialog" (the drawer or the rail's popover can be open behind it). The scan holds it in the
+`search-open`, `search-typed`, `search-empty` and `search-recovered` states (a search that finds something, nothing, and
+something again), over the drawer (`drawer-palette`, 390 px) and over the rail's popover (`rail-popover-palette`,
+1100 px); `mobile-menu-open` is scanned too. When the layout changes under the keyboard, the focus stays on its link
+(the rail gaining its labels at 1280 px) or goes to the page (the drawer or the popover going away); a page with no
+focus gets none. When the palette closes and the focus would be left on the body, the focus goes to the search button of the layout there
+is (a visible one, the sidebar's, the rail's or the top bar's): that is the case where the control that opened it is gone
+(the window crossed 1024 px under it: the top bar's button, the drawer), and where it was opened with Ctrl or Cmd + K
+with nothing focused, and closed by Escape or a click outside. The next Tab then goes into the navigation, as the first
+one after the skip link would. Printing: the skip link, the sidebar, the bars and the footer are not printed (`print:hidden`,
+in the markup, so that it holds for a print of a page whose scripts did not run again), a dark page prints in the light
+colours (`plugins/print-light.client.ts`), except its charts, which take theirs from the colour mode and keep the screen's
+(the forecast's light labels on white paper in a print from dark mode are known), and each Plotly chart that is wider than the room it has
+is scaled to it (`zoom`) when the print starts and back after it, so that it is whole in the card that clips it: the room is
+the column of the narrowest usual paper (A4 with 1 inch margins, 602 px; Letter and the browser's default margins have
+more) less the paddings and borders around the chart, measured with the print's gutters and card paddings in force
+(`html[data-printing]`). A chart on paper is therefore about half the size of the screen's, and its type with it (4.5 to
+6 pt); drawing it again at the narrower width, which would keep the type size, does not survive a real print (the print starts
+before Plotly has finished: the chart comes out without its traces), so legibility on paper is a known limit. The print is
+prepared once, by `beforeprint`, and undone by `afterprint` (and `pagehide`): the browser's own print dialog shows its
+preview again for each paper, margin or scale, and the print media comes and goes in between, so nothing is undone when it
+does. While it is prepared Plotly's own resize handler is off, so that a resize does not draw a chart at its container's
+width again. E2e checks hold the media rules, the fit, the media coming and going, and the day cards' scroller (a labelled
+region you can reach by keyboard, scanned on a phone for the forecast and the widget). A page that is chosen
+in the palette closes the rail's settings popover that was open under it.
 
 There is no sepia mode. `main.css` once held a `html.sepia` block that redefined the `--ui-*` tokens, which
 nothing in the app ever set (`colorMode` knows `light`, `dark` and `system`, and the settings offer those
@@ -130,14 +184,14 @@ WCAG 2.2 first, as axe has no rule for most of them.
 | Criterion | Result |
 | --- | --- |
 | 2.4.7 Focus visible, 1.4.11 Non-text contrast of the focus indicator | The keyboard scan measures it at every stop. **Was failing** nearly everywhere: 382 stops, counted per page so that the header links count on each, in 27 of the light/English scans had under 3:1; see above. |
-| 2.4.11 Focus not obscured (minimum) | The keyboard scan checks it on every page and state. The sticky header hides no focused element. Leaflet draws markers beyond what the map shows and lets Tab reach them: a marker that takes the focus now pans the map until it is in view (`MapStations.vue`). |
+| 2.4.11 Focus not obscured (minimum) | The keyboard scan checks it on every page and state. From 1024 px there is no sticky bar (the sidebar is a column beside the page and the skip link is the first stop); below it the top bar is sticky, 3.5 rem high, and `html` has a `scroll-padding-top` of its height and half a rem, so that a focused element the browser scrolls into view stops below it (an e2e test tabs back up a page at 390 px). Leaflet draws markers beyond what the map shows and lets Tab reach them: a marker that takes the focus now pans the map until it is in view (`MapStations.vue`). |
 | 2.5.7 Dragging movements | The map pans by drag, and by the arrow keys with the map focused, and zooms by its buttons and `+`/`-`; a station is also chosen in the list beside it. Plotly's charts zoom and pan by drag, with the modebar's buttons (zoom in, out, reset) as the single-pointer way. |
 | 2.5.8 Target size (minimum) | axe's `target-size` is among the tags scanned (wcag22aa), on every page and state in both modes: no entry. |
-| 3.2.6 Consistent help | The support and documentation links are in the header (icons) and the footer of every page, in the same order; the narrow layout has them in its menu. The widget has no header or footer by design. |
+| 3.2.6 Consistent help | The support, documentation, GitHub and PyPI links are in the groups of the navigation (the sidebar, the rail and the drawer, the same list) and the legal links in the footer of every page, in the same order. The widget has no header or footer by design. |
 | 3.3.7 Redundant entry | Nothing is asked twice in a process. The explorer, forecast and stripes keep their selection in the URL, the settings in local storage. |
 | 3.3.8 Accessible authentication | The app has no log-in and no cognitive test. |
 | 2.4.2 Page titled | **Was failing**: every page was titled `Wetterdienst`. Each page names itself now, and a navigation is announced (`NuxtRouteAnnouncer`). |
-| 2.2.2 Pause, stop, hide | **Was failing**: the emoji of the forecast's compact cards bounced for ever. They bounce once, and not at all under `prefers-reduced-motion`. Loading placeholders pulse while loading, which is a progress indication. |
+| 2.2.2 Pause, stop, hide | **Was failing**: the emoji of the forecast's compact cards bounced for ever. They bounce once, and not at all under `prefers-reduced-motion`. Loading placeholders pulse while loading, which is a progress indication, and stand still under `prefers-reduced-motion`. |
 | 1.4.10 Reflow | No page scrolls sideways at 320 px (tested). A table or chart scrolls in its own box. |
 | 2.1.2, 2.4.3 on the narrow layout's menu | **Was failing**: the menu was a fixed overlay that Tab walked out of. It is a dialog. |
 

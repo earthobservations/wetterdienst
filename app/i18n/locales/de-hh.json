@@ -116,7 +116,18 @@
     "providers": "Anbeder",
     "api": "API",
     "glossary": "Glossar",
-    "support": "Ünnerstütten"
+    "support": "Ünnerstütten",
+    "skip": "Na'n Inhalt springen",
+    "search": "Söken",
+    "searchPlaceholder": "Op ene Siet gahn oder wat instellen",
+    "noResults": "Nix funnen",
+    "groupData": "Daten",
+    "groupReference": "Nakieken",
+    "groupProject": "Projekt",
+    "versions": "App {app} · Backend {backend}",
+    "versionUnknown": "unbekannt",
+    "drawerDescription": "Sieten vun de App un Verwiesen na't Projekt",
+    "current": "Aktuell"
   },
   "header": {
     "github": "GitHub",
@@ -428,7 +439,8 @@
         "cloudy": "Wulkig",
         "partlyCloudy": "Deelwies wulkig",
         "clear": "Sünnig"
-      }
+      },
+      "dayOverview": "Daagsöversicht"
     },
     "orChooseMap": "oder",
     "chooseOnMap": "Station op de Kaart utsöken",

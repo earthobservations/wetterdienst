@@ -47,10 +47,10 @@ useHead(() => notFound.value && !blank.value
         {{ t('notFound.text') }}
       </p>
       <div class="flex flex-wrap items-center justify-center gap-3">
-        <UButton to="/" icon="i-lucide-home" :label="t('notFound.home')" />
+        <UButton to="/" icon="i-ph-house" :label="t('notFound.home')" />
         <UButton
           v-if="canGoBack"
-          icon="i-lucide-arrow-left"
+          icon="i-ph-arrow-left"
           color="neutral"
           variant="outline"
           :label="t('notFound.back')"

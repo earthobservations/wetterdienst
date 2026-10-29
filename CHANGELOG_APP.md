@@ -16,6 +16,34 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Design]` A new, quieter look: near-monochrome with the logo's blue as the one accent, the
+  Geist typeface and Phosphor icons (both served by the app itself), and one shared layout with
+  the same side margins on every page (the explorer, forecast, stripes, history and providers
+  pages use up to 80 rem, the text pages a narrower measure). The top bar is gone: navigation is
+  a sidebar with the places in groups (a rail of icons on narrow desktops, a drawer on phones),
+  the settings at its foot with the app's and the backend's version beneath them (no longer in
+  the footer), a skip-to-content link and a command palette on Ctrl or Cmd + K. The home page's
+  heading is now the tagline. Providers show a country code, on the list, the home page and
+  their own page, instead of a flag; the language list has no flags. The licence notices gain
+  the fonts' licence (OFL-1.1) and the icon set's (GH-3518)
+- `[Widget]` The embeddable widget (`/widget`) takes the new colours and the new font; it still
+  draws its own background, so it reads on any page that frames it (GH-3518)
+- `[Print]` A page prints without the sidebar, the bars, the skip link and the footer, and a page
+  in dark mode prints in light colours, except its charts, which keep the colours of the screen.
+  A chart wider than the room it has on the narrowest usual paper (A4, 1 inch margins) is scaled
+  to it for the print, instead of being cut off at the edge of its card (GH-3518)
+
+### Fixed
+
+- `[Forecast]` The day cards of the forecast on a phone, and in the widget, no longer make the
+  page scroll sideways (by 420 to 520 px), and their row is a labelled region that a keyboard
+  can reach and scroll (GH-3518)
+- `[Stripes]` The climate stripes chart keeps up with its container: it widens when the window
+  (or the sidebar beside it) gets wider, instead of staying at the width it was drawn at
+  (GH-3518)
+
 ## [0.39.0] - 2026-10-28
 
 ### Security

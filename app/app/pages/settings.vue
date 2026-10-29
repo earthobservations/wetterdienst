@@ -13,9 +13,9 @@ const selectedLanguage = computed({
 })
 
 const themeOptions = computed(() => [
-  { value: 'system', label: t('settings.themeSystem'), icon: 'i-lucide-monitor' },
-  { value: 'light', label: t('settings.themeLight'), icon: 'i-lucide-sun' },
-  { value: 'dark', label: t('settings.themeDark'), icon: 'i-lucide-moon' },
+  { value: 'system', label: t('settings.themeSystem'), icon: 'i-ph-desktop' },
+  { value: 'light', label: t('settings.themeLight'), icon: 'i-ph-sun' },
+  { value: 'dark', label: t('settings.themeDark'), icon: 'i-ph-moon' },
 ])
 
 // The unit choices this page offers and stores. They are *not* applied to a request today: a query
@@ -56,21 +56,14 @@ function unitItems(units: readonly string[]) {
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-2xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('settings.title') }}
-      </h1>
-      <p class="text-gray-600 dark:text-gray-400">
-        {{ t('settings.subtitle') }}
-      </p>
-    </div>
+  <PageContainer>
+    <PageHeader :title="t('settings.title')" :lead="t('settings.subtitle')" />
 
     <!-- Language -->
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-languages" class="text-primary-500 shrink-0" />
+          <UIcon name="i-ph-translate" class="text-primary-500 shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('settings.language') }}
           </h2>
@@ -88,7 +81,7 @@ function unitItems(units: readonly string[]) {
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-palette" class="text-primary-500 shrink-0" />
+          <UIcon name="i-ph-palette" class="text-primary-500 shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('settings.theme') }}
           </h2>
@@ -111,7 +104,7 @@ function unitItems(units: readonly string[]) {
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-ruler" class="text-primary-500 shrink-0" />
+          <UIcon name="i-ph-ruler" class="text-primary-500 shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('settings.units') }}
           </h2>
@@ -192,12 +185,12 @@ function unitItems(units: readonly string[]) {
       </p>
       <UButton
         :label="t('settings.reset')"
-        icon="i-lucide-rotate-ccw"
+        icon="i-ph-arrow-counter-clockwise"
         color="neutral"
         variant="outline"
         size="sm"
         @click="reset"
       />
     </div>
-  </UContainer>
+  </PageContainer>
 </template>

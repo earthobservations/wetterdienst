@@ -55,20 +55,13 @@ const entries = computed<GlossaryEntry[]>(() => {
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('glossary.title') }}
-      </h1>
-      <p class="text-gray-600 dark:text-gray-400">
-        {{ t('glossary.subtitle') }}
-      </p>
-    </div>
+  <PageContainer>
+    <PageHeader :title="t('glossary.title')" :lead="t('glossary.subtitle')" />
 
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-book-open" class="text-primary-500 shrink-0" />
+          <UIcon name="i-ph-book-open" class="text-primary-500 shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('glossary.parametersTitle') }}
           </h2>
@@ -78,7 +71,7 @@ const entries = computed<GlossaryEntry[]>(() => {
       <div class="flex flex-col sm:flex-row gap-2 mb-4">
         <UInput
           v-model="search"
-          icon="i-lucide-search"
+          icon="i-ph-magnifying-glass"
           :placeholder="t('glossary.searchPlaceholder')"
           class="flex-1"
         />
@@ -95,7 +88,7 @@ const entries = computed<GlossaryEntry[]>(() => {
       <UEmpty v-if="pending" loading :title="t('glossary.loading')" />
       <UEmpty
         v-else-if="!entries.length"
-        icon="i-lucide-book-open"
+        icon="i-ph-book-open"
         :title="t('glossary.noResults')"
       />
       <div v-else class="space-y-4">
@@ -120,5 +113,5 @@ const entries = computed<GlossaryEntry[]>(() => {
         </div>
       </div>
     </UCard>
-  </UContainer>
+  </PageContainer>
 </template>
