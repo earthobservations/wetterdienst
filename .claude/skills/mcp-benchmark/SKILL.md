@@ -236,17 +236,20 @@ answer for its wording (the 38 answers of the round-7 review are in the tests).
 For a **forecast** (a span) a figure with an accepted unit outside the span counts as not the value. A figure of fewer than two
 significant digits gets no rounding in the unit the value was read in when the value has two or more digits (`1` is not 0.8404
 as a fraction); in another unit or for a one-digit value it is rounding (`4 h` for 4.12 h, `-1 °C` for -0.7). A column's
-`TABLE-UNIT` must name one of the unit tokens. **A fact with a `column` and a `row` holds every table of the answer to the
-value in the column its `column` regex names (`precip`, which also takes `precipitation`, or `value`, the column of the
-tool's own CSV) and in the row of its `row` (a day, found as `2026-10-16`, `16.10.2026`, `16/10/2026`, `16 Oct 2026` ...)**,
-with a `TABLE-UNIT` line or without, and with a fitting RESULT line or without; a RESULT line for the value is accepted when
-the answer has no table.
+`TABLE-UNIT` must name one of the unit tokens. **A fact with a `column` and a `row` holds EVERY table of the answer to the value
+on the row of its day** (`2026-10-16`, `16.10.2026`, `16.10.`, `16/10/2026`, `16 Oct`, `Oct 16, 2026` ...; a markdown table with
+the dates as columns is read transposed): in the column a `TABLE-UNIT` line names, else the columns whose header matches the
+fact's `column` regex (`precip`, which also takes `precipitation`, or `value`, the tool's own CSV), else any column that has a
+figure on that row; in the unit that line declares (`TABLE-UNIT: precipitation_cm | cm` reads the figures as centimetres), else
+the unit the tool returns. One wrong table fails the answer beside a right one. The unit must be stated: by a `TABLE-UNIT` line
+for the column or by a fitting RESULT line; a RESULT line for the value is also enough when the answer has no table.
 
 **The unit slot** forgives slips: a trailing point, a remark in brackets (`°C (as returned)`, `mm (millimetres)`,
 `degrees Celsius (°C)`), `℃`, `ºC`, `m s⁻¹`, `%RH`, bold, bullets, numbered markers, quotes, fences, any case.
 
 **What counts as a malformed line, and what then.** A line that starts `RESULT:` and a number but gives no unit, or does not
-parse, is *malformed*: it is a format violation, and it is ignored. If **any** well-formed RESULT or TABLE-UNIT line exists,
+parse, or whose unit slot starts with a sign or holds a second figure (`19-21 °C`, `19–21 °C`, `4 h 7 min`: a range or a
+compound figure is no one value; a digit inside a unit, `l/m2`, `m s-1`, is part of it), is *malformed*: it is a format violation, and it is ignored. If **any** well-formed RESULT or TABLE-UNIT line exists,
 the strict rule applies to those lines alone (a malformed line does not make the rest lenient). Only an answer with **no**
 well-formed line is read by the **fallback**.
 
@@ -311,8 +314,11 @@ now), and the path of the file.
 prompt, the **mode** (headless or subagent) or whether the tools were **deferred** differ, when the two sides cannot be
 told apart (one server version and one `label`; `--same-server` compares two runs of one server), when the two files were made
 with a different number of `repeats` or hold a repeat outside 1..`repeats` or twice, or when more than 3 % of the runs of the
-*compared* cases are invalid or missing. It compares only the (case, tier) whose case hash is unchanged and
-says how many it left out (only in the current file, with a changed case, only in the previous file); a tier whose
+*compared* cases are invalid or missing. It compares the (case, tier) of the previous file whose case is named
+with the same hash in the current file's `meta.case_hashes` and whose tier is in its `meta.models`: **one of them with no run
+in the current file has every repeat missing** and counts toward the 3 % (a strategy that makes a case time out on every
+repeat and records none must not look like a smaller suite). It lists, by name, the cases only in the current file, with a
+changed hash, and removed from the current file (or whose tier it no longer has), which stay out; a tier whose
 resolved model ids differ is not compared; it refuses a file with a run still marked `needs_judging`. Every case is first
 cut down to the repeats that are valid on both sides (`_equalise`: paired by `repeat`, no pseudo-counts, so that pooling uses
 real counts, weights the cases alike, and an invalid or missing first repeat on one side cannot bias the other); a case that

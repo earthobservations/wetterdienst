@@ -13,6 +13,7 @@ import http.server
 import importlib.util
 import json
 import math
+import os
 import re
 import subprocess
 import sys
@@ -983,6 +984,7 @@ def test_a_run_fails_fast_without_a_server_a_prompt_or_claude(
     assert bench.run_subject("haiku", mcp_url, "wetterdienst", str(prompt), out, 5, 0.1, label="a b;c") == 2
 
 
+@pytest.mark.skipif(os.name == "nt", reason="the fake `claude` is a #!/bin/sh script, which Windows cannot execute")
 def test_a_run_leaves_the_probes_answer_and_the_label_next_to_its_transcript(
     tmp_path: Path, mcp_url: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1223,11 +1225,14 @@ def _project_dirs(home: Path) -> Path:
     return root
 
 
+@pytest.mark.skipif(
+    os.utime not in os.supports_follow_symlinks,
+    reason="the test dates a symlink itself (os.utime follow_symlinks=False), which this platform cannot do",
+)
 def test_cleanup_removes_only_old_directories_of_this_benchmarks_runs(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Anchored to the slug of the temp dir, older than a few minutes, never through a symlink."""
-    import os  # noqa: PLC0415
     import time  # noqa: PLC0415
 
     home = tmp_path / "home"
@@ -2482,7 +2487,11 @@ def test_the_value_in_the_unit_it_was_read_in_but_written_with_another_unit_fail
         ("16.10.2026", True),
         ("16. 10. 2026", True),
         ("16.10.26", True),
-        ("16.10.", False),
+        ("16.10.", True),
+        ("16.10.2025", False),
+        ("16 Oct 2025", False),
+        ("Oct 16", True),
+        ("Oct 160", False),
         ("16/10/2026", True),
         ("10/16/2026", True),
         ("16 Oct 2026", True),
@@ -2883,7 +2892,7 @@ def test_a_forecast_figure_outside_the_span_says_so_and_a_shifted_table_is_repor
         "a figure for the asked quantity ('tomorrow afternoon') that is not the value and lies outside the span"
     ]
     assert [f["reason"] for f in shifted["failures"]] == [
-        "a table is given, but it does not hold the value in the column the case names in the row of 2026-10-16"
+        "a table of the answer does not hold the value in the row of 2026-10-16"
     ]
 
 
@@ -2912,3 +2921,373 @@ def test_a_record_that_lacks_a_field_is_refused_and_the_wrong_unit_failure_is_na
     assert [f["reason"] for f in wrong["failures"]] == [
         "the figure is the value in the unit it was read in, written with another unit ('%')"
     ]
+
+
+# ------------------------------------------------------------------------------------------------- round 8
+
+DAYS = [
+    ("2026-10-14", "0.0"),
+    ("2026-10-15", "0.0"),
+    ("2026-10-16", "15.5"),
+    ("2026-10-17", "11.1"),
+    ("2026-10-18", "7.2"),
+]
+SHIFTED = [("2026-10-14", "0.0"), ("2026-10-15", "15.5"), ("2026-10-16", "11.1"), ("2026-10-17", "7.2")]
+INTRO = "Daily precipitation at Hamburg-Fuhlsbüttel (01975), 14 to 18 October 2026, in mm.\n\n"
+SPAN = {"min": 17.1, "max": 21.6}
+
+
+def _days_csv(header: str, days: list[tuple[str, str]] = DAYS) -> str:
+    """Make a fenced CSV block of a date column and one value column."""
+    return _csv(header, *(f"{day},{value}" for day, value in days))
+
+
+def _days_md(header: str, days: list[tuple[str, str]] = DAYS) -> str:
+    """Make a markdown table of a date column and one value column."""
+    return (
+        "\n".join(["| date | " + header + " |", "| --- | --- |", *(f"| {day} | {value} |" for day, value in days)])
+        + "\n"
+    )
+
+
+def _transposed_md(label: str, days: list[tuple[str, str]] = DAYS) -> str:
+    """Make a markdown table with the dates as columns."""
+    return (
+        "\n".join(
+            [
+                "| date | " + " | ".join(day for day, _ in days) + " |",
+                "| --- | " + " | ".join("---" for _ in days) + " |",
+                f"| {label} | " + " | ".join(value for _, value in days) + " |",
+            ]
+        )
+        + "\n"
+    )
+
+
+#: (label, case, truth, whether the answer passes, the answer): the table rule and the compound figure, round 8
+ROUND_8_ANSWERS = [
+    # the column a TABLE-UNIT line names, whatever its header, with the unit it declares
+    ("t1 rain_mm declared", CSV, TRUTHS[CSV], True, INTRO + _days_csv("date,rain_mm") + "TABLE-UNIT: rain_mm | mm"),
+    ("t2 rainfall declared", CSV, TRUTHS[CSV], True, INTRO + _days_csv("date,rainfall") + "TABLE-UNIT: rainfall | mm"),
+    ("t3 val declared", CSV, TRUTHS[CSV], True, INTRO + _days_csv("date,val") + "TABLE-UNIT: val | mm"),
+    (
+        "t4 val declared, a RESULT line too",
+        CSV,
+        TRUTHS[CSV],
+        True,
+        INTRO + _days_csv("date,val") + "RESULT: 15.5 mm | precipitation on 2026-10-16",
+    ),
+    (
+        "t5 centimetres declared",
+        CSV,
+        TRUTHS[CSV],
+        True,
+        INTRO
+        + _days_csv("date,precipitation_cm", [(d, f"{float(v) / 10:g}") for d, v in DAYS])
+        + "TABLE-UNIT: precipitation_cm | cm",
+    ),
+    (
+        "t6 centimetres declared, the figures are millimetres",
+        CSV,
+        TRUTHS[CSV],
+        False,
+        INTRO + _days_csv("date,precipitation_cm") + "TABLE-UNIT: precipitation_cm | cm",
+    ),
+    ("t7 no format line at all", CSV, TRUTHS[CSV], True, INTRO + _days_csv("date,rain_mm")),
+    (
+        "t8 dates without a year",
+        CSV,
+        TRUTHS[CSV],
+        True,
+        INTRO + _csv("day,precipitation", *(f"Oct {d[-2:]},{v}" for d, v in DAYS)) + "TABLE-UNIT: precipitation | mm",
+    ),
+    (
+        "t9 a table without a unit stated anywhere",
+        CSV,
+        TRUTHS[CSV],
+        False,
+        INTRO + _days_csv("date,rain_mm") + "TABLE-UNIT: date | text",
+    ),
+    # EVERY table must hold the value for the day
+    (
+        "t10 a shifted table beside a right RESULT line",
+        CSV,
+        TRUTHS[CSV],
+        False,
+        INTRO + _days_csv("date,precipitation", SHIFTED) + "RESULT: 15.5 mm | precipitation on 2026-10-16",
+    ),
+    (
+        "t11 a right CSV and a wrong markdown table",
+        CSV,
+        TRUTHS[CSV],
+        False,
+        INTRO
+        + _days_csv("date,precipitation", DAYS[:3])
+        + _days_md("precipitation", [("2026-10-16", "11.1")])
+        + "TABLE-UNIT: precipitation | mm",
+    ),
+    (
+        "t12 a right CSV and a right markdown table",
+        CSV,
+        TRUTHS[CSV],
+        True,
+        INTRO + _days_csv("date,precipitation") + _days_md("precipitation") + "TABLE-UNIT: precipitation | mm",
+    ),
+    (
+        "t13 a right table and a wrong one that names another column",
+        CSV,
+        TRUTHS[CSV],
+        False,
+        INTRO
+        + _days_csv("date,rain_mm")
+        + _days_md("temperature", [("2026-10-16", "9.8")])
+        + "TABLE-UNIT: rain_mm | mm",
+    ),
+    # dates as columns
+    (
+        "t13b the declared column wins over a header that matches the fact",
+        CSV,
+        TRUTHS[CSV],
+        True,
+        INTRO
+        + _csv("date,precipitation_forecast,rain_mm", *(f"{day},11.1,{value}" for day, value in DAYS))
+        + "TABLE-UNIT: rain_mm | mm",
+    ),
+    (
+        "t14 transposed markdown",
+        CSV,
+        TRUTHS[CSV],
+        True,
+        INTRO + _transposed_md("precipitation") + "TABLE-UNIT: precipitation | mm",
+    ),
+    (
+        "t15 transposed markdown, shifted",
+        CSV,
+        TRUTHS[CSV],
+        False,
+        INTRO
+        + _transposed_md("precipitation", [(d, v) for (d, _), (_, v) in zip(DAYS, [DAYS[1], *DAYS[:-1]], strict=True)])
+        + "TABLE-UNIT: precipitation | mm",
+    ),
+    # a range or a second figure in the unit slot is a malformed line, not a wrong value: the prose is read instead
+    (
+        "r1 range",
+        LAX,
+        SPAN,
+        True,
+        "Forecast 19 to 21 °C.\n\nRESULT: 19-21 °C | forecast air temperature, Los Angeles, tomorrow afternoon",
+    ),
+    (
+        "r2 range with an en dash",
+        LAX,
+        SPAN,
+        True,
+        "Forecast 19 to 21 °C.\n\nRESULT: 19\N{EN DASH}21 °C | forecast air temperature, Los Angeles, tomorrow",
+    ),
+    (
+        "r3 approximately",
+        LAX,
+        SPAN,
+        True,
+        "About 21 °C.\n\nRESULT: ~21 °C | forecast air temperature, tomorrow afternoon",
+    ),
+    (
+        "r4 a wrong range",
+        LAX,
+        SPAN,
+        False,
+        "Tomorrow afternoon 30 to 35 °C.\n\nRESULT: 30-35 °C | forecast air temperature, tomorrow afternoon",
+    ),
+    (
+        "r5 hours and minutes",
+        SUNSHINE,
+        TRUTHS[SUNSHINE],
+        True,
+        "The sun shone 4 h 7 min (14821 s).\n\nRESULT: 4 h 7 min | sunshine duration on 2026-10-16",
+    ),
+    ("r6 a digit in the unit is part of it", PRECIP, TRUTHS[PRECIP], True, "RESULT: 15.5 l/m2 | precipitation"),
+    (
+        "r7 a remark in brackets is not read",
+        PRECIP,
+        TRUTHS[PRECIP],
+        True,
+        "RESULT: 15.5 mm (as of 2026) | precipitation",
+    ),
+    ("r8 attached percent sign", HUMIDITY, TRUTHS[HUMIDITY], True, "RESULT: 84% | daily mean relative humidity"),
+    (
+        "r9 attached percent sign, the fraction",
+        HUMIDITY,
+        TRUTHS[HUMIDITY],
+        False,
+        "RESULT: 0.84% | daily mean relative humidity",
+    ),
+    (
+        "r10 kelvin figure with a Celsius unit",
+        KIEL,
+        TRUTHS[KIEL],
+        False,
+        "RESULT: 272.5 °C | daily mean air temperature",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("label", "case_id", "truth", "expected", "answer"),
+    [pytest.param(*row, id=row[0].split()[0]) for row in ROUND_8_ANSWERS],
+)
+def test_the_tables_and_compound_figures_a_review_found_are_judged_right(
+    label: str,
+    case_id: str,
+    truth: dict[str, float],
+    expected: bool,  # noqa: FBT001
+    answer: str,
+) -> None:
+    """One rule for a table: the column a TABLE-UNIT line names (else the header, else any), its unit, every table."""
+    result = bench.unit_check(answer, _unit_fact(case_id), truth)
+
+    assert result["ok"] is expected, (label, result["mode"], result["failures"])
+
+
+@pytest.mark.parametrize(
+    "unit",
+    [
+        "19-21 °C",
+        "19\N{EN DASH}21 °C",
+        "19\N{MINUS SIGN}21 °C",
+        "4 h 7 min",
+        "+/- 1 °C",
+        "2 3 mm",
+        "-",
+        "\N{EN DASH} °C",
+        "~ °C",
+    ],
+)
+def test_a_range_or_a_second_figure_in_the_unit_slot_is_a_format_violation_not_a_wrong_value(unit: str) -> None:
+    """The line is malformed (a format violation, ignored by the strict rule), so it cannot fail the fact as a unit."""
+    case = bench.find_case(bench.load_cases(), KIEL)
+    results, column_units, malformed = bench.format_lines(f"RESULT: 20 {unit} | forecast")
+
+    assert (results, column_units, malformed) == ([], [], 1)
+    assert bench.format_violation(case, f"RESULT: -0.7 °C | daily mean\nRESULT: 20 {unit} | forecast") is True
+    assert (
+        bench.unit_check(f"RESULT: -0.7 °C | daily mean\nRESULT: 20 {unit} | forecast", _unit_fact(KIEL), TRUTHS[KIEL])[
+            "ok"
+        ]
+        is True
+    )
+
+
+@pytest.mark.parametrize("unit", ["m s-1", "l/m2", "m/s", "°C (as returned)", "mm [millimetres]", "% RH"])
+def test_a_digit_inside_a_unit_or_a_remark_does_not_make_the_line_malformed(unit: str) -> None:
+    """The unit slot of a compound figure is tested for a leading sign or a second figure, not for any digit."""
+    results, _, malformed = bench.format_lines(f"RESULT: 3 {unit} | wind")
+
+    assert malformed == 0
+    assert len(results) == 1
+
+
+def test_a_malformed_table_unit_line_next_to_a_good_result_line_is_a_format_violation() -> None:
+    """A TABLE-UNIT line with no pipe names no column: the format was broken even though the value is right."""
+    answer = "RESULT: 15.5 mm | precipitation on 2026-10-16\nTABLE-UNIT: precipitation mm"
+    result = bench.unit_check(answer, _unit_fact(PRECIP), TRUTHS[PRECIP])
+
+    assert result["ok"] is True
+    assert result["format_violation"] is True
+    assert result["malformed"] == 1
+    assert bench.format_violation(bench.find_case(bench.load_cases(), PRECIP), answer) is True
+
+
+# ---- whole (case, tier) groups that the current file lacks
+
+
+def _without(results: dict[str, Any], *cases: str) -> dict[str, Any]:
+    """Give a results file without the runs of some cases (the `meta` still names them)."""
+    return {**results, "runs": [r for r in results["runs"] if r["case"] not in cases]}
+
+
+@pytest.mark.parametrize(("lost", "share"), [(1, "4%"), (2, "7%")])
+def test_a_case_that_the_current_file_names_but_has_no_run_of_is_missing_not_left_out(lost: int, share: str) -> None:
+    """A strategy that makes a case time out on every repeat and records none must not look like a smaller suite."""
+    before, after = _file(), _file()
+    cases = [f"c{i}" for i in range(lost)]
+
+    text, refused = bench.compare_with_status(before, _without(after, *cases))
+
+    assert refused, text
+    assert f"{share} of the 135 compared current runs are {5 * lost} missing (no record of the repeat)" in text
+    assert "=> NO WORSE" not in text
+
+
+def test_a_case_that_only_the_current_file_has_is_new_and_listed() -> None:
+    """A case the previous file never ran is not a gap of it: it is left out of the comparison, by name."""
+    text, refused = bench.compare_with_status(_without(_file(), "c0", "c1"), _file())
+
+    assert not refused, text
+    assert "left out, only in the current file: c0 [small], c1 [small]" in text
+
+
+def test_the_previous_files_own_missing_repeats_count_against_the_cap() -> None:
+    """The cap is over both sides: six runs the previous file never recorded refuse the comparison as well."""
+    before = _file()
+    before["runs"] = [r for r in before["runs"] if not (r["case"] in {"c0", "c1", "c2"} and r["repeat"] > 3)]
+
+    text, refused = bench.compare_with_status(before, _file())
+
+    assert refused
+    assert "4% of the 135 compared previous runs are 6 missing (no record of the repeat)" in text
+
+
+def test_a_changed_or_removed_case_stays_out_of_the_comparison_and_is_listed() -> None:
+    """Only a case the current `meta` names with the same hash is expected; the others are listed, not missing."""
+    before, after = _file(), _file()
+    after["meta"]["case_hashes"]["c0"] = "other"
+    del after["meta"]["case_hashes"]["c1"]
+    after = _without(after, "c0", "c1")
+
+    text, refused = bench.compare_with_status(before, after)
+
+    assert not refused, text
+    assert (
+        "25 (case, tier) compared; left out: 0 only in the current file, 1 with a changed case, "
+        "1 only in the previous file" in text
+    )
+    assert "left out, changed case: c0 [small]" in text
+    assert "left out, case or tier not in the current file: c1 [small]" in text
+
+
+def test_a_tier_the_current_file_no_longer_has_is_left_out_not_missing() -> None:
+    """`meta.models` of the current file decides which tiers it should hold."""
+    before, after = _file(), _file()
+    before["runs"] += [{**r, "tier": "large"} for r in before["runs"]]
+    before["meta"]["models"] = {"small": "haiku", "large": "sonnet"}
+    after["meta"]["models"] = {"small": "haiku"}
+
+    text, refused = bench.compare_with_status(before, after)
+
+    assert not refused, text
+    assert "27 (case, tier) compared" in text
+    assert "27 only in the previous file" in text
+
+
+def test_a_repeat_equal_to_repeats_is_accepted_by_add_run(tmp_path: Path) -> None:
+    """The last repeat of the design is a repeat of it: only one above `repeats` is refused."""
+    path, new = _add_run_file(tmp_path)
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["meta"]["repeats"] = 3
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+    assert bench.add_run(path, {**new, "repeat": 3}) == "added a [small] repeat 3: 3 runs"
+    with pytest.raises(ValueError, match="repeat is 4, but the file was made with repeats=3"):
+        bench.add_run(path, {**new, "repeat": 4})
+
+
+def test_a_table_with_no_unit_stated_anywhere_is_a_format_violation() -> None:
+    """A RESULT line in an unknown unit and a table without `TABLE-UNIT`: nothing states the unit."""
+    table = INTRO + _days_csv("date,rain_mm")
+    without = bench.unit_check(
+        table + "RESULT: 15.5 furlongs | precipitation on 2026-10-16", _unit_fact(CSV), TRUTHS[CSV]
+    )
+    with_unit = bench.unit_check(table + "TABLE-UNIT: rain_mm | mm", _unit_fact(CSV), TRUTHS[CSV])
+
+    assert (without["ok"], without["format_violation"]) == (False, True)
+    assert (with_unit["ok"], with_unit["format_violation"]) == (True, False)

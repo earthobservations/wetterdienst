@@ -95,8 +95,10 @@ another unit passes). It fails when a line gives the value in a forbidden unit (
 read in with another unit (`0.84 %`, `15.5 cm`), or gives a figure that is not the value and *calls it the asked quantity*
 (its description matches the fact's `asked_descriptions` and none of its `ignore_descriptions`: `RESULT: 3.2 °C | daily
 mean` next to the right figure fails, `RESULT: 1.2 °C | daily max` or `RESULT: 5 days | window` does not). A fact with a
-`column` and a `row` also holds every table of the answer to the value in that column and the row of that day, with or
-without a `TABLE-UNIT` line. The wording lists are a judgement and are tried against both kinds of strings in the tests;
+`column` and a `row` also holds **every** table of the answer to the value on the row of that day, in the column a
+`TABLE-UNIT` line names (else the header the fact names, else any column) and in the unit that line declares; a markdown
+table with the dates as columns is read transposed. A range or a compound figure in a RESULT line (`19-21 °C`,
+`4 h 7 min`) is a malformed line, a format violation, not a wrong value. The wording lists are a judgement and are tried against both kinds of strings in the tests;
 an extra line worded in a way nobody foresaw is not a claim, so the check errs towards not failing a right answer for its
 wording. The example in the prompt is made up and a test holds it to passing no case.
 
@@ -130,8 +132,10 @@ sides report one version and carry no differing `label`, or when the two files w
 more than 3 % of the compared runs are invalid or missing (invalid: the server was not connected, those runs are left out of
 the rates and counted; missing: a repeat with no record at all, which counts as lost so that a timeout nobody recorded cannot
 shrink a side unseen; a run that never ran is recorded with
-`bench.py failed-run`; a timeout is a failed run, not an invalid one, with what its partial transcript measured or no metrics at all, never zeros); a tier whose resolved model ids differ is not compared. It compares only cases whose hash is
-unchanged and says how many it left out (only in the current file, changed, only in the previous file). Sizes
+`bench.py failed-run`; a timeout is a failed run, not an invalid one, with what its partial transcript measured or no metrics at all, never zeros); a tier whose resolved model ids differ is not compared. It compares the cases of the
+previous file that the current file's `meta` names with the same hash (and the tiers it lists): one of them with no run in the
+current file has every repeat missing and counts toward the 3 %, so a case that timed out on every repeat and was never
+recorded is not a smaller suite; cases only in the current file, with a changed hash or removed stay out and are listed. Sizes
 (tool-result characters, context tokens at the first request, total and output tokens, calls whose result was saved to a
 file) are printed as medians per case before and after and the paired difference.
 
@@ -189,9 +193,11 @@ glossary run against it worked.
   daily mean wind speed, the peak`) is not caught, and a right extra figure labelled with a word no list foresaw is not failed. They are a first judgement: revisit
   them after the first baseline run, against the answers real models give.
 - A table is found only if it has a markdown separator row or a header line without a digit and its cells are separated by a
-  pipe, a comma or a tab (a semicolon CSV is not a table to the check; its figures still need a RESULT line). A date in a
-  table is read as `2026-10-16`, `16.10.2026` (zeros and the year's century optional), `16/10/2026`, `10/16/2026`, `16 Oct 2026`
-  or `October 16, 2026`.
+  pipe, a comma or a tab: a semicolon CSV, and a CSV with the dates as columns (its first line holds digits), are not tables to
+  the check (their figures still need a RESULT line); a markdown table with the dates as columns is read. A date in a table is
+  read as `2026-10-16`, `16.10.2026`, `16.10.26`, `16.10.` (zeros optional), `16/10/2026`, `10/16/2026`, `16 Oct`,
+  `Oct 16, 2026` or `16 October 2026`; another year is another day. A second table of the answer that has no row of the day
+  (a station list, say) fails the answer, since every table is held to the value.
 - The unit check does not read: units written per time (`mm/day`), a German thousands point (`14.821 s`), a unit before the
   figure in a RESULT line, or a forecast figure in °F or K outside the span (it is ignored, not converted and checked). A
   case whose model writes these is a format violation or a failed fact, and the transcript says which.
