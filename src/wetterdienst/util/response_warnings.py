@@ -96,9 +96,8 @@ def note_skipped_download(*, whole_request: bool = False) -> None:
     from).
 
     Not for an answer that says there is nothing (a 404 for a station that does not report the parameter, Frost's
-    412), for a download that failed and was made again with success, nor for a reader that returns for want of a
-    window without asking the source (a dataset with `date_required` is not told by `parameter-without-rows` without
-    one). Nothing happens outside the collection of a station.
+    412), nor for a download that failed and was made again with success. Nothing happens outside the collection of
+    a station.
 
     What is told is the other side of that: once the walk is over, `file-skipped` names the stations whose file was
     let go (`ParameterRows.warn`), one warning for the request. A provider that lets a file go without calling this

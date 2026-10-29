@@ -563,9 +563,9 @@ class MetnoFrostValues(TimeseriesValues):
         start_date = self.sr.start
         end_date = self.sr.end
         if not start_date or not end_date:
-            # nothing is asked of Frost without a window (REST and the command line demand one; Python does not):
-            # every dataset is `date_required`, so `parameter-without-rows` says nothing of it either, and no file is
-            # let go that `file-skipped` could name
+            # nothing is asked of Frost without a window. The library refuses such a request (every Frost dataset is
+            # `date_required`), so this is reached only without its check, as a test does: no file is let go that
+            # `file-skipped` could name, and `parameter-without-rows` says nothing of a dataset that needs a window
             return pl.DataFrame()
 
         settings = self.sr.settings
