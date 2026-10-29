@@ -130,6 +130,33 @@
     "about": "Over",
     "licenses": "Licenties van derden"
   },
+  "layout": {
+    "skipToContent": "Naar de inhoud",
+    "sections": "Rubrieken",
+    "kicker": {
+      "weather": "Weer en klimaat",
+      "data": "Gegevens",
+      "reference": "Naslag",
+      "project": "Het project"
+    }
+  },
+  "search": {
+    "button": "Zoeken",
+    "title": "Zoeken",
+    "hint": "Pagina's, instellingen en de stations van de verwachting. De pijltjestoetsen verplaatsen, Enter opent, Esc sluit.",
+    "placeholder": "Verwachting, donker, Hamburg …",
+    "label": "Zoek pagina's, instellingen en stations",
+    "groupPages": "Pagina's",
+    "groupActions": "Instellingen",
+    "groupStations": "Verwachting voor een station",
+    "empty": "Niets gevonden voor {query}.",
+    "results": "Resultaten: {n}",
+    "stationsLoading": "Stations worden gezocht …",
+    "stationPurpose": "Verwachting, station {id}",
+    "inUse": "in gebruik",
+    "purposeImpressum": "Wie deze site beheert en hoe je hen bereikt.",
+    "purposePrivacy": "Wat deze site met je gegevens doet, en je rechten."
+  },
   "language": {
     "switch": "Taal wijzigen",
     "inclusiveHint": "Welkom, iedereen"
@@ -428,7 +455,10 @@
         "cloudy": "Bewolkt",
         "partlyCloudy": "Half bewolkt",
         "clear": "Zonnig"
-      }
+      },
+      "takeaway": "Van {from} tot {to}: tussen {min} en {max}, met in totaal {precip} neerslag.",
+      "takeawayDry": "Van {from} tot {to}: tussen {min} en {max}, zonder neerslag.",
+      "takeawayNoPrecip": "Van {from} tot {to}: tussen {min} en {max}."
     },
     "orChooseMap": "of",
     "chooseOnMap": "Kies een station op de kaart",
@@ -514,6 +544,14 @@
           "veryHigh": "Veel natter"
         }
       }
+    },
+    "takeaway": {
+      "warmer": "De jaren {recentFrom}–{recentTo} hadden gemiddeld {recent}: {difference} warmer dan het klimaatgemiddelde van {normalFrom}–{normalTo} ({normal}).",
+      "cooler": "De jaren {recentFrom}–{recentTo} hadden gemiddeld {recent}: {difference} kouder dan het klimaatgemiddelde van {normalFrom}–{normalTo} ({normal}).",
+      "wetter": "De jaren {recentFrom}–{recentTo} brachten gemiddeld {recent}: {difference} ({percent}) meer dan het klimaatgemiddelde van {normalFrom}–{normalTo} ({normal}).",
+      "drier": "De jaren {recentFrom}–{recentTo} brachten gemiddeld {recent}: {difference} ({percent}) minder dan het klimaatgemiddelde van {normalFrom}–{normalTo} ({normal}).",
+      "same": "De jaren {recentFrom}–{recentTo} hadden gemiddeld {recent}, net als het klimaatgemiddelde van {normalFrom}–{normalTo}.",
+      "normalNote": "Het klimaatgemiddelde is het gemiddelde van {normalFrom} tot {normalTo}, de referentieperiode van de Wereld Meteorologische Organisatie."
     }
   },
   "explorer": {

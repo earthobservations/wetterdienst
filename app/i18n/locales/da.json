@@ -130,6 +130,33 @@
     "about": "Om",
     "licenses": "Tredjepartslicenser"
   },
+  "layout": {
+    "skipToContent": "Gå til indhold",
+    "sections": "Sektioner",
+    "kicker": {
+      "weather": "Vejr og klima",
+      "data": "Vejrdata",
+      "reference": "Opslag",
+      "project": "Projektet"
+    }
+  },
+  "search": {
+    "button": "Søg",
+    "title": "Søgning",
+    "hint": "Sider, indstillinger og prognosens stationer. Piletasterne flytter, Enter åbner, Esc lukker.",
+    "placeholder": "Udsigt, mørk, Hamborg …",
+    "label": "Søg i sider, indstillinger og stationer",
+    "groupPages": "Sider",
+    "groupActions": "Indstillinger",
+    "groupStations": "Udsigt for en station",
+    "empty": "Intet fundet for {query}.",
+    "results": "Resultater: {n}",
+    "stationsLoading": "Søger stationer …",
+    "stationPurpose": "Udsigt, station {id}",
+    "inUse": "i brug",
+    "purposeImpressum": "Hvem der driver siden, og hvordan du kontakter dem.",
+    "purposePrivacy": "Hvad siden gør med dine data, og dine rettigheder."
+  },
   "language": {
     "switch": "Skift sprog",
     "inclusiveHint": "Velkommen, alle sammen"
@@ -428,7 +455,10 @@
         "cloudy": "Skyet",
         "partlyCloudy": "Delvis skyet",
         "clear": "Solrigt"
-      }
+      },
+      "takeaway": "Fra {from} til {to}: mellem {min} og {max}, i alt {precip} nedbør.",
+      "takeawayDry": "Fra {from} til {to}: mellem {min} og {max}, ingen nedbør.",
+      "takeawayNoPrecip": "Fra {from} til {to}: mellem {min} og {max}."
     },
     "orChooseMap": "eller",
     "chooseOnMap": "Vælg en station på kortet",
@@ -514,6 +544,14 @@
           "veryHigh": "Meget vådere"
         }
       }
+    },
+    "takeaway": {
+      "warmer": "Årene {recentFrom}–{recentTo} lå i gennemsnit på {recent}: {difference} varmere end normalen for {normalFrom}–{normalTo} ({normal}).",
+      "cooler": "Årene {recentFrom}–{recentTo} lå i gennemsnit på {recent}: {difference} koldere end normalen for {normalFrom}–{normalTo} ({normal}).",
+      "wetter": "Årene {recentFrom}–{recentTo} gav i gennemsnit {recent}: {difference} ({percent}) mere end normalen for {normalFrom}–{normalTo} ({normal}).",
+      "drier": "Årene {recentFrom}–{recentTo} gav i gennemsnit {recent}: {difference} ({percent}) mindre end normalen for {normalFrom}–{normalTo} ({normal}).",
+      "same": "Årene {recentFrom}–{recentTo} lå i gennemsnit på {recent}, det samme som normalen for {normalFrom}–{normalTo}.",
+      "normalNote": "Normalen er gennemsnittet fra {normalFrom} til {normalTo}, Verdens Meteorologiske Organisations referenceperiode."
     }
   },
   "explorer": {

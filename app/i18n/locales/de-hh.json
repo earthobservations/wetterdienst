@@ -130,6 +130,33 @@
     "about": "Över uns",
     "licenses": "Lizenzen vun annere"
   },
+  "layout": {
+    "skipToContent": "Na'n Inholt springen",
+    "sections": "Afdeelen",
+    "kicker": {
+      "weather": "Wedder un Klima",
+      "data": "Daten",
+      "reference": "Nakieken",
+      "project": "Dat Projekt"
+    }
+  },
+  "search": {
+    "button": "Söken",
+    "title": "Söken",
+    "hint": "Sieden, Instellen un de Stationen vun de Utsicht. De Piltasten wählt, Enter maakt op, Esc maakt to.",
+    "placeholder": "Utsicht, düster, Hamborg …",
+    "label": "Sieden, Instellen un Stationen söken",
+    "groupPages": "Sieden",
+    "groupActions": "Instellen",
+    "groupStations": "Utsicht för en Station",
+    "empty": "Nix funnen för {query}.",
+    "results": "Funnen: {n}",
+    "stationsLoading": "Stationen warrt söcht …",
+    "stationPurpose": "Utsicht, Station {id}",
+    "inUse": "in Bruuk",
+    "purposeImpressum": "Wokeen disse Siet bedrifft un wo du em erreichst.",
+    "purposePrivacy": "Wat disse Siet mit dien Daten maakt, un dien Rechten."
+  },
   "language": {
     "switch": "Spraak wesseln",
     "inclusiveHint": "Moin, schön, dat du dor büst"
@@ -428,7 +455,10 @@
         "cloudy": "Wulkig",
         "partlyCloudy": "Deelwies wulkig",
         "clear": "Sünnig"
-      }
+      },
+      "takeaway": "Vun {from} bit {to}: twüschen {min} un {max}, all tosamen {precip} Nedderslag.",
+      "takeawayDry": "Vun {from} bit {to}: twüschen {min} un {max}, keen Nedderslag.",
+      "takeawayNoPrecip": "Vun {from} bit {to}: twüschen {min} un {max}."
     },
     "orChooseMap": "oder",
     "chooseOnMap": "Station op de Kaart utsöken",
@@ -514,6 +544,14 @@
           "veryHigh": "Veel natter"
         }
       }
+    },
+    "takeaway": {
+      "warmer": "De Johren {recentFrom}–{recentTo} leegen in'n Mittel bi {recent}: {difference} warmer as dat Mittel vun {normalFrom}–{normalTo} ({normal}).",
+      "cooler": "De Johren {recentFrom}–{recentTo} leegen in'n Mittel bi {recent}: {difference} köhler as dat Mittel vun {normalFrom}–{normalTo} ({normal}).",
+      "wetter": "De Johren {recentFrom}–{recentTo} hebbt in'n Mittel {recent} bröcht: {difference} ({percent}) mehr as dat Mittel vun {normalFrom}–{normalTo} ({normal}).",
+      "drier": "De Johren {recentFrom}–{recentTo} hebbt in'n Mittel {recent} bröcht: {difference} ({percent}) minner as dat Mittel vun {normalFrom}–{normalTo} ({normal}).",
+      "same": "De Johren {recentFrom}–{recentTo} leegen in'n Mittel bi {recent}, jüst as dat Mittel vun {normalFrom}–{normalTo}.",
+      "normalNote": "Dat Mittel vun {normalFrom} bit {normalTo} is de Referenztiet vun de Weltorganisatschoon för Meteorologie."
     }
   },
   "explorer": {

@@ -130,6 +130,33 @@
     "about": "Iwwer eis",
     "licenses": "Lizenze vun Drëtten"
   },
+  "layout": {
+    "skipToContent": "Op den Inhalt sprangen",
+    "sections": "Sektiounen",
+    "kicker": {
+      "weather": "Wieder a Klima",
+      "data": "Donnéeën",
+      "reference": "Nokucken",
+      "project": "De Projet"
+    }
+  },
+  "search": {
+    "button": "Sichen",
+    "title": "Sichen",
+    "hint": "Säiten, Astellungen an d'Statioune vun der Prognos. D'Feiltaste wielen, Enter mécht op, Esc mécht zou.",
+    "placeholder": "Prognos, däischter, Hamburg …",
+    "label": "Säiten, Astellungen a Statioune sichen",
+    "groupPages": "Säiten",
+    "groupActions": "Astellungen",
+    "groupStations": "Prognos fir eng Statioun",
+    "empty": "Näischt fonnt fir {query}.",
+    "results": "Treffer: {n}",
+    "stationsLoading": "Statioune ginn gesicht …",
+    "stationPurpose": "Prognos, Statioun {id}",
+    "inUse": "aktiv",
+    "purposeImpressum": "Wien dës Säit bedreift a wéi s du se erreechs.",
+    "purposePrivacy": "Wat dës Säit mat dengen Donnéeë mécht, an deng Rechter."
+  },
   "language": {
     "switch": "Sprooch wiesselen",
     "inclusiveHint": "Wëllkomm, jiddwereen"
@@ -428,7 +455,10 @@
         "cloudy": "Wollekeg",
         "partlyCloudy": "Deelweis wollekeg",
         "clear": "Sonneg"
-      }
+      },
+      "takeaway": "Vun {from} bis {to}: tëscht {min} an {max}, am Ganzen {precip} Nidderschlag.",
+      "takeawayDry": "Vun {from} bis {to}: tëscht {min} an {max}, keen Nidderschlag.",
+      "takeawayNoPrecip": "Vun {from} bis {to}: tëscht {min} an {max}."
     },
     "orChooseMap": "oder",
     "chooseOnMap": "Wiel eng Statioun op der Kaart",
@@ -514,6 +544,14 @@
           "veryHigh": "Vill méi naass"
         }
       }
+    },
+    "takeaway": {
+      "warmer": "D'Joren {recentFrom}–{recentTo} louchen am Duerchschnëtt bei {recent}: {difference} méi waarm wéi de Mëttel vun {normalFrom}–{normalTo} ({normal}).",
+      "cooler": "D'Joren {recentFrom}–{recentTo} louchen am Duerchschnëtt bei {recent}: {difference} méi kal wéi de Mëttel vun {normalFrom}–{normalTo} ({normal}).",
+      "wetter": "D'Joren {recentFrom}–{recentTo} hunn am Duerchschnëtt {recent} bruecht: {difference} ({percent}) méi wéi de Mëttel vun {normalFrom}–{normalTo} ({normal}).",
+      "drier": "D'Joren {recentFrom}–{recentTo} hunn am Duerchschnëtt {recent} bruecht: {difference} ({percent}) manner wéi de Mëttel vun {normalFrom}–{normalTo} ({normal}).",
+      "same": "D'Joren {recentFrom}–{recentTo} louchen am Duerchschnëtt bei {recent}, grad ewéi de Mëttel vun {normalFrom}–{normalTo}.",
+      "normalNote": "De Mëttel vun {normalFrom} bis {normalTo} ass d'Referenzperiod vun der Weltorganisatioun fir Meteorologie."
     }
   },
   "explorer": {

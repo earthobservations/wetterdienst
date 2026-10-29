@@ -130,6 +130,33 @@
     "about": "À propos",
     "licenses": "Licences tierces"
   },
+  "layout": {
+    "skipToContent": "Aller au contenu",
+    "sections": "Rubriques",
+    "kicker": {
+      "weather": "Météo et climat",
+      "data": "Données",
+      "reference": "Référence",
+      "project": "Le projet"
+    }
+  },
+  "search": {
+    "button": "Rechercher",
+    "title": "Recherche",
+    "hint": "Pages, réglages et stations de la prévision. Les flèches déplacent, Entrée ouvre, Échap ferme.",
+    "placeholder": "Prévision, sombre, Hambourg …",
+    "label": "Rechercher des pages, des réglages et des stations",
+    "groupPages": "Pages du site",
+    "groupActions": "Réglages",
+    "groupStations": "Prévision pour une station",
+    "empty": "Rien trouvé pour {query}.",
+    "results": "Résultats : {n}",
+    "stationsLoading": "Recherche des stations …",
+    "stationPurpose": "Prévision, station {id}",
+    "inUse": "utilisé",
+    "purposeImpressum": "Qui gère ce site, et comment le joindre.",
+    "purposePrivacy": "Ce que ce site fait de tes données, et tes droits."
+  },
   "language": {
     "switch": "Changer de langue",
     "inclusiveHint": "Bienvenue à toutes et à tous"
@@ -428,7 +455,10 @@
         "cloudy": "Nuageux",
         "partlyCloudy": "Partiellement nuageux",
         "clear": "Ensoleillé"
-      }
+      },
+      "takeaway": "Du {from} au {to} : entre {min} et {max}, avec {precip} de précipitations au total.",
+      "takeawayDry": "Du {from} au {to} : entre {min} et {max}, sans précipitations.",
+      "takeawayNoPrecip": "Du {from} au {to} : entre {min} et {max}."
     },
     "orChooseMap": "ou",
     "chooseOnMap": "Choisir une station sur la carte",
@@ -514,6 +544,14 @@
           "veryHigh": "Beaucoup plus humide"
         }
       }
+    },
+    "takeaway": {
+      "warmer": "Les années {recentFrom}–{recentTo} ont affiché en moyenne {recent} : {difference} au-dessus de la normale {normalFrom}–{normalTo} ({normal}).",
+      "cooler": "Les années {recentFrom}–{recentTo} ont affiché en moyenne {recent} : {difference} en dessous de la normale {normalFrom}–{normalTo} ({normal}).",
+      "wetter": "Les années {recentFrom}–{recentTo} ont apporté en moyenne {recent} : {difference} ({percent}) de plus que la normale {normalFrom}–{normalTo} ({normal}).",
+      "drier": "Les années {recentFrom}–{recentTo} ont apporté en moyenne {recent} : {difference} ({percent}) de moins que la normale {normalFrom}–{normalTo} ({normal}).",
+      "same": "Les années {recentFrom}–{recentTo} ont affiché en moyenne {recent}, comme la normale {normalFrom}–{normalTo}.",
+      "normalNote": "La normale est la moyenne de {normalFrom} à {normalTo}, la période de référence de l'Organisation météorologique mondiale."
     }
   },
   "explorer": {

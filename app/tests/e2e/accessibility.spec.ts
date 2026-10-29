@@ -334,6 +334,17 @@ const STATES: State[] = [
     },
   },
   {
+    // the search (GH-3518): the dialog, its combobox and the grouped listbox of pages and settings it controls
+    page: 'index',
+    state: 'search-open',
+    keepFocus: true,
+    path: '/',
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'search.button'), exact: true }).click()
+      await expect(page.getByRole('listbox').getByRole('option').first()).toBeVisible()
+    },
+  },
+  {
     page: 'index',
     state: 'mobile-menu-open',
     keepFocus: true,

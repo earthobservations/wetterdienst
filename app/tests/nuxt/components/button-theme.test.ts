@@ -9,13 +9,16 @@ async function classesOf(props: Record<string, unknown>) {
 }
 
 describe('the label of a solid primary button', () => {
-  it('is the dark app colour, where Nuxt UI would make it white', async () => {
+  it('is the app\'s label colour on the app\'s hover colour, where Nuxt UI would lighten the fill under it', async () => {
     const classes = await classesOf({ color: 'primary', variant: 'solid' })
     expect(classes).toContain('text-(color:--app-text-on-primary)')
     expect(classes).not.toContain('text-inverted')
-    // the fill, its hover and the disabled state are the theme's
+    // hovered and pressed, the fill is the app's colour, whose ratio main.css and button-contrast.test.ts hold
+    expect(classes).toContain('hover:bg-(--app-primary-hover)')
+    expect(classes).toContain('active:bg-(--app-primary-hover)')
+    expect(classes).not.toContain('hover:bg-primary/75')
+    // the fill and the disabled state are the theme's
     expect(classes).toContain('bg-primary')
-    expect(classes).toContain('hover:bg-primary/75')
     expect(classes).toContain('disabled:bg-primary')
   })
 

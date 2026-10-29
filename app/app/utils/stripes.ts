@@ -36,3 +36,58 @@ export function stripeYears(values: { timestamp: string | null, value: number | 
     class: stripeClass(item.value, min, max),
   }))
 }
+
+/** The WMO's reference period, which the stripes' takeaway compares the latest years with */
+export const NORMAL_PERIOD = { from: 1961, to: 1990 } as const
+/** How many of the latest years the takeaway averages */
+export const RECENT_YEARS = 10
+
+export interface NormalComparison {
+  /** the latest years averaged: the last year drawn and the nine before it */
+  recentFrom: number
+  recentTo: number
+  recentMean: number
+  normalFrom: number
+  normalTo: number
+  normalMean: number
+  /** the latest years' mean less the normal's */
+  difference: number
+  /** the difference as a share of the normal's mean, where that is above zero */
+  ratio: number | null
+}
+
+function mean(numbers: number[]) {
+  return numbers.reduce((sum, value) => sum + value, 0) / numbers.length
+}
+
+/**
+ * What the stripes say in one sentence (GH-3518): the mean of the latest ten years drawn against the mean of
+ * 1961-1990, the WMO's reference period, from the years the chart draws and nothing else. None where that cannot
+ * be told fairly: fewer than 27 of the normal's 30 years drawn, fewer than 8 of the latest ten, or latest years
+ * that reach back into the normal itself.
+ */
+export function compareWithNormal(years: Pick<StripeYear, 'year' | 'value'>[]): NormalComparison | null {
+  if (!years.length)
+    return null
+  const recentTo = Math.max(...years.map(year => year.year))
+  const recentFrom = recentTo - RECENT_YEARS + 1
+  if (recentFrom <= NORMAL_PERIOD.to)
+    return null
+  const normal = years.filter(year => year.year >= NORMAL_PERIOD.from && year.year <= NORMAL_PERIOD.to).map(year => year.value)
+  const recent = years.filter(year => year.year >= recentFrom).map(year => year.value)
+  if (normal.length < 27 || recent.length < 8)
+    return null
+  const normalMean = mean(normal)
+  const recentMean = mean(recent)
+  const difference = recentMean - normalMean
+  return {
+    recentFrom,
+    recentTo,
+    recentMean,
+    normalFrom: NORMAL_PERIOD.from,
+    normalTo: NORMAL_PERIOD.to,
+    normalMean,
+    difference,
+    ratio: normalMean > 0 ? difference / normalMean : null,
+  }
+}

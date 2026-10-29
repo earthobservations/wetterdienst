@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Design]` A proposal, "the weather almanac": paper and ink in the logo's colours, Newsreader
+  (OFL, 94 KB, served by the app) for headings, one page width and gutter for every page, a masthead
+  with a section bar, and a sentence under the stripes and the forecast computed from what they
+  draw ("2016–2025 averaged 10.7 °C, 1.9 °C warmer than the 1961–1990 normal"). A search
+  (the masthead's button, or Ctrl+K / ⌘K) finds the pages, the appearance and language, and
+  the forecast's stations. No API changes; the widget stays compact (GH-3518)
+
 ## [0.39.0] - 2026-10-28
 
 ### Security

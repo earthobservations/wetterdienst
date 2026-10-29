@@ -130,6 +130,33 @@
     "about": "Über uns",
     "licenses": "Lizenzen Dritter"
   },
+  "layout": {
+    "skipToContent": "Zum Inhalt springen",
+    "sections": "Rubriken",
+    "kicker": {
+      "weather": "Wetter und Klima",
+      "data": "Daten",
+      "reference": "Nachschlagen",
+      "project": "Das Projekt"
+    }
+  },
+  "search": {
+    "button": "Suche",
+    "title": "Suche",
+    "hint": "Seiten, Einstellungen und die Stationen der Vorhersage. Die Pfeiltasten wählen, Enter öffnet, Esc schließt.",
+    "placeholder": "Vorhersage, dunkel, Hamburg …",
+    "label": "Seiten, Einstellungen und Stationen suchen",
+    "groupPages": "Seiten",
+    "groupActions": "Einstellungen",
+    "groupStations": "Vorhersage für eine Station",
+    "empty": "Nichts gefunden für {query}.",
+    "results": "Treffer: {n}",
+    "stationsLoading": "Stationen werden gesucht …",
+    "stationPurpose": "Vorhersage, Station {id}",
+    "inUse": "aktiv",
+    "purposeImpressum": "Wer diese Seite betreibt und wie du sie erreichst.",
+    "purposePrivacy": "Was diese Seite mit deinen Daten macht, und deine Rechte."
+  },
   "language": {
     "switch": "Sprache wechseln",
     "inclusiveHint": "Willkommen für alle"
@@ -428,7 +455,10 @@
         "cloudy": "Bewölkt",
         "partlyCloudy": "Teils bewölkt",
         "clear": "Sonnig"
-      }
+      },
+      "takeaway": "Von {from} bis {to}: zwischen {min} und {max}, insgesamt {precip} Niederschlag.",
+      "takeawayDry": "Von {from} bis {to}: zwischen {min} und {max}, kein Niederschlag.",
+      "takeawayNoPrecip": "Von {from} bis {to}: zwischen {min} und {max}."
     },
     "orChooseMap": "oder",
     "chooseOnMap": "Station auf der Karte auswählen",
@@ -514,6 +544,14 @@
           "veryHigh": "Viel nasser"
         }
       }
+    },
+    "takeaway": {
+      "warmer": "Die Jahre {recentFrom}–{recentTo} lagen im Mittel bei {recent}: {difference} wärmer als das Mittel von {normalFrom}–{normalTo} ({normal}).",
+      "cooler": "Die Jahre {recentFrom}–{recentTo} lagen im Mittel bei {recent}: {difference} kühler als das Mittel von {normalFrom}–{normalTo} ({normal}).",
+      "wetter": "Die Jahre {recentFrom}–{recentTo} brachten im Mittel {recent}: {difference} ({percent}) mehr als das Mittel von {normalFrom}–{normalTo} ({normal}).",
+      "drier": "Die Jahre {recentFrom}–{recentTo} brachten im Mittel {recent}: {difference} ({percent}) weniger als das Mittel von {normalFrom}–{normalTo} ({normal}).",
+      "same": "Die Jahre {recentFrom}–{recentTo} lagen im Mittel bei {recent}, genauso wie das Mittel von {normalFrom}–{normalTo}.",
+      "normalNote": "Das Mittel von {normalFrom} bis {normalTo} ist die Referenzperiode der Weltorganisation für Meteorologie."
     }
   },
   "explorer": {

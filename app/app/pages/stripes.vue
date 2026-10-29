@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { describeFetchError } from '~/utils/api-error'
 import { formatNumber, plotlySeparators } from '~/utils/format'
-import { stripeYears } from '~/utils/stripes'
+import { compareWithNormal, stripeYears } from '~/utils/stripes'
 import { unitSymbol } from '~/utils/unit-targets'
 
 const { t, locale } = useI18n()
@@ -135,20 +135,69 @@ const valueUnit = computed(() => {
 function formatValue(value: number) {
   return `${formatNumber(value, locale.value, 2)} ${valueUnit.value}`.trim()
 }
-const plotSummary = computed(() => {
+// the span of the years drawn and the lowest and the highest of them
+const extremes = computed(() => {
   const years = stripeRows.value
   if (!years.length)
     return undefined
   const lowest = years.reduce((low, year) => year.value < low.value ? year : low)
   const highest = years.reduce((high, year) => year.value > high.value ? year : high)
-  return `${t('stripes.summary', {
+  return t('stripes.summary', {
     from: Math.min(...years.map(year => year.year)),
     to: Math.max(...years.map(year => year.year)),
     min: formatValue(lowest.value),
     minYear: lowest.year,
     max: formatValue(highest.value),
     maxYear: highest.year,
-  })} ${t('common.chartTableHint')}`
+  })
+})
+const plotSummary = computed(() => extremes.value ? `${extremes.value} ${t('common.chartTableHint')}` : undefined)
+// The headline of the stripes and what they say in one sentence (GH-3518), both from the years drawn: the station
+// and its span, and the latest ten years against the normal of 1961-1990 where the years drawn allow that fairly
+// (`compareWithNormal`), else the coolest and the warmest year, which they always do.
+const headline = computed(() => {
+  const data = lastFetchedData.value
+  const years = stripeRows.value
+  if (!data || !years.length)
+    return undefined
+  return `${data.series.station.name}, ${Math.min(...years.map(year => year.year))}–${Math.max(...years.map(year => year.year))}`
+})
+const takeaway = computed(() => {
+  const years = stripeRows.value
+  if (!years.length)
+    return undefined
+  const comparison = compareWithNormal(years)
+  const precipitation = kind.value === 'precipitation'
+  const digits = precipitation ? 0 : 1
+  const write = (value: number) => `${formatNumber(value, locale.value, digits)} ${valueUnit.value}`.trim()
+  if (comparison && (!precipitation || comparison.ratio !== null)) {
+    const params = {
+      recentFrom: comparison.recentFrom,
+      recentTo: comparison.recentTo,
+      recent: write(comparison.recentMean),
+      normalFrom: comparison.normalFrom,
+      normalTo: comparison.normalTo,
+      normal: write(comparison.normalMean),
+    }
+    // "the same" where the difference rounds away at the precision it is written in
+    const shown = Number(Math.abs(comparison.difference).toFixed(digits))
+    if (shown === 0)
+      return { key: 'stripes.takeaway.same', params, difference: '', tone: '' }
+    const up = comparison.difference > 0
+    const percent = comparison.ratio === null
+      ? ''
+      : new Intl.NumberFormat(locale.value, { style: 'percent', maximumFractionDigits: 0 }).format(Math.abs(comparison.ratio))
+    return {
+      key: precipitation
+        ? (up ? 'stripes.takeaway.wetter' : 'stripes.takeaway.drier')
+        : (up ? 'stripes.takeaway.warmer' : 'stripes.takeaway.cooler'),
+      params: { ...params, percent },
+      difference: write(Math.abs(comparison.difference)),
+      tone: precipitation ? (up ? 'app-wet' : 'app-warm') : (up ? 'app-warm' : 'app-cool'),
+      normal: true,
+    }
+  }
+  return null
 })
 const tableColumns = computed(() => [
   t('stripes.table.year'),
@@ -728,238 +777,253 @@ onMounted(() => {
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('stripes.title') }}
-      </h1>
-      <p class="text-gray-600 dark:text-gray-400">
-        {{ t('stripes.subtitle') }}
-      </p>
-    </div>
+  <div class="app-page">
+    <PageHeader :kicker="t('layout.kicker.weather')" tile="heat" :title="t('stripes.title')" :lede="t('stripes.subtitle')" />
 
-    <UCollapsible v-model="showAbout">
-      <UButton
-        :label="t('stripes.aboutButton')"
-        icon="i-lucide-info"
-        variant="subtle"
-        color="neutral"
-        trailing-icon="i-lucide-chevron-down"
-        block
-        size="sm"
-      />
-      <template #content>
-        <UCard>
-          <p class="text-gray-600 dark:text-gray-400 mb-4">
-            {{ t('stripes.aboutText1') }}
-          </p>
-          <p class="text-gray-600 dark:text-gray-400">
-            {{ t('stripes.aboutText2') }}
-          </p>
+    <!-- the controls in a column of their own beside the figure on a wide screen, above it on a narrow one -->
+    <div class="grid gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start">
+      <div class="space-y-6 min-w-0">
+        <UCollapsible v-model="showAbout">
+          <UButton
+            :label="t('stripes.aboutButton')"
+            icon="i-lucide-info"
+            variant="subtle"
+            color="neutral"
+            trailing-icon="i-lucide-chevron-down"
+            block
+            size="sm"
+          />
+          <template #content>
+            <UCard>
+              <p class="text-gray-600 dark:text-gray-400 mb-4">
+                {{ t('stripes.aboutText1') }}
+              </p>
+              <p class="text-gray-600 dark:text-gray-400">
+                {{ t('stripes.aboutText2') }}
+              </p>
+            </UCard>
+          </template>
+        </UCollapsible>
+
+        <UCard class="mb-6">
+          <template #header>
+            <div class="flex items-center gap-2">
+              <UIcon name="i-lucide-map-pin" class="text-primary-500 shrink-0" />
+              <h2 class="text-lg font-bold">
+                {{ t('explorer.dataSource') }}
+              </h2>
+            </div>
+          </template>
+          <div class="space-y-4">
+            <UFormField :label="t('stripes.type')">
+              <USelect v-model="kind" :items="kindItems" class="w-full" />
+            </UFormField>
+
+            <div>
+              <UFormField :label="t('stripes.station')">
+                <USelectMenu
+                  v-model="selectedStationItem"
+                  :items="stationItems"
+                  :multiple="false"
+                  searchable
+                  virtualize
+                  color="primary"
+                  class="w-full"
+                  :class="{ 'needs-input': !selectedStation }"
+                  :placeholder="t('common.stationSearch')"
+                  @update:model-value="onSelectMenuUpdate"
+                />
+              </UFormField>
+
+              <UCollapsible v-model="showMap" class="mt-3">
+                <UButton
+                  :label="t('stripes.chooseOnMap')"
+                  icon="i-lucide-map-pin"
+                  variant="subtle"
+                  color="primary"
+                  trailing-icon="i-lucide-chevron-down"
+                  block
+                  size="sm"
+                />
+                <template #content>
+                  <ClientOnly>
+                    <p class="flex items-center justify-center gap-2 mt-3 text-sm text-gray-500 dark:text-gray-400">
+                      <UIcon name="i-lucide-hand-pointer-2" class="w-4 h-4 text-primary-500" />
+                      {{ t('stripes.mapHint') }}
+                    </p>
+                    <MapStations
+                      :stations="stations"
+                      :selected-stations="mapSelectedStations"
+                      :multiple="false"
+                      @update:selected-stations="onMapSelectedStations"
+                    />
+                  </ClientOnly>
+                </template>
+              </UCollapsible>
+            </div>
+
+            <div v-if="stationsPending" class="text-sm text-gray-600 dark:text-gray-400">
+              {{ t('stripes.loadingStations') }}
+            </div>
+
+            <div v-if="selectedStation" class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+              <p><strong>{{ t('stripes.region') }}:</strong> {{ selectedStation.region }}</p>
+              <p>
+                <strong>{{ t('stripes.available') }}:</strong> {{ selectedStation.start_timestamp?.slice(0, 4) }} -
+                {{ selectedStation.end_timestamp?.slice(0, 4) }}
+              </p>
+            </div>
+
+            <USeparator />
+
+            <div class="grid grid-cols-2 gap-4">
+              <UFormField :label="t('stripes.startYear')">
+                <UInput v-model.number="startYear" type="number" :placeholder="t('stripes.auto')" class="w-full" />
+              </UFormField>
+              <UFormField :label="t('stripes.endYear')">
+                <UInput v-model.number="endYear" type="number" :placeholder="t('stripes.auto')" class="w-full" />
+              </UFormField>
+            </div>
+
+            <USeparator />
+
+            <div class="flex flex-col sm:flex-row gap-2">
+              <UButton
+                :label="t('common.fetch')" icon="i-lucide-play" color="primary" :disabled="!selectedStation || isLoading"
+                :loading="isLoading" class="w-full" @click="fetchAndPlotStripes"
+              />
+              <UButton :label="t('common.clear')" icon="i-lucide-x" variant="outline" class="w-full" :disabled="!hasPlot && !isLoading && !fetchError" @click="clearStripes" />
+            </div>
+          </div>
         </UCard>
-      </template>
-    </UCollapsible>
 
-    <UCard class="mb-6">
-      <template #header>
-        <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-map-pin" class="text-primary-500 shrink-0" />
-          <h2 class="text-lg font-bold">
-            {{ t('explorer.dataSource') }}
+        <UCollapsible v-model="showSettings">
+          <UButton
+            :label="t('stripes.settingsTitle')"
+            icon="i-lucide-settings-2"
+            variant="subtle"
+            color="neutral"
+            trailing-icon="i-lucide-chevron-down"
+            block
+            size="sm"
+          />
+          <template #content>
+            <div
+              class="flex flex-col gap-3 p-4 mt-3 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"
+            >
+              <UCheckbox v-model="showTitle" :label="t('stripes.showTitleOption')" />
+              <UCheckbox v-model="showYears" :label="t('stripes.showYears')" />
+              <UCheckbox v-model="showSource" :label="t('stripes.showSource')" />
+              <UCheckbox v-model="showDataAvailability" :label="t('stripes.showDataAvailability')" />
+              <UCheckbox v-model="showTimeseries" :label="t('stripes.showTimeseries')" />
+              <UCheckbox v-model="showTrendline" :disabled="!showTimeseries" :label="t('stripes.showTrendline')" />
+            </div>
+          </template>
+        </UCollapsible>
+      </div>
+
+      <!-- the figure: a headline, what it says in a sentence, then the stripes -->
+      <UCard class="min-w-0">
+        <template #header>
+          <p v-if="headline" class="app-kicker mb-1">
+            {{ t('stripes.visualizationTitle') }} · {{ kindLabel(kind) }}
+          </p>
+          <h2 class="text-2xl sm:text-3xl font-semibold leading-tight text-highlighted">
+            {{ headline ?? t('stripes.visualizationTitle') }}
           </h2>
-        </div>
-      </template>
-      <div class="space-y-4">
-        <UFormField :label="t('stripes.type')">
-          <USelect v-model="kind" :items="kindItems" class="w-full" />
-        </UFormField>
+          <template v-if="hasPlot && !isLoading && extremes">
+            <i18n-t v-if="takeaway" :keypath="takeaway.key" tag="p" class="app-takeaway app-measure mt-2" scope="global">
+              <template v-for="(value, name) in takeaway.params" #[name] :key="name">
+                {{ value }}
+              </template>
+              <template #difference>
+                <em :class="takeaway.tone">{{ takeaway.difference }}</em>
+              </template>
+            </i18n-t>
+            <p v-else class="app-takeaway app-measure mt-2">
+              {{ extremes }}
+            </p>
+            <p v-if="takeaway?.normal" class="text-sm text-muted mt-1 app-measure">
+              {{ t('stripes.takeaway.normalNote', { normalFrom: 1961, normalTo: 1990 }) }}
+            </p>
+          </template>
+        </template>
 
         <div>
-          <UFormField :label="t('stripes.station')">
-            <USelectMenu
-              v-model="selectedStationItem"
-              :items="stationItems"
-              :multiple="false"
-              searchable
-              virtualize
-              color="primary"
-              class="w-full"
-              :class="{ 'needs-input': !selectedStation }"
-              :placeholder="t('common.stationSearch')"
-              @update:model-value="onSelectMenuUpdate"
-            />
-          </UFormField>
-
-          <UCollapsible v-model="showMap" class="mt-3">
-            <UButton
-              :label="t('stripes.chooseOnMap')"
-              icon="i-lucide-map-pin"
-              variant="subtle"
-              color="primary"
-              trailing-icon="i-lucide-chevron-down"
-              block
-              size="sm"
-            />
-            <template #content>
-              <ClientOnly>
-                <p class="flex items-center justify-center gap-2 mt-3 text-sm text-gray-500 dark:text-gray-400">
-                  <UIcon name="i-lucide-hand-pointer-2" class="w-4 h-4 text-primary-500" />
-                  {{ t('stripes.mapHint') }}
-                </p>
-                <MapStations
-                  :stations="stations"
-                  :selected-stations="mapSelectedStations"
-                  :multiple="false"
-                  @update:selected-stations="onMapSelectedStations"
-                />
-              </ClientOnly>
-            </template>
-          </UCollapsible>
-        </div>
-
-        <div v-if="stationsPending" class="text-sm text-gray-600 dark:text-gray-400">
-          {{ t('stripes.loadingStations') }}
-        </div>
-
-        <div v-if="selectedStation" class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-          <p><strong>{{ t('stripes.region') }}:</strong> {{ selectedStation.region }}</p>
-          <p>
-            <strong>{{ t('stripes.available') }}:</strong> {{ selectedStation.start_timestamp?.slice(0, 4) }} -
-            {{ selectedStation.end_timestamp?.slice(0, 4) }}
-          </p>
-        </div>
-
-        <USeparator />
-
-        <div class="grid grid-cols-2 gap-4">
-          <UFormField :label="t('stripes.startYear')">
-            <UInput v-model.number="startYear" type="number" :placeholder="t('stripes.auto')" class="w-full" />
-          </UFormField>
-          <UFormField :label="t('stripes.endYear')">
-            <UInput v-model.number="endYear" type="number" :placeholder="t('stripes.auto')" class="w-full" />
-          </UFormField>
-        </div>
-
-        <USeparator />
-
-        <div class="flex flex-col sm:flex-row gap-2">
-          <UButton
-            :label="t('common.fetch')" icon="i-lucide-play" color="primary" :disabled="!selectedStation || isLoading"
-            :loading="isLoading" class="w-full" @click="fetchAndPlotStripes"
+          <div v-if="isLoading" class="flex items-center justify-center h-64">
+            <div class="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+              <UIcon name="i-lucide-loader-circle" class="animate-spin" />
+              {{ t('stripes.loadingViz') }}
+            </div>
+          </div>
+          <div
+            v-else-if="fetchError" role="alert"
+            class="flex flex-col items-center justify-center gap-1 text-center text-red-600 dark:text-red-400"
+            :class="hasPlot ? 'pb-4' : 'h-64'"
+          >
+            <span class="font-medium">{{ t('dataViewer.fetchError') }}</span>
+            <span class="text-sm">{{ fetchError }}</span>
+          </div>
+          <div v-else-if="!hasPlot" class="flex flex-col items-center justify-center h-64 gap-3 text-gray-500 dark:text-gray-400">
+            <UIcon name="i-lucide-bar-chart-big" class="w-12 h-12 opacity-30" />
+            <p class="text-sm">
+              {{ t('stripes.emptyHint') }}
+            </p>
+          </div>
+          <div
+            v-if="hasPlot && plotFailed"
+            ref="plotNotice"
+            class="flex flex-wrap items-center justify-center gap-3 pb-4 text-red-600 dark:text-red-400"
+          >
+            <!-- mounted anew for each failure, so a Retry that fails too is announced again; the
+               button stays, and keeps its focus -->
+            <span :key="plotFailures" role="alert" class="text-center">
+              <span class="font-medium">{{ t('dataViewer.chartNotDrawn') }}</span>
+              <!-- a sentence apart from the note, which ends with no full stop: the alert's text, as
+                 a screen reader reads it, otherwise runs the two together -->
+              <template v-if="plotlyNotLoaded">
+                <span class="sr-only">{{ '. ' }}</span>
+                <span class="block text-sm">{{ t('dataViewer.chartCodeNotLoaded') }}</span>
+              </template>
+            </span>
+            <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="lastFetchedData && plotStripes(lastFetchedData)" />
+            <UButton v-if="plotlyNotLoaded" :label="t('common.reloadPage')" icon="i-lucide-refresh-cw" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
+          </div>
+          <!-- a figure, not an image: Plotly's own controls in it stay reachable; nor a landmark -->
+          <div
+            ref="plotContainer" tabindex="-1" role="figure" :aria-label="plotLabel"
+            :aria-describedby="hasPlot && plotSummary ? summaryId : undefined" :class="{ hidden: !hasPlot }"
+            class="w-full overflow-hidden" style="min-height: 400px;"
           />
-          <UButton :label="t('common.clear')" icon="i-lucide-x" variant="outline" class="w-full" :disabled="!hasPlot && !isLoading && !fetchError" @click="clearStripes" />
-        </div>
-      </div>
-    </UCard>
-
-    <UCollapsible v-model="showSettings">
-      <UButton
-        :label="t('stripes.settingsTitle')"
-        icon="i-lucide-settings-2"
-        variant="subtle"
-        color="neutral"
-        trailing-icon="i-lucide-chevron-down"
-        block
-        size="sm"
-      />
-      <template #content>
-        <div
-          class="flex flex-col gap-3 p-4 mt-3 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"
-        >
-          <UCheckbox v-model="showTitle" :label="t('stripes.showTitleOption')" />
-          <UCheckbox v-model="showYears" :label="t('stripes.showYears')" />
-          <UCheckbox v-model="showSource" :label="t('stripes.showSource')" />
-          <UCheckbox v-model="showDataAvailability" :label="t('stripes.showDataAvailability')" />
-          <UCheckbox v-model="showTimeseries" :label="t('stripes.showTimeseries')" />
-          <UCheckbox v-model="showTrendline" :disabled="!showTimeseries" :label="t('stripes.showTrendline')" />
-        </div>
-      </template>
-    </UCollapsible>
-
-    <UCard class="mb-6">
-      <template #header>
-        <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-bar-chart-big" class="text-primary-500 shrink-0" />
-          <h2 class="text-lg font-bold">
-            {{ t('stripes.visualizationTitle') }}
-          </h2>
-        </div>
-      </template>
-
-      <div>
-        <div v-if="isLoading" class="flex items-center justify-center h-64">
-          <div class="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-            <UIcon name="i-lucide-loader-circle" class="animate-spin" />
-            {{ t('stripes.loadingViz') }}
+          <p v-if="hasPlot && plotSummary" :id="summaryId" class="sr-only">
+            {{ plotSummary }}
+          </p>
+          <ChartTable
+            v-if="hasPlot && !plotFailed && tableRows.length"
+            :caption="plotLabel ?? ''" :columns="tableColumns" :rows="tableRows"
+            :note="t(`stripes.table.note.${kind}`)"
+          />
+          <div v-if="hasPlot && !plotFailed" class="mt-4">
+            <!-- not modal: a modal menu hides the page from assistive technology (aria-hidden) while its
+               own trigger is still focusable in it -->
+            <UDropdownMenu
+              :modal="false"
+              :items="[
+                [
+                  { label: t('stripes.downloadPng'), onSelect: () => downloadStripes('png') },
+                  { label: t('stripes.downloadJpg'), onSelect: () => downloadStripes('jpeg') },
+                  { label: t('stripes.downloadSvg'), onSelect: () => downloadStripes('svg') },
+                ],
+              ]"
+            >
+              <UButton
+                :label="t('stripes.downloadImage')" color="primary" variant="outline"
+                icon="i-lucide-download" class="w-full justify-center"
+              />
+            </UDropdownMenu>
           </div>
         </div>
-        <div
-          v-else-if="fetchError" role="alert"
-          class="flex flex-col items-center justify-center gap-1 text-center text-red-600 dark:text-red-400"
-          :class="hasPlot ? 'pb-4' : 'h-64'"
-        >
-          <span class="font-medium">{{ t('dataViewer.fetchError') }}</span>
-          <span class="text-sm">{{ fetchError }}</span>
-        </div>
-        <div v-else-if="!hasPlot" class="flex flex-col items-center justify-center h-64 gap-3 text-gray-500 dark:text-gray-400">
-          <UIcon name="i-lucide-bar-chart-big" class="w-12 h-12 opacity-30" />
-          <p class="text-sm">
-            {{ t('stripes.emptyHint') }}
-          </p>
-        </div>
-        <div
-          v-if="hasPlot && plotFailed"
-          ref="plotNotice"
-          class="flex flex-wrap items-center justify-center gap-3 pb-4 text-red-600 dark:text-red-400"
-        >
-          <!-- mounted anew for each failure, so a Retry that fails too is announced again; the
-               button stays, and keeps its focus -->
-          <span :key="plotFailures" role="alert" class="text-center">
-            <span class="font-medium">{{ t('dataViewer.chartNotDrawn') }}</span>
-            <!-- a sentence apart from the note, which ends with no full stop: the alert's text, as
-                 a screen reader reads it, otherwise runs the two together -->
-            <template v-if="plotlyNotLoaded">
-              <span class="sr-only">{{ '. ' }}</span>
-              <span class="block text-sm">{{ t('dataViewer.chartCodeNotLoaded') }}</span>
-            </template>
-          </span>
-          <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="lastFetchedData && plotStripes(lastFetchedData)" />
-          <UButton v-if="plotlyNotLoaded" :label="t('common.reloadPage')" icon="i-lucide-refresh-cw" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
-        </div>
-        <!-- a figure, not an image: Plotly's own controls in it stay reachable; nor a landmark -->
-        <div
-          ref="plotContainer" tabindex="-1" role="figure" :aria-label="plotLabel"
-          :aria-describedby="hasPlot && plotSummary ? summaryId : undefined" :class="{ hidden: !hasPlot }"
-          class="w-full overflow-hidden" style="min-height: 400px;"
-        />
-        <p v-if="hasPlot && plotSummary" :id="summaryId" class="sr-only">
-          {{ plotSummary }}
-        </p>
-        <ChartTable
-          v-if="hasPlot && !plotFailed && tableRows.length"
-          :caption="plotLabel ?? ''" :columns="tableColumns" :rows="tableRows"
-          :note="t(`stripes.table.note.${kind}`)"
-        />
-        <div v-if="hasPlot && !plotFailed" class="mt-4">
-          <!-- not modal: a modal menu hides the page from assistive technology (aria-hidden) while its
-               own trigger is still focusable in it -->
-          <UDropdownMenu
-            :modal="false"
-            :items="[
-              [
-                { label: t('stripes.downloadPng'), onSelect: () => downloadStripes('png') },
-                { label: t('stripes.downloadJpg'), onSelect: () => downloadStripes('jpeg') },
-                { label: t('stripes.downloadSvg'), onSelect: () => downloadStripes('svg') },
-              ],
-            ]"
-          >
-            <UButton
-              :label="t('stripes.downloadImage')" color="primary" variant="outline"
-              icon="i-lucide-download" class="w-full justify-center"
-            />
-          </UDropdownMenu>
-        </div>
-      </div>
-    </UCard>
-  </UContainer>
+      </UCard>
+    </div>
+  </div>
 </template>

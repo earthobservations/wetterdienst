@@ -130,6 +130,33 @@
     "about": "O projekcie",
     "licenses": "Licencje stron trzecich"
   },
+  "layout": {
+    "skipToContent": "Przejdź do treści",
+    "sections": "Działy",
+    "kicker": {
+      "weather": "Pogoda i klimat",
+      "data": "Dane",
+      "reference": "Informacje",
+      "project": "O projekcie"
+    }
+  },
+  "search": {
+    "button": "Szukaj",
+    "title": "Wyszukiwanie",
+    "hint": "Strony, ustawienia i stacje prognozy. Strzałki przesuwają, Enter otwiera, Esc zamyka.",
+    "placeholder": "Prognoza, ciemny, Hamburg …",
+    "label": "Szukaj stron, ustawień i stacji",
+    "groupPages": "Strony",
+    "groupActions": "Ustawienia",
+    "groupStations": "Prognoza dla stacji",
+    "empty": "Nic nie znaleziono dla {query}.",
+    "results": "Wyniki: {n}",
+    "stationsLoading": "Wyszukiwanie stacji …",
+    "stationPurpose": "Prognoza, stacja {id}",
+    "inUse": "w użyciu",
+    "purposeImpressum": "Kto prowadzi tę stronę i jak się z nim skontaktować.",
+    "purposePrivacy": "Co ta strona robi z twoimi danymi i jakie masz prawa."
+  },
   "language": {
     "switch": "Zmień język",
     "inclusiveHint": "Witamy wszystkich"
@@ -428,7 +455,10 @@
         "cloudy": "Pochmurno",
         "partlyCloudy": "Częściowe zachmurzenie",
         "clear": "Słonecznie"
-      }
+      },
+      "takeaway": "Od {from} do {to}: od {min} do {max}, łącznie {precip} opadu.",
+      "takeawayDry": "Od {from} do {to}: od {min} do {max}, bez opadów.",
+      "takeawayNoPrecip": "Od {from} do {to}: od {min} do {max}."
     },
     "orChooseMap": "lub",
     "chooseOnMap": "Wybierz stację na mapie",
@@ -514,6 +544,14 @@
           "veryHigh": "Znacznie bardziej wilgotny"
         }
       }
+    },
+    "takeaway": {
+      "warmer": "Lata {recentFrom}–{recentTo} miały średnio {recent}: o {difference} cieplej niż norma z lat {normalFrom}–{normalTo} ({normal}).",
+      "cooler": "Lata {recentFrom}–{recentTo} miały średnio {recent}: o {difference} chłodniej niż norma z lat {normalFrom}–{normalTo} ({normal}).",
+      "wetter": "Lata {recentFrom}–{recentTo} przyniosły średnio {recent}: o {difference} ({percent}) więcej niż norma z lat {normalFrom}–{normalTo} ({normal}).",
+      "drier": "Lata {recentFrom}–{recentTo} przyniosły średnio {recent}: o {difference} ({percent}) mniej niż norma z lat {normalFrom}–{normalTo} ({normal}).",
+      "same": "Lata {recentFrom}–{recentTo} miały średnio {recent}, tyle samo co norma z lat {normalFrom}–{normalTo}.",
+      "normalNote": "Norma to średnia z lat {normalFrom}–{normalTo}, okres odniesienia Światowej Organizacji Meteorologicznej."
     }
   },
   "explorer": {

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { NavigationMenuItem } from '@nuxt/ui'
 import { de as uiDe, en as uiEn } from '@nuxt/ui/locale'
 import { canonicalUrl, findSeoRoute, HOME_TITLE_KEY, isNotIndexed, siteOrigin } from '#shared/utils/seo'
 import pkg from '../package.json'
@@ -82,12 +81,16 @@ const values = computed(() => [
 ])
 
 const mobileMenuOpen = ref(false)
+const searchOpen = ref(false)
+// the key the shortcut is written with: ⌘ on a Mac, Ctrl elsewhere
+const isMac = computed(() => typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent))
 
 watch(() => route.path, () => {
   mobileMenuOpen.value = false
+  searchOpen.value = false
 })
 
-// the menu is the narrow layout's: past the breakpoint the header shows the links itself, and a dialog
+// the menu is the narrow layout's: past the breakpoint the masthead shows the sections itself, and a dialog
 // that is hidden with CSS would still hold the focus
 const wide = useMediaQuery('(min-width: 1024px)')
 watch(wide, (isWide) => {
@@ -95,58 +98,43 @@ watch(wide, (isWide) => {
     mobileMenuOpen.value = false
 })
 
-const items = computed<NavigationMenuItem[]>(() =>
-  [
-    {
-      label: t('nav.home'),
-      icon: 'i-lucide-home',
-      to: '/',
-      active: route.path === '/',
-    },
-    {
-      label: t('nav.meteogram'),
-      icon: 'i-lucide-sun',
-      to: '/meteogram',
-      active: route.path.startsWith('/meteogram'),
-    },
-    {
-      label: t('nav.stripes'),
-      icon: 'i-lucide-bar-chart-3',
-      to: '/stripes',
-      active: route.path.startsWith('/stripes'),
-    },
-    {
-      label: t('nav.explorer'),
-      icon: 'i-lucide-globe',
-      to: '/explorer',
-      active: route.path.startsWith('/explorer'),
-    },
-    {
-      label: t('nav.history'),
-      icon: 'i-lucide-clock',
-      to: '/history',
-      active: route.path.startsWith('/history'),
-    },
-    {
-      label: t('nav.api'),
-      icon: 'i-lucide-code',
-      to: '/api',
-      active: route.path.startsWith('/api'),
-    },
-    {
-      label: t('nav.providers'),
-      icon: 'i-lucide-building-2',
-      to: '/providers',
-      active: route.path.startsWith('/providers'),
-    },
-    {
-      label: t('nav.glossary'),
-      icon: 'i-lucide-book-open',
-      to: '/glossary',
-      active: route.path.startsWith('/glossary'),
-    },
-  ],
-)
+// The sections of the app, in the order of the section bar. The four ways into the data carry the colour of their
+// tile in the logo (the sun, the thermometer, the rain, the wind); the rest are reference.
+type SectionTile = 'sun' | 'heat' | 'rain' | 'wind'
+interface Section { label: string, to: string, icon: string, active: boolean, tile?: SectionTile }
+// written out, as Tailwind finds a class only where it is spelled whole
+const TILE_CLASS: Record<SectionTile, string> = { sun: 'bg-tile-sun', heat: 'bg-tile-heat', rain: 'bg-tile-rain', wind: 'bg-tile-wind' }
+
+const items = computed<Section[]>(() => [
+  { label: t('nav.home'), icon: 'i-lucide-home', to: '/', active: route.path === '/' },
+  { label: t('nav.meteogram'), icon: 'i-lucide-sun', to: '/meteogram', active: route.path.startsWith('/meteogram'), tile: 'sun' },
+  { label: t('nav.stripes'), icon: 'i-lucide-bar-chart-3', to: '/stripes', active: route.path.startsWith('/stripes'), tile: 'heat' },
+  { label: t('nav.explorer'), icon: 'i-lucide-globe', to: '/explorer', active: route.path.startsWith('/explorer'), tile: 'rain' },
+  { label: t('nav.history'), icon: 'i-lucide-clock', to: '/history', active: route.path.startsWith('/history'), tile: 'wind' },
+  { label: t('nav.api'), icon: 'i-lucide-code', to: '/api', active: route.path.startsWith('/api') },
+  { label: t('nav.providers'), icon: 'i-lucide-building-2', to: '/providers', active: route.path.startsWith('/providers') },
+  { label: t('nav.glossary'), icon: 'i-lucide-book-open', to: '/glossary', active: route.path.startsWith('/glossary') },
+])
+
+// The project's own links, the same four in the masthead and in the narrow layout's menu (WCAG 3.2.6). Support is
+// about the project rather than the data, so it sits with them rather than in the sections -- but as an icon, not
+// a footer line only, because issues, pull requests and donations all start there.
+const projectLinks = computed(() => [
+  { key: 'docs', to: 'https://wetterdienst.readthedocs.io/', icon: 'i-lucide-book-open', label: t('common.documentation'), external: true },
+  { key: 'github', to: 'https://github.com/earthobservations/wetterdienst', icon: 'i-lucide-github', label: t('header.github'), external: true },
+  { key: 'pypi', to: 'https://pypi.org/project/wetterdienst', icon: 'i-lucide-package', label: t('header.pypi'), external: true },
+  { key: 'support', to: '/support', icon: 'i-lucide-heart', label: t('nav.support'), external: false },
+])
+
+// The masthead's dateline: today, in the language of the page, as an almanac dates its edition
+const today = computed(() => {
+  try {
+    return new Intl.DateTimeFormat(localeProperties.value.language ?? locale.value, { dateStyle: 'full' }).format(new Date())
+  }
+  catch {
+    return ''
+  }
+})
 </script>
 
 <template>
@@ -154,85 +142,97 @@ const items = computed<NavigationMenuItem[]>(() =>
   <UApp v-else :locale="uiLocale">
     <!-- tells a screen reader which page the client-side navigation has arrived on (WCAG 4.1.3) -->
     <NuxtRouteAnnouncer />
-    <UHeader v-if="!isWidget" :toggle="false">
-      <template #left>
-        <div class="flex items-center gap-3">
-          <img src="/icon.svg" alt="Wetterdienst" class="w-7 h-7">
+    <!-- the first stop of the keyboard: past the masthead to what the page is about (WCAG 2.4.1) -->
+    <a
+      v-if="!isWidget"
+      href="#content"
+      class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:rounded-sm focus:bg-default focus:text-highlighted focus:font-semibold"
+    >{{ t('layout.skipToContent') }}</a>
+
+    <!-- The masthead: the name of the publication, its dateline, and the sections below a heavy rule -->
+    <header v-if="!isWidget" class="app-masthead">
+      <div class="app-page flex items-center gap-3 sm:gap-4 py-3 sm:py-4">
+        <NuxtLink to="/" class="flex items-center gap-2.5 sm:gap-3 min-w-0 rounded-sm">
+          <img src="/icon.svg" alt="" class="size-8 sm:size-10 shrink-0">
+          <span class="font-serif font-semibold text-[1.5rem] sm:text-[1.875rem] leading-none tracking-tight text-highlighted">Wetterdienst</span>
+        </NuxtLink>
+        <p v-if="today" class="hidden xl:block font-serif text-toned text-base ml-2 pl-4 border-l border-(--app-rule)">
+          {{ today }}
+        </p>
+
+        <div class="app-masthead-tools ml-auto flex items-center gap-1">
+          <!-- the search, at every width: a field's look past the phone, an icon on it; its name is the word it shows -->
+          <button
+            type="button"
+            class="inline-flex items-center gap-2 rounded-sm border border-(--app-rule) px-2.5 py-1.5 text-sm text-toned hover:border-(--app-rule-strong) hover:text-highlighted transition-colors sm:min-w-56"
+            :aria-label="t('search.button')"
+            aria-haspopup="dialog"
+            :aria-expanded="searchOpen"
+            @click="searchOpen = true"
+          >
+            <UIcon name="i-lucide-search" class="size-4 shrink-0" />
+            <span class="hidden sm:inline">{{ t('search.button') }}</span>
+            <span class="hidden sm:inline-flex ml-auto items-center gap-0.5" aria-hidden="true">
+              <UKbd :value="isMac ? '⌘' : 'Ctrl'" size="sm" />
+              <UKbd value="K" size="sm" />
+            </span>
+          </button>
+          <!-- the project's links and the settings, past the breakpoint; the narrow layout has them in its menu -->
+          <div class="hidden lg:flex items-center gap-0.5">
+            <UTooltip v-for="link in projectLinks" :key="link.key" :text="link.label">
+              <UButton
+                :to="link.to"
+                :target="link.external ? '_blank' : undefined"
+                :icon="link.icon"
+                color="neutral"
+                variant="ghost"
+                :aria-label="link.label"
+              />
+            </UTooltip>
+            <SettingsMenu />
+          </div>
+          <UButton
+            class="lg:hidden"
+            icon="i-lucide-menu"
+            color="neutral"
+            variant="outline"
+            :aria-label="t('header.menu')"
+            aria-haspopup="dialog"
+            :aria-expanded="mobileMenuOpen"
+            @click="mobileMenuOpen = true"
+          />
         </div>
-      </template>
+      </div>
+      <!-- the sections, as a newspaper's section bar: words, the one being read underlined in ink -->
+      <nav :aria-label="t('layout.sections')" class="hidden lg:block border-y-2 border-(--app-rule-strong)">
+        <ul class="app-page flex flex-wrap items-stretch gap-x-6 xl:gap-x-8">
+          <li v-for="item in items" :key="item.to" class="flex">
+            <NuxtLink
+              :to="item.to"
+              :aria-current="item.active ? 'page' : undefined"
+              class="group flex items-center gap-2 py-2.5 text-sm font-medium border-b-[3px] -mb-[2px] transition-colors"
+              :class="item.active
+                ? 'border-(--app-rule-strong) text-highlighted'
+                : 'border-transparent text-toned hover:text-highlighted hover:border-(--app-rule)'"
+            >
+              <span v-if="item.tile" class="app-tile size-2.5" :class="TILE_CLASS[item.tile]" aria-hidden="true" />
+              {{ item.label }}
+            </NuxtLink>
+          </li>
+        </ul>
+      </nav>
+      <div class="lg:hidden border-b-2 border-(--app-rule-strong)" aria-hidden="true" />
+    </header>
 
-      <UNavigationMenu :items="items" />
-
-      <template #right>
-        <!-- Desktop controls -->
-        <div class="hidden lg:flex items-center gap-1">
-          <UTooltip :text="t('common.documentation')">
-            <UButton
-              to="https://wetterdienst.readthedocs.io/"
-              target="_blank"
-              icon="i-lucide-book-open"
-              color="neutral"
-              variant="ghost"
-              :aria-label="t('common.documentation')"
-            />
-          </UTooltip>
-          <UTooltip :text="t('header.github')">
-            <UButton
-              to="https://github.com/earthobservations/wetterdienst"
-              target="_blank"
-              icon="i-lucide-github"
-              color="neutral"
-              variant="ghost"
-              :aria-label="t('header.github')"
-            />
-          </UTooltip>
-          <UTooltip :text="t('header.pypi')">
-            <UButton
-              to="https://pypi.org/project/wetterdienst"
-              target="_blank"
-              icon="i-lucide-package"
-              color="neutral"
-              variant="ghost"
-              :aria-label="t('header.pypi')"
-            />
-          </UTooltip>
-          <!-- Support is about the project rather than the data, so it sits with the other
-               project links rather than in the task nav -- but as an icon, not a footer line,
-               because issues, pull requests and donations all start here. -->
-          <UTooltip :text="t('nav.support')">
-            <UButton
-              to="/support"
-              icon="i-lucide-heart"
-              color="neutral"
-              variant="ghost"
-              :aria-label="t('nav.support')"
-            />
-          </UTooltip>
-          <SettingsMenu />
-        </div>
-        <!-- Mobile hamburger -->
-        <UButton
-          class="lg:hidden"
-          icon="i-lucide-menu"
-          color="neutral"
-          variant="ghost"
-          :aria-label="t('header.menu')"
-          aria-haspopup="dialog"
-          :aria-expanded="mobileMenuOpen"
-          @click="mobileMenuOpen = true"
-        />
-      </template>
-    </UHeader>
-
-    <!-- Full-screen mobile menu. A dialog, not a layer of markup: the focus stays in it, Escape closes
-         it and the page behind is hidden from a screen reader while it is open (WCAG 2.1.2, 2.4.3, 4.1.2) -->
+    <!-- The narrow layout's menu: the contents, as a dialog. The focus stays in it, Escape closes it and the page
+         behind is hidden from a screen reader while it is open (WCAG 2.1.2, 2.4.3, 4.1.2) -->
     <UModal
       v-if="!isWidget"
       v-model:open="mobileMenuOpen"
       fullscreen
       :title="t('header.menu')"
       close
-      :ui="{ body: 'flex flex-col flex-1 p-0 sm:p-0' }"
+      :ui="{ header: 'border-b-2 border-(--app-rule-strong)', title: 'font-serif text-2xl', body: 'flex flex-col flex-1 p-0 sm:p-0' }"
     >
       <!-- the label in the language of the app, which Nuxt UI's own is only for the two it ships -->
       <template #close="{ ui }">
@@ -245,66 +245,35 @@ const items = computed<NavigationMenuItem[]>(() =>
         />
       </template>
       <template #body>
-        <!-- Nav items -->
-        <nav :aria-label="t('header.menu')" class="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-1">
-          <NuxtLink
-            v-for="item in items"
-            :key="item.to as string"
-            :to="item.to as string"
-            class="flex items-center gap-4 px-4 py-3.5 rounded-xl text-base font-medium transition-colors"
-            :class="item.active
-              ? 'bg-primary-50 dark:bg-primary-950 text-primary-700 dark:text-primary-400'
-              : 'text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'"
-            @click="mobileMenuOpen = false"
-          >
-            <UIcon :name="item.icon as string" class="w-5 h-5 shrink-0" />
-            {{ item.label }}
-          </NuxtLink>
+        <nav :aria-label="t('header.menu')" class="flex-1 overflow-y-auto px-4 py-2">
+          <ul class="divide-y divide-(--app-rule)">
+            <li v-for="item in items" :key="item.to">
+              <NuxtLink
+                :to="item.to"
+                :aria-current="item.active ? 'page' : undefined"
+                class="flex items-center gap-4 py-3.5 font-serif text-xl transition-colors"
+                :class="item.active ? 'text-highlighted font-semibold underline decoration-2 underline-offset-[6px]' : 'text-default hover:text-highlighted'"
+                @click="mobileMenuOpen = false"
+              >
+                <span class="app-tile size-3" :class="item.tile ? TILE_CLASS[item.tile] : 'bg-(--app-rule)'" aria-hidden="true" />
+                {{ item.label }}
+              </NuxtLink>
+            </li>
+          </ul>
         </nav>
 
-        <!-- Bottom bar: external links + settings -->
-        <div class="shrink-0 border-t border-gray-200 dark:border-gray-800 px-4 py-4 flex items-center justify-between">
+        <!-- the project's links and the settings -->
+        <div class="shrink-0 border-t border-(--app-rule) px-4 py-3 flex items-center justify-between">
           <div class="flex items-center gap-1">
-            <UTooltip :text="t('common.documentation')">
+            <UTooltip v-for="link in projectLinks" :key="link.key" :text="link.label">
               <UButton
-                to="https://wetterdienst.readthedocs.io/"
-                target="_blank"
-                icon="i-lucide-book-open"
+                :to="link.to"
+                :target="link.external ? '_blank' : undefined"
+                :icon="link.icon"
                 color="neutral"
                 variant="ghost"
-                :aria-label="t('common.documentation')"
-              />
-            </UTooltip>
-            <UTooltip :text="t('header.github')">
-              <UButton
-                to="https://github.com/earthobservations/wetterdienst"
-                target="_blank"
-                icon="i-lucide-github"
-                color="neutral"
-                variant="ghost"
-                :aria-label="t('header.github')"
-              />
-            </UTooltip>
-            <UTooltip :text="t('header.pypi')">
-              <UButton
-                to="https://pypi.org/project/wetterdienst"
-                target="_blank"
-                icon="i-lucide-package"
-                color="neutral"
-                variant="ghost"
-                :aria-label="t('header.pypi')"
-              />
-            </UTooltip>
-            <!-- matches the desktop header: Support left the nav list, so it has to be here or
-                 the hamburger menu loses it entirely -->
-            <UTooltip :text="t('nav.support')">
-              <UButton
-                to="/support"
-                icon="i-lucide-heart"
-                color="neutral"
-                variant="ghost"
-                :aria-label="t('nav.support')"
-                @click="mobileMenuOpen = false"
+                :aria-label="link.label"
+                @click="link.external ? undefined : (mobileMenuOpen = false)"
               />
             </UTooltip>
           </div>
@@ -320,66 +289,74 @@ const items = computed<NavigationMenuItem[]>(() =>
       </template>
     </UModal>
 
-    <UMain>
+    <!-- the search of the app: the masthead's button and Ctrl+K / ⌘K open it -->
+    <SearchPalette v-if="!isWidget" v-model:open="searchOpen" />
+
+    <UMain id="content" tabindex="-1" class="focus:outline-none">
       <NuxtPage />
     </UMain>
-    <UFooter v-if="!isWidget">
-      <div class="w-full flex flex-col items-center gap-2 text-center">
-        <div class="text-xs text-gray-500 dark:text-gray-400">
-          <span class="text-green-700 dark:text-green-400 font-medium">App</span> {{ appVersion === 'unknown' ? appVersion : `v${appVersion}` }}
-          <span class="mx-1">|</span>
-          <span class="text-blue-600 dark:text-blue-400 font-medium">Backend</span> {{ backendVersion }}
+
+    <!-- The colophon: who publishes it, in which versions, and what the project stands for -->
+    <footer v-if="!isWidget" class="app-footer mt-16 border-t-2 border-(--app-rule-strong)">
+      <div class="app-page py-8 grid gap-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-start text-sm">
+        <div class="space-y-2">
+          <p class="flex items-center gap-2">
+            <img src="/icon.svg" alt="" class="size-5">
+            <span class="font-serif font-semibold text-lg text-highlighted">Wetterdienst</span>
+          </p>
+          <p class="text-muted">
+            {{ t('footer.copyright', { year: new Date().getFullYear() }) }}
+          </p>
+          <p class="text-xs text-muted">
+            <span class="font-semibold text-toned">App</span> {{ appVersion === 'unknown' ? appVersion : `v${appVersion}` }}
+            <span class="mx-1" aria-hidden="true">·</span>
+            <span class="font-semibold text-toned">Backend</span> {{ backendVersion }}
+          </p>
         </div>
-        <!-- Two rows by kind rather than one list of six. In one row the values statements sat in
-             the same register as the links, separated by the same pipe, and the separators -- flex
-             siblings that cannot see where a line breaks -- left a dangling "|" at the end of a
-             wrapped line on narrow screens. Each row owns its separators now. -->
-        <div class="flex flex-wrap justify-center items-center gap-x-4 sm:gap-x-3 gap-y-1">
-          <span>{{ t('footer.copyright', { year: new Date().getFullYear() }) }}</span>
-          <span class="hidden sm:inline text-gray-300 dark:text-gray-700" aria-hidden="true">·</span>
-          <NuxtLink to="/about" class="text-gray-500 dark:text-gray-400 hover:text-primary-700 dark:hover:text-primary-400 transition-colors">
-            {{ t('footer.about') }}
-          </NuxtLink>
-          <span class="hidden sm:inline text-gray-300 dark:text-gray-700" aria-hidden="true">·</span>
-          <NuxtLink to="/support" class="text-gray-500 dark:text-gray-400 hover:text-primary-700 dark:hover:text-primary-400 transition-colors">
-            {{ t('nav.support') }}
-          </NuxtLink>
-          <span class="hidden sm:inline text-gray-300 dark:text-gray-700" aria-hidden="true">·</span>
-          <NuxtLink to="/impressum" class="text-gray-500 dark:text-gray-400 hover:text-primary-700 dark:hover:text-primary-400 transition-colors">
-            {{ t('footer.legal') }}
-          </NuxtLink>
-          <span class="hidden sm:inline text-gray-300 dark:text-gray-700" aria-hidden="true">·</span>
-          <NuxtLink to="/datenschutz" class="text-gray-500 dark:text-gray-400 hover:text-primary-700 dark:hover:text-primary-400 transition-colors">
-            {{ t('footer.privacy') }}
-          </NuxtLink>
-          <span class="hidden sm:inline text-gray-300 dark:text-gray-700" aria-hidden="true">·</span>
-          <!-- a file of the app (modules/third-party-licenses, GH-3469), not a page: a plain link, which the router
-               would otherwise take for a route -->
-          <a href="/third-party-licenses.txt" class="text-gray-500 dark:text-gray-400 hover:text-primary-700 dark:hover:text-primary-400 transition-colors">
-            {{ t('footer.licenses') }}
-          </a>
-        </div>
-        <!-- The stance closes the footer, as it closes the home page, and on a line of its own so
-             it reads as a statement rather than as more entries in a link list. -->
-        <div class="flex flex-wrap justify-center items-center gap-x-4 gap-y-1">
-          <UTooltip v-for="value in values" :key="value.key" :text="value.text">
-            <span
-              class="text-lg leading-none cursor-default"
-              role="img"
-              :aria-label="value.text"
-            >{{ value.emoji }}</span>
-          </UTooltip>
+        <div class="space-y-3 md:text-right">
+          <!-- links, not a navigation: the sections are the masthead's -->
+          <ul class="flex flex-wrap md:justify-end gap-x-4 gap-y-1">
+            <li>
+              <NuxtLink to="/about" class="text-toned underline-offset-4 hover:underline hover:text-highlighted">
+                {{ t('footer.about') }}
+              </NuxtLink>
+            </li>
+            <li>
+              <NuxtLink to="/support" class="text-toned underline-offset-4 hover:underline hover:text-highlighted">
+                {{ t('nav.support') }}
+              </NuxtLink>
+            </li>
+            <li>
+              <NuxtLink to="/impressum" class="text-toned underline-offset-4 hover:underline hover:text-highlighted">
+                {{ t('footer.legal') }}
+              </NuxtLink>
+            </li>
+            <li>
+              <NuxtLink to="/datenschutz" class="text-toned underline-offset-4 hover:underline hover:text-highlighted">
+                {{ t('footer.privacy') }}
+              </NuxtLink>
+            </li>
+            <li>
+              <!-- a file of the app (modules/third-party-licenses, GH-3469), not a page: a plain link, which the router
+                   would otherwise take for a route -->
+              <a href="/third-party-licenses.txt" class="text-toned underline-offset-4 hover:underline hover:text-highlighted">
+                {{ t('footer.licenses') }}
+              </a>
+            </li>
+          </ul>
+          <!-- The stance closes the footer, as it closes the home page, on a line of its own so that it reads as a
+               statement rather than as more entries in a link list. -->
+          <div class="flex flex-wrap md:justify-end items-center gap-x-4 gap-y-1">
+            <UTooltip v-for="value in values" :key="value.key" :text="value.text">
+              <span
+                class="text-lg leading-none cursor-default"
+                role="img"
+                :aria-label="value.text"
+              >{{ value.emoji }}</span>
+            </UTooltip>
+          </div>
         </div>
       </div>
-    </UFooter>
+    </footer>
   </UApp>
 </template>
-
-<style>
-/* Make main container full width for better map display */
-:deep(.u-main) {
-  max-width: 100% !important;
-  padding-left: 0 !important;
-  padding-right: 0 !important;
-}
-</style>

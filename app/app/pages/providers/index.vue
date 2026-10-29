@@ -54,110 +54,105 @@ function parameterCount(provider: Provider): number {
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-5xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('providers.title') }}
-      </h1>
-      <p class="text-gray-600 dark:text-gray-400">
-        {{ t('providers.subtitle') }}
-      </p>
-    </div>
+  <div class="app-page">
+    <PageHeader :kicker="t('layout.kicker.data')" :title="t('providers.title')" :lede="t('providers.subtitle')" />
 
-    <div class="flex flex-col sm:flex-row gap-2">
-      <UInput
-        v-model="search"
-        icon="i-lucide-search"
-        :placeholder="t('providers.searchPlaceholder')"
-        :aria-label="t('providers.searchPlaceholder')"
-        class="flex-1"
-      />
-      <USelect
-        v-model="kind"
-        :items="kindItems"
-        value-key="value"
-        :placeholder="t('providers.allKinds')"
-        :aria-label="t('providers.kindLabel')"
-        class="sm:w-56"
-      />
-    </div>
+    <div class="space-y-6">
+      <div class="flex flex-col sm:flex-row gap-2">
+        <UInput
+          v-model="search"
+          icon="i-lucide-search"
+          :placeholder="t('providers.searchPlaceholder')"
+          :aria-label="t('providers.searchPlaceholder')"
+          class="flex-1"
+        />
+        <USelect
+          v-model="kind"
+          :items="kindItems"
+          value-key="value"
+          :placeholder="t('providers.allKinds')"
+          :aria-label="t('providers.kindLabel')"
+          class="sm:w-56"
+        />
+      </div>
 
-    <UAlert
-      v-if="failure"
-      color="error"
-      variant="subtle"
-      icon="i-lucide-alert-circle"
-      :title="t('common.requestFailed')"
-      :description="failure"
-      :actions="[{ label: t('common.retry'), onClick: () => refresh() }]"
-    />
-    <UEmpty v-else-if="pending && !data" loading :title="t('common.loading')" />
-    <UEmpty
-      v-else-if="!providers.length"
-      icon="i-lucide-building-2"
-      :title="t('providers.noResults')"
-    />
-    <template v-else>
-      <p class="text-sm text-gray-500 dark:text-gray-400">
-        {{ t('providers.shown', { shown: providers.length, count: data?.providers.length ?? 0 }) }}
-      </p>
-      <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <li v-for="provider in providers" :key="provider.provider">
-          <NuxtLink :to="`/providers/${provider.provider}`" class="group block h-full">
-            <UCard
-              class="h-full transition-all group-hover:ring-2 group-hover:ring-primary-400"
-              :ui="{ body: 'flex flex-col gap-2 h-full' }"
-            >
-              <div class="flex items-start gap-3">
-                <span class="text-3xl leading-none" aria-hidden="true">{{ flagEmoji(provider.country_code) }}</span>
-                <div class="min-w-0">
-                  <h2 class="font-bold break-words">
-                    {{ provider.name_english }}
-                  </h2>
-                  <p v-if="provider.name_local !== provider.name_english" class="text-sm text-gray-600 dark:text-gray-400 break-words">
-                    {{ provider.name_local }}
-                  </p>
+      <UAlert
+        v-if="failure"
+        color="error"
+        variant="subtle"
+        icon="i-lucide-alert-circle"
+        :title="t('common.requestFailed')"
+        :description="failure"
+        :actions="[{ label: t('common.retry'), onClick: () => refresh() }]"
+      />
+      <UEmpty v-else-if="pending && !data" loading :title="t('common.loading')" />
+      <UEmpty
+        v-else-if="!providers.length"
+        icon="i-lucide-building-2"
+        :title="t('providers.noResults')"
+      />
+      <template v-else>
+        <p class="text-sm text-gray-500 dark:text-gray-400">
+          {{ t('providers.shown', { shown: providers.length, count: data?.providers.length ?? 0 }) }}
+        </p>
+        <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <li v-for="provider in providers" :key="provider.provider">
+            <NuxtLink :to="`/providers/${provider.provider}`" class="group block h-full">
+              <UCard
+                class="h-full"
+                :ui="{ body: 'flex flex-col gap-2 h-full' }"
+              >
+                <div class="flex items-start gap-3">
+                  <span class="text-3xl leading-none" aria-hidden="true">{{ flagEmoji(provider.country_code) }}</span>
+                  <div class="min-w-0">
+                    <h2 class="text-xl font-semibold leading-snug text-highlighted break-words group-hover:underline decoration-2 underline-offset-4">
+                      {{ provider.name_english }}
+                    </h2>
+                    <p v-if="provider.name_local !== provider.name_english" class="text-sm text-gray-600 dark:text-gray-400 break-words">
+                      {{ provider.name_local }}
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <p class="text-sm text-gray-600 dark:text-gray-400">
-                {{ provider.country_code === null ? t('providers.multinational') : provider.country }}
-              </p>
-              <p class="text-xs text-gray-500 dark:text-gray-400">
-                {{ t('providers.networksCount', { count: provider.networks.length }) }}
-                ·
-                {{ t('providers.parametersCount', { count: parameterCount(provider) }) }}
-              </p>
-              <div class="flex flex-wrap gap-1.5 mt-auto pt-1">
-                <UBadge
-                  v-for="network in [...new Set(provider.networks.map(n => n.kind))]"
-                  :key="network"
-                  :label="networkKindLabel(network)"
-                  color="neutral"
-                  variant="subtle"
-                />
-                <!-- a licence with no SPDX identifier is told by its name, which can be a sentence: cut at
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                  {{ provider.country_code === null ? t('providers.multinational') : provider.country }}
+                </p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">
+                  {{ t('providers.networksCount', { count: provider.networks.length }) }}
+                  ·
+                  {{ t('providers.parametersCount', { count: parameterCount(provider) }) }}
+                </p>
+                <div class="flex flex-wrap gap-1.5 mt-auto pt-1">
+                  <UBadge
+                    v-for="network in [...new Set(provider.networks.map(n => n.kind))]"
+                    :key="network"
+                    :label="networkKindLabel(network)"
+                    color="neutral"
+                    variant="subtle"
+                  />
+                  <!-- a licence with no SPDX identifier is told by its name, which can be a sentence: cut at
                      the card's edge, and whole in the tooltip and on the provider's page -->
-                <UBadge
-                  :label="licenceLabel(provider)"
-                  :title="licenceLabel(provider)"
-                  color="primary"
-                  variant="subtle"
-                  icon="i-lucide-scale"
-                  class="max-w-full"
-                  :ui="{ label: 'truncate' }"
-                />
-                <UBadge
-                  v-if="provider.networks.some(network => network.auth)"
-                  :label="t('providers.keyRequired')"
-                  color="neutral"
-                  variant="outline"
-                  icon="i-lucide-key-round"
-                />
-              </div>
-            </UCard>
-          </NuxtLink>
-        </li>
-      </ul>
-    </template>
-  </UContainer>
+                  <UBadge
+                    :label="licenceLabel(provider)"
+                    :title="licenceLabel(provider)"
+                    color="primary"
+                    variant="subtle"
+                    icon="i-lucide-scale"
+                    class="max-w-full"
+                    :ui="{ label: 'truncate' }"
+                  />
+                  <UBadge
+                    v-if="provider.networks.some(network => network.auth)"
+                    :label="t('providers.keyRequired')"
+                    color="neutral"
+                    variant="outline"
+                    icon="i-lucide-key-round"
+                  />
+                </div>
+              </UCard>
+            </NuxtLink>
+          </li>
+        </ul>
+      </template>
+    </div>
+  </div>
 </template>

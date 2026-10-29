@@ -55,70 +55,65 @@ const entries = computed<GlossaryEntry[]>(() => {
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('glossary.title') }}
-      </h1>
-      <p class="text-gray-600 dark:text-gray-400">
-        {{ t('glossary.subtitle') }}
-      </p>
-    </div>
+  <div class="app-page">
+    <PageHeader :kicker="t('layout.kicker.reference')" :title="t('glossary.title')" :lede="t('glossary.subtitle')" />
 
-    <UCard>
-      <template #header>
-        <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-book-open" class="text-primary-500 shrink-0" />
-          <h2 class="text-lg font-bold">
-            {{ t('glossary.parametersTitle') }}
-          </h2>
-        </div>
-      </template>
-
-      <div class="flex flex-col sm:flex-row gap-2 mb-4">
-        <UInput
-          v-model="search"
-          icon="i-lucide-search"
-          :placeholder="t('glossary.searchPlaceholder')"
-          class="flex-1"
-        />
-        <USelect
-          v-model="unitType"
-          :items="unitTypeItems"
-          value-key="value"
-          :placeholder="t('glossary.allUnitTypes')"
-          :aria-label="t('glossary.unitTypeLabel')"
-          class="sm:w-56"
-        />
-      </div>
-
-      <UEmpty v-if="pending" loading :title="t('glossary.loading')" />
-      <UEmpty
-        v-else-if="!entries.length"
-        icon="i-lucide-book-open"
-        :title="t('glossary.noResults')"
-      />
-      <div v-else class="space-y-4">
-        <p class="text-sm text-gray-500 dark:text-gray-400">
-          {{ t('glossary.count', { shown: entries.length, count: glossary?.length ?? 0 }) }}
-        </p>
-        <div
-          v-for="entry in entries"
-          :key="entry.name"
-          class="border-t border-gray-200 dark:border-gray-800 pt-3 first:border-t-0 first:pt-0"
-        >
-          <div class="flex items-baseline justify-between gap-3 flex-wrap">
-            <span class="font-medium">{{ parameterLabel(entry.name) }}</span>
-            <span class="text-xs font-mono text-gray-500 dark:text-gray-400">{{ entry.unit_symbol || entry.unit }}</span>
+    <div class="max-w-5xl space-y-6">
+      <UCard>
+        <template #header>
+          <div class="flex items-center gap-2">
+            <UIcon name="i-lucide-book-open" class="text-primary-500 shrink-0" />
+            <h2 class="text-lg font-bold">
+              {{ t('glossary.parametersTitle') }}
+            </h2>
           </div>
-          <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            {{ entry.description }}
-          </p>
-          <p class="text-xs font-mono text-gray-500 dark:text-gray-400 mt-1">
-            {{ entry.name }}
-          </p>
+        </template>
+
+        <div class="flex flex-col sm:flex-row gap-2 mb-4">
+          <UInput
+            v-model="search"
+            icon="i-lucide-search"
+            :placeholder="t('glossary.searchPlaceholder')"
+            class="flex-1"
+          />
+          <USelect
+            v-model="unitType"
+            :items="unitTypeItems"
+            value-key="value"
+            :placeholder="t('glossary.allUnitTypes')"
+            :aria-label="t('glossary.unitTypeLabel')"
+            class="sm:w-56"
+          />
         </div>
-      </div>
-    </UCard>
-  </UContainer>
+
+        <UEmpty v-if="pending" loading :title="t('glossary.loading')" />
+        <UEmpty
+          v-else-if="!entries.length"
+          icon="i-lucide-book-open"
+          :title="t('glossary.noResults')"
+        />
+        <div v-else class="space-y-4">
+          <p class="text-sm text-gray-500 dark:text-gray-400">
+            {{ t('glossary.count', { shown: entries.length, count: glossary?.length ?? 0 }) }}
+          </p>
+          <div
+            v-for="entry in entries"
+            :key="entry.name"
+            class="border-t border-gray-200 dark:border-gray-800 pt-3 first:border-t-0 first:pt-0"
+          >
+            <div class="flex items-baseline justify-between gap-3 flex-wrap">
+              <span class="font-medium min-w-0 [overflow-wrap:anywhere]">{{ parameterLabel(entry.name) }}</span>
+              <span class="text-xs font-mono text-gray-500 dark:text-gray-400">{{ entry.unit_symbol || entry.unit }}</span>
+            </div>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              {{ entry.description }}
+            </p>
+            <p class="text-xs font-mono text-gray-500 dark:text-gray-400 mt-1 [overflow-wrap:anywhere]">
+              {{ entry.name }}
+            </p>
+          </div>
+        </div>
+      </UCard>
+    </div>
+  </div>
 </template>
