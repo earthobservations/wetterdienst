@@ -33,9 +33,16 @@ for the datasets they narrowed). It says nothing of the source being behind for 
 the library cannot tell a source that is late from one that never reports the parameter (Paris `tx24`), and a
 hint of the first invites the retry the warning is there to stop.
 
-The stations that are left out for the file the provider let go are told by a `file-skipped` warning (GH-3552), one for
-the request, which does invite the retry: what is missing there may well be there later. The two do not repeat each
-other, for a station is in one or the other.
+The stations whose file the provider let go are told by a `file-skipped` warning (GH-3552), one for the request, which
+does invite the retry: what is missing there may well be there later. The stations `parameter-without-rows` leaves
+out are those, so it does not repeat `file-skipped`. Which stations it names:
+
+- every station whose file was let go (every collected station for a file all of them are read from), whether the
+  station came back empty or `skip_empty` dropped it below its threshold: it is missing for the failure, not for lack of
+  data, and a station may carry `station-skipped` besides, for a different cause;
+- except the stations a rank walk (`filter_by_rank`) passed over for the next ones, when it filled its `rank`: the
+  answer holds as many stations as were asked for, and the ones replaced are not a gap in it. A rank walk that ends
+  short (an outage that emptied most of the candidates) names them all.
 """
 
 from __future__ import annotations
@@ -100,7 +107,7 @@ class ParameterRows:
         self._skipped: dict[str, None] = {}
         #: the stations the walk collected, which a file that serves every station of the request was let go for
         self._collected: dict[str, None] = {}
-        #: the stations the walk left out of the answer for an empty frame, which `file-skipped` does not name
+        #: the candidates a rank walk passed over for the next one (an empty frame, or below `skip_threshold`)
         self._passed_over: set[str] = set()
         #: whether the provider let go a file that every station of the request is read from
         self._skipped_all = False
@@ -133,10 +140,10 @@ class ParameterRows:
         return collecting(skipped, self._named)
 
     def passed_over(self, station_id: str) -> None:
-        """Note that the walk left the station out of the answer (an empty frame under `skip_empty` or in a rank walk).
+        """Note that a rank walk passed the station over for the next one (an empty frame, or below the threshold).
 
-        `file-skipped` names the stations of the answer, as `missing-value-marker` counts the readings of it (GH-3554).
-        `parameter-without-rows` still leaves it out if its file was let go: the file may be why the values are missing.
+        `file-skipped` leaves it out if the walk went on to fill its rank (`warn`); only a rank walk replaces a station.
+        `parameter-without-rows` leaves it out if its file was let go all the same.
         """
         self._passed_over.add(station_id)
 
@@ -146,11 +153,15 @@ class ParameterRows:
             return
         self._with_rows.update(df.select("resolution", "dataset", "parameter").unique().iter_rows())
 
-    def warn(self) -> None:
-        """Tell the stations whose file was let go, and each parameter and dataset that no station read had a row of."""
+    def warn(self, *, rank_filled: bool = False) -> None:
+        """Tell the stations whose file was let go, and each parameter and dataset that no station read had a row of.
+
+        `rank_filled` is whether a rank walk collected as many stations as it was asked for: the candidates it passed
+        over are then replaced, not missing.
+        """
         if not self._enabled:
             return
-        self._warn_skipped()
+        self._warn_skipped(rank_filled=rank_filled)
         if not self._skipped_all:
             self._warn_without_rows()
 
@@ -183,19 +194,18 @@ class ParameterRows:
                     name = f"{key[0]}/{key[1]}"
                     self._tell(name, f"any parameter of {name}", stations, parameter.dataset)
 
-    def _warn_skipped(self) -> None:
+    def _warn_skipped(self, *, rank_filled: bool) -> None:
         """Tell the stations whose file the provider let go, once: the answer may be missing their values (GH-3552).
 
         The other side of `parameter-without-rows`, which leaves those stations out because their values may be
         missing for that. A file that serves every station of the request (`whole_request`) is every collected
         station's. The datasets are the ones the walk read at those stations, since the provider says which station
         and not which of its datasets or files; it logs the file itself at level `WARNING`. Nothing is told when no
-        file was let go.
+        file was let go, nor for the candidates a rank walk replaced when it `rank_filled`.
         """
+        replaced = self._passed_over if rank_filled else set()
         stations = [
-            station
-            for station in (self._collected if self._skipped_all else self._skipped)
-            if station not in self._passed_over
+            station for station in (self._collected if self._skipped_all else self._skipped) if station not in replaced
         ]
         if not stations:
             return

@@ -373,8 +373,8 @@ def test_the_message_names_only_the_datasets_read_at_the_stations_let_go() -> No
     assert "precipitation_more" not in warning["message"]
 
 
-def test_a_station_passed_over_is_not_named() -> None:
-    """A station the walk left out of the answer for an empty frame is not one the answer is partial for."""
+def test_a_station_a_filled_rank_walk_passed_over_is_not_named() -> None:
+    """The candidates a rank walk replaced are not a gap in an answer that holds as many stations as were asked for."""
     request = _dwd_stations(("00001", "00002")).request
     rows = ParameterRows(request, None, None)
     for station in ("00001", "00002"):
@@ -384,14 +384,49 @@ def test_a_station_passed_over_is_not_named() -> None:
     rows.passed_over("00001")
     begin_response()
 
-    rows.warn()
+    rows.warn(rank_filled=True)
 
     (warning,) = _told()
     assert warning["stations"] == ["00002"]
     assert warning["message"].startswith("A file of station 00002 ")
 
-    # all of them passed over: nothing is told, and `parameter-without-rows` still leaves them out
+    # a walk that ended short, or empty, names them all
+    begin_response()
+    rows.warn(rank_filled=False)
+    assert [w["stations"] for w in _told()] == [["00001", "00002"]]
+
+    # and all of them replaced: nothing to tell
     rows.passed_over("00002")
     begin_response()
-    rows.warn()
-    assert recorded_warnings() == []
+    rows.warn(rank_filled=True)
+    assert _told() == []
+
+
+def test_swsmos_names_every_station_of_a_rank_walk_whose_run_could_not_be_fetched(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The run is every station's file: a rank walk that it empties out ends short, and names all it walked."""
+    import dataclasses  # noqa: PLC0415
+
+    from tests.provider.dwd.swsmos.test_api import _stub_stations as swsmos_stations  # noqa: PLC0415
+    from wetterdienst.provider.dwd.swsmos import api as sws_api  # noqa: PLC0415
+
+    listed = [f"{sws_api._BASE_URL}/{sws_api._LATEST_FILE}"]  # noqa: SLF001
+    monkeypatch.setattr(sws_api, "list_remote_files_fsspec", lambda *_a, **_k: listed)
+    monkeypatch.setattr(
+        sws_api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=FileNotFoundError("404"), status=404),
+    )
+    stations = dataclasses.replace(
+        swsmos_stations(("A006", "B999", "C111")), _stations_filter=StationsFilter.BY_RANK, _rank=2
+    )
+    begin_response()
+
+    assert stations.values().all().df.is_empty()
+
+    (warning,) = _told()
+    assert warning["stations"] == ["A006", "B999", "C111"]
+    assert warning["message"].startswith("A file that every station of the request is read from (stations A006, B999")
+    # the run is not evidence that the source holds nothing
+    assert _told("parameter-without-rows") == []

@@ -386,7 +386,8 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             # the ranked walk stopped short of the stations that do cover the window and the
             # request came back with nothing
             if df.is_empty():
-                self._pass_over_emptied(rows, station_id)
+                self._tell_missing_value_markers(emptied=True)
+                self._pass_over(rows, station_id)
                 continue
             if self.sr.options.skip_empty:
                 percentage = self._get_actual_percentage(df=df)
@@ -398,6 +399,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                         f"is below threshold ({self.sr.options.skip_threshold}).",
                         level=logging.INFO,
                     )
+                    self._pass_over(rows, station_id)
                     continue
             self._tell_missing_value_markers()
             if self.sr.options.humanize:
@@ -417,18 +419,17 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             stations_collected += 1
             yield ValuesResult(stations=self.sr, df=df, data_updated_at=newest(self._data_updated))
         # only a walk read to its end says what it found: a failure raised before it, and one that is stopped is silent
-        rows.warn()
+        rows.warn(rank_filled=stations_collected == self.sr._rank)  # noqa: SLF001
 
-    def _pass_over_emptied(self, rows: ParameterRows, station_id: str) -> None:
-        """Tell the markers of a station whose frame is empty, and that it is not in the answer where it is not."""
-        self._tell_missing_value_markers(emptied=True)
-        if self._left_out_when_emptied():
-            # not in the answer, so not for `file-skipped` to name either (GH-3552)
+    def _pass_over(self, rows: ParameterRows, station_id: str) -> None:
+        """Note that a rank walk passed a candidate over (an empty frame, or one below `skip_threshold`) for the next.
+
+        Only a rank walk replaces a station: a pick by ids, distance or name that drops one leaves the answer short of
+        it, which `file-skipped` tells if its file was let go (GH-3552). Whether the replacement filled the rank is
+        known at the end of the walk (`ParameterRows.warn`).
+        """
+        if self.sr._stations_filter == StationsFilter.BY_RANK:  # noqa: SLF001
             rows.passed_over(station_id)
-
-    def _left_out_when_emptied(self) -> bool:
-        """Tell whether a station whose frame came back empty is not in the answer: `skip_empty`, or a rank walk."""
-        return self.sr.options.skip_empty or self.sr._stations_filter == StationsFilter.BY_RANK  # noqa: SLF001
 
     def _tell_missing_value_markers(self, *, emptied: bool = False) -> None:
         """Add the markers of the station in hand to the warning of the request, unless the station is left out.
@@ -443,7 +444,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         reading, as it does with the nulls kept, and a rank walk (`filter_by_rank`) walks past it. A pick by name
         takes the stations the name matches, and none takes the place of an emptied one.
         """
-        if emptied and self._left_out_when_emptied():
+        if emptied and (self.sr.options.skip_empty or self.sr._stations_filter == StationsFilter.BY_RANK):  # noqa: SLF001
             return
         if self._count_missing_value_markers:
             count_response_warning(MISSING_VALUE_MARKER, self._markers_in_window, MISSING_VALUE_MARKER_MESSAGE)

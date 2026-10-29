@@ -1895,3 +1895,108 @@ def test_a_station_a_rank_walk_passed_over_is_not_named(monkeypatch: pytest.Monk
     assert set(df["station_id"]) <= _DRESDEN
     assert df["station_id"].n_unique() == 2
     assert [w for w in recorded_warnings() if w["code"] == _FILE_SKIPPED] == []
+
+
+# a rank walk that replaced a station names it only if it did not fill its rank, any other pick always does (GH-3552)
+
+_EVERY_STATION = [station[0] for station in _STATIONS]
+
+
+def _partly_let_go(monkeypatch: pytest.MonkeyPatch, *stations: str) -> None:
+    """Have `stations` lose a file and come back with one day of three, which is 33 % of the window."""
+    from wetterdienst.provider.dwd.observation import download  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    original = DwdObservationValues._collect_station_parameter_or_dataset  # noqa: SLF001
+
+    def collect(self: DwdObservationValues, station_id: str, parameter_or_dataset: Any) -> pl.DataFrame:  # noqa: ANN401
+        df = original(self, station_id, parameter_or_dataset)
+        if station_id not in stations:
+            return df
+        url = f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/{station_id}.zip"
+        download.download_climate_observations_data(pl.Series([url]), self.sr.request.settings)
+        return df.filter(pl.col("timestamp") == dt.datetime(2020, 5, 1, tzinfo=UTC))
+
+    def withdrawn(urls: list[str], **_: object) -> list[File]:
+        return [File(url=url, content=FileNotFoundError(url), status=404) for url in urls]
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+    monkeypatch.setattr(download, "download_files", withdrawn)
+
+
+def _skipping_request() -> DwdObservationRequest:
+    """Make the request for the one parameter that skips a station below 60 % of the window."""
+    return DwdObservationRequest(
+        parameters=[_FULL],
+        start="2020-05-01",
+        end="2020-05-03",
+        options={"skip_empty": True, "skip_threshold": 0.6},
+    )
+
+
+def _file_skipped_stations() -> list[list[str]]:
+    return [w["stations"] for w in recorded_warnings() if w["code"] == _FILE_SKIPPED]
+
+
+def test_a_below_threshold_candidate_a_filled_rank_walk_replaced_is_not_named(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The nearest station lost a file and is below the threshold; the walk filled its rank with the next ones."""
+    _partly_let_go(monkeypatch, "00007")
+    begin_response()
+
+    df = _skipping_request().filter_by_rank(_POINT, rank=2).values().all().df
+
+    assert df["station_id"].n_unique() == 2
+    assert "00007" not in set(df["station_id"])
+    assert _file_skipped_stations() == []
+    assert [w["code"] for w in recorded_warnings()] == ["station-skipped"]
+
+
+def test_a_rank_walk_that_lost_every_file_names_every_candidate(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An outage that empties the walk leaves the answer empty: nothing was replaced, and all walked are told."""
+    _withdrawing(monkeypatch, *_EVERY_STATION)
+    begin_response()
+
+    df = _skipping_request().filter_by_rank(_POINT, rank=2).values().all().df
+
+    assert df.is_empty()
+    (stations,) = _file_skipped_stations()
+    assert set(stations) <= set(_EVERY_STATION)
+    assert {"00007", "00006", "00003"} <= set(stations)
+
+
+def test_a_rank_walk_that_ends_short_names_the_candidates_it_passed_over(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Only one station is left to fill two slots: the ones whose file was lost were not replaced, and are told."""
+    _withdrawing(monkeypatch, *(station for station in _EVERY_STATION if station != "00001"))
+    begin_response()
+
+    df = _skipping_request().filter_by_rank(_POINT, rank=2).values().all().df
+
+    assert set(df["station_id"]) == {"00001"}
+    (stations,) = _file_skipped_stations()
+    assert "00001" not in stations
+    assert {"00007", "00006", "00003"} <= set(stations)
+
+
+def test_skip_empty_with_ids_names_a_station_emptied_by_a_lost_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The station is missing from the answer because its file failed, not for lack of data: it is told."""
+    _withdrawing(monkeypatch, "00001")
+    begin_response()
+
+    df = _skipping_request().filter_by_station_id(["00001", "00002"]).values().all().df
+
+    assert set(df["station_id"]) == {"00002"}
+    assert _file_skipped_stations() == [["00001"]]
+
+
+def test_skip_empty_with_ids_names_a_station_below_the_threshold_after_a_lost_file(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Skipped for too few readings (`station-skipped`) because its file failed: this is told as well."""
+    _partly_let_go(monkeypatch, "00001")
+    begin_response()
+
+    df = _skipping_request().filter_by_station_id(["00001", "00002"]).values().all().df
+
+    assert set(df["station_id"]) == {"00002"}
+    assert _file_skipped_stations() == [["00001"]]
+    assert [w["code"] for w in recorded_warnings()] == ["station-skipped", _FILE_SKIPPED]

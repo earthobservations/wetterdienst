@@ -317,10 +317,12 @@ what the answer is missing:
   that would not parse), so that a partial answer can be told from a whole one. There is one for the request. It
   carries `stations` (the stations whose file was let go, the first ten if there are more), and its message names the
   datasets the request read at them: a provider says which station, not which of its files. A file that serves every
-  station of the request is every station's. Only stations in the answer are named: a station left out because its
-  frame came back empty under `skip_empty`, or that a rank walk (`rank`, a point) passed over for the next one, is not.
-  A station that `skip_empty` dropped for too few readings is told by `station-skipped` and, if its file was let go,
-  by this too: the causes differ, and this is the one a retry can clear. Retry later: what is missing may well be there then, which is the
+  station of the request is every station's. A station is named whether its frame came back empty or `skip_empty`
+  dropped it below its threshold: it is missing for the failure, not for lack of data, so it may carry
+  `station-skipped` as well, for a different cause. The one exception is a rank walk (`rank`, a point) that passed a
+  station over for the next candidate and went on to fill its `rank`: the answer holds as many stations as were asked
+  for, and the replaced ones are not named. A rank walk that ends short, or empty, after an outage names them all.
+  Retry later: what is missing may well be there then, which is the
   difference to `parameter-without-rows`, whose stations are never among them. It is told for the providers listed
   above, nothing is told when no file was let go (a 404 that is the source's answer of no data, a download made
   again with success), and not for `interpolate` and `summarize`, which read the stations around a point as
