@@ -14,12 +14,11 @@
     "requestFailed": "Forespørgslen mislykkedes",
     "backendError": "Backend-fejl {status}",
     "backendErrorDetail": "Backend-fejl {status}: {detail}",
-    "chartTableHint": "Værdierne står i tabellen under diagrammet."
+    "chartTableHint": "Værdierne står i tabellen under diagrammet.",
+    "skipToContent": "Gå til indholdet"
   },
   "home": {
     "tagline": "Åbne vejrdata for mennesker",
-    "intro": "Vælg bare, hvad du gerne vil se.",
-    "tasksTitle": "Hvad vil du gerne gøre?",
     "forecastTitle": "Vejrudsigt",
     "forecastDesc": "Se en flerdages udsigt for dit område.",
     "stripesTitle": "Opvarmningsstriber",
@@ -60,7 +59,10 @@
     "kindAlertsDesc": "Officielle DWD-varsler om storm, varme, frost og oversvømmelse, pr. distrikt.",
     "kindRoadTitle": "Vejvejr",
     "kindRoadDesc": "Vejbaneforhold og -temperaturer fra DWD's vejvejrstationer samt deres prognoser.",
-    "aboutLink": "Om projektet og menneskene bag"
+    "aboutLink": "Om projektet og menneskene bag",
+    "axisTitle": "Hvor i tiden vil du hen?",
+    "axisIntro": "Alt her ligger på én tidsakse: fortiden er målt, fremtiden er forudsagt.",
+    "historyDesc": "Hvordan en station er flyttet, har skiftet navn og instrumenter."
   },
   "seo": {
     "title": "Wetterdienst – åbne vejr- og klimadata fra nationale vejrtjenester",
@@ -789,5 +791,63 @@
     "summary": "Opsummering",
     "periods": "Perioder",
     "colMissingCount": "Antal manglende"
+  },
+  "axis": {
+    "label": "Tidsakse",
+    "then": "Før",
+    "now": "Nu",
+    "next": "Snart",
+    "reference": "Opslag",
+    "spanStripes": "Hvert registreret år, frem til {year}",
+    "spanHistory": "En stations hele levetid",
+    "spanExplorer": "Fra målinger hvert tiende minut til et århundredes data",
+    "spanNow": "I dag, {date}",
+    "spanForecast": "Fra nu til {date}",
+    "spanReference": "Uden for tidsaksen: hvad dataene er, og hvor de kommer fra",
+    "nowHint": "Du er her: målingerne ligger bag dig, udsigten foran dig."
+  },
+  "palette": {
+    "open": "Søg",
+    "openHint": "sider, stationer, tid",
+    "title": "Søg og spring",
+    "description": "Skriv for at filtrere. Piletasterne går gennem resultaterne, Enter åbner et, Escape lukker.",
+    "placeholder": "Søg sider, stationer eller et tidspunkt …",
+    "results": "Resultater: {count}",
+    "empty": "Intet fundet.",
+    "groupPages": "Appens sider",
+    "groupTime": "Langs tidsaksen",
+    "groupForecastStations": "Udsigt ved en station",
+    "groupStripesStations": "Klimastriber for en station",
+    "stationsLoading": "Søger efter stationer …",
+    "stationsHint": "Skriv to bogstaver eller flere for også at finde en station.",
+    "themeOption": "Udseende: {mode}",
+    "languageOption": "Sprog: {language}",
+    "inUse": "valgt",
+    "keyMove": "flyt",
+    "keyOpen": "åbn",
+    "keyClose": "luk",
+    "time": {
+      "next24h": "De næste 24 timer",
+      "next3d": "De næste 3 dage",
+      "next7d": "De næste 7 dage",
+      "next10d": "De næste 10 dage",
+      "last30y": "De seneste 30 år",
+      "allYears": "Alle registrerede år"
+    },
+    "pages": {
+      "now": "Hvor alt ligger på tidsaksen",
+      "forecast": "De næste ti dage ved en station, som meteogram",
+      "stripes": "En stations registrerede år som farvede striber",
+      "history": "Hvordan en stations navn, sted og instrumenter har ændret sig",
+      "explorer": "Målinger fra alle kilder som tabel, diagram eller fil",
+      "providers": "Hvem der udgiver dataene, og under hvilken licens",
+      "glossary": "Hvad hver parameter betyder, og dens enhed",
+      "api": "REST-API'en og MCP-serveren",
+      "settings": "Sprog, udseende og enheder",
+      "about": "Projektet og menneskene bag",
+      "support": "Meld et problem, bidrag eller donér",
+      "impressum": "Hvem der driver siden",
+      "datenschutz": "Hvad der gemmes om dig, og hvorfor"
+    }
   }
 }

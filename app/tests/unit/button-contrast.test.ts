@@ -14,33 +14,46 @@ function contrast(a: string, b: string) {
   const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
   return (hi! + 0.05) / (lo! + 0.05)
 }
-// 75 % of the fill over the page: the hover state of Nuxt UI's solid button (bg-primary/75)
+// 75 % of the fill over the page: the hover state of Nuxt UI's own solid button (bg-primary/75)
 function over(fill: string, page: string) {
   const p = channels(page)
   return `#${channels(fill).map((c, i) => Math.round(0.75 * c + 0.25 * p[i]!).toString(16).padStart(2, '0')).join('')}`
 }
 
 const css = readFileSync(fileURLToPath(new URL('../../app/assets/css/main.css', import.meta.url)), 'utf-8')
+const config = readFileSync(fileURLToPath(new URL('../../app/app.config.ts', import.meta.url)), 'utf-8')
 
-describe('the label of a solid primary button (--app-text-on-primary)', () => {
-  const label = /--app-text-on-primary:\s*(#[0-9a-f]{6})/i.exec(css)?.[1]
+/** A shade of the brand blue, as main.css defines it */
+function brand(shade: number) {
+  const value = new RegExp(`--color-brand-${shade}:\\s*(#[0-9a-f]{6})`, 'i').exec(css)?.[1]
+  expect(value, `--color-brand-${shade} in main.css`).toBeDefined()
+  return value!
+}
 
-  it('is set in main.css, for both colour modes', () => {
-    expect(label).toBeDefined()
-    // not redefined for .dark: one dark label serves the brand green and its lighter dark-mode shade
-    expect(css).not.toMatch(/\.dark\s*\{[^}]*--app-text-on-primary/)
+// Nuxt UI's `text-inverted`, the label of a solid button: white in light mode, slate-900 in dark mode
+const WHITE = '#ffffff'
+const SLATE_900 = '#0f172b'
+
+describe('the brand blue of the solid primary button', () => {
+  it('is the blue of the logo, with the navy of the logo as shade 900', () => {
+    expect(brand(500).toLowerCase()).toBe('#2e6fd1')
+    expect(brand(900).toLowerCase()).toBe('#17335f')
   })
 
-  // Tailwind's green-500, the fill in light mode, over white; green-400, the fill in dark mode, over slate-900 (Nuxt UI's neutral)
+  // the fill is shade 500 in light mode and 400 in dark mode (Nuxt UI's --ui-primary); hovered and pressed it is
+  // the shade app.config.ts names
   it.each([
-    ['light', '#00c950', '#ffffff'],
-    ['dark', '#05df72', '#0f172b'],
-  ])('clears 4.5:1 on the %s fill and on its hover', (_mode, fill, page) => {
-    expect(contrast(label!, fill)).toBeGreaterThanOrEqual(4.5)
-    expect(contrast(label!, over(fill, page))).toBeGreaterThanOrEqual(4.5)
+    ['light', WHITE, 500, 600],
+    ['dark', SLATE_900, 400, 300],
+  ] as const)('carries its label at 4.5:1 or more in %s mode, at rest and hovered', (_mode, label, rest, hovered) => {
+    expect(contrast(label, brand(rest))).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(label, brand(hovered))).toBeGreaterThanOrEqual(4.5)
   })
 
-  it('is what white was not (the reason for the dark label)', () => {
-    expect(contrast('#ffffff', '#00c950')).toBeLessThan(3)
+  it('is hovered by a shade of its own in app.config.ts, as the fade of Nuxt UI would not do', () => {
+    expect(config).toContain('hover:bg-primary-600')
+    expect(config).toContain('dark:hover:bg-primary-300')
+    // 75 % of the blue over white is too light for a white label
+    expect(contrast(WHITE, over(brand(500), WHITE))).toBeLessThan(4.5)
   })
 })

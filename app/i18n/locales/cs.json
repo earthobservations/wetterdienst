@@ -14,12 +14,11 @@
     "requestFailed": "Požadavek selhal",
     "backendError": "Chyba backendu {status}",
     "backendErrorDetail": "Chyba backendu {status}: {detail}",
-    "chartTableHint": "Hodnoty jsou v tabulce pod grafem."
+    "chartTableHint": "Hodnoty jsou v tabulce pod grafem.",
+    "skipToContent": "Přejít na obsah"
   },
   "home": {
     "tagline": "Otevřená meteorologická data pro lidi",
-    "intro": "Stačí si vybrat, co chceš vidět.",
-    "tasksTitle": "Co chceš udělat?",
     "forecastTitle": "Předpověď počasí",
     "forecastDesc": "Podívej se na vícedenní předpověď pro tvou oblast.",
     "stripesTitle": "Pruhy oteplování",
@@ -60,7 +59,10 @@
     "kindAlertsDesc": "Oficiální výstrahy DWD před bouří, horkem, mrazem a povodněmi, podle okresů.",
     "kindRoadTitle": "Silniční počasí",
     "kindRoadDesc": "Stav a teplota vozovky ze silničních stanic DWD, včetně jejich předpovědí.",
-    "aboutLink": "O projektu a lidech za ním"
+    "aboutLink": "O projektu a lidech za ním",
+    "axisTitle": "Kam v čase chceš jít?",
+    "axisIntro": "Všechno tady leží na jedné časové ose: minulost je změřená, budoucnost předpovězená.",
+    "historyDesc": "Jak se stanice stěhovala, měnila název a přístroje."
   },
   "seo": {
     "title": "Wetterdienst – otevřená data o počasí a klimatu od národních meteorologických služeb",
@@ -789,5 +791,63 @@
     "summary": "Souhrn",
     "periods": "Období",
     "colMissingCount": "Počet chybějících"
+  },
+  "axis": {
+    "label": "Časová osa",
+    "then": "Dříve",
+    "now": "Teď",
+    "next": "Brzy",
+    "reference": "Příručka",
+    "spanStripes": "Každý zaznamenaný rok, až do {year}",
+    "spanHistory": "Celý život stanice",
+    "spanExplorer": "Od desetiminutových hodnot po století záznamů",
+    "spanNow": "Dnes, {date}",
+    "spanForecast": "Od teď do {date}",
+    "spanReference": "Mimo časovou osu: co jsou data zač a odkud pocházejí",
+    "nowHint": "Jsi tady: měření máš za sebou, předpověď před sebou."
+  },
+  "palette": {
+    "open": "Hledat",
+    "openHint": "stránky, stanice, čas",
+    "title": "Hledat a přejít",
+    "description": "Piš a filtruj. Šipky procházejí výsledky, Enter jeden otevře, Escape zavře.",
+    "placeholder": "Hledej stránky, stanice nebo čas …",
+    "results": "Výsledky: {count}",
+    "empty": "Nic nenalezeno.",
+    "groupPages": "Stránky aplikace",
+    "groupTime": "Po časové ose",
+    "groupForecastStations": "Předpověď pro stanici",
+    "groupStripesStations": "Klimatické pruhy stanice",
+    "stationsLoading": "Hledají se stanice …",
+    "stationsHint": "Napiš aspoň dvě písmena a najdeš i stanici.",
+    "themeOption": "Vzhled: {mode}",
+    "languageOption": "Jazyk: {language}",
+    "inUse": "vybráno",
+    "keyMove": "pohyb",
+    "keyOpen": "otevřít",
+    "keyClose": "zavřít",
+    "time": {
+      "next24h": "Příštích 24 hodin",
+      "next3d": "Příští 3 dny",
+      "next7d": "Příštích 7 dní",
+      "next10d": "Příštích 10 dní",
+      "last30y": "Posledních 30 let",
+      "allYears": "Všechny zaznamenané roky"
+    },
+    "pages": {
+      "now": "Kde co leží na časové ose",
+      "forecast": "Příštích deset dní na stanici jako meteogram",
+      "stripes": "Zaznamenané roky stanice jako barevné pruhy",
+      "history": "Jak se měnil název, místo a přístroje stanice",
+      "explorer": "Měření ze všech zdrojů jako tabulka, graf nebo soubor",
+      "providers": "Kdo data zveřejňuje a pod jakou licencí",
+      "glossary": "Co znamená každý parametr a jeho jednotka",
+      "api": "REST API a server MCP",
+      "settings": "Jazyk, vzhled a jednotky",
+      "about": "Projekt a lidé za ním",
+      "support": "Nahlas problém, přispěj nebo daruj",
+      "impressum": "Kdo tento web provozuje",
+      "datenschutz": "Co se o tobě ukládá a proč"
+    }
   }
 }

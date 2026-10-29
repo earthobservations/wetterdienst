@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Design]` A new design, "time is the axis": the navigation is a timeline of the pages from the oldest
+  records (climate stripes, station history, explorer) through now (home) to the forecast, every page
+  header says where on it the page sits, and the colours, the type (Instrument Sans, self-hosted) and
+  one page layout come from the logo. A search in the header and Ctrl+K / Cmd+K open a command palette
+  of the pages, stations, time jumps, appearance and language (GH-3518)
+
 ## [0.39.0] - 2026-10-28
 
 ### Security

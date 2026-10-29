@@ -14,12 +14,11 @@
     "requestFailed": "Richiesta non riuscita",
     "backendError": "Errore del backend {status}",
     "backendErrorDetail": "Errore del backend {status}: {detail}",
-    "chartTableHint": "I valori sono nella tabella sotto il grafico."
+    "chartTableHint": "I valori sono nella tabella sotto il grafico.",
+    "skipToContent": "Vai al contenuto"
   },
   "home": {
     "tagline": "Dati meteo aperti per le persone",
-    "intro": "Scegli semplicemente ciò che vuoi vedere.",
-    "tasksTitle": "Cosa vuoi fare?",
     "forecastTitle": "Previsioni meteo",
     "forecastDesc": "Consulta una previsione di più giorni per la tua zona.",
     "stripesTitle": "Strisce del riscaldamento",
@@ -60,7 +59,10 @@
     "kindAlertsDesc": "Allerte ufficiali del DWD per tempesta, caldo, gelo e alluvione, per distretto.",
     "kindRoadTitle": "Meteo stradale",
     "kindRoadDesc": "Condizioni e temperature del manto stradale dalle stazioni stradali del DWD, con le relative previsioni.",
-    "aboutLink": "Il progetto e le persone che ci stanno dietro"
+    "aboutLink": "Il progetto e le persone che ci stanno dietro",
+    "axisTitle": "Dove vuoi andare nel tempo?",
+    "axisIntro": "Qui tutto sta su un unico asse del tempo: il passato è misurato, il futuro è previsto.",
+    "historyDesc": "Come una stazione si è spostata, ha cambiato nome e strumenti."
   },
   "seo": {
     "title": "Wetterdienst – dati meteorologici e climatici aperti dei servizi meteorologici nazionali",
@@ -789,5 +791,63 @@
     "summary": "Sintesi",
     "periods": "Periodi",
     "colMissingCount": "Numero di valori mancanti"
+  },
+  "axis": {
+    "label": "Asse del tempo",
+    "then": "Prima",
+    "now": "Adesso",
+    "next": "Presto",
+    "reference": "Consultazione",
+    "spanStripes": "Ogni anno registrato, fino al {year}",
+    "spanHistory": "L'intera vita di una stazione",
+    "spanExplorer": "Dalle letture ogni dieci minuti a un secolo di archivi",
+    "spanNow": "Oggi, {date}",
+    "spanForecast": "Da ora fino a {date}",
+    "spanReference": "Fuori dall'asse del tempo: che cosa sono i dati e da dove vengono",
+    "nowHint": "Sei qui: le misure sono alle tue spalle, le previsioni davanti."
+  },
+  "palette": {
+    "open": "Cerca",
+    "openHint": "pagine, stazioni, tempo",
+    "title": "Cerca e vai",
+    "description": "Scrivi per filtrare. Le frecce scorrono i risultati, Invio ne apre uno, Esc chiude.",
+    "placeholder": "Cerca pagine, stazioni o un momento …",
+    "results": "Risultati: {count}",
+    "empty": "Nessun risultato.",
+    "groupPages": "Pagine dell'app",
+    "groupTime": "Lungo l'asse del tempo",
+    "groupForecastStations": "Previsioni in una stazione",
+    "groupStripesStations": "Strisce climatiche di una stazione",
+    "stationsLoading": "Ricerca delle stazioni …",
+    "stationsHint": "Scrivi due lettere o più per trovare anche una stazione.",
+    "themeOption": "Aspetto: {mode}",
+    "languageOption": "Lingua: {language}",
+    "inUse": "selezionato",
+    "keyMove": "spostarsi",
+    "keyOpen": "apri",
+    "keyClose": "chiudi",
+    "time": {
+      "next24h": "Prossime 24 ore",
+      "next3d": "Prossimi 3 giorni",
+      "next7d": "Prossimi 7 giorni",
+      "next10d": "Prossimi 10 giorni",
+      "last30y": "Ultimi 30 anni",
+      "allYears": "Tutti gli anni registrati"
+    },
+    "pages": {
+      "now": "Dove si trova ogni cosa sull'asse del tempo",
+      "forecast": "I prossimi dieci giorni in una stazione, come meteogramma",
+      "stripes": "Gli anni registrati di una stazione, come strisce colorate",
+      "history": "Come sono cambiati nome, luogo e strumenti di una stazione",
+      "explorer": "Misure di ogni fonte, come tabella, grafico o file",
+      "providers": "Chi pubblica i dati, e con quale licenza",
+      "glossary": "Che cosa significa ogni parametro, e la sua unità",
+      "api": "L'API REST e il server MCP",
+      "settings": "Lingua, aspetto e unità",
+      "about": "Il progetto e le persone dietro",
+      "support": "Segnalare un problema, contribuire o donare",
+      "impressum": "Chi gestisce questo sito",
+      "datenschutz": "Che cosa viene salvato su di te, e perché"
+    }
   }
 }

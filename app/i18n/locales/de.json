@@ -14,12 +14,11 @@
     "requestFailed": "Anfrage fehlgeschlagen",
     "backendError": "Backend-Fehler {status}",
     "backendErrorDetail": "Backend-Fehler {status}: {detail}",
-    "chartTableHint": "Die Werte stehen in der Tabelle unter dem Diagramm."
+    "chartTableHint": "Die Werte stehen in der Tabelle unter dem Diagramm.",
+    "skipToContent": "Zum Inhalt springen"
   },
   "home": {
     "tagline": "Offene Wetterdaten für Menschen",
-    "intro": "Wähle einfach aus, was du sehen möchtest.",
-    "tasksTitle": "Was möchtest du tun?",
     "forecastTitle": "Wettervorhersage",
     "forecastDesc": "Mehrtägige Vorhersage für deinen Ort ansehen.",
     "stripesTitle": "Klimastreifen",
@@ -60,7 +59,10 @@
     "kindAlertsDesc": "Amtliche DWD-Warnungen vor Sturm, Hitze, Frost und Hochwasser, nach Landkreis.",
     "kindRoadTitle": "Straßenwetter",
     "kindRoadDesc": "Fahrbahnzustand und -temperaturen der DWD-Straßenwetterstationen, mitsamt deren Vorhersagen.",
-    "aboutLink": "Über das Projekt und die Menschen dahinter"
+    "aboutLink": "Über das Projekt und die Menschen dahinter",
+    "axisTitle": "Wohin in der Zeit willst du?",
+    "axisIntro": "Alles hier liegt auf einer Zeitachse: Die Vergangenheit ist gemessen, die Zukunft vorhergesagt.",
+    "historyDesc": "Wie eine Station umgezogen ist, umbenannt wurde und ihre Geräte gewechselt hat."
   },
   "seo": {
     "title": "Wetterdienst – offene Wetter- und Klimadaten von nationalen Wetterdiensten",
@@ -789,5 +791,63 @@
     "summary": "Zusammenfassung",
     "periods": "Zeiträume",
     "colMissingCount": "Anzahl fehlend"
+  },
+  "axis": {
+    "label": "Zeitachse",
+    "then": "Damals",
+    "now": "Jetzt",
+    "next": "Bald",
+    "reference": "Nachschlagen",
+    "spanStripes": "Jedes Jahr der Aufzeichnung, bis {year}",
+    "spanHistory": "Das ganze Leben einer Station",
+    "spanExplorer": "Von Zehn-Minuten-Werten bis zu einem Jahrhundert an Aufzeichnungen",
+    "spanNow": "Heute, {date}",
+    "spanForecast": "Von jetzt bis {date}",
+    "spanReference": "Neben der Zeitachse: was die Daten sind und woher sie kommen",
+    "nowHint": "Du bist hier: Hinter dir liegen die Messungen, vor dir die Vorhersage."
+  },
+  "palette": {
+    "open": "Suchen",
+    "openHint": "Seiten, Stationen, Zeit",
+    "title": "Suchen und springen",
+    "description": "Tippe, um zu filtern. Die Pfeiltasten wandern durch die Treffer, Enter öffnet einen, Escape schließt.",
+    "placeholder": "Seiten, Stationen oder eine Zeit suchen …",
+    "results": "Treffer: {count}",
+    "empty": "Nichts gefunden.",
+    "groupPages": "Seiten der App",
+    "groupTime": "Entlang der Zeitachse",
+    "groupForecastStations": "Vorhersage an einer Station",
+    "groupStripesStations": "Klimastreifen einer Station",
+    "stationsLoading": "Stationen werden gesucht …",
+    "stationsHint": "Tippe zwei Buchstaben oder mehr, um auch eine Station zu finden.",
+    "themeOption": "Darstellung: {mode}",
+    "languageOption": "Sprache: {language}",
+    "inUse": "ausgewählt",
+    "keyMove": "bewegen",
+    "keyOpen": "öffnen",
+    "keyClose": "schließen",
+    "time": {
+      "next24h": "Die nächsten 24 Stunden",
+      "next3d": "Die nächsten 3 Tage",
+      "next7d": "Die nächsten 7 Tage",
+      "next10d": "Die nächsten 10 Tage",
+      "last30y": "Die letzten 30 Jahre",
+      "allYears": "Alle aufgezeichneten Jahre"
+    },
+    "pages": {
+      "now": "Wo alles auf der Zeitachse liegt",
+      "forecast": "Die nächsten zehn Tage an einer Station, als Meteogramm",
+      "stripes": "Die aufgezeichneten Jahre einer Station als farbige Streifen",
+      "history": "Wie sich Name, Ort und Geräte einer Station geändert haben",
+      "explorer": "Messwerte aller Quellen, als Tabelle, Diagramm oder Datei",
+      "providers": "Wer die Daten veröffentlicht, und unter welcher Lizenz",
+      "glossary": "Was jeder Parameter bedeutet, und seine Einheit",
+      "api": "Die REST-API und der MCP-Server",
+      "settings": "Sprache, Darstellung und Einheiten",
+      "about": "Das Projekt und die Menschen dahinter",
+      "support": "Ein Problem melden, mitmachen oder spenden",
+      "impressum": "Wer diese Seite betreibt",
+      "datenschutz": "Was über dich gespeichert wird, und warum"
+    }
   }
 }

@@ -14,12 +14,11 @@
     "requestFailed": "La solicitud ha fallado",
     "backendError": "Error del backend {status}",
     "backendErrorDetail": "Error del backend {status}: {detail}",
-    "chartTableHint": "Los valores están en la tabla debajo del gráfico."
+    "chartTableHint": "Los valores están en la tabla debajo del gráfico.",
+    "skipToContent": "Saltar al contenido"
   },
   "home": {
     "tagline": "Datos meteorológicos abiertos para las personas",
-    "intro": "Solo elige lo que te gustaría ver.",
-    "tasksTitle": "¿Qué te gustaría hacer?",
     "forecastTitle": "Pronóstico del tiempo",
     "forecastDesc": "Consulta un pronóstico de varios días para tu zona.",
     "stripesTitle": "Franjas del calentamiento",
@@ -60,7 +59,10 @@
     "kindAlertsDesc": "Avisos oficiales del DWD por tormenta, calor, helada e inundación, por distrito.",
     "kindRoadTitle": "Meteorología vial",
     "kindRoadDesc": "Estado y temperatura del firme de las estaciones viales del DWD, junto con sus predicciones.",
-    "aboutLink": "Sobre el proyecto y las personas que lo hacen posible"
+    "aboutLink": "Sobre el proyecto y las personas que lo hacen posible",
+    "axisTitle": "¿A qué momento quieres ir?",
+    "axisIntro": "Todo aquí está en un mismo eje del tiempo: el pasado se mide, el futuro se pronostica.",
+    "historyDesc": "Cómo una estación se trasladó, cambió de nombre y de instrumentos."
   },
   "seo": {
     "title": "Wetterdienst – datos meteorológicos y climáticos abiertos de los servicios meteorológicos nacionales",
@@ -789,5 +791,63 @@
     "summary": "Resumen",
     "periods": "Periodos",
     "colMissingCount": "Número de valores faltantes"
+  },
+  "axis": {
+    "label": "Eje del tiempo",
+    "then": "Antes",
+    "now": "Ahora",
+    "next": "Pronto",
+    "reference": "Consulta",
+    "spanStripes": "Cada año registrado, hasta {year}",
+    "spanHistory": "La vida entera de una estación",
+    "spanExplorer": "De lecturas cada diez minutos a un siglo de registros",
+    "spanNow": "Hoy, {date}",
+    "spanForecast": "Desde ahora hasta el {date}",
+    "spanReference": "Fuera del eje del tiempo: qué son los datos y de dónde vienen",
+    "nowHint": "Estás aquí: las mediciones quedan atrás, el pronóstico delante."
+  },
+  "palette": {
+    "open": "Buscar",
+    "openHint": "páginas, estaciones, tiempo",
+    "title": "Buscar e ir",
+    "description": "Escribe para filtrar. Las flechas recorren los resultados, Intro abre uno, Escape cierra.",
+    "placeholder": "Busca páginas, estaciones o un momento …",
+    "results": "Resultados: {count}",
+    "empty": "No se ha encontrado nada.",
+    "groupPages": "Páginas de la aplicación",
+    "groupTime": "A lo largo del eje del tiempo",
+    "groupForecastStations": "Pronóstico en una estación",
+    "groupStripesStations": "Franjas climáticas de una estación",
+    "stationsLoading": "Buscando estaciones …",
+    "stationsHint": "Escribe dos letras o más para encontrar también una estación.",
+    "themeOption": "Apariencia: {mode}",
+    "languageOption": "Idioma: {language}",
+    "inUse": "seleccionado",
+    "keyMove": "moverse",
+    "keyOpen": "abrir",
+    "keyClose": "cerrar",
+    "time": {
+      "next24h": "Próximas 24 horas",
+      "next3d": "Próximos 3 días",
+      "next7d": "Próximos 7 días",
+      "next10d": "Próximos 10 días",
+      "last30y": "Últimos 30 años",
+      "allYears": "Todos los años registrados"
+    },
+    "pages": {
+      "now": "Dónde está cada cosa en el eje del tiempo",
+      "forecast": "Los próximos diez días en una estación, como meteograma",
+      "stripes": "Los años registrados de una estación, como franjas de color",
+      "history": "Cómo cambiaron el nombre, el lugar y los instrumentos de una estación",
+      "explorer": "Mediciones de todas las fuentes, como tabla, gráfico o archivo",
+      "providers": "Quién publica los datos y con qué licencia",
+      "glossary": "Qué significa cada parámetro, y su unidad",
+      "api": "La API REST y el servidor MCP",
+      "settings": "Idioma, apariencia y unidades",
+      "about": "El proyecto y las personas detrás",
+      "support": "Informar de un problema, contribuir o donar",
+      "impressum": "Quién gestiona este sitio",
+      "datenschutz": "Qué se guarda sobre ti, y por qué"
+    }
   }
 }

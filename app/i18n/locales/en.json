@@ -14,12 +14,11 @@
     "requestFailed": "Request failed",
     "backendError": "Backend error {status}",
     "backendErrorDetail": "Backend error {status}: {detail}",
-    "chartTableHint": "The values are in the table below the chart."
+    "chartTableHint": "The values are in the table below the chart.",
+    "skipToContent": "Skip to content"
   },
   "home": {
     "tagline": "Open weather data for humans",
-    "intro": "Just pick what you would like to see.",
-    "tasksTitle": "What would you like to do?",
     "forecastTitle": "Weather forecast",
     "forecastDesc": "See a multi-day forecast for your location.",
     "stripesTitle": "Warming stripes",
@@ -60,7 +59,10 @@
     "kindAlertsDesc": "Official DWD warnings for storm, heat, frost and flooding, by district.",
     "kindRoadTitle": "Road weather",
     "kindRoadDesc": "Road surface conditions and temperatures from the DWD road weather stations, and their forecasts.",
-    "aboutLink": "About the project and the people behind it"
+    "aboutLink": "About the project and the people behind it",
+    "axisTitle": "Where in time do you want to go?",
+    "axisIntro": "Everything here sits on one axis of time: the past is measured, the future is forecast.",
+    "historyDesc": "How a station moved, was renamed and changed its instruments."
   },
   "seo": {
     "title": "Wetterdienst – open weather and climate data from national weather services",
@@ -789,5 +791,63 @@
     "summary": "Summary",
     "periods": "Periods",
     "colMissingCount": "Missing count"
+  },
+  "axis": {
+    "label": "Time axis",
+    "then": "Then",
+    "now": "Now",
+    "next": "Next",
+    "reference": "Reference",
+    "spanStripes": "Every year on record, up to {year}",
+    "spanHistory": "A station's whole life",
+    "spanExplorer": "From ten-minute readings to a century of records",
+    "spanNow": "Today, {date}",
+    "spanForecast": "From now until {date}",
+    "spanReference": "Off the time axis: what the data is and where it comes from",
+    "nowHint": "You are here: the measurements lie behind you, the forecast ahead."
+  },
+  "palette": {
+    "open": "Search",
+    "openHint": "pages, stations, time",
+    "title": "Search and jump",
+    "description": "Type to filter. The arrow keys move through the results, Enter opens one, Escape closes.",
+    "placeholder": "Search pages, stations or a time …",
+    "results": "Results: {count}",
+    "empty": "Nothing found.",
+    "groupPages": "Pages of the app",
+    "groupTime": "Along the time axis",
+    "groupForecastStations": "Forecast at a station",
+    "groupStripesStations": "Climate stripes of a station",
+    "stationsLoading": "Looking for stations …",
+    "stationsHint": "Type two letters or more to find a station too.",
+    "themeOption": "Appearance: {mode}",
+    "languageOption": "Language: {language}",
+    "inUse": "selected",
+    "keyMove": "move",
+    "keyOpen": "open",
+    "keyClose": "close",
+    "time": {
+      "next24h": "Next 24 hours",
+      "next3d": "Next 3 days",
+      "next7d": "Next 7 days",
+      "next10d": "Next 10 days",
+      "last30y": "Last 30 years",
+      "allYears": "Every year on record"
+    },
+    "pages": {
+      "now": "Where everything sits on the time axis",
+      "forecast": "The next ten days at a station, as a meteogram",
+      "stripes": "The years on record at a station, as coloured stripes",
+      "history": "How a station's name, place and instruments changed",
+      "explorer": "Measurements of every source, as a table, chart or file",
+      "providers": "Who publishes the data, and under which licence",
+      "glossary": "What each parameter means, and its unit",
+      "api": "The REST API and the MCP server",
+      "settings": "Language, appearance and units",
+      "about": "The project and the people behind it",
+      "support": "Report a problem, contribute or donate",
+      "impressum": "Who runs this site",
+      "datenschutz": "What is stored about you, and why"
+    }
   }
 }

@@ -14,12 +14,11 @@
     "requestFailed": "Afraag is scheefgahn",
     "backendError": "Backend-Fehler {status}",
     "backendErrorDetail": "Backend-Fehler {status}: {detail}",
-    "chartTableHint": "De Weerten staht in de Tabell ünner dat Diagramm."
+    "chartTableHint": "De Weerten staht in de Tabell ünner dat Diagramm.",
+    "skipToContent": "Na'n Inholt springen"
   },
   "home": {
     "tagline": "Apen Wedderdaten för de Lüüd",
-    "intro": "Nu ma Botter bi de Fisch: Söök di eenfach ut, wat du sehn wullt.",
-    "tasksTitle": "Moin! Wat wullt du maken?",
     "forecastTitle": "Wedderutsicht",
     "forecastDesc": "Kiek di an, wat de neegsten Daag so kummt.",
     "stripesTitle": "Klimastrepen",
@@ -60,7 +59,10 @@
     "kindAlertsDesc": "Amtliche DWD-Warnungen vör Storm, Hitt, Frost un Hoogwater, na Landkreis.",
     "kindRoadTitle": "Straatenwedder",
     "kindRoadDesc": "Fahrbahntostand un -temperaturen vun de DWD-Straatenwedderstationen, mitsamt ehr Utsichten.",
-    "aboutLink": "Över dat Projekt un de Lüüd dorachter"
+    "aboutLink": "Över dat Projekt un de Lüüd dorachter",
+    "axisTitle": "Wohen in de Tiet wullt du?",
+    "axisIntro": "Allens hier liggt op een Tietass: Wat weer, is meten, wat kummt, is vörutseggt.",
+    "historyDesc": "Wo en Station umtrocken is, en annern Naam kregen hett un ehr Rüstzüüg wesselt hett."
   },
   "seo": {
     "title": "Wetterdienst – apen Wedder- un Klimadaten vun nationale Wedderdeenste",
@@ -789,5 +791,63 @@
     "summary": "Tosamenfaat",
     "periods": "Tietrüüm",
     "colMissingCount": "Tahl fehlend"
+  },
+  "axis": {
+    "label": "Tietass",
+    "then": "Fröher",
+    "now": "Nu",
+    "next": "Glieks",
+    "reference": "Nakieken",
+    "spanStripes": "Elkeen Johr, wat opschreven is, bet {year}",
+    "spanHistory": "Dat hele Leven vun en Station",
+    "spanExplorer": "Vun Teihn-Minuten-Weerten bet to hunnert Johr Opschrieven",
+    "spanNow": "Vundaag, {date}",
+    "spanForecast": "Vun nu bet {date}",
+    "spanReference": "Blangen de Tietass: wat de Daten sünd un woneem se herkaamt",
+    "nowHint": "Du büst hier: Achter di liggt dat Meten, vör di de Utsicht."
+  },
+  "palette": {
+    "open": "Söken",
+    "openHint": "Sieden, Stationen, Tiet",
+    "title": "Söken un springen",
+    "description": "Tipp, üm to filtern. De Piel-Tasten gaht dör de Drapers, Enter maakt een op, Escape maakt to.",
+    "placeholder": "Sieden, Stationen oder en Tiet söken …",
+    "results": "Drapers: {count}",
+    "empty": "Nix funnen.",
+    "groupPages": "Sieden vun de App",
+    "groupTime": "Langs de Tietass",
+    "groupForecastStations": "Utsicht an en Station",
+    "groupStripesStations": "Klimastrepen vun en Station",
+    "stationsLoading": "Stationen warrt söcht …",
+    "stationsHint": "Tipp twee Bookstaven oder mehr, denn findst du ok en Station.",
+    "themeOption": "Dorstellen: {mode}",
+    "languageOption": "Spraak: {language}",
+    "inUse": "utwählt",
+    "keyMove": "gahn",
+    "keyOpen": "opmaken",
+    "keyClose": "tomaken",
+    "time": {
+      "next24h": "De tokamen 24 Stünnen",
+      "next3d": "De tokamen 3 Daag",
+      "next7d": "De tokamen 7 Daag",
+      "next10d": "De tokamen 10 Daag",
+      "last30y": "De lesten 30 Johr",
+      "allYears": "All Johren, de opschreven sünd"
+    },
+    "pages": {
+      "now": "Woneem allens op de Tietass liggt",
+      "forecast": "De tokamen teihn Daag an en Station, as Meteogramm",
+      "stripes": "De opschreven Johren vun en Station as bunte Strepen",
+      "history": "Wo sik Naam, Oort un Rüstzüüg vun en Station ännert hebbt",
+      "explorer": "Meetweerten vun all Borns, as Tabell, Diagramm oder Datei",
+      "providers": "Well de Daten rutgifft, un ünner wat för en Lizenz",
+      "glossary": "Wat elkeen Parameter bedüüdt, un sien Eenheit",
+      "api": "De REST-API un de MCP-Server",
+      "settings": "Spraak, Dorstellen un Eenheiten",
+      "about": "Dat Projekt un de Lüüd dorachter",
+      "support": "En Problem mellen, mitmaken oder spennen",
+      "impressum": "Well disse Siet bedrifft",
+      "datenschutz": "Wat över di spiekert warrt, un worüm"
+    }
   }
 }

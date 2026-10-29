@@ -14,12 +14,11 @@
     "requestFailed": "Ufro huet net geklappt",
     "backendError": "Backend-Feeler {status}",
     "backendErrorDetail": "Backend-Feeler {status}: {detail}",
-    "chartTableHint": "D'Wäerter stinn an der Tabell ënner dem Diagramm."
+    "chartTableHint": "D'Wäerter stinn an der Tabell ënner dem Diagramm.",
+    "skipToContent": "Op den Inhalt sprangen"
   },
   "home": {
     "tagline": "Oppen Wiederdaten fir d'Mënsche",
-    "intro": "Wiel einfach aus, wat du gesi wëlls.",
-    "tasksTitle": "Wat wëlls du maachen?",
     "forecastTitle": "Wiederprognos",
     "forecastDesc": "Kuck eng Méideegprognos fir deng Géigend.",
     "stripesTitle": "Erwiermungssträifen",
@@ -60,7 +59,10 @@
     "kindAlertsDesc": "Offiziell DWD-Warnunge viru Stuerm, Hëtzt, Frascht an Iwwerschwemmung, no Distrikt.",
     "kindRoadTitle": "Stroossewieder",
     "kindRoadDesc": "Fahrbunnzoustand an -temperature vun de DWD-Stroossewiederstatiounen, mat hire Prognosen.",
-    "aboutLink": "Iwwer d'Projet an d'Leit dohannert"
+    "aboutLink": "Iwwer d'Projet an d'Leit dohannert",
+    "axisTitle": "Wouhin an der Zäit wëlls du?",
+    "axisIntro": "Alles hei läit op enger Zäitachs: d'Vergaangenheet ass gemooss, d'Zukunft virausgesot.",
+    "historyDesc": "Wéi eng Statioun geplënnert ass, en neien Numm krut an hir Apparater gewiesselt huet."
   },
   "seo": {
     "title": "Wetterdienst – oppen Wieder- a Klimadaten vun nationale Wiederdéngschter",
@@ -789,5 +791,63 @@
     "summary": "Resümee",
     "periods": "Perioden",
     "colMissingCount": "Zuel vu Fehlenden"
+  },
+  "axis": {
+    "label": "Zäitachs",
+    "then": "Fréier",
+    "now": "Elo",
+    "next": "Geschwënn",
+    "reference": "Referenz",
+    "spanStripes": "All Joer, dat opgeschriwwen ass, bis {year}",
+    "spanHistory": "D'ganzt Liewe vun enger Statioun",
+    "spanExplorer": "Vun Zéng-Minutte-Wäerter bis zu engem Joerhonnert un Opzeechnungen",
+    "spanNow": "Haut, {date}",
+    "spanForecast": "Vun elo bis {date}",
+    "spanReference": "Nieft der Zäitachs: wat d'Donnéeë sinn a wouhier se kommen",
+    "nowHint": "Du bass hei: hannert dir leien d'Miessungen, virun dir d'Prognos."
+  },
+  "palette": {
+    "open": "Sichen",
+    "openHint": "Säiten, Statiounen, Zäit",
+    "title": "Sichen a sprangen",
+    "description": "Tipp, fir ze filteren. D'Pfeiltaste ginn duerch d'Resultater, Enter mécht een op, Escape mécht zou.",
+    "placeholder": "Säiten, Statiounen oder eng Zäit sichen …",
+    "results": "Resultater: {count}",
+    "empty": "Näischt fonnt.",
+    "groupPages": "Säite vun der App",
+    "groupTime": "Laanscht d'Zäitachs",
+    "groupForecastStations": "Prognos fir eng Statioun",
+    "groupStripesStations": "Klimasträife vun enger Statioun",
+    "stationsLoading": "Statioune ginn gesicht …",
+    "stationsHint": "Tipp zwee Buschtawen oder méi, fir och eng Statioun ze fannen.",
+    "themeOption": "Erschéngungsbild: {mode}",
+    "languageOption": "Sprooch: {language}",
+    "inUse": "ausgewielt",
+    "keyMove": "beweegen",
+    "keyOpen": "opmaachen",
+    "keyClose": "zoumaachen",
+    "time": {
+      "next24h": "Déi nächst 24 Stonnen",
+      "next3d": "Déi nächst 3 Deeg",
+      "next7d": "Déi nächst 7 Deeg",
+      "next10d": "Déi nächst 10 Deeg",
+      "last30y": "Déi lescht 30 Joer",
+      "allYears": "All opgezeechent Joeren"
+    },
+    "pages": {
+      "now": "Wou alles op der Zäitachs läit",
+      "forecast": "Déi nächst zéng Deeg op enger Statioun, als Meteogramm",
+      "stripes": "Déi opgezeechent Joere vun enger Statioun als faarweg Sträifen",
+      "history": "Wéi sech Numm, Plaz an Apparater vun enger Statioun geännert hunn",
+      "explorer": "Miessunge vun alle Quellen, als Tabell, Diagramm oder Fichier",
+      "providers": "Wien d'Donnéeë verëffentlecht, an ënner wéi enger Lizenz",
+      "glossary": "Wat all Parameter bedeit, an seng Eenheet",
+      "api": "D'REST-API an de MCP-Server",
+      "settings": "Sprooch, Erschéngungsbild an Eenheeten",
+      "about": "De Projet an d'Leit dohannert",
+      "support": "E Problem mellen, matmaachen oder spenden",
+      "impressum": "Wien dës Säit bedreift",
+      "datenschutz": "Wat iwwer dech gespäichert gëtt, a firwat"
+    }
   }
 }

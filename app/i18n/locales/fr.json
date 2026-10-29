@@ -14,12 +14,11 @@
     "requestFailed": "La requête a échoué",
     "backendError": "Erreur du backend {status}",
     "backendErrorDetail": "Erreur du backend {status} : {detail}",
-    "chartTableHint": "Les valeurs figurent dans le tableau sous le graphique."
+    "chartTableHint": "Les valeurs figurent dans le tableau sous le graphique.",
+    "skipToContent": "Aller au contenu"
   },
   "home": {
     "tagline": "Données météo ouvertes pour les humains",
-    "intro": "Choisis simplement ce que tu souhaites voir.",
-    "tasksTitle": "Que souhaites-tu faire ?",
     "forecastTitle": "Prévisions météo",
     "forecastDesc": "Consulte des prévisions sur plusieurs jours pour ta région.",
     "stripesTitle": "Bandes du réchauffement",
@@ -60,7 +59,10 @@
     "kindAlertsDesc": "Alertes officielles du DWD pour tempête, chaleur, gel et inondation, par district.",
     "kindRoadTitle": "Météo routière",
     "kindRoadDesc": "État et température de la chaussée depuis les stations routières du DWD, avec leurs prévisions.",
-    "aboutLink": "À propos du projet et des personnes qui le portent"
+    "aboutLink": "À propos du projet et des personnes qui le portent",
+    "axisTitle": "Où veux-tu aller dans le temps ?",
+    "axisIntro": "Tout ici se situe sur un même axe du temps : le passé est mesuré, l'avenir est prévu.",
+    "historyDesc": "Comment une station a déménagé, changé de nom et d'instruments."
   },
   "seo": {
     "title": "Wetterdienst – données météorologiques et climatiques ouvertes des services météorologiques nationaux",
@@ -789,5 +791,63 @@
     "summary": "Synthèse",
     "periods": "Périodes",
     "colMissingCount": "Nombre de valeurs manquantes"
+  },
+  "axis": {
+    "label": "Axe du temps",
+    "then": "Avant",
+    "now": "Maintenant",
+    "next": "Bientôt",
+    "reference": "Référence",
+    "spanStripes": "Chaque année enregistrée, jusqu'à {year}",
+    "spanHistory": "Toute la vie d'une station",
+    "spanExplorer": "Des mesures aux dix minutes à un siècle d'archives",
+    "spanNow": "Aujourd'hui, {date}",
+    "spanForecast": "De maintenant jusqu'au {date}",
+    "spanReference": "Hors de l'axe du temps : ce que sont les données et d'où elles viennent",
+    "nowHint": "Tu es ici : les mesures sont derrière toi, les prévisions devant."
+  },
+  "palette": {
+    "open": "Rechercher",
+    "openHint": "pages, stations, temps",
+    "title": "Rechercher et aller",
+    "description": "Tape pour filtrer. Les flèches parcourent les résultats, Entrée en ouvre un, Échap ferme.",
+    "placeholder": "Chercher des pages, des stations ou un moment …",
+    "results": "Résultats : {count}",
+    "empty": "Rien trouvé.",
+    "groupPages": "Pages de l'application",
+    "groupTime": "Le long de l'axe du temps",
+    "groupForecastStations": "Prévisions à une station",
+    "groupStripesStations": "Bandes climatiques d'une station",
+    "stationsLoading": "Recherche des stations …",
+    "stationsHint": "Tape deux lettres ou plus pour trouver aussi une station.",
+    "themeOption": "Apparence : {mode}",
+    "languageOption": "Langue : {language}",
+    "inUse": "sélectionné",
+    "keyMove": "parcourir",
+    "keyOpen": "ouvrir",
+    "keyClose": "fermer",
+    "time": {
+      "next24h": "Les prochaines 24 heures",
+      "next3d": "Les 3 prochains jours",
+      "next7d": "Les 7 prochains jours",
+      "next10d": "Les 10 prochains jours",
+      "last30y": "Les 30 dernières années",
+      "allYears": "Toutes les années enregistrées"
+    },
+    "pages": {
+      "now": "Où tout se situe sur l'axe du temps",
+      "forecast": "Les dix prochains jours à une station, en météogramme",
+      "stripes": "Les années enregistrées d'une station, en bandes colorées",
+      "history": "Comment le nom, le lieu et les instruments d'une station ont changé",
+      "explorer": "Les mesures de toutes les sources, en tableau, graphique ou fichier",
+      "providers": "Qui publie les données, et sous quelle licence",
+      "glossary": "Ce que signifie chaque paramètre, et son unité",
+      "api": "L'API REST et le serveur MCP",
+      "settings": "Langue, apparence et unités",
+      "about": "Le projet et les personnes derrière",
+      "support": "Signaler un problème, contribuer ou faire un don",
+      "impressum": "Qui gère ce site",
+      "datenschutz": "Ce qui est enregistré à ton sujet, et pourquoi"
+    }
   }
 }

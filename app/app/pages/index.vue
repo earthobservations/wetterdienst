@@ -1,31 +1,16 @@
 <script setup lang="ts">
 const { t } = useI18n()
+const { span, today } = useTimeAxis()
 
-// Primary, consumer-facing tasks. Explorer is intentionally a first-class
-// entry point here (not hidden behind an "advanced" section) — it is made
-// approachable through the Explorer's guided Simple mode.
-const tasks = computed(() => [
-  {
-    to: '/meteogram',
-    icon: 'i-lucide-cloud-sun',
-    title: t('home.forecastTitle'),
-    description: t('home.forecastDesc'),
-    accent: 'text-amber-500',
-  },
-  {
-    to: '/stripes',
-    icon: 'i-lucide-bar-chart-big',
-    title: t('home.stripesTitle'),
-    description: t('home.stripesDesc'),
-    accent: 'text-red-500',
-  },
-  {
-    to: '/explorer',
-    icon: 'i-lucide-compass',
-    title: t('home.explorerTitle'),
-    description: t('home.explorerDesc'),
-    accent: 'text-primary-500',
-  },
+// The home page is the present on the axis of time (GH-3518): it lays the pages out along the axis, the past to
+// the left (on a phone: above), the forecast to the right (below), and says what lies where. Explorer is a
+// first-class entry point here, made approachable through its guided Simple mode.
+const doors = computed(() => [
+  { key: 'stripes', to: '/stripes', icon: 'i-lucide-bar-chart-3', zone: 'then', title: t('home.stripesTitle'), description: t('home.stripesDesc'), span: span('stripes') },
+  { key: 'history', to: '/history', icon: 'i-lucide-history', zone: 'then', title: t('history.title'), description: t('home.historyDesc'), span: span('history') },
+  { key: 'explorer', to: '/explorer', icon: 'i-lucide-table-2', zone: 'then', title: t('home.explorerTitle'), description: t('home.explorerDesc'), span: span('explorer') },
+  { key: 'now', to: null, icon: 'i-lucide-locate-fixed', zone: 'now', title: t('axis.now'), description: t('axis.nowHint'), span: today.value },
+  { key: 'forecast', to: '/meteogram', icon: 'i-lucide-cloud-sun', zone: 'next', title: t('home.forecastTitle'), description: t('home.forecastDesc'), span: span('forecast') },
 ])
 
 // What you can do with the data once you have it. Two cards rather than four: "multiple data
@@ -72,8 +57,7 @@ const supporters = computed(() => [
 ])
 
 // The same data, for people who would rather not click: the library the project started as, the
-// API the app itself runs on, and the MCP endpoint. Home linked to four routes before this and
-// none of them said the data was reachable programmatically at all.
+// API the app itself runs on, and the MCP endpoint.
 const devEntries = computed(() => [
   { key: 'pypi', label: 'pip install wetterdienst', icon: 'i-simple-icons-python', to: 'https://pypi.org/project/wetterdienst/', title: undefined },
   // this instance's own endpoints rather than the page that describes them: /docs is the backend's
@@ -100,173 +84,188 @@ const dataKinds = computed(() => [
   { icon: 'i-lucide-triangle-alert', title: t('home.kindAlertsTitle'), description: t('home.kindAlertsDesc') },
   { icon: 'i-lucide-car-front', title: t('home.kindRoadTitle'), description: t('home.kindRoadDesc') },
 ])
+
+const chip = 'inline-flex items-center gap-1.5 rounded-full border border-default bg-default px-3 py-1 text-sm text-toned hover:border-primary-500 hover:text-highlighted'
 </script>
 
 <template>
-  <div class="max-w-4xl mx-auto py-8 px-4">
-    <div class="text-center mb-10">
-      <h1 class="text-3xl font-bold mb-4 break-words">
+  <div class="app-container home">
+    <header class="home-hero">
+      <p class="page-head__where page-head--now">
+        <span class="page-head__zone">
+          <span class="page-head__dot" aria-hidden="true" />
+          {{ t('axis.now') }}
+        </span>
+        <span class="page-head__span">{{ span('now') }}</span>
+      </p>
+      <h1 class="home-hero__title">
         Wetterdienst
       </h1>
-      <p class="text-xl text-gray-600 dark:text-gray-400">
+      <p class="home-hero__tagline">
         {{ t('home.tagline') }}
       </p>
-    </div>
+      <p class="home-hero__intro">
+        {{ t('home.axisIntro') }}
+      </p>
+    </header>
 
-    <!-- Primary task cards: the friendly, everyone-can-use entry points. -->
-    <h2 class="text-center text-lg font-bold mb-1">
-      {{ t('home.tasksTitle') }}
-    </h2>
-    <p class="text-center text-sm text-gray-500 dark:text-gray-400 mb-6">
-      {{ t('home.intro') }}
-    </p>
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-12">
-      <NuxtLink
-        v-for="task in tasks"
-        :key="task.to"
-        :to="task.to"
-        class="group"
-      >
-        <UCard
-          class="h-full transition-all hover:ring-2 hover:ring-primary-400 hover:-translate-y-0.5"
-          :ui="{ body: 'flex flex-col items-center text-center gap-3 h-full' }"
+    <!-- The pages along the axis of time: the past, the present, the forecast. Not a navigation landmark: the
+         rail above is the navigation, these are the same places told at more length. -->
+    <section class="home-axis" aria-labelledby="home-axis-title">
+      <h2 id="home-axis-title" class="home-section-title">
+        {{ t('home.axisTitle') }}
+      </h2>
+      <ol class="home-axis__list">
+        <li
+          v-for="door in doors"
+          :key="door.key"
+          class="home-axis__item"
+          :class="`home-axis__item--${door.zone}`"
         >
-          <UIcon :name="task.icon" class="text-4xl" :class="task.accent" />
-          <h3 class="font-bold text-base">
-            {{ task.title }}
-          </h3>
-          <p class="text-sm text-gray-600 dark:text-gray-400 flex-1">
-            {{ task.description }}
-          </p>
-          <span class="text-sm font-medium text-primary-700 dark:text-primary-500 group-hover:underline">
-            {{ t('common.open') }} →
-          </span>
-        </UCard>
-      </NuxtLink>
-    </div>
-
-    <!-- What actually arrives when you press a button above: who publishes it, how much of it
-         there is, and in what shapes. -->
-    <h2 class="text-lg font-bold mb-1">
-      {{ t('home.dataTitle') }}
-    </h2>
-    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
-      {{ t('home.dataIntro') }}
-    </p>
-
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-      <UCard v-for="stat in stats" :key="stat.key" :ui="{ body: 'text-center py-4' }">
-        <!-- the numbers of providers and parameters are the backend's: its place is held until it has answered (h-8 is the
-             line of text-2xl), and it is a dash where the request failed -->
-        <div class="text-2xl font-bold text-primary-600 dark:text-primary-500">
-          <div v-if="stat.value === null && providersLoading" class="h-8 w-10 mx-auto rounded-md bg-elevated animate-pulse" aria-hidden="true" />
-          <template v-else>
-            {{ stat.value ?? '–' }}
-          </template>
-        </div>
-        <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">
-          {{ stat.label }}
-        </div>
-      </UCard>
-    </div>
-
-    <UCard class="mb-6" data-testid="home-providers-card">
-      <template #header>
-        <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-building-2" class="text-primary-500 shrink-0" />
-          <h3 class="font-bold">
-            {{ t('home.dataProvidersTitle') }}
-          </h3>
-        </div>
-      </template>
-      <UAlert
-        v-if="providersFailure"
-        color="error"
-        variant="subtle"
-        icon="i-lucide-alert-circle"
-        :title="t('common.requestFailed')"
-        :description="providersFailure"
-        :actions="[{ label: t('common.retry'), onClick: () => refreshProviders() }]"
-      />
-      <div v-else-if="providersLoading" class="flex flex-wrap gap-2" role="status" :aria-label="t('common.loading')" aria-busy="true">
-        <div v-for="(width, index) in placeholders" :key="index" class="h-[1.875rem] rounded-full bg-elevated animate-pulse" :class="width" aria-hidden="true" />
-      </div>
-      <p v-else-if="!providers.length" class="text-sm text-gray-500 dark:text-gray-400">
-        {{ t('home.providersEmpty') }}
-      </p>
-      <ul v-else class="flex flex-wrap gap-2" data-testid="home-providers">
-        <li v-for="provider in providers" :key="provider.key">
-          <NuxtLink
-            :to="`/providers/${provider.key}`"
-            class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700 px-3 py-1 text-sm hover:border-primary-400 hover:text-primary-700 dark:hover:text-primary-400 transition-colors"
-          >
-            <span aria-hidden="true">{{ provider.flag }}</span>
-            {{ provider.name }}
+          <span class="home-axis__point" aria-hidden="true" />
+          <NuxtLink v-if="door.to" :to="door.to" class="home-door">
+            <span class="home-door__zone">{{ t(`axis.${door.zone}`) }}</span>
+            <UIcon :name="door.icon" class="home-door__icon" />
+            <h3 class="home-door__title">
+              {{ door.title }}
+            </h3>
+            <p class="home-door__description">
+              {{ door.description }}
+            </p>
+            <p class="home-door__span">
+              {{ door.span }}
+            </p>
+            <span class="home-door__go" aria-hidden="true">
+              {{ t('common.open') }}
+              <UIcon name="i-lucide-arrow-right" class="size-4" />
+            </span>
           </NuxtLink>
+          <div v-else class="home-door home-door--now">
+            <span class="home-door__zone">{{ t(`axis.${door.zone}`) }}</span>
+            <UIcon :name="door.icon" class="home-door__icon" />
+            <h3 class="home-door__title">
+              {{ door.span }}
+            </h3>
+            <p class="home-door__description">
+              {{ door.description }}
+            </p>
+          </div>
         </li>
-      </ul>
-      <p class="text-sm text-gray-500 dark:text-gray-400 mt-4">
-        {{ t('home.dataProvidersDesc') }}
-        <NuxtLink to="/glossary" class="text-primary-700 dark:text-primary-500 underline hover:no-underline">
-          {{ t('home.glossaryHint') }}
-        </NuxtLink>
-        <NuxtLink to="/providers" class="text-primary-700 dark:text-primary-500 underline hover:no-underline">
-          {{ t('home.providersLink') }}
-        </NuxtLink>
-      </p>
-    </UCard>
+      </ol>
+    </section>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-      <UCard v-for="kind in dataKinds" :key="kind.title">
-        <div class="flex items-start gap-3">
-          <UIcon :name="kind.icon" class="text-2xl text-primary-500 flex-shrink-0 mt-1" />
+    <!-- What actually arrives when you go to a place above: who publishes it, how much of it there is, and in
+         what shapes. -->
+    <section class="home-data" aria-labelledby="home-data-title">
+      <h2 id="home-data-title" class="home-section-title">
+        {{ t('home.dataTitle') }}
+      </h2>
+      <p class="home-section-intro">
+        {{ t('home.dataIntro') }}
+      </p>
+
+      <dl class="home-stats">
+        <div v-for="stat in stats" :key="stat.key" class="home-stats__item">
+          <dt class="home-stats__label">
+            {{ stat.label }}
+          </dt>
+          <!-- the numbers of providers and parameters are the backend's: its place is held until it has answered,
+               and it is a dash where the request failed -->
+          <dd class="home-stats__value">
+            <span v-if="stat.value === null && providersLoading" class="block h-8 w-12 rounded-md bg-elevated animate-pulse" aria-hidden="true" />
+            <template v-else>
+              {{ stat.value ?? '–' }}
+            </template>
+          </dd>
+        </div>
+      </dl>
+
+      <UCard class="mt-6" data-testid="home-providers-card">
+        <template #header>
+          <div class="flex items-center gap-2">
+            <UIcon name="i-lucide-building-2" class="text-primary-500 shrink-0" />
+            <h3 class="font-bold">
+              {{ t('home.dataProvidersTitle') }}
+            </h3>
+          </div>
+        </template>
+        <UAlert
+          v-if="providersFailure"
+          color="error"
+          variant="subtle"
+          icon="i-lucide-alert-circle"
+          :title="t('common.requestFailed')"
+          :description="providersFailure"
+          :actions="[{ label: t('common.retry'), onClick: () => refreshProviders() }]"
+        />
+        <div v-else-if="providersLoading" class="flex flex-wrap gap-2" role="status" :aria-label="t('common.loading')" aria-busy="true">
+          <div v-for="(width, index) in placeholders" :key="index" class="h-[1.875rem] rounded-full bg-elevated animate-pulse" :class="width" aria-hidden="true" />
+        </div>
+        <p v-else-if="!providers.length" class="text-sm text-muted">
+          {{ t('home.providersEmpty') }}
+        </p>
+        <ul v-else class="flex flex-wrap gap-2" data-testid="home-providers">
+          <li v-for="provider in providers" :key="provider.key">
+            <NuxtLink :to="`/providers/${provider.key}`" :class="chip">
+              <span aria-hidden="true">{{ provider.flag }}</span>
+              {{ provider.name }}
+            </NuxtLink>
+          </li>
+        </ul>
+        <p class="text-sm text-muted mt-4">
+          {{ t('home.dataProvidersDesc') }}
+          <NuxtLink to="/glossary" class="text-primary underline hover:no-underline">
+            {{ t('home.glossaryHint') }}
+          </NuxtLink>{{ ' ' }}
+          <NuxtLink to="/providers" class="text-primary underline hover:no-underline">
+            {{ t('home.providersLink') }}
+          </NuxtLink>
+        </p>
+      </UCard>
+
+      <ul class="home-kinds">
+        <li v-for="kind in dataKinds" :key="kind.title" class="home-kinds__item">
+          <UIcon :name="kind.icon" class="home-kinds__icon" />
           <div>
-            <h3 class="font-medium mb-1">
+            <h3 class="font-semibold mb-1">
               {{ kind.title }}
             </h3>
-            <p class="text-sm text-gray-600 dark:text-gray-400">
+            <p class="text-sm text-muted">
               {{ kind.description }}
             </p>
           </div>
-        </div>
-      </UCard>
-    </div>
+        </li>
+      </ul>
 
-    <!-- A subsection of the data block rather than a section of its own: it is still about the
-         data, and as a peer heading over two cards it read as a stub after the block above. -->
-    <h3 class="font-bold mb-3">
-      {{ t('home.featuresTitle') }}
-    </h3>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12">
-      <!-- No hover lift here: these cards are text, not links. On the page only the task cards
-           above are clickable, so they are the only ones that answer the pointer. -->
-      <UCard v-for="feature in features" :key="feature.title">
-        <div class="flex items-start gap-3">
-          <UIcon :name="feature.icon" class="text-2xl text-primary-500 flex-shrink-0 mt-1" />
+      <!-- A subsection of the data block rather than a section of its own: it is still about the data. -->
+      <h3 class="home-subtitle">
+        {{ t('home.featuresTitle') }}
+      </h3>
+      <ul class="home-kinds home-kinds--two">
+        <li v-for="feature in features" :key="feature.title" class="home-kinds__item">
+          <UIcon :name="feature.icon" class="home-kinds__icon" />
           <div>
-            <h3 class="font-medium mb-1">
+            <h4 class="font-semibold mb-1">
               {{ feature.title }}
-            </h3>
-            <p class="text-sm text-gray-600 dark:text-gray-400">
+            </h4>
+            <p class="text-sm text-muted">
               {{ feature.description }}
             </p>
           </div>
-        </div>
-      </UCard>
-    </div>
+        </li>
+      </ul>
+    </section>
 
-    <!-- The developer path, which the page did not mention at all: same data, no clicking. -->
-    <div class="text-center mb-12">
-      <h3 class="font-bold mb-1">
+    <!-- The developer path: same data, no clicking. -->
+    <section class="home-band" aria-labelledby="home-dev-title">
+      <h2 id="home-dev-title" class="home-band__title">
         {{ t('home.devTitle') }}
-      </h3>
-      <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">
+      </h2>
+      <p class="text-sm text-muted mb-3">
         {{ t('home.devText') }}
       </p>
-      <div class="flex flex-wrap justify-center gap-2">
-        <!-- NuxtLink for all three: it renders an external URL as a plain anchor by itself, which
-             is simpler than switching the component per entry -- and switching it via
-             `resolveComponent` in the template silently rendered two of these as text, not links. -->
+      <div class="flex flex-wrap gap-2">
+        <!-- NuxtLink for all three: it renders an external URL as a plain anchor by itself -->
         <NuxtLink
           v-for="entry in devEntries"
           :key="entry.key"
@@ -274,35 +273,33 @@ const dataKinds = computed(() => [
           external
           target="_blank"
           :title="entry.title"
-          class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700 px-3 py-1 text-sm hover:border-primary-400 hover:text-primary-700 dark:hover:text-primary-400 transition-colors"
+          :class="chip"
         >
           <UIcon :name="entry.icon" class="size-4 shrink-0" />
           {{ entry.label }}
         </NuxtLink>
       </div>
-    </div>
-
-    <!-- Values: an unmistakable stance for inclusion and against fascism, closing the page. -->
-    <section class="mb-6 rounded-2xl border border-primary-200 dark:border-primary-900 bg-gradient-to-r from-pink-50 via-purple-50 to-sky-50 dark:from-pink-950/30 dark:via-purple-950/20 dark:to-sky-950/30 p-6 text-center">
-      <h2 class="text-lg font-bold mb-3">
-        {{ t('values.title') }}
-      </h2>
-      <div class="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-8">
-        <p v-for="value in values" :key="value.key" class="flex items-center gap-2 text-base font-medium">
-          <span aria-hidden="true">{{ value.emoji }}</span>
-          {{ value.text }}
-        </p>
-      </div>
     </section>
 
-    <!-- Who backs the work: its own block, in the same gradient as the stance above it. Two
-         statements the project makes about itself, told apart by the gap rather than by one of
-         them looking like a footnote to the other. -->
-    <section class="mb-12 rounded-2xl border border-primary-200 dark:border-primary-900 bg-gradient-to-r from-pink-50 via-purple-50 to-sky-50 dark:from-pink-950/30 dark:via-purple-950/20 dark:to-sky-950/30 p-6 text-center">
-      <h2 class="text-lg font-bold mb-3">
+    <!-- Values: an unmistakable stance for inclusion and against fascism, closing the page. -->
+    <section class="home-band" aria-labelledby="home-values-title">
+      <h2 id="home-values-title" class="home-band__title">
+        {{ t('values.title') }}
+      </h2>
+      <ul class="home-values">
+        <li v-for="value in values" :key="value.key" class="flex items-center gap-2 font-medium">
+          <span aria-hidden="true">{{ value.emoji }}</span>
+          {{ value.text }}
+        </li>
+      </ul>
+    </section>
+
+    <!-- Who backs the work: two statements the project makes about itself. -->
+    <section class="home-band" aria-labelledby="home-supported-title">
+      <h2 id="home-supported-title" class="home-band__title">
         {{ t('home.supportedByTitle') }}
       </h2>
-      <div class="flex flex-wrap justify-center gap-2">
+      <div class="flex flex-wrap gap-2">
         <a
           v-for="supporter in supporters"
           :key="supporter.key"
@@ -310,7 +307,7 @@ const dataKinds = computed(() => [
           target="_blank"
           :title="supporter.detail"
           :aria-label="`${supporter.name} — ${supporter.detail}`"
-          class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/40 px-3 py-1 text-sm hover:border-primary-400 hover:text-primary-700 dark:hover:text-primary-400 transition-colors"
+          :class="chip"
         >
           <UIcon :name="supporter.icon" class="size-4 shrink-0" />
           {{ supporter.name }}
@@ -318,17 +315,296 @@ const dataKinds = computed(() => [
       </div>
     </section>
 
-    <!-- The project and the people behind it live on their own page now, so the home page can
-         stay about the data. -->
-    <div class="text-center">
+    <!-- The project and the people behind it live on their own page, so the home page can stay about the data. -->
+    <div class="pb-14">
       <UButton
         to="/about"
         variant="link"
         icon="i-lucide-info"
         trailing-icon="i-lucide-arrow-right"
+        class="px-0"
       >
         {{ t('home.aboutLink') }}
       </UButton>
     </div>
   </div>
 </template>
+
+<style scoped>
+.home-hero {
+  padding-block: 2.5rem 1.5rem;
+  max-width: 52rem;
+}
+.home-hero__title {
+  margin-top: 0.75rem;
+  /* one word, which wider letter spacing (WCAG 1.4.12) or a narrow window must be able to break */
+  overflow-wrap: anywhere;
+  color: var(--ui-text-highlighted);
+  font-size: clamp(2.5rem, 1.8rem + 3vw, 4rem);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.035em;
+}
+.home-hero__tagline {
+  margin-top: 0.75rem;
+  color: var(--ui-text-highlighted);
+  font-size: clamp(1.25rem, 1.1rem + 0.6vw, 1.5rem);
+  font-weight: 550;
+}
+.home-hero__intro {
+  margin-top: 0.75rem;
+  max-width: 60ch;
+  color: var(--ui-text-muted);
+  font-size: 1.0625rem;
+}
+
+.home-section-title {
+  color: var(--ui-text-highlighted);
+  font-size: 1.375rem;
+  font-weight: 700;
+}
+.home-section-intro {
+  margin-top: 0.25rem;
+  color: var(--ui-text-muted);
+}
+.home-subtitle {
+  margin: 2rem 0 0.75rem;
+  font-size: 1.0625rem;
+  font-weight: 700;
+}
+
+/* the axis: on a phone a line down the left with the places on it, from the oldest; on a wide screen the places
+   side by side with the line under them, as the rail draws it */
+.home-axis {
+  padding-block: 1rem 2.5rem;
+}
+.home-axis__list {
+  position: relative;
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-left: 1.5rem;
+}
+.home-axis__list::before {
+  content: "";
+  position: absolute;
+  left: 0.4375rem;
+  top: 0.5rem;
+  bottom: 0.5rem;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--app-then) 0 72%, var(--app-next) 72% 100%);
+  opacity: 0.45;
+}
+.home-axis__item {
+  position: relative;
+  --zone-ink: var(--app-then);
+}
+.home-axis__item--now {
+  --zone-ink: var(--app-now-ink);
+}
+.home-axis__item--next {
+  --zone-ink: var(--app-next);
+}
+.home-axis__point {
+  position: absolute;
+  left: -1.4375rem;
+  top: 1.25rem;
+  width: 0.875rem;
+  height: 0.875rem;
+  border-radius: 999px;
+  background: var(--ui-bg);
+  box-shadow: 0 0 0 2px var(--zone-ink);
+}
+.home-axis__item--now .home-axis__point {
+  background: var(--app-now);
+  box-shadow: 0 0 0 2px var(--app-now-ring);
+}
+@media (min-width: 1024px) {
+  .home-axis__list {
+    grid-template-columns: 1fr 1fr 1fr 0.9fr 1.1fr;
+    padding-left: 0;
+    padding-bottom: 1.75rem;
+  }
+  .home-axis__list::before {
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: 0.4375rem;
+    width: auto;
+    height: 2px;
+    background: linear-gradient(to right, var(--app-then) 0 68%, var(--app-next) 68% 100%);
+  }
+  .home-axis__item {
+    display: flex;
+  }
+  .home-axis__point {
+    left: 50%;
+    top: auto;
+    bottom: -1.75rem;
+    transform: translateX(-50%);
+  }
+}
+
+.home-door {
+  position: relative;
+  min-width: 0;
+  overflow-wrap: break-word;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  width: 100%;
+  padding: 1rem 1.125rem 1.125rem;
+  border: 1px solid var(--ui-border);
+  border-top: 3px solid var(--zone-ink);
+  border-radius: 0.75rem;
+  background: var(--ui-bg);
+  color: var(--ui-text);
+}
+a.home-door:hover {
+  border-color: var(--zone-ink);
+  background: var(--ui-bg-muted);
+}
+@media (prefers-reduced-motion: no-preference) {
+  a.home-door:hover {
+    transform: translateY(-2px);
+  }
+}
+.home-door--now {
+  border-style: dashed;
+  border-top-style: solid;
+  border-top-color: var(--app-now);
+  background: var(--ui-bg-muted);
+}
+.home-door__zone {
+  color: var(--zone-ink);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.home-door__icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: var(--zone-ink);
+}
+.home-door__title {
+  color: var(--ui-text-highlighted);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.home-door__description {
+  flex: 1;
+  color: var(--ui-text-muted);
+  font-size: 0.875rem;
+}
+.home-door__span {
+  color: var(--ui-text-toned);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.home-door__go {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+  color: var(--ui-text-highlighted);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+a.home-door:hover .home-door__go {
+  text-decoration: underline;
+}
+
+.home-data {
+  padding-block: 1.5rem 2.5rem;
+  border-top: 1px solid var(--ui-border);
+}
+.home-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin-top: 1.25rem;
+  border: 1px solid var(--ui-border);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: var(--ui-border);
+}
+@media (min-width: 768px) {
+  .home-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.home-stats__item {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 0.125rem;
+  padding: 1rem 1.25rem;
+  background: var(--ui-bg);
+}
+.home-stats__value {
+  color: var(--ui-text-highlighted);
+  font-size: 1.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.home-stats__label {
+  color: var(--ui-text-muted);
+  font-size: 0.875rem;
+}
+
+.home-kinds {
+  display: grid;
+  gap: 1.25rem 2rem;
+  margin-top: 1.75rem;
+}
+@media (min-width: 768px) {
+  .home-kinds {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1024px) {
+  .home-kinds:not(.home-kinds--two) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.home-kinds--two {
+  margin-top: 0;
+}
+.home-kinds__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+.home-kinds__icon {
+  flex-shrink: 0;
+  width: 1.375rem;
+  height: 1.375rem;
+  margin-top: 0.125rem;
+  color: var(--ui-color-primary-500);
+}
+:global(.dark) .home-kinds__icon {
+  color: var(--ui-color-primary-400);
+}
+
+.home-band {
+  padding-block: 1.5rem;
+  border-top: 1px solid var(--ui-border);
+}
+.home-band__title {
+  margin-bottom: 0.5rem;
+  color: var(--ui-text-highlighted);
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+.home-values {
+  display: grid;
+  gap: 0.5rem 2rem;
+}
+@media (min-width: 768px) {
+  .home-values {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+</style>
