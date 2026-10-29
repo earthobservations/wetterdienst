@@ -234,7 +234,7 @@ describe('a licence that asks for more than a notice', () => {
   })
 
   it('is not flagged for the licences that ask for a notice', () => {
-    for (const license of ['MIT', 'ISC', 'Apache-2.0', 'BSD-2-Clause', 'BSD-3-Clause', '0BSD', 'CC0-1.0', '(MIT OR Apache-2.0)', 'MIT OR GPL-3.0', 'MIT AND BSD-3-Clause'])
+    for (const license of ['MIT', 'ISC', 'Apache-2.0', 'BSD-2-Clause', 'BSD-3-Clause', '0BSD', 'CC0-1.0', 'OFL-1.1', '(MIT OR Apache-2.0)', 'MIT OR GPL-3.0', 'MIT AND BSD-3-Clause'])
       expect(of(license), license).toBe(false)
   })
 
