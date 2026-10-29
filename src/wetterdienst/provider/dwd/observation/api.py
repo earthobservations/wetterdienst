@@ -20,6 +20,7 @@ from wetterdienst.exceptions import MetaFileNotFoundError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.fetch_ahead import FilesAhead
 from wetterdienst.model.history import (
     History,
     TimeseriesHistory,
@@ -97,6 +98,40 @@ def _is_value_column(column: str) -> bool:
 class DwdObservationValues(TimeseriesValues):
     """Values class for DWD observation data."""
 
+    def _periods_and_date_ranges(
+        self, station_id: str, dataset: DatasetModel, settings: Settings
+    ) -> list[tuple[Period, list[str] | None]]:
+        """Give the periods to read of a station's dataset, oldest first, each with the date ranges of its files.
+
+        Oldest first, so that the rank taken from this order is the precedence the overlaps are settled on. Iterating
+        the set directly left the order to the set's own, which varies from one interpreter run to the next.
+        """
+        stations = cast("DwdObservationRequest", self.sr.request)
+        periods_and_date_ranges: list[tuple[Period, list[str] | None]] = []
+        for period in sorted(cast("set[Period]", stations.periods)):
+            if dataset.resolution.value in HIGH_RESOLUTIONS and period == Period.HISTORICAL:
+                date_ranges = self._get_historical_date_ranges(
+                    station_id,
+                    dataset,
+                    settings,
+                )
+                periods_and_date_ranges.append((period, date_ranges))
+            else:
+                periods_and_date_ranges.append((period, None))
+        return periods_and_date_ranges
+
+    def _files_ahead(self, station_id: str, datasets: Sequence[DatasetModel]) -> FilesAhead:
+        """Name the archives of the station, which `download_climate_observations_data` downloads (GH-3454)."""
+        settings = cast("Settings", self.sr.request.settings)
+        urls: list[str] = []
+        for dataset in datasets:
+            for period, date_ranges in self._periods_and_date_ranges(station_id, dataset, settings):
+                if period in dataset.periods:
+                    urls += create_file_list_for_climate_observations(
+                        station_id, dataset, period, settings, date_ranges
+                    ).to_list()
+        return FilesAhead(urls=urls, ttl=CacheExpiry.FIVE_MINUTES)
+
     def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
@@ -114,21 +149,11 @@ class DwdObservationValues(TimeseriesValues):
             dataset = parameter_or_dataset
         else:
             dataset = parameter_or_dataset.dataset
-        periods_and_date_ranges = []
-        # oldest period first, so that the rank taken from this order below is the precedence the
-        # overlaps are settled on. Iterating the set directly left the order to the set's own, which
-        # varies from one interpreter run to the next
-        for period in sorted(cast("set[Period]", stations.periods)):
-            if dataset.resolution.value in HIGH_RESOLUTIONS and period == Period.HISTORICAL:
-                date_ranges = self._get_historical_date_ranges(
-                    station_id,
-                    dataset,
-                    settings,
-                )
-                periods_and_date_ranges.append((period, date_ranges))
-            else:
-                periods_and_date_ranges.append((period, None))
+        periods_and_date_ranges = self._periods_and_date_ranges(station_id, dataset, settings)
         parameter_data = []
+        # when DWD wrote the archives each period read (the `Last-Modified` of their download), by the rank of the
+        # period: noted below for the periods whose rows are in the answer (GH-2567)
+        written: dict[int, list[dt.datetime | None]] = {}
         for rank, (period, date_ranges) in enumerate(periods_and_date_ranges):
             if period not in dataset.periods:
                 log.info(f"Skipping period {period} for {dataset.name}.")
@@ -150,6 +175,7 @@ class DwdObservationValues(TimeseriesValues):
                 log.info(f"No data downloaded for {dataset_identifier}. Skipping period.")
                 continue
             period_df = parse_climate_observations_data(filenames_and_files, dataset, period)
+            written[rank] = [file.last_modified for file in filenames_and_files]
             parameter_data.append(
                 period_df.with_columns(pl.lit(rank, dtype=pl.UInt8).alias(_PERIOD_RANK)),
             )
@@ -177,7 +203,6 @@ class DwdObservationValues(TimeseriesValues):
         )
         parameter_df = parameter_df.sort([_PERIOD_RANK, _HAS_VALUE], descending=[False, True], maintain_order=True)
         parameter_df = parameter_df.unique(subset=["timestamp"], keep="first")
-        parameter_df = parameter_df.drop(_PERIOD_RANK, _HAS_VALUE)
         # the in-memory engine on purpose: polars 2 collects with the streaming engine by default, which is
         # slower here. Measured with polars 2.0.0 (benchmarks/dwd_observation_minute_1_precipitation.py, ten
         # stations): the `datetime_ranges` + `explode` of the historical 1 minute precipitation takes 2.2 times
@@ -187,8 +212,10 @@ class DwdObservationValues(TimeseriesValues):
         if not isinstance(result, pl.DataFrame):
             msg = "Expected DataFrame from collect()"
             raise TypeError(msg)
-        parameter_df = result
-        df = self._tidy_up_df(parameter_df)
+        # after the periods have settled the stamps they share: the archive of a period whose rows were all dropped for
+        # another's, or lie outside the window, is not what the answer was read from
+        self._note_written_of_periods_with_rows(result, written, dataset, _PERIOD_RANK)
+        df = self._tidy_up_df(result.drop(_PERIOD_RANK, _HAS_VALUE))
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`), and so is the number:
         # the value is the text of the file (the parser maps the sentinels and decodes the letters, it does not
         # cast), which the core reads and counts where it is none. The stamp is the UTC the parser made it, shifted
@@ -865,6 +892,7 @@ class DwdObservationRequest(TimeseriesRequest):
                     other=file_index_ids.lazy(),
                     on=["station_id"],
                     how="inner",
+                    maintain_order="left",
                 ).collect(background=False)
                 # a station with files and no line in the description of its period is dropped by the join, which is
                 # told below for the periods together: the description of another period may have the line (GH-3258)
@@ -880,5 +908,10 @@ class DwdObservationRequest(TimeseriesRequest):
             stations_df = pl.concat(stations)
         except ValueError:
             return pl.LazyFrame()
-        stations_df = stations_df.unique(subset=["resolution", "dataset", "station_id"], keep="first")
-        return stations_df.sort(by=[pl.col("station_id").cast(int)])
+        # both steps keep the order the rows came in, which is the order the request names its datasets in: a station
+        # of two datasets has two rows, and neither `unique` nor a sort on the id alone says which comes first, so the
+        # rows came in a different order from one request to the next (GH-3551)
+        stations_df = stations_df.unique(
+            subset=["resolution", "dataset", "station_id"], keep="first", maintain_order=True
+        )
+        return stations_df.sort(by=[pl.col("station_id").cast(int)], maintain_order=True)

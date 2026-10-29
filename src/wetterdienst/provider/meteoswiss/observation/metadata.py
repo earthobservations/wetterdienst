@@ -14,9 +14,17 @@ _MeteoswissObservationMetadataSpec = {
     "country_code": "CH",
     "copyright": "© MeteoSwiss (Federal Office of Meteorology and Climatology), CC BY 4.0",
     "license": CC_BY_4_0,
-    "attribution": "© MeteoSwiss (Federal Office of Meteorology and Climatology)",
+    # MeteoSwiss's terms of use: "the source is acknowledged (Quelle: MeteoSchweiz; Source: MétéoSuisse; Fonte:
+    # MeteoSvizzera; Source: MeteoSwiss)", https://opendatadocs.meteoswiss.ch/general/terms-of-use, read 2026-10-26
+    "attribution": "Source: MeteoSwiss",
     "url": "https://www.meteoswiss.admin.ch/",
     "kind": "observation",
+    "extent": {
+        "scope": "national",
+        "continents": ["europe"],
+        "country_codes": ["CH"],
+        "bbox": [5.9, 45.7, 10.6, 47.9],
+    },
     "timezone": "Europe/Zurich",
     "resolutions": [
         {

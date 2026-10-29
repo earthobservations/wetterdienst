@@ -10,11 +10,14 @@ import polars as pl
 import portion
 import pytest
 
+from tests.provider.value_stubs import stations_result
 from wetterdienst import Settings
 from wetterdienst.metadata.period import Period
 from wetterdienst.model.metadata import DatasetModel
 from wetterdienst.provider.dwd.observation import (
     DwdObservationMetadata,
+    DwdObservationRequest,
+    download,
     fileindex,
 )
 from wetterdienst.provider.dwd.observation.api import DwdObservationValues
@@ -198,6 +201,51 @@ def test_historical_files_are_chosen_by_the_instants_they_cover(
         values, "01048", DwdObservationMetadata.minute_10.temperature_air, default_settings
     )
     assert chosen == date_ranges
+
+
+def test_no_date_range_selects_every_file_and_an_empty_list_none(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """Test that ``None`` is no filter, and that ``[]`` -- a window no file covers -- selects no file (GH-3505)."""
+    _serve_ten_minute_files(monkeypatch)
+    dataset = DwdObservationMetadata.minute_10.temperature_air
+
+    def chosen(date_ranges: list[str] | None) -> list[str]:
+        urls = create_file_list_for_climate_observations(
+            "01048", dataset, Period.HISTORICAL, default_settings, date_ranges
+        )
+        return [url.rsplit("/", 1)[-1] for url in urls]
+
+    assert chosen(None) == _TEN_MINUTE_FILES
+    assert chosen(["20100101_20191231"]) == ["10minutenwerte_TU_01048_20100101_20191231_hist.zip"]
+    assert chosen([]) == []
+
+
+def test_a_window_between_two_historical_files_downloads_no_file(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that a request for the gap between two files of a station reads none of the station's files (GH-3505).
+
+    The station's files end in 1991-06 and begin again in 1991-11: a window in between has no date range, which
+    was read as no filter and downloaded and parsed all six files for rows the window then dropped.
+    """
+    _serve_ten_minute_files(monkeypatch)
+    downloaded: list[str] = []
+    monkeypatch.setattr(download, "download_files", lambda urls, *_, **__: downloaded.extend(urls) or [])
+    request = DwdObservationRequest(
+        parameters=[("10_minutes", "temperature_air", "temperature_air_2m")],
+        periods=["historical"],
+        start=dt.datetime(1991, 7, 15, tzinfo=dt.UTC),
+        end=dt.datetime(1991, 9, 15, tzinfo=dt.UTC),
+        settings=Settings(cache_disable=True),
+    )
+    values = stations_result(request, "10_minutes", "temperature_air", "01048").values()
+    model = request.metadata["10_minutes"]["temperature_air"]
+
+    assert values._periods_and_date_ranges("01048", model, request.settings) == [(Period.HISTORICAL, [])]  # noqa: SLF001
+    assert values._collect_station_parameter_or_dataset("01048", model).is_empty()  # noqa: SLF001
+    assert values._files_ahead("01048", [model]).urls == []  # noqa: SLF001
+    assert downloaded == []
 
 
 @pytest.mark.parametrize(

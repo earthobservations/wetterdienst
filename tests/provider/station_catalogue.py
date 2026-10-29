@@ -24,18 +24,28 @@ file has a station in the catalogue. `check_coverage` applies them to the ids th
 from __future__ import annotations
 
 import datetime as dt
+import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, NamedTuple
 
 import polars as pl
 
+from wetterdienst.provider.eaufrance.hubeau import api as hubeau_api
+
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
+    from wetterdienst.model.metadata import Extent, MetadataModel
+
+#: (south, north, west, east) in degrees
+Bbox = tuple[float, float, float, float]
+
 # (south, north, west, east) in degrees, generous: the rule catches a station in another country, not a station near
 # the border. A provider is left out where its catalogue is not one country's: the global lists (MOSMIX, DMO, SYNOP,
-# GHCN, POI), Hubeau with its overseas departments, the NWS with its Pacific and Caribbean territories
-COUNTRY_BBOX: dict[str, tuple[float, float, float, float]] = {
+# GHCN, POI), the NWS with its Pacific and Caribbean territories. Hubeau has overseas departments, so its country is
+# several boxes (GH-3468), the very boxes its reader swaps a misplaced position by: a station is in the country when it
+# is in one of them
+COUNTRY_BBOX: dict[str, Bbox | tuple[Bbox, ...]] = {
     "chmi/observation": (48.5, 51.1, 12.0, 18.9),
     "dmi/observation": (54.0, 84.0, -75.0, 16.0),  # Denmark with Greenland
     "dwd/derived": (47.2, 55.1, 5.8, 15.1),
@@ -43,6 +53,7 @@ COUNTRY_BBOX: dict[str, tuple[float, float, float, float]] = {
     "dwd/phenology": (47.2, 55.1, 5.8, 15.1),
     "dwd/road": (47.2, 55.1, 5.8, 15.1),
     "dwd/swsmos": (47.2, 55.1, 5.8, 15.1),
+    "eaufrance/hubeau": tuple(hubeau_api._AREAS.values()),  # noqa: SLF001
     "eccc/observation": (41.0, 84.0, -142.0, -52.0),
     "ea/hydrology": (49.8, 55.9, -6.0, 2.0),
     "fmi/observation": (59.0, 70.2, 19.0, 32.0),
@@ -56,6 +67,45 @@ COUNTRY_BBOX: dict[str, tuple[float, float, float, float]] = {
     "smhi/observation": (55.0, 69.1, 10.9, 24.2),
     "wsv/pegel": (47.2, 55.1, 5.8, 15.1),
 }
+
+# the boxes of the continents, `(south, north, west, east)`, coarse and generous where two meet (Russia is in the
+# one of Europe and the one of Asia, Turkey east of 34 degrees east in the one of Asia too). They are no map: a station
+# on a border may be in two or none, and they serve two sanity checks only. A declared continent has a station within
+# `CONTINENT_MARGIN` degrees of its boxes, and a global network has stations on five continents. Which continents a
+# network *names* is declared by hand, as the areas it is meant to serve, see `tests/metadata/test_extent.py`
+CONTINENT_BOXES: dict[str, tuple[tuple[float, float, float, float], ...]] = {
+    "africa": (
+        (-35.0, 33.0, -20.0, 34.0),  # with the Canary Islands and Madeira
+        (33.0, 36.0, -13.0, -1.0),  # Morocco to Ceuta
+        (30.0, 37.4, -1.0, 12.0),  # Algeria and Tunisia, not the south of Spain
+        (-35.0, 12.0, 34.0, 52.0),
+        (12.0, 24.0, 34.0, 38.0),  # the Red Sea coast of Sudan and Eritrea
+        (-26.0, -12.0, 52.0, 58.0),  # Reunion, Mauritius
+    ),
+    "antarctica": ((-90.0, -60.0, -180.0, 180.0),),
+    "asia": ((21.0, 82.0, 34.0, 180.0), (12.0, 21.0, 34.0, 130.0), (-11.0, 12.0, 52.0, 130.0)),
+    "europe": ((34.0, 82.0, -32.0, 60.0),),
+    "north_america": (
+        (7.0, 84.0, -170.0, -50.0),
+        (59.0, 84.0, -73.0, -26.0),  # Greenland, without Iceland (63 to 66.5 north, 13 to 24 west)
+        (67.0, 84.0, -26.0, -10.0),
+        (50.0, 56.0, 170.0, 180.0),  # the Aleutians
+    ),
+    "oceania": (
+        (-48.0, -10.5, 112.0, 180.0),
+        (-10.5, 21.0, 130.0, 180.0),  # New Guinea, Micronesia, Guam
+        (-30.0, 30.0, -180.0, -130.0),  # Polynesia, Hawaii
+        (-48.0, -30.0, -180.0, -170.0),
+    ),
+    "south_america": ((-57.0, 13.0, -82.0, -34.0),),
+}
+# the margin, in degrees, a declared continent has to find a station within: a territory is a little outside its box
+CONTINENT_MARGIN = 2.0
+# how many degrees the declared box of a network may reach beyond the box of its stations, on each side: a box of the
+# whole Earth for a network of one country is no extent
+EXTENT_SLACK = 5.0
+# the stations a continent needs for a global network to count it
+GLOBAL_STATIONS_PER_CONTINENT = 3
 
 # the lowest and the highest dry land on Earth: the Dead Sea shore and Mount Everest
 ELEVATION_RANGE = (-430.0, 8849.0)
@@ -88,6 +138,13 @@ RULES = (
 # of a station the list does not carry. An id that differs from the file name only in padding or case breaks both,
 # where the reader does not join the list to the files
 COVERAGE_RULES = ("data_missing", "data_orphan")
+
+# the rule of `check_extent` (GH-3456): a station outside the box its network declares. An `Accepted` may cover it,
+# for a source that lists a station where the network is not
+EXTENT_RULES = ("coordinates_outside_extent",)
+#: the stations outside the extent that a failure names, each once: the log of CI is all that is read of a live list
+#: that needs a key, so the remaining ones are named in full, and a network that is wrong as a whole is not
+EXTENT_LISTED = 100
 
 # what a UTF-8 text read as Latin-1 or Windows-1252 turns into: the lead byte of a two-byte character (Ã, Â for the
 # Latin-1 letters, Å, Ä for Latin Extended-A such as ż and č) followed by a continuation byte read as a control
@@ -161,8 +218,8 @@ class Accepted:
 
     def __post_init__(self) -> None:
         """Refuse a rule that does not exist and an exception that gives no reason."""
-        if self.rule not in (*RULES, *COVERAGE_RULES):
-            msg = f"unknown rule {self.rule!r}, the rules are {', '.join((*RULES, *COVERAGE_RULES))}"
+        if self.rule not in (*RULES, *COVERAGE_RULES, *EXTENT_RULES):
+            msg = f"unknown rule {self.rule!r}, the rules are {', '.join((*RULES, *COVERAGE_RULES, *EXTENT_RULES))}"
             raise ValueError(msg)
         if not self.reason.strip():
             msg = f"the exception for {self.rule} has no reason"
@@ -171,6 +228,34 @@ class Accepted:
     def covers(self, violation: Violation) -> bool:
         """Say whether the violation is one this exception names."""
         return violation.rule == self.rule and (self.where is None or self.where(violation.row))
+
+
+# Frost lists the foreign SYNOP stations it holds beside the Norwegian ones: `SN` + the WMO number x 100, so six or
+# seven digits ending in `00`, where a Norwegian id has at most five (GH-3488)
+FROST_FOREIGN_WMO = Accepted(
+    "coordinates_outside_extent",
+    "Frost lists the foreign SYNOP stations it holds beside the Norwegian ones, as `SN` + the WMO number x 100 (six or "
+    "seven digits ending in 00; the Norwegian ids have at most five): SN1039300 is 10393 Lindenberg (DE; DWD's list "
+    "has 03015 at 52.2085, 14.1180, 200 m from the listed position), SN743400 is 07434 Limoges-Bellegarde (FR; NOAA's "
+    "isd-history has 45.863, 1.179), SN623500 is 06235 De Kooy (NL), SN848200 is 08482 Malaga (ES), SN1240000 is "
+    "12400 Zielona Gora (PL), SN1298200 is 12982 Szeged (HU): more than two hundred in all, with positions that are "
+    "right and stations that are not in Norway. The library passes them on, and the extent stays that of Norway; "
+    "a Norwegian id outside the box is still a failure",
+    where=lambda row: re.fullmatch(r"SN\d{4,5}00", row["station_id"]) is not None,
+)
+
+
+# Norway has research stations in Antarctica (Troll and its surroundings in Queen Maud Land, near 72 S): a station south
+# of 60 S, the limit of the Antarctic Treaty, is taken for one of them. It lies outside the national extent, which stays
+# that of Norway (GH-3488). Known from the log of CI: SN99990 at (-72.012, 2.5408) and SN92100 at (-71.9563, 2.4668);
+# the list itself needs a key and was not read
+FROST_ANTARCTIC = Accepted(
+    "coordinates_outside_extent",
+    "Norway has research stations in Antarctica (Troll and its surroundings in Queen Maud Land, near 72 S), which "
+    "Frost lists with the others: SN99990 at (-72.012, 2.5408) and SN92100 at (-71.9563, 2.4668). A station south of "
+    "60 S, the limit of the Antarctic Treaty, is taken for one of them, and the extent stays that of Norway",
+    where=lambda row: row["latitude"] < -60.0,
+)
 
 
 def _violations(
@@ -185,16 +270,24 @@ def _violations(
     ]
 
 
-def _fits(lat: float | None, lon: float | None, bbox: tuple[float, float, float, float]) -> bool:
-    south, north, west, east = bbox
-    return lat is not None and lon is not None and south <= lat <= north and west <= lon <= east
+def boxes_of(bbox: Bbox | tuple[Bbox, ...]) -> tuple[Bbox, ...]:
+    """Give the boxes of a country: the one box, or the several of a country with territories far from it."""
+    return (bbox,) if isinstance(bbox[0], float | int) else bbox  # ty: ignore[invalid-return-type]
+
+
+def _fits(lat: float | None, lon: float | None, bbox: Bbox | tuple[Bbox, ...]) -> bool:
+    return (
+        lat is not None
+        and lon is not None
+        and any(south <= lat <= north and west <= lon <= east for south, north, west, east in boxes_of(bbox))
+    )
 
 
 def check_catalogue(
     df: pl.DataFrame,
     catalogue: str,
     *,
-    bbox: tuple[float, float, float, float] | None = None,
+    bbox: Bbox | tuple[Bbox, ...] | None = None,
     now: dt.datetime | None = None,
 ) -> list[Violation]:
     """Apply every rule to a catalogue and return the violations, which are not yet filtered by `Accepted`.
@@ -202,7 +295,8 @@ def check_catalogue(
     Args:
         df: the stations, with the base columns of a station request
         catalogue: how the failure names the catalogue, such as `chmi/observation daily/data`
-        bbox: the (south, north, west, east) box of the country the catalogue is published for, if it is one
+        bbox: the (south, north, west, east) box of the country the catalogue is published for, if it is one, or the
+            several boxes of a country with territories far from it: a station has to be in one of them
         now: the time the end of a station is held against, the present when None
 
     """
@@ -277,12 +371,14 @@ def check_catalogue(
                 hint = ", the latitude lost its sign"
             return f"({lat_}, {lon_}) is outside {bbox}{hint}"
 
-        south, north, west, east = bbox
+        in_the_country = pl.any_horizontal(
+            lat.is_between(south, north) & lon.is_between(west, east) for south, north, west, east in boxes_of(bbox)
+        )
         found += _violations(
             df,
             catalogue,
             "coordinates_outside_country",
-            lat.is_not_null() & lon.is_not_null() & ~(lat.is_between(south, north) & lon.is_between(west, east)),
+            lat.is_not_null() & lon.is_not_null() & ~in_the_country,
             outside,
         )
 
@@ -374,7 +470,7 @@ def assert_sound(
     df: pl.DataFrame,
     catalogue: str,
     *,
-    bbox: tuple[float, float, float, float] | None = None,
+    bbox: Bbox | tuple[Bbox, ...] | None = None,
     accepted: Iterable[Accepted] = (),
     now: dt.datetime | None = None,
     limit: int = 10,
@@ -389,6 +485,124 @@ def assert_sound(
     assert not df.is_empty(), f"{catalogue}: the catalogue is empty, so no rule was applied"
     left, stale = unaccepted(check_catalogue(df, catalogue, bbox=bbox, now=now), accepted)
     _assert_none_left(left, stale if fail_on_stale else [], catalogue, limit)
+
+
+def continent_counts(df: pl.DataFrame, margin: float = 0.0) -> dict[str, int]:
+    """Count the stations in the boxes of each continent, widened by `margin`; one in two boxes counts for both."""
+    counts = {}
+    for continent, boxes in CONTINENT_BOXES.items():
+        in_a_box = pl.any_horizontal(
+            pl.col("latitude").is_between(south - margin, north + margin)
+            & pl.col("longitude").is_between(west - margin, east + margin)
+            for south, north, west, east in boxes
+        )
+        counts[continent] = df.filter(in_a_box).height
+    return counts
+
+
+def check_extent(
+    df: pl.DataFrame,
+    network: str,
+    extent: Extent,
+    *,
+    whole: bool = False,
+    accepted: Iterable[Accepted] = (),
+) -> list[str]:
+    """Hold the stations of a network to the extent its metadata declares, and say what they break (GH-3456).
+
+    Every station has to be in the declared box, which the extent of a dataset that is a part of the network (the
+    European list of `dwd/dmo`) does as well as the whole. With `whole`, the stations of all the datasets of the
+    network, the rest is held too: the box is no more than `EXTENT_SLACK` degrees wider than the stations on each
+    side, each continent it names has a station near its box (`CONTINENT_MARGIN`), and a global network has
+    `GLOBAL_STATIONS_PER_CONTINENT` or more on five continents.
+
+    A station outside the box that an `Accepted` of the rule `coordinates_outside_extent` covers is no failure, and
+    is not one of the stations the box and the continents are compared with.
+    """
+    stations = df.filter(pl.col("latitude").is_not_null() & pl.col("longitude").is_not_null())
+    if stations.is_empty():
+        return [f"{network}: the catalogue has no station with a position, so no extent was checked"]
+    west, south, east, north = extent.bbox
+    outside = stations.filter(
+        ~(pl.col("latitude").is_between(south, north) & pl.col("longitude").is_between(west, east))
+    )
+    violations = [
+        Violation(network, "coordinates_outside_extent", row["station_id"], "outside the extent", row)
+        for row in outside.iter_rows(named=True)
+    ]
+    left, _ = unaccepted(violations, accepted)
+    # a station once, whatever the number of datasets that list it: the lists of the datasets of a network are held
+    # together, and the same station again is not another station to the reader of the failure
+    listed = list({violation.station_id: violation for violation in left}.values())
+    problems = [
+        f"{network}: station {violation.station_id} at ({violation.row['latitude']}, {violation.row['longitude']}) "
+        f"is outside the extent [west {west}, south {south}, east {east}, north {north}]"
+        for violation in listed[:EXTENT_LISTED]
+    ]
+    if len(listed) > EXTENT_LISTED:
+        problems.append(f"{network}: ... and {len(listed) - EXTENT_LISTED} more stations outside the extent")
+    if not whole:
+        return problems
+    left_ids = {violation.station_id for violation in left}
+    excused = [violation.station_id for violation in violations if violation.station_id not in left_ids]
+    stations = stations.filter(~pl.col("station_id").is_in(excused))
+    if stations.is_empty():
+        return [*problems, f"{network}: no station is left in the extent, so it was not compared with the stations"]
+    held = (
+        stations["longitude"].min(),
+        stations["latitude"].min(),
+        stations["longitude"].max(),
+        stations["latitude"].max(),
+    )
+    if extent.scope != "global":
+        sides = ("west", "south", "east", "north")
+        slack = (held[0] - west, held[1] - south, east - held[2], north - held[3])
+        problems += [
+            f"{network}: the extent reaches {amount:.1f} degrees {side} of its stations, more than {EXTENT_SLACK}"
+            for side, amount in zip(sides, slack, strict=True)
+            if amount > EXTENT_SLACK
+        ]
+    # one direction only: the continents are the areas the network is meant to serve, declared by hand, so each has to
+    # have a station near its box; a station on a continent that is not named is no failure (a territory may be
+    # left out)
+    near = continent_counts(stations, CONTINENT_MARGIN)
+    problems += [
+        f"{network}: the extent names {continent}, and no station is within {CONTINENT_MARGIN} degrees of its box"
+        for continent in extent.continents
+        if not near[continent]
+    ]
+    if extent.scope == "global":
+        counts = continent_counts(stations)
+        reached = [continent for continent, count in counts.items() if count >= GLOBAL_STATIONS_PER_CONTINENT]
+        if len(reached) < 5:
+            problems.append(f"{network}: a global network has stations on {len(reached)} continents ({reached})")
+    return problems
+
+
+def extent_of(metadata: MetadataModel, label: str) -> Extent:
+    """Give the extent a catalogue is held to: its dataset's where it declares one, else its network's.
+
+    `label` is `resolution/dataset` as a stub names it, or `resolution+resolution/dataset` for a catalogue of two.
+    """
+    resolutions, _, dataset = label.rpartition("/")
+    for resolution in resolutions.split("+"):
+        own = metadata[resolution][dataset].extent
+        if own is not None:
+            return own
+    return metadata.extent
+
+
+def assert_in_extent(
+    df: pl.DataFrame,
+    network: str,
+    extent: Extent,
+    *,
+    whole: bool = False,
+    accepted: Iterable[Accepted] = (),
+) -> None:
+    """Raise an `AssertionError` that lists what the stations of a network break of the extent it declares."""
+    problems = check_extent(df, network, extent, whole=whole, accepted=accepted)
+    assert not problems, "\n".join(problems)
 
 
 def _assert_none_left(left: list[Violation], stale: list[Accepted], catalogue: str, limit: int) -> None:

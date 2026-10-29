@@ -19,6 +19,12 @@ Because the products are full snapshots, an empty result simply means there are 
 warnings. The data faithfully follows the official
 [CAP DWD Profile](https://www.dwd.de/DE/leistungen/opendata/help/warnungen/cap_dwd_profile_en_pdf_1_12.pdf).
 
+## Update date
+
+The `data_updated_at` of the [`metadata`](../../../../usage/restapi.md#response-metadata) of an answer is the newest
+`sent` of the warnings in it, which DWD states in each of them (a warning that is updated is sent again). A snapshot
+with no warning has none.
+
 ## Historical snapshots
 
 DWD keeps a rolling **~48-hour** window of timestamped snapshots (there is no long-term archive).

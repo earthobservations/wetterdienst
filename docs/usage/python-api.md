@@ -739,7 +739,10 @@ each format those it takes, which is what the command line, the REST API and the
 `to_dict` and `to_ogc_feature_collection` return dictionaries typed as `StationsDict`, `ValuesDict`,
 `InterpolatedValuesDict`, `SummarizedValuesDict` and `HistoryDict`, and the `...OgcFeatureCollection` of each, which
 are importable from `wetterdienst.model.result` to annotate a function that takes or returns one. The block that
-`with_metadata` adds is a `ResultMetadata`. `to_target` writes to a file or a database, see [Export](#export).
+`with_metadata` adds is a `ResultMetadata`: the `provider`, the `producer` and `data_updated_at`, the date the source
+states for the data (UTC, `null` where it states none, for a list of stations and for a history; a result cut down by
+`filtered_by_date` or `filtered_by_sql` keeps it, and has none where no row is left). `to_target` writes to a file or a
+database, see [Export](#export).
 
 #### To Dict
 
@@ -881,6 +884,10 @@ corrected, which stations are left out and when a request is refused are in
 A result writes itself to a file (CSV, JSON, Excel, Parquet, Feather, Zarr, NetCDF) or a database (SQLite, DuckDB,
 PostgreSQL, MySQL, CrateDB, InfluxDB) with `to_target(target)`, and `TimeseriesValues.to_target` does it station by
 station. The targets, the `if_exists` modes and the errors are on the [Export](export.md) page.
+
+The library has no limits on the rows or stations of a request, which the REST API and the MCP tools have. For a long
+record or many stations, `stations.values().query()` and `to_target` hold one station at a time; see
+[Getting more than the limit](large-requests.md#leave-the-server).
 
 ## Errors
 

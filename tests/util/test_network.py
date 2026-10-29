@@ -21,6 +21,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import platformdirs
@@ -63,6 +64,7 @@ from wetterdienst.util.network import (
     _credential_headers,
     _is_superseded_layout,
     _legacy_cleanup_done,
+    _LockedWholeFileCacheFileSystem,
     _reclaim_done,
     _sends_credentials,
     _swept_dirs,
@@ -1666,7 +1668,7 @@ def test_an_infinite_cache_is_never_swept(tmp_path: Path) -> None:
     """The sweep that looked like the whole fix destroys exactly the caches worth keeping (GH-1955).
 
     ``CacheExpiry.INFINITE`` is ``False``, ``int(False)`` is ``0``, and fsspec reads an expiry of
-    zero as "every entry is expired": it removes them all and then ``rmtree``s the directory.
+    zero as "every entry is expired": it removes them all (and, before GH-3467, the directory).
     ``lhmt`` and both ``meteofrance`` providers use ``INFINITE`` for immutable archives, so the
     first such download in a fresh process would have thrown the archive away and re-fetched it.
     """
@@ -1719,7 +1721,7 @@ def test_a_sweep_that_fails_is_not_retried_and_does_not_fail_the_download(tmp_pa
         msg = "Cache metadata does not contain 'fn' for https://example.com/half-written"
         raise RuntimeError(msg)
 
-    with patch.object(WholeFileCacheFileSystem, "clear_expired_cache", clear_expired_cache):
+    with patch.object(_LockedWholeFileCacheFileSystem, "clear_expired_cache", clear_expired_cache):
         first = _blob_dir(tmp_path)
         second = _in_a_fresh_thread(lambda: _blob_dir(tmp_path))
 
@@ -1742,7 +1744,7 @@ def test_fsspec_is_never_handed_an_expiry_it_reads_as_zero(tmp_path: Path, cache
     def clear_expired_cache(_self: object, expiry_time: float | None = None) -> None:
         seen.append(expiry_time)
 
-    with patch.object(WholeFileCacheFileSystem, "clear_expired_cache", clear_expired_cache):
+    with patch.object(_LockedWholeFileCacheFileSystem, "clear_expired_cache", clear_expired_cache):
         # not `_blob_dir`: `NO_CACHE` is answered with a plain filesystem that has no storage at all
         NetworkFilesystemManager.get(cache_dir=tmp_path, cache_expiry=cache_expiry, cache_disable=False)
 
@@ -1777,7 +1779,7 @@ def test_no_thread_reaches_a_directory_while_it_is_being_swept(tmp_path: Path) -
         _blob_dir(tmp_path)
         arrived.set()
 
-    with patch.object(WholeFileCacheFileSystem, "clear_expired_cache", clear_expired_cache):
+    with patch.object(_LockedWholeFileCacheFileSystem, "clear_expired_cache", clear_expired_cache):
         sweeper = threading.Thread(target=lambda: _blob_dir(tmp_path))
         sweeper.start()
         assert sweeping.wait(timeout=10), "the first caller never started sweeping"
@@ -1875,11 +1877,10 @@ def test_the_directory_being_registered_is_never_reclaimed(tmp_path: Path) -> No
 
 @pytest.mark.usefixtures("_fresh_cache_sweeps")
 def test_a_directory_that_has_just_been_used_says_so(tmp_path: Path) -> None:
-    """The mark has to survive the sweep that runs beside it.
+    """The directory has its mark once it is built, and the sweep that runs beside it leaves it there.
 
-    A sweep that leaves the cache empty has fsspec ``rmtree`` the whole directory and rebuild it,
-    which takes an already-written marker with it -- and a directory whose marker is missing reads
-    as one nothing has asked for in a month, which is how a live cache would be reclaimed.
+    The sweep used to remove the directory when it left the cache empty, and the marker with it
+    (GH-3467); it no longer does.
     """
     storage = _blob_dir(tmp_path, client_kwargs={"headers": {"Authorization": "Bearer mine"}})
 
@@ -2006,7 +2007,7 @@ def test_no_filesystem_is_built_for_a_directory_while_it_is_being_tidied(
         may_finish.wait(timeout=10)
 
     monkeypatch.setattr(WholeFileCacheFileSystem, "__init__", counting_init)
-    monkeypatch.setattr(WholeFileCacheFileSystem, "clear_expired_cache", clear_expired_cache)
+    monkeypatch.setattr(_LockedWholeFileCacheFileSystem, "clear_expired_cache", clear_expired_cache)
 
     # seed a blob so the first registration has something to sweep
     storage = tmp_path / "fsspec" / "v2-ttl-TWELVE_HOURS"
@@ -2493,7 +2494,13 @@ def test_every_way_into_the_metadata_file_takes_the_cache_lock(
         thread.join()
         held.append(not free[0])
 
-    monkeypatch.setattr(WholeFileCacheFileSystem, method, record)
+    if method == "clear_expired_cache":
+        # fsspec's own is not what runs any more: this one reaches the file through the metadata, once it holds an
+        # entry that has expired
+        filesystem._metadata.cached_files[-1]["/a.txt"] = {"fn": "a", "time": 0.0}  # noqa: SLF001
+        monkeypatch.setattr(CacheMetadata, "clear_expired", lambda *_args: record(None) or ([], False))
+    else:
+        monkeypatch.setattr(WholeFileCacheFileSystem, method, record)
     getattr(filesystem, method)(*args)
 
     assert held == [True]
@@ -2792,12 +2799,14 @@ _REFUSING_URL = "http://127.0.0.1:1/file"
 
 
 def _blobs(tmp_path: Path) -> list[str]:
-    """Name the files the five-minute cache under ``tmp_path`` holds, its metadata and marker aside."""
+    """Name the files the five-minute cache under ``tmp_path`` holds, its metadata, marker and dates (`.lm`) aside."""
     filesystem = NetworkFilesystemManager.get(
         cache_dir=tmp_path, cache_expiry=CacheExpiry.FIVE_MINUTES, cache_disable=False
     )
     return sorted(
-        path.name for path in Path(filesystem.storage[-1]).iterdir() if path.name not in {"cache", ".last-used"}
+        path.name
+        for path in Path(filesystem.storage[-1]).iterdir()
+        if path.name not in {"cache", ".last-used"} and path.suffix != ".lm"
     )
 
 
@@ -3101,8 +3110,8 @@ def _caching_over_slow_remote(storage: Path) -> tuple[network._LockedWholeFileCa
 
 
 def _stray_files(storage: Path) -> list[str]:
-    """Name what the cache directory holds besides its metadata file."""
-    return sorted(path.name for path in storage.iterdir() if path.name != "cache")
+    """Name what the cache directory holds besides its metadata file and the dates kept beside the blobs (`.lm`)."""
+    return sorted(path.name for path in storage.iterdir() if path.name != "cache" and path.suffix != ".lm")
 
 
 def test_a_fetch_in_flight_never_shows_a_half_written_blob(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -3239,6 +3248,25 @@ def _tls_failure(kind: str, proxy: URL | None = None, proxy_auth: BasicAuth | No
     if kind == "certificate":
         return ClientConnectorCertificateError(connection_key, ssl.SSLCertVerificationError("self-signed certificate"))
     return ClientConnectorSSLError(connection_key, ssl.SSLError("handshake failure"))
+
+
+def _handshake_error(reason: str, kind: type[ssl.SSLError] = ssl.SSLError) -> ssl.SSLError:
+    """Build the ``ssl.SSLError`` OpenSSL raises for ``reason``, which Python only sets for an error made in C."""
+    error = kind(1, f"[SSL: {reason}] {reason.lower().replace('_', ' ')}")
+    error.reason = reason
+    return error
+
+
+def _handshake_failure(error: ssl.SSLError) -> ClientSSLError:
+    """Wrap an ``ssl.SSLError`` as aiohttp does for a failed connection."""
+    key = _tls_failure("handshake").args[0]
+    if isinstance(error, ssl.SSLCertVerificationError):
+        return ClientConnectorCertificateError(key, error)
+    return ClientConnectorSSLError(key, error)
+
+
+def _error_id(error: ssl.SSLError) -> str:
+    return getattr(error, "reason", None) or type(error).__name__
 
 
 @pytest.mark.parametrize("kind", ["certificate", "handshake"])
@@ -4277,8 +4305,13 @@ def test_a_download_still_asks_again_after_a_reset_connection() -> None:
     [
         (_tls_failure("certificate"), False),
         (_tls_failure("handshake"), False),
-        # what the listings raise: the SSL error underneath, bare
+        # what the listings raise: the SSL error underneath, bare. Without a `reason` -- which only an error
+        # made in C has -- it is not named as a blip
         (ssl.SSLError("handshake failure"), False),
+        (_handshake_error("WRONG_VERSION_NUMBER"), True),
+        (_handshake_failure(_handshake_error("INVALID_SESSION_ID")), True),
+        # a server with no cipher in common, or one that wants a client certificate, says it on every attempt
+        (_handshake_failure(_handshake_error("SSLV3_ALERT_HANDSHAKE_FAILURE")), False),
         (ssl.SSLCertVerificationError("self-signed certificate"), False),
         (ClientConnectorError(_tls_failure("handshake").args[0], ConnectionResetError(54, "reset")), True),
         (ClientOSError(104, "Connection reset by peer"), True),
@@ -4289,16 +4322,287 @@ def test_a_download_still_asks_again_after_a_reset_connection() -> None:
     ],
     ids=lambda value: type(value).__name__ if isinstance(value, Exception) else str(value),
 )
-def test_the_retry_predicates_name_a_tls_failure_as_not_worth_asking_again(
+def test_the_retry_predicates_tell_a_blip_from_what_asking_again_cannot_fix(
     error: Exception,
     *,
     worth_retrying: bool,
 ) -> None:
-    """A TLS failure is no blip; a failed connection, a timeout or a reset still is (GH-2618)."""
+    """A certificate or a configuration failure of TLS is no blip; a handshake fumbled, a reset or a timeout is.
+
+    GH-2618 (a certificate that does not verify is never asked for again) and GH-3533 (a handshake the peer
+    answers wrongly is).
+    """
     assert network._worth_retrying(error) is worth_retrying  # noqa: SLF001
     assert network._worth_retrying_listing(error) is worth_retrying  # noqa: SLF001
     # a download alone asks again for the file it was told is not there
     assert network._worth_retrying_download(error) is (worth_retrying or isinstance(error, FileNotFoundError))  # noqa: SLF001
+
+
+_TRANSIENT_HANDSHAKE_ERRORS = [
+    _handshake_error("WRONG_VERSION_NUMBER"),
+    _handshake_error("INVALID_SESSION_ID"),
+    _handshake_error("SSLV3_ALERT_UNEXPECTED_MESSAGE"),
+    _handshake_error("TLSV1_ALERT_INTERNAL_ERROR"),
+    # not reached through aiohttp, which reports a server that closes after the ClientHello as a reset
+    # connection; a guard for an `ssl.SSLError` that is let out as it is
+    ssl.SSLEOFError(8, "EOF occurred in violation of protocol"),
+    ssl.SSLZeroReturnError(6, "TLS/SSL connection has been closed (EOF)"),
+]
+_CERTIFICATE_ERRORS = [
+    ssl.SSLCertVerificationError(1, "[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed"),
+    ssl.SSLCertVerificationError("Hostname mismatch, certificate is not valid for 'example.com'"),
+    # a certificate error is told apart by its type, whatever reason it carries
+    _handshake_error("WRONG_VERSION_NUMBER", ssl.SSLCertVerificationError),
+    _handshake_error("TLSV1_ALERT_UNKNOWN_CA"),
+    _handshake_error("SSLV3_ALERT_BAD_CERTIFICATE"),
+    # sent on every attempt by a server with no cipher in common, and by one that wants a client certificate
+    _handshake_error("SSLV3_ALERT_HANDSHAKE_FAILURE"),
+]
+
+
+@pytest.mark.parametrize("wrapped", [False, True], ids=["bare", "aiohttp"])
+@pytest.mark.parametrize("error", _TRANSIENT_HANDSHAKE_ERRORS, ids=_error_id)
+def test_a_handshake_the_server_fumbled_is_worth_asking_again(error: ssl.SSLError, *, wrapped: bool) -> None:
+    """A handshake error that the server throws now and then is a blip: a post, a download, a listing (GH-3533)."""
+    failure = _handshake_failure(error) if wrapped else error
+    assert network._is_transient_tls_failure(failure)  # noqa: SLF001
+    assert network._worth_retrying(failure)  # noqa: SLF001
+    assert network._worth_retrying_listing(failure)  # noqa: SLF001
+    assert network._worth_retrying_download(failure)  # noqa: SLF001
+
+
+@pytest.mark.parametrize("wrapped", [False, True], ids=["bare", "aiohttp"])
+@pytest.mark.parametrize("error", _CERTIFICATE_ERRORS, ids=_error_id)
+def test_a_certificate_failure_is_never_worth_asking_again(error: ssl.SSLError, *, wrapped: bool) -> None:
+    """A certificate that does not verify, or a server that refuses ours, is the same on every attempt (GH-2618)."""
+    failure = _handshake_failure(error) if wrapped else error
+    assert not network._is_transient_tls_failure(failure)  # noqa: SLF001
+    assert not network._worth_retrying(failure)  # noqa: SLF001
+    assert not network._worth_retrying_listing(failure)  # noqa: SLF001
+    assert not network._worth_retrying_download(failure)  # noqa: SLF001
+
+
+def test_a_handshake_error_is_asked_again_by_a_download_and_a_post() -> None:
+    """A transient handshake error twice and then the answer is the answer, after three attempts (GH-3533)."""
+    error = _handshake_failure(_handshake_error("WRONG_VERSION_NUMBER"))
+    mock_fs = MagicMock()
+    mock_fs.cat_file.side_effect = [error, error, b"data"]
+
+    with (
+        stamina.set_testing(True, attempts=3),
+        patch("wetterdienst.util.network.NetworkFilesystemManager.get", return_value=mock_fs),
+    ):
+        downloaded = download_file(url="https://example.com/file.txt", cache_dir=Path(tempfile.gettempdir()))
+    with (
+        stamina.set_testing(True, attempts=3),
+        patch("wetterdienst.util.network.sync", side_effect=[error, error, (200, b"token")]) as mock_sync,
+    ):
+        posted = post_file("https://example.com/token")
+
+    assert mock_fs.cat_file.call_count == 3
+    assert mock_sync.call_count == 3
+    assert downloaded.status == posted.status == 200
+    assert isinstance(downloaded.content, BytesIO)
+    assert downloaded.content.read() == b"data"
+
+
+def test_a_handshake_error_that_never_goes_away_is_stored_as_a_tls_failure_after_the_attempts() -> None:
+    """The attempts used up, a download stores the ``ssl.SSLError`` underneath, as before the retry (GH-3533)."""
+    error = _handshake_failure(_handshake_error("INVALID_SESSION_ID"))
+    mock_fs = MagicMock()
+    mock_fs.cat_file.side_effect = error
+
+    with (
+        stamina.set_testing(True, attempts=3),
+        patch("wetterdienst.util.network.NetworkFilesystemManager.get", return_value=mock_fs),
+    ):
+        result = download_file(url="https://example.com/file.txt", cache_dir=Path(tempfile.gettempdir()))
+
+    assert mock_fs.cat_file.call_count == 3
+    assert result.status == 500
+    assert result.content is error.os_error
+    assert not result.is_no_internet_error
+    with pytest.raises(DownloadError) as raised:
+        result.raise_if_exception()
+    assert raised.value.__cause__ is error.os_error
+
+
+@pytest.mark.parametrize("error", _CERTIFICATE_ERRORS, ids=_error_id)
+def test_a_certificate_failure_is_asked_once_by_a_download_and_a_post(error: ssl.SSLError) -> None:
+    """A certificate failure, whichever way it arrives, is attempted once with three attempts allowed (GH-2618)."""
+    failure = _handshake_failure(error)
+    mock_fs = MagicMock()
+    mock_fs.cat_file.side_effect = failure
+
+    with (
+        stamina.set_testing(True, attempts=3),
+        patch("wetterdienst.util.network.NetworkFilesystemManager.get", return_value=mock_fs),
+        patch("wetterdienst.util.network.sync", side_effect=failure) as mock_sync,
+    ):
+        downloaded = download_file(url="https://example.com/file.txt", cache_dir=Path(tempfile.gettempdir()))
+        posted = post_file("https://example.com/token")
+
+    assert mock_fs.cat_file.call_count == 1
+    assert mock_sync.call_count == 1
+    assert downloaded.status == posted.status == 500
+    assert downloaded.content is posted.content is error
+
+
+@pytest.mark.parametrize("function", [list_remote_files_fsspec, list_remote_directory_fsspec])
+def test_a_listing_asks_again_for_a_handshake_the_server_fumbled(
+    function: Callable[..., object],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A listing that meets a transient handshake error twice is answered at the third attempt (GH-3533).
+
+    `www.dwd.de` answers its station catalogues with `WRONG_VERSION_NUMBER` now and then.
+    """
+    failure = _handshake_failure(_handshake_error("WRONG_VERSION_NUMBER"))
+    attempts = []
+
+    def flaky(_self: object, url: str, **_kwargs: object) -> list:
+        attempts.append(url)
+        if len(attempts) <= 2:
+            raise failure
+        return []
+
+    monkeypatch.setattr(HTTPFileSystem, "find", flaky)
+    monkeypatch.setattr(HTTPFileSystem, "ls", flaky)
+
+    with stamina.set_testing(True, attempts=3):
+        assert function("https://example.com/tls/", Settings(cache_dir=tmp_path)) == []
+
+    assert len(attempts) == 3
+
+
+@pytest.mark.parametrize("function", [list_remote_files_fsspec, list_remote_directory_fsspec])
+@pytest.mark.parametrize("wrapped", [False, True], ids=["bare", "aiohttp"])
+def test_a_listing_raises_a_handshake_error_that_never_goes_away_after_the_attempts(
+    function: Callable[..., object],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    *,
+    wrapped: bool,
+) -> None:
+    """A handshake error that every attempt meets is a `DownloadError` caused by the `ssl.SSLError` (GH-3533)."""
+    bare = _handshake_error("INVALID_SESSION_ID")
+    error = _handshake_failure(bare) if wrapped else bare
+    attempts = []
+
+    def fail(_self: object, url: str, **_kwargs: object) -> list:
+        attempts.append(url)
+        raise error
+
+    monkeypatch.setattr(HTTPFileSystem, "find", fail)
+    monkeypatch.setattr(HTTPFileSystem, "ls", fail)
+
+    with stamina.set_testing(True, attempts=3), pytest.raises(DownloadError) as raised:
+        function("https://example.com/tls/", Settings(cache_dir=tmp_path))
+
+    assert len(attempts) == 3
+    assert raised.value.__cause__ is bare
+    assert raised.value.__context__ is None
+    assert failure_status(raised.value) == 502
+
+
+@pytest.mark.parametrize("function", [list_remote_files_fsspec, list_remote_directory_fsspec])
+@pytest.mark.parametrize("error", _CERTIFICATE_ERRORS, ids=_error_id)
+def test_a_listing_asks_once_for_a_certificate_failure_however_it_arrives(
+    function: Callable[..., object],
+    error: ssl.SSLError,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A certificate that does not verify is attempted once by a listing, with three attempts allowed (GH-2618)."""
+    attempts = []
+
+    def fail(_self: object, url: str, **_kwargs: object) -> list:
+        attempts.append(url)
+        raise _handshake_failure(error)
+
+    monkeypatch.setattr(HTTPFileSystem, "find", fail)
+    monkeypatch.setattr(HTTPFileSystem, "ls", fail)
+
+    with stamina.set_testing(True, attempts=3), pytest.raises(DownloadError) as raised:
+        function("https://example.com/tls/", Settings(cache_dir=tmp_path))
+
+    assert len(attempts) == 1
+    assert raised.value.__cause__ is error
+
+
+def test_a_handshake_failure_alert_is_not_asked_again() -> None:
+    """A server with no cipher in common, or one that wants a client certificate, sends this alert every time.
+
+    The alert is `SSLV3_ALERT_HANDSHAKE_FAILURE`. Asking again waits for the same answer (measured against
+    local TLS servers: two connections for a download or a post, three for a listing, where one is enough).
+    Only a handshake the peer answers wrongly is a blip (GH-3533).
+    """
+    for failure in (
+        _handshake_error("SSLV3_ALERT_HANDSHAKE_FAILURE"),
+        _handshake_failure(_handshake_error("SSLV3_ALERT_HANDSHAKE_FAILURE")),
+    ):
+        assert not network._is_transient_tls_failure(failure)  # noqa: SLF001
+        assert not network._worth_retrying(failure)  # noqa: SLF001
+
+
+@pytest.fixture
+def production_retries(monkeypatch: pytest.MonkeyPatch) -> list[dict]:
+    """Keep the retry the code configures, without its waits, and record what it asked stamina for."""
+    configured: list[dict] = []
+    real = stamina.retry_context
+
+    def retry_context(**kwargs: Any) -> Any:  # noqa: ANN401
+        configured.append(kwargs)
+        return real(**{**kwargs, "wait_initial": 0, "wait_max": 0, "wait_jitter": 0})
+
+    monkeypatch.setattr(stamina, "retry_context", retry_context)
+    return configured
+
+
+def test_a_download_and_a_post_ask_twice_for_a_handshake_the_server_fumbled(production_retries: list[dict]) -> None:
+    """Without `stamina.set_testing`, which sets the attempts itself: the production count is two (GH-3533)."""
+    error = _handshake_failure(_handshake_error("WRONG_VERSION_NUMBER"))
+    mock_fs = MagicMock()
+    mock_fs.cat_file.side_effect = error
+
+    with (
+        patch("wetterdienst.util.network.NetworkFilesystemManager.get", return_value=mock_fs),
+        patch("wetterdienst.util.network.sync", side_effect=error) as mock_sync,
+    ):
+        downloaded = download_file(url="https://example.com/file.txt", cache_dir=Path(tempfile.gettempdir()))
+        posted = post_file("https://example.com/token")
+
+    assert mock_fs.cat_file.call_count == 2
+    assert mock_sync.call_count == 2
+    assert [kwargs["attempts"] for kwargs in production_retries] == [2, 2]
+    assert downloaded.status == posted.status == 500
+    assert downloaded.content is error.os_error
+
+
+@pytest.mark.parametrize("function", [list_remote_files_fsspec, list_remote_directory_fsspec])
+def test_a_listing_asks_three_times_for_a_handshake_the_server_fumbled(
+    function: Callable[..., object],
+    production_retries: list[dict],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Without `stamina.set_testing`: the production count of a listing is three (GH-3533)."""
+    error = _handshake_failure(_handshake_error("WRONG_VERSION_NUMBER"))
+    attempts = []
+
+    def fail(_self: object, url: str, **_kwargs: object) -> list:
+        attempts.append(url)
+        raise error
+
+    monkeypatch.setattr(HTTPFileSystem, "find", fail)
+    monkeypatch.setattr(HTTPFileSystem, "ls", fail)
+
+    with pytest.raises(DownloadError):
+        function("https://example.com/tls/", Settings(cache_dir=tmp_path))
+
+    assert len(attempts) == 3
+    assert [kwargs["attempts"] for kwargs in production_retries] == [3]
 
 
 @pytest.mark.parametrize("function", [list_remote_files_fsspec, list_remote_directory_fsspec])
@@ -4418,3 +4722,149 @@ def test_a_listing_asks_once_for_a_failure_no_second_attempt_can_mend(
         with stamina.set_testing(True, attempts=3), pytest.raises(type(error)):
             list_remote_directory_fsspec("https://example.com/dir/", Settings(cache_dir=tmp_path))
         assert len(attempts) == 1
+
+
+class _ChangingFile(BaseHTTPRequestHandler):
+    """Serves `server.body`, which a test changes, in its state and at its pace, and records every request.
+
+    The pace is the test's: after the first bytes of a body the handler sets `server.sending` and waits for
+    `server.release`, which is set unless a test cleared it, so that the order of what happens while a body is on
+    its way is the order of the events and not of a sleep.
+    """
+
+    def log_message(self, format: str, *args: object) -> None:  # noqa: A002
+        """Keep the test output quiet."""
+
+    def do_GET(self) -> None:
+        """Answer with the body the server holds when the request arrives, or with its status."""
+        self.server.requests.append(f"GET {self.path}")
+        if self.server.status != 200:
+            self.send_response(self.server.status)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        body = self.server.body
+        # a body cut short promises more than it sends, and the connection closing after it is the cut
+        self.send_response(200)
+        self.send_header("Content-Length", str(len(body) * (2 if self.server.cut else 1)))
+        self.end_headers()
+        self.wfile.write(body[:4])
+        self.wfile.flush()
+        self.server.sending.set()
+        self.server.release.wait(30)
+        self.wfile.write(body[4:])
+
+
+@pytest.fixture
+def changing_file() -> Iterator[ThreadingHTTPServer]:
+    """Run `_ChangingFile` on a port of its own; `server.url` is the address of its file."""
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _ChangingFile)
+    server.body = b"old-body"
+    server.status = 200
+    server.cut = False
+    server.sending = threading.Event()
+    server.release = threading.Event()
+    server.release.set()
+    server.requests = []
+    server.url = f"http://127.0.0.1:{server.server_port}/archive.csv.gz"
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield server
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_refetch_before_fetches_a_copy_made_before_it_and_leaves_one_made_after(
+    changing_file: ThreadingHTTPServer, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A copy older than `refetch_before` is fetched again over the valid one, and not one made after it (GH-2567)."""
+    url = changing_file.url
+    with stamina.set_testing(True, attempts=1), caplog.at_level(logging.INFO, logger="wetterdienst.util.network"):
+        first = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.INFINITE)
+        changing_file.body = b"new-body"
+        # made after: not fetched again, whatever the file is now
+        after = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.INFINITE, refetch_before=first.cached_at - 1)
+        caplog.clear()
+        before = download_file(
+            url=url, cache_dir=tmp_path, ttl=CacheExpiry.INFINITE, refetch_before=first.cached_at + 1
+        )
+        refetching = caplog.text
+        caplog.clear()
+        later = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.INFINITE)
+
+    assert (first.from_cache, first.content.getvalue()) == (False, b"old-body")
+    assert (after.from_cache, after.content.getvalue(), after.cached_at) == (True, b"old-body", first.cached_at)
+    assert (before.from_cache, before.content.getvalue()) == (False, b"new-body")
+    assert "Downloading file" in refetching
+    assert "from cache" not in refetching
+    assert before.cached_at is not None
+    assert before.cached_at > first.cached_at
+    assert (later.from_cache, later.content.getvalue(), later.cached_at) == (True, b"new-body", before.cached_at)
+    assert "Reading file" in caplog.text
+    assert changing_file.requests == ["GET /archive.csv.gz"] * 2
+
+
+@pytest.mark.parametrize("failure", ["status", "cut"])
+def test_a_refetch_that_fails_leaves_the_copy_to_be_served(
+    changing_file: ThreadingHTTPServer, tmp_path: Path, failure: str
+) -> None:
+    """The copy is replaced when the new body is whole, and a refetch that is refused or cut off leaves it (GH-2567)."""
+    url = changing_file.url
+    with stamina.set_testing(True, attempts=1):
+        first = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.INFINITE)
+        changing_file.body = b"new-body"
+        if failure == "status":
+            changing_file.status = 503
+        else:
+            changing_file.cut = True
+        refetch = download_file(
+            url=url, cache_dir=tmp_path, ttl=CacheExpiry.INFINITE, refetch_before=first.cached_at + 1
+        )
+        changing_file.status = 200
+        changing_file.cut = False
+        # and without it, the copy is the one that is read
+        kept = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.INFINITE)
+
+    assert isinstance(refetch.content, Exception)
+    assert refetch.cached_at is None
+    assert (kept.from_cache, kept.content.getvalue(), kept.cached_at) == (True, b"old-body", first.cached_at)
+
+
+def test_a_copy_is_as_old_as_its_download_began(changing_file: ThreadingHTTPServer, tmp_path: Path) -> None:
+    """A body that takes a while holds the file as it was when the download began, and is dated so (GH-2567).
+
+    The file changes while the body is on its way, and the listing says when. The copy that holds the old bytes was
+    made before that, so the call that has the time of the change as its `refetch_before` fetches it again, where
+    a copy stamped when the download was over would be taken for one of the new file.
+    """
+    url = changing_file.url
+    changing_file.release.clear()
+    changed: dict[str, float] = {}
+
+    def change() -> None:
+        try:
+            # the first bytes of the old body are on the wire: the file changes now, and not at a time of the clock
+            assert changing_file.sending.wait(30), "the server never began to send the body"
+            changing_file.body = b"new-body"
+            # `started` of the download was read before the first byte was sent, so a reading that is later than
+            # one taken now is later than it, where a clock that ticks coarsely would give the same time twice
+            now = at = time.time()
+            while at <= now:
+                at = time.time()
+            changed["at"] = at
+        finally:
+            changing_file.release.set()
+
+    worker = threading.Thread(target=change)
+    worker.start()
+    with stamina.set_testing(True, attempts=1):
+        first = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.INFINITE)
+        worker.join(30)
+        again = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.INFINITE, refetch_before=changed["at"])
+
+    assert first.content.getvalue() == b"old-body"
+    assert first.cached_at is not None
+    assert first.cached_at < changed["at"]
+    assert (again.from_cache, again.content.getvalue()) == (False, b"new-body")

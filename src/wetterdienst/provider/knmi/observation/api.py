@@ -44,6 +44,7 @@ from wetterdienst.util.network import (
     drop_cached_file,
     fetchable_link,
 )
+from wetterdienst.util.response_warnings import note_skipped_download
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -70,11 +71,6 @@ _STEP_BY_RESOLUTION = {
 #: What a download of KNMI returns when it is not an answer to the request, and must be raised: no connection,
 #: no answer, a refused key.
 _UNANSWERED = (NoInternetError, DownloadError, CredentialRejectedError)
-
-#: The hosts besides KNMI's own that the pre-signed link of a file leads to: the S3 bucket of its datasets, which signs
-#: the link (`X-Amz-Signature`); `knmi-kdp-datasets-eu-west-1.s3.eu-west-1.amazonaws.com` when read (2026-10-24, host
-#: only). `*` stands for one label (GH-3339).
-_DOWNLOAD_HOSTS = ("knmi-kdp-datasets-*.s3.*.amazonaws.com",)
 
 _NON_RETRYABLE_STATUSES = {400, 401, 403, 404}
 _RETRY_WAIT_INITIAL_SECONDS = 2
@@ -270,8 +266,9 @@ def _fetch_netcdf(dataset_name: str, version: str, filename: str, settings: Sett
     if not download_url:
         return Exception(f"KNMI resolve response for {filename} did not contain a temporaryDownloadUrl")
     try:
-        # the link is the resolve answer's to name: fetched at KNMI's own host or the store it signs for (GH-3339)
-        download_url = fetchable_link(download_url, _BASE_URL, allow=_DOWNLOAD_HOSTS)
+        # the link is the resolve answer's to name: fetched at the hosts of KNMI, its API and the store that signs
+        # the link (`PROVIDER_HOSTS`, GH-3339)
+        download_url = fetchable_link(download_url, _BASE_URL)
     except DownloadError as refused:
         # the resolve answer is cached for minutes, and would hand out the same link again
         drop_cached_file(
@@ -331,6 +328,7 @@ class KnmiObservationValues(TimeseriesValues):
             if isinstance(payload, Exception):
                 # a single missing timestamp (a 404) or one that KNMI refused (a 429, an answer)
                 # shouldn't sink the whole range
+                note_skipped_download()
                 log.warning(
                     f"Failed to acquire KNMI data for station {station_id}, file {filename}: "
                     f"{_without_url_secrets_in(str(payload))}"
@@ -398,11 +396,13 @@ class KnmiObservationRequest(TimeseriesRequest):
         resolution rather than a single shared one.
         """
         settings = cast("Settings", self.settings)
-        requested = {
+        # in the order the request names them (a set would give the stations in the order of the hash seed of the
+        # process, GH-3551)
+        requested = dict.fromkeys(
             (parameter.dataset.resolution.value, parameter.dataset.resolution.name, parameter.dataset.name)
             for parameter in self.parameters
             if isinstance(parameter, ParameterModel)
-        }
+        )
         station_frames: dict[Resolution, pl.DataFrame | None] = {}
         data = []
         for resolution, resolution_name, dataset in requested:

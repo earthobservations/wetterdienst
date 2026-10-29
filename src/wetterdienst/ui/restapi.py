@@ -20,7 +20,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.utils import is_body_allowed_for_status_code
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, with_config
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # not `typing.TypedDict`: pydantic refuses that as a response model on Python below 3.12
@@ -45,7 +45,7 @@ from wetterdienst.exceptions import (
 )
 from wetterdienst.io.export import require_kaleido
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.model.metadata import CoverageNetwork, CoverageResolution
+from wetterdienst.model.metadata import CoverageNetwork, CoverageParameter, Extent
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.result import (
     ValuesResult,
@@ -1364,9 +1364,10 @@ def auth(
     `valid` is false whenever `configured` is false (a probe cannot be performed without credentials).
 
     This is the one call that probes the provider, for the one network asked about: one attempt that
-    gives up after a few seconds. `/api/coverage` does not probe, so ask here whether the credentials
-    of a network it lists as `configured` are accepted. The MCP tool and the CLI command
-    (`wetterdienst about auth`) are this call.
+    gives up after a few seconds. The answer may be up to a minute old: the provider is probed at most
+    once a minute per network (5 seconds after a `valid` of null). `/api/coverage` does not probe, so
+    ask here whether the credentials of a network it lists as `configured` are accepted. The MCP tool
+    and the CLI command (`wetterdienst about auth`) are this call.
     """
     provider, network = request.provider, request.network
 
@@ -1376,11 +1377,34 @@ def auth(
 
 
 # What `/api/coverage` answers is what `Wetterdienst.discover()` and `TimeseriesRequest.discover()` build,
-# described by the `Coverage*` models of `wetterdienst.model.metadata`. The answer is still sent as those return it, so
-# the models only describe it.
+# described by the `Coverage*` models of `wetterdienst.model.metadata` and the two below. The answer is still sent as
+# those return it, so the models only describe it.
 # the answer without a provider and network: every provider, its networks and whether each needs
 # credentials; the answer for one: its resolutions, which a filter that matches none of leaves out
 CoverageProviders = dict[str, dict[str, CoverageNetwork]]
+
+
+# The datasets and resolutions as the route describes them. They are `CoverageDataset` and `CoverageResolution` of
+# `wetterdienst.model.metadata` but for the extent of a dataset: `discover()` gives it as a plain dict (`ExtentDict`,
+# so that what its annotation says is what it holds), and the schema of the answer names the one `Extent` of
+# `/api/providers`, so that a client generator sees one type (GH-3456)
+@with_config(ConfigDict(extra="forbid"))
+class CoverageDataset(TypedDict):
+    """A dataset of a resolution."""
+
+    description: str | None
+    parameters: list[CoverageParameter]
+    extent: Extent
+
+
+@with_config(ConfigDict(extra="forbid"))
+class CoverageResolution(TypedDict):
+    """A resolution of a network."""
+
+    description: str | None
+    datasets: dict[str, CoverageDataset]
+
+
 CoverageResolutions = dict[Resolution, CoverageResolution]
 # What the route declares: one object holding either, as a union of the two would make the
 # schema's top level `anyOf`, and the MCP `coverage` tool, which takes its output schema from
@@ -1400,11 +1424,21 @@ def coverage(
     resolutions=... or datasets=... (e.g. datasets="climate_summary") to discover parameter names.
 
     The list of every provider downloads nothing, so it answers at once. Per network it gives
-    `name_short`, `country`, `url` and `kind`. `kind` is `observation`, `forecast` or `derived` for a
+    `name_short`, `country`, `url`, `scope` (how far it reaches: `global`, `national` or `regional`, which `country`
+    does not say) and `kind`. `kind` is `observation`, `forecast` or `derived` for a
     timeseries network, which has stations and values (every network but two); `radar` and `alerts`
     are standalone (`dwd/radar`, `dwd/alerts`): the other endpoints answer 404 for them. For a network
     that needs credentials, `configured` says whether they are present; whether the provider accepts
-    them is not checked here, `/api/auth` (the MCP `auth` tool) does, for one network.
+    them is not checked here, `/api/auth` (the MCP `auth` tool) does, for one network. With a provider and
+    network, each dataset has its `extent` (where its stations are: `scope`, `continents`, `bbox`, and
+    `country_codes` for a regional one): the dataset's own where it is narrower than its network's, else the
+    network's. `providers` has the extent of every network.
+
+    `unit` of a parameter is the unit its `values` come back in when the request gives no `unit_targets` or
+    `convert_units`, the one `glossary` gives for its `unit_type` (`degree_celsius`, never Kelvin; `decimal`, 0 to 1,
+    for a percentage). `unit_source` is the unit the provider publishes it in, which the values come in with
+    `convert_units=false`; it is there only where it differs from `unit`, and absent means the same. This takes no
+    options: a `unit_targets` of your own changes what `values` return, not this answer.
     """
     provider, network = request.provider, request.network
 
@@ -1451,12 +1485,15 @@ def providers(
 ) -> Response:
     """Describe what each data provider is: its name, country, licence, credit line, source and networks.
 
-    For every provider, or the one named with `provider`: the names it goes by, its country (`country_code`
-    is the ISO 3166-1 alpha-2 code), the terms it publishes its data under (`license`, null where it states
-    none) and the credit line to give (`attribution`), and its networks, each with its `kind`, source `url`,
-    whether it needs credentials (`auth`) and the resolutions and datasets it offers, with how many parameters
-    each has. Nothing is downloaded and no credential is read, so it answers at once; `coverage` lists the
-    parameters of a network, and `auth` checks whether its credentials are accepted.
+    For every provider, or the one named with `provider`: the names it goes by, the country of the agency
+    that runs it (`country_code` is the ISO 3166-1 alpha-2 code; it is the operator's country, not the extent
+    of its data), the terms it publishes its data under (`license`, null where it states none) and the credit
+    line to give (`attribution`), and its networks, each with its `kind`, its `extent` (where its stations are:
+    `scope`, `continents`, `country_codes`, `bbox`), source `url`, whether it needs credentials (`auth`) and the
+    resolutions and datasets it offers, with how many parameters each has; a dataset whose stations are fewer
+    than its network's has an `extent` of its own, and one without has its network's. Nothing is downloaded
+    and no credential is read, so it answers at once; `coverage` lists the parameters of a network, and `auth`
+    checks whether its credentials are accepted.
     """
     begin_response()
 
@@ -1677,6 +1714,8 @@ def _stream_values(
     results = itertools.chain([first], results) if first is not None else iter(())
     # the block as far as it is known before the first reading: the stations selected, no rows yet
     preview = limit_stations_to_rank(stations)
+    # no `data_updated_at`: the newest date of the stations is not known before the last is read, and a list of
+    # stations has none
     metadata = response_metadata(preview, request, rows=0)
     frames = (result.df for result in results)
     failure = _stream_failure(request, "stream values")

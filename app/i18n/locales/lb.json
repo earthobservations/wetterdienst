@@ -62,6 +62,22 @@
     "kindRoadDesc": "Fahrbunnzoustand an -temperature vun de DWD-Stroossewiederstatiounen, mat hire Prognosen.",
     "aboutLink": "Iwwer d'Projet an d'Leit dohannert"
   },
+  "seo": {
+    "title": "Wetterdienst – oppen Wieder- a Klimadaten vun nationale Wiederdéngschter",
+    "description": "Oppen Wieder- a Klimadaten vun nationale Wiederdéngschter an engem eenzege Format: Explorer, Wiederprognos, Klimasträifen, REST-API an MCP-Server. Open Source a gratis.",
+    "noscript": "Wetterdienst brauch JavaScript fir Daten unzeweisen.",
+    "pages": {
+      "explorer": "Wiel en Ubidder, Parameteren a Statioune op der Kaart, liest d'Miessungen, interpoléier e Punkt an luet d'Resultat als CSV, JSON oder GeoJSON erof.",
+      "meteogram": "D'MOSMIX-Prognos vun enger DWD-Statioun als Meteogram: Temperatur, Wand, Nidderschlag, Wolleken a Loftdrock.",
+      "stripes": "Klimasträifen fir d'Temperatur oder den Nidderschlag vun enger DWD-Statioun.",
+      "history": "Wéi sech eng DWD-Statioun mat der Zäit geännert huet: Numm, Standuert an Instrumenter.",
+      "api": "D'REST-API an de MCP-Server vu Wetterdienst: Formater an Beispiller fir Statioune, Wäerter, Interpolatioun a Klimasträifen.",
+      "providers": "Déi national Wiederdéngschter hannert den Daten: Land, Lizenz, d'Quell, déi ugi muss ginn, a wat all eenzelne bitt.",
+      "glossary": "Wat all Wieder- a Klimaparameter mierkt a a wéi enger Eenheet seng Wäerter zeréckkommen, mat Sich no Numm a Gréisst.",
+      "about": "Iwwer dat Open-Source-Projet Wetterdienst an d'Leit, déi et ënnerhalen.",
+      "support": "Ënnerstëtz Wetterdienst: mell e Problem, dréi Code bäi oder spend."
+    }
+  },
   "values": {
     "title": "Wofir mir stinn",
     "lgbtq": "Mir ënnerstëtzen d'LGBTQI+-Communautéit.",
@@ -111,7 +127,8 @@
     "copyright": "© {year} earthobservations",
     "legal": "Impressum",
     "privacy": "Dateschutz",
-    "about": "Iwwer eis"
+    "about": "Iwwer eis",
+    "licenses": "Lizenze vun Drëtten"
   },
   "language": {
     "switch": "Sprooch wiesselen",
@@ -429,6 +446,12 @@
     "stationNotFound": "Statioun net fonnt",
     "openFull": "Voll Prognos opmaachen",
     "poweredBy": "Ënnerstëtzt vu Wetterdienst · DWD MOSMIX"
+  },
+  "notFound": {
+    "title": "Säit net fonnt",
+    "text": "Op dëser Adress gëtt et keng Säit. Kontrolléier d'Adress oder fänk op der Startsäit un.",
+    "home": "Op d'Startsäit",
+    "back": "Zréck"
   },
   "stripes": {
     "title": "Klimasträifen",

@@ -2,6 +2,7 @@ import * as process from 'node:process'
 
 import tailwindcss from '@tailwindcss/vite'
 import { RATE_LIMIT_DEFAULTS } from './server/utils/rateLimit'
+import { DEFAULT_SITE_URL } from './shared/utils/seo'
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
@@ -15,7 +16,16 @@ export default defineNuxtConfig({
 
   app: {
     head: {
-      title: 'Wetterdienst',
+      // no `title`: the page's own (`app/app.vue`, the sentence that says what the site is, in the visitor's language) and
+      // the server's (`server/plugins/seo-head.ts`) are the document's, and a default here would be the title of a page
+      // that names none, with the app's name after it
+      // the icon of the tab and the home screen (GH-3431): the SVG for current browsers, the 32 px ICO for the
+      // ones that ask for `/favicon.ico` and crawlers, the PNG for iOS. All three are files of `public/`.
+      link: [
+        { rel: 'icon', type: 'image/svg+xml', href: '/icon.svg' },
+        { rel: 'icon', href: '/favicon.ico', sizes: '32x32' },
+        { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
+      ],
     },
   },
 
@@ -76,8 +86,10 @@ export default defineNuxtConfig({
     fallbackToApi: false,
   },
 
+  // No `host`: `nuxt dev` listens on localhost, where Nuxt DevTools is reachable by this machine only (GH-3096).
+  // The dev container sets `HOST=0.0.0.0` (compose.yml, docker/app.Dockerfile), because a published port
+  // reaches nothing that listens on the loopback of the container.
   devServer: {
-    host: '0.0.0.0',
     port: 4000,
   },
 
@@ -98,9 +110,15 @@ export default defineNuxtConfig({
     // The origins whose pages may read the app's answers, a list separated by commas (`NUXT_CORS_ALLOWED_ORIGINS`):
     // none, so only the app's own page does (GH-3095). `server/middleware/cors.ts`.
     corsAllowedOrigins: '',
+    // The backend's `/api` URL, which the app's proxies call (`server/utils/apiBase.ts`). Private, so no page
+    // carries it, and set at run time by `NUXT_API_BASE` (GH-3096). Empty means: the old `NUXT_PUBLIC_API_BASE`
+    // if that is set (deprecated), else `http://localhost:7890/api`.
+    apiBase: '',
     public: {
-      // Allow overriding the backend API base via environment (NUXT_PUBLIC_API_BASE or API_BASE)
-      apiBase: 'http://localhost:7890/api',
+      // The address the app is reached at, for what names the pages to the outside: the canonical link and `og:url` of
+      // each page, the sitemap and `robots.txt` (`shared/utils/seo.ts`, GH-3497). Public, because the page writes the
+      // canonical link itself. The hosted instance's; an instance of its own sets `NUXT_PUBLIC_SITE_URL` (docs/usage/app.md).
+      siteUrl: DEFAULT_SITE_URL,
     },
   },
 
@@ -175,12 +193,12 @@ export default defineNuxtConfig({
         // is a question of its own (inline styles cannot run code).
         'default-src': ['\'self\''],
         'connect-src': ['\'self\''],
-        'img-src': ['\'self\'', 'data:', 'blob:', 'https://*.tile.openstreetmap.org', 'https://raw.githubusercontent.com', 'https://cdnjs.cloudflare.com', 'https://unpkg.com', 'https://avatars.githubusercontent.com'],
+        'img-src': ['\'self\'', 'data:', 'blob:', 'https://*.tile.openstreetmap.org', 'https://avatars.githubusercontent.com'],
         'script-src': ['\'self\'', '\'nonce-{{nonce}}\'', '\'wasm-unsafe-eval\''],
         'worker-src': ['\'self\''],
         'child-src': ['\'self\''],
         'style-src': ['\'self\'', '\'unsafe-inline\''],
-        'font-src': ['\'self\'', 'https:', 'data:'],
+        'font-src': ['\'self\'', 'data:'],
         'base-uri': ['\'none\''],
         'form-action': ['\'self\''],
         'frame-ancestors': ['\'self\''],
@@ -195,6 +213,7 @@ export default defineNuxtConfig({
     // of the app now (GH-3094), a blob of the page's own before, which took the page's policy. nuxt-security sets
     // it for the page only, so the assets say it themselves.
     '/_nuxt/**': { headers: { 'Cross-Origin-Embedder-Policy': 'credentialless' } },
+    // Who may frame `/widget` is not a rule of this list: see `server/plugins/widget-frame.ts`.
   },
 
   nitro: {

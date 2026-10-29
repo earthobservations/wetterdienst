@@ -217,7 +217,18 @@ def _ipma(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFr
     # 2,170 kJ/m2, the clear sky of that noon at 38.7 N about 2,600) has three stations above the extraterrestrial
     # 3,260 kJ/m2 of the hour: 6211217 (3,867), 6211213 (3,752) and 1200512 (3,257), and 6211217 reads 3,961 at
     # 13 UTC. That is a station that reads high, not a code, so the value is not touched. IPMA's open-data page lists
-    # the files only and defines none of the fields.
+    # the files only and defines none of the fields. Read again on 2026-10-28 (the feed of 24 hours, 2,833 values of
+    # about 130 stations): 6211217 (Viana do Castelo - Fonte Louça, 41.75 N) reads 2,551 kJ/m2 at 13 UTC, 1.23 times
+    # the 2,082 of the median station and below the 2,850 the sky above holds; the 3,913 of mid October is out of the
+    # window. Four stations are above the extraterrestrial radiation of the hour (computed from the position and the
+    # time, either end of the hour): Portalegre (1200571, up to 1.27 times, 3,807 at 12 UTC), Paredes de Coura - Vascoes
+    # (6211213, 1.24), Ponta Delgada (1200512, 1.23) and Castro Marim (1210867, 1,395 kJ/m2 at 07 UTC, before the sun
+    # is up at 576, so a station on another clock). Not a unit: the median station is 0.73 of the extraterrestrial
+    # value, a kJ/m2 per hour that fits, a sum of 10 minutes or a MJ/m2 would be off by 6 or 1,000, and the reader's
+    # kJ/m2 to J/cm2 is exact (2,551.2 becomes 255.12). The documentation says "radiacao : radiacao solar (kJ/m2)"
+    # beside "valor acumulado da hora" for `precAcumulada` and "media da hora" for `humidade` and `pressao`, so it names
+    # no period for the radiation. A sensor that reads 20 to 27 % high is a fault the source documents no code for,
+    # and the range check (500,000 J/cm2) is not meant for it: left a value.
     # The feed read in full on 2026-10-21 (174 stations, 24 hours, 4,079 station hours; the Oct 19 feed again for
     # 203 stations) has the -99.0 in every field and nothing else that is a code: `intensidadeVento` and
     # `intensidadeVentoKM` are -99.0 in the same 415 hours (and agree to 0.04 km/h otherwise), the direction code 0
@@ -736,7 +747,11 @@ def _meteofrance_synop(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True)
     # synop_2024.csv.gz: ABBEVILLE 2024-01-01T18:00Z has rr6=-0.1 beside rr1=0.0, CHASSIRON 2024-01-03T06:00Z has n=101;
     # a calm is dd=0 beside ff=0 (3495 rows, all with ff=0) and north is dd=360 (3230 rows), as the WMO table has it;
     # the 400 is the file of 1996's own (14 rows, DUMONT D'URVILLE and EUROPA, dd=400 beside ff=1 or 2, GH-2873), here
-    # moved to 07005 at 2024-01-01T23:00Z
+    # moved to 07005 at 2024-01-01T23:00Z; tn12/tx12 are the 12 hour extremes of PARIS-MONTSOURIS (07156) at
+    # 2026-10-27T06:00Z and 18:00Z in synop_2026.csv.gz, moved to 07005 and to 2024-01-02 (read 2026-10-28). The file
+    # has no code for a missing reading: it is an empty field, which is what the reader nulls, and the 3-hourly steps
+    # between the two (here 12:00Z) leave both columns empty. The documentation (Descriptif technique, 2026-04-20)
+    # states no sentinel for them, and in the 2026 file they run from 242.65 to 316.75 K and 237.35 to 308.25 K
     schema = list(synop_api._SYNOP_CSV_SCHEMA)  # noqa: SLF001
     rows = [
         {
@@ -770,9 +785,21 @@ def _meteofrance_synop(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True)
             "dd": "0",
             "ff": "2",
         },
+        # CAYENNE-MATOURY (81405) at 2026-07-01T00:00Z in synop_2026.csv.gz writes the maximum of the daytime into tn12
+        # too: tx12 and tn12 303.75 K (30.6 C) beside t 298.55 K (25.4 C); moved here (GH-3540)
+        {
+            "geo_id_wmo": "07005",
+            "validity_time": "2024-01-01T00:00:00Z",
+            "t": "298.55",
+            "tn12": "303.75",
+            "tx12": "303.75",
+        },
+        {"geo_id_wmo": "07005", "validity_time": "2024-01-02T06:00:00Z", "tn12": "285.75", "tx12": "287.85"},
+        {"geo_id_wmo": "07005", "validity_time": "2024-01-02T12:00:00Z", "t": "288.55"},
+        {"geo_id_wmo": "07005", "validity_time": "2024-01-02T18:00:00Z", "tn12": "285.75", "tx12": "289.35"},
     ]
     lines = [";".join(schema)] + [";".join(row.get(column, "") for column in schema) for row in rows]
-    serve(monkeypatch, synop_api, {"synop_2024": gzip.compress("\n".join(lines).encode("utf8"))})
+    serve(monkeypatch, synop_api, {"/data/OBS/SYNOP/synop_2024.csv.gz": gzip.compress("\n".join(lines).encode("utf8"))})
     request = MeteoFranceSynopRequest(
         parameters=[
             ("subdaily", "data", "precipitation_amount_last_1h"),
@@ -780,9 +807,11 @@ def _meteofrance_synop(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True)
             ("subdaily", "data", "cloud_cover_total"),
             ("subdaily", "data", "wind_direction_mean_last_10min"),
             ("subdaily", "data", "wind_speed_mean_last_10min"),
+            ("subdaily", "data", "temperature_air_max_2m_last_12h"),
+            ("subdaily", "data", "temperature_air_min_2m_last_12h"),
         ],
         start=_day(2024, 1, 1),
-        end=_day(2024, 1, 2),
+        end=_day(2024, 1, 3),
         settings=_settings(),
         options=_options(drop_nulls),
     )
@@ -1328,7 +1357,14 @@ def _nws_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
 def _smhi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # The hourly `Sikt` (parameter 12, "momentanvärde, 1 gång/tim", meter) tops at 99999 m at some stations (809 and
     # 1,169 hours at two of them, GH-3135); the parameter's page names no code for it (2026-10-19), so it is read as
-    # the top of the sensor's range and left a value, as it is for NOAA's 16,093 m (ten miles). The 1 minute
+    # the top of the sensor's range and left a value, as it is for NOAA's 16,093 m (ten miles). Read again on
+    # 2026-10-28 (`latest-months` of the 168 active stations, 516,339 hours, every row quality `Y`, so the flag tells a
+    # code from a reading nowhere): 87 stations have 99999 m, 53,498 hours (10.4 %), and the other hours continue
+    # right up to it (163,943 between 50,000 and 99,998 m, 99,998 the highest), so 99999 is where the scale is cut
+    # ("100 km or more"), not a gap in it. It follows the air and not a fault: at Eskilstuna (96190), Mora (104580) and
+    # Gällivare (180760) the median humidity of the 99999 hours is 60, 71 and 71 % against 78, 92 and 91 % in the
+    # others, and the hours come in runs of up to 54, 118 and 66 in a row (dry clear spells). SMHI's parameter 12
+    # ("Sikt", "momentanvärde, 1 gång/tim", meter) and its knowledge bank name no code for it (2026-10-28). The 1 minute
     # parameters are read the same way (`latest-day`, 2026-10-21, two draws of 12 and 40 of the 586 stations with an
     # open end, of which ten had data: 88,651 values): the visibility (parameter 51, "medelvärde 1 min") has 99999 m
     # at several stations (854 of 6,068 minutes in the first draw, 11 to 464 of 1,527 at three stations of the second)
@@ -2061,12 +2097,14 @@ STUBS = [
             ("wind_direction_mean_last_10min", 400.0),
         ),
         # a trace is 0.0 with the code beside it; an obscured sky has no amount; a calm and a 400 are no direction,
-        # and north is 360
+        # and north is 360; a copied tn12 is a plausible temperature, so it is in `tokens` and not in `sentinels`
         tokens=(
             ("precipitation_amount_last_6h", "-0.1", 0.0),
             ("cloud_cover_total", "101", None),
             ("wind_direction_mean_last_10min", "0", None),
             ("wind_direction_mean_last_10min", "400", None),
+            # a tn12 that is the text of the tx12 beside it is a copy, no minimum
+            ("temperature_air_min_2m_last_12h", "303.75", None),
         ),
     ),
 ]
@@ -2083,7 +2121,9 @@ NO_STUB = {
         "holds text that is no number. The extremes of every daily, monthly, yearly, 10 minute and hourly element "
         "sampled (station 0-20000-0-11414, 2026-10-12) are readings (daily H tops at 100, SRA at 238.5 mm). The "
         "10 minute T, H, P and F of Cheb (0-20000-0-11406, 2024-01-01 to 2024-01-07, 4,036 rows) and the hourly Td, "
-        "SRA1H and P of January 2024 (2,235 rows) hold no value outside the physical range (2026-10-19)"
+        "SRA1H and P of January 2024 (2,235 rows) hold no value outside the physical range (2026-10-19). The hourly "
+        "P_hm (GH-3413) of 2025 of two stations (0-20000-0-11406, "
+        "0-20000-0-11520; 17,520 rows, read 2026-10-25) has no empty value and none outside 989 to 1045 hPa"
     ),
     "dwd/alerts": "no timeseries",
     "dwd/phenology": (

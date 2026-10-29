@@ -97,7 +97,8 @@ describe('queryPanel in the active language', () => {
     try {
       await wrapper.find('button').trigger('click')
       await wrapper.findAll('button').find(button => button.text() === 'Abfrage ausführen')!.trigger('click')
-      await vi.waitFor(() => expect(wrapper.text()).toContain('Keine Daten zum Abfragen vorhanden'))
+      // the panel starts its DuckDB before it answers: that is more than the 1 s of `waitFor` on a loaded machine
+      await vi.waitFor(() => expect(wrapper.text()).toContain('Keine Daten zum Abfragen vorhanden'), { timeout: 10_000 })
     }
     finally {
       wrapper.unmount()

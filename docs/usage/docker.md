@@ -23,6 +23,20 @@ Get ``wetterdienst``:
 docker pull ghcr.io/earthobservations/wetterdienst
 ```
 
+### Verify the image
+
+The manifest list of a release has a build provenance, signed with the GitHub Actions identity of the workflow that
+pushed it through Sigstore, and each platform has a BuildKit provenance and an SBOM (releases built after they were
+introduced):
+
+```bash
+gh attestation verify oci://ghcr.io/earthobservations/wetterdienst:<version> --repo earthobservations/wetterdienst
+docker buildx imagetools inspect ghcr.io/earthobservations/wetterdienst:<version> --format '{{json .SBOM}}'
+```
+
+The same holds for `ghcr.io/earthobservations/wetterdienst-app`. What each attestation covers, and the check of the
+PyPI wheel, is in the [security policy](https://github.com/earthobservations/wetterdienst/blob/main/.github/SECURITY.md#release-provenance).
+
 ## Invoke
 
 Run Wetterdienst command line interface:
@@ -63,7 +77,7 @@ The app has an image of its own, `ghcr.io/earthobservations/wetterdienst-app`, s
 `compose.yml` of the repository builds the development images. `docker compose --profile backend up`
 serves the API on <http://localhost:7890>, `--profile app up` the app on <http://localhost:4000>, and
 `--profile full up` both, the app asking the backend at `http://backend:7890/api` on the compose network
-(`NUXT_PUBLIC_API_BASE`). The host ports are the container's own, 7890 and 4000.
+(`NUXT_API_BASE`). The host ports are the container's own, 7890 and 4000.
 
 Both ports are published on `127.0.0.1` only, so the API and the app (a development server with
 Nuxt DevTools) answer on the machine that runs compose and not on its network. To reach them from

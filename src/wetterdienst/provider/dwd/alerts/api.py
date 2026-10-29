@@ -19,7 +19,7 @@ import logging
 import re
 import zipfile
 import zlib
-from typing import TYPE_CHECKING, Any, ClassVar, Never
+from typing import TYPE_CHECKING, Any, ClassVar, Never, cast
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -32,7 +32,7 @@ from wetterdienst.exceptions import (
     RequestError,
 )
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.model.metadata import ProviderTerms
+from wetterdienst.model.metadata import Extent, ProviderTerms
 from wetterdienst.provider.dwd.alerts.metadata import (
     DWD_ALERTS_BASE_URL,
     DwdWeatherAlertGranularity,
@@ -117,6 +117,17 @@ class DwdWeatherAlertResult:
         self.granularity = granularity
         self.language = language
         self.snapshot = snapshot
+
+    @property
+    def data_updated_at(self) -> dt.datetime | None:
+        """When DWD last said anything of these warnings: the newest `sent` of them, `None` for no warning (GH-2567).
+
+        The `sent` of a CAP message is the time DWD issued it, an update of a warning being a new message, so the
+        newest of them is the "date of the most recent update" of what the answer holds. It is stated in the body of
+        each warning, not read off the file the snapshot came in.
+        """
+        sent = self.df.get_column("sent").drop_nulls()
+        return None if sent.is_empty() else cast("dt.datetime", sent.max())
 
     def _alerts(self) -> list[dict[str, Any]]:
         """Return the alert rows with nested fields (parameters, geometry) decoded to native objects."""
@@ -217,6 +228,9 @@ class DwdWeatherAlertRequest:
         license=_METADATA["license"],
         attribution=_METADATA["attribution"],
         url=DWD_ALERTS_BASE_URL,
+        # the warnings are issued for the communes and districts of Germany, and for the sea around its coast
+        # (declared from the documentation of DWD, no station list to hold it to)
+        extent=Extent(scope="national", continents=["europe"], country_codes=["DE"], bbox=[3.0, 47.0, 16.0, 56.0]),
     )
 
     def __init__(

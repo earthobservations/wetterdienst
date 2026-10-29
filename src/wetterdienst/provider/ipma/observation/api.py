@@ -20,7 +20,7 @@ import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.request import TimeseriesRequest
-from wetterdienst.model.values import TimeseriesValues
+from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.ipma.observation.metadata import IpmaObservationMetadata
 from wetterdienst.provider.ipma.observation.parser import (
     extract_ipma_station_observations,
@@ -71,17 +71,27 @@ class IpmaObservationValues(TimeseriesValues):
             return None
         feed = parse_ipma_observations_feed(file.content.read())
         self._feed_cache = feed
+        # when IPMA last wrote the feed, which every station of the query is read from (GH-2567)
+        self._feed_written = file.last_modified
         return feed
 
     def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
-        parameter_or_dataset: ParameterModel | DatasetModel,  # noqa: ARG002
+        parameter_or_dataset: ParameterModel | DatasetModel,
     ) -> pl.DataFrame:
         feed = self._observations_feed()
         if feed is None:
             return pl.DataFrame()
-        return extract_ipma_station_observations(feed, station_id=station_id)
+        df = extract_ipma_station_observations(feed, station_id=station_id)
+        if df.is_empty():
+            return df
+        # the date IPMA wrote the feed travels with the rows of the station (`_note_files_with_rows`, GH-2567)
+        dated = df.with_columns(
+            pl.lit(getattr(self, "_feed_written", None), dtype=pl.Datetime("us", "UTC")).alias(UPDATED)
+        )
+        dataset = cast("DatasetModel", getattr(parameter_or_dataset, "dataset", parameter_or_dataset))
+        return self._note_files_with_rows(dated, dataset)
 
 
 @dataclass

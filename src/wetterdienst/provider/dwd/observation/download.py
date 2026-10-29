@@ -16,6 +16,7 @@ from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata
 from wetterdienst.util.archive import open_zip
 from wetterdienst.util.network import File, download_files
+from wetterdienst.util.response_warnings import note_skipped_download
 
 if TYPE_CHECKING:
     import polars as pl
@@ -93,10 +94,17 @@ def download_climate_observations_data(
         use_certifi=settings.use_certifi,
     )
     # a 404 is a file that is not there, and is dropped; any other failure -- a timeout, a 5xx after
-    # the retries -- is an outage, which dropped would read as a station without data (GH-2430)
+    # the retries -- is an outage, which dropped would read as a station without data (GH-2430). The files are the
+    # ones the file index listed, so a 404 is one withdrawn (or renamed) since, which leaves the station's values
+    # missing: the provider lets it go, and says so
     for file in files:
         if file.status != 404:
             file.raise_if_exception()
+        else:
+            note_skipped_download()
+            log.warning(
+                f"The file {file.url} that the file index lists is not on the server (404): its values are missing"
+            )
     files = [file for file in files if isinstance(file.content, BytesIO)]
     # unpack the files
     return [_unpack_climate_observations_data(file, dataset) for file in files]
@@ -121,6 +129,7 @@ def _unpack_climate_observations_data(file: File, dataset: DatasetModel | None =
         # carried, not dropped: unpacking does not change where the bytes came from, and a caller
         # that finds the member corrupt is exactly who the flag is for
         from_cache=file.from_cache,
+        last_modified=file.last_modified,
         woz_spans=_read_woz_spans(zfs) if dataset == DwdObservationMetadata.hourly.sun else (),
         mez_md_spans=_read_mez_md_spans(zfs, dataset) if dataset in MEZ_DATASETS else {},
     )

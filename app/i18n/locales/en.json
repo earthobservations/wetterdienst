@@ -62,6 +62,22 @@
     "kindRoadDesc": "Road surface conditions and temperatures from the DWD road weather stations, and their forecasts.",
     "aboutLink": "About the project and the people behind it"
   },
+  "seo": {
+    "title": "Wetterdienst – open weather and climate data from national weather services",
+    "description": "Open weather and climate data from national weather services, in one format: explorer, forecast, climate stripes, REST API and MCP server. Open source and free.",
+    "noscript": "Wetterdienst needs JavaScript to show data.",
+    "pages": {
+      "explorer": "Pick a provider, parameters and stations on a map, read the measurements, interpolate a point and download the result as CSV, JSON or GeoJSON.",
+      "meteogram": "The MOSMIX forecast of a DWD station as a meteogram: temperature, wind, precipitation, cloud cover and pressure.",
+      "stripes": "Climate stripes for the temperature or precipitation record of a DWD station.",
+      "history": "How a DWD station changed over time: its name, location and instruments.",
+      "api": "The REST API and the MCP server of Wetterdienst: formats and examples for stations, values, interpolation and climate stripes.",
+      "providers": "The national weather services behind the data: country, licence, the credit line to give and what each one offers.",
+      "glossary": "What each weather and climate parameter measures and the unit its values come back in, searchable by name and quantity.",
+      "about": "About the open-source project Wetterdienst and the people who maintain it.",
+      "support": "Support Wetterdienst: report an issue, contribute code or donate."
+    }
+  },
   "values": {
     "title": "What we stand for",
     "lgbtq": "We stand with the LGBTQI+ community.",
@@ -111,7 +127,8 @@
     "copyright": "© {year} earthobservations",
     "legal": "Legal notice",
     "privacy": "Privacy",
-    "about": "About"
+    "about": "About",
+    "licenses": "Third-party licences"
   },
   "language": {
     "switch": "Switch language",
@@ -429,6 +446,12 @@
     "stationNotFound": "Station not found",
     "openFull": "Open full forecast",
     "poweredBy": "Powered by Wetterdienst · DWD MOSMIX"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "text": "There is no page at this address. Check the address, or start from the home page.",
+    "home": "Go to the home page",
+    "back": "Go back"
   },
   "stripes": {
     "title": "Climate stripes",

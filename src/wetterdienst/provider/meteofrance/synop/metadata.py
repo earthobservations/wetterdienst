@@ -17,6 +17,12 @@ _MeteoFranceSynopMetadataSpec = {
     "attribution": "© Météo-France",
     "url": "https://meteo.data.gouv.fr/",
     "kind": "observation",
+    "extent": {
+        "scope": "national",
+        "continents": ["africa", "antarctica", "europe", "north_america", "oceania", "south_america"],
+        "country_codes": ["FR"],
+        "bbox": [-179.0, -67.0, 167.0, 52.0],
+    },
     "timezone": "Europe/Paris",
     "resolutions": [
         {
@@ -53,6 +59,16 @@ _MeteoFranceSynopMetadataSpec = {
                         {
                             "name": "temperature_dew_point_2m",
                             "name_original": "td",
+                            "unit": "degree_kelvin",
+                        },
+                        {
+                            "name": "temperature_air_min_2m_last_12h",
+                            "name_original": "tn12",
+                            "unit": "degree_kelvin",
+                        },
+                        {
+                            "name": "temperature_air_max_2m_last_12h",
+                            "name_original": "tx12",
                             "unit": "degree_kelvin",
                         },
                         {

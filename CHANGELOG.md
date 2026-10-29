@@ -18,12 +18,227 @@ Types of changes:
 
 ### Added
 
+- A response warning `parameter-without-rows` (REST, MCP, command line and, as a log line at
+  WARNING, Python) names a requested parameter the source has no values for, with `parameter`
+  and `stations`, where the answer used to be an empty header that read like a failed request
+  (`TX`/`TN` of `dwd/mosmix` for Los Angeles, `tx24` of `meteofrance/synop` for Paris). Told for
+  a parameter asked for by name when no station has a row of it, and for a dataset asked for
+  whole only when none has a row of any of its parameters. It names the `periods`, run or lead
+  time it is limited to, and leaves out a station whose file the provider let go (GH-3539)
+- `meteofrance/synop` now offers the 12 h maximum and minimum temperature
+  (`temperature_air_max_2m_last_12h`, `temperature_air_min_2m_last_12h`; `tx12`, `tn12`), given
+  at 06 and 18 UTC by 158 of the 190 stations (2026), where `tx24`/`tn24` are given by 35 and
+  by none for Paris-Montsouris. Where `tn12` repeats the `tx12` of its own row (three overseas
+  stations at some hours: Cayenne-Matoury, Le Raizet, Lamentin) it is null, with the number kept as
+  `raw:` in `quality_flags` (GH-3540)
+
+### Changed
+
+- **Breaking**: the REST API, CLI and MCP refuse a `metno/frost` request for `daily`, `monthly` or
+  `annual` values without a start and end date, as for the other resolutions (REST: 400,
+  `timestamp` is required). Such a request was answered with no rows and no reason, as the source
+  is only asked within a window; the Python API still returns an empty frame. Pass a window
+  instead (GH-3560)
+- **Breaking**: `coverage` (`/api/coverage`, the MCP tool, `about coverage`,
+  `TimeseriesRequest.discover()`) gives a parameter the unit its values come back in as `unit`
+  (`degree_celsius`, `decimal` for a percentage: what `glossary` gives, following the server's
+  `WD_TS_UNIT_TARGETS` and `WD_TS_CONVERT_UNITS`), where it gave the unit the provider publishes
+  (`degree_kelvin`, `percent`) for 362 of the 2048 parameters, and a model told a user "Kelvin".
+  That unit is the new `unit_source`, there only where it differs from `unit` (absent: the same).
+  Read `unit_source` where you used `unit` to know what the source holds or what
+  `convert_units=false` returns. `coverage` takes no options: a `unit_targets` of a `values`
+  request changes the values, not `unit` (GH-3537)
+- **Breaking**: `nws/observation` fills a gap of the observation it keeps for an hour from the
+  nearest other observation of that hour (a verified 5-minute row for a METAR whose temperature
+  is not controlled yet), with that row's `quality_flags`. These come back where they were null:
+  temperature, dew point, humidity, both pressures, visibility, wind speed and the three
+  precipitation sums (the temperature in 1.8 % of the hours measured, the wind speed in 5.2 %).
+  The wind direction comes only together with a filled speed, from the same row; a report that
+  has a speed keeps its own direction (null for a variable wind). The running total since the
+  last routine report is taken from an earlier report only. Gust and wind chill stay as the
+  report has them. A value the kept observation has is never replaced. Nothing needs to be done
+  (GH-3480)
+- A read of many stations of `smhi/observation` fetches the per-parameter files of the next 4
+  stations into the cache while one is parsed, as `dwd/observation`, `chmi` and the others
+  already do (not with `cache_disable`, nor for `interpolate` and `summarize`). Answers, their
+  order and errors are unchanged; the connection limits and `Settings(fetch_ahead=...)` /
+  `WD_FETCH_AHEAD` (0 switches it off) are those of GH-3454 (GH-3507)
+- The description of the `large` dataset of `dwd/mosmix`, which `coverage` reports and the docs
+  page carries, says that which elements a station gets, and at which hours, depend on the station:
+  `tx` and `tn` at 06 and 18 UTC for Berlin, 12 and 00 UTC for Tokyo, none for Los Angeles, and
+  that an element without a value for it is an answer with no rows (GH-3539)
+
+### Fixed
+
+- A download, post or listing whose TLS handshake the peer answers wrongly (a non-TLS answer,
+  `WRONG_VERSION_NUMBER`; an invalid session, `INVALID_SESSION_ID`) is retried like any other
+  transient network error, where the first one failed the answer: `www.dwd.de` throws them now
+  and then. A certificate that does not verify still fails at once (GH-3533)
+- A `dwd/dmo` request for a lead time its product does not publish (`lead_time=long` for
+  `icon_eu`, which has the short run alone) is refused as a 400 naming what the product
+  publishes, where it ended in a 500 (`Unable to find a 168 h forecast`) (GH-3539)
+- The stations come in one order from one request to the next, where they changed with every
+  request or process: by station id for `dwd/observation` and `dwd/derived`, in the order of the
+  catalogue for `smhi`, `dmi`, `chmi` and `hubeau`, and the datasets of a station in the
+  order the request names them (`eccc`, `dwd/dmo`, `knmi` followed the hash seed of the process).
+  So do the `stations` of a values, interpolate or summarize answer, the features of its OGC form
+  and `filter_by_rank` / `filter_by_distance`. The values rows of a station were not affected
+  (GH-3551)
+- The `missing-value-marker` warning of an answer counts the readings that are a marker for a
+  missing value inside the window the request asked for, where it counted those of every file read
+  (12,663 for a 3-day request at DWD station 00011, the whole archive) (GH-3550)
+- The `missing-value-marker` warning counts the readings of the stations that are in the answer,
+  with `drop_nulls` on (the default) or off: not those of a station `skip_empty` leaves out, nor of
+  one a `rank` walk passes over for having no reading. `interpolate` and `summarize`, whose answer
+  is an estimate, carry no such warning now (GH-3554)
+
+## [0.178.0] - 2026-10-28
+
+### Security
+
+- `uv.lock` pins `authlib` 1.9.1 (was 1.8.0) and `dnspython` 2.9.0 (was 2.8.0), which close the
+  open Dependabot alerts for both. They come in only through the `mcp` extra (`fastmcp`), and
+  wetterdienst neither imports them nor serves an authenticated MCP endpoint, so its own code
+  did not reach the affected paths; a source install with the extra and the Docker image
+  (built from the lock) now carry the fixed versions (GH-3514)
+
+## [0.177.0] - 2026-10-27
+
+### Changed
+
+- A read of many stations of `dwd/observation`, `dwd/derived`, `chmi` or the daily synop of
+  `imgw/meteorology` fetches the files of the next 4 stations into the cache while one is parsed
+  (not with `cache_disable`, nor for `interpolate` and `summarize`): 100 stations of one small file
+  took 17.5 s and now take 4.3 s against a local upstream of 120 ms latency. Answers, their order
+  and errors are unchanged. That is up to 4 more connections to the host beside the station's own
+  download, and 8 per host at most for all reads of a process together (a station's own downloads
+  are not counted); a missing or failed file is asked twice, ahead and at its turn, so an outage
+  can show up later, by up to twice the client timeout. `Settings(fetch_ahead=...)` or
+  `WD_FETCH_AHEAD` sets the 4 (at most 8), 0 switches it off (GH-3454)
+
+### Fixed
+
+- `dwd/observation`: a read of the historical period of a 1-, 5- or 10-minute dataset for a window
+  that no file of the station covers (the gap between two files, a window past the last one) no
+  longer downloads and parses every historical file of the station only for the rows to be
+  dropped. The answer is the same, the read is faster and makes fewer requests (GH-3505)
+- `eaufrance/hubeau` declares its `extent.bbox` up to 51.1 N, not 51.0: France reaches 51.09 N
+  (Bray-Dunes), so a correctly placed station there is no longer reported as outside the country
+  by the catalogue rules and a swapped one is corrected. The box of metropolitan France that
+  swaps a misplaced position moves with it (GH-3481)
+
+## [0.176.0] - 2026-10-27
+
+### Added
+
+- Every MCP tool has a `title` ("Find stations") and the annotations `readOnlyHint` true,
+  `destructiveHint` false and `idempotentHint` true, which the Claude connectors directory
+  requires and clients use to skip a confirmation. `openWorldHint` is false for `coverage`,
+  `glossary` and `providers`, which answer from wetterdienst's own metadata, and true for the
+  tools that reach a provider's service. Names, arguments and descriptions are unchanged (GH-3482)
+- Each network of `GET /api/providers` has an `extent`, where its stations are, which the `country`
+  of its provider does not say: `scope` (`global`, `national`, `regional`), `continents`, `bbox`
+  `[west, south, east, north]` and, for a regional one, `country_codes`. A dataset narrower than its
+  network has its own (`dwd/dmo` `icon_eu`). `GET /api/coverage` (and the CLI, the MCP tools and
+  `Wetterdienst.discover()`) lists the `scope` of each network, and the coverage of one network
+  gives each dataset its extent. `dwd/mosmix`, `dwd/dmo` and `noaa/ghcn` are global (GH-3456)
+- The `metadata` block of every data answer has `data_updated_at`, when the source says its data
+  was last updated (UTC; `null` where it states none), with the `X-Wetterdienst-Data-Updated-At`
+  header where it is set. The values, interpolation and summary results have `data_updated_at`, and
+  so does the `metadata` of their `to_dict`, `to_json` and `to_ogc_feature_collection` with
+  `with_metadata=True`. `meteofrance/observation` fills it from the files whose rows the answer
+  keeps (the newest `last_modified` of data.gouv.fr, as Etalab 2.0 asks), and downloads a cached
+  file again when the listing dates it later than the copy, serving an archive's copy and its own
+  date if the file host does not answer (a current-period file whose copy expired still fails with
+  the download error); a network whose source states none, a list of stations, a history and a
+  streamed answer (NDJSON, CSV of `values`) say `null`. A result cut by `filtered_by_sql` keeps
+  the date of the result it was cut from. `schema_version` stays `"1"` (GH-2567)
+- `data_updated_at` is also filled from the `Last-Modified` of the files an answer is read from, when
+  the source last wrote them (the newest of the files whose rows the answer keeps), for `dwd`
+  `observation`, `derived`, `phenology`, `poi` and `road`, `chmi`, `imgw`, `ipma`, `meteoswiss`,
+  `noaa/ghcn` and `meteofrance/synop`; for the forecasts `dwd/mosmix`, `dmo` and `swsmos` it is the
+  model run (`retrieved_at` less it is the age of the forecast), for `dwd/alerts` the newest `sent`,
+  and a `RadarResult` and a `DwdWeatherAlertResult` have it as well. A cached answer has the date of
+  its cached copy; one cached before this has none until it expires (12 hours at most) or the cache
+  is cleared, and `meteofrance/synop` downloads each finished year it holds once more for it, once.
+  FMI and SMHI send the time of the request as `Last-Modified` and stay `null` (GH-2567)
+
+### Changed
+
+- **Breaking**: where a provider hands over several rows for one reading (the same station,
+  parameter and timestamp), the answer has the first row that has a value, with that row's
+  `quality_flags`; it kept the first row even when it had none, and the value of the later row was
+  lost. A reading that was missing, or was dropped as null, is now filled where another row had a
+  value; two different values still keep the first. `data_updated_at` can now date such an answer
+  by the newer file whose row is kept. Nothing needs to be done (GH-3450)
+- The MCP `instructions` say that the same `stations` then `values` steps serve a network of any
+  `kind`, for a place given by `latitude`, `longitude` and `rank`, and that a provider's `country`
+  is its operator's, not the extent of its data, so a model does not refuse a place because of it
+  (it had refused a forecast for Los Angeles because DWD is German). `Provider.country` and
+  `country_code` are described the same way in the OpenAPI schema and the `providers` tool; the
+  answers are unchanged (GH-3456)
+- The `attribution` that `meteoswiss/observation` and `metoffice/observation` report with every
+  answer is the credit line their providers state: "Source: MeteoSwiss" (was "© MeteoSwiss
+  (Federal Office of Meteorology and Climatology)") and the citation of the CEDA record of MIDAS
+  Open (was "© Crown Copyright, Met Office, MIDAS Open"). The licences are unchanged; a caller
+  that shows the credit shows the new text (GH-2567)
+- `metno/frost` reports its licence as `CC-BY-4.0 AND NLOD-2.0` (was `CC-BY-4.0 OR NLOD-2.0`), with
+  the name "Creative Commons Attribution 4.0 International and Norwegian Licence for Open
+  Government Data 2.0": MET Norway states that the data are licensed under both, not under one of
+  them. A caller that reads `provider.license.spdx_id` or the `X-Wetterdienst-License` header sees
+  the new expression, and the conditions of both licences apply to its use of the data; the credit
+  to give is the same, `attribution` is still "Data from MET Norway" (GH-2567)
+- `/api/auth` and the MCP `auth` tool probe the provider at most once a minute per network and
+  server process, and say so in their description. `metno/frost` and `aemet/observation` already
+  kept an accepted answer for a minute on disk; now a rejection is kept for up to 60 s too, a
+  `valid: null` for 5 s, and simultaneous calls share one probe. A changed or corrected credential
+  shows within a minute, a revoked one within two. The answer has the same shape (GH-2607)
+- **Breaking**: the positions of 54 `eaufrance/hubeau` stations change: the referential lists them
+  with latitude and longitude swapped (Anor at 4.10 N, 49.99 E, a point near Somalia), and they
+  now come back where they are (50.0 N, 4.1 E). A position is swapped when it lies in none of
+  metropolitan France, Guadeloupe and Martinique, Guyane, Reunion and Mayotte and the swapped one
+  lies in one; no station overseas is moved. `J543211003` (the Blavet), listed in Algeria, is not
+  moved. Nothing needs to be done; a filter on a station's old position needs the new one (GH-3468)
+
+### Fixed
+
+- `dwd/swsmos` lists a station once when DWD's catalogue repeats its line (Q311, 2026-10-26): the
+  `stations` answer had it twice (GH-3474)
+- Four pages stated what the code does not do. Interpolation said a negative search distance is a
+  400 on the REST API: it is a 422, and only a name that is no canonical parameter is a 400.
+  Python Examples said `RADOLAN_CDC` takes an hourly or daily resolution: `5_minutes` too.
+  Development said `poe test -k ...` selects tests: a task that is a sequence drops what follows
+  it and runs the whole suite, so the page now calls pytest. Web app called the app a Nuxt 3
+  one: it is Nuxt 4, and the page names no major version now (GH-2621)
+- `meteofrance/synop` reads the yearly files data.gouv.fr lists (`data/OBS/SYNOP/`), not the
+  `synchro_ftp` copy of them, which stopped being refreshed on 2026-09-09: values of the current
+  year now run to the day before today instead of ending on 2026-09-08 (GH-3447)
+- A file that one call had cached was fetched again by a later call made in another thread, with
+  `File.from_cache` false: `download_files` (whose threads are new for every call), the main thread
+  and the workers of the REST server each read the cache metadata when they start and only again
+  after 10 s, so they did not see what another thread cached in between. A thread that finds no
+  copy now reads the metadata again before it fetches; a hit reads nothing more (GH-3452)
+- Several processes starting together on an empty cache directory (workers of a server, parallel
+  CLI runs, a CI matrix) no longer remove it under each other: the first sweep of a process took
+  the directory and the copies the others had just written, which raised `FileExistsError` or
+  `OSError` in some of them and sent others to a temporary cache directory. The sweep now removes
+  only the expired entries and the files no entry names that are older than the expiry and an
+  hour. On Windows, processes sharing a cache directory can still fail saving the metadata file
+  (`PermissionError`, GH-3485) (GH-3467)
+
+## [0.175.0] - 2026-10-25
+
+### Added
+
 - `[Docker]` The backend image has a `HEALTHCHECK`: it asks `/health` on the port the server
   listens on (a server on all interfaces or on loopback), every 30 s, and `docker ps` shows the
   container as `healthy` or `unhealthy`. A platform without a health check of its own (Coolify's
   default) now routes through a proxy such as Traefik on this one, which sends traffic only to
   containers that are healthy or have no health state. `docker run --no-healthcheck` switches it
   off (GH-3346)
+- `chmi/observation` hourly has `pressure_air_sea_level` (CHMI's `P_hm`, the pressure reduced to
+  sea level, published for 2018 to 2025): another quantity than the station-level
+  `pressure_air_site`, not a rename of it. The pressure tendency `ppp` is not read (GH-3413)
 
 ### Changed
 
@@ -43,6 +258,41 @@ Types of changes:
   needs the new one. The hourly elevation of UKW00015033 now follows the daily one (47.9 to 49.1 m)
   when both resolutions are requested. One table serves both lists and turns a row only while it
   lists the position that was checked, so a list NOAA corrects is read as it is (GH-3384)
+
+### Fixed
+
+- `chmi/observation` hourly `pressure_air_site` returned no rows from 2025 on without a word:
+  CHMI publishes that station pressure (`P`) for 2018 to 2024 only. A window that reaches past 2024
+  now answers with the warning `parameter-ended` saying so (and pointing to `pressure_air_sea_level`
+  and the `10_minutes` resolution, which still publishes it), and the files that do not exist are
+  no longer asked for (GH-3413)
+- `wetterdienst restapi --reload` now writes the `INFO` lines of the package and, with `--debug`,
+  its debug lines: the worker that uvicorn spawns configured no logging, so the log held uvicorn's
+  access lines only (GH-3390)
+- The debug line of a file that `chmi/observation` or `metoffice/observation` does not find names
+  its URL without the query, as the other providers do, where it named the URL as requested
+  (GH-3394)
+
+### Security
+
+- The wheel and sdist of a release carry a PEP 740 attestation on PyPI, which
+  `pypi-attestations verify pypi` checks (GH-3346)
+- `[Docker]` The backend image carries a build provenance signed with the GitHub Actions identity
+  of the workflow through Sigstore, which
+  `gh attestation verify oci://ghcr.io/earthobservations/wetterdienst:<version> --repo
+  earthobservations/wetterdienst` checks, and an unsigned BuildKit provenance and SBOM per
+  platform (the registry lists them as `unknown/unknown` manifests). Releases before this one have
+  none; see "Release provenance" in `.github/SECURITY.md` (GH-3346)
+- A redirect from `https` down to `http` is refused for every session again; 0.174.0 let a session
+  without a credential follow it. Nothing needs to change: no provider needs the hop, which was
+  data.gouv.fr's maintenance page. A request that data.gouv.fr redirects to
+  `http://sorry.data.gouv.fr` is now a `DownloadError` saying that data.gouv.fr is in maintenance
+  (HTTP 502 in the REST API), and `meteofrance/observation` does not ask it twice (GH-3400)
+- Follow-up and redirect URLs are limited to the provider's own hosts: a redirect, and a link an
+  answer names (next page, `datos`, asset, measure), is followed only to a host that the provider
+  lists (its API and the store of its files). A link is fetched over `https` only. Any other
+  host, one under the provider's own domain included, is refused with a `DownloadError` that
+  names the host and the provider; 0.174.0 held them to the provider's registered domain (GH-3339)
 
 ## [0.174.0] - 2026-10-24
 
@@ -74,19 +324,6 @@ Types of changes:
   logger `wetterdienst`; the loggers of other libraries, `fsspec` and `aiohttp` among them, stay
   at `INFO`. The hint of a removed `debug` parameter now names `wetterdienst restapi --debug`
   (GH-3388)
-- A download follows a redirect from `https` down to `http` again, within the registered domain of
-  the request, when the session is given no credential (no credential header, `auth`, cookies,
-  `trust_env`, proxy or middleware among the `fsspec_client_kwargs`): the stations of `meteofrance/observation`
-  failed with "a redirect from https to http was not followed" where data.gouv.fr answered with
-  such a hop. The body of that hop is not protected on the way. With a credential, a redirect to
-  another registered domain, and the dropping of credentials at a change of origin, nothing
-  changes; the error names the host of a refused hop (GH-3398)
-- `wetterdienst restapi --reload` now writes the `INFO` lines of the package and, with `--debug`,
-  its debug lines: the worker that uvicorn spawns configured no logging, so the log held uvicorn's
-  access lines only (GH-3390)
-- The debug line of a file that `chmi/observation` or `metoffice/observation` does not find names
-  its URL without the query, as the other providers do, where it named the URL as requested
-  (GH-3394)
 
 ### Security
 
@@ -6568,7 +6805,11 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.174.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.178.0...HEAD
+[0.178.0]: https://github.com/earthobservations/wetterdienst/compare/v0.177.0...v0.178.0
+[0.177.0]: https://github.com/earthobservations/wetterdienst/compare/v0.176.0...v0.177.0
+[0.176.0]: https://github.com/earthobservations/wetterdienst/compare/v0.175.0...v0.176.0
+[0.175.0]: https://github.com/earthobservations/wetterdienst/compare/v0.174.0...v0.175.0
 [0.174.0]: https://github.com/earthobservations/wetterdienst/compare/v0.173.0...v0.174.0
 [0.173.0]: https://github.com/earthobservations/wetterdienst/compare/v0.172.0...v0.173.0
 [0.172.0]: https://github.com/earthobservations/wetterdienst/compare/v0.171.0...v0.172.0

@@ -1,6 +1,7 @@
 """Tests for shared TimeseriesValues behavior."""
 
 import datetime as dt
+import logging
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -8,13 +9,15 @@ import pytest
 from polars.testing import assert_frame_equal
 
 from wetterdienst.model.result import StationsFilter, StationsResult
-from wetterdienst.model.values import TimeseriesValues
+from wetterdienst.model.schema import LONG_SCHEMA
+from wetterdienst.model.values import TimeseriesValues, merge_duplicate_readings
 from wetterdienst.options import Options
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata, DwdObservationRequest
 from wetterdienst.provider.dwd.observation.api import DwdObservationValues
 from wetterdienst.provider.wsv.pegel import WsvPegelRequest
 from wetterdienst.provider.wsv.pegel.api import WsvPegelValues
 from wetterdienst.settings import Settings
+from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
 
 def _values(parameters: list[tuple[str, str, str]]) -> TimeseriesValues:
@@ -921,3 +924,519 @@ def test_widen_df_has_one_column_for_a_parameter_of_a_dataset_at_two_resolutions
     assert not [column for column in result.columns if column.endswith("_right")]
     assert result.columns.count("precipitation_amount") == 1
     assert sorted(result.get_column("precipitation_amount").to_list()) == [0.5, 0.5, 1.0]
+
+
+def _noting_dates(monkeypatch: pytest.MonkeyPatch, dates: dict[str, list[dt.datetime]]) -> None:
+    """Make the reader of DWD note the dates of a station, as a provider whose source states one does (GH-2567)."""
+    collect = DwdObservationValues._collect_station_parameter_or_dataset  # noqa: SLF001
+
+    def noting(self: DwdObservationValues, station_id: str, parameter_or_dataset) -> pl.DataFrame:  # noqa: ANN001
+        for date in dates.get(station_id, []):
+            self._note_data_updated(date)
+        # a date the source does not state is not noted, and changes nothing
+        self._note_data_updated(None)
+        return collect(self, station_id, parameter_or_dataset)
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", noting)
+
+
+def test_a_result_has_the_newest_date_the_reader_noted_for_its_station(monkeypatch: pytest.MonkeyPatch) -> None:
+    """One result per station, each with its own date; the date of `all()` is the newest of them (GH-2567).
+
+    A station that noted none has none, and does not take the one of the station before it.
+    """
+    utc = ZoneInfo("UTC")
+    stations = ["00001", "00002", "00003"]
+    _stub_dwd_daily(station_ids=stations, data_year_by_station=dict.fromkeys(stations, 1990), monkeypatch=monkeypatch)
+    _noting_dates(
+        monkeypatch,
+        {
+            "00001": [dt.datetime(2026, 10, 25, 6, tzinfo=utc), dt.datetime(2026, 10, 26, 6, tzinfo=utc)],
+            "00002": [dt.datetime(2026, 10, 24, 6, tzinfo=utc)],
+        },
+    )
+    values = DwdObservationRequest(parameters=[("daily", "climate_summary", "temperature_air_mean_2m")]).all().values()
+
+    assert [result.data_updated_at for result in values.query()] == [
+        dt.datetime(2026, 10, 26, 6, tzinfo=utc),
+        dt.datetime(2026, 10, 24, 6, tzinfo=utc),
+        None,
+    ]
+    assert values.all().data_updated_at == dt.datetime(2026, 10, 26, 6, tzinfo=utc)
+
+
+def test_a_reader_that_notes_no_date_leaves_the_result_undated(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A provider whose source states no date does nothing, and the answer has none rather than the time it was read."""
+    _stub_dwd_daily(station_ids=["00001"], data_year_by_station={"00001": 1990}, monkeypatch=monkeypatch)
+
+    result = (
+        DwdObservationRequest(parameters=[("daily", "climate_summary", "temperature_air_mean_2m")]).all().values().all()
+    )
+
+    assert not result.df.is_empty()
+    assert result.data_updated_at is None
+
+
+def test_a_date_that_is_no_plausible_one_does_not_date_the_result(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Whatever the source of a date is, one from the future or from before 1990 is not noted (GH-2567)."""
+    utc = ZoneInfo("UTC")
+    _stub_dwd_daily(station_ids=["00001"], data_year_by_station={"00001": 1990}, monkeypatch=monkeypatch)
+    _noting_dates(
+        monkeypatch,
+        {
+            "00001": [
+                dt.datetime.now(utc) + dt.timedelta(days=3),
+                dt.datetime(9999, 12, 31, tzinfo=utc),
+                dt.datetime(1970, 1, 1, tzinfo=utc),
+            ]
+        },
+    )
+
+    result = (
+        DwdObservationRequest(parameters=[("daily", "climate_summary", "temperature_air_mean_2m")]).all().values().all()
+    )
+
+    assert not result.df.is_empty()
+    assert result.data_updated_at is None
+
+
+_READING = ["station_id", "resolution", "dataset", "parameter", "timestamp"]
+
+
+def _readings(*rows: tuple[str, str, int, float | None, str | None]) -> pl.DataFrame:
+    """Build a long frame of (station, parameter, hour, value, quality_flags) rows of one hourly dataset."""
+    return pl.DataFrame(
+        {
+            "station_id": [row[0] for row in rows],
+            "resolution": ["hourly"] * len(rows),
+            "dataset": ["climate"] * len(rows),
+            "parameter": [row[1] for row in rows],
+            "timestamp": [dt.datetime(2026, 1, 1, row[2], tzinfo=ZoneInfo("UTC")) for row in rows],
+            "value": [row[3] for row in rows],
+            "quality_flags": [row[4] for row in rows],
+        },
+        schema={**LONG_SCHEMA},
+    )
+
+
+def test_merge_duplicate_readings_takes_the_value_of_the_second_row_where_the_first_has_none() -> None:
+    """A null first row no longer takes the reading with it (GH-3450), and the flag is the value's own."""
+    df = _readings(("01", "t", 0, None, "raw:-999"), ("01", "t", 0, 5.0, "3"))
+
+    merged = merge_duplicate_readings(df, _READING)
+
+    assert_frame_equal(merged, _readings(("01", "t", 0, 5.0, "3")))
+
+
+def test_merge_duplicate_readings_keeps_the_value_of_the_first_row_where_the_second_has_none() -> None:
+    """A null second row takes nothing from the first, and does not add its flag to it."""
+    df = _readings(("01", "t", 0, 5.0, "3"), ("01", "t", 0, None, "raw:-999"))
+
+    merged = merge_duplicate_readings(df, _READING)
+
+    assert_frame_equal(merged, _readings(("01", "t", 0, 5.0, "3")))
+
+
+def test_merge_duplicate_readings_keeps_the_first_of_two_values_and_counts_the_conflict(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Two different values keep the first, with its flag, and one debug line says how many readings conflicted."""
+    df = _readings(
+        ("01", "t", 0, 5.0, "3"),
+        ("01", "t", 0, 6.0, "1"),
+        # the same value twice is no conflict
+        ("01", "t", 1, 7.0, "3"),
+        ("01", "t", 1, 7.0, "1"),
+        # a value after a null is not one either
+        ("01", "t", 2, None, None),
+        ("01", "t", 2, 8.0, "1"),
+    )
+
+    with caplog.at_level(logging.DEBUG, logger="wetterdienst.model.values"):
+        merged = merge_duplicate_readings(df, _READING)
+
+    assert_frame_equal(merged, _readings(("01", "t", 0, 5.0, "3"), ("01", "t", 1, 7.0, "3"), ("01", "t", 2, 8.0, "1")))
+    assert "6 rows share a reading with another and make 3 readings, 1 with different values" in caplog.text
+
+
+def test_merge_duplicate_readings_hands_back_a_frame_without_duplicates_as_it_is() -> None:
+    """No two rows of one reading is the identity, and the object itself."""
+    df = _readings(("01", "t", 0, None, "raw:-999"), ("01", "t", 1, 5.0, "3"), ("01", "w", 0, 1.0, None))
+
+    assert merge_duplicate_readings(df, _READING) is df
+
+
+def test_merge_duplicate_readings_keeps_a_reading_with_no_value_as_its_first_row() -> None:
+    """Where every row of a reading is null the first stays, with the text the source wrote for it."""
+    df = _readings(("01", "t", 0, None, "raw:-999"), ("01", "t", 0, None, "raw:-99"))
+
+    assert_frame_equal(merge_duplicate_readings(df, _READING), _readings(("01", "t", 0, None, "raw:-999")))
+
+
+def test_merge_duplicate_readings_reads_each_parameter_and_each_station_on_its_own() -> None:
+    """A null of one parameter or station is not filled from the row of another that shares its timestamp."""
+    df = _readings(
+        ("01", "t", 0, None, None),
+        ("01", "w", 0, 3.0, "3"),
+        ("02", "t", 0, 4.0, "3"),
+        ("01", "t", 0, 5.0, "1"),
+        ("02", "w", 0, None, None),
+        ("02", "t", 0, None, "raw:-999"),
+        ("01", "w", 0, None, None),
+    )
+
+    merged = merge_duplicate_readings(df, _READING)
+
+    # in the order the readings first appeared in
+    assert_frame_equal(
+        merged,
+        _readings(
+            ("01", "t", 0, 5.0, "1"),
+            ("01", "w", 0, 3.0, "3"),
+            ("02", "t", 0, 4.0, "3"),
+            ("02", "w", 0, None, None),
+        ),
+    )
+
+
+def test_merge_duplicate_readings_keeps_the_order_of_the_rows_it_does_not_merge() -> None:
+    """The readings keep the order of their first row, whether they are merged or not."""
+    df = _readings(
+        ("01", "t", 3, 3.0, None),
+        ("01", "t", 1, None, None),
+        ("01", "t", 2, 2.0, None),
+        ("01", "t", 1, 1.0, "3"),
+        ("01", "t", 0, 0.0, None),
+    )
+
+    merged = merge_duplicate_readings(df, _READING)
+
+    assert merged.get_column("value").to_list() == [3.0, 1.0, 2.0, 0.0]
+    assert merged.columns == df.columns
+    assert merged.schema == df.schema
+
+
+def test_merge_duplicate_readings_takes_every_other_column_from_the_row_of_the_value() -> None:
+    """A column beside `value` (the date of a file) is the one of the row the value is of."""
+    df = _readings(("01", "t", 0, None, None), ("01", "t", 0, 5.0, "3")).with_columns(
+        pl.Series(
+            "updated",
+            [dt.datetime(2026, 1, 1, tzinfo=ZoneInfo("UTC")), dt.datetime(2026, 2, 1, tzinfo=ZoneInfo("UTC"))],
+        )
+    )
+
+    merged = merge_duplicate_readings(df, _READING)
+
+    assert merged.get_column("updated").to_list() == [dt.datetime(2026, 2, 1, tzinfo=ZoneInfo("UTC"))]
+
+
+def test_a_reading_given_by_two_rows_has_the_value_of_the_one_that_has_one(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The case of GH-3450 through the whole core: a provider hands two rows for one day, the first without a value."""
+    _stub_dwd_daily(station_ids=["00001"], data_year_by_station={"00001": 1990}, monkeypatch=monkeypatch)
+    utc = ZoneInfo("UTC")
+    name = DwdObservationMetadata.daily.climate_summary.temperature_air_mean_2m.name_original
+
+    def collect(self, station_id: str, parameter_or_dataset) -> pl.DataFrame:  # noqa: ANN001, ARG001
+        return pl.DataFrame(
+            {
+                "timestamp": [dt.datetime(1990, 1, day, tzinfo=utc) for day in (1, 1, 2, 2)],
+                "parameter": [name] * 4,
+                "value": [None, 1.5, 2.5, None],
+                "quality_flags": ["raw:-999", "3", "1", "raw:-999"],
+            },
+            schema_overrides={"value": pl.Float64},
+        )
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        start="1990-01-01",
+        end="1990-01-02",
+    )
+
+    df = request.filter_by_station_id("00001").values().all().df
+
+    assert df.get_column("value").to_list() == [1.5, 2.5]
+    assert df.get_column("quality_flags").to_list() == ["3", "1"]
+
+
+@pytest.mark.parametrize("drop_nulls", [True, False])
+def test_the_missing_value_marker_warning_counts_the_window_and_not_the_file(
+    monkeypatch: pytest.MonkeyPatch, *, drop_nulls: bool
+) -> None:
+    """The file holds a marker on each of ten days; the warning of a 2-day request counts the two inside the window."""
+    _stub_dwd_daily(station_ids=["00001"], data_year_by_station={"00001": 1990}, monkeypatch=monkeypatch)
+    utc = ZoneInfo("UTC")
+    name = DwdObservationMetadata.daily.climate_summary.temperature_air_mean_2m.name_original
+    days = range(1, 11)
+
+    def collect(self, station_id: str, parameter_or_dataset) -> pl.DataFrame:  # noqa: ANN001, ARG001
+        return pl.DataFrame(
+            {
+                "timestamp": [dt.datetime(1990, 1, day, tzinfo=utc) for day in days],
+                "parameter": [name] * len(days),
+                "value": [None] * len(days),
+                "quality_flags": ["raw:-999"] * len(days),
+            },
+            schema_overrides={"value": pl.Float64},
+        )
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+    begin_response()
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        start="1990-01-04",
+        end="1990-01-05",
+        options=Options(drop_nulls=drop_nulls),
+    )
+
+    request.filter_by_station_id("00001").values().all()
+
+    # with the nulls dropped the parameter has no row left, which `parameter-without-rows` tells besides
+    warnings = [warning for warning in recorded_warnings() if warning["code"] != "parameter-without-rows"]
+    assert [warning["code"] for warning in warnings] == ["missing-value-marker"]
+    assert warnings[0]["message"].startswith("2 readings of the source")
+
+
+def _stub_marked_readings(monkeypatch: pytest.MonkeyPatch, *, markers_of: dict[str, int], days: int = 4) -> None:
+    """Have each station hold `days` daily readings of January 1990, the first `markers_of[station]` of them a marker.
+
+    A marker is a null value with the `raw:` token the source wrote, as a provider's reader leaves it.
+    """
+    utc = ZoneInfo("UTC")
+    name = DwdObservationMetadata.daily.climate_summary.temperature_air_mean_2m.name_original
+
+    def collect(self, station_id: str, parameter_or_dataset) -> pl.DataFrame:  # noqa: ANN001, ARG001
+        marked = [day < markers_of[station_id] for day in range(days)]
+        return pl.DataFrame(
+            {
+                "timestamp": [dt.datetime(1990, 1, day + 1, tzinfo=utc) for day in range(days)],
+                "parameter": [name] * days,
+                "value": [None if mark else 1.0 for mark in marked],
+                "quality_flags": ["raw:-999" if mark else "1" for mark in marked],
+            },
+            schema_overrides={"value": pl.Float64},
+        )
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+
+
+def _the_missing_value_marker_warning() -> list[str]:
+    """Give the messages of the `missing-value-marker` warnings recorded for the request."""
+    return [warning["message"] for warning in recorded_warnings() if warning["code"] == "missing-value-marker"]
+
+
+@pytest.mark.parametrize("drop_nulls", [True, False])
+def test_the_missing_value_marker_warning_leaves_out_a_station_skip_empty_drops(
+    monkeypatch: pytest.MonkeyPatch, *, drop_nulls: bool
+) -> None:
+    """A station skipped for having no reading is not in the answer, and its markers are not counted (GH-3554).
+
+    With the nulls dropped (the default) the station's frame is empty, with them kept it is a frame of nulls: both
+    are left out by `skip_empty`, and neither is counted.
+    """
+    _stub_dwd_daily(station_ids=["00001"], data_year_by_station={"00001": 1990}, monkeypatch=monkeypatch)
+    _stub_marked_readings(monkeypatch, markers_of={"00001": 4})
+    begin_response()
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        start="1990-01-01",
+        end="1990-01-04",
+        options=Options(drop_nulls=drop_nulls, skip_empty=True, skip_threshold=0.5),
+    )
+
+    df = request.filter_by_station_id("00001").values().all().df
+
+    assert df.is_empty()
+    assert _the_missing_value_marker_warning() == []
+
+
+@pytest.mark.parametrize("skip_empty", [True, False])
+@pytest.mark.parametrize("drop_nulls", [True, False])
+def test_the_missing_value_marker_warning_counts_the_station_a_rank_walk_ends_on_and_not_the_ones_it_skips(
+    monkeypatch: pytest.MonkeyPatch, *, drop_nulls: bool, skip_empty: bool
+) -> None:
+    """`rank=1` walks past the nearest station, which has no reading, and ends on the next: only its 2 markers count.
+
+    The nearest is skipped by `skip_empty`, or, where that is off, emptied by `drop_nulls` and not a slot of the rank;
+    where the nulls are kept and `skip_empty` is off it is the station the rank ends on (4 markers).
+    """
+    _stub_dwd_daily(
+        station_ids=["00001", "00002"],
+        data_year_by_station={"00001": 1990, "00002": 1990},
+        monkeypatch=monkeypatch,
+    )
+    _stub_marked_readings(monkeypatch, markers_of={"00001": 4, "00002": 2})
+    begin_response()
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        start="1990-01-01",
+        end="1990-01-04",
+        options=Options(drop_nulls=drop_nulls, skip_empty=skip_empty, skip_threshold=0.5),
+    )
+
+    df = request.filter_by_rank(latlon=(50.0, 8.0), rank=1).values().all().df
+
+    ends_on_nearest = not drop_nulls and not skip_empty
+    assert df.get_column("station_id").unique().to_list() == ["00001" if ends_on_nearest else "00002"]
+    messages = _the_missing_value_marker_warning()
+    assert len(messages) == 1
+    assert messages[0].startswith("4 readings of the source" if ends_on_nearest else "2 readings of the source")
+
+
+@pytest.mark.parametrize("by", ["station_id", "name"])
+@pytest.mark.parametrize("drop_nulls", [True, False])
+def test_the_missing_value_marker_warning_counts_a_station_the_request_names_when_the_nulls_empty_it(
+    monkeypatch: pytest.MonkeyPatch, *, by: str, drop_nulls: bool
+) -> None:
+    """A station picked by id or by name, whose window holds markers only, counts them with or without `drop_nulls`.
+
+    `filter_by_name` sets a rank (of 1) as well, but no station takes the place of the one it picked.
+    """
+    _stub_dwd_daily(station_ids=["00001"], data_year_by_station={"00001": 1990}, monkeypatch=monkeypatch)
+    _stub_marked_readings(monkeypatch, markers_of={"00001": 4})
+    begin_response()
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        start="1990-01-01",
+        end="1990-01-04",
+        options=Options(drop_nulls=drop_nulls),
+    )
+    stations = request.filter_by_station_id("00001") if by == "station_id" else request.filter_by_name("00001")
+
+    stations.values().all()
+
+    messages = _the_missing_value_marker_warning()
+    assert len(messages) == 1
+    assert messages[0].startswith("4 readings of the source")
+
+
+def test_the_missing_value_marker_warning_counts_the_stations_a_name_matches_up_to_its_rank(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`filter_by_name` with `rank=2` picks the two best matches, and the markers of both count: 4 and 1."""
+    _stub_dwd_daily(
+        station_ids=["00001", "00002"],
+        data_year_by_station={"00001": 1990, "00002": 1990},
+        monkeypatch=monkeypatch,
+    )
+    _stub_marked_readings(monkeypatch, markers_of={"00001": 4, "00002": 1})
+    begin_response()
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        start="1990-01-01",
+        end="1990-01-04",
+    )
+
+    request.filter_by_name("0000", rank=2).values().all()
+
+    messages = _the_missing_value_marker_warning()
+    assert len(messages) == 1
+    assert messages[0].startswith("5 readings of the source")
+
+
+def test_the_missing_value_marker_warning_leaves_out_a_station_a_distance_filter_skips_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With the nulls dropped, a station `skip_empty` skips under a distance filter is not counted, the others are."""
+    _stub_dwd_daily(
+        station_ids=["00001", "00002", "00003"],
+        data_year_by_station=dict.fromkeys(["00001", "00002", "00003"], 1990),
+        monkeypatch=monkeypatch,
+    )
+    _stub_marked_readings(monkeypatch, markers_of={"00001": 4, "00002": 1, "00003": 1})
+    begin_response()
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        start="1990-01-01",
+        end="1990-01-04",
+        options=Options(skip_empty=True, skip_threshold=0.5),
+    )
+
+    df = request.filter_by_distance(latlon=(50.0, 8.0), distance=30).values().all().df
+
+    assert sorted(df.get_column("station_id").unique().to_list()) == ["00002", "00003"]
+    messages = _the_missing_value_marker_warning()
+    assert len(messages) == 1
+    assert messages[0].startswith("2 readings of the source")
+
+
+@pytest.mark.parametrize("method", ["summarize", "interpolate"])
+def test_an_estimate_carries_no_missing_value_marker_warning(monkeypatch: pytest.MonkeyPatch, method: str) -> None:
+    """The estimate is not the readings of the source, so it does not count the markers of the stations it reads."""
+    latitude, longitude = 50.0, 8.9
+    offsets = {"00001": (-0.03, -0.03), "00002": (-0.03, 0.03), "00003": (0.03, 0.03), "00004": (0.03, -0.03)}
+    stations = pl.DataFrame(
+        [
+            {
+                "resolution": "daily",
+                "dataset": "climate_summary",
+                "station_id": station_id,
+                "latitude": latitude + d_lat,
+                "longitude": longitude + d_lon,
+                "elevation": 100.0,
+                "distance": 4.0 + index / 10,
+            }
+            for index, (station_id, (d_lat, d_lon)) in enumerate(offsets.items())
+        ],
+    )
+
+    def all_(self: DwdObservationRequest) -> StationsResult:
+        return StationsResult(request=self, df=stations, _df_all=stations, _stations_filter=StationsFilter.ALL)
+
+    def filter_by_distance(
+        self: DwdObservationRequest,
+        latlon: tuple[float, float],  # noqa: ARG001
+        distance: float,  # noqa: ARG001
+        df_all: pl.DataFrame | None = None,  # noqa: ARG001
+    ) -> StationsResult:
+        return StationsResult(request=self, df=stations, _df_all=stations, _stations_filter=StationsFilter.BY_DISTANCE)
+
+    monkeypatch.setattr(DwdObservationRequest, "all", all_)
+    monkeypatch.setattr(DwdObservationRequest, "filter_by_distance", filter_by_distance)
+    # a marker in each station, and three valid readings left of the four days
+    _stub_marked_readings(monkeypatch, markers_of=dict.fromkeys(offsets, 1))
+    begin_response()
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        start="1990-01-01",
+        end="1990-01-04",
+    )
+
+    result = getattr(request, method)(latlon=(latitude, longitude))
+
+    assert not result.df.is_empty()
+    assert _the_missing_value_marker_warning() == []
+
+
+@pytest.mark.parametrize("blank", ["", " ", "n/a", "nan", "inf"])
+def test_merge_duplicate_readings_reads_a_text_that_is_no_number_as_no_value(blank: str) -> None:
+    """A frame whose `value` is still text (as the provider hands it over) has a value where a number can be read."""
+    df = pl.DataFrame(
+        {
+            "parameter": ["t", "t", "w", "w"],
+            "timestamp": [dt.datetime(2026, 1, 1, tzinfo=ZoneInfo("UTC"))] * 4,
+            "value": [blank, " 5.0 ", "1", "1.0"],
+            "quality_flags": ["a", "b", "c", "d"],
+        },
+    )
+
+    merged = merge_duplicate_readings(df, ["parameter", "timestamp"])
+
+    # the second row of "t" has the number; "1" and "1.0" of "w" are one number, so no conflict, and the first is kept
+    assert merged.get_column("value").to_list() == [" 5.0 ", "1"]
+    assert merged.get_column("quality_flags").to_list() == ["b", "c"]
+
+
+def test_merge_duplicate_readings_does_not_collide_with_a_column_of_its_own_names() -> None:
+    """The columns the merge adds beside the rows are named after none of the frame's."""
+    df = _readings(("01", "t", 0, None, "raw:-999"), ("01", "t", 0, 5.0, "3")).with_columns(
+        pl.Series("row", [1, 2]), pl.Series("conflict", ["a", "b"]), pl.Series("_row", [3, 4])
+    )
+
+    merged = merge_duplicate_readings(df, _READING)
+
+    assert merged.columns == df.columns
+    assert merged.row(0, named=True)["row"] == 2
+    assert merged.row(0, named=True)["conflict"] == "b"
+    assert merged.row(0, named=True)["_row"] == 4

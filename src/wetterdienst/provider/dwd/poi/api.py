@@ -40,10 +40,11 @@ from wetterdienst.model.quality_flags import (
     with_speed_beside,
 )
 from wetterdienst.model.request import TimeseriesRequest
-from wetterdienst.model.values import TimeseriesValues
+from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.dwd.catalogue import read_mosmix_station_catalogue
 from wetterdienst.provider.dwd.poi.metadata import DwdPoiMetadata
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
+from wetterdienst.util.response_warnings import note_skipped_download
 
 if TYPE_CHECKING:
     from wetterdienst.settings import Settings
@@ -132,12 +133,14 @@ class DwdPoiValues(TimeseriesValues):
         if file.status != 404:
             file.raise_if_exception()
         if isinstance(file.content, Exception):
+            note_skipped_download()
             log.warning(f"Failed to fetch POI report for station {station_id}: {file.content}")
             return pl.DataFrame()
         # DWD rewrites all ~970 files every hour, and a rewrite in progress can be served as an
         # empty 200. polars raises NoDataError on those bytes, which would abort a whole
         # multi-station query over one file
         if file.is_empty:
+            note_skipped_download()
             log.warning(f"POI report for station {station_id} is empty")
             return pl.DataFrame()
         df = _read_poi_csv(file.content.read())
@@ -159,7 +162,9 @@ class DwdPoiValues(TimeseriesValues):
             .alias("timestamp"),
             *[pl.col(column) for column in columns],
         )
-        df = df.unpivot(index=["timestamp"], variable_name="parameter", value_name="value")
+        # when DWD rewrote the file of the station travels with its rows (`_note_files_with_rows`, GH-2567)
+        df = df.with_columns(pl.lit(file.last_modified, dtype=pl.Datetime("us", "UTC")).alias(UPDATED))
+        df = df.unpivot(index=["timestamp", UPDATED], variable_name="parameter", value_name="value")
         df = with_speed_beside(
             df, _WIND_SPEED_OF_DIRECTION, on=["timestamp"], value=pl.col("value").str.replace(",", ".")
         )
@@ -169,12 +174,14 @@ class DwdPoiValues(TimeseriesValues):
             pl.col("value").str.replace(",", "."), *_CLOUD_COVER_CODES, calm(pl.col(SPEED_BESIDE)), non_numeric=True
         )
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`)
-        return df.select(
+        df = df.select(
             pl.col("parameter"),
             pl.col("timestamp"),
             value.alias("value"),
             join_quality_flags(None, raw=raw),
+            UPDATED,
         )
+        return self._note_files_with_rows(df, dataset)
 
 
 @dataclass

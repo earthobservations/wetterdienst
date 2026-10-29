@@ -102,6 +102,7 @@
       "hourly": {
         "data": [
           "precipitation_amount",
+          "pressure_air_sea_level",
           "pressure_air_site",
           "temperature_dew_point_2m"
         ]
@@ -3453,5 +3454,5 @@
     "parameters": {},
     "in_dataset": {}
   },
-  "x-release": "0.174.0"
+  "x-release": "0.178.0"
 }

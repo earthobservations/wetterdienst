@@ -28,6 +28,7 @@ from wetterdienst.provider.dwd.observation.fileindex import DATE_RANGE_REGEX, ME
 from wetterdienst.provider.dwd.observation.metadata import (
     DwdObservationMetadata,
 )
+from wetterdienst.util.response_warnings import note_skipped_download
 
 if TYPE_CHECKING:
     from wetterdienst.util.network import File
@@ -462,9 +463,11 @@ def _parse_climate_observations_data(  # noqa: C901
             infer_schema=False,
         )
     except pl.exceptions.SchemaError:
+        note_skipped_download()
         log.warning(f"The file representing {file.filename} could not be parsed and is skipped.")
         return pl.LazyFrame()
     except ValueError:
+        note_skipped_download()
         log.warning(f"The file representing {file.filename} is None and is skipped.")
         return pl.LazyFrame()
     df = df.with_columns(cs.string().str.strip_chars())

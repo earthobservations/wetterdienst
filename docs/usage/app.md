@@ -1,7 +1,7 @@
 # Web app
 
 The web app is the way into the data for anyone who would rather click than write code: pick a station on a map,
-choose what to read, look at the numbers and download them. It is a single-page app (Nuxt 3, Vue 3, server-side
+choose what to read, look at the numbers and download them. It is a single-page app (Nuxt, Vue 3, server-side
 rendering off) that calls the [REST API](restapi.md) and nothing else, so everything it shows is what the API
 answers, with the same [licence and credit line](restapi.md#response-metadata) for the data. Its server serves the
 pages and proxies `/api`, `/mcp`, `/docs` and `/openapi.json` to the backend, so a browser only ever calls the
@@ -29,9 +29,53 @@ The settings of a request that the explorer offers are the [options](settings.md
 names the REST API takes them by. The app does not have the weather warnings of DWD (see [Alerts](../data/provider/dwd/alerts/index.md)
 for them) nor the radar products.
 
+<!-- GH-3459 (a draft, not merged): the Explorer is to change how it meets a refusal, see large-requests.md -->
 A request the backend refuses shows what the backend answered: one over a [limit](restapi.md#limits) says which
 and how to narrow it, a provider that is down says so and the request can be made again. See
-[Troubleshooting](troubleshooting.md) for what the answers mean.
+[Troubleshooting](troubleshooting.md) for what the answers mean. To get more than a limit allows, see
+[Getting more than the limit](large-requests.md#from-the-app).
+
+## Embed the forecast on another site
+
+`/widget` is the one page of the app that another site may put in a frame; every other page answers
+`frame-ancestors 'self'`. It shows the MOSMIX forecast of one station and nothing else: it reads the data, and the
+only things in it that can be clicked are its two links (the full forecast and the project), which open in a new tab,
+and the buttons that draw the chart again or reload the frame if it could not be drawn. Pick the station on the
+Forecast page: its address ends in `?station=<station-id>`. Then put this on your page, with the address of your
+instance in place of the hosted one if you run your own (`/widget` is open to every site on any instance, there is no
+setting for it):
+
+```html
+<iframe
+  src="https://wetterdienst.eobs.org/widget?station=<station-id>&theme=light"
+  title="Weather forecast"
+  width="100%" height="700"
+  style="border: 0"
+  loading="lazy"
+  referrerpolicy="strict-origin-when-cross-origin"></iframe>
+```
+
+- The chart is 540 px high and the frame holds a header and a footer around it: 700 px leaves no scroll bar.
+- `theme=dark` or `theme=light` sets the colours; leave it out to follow the visitor's setting. The browser keeps the
+  colours it was last given in the frame's own storage, so a visitor who has seen `theme=dark` keeps it until a
+  `theme` says otherwise, even if you drop the parameter later.
+- If your page has a Content Security Policy of its own, it has to allow the app's origin in `frame-src` (or
+  `child-src`).
+- If you add `sandbox`, give it `allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox`. Without
+  `allow-same-origin` the frame has an opaque origin, and the widget's own scripts and stylesheet (loaded with
+  `crossorigin` and an integrity hash) and its requests to `/api` are cross-origin requests, which the app does not
+  answer with a CORS header (see below), so nothing is drawn; the two popup tokens let its links open.
+- `/widget` is sent with `Cross-Origin-Resource-Policy: same-origin`, which a page that sets
+  `Cross-Origin-Embedder-Policy: require-corp` or `credentialless` is refused the frame by. A page that sets none,
+  which is most, is not affected.
+- The app is served from the root of its origin: it asks for `/api/...` and its files at absolute paths, and a base
+  path (`NUXT_APP_BASE_URL`, or a proxy that serves it under `/wd/`) is not supported. `/widget` is the only address
+  that is open to other sites, so `/wd/widget` is not, and a frame of it stays blank.
+
+If a reverse proxy in front of the app rewrites the path before it forwards it (decodes `%77`, collapses `//`, resolves
+`..`), the app cannot see what was asked for. The widget's page therefore also refuses to draw anything outside
+`/widget` while it is framed by another site (by any ancestor of another origin, not only the top window), so such an
+address shows a blank frame.
 
 ## Run your own
 
@@ -42,15 +86,22 @@ of their own so that the app can reach the backend by its name:
 docker network create wetterdienst
 docker run -d --network wetterdienst --name backend ghcr.io/earthobservations/wetterdienst
 docker run -d --network wetterdienst --name app --publish=4000:4000 \
-    --env NUXT_PUBLIC_API_BASE=http://backend:7890/api \
+    --env NUXT_API_BASE=http://backend:7890/api \
     ghcr.io/earthobservations/wetterdienst-app
 ```
 
-The app is then at <http://localhost:4000>. `NUXT_PUBLIC_API_BASE` is the backend's `/api` (or `/api/v1`) URL, as the
-app's server reaches it: only the server reads it, the browser only talks to the app, which proxies `/api`, the
-interactive API reference at `/docs` and `/openapi.json`, and the [MCP endpoint](mcp.md) `/mcp/v1` to the backend.
+The app is then at <http://localhost:4000>. `NUXT_API_BASE` is the backend's `/api` (or `/api/v1`) URL, as the
+app's server reaches it: only the server reads it (no page carries it), the browser only talks to the app, which
+proxies `/api`, the interactive API reference at `/docs` and `/openapi.json`, and the [MCP endpoint](mcp.md)
+`/mcp/v1` to the backend.
 The image of the backend listens on port 7890, see [Docker](docker.md). Every other option below is an environment
 variable too, read when the server starts: no rebuild.
+
+```{note}
+`NUXT_API_BASE` was `NUXT_PUBLIC_API_BASE` before the backend URL became private. The old name is still read when
+`NUXT_API_BASE` is not set, and the server logs a warning when it starts; it will be removed in a future release.
+Rename the variable in your deployment, the value stays the same.
+```
 
 From a checkout of the repository, Docker Compose builds both and reloads them when the sources change:
 
@@ -70,14 +121,30 @@ pnpm from the `app` directory (`pnpm install`, then `pnpm dev` for a development
 ```bash
 cd app
 pnpm install
-pnpm dev    # port 4000, looking for the backend at http://localhost:7890/api
+pnpm dev    # port 4000 on localhost, looking for the backend at http://localhost:7890/api
 ```
 
-The app looks for the backend at `http://localhost:7890/api` unless `NUXT_PUBLIC_API_BASE` says otherwise.
+The app looks for the backend at `http://localhost:7890/api` unless `NUXT_API_BASE` says otherwise.
+The development server (with Nuxt DevTools) listens on `localhost`; `HOST=0.0.0.0 pnpm dev` opens it to the network.
 
 The app is released on its own, with its own [changelog](https://github.com/earthobservations/wetterdienst/blob/main/CHANGELOG_APP.md),
 as a pair with the backend: run versions of the two that were released together, as an app that is older than its
 backend can fail on a request the backend has since changed.
+
+## Search engines
+
+The pages are drawn by script, so the server writes what a crawler or a link preview that runs none needs into the
+HTML it sends: the title, the description, the canonical link and the `og:` and `twitter:` tags of the path, and a
+`<noscript>` text with links to the pages. The script then sets the same tags in the language of the visitor; the
+server writes German, or English for a visitor who chose it or whose browser asks for it first. `/sitemap.xml` lists
+the pages worth finding (the explorer, the forecast, the climate stripes, the API, the providers, the glossary, the
+project and legal pages) and `/robots.txt` names it. `/widget` and `/settings` ask not to be indexed, and a path
+that ends in `.xml` or `.txt` and is none of the app's files is a 404.
+
+Both files, and the canonical links, use the address that `NUXT_PUBLIC_SITE_URL` gives, which is
+`https://wetterdienst.eobs.org` unless you set it. Set it to the address your instance is reached at
+(`https://weather.example.org`, no path) if it is open to search engines; the variable is read when the server
+starts, no rebuild.
 
 ## Rate limit
 
@@ -139,7 +206,14 @@ update.**
 Nothing the browser runs comes from a CDN. The query panel's DuckDB-wasm (about 35 MB, about 5 MB over the wire)
 and Swagger UI (about 1.6 MB) at `/docs` are files of the app (`/_nuxt/` and `/_swagger-ui/`), so the Content
 Security Policy allows no script or worker from any other origin, and no `'unsafe-eval'`. The icons are the app's
-own too (`/_nuxt_icon`). The app calls OpenStreetMap, GitHub and Cloudflare for map tiles, avatars and the map's
-marker images.
+own too (`/_nuxt_icon`), and so are the map's marker images (Leaflet's own). The app calls OpenStreetMap for map tiles
+and GitHub for the avatars on the About page, nothing else.
+
+The licences of the packages the browser is served (the copyright notices their MIT, BSD, ISC and Apache terms ask to
+go with the code) are one file, `/third-party-licenses.txt`, linked from the footer. The production build writes it
+from the packages the bundle holds, so it is in the Docker image and in the release tarball, and the development server
+answers a note in its place.
 
 The app does not forward the cookies or the `Authorization` of a client to the backend, on `/api` or on `/mcp`.
+The `/api` and `/mcp` proxies are for their own path of the backend and nothing else: a request whose path resolves
+to somewhere else (`/api/../health`, `/mcp/../health`) is a `404`, and the backend is not asked.

@@ -38,6 +38,12 @@ _IpmaObservationMetadataSpec = {
     "attribution": "Source: IPMA (Instituto Português do Mar e da Atmosfera)",
     "url": "https://api.ipma.pt/",
     "kind": "observation",
+    "extent": {
+        "scope": "national",
+        "continents": ["africa", "europe"],  # Madeira and the Selvagens are named, as the Canary Islands are for AEMET
+        "country_codes": ["PT"],
+        "bbox": [-31.5, 30.0, -6.1, 42.2],
+    },
     "timezone": "Europe/Lisbon",
     "resolutions": [
         {

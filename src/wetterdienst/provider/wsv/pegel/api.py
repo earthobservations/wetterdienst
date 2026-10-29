@@ -16,6 +16,7 @@ from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, LicenseModel, Para
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.util.network import download_file
+from wetterdienst.util.response_warnings import note_skipped_download
 
 if TYPE_CHECKING:
     from wetterdienst.settings import Settings
@@ -257,6 +258,13 @@ _WsvPegelMetadataSpec = {
     "attribution": None,
     "url": "https://pegelonline.wsv.de/webservice/ueberblick",
     "kind": "observation",
+    "extent": {
+        "scope": "national",
+        "continents": ["europe"],
+        "country_codes": ["DE"],
+        # west of the box of Germany for TIEL, a gauge on the Waal in the Netherlands that PEGELONLINE lists
+        "bbox": [5.4, 47.2, 15.1, 55.1],
+    },
     "timezone": "Europe/Berlin",
     "resolutions": [
         {
@@ -392,6 +400,7 @@ class WsvPegelValues(TimeseriesValues[ParameterModel]):
             if source_unit is None:
                 # the timeseries is listed but declares no unit, so the unit is unknown rather than
                 # known to be unhandled; the unreachable-listing case is already gone by here
+                note_skipped_download()
                 log.error(
                     f"WSV station {station_id} has no published unit for {name_original} in the "
                     f"station listing; skipping rather than assuming {parameter_or_dataset.unit}",
@@ -402,6 +411,7 @@ class WsvPegelValues(TimeseriesValues[ParameterModel]):
                 # passed through as if every station published the declared unit. Dropping the
                 # series is worse than returning it, but returning a number that is silently wrong
                 # by a factor of 100 is worse still.
+                note_skipped_download()
                 log.error(
                     f"WSV station {station_id} publishes {name_original} in unhandled unit "
                     f"{source_unit!r}; skipping rather than reporting it as "

@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { privacy as de } from '../../i18n/privacy/de'
+import { privacy as en } from '../../i18n/privacy/en'
 
 // nuxt.config.ts relies on the `defineNuxtConfig` auto-import (an identity
 // helper at runtime) and imports the tailwind vite plugin. Stub both so the
@@ -43,6 +45,48 @@ describe('security headers', () => {
     expect(imgSrc).toContain('https://*.tile.openstreetmap.org')
   })
 
+  it('allows no host the privacy policy does not name, and no whole scheme or wildcard', async () => {
+    const config = await loadConfig()
+    const policy = policyOf(config)
+
+    const hosts = new Set<string>()
+    for (const [directive, sources] of Object.entries(policy)) {
+      for (const source of sources) {
+        // a keyword (`'self'`, `'none'`, a nonce) and the two schemes of data the page makes itself
+        if (source.startsWith('\'') || source === 'data:' || source === 'blob:')
+          continue
+        // everything else is a host: `https://host`, `https://*.host`, or a host with no scheme, never a bare
+        // scheme (`https:`, `http:`) or `*`, which allow every host
+        const match = /^https:\/\/((?:\*\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+)$/i.exec(source)
+        expect(match, `${directive}: ${source}`).not.toBeNull()
+        hosts.add(match![1]!.replace(/^\*\./, ''))
+      }
+    }
+
+    expect(hosts.size).toBeGreaterThan(0)
+    // each host the policy allows is named by every language of the privacy policy: a host cannot be added here
+    // without the text that tells a visitor of it
+    for (const [language, text] of Object.entries({ de, en })) {
+      const written = JSON.stringify(text)
+      for (const host of hosts)
+        expect(written, `${language}: ${host}`).toContain(host)
+    }
+    // the app ships no web font of another origin: a font is its own file or a data URL
+    expect(policy['font-src']).toEqual(['\'self\'', 'data:'])
+  })
+
+  it('leaves who may frame a page to the widget plugin: no route rule and no default of the config relaxes it', async () => {
+    const config = await loadConfig()
+    const rules = config.routeRules as Record<string, any>
+
+    // a route rule is matched on the decoded path, which `/%77idget` is the widget to, and the app's router is not
+    // (`server/utils/widgetFrame.ts`): no rule may touch who frames a page
+    for (const [path, rule] of Object.entries(rules))
+      expect(JSON.stringify(rule), path).not.toMatch(/frame-ancestors|xFrameOptions|X-Frame-Options/i)
+    expect(policyOf(config)['frame-ancestors']).toEqual(['\'self\''])
+    expect(config.security.headers.xFrameOptions).toBeUndefined()
+  })
+
   it('allows no CDN: the DuckDB-wasm and Swagger UI files are the app\'s own (GH-3094)', async () => {
     const config = await loadConfig()
     const policy = policyOf(config)
@@ -61,13 +105,25 @@ describe('security headers', () => {
     expect(scripts).toContain('\'wasm-unsafe-eval\'')
   })
 
-  it('lets the browser call its own origin, not the backend whose address is read when the app is built', async () => {
-    vi.stubEnv('NUXT_PUBLIC_API_BASE', 'http://backend.internal:7890/api')
+  it('lets the browser call its own origin, not the backend whose address is read when the server starts', async () => {
+    // the variable and its deprecated name alike: neither one changes what the page may call
+    vi.stubEnv('NUXT_API_BASE', 'http://backend.internal:7890/api')
+    vi.stubEnv('NUXT_PUBLIC_API_BASE', 'http://old-backend.internal:7890/api')
     const config = await loadConfig()
     const connect = policyOf(config)['connect-src']!
 
     expect(connect).toContain('\'self\'')
     expect(connect.join(' ')).not.toContain('backend.internal')
+    vi.unstubAllEnvs()
+  })
+
+  it('keeps the backend URL out of the public runtime config, which every page carries (GH-3096)', async () => {
+    vi.stubEnv('NUXT_PUBLIC_API_BASE', 'http://old-backend.internal:7890/api')
+    const config = await loadConfig()
+
+    expect(config.runtimeConfig.public?.apiBase).toBeUndefined()
+    expect(JSON.stringify(config.runtimeConfig.public ?? {})).not.toContain('backend')
+    expect(config.runtimeConfig.apiBase).toBe('')
     vi.unstubAllEnvs()
   })
 
@@ -77,6 +133,21 @@ describe('security headers', () => {
     expect(config.security?.rateLimiter).toBe(false)
     expect(config.security?.corsHandler).toBe(false)
     expect(config.runtimeConfig.corsAllowedOrigins).toBe('')
+  })
+})
+
+describe('the development server', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.resetModules()
+  })
+
+  it('names no host, so `nuxt dev` (with Nuxt DevTools) listens on localhost unless HOST says otherwise (GH-3096)', async () => {
+    vi.stubGlobal('defineNuxtConfig', (config: any) => config)
+    const config = await loadConfig()
+
+    expect(config.devServer.host).toBeUndefined()
+    expect(config.devServer.port).toBe(4000)
   })
 })
 

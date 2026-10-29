@@ -266,6 +266,12 @@ the difference in the quality control procedure should be considered.
 There are still issues to be discovered in the historical data.
 The DWD welcomes any hints to improve the data basis (see contact).
 
+The periods overlap (the `recent` files reach back about 500 days, the `now` files a day or two). For a
+timestamp that several periods hold, the answer takes the reading of the preferred period: historical over
+recent over now. That holds even where the preferred file has a missing-value marker (`-999`, null) and
+another has a value: 18 readings of 50 million were such in a measurement of 2026-10 (577 station-datasets,
+mostly `hourly/solar` before 2024). The value of the other period is not filled in.
+
 ### Examples
 
 As an example, these sections display different means of

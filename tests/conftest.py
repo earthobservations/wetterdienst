@@ -8,22 +8,25 @@ import os
 import platform
 import re
 import socket
+import ssl
 import sys
 import threading
 import time
 import warnings
-from collections.abc import Generator
+from collections.abc import Collection, Generator
 from contextlib import contextmanager
 from http import HTTPStatus
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 import pytest
+from aiohttp import ClientResponseError, ClientSSLError
 
 from wetterdienst import Info, Options, Settings
 from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.util.eccodes import bufr_is_available
-from wetterdienst.util.network import _worth_retrying
+from wetterdienst.util.network import UpstreamMaintenanceError, _worth_retrying
 
 IS_CI = bool(os.environ.get("CI"))
 IS_LINUX = platform.system() == "Linux"
@@ -35,7 +38,18 @@ info = Info()
 
 #: the members of the `metadata` block that every JSON answer has, whatever was asked for
 RESPONSE_METADATA_ALWAYS = frozenset(
-    {"api_version", "schema_version", "retrieved_at", "provider", "producer", "request", "counts", "crs", "warnings"},
+    {
+        "api_version",
+        "schema_version",
+        "retrieved_at",
+        "data_updated_at",
+        "provider",
+        "producer",
+        "request",
+        "counts",
+        "crs",
+        "warnings",
+    },
 )
 #: the members `with_metadata` adds to the block
 RESPONSE_METADATA_HEAVY = frozenset({"parameters", "quality"})
@@ -125,17 +139,49 @@ def _host_did_not_answer(failure: BaseException | None) -> bool:
     )
 
 
-def _is_upstream_outage(error: Exception) -> bool:
+#: Hosts whose 403 is an outage and not a credential refused: the Environment Agency's hydrology API needs no key,
+#: and answers some requests from the runners' address ranges with a 403 (the EA hydrology tests on CI, GH-2522). A
+#: 403 from any other host still fails the test, a rejected key (AEMET) among them.
+_FORBIDDEN_IS_OUTAGE_HOSTS = frozenset({"environment.data.gov.uk"})
+
+
+def _is_forbidden_by_outage_host(failure: BaseException) -> bool:
+    """Say whether a failure is a 403 from a host of `_FORBIDDEN_IS_OUTAGE_HOSTS`."""
+    if not isinstance(failure, ClientResponseError) or failure.status != HTTPStatus.FORBIDDEN:
+        return False
+    return getattr(getattr(failure.request_info, "url", None), "host", None) in _FORBIDDEN_IS_OUTAGE_HOSTS
+
+
+def _host_of(failure: NoInternetError) -> str | None:
+    """Name the host a `NoInternetError` could not reach, from the URL its message gives."""
+    found = re.search(r"could not reach (\S+)", str(failure))
+    return urlsplit(found.group(1)).hostname if found else None
+
+
+def _is_upstream_outage(error: Exception, unresolved_hosts: Collection[str] = ()) -> bool:
     """Say whether a failure is the upstream not answering, by the rule `skip_if_upstream_unavailable` states."""
     # a download raised through `File.raise_if_exception` carries the failure as its cause
     failure = error.__cause__ if isinstance(error, DownloadError) and error.__cause__ else error
     if isinstance(failure, NoInternetError):
-        return _host_did_not_answer(failure.__cause__) and _runner_has_network()
-    return isinstance(failure, Exception) and (_worth_retrying(failure) or _is_server_fault(failure))
+        cause = failure.__cause__
+        unanswered = _host_did_not_answer(cause) or (
+            isinstance(cause, socket.gaierror) and _host_of(failure) in unresolved_hosts
+        )
+        return unanswered and _runner_has_network()
+    # a TLS failure is no outage for a test, though the library asks again for a handshake the server
+    # fumbled: one that is still failing after those attempts is a failure to look at (GH-3533)
+    if isinstance(failure, (ClientSSLError, ssl.SSLError)):
+        return False
+    return isinstance(failure, Exception) and (
+        _worth_retrying(failure)
+        or _is_server_fault(failure)
+        or isinstance(failure, UpstreamMaintenanceError)
+        or _is_forbidden_by_outage_host(failure)
+    )
 
 
 @contextmanager
-def skip_if_upstream_unavailable() -> Generator[None]:
+def skip_if_upstream_unavailable(*, unresolved_hosts: Collection[str] = ()) -> Generator[None]:
     """Skip a remote test whose upstream did not answer, rather than fail it.
 
     For a test that asserts what upstream publishes, a request that timed out or met a 5xx says
@@ -147,6 +193,10 @@ def skip_if_upstream_unavailable() -> Generator[None]:
       5xx -- which `download_file` asks twice, so a request made through it is skipped on only after
       its second attempt failed as well;
     - a 5xx that arrives as the status of an envelope rather than of the response (AEMET);
+    - a 403 from a host of `_FORBIDDEN_IS_OUTAGE_HOSTS` (the Environment Agency, which needs no key and refuses some
+      runners, GH-2522);
+    - a redirect to the maintenance page of a platform (`UpstreamMaintenanceError`: data.gouv.fr answers every
+      request of its maintenance windows with a redirect to `sorry.data.gouv.fr`, GH-3400), which is not asked again;
     - a `NoInternetError` whose connection timed out, was refused, reset or aborted, or had no route (a
       Windows runner's "semaphore timeout" and "network name is no longer available" included), *and*
       only while this machine can still connect to other hosts (`_runner_has_network`), so a runner
@@ -156,10 +206,14 @@ def skip_if_upstream_unavailable() -> Generator[None]:
 
     - a 4xx. A 404 is upstream answering and the likelier cause is a URL built wrong, which is what
       such a test is there to catch; a 400 or a 429 the same. A 401 or a 403 is a credential
-      refused, and a `CredentialRejectedError` is a CI configuration failure that has to stay red
-      (a rejected AEMET key).
+      refused (except the 403 of the hosts named above), and a `CredentialRejectedError` is a CI
+      configuration failure that has to stay red (a rejected AEMET key).
     - a name that does not resolve (`socket.gaierror`): a decommissioned or misspelt host looks just
-      like it, and a test that never reaches its host proves nothing, so it fails.
+      like it, and a test that never reaches its host proves nothing, so it fails. Except for a host
+      named in ``unresolved_hosts``, whose name a runner's resolver is known to fail on while it
+      resolves every other (`frost.met.no` on the macOS runners, GH-3252): that skips, again only while
+      `_runner_has_network`. A test names such a host through the `resolver_fails` marker, for the
+      platform it was seen on, so the same failure on the others still fails.
     - a TLS failure, an assertion, or any other exception: a wrong answer is not an outage.
 
     Usable as a decorator or around the calls that reach upstream.
@@ -171,7 +225,7 @@ def skip_if_upstream_unavailable() -> Generator[None]:
     try:
         yield
     except Exception as error:
-        if _is_upstream_outage(error):
+        if _is_upstream_outage(error, unresolved_hosts):
             pytest.skip(f"upstream did not answer: {error!r}")
         raise
 
@@ -201,6 +255,26 @@ def skip_if_upstream_problem(response: Any) -> None:  # noqa: ANN401
         return
     if kind.rsplit(":", 1)[-1] == "upstream-timeout":
         pytest.skip(f"upstream did not answer: HTTP {response.status_code} {kind}")
+
+
+#: Frost's name on the macOS runners (GH-3252): their resolver answers SERVFAIL for `frost.met.no`, a CNAME into
+#: another DNSSEC-signed zone, while it resolves `api.met.no` and every other host of the run. Linux and Windows
+#: resolve it in the same runs, so a host that is really gone still fails there.
+FROST_RESOLVER_ON_MACOS = pytest.mark.resolver_fails("frost.met.no", platform="darwin")
+
+
+def _unresolved_hosts_of(item: pytest.Item) -> tuple[str, ...]:
+    """Read the hosts a test's `resolver_fails` marker names, on the platform the marker is meant for.
+
+    ``@pytest.mark.resolver_fails("frost.met.no", platform="darwin")``: a `sys.platform` that is not the
+    one given leaves the list empty. Without ``platform`` the hosts apply everywhere.
+    """
+    hosts: list[str] = []
+    for marker in item.iter_markers("resolver_fails"):
+        platform_name = marker.kwargs.get("platform")
+        if platform_name is None or sys.platform == platform_name:
+            hosts.extend(marker.args)
+    return tuple(hosts)
 
 
 def _rerun_will_retry(item: pytest.Item, error: BaseException) -> bool:
@@ -259,7 +333,7 @@ def pytest_runtest_call(item: pytest.Item) -> Generator[None]:
         if _rerun_will_retry(item, error):
             raise
         try:
-            with skip_if_upstream_unavailable():
+            with skip_if_upstream_unavailable(unresolved_hosts=_unresolved_hosts_of(item)):
                 raise
         except pytest.skip.Exception as skipped:
             # reported at the test, as a skip from a fixture is, rather than at the line above, which
@@ -285,6 +359,26 @@ def _worker_unique_cache_dir(tmp_path_factory: pytest.TempPathFactory, worker_id
     os.environ["WD_CACHE_DIR"] = str(cache)
     yield
     del os.environ["WD_CACHE_DIR"]
+
+
+@pytest.fixture(autouse=True)
+def _no_fetch_ahead_unless_asked_for(request: pytest.FixtureRequest) -> Generator[None]:
+    """Have the tests read one station after the other: the fetch-ahead of the core (GH-3454) is off unless one asks.
+
+    A test that stands in for the collection of DWD's stations but leaves its file index to the network would have the
+    hook that names a station's files ask that index of the network from the thread of the test. A test that wants it
+    (`tests/model/test_fetch_ahead.py`) names the fixture `fetch_ahead_wanted`.
+
+    Not through the `monkeypatch` fixture: that is undone after the fixtures set up later, and a test that patches
+    what another autouse fixture of its own clears (`tests/util/test_eccodes.py`) needs its patch undone first.
+    """
+    from wetterdienst.model.values import TimeseriesValues  # noqa: PLC0415
+
+    original = TimeseriesValues._fetch_ahead  # noqa: SLF001
+    if "fetch_ahead_wanted" not in request.fixturenames:
+        TimeseriesValues._fetch_ahead = lambda self, groups: None  # type: ignore[method-assign]  # noqa: ARG005, SLF001
+    yield
+    TimeseriesValues._fetch_ahead = original  # type: ignore[method-assign]  # noqa: SLF001
 
 
 def _is_local_address(address: object) -> bool:
@@ -808,6 +902,7 @@ def metadata() -> dict:
             "name_local": "Deutscher Wetterdienst",
             "url": "https://opendata.dwd.de/climate_environment/CDC/",
         },
+        "data_updated_at": None,
     }
 
 

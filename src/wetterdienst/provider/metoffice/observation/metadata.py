@@ -138,9 +138,25 @@ _MetOfficeObservationMetadataSpec = {
     "country_code": "GB",
     "copyright": "© Crown Copyright, Met Office, MIDAS Open, Open Government Licence v3.0",
     "license": OGL_UK_3_0,
-    "attribution": "© Crown Copyright, Met Office, MIDAS Open",
+    # the CEDA ISO record of the collection (https://catalogue.ceda.ac.uk/export/xml/gemini2.3/dbd451271eb04662beade68da43546e1.xml):
+    # "attribution required ... you must cite them correctly using the citation given on the CEDA Data Catalogue
+    # record" (read 2026-10-26); that citation is on the page of the record under "Citable as", here without the
+    # "date of citation" it leaves to the user
+    "attribution": (
+        "Met Office (2019): Met Office MIDAS Open: UK Land Surface Stations Data (1853-current). "
+        "Centre for Environmental Data Analysis. http://catalogue.ceda.ac.uk/uuid/dbd451271eb04662beade68da43546e1"
+    ),
     "url": "https://catalogue.ceda.ac.uk/uuid/dbd451271eb04662beade68da43546e1/",
     "kind": "observation",
+    "extent": {
+        "scope": "national",
+        "continents": ["europe"],
+        "country_codes": ["GB"],
+        # declared from the documentation of the Met Office (MIDAS Open on CEDA), no list was read (a token is needed):
+        # the stations of the UK with the Channel Islands (49.2 N), Shetland (60.8 N) and the Outer Hebrides and
+        # St Kilda (to 8.6 W), widened a degree and a half to the safe side
+        "bbox": [-10.0, 48.5, 3.0, 61.5],
+    },
     "timezone": "Europe/London",
     "auth": True,
     "resolutions": [

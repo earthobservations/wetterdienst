@@ -15,10 +15,11 @@ import portion
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.fetch_ahead import FilesAhead
 from wetterdienst.model.metadata import DatasetModel, build_metadata_model
 from wetterdienst.model.quality_flags import join_quality_flags
 from wetterdienst.model.request import TimeseriesRequest
-from wetterdienst.model.values import TimeseriesValues
+from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.imgw.fileindex import keep_files_overlapping, list_files_for_interval
 from wetterdienst.provider.imgw.metadata import _METADATA
 from wetterdienst.util.archive import open_zip
@@ -27,6 +28,8 @@ from wetterdienst.util.network import File, download_file, download_files
 from wetterdienst.util.polars_util import read_csv_without_header
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
@@ -93,6 +96,12 @@ _QUALITY_ABSENT_DAY = "11"
 _ImgwMeteorologyMetadataSpec = {
     **_METADATA,
     "kind": "observation",
+    "extent": {
+        "scope": "national",
+        "continents": ["europe"],
+        "country_codes": ["PL"],
+        "bbox": [14.1, 49.0, 24.2, 54.9],
+    },
     "timezone": "Europe/Warsaw",
     "resolutions": [
         {
@@ -584,6 +593,18 @@ class ImgwMeteorologyValues(TimeseriesValues[DatasetModel]):
         },
     }
 
+    def _files_ahead(self, station_id: str, datasets: Sequence[DatasetModel]) -> FilesAhead:
+        """Name the archives of the station that only it reads, which are those of the daily synop (GH-3454).
+
+        The files of the other datasets are one for each month or year for every station, which the first station to
+        need one downloads, and which the station after it finds in the cache.
+        """
+        urls: list[str] = []
+        for dataset in datasets:
+            if dataset.resolution.value == Resolution.DAILY and dataset.name == "synop":
+                urls += self._get_urls(dataset, station_id)
+        return FilesAhead(urls=urls, ttl=CacheExpiry.FIVE_MINUTES)
+
     def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
@@ -618,7 +639,8 @@ class ImgwMeteorologyValues(TimeseriesValues[DatasetModel]):
                 file_schema=file_schema,
             )
             if not df.is_empty():
-                data.append(df)
+                # the date IMGW wrote the archive travels with its rows (`_note_files_with_rows`, GH-2567)
+                data.append(df.with_columns(pl.lit(file.last_modified, dtype=pl.Datetime("us", "UTC")).alias(UPDATED)))
         try:
             df = pl.concat(data)
         except ValueError:
@@ -626,7 +648,7 @@ class ImgwMeteorologyValues(TimeseriesValues[DatasetModel]):
         if df.is_empty():
             return pl.DataFrame()
         # the dates are IMGW's own, read as UTC by the core
-        return df
+        return self._note_files_with_rows(df, parameter_or_dataset)
 
     def _parse_file(
         self,

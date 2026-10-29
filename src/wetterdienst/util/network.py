@@ -8,6 +8,7 @@ import asyncio
 import atexit
 import base64
 import contextlib
+import datetime as dt
 import hashlib
 import ipaddress
 import json
@@ -21,13 +22,13 @@ import tempfile
 import threading
 import time
 import uuid
-from collections.abc import AsyncIterator, Callable, Iterable, Iterator, MutableMapping
+from collections.abc import AsyncIterator, Callable, Iterator, MutableMapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from http import HTTPStatus
 from io import BytesIO
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, ClassVar, Literal, TypeVar
+from typing import IO, TYPE_CHECKING, Any, ClassVar, Literal, TypeVar
 from urllib.parse import urljoin, urlparse, urlsplit, urlunsplit
 
 import stamina
@@ -41,6 +42,7 @@ from aiohttp import (
     ClientSSLError,
     ClientTimeout,
     TraceConfig,
+    TraceRequestEndParams,
     TraceRequestRedirectParams,
     TraceRequestStartParams,
 )
@@ -54,14 +56,17 @@ from fsspec.utils import isfilelike
 
 from wetterdienst.exceptions import CredentialRejectedError, DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.util.datetime import parse_http_date
 from wetterdienst.util.listing_cache import (
     STORE_FILENAME,
     ListingStore,
     make_private_dir,
     remove_diskcache_leftovers,
 )
+from wetterdienst.util.provider_hosts import clean_host, hosts_of_provider, provider_of
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from types import SimpleNamespace
 
     from wetterdienst.settings import Settings
@@ -114,6 +119,18 @@ class File:
     answer differently: a cached body says nothing about what the server has now, while one that
     has just come off the wire cannot have changed in the meantime (GH-1947).
     """
+    last_modified: dt.datetime | None = None
+    """When the source last wrote the file, as its `Last-Modified` header says (UTC), `None` where it sent none.
+
+    The header of the response the body in hand came from: for a file served from the cache, the one the cached copy
+    came with, kept beside it (`_write_sidecar`). `None` for a copy cached before that was kept, for a header that is
+    no date (`parse_http_date`) and for a failed download. Never the time of the request (GH-2567). It is the
+    server's date of the file, where `cached_at` is when this library made the copy: two different times.
+    """
+    cached_at: float | None = None
+    """When the copy the body is of was made, as `time.time()` has it, from when its download began; None where the body
+    is not held in the cache (the cache is off, or the download failed). For a provider whose source dates its files, to
+    tell which copy a date is of (GH-2567)."""
 
     def raise_if_exception(self) -> None:
         """Raise an exception if the content is not a BytesIO object.
@@ -267,10 +284,10 @@ def as_outage(error: Exception, url: str) -> Exception:
     `DownloadError` `File.raise_if_exception` would raise, naming the file and with the failure as
     its `__cause__`. A failed connection is the `NoInternetError` it already is.
 
-    A TLS failure -- a certificate that does not verify, a handshake that fails -- is one too, though it
-    is not asked again (`_worth_retrying`): the host presented what it could not be trusted with, which is
-    no answer to the question, and it is the `DownloadError` that `File.raise_if_exception` raises for
-    it (GH-3022). So is a redirect that was not followed (`RedirectRefusedError`, GH-3339) and a body
+    A TLS failure -- a certificate that does not verify, a handshake that fails -- is one too, though a
+    certificate is not asked again (`_worth_retrying`): the host presented what it could not be trusted with,
+    which is no answer to the question, and it is the `DownloadError` that `File.raise_if_exception` raises
+    for it (GH-3022). So is a redirect that was not followed (`RedirectRefusedError`, GH-3339) and a body
     refused for its size, its time or an unannounced compression (`DownloadRefusedError`, GH-3340).
 
     Any other failure is returned as it was, for the caller to answer as before: a 404, a 4xx such as
@@ -342,11 +359,6 @@ _REGISTRY_LABELS = frozenset(
 )
 
 
-def _clean_host(host: str | None) -> str:
-    """Give a host name in the form it is compared in: lower case, without the root dot."""
-    return (host or "").lower().rstrip(".")
-
-
 def _is_ip_address(host: str) -> bool:
     try:
         ipaddress.ip_address(host)
@@ -366,7 +378,7 @@ def _host_family(host: str) -> str:
     An address, a name with a single label (`localhost`, a name on the internal network) and a name under a shared
     domain (`_SHARED_DOMAINS`) is its own family: nothing else is related to it.
     """
-    host = _clean_host(host)
+    host = clean_host(host)
     labels = host.split(".")
     if _is_ip_address(host) or len(labels) < 2 or host.endswith(tuple(f".{domain}" for domain in _SHARED_DOMAINS)):
         return host
@@ -376,60 +388,65 @@ def _host_family(host: str) -> str:
 
 def _same_family(host: str, other: str) -> bool:
     """Tell whether two hosts are one and the same, or two names under one registered domain."""
-    return _clean_host(host) == _clean_host(other) or _host_family(host) == _host_family(other)
+    return clean_host(host) == clean_host(other) or _host_family(host) == _host_family(other)
 
 
 _DEFAULT_PORTS = {"http": 80, "https": 443}
 
 
-def _host_listed(host: str, entry: str) -> bool:
-    """Tell whether a host is one an allow-list entry names.
+def _in_scope(host: str, start: str | None) -> bool:
+    """Tell whether a request that starts at a host may be led to another host (a link or a redirect).
 
-    `*` in a label stands for characters of that label, and a leading `*.` for one or more labels.
+    Where the start is a host of a provider (`PROVIDER_HOSTS`), the hosts of that provider are the bound, and no
+    other host is in it, a sibling name under the same domain included. Any other start, a host the library does not
+    know (a test server, an address a caller fetches by hand), is held to its registered domain.
     """
-    entry = _clean_host(entry)
-    leading = entry.startswith("*.")
-    pattern = re.escape(entry.removeprefix("*.")).replace(r"\*", "[^.]+")
-    return re.fullmatch((r"(?:[^.]+\.)+" if leading else "") + pattern, host) is not None
+    hosts = hosts_of_provider(start)
+    if hosts is None:
+        return _same_family(host, start or "")
+    return clean_host(host) in hosts
+
+
+def _bound_of(start: str | None) -> str:
+    """Name what a request that starts at a host is held to, for a refusal: `the hosts of nws`, `the domain of x.fr`."""
+    provider = provider_of(start)
+    return f"the domain of {_host_family(start or '')}" if provider is None else f"the hosts of {provider}"
 
 
 def _link_refused(link: str, why: str) -> DownloadError:
     return DownloadError(_without_url_secrets(link), f"the link was not fetched, as it {why}")
 
 
-def fetchable_link(link: str, base: str, *, allow: Iterable[str] = ()) -> str:
+def fetchable_link(link: str, base: str) -> str:
     """Give the address to fetch for a link that an answer of the provider names, or refuse it.
 
     A provider that follows a link out of its upstream's answer (the next page of a result, the address of the
-    data, an asset) fetches whatever the answer says, unless it asks here first. A link is fetched when it names
+    data, an asset) fetches whatever the answer says, unless it asks here first. A link is fetched when it names a
+    host of the provider that `base`, the address the provider asked, is one of (`PROVIDER_HOSTS`: the API and the
+    store its files are served from), on the port of `base` or the default one. A `base` that no provider lists
+    allows the registered domain of its host.
 
-    - a host of the family of `base`, the address the provider asked: the same name or one under the same
-      registered domain, on the port of `base` or the default one; or
-    - a host of `allow`, over https and on the default port, for a provider whose links lead to a host of
-      another family. An entry is a host name, in which `*` stands for the characters of one label and
-      a leading `*.` for one or more labels (`*.s3.*.amazonaws.com`).
-
-    Anything else is refused: another scheme than http(s), user information, an address or a name on an
-    internal network where `base` is not one. A link to `http` under an `https` base is returned as `https`, which
-    is how the upstream's own links are written where it terminates TLS elsewhere.
+    Anything else is refused: another scheme than http(s), user information, another port, an address or a name on
+    an internal network where `base` is not one, and every other host. A link to `http` under an `https` base is
+    returned as `https`, which is how the upstream's own links are written where it terminates TLS elsewhere.
 
     Args:
         link: The address the answer names.
         base: The address of the request that the answer came for.
-        allow: The hosts besides the family of `base` that the provider's links lead to, narrowly.
 
     Returns:
         The address to fetch.
 
     Raises:
-        DownloadError: If the link is refused, naming it without its query. It is the failure of the file the
-            link stands for, as the provider raises any other, and is never retried.
+        DownloadError: If the link is refused, naming it without its query and the provider whose hosts it is not
+            one of. It is the failure of the file the link stands for, as the provider raises any other, and is
+            never retried.
 
     """
     try:
         parts = urlsplit(link)
         base_parts = urlsplit(base)
-        host = _clean_host(parts.hostname)
+        host = clean_host(parts.hostname)
         port = parts.port
     except ValueError:
         raise _link_refused(link, "does not read as an address") from None
@@ -437,25 +454,20 @@ def fetchable_link(link: str, base: str, *, allow: Iterable[str] = ()) -> str:
         raise _link_refused(link, "is no http(s) address")
     if "@" in parts.netloc:
         raise _link_refused(link, "carries user information")
-    if _same_family(host, _clean_host(base_parts.hostname)):
-        scheme = "https" if base_parts.scheme == "https" else parts.scheme
-        on_default = port in {None, _DEFAULT_PORTS[scheme]} and base_parts.port in {
-            None,
-            _DEFAULT_PORTS[base_parts.scheme],
-        }
-        if not (on_default or port == base_parts.port):
-            raise _link_refused(link, "names another port")
-        return link if scheme == parts.scheme else urlunsplit(parts._replace(scheme=scheme))
-    for entry in allow:
-        if _host_listed(host, entry):
-            if parts.scheme != "https" or port not in {None, 443}:
-                raise _link_refused(link, "is not an https address on the default port")
-            return link
-    raise _link_refused(link, "leads to another host than the provider's")
+    if not _in_scope(host, base_parts.hostname):
+        raise _link_refused(link, f"leads to {host}, which is outside {_bound_of(base_parts.hostname)}")
+    scheme = "https" if base_parts.scheme == "https" else parts.scheme
+    on_default = port in {None, _DEFAULT_PORTS[scheme]} and base_parts.port in {
+        None,
+        _DEFAULT_PORTS[base_parts.scheme],
+    }
+    if not (on_default or port == base_parts.port):
+        raise _link_refused(link, "names another port")
+    return link if scheme == parts.scheme else urlunsplit(parts._replace(scheme=scheme))
 
 
 class RedirectRefusedError(ClientError):
-    """A redirect that was not followed, as it left the host family of the request or stepped down to http."""
+    """A redirect that was not followed, as it left the hosts of the request's provider or stepped down to http."""
 
 
 class DownloadRefusedError(ClientError):
@@ -575,19 +587,35 @@ def _refuse_unannounced_compression(url: str, payload: bytes) -> None:
 _REDIRECT_DROPPED_HEADERS = frozenset({"cookie"})
 
 
-def _check_redirect(
-    response: ClientResponse, headers: MutableMapping[str, str], first_url: str, *, allow_downgrade: bool = False
-) -> None:
-    """Refuse a redirect that leaves the family of the first request, or steps down to http with a credential.
+#: The hosts at which a provider's platform says that it is down for maintenance, each with the service it
+#: stands for. data.gouv.fr answers every request of a maintenance window, the API and the static host
+#: included, with a redirect to `http://sorry.data.gouv.fr`, which answers one to https and then a 503 (GH-3400).
+#: Not a host of any provider, so the check is made before the bound of the request.
+_MAINTENANCE_HOSTS = {"sorry.data.gouv.fr": "data.gouv.fr"}
+
+
+class UpstreamMaintenanceError(RedirectRefusedError):
+    """A redirect to the page that a provider's platform shows while it is down for maintenance.
+
+    A `DownloadError` raised from it is an outage of the provider and no fault of the request: a REST
+    answer maps it as any failed download, and the test suite skips on it (`skip_if_upstream_unavailable`).
+    """
+
+
+def _check_redirect(response: ClientResponse, headers: MutableMapping[str, str], first_url: str) -> None:
+    """Refuse a redirect that leaves the hosts of the first request's provider or steps down to http.
 
     Called for each redirect, with the headers aiohttp is about to send next. Where the origin changes (host, port
-    or scheme), no credential header goes with it, whatever its name (`_CREDENTIAL_HEADERS`). The first request's host
-    family is the bound: a redirect that ends elsewhere is refused, so an upstream cannot lead the client to a host of
-    its choosing (an internal one among them). A step from https to http is refused unless `allow_downgrade`, which a
-    session sets only when it holds no credential of any kind (`_session_is_keyless`), and in any case for a request
-    whose headers carry one: a public file is reached over an `http` hop by some chains (data.gouv.fr answers one on
-    GitHub's runners, GH-3398), and the hop is followed within the family as the lesser harm. Its answer is not
-    protected on the way, as the rest of the chain is. The refused hop is named by its host, never by its query.
+    or scheme), no credential header goes with it, whatever its name (`_CREDENTIAL_HEADERS`). The hosts of the provider
+    that the first request's host is one of (`PROVIDER_HOSTS`) are the bound, those of its registered domain where no
+    provider lists the host (`_in_scope`): a redirect that ends elsewhere is refused, so an upstream cannot lead the
+    client to a host of its choosing (an internal one among them). A step from https to http is refused for every
+    session, as it would send the request in clear. A refused hop is named by its host, never by its query.
+
+    A redirect to the maintenance page of a platform (`_MAINTENANCE_HOSTS`) from a request that started at a host of
+    that platform is no hop to refuse but an outage, and is told before the bound and the scheme are, so that it is
+    reported as one whichever way it is asked. From a request that started anywhere else it is a redirect like any
+    other: an upstream that sends a client there is not the platform being down.
     """
     location = response.headers.get("Location") or response.headers.get("URI")
     if not location:
@@ -602,47 +630,81 @@ def _check_redirect(
         return  # aiohttp refuses what is no address
     if target.scheme not in {"http", "https"} or not target_host:
         return  # aiohttp refuses what is no http(s) address
-    if not _same_family(urlsplit(first_url).hostname or "", target_host):
-        msg = f"a redirect to another host ({_clean_host(target_host)}) was not followed"
+    start = urlsplit(first_url).hostname
+    maintained = _MAINTENANCE_HOSTS.get(clean_host(target_host))
+    if maintained and _host_family(start or "") == _host_family(maintained):
+        msg = f"{maintained} is in maintenance (the request was redirected to {clean_host(target_host)})"
+        raise UpstreamMaintenanceError(msg)
+    if not _in_scope(target_host, start):
+        msg = f"a redirect to another host ({clean_host(target_host)}) outside {_bound_of(start)} was not followed"
         raise RedirectRefusedError(msg)
-    credentials = [name for name in headers if str(name).lower() in _CREDENTIAL_HEADERS | _REDIRECT_DROPPED_HEADERS]
-    if here.scheme == "https" and target.scheme == "http" and (credentials or not allow_downgrade):
-        msg = f"a redirect from https to http ({_clean_host(target_host)}) was not followed"
+    if here.scheme == "https" and target.scheme == "http":
+        msg = f"a redirect from https to http ({clean_host(target_host)}) was not followed"
         raise RedirectRefusedError(msg)
-    origin = (target.scheme, _clean_host(target_host), target_port or _DEFAULT_PORTS[target.scheme])
-    if origin != (here.scheme, _clean_host(here.hostname), here.port or _DEFAULT_PORTS[here.scheme]):
-        for name in credentials:
+    origin = (target.scheme, clean_host(target_host), target_port or _DEFAULT_PORTS[target.scheme])
+    if origin != (here.scheme, clean_host(here.hostname), here.port or _DEFAULT_PORTS[here.scheme]):
+        for name in [name for name in headers if str(name).lower() in _CREDENTIAL_HEADERS | _REDIRECT_DROPPED_HEADERS]:
             if name in headers:  # a header that is there twice goes with its first removal
                 del headers[name]
 
 
-#: What a session can hold besides headers that sends a credential with a request, and that aiohttp puts back
-#: after it has dropped it at a change of origin (`auth`), reads from the environment (`trust_env`: a netrc file,
-#: a proxy), keeps in a jar that does not follow the origin (`cookies`, `cookie_jar`), or adds to a request after the
-#: redirect has been checked (`middlewares`).
-_SESSION_CREDENTIAL_KWARGS = ("auth", "cookies", "cookie_jar", "middlewares", "trust_env", "proxy", "proxy_auth")
+#: The key of the `Last-Modified` header in the dict a request is given to say what it saw (`trace_request_ctx`)
+_LAST_MODIFIED = "last-modified"
+_DATE = "date"
 
 
-def _session_is_keyless(client_kwargs: dict) -> bool:
-    """Tell whether a session holds no credential of any kind, which only then may follow a step down to http."""
-    headers = _credential_headers(client_kwargs)
-    if headers is None or headers.keys() & (_CREDENTIAL_HEADERS | _REDIRECT_DROPPED_HEADERS):
-        return False
-    return not any(client_kwargs.get(name) for name in _SESSION_CREDENTIAL_KWARGS)
+#: How many dates a filesystem keeps at most: `download_file` takes its own at once, so what stays are those of the
+#: files another reader opened (the KML of a forecast) and nobody takes
+_MAX_REMEMBERED_DATES = 256
 
 
-def _redirect_guard(*, allow_downgrade: bool) -> TraceConfig:
-    """Build the trace of a session that applies `_check_redirect` to every redirect it follows."""
+def _remember_last_modified(registry: dict[str, dt.datetime | None], url: str, value: dt.datetime | None) -> None:
+    """Note the date of a file just read, for `download_file` to take, without growing for readers that do not."""
+    if len(registry) >= _MAX_REMEMBERED_DATES:
+        registry.clear()
+    registry[url] = value
+
+
+def _last_modified_of(seen: dict[str, str | None]) -> dt.datetime | None:
+    """Read the date a response says its file was written, `None` where it says none that can be taken.
+
+    A server that sends the time it makes its answer as the `Last-Modified` of it (SMHI and FMI do) says when it was
+    asked, not when the file was written, and a cache may hand such a date out after the `Date` it was made at. A
+    `Last-Modified` that is the `Date` of the same response or later is no file's: a server that has no time for a file
+    that is not there yet sends its own (RFC 9110 8.8.2.1), as FMI does, with the two equal to the second. A file
+    written in the very second it is asked for is lost with them, which costs a date and misleads nobody.
+    """
+    written = parse_http_date(seen.get(_LAST_MODIFIED))
+    answered = parse_http_date(seen.get(_DATE))
+    if written is not None and answered is not None and written >= answered:
+        return None
+    return written
+
+
+def _redirect_guard() -> TraceConfig:
+    """Build the trace of a session that applies `_check_redirect` to every redirect it follows.
+
+    It also hands the `Last-Modified` of the response that ends a request to the caller that passed a dict as
+    `trace_request_ctx`, which is how a download learns the date of the file it fetched with no request of its own.
+    """
     trace = TraceConfig()
 
     async def remember_first_url(_session: object, context: SimpleNamespace, params: TraceRequestStartParams) -> None:
         context.first_url = str(params.url)
 
     async def check_redirect(_session: object, context: SimpleNamespace, params: TraceRequestRedirectParams) -> None:
-        _check_redirect(params.response, params.headers, context.first_url, allow_downgrade=allow_downgrade)
+        _check_redirect(params.response, params.headers, context.first_url)
+
+    async def note_last_modified(_session: object, context: SimpleNamespace, params: TraceRequestEndParams) -> None:
+        # the response that ends the request, after any redirects: handed to whoever asked, if it asked
+        seen = getattr(context, "trace_request_ctx", None)
+        if isinstance(seen, dict):
+            seen[_LAST_MODIFIED] = params.response.headers.get("Last-Modified")
+            seen[_DATE] = params.response.headers.get("Date")
 
     trace.on_request_start.append(remember_first_url)
     trace.on_request_redirect.append(check_redirect)
+    trace.on_request_end.append(note_last_modified)
     return trace
 
 
@@ -925,6 +987,9 @@ class HTTPFileSystem(_HTTPFileSystem):
         """
         # Store use_certifi for later use
         self._use_certifi = use_certifi
+        #: The `Last-Modified` of the file each url last fetched whole, for `download_file` to take
+        #: (`_take_last_modified`)
+        self.last_modified_of: dict[str, dt.datetime | None] = {}
 
         # Every session is built here, so that every request of it passes the guard on redirects
         # (`_check_redirect`), and with our SSL context where certifi is asked for
@@ -932,7 +997,7 @@ class HTTPFileSystem(_HTTPFileSystem):
             """Create an aiohttp ClientSession that checks the redirects it follows."""
             import aiohttp  # noqa: PLC0415
 
-            guard = _redirect_guard(allow_downgrade=_session_is_keyless(client_kwargs))
+            guard = _redirect_guard()
             client_kwargs["trace_configs"] = [*(client_kwargs.get("trace_configs") or ()), guard]
             if use_certifi:
                 ssl_context = _create_ssl_context(use_certifi=True)
@@ -993,11 +1058,14 @@ class HTTPFileSystem(_HTTPFileSystem):
         if start is not None or end is not None:
             return await super()._cat_file(url, start=start, end=end, **kwargs)
         max_bytes = MAX_DOWNLOAD_BYTES if max_bytes is None else max_bytes
-        kw = {**self.kwargs, **kwargs}
+        seen: dict[str, str | None] = {}
+        kw = {**self.kwargs, **kwargs, "trace_request_ctx": seen}
         session = await self.set_session()
         async with _within_time(MAX_DOWNLOAD_SECONDS), session.get(self.encode_url(url), **kw) as response:
             self._raise_not_found_for_status(response, url)
-            return await _read_capped(response, max_bytes)
+            payload = await _read_capped(response, max_bytes)
+        _remember_last_modified(self.last_modified_of, url, _last_modified_of(seen))
+        return payload
 
     async def _get_file(
         self,
@@ -1017,6 +1085,7 @@ class HTTPFileSystem(_HTTPFileSystem):
             target = lpath
         else:
             target = opened = open(str(lpath), "wb")  # noqa: ASYNC230, PTH123, SIM115
+        seen: dict[str, str | None] = {}
         try:
             async with _within_time(MAX_DOWNLOAD_SECONDS):
                 await super()._get_file(
@@ -1024,8 +1093,10 @@ class HTTPFileSystem(_HTTPFileSystem):
                     _CappedWriter(target, max_bytes),
                     chunk_size=chunk_size,
                     callback=callback,
+                    trace_request_ctx=seen,
                     **kwargs,
                 )
+            _remember_last_modified(self.last_modified_of, rpath, _last_modified_of(seen))
         finally:
             if opened is not None:
                 opened.close()
@@ -1148,17 +1219,16 @@ def _sweep_expired_blobs(
 
     * **A TTL that is not a positive number is not swept at all.** `CacheExpiry.INFINITE` is
       `False`, `int(False)` is `0`, and fsspec reads an expiry of zero as "everything is
-      expired" -- it removes every entry and then `rmtree`s the directory. `lhmt` and both
+      expired" -- it removes every entry. `lhmt` and both
       `meteofrance` providers use `INFINITE` for immutable archives, so the first such download
       in a fresh process would have destroyed the archive cache and re-fetched it. The read path
       gets this right (`_check_file` reads `if cfs.expiry and ...`); only the sweep did not.
     * **The directory is marked swept before the attempt, not after.** `clear_expired` raises
       for a half-written entry -- exactly the case worth surviving -- and a sweep retried on
       every `register` would fail every download for this TTL rather than the one that met it.
-    * **Nothing is downloading into this directory while it runs**, which is what `clear_expired`
-      needs: it works from the snapshot its filesystem loaded and saves that snapshot back, so a
-      sweep beside a `download_files` thread pool would drop rows its siblings had just written and
-      orphan their blobs -- the leak this exists to close.
+    * **Nothing is downloading into this directory while it runs**, which is what the sweep
+      needs: a sweep beside a `download_files` thread pool could drop rows its siblings had just
+      written and orphan their blobs -- the leak this exists to close.
 
       What guarantees that is `_swept_dirs`, not the lock: this runs on the first `register` for a
       path, and until that returns no filesystem for the directory exists for anything to download
@@ -1167,9 +1237,10 @@ def _sweep_expired_blobs(
       a `PermissionError` for the builder rather than the harmless POSIX unlink. So a sweep that is
       ever re-armed after the first one needs a new answer to the first question, and the lock alone
       will not give it one. A download takes it for each load and save of the metadata, which keeps
-      the two from overlapping, but `clear_expired` saves the snapshot its own filesystem loaded
-      without merging the file first -- so a sweep taking its turn after a sibling's save still
-      writes over the rows that save added.
+      the two from overlapping, and the sweep reads the file again under the same hold
+      (`_refresh_metadata`), so the rows a sibling *thread* saved are merged in before it writes.
+      What stays open is another *process* saving between that read and the write, whose row is
+      lost: the lock is per process (GH-3485).
 
     Args:
         filesystem: The caching filesystem that owns this directory.
@@ -1355,6 +1426,190 @@ def _reclaim_unreachable_cache_dirs(fsspec_root: Path, keep: Path) -> None:
         log.info(f"Reclaimed {reclaimed / 1e6:.1f} MB from {removed} unreachable cache directories in {fsspec_root}")
 
 
+#: What is added to a blob's name for the file that keeps the `Last-Modified` it came with (GH-2567)
+_SIDECAR_SUFFIX = ".lm"
+
+
+def _sidecar_of(blob: Path) -> Path:
+    """Name the file beside a cached blob that holds the date the source gave it."""
+    return blob.with_name(blob.name + _SIDECAR_SUFFIX)
+
+
+def _write_sidecar(blob: Path, last_modified: dt.datetime | None, written: os.stat_result) -> None:
+    """Keep the `Last-Modified` a blob arrived with beside it, bound to the blob by its size and modification time.
+
+    The date cannot live in fsspec's own metadata record: its save merges a record into the one on disk and keeps the
+    disk's own fields, so the date of a copy fetched anew over an expired one would be the old copy's. A file of its own
+    is replaced whole, with the blob it describes. It says which blob that is: the size and the modification time of
+    the file as it was written (a rename keeps both), so that a blob another process put there since, or a copy cached
+    before dates were kept, is a blob it does not describe. A fetch whose response gave no date writes the record with
+    a null date: the copy has no date, and the record says it was made by a version that kept them
+    (`_has_sidecar_record`), which is what tells it from a copy made before. Never raises: a date lost is a null, not a
+    failed download.
+
+    Written under the lock of the cache directory and only if the blob is still the file `written` describes: of two
+    fetches that replace the blob one after the other, the one that comes later may write its sidecar first, and the
+    earlier one then finds a blob that is not its own and leaves the sidecar of the other where it is.
+    """
+    sidecar = _sidecar_of(blob)
+    temp = sidecar.with_name(f"{sidecar.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        with _cache_dir_lock:
+            current = blob.stat()
+            if (current.st_size, current.st_mtime_ns) != (written.st_size, written.st_mtime_ns):
+                return
+            record = {
+                "last_modified": None if last_modified is None else last_modified.isoformat(),
+                "size": written.st_size,
+                "mtime_ns": written.st_mtime_ns,
+            }
+            temp.write_text(json.dumps(record), encoding="utf-8")
+            os.replace(temp, sidecar)  # noqa: PTH105
+    except OSError:
+        log.debug(f"Failed keeping the date of {blob}", exc_info=True)
+    finally:
+        with contextlib.suppress(OSError):
+            temp.unlink(missing_ok=True)
+
+
+def _sidecar_record(blob: Path) -> dict | None:
+    """Read the record kept beside a cached blob: `None` for a blob with no sidecar, or one it does not describe."""
+    try:
+        record = json.loads(_sidecar_of(blob).read_text(encoding="utf-8"))
+        written = blob.stat()
+        if record["size"] != written.st_size or record["mtime_ns"] != written.st_mtime_ns:
+            return None
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    return record
+
+
+def _has_sidecar_record(blob: Path) -> bool:
+    """Tell whether the blob was cached by a version that kept dates: a record of it, with a date or without one."""
+    return _sidecar_record(blob) is not None
+
+
+def _read_sidecar(blob: Path) -> dt.datetime | None:
+    """Read the date a cached blob came with: `None` for a blob with no sidecar, or one it does not describe."""
+    record = _sidecar_record(blob)
+    try:
+        value = dt.datetime.fromisoformat(record["last_modified"]) if record else None
+    except (ValueError, KeyError, TypeError):
+        return None
+    return value.astimezone(dt.UTC) if value is not None and value.tzinfo is not None else None
+
+
+def _drop_orphaned_sidecars(directory: Path) -> None:
+    """Remove the sidecars whose blob is gone, which is what the sweep of an expired entry leaves of them."""
+    try:
+        sidecars = list(directory.glob(f"*{_SIDECAR_SUFFIX}"))
+    except OSError:
+        return
+    for sidecar in sidecars:
+        with contextlib.suppress(OSError):
+            if not sidecar.with_name(sidecar.name.removesuffix(_SIDECAR_SUFFIX)).exists():
+                sidecar.unlink(missing_ok=True)
+
+
+def _remove_unclaimed_files(directory: Path, rows: dict[str, Any], older_than: float) -> None:
+    """Remove the files of a cache directory that no row names and that are older than `older_than` seconds.
+
+    What a sweep that removed the whole directory used to collect: a blob whose row another process's save dropped, the
+    `<blob>.<uuid>.tmp` of a fetch that was killed, a `cache-<random>` of a save that was. Left alone are the metadata
+    file, the marker, the blobs rows name and their sidecars. Not older than `older_than` or an hour, whichever is
+    longer: the file of a fetch in flight moves only when bytes arrive, so a stalled one is older than a short TTL (or a
+    timeout longer than it) and another process's sweep must not take it from under the fetch. A removal that fails is
+    skipped (Windows refuses one on a file that is open).
+    """
+    named = {str(detail["fn"]) for detail in rows.values() if isinstance(detail, dict) and "fn" in detail}
+    kept = {"cache", _CACHE_USE_MARKER}
+    cutoff = time.time() - max(older_than, _SUPERSEDED_GRACE_SECONDS)
+    try:
+        entries = list(directory.iterdir())
+    except OSError:
+        return
+    for entry in entries:
+        name = entry.name
+        if name in kept or name in named or name.removesuffix(_SIDECAR_SUFFIX) in named:
+            continue
+        with contextlib.suppress(OSError):
+            if entry.is_file() and entry.stat().st_mtime < cutoff:
+                entry.unlink(missing_ok=True)
+
+
+def _last_modified_registry(filesystem: object) -> dict[str, dt.datetime | None] | None:
+    """Give the dict of `Last-Modified` dates that a filesystem, or the one it wraps, keeps for `download_file`."""
+    registry = getattr(getattr(filesystem, "fs", filesystem), "last_modified_of", None)
+    return registry if isinstance(registry, dict) else None
+
+
+def _take_last_modified(filesystem: object, url: str) -> dt.datetime | None:
+    """Take the date the filesystem noted for the file it just read, once: `None` where it noted none."""
+    registry = _last_modified_registry(filesystem)
+    return None if registry is None else registry.pop(url, None)
+
+
+def _metadata_stamp(filesystem: WholeFileCacheFileSystem) -> tuple[int, int, int] | None:
+    """Name the state of the metadata file by what the file system says of it: modification time, size, inode.
+
+    `None` for a file that is not there. The inode is in it because a save replaces the file.
+    """
+    try:
+        status = (Path(filesystem.storage[-1]) / "cache").stat()
+    except OSError:
+        return None
+    return status.st_mtime_ns, status.st_size, status.st_ino
+
+
+def _entry_time(detail: object) -> float:
+    """Read when an entry of the metadata was made: 0 for one that says nothing usable, which any other beats."""
+    try:
+        return float(detail["time"]) if isinstance(detail, dict) else 0.0
+    except (KeyError, TypeError, ValueError):
+        return 0.0
+
+
+def _refresh_metadata(filesystem: WholeFileCacheFileSystem) -> None:
+    """Bring what a caching filesystem holds up to what the metadata file says now, where that has moved.
+
+    Skipped where the file is the one this filesystem last read or wrote (`_metadata_stamp`, taken by its `load_cache`
+    and `save_cache`): a miss on an unchanged file is free, which matters for a directory of tens of thousands of
+    entries (the file is megabytes) that is asked about each file before it is fetched. Otherwise the file is read
+    and *merged* into what is held, as fsspec's own save merges: an entry only this filesystem holds is kept (another
+    process may have written the file from a read older than that entry, and the next save of this filesystem writes
+    it back, as it does on a filesystem that never reloaded), and where both hold one the later `time` wins.
+
+    A read that fails leaves the view as it was, which is what a lookup that only asks is to go on with. That is for a
+    failure that passes: on Windows the file is not readable while another process replaces it (`PermissionError`). A
+    file that is cut short stays an error, as it was: the save of the next fetch reads it too.
+    """
+    try:
+        with _cache_dir_lock:
+            if filesystem._wd_metadata_stamp == _metadata_stamp(filesystem):  # noqa: SLF001
+                return
+            held = filesystem._metadata.cached_files[-1]  # noqa: SLF001
+            filesystem.load_cache()
+            fresh = filesystem._metadata.cached_files[-1]  # noqa: SLF001
+            # a record of the file that has no usable `time` counts as 0, so that it never raises once the view is
+            # replaced (the stamp would then keep the entries only this filesystem held from being read back)
+            for key, detail in held.items():
+                if key not in fresh or _entry_time(fresh[key]) < _entry_time(detail):
+                    fresh[key] = detail
+    except Exception:
+        log.debug("Could not read the cache metadata again, keeping what is held", exc_info=True)
+
+
+def _held_in_view(filesystem: object, url: str) -> Literal[False] | tuple[dict[str, Any], str]:
+    """Say whether a caching filesystem's view of the metadata holds a copy of a url, without a reload of its own.
+
+    fsspec's own read of the file after `cache_check` (10 s) can still run inside it. False for a filesystem that does
+    not cache.
+    """
+    if isinstance(filesystem, WholeFileCacheFileSystem):
+        return WholeFileCacheFileSystem._check_file(filesystem, url)  # noqa: SLF001
+    return False
+
+
 class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
     """A `WholeFileCacheFileSystem` that reads and writes its metadata file under `_cache_dir_lock`.
 
@@ -1362,7 +1617,8 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
     `save_cache` are what a download goes through, `pop_from_cache` is how MOSMIX drops a truncated
     run, `clear_expired_cache` is the sweep, and `clear_cache` deletes the file along with the
     blobs. fsspec resolves all five on the class rather than on the instance, so an override here is
-    what its own internal calls reach as well.
+    what its own internal calls reach as well. `_check_file`, which fsspec asks the view, is
+    overridden to read the file again where the view holds no usable copy (GH-3452).
 
     `_open` is overridden for another reason: to fetch a missing file without fsspec's `exists`
     probe, and to record it only once it has arrived (GH-2467). It reaches the metadata file through
@@ -1372,22 +1628,89 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
     def load_cache(self) -> None:
         """Read the metadata file, with no other thread in the middle of replacing it."""
         with _cache_dir_lock:
+            # before the read: a file replaced during it then differs from the stamp, and is read again
+            stamp = _metadata_stamp(self)
             super().load_cache()
+            self._wd_metadata_stamp = stamp
 
     def save_cache(self) -> None:
         """Read, merge and replace the metadata file, with no other thread reading or replacing it."""
         with _cache_dir_lock:
             super().save_cache()
+            self._wd_metadata_stamp = _metadata_stamp(self)
+
+    def _check_file(
+        self, path: str, refetch_before: float | None = None
+    ) -> Literal[False] | tuple[dict[str, Any], str]:
+        """Say whether the cache holds an unexpired copy of a file, reading the metadata file again where it is not.
+
+        fsspec keeps one filesystem per thread ident and arguments, and an ident is handed out again once its thread
+        has ended, so a thread can hold a filesystem that other threads (or processes) have cached into since it last
+        read the file: it reads it only when built and after `cache_check` (10 s). Such a view says no to a copy that
+        is there, and the file is fetched again (GH-3452). A hit costs nothing more than before; a miss reads the
+        file again if it has changed since this filesystem read or wrote it (`_refresh_metadata`). So does a copy
+        older than `refetch_before`, which another thread may have fetched again since. The view is asked again once
+        it has been refreshed, and also where it was not: another thread on this very filesystem may have moved it
+        while this one looked.
+        """
+        held = super()._check_file(path)
+        if held and not (refetch_before is not None and held[0]["time"] < refetch_before):
+            return held
+        _refresh_metadata(self)
+        return super()._check_file(path)
 
     def pop_from_cache(self, path: str) -> None:
-        """Drop one entry from the metadata file, which saves it."""
+        """Drop one entry from the metadata file, which saves it, and the date kept beside its blob."""
         with _cache_dir_lock:
+            if not self._metadata.check_file(self._strip_protocol(path), None):
+                # the copy may be one another thread cached since this view was read, which is then not dropped
+                _refresh_metadata(self)
+            blob = Path(self.storage[-1]) / self._mapper(self._strip_protocol(path))
             super().pop_from_cache(path)
+            with contextlib.suppress(OSError):
+                _sidecar_of(blob).unlink(missing_ok=True)
 
     def clear_expired_cache(self, expiry_time: float | None = None) -> None:
-        """Drop expired entries from the metadata file, which saves it."""
+        """Drop the expired entries from the metadata file and their blobs and dates, and nothing else (GH-3467).
+
+        fsspec's own sweep removes the whole directory when it ends with no entry in the snapshot it holds, and the
+        snapshot of a process that starts on an empty directory is empty whatever the processes that started beside it
+        have written since. That took their copies, and the directory from under them: `FileExistsError` where one
+        was making it, copies fetched again. So the directory stays. The metadata file is read again first, so that a
+        row another process has written since is swept as it is rather than missed. An empty snapshot expires no
+        entry, and a snapshot with nothing expired in it is not written back. One with every entry expired is written
+        back empty, which fsspec's does not do because it removes the directory.
+
+        That removal was also the only thing that collected the files no row names (a blob whose row was lost, the
+        `<blob>.<uuid>.tmp` of a fetch that was killed), so those are collected here: the ones older than the expiry
+        and than an hour (`_remove_unclaimed_files`), which keeps the file of a fetch that is stalled but not dead.
+
+        Writing the file back after an expiry is still a read-merge-write that is not safe against another process
+        writing at that moment: a row it adds in between is lost (GH-3485).
+        """
         with _cache_dir_lock:
-            super().clear_expired_cache(expiry_time)
+            self._check_cache()
+            # what another process has written since this was read is part of what is swept, not lost to it
+            _refresh_metadata(self)
+            held = self._metadata.cached_files[-1]
+            expiry = expiry_time or self.expiry
+            # no expiry is no expiry, as `_check_file` reads it: fsspec's reads a zero as "all of it has expired"
+            if not expiry:
+                return
+            directory = Path(self.storage[-1])
+            if any(time.time() - _entry_time(detail) > expiry for detail in held.values()):
+                # fsspec annotates the expiry an int; a float is compared the same
+                expired_blobs, now_empty = self._metadata.clear_expired(expiry)  # ty: ignore[invalid-argument-type]
+                for blob in expired_blobs:
+                    # a blob another handle holds open is left to the next sweep (Windows: `PermissionError`)
+                    with contextlib.suppress(OSError):
+                        Path(blob).unlink(missing_ok=True)
+                if now_empty:
+                    # `clear_expired` writes the file only when something is left in it
+                    self._metadata._save({}, str(directory / "cache"))  # noqa: SLF001
+                self._cache_size = None
+            _remove_unclaimed_files(directory, self._metadata.cached_files[-1], expiry)
+            _drop_orphaned_sidecars(directory)
 
     def clear_cache(self) -> None:
         """Delete the directory, metadata file and all, and load the empty metadata back."""
@@ -1420,10 +1743,29 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
             return super()._open(path, mode=mode, **kwargs)
         # the ceiling `download_file` was given, for the fetch below; the filesystem holds the default
         fetch_kwargs = {"max_bytes": kwargs.pop("max_bytes")} if "max_bytes" in kwargs else {}
+        # the time (as `time.time()` has it) before which a copy is no longer the file: a copy made earlier is fetched
+        # again, and is replaced only once the new one is whole, so that a fetch that fails leaves it where it was
+        refetch_before = kwargs.pop("refetch_before", None)
+        # a copy that no version which kept dates made (it has no record of one, not even of a missing date) is fetched
+        # again, once: the new one has the record
+        refetch_undated = kwargs.pop("refetch_undated", False)
+        # that `download_file` has just asked `_check_file`, which reads the metadata file again where it finds no
+        # usable copy: asking it again here would be the cost of a big directory a second time. Anyone else who opens
+        # a file (the reader of a forecast does) has not asked
+        checked = kwargs.pop("checked", False)
         path = self._strip_protocol(path)
-        cached = self._check_file(path)
+        cached = super()._check_file(path) if checked else self._check_file(path, refetch_before)
+        if cached and refetch_before is not None and cached[0]["time"] < refetch_before:
+            cached = False
+        if cached and refetch_undated and not _has_sidecar_record(Path(cached[1])):
+            cached = False
+        # where the date of what is read is left for `download_file` (`_take_last_modified`): on the filesystem this
+        # one wraps, because an attribute of this one is not found where `__getattribute__` answers for the wrapped
+        registry = _last_modified_registry(self)
         if cached:
             _, blob = cached
+            if registry is not None:
+                _remember_last_modified(registry, path, _read_sidecar(Path(blob)))
         else:
             # inline rather than a helper method: this class's `__getattribute__` hands any method
             # name fsspec does not list to the wrapped filesystem, which has no such method.
@@ -1435,8 +1777,15 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
             # the same url in another thread or process never sees this one's half-written file,
             # and a body that fails part-way leaves nothing behind (GH-2493)
             temp = f"{blob}.{uuid.uuid4().hex}.tmp"
+            # the copy is as old as its body is, which the server began to send when this was asked for: a body that
+            # takes a while to arrive holds what the file was at the start of it, not at the end (fsspec stamps the
+            # entry when the fetch is over)
+            started = time.time()
             try:
                 self.fs.get_file(path, temp, **fetch_kwargs)
+                # the date this fetch brought, and the file as written, which is what names the blob it becomes
+                last_modified = None if registry is None else registry.get(path)
+                written = Path(temp).stat()
                 try:
                     os.replace(temp, blob)  # noqa: PTH105
                 except PermissionError:
@@ -1448,8 +1797,17 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
                     log.debug(f"Could not replace {blob}, serving {path} from the fetched copy", exc_info=True)
                     # `open` has turned a text mode into a binary one by now and wraps the handle itself
                     return BytesIO(Path(temp).read_bytes())
-                self._make_local_details(path)
-                self.save_cache()
+                # the record and its save as one step for the lock: a thread that reads the metadata file again
+                # replaces what the filesystem holds, and keeps the entries it held only after that, so one that
+                # came between the record and the line that sets its time would find the entry missing (a filesystem
+                # used by more than one thread: the reader of a forecast moves threads)
+                with _cache_dir_lock:
+                    self._make_local_details(path)
+                    self._metadata.cached_files[-1][path]["time"] = started
+                    self.save_cache()
+                # after the entry: a copy is dated once the cache holds it. Written whether or not this fetch had a
+                # date, so that a copy fetched anew over an older one does not keep the older one's
+                _write_sidecar(Path(blob), last_modified, written)
             finally:
                 # best effort: an unlink that fails must not replace the bytes in hand or the error
                 # the download met, which is what the caller's status and retry go by
@@ -1665,9 +2023,9 @@ class NetworkFilesystemManager:
                 # the tidying is before the registry assignment below, and none of it able to raise: a
                 # cache that cannot be tidied must still be a cache that can be read.
                 #
-                # The mark goes after the sweep, not before: a sweep that leaves the cache empty has
-                # fsspec `rmtree` the whole directory and rebuild it, which takes the marker with it --
-                # and a directory whose marker is missing reads as one nothing has asked for in a month
+                # The mark goes after the sweep. The order no longer matters much: the sweep used to remove the
+                # whole directory and the marker with it (GH-3467), and a missing marker counts as a directory
+                # just used (`_last_used`), so that was never the way a live cache was reclaimed
                 _sweep_expired_blobs(filesystem_effective, real_cache_dir, ttl_value)
                 _mark_cache_dir_used(real_cache_dir)
                 _reclaim_unreachable_cache_dirs(real_cache_dir.parent, keep=real_cache_dir)
@@ -1710,6 +2068,56 @@ class NetworkFilesystemManager:
         return cls._get_filesystems()[key]
 
 
+#: The ``reason`` of an ``ssl.SSLError`` that a server throws now and then and does not throw twice in a row.
+#: Not ``SSLV3_ALERT_HANDSHAKE_FAILURE``: a server with no cipher in common, or one that wants a client
+#: certificate, sends it on every attempt, and asking again only waits for the same answer.
+_TRANSIENT_TLS_REASONS = frozenset(
+    {
+        # the peer answered the ClientHello with something that is no TLS: a load balancer or a web tier
+        # that is restarting or overloaded
+        "WRONG_VERSION_NUMBER",
+        # a session-resumption ticket the server no longer honours
+        "INVALID_SESSION_ID",
+        # alerts that say the server failed, not that it refuses the client or its certificate
+        "SSLV3_ALERT_UNEXPECTED_MESSAGE",
+        "SSLV3_ALERT_BAD_RECORD_MAC",
+        "TLSV1_ALERT_INTERNAL_ERROR",
+    },
+)
+
+
+def _is_transient_tls_failure(error: BaseException) -> bool:
+    """Whether a TLS failure is a handshake hiccup of the server, which asking again can get past (GH-3533).
+
+    A failure that arrives as the aiohttp ``ClientSSLError`` is read by the ``ssl.SSLError`` underneath.
+    What it says is decided by its type and its ``reason``, which OpenSSL sets, not by its message:
+
+    - never a certificate that does not verify (``ssl.SSLCertVerificationError``, which is also
+      ``ssl.CertificateError``): an untrusted, expired or self-signed certificate or a name that does not
+      match is the same on every attempt, and it is a matter of configuration or of security that a retry
+      must not mask (GH-2618);
+    - an ``ssl.SSLError`` whose ``reason`` is one of ``_TRANSIENT_TLS_REASONS``: the web server of
+      ``www.dwd.de`` throws ``WRONG_VERSION_NUMBER`` and ``INVALID_SESSION_ID`` now and then, and answers
+      the same request a minute later;
+    - a connection cut in the middle of the handshake (``ssl.SSLEOFError``) or closed by the peer
+      (``ssl.SSLZeroReturnError``): a blip, as a dropped connection is. Through aiohttp and asyncio a server
+      that closes after the ClientHello arrives as a ``ClientConnectorError`` with a ``ConnectionResetError``,
+      which is asked again as a dropped connection, so on the paths of this library this branch is not
+      reached; it stays as a guard for an ``ssl.SSLError`` that is let out as it is.
+
+    Any other TLS failure is not asked for again: a protocol or a cipher the two cannot agree on (the
+    ``SSLV3_ALERT_HANDSHAKE_FAILURE`` of a server with no cipher in common, or one that wants a client
+    certificate) is a configuration, and so is a certificate the server refuses to accept.
+    """
+    if isinstance(error, ClientSSLError):
+        error = error.os_error
+    if isinstance(error, ssl.SSLCertVerificationError):
+        return False
+    if isinstance(error, (ssl.SSLEOFError, ssl.SSLZeroReturnError)):
+        return True
+    return isinstance(error, ssl.SSLError) and getattr(error, "reason", None) in _TRANSIENT_TLS_REASONS
+
+
 def _worth_retrying(error: Exception) -> bool:
     """Whether a failed post is worth a second attempt.
 
@@ -1722,14 +2130,17 @@ def _worth_retrying(error: Exception) -> bool:
     account, and asking again a tenth of a second later is how that gets worse rather than better;
     it comes back as the answer it is, for the caller to report.
 
-    Nor is a TLS failure, a certificate that does not verify or a handshake that fails: the same
-    server presents the same certificate, so asking again returns the same error after a delay and a
-    retry warning (GH-2618). aiohttp's ``ClientSSLError`` is a ``ClientConnectorError``, so it would
-    pass the test for a failed connection below; the listings raise the ``ssl.SSLError`` underneath,
-    which is none of the exceptions below and is named here to keep it so.
+    Nor is a TLS failure that is the same on every attempt: a certificate that does not verify, or a
+    handshake the two cannot agree on. The same server presents the same certificate, so asking again
+    returns the same error after a delay and a retry warning (GH-2618). A handshake that the server
+    only fumbled -- a wrong version number, an invalid session id -- is a blip like
+    any other and is asked again (``_is_transient_tls_failure``, GH-3533). aiohttp's ``ClientSSLError`` is
+    a ``ClientConnectorError``, so it would pass the test for a failed connection below whatever it is;
+    the listings raise the ``ssl.SSLError`` underneath, which is none of the exceptions below. Both are
+    decided here.
     """
     if isinstance(error, (ClientSSLError, ssl.SSLError)):
-        return False
+        return _is_transient_tls_failure(error)
     # ClientPayloadError is a body that stopped arriving mid-read, which is the same kind of blip
     # as a connection that never carried one -- and it is no subclass of ClientConnectionError
     if isinstance(error, (ClientConnectionError, ClientPayloadError, FSTimeoutError, TimeoutError)):
@@ -1750,10 +2161,11 @@ def _worth_retrying_download(error: Exception) -> bool:
 def _worth_retrying_listing(error: Exception) -> bool:
     """Whether a failed listing is worth another attempt: the same answer as for a post.
 
-    A connection or a timeout that failed, a body that stopped arriving, a 5xx. Not a TLS failure
-    (see ``_worth_retrying``), and not what is no blip either: a directory that is not there
-    (``FileNotFoundError``), a 4xx, or a programming error such as a ``ValueError``, all of which
-    the retry used to repeat as it repeated every exception (GH-2618).
+    A connection or a timeout that failed, a body that stopped arriving, a 5xx, a TLS handshake the
+    server fumbled. Not a certificate that does not verify (see ``_worth_retrying``), and not what is
+    no blip either: a directory that is not there (``FileNotFoundError``), a 4xx, or a programming
+    error such as a ``ValueError``, all of which the retry used to repeat as it repeated every
+    exception (GH-2618).
     """
     return _worth_retrying(error)
 
@@ -1808,9 +2220,11 @@ def _list_with_retries(list_once: Callable[[], _T], url: str) -> _T:
       with the failure as its ``__cause__``, as ``File.raise_if_exception`` raises them for a download
       (GH-2460). ``timed_out`` finds a timeout under it, so the REST API answers a 504 for it.
 
-    A TLS failure -- a certificate that does not verify, a handshake that fails -- is asked for once and
-    is a ``DownloadError`` too, with the bare ``ssl.SSLError`` as its ``__cause__``, as it is for a
-    download (GH-3099); the REST API answers a 502 for it, not a 500.
+    A TLS failure -- a certificate that does not verify, a handshake that fails -- is a ``DownloadError``
+    too, with the bare ``ssl.SSLError`` as its ``__cause__``, as it is for a download (GH-3099); the REST
+    API answers a 502 for it, not a 500. A certificate failure is asked for once, and so is a handshake
+    the two cannot agree on; a handshake the server fumbled (``_is_transient_tls_failure``, GH-3533) is
+    asked for as often as a reset is.
 
     Not a ``FileNotFoundError``, which is asked for once and raised as it is, and not a programming
     error. What is raised is raised outside the ``except`` blocks below, so that the aiohttp error is
@@ -1870,9 +2284,10 @@ def list_remote_files_fsspec(
         DownloadError: If the server answered badly: a connection reset or dropped, a timeout, a
             broken body, or an HTTP error status other than 404, naming the URL, the failure as its
             ``__cause__`` (GH-3004). A reset, a timeout, a broken body or a 5xx is asked for three
-            times before it is raised; a 4xx once. So is a certificate that does not verify or a TLS
-            handshake that fails, with the ``ssl.SSLError`` as its ``__cause__``, at the first
-            attempt: asking again would meet the same certificate (GH-3099).
+            times before it is raised, so is a TLS handshake the server fumbled (a wrong version
+            number, an invalid session id, GH-3533); a 4xx once. A certificate that does not verify
+            is raised at the first attempt, with the ``ssl.SSLError`` as its ``__cause__``: asking
+            again would meet the same certificate (GH-3099).
 
     """
     return _list_with_retries(lambda: _list_files_once(url, settings, cache_expiry), url)
@@ -1927,7 +2342,7 @@ def _list_files_once(url: str, settings: Settings, cache_expiry: CacheExpiry) ->
         # of whatever leaves here, so it is scrubbed before it does (GH-2603)
         raise _without_credentials(e, sent_credentials=False) from None
     # raised, and the retry around this asks again only where `_worth_retrying_listing` says it can
-    # help: not for this, a TLS failure being the same on every attempt (GH-2618)
+    # help: not for a certificate that does not verify, which is the same on every attempt (GH-2618)
     raise tls_failure
 
 
@@ -1991,7 +2406,7 @@ def _list_directory_once(url: str, settings: Settings, cache_expiry: CacheExpiry
         # an HTTP error status, scrubbed as in `list_remote_files_fsspec` (GH-2603)
         raise _without_credentials(e, sent_credentials=False) from None
     # raised, and the retry around this asks again only where `_worth_retrying_listing` says it can
-    # help: not for this, a TLS failure being the same on every attempt (GH-2618)
+    # help: not for a certificate that does not verify, which is the same on every attempt (GH-2618)
     raise failure
 
 
@@ -2013,6 +2428,8 @@ def download_file(
     use_certifi: bool = False,
     attempts: int = 2,
     max_bytes: int | None = None,
+    refetch_before: float | None = None,
+    refetch_undated: bool = False,
 ) -> File:
     """Download a specified file from the server.
 
@@ -2034,6 +2451,12 @@ def download_file(
             late is worth no more than none.
         max_bytes: The most the body may be, `MAX_DOWNLOAD_BYTES` if not given. A body held in the cache is
             returned as it is, whatever its size: the ceiling is for what is fetched.
+        refetch_before: A time, as `time.time()` has it, before which a copy held in the cache is fetched again, for a
+            file that is known to have changed since. The copy stays where it is until the new one has arrived, so a
+            download that fails is a failure and the copy is still held for a call without this to be served from.
+        refetch_undated: Whether a copy that no version which kept the date of a download (`File.last_modified`) made is
+            fetched again, once. Such a copy has no record of its date beside it, not even of a missing one, where a
+            copy made since has one, so the new copy is held for good. Held in the same way as for `refetch_before`.
 
     Returns:
         A BytesIO object containing the downloaded file.
@@ -2077,7 +2500,16 @@ def download_file(
                     # read-only or full cache dir and the metadata load on a truncated file, and an
                     # exception escaping here carries a traceback whose frame holds `client_kwargs`
                     # -- the Authorization header -- which is exactly what the handler below drops
-                    served_from_cache = bool(getattr(filesystem, "_check_file", lambda _url: False)(url))
+                    held = (
+                        filesystem._check_file(url, refetch_before)  # noqa: SLF001
+                        if isinstance(filesystem, _LockedWholeFileCacheFileSystem)
+                        else getattr(filesystem, "_check_file", lambda _url: False)(url)
+                    )
+                    served_from_cache = (
+                        bool(held)
+                        and not (refetch_before is not None and held[0]["time"] < refetch_before)
+                        and not (refetch_undated and not _has_sidecar_record(Path(held[1])))
+                    )
                     # said after the probe rather than before it, because before it this could only
                     # guess -- and it guessed "Downloading" for every cache hit, which is the one
                     # thing a reader of the log could already tell was not happening. Said per
@@ -2086,7 +2518,14 @@ def download_file(
                     log.info(
                         f"Reading file {shown} from cache" if served_from_cache else f"Downloading file {shown}",
                     )
-                    payload = filesystem.cat_file(url, **({} if max_bytes is None else {"max_bytes": max_bytes}))
+                    fetch_kwargs: dict[str, float] = {} if max_bytes is None else {"max_bytes": max_bytes}
+                    if isinstance(filesystem, _LockedWholeFileCacheFileSystem):
+                        fetch_kwargs["checked"] = True
+                    if refetch_before is not None and isinstance(filesystem, WholeFileCacheFileSystem):
+                        fetch_kwargs["refetch_before"] = refetch_before
+                    if refetch_undated and isinstance(filesystem, WholeFileCacheFileSystem):
+                        fetch_kwargs["refetch_undated"] = True
+                    payload = filesystem.cat_file(url, **fetch_kwargs)
                     _refuse_unannounced_compression(url, payload)
                 except Exception as e:  # noqa: BLE001 -- re-raised, never swallowed
                     # scrubbed here as well as on the way out, because stamina's retry hook logs
@@ -2094,7 +2533,15 @@ def download_file(
                     # info, header and all, before any of the handlers below are reached
                     raise _without_credentials(e, sent_credentials=sent_credentials) from None
                 log.info(f"Read file {shown} from cache" if served_from_cache else f"Downloaded file {shown}")
-                return File(url=url, content=BytesIO(payload), status=200, from_cache=served_from_cache)
+                copy = _held_in_view(filesystem, url)
+                return File(
+                    url=url,
+                    content=BytesIO(payload),
+                    status=200,
+                    from_cache=served_from_cache,
+                    last_modified=_take_last_modified(filesystem, url),
+                    cached_at=float(copy[0]["time"]) if copy else None,
+                )
     except Exception as e:
         failed = _failed_file(url, e, sent_credentials=sent_credentials)
         if failed is None:
@@ -2158,6 +2605,33 @@ def _failed_file(url: str, error: Exception, *, sent_credentials: bool = False) 
     return None
 
 
+def cached_copy_is_held(
+    url: str,
+    cache_dir: Path,
+    ttl: CacheExpiry = CacheExpiry.NO_CACHE,
+    client_kwargs: dict | None = None,
+    *,
+    cache_disable: bool = False,
+    use_certifi: bool = False,
+) -> bool:
+    """Tell whether the cache holds a copy of a url that a download with these arguments would serve.
+
+    Takes the arguments the download was made with, because they name the cache it went to. False where nothing is
+    cached (`NO_CACHE`, `cache_disable`) and where the cache cannot be read: never raises.
+    """
+    try:
+        filesystem = NetworkFilesystemManager.get(
+            cache_dir=cache_dir,
+            cache_expiry=ttl,
+            client_kwargs=client_kwargs,
+            cache_disable=cache_disable,
+            use_certifi=use_certifi,
+        )
+        return isinstance(filesystem, WholeFileCacheFileSystem) and bool(filesystem._check_file(url))  # noqa: SLF001
+    except Exception:  # noqa: BLE001 -- best effort, a copy not seen is a download made
+        return False
+
+
 def drop_cached_file(
     url: str,
     cache_dir: Path,
@@ -2193,6 +2667,40 @@ def drop_cached_file(
         filesystem.pop_from_cache(url)
     except Exception:  # noqa: BLE001 -- best effort, the entry expires on its own
         log.debug("Could not drop %s from the cache", _without_url_secrets(url), exc_info=False)
+
+
+def cached_file_time(
+    url: str,
+    cache_dir: Path,
+    ttl: CacheExpiry = CacheExpiry.NO_CACHE,
+    client_kwargs: dict | None = None,
+    *,
+    cache_disable: bool = False,
+    use_certifi: bool = False,
+) -> float | None:
+    """Tell when the copy `download_file` holds for a url was made, as `time.time()` has it; None where none is held.
+
+    Takes the arguments the download was made with, as `drop_cached_file` does, since they name the cache. Read from
+    the metadata file, merged into this thread's memory of it, where the file has changed: the copy was most likely
+    made by another thread.
+    Never raises: a cache that cannot be read holds no copy.
+    """
+    try:
+        filesystem = NetworkFilesystemManager.get(
+            cache_dir=cache_dir,
+            cache_expiry=ttl,
+            client_kwargs=client_kwargs,
+            cache_disable=cache_disable,
+            use_certifi=use_certifi,
+        )
+        if not isinstance(filesystem, WholeFileCacheFileSystem):
+            return None
+        _refresh_metadata(filesystem)
+        held = _held_in_view(filesystem, url)
+        return float(held[0]["time"]) if held else None
+    except Exception:  # noqa: BLE001 -- best effort: no copy known is no date from it
+        log.debug("Could not read the time of the copy of %s", _without_url_secrets(url), exc_info=False)
+        return None
 
 
 def _header_value(value: object) -> str:
@@ -2451,8 +2959,12 @@ def download_files(
     *,
     cache_disable: bool = False,
     use_certifi: bool = False,
+    refetch_before: Mapping[str, float] | None = None,
 ) -> list[File]:
-    """Download multiple files from the server concurrently."""
+    """Download multiple files from the server concurrently.
+
+    `refetch_before` names, by url, the time before which the copy held of a file is fetched again (`download_file`).
+    """
     noun = "file" if len(urls) == 1 else "files"
     # what is wanted, not what will happen: which of these the cache answers is not known until each
     # one has been asked, and the line below says it once they all have
@@ -2467,6 +2979,7 @@ def download_files(
                     client_kwargs=client_kwargs,
                     cache_disable=cache_disable,
                     use_certifi=use_certifi,
+                    refetch_before=(refetch_before or {}).get(file),
                 ),
                 urls,
             ),

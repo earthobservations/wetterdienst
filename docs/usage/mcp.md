@@ -76,11 +76,24 @@ parameters are, see [one vocabulary](restapi.md#one-vocabulary)) and the same an
 | `alerts` | `/api/v1/alerts` | the weather warnings of DWD |
 | `stripes_stations`, `stripes_values`, `stripes_image` | `/api/v1/stripes/...` | climate stripes, see [Climate Stripes](stripes.md) |
 
+Every tool has a `title` ("Find stations" for `stations`) and says in its annotations that it only reads:
+`readOnlyHint` true, `destructiveHint` false and `idempotentHint` true, so a client may run it without asking
+first. `openWorldHint` is false for `coverage`, `glossary` and `providers`, which answer from wetterdienst's own
+metadata, and true for the others, which fetch from a provider's service (`auth` probes it).
+
 The endpoints of the server itself (`/api/version`, `/api/settings`, the index and the health check) are not tools.
 The server gives the assistant a block of `instructions`: the workflow (find the station, then read its values),
 which tool not to reach for first (`interpolate` and `summarize` introduce an error and are for an explicit
 request), how a parameter is written (`daily/climate_summary/temperature_air_mean_2m`) and how to read a result.
 The instructions and the descriptions of the tools are written for agents and are improved without a new version.
+
+The same two steps serve a network of any `kind` (`observation`, `forecast`, ...), for a place given by coordinates as
+well as by name. The `country` of a provider is the country of the agency that runs it, not the extent of its data, and
+the instructions tell the assistant not to conclude from it that a network cannot serve a place: it looks at the
+network's `kind`, its [`extent`](restapi.md#extent) (where its stations are, in `providers`; `coverage` has the scope of every
+network and the extent of each dataset of one) and at
+what `stations` returns near the place. `providers` is the tool for which networks reach a place, as well as for the
+country, licence and credit line of a provider.
 
 An error comes back as the text of the REST problem, for instance
 `HTTP error 422: Unprocessable Content - limit: Input should be greater than or equal to 1`, and an argument a tool
@@ -107,7 +120,9 @@ lets a server do: `DELETE` (ending a session; clients that send it on closing ca
 of messages from the server, of which a server of tools has none). A tool's answer is one body and is not streamed:
 the long answers are the ones that `format=ndjson` and `csv` stream on the REST API. A tool makes its request to the
 API in process, so it is held to the [limits](restapi.md#limits), the [timeout](restapi.md#timeout) and the
-[concurrency](restapi.md#concurrency) of the server like any request.
+[concurrency](restapi.md#concurrency) of the server like any request. A request that a tool is refused for its size is
+asked again for a window or fewer stations, or made from the library: see
+[Getting more than the limit](large-requests.md#from-an-assistant).
 
 ## Versioning
 

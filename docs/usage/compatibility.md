@@ -19,7 +19,7 @@ of their own:
 | the package (`wetterdienst`) | `wetterdienst --version`, `wetterdienst.__version__`, `version` of `GET /api/version` | every release; from 1.0.0 as [semantic versioning](https://semver.org/) says: a break of a frozen surface is a major version, an addition a minor, a fix a patch; two breaks are made in a minor, see [Which release a break takes](#which-release-a-break-takes) |
 | the REST API | `api_version` of `GET /api/version` and of every `metadata` block, the `X-Wetterdienst-API-Version` header, the `v1` of `/api/v1` | a change a client has to follow; `/api/v2` would be a new set of routes next to `/api/v1` |
 | the MCP endpoint | `mcp_path` of `GET /api/version`, the `v1` of `/mcp/v1` | a change of a tool a client has to follow |
-| the `metadata` block | `schema_version` of the block | its shape changes, so that a stored answer can be told from one in a later shape |
+| the `metadata` block | `schema_version` of the block | a member it had changes its type or is gone, so that a stored answer can be told from one in a later shape; a new member does not move it |
 | the web app | `app/package.json`, its own [changelog](https://github.com/earthobservations/wetterdienst/blob/main/CHANGELOG_APP.md) | its own releases, see [The web app and the image](#the-web-app-and-the-image) |
 
 ## What each surface promises
@@ -44,7 +44,7 @@ module with a reason, together with a **Breaking** changelog entry; an entry tha
 fails as stale. A baseline is written only in a release commit, with `uv run poe contracts:baseline` (which writes the
 OpenAPI one too), and each says which release it is of (`x-release`), which a test holds to `pyproject.toml`; see
 [Release strategy](https://github.com/earthobservations/wetterdienst/blob/main/.github/RELEASE_STRATEGY.md).
-The baselines are those of 0.174.0 until the next release.
+The baselines are those of 0.178.0 until the next release.
 
 ## What counts as breaking
 
@@ -323,6 +323,24 @@ library reads them more closely, which is a fix and not a break; `spdx_id` is nu
 AEMET, IMGW, IPMA), and `license` is null only where a provider states no terms that could be read, which is then
 named with its reason in `LICENSE_NOT_STATED` of `tests/ui/test_response_metadata.py` (empty today). The licence of the
 data is the provider's, not wetterdienst's.
+
+`GET /api/providers` gives each network an `extent` (`scope`, `continents`, `country_codes`, `bbox`: where its stations are,
+see [Extent](restapi.md#extent)) and each dataset narrower than its network one of its own; `GET /api/coverage` gives
+the `scope` of each network and, of one network, the extent of each dataset. They are additive members (added after
+0.175.0). Their values are what the station lists show: they change when a list does (a network that reaches a new
+territory), which is a fix and not a break. `country_codes` is absent from an answer for a national or a country-less
+network, and `extent` from a dataset of `providers` that has its network's.
+
+The date the source states for the data of an answer is `metadata.data_updated_at` (and the
+`X-Wetterdienst-Data-Updated-At` header, `data_updated_at` of the values results and of their `metadata` with
+`with_metadata=True`, of a `RadarResult` and of a `DwdWeatherAlertResult`): `null` where the source states none or the library does not read
+it for the network. It was added as a member of the block, which is an addition and leaves `schema_version` at `"1"`:
+that moves only when a member the block had changes or is gone. What the date is depends on the network and is told in
+[the answer](restapi.md#response-metadata): the `Last-Modified` of the files read for a network that serves dated
+files, the model run for a forecast, the newest `sent` for the warnings. A network gaining a date is an addition, as is
+a network that has no date today getting one; the kind of date a network gives (file, run, `sent`) does not change,
+and a date that was wrong is a fix. A network that states no date is named with its reason in `DATA_UPDATED_NOT_STATED`
+of `tests/ui/test_response_metadata.py`.
 
 ## The host: settings, environment, extras
 

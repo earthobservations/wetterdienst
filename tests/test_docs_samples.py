@@ -166,6 +166,40 @@ def test_python_samples_import_names_that_exist(sample: Sample) -> None:
     assert not wrong, f"{sample.where}: " + "; ".join(wrong)
 
 
+#: what a ``{code-cell}`` calls, by the extra that must be installed for the call to work
+_CELL_NEEDS = {
+    "sql": re.compile(r"\bfiltered_by_sql\b|\bfilter_by_sql\b|\bsql=|\bsql_values="),
+    "interpolation": re.compile(r"\.(?:interpolate|summarize)\("),
+    "radarplus": re.compile(r"\b(?:wradlib|xradar)\b"),
+}
+
+
+def _docs_build_extras() -> set[str]:
+    """Give the extras the documentation build installs (``install.sh docs``, which Read the Docs runs)."""
+    script = (ROOT / ".github" / "workflows" / "install.sh").read_text(encoding="utf8")
+    _, _, docs = script.partition('"${flavor}" = "docs"')
+    return set(re.findall(r"--extra (\w+)", docs.split("\nfi", 1)[0]))
+
+
+def test_the_docs_build_installs_what_its_code_cells_call() -> None:
+    """The extras Read the Docs installs hold what the executed cells call.
+
+    Read the Docs runs the ``{code-cell}`` blocks as it renders, the workflow of this repository does not (they fetch
+    from the providers), and a cell whose extra is missing does not fail the build: the page is published with the
+    traceback in it (``MissingDependencyError: Filtering with SQL requires duckdb``).
+    """
+    installed = _docs_build_extras()
+    cells = [sample for sample in PYTHON if sample.cell]
+    needed = {
+        extra: [sample.where for sample in cells if pattern.search(sample.code)]
+        for extra, pattern in _CELL_NEEDS.items()
+    }
+    # a pattern that matches no cell checks nothing: the table above is kept to what the pages call
+    assert all(needed.values()), f"no cell calls {[extra for extra, where in needed.items() if not where]}"
+    missing = {extra: where for extra, where in needed.items() if extra not in installed and where}
+    assert not missing, f".github/workflows/install.sh installs {sorted(installed)} for the docs, not these: {missing}"
+
+
 # --- the command line -----------------------------------------------------------------------------------------------
 
 
@@ -259,7 +293,7 @@ def test_the_pages_show_commands_of_every_kind() -> None:
 
 @dataclass(frozen=True)
 class Request:
-    """An httpie request of a page."""
+    """An httpie or curl request of a page."""
 
     where: str
     line: str
@@ -267,26 +301,101 @@ class Request:
     query: list[tuple[str, str]]
 
 
+#: the options of curl that put name=value pairs into the request (as the query with ``-G``, as a body without it)
+_CURL_DATA = {"-d", "--data", "--data-raw", "--data-ascii", "--data-urlencode"}
+#: the options of curl that take a value and are no part of the query
+_CURL_VALUED = {
+    "-o", "--output", "-H", "--header", "-u", "--user", "-A", "--user-agent", "-e", "--referer", "-b", "--cookie",
+    "-c", "--cookie-jar", "-m", "--max-time", "--connect-timeout", "-w", "--write-out", "--retry",
+}  # fmt: skip
+#: the options of curl that send a body of their own, which no sample of the pages does
+_CURL_BODY = {"-F", "--form", "-T", "--upload-file", "--json", "--data-binary", "-X", "--request"}
+
+
+def _curl_arguments(tokens: list[str]) -> tuple[list[str], list[tuple[str, str]]]:  # noqa: C901
+    """Give the words of a curl command that are no option, and the query its ``-G`` ``-d name=value`` options make.
+
+    As curl does with ``-G``, the pairs of ``-d``, ``--data``, ``--data-raw`` and ``--data-urlencode`` (repeated, or
+    attached as ``-dname=value``, each with ``name=value`` pairs joined by ``&``) are appended to the query of the URL:
+    ``-d`` sends them as written, ``--data-urlencode`` encodes the content. A data option without ``-G`` is a request
+    body and a body option is not understood, which is an error and not a request with no query.
+    """
+    words: list[str] = []
+    pairs: list[tuple[str, str]] = []
+    flags = 0
+    get = False
+    position = 0
+    while position < len(tokens):
+        token = tokens[position]
+        position += 1
+        option, attached = token, None
+        if token.startswith("--") and "=" in token:
+            option, attached = token.split("=", 1)
+        elif token.startswith("-") and not token.startswith("--") and len(token) > 2 and token[:2] in _CURL_DATA:
+            option, attached = token[:2], token[2:]
+        if option in {"-G", "--get"} or re.fullmatch(r"-[sSLfkvi]*G[sSLfkvi]*", token):  # -G, or in a cluster (`-sG`)
+            get = True
+        elif option in _CURL_DATA:
+            if attached is None:
+                if position >= len(tokens):
+                    msg = f"`{option}` has no value"
+                    raise ValueError(msg)
+                attached, position = tokens[position], position + 1
+            if attached.startswith("@"):
+                msg = f"`{option} {attached}` reads a file, which a sample cannot show"
+                raise ValueError(msg)
+            flags += 1
+            if (
+                option == "--data-urlencode"
+            ):  # `name=content`: the name as written, the content as the server decodes it
+                name, sep, content = attached.partition("=")
+                pairs.append((name, content) if sep else ("", name))
+            else:
+                pairs.extend(parse_qsl(attached, keep_blank_values=True))
+        elif option in _CURL_BODY:
+            msg = f"`{option}` sends a body, which the request of a sample does not have (only `-G -d name=value` does)"
+            raise ValueError(msg)
+        elif option in _CURL_VALUED and attached is None:
+            position += 1
+        elif not token.startswith("-"):
+            words.append(token)
+    if flags and not get:
+        msg = "`-d` without `-G` is a POST body, not a query: add `-G` to the sample or teach the parser what it is"
+        raise ValueError(msg)
+    # a parser that drops a pair makes a request the API refuses for what the sample does not show (GH-3531)
+    assert len(pairs) >= flags, f"{flags} data options of the command, {len(pairs)} parameters read: {pairs}"
+    return words, pairs
+
+
+def _request_of(where: str, line: str) -> Request | None:
+    """Give the request of a ``http`` or ``curl`` command line of a page, or None for another line."""
+    try:
+        tokens = shlex.split(line, comments=True)
+    except ValueError:
+        return None
+    if not tokens or tokens[0] not in {"http", "curl"}:
+        return None
+    if tokens[0] == "curl":
+        rest, data = _curl_arguments(tokens[1:])
+    else:
+        rest, data = [token for token in tokens[1:] if not token.startswith("-")], []
+    url = next((token for token in rest if "/api/" in token or token.endswith("/api")), None)
+    if url is None:
+        return None
+    split = urlsplit(url if "://" in url else f"http://{url}")
+    # the query string of the URL; httpie: `name==value` items; curl: `-G` with `-d name=value`
+    query = [(name, value) for name, value in parse_qsl(split.query, keep_blank_values=True)]
+    query += [(name, value) for name, sep, value in (item.partition("==") for item in rest) if sep]
+    return Request(where, line, split.path, query + data)
+
+
 def _requests() -> list[Request]:
-    requests = []
-    for sample in SHELL:
-        for line in _shell_lines(sample.code):
-            try:
-                tokens = shlex.split(line, comments=True)
-            except ValueError:
-                continue
-            if not tokens or tokens[0] not in {"http", "curl"}:
-                continue
-            rest = [token for token in tokens[1:] if not token.startswith("-")]
-            url = next((token for token in rest if "/api/" in token or token.endswith("/api")), None)
-            if url is None:
-                continue
-            split = urlsplit(url if "://" in url else f"http://{url}")
-            # httpie: `name==value` items; curl: the query string of the URL
-            query = [(name, value) for name, value in parse_qsl(split.query, keep_blank_values=True)]
-            query += [(name, value) for name, sep, value in (item.partition("==") for item in rest) if sep]
-            requests.append(Request(sample.where, line, split.path, query))
-    return requests
+    return [
+        request_
+        for sample in SHELL
+        for line in _shell_lines(sample.code)
+        if (request_ := _request_of(sample.where, line)) is not None
+    ]
 
 
 REQUESTS = _requests()
@@ -341,6 +450,110 @@ def test_the_pages_show_requests_of_every_kind() -> None:
     """The extraction finds the requests (a parser that finds none passes every test above)."""
     shown = {request_.path.removeprefix("/api/") for request_ in REQUESTS}
     assert {"stations", "values", "coverage", "interpolate", "summarize", "stripes/image"} <= shown
+
+
+_README_CURL = """\
+curl -G "http://localhost:7890/api/v1/values" \\
+  -d provider=dwd -d network=observation \\
+  -d parameters=daily/climate_summary/precipitation_amount \\
+  -d stations=05779 -d timestamp=2002-08-11/2002-08-13 \\
+  -d shape=long -d humanize=true
+"""
+
+
+@pytest.mark.parametrize(
+    ("code", "path", "query"),
+    [
+        pytest.param(
+            _README_CURL,
+            "/api/v1/values",
+            [
+                ("provider", "dwd"),
+                ("network", "observation"),
+                ("parameters", "daily/climate_summary/precipitation_amount"),
+                ("stations", "05779"),
+                ("timestamp", "2002-08-11/2002-08-13"),
+                ("shape", "long"),
+                ("humanize", "true"),
+            ],
+            id="curl -G -d repeated, continued lines",
+        ),
+        pytest.param(
+            'curl --get http://localhost:7890/api/stations?provider=dwd --data "network=observation&all=true"',
+            "/api/stations",
+            [("provider", "dwd"), ("network", "observation"), ("all", "true")],
+            id="curl --get, the query of the URL and several pairs in one --data",
+        ),
+        pytest.param(
+            "curl -G localhost:7890/api/values -dprovider=dwd --data-raw 'name=Zinnwald%2FGeorgenfeld'",
+            "/api/values",
+            [("provider", "dwd"), ("name", "Zinnwald/Georgenfeld")],
+            id="curl -G, attached -d and a percent-encoded --data-raw",
+        ),
+        pytest.param(
+            "curl -sG http://localhost:7890/api/stations -d provider=dwd",
+            "/api/stations",
+            [("provider", "dwd")],
+            id="curl -sG, the -G in a cluster of flags",
+        ),
+        pytest.param(
+            "curl -G http://localhost:7890/api/values --data-urlencode 'parameters=daily/kl,monthly/kl' "
+            "--data-urlencode 'name=Köln Bonn'",
+            "/api/values",
+            [("parameters", "daily/kl,monthly/kl"), ("name", "Köln Bonn")],
+            id="curl -G --data-urlencode: the content as written, which curl encodes",
+        ),
+        pytest.param(
+            "http localhost:7890/api/values provider==dwd network==observation Accept:application/json",
+            "/api/values",
+            [("provider", "dwd"), ("network", "observation")],
+            id="httpie name==value",
+        ),
+        pytest.param(
+            'curl --fail-with-body -o dresden.csv "http://localhost:7890/api/values?provider=dwd&format=csv"',
+            "/api/values",
+            [("provider", "dwd"), ("format", "csv")],
+            id="curl with the query in the URL and an output file",
+        ),
+    ],
+)
+def test_the_parser_of_the_requests_reads_httpie_and_curl(code: str, path: str, query: list[tuple[str, str]]) -> None:
+    """The extraction of a request reads what the command sends: a parser that drops a parameter passes every test."""
+    (line,) = _shell_lines(code)
+    request_ = _request_of("sample", line)
+    assert request_ is not None
+    assert (request_.path, request_.query) == (path, query)
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "curl http://localhost:7890/api/values -d provider=dwd",
+        "curl -X POST http://localhost:7890/api/values -d provider=dwd",
+        "curl -G http://localhost:7890/api/values -d @parameters.txt",
+        "curl --json '{}' http://localhost:7890/api/values",
+    ],
+)
+def test_the_parser_of_the_requests_refuses_a_body(line: str) -> None:
+    """A curl command that sends a body is no query the parser reads: it says so and does not send no query."""
+    with pytest.raises(ValueError, match=r"body|file|POST"):
+        _request_of("sample", line)
+
+
+def test_the_readme_request_is_read_with_all_its_parameters() -> None:
+    """The ``curl -G ... -d name=value`` request of the README comes out with every ``-d`` it shows (GH-3531)."""
+    sample = next(
+        sample
+        for sample in SHELL
+        if sample.path == README
+        and re.search(r"^curl -G ", sample.code, re.MULTILINE)
+        and "-d provider=" in sample.code
+    )
+    request_ = next(request_ for request_ in REQUESTS if request_.where == sample.where)
+    flags = len(re.findall(r"(?<!\S)-d\s", sample.code))
+    assert flags >= 16
+    assert len(request_.query) == flags
+    assert {"provider", "network", "parameters", "stations", "timestamp"} <= {name for name, _ in request_.query}
 
 
 # --- the parameters the samples request -----------------------------------------------------------------------------
@@ -646,6 +859,14 @@ NOT_RUN: dict[tuple[str, str], str] = {
     ): "needs a `request` of its own",
     ("docs/usage/python-api.md", "except NoInternetError"): "shows how to catch an outage",
     ("docs/usage/python-examples.md", "wradlib"): "needs wradlib, which the project does not install",
+    (
+        "docs/usage/large-requests.md",
+        "# needs a server on localhost:7890",
+    ): "asks a server on localhost:7890: `test_docs_large_requests.py` runs them against the app",
+    (
+        "docs/usage/large-requests.md",
+        "# needs the dresden.csv",
+    ): "reads the file of the curl command above it: `test_docs_large_requests.py` makes that request",
 }
 
 #: the pages that cannot run as a whole, with the reason
@@ -807,7 +1028,7 @@ _LIMIT_VARIABLES = (
 @pytest.mark.slow
 @pytest.mark.parametrize("request_", REQUESTS, ids=[f"{r.where} {r.path}" for r in REQUESTS])
 def test_rest_samples_are_answered(request_: Request, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A request a page shows is answered with a 200 by the app, with the limits at their defaults and SQL on."""
+    """A request a page shows is answered with a 200 by the app, with the row and station limits at their defaults."""
     from starlette.testclient import TestClient  # noqa: PLC0415
 
     from wetterdienst.ui import restapi  # noqa: PLC0415
@@ -815,6 +1036,9 @@ def test_rest_samples_are_answered(request_: Request, monkeypatch: pytest.Monkey
     for variable in _LIMIT_VARIABLES:
         monkeypatch.delenv(variable, raising=False)
     monkeypatch.setenv("WD_RESTAPI_SQL", "true")
+    # not the 60 s of the default: the interpolation of the first sample reads the whole record of 11 stations from a
+    # cold cache, one file after the other, and 504 was DWD's pace on a runner and not the sample (GH-3489)
+    monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "600")
     path = request_.path if request_.path.startswith("/api/v1") else "/api/v1" + request_.path.removeprefix("/api")
     response = TestClient(restapi.app).get(path, params=request_.query)
     for piece, (status, kind, unless, reason) in REST_KNOWN_FAILURES.items():

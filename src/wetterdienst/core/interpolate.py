@@ -92,6 +92,7 @@ def get_interpolated_df(
     elevation: float | None = None,
     *,
     df_all: pl.DataFrame | None = None,
+    data_updated: dict[str, dt.datetime] | None = None,
 ) -> pl.DataFrame:
     """Get the interpolated DataFrame for the given request and location.
 
@@ -102,6 +103,8 @@ def get_interpolated_df(
         elevation: elevation of the point in metres, to bring each station's readings to
         df_all: the station list `request.all()` gave, for a caller that has it already; built here
             where left out
+        data_updated: a dict the date is put into that the source states for the data of each station that gave a
+            value (`data_updated_at` of its values), by `station_id`; the answer has the newest of those it was made of
 
     Raises:
         NoStationsWithElevationError: where an elevation is asked about and leaving out the stations
@@ -119,6 +122,7 @@ def get_interpolated_df(
         elevation,
         zone=(zone_number, zone_letter),
         df_all=df_all,
+        data_updated=data_updated,
     )
     df = calculate_interpolation(utm_x, utm_y, stations_dict, param_dict, options.geo_use_nearby_station_distance)
     # after the frame is built, not before: a parameter the exclusions left with three stations
@@ -145,6 +149,7 @@ def request_stations(
     *,
     zone: tuple[int, str] | None = None,
     df_all: pl.DataFrame | None = None,
+    data_updated: dict[str, dt.datetime] | None = None,
 ) -> tuple[dict, dict, dict[tuple[str, str, str], DroppedForElevation], set[tuple[str, str, str]]]:
     """Request the stations for the interpolation.
 
@@ -161,6 +166,7 @@ def request_stations(
             Taken from `latitude` and `longitude` where not given
         df_all: the station list `request.all()` gave, which the ranking reads rather than building
             it again
+        data_updated: where to put the date the source states for the data of each station that gave a value
 
     Returns:
         the stations dict, the parameter dict, how many stations each parameter lost for
@@ -205,8 +211,16 @@ def request_stations(
         # true of the request whatever the stations hold, so it is said without downloading them
         raise no_elevation_in_reach_error(unanswerable, elevation)
     tqdm_out = TqdmToLogger(log, level=logging.INFO)
+    values = stations_ranked.values()
+    # no files are fetched ahead of this walk: it stops where the stations found are enough, which only the data says,
+    # so what was fetched ahead of that point would be downloaded and never read (GH-3454)
+    values._fetch_ahead_allowed = False  # noqa: SLF001
+    # what it hands out is an estimate, not the readings of the source: the markers of the stations it reads are not
+    # the markers of its answer (GH-3554)
+    values._count_missing_value_markers = False  # noqa: SLF001
+    values._warn_without_rows = False  # noqa: SLF001
     for result in tqdm(
-        stations_ranked.values().query(),
+        values.query(),
         total=len(stations_by_id),
         desc="querying stations for interpolation",
         unit="station",
@@ -245,6 +259,8 @@ def request_stations(
         # be interpolated from -- which is what a station with no elevation is, once an elevation is
         # asked for
         if contributed:
+            if data_updated is not None and result.data_updated_at is not None:
+                data_updated[station["station_id"]] = result.data_updated_at
             utm_x_station, utm_y_station = utm.from_latlon(
                 station["latitude"],
                 station["longitude"],

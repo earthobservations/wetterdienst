@@ -5,17 +5,21 @@
 import errno
 import os
 import socket
+import ssl
 from unittest.mock import MagicMock
 
 import pytest
-from aiohttp import ClientResponseError, ServerDisconnectedError
+from aiohttp import ClientConnectorSSLError, ClientResponseError, RequestInfo, ServerDisconnectedError
+from aiohttp.client_reqrep import ConnectionKey
 from fsspec.exceptions import FSTimeoutError
+from multidict import CIMultiDict, CIMultiDictProxy
+from yarl import URL
 
 import wetterdienst.provider.rmi.observation.api as rmi_api
 from tests import conftest
 from tests.conftest import skip_if_upstream_problem, skip_if_upstream_unavailable
 from wetterdienst.exceptions import CredentialRejectedError, DownloadError, NoInternetError
-from wetterdienst.util.network import File
+from wetterdienst.util.network import File, RedirectRefusedError, UpstreamMaintenanceError
 
 
 def _response_error(status: int) -> ClientResponseError:
@@ -36,6 +40,42 @@ def test_a_request_upstream_did_not_answer_skips_the_test(error: Exception) -> N
         raise error
 
 
+def _status_at(url: str, status: int) -> ClientResponseError:
+    """Build the error of a response with this status, with the request it was answered to."""
+    request_info = RequestInfo(url=URL(url), method="GET", headers=CIMultiDictProxy(CIMultiDict()), real_url=URL(url))
+    return ClientResponseError(request_info=request_info, history=(), status=status)
+
+
+_EA_STATIONS = "https://environment.data.gov.uk/hydrology/id/stations.json"
+
+
+def test_a_403_from_the_environment_agency_skips_the_test() -> None:
+    """Test that the key-less EA API refusing a runner is an outage, not a credential refused (GH-2522)."""
+    with pytest.raises(pytest.skip.Exception, match="upstream did not answer"), skip_if_upstream_unavailable():
+        raise _status_at(_EA_STATIONS, 403)
+
+
+def test_a_403_from_the_environment_agency_is_read_through_the_download_error() -> None:
+    """Test that the 403 is told behind the `DownloadError` that `File.raise_if_exception` raises for it."""
+    error = DownloadError(_EA_STATIONS, "403, message='Forbidden'")
+    error.__cause__ = _status_at(_EA_STATIONS, 403)
+    assert conftest._is_upstream_outage(error)  # noqa: SLF001
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        pytest.param(_status_at("https://opendata.aemet.es/opendata/api/x", 403), id="403 of another host"),
+        pytest.param(_status_at("https://environment.data.gov.uk.example.invalid/x", 403), id="403 of a lookalike"),
+        pytest.param(_status_at(_EA_STATIONS, 401), id="401 of the EA"),
+        pytest.param(_status_at(_EA_STATIONS, 404), id="404 of the EA"),
+    ],
+)
+def test_only_the_403_of_the_environment_agency_is_an_outage(error: Exception) -> None:
+    """Test that a 403 of any other host, and another 4xx of the EA, still fail the test."""
+    assert not conftest._is_upstream_outage(error)  # noqa: SLF001
+
+
 @pytest.mark.parametrize(
     "error",
     [
@@ -48,7 +88,7 @@ def test_a_request_upstream_did_not_answer_skips_the_test(error: Exception) -> N
             id="credential rejected",
         ),
         pytest.param(_response_error(401), id="401"),
-        pytest.param(_response_error(403), id="403"),
+        pytest.param(_response_error(403), id="403 of an unnamed host"),
         pytest.param(DownloadError("https://example.invalid/file", "refused"), id="download error without a cause"),
     ],
 )
@@ -73,6 +113,38 @@ def test_an_answer_upstream_gave_still_fails_the_test(error: Exception) -> None:
     assert raised is error
 
 
+def _wrong_version_number() -> ssl.SSLError:
+    """Build the error OpenSSL raises when a peer answers a ClientHello with something that is no TLS."""
+    error = ssl.SSLError(1, "[SSL: WRONG_VERSION_NUMBER] wrong version number")
+    error.reason = "WRONG_VERSION_NUMBER"  # only an error made in C has one
+    return error
+
+
+@pytest.mark.parametrize("wrapped", [False, True], ids=["bare", "aiohttp"])
+@pytest.mark.parametrize("through_download_error", [False, True], ids=["raised", "download-error"])
+def test_a_tls_failure_is_no_outage_even_though_the_library_asks_again_for_it(
+    *,
+    wrapped: bool,
+    through_download_error: bool,
+) -> None:
+    """A handshake the peer answered wrongly is asked again by the library (GH-3533), and still fails a test.
+
+    One that is still failing after those attempts is a failure to look at, not an outage to skip on:
+    `_worth_retrying` says yes to it, and the helper must not follow.
+    """
+    bare = _wrong_version_number()
+    key = ConnectionKey("example.com", 443, is_ssl=True, ssl=True, proxy=None, proxy_auth=None, proxy_headers_hash=None)
+    error: Exception = ClientConnectorSSLError(key, bare) if wrapped else bare
+    if through_download_error:
+        raised = DownloadError("https://example.com/file.txt", "TLS")
+        raised.__cause__ = error
+        error = raised
+
+    assert not conftest._is_upstream_outage(error)  # noqa: SLF001
+    with pytest.raises(type(error)), skip_if_upstream_unavailable():
+        raise error
+
+
 def test_skip_if_upstream_unavailable_decorates_a_test_function() -> None:
     """Test that the helper skips as a decorator too, which is how the remote tests wear it."""
 
@@ -90,6 +162,18 @@ def test_skip_if_upstream_unavailable_decorates_a_test_function() -> None:
         pytest.param(FSTimeoutError(), True, id="timeout"),
         pytest.param(_response_error(503), True, id="503"),
         pytest.param(FileNotFoundError("https://hubeau.eaufrance.fr/api"), False, id="404"),
+        pytest.param(
+            UpstreamMaintenanceError(
+                "data.gouv.fr is in maintenance (the request was redirected to sorry.data.gouv.fr)"
+            ),
+            True,
+            id="maintenance redirect",
+        ),
+        pytest.param(
+            RedirectRefusedError("a redirect from https to http (static.example.fr) was not followed"),
+            False,
+            id="refused step down",
+        ),
     ],
 )
 def test_a_download_error_is_told_by_the_failure_it_carries(cause: Exception, skipped: bool) -> None:  # noqa: FBT001
@@ -352,6 +436,125 @@ def test_a_connection_failure_that_is_not_an_unanswered_host_fails_the_test(
     monkeypatch.setattr(conftest, "_runner_has_network", lambda: True)
     with pytest.raises(NoInternetError), skip_if_upstream_unavailable():
         raise _no_internet(cause)
+
+
+def _no_internet_at(host: str, cause: OSError | None) -> NoInternetError:
+    error = NoInternetError(
+        f"No internet connection: could not reach https://{host}/sources/v0.jsonld (Cannot connect)"
+    )
+    error.__cause__ = cause
+    return error
+
+
+_FROST = "frost.met.no"
+_API = "api.met.no"
+_UNRESOLVED = socket.gaierror(8, "nodename nor servname provided, or not known")
+
+
+def test_a_name_that_does_not_resolve_skips_when_the_host_is_named_and_the_runner_has_network(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that a host named in `unresolved_hosts` skips on a failed lookup, as frost.met.no on macOS (GH-3252)."""
+    monkeypatch.setattr(conftest, "_runner_has_network", lambda: True)
+    with (
+        pytest.raises(pytest.skip.Exception, match="upstream did not answer"),
+        skip_if_upstream_unavailable(unresolved_hosts=("frost.met.no",)),
+    ):
+        raise _no_internet_at(_FROST, _UNRESOLVED)
+
+
+def test_a_failed_lookup_through_a_download_error_skips_too(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the named host is told through a `DownloadError` as well, the way the cause is read for any outage."""
+    monkeypatch.setattr(conftest, "_runner_has_network", lambda: True)
+    download_error = DownloadError("https://frost.met.no/sources/v0.jsonld", "no connection")
+    download_error.__cause__ = _no_internet_at("frost.met.no", _UNRESOLVED)
+    with (
+        pytest.raises(pytest.skip.Exception, match="upstream did not answer"),
+        skip_if_upstream_unavailable(unresolved_hosts=("frost.met.no",)),
+    ):
+        raise download_error
+
+
+def test_a_name_that_does_not_resolve_still_fails_for_any_other_host(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that naming one host leaves a dead or misspelt other one red, and the unnamed default as well."""
+    monkeypatch.setattr(conftest, "_runner_has_network", lambda: True)
+    with pytest.raises(NoInternetError), skip_if_upstream_unavailable(unresolved_hosts=("frost.met.no",)):
+        raise _no_internet_at(_API, _UNRESOLVED)
+    with pytest.raises(NoInternetError), skip_if_upstream_unavailable():
+        raise _no_internet_at(_FROST, _UNRESOLVED)
+
+
+def test_a_named_host_that_does_not_resolve_fails_on_a_runner_without_network(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a runner that lost its network is no resolver quirk of one host: the test stays red (GH-2640)."""
+    monkeypatch.setattr(conftest, "_runner_has_network", lambda: False)
+    with pytest.raises(NoInternetError), skip_if_upstream_unavailable(unresolved_hosts=("frost.met.no",)):
+        raise _no_internet_at(_FROST, _UNRESOLVED)
+
+
+def test_a_resolver_marker_applies_to_the_platform_it_names(pytester: pytest.Pytester) -> None:
+    """Test that `resolver_fails` hands the hosts on its platform, and none on another."""
+    pytester.makepyfile(
+        test_markers="""
+        import sys
+        import pytest
+
+        @pytest.mark.resolver_fails("frost.met.no", platform=sys.platform)
+        def test_here(): ...
+
+        @pytest.mark.resolver_fails("frost.met.no", platform="not-" + sys.platform)
+        def test_elsewhere(): ...
+
+        @pytest.mark.resolver_fails("api.met.no")
+        def test_everywhere(): ...
+        """
+    )
+    items = pytester.getitems(pytester.path / "test_markers.py")
+    assert {item.name: conftest._unresolved_hosts_of(item) for item in items} == {  # noqa: SLF001
+        "test_here": ("frost.met.no",),
+        "test_elsewhere": (),
+        "test_everywhere": ("api.met.no",),
+    }
+
+
+def test_a_remote_test_with_a_resolver_marker_skips_on_its_failed_lookup(
+    pytester: pytest.Pytester,
+    pytestconfig: pytest.Config,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that the hook hands the marker's hosts to the helper: the named host skips, another and an unmarked fail."""
+    result = _run_remote_tests(
+        pytester,
+        pytestconfig,
+        monkeypatch,
+        """
+        import socket
+        import pytest
+        from tests import conftest
+        from wetterdienst.exceptions import NoInternetError
+
+        conftest._runner_has_network = lambda: True
+
+        def lookup_failed(host):
+            error = NoInternetError(f"No internet connection: could not reach https://{host}/x (Cannot connect)")
+            error.__cause__ = socket.gaierror(8, "nodename nor servname provided, or not known")
+            return error
+
+        @pytest.mark.remote
+        @pytest.mark.resolver_fails("frost.met.no")
+        def test_named():
+            raise lookup_failed("frost.met.no")
+
+        @pytest.mark.remote
+        @pytest.mark.resolver_fails("frost.met.no")
+        def test_other_host():
+            raise lookup_failed("api.met.no")
+
+        @pytest.mark.remote
+        def test_unmarked():
+            raise lookup_failed("frost.met.no")
+        """,
+    )
+    result.assert_outcomes(skipped=1, failed=2)
 
 
 def test_the_connectivity_probe_is_true_if_any_host_takes_a_connection(monkeypatch: pytest.MonkeyPatch) -> None:

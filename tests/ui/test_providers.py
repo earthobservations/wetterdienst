@@ -67,7 +67,14 @@ def test_a_country_has_one_code_and_a_code_one_country() -> None:
 )
 def test_the_country_code_is_an_alpha_2_code_or_null_for_several_countries(code: str | None, *, valid: bool) -> None:
     """A malformed code is refused when the declaration is built, not found in an answer; null is the multinational."""
+    # an extent that is no one country's, so that the country of the provider is not the one it names
     declared = _timeseries_metadata()[0][2].model_dump()
+    declared["extent"] = {
+        **declared["extent"],
+        "scope": "regional",
+        "continents": ["europe", "africa"],
+        "country_codes": [],
+    }
     if valid:
         assert MetadataModel.model_validate({**declared, "country_code": code}).country_code == code
     else:
@@ -285,3 +292,139 @@ def test_the_warning_of_a_network_that_cannot_be_imported_leaves_the_path_of_the
     assert any("dwd/road" in message for message in messages)
     # a module that is missing is named, as that is for the caller to tell the operator
     assert any("dwd/mosmix" in message and "'pdbufr'" in message for message in messages)
+
+
+def test_a_network_says_where_its_stations_are(client: TestClient) -> None:
+    """Each network of the answer has its extent, which the `country` of its provider does not say (GH-3456)."""
+    body = client.get("/api/providers").json()
+
+    extents = {
+        f"{provider['provider']}/{network['network']}": network["extent"]
+        for provider in body["providers"]
+        for network in provider["networks"]
+    }
+    assert len(extents) == body["metadata"]["counts"]["networks"]
+    # `country_codes` is left out of an answer where there are none and for a national network: it is the `country_code`
+    assert all(
+        {"scope", "continents", "bbox"} <= set(extent) <= {"scope", "continents", "country_codes", "bbox"}
+        for extent in extents.values()
+    )
+    assert all("country_codes" not in extent for extent in extents.values() if extent["scope"] != "regional")
+    # DWD is German, and so is its observation network; its forecast lists are the world's
+    assert extents["dwd/observation"]["scope"] == "national"
+    assert extents["dwd/observation"]["bbox"] == [5.8, 47.2, 15.1, 55.1]
+    assert extents["dwd/mosmix"]["scope"] == "global"
+    assert extents["dwd/mosmix"]["bbox"] == [-180, -90, 180, 90]
+    assert {"north_america", "south_america", "africa", "asia", "oceania"} <= set(extents["dwd/mosmix"]["continents"])
+
+
+def test_the_list_of_every_network_has_the_scope_and_not_the_extent(client: TestClient) -> None:
+    """`/api/coverage` is kept short: it says how far each network reaches, and `/api/providers` where (GH-3456)."""
+    providers = client.get("/api/providers").json()["providers"]
+    coverage = client.get("/api/coverage").json()
+
+    for provider in providers:
+        for network in provider["networks"]:
+            listed = coverage[provider["provider"]][network["network"]]
+            assert listed["scope"] == network["extent"]["scope"]
+            assert "extent" not in listed
+
+
+def test_the_coverage_of_a_network_has_the_full_extent_of_each_dataset(client: TestClient) -> None:
+    """With a provider and network, each dataset has its extent in full: its own, or else its network's."""
+    providers = client.get("/api/providers", params={"provider": "dwd"}).json()["providers"][0]["networks"]
+    network = next(n for n in providers if n["network"] == "mosmix")["extent"]
+
+    coverage = client.get("/api/coverage", params={"provider": "dwd", "network": "mosmix"}).json()
+
+    for resolution in coverage.values():
+        for dataset in resolution["datasets"].values():
+            assert dataset["extent"] == network
+    assert network["scope"] == "global"
+    assert network["bbox"] == [-180, -90, 180, 90]
+
+
+def test_the_command_line_says_where_the_stations_are(client: TestClient) -> None:
+    """`wetterdienst about providers` and `wetterdienst about coverage` have the extent the REST API has."""
+    rest = client.get("/api/providers", params={"provider": "dwd"}).json()
+    result = CliRunner().invoke(cli, ["about", "providers", "--provider=dwd"])
+    assert result.exit_code == 0, result.output
+    extents = {n["network"]: n["extent"] for n in json.loads(result.stdout)["providers"][0]["networks"]}
+    assert extents == {n["network"]: n["extent"] for n in rest["providers"][0]["networks"]}
+
+    result = CliRunner().invoke(cli, ["about", "coverage"])
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["dwd"]["mosmix"]["scope"] == "global"
+    result = CliRunner().invoke(cli, ["about", "coverage", "--provider=dwd", "--network=dmo"])
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["hourly"]["datasets"]["icon_eu"]["extent"]["scope"] == "regional"
+
+
+def test_the_mcp_tool_has_the_extent() -> None:
+    """The tool `providers` answers the extent."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    async def call() -> dict[str, Any]:
+        async with Client(build_mcp_server(restapi.app)) as client:
+            return (await client.call_tool("providers", {"provider": "dwd"})).structured_content or {}
+
+    networks = {n["network"]: n for n in asyncio.run(call())["providers"][0]["networks"]}
+    assert networks["mosmix"]["extent"]["scope"] == "global"
+    assert networks["observation"]["extent"]["scope"] == "national"
+    assert "country_codes" not in networks["observation"]["extent"]
+
+
+def test_a_dataset_narrower_than_its_network_has_an_extent_of_its_own(client: TestClient) -> None:
+    """`dwd/dmo` is global and its `icon_eu` dataset is Europe's; every other dataset leaves `extent` out."""
+    body = client.get("/api/providers").json()
+
+    datasets = {
+        (f"{provider['provider']}/{network['network']}", resolution["name"], dataset["name"]): dataset
+        for provider in body["providers"]
+        for network in provider["networks"]
+        for resolution in network["resolutions"]
+        for dataset in resolution["datasets"]
+    }
+    with_extent = {key for key, dataset in datasets.items() if "extent" in dataset}
+    assert with_extent == {("dwd/dmo", "hourly", "icon_eu")}
+    own = datasets["dwd/dmo", "hourly", "icon_eu"]["extent"]
+    assert own["scope"] == "regional"
+    assert "europe" in own["continents"]
+    assert datasets["dwd/dmo", "hourly", "icon"].keys() == {"name", "parameters"}
+
+
+def test_the_coverage_of_a_dataset_says_where_it_is_narrower_than_its_network(client: TestClient) -> None:
+    """`/api/coverage` of a network gives each dataset its own extent where it has one, else its network's."""
+    coverage = client.get("/api/coverage", params={"provider": "dwd", "network": "dmo"}).json()
+
+    assert coverage["hourly"]["datasets"]["icon_eu"]["extent"]["bbox"] == [-13, 13, 50, 71]
+    assert coverage["hourly"]["datasets"]["icon_eu"]["extent"]["scope"] == "regional"
+    assert coverage["hourly"]["datasets"]["icon"]["extent"]["scope"] == "global"
+
+
+def test_the_mcp_coverage_tool_is_short_for_every_network_and_full_for_one() -> None:
+    """The tool `coverage` has the scope of each network in its list, and the extent of each dataset of one network."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    async def call(arguments: dict[str, str]) -> dict[str, Any]:
+        async with Client(build_mcp_server(restapi.app)) as client:
+            return (await client.call_tool("coverage", arguments)).structured_content or {}
+
+    listed = asyncio.run(call({}))
+    assert listed["dwd"]["mosmix"]["scope"] == "global"
+    assert listed["dwd"]["observation"]["scope"] == "national"
+    assert all("extent" not in network for networks in listed.values() for network in networks.values())
+
+    one = asyncio.run(call({"provider": "dwd", "network": "dmo"}))
+    assert one["hourly"]["datasets"]["icon"]["extent"]["scope"] == "global"
+    assert one["hourly"]["datasets"]["icon_eu"]["extent"]["scope"] == "regional"

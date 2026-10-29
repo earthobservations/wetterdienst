@@ -19,7 +19,14 @@ declares both families, so with the default `lead_time="short"` the four 3-hourl
 either. Asking for the values of one of those by name raises a `ParameterNotCarriedError` naming the lead time
 that carries it; asking for the whole dataset, or for every parameter in it by name, is not refused, and returns
 data only for the parameters the requested run carries. `icon_eu` publishes only the 78-hour run, so its
-parameters are all carried by the default `lead_time="short"`.
+parameters are all carried by the default `lead_time="short"`, and `lead_time="long"` is refused for it with a
+`ParameterNotCarriedError` (HTTP 400) that names what the product publishes.
+
+## Update date
+
+A forecast is dated by its model run: the `data_updated_at` of the
+[`metadata`](../../../../usage/restapi.md#response-metadata) of an answer is the run the forecast is of (the `IssueTime` that the file states), not the time DWD published the file, so it
+is the same however often the run is read, and `retrieved_at` less `data_updated_at` is how old the forecast is.
 
 ```{toctree}
 :hidden:

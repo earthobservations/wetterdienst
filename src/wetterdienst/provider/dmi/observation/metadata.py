@@ -156,6 +156,12 @@ _DmiObservationMetadataSpec = {
     "attribution": "© DMI (Danish Meteorological Institute)",
     "url": "https://www.dmi.dk/friedata/",
     "kind": "observation",
+    "extent": {
+        "scope": "national",
+        "continents": ["europe", "north_america"],
+        "country_codes": ["DK"],
+        "bbox": [-75.0, 54.0, 16.0, 84.0],
+    },
     "timezone": "Europe/Copenhagen",
     "auth": False,
     "resolutions": [

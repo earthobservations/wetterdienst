@@ -202,6 +202,61 @@ def _log_unmapped_steps(df: pl.DataFrame) -> None:
     )
 
 
+# Where the stations of the referential are, one box for each area, `(south, north, west, east)` in degrees and a
+# little wider than the stations of 2026-10-26 (metropolitan France with Corsica: latitude 41.55 to 50.92, longitude
+# -4.68 to 9.47; Guadeloupe and Martinique, Guyane, Reunion and Mayotte as named). The north edge of metropolitan
+# France is 51.1, as France reaches 51.09 at Bray-Dunes (Dunkerque is at 51.03): a station there is in, and its swapped
+# position is told. The declared extent of the network is one box over all of them, which is no help against a swapped
+# position: the swapped position of a station in Nord (latitude 4.1, longitude 50.0) is in it too.
+_AREAS: dict[str, tuple[float, float, float, float]] = {
+    "metropolitan France": (41.0, 51.1, -5.5, 10.0),
+    "Guadeloupe and Martinique": (14.3, 16.6, -61.9, -60.7),
+    "Guyane": (2.0, 5.9, -54.8, -51.5),
+    "Reunion": (-21.5, -20.7, 55.1, 55.9),
+    "Mayotte": (-13.1, -12.5, 44.9, 45.4),
+}
+
+
+def _in_an_area(latitude: pl.Expr, longitude: pl.Expr) -> pl.Expr:
+    """Tell whether a position is in one of ``_AREAS``, null where it has none."""
+    return pl.any_horizontal(
+        latitude.is_between(south, north) & longitude.is_between(west, east)
+        for south, north, west, east in _AREAS.values()
+    )
+
+
+def _swap_misplaced_positions(df: pl.DataFrame) -> pl.DataFrame:
+    """Swap latitude and longitude of the stations the referential lists with the two the wrong way round.
+
+    The referential writes some metropolitan stations with the latitude in the longitude field and the other way
+    round (54 of 4,200 on 2026-10-26, such as H000000201 at latitude 4.10 and longitude 49.99, a point near Somalia),
+    and a swapped pair is a valid position, so it is told by where it lies: a position is swapped when it is in none of
+    ``_AREAS`` and swapped is in one. A position in an area is never touched, so no station overseas is, and one that
+    is in none either way is left as it is (J543211003, the Blavet, is listed at latitude 35.1 and longitude 0.84, in
+    Algeria, which is no swap).
+
+    Args:
+        df: stations with ``latitude`` and ``longitude`` columns
+
+    Returns:
+        the stations with the pair swapped where the rule says so, in the same order
+
+    """
+    latitude, longitude = pl.col("latitude"), pl.col("longitude")
+    swap = (
+        latitude.is_not_null() & longitude.is_not_null() & ~_in_an_area(latitude, longitude)
+        & _in_an_area(longitude, latitude)
+    )  # fmt: skip
+    count = df.select(swap.sum()).item()
+    if not count:
+        return df
+    log.debug(f"Hubeau: swapped latitude and longitude of {count} stations whose position is in no area of France")
+    return df.with_columns(
+        pl.when(swap).then(longitude).otherwise(latitude).alias("latitude"),
+        pl.when(swap).then(latitude).otherwise(longitude).alias("longitude"),
+    )
+
+
 def _paged_rows(url: str, settings: Settings, *, ttl: CacheExpiry, timeout: int) -> list[dict]:
     """Follow one Hubeau query through its cursor pages.
 
@@ -304,6 +359,16 @@ _HubeauMetadataSpec = {
     "attribution": "Eaufrance",
     "url": "https://www.eaufrance.fr/",
     "kind": "observation",
+    "extent": {
+        "scope": "national",
+        "continents": ["africa", "europe", "north_america", "south_america"],
+        "country_codes": ["FR"],
+        # Guadeloupe and Martinique, Guyane, Reunion, Mayotte and Corsica, read from the referential the reader lists
+        # the stations of (`referentiel/stations?en_service=true`, 4,200 stations, each with a position, on 2026-10-27:
+        # longitude -61.78 to 55.72, latitude -21.38 to 50.92, the box reaching to 51.1 as France does, Bray-Dunes at
+        # 51.09), which `test_the_hubeau_referential_is_in_the_extent_of_its_network` reads
+        "bbox": [-62.0, -22.0, 56.0, 51.1],
+    },
     "timezone": "Europe/Paris",
     "resolutions": [
         {
@@ -572,6 +637,7 @@ class HubeauRequest(TimeseriesRequest):
                 "date_fermeture_station": "end_timestamp",
             },
         )
+        df_raw = _swap_misplaced_positions(df_raw)
         df_raw = df_raw.with_columns(
             pl.col("code_systeme_alti_site")
             .replace_strict(_SYSTEME_ALTI_LABELS, default=pl.col("code_systeme_alti_site").cast(pl.String))
@@ -586,8 +652,8 @@ class HubeauRequest(TimeseriesRequest):
         # listed under no resolution: naming an interval for it would be a guess, and the join
         # below drops it. It returns to the list as soon as it transmits again.
         steps = self._station_steps(df_raw.get_column("station_id").to_list())
-        df = df_raw.join(steps, on="station_id", how="inner")
-        df = df.join(self._site_elevations(), on="code_site", how="left")
+        df = df_raw.join(steps, on="station_id", how="inner", maintain_order="left")
+        df = df.join(self._site_elevations(), on="code_site", how="left", maintain_order="left")
         df = df.with_columns(
             pl.col("step").replace_strict(_STEP_TO_RESOLUTION, default=None).alias("resolution"),
             pl.lit(DATASET_NAME_DEFAULT, pl.String).alias("dataset"),

@@ -473,6 +473,16 @@ def get_timeseries_api(provider: str, network: str, *, history: bool = False) ->
         raise click.UsageError(str(e)) from e
 
 
+def _lead_time_named(lead_time: str | None) -> str | None:
+    """Give the lead time the caller named on the command line, and None for the `short` the option defaults to.
+
+    The option defaults to `short`, which is what a DMO request reads where none is named; passed on as if it were
+    named, a request said it had asked for `short` (`parameter-without-rows` names what was asked for).
+    """
+    context = click.get_current_context()
+    return None if context.get_parameter_source("lead_time") is ParameterSource.DEFAULT else lead_time
+
+
 def _validate_request(model: type[_RequestT], values: dict[str, Any]) -> _RequestT:
     """Build a request model, reporting a rejected value as a usage error rather than a traceback.
 
@@ -1170,7 +1180,11 @@ def coverage(
     and `kind`, and whether it needs credentials and has them. `kind` is `observation`, `forecast` or
     `derived` for a timeseries network, which has stations and values, and `radar` or `alerts` for a
     standalone one (dwd/radar, dwd/alerts), which `stations` and `values` refuse. With them, the
-    resolutions, datasets and parameters of that network.
+    resolutions, datasets and parameters of that network. A parameter's `unit` is the unit its values come
+    back in when no unit target is given (the one `about glossary` gives; `degree_celsius`, `decimal` for a
+    percentage). `unit_source`, the unit the provider publishes it in (`degree_kelvin`, `percent`), is there
+    only where it differs from `unit`; absent, it is the same. A unit target of your own changes the values,
+    not this answer.
     """
     set_logging_level(debug=debug)
 
@@ -1840,7 +1854,7 @@ def values(
             "network": network,
             "parameters": parameters,
             "periods": periods,
-            "lead_time": lead_time,
+            "lead_time": _lead_time_named(lead_time),
             "timestamp": timestamp_resolved,
             "issue": issue,
             "all": all_,
@@ -1991,7 +2005,7 @@ def interpolate(
             "network": network,
             "parameters": parameters,
             "periods": periods,
-            "lead_time": lead_time,
+            "lead_time": _lead_time_named(lead_time),
             "interpolation_station_distance": interpolation_station_distance,
             "interpolation_station_distance_homogeneous": interpolation_station_distance_homogeneous,
             "interpolation_station_distance_heterogeneous": interpolation_station_distance_heterogeneous,
@@ -2137,7 +2151,7 @@ def summarize(
             "network": network,
             "parameters": parameters,
             "periods": periods,
-            "lead_time": lead_time,
+            "lead_time": _lead_time_named(lead_time),
             "summary_station_distance": summary_station_distance,
             "summary_station_distance_homogeneous": summary_station_distance_homogeneous,
             "summary_station_distance_heterogeneous": summary_station_distance_heterogeneous,

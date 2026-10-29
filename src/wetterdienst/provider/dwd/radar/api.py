@@ -23,7 +23,7 @@ from wetterdienst.metadata.extension import Extension
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.renamed import refuse_renamed_arguments
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.model.metadata import ProviderTerms
+from wetterdienst.model.metadata import Extent, ProviderTerms
 from wetterdienst.provider.dwd.metadata import _METADATA
 from wetterdienst.provider.dwd.radar.index import (
     create_fileindex_radar,
@@ -84,6 +84,9 @@ class RadarResult:
     timestamp: dt.datetime | None = None
     url: str | None = None
     filename: str | None = None
+    #: when DWD last wrote the file the product was read from (its `Last-Modified`, UTC), `None` where it sent none;
+    #: not the time of the product, which is `timestamp` (GH-2567)
+    data_updated_at: dt.datetime | None = None
 
     def __getitem__(self, index: int) -> dt.datetime | BytesIO | None:
         """Backward compatibility to address this instance as a tuple.
@@ -148,6 +151,9 @@ class DwdRadarValues:  # noqa: PLW1641
         license=_METADATA["license"],
         attribution=_METADATA["attribution"],
         url="https://opendata.dwd.de/weather/radar/",
+        # the products are grids and composites over Germany and the countries around it (declared from the
+        # documentation of DWD, no station list to hold it to)
+        extent=Extent(scope="national", continents=["europe"], country_codes=["DE"], bbox=[1.0, 45.0, 18.0, 56.0]),
     )
 
     def __new__(cls, *args: object, **kwargs: object) -> Self:  # noqa: ARG004
@@ -604,6 +610,7 @@ class DwdRadarValues:  # noqa: PLW1641
         file.raise_if_exception()
         if isinstance(file.content, Exception):
             return
+        written = file.last_modified
         # RV_REFLECTIVITY, WN_REFLECTIVITY: a tar of one ODIM HDF5 file for every lead time
         if url.endswith(f".{Extension.TAR.value}"):
             tfs = open_tar(file.content, url=url, limit=_MAX_UNPACKED_BYTES)
@@ -622,6 +629,7 @@ class DwdRadarValues:  # noqa: PLW1641
                     data=BytesIO(tfs.open(file).read()),
                     timestamp=timestamp,
                     filename=file_name,
+                    data_updated_at=written,
                 )
 
         elif url.endswith(Extension.BZ2.value):
@@ -636,6 +644,7 @@ class DwdRadarValues:  # noqa: PLW1641
                     url=url,
                     data=data,
                     timestamp=timestamp,
+                    data_updated_at=written,
                 )
 
         # a gzipped file: the RADVOR products of the earlier layout, which no product is served as now
@@ -651,6 +660,7 @@ class DwdRadarValues:  # noqa: PLW1641
                     url=url,
                     data=data,
                     timestamp=timestamp,
+                    data_updated_at=written,
                 )
 
         else:
@@ -663,6 +673,7 @@ class DwdRadarValues:  # noqa: PLW1641
                 url=url,
                 data=file.content,
                 timestamp=timestamp,
+                data_updated_at=written,
             )
 
     def _download_radolan_data(self, url: str, start_date: dt.datetime, end_date: dt.datetime) -> Iterator[RadarResult]:
@@ -687,6 +698,7 @@ class DwdRadarValues:  # noqa: PLW1641
             if result.timestamp < start_date or result.timestamp > end_date:
                 continue
             result.url = url
+            result.data_updated_at = file.last_modified
 
             yield result
 

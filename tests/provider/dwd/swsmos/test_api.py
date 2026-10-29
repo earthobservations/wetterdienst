@@ -20,6 +20,7 @@ from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest, api
 from wetterdienst.provider.dwd.swsmos.api import _LATEST_FILE, DwdForecastDate, _read_run_csv, _run_url
 from wetterdienst.util.network import File
+from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
 UTC = ZoneInfo("UTC")
 _RUN_URL = _run_url(dt.datetime(2026, 7, 31, 7, tzinfo=UTC))
@@ -355,7 +356,7 @@ def test_swsmos_run_does_not_outlive_the_query(monkeypatch: pytest.MonkeyPatch) 
     result = values.all()
 
     assert not result.df.is_empty()
-    assert {field.name for field in dataclasses.fields(result)} == {"df", "stations"}
+    assert {field.name for field in dataclasses.fields(result)} == {"df", "stations", "data_updated_at"}
     assert values._run_frame_cache is None, "the run should be released with the walk that parsed it"  # noqa: SLF001
 
 
@@ -972,3 +973,30 @@ def test_swsmos_names_the_air_temperature_the_dew_point_and_the_road_condition_f
         "road_surface_condition_forecast": 2.0,
     }
     assert DwdSwsmosRequest.metadata["hourly"]["data"]["road_surface_condition_forecast"].name_original == "RC"
+
+
+def test_swsmos_tells_the_readings_the_run_wrote_a_marker_for(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A text that is no number in the run file is null with its `raw:` token, and the answer counts it (GH-3555).
+
+    `query()` is overridden here to pin the run, and goes on through the core's walk, which counts the markers of the
+    stations it keeps: two `---` of the run are two readings of the warning (under the default options).
+    """
+    content = _run_file(
+        ("A006", "202607310800", "17.9"),
+        ("A006", "202607310900", "---"),
+        ("A006", "202607311000", "---"),
+    )
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [f"{api._BASE_URL}/{_LATEST_FILE}"])  # noqa: SLF001
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(content), status=200),
+    )
+    begin_response()
+
+    df = _stub_stations().values().all().df
+
+    assert df["value"].to_list() == [17.9]
+    warnings = recorded_warnings()
+    assert [warning["code"] for warning in warnings] == ["missing-value-marker"]
+    assert warnings[0]["message"].startswith("2 readings of the source")

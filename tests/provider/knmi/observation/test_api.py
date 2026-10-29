@@ -1208,9 +1208,10 @@ def test_parse_knmi_netcdf_without_h5netcdf_names_the_extra(monkeypatch: pytest.
         ),
         pytest.param("https://api.dataplatform.knmi.nl/open-data/v1/signed/f.nc", True, id="knmi"),
         pytest.param(
-            "http://knmi-kdp-datasets-eu-west-1.s3.eu-west-1.amazonaws.com/f.nc", False, id="the store over http"
+            "http://knmi-kdp-datasets-eu-west-1.s3.eu-west-1.amazonaws.com/f.nc", True, id="the store over http"
         ),
         pytest.param("https://example.net/f.nc", False, id="another host"),
+        pytest.param("https://www.knmi.nl/f.nc", False, id="another host of the domain of knmi"),
         pytest.param("https://other-bucket.s3.eu-west-1.amazonaws.com/f.nc", False, id="another bucket"),
         pytest.param(
             "https://internal.elb.eu-west-1.amazonaws.com/f.nc", False, id="another name of the store's domain"
@@ -1242,7 +1243,7 @@ def test_knmi_fetches_the_link_of_a_file_only_at_its_own_host_or_the_store(
     payload = _fetch_netcdf("daily-observations-validated", "1", "f.nc", settings)
     if fetched:
         assert payload == b"netcdf"
-        assert asked[-1] == link
+        assert asked[-1] == link.replace("http://", "https://")  # a link over http is asked over https
         assert dropped == []
     else:
         assert isinstance(payload, DownloadError)

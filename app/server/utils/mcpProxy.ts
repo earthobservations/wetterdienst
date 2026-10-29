@@ -1,3 +1,7 @@
+import { useApiBase } from './apiBase'
+import { answerNotFound, urlUnder } from './proxyPath'
+import { requestIdOf } from './requestId'
+
 // Shared handler that proxies the app's `/mcp` and `/mcp/v1` (and any sub-path) through to the backend's MCP
 // endpoint so it is reachable on the app origin (e.g. https://wetterdienst.eobs.org/mcp/v1).
 //
@@ -20,12 +24,14 @@ const PAYLOAD_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 
 export function mcpProxyHandler() {
   return defineEventHandler(async (event) => {
-    const {
-      public: { apiBase },
-    } = useRuntimeConfig()
-    // Forward faithfully to the backend origin, preserving the incoming path and query string so that
-    // the exact `/mcp`, `/mcp/v1` (and a later `/mcp/v2`), a trailing slash, and any future sub-path all reach the backend as-is.
-    const target = `${new URL(apiBase).origin}${event.path}`
+    const apiBase = useApiBase()
+    // Forward to the backend origin with the incoming path and query string, so that the exact `/mcp`, `/mcp/v1`
+    // (and a later `/mcp/v2`), a trailing slash, and any future sub-path reach the backend. The path is resolved
+    // first, as a URL is when it is fetched: the proxy is for what is under `/mcp`, and a path that resolves to
+    // anything else (`/mcp/../health`) is a 404 and is not fetched.
+    const target = urlUnder(new URL(apiBase).origin, event.path, '/mcp')
+    if (!target)
+      return answerNotFound(event, requestIdOf(getRequestHeader(event, 'x-request-id')))
     const headers: Record<string, string> = {}
     for (const name of FORWARDED_HEADERS) {
       const value = getRequestHeader(event, name)

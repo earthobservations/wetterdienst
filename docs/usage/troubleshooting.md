@@ -34,6 +34,12 @@ The usual reasons:
   out with a warning (`unknown-station` in the `metadata` of the REST answer, a log line in Python), and when none
   is left the result is empty. Ask `stations` with the same `parameters` first: it lists only the stations that have
   them.
+- **The source has nothing of the parameter.** A station can have no values of an element at all, or none in the
+  window (Los Angeles has no `TX` or `TN` in MOSMIX, Paris no `tx24` in the synop reports). The answer says so
+  with a `parameter-without-rows` warning that names the parameter and the stations: the source has none for them.
+  Leave the parameter out, or ask for another station or window. Where the warning says it is of the periods asked
+  for, `periods` may be what left the values out. A station whose file the provider let go (a refused download, a
+  maintenance page) is not named: its values may be missing for that, which a later request may clear.
 - **A name matched nothing.** A name is matched fuzzily with a threshold (`name_threshold`, 0.8 by default); lower it
   or look at the best matches (`rank`).
 - **Nulls were dropped.** The long shape drops rows without a value by default (`drop_nulls`); a reading the source
@@ -98,7 +104,8 @@ request cannot take the server down; the answer names the limit and its value:
 `GET /api/version` reports the limits of an instance (`limits`), and a client can size its request before it is
 refused. A request has to be answered within `WD_RESTAPI_TIMEOUT` (60 seconds): a 504 `request-timeout` has
 downloaded what it could, so the same request again is likely to succeed. For a long series, ask in pieces (a year at
-a time) or from Python. See [Limits](restapi.md#limits) and [Timeout](restapi.md#timeout).
+a time) or from Python. See [Limits](restapi.md#limits) and [Timeout](restapi.md#timeout), and
+[Getting more than the limit](large-requests.md) for the ways to the data, in the order to try them.
 
 A server also works on only so many requests at once (`WD_RESTAPI_MAX_CONCURRENT`, 32 by default, `limits.max_concurrent`
 in `/api/version`): one past it is a 503 `server-busy` with `Retry-After`, and asking again after that time is

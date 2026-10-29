@@ -133,6 +133,7 @@ what the answer is missing:
     "api_version": "1",
     "schema_version": "1",
     "retrieved_at": "2026-10-16T21:04:37.118220+00:00",
+    "data_updated_at": null,
     "provider": {
       "name_local": "Deutscher Wetterdienst",
       "name_english": "German Weather Service",
@@ -183,8 +184,9 @@ what the answer is missing:
 ```
 
 - **`provider.license`** is the terms the provider publishes its data under: `spdx_id`, the identifier of
-  the licence in the [SPDX list](https://spdx.org/licenses/) (or an expression, `CC-BY-4.0 OR NLOD-2.0`,
-  where the provider offers two), `name` and `url`. `spdx_id` is `null` where the terms have none
+  the licence in the [SPDX list](https://spdx.org/licenses/) (or an expression, `CC-BY-4.0 AND NLOD-2.0`,
+  where the provider names two that both apply, as MET Norway does), `name` and `url`. `spdx_id` is `null` where the
+  terms have none
   (ECCC's licence agreement, AEMET's legal notice, IMGW's terms of data provision, IPMA's statement that the
   data may be reused with the source named). `url` is the licence, or the provider's own page that states it. The
   whole of `license` is `null` where the provider states no terms that could be read: no provider does at present,
@@ -198,8 +200,64 @@ what the answer is missing:
   answer of up to 100 stations; for one of more `ids` is `null`, so a listing of a whole network does not carry
   its ids a second time, and `count` is how many there are. To have the ids of a large answer, read the
   `station_id` column of its body.
-- **`retrieved_at`** is when the answer was made, in UTC. Whether the data came from the server's cache,
-  and when the provider published it, are not told yet.
+- **`retrieved_at`** is when the answer was made, in UTC. Whether the data came from the server's cache
+  is not told.
+- **`data_updated_at`** is when the source last updated the data of the answer, in UTC: the newest such date over the
+  files the answer was read from, **a file that failed and one that gave the answer no row not among them** (see
+  "Which files count" below). It is not when the data was fetched (that is `retrieved_at`) and it is `null` where
+  there is none to give: never `retrieved_at` in its place. What the date is depends on what the source states:
+
+  - **A file the source dates** (the observations of DWD and its derived, phenology, POI and road networks, CHMI, IMGW,
+    IPMA, MeteoSwiss, NOAA GHCN and the SYNOP of Météo-France): when the source last wrote the file or files the answer
+    was built from, the `Last-Modified` of their download. A file written daily is dated daily, whether or not a value
+    in it changed, so the date says how current the copy is and not that the readings in it are new. A response whose
+    `Last-Modified` is not earlier than its own `Date` (a server that sends the time of the request), is not a date, or
+    is not there gives none, and the date of the request is never taken for it.
+  - **`meteofrance/observation`**: the newest `last_modified` that data.gouv.fr gives the files read, the date the
+    Etalab Open Licence 2.0 asks to be named with the source. Its listing is cached for 12 hours, so the date may lag a
+    file refreshed since by up to that time.
+  - **A forecast** (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`): the model run the forecast is of, not the file it was
+    published in, so it is the same for a run read again later, and `retrieved_at` less `data_updated_at` is how old the
+    run is. This is the age of a forecast only: for a file it is not the age of the data.
+  - **The warnings of `dwd/alerts`**: the newest `sent` of the warnings in the answer, which DWD states in each of them;
+    a snapshot with no warning has none.
+
+  The date is `null` for the networks whose source states none and whose responses carry no `Last-Modified` that is a
+  file's (FMI and SMHI send the time of the request), for those that need credentials and are not examined (AEMET,
+  KNMI, MET Norway, Met Office), for every list of stations, and for a streamed answer: NDJSON and CSV answers of
+  `values` write their head before the stations are read, so the newest date is not known, they say `null` and the
+  header is left out, where a JSON answer of the same request has the exact one. An answer made from the cache has the
+  date of the copy it was made from, however long ago it was cached. A copy cached before the library kept dates has
+  none until it expires (12 hours at most for the networks of DWD, CHMI, IMGW, IPMA, MeteoSwiss and NOAA) or the cache
+  is cleared, and `meteofrance/synop` downloads its finished years once more, once, to date them. For a file
+  `retrieved_at` less `data_updated_at` is how long ago the source wrote it, which is not how old the readings in it
+  are. The Python results carry it as `data_updated_at`, and the `metadata` of `to_dict`, `to_json` and
+  `to_ogc_feature_collection` with `with_metadata=True` has it as a key of its own next to `provider` and `producer`
+  (`null` for a list of stations). Which networks state a date, and why the others do not, is `DATA_UPDATED_STATED`
+  and `DATA_UPDATED_NOT_STATED` in `tests/ui/test_response_metadata.py`.
+
+  For `meteofrance/observation` a copy of a file made before the date the listing gives it is fetched again, and
+  replaced only once the new one has arrived: where the host of the files does not answer, an archive file that is
+  cached for good (the years before last) is read from the copy from before, and has the date that copy was made and
+  not the listing's later one. A file of the current period, cached for 5 minutes, whose copy has expired is not
+  served stale: the request fails with the download error. The NDJSON of the command line renders the whole result at
+  once and has the exact date. A result cut down by `filtered_by_date` or `filtered_by_sql` keeps the date of the
+  result it was cut from, newer files whose rows were cut away included, and has none where no row is left; a
+  history has none.
+
+  **Which files count.** A file dates the answer only where rows of it are in the answer: one that failed, one that
+  holds no row of the station, one whose rows all lie outside the window asked for, one that holds only parameters
+  that were not asked for, and one whose rows another file took the place of (the recent archive of DWD where the
+  historical one has the same stamps) are not counted, and where `drop_nulls` is on (the default) a row without a value
+  does not make a file count. The provider decides this on the frame it hands to the core, in the order the core cuts it
+  (the first row of a reading that has a value is kept, then the requested parameters, the window and the null policy),
+  so two things stay out of its sight, and a file that is in the answer for them only still counts: a value that the
+  core reads as null although the provider handed it over as a text (a text that is no number), and the stamp of
+  `dwd/observation`, which the provider shifts by an hour for an archive that DWD writes in MEZ only afterwards, so a
+  window that begins or ends within that hour of the rows of an archive can count it or leave it out wrongly.
+  `dwd/observation` and `dwd/derived` decide it for the archives of a period together, which are one file but for the 1
+  and 5 minute precipitation of the historical period, and a forecast counts where one of its steps is in the answer.
+
 - **`counts`** is the stations in the answer and its rows: the items of `values` (one per timestamp in
   the wide shape), the stations listed, or the histories.
 - **`crs`** is the reference system of every position in the answer: WGS 84, longitude before latitude in
@@ -211,9 +269,48 @@ what the answer is missing:
   (a period that was asked for and does not apply), `elevation-unknown` (the stations of unknown
   elevation that an estimate at an elevation had to leave out), `missing-value-marker` (readings that are
   `null` because the source wrote a marker for a missing value: with `drop_nulls` they are not in the
-  answer, and this counts them; without it the `raw:` token of their `quality_flags` keeps the marker) and
-  `deprecated-parameter` (issued when a parameter is deprecated; none is at the moment). Codes are added as
-  more are told; a client reads the ones it knows.
+  answer, and this counts them; without it the `raw:` token of their `quality_flags` keeps the marker),
+  `parameter-ended` (the window reaches years in which the source no longer publishes a parameter, such as
+  the hourly `pressure_air_site` of `chmi/observation` after 2024, so it has no values for them),
+  `deprecated-parameter` (issued when a parameter is deprecated; none is at the moment),
+  `network-not-importable` (a network of `providers` that this server cannot import, which is left out) and
+  `parameter-without-rows` (a requested parameter that the source holds no values for, see below). Codes are
+  added as more are told; a client reads the ones it knows.
+
+  `parameter-without-rows` says that the request succeeded and the source has no values of a parameter that was
+  asked for, so that it is not taken for a failure and asked again in a loop. It carries `parameter`
+  (`resolution/dataset/parameter`, or `resolution/dataset`) and `stations` (the stations it was asked at, the
+  first ten if there are more). It is told for a parameter asked for by its name when no station of the answer
+  has a row of it, and for a dataset asked for whole only when no station has a row of any of its parameters, so
+  that a dataset with a few empty parameters says nothing of them. A parameter that some stations have is not
+  told for the ones that lack it. A station that begins after the window is not read and not named, one skipped
+  by `skip_empty` had rows, and readings that are all null and left out by `drop_nulls` are no rows. A dataset that
+  needs a window, asked for in Python with none, is not told of: the provider answers nothing to it, and that says
+  nothing of the source (nor is a reader that returns for want of a window without asking the source: it tells the walk, as
+  Frost's does). The message gives the window and says `in the periods asked for` (for the datasets
+  where `periods` left out a period the window would have read), `in the run issued` or `in the lead time asked for` where the request narrowed itself that
+  way; the other `periods`, run or `lead_time` is suggested only where it can hold values (the `icon_eu` product has
+  no long run). It says nothing of the source being behind for a window that reaches the present, and nothing of what
+  a later request will find: a source that is late cannot be told from one that never reports the parameter.
+
+  What it does not say is limited by what the library can see. A provider that gives up on a file it expected and
+  answers with the others (a refused download, a file withdrawn since the listing, a timestamp that is not there,
+  a maintenance page or an exception report answered with HTTP 200, a file that would not parse) tells the walk, and
+  the station whose file was let go is not one of the stations named: the others still are, and where none is left
+  nothing is said (a file that serves a whole station group or a whole network is every station's of it). A
+  download that failed and was made again with success is no file let go, and what the source answers is told:
+  that it has nothing (a 404 for a station that does not report the parameter, Frost's 404 "No data was found for the
+  query parameters" and 412 "No available time series for the query parameters", an AEMET `estado` of 404,
+  Pegelonline's 404 "Timeseries does not exist.") or a month file of `dwd/derived` that the index never listed.
+  This is done for `aemet/observation`, `dwd/derived`, `dwd/observation`, `dwd/poi`, `dwd/road`, `dwd/swsmos`,
+  `fmi/observation`, `knmi/observation`, `meteofrance/observation`, `meteofrance/synop`, `metno/frost`,
+  `smhi/observation` and `wsv/pegel`, each at the places where it lets a file go and no other; for any other
+  provider a file it lets go without telling is not known, so the warning may name a station whose file was let go.
+  The message says nothing of the stations that were let go: the provider logs each at level `WARNING`. A parameter
+  another warning already names (`parameter-ended`) is not told again, nor is anything told for `interpolate` and
+  `summarize`. In Python it is a log line at level `WARNING`, as the other warnings that say a request returned less
+  than it asked for are, and `wetterdienst.util.response_warnings.recorded_warnings` gives it after
+  `begin_response()`, as the REST API and the command line do.
 - **`api_version`** is the version of the API (`/api/version`), and **`schema_version`** that of this
   block, so that a stored answer can be told from one in a later shape.
 
@@ -246,6 +343,7 @@ A format with no body to put the block in carries the same in headers, and so do
 | --- | --- |
 | `X-Wetterdienst-API-Version`, `X-Wetterdienst-Schema-Version` | `api_version` and `schema_version` |
 | `X-Wetterdienst-Retrieved-At` | `retrieved_at` |
+| `X-Wetterdienst-Data-Updated-At` | `data_updated_at`; left out where it is `null` |
 | `X-Wetterdienst-Provider` | the provider's English name |
 | `X-Wetterdienst-License` | the SPDX identifier of the licence, else its name; left out without a licence |
 | `Link` | `<licence url>; rel="license"`, left out without a licence |
@@ -360,6 +458,7 @@ The list downloads nothing, so it answers at once. Each network of each provider
 | `country` | the country of the provider, `Germany` |
 | `url` | where the provider publishes the data |
 | `kind` | what the network is, see below |
+| `scope` | how far the network reaches: `global`, `national` or `regional`, which `country` does not say. The list is kept short, so it has the scope only; the full [extent](#providers) is in `providers`, and in the coverage of one network, for each of its datasets |
 | `auth` | whether the network needs credentials |
 | `configured` | whether the server has them |
 | `date_required` | whether a dataset of the network needs the request to name `start` and `end` |
@@ -377,6 +476,19 @@ list, nor is a provider none of whose networks can be; the server logs why. Aski
 by name, `coverage` or `auth` with its provider and network, answers a 500, or a 501 where an
 optional package is missing, never a 404 as for a network that does not exist.
 
+With a provider and network, each parameter of a dataset has a `unit` and, where it differs, a `unit_source`:
+
+| Field | |
+| --- | --- |
+| `unit` | the unit the `values` of the parameter come back in when the request gives no `unit_targets` or `convert_units`, which is the unit `glossary` gives for its `unit_type`: `degree_celsius` for a temperature, `decimal` (0 to 1) for a percentage, `second` for a duration |
+| `unit_source` | the unit the provider publishes the parameter in (`degree_kelvin`, `percent`, `minute`), which the values come in with `convert_units=false`. It is there only where it differs from `unit` (362 of 2048 parameters); absent means the same as `unit` |
+
+`coverage` takes no options, so a `unit_targets` or `convert_units` a request to `values` gives changes what
+`values` return, not `unit`. The settings of the server (`WD_TS_UNIT_TARGETS`, `WD_TS_CONVERT_UNITS`) are what a
+request that gives none gets, and `unit` follows them, as `values` does. Only the Python function
+`get_glossary(options=...)` takes `unit_targets`: the `glossary` endpoint, tool and command do not. Up to 0.178.0
+`unit` was the unit the provider publishes, which is now `unit_source`.
+
 The list leaves out whether the provider accepts the credentials of a network that has them, because
 that is a request to the provider. Ask for one network at a time, which gives up after a few seconds
 and answers `valid` as `true` or `false`, or `null` when it could not tell (treat `null` as unknown,
@@ -392,9 +504,9 @@ ask the same question and give the same answer.
 ### Providers
 
 What each provider is, for a page that lists them or a client that has to credit the data: the names it goes
-by (`name_short` for a chip beside a flag, `name_english`, `name_local`), its country (`country_code` is the ISO 3166-1 alpha-2 code, null for a provider of several countries), the
+by (`name_short` for a chip beside a flag, `name_english`, `name_local`), the country of the agency that runs it (`country_code` is the ISO 3166-1 alpha-2 code, null for a provider of several countries; it is the operator's country, not the extent of its data: the `extent` of each network says where its stations are), the
 terms it publishes its data under (`license`, as in the `metadata` of a data answer) and the credit line
-(`attribution`), and its networks with their `kind`, source `url`, whether they need credentials (`auth`) and
+(`attribution`), and its networks with their `kind`, `extent`, source `url`, whether they need credentials (`auth`) and
 the resolutions and datasets they offer, with how many parameters each has. Nothing is downloaded and no
 credential is read, so it answers at once: `coverage` lists the parameters of a network and `auth` checks
 whether its credentials are accepted. `dwd/radar` and `dwd/alerts` are listed without resolutions.
@@ -408,6 +520,34 @@ http localhost:7890/api/providers provider==dwd
 ```
 
 The command line is `wetterdienst about providers [--provider dwd]` and the MCP tool is `providers`.
+
+### Extent
+
+The `country` of a provider is the country of the agency that runs it, which says nothing of where its networks have
+stations: DWD is German, and the forecast lists of `dwd/mosmix` and `dwd/dmo` have stations on every continent. The
+`extent` of each network says where its stations are, in the answer of `providers`, and `coverage` of one network gives the extent of each of its datasets (the list of every network has the `scope` only):
+
+| Member | |
+| --- | --- |
+| `scope` | `global` (stations on at least five continents), `national` (one country, with its territories) or `regional` (everything between: one or several countries or continents) |
+| `continents` | the continents the network is meant to serve, in alphabetical order: `africa`, `antarctica`, `asia`, `europe`, `north_america`, `oceania`, `south_america`. **Descriptive**: declared by hand, a few outlying territories may be named or left out, and the `bbox` and the station lists are the exact answer. A territory is named where the network has stations there: the Canary Islands (`africa`) for AEMET and Madeira (`africa`) for IPMA, Greenland and the Caribbean `north_america`, Guam and Hawaii `oceania`, Turkey `europe` and, east of 34 degrees east, `asia` |
+| `country_codes` | only for `regional`, where the list is short and exact: the ISO 3166-1 alpha-2 codes of the countries the network is bound to. **Left out** where there are none, and for `national`: the country of a national network is the `country_code` of its provider (an overseas territory counts for its sovereign: Réunion is `FR`) |
+| `bbox` | `[west, south, east, north]` in degrees, a whole degree written without its `.0`, around every station of the network, the Earth for `global`. It does not cross the antimeridian: a network with stations on both sides of it (Alaska and Guam) has the wide box |
+
+The extent is declared once, in the metadata of the network, and the tests hold it to the station list where the list can
+be read: every station is in the `bbox`, the `bbox` is no more than 5 degrees wider than the stations on any side, each
+continent it names has a station near its box, and a global network has stations on five. That is done for every network
+whose list is read without a credential (and for `eaufrance/hubeau` by its referential). **Declared from the provider's
+documentation, not read:** `aemet/observation`, `knmi/observation`, `metno/frost` and `metoffice/observation` (a
+credential is needed) and `dwd/radar` and `dwd/alerts` (no stations), so their boxes are wider than they need be.
+
+A dataset whose stations are fewer than its network's has an `extent` of its own, which lies within the network's: `dwd/dmo`
+is global by its `icon` dataset, whose list has stations on every continent, and its `icon_eu` dataset is regional, the
+stations of Europe and the edges of Africa and Asia. `providers` shows the `extent` of a
+dataset only where it has one, **a dataset without its own extent has its network's**, and the member is absent from
+it; `coverage` of a network gives every dataset its extent, its own or its network's. A dataset of a national network
+is national. The extent does not change what a request answers: `stations` still
+lists what the network has.
 
 ### Glossary
 
@@ -529,6 +669,9 @@ http localhost:7890/api/values provider==dwd network==observation parameters==da
 http localhost:7890/api/values provider==dwd network==dmo parameters==hourly/icon/temperature_air_2m stations==01001
 ```
 
+A request that asks for more than the [limits](#limits) allow is refused;
+[Getting more than the limit](large-requests.md) shows how to get the data anyway.
+
 ## SQL filters
 
 `sql` (stations and values: which stations) and `sql_values` (values, interpolate and summarize:
@@ -603,7 +746,9 @@ with less data than its record makes the answer smaller. For `interpolate` and
 `summarize` it is the readings of the window for each parameter. So the time span of a request is bounded through
 the rows: a year of 1-minute readings of one parameter is 525,600 of them, a century of daily ones 36,500.
 
-An answer over `rows` that fits `stream_rows` is told to use `format=ndjson` or `format=csv`.
+An answer over `rows` that fits `stream_rows` is told to use `format=ndjson` or `format=csv`. What to do about a
+refusal, in the order to try it (a narrower request, a stream, slices, the library, a server of your own), is on
+[Getting more than the limit](large-requests.md).
 
 ## Streaming
 
@@ -614,6 +759,9 @@ rows while the later stations are still downloaded. `json` and `geojson` are one
 ```bash
 http --stream localhost:7890/api/values provider==dwd network==observation parameters==daily/kl stations==1048,4411 timestamp==2020 format==ndjson
 ```
+
+Which of the two formats to take, and how to read a stream in Python, with polars or into a file with `curl`, is on
+[Getting more than the limit](large-requests.md#stream-it).
 
 **NDJSON** (`application/x-ndjson`) is one JSON object on a line, UTF-8:
 
@@ -710,6 +858,9 @@ and what follows is for an instance that others can reach (the
   design), `pdf`, or `/docs` and `/redoc`, which load their own from a CDN. Other headers (HSTS, a
   `Referrer-Policy`, a policy for those answers) are for the reverse proxy to add.
 - **SQL.** [`sql` and `sql_values`](#sql-filters) stay off until you set `WD_RESTAPI_SQL=true`.
+- **Limits.** The [limits](#limits) are the ones you set. How to set them, and what raising one costs, is on
+  [Getting more than the limit](large-requests.md#run-your-own-server), which is also where a client that meets one is
+  sent.
 - **The cache directory.** `WD_CACHE_DIR` holds the downloaded bodies it caches and the directory listings, as JSON in
   a SQLite file; nothing in it is unpickled or run. Whoever can write there can still replace what the server caches,
   so keep it private to the user the server runs as (a directory wetterdienst makes gets mode 0o700; one that exists
@@ -775,7 +926,7 @@ are these, and a kind keeps its status:
 | --- | --- | --- |
 | `urn:wetterdienst:problem:invalid-parameters` | 422 | A query parameter is unknown, malformed or invalid, or a selection that needs exactly one of several does not. `errors` has an entry for each invalid parameter. |
 | `urn:wetterdienst:problem:request-refused` | 400 | The request is understood and cannot be served as phrased: a window that ends before it starts, a parameter the network does not have, a point out of range. |
-| `urn:wetterdienst:problem:limit-exceeded` | 400 | The request would return more than the server allows. `limit` names the limit (`stations`, `rows` or `stream_rows`), `maximum` its value and `requested` what the request comes to; `detail` says how to narrow it. |
+| `urn:wetterdienst:problem:limit-exceeded` | 400 | The request would return more than the server allows. `limit` names the limit (`stations`, `rows` or `stream_rows`), `maximum` its value and `requested` what the request comes to; `detail` says how to narrow it, and [Getting more than the limit](large-requests.md) how to get the data anyway. |
 | `urn:wetterdienst:problem:image-too-large` | 400 | A chart would be longer than 8192 px on a side. |
 | `urn:wetterdienst:problem:host-not-allowed` | 400 | The `Host` of the request is not one the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). Reach the server by a name it lists. |
 | `urn:wetterdienst:problem:origin-not-allowed` | 400 | The `Origin` of a request to the MCP endpoint is not a host the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). A page of another origin cannot use the endpoint. |

@@ -28,6 +28,7 @@ from wetterdienst.util.network import (
     download_file,
     raise_if_credential_rejected,
 )
+from wetterdienst.util.response_warnings import note_skipped_download
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel
@@ -45,13 +46,27 @@ _MetnoFrostMetadataSpec = {
     "country_code": "NO",
     "copyright": "© Norwegian Meteorological Institute (MET Norway)",
     "license": LicenseModel(
-        spdx_id="CC-BY-4.0 OR NLOD-2.0",
-        name="Creative Commons Attribution 4.0 International, or Norwegian Licence for Open Government Data 2.0",
+        # MET Norway: "all data and products are licensed under the Norwegian Licence for Open Government Data
+        # (NLOD) 2.0 and Creative Commons 4.0 BY International licences" (https://api.met.no/doc/License, read
+        # 2026-10-26): both, so `AND`; the conditions of both apply (NLOD 2.0 § 5 and 6, CC BY 4.0 § 3)
+        spdx_id="CC-BY-4.0 AND NLOD-2.0",
+        name="Creative Commons Attribution 4.0 International and Norwegian Licence for Open Government Data 2.0",
         url="https://api.met.no/doc/License",
     ),
     "attribution": "Data from MET Norway",
     "url": "https://frost.met.no",
     "kind": "observation",
+    "extent": {
+        "scope": "national",
+        "continents": ["europe"],
+        "country_codes": ["NO"],
+        # declared from the documentation of MET Norway, no list was read (a key is needed): Norway with Svalbard and
+        # Jan Mayen, and the platforms on the shelf of the North Sea (Ekofisk, 56.5 N), so the box reaches 55. The
+        # research stations in Antarctica and on Bouvetoya are not declared: the documentation does not say. The list
+        # (read in CI since) also holds foreign SYNOP stations, under `SN` + the WMO number x 100 (SN743400 is
+        # Limoges-Bellegarde): they are the source's and lie outside the box, which stays that of Norway
+        "bbox": [-10.0, 55.0, 32.0, 81.0],
+    },
     "timezone": "Europe/Oslo",
     "auth": True,
     "resolutions": [
@@ -199,7 +214,7 @@ _MetnoFrostMetadataSpec = {
             "name": "daily",
             "name_original": "P1D",
             "periods": ["historical", "recent"],
-            "date_required": False,
+            "date_required": True,
             "datasets": [
                 {
                     "name": DATASET_NAME_DEFAULT,
@@ -274,7 +289,7 @@ _MetnoFrostMetadataSpec = {
             "name": "monthly",
             "name_original": "P1M",
             "periods": ["historical", "recent"],
-            "date_required": False,
+            "date_required": True,
             "datasets": [
                 {
                     "name": DATASET_NAME_DEFAULT,
@@ -354,7 +369,7 @@ _MetnoFrostMetadataSpec = {
             "name": "annual",
             "name_original": "P1Y",
             "periods": ["historical", "recent"],
-            "date_required": False,
+            "date_required": True,
             "datasets": [
                 {
                     "name": DATASET_NAME_DEFAULT,
@@ -548,6 +563,9 @@ class MetnoFrostValues(TimeseriesValues):
         start_date = self.sr.start
         end_date = self.sr.end
         if not start_date or not end_date:
+            # nothing is asked of Frost without a window (REST and the command line demand one; Python does not), so
+            # the answer says nothing of what Frost holds: a reader that returns without asking tells the walk so
+            note_skipped_download()
             return pl.DataFrame()
 
         settings = self.sr.settings
@@ -592,10 +610,13 @@ class MetnoFrostValues(TimeseriesValues):
                 station_id, dataset, parameters, start_date, end_date, settings, client_kwargs
             )
         if isinstance(file.content, Exception):
+            note_skipped_download()
             log.warning(f"Failed to download {url}: {file.content}")
             return pl.DataFrame()
         # a 200 with no body
         if file.is_empty:
+            note_skipped_download()
+            log.warning(f"Frost answered {file.url} with an empty body")
             return pl.DataFrame()
 
         df = pl.read_json(file.content)
@@ -696,10 +717,13 @@ class MetnoFrostValues(TimeseriesValues):
                 station_id, parameter, start_date, end_date, settings, client_kwargs
             )
         if isinstance(file.content, Exception):
+            note_skipped_download()
             log.warning(f"Failed to download {url}: {file.content}")
             return pl.DataFrame()
         # a 200 with no body
         if file.is_empty:
+            note_skipped_download()
+            log.warning(f"Frost answered {file.url} with an empty body")
             return pl.DataFrame()
 
         df = pl.read_json(file.content)
@@ -767,9 +791,12 @@ class MetnoFrostValues(TimeseriesValues):
         if avail_file.status in (404, 412):
             return pl.DataFrame()
         if isinstance(avail_file.content, Exception):
+            note_skipped_download()
             log.warning(f"Failed to download {avail_url}: {avail_file.content}")
             return pl.DataFrame()
         if avail_file.is_empty:
+            note_skipped_download()
+            log.warning(f"Frost answered {avail_file.url} with an empty body")
             return pl.DataFrame()
 
         ts_list = json.loads(avail_file.content.read()).get("data", [])
@@ -808,12 +835,17 @@ class MetnoFrostValues(TimeseriesValues):
                 use_certifi=settings.use_certifi,
             )
             _raise_if_unanswered(obs_file)
+            # Frost's own "no data": 404 "No data was found for the query parameters" (a series the listing named
+            # may have a gap in the window), 412 "No available time series for the query parameters"
             if obs_file.status in (404, 412):
                 continue
             if isinstance(obs_file.content, Exception):
+                note_skipped_download()
                 log.warning(f"Failed to download {obs_url}: {obs_file.content}")
                 continue
             if obs_file.is_empty:
+                note_skipped_download()
+                log.warning(f"Frost answered {obs_file.url} with an empty body")
                 continue
 
             df = pl.read_json(obs_file.content)
@@ -855,7 +887,8 @@ def _probe_frost_credentials(settings: Settings) -> bool | None:
 
     Only a 200 is cached: Frost answers a refusal or a failure with an HTTP error status, which
     `download_file` does not keep. It is kept for a minute and not an hour (GH-2750), so a client ID
-    that is revoked stops reading `True` within the minute.
+    that is revoked stops reading `True` within the minute (within two minutes through `/api/auth`, which
+    keeps its answer for a minute as well).
     """
     if not settings.auth.metno_frost:
         return False

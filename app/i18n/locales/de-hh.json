@@ -62,6 +62,22 @@
     "kindRoadDesc": "Fahrbahntostand un -temperaturen vun de DWD-Straatenwedderstationen, mitsamt ehr Utsichten.",
     "aboutLink": "Över dat Projekt un de Lüüd dorachter"
   },
+  "seo": {
+    "title": "Wetterdienst – apen Wedder- un Klimadaten vun nationale Wedderdeenste",
+    "description": "Apen Wedder- un Klimadaten vun nationale Wedderdeenste in een Format: Explorer, Wedderutsicht, Klimastrepen, REST-API un MCP-Server. Apen Quelltext un gratis.",
+    "noscript": "Wetterdienst bruukt JavaScript, för Daten to wiesen.",
+    "pages": {
+      "explorer": "Wähl een Anbeder, Parameter un Stationen op de Koort ut, lees de Metens, interpolier een Punkt un laad dat Resultat as CSV, JSON oder GeoJSON dal.",
+      "meteogram": "De MOSMIX-Wedderutsicht för een DWD-Station as Meteogramm: Temperatur, Wind, Regen, Wulken un Luftdruck.",
+      "stripes": "Klimastrepen för Temperatur oder Regen vun een DWD-Station.",
+      "history": "Wo sik een DWD-Station mit de Tiet ännert hett: Naam, Stä un Instrumenten.",
+      "api": "De REST-API un de MCP-Server vun Wetterdienst: Formate un Bispelen för Stationen, Weerten, Interpolatschoon un Klimastrepen.",
+      "providers": "De nationalen Wedderdeenste achter de Daten: Land, Lizenz, de Quell, de angeven warrn mutt, un wat elkeen anbeedt.",
+      "glossary": "Wat elk Wedder- un Klimaparameter meet un in wecke Eenheit sien Weerten torüchkamen, mit Söök na Naam un Grött.",
+      "about": "Över dat Open-Source-Projekt Wetterdienst un de Lüüd, de dat plegen.",
+      "support": "Ünnerstütt Wetterdienst: meld een Fehler, bring Code bi oder spend."
+    }
+  },
   "values": {
     "title": "Wor wi för stahn",
     "lgbtq": "Wi stahn an de Siet vun de LGBTQI+-Community.",
@@ -111,7 +127,8 @@
     "copyright": "© {year} earthobservations",
     "legal": "Impressum",
     "privacy": "Datenschutz",
-    "about": "Över uns"
+    "about": "Över uns",
+    "licenses": "Lizenzen vun annere"
   },
   "language": {
     "switch": "Spraak wesseln",
@@ -429,6 +446,12 @@
     "stationNotFound": "Station nich funnen",
     "openFull": "Hele Utsicht apenmaken",
     "poweredBy": "Bereitstellt vun Wetterdienst · DWD MOSMIX"
+  },
+  "notFound": {
+    "title": "Siet nich funnen",
+    "text": "Ünner disse Adress gifft dat keen Siet. Kiek de Adress na oder fang op de Startsiet an.",
+    "home": "Na de Startsiet",
+    "back": "Trüch"
   },
   "stripes": {
     "title": "Klimastrepen",

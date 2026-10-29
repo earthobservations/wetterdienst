@@ -624,13 +624,21 @@ def test_descriptions_say_what_the_swagger_says_of_the_stamp_and_the_height(reso
     assert "gauge" not in descriptions["Q"]
 
 
-def test_paged_rows_does_not_follow_a_cursor_to_another_host(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize(
+    "foreign",
+    [
+        "http://192.0.2.1/latest/meta-data/iam",
+        "https://api.sandre.eaufrance.fr/x",
+        "https://hubeau.eaufrance.fr.example.org/x",
+    ],
+)
+def test_paged_rows_does_not_follow_a_cursor_to_another_host(monkeypatch: pytest.MonkeyPatch, foreign: str) -> None:
     """Test that the `next` of a page is followed at the host that was asked, and no other (GH-3339)."""
     asked: list[str] = []
 
     def _download_file(url: str, **_kwargs: object) -> File:
         asked.append(url)
-        page = {"data": [{"n": 1}], "next": "http://169.254.169.254/latest/meta-data/iam"}
+        page = {"data": [{"n": 1}], "next": foreign}
         return File(url=url, content=BytesIO(json.dumps(page).encode()), status=200)
 
     monkeypatch.setattr(api, "download_file", _download_file)
@@ -644,3 +652,127 @@ def test_paged_rows_does_not_follow_a_cursor_to_another_host(monkeypatch: pytest
         )
 
     assert asked == ["https://hubeau.eaufrance.fr/api/v2/first"]
+
+
+def _positions(*positions: tuple[float | None, float | None]) -> pl.DataFrame:
+    """Build stations ``S0``, ``S1``, ... from ``(latitude, longitude)`` pairs, as the reader holds them."""
+    return pl.DataFrame(
+        {
+            "station_id": [f"S{index}" for index in range(len(positions))],
+            "latitude": [latitude for latitude, _ in positions],
+            "longitude": [longitude for _, longitude in positions],
+        },
+        schema={"station_id": pl.String, "latitude": pl.Float64, "longitude": pl.Float64},
+    )
+
+
+@pytest.mark.parametrize(
+    ("latitude", "longitude", "swapped"),
+    [
+        # swapped in the source, rows of 2026-10-26: Anor in Nord, Planioles in Lot, Le Tech in Pyrenees-Orientales
+        (4.099322, 49.989435, True),
+        (2.028415, 44.633866, True),
+        (2.557169, 42.4174, True),
+        # right in metropolitan France: Paris, the Garonne at La Reole, Corsica
+        (48.84468962, 2.365510635, False),
+        (44.579311754, -0.034612117, False),
+        (42.2557, 9.3704, False),
+        # right overseas: Guadeloupe, Martinique, Guyane, Reunion and the corners of Mayotte from the referential. The
+        # swapped position of Mayotte (latitude 45, longitude -12.8) is in the box of the extent of the network
+        (16.189402471, -61.658989597, False),
+        (14.484987307, -60.852992932, False),
+        (5.493567718, -51.884756948, False),
+        (2.25838631, -54.544087482, False),
+        (-21.381009615, 55.229631108, False),
+        (-20.883458667, 55.721976963, False),
+        (-12.800646373, 45.205680635, False),
+        (-12.97068984, 45.129723012, False),
+        (-12.715276989, 45.106868127, False),
+        (-12.761317582, 45.098430035, False),
+        # Bray-Dunes, the northernmost point of France (51.09 north, 2.54 east): inside, so not touched, and swapped
+        # (latitude 2.54, longitude 51.09) is told; a station at 51.2 north is in no area either way, so it is left
+        (51.09, 2.54, False),
+        (2.54, 51.09, True),
+        (51.2, 2.54, False),
+        (2.54, 51.2, False),
+        # in no area either way: the Blavet as the referential lists it, the middle of the Atlantic
+        (35.108562837, 0.840483401, False),
+        (30.0, -40.0, False),
+        # on the edge of metropolitan France (south 41.0, west -5.5, north 51.1, east 10.0): inside, so not touched ...
+        (41.0, -5.5, False),
+        (51.1, 10.0, False),
+        # ... a pair whose swapped one is on the edge is swapped, and one whose swapped one is just outside is not
+        (-5.5, 41.0, True),
+        (10.0, 51.1, True),
+        (10.0, 51.11, False),
+        (51.11, 10.0, False),
+        (-5.5, 40.99, False),
+        (-5.51, 41.0, False),
+        (40.99, -5.5, False),
+    ],
+)
+def test_a_position_is_swapped_by_where_it_lies(latitude: float, longitude: float, swapped: bool) -> None:  # noqa: FBT001
+    """Test that a position in no area changes places if its swapped pair is in one (GH-3468)."""
+    result = api._swap_misplaced_positions(_positions((latitude, longitude)))  # noqa: SLF001
+
+    expected = (longitude, latitude) if swapped else (latitude, longitude)
+    assert (result["latitude"][0], result["longitude"][0]) == expected
+
+
+def test_swapping_leaves_the_other_stations_and_columns_as_they_are() -> None:
+    """Test that only the pair of a swapped station changes, whatever its place in the frame, and a null does not."""
+    df = _positions((48.0, 2.0), (4.099322, 49.989435), (None, 2.0), (2.0, None), (35.108562837, 0.840483401))
+
+    result = api._swap_misplaced_positions(df)  # noqa: SLF001
+
+    assert result["station_id"].to_list() == ["S0", "S1", "S2", "S3", "S4"]
+    assert result["latitude"].to_list() == [48.0, 49.989435, None, 2.0, 35.108562837]
+    assert result["longitude"].to_list() == [2.0, 4.099322, 2.0, None, 0.840483401]
+    assert result.schema == df.schema
+
+
+def test_swapping_reports_how_many_stations_it_swapped(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that the number of stations whose position was swapped is logged at debug, and nothing when none was."""
+    with caplog.at_level("DEBUG", logger=api.log.name):
+        api._swap_misplaced_positions(_positions((4.1, 50.0), (2.0, 44.6), (48.0, 2.0)))  # noqa: SLF001
+    assert [record.getMessage() for record in caplog.records if "swapped" in record.getMessage()] == [
+        "Hubeau: swapped latitude and longitude of 2 stations whose position is in no area of France"
+    ]
+
+    caplog.clear()
+    with caplog.at_level("DEBUG", logger=api.log.name):
+        api._swap_misplaced_positions(_positions((48.0, 2.0), (-12.8, 45.2)))  # noqa: SLF001
+    assert not [record for record in caplog.records if "swapped" in record.getMessage()]
+
+
+def test_the_extent_of_the_network_reaches_the_north_of_france() -> None:
+    """Test that the declared extent holds Bray-Dunes (51.09 north), the northernmost point of France (GH-3481)."""
+    west, south, east, north = HubeauRequest.metadata.extent.bbox
+
+    assert south <= 51.09 <= north
+    assert west <= 2.54 <= east
+    assert north == api._AREAS["metropolitan France"][1]  # noqa: SLF001
+
+
+@pytest.mark.parametrize("area", api._AREAS)  # noqa: SLF001
+def test_the_swapped_position_of_an_area_is_in_none(area: str) -> None:
+    """Test that a station in an area cannot be taken for a swapped one: its swapped position is in no area.
+
+    The rule leaves a position in an area alone whatever its swapped one is; this holds the boxes to being apart enough
+    that a swapped station is not in one of them either, which would make it a correct one. The box of the swapped
+    positions of an area (its latitudes as longitudes and the other way round) shares no point with any area: the
+    intervals of each axis are tested, closed as the rule is, so the whole box is held and not some points of it.
+    """
+    south, north, west, east = api._AREAS[area]  # noqa: SLF001
+    swapped_south, swapped_north, swapped_west, swapped_east = west, east, south, north
+
+    overlapping = [
+        other
+        for other, (other_south, other_north, other_west, other_east) in api._AREAS.items()  # noqa: SLF001
+        if swapped_south <= other_north
+        and other_south <= swapped_north
+        and swapped_west <= other_east
+        and other_west <= swapped_east
+    ]
+
+    assert not overlapping, f"the swapped positions of {area} overlap {overlapping}"

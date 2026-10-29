@@ -5,7 +5,7 @@ already existing services - mostly governmental services. To simplify the implem
 data models, enumerations and classes that should be used in order to adapt whatever API is offered by a service to the
 general scheme of wetterdienst with some handful of attributes to define each API and streamline internal workflows. The
 following paragraphs describe how we can/may/should implement a new weather service in wetterdienst as far as our own
-experience goes. We'll give examples based on the `DwdObservationRequest` implementation.
+experience goes. We'll give examples based on the `DwdObservationRequest` implementation. How the pieces fit together is in the [Architecture](architecture.md).
 
 
 ## Step 1: Metadata
@@ -18,11 +18,12 @@ following example reflects this structure for the `precipitation` dataset of the
 
 ```python
 from wetterdienst.model.metadata import build_metadata_model
-from wetterdienst.provider.dwd.metadata import _METADATA
+from wetterdienst.provider.dwd.metadata import _METADATA, EXTENT_GERMANY
 
 _DwdObservationMetadataSpec = {
     **_METADATA,  # what the provider is, shared by its networks, see below
     "kind": "observation",
+    "extent": EXTENT_GERMANY,  # where its stations are: scope, continents, country codes and bbox
     "timezone": "Europe/Berlin",
     "resolutions": [
         {
@@ -73,11 +74,14 @@ DwdObservationMetadata = build_metadata_model(_DwdObservationMetadataSpec, "DwdO
 The fields above `resolutions` say what the provider is, and none can be left out: `name_short`,
 `name_english`, `name_local`, `country`, `country_code` (the ISO 3166-1 alpha-2 code, or `None` for a provider of
 several countries), `copyright`, `license` (a `LicenseModel`, or `None` where the provider states no terms),
-`attribution` (the credit line, or `None`), `url`, `kind`, `timezone` and, for a network that needs credentials,
-`auth`. A provider with several networks declares them once in a `_METADATA` dict of its own (DWD's is
-`provider/dwd/metadata.py`) and spreads it into each network's spec, as above. They are what the REST API's
-[`metadata` block](../usage/restapi.md#response-metadata) and the [providers](../usage/restapi.md#providers)
-listing report, so a provider that omits one fails validation instead of answering a null.
+`attribution` (the credit line, or `None`), `url`, `kind`, `extent` (where its stations are: `scope`, `continents`,
+`country_codes` and the `bbox` `[west, south, east, north]`, which the station-catalogue tests hold to the list; the
+continents are declared by hand as the areas the network is meant to serve, see [Extent](../usage/restapi.md#extent)),
+`timezone` and, for a network that needs credentials, `auth`. A provider with several networks declares what they share
+once in a `_METADATA` dict of its own (DWD's is `provider/dwd/metadata.py`) and spreads it into each network's spec, as
+above. They are what the REST API's [`metadata` block](../usage/restapi.md#response-metadata) and the
+[providers](../usage/restapi.md#providers) listing report, so a provider that omits one fails validation instead of
+answering a null.
 
 The dict has a name of its own and the public name is bound to the model alone, which is what a type checker
 reads (mypy takes the first assignment of a name for its type).
@@ -245,6 +249,13 @@ dataset, the dataset), and it is all the core asks of a provider: the docstring 
 | `quality_flags` | String | optional: a provider that publishes none leaves the column out |
 | `resolution`, `dataset`, `station_id` | String | not the provider's: the core writes them (`dataset.resolution.name`, `dataset.name.lower()`, the id the values were asked for) and replaces whatever the provider put there |
 
+A provider whose files are one set per station can also have them fetched while the station before is parsed, by
+implementing `_files_ahead(station_id, datasets)`, which names the URLs its collection downloads and the expiry it
+downloads them with (`FilesAhead`); see [Fetch-ahead](architecture.md#request-stations-values). The URLs must be the ones
+the collection asks for with that expiry, or what is fetched ahead is not found again. Files that every station reads
+(a file of the whole network) are fetched once, by whoever asks first. The hook is held to the collection by a test that
+records the URLs and the expiry the collection really downloads with (`tests/model/test_files_ahead_hooks.py`).
+
 A provider hands over its rows and nothing else; the core shapes the frame (`shape_provider_frame` in
 `wetterdienst.model.values`, GH-2627). It writes the identity columns, casts `parameter` to String, `timestamp` to
 Datetime(us, UTC) and `value` to Float64, fills `quality_flags` with a null where it is missing, orders the columns as
@@ -293,3 +304,30 @@ be narrower than that range where its source's own records or precision allow it
 narrower entries are named in `test_physical_ranges.py`, and the `raw` text is the number as it is written. A model's amount that is a little below its floor (-0.02 mm of rain) is `Floor(0.0)`: the floor, with the number as `raw`. A wide frame keeps the text beside each
 column with `clear_sentinels` and `unpivot_with_raw`. Add a stub of the source with the sentinel written as the source writes it to
 `tests/provider/value_stubs.py` and name each `raw:` token it must carry in `tokens`.
+
+## Step 4: What a new provider brings with it
+
+The tests hold every provider to the same rules, and fail until a new one has what they look for:
+
+- **A provider page** under `docs/data/provider/<provider>/`, with its resolutions, datasets and the parameter tables,
+  and an entry in the [overview](../data/overview.md). `tests/test_docs.py` compares them with the metadata and the
+  registry, and the README states how many services there are.
+- **Its licence and credit line**: `license` and `attribution` in the metadata (Step 1). A provider that states no
+  terms declares `"license": None` and is named with the reason in `LICENSE_NOT_STATED` of
+  `tests/ui/test_response_metadata.py`.
+- **A stub of its station catalogue** in `tests/provider/station_catalogue_stubs.py`: rows of the real list, served
+  through the provider's own reader. The rules of `tests/provider/station_catalogue.py` apply to it, and to the live
+  list in `test_station_catalogues_live.py` (marker `remote`). A provider of one country adds its bounding box to
+  `COUNTRY_BBOX` there, so that a station outside the country is found.
+- **A stub of its values** in `tests/provider/value_stubs.py`, or the network and the reason it has none yet in
+  `NO_STUB` (Step 3).
+- **An offline test** of the request, built from a response of the source as it is served, so that it runs without
+  the network (`uv run poe "test:offline"` runs the selection on its own; a test that reaches upstream carries the
+  `remote` marker). A test under `tests/provider` that goes through `TimeseriesValues` is held to the generous
+  ranges of `tests/provider/physical_ranges.py`; one that serves numbers that are no readings carries
+  `@pytest.mark.synthetic_values`. A network with no offline fixture is named with the reason in
+  `NO_VALUES_FIXTURE` or `NO_STATIONS_FIXTURE` of `tests/provider/test_frames_snapshot.py`.
+- **The snapshots**: `uv run poe "frames:snapshot"` records the frames the core handed out for the new tests, and
+  `uv run poe "contracts:snapshot"` the Python surface, which lists the request class, and the OpenAPI document and
+  the command line help where the provider adds an option. The diff of both is read in the pull request.
+- **A changelog entry** for what a caller can observe, with the issue number.

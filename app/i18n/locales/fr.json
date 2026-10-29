@@ -62,6 +62,22 @@
     "kindRoadDesc": "État et température de la chaussée depuis les stations routières du DWD, avec leurs prévisions.",
     "aboutLink": "À propos du projet et des personnes qui le portent"
   },
+  "seo": {
+    "title": "Wetterdienst – données météorologiques et climatiques ouvertes des services météorologiques nationaux",
+    "description": "Données météorologiques et climatiques ouvertes des services météorologiques nationaux, dans un seul format : explorateur, prévisions, bandes climatiques, API REST et serveur MCP. Open source et gratuit.",
+    "noscript": "Wetterdienst a besoin de JavaScript pour afficher les données.",
+    "pages": {
+      "explorer": "Choisis un fournisseur, des paramètres et des stations sur la carte, lis les mesures, interpole un point et télécharge le résultat en CSV, JSON ou GeoJSON.",
+      "meteogram": "Les prévisions MOSMIX d'une station du DWD sous forme de météogramme : température, vent, précipitations, nébulosité et pression.",
+      "stripes": "Les bandes climatiques de la température ou des précipitations d'une station du DWD.",
+      "history": "L'évolution d'une station du DWD au fil du temps : son nom, son emplacement et ses instruments.",
+      "api": "L'API REST et le serveur MCP de Wetterdienst : formats et exemples pour les stations, les valeurs, l'interpolation et les bandes climatiques.",
+      "providers": "Les services météorologiques nationaux derrière les données : pays, licence, mention de la source à indiquer et ce que chacun propose.",
+      "glossary": "Ce que mesure chaque paramètre météorologique et climatique et l'unité de ses valeurs, avec recherche par nom et par grandeur.",
+      "about": "À propos du projet open source Wetterdienst et des personnes qui le maintiennent.",
+      "support": "Soutenir Wetterdienst : signaler un problème, contribuer du code ou faire un don."
+    }
+  },
   "values": {
     "title": "Ce que nous défendons",
     "lgbtq": "Nous soutenons la communauté LGBTQI+.",
@@ -111,7 +127,8 @@
     "copyright": "© {year} earthobservations",
     "legal": "Mentions légales",
     "privacy": "Confidentialité",
-    "about": "À propos"
+    "about": "À propos",
+    "licenses": "Licences tierces"
   },
   "language": {
     "switch": "Changer de langue",
@@ -429,6 +446,12 @@
     "stationNotFound": "Station introuvable",
     "openFull": "Ouvrir la prévision complète",
     "poweredBy": "Propulsé par Wetterdienst · DWD MOSMIX"
+  },
+  "notFound": {
+    "title": "Page introuvable",
+    "text": "Il n'y a pas de page à cette adresse. Vérifie l'adresse ou pars de la page d'accueil.",
+    "home": "Aller à la page d'accueil",
+    "back": "Retour"
   },
   "stripes": {
     "title": "Bandes climatiques",

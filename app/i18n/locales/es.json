@@ -62,6 +62,22 @@
     "kindRoadDesc": "Estado y temperatura del firme de las estaciones viales del DWD, junto con sus predicciones.",
     "aboutLink": "Sobre el proyecto y las personas que lo hacen posible"
   },
+  "seo": {
+    "title": "Wetterdienst – datos meteorológicos y climáticos abiertos de los servicios meteorológicos nacionales",
+    "description": "Datos meteorológicos y climáticos abiertos de los servicios meteorológicos nacionales, en un único formato: explorador, pronóstico, franjas climáticas, API REST y servidor MCP. De código abierto y gratuito.",
+    "noscript": "Wetterdienst necesita JavaScript para mostrar los datos.",
+    "pages": {
+      "explorer": "Elige un proveedor, parámetros y estaciones en el mapa, lee las mediciones, interpola un punto y descarga el resultado como CSV, JSON o GeoJSON.",
+      "meteogram": "El pronóstico MOSMIX de una estación del DWD como meteograma: temperatura, viento, precipitación, nubosidad y presión.",
+      "stripes": "Franjas climáticas de la temperatura o la precipitación de una estación del DWD.",
+      "history": "Cómo ha cambiado una estación del DWD con el tiempo: su nombre, su ubicación y sus instrumentos.",
+      "api": "La API REST y el servidor MCP de Wetterdienst: formatos y ejemplos para estaciones, valores, interpolación y franjas climáticas.",
+      "providers": "Los servicios meteorológicos nacionales detrás de los datos: país, licencia, la atribución que debe indicarse y lo que ofrece cada uno.",
+      "glossary": "Qué mide cada parámetro meteorológico y climático y en qué unidad se devuelven sus valores, con búsqueda por nombre y magnitud.",
+      "about": "Sobre el proyecto de código abierto Wetterdienst y las personas que lo mantienen.",
+      "support": "Apoyar Wetterdienst: informar de un problema, aportar código o donar."
+    }
+  },
   "values": {
     "title": "Lo que defendemos",
     "lgbtq": "Apoyamos a la comunidad LGBTQI+.",
@@ -111,7 +127,8 @@
     "copyright": "© {year} earthobservations",
     "legal": "Aviso legal",
     "privacy": "Privacidad",
-    "about": "Acerca de"
+    "about": "Acerca de",
+    "licenses": "Licencias de terceros"
   },
   "language": {
     "switch": "Cambiar idioma",
@@ -429,6 +446,12 @@
     "stationNotFound": "Estación no encontrada",
     "openFull": "Abrir el pronóstico completo",
     "poweredBy": "Con la tecnología de Wetterdienst · DWD MOSMIX"
+  },
+  "notFound": {
+    "title": "Página no encontrada",
+    "text": "No hay ninguna página en esta dirección. Comprueba la dirección o empieza desde la página de inicio.",
+    "home": "Ir a la página de inicio",
+    "back": "Volver"
   },
   "stripes": {
     "title": "Franjas climáticas",

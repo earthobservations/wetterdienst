@@ -23,9 +23,20 @@ The networks that are held in their stub only, and those that cannot be held, ar
 
 from __future__ import annotations
 
+import polars as pl
 import pytest
 
-from tests.provider.station_catalogue import COUNTRY_BBOX, Accepted, assert_covered, assert_sound
+from tests.conftest import FROST_RESOLVER_ON_MACOS
+from tests.provider.station_catalogue import (
+    COUNTRY_BBOX,
+    FROST_ANTARCTIC,
+    FROST_FOREIGN_WMO,
+    Accepted,
+    assert_covered,
+    assert_in_extent,
+    assert_sound,
+    extent_of,
+)
 from tests.provider.station_catalogue_stubs import (
     CHMI_NAME,
     DWD_NAMES,
@@ -89,6 +100,17 @@ ACCEPTED: dict[str, tuple[Accepted, ...]] = {
     "wsv/pegel": (WSV_NO_POSITION, WSV_TIEL),
 }
 
+# the stations a live list has outside the extent of its network, with the reason (GH-3456): the box is where the
+# network is, so a station elsewhere is the source's, and the box is not widened to it
+EXTENT_ACCEPTED: dict[str, tuple[Accepted, ...]] = {"metno/frost": (FROST_FOREIGN_WMO, FROST_ANTARCTIC)}
+
+# the live catalogues that have no position for any station, by the source's design, and so no extent to hold them to
+# (the rule `coordinates_missing` of `ACCEPTED` says the same of them). Held only while that is so: a position that
+# appears is held to the extent
+NO_POSITIONS = {
+    "dwd/derived monthly/climate_correction_factor": "it is listed per postal code, which has no position",
+}
+
 
 def _cases() -> list[object]:
     cases = []
@@ -119,6 +141,8 @@ def _cases() -> list[object]:
                 datasets = resolution.datasets if key in _EVERY_DATASET else resolution.datasets[:1]
                 for dataset in datasets:
                     marks = [pytest.mark.skipif(unconfigured, reason=f"{key} needs its credential")]
+                    if key == "metno/frost":
+                        marks.append(FROST_RESOLVER_ON_MACOS)
                     cases.append(
                         pytest.param(
                             provider,
@@ -137,14 +161,64 @@ def _cases() -> list[object]:
 def test_a_live_catalogue_is_sound(provider: str, network: str, resolution: str, dataset: str) -> None:
     """Hold the whole live station list to the rules, naming the provider, station and rule that fails."""
     key = f"{provider}/{network}"
-    stations = Wetterdienst.resolve(provider, network)(parameters=[(resolution, dataset)]).all().df
+    request = Wetterdienst.resolve(provider, network)(parameters=[(resolution, dataset)])
+    stations = request.all().df
+    catalogue = f"{key} {resolution}/{dataset}"
     assert_sound(
         stations,
-        f"{key} {resolution}/{dataset}",
+        catalogue,
         bbox=COUNTRY_BBOX.get(key),
         accepted=ACCEPTED.get(key, ()),
         fail_on_stale=False,
     )
+    if catalogue in NO_POSITIONS and stations.filter(pl.col("latitude").is_not_null()).is_empty():
+        return  # nothing to compare with the extent; a position that appears is held to it below
+    # every station is in the box the network declares as its extent (GH-3456), or its dataset where that is narrower
+    # (the European list of `dwd/dmo`). A dataset with an extent of its own is held as the whole of its list: no wider
+    # than the stations, and on the continents it names. So is a dataset that has none, where the network reaches
+    # beyond one country: it has to reach what its network says, or it is a narrower one that declares an extent of
+    # its own. (In a national network the box is the country's, which a dataset need not fill.)
+    extent = extent_of(request.metadata, f"{resolution}/{dataset}")
+    reaches_its_network = extent == request.metadata.extent and extent.scope != "national"
+    assert_in_extent(
+        stations,
+        catalogue,
+        extent,
+        whole=extent != request.metadata.extent or reaches_its_network,
+        accepted=EXTENT_ACCEPTED.get(key, ()),
+    )
+
+
+def _extent_cases() -> list[object]:
+    """Give each network of `_cases` once, with the datasets held for it, to check its extent against the whole."""
+    datasets: dict[str, list[tuple[str, str]]] = {}
+    marks: dict[str, list[object]] = {}
+    for case in _cases():
+        provider, network, resolution, dataset = case.values  # ty: ignore[unresolved-attribute]
+        key = f"{provider}/{network}"
+        marks[key] = list(case.marks)  # ty: ignore[unresolved-attribute]
+        if resolution:
+            datasets.setdefault(key, []).append((resolution, dataset))
+    return [pytest.param(key, held, marks=marks[key], id=key) for key, held in datasets.items()]
+
+
+@pytest.mark.remote
+@pytest.mark.parametrize(("key", "held"), _extent_cases())
+def test_a_live_network_has_the_extent_it_declares(key: str, held: list[tuple[str, str]]) -> None:
+    """Hold the stations of all the datasets of a network to the extent it declares (GH-3456).
+
+    The box is no wider than the stations, each continent it names has a station, and a global network has stations
+    on five of them. The extent is of the network, so the lists of its datasets are held together: `dwd/dmo` is
+    global by its `icon` list and its `icon_eu` list is Europe. The box of a catalogue held to `COUNTRY_BBOX` is the
+    country's, which the stations need not fill: `EXTENT_SLACK` is the room the box may have on each side.
+    """
+    provider, network = key.split("/")
+    api = Wetterdienst.resolve(provider, network)
+    stations = pl.concat(
+        [api(parameters=[parameter]).all().df.select("station_id", "latitude", "longitude") for parameter in held],
+        how="vertical_relaxed",
+    )
+    assert_in_extent(stations, key, api.metadata.extent, whole=True, accepted=EXTENT_ACCEPTED.get(key, ()))
 
 
 def _coverage_cases() -> list[object]:
@@ -178,3 +252,71 @@ def test_a_live_catalogue_has_its_data(key: str, resolution: str, dataset: str) 
         rules=index.rules,
         fail_on_stale=False,
     )
+
+
+@pytest.mark.remote
+@pytest.mark.slow
+def test_the_hubeau_referential_is_in_the_extent_of_its_network() -> None:
+    """Hold the stations of the referential of `eaufrance/hubeau` to its extent, as `_NOT_HELD` leaves it out (GH-3456).
+
+    The catalogue of the reader is made from the referential and from a request for each station's step, which takes
+    minutes; the referential is one request (`referentiel/stations?en_service=true`, 4,200 stations on 2026-10-27), and
+    its stations are the ones the catalogue lists. So the box and the continents are held to those: Metropolitan France
+    with Corsica, Guadeloupe, Martinique, Guyane, Reunion and Mayotte.
+    """
+    from wetterdienst import Settings  # noqa: PLC0415
+    from wetterdienst.metadata.cache import CacheExpiry  # noqa: PLC0415
+    from wetterdienst.provider.eaufrance.hubeau.api import _STATIONS_ENDPOINT, _paged_rows  # noqa: PLC0415
+
+    rows = _paged_rows(_STATIONS_ENDPOINT, Settings(cache_disable=True), ttl=CacheExpiry.FIVE_MINUTES, timeout=120)
+    stations = pl.DataFrame(
+        {
+            "station_id": [row["code_station"] for row in rows],
+            "latitude": [row.get("latitude_station") for row in rows],
+            "longitude": [row.get("longitude_station") for row in rows],
+        },
+        schema={"station_id": pl.String, "latitude": pl.Float64, "longitude": pl.Float64},
+    )
+
+    assert stations.height > 1000
+    assert_in_extent(
+        stations, "eaufrance/hubeau", Wetterdienst.resolve("eaufrance", "hubeau").metadata.extent, whole=True
+    )
+
+
+@pytest.mark.remote
+def test_the_hubeau_referential_has_every_station_in_an_area_once_swapped() -> None:
+    """Hold the stations of the referential of `eaufrance/hubeau` to the areas of France once swapped (GH-3468).
+
+    One request, as `_NOT_HELD` leaves the catalogue out: after `_swap_misplaced_positions` every station is in
+    metropolitan France or an overseas department but the Blavet, which the referential lists in Algeria
+    (`HUBEAU_BLAVET`). A source that fixes it is no failure of ours, so a station fewer than that is not one either.
+    """
+    from wetterdienst import Settings  # noqa: PLC0415
+    from wetterdienst.metadata.cache import CacheExpiry  # noqa: PLC0415
+    from wetterdienst.provider.eaufrance.hubeau import api  # noqa: PLC0415
+
+    rows = api._paged_rows(  # noqa: SLF001
+        api._STATIONS_ENDPOINT,  # noqa: SLF001
+        Settings(cache_disable=True),
+        ttl=CacheExpiry.FIVE_MINUTES,
+        timeout=120,
+    )
+    stations = pl.DataFrame(
+        {
+            "station_id": [row["code_station"] for row in rows],
+            "latitude": [row.get("latitude_station") for row in rows],
+            "longitude": [row.get("longitude_station") for row in rows],
+        },
+        schema={"station_id": pl.String, "latitude": pl.Float64, "longitude": pl.Float64},
+    )
+
+    swapped = api._swap_misplaced_positions(stations)  # noqa: SLF001
+
+    assert swapped.height > 1000
+    # a station without a position is in no area either, which a filter on the area alone would drop, not report: a
+    # referential that renames or empties its position fields must fail here
+    assert swapped.select(pl.col("latitude", "longitude").is_null().sum()).row(0) == (0, 0)
+    in_an_area = api._in_an_area(pl.col("latitude"), pl.col("longitude")).fill_null(value=False)  # noqa: SLF001
+    outside = swapped.filter(~in_an_area)
+    assert set(outside["station_id"]) <= {"J543211003"}, outside

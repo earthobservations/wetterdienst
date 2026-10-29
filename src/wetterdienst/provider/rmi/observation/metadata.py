@@ -154,6 +154,12 @@ _RmiObservationMetadataSpec = {
     "attribution": "© RMI (Royal Meteorological Institute of Belgium)",
     "url": "https://opendata.meteo.be/",
     "kind": "observation",
+    "extent": {
+        "scope": "national",
+        "continents": ["europe"],
+        "country_codes": ["BE"],
+        "bbox": [2.5, 49.4, 6.5, 51.6],
+    },
     "timezone": "Europe/Brussels",
     "auth": False,
     "resolutions": [

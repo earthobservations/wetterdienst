@@ -17,9 +17,11 @@ from typing_extensions import TypeVar
 
 from wetterdienst.exceptions import ProviderContractError
 from wetterdienst.metadata.resolution import count_readings, reading_interval
+from wetterdienst.model.fetch_ahead import FetchAhead, FilesAhead
 from wetterdienst.model.metadata import group_parameters_by_dataset
+from wetterdienst.model.parameter_rows import ParameterRows
 from wetterdienst.model.quality_flags import QUALITY_FLAGS, RAW_TOKEN
-from wetterdienst.model.result import StationsResult, ValuesResult
+from wetterdienst.model.result import StationsFilter, StationsResult, ValuesResult
 from wetterdienst.model.schema import (
     LONG_SCHEMA,
     WIDE_FLAGS_DTYPE,
@@ -27,6 +29,7 @@ from wetterdienst.model.schema import (
     WIDE_VALUE_DTYPE,
 )
 from wetterdienst.model.unit import UnitConverter
+from wetterdienst.util.datetime import is_plausible_update, newest
 from wetterdienst.util.logging import TqdmToLogger
 from wetterdienst.util.response_warnings import (
     MISSING_VALUE_MARKER,
@@ -52,7 +55,76 @@ log = logging.getLogger(__name__)
 _UnitT = TypeVar("_UnitT", bound="ParameterModel | DatasetModel", default=Any)
 
 # The columns of a provider's frame that the core cannot make up. A frame without one cannot be made to fit.
+#: the column a provider whose source dates its files hands its rows over with, the date of the file of each row
+UPDATED = "updated"
 _REQUIRED_COLUMNS = ("parameter", "timestamp", "value")
+
+
+def merge_duplicate_readings(df: pl.DataFrame, subset: Sequence[str]) -> pl.DataFrame:
+    """Make one row of the rows that share a reading, each column taking its first non-null value (GH-3450).
+
+    Rows are one reading when they agree on ``subset`` (for the long form: ``station_id``, ``resolution``, ``dataset``,
+    ``parameter`` and ``timestamp``). Which row of them is kept is the first, in the order the frame has them, that has
+    a ``value``: a row without one that comes first no longer takes the reading with it, as it did when the first row
+    was kept whatever it held. Where every row is null the first row is kept, and where two rows have different values
+    the first of them wins; one debug line says how many readings had such a conflict. A ``value`` that is still a
+    text (a provider's frame before the core shapes it) has a value where the core reads a finite number from it, as
+    `shape_provider_frame` does: ``""`` and ``"n/a"`` are none.
+
+    The row is kept as it is, the other columns with it: ``quality_flags`` (and any other column) is the one of the row
+    the value is of, so a value never carries the flag of another row. A reading whose rows are all null keeps the
+    columns of its first row, ``raw:`` token and all. Nothing else changes: the rows keep the order of their first
+    appearance, the columns and the dtypes stay, and a frame without a duplicate is handed back as it is.
+
+    Args:
+        df: a frame with the column ``value`` (and, by ``subset``, the columns that identify a reading).
+        subset: the columns whose values identify a reading.
+
+    Returns:
+        The frame with one row per reading.
+
+    """
+    keys = list(subset)
+    if df.height < 2:
+        return df
+    duplicated = df.select(keys).is_duplicated()
+    if not duplicated.any():
+        return df
+    # only the readings that have several rows are grouped: the rest, nearly all of a large frame, pass untouched.
+    # The helper columns are named so that no column of the frame has their name
+    position = _unused_name("row", df.columns)
+    conflicts = _unused_name("conflict", df.columns)
+    indexed = df.with_row_index(position)
+    others = [column for column in df.columns if column not in keys]
+    number = pl.col("value")
+    if df.schema["value"] == pl.String:
+        read = pl.col("value").str.strip_chars().cast(pl.Float64, strict=False)
+        number = pl.when(read.is_finite()).then(read)
+    # the first row with a value, or the first row where none has one (`arg_max` of a boolean breaks a tie by no rule)
+    first_with_value = pl.int_range(pl.len()).filter(number.is_not_null()).first().fill_null(0)
+    merged = (
+        indexed.filter(duplicated)
+        .group_by(keys, maintain_order=True)
+        .agg(
+            pl.col(position).first(),
+            pl.col(others).get(first_with_value),
+            (number.drop_nulls().n_unique() > 1).alias(conflicts),
+        )
+    )
+    log.debug(
+        "%d rows share a reading with another and make %d readings, %d with different values (the first is kept)",
+        int(duplicated.sum()),
+        merged.height,
+        int(merged.get_column(conflicts).sum()),
+    )
+    return pl.concat([indexed.filter(~duplicated), merged.select(indexed.columns)]).sort(position).select(df.columns)
+
+
+def _unused_name(name: str, columns: Sequence[str]) -> str:
+    """Give ``name``, with underscores in front until no column of ``columns`` has it."""
+    while name in columns:
+        name = f"_{name}"
+    return name
 
 
 def _can_be_cast(column: str, dtype: pl.DataType) -> bool:
@@ -183,6 +255,21 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
 
     sr: StationsResult
     unit_converter: UnitConverter = field(default_factory=UnitConverter)
+    #: the dates a provider noted while it collected the station in hand (`_note_data_updated`)
+    _data_updated: list[dt.datetime] = field(default_factory=list, init=False, repr=False, compare=False)
+    #: whether `query` may have the files of the next stations fetched while one is read (GH-3454); a caller that stops
+    #: the walk where the data says, not at a number it knows (interpolation, summary), sets it False
+    _fetch_ahead_allowed: bool = field(default=True, init=False, repr=False, compare=False)
+    #: whether the `missing-value-marker` warning counts the readings of the stations this reads (GH-3554); a caller
+    #: whose answer is an estimate of them (interpolation, summary) and not their readings sets it False
+    _count_missing_value_markers: bool = field(default=True, init=False, repr=False, compare=False)
+    #: the readings of the window that the source marked as missing, in the station in hand: counted by
+    #: `_process_dataset`, told by `_query_stations` once the station is not left out (GH-3554)
+    _markers_in_window: int = field(default=0, init=False, repr=False, compare=False)
+    #: whether `query` tells, at the end of the walk, the parameters of the request that no station had a row of
+    #: (`parameter-without-rows`, GH-3539); a caller that reads stations only to estimate between them (interpolation,
+    #: summary) sets it False, as a station without a parameter is what it expects there
+    _warn_without_rows: bool = field(default=True, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         """Post-initialization of the TimeseriesValues object."""
@@ -192,6 +279,18 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     def from_stations(cls, stations: StationsResult) -> TimeseriesValues:
         """Create a new instance of the class from a StationsResult object."""
         return cls(stations)
+
+    def _note_data_updated(self, updated: dt.datetime | None) -> None:
+        """Note the date the source states for data this station's frame is made from (GH-2567).
+
+        For a provider whose source says when what it serves was last updated, called with each such date it reads:
+        the result of the station carries the newest one, as `data_updated_at`. A date the source does not state is
+        not made up, and not noting any leaves the result's null, so a provider that has none does nothing. A date that
+        is no plausible one (`is_plausible_update`: before 1990, or later than a day from now) is not noted, whatever
+        the source of it is: the answer is not dated by a mistake.
+        """
+        if updated is not None and is_plausible_update(updated):
+            self._data_updated.append(updated)
 
     def _convert_units(self, df: pl.DataFrame, dataset: DatasetModel) -> pl.DataFrame:
         """Convert values to metric units with help of conversion factors."""
@@ -236,28 +335,57 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         return conversions
 
     def query(self) -> Iterator[ValuesResult]:
-        """Query data for all stations and parameters and return a DataFrame for each station."""
+        """Query data for all stations and parameters and return a DataFrame for each station.
+
+        For a provider that names the files of a station beforehand (`_files_ahead`) the files of the next stations
+        are fetched while one is read, as many as `Settings.fetch_ahead` says (GH-3454). Nothing about the answer
+        depends on it: the stations come in the same order with the same rows, and a failure is the failure of the
+        station it was met at.
+        """
+        groups = list(self.sr.df.group_by(["station_id"], maintain_order=True))
+        ahead = self._fetch_ahead(groups)
+        try:
+            yield from self._query_stations(groups, ahead)
+        finally:
+            # a consumer that stops (a closed generator, an error, a streamed answer whose client has gone) starts
+            # nothing more: what is begun ends with its download, and a download never leaves a part of a file in
+            # the cache
+            if ahead is not None:
+                ahead.close()
+
+    def _query_stations(
+        self, groups: list[tuple[Any, pl.DataFrame]], ahead: FetchAhead | None
+    ) -> Iterator[ValuesResult]:
+        """Walk the stations in order, each one collected, cut to the window and shaped, as `query` yields them."""
         # the stations that returned values, which `filter_by_rank` counts its slots in
         stations_collected = 0
+        rows = ParameterRows(self.sr.request, self.sr.start, self.sr.end, enabled=self._warn_without_rows)
         # mapping of original to humanized parameter names is always the same
         hpm: dict[str, str] = {}
         if self.sr.options.humanize:
             hpm = self._create_humanized_parameters_mapping()
-        for (station_id,), df_station_meta in self.sr.df.group_by(["station_id"], maintain_order=True):
+        for position, ((station_id,), df_station_meta) in enumerate(groups):
             if stations_collected == self.sr._rank:  # noqa: SLF001
                 break
             station_id = cast("str", station_id)
             if self._begins_after_window(df_station_meta):
                 continue
             available_datasets = self._get_available_datasets(df_station_meta)
+            rows.examine(station_id, available_datasets)
+            self._data_updated.clear()
+            self._markers_in_window = 0
+            self._advance_fetch_ahead(ahead, position, stations_collected)
             # Collect data for this station
-            df = self._filter_by_window(self._collect_station_data(station_id, available_datasets))
+            with rows.collecting(station_id):
+                df = self._filter_by_window(self._collect_station_data(station_id, available_datasets))
+            rows.note(df)
             # judged after the window has been cut, not before it: a station whose record lies
             # entirely outside the requested window returned data, but none that was asked for.
             # Counting it as collected spent one of `filter_by_rank`'s slots on an empty frame, so
             # the ranked walk stopped short of the stations that do cover the window and the
             # request came back with nothing
             if df.is_empty():
+                self._tell_missing_value_markers(emptied=True)
                 continue
             if self.sr.options.skip_empty:
                 percentage = self._get_actual_percentage(df=df)
@@ -270,6 +398,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                         level=logging.INFO,
                     )
                     continue
+            self._tell_missing_value_markers()
             if self.sr.options.humanize:
                 df = self._humanize(df=df, humanized_parameters_mapping=hpm)
             if not self.sr.options.tidy:
@@ -285,7 +414,98 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             )
             df = df.sort(sort_columns)
             stations_collected += 1
-            yield ValuesResult(stations=self.sr, df=df)
+            yield ValuesResult(stations=self.sr, df=df, data_updated_at=newest(self._data_updated))
+        # only a walk read to its end says what it found: a failure raised before it, and one that is stopped is silent
+        rows.warn()
+
+    def _tell_missing_value_markers(self, *, emptied: bool = False) -> None:
+        """Add the markers of the station in hand to the warning of the request, unless the station is left out.
+
+        Counted by `_process_dataset` for the station and told here, once the walk has not skipped it (`skip_empty`):
+        the count is of the readings of the answer, and a station that is not in it, or one that an estimate reads
+        (`_count_missing_value_markers`), has none to tell (GH-3554). One sum for the request, which
+        `count_response_warning` keeps.
+
+        A station `emptied` of its frame because the nulls were dropped is told when the request names it: the markers
+        are what the nulls were. Not where it would be left out all the same -- `skip_empty` skips a frame without a
+        reading, as it does with the nulls kept, and a rank walk (`filter_by_rank`) walks past it. A pick by name
+        takes the stations the name matches, and none takes the place of an emptied one.
+        """
+        if emptied and (self.sr.options.skip_empty or self.sr._stations_filter == StationsFilter.BY_RANK):  # noqa: SLF001
+            return
+        if self._count_missing_value_markers:
+            count_response_warning(MISSING_VALUE_MARKER, self._markers_in_window, MISSING_VALUE_MARKER_MESSAGE)
+
+    def _advance_fetch_ahead(self, ahead: FetchAhead | None, position: int, stations_collected: int) -> None:
+        """Have the files of the stations after ``position`` fetched, and wait for those of ``position``."""
+        if ahead is None:
+            return
+        rank = self.sr._rank  # noqa: SLF001
+        ahead.advance(position, None if rank is None else rank - stations_collected)
+
+    def _files_ahead(
+        self,
+        station_id: str,  # noqa: ARG002
+        datasets: Sequence[DatasetModel],  # noqa: ARG002
+    ) -> FilesAhead | None:
+        """Name the files this station's collection will download, for a provider whose files are one set per station.
+
+        Implemented by a provider to have the files of the next stations of a read fetched while one is parsed
+        (GH-3454): `query` calls it for the station in hand and for those a few ahead of it, in the thread that
+        consumes it, and the files are downloaded into the cache of the expiry named (`FilesAhead`) by a few threads.
+        Not implemented, which is what a provider that does not have it does, the files are downloaded when the
+        station is collected, one station after the other, as they always were.
+
+        What the provider's own collection downloads afterwards does not change: it asks for the same URLs, with
+        the same arguments, through `download_file` or `download_files`, and finds the files in the cache. So the
+        URLs must be those it will ask for, with the same ``ttl``: a URL it does not ask for is fetched for
+        nothing, and one it does ask for and this does not name is downloaded when its station is reached.
+
+        Raising is fine: it is not heard of, and the station's own collection meets the cause at its turn. Keep it
+        cheap, it is called a few times ahead of the walk in the thread of the consumer, and do not download from it
+        beyond what the provider's own collection downloads anyway (a listing, which is cached): the files it names
+        are fetched by the threads, and a file named by two stations is fetched once.
+
+        Args:
+            station_id: the station.
+            datasets: the datasets collected for it, as `_collect_station_data` collects them.
+
+        Returns:
+            The files and the expiry they are downloaded with, or None for a station that has none.
+
+        """
+        return None
+
+    def _fetch_ahead(self, groups: list[tuple[Any, pl.DataFrame]]) -> FetchAhead | None:
+        """Make the fetch-ahead of the walk over ``groups``, None where it has nothing to do or is not allowed to."""
+        if type(self)._files_ahead is TimeseriesValues._files_ahead or len(groups) < 2:  # noqa: SLF001
+            return None
+        settings = self.sr.settings
+        # where nothing is cached nothing that is fetched ahead is found again by the provider's own download
+        if not settings.fetch_ahead or settings.cache_disable or not self._fetch_ahead_allowed:
+            return None
+
+        def station(position: int) -> tuple[str, list[DatasetModel]] | None:
+            (station_id,), df_station_meta = groups[position]
+            if self._begins_after_window(df_station_meta):
+                return None
+            return cast("str", station_id), self._requested_datasets(self._get_available_datasets(df_station_meta))
+
+        return FetchAhead(
+            settings=settings,
+            depth=settings.fetch_ahead,
+            stations=station,
+            count=len(groups),
+            files_of=self._files_ahead,
+        )
+
+    def _requested_datasets(self, available_datasets: list[DatasetModel]) -> list[DatasetModel]:
+        """Give the datasets `_collect_station_data` collects for a station that has these, in its order."""
+        return [
+            dataset
+            for dataset, _ in group_parameters_by_dataset(cast("Iterable[ParameterModel]", self.sr.request.parameters))
+            if dataset in available_datasets
+        ]
 
     def _begins_after_window(self, df_station_meta: pl.DataFrame) -> bool:
         """Whether the station index already says this station started after the window ended.
@@ -328,6 +548,113 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                 closed="both",
             ),
         )
+
+    def _window_stamp(self, df: pl.DataFrame, column: str = "timestamp") -> pl.Expr | None:
+        """Give the stamps of a provider's frame as the UTC datetimes the core cuts the window on, null where it cannot.
+
+        The stamp may be a date or a datetime, with or without a zone (none is UTC, as everywhere else); a column that
+        is neither (a text) cannot be told.
+        """
+        if column not in df.columns:
+            return None
+        dtype = df.schema[column]
+        if dtype != pl.Date and not isinstance(dtype, pl.Datetime):
+            return None
+        stamp = pl.col(column).cast(pl.Datetime("us")) if dtype == pl.Date else pl.col(column)
+        if dtype == pl.Date or getattr(dtype, "time_zone", None) is None:
+            stamp = stamp.dt.replace_time_zone("UTC")
+        return stamp
+
+    def _has_rows_in_window(
+        self,
+        df: pl.DataFrame,
+        column: str = "timestamp",
+        *,
+        value: str | None = None,
+        columns: Iterable[str] | None = None,
+    ) -> bool:
+        """Tell whether a provider's frame has a row inside the window of the request, as `_filter_by_window` cuts it.
+
+        For a provider that dates its answer by the files it read (`_note_data_updated`) and cannot carry the date of a
+        file with its rows (`_note_files_with_rows` does): a file counts only if rows of it are in the answer, and one
+        read because its period was selected, whose rows all lie outside the window, is not. A frame with no row is
+        none. Without a window every row is in, and a column that cannot be told counts every row. Where the nulls are
+        dropped and the frame is long (a column `value` names), only a row with a value counts, and where it is wide
+        (the `columns` that are requested), only a row with a value in one of them.
+        """
+        if self.sr.options.drop_nulls_effective:
+            if value is not None and value in df.columns:
+                df = df.filter(pl.col(value).is_not_null())
+            elif columns is not None:
+                present = [name for name in columns if name in df.columns]
+                df = df.filter(pl.any_horizontal(pl.col(name).is_not_null() for name in present)) if present else df
+        if df.is_empty():
+            return False
+        stamp = self._window_stamp(df, column)
+        if not self.sr.start or stamp is None:
+            return True
+        return not df.filter(stamp.is_between(self.sr.start, self.sr.end, closed="both")).is_empty()
+
+    def _note_written_of_periods_with_rows(
+        self,
+        df: pl.DataFrame,
+        written: dict[int, list[dt.datetime | None]],
+        dataset: DatasetModel,
+        rank: str,
+    ) -> None:
+        """Note when the source wrote the files of each period that has a row in the answer (GH-2567).
+
+        For a provider that reads the periods of a dataset (the recent and the historical archive) into one wide frame
+        and has settled the stamps they share: `written` has the dates of the files of each period by its rank, and the
+        column `rank` of `df` has the rank of the period of each row. A period dates the answer where a row of it is
+        inside the window and, where the nulls are dropped, has a value in a requested parameter of the dataset. A
+        value the core reads as null although the file wrote a text for it is out of sight.
+        """
+        requested = [
+            parameter.name_original
+            for parameter in self.sr.parameters
+            if parameter.dataset.resolution.name == dataset.resolution.name and parameter.dataset.name == dataset.name
+        ]
+        for period, dates in written.items():
+            if self._has_rows_in_window(df.filter(pl.col(rank) == period), columns=requested):
+                for updated in dates:
+                    self._note_data_updated(updated)
+
+    def _note_files_with_rows(self, df: pl.DataFrame, dataset: DatasetModel) -> pl.DataFrame:
+        """Note the date of each file that holds rows the answer keeps, and give the frame without the dates (GH-2567).
+
+        For a provider whose source dates its files: the frame it hands over has, beside each row, the date of the file
+        the row is of in the column `UPDATED` (null for a file that has none). The date of a file is the answer's "date
+        of the most recent update" only for a file that has rows in the answer, or the answer would be dated by data it
+        has not got. A row is kept as the core keeps it: of a requested parameter, inside the window, and, where the
+        shape drops the rows without a value, with a value; of the rows of one reading the first that has a value is
+        kept (the first where none has one), in the order the provider hands them over, and the other columns, the
+        date of the file among them, are the ones of that row. The core cuts the frame after this one, so what it cuts
+        here it would cut there. A frame whose stamp is a text cannot be cut by the window, and every row of it
+        counts. A `value` that is still a text has a value where a finite number can be read from it, here as in the
+        core: `""` and `"n/a"` are none, though the rows without a value that are dropped after this are judged by
+        `is_not_null`, so a file whose only rows hold such a text still counts.
+        """
+        requested = {
+            parameter.name_original
+            for parameter in self.sr.parameters
+            if parameter.dataset.resolution.name == dataset.resolution.name and parameter.dataset.name == dataset.name
+        }
+        # the core makes one row of the rows of one reading (a period overlap, a file that is read twice), the first one
+        # with a value, and then drops the rows without a value: the files whose rows are the ones it keeps are the ones
+        # that date the answer, so it is done here in the same order, on the same key and before the rows without a
+        # value go
+        df = merge_duplicate_readings(df, ["parameter", "timestamp"])
+        kept = pl.col("parameter").is_in(requested)
+        stamp = self._window_stamp(df)
+        if self.sr.start and stamp is not None:
+            kept &= stamp.is_between(self.sr.start, self.sr.end, closed="both")
+        if self.sr.options.drop_nulls_effective:
+            kept &= pl.col("value").is_not_null()
+        for updated in df.filter(kept).get_column(UPDATED).drop_nulls().unique():
+            self._note_data_updated(updated)
+        # the core drops any column of its own accord (`shape_provider_frame`); this is so that it need not
+        return df.drop(UPDATED)
 
     def _empty_values_df(self) -> pl.DataFrame:
         """Build the frame a request that collected nothing returns, carrying its schema.
@@ -404,13 +731,15 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             return df
         if self.sr.options.convert_units:
             df = self._convert_units(df, dataset)
-        df = df.unique(subset=["resolution", "dataset", "parameter", "timestamp"], maintain_order=True)
+        df = merge_duplicate_readings(df, ["station_id", "resolution", "dataset", "parameter", "timestamp"])
         if QUALITY_FLAGS in df.columns:
-            # the readings the source marked as missing may leave with the nulls; the answer still tells how many
-            count_response_warning(
-                MISSING_VALUE_MARKER,
-                df.filter(pl.col("value").is_null() & pl.col(QUALITY_FLAGS).str.contains(RAW_TOKEN)).height,
-                MISSING_VALUE_MARKER_MESSAGE,
+            # the readings the source marked as missing may leave with the nulls; the answer still tells how many,
+            # of the window it is cut to (`_filter_by_window`, later) and not of the whole file, and of the stations
+            # it keeps: counted here, told by `_query_stations` (`_tell_missing_value_markers`)
+            self._markers_in_window += (
+                self._filter_by_window(df)
+                .filter(pl.col("value").is_null() & pl.col(QUALITY_FLAGS).str.contains(RAW_TOKEN))
+                .height
             )
         if self.sr.options.drop_nulls_effective:
             df = df.drop_nulls(subset=["value"])
@@ -466,10 +795,10 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             core makes of it the empty frame of `LONG_SCHEMA` and contributes no rows; a provider need not build an
             empty schema of its own, and none is read.
 
-            The rows may come in any order, more than
-            once (the core keeps the first of the rows that share `resolution`, `dataset`, `parameter` and
-            `timestamp`), and outside the requested window (the core cuts it after, so a provider is free to narrow
-            what it downloads by it, not obliged to).
+            The rows may come in any order, more than once, and outside the requested window (the core cuts it
+            after, so a provider is free to narrow what it downloads by it, not obliged to). The core makes one row of
+            the rows that share `resolution`, `dataset`, `parameter` and `timestamp`: the first that has a `value`,
+            with its `quality_flags`, or the first row where none has one.
 
         Raises:
             NoInternetError: a connection that cannot be made, which is never answered by an empty frame.
@@ -598,11 +927,14 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     def all(self) -> ValuesResult:
         """Collect all data for all stations and parameters and return a single DataFrame."""
         data = []
+        updated = []
 
         tqdm_out = TqdmToLogger(log, level=logging.INFO)
 
         for result in tqdm(self.query(), total=len(self.sr.station_id), file=tqdm_out):
             data.append(result.df)
+            if result.data_updated_at is not None:
+                updated.append(result.data_updated_at)
 
         if not data:
             # an ordinary outcome -- no station covered the requested window -- rather than an
@@ -615,7 +947,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
 
         df = pl.concat(data, how="diagonal")
 
-        return ValuesResult(stations=self.sr, df=df)
+        return ValuesResult(stations=self.sr, df=df, data_updated_at=newest(updated))
 
     def to_target(self, target: str, if_exists: Literal["replace", "append", "fail", "skip"] = "fail") -> None:
         """Wrap to_target of all queried results."""

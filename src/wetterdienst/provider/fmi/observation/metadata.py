@@ -28,6 +28,12 @@ _FmiObservationMetadataSpec = {
     "attribution": "© Finnish Meteorological Institute",
     "url": "https://en.ilmatieteenlaitos.fi/open-data",
     "kind": "observation",
+    "extent": {
+        "scope": "national",
+        "continents": ["antarctica", "europe"],
+        "country_codes": ["FI"],
+        "bbox": [-14.0, -74.0, 32.0, 70.2],
+    },
     "timezone": "Europe/Helsinki",
     "resolutions": [
         {

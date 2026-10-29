@@ -22,10 +22,11 @@ import polars as pl
 from wetterdienst.exceptions import DownloadError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.fetch_ahead import FilesAhead
 from wetterdienst.model.metadata import DatasetModel, ParameterModel, group_parameters_by_dataset
 from wetterdienst.model.request import TimeseriesRequest
-from wetterdienst.model.values import TimeseriesValues
-from wetterdienst.provider.chmi.observation.metadata import ChmiObservationMetadata
+from wetterdienst.model.values import UPDATED, TimeseriesValues
+from wetterdienst.provider.chmi.observation.metadata import LAST_YEAR, ChmiObservationMetadata
 from wetterdienst.provider.chmi.observation.parser import (
     parse_chmi_stations,
     parse_chmi_values_aggregate,
@@ -33,10 +34,11 @@ from wetterdienst.provider.chmi.observation.parser import (
     parse_chmi_values_subdaily,
 )
 from wetterdienst.util.network import _without_url_secrets, download_file, list_remote_files_fsspec
+from wetterdienst.util.response_warnings import warn_response
 
 if TYPE_CHECKING:
     import datetime as dt
-    from collections.abc import Iterator
+    from collections.abc import Iterator, Sequence
 
     from wetterdienst.settings import Settings
 
@@ -77,7 +79,12 @@ _RESOLUTION_CONFIG: dict[Resolution, dict] = {
         "path": "1hour",
         "prefix": "1h",
         "layout": "subdaily",
-        "elements": {"Td": ("synop", None), "SRA1H": ("precipitation", None), "P": ("synop", None)},
+        "elements": {
+            "Td": ("synop", None),
+            "SRA1H": ("precipitation", None),
+            "P": ("synop", None),
+            "P_hm": ("synop", None),
+        },
     },
     Resolution.DAILY: {
         "path": "daily",
@@ -162,6 +169,14 @@ def _stations_with_file(config: dict, requested: set[str], settings: Settings) -
 class ChmiObservationValues(TimeseriesValues):
     """Values class for CHMI observation data."""
 
+    def __post_init__(self) -> None:
+        """Start the elements of the request that a warning was given for."""
+        super().__post_init__()
+        self._ended_reported: set[tuple[str, int]] = set()
+        # when CHMI wrote each file that `_download` returned (its `Last-Modified`), by url, for the files that go on to
+        # give readings to be noted (GH-2567)
+        self._written: dict[str, dt.datetime | None] = {}
+
     def _download(self, url: str, settings: Settings, station_id: str) -> bytes | None:
         file = download_file(
             url=url,
@@ -179,7 +194,12 @@ class ChmiObservationValues(TimeseriesValues):
         if isinstance(file.content, Exception):
             log.debug(f"No CHMI file {_without_url_secrets(url)} for station {station_id}: {file.content}")
             return None
+        self._written[url] = file.last_modified
         return file.content.read()
+
+    def _dated(self, url: str, df: pl.DataFrame) -> pl.DataFrame:
+        """Give the rows of a file with the date CHMI wrote it, which `_note_files_with_rows` notes (GH-2567)."""
+        return df.with_columns(pl.lit(self._written.get(url), dtype=pl.Datetime("us", "UTC")).alias(UPDATED))
 
     def _collect_element(
         self,
@@ -188,24 +208,20 @@ class ChmiObservationValues(TimeseriesValues):
         element_config: tuple,
         config: dict,
         settings: Settings,
+        last_year: int | None = None,
     ) -> list[pl.DataFrame]:
         layout = config["layout"]
-        category = element_config[0]
+        urls = self._element_urls(station_id, element, element_config, config, last_year)
         if layout == "subdaily":
             frames = []
-            # the month files are named by UTC calendar month, which is the zone of the request's bounds
-            for year, month in _months(cast("dt.datetime", self.sr.start), cast("dt.datetime", self.sr.end)):
-                url = (
-                    f"{_BASE_URL}/data/{config['path']}/{category}/{year}/"
-                    f"{config['prefix']}-{station_id}-{element}-{year}{month:02d}.csv"
-                )
+            for url in urls:
                 content = self._download(url, settings, station_id)
                 if content is not None:
                     df = parse_chmi_values_subdaily(content, element=element)
                     if not df.is_empty():
-                        frames.append(df)
+                        frames.append(self._dated(url, df))
             return frames
-        url = f"{_BASE_URL}/data/{config['path']}/{category}/{config['prefix']}-{station_id}-{element}.csv"
+        (url,) = urls
         content = self._download(url, settings, station_id)
         if content is None:
             return []
@@ -219,7 +235,82 @@ class ChmiObservationValues(TimeseriesValues):
                 mdfunc=element_config[2],
                 has_month=config["has_month"],
             )
-        return [df] if not df.is_empty() else []
+        if df.is_empty():
+            return []
+        return [self._dated(url, df)]
+
+    def _element_urls(
+        self, station_id: str, element: str, element_config: tuple, config: dict, last_year: int | None = None
+    ) -> list[str]:
+        """Give the URLs of the files of an element of a station: one, or one for each month in the sub-daily layout."""
+        category = element_config[0]
+        if config["layout"] != "subdaily":
+            return [f"{_BASE_URL}/data/{config['path']}/{category}/{config['prefix']}-{station_id}-{element}.csv"]
+        urls = []
+        # the month files are named by UTC calendar month, which is the zone of the request's bounds
+        for year, month in _months(cast("dt.datetime", self.sr.start), cast("dt.datetime", self.sr.end)):
+            # the source publishes none of the years after the last one of an element that it stopped publishing
+            if last_year is not None and year > last_year:
+                break
+            urls.append(
+                f"{_BASE_URL}/data/{config['path']}/{category}/{year}/"
+                f"{config['prefix']}-{station_id}-{element}-{year}{month:02d}.csv"
+            )
+        return urls
+
+    def _warn_if_ended(self, parameter: ParameterModel, last_year: int, hint: str) -> None:
+        """Tell, once for the request, that the window reaches years in which the source publishes no such element.
+
+        The files of those years are not there, so the answer is empty for them, which without a word reads as a
+        station without readings. The hourly ``P`` ended with 2024 (GH-3413); the ``hint`` of its entry in
+        ``LAST_YEAR`` says what the source publishes instead.
+        """
+        end = cast("dt.datetime", self.sr.end)
+        if end.year <= last_year or (parameter.name_original, last_year) in self._ended_reported:
+            return
+        self._ended_reported.add((parameter.name_original, last_year))
+        resolution = parameter.dataset.resolution.name
+        warn_response(
+            log,
+            "parameter-ended",
+            f"CHMI publishes no {resolution} {parameter.name} (element {parameter.name_original}) after {last_year}, "
+            f"so the window up to {end:%Y-%m-%d} has no values of it from {last_year + 1} on. {hint}",
+            parameter=f"{resolution}/{parameter.dataset.name}/{parameter.name}",
+        )
+
+    def _elements_read(
+        self, dataset: DatasetModel, parameters: Sequence[ParameterModel], config: dict
+    ) -> Iterator[tuple[ParameterModel, tuple]]:
+        """Give the parameters of a dataset whose elements are downloaded, each with the layout of its element.
+
+        A dataset is collected as a whole: the elements asked for are the ones downloaded and the ones a warning is
+        for, and the core keeps the requested parameters of the frame in any case.
+        """
+        requested = {
+            parameter.name_original
+            for parameter in cast("list[ParameterModel]", self.sr.request.parameters)
+            if parameter.dataset == dataset
+        }
+        for parameter in parameters:
+            element_config = config["elements"].get(parameter.name_original)
+            if element_config is None or (requested and parameter.name_original not in requested):
+                continue
+            yield parameter, element_config
+
+    def _files_ahead(self, station_id: str, datasets: Sequence[DatasetModel]) -> FilesAhead:
+        """Name the files of the station's elements, which `_download` downloads (GH-3454)."""
+        urls: list[str] = []
+        for dataset in datasets:
+            config = _RESOLUTION_CONFIG[dataset.resolution.value]
+            # the sub-daily files are partitioned by month, so a date range is required to address them
+            if config["layout"] == "subdaily" and (not self.sr.start or not self.sr.end):
+                continue
+            for parameter, element_config in self._elements_read(dataset, list(dataset.parameters), config):
+                last_year = None
+                if ended := LAST_YEAR.get(dataset.resolution.name, {}).get(parameter.name_original):
+                    last_year = ended[0]
+                urls += self._element_urls(station_id, parameter.name_original, element_config, config, last_year)
+        return FilesAhead(urls=urls, ttl=CacheExpiry.TWELVE_HOURS)
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -242,16 +333,19 @@ class ChmiObservationValues(TimeseriesValues):
             return pl.DataFrame()
 
         frames: list[pl.DataFrame] = []
-        for parameter in parameters:
-            element_config = config["elements"].get(parameter.name_original)
-            if element_config is None:
-                continue
-            frames.extend(self._collect_element(station_id, parameter.name_original, element_config, config, settings))
+        for parameter, element_config in self._elements_read(dataset, parameters, config):
+            last_year = None
+            if ended := LAST_YEAR.get(dataset.resolution.name, {}).get(parameter.name_original):
+                last_year, hint = ended
+                self._warn_if_ended(parameter, last_year, hint)
+            frames.extend(
+                self._collect_element(station_id, parameter.name_original, element_config, config, settings, last_year)
+            )
         if not frames:
             return pl.DataFrame()
 
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`)
-        return pl.concat(frames)
+        return self._note_files_with_rows(pl.concat(frames), dataset)
 
 
 @dataclass

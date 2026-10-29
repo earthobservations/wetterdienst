@@ -106,7 +106,7 @@ onMounted(async () => {
     <!-- Minimal header -->
     <div class="flex items-center justify-between px-4 py-2 border-b border-gray-100 dark:border-gray-800 bg-white/90 dark:bg-gray-950/90 backdrop-blur-sm shrink-0">
       <div class="flex items-center gap-2 min-w-0">
-        <img src="/favicon.ico" alt="Wetterdienst" class="w-5 h-5 shrink-0">
+        <img src="/icon.svg" alt="Wetterdienst" class="w-5 h-5 shrink-0">
         <span class="text-sm font-semibold text-gray-700 dark:text-gray-200 truncate">
           {{ station ? station.name : t('meteogram.title') }}
         </span>

@@ -21,7 +21,7 @@ parameter).
 from __future__ import annotations
 
 from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, build_metadata_model
-from wetterdienst.provider.dwd.metadata import _METADATA
+from wetterdienst.provider.dwd.metadata import _METADATA, EXTENT_GERMANY
 
 _TEMPERATURE = {"unit": "degree_celsius"}
 _PRECIPITATION = {"unit": "millimeter"}
@@ -37,6 +37,7 @@ _DwdSwsmosMetadataSpec = {
     "attribution": _METADATA["attribution"],
     "url": "https://opendata.dwd.de/weather/local_forecasts/swsmos/",
     "kind": "forecast",
+    "extent": EXTENT_GERMANY,
     "timezone": "Europe/Berlin",
     "resolutions": [
         {
