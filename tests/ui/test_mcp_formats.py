@@ -173,6 +173,45 @@ def test_each_kind_of_body_arrives_as_its_own_content(monkeypatch: pytest.Monkey
     assert json_.structured_content["result"]["values"][0]["station_id"] == "01048"
 
 
+@pytest.mark.parametrize(("fmt", "block"), [("png", ImageContent), ("svg", TextContent), ("pdf", EmbeddedResource)])
+def test_the_stripes_image_tool_reports_the_licence_the_attribution_and_the_warnings(
+    fmt: str, block: type, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The image has no `metadata` block, so the headers of the route are what a tool reports them from (GH-3581)."""
+    from tests.ui.test_restapi import _stub_stripes_station  # noqa: PLC0415
+    from wetterdienst.ui import core  # noqa: PLC0415
+    from wetterdienst.util.response_warnings import warn_response  # noqa: PLC0415
+
+    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    read = core._get_stripes_data  # noqa: SLF001
+
+    def read_and_warn(request: object) -> object:
+        warn_response(restapi.log, "station-skipped", "station 00002 is skipped")
+        return read(request)
+
+    class _Figure:
+        def to_image(self, *_args: object, **_kwargs: object) -> bytes:
+            return b"<svg xmlns='http://www.w3.org/2000/svg'/>" if fmt == "svg" else b"\x89PNG\r\n\x1a\n"
+
+    monkeypatch.setattr(restapi, "_get_stripes_data", read_and_warn)
+    monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
+
+    result, schema = _call(restapi.app, "stripes_image", {"kind": "temperature", "station": "01048", "format": fmt})
+
+    assert not result.is_error, result.content
+    assert isinstance(result.content[0], block)
+    report = result.meta["wetterdienst"]
+    assert report["license"] == "CC-BY-4.0"
+    assert report["license_url"] == "https://creativecommons.org/licenses/by/4.0/"
+    assert "Deutscher Wetterdienst" in report["attribution"]
+    assert report["warnings"] == ["station-skipped"]
+    if schema is not None:
+        sentence = result.structured_content["result"]
+        assert "Licence: CC-BY-4.0 (https://creativecommons.org/licenses/by/4.0/)." in sentence
+        assert "Attribution: " in sentence
+        assert sentence.endswith("Warnings: station-skipped.")
+
+
 def test_every_tool_with_a_format_that_is_no_json_admits_a_string_for_it() -> None:
     """The structured content of such an answer is a sentence, which the output schema of the tool has to admit.
 

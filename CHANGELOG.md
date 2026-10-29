@@ -82,6 +82,10 @@ Types of changes:
 
 ### Fixed
 
+- `/api/stripes/image` now sends the licence, the credit line and the warnings in the headers
+  `X-Wetterdienst-License`, `Link`, `X-Wetterdienst-Attribution` and `X-Wetterdienst-Warnings`, as
+  every other answer does, so a client or the MCP tool `stripes_image` can tell that the image is
+  DWD data under CC BY 4.0. The image itself is unchanged (GH-3581)
 - The MCP tools answer every `format` they offer, where `csv`, `ndjson`, `html` and `svg` of the
   tools with an output schema failed ("has an output schema but did not return structured
   content") and so did `png`, `jpg`, `webp` and `pdf` of every tool (a decoding error). A text

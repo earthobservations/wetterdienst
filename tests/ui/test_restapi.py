@@ -2019,7 +2019,8 @@ def test_stripes_image_is_sent_as_its_media_type(
         def to_image(self, *_args: object, **_kwargs: object) -> bytes:
             return b"image"
 
-    monkeypatch.setattr(restapi, "_plot_stripes", lambda _request: _Figure())
+    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
     response = client.get("/api/stripes/image", params={"kind": "temperature", "station": "01048", "format": fmt})
     assert response.status_code == 200
     assert response.headers["content-type"] == media_type
@@ -2040,7 +2041,8 @@ def test_stripes_image_without_kaleido_is_a_501(
             pytest.fail("rendered although Kaleido is missing")
 
     monkeypatch.setitem(sys.modules, "kaleido", None)
-    monkeypatch.setattr(restapi, "_plot_stripes", lambda _request: _Figure())
+    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
 
     with caplog.at_level(logging.ERROR):
         response = client.get("/api/stripes/image", params={"kind": "temperature", "station": "01048"})
@@ -4535,7 +4537,7 @@ class _HistoryFails:
         ),
         pytest.param(
             "/api/stripes/image",
-            "_plot_stripes",
+            "_get_stripes_data",
             _fail,
             {"kind": "temperature", "station": "01048"},
             id="stripes-image",
@@ -8157,7 +8159,7 @@ _LOOKUPS = [
     ),
     pytest.param(
         "/api/stripes/image",
-        "_plot_stripes",
+        "_get_stripes_data",
         {"kind": "temperature", "station": "01048"},
         "plot stripes",
         id="stripes-image",
@@ -9214,7 +9216,7 @@ def test_image_within_the_limit_goes_on_to_the_provider(size: dict[str, int]) ->
 
 def test_oversized_stripes_image_is_refused_before_anything_is_fetched(monkeypatch: pytest.MonkeyPatch) -> None:
     """The stripes image is plotly's 700 x 500 times `dpi / 100`, and is refused above 8192 px on a side."""
-    monkeypatch.setattr(restapi, "_plot_stripes", _unreached)
+    monkeypatch.setattr(restapi, "_get_stripes_data", _unreached)
     client = TestClient(restapi.app, raise_server_exceptions=False)
     params = {"kind": "temperature", "station": "01048"}
 

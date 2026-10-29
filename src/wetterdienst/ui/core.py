@@ -2244,7 +2244,12 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
 
 
 def _plot_stripes(stripes: StripesImageRequest) -> go.Figure:
-    """Create warming stripes for station in Germany, for a request its model has checked.
+    """Create warming stripes for station in Germany, for a request its model has checked."""
+    return _draw_stripes(_get_stripes_data(stripes), stripes)
+
+
+def _draw_stripes(stripes_data: StripesData, stripes: StripesImageRequest) -> go.Figure:
+    """Draw the warming stripes of data `_get_stripes_data` has read, so that the caller can tell whose they are.
 
     Code similar to: https://www.s4f-freiburg.de/temperaturstreifen/
     """
@@ -2256,7 +2261,6 @@ def _plot_stripes(stripes: StripesImageRequest) -> go.Figure:
         stripes.show_years,
         stripes.show_data_availability,
     )
-    stripes_data = _get_stripes_data(stripes)
 
     df = stripes_data.df
     station_dict = stripes_data.series.station

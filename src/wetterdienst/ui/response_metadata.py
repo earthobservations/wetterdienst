@@ -52,7 +52,7 @@ if TYPE_CHECKING:
         IssuesRequest,
         StationsRequest,
         StripesData,
-        StripesValuesRequest,
+        StripesRequest,
         SummaryRequest,
         ValuesRequest,
     )
@@ -417,8 +417,8 @@ def issues_metadata(api: object, request: IssuesRequest, issues: Sequence[str]) 
     )
 
 
-def stripes_metadata(data: StripesData, request: StripesValuesRequest) -> ResponseMetadata:
-    """Build the block of the values of climate stripes (`/api/stripes/values`), which are DWD observation's."""
+def stripes_metadata(data: StripesData, request: StripesRequest) -> ResponseMetadata:
+    """Build the block of climate stripes (`/api/stripes/values` and `/image`), made of DWD observation's values."""
     from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
 
     stripes = data.series

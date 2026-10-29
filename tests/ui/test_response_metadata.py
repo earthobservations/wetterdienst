@@ -376,6 +376,66 @@ def test_the_stripes_values_have_the_block_and_a_series_for_what_they_are_of(
     assert response.headers["X-Wetterdienst-License"] == "CC-BY-4.0"
 
 
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("prefix", ["/api", "/api/v1"])
+@pytest.mark.parametrize("fmt", ["png", "jpg", "svg", "pdf"])
+def test_the_stripes_image_has_the_headers_of_every_answer(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, prefix: str, fmt: str
+) -> None:
+    """The image tells the licence, the credit line and the warnings in headers, as the values do.
+
+    Nothing is drawn into it (GH-3581): the only way to a caller that reads no pixels is the headers.
+    """
+    from tests.ui.test_restapi import _stub_stripes_station  # noqa: PLC0415
+    from wetterdienst.ui import core  # noqa: PLC0415
+
+    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    read = core._get_stripes_data  # noqa: SLF001
+
+    def read_and_warn(request: object) -> object:
+        warn_response(restapi.log, "station-skipped", "station 00002 is skipped")
+        return read(request)
+
+    class _Figure:
+        def to_image(self, *_args: object, **_kwargs: object) -> bytes:
+            return b"image"
+
+    monkeypatch.setattr(restapi, "_get_stripes_data", read_and_warn)
+    monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
+
+    response = client.get(f"{prefix}/stripes/image", params={"kind": "temperature", "station": "01048", "format": fmt})
+
+    assert response.status_code == 200, response.text
+    assert response.content == b"image"
+    assert response.headers["X-Wetterdienst-License"] == "CC-BY-4.0"
+    assert '<https://creativecommons.org/licenses/by/4.0/>; rel="license"' in response.headers["Link"]
+    assert "Deutscher Wetterdienst" in unquote(response.headers["X-Wetterdienst-Attribution"])
+    assert response.headers["X-Wetterdienst-Warnings"] == "station-skipped"
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_the_stripes_image_names_the_same_terms_as_the_stripes_values(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The image and the values of one station carry the same licence, credit line and Link, from the one helper."""
+    from tests.ui.test_restapi import _stub_stripes_station  # noqa: PLC0415
+
+    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+
+    class _Figure:
+        def to_image(self, *_args: object, **_kwargs: object) -> bytes:
+            return b"image"
+
+    monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
+    params = {"kind": "temperature", "station": "01048"}
+
+    image = client.get("/api/stripes/image", params=params)
+    values = client.get("/api/stripes/values", params=params)
+
+    names = ("X-Wetterdienst-License", "Link", "X-Wetterdienst-Attribution")
+    assert [image.headers[name] for name in names] == [values.headers[name] for name in names]
+
+
 @pytest.mark.parametrize(
     "path",
     ["/history", "/issues", "/alerts", "/stripes/stations", "/stripes/values"],
