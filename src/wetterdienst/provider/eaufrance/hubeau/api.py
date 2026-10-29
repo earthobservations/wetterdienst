@@ -30,7 +30,7 @@ from wetterdienst.util.network import download_file, fetchable_link
 from wetterdienst.util.response_warnings import warn_response
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator
+    from collections.abc import Iterator
 
     from wetterdienst.settings import Settings
 
@@ -594,16 +594,20 @@ class HubeauRequest(TimeseriesRequest):
         "gauge_zero_datum",
     )
 
-    def _warn_unplaced(self, station_ids: Iterable[str]) -> None:
+    def _warn_unplaced(self, df: pl.DataFrame, *, named: bool) -> None:
         """Tell, once for the answer, which of the stations are listed without a position (GH-3468).
 
         The core asks where the warning concerns the answer: for the stations it holds, or for every station when a
-        search by place had to leave them out. The warning is recorded for the answer of every request it concerns
-        and logged once by the process, as the next ones would repeat it.
+        search by place had to leave them out. For the whole list and a search by place, an answer cut to the window
+        of the request tells only the stations that survive the cut; one named by id or SQL is told whatever the
+        window does to it. The warning is recorded for the answer of every request it concerns and logged once by the
+        process, as the next ones would repeat it.
         """
         if not self._unplaced_positions:
             return
-        wanted = set(station_ids)
+        if not named:
+            df = self._within_answer_window(df)
+        wanted = set(df.get_column("station_id"))
         written = {station_id: text for station_id, text in self._unplaced_positions.items() if station_id in wanted}
         if not written:
             return

@@ -277,8 +277,8 @@ what the answer is missing:
   answer has it when the station is in it, selected by `stations`, `name`, `sql` or `all`, or when a
   search by place, a `rank`, a `distance` or a bounding box, or an estimate by `interpolate` or
   `summarize`, had to leave it out, which is every search by place of a resolution that lists it;
-  in a listing for a `timestamp`, the whole list and a search by place tell it only if the station
-  has a record in the window) and `deprecated-parameter` (issued when a parameter is deprecated; none is at the moment). Codes are added as
+  for a `timestamp`, the whole list and a search by place tell it, in a listing, in the values and in
+  an estimate, only if the station has a record in the window) and `deprecated-parameter` (issued when a parameter is deprecated; none is at the moment). Codes are added as
   more are told; a client reads the ones it knows.
 - **`api_version`** is the version of the API (`/api/version`), and **`schema_version`** that of this
   block, so that a stored answer can be told from one in a later shape.

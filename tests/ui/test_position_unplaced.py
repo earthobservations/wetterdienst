@@ -18,6 +18,7 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any
 
+import polars as pl
 import pytest
 from click.testing import CliRunner
 from fastapi.testclient import TestClient
@@ -81,6 +82,11 @@ def hubeau(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> HubeauRequest:  # 
     monkeypatch.setenv("WD_RESTAPI_SQL", "true")
     begin_response()
     return hubeau_request(monkeypatch)
+
+
+def _ids(*station_ids: str) -> pl.DataFrame:
+    """Give the stations frame of these ids, which is all the hook reads of it but for the window."""
+    return pl.DataFrame({"station_id": list(station_ids)}, schema={"station_id": pl.String})
 
 
 def _library(request: HubeauRequest, selection: dict[str, str]) -> None:
@@ -197,11 +203,11 @@ def test_stations_that_are_not_among_the_ids_are_not_named(hubeau: HubeauRequest
     hubeau.all()
     begin_response()
 
-    hubeau._warn_unplaced([PARIS, "O919001001"])  # noqa: SLF001
-    hubeau._warn_unplaced([])  # noqa: SLF001
+    hubeau._warn_unplaced(_ids(PARIS, "O919001001"), named=True)  # noqa: SLF001
+    hubeau._warn_unplaced(_ids(), named=True)  # noqa: SLF001
     assert recorded_warnings() == []
 
-    hubeau._warn_unplaced([PARIS, BLAVET])  # noqa: SLF001
+    hubeau._warn_unplaced(_ids(PARIS, BLAVET), named=True)  # noqa: SLF001
     assert [warning["code"] for warning in recorded_warnings()] == [CODE]
 
 
@@ -211,7 +217,9 @@ BEFORE_IT_OPENED = {"timestamp": "2026-01-01"}
 AFTER_IT_OPENED = {"timestamp": "2026-10-15"}
 #: the selections by place or of the whole list, which a window can leave the station out of
 WHOLE_LIST_OR_PLACE = [
-    name for name in TOLD if name not in {"id of the Blavet", "name of the Blavet", "sql of the Blavet"}
+    name
+    for name in SELECTIONS
+    if name in TOLD and name not in {"id of the Blavet", "name of the Blavet", "sql of the Blavet"}
 ]
 #: and those that name the station, which are told whatever the window does to it
 NAMING = ["id of the Blavet", "sql of the Blavet"]
@@ -270,3 +278,82 @@ def test_the_values_of_a_whole_list_are_told_once(hubeau: HubeauRequest, caplog:
 
     assert [warning["code"] for warning in recorded_warnings()] == [CODE]
     assert [record.levelname for record in caplog.records if "Hub'Eau lists" in record.getMessage()] == ["WARNING"]
+
+
+#: the answers that are not stations: the values of the stations, and the estimates, which the window cuts the same way
+VALUES_AND_ESTIMATES = {
+    "values of all": ("/api/values", {"all": "true"}),
+    "values by rank": ("/api/values", {**NEAR_PARIS, "rank": "2"}),
+    "values by distance": ("/api/values", {**NEAR_PARIS, "distance": "50"}),
+    "summary": ("/api/summarize", NEAR_PARIS),
+    "interpolation": ("/api/interpolate", NEAR_PARIS),
+}
+
+
+def _answer(path: str, **query: str) -> list[str]:
+    """Make the request on REST and give the codes of the warnings of the answer."""
+    response = TestClient(restapi.app, raise_server_exceptions=False).get(
+        path, params={"provider": "eaufrance", "network": "hubeau", "parameters": "5_minutes/data", **query}
+    )
+    assert response.status_code == 200, response.text
+    return [warning["code"] for warning in response.json()["metadata"]["warnings"]]
+
+
+@pytest.fixture
+def no_readings(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Let the stub stations have no readings: the answers are empty, and the warnings are what is asked."""
+    monkeypatch.setattr(
+        api.HubeauValues, "_collect_station_parameter_or_dataset", lambda *_args, **_kwargs: pl.DataFrame()
+    )
+
+
+@pytest.mark.usefixtures("no_readings")
+@pytest.mark.parametrize("answer", VALUES_AND_ESTIMATES)
+def test_the_values_and_the_estimates_are_cut_to_the_window_as_a_listing_is(answer: str) -> None:
+    """Test that a window before the Blavet opened takes the warning from values, summaries and interpolations too."""
+    path, query = VALUES_AND_ESTIMATES[answer]
+
+    assert _answer(path, **query, **BEFORE_IT_OPENED) == []
+    assert _answer(path, **query, **AFTER_IT_OPENED) == [CODE]
+
+
+@pytest.mark.usefixtures("no_readings")
+def test_the_values_of_a_station_named_by_id_are_told_whatever_the_window_does_to_it() -> None:
+    """Test that asking for the values of the Blavet by id is told before it opened, as a listing of it is."""
+    assert _answer("/api/values", stations=BLAVET, **BEFORE_IT_OPENED) == [CODE]
+    assert _answer("/api/values", stations=BLAVET, **AFTER_IT_OPENED) == [CODE]
+
+
+@pytest.mark.usefixtures("no_readings")
+def test_the_window_of_one_answer_is_not_kept_for_the_next() -> None:
+    """Test that the context of the window is reset after the request, whatever the answer was."""
+    from wetterdienst.model.request import ANSWER_WINDOW  # noqa: PLC0415
+
+    _answer("/api/stations", all="true", **BEFORE_IT_OPENED)
+    _answer("/api/summarize", **NEAR_PARIS, **BEFORE_IT_OPENED)
+
+    assert ANSWER_WINDOW.get() is False
+
+
+@pytest.mark.usefixtures("no_readings")
+@pytest.mark.parametrize("fmt", ["csv", "ndjson"])
+def test_the_streamed_values_are_cut_to_the_window_too(fmt: str) -> None:
+    """Test that the values streamed station by station tell the Blavet after it opened and not before."""
+
+    def header(window: dict[str, str]) -> str:
+        response = TestClient(restapi.app, raise_server_exceptions=False).get(
+            "/api/values",
+            params={
+                "provider": "eaufrance",
+                "network": "hubeau",
+                "parameters": "5_minutes/data",
+                "all": "true",
+                "format": fmt,
+                **window,
+            },
+        )
+        assert response.status_code == 200, response.text
+        return response.headers.get("X-Wetterdienst-Warnings", "")
+
+    assert header(BEFORE_IT_OPENED) == ""
+    assert header(AFTER_IT_OPENED) == CODE

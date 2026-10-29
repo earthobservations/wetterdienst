@@ -11,6 +11,7 @@ import sys
 import threading
 import time
 from collections.abc import Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import replace
 from typing import TYPE_CHECKING, Annotated, Any, Literal, LiteralString, cast
 
@@ -42,9 +43,9 @@ from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
 from wetterdienst.model.metadata import parse_parameters
 from wetterdienst.model.request import (
+    ANSWER_WINDOW,
     DEFAULT_NAME_RANK,
     DEFAULT_NAME_RANK_LISTING,
-    LISTING_WINDOW,
     TimeseriesRequest,
     limit_to_window,
 )
@@ -56,7 +57,7 @@ from wetterdienst.util.logging import get_one_line_logger
 from wetterdienst.util.ui import read_list
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Hashable
+    from collections.abc import Callable, Hashable, Iterator
 
     import plotly.graph_objs as go
 
@@ -1773,7 +1774,7 @@ def get_stations(
     settings: Settings,
     options: Options | None = None,
     *,
-    listing: bool = False,
+    windowed: bool = False,
 ) -> StationsResult:
     """Get stations based on request, by the one selection its model lets it make.
 
@@ -1783,17 +1784,31 @@ def get_stations(
         timestamp: the window of the request
         settings: the settings of the host
         options: the options of the request
-        listing: the caller answers with a stations *listing*, which it cuts to the window afterwards
-            (`limit_stations_to_window`). A warning about a station the provider lists without a position
-            (`position-unplaced`) is then told, for the whole list and for a search by place, only if the station
-            survives that cut; a station named by id, name or SQL is told whatever the cut does to it
+        windowed: the answer is cut to the window afterwards: a stations listing (`limit_stations_to_window`), or the
+            values of the stations, of which one without a record in the window has none. A warning about a station
+            the provider lists without a position (`position-unplaced`) is then told, for the whole list and for a
+            search by place, only if the station survives that cut; a station named by id or SQL is told whatever the
+            cut does to it
 
     """
-    token = LISTING_WINDOW.set(listing)
-    try:
+    with answer_cut_to_window(on=windowed):
         return _select_stations(api, request, timestamp, settings, options)
+
+
+@contextmanager
+def answer_cut_to_window(*, on: bool = True) -> Iterator[None]:
+    """Say, while the stations of an answer are selected, that the answer is cut to the window of the request.
+
+    Stations a provider lists without a position are warned about where the answer holds them or a search by place had
+    to leave them out (`TimeseriesRequest._warn_unplaced`); for an answer cut to the window, only the stations that
+    survive the cut count. A stations listing, the values of stations and an interpolation or a summary are cut
+    that way.
+    """
+    token = ANSWER_WINDOW.set(on)
+    try:
+        yield
     finally:
-        LISTING_WINDOW.reset(token)
+        ANSWER_WINDOW.reset(token)
 
 
 def _select_stations(
@@ -1916,6 +1931,7 @@ def get_values(
         timestamp=request.timestamp,
         settings=settings,
         options=options,
+        windowed=True,
     )
     if check is not None:
         check(stations_)
@@ -1957,14 +1973,15 @@ def get_interpolate(
     if check is not None:
         check(r)
 
-    if request.latitude is not None and request.longitude is not None:
-        values_ = r.interpolate((request.latitude, request.longitude), elevation=request.elevation)
-    elif request.station:
-        values_ = r.interpolate_by_station_id(request.station, elevation=request.elevation)
-    else:
-        # not reached: the request model refuses a request with neither a point nor a station
-        msg = f"{type(request).__name__} gives neither a point nor a station"
-        raise AssertionError(msg)
+    with answer_cut_to_window():
+        if request.latitude is not None and request.longitude is not None:
+            values_ = r.interpolate((request.latitude, request.longitude), elevation=request.elevation)
+        elif request.station:
+            values_ = r.interpolate_by_station_id(request.station, elevation=request.elevation)
+        else:
+            # not reached: the request model refuses a request with neither a point nor a station
+            msg = f"{type(request).__name__} gives neither a point nor a station"
+            raise AssertionError(msg)
 
     if request.sql_values:
         log.info(f"Filtering with SQL: {request.sql_values}")
@@ -1987,14 +2004,15 @@ def get_summarize(
     if check is not None:
         check(r)
 
-    if request.latitude is not None and request.longitude is not None:
-        values_ = r.summarize((request.latitude, request.longitude), elevation=request.elevation)
-    elif request.station:
-        values_ = r.summarize_by_station_id(request.station, elevation=request.elevation)
-    else:
-        # not reached: the request model refuses a request with neither a point nor a station
-        msg = f"{type(request).__name__} gives neither a point nor a station"
-        raise AssertionError(msg)
+    with answer_cut_to_window():
+        if request.latitude is not None and request.longitude is not None:
+            values_ = r.summarize((request.latitude, request.longitude), elevation=request.elevation)
+        elif request.station:
+            values_ = r.summarize_by_station_id(request.station, elevation=request.elevation)
+        else:
+            # not reached: the request model refuses a request with neither a point nor a station
+            msg = f"{type(request).__name__} gives neither a point nor a station"
+            raise AssertionError(msg)
 
     if request.sql_values:
         log.info(f"Filtering with SQL: {request.sql_values}")

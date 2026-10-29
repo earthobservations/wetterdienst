@@ -324,10 +324,12 @@ def shape_stations_frame(
 
 # set while `all()` builds the list that a filter selects among: that list is not an answer, so it tells nothing
 _SELECTING: ContextVar[bool] = ContextVar("wetterdienst_selecting", default=False)
-#: set by `ui.core.get_stations` for a stations *listing*, whose answer is cut to the window of the request after the
-#: selection (`ui.core.limit_stations_to_window`): a warning about a station the listing would have in it, or have to
-#: leave out of a search by place, is then told only for the stations that survive the cut
-LISTING_WINDOW: ContextVar[bool] = ContextVar("wetterdienst_listing_window", default=False)
+#: set by the user interfaces (`ui.core.answer_cut_to_window`) while they select the stations of an answer that is cut
+#: to the window of the request: a stations listing (`ui.core.limit_stations_to_window`), the values of the stations
+#: (which a station without a record in the window has none of), an interpolation or a summary. A warning about a
+#: station that the answer would have in it, or have to leave out of a search by place, is then told only for the
+#: stations that survive the cut (`TimeseriesRequest._within_answer_window`)
+ANSWER_WINDOW: ContextVar[bool] = ContextVar("wetterdienst_answer_window", default=False)
 
 
 @dataclass
@@ -804,42 +806,41 @@ class TimeseriesRequest:
 
         """
 
-    def _warn_unplaced(self, station_ids: Iterable[str]) -> None:
+    def _warn_unplaced(self, df: pl.DataFrame, *, named: bool) -> None:
         """Tell, with `warn_response`, which of the stations a provider lists without a position it got wrong.
 
         A provider whose source writes a position that cannot be (and cannot be corrected) hands the station on
-        without one, and overrides this to say so (`eaufrance/hubeau`, the code ``position-unplaced``). It is called
-        through `_tell_unplaced` where the warning concerns the answer: with the ids of the stations an answer holds
-        (`all()`, `filter_by_station_id`, `filter_by_name`, `filter_by_sql`), and with every id of the request's
-        stations for a search by place (`filter_by_rank`, `filter_by_distance`, `filter_by_bbox`, and so `interpolate`
-        and `summarize`), which can never answer with a station that has no position. The list a filter selects among
-        (`_stations_to_select_among`) tells nothing. An override tells only the stations among the ids; this one tells
-        nothing.
-
-        Args:
-            station_ids: the ids of the stations the answer holds, or that the search had to leave out
-
-        """
-
-    def _tell_unplaced(self, df: pl.DataFrame, *, named: bool) -> None:
-        """Hand `_warn_unplaced` the stations of `df` that an answer holds or a search had to leave out.
+        without one, and overrides this to say so (`eaufrance/hubeau`, the code ``position-unplaced``). The core calls
+        it where the warning concerns the answer: with the stations an answer holds (`all()`, `filter_by_station_id`,
+        `filter_by_name`, `filter_by_sql`), and with all the request's stations for a search by place
+        (`filter_by_rank`, `filter_by_distance`, `filter_by_bbox`, and so `interpolate` and `summarize`), which can
+        never answer with a station that has no position. The list a filter selects among
+        (`_stations_to_select_among`) tells nothing. An override tells only the stations it lists without a position
+        that are among those of `df`; this one tells nothing, and costs nothing.
 
         Args:
             df: the stations of the answer, or all of the request's stations for a search by place
-            named: the caller named the stations (by id, name or SQL), so the warning is told whatever the window of
-                a stations listing does to them. Otherwise, for the whole list and a search by place, a listing
-                (`LISTING_WINDOW`) tells only the stations that survive the window, which are those that would be in
+            named: the caller named the stations (by id, name or SQL): they are told whatever the window of the answer
+                does to them. Otherwise, for the whole list and a search by place, an override cuts `df` to the
+                window of the answer first (`_within_answer_window`), as only the stations that survive it would be in
                 the answer
 
         """
-        if not named and LISTING_WINDOW.get():
-            df = limit_to_window(
-                df,
-                cast("dt.datetime | None", self.start),
-                cast("dt.datetime | None", self.end),
-                cast("Options", self.options).station_window_end_buffer,
-            )
-        self._warn_unplaced(df.get_column("station_id"))
+
+    def _within_answer_window(self, df: pl.DataFrame) -> pl.DataFrame:
+        """Cut the stations to those that would be in the answer when it is cut to the window of the request.
+
+        Only while the user interface says the answer is (`ANSWER_WINDOW`); the library does not cut a list to a window,
+        so `df` is returned as it is there.
+        """
+        if not ANSWER_WINDOW.get():
+            return df
+        return limit_to_window(
+            df,
+            cast("dt.datetime | None", self.start),
+            cast("dt.datetime | None", self.end),
+            cast("Options", self.options).station_window_end_buffer,
+        )
 
     def all(self) -> StationsResult:
         """Get all stations.
@@ -860,7 +861,7 @@ class TimeseriesRequest:
         df = shape_stations_frame(df, columns=self._base_columns, provider=type(self).__name__)
 
         if not _SELECTING.get():
-            self._tell_unplaced(df, named=False)
+            self._warn_unplaced(df, named=False)
         return StationsResult(
             request=self,
             df=df,
@@ -912,7 +913,7 @@ class TimeseriesRequest:
                 f"periods of {type(self).__name__}.",
             )
 
-        self._tell_unplaced(df_station_id, named=True)
+        self._warn_unplaced(df_station_id, named=True)
 
         return StationsResult(
             request=self,
@@ -1018,7 +1019,7 @@ class TimeseriesRequest:
 
         if df.is_empty():
             log.info(f"No weather stations were found for name {name}")
-        self._tell_unplaced(df, named=True)
+        self._warn_unplaced(df, named=True)
 
         return StationsResult(
             request=self,
@@ -1089,7 +1090,7 @@ class TimeseriesRequest:
             log.info("None of the stations has a position to be ranked by")
         # a search by place can never answer with a station that has no position: the ones the source got wrong
         # are told, among all of the stations it searched
-        self._tell_unplaced(df_all, named=False)
+        self._warn_unplaced(df_all, named=False)
         df = located
         return StationsResult(
             request=self,
@@ -1180,7 +1181,7 @@ class TimeseriesRequest:
         if df.is_empty():
             log.info(f"No weather stations were found for bbox {left}/{bottom}/{top}/{right}")
         # as `filter_by_rank` does: a station with no position is in no box
-        self._tell_unplaced(df_all, named=False)
+        self._warn_unplaced(df_all, named=False)
 
         return StationsResult(request=self, df=df, _df_all=df_all, _stations_filter=StationsFilter.BY_BBOX)
 
@@ -1200,7 +1201,7 @@ class TimeseriesRequest:
         df = ExportMixin._filter_by_sql(df_all, sql)  # noqa: SLF001
         if df.is_empty():
             log.info(f"No stations were found for sql {sql}")
-        self._tell_unplaced(df, named=True)
+        self._warn_unplaced(df, named=True)
         return StationsResult(request=self, df=df, _df_all=df_all, _stations_filter=StationsFilter.BY_SQL)
 
     def interpolate(self, latlon: tuple[float, float], elevation: float | None = None) -> InterpolatedValuesResult:
