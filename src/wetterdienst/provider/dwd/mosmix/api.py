@@ -413,6 +413,13 @@ class DwdMosmixRequest(TimeseriesRequest):
             issue = dt.datetime(issue.year, issue.month, issue.day, issue.hour, tzinfo=ZoneInfo("UTC"))
         self.issue = issue
 
+    def _narrowed_by(self, dataset: DatasetModel) -> list[tuple[str, str | None]]:
+        """Add what the request asks of the run to what it is held to (`parameter-without-rows`)."""
+        narrowed = super()._narrowed_by(dataset)
+        if isinstance(self.issue, dt.datetime):
+            narrowed.append((f"the run issued {self.issue:%Y-%m-%d %H} UTC", None))
+        return narrowed
+
     def _all(self) -> pl.LazyFrame:
         """Read the MOSMIX station catalog from the DWD server and return a DataFrame."""
         from typing import cast  # noqa: PLC0415

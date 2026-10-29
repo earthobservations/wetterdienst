@@ -43,7 +43,10 @@ def _collected(values: object, station_id: str, dataset: DatasetModel | None = N
 @pytest.mark.remote
 def test_dwd_road_weather() -> None:
     """Test fetching of DWD road weather data."""
-    request = DwdRoadRequest(parameters=[("15_minutes", "data", "temperature_air")]).filter_by_station_id(
+    now = dt.datetime.now(tz=dt.UTC)
+    request = DwdRoadRequest(
+        parameters=[("15_minutes", "data", "temperature_air")], start=now - dt.timedelta(days=1), end=now
+    ).filter_by_station_id(
         "A006",
     )
     item = request.to_dict()["stations"][0]
@@ -101,7 +104,10 @@ def _stub_stations(
     Asked of the real index, a test about frame handling would find no station the day A006 leaves
     the network, walk no stations, and pass on an empty frame having exercised nothing.
     """
-    request = DwdRoadRequest(parameters=parameters or [("15_minutes", "data", "temperature_air")])
+    # the road feed is read by a window (`date_required`); this one holds every reading a test stands up
+    request = DwdRoadRequest(
+        parameters=parameters or [("15_minutes", "data", "temperature_air")], start="2000-01-01", end="2100-01-01"
+    )
     df_stations = pl.DataFrame(
         [
             {

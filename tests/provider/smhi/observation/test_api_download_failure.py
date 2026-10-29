@@ -115,7 +115,9 @@ def test_smhi_values_keep_the_empty_result_for_a_station_without_the_parameter(
         df = _request().values().all().df
     assert df.is_empty()
     assert len(requested) == 2
-    assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
+    # the provider says nothing; the core says (`parameter-without-rows`) that the source has no values for the station
+    provider = [record for record in caplog.records if record.name.startswith("wetterdienst.provider")]
+    assert not [record for record in provider if record.levelno >= logging.WARNING]
 
 
 def test_smhi_values_keep_the_empty_result_for_an_answer_that_is_a_refusal(
@@ -126,7 +128,7 @@ def test_smhi_values_keep_the_empty_result_for_an_answer_that_is_a_refusal(
     with caplog.at_level(logging.WARNING, logger="wetterdienst.provider.smhi"):
         df = _request().values().all().df
     assert df.is_empty()
-    assert [record for record in caplog.records if record.levelno == logging.WARNING]
+    assert [r for r in caplog.records if r.levelno == logging.WARNING and r.name.startswith("wetterdienst.provider")]
 
 
 @pytest.mark.parametrize(

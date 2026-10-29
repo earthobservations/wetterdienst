@@ -19,8 +19,10 @@ from wetterdienst.exceptions import ProviderContractError
 from wetterdienst.metadata.resolution import count_readings, reading_interval
 from wetterdienst.model.fetch_ahead import FetchAhead, FilesAhead
 from wetterdienst.model.metadata import group_parameters_by_dataset
+from wetterdienst.model.parameter_rows import ParameterRows
 from wetterdienst.model.quality_flags import QUALITY_FLAGS, RAW_TOKEN
-from wetterdienst.model.result import StationsResult, ValuesResult
+from wetterdienst.model.request import require_window
+from wetterdienst.model.result import StationsFilter, StationsResult, ValuesResult
 from wetterdienst.model.schema import (
     LONG_SCHEMA,
     WIDE_FLAGS_DTYPE,
@@ -259,10 +261,27 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     #: whether `query` may have the files of the next stations fetched while one is read (GH-3454); a caller that stops
     #: the walk where the data says, not at a number it knows (interpolation, summary), sets it False
     _fetch_ahead_allowed: bool = field(default=True, init=False, repr=False, compare=False)
+    #: whether the `missing-value-marker` warning counts the readings of the stations this reads (GH-3554); a caller
+    #: whose answer is an estimate of them (interpolation, summary) and not their readings sets it False
+    _count_missing_value_markers: bool = field(default=True, init=False, repr=False, compare=False)
+    #: the readings of the window that the source marked as missing, in the station in hand: counted by
+    #: `_process_dataset`, told by `_query_stations` once the station is not left out (GH-3554)
+    _markers_in_window: int = field(default=0, init=False, repr=False, compare=False)
+    #: under `skip_empty` with the nulls dropped, the `resolution, dataset, parameter` of the readings in the window
+    #: before `drop_nulls` took the nulls out (null or not), in the station in hand: the rows the station has with the
+    #: nulls kept, which tell `station-skipped` of a station they empty just the same (GH-3567)
+    _window_parameters: list[pl.DataFrame] = field(default_factory=list, init=False, repr=False, compare=False)
+    #: whether `query` tells, at the end of the walk, the parameters of the request that no station had a row of
+    #: (`parameter-without-rows`, GH-3539); a caller that reads stations only to estimate between them (interpolation,
+    #: summary) sets it False, as a station without a parameter is what it expects there; the stations whose file the
+    #: provider let go (`file-skipped`, GH-3552) are told by the same walk and so are left out there too
+    _warn_without_rows: bool = field(default=True, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         """Post-initialization of the TimeseriesValues object."""
         self.unit_converter.update_targets(self.sr.options.unit_targets)
+        # before the first station is read: a window-less request for such a dataset used to answer an empty frame
+        require_window(self.sr.parameters, self.sr.start, self.sr.end)
 
     @classmethod
     def from_stations(cls, stations: StationsResult) -> TimeseriesValues:
@@ -348,6 +367,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         """Walk the stations in order, each one collected, cut to the window and shaped, as `query` yields them."""
         # the stations that returned values, which `filter_by_rank` counts its slots in
         stations_collected = 0
+        rows = ParameterRows(self.sr.request, self.sr.start, self.sr.end, enabled=self._warn_without_rows)
         # mapping of original to humanized parameter names is always the same
         hpm: dict[str, str] = {}
         if self.sr.options.humanize:
@@ -359,28 +379,33 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             if self._begins_after_window(df_station_meta):
                 continue
             available_datasets = self._get_available_datasets(df_station_meta)
+            rows.examine(station_id, available_datasets)
             self._data_updated.clear()
+            self._markers_in_window = 0
+            self._window_parameters.clear()
             self._advance_fetch_ahead(ahead, position, stations_collected)
             # Collect data for this station
-            df = self._filter_by_window(self._collect_station_data(station_id, available_datasets))
+            with rows.collecting(station_id):
+                df = self._filter_by_window(self._collect_station_data(station_id, available_datasets))
+            rows.note(df)
             # judged after the window has been cut, not before it: a station whose record lies
             # entirely outside the requested window returned data, but none that was asked for.
             # Counting it as collected spent one of `filter_by_rank`'s slots on an empty frame, so
             # the ranked walk stopped short of the stations that do cover the window and the
             # request came back with nothing
             if df.is_empty():
+                self._leave_out_emptied(station_id, rows)
+                self._pass_over(rows, station_id)
                 continue
             if self.sr.options.skip_empty:
                 percentage = self._get_actual_percentage(df=df)
                 if percentage < self.sr.options.skip_threshold:
-                    warn_response(
-                        log,
-                        "station-skipped",
-                        f"station {station_id} is skipped as percentage of actual values ({percentage}) "
-                        f"is below threshold ({self.sr.options.skip_threshold}).",
-                        level=logging.INFO,
-                    )
+                    # a parameter that holds nothing but nulls is a row the station has, with the nulls kept
+                    self._note_nulls_dropped(rows)
+                    self._warn_station_skipped(station_id, percentage)
+                    self._pass_over(rows, station_id)
                     continue
+            self._tell_missing_value_markers()
             if self.sr.options.humanize:
                 df = self._humanize(df=df, humanized_parameters_mapping=hpm)
             if not self.sr.options.tidy:
@@ -397,6 +422,69 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             df = df.sort(sort_columns)
             stations_collected += 1
             yield ValuesResult(stations=self.sr, df=df, data_updated_at=newest(self._data_updated))
+        # only a walk read to its end says what it found: a failure raised before it, and one that is stopped is silent
+        rows.warn(rank_filled=stations_collected == self.sr._rank)  # noqa: SLF001
+
+    def _pass_over(self, rows: ParameterRows, station_id: str) -> None:
+        """Note that a rank walk passed a candidate over (an empty frame, or one below `skip_threshold`) for the next.
+
+        Only a rank walk replaces a station: a pick by ids, distance or name that drops one leaves the answer short of
+        it, which `file-skipped` tells if its file was let go (GH-3552). Whether the replacement filled the rank is
+        known at the end of the walk (`ParameterRows.warn`).
+        """
+        if self.sr._stations_filter == StationsFilter.BY_RANK:  # noqa: SLF001
+            rows.passed_over(station_id)
+
+    def _warn_station_skipped(self, station_id: str, percentage: float) -> None:
+        """Tell that `skip_empty` leaves the station out, for a share of actual values below the threshold."""
+        warn_response(
+            log,
+            "station-skipped",
+            f"station {station_id} is skipped as percentage of actual values ({percentage}) "
+            f"is below threshold ({self.sr.options.skip_threshold}).",
+            level=logging.INFO,
+        )
+
+    def _leave_out_emptied(self, station_id: str, rows: ParameterRows) -> None:
+        """Tell of a station with nothing left in the window: `station-skipped` if it held readings, all nulls."""
+        if self._note_nulls_dropped(rows):
+            # `skip_empty` leaves it out, as it does with the nulls kept
+            self._warn_station_skipped(station_id, 0.0)
+        self._tell_missing_value_markers(emptied=True)
+
+    def _note_nulls_dropped(self, rows: ParameterRows) -> bool:
+        """Note the parameters the station has in the window before `drop_nulls`, of a station `skip_empty` leaves out.
+
+        With the nulls kept such a station has frames of nulls, which `skip_empty` leaves out and tells so; with them
+        dropped (the long shape's default) the same station has the same rows, and `parameter-without-rows` says
+        nothing of their parameters, as it says nothing of them with the nulls kept (GH-3567). `_window_parameters`
+        holds the parameters of every reading in the window, null or not, and is filled under `skip_empty` only. Gives
+        whether the station had any reading in the window: one with none is left out unsaid, as it is with the nulls
+        kept.
+        """
+        if not self._window_parameters:
+            return False
+        parameters = pl.concat(self._window_parameters)
+        rows.note(parameters)
+        return not parameters.is_empty()
+
+    def _tell_missing_value_markers(self, *, emptied: bool = False) -> None:
+        """Add the markers of the station in hand to the warning of the request, unless the station is left out.
+
+        Counted by `_process_dataset` for the station and told here, once the walk has not skipped it (`skip_empty`):
+        the count is of the readings of the answer, and a station that is not in it, or one that an estimate reads
+        (`_count_missing_value_markers`), has none to tell (GH-3554). One sum for the request, which
+        `count_response_warning` keeps.
+
+        A station `emptied` of its frame because the nulls were dropped is told when the request names it: the markers
+        are what the nulls were. Not where it would be left out all the same -- `skip_empty` skips a frame without a
+        reading, as it does with the nulls kept, and a rank walk (`filter_by_rank`) walks past it. A pick by name
+        takes the stations the name matches, and none takes the place of an emptied one.
+        """
+        if emptied and (self.sr.options.skip_empty or self.sr._stations_filter == StationsFilter.BY_RANK):  # noqa: SLF001
+            return
+        if self._count_missing_value_markers:
+            count_response_warning(MISSING_VALUE_MARKER, self._markers_in_window, MISSING_VALUE_MARKER_MESSAGE)
 
     def _advance_fetch_ahead(self, ahead: FetchAhead | None, position: int, stations_collected: int) -> None:
         """Have the files of the stations after ``position`` fetched, and wait for those of ``position``."""
@@ -694,14 +782,18 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         if self.sr.options.convert_units:
             df = self._convert_units(df, dataset)
         df = merge_duplicate_readings(df, ["station_id", "resolution", "dataset", "parameter", "timestamp"])
+        in_window = self._filter_by_window(df)
         if QUALITY_FLAGS in df.columns:
-            # the readings the source marked as missing may leave with the nulls; the answer still tells how many
-            count_response_warning(
-                MISSING_VALUE_MARKER,
-                df.filter(pl.col("value").is_null() & pl.col(QUALITY_FLAGS).str.contains(RAW_TOKEN)).height,
-                MISSING_VALUE_MARKER_MESSAGE,
-            )
+            # the readings the source marked as missing may leave with the nulls; the answer still tells how many,
+            # of the window it is cut to (`_filter_by_window`, later) and not of the whole file, and of the stations
+            # it keeps: counted here, told by `_query_stations` (`_tell_missing_value_markers`)
+            self._markers_in_window += in_window.filter(
+                pl.col("value").is_null() & pl.col(QUALITY_FLAGS).str.contains(RAW_TOKEN)
+            ).height
         if self.sr.options.drop_nulls_effective:
+            if self.sr.options.skip_empty:
+                # what the station has with the nulls kept, were `skip_empty` to leave it out (`_query_stations`)
+                self._window_parameters.append(in_window.select("resolution", "dataset", "parameter").unique())
             df = df.drop_nulls(subset=["value"])
         return df
 

@@ -94,6 +94,14 @@ def _values(
     return request.filter_by_station_id("SN18700").values(), seen
 
 
+def test_metno_frost_every_dataset_is_date_required() -> None:
+    """Test that every Frost dataset says it needs a window, as its reader answers nothing without one (GH-3560)."""
+    datasets = [(r.name, d.name, d.date_required) for r in MetnoFrostRequest.metadata for d in r.datasets]
+
+    assert datasets
+    assert [(resolution, dataset) for resolution, dataset, required in datasets if not required] == []
+
+
 def test_metno_frost_values_404_reaches_the_discovery_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that a 404 on the batched request resolves each parameter, and on that, discovers the time series.
 
@@ -502,7 +510,8 @@ def _frost(payload: dict) -> Callable[[str], File]:
     def observations(url: str) -> File:
         t0, t1 = _frost_interval(url)
         rows = [row for row in payload["data"] if t0 <= dt.datetime.fromisoformat(row["referenceTime"]) < t1]
-        # no rows is a 412 ("No data found") from Frost, not an empty answer
+        # no rows is no data for Frost (404 "No data was found for the query parameters", 412 "No available time
+        # series for the query parameters, as here), not an empty answer
         return _ok(url, {"data": rows}) if rows else _failed(url, 412)
 
     return observations

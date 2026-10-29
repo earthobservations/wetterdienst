@@ -38,7 +38,7 @@ def parse_chmi_stations(content: bytes) -> pl.DataFrame:
         pl.col("BEGIN_DATE").str.to_datetime(_DATE_FORMAT, time_unit="us"),
         pl.col("END_DATE").str.to_datetime(_DATE_FORMAT, time_unit="us"),
     )
-    df = df.group_by("WSI").agg(
+    df = df.group_by("WSI", maintain_order=True).agg(
         pl.col("FULL_NAME").sort_by("END_DATE").last().alias("name"),
         pl.col("GEOGR2").sort_by("END_DATE").last().alias("latitude"),
         pl.col("GEOGR1").sort_by("END_DATE").last().alias("longitude"),
