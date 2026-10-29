@@ -23,6 +23,7 @@ from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.smhi.observation.metadata import SmhiObservationMetadata
 from wetterdienst.provider.smhi.observation.parser import parse_smhi_csv
 from wetterdienst.util.network import as_outage, download_file, download_files
+from wetterdienst.util.response_warnings import note_skipped_download
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
@@ -203,6 +204,7 @@ class SmhiObservationValues(TimeseriesValues):
                 if isinstance(failure, (NoInternetError, DownloadError)):
                     raise failure
                 if not isinstance(payload, FileNotFoundError):
+                    note_skipped_download()
                     log.warning(
                         f"Failed to fetch SMHI parameter {name_original} for station {station_id}: {payload}",
                     )
@@ -212,6 +214,7 @@ class SmhiObservationValues(TimeseriesValues):
             except Exception as exc:  # noqa: BLE001
                 # a single malformed CSV block shouldn't abort the whole (multi-station,
                 # multi-parameter) query -- skip it and keep going.
+                note_skipped_download()
                 log.warning(
                     f"Failed to parse SMHI CSV for parameter {name_original} "
                     f"station {station_id} period {period}: {exc}",
@@ -297,7 +300,7 @@ class SmhiObservationRequest(TimeseriesRequest):
             # the lists of two parameters may type a column differently (a whole-number height as integer), which
             # the core makes the declared type of once
             pl.concat(frames, how="vertical_relaxed")
-            .group_by("station_id")
+            .group_by("station_id", maintain_order=True)
             .agg(
                 pl.col("resolution").first(),
                 pl.col("dataset").first(),

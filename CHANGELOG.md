@@ -16,8 +16,29 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- A response warning `parameter-without-rows` (REST, MCP, command line and, as a log line at
+  WARNING, Python) names a requested parameter the source has no values for, with `parameter`
+  and `stations`, where the answer used to be an empty header that read like a failed request
+  (`TX`/`TN` of `dwd/mosmix` for Los Angeles, `tx24` of `meteofrance/synop` for Paris). Told for
+  a parameter asked for by name when no station has a row of it, and for a dataset asked for
+  whole only when none has a row of any of its parameters. It names the `periods`, run or lead
+  time it is limited to, and leaves out a station whose file the provider let go (GH-3539)
+- `meteofrance/synop` now offers the 12 h maximum and minimum temperature
+  (`temperature_air_max_2m_last_12h`, `temperature_air_min_2m_last_12h`; `tx12`, `tn12`), given
+  at 06 and 18 UTC by 158 of the 190 stations (2026), where `tx24`/`tn24` are given by 35 and
+  by none for Paris-Montsouris. Where `tn12` repeats the `tx12` of its own row (three overseas
+  stations at some hours: Cayenne-Matoury, Le Raizet, Lamentin) it is null, with the number kept as
+  `raw:` in `quality_flags` (GH-3540)
+
 ### Changed
 
+- **Breaking**: the REST API, CLI and MCP refuse a `metno/frost` request for `daily`, `monthly` or
+  `annual` values without a start and end date, as for the other resolutions (REST: 400,
+  `timestamp` is required). Such a request was answered with no rows and no reason, as the source
+  is only asked within a window; the Python API still returns an empty frame. Pass a window
+  instead (GH-3560)
 - **Breaking**: `coverage` (`/api/coverage`, the MCP tool, `about coverage`,
   `TimeseriesRequest.discover()`) gives a parameter the unit its values come back in as `unit`
   (`degree_celsius`, `decimal` for a percentage: what `glossary` gives, following the server's
@@ -53,6 +74,23 @@ Types of changes:
   `WRONG_VERSION_NUMBER`; an invalid session, `INVALID_SESSION_ID`) is retried like any other
   transient network error, where the first one failed the answer: `www.dwd.de` throws them now
   and then. A certificate that does not verify still fails at once (GH-3533)
+- A `dwd/dmo` request for a lead time its product does not publish (`lead_time=long` for
+  `icon_eu`, which has the short run alone) is refused as a 400 naming what the product
+  publishes, where it ended in a 500 (`Unable to find a 168 h forecast`) (GH-3539)
+- The stations come in one order from one request to the next, where they changed with every
+  request or process: by station id for `dwd/observation` and `dwd/derived`, in the order of the
+  catalogue for `smhi`, `dmi`, `chmi` and `hubeau`, and the datasets of a station in the
+  order the request names them (`eccc`, `dwd/dmo`, `knmi` followed the hash seed of the process).
+  So do the `stations` of a values, interpolate or summarize answer, the features of its OGC form
+  and `filter_by_rank` / `filter_by_distance`. The values rows of a station were not affected
+  (GH-3551)
+- The `missing-value-marker` warning of an answer counts the readings that are a marker for a
+  missing value inside the window the request asked for, where it counted those of every file read
+  (12,663 for a 3-day request at DWD station 00011, the whole archive) (GH-3550)
+- The `missing-value-marker` warning counts the readings of the stations that are in the answer,
+  with `drop_nulls` on (the default) or off: not those of a station `skip_empty` leaves out, nor of
+  one a `rank` walk passes over for having no reading. `interpolate` and `summarize`, whose answer
+  is an estimate, carry no such warning now (GH-3554)
 
 ## [0.178.0] - 2026-10-28
 

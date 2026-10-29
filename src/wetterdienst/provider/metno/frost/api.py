@@ -28,6 +28,7 @@ from wetterdienst.util.network import (
     download_file,
     raise_if_credential_rejected,
 )
+from wetterdienst.util.response_warnings import note_skipped_download
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel
@@ -213,7 +214,7 @@ _MetnoFrostMetadataSpec = {
             "name": "daily",
             "name_original": "P1D",
             "periods": ["historical", "recent"],
-            "date_required": False,
+            "date_required": True,
             "datasets": [
                 {
                     "name": DATASET_NAME_DEFAULT,
@@ -288,7 +289,7 @@ _MetnoFrostMetadataSpec = {
             "name": "monthly",
             "name_original": "P1M",
             "periods": ["historical", "recent"],
-            "date_required": False,
+            "date_required": True,
             "datasets": [
                 {
                     "name": DATASET_NAME_DEFAULT,
@@ -368,7 +369,7 @@ _MetnoFrostMetadataSpec = {
             "name": "annual",
             "name_original": "P1Y",
             "periods": ["historical", "recent"],
-            "date_required": False,
+            "date_required": True,
             "datasets": [
                 {
                     "name": DATASET_NAME_DEFAULT,
@@ -562,6 +563,9 @@ class MetnoFrostValues(TimeseriesValues):
         start_date = self.sr.start
         end_date = self.sr.end
         if not start_date or not end_date:
+            # nothing is asked of Frost without a window (REST and the command line demand one; Python does not), so
+            # the answer says nothing of what Frost holds: a reader that returns without asking tells the walk so
+            note_skipped_download()
             return pl.DataFrame()
 
         settings = self.sr.settings
@@ -606,10 +610,13 @@ class MetnoFrostValues(TimeseriesValues):
                 station_id, dataset, parameters, start_date, end_date, settings, client_kwargs
             )
         if isinstance(file.content, Exception):
+            note_skipped_download()
             log.warning(f"Failed to download {url}: {file.content}")
             return pl.DataFrame()
         # a 200 with no body
         if file.is_empty:
+            note_skipped_download()
+            log.warning(f"Frost answered {file.url} with an empty body")
             return pl.DataFrame()
 
         df = pl.read_json(file.content)
@@ -710,10 +717,13 @@ class MetnoFrostValues(TimeseriesValues):
                 station_id, parameter, start_date, end_date, settings, client_kwargs
             )
         if isinstance(file.content, Exception):
+            note_skipped_download()
             log.warning(f"Failed to download {url}: {file.content}")
             return pl.DataFrame()
         # a 200 with no body
         if file.is_empty:
+            note_skipped_download()
+            log.warning(f"Frost answered {file.url} with an empty body")
             return pl.DataFrame()
 
         df = pl.read_json(file.content)
@@ -781,9 +791,12 @@ class MetnoFrostValues(TimeseriesValues):
         if avail_file.status in (404, 412):
             return pl.DataFrame()
         if isinstance(avail_file.content, Exception):
+            note_skipped_download()
             log.warning(f"Failed to download {avail_url}: {avail_file.content}")
             return pl.DataFrame()
         if avail_file.is_empty:
+            note_skipped_download()
+            log.warning(f"Frost answered {avail_file.url} with an empty body")
             return pl.DataFrame()
 
         ts_list = json.loads(avail_file.content.read()).get("data", [])
@@ -822,12 +835,17 @@ class MetnoFrostValues(TimeseriesValues):
                 use_certifi=settings.use_certifi,
             )
             _raise_if_unanswered(obs_file)
+            # Frost's own "no data": 404 "No data was found for the query parameters" (a series the listing named
+            # may have a gap in the window), 412 "No available time series for the query parameters"
             if obs_file.status in (404, 412):
                 continue
             if isinstance(obs_file.content, Exception):
+                note_skipped_download()
                 log.warning(f"Failed to download {obs_url}: {obs_file.content}")
                 continue
             if obs_file.is_empty:
+                note_skipped_download()
+                log.warning(f"Frost answered {obs_file.url} with an empty body")
                 continue
 
             df = pl.read_json(obs_file.content)

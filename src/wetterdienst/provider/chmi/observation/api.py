@@ -275,6 +275,7 @@ class ChmiObservationValues(TimeseriesValues):
             "parameter-ended",
             f"CHMI publishes no {resolution} {parameter.name} (element {parameter.name_original}) after {last_year}, "
             f"so the window up to {end:%Y-%m-%d} has no values of it from {last_year + 1} on. {hint}",
+            parameter=f"{resolution}/{parameter.dataset.name}/{parameter.name}",
         )
 
     def _elements_read(

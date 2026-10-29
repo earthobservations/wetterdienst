@@ -144,7 +144,10 @@ How to read the values of the kept report:
   6-hour amount of the 23:53 METAR, the 00Z one, is the value of 00:00, though the report of 00:05
   is nearer to it and is the one kept; no other hour holds it), see
   [Gaps of the kept observation](#gaps-of-the-kept-observation);
-- all other parameters are readings at the report's time.
+- all other parameters are readings at the report's time. The ASOS User's Guide says of two of them
+  that they are averages ending then: the temperature and the dew point are its 5-minute average
+  (sec. 3.1), and the visibility its running 10-minute harmonic mean of the 1-minute values (sec.
+  4.2.3), reported in statute miles and capped at 10 SM (GH-3136).
 
 The endpoint answers at most 500 observations per request, about 40 hours, and the provider does
 not read the next page, so a longer window returns the latest 40 hours only, the oldest of them
