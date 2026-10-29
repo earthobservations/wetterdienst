@@ -459,7 +459,7 @@ watch([provider, network, resolution, dataset, parameters, dateRequired], () => 
       icon="i-lucide-alert-circle"
       class="mx-6 mt-4"
     />
-    <UContainer class="flex flex-col gap-4">
+    <div class="flex flex-col gap-4">
       <UFormField :label="t('parameterSelection.providerLabel')">
         <USelect v-model="provider" :items="providerItems" :placeholder="t('parameterSelection.selectProvider')" :disabled="!!restrictProvider || coveragePending" :loading="coveragePending" class="w-full" :class="{ 'needs-input': activeField === 'provider' }" />
       </UFormField>
@@ -504,6 +504,6 @@ watch([provider, network, resolution, dataset, parameters, dateRequired], () => 
           </UButton>
         </div>
       </UFormField>
-    </UContainer>
+    </div>
   </UCard>
 </template>

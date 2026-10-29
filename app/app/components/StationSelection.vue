@@ -231,7 +231,7 @@ function removeStation(station: Station) {
     <p v-else-if="stationsLoaded && !stationsPending && !allStations.length" class="text-sm text-gray-500 dark:text-gray-400 text-center">
       {{ t('stationSelection.noneFound') }}
     </p>
-    <UContainer v-if="selectedStations.length > 0" class="mt-2">
+    <div v-if="selectedStations.length > 0" class="mt-2">
       <div class="flex items-center justify-between mb-2">
         <h3 class="text-sm font-medium">
           {{ t('stationSelection.selectedStations') }}
@@ -252,7 +252,7 @@ function removeStation(station: Station) {
           <span class="ml-1">×</span>
         </UBadge>
       </div>
-    </UContainer>
+    </div>
     <UCollapsible v-model="showMap" class="mt-4">
       <UButton
         :label="t('stationSelection.chooseOnMap')"

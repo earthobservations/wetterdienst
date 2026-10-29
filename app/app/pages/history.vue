@@ -194,472 +194,288 @@ function clear() {
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('history.title') }}
-      </h1>
-      <p class="text-gray-600 dark:text-gray-400">
-        {{ t('history.subtitle') }}
-      </p>
-    </div>
+  <div class="app-page">
+    <PageHeader :kicker="t('layout.kicker.data')" tile="wind" :title="t('history.title')" :lede="t('history.subtitle')" />
 
-    <UCollapsible v-model="showAbout">
-      <UButton
-        :label="t('history.aboutButton')"
-        icon="i-lucide-info"
-        variant="subtle"
-        color="neutral"
-        trailing-icon="i-lucide-chevron-down"
-        block
-        size="sm"
-      />
-      <template #content>
-        <UCard>
-          <p class="text-gray-600 dark:text-gray-400 mb-4">
-            {{ t('history.about1') }}
-          </p>
-          <p class="text-gray-600 dark:text-gray-400 mb-4">
-            {{ t('history.about2') }}
-          </p>
-          <p class="text-gray-600 dark:text-gray-400">
-            {{ t('history.about3') }}
-          </p>
-        </UCard>
-      </template>
-    </UCollapsible>
-
-    <ParameterSelection v-model="paramSel" :show-parameters="false" restrict-provider="dwd" restrict-network="observation" />
-
-    <UCard>
-      <template #header>
-        <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-map-pin" class="text-primary-500 shrink-0" />
-          <h2 class="text-lg font-bold">
-            {{ t('explorer.dataSource') }}
-          </h2>
-        </div>
-      </template>
-      <div v-if="resolution && dataset">
-        <StationSelection
-          v-model="stationSelectionState.selection"
-          :parameter-selection="parameterSelection"
-          :initial-station-ids="initialStationIds"
-          :multiple="true"
+    <div class="max-w-4xl space-y-6">
+      <UCollapsible v-model="showAbout">
+        <UButton
+          :label="t('history.aboutButton')"
+          icon="i-lucide-info"
+          variant="subtle"
+          color="neutral"
+          trailing-icon="i-lucide-chevron-down"
+          block
+          size="sm"
         />
-      </div>
-      <div v-else class="text-sm text-gray-500 dark:text-gray-400">
-        {{ t('history.selectFirst') }}
-      </div>
-    </UCard>
+        <template #content>
+          <UCard>
+            <p class="text-gray-600 dark:text-gray-400 mb-4">
+              {{ t('history.about1') }}
+            </p>
+            <p class="text-gray-600 dark:text-gray-400 mb-4">
+              {{ t('history.about2') }}
+            </p>
+            <p class="text-gray-600 dark:text-gray-400">
+              {{ t('history.about3') }}
+            </p>
+          </UCard>
+        </template>
+      </UCollapsible>
 
-    <UCard>
-      <template #header>
-        <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-filter" class="text-primary-500 shrink-0" />
-          <h2 class="text-lg font-bold">
-            {{ t('history.sectionsTitle') }}
-          </h2>
-        </div>
-      </template>
-      <div class="space-y-4">
-        <USelectMenu
-          v-model="selectedSections"
-          :items="availableSections"
-          multiple
-          :placeholder="t('history.selectSections')"
-          class="w-full"
-        />
-        <div class="flex flex-col sm:flex-row gap-2">
-          <UButton :label="t('common.fetch')" icon="i-lucide-play" color="primary" :disabled="!canFetch" class="w-full" @click="run" />
-          <UButton :label="t('common.clear')" icon="i-lucide-x" variant="outline" class="w-full" @click="clear" />
-        </div>
-        <div v-if="pending" class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-          <UIcon name="i-lucide-loader-circle" class="animate-spin shrink-0" />
-          {{ t('common.loading') }}
-        </div>
-        <div v-if="fetchErrorMessage" class="flex items-center gap-2 text-sm text-red-600">
-          <UIcon name="i-lucide-alert-circle" class="shrink-0" />
-          {{ t('history.error') }}: {{ fetchErrorMessage }}
-        </div>
-      </div>
-    </UCard>
+      <ParameterSelection v-model="paramSel" :show-parameters="false" restrict-provider="dwd" restrict-network="observation" />
 
-    <UCard>
-      <template #header>
-        <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-table-2" class="text-primary-500 shrink-0" />
-          <h2 class="text-lg font-bold">
-            {{ t('history.resultsTitle') }}
-          </h2>
-        </div>
-      </template>
-
-      <div>
-        <div v-if="!data || (data.histories && data.histories.length === 0)" class="text-sm text-gray-600 dark:text-gray-400">
-          {{ t('history.noHistories') }}
-        </div>
-        <div v-else class="space-y-6">
-          <!-- Selected Stations Overview -->
-          <div v-if="data.stations?.length > 0">
-            <h3 class="text-base font-bold mb-3">
-              {{ t('history.selectedStations') }}
-            </h3>
-            <div class="overflow-x-auto">
-              <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead class="bg-gray-50 dark:bg-gray-800">
-                  <tr>
-                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      {{ t('history.colStationId') }}
-                    </th>
-                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      {{ t('history.colName') }}
-                    </th>
-                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      {{ t('history.colLatitude') }}
-                    </th>
-                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      {{ t('history.colLongitude') }}
-                    </th>
-                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      {{ t('history.colElevationM') }}
-                    </th>
-                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      {{ t('history.colRegion') }}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                  <tr v-for="station in data.stations" :key="station.station_id">
-                    <td class="px-4 py-2 text-sm font-medium">
-                      {{ station.station_id }}
-                    </td>
-                    <td class="px-4 py-2 text-sm">
-                      {{ station.name || '-' }}
-                    </td>
-                    <!-- a position keeps its point in every language: it is copied into a map or a query (GH-2971) -->
-                    <td class="px-4 py-2 text-sm">
-                      {{ station.latitude != null ? station.latitude.toFixed(4) : '-' }}
-                    </td>
-                    <td class="px-4 py-2 text-sm">
-                      {{ station.longitude != null ? station.longitude.toFixed(4) : '-' }}
-                    </td>
-                    <td class="px-4 py-2 text-sm">
-                      {{ station.elevation != null ? station.elevation.toFixed(1) : '-' }}
-                    </td>
-                    <td class="px-4 py-2 text-sm">
-                      {{ station.region || '-' }}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+      <UCard>
+        <template #header>
+          <div class="flex items-center gap-2">
+            <UIcon name="i-lucide-map-pin" class="text-primary-500 shrink-0" />
+            <h2 class="text-lg font-bold">
+              {{ t('explorer.dataSource') }}
+            </h2>
           </div>
+        </template>
+        <div v-if="resolution && dataset">
+          <StationSelection
+            v-model="stationSelectionState.selection"
+            :parameter-selection="parameterSelection"
+            :initial-station-ids="initialStationIds"
+            :multiple="true"
+          />
+        </div>
+        <div v-else class="text-sm text-gray-500 dark:text-gray-400">
+          {{ t('history.selectFirst') }}
+        </div>
+      </UCard>
 
-          <!-- History Data by Station -->
-          <div v-if="data.histories && data.histories.length > 0">
-            <h3 class="text-base font-bold mb-3">
-              {{ t('history.stationHistoryTitle') }}
-            </h3>
-            <div class="space-y-4">
-              <div v-for="(history, idx) in data.histories" :key="idx">
-                <UCard>
-                  <!-- Station Info Card Header displays basic station info -->
-                  <template #header>
-                    <div class="flex items-center gap-2 flex-wrap">
-                      <UIcon name="i-lucide-map-pin" class="text-primary-500 shrink-0" />
-                      <h3 class="text-lg font-bold">
-                        {{ t('history.stationIdPrefix') }}: {{ history.station_id }}
-                        <span
-                          v-if="getStationName(history)"
-                          class="text-sm text-gray-600 dark:text-gray-400 font-normal ml-2"
-                        >
-                          {{ getStationName(history) }}
-                        </span>
-                      </h3>
+      <UCard>
+        <template #header>
+          <div class="flex items-center gap-2">
+            <UIcon name="i-lucide-filter" class="text-primary-500 shrink-0" />
+            <h2 class="text-lg font-bold">
+              {{ t('history.sectionsTitle') }}
+            </h2>
+          </div>
+        </template>
+        <div class="space-y-4">
+          <USelectMenu
+            v-model="selectedSections"
+            :items="availableSections"
+            multiple
+            :placeholder="t('history.selectSections')"
+            class="w-full"
+          />
+          <div class="flex flex-col sm:flex-row gap-2">
+            <UButton :label="t('common.fetch')" icon="i-lucide-play" color="primary" :disabled="!canFetch" class="w-full" @click="run" />
+            <UButton :label="t('common.clear')" icon="i-lucide-x" variant="outline" class="w-full" @click="clear" />
+          </div>
+          <div v-if="pending" class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+            <UIcon name="i-lucide-loader-circle" class="animate-spin shrink-0" />
+            {{ t('common.loading') }}
+          </div>
+          <div v-if="fetchErrorMessage" class="flex items-center gap-2 text-sm text-red-600">
+            <UIcon name="i-lucide-alert-circle" class="shrink-0" />
+            {{ t('history.error') }}: {{ fetchErrorMessage }}
+          </div>
+        </div>
+      </UCard>
+
+      <UCard>
+        <template #header>
+          <div class="flex items-center gap-2">
+            <UIcon name="i-lucide-table-2" class="text-primary-500 shrink-0" />
+            <h2 class="text-lg font-bold">
+              {{ t('history.resultsTitle') }}
+            </h2>
+          </div>
+        </template>
+
+        <div>
+          <div v-if="!data || (data.histories && data.histories.length === 0)" class="text-sm text-gray-600 dark:text-gray-400">
+            {{ t('history.noHistories') }}
+          </div>
+          <div v-else class="space-y-6">
+            <!-- Selected Stations Overview -->
+            <div v-if="data.stations?.length > 0">
+              <h3 class="text-base font-bold mb-3">
+                {{ t('history.selectedStations') }}
+              </h3>
+              <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead class="bg-gray-50 dark:bg-gray-800">
+                    <tr>
+                      <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                        {{ t('history.colStationId') }}
+                      </th>
+                      <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                        {{ t('history.colName') }}
+                      </th>
+                      <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                        {{ t('history.colLatitude') }}
+                      </th>
+                      <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                        {{ t('history.colLongitude') }}
+                      </th>
+                      <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                        {{ t('history.colElevationM') }}
+                      </th>
+                      <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                        {{ t('history.colRegion') }}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                    <tr v-for="station in data.stations" :key="station.station_id">
+                      <td class="px-4 py-2 text-sm font-medium">
+                        {{ station.station_id }}
+                      </td>
+                      <td class="px-4 py-2 text-sm">
+                        {{ station.name || '-' }}
+                      </td>
+                      <!-- a position keeps its point in every language: it is copied into a map or a query (GH-2971) -->
+                      <td class="px-4 py-2 text-sm">
+                        {{ station.latitude != null ? station.latitude.toFixed(4) : '-' }}
+                      </td>
+                      <td class="px-4 py-2 text-sm">
+                        {{ station.longitude != null ? station.longitude.toFixed(4) : '-' }}
+                      </td>
+                      <td class="px-4 py-2 text-sm">
+                        {{ station.elevation != null ? station.elevation.toFixed(1) : '-' }}
+                      </td>
+                      <td class="px-4 py-2 text-sm">
+                        {{ station.region || '-' }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- History Data by Station -->
+            <div v-if="data.histories && data.histories.length > 0">
+              <h3 class="text-base font-bold mb-3">
+                {{ t('history.stationHistoryTitle') }}
+              </h3>
+              <div class="space-y-4">
+                <div v-for="(history, idx) in data.histories" :key="idx">
+                  <UCard>
+                    <!-- Station Info Card Header displays basic station info -->
+                    <template #header>
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <UIcon name="i-lucide-map-pin" class="text-primary-500 shrink-0" />
+                        <h3 class="text-lg font-bold">
+                          {{ t('history.stationIdPrefix') }}: {{ history.station_id }}
+                          <span
+                            v-if="getStationName(history)"
+                            class="text-sm text-gray-600 dark:text-gray-400 font-normal ml-2"
+                          >
+                            {{ getStationName(history) }}
+                          </span>
+                        </h3>
+                      </div>
+                    </template>
+
+                    <!-- Name History -->
+                    <div
+                      v-if="history.name && (history.name.station?.length || history.name.operator?.length)"
+                      class="mb-6"
+                    >
+                      <UCollapsible>
+                        <UButton
+                          :label="t('history.nameHistory')"
+                          variant="ghost"
+                          trailing-icon="i-lucide-chevron-down"
+                          block
+                          class="mb-2"
+                        />
+                        <template #content>
+                          <!-- Station Name History -->
+                          <div v-if="history.name.station?.length" class="mb-4">
+                            <h4 class="text-sm font-bold mb-2 text-gray-700 dark:text-gray-300">
+                              {{ t('history.stationNames') }}
+                            </h4>
+                            <div class="overflow-x-auto">
+                              <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                <thead class="bg-gray-50 dark:bg-gray-800">
+                                  <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                      {{ t('history.colStartDate') }}
+                                    </th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                      {{ t('history.colEndDate') }}
+                                    </th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                      {{ t('history.rowStationName') }}
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                                  <tr v-for="(entry, i) in history.name.station" :key="i">
+                                    <td class="px-4 py-2 text-sm">
+                                      {{ entry.valid_from ? formatDate(entry.valid_from) : '-' }}
+                                    </td>
+                                    <td class="px-4 py-2 text-sm">
+                                      {{ entry.valid_to ? formatDate(entry.valid_to) : '-' }}
+                                    </td>
+                                    <td class="px-4 py-2 text-sm">
+                                      {{ entry.station_name || '-' }}
+                                    </td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+
+                          <!-- Operator Name History -->
+                          <div v-if="history.name.operator?.length">
+                            <h4 class="text-sm font-bold mb-2 text-gray-700 dark:text-gray-300">
+                              {{ t('history.operatorNames') }}
+                            </h4>
+                            <div class="overflow-x-auto">
+                              <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                <thead class="bg-gray-50 dark:bg-gray-800">
+                                  <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                      {{ t('history.colStartDate') }}
+                                    </th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                      {{ t('history.colEndDate') }}
+                                    </th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                      {{ t('history.colOperatorName') }}
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                                  <tr v-for="(entry, i) in history.name.operator" :key="i">
+                                    <td class="px-4 py-2 text-sm">
+                                      {{ entry.valid_from ? formatDate(entry.valid_from) : '-' }}
+                                    </td>
+                                    <td class="px-4 py-2 text-sm">
+                                      {{ entry.valid_to ? formatDate(entry.valid_to) : '-' }}
+                                    </td>
+                                    <td class="px-4 py-2 text-sm">
+                                      {{ entry.operator_name || '-' }}
+                                    </td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </template>
+                      </UCollapsible>
                     </div>
-                  </template>
 
-                  <!-- Name History -->
-                  <div
-                    v-if="history.name && (history.name.station?.length || history.name.operator?.length)"
-                    class="mb-6"
-                  >
-                    <UCollapsible>
-                      <UButton
-                        :label="t('history.nameHistory')"
-                        variant="ghost"
-                        trailing-icon="i-lucide-chevron-down"
-                        block
-                        class="mb-2"
-                      />
-                      <template #content>
-                        <!-- Station Name History -->
-                        <div v-if="history.name.station?.length" class="mb-4">
-                          <h4 class="text-sm font-bold mb-2 text-gray-700 dark:text-gray-300">
-                            {{ t('history.stationNames') }}
-                          </h4>
-                          <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                              <thead class="bg-gray-50 dark:bg-gray-800">
-                                <tr>
-                                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                    {{ t('history.colStartDate') }}
-                                  </th>
-                                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                    {{ t('history.colEndDate') }}
-                                  </th>
-                                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                    {{ t('history.rowStationName') }}
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                                <tr v-for="(entry, i) in history.name.station" :key="i">
-                                  <td class="px-4 py-2 text-sm">
-                                    {{ entry.valid_from ? formatDate(entry.valid_from) : '-' }}
-                                  </td>
-                                  <td class="px-4 py-2 text-sm">
-                                    {{ entry.valid_to ? formatDate(entry.valid_to) : '-' }}
-                                  </td>
-                                  <td class="px-4 py-2 text-sm">
-                                    {{ entry.station_name || '-' }}
-                                  </td>
-                                </tr>
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-
-                        <!-- Operator Name History -->
-                        <div v-if="history.name.operator?.length">
-                          <h4 class="text-sm font-bold mb-2 text-gray-700 dark:text-gray-300">
-                            {{ t('history.operatorNames') }}
-                          </h4>
-                          <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                              <thead class="bg-gray-50 dark:bg-gray-800">
-                                <tr>
-                                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                    {{ t('history.colStartDate') }}
-                                  </th>
-                                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                    {{ t('history.colEndDate') }}
-                                  </th>
-                                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                    {{ t('history.colOperatorName') }}
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                                <tr v-for="(entry, i) in history.name.operator" :key="i">
-                                  <td class="px-4 py-2 text-sm">
-                                    {{ entry.valid_from ? formatDate(entry.valid_from) : '-' }}
-                                  </td>
-                                  <td class="px-4 py-2 text-sm">
-                                    {{ entry.valid_to ? formatDate(entry.valid_to) : '-' }}
-                                  </td>
-                                  <td class="px-4 py-2 text-sm">
-                                    {{ entry.operator_name || '-' }}
-                                  </td>
-                                </tr>
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      </template>
-                    </UCollapsible>
-                  </div>
-
-                  <!-- Parameter History -->
-                  <div v-if="history.parameter?.length" class="mb-6">
-                    <UCollapsible>
-                      <UButton
-                        :label="t('history.parameterHistory')"
-                        variant="ghost"
-                        trailing-icon="i-lucide-chevron-down"
-                        block
-                        class="mb-2"
-                      />
-                      <template #content>
-                        <div class="overflow-x-auto">
-                          <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                            <thead class="bg-gray-50 dark:bg-gray-800">
-                              <tr>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  {{ t('history.colStartDate') }}
-                                </th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  {{ t('history.colEndDate') }}
-                                </th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  {{ t('history.colParameter') }}
-                                </th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  {{ t('history.colDescription') }}
-                                </th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  {{ t('history.colUnit') }}
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                              <tr v-for="(entry, i) in history.parameter" :key="i">
-                                <td class="px-4 py-2 text-sm">
-                                  {{ entry.valid_from ? formatDate(entry.valid_from) : '-' }}
-                                </td>
-                                <td class="px-4 py-2 text-sm">
-                                  {{ entry.valid_to ? formatDate(entry.valid_to) : '-' }}
-                                </td>
-                                <td class="px-4 py-2 text-sm">
-                                  {{ entry.parameter || '-' }}
-                                </td>
-                                <td class="px-4 py-2 text-sm">
-                                  {{ entry.description || '-' }}
-                                </td>
-                                <td class="px-4 py-2 text-sm">
-                                  {{ entry.unit || '-' }}
-                                </td>
-                              </tr>
-                            </tbody>
-                          </table>
-                        </div>
-                      </template>
-                    </UCollapsible>
-                  </div>
-
-                  <!-- Device History -->
-                  <div v-if="history.device?.length" class="mb-6">
-                    <UCollapsible>
-                      <UButton
-                        :label="t('history.deviceHistory')"
-                        variant="ghost"
-                        trailing-icon="i-lucide-chevron-down"
-                        block
-                        class="mb-2"
-                      />
-                      <template #content>
-                        <div class="overflow-x-auto">
-                          <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                            <thead class="bg-gray-50 dark:bg-gray-800">
-                              <tr>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  {{ t('history.colStartDate') }}
-                                </th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  {{ t('history.colEndDate') }}
-                                </th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  {{ t('history.colDeviceType') }}
-                                </th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  {{ t('history.colDeviceHeight') }}
-                                </th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  {{ t('history.colMethod') }}
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                              <tr v-for="(entry, i) in history.device" :key="i">
-                                <td class="px-4 py-2 text-sm">
-                                  {{ entry.valid_from ? formatDate(entry.valid_from) : '-' }}
-                                </td>
-                                <td class="px-4 py-2 text-sm">
-                                  {{ entry.valid_to ? formatDate(entry.valid_to) : '-' }}
-                                </td>
-                                <td class="px-4 py-2 text-sm">
-                                  {{ entry.device_type || '-' }}
-                                </td>
-                                <td class="px-4 py-2 text-sm">
-                                  {{ entry.device_height ?? '-' }}
-                                </td>
-                                <td class="px-4 py-2 text-sm">
-                                  {{ entry.method || '-' }}
-                                </td>
-                              </tr>
-                            </tbody>
-                          </table>
-                        </div>
-                      </template>
-                    </UCollapsible>
-                  </div>
-
-                  <!-- Geography History -->
-                  <div v-if="history.geography?.length" class="mb-6">
-                    <UCollapsible>
-                      <UButton
-                        :label="t('history.geographyHistory')"
-                        variant="ghost"
-                        trailing-icon="i-lucide-chevron-down"
-                        block
-                        class="mb-2"
-                      />
-                      <template #content>
-                        <div class="overflow-x-auto">
-                          <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                            <thead class="bg-gray-50 dark:bg-gray-800">
-                              <tr>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  {{ t('history.colStartDate') }}
-                                </th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  {{ t('history.colEndDate') }}
-                                </th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  {{ t('history.colLatitude') }}
-                                </th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  {{ t('history.colLongitude') }}
-                                </th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  {{ t('history.rowStationElevation') }}
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                              <tr v-for="(entry, i) in history.geography" :key="i">
-                                <td class="px-4 py-2 text-sm">
-                                  {{ entry.valid_from ? formatDate(entry.valid_from) : '-' }}
-                                </td>
-                                <td class="px-4 py-2 text-sm">
-                                  {{ entry.valid_to ? formatDate(entry.valid_to) : '-' }}
-                                </td>
-                                <td class="px-4 py-2 text-sm">
-                                  {{ entry.latitude ?? '-' }}
-                                </td>
-                                <td class="px-4 py-2 text-sm">
-                                  {{ entry.longitude ?? '-' }}
-                                </td>
-                                <td class="px-4 py-2 text-sm">
-                                  {{ entry.station_elevation ?? '-' }}
-                                </td>
-                              </tr>
-                            </tbody>
-                          </table>
-                        </div>
-                      </template>
-                    </UCollapsible>
-                  </div>
-
-                  <!-- Missing Data History -->
-                  <div
-                    v-if="history.missing_data && (history.missing_data.summary?.length || history.missing_data.periods?.length)"
-                  >
-                    <UCollapsible>
-                      <UButton
-                        :label="t('history.missingDataHistory')"
-                        variant="ghost"
-                        trailing-icon="i-lucide-chevron-down"
-                        block
-                        class="mb-2"
-                      />
-                      <template #content>
-                        <!-- Summary -->
-                        <div v-if="history.missing_data.summary?.length" class="mb-4">
-                          <h4 class="text-sm font-bold mb-2 text-gray-700 dark:text-gray-300">
-                            {{ t('history.summary') }}
-                          </h4>
+                    <!-- Parameter History -->
+                    <div v-if="history.parameter?.length" class="mb-6">
+                      <UCollapsible>
+                        <UButton
+                          :label="t('history.parameterHistory')"
+                          variant="ghost"
+                          trailing-icon="i-lucide-chevron-down"
+                          block
+                          class="mb-2"
+                        />
+                        <template #content>
                           <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                               <thead class="bg-gray-50 dark:bg-gray-800">
@@ -674,12 +490,15 @@ function clear() {
                                     {{ t('history.colParameter') }}
                                   </th>
                                   <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                    {{ t('history.colMissingCount') }}
+                                    {{ t('history.colDescription') }}
+                                  </th>
+                                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                    {{ t('history.colUnit') }}
                                   </th>
                                 </tr>
                               </thead>
                               <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                                <tr v-for="(entry, i) in history.missing_data.summary" :key="i">
+                                <tr v-for="(entry, i) in history.parameter" :key="i">
                                   <td class="px-4 py-2 text-sm">
                                     {{ entry.valid_from ? formatDate(entry.valid_from) : '-' }}
                                   </td>
@@ -690,19 +509,30 @@ function clear() {
                                     {{ entry.parameter || '-' }}
                                   </td>
                                   <td class="px-4 py-2 text-sm">
-                                    {{ entry.missing_count ?? '-' }}
+                                    {{ entry.description || '-' }}
+                                  </td>
+                                  <td class="px-4 py-2 text-sm">
+                                    {{ entry.unit || '-' }}
                                   </td>
                                 </tr>
                               </tbody>
                             </table>
                           </div>
-                        </div>
+                        </template>
+                      </UCollapsible>
+                    </div>
 
-                        <!-- Periods -->
-                        <div v-if="history.missing_data.periods?.length">
-                          <h4 class="text-sm font-bold mb-2 text-gray-700 dark:text-gray-300">
-                            {{ t('history.periods') }}
-                          </h4>
+                    <!-- Device History -->
+                    <div v-if="history.device?.length" class="mb-6">
+                      <UCollapsible>
+                        <UButton
+                          :label="t('history.deviceHistory')"
+                          variant="ghost"
+                          trailing-icon="i-lucide-chevron-down"
+                          block
+                          class="mb-2"
+                        />
+                        <template #content>
                           <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                               <thead class="bg-gray-50 dark:bg-gray-800">
@@ -714,15 +544,18 @@ function clear() {
                                     {{ t('history.colEndDate') }}
                                   </th>
                                   <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                    {{ t('history.colParameter') }}
+                                    {{ t('history.colDeviceType') }}
                                   </th>
                                   <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                    {{ t('history.colMissingCount') }}
+                                    {{ t('history.colDeviceHeight') }}
+                                  </th>
+                                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                    {{ t('history.colMethod') }}
                                   </th>
                                 </tr>
                               </thead>
                               <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                                <tr v-for="(entry, i) in history.missing_data.periods" :key="i">
+                                <tr v-for="(entry, i) in history.device" :key="i">
                                   <td class="px-4 py-2 text-sm">
                                     {{ entry.valid_from ? formatDate(entry.valid_from) : '-' }}
                                   </td>
@@ -730,25 +563,187 @@ function clear() {
                                     {{ entry.valid_to ? formatDate(entry.valid_to) : '-' }}
                                   </td>
                                   <td class="px-4 py-2 text-sm">
-                                    {{ entry.parameter || '-' }}
+                                    {{ entry.device_type || '-' }}
                                   </td>
                                   <td class="px-4 py-2 text-sm">
-                                    {{ entry.missing_count ?? '-' }}
+                                    {{ entry.device_height ?? '-' }}
+                                  </td>
+                                  <td class="px-4 py-2 text-sm">
+                                    {{ entry.method || '-' }}
                                   </td>
                                 </tr>
                               </tbody>
                             </table>
                           </div>
-                        </div>
-                      </template>
-                    </UCollapsible>
-                  </div>
-                </UCard>
+                        </template>
+                      </UCollapsible>
+                    </div>
+
+                    <!-- Geography History -->
+                    <div v-if="history.geography?.length" class="mb-6">
+                      <UCollapsible>
+                        <UButton
+                          :label="t('history.geographyHistory')"
+                          variant="ghost"
+                          trailing-icon="i-lucide-chevron-down"
+                          block
+                          class="mb-2"
+                        />
+                        <template #content>
+                          <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                              <thead class="bg-gray-50 dark:bg-gray-800">
+                                <tr>
+                                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                    {{ t('history.colStartDate') }}
+                                  </th>
+                                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                    {{ t('history.colEndDate') }}
+                                  </th>
+                                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                    {{ t('history.colLatitude') }}
+                                  </th>
+                                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                    {{ t('history.colLongitude') }}
+                                  </th>
+                                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                    {{ t('history.rowStationElevation') }}
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                                <tr v-for="(entry, i) in history.geography" :key="i">
+                                  <td class="px-4 py-2 text-sm">
+                                    {{ entry.valid_from ? formatDate(entry.valid_from) : '-' }}
+                                  </td>
+                                  <td class="px-4 py-2 text-sm">
+                                    {{ entry.valid_to ? formatDate(entry.valid_to) : '-' }}
+                                  </td>
+                                  <td class="px-4 py-2 text-sm">
+                                    {{ entry.latitude ?? '-' }}
+                                  </td>
+                                  <td class="px-4 py-2 text-sm">
+                                    {{ entry.longitude ?? '-' }}
+                                  </td>
+                                  <td class="px-4 py-2 text-sm">
+                                    {{ entry.station_elevation ?? '-' }}
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        </template>
+                      </UCollapsible>
+                    </div>
+
+                    <!-- Missing Data History -->
+                    <div
+                      v-if="history.missing_data && (history.missing_data.summary?.length || history.missing_data.periods?.length)"
+                    >
+                      <UCollapsible>
+                        <UButton
+                          :label="t('history.missingDataHistory')"
+                          variant="ghost"
+                          trailing-icon="i-lucide-chevron-down"
+                          block
+                          class="mb-2"
+                        />
+                        <template #content>
+                          <!-- Summary -->
+                          <div v-if="history.missing_data.summary?.length" class="mb-4">
+                            <h4 class="text-sm font-bold mb-2 text-gray-700 dark:text-gray-300">
+                              {{ t('history.summary') }}
+                            </h4>
+                            <div class="overflow-x-auto">
+                              <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                <thead class="bg-gray-50 dark:bg-gray-800">
+                                  <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                      {{ t('history.colStartDate') }}
+                                    </th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                      {{ t('history.colEndDate') }}
+                                    </th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                      {{ t('history.colParameter') }}
+                                    </th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                      {{ t('history.colMissingCount') }}
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                                  <tr v-for="(entry, i) in history.missing_data.summary" :key="i">
+                                    <td class="px-4 py-2 text-sm">
+                                      {{ entry.valid_from ? formatDate(entry.valid_from) : '-' }}
+                                    </td>
+                                    <td class="px-4 py-2 text-sm">
+                                      {{ entry.valid_to ? formatDate(entry.valid_to) : '-' }}
+                                    </td>
+                                    <td class="px-4 py-2 text-sm">
+                                      {{ entry.parameter || '-' }}
+                                    </td>
+                                    <td class="px-4 py-2 text-sm">
+                                      {{ entry.missing_count ?? '-' }}
+                                    </td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+
+                          <!-- Periods -->
+                          <div v-if="history.missing_data.periods?.length">
+                            <h4 class="text-sm font-bold mb-2 text-gray-700 dark:text-gray-300">
+                              {{ t('history.periods') }}
+                            </h4>
+                            <div class="overflow-x-auto">
+                              <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                <thead class="bg-gray-50 dark:bg-gray-800">
+                                  <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                      {{ t('history.colStartDate') }}
+                                    </th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                      {{ t('history.colEndDate') }}
+                                    </th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                      {{ t('history.colParameter') }}
+                                    </th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                      {{ t('history.colMissingCount') }}
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                                  <tr v-for="(entry, i) in history.missing_data.periods" :key="i">
+                                    <td class="px-4 py-2 text-sm">
+                                      {{ entry.valid_from ? formatDate(entry.valid_from) : '-' }}
+                                    </td>
+                                    <td class="px-4 py-2 text-sm">
+                                      {{ entry.valid_to ? formatDate(entry.valid_to) : '-' }}
+                                    </td>
+                                    <td class="px-4 py-2 text-sm">
+                                      {{ entry.parameter || '-' }}
+                                    </td>
+                                    <td class="px-4 py-2 text-sm">
+                                      {{ entry.missing_count ?? '-' }}
+                                    </td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </template>
+                      </UCollapsible>
+                    </div>
+                  </UCard>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    </UCard>
-  </UContainer>
+      </UCard>
+    </div>
+  </div>
 </template>

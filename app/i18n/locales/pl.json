@@ -130,6 +130,16 @@
     "about": "O projekcie",
     "licenses": "Licencje stron trzecich"
   },
+  "layout": {
+    "skipToContent": "Przejdź do treści",
+    "sections": "Działy",
+    "kicker": {
+      "weather": "Pogoda i klimat",
+      "data": "Dane",
+      "reference": "Informacje",
+      "project": "O projekcie"
+    }
+  },
   "language": {
     "switch": "Zmień język",
     "inclusiveHint": "Witamy wszystkich"
@@ -428,7 +438,10 @@
         "cloudy": "Pochmurno",
         "partlyCloudy": "Częściowe zachmurzenie",
         "clear": "Słonecznie"
-      }
+      },
+      "takeaway": "Od {from} do {to}: od {min} do {max}, łącznie {precip} opadu.",
+      "takeawayDry": "Od {from} do {to}: od {min} do {max}, bez opadów.",
+      "takeawayNoPrecip": "Od {from} do {to}: od {min} do {max}."
     },
     "orChooseMap": "lub",
     "chooseOnMap": "Wybierz stację na mapie",
@@ -514,6 +527,14 @@
           "veryHigh": "Znacznie bardziej wilgotny"
         }
       }
+    },
+    "takeaway": {
+      "warmer": "Lata {recentFrom}–{recentTo} miały średnio {recent}: o {difference} cieplej niż norma z lat {normalFrom}–{normalTo} ({normal}).",
+      "cooler": "Lata {recentFrom}–{recentTo} miały średnio {recent}: o {difference} chłodniej niż norma z lat {normalFrom}–{normalTo} ({normal}).",
+      "wetter": "Lata {recentFrom}–{recentTo} przyniosły średnio {recent}: o {difference} ({percent}) więcej niż norma z lat {normalFrom}–{normalTo} ({normal}).",
+      "drier": "Lata {recentFrom}–{recentTo} przyniosły średnio {recent}: o {difference} ({percent}) mniej niż norma z lat {normalFrom}–{normalTo} ({normal}).",
+      "same": "Lata {recentFrom}–{recentTo} miały średnio {recent}, tyle samo co norma z lat {normalFrom}–{normalTo}.",
+      "normalNote": "Norma to średnia z lat {normalFrom}–{normalTo}, okres odniesienia Światowej Organizacji Meteorologicznej."
     }
   },
   "explorer": {

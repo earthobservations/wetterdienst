@@ -130,6 +130,16 @@
     "about": "Informazioni",
     "licenses": "Licenze di terze parti"
   },
+  "layout": {
+    "skipToContent": "Vai al contenuto",
+    "sections": "Sezioni",
+    "kicker": {
+      "weather": "Meteo e clima",
+      "data": "Dati",
+      "reference": "Consultazione",
+      "project": "Il progetto"
+    }
+  },
   "language": {
     "switch": "Cambia lingua",
     "inclusiveHint": "Benvenute e benvenuti tutti"
@@ -428,7 +438,10 @@
         "cloudy": "Nuvoloso",
         "partlyCloudy": "Parzialmente nuvoloso",
         "clear": "Soleggiato"
-      }
+      },
+      "takeaway": "Da {from} a {to}: tra {min} e {max}, con {precip} di precipitazioni in totale.",
+      "takeawayDry": "Da {from} a {to}: tra {min} e {max}, senza precipitazioni.",
+      "takeawayNoPrecip": "Da {from} a {to}: tra {min} e {max}."
     },
     "orChooseMap": "o",
     "chooseOnMap": "Scegli una stazione sulla mappa",
@@ -514,6 +527,14 @@
           "veryHigh": "Molto più piovoso"
         }
       }
+    },
+    "takeaway": {
+      "warmer": "Gli anni {recentFrom}–{recentTo} hanno avuto in media {recent}: {difference} più caldi della norma {normalFrom}–{normalTo} ({normal}).",
+      "cooler": "Gli anni {recentFrom}–{recentTo} hanno avuto in media {recent}: {difference} più freddi della norma {normalFrom}–{normalTo} ({normal}).",
+      "wetter": "Gli anni {recentFrom}–{recentTo} hanno portato in media {recent}: {difference} ({percent}) in più rispetto alla norma {normalFrom}–{normalTo} ({normal}).",
+      "drier": "Gli anni {recentFrom}–{recentTo} hanno portato in media {recent}: {difference} ({percent}) in meno rispetto alla norma {normalFrom}–{normalTo} ({normal}).",
+      "same": "Gli anni {recentFrom}–{recentTo} hanno avuto in media {recent}, come la norma {normalFrom}–{normalTo}.",
+      "normalNote": "La norma è la media dal {normalFrom} al {normalTo}, il periodo di riferimento dell'Organizzazione meteorologica mondiale."
     }
   },
   "explorer": {

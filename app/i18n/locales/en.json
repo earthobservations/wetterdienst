@@ -130,6 +130,16 @@
     "about": "About",
     "licenses": "Third-party licences"
   },
+  "layout": {
+    "skipToContent": "Skip to content",
+    "sections": "Sections",
+    "kicker": {
+      "weather": "Weather and climate",
+      "data": "Data",
+      "reference": "Reference",
+      "project": "The project"
+    }
+  },
   "language": {
     "switch": "Switch language",
     "inclusiveHint": "Welcome, everyone"
@@ -428,7 +438,10 @@
         "cloudy": "Cloudy",
         "partlyCloudy": "Partly cloudy",
         "clear": "Sunny"
-      }
+      },
+      "takeaway": "From {from} to {to}: between {min} and {max}, with {precip} of precipitation in total.",
+      "takeawayDry": "From {from} to {to}: between {min} and {max}, with no precipitation.",
+      "takeawayNoPrecip": "From {from} to {to}: between {min} and {max}."
     },
     "orChooseMap": "or",
     "chooseOnMap": "Choose a station on the map",
@@ -514,6 +527,14 @@
           "veryHigh": "Much wetter"
         }
       }
+    },
+    "takeaway": {
+      "warmer": "The years {recentFrom}–{recentTo} averaged {recent}: {difference} warmer than the {normalFrom}–{normalTo} normal of {normal}.",
+      "cooler": "The years {recentFrom}–{recentTo} averaged {recent}: {difference} cooler than the {normalFrom}–{normalTo} normal of {normal}.",
+      "wetter": "The years {recentFrom}–{recentTo} averaged {recent}: {difference} ({percent}) more than the {normalFrom}–{normalTo} normal of {normal}.",
+      "drier": "The years {recentFrom}–{recentTo} averaged {recent}: {difference} ({percent}) less than the {normalFrom}–{normalTo} normal of {normal}.",
+      "same": "The years {recentFrom}–{recentTo} averaged {recent}, the same as the {normalFrom}–{normalTo} normal.",
+      "normalNote": "The normal is the mean of {normalFrom} to {normalTo}, the thirty years the World Meteorological Organization takes as its reference."
     }
   },
   "explorer": {

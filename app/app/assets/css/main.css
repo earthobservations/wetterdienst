@@ -1,14 +1,143 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
-/* Colour contrast, WCAG 2.2 AA (4.5:1 for text). Nuxt UI's defaults miss it in three places; each is
-   moved the least that clears the ratio, and the fills (--ui-primary, --ui-error) stay as they are. */
+/* ---------------------------------------------------------------------------------------------------------
+   The almanac (GH-3518): paper and ink, one serif for what is read, the system's sans for what is operated,
+   and colour only where it means something. Every pair of colours below is in the contrast table of the pull
+   request; the ratios in the comments are WCAG 2.x ratios.
+   --------------------------------------------------------------------------------------------------------- */
 
-/* Placeholders and other dimmed text: neutral-400 on white (2.6:1) and neutral-500 on the dark
-   background (3.7:1). Dark takes the next lighter shade, which is what muted text already is there.
-   Light takes a quarter of the way from neutral-500 to neutral-600, so that it still clears 4.5:1
-   when a hovered field is tinted (4.9:1 on neutral-100), and muted text takes the same colour, so
-   that a placeholder does not read stronger than a description. */
+/* Newsreader (Production Type, SIL Open Font License 1.1, /fonts/Newsreader-OFL.txt), served by the app itself:
+   the variable weight axis, upright and italic, in the Latin and Latin Extended subsets (Czech, Polish and
+   Danish are Latin Extended). A browser loads a subset only when the page holds one of its characters. */
+@font-face {
+  font-family: Newsreader;
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url("/fonts/newsreader-latin-ext-wght-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: Newsreader;
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url("/fonts/newsreader-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: Newsreader;
+  font-style: italic;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url("/fonts/newsreader-latin-ext-wght-italic.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: Newsreader;
+  font-style: italic;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url("/fonts/newsreader-latin-wght-italic.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@theme static {
+  --font-serif: Newsreader, "Iowan Old Style", Charter, Georgia, serif;
+
+  /* The logo's blue, #2E6FD1, is shade 600; its navy, #17335F, shade 900; and the deep navy behind its sun,
+     #0B1A33, shade 950. One family of the logo's own colours for everything that is a control or a link. */
+  --color-brand-50: #eff4fc;
+  --color-brand-100: #dce7f9;
+  --color-brand-200: #bacff2;
+  --color-brand-300: #8eb2e8;
+  --color-brand-400: #5f91dd;
+  --color-brand-500: #3f7dd7;
+  --color-brand-600: #2e6fd1;
+  --color-brand-700: #2559ab;
+  --color-brand-800: #1e4785;
+  --color-brand-900: #17335f;
+  --color-brand-950: #0b1a33;
+
+  /* Ink and paper: the greys of the app. The light end is warm (paper), from 300 on they lean to the logo's
+     navy (ink), at the lightness of Tailwind's own greys, so the text that was written in them keeps its
+     contrast. Tailwind's `gray` is this scale too, so the classes the pages already carry follow it. */
+  --color-ink-50: #faf9f6;
+  --color-ink-100: #f3f2ee;
+  --color-ink-200: #e5e4de;
+  --color-ink-300: #d0d4db;
+  --color-ink-400: #98a1b0;
+  --color-ink-500: #626c80;
+  --color-ink-600: #495569;
+  --color-ink-700: #354258;
+  --color-ink-800: #1d2a40;
+  --color-ink-900: #0f1d35;
+  --color-ink-950: #071226;
+  --color-gray-50: var(--color-ink-50);
+  --color-gray-100: var(--color-ink-100);
+  --color-gray-200: var(--color-ink-200);
+  --color-gray-300: var(--color-ink-300);
+  --color-gray-400: var(--color-ink-400);
+  --color-gray-500: var(--color-ink-500);
+  --color-gray-600: var(--color-ink-600);
+  --color-gray-700: var(--color-ink-700);
+  --color-gray-800: var(--color-ink-800);
+  --color-gray-900: var(--color-ink-900);
+  --color-gray-950: var(--color-ink-950);
+
+  /* The logo's four tiles, as the four ways in: the sun for the forecast, the thermometer for the climate
+     stripes, the rain for the explorer, the wind for the station history. Fills only, never text. */
+  --color-tile-sun: #ffc93c;
+  --color-tile-heat: #f0543c;
+  --color-tile-rain: #2e6fd1;
+  --color-tile-wind: #2bb3a3;
+}
+
+/* Nuxt UI's tokens: the page is paper in light mode (#fbfaf7) and the logo's night in dark mode (ink 900,
+   #0f1d35). The primary colour of a control is the logo's blue (shade 600: white on it 4.9:1) on paper, and
+   shade 300 at night (its dark label 8.0:1). */
+:root {
+  --ui-bg: #fbfaf7;
+  --ui-bg-muted: var(--ui-color-neutral-100);
+  --ui-primary: var(--ui-color-primary-600);
+  --ui-radius: 0.1875rem;
+  /* the rule under a section, and the heavy one under the masthead */
+  --app-rule: var(--ui-color-neutral-300);
+  --app-rule-strong: var(--color-brand-900);
+  /* text that says which way a value went: warmer (coral, 5.1:1 on paper), cooler (blue, 6.5:1), wetter (teal, 5.0:1) */
+  --app-warm: #c23a22;
+  --app-cool: var(--color-brand-700);
+  --app-wet: #0f7a6e;
+  --app-gutter: 1rem;
+  --app-page-max: 76rem;
+  --app-measure: 46rem;
+}
+.dark {
+  --ui-bg: var(--ui-color-neutral-900);
+  --ui-bg-muted: var(--ui-color-neutral-800);
+  --ui-bg-elevated: var(--ui-color-neutral-800);
+  --ui-border: var(--ui-color-neutral-800);
+  --ui-primary: var(--ui-color-primary-300);
+  --app-rule: var(--ui-color-neutral-700);
+  --app-rule-strong: var(--ui-color-neutral-300);
+  --app-warm: #f47c66;
+  --app-cool: var(--color-brand-300);
+  --app-wet: #2bb3a3;
+}
+@media (min-width: 40rem) {
+  :root {
+    --app-gutter: 1.5rem;
+  }
+}
+@media (min-width: 64rem) {
+  :root {
+    --app-gutter: 2.5rem;
+  }
+}
+
+/* Placeholders and other dimmed text: a quarter of the way from ink 500 to 600, 5.1:1 on paper and 4.7:1 on a
+   hovered field's tint (ink 100); muted text takes the same colour. Dark mode takes ink 400 (6.5:1). */
 :root {
   --ui-text-dimmed: color-mix(in oklab, var(--ui-color-neutral-500), var(--ui-color-neutral-600) 25%);
   --ui-text-muted: var(--ui-text-dimmed);
@@ -17,49 +146,43 @@
   --ui-text-dimmed: var(--ui-color-neutral-400);
 }
 
-/* Text in the primary or error colour on white or on its own tint (outline, soft and link buttons,
-   badges, alerts): shade 500 is 2.2:1 on white for primary, and 3.8:1 on white and 3.3:1 on its
-   tint for error. In dark mode the colours are already light enough. Primary takes shade 700 and a
-   fifth of the way to 800, which is what a hovered soft button's 15 % tint needs to stay at 4.5:1
-   (4.7:1; shade 700 alone is 4.3:1 there). The fill of the solid buttons, --ui-primary, is not
-   touched: that is the colour of the brand (their label: see below). In the utilities layer and with no extra specificity, so
-   that the hover and active colours of a link button still win. */
+/* Text in the primary or error colour on paper or on its own tint: shade 700 (6.5:1 on paper, 5.3:1 on a
+   hovered soft button's tint), and a hovered link shade 800 (8.8:1), as darker is what "hovered" means for text
+   on paper. In dark mode --ui-primary (shade 300) is already the text colour, 7.8:1 on the page. In the utilities
+   layer and with no extra specificity, so that the hover and active colours of a link button still win. */
 @layer utilities {
   :where(:root:not(.dark)) .text-primary {
-    color: color-mix(in oklab, var(--ui-color-primary-700), var(--ui-color-primary-800) 20%);
+    color: var(--ui-color-primary-700);
   }
   :where(:root:not(.dark)) .text-error {
     color: var(--ui-color-error-700);
   }
-  /* A link button is text-primary and, hovered, text-primary at 75 %: the 700-800 mix above, faded
-     over the page, is 3.4:1 on white. A hovered link goes to shade 800 instead, as darker is what
-     "hovered" means for text on white (GH-2991). */
   :where(:root:not(.dark)) .hover\:text-primary\/75:hover {
     color: var(--ui-color-primary-800);
   }
 }
 
-/* The label of a solid primary button (app.config.ts). White on the brand green, #00c950, is 2.2:1,
-   and 1.9:1 hovered, when the fill is 75 % of it over the page. #0f172b (slate-900) on it is 8.0:1,
-   and 9.5:1 hovered. In dark mode the fill is the lighter #05df72 and Nuxt UI's own label is this
-   same colour, so nothing changes there: 10.0:1, and 6.1:1 hovered over the page. The fill, the
-   brand's, is not touched. */
+/* The label of a solid primary button and the fill it has hovered (app.config.ts). Light: white on the logo's
+   blue, 4.9:1, and on shade 700 when hovered, 6.8:1 (Nuxt UI's own hover, 75 % of the fill over the page, would
+   be 3.2:1). Dark: the logo's deep navy on shade 300, 8.0:1, and on shade 200 when hovered, 11.0:1. */
 :root {
-  --app-text-on-primary: #0f172b;
-}
-
-/* The focus indicator of a keyboard user (WCAG 2.4.7, 1.4.11: 3:1 against what is behind it). Nuxt UI draws
-   it as a 3 px outline at 25 % of the primary colour, and a ring in the primary colour where there is one: the
-   first is 1.2:1 to 1.7:1 on white and the brand green, #00c950, 2.2:1, and some fields (the search field of a menu)
-   draw none. One solid outline for everything that takes the focus by keyboard, in shade 700 of the primary
-   colour on light (4.9:1 on white) and shade 400 on dark (10:1 on the page); the rings and outlines of the
-   components stay as they are, beside it. Not in a layer, so that it wins over the utilities of the components.
-   Not for what takes the focus without being a control (a dialog, a chart, a scroll area: tabindex -1). */
-:root {
-  --app-focus-ring: var(--ui-color-primary-700);
+  --app-text-on-primary: #ffffff;
+  --app-primary-hover: var(--color-brand-700);
 }
 .dark {
-  --app-focus-ring: var(--ui-color-primary-400);
+  --app-text-on-primary: #0b1a33;
+  --app-primary-hover: var(--color-brand-200);
+}
+
+/* The focus indicator of a keyboard user (WCAG 2.4.7, 1.4.11): one solid 2 px outline for everything that takes
+   the focus by keyboard, shade 700 of the logo's blue on paper (6.5:1) and shade 300 at night (7.8:1). Not in a
+   layer, so that it wins over the utilities of the components. Not for what takes the focus without being a
+   control (a dialog, a chart, a scroll area: tabindex -1). */
+:root {
+  --app-focus-ring: var(--color-brand-700);
+}
+.dark {
+  --app-focus-ring: var(--color-brand-300);
 }
 :focus-visible:not([tabindex="-1"]) {
   outline: 2px solid var(--app-focus-ring);
@@ -68,7 +191,155 @@
 /* The map is a light surface in both modes (Leaflet's grey, and the tiles): it takes the ring of light mode */
 .leaflet-container:focus-visible,
 .leaflet-container :focus-visible:not([tabindex="-1"]) {
-  outline-color: var(--ui-color-primary-700);
+  outline-color: var(--color-brand-700);
+}
+/* Windows' high contrast themes draw the outline in the system's colour; a control that draws its state with a
+   background only gets a border it can see */
+@media (forced-colors: active) {
+  :focus-visible:not([tabindex="-1"]) {
+    outline-color: Highlight;
+  }
+  .app-tile {
+    forced-color-adjust: none;
+  }
+  /* the section being read is told by its ink underline, which a forced palette may draw like any other border */
+  [aria-current="page"] {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 4px;
+  }
+}
+
+/* ---------------------------------------------------------------------------------------------------------
+   Type
+   --------------------------------------------------------------------------------------------------------- */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  body {
+    background: var(--ui-bg);
+    font-feature-settings: "kern";
+  }
+  /* What is read is set in the serif: every heading of the app. Long words (German, Dutch, Luxembourgish) break
+     at a syllable rather than run out of a phone's width */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-serif);
+    font-optical-sizing: auto;
+    letter-spacing: -0.006em;
+    text-wrap: balance;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+  table {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  /* One page: the masthead, the page and the footer share one width and one gutter at every breakpoint */
+  .app-page {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: var(--app-page-max);
+    margin-inline: auto;
+    padding-inline: var(--app-gutter);
+  }
+  /* The width of a line that is read: what is text keeps it on the wide page too, at the page's left edge */
+  .app-measure {
+    max-width: var(--app-measure);
+  }
+
+  /* A label above a headline, as a newspaper sets the section above an article */
+  .app-kicker {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    line-height: 1.25rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ui-text-toned);
+  }
+  /* The logo's rounded square, small, as the colour of a section */
+  .app-tile {
+    display: inline-block;
+    flex-shrink: 0;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 0.2rem;
+  }
+  .app-title {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    font-size: clamp(2.125rem, 1.6rem + 2.4vw, 3.5rem);
+    line-height: 1.05;
+    letter-spacing: -0.015em;
+    color: var(--ui-text-highlighted);
+  }
+  /* The paragraph under a headline that says what the page is for */
+  .app-lede {
+    font-family: var(--font-serif);
+    font-size: clamp(1.125rem, 1.05rem + 0.4vw, 1.375rem);
+    line-height: 1.45;
+    color: var(--ui-text-toned);
+  }
+  /* What a figure shows, in a sentence computed from what it draws */
+  .app-takeaway {
+    font-family: var(--font-serif);
+    font-size: 1.125rem;
+    line-height: 1.5;
+    color: var(--ui-text-highlighted);
+  }
+  .app-takeaway em {
+    font-style: normal;
+    font-weight: 650;
+  }
+  .app-warm {
+    color: var(--app-warm);
+  }
+  .app-cool {
+    color: var(--app-cool);
+  }
+  .app-wet {
+    color: var(--app-wet);
+  }
+  /* A figure, a number set large, and what it counts under it */
+  .app-figure-number {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    line-height: 1.1;
+    font-variant-numeric: lining-nums tabular-nums;
+    color: var(--ui-text-highlighted);
+  }
+}
+
+/* Print: the page as it reads, without the controls that operate it */
+@media print {
+  .app-masthead nav,
+  .app-masthead .app-masthead-tools,
+  .app-footer,
+  .modebar-container,
+  [data-print="hide"] {
+    display: none !important;
+  }
+  :root,
+  .dark {
+    --ui-bg: #fff;
+  }
+  body {
+    background: #fff;
+    color: #000;
+  }
+  a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.8em;
+    overflow-wrap: anywhere;
+  }
 }
 
 /* Undo Tailwind v4 preflight that breaks Plotly's stacked SVG layout.
@@ -114,6 +385,12 @@
 @media (prefers-reduced-motion: reduce) {
   .needs-input {
     box-shadow: 0 0 0 2px color-mix(in oklab, var(--ui-primary) 60%, transparent);
+  }
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }
 @keyframes needs-input-pulse {

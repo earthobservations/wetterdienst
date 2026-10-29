@@ -130,6 +130,16 @@
     "about": "O projektu",
     "licenses": "Licence třetích stran"
   },
+  "layout": {
+    "skipToContent": "Přejít na obsah",
+    "sections": "Rubriky",
+    "kicker": {
+      "weather": "Počasí a klima",
+      "data": "Údaje",
+      "reference": "Příručka",
+      "project": "O projektu"
+    }
+  },
   "language": {
     "switch": "Změnit jazyk",
     "inclusiveHint": "Vítejte všichni"
@@ -428,7 +438,10 @@
         "cloudy": "Zataženo",
         "partlyCloudy": "Polojasno",
         "clear": "Slunečno"
-      }
+      },
+      "takeaway": "Od {from} do {to}: mezi {min} a {max}, celkem {precip} srážek.",
+      "takeawayDry": "Od {from} do {to}: mezi {min} a {max}, bez srážek.",
+      "takeawayNoPrecip": "Od {from} do {to}: mezi {min} a {max}."
     },
     "orChooseMap": "nebo",
     "chooseOnMap": "Vyber stanici na mapě",
@@ -514,6 +527,14 @@
           "veryHigh": "Mnohem vlhčí"
         }
       }
+    },
+    "takeaway": {
+      "warmer": "Roky {recentFrom}–{recentTo} měly v průměru {recent}: o {difference} tepleji než normál {normalFrom}–{normalTo} ({normal}).",
+      "cooler": "Roky {recentFrom}–{recentTo} měly v průměru {recent}: o {difference} chladněji než normál {normalFrom}–{normalTo} ({normal}).",
+      "wetter": "Roky {recentFrom}–{recentTo} přinesly v průměru {recent}: o {difference} ({percent}) více než normál {normalFrom}–{normalTo} ({normal}).",
+      "drier": "Roky {recentFrom}–{recentTo} přinesly v průměru {recent}: o {difference} ({percent}) méně než normál {normalFrom}–{normalTo} ({normal}).",
+      "same": "Roky {recentFrom}–{recentTo} měly v průměru {recent}, stejně jako normál {normalFrom}–{normalTo}.",
+      "normalNote": "Normál je průměr let {normalFrom} až {normalTo}, referenční období Světové meteorologické organizace."
     }
   },
   "explorer": {

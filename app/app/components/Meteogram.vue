@@ -529,6 +529,35 @@ const summaryStats = computed(() => {
   }
 })
 
+// What the forecast says in one sentence (GH-3518), from the series the chart draws: the span of the temperature
+// forecast in the station's time, its lowest and highest value, and the precipitation summed over it. None
+// where there is no temperature to tell.
+const takeaway = computed(() => {
+  const series = seriesCache.value
+  const available = new Set(series.keys())
+  const tempKey = findFirstAvailable(METEOGRAM_SERIES.temperature, available)
+  const temperature = tempKey ? series.get(tempKey) : undefined
+  const stats = summaryStats.value
+  if (!temperature || !stats?.temp)
+    return null
+  const times = temperature.x.filter((_, i) => temperature.y[i] !== null && !Number.isNaN(temperature.y[i])).map(date => date.getTime())
+  if (!times.length)
+    return null
+  const write = (ms: number) => DateTime.fromMillis(ms, { zone: stationTimeZone.value }).setLocale(language.value).toLocaleString({ weekday: 'short', day: 'numeric', month: 'short' })
+  const params = {
+    from: write(Math.min(...times)),
+    to: write(Math.max(...times)),
+    min: `${formatNumber(stats.temp.min, locale.value, 0)} °C`,
+    max: `${formatNumber(stats.temp.max, locale.value, 0)} °C`,
+    precip: `${formatNumber(stats.precip, locale.value, 1)} mm`,
+  }
+  const hasPrecipitation = Boolean(findFirstAvailable(METEOGRAM_SERIES.precipitation, available))
+  const key = !hasPrecipitation
+    ? 'meteogram.chart.takeawayNoPrecip'
+    : stats.precip > 0 ? 'meteogram.chart.takeaway' : 'meteogram.chart.takeawayDry'
+  return t(key, params)
+})
+
 function ensureOverlay() {
   if (!chartRef.value)
     return
@@ -1995,8 +2024,13 @@ watch(
     />
 
     <div v-if="values && values.length > 0" class="space-y-5">
+      <!-- what the forecast says, in a sentence computed from the series drawn -->
+      <p v-if="takeaway && !widget" class="app-takeaway app-measure">
+        {{ takeaway }}
+      </p>
+
       <!-- Premium Overhauled Filter / Controls Toolbar -->
-      <div v-if="!widget" class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gray-50/70 dark:bg-gray-800/40 p-3.5 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm">
+      <div v-if="!widget" class="flex flex-col md:flex-row md:items-center justify-between gap-4 py-3 border-y border-(--app-rule)">
         <!-- Left group: panel toggles + horizon selector (wraps as a unit on narrow viewports) -->
         <div v-if="!compact" class="flex flex-wrap items-center gap-2 min-w-0">
           <!-- Interactive Panel Selectors -->
@@ -2151,7 +2185,7 @@ watch(
 
       <!-- Main Interactive Chart Container -->
       <div v-if="!compact">
-        <div class="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
+        <div class="rounded-sm border border-(--app-rule) bg-white dark:bg-gray-900 overflow-hidden">
           <div
             v-if="renderFailed"
             ref="chartNotice"
@@ -2189,7 +2223,7 @@ watch(
       </div>
 
       <!-- Premium Compact Overview Grid -->
-      <div v-else class="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-md p-4">
+      <div v-else class="rounded-sm border border-(--app-rule) p-4">
         <div class="flex items-center justify-start gap-4 overflow-x-auto whitespace-nowrap py-1 px-1">
           <template v-for="(d, idx) in compactDays" :key="idx">
             <div

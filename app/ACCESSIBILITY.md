@@ -61,21 +61,23 @@ What is left in it, and why it is not fixed in the app's own markup:
 - `aria-hidden-focus`, the error toast: the two focus proxies in Reka UI's toast viewport are
   `aria-hidden` and focusable. Also upstream.
 
-There is no `color-contrast` entry left. The brand green, `#00c950`, stays the fill of a solid primary
-button; its label is `#0f172b` (`--app-text-on-primary` in `app/assets/css/main.css`, set for the
-button in `app/app.config.ts`), 8.0:1 on the fill and 9.5:1 hovered in light mode, where the white
-label it replaces was 2.2:1 and 1.9:1. Dark mode has the same label on its lighter fill, as Nuxt UI
-already had it (10.0:1, and 6.1:1 hovered). A disabled button is exempt from 1.4.3 and from the scans; its
-label is at 75 % opacity with its fill (4.2:1 in light mode). Text in the primary colour on white is
-shade 700 and a fifth of the way to 800 (`.text-primary`), a hovered link button shade 800 (7.1:1; Nuxt UI's
-75 % of the first was 3.4:1), and a hovered chip of the home page shade 700 (4.9:1; shade 500 was 2.2:1).
-`tests/unit/button-contrast.test.ts` computes the hovered ratio of a solid button, as 75 % of the fill over
-the page; the hover scan measures the rest.
+There is no `color-contrast` entry left. The page is paper (`#fbfaf7`) in light mode and the logo's night
+(`#0f1d35`) in dark mode, and the fill of a solid primary button is the logo's blue, `#2e6fd1`, with a white
+label (4.9:1); hovered, the fill turns to shade 700 (6.8:1), where Nuxt UI's own hover, 75 % of the fill over the
+page, would be 3.2:1 (`--app-text-on-primary` and `--app-primary-hover` in `app/assets/css/main.css`, set for the
+button in `app/app.config.ts`). Dark mode has the logo's deep navy, `#0b1a33`, on shade 300 (8.0:1) and on shade
+200 hovered (11.0:1). A disabled button is exempt from 1.4.3 and from the scans; its label is at 75 % opacity
+with its fill. Text in the primary colour on paper is shade 700 (`.text-primary`, 6.5:1), a hovered link button
+shade 800 (8.8:1). The greys of the app are one scale, ink and paper, at the lightness of Tailwind's own, so that
+the text written in them keeps its contrast; dimmed text is 5.1:1 on paper and 4.7:1 on a hovered field.
+`tests/unit/button-contrast.test.ts` computes the ratios of a solid button, at rest and hovered, from `main.css`;
+the hover scan measures the rest.
 
 The focus indicator is one solid 2 px outline for everything a keyboard reaches (`--app-focus-ring` in
-`main.css`: shade 700 of the primary colour on light, 4.9:1 on white, shade 400 on dark, 10:1; the map takes
-the light one in both modes). Nuxt UI's own is an outline at 25 % of the primary colour (1.2:1 to 1.7:1 on
-white) and a ring in the primary colour (2.2:1), and its menu search fields draw none; they stay, beside it.
+`main.css`: shade 700 of the logo's blue on light, 6.5:1 on paper, shade 300 on dark, 7.8:1; the map takes
+the light one in both modes). Nuxt UI's own is an outline at 25 % of the primary colour and a ring in the primary
+colour, and its menu search fields draw none; they stay, beside it. In a forced palette (Windows' contrast themes)
+the outline is the system's highlight, and the section being read is underlined as well as marked by its rule.
 
 There is no sepia mode. `main.css` once held a `html.sepia` block that redefined the `--ui-*` tokens, which
 nothing in the app ever set (`colorMode` knows `light`, `dark` and `system`, and the settings offer those

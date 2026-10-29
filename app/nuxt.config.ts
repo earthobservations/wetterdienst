@@ -72,6 +72,13 @@ export default defineNuxtConfig({
 
   devtools: { enabled: true },
 
+  // The app's one web font, Newsreader, is a file of the app (`public/fonts`, declared in `main.css`), and the
+  // rest is the system's sans: Nuxt UI's `@nuxt/fonts`, which looks a family up at a font provider when the app
+  // is built, is not needed (GH-3518).
+  ui: {
+    fonts: false,
+  },
+
   // The icons come from this app's own server (GH-3111): the three sets are installed (`@iconify-json/*`) and
   // the server bundle serves them. `provider` is set because @nuxt/icon picks `iconify`, which asks
   // api.iconify.design for every icon, whenever `ssr` is false, as it is here. `localApiEndpoint` is outside
