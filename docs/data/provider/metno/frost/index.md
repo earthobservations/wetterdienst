@@ -19,6 +19,13 @@ with ship codes, so there is no fixed place to state. They stay in the list with
 `latitude` and `longitude`, and a search by distance or bounding box, an interpolation or a
 summary never picks them.
 
+## Time window
+
+Every resolution needs a window, because Frost is asked for one reference time range. The REST
+API, the CLI and MCP refuse a request for values without a start and end date (REST API: 400,
+`timestamp` is required). The Python API does not check: it returns an empty frame. Stations can be
+listed without a window.
+
 ## License
 
 Data is © Norwegian Meteorological Institute (MET Norway). See
