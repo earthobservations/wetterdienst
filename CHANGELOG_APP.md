@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Design]` The home page is a map of the stations: the forecast points, the measuring stations of a
+  chosen provider, or the stations with climate stripes. A station or a place picked on it, or in the
+  list and search beside it, shows its forecast, climate stripes, measurements and history, each at the
+  nearest station that has them. The other pages share one container and header; the colours are the
+  logo's blue and navy, and the typeface is Atkinson Hyperlegible Next, served by the app (GH-3518)
+
 ## [0.39.0] - 2026-10-28
 
 ### Security

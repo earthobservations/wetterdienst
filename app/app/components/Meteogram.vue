@@ -14,6 +14,8 @@ const props = defineProps<{
   stationName?: string | null
   stationCoords?: { latitude: number | null, longitude: number | null } | null
   widget?: boolean
+  /** The day cards alone, with no chart and no controls: the forecast in the map's panel (GH-3518) */
+  daysOnly?: boolean
 }>()
 
 const { t, locale, localeProperties } = useI18n()
@@ -32,7 +34,7 @@ const colorMode = useColorMode()
 const isDark = computed(() => colorMode.value === 'dark')
 
 // Compact mode toggles a denser, lower-height rendering of the meteogram.
-const compact = ref(false)
+const compact = ref(props.daysOnly === true)
 const chartHeight = computed(() => (compact.value ? '320px' : '540px'))
 // Limit how many days the compact view will show by default
 const MAX_COMPACT_DAYS = 7
@@ -69,6 +71,9 @@ const seriesCache = computed(() => buildSeries(props.values ?? []))
 // On mount try to restore user preference and auto-enable compact on small screens,
 // with URL params taking precedence over localStorage.
 onMounted(() => {
+  // the day cards and nothing else: no preference, no link and no chart to restore
+  if (props.daysOnly)
+    return
   try {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem(LOCAL_STORAGE_KEY)
@@ -2189,39 +2194,57 @@ watch(
       </div>
 
       <!-- Premium Compact Overview Grid -->
-      <div v-else class="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-md p-4">
-        <div class="flex items-center justify-start gap-4 overflow-x-auto whitespace-nowrap py-1 px-1">
-          <template v-for="(d, idx) in compactDays" :key="idx">
-            <div
-              class="inline-flex flex-col items-center justify-center text-center p-4 rounded-2xl border transition-all duration-300 min-w-[105px] flex-shrink-0" :class="[
-                d.isToday
-                  ? 'bg-blue-500/5 dark:bg-blue-500/10 border-blue-400 dark:border-blue-800 ring-1 ring-blue-400/20 shadow-md shadow-blue-500/5'
-                  : 'bg-gray-50/50 dark:bg-gray-900/30 border-gray-100 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-900/70 hover:border-gray-200 dark:hover:border-gray-700',
-              ]"
-            >
-              <div class="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-widest mb-1">
-                {{ d.isToday ? t('meteogram.chart.today') : d.weekday }}
-              </div>
-              <!-- the symbol is a decoration; the words are what a screen reader reads (WCAG 1.1.1) -->
-              <div class="text-3xl my-3 filter drop-shadow-sm select-none animate-bounce-slow" aria-hidden="true">
-                {{ WEATHER_SYMBOLS[d.kind] }}
-              </div>
-              <div class="sr-only">
-                {{ t(`meteogram.chart.weather.${d.kind}`) }}
-              </div>
-              <div class="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">
-                {{ d.dayMonth }}
-              </div>
-              <div v-if="d.tempLabel" class="text-xs font-extrabold text-gray-700 dark:text-gray-200 mt-1 bg-white dark:bg-gray-800/80 px-2 py-0.5 rounded-lg border border-gray-100 dark:border-gray-700 shadow-xs">
-                {{ d.tempLabel }}
-              </div>
-              <div v-if="d.precipLabel" class="text-xs font-semibold text-blue-600 dark:text-blue-400 mt-1 select-none">
-                <span aria-hidden="true">💧</span>
+      <!-- the cards wrap onto as many rows as the width needs: a row that scrolled sideways hid days from
+           a reader who did not know to scroll, and was a scroll area no keyboard could reach -->
+      <div v-else :class="daysOnly ? '' : 'rounded-xl border border-default bg-default p-4'">
+        <!-- in the map's panel, one row a day: the day, its weather, its temperatures and its rain -->
+        <ul v-if="daysOnly" class="divide-y divide-default">
+          <li v-for="(d, idx) in compactDays" :key="idx" class="grid grid-cols-[minmax(4.5rem,auto)_2rem_1fr_auto] items-center gap-x-3 py-2">
+            <span class="text-sm" :class="d.isToday ? 'font-bold text-highlighted' : 'text-toned'">
+              {{ d.isToday ? t('meteogram.chart.today') : d.weekday }}
+              <span class="block text-xs font-normal text-muted tabular">{{ d.dayMonth }}</span>
+            </span>
+            <span class="text-2xl leading-none select-none" aria-hidden="true">{{ WEATHER_SYMBOLS[d.kind] }}</span>
+            <span class="text-sm text-toned">
+              <span class="sr-only">{{ t(`meteogram.chart.weather.${d.kind}`) }}</span>
+              <span v-if="d.precipLabel" class="text-blue-700 dark:text-blue-300 tabular">
                 <span class="sr-only">{{ t('meteogram.chart.panelPrecipitation') }}: </span>{{ d.precipLabel }}
-              </div>
+              </span>
+            </span>
+            <span v-if="d.tempLabel" class="text-sm font-bold text-highlighted tabular text-end">{{ d.tempLabel }}</span>
+          </li>
+        </ul>
+        <ul v-else class="grid grid-cols-[repeat(auto-fill,minmax(6.25rem,1fr))] gap-2.5">
+          <li
+            v-for="(d, idx) in compactDays"
+            :key="idx"
+            class="flex flex-col items-center text-center gap-1 px-2 py-3 rounded-xl border"
+            :class="d.isToday
+              ? 'border-primary bg-primary/5'
+              : 'border-default bg-muted'"
+          >
+            <div class="text-xs font-bold text-toned uppercase tracking-wider">
+              {{ d.isToday ? t('meteogram.chart.today') : d.weekday }}
             </div>
-          </template>
-        </div>
+            <!-- the symbol is a decoration; the words are what a screen reader reads (WCAG 1.1.1) -->
+            <div class="text-3xl my-1.5 select-none animate-bounce-slow" aria-hidden="true">
+              {{ WEATHER_SYMBOLS[d.kind] }}
+            </div>
+            <div class="sr-only">
+              {{ t(`meteogram.chart.weather.${d.kind}`) }}
+            </div>
+            <div class="text-xs text-muted">
+              {{ d.dayMonth }}
+            </div>
+            <div v-if="d.tempLabel" class="text-sm font-bold text-highlighted tabular">
+              {{ d.tempLabel }}
+            </div>
+            <div v-if="d.precipLabel" class="text-xs font-semibold text-blue-700 dark:text-blue-300 tabular">
+              <span aria-hidden="true">💧</span>
+              <span class="sr-only">{{ t('meteogram.chart.panelPrecipitation') }}: </span>{{ d.precipLabel }}
+            </div>
+          </li>
+        </ul>
       </div>
     </div>
   </div>

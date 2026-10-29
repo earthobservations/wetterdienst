@@ -62,6 +62,36 @@
     "kindRoadDesc": "Condizioni e temperature del manto stradale dalle stazioni stradali del DWD, con le relative previsioni.",
     "aboutLink": "Il progetto e le persone che ci stanno dietro"
   },
+  "atlas": {
+    "layers": "Mostra sulla mappa",
+    "layerForecast": "Previsioni",
+    "layerMeasured": "Misurazioni",
+    "layerStripes": "Strisce climatiche",
+    "count": "Stazioni: {count}",
+    "loadingStations": "Caricamento delle stazioni …",
+    "stationsFailed": "Non è stato possibile caricare le stazioni.",
+    "search": "Trova una stazione",
+    "searchPlaceholder": "Nome o ID della stazione",
+    "nearCentre": "Vicino al centro della mappa",
+    "results": "Stazioni trovate",
+    "noResults": "Nessuna stazione corrisponde a «{query}».",
+    "back": "Tutte le stazioni",
+    "chosen": "{name} scelta.",
+    "elevation": "{value} m s.l.m.",
+    "pickedPlace": "La stazione più vicina al punto scelto, a {distance}",
+    "at": "A {name}, a {distance}",
+    "noneNearby": "Nessuna stazione di questo tipo entro {distance}.",
+    "since": "dal {year}",
+    "openForecast": "Apri le previsioni",
+    "openStripes": "Apri le strisce climatiche",
+    "openExplorer": "Apri nell'esploratore",
+    "openHistory": "Apri la cronologia della stazione",
+    "stripesFigure": "Strisce climatiche di {name}, dal {first} al {last}: una striscia per anno, blu per i più freschi e rossa per i più caldi.",
+    "zoomIn": "Ingrandisci",
+    "zoomOut": "Riduci",
+    "mapLabel": "Mappa delle stazioni. Le frecce la spostano, più e meno ingrandiscono e riducono; il pannello elenca le stazioni vicine al suo centro.",
+    "pickCentre": "Scegli il centro della mappa"
+  },
   "seo": {
     "title": "Wetterdienst – dati meteorologici e climatici aperti dei servizi meteorologici nazionali",
     "description": "Dati meteorologici e climatici aperti dei servizi meteorologici nazionali, in un unico formato: esploratore, previsioni, strisce climatiche, API REST e server MCP. Open source e gratuito.",
@@ -116,12 +146,18 @@
     "providers": "Fornitori",
     "api": "API",
     "glossary": "Glossario",
-    "support": "Supporto"
+    "support": "Supporto",
+    "map": "Mappa"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menu"
+    "menu": "Menu",
+    "skip": "Vai al contenuto",
+    "pages": "Pagine",
+    "groupData": "Dati",
+    "groupReference": "Riferimento",
+    "groupProject": "Progetto"
   },
   "footer": {
     "copyright": "© {year} earthobservations",

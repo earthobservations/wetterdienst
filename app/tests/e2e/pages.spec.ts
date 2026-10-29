@@ -57,6 +57,38 @@ test.describe('Home Page', () => {
   })
 })
 
+// The home page is a map of the stations (GH-3518), with a panel that lists and finds them
+test.describe('Map (home page)', () => {
+  test('lists the forecast points near the centre of the map, and opens one with its forecast', async ({ page }) => {
+    await page.goto('/')
+    const first = page.locator('.atlas-list-item').first()
+    await expect(first).toBeVisible({ timeout: 60_000 })
+    await expect(page.getByText(/^Stations: \d+/)).toBeVisible()
+
+    await first.click()
+    await expect(page.getByRole('button', { name: 'All stations' })).toBeVisible()
+    await expect(page).toHaveURL(/[?&]station=/)
+    await expect(page.getByRole('link', { name: 'Open the forecast' })).toHaveAttribute('href', /^\/meteogram\?station=/)
+    await expect(page.getByText('Today').first()).toBeVisible({ timeout: 60_000 })
+  })
+
+  test('finds a station by its name', async ({ page }) => {
+    await page.goto('/')
+    await expect(page.locator('.atlas-list-item').first()).toBeVisible({ timeout: 60_000 })
+    await page.getByLabel('Find a station').fill('helgoland')
+    await expect(page.getByRole('heading', { name: 'Stations found' })).toBeVisible()
+    await expect(page.locator('.atlas-list-item', { hasText: /HELGOLAND/i }).first()).toBeVisible()
+  })
+
+  test('shows the measuring stations of a provider, and keeps the choice in the address', async ({ page }) => {
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Measurements' }).click()
+    await expect(page).toHaveURL(/layer=measured/)
+    await expect(page.getByRole('combobox', { name: 'Provider' })).toBeVisible()
+    await expect(page.locator('.atlas-list-item').first()).toBeVisible({ timeout: 60_000 })
+  })
+})
+
 test.describe('API Documentation Page', () => {
   test('should navigate to API page', async ({ page }) => {
     await page.goto('/')

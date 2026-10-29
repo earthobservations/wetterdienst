@@ -62,6 +62,36 @@
     "kindRoadDesc": "Fahrbahntostand un -temperaturen vun de DWD-Straatenwedderstationen, mitsamt ehr Utsichten.",
     "aboutLink": "Över dat Projekt un de Lüüd dorachter"
   },
+  "atlas": {
+    "layers": "Op de Kaart wiesen",
+    "layerForecast": "Utsicht",
+    "layerMeasured": "Meetweerten",
+    "layerStripes": "Klimastrepen",
+    "count": "Stationen: {count}",
+    "loadingStations": "De Stationen warrt laadt …",
+    "stationsFailed": "De Stationen kunnen nich laadt warrn.",
+    "search": "Station finnen",
+    "searchPlaceholder": "Naam oder ID vun de Station",
+    "nearCentre": "Dicht bi de Middel vun de Kaart",
+    "results": "Funnen Stationen",
+    "noResults": "Keen Station passt to „{query}“.",
+    "back": "All Stationen",
+    "chosen": "{name} utsöcht.",
+    "elevation": "{value} m över de See",
+    "pickedPlace": "De neegste Station to'n utsöchten Punkt, {distance} weg",
+    "at": "Bi {name}, {distance} weg",
+    "noneNearby": "Keen Station vun disse Oort binnen {distance}.",
+    "since": "siet {year}",
+    "openForecast": "Utsicht apenmaken",
+    "openStripes": "Klimastrepen apenmaken",
+    "openExplorer": "In'n Explorer apenmaken",
+    "openHistory": "Stationschronik apenmaken",
+    "stripesFigure": "Klimastrepen vun {name}, {first} bet {last}: een Striep per Johr, blau för de köhlsten un root för de wärmsten.",
+    "zoomIn": "Grötter maken",
+    "zoomOut": "Lütter maken",
+    "mapLabel": "Kaart vun de Stationen. De Piltasten schuuvt ehr, Plus un Minus zoomt; de List wiest de Stationen dicht bi ehr Middel.",
+    "pickCentre": "Middel vun de Kaart utsöken"
+  },
   "seo": {
     "title": "Wetterdienst – apen Wedder- un Klimadaten vun nationale Wedderdeenste",
     "description": "Apen Wedder- un Klimadaten vun nationale Wedderdeenste in een Format: Explorer, Wedderutsicht, Klimastrepen, REST-API un MCP-Server. Apen Quelltext un gratis.",
@@ -116,12 +146,18 @@
     "providers": "Anbeder",
     "api": "API",
     "glossary": "Glossar",
-    "support": "Ünnerstütten"
+    "support": "Ünnerstütten",
+    "map": "Kaart"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menü"
+    "menu": "Menü",
+    "skip": "Na'n Inhalt springen",
+    "pages": "Sieden",
+    "groupData": "Daten",
+    "groupReference": "Nakieken",
+    "groupProject": "Projekt"
   },
   "footer": {
     "copyright": "© {year} earthobservations",

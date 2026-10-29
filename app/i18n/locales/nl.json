@@ -62,6 +62,36 @@
     "kindRoadDesc": "Wegdekcondities en -temperaturen van de DWD-wegweerstations, met hun verwachtingen.",
     "aboutLink": "Over het project en de mensen erachter"
   },
+  "atlas": {
+    "layers": "Op de kaart tonen",
+    "layerForecast": "Verwachting",
+    "layerMeasured": "Metingen",
+    "layerStripes": "Klimaatstrepen",
+    "count": "Stations: {count}",
+    "loadingStations": "Stations worden geladen …",
+    "stationsFailed": "De stations konden niet worden geladen.",
+    "search": "Een station zoeken",
+    "searchPlaceholder": "Naam of ID van het station",
+    "nearCentre": "Dicht bij het midden van de kaart",
+    "results": "Gevonden stations",
+    "noResults": "Geen station past bij “{query}”.",
+    "back": "Alle stations",
+    "chosen": "{name} gekozen.",
+    "elevation": "{value} m boven zeeniveau",
+    "pickedPlace": "Het dichtstbijzijnde station bij het gekozen punt, op {distance}",
+    "at": "Bij {name}, op {distance}",
+    "noneNearby": "Geen station van deze soort binnen {distance}.",
+    "since": "sinds {year}",
+    "openForecast": "Verwachting openen",
+    "openStripes": "Klimaatstrepen openen",
+    "openExplorer": "Openen in de verkenner",
+    "openHistory": "Stationsgeschiedenis openen",
+    "stripesFigure": "Klimaatstrepen van {name}, {first} tot {last}: één streep per jaar, blauw voor de koelste en rood voor de warmste.",
+    "zoomIn": "Inzoomen",
+    "zoomOut": "Uitzoomen",
+    "mapLabel": "Kaart van de stations. De pijltjestoetsen verschuiven haar, plus en min zoomen; het paneel toont de stations bij het midden.",
+    "pickCentre": "Kies het midden van de kaart"
+  },
   "seo": {
     "title": "Wetterdienst – open weer- en klimaatdata van nationale weerdiensten",
     "description": "Open weer- en klimaatdata van nationale weerdiensten in één formaat: verkenner, weersverwachting, klimaatstrepen, REST-API en MCP-server. Open source en gratis.",
@@ -116,12 +146,18 @@
     "providers": "Aanbieders",
     "api": "API",
     "glossary": "Woordenlijst",
-    "support": "Ondersteuning"
+    "support": "Ondersteuning",
+    "map": "Kaart"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menu"
+    "menu": "Menu",
+    "skip": "Naar de inhoud",
+    "pages": "Pagina's",
+    "groupData": "Gegevens",
+    "groupReference": "Naslag",
+    "groupProject": "Project"
   },
   "footer": {
     "copyright": "© {year} earthobservations",

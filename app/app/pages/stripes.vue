@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { describeFetchError } from '~/utils/api-error'
 import { formatNumber, plotlySeparators } from '~/utils/format'
-import { stripeYears } from '~/utils/stripes'
+import { COLOR_MAPS, stripeYears } from '~/utils/stripes'
 import { unitSymbol } from '~/utils/unit-targets'
 
 const { t, locale } = useI18n()
@@ -174,26 +174,6 @@ let fetchesStarted = 0
 const fetchError = ref<string | null>(null)
 
 // Color maps
-const COLOR_MAPS: Record<StripesKind, Array<[number, string]>> = {
-  temperature: [
-    [0, 'rgb(5,48,97)'],
-    [0.2, 'rgb(33,102,172)'],
-    [0.4, 'rgb(146,197,222)'],
-    [0.5, 'rgb(247,247,247)'],
-    [0.6, 'rgb(253,219,199)'],
-    [0.8, 'rgb(239,138,98)'],
-    [1, 'rgb(178,24,43)'],
-  ],
-  precipitation: [
-    [0, 'rgb(84,48,5)'],
-    [0.2, 'rgb(140,81,10)'],
-    [0.4, 'rgb(191,129,45)'],
-    [0.5, 'rgb(246,232,195)'],
-    [0.6, 'rgb(199,234,229)'],
-    [0.8, 'rgb(90,180,172)'],
-    [1, 'rgb(1,102,94)'],
-  ],
-}
 
 async function fetchAndPlotStripes() {
   if (!selectedStation.value)
@@ -728,16 +708,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('stripes.title') }}
-      </h1>
-      <p class="text-gray-600 dark:text-gray-400">
-        {{ t('stripes.subtitle') }}
-      </p>
-    </div>
-
+  <PageShell :title="t('stripes.title')" :subtitle="t('stripes.subtitle')" width="default">
     <UCollapsible v-model="showAbout">
       <UButton
         :label="t('stripes.aboutButton')"
@@ -961,5 +932,5 @@ onMounted(() => {
         </div>
       </div>
     </UCard>
-  </UContainer>
+  </PageShell>
 </template>

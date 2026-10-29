@@ -62,6 +62,36 @@
     "kindRoadDesc": "Vejbaneforhold og -temperaturer fra DWD's vejvejrstationer samt deres prognoser.",
     "aboutLink": "Om projektet og menneskene bag"
   },
+  "atlas": {
+    "layers": "Vis på kortet",
+    "layerForecast": "Udsigt",
+    "layerMeasured": "Målinger",
+    "layerStripes": "Klimastriber",
+    "count": "Stationer: {count}",
+    "loadingStations": "Indlæser stationerne …",
+    "stationsFailed": "Stationerne kunne ikke indlæses.",
+    "search": "Find en station",
+    "searchPlaceholder": "Stationens navn eller ID",
+    "nearCentre": "Nær kortets midte",
+    "results": "Fundne stationer",
+    "noResults": "Ingen station passer til “{query}”.",
+    "back": "Alle stationer",
+    "chosen": "{name} valgt.",
+    "elevation": "{value} m over havet",
+    "pickedPlace": "Den nærmeste station til det valgte punkt, {distance} væk",
+    "at": "Ved {name}, {distance} væk",
+    "noneNearby": "Ingen station af denne slags inden for {distance}.",
+    "since": "siden {year}",
+    "openForecast": "Åbn udsigten",
+    "openStripes": "Åbn klimastriberne",
+    "openExplorer": "Åbn i udforskeren",
+    "openHistory": "Åbn stationshistorikken",
+    "stripesFigure": "Klimastriber for {name}, {first} til {last}: én stribe pr. år, blå for de koldeste og rød for de varmeste.",
+    "zoomIn": "Zoom ind",
+    "zoomOut": "Zoom ud",
+    "mapLabel": "Kort over stationerne. Piletasterne flytter det, plus og minus zoomer; panelet viser stationerne nær midten.",
+    "pickCentre": "Vælg kortets midte"
+  },
   "seo": {
     "title": "Wetterdienst – åbne vejr- og klimadata fra nationale vejrtjenester",
     "description": "Åbne vejr- og klimadata fra nationale vejrtjenester i ét format: udforsker, vejrudsigt, klimastriber, REST API og MCP-server. Open source og gratis.",
@@ -116,12 +146,18 @@
     "providers": "Udbydere",
     "api": "API",
     "glossary": "Ordliste",
-    "support": "Support"
+    "support": "Support",
+    "map": "Kort"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menu"
+    "menu": "Menu",
+    "skip": "Gå til indholdet",
+    "pages": "Sider",
+    "groupData": "Data",
+    "groupReference": "Opslag",
+    "groupProject": "Projekt"
   },
   "footer": {
     "copyright": "© {year} earthobservations",

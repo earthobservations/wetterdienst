@@ -62,6 +62,36 @@
     "kindRoadDesc": "Road surface conditions and temperatures from the DWD road weather stations, and their forecasts.",
     "aboutLink": "About the project and the people behind it"
   },
+  "atlas": {
+    "layers": "Show on the map",
+    "layerForecast": "Forecast",
+    "layerMeasured": "Measurements",
+    "layerStripes": "Climate stripes",
+    "count": "Stations: {count}",
+    "loadingStations": "Loading the stations …",
+    "stationsFailed": "The stations could not be loaded.",
+    "search": "Find a station",
+    "searchPlaceholder": "Station name or ID",
+    "nearCentre": "Near the centre of the map",
+    "results": "Stations found",
+    "noResults": "No station matches “{query}”.",
+    "back": "All stations",
+    "chosen": "{name} chosen.",
+    "elevation": "{value} m above sea level",
+    "pickedPlace": "The nearest station to the point you picked, {distance} away",
+    "at": "At {name}, {distance} away",
+    "noneNearby": "No station of this kind within {distance}.",
+    "since": "since {year}",
+    "openForecast": "Open the forecast",
+    "openStripes": "Open the climate stripes",
+    "openExplorer": "Open in the explorer",
+    "openHistory": "Open the station history",
+    "stripesFigure": "Climate stripes of {name}, {first} to {last}: one stripe a year, blue for the coolest and red for the warmest.",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "mapLabel": "Map of the stations. The arrow keys move it, plus and minus zoom; the panel lists the stations near its centre.",
+    "pickCentre": "Choose the centre of the map"
+  },
   "seo": {
     "title": "Wetterdienst – open weather and climate data from national weather services",
     "description": "Open weather and climate data from national weather services, in one format: explorer, forecast, climate stripes, REST API and MCP server. Open source and free.",
@@ -116,12 +146,18 @@
     "providers": "Providers",
     "api": "API",
     "glossary": "Glossary",
-    "support": "Support"
+    "support": "Support",
+    "map": "Map"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menu"
+    "menu": "Menu",
+    "skip": "Skip to the content",
+    "pages": "Pages",
+    "groupData": "Data",
+    "groupReference": "Reference",
+    "groupProject": "Project"
   },
   "footer": {
     "copyright": "© {year} earthobservations",

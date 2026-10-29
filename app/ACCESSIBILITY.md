@@ -37,8 +37,9 @@ The same pages and states (in light/English and dark/German) are scanned twice m
   stops. The rules are the app's own ids, in `CUSTOM_RULES` of `interact.ts`.
 
 Beside the scans, `accessibility.spec.ts` drives widgets by keys alone (`keyboard operation`: the station
-picker, a collapsible, a menu, and the narrow layout's menu, which is a dialog that keeps the focus and gives
-it back; `chart controls by keyboard`: Plotly's modebar, and the table of values that stands for the stripes
+picker, a collapsible, a menu, the narrow layout's menu, which is a dialog that keeps the focus and gives
+it back, and the home page's map, whose stations are chosen from the panel's list and whose centre, which the
+arrow keys move, is picked as a place by a button; `chart controls by keyboard`: Plotly's modebar, and the table of values that stands for the stripes
 and the meteogram, opened, reached and scrolled by keys; and Plotly's hover label and the names of its
 modebar buttons, which Escape dismisses until the pointer moves, 1.4.13), checks that every page has a title of its own that a navigation announces (`page titles`, 2.4.2,
 4.1.3) and that no page scrolls sideways at 320 px (`reflow at 320 px`, 1.4.10).
@@ -61,21 +62,24 @@ What is left in it, and why it is not fixed in the app's own markup:
 - `aria-hidden-focus`, the error toast: the two focus proxies in Reka UI's toast viewport are
   `aria-hidden` and focusable. Also upstream.
 
-There is no `color-contrast` entry left. The brand green, `#00c950`, stays the fill of a solid primary
-button; its label is `#0f172b` (`--app-text-on-primary` in `app/assets/css/main.css`, set for the
-button in `app/app.config.ts`), 8.0:1 on the fill and 9.5:1 hovered in light mode, where the white
-label it replaces was 2.2:1 and 1.9:1. Dark mode has the same label on its lighter fill, as Nuxt UI
-already had it (10.0:1, and 6.1:1 hovered). A disabled button is exempt from 1.4.3 and from the scans; its
-label is at 75 % opacity with its fill (4.2:1 in light mode). Text in the primary colour on white is
-shade 700 and a fifth of the way to 800 (`.text-primary`), a hovered link button shade 800 (7.1:1; Nuxt UI's
-75 % of the first was 3.4:1), and a hovered chip of the home page shade 700 (4.9:1; shade 500 was 2.2:1).
-`tests/unit/button-contrast.test.ts` computes the hovered ratio of a solid button, as 75 % of the fill over
-the page; the hover scan measures the rest.
+There is no `color-contrast` entry left. The primary colour is the logo's blue (GH-3518): the brand scale of
+`app/assets/css/main.css` has it as shade 600 (`#2e6fd1`) and the logo's navy as shade 900. A solid primary
+button is filled with shade 600 in light mode with a white label (4.9:1) and shade 400 in dark mode with a
+`#0f172b` label (7.9:1) (`--app-text-on-primary`, set for the button in `app/app.config.ts`). Hovered, the fill
+goes a shade darker in light mode (700, 6.7:1) and lighter in dark mode (300, 10.2:1)
+(`--app-primary-hover`): Nuxt UI's own hover, the fill at 75 % over the page, would put the white label at
+3.8:1. A disabled button is exempt from 1.4.3 and from the scans. Text in the primary colour on white is
+shade 700 (6.7:1, `.text-primary`) and a hovered link button shade 800 (8.6:1). Shade 500, which the pages use
+for icons and, in dark mode, for some text, is light enough to be 4.7:1 on an elevated dark surface.
+`tests/unit/button-contrast.test.ts` computes the ratios of a solid button from the tokens; the hover scan
+measures the rest.
 
 The focus indicator is one solid 2 px outline for everything a keyboard reaches (`--app-focus-ring` in
-`main.css`: shade 700 of the primary colour on light, 4.9:1 on white, shade 400 on dark, 10:1; the map takes
-the light one in both modes). Nuxt UI's own is an outline at 25 % of the primary colour (1.2:1 to 1.7:1 on
-white) and a ring in the primary colour (2.2:1), and its menu search fields draw none; they stay, beside it.
+`main.css`: shade 700 of the primary colour on light, 6.7:1 on white, the logo's yellow `#ffc93c` on dark,
+12:1 on the page). The station pickers' maps take the light one in both modes, as they are light in both; the
+home page's map draws its own inside its edge (shade 800 on the light map, the yellow on the dark one), as the
+edge of that map is the edge of the window on a phone. Nuxt UI's own is an outline at 25 % of the primary
+colour and a ring in the primary colour, and its menu search fields draw none; they stay, beside it.
 
 There is no sepia mode. `main.css` once held a `html.sepia` block that redefined the `--ui-*` tokens, which
 nothing in the app ever set (`colorMode` knows `light`, `dark` and `system`, and the settings offer those
@@ -131,7 +135,7 @@ WCAG 2.2 first, as axe has no rule for most of them.
 | --- | --- |
 | 2.4.7 Focus visible, 1.4.11 Non-text contrast of the focus indicator | The keyboard scan measures it at every stop. **Was failing** nearly everywhere: 382 stops, counted per page so that the header links count on each, in 27 of the light/English scans had under 3:1; see above. |
 | 2.4.11 Focus not obscured (minimum) | The keyboard scan checks it on every page and state. The sticky header hides no focused element. Leaflet draws markers beyond what the map shows and lets Tab reach them: a marker that takes the focus now pans the map until it is in view (`MapStations.vue`). |
-| 2.5.7 Dragging movements | The map pans by drag, and by the arrow keys with the map focused, and zooms by its buttons and `+`/`-`; a station is also chosen in the list beside it. Plotly's charts zoom and pan by drag, with the modebar's buttons (zoom in, out, reset) as the single-pointer way. |
+| 2.5.7 Dragging movements | The maps pan by drag, and by the arrow keys with the map focused, and zoom by their buttons and `+`/`-`; a station is also chosen in the list beside them. On a phone the home page's panel is a sheet under the map that the page's own scroll brings up: no drag of a handle. Plotly's charts zoom and pan by drag, with the modebar's buttons (zoom in, out, reset) as the single-pointer way. |
 | 2.5.8 Target size (minimum) | axe's `target-size` is among the tags scanned (wcag22aa), on every page and state in both modes: no entry. |
 | 3.2.6 Consistent help | The support and documentation links are in the header (icons) and the footer of every page, in the same order; the narrow layout has them in its menu. The widget has no header or footer by design. |
 | 3.3.7 Redundant entry | Nothing is asked twice in a process. The explorer, forecast and stripes keep their selection in the URL, the settings in local storage. |
@@ -162,11 +166,17 @@ The charts' text alternatives and keyboard access (#3145), checked on 2026-10-19
   forecast label with its day bands) for the sake of a pointer on a label whose values are in the table that
   stands for the chart ("Show as table": forecast, stripes, explorer), so the table is what the criterion's
   intent (a reader who magnifies the screen can reach what the label says) is met by. Not met to the letter.
-- **The station map, 1.1.1 and 2.1.1**: markers are reachable by Tab and named by their station, but a map of
-  hundreds of them is no way to choose a station by keyboard; the picker beside it is. Clusters are named by
-  their count only.
-- **Not checked**: a screen reader pass (VoiceOver, NVDA), text spacing (1.4.12), zoom to 200 % (1.4.4) and
-  the nine languages besides English and German, which the scans do not cover.
+- **The station pickers' maps (explorer, stripes, forecast), 1.1.1 and 2.1.1**: markers are reachable by Tab
+  and named by their station, but a map of hundreds of them is no way to choose a station by keyboard; the
+  picker beside it is. Clusters are named by their count only. The home page's map (GH-3518) draws its
+  stations as dots on canvas tiles, which no keyboard and no screen reader reaches, by design: its panel lists
+  the stations nearest the centre of the map (which the arrow keys move), finds one by name or id, and picks
+  the centre as a place; the map itself is named by what it shows and how it is moved.
+- **Not checked**: a screen reader pass (VoiceOver, NVDA), zoom to 200 % (1.4.4) and the nine languages besides
+  English and German, which the scans do not cover. Text spacing (1.4.12), forced colours, print and reduced
+  motion were looked at by eye for the map-first design (GH-3518), in Chrome on macOS, on the home page and a
+  few others: nothing was cut off or lost, and an icon or a field's edge that forced colours had taken away is
+  drawn in the system's colours (`main.css`). Not measured by a test.
 
 ## Lighthouse
 

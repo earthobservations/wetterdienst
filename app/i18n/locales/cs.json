@@ -62,6 +62,36 @@
     "kindRoadDesc": "Stav a teplota vozovky ze silničních stanic DWD, včetně jejich předpovědí.",
     "aboutLink": "O projektu a lidech za ním"
   },
+  "atlas": {
+    "layers": "Zobrazit na mapě",
+    "layerForecast": "Předpověď",
+    "layerMeasured": "Měření",
+    "layerStripes": "Klimatické pruhy",
+    "count": "Stanice: {count}",
+    "loadingStations": "Načítání stanic …",
+    "stationsFailed": "Stanice se nepodařilo načíst.",
+    "search": "Najít stanici",
+    "searchPlaceholder": "Název nebo ID stanice",
+    "nearCentre": "Blízko středu mapy",
+    "results": "Nalezené stanice",
+    "noResults": "Žádná stanice neodpovídá „{query}“.",
+    "back": "Všechny stanice",
+    "chosen": "Vybráno: {name}.",
+    "elevation": "{value} m n. m.",
+    "pickedPlace": "Nejbližší stanice k vybranému bodu, vzdálená {distance}",
+    "at": "{name}, vzdálenost {distance}",
+    "noneNearby": "Žádná stanice tohoto druhu do {distance}.",
+    "since": "od roku {year}",
+    "openForecast": "Otevřít předpověď",
+    "openStripes": "Otevřít klimatické pruhy",
+    "openExplorer": "Otevřít v průzkumníku",
+    "openHistory": "Otevřít historii stanice",
+    "stripesFigure": "Klimatické pruhy stanice {name}, {first} až {last}: jeden pruh za rok, modrý pro nejchladnější a červený pro nejteplejší.",
+    "zoomIn": "Přiblížit",
+    "zoomOut": "Oddálit",
+    "mapLabel": "Mapa stanic. Šipky ji posouvají, plus a minus přibližují a oddalují; panel vypisuje stanice blízko jejího středu.",
+    "pickCentre": "Vybrat střed mapy"
+  },
   "seo": {
     "title": "Wetterdienst – otevřená data o počasí a klimatu od národních meteorologických služeb",
     "description": "Otevřená data o počasí a klimatu od národních meteorologických služeb v jednotném formátu: průzkumník, předpověď, klimatické pruhy, REST API a server MCP. Open source a zdarma.",
@@ -116,12 +146,18 @@
     "providers": "Poskytovatelé",
     "api": "API",
     "glossary": "Slovník",
-    "support": "Podpora"
+    "support": "Podpora",
+    "map": "Mapa"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Nabídka"
+    "menu": "Nabídka",
+    "skip": "Přejít na obsah",
+    "pages": "Stránky",
+    "groupData": "Data",
+    "groupReference": "Reference",
+    "groupProject": "Projekt"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
