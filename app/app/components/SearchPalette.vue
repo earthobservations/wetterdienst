@@ -380,4 +380,17 @@ const shortcut = computed(() => import.meta.client && /Mac|iPhone|iPad/.test(nav
 .dark .palette-option[aria-selected="true"] .palette-option__icon {
   color: var(--ui-color-primary-300);
 }
+@media (forced-colors: active) {
+  .palette-option[aria-selected="true"],
+  .dark .palette-option[aria-selected="true"] {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+    box-shadow: none;
+  }
+  .palette-option[aria-selected="true"] *,
+  .dark .palette-option[aria-selected="true"] .palette-option__icon {
+    color: HighlightText;
+  }
+}
 </style>

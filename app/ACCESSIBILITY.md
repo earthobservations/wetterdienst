@@ -71,15 +71,15 @@ few per cent. A solid primary button is shade 600 with Nuxt UI's white label (6.
 with the dark page's neutral-900 (7.5:1) in dark mode; hovered it goes a shade darker (700, 8.6:1) or lighter (200,
 10.4:1) where Nuxt UI faded it to 75 %, which on white is a blue that white is under 4.5:1 on. A disabled button is
 exempt from 1.4.3 and from the scans. Text in the primary colour is shade 700 on light (8.6:1 on white, 7.7:1 on
-its tint, `.text-primary`) and shade 300 on dark (7.5:1 on the page, 6.6:1 on its raised surface). Muted text is
+its tint, `.text-primary`) and shade 300 on dark (7.5:1 on the page, 6.5:1 on its raised surface). Muted text is
 neutral-500 on light (5.1:1 on white, 4.6:1 on neutral-100) and neutral-400 on dark (6.4:1). The four tiles of the
 questions are the logo's yellow, teal and coral with the dark of its sun on them (11.3:1, 6.7:1, 5.0:1) and its blue
 with white (4.9:1); their icons are decoration beside the words. `tests/unit/button-contrast.test.ts` computes
 these from `main.css`; the hover scan measures the rest.
 
 The focus indicator is one solid 2 px outline for everything a keyboard reaches (`--app-focus-ring` in
-`main.css`: shade 700 of the primary colour on light, 8.6:1 on white, shade 300 on dark, 7.5:1; the map takes
-the light one in both modes). The field of the command palette draws it as a 2 px line under the field, in the
+`main.css`: shade 700 of the primary colour on light, 8.6:1 on white, shade 300 on dark, 7.5:1; what takes the focus on
+the map takes the light one in both modes, the map itself the page's, as it is drawn on the page). The field of the command palette draws it as a 2 px line under the field, in the
 same colour, as the palette's edge is the field's. Nuxt UI's own is an outline at 25 % of the primary colour (1.2:1 to 1.7:1 on
 white) and a ring in the primary colour (2.2:1), and its menu search fields draw none; they stay, beside it.
 
@@ -171,8 +171,19 @@ The charts' text alternatives and keyboard access (#3145), checked on 2026-10-19
 - **The station map, 1.1.1 and 2.1.1**: markers are reachable by Tab and named by their station, but a map of
   hundreds of them is no way to choose a station by keyboard; the picker beside it is. Clusters are named by
   their count only.
-- **Not checked**: a screen reader pass (VoiceOver, NVDA), text spacing (1.4.12), zoom to 200 % (1.4.4) and
-  the nine languages besides English and German, which the scans do not cover.
+- **Not checked**: a screen reader pass (VoiceOver, NVDA), zoom to 200 % (1.4.4) and the nine languages besides
+  English and German, which the scans do not cover.
+
+Checked with the redesign (GH-3518), on 2026-10-29 in Chrome on macOS, by a script over the home page (two of its
+questions), the forecast, explorer, stripes, providers, glossary and settings pages, in German:
+
+| Criterion | Result |
+| --- | --- |
+| 1.4.12 Text spacing | With line height 1.5, letter spacing 0.12 em, word spacing 0.16 em and 2 em after a paragraph, no text is cut by a box that hides its overflow (the route announcer, which is visually hidden on purpose, aside). |
+| 1.4.10 Reflow, 320 px (400 % of 1280) | No page scrolls sideways. A long compound in a page's purpose line (Dutch, Luxembourgish) wraps (`PageHeader`). |
+| 2.3.3 Reduced motion | Under `prefers-reduced-motion: reduce` no transition or animation runs longer than 0.01 ms. |
+| Forced colours (Windows contrast themes) | **Was failing**, on every page: the icons are a mask over `background-color: currentColor`, which the system paints as Canvas, so they vanished. They keep their text's colour now (`main.css`). The question that is open, the active option of the palette and the bar of an answer that is asked about take the system's highlight; the tiles an edge. |
+| Print | The header, the footer's links and the skip link are left out; a link to another site prints its address. |
 
 ## Lighthouse
 

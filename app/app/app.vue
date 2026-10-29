@@ -267,14 +267,11 @@ const projectLinks = computed(() => [
     </main>
 
     <footer v-if="!isWidget" class="app-footer mt-12 border-t border-default bg-(--app-surface)">
-      <div class="app-container py-8 flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+      <div class="app-container py-8 flex flex-col gap-5">
         <div class="space-y-2">
           <p class="flex items-center gap-2 font-bold text-(--app-ink)">
             <img src="/icon.svg" alt="" class="size-6">
             Wetterdienst
-          </p>
-          <p class="text-sm text-muted max-w-xs">
-            {{ t('home.tagline') }}
           </p>
           <p class="text-xs text-muted">
             <span class="font-semibold text-toned">App</span> {{ appVersion === 'unknown' ? appVersion : `v${appVersion}` }}
@@ -284,7 +281,7 @@ const projectLinks = computed(() => [
         </div>
         <!-- one row, its own separators: flex siblings cannot see where a line breaks, so a separator would dangle
              at the end of a wrapped line -->
-        <div class="app-footer-links flex flex-wrap items-center gap-x-5 gap-y-2 text-sm md:justify-end md:max-w-xl">
+        <div class="app-footer-links flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
           <NuxtLink to="/about" class="text-toned underline-offset-4 hover:underline hover:text-highlighted">
             {{ t('footer.about') }}
           </NuxtLink>

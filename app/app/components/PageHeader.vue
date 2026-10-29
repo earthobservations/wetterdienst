@@ -18,7 +18,7 @@ defineProps<{
       <h1 class="text-3xl sm:text-4xl font-bold leading-tight break-words">
         {{ title }}
       </h1>
-      <p v-if="subtitle" class="mt-2 text-lg text-muted max-w-prose">
+      <p v-if="subtitle" class="mt-2 text-lg text-muted max-w-prose break-words hyphens-auto">
         {{ subtitle }}
       </p>
       <slot />

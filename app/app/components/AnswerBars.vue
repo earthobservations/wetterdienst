@@ -73,7 +73,7 @@ const showLabel = (index: number) => index % props.every === 0
         </div>
       </div>
     </div>
-    <details class="mt-3 app-no-print-summary">
+    <details class="mt-3">
       <summary class="cursor-pointer text-sm font-medium text-primary rounded-sm w-fit">
         {{ t('ask.showValues') }}
       </summary>

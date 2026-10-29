@@ -149,8 +149,9 @@
   outline: 2px solid var(--app-focus-ring);
   outline-offset: 2px;
 }
-/* The map is a light surface in both modes (Leaflet's grey, and the tiles): it takes the ring of light mode */
-.leaflet-container:focus-visible,
+/* The map is a light surface in both modes (Leaflet's grey, and the tiles): what takes the focus on it takes the ring
+   of light mode. The map itself keeps the page's ring, which is drawn outside it, on the page (the light one is 1.9:1
+   on the night blue) */
 .leaflet-container :focus-visible:not([tabindex="-1"]) {
   outline-color: var(--ui-color-primary-700);
 }
@@ -310,6 +311,12 @@ h3 {
    an edge or the system's highlight: the tiles, the bars of an answer, the question that is open, the option the
    palette points at. */
 @media (forced-colors: active) {
+  /* the icons are a mask over `background-color: currentColor`, and the system draws every background as Canvas:
+     they would vanish. They keep the colour of their text, which the system has already chosen */
+  .iconify {
+    forced-color-adjust: none;
+    background-color: currentColor !important;
+  }
   .app-tile {
     border: 1px solid CanvasText;
   }
