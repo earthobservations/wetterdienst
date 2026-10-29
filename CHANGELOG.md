@@ -92,12 +92,13 @@ Types of changes:
   one a `rank` walk passes over for having no reading. `interpolate` and `summarize`, whose answer
   is an estimate, carry no such warning now (GH-3554)
 - Processes that share a cache directory take turns on it, through a lock file beside each
-  directory (new dependency: `filelock`). The metadata read-merge-write no longer loses a row
-  another process saved in between (its file was then fetched again), the save no longer fails
-  with `PermissionError` on Windows while another process has the metadata open, and a sweep no
-  longer deletes a file another process has just fetched again. A process that waits for the lock
-  longer than 10 s skips its save or its sweep and logs a warning; it never fails a request. A
-  killed process leaves no stale lock (GH-3485)
+  directory (new dependency: `filelock` 3.30 or later). The metadata read-merge-write no longer
+  loses a row another process saved in between (its file was then fetched again), the save no
+  longer fails with `PermissionError` on Windows while another process has the metadata open, and a
+  sweep no longer deletes a file another process has just fetched again. A holder that does not let
+  go costs the save or the sweep, skipped with a warning, and one wait of 10 s a minute; no request
+  fails. A killed process leaves no stale lock, and a file system without `flock` goes without the
+  lock (GH-3485)
 
 ## [0.178.0] - 2026-10-28
 

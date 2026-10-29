@@ -1513,6 +1513,10 @@ def _age_metadata(storage: Path, seconds: float) -> None:
     metadata = json.loads(metadata_path.read_text())
     for detail in metadata.values():
         detail["time"] -= seconds
+        # the blob as well: a blob written within the expiry is kept whatever its row says (GH-3485)
+        blob = storage / detail["fn"]
+        when = blob.stat().st_mtime - seconds
+        os.utime(blob, (when, when))
     metadata_path.write_text(json.dumps(metadata))
 
 

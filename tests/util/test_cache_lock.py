@@ -9,6 +9,7 @@ takes that file with a lock object of its own, which excludes the code under tes
 
 from __future__ import annotations
 
+import errno
 import json
 import logging
 import os
@@ -17,18 +18,15 @@ import sys
 import threading
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING
 
-from filelock import FileLock
+import pytest
+from filelock import FileLock, Timeout
 from fsspec.implementations.cache_metadata import CacheMetadata
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.memory import MemoryFileSystem
 
 from wetterdienst.util import network
 from wetterdienst.util.network import _LockedWholeFileCacheFileSystem
-
-if TYPE_CHECKING:
-    import pytest
 
 
 def _storage(tmp_path: Path) -> Path:
@@ -241,10 +239,12 @@ def test_a_lock_left_by_a_process_that_was_killed_holds_nothing(
 
     assert Path(_lock_file(storage)).exists()  # what a killed process leaves
     caplog.clear()
+    # a timeout that a slow runner (Windows) does not come near unless the lock is held, and a save that is far under it
+    monkeypatch.setattr(network, "_CACHE_LOCK_TIMEOUT_SECONDS", 5.0)
     started = time.monotonic()
     mine.save_cache()
 
-    assert time.monotonic() - started < 0.3  # not waited for
+    assert time.monotonic() - started < 2.5  # not waited for
     assert not any("Gave up waiting" in record.message for record in caplog.records)
     assert _rows(storage) == ["/mine.txt"]
 
@@ -258,8 +258,8 @@ def test_the_lock_is_reentrant_within_a_thread(
 
     started = time.monotonic()
     with (
-        network._locked_across_processes(storage, what="a") as outer,  # noqa: SLF001
-        network._locked_across_processes(storage, what="b") as inner,  # noqa: SLF001
+        network._locked_across_processes(storage, otherwise="a") as outer,  # noqa: SLF001
+        network._locked_across_processes(storage, otherwise="b") as inner,  # noqa: SLF001
     ):
         assert outer is True
         assert inner is True
@@ -268,3 +268,111 @@ def test_the_lock_is_reentrant_within_a_thread(
     # released once the outermost hold ends: another lock object on the file takes it at once
     with FileLock(_lock_file(storage), timeout=1):
         pass
+
+
+def test_a_holder_that_is_stuck_costs_one_wait_and_not_one_per_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The wait is with `_cache_dir_lock` held, so a stuck holder must not be waited for once for every file.
+
+    The first save waits for the timeout and marks the directory; the saves after it only try the lock, until a hold
+    gets it (the holder is gone) and the directory is not marked any more.
+    """
+    monkeypatch.setattr(network, "_CACHE_LOCK_TIMEOUT_SECONDS", 0.5)
+    storage = _storage(tmp_path)
+    source = _source()
+    for index in range(10):
+        source.pipe_file(f"/f{index}.txt", b"x")
+    mine = _LockedWholeFileCacheFileSystem(fs=source, cache_storage=str(storage), expiry_time=3600)
+    caplog.set_level(logging.WARNING, logger=network.__name__)
+
+    with FileLock(_lock_file(storage)):
+        started = time.monotonic()
+        for index in range(10):
+            mine.cat_file(f"/f{index}.txt")
+        waited = time.monotonic() - started
+
+    assert waited < 2.5  # ten files, 0.5 s once and not three times each
+    assert len([record for record in caplog.records if "Gave up waiting" in record.message]) == 1
+
+    mine.save_cache()  # the holder is gone: the very next save is a save
+    assert len(_rows(storage)) == 10
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the file system without flock is simulated through fcntl")
+def test_a_file_system_without_flock_goes_without_the_lock_and_never_makes_a_soft_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`ENOSYS` from `flock` is no lock, not a marker file.
+
+    A marker that a dead process (or another host) left would hold every later save for good.
+    """
+    import fcntl  # noqa: PLC0415
+
+    def no_flock(*_args: object, **_kwargs: object) -> None:
+        raise OSError(errno.ENOSYS, "Function not implemented")
+
+    monkeypatch.setattr(fcntl, "flock", no_flock)
+    monkeypatch.setattr(network, "_CACHE_LOCK_TIMEOUT_SECONDS", 5.0)
+    storage = _storage(tmp_path)
+    mine = _LockedWholeFileCacheFileSystem(fs=_source(), cache_storage=str(storage), expiry_time=3600)
+    # what a soft lock of a process on another host would have left
+    Path(_lock_file(storage)).write_text("4242\nsome-other-host\n", encoding="utf-8")
+
+    started = time.monotonic()
+    mine.cat_file("/mine.txt")
+    mine.cat_file("/theirs.txt")
+
+    assert time.monotonic() - started < 2.5
+    assert _rows(storage) == ["/mine.txt", "/theirs.txt"]
+
+
+def test_the_rename_of_a_fetched_file_and_its_row_are_made_under_the_lock(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A sweep of another process cannot read the old row between the rename onto the blob and the new row."""
+    storage = _storage(tmp_path)
+    mine = _LockedWholeFileCacheFileSystem(fs=_source(), cache_storage=str(storage), expiry_time=3600)
+    held_during_rename: list[bool] = []
+    original = os.replace
+
+    def replace(source: str, target: str) -> None:
+        if str(source).endswith(".tmp") and not str(target).endswith(".lm"):
+            try:
+                with FileLock(_lock_file(storage), timeout=0):
+                    held_during_rename.append(False)
+            except Timeout:
+                held_during_rename.append(True)
+        original(source, target)
+
+    monkeypatch.setattr(network.os, "replace", replace)
+
+    mine.cat_file("/mine.txt")
+
+    assert held_during_rename == [True]
+
+
+def test_the_reclaim_leaves_a_directory_that_is_held_and_takes_its_lock_file_with_one_that_is_not(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Nothing is removed from under a process that is in the middle of something in the directory."""
+    monkeypatch.setattr(network, "_reclaim_done", set())
+    root = tmp_path / "fsspec"
+    keep = root / "v2-ttl-ONE_HOUR"
+    old = root / "ttl-ONE_HOUR"  # a layout no build writes any more
+    for directory in (keep, old):
+        directory.mkdir(parents=True)
+    (old / "a-blob").write_bytes(b"payload")
+    _aged(old, 7200)
+    lock_file = Path(_lock_file(old))
+
+    with FileLock(str(lock_file)):
+        network._reclaim_unreachable_cache_dirs(root, keep=keep)  # noqa: SLF001
+        assert old.is_dir()
+
+    monkeypatch.setattr(network, "_reclaim_done", set())
+    network._reclaim_unreachable_cache_dirs(root, keep=keep)  # noqa: SLF001
+
+    assert not old.exists()
+    assert not lock_file.exists()
+    assert keep.is_dir()
