@@ -32,6 +32,17 @@ What it says is limited to what is known: the window, and what narrowed the requ
 for the datasets they narrowed). It says nothing of the source being behind for a window that reaches the present:
 the library cannot tell a source that is late from one that never reports the parameter (Paris `tx24`), and a
 hint of the first invites the retry the warning is there to stop.
+
+The stations whose file the provider let go are told by a `file-skipped` warning (GH-3552), one for the request, which
+does invite the retry: what is missing there may well be there later. The stations `parameter-without-rows` leaves
+out are those, so it does not repeat `file-skipped`. Which stations it names:
+
+- every station whose file was let go (every collected station for a file all of them are read from), whether the
+  station came back empty or `skip_empty` dropped it below its threshold: it is missing for the failure, not for lack of
+  data, and a station may carry `station-skipped` besides, for a different cause;
+- except the stations a rank walk (`filter_by_rank`) passed over for the next ones, when it filled its `rank`: the
+  answer holds as many stations as were asked for, and the ones replaced are not a gap in it. A rank walk that ends
+  short (an outage that emptied most of the candidates) names them all.
 """
 
 from __future__ import annotations
@@ -42,6 +53,7 @@ from typing import TYPE_CHECKING
 
 from wetterdienst.model.metadata import ParameterModel
 from wetterdienst.util.response_warnings import (
+    FILE_SKIPPED,
     PARAMETER_WITHOUT_ROWS,
     collecting,
     warn_response,
@@ -90,8 +102,13 @@ class ParameterRows:
         self._enabled = enabled
         self._start = start
         self._end = end
-        #: the stations whose file the provider let go, which are no evidence that the source holds nothing
-        self._skipped: set[str] = set()
+        #: the stations whose file the provider let go, in the order they came (a dict for the order): no evidence that
+        #: the source holds nothing, and the stations `file-skipped` names
+        self._skipped: dict[str, None] = {}
+        #: the stations the walk collected, which a file that serves every station of the request was let go for
+        self._collected: dict[str, None] = {}
+        #: the candidates a rank walk passed over for the next one (an empty frame, or below `skip_threshold`)
+        self._passed_over: set[str] = set()
         #: whether the provider let go a file that every station of the request is read from
         self._skipped_all = False
         #: the parameters another warning named while the walk went on (`parameter-ended`)
@@ -117,9 +134,18 @@ class ParameterRows:
             if whole_request:
                 self._skipped_all = True
             else:
-                self._skipped.add(station_id)
+                self._skipped[station_id] = None
 
+        self._collected[station_id] = None
         return collecting(skipped, self._named)
+
+    def passed_over(self, station_id: str) -> None:
+        """Note that a rank walk passed the station over for the next one (an empty frame, or below the threshold).
+
+        `file-skipped` leaves it out if the walk went on to fill its rank (`warn`); only a rank walk replaces a station.
+        `parameter-without-rows` leaves it out if its file was let go all the same.
+        """
+        self._passed_over.add(station_id)
 
     def note(self, df: pl.DataFrame) -> None:
         """Note the parameters that a station's rows of the answer are of, in the long form the provider handed over."""
@@ -127,10 +153,20 @@ class ParameterRows:
             return
         self._with_rows.update(df.select("resolution", "dataset", "parameter").unique().iter_rows())
 
-    def warn(self) -> None:
-        """Tell each parameter and dataset of the request that no station read had a row of, once."""
-        if not self._enabled or self._skipped_all:
+    def warn(self, *, rank_filled: bool = False) -> None:
+        """Tell the stations whose file was let go, and each parameter and dataset that no station read had a row of.
+
+        `rank_filled` is whether a rank walk collected as many stations as it was asked for: the candidates it passed
+        over are then replaced, not missing.
+        """
+        if not self._enabled:
             return
+        self._warn_skipped(rank_filled=rank_filled)
+        if not self._skipped_all:
+            self._warn_without_rows()
+
+    def _warn_without_rows(self) -> None:
+        """Tell each parameter and dataset of the request that no station read had a row of, once."""
         request = self._request
         named = request._requested_named  # noqa: SLF001
         whole = request._requested_whole  # noqa: SLF001
@@ -158,28 +194,68 @@ class ParameterRows:
                     name = f"{key[0]}/{key[1]}"
                     self._tell(name, f"any parameter of {name}", stations, parameter.dataset)
 
-    def _stations_read(self, dataset: DatasetModel) -> list[str]:
-        """Give the stations the walk read for a dataset that can speak for what the source holds, else none.
+    def _warn_skipped(self, *, rank_filled: bool) -> None:
+        """Tell the stations whose file the provider let go, once: the answer may be missing their values (GH-3552).
 
-        A dataset that needs a window answers nothing to a request that names none (the REST API and the command line
-        refuse it, Python does not): that is no statement about the source. And a station whose file was let go says
-        nothing of what the source holds.
+        The other side of `parameter-without-rows`, which leaves those stations out because their values may be
+        missing for that. A file that serves every station of the request (`whole_request`) is every collected
+        station's. The datasets are the ones the walk read at those stations, since the provider says which station
+        and not which of its datasets or files; it logs the file itself at level `WARNING`. Nothing is told when no
+        file was let go, nor for the candidates a rank walk replaced when it `rank_filled`.
         """
-        if self._start is None and dataset.date_required:
-            return []
+        replaced = self._passed_over if rank_filled else set()
+        stations = [
+            station for station in (self._collected if self._skipped_all else self._skipped) if station not in replaced
+        ]
+        if not stations:
+            return
+        datasets = [
+            f"{resolution}/{dataset}"
+            for (resolution, dataset), read in self._examined.items()
+            if set(stations).intersection(read)
+        ]
+        of = f" ({', '.join(datasets)})" if datasets else ""
+        many = len(stations) > 1
+        where = f"{self._where(stations)}{of}"
+        if self._skipped_all:
+            what = f"A file that every station of the request is read from ({where}) was not used"
+        elif many:
+            what = f"Files of {where} were not used"
+        else:
+            what = f"A file of {where} was not used"
+        warn_response(
+            log,
+            FILE_SKIPPED,
+            f"{what}: the download was refused or failed, the file was gone, a maintenance page came in its place, "
+            f"or it would not parse. The values of {'these stations' if many else 'this station'} may be missing from "
+            "the answer, which is partial. Try again later.",
+            stations=stations[:MAX_STATIONS_LISTED],
+        )
+
+    @staticmethod
+    def _where(stations: list[str]) -> str:
+        """Name the stations as a warning lists them: all up to the limit, else how many and the first ones."""
+        count = len(stations)
+        listed = stations[:MAX_STATIONS_LISTED]
+        if count == 1:
+            return f"station {listed[0]}"
+        if count <= MAX_STATIONS_LISTED:
+            return f"stations {', '.join(listed)}"
+        return f"{count} stations, the first {MAX_STATIONS_LISTED} of them {', '.join(listed)}"
+
+    def _stations_read(self, dataset: DatasetModel) -> list[str]:
+        """Give the stations the walk read for a dataset, those whose file was let go left out.
+
+        A station whose file was let go says nothing of what the source holds. (A dataset that needs a window never
+        gets here without one: the reader refuses the request, GH-3562.)
+        """
         key = (dataset.resolution.name, dataset.name)
         return [station for station in self._examined.get(key, []) if station not in self._skipped]
 
     def _tell(self, parameter: str, subject: str, stations: list[str], dataset: DatasetModel) -> None:
         """Say that the source has no values for `subject` at `stations`, in the window and as the request narrows."""
-        count = len(stations)
         listed = stations[:MAX_STATIONS_LISTED]
-        if count == 1:
-            where = f"station {listed[0]}"
-        elif count <= MAX_STATIONS_LISTED:
-            where = f"stations {', '.join(listed)}"
-        else:
-            where = f"{count} stations, the first {MAX_STATIONS_LISTED} of them {', '.join(listed)}"
+        where = self._where(stations)
         narrowed = self._request._narrowed_by(dataset)  # noqa: SLF001
         narrow = f" in {' and in '.join(phrase for phrase, _ in narrowed)}" if narrowed else ""
         hints = [hint for _, hint in narrowed if hint]

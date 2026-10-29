@@ -185,6 +185,7 @@ def test_chmi_names_only_the_elements_that_were_asked_for(monkeypatch: pytest.Mo
     assert list(named.urls) == asked
 
 
+@pytest.mark.usefixtures("window_not_required")
 def test_chmi_names_no_sub_daily_file_where_the_window_is_open() -> None:
     """The month files are addressed by the window, and a request without one has none to name."""
     request = ChmiObservationRequest(parameters=[("hourly", "data")], settings=_settings())
@@ -210,7 +211,9 @@ def test_imgw_names_only_the_archives_that_one_station_reads(
 
     monkeypatch.setattr(imgw_api, "download_files", download_files)
     monkeypatch.setattr(imgw_api.ImgwMeteorologyValues, "_get_urls", lambda *args: [f"https://x/{args[-1]}.zip"])
-    request = ImgwMeteorologyRequest(parameters=[(resolution, dataset)], settings=_settings())
+    request = ImgwMeteorologyRequest(
+        parameters=[(resolution, dataset)], start="2020-01-01", end="2020-01-03", settings=_settings()
+    )
     values: TimeseriesValues = stations_result(request, resolution, dataset, "249180010").values()
     model = request.metadata[resolution][dataset]
 

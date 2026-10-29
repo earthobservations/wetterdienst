@@ -397,10 +397,12 @@ says what else to set. In a container, pass them as environment variables of the
 
 The tools of the [MCP server](mcp.md) are routes of the REST API run in process, so a tool is held to the same limits,
 and the refusal comes back to the assistant as the text of the problem: `HTTP error 400: Bad Request - This request
-would return about 614,866 rows, more than the 500,000 this server sends as one answer. ...`. A tool answers one body
-and cannot stream. The refusal of a row limit nevertheless advises `format=ndjson` or `format=csv`, and the `values`
-tool lists both, but a call that uses one fails (tracked in GH-3464): that advice does not apply from an assistant.
-What does is to ask for less and to ask in slices:
+would return about 614,866 rows, more than the 500,000 this server sends as one answer. ...`. A tool answers one body and
+does not stream. The refusal a tool gets therefore names only what works through one, a shorter `timestamp` window, fewer
+`parameters` or fewer stations, and not `format=ndjson` or `format=csv`, which the REST API advises (GH-3464). Those
+formats work through a tool, as text content of the result, but a tool is held to the `rows` limit in every format,
+not to the higher `stream_rows`: the assistant reads the whole answer through its context. What does help is to ask
+for less and to ask in slices:
 
 - Ask for a window: a day, a month or a year, "the daily maximum of 2024". The assistant can follow the refusal, which
   says what to shorten, and ask again for the next window.

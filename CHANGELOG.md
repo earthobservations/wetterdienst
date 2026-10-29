@@ -18,6 +18,12 @@ Types of changes:
 
 ### Added
 
+- A response warning `file-skipped` (REST, MCP, command line and, as a log line at WARNING,
+  Python) names the stations whose file the provider let go (a refused download, a file withdrawn
+  since the listing, a maintenance page answered with HTTP 200, a file that would not parse), so
+  that a partial answer can be told from a whole one: one warning for the request, with
+  `stations` and the datasets read at them. Try again later. Not told for `interpolate` and
+  `summarize` (GH-3552)
 - A response warning `parameter-without-rows` (REST, MCP, command line and, as a log line at
   WARNING, Python) names a requested parameter the source has no values for, with `parameter`
   and `stations`, where the answer used to be an empty header that read like a failed request
@@ -34,11 +40,17 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: asking the Python API for the values of a `date_required` dataset without `start`
+  and `end` raises `DateRequiredError` (a `ValueError`) naming the dataset, from
+  `stations.values()` on, as REST, CLI and MCP already refused it. `noaa/ghcn`, `meteoswiss`,
+  `meteofrance`, `geosphere`, `eccc`, `imgw`, `dwd/road` and `ea` used to answer the whole record,
+  `wsv`, `nws`, `ipma` and `eaufrance/hubeau` a recent slice; `aemet` (daily to annual), `chmi`
+  (sub-daily), `dmi`, `fmi`, `knmi`, `lhmt`, `rmi` and `metno/frost` an empty frame. Pass `start`
+  and `end`; listing stations needs no window (GH-3562)
 - **Breaking**: the REST API, CLI and MCP refuse a `metno/frost` request for `daily`, `monthly` or
   `annual` values without a start and end date, as for the other resolutions (REST: 400,
   `timestamp` is required). Such a request was answered with no rows and no reason, as the source
-  is only asked within a window; the Python API still returns an empty frame. Pass a window
-  instead (GH-3560)
+  is only asked within a window. Pass a window instead (GH-3560, GH-3562)
 - **Breaking**: `coverage` (`/api/coverage`, the MCP tool, `about coverage`,
   `TimeseriesRequest.discover()`) gives a parameter the unit its values come back in as `unit`
   (`degree_celsius`, `decimal` for a percentage: what `glossary` gives, following the server's
@@ -70,6 +82,16 @@ Types of changes:
 
 ### Fixed
 
+- The MCP tools answer every `format` they offer, where `csv`, `ndjson`, `html` and `svg` of the
+  tools with an output schema failed ("has an output schema but did not return structured
+  content") and so did `png`, `jpg`, `webp` and `pdf` of every tool (a decoding error). A text
+  body is the text content of the result, an image its image content and a PDF an embedded
+  resource; the structured content is one sentence about it that also gives the licence, the
+  attribution and the warnings, which REST sends in headers for these formats. An `html` chart
+  loads plotly.js from the CDN (9 KB, not 4.8 MB). A tool answers one body in every format, held
+  to the `rows` limit (`csv` and `ndjson` get no `stream_rows`), and its refusals (row limit,
+  timeout) no longer advise `format=ndjson` or `format=csv`: they name a shorter `timestamp`
+  window, fewer `parameters` or fewer stations. REST and the command line are unchanged (GH-3464)
 - A download, post or listing whose TLS handshake the peer answers wrongly (a non-TLS answer,
   `WRONG_VERSION_NUMBER`; an invalid session, `INVALID_SESSION_ID`) is retried like any other
   transient network error, where the first one failed the answer: `www.dwd.de` throws them now
@@ -91,6 +113,12 @@ Types of changes:
   with `drop_nulls` on (the default) or off: not those of a station `skip_empty` leaves out, nor of
   one a `rank` walk passes over for having no reading. `interpolate` and `summarize`, whose answer
   is an estimate, carry no such warning now (GH-3554)
+- The `station-skipped` warning is told for a station `skip_empty` leaves out whatever `drop_nulls`
+  is: with the nulls dropped (the default) a station that held nothing but missing values was left
+  out unsaid, and with them kept it was told. The warning is the same for both, and so is
+  `parameter-without-rows`: a parameter or dataset that held only missing values at a station left
+  out (wholly or with some readings) is no longer named there. The rows of an answer are unchanged
+  (GH-3567)
 
 ## [0.178.0] - 2026-10-28
 
