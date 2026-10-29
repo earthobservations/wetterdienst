@@ -44,7 +44,8 @@ The usual reasons:
   or look at the best matches (`rank`).
 - **Nulls were dropped.** The long shape drops rows without a value by default (`drop_nulls`); a reading the source
   marks as missing is null with the source's text in `quality_flags` (`raw:-999`). `drop_nulls=False` shows them.
-- **A station was skipped** for having too little data, if `skip_empty` is on (`station-skipped` warning).
+- **A station was skipped** for having too little data, if `skip_empty` is on (`station-skipped` warning), with
+  `drop_nulls` on or off.
 
 The `warnings` of the `metadata` block say what a partial answer is missing, see
 [response metadata](restapi.md#response-metadata).

@@ -97,6 +97,12 @@ Types of changes:
   with `drop_nulls` on (the default) or off: not those of a station `skip_empty` leaves out, nor of
   one a `rank` walk passes over for having no reading. `interpolate` and `summarize`, whose answer
   is an estimate, carry no such warning now (GH-3554)
+- The `station-skipped` warning is told for a station `skip_empty` leaves out whatever `drop_nulls`
+  is: with the nulls dropped (the default) a station that held nothing but missing values was left
+  out unsaid, and with them kept it was told. The warning is the same for both, and so is
+  `parameter-without-rows`: a parameter or dataset that held only missing values at a station left
+  out (wholly or with some readings) is no longer named there. The rows of an answer are unchanged
+  (GH-3567)
 
 ## [0.178.0] - 2026-10-28
 
