@@ -127,3 +127,13 @@
     box-shadow: 0 0 0 0 color-mix(in oklab, var(--ui-primary) 0%, transparent);
   }
 }
+
+/* What the toasts cover at the bottom of the window (useToastInset, GH-3575; 0px with none): the page grows
+   by it, and a focused element scrolls clear of it, so a link of the footer that the Tab key reaches is not
+   under a toast (WCAG 2.4.11 Focus Not Obscured). */
+html {
+  scroll-padding-bottom: var(--app-toast-inset, 0px);
+}
+body {
+  padding-bottom: var(--app-toast-inset, 0px);
+}

@@ -2,10 +2,14 @@
 import type { NavigationMenuItem } from '@nuxt/ui'
 import { de as uiDe, en as uiEn } from '@nuxt/ui/locale'
 import { canonicalUrl, findSeoRoute, HOME_TITLE_KEY, isNotIndexed, siteOrigin } from '#shared/utils/seo'
+import { TOAST_VIEWPORT_CLASS } from '~/composables/useToastInset'
 import pkg from '../package.json'
 
 const { t, locale, localeProperties } = useI18n()
 const route = useRoute()
+
+// a toast over the footer must not hide the link the focus is on (GH-3575)
+useToastInset()
 
 // What a search engine and a link preview are told about the page (GH-3497). The server writes the same tags into the
 // shell for a crawler that runs no script (`server/plugins/seo-head.ts`); these replace them, in the language the
@@ -151,7 +155,7 @@ const items = computed<NavigationMenuItem[]>(() =>
 
 <template>
   <div v-if="blank" />
-  <UApp v-else :locale="uiLocale">
+  <UApp v-else :locale="uiLocale" :toaster="{ ui: { viewport: TOAST_VIEWPORT_CLASS } }">
     <!-- tells a screen reader which page the client-side navigation has arrived on (WCAG 4.1.3) -->
     <NuxtRouteAnnouncer />
     <UHeader v-if="!isWidget" :toggle="false">

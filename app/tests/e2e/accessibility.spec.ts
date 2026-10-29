@@ -553,6 +553,34 @@ test.describe('keyboard operation', () => {
     await expect(trigger).toBeFocused()
   })
 
+  test('a link of the footer that the Tab key reaches is not under an error toast (2.4.11)', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!, { values: () => new ApiFailure(422, 'The source does not carry these parameters for this station.') })
+    await open(page, EXPLORER_WITH_STATION, variant)
+    await page.getByRole('button', { name: message('en', 'common.fetch'), exact: true }).click()
+    const toast = page.locator('[data-slot="title"]', { hasText: message('en', 'dataViewer.fetchErrorToastTitle') })
+    await expect(toast).toBeVisible()
+    // the toast closes after five seconds: the pointer on it holds it open while the keys are pressed
+    await toast.hover()
+
+    // the link before the last one, and then the key that goes on to it
+    await page.getByRole('link', { name: message('en', 'footer.privacy'), exact: true }).focus()
+    await page.keyboard.press('Tab')
+    const licences = page.getByRole('link', { name: message('en', 'footer.licenses'), exact: true })
+    await expect(licences).toBeFocused()
+
+    // what lies at the middle of the focused link is the link: the page was scrolled clear of the toast
+    const hitsLink = () => licences.evaluate((link) => {
+      const box = link.getBoundingClientRect()
+      const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+      return hit != null && link.contains(hit)
+    })
+    await expect.poll(hitsLink).toBe(true)
+    const toastBox = (await page.locator('.app-toast-viewport').boundingBox())!
+    const linkBox = (await licences.boundingBox())!
+    // and clear of the toast altogether, not merely not entirely under it
+    expect(linkBox.y + linkBox.height).toBeLessThanOrEqual(toastBox.y)
+  })
+
   test('the menu of the narrow layout is a dialog that keeps the focus, and Escape closes it', async ({ page, baseURL }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await mockBackend(page, baseURL!)
