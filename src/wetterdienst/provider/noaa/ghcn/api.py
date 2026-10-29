@@ -704,7 +704,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
             .then(pl.col("end_timestamp").add(1).cast(pl.String).str.to_datetime("%Y").dt.offset_by("-1d"))
             .alias("end_timestamp"),
         )
-        df = df.join(other=inventory_df, how="left", on=["station_id"]).lazy()
+        df = df.join(other=inventory_df, how="left", on=["station_id"], maintain_order="left").lazy()
         df = df.with_columns(
             pl.lit("daily").alias("resolution"),
             pl.lit("data").alias("dataset"),

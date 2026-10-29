@@ -74,8 +74,9 @@ def create_meta_index_for_climate_observations(
             other=mdp.select(["station_id", "region"]),
             on=["station_id"],
             how="left",
+            maintain_order="left",
         )
-    meta_index = meta_index.sort(by=["station_id"])
+    meta_index = meta_index.sort(by=["station_id"], maintain_order=True)
     # The climate_urban lists frequently leave von_datum/bis_datum blank; parse those leniently so
     # blanks become null instead of raising. The well-formed non-urban lists keep strict parsing so a
     # malformed date still fails loudly.
