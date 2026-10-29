@@ -1423,7 +1423,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
       <!-- Content -->
       <UCard :ui="{ body: valuesPending ? 'flex items-center justify-center min-h-40' : '' }">
         <div v-if="valuesPending" class="flex items-center justify-center py-12">
-          <UIcon name="i-lucide-loader-circle" class="w-8 h-8 animate-spin text-primary-500" />
+          <UIcon name="i-lucide-loader-circle" class="w-8 h-8 animate-spin text-primary" />
         </div>
         <template v-else>
           <div v-if="allValues.length === 0 && fetchErrorMessage" class="flex flex-col items-center justify-center gap-1 py-12 text-center text-red-600 dark:text-red-400">

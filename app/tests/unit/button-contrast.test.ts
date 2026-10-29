@@ -14,33 +14,64 @@ function contrast(a: string, b: string) {
   const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
   return (hi! + 0.05) / (lo! + 0.05)
 }
-// 75 % of the fill over the page: the hover state of Nuxt UI's solid button (bg-primary/75)
-function over(fill: string, page: string) {
-  const p = channels(page)
-  return `#${channels(fill).map((c, i) => Math.round(0.75 * c + 0.25 * p[i]!).toString(16).padStart(2, '0')).join('')}`
-}
 
 const css = readFileSync(fileURLToPath(new URL('../../app/assets/css/main.css', import.meta.url)), 'utf-8')
+const config = readFileSync(fileURLToPath(new URL('../../app/app.config.ts', import.meta.url)), 'utf-8')
 
-describe('the label of a solid primary button (--app-text-on-primary)', () => {
-  const label = /--app-text-on-primary:\s*(#[0-9a-f]{6})/i.exec(css)?.[1]
+/** A colour of the theme, as main.css writes it (`--color-brand-600: #2459b0`) */
+function token(name: string): string {
+  const found = new RegExp(`--color-${name}:\\s*(#[0-9a-f]{6})`, 'i').exec(css)?.[1]
+  expect(found, `--color-${name} in main.css`).toBeDefined()
+  return found!
+}
 
-  it('is set in main.css, for both colour modes', () => {
-    expect(label).toBeDefined()
-    // not redefined for .dark: one dark label serves the brand green and its lighter dark-mode shade
-    expect(css).not.toMatch(/\.dark\s*\{[^}]*--app-text-on-primary/)
+const WHITE = '#ffffff'
+
+describe('the colours of the controls (main.css, app.config.ts)', () => {
+  it('fill a solid primary button with shade 600 on light and 300 on dark, and hover a shade further', () => {
+    expect(css).toMatch(/:root\s*\{[^}]*--ui-primary:\s*var\(--ui-color-primary-600\)/)
+    expect(css).toMatch(/\.dark\s*\{[^}]*--ui-primary:\s*var\(--ui-color-primary-300\)/)
+    expect(config).toContain('hover:bg-(--ui-color-primary-700)')
+    expect(config).toContain('dark:hover:bg-(--ui-color-primary-200)')
   })
 
-  // Tailwind's green-500, the fill in light mode, over white; green-400, the fill in dark mode, over slate-900 (Nuxt UI's neutral)
+  // the label is Nuxt UI's text-inverted: white on light, the neutral-900 of the dark page on dark
   it.each([
-    ['light', '#00c950', '#ffffff'],
-    ['dark', '#05df72', '#0f172b'],
-  ])('clears 4.5:1 on the %s fill and on its hover', (_mode, fill, page) => {
-    expect(contrast(label!, fill)).toBeGreaterThanOrEqual(4.5)
-    expect(contrast(label!, over(fill, page))).toBeGreaterThanOrEqual(4.5)
+    ['light, at rest', WHITE, 'brand-600'],
+    ['light, hovered', WHITE, 'brand-700'],
+    ['dark, at rest', 'gray-900', 'brand-300'],
+    ['dark, hovered', 'gray-900', 'brand-200'],
+  ])('gives its label 4.5:1 and more, %s', (_state, label, fill) => {
+    const text = label.startsWith('#') ? label : token(label)
+    expect(contrast(text, token(fill))).toBeGreaterThanOrEqual(4.5)
   })
 
-  it('is what white was not (the reason for the dark label)', () => {
-    expect(contrast('#ffffff', '#00c950')).toBeLessThan(3)
+  it('writes text in the primary colour that clears 4.5:1 on the page and on its tint', () => {
+    // light: shade 700 on white and on shade 50; dark: shade 300 on the page (neutral-900) and its raised surface (800)
+    expect(contrast(token('brand-700'), WHITE)).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(token('brand-700'), token('brand-50'))).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(token('brand-300'), token('gray-900'))).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(token('brand-300'), token('gray-800'))).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('draws the focus ring at 3:1 and more against the page', () => {
+    expect(contrast(token('brand-700'), WHITE)).toBeGreaterThanOrEqual(3)
+    expect(contrast(token('brand-300'), token('gray-900'))).toBeGreaterThanOrEqual(3)
+  })
+
+  it('keeps muted text at 4.5:1 on the page, on its tinted surfaces and in dark mode', () => {
+    expect(contrast(token('gray-500'), WHITE)).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(token('gray-500'), token('gray-50'))).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(token('gray-500'), token('gray-100'))).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(token('gray-400'), token('gray-900'))).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(token('gray-400'), token('gray-800'))).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('gives the icons of the question tiles 3:1 and more on their tiles (the logo\'s four colours)', () => {
+    const night = token('brand-950')
+    expect(contrast(night, token('sun'))).toBeGreaterThanOrEqual(3)
+    expect(contrast(night, token('wind'))).toBeGreaterThanOrEqual(3)
+    expect(contrast(night, token('warmth'))).toBeGreaterThanOrEqual(3)
+    expect(contrast(WHITE, token('rain'))).toBeGreaterThanOrEqual(3)
   })
 })

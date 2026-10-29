@@ -334,6 +334,18 @@ const STATES: State[] = [
     },
   },
   {
+    // the command palette (components/SearchPalette.vue), opened by the search button of the header
+    page: 'index',
+    state: 'palette-open',
+    keepFocus: true,
+    path: '/',
+    reach: async (page) => {
+      await page.getByTestId('search-button').click()
+      await expect(page.getByRole('combobox')).toBeFocused()
+      await expect(page.getByRole('listbox').getByRole('option').first()).toBeVisible()
+    },
+  },
+  {
     page: 'index',
     state: 'mobile-menu-open',
     keepFocus: true,
@@ -581,6 +593,78 @@ test.describe('keyboard operation', () => {
     }
     await expect(dialog).toBeHidden()
     await expect(hamburger).toBeFocused()
+  })
+
+  // The command palette is the ARIA 1.2 combobox with a listbox popup, in a dialog: the focus stays in the field, the
+  // arrow keys move the active option (aria-activedescendant), Enter runs it, Escape closes the dialog and gives the
+  // focus back to what opened it, and Tab does not leave it (WCAG 2.1.1, 2.1.2, 2.4.3, 4.1.2).
+  test('the command palette opens by Ctrl+K, moves by the arrow keys and runs the option by Enter', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await open(page, '/', variant)
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    await page.keyboard.press('Control+k')
+
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    await expect(dialog).toHaveAccessibleName(message('en', 'palette.title'))
+    const combobox = page.getByRole('combobox', { name: message('en', 'palette.inputLabel') })
+    await expect(combobox).toBeFocused()
+    await expect(combobox).toHaveAttribute('aria-expanded', 'true')
+    const listbox = page.getByRole('listbox')
+    await expect(combobox).toHaveAttribute('aria-controls', (await listbox.getAttribute('id'))!)
+
+    // the active option is the one the field points at, and only it is selected
+    const active = async () => page.locator(`[id="${await combobox.getAttribute('aria-activedescendant')}"]`)
+    const first = listbox.getByRole('option').first()
+    await expect(first).toHaveAttribute('aria-selected', 'true')
+    await expect(await active()).toHaveText(await first.textContent() ?? '')
+    await page.keyboard.press('ArrowDown')
+    await expect(listbox.getByRole('option').nth(1)).toHaveAttribute('aria-selected', 'true')
+    await expect(first).toHaveAttribute('aria-selected', 'false')
+    await expect(combobox).toBeFocused()
+
+    // typing narrows the list, and Enter runs what is active: the glossary
+    await page.keyboard.type('glossary')
+    await expect(listbox.getByRole('option')).toHaveCount(1)
+    await expect(listbox.getByRole('option')).toHaveAccessibleName(new RegExp(message('en', 'nav.glossary')))
+    await page.keyboard.press('Enter')
+    await expect(dialog).toBeHidden()
+    await expect(page).toHaveURL(/\/glossary$/)
+
+    // an action runs without leaving the page: the dark appearance
+    await page.keyboard.press('Control+k')
+    await expect(combobox).toBeFocused()
+    await page.keyboard.type(`${message('en', 'settings.theme')}: ${message('en', 'settings.themeDark')}`)
+    await page.keyboard.press('Enter')
+    await expect(dialog).toBeHidden()
+    await expect(page.locator('html')).toHaveClass(/dark/)
+  })
+
+  test('the command palette opens from the search button, keeps the focus, and gives it back on Escape', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await open(page, '/', variant)
+    const button = page.getByTestId('search-button')
+    await expect(button).toHaveAttribute('aria-haspopup', 'dialog')
+    await button.focus()
+    await page.keyboard.press('Enter')
+
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    await expect(page.getByRole('combobox')).toBeFocused()
+    for (const key of ['Tab', 'Shift+Tab']) {
+      for (let stop = 0; stop < 10; stop++) {
+        await page.keyboard.press(key)
+        expect(await dialog.evaluate(node => node.contains(document.activeElement))).toBe(true)
+      }
+    }
+    await page.getByRole('combobox').focus()
+    // nothing found: the listbox is out, and the field says it controls nothing open
+    await page.keyboard.type('ж')
+    await expect(page.getByRole('combobox')).toHaveAttribute('aria-expanded', 'false')
+    await expect(page.getByRole('status').filter({ hasText: message('en', 'palette.none') })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeHidden()
+    await expect(button).toBeFocused()
   })
 })
 

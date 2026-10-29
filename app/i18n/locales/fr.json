@@ -18,8 +18,6 @@
   },
   "home": {
     "tagline": "Données météo ouvertes pour les humains",
-    "intro": "Choisis simplement ce que tu souhaites voir.",
-    "tasksTitle": "Que souhaites-tu faire ?",
     "forecastTitle": "Prévisions météo",
     "forecastDesc": "Consulte des prévisions sur plusieurs jours pour ta région.",
     "stripesTitle": "Bandes du réchauffement",
@@ -116,12 +114,16 @@
     "providers": "Fournisseurs",
     "api": "API",
     "glossary": "Glossaire",
-    "support": "Aide"
+    "support": "Aide",
+    "ask": "Demander"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menu"
+    "menu": "Menu",
+    "skip": "Aller au contenu",
+    "search": "Rechercher",
+    "mainNav": "Navigation principale"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
@@ -789,5 +791,110 @@
     "summary": "Synthèse",
     "periods": "Périodes",
     "colMissingCount": "Nombre de valeurs manquantes"
+  },
+  "ask": {
+    "title": "Demande à la météo",
+    "lead": "Les questions que l'on se pose, avec des réponses tirées des mesures et prévisions officielles, et le graphique pour vérifier.",
+    "placeLabel": "Pour le lieu",
+    "placeChange": "changer de lieu",
+    "placeNotFound": "Le lieu du lien est introuvable.",
+    "questionsLabel": "Liste des questions",
+    "q": {
+      "rain": "Va-t-il pleuvoir à {place} demain ?",
+      "summer": "L'été dernier a-t-il été plus chaud que d'habitude ici ?",
+      "wind": "Quel vent a-t-il fait le {day} ?",
+      "download": "Où télécharger des températures horaires ?"
+    },
+    "from": {
+      "rain": "Prévisions, DWD MOSMIX",
+      "summer": "Moyennes mensuelles, DWD",
+      "wind": "Relevés quotidiens, DWD",
+      "download": "Tous les services météorologiques"
+    },
+    "working": "Calcul de la réponse …",
+    "failed": "La réponse n'a pas pu être calculée.",
+    "showValues": "Afficher les valeurs",
+    "tableWhen": "Quand",
+    "toolsTitle": "Ou va directement aux outils",
+    "toolsLead": "Pour qui sait déjà ce qu'il lui faut.",
+    "rain": {
+      "yes": "Oui, de la pluie est probable.",
+      "maybe": "Peut-être, un peu.",
+      "no": "Probablement pas.",
+      "total": "{amount} mm prévus pour toute la journée.",
+      "wettest": "Heure la plus pluvieuse : de {from} h à {to} h, {amount} mm.",
+      "chance": "Plus forte probabilité de pluie sur une heure : {chance}.",
+      "point": "Prévisions pour {name}, le point de prévision le plus proche de {place} (à {distance} km).",
+      "pointNoDistance": "Prévisions pour {name}, le point de prévision le plus proche de {place}.",
+      "chart": "Pluie par heure demain, en {unit}",
+      "none": "Les prévisions pour {name} ne vont pas encore jusqu'à demain.",
+      "open": "Ouvrir les prévisions complètes"
+    },
+    "summer": {
+      "hotter": "Oui, {anomaly} °C de plus que d'habitude.",
+      "cooler": "Non, {anomaly} °C de moins que d'habitude.",
+      "usual": "Pas vraiment : à peu près comme d'habitude.",
+      "detail": "L'été {year} (juin à août) a eu une moyenne de {mean} °C ; les étés de {from} à {to}, de {normal} °C.",
+      "rank": "Rang {rank} sur {count} étés depuis {first}, en partant du plus chaud.",
+      "chart": "Chaque été par rapport à la moyenne de {from} à {to}, en {unit}",
+      "none": "Il y a trop peu d'étés complets ici pour comparer.",
+      "open": "Ouvrir les moyennes mensuelles",
+      "stripes": "Voir les bandes climatiques"
+    },
+    "wind": {
+      "calm": "Calme.",
+      "breezy": "Un peu de vent.",
+      "windy": "Venteux.",
+      "stormy": "Tempétueux.",
+      "mean": "Vent moyen {speed} m/s, Beaufort {force}.",
+      "gust": "Rafale la plus forte {speed} m/s, Beaufort {force}.",
+      "context": "Jours alentour avec des rafales plus fortes : {stronger} sur {around}.",
+      "chartGust": "Rafale la plus forte par jour, en {unit}",
+      "chartMean": "Vent moyen par jour, en {unit}",
+      "none": "Il n'y a pas de mesures de vent ici pour le {day}.",
+      "dayLabel": "Jour",
+      "open": "Ouvrir ces jours dans l'Explorateur"
+    },
+    "download": {
+      "answer": "Services météorologiques qui publient la température horaire de l'air : {count}.",
+      "detail": "Chacun s'ouvre dans l'Explorateur, prêt à télécharger en CSV, JSON ou GeoJSON.",
+      "none": "Aucun service météorologique ne publie de température horaire de l'air pour le moment.",
+      "api": "Ou utilise l'API REST"
+    }
+  },
+  "palette": {
+    "title": "Recherche",
+    "description": "Les flèches déplacent, Entrée ouvre, Échap ferme.",
+    "inputLabel": "Rechercher des pages, des lieux, des questions et des réglages",
+    "placeholder": "Une page, un lieu ou une question …",
+    "placeholderPlace": "Le nom d'une ville ou d'une station météo …",
+    "resultsLabel": "Résultats",
+    "results": "Résultats : {count}",
+    "none": "Rien trouvé.",
+    "placeHint": "Tape le nom d'une ville ou d'une station météo.",
+    "searchingPlaces": "Recherche de lieux …",
+    "placesFailed": "Les lieux n'ont pas pu être recherchés.",
+    "askAbout": "poser les questions sur ce lieu",
+    "current": "actuel",
+    "groups": {
+      "questions": "Questions fréquentes",
+      "pages": "Les pages",
+      "places": "Lieux"
+    },
+    "pages": {
+      "ask": "Des questions, avec les réponses tirées des données",
+      "meteogram": "Les prévisions des prochains jours",
+      "stripes": "Le réchauffement d'un lieu, année après année, en bandes colorées",
+      "explorer": "Trouver des stations, choisir quoi récupérer et le télécharger",
+      "history": "Les noms, positions et instruments d'une station au fil du temps",
+      "providers": "Les services météorologiques, leurs licences et leur offre",
+      "glossary": "Ce que signifie chaque grandeur mesurée, et son unité",
+      "api": "L'API REST sur laquelle repose cette application, avec des exemples",
+      "settings": "Langue, apparence et unités",
+      "about": "Le projet et les personnes derrière",
+      "support": "Signaler un bug, poser une question ou aider",
+      "impressum": "Qui exploite ce site",
+      "datenschutz": "Ce qui est enregistré sur toi, et pourquoi"
+    }
   }
 }

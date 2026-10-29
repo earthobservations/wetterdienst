@@ -12,7 +12,8 @@ it, what was checked by hand, and what is known not to conform.
 - every page, as it is first shown, in light and dark mode and in English and German,
 - and, in light/English and dark/German, the states a first paint does not show: a station map with
   stations, a drawn chart (explorer, stripes, meteogram, widget), the table of the stripes' and the meteogram's values opened, the meteogram's compact day cards, an open
-  menu or popover, and an error notice.
+  menu or popover, the command palette open, and an error notice. The home page's first paint holds the answer to its
+  first question, with its chart, worked out from the mock's forecast.
 
 The spec answers every `/api/*` request itself, in the browser (`tests/e2e/accessibility/mock-backend.ts`),
 so it reaches neither the backend nor a provider. Map tiles and every other request to another host are
@@ -37,8 +38,10 @@ The same pages and states (in light/English and dark/German) are scanned twice m
   stops. The rules are the app's own ids, in `CUSTOM_RULES` of `interact.ts`.
 
 Beside the scans, `accessibility.spec.ts` drives widgets by keys alone (`keyboard operation`: the station
-picker, a collapsible, a menu, and the narrow layout's menu, which is a dialog that keeps the focus and gives
-it back; `chart controls by keyboard`: Plotly's modebar, and the table of values that stands for the stripes
+picker, a collapsible, a menu, the narrow layout's menu, which is a dialog that keeps the focus and gives
+it back, and the command palette: opened by Ctrl+K and by the search button, an ARIA 1.2 combobox whose arrow keys
+move the active option (`aria-activedescendant`), whose Enter runs it, which keeps the focus while it is open and
+gives it back on Escape; `chart controls by keyboard`: Plotly's modebar, and the table of values that stands for the stripes
 and the meteogram, opened, reached and scrolled by keys; and Plotly's hover label and the names of its
 modebar buttons, which Escape dismisses until the pointer moves, 1.4.13), checks that every page has a title of its own that a navigation announces (`page titles`, 2.4.2,
 4.1.3) and that no page scrolls sideways at 320 px (`reflow at 320 px`, 1.4.10).
@@ -61,20 +64,23 @@ What is left in it, and why it is not fixed in the app's own markup:
 - `aria-hidden-focus`, the error toast: the two focus proxies in Reka UI's toast viewport are
   `aria-hidden` and focusable. Also upstream.
 
-There is no `color-contrast` entry left. The brand green, `#00c950`, stays the fill of a solid primary
-button; its label is `#0f172b` (`--app-text-on-primary` in `app/assets/css/main.css`, set for the
-button in `app/app.config.ts`), 8.0:1 on the fill and 9.5:1 hovered in light mode, where the white
-label it replaces was 2.2:1 and 1.9:1. Dark mode has the same label on its lighter fill, as Nuxt UI
-already had it (10.0:1, and 6.1:1 hovered). A disabled button is exempt from 1.4.3 and from the scans; its
-label is at 75 % opacity with its fill (4.2:1 in light mode). Text in the primary colour on white is
-shade 700 and a fifth of the way to 800 (`.text-primary`), a hovered link button shade 800 (7.1:1; Nuxt UI's
-75 % of the first was 3.4:1), and a hovered chip of the home page shade 700 (4.9:1; shade 500 was 2.2:1).
-`tests/unit/button-contrast.test.ts` computes the hovered ratio of a solid button, as 75 % of the fill over
-the page; the hover scan measures the rest.
+There is no `color-contrast` entry left. The colours are the logo's (GH-3518, `app/assets/css/main.css`): the
+primary scale is its blue (`#2e6fd1`) from its navy (`#17335f`, shade 900) to the dark of its sun (`#0b1a33`,
+shade 950), and Tailwind's gray is redrawn with a little of the navy in it, each step as light as gray's within a
+few per cent. A solid primary button is shade 600 with Nuxt UI's white label (6.7:1) in light mode and shade 300
+with the dark page's neutral-900 (7.5:1) in dark mode; hovered it goes a shade darker (700, 8.6:1) or lighter (200,
+10.4:1) where Nuxt UI faded it to 75 %, which on white is a blue that white is under 4.5:1 on. A disabled button is
+exempt from 1.4.3 and from the scans. Text in the primary colour is shade 700 on light (8.6:1 on white, 7.7:1 on
+its tint, `.text-primary`) and shade 300 on dark (7.5:1 on the page, 6.5:1 on its raised surface). Muted text is
+neutral-500 on light (5.1:1 on white, 4.6:1 on neutral-100) and neutral-400 on dark (6.4:1). The four tiles of the
+questions are the logo's yellow, teal and coral with the dark of its sun on them (11.3:1, 6.7:1, 5.0:1) and its blue
+with white (4.9:1); their icons are decoration beside the words. `tests/unit/button-contrast.test.ts` computes
+these from `main.css`; the hover scan measures the rest.
 
 The focus indicator is one solid 2 px outline for everything a keyboard reaches (`--app-focus-ring` in
-`main.css`: shade 700 of the primary colour on light, 4.9:1 on white, shade 400 on dark, 10:1; the map takes
-the light one in both modes). Nuxt UI's own is an outline at 25 % of the primary colour (1.2:1 to 1.7:1 on
+`main.css`: shade 700 of the primary colour on light, 8.6:1 on white, shade 300 on dark, 7.5:1; what takes the focus on
+the map takes the light one in both modes, the map itself the page's, as it is drawn on the page). The field of the command palette draws it as a 2 px line under the field, in the
+same colour, as the palette's edge is the field's. Nuxt UI's own is an outline at 25 % of the primary colour (1.2:1 to 1.7:1 on
 white) and a ring in the primary colour (2.2:1), and its menu search fields draw none; they stay, beside it.
 
 There is no sepia mode. `main.css` once held a `html.sepia` block that redefined the `--ui-*` tokens, which
@@ -165,8 +171,19 @@ The charts' text alternatives and keyboard access (#3145), checked on 2026-10-19
 - **The station map, 1.1.1 and 2.1.1**: markers are reachable by Tab and named by their station, but a map of
   hundreds of them is no way to choose a station by keyboard; the picker beside it is. Clusters are named by
   their count only.
-- **Not checked**: a screen reader pass (VoiceOver, NVDA), text spacing (1.4.12), zoom to 200 % (1.4.4) and
-  the nine languages besides English and German, which the scans do not cover.
+- **Not checked**: a screen reader pass (VoiceOver, NVDA), zoom to 200 % (1.4.4) and the nine languages besides
+  English and German, which the scans do not cover.
+
+Checked with the redesign (GH-3518), on 2026-10-29 in Chrome on macOS, by a script over the home page (two of its
+questions), the forecast, explorer, stripes, providers, glossary and settings pages, in German:
+
+| Criterion | Result |
+| --- | --- |
+| 1.4.12 Text spacing | With line height 1.5, letter spacing 0.12 em, word spacing 0.16 em and 2 em after a paragraph, no text is cut by a box that hides its overflow (the route announcer, which is visually hidden on purpose, aside). |
+| 1.4.10 Reflow, 320 px (400 % of 1280) | No page scrolls sideways. A long compound in a page's purpose line (Dutch, Luxembourgish) wraps (`PageHeader`). |
+| 2.3.3 Reduced motion | Under `prefers-reduced-motion: reduce` no transition or animation runs longer than 0.01 ms. |
+| Forced colours (Windows contrast themes) | **Was failing**, on every page: the icons are a mask over `background-color: currentColor`, which the system paints as Canvas, so they vanished. They keep their text's colour now (`main.css`). The question that is open, the active option of the palette and the bar of an answer that is asked about take the system's highlight; the tiles an edge. |
+| Print | The header, the footer's links and the skip link are left out; a link to another site prints its address. |
 
 ## Lighthouse
 

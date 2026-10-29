@@ -435,7 +435,7 @@ watch([provider, network, resolution, dataset, parameters, dateRequired], () => 
   <UCard>
     <template #header>
       <div class="flex items-center gap-2">
-        <UIcon name="i-lucide-database" class="text-primary-500 shrink-0" />
+        <UIcon name="i-lucide-database" class="text-primary shrink-0" />
         <h2 class="text-lg font-bold">
           {{ t('parameterSelection.title') }}
         </h2>

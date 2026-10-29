@@ -18,8 +18,6 @@
   },
   "home": {
     "tagline": "Otwarte dane pogodowe dla ludzi",
-    "intro": "Wybierz po prostu, co chcesz zobaczyć.",
-    "tasksTitle": "Co chcesz zrobić?",
     "forecastTitle": "Prognoza pogody",
     "forecastDesc": "Zobacz kilkudniową prognozę dla swojej okolicy.",
     "stripesTitle": "Paski ocieplenia",
@@ -116,12 +114,16 @@
     "providers": "Dostawcy",
     "api": "API",
     "glossary": "Słownik",
-    "support": "Wsparcie"
+    "support": "Wsparcie",
+    "ask": "Zapytaj"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menu"
+    "menu": "Menu",
+    "skip": "Przejdź do treści",
+    "search": "Szukaj",
+    "mainNav": "Nawigacja główna"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
@@ -789,5 +791,110 @@
     "summary": "Podsumowanie",
     "periods": "Okresy",
     "colMissingCount": "Liczba braków"
+  },
+  "ask": {
+    "title": "Zapytaj o pogodę",
+    "lead": "Pytania, które ludzie zadają, z odpowiedziami z oficjalnych pomiarów i prognoz oraz wykresem do sprawdzenia.",
+    "placeLabel": "Pytania o",
+    "placeChange": "zmień miejsce",
+    "placeNotFound": "Nie znaleziono miejsca z linku.",
+    "questionsLabel": "Pytania",
+    "q": {
+      "rain": "Czy jutro będzie padać w {place}?",
+      "summer": "Czy ostatnie lato było tu cieplejsze niż zwykle?",
+      "wind": "Jak mocno wiało {day}?",
+      "download": "Gdzie mogę pobrać temperatury godzinowe?"
+    },
+    "from": {
+      "rain": "Prognoza, DWD MOSMIX",
+      "summer": "Średnie miesięczne, DWD",
+      "wind": "Dane dobowe, DWD",
+      "download": "Wszystkie służby meteorologiczne"
+    },
+    "working": "Obliczanie odpowiedzi …",
+    "failed": "Nie udało się obliczyć odpowiedzi.",
+    "showValues": "Pokaż wartości",
+    "tableWhen": "Kiedy",
+    "toolsTitle": "Albo przejdź od razu do narzędzi",
+    "toolsLead": "Gdy już wiesz, czego potrzebujesz.",
+    "rain": {
+      "yes": "Tak, deszcz jest prawdopodobny.",
+      "maybe": "Być może, trochę.",
+      "no": "Raczej nie.",
+      "total": "Prognoza na cały dzień: {amount} mm.",
+      "wettest": "Najbardziej deszczowa godzina: od {from}:00 do {to}:00, {amount} mm.",
+      "chance": "Najwyższe prawdopodobieństwo deszczu w ciągu godziny: {chance}.",
+      "point": "Prognoza dla {name}, punktu prognozy najbliższego {place} ({distance} km).",
+      "pointNoDistance": "Prognoza dla {name}, punktu prognozy najbliższego {place}.",
+      "chart": "Deszcz w każdej godzinie jutra, w {unit}",
+      "none": "Prognoza dla {name} nie sięga jeszcze jutra.",
+      "open": "Otwórz pełną prognozę"
+    },
+    "summer": {
+      "hotter": "Tak, o {anomaly} °C cieplej niż zwykle.",
+      "cooler": "Nie, o {anomaly} °C chłodniej niż zwykle.",
+      "usual": "Nie bardzo: mniej więcej jak zwykle.",
+      "detail": "Lato {year} (od czerwca do sierpnia) miało średnio {mean} °C; lata od {from} do {to} średnio {normal} °C.",
+      "rank": "Miejsce {rank} na {count} od roku {first}, licząc od najcieplejszego lata.",
+      "chart": "Każde lato względem średniej z lat {from}–{to}, w {unit}",
+      "none": "Jest tu za mało pełnych sezonów letnich do porównania.",
+      "open": "Otwórz średnie miesięczne",
+      "stripes": "Zobacz paski klimatyczne"
+    },
+    "wind": {
+      "calm": "Spokojnie.",
+      "breezy": "Lekki wiatr.",
+      "windy": "Wietrznie.",
+      "stormy": "Sztormowo.",
+      "mean": "Średni wiatr {speed} m/s, Beaufort {force}.",
+      "gust": "Najsilniejszy poryw {speed} m/s, Beaufort {force}.",
+      "context": "Dni wokół z silniejszymi porywami: {stronger} z {around}.",
+      "chartGust": "Najsilniejszy poryw w ciągu dnia, w {unit}",
+      "chartMean": "Średni wiatr w ciągu dnia, w {unit}",
+      "none": "Brak tu pomiarów wiatru z dnia {day}.",
+      "dayLabel": "Dzień",
+      "open": "Otwórz te dni w Eksploratorze"
+    },
+    "download": {
+      "answer": "Służby meteorologiczne publikujące godzinową temperaturę powietrza: {count}.",
+      "detail": "Każda otwiera się w Eksploratorze, gotowa do pobrania jako CSV, JSON lub GeoJSON.",
+      "none": "Obecnie żadna służba meteorologiczna nie publikuje godzinowej temperatury powietrza.",
+      "api": "Albo użyj REST API"
+    }
+  },
+  "palette": {
+    "title": "Wyszukiwanie",
+    "description": "Strzałki przesuwają, Enter otwiera, Escape zamyka.",
+    "inputLabel": "Szukaj stron, miejsc, pytań i ustawień",
+    "placeholder": "Strona, miejsce lub pytanie …",
+    "placeholderPlace": "Nazwa miejscowości lub stacji meteorologicznej …",
+    "resultsLabel": "Wyniki",
+    "results": "Wyniki: {count}",
+    "none": "Nic nie znaleziono.",
+    "placeHint": "Wpisz nazwę miejscowości lub stacji meteorologicznej.",
+    "searchingPlaces": "Szukanie miejsc …",
+    "placesFailed": "Nie udało się przeszukać miejsc.",
+    "askAbout": "zadaj pytania o to miejsce",
+    "current": "bieżące",
+    "groups": {
+      "questions": "Pytania",
+      "pages": "Strony",
+      "places": "Miejsca"
+    },
+    "pages": {
+      "ask": "Pytania z odpowiedziami z danych",
+      "meteogram": "Prognoza na najbliższe dni",
+      "stripes": "Ocieplenie danego miejsca, rok po roku, w kolorowych paskach",
+      "explorer": "Znajdź stacje, wybierz, co pobrać, i pobierz dane",
+      "history": "Nazwy, położenia i przyrządy stacji na przestrzeni czasu",
+      "providers": "Służby meteorologiczne, ich licencje i oferta",
+      "glossary": "Co oznacza każda mierzona wielkość, i jej jednostka",
+      "api": "REST API, na którym działa ta aplikacja, z przykładami",
+      "settings": "Język, wygląd i jednostki",
+      "about": "Projekt i ludzie, którzy za nim stoją",
+      "support": "Zgłoś błąd, zadaj pytanie lub pomóż",
+      "impressum": "Kto prowadzi tę stronę",
+      "datenschutz": "Co jest o tobie zapisywane, i dlaczego"
+    }
   }
 }

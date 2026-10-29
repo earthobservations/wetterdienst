@@ -18,8 +18,6 @@
   },
   "home": {
     "tagline": "Oppen Wiederdaten fir d'Mënsche",
-    "intro": "Wiel einfach aus, wat du gesi wëlls.",
-    "tasksTitle": "Wat wëlls du maachen?",
     "forecastTitle": "Wiederprognos",
     "forecastDesc": "Kuck eng Méideegprognos fir deng Géigend.",
     "stripesTitle": "Erwiermungssträifen",
@@ -116,12 +114,16 @@
     "providers": "Ubidder",
     "api": "API",
     "glossary": "Glossar",
-    "support": "Ënnerstëtzung"
+    "support": "Ënnerstëtzung",
+    "ask": "Froen"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menü"
+    "menu": "Menü",
+    "skip": "Op den Inhalt sprangen",
+    "search": "Sichen",
+    "mainNav": "Haaptnavigatioun"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
@@ -789,5 +791,110 @@
     "summary": "Resümee",
     "periods": "Perioden",
     "colMissingCount": "Zuel vu Fehlenden"
+  },
+  "ask": {
+    "title": "Fro d'Wieder",
+    "lead": "D'Froen, déi d'Leit hunn, beäntwert aus offiziellen Miessungen a Prognosen, mat der Grafik fir nozekucken.",
+    "placeLabel": "Froe fir",
+    "placeChange": "aneren Uert wielen",
+    "placeNotFound": "Den Uert aus dem Link gouf net fonnt.",
+    "questionsLabel": "Lëscht vun de Froen",
+    "q": {
+      "rain": "Reent et muer zu {place}?",
+      "summer": "War de leschte Summer hei méi waarm wéi soss?",
+      "wind": "Wéi windeg war et den {day}?",
+      "download": "Wou kann ech Stonnentemperaturen eroflueden?"
+    },
+    "from": {
+      "rain": "Prognos, DWD MOSMIX",
+      "summer": "Méintlech Mëttelwäerter, DWD",
+      "wind": "Deeglech Wäerter, DWD",
+      "download": "All d'Wiederdéngschter"
+    },
+    "working": "D'Äntwert gëtt ausgerechent …",
+    "failed": "D'Äntwert konnt net ausgerechent ginn.",
+    "showValues": "Wäerter weisen",
+    "tableWhen": "Wéini",
+    "toolsTitle": "Oder direkt bei d'Instrumenter",
+    "toolsLead": "Fir wann s du schonn weess, wat s du brauchs.",
+    "rain": {
+      "yes": "Jo, wahrscheinlech Reen.",
+      "maybe": "Vläicht, e bëssen.",
+      "no": "Éischter net.",
+      "total": "{amount} mm fir de ganzen Dag virausgesot.",
+      "wettest": "Naassst Stonn: vun {from}:00 bis {to}:00, {amount} mm.",
+      "chance": "Héchst Reechance an enger Stonn: {chance}.",
+      "point": "Prognos fir {name}, den nootste Prognosepunkt bei {place} ({distance} km ewech).",
+      "pointNoDistance": "Prognos fir {name}, den nootste Prognosepunkt bei {place}.",
+      "chart": "Reen pro Stonn muer, an {unit}",
+      "none": "D'Prognos fir {name} geet nach net bis muer.",
+      "open": "Ganz Prognos opmaachen"
+    },
+    "summer": {
+      "hotter": "Jo, {anomaly} °C méi waarm wéi soss.",
+      "cooler": "Neen, {anomaly} °C méi kill wéi soss.",
+      "usual": "Net wierklech: ongeféier wéi soss.",
+      "detail": "De Summer {year} (Juni bis August) hat am Mëttel {mean} °C; d'Summere vun {from} bis {to} am Mëttel {normal} °C.",
+      "rank": "Plaz {rank} vun {count} Summeren zënter {first}, vum wäermsten un gezielt.",
+      "chart": "All Summer géint de Mëttelwäert vun {from} bis {to}, an {unit}",
+      "none": "Hei ginn et ze wéineg komplett Summere fir ze vergläichen.",
+      "open": "Méintlech Mëttelwäerter opmaachen",
+      "stripes": "Klimasträifen ukucken"
+    },
+    "wind": {
+      "calm": "Roueg.",
+      "breezy": "E bësse Wand.",
+      "windy": "Windeg.",
+      "stormy": "Stiermesch.",
+      "mean": "Mëttlere Wand {speed} m/s, Beaufort {force}.",
+      "gust": "Stäerkste Rafal {speed} m/s, Beaufort {force}.",
+      "context": "Deeg ronderëm mat méi staarke Rafalen: {stronger} vun {around}.",
+      "chartGust": "Stäerkste Rafal pro Dag, an {unit}",
+      "chartMean": "Mëttlere Wand pro Dag, an {unit}",
+      "none": "Hei ginn et keng Wandmiessunge fir den {day}.",
+      "dayLabel": "Datum",
+      "open": "Dës Deeg am Explorer opmaachen"
+    },
+    "download": {
+      "answer": "Wiederdéngschter, déi d'Lofttemperatur pro Stonn publizéieren: {count}.",
+      "detail": "All eenzelen geet am Explorer op, prett fir als CSV, JSON oder GeoJSON erofzelueden.",
+      "none": "Elo publizéiert kee Wiederdéngscht d'Lofttemperatur pro Stonn.",
+      "api": "Oder benotz d'REST-API"
+    }
+  },
+  "palette": {
+    "title": "Sich",
+    "description": "D'Pfeiltaste beweegen, Enter mécht op, Escape mécht zou.",
+    "inputLabel": "Säiten, Plazen, Froen an Astellunge sichen",
+    "placeholder": "Eng Säit, eng Plaz oder eng Fro …",
+    "placeholderPlace": "Den Numm vun enger Uertschaft oder Wiederstatioun …",
+    "resultsLabel": "Resultater",
+    "results": "Resultater: {count}",
+    "none": "Näischt fonnt.",
+    "placeHint": "Tipp den Numm vun enger Uertschaft oder Wiederstatioun.",
+    "searchingPlaces": "Plaze gi gesicht …",
+    "placesFailed": "D'Plazen konnten net duerchsicht ginn.",
+    "askAbout": "d'Froen dozou stellen",
+    "current": "elo",
+    "groups": {
+      "questions": "Froen",
+      "pages": "Säiten",
+      "places": "Plazen"
+    },
+    "pages": {
+      "ask": "Froen, beäntwert aus den Donnéeën",
+      "meteogram": "D'Prognos fir déi nächst Deeg",
+      "stripes": "D'Erwiermung vun enger Plaz, Joer fir Joer, a faarwege Sträifen",
+      "explorer": "Statiounen fannen, wielen, wat s du ofrufs, an eroflueden",
+      "history": "Nimm, Plazen an Instrumenter vun enger Statioun duerch d'Zäit",
+      "providers": "D'Wiederdéngschter, hir Lizenzen a wat se ubidden",
+      "glossary": "Wat all gemoossene Gréisst bedeit, an hir Eenheet",
+      "api": "D'REST-API, op där dës App leeft, mat Beispiller",
+      "settings": "Sprooch, Ausgesinn an Eenheeten",
+      "about": "De Projet an d'Leit dohannert",
+      "support": "E Feeler mellen, eng Fro stellen oder hëllefen",
+      "impressum": "Wien dëse Site bedreift",
+      "datenschutz": "Wat iwwer dech gespäichert gëtt, a firwat"
+    }
   }
 }

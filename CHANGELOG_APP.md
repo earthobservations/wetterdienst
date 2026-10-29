@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Design]` The home page opens on four questions (rain tomorrow, last summer, wind on a day, hourly
+  temperatures to download), each answered from data the app fetches, with its chart and a link into
+  the tool, filled in. A search button and Ctrl+K / ⌘K open a command palette for pages, places,
+  questions, appearance and language. New colours, type and layout from the logo; every page shares
+  one header and width (GH-3518)
+
 ## [0.39.0] - 2026-10-28
 
 ### Security

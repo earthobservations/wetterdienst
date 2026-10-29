@@ -56,21 +56,14 @@ function unitItems(units: readonly string[]) {
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-2xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('settings.title') }}
-      </h1>
-      <p class="text-gray-600 dark:text-gray-400">
-        {{ t('settings.subtitle') }}
-      </p>
-    </div>
+  <div class="app-page space-y-6">
+    <PageHeader :title="t('settings.title')" :subtitle="t('settings.subtitle')" icon="i-lucide-sliders-horizontal" tone="plain" />
 
     <!-- Language -->
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-languages" class="text-primary-500 shrink-0" />
+          <UIcon name="i-lucide-languages" class="text-primary shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('settings.language') }}
           </h2>
@@ -88,7 +81,7 @@ function unitItems(units: readonly string[]) {
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-palette" class="text-primary-500 shrink-0" />
+          <UIcon name="i-lucide-palette" class="text-primary shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('settings.theme') }}
           </h2>
@@ -111,7 +104,7 @@ function unitItems(units: readonly string[]) {
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-ruler" class="text-primary-500 shrink-0" />
+          <UIcon name="i-lucide-ruler" class="text-primary shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('settings.units') }}
           </h2>
@@ -199,5 +192,5 @@ function unitItems(units: readonly string[]) {
         @click="reset"
       />
     </div>
-  </UContainer>
+  </div>
 </template>

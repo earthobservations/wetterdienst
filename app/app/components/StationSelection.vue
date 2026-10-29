@@ -266,7 +266,7 @@ function removeStation(station: Station) {
       <template #content>
         <ClientOnly>
           <p v-if="!mapNotLoaded" class="flex items-center justify-center gap-2 mt-3 text-sm text-gray-500 dark:text-gray-400">
-            <UIcon name="i-lucide-hand-pointer-2" class="w-4 h-4 text-primary-500" />
+            <UIcon name="i-lucide-hand-pointer-2" class="w-4 h-4 text-primary" />
             {{ multiple ? t('stationSelection.mapHintMultiple') : t('stationSelection.mapHint') }}
           </p>
           <MapStations

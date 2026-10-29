@@ -224,15 +224,8 @@ onMounted(async () => {
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('meteogram.title') }}
-      </h1>
-      <p class="text-gray-600 dark:text-gray-400">
-        {{ t('meteogram.subtitle') }}
-      </p>
-    </div>
+  <div class="app-page app-page--wide space-y-6">
+    <PageHeader :title="t('meteogram.title')" :subtitle="t('meteogram.subtitle')" icon="i-lucide-cloud-sun" tone="sun" />
 
     <UCollapsible v-model="showAbout">
       <UButton
@@ -260,7 +253,7 @@ onMounted(async () => {
     <UCard>
       <template #header>
         <div class="flex items-center gap-2 flex-wrap">
-          <UIcon name="i-lucide-map-pin" class="text-primary-500 shrink-0" />
+          <UIcon name="i-lucide-map-pin" class="text-primary shrink-0" />
           <span class="text-lg font-bold">{{ t('explorer.dataSource') }}</span>
           <div class="ml-auto flex items-center gap-2">
             <label for="meteogram-run" class="text-xs text-gray-500 dark:text-gray-400 shrink-0">{{ t('meteogram.runLabel') }}</label>
@@ -299,12 +292,12 @@ onMounted(async () => {
         <template #content>
           <ClientOnly>
             <div v-if="mapLoading" class="flex items-center justify-center gap-3 py-8 text-gray-500 dark:text-gray-400">
-              <UIcon name="i-lucide-loader-circle" class="w-5 h-5 animate-spin text-primary-500" />
+              <UIcon name="i-lucide-loader-circle" class="w-5 h-5 animate-spin text-primary" />
               <span>{{ t('stationSelection.loading') }}</span>
             </div>
             <template v-else-if="mapStations.length">
               <p v-if="!mapNotLoaded" class="flex items-center justify-center gap-2 mt-3 text-sm text-gray-500 dark:text-gray-400">
-                <UIcon name="i-lucide-hand-pointer-2" class="w-4 h-4 text-primary-500" />
+                <UIcon name="i-lucide-hand-pointer-2" class="w-4 h-4 text-primary" />
                 {{ t('meteogram.mapHint') }}
               </p>
               <MapStations
@@ -321,7 +314,7 @@ onMounted(async () => {
 
     <!-- Loading state -->
     <div v-if="pending" class="flex items-center justify-center gap-3 py-12 text-gray-500 dark:text-gray-400">
-      <UIcon name="i-lucide-loader-circle" class="w-6 h-6 animate-spin text-primary-500" />
+      <UIcon name="i-lucide-loader-circle" class="w-6 h-6 animate-spin text-primary" />
       <span>{{ t('meteogram.loading') }}</span>
     </div>
 
@@ -338,7 +331,7 @@ onMounted(async () => {
     <UCard v-else-if="selectedStation && values.length > 0">
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-cloud-sun" class="text-primary-500" />
+          <UIcon name="i-lucide-cloud-sun" class="text-primary" />
           <span class="text-lg font-bold">{{ selectedStation.name }}</span>
           <span class="text-gray-500 dark:text-gray-400 text-sm">({{ selectedStation.station_id }})</span>
           <UButton
@@ -370,5 +363,5 @@ onMounted(async () => {
         {{ t('meteogram.emptyHint') }}
       </p>
     </div>
-  </UContainer>
+  </div>
 </template>

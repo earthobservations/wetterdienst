@@ -611,15 +611,8 @@ function handleUnitTargetChange(unitType: string, value: string) {
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('explorer.title') }}
-      </h1>
-      <p class="text-gray-600 dark:text-gray-400">
-        {{ t('explorer.subtitle') }}
-      </p>
-    </div>
+  <div class="app-page app-page--wide space-y-6">
+    <PageHeader :title="t('explorer.title')" :subtitle="t('explorer.subtitle')" icon="i-lucide-compass" tone="rain" />
 
     <UCollapsible v-model="showAbout">
       <UButton
@@ -669,7 +662,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
     <UCard v-if="offersLeadTime" data-testid="lead-time">
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-clock" class="text-primary-500 shrink-0" />
+          <UIcon name="i-lucide-clock" class="text-primary shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('explorer.leadTime') }}
           </h2>
@@ -697,7 +690,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
     <UCard v-if="showModeSelection">
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-layers" class="text-primary-500 shrink-0" />
+          <UIcon name="i-lucide-layers" class="text-primary shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('explorer.mode') }}
           </h2>
@@ -756,7 +749,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
           <!-- Common settings -->
           <div class="p-4 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
             <div class="flex items-center gap-2 mb-3">
-              <UIcon name="i-lucide-settings" class="w-4 h-4 text-primary-500" />
+              <UIcon name="i-lucide-settings" class="w-4 h-4 text-primary" />
               <div class="text-sm font-semibold text-gray-900 dark:text-white">
                 {{ t('explorer.generalSettings') }}
               </div>
@@ -809,7 +802,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
             class="p-4 rounded-lg border-2 border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-950/30"
           >
             <div class="flex items-center gap-2 mb-3">
-              <UIcon name="i-lucide-table" class="w-4 h-4 text-primary-500" />
+              <UIcon name="i-lucide-table" class="w-4 h-4 text-primary" />
               <div class="text-sm font-semibold text-gray-900 dark:text-white">
                 {{ t('explorer.valuesOptions') }}
               </div>
@@ -870,7 +863,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
             class="p-4 rounded-lg border-2 border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-950/30"
           >
             <div class="flex items-center gap-2 mb-3">
-              <UIcon name="i-lucide-locate" class="w-4 h-4 text-primary-500" />
+              <UIcon name="i-lucide-locate" class="w-4 h-4 text-primary" />
               <div class="text-sm font-semibold text-gray-900 dark:text-white">
                 {{ t('explorer.interpolationOptions') }}
               </div>
@@ -1047,7 +1040,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
     <UCard v-if="showModeSelection">
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-map-pin" class="text-primary-500 shrink-0" />
+          <UIcon name="i-lucide-map-pin" class="text-primary shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('explorer.dataSource') }}
           </h2>
@@ -1153,5 +1146,5 @@ function handleUnitTargetChange(unitType: string, value: string) {
       :station-selection="stationSelectionState" :settings="dataSettings" :lead-time="selectedLeadTime"
       :unit-target-defaults="unitTargetDefaults"
     />
-  </UContainer>
+  </div>
 </template>
