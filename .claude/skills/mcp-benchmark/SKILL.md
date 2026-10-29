@@ -248,15 +248,16 @@ row of the fact's day (`2026-10-16`, `2026/10/16`, `20261016`, `16.10.2026`, `16
   that says "precipitation", are no parameter column: the table is read as a wide one.
 - *Column.* The fact's first `column_names` entry if it is a header (`precipitation_amount`); else the one header that matches
   the `column` regex, which names the precipitation and not its neighbours (`precip` without form, type, kind, max, min, 1h,
-  hour, intensity, flag, quality, qn); two headers that match, and none exact, are ambiguous (`precipitation_mm` and
+  hourly, per hour, intensity, flag, quality, qn, as words: `24-hour total` is a total, `hourly` is not); two headers that match, and none exact, are ambiguous (`precipitation_mm` and
   `precipitation_cm`) and the table decides nothing; else the fact's other entry, `value` (the column of a long table, and of a
-  wide one only when nothing matched); else the one column a `TABLE-UNIT` line names with a unit of the case, accepted or
-  forbidden (`rain_mm | mm`; `quality | QN` is not one). A column with no such name (`rr`, `rain`) decides nothing. Figures inside
+  wide one only when nothing matched); else the one column a `TABLE-UNIT` line names (the line of that name, of the name without
+  its bracketed unit, `Rainfall | mm` for `Rainfall (mm)`, or the one line that is a spelling of it) with a unit of the case,
+  accepted or forbidden (`rain_mm | mm`; `quality | QN` is not one). A column with no such name (`rr`, `rain`) decides nothing. Figures inside
   dates and times are never read.
-- *Unit.* Read only on the chosen column: its own `TABLE-UNIT` line, else (in a long table) the line that names the parameter
-  (`precipitation_amount | mm` for `value`), else the one line that is a spelling of its name (`precipitation` for
-  `precipitation_mm`, `precipitation amount` for `precipitation_amount`; two spellings with different units give none), else a
-  unit of the case in its header (`Precipitation (cm)`), else the unit the tool returns. The units a line declares for any other column (`quality | QN`,
+- *Unit.* Read only on the chosen column: its own `TABLE-UNIT` line (the line of that name, of the name without its bracketed
+  unit, or the one line that is a spelling of it: `precipitation` for `precipitation_mm`; two spellings with different units give
+  none), else (in a long table) the line that names the parameter in the same ways (`precipitation_amount | mm` or
+  `precipitation | mm` for `value`), else a unit of the case in its header (`Precipitation (cm)`), else the unit the tool returns. The units a line declares for any other column (`quality | QN`,
   `date | UTC`, `wind_speed_mean | m/s`) are not read. A forbidden or unknown unit declared for the chosen column fails.
 - *Value.* A chosen column that gives the day two different values fails whatever the order; all of them equal the value, the
   table passes. A table that has the chosen column and a wrong value fails the answer beside a right table.
@@ -279,7 +280,7 @@ well-formed line is read by the **fallback**.
 it on its line, or alone on the line above), real tables (a markdown table, or two or more lines of the same cells with a
 separator row or a header line; prose with commas is no table: a header line is names only, that is cells that are no value
 (no signed or decimal figure, none that starts the cell) and no sentence (five words at most, not two words or more ending in
-`.`, `!` or `?`)) by column, with the unit in the cell, the header, a
+a word of four letters or more and `.`, `!` or `?`; a whole number in a header cell must be followed by a word, `24 h`)) by column, with the unit in the cell, the header, a
 `Unit` column, the row label or a sentence around it, and the same span rule for tables. For a fact with a `column` and a
 `row` it too reads only the column named (leniently about the header's spelling: if no header matches, any column) and the
 row of the date. It is reported as `unit_fallback`.

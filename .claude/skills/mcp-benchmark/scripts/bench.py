@@ -70,7 +70,7 @@ CLEANUP_MIN_AGE = 600
 MAX_TIMEOUT = 540
 #: bump it when the arithmetic changes (what counts as a step, a checkpoint, a violation, an aggregate or a verdict):
 #: two results files of another logic version are not compared
-LOGIC_VERSION = 13
+LOGIC_VERSION = 14
 UTC = dt.timezone.utc  # noqa: UP017 - the script also runs on the python3 of a Mac, which is older than 3.11
 #: Claude Code puts a tool result that exceeds its limit in a file and answers with this notice; no Read tool to open it
 SPILL_RE = re.compile(r"^Error: result \(([\d,]+) characters\) exceeds maximum allowed")
@@ -1272,8 +1272,8 @@ def _is_name(cell: str) -> bool:
 
     A figure in brackets (`quality (1-10)`, `precipitation (06-06 UTC)`) or a whole number before a unit word
     (`Precip. in 24 h (mm)`) belongs to a name; a decimal, a signed figure, a figure before a symbol (`-0.7 K`,
-    `20 °C`, `84 %`) or one that starts the cell is a value. More than five words, or two words or more ending in `.`,
-    `!` or `?`, is a sentence.
+    `20 °C`, `84 %`) or one that starts the cell is a value. More than five words, or two words or more ending in a
+    word of four letters or more and `.`, `!` or `?`, is a sentence (`Temp. max.` is an abbreviation).
     """
     text = cell.strip()
     if _NOT_A_FIGURE.fullmatch(text):
@@ -1285,7 +1285,8 @@ def _is_name(cell: str) -> bool:
         if not found.group(0).isdigit() or not re.match(r"\s+[A-Za-z]", outside[found.end() :]):
             return False
     words = text.split()
-    return len(words) <= 5 and not (len(words) > 1 and text[-1] in ".!?")
+    sentence = len(words) > 1 and re.search(r"[A-Za-z]{4,}[.!?]$", text)  # `Temp. max.`, `Precip. amt.` are not
+    return len(words) <= 5 and not sentence
 
 
 def _is_header_row(line: str) -> bool:
@@ -1492,8 +1493,8 @@ def _asked_columns(
 
     The figures inside dates are never read (`_mask`). Rules: the fact's first canonical name (`precipitation_amount`);
     the headers that match its `column` regex; its other canonical names (`value`, the column of a long table); the
-    columns a `TABLE-UNIT` line names with a unit of the case, accepted or forbidden (`rain_mm | mm`, not
-    `quality | QN`).
+    columns a `TABLE-UNIT` line names (`_line_unit`: `Rainfall | mm` for `Rainfall (mm)`) with a unit of the case,
+    accepted or forbidden (`rain_mm | mm`, not `quality | QN`).
     """
     candidates = []
     for i, name in enumerate(header):
@@ -1509,8 +1510,21 @@ def _asked_columns(
     ):
         if found := [c for c in candidates if step(c)]:
             return found
-    by_line = {_column_key(column): _norm_unit(unit) for column, unit in column_units}
-    return [c for c in candidates if by_line.get(_column_key(c[0])) in known_units]
+    return [c for c in candidates if _norm_unit(_line_unit(c[0], column_units) or "") in known_units]
+
+
+def _line_unit(name: str, column_units: list[tuple[str, str]]) -> str | None:
+    """Give the unit a `TABLE-UNIT` line states for a column name, or None.
+
+    The line of that name; else the line of the name without its bracketed unit (`Rainfall (mm)`, `Rainfall`); else the
+    one line that is a spelling of it (`precipitation` for `precipitation_mm`). Two spellings with two units give none.
+    """
+    plain = _column_key(re.sub(r"\s*[(\[][^)\]]*[)\]]\s*$", "", name))
+    for wanted in (_column_key(name), plain):
+        if unit := next((u for column, u in column_units if _column_key(column) == wanted), None):
+            return unit
+    spelled = {u for column, u in column_units if _similar(column, name)}
+    return spelled.pop() if len(spelled) == 1 else None
 
 
 def _column_unit(
@@ -1518,16 +1532,13 @@ def _column_unit(
 ) -> str | None:
     """Give the unit a column is stated in, or None.
 
-    Its own `TABLE-UNIT` line, else (in a long table) the line that names the parameter (`precipitation_amount | mm` for
-    the column `value`), else the one line that is a spelling of its name (`precipitation` for `precipitation_mm`),
-    else the unit in its header (`Precipitation (cm)`); the lines of other columns are not read.
+    Its own `TABLE-UNIT` line (`_line_unit`), else (in a long table) the line that names the parameter, in the same way
+    (`precipitation_amount | mm` or `precipitation | mm` for the column `value`), else the unit in its header
+    (`Precipitation (cm)`); the lines of other columns are not read.
     """
-    for wanted in (_column_key(name), parameter):
-        if wanted is not None and (unit := next((u for c, u in column_units if _column_key(c) == wanted), None)):
-            return unit
-    spelled = {u for column, u in column_units if _similar(column, name)}
-    if len(spelled) == 1:
-        return spelled.pop()
+    unit = _line_unit(name, column_units) or (_line_unit(parameter, column_units) if parameter else None)
+    if unit:
+        return unit
     in_header = re.search(r"[(\[]([^)\]]+)[)\]]\s*$", name)
     return in_header[1] if in_header and any(_norm_unit(in_header[1]) in t for t in tokens) else None
 

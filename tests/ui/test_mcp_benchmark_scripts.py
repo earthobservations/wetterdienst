@@ -4021,3 +4021,90 @@ def test_the_edges_of_the_column_and_unit_rules() -> None:
     assert bench.unit_check(note, fact, TRUTHS[CSV])["ok"] is False
     assert bench.unit_check(middle, fact, TRUTHS[CSV])["ok"] is True
     assert bench.unit_check(long_ + "TABLE-UNIT: value | mm", fact, TRUTHS[CSV])["ok"] is True
+
+
+# ------------------------------------------------------------------------------------------------------ round 12
+
+
+def test_the_regex_takes_a_24_hour_total_and_not_the_hourly_or_maximum_columns() -> None:
+    """`hour` as a word in `24-hour total` is the precipitation; `hourly`, `1h` and `max` are the neighbours."""
+    pattern = _unit_fact(CSV)["column"]
+    for name in (
+        "Precipitation, 24-hour total (mm)",
+        "Precipitation 24-hour total",
+        "24-hour precipitation",
+        "Precip. amt.",
+    ):
+        assert re.search(pattern, name, re.IGNORECASE), name
+    for name in (
+        "precipitation_1h",
+        "Precipitation 1h (mm)",
+        "Max precipitation (mm)",
+        "precipitation max",
+        "precipitation per hour",
+        "hourly precipitation (mm)",
+        "Precipitation, quality",
+    ):
+        assert not re.search(pattern, name, re.IGNORECASE), name
+
+
+def test_an_abbreviation_with_a_stop_is_a_name_and_a_sentence_is_not() -> None:
+    """`Temp. max.` and `Precip. amt.` head a CSV; a last word of four letters or more and a stop ends a sentence."""
+    for header in ("date,Temp. max.", "date,Precip. amt.", "date,precipitation_amount,Temp. max."):
+        cells = len(header.split(","))
+        assert bench._tables([header, ",".join(["2026-10-16", *["9.9"] * (cells - 1)])]), header  # noqa: SLF001
+    for line in (
+        "Is it wet today?, Is it dry now?",
+        "What a wet morning!, Truly so soaked!",
+        "It rained, then it stopped.",
+    ):
+        assert bench._tables([line, "a,b"]) == [], line  # noqa: SLF001
+    assert bench._is_name("Precipitation (a long remark in brackets here) mm") is False  # noqa: SLF001
+    assert bench._is_name("quality [1-10]") is True  # noqa: SLF001
+    assert bench._tables(["5 days,sum", "2026-10-16,9.9"]) == []  # noqa: SLF001
+    assert bench._tables(["24 h,sum", "2026-10-16,9.9"]) == []  # noqa: SLF001
+
+
+def test_a_table_is_found_once_and_its_rows_are_not_read_as_a_second_one() -> None:
+    """A data row of names (`2026-10-15,heavy`) could head a table of its own; the scan goes on after it."""
+    lines = ["date,note", "2026-10-15,heavy", "2026-10-16,light"]
+
+    assert [(first, last) for first, last, _ in bench._tables(lines)] == [(0, 2)]  # noqa: SLF001
+
+
+def test_more_ends_and_starts_of_ranges() -> None:
+    """The Unicode minus ends a range like the hyphen; an ISO day followed by a dash and a figure is the day."""
+    for cell, found in (
+        ("15\N{EN DASH}16 Oct 2026", False),
+        ("15\N{MINUS SIGN}16 Oct 2026", False),
+        ("15 \N{MINUS SIGN} 16 Oct 2026", False),
+        ("2026-10-16 - 15.5", True),
+        ("2026-10-16 \N{EN DASH} 3", True),
+        ("2026-10-16\N{MINUS SIGN}2026-10-18", False),
+    ):
+        assert bench._row_has_day(["x", cell], DATE_ROW) is found, cell  # noqa: SLF001
+
+
+def test_the_unit_rules_of_a_long_table_and_the_column_choice_order() -> None:
+    """A column's own line beats the parameter's; a spelling of the parameter gives the unit; `value` beats a line."""
+    fact = _unit_fact(CSV)
+    long_ = _wide("date,parameter,value", "2026-10-16,precipitation_amount,15.5")
+    own = bench.unit_check(long_ + "TABLE-UNIT: value | mm\nTABLE-UNIT: precipitation_amount | cm", fact, TRUTHS[CSV])
+    spelled = bench.unit_check(long_ + "TABLE-UNIT: precipitation | mm", fact, TRUTHS[CSV])
+    wide = _wide("date,rr,value", "2026-10-16,9.9,15.5") + "TABLE-UNIT: rr | mm\nTABLE-UNIT: value | mm"
+
+    assert own["ok"] is True
+    assert spelled["ok"] is True
+    assert bench.unit_check(wide, fact, TRUTHS[CSV])["ok"] is True
+    rainfall = _wide("Date,Rainfall (mm)", "2026-10-16,9.9")
+    assert bench.unit_check(rainfall + "TABLE-UNIT: Rainfall | mm\n" + WIDE_R, fact, TRUTHS[CSV])["ok"] is False
+
+
+def test_the_edges_of_the_sentence_test_and_of_the_line_of_a_bracketed_name() -> None:
+    """A four-letter last word, capitals included, ends a sentence; `Rainfall | mm` beats two spellings."""
+    for first in ("Not yet dry, Soon more rain.", "Weather from DWD, Source is NASA."):
+        assert bench._tables([first, "a,b"]) == [], first  # noqa: SLF001
+    fact = _unit_fact(CSV)
+    answer = _wide("Date,Rainfall (mm)", "2026-10-16,15.5") + "TABLE-UNIT: Rainfall | mm\nTABLE-UNIT: Rainfall mm | cm"
+
+    assert bench.unit_check(answer, fact, TRUTHS[CSV])["ok"] is True
