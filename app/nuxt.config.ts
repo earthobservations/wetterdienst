@@ -30,6 +30,8 @@ export default defineNuxtConfig({
   },
 
   css: [
+    // the typeface of the app (GH-3518), its upright styles in Latin and Latin Extended, served from this origin
+    '@fontsource-variable/atkinson-hyperlegible-next/wght.css',
     '~/assets/css/main.css',
     'leaflet/dist/leaflet.css',
   ],

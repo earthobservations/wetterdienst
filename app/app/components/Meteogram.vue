@@ -1797,11 +1797,11 @@ async function renderChartActual() {
     margin: { l: 48, r: 8 + extraRight, t: (compact.value ? 44 : 72) + extraTop, b: compact.value ? 4 : 8 },
     paper_bgcolor: isDark.value ? '#111827' : '#ffffff',
     plot_bgcolor: isDark.value ? '#111827' : '#ffffff',
-    font: { family: '"Inter", system-ui, sans-serif', size: 11, color: isDark.value ? '#f3f4f6' : '#374151' },
+    font: { family: '"Atkinson Hyperlegible Next Variable", system-ui, sans-serif', size: 11, color: isDark.value ? '#f3f4f6' : '#374151' },
     hovermode: 'x unified',
     hoverlabel: {
       bgcolor: isDark.value ? '#1f2937' : '#ffffff',
-      font: { color: isDark.value ? '#f3f4f6' : '#374151', family: '"Inter", system-ui, sans-serif' },
+      font: { color: isDark.value ? '#f3f4f6' : '#374151', family: '"Atkinson Hyperlegible Next Variable", system-ui, sans-serif' },
     },
     bargap: 0.05,
     barmode: 'stack',

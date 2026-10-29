@@ -116,12 +116,16 @@
     "providers": "Udbydere",
     "api": "API",
     "glossary": "Ordliste",
-    "support": "Support"
+    "support": "Support",
+    "reference": "Opslag"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menu"
+    "menu": "Menu",
+    "skipToContent": "Spring til indhold",
+    "mainNav": "Hovednavigation",
+    "footerNav": "Om dette websted"
   },
   "footer": {
     "copyright": "© {year} earthobservations",

@@ -116,12 +116,16 @@
     "providers": "Ubidder",
     "api": "API",
     "glossary": "Glossar",
-    "support": "Ënnerstëtzung"
+    "support": "Ënnerstëtzung",
+    "reference": "Nokucken"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menü"
+    "menu": "Menü",
+    "skipToContent": "Op den Inhalt sprangen",
+    "mainNav": "Haaptnavigatioun",
+    "footerNav": "Iwwer dës Säit"
   },
   "footer": {
     "copyright": "© {year} earthobservations",

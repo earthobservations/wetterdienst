@@ -116,12 +116,16 @@
     "providers": "Fornitori",
     "api": "API",
     "glossary": "Glossario",
-    "support": "Supporto"
+    "support": "Supporto",
+    "reference": "Riferimento"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menu"
+    "menu": "Menu",
+    "skipToContent": "Vai al contenuto",
+    "mainNav": "Navigazione principale",
+    "footerNav": "Informazioni sul sito"
   },
   "footer": {
     "copyright": "© {year} earthobservations",

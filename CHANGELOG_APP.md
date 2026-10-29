@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Design]` A new look in the logo's colours: a navy navigation rail on the left (a bar with a
+  menu on narrow screens), the four tasks as the logo's four tiles, one page frame with the same
+  gutters on every page, a "Skip to content" link, and the self-hosted Atkinson Hyperlegible Next
+  typeface (SIL OFL 1.1, 53 KB). The primary colour is the logo's blue instead of green (GH-3518)
+
 ## [0.39.0] - 2026-10-28
 
 ### Security

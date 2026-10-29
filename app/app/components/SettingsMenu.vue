@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// `onNavy`: the button stands on the navy of the rail (app.vue), where the page's own text colours are not
+const props = defineProps<{ onNavy?: boolean }>()
 const { t, locale, setLocale } = useI18n()
 const colorMode = useColorMode()
 
@@ -21,6 +23,8 @@ const themeOptions = computed(() => [
       icon="i-lucide-settings-2"
       color="neutral"
       variant="ghost"
+      size="lg"
+      :class="props.onNavy ? 'text-gray-200 hover:text-white hover:bg-white/10 aria-expanded:bg-white/10 aria-expanded:text-white' : undefined"
       :aria-label="t('common.settings')"
     />
 
@@ -28,7 +32,7 @@ const themeOptions = computed(() => [
       <div class="p-4 w-64 space-y-4">
         <!-- Language -->
         <div>
-          <div class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
+          <div class="text-xs font-medium text-muted mb-1.5">
             {{ t('settings.language') }}
           </div>
           <USelect
@@ -42,7 +46,7 @@ const themeOptions = computed(() => [
 
         <!-- Theme -->
         <div>
-          <div class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
+          <div class="text-xs font-medium text-muted mb-1.5">
             {{ t('settings.theme') }}
           </div>
           <UFieldGroup class="w-full">

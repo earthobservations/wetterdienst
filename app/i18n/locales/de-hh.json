@@ -116,12 +116,16 @@
     "providers": "Anbeder",
     "api": "API",
     "glossary": "Glossar",
-    "support": "Ünnerstütten"
+    "support": "Ünnerstütten",
+    "reference": "Nakieken"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menü"
+    "menu": "Menü",
+    "skipToContent": "Na'n Inholt springen",
+    "mainNav": "Hööftnavigatschoon",
+    "footerNav": "Över disse Siet"
   },
   "footer": {
     "copyright": "© {year} earthobservations",

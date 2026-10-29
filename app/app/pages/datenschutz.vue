@@ -20,18 +20,15 @@ const operator = OPERATOR
 
 <template>
   <!-- the text is in a language of its own, which the interface may not be in (WCAG 3.1.2) -->
-  <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6" :lang="policy === privacyDe ? 'de' : 'en'">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ policy.title }}
-      </h1>
-      <p class="text-sm text-gray-500 dark:text-gray-400">
+  <AppPage :title="policy.title" :lang="policy === privacyDe ? 'de' : 'en'">
+    <template #meta>
+      <p class="mt-3 text-sm text-muted">
         {{ policy.updated }}
       </p>
-      <p v-if="policy.binding" class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+      <p v-if="policy.binding" class="mt-2 text-sm text-muted">
         {{ policy.binding }}
       </p>
-    </div>
+    </template>
 
     <p class="text-gray-600 dark:text-gray-400">
       {{ policy.intro }}
@@ -88,5 +85,5 @@ const operator = OPERATOR
         </p>
       </div>
     </UCard>
-  </UContainer>
+  </AppPage>
 </template>

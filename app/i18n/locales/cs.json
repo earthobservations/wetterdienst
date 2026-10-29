@@ -116,12 +116,16 @@
     "providers": "Poskytovatelé",
     "api": "API",
     "glossary": "Slovník",
-    "support": "Podpora"
+    "support": "Podpora",
+    "reference": "Referenční údaje"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Nabídka"
+    "menu": "Nabídka",
+    "skipToContent": "Přejít na obsah",
+    "mainNav": "Hlavní navigace",
+    "footerNav": "O tomto webu"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
