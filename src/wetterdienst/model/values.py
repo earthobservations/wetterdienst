@@ -259,6 +259,12 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     #: whether `query` may have the files of the next stations fetched while one is read (GH-3454); a caller that stops
     #: the walk where the data says, not at a number it knows (interpolation, summary), sets it False
     _fetch_ahead_allowed: bool = field(default=True, init=False, repr=False, compare=False)
+    #: whether the `missing-value-marker` warning counts the readings of the stations this reads (GH-3554); a caller
+    #: whose answer is an estimate of them (interpolation, summary) and not their readings sets it False
+    _count_missing_value_markers: bool = field(default=True, init=False, repr=False, compare=False)
+    #: the readings of the window that the source marked as missing, in the station in hand: counted by
+    #: `_process_dataset`, told by `_query_stations` once the station is not left out (GH-3554)
+    _markers_in_window: int = field(default=0, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         """Post-initialization of the TimeseriesValues object."""
@@ -360,6 +366,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                 continue
             available_datasets = self._get_available_datasets(df_station_meta)
             self._data_updated.clear()
+            self._markers_in_window = 0
             self._advance_fetch_ahead(ahead, position, stations_collected)
             # Collect data for this station
             df = self._filter_by_window(self._collect_station_data(station_id, available_datasets))
@@ -369,6 +376,8 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             # the ranked walk stopped short of the stations that do cover the window and the
             # request came back with nothing
             if df.is_empty():
+                # nothing is left of it, and the markers are what the nulls dropped were
+                self._tell_missing_value_markers()
                 continue
             if self.sr.options.skip_empty:
                 percentage = self._get_actual_percentage(df=df)
@@ -381,6 +390,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                         level=logging.INFO,
                     )
                     continue
+            self._tell_missing_value_markers()
             if self.sr.options.humanize:
                 df = self._humanize(df=df, humanized_parameters_mapping=hpm)
             if not self.sr.options.tidy:
@@ -397,6 +407,17 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             df = df.sort(sort_columns)
             stations_collected += 1
             yield ValuesResult(stations=self.sr, df=df, data_updated_at=newest(self._data_updated))
+
+    def _tell_missing_value_markers(self) -> None:
+        """Add the markers of the station in hand to the warning of the request, unless the station is left out.
+
+        Counted by `_process_dataset` for the station and told here, once the walk has not skipped it (`skip_empty`):
+        the count is of the readings of the answer, and a station that is not in it, or one that an estimate reads
+        (`_count_missing_value_markers`), has none to tell (GH-3554). One sum for the request, which
+        `count_response_warning` keeps.
+        """
+        if self._count_missing_value_markers:
+            count_response_warning(MISSING_VALUE_MARKER, self._markers_in_window, MISSING_VALUE_MARKER_MESSAGE)
 
     def _advance_fetch_ahead(self, ahead: FetchAhead | None, position: int, stations_collected: int) -> None:
         """Have the files of the stations after ``position`` fetched, and wait for those of ``position``."""
@@ -696,13 +717,12 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         df = merge_duplicate_readings(df, ["station_id", "resolution", "dataset", "parameter", "timestamp"])
         if QUALITY_FLAGS in df.columns:
             # the readings the source marked as missing may leave with the nulls; the answer still tells how many,
-            # of the window it is cut to (`_filter_by_window`, later) and not of the whole file
-            count_response_warning(
-                MISSING_VALUE_MARKER,
+            # of the window it is cut to (`_filter_by_window`, later) and not of the whole file, and of the stations
+            # it keeps: counted here, told by `_query_stations` (`_tell_missing_value_markers`)
+            self._markers_in_window += (
                 self._filter_by_window(df)
                 .filter(pl.col("value").is_null() & pl.col(QUALITY_FLAGS).str.contains(RAW_TOKEN))
-                .height,
-                MISSING_VALUE_MARKER_MESSAGE,
+                .height
             )
         if self.sr.options.drop_nulls_effective:
             df = df.drop_nulls(subset=["value"])
