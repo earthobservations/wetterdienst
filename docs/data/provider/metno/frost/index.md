@@ -21,9 +21,10 @@ summary never picks them.
 
 ## Time window
 
-Every resolution needs a window: a request for values without a start and end date is refused
-(REST API: 400, `timestamp` is required), because Frost is asked for one reference time range and
-the answer without it would be empty. Stations can be listed without one.
+Every resolution needs a window, because Frost is asked for one reference time range. The REST
+API, the CLI and MCP refuse a request for values without a start and end date (REST API: 400,
+`timestamp` is required). The Python API does not check: it returns an empty frame. Stations can be
+listed without a window.
 
 ## License
 
