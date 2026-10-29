@@ -17,6 +17,7 @@ from wetterdienst.provider.dwd.observation.api import DwdObservationValues
 from wetterdienst.provider.wsv.pegel import WsvPegelRequest
 from wetterdienst.provider.wsv.pegel.api import WsvPegelValues
 from wetterdienst.settings import Settings
+from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
 
 def _values(parameters: list[tuple[str, str, str]]) -> TimeseriesValues:
@@ -1157,6 +1158,43 @@ def test_a_reading_given_by_two_rows_has_the_value_of_the_one_that_has_one(monke
 
     assert df.get_column("value").to_list() == [1.5, 2.5]
     assert df.get_column("quality_flags").to_list() == ["3", "1"]
+
+
+@pytest.mark.parametrize("drop_nulls", [True, False])
+def test_the_missing_value_marker_warning_counts_the_window_and_not_the_file(
+    monkeypatch: pytest.MonkeyPatch, *, drop_nulls: bool
+) -> None:
+    """The file holds a marker on each of ten days; the warning of a 2-day request counts the two inside the window."""
+    _stub_dwd_daily(station_ids=["00001"], data_year_by_station={"00001": 1990}, monkeypatch=monkeypatch)
+    utc = ZoneInfo("UTC")
+    name = DwdObservationMetadata.daily.climate_summary.temperature_air_mean_2m.name_original
+    days = range(1, 11)
+
+    def collect(self, station_id: str, parameter_or_dataset) -> pl.DataFrame:  # noqa: ANN001, ARG001
+        return pl.DataFrame(
+            {
+                "timestamp": [dt.datetime(1990, 1, day, tzinfo=utc) for day in days],
+                "parameter": [name] * len(days),
+                "value": [None] * len(days),
+                "quality_flags": ["raw:-999"] * len(days),
+            },
+            schema_overrides={"value": pl.Float64},
+        )
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+    begin_response()
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        start="1990-01-04",
+        end="1990-01-05",
+        options=Options(drop_nulls=drop_nulls),
+    )
+
+    request.filter_by_station_id("00001").values().all()
+
+    warnings = recorded_warnings()
+    assert [warning["code"] for warning in warnings] == ["missing-value-marker"]
+    assert warnings[0]["message"].startswith("2 readings of the source")
 
 
 @pytest.mark.parametrize("blank", ["", " ", "n/a", "nan", "inf"])
