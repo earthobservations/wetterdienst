@@ -87,6 +87,10 @@ Types of changes:
 - The `missing-value-marker` warning of an answer counts the readings that are a marker for a
   missing value inside the window the request asked for, where it counted those of every file read
   (12,663 for a 3-day request at DWD station 00011, the whole archive) (GH-3550)
+- The `missing-value-marker` warning counts the readings of the stations that are in the answer,
+  with `drop_nulls` on (the default) or off: not those of a station `skip_empty` leaves out, nor of
+  one a `rank` walk passes over for having no reading. `interpolate` and `summarize`, whose answer
+  is an estimate, carry no such warning now (GH-3554)
 
 ## [0.178.0] - 2026-10-28
 
