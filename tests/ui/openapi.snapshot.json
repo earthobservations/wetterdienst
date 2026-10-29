@@ -13,7 +13,7 @@
       "identifier": "MIT",
       "url": "https://github.com/earthobservations/wetterdienst/blob/main/LICENSE.md"
     },
-    "version": "0.173.0",
+    "version": "0.178.0",
     "x-api-version": "1"
   },
   "servers": [
@@ -1314,11 +1314,11 @@
                 "pdf"
               ],
               "type": "string",
-              "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). ndjson, and csv as well, are sent as they are built, station by station, so they allow a longer answer than the others: see the limits of the server.",
+              "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server.",
               "default": "json",
               "title": "Format"
             },
-            "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). ndjson, and csv as well, are sent as they are built, station by station, so they allow a longer answer than the others: see the limits of the server."
+            "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server."
           },
           {
             "name": "pretty",
@@ -1995,11 +1995,11 @@
                 "pdf"
               ],
               "type": "string",
-              "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). ndjson, and csv as well, are sent as they are built, station by station, so they allow a longer answer than the others: see the limits of the server.",
+              "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server.",
               "default": "json",
               "title": "Format"
             },
-            "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). ndjson, and csv as well, are sent as they are built, station by station, so they allow a longer answer than the others: see the limits of the server."
+            "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server."
           },
           {
             "name": "pretty",

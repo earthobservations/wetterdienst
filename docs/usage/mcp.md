@@ -104,8 +104,8 @@ Every `format` a tool offers is answered, as one body held to the `rows` limit. 
 formats are content blocks: `csv`, `ndjson`, `html` and `svg` are text, as the REST API sends them; `png`, `jpg` and
 `webp` are image content and `pdf` is an embedded resource. The structured content that the output schema of the tool
 requires is then one sentence about the answer (its media type and size), not the answer again. The default is
-`json`, which the assistant reads without further ado: a chart is for a client that shows it, and a long `csv` or
-`html` goes through the context of the assistant.
+`json` (`png` for `stripes_image`, which only draws), which the assistant reads without further ado: a chart is for a
+client that shows it, and a long `csv` or `html` goes through the context of the assistant.
 
 ## Text from the providers
 

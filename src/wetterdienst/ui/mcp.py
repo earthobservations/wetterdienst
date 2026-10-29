@@ -336,6 +336,14 @@ def _is_text(media_type: str) -> bool:
     return media_type.startswith("text/") or media_type in _TEXT_MEDIA_TYPES
 
 
+def _decode(body: bytes, charset: str | None) -> str:
+    """Decode a text body with the charset its media type names, UTF-8 where it names none or one unknown."""
+    try:
+        return body.decode(charset or "utf-8", errors="replace")
+    except LookupError:
+        return body.decode("utf-8", errors="replace")
+
+
 def _carry_bodies_as_json(inner: AsyncBaseTransport) -> AsyncBaseTransport:
     """Wrap the transport of the tools so that an answer that is not JSON reaches the tool as JSON that holds it.
 
@@ -360,7 +368,9 @@ def _carry_bodies_as_json(inner: AsyncBaseTransport) -> AsyncBaseTransport:
                 _BODY_KEY: {
                     "media_type": media_type,
                     "encoding": "text" if text else "base64",
-                    "body": body.decode("utf-8") if text else base64.b64encode(body).decode("ascii"),
+                    "body": _decode(body, response.charset_encoding)
+                    if text
+                    else base64.b64encode(body).decode("ascii"),
                 }
             }
             return httpx2.Response(

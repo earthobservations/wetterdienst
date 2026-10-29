@@ -70,9 +70,9 @@ Types of changes:
 
 ### Fixed
 
-- The MCP tools answer every `format` they offer, where all but `json` and `geojson` failed
-  (`csv`, `ndjson`, `html`, `svg`: "has an output schema but did not return structured content";
-  `png`, `jpg`, `webp`, `pdf`: a decoding error). A text body is the text content of the result,
+- The MCP tools answer every `format` they offer, where `csv`, `ndjson`, `html` and `svg` of the
+  tools with an output schema failed ("has an output schema but did not return structured
+  content") and so did `png`, `jpg`, `webp` and `pdf` of every tool (a decoding error). A text body is the text content of the result,
   an image its image content and a PDF an embedded resource; the structured content is one
   sentence about it. A tool answers one body in every format, held to the `rows` limit (`csv` and
   `ndjson` get no `stream_rows`), and its refusals (row limit, timeout) no longer advise

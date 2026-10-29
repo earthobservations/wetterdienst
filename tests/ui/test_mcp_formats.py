@@ -121,9 +121,9 @@ def test_an_image_is_image_content_and_a_pdf_an_embedded_resource(monkeypatch: p
     png, _ = _call(restapi.app, "values", {**_VALUES, "format": "png"})
     pdf, _ = _call(restapi.app, "values", {**_VALUES, "format": "pdf"})
 
-    assert png.content[0].mimeType == "image/png"
+    assert png.content[0].mime_type == "image/png"
     assert base64.b64decode(png.content[0].data).startswith(b"\x89PNG")
-    assert pdf.content[0].resource.mimeType == "application/pdf"
+    assert pdf.content[0].resource.mime_type == "application/pdf"
     assert base64.b64decode(pdf.content[0].resource.blob).startswith(b"%PDF")
 
 
@@ -185,6 +185,121 @@ def test_a_tool_without_an_output_schema_answers_the_body_as_content_alone() -> 
     assert svg.content[0].text.startswith("<svg")
     assert not png.is_error
     assert base64.b64decode(png.content[0].data).startswith(b"\x89PNG")
+
+
+def _app_with_answers() -> FastAPI:
+    """Build a REST app whose stripes image route answers what `format` names, to try the transport on each."""
+    app = FastAPI()
+    answers = {
+        "plain_4xx": lambda: Response(b"nope", status_code=400, media_type="text/plain"),
+        "no_content_type": lambda: Response(b'{"a": 1}'),
+        "geo_json": lambda: Response(b'{"type": "FeatureCollection"}', media_type="application/geo+json"),
+        "latin1": lambda: Response(b"caf\xe9", headers={"content-type": "text/csv; charset=latin-1"}),
+        "broken_utf8": lambda: Response(b"a\xffb", media_type="text/csv"),
+        "unknown_charset": lambda: Response(b"abc", headers={"content-type": "text/csv; charset=nonsense"}),
+    }
+
+    @app.get("/api/stripes/image", response_class=Response)
+    def stripes_image(format: str) -> Response:  # noqa: A002
+        return answers[format]()
+
+    return app
+
+
+def test_an_answer_that_is_not_a_2xx_is_left_as_it_is() -> None:
+    """A 400 in text is the tool's error, with the text of the answer and not the envelope."""
+    result, _ = _call(_app_with_answers(), "stripes_image", {"format": "plain_4xx"})
+
+    assert result.is_error
+    assert "400" in result.content[0].text
+    assert "nope" in result.content[0].text
+    assert "x-wetterdienst-body" not in result.content[0].text
+
+
+def test_an_answer_without_a_content_type_is_left_as_it_is() -> None:
+    """Nothing says it is not JSON, so FastMCP reads it as it always did."""
+    result, _ = _call(_app_with_answers(), "stripes_image", {"format": "no_content_type"})
+
+    assert not result.is_error
+    assert result.structured_content == {"a": 1}
+
+
+def test_a_json_media_type_with_a_suffix_is_json() -> None:
+    """`application/geo+json` is read as JSON, not carried as a binary body."""
+    result, _ = _call(_app_with_answers(), "stripes_image", {"format": "geo_json"})
+
+    assert not result.is_error
+    assert result.structured_content == {"type": "FeatureCollection"}
+
+
+@pytest.mark.parametrize(
+    ("answer", "text"),
+    [("latin1", "caf\xe9"), ("broken_utf8", "a�b"), ("unknown_charset", "abc")],
+)
+def test_a_text_body_is_decoded_with_its_charset_and_never_fails(answer: str, text: str) -> None:
+    """The charset of the media type decides; a body that is not valid, or a charset unknown, is not an error."""
+    result, _ = _call(_app_with_answers(), "stripes_image", {"format": answer})
+
+    assert not result.is_error
+    assert result.content[0].text == text
+
+
+def test_the_sentence_of_an_image_gives_its_size(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The size in the structured content is the size of the bytes in the image content."""
+    _stub_stream(monkeypatch, [_values_result_of_shape("long")])
+
+    result, _ = _call(restapi.app, "values", {**_VALUES, "format": "png"})
+
+    size = len(base64.b64decode(result.content[0].data))
+    assert result.structured_content == {
+        "result": f"The answer is image/png ({size:,} bytes), sent as image content of this result."
+    }
+
+
+# --- an answer that fails is a tool error, not a short answer ------------------------------------------------------
+
+
+@pytest.mark.parametrize("fmt", ["csv", "ndjson"])
+def test_a_failure_while_collecting_is_a_tool_error_not_a_partial_answer(
+    monkeypatch: pytest.MonkeyPatch, fmt: str
+) -> None:
+    """A tool's body is built before the response begins, so a station that fails fails the call.
+
+    A stream answered 200 and was cut: through a tool that was a successful, complete-looking answer.
+    """
+    record = _selection_of(2)
+    _stub_stream(monkeypatch, [_values_result_of_shape("long")], error=RuntimeError("boom"), stations_df=record)
+
+    result, _ = _call(restapi.app, "values", {**_VALUES, "stations": "00000,00001", "format": fmt})
+
+    assert result.is_error
+
+
+@pytest.mark.parametrize("fmt", ["csv", "ndjson"])
+def test_a_timeout_while_collecting_is_a_tool_error_that_names_no_stream(
+    monkeypatch: pytest.MonkeyPatch, fmt: str
+) -> None:
+    """A request that outlasts the timeout is a 504 through a tool in csv too, without the advice to stream."""
+    import time  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+
+    _stub_stream(monkeypatch, [_values_result_of_shape("long")])
+    monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "0.3")
+
+    def slow(_reader: object) -> Any:  # noqa: ANN401
+        time.sleep(1.5)
+        yield _values_result_of_shape("long")
+
+    monkeypatch.setattr(DwdObservationRequest._values, "query", slow)  # noqa: SLF001
+
+    result, _ = _call(restapi.app, "values", {**_VALUES, "format": fmt})
+
+    assert result.is_error
+    text = result.content[0].text
+    assert "request timeout of 0.3 seconds" in text
+    for streaming in ("ndjson", "csv", "stream"):
+        assert streaming not in text
 
 
 # --- the refusal of a row limit -----------------------------------------------------------------------------------

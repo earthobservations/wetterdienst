@@ -214,8 +214,9 @@ _StreamFormatField = Annotated[
     Literal["json", "geojson", "csv", "ndjson", "html", "png", "jpg", "webp", "svg", "pdf"],
     Field(
         description="Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, "
-        "svg, pdf). ndjson, and csv as well, are sent as they are built, station by station, so they allow a "
-        "longer answer than the others: see the limits of the server."
+        "svg, pdf). Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to "
+        "the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the "
+        "limits of the server."
     ),
 ]
 _PrettyField = Annotated[bool, Field(description="Pretty-print JSON/GeoJSON output.")]
