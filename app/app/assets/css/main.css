@@ -154,8 +154,9 @@ body {
   outline: 2px solid var(--app-focus-ring);
   outline-offset: 2px;
 }
-/* The map is a light surface in both modes (Leaflet's grey, and the tiles): it takes the ring of light mode */
-.leaflet-container:focus-visible,
+/* The map is a light surface in both modes (Leaflet's grey, and the tiles): what is on it takes the ring of
+   light mode. The map's own ring lies outside it, on the page, and keeps the page's (on dark, the blue's
+   shade 700 would be 2.6:1 there) */
 .leaflet-container :focus-visible:not([tabindex="-1"]) {
   outline-color: var(--ui-color-primary-700);
 }
