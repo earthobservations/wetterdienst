@@ -422,7 +422,7 @@ def _sentence_of(media_type: str, size: int, kind: str, report: dict[str, Any]) 
         url = f" ({report['license_url']})" if "license_url" in report else ""
         sentence += f" Licence: {report['license']}{url}."
     if "attribution" in report:
-        sentence += f" Attribution: {report['attribution']}."
+        sentence += f" Attribution: {report['attribution'].rstrip('.')}."
     if "warnings" in report:
         sentence += f" Warnings: {', '.join(report['warnings'])}."
     return sentence
