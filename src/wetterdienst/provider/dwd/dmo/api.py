@@ -1067,11 +1067,13 @@ class DwdDmoRequest(TimeseriesRequest):
         # combinations of resolution and dataset
         from wetterdienst.model.metadata import ParameterModel  # noqa: PLC0415
 
-        resolutions_and_datasets = {
+        # in the order the request names them (a set would give the stations in the order of the hash seed of the
+        # process, GH-3551)
+        resolutions_and_datasets = dict.fromkeys(
             (parameter.dataset.resolution.name, parameter.dataset.name, parameter.dataset.name_original)
             for parameter in self.parameters
             if isinstance(parameter, ParameterModel)
-        }
+        )
         data = []
         # for each combination of resolution and dataset create a new DataFrame with the columns,
         # narrowed to the stations that combination's product actually forecasts for

@@ -478,7 +478,7 @@ class DmiObservationRequest(TimeseriesRequest):
         def newest(column: str) -> pl.Expr:
             return pl.col(column).sort_by(current, descending=True, nulls_last=True).first().alias(column)
 
-        df = df.group_by("station_id").agg(
+        df = df.group_by("station_id", maintain_order=True).agg(
             newest("name"),
             newest("country"),
             newest("latitude"),

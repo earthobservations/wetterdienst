@@ -77,6 +77,13 @@ Types of changes:
 - A `dwd/dmo` request for a lead time its product does not publish (`lead_time=long` for
   `icon_eu`, which has the short run alone) is refused as a 400 naming what the product
   publishes, where it ended in a 500 (`Unable to find a 168 h forecast`) (GH-3539)
+- The stations come in one order from one request to the next, where they changed with every
+  request or process: by station id for `dwd/observation` and `dwd/derived`, in the order of the
+  catalogue for `smhi`, `dmi`, `chmi` and `hubeau`, and the datasets of a station in the
+  order the request names them (`eccc`, `dwd/dmo`, `knmi` followed the hash seed of the process).
+  So do the `stations` of a values, interpolate or summarize answer, the features of its OGC form
+  and `filter_by_rank` / `filter_by_distance`. The values rows of a station were not affected
+  (GH-3551)
 - The `missing-value-marker` warning of an answer counts the readings that are a marker for a
   missing value inside the window the request asked for, where it counted those of every file read
   (12,663 for a 3-day request at DWD station 00011, the whole archive) (GH-3550)

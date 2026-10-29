@@ -652,8 +652,8 @@ class HubeauRequest(TimeseriesRequest):
         # listed under no resolution: naming an interval for it would be a guess, and the join
         # below drops it. It returns to the list as soon as it transmits again.
         steps = self._station_steps(df_raw.get_column("station_id").to_list())
-        df = df_raw.join(steps, on="station_id", how="inner")
-        df = df.join(self._site_elevations(), on="code_site", how="left")
+        df = df_raw.join(steps, on="station_id", how="inner", maintain_order="left")
+        df = df.join(self._site_elevations(), on="code_site", how="left", maintain_order="left")
         df = df.with_columns(
             pl.col("step").replace_strict(_STEP_TO_RESOLUTION, default=None).alias("resolution"),
             pl.lit(DATASET_NAME_DEFAULT, pl.String).alias("dataset"),
