@@ -60,7 +60,21 @@
     "kindAlertsDesc": "Officielle DWD-varsler om storm, varme, frost og oversvømmelse, pr. distrikt.",
     "kindRoadTitle": "Vejvejr",
     "kindRoadDesc": "Vejbaneforhold og -temperaturer fra DWD's vejvejrstationer samt deres prognoser.",
-    "aboutLink": "Om projektet og menneskene bag"
+    "aboutLink": "Om projektet og menneskene bag",
+    "placeQuestion": "Hvilket sted?",
+    "placeLead": "Vejret nu, vejrudsigten og klimaet, fra nationale vejrtjenester. Frit, åbent og uden konto.",
+    "placeExamples": "For eksempel",
+    "placeForget": "Glem sted",
+    "placeRemembered": "Dette sted gemmes kun i din browser.",
+    "now": "Nu",
+    "wind": "Vindhastighed",
+    "rainNext6h": "Regn de næste 6 timer",
+    "nextHours": "De næste timer",
+    "nowUnavailable": "Prognosen har ingen værdier for denne time.",
+    "forecastSource": "DWD MOSMIX-prognose for stationen {id}.",
+    "lensForecastDesc": "Time for time de næste ti dage: temperatur, regn, vind og skyer.",
+    "lensStripesDesc": "Stationen {station}, {km} km væk, år for år i striber.",
+    "lensExplorerDesc": "Stationerne omkring {place} og hvad de har målt de seneste 30 dage."
   },
   "seo": {
     "title": "Wetterdienst – åbne vejr- og klimadata fra nationale vejrtjenester",
@@ -121,7 +135,26 @@
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menu"
+    "menu": "Menu",
+    "mainNav": "Hovednavigation",
+    "skipToContent": "Spring til indholdet",
+    "yourPlace": "Dit sted"
+  },
+  "menu": {
+    "groupWeather": "Vejr",
+    "groupData": "Data og værktøjer",
+    "groupProject": "Projektet",
+    "forecast": "Time for time de næste ti dage",
+    "stripes": "Hvordan et sted er blevet varmere gennem årene",
+    "explorer": "Stationer, målinger, kort og downloads",
+    "history": "Hvordan en station har ændret sig over tid",
+    "providers": "Hvem der udgiver dataene, og under hvilken licens",
+    "glossary": "Hvad hver parameter betyder",
+    "api": "Dataene til din egen kode: REST API og MCP",
+    "home": "Vælg et sted",
+    "about": "Projektet og menneskene bag det",
+    "support": "Meld en fejl, bidrag, donér",
+    "settings": "Sprog, farver og enheder"
   },
   "footer": {
     "copyright": "© {year} earthobservations",

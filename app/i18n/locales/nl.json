@@ -60,7 +60,21 @@
     "kindAlertsDesc": "Officiële DWD-waarschuwingen voor storm, hitte, vorst en hoogwater, per district.",
     "kindRoadTitle": "Wegweer",
     "kindRoadDesc": "Wegdekcondities en -temperaturen van de DWD-wegweerstations, met hun verwachtingen.",
-    "aboutLink": "Over het project en de mensen erachter"
+    "aboutLink": "Over het project en de mensen erachter",
+    "placeQuestion": "Welke plaats?",
+    "placeLead": "Het weer nu, de verwachting en het klimaat, van nationale weerdiensten. Vrij, open en zonder account.",
+    "placeExamples": "Bijvoorbeeld",
+    "placeForget": "Plaats vergeten",
+    "placeRemembered": "Deze plaats wordt alleen in je browser bewaard.",
+    "now": "Nu",
+    "wind": "Windsnelheid",
+    "rainNext6h": "Regen in de komende 6 uur",
+    "nextHours": "De komende uren",
+    "nowUnavailable": "De verwachting heeft geen waarden voor dit uur.",
+    "forecastSource": "DWD MOSMIX-verwachting voor het station {id}.",
+    "lensForecastDesc": "Uur voor uur voor de komende tien dagen: temperatuur, regen, wind en bewolking.",
+    "lensStripesDesc": "Het station {station}, {km} km verderop, jaar voor jaar in strepen.",
+    "lensExplorerDesc": "De stations rond {place} en wat ze de afgelopen 30 dagen hebben gemeten."
   },
   "seo": {
     "title": "Wetterdienst – open weer- en klimaatdata van nationale weerdiensten",
@@ -121,7 +135,26 @@
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menu"
+    "menu": "Menu",
+    "mainNav": "Hoofdnavigatie",
+    "skipToContent": "Naar de inhoud",
+    "yourPlace": "Jouw plaats"
+  },
+  "menu": {
+    "groupWeather": "Weer",
+    "groupData": "Data en tools",
+    "groupProject": "Het project",
+    "forecast": "Uur voor uur voor de komende tien dagen",
+    "stripes": "Hoe een plaats in de loop der jaren is opgewarmd",
+    "explorer": "Stations, metingen, kaarten en downloads",
+    "history": "Hoe een station in de loop van de tijd veranderde",
+    "providers": "Wie de gegevens publiceert, en onder welke licentie",
+    "glossary": "Wat elke parameter betekent",
+    "api": "De data voor je eigen code: REST-API en MCP",
+    "home": "Kies een plaats",
+    "about": "Het project en de mensen erachter",
+    "support": "Meld een probleem, draag bij, doneer",
+    "settings": "Taal, kleuren en eenheden"
   },
   "footer": {
     "copyright": "© {year} earthobservations",

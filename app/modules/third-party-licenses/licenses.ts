@@ -32,6 +32,10 @@ export const NOTICE_ONLY_LICENSES = new Set([
   'CC0-1.0',
   'ISC',
   'MIT',
+  // the SIL Open Font License of the app's font (Figtree, GH-3518): a font served with software, unchanged, asks for
+  // its copyright line and the licence's text, which the file carries; its other terms are about selling the font
+  // alone and about the names of modified versions (Figtree reserves none)
+  'OFL-1.1',
   'Unlicense',
 ])
 

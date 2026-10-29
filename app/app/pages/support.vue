@@ -6,12 +6,8 @@ useHead({ title: () => t('support.title') })
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('support.title') }}
-      </h1>
-    </div>
+  <PageShell width="prose" class="space-y-6">
+    <PageHeader :title="t('support.title')" :eyebrow="t('menu.groupProject')" icon="i-lucide-heart" />
 
     <UCard>
       <template #header>
@@ -85,13 +81,13 @@ useHead({ title: () => t('support.title') })
       <div class="mt-3">
         <ul class="space-y-2 text-gray-700 dark:text-gray-300">
           <li class="flex items-center gap-2">
-            <UIcon name="i-simple-icons-github" class="size-4" /><a href="https://github.com/sponsors/gutzbenj" target="_blank" class="text-primary-700 dark:text-primary-500 hover:underline">gutzbenj</a>
+            <UIcon name="i-simple-icons-github" class="size-4" /><a href="https://github.com/sponsors/gutzbenj" target="_blank" class="text-primary-700 dark:text-primary-400 hover:underline">gutzbenj</a>
           </li>
           <li class="flex items-center gap-2">
-            <UIcon name="i-simple-icons-paypal" class="size-4" /><a href="https://paypal.me/BenjaminGutzmann" target="_blank" class="text-primary-700 dark:text-primary-500 hover:underline">paypal.me/BenjaminGutzmann</a>
+            <UIcon name="i-simple-icons-paypal" class="size-4" /><a href="https://paypal.me/BenjaminGutzmann" target="_blank" class="text-primary-700 dark:text-primary-400 hover:underline">paypal.me/BenjaminGutzmann</a>
           </li>
         </ul>
       </div>
     </UCard>
-  </UContainer>
+  </PageShell>
 </template>

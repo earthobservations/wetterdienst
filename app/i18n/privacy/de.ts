@@ -79,6 +79,7 @@ export const privacy: PrivacyPolicy = {
         'Cookie wd_lang: speichert die Sprache der Oberfläche. Laufzeit 365 Tage, Pfad /, SameSite=Lax.',
         'localStorage wd_settings: Ihre Darstellungseinstellungen (Parameterbezeichnungen, Einheiten und die Anzeige der Klimastreifen).',
         'localStorage meteogram.compact: ob das Meteogramm in der kompakten Ansicht gezeigt wird.',
+        'localStorage wd_place: die zuletzt gewählte Vorhersagestation (Name, Kennung und Lage) und ihr Wetter der Stunde, damit die Startseite diesen Ort wieder zeigt. Es ist die gewählte Station, nicht dein eigener Standort.',
         'localStorage nuxt-color-mode: das gewählte Farbschema (hell, dunkel oder System).',
       ],
     },

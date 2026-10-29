@@ -1,4 +1,13 @@
+import type { Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
+
+/** The menu of the header (GH-3518), which has every page: the header itself names the three for a place */
+async function openMenu(page: Page) {
+  await page.getByRole('button', { name: 'Menu', exact: true }).click()
+  const menu = page.getByRole('dialog', { name: 'Menu' })
+  await expect(menu).toBeVisible()
+  return menu
+}
 
 test.describe('Home Page', () => {
   test('should load the homepage', async ({ page }) => {
@@ -10,14 +19,13 @@ test.describe('Home Page', () => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
 
-    // Check for navigation links
+    // the header names the pages for a place; the menu has every page, the API among them
     const explorerLink = page.getByRole('link', { name: /explorer/i })
-    // Exact, not /api/i: the home page's developer row links to the backend's Swagger UI as
-    // "REST API", which a loose match picks up alongside the nav entry and fails on strict mode.
-    const apiLink = page.getByRole('link', { name: 'API', exact: true })
-
     await expect(explorerLink).toBeVisible()
-    await expect(apiLink).toBeVisible()
+
+    const menu = await openMenu(page)
+    // Exact, not /api/i: the menu's line under the entry says "REST API"
+    await expect(menu.getByRole('navigation').getByRole('link', { name: 'API', exact: true })).toBeVisible()
   })
 
   // The weather services are the backend's (`/api/providers`), so for a moment there are none to show: the
@@ -61,7 +69,8 @@ test.describe('API Documentation Page', () => {
   test('should navigate to API page', async ({ page }) => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
-    await page.getByRole('link', { name: 'API', exact: true }).click()
+    const menu = await openMenu(page)
+    await menu.getByRole('link', { name: 'API', exact: true }).click()
 
     await expect(page).toHaveURL(/\/api/)
     await expect(page.getByRole('heading', { name: /REST API/i })).toBeVisible()
@@ -144,7 +153,8 @@ test.describe('Providers Page', () => {
   test('should be reachable from the navigation', async ({ page }) => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
-    await page.getByRole('navigation').getByRole('link', { name: 'Providers', exact: true }).click()
+    const menu = await openMenu(page)
+    await menu.getByRole('navigation').getByRole('link', { name: 'Providers', exact: true }).click()
 
     await expect(page).toHaveURL(/\/providers$/)
     await expect(page.getByRole('heading', { name: 'Providers', level: 1 })).toBeVisible()
@@ -201,12 +211,13 @@ test.describe('Providers Page', () => {
 })
 
 test.describe('Support Page', () => {
-  test('should be reachable from the header icon', async ({ page }) => {
+  test('should be reachable from the menu', async ({ page }) => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
-    // Support is not a nav entry: it is a heart in the header's project links, and a footer link.
-    // Both are named "Support", hence the scoping.
-    await page.getByRole('banner').getByRole('link', { name: /support/i }).click()
+    // Support is in the menu's part about the project, and a footer link. Both are named "Support",
+    // hence the scoping.
+    const menu = await openMenu(page)
+    await menu.getByRole('link', { name: /support/i }).click()
 
     await expect(page).toHaveURL(/\/support/)
   })
@@ -334,7 +345,8 @@ test.describe('History Page', () => {
   test('should navigate to the history page', async ({ page }) => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
-    await page.getByRole('navigation').getByRole('link', { name: /history/i }).click()
+    const menu = await openMenu(page)
+    await menu.getByRole('navigation').getByRole('link', { name: /history/i }).click()
 
     await expect(page).toHaveURL(/\/history/)
   })

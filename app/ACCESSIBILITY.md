@@ -37,7 +37,7 @@ The same pages and states (in light/English and dark/German) are scanned twice m
   stops. The rules are the app's own ids, in `CUSTOM_RULES` of `interact.ts`.
 
 Beside the scans, `accessibility.spec.ts` drives widgets by keys alone (`keyboard operation`: the station
-picker, a collapsible, a menu, and the narrow layout's menu, which is a dialog that keeps the focus and gives
+picker, a collapsible, a menu, and the header's menu, which is a dialog that keeps the focus and gives
 it back; `chart controls by keyboard`: Plotly's modebar, and the table of values that stands for the stripes
 and the meteogram, opened, reached and scrolled by keys; and Plotly's hover label and the names of its
 modebar buttons, which Escape dismisses until the pointer moves, 1.4.13), checks that every page has a title of its own that a navigation announces (`page titles`, 2.4.2,
@@ -61,20 +61,23 @@ What is left in it, and why it is not fixed in the app's own markup:
 - `aria-hidden-focus`, the error toast: the two focus proxies in Reka UI's toast viewport are
   `aria-hidden` and focusable. Also upstream.
 
-There is no `color-contrast` entry left. The brand green, `#00c950`, stays the fill of a solid primary
-button; its label is `#0f172b` (`--app-text-on-primary` in `app/assets/css/main.css`, set for the
-button in `app/app.config.ts`), 8.0:1 on the fill and 9.5:1 hovered in light mode, where the white
-label it replaces was 2.2:1 and 1.9:1. Dark mode has the same label on its lighter fill, as Nuxt UI
-already had it (10.0:1, and 6.1:1 hovered). A disabled button is exempt from 1.4.3 and from the scans; its
-label is at 75 % opacity with its fill (4.2:1 in light mode). Text in the primary colour on white is
-shade 700 and a fifth of the way to 800 (`.text-primary`), a hovered link button shade 800 (7.1:1; Nuxt UI's
-75 % of the first was 3.4:1), and a hovered chip of the home page shade 700 (4.9:1; shade 500 was 2.2:1).
-`tests/unit/button-contrast.test.ts` computes the hovered ratio of a solid button, as 75 % of the fill over
-the page; the hover scan measures the rest.
+There is no `color-contrast` entry left. The colours are the logo's (GH-3518, `app/assets/css/main.css`):
+the primary colour is its blue, `#2e6fd1`, shade 600 of the `brand` scale, the fill of a solid primary
+button in light mode under a white label (4.9:1); hovered it turns to shade 700 (6.8:1) and pressed to
+800 (`app/app.config.ts`), where Nuxt UI's 75 % of the fill would be 3.1:1. Dark mode has Nuxt UI's dark
+label on shade 400 (6.7:1) and 300 hovered (9.4:1). A disabled button is exempt from 1.4.3 and from the
+scans. Text in the primary colour on white is shade 700 (`.text-primary`, 6.8:1, 5.6:1 on the tint of a
+hovered soft button), a hovered link button shade 800 (9.2:1). The neutrals (`ink`, at the navy's hue,
+and `gray`, which is the same scale) are as light as Tailwind's gray of each shade, so the ratios of the
+classes the pages write by hand are as they were. Text laid over the sky of the page head is ink-600 or
+stronger on light (5.8:1 and more) and ink-300 on dark (8.9:1 and more); the footer's navy carries ink-200
+(10.1:1) and the logo's yellow (8.2:1). `tests/unit/button-contrast.test.ts` reads the tokens from
+`main.css` and holds these pairs, every colour of the sky among them; the hover scan measures the rest.
 
 The focus indicator is one solid 2 px outline for everything a keyboard reaches (`--app-focus-ring` in
-`main.css`: shade 700 of the primary colour on light, 4.9:1 on white, shade 400 on dark, 10:1; the map takes
-the light one in both modes). Nuxt UI's own is an outline at 25 % of the primary colour (1.2:1 to 1.7:1 on
+`main.css`: shade 700 of the primary colour on light, 6.8:1 on white and 5.2:1 on the strongest colour of
+the sky, shade 400 on dark, 6.7:1, and the logo's yellow on the navy footer, 8.2:1; the map takes the light
+one in both modes). Nuxt UI's own is an outline at 25 % of the primary colour (1.2:1 to 1.7:1 on
 white) and a ring in the primary colour (2.2:1), and its menu search fields draw none; they stay, beside it.
 
 There is no sepia mode. `main.css` once held a `html.sepia` block that redefined the `--ui-*` tokens, which
@@ -133,13 +136,13 @@ WCAG 2.2 first, as axe has no rule for most of them.
 | 2.4.11 Focus not obscured (minimum) | The keyboard scan checks it on every page and state. The sticky header hides no focused element. Leaflet draws markers beyond what the map shows and lets Tab reach them: a marker that takes the focus now pans the map until it is in view (`MapStations.vue`). |
 | 2.5.7 Dragging movements | The map pans by drag, and by the arrow keys with the map focused, and zooms by its buttons and `+`/`-`; a station is also chosen in the list beside it. Plotly's charts zoom and pan by drag, with the modebar's buttons (zoom in, out, reset) as the single-pointer way. |
 | 2.5.8 Target size (minimum) | axe's `target-size` is among the tags scanned (wcag22aa), on every page and state in both modes: no entry. |
-| 3.2.6 Consistent help | The support and documentation links are in the header (icons) and the footer of every page, in the same order; the narrow layout has them in its menu. The widget has no header or footer by design. |
+| 3.2.6 Consistent help | The support and documentation links are in the header's menu and the footer of every page, in the same order. The widget has no header or footer by design. |
 | 3.3.7 Redundant entry | Nothing is asked twice in a process. The explorer, forecast and stripes keep their selection in the URL, the settings in local storage. |
 | 3.3.8 Accessible authentication | The app has no log-in and no cognitive test. |
 | 2.4.2 Page titled | **Was failing**: every page was titled `Wetterdienst`. Each page names itself now, and a navigation is announced (`NuxtRouteAnnouncer`). |
 | 2.2.2 Pause, stop, hide | **Was failing**: the emoji of the forecast's compact cards bounced for ever. They bounce once, and not at all under `prefers-reduced-motion`. Loading placeholders pulse while loading, which is a progress indication. |
 | 1.4.10 Reflow | No page scrolls sideways at 320 px (tested). A table or chart scrolls in its own box. |
-| 2.1.2, 2.4.3 on the narrow layout's menu | **Was failing**: the menu was a fixed overlay that Tab walked out of. It is a dialog. |
+| 2.1.2, 2.4.3 on the header's menu | **Was failing**: the menu was a fixed overlay that Tab walked out of. It is a dialog, at every width since GH-3518. |
 
 The charts' text alternatives and keyboard access (#3145), checked on 2026-10-19:
 

@@ -5,6 +5,7 @@ import { nextTick } from 'vue'
 import Meteogram from '~/components/Meteogram.vue'
 import MeteogramStationSearch from '~/components/MeteogramStationSearch.vue'
 import { METEOGRAM_VALUES_SETTINGS } from '~/utils/meteogram'
+import { currentConditions, placeOfStation } from '~/utils/place'
 import { backendFailure, describeRequestError } from '~/utils/request-error'
 
 const { MapStations, notLoaded: mapNotLoaded } = useMapStations()
@@ -153,6 +154,21 @@ watch(selectedIssue, () => {
     void fetchMeteogram(selectedStation.value)
 })
 
+// The station of the forecast is the visitor's place (GH-3518): the home page shows it again, and the sky of
+// the page is the sky over it, in the weather its forecast gives for the hour
+const { place, setPlace, rememberWeather } = usePlace()
+watch(selectedStation, (station) => {
+  const chosen = station ? placeOfStation(station) : null
+  if (chosen)
+    setPlace(chosen)
+})
+watch(values, (rows) => {
+  const station = selectedStation.value
+  const now = station && rows.length ? currentConditions(rows, new Date()) : null
+  if (station && now)
+    rememberWeather(station.station_id, now.sky)
+})
+
 // Auto-fetch and sync URL whenever a station is chosen or cleared
 watch(selectedStation, (station) => {
   if (!isRestoringFromUrl.value)
@@ -191,7 +207,8 @@ watch([selectedStation, selectedIssue], ([station, issue]) => {
 
 // Restore selected station and issue from URL query params on page load
 onMounted(async () => {
-  const stationId = route.query.station as string | undefined
+  // the station of the link, or else the place the visitor chose before (GH-3518)
+  const stationId = (route.query.station as string | undefined) ?? place.value?.id
   const issueFromUrl = route.query.issue?.toString()
   if (!stationId)
     return
@@ -224,100 +241,96 @@ onMounted(async () => {
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('meteogram.title') }}
-      </h1>
-      <p class="text-gray-600 dark:text-gray-400">
-        {{ t('meteogram.subtitle') }}
-      </p>
-    </div>
+  <PageShell width="wide" class="space-y-6">
+    <PageHeader :title="t('meteogram.title')" :lead="t('meteogram.subtitle')" :eyebrow="t('menu.groupWeather')" icon="i-lucide-cloud-sun" />
 
-    <UCollapsible v-model="showAbout">
-      <UButton
-        :label="t('meteogram.aboutButton')"
-        icon="i-lucide-info"
-        variant="subtle"
-        color="neutral"
-        trailing-icon="i-lucide-chevron-down"
-        block
-        size="sm"
-      />
-      <template #content>
-        <UCard>
-          <p class="text-gray-600 dark:text-gray-400 mb-4">
-            {{ t('meteogram.aboutText1') }}
-          </p>
-          <p class="text-gray-600 dark:text-gray-400">
-            {{ t('meteogram.aboutText2') }}
-          </p>
-        </UCard>
-      </template>
-    </UCollapsible>
-
-    <!-- Station search -->
-    <UCard>
-      <template #header>
-        <div class="flex items-center gap-2 flex-wrap">
-          <UIcon name="i-lucide-map-pin" class="text-primary-500 shrink-0" />
-          <span class="text-lg font-bold">{{ t('explorer.dataSource') }}</span>
-          <div class="ml-auto flex items-center gap-2">
-            <label for="meteogram-run" class="text-xs text-gray-500 dark:text-gray-400 shrink-0">{{ t('meteogram.runLabel') }}</label>
-            <select
-              id="meteogram-run"
-              v-model="selectedIssue"
-              class="text-xs rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white px-2 py-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 w-48"
-            >
-              <option v-for="item in runItems" :key="item.value" :value="item.value">
-                {{ item.label }}
-              </option>
-            </select>
-          </div>
-        </div>
-      </template>
-      <MeteogramStationSearch v-model="selectedStation" />
-
-      <!-- "or" divider, signalling the map is an equal alternative to search. -->
-      <div class="flex items-center gap-3 my-4 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
-        <div class="flex-1 border-t border-gray-200 dark:border-gray-700" />
-        <span>{{ t('meteogram.orChooseMap') }}</span>
-        <div class="flex-1 border-t border-gray-200 dark:border-gray-700" />
-      </div>
-
-      <!-- Pick a station from the map instead of searching. -->
-      <UCollapsible v-model="showMap">
+    <!-- the choice of the station is a form, as wide as one; the chart below takes the page's width -->
+    <div class="max-w-3xl space-y-6">
+      <UCollapsible v-model="showAbout">
         <UButton
-          :label="t('meteogram.chooseOnMap')"
-          icon="i-lucide-map-pin"
+          :label="t('meteogram.aboutButton')"
+          icon="i-lucide-info"
           variant="subtle"
-          color="primary"
+          color="neutral"
           trailing-icon="i-lucide-chevron-down"
           block
-          @click="showMap = !showMap"
+          size="sm"
         />
         <template #content>
-          <ClientOnly>
-            <div v-if="mapLoading" class="flex items-center justify-center gap-3 py-8 text-gray-500 dark:text-gray-400">
-              <UIcon name="i-lucide-loader-circle" class="w-5 h-5 animate-spin text-primary-500" />
-              <span>{{ t('stationSelection.loading') }}</span>
-            </div>
-            <template v-else-if="mapStations.length">
-              <p v-if="!mapNotLoaded" class="flex items-center justify-center gap-2 mt-3 text-sm text-gray-500 dark:text-gray-400">
-                <UIcon name="i-lucide-hand-pointer-2" class="w-4 h-4 text-primary-500" />
-                {{ t('meteogram.mapHint') }}
-              </p>
-              <MapStations
-                :stations="mapStations"
-                :selected-stations="selectedStationsArray"
-                :multiple="false"
-                @update:selected-stations="onMapSelectedStations"
-              />
-            </template>
-          </ClientOnly>
+          <UCard>
+            <p class="text-gray-600 dark:text-gray-400 mb-4">
+              {{ t('meteogram.aboutText1') }}
+            </p>
+            <p class="text-gray-600 dark:text-gray-400">
+              {{ t('meteogram.aboutText2') }}
+            </p>
+          </UCard>
         </template>
       </UCollapsible>
-    </UCard>
+
+      <!-- Station search -->
+      <UCard>
+        <template #header>
+          <div class="flex items-center gap-2 flex-wrap">
+            <UIcon name="i-lucide-map-pin" class="text-primary-500 shrink-0" />
+            <span class="text-lg font-bold">{{ t('explorer.dataSource') }}</span>
+            <div class="ml-auto flex items-center gap-2">
+              <label for="meteogram-run" class="text-xs text-gray-500 dark:text-gray-400 shrink-0">{{ t('meteogram.runLabel') }}</label>
+              <select
+                id="meteogram-run"
+                v-model="selectedIssue"
+                class="text-xs rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white px-2 py-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 w-48"
+              >
+                <option v-for="item in runItems" :key="item.value" :value="item.value">
+                  {{ item.label }}
+                </option>
+              </select>
+            </div>
+          </div>
+        </template>
+        <MeteogramStationSearch v-model="selectedStation" />
+
+        <!-- "or" divider, signalling the map is an equal alternative to search. -->
+        <div class="flex items-center gap-3 my-4 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          <div class="flex-1 border-t border-gray-200 dark:border-gray-700" />
+          <span>{{ t('meteogram.orChooseMap') }}</span>
+          <div class="flex-1 border-t border-gray-200 dark:border-gray-700" />
+        </div>
+
+        <!-- Pick a station from the map instead of searching. -->
+        <UCollapsible v-model="showMap">
+          <UButton
+            :label="t('meteogram.chooseOnMap')"
+            icon="i-lucide-map-pin"
+            variant="subtle"
+            color="primary"
+            trailing-icon="i-lucide-chevron-down"
+            block
+            @click="showMap = !showMap"
+          />
+          <template #content>
+            <ClientOnly>
+              <div v-if="mapLoading" class="flex items-center justify-center gap-3 py-8 text-gray-500 dark:text-gray-400">
+                <UIcon name="i-lucide-loader-circle" class="w-5 h-5 animate-spin text-primary-500" />
+                <span>{{ t('stationSelection.loading') }}</span>
+              </div>
+              <template v-else-if="mapStations.length">
+                <p v-if="!mapNotLoaded" class="flex items-center justify-center gap-2 mt-3 text-sm text-gray-500 dark:text-gray-400">
+                  <UIcon name="i-lucide-hand-pointer-2" class="w-4 h-4 text-primary-500" />
+                  {{ t('meteogram.mapHint') }}
+                </p>
+                <MapStations
+                  :stations="mapStations"
+                  :selected-stations="selectedStationsArray"
+                  :multiple="false"
+                  @update:selected-stations="onMapSelectedStations"
+                />
+              </template>
+            </ClientOnly>
+          </template>
+        </UCollapsible>
+      </UCard>
+    </div>
 
     <!-- Loading state -->
     <div v-if="pending" class="flex items-center justify-center gap-3 py-12 text-gray-500 dark:text-gray-400">
@@ -338,9 +351,9 @@ onMounted(async () => {
     <UCard v-else-if="selectedStation && values.length > 0">
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-cloud-sun" class="text-primary-500" />
-          <span class="text-lg font-bold">{{ selectedStation.name }}</span>
-          <span class="text-gray-500 dark:text-gray-400 text-sm">({{ selectedStation.station_id }})</span>
+          <UIcon name="i-lucide-map-pin" class="size-5 shrink-0 text-ember" />
+          <span class="text-xl font-extrabold tracking-tight text-highlighted">{{ selectedStation.name }}</span>
+          <span class="text-muted text-sm tabular-nums">({{ selectedStation.station_id }})</span>
           <UButton
             :to="`/widget?station=${selectedStation.station_id}`"
             target="_blank"
@@ -363,12 +376,12 @@ onMounted(async () => {
     <!-- Empty state before selection -->
     <div
       v-else-if="!selectedStation"
-      class="rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 p-16 text-center text-gray-500 dark:text-gray-400 space-y-2"
+      class="max-w-3xl rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-700 p-16 text-center text-muted space-y-2"
     >
       <UIcon name="i-lucide-cloud-sun" class="w-12 h-12 mx-auto opacity-30" />
       <p class="text-sm">
         {{ t('meteogram.emptyHint') }}
       </p>
     </div>
-  </UContainer>
+  </PageShell>
 </template>

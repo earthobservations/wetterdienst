@@ -785,7 +785,9 @@ test.describe('page titles', () => {
   test('a navigation within the app changes the title and announces the page', async ({ page, baseURL }) => {
     await mockBackend(page, baseURL!)
     await open(page, '/', { mode: 'light', locale: 'en' })
-    await page.getByRole('navigation').first().getByRole('link', { name: message('en', 'nav.glossary') }).click()
+    // the glossary is one of the pages of the menu (GH-3518), not of the header's own three
+    await page.getByRole('button', { name: message('en', 'header.menu'), exact: true }).click()
+    await page.getByRole('dialog').getByRole('navigation').getByRole('link', { name: message('en', 'nav.glossary') }).click()
     await expect(page).toHaveTitle(`${message('en', 'glossary.title')} - Wetterdienst`)
     await expect(page.locator('.nuxt-route-announcer [aria-live]')).toHaveText(`${message('en', 'glossary.title')} - Wetterdienst`)
   })

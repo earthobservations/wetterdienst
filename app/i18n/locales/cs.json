@@ -60,7 +60,21 @@
     "kindAlertsDesc": "Oficiální výstrahy DWD před bouří, horkem, mrazem a povodněmi, podle okresů.",
     "kindRoadTitle": "Silniční počasí",
     "kindRoadDesc": "Stav a teplota vozovky ze silničních stanic DWD, včetně jejich předpovědí.",
-    "aboutLink": "O projektu a lidech za ním"
+    "aboutLink": "O projektu a lidech za ním",
+    "placeQuestion": "Které místo?",
+    "placeLead": "Jeho počasí teď, předpověď a klima, od národních meteorologických služeb. Zdarma, otevřené a bez účtu.",
+    "placeExamples": "Například",
+    "placeForget": "Zapomenout místo",
+    "placeRemembered": "Toto místo se ukládá jen v tvém prohlížeči.",
+    "now": "Teď",
+    "wind": "Rychlost větru",
+    "rainNext6h": "Déšť v příštích 6 hodinách",
+    "nextHours": "Příští hodiny",
+    "nowUnavailable": "Předpověď pro tuto hodinu nemá hodnoty.",
+    "forecastSource": "Předpověď DWD MOSMIX pro stanici {id}.",
+    "lensForecastDesc": "Hodinu po hodině na příštích deset dní: teplota, déšť, vítr a oblačnost.",
+    "lensStripesDesc": "Stanice {station}, {km} km odsud, rok po roku v pruzích.",
+    "lensExplorerDesc": "Stanice v okolí místa {place} a co naměřily za posledních 30 dní."
   },
   "seo": {
     "title": "Wetterdienst – otevřená data o počasí a klimatu od národních meteorologických služeb",
@@ -121,7 +135,26 @@
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Nabídka"
+    "menu": "Nabídka",
+    "mainNav": "Hlavní navigace",
+    "skipToContent": "Přeskočit na obsah",
+    "yourPlace": "Tvoje místo"
+  },
+  "menu": {
+    "groupWeather": "Počasí",
+    "groupData": "Data a nástroje",
+    "groupProject": "Projekt",
+    "forecast": "Hodinu po hodině na příštích deset dní",
+    "stripes": "Jak se místo v průběhu let oteplovalo",
+    "explorer": "Stanice, měření, mapy a stahování",
+    "history": "Jak se stanice v čase měnila",
+    "providers": "Kdo data zveřejňuje a pod jakou licencí",
+    "glossary": "Co znamená každý parametr",
+    "api": "Data pro tvůj vlastní kód: REST API a MCP",
+    "home": "Vyber místo",
+    "about": "Projekt a lidé, kteří za ním stojí",
+    "support": "Nahlas problém, přispěj, daruj",
+    "settings": "Jazyk, barvy a jednotky"
   },
   "footer": {
     "copyright": "© {year} earthobservations",

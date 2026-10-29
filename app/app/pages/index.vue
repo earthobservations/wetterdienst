@@ -1,36 +1,110 @@
 <script setup lang="ts">
-const { t } = useI18n()
+import type { Station } from '#shared/types/api'
+import MeteogramStationSearch from '~/components/MeteogramStationSearch.vue'
+import { nearestStation, placeName, placeOfStation } from '~/utils/place'
 
-// Primary, consumer-facing tasks. Explorer is intentionally a first-class
-// entry point here (not hidden behind an "advanced" section) — it is made
-// approachable through the Explorer's guided Simple mode.
-const tasks = computed(() => [
-  {
-    to: '/meteogram',
-    icon: 'i-lucide-cloud-sun',
-    title: t('home.forecastTitle'),
-    description: t('home.forecastDesc'),
-    accent: 'text-amber-500',
-  },
-  {
-    to: '/stripes',
-    icon: 'i-lucide-bar-chart-big',
-    title: t('home.stripesTitle'),
-    description: t('home.stripesDesc'),
-    accent: 'text-red-500',
-  },
-  {
-    to: '/explorer',
-    icon: 'i-lucide-compass',
-    title: t('home.explorerTitle'),
-    description: t('home.explorerDesc'),
-    accent: 'text-primary-500',
-  },
-])
+const { t, locale } = useI18n()
 
-// What you can do with the data once you have it. Two cards rather than four: "multiple data
-// sources" and "geospatial queries" said what the services card and the Explorer card above now
-// say better, and a home page that repeats itself reads as padding.
+// One question first (GH-3518): which place. The search is the forecast's own (the DWD MOSMIX stations, in
+// Germany and worldwide); the place is remembered in the browser, and the page answers for it: the weather
+// now, and its forecast, its climate stripes and the measurements around it, each a tap away.
+const { place, setPlace, forgetPlace } = usePlace()
+
+const selectedStation = computed<Station | null>({
+  get: () => place.value
+    ? { station_id: place.value.id, name: place.value.name, latitude: place.value.latitude, longitude: place.value.longitude } as Station
+    : null,
+  set: (station) => {
+    const chosen = station ? placeOfStation(station) : null
+    if (chosen)
+      setPlace(chosen)
+    else if (!station)
+      forgetPlace()
+  },
+})
+
+// A few places to start from, so that a first visit is one tap from a forecast. MOSMIX stations, with the
+// names and positions the station list gives them; the label is the city's own name.
+const EXAMPLES = [
+  { label: 'Berlin', id: '10384', name: 'BERLIN-TEMPELHOF', latitude: 52.47, longitude: 13.4 },
+  { label: 'Hamburg', id: '10147', name: 'HAMBURG-FU.', latitude: 53.63, longitude: 10.0 },
+  { label: 'München', id: '10865', name: 'MUENCHEN STADT', latitude: 48.17, longitude: 11.53 },
+  { label: 'Köln', id: '10513', name: 'KOELN/BONN', latitude: 50.87, longitude: 7.17 },
+  { label: 'Frankfurt', id: '10637', name: 'FRANKFURT/M', latitude: 50.05, longitude: 8.6 },
+  { label: 'Wien', id: '11034', name: 'WIEN/CITY', latitude: 48.2, longitude: 16.37 },
+  { label: 'Zürich', id: '06660', name: 'ZUERICH (TOWN/VILLE)', latitude: 47.38, longitude: 8.57 },
+]
+function choose(example: typeof EXAMPLES[number]) {
+  setPlace({ id: example.id, name: example.name, latitude: example.latitude, longitude: example.longitude })
+}
+
+// The climate stripes of the place: the stripes' own station nearest to it, asked for once there is a place
+const { data: stripesStations, execute: loadStripesStations } = useFetch<{ stations: Array<{ station_id: string, name: string, latitude: number, longitude: number }> }>(
+  '/api/stripes/stations',
+  { query: { kind: 'temperature' }, immediate: false, ...RETRY_TRANSIENT },
+)
+watch(() => place.value?.id, (id) => {
+  if (id && !stripesStations.value)
+    void loadStripesStations()
+}, { immediate: true })
+const nearestStripes = computed(() => place.value && stripesStations.value?.stations?.length
+  ? nearestStation(stripesStations.value.stations, place.value)
+  : null)
+
+/** The measurements around the place: the explorer's summary of the stations near it over the last 30 days */
+function explorerLink(latitude: number, longitude: number) {
+  const day = (offset: number) => new Date(Date.now() - offset * 86_400_000).toISOString().slice(0, 10)
+  const query = new URLSearchParams({
+    provider: 'dwd',
+    network: 'observation',
+    resolution: 'daily',
+    dataset: 'climate_summary',
+    parameters: 'temperature_air_mean_2m,precipitation_height',
+    mode: 'summary',
+    interpolationSource: 'manual',
+    lat: String(latitude),
+    lon: String(longitude),
+    startDate: day(31),
+    endDate: day(1),
+  })
+  return `/explorer?${query}`
+}
+
+// The three ways in: for the place where there is one, to the pages themselves where there is none
+const lenses = computed(() => {
+  const p = place.value
+  const stripes = nearestStripes.value
+  return [
+    {
+      key: 'forecast',
+      to: p ? `/meteogram?station=${encodeURIComponent(p.id)}` : '/meteogram',
+      icon: 'i-lucide-cloud-sun',
+      tint: 'bg-sun/25 text-ink-900 dark:bg-sun/15 dark:text-sun',
+      title: t('home.forecastTitle'),
+      description: p ? t('home.lensForecastDesc') : t('home.forecastDesc'),
+    },
+    {
+      key: 'stripes',
+      to: p && stripes ? `/stripes?kind=temperature&station=${encodeURIComponent(stripes.station.station_id)}` : '/stripes',
+      icon: 'i-lucide-bar-chart-3',
+      tint: 'bg-ember/15 text-ink-900 dark:bg-ember/20 dark:text-ember',
+      title: t('home.stripesTitle'),
+      description: p && stripes
+        ? t('home.lensStripesDesc', { station: stripes.station.name, km: Math.round(stripes.km) })
+        : t('home.stripesDesc'),
+    },
+    {
+      key: 'explorer',
+      to: p ? explorerLink(p.latitude, p.longitude) : '/explorer',
+      icon: 'i-lucide-compass',
+      tint: 'bg-lagoon/20 text-ink-900 dark:bg-lagoon/15 dark:text-lagoon',
+      title: t('home.explorerTitle'),
+      description: p ? t('home.lensExplorerDesc', { place: placeName(p.name) }) : t('home.explorerDesc'),
+    },
+  ]
+})
+
+// What you can do with the data once you have it.
 const features = computed(() => [
   { icon: 'i-lucide-download', title: t('home.featureExportTitle'), description: t('home.featureExportDesc') },
   { icon: 'i-lucide-line-chart', title: t('home.featureAnalysisTitle'), description: t('home.featureAnalysisDesc') },
@@ -40,7 +114,6 @@ const features = computed(() => [
 // provider of its registry, so a provider added upstream is on this page without a change here. Short names
 // and flags: the flag is the provider's own country, and NOAA's GHCN is worldwide despite the US flag, which
 // `home.dataProvidersDesc` says. The request is the one the Providers pages share, by its key.
-const { locale } = useI18n()
 const collator = computed(() => new Intl.Collator(locale.value, { numeric: true }))
 const { data: providerList, pending: providersPending, error: providersError, refresh: refreshProviders } = useProviders()
 
@@ -72,8 +145,7 @@ const supporters = computed(() => [
 ])
 
 // The same data, for people who would rather not click: the library the project started as, the
-// API the app itself runs on, and the MCP endpoint. Home linked to four routes before this and
-// none of them said the data was reachable programmatically at all.
+// API the app itself runs on, and the MCP endpoint.
 const devEntries = computed(() => [
   { key: 'pypi', label: 'pip install wetterdienst', icon: 'i-simple-icons-python', to: 'https://pypi.org/project/wetterdienst/', title: undefined },
   // this instance's own endpoints rather than the page that describes them: /docs is the backend's
@@ -100,235 +172,256 @@ const dataKinds = computed(() => [
   { icon: 'i-lucide-triangle-alert', title: t('home.kindAlertsTitle'), description: t('home.kindAlertsDesc') },
   { icon: 'i-lucide-car-front', title: t('home.kindRoadTitle'), description: t('home.kindRoadDesc') },
 ])
+
+const chipClass = 'inline-flex items-center gap-1.5 rounded-full border border-transparent bg-default px-3 py-1.5 text-sm font-medium ring ring-default text-default transition-colors hover:ring-brand-600 hover:text-brand-800 dark:hover:ring-brand-400 dark:hover:text-brand-200'
 </script>
 
 <template>
-  <div class="max-w-4xl mx-auto py-8 px-4">
-    <div class="text-center mb-10">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        Wetterdienst
-      </h1>
-      <p class="text-xl text-gray-600 dark:text-gray-400">
-        {{ t('home.tagline') }}
-      </p>
-    </div>
-
-    <!-- Primary task cards: the friendly, everyone-can-use entry points. -->
-    <h2 class="text-center text-lg font-bold mb-1">
-      {{ t('home.tasksTitle') }}
-    </h2>
-    <p class="text-center text-sm text-gray-500 dark:text-gray-400 mb-6">
-      {{ t('home.intro') }}
-    </p>
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-12">
-      <NuxtLink
-        v-for="task in tasks"
-        :key="task.to"
-        :to="task.to"
-        class="group"
-      >
-        <UCard
-          class="h-full transition-all hover:ring-2 hover:ring-primary-400 hover:-translate-y-0.5"
-          :ui="{ body: 'flex flex-col items-center text-center gap-3 h-full' }"
-        >
-          <UIcon :name="task.icon" class="text-4xl" :class="task.accent" />
-          <h3 class="font-bold text-base">
-            {{ task.title }}
-          </h3>
-          <p class="text-sm text-gray-600 dark:text-gray-400 flex-1">
-            {{ task.description }}
-          </p>
-          <span class="text-sm font-medium text-primary-700 dark:text-primary-500 group-hover:underline">
-            {{ t('common.open') }} →
-          </span>
-        </UCard>
-      </NuxtLink>
-    </div>
-
-    <!-- What actually arrives when you press a button above: who publishes it, how much of it
-         there is, and in what shapes. -->
-    <h2 class="text-lg font-bold mb-1">
-      {{ t('home.dataTitle') }}
-    </h2>
-    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
-      {{ t('home.dataIntro') }}
-    </p>
-
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-      <UCard v-for="stat in stats" :key="stat.key" :ui="{ body: 'text-center py-4' }">
-        <!-- the numbers of providers and parameters are the backend's: its place is held until it has answered (h-8 is the
-             line of text-2xl), and it is a dash where the request failed -->
-        <div class="text-2xl font-bold text-primary-600 dark:text-primary-500">
-          <div v-if="stat.value === null && providersLoading" class="h-8 w-10 mx-auto rounded-md bg-elevated animate-pulse" aria-hidden="true" />
-          <template v-else>
-            {{ stat.value ?? '–' }}
-          </template>
+  <div>
+    <!-- the question, in the sky -->
+    <PageShell as="section" width="default" class="pb-10 sm:pb-14" aria-labelledby="home-question">
+      <div class="max-w-2xl pt-8 sm:pt-14">
+        <p class="mb-3 text-sm font-semibold uppercase tracking-wider text-brand-700 dark:text-brand-300">
+          {{ t('home.tagline') }}
+        </p>
+        <h1 id="home-question" class="text-4xl font-extrabold tracking-tight text-highlighted text-balance break-words sm:text-6xl">
+          {{ t('home.placeQuestion') }}
+        </h1>
+        <p class="mt-4 text-lg text-toned text-pretty sm:text-xl">
+          {{ t('home.placeLead') }}
+        </p>
+        <div class="mt-7 rounded-2xl bg-default p-2 shadow-(--shadow-lift) ring ring-default wd-surface">
+          <MeteogramStationSearch v-model="selectedStation" size="xl" :pulse="false" />
         </div>
-        <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">
-          {{ stat.label }}
-        </div>
-      </UCard>
-    </div>
-
-    <UCard class="mb-6" data-testid="home-providers-card">
-      <template #header>
-        <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-building-2" class="text-primary-500 shrink-0" />
-          <h3 class="font-bold">
-            {{ t('home.dataProvidersTitle') }}
-          </h3>
-        </div>
-      </template>
-      <UAlert
-        v-if="providersFailure"
-        color="error"
-        variant="subtle"
-        icon="i-lucide-alert-circle"
-        :title="t('common.requestFailed')"
-        :description="providersFailure"
-        :actions="[{ label: t('common.retry'), onClick: () => refreshProviders() }]"
-      />
-      <div v-else-if="providersLoading" class="flex flex-wrap gap-2" role="status" :aria-label="t('common.loading')" aria-busy="true">
-        <div v-for="(width, index) in placeholders" :key="index" class="h-[1.875rem] rounded-full bg-elevated animate-pulse" :class="width" aria-hidden="true" />
-      </div>
-      <p v-else-if="!providers.length" class="text-sm text-gray-500 dark:text-gray-400">
-        {{ t('home.providersEmpty') }}
-      </p>
-      <ul v-else class="flex flex-wrap gap-2" data-testid="home-providers">
-        <li v-for="provider in providers" :key="provider.key">
-          <NuxtLink
-            :to="`/providers/${provider.key}`"
-            class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700 px-3 py-1 text-sm hover:border-primary-400 hover:text-primary-700 dark:hover:text-primary-400 transition-colors"
+        <div class="mt-4 flex flex-wrap items-center gap-2">
+          <span class="text-sm font-semibold text-toned">{{ t('home.placeExamples') }}</span>
+          <button
+            v-for="example in EXAMPLES"
+            :key="example.id"
+            type="button"
+            :class="chipClass"
+            :aria-pressed="place?.id === example.id"
+            @click="choose(example)"
           >
-            <span aria-hidden="true">{{ provider.flag }}</span>
-            {{ provider.name }}
-          </NuxtLink>
-        </li>
-      </ul>
-      <p class="text-sm text-gray-500 dark:text-gray-400 mt-4">
-        {{ t('home.dataProvidersDesc') }}
-        <NuxtLink to="/glossary" class="text-primary-700 dark:text-primary-500 underline hover:no-underline">
-          {{ t('home.glossaryHint') }}
-        </NuxtLink>
-        <NuxtLink to="/providers" class="text-primary-700 dark:text-primary-500 underline hover:no-underline">
-          {{ t('home.providersLink') }}
-        </NuxtLink>
-      </p>
-    </UCard>
-
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-      <UCard v-for="kind in dataKinds" :key="kind.title">
-        <div class="flex items-start gap-3">
-          <UIcon :name="kind.icon" class="text-2xl text-primary-500 flex-shrink-0 mt-1" />
-          <div>
-            <h3 class="font-medium mb-1">
-              {{ kind.title }}
-            </h3>
-            <p class="text-sm text-gray-600 dark:text-gray-400">
-              {{ kind.description }}
-            </p>
-          </div>
+            {{ example.label }}
+          </button>
         </div>
-      </UCard>
-    </div>
-
-    <!-- A subsection of the data block rather than a section of its own: it is still about the
-         data, and as a peer heading over two cards it read as a stub after the block above. -->
-    <h3 class="font-bold mb-3">
-      {{ t('home.featuresTitle') }}
-    </h3>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12">
-      <!-- No hover lift here: these cards are text, not links. On the page only the task cards
-           above are clickable, so they are the only ones that answer the pointer. -->
-      <UCard v-for="feature in features" :key="feature.title">
-        <div class="flex items-start gap-3">
-          <UIcon :name="feature.icon" class="text-2xl text-primary-500 flex-shrink-0 mt-1" />
-          <div>
-            <h3 class="font-medium mb-1">
-              {{ feature.title }}
-            </h3>
-            <p class="text-sm text-gray-600 dark:text-gray-400">
-              {{ feature.description }}
-            </p>
-          </div>
-        </div>
-      </UCard>
-    </div>
-
-    <!-- The developer path, which the page did not mention at all: same data, no clicking. -->
-    <div class="text-center mb-12">
-      <h3 class="font-bold mb-1">
-        {{ t('home.devTitle') }}
-      </h3>
-      <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">
-        {{ t('home.devText') }}
-      </p>
-      <div class="flex flex-wrap justify-center gap-2">
-        <!-- NuxtLink for all three: it renders an external URL as a plain anchor by itself, which
-             is simpler than switching the component per entry -- and switching it via
-             `resolveComponent` in the template silently rendered two of these as text, not links. -->
-        <NuxtLink
-          v-for="entry in devEntries"
-          :key="entry.key"
-          :to="entry.to"
-          external
-          target="_blank"
-          :title="entry.title"
-          class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700 px-3 py-1 text-sm hover:border-primary-400 hover:text-primary-700 dark:hover:text-primary-400 transition-colors"
-        >
-          <UIcon :name="entry.icon" class="size-4 shrink-0" />
-          {{ entry.label }}
-        </NuxtLink>
-      </div>
-    </div>
-
-    <!-- Values: an unmistakable stance for inclusion and against fascism, closing the page. -->
-    <section class="mb-6 rounded-2xl border border-primary-200 dark:border-primary-900 bg-gradient-to-r from-pink-50 via-purple-50 to-sky-50 dark:from-pink-950/30 dark:via-purple-950/20 dark:to-sky-950/30 p-6 text-center">
-      <h2 class="text-lg font-bold mb-3">
-        {{ t('values.title') }}
-      </h2>
-      <div class="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-8">
-        <p v-for="value in values" :key="value.key" class="flex items-center gap-2 text-base font-medium">
-          <span aria-hidden="true">{{ value.emoji }}</span>
-          {{ value.text }}
+        <p v-if="place" class="mt-3 flex items-center gap-1.5 text-sm text-toned">
+          <UIcon name="i-lucide-lock" class="size-3.5 shrink-0" />
+          {{ t('home.placeRemembered') }}
         </p>
       </div>
-    </section>
+    </PageShell>
 
-    <!-- Who backs the work: its own block, in the same gradient as the stance above it. Two
-         statements the project makes about itself, told apart by the gap rather than by one of
-         them looking like a footnote to the other. -->
-    <section class="mb-12 rounded-2xl border border-primary-200 dark:border-primary-900 bg-gradient-to-r from-pink-50 via-purple-50 to-sky-50 dark:from-pink-950/30 dark:via-purple-950/20 dark:to-sky-950/30 p-6 text-center">
-      <h2 class="text-lg font-bold mb-3">
-        {{ t('home.supportedByTitle') }}
-      </h2>
-      <div class="flex flex-wrap justify-center gap-2">
-        <a
-          v-for="supporter in supporters"
-          :key="supporter.key"
-          :href="supporter.to"
-          target="_blank"
-          :title="supporter.detail"
-          :aria-label="`${supporter.name} — ${supporter.detail}`"
-          class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/40 px-3 py-1 text-sm hover:border-primary-400 hover:text-primary-700 dark:hover:text-primary-400 transition-colors"
-        >
-          <UIcon :name="supporter.icon" class="size-4 shrink-0" />
-          {{ supporter.name }}
-        </a>
+    <PageShell width="default" class="space-y-16">
+      <!-- the place: its weather now, and three ways on -->
+      <div class="space-y-6">
+        <PlaceNow v-if="place" :place="place" @forget="forgetPlace()" />
+        <h2 v-else class="text-xl font-extrabold tracking-tight text-highlighted sm:text-2xl">
+          {{ t('home.tasksTitle') }}
+        </h2>
+        <ul class="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <li v-for="lens in lenses" :key="lens.key">
+            <NuxtLink
+              :to="lens.to"
+              class="group wd-surface flex h-full flex-col gap-3 rounded-xl bg-default p-5 shadow-(--shadow-card) ring ring-default transition hover:-translate-y-0.5 hover:shadow-(--shadow-lift) hover:ring-brand-600 motion-reduce:transition-none motion-reduce:hover:translate-y-0 dark:hover:ring-brand-400"
+            >
+              <span class="grid size-11 place-items-center rounded-xl" :class="lens.tint" aria-hidden="true">
+                <UIcon :name="lens.icon" class="size-6" />
+              </span>
+              <h3 class="text-lg font-bold text-highlighted">
+                {{ lens.title }}
+              </h3>
+              <p class="flex-1 text-sm text-toned">
+                {{ lens.description }}
+              </p>
+              <span class="inline-flex items-center gap-1 text-sm font-semibold text-brand-700 group-hover:underline dark:text-brand-300">
+                {{ t('common.open') }}
+                <UIcon name="i-lucide-arrow-right" class="size-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" />
+              </span>
+            </NuxtLink>
+          </li>
+        </ul>
       </div>
-    </section>
 
-    <!-- The project and the people behind it live on their own page now, so the home page can
-         stay about the data. -->
-    <div class="text-center">
-      <UButton
-        to="/about"
-        variant="link"
-        icon="i-lucide-info"
-        trailing-icon="i-lucide-arrow-right"
-      >
-        {{ t('home.aboutLink') }}
-      </UButton>
-    </div>
+      <!-- What actually arrives when you press a button above: who publishes it, how much of it
+           there is, and in what shapes. -->
+      <section class="space-y-6" aria-labelledby="home-data">
+        <div>
+          <h2 id="home-data" class="text-xl font-extrabold tracking-tight text-highlighted sm:text-2xl">
+            {{ t('home.dataTitle') }}
+          </h2>
+          <p class="mt-1 text-toned">
+            {{ t('home.dataIntro') }}
+          </p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div v-for="stat in stats" :key="stat.key" class="wd-surface rounded-xl bg-default px-4 py-5 ring ring-default">
+            <!-- the numbers of providers and parameters are the backend's: its place is held until it has answered (h-8 is the
+                 line of text-2xl), and it is a dash where the request failed -->
+            <div class="text-2xl font-extrabold tracking-tight tabular-nums text-brand-700 dark:text-brand-300">
+              <div v-if="stat.value === null && providersLoading" class="h-8 w-10 rounded-md bg-elevated animate-pulse" aria-hidden="true" />
+              <template v-else>
+                {{ stat.value ?? '–' }}
+              </template>
+            </div>
+            <div class="mt-1 text-sm text-toned">
+              {{ stat.label }}
+            </div>
+          </div>
+        </div>
+
+        <UCard data-testid="home-providers-card">
+          <template #header>
+            <div class="flex items-center gap-2">
+              <UIcon name="i-lucide-building-2" class="shrink-0 text-brand-600 dark:text-brand-300" />
+              <h3 class="font-bold text-highlighted">
+                {{ t('home.dataProvidersTitle') }}
+              </h3>
+            </div>
+          </template>
+          <UAlert
+            v-if="providersFailure"
+            color="error"
+            variant="subtle"
+            icon="i-lucide-alert-circle"
+            :title="t('common.requestFailed')"
+            :description="providersFailure"
+            :actions="[{ label: t('common.retry'), onClick: () => refreshProviders() }]"
+          />
+          <div v-else-if="providersLoading" class="flex flex-wrap gap-2" role="status" :aria-label="t('common.loading')" aria-busy="true">
+            <div v-for="(width, index) in placeholders" :key="index" class="h-[1.875rem] rounded-full bg-elevated animate-pulse" :class="width" aria-hidden="true" />
+          </div>
+          <p v-else-if="!providers.length" class="text-sm text-muted">
+            {{ t('home.providersEmpty') }}
+          </p>
+          <ul v-else class="flex flex-wrap gap-2" data-testid="home-providers">
+            <li v-for="provider in providers" :key="provider.key">
+              <NuxtLink
+                :to="`/providers/${provider.key}`"
+                class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm ring ring-default transition-colors hover:ring-brand-600 hover:text-brand-800 dark:hover:ring-brand-400 dark:hover:text-brand-200"
+              >
+                <span aria-hidden="true">{{ provider.flag }}</span>
+                {{ provider.name }}
+              </NuxtLink>
+            </li>
+          </ul>
+          <p class="mt-4 text-sm text-muted">
+            {{ t('home.dataProvidersDesc') }}
+            <NuxtLink to="/glossary" class="text-brand-700 underline hover:no-underline dark:text-brand-300">
+              {{ t('home.glossaryHint') }}
+            </NuxtLink>
+            {{ ' ' }}
+            <NuxtLink to="/providers" class="text-brand-700 underline hover:no-underline dark:text-brand-300">
+              {{ t('home.providersLink') }}
+            </NuxtLink>
+          </p>
+        </UCard>
+
+        <ul class="grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
+          <li v-for="kind in dataKinds" :key="kind.title" class="flex items-start gap-3">
+            <span class="grid size-10 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300" aria-hidden="true">
+              <UIcon :name="kind.icon" class="size-5" />
+            </span>
+            <div>
+              <h3 class="font-semibold text-highlighted">
+                {{ kind.title }}
+              </h3>
+              <p class="text-sm text-toned">
+                {{ kind.description }}
+              </p>
+            </div>
+          </li>
+        </ul>
+
+        <!-- A subsection of the data block rather than a section of its own: it is still about the data. -->
+        <div class="wd-surface rounded-xl bg-default p-5 ring ring-default sm:p-6">
+          <h3 class="mb-4 font-bold text-highlighted">
+            {{ t('home.featuresTitle') }}
+          </h3>
+          <ul class="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <li v-for="feature in features" :key="feature.title" class="flex items-start gap-3">
+              <UIcon :name="feature.icon" class="mt-0.5 size-5 shrink-0 text-brand-600 dark:text-brand-300" />
+              <div>
+                <h4 class="font-semibold text-highlighted">
+                  {{ feature.title }}
+                </h4>
+                <p class="text-sm text-toned">
+                  {{ feature.description }}
+                </p>
+              </div>
+            </li>
+          </ul>
+          <!-- The developer path: same data, no clicking. -->
+          <div class="mt-6 border-t border-default pt-5">
+            <h4 class="font-semibold text-highlighted">
+              {{ t('home.devTitle') }}
+            </h4>
+            <p class="mb-3 text-sm text-toned">
+              {{ t('home.devText') }}
+            </p>
+            <div class="flex flex-wrap gap-2">
+              <!-- NuxtLink for all three: it renders an external URL as a plain anchor by itself -->
+              <NuxtLink
+                v-for="entry in devEntries"
+                :key="entry.key"
+                :to="entry.to"
+                external
+                target="_blank"
+                :title="entry.title"
+                class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-mono text-sm ring ring-default transition-colors hover:ring-brand-600 hover:text-brand-800 dark:hover:ring-brand-400 dark:hover:text-brand-200"
+              >
+                <UIcon :name="entry.icon" class="size-4 shrink-0" />
+                {{ entry.label }}
+              </NuxtLink>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Values: an unmistakable stance for inclusion and against fascism, and who backs the work -->
+      <div class="grid gap-4 md:grid-cols-[2fr_1fr]">
+        <section class="rounded-2xl bg-navy p-6 text-white dark:bg-brand-950 [--app-focus-ring:var(--color-sun)]" aria-labelledby="home-values">
+          <h2 id="home-values" class="mb-4 text-lg font-bold">
+            {{ t('values.title') }}
+          </h2>
+          <ul class="grid gap-3 sm:grid-cols-2">
+            <li v-for="value in values" :key="value.key" class="flex items-start gap-2 font-medium">
+              <span aria-hidden="true">{{ value.emoji }}</span>
+              {{ value.text }}
+            </li>
+          </ul>
+        </section>
+        <section class="wd-surface rounded-2xl bg-default p-6 ring ring-default" aria-labelledby="home-supporters">
+          <h2 id="home-supporters" class="mb-4 text-lg font-bold text-highlighted">
+            {{ t('home.supportedByTitle') }}
+          </h2>
+          <div class="flex flex-wrap gap-2">
+            <a
+              v-for="supporter in supporters"
+              :key="supporter.key"
+              :href="supporter.to"
+              target="_blank"
+              :title="supporter.detail"
+              :aria-label="`${supporter.name} — ${supporter.detail}`"
+              :class="chipClass"
+            >
+              <UIcon :name="supporter.icon" class="size-4 shrink-0" />
+              {{ supporter.name }}
+            </a>
+          </div>
+          <UButton
+            to="/about"
+            variant="link"
+            icon="i-lucide-info"
+            trailing-icon="i-lucide-arrow-right"
+            class="mt-4 -ml-2.5"
+          >
+            {{ t('home.aboutLink') }}
+          </UButton>
+        </section>
+      </div>
+    </PageShell>
   </div>
 </template>

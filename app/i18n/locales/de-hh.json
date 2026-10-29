@@ -60,7 +60,21 @@
     "kindAlertsDesc": "Amtliche DWD-Warnungen vör Storm, Hitt, Frost un Hoogwater, na Landkreis.",
     "kindRoadTitle": "Straatenwedder",
     "kindRoadDesc": "Fahrbahntostand un -temperaturen vun de DWD-Straatenwedderstationen, mitsamt ehr Utsichten.",
-    "aboutLink": "Över dat Projekt un de Lüüd dorachter"
+    "aboutLink": "Över dat Projekt un de Lüüd dorachter",
+    "placeQuestion": "Wat för en Oort?",
+    "placeLead": "Sien Wedder nu, sien Utsicht un sien Klima, vun natschonale Wedderdeenste. För nix, apen un ahn Konto.",
+    "placeExamples": "To'n Bispeel",
+    "placeForget": "Oort vergeten",
+    "placeRemembered": "Disse Oort warrt blots in dien Browser spiekert.",
+    "now": "Nu",
+    "wind": "Windfohrt",
+    "rainNext6h": "Regen in de nächsten 6 Stünnen",
+    "nextHours": "De nächsten Stünnen",
+    "nowUnavailable": "De Utsicht hett för disse Stünn keen Weerten.",
+    "forecastSource": "DWD-MOSMIX-Utsicht för de Station {id}.",
+    "lensForecastDesc": "Stünn för Stünn för de nächsten teihn Daag: Temperatur, Regen, Wind un Wolken.",
+    "lensStripesDesc": "De Station {station}, {km} km weg, Johr för Johr in Strepen.",
+    "lensExplorerDesc": "De Stationen rund üm {place} un wat se in de lesten 30 Daag meten hebbt."
   },
   "seo": {
     "title": "Wetterdienst – apen Wedder- un Klimadaten vun nationale Wedderdeenste",
@@ -121,7 +135,26 @@
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menü"
+    "menu": "Menü",
+    "mainNav": "Hööftnavigatschoon",
+    "skipToContent": "Na'n Inholt springen",
+    "yourPlace": "Dien Oort"
+  },
+  "menu": {
+    "groupWeather": "Wedder",
+    "groupData": "Daten un Warktüüch",
+    "groupProject": "Dat Projekt",
+    "forecast": "Stünn för Stünn för de nächsten teihn Daag",
+    "stripes": "Woans en Oort över de Johren wärmer worrn is",
+    "explorer": "Stationen, Meten, Koorten un Daalladen",
+    "history": "Woans sik en Station mit de Tiet ännert hett",
+    "providers": "Wokeen de Daten rutgifft, un ünner wat för en Lizenz",
+    "glossary": "Wat elk Parameter bedüüdt",
+    "api": "De Daten för dien egen Code: REST-API un MCP",
+    "home": "En Oort utsöken",
+    "about": "Dat Projekt un de Lüüd dorachter",
+    "support": "En Fehler mellen, mitmaken, spennen",
+    "settings": "Spraak, Farven un Eenheiten"
   },
   "footer": {
     "copyright": "© {year} earthobservations",

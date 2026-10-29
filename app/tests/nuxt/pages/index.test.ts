@@ -271,3 +271,50 @@ describe('index Page', () => {
     expect(text).not.toContain('Andreas Motl')
   })
 })
+
+// The place (GH-3518): the page asks for one first, and once there is one it answers for it
+registerEndpoint('/api/stripes/stations', () => ({ stations: [
+  { station_id: '00433', name: 'Berlin-Tempelhof', latitude: 52.4675, longitude: 13.4021 },
+  { station_id: '01975', name: 'Hamburg-Fuhlsbüttel', latitude: 53.6332, longitude: 9.9881 },
+] }))
+registerEndpoint('/api/values', () => ({ values: [] }))
+
+describe('index Page with a place', () => {
+  afterEach(() => {
+    usePlace().forgetPlace()
+  })
+
+  it('asks for a place, and offers places to start from', async () => {
+    const wrapper = await mountHome()
+    expect(wrapper.find('h1').text()).toBe('Which place?')
+    const examples = wrapper.findAll('button[aria-pressed]').map(button => button.text())
+    expect(examples).toContain('Berlin')
+    expect(examples).toContain('Zürich')
+    // without a place, the three ways lead to the pages themselves
+    const links = wrapper.findAll('a').map(a => a.attributes('href'))
+    expect(links).toContain('/meteogram')
+    expect(links).toContain('/stripes')
+  })
+
+  it('answers for the place chosen: its forecast, the nearest stripes and the measurements around it', async () => {
+    const wrapper = await mountHome()
+    await wrapper.findAll('button[aria-pressed]').find(button => button.text() === 'Berlin')!.trigger('click')
+    expect(usePlace().place.value?.id).toBe('10384')
+
+    await vi.waitFor(() => expect(wrapper.findAll('a').map(a => a.attributes('href'))).toContain('/stripes?kind=temperature&station=00433'))
+    const links = wrapper.findAll('a').map(a => a.attributes('href') ?? '')
+    expect(links).toContain('/meteogram?station=10384')
+    expect(links.find(href => href.startsWith('/explorer?'))).toMatch(/mode=summary.*lat=52\.47.*lon=13\.4/)
+    expect(wrapper.text()).toContain('Berlin-Tempelhof')
+    expect(wrapper.text()).toContain('This place is kept in your browser only.')
+  })
+
+  it('forgets the place, and asks again', async () => {
+    usePlace().setPlace({ id: '10147', name: 'HAMBURG-FU.', latitude: 53.63, longitude: 10 })
+    const wrapper = await mountHome()
+    expect(wrapper.find('h2').text()).toBe('Hamburg-Fu.')
+    await wrapper.findAll('button').find(button => button.text() === 'Forget place')!.trigger('click')
+    expect(usePlace().place.value).toBeNull()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('What would you like to do?'))
+  })
+})

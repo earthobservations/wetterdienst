@@ -60,15 +60,8 @@ const people = computed(() => [
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('about.title') }}
-      </h1>
-      <p class="text-gray-600 dark:text-gray-400">
-        {{ t('about.subtitle') }}
-      </p>
-    </div>
+  <PageShell width="prose" class="space-y-6">
+    <PageHeader :title="t('about.title')" :lead="t('about.subtitle')" :eyebrow="t('menu.groupProject')" icon="i-lucide-info" />
 
     <UCard>
       <template #header>
@@ -170,7 +163,7 @@ const people = computed(() => [
         <a
           href="https://github.com/earthobservations/wetterdienst/blob/main/CONTRIBUTORS.md"
           target="_blank"
-          class="text-primary-700 dark:text-primary-500 underline hover:no-underline"
+          class="text-primary-700 dark:text-primary-400 underline hover:no-underline"
         >
           {{ t('about.contributorsLink') }}
         </a>
@@ -224,5 +217,5 @@ const people = computed(() => [
         </UButton>
       </div>
     </UCard>
-  </UContainer>
+  </PageShell>
 </template>

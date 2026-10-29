@@ -50,15 +50,8 @@ const examples = [
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('api.title') }}
-      </h1>
-      <p class="text-gray-600 dark:text-gray-400">
-        {{ t('api.subtitle') }}
-      </p>
-    </div>
+  <PageShell width="default" class="space-y-6">
+    <PageHeader :title="t('api.title')" :lead="t('api.subtitle')" :eyebrow="t('menu.groupData')" icon="i-lucide-code" />
 
     <UCard>
       <template #header>
@@ -240,5 +233,5 @@ const examples = [
         </table>
       </div>
     </UCard>
-  </UContainer>
+  </PageShell>
 </template>

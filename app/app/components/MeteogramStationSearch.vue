@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import type { Station } from '#shared/types/api'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   modelValue?: Station | null
-}>()
+  /** `xl` for the home page's search, which is the page's first control */
+  size?: 'md' | 'xl'
+  /** The pulsing ring that points at an empty field; the home page's search is the page itself and needs none */
+  pulse?: boolean
+}>(), { size: 'md', pulse: true })
 
 const emit = defineEmits<{
   'update:modelValue': [station: Station | null]
@@ -52,8 +56,10 @@ const selectedItem = computed({
       searchable
       virtualize
       color="primary"
-      class="w-full"
-      :class="{ 'needs-input': !modelValue }"
+      :size="size"
+      :icon="size === 'xl' ? 'i-lucide-search' : undefined"
+      class="w-full min-w-0"
+      :class="{ 'needs-input': pulse && !modelValue }"
       :placeholder="t('common.stationSearch')"
     />
     <UButton
@@ -61,7 +67,7 @@ const selectedItem = computed({
       color="neutral"
       variant="ghost"
       icon="i-lucide-x"
-      size="sm"
+      :size="size === 'xl' ? 'lg' : 'sm'"
       :aria-label="t('stationSelection.clearStation')"
       @click="emit('update:modelValue', null)"
     />

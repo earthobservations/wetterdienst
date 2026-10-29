@@ -60,7 +60,21 @@
     "kindAlertsDesc": "Avisos oficiales del DWD por tormenta, calor, helada e inundación, por distrito.",
     "kindRoadTitle": "Meteorología vial",
     "kindRoadDesc": "Estado y temperatura del firme de las estaciones viales del DWD, junto con sus predicciones.",
-    "aboutLink": "Sobre el proyecto y las personas que lo hacen posible"
+    "aboutLink": "Sobre el proyecto y las personas que lo hacen posible",
+    "placeQuestion": "¿Qué lugar?",
+    "placeLead": "Su tiempo ahora, su pronóstico y su clima, de los servicios meteorológicos nacionales. Libre, abierto y sin cuenta.",
+    "placeExamples": "Por ejemplo",
+    "placeForget": "Olvidar lugar",
+    "placeRemembered": "Este lugar solo se guarda en tu navegador.",
+    "now": "Ahora",
+    "wind": "Velocidad del viento",
+    "rainNext6h": "Lluvia en las próximas 6 horas",
+    "nextHours": "Las próximas horas",
+    "nowUnavailable": "El pronóstico no tiene valores para esta hora.",
+    "forecastSource": "Pronóstico DWD MOSMIX para la estación {id}.",
+    "lensForecastDesc": "Hora a hora durante los próximos diez días: temperatura, lluvia, viento y nubes.",
+    "lensStripesDesc": "La estación {station}, a {km} km, año a año en franjas.",
+    "lensExplorerDesc": "Las estaciones alrededor de {place} y lo que midieron en los últimos 30 días."
   },
   "seo": {
     "title": "Wetterdienst – datos meteorológicos y climáticos abiertos de los servicios meteorológicos nacionales",
@@ -121,7 +135,26 @@
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menú"
+    "menu": "Menú",
+    "mainNav": "Navegación principal",
+    "skipToContent": "Saltar al contenido",
+    "yourPlace": "Tu lugar"
+  },
+  "menu": {
+    "groupWeather": "Tiempo",
+    "groupData": "Datos y herramientas",
+    "groupProject": "El proyecto",
+    "forecast": "Hora a hora durante los próximos diez días",
+    "stripes": "Cómo se ha calentado un lugar a lo largo de los años",
+    "explorer": "Estaciones, mediciones, mapas y descargas",
+    "history": "Cómo ha cambiado una estación con el tiempo",
+    "providers": "Quién publica los datos y con qué licencia",
+    "glossary": "Qué significa cada parámetro",
+    "api": "Los datos para tu propio código: API REST y MCP",
+    "home": "Elige un lugar",
+    "about": "El proyecto y las personas que hay detrás",
+    "support": "Informa de un problema, colabora, dona",
+    "settings": "Idioma, colores y unidades"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
