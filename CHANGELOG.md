@@ -84,9 +84,8 @@ Types of changes:
 
 - The row-limit refusal and the 504 timeout of `interpolate` and `summarize` (REST and the MCP
   tools) no longer advise fewer stations, which a point request does not name, nor
-  `format=ndjson` or `format=csv`, of which these routes have no ndjson and a csv that is not
-  streamed (one body, held to the same limit): they say to ask for a shorter `timestamp` window
-  or fewer `parameters`. The problem keeps `limit`, `maximum` and `requested` (GH-3576, GH-3590)
+  `format=ndjson` or `format=csv`: they say to ask for a shorter `timestamp` window or fewer
+  `parameters`. The problem keeps `limit`, `maximum` and `requested` (GH-3576, GH-3590)
 - The MCP tools answer every `format` they offer, where `csv`, `ndjson`, `html` and `svg` of the
   tools with an output schema failed ("has an output schema but did not return structured
   content") and so did `png`, `jpg`, `webp` and `pdf` of every tool (a decoding error). A text

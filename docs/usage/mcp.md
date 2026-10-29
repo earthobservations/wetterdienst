@@ -133,8 +133,8 @@ of messages from the server, of which a server of tools has none). A tool's answ
 a tool, not the higher `stream_rows` of the REST API). A tool makes its request to the
 API in process, so it is held to the [limits](restapi.md#limits), the [timeout](restapi.md#timeout) and the
 [concurrency](restapi.md#concurrency) of the server like any request. A request that a tool is refused for its size is
-asked again for a window or fewer stations (for `interpolate` and `summarize`, which name no stations: a window or
-fewer parameters), or made from the library: see
+asked again for a window or fewer stations (for `interpolate` and `summarize`, which name no stations: a shorter
+window or fewer parameters, or a smaller radius when it reaches too many stations), or made from the library: see
 [Getting more than the limit](large-requests.md#from-an-assistant).
 
 ## Versioning

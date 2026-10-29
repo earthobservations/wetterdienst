@@ -421,7 +421,9 @@ sentence of app.md ("A request the backend refuses ...") say what main does toda
 
 The Explorer calls the REST API, so a request it makes is held to the limits of the backend, and when one is exceeded
 it shows what the backend answered: the limit, the number the request came to and how to narrow it (see the
-[Web app](app.md)). Follow the text in the form: a shorter date range, fewer parameters or fewer stations. For more than
+[Web app](app.md)). Follow the text in the form: a shorter date range, fewer parameters or, for a listing or a series
+of stations, fewer stations (an interpolation or a summary names no stations: a shorter date range or fewer parameters).
+For more than
 that, leave the app for the data and keep it for finding what to read: the app serves the API of its backend under
 `/api`, so the requests of this page work against the address of the app too (`https://wetterdienst.eobs.org/api/...`
 for the hosted instance), counted by the [rate limit](app.md#rate-limit) of the app.
