@@ -794,5 +794,18 @@
     "summary": "Resumen",
     "periods": "Periodos",
     "colMissingCount": "Número de valores faltantes"
+  },
+  "palette": {
+    "title": "Buscar",
+    "hint": "↑ ↓ para elegir, Intro para abrir, Esc para cerrar",
+    "placeholder": "Páginas, apariencia, idioma o una estación de pronóstico",
+    "pages": "Páginas",
+    "stations": "Estaciones de pronóstico",
+    "openForecast": "Abrir su pronóstico",
+    "current": "actual",
+    "empty": "Nada coincide con tu búsqueda.",
+    "results": "Resultados: {count}",
+    "purposeLegal": "Quién gestiona este sitio y cómo contactar.",
+    "purposePrivacy": "Qué registra este sitio sobre ti y por qué."
   }
 }

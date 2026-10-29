@@ -794,5 +794,18 @@
     "summary": "Podsumowanie",
     "periods": "Okresy",
     "colMissingCount": "Liczba braków"
+  },
+  "palette": {
+    "title": "Szukaj",
+    "hint": "↑ ↓ aby wybrać, Enter aby otworzyć, Esc aby zamknąć",
+    "placeholder": "Strony, wygląd, język lub stacja prognozy",
+    "pages": "Strony",
+    "stations": "Stacje prognozy",
+    "openForecast": "Otwórz prognozę",
+    "current": "bieżące",
+    "empty": "Nic nie pasuje do twojego wyszukiwania.",
+    "results": "Wyniki: {count}",
+    "purposeLegal": "Kto prowadzi tę stronę i jak się z nim skontaktować.",
+    "purposePrivacy": "Co ta strona zapisuje o tobie i dlaczego."
   }
 }

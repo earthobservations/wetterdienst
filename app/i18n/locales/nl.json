@@ -794,5 +794,18 @@
     "summary": "Samenvatting",
     "periods": "Perioden",
     "colMissingCount": "Aantal ontbrekend"
+  },
+  "palette": {
+    "title": "Zoeken",
+    "hint": "↑ ↓ om te kiezen, Enter om te openen, Esc om te sluiten",
+    "placeholder": "Pagina's, weergave, taal of een verwachtingsstation",
+    "pages": "Pagina's",
+    "stations": "Verwachtingsstations",
+    "openForecast": "Open de verwachting",
+    "current": "huidig",
+    "empty": "Niets komt overeen met je zoekopdracht.",
+    "results": "Resultaten: {count}",
+    "purposeLegal": "Wie deze site beheert en hoe je hem bereikt.",
+    "purposePrivacy": "Wat deze site over je vastlegt, en waarom."
   }
 }

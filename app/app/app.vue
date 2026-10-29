@@ -139,6 +139,20 @@ const projectLinks = computed(() => [
 // a ghost button on the navy rail: its own light colours, and the same tint for hover and keyboard focus (Nuxt UI's
 // would be the light grey of a panel, under the white icon)
 const railButton = 'text-(--app-rail-fg-muted) hover:text-(--app-rail-fg) hover:bg-white/10 active:bg-white/10 focus-visible:bg-white/10'
+
+// The search: the button of the rail, and Ctrl+K (⌘K on a Mac) on every page but the widget, in a field too
+const searchOpen = ref(false)
+const shortcutLabel = import.meta.client && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘K' : 'Ctrl K'
+function openSearch() {
+  mobileMenuOpen.value = false
+  searchOpen.value = true
+}
+useEventListener(import.meta.client ? window : undefined, 'keydown', (event: KeyboardEvent) => {
+  if (blank.value || isWidget.value || event.key.toLowerCase() !== 'k' || !(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey)
+    return
+  event.preventDefault()
+  openSearch()
+})
 </script>
 
 <template>
@@ -160,6 +174,21 @@ const railButton = 'text-(--app-rail-fg-muted) hover:text-(--app-rail-fg) hover:
             <img src="/icon.svg" alt="" class="size-8 shrink-0 rounded-[28%] ring-1 ring-white/15">
             <span class="text-lg font-semibold tracking-tight">Wetterdienst</span>
           </div>
+
+          <!-- the search (components/AppSearch.vue): in the rail under the name, in the bar beside the menu; Ctrl+K or
+               ⌘K opens it from anywhere -->
+          <button
+            type="button"
+            class="ml-auto inline-flex min-h-9 items-center gap-2 rounded-md px-2.5 text-sm font-medium text-(--app-rail-fg-muted) hover:bg-white/10 hover:text-(--app-rail-fg) lg:mx-4 lg:flex lg:border lg:border-white/15 lg:bg-white/5 lg:px-3"
+            aria-haspopup="dialog"
+            :aria-expanded="searchOpen"
+            aria-keyshortcuts="Control+K Meta+K"
+            @click="openSearch"
+          >
+            <UIcon name="i-lucide-search" class="size-4 shrink-0" aria-hidden="true" />
+            <span class="sr-only sm:not-sr-only lg:flex-1 lg:text-left">{{ t('palette.title') }}</span>
+            <kbd class="hidden rounded border border-white/20 px-1.5 font-sans text-xs lg:inline" aria-hidden="true">{{ shortcutLabel }}</kbd>
+          </button>
 
           <nav :aria-label="t('header.navigation')" class="hidden lg:flex lg:flex-col lg:gap-5 lg:pr-3">
             <div v-for="group in navGroups" :key="group.key">
@@ -203,6 +232,7 @@ const railButton = 'text-(--app-rail-fg-muted) hover:text-(--app-rail-fg) hover:
             color="neutral"
             variant="ghost"
             :label="t('header.menu')"
+            :ui="{ label: 'sr-only sm:not-sr-only' }"
             :aria-label="t('header.menu')"
             aria-haspopup="dialog"
             :aria-expanded="mobileMenuOpen"
@@ -334,6 +364,8 @@ const railButton = 'text-(--app-rail-fg-muted) hover:text-(--app-rail-fg) hover:
           </div>
         </template>
       </UModal>
+
+      <AppSearch v-model:open="searchOpen" />
     </template>
 
     <!-- the widget: the page and nothing around it -->

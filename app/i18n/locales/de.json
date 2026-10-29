@@ -794,5 +794,18 @@
     "summary": "Zusammenfassung",
     "periods": "Zeiträume",
     "colMissingCount": "Anzahl fehlend"
+  },
+  "palette": {
+    "title": "Suche",
+    "hint": "↑ ↓ zum Auswählen, Enter zum Öffnen, Esc zum Schließen",
+    "placeholder": "Seiten, Darstellung, Sprache oder eine Vorhersagestation",
+    "pages": "Seiten",
+    "stations": "Vorhersagestationen",
+    "openForecast": "Vorhersage öffnen",
+    "current": "aktuell",
+    "empty": "Nichts passt zu deiner Suche.",
+    "results": "Treffer: {count}",
+    "purposeLegal": "Wer diese Seite betreibt und wie du ihn erreichst.",
+    "purposePrivacy": "Was diese Seite über dich erfasst und warum."
   }
 }

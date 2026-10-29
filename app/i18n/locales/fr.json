@@ -794,5 +794,18 @@
     "summary": "Synthèse",
     "periods": "Périodes",
     "colMissingCount": "Nombre de valeurs manquantes"
+  },
+  "palette": {
+    "title": "Rechercher",
+    "hint": "↑ ↓ pour choisir, Entrée pour ouvrir, Échap pour fermer",
+    "placeholder": "Pages, apparence, langue ou une station de prévision",
+    "pages": "Pages",
+    "stations": "Stations de prévision",
+    "openForecast": "Ouvrir sa prévision",
+    "current": "actuel",
+    "empty": "Rien ne correspond à ta recherche.",
+    "results": "Résultats : {count}",
+    "purposeLegal": "Qui exploite ce site et comment le joindre.",
+    "purposePrivacy": "Ce que ce site enregistre à ton sujet, et pourquoi."
   }
 }

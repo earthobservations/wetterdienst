@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[Search]` A search, from the button in the navigation or Ctrl+K / ⌘K on every page: it finds
+  the pages (each with a line on what it is for), switches the appearance and the language, and
+  opens the forecast of a DWD forecast station by its name or id. It is operated by keys alone
+  and announced to a screen reader as a combobox with a list (GH-3518)
+
 ### Changed
 
 - `[Design]` A new look in the logo's colours: navigation in a navy rail on the left (a bar with

@@ -12,7 +12,8 @@ it, what was checked by hand, and what is known not to conform.
 - every page, as it is first shown, in light and dark mode and in English and German,
 - and, in light/English and dark/German, the states a first paint does not show: a station map with
   stations, a drawn chart (explorer, stripes, meteogram, widget), the table of the stripes' and the meteogram's values opened, the meteogram's compact day cards, an open
-  menu or popover, and an error notice.
+  menu or popover, the search (Ctrl+K), with its first list and with a forecast station found, and an error
+  notice.
 
 The spec answers every `/api/*` request itself, in the browser (`tests/e2e/accessibility/mock-backend.ts`),
 so it reaches neither the backend nor a provider. Map tiles and every other request to another host are
@@ -35,6 +36,13 @@ The same pages and states (in light/English and dark/German) are scanned twice m
   again half a second later (2.4.11, `focus-obscured`); for the focus leaving the page at once (2.1.2,
   `focus-lost`); and for the contrast of the text with the focus on it. Reka's invisible focus guards are not
   stops. The rules are the app's own ids, in `CUSTOM_RULES` of `interact.ts`.
+
+The search (`components/AppSearch.vue`) is the WAI-ARIA combobox with a listbox popup: the focus stays in its
+field (`role="combobox"`, `aria-controls`, `aria-expanded`), the arrow keys move the active option, which the
+field names by `aria-activedescendant`, Enter runs it, and a status line says how many options there are. It
+is in a dialog that keeps the focus, closes on Escape and gives the focus back to what opened it: the button of
+the rail, or the field the reader was in when they pressed Ctrl+K. `tests/e2e/search.spec.ts` drives it by keys
+alone.
 
 Beside the scans, `accessibility.spec.ts` drives widgets by keys alone (`keyboard operation`: the station
 picker, a collapsible, a menu, and the narrow layout's menu, which is a dialog that keeps the focus and gives

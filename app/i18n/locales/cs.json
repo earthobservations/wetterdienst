@@ -794,5 +794,18 @@
     "summary": "Souhrn",
     "periods": "Období",
     "colMissingCount": "Počet chybějících"
+  },
+  "palette": {
+    "title": "Hledat",
+    "hint": "↑ ↓ pro výběr, Enter pro otevření, Esc pro zavření",
+    "placeholder": "Stránky, vzhled, jazyk nebo předpovědní stanice",
+    "pages": "Stránky",
+    "stations": "Předpovědní stanice",
+    "openForecast": "Otevřít předpověď",
+    "current": "aktuální",
+    "empty": "Tvému hledání nic neodpovídá.",
+    "results": "Výsledky: {count}",
+    "purposeLegal": "Kdo provozuje tento web a jak ho kontaktovat.",
+    "purposePrivacy": "Co o tobě tento web zaznamenává a proč."
   }
 }

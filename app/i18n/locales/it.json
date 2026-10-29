@@ -794,5 +794,18 @@
     "summary": "Sintesi",
     "periods": "Periodi",
     "colMissingCount": "Numero di valori mancanti"
+  },
+  "palette": {
+    "title": "Cerca",
+    "hint": "↑ ↓ per scegliere, Invio per aprire, Esc per chiudere",
+    "placeholder": "Pagine, aspetto, lingua o una stazione di previsione",
+    "pages": "Pagine",
+    "stations": "Stazioni di previsione",
+    "openForecast": "Apri la sua previsione",
+    "current": "attuale",
+    "empty": "Nulla corrisponde alla tua ricerca.",
+    "results": "Risultati: {count}",
+    "purposeLegal": "Chi gestisce questo sito e come contattarlo.",
+    "purposePrivacy": "Cosa registra questo sito su di te, e perché."
   }
 }

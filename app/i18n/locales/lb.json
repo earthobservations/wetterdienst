@@ -794,5 +794,18 @@
     "summary": "Resümee",
     "periods": "Perioden",
     "colMissingCount": "Zuel vu Fehlenden"
+  },
+  "palette": {
+    "title": "Sichen",
+    "hint": "↑ ↓ fir ze wielen, Enter fir opzemaachen, Esc fir zouzemaachen",
+    "placeholder": "Säiten, Ausgesinn, Sprooch oder eng Previsiounsstatioun",
+    "pages": "Säiten",
+    "stations": "Previsiounsstatiounen",
+    "openForecast": "Previsioun opmaachen",
+    "current": "aktuell",
+    "empty": "Näischt passt zu denger Sich.",
+    "results": "Resultater: {count}",
+    "purposeLegal": "Wien dës Säit bedreift a wéi s du hien erreechs.",
+    "purposePrivacy": "Wat dës Säit iwwer dech ophëlt, a firwat."
   }
 }

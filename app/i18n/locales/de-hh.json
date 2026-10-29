@@ -794,5 +794,18 @@
     "summary": "Tosamenfaat",
     "periods": "Tietrüüm",
     "colMissingCount": "Tahl fehlend"
+  },
+  "palette": {
+    "title": "Söök",
+    "hint": "↑ ↓ to'n Utsöken, Enter to'n Opmaken, Esc to'n Dichtmaken",
+    "placeholder": "Sieden, Utsehn, Spraak oder en Vörhersaagstation",
+    "pages": "Sieden",
+    "stations": "Vörhersaagstationen",
+    "openForecast": "Vörhersaag opmaken",
+    "current": "aktuell",
+    "empty": "Nix passt to dien Söök.",
+    "results": "Drepers: {count}",
+    "purposeLegal": "Wokeen disse Siet bedrifft un woans du em kriggst.",
+    "purposePrivacy": "Wat disse Siet över di opschrifft un worüm."
   }
 }

@@ -322,6 +322,7 @@ const UI_SAME: Record<string, Same> = {
   'nav.api': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'nav.support': { en: ['da'], why: COGNATE },
   'nav.groupData': { en: ['cs', 'da', 'nl'], why: COGNATE },
+  'palette.pages': { en: ['fr'], why: COGNATE },
   'header.github': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'header.pypi': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'header.menu': { en: ['da', 'fr', 'it', 'nl', 'pl'], why: COGNATE },

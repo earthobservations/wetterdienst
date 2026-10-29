@@ -794,5 +794,18 @@
     "summary": "Opsummering",
     "periods": "Perioder",
     "colMissingCount": "Antal manglende"
+  },
+  "palette": {
+    "title": "Søg",
+    "hint": "↑ ↓ for at vælge, Enter for at åbne, Esc for at lukke",
+    "placeholder": "Sider, udseende, sprog eller en prognosestation",
+    "pages": "Sider",
+    "stations": "Prognosestationer",
+    "openForecast": "Åbn dens prognose",
+    "current": "aktuel",
+    "empty": "Intet passer til din søgning.",
+    "results": "Resultater: {count}",
+    "purposeLegal": "Hvem der driver dette websted, og hvordan du når dem.",
+    "purposePrivacy": "Hvad dette websted registrerer om dig, og hvorfor."
   }
 }

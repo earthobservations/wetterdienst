@@ -794,5 +794,18 @@
     "summary": "Summary",
     "periods": "Periods",
     "colMissingCount": "Missing count"
+  },
+  "palette": {
+    "title": "Search",
+    "hint": "↑ ↓ to choose, Enter to open, Esc to close",
+    "placeholder": "Pages, appearance, language or a forecast station",
+    "pages": "Pages",
+    "stations": "Forecast stations",
+    "openForecast": "Open its forecast",
+    "current": "current",
+    "empty": "Nothing matches your search.",
+    "results": "Results: {count}",
+    "purposeLegal": "Who runs this site and how to reach them.",
+    "purposePrivacy": "What this site records about you, and why."
   }
 }
