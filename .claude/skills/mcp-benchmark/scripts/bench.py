@@ -70,7 +70,7 @@ CLEANUP_MIN_AGE = 600
 MAX_TIMEOUT = 540
 #: bump it when the arithmetic changes (what counts as a step, a checkpoint, a violation, an aggregate or a verdict):
 #: two results files of another logic version are not compared
-LOGIC_VERSION = 14
+LOGIC_VERSION = 15
 UTC = dt.timezone.utc  # noqa: UP017 - the script also runs on the python3 of a Mac, which is older than 3.11
 #: Claude Code puts a tool result that exceeds its limit in a file and answers with this notice; no Read tool to open it
 SPILL_RE = re.compile(r"^Error: result \(([\d,]+) characters\) exceeds maximum allowed")
@@ -1272,8 +1272,9 @@ def _is_name(cell: str) -> bool:
 
     A figure in brackets (`quality (1-10)`, `precipitation (06-06 UTC)`) or a whole number before a unit word
     (`Precip. in 24 h (mm)`) belongs to a name; a decimal, a signed figure, a figure before a symbol (`-0.7 K`,
-    `20 °C`, `84 %`) or one that starts the cell is a value. More than five words, or two words or more ending in a
-    word of four letters or more and `.`, `!` or `?`, is a sentence (`Temp. max.` is an abbreviation).
+    `20 °C`, `84 %`) or one that starts the cell is a value. More than five words, or two words or more ending in `.`,
+    `!` or `?`, is a sentence, unless it is an abbreviation: it ends in a stop after a word of fewer than four ASCII
+    letters, and an earlier word ends in a stop too (`Temp. max.`, `Precip. amt.`).
     """
     text = cell.strip()
     if _NOT_A_FIGURE.fullmatch(text):
@@ -1285,7 +1286,11 @@ def _is_name(cell: str) -> bool:
         if not found.group(0).isdigit() or not re.match(r"\s+[A-Za-z]", outside[found.end() :]):
             return False
     words = text.split()
-    sentence = len(words) > 1 and re.search(r"[A-Za-z]{4,}[.!?]$", text)  # `Temp. max.`, `Precip. amt.` are not
+    # an abbreviation (`Temp. max.`, `Daily precip. amt.`) ends in a short word and a stop after an earlier stop
+    abbreviated = (
+        text.endswith(".") and not re.search(r"[A-Za-z]{4,}\.$", text) and any(w.endswith(".") for w in words[:-1])
+    )
+    sentence = len(words) > 1 and text[-1] in ".!?" and not abbreviated
     return len(words) <= 5 and not sentence
 
 

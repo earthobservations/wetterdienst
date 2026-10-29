@@ -4034,6 +4034,7 @@ def test_the_regex_takes_a_24_hour_total_and_not_the_hourly_or_maximum_columns()
         "Precipitation 24-hour total",
         "24-hour precipitation",
         "Precip. amt.",
+        "Precipitation information (mm)",
     ):
         assert re.search(pattern, name, re.IGNORECASE), name
     for name in (
@@ -4043,6 +4044,7 @@ def test_the_regex_takes_a_24_hour_total_and_not_the_hourly_or_maximum_columns()
         "precipitation max",
         "precipitation per hour",
         "hourly precipitation (mm)",
+        "Maximum precipitation (mm)",
         "Precipitation, quality",
     ):
         assert not re.search(pattern, name, re.IGNORECASE), name
@@ -4108,3 +4110,13 @@ def test_the_edges_of_the_sentence_test_and_of_the_line_of_a_bracketed_name() ->
     answer = _wide("Date,Rainfall (mm)", "2026-10-16,15.5") + "TABLE-UNIT: Rainfall | mm\nTABLE-UNIT: Rainfall mm | cm"
 
     assert bench.unit_check(answer, fact, TRUTHS[CSV])["ok"] is True
+
+
+def test_a_short_sentence_that_ends_in_a_stop_is_no_header_and_an_abbreviation_is() -> None:
+    """`Here it is, in mm.` and `or not?` are sentences; `Temp. max.` and `Daily precip. amt.` are names."""
+    for line in ("Here it is, in mm.", "Yes, or not?", "Here, unit is mm!"):
+        assert bench._tables([line, "a,b"]) == [], line  # noqa: SLF001
+    for cell in ("Temp. max.", "Precip. amt.", "Daily precip. amt."):
+        assert bench._is_name(cell), cell  # noqa: SLF001
+    for cell in ("in mm.", "or not?", "unit is mm!", "Is it wet today?"):
+        assert not bench._is_name(cell), cell  # noqa: SLF001

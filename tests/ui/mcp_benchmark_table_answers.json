@@ -1484,5 +1484,23 @@
   },
   "answer": "- Hamburg-Fuhlsbüttel, 01975\n- 14 to 18 October, daily\n\n```csv\ndate,precipitation_amount\n2026-10-16,15.5\n```\nTABLE-UNIT: precipitation_amount | mm",
   "expected": true
+ },
+ {
+  "id": "j13 L1 prose 'Here it is, in mm.' above unfenced CSV, right, no RESULT",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "Here it is, in mm.\ndate,precipitation_amount\n2026-10-15,0.0\n2026-10-16,15.5\n\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j13 L1b same, wrong table 9.9 + right RESULT",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "Here it is, in mm.\ndate,precipitation_amount\n2026-10-15,0.0\n2026-10-16,9.9\n\nTABLE-UNIT: precipitation_amount | mm\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
  }
 ]

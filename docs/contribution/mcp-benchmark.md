@@ -209,7 +209,8 @@ glossary run against it worked.
   them after the first baseline run, against the answers real models give.
 - A table is found only if it has a markdown separator row or a header line of names (cells that are no value, that is no signed
   or decimal figure, none that starts the cell, none before a symbol such as `°C` or `%`, and no sentence: five words at most, not
-  two words or more ending in a word of four letters or more and `.`, `!` or `?`, so `Temp. max.` is a name; a figure in brackets
+  two words or more ending in `.`, `!` or `?`, unless it is an abbreviation (a stop after a word of fewer than four ASCII letters, and
+  an earlier word with a stop: `Temp. max.`, `Daily precip. amt.`); a figure in brackets
   or a whole number before a word, `quality (1-10)`, `Precip. in 24 h (mm)`, belongs to a name, a whole number at the end of a cell
   does not; dates as columns count) and its cells are separated by a pipe, a comma or a tab. A
   semicolon CSV is not a table to the check, and neither are quoted fields (`"precipitation, mm"` is split at the comma); their
@@ -223,7 +224,7 @@ glossary run against it worked.
 - A line `value | see parameter` (a unit that is not one of the case) on the value column of a long table fails, whatever the
   per-parameter lines say. A title line of names above an unfenced CSV with the same number of cells (`Hamburg, daily
   precipitation`) becomes the header of the table, which then defers. `_tables` restarts its scan on each line that does not
-  start a table, so a long run of two-cell lines without a header is quadratic (2000 lines: seconds). A date in a table is read as `2026-10-16`, `2026/10/16`,
+  start a table, so a long run of two-cell lines without a header is quadratic (2000 lines take about 16 s). The exclusions of the column regex apply at the start of a word (`maximum`, `minutes` and `formula` are excluded too), so an "hours" neighbour (`precipitation_hours`, `precipitation_amount_last_hour`) can match it; and a `TABLE-UNIT` line for one spelling (`precipitation | mm`) can claim a neighbour column (`Precipitation form`) when the precipitation column has no "precip" in its name (`Rainfall (mm)`). A date in a table is read as `2026-10-16`, `2026/10/16`,
   `20261016`, `16.10.2026`, `16.10.26`, `16.10.` (zeros optional), `16/10/2026`, `16-10-2026`, `10/16/2026`, `16 Oct`,
   `Oct 16, 2026` or `16 October 2026`; another year is another day, month names in other languages are not read. A table with no row for the day, or none with a figure in it
   (a station list, a table of other days), fails nothing; one with the day's row and a wrong value does.
