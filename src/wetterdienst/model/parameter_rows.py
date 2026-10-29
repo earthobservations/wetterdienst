@@ -44,7 +44,6 @@ from wetterdienst.model.metadata import ParameterModel
 from wetterdienst.util.response_warnings import (
     PARAMETER_WITHOUT_ROWS,
     collecting,
-    recorded_warnings,
     warn_response,
 )
 
@@ -137,8 +136,9 @@ class ParameterRows:
         whole = request._requested_whole  # noqa: SLF001
         named_datasets = {key[:2] for key in named}
         # a parameter another warning already names (`parameter-ended`) is explained, and not told again
-        # (by the response if there is one, and by the log lines of this walk if there is not)
-        explained = self._named | {warning.get("parameter") for warning in recorded_warnings()}
+        # (named while this walk collected its stations: the warnings of the response besides are other walks',
+        # `parameter-without-rows` among them, and would silence this one)
+        explained = self._named
         told_whole: set[tuple[str, str]] = set()
         for parameter in request.parameters:
             if not isinstance(parameter, ParameterModel):

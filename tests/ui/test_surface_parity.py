@@ -1740,14 +1740,23 @@ def _walk(stations: list[str], parameters: list[str]) -> Any:  # noqa: ANN401
     return request.filter_by_station_id(stations).values().query()
 
 
+def _start_recording(mode: str) -> None:
+    """Start the way the library is used (nothing recorded) or the way a response is made (`begin_response`)."""
+    if mode == "response":
+        begin_response()
+    else:
+        response_warnings._RECORDED.set(None)  # noqa: SLF001
+
+
+@pytest.mark.parametrize("mode", ["library", "response"])
 def test_walks_that_are_interleaved_each_tell_their_parameters(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, mode: str
 ) -> None:
-    """Two generators read alternately in the library: neither walk's warning silences the other's."""
+    """Two generators read alternately: neither walk's warning silences the other's, recorded or only logged."""
     import itertools  # noqa: PLC0415
 
     _holding_none_of(monkeypatch, "sdk")
-    response_warnings._RECORDED.set(None)  # noqa: SLF001
+    _start_recording(mode)
     with caplog.at_level(logging.INFO):
         for _ in itertools.zip_longest(_walk(["00001"], [_EMPTY, _FULL]), _walk(["00001", "00002"], [_EMPTY, _FULL])):
             # a warning that names the parameter between the collections belongs to the stations of neither walk
@@ -1757,10 +1766,13 @@ def test_walks_that_are_interleaved_each_tell_their_parameters(
     assert len(lines) == 2
     assert any("station 00001 " in line for line in lines)
     assert any("stations 00001, 00002 " in line for line in lines)
+    if mode == "response":
+        assert [w["code"] for w in recorded_warnings()].count(_CODE) == 2
 
 
+@pytest.mark.parametrize("mode", ["library", "response"])
 def test_a_walk_in_the_collection_of_another_does_not_silence_it(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, mode: str
 ) -> None:
     """A provider that reads values of its own while it collects a station: both walks tell their parameter."""
     original = DwdObservationValues._collect_station_parameter_or_dataset  # noqa: SLF001
@@ -1773,7 +1785,7 @@ def test_a_walk_in_the_collection_of_another_does_not_silence_it(
         return original(self, station_id, parameter_or_dataset).filter(pl.col("parameter") != "sdk")
 
     monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
-    response_warnings._RECORDED.set(None)  # noqa: SLF001
+    _start_recording(mode)
     with caplog.at_level(logging.INFO):
         list(_walk(["00001"], [_EMPTY]))
 
@@ -1781,3 +1793,19 @@ def test_a_walk_in_the_collection_of_another_does_not_silence_it(
     assert len(lines) == 2
     assert any("station 00002 " in line for line in lines)
     assert any("station 00001 " in line for line in lines)
+    if mode == "response":
+        assert [w["code"] for w in recorded_warnings()].count(_CODE) == 2
+
+
+def test_two_requests_in_one_response_each_tell_the_parameter_they_lack(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Two reads made while one response is being built (the earlier one's warning is in it): both are told."""
+    _holding_none_of(monkeypatch, "sdk")
+    begin_response()
+
+    for end in ("2020-05-02", "2020-05-03"):
+        request = DwdObservationRequest(parameters=[_EMPTY, _FULL], start="2020-05-01", end=end)
+        request.filter_by_station_id(["00001", "00002"]).values().all()
+
+    told = [w for w in recorded_warnings() if w["code"] == _CODE]
+    assert [w["parameter"] for w in told] == [_EMPTY_NAME, _EMPTY_NAME]
+    assert told[0]["message"] != told[1]["message"]
