@@ -499,3 +499,54 @@ def test_the_point_tools_are_told_a_window_or_fewer_parameters_only(tool: str, m
     for advice in ("stations", "ndjson", "csv", "stream", "format"):
         assert advice not in text
         assert advice not in body["detail"]
+
+
+@pytest.mark.parametrize("tool", ["interpolate", "summarize"])
+def test_the_point_tools_are_told_a_window_or_fewer_parameters_on_a_timeout(
+    tool: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The 504 of `interpolate` and `summarize` names a window or parameters, through a tool and over HTTP (GH-3590)."""
+    import time  # noqa: PLC0415
+
+    from fastapi.testclient import TestClient  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+
+    monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "0.3")
+
+    def slow(*_args: object, **_kwargs: object) -> None:
+        time.sleep(1.5)
+
+    monkeypatch.setattr(DwdObservationRequest, "interpolate_by_station_id", slow)
+    monkeypatch.setattr(DwdObservationRequest, "summarize_by_station_id", slow)
+    arguments = {
+        "provider": "dwd",
+        "network": "observation",
+        "parameters": "daily/climate_summary/temperature_air_mean_2m",
+        "station": "01048",
+        "timestamp": "2020-01-01/2020-01-10",
+    }
+
+    result, _ = _call(restapi.app, tool, arguments)
+    client = TestClient(restapi.app, raise_server_exceptions=False)
+    responses = [client.get(f"/api/{prefix}{tool}", params=arguments) for prefix in ("v1/", "")]
+
+    expected = "Narrow the request: a shorter `timestamp` window or fewer `parameters`. "
+    assert result.is_error
+    texts = [result.content[0].text, *(response.json()["detail"] for response in responses)]
+    assert [response.status_code for response in responses] == [504, 504]
+    for text in texts:
+        assert "request timeout of 0.3 seconds" in text
+        assert expected in text
+        for advice in ("stations", "ndjson", "csv", "stream", "format"):
+            assert advice not in text
+
+
+def test_the_timeout_text_of_the_other_routes_is_unchanged() -> None:
+    """Only `interpolate` and `summarize` are worded for a point: `values` keeps its advice (GH-3590)."""
+    from wetterdienst.ui.middleware import is_point_route, timeout_detail  # noqa: PLC0415
+
+    assert all(is_point_route(path) for path in ("/api/v1/interpolate", "/api/summarize", "/api/v1/summarize/"))
+    assert not any(is_point_route(path) for path in ("/api/v1/values", "/api/v1/stations", "/api/v1/interpolate/x"))
+    assert "fewer stations or parameters, or format=ndjson or csv" in timeout_detail(30)
+    assert "fewer stations or parameters." in timeout_detail(30, tool=True)

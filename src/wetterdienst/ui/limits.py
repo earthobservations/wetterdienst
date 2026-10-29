@@ -161,9 +161,10 @@ def check_rows(rows: int, limits: Limits, *, streamed: bool) -> None:
 def check_point_rows(rows: int, limits: Limits) -> None:
     """Refuse an `interpolate` or `summarize` answer of more rows than `rows`, saying what to change.
 
-    The answer is one body, never streamed, and a point request names no stations (the radius chooses them), so
-    the advice is a shorter window or fewer parameters, the same over REST and through a tool (the CLI has no
-    limits): not fewer stations, not `format=ndjson` or `format=csv`, which these routes do not take (GH-3576).
+    The answer is one body, and a point request names no stations (the radius chooses them), so the advice is a
+    shorter window or fewer parameters, the same over REST and through a tool (the CLI has no limits). Not fewer
+    stations, and not `format=ndjson` or `format=csv`: these routes have no ndjson and their csv is not streamed, it
+    is one body held to this same limit (GH-3576).
     """
     if not limits.max_rows or rows <= limits.max_rows:
         return
