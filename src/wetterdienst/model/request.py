@@ -327,11 +327,12 @@ def shape_stations_frame(
 
 # set while `all()` builds the list that a filter selects among: that list is not an answer, so it tells nothing
 _SELECTING: ContextVar[bool] = ContextVar("wetterdienst_selecting", default=False)
-#: set by the user interfaces (`ui.core.answer_cut_to_window`) while they select the stations of an answer that is cut
-#: to the window of the request: a stations listing (`ui.core.limit_stations_to_window`), the values of the stations
-#: (which a station without a record in the window has none of), an interpolation or a summary. A warning about a
-#: station that the answer would have in it, or have to leave out of a search by place, is then told only for the
-#: stations that survive the cut (`TimeseriesRequest._within_answer_window`)
+#: set (`answer_cut_to_window`) while the stations of an answer that is cut to the window of the request are selected:
+#: by the user interfaces for a stations listing (`ui.core.limit_stations_to_window`) and the values of the stations
+#: (`ui.core.get_stations`), and by `interpolate` and `summarize` while they rank theirs. A warning about a station
+#: that the answer would have in it, or have to leave out of a search by place, is then told only for the stations
+#: that survive the cut (`TimeseriesRequest._within_answer_window`); outside it, as in a library `all()` or filter,
+#: nothing is cut to a window
 ANSWER_WINDOW: ContextVar[bool] = ContextVar("wetterdienst_answer_window", default=False)
 
 
@@ -865,8 +866,8 @@ class TimeseriesRequest:
     def _within_answer_window(self, df: pl.DataFrame) -> pl.DataFrame:
         """Cut the stations to those that would be in the answer when it is cut to the window of the request.
 
-        Only while the user interface says the answer is (`ANSWER_WINDOW`); the library does not cut a list to a window,
-        so `df` is returned as it is there.
+        Only while the answer is cut to the window (`ANSWER_WINDOW`: a stations listing, the values of stations, an
+        estimate); a library `all()` or filter cuts nothing to it, so `df` is returned as it is there.
         """
         if not ANSWER_WINDOW.get():
             return df

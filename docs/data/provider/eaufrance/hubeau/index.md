@@ -33,9 +33,10 @@ answer for a window (`timestamp`), whether a stations listing, the values of sta
 interpolation or a summary, tells it for the whole list and for a search by place only if the
 station has a record in the window, as it would otherwise not be in the answer; a station named
 by id or SQL is told whatever the window does to it, and a name is matched among the stations with
-a record in the window like any other. In the Python library `all()` and the filters tell it
-whatever the `start` and `end` of the request, as they cut nothing to them; `interpolate` and
-`summarize` cut to them as the command line and REST do. The warning is also a log line there, once
+a record in the window like any other. In the Python library `all()` and the filters by id, SQL,
+rank, distance and bounding box tell it whatever the `start` and `end` of the request, as they cut
+nothing to them; a name is matched among the stations with a record in the window there too, and
+`interpolate` and `summarize` cut to it as the command line and REST do. The warning is also a log line there, once
 for the process.
 
 A site publishes no altitude for about a quarter of the stations, and a few publish 0 or a value

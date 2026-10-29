@@ -580,7 +580,8 @@ class HubeauRequest(TimeseriesRequest):
     _endpoint = _STATIONS_ENDPOINT
 
     # the stations the last `_all` left without a position, with what the referential wrote of it (`_warn_unplaced`).
-    # Filled in place, so that the copy `interpolate` and `summarize` make of the request has it too
+    # `_all` fills it in place, so the shallow copy of the request that `interpolate` and `summarize` read their values
+    # through shares it, whether the copy is made before or after `_all` runs
     _unplaced_positions: dict[str, str] = field(default_factory=dict, init=False, repr=False, compare=False)
 
     # `altitude_ref_alti_station` is the altitude of the gauge's zero in metres -- the datum a stage
