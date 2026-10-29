@@ -171,8 +171,9 @@ def shape_provider_frame(
     Done once here so that a provider need not: the core writes ``station_id``, ``resolution`` and ``dataset``
     (whatever the provider put there is replaced), casts ``parameter`` to String, ``timestamp`` to
     ``Datetime("us", "UTC")`` and ``value`` to Float64, fills ``quality_flags`` with a String null where the
-    provider left it out, orders the columns as `LONG_SCHEMA` does and drops any other. A frame that is the long
-    form already comes out unchanged.
+    provider left it out, writes a ``parameter`` in another casing than the metadata's as the metadata declares it
+    (GH-3595), orders the columns as `LONG_SCHEMA` does and drops any other. A frame that is the long form already
+    comes out unchanged, unless its ``parameter`` is in another casing than the metadata's.
 
     A frame without a row is no data and is the same answer whatever it holds: a station without data for the
     parameter may be handed over as a bare ``pl.DataFrame()``, as a frame with the columns and none of the rows, or
@@ -237,9 +238,9 @@ def _declared_parameter_names(df: pl.DataFrame, dataset: DatasetModel) -> dict[s
     would be dropped, or kept under the source's spelling. Written as declared before any of them, they see one name.
 
     A name that matches no parameter in any casing is left as the provider wrote it: a grouped dataset's filter drops
-    it, and a non-grouped call's unit conversion refuses it. So is a name that two different declared names match alike
-    (`W` and `w`): only the lower-cased names that occur more than once are left out, the rest are mapped. A name
-    declared twice is one name.
+    it, and a non-grouped call's unit conversion refuses it (when units are converted). So is a name that two different
+    declared names match alike (`Ab` and `aB` declared, `AB` emitted): only the lower-cased names that occur more than
+    once are left out, the rest are mapped. A name declared twice is one name.
     """
     declared = {parameter.name_original for parameter in dataset}
     lowered = [name.lower() for name in declared]
