@@ -103,6 +103,7 @@ from wetterdienst.ui.core import (
 )
 from wetterdienst.ui.limits import (
     Limits,
+    check_point_rows,
     check_rows,
     check_station_count,
     check_stations_in_reach,
@@ -1591,7 +1592,7 @@ def _geo_limit_check(limits: Limits) -> Callable[[TimeseriesRequest], None]:
                 cast("dt.datetime | None", request.start),
                 cast("dt.datetime | None", request.end),
             )
-            check_rows(rows, limits, streamed=False)
+            check_point_rows(rows, limits)
 
     return check
 

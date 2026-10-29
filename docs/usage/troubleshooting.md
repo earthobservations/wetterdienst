@@ -104,7 +104,7 @@ request cannot take the server down; the answer names the limit and its value:
 | `limit` | Default | What to do |
 | --- | --- | --- |
 | `stations` | 100 stations of a `values` or `history` request | name fewer stations, a smaller `rank`, `distance` or bounding box, and ask again for the rest |
-| `rows` | 500,000 rows of an answer sent as one body | narrow the `timestamp` or the parameters, or use `format=ndjson` or `format=csv`, which stream |
+| `rows` | 500,000 rows of an answer sent as one body | narrow the `timestamp` or the parameters. Over REST, `values` and `stations` can also use `format=ndjson` or `format=csv`, which stream; `interpolate`, `summarize` and the MCP tools cannot, and take a shorter window or fewer parameters |
 | `stream_rows` | 10,000,000 rows of a streamed answer | narrow it, or run the library or the CLI, which have no limit |
 
 `GET /api/version` reports the limits of an instance (`limits`), and a client can size its request before it is
