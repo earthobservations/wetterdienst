@@ -467,3 +467,35 @@ def test_the_refusal_over_http_still_advises_the_stream_and_keeps_its_numbers(mo
     assert (body["limit"], body["maximum"]) == ("rows", 1000)
     assert body["requested"] > 1000
     assert "or use `format=ndjson` or `format=csv`" in body["detail"]
+
+
+@pytest.mark.parametrize("tool", ["interpolate", "summarize"])
+def test_the_point_tools_are_told_a_window_or_fewer_parameters_only(tool: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`interpolate` and `summarize` name no stations and offer no stream: the refusal says what they take (GH-3576)."""
+    from fastapi.testclient import TestClient  # noqa: PLC0415
+
+    monkeypatch.setenv("WD_RESTAPI_MAX_ROWS", "100")
+    arguments = {
+        "provider": "dwd",
+        "network": "observation",
+        "parameters": "daily/climate_summary/temperature_air_mean_2m",
+        "station": "01048",
+        "timestamp": "2000/2020",
+    }
+
+    result, _ = _call(restapi.app, tool, arguments)
+    response = TestClient(restapi.app, raise_server_exceptions=False).get(f"/api/v1/{tool}", params=arguments)
+
+    expected = "Ask for a shorter `timestamp` window or fewer `parameters`."
+    assert result.is_error
+    text = result.content[0].text
+    assert "more than the 100 this server sends as one answer" in text
+    assert expected in text
+    assert response.status_code == 400
+    body = response.json()
+    assert (body["limit"], body["maximum"]) == ("rows", 100)
+    assert body["requested"] > 100
+    assert body["detail"].endswith(expected)
+    for advice in ("stations", "ndjson", "csv", "stream", "format"):
+        assert advice not in text
+        assert advice not in body["detail"]

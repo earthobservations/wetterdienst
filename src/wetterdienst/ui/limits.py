@@ -158,6 +158,24 @@ def check_rows(rows: int, limits: Limits, *, streamed: bool) -> None:
     raise error
 
 
+def check_point_rows(rows: int, limits: Limits) -> None:
+    """Refuse an `interpolate` or `summarize` answer of more rows than `rows`, saying what to change.
+
+    The answer is one body, never streamed, and a point request names no stations (the radius chooses them), so
+    the advice is a shorter window or fewer parameters, the same over REST and through a tool (the CLI has no
+    limits): not fewer stations, not `format=ndjson` or `format=csv`, which these routes do not take (GH-3576).
+    """
+    if not limits.max_rows or rows <= limits.max_rows:
+        return
+    head = (
+        f"This request would return about {rows:,} rows, more than the {limits.max_rows:,} "
+        "this server sends as one answer."
+    )
+    message = f"{head} Ask for a shorter `timestamp` window or fewer `parameters`."
+    error = _refuse("rows", limits.max_rows, rows, message)
+    raise error
+
+
 #: where the record of a station is assumed to begin if its provider publishes none and the dataset has historical
 #: data, or the request has no span to give for its recent data (`_recent_span_of`): before the oldest archive of that
 #: kind the library reads (IMGW's begins in 1951). It matters for the datasets
