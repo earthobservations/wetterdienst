@@ -1121,7 +1121,7 @@ class TimeseriesRequest:
         # sorts first, ahead of the nearest station: it is left out, as `filter_by_distance` and
         # `filter_by_bbox` leave it out (GH-2380)
         df = df_all.with_columns(pl.lit(pl.Series(distances, dtype=pl.Float64)).alias("distance"))
-        located = df.filter(pl.col("distance").is_not_null()).sort(by=["distance", "station_id"])
+        located = df.filter(pl.col("distance").is_not_null()).sort(by=["distance", "station_id"], maintain_order=True)
         if located.is_empty() and not df.is_empty():
             log.info("None of the stations has a position to be ranked by")
         # a search by place can never answer with a station that has no position: the ones the source got wrong
@@ -1324,6 +1324,7 @@ class TimeseriesRequest:
             .explode("station_id", empty_as_null=True)
             .unique(),
             on="station_id",
+            maintain_order="left",
         )
         stations_result = StationsResult(
             request=self,
@@ -1445,6 +1446,7 @@ class TimeseriesRequest:
             other=summarized_values.select(pl.col("taken_station_id")).unique(),
             left_on="station_id",
             right_on="taken_station_id",
+            maintain_order="left",
         )
         stations_result = StationsResult(
             request=self,

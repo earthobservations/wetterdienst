@@ -394,11 +394,13 @@ class KnmiObservationRequest(TimeseriesRequest):
         resolution rather than a single shared one.
         """
         settings = cast("Settings", self.settings)
-        requested = {
+        # in the order the request names them (a set would give the stations in the order of the hash seed of the
+        # process, GH-3551)
+        requested = dict.fromkeys(
             (parameter.dataset.resolution.value, parameter.dataset.resolution.name, parameter.dataset.name)
             for parameter in self.parameters
             if isinstance(parameter, ParameterModel)
-        }
+        )
         station_frames: dict[Resolution, pl.DataFrame | None] = {}
         data = []
         for resolution, resolution_name, dataset in requested:
