@@ -140,6 +140,23 @@
       "project": "Il progetto"
     }
   },
+  "search": {
+    "button": "Cerca",
+    "title": "Ricerca",
+    "hint": "Pagine, impostazioni e stazioni della previsione. Le frecce spostano, Invio apre, Esc chiude.",
+    "placeholder": "Previsione, scuro, Amburgo …",
+    "label": "Cerca pagine, impostazioni e stazioni",
+    "groupPages": "Pagine",
+    "groupActions": "Impostazioni",
+    "groupStations": "Previsione per una stazione",
+    "empty": "Nessun risultato per {query}.",
+    "results": "Risultati: {n}",
+    "stationsLoading": "Ricerca delle stazioni …",
+    "stationPurpose": "Previsione, stazione {id}",
+    "inUse": "in uso",
+    "purposeImpressum": "Chi gestisce questo sito e come contattarlo.",
+    "purposePrivacy": "Cosa fa questo sito con i tuoi dati, e i tuoi diritti."
+  },
   "language": {
     "switch": "Cambia lingua",
     "inclusiveHint": "Benvenute e benvenuti tutti"

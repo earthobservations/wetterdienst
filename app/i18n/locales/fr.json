@@ -140,6 +140,23 @@
       "project": "Le projet"
     }
   },
+  "search": {
+    "button": "Rechercher",
+    "title": "Recherche",
+    "hint": "Pages, réglages et stations de la prévision. Les flèches déplacent, Entrée ouvre, Échap ferme.",
+    "placeholder": "Prévision, sombre, Hambourg …",
+    "label": "Rechercher des pages, des réglages et des stations",
+    "groupPages": "Pages du site",
+    "groupActions": "Réglages",
+    "groupStations": "Prévision pour une station",
+    "empty": "Rien trouvé pour {query}.",
+    "results": "Résultats : {n}",
+    "stationsLoading": "Recherche des stations …",
+    "stationPurpose": "Prévision, station {id}",
+    "inUse": "utilisé",
+    "purposeImpressum": "Qui gère ce site, et comment le joindre.",
+    "purposePrivacy": "Ce que ce site fait de tes données, et tes droits."
+  },
   "language": {
     "switch": "Changer de langue",
     "inclusiveHint": "Bienvenue à toutes et à tous"

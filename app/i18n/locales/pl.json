@@ -140,6 +140,23 @@
       "project": "O projekcie"
     }
   },
+  "search": {
+    "button": "Szukaj",
+    "title": "Wyszukiwanie",
+    "hint": "Strony, ustawienia i stacje prognozy. Strzałki przesuwają, Enter otwiera, Esc zamyka.",
+    "placeholder": "Prognoza, ciemny, Hamburg …",
+    "label": "Szukaj stron, ustawień i stacji",
+    "groupPages": "Strony",
+    "groupActions": "Ustawienia",
+    "groupStations": "Prognoza dla stacji",
+    "empty": "Nic nie znaleziono dla {query}.",
+    "results": "Wyniki: {n}",
+    "stationsLoading": "Wyszukiwanie stacji …",
+    "stationPurpose": "Prognoza, stacja {id}",
+    "inUse": "w użyciu",
+    "purposeImpressum": "Kto prowadzi tę stronę i jak się z nim skontaktować.",
+    "purposePrivacy": "Co ta strona robi z twoimi danymi i jakie masz prawa."
+  },
   "language": {
     "switch": "Zmień język",
     "inclusiveHint": "Witamy wszystkich"

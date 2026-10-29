@@ -140,6 +140,23 @@
       "project": "De Projet"
     }
   },
+  "search": {
+    "button": "Sichen",
+    "title": "Sichen",
+    "hint": "Säiten, Astellungen an d'Statioune vun der Prognos. D'Feiltaste wielen, Enter mécht op, Esc mécht zou.",
+    "placeholder": "Prognos, däischter, Hamburg …",
+    "label": "Säiten, Astellungen a Statioune sichen",
+    "groupPages": "Säiten",
+    "groupActions": "Astellungen",
+    "groupStations": "Prognos fir eng Statioun",
+    "empty": "Näischt fonnt fir {query}.",
+    "results": "Treffer: {n}",
+    "stationsLoading": "Statioune ginn gesicht …",
+    "stationPurpose": "Prognos, Statioun {id}",
+    "inUse": "aktiv",
+    "purposeImpressum": "Wien dës Säit bedreift a wéi s du se erreechs.",
+    "purposePrivacy": "Wat dës Säit mat dengen Donnéeë mécht, an deng Rechter."
+  },
   "language": {
     "switch": "Sprooch wiesselen",
     "inclusiveHint": "Wëllkomm, jiddwereen"

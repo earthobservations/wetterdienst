@@ -140,6 +140,23 @@
       "project": "The project"
     }
   },
+  "search": {
+    "button": "Search",
+    "title": "Search",
+    "hint": "Pages, settings and the stations of the forecast. The arrow keys move, Enter opens, Esc closes.",
+    "placeholder": "Forecast, dark, Hamburg …",
+    "label": "Search pages, settings and stations",
+    "groupPages": "Pages",
+    "groupActions": "Settings",
+    "groupStations": "Forecast for a station",
+    "empty": "Nothing found for {query}.",
+    "results": "Results: {n}",
+    "stationsLoading": "Looking up stations …",
+    "stationPurpose": "Forecast, station {id}",
+    "inUse": "in use",
+    "purposeImpressum": "Who runs this site, and how to reach them.",
+    "purposePrivacy": "What this site does with your data, and your rights."
+  },
   "language": {
     "switch": "Switch language",
     "inclusiveHint": "Welcome, everyone"

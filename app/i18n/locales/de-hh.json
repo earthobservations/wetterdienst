@@ -140,6 +140,23 @@
       "project": "Dat Projekt"
     }
   },
+  "search": {
+    "button": "Söken",
+    "title": "Söken",
+    "hint": "Sieden, Instellen un de Stationen vun de Utsicht. De Piltasten wählt, Enter maakt op, Esc maakt to.",
+    "placeholder": "Utsicht, düster, Hamborg …",
+    "label": "Sieden, Instellen un Stationen söken",
+    "groupPages": "Sieden",
+    "groupActions": "Instellen",
+    "groupStations": "Utsicht för en Station",
+    "empty": "Nix funnen för {query}.",
+    "results": "Funnen: {n}",
+    "stationsLoading": "Stationen warrt söcht …",
+    "stationPurpose": "Utsicht, Station {id}",
+    "inUse": "in Bruuk",
+    "purposeImpressum": "Wokeen disse Siet bedrifft un wo du em erreichst.",
+    "purposePrivacy": "Wat disse Siet mit dien Daten maakt, un dien Rechten."
+  },
   "language": {
     "switch": "Spraak wesseln",
     "inclusiveHint": "Moin, schön, dat du dor büst"

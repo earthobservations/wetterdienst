@@ -140,6 +140,23 @@
       "project": "Projektet"
     }
   },
+  "search": {
+    "button": "Søg",
+    "title": "Søgning",
+    "hint": "Sider, indstillinger og prognosens stationer. Piletasterne flytter, Enter åbner, Esc lukker.",
+    "placeholder": "Udsigt, mørk, Hamborg …",
+    "label": "Søg i sider, indstillinger og stationer",
+    "groupPages": "Sider",
+    "groupActions": "Indstillinger",
+    "groupStations": "Udsigt for en station",
+    "empty": "Intet fundet for {query}.",
+    "results": "Resultater: {n}",
+    "stationsLoading": "Søger stationer …",
+    "stationPurpose": "Udsigt, station {id}",
+    "inUse": "i brug",
+    "purposeImpressum": "Hvem der driver siden, og hvordan du kontakter dem.",
+    "purposePrivacy": "Hvad siden gør med dine data, og dine rettigheder."
+  },
   "language": {
     "switch": "Skift sprog",
     "inclusiveHint": "Velkommen, alle sammen"

@@ -140,6 +140,23 @@
       "project": "O projektu"
     }
   },
+  "search": {
+    "button": "Hledat",
+    "title": "Hledání",
+    "hint": "Stránky, nastavení a stanice předpovědi. Šipky posouvají, Enter otevírá, Esc zavírá.",
+    "placeholder": "Předpověď, tmavý, Hamburk …",
+    "label": "Hledat stránky, nastavení a stanice",
+    "groupPages": "Stránky",
+    "groupActions": "Nastavení",
+    "groupStations": "Předpověď pro stanici",
+    "empty": "Nic nenalezeno pro {query}.",
+    "results": "Výsledky: {n}",
+    "stationsLoading": "Hledají se stanice …",
+    "stationPurpose": "Předpověď, stanice {id}",
+    "inUse": "používá se",
+    "purposeImpressum": "Kdo tento web provozuje a jak ho kontaktovat.",
+    "purposePrivacy": "Co tento web dělá s tvými daty a jaká máš práva."
+  },
   "language": {
     "switch": "Změnit jazyk",
     "inclusiveHint": "Vítejte všichni"

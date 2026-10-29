@@ -140,6 +140,23 @@
       "project": "Het project"
     }
   },
+  "search": {
+    "button": "Zoeken",
+    "title": "Zoeken",
+    "hint": "Pagina's, instellingen en de stations van de verwachting. De pijltjestoetsen verplaatsen, Enter opent, Esc sluit.",
+    "placeholder": "Verwachting, donker, Hamburg …",
+    "label": "Zoek pagina's, instellingen en stations",
+    "groupPages": "Pagina's",
+    "groupActions": "Instellingen",
+    "groupStations": "Verwachting voor een station",
+    "empty": "Niets gevonden voor {query}.",
+    "results": "Resultaten: {n}",
+    "stationsLoading": "Stations worden gezocht …",
+    "stationPurpose": "Verwachting, station {id}",
+    "inUse": "in gebruik",
+    "purposeImpressum": "Wie deze site beheert en hoe je hen bereikt.",
+    "purposePrivacy": "Wat deze site met je gegevens doet, en je rechten."
+  },
   "language": {
     "switch": "Taal wijzigen",
     "inclusiveHint": "Welkom, iedereen"

@@ -140,6 +140,23 @@
       "project": "El proyecto"
     }
   },
+  "search": {
+    "button": "Buscar",
+    "title": "Búsqueda",
+    "hint": "Páginas, ajustes y estaciones del pronóstico. Las flechas mueven, Intro abre, Esc cierra.",
+    "placeholder": "Pronóstico, oscuro, Hamburgo …",
+    "label": "Buscar páginas, ajustes y estaciones",
+    "groupPages": "Páginas",
+    "groupActions": "Ajustes",
+    "groupStations": "Pronóstico para una estación",
+    "empty": "Nada encontrado para {query}.",
+    "results": "Resultados: {n}",
+    "stationsLoading": "Buscando estaciones …",
+    "stationPurpose": "Pronóstico, estación {id}",
+    "inUse": "en uso",
+    "purposeImpressum": "Quién gestiona este sitio y cómo contactar.",
+    "purposePrivacy": "Qué hace este sitio con tus datos, y tus derechos."
+  },
   "language": {
     "switch": "Cambiar idioma",
     "inclusiveHint": "Bienvenidas todas las personas"

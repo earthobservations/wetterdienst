@@ -81,9 +81,13 @@ const values = computed(() => [
 ])
 
 const mobileMenuOpen = ref(false)
+const searchOpen = ref(false)
+// the key the shortcut is written with: ⌘ on a Mac, Ctrl elsewhere
+const isMac = computed(() => typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent))
 
 watch(() => route.path, () => {
   mobileMenuOpen.value = false
+  searchOpen.value = false
 })
 
 // the menu is the narrow layout's: past the breakpoint the masthead shows the sections itself, and a dialog
@@ -156,7 +160,23 @@ const today = computed(() => {
           {{ today }}
         </p>
 
-        <div class="app-masthead-tools ml-auto flex items-center gap-0.5">
+        <div class="app-masthead-tools ml-auto flex items-center gap-1">
+          <!-- the search, at every width: a field's look past the phone, an icon on it; its name is the word it shows -->
+          <button
+            type="button"
+            class="inline-flex items-center gap-2 rounded-sm border border-(--app-rule) px-2.5 py-1.5 text-sm text-toned hover:border-(--app-rule-strong) hover:text-highlighted transition-colors sm:min-w-56"
+            :aria-label="t('search.button')"
+            aria-haspopup="dialog"
+            :aria-expanded="searchOpen"
+            @click="searchOpen = true"
+          >
+            <UIcon name="i-lucide-search" class="size-4 shrink-0" />
+            <span class="hidden sm:inline">{{ t('search.button') }}</span>
+            <span class="hidden sm:inline-flex ml-auto items-center gap-0.5" aria-hidden="true">
+              <UKbd :value="isMac ? '⌘' : 'Ctrl'" size="sm" />
+              <UKbd value="K" size="sm" />
+            </span>
+          </button>
           <!-- the project's links and the settings, past the breakpoint; the narrow layout has them in its menu -->
           <div class="hidden lg:flex items-center gap-0.5">
             <UTooltip v-for="link in projectLinks" :key="link.key" :text="link.label">
@@ -268,6 +288,9 @@ const today = computed(() => {
         </div>
       </template>
     </UModal>
+
+    <!-- the search of the app: the masthead's button and Ctrl+K / ⌘K open it -->
+    <SearchPalette v-if="!isWidget" v-model:open="searchOpen" />
 
     <UMain id="content" tabindex="-1" class="focus:outline-none">
       <NuxtPage />

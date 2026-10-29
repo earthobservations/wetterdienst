@@ -12,7 +12,7 @@ it, what was checked by hand, and what is known not to conform.
 - every page, as it is first shown, in light and dark mode and in English and German,
 - and, in light/English and dark/German, the states a first paint does not show: a station map with
   stations, a drawn chart (explorer, stripes, meteogram, widget), the table of the stripes' and the meteogram's values opened, the meteogram's compact day cards, an open
-  menu or popover, and an error notice.
+  menu or popover, the search open (its dialog, combobox and listbox), and an error notice.
 
 The spec answers every `/api/*` request itself, in the browser (`tests/e2e/accessibility/mock-backend.ts`),
 so it reaches neither the backend nor a provider. Map tiles and every other request to another host are
@@ -42,6 +42,13 @@ it back; `chart controls by keyboard`: Plotly's modebar, and the table of values
 and the meteogram, opened, reached and scrolled by keys; and Plotly's hover label and the names of its
 modebar buttons, which Escape dismisses until the pointer moves, 1.4.13), checks that every page has a title of its own that a navigation announces (`page titles`, 2.4.2,
 4.1.3) and that no page scrolls sideways at 320 px (`reflow at 320 px`, 1.4.10).
+
+The search (`app/components/SearchPalette.vue`, Ctrl+K / ⌘K or the masthead's button) is the ARIA combobox pattern
+with a grouped listbox: the field keeps the focus and names the highlighted option by `aria-activedescendant`, the
+arrow keys move it, Enter takes it, and the dialog holds the focus, closes on Escape and gives the focus back to what
+opened it. It is the app's own rather than Nuxt UI's command palette, which puts its field inside the listbox (the
+`aria-required-children` of the station picker above). `tests/e2e/search.spec.ts` drives it by keys alone, in
+`pnpm test:e2e`.
 
 ## The baseline
 
