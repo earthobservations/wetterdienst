@@ -116,12 +116,16 @@
     "providers": "Providers",
     "api": "API",
     "glossary": "Glossary",
-    "support": "Support"
+    "support": "Support",
+    "groupData": "Data",
+    "groupReference": "Reference"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menu"
+    "menu": "Menu",
+    "skipToContent": "Skip to content",
+    "navigation": "Main navigation"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
@@ -581,7 +585,8 @@
     "modeInterpolationHow": "Collects values from stations that spatially surround your target point and fits a triangulation across them (Delaunay + linear interpolation in UTM space). Each timestep produces a synthetic value at your exact coordinates — more accurate than picking the nearest station, especially where station coverage is good. Requires at least 3 enclosing stations and a date range. Precipitation parameters apply an additional occurrence check to avoid spurious near-zero values.",
     "modeSummaryHow": "For every parameter and every timestep, scans outward from your target location and picks the first station with a valid reading — no estimation, just the closest real measurement. The output includes the contributing station ID and its distance, so you always know exactly where the data came from. A date range is required.",
     "modeHowItWorks": "How it works",
-    "removeParameterDistance": "Remove the distance for {parameter}"
+    "removeParameterDistance": "Remove the distance for {parameter}",
+    "resultsEmpty": "The values appear here once a dataset and a station are chosen."
   },
   "stationTable": {
     "stationId": "Station ID",

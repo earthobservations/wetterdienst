@@ -116,12 +116,16 @@
     "providers": "Ubidder",
     "api": "API",
     "glossary": "Glossar",
-    "support": "Ënnerstëtzung"
+    "support": "Ënnerstëtzung",
+    "groupData": "Donnéeën",
+    "groupReference": "Nokucken"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menü"
+    "menu": "Menü",
+    "skipToContent": "Op den Inhalt sprangen",
+    "navigation": "Haaptnavigatioun"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
@@ -581,7 +585,8 @@
     "modeInterpolationHow": "Sammelt Wäerter vu Statiounen, déi den Zilpunkt ëmschléissen, a berechent doraus eng Triangulatioun (Delaunay + linear Interpolatioun am UTM-Raum). All Zäitschrëtt entsteet e synthetesche Wäert op dengen exakte Koordinaten — méi genee wéi déi nächst Statioun, besonnesch bei enger gudder Statiounsdicht. Et brauch op d'mannst 3 ëmschléissend Statiounen an e Datumberäich. Bei Nidderschlagsparameteren gëtt en zousätzleche Optrëttscheck ugewannt, fir falsch, bal null Wäerter ze vermeiden.",
     "modeSummaryHow": "Fir all Parameter an all Zäitschrëtt gëtt vun dengem Zilpunkt aus no baussen gesicht an de Wäert vun der éischter Statioun mat engem gëltege Moosswäert geholl — keng Schätzung, just déi nächst richteg Moossung. D'Ausgab enthält d'ID vun der benotzter Statioun an hir Distanz, sou datt du ëmmer genee weess, wou d'Daten hierkommen. E Datumberäich ass néideg.",
     "modeHowItWorks": "Wéi et funktionéiert",
-    "removeParameterDistance": "Distanz fir {parameter} läschen"
+    "removeParameterDistance": "Distanz fir {parameter} läschen",
+    "resultsEmpty": "D'Wäerter erschéngen hei, soubal en Datesaz an eng Statioun gewielt sinn."
   },
   "stationTable": {
     "stationId": "Statiouns-ID",

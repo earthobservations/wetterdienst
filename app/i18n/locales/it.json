@@ -116,12 +116,16 @@
     "providers": "Fornitori",
     "api": "API",
     "glossary": "Glossario",
-    "support": "Supporto"
+    "support": "Supporto",
+    "groupData": "Dati",
+    "groupReference": "Riferimento"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menu"
+    "menu": "Menu",
+    "skipToContent": "Vai al contenuto",
+    "navigation": "Navigazione principale"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
@@ -581,7 +585,8 @@
     "modeInterpolationHow": "Raccoglie i valori delle stazioni che circondano spazialmente il tuo punto di destinazione e vi adatta una triangolazione (Delaunay + interpolazione lineare nello spazio UTM). Ogni passo temporale produce un valore sintetico alle tue coordinate esatte, più accurato che scegliere la stazione più vicina, soprattutto dove la copertura delle stazioni è buona. Richiede almeno 3 stazioni circostanti e un intervallo di date. Per i parametri di precipitazione viene applicato anche un controllo di occorrenza per evitare valori spuri prossimi a zero.",
     "modeSummaryHow": "Per ogni parametro e ogni passo temporale, cerca verso l'esterno a partire dalla tua posizione di destinazione e sceglie la prima stazione con una lettura valida: nessuna stima, solo la misurazione reale più vicina. L'output comprende l'ID della stazione che ha fornito il dato e la sua distanza, così sai sempre con esattezza da dove provengono i dati. È richiesto un intervallo di date.",
     "modeHowItWorks": "Come funziona",
-    "removeParameterDistance": "Rimuovi la distanza di {parameter}"
+    "removeParameterDistance": "Rimuovi la distanza di {parameter}",
+    "resultsEmpty": "I valori compaiono qui non appena si scelgono un dataset e una stazione."
   },
   "stationTable": {
     "stationId": "ID stazione",

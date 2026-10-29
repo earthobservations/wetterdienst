@@ -116,12 +116,16 @@
     "providers": "Dostawcy",
     "api": "API",
     "glossary": "Słownik",
-    "support": "Wsparcie"
+    "support": "Wsparcie",
+    "groupData": "Dane",
+    "groupReference": "Informacje"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menu"
+    "menu": "Menu",
+    "skipToContent": "Przejdź do treści",
+    "navigation": "Nawigacja główna"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
@@ -581,7 +585,8 @@
     "modeInterpolationHow": "Zbiera wartości ze stacji, które przestrzennie otaczają punkt docelowy, i dopasowuje do nich triangulację (Delaunay + interpolacja liniowa w przestrzeni UTM). Każdy krok czasowy daje wartość syntetyczną dokładnie w podanych współrzędnych – dokładniejszą niż wybór najbliższej stacji, zwłaszcza tam, gdzie stacji jest dużo. Wymaga co najmniej 3 otaczających stacji oraz zakresu dat. Dla parametrów opadów stosowane jest dodatkowo sprawdzenie występowania, aby uniknąć fałszywych wartości bliskich zeru.",
     "modeSummaryHow": "Dla każdego parametru i każdego kroku czasowego przeszukuje okolicę od miejsca docelowego na zewnątrz i wybiera pierwszą stację z prawidłowym odczytem – bez szacowania, tylko najbliższy rzeczywisty pomiar. Wynik zawiera ID stacji, z której pochodzą dane, oraz jej odległość, więc zawsze wiadomo dokładnie, skąd dane pochodzą. Wymagany jest zakres dat.",
     "modeHowItWorks": "Jak to działa",
-    "removeParameterDistance": "Usuń odległość dla {parameter}"
+    "removeParameterDistance": "Usuń odległość dla {parameter}",
+    "resultsEmpty": "Wartości pojawią się tutaj po wybraniu zbioru danych i stacji."
   },
   "stationTable": {
     "stationId": "Identyfikator stacji",

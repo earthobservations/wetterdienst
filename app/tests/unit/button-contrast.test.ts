@@ -21,26 +21,45 @@ function over(fill: string, page: string) {
 }
 
 const css = readFileSync(fileURLToPath(new URL('../../app/assets/css/main.css', import.meta.url)), 'utf-8')
+/** A colour of the palettes of main.css (`--color-azure-600: #2e6fd1`) */
+function color(name: string) {
+  const value = new RegExp(`--color-${name}:\\s*(#[0-9a-f]{6})`, 'i').exec(css)?.[1]
+  expect(value, name).toBeDefined()
+  return value!
+}
 
-describe('the label of a solid primary button (--app-text-on-primary)', () => {
-  const label = /--app-text-on-primary:\s*(#[0-9a-f]{6})/i.exec(css)?.[1]
-
-  it('is set in main.css, for both colour modes', () => {
-    expect(label).toBeDefined()
-    // not redefined for .dark: one dark label serves the brand green and its lighter dark-mode shade
-    expect(css).not.toMatch(/\.dark\s*\{[^}]*--app-text-on-primary/)
+// The fill of a solid primary button is the logo's blue (azure-600) in light mode and azure-400 in dark mode, hovered
+// shade 700 and 300 (app.config.ts); its label is Nuxt UI's text-inverted, white in light mode and gray-900 in dark.
+describe('the label of a solid primary button', () => {
+  it('is on the shades main.css gives the fill, in both colour modes', () => {
+    expect(css).toMatch(/:root\s*\{[^}]*--ui-primary:\s*var\(--ui-color-primary-600\)/)
+    expect(css).toMatch(/\.dark\s*\{[^}]*--ui-primary:\s*var\(--ui-color-primary-400\)/)
   })
 
-  // Tailwind's green-500, the fill in light mode, over white; green-400, the fill in dark mode, over slate-900 (Nuxt UI's neutral)
   it.each([
-    ['light', '#00c950', '#ffffff'],
-    ['dark', '#05df72', '#0f172b'],
-  ])('clears 4.5:1 on the %s fill and on its hover', (_mode, fill, page) => {
-    expect(contrast(label!, fill)).toBeGreaterThanOrEqual(4.5)
-    expect(contrast(label!, over(fill, page))).toBeGreaterThanOrEqual(4.5)
+    ['light', '#ffffff', 'azure-600', 'azure-700'],
+    ['dark', 'gray-900', 'azure-400', 'azure-300'],
+  ])('clears 4.5:1 on the %s fill and on its hover', (_mode, label, fill, hover) => {
+    const text = label.startsWith('#') ? label : color(label)
+    expect(contrast(text, color(fill))).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(text, color(hover))).toBeGreaterThanOrEqual(4.5)
   })
 
-  it('is what white was not (the reason for the dark label)', () => {
-    expect(contrast('#ffffff', '#00c950')).toBeLessThan(3)
+  it('would not clear it with the hover of Nuxt UI (the reason for the darker one)', () => {
+    expect(contrast('#ffffff', over(color('azure-600'), '#ffffff'))).toBeLessThan(4.5)
+  })
+})
+
+// The muted text of the pages (gray-500 in light mode, gray-400 in dark) on every surface it is drawn on
+describe('muted text', () => {
+  it.each([
+    ['gray-500', '#ffffff'],
+    ['gray-500', 'gray-50'],
+    ['gray-500', 'gray-100'],
+    ['gray-400', 'gray-900'],
+    ['gray-400', 'gray-950'],
+    ['gray-400', 'gray-800'],
+  ])('%s clears 4.5:1 on %s', (text, surface) => {
+    expect(contrast(color(text), surface.startsWith('#') ? surface : color(surface))).toBeGreaterThanOrEqual(4.5)
   })
 })

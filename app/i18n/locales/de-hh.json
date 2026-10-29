@@ -116,12 +116,16 @@
     "providers": "Anbeder",
     "api": "API",
     "glossary": "Glossar",
-    "support": "Ünnerstütten"
+    "support": "Ünnerstütten",
+    "groupData": "Daten",
+    "groupReference": "Nakieken"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menü"
+    "menu": "Menü",
+    "skipToContent": "Glieks na'n Inholt",
+    "navigation": "Hööftnavigatschoon"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
@@ -581,7 +585,8 @@
     "modeInterpolationHow": "Sammelt Weerten vun Stationen, de den Teelpunkt rümlich ümsluten, un maakt dorut een Triangulatschoon (Delaunay + lineare Interpolatschoon in'n UTM-Ruum). Je Tietschritt kummt een synthetischen Weert an de genaue Teelkoordinaten rut – genauer as de neegste Station, besünners bi goode Stationsdichtheit. Mindestens 3 inslutende Stationen un een Datumbereek sünd nödig. Bi Nedderslagparameter warrt een tosätzliche Optreeden-Swell anwendt, um fehlerhafte Lüttstweerten to vermieden.",
     "modeSummaryHow": "För jeden Parameter un jeden Tietschritt warrt vun'n Teeloort ut na buten söcht un de Weert vun de eerste Station mit gülligen Meetweert nahmen – keen Schätten, bloots de neegste würkliche Meten. De Utgaav hett de bruukte Stations-ID un ehr Afstand, so dat de Datenherkunft jümmer nahvullteihbor is. Een Datumbereek is nödig.",
     "modeHowItWorks": "So warkt dat",
-    "removeParameterDistance": "Entfernen för {parameter} wegmaken"
+    "removeParameterDistance": "Entfernen för {parameter} wegmaken",
+    "resultsEmpty": "De Weerten kaamt hier, sobald en Datensatz un en Station utsöcht sünd."
   },
   "stationTable": {
     "stationId": "Stations-ID",

@@ -61,21 +61,21 @@ What is left in it, and why it is not fixed in the app's own markup:
 - `aria-hidden-focus`, the error toast: the two focus proxies in Reka UI's toast viewport are
   `aria-hidden` and focusable. Also upstream.
 
-There is no `color-contrast` entry left. The brand green, `#00c950`, stays the fill of a solid primary
-button; its label is `#0f172b` (`--app-text-on-primary` in `app/assets/css/main.css`, set for the
-button in `app/app.config.ts`), 8.0:1 on the fill and 9.5:1 hovered in light mode, where the white
-label it replaces was 2.2:1 and 1.9:1. Dark mode has the same label on its lighter fill, as Nuxt UI
-already had it (10.0:1, and 6.1:1 hovered). A disabled button is exempt from 1.4.3 and from the scans; its
-label is at 75 % opacity with its fill (4.2:1 in light mode). Text in the primary colour on white is
-shade 700 and a fifth of the way to 800 (`.text-primary`), a hovered link button shade 800 (7.1:1; Nuxt UI's
-75 % of the first was 3.4:1), and a hovered chip of the home page shade 700 (4.9:1; shade 500 was 2.2:1).
-`tests/unit/button-contrast.test.ts` computes the hovered ratio of a solid button, as 75 % of the fill over
-the page; the hover scan measures the rest.
+There is no `color-contrast` entry left. The colours are the logo's (GH-3518, the palettes and every ratio in
+`app/assets/css/main.css`): a solid primary button is its blue, `#2e6fd1`, with Nuxt UI's white label, 4.9:1,
+and goes darker when hovered (`#245aae`, 6.7:1; Nuxt UI's 75 % of the fill over the page would be 3.2:1, set in
+`app/app.config.ts`); dark mode has the dark label on `#6098e8` (5.8:1) and `#8fb4ef` hovered (8.0:1). A disabled
+button is exempt from 1.4.3 and from the scans. Text in the primary colour on white is shade 700 (6.7:1, 5.5:1 on
+its 15 % tint), a hovered link button shade 800; text in the error, success and warning colours is shade 700 (800
+for the yellow) in light mode. Muted text is the neutral's shade 500 in light mode (5.6:1 on white, 4.9:1 on a
+hovered field) and 400 in dark mode (6.1:1 on a panel). `tests/unit/button-contrast.test.ts` computes the
+buttons' and the muted text's ratios from `main.css`; the hover scan measures the rest.
 
 The focus indicator is one solid 2 px outline for everything a keyboard reaches (`--app-focus-ring` in
-`main.css`: shade 700 of the primary colour on light, 4.9:1 on white, shade 400 on dark, 10:1; the map takes
-the light one in both modes). Nuxt UI's own is an outline at 25 % of the primary colour (1.2:1 to 1.7:1 on
-white) and a ring in the primary colour (2.2:1), and its menu search fields draw none; they stay, beside it.
+`main.css`: shade 700 of the primary colour on light, 6.7:1 on white, shade 400 on dark, 5.8:1; the logo's
+yellow on the navy rail, 8.2:1; what is focused on the map takes the light one in both modes). Nuxt UI's own
+is an outline at 25 % of the primary colour and a ring in the primary colour, and its menu search fields draw
+none; they stay, beside it.
 
 There is no sepia mode. `main.css` once held a `html.sepia` block that redefined the `--ui-*` tokens, which
 nothing in the app ever set (`colorMode` knows `light`, `dark` and `system`, and the settings offer those
@@ -130,10 +130,10 @@ WCAG 2.2 first, as axe has no rule for most of them.
 | Criterion | Result |
 | --- | --- |
 | 2.4.7 Focus visible, 1.4.11 Non-text contrast of the focus indicator | The keyboard scan measures it at every stop. **Was failing** nearly everywhere: 382 stops, counted per page so that the header links count on each, in 27 of the light/English scans had under 3:1; see above. |
-| 2.4.11 Focus not obscured (minimum) | The keyboard scan checks it on every page and state. The sticky header hides no focused element. Leaflet draws markers beyond what the map shows and lets Tab reach them: a marker that takes the focus now pans the map until it is in view (`MapStations.vue`). |
+| 2.4.11 Focus not obscured (minimum) | The keyboard scan checks it on every page and state. The rail of a wide window stays beside the page and covers none of it, and the bar of a narrow one scrolls away with the page, so neither hides a focused element. Leaflet draws markers beyond what the map shows and lets Tab reach them: a marker that takes the focus now pans the map until it is in view (`MapStations.vue`). |
 | 2.5.7 Dragging movements | The map pans by drag, and by the arrow keys with the map focused, and zooms by its buttons and `+`/`-`; a station is also chosen in the list beside it. Plotly's charts zoom and pan by drag, with the modebar's buttons (zoom in, out, reset) as the single-pointer way. |
 | 2.5.8 Target size (minimum) | axe's `target-size` is among the tags scanned (wcag22aa), on every page and state in both modes: no entry. |
-| 3.2.6 Consistent help | The support and documentation links are in the header (icons) and the footer of every page, in the same order; the narrow layout has them in its menu. The widget has no header or footer by design. |
+| 3.2.6 Consistent help | The support and documentation links are at the foot of the rail (icons) and support in the footer of every page, in the same order; the narrow layout has them in its menu. The widget has no header or footer by design. |
 | 3.3.7 Redundant entry | Nothing is asked twice in a process. The explorer, forecast and stripes keep their selection in the URL, the settings in local storage. |
 | 3.3.8 Accessible authentication | The app has no log-in and no cognitive test. |
 | 2.4.2 Page titled | **Was failing**: every page was titled `Wetterdienst`. Each page names itself now, and a navigation is announced (`NuxtRouteAnnouncer`). |

@@ -48,7 +48,7 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-4xl px-4 py-6 space-y-6">
+  <AppPage>
     <UButton
       to="/providers"
       variant="link"
@@ -73,10 +73,10 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
       :title="t('providers.notFound', { provider: id })"
     />
     <template v-else>
-      <div class="flex items-start gap-4">
+      <div class="app-page-header !justify-start !items-start !flex-nowrap">
         <span class="text-5xl leading-none" aria-hidden="true">{{ flagEmoji(provider.country_code) }}</span>
         <div class="min-w-0">
-          <h1 class="text-3xl font-bold break-words">
+          <h1 class="app-page-title">
             {{ provider.name_english }}
           </h1>
           <p v-if="provider.name_local !== provider.name_english" class="text-lg text-gray-600 dark:text-gray-400 break-words">
@@ -93,8 +93,8 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
       <UCard>
         <template #header>
           <div class="flex items-center gap-2">
-            <UIcon name="i-lucide-scale" class="text-primary-500 shrink-0" />
-            <h2 class="text-lg font-bold">
+            <UIcon name="i-lucide-scale" class="panel-icon" />
+            <h2 class="panel-title">
               {{ t('providers.licenceTitle') }}
             </h2>
           </div>
@@ -109,7 +109,7 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
                 :to="provider.license.url"
                 external
                 target="_blank"
-                class="text-primary-700 dark:text-primary-500 underline hover:no-underline"
+                class="text-primary-700 dark:text-primary-400 underline hover:no-underline"
               >
                 {{ provider.license.name }}
               </NuxtLink>
@@ -145,8 +145,8 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
       <UCard>
         <template #header>
           <div class="flex items-center gap-2">
-            <UIcon name="i-lucide-network" class="text-primary-500 shrink-0" />
-            <h2 class="text-lg font-bold">
+            <UIcon name="i-lucide-network" class="panel-icon" />
+            <h2 class="panel-title">
               {{ t('providers.networksTitle') }}
             </h2>
           </div>
@@ -184,7 +184,7 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
                 :to="network.url"
                 external
                 target="_blank"
-                class="text-primary-700 dark:text-primary-500 underline hover:no-underline break-all"
+                class="text-primary-700 dark:text-primary-400 underline hover:no-underline break-all"
               >
                 {{ t('providers.source') }}
               </NuxtLink>
@@ -240,5 +240,5 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
         </ul>
       </UCard>
     </template>
-  </UContainer>
+  </AppPage>
 </template>

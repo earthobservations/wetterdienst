@@ -1,74 +1,378 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
+/* the one typeface of the app, served from the app's own origin (OFL-1.1, no reserved font name): the weight axis
+   only, Latin and Latin Extended, which the eleven languages need and the browser loads by `unicode-range` */
+@import "@fontsource-variable/instrument-sans/wght.css";
 
-/* Colour contrast, WCAG 2.2 AA (4.5:1 for text). Nuxt UI's defaults miss it in three places; each is
-   moved the least that clears the ratio, and the fills (--ui-primary, --ui-error) stay as they are. */
+/* ---------------------------------------------------------------------------------------------------------------
+   Tokens (GH-3518). "An instrument, not a brochure": the data and the controls lead; hairlines, type and space do
+   the work that shadows and gradients did. The colours are the logo's: its navy plate is the rail, its four tiles
+   (sun, rain, wind, temperature) are the four tools, and its blue is the colour of everything that acts.
 
-/* Placeholders and other dimmed text: neutral-400 on white (2.6:1) and neutral-500 on the dark
-   background (3.7:1). Dark takes the next lighter shade, which is what muted text already is there.
-   Light takes a quarter of the way from neutral-500 to neutral-600, so that it still clears 4.5:1
-   when a hovered field is tinted (4.9:1 on neutral-100), and muted text takes the same colour, so
-   that a placeholder does not read stronger than a description. */
+   Contrast, WCAG 2.2 AA (computed, `tests/unit/button-contrast.test.ts` holds the buttons to it):
+   - text: gray-500 on white 5.6:1, on the canvas (gray-50) 5.3:1, on a hovered field (gray-100) 4.9:1; dark mode
+     gray-400 on gray-900 6.1:1, on gray-800 5.1:1
+   - primary text (azure-700) on white 6.7:1, on its 15 % tint 5.5:1; dark azure-400 on gray-900 5.8:1
+   - a solid primary button: white on azure-600 4.9:1, hovered azure-700 6.7:1; dark gray-900 on azure-400 5.8:1,
+     hovered azure-300 8.0:1
+   - the rail: white on navy 12.5:1, its labels 5.8:1, the sun-yellow focus ring on navy 8.2:1
+   ------------------------------------------------------------------------------------------------------------- */
+@theme {
+  --font-sans: "Instrument Sans Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+
+  /* the neutral of the app (Nuxt UI's `neutral` is set to `gray`, app.config.ts): a grey drawn towards the logo's
+     navy, so that the hundreds of `gray-*` classes of the pages take it without being touched */
+  --color-gray-50: #f5f7fa;
+  --color-gray-100: #eceff4;
+  --color-gray-200: #dce1e9;
+  --color-gray-300: #c3cad6;
+  --color-gray-400: #919cb0;
+  --color-gray-500: #5b687e;
+  --color-gray-600: #465269;
+  --color-gray-700: #333e52;
+  --color-gray-800: #222b3b;
+  --color-gray-900: #161d2a;
+  --color-gray-950: #0c111b;
+}
+
+@theme static {
+  /* the logo's blue (#2E6FD1, shade 600) up to its navy (#17335F, shade 950): Nuxt UI's `primary` and `info` */
+  --color-azure-50: #eef4fd;
+  --color-azure-100: #dbe7fb;
+  --color-azure-200: #bcd2f6;
+  --color-azure-300: #8fb4ef;
+  --color-azure-400: #6098e8;
+  --color-azure-500: #3f80dc;
+  --color-azure-600: #2e6fd1;
+  --color-azure-700: #245aae;
+  --color-azure-800: #1f4a8c;
+  --color-azure-900: #1c3f73;
+  --color-azure-950: #17335f;
+  /* the logo's coral (#F0543C, 500): `error`, and the temperature tile */
+  --color-ember-50: #fef3f1;
+  --color-ember-100: #fde4df;
+  --color-ember-200: #fbcbc2;
+  --color-ember-300: #f7a596;
+  --color-ember-400: #f37a64;
+  --color-ember-500: #f0543c;
+  --color-ember-600: #d93c24;
+  --color-ember-700: #b42f1b;
+  --color-ember-800: #94291a;
+  --color-ember-900: #7a271b;
+  --color-ember-950: #43100a;
+  /* the logo's teal (#2BB3A3, 500): `success`, and the wind tile */
+  --color-sea-50: #effbf9;
+  --color-sea-100: #d2f4ef;
+  --color-sea-200: #a6e8df;
+  --color-sea-300: #6fd5c9;
+  --color-sea-400: #43bfb1;
+  --color-sea-500: #2bb3a3;
+  --color-sea-600: #1f8f83;
+  --color-sea-700: #1c726a;
+  --color-sea-800: #1b5b55;
+  --color-sea-900: #1a4b47;
+  --color-sea-950: #0a2d2b;
+  /* the logo's yellow (#FFC93C, 400): `warning`, the sun tile and the indicator of the rail */
+  --color-sun-50: #fffaeb;
+  --color-sun-100: #fff1c6;
+  --color-sun-200: #ffe38a;
+  --color-sun-300: #ffd451;
+  --color-sun-400: #ffc93c;
+  --color-sun-500: #f5ad0f;
+  --color-sun-600: #d98706;
+  --color-sun-700: #b45f09;
+  --color-sun-800: #924a0e;
+  --color-sun-900: #783d0f;
+  --color-sun-950: #451f03;
+}
+
 :root {
-  --ui-text-dimmed: color-mix(in oklab, var(--ui-color-neutral-500), var(--ui-color-neutral-600) 25%);
-  --ui-text-muted: var(--ui-text-dimmed);
+  /* crisper corners than Nuxt UI's: 3 px, so a card is 6 px and a button 4.5 px */
+  --ui-radius: 0.1875rem;
+  /* the canvas the panels lie on; panels (`--ui-bg`) stay white */
+  --app-canvas: var(--color-gray-50);
+  /* the rail: the logo's navy plate */
+  --app-rail-bg: #17335f;
+  --app-rail-fg: #ffffff;
+  --app-rail-fg-muted: #c3cfe3;
+  --app-rail-label: #9fb1cf;
+  --app-rail-indicator: var(--color-sun-400);
+  /* the gutter of every page, the same at every breakpoint of the same width (GH-3518) */
+  --app-gutter: 1rem;
+  /* the fill of a solid primary button is the logo's blue, shade 600, not Nuxt UI's 500 (white on it is 4.9:1) */
+  --ui-primary: var(--ui-color-primary-600);
+  --ui-error: var(--ui-color-error-600);
+}
+/* Nuxt UI sets its dark values in a layer, which a rule outside one beats whatever its selector: each value set above
+   is set again for dark mode */
+.dark {
+  --app-canvas: var(--color-gray-950);
+  --app-rail-bg: #102446;
+  --ui-primary: var(--ui-color-primary-400);
+  --ui-error: var(--ui-color-error-400);
+}
+@media (min-width: 40rem) {
+  :root {
+    --app-gutter: 1.5rem;
+  }
+}
+@media (min-width: 64rem) {
+  :root {
+    --app-gutter: 2.5rem;
+  }
+}
+
+/* Dimmed and muted text: Nuxt UI's neutral-400 on white is 2.8:1 here, and its dark neutral-500 3.0:1 on the page.
+   Both take the shade that clears 4.5:1 on every surface they are drawn on (see the table above). */
+:root {
+  --ui-text-dimmed: var(--ui-color-neutral-500);
+  --ui-text-muted: var(--ui-color-neutral-500);
 }
 .dark {
   --ui-text-dimmed: var(--ui-color-neutral-400);
+  --ui-text-muted: var(--ui-color-neutral-400);
 }
 
-/* Text in the primary or error colour on white or on its own tint (outline, soft and link buttons,
-   badges, alerts): shade 500 is 2.2:1 on white for primary, and 3.8:1 on white and 3.3:1 on its
-   tint for error. In dark mode the colours are already light enough. Primary takes shade 700 and a
-   fifth of the way to 800, which is what a hovered soft button's 15 % tint needs to stay at 4.5:1
-   (4.7:1; shade 700 alone is 4.3:1 there). The fill of the solid buttons, --ui-primary, is not
-   touched: that is the colour of the brand (their label: see below). In the utilities layer and with no extra specificity, so
-   that the hover and active colours of a link button still win. */
+/* Text in a semantic colour on white or on its own tint (outline, soft and link buttons, badges, alerts): shade 500 or
+   600 is under 4.5:1 there for every one of the five, so light mode takes shade 700 (800 for the yellow). In dark mode
+   the 400s are light enough. In the utilities layer and with no extra specificity, so that the hover and active colours
+   of a link button still win. */
 @layer utilities {
-  :where(:root:not(.dark)) .text-primary {
-    color: color-mix(in oklab, var(--ui-color-primary-700), var(--ui-color-primary-800) 20%);
+  :where(:root:not(.dark)) .text-primary,
+  :where(:root:not(.dark)) .text-info {
+    color: var(--ui-color-primary-700);
   }
   :where(:root:not(.dark)) .text-error {
     color: var(--ui-color-error-700);
   }
-  /* A link button is text-primary and, hovered, text-primary at 75 %: the 700-800 mix above, faded
-     over the page, is 3.4:1 on white. A hovered link goes to shade 800 instead, as darker is what
-     "hovered" means for text on white (GH-2991). */
+  :where(:root:not(.dark)) .text-success {
+    color: var(--ui-color-success-700);
+  }
+  :where(:root:not(.dark)) .text-warning {
+    color: var(--ui-color-warning-800);
+  }
+  /* A link button is text-primary and, hovered, text-primary at 75 %, which fades it towards the page: a hovered link
+     goes to shade 800 instead, as darker is what "hovered" means for text on white (GH-2991). */
   :where(:root:not(.dark)) .hover\:text-primary\/75:hover {
     color: var(--ui-color-primary-800);
   }
+  /* and in dark mode lighter, shade 300 (8.0:1 on a panel), where 75 % of shade 400 over the page is under 4.5:1 */
+  :where(.dark) .hover\:text-primary\/75:hover {
+    color: var(--ui-color-primary-300);
+  }
 }
 
-/* The label of a solid primary button (app.config.ts). White on the brand green, #00c950, is 2.2:1,
-   and 1.9:1 hovered, when the fill is 75 % of it over the page. #0f172b (slate-900) on it is 8.0:1,
-   and 9.5:1 hovered. In dark mode the fill is the lighter #05df72 and Nuxt UI's own label is this
-   same colour, so nothing changes there: 10.0:1, and 6.1:1 hovered over the page. The fill, the
-   brand's, is not touched. */
-:root {
-  --app-text-on-primary: #0f172b;
-}
-
-/* The focus indicator of a keyboard user (WCAG 2.4.7, 1.4.11: 3:1 against what is behind it). Nuxt UI draws
-   it as a 3 px outline at 25 % of the primary colour, and a ring in the primary colour where there is one: the
-   first is 1.2:1 to 1.7:1 on white and the brand green, #00c950, 2.2:1, and some fields (the search field of a menu)
-   draw none. One solid outline for everything that takes the focus by keyboard, in shade 700 of the primary
-   colour on light (4.9:1 on white) and shade 400 on dark (10:1 on the page); the rings and outlines of the
-   components stay as they are, beside it. Not in a layer, so that it wins over the utilities of the components.
-   Not for what takes the focus without being a control (a dialog, a chart, a scroll area: tabindex -1). */
+/* The focus indicator of a keyboard user (WCAG 2.4.7, 1.4.11: 3:1 against what is behind it). Nuxt UI's own is an
+   outline at 25 % of the primary colour; one solid 2 px outline for everything that takes the focus by keyboard, in
+   azure-700 on light (6.7:1 on white, 6.2:1 on the canvas) and azure-400 on dark (5.8:1), and the logo's yellow on the
+   navy rail (8.2:1). Not in a layer, so that it wins over the utilities of the components. Not for what takes the focus
+   without being a control (a dialog, a chart, a scroll area: tabindex -1). */
 :root {
   --app-focus-ring: var(--ui-color-primary-700);
 }
 .dark {
   --app-focus-ring: var(--ui-color-primary-400);
 }
+.app-rail {
+  --app-focus-ring: var(--app-rail-indicator);
+}
 :focus-visible:not([tabindex="-1"]) {
   outline: 2px solid var(--app-focus-ring);
   outline-offset: 2px;
 }
-/* The map is a light surface in both modes (Leaflet's grey, and the tiles): it takes the ring of light mode */
-.leaflet-container:focus-visible,
+/* The map is a light surface in both modes (Leaflet's grey, and the tiles): what is focused on it (a marker, the zoom
+   buttons) takes the ring of light mode. The map itself keeps the ring of the mode: its outline lies outside it, on the
+   panel (azure-700 on the dark panel would be 2.5:1) */
 .leaflet-container :focus-visible:not([tabindex="-1"]) {
   outline-color: var(--ui-color-primary-700);
+}
+
+/* Figures line up in columns wherever they are read as data */
+table,
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------------------------------------------------------
+   The shell: the rail (navigation, project links, settings) on the left from 64rem, a bar above the page below it.
+   ------------------------------------------------------------------------------------------------------------- */
+.app-canvas {
+  background: var(--app-canvas);
+}
+.app-rail {
+  background: var(--app-rail-bg);
+  color: var(--app-rail-fg);
+}
+.app-rail-label {
+  color: var(--app-rail-label);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.app-rail-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 2.25rem;
+  padding: 0.375rem 0.75rem 0.375rem 0.625rem;
+  border-left: 3px solid transparent;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  color: var(--app-rail-fg-muted);
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+.app-rail-link:hover {
+  background: color-mix(in srgb, #fff 8%, transparent);
+  color: var(--app-rail-fg);
+}
+/* the page the reader is on: the logo's yellow as the indicator, and the text white and heavier. A border, not a
+   background, so that it is still drawn with forced colours (below) */
+.app-rail-link[aria-current="page"] {
+  border-left-color: var(--app-rail-indicator);
+  background: color-mix(in srgb, #fff 10%, transparent);
+  color: var(--app-rail-fg);
+  font-weight: 650;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .app-rail-link {
+    transition: background-color 120ms, color 120ms;
+  }
+}
+/* the small square of the logo behind the icon of each tool: sun, rain, wind and temperature */
+.app-tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 28%;
+}
+.app-tile--sun {
+  background: var(--color-sun-400);
+  color: #0b1a33;
+}
+.app-tile--rain {
+  background: var(--color-azure-600);
+  color: #fff;
+}
+.app-tile--wind {
+  background: var(--color-sea-500);
+  color: #fff;
+}
+.app-tile--temperature {
+  background: var(--color-ember-500);
+  color: #fff;
+}
+.app-tile--plain {
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+/* Forced colours (Windows contrast themes) draw every border in the text colour and drop the backgrounds: the rail
+   marks only the page the reader is on, in the system's highlight, and the icons, which are masks filled with the
+   current colour, are filled with the text colour so that they do not vanish */
+@media (forced-colors: active) {
+  .app-rail-link {
+    border-left-color: Canvas;
+  }
+  .app-rail-link[aria-current="page"] {
+    border-left-color: Highlight;
+  }
+  .iconify {
+    background-color: CanvasText;
+  }
+}
+
+/* ---------------------------------------------------------------------------------------------------------------
+   The page (components/AppPage.vue): one container and one header for every page, three widths, one gutter.
+   ------------------------------------------------------------------------------------------------------------- */
+.app-page {
+  width: 100%;
+  padding: 1.5rem var(--app-gutter) 3rem;
+}
+.app-page--text > * {
+  max-width: 48rem;
+}
+.app-page--default > * {
+  max-width: 80rem;
+}
+.app-page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  padding-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--ui-border);
+}
+.app-page-title {
+  color: var(--ui-text-highlighted);
+  font-size: 1.75rem;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.app-page-subtitle {
+  margin-top: 0.375rem;
+  max-width: 65ch;
+  color: var(--ui-text-muted);
+}
+/* the rail's colour down the whole column, however long the page: the rail itself is as tall as the window */
+@media (min-width: 64rem) {
+  .app-shell {
+    background: linear-gradient(to right, var(--app-rail-bg) 15rem, var(--app-canvas) 15rem);
+  }
+}
+@media (min-width: 64rem) {
+  .app-page-title {
+    font-size: 2rem;
+  }
+}
+/* a tool: its controls, then what they show. Side by side once the page is wide enough for a chart beside a column of
+   controls (the rail is 15rem), one above the other below that */
+.app-tool {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+}
+.app-tool > * {
+  min-width: 0;
+}
+@media (min-width: 87.5rem) {
+  .app-tool {
+    grid-template-columns: minmax(22rem, 27rem) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+/* the heading of a panel: a label, as on the front of an instrument */
+.panel-title {
+  color: var(--ui-text-highlighted);
+  font-size: 0.8125rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.panel-icon {
+  flex-shrink: 0;
+  color: var(--ui-text-muted);
+}
+
+@media print {
+  .app-rail,
+  .app-topbar,
+  .app-skip-link {
+    display: none !important;
+  }
+  .app-shell {
+    display: block !important;
+  }
+  .app-canvas {
+    background: #fff;
+  }
+  .app-tool {
+    display: block;
+  }
 }
 
 /* Undo Tailwind v4 preflight that breaks Plotly's stacked SVG layout.

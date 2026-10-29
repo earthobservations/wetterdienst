@@ -435,8 +435,8 @@ watch([provider, network, resolution, dataset, parameters, dateRequired], () => 
   <UCard>
     <template #header>
       <div class="flex items-center gap-2">
-        <UIcon name="i-lucide-database" class="text-primary-500 shrink-0" />
-        <h2 class="text-lg font-bold">
+        <UIcon name="i-lucide-database" class="panel-icon" />
+        <h2 class="panel-title">
           {{ t('parameterSelection.title') }}
         </h2>
       </div>
@@ -449,7 +449,7 @@ watch([provider, network, resolution, dataset, parameters, dateRequired], () => 
       variant="subtle"
       :title="t('parameterSelection.providerRestrictionUnavailable', { provider: restrictProvider })"
       icon="i-lucide-alert-circle"
-      class="mx-6 mt-4"
+      class="mb-4"
     />
     <UAlert
       v-else-if="coverageSettled && restrictNetwork && !restrictedNetworkAvailable"
@@ -457,9 +457,9 @@ watch([provider, network, resolution, dataset, parameters, dateRequired], () => 
       variant="subtle"
       :title="t('parameterSelection.networkRestrictionUnavailable', { network: restrictNetwork })"
       icon="i-lucide-alert-circle"
-      class="mx-6 mt-4"
+      class="mb-4"
     />
-    <UContainer class="flex flex-col gap-4">
+    <div class="flex flex-col gap-4">
       <UFormField :label="t('parameterSelection.providerLabel')">
         <USelect v-model="provider" :items="providerItems" :placeholder="t('parameterSelection.selectProvider')" :disabled="!!restrictProvider || coveragePending" :loading="coveragePending" class="w-full" :class="{ 'needs-input': activeField === 'provider' }" />
       </UFormField>
@@ -504,6 +504,6 @@ watch([provider, network, resolution, dataset, parameters, dateRequired], () => 
           </UButton>
         </div>
       </UFormField>
-    </UContainer>
+    </div>
   </UCard>
 </template>
