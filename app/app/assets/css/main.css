@@ -8,8 +8,9 @@
    --------------------------------------------------------------------------------------------------------- */
 
 /* Newsreader (Production Type, SIL Open Font License 1.1, /fonts/Newsreader-OFL.txt), served by the app itself:
-   the variable weight axis, upright and italic, in the Latin and Latin Extended subsets (Czech, Polish and
-   Danish are Latin Extended). A browser loads a subset only when the page holds one of its characters. */
+   the variable weight axis, upright only (94 KB for both subsets; nothing is set in italic), in the Latin and
+   Latin Extended subsets (Czech, Polish and Danish need Latin Extended). A browser loads a subset only when the
+   page holds one of its characters. */
 @font-face {
   font-family: Newsreader;
   font-style: normal;
@@ -24,22 +25,6 @@
   font-display: swap;
   font-weight: 200 800;
   src: url("/fonts/newsreader-latin-wght-normal.woff2") format("woff2");
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: Newsreader;
-  font-style: italic;
-  font-display: swap;
-  font-weight: 200 800;
-  src: url("/fonts/newsreader-latin-ext-wght-italic.woff2") format("woff2");
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-@font-face {
-  font-family: Newsreader;
-  font-style: italic;
-  font-display: swap;
-  font-weight: 200 800;
-  src: url("/fonts/newsreader-latin-wght-italic.woff2") format("woff2");
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
@@ -136,7 +121,7 @@
   }
 }
 
-/* Placeholders and other dimmed text: a quarter of the way from ink 500 to 600, 5.1:1 on paper and 4.7:1 on a
+/* Placeholders and other dimmed text: a quarter of the way from ink 500 to 600, 5.5:1 on paper and 5.2:1 on a
    hovered field's tint (ink 100); muted text takes the same colour. Dark mode takes ink 400 (6.5:1). */
 :root {
   --ui-text-dimmed: color-mix(in oklab, var(--ui-color-neutral-500), var(--ui-color-neutral-600) 25%);

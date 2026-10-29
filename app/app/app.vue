@@ -152,7 +152,7 @@ const today = computed(() => {
           <img src="/icon.svg" alt="" class="size-8 sm:size-10 shrink-0">
           <span class="font-serif font-semibold text-[1.5rem] sm:text-[1.875rem] leading-none tracking-tight text-highlighted">Wetterdienst</span>
         </NuxtLink>
-        <p v-if="today" class="hidden xl:block font-serif italic text-toned text-base ml-2 pl-4 border-l border-(--app-rule)">
+        <p v-if="today" class="hidden xl:block font-serif text-toned text-base ml-2 pl-4 border-l border-(--app-rule)">
           {{ today }}
         </p>
 

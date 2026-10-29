@@ -69,7 +69,7 @@ button in `app/app.config.ts`). Dark mode has the logo's deep navy, `#0b1a33`, o
 200 hovered (11.0:1). A disabled button is exempt from 1.4.3 and from the scans; its label is at 75 % opacity
 with its fill. Text in the primary colour on paper is shade 700 (`.text-primary`, 6.5:1), a hovered link button
 shade 800 (8.8:1). The greys of the app are one scale, ink and paper, at the lightness of Tailwind's own, so that
-the text written in them keeps its contrast; dimmed text is 5.1:1 on paper and 4.7:1 on a hovered field.
+the text written in them keeps its contrast; dimmed text is 5.5:1 on paper and 5.2:1 on a hovered field.
 `tests/unit/button-contrast.test.ts` computes the ratios of a solid button, at rest and hovered, from `main.css`;
 the hover scan measures the rest.
 
