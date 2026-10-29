@@ -210,12 +210,15 @@ def shape_provider_frame(
         "resolution": dataset.resolution.name,
         "dataset": dataset.name.lower(),
     }
+    declared = _declared_parameter_names(df, dataset)
     columns = []
     for column, dtype in LONG_SCHEMA.items():
         if column in identity:
             columns.append(pl.lit(identity[column], dtype=dtype).alias(column))
         elif column == "value":
             columns.append(value.alias(column))
+        elif column == "parameter" and declared:
+            columns.append(pl.col(column).cast(dtype).replace(declared))
         elif column in df.columns:
             columns.append(pl.col(column).cast(dtype, strict=column != "value"))
         else:
@@ -223,6 +226,23 @@ def shape_provider_frame(
             # String column of the providers that do deliver it
             columns.append(pl.lit(None, dtype=dtype).alias(column))
     return df.select(columns)
+
+
+def _declared_parameter_names(df: pl.DataFrame, dataset: DatasetModel) -> dict[str, str]:
+    """Give the names a provider wrote in its own casing, each with the name the metadata declares (GH-3595).
+
+    The names are matched exactly where the frame is filtered to the parameters asked for (a grouped dataset) and where
+    the answer is humanized, and case-insensitively where the units are converted and the share of readings is
+    measured, so a name in another casing than the metadata's would be dropped, or kept under the source's spelling.
+    Written as declared once, here, all four see the same name. A name that matches no parameter in any casing is
+    left as the provider wrote it (the filter drops it), and so is one that two declared names match alike.
+    """
+    declared = [parameter.name_original for parameter in dataset]
+    by_lower = {name.lower(): name for name in declared}
+    if len(by_lower) != len(declared):
+        return {}
+    emitted = df.get_column("parameter").cast(pl.String).unique().drop_nulls().to_list()
+    return {name: by_lower[name.lower()] for name in emitted if name not in declared and name.lower() in by_lower}
 
 
 def _value_as_number(df: pl.DataFrame, provider: str) -> pl.Expr:
@@ -821,8 +841,8 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         Returns:
             One long-form frame of the readings of the station for that parameter or dataset, with the columns
 
-            - ``parameter`` (String): the source's own name of the parameter, `name_original`, which the unit
-              conversion looks up case-insensitively and a grouped dataset's filter matches exactly. Required. A
+            - ``parameter`` (String): the source's own name of the parameter, `name_original`; a name in another
+              casing than the metadata's is written as the metadata declares it (`shape_provider_frame`). Required. A
               non-grouped call returns the one parameter it was asked for: nothing filters the others out.
             - ``timestamp`` (Datetime): the instant of the reading, and not null on a row that has a value. The core
               casts it to ``Datetime("us", "UTC")``: a naive stamp is read as UTC, a zoned one is converted, so a
@@ -1052,9 +1072,9 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                 pl.col("dataset").eq(parameter.dataset.name.lower()),
             )
             df_parameter = df_dataset.filter(
-                # matched case-insensitively: a provider is free to emit a name in its own casing
-                # (WSV reports `w` where its metadata declares `W`), and an exact match there
-                # counts a parameter that is present as missing and skips the station over it
+                # matched case-insensitively, as the unit conversion looks the name up: an exact match
+                # would count a parameter that is present as missing and skip the station over it
+                # (`shape_provider_frame` writes the declared name already, so this is the same name)
                 pl.col("parameter").str.to_lowercase().eq(parameter.name_original.lower()),
             )
             start_date, end_date = self.sr.start, self.sr.end

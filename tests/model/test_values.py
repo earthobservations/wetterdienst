@@ -535,6 +535,44 @@ def _stub_dwd_daily(
     monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
 
 
+def test_a_grouped_dataset_keeps_a_parameter_the_provider_wrote_in_another_casing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that a name in another casing than the metadata's is neither dropped nor left unhumanized (GH-3595).
+
+    No provider does this today (every grouped dataset of every offline fixture was checked). The core matches names
+    exactly where it filters a grouped dataset and where it humanizes, and case-insensitively where it converts units
+    and measures the share of readings, so a provider that wrote `TMK` for the declared `tmk` lost the rows of the
+    first and would have kept the source's spelling in the second.
+    """
+    _stub_dwd_daily(station_ids=["00001"], data_year_by_station={"00001": 1990}, monkeypatch=monkeypatch)
+    parameter = "temperature_air_mean_2m"
+    declared = DwdObservationRequest(parameters=[("daily", "climate_summary", parameter)]).parameters[0].name_original
+    assert declared == declared.lower()
+
+    def collect(self, station_id: str, parameter_or_dataset) -> pl.DataFrame:  # noqa: ANN001, ARG001
+        return pl.DataFrame(
+            {
+                "timestamp": [dt.datetime(1990, 1, 1, tzinfo=ZoneInfo("UTC"))],
+                "parameter": [declared.upper()],
+                "value": [1.0],
+                "quality_flags": ["1"],
+            },
+        )
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", parameter)],
+        start="1990-01-01",
+        end="1990-01-03",
+    )
+
+    df = request.filter_by_station_id("00001").values().all().df
+
+    assert df.get_column("parameter").to_list() == [parameter]
+    assert df.get_column("value").to_list() == [1.0]
+
+
 def test_rank_is_not_spent_on_a_station_whose_data_misses_the_window(monkeypatch: pytest.MonkeyPatch) -> None:
     """A station with no reading inside the window must not consume one of ``rank``'s slots.
 
