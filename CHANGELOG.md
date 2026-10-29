@@ -82,6 +82,12 @@ Types of changes:
 
 ### Fixed
 
+- A request that asks several resolutions or datasets of one provider no longer returns some
+  readings under another parameter's name. The humanized name is now looked up per resolution
+  and dataset, where a name the source gives two parameters took the last one's: chmi (`T`, `H`,
+  `P`, `F`, `TMA`, `TMI`), geosphere (`p`, `sh`, `tsmin`, `tl_mittel`), meteofrance/observation
+  (`TN`, `TX`) and aemet (`hr`). The 10 minute `T` of chmi, asked with the daily one, came back
+  as `temperature_air_mean_2m` (GH-3605)
 - The row-limit refusal and the 504 timeout of `interpolate` and `summarize` (REST and the MCP
   tools) no longer advise fewer stations, which a point request does not name, nor
   `format=ndjson` or `format=csv`: they say to ask for a shorter `timestamp` window or fewer
