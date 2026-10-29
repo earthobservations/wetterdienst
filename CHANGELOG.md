@@ -27,6 +27,10 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: `metno/frost` refuses a request for `daily`, `monthly` or `annual` values without
+  a start and end date, as it does for the other resolutions: the REST API answers 400 (`timestamp`
+  is required), the CLI and MCP the same. Such a request was answered with no rows and no reason,
+  as the source is only asked within a window. Pass a window instead (GH-3560)
 - **Breaking**: `coverage` (`/api/coverage`, the MCP tool, `about coverage`,
   `TimeseriesRequest.discover()`) gives a parameter the unit its values come back in as `unit`
   (`degree_celsius`, `decimal` for a percentage: what `glossary` gives, following the server's

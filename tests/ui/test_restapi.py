@@ -1604,7 +1604,7 @@ def test_get_stations_request_mosmix_no_issue_defaults_to_latest() -> None:
 def test_get_stations_request_date_required_dataset_does_not_raise_for_stations_request() -> None:
     """_get_stations_request must NOT raise StartDateEndDateError for StationsRequest.
 
-    MetNo Frost marks its hourly, 10-minute, and 6-hour datasets as date_required=True.
+    MetNo Frost marks all its datasets as date_required=True.
     Previously the date-range check applied to StationsRequest too, so listing stations
     without a date range raised StartDateEndDateError and the Explorer showed no stations.
     """
@@ -8075,6 +8075,30 @@ def test_a_dataset_queried_by_a_window_without_a_timestamp_names_timestamp(
     caller cannot set. Refused before anything is downloaded, so these are real requests.
     """
     response = client.get(endpoint, params={**_WINDOWED_DATASET, **params})
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "timestamp is required for this dataset"
+
+
+@pytest.mark.parametrize("resolution", ["10_minutes", "hourly", "6_hours", "daily", "monthly", "annual"])
+def test_metno_frost_values_without_a_timestamp_are_refused(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, resolution: str
+) -> None:
+    """Every Frost resolution is refused without a `timestamp`, as its reader has nothing to ask for (GH-3560).
+
+    The daily, monthly and annual datasets were not marked, so such a request answered 200 with no
+    rows. Refused before anything is downloaded; the client id is a dummy.
+    """
+    monkeypatch.setenv("WD_AUTH__METNO_FROST", "dummy-client-id")
+    response = client.get(
+        "/api/values",
+        params={
+            "provider": "metno",
+            "network": "frost",
+            "parameters": f"{resolution}/data",
+            "stations": "SN18700",
+        },
+    )
 
     assert response.status_code == 400
     assert response.json()["detail"] == "timestamp is required for this dataset"
