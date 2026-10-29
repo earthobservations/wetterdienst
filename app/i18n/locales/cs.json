@@ -14,21 +14,15 @@
     "requestFailed": "Požadavek selhal",
     "backendError": "Chyba backendu {status}",
     "backendErrorDetail": "Chyba backendu {status}: {detail}",
-    "chartTableHint": "Hodnoty jsou v tabulce pod grafem."
+    "chartTableHint": "Hodnoty jsou v tabulce pod grafem.",
+    "skipToContent": "Přejít na hlavní obsah"
   },
   "home": {
     "tagline": "Otevřená meteorologická data pro lidi",
-    "intro": "Stačí si vybrat, co chceš vidět.",
     "tasksTitle": "Co chceš udělat?",
-    "forecastTitle": "Předpověď počasí",
     "forecastDesc": "Podívej se na vícedenní předpověď pro tvou oblast.",
-    "stripesTitle": "Pruhy oteplování",
     "stripesDesc": "Oteplování tvého regionu zobrazené jako barevné pruhy.",
-    "explorerTitle": "Prozkoumat data",
     "explorerDesc": "Najdi stanice na mapě a získej měření.",
-    "featuresTitle": "Co s tím můžeš dělat",
-    "featureExportTitle": "Flexibilní export",
-    "featureExportDesc": "Stáhni data ve formátu CSV, JSON nebo GeoJSON.",
     "featureAnalysisTitle": "Interpolace a sumarizace",
     "featureAnalysisDesc": "Odhad hodnot pro bod mezi stanicemi, nebo pro každý časový okamžik nejbližší stanice, která má data.",
     "devTitle": "Také pro vývojáře",
@@ -60,7 +54,13 @@
     "kindAlertsDesc": "Oficiální výstrahy DWD před bouří, horkem, mrazem a povodněmi, podle okresů.",
     "kindRoadTitle": "Silniční počasí",
     "kindRoadDesc": "Stav a teplota vozovky ze silničních stanic DWD, včetně jejich předpovědí.",
-    "aboutLink": "O projektu a lidech za ním"
+    "aboutLink": "O projektu a lidech za ním",
+    "startForecast": "Zjistit předpověď pro místo",
+    "startMeasurements": "Stáhnout měření",
+    "startWarming": "Podívat se, jak se místo oteplilo",
+    "moreTitle": "Další nástroje",
+    "moreIntro": "Pro podrobnější pohled a pro práci s daty.",
+    "searchTitle": "Hledáš něco jiného?"
   },
   "seo": {
     "title": "Wetterdienst – otevřená data o počasí a klimatu od národních meteorologických služeb",
@@ -121,14 +121,55 @@
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Nabídka"
+    "menu": "Nabídka",
+    "navigation": "Hlavní navigace"
+  },
+  "palette": {
+    "title": "Hledat",
+    "description": "Najdi stránku, místo nebo nastavení.",
+    "trigger": "Hledat stránky, místa a nastavení",
+    "label": "Co hledáš?",
+    "placeholder": "Například: předpověď, Hamburk, tmavý",
+    "resultsLabel": "Výsledky",
+    "groupPages": "Stránky",
+    "groupActions": "Vzhled a jazyk",
+    "groupPlaces": "Předpověď pro místo",
+    "results": "Výsledky: {count}",
+    "noResults": "Nic nenalezeno. Zkus jiné slovo.",
+    "placesLoading": "Hledání míst …",
+    "placesFailed": "Místa se nepodařilo načíst. Stránky a nastavení najdeš i tak.",
+    "placeDetail": "Předpověď pro stanici {id}",
+    "themeOption": "Vzhled: {theme}",
+    "themeDetail": "Mění vzhled aplikace",
+    "languageOption": "Jazyk: {language}",
+    "languageDetail": "Mění jazyk aplikace",
+    "current": "Právě nastaveno",
+    "hint": "Šipky vybírají, Enter otevírá, Escape zavírá. Ctrl+K nebo ⌘K otevře hledání na každé stránce.",
+    "ctrlK": "Ctrl K",
+    "pages": {
+      "home": "Začni tady: tři běžné úkoly a co jsou data",
+      "meteogram": "Předpověď na příští dny pro místo",
+      "explorer": "Najít stanice a stáhnout jejich měření",
+      "stripes": "Podívat se, jak se místo rok od roku oteplovalo",
+      "history": "Jak se měnil název, poloha a přístroje stanice",
+      "providers": "Meteorologické služby, jejich licence a co nabízejí",
+      "glossary": "Co který parametr měří a v jaké jednotce",
+      "api": "Použít data ve vlastním kódu: REST API a MCP",
+      "settings": "Jazyk, vzhled a jednotky",
+      "about": "Projekt a lidé, kteří za ním stojí",
+      "support": "Nahlásit problém, pomoct s kódem nebo přispět",
+      "impressum": "Kdo tuto službu provozuje",
+      "datenschutz": "Co se o tobě ukládá a proč"
+    }
   },
   "footer": {
     "copyright": "© {year} earthobservations",
     "legal": "Právní informace",
     "privacy": "Ochrana soukromí",
     "about": "O projektu",
-    "licenses": "Licence třetích stran"
+    "licenses": "Licence třetích stran",
+    "helpTitle": "Nápověda a projekt",
+    "serviceTitle": "O této službě"
   },
   "language": {
     "switch": "Změnit jazyk",

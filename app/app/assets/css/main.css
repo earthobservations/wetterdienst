@@ -1,16 +1,104 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
-/* Colour contrast, WCAG 2.2 AA (4.5:1 for text). Nuxt UI's defaults miss it in three places; each is
-   moved the least that clears the ratio, and the fills (--ui-primary, --ui-error) stay as they are. */
+/* ─────────────────────────────────────────────────────────────────────────────────────────────────
+   The design: a public service (GH-3518). Paper, ink and one blue; the four colours of the logo are
+   its only ornament. Every colour pair named below is held to WCAG 2.2 AA (4.5:1 for text, 3:1 for
+   the edges of controls and for the focus indicator); the ratios are worked out in the comments and
+   held by tests/unit/button-contrast.test.ts where a test can read them.
+   ───────────────────────────────────────────────────────────────────────────────────────────────── */
 
-/* Placeholders and other dimmed text: neutral-400 on white (2.6:1) and neutral-500 on the dark
-   background (3.7:1). Dark takes the next lighter shade, which is what muted text already is there.
-   Light takes a quarter of the way from neutral-500 to neutral-600, so that it still clears 4.5:1
-   when a hovered field is tinted (4.9:1 on neutral-100), and muted text takes the same colour, so
-   that a placeholder does not read stronger than a description. */
+@theme static {
+  /* Atkinson Hyperlegible Next (SIL OFL 1.1), served by the app itself: drawn by the Braille Institute so
+     that the letters a low-vision reader confuses (I l 1, 0 O, b d p q) differ. The system's sans takes
+     over while it loads, and for the scripts it does not cover. Emoji fonts last, for the flags. */
+  --font-sans: "Atkinson Hyperlegible Next Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji";
+
+  /* Generous type: the body is 17 px, small text 15 px, the smallest 13 px. */
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.5;
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: 1.5;
+  --text-base: 1.0625rem;
+  --text-base--line-height: 1.6;
+
+  /* The colours of the logo: navy #17335F, ink #0B1A33, blue #2E6FD1, yellow #FFC93C, teal #2BB3A3,
+     coral #F0543C. `brand` is the blue's scale, with the navy and the ink as its two darkest shades; it is
+     Nuxt UI's primary colour (app.config.ts). */
+  --color-brand-50: #eef4fd;
+  --color-brand-100: #dce8fa;
+  --color-brand-200: #bcd3f5;
+  --color-brand-300: #8fb4ec;
+  --color-brand-400: #6e9fe6;
+  --color-brand-500: #2e6fd1;
+  --color-brand-600: #2459b0;
+  --color-brand-700: #1f4e9c;
+  --color-brand-800: #1a4280;
+  --color-brand-900: #17335f;
+  --color-brand-950: #0b1a33;
+
+  /* `ink`, the greys, tinted towards the navy. Nuxt UI's neutral (app.config.ts), and Tailwind's `gray`
+     too, so that the pages' own grey classes are the same greys. Shade 500 is 5.9:1 on white and 5.1:1 on
+     shade 100; shade 400 is 6.4:1 on shade 900 (the dark page) and 5.4:1 on shade 800 (a dark card). */
+  --color-ink-50: #f5f7fa;
+  --color-ink-100: #ebeff5;
+  --color-ink-200: #d5dce7;
+  --color-ink-300: #b4bfd0;
+  --color-ink-400: #9aa7bd;
+  --color-ink-500: #56657e;
+  --color-ink-600: #45536c;
+  --color-ink-700: #33415b;
+  --color-ink-800: #22304a;
+  --color-ink-900: #142440;
+  --color-ink-950: #0b1a33;
+  --color-gray-50: #f5f7fa;
+  --color-gray-100: #ebeff5;
+  --color-gray-200: #d5dce7;
+  --color-gray-300: #b4bfd0;
+  --color-gray-400: #9aa7bd;
+  --color-gray-500: #56657e;
+  --color-gray-600: #45536c;
+  --color-gray-700: #33415b;
+  --color-gray-800: #22304a;
+  --color-gray-900: #142440;
+  --color-gray-950: #0b1a33;
+
+  --color-sun: #ffc93c;
+  --color-sea: #2bb3a3;
+  --color-ember: #f0543c;
+}
+
+/* The tokens of the page. Light: ink on white, the primary is blue 700 (8.0:1 with a white label, 9.8:1
+   hovered, when the fill goes to 800). Dark: the page is the navy night of ink 900, the primary is blue
+   300 with an ink label (8.2:1, and 11.4:1 on the hovered 200). The selectors are a step more specific
+   than the ones Nuxt UI writes at run time, which they replace. */
+:root:not(.dark) {
+  --ui-primary: var(--ui-color-primary-700);
+  --app-primary-hover: var(--ui-color-primary-800);
+  --ui-text: var(--ui-color-neutral-900);
+  --ui-text-toned: var(--ui-color-neutral-700);
+  --ui-text-highlighted: var(--ui-color-neutral-950);
+  /* the edge of a field: 5.9:1 on white, where 1.4.11 asks 3:1 and Nuxt UI's shade 300 was 1.5:1 */
+  --ui-border-accented: var(--ui-color-neutral-500);
+  --ui-bg-muted: var(--ui-color-neutral-50);
+}
+:root.dark {
+  --ui-primary: var(--ui-color-primary-300);
+  --app-primary-hover: var(--ui-color-primary-200);
+  --ui-text: var(--ui-color-neutral-100);
+  --ui-text-toned: var(--ui-color-neutral-200);
+  --ui-bg: var(--ui-color-neutral-900);
+  --ui-bg-elevated: var(--ui-color-neutral-800);
+  --ui-border: var(--ui-color-neutral-700);
+  --ui-border-muted: var(--ui-color-neutral-800);
+  /* 6.4:1 on the page, where 1.4.11 asks 3:1 */
+  --ui-border-accented: var(--ui-color-neutral-400);
+}
+
+/* Placeholders and other dimmed text: muted and dimmed are one colour, so that a placeholder does not read
+   stronger than a description; ink 500 is 5.1:1 on a hovered field (ink 100). Dark: ink 400. */
 :root {
-  --ui-text-dimmed: color-mix(in oklab, var(--ui-color-neutral-500), var(--ui-color-neutral-600) 25%);
+  --ui-text-dimmed: var(--ui-color-neutral-500);
   --ui-text-muted: var(--ui-text-dimmed);
 }
 .dark {
@@ -18,59 +106,120 @@
 }
 
 /* Text in the primary or error colour on white or on its own tint (outline, soft and link buttons,
-   badges, alerts): shade 500 is 2.2:1 on white for primary, and 3.8:1 on white and 3.3:1 on its
-   tint for error. In dark mode the colours are already light enough. Primary takes shade 700 and a
-   fifth of the way to 800, which is what a hovered soft button's 15 % tint needs to stay at 4.5:1
-   (4.7:1; shade 700 alone is 4.3:1 there). The fill of the solid buttons, --ui-primary, is not
-   touched: that is the colour of the brand (their label: see below). In the utilities layer and with no extra specificity, so
-   that the hover and active colours of a link button still win. */
+   badges, alerts). Primary 700 is 8.0:1 on white and 6.5:1 on its 15 % tint; error 700 clears 4.5:1 on
+   both. In the utilities layer, so that the hover colour of a link button still wins. */
 @layer utilities {
   :where(:root:not(.dark)) .text-primary {
-    color: color-mix(in oklab, var(--ui-color-primary-700), var(--ui-color-primary-800) 20%);
+    color: var(--ui-color-primary-700);
   }
   :where(:root:not(.dark)) .text-error {
     color: var(--ui-color-error-700);
   }
-  /* A link button is text-primary and, hovered, text-primary at 75 %: the 700-800 mix above, faded
-     over the page, is 3.4:1 on white. A hovered link goes to shade 800 instead, as darker is what
-     "hovered" means for text on white (GH-2991). */
+  /* a hovered link button is Nuxt UI's text-primary at 75 %, which fades it: darker is what "hovered"
+     means for text on white (GH-2991), shade 800 */
   :where(:root:not(.dark)) .hover\:text-primary\/75:hover {
     color: var(--ui-color-primary-800);
   }
 }
 
-/* The label of a solid primary button (app.config.ts). White on the brand green, #00c950, is 2.2:1,
-   and 1.9:1 hovered, when the fill is 75 % of it over the page. #0f172b (slate-900) on it is 8.0:1,
-   and 9.5:1 hovered. In dark mode the fill is the lighter #05df72 and Nuxt UI's own label is this
-   same colour, so nothing changes there: 10.0:1, and 6.1:1 hovered over the page. The fill, the
-   brand's, is not touched. */
+/* The label of a solid primary button (app.config.ts): white on the light blue, ink on the dark mode's
+   pale one. Its hover is a darker fill (light) or a paler one (dark), never the 75 % fade Nuxt UI draws,
+   which takes the white label under 4.5:1. */
 :root {
-  --app-text-on-primary: #0f172b;
-}
-
-/* The focus indicator of a keyboard user (WCAG 2.4.7, 1.4.11: 3:1 against what is behind it). Nuxt UI draws
-   it as a 3 px outline at 25 % of the primary colour, and a ring in the primary colour where there is one: the
-   first is 1.2:1 to 1.7:1 on white and the brand green, #00c950, 2.2:1, and some fields (the search field of a menu)
-   draw none. One solid outline for everything that takes the focus by keyboard, in shade 700 of the primary
-   colour on light (4.9:1 on white) and shade 400 on dark (10:1 on the page); the rings and outlines of the
-   components stay as they are, beside it. Not in a layer, so that it wins over the utilities of the components.
-   Not for what takes the focus without being a control (a dialog, a chart, a scroll area: tabindex -1). */
-:root {
-  --app-focus-ring: var(--ui-color-primary-700);
+  --app-text-on-primary: #ffffff;
 }
 .dark {
-  --app-focus-ring: var(--ui-color-primary-400);
-}
-:focus-visible:not([tabindex="-1"]) {
-  outline: 2px solid var(--app-focus-ring);
-  outline-offset: 2px;
-}
-/* The map is a light surface in both modes (Leaflet's grey, and the tiles): it takes the ring of light mode */
-.leaflet-container:focus-visible,
-.leaflet-container :focus-visible:not([tabindex="-1"]) {
-  outline-color: var(--ui-color-primary-700);
+  --app-text-on-primary: #0b1a33;
 }
 
+/* The focus indicator of a keyboard user (WCAG 2.4.7, 1.4.11): one solid 3 px outline for everything that
+   takes the focus by keyboard, ink on light (17:1 on white, 6:1 on the brand's blue 700) and the logo's
+   yellow on dark (10:1 on the page). Nuxt UI's own rings stay, beside it. Not in a layer, so that it wins
+   over the utilities of the components. Not for what takes the focus without being a control (a dialog, a
+   chart, a scroll area: tabindex -1). */
+:root {
+  --app-focus-ring: var(--color-ink-950);
+}
+.dark {
+  --app-focus-ring: var(--color-sun);
+}
+:focus-visible:not([tabindex="-1"]) {
+  outline: 3px solid var(--app-focus-ring);
+  outline-offset: 2px;
+}
+/* A box that fills its container to the edge (the search's list) draws its ring inside, where it is not clipped */
+.app-inset-focus:focus-visible {
+  outline-offset: -3px;
+}
+/* On the navy band of the header the ring is the yellow in both modes (8.2:1 on the navy) */
+.app-masthead :focus-visible:not([tabindex="-1"]) {
+  outline-color: var(--color-sun);
+}
+/* The map is a light surface in both modes (Leaflet's grey, and the tiles): what takes the focus inside it (a marker,
+   a zoom button) takes the ring of light mode. The map's own ring lies outside it, on the page, and keeps the page's. */
+.leaflet-container :focus-visible:not([tabindex="-1"]) {
+  outline-color: var(--color-ink-950);
+}
+
+/* Links: underlined, with the line clear of the descenders; a hovered link's line thickens. */
+:where(a) {
+  text-underline-offset: 0.18em;
+}
+:where(a.underline:hover, .app-prose a:hover) {
+  text-decoration-thickness: 0.14em;
+}
+
+@layer components {
+/* ── The frame: one width and one gutter for the header, the navigation, every page and the footer ── */
+.app-frame {
+  width: 100%;
+  max-width: 76rem;
+  margin-inline: auto;
+  padding-inline: 1rem;
+}
+@media (min-width: 40rem) {
+  .app-frame {
+    padding-inline: 1.5rem;
+  }
+}
+@media (min-width: 64rem) {
+  .app-frame {
+    padding-inline: 2rem;
+  }
+}
+
+/* The four colours of the logo, as a band under the masthead: the design's one ornament. */
+.app-stripe {
+  height: 0.3125rem;
+  background: linear-gradient(
+    90deg,
+    var(--color-sun) 0 25%,
+    var(--color-brand-500) 25% 50%,
+    var(--color-sea) 50% 75%,
+    var(--color-ember) 75% 100%
+  );
+}
+
+/* Text set for reading: a measure of about 70 characters */
+.app-measure {
+  max-width: 44rem;
+}
+
+/* Keyboard shortcut caps */
+.app-kbd {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid currentColor;
+  border-radius: 0.25rem;
+  padding: 0 0.3em;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  font-family: inherit;
+  white-space: nowrap;
+}
+}
+
+/* ── Plotly ── */
 /* Undo Tailwind v4 preflight that breaks Plotly's stacked SVG layout.
    Plotly layers multiple <svg class="main-svg"> that must overlap;
    Tailwind's `svg { display: block }` causes them to stack vertically. */
@@ -125,5 +274,69 @@
   }
   100% {
     box-shadow: 0 0 0 0 color-mix(in oklab, var(--ui-primary) 0%, transparent);
+  }
+}
+
+/* Reduced motion (WCAG 2.3.3): nothing moves that a reader has not asked to move. A loading placeholder
+   stops pulsing, a hover lifts nothing, and scrolling jumps. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Forced colours (Windows contrast themes): the system draws text, links and edges in its own colours,
+   and a background colour is no indicator any more. What the design says by a fill alone says it by an
+   edge here: the current page in the navigation, the option the search has chosen. */
+@media (forced-colors: active) {
+  .app-stripe {
+    background: CanvasText;
+    height: 1px;
+  }
+  [aria-current="page"] {
+    text-decoration: underline;
+    text-decoration-thickness: 0.2em;
+  }
+  [role="option"][aria-selected="true"] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+  .app-kbd {
+    border-color: CanvasText;
+  }
+}
+
+/* Print: the page's content, in black on white; the masthead keeps the name, the controls go. */
+@media print {
+  .app-no-print,
+  .app-stripe,
+  .js-plotly-plot .modebar {
+    display: none !important;
+  }
+  .app-masthead {
+    background: none !important;
+    border-bottom: 1px solid #000;
+  }
+  .app-masthead,
+  .app-masthead * {
+    color: #000 !important;
+  }
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  .app-frame {
+    max-width: none;
+    padding-inline: 0;
+  }
+  a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.8em;
+    word-break: break-all;
   }
 }

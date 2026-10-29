@@ -14,21 +14,15 @@
     "requestFailed": "Anfrage fehlgeschlagen",
     "backendError": "Backend-Fehler {status}",
     "backendErrorDetail": "Backend-Fehler {status}: {detail}",
-    "chartTableHint": "Die Werte stehen in der Tabelle unter dem Diagramm."
+    "chartTableHint": "Die Werte stehen in der Tabelle unter dem Diagramm.",
+    "skipToContent": "Zum Inhalt springen"
   },
   "home": {
     "tagline": "Offene Wetterdaten für Menschen",
-    "intro": "Wähle einfach aus, was du sehen möchtest.",
     "tasksTitle": "Was möchtest du tun?",
-    "forecastTitle": "Wettervorhersage",
     "forecastDesc": "Mehrtägige Vorhersage für deinen Ort ansehen.",
-    "stripesTitle": "Klimastreifen",
     "stripesDesc": "Die Erwärmung deiner Region als farbige Streifen.",
-    "explorerTitle": "Daten erkunden",
     "explorerDesc": "Stationen auf der Karte finden und Messwerte abrufen.",
-    "featuresTitle": "Was du damit machen kannst",
-    "featureExportTitle": "Flexibler Export",
-    "featureExportDesc": "Daten als CSV, JSON oder GeoJSON herunterladen.",
     "featureAnalysisTitle": "Interpolation & Zusammenfassung",
     "featureAnalysisDesc": "Werte für einen Punkt zwischen den Stationen schätzen – oder zu jedem Zeitpunkt die nächstgelegene Station nehmen, die Daten hat.",
     "devTitle": "Auch für Entwickler:innen",
@@ -60,7 +54,13 @@
     "kindAlertsDesc": "Amtliche DWD-Warnungen vor Sturm, Hitze, Frost und Hochwasser, nach Landkreis.",
     "kindRoadTitle": "Straßenwetter",
     "kindRoadDesc": "Fahrbahnzustand und -temperaturen der DWD-Straßenwetterstationen, mitsamt deren Vorhersagen.",
-    "aboutLink": "Über das Projekt und die Menschen dahinter"
+    "aboutLink": "Über das Projekt und die Menschen dahinter",
+    "startForecast": "Die Vorhersage für einen Ort ansehen",
+    "startMeasurements": "Messwerte herunterladen",
+    "startWarming": "Sehen, wie sich ein Ort erwärmt hat",
+    "moreTitle": "Weitere Werkzeuge",
+    "moreIntro": "Für einen genaueren Blick und für die Arbeit mit den Daten.",
+    "searchTitle": "Suchst du etwas anderes?"
   },
   "seo": {
     "title": "Wetterdienst – offene Wetter- und Klimadaten von nationalen Wetterdiensten",
@@ -121,14 +121,55 @@
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menü"
+    "menu": "Menü",
+    "navigation": "Hauptnavigation"
+  },
+  "palette": {
+    "title": "Suche",
+    "description": "Finde eine Seite, einen Ort oder eine Einstellung.",
+    "trigger": "Seiten, Orte und Einstellungen suchen",
+    "label": "Was suchst du?",
+    "placeholder": "Zum Beispiel: Vorhersage, Hamburg, dunkel",
+    "resultsLabel": "Ergebnisse",
+    "groupPages": "Seiten",
+    "groupActions": "Darstellung und Sprache",
+    "groupPlaces": "Vorhersage für einen Ort",
+    "results": "Ergebnisse: {count}",
+    "noResults": "Nichts gefunden. Versuche ein anderes Wort.",
+    "placesLoading": "Orte werden gesucht …",
+    "placesFailed": "Die Orte konnten nicht geladen werden. Seiten und Einstellungen findest du trotzdem.",
+    "placeDetail": "Vorhersage für Station {id}",
+    "themeOption": "Darstellung: {theme}",
+    "themeDetail": "Ändert, wie die App aussieht",
+    "languageOption": "Sprache: {language}",
+    "languageDetail": "Ändert die Sprache der App",
+    "current": "Gerade eingestellt",
+    "hint": "Pfeiltasten wählen, Enter öffnet, Escape schließt. Strg+K oder ⌘K öffnet die Suche auf jeder Seite.",
+    "ctrlK": "Strg K",
+    "pages": {
+      "home": "Hier anfangen: die drei häufigsten Aufgaben und was die Daten sind",
+      "meteogram": "Die Vorhersage der nächsten Tage für einen Ort",
+      "explorer": "Stationen finden und ihre Messwerte herunterladen",
+      "stripes": "Sehen, wie sich ein Ort Jahr für Jahr erwärmt hat",
+      "history": "Wie sich Name, Ort und Geräte einer Station geändert haben",
+      "providers": "Die Wetterdienste, ihre Lizenzen und was sie anbieten",
+      "glossary": "Was jeder Parameter misst und in welcher Einheit",
+      "api": "Die Daten aus deinem eigenen Code nutzen: REST-API und MCP",
+      "settings": "Sprache, Darstellung und Einheiten",
+      "about": "Das Projekt und die Menschen dahinter",
+      "support": "Einen Fehler melden, am Code mithelfen oder spenden",
+      "impressum": "Wer diesen Dienst betreibt",
+      "datenschutz": "Was über dich gespeichert wird und warum"
+    }
   },
   "footer": {
     "copyright": "© {year} earthobservations",
     "legal": "Impressum",
     "privacy": "Datenschutz",
     "about": "Über uns",
-    "licenses": "Lizenzen Dritter"
+    "licenses": "Lizenzen Dritter",
+    "helpTitle": "Hilfe und Projekt",
+    "serviceTitle": "Über diesen Dienst"
   },
   "language": {
     "switch": "Sprache wechseln",

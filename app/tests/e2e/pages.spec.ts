@@ -201,12 +201,14 @@ test.describe('Providers Page', () => {
 })
 
 test.describe('Support Page', () => {
-  test('should be reachable from the header icon', async ({ page }) => {
+  test('should be reachable from the menu of the narrow layout', async ({ page }) => {
+    // Support is not a nav entry: it is with the help and project links, in the footer of every page and in the
+    // narrow layout's menu (GH-3518)
+    await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/')
     await page.waitForLoadState('networkidle')
-    // Support is not a nav entry: it is a heart in the header's project links, and a footer link.
-    // Both are named "Support", hence the scoping.
-    await page.getByRole('banner').getByRole('link', { name: /support/i }).click()
+    await page.locator('button[aria-label="Menu"]').click()
+    await page.getByRole('dialog').getByRole('link', { name: /support/i }).click()
 
     await expect(page).toHaveURL(/\/support/)
   })
@@ -361,7 +363,7 @@ test.describe('Settings Page', () => {
     // The header icon opens a quick-settings popover; the full settings
     // page is reached via the "Settings" link inside that popover.
     await page.getByRole('button', { name: 'Settings', exact: true }).click()
-    await page.getByRole('link', { name: 'Settings', exact: true }).click()
+    await page.getByRole('dialog').getByRole('link', { name: 'Settings', exact: true }).click()
 
     await expect(page).toHaveURL(/\/settings/)
   })

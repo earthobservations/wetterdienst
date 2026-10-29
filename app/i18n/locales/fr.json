@@ -14,21 +14,15 @@
     "requestFailed": "La requête a échoué",
     "backendError": "Erreur du backend {status}",
     "backendErrorDetail": "Erreur du backend {status} : {detail}",
-    "chartTableHint": "Les valeurs figurent dans le tableau sous le graphique."
+    "chartTableHint": "Les valeurs figurent dans le tableau sous le graphique.",
+    "skipToContent": "Aller au contenu principal"
   },
   "home": {
     "tagline": "Données météo ouvertes pour les humains",
-    "intro": "Choisis simplement ce que tu souhaites voir.",
     "tasksTitle": "Que souhaites-tu faire ?",
-    "forecastTitle": "Prévisions météo",
     "forecastDesc": "Consulte des prévisions sur plusieurs jours pour ta région.",
-    "stripesTitle": "Bandes du réchauffement",
     "stripesDesc": "Le réchauffement de ta région sous forme de bandes colorées.",
-    "explorerTitle": "Explorer les données",
     "explorerDesc": "Trouve des stations sur la carte et récupère des mesures.",
-    "featuresTitle": "Ce que tu peux en faire",
-    "featureExportTitle": "Export flexible",
-    "featureExportDesc": "Télécharge les données au format CSV, JSON ou GeoJSON.",
     "featureAnalysisTitle": "Interpolation et synthèse",
     "featureAnalysisDesc": "Estimer les valeurs en un point entre les stations, ou prendre à chaque instant la station la plus proche disposant de données.",
     "devTitle": "Aussi pour les développeurs",
@@ -60,7 +54,13 @@
     "kindAlertsDesc": "Alertes officielles du DWD pour tempête, chaleur, gel et inondation, par district.",
     "kindRoadTitle": "Météo routière",
     "kindRoadDesc": "État et température de la chaussée depuis les stations routières du DWD, avec leurs prévisions.",
-    "aboutLink": "À propos du projet et des personnes qui le portent"
+    "aboutLink": "À propos du projet et des personnes qui le portent",
+    "startForecast": "Consulter les prévisions pour un lieu",
+    "startMeasurements": "Télécharger des mesures",
+    "startWarming": "Voir comment un lieu s'est réchauffé",
+    "moreTitle": "Autres outils",
+    "moreIntro": "Pour regarder de plus près, et pour utiliser les données dans ton travail.",
+    "searchTitle": "Tu cherches autre chose ?"
   },
   "seo": {
     "title": "Wetterdienst – données météorologiques et climatiques ouvertes des services météorologiques nationaux",
@@ -121,14 +121,55 @@
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menu"
+    "menu": "Menu",
+    "navigation": "Navigation principale"
+  },
+  "palette": {
+    "title": "Recherche",
+    "description": "Trouve une page, un lieu ou un réglage.",
+    "trigger": "Chercher des pages, des lieux et des réglages",
+    "label": "Que cherches-tu ?",
+    "placeholder": "Par exemple : prévisions, Hambourg, sombre",
+    "resultsLabel": "Résultats",
+    "groupPages": "Pages",
+    "groupActions": "Apparence et langue",
+    "groupPlaces": "Prévisions pour un lieu",
+    "results": "Résultats : {count}",
+    "noResults": "Rien trouvé. Essaie un autre mot.",
+    "placesLoading": "Recherche des lieux …",
+    "placesFailed": "Les lieux n'ont pas pu être chargés. Les pages et les réglages restent accessibles.",
+    "placeDetail": "Prévisions pour la station {id}",
+    "themeOption": "Apparence : {theme}",
+    "themeDetail": "Change l'aspect de l'application",
+    "languageOption": "Langue : {language}",
+    "languageDetail": "Change la langue de l'application",
+    "current": "En cours d'utilisation",
+    "hint": "Les flèches choisissent, Entrée ouvre, Échap ferme. Ctrl+K ou ⌘K ouvre la recherche sur chaque page.",
+    "ctrlK": "Ctrl K",
+    "pages": {
+      "home": "Commence ici : les trois tâches courantes, et ce que sont les données",
+      "meteogram": "Les prévisions des prochains jours pour un lieu",
+      "explorer": "Trouver des stations et télécharger leurs mesures",
+      "stripes": "Voir comment un lieu s'est réchauffé, année après année",
+      "history": "Comment le nom, l'emplacement et les instruments d'une station ont changé",
+      "providers": "Les services météo, leurs licences et ce qu'ils proposent",
+      "glossary": "Ce que mesure chaque paramètre, et dans quelle unité",
+      "api": "Utiliser les données dans ton propre code : API REST et MCP",
+      "settings": "Langue, apparence et unités",
+      "about": "Le projet et les personnes qui le font",
+      "support": "Signaler un problème, aider au code ou faire un don",
+      "impressum": "Qui exploite ce service",
+      "datenschutz": "Ce qui est enregistré à ton sujet, et pourquoi"
+    }
   },
   "footer": {
     "copyright": "© {year} earthobservations",
     "legal": "Mentions légales",
     "privacy": "Confidentialité",
     "about": "À propos",
-    "licenses": "Licences tierces"
+    "licenses": "Licences tierces",
+    "helpTitle": "Aide et projet",
+    "serviceTitle": "À propos de ce service"
   },
   "language": {
     "switch": "Changer de langue",

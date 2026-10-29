@@ -14,21 +14,15 @@
     "requestFailed": "Request failed",
     "backendError": "Backend error {status}",
     "backendErrorDetail": "Backend error {status}: {detail}",
-    "chartTableHint": "The values are in the table below the chart."
+    "chartTableHint": "The values are in the table below the chart.",
+    "skipToContent": "Skip to main content"
   },
   "home": {
     "tagline": "Open weather data for humans",
-    "intro": "Just pick what you would like to see.",
     "tasksTitle": "What would you like to do?",
-    "forecastTitle": "Weather forecast",
     "forecastDesc": "See a multi-day forecast for your location.",
-    "stripesTitle": "Warming stripes",
     "stripesDesc": "Your region's warming shown as colourful stripes.",
-    "explorerTitle": "Explore data",
     "explorerDesc": "Find stations on the map and fetch measurements.",
-    "featuresTitle": "What you can do with it",
-    "featureExportTitle": "Flexible export",
-    "featureExportDesc": "Download data as CSV, JSON or GeoJSON.",
     "featureAnalysisTitle": "Interpolation & summary",
     "featureAnalysisDesc": "Estimate values for a point between stations, or take the nearest station that has data at each timestamp.",
     "devTitle": "Also for developers",
@@ -60,7 +54,13 @@
     "kindAlertsDesc": "Official DWD warnings for storm, heat, frost and flooding, by district.",
     "kindRoadTitle": "Road weather",
     "kindRoadDesc": "Road surface conditions and temperatures from the DWD road weather stations, and their forecasts.",
-    "aboutLink": "About the project and the people behind it"
+    "aboutLink": "About the project and the people behind it",
+    "startForecast": "Check the forecast for a place",
+    "startMeasurements": "Download measurements",
+    "startWarming": "See how a place has warmed",
+    "moreTitle": "More tools",
+    "moreIntro": "For a closer look, and for using the data in your own work.",
+    "searchTitle": "Looking for something else?"
   },
   "seo": {
     "title": "Wetterdienst – open weather and climate data from national weather services",
@@ -121,14 +121,55 @@
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menu"
+    "menu": "Menu",
+    "navigation": "Main navigation"
+  },
+  "palette": {
+    "title": "Search",
+    "description": "Find a page, a place or a setting.",
+    "trigger": "Search pages, places and settings",
+    "label": "What are you looking for?",
+    "placeholder": "For example: forecast, Hamburg, dark",
+    "resultsLabel": "Results",
+    "groupPages": "Pages",
+    "groupActions": "Appearance and language",
+    "groupPlaces": "Forecast for a place",
+    "results": "Results: {count}",
+    "noResults": "Nothing found. Try another word.",
+    "placesLoading": "Looking up places …",
+    "placesFailed": "The places could not be loaded. Pages and settings can still be found.",
+    "placeDetail": "Forecast for station {id}",
+    "themeOption": "Appearance: {theme}",
+    "themeDetail": "Changes how the app looks",
+    "languageOption": "Language: {language}",
+    "languageDetail": "Changes the language of the app",
+    "current": "In use now",
+    "hint": "Arrow keys choose, Enter opens, Escape closes. Ctrl+K or ⌘K opens the search on every page.",
+    "ctrlK": "Ctrl K",
+    "pages": {
+      "home": "Start here: the three common tasks, and what the data is",
+      "meteogram": "The forecast for the coming days at a place",
+      "explorer": "Find stations and download their measurements",
+      "stripes": "See how a place has warmed, year by year",
+      "history": "How a station's name, place and instruments changed",
+      "providers": "The weather services, their licences and what they offer",
+      "glossary": "What each parameter measures, and in which unit",
+      "api": "Use the data from your own code: REST API and MCP",
+      "settings": "Language, appearance and units",
+      "about": "The project and the people behind it",
+      "support": "Report a problem, help with the code or donate",
+      "impressum": "Who runs this service",
+      "datenschutz": "What is stored about you, and why"
+    }
   },
   "footer": {
     "copyright": "© {year} earthobservations",
     "legal": "Legal notice",
     "privacy": "Privacy",
     "about": "About",
-    "licenses": "Third-party licences"
+    "licenses": "Third-party licences",
+    "helpTitle": "Help and the project",
+    "serviceTitle": "About this service"
   },
   "language": {
     "switch": "Switch language",

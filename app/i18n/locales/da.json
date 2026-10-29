@@ -14,21 +14,15 @@
     "requestFailed": "Forespørgslen mislykkedes",
     "backendError": "Backend-fejl {status}",
     "backendErrorDetail": "Backend-fejl {status}: {detail}",
-    "chartTableHint": "Værdierne står i tabellen under diagrammet."
+    "chartTableHint": "Værdierne står i tabellen under diagrammet.",
+    "skipToContent": "Spring til hovedindholdet"
   },
   "home": {
     "tagline": "Åbne vejrdata for mennesker",
-    "intro": "Vælg bare, hvad du gerne vil se.",
     "tasksTitle": "Hvad vil du gerne gøre?",
-    "forecastTitle": "Vejrudsigt",
     "forecastDesc": "Se en flerdages udsigt for dit område.",
-    "stripesTitle": "Opvarmningsstriber",
     "stripesDesc": "Din regions opvarmning vist som farverige striber.",
-    "explorerTitle": "Udforsk data",
     "explorerDesc": "Find stationer på kortet og hent målinger.",
-    "featuresTitle": "Hvad du kan gøre med dem",
-    "featureExportTitle": "Fleksibel eksport",
-    "featureExportDesc": "Download data som CSV, JSON eller GeoJSON.",
     "featureAnalysisTitle": "Interpolation og opsummering",
     "featureAnalysisDesc": "Estimer værdier for et punkt mellem stationer, eller tag den nærmeste station med data på hvert tidspunkt.",
     "devTitle": "Også for udviklere",
@@ -60,7 +54,13 @@
     "kindAlertsDesc": "Officielle DWD-varsler om storm, varme, frost og oversvømmelse, pr. distrikt.",
     "kindRoadTitle": "Vejvejr",
     "kindRoadDesc": "Vejbaneforhold og -temperaturer fra DWD's vejvejrstationer samt deres prognoser.",
-    "aboutLink": "Om projektet og menneskene bag"
+    "aboutLink": "Om projektet og menneskene bag",
+    "startForecast": "Se udsigten for et sted",
+    "startMeasurements": "Download målinger",
+    "startWarming": "Se, hvor meget et sted er blevet varmere",
+    "moreTitle": "Flere værktøjer",
+    "moreIntro": "Til et nærmere kig og til at bruge dataene i dit eget arbejde.",
+    "searchTitle": "Leder du efter noget andet?"
   },
   "seo": {
     "title": "Wetterdienst – åbne vejr- og klimadata fra nationale vejrtjenester",
@@ -121,14 +121,55 @@
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menu"
+    "menu": "Menu",
+    "navigation": "Hovednavigation"
+  },
+  "palette": {
+    "title": "Søg",
+    "description": "Find en side, et sted eller en indstilling.",
+    "trigger": "Søg i sider, steder og indstillinger",
+    "label": "Hvad leder du efter?",
+    "placeholder": "For eksempel: udsigt, Hamborg, mørkt",
+    "resultsLabel": "Resultater",
+    "groupPages": "Sider",
+    "groupActions": "Udseende og sprog",
+    "groupPlaces": "Udsigt for et sted",
+    "results": "Resultater: {count}",
+    "noResults": "Intet fundet. Prøv et andet ord.",
+    "placesLoading": "Søger efter steder …",
+    "placesFailed": "Stederne kunne ikke indlæses. Sider og indstillinger kan stadig findes.",
+    "placeDetail": "Udsigt for station {id}",
+    "themeOption": "Udseende: {theme}",
+    "themeDetail": "Ændrer, hvordan appen ser ud",
+    "languageOption": "Sprog: {language}",
+    "languageDetail": "Ændrer appens sprog",
+    "current": "I brug nu",
+    "hint": "Piletasterne vælger, Enter åbner, Escape lukker. Ctrl+K eller ⌘K åbner søgningen på hver side.",
+    "ctrlK": "Ctrl K",
+    "pages": {
+      "home": "Start her: de tre almindelige opgaver, og hvad dataene er",
+      "meteogram": "Udsigten for de kommende dage et sted",
+      "explorer": "Find stationer og download deres målinger",
+      "stripes": "Se, hvordan et sted er blevet varmere år for år",
+      "history": "Hvordan en stations navn, placering og instrumenter har ændret sig",
+      "providers": "Vejrtjenesterne, deres licenser og hvad de tilbyder",
+      "glossary": "Hvad hver parameter måler, og i hvilken enhed",
+      "api": "Brug dataene fra din egen kode: REST API og MCP",
+      "settings": "Sprog, udseende og enheder",
+      "about": "Projektet og menneskene bag det",
+      "support": "Meld et problem, hjælp med koden eller giv et bidrag",
+      "impressum": "Hvem der driver denne tjeneste",
+      "datenschutz": "Hvad der gemmes om dig, og hvorfor"
+    }
   },
   "footer": {
     "copyright": "© {year} earthobservations",
     "legal": "Juridisk meddelelse",
     "privacy": "Privatliv",
     "about": "Om",
-    "licenses": "Tredjepartslicenser"
+    "licenses": "Tredjepartslicenser",
+    "helpTitle": "Hjælp og projektet",
+    "serviceTitle": "Om denne tjeneste"
   },
   "language": {
     "switch": "Skift sprog",

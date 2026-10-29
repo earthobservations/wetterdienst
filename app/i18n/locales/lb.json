@@ -14,21 +14,15 @@
     "requestFailed": "Ufro huet net geklappt",
     "backendError": "Backend-Feeler {status}",
     "backendErrorDetail": "Backend-Feeler {status}: {detail}",
-    "chartTableHint": "D'Wäerter stinn an der Tabell ënner dem Diagramm."
+    "chartTableHint": "D'Wäerter stinn an der Tabell ënner dem Diagramm.",
+    "skipToContent": "Direkt bei den Inhalt"
   },
   "home": {
     "tagline": "Oppen Wiederdaten fir d'Mënsche",
-    "intro": "Wiel einfach aus, wat du gesi wëlls.",
     "tasksTitle": "Wat wëlls du maachen?",
-    "forecastTitle": "Wiederprognos",
     "forecastDesc": "Kuck eng Méideegprognos fir deng Géigend.",
-    "stripesTitle": "Erwiermungssträifen",
     "stripesDesc": "D'Erwiermung vun denger Regioun als faarweg Sträifen duergestallt.",
-    "explorerTitle": "Daten entdecken",
     "explorerDesc": "Fann Statiounen op der Kaart a ruff Moossunge of.",
-    "featuresTitle": "Wat du domat maache kanns",
-    "featureExportTitle": "Flexibelen Export",
-    "featureExportDesc": "Luet Daten als CSV, JSON oder GeoJSON erof.",
     "featureAnalysisTitle": "Interpolatioun a Resumé",
     "featureAnalysisDesc": "Wäerter fir e Punkt tëscht de Statioune schätzen, oder zu all Zäitpunkt déi nootste Statioun huelen, déi Donnéeë huet.",
     "devTitle": "Och fir Entwéckler",
@@ -60,7 +54,13 @@
     "kindAlertsDesc": "Offiziell DWD-Warnunge viru Stuerm, Hëtzt, Frascht an Iwwerschwemmung, no Distrikt.",
     "kindRoadTitle": "Stroossewieder",
     "kindRoadDesc": "Fahrbunnzoustand an -temperature vun de DWD-Stroossewiederstatiounen, mat hire Prognosen.",
-    "aboutLink": "Iwwer d'Projet an d'Leit dohannert"
+    "aboutLink": "Iwwer d'Projet an d'Leit dohannert",
+    "startForecast": "D'Prognos fir eng Plaz kucken",
+    "startMeasurements": "Moossungen eroflueden",
+    "startWarming": "Kucken, wéi eng Plaz sech erwiermt huet",
+    "moreTitle": "Weider Instrumenter",
+    "moreIntro": "Fir e méi genauen Abléck a fir mat den Donnéeën ze schaffen.",
+    "searchTitle": "Sichs du eppes anescht?"
   },
   "seo": {
     "title": "Wetterdienst – oppen Wieder- a Klimadaten vun nationale Wiederdéngschter",
@@ -121,14 +121,55 @@
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menü"
+    "menu": "Menü",
+    "navigation": "Haaptnavigatioun"
+  },
+  "palette": {
+    "title": "Sich",
+    "description": "Fann eng Säit, eng Plaz oder eng Astellung.",
+    "trigger": "Säiten, Plazen an Astellunge sichen",
+    "label": "Wat sichs du?",
+    "placeholder": "Zum Beispill: Prognos, Hamburg, däischter",
+    "resultsLabel": "Resultater",
+    "groupPages": "Säiten",
+    "groupActions": "Erschéngungsbild a Sprooch",
+    "groupPlaces": "Prognos fir eng Plaz",
+    "results": "Resultater: {count}",
+    "noResults": "Näischt fonnt. Probéier en anert Wuert.",
+    "placesLoading": "Plaze gi gesicht …",
+    "placesFailed": "D'Plaze konnten net geluede ginn. Säiten an Astellunge fënns du trotzdeem.",
+    "placeDetail": "Prognos fir d'Statioun {id}",
+    "themeOption": "Erschéngungsbild: {theme}",
+    "themeDetail": "Ännert, wéi d'App ausgesäit",
+    "languageOption": "Sprooch: {language}",
+    "languageDetail": "Ännert d'Sprooch vun der App",
+    "current": "Elo agestallt",
+    "hint": "D'Pfeiltaste wielen, Enter mécht op, Escape mécht zou. Strg+K oder ⌘K mécht d'Sich op all Säit op.",
+    "ctrlK": "Strg K",
+    "pages": {
+      "home": "Hei ufänken: déi dräi heefegst Aufgaben a wat d'Donnéeë sinn",
+      "meteogram": "D'Prognos fir déi nächst Deeg op enger Plaz",
+      "explorer": "Statiounen fannen an hir Moossungen eroflueden",
+      "stripes": "Kucken, wéi eng Plaz sech Joer fir Joer erwiermt huet",
+      "history": "Wéi sech Numm, Plaz an Instrumenter vun enger Statioun geännert hunn",
+      "providers": "D'Wiederdéngschter, hir Lizenzen a wat se ubidden",
+      "glossary": "Wat all Parameter moosst, an a wéi enger Eenheet",
+      "api": "D'Donnéeën aus dengem eegene Code notzen: REST-API a MCP",
+      "settings": "Sprooch, Erschéngungsbild an Eenheeten",
+      "about": "De Projet an d'Leit dohannert",
+      "support": "E Problem mellen, beim Code hëllefen oder spenden",
+      "impressum": "Wien dësen Déngscht bedreift",
+      "datenschutz": "Wat iwwer dech gespäichert gëtt, a firwat"
+    }
   },
   "footer": {
     "copyright": "© {year} earthobservations",
     "legal": "Impressum",
     "privacy": "Dateschutz",
     "about": "Iwwer eis",
-    "licenses": "Lizenze vun Drëtten"
+    "licenses": "Lizenze vun Drëtten",
+    "helpTitle": "Hëllef an de Projet",
+    "serviceTitle": "Iwwer dësen Déngscht"
   },
   "language": {
     "switch": "Sprooch wiesselen",

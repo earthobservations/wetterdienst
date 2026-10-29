@@ -14,21 +14,15 @@
     "requestFailed": "Aanvraag mislukt",
     "backendError": "Backendfout {status}",
     "backendErrorDetail": "Backendfout {status}: {detail}",
-    "chartTableHint": "De waarden staan in de tabel onder de grafiek."
+    "chartTableHint": "De waarden staan in de tabel onder de grafiek.",
+    "skipToContent": "Naar de hoofdinhoud"
   },
   "home": {
     "tagline": "Open weerdata voor mensen",
-    "intro": "Kies gewoon wat je wilt zien.",
     "tasksTitle": "Wat wil je doen?",
-    "forecastTitle": "Weersverwachting",
     "forecastDesc": "Bekijk een meerdaagse verwachting voor jouw omgeving.",
-    "stripesTitle": "Opwarmingsstrepen",
     "stripesDesc": "De opwarming van jouw regio weergegeven als kleurrijke strepen.",
-    "explorerTitle": "Gegevens verkennen",
     "explorerDesc": "Vind stations op de kaart en haal metingen op.",
-    "featuresTitle": "Wat je ermee kunt doen",
-    "featureExportTitle": "Flexibele export",
-    "featureExportDesc": "Download gegevens als CSV, JSON of GeoJSON.",
     "featureAnalysisTitle": "Interpolatie en samenvatting",
     "featureAnalysisDesc": "Waarden schatten voor een punt tussen stations, of op elk tijdstip het dichtstbijzijnde station met gegevens nemen.",
     "devTitle": "Ook voor ontwikkelaars",
@@ -60,7 +54,13 @@
     "kindAlertsDesc": "Officiële DWD-waarschuwingen voor storm, hitte, vorst en hoogwater, per district.",
     "kindRoadTitle": "Wegweer",
     "kindRoadDesc": "Wegdekcondities en -temperaturen van de DWD-wegweerstations, met hun verwachtingen.",
-    "aboutLink": "Over het project en de mensen erachter"
+    "aboutLink": "Over het project en de mensen erachter",
+    "startForecast": "De verwachting voor een plaats bekijken",
+    "startMeasurements": "Metingen downloaden",
+    "startWarming": "Zien hoe een plaats is opgewarmd",
+    "moreTitle": "Meer hulpmiddelen",
+    "moreIntro": "Om beter te kijken, en om de gegevens in je eigen werk te gebruiken.",
+    "searchTitle": "Zoek je iets anders?"
   },
   "seo": {
     "title": "Wetterdienst – open weer- en klimaatdata van nationale weerdiensten",
@@ -121,14 +121,55 @@
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menu"
+    "menu": "Menu",
+    "navigation": "Hoofdnavigatie"
+  },
+  "palette": {
+    "title": "Zoeken",
+    "description": "Vind een pagina, een plaats of een instelling.",
+    "trigger": "Pagina's, plaatsen en instellingen zoeken",
+    "label": "Wat zoek je?",
+    "placeholder": "Bijvoorbeeld: verwachting, Hamburg, donker",
+    "resultsLabel": "Resultaten",
+    "groupPages": "Pagina's",
+    "groupActions": "Weergave en taal",
+    "groupPlaces": "Verwachting voor een plaats",
+    "results": "Resultaten: {count}",
+    "noResults": "Niets gevonden. Probeer een ander woord.",
+    "placesLoading": "Plaatsen worden gezocht …",
+    "placesFailed": "De plaatsen konden niet worden geladen. Pagina's en instellingen zijn nog steeds te vinden.",
+    "placeDetail": "Verwachting voor station {id}",
+    "themeOption": "Weergave: {theme}",
+    "themeDetail": "Verandert hoe de app eruitziet",
+    "languageOption": "Taal: {language}",
+    "languageDetail": "Verandert de taal van de app",
+    "current": "Nu in gebruik",
+    "hint": "Pijltjestoetsen kiezen, Enter opent, Escape sluit. Ctrl+K of ⌘K opent het zoeken op elke pagina.",
+    "ctrlK": "Ctrl K",
+    "pages": {
+      "home": "Begin hier: de drie gewone taken, en wat de gegevens zijn",
+      "meteogram": "De verwachting voor de komende dagen op een plaats",
+      "explorer": "Stations vinden en hun metingen downloaden",
+      "stripes": "Zien hoe een plaats jaar na jaar is opgewarmd",
+      "history": "Hoe naam, plaats en instrumenten van een station veranderden",
+      "providers": "De weerdiensten, hun licenties en wat ze bieden",
+      "glossary": "Wat elke parameter meet, en in welke eenheid",
+      "api": "De gegevens vanuit je eigen code gebruiken: REST API en MCP",
+      "settings": "Taal, weergave en eenheden",
+      "about": "Het project en de mensen erachter",
+      "support": "Een probleem melden, helpen met de code of doneren",
+      "impressum": "Wie deze dienst beheert",
+      "datenschutz": "Wat er over je wordt opgeslagen, en waarom"
+    }
   },
   "footer": {
     "copyright": "© {year} earthobservations",
     "legal": "Colofon",
     "privacy": "Privacy",
     "about": "Over",
-    "licenses": "Licenties van derden"
+    "licenses": "Licenties van derden",
+    "helpTitle": "Hulp en het project",
+    "serviceTitle": "Over deze dienst"
   },
   "language": {
     "switch": "Taal wijzigen",
