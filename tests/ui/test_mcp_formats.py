@@ -210,6 +210,46 @@ def test_the_refusal_through_a_tool_names_the_ways_that_work_through_a_tool(monk
         assert streaming not in text
 
 
+@pytest.mark.parametrize("fmt", ["csv", "ndjson"])
+def test_a_tool_is_held_to_the_rows_limit_in_every_format(monkeypatch: pytest.MonkeyPatch, fmt: str) -> None:
+    """A tool answers one body: csv and ndjson over `rows` are refused though they are under `stream_rows` (GH-3464)."""
+    _over_the_row_limit(monkeypatch)
+
+    result, _ = _call(restapi.app, "values", {**_VALUES, "format": fmt})
+
+    assert result.is_error
+    text = result.content[0].text
+    assert "more than the 1,000 this server sends as one answer" in text
+    assert "Ask for a shorter `timestamp` window, fewer `parameters` or fewer stations." in text
+    for streaming in ("ndjson", "csv", "stream"):
+        assert streaming not in text
+
+
+@pytest.mark.parametrize("fmt", ["csv", "ndjson"])
+def test_a_stream_over_http_is_held_to_stream_rows_still(monkeypatch: pytest.MonkeyPatch, fmt: str) -> None:
+    """REST keeps streaming csv and ndjson up to `stream_rows`."""
+    from fastapi.testclient import TestClient  # noqa: PLC0415
+
+    _over_the_row_limit(monkeypatch)
+
+    response = TestClient(restapi.app, raise_server_exceptions=False).get(
+        "/api/v1/values", params={**_VALUES, "format": fmt}
+    )
+
+    assert response.status_code == 200
+
+
+def test_the_timeout_through_a_tool_does_not_advise_a_stream() -> None:
+    """The 504 text names a stream for REST and not for a tool."""
+    from wetterdienst.ui.middleware import timeout_detail  # noqa: PLC0415
+
+    assert "format=ndjson or csv" in timeout_detail(30)
+    tool = timeout_detail(30, tool=True)
+    assert "a shorter `timestamp` window, fewer stations or parameters." in tool
+    assert "ndjson" not in tool
+    assert "csv" not in tool
+
+
 def test_the_refusal_over_http_still_advises_the_stream_and_keeps_its_numbers(monkeypatch: pytest.MonkeyPatch) -> None:
     """REST and CLI keep their advice, and the problem keeps `limit`, `maximum` and `requested`."""
     from fastapi.testclient import TestClient  # noqa: PLC0415

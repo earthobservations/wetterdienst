@@ -100,7 +100,7 @@ An error comes back as the text of the REST problem, for instance
 does not take is refused with the name of the one it takes (`station was renamed to stations`). No tool takes
 `debug`: the log level of the server is its operator's, and a call that gives it is refused saying so.
 
-Every `format` a tool offers is answered. `json` and `geojson` are the structured content of the result. The other
+Every `format` a tool offers is answered, as one body held to the `rows` limit. `json` and `geojson` are the structured content of the result. The other
 formats are content blocks: `csv`, `ndjson`, `html` and `svg` are text, as the REST API sends them; `png`, `jpg` and
 `webp` are image content and `pdf` is an embedded resource. The structured content that the output schema of the tool
 requires is then one sentence about the answer (its media type and size), not the answer again. The default is
@@ -125,8 +125,8 @@ earlier one: `tools/list` and `tools/call` work without an `initialize`. A reque
 is served as one without. The two requests that belong to a session are answered with a 405, as the specification
 lets a server do: `DELETE` (ending a session; clients that send it on closing carry on) and `GET` (opening a stream
 of messages from the server, of which a server of tools has none). A tool's answer is one body and is not streamed
-(`format=ndjson` and `csv` are text content of the result, held to the limit of a streamed answer, not sent
-as they are built). A tool makes its request to the
+(`format=ndjson` and `csv` are text content of the result, held to the same `rows` limit as every other format of
+a tool, not the higher `stream_rows` of the REST API). A tool makes its request to the
 API in process, so it is held to the [limits](restapi.md#limits), the [timeout](restapi.md#timeout) and the
 [concurrency](restapi.md#concurrency) of the server like any request. A request that a tool is refused for its size is
 asked again for a window or fewer stations, or made from the library: see

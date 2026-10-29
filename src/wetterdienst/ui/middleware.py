@@ -80,12 +80,19 @@ def request_timeout() -> float | None:
     return seconds or None
 
 
-def timeout_detail(seconds: float) -> str:
-    """Word the 504 of a request that took longer than the timeout."""
+def timeout_detail(seconds: float, *, tool: bool = False) -> str:
+    """Word the 504 of a request that took longer than the timeout.
+
+    An MCP tool's answer is one body whatever its format, so it is not told to stream (GH-3464).
+    """
+    advice = (
+        "a shorter `timestamp` window, fewer stations or parameters"
+        if tool
+        else "a shorter `timestamp` window, fewer stations or parameters, or format=ndjson or csv for a long answer"
+    )
     return (
-        f"The server did not answer within its request timeout of {seconds:g} seconds. Narrow the request: a shorter "
-        "`timestamp` window, fewer stations or parameters, or format=ndjson or csv for a long answer. What the "
-        "server had already fetched is cached, so the same request may succeed when it is made again."
+        f"The server did not answer within its request timeout of {seconds:g} seconds. Narrow the request: {advice}. "
+        "What the server had already fetched is cached, so the same request may succeed when it is made again."
     )
 
 
@@ -226,6 +233,8 @@ class RequestContextMiddleware:
         The app runs as a task of its own, so that the timeout can answer without cancelling it: a handler in a thread
         cannot be cancelled, and the place of the request is its to give back when it is done.
         """
+        from wetterdienst.ui.mcp import is_tool_request  # noqa: PLC0415
+
         scope = exchange.scope
         task = asyncio.ensure_future(self.app(scope, exchange.receive, exchange.send))
         waiter = asyncio.ensure_future(exchange.started.wait())
@@ -237,7 +246,9 @@ class RequestContextMiddleware:
                 exchange.dropped = True
                 self._abandoned.add(task)
                 log.warning(f"Request {exchange.request_id} to {scope['path']} timed out after {seconds:g} seconds.")
-                response = problem_response(scope, 504, timeout_detail(seconds), ProblemKind.REQUEST_TIMEOUT)
+                response = problem_response(
+                    scope, 504, timeout_detail(seconds, tool=is_tool_request(scope)), ProblemKind.REQUEST_TIMEOUT
+                )
                 await response(scope, exchange.client_receive, exchange.client_send)
                 return
             # the response has begun: what is left is a stream's, which times its own chunks

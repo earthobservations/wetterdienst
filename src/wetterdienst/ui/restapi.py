@@ -639,6 +639,8 @@ async def _refuse_oversized_render(request: Request, exc: ImageTooLargeError) ->
 # for jpg or svg, and the stripes image sent `image/pdf` for a PDF (GH-2063)
 _MEDIA_TYPES = {
     "csv": "text/csv",
+    # only a tool's request is answered as one body in ndjson (`_is_streamed`); any other is streamed
+    "ndjson": NDJSON_MEDIA_TYPE,
     "html": "text/html",
     "png": "image/png",
     "jpg": "image/jpeg",
@@ -1606,17 +1608,18 @@ def _geo_reach_check(limits: Limits, distance: str) -> Callable[[int], None]:
     return check
 
 
-def _is_streamed(request: ValuesRequest) -> bool:
+def _is_streamed(request: ValuesRequest, http_request: Request) -> bool:
     """Tell whether a values request is answered as a stream: ndjson, and csv unless `sql_values` filters the whole.
 
     A `sql_values` clause filters the answer as a frame, which a stream never holds, so csv with one is the answer
-    in one body as it was before; ndjson is refused with it (and with `with_stations`).
+    in one body as it was before; ndjson is refused with it (and with `with_stations`). An MCP tool's request is
+    never streamed: a tool answers one body, held to `rows` in every format (GH-3464).
     """
     if request.format == "ndjson":
         if (refusal := ndjson_refusal(request)) is not None:
             raise ProblemError(400, refusal)
-        return True
-    return request.format == "csv" and not request.sql_values
+        return not is_tool_request(http_request.scope)
+    return request.format == "csv" and not request.sql_values and not is_tool_request(http_request.scope)
 
 
 def _stream_headers(metadata: ResponseMetadata) -> dict[str, str]:
@@ -1802,7 +1805,8 @@ def stations(
     # lazily during value collection, and a plain listing returns just the N closest asked for
     stations_ = limit_stations_to_rank(limit_stations_to_window(stations_))
 
-    streamed = request.format in STREAM_FORMATS
+    # a tool's request is answered as one body in every format, held to `rows` (GH-3464)
+    streamed = request.format in STREAM_FORMATS and not is_tool_request(http_request.scope)
     check_rows(stations_.df.height, limits_of(settings), streamed=streamed)
 
     metadata = response_metadata(stations_, request)
@@ -1889,7 +1893,7 @@ def values(
     options = _request_options(request, http_request.query_params.keys(), ValuesSettings)
     limits = limits_of(settings)
 
-    if _is_streamed(request):
+    if _is_streamed(request, http_request):
         return _stream_values(api, request, settings, options, limits)
     values_ = _values(api=api, request=request, settings=settings, options=options, limits=limits)
 

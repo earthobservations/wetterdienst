@@ -74,9 +74,10 @@ Types of changes:
   (`csv`, `ndjson`, `html`, `svg`: "has an output schema but did not return structured content";
   `png`, `jpg`, `webp`, `pdf`: a decoding error). A text body is the text content of the result,
   an image its image content and a PDF an embedded resource; the structured content is one
-  sentence about it. The refusal of a row limit through a tool no longer advises `format=ndjson` or
-  `format=csv`: it names a shorter `timestamp` window, fewer `parameters` or fewer stations. REST
-  and the command line are unchanged (GH-3464)
+  sentence about it. A tool answers one body in every format, held to the `rows` limit (`csv` and
+  `ndjson` get no `stream_rows`), and its refusals (row limit, timeout) no longer advise
+  `format=ndjson` or `format=csv`: they name a shorter `timestamp` window, fewer `parameters` or
+  fewer stations. REST and the command line are unchanged (GH-3464)
 - A download, post or listing whose TLS handshake the peer answers wrongly (a non-TLS answer,
   `WRONG_VERSION_NUMBER`; an invalid session, `INVALID_SESSION_ID`) is retried like any other
   transient network error, where the first one failed the answer: `www.dwd.de` throws them now
