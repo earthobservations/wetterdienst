@@ -359,7 +359,8 @@ class Options(BaseSettings):
     # returning. The coverage is measured against how many readings the requested window can
     # hold, so the option stands on its own and needs no particular shape of frame under it. A request
     # without a window is measured against the span of the station's series with its empty readings in
-    # it, so `drop_nulls` does not change which stations are skipped (GH-3578)
+    # it, and a resolution with no fixed interval against the readings it has with them in, so
+    # `drop_nulls` does not change which stations are skipped (GH-3578)
     skip_empty: bool = False
     skip_threshold: SkipThreshold = 0.95
     skip_criteria: Literal["min", "mean", "max"] = "min"

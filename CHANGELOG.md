@@ -124,8 +124,10 @@ Types of changes:
   that was read after the empty readings had been dropped: a station whose first or last readings
   were nulls looked complete (and was kept) with `drop_nulls=True`, the default, and sparse (and
   was skipped) with `drop_nulls=False`. The span now includes the empty readings, so with the
-  default setting such stations are skipped, and the answer has fewer stations than before.
-  Requests with a window are unchanged (GH-3578)
+  default setting such stations are skipped, and the answer has fewer stations than before. The
+  same holds for a resolution with no fixed interval (`subdaily`), where the share of readings
+  with a value was taken of the rows left, always all of them, so nothing was skipped. A request
+  with a window and a fixed interval is unchanged (GH-3578)
 
 ## [0.178.0] - 2026-10-28
 
