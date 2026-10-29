@@ -118,6 +118,18 @@ Types of changes:
   with `drop_nulls` on (the default) or off: not those of a station `skip_empty` leaves out, nor of
   one a `rank` walk passes over for having no reading. `interpolate` and `summarize`, whose answer
   is an estimate, carry no such warning now (GH-3554)
+- Processes that share a cache directory take turns on it, through a lock file beside each
+  directory (new dependency: `filelock` 3.30 or later). The metadata read-merge-write no longer
+  loses a row another process saved in between (its file was then fetched again), the save no
+  longer fails with `PermissionError` on Windows while another process has the metadata open, and a
+  sweep no longer deletes a file another process has just fetched again. A process waits for the
+  lock as long as it moves between processes (60 s at most) and 10 s behind one holder; a holder
+  stuck that long costs that wait once, in which the process's other cache misses wait too, and
+  then the loads, saves and sweeps of the directory for a minute, which are skipped with a warning:
+  a skipped load reads nothing and a skipped save fetches again. No request fails. A killed process
+  leaves no stale lock, and a file system without `flock` goes without the lock. The metadata file
+  is written in one go, about four times faster for a directory of tens of thousands of entries,
+  with the same content (GH-3485)
 - The `station-skipped` warning is told for a station `skip_empty` leaves out whatever `drop_nulls`
   is: with the nulls dropped (the default) a station that held nothing but missing values was left
   out unsaid, and with them kept it was told. The warning is the same for both, and so is
