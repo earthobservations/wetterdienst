@@ -39,6 +39,8 @@ function insetsOf(chart: HTMLElement): number {
 export default defineNuxtPlugin(() => {
   let wasDark = false
   let printing = false
+  // what had the focus: the sidebar is not printed (it is hidden for the print), and a hidden element loses the focus
+  let focused: HTMLElement | null = null
   // the charts that were scaled, and the handler with which Plotly draws a chart at its container's width again on a resize
   const scaled = new Map<HTMLElement, (() => void) | undefined>()
 
@@ -50,9 +52,24 @@ export default defineNuxtPlugin(() => {
     if (wasDark)
       document.documentElement.classList.add('dark')
     wasDark = false
+    // the print media may still apply here, and a hidden element (the sidebar is) takes no focus: given again once it is shown
+    const refocus = focused
+    focused = null
+    let tries = 0
+    const giveFocusBack = () => {
+      if (!refocus?.isConnected || (document.activeElement && document.activeElement !== document.body))
+        return
+      if (refocus.getClientRects().length > 0)
+        refocus.focus({ preventScroll: true })
+      else if (++tries < 30)
+        requestAnimationFrame(giveFocusBack)
+    }
+    giveFocusBack()
     for (const [chart, handler] of scaled) {
       chart.style.zoom = ''
-      if (handler)
+      // only if it is still the chart's: one drawn anew meanwhile (purged, drawn again) has a handler of its own, and the old one
+      // would be a second
+      if (handler && chart.isConnected && (chart as any)._responsiveChartHandler === handler)
         window.addEventListener('resize', handler)
     }
     scaled.clear()
@@ -64,6 +81,8 @@ export default defineNuxtPlugin(() => {
     wasDark = wasDark || root.classList.contains('dark')
     root.classList.remove('dark')
     printing = true
+    if (!focused && document.activeElement instanceof HTMLElement && document.activeElement !== document.body)
+      focused = document.activeElement
     // the print's gutters and paddings (main.css), which the measures below read; the pages that follow their chart's
     // container (stripes.vue) leave it alone meanwhile
     root.dataset.printing = ''

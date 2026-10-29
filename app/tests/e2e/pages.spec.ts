@@ -468,6 +468,23 @@ test.describe('The focus when the layout changes', () => {
   })
 })
 
+test.describe('A real print', () => {
+  test('leaves the focus on the sidebar link and the shell as it was (the paper is not a window of its width)', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/about')
+    await expect(page.locator('aside nav')).toBeVisible()
+    const link = page.locator('aside nav a[href="/glossary"]')
+    await link.focus()
+    const shell = await page.evaluate(() => document.querySelector('aside nav')!.getAttribute('aria-label'))
+
+    await page.pdf({ format: 'A4' })
+    await page.waitForTimeout(1000)
+
+    await expect(link).toBeFocused()
+    expect(await page.evaluate(() => document.querySelector('aside nav')?.getAttribute('aria-label'))).toBe(shell)
+  })
+})
+
 test.describe('The sticky top bar', () => {
   test('keeps a focused element clear of it, tabbing back up a page', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 700 })
@@ -655,6 +672,58 @@ test.describe('A print that comes and goes', () => {
     await expect.poll(async () => Math.round(await width())).toBe(Math.round(screen))
   })
 
+  test('has one resize handler for a chart that was drawn again while the print was prepared', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await page.addInitScript(() => {
+      const active = new Set<EventListenerOrEventListenerObject>()
+      const add = window.addEventListener.bind(window)
+      const remove = window.removeEventListener.bind(window)
+      window.addEventListener = ((type: string, listener: any, options?: any) => {
+        if (type === 'resize')
+          active.add(listener)
+        return add(type, listener, options)
+      }) as typeof window.addEventListener
+      window.removeEventListener = ((type: string, listener: any, options?: any) => {
+        if (type === 'resize')
+          active.delete(listener)
+        return remove(type, listener, options)
+      }) as typeof window.removeEventListener
+      ;(window as any).__resizeHandlers = active
+    })
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/stripes?kind=temperature&station=00011')
+    await page.getByRole('button', { name: 'Show', exact: true }).click()
+    await expect(page.locator('.js-plotly-plot .main-svg').first()).toBeVisible()
+    const handlers = () => page.evaluate(() => {
+      const chart = document.querySelector('.js-plotly-plot') as any
+      const active = (window as any).__resizeHandlers as Set<unknown>
+      return { own: chart._responsiveChartHandler ? active.has(chart._responsiveChartHandler) : false, total: [...active].filter(handler => String(handler).includes('isHidden') || handler === chart._responsiveChartHandler).length }
+    })
+    expect((await handlers()).own).toBe(true)
+
+    await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')))
+    // drawn again while the print is prepared: purged and drawn anew, with a handler of its own
+    const old = await page.evaluate(() => {
+      const chart = document.querySelector('.js-plotly-plot') as any
+      const before = chart._responsiveChartHandler
+      const { data, layout } = chart
+      ;(window as any).Plotly.purge(chart)
+      return (window as any).Plotly.newPlot(chart, data, layout, { responsive: true }).then(() => {
+        ;(window as any).__old = before
+        return before !== chart._responsiveChartHandler
+      })
+    })
+    expect(old).toBe(true)
+    await page.evaluate(() => window.dispatchEvent(new Event('afterprint')))
+
+    const state = await page.evaluate(() => {
+      const chart = document.querySelector('.js-plotly-plot') as any
+      const active = (window as any).__resizeHandlers as Set<unknown>
+      return { newOne: active.has(chart._responsiveChartHandler), oldOne: active.has((window as any).__old) }
+    })
+    expect(state).toEqual({ newOne: true, oldOne: false })
+  })
+
   test('puts the page back when it goes', async ({ page, baseURL }) => {
     await mockBackend(page, baseURL!)
     await page.emulateMedia({ colorScheme: 'dark' })
@@ -668,22 +737,32 @@ test.describe('A print that comes and goes', () => {
   })
 })
 
-test.describe('Text spacing on the provider cards (WCAG 1.4.12)', () => {
-  for (const language of ['da', 'pl', 'cs', 'de']) {
-    test(`keeps every badge inside its card in ${language}, at 1280 and 1440 px`, async ({ page, baseURL }) => {
-      await mockBackend(page, baseURL!)
+test.describe('The provider cards, with the spacing a reader may set (WCAG 1.4.12) and without', () => {
+  // the backend's providers as they are (the licences with no identifier are sentences, and some providers need a key)
+  for (const language of ['da', 'pl', 'cs', 'de', 'fr']) {
+    test(`cut off no text and let none out of its card in ${language}, at 1280, 1440 and 1920 px`, async ({ page, baseURL }) => {
       await page.context().addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
-      for (const width of [1280, 1440]) {
+      for (const width of [1280, 1440, 1920]) {
         await page.setViewportSize({ width, height: 900 })
         await page.goto('/providers')
         await expect(page.locator('main#main li a').first()).toBeVisible()
-        // the spacing a reader may set, and no more (line 1.5, letters 0.12 em, words 0.16 em, paragraphs 2 em)
-        await page.addStyleTag({ content: '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; } p { margin-bottom: 2em !important; }' })
-        const outside = await page.evaluate(() => [...document.querySelectorAll('main#main li a')].flatMap((card) => {
-          const edge = card.getBoundingClientRect().right
-          return [...card.querySelectorAll('*')].filter(element => element.getBoundingClientRect().right > edge + 1).map(element => (element.textContent ?? '').trim().slice(0, 40))
-        }))
-        expect(outside, `${language} at ${width} px`).toEqual([])
+        for (const spacing of [false, true]) {
+          if (spacing) {
+            // the spacing a reader may set, and no more (line 1.5, letters 0.12 em, words 0.16 em, paragraphs 2 em)
+            await page.addStyleTag({ content: '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; } p { margin-bottom: 2em !important; }' })
+          }
+          const problems = await page.evaluate(() => [...document.querySelectorAll('main#main li a')].flatMap((card) => {
+            const edge = card.getBoundingClientRect().right
+            return [...card.querySelectorAll('*')].flatMap((element) => {
+              const text = (element.textContent ?? '').trim().slice(0, 40)
+              // out of the card, or cut off where it stands (an ellipsis, or a clip: more text than room)
+              const out = element.getBoundingClientRect().right > edge + 1 ? ['outside'] : []
+              const cut = element.scrollWidth > element.clientWidth + 1 ? ['cut'] : []
+              return [...out, ...cut].map(kind => `${kind}: ${text}`)
+            })
+          }))
+          expect(problems, `${language} at ${width} px${spacing ? ' with text spacing' : ''}`).toEqual([])
+        }
       }
     })
   }
@@ -711,6 +790,29 @@ test.describe('The forecast on a phone', () => {
     await expect(page.locator('div.overflow-x-auto').first()).toBeVisible()
 
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  })
+})
+
+test.describe('The wind barbs of the forecast on paper', () => {
+  test('are drawn at the size of the chart\'s own layout, not of its scaled box, when the window is resized while it is prepared', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/meteogram?station=01001')
+    const canvas = page.locator('.meteogram-overlay-canvas')
+    await expect(canvas).toBeAttached()
+    const sizes = () => canvas.evaluate((element) => {
+      const chart = element.parentElement as any
+      return { canvas: Number.parseFloat((element as HTMLCanvasElement).style.width), layout: chart._fullLayout.width, box: chart.querySelector('.main-svg').getBoundingClientRect().width }
+    })
+
+    await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')))
+    expect((await sizes()).box).toBeLessThan((await sizes()).layout)
+    await page.setViewportSize({ width: 1400, height: 900 })
+    await page.waitForTimeout(500)
+
+    const after = await sizes()
+    expect(after.canvas).toBeCloseTo(after.layout, 0)
+    expect(after.canvas).toBeGreaterThan(after.box)
   })
 })
 

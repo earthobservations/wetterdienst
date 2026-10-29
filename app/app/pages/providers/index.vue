@@ -94,7 +94,7 @@ function parameterCount(provider: Provider): number {
       <p class="text-sm text-gray-500 dark:text-gray-400">
         {{ t('providers.shown', { shown: providers.length, count: data?.providers.length ?? 0 }) }}
       </p>
-      <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
         <li v-for="provider in providers" :key="provider.provider">
           <NuxtLink :to="`/providers/${provider.provider}`" class="group block h-full">
             <UCard
@@ -128,8 +128,9 @@ function parameterCount(provider: Provider): number {
                   color="neutral"
                   variant="subtle"
                 />
-                <!-- a licence with no SPDX identifier is told by its name, which can be a sentence: cut at
-                     the card's edge, and whole in the tooltip and on the provider's page -->
+                <!-- a licence with no SPDX identifier is told by its name, which can be a sentence: it wraps within the
+                     card (a label that is cut off with an ellipsis is lost to text spacing and to a narrow card) and is
+                     whole in the tooltip and on the provider's page -->
                 <UBadge
                   :label="licenceLabel(provider)"
                   :title="licenceLabel(provider)"
@@ -137,7 +138,7 @@ function parameterCount(provider: Provider): number {
                   variant="subtle"
                   icon="i-ph-scales"
                   class="max-w-full"
-                  :ui="{ label: 'truncate' }"
+                  :ui="{ base: 'whitespace-normal text-start', label: 'whitespace-normal break-words' }"
                 />
                 <UBadge
                   v-if="provider.networks.some(network => network.auth)"
@@ -145,7 +146,8 @@ function parameterCount(provider: Provider): number {
                   color="neutral"
                   variant="outline"
                   icon="i-ph-key"
-                  class="max-w-full whitespace-normal"
+                  class="max-w-full"
+                  :ui="{ base: 'whitespace-normal text-start', label: 'whitespace-normal break-words' }"
                 />
               </div>
             </UCard>

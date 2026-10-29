@@ -18,8 +18,28 @@ watch(() => route.path, () => {
 // the sidebar is the large layout's: a drawer that is hidden with CSS would still hold the focus. The row layout is driven by
 // this flag too, not by a Tailwind breakpoint: Tailwind's are in rem, which a browser set to a larger default font size
 // makes wider than these pixels, and the rail and the page would stack
-const large = useMediaQuery('(min-width: 1024px)')
-const wide = useMediaQuery('(min-width: 1280px)')
+// While a print is prepared the queries are asked of the paper (a window of its width), and the shell would be drawn anew as a
+// phone's, with the focus lost: the screen's answers are kept until the print is over (plugins/print-light.client.ts). The
+// change events of the queries can come after the print is over, and say what the paper said: so the answer is asked again
+// when one comes, and the shell is only drawn anew if the screen's has changed.
+const largeQuery = useMediaQuery('(min-width: 1024px)')
+const wideQuery = useMediaQuery('(min-width: 1280px)')
+const printing = () => document.documentElement.dataset.printing !== undefined || window.matchMedia('print').matches
+const asked = (query: string) => window.matchMedia(query).matches
+const large = ref(largeQuery.value)
+const wide = ref(wideQuery.value)
+watch(largeQuery, () => {
+  if (!printing())
+    large.value = asked('(min-width: 1024px)')
+})
+watch(wideQuery, () => {
+  if (!printing())
+    wide.value = asked('(min-width: 1280px)')
+})
+window.addEventListener('afterprint', () => {
+  large.value = asked('(min-width: 1024px)')
+  wide.value = asked('(min-width: 1280px)')
+})
 
 // Where the focus is, taken before a change of layout draws the navigation anew (these watchers run before the page is
 // updated): in the navigation (the sidebar, the top bar, a drawer or a popover over the page), or nowhere in particular.

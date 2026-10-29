@@ -578,12 +578,21 @@ function cleanupOverlay() {
   overlayRedrawHandler = null
 }
 
+// The size of the drawing, from Plotly's layout: in pixels of the chart's own, whatever scales the element (a print, which
+// zooms the chart to the width of the paper, so that the element's client size and its bounding box disagree)
+function chartSize(): { width: number, height: number } {
+  const layout = (chartRef.value as any)?._fullLayout
+  return {
+    width: layout?.width ?? chartRef.value?.clientWidth ?? 0,
+    height: layout?.height ?? chartRef.value?.clientHeight ?? 0,
+  }
+}
+
 function updateOverlaySize() {
   if (!overlayCanvas || !chartRef.value)
     return
   const dpr = window.devicePixelRatio || 1
-  const w = chartRef.value.clientWidth
-  const h = chartRef.value.clientHeight
+  const { width: w, height: h } = chartSize()
   overlayCanvas.width = Math.round(w * dpr)
   overlayCanvas.height = Math.round(h * dpr)
   overlayCanvas.style.width = `${w}px`
@@ -688,12 +697,12 @@ function drawWindBarbs(arrowInfos: { timeMs: number, dir: number, speed: number 
   if (!ctx)
     return
 
-  const rect = chartRef.value.getBoundingClientRect()
+  const size = chartSize()
   const margin = layoutObj?.margin ?? { l: 48, r: 8, t: 8, b: 32 }
   const plotLeft = margin.l
   const plotTop = margin.t
-  const plotWidth = rect.width - margin.l - margin.r
-  const plotHeight = rect.height - margin.t - margin.b
+  const plotWidth = size.width - margin.l - margin.r
+  const plotHeight = size.height - margin.t - margin.b
 
   function xToPx(timeMs: number) {
     const t = (timeMs - minTime) / Math.max(1, (maxTime - minTime))
