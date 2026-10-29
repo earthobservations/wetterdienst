@@ -25,6 +25,9 @@ on:
       - 'README.md'
       - 'CHANGELOG.md'
       - 'CITATION.cff'
+      # tests/ui/test_mcp_benchmark_cases.py and test_mcp_benchmark_scripts.py hold the manual MCP benchmark (its
+      # skill, cases, prompt, agent and scripts) to the code and to itself; it is run by hand, so nothing else would
+      - '.claude/**'
       # tests/test_docs.py ties the extras the image installs to the ones docs/usage/docker.md lists
       - 'docker/Dockerfile'
       - '.github/workflows/install.sh'
@@ -44,6 +47,9 @@ on:
       - 'README.md'
       - 'CHANGELOG.md'
       - 'CITATION.cff'
+      # tests/ui/test_mcp_benchmark_cases.py and test_mcp_benchmark_scripts.py hold the manual MCP benchmark (its
+      # skill, cases, prompt, agent and scripts) to the code and to itself; it is run by hand, so nothing else would
+      - '.claude/**'
       # tests/test_docs.py ties the extras the image installs to the ones docs/usage/docker.md lists
       - 'docker/Dockerfile'
       - '.github/workflows/install.sh'

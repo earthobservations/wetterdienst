@@ -11,11 +11,12 @@ start the Python test matrix. Each workflow also lists its own file, so a change
 always exercised by that workflow.
 
 The filters are drawn from what the commands behind them read, not from what looks related: `ruff`
-is restricted to the four trees named in `include` in `pyproject.toml`, `ty` and `deptry` only ever
+is restricted to the trees named in `include` in `pyproject.toml` (`src`, `tests`, `benchmarks`, `examples` and the Python of `.claude/skills`), `ty` and `deptry` only ever
 look at `src/wetterdienst`, and `uv audit` only at the resolved dependency set. The test matrix is
 the widest of them, because the suite reaches outside `src/` and `tests/`: `tests/test_docs.py`
 checks the provider pages under `docs/data/provider` against the metadata model,
 `tests/test_citation.py` ties `CITATION.cff` to `README.md` and `CHANGELOG.md`,
+`tests/ui/test_mcp_benchmark_cases.py` and `test_mcp_benchmark_scripts.py` read the manual MCP benchmark under `.claude`,
 `tests/test_docs.py` ties the extras `docker/Dockerfile` installs to `docs/usage/docker.md`, and
 `app/tests/e2e/i18n-coverage.spec.ts` checks the app translation catalogs under `app/i18n` and the
 app home page against a running backend, so the Python suite no longer reads either.
