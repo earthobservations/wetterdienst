@@ -96,8 +96,10 @@ read in with another unit (`0.84 %`, `15.5 cm`), or gives a figure that is not t
 (its description matches the fact's `asked_descriptions` and none of its `ignore_descriptions`: `RESULT: 3.2 °C | daily
 mean` next to the right figure fails, `RESULT: 1.2 °C | daily max` or `RESULT: 5 days | window` does not). A fact with a
 `column` and a `row` also holds **every table that has a row for that day** to the value on that row, in the column a
-`TABLE-UNIT` line names (else the header the fact names, else any column) and in the unit that line declares; a markdown
-table with the dates as columns is read transposed. A range or a compound figure in a RESULT line (`19-21 °C`,
+header names for the quantity (`precip`, `value`; else a column a `TABLE-UNIT` line names with a unit the case knows, else
+any column when no table has either) and in the unit a `TABLE-UNIT` line declares for it (the units declared for other
+columns are not read); a table with the dates as columns is read transposed, a long table on the rows of the asked
+parameter, and a day with two different values is ambiguous. A range or a compound figure in a RESULT line (`19-21 °C`,
 `4 h 7 min`) is a malformed line, a format violation, not a wrong value. The wording lists are a judgement and are tried against both kinds of strings in the tests;
 an extra line worded in a way nobody foresaw is not a claim, so the check errs towards not failing a right answer for its
 wording. The example in the prompt is made up and a test holds it to passing no case.
@@ -129,13 +131,15 @@ points, which the output prints for each rate next to the runs there are; the de
 (the case that needs a key is skipped). The Fisher test per case is a hint only. It **refuses** (exit code 4) when the prompt, the logic
 version of `bench.py`, the defaults, the mode (headless or subagent) or the deferral of the tools differ, when the two
 sides report one version and carry no differing `label`, or when the two files were made with a different number of `repeats`, or hold a repeat outside 1..`repeats` or twice, or when
-more than 3 % of the compared runs are invalid or missing (invalid: the server was not connected, those runs are left out of
+more than 3 % of the compared runs of one tier are invalid or missing (the verdict is per tier, so is the cap; invalid: the server was not connected, those runs are left out of
 the rates and counted; missing: a repeat with no record at all, which counts as lost so that a timeout nobody recorded cannot
 shrink a side unseen; a run that never ran is recorded with
 `bench.py failed-run`; a timeout is a failed run, not an invalid one, with what its partial transcript measured or no metrics at all, never zeros); a tier whose resolved model ids differ is not compared. It compares the cases of the
 previous file that the current file's `meta` names with the same hash (and the tiers it lists): one of them with no run in the
 current file has every repeat missing and counts toward the 3 %, so a case that timed out on every repeat and was never
-recorded is not a smaller suite; cases only in the current file, with a changed hash or removed stay out and are listed. Sizes
+recorded is not a smaller suite; cases only in the current file, with a changed hash or removed stay out and are listed.
+`meta.case_hashes` and `meta.models` list what the run was made with, not every case and tier: a subset run is compared over what
+its `meta` names, a `meta` that names more than was run is refused with a reason that says so, and an empty `models` is refused. Sizes
 (tool-result characters, context tokens at the first request, total and output tokens, calls whose result was saved to a
 file) are printed as medians per case before and after and the paired difference.
 
@@ -192,11 +196,11 @@ glossary run against it worked.
   `ignore_descriptions` of a fact): a wrong figure that a model labels with a word of the ignore list (`RESULT: 5.2 m/s |
   daily mean wind speed, the peak`) is not caught, and a right extra figure labelled with a word no list foresaw is not failed. They are a first judgement: revisit
   them after the first baseline run, against the answers real models give.
-- A table is found only if it has a markdown separator row or a header line without a digit and its cells are separated by a
-  pipe, a comma or a tab: a semicolon CSV, and a CSV with the dates as columns (its first line holds digits), are not tables to
-  the check (their figures still need a RESULT line); a markdown table with the dates as columns is read. A date in a table is
-  read as `2026-10-16`, `16.10.2026`, `16.10.26`, `16.10.` (zeros optional), `16/10/2026`, `10/16/2026`, `16 Oct`,
-  `Oct 16, 2026` or `16 October 2026`; another year is another day. A table with no row for the day, or none with a figure in it
+- A table is found only if it has a markdown separator row or a header line of names (letters, digits and brackets, no colon:
+  `date,temperature_air_mean_2m`; or dates) and its cells are separated by a pipe, a comma or a tab: a semicolon CSV is not a
+  table to the check (its figures still need a RESULT line). A date in a table is read as `2026-10-16`, `2026/10/16`,
+  `20261016`, `16.10.2026`, `16.10.26`, `16.10.` (zeros optional), `16/10/2026`, `16-10-2026`, `10/16/2026`, `16 Oct`,
+  `Oct 16, 2026` or `16 October 2026`; another year is another day, month names in other languages are not read. A table with no row for the day, or none with a figure in it
   (a station list, a table of other days), fails nothing; one with the day's row and a wrong value does.
 - The unit check does not read: units written per time (`mm/day`), a German thousands point (`14.821 s`), a unit before the
   figure in a RESULT line, or a forecast figure in °F or K outside the span (it is ignored, not converted and checked). A

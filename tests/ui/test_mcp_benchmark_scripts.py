@@ -497,7 +497,9 @@ def test_the_comparison_refuses_when_runs_are_invalid() -> None:
     before = _results({("a", "small"): 5}, n=40)
     after = _results({("a", "small"): 5}, n=40, invalid={("a", "small"): 4})
 
-    assert "10% of the 40 compared current runs are 4 invalid (no server), above 3%" in bench.compare(before, after)
+    assert "10% of the 40 compared current runs of the small tier are 4 invalid (no server), above 3%" in bench.compare(
+        before, after
+    )
 
 
 def test_the_comparison_compares_the_resolved_model_ids() -> None:
@@ -2567,7 +2569,7 @@ def test_a_repeat_that_has_no_record_counts_as_missing_and_is_refused_beyond_thr
     text, refused = bench.compare_with_status(_file(), _file(gone=gone))
 
     assert refused
-    assert f"{share} of the 135 compared current runs are" in text
+    assert f"{share} of the 135 compared current runs of the small tier are" in text
     assert "missing (no record of the repeat)" in text
     assert "=> NO WORSE" not in text
 
@@ -3086,10 +3088,10 @@ ROUND_8_ANSWERS = [
         + "TABLE-UNIT: precipitation | mm",
     ),
     (
-        "t13 a right table and a wrong one that names another column",
+        "t13 a right table and a table of another quantity that has the day",
         CSV,
         TRUTHS[CSV],
-        False,
+        True,
         INTRO
         + _days_csv("date,rain_mm")
         + _days_md("temperature", [("2026-10-16", "9.8")])
@@ -3097,10 +3099,10 @@ ROUND_8_ANSWERS = [
     ),
     # dates as columns
     (
-        "t13b the declared column wins over a header that matches the fact",
+        "t13b the column that matches the fact is read, not another declared one",
         CSV,
         TRUTHS[CSV],
-        True,
+        False,
         INTRO
         + _csv("date,precipitation_forecast,rain_mm", *(f"{day},11.1,{value}" for day, value in DAYS))
         + "TABLE-UNIT: rain_mm | mm",
@@ -3229,7 +3231,20 @@ def test_a_range_or_a_second_figure_in_the_unit_slot_is_a_format_violation_not_a
     )
 
 
-@pytest.mark.parametrize("unit", ["m s-1", "l/m2", "m/s", "°C (as returned)", "mm [millimetres]", "% RH"])
+@pytest.mark.parametrize(
+    "unit",
+    [
+        "m s-1",
+        "l/m2",
+        "m/s",
+        "°C (as returned)",
+        "mm [millimetres]",
+        "% RH",
+        "mm (as of 2026)",
+        "°C (2 m)",
+        "m/s [10 min mean]",
+    ],
+)
 def test_a_digit_inside_a_unit_or_a_remark_does_not_make_the_line_malformed(unit: str) -> None:
     """The unit slot of a compound figure is tested for a leading sign or a second figure, not for any digit."""
     results, _, malformed = bench.format_lines(f"RESULT: 3 {unit} | wind")
@@ -3266,7 +3281,10 @@ def test_a_case_that_the_current_file_names_but_has_no_run_of_is_missing_not_lef
     text, refused = bench.compare_with_status(before, _without(after, *cases))
 
     assert refused, text
-    assert f"{share} of the 135 compared current runs are {5 * lost} missing (no record of the repeat)" in text
+    assert (
+        f"{share} of the 135 compared current runs of the small tier are {5 * lost} missing (no record of the repeat)"
+        in text
+    )
     assert "=> NO WORSE" not in text
 
 
@@ -3286,7 +3304,7 @@ def test_the_previous_files_own_missing_repeats_count_against_the_cap() -> None:
     text, refused = bench.compare_with_status(before, _file())
 
     assert refused
-    assert "4% of the 135 compared previous runs are 6 missing (no record of the repeat)" in text
+    assert "4% of the 135 compared previous runs of the small tier are 6 missing (no record of the repeat)" in text
 
 
 def test_a_changed_or_removed_case_stays_out_of_the_comparison_and_is_listed() -> None:
@@ -3333,7 +3351,7 @@ def test_a_repeat_equal_to_repeats_is_accepted_by_add_run(tmp_path: Path) -> Non
         bench.add_run(path, {**new, "repeat": 4})
 
 
-def test_a_table_with_no_unit_stated_anywhere_is_a_format_violation() -> None:
+def test_a_table_with_no_unit_stated_anywhere_fails_and_is_no_extra_format_violation() -> None:
     """A RESULT line in an unknown unit and a table without `TABLE-UNIT`: nothing states the unit."""
     table = INTRO + _days_csv("date,rain_mm")
     without = bench.unit_check(
@@ -3341,5 +3359,227 @@ def test_a_table_with_no_unit_stated_anywhere_is_a_format_violation() -> None:
     )
     with_unit = bench.unit_check(table + "TABLE-UNIT: rain_mm | mm", _unit_fact(CSV), TRUTHS[CSV])
 
-    assert (without["ok"], without["format_violation"]) == (False, True)
+    assert (without["ok"], without["format_violation"]) == (False, False)
     assert (with_unit["ok"], with_unit["format_violation"]) == (True, False)
+
+
+# ------------------------------------------------------------------------------------------------------- round 9
+
+TABLE_ANSWERS = json.loads((Path(__file__).parent / "mcp_benchmark_table_answers.json").read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize("row", TABLE_ANSWERS, ids=[row["id"] for row in TABLE_ANSWERS])
+def test_the_tables_a_review_tried_are_judged_right(row: dict[str, Any]) -> None:
+    """The reviewer's answers: wide and long tables, units of other columns, names that differ, dates in six forms."""
+    result = bench.unit_check(row["answer"], _unit_fact(row["case"]), row["truth"])
+
+    assert result["ok"] is row["expected"], (row["id"], result["mode"], [f["reason"] for f in result["failures"]])
+
+
+@pytest.mark.parametrize("row", TABLE_ANSWERS, ids=[row["id"] for row in TABLE_ANSWERS])
+def test_the_format_violation_of_a_verdict_is_the_one_of_the_run(row: dict[str, Any]) -> None:
+    """One definition: `unit_check` and the `format_violation` a run records agree on every answer."""
+    case = bench.find_case(bench.load_cases(), row["case"])
+    result = bench.unit_check(row["answer"], _unit_fact(row["case"]), row["truth"])
+
+    assert result["format_violation"] is bench.format_violation(case, row["answer"])
+
+
+def test_the_format_violation_and_the_verdict_agree_on_every_answer_of_the_units_cases() -> None:
+    """The same, over the answers of the earlier rounds."""
+    for rows in (ADVERSARIAL_ANSWERS, ROUND_8_ANSWERS):
+        for row in rows:
+            case_id, answer = (row[1], row[3]) if rows is ADVERSARIAL_ANSWERS else (row[1], row[4])
+            truth = TRUTHS[case_id] if rows is ADVERSARIAL_ANSWERS else row[2]
+            case = bench.find_case(bench.load_cases(), case_id)
+            assert bench.unit_check(answer, _unit_fact(case_id), truth)["format_violation"] is bench.format_violation(
+                case, answer
+            ), row[0]
+
+
+DATE_ROW = {"row": "2026-10-16"}
+
+
+@pytest.mark.parametrize(
+    ("cell", "found"),
+    [
+        ("2026/10/16", True),
+        ("2026/1/16", False),
+        ("16-10-2026", True),
+        ("16-10-2025", False),
+        ("20261016", True),
+        ("202610160", False),
+        ("20261017", False),
+        ("16 Octopus", False),
+    ],
+)
+def test_more_forms_of_the_day(cell: str, found: bool) -> None:  # noqa: FBT001
+    """Slashes with the year first, dashes with the year last, and the compact form."""
+    assert bench._row_has_day(["x", cell], DATE_ROW) is found  # noqa: SLF001
+
+
+def test_a_date_is_never_the_value_and_never_a_figure() -> None:
+    """`16/10/2026` gave the figure 16, which is 15.5 rounded; no date form is read as a figure."""
+    for cell in ("16/10/2026", "2026/10/16", "16-10-2026", "20261016", "2026-10-16T00:00:00+00:00"):
+        assert bench._FIGURE.search(bench._mask(cell)) is None, cell  # noqa: SLF001
+
+
+def test_several_rows_of_the_day_that_disagree_are_ambiguous_whatever_their_order() -> None:
+    """A day given twice with two values has no one value: it fails, first row right or last."""
+    fact = _unit_fact(CSV)
+    for rows in (("15.5", "9.9"), ("9.9", "15.5")):
+        answer = INTRO + _csv("date,precipitation_amount", *(f"2026-10-16,{value}" for value in rows))
+        result = bench.unit_check(answer + "TABLE-UNIT: precipitation_amount | mm", fact, TRUTHS[CSV])
+
+        assert result["ok"] is False
+        assert [f["reason"] for f in result["failures"]] == [
+            "the table gives the column more than one value on 2026-10-16"
+        ]
+    same = INTRO + _csv("date,precipitation_amount", "2026-10-16,15.5", "2026-10-16,15.50")
+    assert bench.unit_check(same + "TABLE-UNIT: precipitation_amount | mm", fact, TRUTHS[CSV])["ok"] is True
+
+
+def test_the_unit_of_another_column_is_never_read() -> None:
+    """The prompt asks for a TABLE-UNIT line per column with a unit: the units of other columns fail nothing."""
+    fact = _unit_fact(CSV)
+    table = INTRO + _csv(
+        "date,quality,wind_speed_mean,precipitation_amount", "2026-10-16,10,3.0,15.5", "2026-10-17,10,4.2,11.1"
+    )
+    other = "TABLE-UNIT: quality | QN\nTABLE-UNIT: wind_speed_mean | m/s\nTABLE-UNIT: date | UTC\n"
+
+    assert bench.unit_check(table + other + "TABLE-UNIT: precipitation_amount | mm", fact, TRUTHS[CSV])["ok"] is True
+    # ... and the unit of the asked column is: forbidden or unknown, it fails, with its reason
+    forbidden = bench.unit_check(table + other + "TABLE-UNIT: precipitation_amount | inches", fact, TRUTHS[CSV])
+    unknown = bench.unit_check(table + other + "TABLE-UNIT: precipitation_amount | furlongs", fact, TRUTHS[CSV])
+    assert [f["reason"] for f in forbidden["failures"]] == ["the column is declared in the forbidden unit 'inches'"]
+    assert [f["reason"] for f in unknown["failures"]] == ["the unit 'furlongs' of the column is not one the case knows"]
+
+
+def test_the_name_in_a_table_unit_line_finds_its_column_in_every_spelling() -> None:
+    """Case, quotes, backticks and spacing of a name do not matter; neither does a suffix on the asked column."""
+    fact = _unit_fact(CSV)
+    body = ["2026-10-15,0.0", "2026-10-16,15.5"]
+    for header, line in (
+        ("date,Rain_MM", "TABLE-UNIT: rain_mm | mm"),
+        ('"date","rain_mm"', "TABLE-UNIT: rain_mm | mm"),
+        ("date,rain_mm", "TABLE-UNIT: `rain_mm` | mm"),
+        ("date,rain_mm", "TABLE-UNIT:  RAIN_MM  | mm"),
+        ("date,precipitation_amount", "TABLE-UNIT: precipitation amount | mm"),
+        ("date,precipitation_mm", "TABLE-UNIT: precipitation | mm"),
+        ("date,Precipitation (mm)", "TABLE-UNIT: Precipitation | mm"),
+    ):
+        answer = INTRO + _csv(header, *body) + line
+        assert bench.unit_check(answer, fact, TRUTHS[CSV])["ok"] is True, (header, line)
+    # a unit in the header is the unit of the column when no line says otherwise
+    cm = INTRO + _csv("date,Precipitation (cm)", "2026-10-16,1.55") + "RESULT: 15.5 mm | precipitation on 2026-10-16"
+    assert bench.unit_check(cm, fact, TRUTHS[CSV])["ok"] is True
+
+
+def test_a_long_table_is_read_on_the_rows_of_the_asked_parameter() -> None:
+    """`date,parameter,value`: the rows of the day that name another parameter are not the value, in either order."""
+    fact = _unit_fact(CSV)
+    for first, second in (
+        ("temperature_air_mean_2m,11.2", "precipitation_amount,15.5"),
+        ("precipitation_amount,15.5", "temperature_air_mean_2m,11.2"),
+    ):
+        answer = _csv("date,parameter,value", f"2026-10-16,{first}", f"2026-10-16,{second}") + "TABLE-UNIT: value | mm"
+        assert bench.unit_check(answer, fact, TRUTHS[CSV])["ok"] is True, first
+    wrong = _csv("date,parameter,value", "2026-10-16,temperature_air_mean,15.4", "2026-10-16,precipitation_amount,9.9")
+    assert bench.unit_check(wrong + "TABLE-UNIT: value | mm", fact, TRUTHS[CSV])["ok"] is False
+
+
+def test_a_table_about_another_quantity_is_left_out_but_only_when_another_table_is_about_the_value() -> None:
+    """A table of the day with no column for the quantity is out when a table has one; alone, every column is read."""
+    fact = _unit_fact(CSV)
+    event = "| date | event | km |\n| --- | --- | --- |\n| 2026-10-16 | front passed | 40 |\n"
+    right = _days_csv("date,precipitation_amount") + "TABLE-UNIT: precipitation_amount | mm\n"
+
+    assert bench.unit_check(INTRO + right + event, fact, TRUTHS[CSV])["ok"] is True
+    alone = bench.unit_check(
+        INTRO + _days_csv("date,rain", SHIFTED) + "RESULT: 15.5 mm | precipitation on 2026-10-16", fact, TRUTHS[CSV]
+    )
+    assert alone["ok"] is False
+
+
+# ---- the cap is per tier; subset runs; an empty `models`
+
+
+def _two_tiers(cases: int = 27) -> dict[str, Any]:
+    """Make a results file with a small and a large tier."""
+    small, large = _file(cases=cases), _file(cases=cases)
+    large["runs"] = [{**r, "tier": "large", "model": "claude-sonnet-5-5"} for r in large["runs"]]
+    return {
+        "meta": {**small["meta"], "models": {"small": "haiku", "large": "sonnet"}},
+        "runs": small["runs"] + large["runs"],
+    }
+
+
+def test_the_missing_cap_is_per_tier_because_the_verdict_is() -> None:
+    """Eight unrecorded timeouts in one tier are 3 % of both tiers together and 6 % of the tier they are in."""
+    before, after = _two_tiers(), _two_tiers()
+    after["runs"] = [
+        r
+        for r in after["runs"]
+        if not (r["tier"] == "small" and r["case"] in {"c0", "c1", "c2", "c3"} and r["repeat"] >= 4)
+    ]
+
+    text, refused = bench.compare_with_status(before, after)
+
+    assert refused
+    assert "6% of the 135 compared current runs of the small tier are 8 missing" in text
+    assert "large tier" not in text
+
+
+def test_one_lost_case_in_one_of_two_tiers_is_refused_and_the_message_says_what_to_do() -> None:
+    """The lost case has no run on that tier: the reason names the case and where to list what was selected."""
+    before, after = _two_tiers(), _two_tiers()
+    after["runs"] = [r for r in after["runs"] if not (r["tier"] == "small" and r["case"] == "c0")]
+
+    text, refused = bench.compare_with_status(before, after)
+
+    assert refused
+    assert "4% of the 135 compared current runs of the small tier are 5 missing" in text
+    assert "1 of the (case, tier) have no run at all (c0)" in text
+    assert "list in them only the cases and tiers that were selected" in text
+
+
+def test_a_subset_run_is_compared_over_the_cases_and_tiers_its_meta_names() -> None:
+    """Listing only the selected cases and the tier in `meta` compares over those; listing all of them is refused."""
+    before = _two_tiers()
+    chosen = _two_tiers(cases=8)
+    chosen["meta"] = {**chosen["meta"], "models": {"small": "haiku"}}
+    chosen["runs"] = [r for r in chosen["runs"] if r["tier"] == "small"]
+
+    text, refused = bench.compare_with_status(before, chosen)
+
+    assert not refused, text
+    assert "8 (case, tier) compared" in text
+    assert "left out, case or tier not in the current file" in text
+
+    everything = {**chosen, "meta": {**chosen["meta"], "case_hashes": before["meta"]["case_hashes"]}}
+    text, refused = bench.compare_with_status(before, everything)
+    assert refused
+    assert "have no run at all" in text
+
+
+def test_an_empty_models_is_a_clear_refusal_not_a_percentage() -> None:
+    """`meta.models` that names no tier: the message says so, and does not count 100 % missing."""
+    before, after = _two_tiers(), _two_tiers()
+    after["meta"]["models"] = {}
+
+    text, refused = bench.compare_with_status(before, after)
+
+    assert refused
+    assert "the current file's meta.models is empty: it names no tier" in text
+    assert "missing" not in text
+
+
+def test_the_date_column_is_not_a_candidate_for_the_value_even_when_a_date_is_not_masked() -> None:
+    """`16.10.` is the day (no year) and reads as the figure 16.1: with a value of 16.1 it must not be taken for it."""
+    fact = _unit_fact(CSV)
+    answer = INTRO + _csv("date,rain", "15.10.,0.0", "16.10.,9.9") + "RESULT: 16.1 mm | precipitation on 2026-10-16"
+
+    result = bench.unit_check(answer, fact, {"value": 16.1})
+
+    assert result["ok"] is False
+    assert any("does not hold the value" in f["reason"] for f in result["failures"])

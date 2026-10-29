@@ -237,13 +237,18 @@ For a **forecast** (a span) a figure with an accepted unit outside the span coun
 significant digits gets no rounding in the unit the value was read in when the value has two or more digits (`1` is not 0.8404
 as a fraction); in another unit or for a one-digit value it is rounding (`4 h` for 4.12 h, `-1 °C` for -0.7). A column's
 `TABLE-UNIT` must name one of the unit tokens. **A fact with a `column` and a `row` holds every table of the answer that has the day's row to the value
-on that row** (`2026-10-16`, `16.10.2026`, `16.10.`, `16/10/2026`, `16 Oct`, `Oct 16, 2026` ...; a markdown table with
-the dates as columns is read transposed): in the column a `TABLE-UNIT` line names, else the columns whose header matches the
-fact's `column` regex (`precip`, which also takes `precipitation`, or `value`, the tool's own CSV), else any column that has a
-figure on that row; in the unit that line declares (`TABLE-UNIT: precipitation_cm | cm` reads the figures as centimetres), else
-the unit the tool returns. Every table that has a row for that day with a figure in it is held to the value, so a wrong table fails the answer beside a right
-one; a table with no row for the day (a station list, a table of other days, a day row without a figure) is not about the value and
-fails nothing. The unit must be stated: by a `TABLE-UNIT` line
+on that row** (`2026-10-16`, `2026/10/16`, `20261016`, `16.10.2026`, `16.10.`, `16/10/2026`, `16-10-2026`, `16 Oct`, `Oct 16, 2026` ...; a
+table with the dates as columns is read transposed; in a long table, `date,parameter,value`, only the rows that name the asked
+quantity): in the columns whose header matches the fact's `column` regex (`precip`, which also takes `precipitation`, or
+`value`, the tool's own CSV), else in the column a `TABLE-UNIT` line names with a unit the case knows (`rain_mm | mm`), else, when
+no table has either, in any column that has a figure on that row. A date, and a figure inside a date, is never the value. The unit
+is the one a `TABLE-UNIT` line declares for the column (`precipitation` is `precipitation_mm`, `precipitation amount` is
+`precipitation_amount`; `TABLE-UNIT: precipitation_cm | cm` reads the figures as centimetres), else the one in the header
+(`Precipitation (cm)`), else the unit the tool returns; the units a line declares for other columns (`quality | QN`,
+`date | UTC`) are not read. A day given more than once with different values in the column is ambiguous and fails, whatever the
+order of its rows. Every table that has a row for that day with a figure in it is held to the value, so a wrong table fails the answer beside a right
+one; a table with no row for the day, or with no column for the quantity when another table has one (a station list, a table of other
+days, a table of the day with a distance in it), is not about the value and fails nothing. The unit must be stated: by a `TABLE-UNIT` line
 for the column or by a fitting RESULT line; a RESULT line for the value is also enough when the answer has no table.
 
 **The unit slot** forgives slips: a trailing point, a remark in brackets (`°C (as returned)`, `mm (millimetres)`,
@@ -294,7 +299,7 @@ into the repository, never committed). `bench.py report` and `compare` read it.
           "reference": "<prefix or python>", "reference_version": "0.178.0", "claude_version": "2.1.308",
           "tools_deferred": false, "context_note": "<what remains in the context, per mode above>",
           "repeats": 5, "cases_file": "<hash>", "defaults": "<hash>", "logic": "<LOGIC_VERSION of bench.py>", "prompt": "<hash>",
-          "case_hashes": {"<case id>": "<hash>"}, "server_info": {"name": "Wetterdienst", "version": "0.178.0"},
+          "case_hashes": {"<id of each case of THIS run>": "<hash>"}, "server_info": {"name": "Wetterdienst", "version": "0.178.0"},
           "tools_list": {"description": 9877, "inputSchema": 39311, "outputSchema": 210404}},
  "runs": [{"case": "...", "tier": "small", "repeat": 1,
            "...": "everything `bench.py analyze` printed, without `result_head` (`invalid`, `model`, `spilled_calls`, ...)",
@@ -316,10 +321,12 @@ now), and the path of the file.
 prompt, the **mode** (headless or subagent) or whether the tools were **deferred** differ, when the two sides cannot be
 told apart (one server version and one `label`; `--same-server` compares two runs of one server), when the two files were made
 with a different number of `repeats` or hold a repeat outside 1..`repeats` or twice, or when more than 3 % of the runs of the
-*compared* cases are invalid or missing. It compares the (case, tier) of the previous file whose case is named
+*compared* cases of one tier are invalid or missing (the verdict is per tier, so is the cap). It compares the (case, tier) of the previous file whose case is named
 with the same hash in the current file's `meta.case_hashes` and whose tier is in its `meta.models`: **one of them with no run
 in the current file has every repeat missing** and counts toward the 3 % (a strategy that makes a case time out on every
-repeat and records none must not look like a smaller suite). It lists, by name, the cases only in the current file, with a
+repeat and records none must not look like a smaller suite). `meta.case_hashes` and `meta.models` therefore list exactly the cases and tiers the run was
+made with (`cases=`, `tiers=`), not all of them: a subset run that lists them all is refused, and the reason says so; a `models` that
+is empty is refused as such. It lists, by name, the cases only in the current file, with a
 changed hash, and removed from the current file (or whose tier it no longer has), which stay out; a tier whose
 resolved model ids differ is not compared; it refuses a file with a run still marked `needs_judging`. Every case is first
 cut down to the repeats that are valid on both sides (`_equalise`: paired by `repeat`, no pseudo-counts, so that pooling uses
