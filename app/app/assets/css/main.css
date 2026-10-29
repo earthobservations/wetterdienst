@@ -183,6 +183,41 @@ body {
   }
 }
 
+/* The search of the rail, which opens the app's search (CommandPalette.vue): a field's shape on the navy, its label
+   grey-200 (8.0:1 on its tint), the shortcut grey-300 (6.7:1), white when hovered (8.2:1) */
+.app-rail-search {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid rgb(255 255 255 / 0.2);
+  border-radius: var(--ui-radius);
+  background: rgb(255 255 255 / 0.08);
+  color: var(--color-gray-200);
+  text-align: start;
+}
+.app-rail-search:hover {
+  background: rgb(255 255 255 / 0.14);
+  color: #fff;
+}
+.app-rail-search kbd {
+  padding: 0 0.375rem;
+  border: 1px solid rgb(255 255 255 / 0.25);
+  border-radius: 0.25rem;
+  color: var(--color-gray-300);
+  font: inherit;
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+  white-space: nowrap;
+}
+@media (forced-colors: active) {
+  .app-rail-search {
+    border-color: ButtonText;
+  }
+}
+
 /* An entry of the navigation: its tile, its label, and a bar at its start when it is the page shown (a border, so
    that it stays in forced colours, where backgrounds are dropped) */
 .app-nav-link {

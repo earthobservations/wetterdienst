@@ -793,5 +793,39 @@
     "summary": "Synthèse",
     "periods": "Périodes",
     "colMissingCount": "Nombre de valeurs manquantes"
+  },
+  "palette": {
+    "open": "Rechercher",
+    "title": "Recherche et commandes",
+    "label": "Rechercher des pages, des réglages et des stations",
+    "placeholder": "Pages, réglages, stations …",
+    "results": "Résultats",
+    "resultCount": "Résultats : {count}",
+    "empty": "Aucun résultat.",
+    "groupPages": "Pages du site",
+    "groupActions": "Réglages rapides",
+    "groupStations": "Prévisions d'une station",
+    "stationsLoading": "Chargement des stations …",
+    "stationsHint": "Tape deux lettres ou un identifiant de station pour chercher parmi les stations de prévision.",
+    "stationsFailed": "Impossible de charger les stations.",
+    "themeAction": "Apparence : {theme}",
+    "languageAction": "Langue : {language}",
+    "hint": "↑ ↓ choisir · Entrée ouvrir · Échap fermer",
+    "current": "actuel",
+    "pages": {
+      "home": "Accueil : ce que sont les données et par où commencer",
+      "meteogram": "La prévision d'une station du DWD en graphique",
+      "explorer": "Trouver des stations, obtenir les mesures et les télécharger",
+      "history": "Comment une station a changé : nom, lieu, instruments",
+      "stripes": "Le réchauffement d'une station en bandes de couleur",
+      "providers": "Qui publie les données, et sous quelle licence",
+      "glossary": "Ce que mesure chaque paramètre, et son unité",
+      "api": "L'API REST et le serveur MCP",
+      "settings": "Langue, apparence et affichage des valeurs",
+      "about": "Le projet et les personnes qui le portent",
+      "support": "Signaler un problème, contribuer ou faire un don",
+      "impressum": "Qui exploite ce site, et comment le joindre",
+      "datenschutz": "Les données que traite ce site, et tes droits"
+    }
   }
 }

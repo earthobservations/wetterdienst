@@ -102,6 +102,9 @@ describe('the rail and the navy band', () => {
     ['an entry\'s label, hovered', WHITE, over(WHITE, NAVY, 0.08)],
     ['the page shown', WHITE, over(WHITE, NAVY, 0.12)],
     ['a group\'s heading', gray(300), NAVY],
+    ['the search button\'s label', gray(200), over(WHITE, NAVY, 0.08)],
+    ['the search button\'s shortcut', gray(300), over(WHITE, NAVY, 0.08)],
+    ['the search button, hovered', WHITE, over(WHITE, NAVY, 0.14)],
   ])('clears 4.5:1 for %s', (_what, text, background) => {
     expect(contrast(text, background)).toBeGreaterThanOrEqual(4.5)
   })

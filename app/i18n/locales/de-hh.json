@@ -793,5 +793,39 @@
     "summary": "Tosamenfaat",
     "periods": "Tietrüüm",
     "colMissingCount": "Tahl fehlend"
+  },
+  "palette": {
+    "open": "Söken",
+    "title": "Söken un Befehle",
+    "label": "Sieden, Instellungen un Stationen dörsöken",
+    "placeholder": "Sieden, Instellungen, Stationen …",
+    "results": "Resultaten",
+    "resultCount": "Resultaten: {count}",
+    "empty": "Nix funnen.",
+    "groupPages": "Sieden",
+    "groupActions": "Akschonen",
+    "groupStations": "Utsicht för en Station",
+    "stationsLoading": "Moment, de Stationen laadt …",
+    "stationsHint": "Tipp twee Bookstaven oder en Stations-ID, denn sööcht dat de Utsichtsstationen dör.",
+    "stationsFailed": "De Stationen kunnen nich laadt warrn.",
+    "themeAction": "Utsehn: {theme}",
+    "languageAction": "Spraak: {language}",
+    "hint": "↑ ↓ utwählen · Enter apenmaken · Esc tomaken",
+    "current": "nu",
+    "pages": {
+      "home": "Startsiet: wat de Daten sünd un wo du anfangst",
+      "meteogram": "De Utsicht vun en DWD-Station as Diagramm",
+      "explorer": "Stationen finnen, Meetwerten halen un dalladen",
+      "history": "Wo sik en Station ännert hett: Naam, Oort, Geräte",
+      "stripes": "Dat Opwarmen an en Station as bunte Strepen",
+      "providers": "Wer de Daten rutgifft, ünner welke Lizenz",
+      "glossary": "Wat jeedeen Parameter meet, un sien Eenheit",
+      "api": "De REST-API un de MCP-Server",
+      "settings": "Spraak, Utsehn un wo Werten wiest warrt",
+      "about": "Dat Projekt un de Lüüd dorachter",
+      "support": "Fehler mellen, mitmaken oder spennen",
+      "impressum": "Wer disse Siet bedrifft un wo du em erreichst",
+      "datenschutz": "Welke Daten disse Siet verarbeit, un dien Rechten"
+    }
   }
 }

@@ -793,5 +793,39 @@
     "summary": "Opsummering",
     "periods": "Perioder",
     "colMissingCount": "Antal manglende"
+  },
+  "palette": {
+    "open": "Søg",
+    "title": "Søgning og kommandoer",
+    "label": "Søg i sider, indstillinger og stationer",
+    "placeholder": "Sider, indstillinger, stationer …",
+    "results": "Resultater",
+    "resultCount": "Resultater: {count}",
+    "empty": "Intet fundet.",
+    "groupPages": "Sider",
+    "groupActions": "Handlinger",
+    "groupStations": "Prognose for en station",
+    "stationsLoading": "Indlæser stationer …",
+    "stationsHint": "Skriv to bogstaver eller et stations-ID for at søge blandt prognosestationerne.",
+    "stationsFailed": "Stationerne kunne ikke indlæses.",
+    "themeAction": "Udseende: {theme}",
+    "languageAction": "Sprog: {language}",
+    "hint": "↑ ↓ vælg · Enter åbn · Esc luk",
+    "current": "nuværende",
+    "pages": {
+      "home": "Forside: hvilke data der er, og hvor du begynder",
+      "meteogram": "Prognosen for en DWD-station som diagram",
+      "explorer": "Find stationer, hent målinger og download dem",
+      "history": "Hvordan en station har ændret sig: navn, sted, instrumenter",
+      "stripes": "Opvarmningen ved en station som farvede striber",
+      "providers": "Hvem der udgiver dataene, og under hvilken licens",
+      "glossary": "Hvad hver parameter måler, og dens enhed",
+      "api": "REST-API'et og MCP-serveren",
+      "settings": "Sprog, udseende og visning af værdier",
+      "about": "Projektet og menneskene bag det",
+      "support": "Meld en fejl, bidrag eller donér",
+      "impressum": "Hvem der driver siden, og hvordan du kontakter dem",
+      "datenschutz": "Hvilke data siden behandler, og dine rettigheder"
+    }
   }
 }

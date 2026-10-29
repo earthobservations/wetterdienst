@@ -793,5 +793,39 @@
     "summary": "Sintesi",
     "periods": "Periodi",
     "colMissingCount": "Numero di valori mancanti"
+  },
+  "palette": {
+    "open": "Cerca",
+    "title": "Ricerca e comandi",
+    "label": "Cerca pagine, impostazioni e stazioni",
+    "placeholder": "Pagine, impostazioni, stazioni …",
+    "results": "Risultati",
+    "resultCount": "Risultati: {count}",
+    "empty": "Nessun risultato.",
+    "groupPages": "Pagine",
+    "groupActions": "Azioni",
+    "groupStations": "Previsioni di una stazione",
+    "stationsLoading": "Caricamento delle stazioni …",
+    "stationsHint": "Scrivi due lettere o l'ID di una stazione per cercare tra le stazioni delle previsioni.",
+    "stationsFailed": "Non è stato possibile caricare le stazioni.",
+    "themeAction": "Aspetto: {theme}",
+    "languageAction": "Lingua: {language}",
+    "hint": "↑ ↓ scegli · Invio apri · Esc chiudi",
+    "current": "attuale",
+    "pages": {
+      "home": "Pagina iniziale: che dati ci sono e da dove iniziare",
+      "meteogram": "La previsione di una stazione DWD in un grafico",
+      "explorer": "Trova stazioni, ottieni le misure e scaricale",
+      "history": "Come è cambiata una stazione: nome, luogo, strumenti",
+      "stripes": "Il riscaldamento di una stazione in strisce colorate",
+      "providers": "Chi pubblica i dati e con quale licenza",
+      "glossary": "Cosa misura ogni parametro, e la sua unità",
+      "api": "L'API REST e il server MCP",
+      "settings": "Lingua, aspetto e come vengono mostrati i valori",
+      "about": "Il progetto e le persone che lo curano",
+      "support": "Segnala un problema, contribuisci o fai una donazione",
+      "impressum": "Chi gestisce questo sito e come contattarlo",
+      "datenschutz": "Quali dati tratta questo sito e i tuoi diritti"
+    }
   }
 }

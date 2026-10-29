@@ -793,5 +793,39 @@
     "summary": "Souhrn",
     "periods": "Období",
     "colMissingCount": "Počet chybějících"
+  },
+  "palette": {
+    "open": "Hledat",
+    "title": "Hledání a příkazy",
+    "label": "Hledat stránky, nastavení a stanice",
+    "placeholder": "Stránky, nastavení, stanice …",
+    "results": "Výsledky",
+    "resultCount": "Výsledky: {count}",
+    "empty": "Nic nenalezeno.",
+    "groupPages": "Stránky",
+    "groupActions": "Akce",
+    "groupStations": "Předpověď pro stanici",
+    "stationsLoading": "Načítání stanic …",
+    "stationsHint": "Napiš dvě písmena nebo ID stanice a prohledej stanice předpovědi.",
+    "stationsFailed": "Stanice se nepodařilo načíst.",
+    "themeAction": "Vzhled: {theme}",
+    "languageAction": "Jazyk: {language}",
+    "hint": "↑ ↓ vybrat · Enter otevřít · Esc zavřít",
+    "current": "aktuální",
+    "pages": {
+      "home": "Úvod: jaká data tu jsou a kde začít",
+      "meteogram": "Předpověď stanice DWD v grafu",
+      "explorer": "Najít stanice, získat měření a stáhnout je",
+      "history": "Jak se stanice měnila: název, místo, přístroje",
+      "stripes": "Oteplování na stanici jako barevné pruhy",
+      "providers": "Kdo data zveřejňuje a pod jakou licencí",
+      "glossary": "Co který parametr měří a v jaké jednotce",
+      "api": "REST API a server MCP",
+      "settings": "Jazyk, vzhled a zobrazení hodnot",
+      "about": "Projekt a lidé za ním",
+      "support": "Nahlásit problém, přispět nebo darovat",
+      "impressum": "Kdo tento web provozuje a jak ho kontaktovat",
+      "datenschutz": "Jaká data tento web zpracovává a jaká máš práva"
+    }
   }
 }

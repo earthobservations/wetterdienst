@@ -94,6 +94,14 @@ watch(wide, (isWide) => {
     mobileMenuOpen.value = false
 })
 
+// The app's search (CommandPalette.vue): its buttons say whether it is open, and show the shortcut of this system
+const { open: paletteOpen, show: openPalette } = useCommandPalette()
+const shortcut = isApplePlatform() ? '⌘K' : 'Ctrl K'
+function showPalette() {
+  mobileMenuOpen.value = false
+  openPalette()
+}
+
 /** The colour of a tile of the logo: the four things the app does each have one (main.css, `.app-tile`) */
 type Tile = 'sun' | 'rain' | 'wind' | 'heat'
 interface NavItem { label: string, icon: string, to: string, active: boolean, tile?: Tile }
@@ -165,6 +173,19 @@ const footerLinks = computed(() => [
               <UButton
                 v-if="!wide"
                 class="text-white hover:bg-white/10 hover:text-white"
+                icon="i-lucide-search"
+                color="neutral"
+                variant="ghost"
+                size="lg"
+                :aria-label="t('palette.open')"
+                aria-haspopup="dialog"
+                :aria-expanded="paletteOpen"
+                aria-keyshortcuts="Control+K Meta+K"
+                @click="showPalette"
+              />
+              <UButton
+                v-if="!wide"
+                class="text-white hover:bg-white/10 hover:text-white"
                 icon="i-lucide-menu"
                 color="neutral"
                 variant="ghost"
@@ -174,6 +195,22 @@ const footerLinks = computed(() => [
                 :aria-expanded="mobileMenuOpen"
                 @click="mobileMenuOpen = true"
               />
+            </div>
+
+            <!-- the app's search: pages, settings and forecast stations (CommandPalette.vue), also by Ctrl+K / ⌘K -->
+            <div v-if="wide" class="px-4 pb-4">
+              <button
+                type="button"
+                class="app-rail-search"
+                aria-haspopup="dialog"
+                :aria-expanded="paletteOpen"
+                aria-keyshortcuts="Control+K Meta+K"
+                @click="showPalette"
+              >
+                <UIcon name="i-lucide-search" class="size-4 shrink-0" aria-hidden="true" />
+                <span class="flex-1 text-start">{{ t('palette.open') }}</span>
+                <kbd aria-hidden="true">{{ shortcut }}</kbd>
+              </button>
             </div>
 
             <nav :aria-label="t('header.mainNav')" class="hidden lg:block px-3 pb-4">
@@ -320,6 +357,8 @@ const footerLinks = computed(() => [
           </div>
         </template>
       </UModal>
+
+      <CommandPalette />
     </template>
   </UApp>
 </template>

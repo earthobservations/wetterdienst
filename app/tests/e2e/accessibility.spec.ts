@@ -334,6 +334,30 @@ const STATES: State[] = [
     },
   },
   {
+    // the app's search (GH-3518), as it opens: the pages, and the appearance with the one in use marked
+    page: 'index',
+    state: 'palette-open',
+    keepFocus: true,
+    path: '/',
+    reach: async (page, locale) => {
+      await page.getByRole('banner').getByRole('button', { name: message(locale, 'palette.open'), exact: true }).click()
+      await expect(page.getByRole('combobox')).toBeFocused()
+      await expect(page.getByRole('listbox').getByRole('option').first()).toBeVisible()
+    },
+  },
+  {
+    // and searched: a language, and forecast stations
+    page: 'index',
+    state: 'palette-search',
+    keepFocus: true,
+    path: '/',
+    reach: async (page, locale) => {
+      await page.getByRole('banner').getByRole('button', { name: message(locale, 'palette.open'), exact: true }).click()
+      await page.getByRole('combobox').fill('ham')
+      await expect(page.getByRole('option', { name: /HAMBURG/ })).toBeVisible()
+    },
+  },
+  {
     page: 'index',
     state: 'mobile-menu-open',
     keepFocus: true,

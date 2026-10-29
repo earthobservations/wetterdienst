@@ -12,7 +12,8 @@ it, what was checked by hand, and what is known not to conform.
 - every page, as it is first shown, in light and dark mode and in English and German,
 - and, in light/English and dark/German, the states a first paint does not show: a station map with
   stations, a drawn chart (explorer, stripes, meteogram, widget), the table of the stripes' and the meteogram's values opened, the meteogram's compact day cards, an open
-  menu or popover, and an error notice.
+  menu or popover, the app's search open (as it opens, and with a language and stations found), and an error
+  notice.
 
 The spec answers every `/api/*` request itself, in the browser (`tests/e2e/accessibility/mock-backend.ts`),
 so it reaches neither the backend nor a provider. Map tiles and every other request to another host are
@@ -42,6 +43,27 @@ it back; `chart controls by keyboard`: Plotly's modebar, and the table of values
 and the meteogram, opened, reached and scrolled by keys; and Plotly's hover label and the names of its
 modebar buttons, which Escape dismisses until the pointer moves, 1.4.13), checks that every page has a title of its own that a navigation announces (`page titles`, 2.4.2,
 4.1.3) and that no page scrolls sideways at 320 px (`reflow at 320 px`, 1.4.10).
+
+`command-palette.spec.ts`, part of `pnpm test:e2e` and answered by the same mock backend, drives the app's
+search by keys alone. The search (`components/CommandPalette.vue`, GH-3518) is the app's own, not Nuxt UI's
+`UCommandPalette`, whose field is no combobox and whose list box has no name. It is the ARIA combobox pattern
+with a list box:
+
+- the field is a `combobox` with a name, `aria-controls` naming the list box, `aria-autocomplete="list"` and
+  `aria-activedescendant` naming the active option;
+- the list box is named ("Results"), its options are in named `group`s (pages, actions, stations), and the
+  active option is the one with `aria-selected="true"`;
+- the arrow keys (round from the last to the first) and Page Up / Page Down move the active option, Enter takes
+  it, and a pause in the typing announces the number of results (`role="status"`);
+- it opens from the rail's search button (the narrow layout's bar has one too) and by Ctrl+K / ⌘K
+  (`aria-keyshortcuts`). It is a dialog that keeps the focus, and Escape closes it and gives the focus back to
+  what opened it;
+- a language's name is marked as being in that language (3.1.2);
+- the field and the list scroll in one box, so the box that scrolls holds what takes the focus.
+
+The spec checks the roles and names, the active option moving and coming round, the focus held by Tab and
+Shift+Tab, Escape giving the focus back, a page, a station and the appearance and language taken by Enter, and
+"Nothing found" closing the list (`aria-expanded="false"`, no active option).
 
 ## The baseline
 

@@ -189,10 +189,11 @@ watch([selectedStation, selectedIssue], ([station, issue]) => {
   void router.replace({ query: q }).catch(() => {})
 })
 
-// Restore selected station and issue from URL query params on page load
-onMounted(async () => {
-  const stationId = route.query.station as string | undefined
-  const issueFromUrl = route.query.issue?.toString()
+// Restore selected station and issue from URL query params on page load, and when the address names another station
+// while the page is open (the app's search, GH-3518, opens a station's forecast from every page, this one too)
+async function restoreFromUrl(query = route.query) {
+  const stationId = query.station as string | undefined
+  const issueFromUrl = query.issue?.toString()
   if (!stationId)
     return
   isRestoringFromUrl.value = true
@@ -220,6 +221,13 @@ onMounted(async () => {
     await nextTick()
     isRestoringFromUrl.value = false
   }
+}
+onMounted(() => restoreFromUrl())
+// a navigation to this page while it is shown (the router keeps the page): a station the page has not chosen itself
+onBeforeRouteUpdate((to) => {
+  const stationId = to.query.station
+  if (typeof stationId === 'string' && stationId !== selectedStation.value?.station_id)
+    void restoreFromUrl(to.query)
 })
 </script>
 

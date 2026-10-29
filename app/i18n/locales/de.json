@@ -793,5 +793,39 @@
     "summary": "Zusammenfassung",
     "periods": "Zeiträume",
     "colMissingCount": "Anzahl fehlend"
+  },
+  "palette": {
+    "open": "Suche",
+    "title": "Suche und Befehle",
+    "label": "Seiten, Einstellungen und Stationen durchsuchen",
+    "placeholder": "Seiten, Einstellungen, Stationen …",
+    "results": "Ergebnisse",
+    "resultCount": "Ergebnisse: {count}",
+    "empty": "Nichts gefunden.",
+    "groupPages": "Seiten",
+    "groupActions": "Aktionen",
+    "groupStations": "Vorhersage für eine Station",
+    "stationsLoading": "Stationen werden geladen …",
+    "stationsHint": "Tippe zwei Buchstaben oder eine Stations-ID, um die Vorhersagestationen zu durchsuchen.",
+    "stationsFailed": "Die Stationen konnten nicht geladen werden.",
+    "themeAction": "Darstellung: {theme}",
+    "languageAction": "Sprache: {language}",
+    "hint": "↑ ↓ wählen · Enter öffnen · Esc schließen",
+    "current": "aktuell",
+    "pages": {
+      "home": "Startseite: was die Daten sind und wo du anfängst",
+      "meteogram": "Die Vorhersage einer DWD-Station als Diagramm",
+      "explorer": "Stationen finden, Messwerte abrufen und herunterladen",
+      "history": "Wie sich eine Station verändert hat: Name, Ort, Geräte",
+      "stripes": "Die Erwärmung an einer Station als farbige Streifen",
+      "providers": "Wer die Daten veröffentlicht, unter welcher Lizenz",
+      "glossary": "Was jeder Parameter misst, und seine Einheit",
+      "api": "Die REST-API und der MCP-Server",
+      "settings": "Sprache, Darstellung und wie Werte gezeigt werden",
+      "about": "Das Projekt und die Menschen dahinter",
+      "support": "Fehler melden, mitmachen oder spenden",
+      "impressum": "Wer diese Seite betreibt und wie du sie erreichst",
+      "datenschutz": "Welche Daten diese Seite verarbeitet, und deine Rechte"
+    }
   }
 }

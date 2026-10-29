@@ -793,5 +793,39 @@
     "summary": "Resümee",
     "periods": "Perioden",
     "colMissingCount": "Zuel vu Fehlenden"
+  },
+  "palette": {
+    "open": "Sichen",
+    "title": "Sich a Befeeler",
+    "label": "Säiten, Astellungen a Statiounen duerchsichen",
+    "placeholder": "Säiten, Astellungen, Statiounen …",
+    "results": "Resultater",
+    "resultCount": "Resultater: {count}",
+    "empty": "Näischt fonnt.",
+    "groupPages": "Säiten",
+    "groupActions": "Aktiounen",
+    "groupStations": "Previsioun fir eng Statioun",
+    "stationsLoading": "Statioune ginn gelueden …",
+    "stationsHint": "Tipp zwee Buschtawen oder eng Statiouns-ID, fir an de Previsiounsstatiounen ze sichen.",
+    "stationsFailed": "D'Statioune konnten net geluede ginn.",
+    "themeAction": "Ausgesinn: {theme}",
+    "languageAction": "Sprooch: {language}",
+    "hint": "↑ ↓ wielen · Enter opmaachen · Esc zoumaachen",
+    "current": "aktuell",
+    "pages": {
+      "home": "Startsäit: wat d'Donnéeë sinn a wou s du ufänks",
+      "meteogram": "D'Previsioun vun enger DWD-Statioun als Diagramm",
+      "explorer": "Statioune fannen, Miessunge kréien an eroflueden",
+      "history": "Wéi eng Statioun sech geännert huet: Numm, Plaz, Instrumenter",
+      "stripes": "D'Erwiermung op enger Statioun als faarweg Sträifen",
+      "providers": "Wien d'Donnéeë publizéiert, ënner wéi enger Lizenz",
+      "glossary": "Wat all Parameter moosst, a seng Eenheet",
+      "api": "D'REST-API an de MCP-Server",
+      "settings": "Sprooch, Ausgesinn a wéi Wäerter gewise ginn",
+      "about": "De Projet an d'Leit dohannert",
+      "support": "E Problem mellen, matmaachen oder spenden",
+      "impressum": "Wien dës Säit bedreift a wéi s de se erreechs",
+      "datenschutz": "Wéi eng Donnéeë dës Säit veraarbecht, an deng Rechter"
+    }
   }
 }
