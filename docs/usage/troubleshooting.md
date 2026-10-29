@@ -40,11 +40,17 @@ The usual reasons:
   Leave the parameter out, or ask for another station or window. Where the warning says it is of the periods asked
   for, `periods` may be what left the values out. A station whose file the provider let go (a refused download, a
   maintenance page) is not named: its values may be missing for that, which a later request may clear.
+- **Some stations' files were let go.** The answer carries a `file-skipped` warning that names the stations whose file
+  the provider could not use (a refused download, a file withdrawn since the listing, a maintenance page, a file that
+  would not parse): their values may be missing from an answer that is otherwise whole. Try again later. Only the
+  providers the [response metadata](restapi.md#response-metadata) lists tell it (`chmi`, `imgw`, `lhmt`, `metoffice` and
+  `dwd/dmo` do not), so an answer without the warning is not proof that every file was read.
 - **A name matched nothing.** A name is matched fuzzily with a threshold (`name_threshold`, 0.8 by default); lower it
   or look at the best matches (`rank`).
 - **Nulls were dropped.** The long shape drops rows without a value by default (`drop_nulls`); a reading the source
   marks as missing is null with the source's text in `quality_flags` (`raw:-999`). `drop_nulls=False` shows them.
-- **A station was skipped** for having too little data, if `skip_empty` is on (`station-skipped` warning).
+- **A station was skipped** for having too little data, if `skip_empty` is on (`station-skipped` warning), with
+  `drop_nulls` on or off.
 
 The `warnings` of the `metadata` block say what a partial answer is missing, see
 [response metadata](restapi.md#response-metadata).

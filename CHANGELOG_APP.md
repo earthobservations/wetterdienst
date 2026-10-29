@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `[Accessibility]` A toast, an error of the Explorer for one, no longer hides the link of the
+  footer that the Tab key has reached ("Third-party licences" under it at 1280x720): while a toast
+  is shown the page has room for it at its foot and scrolls a focused element clear of it
+  (WCAG 2.4.11) (GH-3575)
+
 ## [0.39.0] - 2026-10-28
 
 ### Security

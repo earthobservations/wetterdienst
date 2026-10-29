@@ -63,8 +63,11 @@ _MetnoFrostMetadataSpec = {
         # declared from the documentation of MET Norway, no list was read (a key is needed): Norway with Svalbard and
         # Jan Mayen, and the platforms on the shelf of the North Sea (Ekofisk, 56.5 N), so the box reaches 55. The
         # research stations in Antarctica and on Bouvetoya are not declared: the documentation does not say. The list
-        # (read in CI since) also holds foreign SYNOP stations, under `SN` + the WMO number x 100 (SN743400 is
-        # Limoges-Bellegarde): they are the source's and lie outside the box, which stays that of Norway
+        # (read in CI since) also holds about 237 foreign SYNOP stations, under `SN` + the WMO number x 100 (SN743400
+        # is Limoges-Bellegarde). Frost serves observations for them (checked 2026-10-29, GH-3495), mostly with short
+        # recent series (Limoges and De Kooy from 2026-10-26). The extent stays national and the box that of Norway,
+        # because the network is Norway's; the live catalogue test excepts the foreign stations by their id pattern
+        # (`FROST_FOREIGN_WMO` in tests/provider/station_catalogue.py)
         "bbox": [-10.0, 55.0, 32.0, 81.0],
     },
     "timezone": "Europe/Oslo",
@@ -563,9 +566,9 @@ class MetnoFrostValues(TimeseriesValues):
         start_date = self.sr.start
         end_date = self.sr.end
         if not start_date or not end_date:
-            # nothing is asked of Frost without a window (REST and the command line demand one; Python does not), so
-            # the answer says nothing of what Frost holds: a reader that returns without asking tells the walk so
-            note_skipped_download()
+            # nothing is asked of Frost without a window. The library refuses such a request (every Frost dataset is
+            # `date_required`), so this is reached only without its check, as a test does: no file is let go that
+            # `file-skipped` could name, and `parameter-without-rows` says nothing of a dataset that needs a window
             return pl.DataFrame()
 
         settings = self.sr.settings
