@@ -119,6 +119,13 @@ Types of changes:
   `parameter-without-rows`: a parameter or dataset that held only missing values at a station left
   out (wholly or with some readings) is no longer named there. The rows of an answer are unchanged
   (GH-3567)
+- `skip_empty` judges a station by the same span whether `drop_nulls` is on or off. For a request
+  that names no window the coverage is measured against the span of the station's own series, and
+  that was read after the empty readings had been dropped: a station whose first or last readings
+  were nulls looked complete (and was kept) with `drop_nulls=True`, the default, and sparse (and
+  was skipped) with `drop_nulls=False`. The span now includes the empty readings, so with the
+  default setting such stations are skipped, and the answer has fewer stations than before.
+  Requests with a window are unchanged (GH-3578)
 
 ## [0.178.0] - 2026-10-28
 

@@ -1707,3 +1707,87 @@ def test_merge_duplicate_readings_does_not_collide_with_a_column_of_its_own_name
     assert merged.row(0, named=True)["row"] == 2
     assert merged.row(0, named=True)["conflict"] == "b"
     assert merged.row(0, named=True)["_row"] == 4
+
+
+def _stub_readings_by_station(monkeypatch: pytest.MonkeyPatch, readings: dict[str, list[float | None]]) -> None:
+    """Have each station hold the daily readings of January 1990 `readings` names (None is a null), from the 1st on."""
+    utc = ZoneInfo("UTC")
+    name = DwdObservationMetadata.daily.climate_summary.temperature_air_mean_2m.name_original
+
+    def collect(self, station_id: str, parameter_or_dataset) -> pl.DataFrame:  # noqa: ANN001, ARG001
+        values = readings[station_id]
+        return pl.DataFrame(
+            {
+                "timestamp": [dt.datetime(1990, 1, day + 1, tzinfo=utc) for day in range(len(values))],
+                "parameter": [name] * len(values),
+                "value": values,
+                "quality_flags": [None if value is not None else "raw:-999" for value in values],
+            },
+            schema_overrides={"value": pl.Float64, "quality_flags": pl.String},
+        )
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+
+
+@pytest.mark.parametrize("drop_nulls", [True, False])
+def test_skip_empty_measures_a_request_without_a_window_against_the_span_with_the_nulls_kept(
+    monkeypatch: pytest.MonkeyPatch, *, drop_nulls: bool
+) -> None:
+    """The same stations are skipped with the nulls dropped or kept, for a request that names no window (GH-3578).
+
+    A request without a window measures a station against the span of its own series. That span was read off the frame
+    after `drop_nulls`, so a station whose first readings are nulls was measured against the shorter series of its
+    values: complete, and kept, with the nulls dropped, and skipped with them kept (2 of the 4 days). Now both are
+    measured against the series with the nulls in it (the threshold is 0.8):
+
+    - `lead` and `lead_one` begin with nulls (2/4 and 3/4 of the days have a value): skipped
+    - `trail` ends in a null (3/4): skipped
+    - `middle` has a null among its readings (3/4): skipped, as it always was
+    - `full` has all four: kept
+    """
+    readings: dict[str, list[float | None]] = {
+        "00001": [None, None, 1.0, 1.0],  # lead
+        "00002": [None, 1.0, 1.0, 1.0],  # lead_one
+        "00003": [1.0, 1.0, 1.0, None],  # trail
+        "00004": [1.0, None, 1.0, 1.0],  # middle
+        "00005": [1.0, 1.0, 1.0, 1.0],  # full
+    }
+    _stub_dwd_daily(
+        station_ids=list(readings), data_year_by_station=dict.fromkeys(readings, 1990), monkeypatch=monkeypatch
+    )
+    _stub_readings_by_station(monkeypatch, readings)
+    begin_response()
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        options=Options(drop_nulls=drop_nulls, skip_empty=True, skip_threshold=0.8),
+    )
+
+    df = request.filter_by_station_id(list(readings)).values().all().df
+
+    assert df.get_column("station_id").unique().to_list() == ["00005"]
+    assert sorted(_warning_codes_by_station()["station-skipped"]) == [
+        f"station {station_id} is skipped as percentage of actual values ({share}) is below threshold (0.8)."
+        for station_id, share in [("00001", 0.5), ("00002", 0.75), ("00003", 0.75), ("00004", 0.75)]
+    ]
+
+
+def test_skip_empty_with_a_window_does_not_depend_on_drop_nulls(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A request that names a window is measured against it, so `drop_nulls` never mattered there."""
+    readings: dict[str, list[float | None]] = {"00001": [None, None, 1.0, 1.0], "00002": [1.0, 1.0, 1.0, 1.0]}
+    _stub_dwd_daily(
+        station_ids=list(readings), data_year_by_station=dict.fromkeys(readings, 1990), monkeypatch=monkeypatch
+    )
+    _stub_readings_by_station(monkeypatch, readings)
+    kept = []
+    for drop_nulls in (True, False):
+        request = DwdObservationRequest(
+            parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+            start="1990-01-01",
+            end="1990-01-04",
+            options=Options(drop_nulls=drop_nulls, skip_empty=True, skip_threshold=0.8),
+        )
+        kept.append(
+            request.filter_by_station_id(list(readings)).values().all().df.get_column("station_id").unique().to_list()
+        )
+
+    assert kept == [["00002"], ["00002"]]
