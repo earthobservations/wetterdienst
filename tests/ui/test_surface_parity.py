@@ -1809,3 +1809,76 @@ def test_two_requests_in_one_response_each_tell_the_parameter_they_lack(monkeypa
     told = [w for w in recorded_warnings() if w["code"] == _CODE]
     assert [w["parameter"] for w in told] == [_EMPTY_NAME, _EMPTY_NAME]
     assert told[0]["message"] != told[1]["message"]
+
+
+# the stations whose file the provider let go are told alike on every surface, and not by an estimate (GH-3552)
+
+_FILE_SKIPPED = "file-skipped"
+
+
+def _withdrawing(monkeypatch: pytest.MonkeyPatch, *stations: str) -> None:
+    """Have the file of `stations` be one the index lists and DWD has withdrawn, through the provider's own download."""
+    from wetterdienst.provider.dwd.observation import download  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    original = DwdObservationValues._collect_station_parameter_or_dataset  # noqa: SLF001
+
+    def collect(self: DwdObservationValues, station_id: str, parameter_or_dataset: Any) -> pl.DataFrame:  # noqa: ANN401
+        if station_id in stations:
+            url = f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/{station_id}.zip"
+            download.download_climate_observations_data(pl.Series([url]), self.sr.request.settings)
+            return pl.DataFrame()
+        return original(self, station_id, parameter_or_dataset)
+
+    def withdrawn(urls: list[str], **_: object) -> list[File]:
+        return [File(url=url, content=FileNotFoundError(url), status=404) for url in urls]
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+    monkeypatch.setattr(download, "download_files", withdrawn)
+
+
+def test_a_file_let_go_is_told_alike_on_every_surface(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The library, the command line, REST (JSON and NDJSON) and the MCP tool say the same; REST sets the header."""
+    _withdrawing(monkeypatch, "00001")
+
+    told = _surfaces(_FULL)
+
+    (warning,) = told["rest"]
+    assert warning["code"] == _FILE_SKIPPED
+    assert warning["stations"] == ["00001"]
+    assert warning["message"].startswith("A file of station 00001 (daily/climate_summary) was not used")
+    assert told["cli"] == told["rest"] == told["ndjson"] == told["mcp"] == told["library"]
+    rest = _rest("/api/values", parameters=_FULL, stations="00001", timestamp="2020-05")
+    assert rest.headers["X-Wetterdienst-Warnings"] == _FILE_SKIPPED
+    assert rest.json()["metadata"]["counts"]["rows"] == 0
+
+
+def test_a_file_let_go_is_not_told_again_as_a_parameter_without_rows(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The station let go is the warning's, the one the source holds nothing at is `parameter-without-rows`'s."""
+    _holding_none_of(monkeypatch, "tmk")
+    _withdrawing(monkeypatch, "00001")
+    begin_response()
+
+    request = DwdObservationRequest(parameters=[_FULL], start="2020-05-01", end="2020-05-03")
+    assert request.filter_by_station_id(["00001", "00002"]).values().all().df.is_empty()
+
+    assert [(w["code"], w["stations"]) for w in recorded_warnings()] == [
+        (_FILE_SKIPPED, ["00001"]),
+        (_CODE, ["00002"]),
+    ]
+
+
+def test_nothing_let_go_is_told_of_on_any_surface() -> None:
+    """A request whose files were all read has no `file-skipped` warning on any surface."""
+    assert _surfaces(_FULL) == {surface: [] for surface in ("library", "cli", "rest", "ndjson", "mcp")}
+
+
+@pytest.mark.parametrize("estimate", ["summarize", "interpolate"])
+def test_an_estimate_does_not_tell_a_file_let_go(monkeypatch: pytest.MonkeyPatch, estimate: str) -> None:
+    """An estimate reads the stations around a point as candidates and goes on with the next one: it does not tell."""
+    _withdrawing(monkeypatch, "00001", "00002")
+    begin_response()
+
+    getattr(DwdObservationRequest(parameters=[_FULL], start="2020-05-01", end="2020-05-03"), estimate)(_POINT)
+
+    assert [w for w in recorded_warnings() if w["code"] == _FILE_SKIPPED] == []

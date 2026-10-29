@@ -268,7 +268,8 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     _markers_in_window: int = field(default=0, init=False, repr=False, compare=False)
     #: whether `query` tells, at the end of the walk, the parameters of the request that no station had a row of
     #: (`parameter-without-rows`, GH-3539); a caller that reads stations only to estimate between them (interpolation,
-    #: summary) sets it False, as a station without a parameter is what it expects there
+    #: summary) sets it False, as a station without a parameter is what it expects there; the stations whose file the
+    #: provider let go (`file-skipped`, GH-3552) are told by the same walk and so are left out there too
     _warn_without_rows: bool = field(default=True, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:

@@ -18,6 +18,12 @@ Types of changes:
 
 ### Added
 
+- A response warning `file-skipped` (REST, MCP, command line and, as a log line at WARNING,
+  Python) names the stations whose file the provider let go (a refused download, a file withdrawn
+  since the listing, a maintenance page answered with HTTP 200, a file that would not parse), so
+  that a partial answer can be told from a whole one: one warning for the request, with
+  `stations` and the datasets read at them. Try again later. Not told for `interpolate` and
+  `summarize` (GH-3552)
 - A response warning `parameter-without-rows` (REST, MCP, command line and, as a log line at
   WARNING, Python) names a requested parameter the source has no values for, with `parameter`
   and `stations`, where the answer used to be an empty header that read like a failed request

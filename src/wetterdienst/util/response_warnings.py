@@ -34,7 +34,7 @@ class ResponseWarning(TypedDict):
     #: what the warning is about, where it is about one parameter: `resolution/dataset/parameter`, or
     #: `resolution/dataset` for a whole dataset (`parameter-without-rows`)
     parameter: NotRequired[str]
-    #: the stations the warning is about, as many as it lists (`parameter-without-rows`)
+    #: the stations the warning is about, as many as it lists (`parameter-without-rows`, `file-skipped`)
     stations: NotRequired[list[str]]
 
 
@@ -48,6 +48,10 @@ MISSING_VALUE_MARKER_MESSAGE = (
 
 #: the code of the warning that names a requested parameter the source holds no values for, at any station asked about
 PARAMETER_WITHOUT_ROWS = "parameter-without-rows"
+
+#: the code of the warning that names the stations whose file the provider let go (`note_skipped_download`), so that a
+#: partial answer can be told from a whole one
+FILE_SKIPPED = "file-skipped"
 
 #: the parameters a warning names while a walk collects one station (`collecting`), which the response warnings of
 #: the request cannot tell where nothing is recorded (the library as a library)
@@ -92,6 +96,10 @@ def note_skipped_download(*, whole_request: bool = False) -> None:
     Frost's 412), nor for a download that failed and was made again with success. The station being collected is then
     no evidence that the source holds nothing, and `parameter-without-rows` does not count it (`whole_request` for a
     file that every station of the request is read from). Nothing happens outside the collection of a station.
+
+    What is told is the other side of that: once the walk is over, `file-skipped` names the stations whose file was
+    let go (`ParameterRows.warn`), one warning for the request. A provider that lets a file go without calling this
+    says nothing.
     """
     note = _SKIPPING.get()
     if note is not None:

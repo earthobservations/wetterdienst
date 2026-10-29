@@ -274,8 +274,9 @@ what the answer is missing:
   the hourly `pressure_air_site` of `chmi/observation` after 2024, so it has no values for them),
   `deprecated-parameter` (issued when a parameter is deprecated; none is at the moment),
   `network-not-importable` (a network of `providers` that this server cannot import, which is left out) and
-  `parameter-without-rows` (a requested parameter that the source holds no values for, see below). Codes are
-  added as more are told; a client reads the ones it knows.
+  `parameter-without-rows` (a requested parameter that the source holds no values for, see below) and
+  `file-skipped` (the stations whose file the provider let go, see below). Codes are added as more are told; a
+  client reads the ones it knows.
 
   `parameter-without-rows` says that the request succeeded and the source has no values of a parameter that was
   asked for, so that it is not taken for a failure and asked again in a loop. It carries `parameter`
@@ -306,11 +307,23 @@ what the answer is missing:
   `fmi/observation`, `knmi/observation`, `meteofrance/observation`, `meteofrance/synop`, `metno/frost`,
   `smhi/observation` and `wsv/pegel`, each at the places where it lets a file go and no other; for any other
   provider a file it lets go without telling is not known, so the warning may name a station whose file was let go.
-  The message says nothing of the stations that were let go: the provider logs each at level `WARNING`. A parameter
+  The message says nothing of the stations that were let go: `file-skipped` does (below). A parameter
   another warning already names (`parameter-ended`) is not told again, nor is anything told for `interpolate` and
   `summarize`. In Python it is a log line at level `WARNING`, as the other warnings that say a request returned less
   than it asked for are, and `wetterdienst.util.response_warnings.recorded_warnings` gives it after
   `begin_response()`, as the REST API and the command line do.
+
+  `file-skipped` says that the answer may be missing values for want of a file the provider let go: the cases just
+  listed (a refused download, a file withdrawn since the listing, a maintenance page answered with HTTP 200, a file
+  that would not parse), so that a partial answer can be told from a whole one. There is one for the request. It
+  carries `stations` (the stations whose file was let go, the first ten if there are more), and its message names the
+  datasets the request read at them: a provider says which station, not which of its files. A file that serves every
+  station of the request is every station's. Retry later: what is missing may well be there then, which is the
+  difference to `parameter-without-rows`, whose stations are never among them. It is told for the providers listed
+  above, nothing is told when no file was let go (a 404 that is the source's answer of no data, a download made
+  again with success), and not for `interpolate` and `summarize`, which read the stations around a point as
+  candidates and fall back to the next one, as they do not tell `parameter-without-rows`. The provider logs each file
+  it lets go at level `WARNING` as before. In Python the warning is a log line at that level too.
 - **`api_version`** is the version of the API (`/api/version`), and **`schema_version`** that of this
   block, so that a stored answer can be told from one in a later shape.
 

@@ -53,6 +53,8 @@ from wetterdienst.util.network import File
 h5netcdf = pytest.importorskip("h5netcdf", reason="h5netcdf not installed")
 h5py = pytest.importorskip("h5py", reason="h5py not installed")
 
+#: the provider's own log lines; the core adds its `file-skipped` line for a file the provider let go (GH-3552)
+PROVIDER_LOGGER = "wetterdienst.provider"
 UTC = ZoneInfo("UTC")
 
 # De Bilt. KNMI keys stations by full WSI (0-20000-0-06260); the provider exposes just the
@@ -652,7 +654,16 @@ def test_knmi_station_list_keeps_the_empty_result_for_an_answer(
     _serve_station_requests(monkeypatch, listing=failed if where == "listing" else None, resolve=failed)
     with caplog.at_level(logging.WARNING, logger="wetterdienst.provider.knmi"):
         assert _stations().is_empty()
-    assert len([record for record in caplog.records if record.levelno == logging.WARNING]) == 1
+    assert (
+        len(
+            [
+                record
+                for record in caplog.records
+                if record.levelno == logging.WARNING and record.name.startswith(PROVIDER_LOGGER)
+            ]
+        )
+        == 1
+    )
 
 
 def _serve_knmi(
@@ -786,7 +797,16 @@ def test_knmi_values_skip_a_file_that_is_an_answer(
         df = _daily_values(days=2)
     assert df.is_empty()
     assert len(asked) == 2
-    assert len([record for record in caplog.records if record.levelno == logging.WARNING]) == 2
+    assert (
+        len(
+            [
+                record
+                for record in caplog.records
+                if record.levelno == logging.WARNING and record.name.startswith(PROVIDER_LOGGER)
+            ]
+        )
+        == 2
+    )
 
 
 @pytest.mark.parametrize(
@@ -811,7 +831,11 @@ def test_knmi_values_do_not_log_the_signature_of_the_download_link(
     _serve_knmi(monkeypatch, tmp_path, answer, at="download")
     with caplog.at_level(logging.INFO):
         _daily_values(days=2)
-    warnings = [record.getMessage() for record in caplog.records if record.levelno == logging.WARNING]
+    warnings = [
+        record.getMessage()
+        for record in caplog.records
+        if record.levelno == logging.WARNING and record.name.startswith(PROVIDER_LOGGER)
+    ]
     assert len(warnings) == 2
     assert all("daily-observations-validated-2020010" in message for message in warnings)
     assert "secret" not in caplog.text
@@ -828,7 +852,16 @@ def test_knmi_values_skip_a_file_whose_download_link_is_refused(
         df = _daily_values(days=2)
     assert df.is_empty()
     assert len(asked) == 2
-    assert len([record for record in caplog.records if record.levelno == logging.WARNING]) == 2
+    assert (
+        len(
+            [
+                record
+                for record in caplog.records
+                if record.levelno == logging.WARNING and record.name.startswith(PROVIDER_LOGGER)
+            ]
+        )
+        == 2
+    )
 
 
 @pytest.mark.parametrize("status", [401, 403])
@@ -1187,7 +1220,16 @@ def test_knmi_values_failed_moment_is_skipped_and_logged(
         df = _hourly_values(days=1)
     assert df.is_empty()
     assert len(attempted) == 25
-    assert len([record for record in caplog.records if record.levelno == logging.WARNING]) == 25
+    assert (
+        len(
+            [
+                record
+                for record in caplog.records
+                if record.levelno == logging.WARNING and record.name.startswith(PROVIDER_LOGGER)
+            ]
+        )
+        == 25
+    )
 
 
 def test_parse_knmi_netcdf_without_h5netcdf_names_the_extra(monkeypatch: pytest.MonkeyPatch) -> None:
