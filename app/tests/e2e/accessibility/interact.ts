@@ -111,7 +111,7 @@ interface Focused {
   none: boolean
   /**
    * Reka's focus guard: an invisible stop at either end of an open menu, or the focus proxy at either end of
-   * the toast region, that hands the focus on the moment it has it
+   * the toast region, which hands the focus on or which the next Tab leaves
    */
   guard?: boolean
   /** A short description for a message */
