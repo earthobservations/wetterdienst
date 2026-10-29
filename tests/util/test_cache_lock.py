@@ -151,18 +151,72 @@ def test_a_sweep_that_cannot_get_the_lock_in_time_is_skipped(tmp_path: Path, mon
     assert _rows(storage) == []
 
 
-def test_a_read_that_cannot_get_the_lock_in_time_goes_ahead(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A load has nothing to skip: it is what it was before there was a lock."""
+def test_a_read_that_cannot_get_the_lock_in_time_keeps_its_view_and_does_not_read_the_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """On Windows a read that meets another process's replace is a `PermissionError`: without the lock there is none.
+
+    The view stays what it was, which costs a fetch again at most, and the next miss asks again.
+    """
     monkeypatch.setattr(network, "_CACHE_LOCK_TIMEOUT_SECONDS", 0.2)
     storage = _storage(tmp_path)
     _LockedWholeFileCacheFileSystem(fs=_source(), cache_storage=str(storage), expiry_time=3600).cat_file("/mine.txt")
     later = _another_view(storage)
     later._metadata.cached_files = [{}]  # noqa: SLF001
+    reads: list[str] = []
+    original = CacheMetadata._load  # noqa: SLF001
+
+    def load(self: CacheMetadata, fn: str) -> dict:
+        reads.append(fn)
+        return original(self, fn)
+
+    monkeypatch.setattr(CacheMetadata, "_load", load)
 
     with FileLock(_lock_file(storage)):
         later.load_cache()
 
+    assert reads == []
+    assert list(later._metadata.cached_files[-1]) == []  # noqa: SLF001
+
+    later.load_cache()  # the holder is gone
+
     assert list(later._metadata.cached_files[-1]) == ["/mine.txt"]  # noqa: SLF001
+
+
+def test_a_view_built_while_the_lock_is_held_is_empty_and_works(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The first load of a filesystem is a load like any other: it is skipped, and the filesystem is still built."""
+    monkeypatch.setattr(network, "_CACHE_LOCK_TIMEOUT_SECONDS", 0.2)
+    storage = _storage(tmp_path)
+    _LockedWholeFileCacheFileSystem(fs=_source(), cache_storage=str(storage), expiry_time=3600).cat_file("/mine.txt")
+
+    with FileLock(_lock_file(storage)):
+        late = _another_view(storage)
+        assert list(late._metadata.cached_files[-1]) == []  # noqa: SLF001
+
+    assert late.cat_file("/mine.txt") == b"mine"
+    assert _rows(storage) == ["/mine.txt"]  # the save merged what was on disk
+
+
+def test_an_entry_dropped_while_the_lock_is_held_by_another_leaves_the_file_unread_and_unwritten(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The row that stays names a blob that is not there, which every filesystem reads as a copy that is not held."""
+    monkeypatch.setattr(network, "_CACHE_LOCK_TIMEOUT_SECONDS", 0.2)
+    storage = _storage(tmp_path)
+    mine = _LockedWholeFileCacheFileSystem(fs=_source(), cache_storage=str(storage), expiry_time=3600)
+    mine.cat_file("/mine.txt")
+    blob = storage / mine._mapper("/mine.txt")  # noqa: SLF001
+    before = (storage / "cache").read_bytes()
+
+    with FileLock(_lock_file(storage)):
+        mine.pop_from_cache("/mine.txt")
+
+    assert (storage / "cache").read_bytes() == before
+    assert not blob.exists()
+    assert not mine._metadata.check_file("/mine.txt", None)  # noqa: SLF001
+    assert not _another_view(storage)._metadata.check_file("/mine.txt", None)  # noqa: SLF001
 
 
 def test_a_sweep_keeps_a_blob_written_within_the_expiry_whatever_its_row_says(tmp_path: Path) -> None:
@@ -243,7 +297,6 @@ def test_a_lock_left_by_a_process_that_was_killed_holds_nothing(
     # own, with a timeout that a slow runner (Windows) does not come near unless the lock is held, and a save far
     # under it
     network._cache_dirs_contended_until.clear()  # noqa: SLF001
-    network._cache_dirs_load_contended_until.clear()  # noqa: SLF001
     monkeypatch.setattr(network, "_CACHE_LOCK_TIMEOUT_SECONDS", 5.0)
     started = time.monotonic()
     mine.save_cache()
@@ -429,42 +482,118 @@ def test_the_period_of_a_marked_directory_runs_out_and_a_holder_that_is_still_th
     assert again >= 0.25
 
 
-def test_a_load_that_gives_up_does_not_mark_the_directory_for_saves(
+def test_inside_the_period_a_load_only_tries_and_a_hold_ends_it(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A holder that lets go within seconds is contention: the save after a load's short wait waits for its own turn."""
+    """A marked directory is not waited for by a load either, until the first hold that gets the lock."""
     monkeypatch.setattr(network, "_CACHE_LOCK_TIMEOUT_SECONDS", 2.0)
-    monkeypatch.setattr(network, "_CACHE_LOAD_WAIT_SECONDS", 0.2)
     storage = _storage(tmp_path)
     mine = _LockedWholeFileCacheFileSystem(fs=_source(), cache_storage=str(storage), expiry_time=3600)
-    holder = FileLock(_lock_file(storage), thread_local=False)  # released from the timer's thread
-    releaser = threading.Timer(0.5, holder.release)
-    holder.acquire()
-    try:
-        started = time.monotonic()
-        mine.load_cache()
-        loaded = time.monotonic() - started
-        assert storage not in network._cache_dirs_contended_until  # noqa: SLF001
-        assert storage in network._cache_dirs_load_contended_until  # noqa: SLF001
-        releaser.start()
-        mine.cat_file("/mine.txt")  # a save that waits the half second out
-    finally:
-        releaser.join()
-        if holder.is_locked:
-            holder.release()
-
-    assert 0.15 <= loaded < 1.0
-    assert _rows(storage) == ["/mine.txt"]
-
-
-def test_a_load_waits_one_second_at_most_whatever_the_timeout(tmp_path: Path) -> None:
-    """The load goes ahead without the lock whatever the answer, so it is not worth the 30 s a save is."""
-    storage = _storage(tmp_path)
-    mine = _LockedWholeFileCacheFileSystem(fs=_source(), cache_storage=str(storage), expiry_time=3600)
+    network._cache_dirs_contended_until[storage] = time.monotonic() + 60  # noqa: SLF001
 
     with FileLock(_lock_file(storage)):
         started = time.monotonic()
         mine.load_cache()
         waited = time.monotonic() - started
 
-    assert 0.9 <= waited < 5
+    assert waited < 1.0
+    assert storage in network._cache_dirs_contended_until  # noqa: SLF001
+
+    mine.load_cache()  # nobody holds it: a try is enough
+
+    assert storage not in network._cache_dirs_contended_until  # noqa: SLF001
+
+
+def test_the_period_of_a_marked_directory_runs_out_for_a_load_too(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """After the period a load waits for the lock again, with the stamp of the lock file unchanged: a stuck holder."""
+    monkeypatch.setattr(network, "_CACHE_LOCK_TIMEOUT_SECONDS", 0.3)
+    storage = _storage(tmp_path)
+    mine = _LockedWholeFileCacheFileSystem(fs=_source(), cache_storage=str(storage), expiry_time=3600)
+    network._cache_dirs_contended_until[storage] = time.monotonic() - 1  # noqa: SLF001
+
+    with FileLock(_lock_file(storage)):
+        started = time.monotonic()
+        mine.load_cache()
+        waited = time.monotonic() - started
+
+    assert waited >= 0.25
+    assert storage in network._cache_dirs_contended_until  # noqa: SLF001
+
+
+def _handing_the_lock_round(storage: Path, stop: threading.Event) -> threading.Thread:
+    """Start the other processes of a queue: a lock that is taken, held a moment and let go of, again and again.
+
+    The stamp is moved after each hold is taken, as `_locked_across_processes` does for every hold.
+    """
+
+    def cycle() -> None:
+        lock = FileLock(_lock_file(storage), thread_local=False)
+        while not stop.is_set():
+            with lock:
+                os.utime(_lock_file(storage))
+                time.sleep(0.1)
+            time.sleep(0.02)
+
+    thread = threading.Thread(target=cycle)
+    thread.start()
+    return thread
+
+
+def test_a_wait_goes_on_while_the_lock_goes_from_hand_to_hand(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A queue is no reason to give up: only one hold for the whole timeout is."""
+    monkeypatch.setattr(network, "_CACHE_LOCK_TIMEOUT_SECONDS", 0.3)
+    storage = _storage(tmp_path)
+    mine = _LockedWholeFileCacheFileSystem(fs=_source(), cache_storage=str(storage), expiry_time=3600)
+    stop = threading.Event()
+    cycling = _handing_the_lock_round(storage, stop)
+    gave_up = []
+    monkeypatch.setattr(network.log, "warning", lambda *args, **_kwargs: gave_up.append(args))
+    try:
+        time.sleep(0.15)  # the lock is in the hands of the other
+        with network._locked_across_processes(storage, otherwise="x", wait=None) as proceed:  # noqa: SLF001
+            got = proceed
+        mine.cat_file("/mine.txt")
+    finally:
+        stop.set()
+        cycling.join()
+
+    assert got is True
+    assert gave_up == []
+    assert storage not in network._cache_dirs_contended_until  # noqa: SLF001
+    assert _rows(storage) == ["/mine.txt"]
+
+
+def test_a_wait_behind_a_lock_that_keeps_moving_is_bounded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A lock that moves without ever reaching this process is given up on after `_CACHE_LOCK_MAX_WAIT_SECONDS`."""
+    monkeypatch.setattr(network, "_CACHE_LOCK_TIMEOUT_SECONDS", 0.1)
+    monkeypatch.setattr(network, "_CACHE_LOCK_MAX_WAIT_SECONDS", 0.5)
+    stamps = iter(range(10_000))
+    monkeypatch.setattr(network, "_lock_stamp", lambda _lock_file: next(stamps))  # the stamp changes at every look
+    storage = _storage(tmp_path)
+    storage.mkdir(parents=True)
+
+    with FileLock(_lock_file(storage)):
+        started = time.monotonic()
+        with network._locked_across_processes(storage, otherwise="x") as proceed:  # noqa: SLF001
+            waited = time.monotonic() - started
+
+    assert proceed is False
+    assert 0.4 <= waited < 2.0
+    assert storage in network._cache_dirs_contended_until  # noqa: SLF001
+
+
+def test_every_hold_moves_the_stamp_of_the_lock_file(tmp_path: Path) -> None:
+    """What the waiters of other processes read as progress."""
+    storage = _storage(tmp_path)
+    storage.mkdir(parents=True)
+    lock_file = Path(_lock_file(storage))
+    with network._locked_across_processes(storage, otherwise="x"):  # noqa: SLF001
+        pass
+    os.utime(lock_file, (1, 1))
+
+    with network._locked_across_processes(storage, otherwise="x"):  # noqa: SLF001
+        pass
+
+    assert lock_file.stat().st_mtime > 1_000_000
