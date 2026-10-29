@@ -74,8 +74,9 @@ the text written in them keeps its contrast; dimmed text is 5.5:1 on paper and 5
 the hover scan measures the rest.
 
 The focus indicator is one solid 2 px outline for everything a keyboard reaches (`--app-focus-ring` in
-`main.css`: shade 700 of the logo's blue on light, 6.5:1 on paper, shade 300 on dark, 7.8:1; the map takes
-the light one in both modes). Nuxt UI's own is an outline at 25 % of the primary colour and a ring in the primary
+`main.css`: shade 700 of the logo's blue on light, 6.5:1 on paper, shade 300 on dark, 7.8:1; what is focused inside
+the map, a light surface in both modes, takes the light one, and the map's own outline, which lies on the page, the
+page's). Nuxt UI's own is an outline at 25 % of the primary colour and a ring in the primary
 colour, and its menu search fields draw none; they stay, beside it. In a forced palette (Windows' contrast themes)
 the outline is the system's highlight, and the section being read is underlined as well as marked by its rule.
 
