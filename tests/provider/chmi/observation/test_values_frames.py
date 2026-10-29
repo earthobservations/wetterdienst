@@ -321,7 +321,10 @@ def test_chmi_hourly_window_after_2024_is_the_empty_frame_with_the_reason_for_th
     assert df.schema == pl.Schema(LONG_SCHEMA)
     assert df.is_empty()
     assert not any("-P-2025" in url for url in asked)
-    assert [warning["code"] for warning in recorded_warnings()] == ["parameter-ended"]
+    # told by `parameter-ended` alone, which names the parameter: `parameter-without-rows` would say it a second time
+    (warning,) = recorded_warnings()
+    assert warning["code"] == "parameter-ended"
+    assert warning["parameter"] == "hourly/data/pressure_air_site"
 
 
 def test_chmi_hourly_window_after_2024_of_another_parameter_has_no_warning(monkeypatch: pytest.MonkeyPatch) -> None:

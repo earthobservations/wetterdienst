@@ -29,6 +29,7 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.observation.api import DwdObservationValues
 from wetterdienst.settings import Settings
 from wetterdienst.util.network import download_file, download_files
+from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Sequence
@@ -947,3 +948,28 @@ def test_a_summary_and_an_interpolation_fetch_nothing_ahead(
     for get_df in (get_summarized_df, get_interpolated_df):
         get_df(request, latitude, longitude)
     assert made == []
+
+
+def test_a_failure_fetched_ahead_neither_silences_nor_makes_the_warning_of_a_parameter_without_rows(
+    upstream: _Upstream, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """What the fetching ahead meets is no file the provider let go: the stations count as they would without it."""
+    told = lambda: [w for w in recorded_warnings() if w["code"] == "parameter-without-rows"]  # noqa: E731
+    # the files named beforehand are where a connection is refused, the ones the collection reads are there
+    refused = lambda station_id: [f"{REFUSED}/{int(station_id)}/0"]  # noqa: E731
+    begin_response()
+    reader = _reader(monkeypatch, tmp_path, stations=4, urls_of=_files(upstream, 1), depth=4, named=refused)
+
+    assert len(list(reader.query())) == 4
+    assert told() == []
+
+    # and where the parameter has no row at any station, the warning is told with the stations, not lost
+    for station in range(4):
+        upstream.statuses[f"/{station}/0"] = 404
+    begin_response()
+    reader = _reader(
+        monkeypatch, tmp_path, stations=4, urls_of=_files(upstream, 1), depth=4, named=refused, cache="second"
+    )
+
+    assert list(reader.query()) == []
+    assert [w["stations"] for w in told()] == [["00000", "00001", "00002", "00003"]]

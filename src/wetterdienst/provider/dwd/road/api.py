@@ -29,6 +29,7 @@ from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.dwd.metadata import _METADATA, EXTENT_GERMANY
 from wetterdienst.util.eccodes import bufr_file, require_bufr
 from wetterdienst.util.network import File, download_file, download_files, list_remote_files_fsspec
+from wetterdienst.util.response_warnings import collecting, note_skipped_download
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Iterable
@@ -813,7 +814,8 @@ class DwdRoadValues(TimeseriesValues[DatasetModel]):
         require_bufr("DWD road weather data")
         # the group parsed for the station asked about before this one, and the key it answers for.
         # See `_collect_data_by_station_group`
-        self._group_cache: tuple[tuple[str, tuple[str, ...]], pl.DataFrame] | None = None
+        # and whether a file of the group was let go, which is every station of it is told again
+        self._group_cache: tuple[tuple[str, tuple[str, ...]], pl.DataFrame, bool] | None = None
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -926,9 +928,16 @@ class DwdRoadValues(TimeseriesValues[DatasetModel]):
         """
         key = (road_weather_station_group.value, tuple(parameter.name_original for parameter in parameters))
         if self._group_cache is not None and self._group_cache[0] == key:
+            # a file of the group that was let go is every station's of it, not only the first one's
+            if self._group_cache[2]:
+                note_skipped_download()
             return self._group_cache[1]
-        df = self.__collect_data_by_station_group(road_weather_station_group, parameters)
-        self._group_cache = (key, df)
+        let_go: list[bool] = []
+        with collecting(let_go.append):
+            df = self.__collect_data_by_station_group(road_weather_station_group, parameters)
+        if let_go:
+            note_skipped_download()
+        self._group_cache = (key, df, bool(let_go))
         return df
 
     def __collect_data_by_station_group(
@@ -970,6 +979,7 @@ class DwdRoadValues(TimeseriesValues[DatasetModel]):
             # the readings of the files that arrived are returned, and those of the others are
             # missing: a gap in the window, which can also keep a stuck sensor below the count of
             # readings that marks it
+            note_skipped_download()
             log.warning(
                 f"{len(failed)} of {len(files)} files of {road_weather_station_group.value} could not be "
                 f"downloaded and their readings are missing (first: {failed[0].filename}, "

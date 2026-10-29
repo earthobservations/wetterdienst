@@ -18,6 +18,13 @@ Types of changes:
 
 ### Added
 
+- A response warning `parameter-without-rows` (REST, MCP, command line and, as a log line at
+  WARNING, Python) names a requested parameter the source has no values for, with `parameter`
+  and `stations`, where the answer used to be an empty header that read like a failed request
+  (`TX`/`TN` of `dwd/mosmix` for Los Angeles, `tx24` of `meteofrance/synop` for Paris). Told for
+  a parameter asked for by name when no station has a row of it, and for a dataset asked for
+  whole only when none has a row of any of its parameters. It names the `periods`, run or lead
+  time it is limited to, and leaves out a station whose file the provider let go (GH-3539)
 - `meteofrance/synop` now offers the 12 h maximum and minimum temperature
   (`temperature_air_max_2m_last_12h`, `temperature_air_min_2m_last_12h`; `tx12`, `tn12`), given
   at 06 and 18 UTC by 158 of the 190 stations (2026), where `tx24`/`tn24` are given by 35 and
@@ -67,6 +74,9 @@ Types of changes:
   `WRONG_VERSION_NUMBER`; an invalid session, `INVALID_SESSION_ID`) is retried like any other
   transient network error, where the first one failed the answer: `www.dwd.de` throws them now
   and then. A certificate that does not verify still fails at once (GH-3533)
+- A `dwd/dmo` request for a lead time its product does not publish (`lead_time=long` for
+  `icon_eu`, which has the short run alone) is refused as a 400 naming what the product
+  publishes, where it ended in a 500 (`Unable to find a 168 h forecast`) (GH-3539)
 - The stations come in one order from one request to the next, where they changed with every
   request or process: by station id for `dwd/observation` and `dwd/derived`, in the order of the
   catalogue for `smhi`, `dmi`, `chmi` and `hubeau`, and the datasets of a station in the

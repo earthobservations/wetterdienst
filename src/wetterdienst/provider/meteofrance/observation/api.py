@@ -37,6 +37,7 @@ from wetterdienst.util.network import (
     download_files,
     fetchable_link,
 )
+from wetterdienst.util.response_warnings import note_skipped_download
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel, ParameterModel
@@ -1015,6 +1016,7 @@ class MeteoFranceObservationValues(TimeseriesValues):
         for resource in matches:
             file = files_by_url[resource["url"]]
             if isinstance(file.content, Exception):
+                note_skipped_download()
                 log.warning(f"Failed to download {file.url}: {file.content}")
                 continue
             df = pl.read_csv(

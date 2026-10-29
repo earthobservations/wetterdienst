@@ -46,6 +46,7 @@ from wetterdienst.model.metadata import (
     check_on_unknown,
     group_parameters_by_dataset,
     parse_parameters,
+    requested_by_kind,
 )
 from wetterdienst.model.result import (
     InterpolatedValuesResult,
@@ -358,6 +359,19 @@ class TimeseriesRequest:
     # within reach of the point once they are ranked, before the first value is downloaded, it refuses the request
     # by raising. The library sets none (`core.util.hold_stations_in_reach`)
     _check_reach: Callable[[int], None] | None = field(default=None, init=False, repr=False, compare=False)
+    # Not an argument: the periods a request asked for by name when that narrowed what it reads (`_selects_by_period`),
+    # which `parameter-without-rows` says it was held to; empty where none was asked for or all were
+    _periods_narrowed: frozenset[Period] = field(default=frozenset(), init=False, repr=False, compare=False)
+    # Not an argument: the periods the request would have read had it not been given any (`_resolve_periods(None)`:
+    # those the window reaches), which `periods` is judged against, set where `_periods_narrowed` is
+    _periods_inferred: frozenset[Period] = field(default=frozenset(), init=False, repr=False, compare=False)
+    # Not an argument: which of the parameters were asked for as a whole dataset (`(resolution, dataset)`) and which by
+    # their name (`(resolution, dataset, name_original)`), as `requested_by_kind` reads it in `__post_init__`. The
+    # flat `parameters` has lost that, and `parameter-without-rows` is told of a parameter by its name only
+    _requested_whole: frozenset[tuple[str, str]] = field(default=frozenset(), init=False, repr=False, compare=False)
+    _requested_named: frozenset[tuple[str, str, str]] = field(
+        default=frozenset(), init=False, repr=False, compare=False
+    )
 
     def __new__(cls, *args: object, **kwargs: object) -> Self:  # noqa: ARG004
         """Refuse a renamed argument before the dataclass __init__ rejects it without naming the new one.
@@ -402,6 +416,8 @@ class TimeseriesRequest:
                 error = InvalidParameterError(msg)
                 error.resolved = True
                 raise error from None
+        if self.parameters:
+            self._requested_whole, self._requested_named = requested_by_kind(requested, self.metadata)
         if not self.parameters:
             # with on_unknown="warn" the warnings parse_parameters logged say per parameter what was
             # wrong with it, but they are only visible to whoever configured logging, so name the
@@ -410,7 +426,16 @@ class TimeseriesRequest:
             raise NoParametersFoundError(msg)
         # Has to follow the parameters, which say which datasets -- and so which periods -- were
         # asked for, and the timestamps, which a provider may derive the periods from
+        asked_for_periods = bool(self.periods)
         self.periods = self._resolve_periods(self.periods)
+        self._note_narrowing_periods(asked_for_periods=asked_for_periods)
+
+    def _note_narrowing_periods(self, *, asked_for_periods: bool) -> None:
+        """Note the periods asked for if they leave some out, and the ones the window would have read without them."""
+        periods = cast("set[Period]", self.periods)
+        if asked_for_periods and self._selects_by_period and periods != self.published_periods:
+            self._periods_narrowed = frozenset(periods)
+            self._periods_inferred = frozenset(self._resolve_periods(None))
 
     # Columns that should be contained within any stations information
     _base_columns: ClassVar = tuple(STATIONS_SCHEMA)
@@ -447,6 +472,21 @@ class TimeseriesRequest:
         no such release, or has not measured it, gets. A provider that reads per period and has one overrides it.
         """
         return None
+
+    def _narrowed_by(self, dataset: DatasetModel) -> list[tuple[str, str | None]]:
+        """Name what the request asked for that holds back some of the source for a dataset: a phrase and a hint.
+
+        What `parameter-without-rows` says the answer is of, so that a caller knows another period may hold the values:
+        the periods asked for where they leave out one the dataset publishes. The hint is what to ask instead, None
+        where there is none. A request with a run or a lead time adds its own.
+        """
+        published = set(dataset.periods)
+        asked = set(self._periods_narrowed) & published
+        # narrowed only where the window would have read a period that was left out: asking for `recent` for a
+        # window that only `recent` holds changes nothing, and `try without periods` would answer the same
+        if asked and (set(self._periods_inferred) & published) - asked:
+            return [(f"the periods asked for ({_format_periods(asked)})", "try without `periods`")]
+        return []
 
     @classmethod
     def available_periods(cls) -> set[Period]:
