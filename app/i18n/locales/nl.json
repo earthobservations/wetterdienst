@@ -116,12 +116,16 @@
     "providers": "Aanbieders",
     "api": "API",
     "glossary": "Woordenlijst",
-    "support": "Ondersteuning"
+    "support": "Ondersteuning",
+    "reference": "Naslag"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menu"
+    "menu": "Menu",
+    "skipToContent": "Naar de inhoud",
+    "mainNav": "Hoofdnavigatie",
+    "footerNav": "Over deze site"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
@@ -789,5 +793,39 @@
     "summary": "Samenvatting",
     "periods": "Perioden",
     "colMissingCount": "Aantal ontbrekend"
+  },
+  "palette": {
+    "open": "Zoeken",
+    "title": "Zoeken en opdrachten",
+    "label": "Pagina's, instellingen en stations doorzoeken",
+    "placeholder": "Pagina's, instellingen, stations …",
+    "results": "Resultaten",
+    "resultCount": "Resultaten: {count}",
+    "empty": "Niets gevonden.",
+    "groupPages": "Pagina's",
+    "groupActions": "Acties",
+    "groupStations": "Verwachting voor een station",
+    "stationsLoading": "Stations laden …",
+    "stationsHint": "Typ twee letters of een stations-ID om de verwachtingsstations te doorzoeken.",
+    "stationsFailed": "De stations konden niet worden geladen.",
+    "themeAction": "Weergave: {theme}",
+    "languageAction": "Taal: {language}",
+    "hint": "↑ ↓ kiezen · Enter openen · Esc sluiten",
+    "current": "huidig",
+    "pages": {
+      "home": "Startpagina: welke data er zijn en waar je begint",
+      "meteogram": "De verwachting van een DWD-station als grafiek",
+      "explorer": "Stations vinden, metingen ophalen en downloaden",
+      "history": "Hoe een station veranderde: naam, plaats, instrumenten",
+      "stripes": "De opwarming bij een station als gekleurde strepen",
+      "providers": "Wie de data publiceert, en onder welke licentie",
+      "glossary": "Wat elke parameter meet, en de eenheid",
+      "api": "De REST-API en de MCP-server",
+      "settings": "Taal, weergave en hoe waarden worden getoond",
+      "about": "Het project en de mensen erachter",
+      "support": "Een probleem melden, bijdragen of doneren",
+      "impressum": "Wie deze site beheert, en hoe je hen bereikt",
+      "datenschutz": "Welke gegevens deze site verwerkt, en je rechten"
+    }
   }
 }

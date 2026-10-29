@@ -116,12 +116,16 @@
     "providers": "Dostawcy",
     "api": "API",
     "glossary": "Słownik",
-    "support": "Wsparcie"
+    "support": "Wsparcie",
+    "reference": "Informacje"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menu"
+    "menu": "Menu",
+    "skipToContent": "Przejdź do treści",
+    "mainNav": "Nawigacja główna",
+    "footerNav": "O tej stronie"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
@@ -789,5 +793,39 @@
     "summary": "Podsumowanie",
     "periods": "Okresy",
     "colMissingCount": "Liczba braków"
+  },
+  "palette": {
+    "open": "Szukaj",
+    "title": "Wyszukiwanie i polecenia",
+    "label": "Szukaj stron, ustawień i stacji",
+    "placeholder": "Strony, ustawienia, stacje …",
+    "results": "Wyniki",
+    "resultCount": "Wyniki: {count}",
+    "empty": "Nic nie znaleziono.",
+    "groupPages": "Strony",
+    "groupActions": "Działania",
+    "groupStations": "Prognoza dla stacji",
+    "stationsLoading": "Wczytywanie stacji …",
+    "stationsHint": "Wpisz dwie litery lub identyfikator stacji, aby przeszukać stacje prognozy.",
+    "stationsFailed": "Nie udało się wczytać stacji.",
+    "themeAction": "Wygląd: {theme}",
+    "languageAction": "Język: {language}",
+    "hint": "↑ ↓ wybierz · Enter otwórz · Esc zamknij",
+    "current": "bieżący",
+    "pages": {
+      "home": "Strona główna: jakie są dane i od czego zacząć",
+      "meteogram": "Prognoza stacji DWD na wykresie",
+      "explorer": "Znajdź stacje, pobierz pomiary i zapisz je",
+      "history": "Jak zmieniała się stacja: nazwa, miejsce, przyrządy",
+      "stripes": "Ocieplenie na stacji jako kolorowe paski",
+      "providers": "Kto publikuje dane i na jakiej licencji",
+      "glossary": "Co mierzy każdy parametr i w jakiej jednostce",
+      "api": "REST API i serwer MCP",
+      "settings": "Język, wygląd i sposób pokazywania wartości",
+      "about": "Projekt i ludzie, którzy za nim stoją",
+      "support": "Zgłoś problem, pomóż w rozwoju lub wesprzyj projekt",
+      "impressum": "Kto prowadzi tę stronę i jak się skontaktować",
+      "datenschutz": "Jakie dane przetwarza ta strona i jakie masz prawa"
+    }
   }
 }

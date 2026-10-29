@@ -1,14 +1,77 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
-/* Colour contrast, WCAG 2.2 AA (4.5:1 for text). Nuxt UI's defaults miss it in three places; each is
-   moved the least that clears the ratio, and the fills (--ui-primary, --ui-error) stay as they are. */
+/* The design of the app (GH-3518): the colours of the logo, one typeface, one page frame.
 
-/* Placeholders and other dimmed text: neutral-400 on white (2.6:1) and neutral-500 on the dark
-   background (3.7:1). Dark takes the next lighter shade, which is what muted text already is there.
-   Light takes a quarter of the way from neutral-500 to neutral-600, so that it still clears 4.5:1
-   when a hovered field is tinted (4.9:1 on neutral-100), and muted text takes the same colour, so
-   that a placeholder does not read stronger than a description. */
+   - The logo is four tiles on navy: a yellow sun, blue rain, teal wind and a coral thermometer. The navy is the
+     navigation rail, and the four tiles are the four things the app does (forecast, explorer, history, stripes),
+     each in the colour of its tile, in the rail, on the home page and in the header of its page.
+   - The primary colour is the logo's blue (`brand`, shade 600 is #2E6FD1). The neutrals are Tailwind's grey, turned
+     towards the logo's navy at the same lightness, so every grey of the app keeps the contrast it had (each pair
+     within 0.05 of Tailwind's own) and the dark page is the deep navy of the logo's sun.
+   - Atkinson Hyperlegible Next (SIL OFL 1.1, the Braille Institute's), self-hosted from its package, for every text:
+     it tells I, l and 1 and O and 0 apart, which station ids and numbers need.
+
+   The contrast of every pair is in `tests/unit/design-tokens.test.ts`. */
+
+@theme static {
+  --font-sans: "Atkinson Hyperlegible Next Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* the logo's blue at 600, the other shades at Tailwind's lightness steps in its hue (oklch 258.8) */
+  --color-brand-50: #f1f5fc;
+  --color-brand-100: #e0e9f7;
+  --color-brand-200: #c8d9f4;
+  --color-brand-300: #a4c2f1;
+  --color-brand-400: #75a2e6;
+  --color-brand-500: #4e86dd;
+  --color-brand-600: #2e6fd1;
+  --color-brand-700: #135abf;
+  --color-brand-800: #144a99;
+  --color-brand-900: #1c4178;
+  --color-brand-950: #142949;
+
+  /* Tailwind's grey at its own lightness steps, in the logo's navy hue (oklch 259) with a little more chroma: 900 is
+     the page in dark mode, the navy of the logo's sun (#0b1a33) */
+  --color-gray-50: #f8fafd;
+  --color-gray-100: #f1f4f9;
+  --color-gray-200: #e3e7ef;
+  --color-gray-300: #cfd5e0;
+  --color-gray-400: #97a1b1;
+  --color-gray-500: #667386;
+  --color-gray-600: #46556c;
+  --color-gray-700: #30415b;
+  --color-gray-800: #172844;
+  --color-gray-900: #071732;
+  --color-gray-950: #010619;
+
+  /* the tiles of the logo, as it draws them */
+  --color-navy: #17335f;
+  --color-tile-ink: #0b1a33;
+  --color-tile-sun: #ffc93c;
+  --color-tile-rain: #2e6fd1;
+  --color-tile-wind: #2bb3a3;
+  --color-tile-heat: #f0543c;
+}
+
+/* The primary colour where Nuxt UI draws it (fills, text, rings): shade 700 on light, which is 6.5:1 on white and
+   5.1:1 on its own 15 % tint (a soft button, a badge), and white on it is 6.5:1; shade 400 on dark, 6.9:1 on the
+   page, with the page's navy on it at 6.9:1. The logo's own blue (600) is for the tiles and large figures. */
+:root {
+  --ui-primary: var(--ui-color-primary-700);
+  --ui-radius: 0.5rem;
+  /* a solid primary button, hovered: Nuxt UI's 75 % of the fill over the page is 3.8:1 under white on light and
+     4.4:1 under navy on dark, so it takes the next shade outwards instead (8.5:1 and 9.8:1) */
+  --app-primary-hover: var(--ui-color-primary-800);
+}
+.dark {
+  --ui-primary: var(--ui-color-primary-400);
+  --app-primary-hover: var(--ui-color-primary-300);
+}
+
+/* Placeholders and other dimmed text: grey-400 on white (2.6:1) and grey-500 on the dark page (3.7:1) miss 4.5:1.
+   Dark takes the next lighter shade, which is what muted text already is there. Light takes a quarter of the way
+   from grey-500 to grey-600, so that it still clears 4.5:1 when a hovered field is tinted (about 4.8:1 on grey-100), and
+   muted text takes the same colour, so that a placeholder does not read stronger than a description. */
 :root {
   --ui-text-dimmed: color-mix(in oklab, var(--ui-color-neutral-500), var(--ui-color-neutral-600) 25%);
   --ui-text-muted: var(--ui-text-dimmed);
@@ -17,59 +80,289 @@
   --ui-text-dimmed: var(--ui-color-neutral-400);
 }
 
-/* Text in the primary or error colour on white or on its own tint (outline, soft and link buttons,
-   badges, alerts): shade 500 is 2.2:1 on white for primary, and 3.8:1 on white and 3.3:1 on its
-   tint for error. In dark mode the colours are already light enough. Primary takes shade 700 and a
-   fifth of the way to 800, which is what a hovered soft button's 15 % tint needs to stay at 4.5:1
-   (4.7:1; shade 700 alone is 4.3:1 there). The fill of the solid buttons, --ui-primary, is not
-   touched: that is the colour of the brand (their label: see below). In the utilities layer and with no extra specificity, so
-   that the hover and active colours of a link button still win. */
 @layer utilities {
-  :where(:root:not(.dark)) .text-primary {
-    color: color-mix(in oklab, var(--ui-color-primary-700), var(--ui-color-primary-800) 20%);
-  }
+  /* Text in the error colour on white or on its own tint: red-500 is 3.8:1 on white and 3.3:1 on its tint. */
   :where(:root:not(.dark)) .text-error {
     color: var(--ui-color-error-700);
   }
-  /* A link button is text-primary and, hovered, text-primary at 75 %: the 700-800 mix above, faded
-     over the page, is 3.4:1 on white. A hovered link goes to shade 800 instead, as darker is what
-     "hovered" means for text on white (GH-2991). */
-  :where(:root:not(.dark)) .hover\:text-primary\/75:hover {
-    color: var(--ui-color-primary-800);
+  /* A link button is text-primary and, hovered, text-primary at 75 % over the page: 3.8:1 on white. A hovered link
+     goes a shade darker on light (8.5:1) and a shade lighter on dark (9.8:1), as "hovered" means more contrast. */
+  .hover\:text-primary\/75:hover {
+    color: var(--app-primary-hover);
   }
 }
 
-/* The label of a solid primary button (app.config.ts). White on the brand green, #00c950, is 2.2:1,
-   and 1.9:1 hovered, when the fill is 75 % of it over the page. #0f172b (slate-900) on it is 8.0:1,
-   and 9.5:1 hovered. In dark mode the fill is the lighter #05df72 and Nuxt UI's own label is this
-   same colour, so nothing changes there: 10.0:1, and 6.1:1 hovered over the page. The fill, the
-   brand's, is not touched. */
-:root {
-  --app-text-on-primary: #0f172b;
+html {
+  /* the narrow layout's bar stays at the top where the window is tall enough: what takes the focus is scrolled
+     clear of it (WCAG 2.4.11) */
+  scroll-padding-top: 4.5rem;
+}
+body {
+  -webkit-font-smoothing: antialiased;
 }
 
-/* The focus indicator of a keyboard user (WCAG 2.4.7, 1.4.11: 3:1 against what is behind it). Nuxt UI draws
-   it as a 3 px outline at 25 % of the primary colour, and a ring in the primary colour where there is one: the
-   first is 1.2:1 to 1.7:1 on white and the brand green, #00c950, 2.2:1, and some fields (the search field of a menu)
-   draw none. One solid outline for everything that takes the focus by keyboard, in shade 700 of the primary
-   colour on light (4.9:1 on white) and shade 400 on dark (10:1 on the page); the rings and outlines of the
-   components stay as they are, beside it. Not in a layer, so that it wins over the utilities of the components.
-   Not for what takes the focus without being a control (a dialog, a chart, a scroll area: tabindex -1). */
+/* The focus indicator of a keyboard user (WCAG 2.4.7, 1.4.11: 3:1 against what is behind it). Nuxt UI draws it
+   as a 3 px outline at 25 % of the primary colour, and a ring in the primary colour where there is one, and some
+   fields (the search field of a menu) draw none. One solid outline for everything that takes the focus by
+   keyboard: shade 700 of the primary colour on light (6.5:1 on white), shade 300 on dark (9.8:1 on the page), and
+   the logo's yellow on the navy of the rail (8.2:1). Not in a layer, so that it wins over the utilities of the
+   components. Not for what takes the focus without being a control (a dialog, a chart, a scroll area: tabindex -1). */
 :root {
   --app-focus-ring: var(--ui-color-primary-700);
 }
 .dark {
-  --app-focus-ring: var(--ui-color-primary-400);
+  --app-focus-ring: var(--ui-color-primary-300);
 }
 :focus-visible:not([tabindex="-1"]) {
   outline: 2px solid var(--app-focus-ring);
   outline-offset: 2px;
 }
-/* The map is a light surface in both modes (Leaflet's grey, and the tiles): it takes the ring of light mode */
-.leaflet-container:focus-visible,
+/* The map is a light surface in both modes (Leaflet's grey, and the tiles): what takes the focus in it takes the ring
+   of light mode. The map's own ring is drawn outside it, on the page, and keeps the page's (in dark mode shade 700 is
+   2.8:1 on the navy page) */
 .leaflet-container :focus-visible:not([tabindex="-1"]) {
   outline-color: var(--ui-color-primary-700);
 }
+
+/* ---- The shell: the rail, the page frame, the footer ---------------------------------------------------- */
+
+/* The link that skips the navigation (WCAG 2.4.1): the first stop of the keyboard, out of sight until it has the
+   focus. */
+.app-skip {
+  position: absolute;
+  left: 1rem;
+  top: 0.75rem;
+  z-index: 60;
+  padding: 0.5rem 1rem;
+  border-radius: var(--ui-radius);
+  background: var(--ui-bg);
+  color: var(--ui-text-highlighted);
+  font-weight: 600;
+  transform: translateY(-200%);
+}
+.app-skip:focus {
+  transform: none;
+}
+
+/* The navy of the logo, in both modes: a bar at the top of the narrow layout, a rail on the left from 1024 px.
+   Its text is white (12.5:1) and its dimmed text grey-300 (8.5:1); its focus ring is the logo's yellow. */
+.app-rail,
+.app-navy {
+  --app-focus-ring: var(--color-tile-sun);
+  background: var(--color-navy);
+  color: #fff;
+}
+.dark .app-rail {
+  border-color: rgb(255 255 255 / 0.08);
+}
+@media (min-height: 30rem) {
+  .app-rail {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+  }
+}
+/* From 1024 px the rail is a column as tall as the page, and what it holds stays in view while the page scrolls,
+   scrolling by itself where the window is shorter than it */
+@media (min-width: 64rem) {
+  .app-rail {
+    position: relative;
+    flex: none;
+    width: 15rem;
+  }
+  .app-rail-inner {
+    position: sticky;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    overflow-y: auto;
+  }
+  html {
+    scroll-padding-top: 1rem;
+  }
+}
+
+/* The search of the rail, which opens the app's search (CommandPalette.vue): a field's shape on the navy, its label
+   grey-200 (8.0:1 on its tint), the shortcut grey-300 (6.7:1), white when hovered (8.2:1) */
+.app-rail-search {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid rgb(255 255 255 / 0.2);
+  border-radius: var(--ui-radius);
+  background: rgb(255 255 255 / 0.08);
+  color: var(--color-gray-200);
+  text-align: start;
+}
+.app-rail-search:hover {
+  background: rgb(255 255 255 / 0.14);
+  color: #fff;
+}
+.app-rail-search kbd {
+  padding: 0 0.375rem;
+  border: 1px solid rgb(255 255 255 / 0.25);
+  border-radius: 0.25rem;
+  color: var(--color-gray-300);
+  font: inherit;
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+  white-space: nowrap;
+}
+@media (forced-colors: active) {
+  .app-rail-search {
+    border-color: ButtonText;
+  }
+}
+
+/* An entry of the navigation: its tile, its label, and a bar at its start when it is the page shown (a border, so
+   that it stays in forced colours, where backgrounds are dropped) */
+.app-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 2.75rem;
+  padding: 0.375rem 0.75rem 0.375rem calc(0.75rem - 3px);
+  border-inline-start: 3px solid transparent;
+  border-radius: 0 var(--ui-radius) var(--ui-radius) 0;
+  font-weight: 500;
+  line-height: 1.25;
+}
+.app-rail .app-nav-link {
+  color: var(--color-gray-200);
+}
+.app-rail .app-nav-link:hover {
+  background: rgb(255 255 255 / 0.08);
+  color: #fff;
+}
+.app-rail .app-nav-link[aria-current="page"] {
+  background: rgb(255 255 255 / 0.12);
+  border-inline-start-color: var(--color-tile-sun);
+  color: #fff;
+  font-weight: 700;
+}
+/* the menu of the narrow layout is a dialog on the page's own surface */
+.app-menu .app-nav-link {
+  color: var(--ui-text-toned);
+}
+.app-menu .app-nav-link:hover {
+  background: var(--ui-bg-elevated);
+  color: var(--ui-text-highlighted);
+}
+.app-menu .app-nav-link[aria-current="page"] {
+  background: var(--ui-bg-elevated);
+  border-inline-start-color: var(--ui-primary);
+  color: var(--ui-text-highlighted);
+  font-weight: 700;
+}
+
+/* A tile of the logo: a rounded square in one of its four colours, the icon in the logo's ink. A tile that is no
+   task's (home, providers, glossary, API) is a tint of what it lies on. */
+.app-tile {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 31%;
+  background: var(--tile, rgb(255 255 255 / 0.1));
+  color: var(--tile-fg, currentColor);
+}
+.app-tile[data-tile] {
+  --tile-fg: var(--color-tile-ink);
+}
+.app-tile[data-tile="rain"] {
+  --tile-fg: #fff;
+}
+.app-tile[data-tile="sun"] {
+  --tile: var(--color-tile-sun);
+}
+.app-tile[data-tile="rain"] {
+  --tile: var(--color-tile-rain);
+}
+.app-tile[data-tile="wind"] {
+  --tile: var(--color-tile-wind);
+}
+.app-tile[data-tile="heat"] {
+  --tile: var(--color-tile-heat);
+}
+.app-menu .app-tile:not([data-tile]) {
+  background: var(--ui-bg-accented);
+}
+
+/* The page frame: one width and one gutter for every page, so the title of each starts where the last one did.
+   A page of text keeps its lines to a reading measure inside it (`AppPage`); a page of maps and charts takes the
+   frame's width. */
+.app-frame {
+  width: 100%;
+  max-width: 76rem;
+  margin-inline: auto;
+  padding-inline: 1rem;
+}
+@media (min-width: 40rem) {
+  .app-frame {
+    padding-inline: 1.5rem;
+  }
+}
+@media (min-width: 64rem) {
+  .app-frame {
+    padding-inline: 2.5rem;
+  }
+}
+
+/* No hover lift where motion is unwanted: the transitions of the app are short, and none starts by itself */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Forced colours: the tiles and the rail lose their fills, so they keep an outline, and only the page shown keeps
+   its bar (a border, which takes the system's colour; a transparent one would be drawn too). The icons are masks
+   filled with the text's colour, which forced colours drop: they are filled with the system's text colour. */
+@media (forced-colors: active) {
+  .app-tile {
+    border: 1px solid CanvasText;
+  }
+  .app-rail {
+    border-inline-end: 1px solid CanvasText;
+    border-block-end: 1px solid CanvasText;
+  }
+  .app-nav-link {
+    border-inline-start-color: Canvas;
+  }
+  .app-nav-link[aria-current="page"] {
+    border-inline-start-color: Highlight;
+  }
+  .iconify {
+    forced-color-adjust: none;
+    background-color: CanvasText;
+  }
+}
+
+/* Print: the page's content, without the navigation, the footer's links or the controls of the shell */
+@media print {
+  .app-rail,
+  .app-skip,
+  .app-footer-nav {
+    display: none !important;
+  }
+  .app-shell {
+    display: block !important;
+  }
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+}
+
+/* ---- Third-party drawings ------------------------------------------------------------------------------ */
 
 /* Undo Tailwind v4 preflight that breaks Plotly's stacked SVG layout.
    Plotly layers multiple <svg class="main-svg"> that must overlap;

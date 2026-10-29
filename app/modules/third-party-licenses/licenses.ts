@@ -32,6 +32,11 @@ export const NOTICE_ONLY_LICENSES = new Set([
   'CC0-1.0',
   'ISC',
   'MIT',
+  // the font of the app (@fontsource-variable/atkinson-hyperlegible-next, GH-3518): the SIL Open Font License asks that
+  // the copyright notice and the licence go with the font (condition 2), which this file does for the unmodified files
+  // the app serves; it asks for more only of a modified font (no Reserved Font Name) and forbids selling the font by
+  // itself, neither of which serving it to a browser is
+  'OFL-1.1',
   'Unlicense',
 ])
 

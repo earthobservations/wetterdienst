@@ -116,12 +116,16 @@
     "providers": "Providers",
     "api": "API",
     "glossary": "Glossary",
-    "support": "Support"
+    "support": "Support",
+    "reference": "Reference"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menu"
+    "menu": "Menu",
+    "skipToContent": "Skip to content",
+    "mainNav": "Main navigation",
+    "footerNav": "About this site"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
@@ -789,5 +793,39 @@
     "summary": "Summary",
     "periods": "Periods",
     "colMissingCount": "Missing count"
+  },
+  "palette": {
+    "open": "Search",
+    "title": "Search and commands",
+    "label": "Search pages, settings and stations",
+    "placeholder": "Pages, settings, stations …",
+    "results": "Results",
+    "resultCount": "Results: {count}",
+    "empty": "Nothing found.",
+    "groupPages": "Pages",
+    "groupActions": "Actions",
+    "groupStations": "Forecast for a station",
+    "stationsLoading": "Loading stations …",
+    "stationsHint": "Type two letters or a station ID to search the forecast stations.",
+    "stationsFailed": "The stations could not be loaded.",
+    "themeAction": "Appearance: {theme}",
+    "languageAction": "Language: {language}",
+    "hint": "↑ ↓ to move · Enter to open · Esc to close",
+    "current": "current",
+    "pages": {
+      "home": "Start page: what the data is and where to begin",
+      "meteogram": "The forecast of a DWD station as a chart",
+      "explorer": "Find stations, fetch measurements and download them",
+      "history": "How a station changed: name, place, instruments",
+      "stripes": "A station's warming as coloured stripes",
+      "providers": "Who publishes the data, and under which licence",
+      "glossary": "What each parameter measures, and its unit",
+      "api": "The REST API and the MCP server",
+      "settings": "Language, appearance and how values are shown",
+      "about": "The project and the people behind it",
+      "support": "Report an issue, contribute or donate",
+      "impressum": "Who runs this site, and how to reach them",
+      "datenschutz": "Which data this site processes, and your rights"
+    }
   }
 }

@@ -1,19 +1,28 @@
 export default defineAppConfig({
   ui: {
     colors: {
-      primary: 'green',
+      // the logo's blue and its navy-tinted greys (`brand` and `gray` in main.css, GH-3518)
+      primary: 'brand',
+      neutral: 'gray',
     },
     button: {
       compoundVariants: [
-        // The brand green stays the fill; the label of a solid primary button is dark on it
-        // (white is 2.2:1), colour and ratios in main.css (--app-text-on-primary). Only the label
-        // colour changes: hover, focus and disabled styles are those of Nuxt UI's theme.
+        // Nuxt UI darkens nothing on hover: a solid button is its fill at 75 % over the page, which is 3.8:1 under
+        // the white label on light. The fill goes a shade outwards instead (--app-primary-hover in main.css); the
+        // label (Nuxt UI's text-inverted: white on light, the page's navy on dark), focus and disabled styles stay
+        // the theme's.
         {
           color: 'primary',
           variant: 'solid',
-          class: 'text-(color:--app-text-on-primary)',
+          class: 'hover:bg-(--app-primary-hover) active:bg-(--app-primary-hover) aria-expanded:bg-(--app-primary-hover)',
         },
       ],
+    },
+    card: {
+      slots: {
+        // flat surfaces with a hairline, the radius of the logo's tiles
+        root: 'rounded-2xl',
+      },
     },
   },
 })

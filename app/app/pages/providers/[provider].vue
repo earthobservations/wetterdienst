@@ -48,7 +48,7 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-4xl px-4 py-6 space-y-6">
+  <AppPage>
     <UButton
       to="/providers"
       variant="link"
@@ -76,7 +76,7 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
       <div class="flex items-start gap-4">
         <span class="text-5xl leading-none" aria-hidden="true">{{ flagEmoji(provider.country_code) }}</span>
         <div class="min-w-0">
-          <h1 class="text-3xl font-bold break-words">
+          <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-highlighted text-balance break-words">
             {{ provider.name_english }}
           </h1>
           <p v-if="provider.name_local !== provider.name_english" class="text-lg text-gray-600 dark:text-gray-400 break-words">
@@ -240,5 +240,5 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
         </ul>
       </UCard>
     </template>
-  </UContainer>
+  </AppPage>
 </template>

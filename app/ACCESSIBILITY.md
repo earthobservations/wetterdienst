@@ -12,7 +12,8 @@ it, what was checked by hand, and what is known not to conform.
 - every page, as it is first shown, in light and dark mode and in English and German,
 - and, in light/English and dark/German, the states a first paint does not show: a station map with
   stations, a drawn chart (explorer, stripes, meteogram, widget), the table of the stripes' and the meteogram's values opened, the meteogram's compact day cards, an open
-  menu or popover, and an error notice.
+  menu or popover, the app's search open (as it opens, and with a language and stations found), and an error
+  notice.
 
 The spec answers every `/api/*` request itself, in the browser (`tests/e2e/accessibility/mock-backend.ts`),
 so it reaches neither the backend nor a provider. Map tiles and every other request to another host are
@@ -43,6 +44,27 @@ and the meteogram, opened, reached and scrolled by keys; and Plotly's hover labe
 modebar buttons, which Escape dismisses until the pointer moves, 1.4.13), checks that every page has a title of its own that a navigation announces (`page titles`, 2.4.2,
 4.1.3) and that no page scrolls sideways at 320 px (`reflow at 320 px`, 1.4.10).
 
+`command-palette.spec.ts`, part of `pnpm test:e2e` and answered by the same mock backend, drives the app's
+search by keys alone. The search (`components/CommandPalette.vue`, GH-3518) is the app's own, not Nuxt UI's
+`UCommandPalette`, whose field is no combobox and whose list box has no name. It is the ARIA combobox pattern
+with a list box:
+
+- the field is a `combobox` with a name, `aria-controls` naming the list box, `aria-autocomplete="list"` and
+  `aria-activedescendant` naming the active option;
+- the list box is named ("Results"), its options are in named `group`s (pages, actions, stations), and the
+  active option is the one with `aria-selected="true"`;
+- the arrow keys (round from the last to the first) and Page Up / Page Down move the active option, Enter takes
+  it, and a pause in the typing announces the number of results (`role="status"`);
+- it opens from the rail's search button (the narrow layout's bar has one too) and by Ctrl+K / ⌘K
+  (`aria-keyshortcuts`). It is a dialog that keeps the focus, and Escape closes it and gives the focus back to
+  what opened it;
+- a language's name is marked as being in that language (3.1.2);
+- the field and the list scroll in one box, so the box that scrolls holds what takes the focus.
+
+The spec checks the roles and names, the active option moving and coming round, the focus held by Tab and
+Shift+Tab, Escape giving the focus back, a page, a station and the appearance and language taken by Enter, and
+"Nothing found" closing the list (`aria-expanded="false"`, no active option).
+
 ## The baseline
 
 The violations the app has today are recorded in `tests/e2e/accessibility/baseline.json`, one entry per
@@ -61,21 +83,30 @@ What is left in it, and why it is not fixed in the app's own markup:
 - `aria-hidden-focus`, the error toast: the two focus proxies in Reka UI's toast viewport are
   `aria-hidden` and focusable. Also upstream.
 
-There is no `color-contrast` entry left. The brand green, `#00c950`, stays the fill of a solid primary
-button; its label is `#0f172b` (`--app-text-on-primary` in `app/assets/css/main.css`, set for the
-button in `app/app.config.ts`), 8.0:1 on the fill and 9.5:1 hovered in light mode, where the white
-label it replaces was 2.2:1 and 1.9:1. Dark mode has the same label on its lighter fill, as Nuxt UI
-already had it (10.0:1, and 6.1:1 hovered). A disabled button is exempt from 1.4.3 and from the scans; its
-label is at 75 % opacity with its fill (4.2:1 in light mode). Text in the primary colour on white is
-shade 700 and a fifth of the way to 800 (`.text-primary`), a hovered link button shade 800 (7.1:1; Nuxt UI's
-75 % of the first was 3.4:1), and a hovered chip of the home page shade 700 (4.9:1; shade 500 was 2.2:1).
-`tests/unit/button-contrast.test.ts` computes the hovered ratio of a solid button, as 75 % of the fill over
-the page; the hover scan measures the rest.
+There is no `color-contrast` entry left. The design (GH-3518) takes its colours from the logo, and every pair
+it draws is computed in `tests/unit/design-tokens.test.ts` from the tokens of `app/assets/css/main.css`. The
+primary colour is the logo's blue at shade 700 on light (`#135abf`: 6.5:1 on white, 5.1:1 on its own 15 % tint,
+and a white label on it 6.5:1) and shade 400 on dark (6.9:1 on the page, the page's navy on it 6.9:1). Nuxt UI
+draws a hovered solid button as 75 % of its fill over the page, which is 3.8:1 under the white label; the fill
+goes a shade outwards instead (`--app-primary-hover`, set for the button in `app/app.config.ts`: 8.5:1 and 9.8:1).
+A hovered link goes the same way. The greys are Tailwind's at its own lightness steps, turned towards the logo's
+navy, so each pair keeps the contrast Tailwind's grey had (within 0.05). Muted text on light is a quarter of the
+way from grey-500 to grey-600 (about 4.8:1 on a hovered field). The navigation rail is the logo's navy in both modes:
+its text is white (12.5:1) or grey-200, its dimmed text grey-300 (8.5:1). The four tiles of the logo carry the
+logo's ink (`#0b1a33`: 11.3:1 on the yellow, 6.7:1 on the teal, 5.0:1 on the coral) or white on the blue (4.9:1).
+A disabled button is exempt from 1.4.3 and from the scans.
 
 The focus indicator is one solid 2 px outline for everything a keyboard reaches (`--app-focus-ring` in
-`main.css`: shade 700 of the primary colour on light, 4.9:1 on white, shade 400 on dark, 10:1; the map takes
-the light one in both modes). Nuxt UI's own is an outline at 25 % of the primary colour (1.2:1 to 1.7:1 on
-white) and a ring in the primary colour (2.2:1), and its menu search fields draw none; they stay, beside it.
+`main.css`): shade 700 of the primary colour on light (6.5:1 on white), shade 300 on dark (9.8:1), and the
+logo's yellow on the navy of the rail and the home page's navy band (8.2:1); what takes the focus inside the map
+takes the light one in both modes, as the map is a light surface, while the map's own ring, drawn on the page
+around it, is the page's. Nuxt UI's own is an outline at 25 % of the primary colour and a ring in it, and its menu search fields draw
+none; they stay, beside it.
+
+The first stop of the keyboard is a "Skip to content" link (2.4.1), out of sight until it has the focus, which
+moves the focus to the page's `main`. Under `forced-colors` the tiles and the rail keep an outline and the page
+shown keeps its bar (a border, not a fill); under `prefers-reduced-motion` no transition runs; printed, a page
+leaves out the rail and the footer's links.
 
 There is no sepia mode. `main.css` once held a `html.sepia` block that redefined the `--ui-*` tokens, which
 nothing in the app ever set (`colorMode` knows `light`, `dark` and `system`, and the settings offer those

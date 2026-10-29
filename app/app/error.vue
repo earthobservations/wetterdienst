@@ -37,7 +37,8 @@ useHead(() => notFound.value && !blank.value
   <div v-if="blank" />
   <main v-else-if="notFound" class="min-h-screen grid place-content-center px-4 text-center">
     <div class="max-w-lg">
-      <p class="text-6xl font-medium tabular-nums mb-4">
+      <img src="/icon.svg" alt="" class="size-16 mx-auto mb-6 rounded-2xl">
+      <p class="text-6xl font-bold tracking-tight tabular-nums mb-4 text-highlighted">
         404
       </p>
       <h1 class="text-2xl font-semibold mb-2">

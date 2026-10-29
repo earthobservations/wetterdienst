@@ -116,12 +116,16 @@
     "providers": "Proveedores",
     "api": "API",
     "glossary": "Glosario",
-    "support": "Ayuda"
+    "support": "Ayuda",
+    "reference": "Referencia"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menú"
+    "menu": "Menú",
+    "skipToContent": "Saltar al contenido",
+    "mainNav": "Navegación principal",
+    "footerNav": "Acerca de este sitio"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
@@ -789,5 +793,39 @@
     "summary": "Resumen",
     "periods": "Periodos",
     "colMissingCount": "Número de valores faltantes"
+  },
+  "palette": {
+    "open": "Buscar",
+    "title": "Búsqueda y comandos",
+    "label": "Buscar páginas, ajustes y estaciones",
+    "placeholder": "Páginas, ajustes, estaciones …",
+    "results": "Resultados",
+    "resultCount": "Resultados: {count}",
+    "empty": "No se ha encontrado nada.",
+    "groupPages": "Páginas",
+    "groupActions": "Acciones",
+    "groupStations": "Pronóstico de una estación",
+    "stationsLoading": "Cargando estaciones …",
+    "stationsHint": "Escribe dos letras o un ID de estación para buscar entre las estaciones del pronóstico.",
+    "stationsFailed": "No se han podido cargar las estaciones.",
+    "themeAction": "Apariencia: {theme}",
+    "languageAction": "Idioma: {language}",
+    "hint": "↑ ↓ elegir · Intro abrir · Esc cerrar",
+    "current": "actual",
+    "pages": {
+      "home": "Inicio: qué datos hay y por dónde empezar",
+      "meteogram": "El pronóstico de una estación del DWD en un gráfico",
+      "explorer": "Encontrar estaciones, obtener mediciones y descargarlas",
+      "history": "Cómo ha cambiado una estación: nombre, lugar, instrumentos",
+      "stripes": "El calentamiento de una estación en franjas de color",
+      "providers": "Quién publica los datos y con qué licencia",
+      "glossary": "Qué mide cada parámetro y en qué unidad",
+      "api": "La API REST y el servidor MCP",
+      "settings": "Idioma, apariencia y cómo se muestran los valores",
+      "about": "El proyecto y las personas que hay detrás",
+      "support": "Informar de un problema, contribuir o donar",
+      "impressum": "Quién gestiona este sitio y cómo contactar",
+      "datenschutz": "Qué datos trata este sitio y cuáles son tus derechos"
+    }
   }
 }
