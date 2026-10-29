@@ -21,6 +21,7 @@ from wetterdienst.model.fetch_ahead import FetchAhead, FilesAhead
 from wetterdienst.model.metadata import group_parameters_by_dataset
 from wetterdienst.model.parameter_rows import ParameterRows
 from wetterdienst.model.quality_flags import QUALITY_FLAGS, RAW_TOKEN
+from wetterdienst.model.request import require_window
 from wetterdienst.model.result import StationsFilter, StationsResult, ValuesResult
 from wetterdienst.model.schema import (
     LONG_SCHEMA,
@@ -278,6 +279,8 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     def __post_init__(self) -> None:
         """Post-initialization of the TimeseriesValues object."""
         self.unit_converter.update_targets(self.sr.options.unit_targets)
+        # before the first station is read: a window-less request for such a dataset used to answer an empty frame
+        require_window(self.sr.parameters, self.sr.start, self.sr.end)
 
     @classmethod
     def from_stations(cls, stations: StationsResult) -> TimeseriesValues:

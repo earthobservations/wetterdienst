@@ -22,7 +22,8 @@ from wetterdienst.util.response_warnings import begin_response, recorded_warning
 
 def _values(parameters: list[tuple[str, str, str]]) -> TimeseriesValues:
     """Build a values object for the given parameters without touching the network."""
-    request = WsvPegelRequest(parameters=parameters)
+    # WSV is read by a window (`date_required`), and the reader refuses a request without one (GH-3562)
+    request = WsvPegelRequest(parameters=parameters, start="2020-01-01", end="2020-01-02")
     return WsvPegelValues(
         sr=StationsResult(
             request=request,

@@ -33,6 +33,11 @@ STATION_URL = "https://environment.data.gov.uk/hydrology/id/stations/{station_id
 MEASURE_URL = "https://environment.data.gov.uk/hydrology/id/measures/{notation}"
 
 
+# EA is read by a window (`date_required`), and the reader refuses a request without one (GH-3562); the readings these
+# tests serve are of no date in particular
+WINDOW = {"start": "2000-01-01", "end": "2100-01-01"}
+
+
 def _measure(station_id: str, notation: str, unit: str = "m3s") -> dict[str, Any]:
     """Build one measure as the station endpoints report it.
 
@@ -64,14 +69,19 @@ def _station(station_id: str, notations: list[str], latitude: float = 51.5) -> d
 
 
 def _serve(responses: dict[str, bytes]) -> Any:  # noqa: ANN401
-    """Serve the given payloads by URL, and fail loudly on any other request."""
+    """Serve the given payloads by URL, and fail loudly on any other request.
+
+    A readings URL carries the window of the request (EA is read by a window, GH-3562), which these payloads do not
+    depend on: it is served by the URL without its query where the URL as given is not named.
+    """
 
     def _download(**kwargs: Any) -> File:  # noqa: ANN401
         url = kwargs["url"]
-        if url not in responses:
+        served = url if url in responses else url.partition("?")[0]
+        if served not in responses:
             msg = f"unexpected request to {url}"
             raise AssertionError(msg)
-        return File(url=url, content=BytesIO(responses[url]), status=200)
+        return File(url=url, content=BytesIO(responses[served]), status=200)
 
     return _download
 
@@ -195,7 +205,7 @@ def test_ea_values_of_the_two_kinds_of_level_come_from_their_own_measure(
             reading["value"] = -999.0
         responses[f"{measure['@id']}/readings.json"] = json.dumps({"items": [reading]}).encode()
     monkeypatch.setattr(ea_api, "download_file", _serve(responses))
-    request = EAHydrologyRequest(parameters=[parameter], settings=default_settings)
+    request = EAHydrologyRequest(parameters=[parameter], settings=default_settings, **WINDOW)
     df = request.all().values().all().df
     assert df.get_column("parameter").to_list() == [parameter[2]]
     assert df.get_column("value").to_list() == [pytest.approx(expected)]
@@ -396,7 +406,7 @@ def test_ea_values_read_the_measure_of_the_requested_parameter(
         for notation, payload in readings.items()
     }
     monkeypatch.setattr(ea_api, "download_file", _serve(responses))
-    request = EAHydrologyRequest(parameters=[("daily", "data", "discharge_mean")], settings=default_settings)
+    request = EAHydrologyRequest(parameters=[("daily", "data", "discharge_mean")], settings=default_settings, **WINDOW)
     df = request.all().values().all().df
     assert df.get_column("parameter").unique().to_list() == ["discharge_mean"]
     # the second of the three notations, so anything matching on parameter and period alone
@@ -463,6 +473,7 @@ def test_ea_readings_page_holds_a_window_longer_than_the_default(
     assert int(query["_limit"][0]) > 100_000
 
 
+@pytest.mark.usefixtures("window_not_required")
 def test_ea_readings_are_unbounded_without_a_window(
     default_settings: Settings,
     monkeypatch: pytest.MonkeyPatch,
@@ -534,7 +545,7 @@ def test_ea_readings_are_read_over_https_where_the_measure_is_named_over_http(
         f"{MEASURE_URL.format(notation=f'{station_id}-flow-i-900-m3s-qualified')}/readings.json": readings,
     }
     monkeypatch.setattr(ea_api, "download_file", _serve(responses))
-    request = EAHydrologyRequest(parameters=[("15_minutes", "data", "discharge")], settings=default_settings)
+    request = EAHydrologyRequest(parameters=[("15_minutes", "data", "discharge")], settings=default_settings, **WINDOW)
     assert request.all().values().all().df.get_column("value").to_list() == [1.0]
 
 
@@ -559,6 +570,6 @@ def test_ea_readings_are_not_read_at_a_measure_of_another_host(
     listing = json.dumps({"items": [_station(station_id, ["flow-i-900"])]}).encode()
     responses = {STATIONS_URL: listing, STATION_URL.format(station_id=station_id): station}
     monkeypatch.setattr(ea_api, "download_file", _serve(responses))
-    request = EAHydrologyRequest(parameters=[("15_minutes", "data", "discharge")], settings=default_settings)
+    request = EAHydrologyRequest(parameters=[("15_minutes", "data", "discharge")], settings=default_settings, **WINDOW)
     with pytest.raises(DownloadError, match="the link was not fetched"):
         request.all().values().all()

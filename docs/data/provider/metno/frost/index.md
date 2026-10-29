@@ -23,8 +23,9 @@ summary never picks them.
 
 Every resolution needs a window, because Frost is asked for one reference time range. The REST
 API, the CLI and MCP refuse a request for values without a start and end date (REST API: 400,
-`timestamp` is required). The Python API does not check: it returns an empty frame. Stations can be
-listed without a window.
+`timestamp` is required), and so does the Python API: `stations.values()` raises `DateRequiredError`
+(a `ValueError`) naming the dataset. Pass `start` and `end` to the request. Stations can be listed
+without a window.
 
 ## License
 
