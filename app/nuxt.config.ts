@@ -30,6 +30,9 @@ export default defineNuxtConfig({
   },
 
   css: [
+    // the app's typeface, served from the app's own origin (OFL, GH-3518): Latin and Latin Extended,
+    // which the eleven languages need, as two woff2 files the browser takes by unicode-range
+    '@fontsource-variable/atkinson-hyperlegible-next',
     '~/assets/css/main.css',
     'leaflet/dist/leaflet.css',
   ],

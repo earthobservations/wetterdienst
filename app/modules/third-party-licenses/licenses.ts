@@ -32,6 +32,11 @@ export const NOTICE_ONLY_LICENSES = new Set([
   'CC0-1.0',
   'ISC',
   'MIT',
+  // the font of the app (Atkinson Hyperlegible Next, GH-3518): the font files go with their copyright line and the
+  // licence, which this file carries, and are not sold on their own; the rest of the OFL (a Reserved Font Name,
+  // which this font declares none of, and the terms of a modified font) is about changing the font, which the app
+  // does not
+  'OFL-1.1',
   'Unlicense',
 ])
 

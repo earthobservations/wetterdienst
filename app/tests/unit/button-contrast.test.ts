@@ -14,7 +14,7 @@ function contrast(a: string, b: string) {
   const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
   return (hi! + 0.05) / (lo! + 0.05)
 }
-// 75 % of the fill over the page: the hover state of Nuxt UI's solid button (bg-primary/75)
+// 75 % of the fill over the page: the hover state of Nuxt UI's solid button (bg-primary/75), which the app replaces
 function over(fill: string, page: string) {
   const p = channels(page)
   return `#${channels(fill).map((c, i) => Math.round(0.75 * c + 0.25 * p[i]!).toString(16).padStart(2, '0')).join('')}`
@@ -22,25 +22,41 @@ function over(fill: string, page: string) {
 
 const css = readFileSync(fileURLToPath(new URL('../../app/assets/css/main.css', import.meta.url)), 'utf-8')
 
-describe('the label of a solid primary button (--app-text-on-primary)', () => {
-  const label = /--app-text-on-primary:\s*(#[0-9a-f]{6})/i.exec(css)?.[1]
+/** A shade of the brand scale, as main.css defines it (`--color-brand-600: #2e6fd1`) */
+function brand(shade: number): string {
+  const found = new RegExp(`--color-brand-${shade}:\\s*(#[0-9a-f]{6})`, 'i').exec(css)?.[1]
+  expect(found, `--color-brand-${shade} in main.css`).toBeDefined()
+  return found!
+}
 
-  it('is set in main.css, for both colour modes', () => {
-    expect(label).toBeDefined()
-    // not redefined for .dark: one dark label serves the brand green and its lighter dark-mode shade
-    expect(css).not.toMatch(/\.dark\s*\{[^}]*--app-text-on-primary/)
+/** A colour of main.css's blocks for a mode: the first block of `:root` or `.dark` that sets the variable, a hex or a brand shade */
+function token(mode: 'light' | 'dark', name: string): string {
+  const selector = mode === 'light' ? ':root' : '.dark'
+  const blocks = [...css.matchAll(/^([^\n{]+)\{([^}]*)\}/gm)].filter(match => match[1]!.trim() === selector)
+  const value = blocks.map(match => new RegExp(`${name}:\\s*([^;]+);`).exec(match[2]!)?.[1]?.trim()).find(Boolean)
+  expect(value, `${name} for ${mode} mode in main.css`).toBeDefined()
+  const shade = /--ui-color-primary-(\d+)/.exec(value!)?.[1]
+  return shade ? brand(Number(shade)) : value!
+}
+
+// The page under a button: white in light mode, the app's dark page in dark mode
+const PAGE = { light: '#ffffff', dark: token('dark', '--ui-bg') }
+
+describe('the solid primary button (--app-text-on-primary, --app-primary-hover)', () => {
+  it.each(['light', 'dark'] as const)('clears 4.5:1 on its fill and on its hovered fill in %s mode', (mode) => {
+    const label = token(mode, '--app-text-on-primary')
+    const fill = token(mode, '--ui-primary')
+    const hover = token(mode, '--app-primary-hover')
+    expect(contrast(label, fill)).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(label, hover)).toBeGreaterThanOrEqual(4.5)
   })
 
-  // Tailwind's green-500, the fill in light mode, over white; green-400, the fill in dark mode, over slate-900 (Nuxt UI's neutral)
-  it.each([
-    ['light', '#00c950', '#ffffff'],
-    ['dark', '#05df72', '#0f172b'],
-  ])('clears 4.5:1 on the %s fill and on its hover', (_mode, fill, page) => {
-    expect(contrast(label!, fill)).toBeGreaterThanOrEqual(4.5)
-    expect(contrast(label!, over(fill, page))).toBeGreaterThanOrEqual(4.5)
+  it('has the logo\'s blue as its fill in light mode', () => {
+    expect(token('light', '--ui-primary')).toBe('#2e6fd1')
   })
 
-  it('is what white was not (the reason for the dark label)', () => {
-    expect(contrast('#ffffff', '#00c950')).toBeLessThan(3)
+  it('needs a hover of its own: Nuxt UI\'s, the fill at 75 % over the page, is under 4.5:1 with the label', () => {
+    const label = token('light', '--app-text-on-primary')
+    expect(contrast(label, over(token('light', '--ui-primary'), PAGE.light))).toBeLessThan(4.5)
   })
 })

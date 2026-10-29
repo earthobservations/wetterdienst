@@ -8,14 +8,15 @@ async function classesOf(props: Record<string, unknown>) {
   return wrapper.classes()
 }
 
-describe('the label of a solid primary button', () => {
-  it('is the dark app colour, where Nuxt UI would make it white', async () => {
+describe('the solid primary button', () => {
+  it('has the app\'s label and hovered fill, where Nuxt UI would make the label white and the hover 75 % of the fill', async () => {
     const classes = await classesOf({ color: 'primary', variant: 'solid' })
     expect(classes).toContain('text-(color:--app-text-on-primary)')
     expect(classes).not.toContain('text-inverted')
-    // the fill, its hover and the disabled state are the theme's
+    expect(classes).toContain('hover:bg-(color:--app-primary-hover)')
+    expect(classes).not.toContain('hover:bg-primary/75')
+    // the fill and the disabled state are the theme's
     expect(classes).toContain('bg-primary')
-    expect(classes).toContain('hover:bg-primary/75')
     expect(classes).toContain('disabled:bg-primary')
   })
 
@@ -36,6 +37,7 @@ describe('the other buttons', () => {
   ])('keep the label colour of the %s %s button', async (color, variant) => {
     const classes = await classesOf({ color, variant })
     expect(classes.join(' ')).not.toContain('--app-text-on-primary')
+    expect(classes.join(' ')).not.toContain('--app-primary-hover')
   })
 
   it('keep the text-inverted label of the neutral and error solid buttons', async () => {

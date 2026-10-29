@@ -57,6 +57,81 @@ test.describe('Home Page', () => {
   })
 })
 
+// The home page is a map of the stations (GH-3518), with a panel that lists and finds them
+test.describe('Map (home page)', () => {
+  test('lists the forecast points near the centre of the map, and opens one with its forecast', async ({ page }) => {
+    await page.goto('/')
+    const first = page.locator('.atlas-list-item').first()
+    await expect(first).toBeVisible({ timeout: 60_000 })
+    await expect(page.getByText(/^Stations: \d+/)).toBeVisible()
+
+    await first.click()
+    await expect(page.getByRole('button', { name: 'All stations' })).toBeVisible()
+    await expect(page).toHaveURL(/[?&]station=/)
+    await expect(page.getByRole('link', { name: 'Open the forecast' })).toHaveAttribute('href', /^\/meteogram\?station=/)
+    await expect(page.getByText('Today').first()).toBeVisible({ timeout: 60_000 })
+  })
+
+  test('finds a station by its name', async ({ page }) => {
+    await page.goto('/')
+    await expect(page.locator('.atlas-list-item').first()).toBeVisible({ timeout: 60_000 })
+    await page.getByLabel('Find a station').fill('helgoland')
+    await expect(page.getByRole('heading', { name: 'Stations found' })).toBeVisible()
+    await expect(page.locator('.atlas-list-item', { hasText: /HELGOLAND/i }).first()).toBeVisible()
+  })
+
+  test('shows the measuring stations of a provider, and keeps the choice in the address', async ({ page }) => {
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Measurements' }).click()
+    await expect(page).toHaveURL(/layer=measured/)
+    await expect(page.getByRole('combobox', { name: 'Provider' })).toBeVisible()
+    await expect(page.locator('.atlas-list-item').first()).toBeVisible({ timeout: 60_000 })
+  })
+})
+
+// The search of the header (GH-3518): Ctrl+K or its button, on every page, by keys alone
+test.describe('Search', () => {
+  test('opens by Ctrl+K and goes to a page by Enter', async ({ page }) => {
+    await page.goto('/glossary')
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    await page.keyboard.press('Control+k')
+    await expect(page.getByRole('combobox')).toBeFocused()
+    await page.keyboard.type('providers')
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(/\/providers$/)
+  })
+
+  test('switches the appearance from its button, and gives the focus back on Escape', async ({ page }) => {
+    await page.goto('/about')
+    const button = page.getByRole('banner').getByRole('button', { name: 'Search', exact: true })
+    await button.click()
+    await page.keyboard.type('dark')
+    await page.keyboard.press('Enter')
+    await expect(page.locator('html')).toHaveClass(/dark/)
+
+    await button.click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog')).toBeHidden()
+    await expect(button).toBeFocused()
+  })
+
+  test('finds a forecast point and moves the map to it', async ({ page }) => {
+    // the list of the forecast points is a few thousand stations from the backend
+    test.setTimeout(120_000)
+    await page.goto('/api')
+    // the app has started, and listens for the shortcut
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    await page.keyboard.press('Control+k')
+    await expect(page.getByRole('combobox')).toBeFocused()
+    await page.keyboard.type('helgoland')
+    await expect(page.getByRole('option', { name: /HELGOLAND/i }).first()).toBeVisible({ timeout: 60_000 })
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(/\/\?station=/)
+    await expect(page.getByRole('heading', { level: 2, name: /HELGOLAND/i })).toBeVisible({ timeout: 60_000 })
+  })
+})
+
 test.describe('API Documentation Page', () => {
   test('should navigate to API page', async ({ page }) => {
     await page.goto('/')

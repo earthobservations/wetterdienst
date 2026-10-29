@@ -34,7 +34,10 @@ describe('german (de) locale rendering', () => {
   it('renders the home page in German', async () => {
     const wrapper = await mountSuspended(IndexPage)
     expect(wrapper.text()).toContain('Offene Wetterdaten für Menschen')
-    expect(wrapper.text()).toContain('Was möchtest du tun?')
+    // the map's panel: the stations near the centre of the map, and the filter over it
+    expect(wrapper.text()).toContain('Nahe der Kartenmitte')
+    expect(wrapper.find('[role="group"]').attributes('aria-label')).toBe('Auf der Karte zeigen')
+    expect(wrapper.text()).toContain('Messwerte')
   })
 
   it('renders the API page in German', async () => {

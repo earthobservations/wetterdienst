@@ -62,6 +62,36 @@
     "kindRoadDesc": "Fahrbahnzustand und -temperaturen der DWD-Straßenwetterstationen, mitsamt deren Vorhersagen.",
     "aboutLink": "Über das Projekt und die Menschen dahinter"
   },
+  "atlas": {
+    "layers": "Auf der Karte zeigen",
+    "layerForecast": "Vorhersage",
+    "layerMeasured": "Messwerte",
+    "layerStripes": "Klimastreifen",
+    "count": "Stationen: {count}",
+    "loadingStations": "Stationen werden geladen …",
+    "stationsFailed": "Die Stationen konnten nicht geladen werden.",
+    "search": "Station finden",
+    "searchPlaceholder": "Name oder ID der Station",
+    "nearCentre": "Nahe der Kartenmitte",
+    "results": "Gefundene Stationen",
+    "noResults": "Keine Station passt zu „{query}“.",
+    "back": "Alle Stationen",
+    "chosen": "{name} gewählt.",
+    "elevation": "{value} m über dem Meeresspiegel",
+    "pickedPlace": "Die nächste Station zum gewählten Punkt, {distance} entfernt",
+    "at": "Bei {name}, {distance} entfernt",
+    "noneNearby": "Keine Station dieser Art im Umkreis von {distance}.",
+    "since": "seit {year}",
+    "openForecast": "Vorhersage öffnen",
+    "openStripes": "Klimastreifen öffnen",
+    "openExplorer": "Im Explorer öffnen",
+    "openHistory": "Stationsverlauf öffnen",
+    "stripesFigure": "Klimastreifen von {name}, {first} bis {last}: ein Streifen je Jahr, blau für die kühlsten und rot für die wärmsten.",
+    "zoomIn": "Vergrößern",
+    "zoomOut": "Verkleinern",
+    "mapLabel": "Karte der Stationen. Die Pfeiltasten verschieben sie, Plus und Minus zoomen; die Leiste listet die Stationen nahe ihrer Mitte.",
+    "pickCentre": "Mitte der Karte wählen"
+  },
   "seo": {
     "title": "Wetterdienst – offene Wetter- und Klimadaten von nationalen Wetterdiensten",
     "description": "Offene Wetter- und Klimadaten nationaler Wetterdienste, einheitlich abrufbar: Explorer, Vorhersage, Klimastreifen, REST-API und MCP-Server. Quelloffen und kostenlos.",
@@ -116,12 +146,18 @@
     "providers": "Anbieter",
     "api": "API",
     "glossary": "Glossar",
-    "support": "Unterstützen"
+    "support": "Unterstützen",
+    "map": "Karte"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menü"
+    "menu": "Menü",
+    "skip": "Zum Inhalt springen",
+    "pages": "Seiten",
+    "groupData": "Daten",
+    "groupReference": "Nachschlagen",
+    "groupProject": "Projekt"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
@@ -789,5 +825,19 @@
     "summary": "Zusammenfassung",
     "periods": "Zeiträume",
     "colMissingCount": "Anzahl fehlend"
+  },
+  "palette": {
+    "open": "Suchen",
+    "title": "Seiten, Einstellungen und Stationen suchen",
+    "placeholder": "Seite, Einstellung oder Station …",
+    "groupPages": "Seiten",
+    "groupStations": "Stationen auf der Karte",
+    "results": "Treffer: {count}",
+    "noResults": "Nichts passt zu „{query}“.",
+    "hint": "zum Wechseln und Öffnen; Esc schließt",
+    "purposeMap": "Die Stationen auf einer Karte: Vorhersage, Messwerte und Klimastreifen eines Ortes",
+    "purposeSupport": "Fehler melden, mitmachen oder spenden",
+    "purposeLegal": "Wer diese Seite betreibt",
+    "purposePrivacy": "Was diese Seite von deinem Besuch speichert, und warum"
   }
 }

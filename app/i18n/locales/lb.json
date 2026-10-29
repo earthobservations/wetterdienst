@@ -62,6 +62,36 @@
     "kindRoadDesc": "Fahrbunnzoustand an -temperature vun de DWD-Stroossewiederstatiounen, mat hire Prognosen.",
     "aboutLink": "Iwwer d'Projet an d'Leit dohannert"
   },
+  "atlas": {
+    "layers": "Op der Kaart weisen",
+    "layerForecast": "Prognos",
+    "layerMeasured": "Miessungen",
+    "layerStripes": "Klimasträifen",
+    "count": "Statiounen: {count}",
+    "loadingStations": "D'Statioune ginn gelueden …",
+    "stationsFailed": "D'Statiounen konnten net geluede ginn.",
+    "search": "Eng Statioun fannen",
+    "searchPlaceholder": "Numm oder ID vun der Statioun",
+    "nearCentre": "No bei der Mëtt vun der Kaart",
+    "results": "Fonnt Statiounen",
+    "noResults": "Keng Statioun passt op „{query}“.",
+    "back": "All Statiounen",
+    "chosen": "{name} gewielt.",
+    "elevation": "{value} m iwwer dem Mier",
+    "pickedPlace": "Déi nooste Statioun zum gewielte Punkt, {distance} ewech",
+    "at": "Bei {name}, {distance} ewech",
+    "noneNearby": "Keng Statioun vun dëser Aart bannent {distance}.",
+    "since": "zënter {year}",
+    "openForecast": "Prognos opmaachen",
+    "openStripes": "Klimasträifen opmaachen",
+    "openExplorer": "Am Explorer opmaachen",
+    "openHistory": "Statioune-Historique opmaachen",
+    "stripesFigure": "Klimasträifen vun {name}, {first} bis {last}: ee Sträif pro Joer, blo fir déi killsten a rout fir déi wäermsten.",
+    "zoomIn": "Vergréisseren",
+    "zoomOut": "Verklengeren",
+    "mapLabel": "Kaart vun de Statiounen. D'Feiltaste verréckelen se, Plus a Minus zoomen; d'Leescht weist d'Statiounen no bei hirer Mëtt.",
+    "pickCentre": "D'Mëtt vun der Kaart auswielen"
+  },
   "seo": {
     "title": "Wetterdienst – oppen Wieder- a Klimadaten vun nationale Wiederdéngschter",
     "description": "Oppen Wieder- a Klimadaten vun nationale Wiederdéngschter an engem eenzege Format: Explorer, Wiederprognos, Klimasträifen, REST-API an MCP-Server. Open Source a gratis.",
@@ -116,12 +146,18 @@
     "providers": "Ubidder",
     "api": "API",
     "glossary": "Glossar",
-    "support": "Ënnerstëtzung"
+    "support": "Ënnerstëtzung",
+    "map": "Kaart"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menü"
+    "menu": "Menü",
+    "skip": "Op den Inhalt sprangen",
+    "pages": "Säiten",
+    "groupData": "Daten",
+    "groupReference": "Nokucken",
+    "groupProject": "Projet"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
@@ -789,5 +825,19 @@
     "summary": "Resümee",
     "periods": "Perioden",
     "colMissingCount": "Zuel vu Fehlenden"
+  },
+  "palette": {
+    "open": "Sichen",
+    "title": "Säiten, Astellungen a Statiounen sichen",
+    "placeholder": "Säit, Astellung oder Statioun …",
+    "groupPages": "Säiten",
+    "groupStations": "Statiounen op der Kaart",
+    "results": "Resultater: {count}",
+    "noResults": "Näischt passt op „{query}“.",
+    "hint": "fir ze wiesselen an opzemaachen; Esc mécht zou",
+    "purposeMap": "D'Statiounen op enger Kaart: Prognos, Miessungen a Klimasträifen vun enger Plaz",
+    "purposeSupport": "E Problem mellen, matmaachen oder spenden",
+    "purposeLegal": "Wien dëse Site bedreift",
+    "purposePrivacy": "Wat dëse Site vun dengem Besuch späichert, a firwat"
   }
 }

@@ -62,6 +62,36 @@
     "kindRoadDesc": "Estado y temperatura del firme de las estaciones viales del DWD, junto con sus predicciones.",
     "aboutLink": "Sobre el proyecto y las personas que lo hacen posible"
   },
+  "atlas": {
+    "layers": "Mostrar en el mapa",
+    "layerForecast": "Pronóstico",
+    "layerMeasured": "Mediciones",
+    "layerStripes": "Franjas climáticas",
+    "count": "Estaciones: {count}",
+    "loadingStations": "Cargando las estaciones …",
+    "stationsFailed": "No se pudieron cargar las estaciones.",
+    "search": "Buscar una estación",
+    "searchPlaceholder": "Nombre o ID de la estación",
+    "nearCentre": "Cerca del centro del mapa",
+    "results": "Estaciones encontradas",
+    "noResults": "Ninguna estación coincide con «{query}».",
+    "back": "Todas las estaciones",
+    "chosen": "{name} elegida.",
+    "elevation": "{value} m sobre el nivel del mar",
+    "pickedPlace": "La estación más cercana al punto elegido, a {distance}",
+    "at": "En {name}, a {distance}",
+    "noneNearby": "Ninguna estación de este tipo a menos de {distance}.",
+    "since": "desde {year}",
+    "openForecast": "Abrir el pronóstico",
+    "openStripes": "Abrir las franjas climáticas",
+    "openExplorer": "Abrir en el explorador",
+    "openHistory": "Abrir el historial de la estación",
+    "stripesFigure": "Franjas climáticas de {name}, de {first} a {last}: una franja por año, azul para los más fríos y roja para los más cálidos.",
+    "zoomIn": "Acercar",
+    "zoomOut": "Alejar",
+    "mapLabel": "Mapa de las estaciones. Las flechas lo mueven, más y menos acercan y alejan; el panel enumera las estaciones cerca de su centro.",
+    "pickCentre": "Elegir el centro del mapa"
+  },
   "seo": {
     "title": "Wetterdienst – datos meteorológicos y climáticos abiertos de los servicios meteorológicos nacionales",
     "description": "Datos meteorológicos y climáticos abiertos de los servicios meteorológicos nacionales, en un único formato: explorador, pronóstico, franjas climáticas, API REST y servidor MCP. De código abierto y gratuito.",
@@ -116,12 +146,18 @@
     "providers": "Proveedores",
     "api": "API",
     "glossary": "Glosario",
-    "support": "Ayuda"
+    "support": "Ayuda",
+    "map": "Mapa"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menú"
+    "menu": "Menú",
+    "skip": "Ir al contenido",
+    "pages": "Páginas",
+    "groupData": "Datos",
+    "groupReference": "Referencia",
+    "groupProject": "Proyecto"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
@@ -789,5 +825,19 @@
     "summary": "Resumen",
     "periods": "Periodos",
     "colMissingCount": "Número de valores faltantes"
+  },
+  "palette": {
+    "open": "Buscar",
+    "title": "Buscar páginas, ajustes y estaciones",
+    "placeholder": "Página, ajuste o estación …",
+    "groupPages": "Páginas",
+    "groupStations": "Estaciones en el mapa",
+    "results": "Resultados: {count}",
+    "noResults": "Nada coincide con «{query}».",
+    "hint": "para moverte y abrir; Esc cierra",
+    "purposeMap": "Las estaciones en un mapa: pronóstico, mediciones y franjas climáticas de un lugar",
+    "purposeSupport": "Informar de un problema, contribuir o donar",
+    "purposeLegal": "Quién gestiona este sitio",
+    "purposePrivacy": "Qué guarda este sitio de tu visita, y por qué"
   }
 }

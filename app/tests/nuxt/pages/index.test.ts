@@ -18,8 +18,9 @@ async function mountHome() {
   mounted.push(wrapper)
   return wrapper
 }
+// a number of the panel's list of figures (`dl`): its value, by the term it is named with
 function tile(wrapper: Awaited<ReturnType<typeof mountHome>>, label: string) {
-  return wrapper.findAll('.text-2xl').find(el => el.element.parentElement?.textContent?.includes(label))
+  return wrapper.findAll('.atlas-stats dd').find(el => el.element.parentElement?.querySelector('dt')?.textContent?.includes(label))
 }
 function servicesTile(wrapper: Awaited<ReturnType<typeof mountHome>>) {
   return tile(wrapper, 'weather services')

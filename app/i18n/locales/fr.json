@@ -62,6 +62,36 @@
     "kindRoadDesc": "État et température de la chaussée depuis les stations routières du DWD, avec leurs prévisions.",
     "aboutLink": "À propos du projet et des personnes qui le portent"
   },
+  "atlas": {
+    "layers": "Afficher sur la carte",
+    "layerForecast": "Prévisions",
+    "layerMeasured": "Mesures",
+    "layerStripes": "Bandes climatiques",
+    "count": "Stations : {count}",
+    "loadingStations": "Chargement des stations …",
+    "stationsFailed": "Les stations n'ont pas pu être chargées.",
+    "search": "Trouver une station",
+    "searchPlaceholder": "Nom ou identifiant de la station",
+    "nearCentre": "Près du centre de la carte",
+    "results": "Stations trouvées",
+    "noResults": "Aucune station ne correspond à « {query} ».",
+    "back": "Toutes les stations",
+    "chosen": "{name} choisie.",
+    "elevation": "{value} m d'altitude",
+    "pickedPlace": "La station la plus proche du point choisi, à {distance}",
+    "at": "À {name}, à {distance}",
+    "noneNearby": "Aucune station de ce type à moins de {distance}.",
+    "since": "depuis {year}",
+    "openForecast": "Ouvrir les prévisions",
+    "openStripes": "Ouvrir les bandes climatiques",
+    "openExplorer": "Ouvrir dans l'explorateur",
+    "openHistory": "Ouvrir l'historique de la station",
+    "stripesFigure": "Bandes climatiques de {name}, de {first} à {last} : une bande par année, bleue pour les plus fraîches et rouge pour les plus chaudes.",
+    "zoomIn": "Zoomer",
+    "zoomOut": "Dézoomer",
+    "mapLabel": "Carte des stations. Les flèches la déplacent, plus et moins zooment ; le panneau liste les stations près de son centre.",
+    "pickCentre": "Choisir le centre de la carte"
+  },
   "seo": {
     "title": "Wetterdienst – données météorologiques et climatiques ouvertes des services météorologiques nationaux",
     "description": "Données météorologiques et climatiques ouvertes des services météorologiques nationaux, dans un seul format : explorateur, prévisions, bandes climatiques, API REST et serveur MCP. Open source et gratuit.",
@@ -116,12 +146,18 @@
     "providers": "Fournisseurs",
     "api": "API",
     "glossary": "Glossaire",
-    "support": "Aide"
+    "support": "Aide",
+    "map": "Carte"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menu"
+    "menu": "Menu",
+    "skip": "Aller au contenu",
+    "pages": "Pages",
+    "groupData": "Données",
+    "groupReference": "Référence",
+    "groupProject": "Projet"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
@@ -789,5 +825,19 @@
     "summary": "Synthèse",
     "periods": "Périodes",
     "colMissingCount": "Nombre de valeurs manquantes"
+  },
+  "palette": {
+    "open": "Rechercher",
+    "title": "Rechercher des pages, des paramètres et des stations",
+    "placeholder": "Page, paramètre ou station …",
+    "groupPages": "Pages",
+    "groupStations": "Stations sur la carte",
+    "results": "Résultats : {count}",
+    "noResults": "Rien ne correspond à « {query} ».",
+    "hint": "pour se déplacer et ouvrir ; Échap ferme",
+    "purposeMap": "Les stations sur une carte : prévisions, mesures et bandes climatiques d'un lieu",
+    "purposeSupport": "Signaler un problème, contribuer ou faire un don",
+    "purposeLegal": "Qui exploite ce site",
+    "purposePrivacy": "Ce que ce site garde de ta visite, et pourquoi"
   }
 }

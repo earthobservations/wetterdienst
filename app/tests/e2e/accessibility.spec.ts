@@ -334,6 +334,32 @@ const STATES: State[] = [
     },
   },
   {
+    // the map's panel for a station: its forecast as day cards, and the links to its measurements and history
+    page: 'index',
+    state: 'station-panel',
+    path: '/?station=10384',
+    reach: async (page, locale) => {
+      await expect(page.getByRole('heading', { level: 2, name: 'BERLIN-TEMPELHOF' })).toBeVisible()
+      await expect(page.getByText(message(locale, 'meteogram.chart.today')).first()).toBeVisible()
+      // the map's stations are dots on canvas tiles, not markers
+      await expect(page.locator('.atlas-map canvas').first()).toBeVisible()
+    },
+  },
+  {
+    // the search of the header: a dialog with a combobox over the list of the pages, the settings and the stations
+    page: 'index',
+    state: 'search-open',
+    keepFocus: true,
+    path: '/',
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'palette.open'), exact: true }).click()
+      await expect(page.getByRole('combobox')).toBeFocused()
+      // a query that finds a page and a station, so both groups are scanned
+      await page.keyboard.type('ber')
+      await expect(page.getByRole('listbox').getByRole('option', { name: /BERLIN-TEMPELHOF/ })).toBeVisible()
+    },
+  },
+  {
     page: 'index',
     state: 'mobile-menu-open',
     keepFocus: true,
@@ -551,6 +577,118 @@ test.describe('keyboard operation', () => {
     await page.keyboard.press('Escape')
     await expect(items.first()).toBeHidden()
     await expect(trigger).toBeFocused()
+  })
+
+  // The map of the home page has no marker a keyboard reaches: its stations are chosen from the panel's list,
+  // and a place from the centre of the map, which the arrow keys move (WCAG 2.1.1)
+  test('a station of the map is chosen from its list by keys, and Back gives the focus to it again', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await open(page, '/', variant)
+    const first = page.locator('.atlas-list-item').first()
+    await expect(first).toBeVisible()
+    const id = (await first.getAttribute('data-station-id'))!
+    const name = (await first.locator('span span').first().textContent())!.trim()
+    await first.focus()
+    await page.keyboard.press('Enter')
+
+    // the focus is on the station's name, which is announced as chosen
+    await expect(page.getByRole('heading', { level: 2, name })).toBeFocused()
+    await expect(page.locator('.atlas-panel [aria-live="polite"]')).toContainText(name)
+    // and the panel has its forecast
+    await expect(page.getByText(message('en', 'meteogram.chart.today')).first()).toBeVisible()
+
+    await page.getByRole('button', { name: message('en', 'atlas.back') }).focus()
+    await page.keyboard.press('Enter')
+    await expect(page.locator(`[data-station-id="${id}"]`)).toBeFocused()
+  })
+
+  test('the place at the centre of the map is chosen by keys, after the arrow keys have moved the map', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await open(page, '/', variant)
+    await expect(page.locator('.atlas-list-item').first()).toBeVisible()
+    // the map moves by the arrow keys while it has the focus
+    const map = page.locator('.atlas-map')
+    await map.focus()
+    const centre = () => page.evaluate(() => new URL(location.href).searchParams.toString())
+    for (let step = 0; step < 6; step++)
+      await page.keyboard.press('ArrowUp')
+    await expect(map).toBeFocused()
+    await page.getByRole('button', { name: message('en', 'atlas.pickCentre') }).focus()
+    await page.keyboard.press('Enter')
+    // the station nearest to the centre is chosen, with the focus on its name, and the address says which
+    await expect(page.getByRole('heading', { level: 2 }).first()).toBeFocused()
+    await expect.poll(centre).toMatch(/station=/)
+    await expect(page.getByRole('button', { name: message('en', 'atlas.back') })).toBeVisible()
+  })
+
+  // The search of the header (WCAG 2.1.1, 2.1.2, 2.4.3, 4.1.2): the combobox pattern in a dialog
+  test('the search opens by Ctrl+K, moves through its options by the arrow keys and opens a page by Enter', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await open(page, '/about', variant)
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    await page.keyboard.press('Control+k')
+
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    await expect(dialog).toHaveAccessibleName(message('en', 'palette.title'))
+    const combobox = page.getByRole('combobox')
+    await expect(combobox).toBeFocused()
+    const listbox = page.getByRole('listbox')
+    await expect(combobox).toHaveAttribute('aria-controls', (await listbox.getAttribute('id'))!)
+    await expect(combobox).toHaveAttribute('aria-expanded', 'true')
+
+    // the active option is the one the field names, and the arrow keys move it while the focus stays in the field
+    const activeOption = async () => {
+      const id = await combobox.getAttribute('aria-activedescendant')
+      return id ? page.locator(`[id="${id}"]`) : null
+    }
+    await expect((await activeOption())!).toHaveAttribute('aria-selected', 'true')
+    const first = await combobox.getAttribute('aria-activedescendant')
+    await page.keyboard.press('ArrowDown')
+    await expect(combobox).not.toHaveAttribute('aria-activedescendant', first!)
+    await expect(combobox).toBeFocused()
+
+    await page.keyboard.type('glossary')
+    await expect((await activeOption())!).toContainText(message('en', 'nav.glossary'))
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(/\/glossary$/)
+    await expect(dialog).toBeHidden()
+  })
+
+  test('the search keeps the focus, closes by Escape and gives the focus back to its button', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await open(page, '/glossary', variant)
+    // by label, not by role: while the dialog is open the page behind it is hidden from the accessibility tree
+    const button = page.locator(`button[aria-label="${message('en', 'palette.open')}"]`)
+    await button.focus()
+    await page.keyboard.press('Enter')
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    await expect(button).toHaveAttribute('aria-expanded', 'true')
+    for (let stop = 0; stop < 6; stop++) {
+      await page.keyboard.press('Tab')
+      expect(await dialog.evaluate(node => node.contains(document.activeElement))).toBe(true)
+    }
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeHidden()
+    await expect(button).toBeFocused()
+  })
+
+  test('the search finds a station and opens it on the map', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await open(page, '/glossary', variant)
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    await page.keyboard.press('Control+k')
+    await expect(page.getByRole('combobox')).toBeFocused()
+    await page.keyboard.type('fuhlsbuettel')
+    const option = page.getByRole('option', { name: /HAMBURG-FUHLSBUETTEL/ })
+    await expect(option).toBeVisible()
+    // the station is the only result: it is the active option
+    await expect(option).toHaveAttribute('aria-selected', 'true')
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(/\/\?station=10147$/)
+    await expect(page.getByRole('heading', { level: 2, name: 'HAMBURG-FUHLSBUETTEL' })).toBeVisible()
+    await expect(page.locator('.atlas-panel [aria-live="polite"]')).toContainText('HAMBURG-FUHLSBUETTEL')
   })
 
   test('the menu of the narrow layout is a dialog that keeps the focus, and Escape closes it', async ({ page, baseURL }) => {

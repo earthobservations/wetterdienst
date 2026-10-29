@@ -102,9 +102,9 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-white dark:bg-gray-950 flex flex-col">
+  <div class="min-h-screen bg-default flex flex-col">
     <!-- Minimal header -->
-    <div class="flex items-center justify-between px-4 py-2 border-b border-gray-100 dark:border-gray-800 bg-white/90 dark:bg-gray-950/90 backdrop-blur-sm shrink-0">
+    <div class="flex items-center justify-between px-4 py-2 border-b border-default bg-default shrink-0">
       <div class="flex items-center gap-2 min-w-0">
         <img src="/icon.svg" alt="Wetterdienst" class="w-5 h-5 shrink-0">
         <span class="text-sm font-semibold text-gray-700 dark:text-gray-200 truncate">
@@ -159,7 +159,7 @@ onMounted(async () => {
     </div>
 
     <!-- Attribution footer -->
-    <div class="shrink-0 px-4 py-1.5 border-t border-gray-100 dark:border-gray-800 text-center">
+    <div class="shrink-0 px-4 py-1.5 border-t border-default text-center">
       <a
         href="https://github.com/earthobservations/wetterdienst"
         target="_blank"
