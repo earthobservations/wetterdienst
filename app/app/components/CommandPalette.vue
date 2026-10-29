@@ -319,9 +319,9 @@ function focusInput(event: Event) {
         </div>
       </div>
 
-      <!-- the list scrolls in its own box: focusable for a pointer's click and a browser that scrolls what has the focus
-           (WCAG 2.1.1), out of the Tab order, as the arrow keys in the field move through it and scroll it -->
-      <div class="flex-1 min-h-0 overflow-y-auto border-t border-default focus:outline-none" tabindex="-1" data-testid="palette-results">
+      <!-- the list scrolls in its own box, which the keyboard reaches too (WCAG 2.1.1): the arrow keys in the field move
+           through the options and scroll them into view, and Tab to the box lets the keys scroll it as it is -->
+      <div class="app-inset-focus flex-1 min-h-0 overflow-y-auto border-t border-default" tabindex="0" data-testid="palette-results">
         <div
           v-if="flat.length"
           :id="listboxId"

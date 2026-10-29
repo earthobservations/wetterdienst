@@ -147,6 +147,10 @@
   outline: 3px solid var(--app-focus-ring);
   outline-offset: 2px;
 }
+/* A box that fills its container to the edge (the search's list) draws its ring inside, where it is not clipped */
+.app-inset-focus:focus-visible {
+  outline-offset: -3px;
+}
 /* On the navy band of the header the ring is the yellow in both modes (8.2:1 on the navy) */
 .app-masthead :focus-visible:not([tabindex="-1"]) {
   outline-color: var(--color-sun);
