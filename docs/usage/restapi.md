@@ -286,8 +286,8 @@ what the answer is missing:
   that a dataset with a few empty parameters says nothing of them. A parameter that some stations have is not
   told for the ones that lack it. A station that begins after the window is not read and not named, one skipped
   by `skip_empty` had rows (with `drop_nulls` too), and readings that are all null and left out by `drop_nulls` are
-  no rows. A dataset that needs a window, asked for in Python with none, is not told of: the provider answers
-  nothing to it, and that says nothing of the source. The message gives the window and says `in the periods
+  no rows. A dataset that needs a window is refused without one (GH-3562), so it is never told of without one.
+  The message gives the window and says `in the periods
   asked for` (for the datasets where `periods` left out a period the window would have read), `in the run issued`
   or `in the lead time asked for` where the request narrowed itself that way; the other `periods`, run or
   `lead_time` is suggested only where it can hold values (the `icon_eu` product has no long run). It says nothing
