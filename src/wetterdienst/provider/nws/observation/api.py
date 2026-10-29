@@ -334,7 +334,7 @@ class NwsObservationValues(TimeseriesValues[DatasetModel]):
         outside the request's own window is cut away after the hours have been decided.
 
         A request carries no dates unless it is made to, and the reader refuses one without (`date_required`,
-        GH-3562): the branch below, for no window, is kept for a reader built some other way.
+        GH-3562): the branch below, for no window, is reached only without the library's check (the test fixture).
 
         The endpoint answers 500 observations at most, and the limit is named so that a page shorter than it
         can be taken for the last one (GH-2994).

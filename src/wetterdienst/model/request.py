@@ -160,9 +160,9 @@ _PERIODS_TYPE = _PERIOD_TYPE_SINGULAR | Iterable[_PERIOD_TYPE_SINGULAR] | None
 def require_window(parameters: Iterable[ParameterModel], start: dt.datetime | None, end: dt.datetime | None) -> None:
     """Refuse the datasets that are read by a window when the request has none (GH-3562).
 
-    A dataset marked `date_required` is read for the window and nothing else: the source has no file or feed that holds
-    it whole. Asked for values without one it used to answer an empty frame, which a caller could not tell from a
-    source that has nothing. This is the one check for the library (`TimeseriesValues`) and for the REST API, the
+    A dataset marked `date_required` is asked for by a window. Asked for values without one the library used to answer
+    an empty frame, or whatever slice the provider chose, which a caller could not tell from a source that has
+    nothing. This is the one check for the library (`TimeseriesValues`) and for the REST API, the
     command line and MCP (`_get_stations_request`), which word the same refusal in terms of their `timestamp`.
     Listing the stations of such a dataset needs no window and does not come here.
 
@@ -184,7 +184,7 @@ def require_window(parameters: Iterable[ParameterModel], start: dt.datetime | No
         return
     subject = f"The dataset {names[0]} needs" if len(names) == 1 else f"The datasets {', '.join(names)} need"
     msg = (
-        f"{subject} a window: the source holds its values by date, not as a whole. "
+        f"{subject} a window (`date_required`). "
         "Pass 'start' and 'end' to the request (a bound given alone is the whole day, month or year it names)."
     )
     raise DateRequiredError(msg)

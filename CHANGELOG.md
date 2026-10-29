@@ -34,13 +34,13 @@ Types of changes:
 
 ### Changed
 
-- **Breaking**: asking the Python API for the values of a dataset that is read by a window
-  (`date_required`: `metno/frost`, `fmi`, `knmi`, `dmi`, `lhmt`, `rmi`, `nws`, `aemet` daily,
-  monthly and annual, `wsv`, `ea`, `eccc`, `geosphere`, `dwd/road` and others) without `start`
+- **Breaking**: asking the Python API for the values of a `date_required` dataset without `start`
   and `end` raises `DateRequiredError` (a `ValueError`) naming the dataset, from
-  `stations.values()` on, as the REST API, CLI and MCP already refused it. It answered an empty
-  frame, or the whole record for a few providers, which could not be told from a source with
-  nothing. Pass `start` and `end`; listing stations needs no window (GH-3562)
+  `stations.values()` on, as REST, CLI and MCP already refused it. `noaa/ghcn`, `meteoswiss`,
+  `meteofrance`, `geosphere`, `eccc`, `imgw`, `dwd/road` and `ea` used to answer the whole record,
+  `wsv`, `nws`, `ipma` and `eaufrance/hubeau` a recent slice; `aemet` (daily to annual), `chmi`
+  (sub-daily), `dmi`, `fmi`, `knmi`, `lhmt`, `rmi` and `metno/frost` an empty frame. Pass `start`
+  and `end`; listing stations needs no window (GH-3562)
 - **Breaking**: the REST API, CLI and MCP refuse a `metno/frost` request for `daily`, `monthly` or
   `annual` values without a start and end date, as for the other resolutions (REST: 400,
   `timestamp` is required). Such a request was answered with no rows and no reason, as the source
