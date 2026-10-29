@@ -100,6 +100,8 @@ class ParameterRows:
         self._skipped: dict[str, None] = {}
         #: the stations the walk collected, which a file that serves every station of the request was let go for
         self._collected: dict[str, None] = {}
+        #: the stations the walk left out of the answer for an empty frame, which `file-skipped` does not name
+        self._passed_over: set[str] = set()
         #: whether the provider let go a file that every station of the request is read from
         self._skipped_all = False
         #: the parameters another warning named while the walk went on (`parameter-ended`)
@@ -129,6 +131,14 @@ class ParameterRows:
 
         self._collected[station_id] = None
         return collecting(skipped, self._named)
+
+    def passed_over(self, station_id: str) -> None:
+        """Note that the walk left the station out of the answer (an empty frame under `skip_empty` or in a rank walk).
+
+        `file-skipped` names the stations of the answer, as `missing-value-marker` counts the readings of it (GH-3554).
+        `parameter-without-rows` still leaves it out if its file was let go: the file may be why the values are missing.
+        """
+        self._passed_over.add(station_id)
 
     def note(self, df: pl.DataFrame) -> None:
         """Note the parameters that a station's rows of the answer are of, in the long form the provider handed over."""
@@ -182,7 +192,11 @@ class ParameterRows:
         and not which of its datasets or files; it logs the file itself at level `WARNING`. Nothing is told when no
         file was let go.
         """
-        stations = list(self._collected if self._skipped_all else self._skipped)
+        stations = [
+            station
+            for station in (self._collected if self._skipped_all else self._skipped)
+            if station not in self._passed_over
+        ]
         if not stations:
             return
         datasets = [

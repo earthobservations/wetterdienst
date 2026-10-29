@@ -351,3 +351,47 @@ def test_the_warning_is_recorded_once_whatever_the_number_of_files() -> None:
 
     (warning,) = _told()
     assert warning["stations"] == ["00001"]
+
+
+def test_the_message_names_only_the_datasets_read_at_the_stations_let_go() -> None:
+    """Two stations are read for different datasets and only the first one's file is let go: only its is named."""
+    request = _dwd_stations(("00001", "00002")).request
+    rows = ParameterRows(request, None, None)
+    rows.examine("00001", [request.metadata["daily"]["climate_summary"]])
+    rows.examine("00002", [request.metadata["daily"]["precipitation_more"]])
+    with rows.collecting("00001"):
+        note_skipped_download()
+    with rows.collecting("00002"):
+        pass
+    begin_response()
+
+    rows.warn()
+
+    (warning,) = _told()
+    assert warning["stations"] == ["00001"]
+    assert "(daily/climate_summary)" in warning["message"]
+    assert "precipitation_more" not in warning["message"]
+
+
+def test_a_station_passed_over_is_not_named() -> None:
+    """A station the walk left out of the answer for an empty frame is not one the answer is partial for."""
+    request = _dwd_stations(("00001", "00002")).request
+    rows = ParameterRows(request, None, None)
+    for station in ("00001", "00002"):
+        rows.examine(station, [request.metadata["daily"]["climate_summary"]])
+        with rows.collecting(station):
+            note_skipped_download()
+    rows.passed_over("00001")
+    begin_response()
+
+    rows.warn()
+
+    (warning,) = _told()
+    assert warning["stations"] == ["00002"]
+    assert warning["message"].startswith("A file of station 00002 ")
+
+    # all of them passed over: nothing is told, and `parameter-without-rows` still leaves them out
+    rows.passed_over("00002")
+    begin_response()
+    rows.warn()
+    assert recorded_warnings() == []

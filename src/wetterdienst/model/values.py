@@ -386,7 +386,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             # the ranked walk stopped short of the stations that do cover the window and the
             # request came back with nothing
             if df.is_empty():
-                self._tell_missing_value_markers(emptied=True)
+                self._pass_over_emptied(rows, station_id)
                 continue
             if self.sr.options.skip_empty:
                 percentage = self._get_actual_percentage(df=df)
@@ -419,6 +419,17 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         # only a walk read to its end says what it found: a failure raised before it, and one that is stopped is silent
         rows.warn()
 
+    def _pass_over_emptied(self, rows: ParameterRows, station_id: str) -> None:
+        """Tell the markers of a station whose frame is empty, and that it is not in the answer where it is not."""
+        self._tell_missing_value_markers(emptied=True)
+        if self._left_out_when_emptied():
+            # not in the answer, so not for `file-skipped` to name either (GH-3552)
+            rows.passed_over(station_id)
+
+    def _left_out_when_emptied(self) -> bool:
+        """Tell whether a station whose frame came back empty is not in the answer: `skip_empty`, or a rank walk."""
+        return self.sr.options.skip_empty or self.sr._stations_filter == StationsFilter.BY_RANK  # noqa: SLF001
+
     def _tell_missing_value_markers(self, *, emptied: bool = False) -> None:
         """Add the markers of the station in hand to the warning of the request, unless the station is left out.
 
@@ -432,7 +443,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         reading, as it does with the nulls kept, and a rank walk (`filter_by_rank`) walks past it. A pick by name
         takes the stations the name matches, and none takes the place of an emptied one.
         """
-        if emptied and (self.sr.options.skip_empty or self.sr._stations_filter == StationsFilter.BY_RANK):  # noqa: SLF001
+        if emptied and self._left_out_when_emptied():
             return
         if self._count_missing_value_markers:
             count_response_warning(MISSING_VALUE_MARKER, self._markers_in_window, MISSING_VALUE_MARKER_MESSAGE)

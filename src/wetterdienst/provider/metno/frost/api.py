@@ -563,9 +563,9 @@ class MetnoFrostValues(TimeseriesValues):
         start_date = self.sr.start
         end_date = self.sr.end
         if not start_date or not end_date:
-            # nothing is asked of Frost without a window (REST and the command line demand one; Python does not), so
-            # the answer says nothing of what Frost holds: a reader that returns without asking tells the walk so
-            note_skipped_download()
+            # nothing is asked of Frost without a window (REST and the command line demand one; Python does not):
+            # every dataset is `date_required`, so `parameter-without-rows` says nothing of it either, and no file is
+            # let go that `file-skipped` could name
             return pl.DataFrame()
 
         settings = self.sr.settings

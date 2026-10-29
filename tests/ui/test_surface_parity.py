@@ -1882,3 +1882,16 @@ def test_an_estimate_does_not_tell_a_file_let_go(monkeypatch: pytest.MonkeyPatch
     getattr(DwdObservationRequest(parameters=[_FULL], start="2020-05-01", end="2020-05-03"), estimate)(_POINT)
 
     assert [w for w in recorded_warnings() if w["code"] == _FILE_SKIPPED] == []
+
+
+def test_a_station_a_rank_walk_passed_over_is_not_named(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The nearest station's file is let go and the walk goes on to the next ones: the answer is theirs, not partial."""
+    _withdrawing(monkeypatch, "00007")
+    begin_response()
+
+    request = DwdObservationRequest(parameters=[_FULL], start="2020-05-01", end="2020-05-03")
+    df = request.filter_by_rank(_POINT, rank=2).values().all().df
+
+    assert set(df["station_id"]) <= _DRESDEN
+    assert df["station_id"].n_unique() == 2
+    assert [w for w in recorded_warnings() if w["code"] == _FILE_SKIPPED] == []

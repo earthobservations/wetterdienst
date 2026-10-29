@@ -91,11 +91,14 @@ def note_skipped_download(*, whole_request: bool = False) -> None:
     For the places where a provider gives up on a file it expected to be there and goes on with the others: a
     download that failed for good (a refusal, a file withdrawn since the listing, a timestamp not published), a body
     that is an error in the guise of an answer (a maintenance page, an exception report), a file that would not
-    parse, or a reader that returns for want of a window without asking the source at all. Not for an answer that
-    says there is nothing (a 404 for a station that does not report the parameter,
-    Frost's 412), nor for a download that failed and was made again with success. The station being collected is then
-    no evidence that the source holds nothing, and `parameter-without-rows` does not count it (`whole_request` for a
-    file that every station of the request is read from). Nothing happens outside the collection of a station.
+    parse. The station being collected is then no evidence that the source holds nothing, and
+    `parameter-without-rows` does not count it (`whole_request` for a file that every station of the request is read
+    from).
+
+    Not for an answer that says there is nothing (a 404 for a station that does not report the parameter, Frost's
+    412), for a download that failed and was made again with success, nor for a reader that returns for want of a
+    window without asking the source (a dataset with `date_required` is not told by `parameter-without-rows` without
+    one). Nothing happens outside the collection of a station.
 
     What is told is the other side of that: once the walk is over, `file-skipped` names the stations whose file was
     let go (`ParameterRows.warn`), one warning for the request. A provider that lets a file go without calling this

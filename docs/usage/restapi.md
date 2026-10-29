@@ -273,7 +273,7 @@ what the answer is missing:
   `parameter-ended` (the window reaches years in which the source no longer publishes a parameter, such as
   the hourly `pressure_air_site` of `chmi/observation` after 2024, so it has no values for them),
   `deprecated-parameter` (issued when a parameter is deprecated; none is at the moment),
-  `network-not-importable` (a network of `providers` that this server cannot import, which is left out) and
+  `network-not-importable` (a network of `providers` that this server cannot import, which is left out),
   `parameter-without-rows` (a requested parameter that the source holds no values for, see below) and
   `file-skipped` (the stations whose file the provider let go, see below). Codes are added as more are told; a
   client reads the ones it knows.
@@ -287,8 +287,7 @@ what the answer is missing:
   told for the ones that lack it. A station that begins after the window is not read and not named, one skipped
   by `skip_empty` had rows, and readings that are all null and left out by `drop_nulls` are no rows. A dataset that
   needs a window, asked for in Python with none, is not told of: the provider answers nothing to it, and that says
-  nothing of the source (nor is a reader that returns for want of a window without asking the source: it tells the walk, as
-  Frost's does). The message gives the window and says `in the periods asked for` (for the datasets
+  nothing of the source. The message gives the window and says `in the periods asked for` (for the datasets
   where `periods` left out a period the window would have read), `in the run issued` or `in the lead time asked for` where the request narrowed itself that
   way; the other `periods`, run or `lead_time` is suggested only where it can hold values (the `icon_eu` product has
   no long run). It says nothing of the source being behind for a window that reaches the present, and nothing of what
@@ -318,7 +317,10 @@ what the answer is missing:
   that would not parse), so that a partial answer can be told from a whole one. There is one for the request. It
   carries `stations` (the stations whose file was let go, the first ten if there are more), and its message names the
   datasets the request read at them: a provider says which station, not which of its files. A file that serves every
-  station of the request is every station's. Retry later: what is missing may well be there then, which is the
+  station of the request is every station's. Only stations in the answer are named: a station left out because its
+  frame came back empty under `skip_empty`, or that a rank walk (`rank`, a point) passed over for the next one, is not.
+  A station that `skip_empty` dropped for too few readings is told by `station-skipped` and, if its file was let go,
+  by this too: the causes differ, and this is the one a retry can clear. Retry later: what is missing may well be there then, which is the
   difference to `parameter-without-rows`, whose stations are never among them. It is told for the providers listed
   above, nothing is told when no file was let go (a 404 that is the source's answer of no data, a download made
   again with success), and not for `interpolate` and `summarize`, which read the stations around a point as

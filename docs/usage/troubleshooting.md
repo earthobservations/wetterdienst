@@ -42,7 +42,9 @@ The usual reasons:
   maintenance page) is not named: its values may be missing for that, which a later request may clear.
 - **Some stations' files were let go.** The answer carries a `file-skipped` warning that names the stations whose file
   the provider could not use (a refused download, a file withdrawn since the listing, a maintenance page, a file that
-  would not parse): their values may be missing from an answer that is otherwise whole. Try again later.
+  would not parse): their values may be missing from an answer that is otherwise whole. Try again later. Only the
+  providers the [response metadata](restapi.md#response-metadata) lists tell it (`chmi`, `imgw`, `lhmt`, `metoffice` and
+  `dwd/dmo` do not), so an answer without the warning is not proof that every file was read.
 - **A name matched nothing.** A name is matched fuzzily with a threshold (`name_threshold`, 0.8 by default); lower it
   or look at the best matches (`rank`).
 - **Nulls were dropped.** The long shape drops rows without a value by default (`drop_nulls`); a reading the source
