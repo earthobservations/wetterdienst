@@ -87,8 +87,7 @@ Types of changes:
   so a client or the MCP tool `stripes_image` can tell that the image is DWD data under CC BY 4.0;
   the image itself is unchanged. `/api/stripes/values` never recorded the warnings of its read, so
   its `metadata.warnings` and `X-Wetterdienst-Warnings` (and the MCP tool `stripes_values`) were
-  always empty; they now tell them. Without the `plotting` extra the image is refused (501) before
-  the station's record is downloaded (GH-3581)
+  always empty; they now tell them (GH-3581)
 - The MCP tools answer every `format` they offer, where `csv`, `ndjson`, `html` and `svg` of the
   tools with an output schema failed ("has an output schema but did not return structured
   content") and so did `png`, `jpg`, `webp` and `pdf` of every tool (a decoding error). A text
