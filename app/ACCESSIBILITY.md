@@ -33,8 +33,8 @@ The same pages and states (in light/English and dark/German) are scanned twice m
   indicator having 3:1 against what it lies on (1.4.11, `focus-indicator-contrast`); for not being hidden
   behind other content or outside what a map shows, sampled at five points of the part in the window and
   again half a second later (2.4.11, `focus-obscured`); for the focus leaving the page at once (2.1.2,
-  `focus-lost`); and for the contrast of the text with the focus on it. Reka's invisible focus guards are not
-  stops. The rules are the app's own ids, in `CUSTOM_RULES` of `interact.ts`.
+  `focus-lost`); and for the contrast of the text with the focus on it. Reka's invisible focus guards, and the proxies at
+  either end of the toast region, are not stops. The rules are the app's own ids, in `CUSTOM_RULES` of `interact.ts`.
 
 Beside the scans, `accessibility.spec.ts` drives widgets by keys alone (`keyboard operation`: the station
 picker, a collapsible, a menu, and the narrow layout's menu, which is a dialog that keeps the focus and gives
