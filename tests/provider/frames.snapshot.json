@@ -105,6 +105,7 @@
   "tests/provider/dwd/swsmos/test_api.py::test_swsmos_names_the_air_temperature_the_dew_point_and_the_road_condition_for_what_the_sheet_says": [["DwdSwsmosValues hourly/data", "d9b22919", 3, "63b0a84b639987be"]],
   "tests/provider/dwd/swsmos/test_api.py::test_swsmos_query_asks_for_the_latest_run_again": [["DwdSwsmosValues hourly/data", "d9b22919", 1, "5d7c25bca1fc3422"], ["DwdSwsmosValues hourly/data", "d9b22919", 1, "94e2d0f41a770fb0"]],
   "tests/provider/dwd/swsmos/test_api.py::test_swsmos_run_does_not_outlive_the_query": [["DwdSwsmosValues hourly/data", "d9b22919", 1, "5d7c25bca1fc3422"]],
+  "tests/provider/dwd/swsmos/test_api.py::test_swsmos_tells_the_readings_the_run_wrote_a_marker_for": [["DwdSwsmosValues hourly/data", "d9b22919", 1, "5d7c25bca1fc3422"]],
   "tests/provider/dwd/test_forecast_networks_frames.py::test_dmo_icon_eu_comes_out_as_the_long_form": [["DwdDmoValues hourly/icon_eu", "d9b22919", 3, "175d711db1804838"]],
   "tests/provider/dwd/test_forecast_networks_frames.py::test_mosmix_large_comes_out_as_the_long_form": [["DwdMosmixValues hourly/large", "d9b22919", 3, "1acda8af03b3d0b4"]],
   "tests/provider/ea/hydrology/test_api.py::test_ea_readings_are_read_over_https_where_the_measure_is_named_over_http": [["EAHydrologyValues 15_minutes/data", "d9b22919", 1, "368dc51c8ab966b2"]],
