@@ -60,7 +60,21 @@
     "kindAlertsDesc": "Official DWD warnings for storm, heat, frost and flooding, by district.",
     "kindRoadTitle": "Road weather",
     "kindRoadDesc": "Road surface conditions and temperatures from the DWD road weather stations, and their forecasts.",
-    "aboutLink": "About the project and the people behind it"
+    "aboutLink": "About the project and the people behind it",
+    "placeQuestion": "Which place?",
+    "placeLead": "Its weather now, its forecast and its climate, from national weather services. Free, open and without an account.",
+    "placeExamples": "For example",
+    "placeForget": "Forget place",
+    "placeRemembered": "This place is kept in your browser only.",
+    "now": "Now",
+    "wind": "Wind speed",
+    "rainNext6h": "Rain in the next 6 hours",
+    "nextHours": "The next hours",
+    "nowUnavailable": "The forecast has no values for this hour.",
+    "forecastSource": "DWD MOSMIX forecast for the station {id}.",
+    "lensForecastDesc": "Hour by hour for the next ten days: temperature, rain, wind and clouds.",
+    "lensStripesDesc": "The station {station}, {km} km away, year by year in stripes.",
+    "lensExplorerDesc": "The stations around {place} and what they measured in the last 30 days."
   },
   "seo": {
     "title": "Wetterdienst – open weather and climate data from national weather services",
@@ -121,7 +135,39 @@
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menu"
+    "menu": "Menu",
+    "mainNav": "Main navigation",
+    "skipToContent": "Skip to content",
+    "yourPlace": "Your place"
+  },
+  "menu": {
+    "groupWeather": "Weather",
+    "groupData": "Data and tools",
+    "groupProject": "The project",
+    "forecast": "Hour by hour for the next ten days",
+    "stripes": "How a place has warmed over the years",
+    "explorer": "Stations, measurements, maps and downloads",
+    "history": "How a station changed over time",
+    "providers": "Who publishes the data, under which licence",
+    "glossary": "What each parameter means",
+    "api": "The data for your own code: REST API and MCP",
+    "home": "Choose a place",
+    "about": "The project and the people behind it",
+    "support": "Report a problem, contribute, donate",
+    "settings": "Language, colours and units"
+  },
+  "palette": {
+    "open": "Search",
+    "title": "Search the app",
+    "inputLabel": "Search pages, places and settings",
+    "placeholder": "A page, a place or a setting …",
+    "hint": "Type a place name or a station ID to find its forecast.",
+    "groupPlaces": "Places",
+    "groupPages": "Pages",
+    "groupSettings": "Settings",
+    "stationDesc": "Forecast for the station {id}",
+    "empty": "Nothing found. Try another word, or a station ID.",
+    "keysHint": "↑ ↓ to move, Enter to open, Esc to close"
   },
   "footer": {
     "copyright": "© {year} earthobservations",

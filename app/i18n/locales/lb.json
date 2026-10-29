@@ -60,7 +60,21 @@
     "kindAlertsDesc": "Offiziell DWD-Warnunge viru Stuerm, Hëtzt, Frascht an Iwwerschwemmung, no Distrikt.",
     "kindRoadTitle": "Stroossewieder",
     "kindRoadDesc": "Fahrbunnzoustand an -temperature vun de DWD-Stroossewiederstatiounen, mat hire Prognosen.",
-    "aboutLink": "Iwwer d'Projet an d'Leit dohannert"
+    "aboutLink": "Iwwer d'Projet an d'Leit dohannert",
+    "placeQuestion": "Wéi eng Plaz?",
+    "placeLead": "Hiert Wieder elo, hir Prognos an hire Klima, vun nationale Wiederdéngschter. Fräi, oppen an ouni Kont.",
+    "placeExamples": "Zum Beispill",
+    "placeForget": "Plaz vergiessen",
+    "placeRemembered": "Dës Plaz gëtt nëmmen an dengem Browser gespäichert.",
+    "now": "Elo",
+    "wind": "Wandgeschwindegkeet",
+    "rainNext6h": "Reen an de nächste 6 Stonnen",
+    "nextHours": "Déi nächst Stonnen",
+    "nowUnavailable": "D'Prognos huet fir dës Stonn keng Wäerter.",
+    "forecastSource": "DWD-MOSMIX-Prognos fir d'Statioun {id}.",
+    "lensForecastDesc": "Stonn fir Stonn fir déi nächst zéng Deeg: Temperatur, Reen, Wand a Wolleken.",
+    "lensStripesDesc": "D'Statioun {station}, {km} km ewech, Joer fir Joer a Sträifen.",
+    "lensExplorerDesc": "D'Statiounen ronderëm {place} a wat se an de leschten 30 Deeg gemooss hunn."
   },
   "seo": {
     "title": "Wetterdienst – oppen Wieder- a Klimadaten vun nationale Wiederdéngschter",
@@ -121,7 +135,39 @@
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menü"
+    "menu": "Menü",
+    "mainNav": "Haaptnavigatioun",
+    "skipToContent": "Op den Inhalt sprangen",
+    "yourPlace": "Deng Plaz"
+  },
+  "menu": {
+    "groupWeather": "Wieder",
+    "groupData": "Donnéeën an Tools",
+    "groupProject": "De Projet",
+    "forecast": "Stonn fir Stonn fir déi nächst zéng Deeg",
+    "stripes": "Wéi eng Plaz sech iwwer d'Joren erwiermt huet",
+    "explorer": "Statiounen, Miessungen, Kaarten an Downloads",
+    "history": "Wéi eng Statioun sech mat der Zäit verännert huet",
+    "providers": "Wien d'Donnéeë publizéiert, an ënner wéi enger Lizenz",
+    "glossary": "Wat all Parameter bedeit",
+    "api": "D'Donnéeë fir däin eegene Code: REST-API an MCP",
+    "home": "Eng Plaz wielen",
+    "about": "De Projet an d'Leit dohannert",
+    "support": "E Problem mellen, matmaachen, spenden",
+    "settings": "Sprooch, Faarwen an Eenheeten"
+  },
+  "palette": {
+    "open": "Sichen",
+    "title": "An der App sichen",
+    "inputLabel": "Säiten, Plazen an Astellunge sichen",
+    "placeholder": "Eng Säit, eng Plaz oder eng Astellung …",
+    "hint": "Tipp den Numm vun enger Plaz oder eng Statiouns-ID, fir hir Prognos ze fannen.",
+    "groupPlaces": "Plazen",
+    "groupPages": "Säiten",
+    "groupSettings": "Astellungen",
+    "stationDesc": "Prognos fir d'Statioun {id}",
+    "empty": "Näischt fonnt. Probéier en anert Wuert oder eng Statiouns-ID.",
+    "keysHint": "↑ ↓ fir ze bewegen, Enter fir opzemaachen, Esc fir zouzemaachen"
   },
   "footer": {
     "copyright": "© {year} earthobservations",

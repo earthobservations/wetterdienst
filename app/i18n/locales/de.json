@@ -60,7 +60,21 @@
     "kindAlertsDesc": "Amtliche DWD-Warnungen vor Sturm, Hitze, Frost und Hochwasser, nach Landkreis.",
     "kindRoadTitle": "Straßenwetter",
     "kindRoadDesc": "Fahrbahnzustand und -temperaturen der DWD-Straßenwetterstationen, mitsamt deren Vorhersagen.",
-    "aboutLink": "Über das Projekt und die Menschen dahinter"
+    "aboutLink": "Über das Projekt und die Menschen dahinter",
+    "placeQuestion": "Welcher Ort?",
+    "placeLead": "Sein Wetter jetzt, seine Vorhersage und sein Klima, von nationalen Wetterdiensten. Frei, offen und ohne Konto.",
+    "placeExamples": "Zum Beispiel",
+    "placeForget": "Ort vergessen",
+    "placeRemembered": "Dieser Ort wird nur in deinem Browser gespeichert.",
+    "now": "Jetzt",
+    "wind": "Windgeschwindigkeit",
+    "rainNext6h": "Regen in den nächsten 6 Stunden",
+    "nextHours": "Die nächsten Stunden",
+    "nowUnavailable": "Die Vorhersage hat für diese Stunde keine Werte.",
+    "forecastSource": "DWD-MOSMIX-Vorhersage für die Station {id}.",
+    "lensForecastDesc": "Stunde für Stunde für die nächsten zehn Tage: Temperatur, Regen, Wind und Wolken.",
+    "lensStripesDesc": "Die Station {station}, {km} km entfernt, Jahr für Jahr in Streifen.",
+    "lensExplorerDesc": "Die Stationen rund um {place} und was sie in den letzten 30 Tagen gemessen haben."
   },
   "seo": {
     "title": "Wetterdienst – offene Wetter- und Klimadaten von nationalen Wetterdiensten",
@@ -121,7 +135,39 @@
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menü"
+    "menu": "Menü",
+    "mainNav": "Hauptnavigation",
+    "skipToContent": "Zum Inhalt springen",
+    "yourPlace": "Dein Ort"
+  },
+  "menu": {
+    "groupWeather": "Wetter",
+    "groupData": "Daten und Werkzeuge",
+    "groupProject": "Das Projekt",
+    "forecast": "Stunde für Stunde für die nächsten zehn Tage",
+    "stripes": "Wie sich ein Ort über die Jahre erwärmt hat",
+    "explorer": "Stationen, Messwerte, Karten und Downloads",
+    "history": "Wie sich eine Station mit der Zeit verändert hat",
+    "providers": "Wer die Daten veröffentlicht, unter welcher Lizenz",
+    "glossary": "Was jeder Parameter bedeutet",
+    "api": "Die Daten für deinen eigenen Code: REST-API und MCP",
+    "home": "Einen Ort wählen",
+    "about": "Das Projekt und die Menschen dahinter",
+    "support": "Fehler melden, mitmachen, spenden",
+    "settings": "Sprache, Farben und Einheiten"
+  },
+  "palette": {
+    "open": "Suche",
+    "title": "In der App suchen",
+    "inputLabel": "Seiten, Orte und Einstellungen suchen",
+    "placeholder": "Eine Seite, ein Ort oder eine Einstellung …",
+    "hint": "Tippe einen Ortsnamen oder eine Stationskennung, um die Vorhersage zu finden.",
+    "groupPlaces": "Orte",
+    "groupPages": "Seiten",
+    "groupSettings": "Einstellungen",
+    "stationDesc": "Vorhersage für die Station {id}",
+    "empty": "Nichts gefunden. Versuche ein anderes Wort oder eine Stationskennung.",
+    "keysHint": "↑ ↓ zum Bewegen, Enter zum Öffnen, Esc zum Schließen"
   },
   "footer": {
     "copyright": "© {year} earthobservations",

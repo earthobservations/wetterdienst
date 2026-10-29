@@ -89,7 +89,9 @@ test.describe('the page taking the tags over', () => {
     await expect(page).toHaveTitle('About - Wetterdienst')
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `${HOST}/about`)
 
-    await page.locator('a[href="/glossary"]').first().click()
+    // the glossary is a page of the header's menu (GH-3518)
+    await page.getByRole('button', { name: 'Menu', exact: true }).click()
+    await page.getByRole('dialog').locator('a[href="/glossary"]').first().click()
     await page.waitForURL('**/glossary')
     await expect(page).toHaveTitle('Glossary - Wetterdienst')
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `${HOST}/glossary`)

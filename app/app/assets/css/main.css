@@ -1,14 +1,111 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
+/* Figtree (SIL Open Font License 1.1), the app's own files: no request leaves the origin (font-src 'self') */
+@import "@fontsource-variable/figtree/wght.css";
 
-/* Colour contrast, WCAG 2.2 AA (4.5:1 for text). Nuxt UI's defaults miss it in three places; each is
-   moved the least that clears the ratio, and the fills (--ui-primary, --ui-error) stay as they are. */
+/* ------------------------------------------------------------------------------------------------
+   Tokens (GH-3518, "open sky"). Every colour comes from the logo:
+   navy #17335F, blue #2E6FD1, yellow #FFC93C, teal #2BB3A3, coral #F0543C.
 
-/* Placeholders and other dimmed text: neutral-400 on white (2.6:1) and neutral-500 on the dark
-   background (3.7:1). Dark takes the next lighter shade, which is what muted text already is there.
-   Light takes a quarter of the way from neutral-500 to neutral-600, so that it still clears 4.5:1
-   when a hovered field is tinted (4.9:1 on neutral-100), and muted text takes the same colour, so
-   that a placeholder does not read stronger than a description. */
+   - brand: the logo's blue as shade 600, and the scale around it in OKLCH at its hue (259°). Primary.
+   - ink: the neutrals, at the navy's hue, each shade as light as Tailwind's gray of the same number,
+     so that every ratio the app was measured with holds (the dark end is a night blue). Neutral, and
+     `gray-*` too, so the classes the pages write by hand are of the same family.
+   - sun, lagoon, ember, navy: the logo's other four, for the sky, the place card and accents only;
+     yellow and teal are under 3:1 on white and are never text there.
+   Contrast of each pair the app uses: the table in the pull request, and tests/unit/button-contrast.test.ts.
+   ------------------------------------------------------------------------------------------------ */
+@theme static {
+  --font-sans: "Figtree Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji";
+
+  --color-brand-50: #f1f6fe;
+  --color-brand-100: #deebfe;
+  --color-brand-200: #bfd8fe;
+  --color-brand-300: #95befd;
+  --color-brand-400: #69a0f6;
+  --color-brand-500: #4585e9;
+  --color-brand-600: #2e6fd1;
+  --color-brand-700: #2058af;
+  --color-brand-800: #19468b;
+  --color-brand-900: #14366b;
+  --color-brand-950: #0c2449;
+
+  --color-ink-50: #f9fafc;
+  --color-ink-100: #f2f4f8;
+  --color-ink-200: #e3e7ee;
+  --color-ink-300: #cfd5e0;
+  --color-ink-400: #97a1b1;
+  --color-ink-500: #667386;
+  --color-ink-600: #47556b;
+  --color-ink-700: #324159;
+  --color-ink-800: #192841;
+  --color-ink-900: #09182f;
+  --color-ink-950: #020b1c;
+
+  --color-gray-50: #f9fafc;
+  --color-gray-100: #f2f4f8;
+  --color-gray-200: #e3e7ee;
+  --color-gray-300: #cfd5e0;
+  --color-gray-400: #97a1b1;
+  --color-gray-500: #667386;
+  --color-gray-600: #47556b;
+  --color-gray-700: #324159;
+  --color-gray-800: #192841;
+  --color-gray-900: #09182f;
+  --color-gray-950: #020b1c;
+
+  --color-sun: #ffc93c;
+  --color-lagoon: #2bb3a3;
+  --color-ember: #f0543c;
+  --color-navy: #17335f;
+
+  --shadow-card: 0 1px 2px rgb(9 24 47 / 0.06), 0 8px 24px -12px rgb(9 24 47 / 0.18);
+  --shadow-lift: 0 2px 4px rgb(9 24 47 / 0.08), 0 16px 32px -16px rgb(9 24 47 / 0.28);
+}
+
+:root {
+  /* Nuxt UI derives every radius from this one: 0.375rem makes fields and buttons 9 px, cards 16 px */
+  --ui-radius: 0.375rem;
+  /* the page behind the cards: a breath darker than the cards in light mode, darker than them at night */
+  --wd-page: var(--color-ink-50);
+  /* the gutters of every page and of the header and footer, the same at every width (PageShell.vue) */
+  --wd-gutter: 1rem;
+}
+@media (min-width: 640px) {
+  :root {
+    --wd-gutter: 1.5rem;
+  }
+}
+@media (min-width: 1024px) {
+  :root {
+    --wd-gutter: 2rem;
+  }
+}
+.dark {
+  --wd-page: var(--color-ink-950);
+}
+
+body {
+  background-color: var(--wd-page);
+}
+
+/* Colour contrast, WCAG 2.2 AA (4.5:1 for text). */
+
+/* The fill of the primary colour (solid buttons, checkboxes, the selected tab): the logo's blue,
+   shade 600, in light mode, where Nuxt UI takes 500 (3.6:1 to white). White on it is 4.9:1, and
+   hovered it is shade 700 (6.8:1, app.config.ts). Dark mode keeps Nuxt UI's 400, under a label of
+   ink-900: 6.7:1, and 9.4:1 on the 300 it turns to hovered. Not in a layer: Nuxt UI sets it in its
+   theme layer, at run time. */
+:root:not(.dark) {
+  --ui-primary: var(--ui-color-primary-600);
+}
+
+/* Placeholders and other dimmed text: ink-400 on white is 2.6:1 and ink-500 on the dark background
+   3.7:1. Dark takes the next lighter shade, which is what muted text already is there. Light takes a
+   quarter of the way from ink-500 to ink-600 (5.4:1 on white, 4.9:1 on a hovered field, 5.1:1 on the
+   page), and muted text takes the same colour, so that a placeholder does not read stronger than a
+   description. */
 :root {
   --ui-text-dimmed: color-mix(in oklab, var(--ui-color-neutral-500), var(--ui-color-neutral-600) 25%);
   --ui-text-muted: var(--ui-text-dimmed);
@@ -18,43 +115,35 @@
 }
 
 /* Text in the primary or error colour on white or on its own tint (outline, soft and link buttons,
-   badges, alerts): shade 500 is 2.2:1 on white for primary, and 3.8:1 on white and 3.3:1 on its
-   tint for error. In dark mode the colours are already light enough. Primary takes shade 700 and a
-   fifth of the way to 800, which is what a hovered soft button's 15 % tint needs to stay at 4.5:1
-   (4.7:1; shade 700 alone is 4.3:1 there). The fill of the solid buttons, --ui-primary, is not
-   touched: that is the colour of the brand (their label: see below). In the utilities layer and with no extra specificity, so
-   that the hover and active colours of a link button still win. */
+   badges, alerts). Primary text is shade 700 on light (6.8:1 on white, 5.6:1 on the 15 % tint of a
+   hovered soft button), the fill above stays 600. Error text is shade 700 (6.4:1). In dark mode the
+   colours are already light enough. In the utilities layer and with no extra specificity, so that
+   the hover and active colours of a link button still win. */
 @layer utilities {
   :where(:root:not(.dark)) .text-primary {
-    color: color-mix(in oklab, var(--ui-color-primary-700), var(--ui-color-primary-800) 20%);
+    color: var(--ui-color-primary-700);
   }
   :where(:root:not(.dark)) .text-error {
     color: var(--ui-color-error-700);
   }
-  /* A link button is text-primary and, hovered, text-primary at 75 %: the 700-800 mix above, faded
-     over the page, is 3.4:1 on white. A hovered link goes to shade 800 instead, as darker is what
-     "hovered" means for text on white (GH-2991). */
+  /* a link button is text-primary and, hovered, text-primary at 75 %: a hovered link goes to shade
+     800 instead (9.2:1), as darker is what "hovered" means for text on white (GH-2991) */
   :where(:root:not(.dark)) .hover\:text-primary\/75:hover {
     color: var(--ui-color-primary-800);
   }
-}
-
-/* The label of a solid primary button (app.config.ts). White on the brand green, #00c950, is 2.2:1,
-   and 1.9:1 hovered, when the fill is 75 % of it over the page. #0f172b (slate-900) on it is 8.0:1,
-   and 9.5:1 hovered. In dark mode the fill is the lighter #05df72 and Nuxt UI's own label is this
-   same colour, so nothing changes there: 10.0:1, and 6.1:1 hovered over the page. The fill, the
-   brand's, is not touched. */
-:root {
-  --app-text-on-primary: #0f172b;
+  /* and on dark it goes a shade lighter, 300 (9.4:1 on ink-900), where 75 % of the blue's 400 would be 4.1:1 */
+  :where(.dark) .hover\:text-primary\/75:hover {
+    color: var(--ui-color-primary-300);
+  }
 }
 
 /* The focus indicator of a keyboard user (WCAG 2.4.7, 1.4.11: 3:1 against what is behind it). Nuxt UI draws
-   it as a 3 px outline at 25 % of the primary colour, and a ring in the primary colour where there is one: the
-   first is 1.2:1 to 1.7:1 on white and the brand green, #00c950, 2.2:1, and some fields (the search field of a menu)
-   draw none. One solid outline for everything that takes the focus by keyboard, in shade 700 of the primary
-   colour on light (4.9:1 on white) and shade 400 on dark (10:1 on the page); the rings and outlines of the
-   components stay as they are, beside it. Not in a layer, so that it wins over the utilities of the components.
-   Not for what takes the focus without being a control (a dialog, a chart, a scroll area: tabindex -1). */
+   it as a 3 px outline at 25 % of the primary colour, and a ring in the primary colour where there is one,
+   which are under 3:1 on white. One solid outline for everything that takes the focus by keyboard: shade
+   700 of the primary colour on light (6.8:1 on white, 5.2:1 on the darkest sky) and shade 400 on dark (6.7:1
+   on the page, 5.0:1 on the brightest night sky); on the navy footer it is the logo's yellow (8.2:1). The rings
+   and outlines of the components stay as they are, beside it. Not in a layer, so that it wins over the
+   utilities of the components. Not for what takes the focus without being a control (tabindex -1). */
 :root {
   --app-focus-ring: var(--ui-color-primary-700);
 }
@@ -65,10 +154,92 @@
   outline: 2px solid var(--app-focus-ring);
   outline-offset: 2px;
 }
-/* The map is a light surface in both modes (Leaflet's grey, and the tiles): it takes the ring of light mode */
-.leaflet-container:focus-visible,
+/* The map is a light surface in both modes (Leaflet's grey, and the tiles): what is on it takes the ring of
+   light mode. The map's own ring lies outside it, on the page, and keeps the page's (on dark, the blue's
+   shade 700 would be 2.6:1 there) */
 .leaflet-container :focus-visible:not([tabindex="-1"]) {
   outline-color: var(--ui-color-primary-700);
+}
+
+/* ------------------------------------------------------------------------------------------------
+   The sky (SkyBackdrop.vue): a band of sky behind the header and the head of every page, in the
+   colours of the time of day at the place and, once its forecast is known, of its weather. Light
+   mode is a pale sky and dark mode a night one; the band holds no text of its own, and what is laid
+   over it is ink-700 or stronger (light, 5.2:1 and more on its strongest colour) or ink-300 (dark).
+   Decoration: hidden from assistive technology, in forced colours and in print.
+   ------------------------------------------------------------------------------------------------ */
+.wd-sky {
+  --sky-top: #d9eaff;
+  --sky-mid: #e6f0fd;
+}
+.wd-sky[data-phase="day"][data-weather="partly"] { --sky-top: #dde9f8; --sky-mid: #eaf1fa; }
+.wd-sky[data-phase="day"][data-weather="cloudy"] { --sky-top: #e3e8ef; --sky-mid: #eef1f6; }
+.wd-sky[data-phase="day"][data-weather="rain"] { --sky-top: #dfe5ee; --sky-mid: #eaeef4; }
+.wd-sky[data-phase="day"][data-weather="snow"] { --sky-top: #e9edf4; --sky-mid: #f3f6fa; }
+.wd-sky[data-phase="day"][data-weather="storm"] { --sky-top: #dfe1ea; --sky-mid: #eaecf2; }
+.wd-sky[data-phase="day"][data-weather="fog"] { --sky-top: #e8eaee; --sky-mid: #f2f3f6; }
+.wd-sky[data-phase="dawn"] { --sky-top: #ffe8d0; --sky-mid: #fdf1e6; }
+.wd-sky[data-phase="dusk"] { --sky-top: #fde1d9; --sky-mid: #f6ecf4; }
+.wd-sky[data-phase="night"] { --sky-top: #e0e4f6; --sky-mid: #edf0f9; }
+
+.dark .wd-sky { --sky-top: #0f2f5e; --sky-mid: #0b2245; }
+.dark .wd-sky[data-phase="day"][data-weather="partly"] { --sky-top: #112b50; --sky-mid: #0c2040; }
+.dark .wd-sky[data-phase="day"][data-weather="cloudy"] { --sky-top: #1c2a42; --sky-mid: #101c31; }
+.dark .wd-sky[data-phase="day"][data-weather="rain"] { --sky-top: #172640; --sky-mid: #0d192e; }
+.dark .wd-sky[data-phase="day"][data-weather="snow"] { --sky-top: #23314a; --sky-mid: #121e34; }
+.dark .wd-sky[data-phase="day"][data-weather="storm"] { --sky-top: #1b1a33; --sky-mid: #0e0f22; }
+.dark .wd-sky[data-phase="day"][data-weather="fog"] { --sky-top: #1f2838; --sky-mid: #111a2a; }
+.dark .wd-sky[data-phase="dawn"] { --sky-top: #2c2342; --sky-mid: #191a37; }
+.dark .wd-sky[data-phase="dusk"] { --sky-top: #3a1f37; --sky-mid: #1c1630; }
+.dark .wd-sky[data-phase="night"] { --sky-top: #08132b; --sky-mid: #040c1f; }
+
+.wd-sky {
+  background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 55%, var(--wd-page) 100%);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .wd-sky-art {
+    animation: wd-sky-in 0.9s ease-out both;
+  }
+}
+@keyframes wd-sky-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/* the place card's edge: the colour of the temperature (PlaceNow.vue), decoration beside the number */
+.wd-temp-edge {
+  background: var(--wd-temp, var(--color-brand-500));
+}
+
+/* The surfaces have a ring (a box-shadow), which forced colours draw nothing of: a transparent border
+   is drawn there in the system's colour, so cards and the place field keep their edges (WCAG 1.4.11) */
+@media (forced-colors: active) {
+  .wd-sky,
+  .wd-sky-art {
+    display: none;
+  }
+  .wd-surface,
+  [data-slot="root"].rounded-2xl {
+    border: 1px solid CanvasText;
+  }
+}
+
+/* Print: the page's content, in black on white, without the sky, the header and the footer */
+@media print {
+  .wd-sky,
+  .wd-noprint {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
+    color: #000;
+  }
+  .wd-surface {
+    box-shadow: none !important;
+    border: 1px solid #999;
+  }
 }
 
 /* Undo Tailwind v4 preflight that breaks Plotly's stacked SVG layout.
@@ -104,7 +275,7 @@
    `needs-input` class, which callers toggle off once the field has a value.
    Honours reduced-motion by falling back to a static ring. */
 .needs-input {
-  border-radius: var(--ui-radius, 0.375rem);
+  border-radius: calc(var(--ui-radius) * 2);
 }
 @media (prefers-reduced-motion: no-preference) {
   .needs-input {

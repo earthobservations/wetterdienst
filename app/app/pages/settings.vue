@@ -56,15 +56,8 @@ function unitItems(units: readonly string[]) {
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-2xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('settings.title') }}
-      </h1>
-      <p class="text-gray-600 dark:text-gray-400">
-        {{ t('settings.subtitle') }}
-      </p>
-    </div>
+  <PageShell width="prose" class="space-y-6">
+    <PageHeader :title="t('settings.title')" :lead="t('settings.subtitle')" :eyebrow="t('menu.groupProject')" icon="i-lucide-settings-2" />
 
     <!-- Language -->
     <UCard>
@@ -199,5 +192,5 @@ function unitItems(units: readonly string[]) {
         @click="reset"
       />
     </div>
-  </UContainer>
+  </PageShell>
 </template>

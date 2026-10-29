@@ -48,7 +48,7 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-4xl px-4 py-6 space-y-6">
+  <PageShell width="default" class="space-y-6 pt-6">
     <UButton
       to="/providers"
       variant="link"
@@ -76,13 +76,13 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
       <div class="flex items-start gap-4">
         <span class="text-5xl leading-none" aria-hidden="true">{{ flagEmoji(provider.country_code) }}</span>
         <div class="min-w-0">
-          <h1 class="text-3xl font-bold break-words">
+          <h1 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-highlighted break-words text-balance">
             {{ provider.name_english }}
           </h1>
-          <p v-if="provider.name_local !== provider.name_english" class="text-lg text-gray-600 dark:text-gray-400 break-words">
+          <p v-if="provider.name_local !== provider.name_english" class="mt-1 text-lg text-toned break-words">
             {{ provider.name_local }}
           </p>
-          <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p class="text-sm text-toned mt-1">
             {{ provider.country_code === null ? t('providers.multinational') : provider.country }}
             ·
             <code>{{ provider.provider }}</code>
@@ -109,7 +109,7 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
                 :to="provider.license.url"
                 external
                 target="_blank"
-                class="text-primary-700 dark:text-primary-500 underline hover:no-underline"
+                class="text-primary-700 dark:text-primary-400 underline hover:no-underline"
               >
                 {{ provider.license.name }}
               </NuxtLink>
@@ -184,7 +184,7 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
                 :to="network.url"
                 external
                 target="_blank"
-                class="text-primary-700 dark:text-primary-500 underline hover:no-underline break-all"
+                class="text-primary-700 dark:text-primary-400 underline hover:no-underline break-all"
               >
                 {{ t('providers.source') }}
               </NuxtLink>
@@ -240,5 +240,5 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
         </ul>
       </UCard>
     </template>
-  </UContainer>
+  </PageShell>
 </template>

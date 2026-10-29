@@ -60,7 +60,21 @@
     "kindAlertsDesc": "Alertes officielles du DWD pour tempête, chaleur, gel et inondation, par district.",
     "kindRoadTitle": "Météo routière",
     "kindRoadDesc": "État et température de la chaussée depuis les stations routières du DWD, avec leurs prévisions.",
-    "aboutLink": "À propos du projet et des personnes qui le portent"
+    "aboutLink": "À propos du projet et des personnes qui le portent",
+    "placeQuestion": "Quel lieu ?",
+    "placeLead": "Sa météo actuelle, ses prévisions et son climat, issus des services météorologiques nationaux. Libre, ouvert et sans compte.",
+    "placeExamples": "Par exemple",
+    "placeForget": "Oublier le lieu",
+    "placeRemembered": "Ce lieu est conservé uniquement dans ton navigateur.",
+    "now": "Maintenant",
+    "wind": "Vitesse du vent",
+    "rainNext6h": "Pluie dans les 6 prochaines heures",
+    "nextHours": "Les prochaines heures",
+    "nowUnavailable": "La prévision n'a pas de valeurs pour cette heure.",
+    "forecastSource": "Prévision DWD MOSMIX pour la station {id}.",
+    "lensForecastDesc": "Heure par heure pour les dix prochains jours : température, pluie, vent et nuages.",
+    "lensStripesDesc": "La station {station}, à {km} km, année par année en bandes.",
+    "lensExplorerDesc": "Les stations autour de {place} et ce qu'elles ont mesuré ces 30 derniers jours."
   },
   "seo": {
     "title": "Wetterdienst – données météorologiques et climatiques ouvertes des services météorologiques nationaux",
@@ -121,7 +135,39 @@
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menu"
+    "menu": "Menu",
+    "mainNav": "Navigation principale",
+    "skipToContent": "Aller au contenu",
+    "yourPlace": "Ton lieu"
+  },
+  "menu": {
+    "groupWeather": "Météo",
+    "groupData": "Données et outils",
+    "groupProject": "Le projet",
+    "forecast": "Heure par heure pour les dix prochains jours",
+    "stripes": "Comment un lieu s'est réchauffé au fil des ans",
+    "explorer": "Stations, mesures, cartes et téléchargements",
+    "history": "Comment une station a changé au fil du temps",
+    "providers": "Qui publie les données, et sous quelle licence",
+    "glossary": "Ce que signifie chaque paramètre",
+    "api": "Les données pour ton propre code : API REST et MCP",
+    "home": "Choisir un lieu",
+    "about": "Le projet et les personnes derrière",
+    "support": "Signaler un problème, contribuer, faire un don",
+    "settings": "Langue, couleurs et unités"
+  },
+  "palette": {
+    "open": "Rechercher",
+    "title": "Rechercher dans l'appli",
+    "inputLabel": "Rechercher des pages, des lieux et des paramètres",
+    "placeholder": "Une page, un lieu ou un paramètre …",
+    "hint": "Tape le nom d'un lieu ou l'identifiant d'une station pour trouver sa prévision.",
+    "groupPlaces": "Lieux",
+    "groupPages": "Pages du site",
+    "groupSettings": "Paramètres",
+    "stationDesc": "Prévision pour la station {id}",
+    "empty": "Rien trouvé. Essaie un autre mot ou un identifiant de station.",
+    "keysHint": "↑ ↓ pour se déplacer, Entrée pour ouvrir, Échap pour fermer"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
