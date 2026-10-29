@@ -285,14 +285,14 @@ what the answer is missing:
   that a dataset with a few empty parameters says nothing of them. A parameter that some stations have is not
   told for the ones that lack it. A station that begins after the window is not read and not named, one skipped
   by `skip_empty` had rows (with `drop_nulls` too), and readings that are all null and left out by `drop_nulls` are
-  no rows. A dataset that
-  needs a window, asked for in Python with none, is not told of: the provider answers nothing to it, and that says
-  nothing of the source (nor is a reader that returns for want of a window without asking the source: it tells the walk, as
-  Frost's does). The message gives the window and says `in the periods asked for` (for the datasets
-  where `periods` left out a period the window would have read), `in the run issued` or `in the lead time asked for` where the request narrowed itself that
-  way; the other `periods`, run or `lead_time` is suggested only where it can hold values (the `icon_eu` product has
-  no long run). It says nothing of the source being behind for a window that reaches the present, and nothing of what
-  a later request will find: a source that is late cannot be told from one that never reports the parameter.
+  no rows. A dataset that needs a window, asked for in Python with none, is not told of: the provider answers
+  nothing to it, and that says nothing of the source (nor is a reader that returns for want of a window without
+  asking the source: it tells the walk, as Frost's does). The message gives the window and says `in the periods
+  asked for` (for the datasets where `periods` left out a period the window would have read), `in the run issued`
+  or `in the lead time asked for` where the request narrowed itself that way; the other `periods`, run or
+  `lead_time` is suggested only where it can hold values (the `icon_eu` product has no long run). It says nothing
+  of the source being behind for a window that reaches the present, and nothing of what a later request will find:
+  a source that is late cannot be told from one that never reports the parameter.
 
   What it does not say is limited by what the library can see. A provider that gives up on a file it expected and
   answers with the others (a refused download, a file withdrawn since the listing, a timestamp that is not there,

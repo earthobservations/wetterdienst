@@ -93,9 +93,10 @@ Types of changes:
   is an estimate, carry no such warning now (GH-3554)
 - The `station-skipped` warning is told for a station `skip_empty` leaves out whatever `drop_nulls`
   is: with the nulls dropped (the default) a station that held nothing but missing values was left
-  out unsaid, and with them kept it was told. The warning is the same for both, and the station,
-  which had rows, is no longer also named by `parameter-without-rows`. The rows of an answer are
-  unchanged (GH-3567)
+  out unsaid, and with them kept it was told. The warning is the same for both, and so is
+  `parameter-without-rows` for a station left out with some readings: a parameter or dataset of it
+  that held only missing values is no longer named there. The rows of an answer are unchanged
+  (GH-3567)
 
 ## [0.178.0] - 2026-10-28
 

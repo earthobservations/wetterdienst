@@ -390,12 +390,13 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             # the ranked walk stopped short of the stations that do cover the window and the
             # request came back with nothing
             if df.is_empty():
-                self._skip_station_emptied_by_nulls(station_id, rows)
-                self._tell_missing_value_markers(emptied=True)
+                self._leave_out_emptied(station_id, rows)
                 continue
             if self.sr.options.skip_empty:
                 percentage = self._get_actual_percentage(df=df)
                 if percentage < self.sr.options.skip_threshold:
+                    # a parameter that holds nothing but nulls is a row the station has, with the nulls kept
+                    self._note_nulls_dropped(rows)
                     self._warn_station_skipped(station_id, percentage)
                     continue
             self._tell_missing_value_markers()
@@ -428,22 +429,27 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             level=logging.INFO,
         )
 
-    def _skip_station_emptied_by_nulls(self, station_id: str, rows: ParameterRows) -> None:
-        """Tell `station-skipped` of a station whose readings in the window are all without a value, nulls dropped.
+    def _leave_out_emptied(self, station_id: str, rows: ParameterRows) -> None:
+        """Tell of a station with nothing left in the window: `station-skipped` if it held readings, all nulls."""
+        if self._note_nulls_dropped(rows):
+            # `skip_empty` leaves it out, as it does with the nulls kept
+            self._warn_station_skipped(station_id, 0.0)
+        self._tell_missing_value_markers(emptied=True)
 
-        With the nulls kept such a station has a frame of nulls, which `skip_empty` leaves out and tells so, at 0 of
-        the readings the window holds. With them dropped (the long shape's default) the frame is empty, and is
-        left out all the same: told the same, and, as it is with the nulls kept, a station that had rows
-        (`parameter-without-rows` says nothing of the parameters of it). A station with no reading in the window at all
-        is none of this: left out unsaid, as it is with the nulls kept (GH-3567).
+    def _note_nulls_dropped(self, rows: ParameterRows) -> bool:
+        """Note the parameters of the nulls `drop_nulls` took out of a station that `skip_empty` leaves out.
+
+        With the nulls kept such a station has frames of nulls, which `skip_empty` leaves out and tells so; with them
+        dropped (the long shape's default) the same station has the same rows, and `parameter-without-rows` says
+        nothing of their parameters, as it says nothing of them with the nulls kept (GH-3567). `_nulls_in_window` is
+        filled under `skip_empty` only. Gives whether the station had any: a station with no reading in the window at
+        all has none, and is left out unsaid, as it is with the nulls kept.
         """
-        if not self.sr.options.skip_empty or not self._nulls_in_window:
-            return
+        if not self._nulls_in_window:
+            return False
         nulls = pl.concat(self._nulls_in_window)
-        if nulls.is_empty():
-            return
         rows.note(nulls)
-        self._warn_station_skipped(station_id, 0.0)
+        return not nulls.is_empty()
 
     def _tell_missing_value_markers(self, *, emptied: bool = False) -> None:
         """Add the markers of the station in hand to the warning of the request, unless the station is left out.
@@ -759,24 +765,18 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         if self.sr.options.convert_units:
             df = self._convert_units(df, dataset)
         df = merge_duplicate_readings(df, ["station_id", "resolution", "dataset", "parameter", "timestamp"])
+        in_window = self._filter_by_window(df)
         if QUALITY_FLAGS in df.columns:
             # the readings the source marked as missing may leave with the nulls; the answer still tells how many,
             # of the window it is cut to (`_filter_by_window`, later) and not of the whole file, and of the stations
             # it keeps: counted here, told by `_query_stations` (`_tell_missing_value_markers`)
-            self._markers_in_window += (
-                self._filter_by_window(df)
-                .filter(pl.col("value").is_null() & pl.col(QUALITY_FLAGS).str.contains(RAW_TOKEN))
-                .height
-            )
+            self._markers_in_window += in_window.filter(
+                pl.col("value").is_null() & pl.col(QUALITY_FLAGS).str.contains(RAW_TOKEN)
+            ).height
         if self.sr.options.drop_nulls_effective:
             if self.sr.options.skip_empty:
                 # what the station has with the nulls kept, were `skip_empty` to leave it out (`_query_stations`)
-                self._nulls_in_window.append(
-                    self._filter_by_window(df)
-                    .filter(pl.col("value").is_null())
-                    .select("resolution", "dataset", "parameter")
-                    .unique()
-                )
+                self._nulls_in_window.append(in_window.select("resolution", "dataset", "parameter").unique())
             df = df.drop_nulls(subset=["value"])
         return df
 
