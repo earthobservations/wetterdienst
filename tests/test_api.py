@@ -883,7 +883,8 @@ def test_api_imgw_hydrology(default_settings: Settings) -> None:
     ).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    # the station list of IMGW names neither the period of a station nor its elevation or region
+    # the IMGW list gives a founding year, not the period of the record, and the gauge zero, not the station's
+    # elevation; the reader leaves these columns null, and no region is listed
     assert _is_complete_stations_df(
         request.df,
         exclude_columns={"start_timestamp", "end_timestamp", "elevation", "region"},
@@ -910,7 +911,8 @@ def test_api_imgw_meteorology(default_settings: Settings) -> None:
     ).filter_by_station_id("249200180")
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    # the station list of IMGW names neither the period of a station nor its region
+    # the IMGW list gives a founding year, not the period of the record; the reader leaves it null, and no region is
+    # listed
     assert _is_complete_stations_df(request.df, exclude_columns={"start_timestamp", "end_timestamp", "region"})
     first_start_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_start_date:
