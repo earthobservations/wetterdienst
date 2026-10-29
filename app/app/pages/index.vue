@@ -89,7 +89,7 @@ const dataKinds = computed(() => [
 <template>
   <div class="app-frame pt-8 pb-4 sm:pt-12">
     <!-- The hero: what the site is, and the four things it does as the four tiles of the logo -->
-    <section class="grid gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-center mb-16" aria-labelledby="home-tasks">
+    <section class="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-center mb-16" aria-labelledby="home-tasks">
       <div>
         <h1 class="text-5xl sm:text-6xl font-bold tracking-tight text-highlighted break-words">
           Wetterdienst
@@ -192,7 +192,7 @@ const dataKinds = computed(() => [
       </UCard>
 
       <!-- the kinds of data, a list rather than a wall of cards: they are text, not links -->
-      <ul class="mt-10 grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
+      <ul class="mt-10 grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
         <li v-for="kind in dataKinds" :key="kind.title" class="flex items-start gap-3">
           <span class="inline-grid place-items-center size-10 shrink-0 rounded-xl bg-primary/10 text-primary" aria-hidden="true">
             <UIcon :name="kind.icon" class="size-5" />
@@ -210,7 +210,7 @@ const dataKinds = computed(() => [
     </section>
 
     <!-- What to do with the data, and the same data without clicking: the library, the API and the MCP endpoint -->
-    <section class="mb-16 grid gap-8 lg:grid-cols-2" aria-labelledby="home-features">
+    <section class="mb-16 grid grid-cols-1 gap-8 lg:grid-cols-2" aria-labelledby="home-features">
       <div>
         <h2 id="home-features" class="text-xl font-bold text-highlighted">
           {{ t('home.featuresTitle') }}
@@ -257,12 +257,12 @@ const dataKinds = computed(() => [
     </section>
 
     <!-- What the project stands for, and who backs the work: the navy of the logo, the one band of it on the page -->
-    <section class="app-navy rounded-3xl p-6 sm:p-10 mb-10 grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+    <section class="app-navy rounded-3xl p-6 sm:p-10 mb-10 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
       <div>
         <h2 class="text-2xl font-bold">
           {{ t('values.title') }}
         </h2>
-        <ul class="mt-5 grid gap-3 sm:grid-cols-2">
+        <ul class="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <li v-for="value in values" :key="value.key" class="flex items-center gap-3 text-base font-medium">
             <span class="text-xl" aria-hidden="true">{{ value.emoji }}</span>
             {{ value.text }}

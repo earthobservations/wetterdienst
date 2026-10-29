@@ -117,8 +117,9 @@ body {
   outline: 2px solid var(--app-focus-ring);
   outline-offset: 2px;
 }
-/* The map is a light surface in both modes (Leaflet's grey, and the tiles): it takes the ring of light mode */
-.leaflet-container:focus-visible,
+/* The map is a light surface in both modes (Leaflet's grey, and the tiles): what takes the focus in it takes the ring
+   of light mode. The map's own ring is drawn outside it, on the page, and keeps the page's (in dark mode shade 700 is
+   2.8:1 on the navy page) */
 .leaflet-container :focus-visible:not([tabindex="-1"]) {
   outline-color: var(--ui-color-primary-700);
 }
@@ -287,8 +288,9 @@ body {
   }
 }
 
-/* Forced colours: the tiles and the rail lose their fills, so they keep an outline, and the page shown keeps its
-   bar (a border, which takes the system's colour) */
+/* Forced colours: the tiles and the rail lose their fills, so they keep an outline, and only the page shown keeps
+   its bar (a border, which takes the system's colour; a transparent one would be drawn too). The icons are masks
+   filled with the text's colour, which forced colours drop: they are filled with the system's text colour. */
 @media (forced-colors: active) {
   .app-tile {
     border: 1px solid CanvasText;
@@ -297,8 +299,15 @@ body {
     border-inline-end: 1px solid CanvasText;
     border-block-end: 1px solid CanvasText;
   }
+  .app-nav-link {
+    border-inline-start-color: Canvas;
+  }
   .app-nav-link[aria-current="page"] {
     border-inline-start-color: Highlight;
+  }
+  .iconify {
+    forced-color-adjust: none;
+    background-color: CanvasText;
   }
 }
 

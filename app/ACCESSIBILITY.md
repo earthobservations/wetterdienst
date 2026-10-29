@@ -76,8 +76,9 @@ A disabled button is exempt from 1.4.3 and from the scans.
 
 The focus indicator is one solid 2 px outline for everything a keyboard reaches (`--app-focus-ring` in
 `main.css`): shade 700 of the primary colour on light (6.5:1 on white), shade 300 on dark (9.8:1), and the
-logo's yellow on the navy of the rail and the home page's navy band (8.2:1); the map takes the light one in both
-modes. Nuxt UI's own is an outline at 25 % of the primary colour and a ring in it, and its menu search fields draw
+logo's yellow on the navy of the rail and the home page's navy band (8.2:1); what takes the focus inside the map
+takes the light one in both modes, as the map is a light surface, while the map's own ring, drawn on the page
+around it, is the page's. Nuxt UI's own is an outline at 25 % of the primary colour and a ring in it, and its menu search fields draw
 none; they stay, beside it.
 
 The first stop of the keyboard is a "Skip to content" link (2.4.1), out of sight until it has the focus, which
