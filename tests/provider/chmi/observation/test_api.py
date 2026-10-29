@@ -3,6 +3,7 @@
 """Tests for CHMI observation provider."""
 
 import datetime as dt
+import logging
 from collections.abc import Callable, Iterator
 from io import BytesIO
 from zoneinfo import ZoneInfo
@@ -215,6 +216,26 @@ def test_chmi_observation_stations_list_only_the_directories_of_the_requested_el
     df = ChmiObservationRequest(parameters=parameters).all().df
     assert asked == ["temperature/"]
     assert _ids(df, "daily") == ["0-A"]
+
+
+def test_chmi_observation_stations_of_abroad_are_left_out(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The stations `meta1.csv` lists with a `Z` GH_ID have no file on the portal and are no stations (GH-3589)."""
+    catalogue = (
+        b"WSI,GH_ID,BEGIN_DATE,END_DATE,FULL_NAME,GEOGR1,GEOGR2,ELEVATION,\n"
+        b"0-20000-0-11406,L3CHEB01,2001-01-01T00:00Z,3999-12-31T23:59Z,Cheb,12.391389,50.068333,483,\n"
+        b"0-20000-0-04030,ZIS04030,2015-01-01T00:00Z,3999-12-31T23:59Z,Reykjavik,-21.903905,64.127653,51,\n"
+        b"0-20000-0-89055,ZAR89055,2010-01-01T00:00Z,2020-01-31T23:59Z,Marambio  Base,56.623056,64.233056,196,\n"
+        b"0-203-0-20303032003,O1JAVR01,2025-04-03T16:00Z,3999-12-31T23:59Z,Javorovy,18.627222,49.628333,930,\n"
+    )
+    _serve_catalogue(monkeypatch, catalogue, {})
+    monkeypatch.setattr(chmi_api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [])
+    with caplog.at_level(logging.DEBUG, logger="wetterdienst.provider.chmi.observation.parser"):
+        df = ChmiObservationRequest(parameters=[("10_minutes", "data"), ("hourly", "data")]).all().df
+    for resolution in ("10_minutes", "hourly"):
+        assert _ids(df, resolution) == ["0-20000-0-11406", "0-203-0-20303032003"]
+    assert "0-20000-0-04030, 0-20000-0-89055" in caplog.text
 
 
 def test_chmi_observation_sub_daily_stations_are_the_whole_list(monkeypatch: pytest.MonkeyPatch) -> None:

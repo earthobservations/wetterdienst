@@ -570,6 +570,7 @@
   "tests/provider/chmi/observation/test_api.py::test_chmi_observation_stations_collapse_a_relocated_station": [["ChmiObservationRequest", "61767a67", 2, "689a2eac5969732d"]],
   "tests/provider/chmi/observation/test_api.py::test_chmi_observation_stations_list_only_the_directories_of_the_requested_elements": [["ChmiObservationRequest", "61767a67", 1, "691bf03ec7ecc7c7"]],
   "tests/provider/chmi/observation/test_api.py::test_chmi_observation_stations_of_a_catalogue_without_a_row_are_the_empty_frame": [["ChmiObservationRequest", "61767a67", 0, "e3b0c44298fc1c14"]],
+  "tests/provider/chmi/observation/test_api.py::test_chmi_observation_stations_of_abroad_are_left_out": [["ChmiObservationRequest", "61767a67", 4, "31bb599377714d36"]],
   "tests/provider/chmi/observation/test_api.py::test_chmi_observation_sub_daily_stations_are_the_whole_list": [["ChmiObservationRequest", "61767a67", 8, "45f7f65f9ec4bc41"]],
   "tests/provider/dmi/observation/test_api.py::test_dmi_current_record_does_not_depend_on_the_order_of_the_list": [["DmiObservationRequest", "0fc3b7b9", 1, "8afac50a183a3b94"]],
   "tests/provider/dmi/observation/test_api.py::test_dmi_records_of_one_period_and_one_creation_take_the_one_listed_last": [["DmiObservationRequest", "0fc3b7b9", 1, "f4d085fffcae75ca"], ["DmiObservationRequest", "0fc3b7b9", 1, "0f5661f24e681d40"]],

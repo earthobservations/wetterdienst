@@ -232,6 +232,10 @@ def _chmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         "0-203-0-41302035001,B1NLHO01,1976-07-20T00:00Z,1980-06-30T23:59Z,Nová Lhota  ?,17.6133,48.8736,420,\n"
         "0-203-0-11566,P2SADS01,1897-01-01T00:00Z,1934-12-31T23:59Z,Sadská,14.9833,50.1333,187,\n"
         "0-203-0-11566,P2SADS01,1936-01-01T00:00Z,1945-12-31T23:59Z,Sadská,14.9833,50.1333,187,\n"
+        # the two stations of abroad of the list (GH_ID `Z...`, 2026-10-29), for which the portal has no file: the
+        # reader leaves them out, or the rules of the catalogue would fail on them (GH-3589)
+        "0-20000-0-04030,ZIS04030,2015-01-01T00:00Z,3999-12-31T23:59Z,Reykjavik,-21.903905,64.127653,51,\n"
+        "0-20000-0-89055,ZAR89055,2010-01-01T00:00Z,2020-01-31T23:59Z,Marambio  Base,56.623056,64.233056,196,\n"
     )
     _serve(monkeypatch, chmi_api, {"meta1.csv": catalogue.encode("utf8")})
     # the directories of the daily elements, with files of the stations above as listed (2026-10-21), among them
