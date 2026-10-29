@@ -86,6 +86,7 @@ from wetterdienst.ui.core import (
     _draw_stripes,
     _get_stripes_data,
     _get_stripes_stations,
+    _require_plotting,
     check_timeseries_api,
     failure_status,
     get_auth,
@@ -2290,6 +2291,8 @@ def stripes_values(
     WD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it, which a stripes request has no parameter
     for: the target of the quantity where the values are converted, the source's unit where not.
     """
+    begin_response()
+
     # checked outside the handler below, as for `/api/stripes/stations`
     Settings()
     try:
@@ -2335,6 +2338,8 @@ def stripes_image(
     # checked outside the handler below, as for `/api/stripes/stations`
     Settings()
     try:
+        # before the record is downloaded: a server without the `plotting` extra refuses at once
+        _require_plotting()
         stripes_data = _get_stripes_data(request)
         fig = _draw_stripes(stripes_data, request)
     except AssertionError:

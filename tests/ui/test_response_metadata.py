@@ -36,7 +36,7 @@ from wetterdienst.ui.response_metadata import (
     SCHEMA_VERSION,
     response_metadata,
 )
-from wetterdienst.util.response_warnings import begin_response, recorded_warnings, warn_response
+from wetterdienst.util.response_warnings import _COUNTED, _RECORDED, begin_response, recorded_warnings, warn_response
 
 if TYPE_CHECKING:
     import pathlib
@@ -376,16 +376,19 @@ def test_the_stripes_values_have_the_block_and_a_series_for_what_they_are_of(
     assert response.headers["X-Wetterdienst-License"] == "CC-BY-4.0"
 
 
-@pytest.mark.usefixtures("_no_ambient_settings")
-@pytest.mark.parametrize("prefix", ["/api", "/api/v1"])
-@pytest.mark.parametrize("fmt", ["png", "jpg", "svg", "pdf"])
-def test_the_stripes_image_has_the_headers_of_every_answer(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch, prefix: str, fmt: str
-) -> None:
-    """The image tells the licence, the credit line and the warnings in headers, as the values do.
+@pytest.fixture
+def _unrecorded() -> None:
+    """Start the test with no record of warnings, as the thread of a server has before its handler begins one.
 
-    Nothing is drawn into it (GH-3581): the only way to a caller that reads no pixels is the headers.
+    The autouse `_no_ambient_settings` begins a record, which the client carries into the handler: a route that never
+    calls `begin_response` would then record all the same.
     """
+    _RECORDED.set(None)
+    _COUNTED.set(None)
+
+
+def _read_and_warn(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Have the read of a stripes station raise a warning of the response, which the route has to record."""
     from tests.ui.test_restapi import _stub_stripes_station  # noqa: PLC0415
     from wetterdienst.ui import core  # noqa: PLC0415
 
@@ -396,11 +399,40 @@ def test_the_stripes_image_has_the_headers_of_every_answer(
         warn_response(restapi.log, "station-skipped", "station 00002 is skipped")
         return read(request)
 
+    monkeypatch.setattr(restapi, "_get_stripes_data", read_and_warn)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings", "_unrecorded")
+def test_the_stripes_values_tell_the_warnings_of_the_read(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The values of a stripes station record the warnings of their read, in the block and in the header (GH-3581).
+
+    The route never began a record, so both were always empty.
+    """
+    _read_and_warn(monkeypatch)
+
+    response = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048"})
+
+    assert response.status_code == 200, response.text
+    assert [warning["code"] for warning in response.json()["metadata"]["warnings"]] == ["station-skipped"]
+    assert response.headers["X-Wetterdienst-Warnings"] == "station-skipped"
+
+
+@pytest.mark.usefixtures("_no_ambient_settings", "_unrecorded")
+@pytest.mark.parametrize("prefix", ["/api", "/api/v1"])
+@pytest.mark.parametrize("fmt", ["png", "jpg", "svg", "pdf"])
+def test_the_stripes_image_has_the_headers_of_every_answer(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, prefix: str, fmt: str
+) -> None:
+    """The image tells the licence, the credit line and the warnings in headers, as the values do.
+
+    Nothing is drawn into it (GH-3581): the only way to a caller that reads no pixels is the headers.
+    """
+    _read_and_warn(monkeypatch)
+
     class _Figure:
         def to_image(self, *_args: object, **_kwargs: object) -> bytes:
             return b"image"
 
-    monkeypatch.setattr(restapi, "_get_stripes_data", read_and_warn)
     monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
 
     response = client.get(f"{prefix}/stripes/image", params={"kind": "temperature", "station": "01048", "format": fmt})

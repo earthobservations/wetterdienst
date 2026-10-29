@@ -2026,6 +2026,37 @@ def test_stripes_image_is_sent_as_its_media_type(
     assert response.headers["content-type"] == media_type
 
 
+def _without_plotly(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make plotly not installed: its import raises what a missing package raises, imported before or not."""
+    import importlib  # noqa: PLC0415
+
+    real = importlib.import_module
+
+    def import_module(name: str, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+        if name.split(".", maxsplit=1)[0] == "plotly":
+            msg = "No module named 'plotly'"
+            raise ModuleNotFoundError(msg, name="plotly")
+        return real(name, *args, **kwargs)
+
+    monkeypatch.setattr(importlib, "import_module", import_module)
+
+
+def test_stripes_image_without_plotly_is_a_501_before_anything_is_fetched(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A server without the `plotting` extra refuses at once: the record of the station is not downloaded (GH-3581).
+
+    An unknown station would otherwise be a 404 and a known one a download, for the same 501 at the end.
+    """
+    _without_plotly(monkeypatch)
+    monkeypatch.setattr(restapi, "_get_stripes_data", _unreached)
+
+    response = client.get("/api/stripes/image", params={"kind": "temperature", "station": "99999"})
+
+    assert response.status_code == 501
+    assert "optional dependency" in response.json()["detail"]
+
+
 def test_stripes_image_without_kaleido_is_a_501(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
