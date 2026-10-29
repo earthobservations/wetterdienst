@@ -2,15 +2,17 @@
 
 import datetime as dt
 import logging
+from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
+from wetterdienst.exceptions import ProviderContractError
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.model.schema import LONG_SCHEMA
-from wetterdienst.model.values import TimeseriesValues, merge_duplicate_readings
+from wetterdienst.model.values import TimeseriesValues, _declared_parameter_names, merge_duplicate_readings
 from wetterdienst.options import Options
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata, DwdObservationRequest
 from wetterdienst.provider.dwd.observation.api import DwdObservationValues
@@ -571,6 +573,78 @@ def test_a_grouped_dataset_keeps_a_parameter_the_provider_wrote_in_another_casin
 
     assert df.get_column("parameter").to_list() == [parameter]
     assert df.get_column("value").to_list() == [1.0]
+
+
+def _climate_values() -> DwdObservationValues:
+    """Build the values of a daily DWD dataset without touching the network."""
+    request = DwdObservationRequest(parameters=[("daily", "climate_summary", "temperature_air_mean_2m")])
+    return DwdObservationValues(
+        sr=StationsResult(
+            request=request, df=pl.DataFrame(), _df_all=pl.DataFrame(), _stations_filter=StationsFilter.ALL
+        ),
+    )
+
+
+def test_a_file_whose_only_rows_are_in_another_casing_still_dates_the_answer() -> None:
+    """Test that `_note_files_with_rows` counts the rows the core keeps, whatever the casing of the name (GH-3595)."""
+    values = _climate_values()
+    updated = dt.datetime(2026, 10, 26, 6, 0, tzinfo=ZoneInfo("UTC"))
+    df = pl.DataFrame(
+        {
+            "parameter": ["TMK"],
+            "timestamp": [dt.datetime(1990, 1, 1, tzinfo=ZoneInfo("UTC"))],
+            "value": [1.0],
+            "updated": [updated],
+        },
+    )
+
+    result = values._note_files_with_rows(df, values.sr.parameters[0].dataset)  # noqa: SLF001
+
+    assert values._data_updated == [updated]  # noqa: SLF001
+    assert result.get_column("parameter").to_list() == ["tmk"]
+
+
+class _Dataset(list):
+    """A dataset as `_declared_parameter_names` reads it: a sequence of parameters with a `name_original`."""
+
+
+def _names(emitted: list[str], *declared: str) -> dict[str, str]:
+    dataset = _Dataset(SimpleNamespace(name_original=name) for name in declared)
+    return _declared_parameter_names(pl.DataFrame({"parameter": emitted}), dataset)  # ty: ignore[invalid-argument-type]
+
+
+def test_a_name_two_declared_names_match_alike_is_left_but_the_others_are_mapped() -> None:
+    """Test that an ambiguous casing switches off its own name only, not the rewrite of the dataset (GH-3595)."""
+    # `AB` could be `Ab` or `aB`, so it is left as written; `w` and `W` are declared as they are written
+    assert _names(["TMK", "AB", "w", "W"], "Ab", "aB", "W", "w", "tmk") == {"TMK": "tmk"}
+
+
+def test_a_name_declared_twice_is_one_name() -> None:
+    """Test that an exact duplicate in the metadata does not switch the rewrite off (GH-3595)."""
+    assert _names(["TMK"], "tmk", "tmk") == {"TMK": "tmk"}
+    assert _names(["W", "w"], "W", "W") == {"w": "W"}
+
+
+def test_a_non_grouped_call_with_an_undeclared_name_is_a_contract_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the unit conversion names the parameter and the dataset instead of raising a bare `KeyError`."""
+    _stub_dwd_daily(station_ids=["00001"], data_year_by_station={"00001": 1990}, monkeypatch=monkeypatch)
+    values = _climate_values()
+    dataset = values.sr.parameters[0].dataset
+    df = pl.DataFrame(
+        {
+            "station_id": ["00001"],
+            "resolution": ["daily"],
+            "dataset": ["climate_summary"],
+            "parameter": ["not_a_parameter"],
+            "timestamp": [dt.datetime(1990, 1, 1, tzinfo=ZoneInfo("UTC"))],
+            "value": [1.0],
+            "quality_flags": [None],
+        },
+        schema_overrides={"quality_flags": pl.String},
+    )
+
+    with pytest.raises(ProviderContractError, match=r"DwdObservationValues.*'not_a_parameter'.*daily/climate_summary"):
+        values._convert_units(df, dataset)  # noqa: SLF001
 
 
 def test_rank_is_not_spent_on_a_station_whose_data_misses_the_window(monkeypatch: pytest.MonkeyPatch) -> None:

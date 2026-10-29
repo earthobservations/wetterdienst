@@ -231,16 +231,19 @@ def shape_provider_frame(
 def _declared_parameter_names(df: pl.DataFrame, dataset: DatasetModel) -> dict[str, str]:
     """Give the names a provider wrote in its own casing, each with the name the metadata declares (GH-3595).
 
-    The names are matched exactly where the frame is filtered to the parameters asked for (a grouped dataset) and where
-    the answer is humanized, and case-insensitively where the units are converted and the share of readings is
-    measured, so a name in another casing than the metadata's would be dropped, or kept under the source's spelling.
-    Written as declared once, here, all four see the same name. A name that matches no parameter in any casing is
-    left as the provider wrote it (the filter drops it), and so is one that two declared names match alike.
+    The names are matched exactly where the frame is filtered to the parameters asked for (a grouped dataset), where
+    the answer is humanized and where `_note_files_with_rows` keeps the rows that date it, and case-insensitively where
+    the units are converted and the share of readings is measured, so a name in another casing than the metadata's
+    would be dropped, or kept under the source's spelling. Written as declared before any of them, they see one name.
+
+    A name that matches no parameter in any casing is left as the provider wrote it: a grouped dataset's filter drops
+    it, and a non-grouped call's unit conversion refuses it. So is a name that two different declared names match alike
+    (`W` and `w`): only the lower-cased names that occur more than once are left out, the rest are mapped. A name
+    declared twice is one name.
     """
-    declared = [parameter.name_original for parameter in dataset]
-    by_lower = {name.lower(): name for name in declared}
-    if len(by_lower) != len(declared):
-        return {}
+    declared = {parameter.name_original for parameter in dataset}
+    lowered = [name.lower() for name in declared]
+    by_lower = {name.lower(): name for name in declared if lowered.count(name.lower()) == 1}
     emitted = df.get_column("parameter").cast(pl.String).unique().drop_nulls().to_list()
     return {name: by_lower[name.lower()] for name in emitted if name not in declared and name.lower() in by_lower}
 
@@ -335,6 +338,12 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             ["parameter"],
             maintain_order=True,
         ):
+            if parameter.lower() not in conversions:
+                message = (
+                    f"{type(self).__name__} returned the parameter {parameter!r}, which the dataset "
+                    f"{dataset.resolution.name}/{dataset.name} does not declare in any casing"
+                )
+                raise ProviderContractError(message)
             lambda_, decimals = conversions[parameter.lower()]
             # rounded to avoid long floats, by as many decimals as the target unit needs to keep the
             # reading's precision -- see `UnitConverter.decimals`. The conversions are plain arithmetic, so
@@ -714,6 +723,11 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         # with a value, and then drops the rows without a value: the files whose rows are the ones it keeps are the ones
         # that date the answer, so it is done here in the same order, on the same key and before the rows without a
         # value go
+        # the name is written as declared first, as `shape_provider_frame` does after this, so that the rows the core
+        # keeps are the rows counted here
+        declared = _declared_parameter_names(df, dataset)
+        if declared:
+            df = df.with_columns(pl.col("parameter").cast(pl.String).replace(declared))
         df = merge_duplicate_readings(df, ["parameter", "timestamp"])
         kept = pl.col("parameter").is_in(requested)
         stamp = self._window_stamp(df)

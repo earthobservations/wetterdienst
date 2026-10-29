@@ -82,6 +82,10 @@ Types of changes:
 
 ### Fixed
 
+- A provider that hands the core a parameter name the dataset does not declare in any casing, in
+  a call for one parameter, now raises a `ProviderContractError` that names the parameter and the
+  dataset, where it raised a bare `KeyError` at the unit conversion. A name in another casing
+  than the metadata's is written as declared, so its rows are no longer dropped (GH-3595)
 - The row-limit refusal and the 504 timeout of `interpolate` and `summarize` (REST and the MCP
   tools) no longer advise fewer stations, which a point request does not name, nor
   `format=ndjson` or `format=csv`: they say to ask for a shorter `timestamp` window or fewer
