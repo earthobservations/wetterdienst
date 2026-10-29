@@ -100,7 +100,9 @@ Types of changes:
   stuck that long costs that wait once, in which the process's other cache misses wait too, and
   then the loads, saves and sweeps of the directory for a minute, which are skipped with a warning:
   a skipped load reads nothing and a skipped save fetches again. No request fails. A killed process
-  leaves no stale lock, and a file system without `flock` goes without the lock (GH-3485)
+  leaves no stale lock, and a file system without `flock` goes without the lock. The metadata file
+  is written in one go, about four times faster for a directory of tens of thousands of entries,
+  with the same content (GH-3485)
 
 ## [0.178.0] - 2026-10-28
 

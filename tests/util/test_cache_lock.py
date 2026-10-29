@@ -10,6 +10,7 @@ takes that file with a lock object of its own, which excludes the code under tes
 from __future__ import annotations
 
 import errno
+import inspect
 import json
 import logging
 import os
@@ -26,7 +27,7 @@ from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.memory import MemoryFileSystem
 
 from wetterdienst.util import network
-from wetterdienst.util.network import _LockedWholeFileCacheFileSystem
+from wetterdienst.util.network import _LockedWholeFileCacheFileSystem, _OneWriteCacheMetadata
 
 
 def _storage(tmp_path: Path) -> Path:
@@ -83,7 +84,7 @@ def test_a_row_another_process_saves_while_this_one_saves_is_not_lost(
             theirs.cat_file("/theirs.txt")
         other_saved.set()
 
-    original = CacheMetadata._save  # noqa: SLF001
+    original = _OneWriteCacheMetadata._save  # noqa: SLF001
     started: list[threading.Thread] = []
 
     def save(self: CacheMetadata, metadata_to_save: dict, fn: str) -> None:
@@ -94,7 +95,7 @@ def test_a_row_another_process_saves_while_this_one_saves_is_not_lost(
             other_saved.wait(timeout=1)  # long enough for it to be done where nothing holds it back
         original(self, metadata_to_save, fn)
 
-    monkeypatch.setattr(CacheMetadata, "_save", save)
+    monkeypatch.setattr(_OneWriteCacheMetadata, "_save", save)
 
     mine.cat_file("/mine.txt")
     started[0].join(timeout=30)
@@ -209,11 +210,23 @@ def test_an_entry_dropped_while_the_lock_is_held_by_another_leaves_the_file_unre
     mine.cat_file("/mine.txt")
     blob = storage / mine._mapper("/mine.txt")  # noqa: SLF001
     before = (storage / "cache").read_bytes()
+    status = (storage / "cache").stat()
+    saves: list[str] = []
+    original = _OneWriteCacheMetadata._save  # noqa: SLF001
+
+    def spy(self: CacheMetadata, data: dict, fn: str) -> None:
+        saves.append(fn)
+        original(self, data, fn)
+
+    monkeypatch.setattr(_OneWriteCacheMetadata, "_save", spy)
 
     with FileLock(_lock_file(storage)):
         mine.pop_from_cache("/mine.txt")
 
+    assert saves == []  # fsspec's drop would have saved: read, merge and replace, without the lock
     assert (storage / "cache").read_bytes() == before
+    assert (storage / "cache").stat().st_ino == status.st_ino  # not replaced
+    assert (storage / "cache").stat().st_mtime_ns == status.st_mtime_ns
     assert not blob.exists()
     assert not mine._metadata.check_file("/mine.txt", None)  # noqa: SLF001
     assert not _another_view(storage)._metadata.check_file("/mine.txt", None)  # noqa: SLF001
@@ -567,7 +580,7 @@ def test_a_wait_goes_on_while_the_lock_goes_from_hand_to_hand(tmp_path: Path, mo
 
 def test_a_wait_behind_a_lock_that_keeps_moving_is_bounded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A lock that moves without ever reaching this process is given up on after `_CACHE_LOCK_MAX_WAIT_SECONDS`."""
-    monkeypatch.setattr(network, "_CACHE_LOCK_TIMEOUT_SECONDS", 0.1)
+    monkeypatch.setattr(network, "_CACHE_LOCK_TIMEOUT_SECONDS", 0.4)
     monkeypatch.setattr(network, "_CACHE_LOCK_MAX_WAIT_SECONDS", 0.5)
     stamps = iter(range(10_000))
     monkeypatch.setattr(network, "_lock_stamp", lambda _lock_file: next(stamps))  # the stamp changes at every look
@@ -580,7 +593,7 @@ def test_a_wait_behind_a_lock_that_keeps_moving_is_bounded(tmp_path: Path, monke
             waited = time.monotonic() - started
 
     assert proceed is False
-    assert 0.4 <= waited < 2.0
+    assert 0.45 <= waited < 0.7  # the cap and not the cap and another timeout
     assert storage in network._cache_dirs_contended_until  # noqa: SLF001
 
 
@@ -589,11 +602,95 @@ def test_every_hold_moves_the_stamp_of_the_lock_file(tmp_path: Path) -> None:
     storage = _storage(tmp_path)
     storage.mkdir(parents=True)
     lock_file = Path(_lock_file(storage))
-    with network._locked_across_processes(storage, otherwise="x"):  # noqa: SLF001
-        pass
+    # the file is set to the beginning of time, and looked at inside a hold: where the platform removes the lock file
+    # when it is let go (Windows) there is nothing to look at outside one
+    lock_file.touch()
     os.utime(lock_file, (1, 1))
 
     with network._locked_across_processes(storage, otherwise="x"):  # noqa: SLF001
-        pass
+        assert lock_file.stat().st_mtime > 1_000_000
 
-    assert lock_file.stat().st_mtime > 1_000_000
+
+def test_a_wait_gives_up_one_timeout_after_the_lock_stopped_moving_and_not_at_the_cap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The lock moves for a while and then one holder sticks: the progress that was made does not buy the cap."""
+    monkeypatch.setattr(network, "_CACHE_LOCK_TIMEOUT_SECONDS", 0.2)
+    monkeypatch.setattr(network, "_CACHE_LOCK_MAX_WAIT_SECONDS", 30.0)
+    looks = iter(range(10_000))
+    monkeypatch.setattr(network, "_lock_stamp", lambda _lock_file: min(next(looks), 3))  # moves three times
+    storage = _storage(tmp_path)
+    storage.mkdir(parents=True)
+
+    with FileLock(_lock_file(storage)):
+        started = time.monotonic()
+        with network._locked_across_processes(storage, otherwise="x") as proceed:  # noqa: SLF001
+            waited = time.monotonic() - started
+
+    assert proceed is False
+    assert 0.7 <= waited < 2.0  # four timeouts: the three that saw it move and the one that did not
+
+
+def test_a_try_against_a_lock_that_keeps_moving_returns_at_once_and_marks_nothing(tmp_path: Path) -> None:
+    """`wait=0` is a try: the progress of the lock is no reason to wait."""
+    storage = _storage(tmp_path)
+    storage.mkdir(parents=True)
+    stop = threading.Event()
+    cycling = _handing_the_lock_round(storage, stop)
+    try:
+        time.sleep(0.15)
+        started = time.monotonic()
+        with network._locked_across_processes(storage, otherwise="x", wait=0):  # noqa: SLF001
+            waited = time.monotonic() - started
+    finally:
+        stop.set()
+        cycling.join()
+
+    assert waited < 0.3
+    assert storage not in network._cache_dirs_contended_until  # noqa: SLF001
+
+
+def test_a_load_that_is_skipped_keeps_the_rows_the_view_holds(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Not emptied and not replaced by what is on the disk now."""
+    monkeypatch.setattr(network, "_CACHE_LOCK_TIMEOUT_SECONDS", 0.2)
+    storage = _storage(tmp_path)
+    mine = _LockedWholeFileCacheFileSystem(fs=_source(), cache_storage=str(storage), expiry_time=3600)
+    mine.cat_file("/mine.txt")
+    _another_view(storage).cat_file("/theirs.txt")  # a row this view does not hold
+
+    with FileLock(_lock_file(storage)):
+        mine.load_cache()
+
+    assert list(mine._metadata.cached_files[-1]) == ["/mine.txt"]  # noqa: SLF001
+
+
+def test_the_metadata_is_written_as_fsspec_writes_it_and_through_the_class_that_does_it_in_one_go(
+    tmp_path: Path,
+) -> None:
+    """The file is the same bytes, so that nothing that reads it can tell; and the filesystem does write through it.
+
+    Catches fsspec changing how `CacheMetadata._save` writes (the bytes differ, or the signature does), and the hook in
+    `_LockedWholeFileCacheFileSystem.__init__` (the class of its metadata) being lost.
+    """
+    assert list(inspect.signature(CacheMetadata._save).parameters) == ["self", "metadata_to_save", "fn"]  # noqa: SLF001
+    rows = {
+        f"/p/{index}": {
+            "original": f"/p/{index}",
+            "fn": f"{index:064x}",
+            "blocks": True,
+            "time": 1793000000.123456 + index,
+            "uid": '\u00e4"x',
+        }
+        for index in range(50)
+    }
+    theirs = tmp_path / "fsspec-writes"
+    ours = tmp_path / "we-write"
+
+    CacheMetadata(["/"])._save(rows, str(theirs))  # noqa: SLF001
+    storage = _storage(tmp_path)
+    view = _LockedWholeFileCacheFileSystem(fs=_source(), cache_storage=str(storage), expiry_time=3600)
+    view._metadata._save(rows, str(ours))  # noqa: SLF001
+
+    assert type(view._metadata) is _OneWriteCacheMetadata  # noqa: SLF001
+    assert ours.read_bytes() == theirs.read_bytes()
+    assert [path.name for path in tmp_path.iterdir() if path.name.startswith("we-write-")] == []  # no temp file left

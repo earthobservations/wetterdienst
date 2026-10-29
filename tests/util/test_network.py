@@ -65,6 +65,7 @@ from wetterdienst.util.network import (
     _is_superseded_layout,
     _legacy_cleanup_done,
     _LockedWholeFileCacheFileSystem,
+    _OneWriteCacheMetadata,
     _reclaim_done,
     _sends_credentials,
     _swept_dirs,
@@ -2411,7 +2412,7 @@ def test_a_fan_out_never_reads_the_metadata_file_while_another_thread_replaces_i
     bookkeeping = threading.Lock()
     saves: list[str] = []
     original_load = CacheMetadata._load  # noqa: SLF001
-    original_save = CacheMetadata._save  # noqa: SLF001
+    original_save = _OneWriteCacheMetadata._save  # noqa: SLF001
 
     def enter(fn: str, operation: str) -> None:
         with bookkeeping:
@@ -2442,7 +2443,7 @@ def test_a_fan_out_never_reads_the_metadata_file_while_another_thread_replaces_i
             leave(fn, "write")
 
     monkeypatch.setattr(CacheMetadata, "_load", load)
-    monkeypatch.setattr(CacheMetadata, "_save", save)
+    monkeypatch.setattr(_OneWriteCacheMetadata, "_save", save)
 
     try:
         files = download_files(urls=urls, cache_dir=tmp_path, ttl=CacheExpiry.TWELVE_HOURS)

@@ -51,9 +51,11 @@ from filelock import FileLock, Timeout
 from fsspec.asyn import sync, sync_wrapper
 from fsspec.callbacks import DEFAULT_CALLBACK, Callback
 from fsspec.exceptions import FSTimeoutError
+from fsspec.implementations import cache_metadata as _fsspec_cache_metadata
+from fsspec.implementations.cache_metadata import CacheMetadata
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.http import HTTPFileSystem as _HTTPFileSystem
-from fsspec.utils import isfilelike
+from fsspec.utils import atomic_write, isfilelike
 
 from wetterdienst.exceptions import CredentialRejectedError, DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
@@ -1224,9 +1226,12 @@ _CACHE_LOCK_MAX_WAIT_SECONDS = 60.0
 #: (see `_locked_across_processes`), so a holder that is stuck would cost every thread of this process a timeout for
 #: every file it downloads. Until this has passed the lock is only tried, never waited for, and the first hold that
 #: gets it ends the period. So a stuck holder costs one timeout a minute for each directory, and the threads that
-#: queue behind it find the directory marked. Only a wait that ran out with nothing moving marks it: a holder that
-#: lets go, or a lock that goes from hand to hand, is contention and not a stuck process, and a save that was only
-#: tried for a minute afterwards would lose its row to every other process that happened to hold the lock then.
+#: queue behind it find the directory marked. A wait marks it when it ran out with the lock in one hand for the whole
+#: timeout, and when it ran out at `_CACHE_LOCK_MAX_WAIT_SECONDS` with the lock moving but never reaching this process:
+#: the second is no stuck holder, but another wait of that length for every file would stall the process's cache misses
+#: just the same. A holder that lets go, or a lock that goes from hand to hand and reaches this process, is contention
+#: and marks nothing, and a save that was only tried for a minute afterwards would lose its row to every other process
+#: that happened to hold the lock then.
 _CACHE_LOCK_CONTENDED_SECONDS = 60.0
 
 #: How often the lock file is tried while it is waited for. `filelock` tries every 50 ms, which is unfair to a waiter
@@ -1250,7 +1255,7 @@ def _lock_file_of(directory: Path) -> Path:
 
     Beside it and not in it, deliberately: `clear_cache` and the reclaim remove the directory, and a lock file removed
     from under a process that waits on it is a lock two processes can hold at once (each has a different file). The
-    reclaim of a directory removes its lock file once it holds the lock, which is then not named by anyone any more.
+    reclaim of a directory removes its lock file while it holds the lock, which is then not named by anyone any more.
     """
     return directory.with_name(directory.name + ".lock")
 
@@ -1366,11 +1371,13 @@ def _locked_across_processes(directory: Path, *, otherwise: str, wait: float | N
         except Timeout:
             proceed = False
             if timeout > 0:
-                # a wait that ran out with nothing moving, not a try: the directory is marked, and the line is said once
+                # a wait that ran out, with the lock in one hand for the timeout or moving past the cap without reaching
+                # this process, and not a try: the directory is marked, and the line is said once
                 until = time.time() + _CACHE_LOCK_CONTENDED_SECONDS
                 _cache_dirs_contended_until[directory] = time.monotonic() + _CACHE_LOCK_CONTENDED_SECONDS
                 log.warning(
-                    f"Gave up waiting for another process that holds {file_lock.lock_file}: until "
+                    f"Gave up waiting for another process that holds {file_lock.lock_file} (it did not let go, or "
+                    "kept it moving without this process getting it): until "
                     f"{time.strftime('%H:%M:%S', time.localtime(until))} the loads, saves and sweeps of {directory} "
                     "only try the lock, and are skipped where it is held; the first that gets it ends that"
                 )
@@ -1606,9 +1613,11 @@ def _reclaim_unreachable_cache_dirs(fsspec_root: Path, keep: Path) -> None:
             except OSError:
                 log.debug(f"Failed removing unreachable cache directory {directory}", exc_info=True)
                 continue
-        # the file the processes that shared it took turns on, once it is let go: nobody names this directory any more
-        with contextlib.suppress(OSError):
-            _lock_file_of(directory).unlink(missing_ok=True)
+            # the file the processes that shared it took turns on, while it is held: nobody names this directory any
+            # more. Where the platform refuses to remove a file that is locked (Windows) it stays until the lock is let
+            # go, where `filelock` removes it
+            with contextlib.suppress(OSError):
+                _lock_file_of(directory).unlink(missing_ok=True)
         removed += 1
     if removed:
         # what went, not what was considered: the sweep that removes nothing because every `rmtree`
@@ -1808,6 +1817,28 @@ def _held_in_view(filesystem: object, url: str) -> Literal[False] | tuple[dict[s
     return False
 
 
+#: The `json` fsspec writes its metadata with: the standard one, or `ujson` where that is installed
+_fsspec_json = _fsspec_cache_metadata.json
+
+
+class _OneWriteCacheMetadata(CacheMetadata):
+    """fsspec's `CacheMetadata`, writing its file with one `dumps` and one write instead of `json.dump` (GH-3485).
+
+    `json.dump` feeds the file the encoder's chunks one by one, which bypasses the C encoder: 122 ms against 33 ms for
+    a file of 40000 rows. The saves of the processes sharing a directory take turns now, so the time one takes is the
+    time the others wait. The file is the one fsspec writes, byte for byte (`json` is the module fsspec uses, `ujson`
+    where it is installed), and written the way fsspec writes it, to a file of its own that replaces the old one
+    (`atomic_write`). `tests/util/test_cache_lock.py` holds both to fsspec's `CacheMetadata._save`, and that the
+    filesystem uses this class, so that a change in fsspec's way of writing it is a test failure and not a drift.
+    """
+
+    def _save(self, metadata_to_save: dict, fn: str) -> None:
+        """Write the metadata to `fn`, replacing the file as a whole."""
+        text = _fsspec_json.dumps(metadata_to_save)
+        with atomic_write(fn, mode="w") as f:
+            f.write(text)
+
+
 class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
     """A `WholeFileCacheFileSystem` that reads and writes its metadata file under `_cache_dir_lock`.
 
@@ -1822,6 +1853,15 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
     probe, and to record it only once it has arrived (GH-2467). It reaches the metadata file through
     `save_cache`, under the lock like every other caller.
     """
+
+    def __init__(self, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
+        """Build the filesystem, with a metadata that writes its file in one go (`_OneWriteCacheMetadata`).
+
+        fsspec makes the `CacheMetadata` in its own `__init__`, and reads the file with it before this returns; the
+        class is changed afterwards, which is all the difference there is: it only overrides how the file is written.
+        """
+        super().__init__(*args, **kwargs)
+        self._metadata.__class__ = _OneWriteCacheMetadata
 
     def load_cache(self) -> None:
         """Read the metadata file, with no other thread or process in the middle of replacing it.
