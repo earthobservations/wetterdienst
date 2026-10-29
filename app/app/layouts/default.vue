@@ -36,7 +36,7 @@ watch(wideQuery, () => {
   if (!printing())
     wide.value = asked('(min-width: 1280px)')
 })
-window.addEventListener('afterprint', () => {
+useEventListener('afterprint', () => {
   large.value = asked('(min-width: 1024px)')
   wide.value = asked('(min-width: 1280px)')
 })
