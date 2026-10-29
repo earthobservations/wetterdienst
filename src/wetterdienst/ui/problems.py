@@ -206,11 +206,17 @@ class ProblemError(HTTPException):
         *,
         extra: Mapping[str, Any] | None = None,
         headers: Mapping[str, str] | None = None,
+        tool_detail: str | None = None,
     ) -> None:
-        """Raise a problem of `kind` (the one `status_code` stands for if none), with `extra` as members."""
+        """Raise a problem of `kind` (the one `status_code` stands for if none), with `extra` as members.
+
+        `tool_detail` is the `detail` for an MCP tool's request, where the advice of `detail` does not hold: the text
+        an assistant is told, which is all of the problem it gets.
+        """
         super().__init__(status_code=status_code, detail=detail, headers=dict(headers) if headers else None)
         self.kind = kind or default_kind(status_code)
         self.extra = dict(extra or {})
+        self.tool_detail = tool_detail
 
 
 def kind_of(exc: StarletteHTTPException) -> ProblemKind:

@@ -9,6 +9,7 @@ import json
 import logging
 import re
 from abc import abstractmethod
+from contextvars import ContextVar
 from copy import copy
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -33,6 +34,16 @@ if TYPE_CHECKING:
     from wetterdienst.metadata.aliases import ParameterAlias
 
 log = logging.getLogger(__name__)
+
+
+#: how a chart written as html carries plotly.js: inline (`True`, about 4.8 MB, and the page works offline) or from the
+#: CDN (`"cdn"`, a few kilobytes). Inline unless the request is an MCP tool's, whose answer an assistant reads (GH-3464)
+HTML_PLOTLYJS: ContextVar[bool | str] = ContextVar("wetterdienst_html_plotlyjs", default=True)
+
+
+def figure_to_html(fig: go.Figure) -> str:
+    """Write a figure as an html page, with plotly.js as `HTML_PLOTLYJS` says."""
+    return fig.to_html(include_plotlyjs=HTML_PLOTLYJS.get())
 
 
 #: the size plotly renders a figure at when neither the figure nor the caller names one
