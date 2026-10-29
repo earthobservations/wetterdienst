@@ -1126,6 +1126,56 @@ def parse_parameters(
     return parameters_found
 
 
+def requested_by_kind(
+    parameters: _PARAMETER_TYPE, metadata: MetadataModel
+) -> tuple[frozenset[tuple[str, str]], frozenset[tuple[str, str, str]]]:
+    """Tell which of what was asked for was a whole dataset and which a parameter by its name.
+
+    A request for ``hourly/large`` is read as every parameter of the dataset, which ``parse_parameters`` returns as
+    such: the flat list has lost that the caller named none of them. This keeps it, for what an answer says of a
+    parameter nobody named (``parameter-without-rows``). Returns the ``(resolution, dataset)`` of each entry that was a
+    dataset and the ``(resolution, dataset, name_original)`` of each that was a parameter, which one of a dataset also
+    asked for whole stays. An entry that does not resolve is left out: ``parse_parameters`` has said what is wrong with
+    it.
+    """
+    whole: set[tuple[str, str]] = set()
+    named: set[tuple[str, str, str]] = set()
+    for entry in _entries(parameters):
+        try:
+            search = ParameterSearch.parse(entry)
+            found = metadata.search_parameter(search)
+        except (ValueError, KeyError):
+            continue
+        for parameter in found:
+            key = (parameter.dataset.resolution.name, parameter.dataset.name)
+            if search.parameter is None:
+                whole.add(key)
+            else:
+                named.add((*key, parameter.name_original))
+    return frozenset(whole), frozenset(named)
+
+
+def whole_datasets_kept(parameters: _PARAMETER_TYPE, metadata: MetadataModel) -> list[DatasetModel | ParameterModel]:
+    """Resolve what was asked for as `parse_parameters` does, but keep an entry that was a dataset as that dataset.
+
+    For a caller that hands the result to a request, which reads a ``DatasetModel`` as every parameter of the dataset
+    and so gives the same parameters, and knows from it that none of them was named (`requested_by_kind`).
+    """
+    kept: list[DatasetModel | ParameterModel] = []
+    for entry in _entries(parameters):
+        try:
+            search = ParameterSearch.parse(entry)
+            found = metadata.search_parameter(search)
+        except (ValueError, KeyError):
+            continue
+        if search.parameter is None:
+            if found:
+                kept.append(found[0].dataset)
+        else:
+            kept.extend(found)
+    return kept
+
+
 def group_parameters_by_dataset(
     parameters: Iterable[ParameterModel],
 ) -> list[tuple[DatasetModel, list[ParameterModel]]]:

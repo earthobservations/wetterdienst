@@ -522,11 +522,13 @@ class EcccObservationRequest(TimeseriesRequest):
         # combinations of resolution and dataset
         from wetterdienst.model.metadata import ParameterModel  # noqa: PLC0415
 
-        resolutions_and_datasets = {
+        # in the order the request names them (a set would give the stations in the order of the hash seed of the
+        # process, GH-3551)
+        resolutions_and_datasets = dict.fromkeys(
             (parameter.dataset.resolution.name, parameter.dataset.name)
             for parameter in self.parameters
             if isinstance(parameter, ParameterModel)
-        }
+        )
         collection_columns = [column.lower() for column in _COLLECTION_DATE_COLUMN_NAMES]
         not_carried = [*collection_columns, _HAS_MONTHLY_SUMMARY.lower()]
         data = []

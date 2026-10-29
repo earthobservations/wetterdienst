@@ -512,7 +512,9 @@ class DwdDerivedValues(TimeseriesValues):
         )
 
         station_periods = cast("set[Period]", cast("DwdDerivedRequest", self.sr.request).periods) or set()
-        for period in station_periods:
+        # oldest period first, as the other reads of the periods do: the set gives them in the order of the hash seed of
+        # the process, and where two periods hold a stamp the first row with a value wins (GH-3551)
+        for period in sorted(station_periods):
             if period not in parameter.dataset.periods:
                 log.info(f"Skipping period {period} for {parameter.name}.")
                 continue
@@ -721,7 +723,7 @@ class DwdDerivedRequest(TimeseriesRequest):
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
         )
 
-        return stations_data.sort(by=["station_id"])
+        return stations_data.sort(by=["station_id"], maintain_order=True)
 
     def _all(self) -> pl.LazyFrame:
         """Fetch station data for the given request.
@@ -756,6 +758,7 @@ class DwdDerivedRequest(TimeseriesRequest):
                         other=file_index_ids.lazy(),
                         on=["station_id"],
                         how="inner",
+                        maintain_order="left",
                     ).collect(background=False)
                     # a station with files and no line in the description is dropped by the join (GH-3258)
                     file_ids.update(file_index_ids.get_column("station_id"))
@@ -774,5 +777,10 @@ class DwdDerivedRequest(TimeseriesRequest):
             stations_df = pl.concat(stations, how="diagonal_relaxed")
         except ValueError:
             return pl.LazyFrame()
-        stations_df = stations_df.unique(subset=["resolution", "dataset", "station_id"], keep="first")
-        return stations_df.sort(by=[pl.col("station_id").cast(int)])
+        # both steps keep the order the rows came in, which is the order the request names its datasets in: a station
+        # of two datasets has two rows, and neither `unique` nor a sort on the id alone says which comes first, so the
+        # rows came in a different order from one request to the next (GH-3551)
+        stations_df = stations_df.unique(
+            subset=["resolution", "dataset", "station_id"], keep="first", maintain_order=True
+        )
+        return stations_df.sort(by=[pl.col("station_id").cast(int)], maintain_order=True)
