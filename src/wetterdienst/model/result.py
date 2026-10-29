@@ -24,6 +24,7 @@ from wetterdienst.io.export import (
     _DEFAULT_IMAGE_WIDTH,
     ExportMixin,
     check_image_size,
+    figure_to_html,
     require_kaleido,
 )
 from wetterdienst.model.unit import UnitConverter
@@ -649,7 +650,7 @@ class StationsResult(_EqualByFields, ExportMixin):
         """
         fig = self.to_plot()
         if fmt == "html":
-            img = fig.to_html()
+            img = figure_to_html(fig)
         elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
             check_image_size(fig, width, height, scale, max_side)
             require_kaleido()
@@ -1109,7 +1110,7 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
         """
         fig = self.to_plot()
         if fmt == "html":
-            img = fig.to_html()
+            img = figure_to_html(fig)
         elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
             check_image_size(fig, width, height, scale, max_side)
             require_kaleido()
@@ -1443,7 +1444,7 @@ class InterpolatedValuesResult(_ValuesResult[list[_InterpolatedValuesItemDict], 
         """
         fig = self.to_plot()
         if fmt == "html":
-            img = fig.to_html()
+            img = figure_to_html(fig)
         elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
             check_image_size(fig, width, height, scale, max_side)
             require_kaleido()
@@ -1635,7 +1636,7 @@ class SummarizedValuesResult(_ValuesResult[list[_SummarizedValuesItemDict], _Sum
         """
         fig = self.to_plot()
         if fmt == "html":
-            img = fig.to_html()
+            img = figure_to_html(fig)
         elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
             check_image_size(fig, width, height, scale, max_side)
             require_kaleido()

@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import datetime as dt
+import json
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -106,9 +107,8 @@ def test_csv_and_ndjson_are_text_content_as_the_rest_api_answers_them(monkeypatc
 
     assert csv.content[0].text.splitlines()[0].startswith("station_id,resolution,")
     assert csv.content[0].text.splitlines()[1].startswith("01048,daily,")
-    assert csv.structured_content == {
-        "result": f"The answer is text/csv ({len(csv.content[0].text):,} bytes), sent as text content of this result."
-    }
+    sent = f"The answer is text/csv ({len(csv.content[0].text.encode()):,} bytes), sent as text content of this result."
+    assert csv.structured_content["result"].startswith(sent)
     lines = ndjson.content[0].text.splitlines()
     assert '"metadata"' in lines[0]
     assert lines[-1].startswith('{"end"')
@@ -183,6 +183,7 @@ def test_a_tool_without_an_output_schema_answers_the_body_as_content_alone() -> 
     assert schema is None
     assert not svg.is_error
     assert svg.content[0].text.startswith("<svg")
+    assert svg.structured_content is None
     assert not png.is_error
     assert base64.b64decode(png.content[0].data).startswith(b"\x89PNG")
 
@@ -251,9 +252,90 @@ def test_the_sentence_of_an_image_gives_its_size(monkeypatch: pytest.MonkeyPatch
     result, _ = _call(restapi.app, "values", {**_VALUES, "format": "png"})
 
     size = len(base64.b64decode(result.content[0].data))
-    assert result.structured_content == {
-        "result": f"The answer is image/png ({size:,} bytes), sent as image content of this result."
-    }
+    sent = f"The answer is image/png ({size:,} bytes), sent as image content of this result."
+    assert result.structured_content["result"].startswith(sent)
+
+
+# --- the licence, the attribution and the warnings -----------------------------------------------------------------
+
+
+def _warn_then_answer(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Have the reader raise a warning of the response before it gives its values."""
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+    from wetterdienst.util.response_warnings import warn_response  # noqa: PLC0415
+
+    def query(_reader: object) -> Any:  # noqa: ANN401
+        warn_response(restapi.log, "station-skipped", "station 00002 is skipped")
+        yield _values_result_of_shape("long")
+
+    monkeypatch.setattr(DwdObservationRequest._values, "query", query)  # noqa: SLF001
+
+
+@pytest.mark.parametrize("tool", ["values", "stations"])
+def test_every_format_through_a_tool_names_the_licence_and_the_attribution(
+    tool: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Over REST the formats without a body for the `metadata` block carry it in headers; a tool tells it too."""
+    _stub_stream(monkeypatch, [_values_result_of_shape("long")])
+    arguments = {**_VALUES, "parameters": "daily/climate_summary/temperature_air_mean_2m"}
+    if tool == "stations":
+        arguments = {key: value for key, value in arguments.items() if key != "stations"} | {"all": True}
+
+    for fmt in _advertised(tool):
+        result, _ = _call(restapi.app, tool, {**arguments, "format": fmt})
+
+        assert not result.is_error, fmt
+        told = json.dumps(result.structured_content)
+        assert "CC-BY-4.0" in told, fmt
+        if fmt not in ("json", "geojson"):
+            assert "Attribution: " in told, fmt
+            assert result.meta is not None
+            assert result.meta["wetterdienst"]["license"] == "CC-BY-4.0", fmt
+
+
+def test_the_warnings_survive_in_every_format_through_a_tool(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A warning of the response is in the answer of a format whose REST answer carries it in a header."""
+    _stub_stream(monkeypatch, [_values_result_of_shape("long")])
+    _warn_then_answer(monkeypatch)
+
+    for fmt in _advertised("values"):
+        result, _ = _call(restapi.app, "values", {**_VALUES, "format": fmt})
+
+        assert not result.is_error, fmt
+        assert "station-skipped" in json.dumps(result.structured_content), fmt
+        if fmt not in ("json", "geojson"):
+            assert result.meta["wetterdienst"]["warnings"] == ["station-skipped"], fmt
+
+
+def test_an_html_chart_through_a_tool_does_not_carry_plotly_inline(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Plotly.js is 4.8 MB inline; a tool's page loads it from the CDN, and the REST page is as it was."""
+    from fastapi.testclient import TestClient  # noqa: PLC0415
+
+    _stub_stream(monkeypatch, [_values_result_of_shape("long")])
+
+    result, _ = _call(restapi.app, "values", {**_VALUES, "format": "html"})
+    rest = TestClient(restapi.app, raise_server_exceptions=False).get(
+        "/api/v1/values", params={**_VALUES, "format": "html"}
+    )
+
+    assert len(result.content[0].text) < 100_000
+    assert "cdn.plot.ly" in result.content[0].text
+    assert len(rest.text) > 1_000_000
+
+
+@pytest.mark.parametrize("fmt", ["csv", "ndjson"])
+def test_the_stations_tool_is_held_to_rows(monkeypatch: pytest.MonkeyPatch, fmt: str) -> None:
+    """A listing through a tool is one body too: over `rows` it is refused in csv and ndjson, saying what works."""
+    monkeypatch.setenv("WD_RESTAPI_MAX_ROWS", "10")
+    _stub_stream(monkeypatch, [_values_result_of_shape("long")], stations_df=_selection_of(30))
+    arguments = {key: value for key, value in _VALUES.items() if key != "stations"} | {"all": True, "format": fmt}
+
+    result, _ = _call(restapi.app, "stations", arguments)
+
+    assert result.is_error
+    assert "more than the 10 this server sends as one answer" in result.content[0].text
+    for word in ("ndjson", "csv", "stream"):
+        assert word not in result.content[0].text
 
 
 # --- an answer that fails is a tool error, not a short answer ------------------------------------------------------

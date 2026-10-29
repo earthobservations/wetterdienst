@@ -31,6 +31,7 @@ from __future__ import annotations
 import base64
 import json
 from typing import TYPE_CHECKING
+from urllib.parse import unquote
 
 from wetterdienst import __version__
 
@@ -80,8 +81,15 @@ def _mark_tool_requests(app: ASGIApp) -> ASGIApp:
     """Wrap the REST app so each request the tools send it carries the scope key `is_tool_request` checks."""
 
     async def marked(scope: Scope, receive: Receive, send: Send) -> None:
+        from wetterdienst.io.export import HTML_PLOTLYJS  # noqa: PLC0415
+
         scope[_TOOL_REQUEST_SCOPE_KEY] = True
-        await app(scope, receive, send)
+        # a chart as html carries plotly.js from the CDN, not inline: 4.8 MB less for an assistant to read (GH-3464)
+        token = HTML_PLOTLYJS.set("cdn")
+        try:
+            await app(scope, receive, send)
+        finally:
+            HTML_PLOTLYJS.reset(token)
 
     return marked
 
@@ -324,6 +332,9 @@ def _refuse_unknown_arguments(provider: OpenAPIProvider) -> Middleware:
 
 # The key of the JSON that carries an answer which is not JSON from the REST app to the tool result.
 _BODY_KEY = "x-wetterdienst-body"
+# The headers of the REST answer that say whose data it is and what to know about it: for the formats with no body to
+# put the `metadata` block in, they are all of it. Carried in the envelope, and told in the result.
+_REPORTING_HEADERS = ("x-wetterdienst-license", "link", "x-wetterdienst-attribution", "x-wetterdienst-warnings")
 # The media types that are text though they are not `text/*`.
 _TEXT_MEDIA_TYPES = frozenset({"application/x-ndjson", "image/svg+xml", "application/xml"})
 
@@ -367,6 +378,10 @@ def _carry_bodies_as_json(inner: AsyncBaseTransport) -> AsyncBaseTransport:
             envelope = {
                 _BODY_KEY: {
                     "media_type": media_type,
+                    "size": len(body),
+                    "headers": {
+                        name: response.headers[name] for name in _REPORTING_HEADERS if name in response.headers
+                    },
                     "encoding": "text" if text else "base64",
                     "body": _decode(body, response.charset_encoding)
                     if text
@@ -386,7 +401,34 @@ def _carry_bodies_as_json(inner: AsyncBaseTransport) -> AsyncBaseTransport:
     return CarryBodiesAsJson()
 
 
-def _envelope_of(result: ToolResult) -> dict[str, str] | None:
+def _report_of(headers: dict[str, str]) -> dict[str, Any]:
+    """Read the licence, the attribution and the warnings off the headers of an answer, as plain text."""
+    report: dict[str, Any] = {}
+    if license_ := headers.get("x-wetterdienst-license"):
+        report["license"] = unquote(license_)
+        if (link := headers.get("link")) and link.startswith("<") and ">" in link:
+            report["license_url"] = link[1 : link.index(">")]
+    if attribution := headers.get("x-wetterdienst-attribution"):
+        report["attribution"] = unquote(attribution)
+    if warnings := headers.get("x-wetterdienst-warnings"):
+        report["warnings"] = [code.strip() for code in warnings.split(",") if code.strip()]
+    return report
+
+
+def _sentence_of(media_type: str, size: int, kind: str, report: dict[str, Any]) -> str:
+    """Tell what the answer is and whose, in the sentence that stands as the structured content of the result."""
+    sentence = f"The answer is {media_type} ({size:,} bytes), sent as {kind} of this result."
+    if "license" in report:
+        url = f" ({report['license_url']})" if "license_url" in report else ""
+        sentence += f" Licence: {report['license']}{url}."
+    if "attribution" in report:
+        sentence += f" Attribution: {report['attribution']}."
+    if "warnings" in report:
+        sentence += f" Warnings: {', '.join(report['warnings'])}."
+    return sentence
+
+
+def _envelope_of(result: ToolResult) -> dict[str, Any] | None:
     """Find the body `_carry_bodies_as_json` put in the structured content of a tool result, None if there is none."""
     structured = result.structured_content
     if not isinstance(structured, dict):
@@ -403,9 +445,10 @@ def _return_bodies_as_content(provider: OpenAPIProvider) -> Middleware:
 
     A text body (csv, ndjson, html, svg) is a text content block, as the REST API answers it; an image (png, jpg,
     webp) an image content block and any other binary body (pdf) an embedded resource. The structured content, which
-    the output schema of a tool requires, is a sentence about the answer: the schema of every tool that has one
-    admits a string as its `result` (the `str` of the REST route's response model), and the body is not repeated in
-    it.
+    the output schema of a tool requires, is a sentence about the answer, with its licence, attribution and warnings,
+    which the REST API sends in headers for these formats: the schema of every tool that has one admits a string as
+    its `result` (the `str` of the REST route's response model), and the body is not repeated in it. The same,
+    structured, is in the `_meta` of the result under `wetterdienst`.
     """
     from fastmcp.server.middleware import Middleware  # noqa: PLC0415
     from fastmcp.tools import ToolResult  # noqa: PLC0415
@@ -421,27 +464,28 @@ def _return_bodies_as_content(provider: OpenAPIProvider) -> Middleware:
             envelope = _envelope_of(result)
             if envelope is None:
                 return result
-            media_type, body = envelope["media_type"], envelope["body"]
+            media_type, body, size = envelope["media_type"], envelope["body"], envelope["size"]
             if envelope["encoding"] == "text":
                 block = TextContent(type="text", text=body)
                 kind = "text content"
-                size = len(body.encode("utf-8"))
             elif media_type.startswith("image/"):
                 block = ImageContent(type="image", data=body, mime_type=media_type)
                 kind = "image content"
-                size = len(base64.b64decode(body))
             else:
                 block = EmbeddedResource(
                     type="resource",
                     resource=BlobResourceContents(uri="wetterdienst://answer", mime_type=media_type, blob=body),
                 )
                 kind = "an embedded resource"
-                size = len(base64.b64decode(body))
+            report = _report_of(envelope["headers"])
             tool = await provider.get_tool(context.message.name)
             structured = None
             if tool is not None and tool.output_schema is not None:
-                structured = {"result": f"The answer is {media_type} ({size:,} bytes), sent as {kind} of this result."}
-            return ToolResult(content=[block], structured_content=structured)
+                structured = {"result": _sentence_of(media_type, size, kind, report)}
+            # also where the tool has no output schema to put the sentence in
+            return ToolResult(
+                content=[block], structured_content=structured, meta={"wetterdienst": report} if report else None
+            )
 
     return ReturnBodiesAsContent()
 
