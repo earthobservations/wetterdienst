@@ -14,21 +14,15 @@
     "requestFailed": "Żądanie nie powiodło się",
     "backendError": "Błąd backendu {status}",
     "backendErrorDetail": "Błąd backendu {status}: {detail}",
-    "chartTableHint": "Wartości są w tabeli pod wykresem."
+    "chartTableHint": "Wartości są w tabeli pod wykresem.",
+    "skipToContent": "Przejdź do treści głównej"
   },
   "home": {
     "tagline": "Otwarte dane pogodowe dla ludzi",
-    "intro": "Wybierz po prostu, co chcesz zobaczyć.",
     "tasksTitle": "Co chcesz zrobić?",
-    "forecastTitle": "Prognoza pogody",
     "forecastDesc": "Zobacz kilkudniową prognozę dla swojej okolicy.",
-    "stripesTitle": "Paski ocieplenia",
     "stripesDesc": "Ocieplenie Twojego regionu pokazane jako kolorowe paski.",
-    "explorerTitle": "Eksploruj dane",
     "explorerDesc": "Znajdź stacje na mapie i pobierz pomiary.",
-    "featuresTitle": "Co możesz z nimi zrobić",
-    "featureExportTitle": "Elastyczny eksport",
-    "featureExportDesc": "Pobieraj dane w formacie CSV, JSON lub GeoJSON.",
     "featureAnalysisTitle": "Interpolacja i podsumowanie",
     "featureAnalysisDesc": "Oszacowanie wartości dla punktu między stacjami albo wybór najbliższej stacji, która ma dane w danym momencie.",
     "devTitle": "Także dla programistów",
@@ -60,7 +54,13 @@
     "kindAlertsDesc": "Oficjalne ostrzeżenia DWD przed burzą, upałem, mrozem i powodzią, według powiatów.",
     "kindRoadTitle": "Pogoda drogowa",
     "kindRoadDesc": "Stan i temperatura nawierzchni ze stacji drogowych DWD wraz z ich prognozami.",
-    "aboutLink": "O projekcie i ludziach za nim"
+    "aboutLink": "O projekcie i ludziach za nim",
+    "startForecast": "Sprawdź prognozę dla miejsca",
+    "startMeasurements": "Pobierz pomiary",
+    "startWarming": "Zobacz, jak ociepliło się miejsce",
+    "moreTitle": "Więcej narzędzi",
+    "moreIntro": "Do dokładniejszego wglądu i do pracy z danymi.",
+    "searchTitle": "Szukasz czegoś innego?"
   },
   "seo": {
     "title": "Wetterdienst – otwarte dane pogodowe i klimatyczne krajowych służb meteorologicznych",
@@ -121,14 +121,55 @@
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menu"
+    "menu": "Menu",
+    "navigation": "Nawigacja główna"
+  },
+  "palette": {
+    "title": "Szukaj",
+    "description": "Znajdź stronę, miejsce lub ustawienie.",
+    "trigger": "Szukaj stron, miejsc i ustawień",
+    "label": "Czego szukasz?",
+    "placeholder": "Na przykład: prognoza, Hamburg, ciemny",
+    "resultsLabel": "Wyniki",
+    "groupPages": "Strony",
+    "groupActions": "Wygląd i język",
+    "groupPlaces": "Prognoza dla miejsca",
+    "results": "Wyniki: {count}",
+    "noResults": "Nic nie znaleziono. Spróbuj innego słowa.",
+    "placesLoading": "Szukanie miejsc …",
+    "placesFailed": "Nie udało się wczytać miejsc. Strony i ustawienia nadal można znaleźć.",
+    "placeDetail": "Prognoza dla stacji {id}",
+    "themeOption": "Wygląd: {theme}",
+    "themeDetail": "Zmienia wygląd aplikacji",
+    "languageOption": "Język: {language}",
+    "languageDetail": "Zmienia język aplikacji",
+    "current": "Używany teraz",
+    "hint": "Strzałki wybierają, Enter otwiera, Escape zamyka. Ctrl+K lub ⌘K otwiera wyszukiwanie na każdej stronie.",
+    "ctrlK": "Ctrl K",
+    "pages": {
+      "home": "Zacznij tutaj: trzy najczęstsze zadania i czym są dane",
+      "meteogram": "Prognoza na najbliższe dni dla miejsca",
+      "explorer": "Znajdź stacje i pobierz ich pomiary",
+      "stripes": "Zobacz, jak miejsce ocieplało się rok po roku",
+      "history": "Jak zmieniały się nazwa, położenie i przyrządy stacji",
+      "providers": "Służby meteorologiczne, ich licencje i to, co oferują",
+      "glossary": "Co mierzy każdy parametr i w jakiej jednostce",
+      "api": "Korzystaj z danych we własnym kodzie: REST API i MCP",
+      "settings": "Język, wygląd i jednostki",
+      "about": "Projekt i ludzie, którzy za nim stoją",
+      "support": "Zgłoś problem, pomóż przy kodzie lub przekaż darowiznę",
+      "impressum": "Kto prowadzi ten serwis",
+      "datenschutz": "Co jest o Tobie zapisywane i dlaczego"
+    }
   },
   "footer": {
     "copyright": "© {year} earthobservations",
     "legal": "Nota prawna",
     "privacy": "Prywatność",
     "about": "O projekcie",
-    "licenses": "Licencje stron trzecich"
+    "licenses": "Licencje stron trzecich",
+    "helpTitle": "Pomoc i projekt",
+    "serviceTitle": "O tym serwisie"
   },
   "language": {
     "switch": "Zmień język",

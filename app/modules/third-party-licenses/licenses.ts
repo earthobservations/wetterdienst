@@ -32,6 +32,11 @@ export const NOTICE_ONLY_LICENSES = new Set([
   'CC0-1.0',
   'ISC',
   'MIT',
+  // The SIL Open Font License of the app's typeface (GH-3518): a font served with a web page may be passed on
+  // when each copy carries its copyright notice and the licence (condition 2), which this file does; the other
+  // conditions are about selling the font on its own, naming a changed version, and using the authors' names to
+  // promote it, none of which serving it does.
+  'OFL-1.1',
   'Unlicense',
 ])
 

@@ -20,18 +20,18 @@ const operator = OPERATOR
 
 <template>
   <!-- the text is in a language of its own, which the interface may not be in (WCAG 3.1.2) -->
-  <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6" :lang="policy === privacyDe ? 'de' : 'en'">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
+  <AppPage :lang="policy === privacyDe ? 'de' : 'en'">
+    <template #header>
+      <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-highlighted break-words">
         {{ policy.title }}
       </h1>
-      <p class="text-sm text-gray-500 dark:text-gray-400">
+      <p class="mt-3 text-sm text-muted">
         {{ policy.updated }}
       </p>
-      <p v-if="policy.binding" class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+      <p v-if="policy.binding" class="mt-2 text-sm text-toned">
         {{ policy.binding }}
       </p>
-    </div>
+    </template>
 
     <p class="text-gray-600 dark:text-gray-400">
       {{ policy.intro }}
@@ -60,7 +60,7 @@ const operator = OPERATOR
           {{ operator.country }}
         </p>
         <p class="text-gray-600 dark:text-gray-400">
-          {{ policy.controller.emailLabel }}: <a :href="`mailto:${operator.email}`" class="text-primary-700 dark:text-primary-500 underline hover:no-underline">{{ operator.email }}</a>
+          {{ policy.controller.emailLabel }}: <a :href="`mailto:${operator.email}`" class="text-primary-700 dark:text-primary-400 underline hover:no-underline">{{ operator.email }}</a>
         </p>
       </div>
     </UCard>
@@ -84,9 +84,9 @@ const operator = OPERATOR
           </li>
         </ul>
         <p v-if="section.link">
-          <a :href="section.link.href" target="_blank" rel="noopener noreferrer" class="text-primary-700 dark:text-primary-500 underline hover:no-underline">{{ section.link.label }}</a>
+          <a :href="section.link.href" target="_blank" rel="noopener noreferrer" class="text-primary-700 dark:text-primary-400 underline hover:no-underline">{{ section.link.label }}</a>
         </p>
       </div>
     </UCard>
-  </UContainer>
+  </AppPage>
 </template>

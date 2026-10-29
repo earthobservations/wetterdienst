@@ -55,16 +55,7 @@ const entries = computed<GlossaryEntry[]>(() => {
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('glossary.title') }}
-      </h1>
-      <p class="text-gray-600 dark:text-gray-400">
-        {{ t('glossary.subtitle') }}
-      </p>
-    </div>
-
+  <AppPage :title="t('glossary.title')" :lead="t('glossary.subtitle')">
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
@@ -120,5 +111,5 @@ const entries = computed<GlossaryEntry[]>(() => {
         </div>
       </div>
     </UCard>
-  </UContainer>
+  </AppPage>
 </template>

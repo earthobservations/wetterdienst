@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Design]` A new look, "a public service": a navy masthead with the logo's four colours, one
+  page width and gutter for every page, left-aligned headings, larger type in Atkinson Hyperlegible
+  Next (OFL, served by the app), and a home page that starts from three tasks. A search on every
+  page (the header's button, Ctrl+K or ⌘K) finds the pages, the appearance and language, and the
+  forecast's stations. The project links moved from the header to the footer (GH-3518).
+
 ## [0.39.0] - 2026-10-28
 
 ### Security

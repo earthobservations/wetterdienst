@@ -324,6 +324,8 @@ const UI_SAME: Record<string, Same> = {
   'header.github': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'header.pypi': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'header.menu': { en: ['da', 'fr', 'it', 'nl', 'pl'], why: COGNATE },
+  'palette.ctrlK': { en: ['cs', 'da', 'es', 'fr', 'it', 'nl', 'pl'], why: 'the name printed on the key, Ctrl (Strg on a German keyboard)' },
+  'palette.groupPages': { en: ['fr'], why: COGNATE },
   'footer.copyright': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'settings.themeSystem': { en: ['da', 'de-hh', 'de', 'lb'], why: COGNATE },
   'settings.unitTemperature': { de: ['da'], why: COGNATE },

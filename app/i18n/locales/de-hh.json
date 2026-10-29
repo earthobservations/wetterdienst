@@ -14,21 +14,15 @@
     "requestFailed": "Afraag is scheefgahn",
     "backendError": "Backend-Fehler {status}",
     "backendErrorDetail": "Backend-Fehler {status}: {detail}",
-    "chartTableHint": "De Weerten staht in de Tabell ünner dat Diagramm."
+    "chartTableHint": "De Weerten staht in de Tabell ünner dat Diagramm.",
+    "skipToContent": "Gliek na'n Inholt"
   },
   "home": {
     "tagline": "Apen Wedderdaten för de Lüüd",
-    "intro": "Nu ma Botter bi de Fisch: Söök di eenfach ut, wat du sehn wullt.",
     "tasksTitle": "Moin! Wat wullt du maken?",
-    "forecastTitle": "Wedderutsicht",
     "forecastDesc": "Kiek di an, wat de neegsten Daag so kummt.",
-    "stripesTitle": "Klimastrepen",
     "stripesDesc": "De Erwärmen bi di in de Region as bunte Strepen.",
-    "explorerTitle": "Daten dörkieken",
     "explorerDesc": "Stationen op de Kaart finnen un Meetweerten afropen.",
-    "featuresTitle": "Wat du dormit maken kannst",
-    "featureExportTitle": "Export, as du wullt",
-    "featureExportDesc": "Daten as CSV, JSON oder GeoJSON runnerladen.",
     "featureAnalysisTitle": "Interpolatschoon & Tosamenfaat",
     "featureAnalysisDesc": "Weerten för een Punkt twüschen de Stationen schätten – oder to jeden Tietpunkt de neegste Station nehmen, de Daten hett.",
     "devTitle": "Ok för Entwicklers",
@@ -60,7 +54,13 @@
     "kindAlertsDesc": "Amtliche DWD-Warnungen vör Storm, Hitt, Frost un Hoogwater, na Landkreis.",
     "kindRoadTitle": "Straatenwedder",
     "kindRoadDesc": "Fahrbahntostand un -temperaturen vun de DWD-Straatenwedderstationen, mitsamt ehr Utsichten.",
-    "aboutLink": "Över dat Projekt un de Lüüd dorachter"
+    "aboutLink": "Över dat Projekt un de Lüüd dorachter",
+    "startForecast": "De Utsicht för en Oort ankieken",
+    "startMeasurements": "Meetweerten daalladen",
+    "startWarming": "Kieken, wo warm en Oort worrn is",
+    "moreTitle": "Mehr Warktüüch",
+    "moreIntro": "För den genaueren Blick un för dat Arbeiden mit de Daten.",
+    "searchTitle": "Söchst du wat anners?"
   },
   "seo": {
     "title": "Wetterdienst – apen Wedder- un Klimadaten vun nationale Wedderdeenste",
@@ -121,14 +121,55 @@
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menü"
+    "menu": "Menü",
+    "navigation": "Hööftnavigatschoon"
+  },
+  "palette": {
+    "title": "Söken",
+    "description": "Finn en Siet, en Oort oder en Instellen.",
+    "trigger": "Sieden, Öörd un Instellen söken",
+    "label": "Wat söchst du?",
+    "placeholder": "To'n Bispeel: Utsicht, Hamborg, düster",
+    "resultsLabel": "Resultaten",
+    "groupPages": "Sieden",
+    "groupActions": "Dorstellen un Spraak",
+    "groupPlaces": "Utsicht för en Oort",
+    "results": "Resultaten: {count}",
+    "noResults": "Nix funnen. Versöök en anner Woort.",
+    "placesLoading": "Öörd warrt söcht …",
+    "placesFailed": "De Öörd kunnen nich laadt warrn. Sieden un Instellen finnst du liekers.",
+    "placeDetail": "Utsicht för Station {id}",
+    "themeOption": "Dorstellen: {theme}",
+    "themeDetail": "Ännert, wo de App utsüht",
+    "languageOption": "Spraak: {language}",
+    "languageDetail": "Ännert de Spraak vun de App",
+    "current": "Is jüst instellt",
+    "hint": "Piltasten wählt ut, Enter maakt op, Escape maakt to. Strg+K oder ⌘K maakt de Söök op jede Siet op.",
+    "ctrlK": "Strg K",
+    "pages": {
+      "home": "Hier geiht dat los: de dree faken Opgaven un wat de Daten sünd",
+      "meteogram": "De Utsicht för de neegsten Daag an en Oort",
+      "explorer": "Stationen finnen un ehr Meetweerten daalladen",
+      "stripes": "Kieken, wo en Oort Johr för Johr wärmer worrn is",
+      "history": "Wo sik Naam, Oort un Geräten vun en Station ännert hebbt",
+      "providers": "De Weerdeensten, ehr Lizenzen un wat se anbeedt",
+      "glossary": "Wat elk Parameter meet, un in welke Eenheit",
+      "api": "De Daten ut dien egen Code bruken: REST-API un MCP",
+      "settings": "Spraak, Dorstellen un Eenheiten",
+      "about": "Dat Projekt un de Lüüd dorachter",
+      "support": "En Fehler mellen, bi'n Code hölpen oder spennen",
+      "impressum": "Wokeen dissen Deenst bedrifft",
+      "datenschutz": "Wat över di spiekert warrt, un worüm"
+    }
   },
   "footer": {
     "copyright": "© {year} earthobservations",
     "legal": "Impressum",
     "privacy": "Datenschutz",
     "about": "Över uns",
-    "licenses": "Lizenzen vun annere"
+    "licenses": "Lizenzen vun annere",
+    "helpTitle": "Hülp un Projekt",
+    "serviceTitle": "Över dissen Deenst"
   },
   "language": {
     "switch": "Spraak wesseln",

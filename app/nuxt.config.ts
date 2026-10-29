@@ -30,6 +30,9 @@ export default defineNuxtConfig({
   },
 
   css: [
+    // the typeface (SIL OFL 1.1), bundled as the app's own files: the browser fetches the Latin one (34 KB) and, for a
+    // page in Polish or Czech, the extended one (19 KB), from this origin (`font-src 'self'`)
+    '@fontsource-variable/atkinson-hyperlegible-next',
     '~/assets/css/main.css',
     'leaflet/dist/leaflet.css',
   ],
@@ -142,6 +145,12 @@ export default defineNuxtConfig({
         },
       },
     },
+  },
+
+  // Nuxt UI's `@nuxt/fonts` off: the typeface is the package bundled above (`css`), and the module would resolve its
+  // family a second time, write a second `@font-face` for it and fetch the files at build time on its own (GH-3518)
+  ui: {
+    fonts: false,
   },
 
   // Module configurations

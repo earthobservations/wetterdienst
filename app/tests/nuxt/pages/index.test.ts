@@ -3,6 +3,7 @@ import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { setResponseStatus } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearNuxtData } from '#app'
+import App from '~/app.vue'
 import IndexPage from '~/pages/index.vue'
 import { providersResponse } from '../fixtures/providers'
 
@@ -18,8 +19,9 @@ async function mountHome() {
   mounted.push(wrapper)
   return wrapper
 }
+/** The number of a headline tile: the value (`dd`) of the term (`dt`) that says what it counts */
 function tile(wrapper: Awaited<ReturnType<typeof mountHome>>, label: string) {
-  return wrapper.findAll('.text-2xl').find(el => el.element.parentElement?.textContent?.includes(label))
+  return wrapper.findAll('[data-testid="home-stats"] dd').find(el => el.element.parentElement?.textContent?.includes(label))
 }
 function servicesTile(wrapper: Awaited<ReturnType<typeof mountHome>>) {
   return tile(wrapper, 'weather services')
@@ -199,9 +201,29 @@ describe('index Page', () => {
     )
 
     const wrapper = await mountSuspended(IndexPage)
-    const link = wrapper.findAll('a').find(a => a.attributes('href') === '/providers')
+    const links = wrapper.findAll('a').filter(a => a.attributes('href') === '/providers').map(a => a.text())
 
-    expect(link?.text()).toBe('All providers, their licences and what they offer')
+    // below the chips, and among the further tools, by its name and what it is for
+    expect(links).toContain('All providers, their licences and what they offer')
+    expect(links.some(text => text.startsWith('Providers') && text.includes('licences'))).toBe(true)
+  })
+
+  it('starts from the three common tasks, each a link that says what it does', async () => {
+    vi.mocked(globalThis.fetch).mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200 }),
+    )
+
+    const wrapper = await mountSuspended(IndexPage)
+    const start = wrapper.find('section[aria-labelledby="home-start"]')
+    const journeys = start.findAll('a').map(a => [a.attributes('href'), a.text()])
+
+    expect(journeys).toHaveLength(3)
+    expect(journeys[0]![0]).toBe('/meteogram')
+    expect(journeys[0]![1]).toContain('Check the forecast for a place')
+    expect(journeys[1]![0]).toBe('/explorer')
+    expect(journeys[1]![1]).toContain('Download measurements')
+    expect(journeys[2]![0]).toBe('/stripes')
+    expect(journeys[2]![1]).toContain('See how a place has warmed')
   })
 
   it('points developers at the library, the API and MCP', async () => {
@@ -242,13 +264,16 @@ describe('index Page', () => {
     expect(html).toContain('Claude Max')
   })
 
-  it('states what the project stands for, measurements included', async () => {
+  // in words at the foot of every page, the home page's too (GH-3518), where it was a block of the home page and icons
+  // in the footer
+  it('states what the project stands for, measurements included', { timeout: 60_000 }, async () => {
     vi.mocked(globalThis.fetch).mockResolvedValue(
-      new Response(JSON.stringify({}), { status: 200 }),
+      new Response(JSON.stringify({ version: '0.0.0' }), { status: 200 }),
     )
 
-    const wrapper = await mountSuspended(IndexPage)
-    const text = wrapper.text()
+    const wrapper = await mountSuspended(App, { route: '/' })
+    mounted.push(wrapper)
+    const text = wrapper.find('footer').text()
 
     expect(text).toContain('LGBTQI+')
     expect(text).toContain('FCKNZS')

@@ -17,10 +17,13 @@ const themeOptions = computed(() => [
 
 <template>
   <UPopover>
+    <!-- on the navy band of the masthead: white, in both modes -->
     <UButton
       icon="i-lucide-settings-2"
       color="neutral"
       variant="ghost"
+      size="lg"
+      class="text-white hover:bg-white/15 hover:text-white active:bg-white/15 data-[state=open]:bg-white/15"
       :aria-label="t('common.settings')"
     />
 

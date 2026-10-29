@@ -344,6 +344,21 @@ const STATES: State[] = [
       await expect(page.getByRole('navigation').last()).toBeVisible()
     },
   },
+  {
+    page: 'index',
+    state: 'command-palette-open',
+    keepFocus: true,
+    path: '/',
+    // the search with a query that finds a page, a setting and a place of the forecast: all three groups
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'palette.trigger') }).first().click()
+      const field = page.getByRole('combobox', { name: message(locale, 'palette.label') })
+      await expect(field).toBeFocused()
+      await field.fill('ha')
+      await expect(page.getByRole('option', { name: /HAMBURG/ })).toBeVisible()
+      await expect(page.getByRole('listbox').getByRole('group')).toHaveCount(3)
+    },
+  },
 ]
 
 /** Opens `path` and waits until the app, in this variant, has taken the page up */
@@ -581,6 +596,60 @@ test.describe('keyboard operation', () => {
     }
     await expect(dialog).toBeHidden()
     await expect(hamburger).toBeFocused()
+  })
+
+  test('the search opens by Ctrl+K, is a combobox the arrow keys walk, keeps the focus, and gives it back on Escape', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await open(page, '/', variant)
+    const trigger = page.getByTestId('search-button')
+    await expect(trigger).toHaveAttribute('aria-keyshortcuts', /Control\+K/)
+    await trigger.focus()
+    await page.keyboard.press('Control+k')
+
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toHaveAccessibleName(message('en', 'palette.title'))
+    const field = page.getByRole('combobox', { name: message('en', 'palette.label') })
+    await expect(field).toBeFocused()
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+
+    // the field controls the list, and names the option the keys are on; the focus stays in the field
+    await expect(field).toHaveAttribute('aria-expanded', 'true')
+    const listbox = page.getByRole('listbox')
+    await expect(field).toHaveAttribute('aria-controls', (await listbox.getAttribute('id'))!)
+    const activeOption = async () => (await field.getAttribute('aria-activedescendant'))!
+    const first = await activeOption()
+    await expect(page.locator(`[id="${first}"]`)).toHaveAttribute('aria-selected', 'true')
+    await page.keyboard.press('ArrowDown')
+    const second = await activeOption()
+    expect(second).not.toBe(first)
+    await expect(page.locator(`[id="${second}"]`)).toHaveAttribute('aria-selected', 'true')
+    await page.keyboard.press('ArrowUp')
+    expect(await activeOption()).toBe(first)
+    await expect(field).toBeFocused()
+
+    // typing narrows the list, and a screen reader is told how many are left
+    await field.fill('glossary')
+    await expect(listbox.getByRole('option').first()).toContainText(message('en', 'nav.glossary'))
+    await expect(dialog.getByRole('status')).toHaveText(/\d/)
+
+    // Tab through more stops than the dialog has: the focus never leaves it
+    for (let stop = 0; stop < 6; stop++) {
+      await page.keyboard.press('Tab')
+      expect(await dialog.evaluate(node => node.contains(document.activeElement))).toBe(true)
+    }
+
+    // Escape closes it, and the focus is back on what had it
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeHidden()
+    await expect(trigger).toBeFocused()
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+
+    // Enter takes the option the keys are on: a page
+    await page.keyboard.press('Control+k')
+    await field.fill('glossary')
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(/\/glossary$/)
+    await expect(dialog).toBeHidden()
   })
 })
 

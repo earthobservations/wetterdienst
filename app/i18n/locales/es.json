@@ -14,21 +14,15 @@
     "requestFailed": "La solicitud ha fallado",
     "backendError": "Error del backend {status}",
     "backendErrorDetail": "Error del backend {status}: {detail}",
-    "chartTableHint": "Los valores están en la tabla debajo del gráfico."
+    "chartTableHint": "Los valores están en la tabla debajo del gráfico.",
+    "skipToContent": "Saltar al contenido principal"
   },
   "home": {
     "tagline": "Datos meteorológicos abiertos para las personas",
-    "intro": "Solo elige lo que te gustaría ver.",
     "tasksTitle": "¿Qué te gustaría hacer?",
-    "forecastTitle": "Pronóstico del tiempo",
     "forecastDesc": "Consulta un pronóstico de varios días para tu zona.",
-    "stripesTitle": "Franjas del calentamiento",
     "stripesDesc": "El calentamiento de tu región mostrado como franjas de colores.",
-    "explorerTitle": "Explorar datos",
     "explorerDesc": "Encuentra estaciones en el mapa y obtén mediciones.",
-    "featuresTitle": "Qué puedes hacer con esto",
-    "featureExportTitle": "Exportación flexible",
-    "featureExportDesc": "Descarga los datos en formato CSV, JSON o GeoJSON.",
     "featureAnalysisTitle": "Interpolación y resumen",
     "featureAnalysisDesc": "Estimar valores para un punto entre estaciones, o tomar en cada instante la estación más cercana con datos.",
     "devTitle": "También para desarrolladores",
@@ -60,7 +54,13 @@
     "kindAlertsDesc": "Avisos oficiales del DWD por tormenta, calor, helada e inundación, por distrito.",
     "kindRoadTitle": "Meteorología vial",
     "kindRoadDesc": "Estado y temperatura del firme de las estaciones viales del DWD, junto con sus predicciones.",
-    "aboutLink": "Sobre el proyecto y las personas que lo hacen posible"
+    "aboutLink": "Sobre el proyecto y las personas que lo hacen posible",
+    "startForecast": "Consultar el pronóstico de un lugar",
+    "startMeasurements": "Descargar mediciones",
+    "startWarming": "Ver cuánto se ha calentado un lugar",
+    "moreTitle": "Más herramientas",
+    "moreIntro": "Para mirar más de cerca y para usar los datos en tu propio trabajo.",
+    "searchTitle": "¿Buscas otra cosa?"
   },
   "seo": {
     "title": "Wetterdienst – datos meteorológicos y climáticos abiertos de los servicios meteorológicos nacionales",
@@ -121,14 +121,55 @@
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menú"
+    "menu": "Menú",
+    "navigation": "Navegación principal"
+  },
+  "palette": {
+    "title": "Buscar",
+    "description": "Encuentra una página, un lugar o un ajuste.",
+    "trigger": "Buscar páginas, lugares y ajustes",
+    "label": "¿Qué buscas?",
+    "placeholder": "Por ejemplo: pronóstico, Hamburgo, oscuro",
+    "resultsLabel": "Resultados",
+    "groupPages": "Páginas",
+    "groupActions": "Apariencia e idioma",
+    "groupPlaces": "Pronóstico de un lugar",
+    "results": "Resultados: {count}",
+    "noResults": "No se encontró nada. Prueba con otra palabra.",
+    "placesLoading": "Buscando lugares …",
+    "placesFailed": "No se pudieron cargar los lugares. Las páginas y los ajustes se siguen encontrando.",
+    "placeDetail": "Pronóstico de la estación {id}",
+    "themeOption": "Apariencia: {theme}",
+    "themeDetail": "Cambia el aspecto de la aplicación",
+    "languageOption": "Idioma: {language}",
+    "languageDetail": "Cambia el idioma de la aplicación",
+    "current": "En uso ahora",
+    "hint": "Las flechas eligen, Intro abre, Escape cierra. Ctrl+K o ⌘K abre la búsqueda en cualquier página.",
+    "ctrlK": "Ctrl K",
+    "pages": {
+      "home": "Empieza aquí: las tres tareas habituales y qué son los datos",
+      "meteogram": "El pronóstico de los próximos días para un lugar",
+      "explorer": "Encontrar estaciones y descargar sus mediciones",
+      "stripes": "Ver cuánto se ha calentado un lugar, año tras año",
+      "history": "Cómo cambiaron el nombre, el lugar y los instrumentos de una estación",
+      "providers": "Los servicios meteorológicos, sus licencias y lo que ofrecen",
+      "glossary": "Qué mide cada parámetro y en qué unidad",
+      "api": "Usar los datos desde tu propio código: API REST y MCP",
+      "settings": "Idioma, apariencia y unidades",
+      "about": "El proyecto y las personas que hay detrás",
+      "support": "Informar de un problema, ayudar con el código o donar",
+      "impressum": "Quién gestiona este servicio",
+      "datenschutz": "Qué se guarda sobre ti y por qué"
+    }
   },
   "footer": {
     "copyright": "© {year} earthobservations",
     "legal": "Aviso legal",
     "privacy": "Privacidad",
     "about": "Acerca de",
-    "licenses": "Licencias de terceros"
+    "licenses": "Licencias de terceros",
+    "helpTitle": "Ayuda y proyecto",
+    "serviceTitle": "Sobre este servicio"
   },
   "language": {
     "switch": "Cambiar idioma",

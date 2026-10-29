@@ -12,7 +12,7 @@ it, what was checked by hand, and what is known not to conform.
 - every page, as it is first shown, in light and dark mode and in English and German,
 - and, in light/English and dark/German, the states a first paint does not show: a station map with
   stations, a drawn chart (explorer, stripes, meteogram, widget), the table of the stripes' and the meteogram's values opened, the meteogram's compact day cards, an open
-  menu or popover, and an error notice.
+  menu or popover, the search open with a page, a setting and a place found, and an error notice.
 
 The spec answers every `/api/*` request itself, in the browser (`tests/e2e/accessibility/mock-backend.ts`),
 so it reaches neither the backend nor a provider. Map tiles and every other request to another host are
@@ -37,8 +37,9 @@ The same pages and states (in light/English and dark/German) are scanned twice m
   stops. The rules are the app's own ids, in `CUSTOM_RULES` of `interact.ts`.
 
 Beside the scans, `accessibility.spec.ts` drives widgets by keys alone (`keyboard operation`: the station
-picker, a collapsible, a menu, and the narrow layout's menu, which is a dialog that keeps the focus and gives
-it back; `chart controls by keyboard`: Plotly's modebar, and the table of values that stands for the stripes
+picker, a collapsible, a menu, the narrow layout's menu, which is a dialog that keeps the focus and gives
+it back, and the search, a combobox with a listbox in a dialog (Ctrl+K opens it, the arrow keys move the option
+`aria-activedescendant` names, Enter takes it, Escape closes it and gives the focus back); `chart controls by keyboard`: Plotly's modebar, and the table of values that stands for the stripes
 and the meteogram, opened, reached and scrolled by keys; and Plotly's hover label and the names of its
 modebar buttons, which Escape dismisses until the pointer moves, 1.4.13), checks that every page has a title of its own that a navigation announces (`page titles`, 2.4.2,
 4.1.3) and that no page scrolls sideways at 320 px (`reflow at 320 px`, 1.4.10).
@@ -61,21 +62,21 @@ What is left in it, and why it is not fixed in the app's own markup:
 - `aria-hidden-focus`, the error toast: the two focus proxies in Reka UI's toast viewport are
   `aria-hidden` and focusable. Also upstream.
 
-There is no `color-contrast` entry left. The brand green, `#00c950`, stays the fill of a solid primary
-button; its label is `#0f172b` (`--app-text-on-primary` in `app/assets/css/main.css`, set for the
-button in `app/app.config.ts`), 8.0:1 on the fill and 9.5:1 hovered in light mode, where the white
-label it replaces was 2.2:1 and 1.9:1. Dark mode has the same label on its lighter fill, as Nuxt UI
-already had it (10.0:1, and 6.1:1 hovered). A disabled button is exempt from 1.4.3 and from the scans; its
-label is at 75 % opacity with its fill (4.2:1 in light mode). Text in the primary colour on white is
-shade 700 and a fifth of the way to 800 (`.text-primary`), a hovered link button shade 800 (7.1:1; Nuxt UI's
-75 % of the first was 3.4:1), and a hovered chip of the home page shade 700 (4.9:1; shade 500 was 2.2:1).
-`tests/unit/button-contrast.test.ts` computes the hovered ratio of a solid button, as 75 % of the fill over
-the page; the hover scan measures the rest.
+There is no `color-contrast` entry left. The colours are the logo's (GH-3518): `brand`, the scale of its blue
+with its navy and ink as the darkest shades, and `ink`, greys tinted towards the navy, which are also Tailwind's
+`gray` (`app/assets/css/main.css`). A solid primary button is blue 700 with a white label in light mode (8.0:1)
+and blue 300 with an ink label in dark mode (8.2:1); hovered, its fill goes a step further from the page
+(blue 800, 9.8:1; blue 200, 11.4:1), where Nuxt UI's own hover, 75 % of the fill, would take the white label
+to 4.3:1 (`--app-primary-hover`, set for the button in `app/app.config.ts`). A disabled button is exempt from
+1.4.3 and from the scans. Text in the primary colour on white is shade 700 (`.text-primary`, 8.0:1), a hovered
+link button shade 800. Muted text is ink 500 on light (5.9:1 on white, 5.1:1 on a hovered field) and ink 400
+on dark (6.4:1 on the page, 5.4:1 on a card). The edge of a field is ink 500 on light and ink 400 on dark,
+3:1 and more (1.4.11). `tests/unit/button-contrast.test.ts` computes these ratios from `main.css`; the hover
+scan measures the rest.
 
-The focus indicator is one solid 2 px outline for everything a keyboard reaches (`--app-focus-ring` in
-`main.css`: shade 700 of the primary colour on light, 4.9:1 on white, shade 400 on dark, 10:1; the map takes
-the light one in both modes). Nuxt UI's own is an outline at 25 % of the primary colour (1.2:1 to 1.7:1 on
-white) and a ring in the primary colour (2.2:1), and its menu search fields draw none; they stay, beside it.
+The focus indicator is one solid 3 px outline for everything a keyboard reaches (`--app-focus-ring` in
+`main.css`: ink 950 on light, 17:1 on white; the logo's yellow on dark, 10:1 on the page, and on the navy
+masthead in both modes, 8.2:1; the map takes the light one in both modes). Nuxt UI's own rings stay, beside it.
 
 There is no sepia mode. `main.css` once held a `html.sepia` block that redefined the `--ui-*` tokens, which
 nothing in the app ever set (`colorMode` knows `light`, `dark` and `system`, and the settings offer those
@@ -133,7 +134,11 @@ WCAG 2.2 first, as axe has no rule for most of them.
 | 2.4.11 Focus not obscured (minimum) | The keyboard scan checks it on every page and state. The sticky header hides no focused element. Leaflet draws markers beyond what the map shows and lets Tab reach them: a marker that takes the focus now pans the map until it is in view (`MapStations.vue`). |
 | 2.5.7 Dragging movements | The map pans by drag, and by the arrow keys with the map focused, and zooms by its buttons and `+`/`-`; a station is also chosen in the list beside it. Plotly's charts zoom and pan by drag, with the modebar's buttons (zoom in, out, reset) as the single-pointer way. |
 | 2.5.8 Target size (minimum) | axe's `target-size` is among the tags scanned (wcag22aa), on every page and state in both modes: no entry. |
-| 3.2.6 Consistent help | The support and documentation links are in the header (icons) and the footer of every page, in the same order; the narrow layout has them in its menu. The widget has no header or footer by design. |
+| 3.2.6 Consistent help | The documentation, GitHub, PyPI and support links are in the footer of every page, in the same order, and in the narrow layout's menu; the search (Ctrl+K, ⌘K, or the header's button) is on every page. The widget has no header or footer by design. |
+| 2.4.1 Bypass blocks | A "Skip to main content" link is the first stop of the keyboard on every page and takes the focus to the page's `main`. |
+| 1.4.12 Text spacing, 1.4.4 Resize text | The layout has no fixed heights for text: the masthead wraps rather than clips, and the page and its cards grow with the text. |
+| 2.3.3 Animation from interactions, reduced motion | Under `prefers-reduced-motion` no transition or animation runs (`main.css`). |
+| Forced colours | What a fill alone shows (the current page in the navigation, the search's chosen option) is drawn as an underline or an outline in the system's colours too. |
 | 3.3.7 Redundant entry | Nothing is asked twice in a process. The explorer, forecast and stripes keep their selection in the URL, the settings in local storage. |
 | 3.3.8 Accessible authentication | The app has no log-in and no cognitive test. |
 | 2.4.2 Page titled | **Was failing**: every page was titled `Wetterdienst`. Each page names itself now, and a navigation is announced (`NuxtRouteAnnouncer`). |
