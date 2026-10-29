@@ -21,7 +21,7 @@ from wetterdienst.model.fetch_ahead import FetchAhead, FilesAhead
 from wetterdienst.model.metadata import group_parameters_by_dataset
 from wetterdienst.model.parameter_rows import ParameterRows
 from wetterdienst.model.quality_flags import QUALITY_FLAGS, RAW_TOKEN
-from wetterdienst.model.result import StationsResult, ValuesResult
+from wetterdienst.model.result import StationsFilter, StationsResult, ValuesResult
 from wetterdienst.model.schema import (
     LONG_SCHEMA,
     WIDE_FLAGS_DTYPE,
@@ -428,9 +428,10 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
 
         A station `emptied` of its frame because the nulls were dropped is told when the request names it: the markers
         are what the nulls were. Not where it would be left out all the same -- `skip_empty` skips a frame without a
-        reading, as it does with the nulls kept, and a rank walk walks past it.
+        reading, as it does with the nulls kept, and a rank walk (`filter_by_rank`) walks past it. A pick by name
+        takes the stations the name matches, and none takes the place of an emptied one.
         """
-        if emptied and (self.sr.options.skip_empty or self.sr._rank is not None):  # noqa: SLF001
+        if emptied and (self.sr.options.skip_empty or self.sr._stations_filter == StationsFilter.BY_RANK):  # noqa: SLF001
             return
         if self._count_missing_value_markers:
             count_response_warning(MISSING_VALUE_MARKER, self._markers_in_window, MISSING_VALUE_MARKER_MESSAGE)

@@ -979,7 +979,7 @@ def test_swsmos_tells_the_readings_the_run_wrote_a_marker_for(monkeypatch: pytes
     """A text that is no number in the run file is null with its `raw:` token, and the answer counts it (GH-3555).
 
     `query()` is overridden here to pin the run, and goes on through the core's walk, which counts the markers of the
-    stations it keeps: two `---` of the run are two readings of the warning, with drop_nulls and without it.
+    stations it keeps: two `---` of the run are two readings of the warning (under the default options).
     """
     content = _run_file(
         ("A006", "202607310800", "17.9"),

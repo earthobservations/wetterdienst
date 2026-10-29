@@ -1284,6 +1284,57 @@ def test_the_missing_value_marker_warning_counts_the_station_a_rank_walk_ends_on
     assert messages[0].startswith("4 readings of the source" if ends_on_nearest else "2 readings of the source")
 
 
+@pytest.mark.parametrize("by", ["station_id", "name"])
+@pytest.mark.parametrize("drop_nulls", [True, False])
+def test_the_missing_value_marker_warning_counts_a_station_the_request_names_when_the_nulls_empty_it(
+    monkeypatch: pytest.MonkeyPatch, *, by: str, drop_nulls: bool
+) -> None:
+    """A station picked by id or by name, whose window holds markers only, counts them with or without `drop_nulls`.
+
+    `filter_by_name` sets a rank (of 1) as well, but no station takes the place of the one it picked.
+    """
+    _stub_dwd_daily(station_ids=["00001"], data_year_by_station={"00001": 1990}, monkeypatch=monkeypatch)
+    _stub_marked_readings(monkeypatch, markers_of={"00001": 4})
+    begin_response()
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        start="1990-01-01",
+        end="1990-01-04",
+        options=Options(drop_nulls=drop_nulls),
+    )
+    stations = request.filter_by_station_id("00001") if by == "station_id" else request.filter_by_name("00001")
+
+    stations.values().all()
+
+    messages = _the_missing_value_marker_warning()
+    assert len(messages) == 1
+    assert messages[0].startswith("4 readings of the source")
+
+
+def test_the_missing_value_marker_warning_counts_the_stations_a_name_matches_up_to_its_rank(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`filter_by_name` with `rank=2` picks the two best matches, and the markers of both count: 4 and 1."""
+    _stub_dwd_daily(
+        station_ids=["00001", "00002"],
+        data_year_by_station={"00001": 1990, "00002": 1990},
+        monkeypatch=monkeypatch,
+    )
+    _stub_marked_readings(monkeypatch, markers_of={"00001": 4, "00002": 1})
+    begin_response()
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        start="1990-01-01",
+        end="1990-01-04",
+    )
+
+    request.filter_by_name("0000", rank=2).values().all()
+
+    messages = _the_missing_value_marker_warning()
+    assert len(messages) == 1
+    assert messages[0].startswith("5 readings of the source")
+
+
 def test_the_missing_value_marker_warning_leaves_out_a_station_a_distance_filter_skips_empty(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
