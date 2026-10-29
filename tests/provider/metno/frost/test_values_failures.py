@@ -94,6 +94,14 @@ def _values(
     return request.filter_by_station_id("SN18700").values(), seen
 
 
+def test_metno_frost_every_dataset_is_date_required() -> None:
+    """Test that every Frost dataset says it needs a window, as its reader answers nothing without one (GH-3560)."""
+    datasets = [(r.name, d.name, d.date_required) for r in MetnoFrostRequest.metadata for d in r.datasets]
+
+    assert datasets
+    assert [(resolution, dataset) for resolution, dataset, required in datasets if not required] == []
+
+
 def test_metno_frost_values_404_reaches_the_discovery_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that a 404 on the batched request resolves each parameter, and on that, discovers the time series.
 

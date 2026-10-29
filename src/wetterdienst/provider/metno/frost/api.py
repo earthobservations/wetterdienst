@@ -214,7 +214,7 @@ _MetnoFrostMetadataSpec = {
             "name": "daily",
             "name_original": "P1D",
             "periods": ["historical", "recent"],
-            "date_required": False,
+            "date_required": True,
             "datasets": [
                 {
                     "name": DATASET_NAME_DEFAULT,
@@ -289,7 +289,7 @@ _MetnoFrostMetadataSpec = {
             "name": "monthly",
             "name_original": "P1M",
             "periods": ["historical", "recent"],
-            "date_required": False,
+            "date_required": True,
             "datasets": [
                 {
                     "name": DATASET_NAME_DEFAULT,
@@ -369,7 +369,7 @@ _MetnoFrostMetadataSpec = {
             "name": "annual",
             "name_original": "P1Y",
             "periods": ["historical", "recent"],
-            "date_required": False,
+            "date_required": True,
             "datasets": [
                 {
                     "name": DATASET_NAME_DEFAULT,
