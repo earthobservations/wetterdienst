@@ -266,10 +266,10 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     #: the readings of the window that the source marked as missing, in the station in hand: counted by
     #: `_process_dataset`, told by `_query_stations` once the station is not left out (GH-3554)
     _markers_in_window: int = field(default=0, init=False, repr=False, compare=False)
-    #: under `skip_empty`, the parameters of the readings without a value that `drop_nulls` took out of the window, in
-    #: the station in hand: the rows the station has with the nulls kept, which tell `station-skipped` of a station
-    #: they empty just the same (GH-3567)
-    _nulls_in_window: list[pl.DataFrame] = field(default_factory=list, init=False, repr=False, compare=False)
+    #: under `skip_empty` with the nulls dropped, the `resolution, dataset, parameter` of the readings in the window
+    #: before `drop_nulls` took the nulls out (null or not), in the station in hand: the rows the station has with the
+    #: nulls kept, which tell `station-skipped` of a station they empty just the same (GH-3567)
+    _window_parameters: list[pl.DataFrame] = field(default_factory=list, init=False, repr=False, compare=False)
     #: whether `query` tells, at the end of the walk, the parameters of the request that no station had a row of
     #: (`parameter-without-rows`, GH-3539); a caller that reads stations only to estimate between them (interpolation,
     #: summary) sets it False, as a station without a parameter is what it expects there
@@ -378,7 +378,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             rows.examine(station_id, available_datasets)
             self._data_updated.clear()
             self._markers_in_window = 0
-            self._nulls_in_window.clear()
+            self._window_parameters.clear()
             self._advance_fetch_ahead(ahead, position, stations_collected)
             # Collect data for this station
             with rows.collecting(station_id):
@@ -437,19 +437,20 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         self._tell_missing_value_markers(emptied=True)
 
     def _note_nulls_dropped(self, rows: ParameterRows) -> bool:
-        """Note the parameters of the nulls `drop_nulls` took out of a station that `skip_empty` leaves out.
+        """Note the parameters the station has in the window before `drop_nulls`, of a station `skip_empty` leaves out.
 
         With the nulls kept such a station has frames of nulls, which `skip_empty` leaves out and tells so; with them
         dropped (the long shape's default) the same station has the same rows, and `parameter-without-rows` says
-        nothing of their parameters, as it says nothing of them with the nulls kept (GH-3567). `_nulls_in_window` is
-        filled under `skip_empty` only. Gives whether the station had any: a station with no reading in the window at
-        all has none, and is left out unsaid, as it is with the nulls kept.
+        nothing of their parameters, as it says nothing of them with the nulls kept (GH-3567). `_window_parameters`
+        holds the parameters of every reading in the window, null or not, and is filled under `skip_empty` only. Gives
+        whether the station had any reading in the window: one with none is left out unsaid, as it is with the nulls
+        kept.
         """
-        if not self._nulls_in_window:
+        if not self._window_parameters:
             return False
-        nulls = pl.concat(self._nulls_in_window)
-        rows.note(nulls)
-        return not nulls.is_empty()
+        parameters = pl.concat(self._window_parameters)
+        rows.note(parameters)
+        return not parameters.is_empty()
 
     def _tell_missing_value_markers(self, *, emptied: bool = False) -> None:
         """Add the markers of the station in hand to the warning of the request, unless the station is left out.
@@ -776,7 +777,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         if self.sr.options.drop_nulls_effective:
             if self.sr.options.skip_empty:
                 # what the station has with the nulls kept, were `skip_empty` to leave it out (`_query_stations`)
-                self._nulls_in_window.append(in_window.select("resolution", "dataset", "parameter").unique())
+                self._window_parameters.append(in_window.select("resolution", "dataset", "parameter").unique())
             df = df.drop_nulls(subset=["value"])
         return df
 
