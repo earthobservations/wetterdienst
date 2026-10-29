@@ -18,8 +18,6 @@
   },
   "home": {
     "tagline": "Otevřená meteorologická data pro lidi",
-    "intro": "Stačí si vybrat, co chceš vidět.",
-    "tasksTitle": "Co chceš udělat?",
     "forecastTitle": "Předpověď počasí",
     "forecastDesc": "Podívej se na vícedenní předpověď pro tvou oblast.",
     "stripesTitle": "Pruhy oteplování",
@@ -116,12 +114,16 @@
     "providers": "Poskytovatelé",
     "api": "API",
     "glossary": "Slovník",
-    "support": "Podpora"
+    "support": "Podpora",
+    "ask": "Zeptej se"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Nabídka"
+    "menu": "Nabídka",
+    "skip": "Přejít na obsah",
+    "search": "Hledat",
+    "mainNav": "Hlavní navigace"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
@@ -789,5 +791,110 @@
     "summary": "Souhrn",
     "periods": "Období",
     "colMissingCount": "Počet chybějících"
+  },
+  "ask": {
+    "title": "Zeptej se počasí",
+    "lead": "Otázky, které lidé mají, zodpovězené z oficiálních měření a předpovědí, s grafem k ověření.",
+    "placeLabel": "Otázky pro",
+    "placeChange": "změnit místo",
+    "placeNotFound": "Místo z odkazu nebylo nalezeno.",
+    "questionsLabel": "Otázky",
+    "q": {
+      "rain": "Bude zítra pršet v {place}?",
+      "summer": "Bylo poslední léto tady teplejší než obvykle?",
+      "wind": "Jak foukalo {day}?",
+      "download": "Kde si můžu stáhnout hodinové teploty?"
+    },
+    "from": {
+      "rain": "Předpověď, DWD MOSMIX",
+      "summer": "Měsíční průměry, DWD",
+      "wind": "Denní údaje, DWD",
+      "download": "Všechny meteorologické služby"
+    },
+    "working": "Počítám odpověď …",
+    "failed": "Odpověď se nepodařilo spočítat.",
+    "showValues": "Zobrazit hodnoty",
+    "tableWhen": "Kdy",
+    "toolsTitle": "Nebo rovnou k nástrojům",
+    "toolsLead": "Když už víš, co potřebuješ.",
+    "rain": {
+      "yes": "Ano, déšť je pravděpodobný.",
+      "maybe": "Možná, trochu.",
+      "no": "Spíš ne.",
+      "total": "Předpověď na celý den: {amount} mm.",
+      "wettest": "Nejdeštivější hodina: od {from}:00 do {to}:00, {amount} mm.",
+      "chance": "Nejvyšší pravděpodobnost deště v jedné hodině: {chance}.",
+      "point": "Předpověď pro {name}, nejbližší bod předpovědi k místu {place} ({distance} km).",
+      "pointNoDistance": "Předpověď pro {name}, nejbližší bod předpovědi k místu {place}.",
+      "chart": "Déšť po hodinách zítra, v {unit}",
+      "none": "Předpověď pro {name} ještě nesahá do zítřka.",
+      "open": "Otevřít celou předpověď"
+    },
+    "summer": {
+      "hotter": "Ano, o {anomaly} °C tepleji než obvykle.",
+      "cooler": "Ne, o {anomaly} °C chladněji než obvykle.",
+      "usual": "Ani ne: zhruba jako obvykle.",
+      "detail": "Léto {year} (červen až srpen) mělo průměr {mean} °C; léta {from} až {to} průměr {normal} °C.",
+      "rank": "Pořadí {rank} z {count} let od roku {first}, od nejteplejšího.",
+      "chart": "Každé léto oproti průměru {from} až {to}, v {unit}",
+      "none": "Je tu příliš málo úplných let pro srovnání.",
+      "open": "Otevřít měsíční průměry",
+      "stripes": "Zobrazit klimatické pruhy"
+    },
+    "wind": {
+      "calm": "Klidno.",
+      "breezy": "Mírný vítr.",
+      "windy": "Větrno.",
+      "stormy": "Bouřlivo.",
+      "mean": "Průměrný vítr {speed} m/s, Beaufort {force}.",
+      "gust": "Nejsilnější náraz {speed} m/s, Beaufort {force}.",
+      "context": "Okolní dny se silnějšími nárazy: {stronger} z {around}.",
+      "chartGust": "Nejsilnější náraz za den, v {unit}",
+      "chartMean": "Průměrný vítr za den, v {unit}",
+      "none": "Pro {day} tu nejsou žádná měření větru.",
+      "dayLabel": "Den",
+      "open": "Otevřít tyto dny v Průzkumníku"
+    },
+    "download": {
+      "answer": "Meteorologické služby, které zveřejňují hodinovou teplotu vzduchu: {count}.",
+      "detail": "Každá se otevře v Průzkumníku, připravená ke stažení jako CSV, JSON nebo GeoJSON.",
+      "none": "Žádná meteorologická služba teď nezveřejňuje hodinovou teplotu vzduchu.",
+      "api": "Nebo použij REST API"
+    }
+  },
+  "palette": {
+    "title": "Hledání",
+    "description": "Šipky posouvají, Enter otevírá, Escape zavírá.",
+    "inputLabel": "Hledat stránky, místa, otázky a nastavení",
+    "placeholder": "Stránka, místo nebo otázka …",
+    "placeholderPlace": "Název obce nebo meteorologické stanice …",
+    "resultsLabel": "Výsledky",
+    "results": "Výsledky: {count}",
+    "none": "Nic nenalezeno.",
+    "placeHint": "Napiš název obce nebo meteorologické stanice.",
+    "searchingPlaces": "Hledám místa …",
+    "placesFailed": "Místa se nepodařilo prohledat.",
+    "askAbout": "polož otázky k tomuto místu",
+    "current": "aktuální",
+    "groups": {
+      "questions": "Otázky",
+      "pages": "Stránky",
+      "places": "Místa"
+    },
+    "pages": {
+      "ask": "Otázky zodpovězené z dat",
+      "meteogram": "Předpověď na další dny",
+      "stripes": "Oteplování místa rok po roce v barevných pruzích",
+      "explorer": "Najdi stanice, vyber, co stáhnout, a stáhni to",
+      "history": "Názvy, polohy a přístroje stanice v průběhu času",
+      "providers": "Meteorologické služby, jejich licence a nabídka",
+      "glossary": "Co znamená každá měřená veličina a její jednotka",
+      "api": "REST API, na kterém tato aplikace běží, s příklady",
+      "settings": "Jazyk, vzhled a jednotky",
+      "about": "Projekt a lidé za ním",
+      "support": "Nahlas chybu, zeptej se nebo pomoz",
+      "impressum": "Kdo tento web provozuje",
+      "datenschutz": "Co se o tobě ukládá a proč"
+    }
   }
 }

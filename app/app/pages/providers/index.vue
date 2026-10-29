@@ -54,15 +54,8 @@ function parameterCount(provider: Provider): number {
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-5xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('providers.title') }}
-      </h1>
-      <p class="text-gray-600 dark:text-gray-400">
-        {{ t('providers.subtitle') }}
-      </p>
-    </div>
+  <div class="app-page app-page--wide space-y-6">
+    <PageHeader :title="t('providers.title')" :subtitle="t('providers.subtitle')" icon="i-lucide-building-2" tone="plain" />
 
     <div class="flex flex-col sm:flex-row gap-2">
       <UInput
@@ -159,5 +152,5 @@ function parameterCount(provider: Provider): number {
         </li>
       </ul>
     </template>
-  </UContainer>
+  </div>
 </template>

@@ -728,15 +728,8 @@ onMounted(() => {
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('stripes.title') }}
-      </h1>
-      <p class="text-gray-600 dark:text-gray-400">
-        {{ t('stripes.subtitle') }}
-      </p>
-    </div>
+  <div class="app-page app-page--wide space-y-6">
+    <PageHeader :title="t('stripes.title')" :subtitle="t('stripes.subtitle')" icon="i-lucide-bar-chart-3" tone="warmth" />
 
     <UCollapsible v-model="showAbout">
       <UButton
@@ -763,7 +756,7 @@ onMounted(() => {
     <UCard class="mb-6">
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-map-pin" class="text-primary-500 shrink-0" />
+          <UIcon name="i-lucide-map-pin" class="text-primary shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('explorer.dataSource') }}
           </h2>
@@ -803,7 +796,7 @@ onMounted(() => {
             <template #content>
               <ClientOnly>
                 <p class="flex items-center justify-center gap-2 mt-3 text-sm text-gray-500 dark:text-gray-400">
-                  <UIcon name="i-lucide-hand-pointer-2" class="w-4 h-4 text-primary-500" />
+                  <UIcon name="i-lucide-hand-pointer-2" class="w-4 h-4 text-primary" />
                   {{ t('stripes.mapHint') }}
                 </p>
                 <MapStations
@@ -879,7 +872,7 @@ onMounted(() => {
     <UCard class="mb-6">
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-bar-chart-big" class="text-primary-500 shrink-0" />
+          <UIcon name="i-lucide-bar-chart-big" class="text-primary shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('stripes.visualizationTitle') }}
           </h2>
@@ -961,5 +954,5 @@ onMounted(() => {
         </div>
       </div>
     </UCard>
-  </UContainer>
+  </div>
 </template>

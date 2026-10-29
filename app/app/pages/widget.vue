@@ -116,7 +116,7 @@ onMounted(async () => {
         :href="station ? `/meteogram?station=${station.station_id}` : '/meteogram'"
         target="_blank"
         rel="noopener"
-        class="inline-flex items-center gap-1 text-xs text-primary-700 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 shrink-0 ml-2"
+        class="inline-flex items-center gap-1 text-xs text-primary-700 hover:text-primary-800 dark:text-primary-300 dark:hover:text-primary-300 shrink-0 ml-2"
         :title="t('widget.openFull')"
       >
         {{ t('common.open') }}
@@ -133,7 +133,7 @@ onMounted(async () => {
       </i18n-t>
 
       <div v-else-if="pending" class="flex items-center justify-center gap-2 py-16 text-gray-500 dark:text-gray-400 text-sm">
-        <UIcon name="i-lucide-loader-circle" class="w-4 h-4 animate-spin text-primary-500" />
+        <UIcon name="i-lucide-loader-circle" class="w-4 h-4 animate-spin text-primary" />
         {{ t('widget.loading') }}
       </div>
 

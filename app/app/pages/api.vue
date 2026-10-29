@@ -50,20 +50,13 @@ const examples = [
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('api.title') }}
-      </h1>
-      <p class="text-gray-600 dark:text-gray-400">
-        {{ t('api.subtitle') }}
-      </p>
-    </div>
+  <div class="app-page space-y-6">
+    <PageHeader :title="t('api.title')" :subtitle="t('api.subtitle')" icon="i-lucide-code" tone="plain" />
 
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-code-2" class="text-primary-500 shrink-0" />
+          <UIcon name="i-lucide-code-2" class="text-primary shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('api.endpointsTitle') }}
           </h2>
@@ -88,7 +81,7 @@ const examples = [
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-terminal" class="text-primary-500 shrink-0" />
+          <UIcon name="i-lucide-terminal" class="text-primary shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('api.examplesTitle') }}
           </h2>
@@ -112,7 +105,7 @@ const examples = [
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-file-json" class="text-primary-500 shrink-0" />
+          <UIcon name="i-lucide-file-json" class="text-primary shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('api.formatsTitle') }}
           </h2>
@@ -134,7 +127,7 @@ const examples = [
     <UCard v-if="mcpEnabled">
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-bot" class="text-primary-500 shrink-0" />
+          <UIcon name="i-lucide-bot" class="text-primary shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('api.mcpTitle') }}
           </h2>
@@ -169,7 +162,7 @@ const examples = [
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-list" class="text-primary-500 shrink-0" />
+          <UIcon name="i-lucide-list" class="text-primary shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('api.commonParamsTitle') }}
           </h2>
@@ -240,5 +233,5 @@ const examples = [
         </table>
       </div>
     </UCard>
-  </UContainer>
+  </div>
 </template>

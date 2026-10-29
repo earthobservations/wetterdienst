@@ -60,20 +60,13 @@ const people = computed(() => [
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('about.title') }}
-      </h1>
-      <p class="text-gray-600 dark:text-gray-400">
-        {{ t('about.subtitle') }}
-      </p>
-    </div>
+  <div class="app-page space-y-6">
+    <PageHeader :title="t('about.title')" :subtitle="t('about.subtitle')" icon="i-lucide-info" tone="plain" />
 
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-info" class="text-primary-500 shrink-0" />
+          <UIcon name="i-lucide-info" class="text-primary shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('about.projectTitle') }}
           </h2>
@@ -97,7 +90,7 @@ const people = computed(() => [
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-users" class="text-primary-500 shrink-0" />
+          <UIcon name="i-lucide-users" class="text-primary shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('about.peopleTitle') }}
           </h2>
@@ -137,7 +130,7 @@ const people = computed(() => [
               <h3 class="text-xl font-bold">
                 {{ person.name }}
               </h3>
-              <p class="text-sm text-primary-700 dark:text-primary-400 font-medium">
+              <p class="text-sm text-primary font-medium">
                 {{ person.role }}
               </p>
             </div>
@@ -170,7 +163,7 @@ const people = computed(() => [
         <a
           href="https://github.com/earthobservations/wetterdienst/blob/main/CONTRIBUTORS.md"
           target="_blank"
-          class="text-primary-700 dark:text-primary-500 underline hover:no-underline"
+          class="text-primary underline hover:no-underline"
         >
           {{ t('about.contributorsLink') }}
         </a>
@@ -180,7 +173,7 @@ const people = computed(() => [
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-link" class="text-primary-500 shrink-0" />
+          <UIcon name="i-lucide-link" class="text-primary shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('about.linksTitle') }}
           </h2>
@@ -224,5 +217,5 @@ const people = computed(() => [
         </UButton>
       </div>
     </UCard>
-  </UContainer>
+  </div>
 </template>

@@ -15,12 +15,8 @@ const hasPlaceholders = computed(() =>
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('impressum.title') }}
-      </h1>
-    </div>
+  <div class="app-page space-y-6">
+    <PageHeader :title="t('impressum.title')" icon="i-lucide-scale" tone="plain" />
 
     <!-- Reminder shown until the legally required placeholders are filled in. -->
     <UAlert
@@ -35,7 +31,7 @@ const hasPlaceholders = computed(() =>
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-user" class="text-primary-500 shrink-0" />
+          <UIcon name="i-lucide-user" class="text-primary shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('impressum.providerTitle') }}
           </h2>
@@ -57,7 +53,7 @@ const hasPlaceholders = computed(() =>
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-mail" class="text-primary-500 shrink-0" />
+          <UIcon name="i-lucide-mail" class="text-primary shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('impressum.contactTitle') }}
           </h2>
@@ -65,10 +61,10 @@ const hasPlaceholders = computed(() =>
       </template>
       <div class="space-y-2">
         <p class="text-gray-600 dark:text-gray-400">
-          {{ t('impressum.emailLabel') }}: <a :href="`mailto:${operator.email}`" class="text-primary-700 dark:text-primary-500 underline hover:no-underline">{{ operator.email }}</a>
+          {{ t('impressum.emailLabel') }}: <a :href="`mailto:${operator.email}`" class="text-primary underline hover:no-underline">{{ operator.email }}</a>
         </p>
         <p class="text-gray-600 dark:text-gray-400">
-          {{ t('impressum.githubLabel') }}: <a :href="`https://github.com/${operator.github}`" target="_blank" class="text-primary-700 dark:text-primary-500 underline hover:no-underline">@{{ operator.github }}</a>
+          {{ t('impressum.githubLabel') }}: <a :href="`https://github.com/${operator.github}`" target="_blank" class="text-primary underline hover:no-underline">@{{ operator.github }}</a>
         </p>
       </div>
     </UCard>
@@ -76,7 +72,7 @@ const hasPlaceholders = computed(() =>
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-scale" class="text-primary-500 shrink-0" />
+          <UIcon name="i-lucide-scale" class="text-primary shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('impressum.mstvTitle') }}
           </h2>
@@ -92,7 +88,7 @@ const hasPlaceholders = computed(() =>
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-file-text" class="text-primary-500 shrink-0" />
+          <UIcon name="i-lucide-file-text" class="text-primary shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('impressum.disclaimerTitle') }}
           </h2>
@@ -121,7 +117,7 @@ const hasPlaceholders = computed(() =>
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-code-2" class="text-primary-500 shrink-0" />
+          <UIcon name="i-lucide-code-2" class="text-primary shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('impressum.openSourceTitle') }}
           </h2>
@@ -129,9 +125,9 @@ const hasPlaceholders = computed(() =>
       </template>
       <i18n-t keypath="impressum.openSourceText" tag="p" class="text-gray-600 dark:text-gray-400" scope="global">
         <template #link>
-          <a href="https://github.com/earthobservations/wetterdienst" target="_blank" class="text-primary-700 dark:text-primary-500 underline hover:no-underline">GitHub</a>
+          <a href="https://github.com/earthobservations/wetterdienst" target="_blank" class="text-primary underline hover:no-underline">GitHub</a>
         </template>
       </i18n-t>
     </UCard>
-  </UContainer>
+  </div>
 </template>

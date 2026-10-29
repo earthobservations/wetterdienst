@@ -18,8 +18,6 @@
   },
   "home": {
     "tagline": "Datos meteorológicos abiertos para las personas",
-    "intro": "Solo elige lo que te gustaría ver.",
-    "tasksTitle": "¿Qué te gustaría hacer?",
     "forecastTitle": "Pronóstico del tiempo",
     "forecastDesc": "Consulta un pronóstico de varios días para tu zona.",
     "stripesTitle": "Franjas del calentamiento",
@@ -116,12 +114,16 @@
     "providers": "Proveedores",
     "api": "API",
     "glossary": "Glosario",
-    "support": "Ayuda"
+    "support": "Ayuda",
+    "ask": "Preguntar"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menú"
+    "menu": "Menú",
+    "skip": "Saltar al contenido",
+    "search": "Buscar",
+    "mainNav": "Navegación principal"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
@@ -789,5 +791,110 @@
     "summary": "Resumen",
     "periods": "Periodos",
     "colMissingCount": "Número de valores faltantes"
+  },
+  "ask": {
+    "title": "Pregúntale al tiempo",
+    "lead": "Las preguntas que la gente se hace, respondidas con mediciones y pronósticos oficiales, y el gráfico para comprobarlo.",
+    "placeLabel": "Preguntando por",
+    "placeChange": "cambiar el lugar",
+    "placeNotFound": "No se encontró el lugar del enlace.",
+    "questionsLabel": "Preguntas",
+    "q": {
+      "rain": "¿Lloverá mañana en {place}?",
+      "summer": "¿Fue el verano pasado más caluroso de lo normal aquí?",
+      "wind": "¿Cuánto viento hizo el {day}?",
+      "download": "¿Dónde puedo descargar temperaturas horarias?"
+    },
+    "from": {
+      "rain": "Pronóstico, DWD MOSMIX",
+      "summer": "Medias mensuales, DWD",
+      "wind": "Datos diarios, DWD",
+      "download": "Todos los servicios meteorológicos"
+    },
+    "working": "Calculando la respuesta …",
+    "failed": "No se pudo calcular la respuesta.",
+    "showValues": "Mostrar los valores",
+    "tableWhen": "Cuándo",
+    "toolsTitle": "O ve directamente a las herramientas",
+    "toolsLead": "Para cuando ya sabes lo que necesitas.",
+    "rain": {
+      "yes": "Sí, es probable que llueva.",
+      "maybe": "Quizá, un poco.",
+      "no": "Probablemente no.",
+      "total": "{amount} mm previstos para todo el día.",
+      "wettest": "Hora más lluviosa: de {from}:00 a {to}:00, {amount} mm.",
+      "chance": "Mayor probabilidad de lluvia en una hora: {chance}.",
+      "point": "Pronóstico para {name}, el punto de pronóstico más cercano a {place} (a {distance} km).",
+      "pointNoDistance": "Pronóstico para {name}, el punto de pronóstico más cercano a {place}.",
+      "chart": "Lluvia por hora mañana, en {unit}",
+      "none": "El pronóstico para {name} aún no llega hasta mañana.",
+      "open": "Abrir el pronóstico completo"
+    },
+    "summer": {
+      "hotter": "Sí, {anomaly} °C más cálido de lo normal.",
+      "cooler": "No, {anomaly} °C más fresco de lo normal.",
+      "usual": "No mucho: más o menos como siempre.",
+      "detail": "El verano de {year} (junio a agosto) tuvo una media de {mean} °C; los veranos de {from} a {to}, de {normal} °C.",
+      "rank": "Puesto {rank} de {count} veranos desde {first}, empezando por el más cálido.",
+      "chart": "Cada verano frente a la media de {from} a {to}, en {unit}",
+      "none": "Aquí hay muy pocos veranos completos para comparar.",
+      "open": "Abrir las medias mensuales",
+      "stripes": "Ver las franjas climáticas"
+    },
+    "wind": {
+      "calm": "En calma.",
+      "breezy": "Algo de brisa.",
+      "windy": "Ventoso.",
+      "stormy": "Tempestuoso.",
+      "mean": "Viento medio {speed} m/s, Beaufort {force}.",
+      "gust": "Racha más fuerte {speed} m/s, Beaufort {force}.",
+      "context": "Días cercanos con rachas más fuertes: {stronger} de {around}.",
+      "chartGust": "Racha más fuerte por día, en {unit}",
+      "chartMean": "Viento medio por día, en {unit}",
+      "none": "Aquí no hay mediciones de viento para el {day}.",
+      "dayLabel": "Día",
+      "open": "Abrir estos días en el Explorador"
+    },
+    "download": {
+      "answer": "Servicios meteorológicos que publican la temperatura horaria del aire: {count}.",
+      "detail": "Cada uno se abre en el Explorador, listo para descargar en CSV, JSON o GeoJSON.",
+      "none": "Ahora mismo ningún servicio meteorológico publica la temperatura horaria del aire.",
+      "api": "O usa la API REST"
+    }
+  },
+  "palette": {
+    "title": "Búsqueda",
+    "description": "Las flechas mueven, Intro abre, Escape cierra.",
+    "inputLabel": "Buscar páginas, lugares, preguntas y ajustes",
+    "placeholder": "Una página, un lugar o una pregunta …",
+    "placeholderPlace": "El nombre de un pueblo o de una estación meteorológica …",
+    "resultsLabel": "Resultados",
+    "results": "Resultados: {count}",
+    "none": "No se encontró nada.",
+    "placeHint": "Escribe el nombre de un pueblo o de una estación meteorológica.",
+    "searchingPlaces": "Buscando lugares …",
+    "placesFailed": "No se pudieron buscar los lugares.",
+    "askAbout": "hacer las preguntas sobre él",
+    "current": "actual",
+    "groups": {
+      "questions": "Preguntas",
+      "pages": "Páginas",
+      "places": "Lugares"
+    },
+    "pages": {
+      "ask": "Preguntas respondidas con los datos",
+      "meteogram": "El pronóstico de los próximos días",
+      "stripes": "El calentamiento de un lugar, año a año, en franjas de colores",
+      "explorer": "Encontrar estaciones, elegir qué obtener y descargarlo",
+      "history": "Los nombres, posiciones e instrumentos de una estación a lo largo del tiempo",
+      "providers": "Los servicios meteorológicos, sus licencias y lo que ofrecen",
+      "glossary": "Qué significa cada magnitud medida, y su unidad",
+      "api": "La API REST sobre la que funciona esta app, con ejemplos",
+      "settings": "Idioma, apariencia y unidades",
+      "about": "El proyecto y las personas detrás",
+      "support": "Informar de un error, hacer una pregunta o ayudar",
+      "impressum": "Quién gestiona este sitio",
+      "datenschutz": "Qué se guarda sobre ti, y por qué"
+    }
   }
 }

@@ -18,8 +18,6 @@
   },
   "home": {
     "tagline": "Offene Wetterdaten für Menschen",
-    "intro": "Wähle einfach aus, was du sehen möchtest.",
-    "tasksTitle": "Was möchtest du tun?",
     "forecastTitle": "Wettervorhersage",
     "forecastDesc": "Mehrtägige Vorhersage für deinen Ort ansehen.",
     "stripesTitle": "Klimastreifen",
@@ -116,12 +114,16 @@
     "providers": "Anbieter",
     "api": "API",
     "glossary": "Glossar",
-    "support": "Unterstützen"
+    "support": "Unterstützen",
+    "ask": "Fragen"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menü"
+    "menu": "Menü",
+    "skip": "Zum Inhalt springen",
+    "search": "Suchen",
+    "mainNav": "Hauptnavigation"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
@@ -789,5 +791,110 @@
     "summary": "Zusammenfassung",
     "periods": "Zeiträume",
     "colMissingCount": "Anzahl fehlend"
+  },
+  "ask": {
+    "title": "Frag das Wetter",
+    "lead": "Die Fragen, die Menschen ans Wetter haben, beantwortet aus amtlichen Messungen und Vorhersagen, mit dem Diagramm zum Nachprüfen.",
+    "placeLabel": "Gefragt für",
+    "placeChange": "Ort ändern",
+    "placeNotFound": "Den Ort aus dem Link gibt es nicht.",
+    "questionsLabel": "Fragen",
+    "q": {
+      "rain": "Regnet es morgen in {place}?",
+      "summer": "War der letzte Sommer hier heißer als sonst?",
+      "wind": "Wie windig war es am {day}?",
+      "download": "Wo kann ich stündliche Temperaturen herunterladen?"
+    },
+    "from": {
+      "rain": "Vorhersage, DWD MOSMIX",
+      "summer": "Monatsmittel, DWD",
+      "wind": "Tageswerte, DWD",
+      "download": "Alle Wetterdienste"
+    },
+    "working": "Die Antwort wird ermittelt …",
+    "failed": "Die Antwort ließ sich nicht ermitteln.",
+    "showValues": "Werte anzeigen",
+    "tableWhen": "Wann",
+    "toolsTitle": "Oder direkt zu den Werkzeugen",
+    "toolsLead": "Für alle, die schon wissen, was sie brauchen.",
+    "rain": {
+      "yes": "Ja, wahrscheinlich Regen.",
+      "maybe": "Vielleicht, ein wenig.",
+      "no": "Eher nicht.",
+      "total": "{amount} mm für den ganzen Tag vorhergesagt.",
+      "wettest": "Nasseste Stunde: {from}:00 bis {to}:00 Uhr, {amount} mm.",
+      "chance": "Höchste Regenwahrscheinlichkeit in einer Stunde: {chance}.",
+      "point": "Vorhersage für {name}, den nächsten Vorhersagepunkt zu {place} ({distance} km entfernt).",
+      "pointNoDistance": "Vorhersage für {name}, den nächsten Vorhersagepunkt zu {place}.",
+      "chart": "Regen pro Stunde morgen, in {unit}",
+      "none": "Die Vorhersage für {name} reicht noch nicht bis morgen.",
+      "open": "Ganze Vorhersage öffnen"
+    },
+    "summer": {
+      "hotter": "Ja, {anomaly} °C wärmer als sonst.",
+      "cooler": "Nein, {anomaly} °C kühler als sonst.",
+      "usual": "Nicht wirklich: etwa so warm wie sonst.",
+      "detail": "Der Sommer {year} (Juni bis August) hatte im Mittel {mean} °C, die Sommer von {from} bis {to} im Mittel {normal} °C.",
+      "rank": "Platz {rank} von {count} Sommern seit {first}, vom wärmsten an gezählt.",
+      "chart": "Jeder Sommer gegenüber dem Mittel von {from} bis {to}, in {unit}",
+      "none": "Hier gibt es zu wenige vollständige Sommer für einen Vergleich.",
+      "open": "Monatsmittel öffnen",
+      "stripes": "Klimastreifen ansehen"
+    },
+    "wind": {
+      "calm": "Ruhig.",
+      "breezy": "Leicht windig.",
+      "windy": "Windig.",
+      "stormy": "Stürmisch.",
+      "mean": "Mittlerer Wind {speed} m/s, Beaufort {force}.",
+      "gust": "Stärkste Böe {speed} m/s, Beaufort {force}.",
+      "context": "Tage rundherum mit stärkeren Böen: {stronger} von {around}.",
+      "chartGust": "Stärkste Böe pro Tag, in {unit}",
+      "chartMean": "Mittlerer Wind pro Tag, in {unit}",
+      "none": "Für den {day} gibt es hier keine Windmessungen.",
+      "dayLabel": "Tag",
+      "open": "Diese Tage im Explorer öffnen"
+    },
+    "download": {
+      "answer": "Wetterdienste mit stündlicher Lufttemperatur: {count}.",
+      "detail": "Jeder öffnet sich im Explorer, bereit zum Download als CSV, JSON oder GeoJSON.",
+      "none": "Gerade nennt kein Wetterdienst eine stündliche Lufttemperatur.",
+      "api": "Oder die REST-API nutzen"
+    }
+  },
+  "palette": {
+    "title": "Suche",
+    "description": "Pfeiltasten bewegen, Enter öffnet, Escape schließt.",
+    "inputLabel": "Seiten, Orte, Fragen und Einstellungen suchen",
+    "placeholder": "Eine Seite, ein Ort oder eine Frage …",
+    "placeholderPlace": "Name eines Ortes oder einer Wetterstation …",
+    "resultsLabel": "Ergebnisse",
+    "results": "Ergebnisse: {count}",
+    "none": "Nichts gefunden.",
+    "placeHint": "Tippe den Namen eines Ortes oder einer Wetterstation.",
+    "searchingPlaces": "Orte werden gesucht …",
+    "placesFailed": "Die Orte ließen sich nicht durchsuchen.",
+    "askAbout": "die Fragen dazu stellen",
+    "current": "aktuell",
+    "groups": {
+      "questions": "Fragen",
+      "pages": "Seiten",
+      "places": "Orte"
+    },
+    "pages": {
+      "ask": "Fragen, beantwortet aus den Daten",
+      "meteogram": "Die Vorhersage für die nächsten Tage",
+      "stripes": "Die Erwärmung eines Ortes, Jahr für Jahr, in farbigen Streifen",
+      "explorer": "Stationen finden, auswählen, was du abrufen willst, und herunterladen",
+      "history": "Namen, Lagen und Instrumente einer Station im Lauf der Zeit",
+      "providers": "Die Wetterdienste, ihre Lizenzen und was sie anbieten",
+      "glossary": "Was jede Messgröße bedeutet, und ihre Einheit",
+      "api": "Die REST-API, auf der diese App läuft, mit Beispielen",
+      "settings": "Sprache, Darstellung und Einheiten",
+      "about": "Das Projekt und die Menschen dahinter",
+      "support": "Einen Fehler melden, eine Frage stellen oder helfen",
+      "impressum": "Wer diese Seite betreibt",
+      "datenschutz": "Was über dich gespeichert wird, und warum"
+    }
   }
 }

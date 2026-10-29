@@ -18,8 +18,6 @@
   },
   "home": {
     "tagline": "Open weerdata voor mensen",
-    "intro": "Kies gewoon wat je wilt zien.",
-    "tasksTitle": "Wat wil je doen?",
     "forecastTitle": "Weersverwachting",
     "forecastDesc": "Bekijk een meerdaagse verwachting voor jouw omgeving.",
     "stripesTitle": "Opwarmingsstrepen",
@@ -116,12 +114,16 @@
     "providers": "Aanbieders",
     "api": "API",
     "glossary": "Woordenlijst",
-    "support": "Ondersteuning"
+    "support": "Ondersteuning",
+    "ask": "Vragen"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menu"
+    "menu": "Menu",
+    "skip": "Naar de inhoud",
+    "search": "Zoeken",
+    "mainNav": "Hoofdnavigatie"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
@@ -789,5 +791,110 @@
     "summary": "Samenvatting",
     "periods": "Perioden",
     "colMissingCount": "Aantal ontbrekend"
+  },
+  "ask": {
+    "title": "Vraag het weer",
+    "lead": "De vragen die mensen hebben, beantwoord met officiële metingen en verwachtingen, met de grafiek om het na te gaan.",
+    "placeLabel": "Vragen over",
+    "placeChange": "andere plaats kiezen",
+    "placeNotFound": "De plaats uit de link is niet gevonden.",
+    "questionsLabel": "Lijst met vragen",
+    "q": {
+      "rain": "Gaat het morgen regenen in {place}?",
+      "summer": "Was de afgelopen zomer hier warmer dan normaal?",
+      "wind": "Hoe hard waaide het op {day}?",
+      "download": "Waar kan ik temperaturen per uur downloaden?"
+    },
+    "from": {
+      "rain": "Verwachting, DWD MOSMIX",
+      "summer": "Maandgemiddelden, DWD",
+      "wind": "Dagwaarden, DWD",
+      "download": "Alle weerdiensten"
+    },
+    "working": "Het antwoord wordt berekend …",
+    "failed": "Het antwoord kon niet worden berekend.",
+    "showValues": "Waarden tonen",
+    "tableWhen": "Wanneer",
+    "toolsTitle": "Of ga meteen naar de hulpmiddelen",
+    "toolsLead": "Voor als je al weet wat je nodig hebt.",
+    "rain": {
+      "yes": "Ja, waarschijnlijk regen.",
+      "maybe": "Misschien, een beetje.",
+      "no": "Waarschijnlijk niet.",
+      "total": "{amount} mm verwacht voor de hele dag.",
+      "wettest": "Natste uur: {from}:00 tot {to}:00, {amount} mm.",
+      "chance": "Grootste kans op regen in een uur: {chance}.",
+      "point": "Verwachting voor {name}, het verwachtingspunt dichtst bij {place} ({distance} km verderop).",
+      "pointNoDistance": "Verwachting voor {name}, het verwachtingspunt dichtst bij {place}.",
+      "chart": "Regen per uur morgen, in {unit}",
+      "none": "De verwachting voor {name} reikt nog niet tot morgen.",
+      "open": "Volledige verwachting openen"
+    },
+    "summer": {
+      "hotter": "Ja, {anomaly} °C warmer dan normaal.",
+      "cooler": "Nee, {anomaly} °C koeler dan normaal.",
+      "usual": "Niet echt: ongeveer zoals normaal.",
+      "detail": "Zomer {year} (juni tot augustus) was gemiddeld {mean} °C; de zomers van {from} tot {to} gemiddeld {normal} °C.",
+      "rank": "Plaats {rank} van {count} zomers sinds {first}, vanaf de warmste geteld.",
+      "chart": "Elke zomer tegenover het gemiddelde van {from} tot {to}, in {unit}",
+      "none": "Er zijn hier te weinig volledige zomers om te vergelijken.",
+      "open": "Maandgemiddelden openen",
+      "stripes": "Klimaatstrepen bekijken"
+    },
+    "wind": {
+      "calm": "Rustig.",
+      "breezy": "Een beetje wind.",
+      "windy": "Winderig.",
+      "stormy": "Stormachtig.",
+      "mean": "Gemiddelde wind {speed} m/s, Beaufort {force}.",
+      "gust": "Sterkste windstoot {speed} m/s, Beaufort {force}.",
+      "context": "Dagen eromheen met sterkere windstoten: {stronger} van {around}.",
+      "chartGust": "Sterkste windstoot per dag, in {unit}",
+      "chartMean": "Gemiddelde wind per dag, in {unit}",
+      "none": "Er zijn hier geen windmetingen voor {day}.",
+      "dayLabel": "Datum",
+      "open": "Deze dagen openen in de Verkenner"
+    },
+    "download": {
+      "answer": "Weerdiensten die de luchttemperatuur per uur publiceren: {count}.",
+      "detail": "Elk opent in de Verkenner, klaar om te downloaden als CSV, JSON of GeoJSON.",
+      "none": "Op dit moment publiceert geen weerdienst de luchttemperatuur per uur.",
+      "api": "Of gebruik de REST-API"
+    }
+  },
+  "palette": {
+    "title": "Zoekvenster",
+    "description": "Pijltjestoetsen verplaatsen, Enter opent, Escape sluit.",
+    "inputLabel": "Pagina's, plaatsen, vragen en instellingen zoeken",
+    "placeholder": "Een pagina, een plaats of een vraag …",
+    "placeholderPlace": "De naam van een plaats of weerstation …",
+    "resultsLabel": "Resultaten",
+    "results": "Resultaten: {count}",
+    "none": "Niets gevonden.",
+    "placeHint": "Typ de naam van een plaats of weerstation.",
+    "searchingPlaces": "Plaatsen zoeken …",
+    "placesFailed": "Plaatsen konden niet worden gezocht.",
+    "askAbout": "de vragen hierover stellen",
+    "current": "huidig",
+    "groups": {
+      "questions": "Vragen",
+      "pages": "Pagina's",
+      "places": "Plaatsen"
+    },
+    "pages": {
+      "ask": "Vragen, beantwoord uit de gegevens",
+      "meteogram": "De verwachting voor de komende dagen",
+      "stripes": "De opwarming van een plaats, jaar na jaar, in gekleurde strepen",
+      "explorer": "Stations vinden, kiezen wat je ophaalt en het downloaden",
+      "history": "Namen, posities en instrumenten van een station door de tijd",
+      "providers": "De weerdiensten, hun licenties en wat ze bieden",
+      "glossary": "Wat elke gemeten grootheid betekent, en de eenheid ervan",
+      "api": "De REST-API waarop deze app draait, met voorbeelden",
+      "settings": "Taal, weergave en eenheden",
+      "about": "Het project en de mensen erachter",
+      "support": "Een bug melden, een vraag stellen of helpen",
+      "impressum": "Wie deze site beheert",
+      "datenschutz": "Wat er over jou wordt opgeslagen, en waarom"
+    }
   }
 }

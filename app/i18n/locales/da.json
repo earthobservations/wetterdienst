@@ -18,8 +18,6 @@
   },
   "home": {
     "tagline": "Åbne vejrdata for mennesker",
-    "intro": "Vælg bare, hvad du gerne vil se.",
-    "tasksTitle": "Hvad vil du gerne gøre?",
     "forecastTitle": "Vejrudsigt",
     "forecastDesc": "Se en flerdages udsigt for dit område.",
     "stripesTitle": "Opvarmningsstriber",
@@ -116,12 +114,16 @@
     "providers": "Udbydere",
     "api": "API",
     "glossary": "Ordliste",
-    "support": "Support"
+    "support": "Support",
+    "ask": "Spørg"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menu"
+    "menu": "Menu",
+    "skip": "Spring til indholdet",
+    "search": "Søg",
+    "mainNav": "Hovednavigation"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
@@ -789,5 +791,110 @@
     "summary": "Opsummering",
     "periods": "Perioder",
     "colMissingCount": "Antal manglende"
+  },
+  "ask": {
+    "title": "Spørg vejret",
+    "lead": "De spørgsmål, folk har, besvaret ud fra officielle målinger og udsigter, med grafen til at tjekke svaret.",
+    "placeLabel": "Spørger om",
+    "placeChange": "skift sted",
+    "placeNotFound": "Stedet fra linket blev ikke fundet.",
+    "questionsLabel": "Spørgsmål",
+    "q": {
+      "rain": "Regner det i {place} i morgen?",
+      "summer": "Var sidste sommer varmere end normalt her?",
+      "wind": "Hvor meget blæste det den {day}?",
+      "download": "Hvor kan jeg downloade timetemperaturer?"
+    },
+    "from": {
+      "rain": "Udsigt, DWD MOSMIX",
+      "summer": "Månedsmiddel, DWD",
+      "wind": "Døgnværdier, DWD",
+      "download": "Alle vejrtjenester"
+    },
+    "working": "Svaret regnes ud …",
+    "failed": "Svaret kunne ikke regnes ud.",
+    "showValues": "Vis værdierne",
+    "tableWhen": "Hvornår",
+    "toolsTitle": "Eller gå direkte til værktøjerne",
+    "toolsLead": "Til når du allerede ved, hvad du skal bruge.",
+    "rain": {
+      "yes": "Ja, der kommer sandsynligvis regn.",
+      "maybe": "Måske, lidt.",
+      "no": "Nok ikke.",
+      "total": "{amount} mm ventet for hele dagen.",
+      "wettest": "Vådeste time: {from}:00 til {to}:00, {amount} mm.",
+      "chance": "Største chance for regn i en time: {chance}.",
+      "point": "Udsigt for {name}, udsigtspunktet nærmest {place} ({distance} km væk).",
+      "pointNoDistance": "Udsigt for {name}, udsigtspunktet nærmest {place}.",
+      "chart": "Regn pr. time i morgen, i {unit}",
+      "none": "Udsigten for {name} rækker endnu ikke til i morgen.",
+      "open": "Åbn hele udsigten"
+    },
+    "summer": {
+      "hotter": "Ja, {anomaly} °C varmere end normalt.",
+      "cooler": "Nej, {anomaly} °C køligere end normalt.",
+      "usual": "Egentlig ikke: omtrent som normalt.",
+      "detail": "Sommeren {year} (juni til august) havde et gennemsnit på {mean} °C; somrene fra {from} til {to} {normal} °C.",
+      "rank": "Nummer {rank} af {count} somre siden {first}, talt fra den varmeste.",
+      "chart": "Hver sommer i forhold til gennemsnittet {from} til {to}, i {unit}",
+      "none": "Der er for få hele somre her til en sammenligning.",
+      "open": "Åbn månedsmidlerne",
+      "stripes": "Se klimastriberne"
+    },
+    "wind": {
+      "calm": "Stille.",
+      "breezy": "Let blæst.",
+      "windy": "Blæsende.",
+      "stormy": "Stormfuldt.",
+      "mean": "Middelvind {speed} m/s, Beaufort {force}.",
+      "gust": "Kraftigste vindstød {speed} m/s, Beaufort {force}.",
+      "context": "Dage omkring med kraftigere vindstød: {stronger} af {around}.",
+      "chartGust": "Kraftigste vindstød pr. dag, i {unit}",
+      "chartMean": "Middelvind pr. dag, i {unit}",
+      "none": "Der er ingen vindmålinger her for den {day}.",
+      "dayLabel": "Dato",
+      "open": "Åbn disse dage i Udforsker"
+    },
+    "download": {
+      "answer": "Vejrtjenester, der udgiver lufttemperatur pr. time: {count}.",
+      "detail": "Hver åbner i Udforsker, klar til download som CSV, JSON eller GeoJSON.",
+      "none": "Ingen vejrtjeneste udgiver lufttemperatur pr. time lige nu.",
+      "api": "Eller brug REST-API'et"
+    }
+  },
+  "palette": {
+    "title": "Søgning",
+    "description": "Piletasterne flytter, Enter åbner, Escape lukker.",
+    "inputLabel": "Søg efter sider, steder, spørgsmål og indstillinger",
+    "placeholder": "En side, et sted eller et spørgsmål …",
+    "placeholderPlace": "Navnet på en by eller vejrstation …",
+    "resultsLabel": "Resultater",
+    "results": "Resultater: {count}",
+    "none": "Intet fundet.",
+    "placeHint": "Skriv navnet på en by eller vejrstation.",
+    "searchingPlaces": "Søger efter steder …",
+    "placesFailed": "Stederne kunne ikke søges.",
+    "askAbout": "stil spørgsmålene om stedet",
+    "current": "aktuel",
+    "groups": {
+      "questions": "Spørgsmål",
+      "pages": "Sider",
+      "places": "Steder"
+    },
+    "pages": {
+      "ask": "Spørgsmål besvaret ud fra dataene",
+      "meteogram": "Udsigten for de kommende dage",
+      "stripes": "Opvarmningen et sted, år for år, i farvede striber",
+      "explorer": "Find stationer, vælg hvad der skal hentes, og download det",
+      "history": "En stations navne, placeringer og instrumenter gennem tiden",
+      "providers": "Vejrtjenesterne, deres licenser og hvad de tilbyder",
+      "glossary": "Hvad hver målt størrelse betyder, og dens enhed",
+      "api": "REST-API'et, som denne app kører på, med eksempler",
+      "settings": "Sprog, udseende og enheder",
+      "about": "Projektet og menneskene bag",
+      "support": "Rapportér en fejl, stil et spørgsmål eller hjælp til",
+      "impressum": "Hvem der driver dette websted",
+      "datenschutz": "Hvad der gemmes om dig, og hvorfor"
+    }
   }
 }

@@ -184,7 +184,8 @@ describe('index Page', () => {
     expect(servicesTile(wrapper)?.text()).toBe('–')
     expect(parametersTile(wrapper)?.text()).toBe('–')
     expect(wrapper.text()).toContain('0 €')
-    const retry = wrapper.findAll('button').find(button => button.text() === 'Retry')
+    // the one of the weather services' card: the answer above it has a Retry of its own
+    const retry = wrapper.find('[data-testid="home-providers-card"]').findAll('button').find(button => button.text() === 'Retry')
     expect(retry).toBeDefined()
 
     served = () => providersResponse()
@@ -269,5 +270,48 @@ describe('index Page', () => {
     // the maintainers used to be listed here; the home page is about the data now
     expect(text).not.toContain('Benjamin Gutzmann')
     expect(text).not.toContain('Andreas Motl')
+  })
+})
+
+// The questions the page opens on (GH-3518): each a link that names its question, the rain one open by default,
+// and its answer worked out from the forecast nearest the place, with the way into the forecast filled in.
+describe('the questions of the home page', () => {
+  // three days of MOSMIX from this hour on: half a millimetre every hour, so tomorrow it rains
+  const start = new Date()
+  start.setUTCMinutes(0, 0, 0)
+  registerEndpoint('/api/stations', () => ({
+    stations: [{ station_id: '10046', name: 'KIEL-H.', region: null, latitude: 54.38, longitude: 10.15, elevation: 28, start_timestamp: null, end_timestamp: null, distance: 0.56 }],
+  }))
+  registerEndpoint('/api/values', () => ({
+    values: Array.from({ length: 72 }, (_, hour) => ({
+      station_id: '10046',
+      resolution: 'hourly',
+      dataset: 'large',
+      parameter: 'precipitation_amount_significant_weather_last_1h',
+      timestamp: new Date(start.getTime() + hour * 3_600_000).toISOString(),
+      value: 0.5,
+      quality_flags: null,
+    })),
+  }))
+
+  it('lists the four questions about the place, each a link to its answer, the rain one open', async () => {
+    const wrapper = await mountHome()
+    const questions = ['rain', 'summer', 'wind', 'download'].map(id => wrapper.find(`[data-testid="question-${id}"]`))
+    expect(questions.map(question => question.attributes('href'))).toEqual(['/?ask=rain', '/?ask=summer', '/?ask=wind', '/?ask=download'])
+    expect(questions[0]!.text()).toContain('Will it rain in Kiel-Holtenau tomorrow?')
+    expect(questions[0]!.attributes('aria-current')).toBe('true')
+    expect(questions.slice(1).map(question => question.attributes('aria-current'))).toEqual([undefined, undefined, undefined])
+    expect(wrapper.find('#answer-heading').text()).toBe('Will it rain in Kiel-Holtenau tomorrow?')
+  })
+
+  it('answers the rain question from the forecast nearest the place, with its chart and the forecast filled in', async () => {
+    const wrapper = await mountHome()
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="answer-verdict"]').text()).toBe('Yes, rain is likely.'), { timeout: 5000 })
+    const answer = wrapper.find('[data-testid="answer"]')
+    expect(answer.text()).toContain('Forecast for KIEL-H., the forecast point nearest to Kiel-Holtenau (0.6 km away).')
+    // the chart is a figure named by its caption, with its values as a table
+    expect(answer.find('figure figcaption').text()).toBe('Rain per hour tomorrow, in mm')
+    expect(answer.findAll('figure tbody tr').length).toBeGreaterThanOrEqual(23)
+    expect(answer.findAll('a').map(link => link.attributes('href'))).toContain('/meteogram?station=10046')
   })
 })

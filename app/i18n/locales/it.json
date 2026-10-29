@@ -18,8 +18,6 @@
   },
   "home": {
     "tagline": "Dati meteo aperti per le persone",
-    "intro": "Scegli semplicemente ciò che vuoi vedere.",
-    "tasksTitle": "Cosa vuoi fare?",
     "forecastTitle": "Previsioni meteo",
     "forecastDesc": "Consulta una previsione di più giorni per la tua zona.",
     "stripesTitle": "Strisce del riscaldamento",
@@ -116,12 +114,16 @@
     "providers": "Fornitori",
     "api": "API",
     "glossary": "Glossario",
-    "support": "Supporto"
+    "support": "Supporto",
+    "ask": "Chiedi"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menu"
+    "menu": "Menu",
+    "skip": "Vai al contenuto",
+    "search": "Cerca",
+    "mainNav": "Navigazione principale"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
@@ -789,5 +791,110 @@
     "summary": "Sintesi",
     "periods": "Periodi",
     "colMissingCount": "Numero di valori mancanti"
+  },
+  "ask": {
+    "title": "Chiedi al tempo",
+    "lead": "Le domande che le persone si fanno, con risposte tratte da misure e previsioni ufficiali, e il grafico per verificarle.",
+    "placeLabel": "Domande su",
+    "placeChange": "cambia luogo",
+    "placeNotFound": "Il luogo del link non è stato trovato.",
+    "questionsLabel": "Domande",
+    "q": {
+      "rain": "Domani pioverà a {place}?",
+      "summer": "L'estate scorsa è stata più calda del solito qui?",
+      "wind": "Quanto vento c'era il {day}?",
+      "download": "Dove posso scaricare le temperature orarie?"
+    },
+    "from": {
+      "rain": "Previsioni, DWD MOSMIX",
+      "summer": "Medie mensili, DWD",
+      "wind": "Dati giornalieri, DWD",
+      "download": "Tutti i servizi meteorologici"
+    },
+    "working": "Sto calcolando la risposta …",
+    "failed": "Non è stato possibile calcolare la risposta.",
+    "showValues": "Mostra i valori",
+    "tableWhen": "Quando",
+    "toolsTitle": "Oppure vai direttamente agli strumenti",
+    "toolsLead": "Per quando sai già cosa ti serve.",
+    "rain": {
+      "yes": "Sì, è probabile che piova.",
+      "maybe": "Forse, un po'.",
+      "no": "Probabilmente no.",
+      "total": "{amount} mm previsti per l'intera giornata.",
+      "wettest": "Ora più piovosa: dalle {from}:00 alle {to}:00, {amount} mm.",
+      "chance": "Probabilità di pioggia più alta in un'ora: {chance}.",
+      "point": "Previsioni per {name}, il punto di previsione più vicino a {place} (a {distance} km).",
+      "pointNoDistance": "Previsioni per {name}, il punto di previsione più vicino a {place}.",
+      "chart": "Pioggia per ora domani, in {unit}",
+      "none": "Le previsioni per {name} non arrivano ancora a domani.",
+      "open": "Apri le previsioni complete"
+    },
+    "summer": {
+      "hotter": "Sì, {anomaly} °C più calda del solito.",
+      "cooler": "No, {anomaly} °C più fresca del solito.",
+      "usual": "Non proprio: più o meno come al solito.",
+      "detail": "L'estate {year} (da giugno ad agosto) ha avuto una media di {mean} °C; le estati dal {from} al {to}, di {normal} °C.",
+      "rank": "Posizione {rank} su {count} estati dal {first}, partendo dalla più calda.",
+      "chart": "Ogni estate rispetto alla media dal {from} al {to}, in {unit}",
+      "none": "Qui ci sono troppe poche estati complete per un confronto.",
+      "open": "Apri le medie mensili",
+      "stripes": "Guarda le strisce climatiche"
+    },
+    "wind": {
+      "calm": "Calmo.",
+      "breezy": "Un po' di brezza.",
+      "windy": "Ventoso.",
+      "stormy": "Tempestoso.",
+      "mean": "Vento medio {speed} m/s, Beaufort {force}.",
+      "gust": "Raffica più forte {speed} m/s, Beaufort {force}.",
+      "context": "Giorni vicini con raffiche più forti: {stronger} su {around}.",
+      "chartGust": "Raffica più forte al giorno, in {unit}",
+      "chartMean": "Vento medio al giorno, in {unit}",
+      "none": "Qui non ci sono misure del vento per il {day}.",
+      "dayLabel": "Giorno",
+      "open": "Apri questi giorni nell'Esploratore"
+    },
+    "download": {
+      "answer": "Servizi meteorologici che pubblicano la temperatura oraria dell'aria: {count}.",
+      "detail": "Ognuno si apre nell'Esploratore, pronto da scaricare in CSV, JSON o GeoJSON.",
+      "none": "Al momento nessun servizio meteorologico pubblica la temperatura oraria dell'aria.",
+      "api": "Oppure usa l'API REST"
+    }
+  },
+  "palette": {
+    "title": "Ricerca",
+    "description": "Le frecce spostano, Invio apre, Esc chiude.",
+    "inputLabel": "Cerca pagine, luoghi, domande e impostazioni",
+    "placeholder": "Una pagina, un luogo o una domanda …",
+    "placeholderPlace": "Il nome di una città o di una stazione meteo …",
+    "resultsLabel": "Risultati",
+    "results": "Risultati: {count}",
+    "none": "Nessun risultato.",
+    "placeHint": "Scrivi il nome di una città o di una stazione meteo.",
+    "searchingPlaces": "Ricerca dei luoghi …",
+    "placesFailed": "Non è stato possibile cercare i luoghi.",
+    "askAbout": "fai le domande su questo luogo",
+    "current": "attuale",
+    "groups": {
+      "questions": "Domande",
+      "pages": "Pagine",
+      "places": "Luoghi"
+    },
+    "pages": {
+      "ask": "Domande con risposte tratte dai dati",
+      "meteogram": "Le previsioni per i prossimi giorni",
+      "stripes": "Il riscaldamento di un luogo, anno per anno, in strisce colorate",
+      "explorer": "Trova stazioni, scegli cosa ottenere e scaricalo",
+      "history": "Nomi, posizioni e strumenti di una stazione nel tempo",
+      "providers": "I servizi meteorologici, le loro licenze e cosa offrono",
+      "glossary": "Cosa significa ogni grandezza misurata, e la sua unità",
+      "api": "L'API REST su cui gira questa app, con esempi",
+      "settings": "Lingua, aspetto e unità",
+      "about": "Il progetto e le persone che ci sono dietro",
+      "support": "Segnala un bug, fai una domanda o dai una mano",
+      "impressum": "Chi gestisce questo sito",
+      "datenschutz": "Cosa viene salvato su di te, e perché"
+    }
   }
 }

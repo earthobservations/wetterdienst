@@ -18,8 +18,6 @@
   },
   "home": {
     "tagline": "Apen Wedderdaten för de Lüüd",
-    "intro": "Nu ma Botter bi de Fisch: Söök di eenfach ut, wat du sehn wullt.",
-    "tasksTitle": "Moin! Wat wullt du maken?",
     "forecastTitle": "Wedderutsicht",
     "forecastDesc": "Kiek di an, wat de neegsten Daag so kummt.",
     "stripesTitle": "Klimastrepen",
@@ -116,12 +114,16 @@
     "providers": "Anbeder",
     "api": "API",
     "glossary": "Glossar",
-    "support": "Ünnerstütten"
+    "support": "Ünnerstütten",
+    "ask": "Fraag"
   },
   "header": {
     "github": "GitHub",
     "pypi": "PyPI",
-    "menu": "Menü"
+    "menu": "Menü",
+    "skip": "Na'n Inholt springen",
+    "search": "Söken",
+    "mainNav": "Hööftnavigatschoon"
   },
   "footer": {
     "copyright": "© {year} earthobservations",
@@ -789,5 +791,110 @@
     "summary": "Tosamenfaat",
     "periods": "Tietrüüm",
     "colMissingCount": "Tahl fehlend"
+  },
+  "ask": {
+    "title": "Fraag dat Weer",
+    "lead": "De Fragen, de Lüüd an dat Weer hebbt, beantert ut amtliche Meten un Utsichten, mit dat Diagramm to'n Nakieken.",
+    "placeLabel": "Fraagt för",
+    "placeChange": "Oort ännern",
+    "placeNotFound": "Den Oort ut den Link gifft dat nich.",
+    "questionsLabel": "Fragen",
+    "q": {
+      "rain": "Regent dat morgen in {place}?",
+      "summer": "Weer de leste Sommer hier hitter as anners?",
+      "wind": "Wo windig weer dat an'n {day}?",
+      "download": "Woneem kann ik stünnlike Temperaturen daalladen?"
+    },
+    "from": {
+      "rain": "Utsicht, DWD MOSMIX",
+      "summer": "Maandmiddel, DWD",
+      "wind": "Dagwerten, DWD",
+      "download": "All Wedderdeenste"
+    },
+    "working": "De Antwoort warrt utrekent …",
+    "failed": "De Antwoort leet sik nich utreken.",
+    "showValues": "Werten wiesen",
+    "tableWhen": "Wannehr",
+    "toolsTitle": "Oder liek to de Warktüüch",
+    "toolsLead": "För all, de al weet, wat se bruukt.",
+    "rain": {
+      "yes": "Jo, dat gifft wohrschienlich Regen.",
+      "maybe": "Villicht, en beten.",
+      "no": "Eher nich.",
+      "total": "{amount} mm för den hele Dag vörutseggt.",
+      "wettest": "Natteste Stünn: {from}:00 bit {to}:00, {amount} mm.",
+      "chance": "Hööchste Regenkans in een Stünn: {chance}.",
+      "point": "Utsicht för {name}, den neegsten Utsichtspunkt to {place} ({distance} km weg).",
+      "pointNoDistance": "Utsicht för {name}, den neegsten Utsichtspunkt to {place}.",
+      "chart": "Regen per Stünn morgen, in {unit}",
+      "none": "De Utsicht för {name} recht noch nich bit morgen.",
+      "open": "Hele Utsicht opmaken"
+    },
+    "summer": {
+      "hotter": "Jo, {anomaly} °C warmer as anners.",
+      "cooler": "Nee, {anomaly} °C köhler as anners.",
+      "usual": "Nich würklich: so warm as anners.",
+      "detail": "De Sommer {year} (Juni bit August) harr in'n Middel {mean} °C, de Sommers vun {from} bit {to} in'n Middel {normal} °C.",
+      "rank": "Platz {rank} vun {count} Sommers siet {first}, vun'n warmsten an tellt.",
+      "chart": "Elk Sommer gegen dat Middel vun {from} bit {to}, in {unit}",
+      "none": "Hier gifft dat to wenig hele Sommers för en Vergliek.",
+      "open": "Maandmiddel opmaken",
+      "stripes": "Klimastrepen ankieken"
+    },
+    "wind": {
+      "calm": "Still.",
+      "breezy": "En beten windig.",
+      "windy": "Windig.",
+      "stormy": "Stormig.",
+      "mean": "Middel-Wind {speed} m/s, Beaufort {force}.",
+      "gust": "Stärkste Böö {speed} m/s, Beaufort {force}.",
+      "context": "Daag rundüm mit stärkere Bööen: {stronger} vun {around}.",
+      "chartGust": "Stärkste Böö per Dag, in {unit}",
+      "chartMean": "Middel-Wind per Dag, in {unit}",
+      "none": "För den {day} gifft dat hier keen Windmeten.",
+      "dayLabel": "Dag",
+      "open": "Disse Daag in'n Explorer opmaken"
+    },
+    "download": {
+      "answer": "Wedderdeenste mit stünnlike Lufttemperatur: {count}.",
+      "detail": "Elkeen geiht in'n Explorer op, klaar to'n Daalladen as CSV, JSON oder GeoJSON.",
+      "none": "Jüst nu nennt keen Wedderdeenst en stünnlike Lufttemperatur.",
+      "api": "Oder de REST-API bruken"
+    }
+  },
+  "palette": {
+    "title": "Söök",
+    "description": "De Piltasten bewegt, Enter maakt op, Escape maakt to.",
+    "inputLabel": "Sieden, Öörd, Fragen un Instellen söken",
+    "placeholder": "En Siet, en Oort oder en Fraag …",
+    "placeholderPlace": "Naam vun en Oort oder en Weerstation …",
+    "resultsLabel": "Resultaten",
+    "results": "Resultaten: {count}",
+    "none": "Nix funnen.",
+    "placeHint": "Tipp den Naam vun en Oort oder en Weerstation.",
+    "searchingPlaces": "Öörd warrt söcht …",
+    "placesFailed": "De Öörd leten sik nich dörsöken.",
+    "askAbout": "de Fragen dorto stellen",
+    "current": "nu",
+    "groups": {
+      "questions": "Fragen",
+      "pages": "Sieden",
+      "places": "Öörd"
+    },
+    "pages": {
+      "ask": "Fragen, beantert ut de Daten",
+      "meteogram": "De Utsicht för de neegsten Daag",
+      "stripes": "Dat Warmerwarrn vun en Oort, Johr för Johr, in bunte Strepen",
+      "explorer": "Stationen finnen, utsöken, wat du afropen wullt, un daalladen",
+      "history": "Naams, Lagen un Instrumenten vun en Station över de Tiet",
+      "providers": "De Wedderdeenste, ehr Lizenzen un wat se anbeedt",
+      "glossary": "Wat elk Meetgrött bedüüdt, un ehr Eenheit",
+      "api": "De REST-API, op de disse App löppt, mit Bispelen",
+      "settings": "Spraak, Utsehn un Eenheiten",
+      "about": "Dat Projekt un de Lüüd dorachter",
+      "support": "En Fehler mellen, en Fraag stellen oder helpen",
+      "impressum": "Wokeen disse Siet bedrifft",
+      "datenschutz": "Wat över di spiekert warrt, un worüm"
+    }
   }
 }
