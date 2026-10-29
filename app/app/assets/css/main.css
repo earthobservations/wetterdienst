@@ -1,6 +1,57 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
+/* The typeface: Instrument Sans (SIL Open Font License 1.1, public/fonts/instrument-sans-OFL.txt), a variable font of
+   weight 400 to 700 and width 75 to 100 %, cut to the Latin letters the eleven languages of the app need. Served by
+   the app itself, so no page asks a third party for it. Tabular figures (`tnum`) for the numbers that line up. */
+@font-face {
+  font-family: "Instrument Sans";
+  src: url("/fonts/instrument-sans.woff2") format("woff2");
+  font-weight: 400 700;
+  font-stretch: 75% 100%;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* The colours of the logo (GH-3518). Blue #2E6FD1 is the primary colour, and the navy #17335F of the logo is the
+   900 of its scale, so the one scale holds both. */
+@theme static {
+  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji";
+  --color-brand-50: #eff5fd;
+  --color-brand-100: #dde9fa;
+  --color-brand-200: #c0d6f5;
+  --color-brand-300: #93b8ec;
+  --color-brand-400: #5e93e0;
+  --color-brand-500: #2e6fd1;
+  --color-brand-600: #2459b3;
+  --color-brand-700: #1f4891;
+  --color-brand-800: #1c3d76;
+  --color-brand-900: #17335f;
+  --color-brand-950: #0e1f3b;
+}
+
+/* The three zones of the axis of time, each in a colour of the logo: the past in navy, the present in yellow, the
+   forecast in teal. The teal and the yellow of the logo are too light for text on white (2.6:1, 1.5:1): text in
+   them takes a darker shade of the same hue (--app-next 5.1:1, --app-now-ink 5.5:1 on white), and the yellow is a
+   fill with a navy ring. In dark mode the logo's own colours are light enough (6.9:1, 12:1 on slate-900). */
+:root {
+  --ui-radius: 0.375rem;
+  --ui-container: 76rem;
+  --app-then: #17335f;
+  --app-now: #ffc93c;
+  --app-now-ink: #8a6100;
+  --app-now-ring: #17335f;
+  --app-next: #0e7c70;
+  --app-coral: #f0543c;
+}
+.dark {
+  --app-then: #8fb3ee;
+  --app-now-ink: #ffc93c;
+  --app-now-ring: #ffc93c;
+  --app-next: #2bb3a3;
+}
+
 /* Colour contrast, WCAG 2.2 AA (4.5:1 for text). Nuxt UI's defaults miss it in three places; each is
    moved the least that clears the ratio, and the fills (--ui-primary, --ui-error) stay as they are. */
 
@@ -18,12 +69,11 @@
 }
 
 /* Text in the primary or error colour on white or on its own tint (outline, soft and link buttons,
-   badges, alerts): shade 500 is 2.2:1 on white for primary, and 3.8:1 on white and 3.3:1 on its
-   tint for error. In dark mode the colours are already light enough. Primary takes shade 700 and a
-   fifth of the way to 800, which is what a hovered soft button's 15 % tint needs to stay at 4.5:1
-   (4.7:1; shade 700 alone is 4.3:1 there). The fill of the solid buttons, --ui-primary, is not
-   touched: that is the colour of the brand (their label: see below). In the utilities layer and with no extra specificity, so
-   that the hover and active colours of a link button still win. */
+   badges, alerts). The brand blue is 4.9:1 on white, but 4.3:1 on its own 15 % tint, which a hovered soft
+   button is: primary text takes shade 700 and a fifth of the way to 800 in light mode (8.5:1 on white), as it
+   did for the green before. Error: shade 500 is 3.8:1 on white and 3.3:1 on its tint, shade 700 clears both.
+   In the utilities layer and with no extra specificity, so that the hover and active colours of a link button
+   still win. */
 @layer utilities {
   :where(:root:not(.dark)) .text-primary {
     color: color-mix(in oklab, var(--ui-color-primary-700), var(--ui-color-primary-800) 20%);
@@ -31,30 +81,20 @@
   :where(:root:not(.dark)) .text-error {
     color: var(--ui-color-error-700);
   }
-  /* A link button is text-primary and, hovered, text-primary at 75 %: the 700-800 mix above, faded
-     over the page, is 3.4:1 on white. A hovered link goes to shade 800 instead, as darker is what
-     "hovered" means for text on white (GH-2991). */
+  /* A link button is text-primary and, hovered, text-primary at 75 %, which fades it towards the page. A
+     hovered link goes to shade 800 instead, as darker is what "hovered" means for text on white (GH-2991). */
   :where(:root:not(.dark)) .hover\:text-primary\/75:hover {
     color: var(--ui-color-primary-800);
   }
 }
 
-/* The label of a solid primary button (app.config.ts). White on the brand green, #00c950, is 2.2:1,
-   and 1.9:1 hovered, when the fill is 75 % of it over the page. #0f172b (slate-900) on it is 8.0:1,
-   and 9.5:1 hovered. In dark mode the fill is the lighter #05df72 and Nuxt UI's own label is this
-   same colour, so nothing changes there: 10.0:1, and 6.1:1 hovered over the page. The fill, the
-   brand's, is not touched. */
-:root {
-  --app-text-on-primary: #0f172b;
-}
-
 /* The focus indicator of a keyboard user (WCAG 2.4.7, 1.4.11: 3:1 against what is behind it). Nuxt UI draws
-   it as a 3 px outline at 25 % of the primary colour, and a ring in the primary colour where there is one: the
-   first is 1.2:1 to 1.7:1 on white and the brand green, #00c950, 2.2:1, and some fields (the search field of a menu)
-   draw none. One solid outline for everything that takes the focus by keyboard, in shade 700 of the primary
-   colour on light (4.9:1 on white) and shade 400 on dark (10:1 on the page); the rings and outlines of the
-   components stay as they are, beside it. Not in a layer, so that it wins over the utilities of the components.
-   Not for what takes the focus without being a control (a dialog, a chart, a scroll area: tabindex -1). */
+   it as a 3 px outline at 25 % of the primary colour, and a ring in the primary colour where there is one, and
+   some fields (the search field of a menu) draw none. One solid outline for everything that takes the focus by
+   keyboard, in shade 700 of the primary colour on light (8.8:1 on white) and shade 400 on dark (5.7:1 on the
+   page); the rings and outlines of the components stay as they are, beside it. Not in a layer, so that it wins
+   over the utilities of the components. Not for what takes the focus without being a control (a dialog, a
+   chart, a scroll area: tabindex -1). */
 :root {
   --app-focus-ring: var(--ui-color-primary-700);
 }
@@ -70,6 +110,801 @@
 .leaflet-container :focus-visible:not([tabindex="-1"]) {
   outline-color: var(--ui-color-primary-700);
 }
+
+/* ------------------------------------------------------------------------------------------------------------
+   Type and page
+   ------------------------------------------------------------------------------------------------------------ */
+
+html {
+  /* the bar at the top stays put: what the focus or an anchor moves to is not left under it (WCAG 2.4.11) */
+  scroll-padding-top: 5rem;
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  background: var(--ui-bg);
+  font-kerning: normal;
+  text-rendering: optimizeLegibility;
+}
+h1,
+h2,
+h3 {
+  letter-spacing: -0.012em;
+}
+.tabular-nums,
+table,
+time {
+  font-variant-numeric: tabular-nums;
+}
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -10rem;
+  z-index: 100;
+  padding: 0.5rem 0.875rem;
+  border-radius: calc(var(--ui-radius) * 2);
+  background: var(--ui-bg);
+  color: var(--ui-text-highlighted);
+  font-weight: 600;
+  box-shadow: 0 0 0 1px var(--ui-border-accented);
+}
+.skip-link:focus {
+  top: 0.75rem;
+}
+
+/* one container for the frame and the pages: the same gutters at every width (as UContainer has them) */
+.app-container {
+  width: 100%;
+  max-width: var(--ui-container);
+  margin-inline: auto;
+  padding-inline: 1rem;
+}
+@media (min-width: 640px) {
+  .app-container {
+    padding-inline: 1.5rem;
+  }
+}
+@media (min-width: 1024px) {
+  .app-container {
+    padding-inline: 2rem;
+  }
+}
+
+.app-main {
+  min-height: calc(100dvh - 12rem);
+}
+.app-main:focus {
+  outline: none;
+}
+
+/* the pages: a reading width for text, the full width of the frame for the maps and charts */
+.app-page {
+  padding-block: 1.75rem 3.5rem;
+}
+.app-page--narrow {
+  max-width: 52rem;
+}
+.app-page--wide {
+  max-width: var(--ui-container);
+}
+
+/* ------------------------------------------------------------------------------------------------------------
+   The bar at the top
+   ------------------------------------------------------------------------------------------------------------ */
+
+.app-bar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: var(--ui-bg);
+  border-bottom: 1px solid var(--ui-border);
+}
+.app-bar__inner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 3.5rem;
+  padding-block: 0.5rem;
+}
+@media (min-width: 640px) {
+  .app-bar__inner {
+    gap: 1rem;
+  }
+}
+.app-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  border-radius: calc(var(--ui-radius) * 2);
+  color: var(--ui-text-highlighted);
+  font-weight: 700;
+  font-size: 1.0625rem;
+  letter-spacing: -0.015em;
+}
+.app-brand__logo {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+.app-brand__name {
+  display: none;
+}
+@media (min-width: 640px) {
+  .app-brand__name {
+    display: inline;
+  }
+}
+
+/* the way into the command palette: a field to look at, a button to the keyboard and the screen reader */
+.search-trigger {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 26rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.5rem;
+  padding: 0.375rem 0.5rem 0.375rem 0.875rem;
+  border: 1px solid var(--ui-border-accented);
+  border-radius: 999px;
+  background: var(--ui-bg-muted);
+  color: var(--ui-text-muted);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.search-trigger:hover {
+  border-color: var(--ui-color-primary-500);
+  background: var(--ui-bg);
+}
+.search-trigger__icon {
+  flex-shrink: 0;
+  width: 1.125rem;
+  height: 1.125rem;
+  color: var(--ui-text-toned);
+}
+.search-trigger__label {
+  color: var(--ui-text-highlighted);
+  font-weight: 600;
+}
+.search-trigger__hint {
+  display: none;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.search-trigger__kbd {
+  display: none;
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 0.0625rem 0.4375rem;
+  border: 1px solid var(--ui-border-accented);
+  border-radius: 0.375rem;
+  background: var(--ui-bg);
+  color: var(--ui-text-muted);
+  font: 600 0.75rem / 1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (min-width: 768px) {
+  .search-trigger__hint {
+    display: inline;
+  }
+  .search-trigger__kbd {
+    display: inline-block;
+  }
+}
+
+.app-ref-nav,
+.app-bar__tools {
+  display: none;
+}
+@media (min-width: 1024px) {
+  .app-ref-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+    margin-left: auto;
+  }
+  .app-bar__tools {
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+  }
+}
+.app-ref-nav__link {
+  padding: 0.375rem 0.625rem;
+  border-radius: calc(var(--ui-radius) * 2);
+  color: var(--ui-text-toned);
+  font-weight: 550;
+  font-size: 0.9375rem;
+}
+.app-ref-nav__link:hover {
+  color: var(--ui-text-highlighted);
+  background: var(--ui-bg-elevated);
+}
+.app-ref-nav__link[aria-current="page"] {
+  color: var(--ui-text-highlighted);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.4em;
+  text-decoration-color: var(--ui-color-primary-500);
+}
+
+/* ------------------------------------------------------------------------------------------------------------
+   The axis of time: the navigation
+   ------------------------------------------------------------------------------------------------------------ */
+
+.time-rail {
+  background: var(--ui-bg);
+  border-bottom: 1px solid var(--ui-border);
+  /* the stretch of the axis each stop takes: the past is long, the present a moment, the forecast ten days */
+  --rail-cols: repeat(5, max-content);
+}
+@media (min-width: 1024px) {
+  .time-rail {
+    --rail-cols: 2.6fr 2.1fr 2.5fr 1.7fr 2.4fr;
+  }
+}
+.time-rail__scroll {
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding: 0.5rem 0.25rem 0.25rem;
+  margin-inline: -0.25rem;
+}
+/* narrower than the axis (a phone, a window zoomed in): the rail scrolls sideways, and its edges fade to say so */
+@media (max-width: 1023px) {
+  .time-rail__scroll {
+    mask-image: linear-gradient(to right, transparent, #000 1rem, #000 calc(100% - 1.5rem), transparent);
+  }
+  .time-rail__stops,
+  .time-rail__zones {
+    padding-inline-end: 1.5rem;
+  }
+}
+.time-rail__zones,
+.time-rail__stops {
+  display: grid;
+  grid-template-columns: var(--rail-cols);
+  column-gap: 0.25rem;
+}
+.time-rail__zones {
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding-inline: 0.5rem;
+}
+.time-rail__zone {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.time-rail__zone--then {
+  grid-column: 1 / span 3;
+  color: var(--app-then);
+}
+.time-rail__zone--now {
+  grid-column: 4;
+  color: var(--app-now-ink);
+}
+.time-rail__zone--next {
+  grid-column: 5;
+  color: var(--app-next);
+}
+.time-rail__stop {
+  position: relative;
+  min-width: 0;
+  padding-bottom: 0.875rem;
+}
+.time-rail__link {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  height: 100%;
+  padding: 0.375rem 0.5rem;
+  border-radius: calc(var(--ui-radius) * 2);
+  color: var(--ui-text-toned);
+}
+.time-rail__link:focus-visible {
+  outline-offset: -2px;
+}
+.time-rail__link:hover {
+  background: var(--ui-bg-elevated);
+  color: var(--ui-text-highlighted);
+}
+.time-rail__icon {
+  flex-shrink: 0;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin-top: 0.125rem;
+}
+.time-rail__text {
+  min-width: 0;
+}
+.time-rail__label {
+  display: block;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.time-rail__span {
+  display: none;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  color: var(--ui-text-muted);
+}
+@media (min-width: 1024px) {
+  .time-rail__span {
+    display: block;
+  }
+}
+@media (max-width: 639px) {
+  /* a phone: the stops in the narrower cut of the typeface, so that more of the axis is in view */
+  .time-rail__label {
+    font-stretch: 88%;
+  }
+}
+.time-rail__stop.is-active .time-rail__link {
+  color: var(--ui-text-highlighted);
+}
+.time-rail__stop--then.is-active .time-rail__icon {
+  color: var(--app-then);
+}
+.time-rail__stop--now.is-active .time-rail__icon {
+  color: var(--app-now-ink);
+}
+.time-rail__stop--next.is-active .time-rail__icon {
+  color: var(--app-next);
+}
+
+/* the track: one line through all the stops, in the colour of each zone, drawn solid under the open page */
+.time-rail__track {
+  position: absolute;
+  left: 0;
+  right: -0.25rem;
+  bottom: 0.3125rem;
+  height: 2px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--zone-colour) 40%, transparent);
+}
+.time-rail__stop:last-child .time-rail__track {
+  right: 0;
+}
+.time-rail__stop--then {
+  --zone-colour: var(--app-then);
+}
+.time-rail__stop--next {
+  --zone-colour: var(--app-next);
+}
+.time-rail__stop--now {
+  --zone-colour: var(--app-then);
+}
+.time-rail__stop--now .time-rail__track {
+  background: linear-gradient(to right, color-mix(in oklab, var(--app-then) 40%, transparent) 50%, color-mix(in oklab, var(--app-next) 40%, transparent) 50%);
+}
+/* the present: a yellow point in a navy ring, always there */
+.time-rail__stop--now .time-rail__track::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 999px;
+  background: var(--app-now);
+  box-shadow: 0 0 0 2px var(--app-now-ring);
+  transform: translate(-50%, -50%);
+}
+.time-rail__stop.is-active .time-rail__track {
+  height: 4px;
+  bottom: 0.25rem;
+  background: var(--zone-colour);
+}
+.time-rail__stop--now.is-active .time-rail__track {
+  background: linear-gradient(to right, var(--app-then) 50%, var(--app-next) 50%);
+}
+.time-rail__stop--now.is-active .time-rail__track::after {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* ------------------------------------------------------------------------------------------------------------
+   The page header: where on the axis the page sits
+   ------------------------------------------------------------------------------------------------------------ */
+
+.page-head {
+  padding-bottom: 0.25rem;
+}
+.page-head--then {
+  --zone-ink: var(--app-then);
+  --zone-fill: var(--app-then);
+  --zone-ring: var(--app-then);
+}
+.page-head--now {
+  --zone-ink: var(--app-now-ink);
+  --zone-fill: var(--app-now);
+  --zone-ring: var(--app-now-ring);
+}
+.page-head--next {
+  --zone-ink: var(--app-next);
+  --zone-fill: var(--app-next);
+  --zone-ring: var(--app-next);
+}
+.page-head--reference {
+  --zone-ink: var(--ui-text-muted);
+  --zone-fill: transparent;
+  --zone-ring: var(--ui-text-muted);
+}
+.page-head__where {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+  font-size: 0.875rem;
+}
+.page-head__zone {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4375rem;
+  color: var(--zone-ink);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.page-head__dot {
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 999px;
+  background: var(--zone-fill);
+  box-shadow: 0 0 0 2px var(--zone-ring);
+}
+.page-head__span {
+  color: var(--ui-text-muted);
+  font-weight: 500;
+}
+.page-head__title {
+  margin-top: 0.5rem;
+  color: var(--ui-text-highlighted);
+  font-size: clamp(1.75rem, 1.35rem + 1.6vw, 2.5rem);
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.022em;
+  overflow-wrap: anywhere;
+}
+.page-head__subtitle {
+  margin-top: 0.625rem;
+  max-width: 62ch;
+  color: var(--ui-text-muted);
+  font-size: 1.0625rem;
+}
+.page-head__axis {
+  position: relative;
+  height: 0.375rem;
+  margin-top: 1.25rem;
+}
+.page-head__axis > span {
+  position: absolute;
+  top: 0;
+  height: 100%;
+}
+.page-head__axis-then {
+  left: 0;
+  border-radius: 999px 0 0 999px;
+  background: color-mix(in oklab, var(--app-then) 16%, transparent);
+}
+.page-head__axis-next {
+  border-radius: 0 999px 999px 0;
+  background: color-mix(in oklab, var(--app-next) 20%, transparent);
+}
+.page-head__axis-span {
+  border-radius: 999px;
+  background: var(--zone-fill);
+}
+.page-head__axis .page-head__axis-now {
+  top: 50%;
+  width: 0.875rem;
+  height: 0.875rem;
+  border-radius: 999px;
+  background: var(--app-now);
+  box-shadow: 0 0 0 2px var(--app-now-ring);
+  transform: translate(-50%, -50%);
+}
+
+/* ------------------------------------------------------------------------------------------------------------
+   The menu of the narrow layout
+   ------------------------------------------------------------------------------------------------------------ */
+
+.menu-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 0.75rem;
+}
+.menu-nav__heading {
+  padding: 0.75rem 1rem 0.25rem;
+  color: var(--ui-text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.menu-nav__axis {
+  position: relative;
+  margin-left: 0.25rem;
+  border-left: 2px solid var(--ui-border-accented);
+}
+.menu-nav__stop {
+  position: relative;
+}
+.menu-nav__stop::before {
+  content: "";
+  position: absolute;
+  left: -0.4375rem;
+  top: 50%;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 999px;
+  background: var(--ui-bg);
+  box-shadow: 0 0 0 2px var(--zone-colour, var(--app-then));
+  transform: translateY(-50%);
+}
+.menu-nav__stop--then {
+  --zone-colour: var(--app-then);
+}
+.menu-nav__stop--next {
+  --zone-colour: var(--app-next);
+}
+.menu-nav__stop--now::before {
+  background: var(--app-now);
+  box-shadow: 0 0 0 2px var(--app-now-ring);
+}
+.menu-nav__link {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-left: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  color: var(--ui-text);
+  font-size: 1rem;
+  font-weight: 550;
+}
+.menu-nav__link:hover {
+  background: var(--ui-bg-elevated);
+}
+.menu-nav__link.is-active {
+  background: var(--ui-bg-elevated);
+  color: var(--ui-text-highlighted);
+  font-weight: 700;
+}
+.menu-nav__zone {
+  display: block;
+  color: var(--ui-text-muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+.menu-nav__ref .menu-nav__link {
+  margin-left: 0;
+}
+
+/* ------------------------------------------------------------------------------------------------------------
+   The footer
+   ------------------------------------------------------------------------------------------------------------ */
+
+.app-footer {
+  border-top: 1px solid var(--ui-border);
+  background: var(--ui-bg-muted);
+  color: var(--ui-text-muted);
+  font-size: 0.875rem;
+}
+.app-footer__inner {
+  display: grid;
+  gap: 1.5rem;
+  padding-block: 2rem 2.5rem;
+}
+@media (min-width: 768px) {
+  .app-footer__inner {
+    grid-template-columns: 2fr 1.3fr 1.2fr;
+  }
+}
+.app-footer__brand {
+  display: grid;
+  gap: 0.5rem;
+  align-content: start;
+}
+.app-footer__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--ui-text-highlighted);
+  font-size: 1rem;
+  font-weight: 700;
+}
+.app-footer__links {
+  display: grid;
+  gap: 0.375rem;
+  align-content: start;
+}
+.app-footer__link {
+  color: var(--ui-text-toned);
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 0.25em;
+}
+.app-footer__link:hover {
+  color: var(--ui-text-highlighted);
+  text-decoration-color: currentColor;
+}
+.app-footer__meta {
+  display: grid;
+  gap: 0.375rem;
+  align-content: start;
+}
+
+/* ------------------------------------------------------------------------------------------------------------
+   The command palette
+   ------------------------------------------------------------------------------------------------------------ */
+
+.palette {
+  display: flex;
+  flex-direction: column;
+  max-height: inherit;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-padding-top: 4.25rem;
+  scroll-padding-bottom: 2.75rem;
+}
+.palette__field {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.625rem 0.625rem 1rem;
+  background: var(--ui-bg);
+  border-bottom: 1px solid var(--ui-border);
+}
+.palette__field-icon {
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--ui-text-muted);
+}
+.palette__input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.375rem 0.25rem;
+  border: 0;
+  border-radius: 0.375rem;
+  background: transparent;
+  color: var(--ui-text-highlighted);
+  font-size: 1.0625rem;
+}
+.palette__input::placeholder {
+  color: var(--ui-text-dimmed);
+}
+.palette__list {
+  padding: 0.25rem 0.5rem 0.5rem;
+}
+.palette__group-label {
+  padding: 0.75rem 0.625rem 0.25rem;
+  color: var(--ui-text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.palette__option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.5rem 0.625rem;
+  border-left: 3px solid transparent;
+  border-radius: 0.5rem;
+  color: var(--ui-text);
+  cursor: pointer;
+}
+.palette__option.is-active {
+  border-left-color: var(--ui-color-primary-500);
+  background: var(--ui-bg-elevated);
+}
+.palette__option-icon {
+  flex-shrink: 0;
+  width: 1.125rem;
+  height: 1.125rem;
+  color: var(--ui-text-muted);
+}
+.palette__option-text {
+  flex: 1;
+  min-width: 0;
+}
+.palette__option-label {
+  display: block;
+  overflow: hidden;
+  color: var(--ui-text-highlighted);
+  font-weight: 550;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.palette__option-description {
+  display: block;
+  overflow: hidden;
+  color: var(--ui-text-muted);
+  font-size: 0.8125rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.palette__zone {
+  flex-shrink: 0;
+  padding: 0 0.4375rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+.palette__zone--then {
+  color: var(--app-then);
+}
+.palette__zone--now {
+  color: var(--app-now-ink);
+}
+.palette__zone--next {
+  color: var(--app-next);
+}
+.palette__check {
+  flex-shrink: 0;
+  width: 1.125rem;
+  height: 1.125rem;
+  color: var(--ui-text-highlighted);
+}
+.palette__empty,
+.palette__hint {
+  padding: 0.75rem 1rem 1rem;
+  color: var(--ui-text-muted);
+  font-size: 0.875rem;
+}
+.palette__empty {
+  padding-block: 2rem;
+  text-align: center;
+}
+.palette__keys {
+  position: sticky;
+  bottom: 0;
+  display: none;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  margin-top: auto;
+  padding: 0.5rem 1rem;
+  border-top: 1px solid var(--ui-border);
+  background: var(--ui-bg-muted);
+  color: var(--ui-text-muted);
+  font-size: 0.75rem;
+}
+@media (min-width: 640px) {
+  .palette__keys {
+    display: flex;
+  }
+}
+.palette__keys kbd {
+  display: inline-block;
+  min-width: 1.25rem;
+  margin-right: 0.125rem;
+  padding: 0 0.25rem;
+  border: 1px solid var(--ui-border-accented);
+  border-radius: 0.3125rem;
+  background: var(--ui-bg);
+  font: 600 0.6875rem / 1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-align: center;
+}
+
+/* ------------------------------------------------------------------------------------------------------------
+   The charts
+   ------------------------------------------------------------------------------------------------------------ */
 
 /* Undo Tailwind v4 preflight that breaks Plotly's stacked SVG layout.
    Plotly layers multiple <svg class="main-svg"> that must overlap;
@@ -110,6 +945,22 @@
   .needs-input {
     animation: needs-input-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
+  .time-rail__link,
+  .search-trigger,
+  .app-ref-nav__link,
+  .menu-nav__link,
+  .home-door {
+    transition:
+      background-color 0.15s ease,
+      color 0.15s ease,
+      border-color 0.15s ease,
+      transform 0.15s ease;
+  }
+  .time-rail__track {
+    transition:
+      height 0.2s ease,
+      background-color 0.2s ease;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .needs-input {
@@ -125,5 +976,84 @@
   }
   100% {
     box-shadow: 0 0 0 0 color-mix(in oklab, var(--ui-primary) 0%, transparent);
+  }
+}
+
+/* ------------------------------------------------------------------------------------------------------------
+   Forced colours (Windows contrast themes) and print
+   ------------------------------------------------------------------------------------------------------------ */
+
+@media (forced-colors: active) {
+  /* An icon is a mask over a background in the colour of its text (@nuxt/icon), and forced colours replace every
+     background with the page's: the icons, the only label of the icon buttons that a sighted reader has, vanished.
+     They keep their own background, which is the colour of their text, and that is forced. */
+  .iconify {
+    forced-color-adjust: none;
+  }
+  .time-rail__track,
+  .page-head__axis > span,
+  .page-head__dot,
+  .menu-nav__stop::before {
+    forced-color-adjust: none;
+    background: CanvasText;
+    box-shadow: none;
+  }
+  .time-rail__stop.is-active .time-rail__track,
+  .page-head__axis-span {
+    background: Highlight;
+  }
+  .time-rail__stop--now .time-rail__track::after,
+  .page-head__axis .page-head__axis-now {
+    forced-color-adjust: none;
+    background: Canvas;
+    box-shadow: 0 0 0 3px CanvasText;
+  }
+  .page-head__axis-then,
+  .page-head__axis-next {
+    opacity: 0.4;
+  }
+  .time-rail__stop.is-active .time-rail__link,
+  .app-ref-nav__link[aria-current="page"],
+  .menu-nav__link.is-active {
+    outline: 2px solid CanvasText;
+    outline-offset: -2px;
+  }
+  .palette__option.is-active {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+  .search-trigger,
+  .search-trigger__kbd {
+    border-color: ButtonText;
+  }
+}
+
+@media print {
+  .skip-link,
+  .app-bar,
+  .time-rail,
+  .app-footer,
+  .needs-input {
+    animation: none !important;
+  }
+  .skip-link,
+  .app-bar,
+  .time-rail,
+  .app-footer {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+    color: #000;
+  }
+  .page-head__axis,
+  .page-head__dot,
+  .page-head__axis > span {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .app-page {
+    max-width: none;
+    padding-block: 0;
   }
 }

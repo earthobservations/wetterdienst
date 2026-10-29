@@ -14,12 +14,11 @@
     "requestFailed": "Żądanie nie powiodło się",
     "backendError": "Błąd backendu {status}",
     "backendErrorDetail": "Błąd backendu {status}: {detail}",
-    "chartTableHint": "Wartości są w tabeli pod wykresem."
+    "chartTableHint": "Wartości są w tabeli pod wykresem.",
+    "skipToContent": "Przejdź do treści"
   },
   "home": {
     "tagline": "Otwarte dane pogodowe dla ludzi",
-    "intro": "Wybierz po prostu, co chcesz zobaczyć.",
-    "tasksTitle": "Co chcesz zrobić?",
     "forecastTitle": "Prognoza pogody",
     "forecastDesc": "Zobacz kilkudniową prognozę dla swojej okolicy.",
     "stripesTitle": "Paski ocieplenia",
@@ -60,7 +59,10 @@
     "kindAlertsDesc": "Oficjalne ostrzeżenia DWD przed burzą, upałem, mrozem i powodzią, według powiatów.",
     "kindRoadTitle": "Pogoda drogowa",
     "kindRoadDesc": "Stan i temperatura nawierzchni ze stacji drogowych DWD wraz z ich prognozami.",
-    "aboutLink": "O projekcie i ludziach za nim"
+    "aboutLink": "O projekcie i ludziach za nim",
+    "axisTitle": "Dokąd w czasie chcesz się udać?",
+    "axisIntro": "Wszystko tutaj leży na jednej osi czasu: przeszłość jest zmierzona, przyszłość prognozowana.",
+    "historyDesc": "Jak stacja zmieniała położenie, nazwę i przyrządy."
   },
   "seo": {
     "title": "Wetterdienst – otwarte dane pogodowe i klimatyczne krajowych służb meteorologicznych",
@@ -789,5 +791,63 @@
     "summary": "Podsumowanie",
     "periods": "Okresy",
     "colMissingCount": "Liczba braków"
+  },
+  "axis": {
+    "label": "Oś czasu",
+    "then": "Wcześniej",
+    "now": "Teraz",
+    "next": "Wkrótce",
+    "reference": "Informacje",
+    "spanStripes": "Każdy zapisany rok, do {year}",
+    "spanHistory": "Całe życie stacji",
+    "spanExplorer": "Od pomiarów co dziesięć minut po stulecie zapisów",
+    "spanNow": "Dziś, {date}",
+    "spanForecast": "Od teraz do {date}",
+    "spanReference": "Poza osią czasu: czym są dane i skąd pochodzą",
+    "nowHint": "Jesteś tutaj: pomiary za tobą, prognoza przed tobą."
+  },
+  "palette": {
+    "open": "Szukaj",
+    "openHint": "strony, stacje, czas",
+    "title": "Szukaj i przejdź",
+    "description": "Pisz, aby filtrować. Strzałki przechodzą między wynikami, Enter otwiera wynik, Escape zamyka.",
+    "placeholder": "Szukaj stron, stacji lub czasu …",
+    "results": "Wyniki: {count}",
+    "empty": "Nic nie znaleziono.",
+    "groupPages": "Strony aplikacji",
+    "groupTime": "Wzdłuż osi czasu",
+    "groupForecastStations": "Prognoza dla stacji",
+    "groupStripesStations": "Paski klimatyczne stacji",
+    "stationsLoading": "Szukanie stacji …",
+    "stationsHint": "Wpisz co najmniej dwie litery, aby znaleźć też stację.",
+    "themeOption": "Wygląd: {mode}",
+    "languageOption": "Język: {language}",
+    "inUse": "wybrane",
+    "keyMove": "przejście",
+    "keyOpen": "otwórz",
+    "keyClose": "zamknij",
+    "time": {
+      "next24h": "Najbliższe 24 godziny",
+      "next3d": "Najbliższe 3 dni",
+      "next7d": "Najbliższe 7 dni",
+      "next10d": "Najbliższe 10 dni",
+      "last30y": "Ostatnie 30 lat",
+      "allYears": "Wszystkie zapisane lata"
+    },
+    "pages": {
+      "now": "Gdzie co leży na osi czasu",
+      "forecast": "Najbliższe dziesięć dni na stacji, jako meteogram",
+      "stripes": "Zapisane lata stacji jako kolorowe paski",
+      "history": "Jak zmieniały się nazwa, miejsce i przyrządy stacji",
+      "explorer": "Pomiary ze wszystkich źródeł jako tabela, wykres lub plik",
+      "providers": "Kto publikuje dane i na jakiej licencji",
+      "glossary": "Co oznacza każdy parametr i jego jednostka",
+      "api": "REST API i serwer MCP",
+      "settings": "Język, wygląd i jednostki",
+      "about": "Projekt i ludzie, którzy za nim stoją",
+      "support": "Zgłoś problem, współtwórz lub wesprzyj",
+      "impressum": "Kto prowadzi tę stronę",
+      "datenschutz": "Co jest o tobie zapisywane i dlaczego"
+    }
   }
 }

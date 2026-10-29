@@ -34,7 +34,7 @@ describe('german (de) locale rendering', () => {
   it('renders the home page in German', async () => {
     const wrapper = await mountSuspended(IndexPage)
     expect(wrapper.text()).toContain('Offene Wetterdaten für Menschen')
-    expect(wrapper.text()).toContain('Was möchtest du tun?')
+    expect(wrapper.text()).toContain('Wohin in der Zeit willst du?')
   })
 
   it('renders the API page in German', async () => {

@@ -334,6 +334,33 @@ const STATES: State[] = [
     },
   },
   {
+    // the command palette (GH-3518), opened by its button in the header, as it first shows
+    page: 'index',
+    state: 'command-palette-open',
+    keepFocus: true,
+    path: '/',
+    reach: async (page, locale) => {
+      await page.getByTestId('search-trigger').click()
+      await expect(page.getByRole('combobox', { name: message(locale, 'palette.title') })).toBeFocused()
+      await expect(page.getByRole('listbox').getByRole('option').first()).toBeVisible()
+    },
+  },
+  {
+    // and with a query that finds stations, of the forecast and of the climate stripes, opened by the shortcut
+    page: 'meteogram',
+    state: 'command-palette-stations',
+    keepFocus: true,
+    path: '/meteogram',
+    reach: async (page, locale) => {
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+      await page.keyboard.press('Control+k')
+      const field = page.getByRole('combobox', { name: message(locale, 'palette.title') })
+      await expect(field).toBeFocused()
+      await field.fill('al')
+      await expect(page.getByRole('group', { name: message(locale, 'palette.groupStripesStations') })).toBeVisible()
+    },
+  },
+  {
     page: 'index',
     state: 'mobile-menu-open',
     keepFocus: true,

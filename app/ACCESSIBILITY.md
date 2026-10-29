@@ -12,7 +12,7 @@ it, what was checked by hand, and what is known not to conform.
 - every page, as it is first shown, in light and dark mode and in English and German,
 - and, in light/English and dark/German, the states a first paint does not show: a station map with
   stations, a drawn chart (explorer, stripes, meteogram, widget), the table of the stripes' and the meteogram's values opened, the meteogram's compact day cards, an open
-  menu or popover, and an error notice.
+  menu or popover, the command palette (open, and with a query that finds stations), and an error notice.
 
 The spec answers every `/api/*` request itself, in the browser (`tests/e2e/accessibility/mock-backend.ts`),
 so it reaches neither the backend nor a provider. Map tiles and every other request to another host are
@@ -61,21 +61,25 @@ What is left in it, and why it is not fixed in the app's own markup:
 - `aria-hidden-focus`, the error toast: the two focus proxies in Reka UI's toast viewport are
   `aria-hidden` and focusable. Also upstream.
 
-There is no `color-contrast` entry left. The brand green, `#00c950`, stays the fill of a solid primary
-button; its label is `#0f172b` (`--app-text-on-primary` in `app/assets/css/main.css`, set for the
-button in `app/app.config.ts`), 8.0:1 on the fill and 9.5:1 hovered in light mode, where the white
-label it replaces was 2.2:1 and 1.9:1. Dark mode has the same label on its lighter fill, as Nuxt UI
-already had it (10.0:1, and 6.1:1 hovered). A disabled button is exempt from 1.4.3 and from the scans; its
-label is at 75 % opacity with its fill (4.2:1 in light mode). Text in the primary colour on white is
-shade 700 and a fifth of the way to 800 (`.text-primary`), a hovered link button shade 800 (7.1:1; Nuxt UI's
-75 % of the first was 3.4:1), and a hovered chip of the home page shade 700 (4.9:1; shade 500 was 2.2:1).
-`tests/unit/button-contrast.test.ts` computes the hovered ratio of a solid button, as 75 % of the fill over
-the page; the hover scan measures the rest.
+There is no `color-contrast` entry left. The primary colour is the blue of the logo, `#2E6FD1` (GH-3518, the
+`brand` scale in `app/assets/css/main.css`, whose shade 900 is the logo's navy). A solid primary button keeps
+Nuxt UI's label, white on the blue in light mode (4.9:1) and slate-900 on its lighter dark-mode shade (5.7:1).
+Nuxt UI fades the fill to 75 % when it is hovered, which would take the white label to 3.1:1, so the hovered
+and pressed fill is one shade darker in light mode (6.7:1) and one lighter in dark mode (8.8:1), set for the
+button in `app/app.config.ts`. A disabled button is exempt from 1.4.3 and from the scans. Text in the primary
+colour on white is shade 700 and a fifth of the way to 800 (`.text-primary`, 8.5:1), and a hovered link button
+shade 800. `tests/unit/button-contrast.test.ts` computes the ratios of the solid button at rest and hovered; the
+hover scan measures the rest.
+
+The three zones of the axis of time are in colours of the logo too: the past in its navy (12.5:1 on white), the
+present in its yellow, which is too light for text and is a fill with a navy ring (the text of the zone is
+`#8A6100`, 5.5:1), and the forecast in a darker shade of its teal for text (`#0E7C70`, 5.1:1 on white; the
+teal of the logo is 2.6:1). In dark mode the logo's own colours are light enough (6.9:1 to 12:1 on the page).
 
 The focus indicator is one solid 2 px outline for everything a keyboard reaches (`--app-focus-ring` in
-`main.css`: shade 700 of the primary colour on light, 4.9:1 on white, shade 400 on dark, 10:1; the map takes
-the light one in both modes). Nuxt UI's own is an outline at 25 % of the primary colour (1.2:1 to 1.7:1 on
-white) and a ring in the primary colour (2.2:1), and its menu search fields draw none; they stay, beside it.
+`main.css`: shade 700 of the primary colour on light, 8.8:1 on white, shade 400 on dark, 5.7:1; the map takes
+the light one in both modes). Nuxt UI's own is an outline at 25 % of the primary colour and a ring in the primary
+colour, and its menu search fields draw none; they stay, beside it.
 
 There is no sepia mode. `main.css` once held a `html.sepia` block that redefined the `--ui-*` tokens, which
 nothing in the app ever set (`colorMode` knows `light`, `dark` and `system`, and the settings offer those

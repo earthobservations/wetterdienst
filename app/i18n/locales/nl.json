@@ -14,12 +14,11 @@
     "requestFailed": "Aanvraag mislukt",
     "backendError": "Backendfout {status}",
     "backendErrorDetail": "Backendfout {status}: {detail}",
-    "chartTableHint": "De waarden staan in de tabel onder de grafiek."
+    "chartTableHint": "De waarden staan in de tabel onder de grafiek.",
+    "skipToContent": "Naar de inhoud"
   },
   "home": {
     "tagline": "Open weerdata voor mensen",
-    "intro": "Kies gewoon wat je wilt zien.",
-    "tasksTitle": "Wat wil je doen?",
     "forecastTitle": "Weersverwachting",
     "forecastDesc": "Bekijk een meerdaagse verwachting voor jouw omgeving.",
     "stripesTitle": "Opwarmingsstrepen",
@@ -60,7 +59,10 @@
     "kindAlertsDesc": "Officiële DWD-waarschuwingen voor storm, hitte, vorst en hoogwater, per district.",
     "kindRoadTitle": "Wegweer",
     "kindRoadDesc": "Wegdekcondities en -temperaturen van de DWD-wegweerstations, met hun verwachtingen.",
-    "aboutLink": "Over het project en de mensen erachter"
+    "aboutLink": "Over het project en de mensen erachter",
+    "axisTitle": "Waarheen wil je in de tijd?",
+    "axisIntro": "Alles hier ligt op één tijdas: het verleden is gemeten, de toekomst voorspeld.",
+    "historyDesc": "Hoe een station verhuisde, een nieuwe naam kreeg en van instrumenten wisselde."
   },
   "seo": {
     "title": "Wetterdienst – open weer- en klimaatdata van nationale weerdiensten",
@@ -789,5 +791,63 @@
     "summary": "Samenvatting",
     "periods": "Perioden",
     "colMissingCount": "Aantal ontbrekend"
+  },
+  "axis": {
+    "label": "Tijdas",
+    "then": "Toen",
+    "now": "Nu",
+    "next": "Straks",
+    "reference": "Naslag",
+    "spanStripes": "Elk geregistreerd jaar, tot en met {year}",
+    "spanHistory": "Het hele leven van een station",
+    "spanExplorer": "Van tienminutenwaarden tot een eeuw aan metingen",
+    "spanNow": "Vandaag, {date}",
+    "spanForecast": "Van nu tot {date}",
+    "spanReference": "Naast de tijdas: wat de gegevens zijn en waar ze vandaan komen",
+    "nowHint": "Je bent hier: de metingen liggen achter je, de verwachting voor je."
+  },
+  "palette": {
+    "open": "Zoeken",
+    "openHint": "pagina's, stations, tijd",
+    "title": "Zoeken en springen",
+    "description": "Typ om te filteren. De pijltjestoetsen lopen door de resultaten, Enter opent er een, Escape sluit.",
+    "placeholder": "Zoek pagina's, stations of een tijd …",
+    "results": "Resultaten: {count}",
+    "empty": "Niets gevonden.",
+    "groupPages": "Pagina's van de app",
+    "groupTime": "Langs de tijdas",
+    "groupForecastStations": "Verwachting bij een station",
+    "groupStripesStations": "Klimaatstrepen van een station",
+    "stationsLoading": "Stations worden gezocht …",
+    "stationsHint": "Typ twee letters of meer om ook een station te vinden.",
+    "themeOption": "Weergave: {mode}",
+    "languageOption": "Taal: {language}",
+    "inUse": "geselecteerd",
+    "keyMove": "verplaatsen",
+    "keyOpen": "openen",
+    "keyClose": "sluiten",
+    "time": {
+      "next24h": "Komende 24 uur",
+      "next3d": "Komende 3 dagen",
+      "next7d": "Komende 7 dagen",
+      "next10d": "Komende 10 dagen",
+      "last30y": "Afgelopen 30 jaar",
+      "allYears": "Alle geregistreerde jaren"
+    },
+    "pages": {
+      "now": "Waar alles op de tijdas ligt",
+      "forecast": "De komende tien dagen bij een station, als meteogram",
+      "stripes": "De geregistreerde jaren van een station als gekleurde strepen",
+      "history": "Hoe naam, plaats en instrumenten van een station veranderden",
+      "explorer": "Metingen van elke bron, als tabel, grafiek of bestand",
+      "providers": "Wie de gegevens publiceert, en onder welke licentie",
+      "glossary": "Wat elke parameter betekent, en zijn eenheid",
+      "api": "De REST-API en de MCP-server",
+      "settings": "Taal, weergave en eenheden",
+      "about": "Het project en de mensen erachter",
+      "support": "Een probleem melden, bijdragen of doneren",
+      "impressum": "Wie deze site beheert",
+      "datenschutz": "Wat er over je wordt bewaard, en waarom"
+    }
   }
 }
