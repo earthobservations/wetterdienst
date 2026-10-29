@@ -668,12 +668,13 @@ def test_wsv_values_tell_of_a_series_that_pegelonline_says_does_not_exist(monkey
     assert letting_go == []
 
 
-def test_a_request_without_a_window_for_a_dataset_that_needs_one_is_not_told_of(
+def test_a_request_without_a_window_for_a_dataset_that_needs_one_is_refused_and_not_told_of(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Python lets a request without a window through, and a provider answers nothing: nothing of the source."""
+    """Python refuses a request without a window (GH-3562): it never asks the source, so it says nothing of it."""
     _aemet_serving(monkeypatch, lambda url: _refused(url, 400))
     from wetterdienst import Settings  # noqa: PLC0415
+    from wetterdienst.exceptions import DateRequiredError  # noqa: PLC0415
     from wetterdienst.provider.aemet.observation import AemetObservationRequest  # noqa: PLC0415
 
     request = AemetObservationRequest(
@@ -681,7 +682,8 @@ def test_a_request_without_a_window_for_a_dataset_that_needs_one_is_not_told_of(
         settings=Settings(auth={"aemet": "dummy-key-for-test"}),
     )
     begin_response()
-    assert request.filter_by_station_id(MADRID_RETIRO).values().all().df.is_empty()
+    with pytest.raises(DateRequiredError, match="The dataset daily/data needs a window"):
+        request.filter_by_station_id(MADRID_RETIRO).values().all()
     assert _told() == []
 
 
