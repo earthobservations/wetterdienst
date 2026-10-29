@@ -482,6 +482,17 @@ def _refuse_parameters_the_run_does_not_carry(parameters: list[ParameterModel], 
         )
         msg = f"DWD DMO's {lead_time.value:03d} h run, lead_time='{lead_time.name.lower()}', does not carry {named}"
         raise ParameterNotCarriedError(msg)
+    # and a run a product does not publish at all (`icon_eu` has the short one alone) is refused as well, rather than
+    # met later as `IndexError: Unable to find a 168 h forecast` (HTTP 500)
+    for dataset, _ in group_parameters_by_dataset(parameters):
+        published = _LEAD_TIMES_PUBLISHED.get(dataset.name, ())
+        if published and lead_time not in published:
+            names = ", ".join(_LEAD_TIME_NAMES[time] for time in published)
+            msg = (
+                f"DWD DMO's {dataset.name} publishes no {lead_time.value:03d} h run, "
+                f"lead_time='{lead_time.name.lower()}'; it publishes: {names}"
+            )
+            raise ParameterNotCarriedError(msg)
 
 
 class DwdDmoValues(TimeseriesValues[DatasetModel]):
@@ -665,6 +676,11 @@ class DwdDmoRequest(TimeseriesRequest):
     # per request, not per class: a listing read once should not outlive the settings it was read with
     _coverage_cache: dict[str, set[str] | None] = dataclasses.field(default_factory=dict, repr=False)
     _placemark_cache: dict[str, pl.DataFrame | None] = dataclasses.field(default_factory=dict, repr=False)
+    # whether the caller named a lead time: the request reads the short one where none was named, which is no
+    # asking (`parameter-without-rows` says what was asked for). An argument so that `dataclasses.replace`, which
+    # hands over the lead time the request resolved to, hands this over as well; None, a request made by a caller,
+    # is worked out from the lead time given
+    _lead_time_asked: bool | None = dataclasses.field(default=None, repr=False, compare=False, kw_only=True)
 
     _url = (
         "https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/kml/"
@@ -806,6 +822,8 @@ class DwdDmoRequest(TimeseriesRequest):
             parse_enumeration_from_template(self.station_group, DwdDmoStationGroup)
             or DwdDmoStationGroup.SINGLE_STATIONS
         )
+        if self._lead_time_asked is None:
+            self._lead_time_asked = self.lead_time is not None
         self.lead_time = parse_enumeration_from_template(self.lead_time, DwdDmoLeadTime) or DwdDmoLeadTime.SHORT
         issue: str | dt.datetime | DwdForecastDate = self.issue
         # a datetime names no member of the enumeration, so only a string or a member is looked up
@@ -995,6 +1013,18 @@ class DwdDmoRequest(TimeseriesRequest):
             return None
         return station_ids
 
+    def _narrowed_by(self, dataset: DatasetModel) -> list[tuple[str, str | None]]:
+        """Add what the request asks of the run to what it is held to (`parameter-without-rows`)."""
+        narrowed = super()._narrowed_by(dataset)
+        if isinstance(self.issue, dt.datetime):
+            narrowed.append((f"the run issued {self.issue:%Y-%m-%d %H} UTC", None))
+        if self._lead_time_asked:
+            lead_time = getattr(self.lead_time, "name", str(self.lead_time)).lower()
+            # the other lead time is a hint only where the product publishes a run for it (`icon_eu` has one)
+            other = len(_LEAD_TIMES_PUBLISHED.get(dataset.name, ())) > 1
+            narrowed.append((f"the lead time asked for ({lead_time})", "try the other `lead_time`" if other else None))
+        return narrowed
+
     def _all(self) -> pl.LazyFrame:
         """Get all stations from DMO."""
         from typing import cast  # noqa: PLC0415
@@ -1037,11 +1067,13 @@ class DwdDmoRequest(TimeseriesRequest):
         # combinations of resolution and dataset
         from wetterdienst.model.metadata import ParameterModel  # noqa: PLC0415
 
-        resolutions_and_datasets = {
+        # in the order the request names them (a set would give the stations in the order of the hash seed of the
+        # process, GH-3551)
+        resolutions_and_datasets = dict.fromkeys(
             (parameter.dataset.resolution.name, parameter.dataset.name, parameter.dataset.name_original)
             for parameter in self.parameters
             if isinstance(parameter, ParameterModel)
-        }
+        )
         data = []
         # for each combination of resolution and dataset create a new DataFrame with the columns,
         # narrowed to the stations that combination's product actually forecasts for

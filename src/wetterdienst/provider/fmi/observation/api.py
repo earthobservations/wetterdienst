@@ -34,6 +34,7 @@ from wetterdienst.provider.fmi.observation.parser import (
     parse_fmi_stations,
 )
 from wetterdienst.util.network import download_file
+from wetterdienst.util.response_warnings import note_skipped_download
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -181,6 +182,7 @@ class FmiObservationValues(TimeseriesValues):
         if file.status != 400:
             file.raise_if_exception()
         if isinstance(file.content, Exception):
+            note_skipped_download()
             log.warning(f"Failed to fetch FMI data for station {station_id}: {file.content}")
             return pl.DataFrame()
         content = file.content.read()
@@ -188,6 +190,7 @@ class FmiObservationValues(TimeseriesValues):
         # an empty result is normally a station reporting no data; distinguish a genuine server
         # error (returned as an ExceptionReport with HTTP 200) so it is not silently swallowed.
         if df.is_empty() and b"ExceptionReport" in content:
+            note_skipped_download()
             log.warning(f"FMI returned an exception for station {station_id}: {extract_exception_text(content)}")
         return df
 

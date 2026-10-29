@@ -627,7 +627,8 @@ def test_meteofrance_observation_api_unknown_fu_offset_warns_only_when_rows_come
     with caplog.at_level(logging.WARNING, logger=api.__name__):
         df = _values("hourly", "core", "temperature_air_2m", "98404006", _utc(2021, 1, 1), _utc(2021, 1, 2))
     assert df.is_empty()
-    assert "98404006" not in caplog.text
+    # the offset warning of the provider; the core says elsewhere that the source has no values of the station
+    assert "98404006" not in "".join(record.getMessage() for record in caplog.records if record.name == api.__name__)
 
 
 def test_meteofrance_observation_api_a_request_outside_every_period_file_is_the_empty_long_form(

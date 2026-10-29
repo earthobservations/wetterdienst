@@ -19,7 +19,8 @@ declares both families, so with the default `lead_time="short"` the four 3-hourl
 either. Asking for the values of one of those by name raises a `ParameterNotCarriedError` naming the lead time
 that carries it; asking for the whole dataset, or for every parameter in it by name, is not refused, and returns
 data only for the parameters the requested run carries. `icon_eu` publishes only the 78-hour run, so its
-parameters are all carried by the default `lead_time="short"`.
+parameters are all carried by the default `lead_time="short"`, and `lead_time="long"` is refused for it with a
+`ParameterNotCarriedError` (HTTP 400) that names what the product publishes.
 
 ## Update date
 

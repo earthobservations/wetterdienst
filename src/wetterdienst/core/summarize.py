@@ -149,6 +149,7 @@ def request_stations(
     # what it hands out is an estimate, not the readings of the source: the markers of the stations it reads are not
     # the markers of its answer (GH-3554)
     values._count_missing_value_markers = False  # noqa: SLF001
+    values._warn_without_rows = False  # noqa: SLF001
     for result in tqdm(
         values.query(),
         total=len(stations_by_id),

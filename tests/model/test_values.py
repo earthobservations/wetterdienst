@@ -1192,7 +1192,8 @@ def test_the_missing_value_marker_warning_counts_the_window_and_not_the_file(
 
     request.filter_by_station_id("00001").values().all()
 
-    warnings = recorded_warnings()
+    # with the nulls dropped the parameter has no row left, which `parameter-without-rows` tells besides
+    warnings = [warning for warning in recorded_warnings() if warning["code"] != "parameter-without-rows"]
     assert [warning["code"] for warning in warnings] == ["missing-value-marker"]
     assert warnings[0]["message"].startswith("2 readings of the source")
 
@@ -1225,10 +1226,15 @@ def _the_missing_value_marker_warning() -> list[str]:
     return [warning["message"] for warning in recorded_warnings() if warning["code"] == "missing-value-marker"]
 
 
+@pytest.mark.parametrize("drop_nulls", [True, False])
 def test_the_missing_value_marker_warning_leaves_out_a_station_skip_empty_drops(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, *, drop_nulls: bool
 ) -> None:
-    """A station skipped for having no reading is not in the answer, and its markers are not counted (GH-3554)."""
+    """A station skipped for having no reading is not in the answer, and its markers are not counted (GH-3554).
+
+    With the nulls dropped (the default) the station's frame is empty, with them kept it is a frame of nulls: both
+    are left out by `skip_empty`, and neither is counted.
+    """
     _stub_dwd_daily(station_ids=["00001"], data_year_by_station={"00001": 1990}, monkeypatch=monkeypatch)
     _stub_marked_readings(monkeypatch, markers_of={"00001": 4})
     begin_response()
@@ -1236,7 +1242,7 @@ def test_the_missing_value_marker_warning_leaves_out_a_station_skip_empty_drops(
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
         start="1990-01-01",
         end="1990-01-04",
-        options=Options(drop_nulls=False, skip_empty=True, skip_threshold=0.5),
+        options=Options(drop_nulls=drop_nulls, skip_empty=True, skip_threshold=0.5),
     )
 
     df = request.filter_by_station_id("00001").values().all().df
@@ -1245,12 +1251,20 @@ def test_the_missing_value_marker_warning_leaves_out_a_station_skip_empty_drops(
     assert _the_missing_value_marker_warning() == []
 
 
+@pytest.mark.parametrize("skip_empty", [True, False])
+@pytest.mark.parametrize("drop_nulls", [True, False])
 def test_the_missing_value_marker_warning_counts_the_station_a_rank_walk_ends_on_and_not_the_ones_it_skips(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, *, drop_nulls: bool, skip_empty: bool
 ) -> None:
-    """`rank=1` skips the nearest station for having no reading and keeps the next: only its 2 markers are counted."""
+    """`rank=1` walks past the nearest station, which has no reading, and ends on the next: only its 2 markers count.
+
+    The nearest is skipped by `skip_empty`, or, where that is off, emptied by `drop_nulls` and not a slot of the rank;
+    where the nulls are kept and `skip_empty` is off it is the station the rank ends on (4 markers).
+    """
     _stub_dwd_daily(
-        station_ids=["00001", "00002"], data_year_by_station={"00001": 1990, "00002": 1990}, monkeypatch=monkeypatch
+        station_ids=["00001", "00002"],
+        data_year_by_station={"00001": 1990, "00002": 1990},
+        monkeypatch=monkeypatch,
     )
     _stub_marked_readings(monkeypatch, markers_of={"00001": 4, "00002": 2})
     begin_response()
@@ -1258,13 +1272,39 @@ def test_the_missing_value_marker_warning_counts_the_station_a_rank_walk_ends_on
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
         start="1990-01-01",
         end="1990-01-04",
-        options=Options(drop_nulls=False, skip_empty=True, skip_threshold=0.5),
+        options=Options(drop_nulls=drop_nulls, skip_empty=skip_empty, skip_threshold=0.5),
     )
 
     df = request.filter_by_rank(latlon=(50.0, 8.0), rank=1).values().all().df
 
-    assert df.get_column("station_id").unique().to_list() == ["00002"]
-    assert df.height == 4
+    ends_on_nearest = not drop_nulls and not skip_empty
+    assert df.get_column("station_id").unique().to_list() == ["00001" if ends_on_nearest else "00002"]
+    messages = _the_missing_value_marker_warning()
+    assert len(messages) == 1
+    assert messages[0].startswith("4 readings of the source" if ends_on_nearest else "2 readings of the source")
+
+
+def test_the_missing_value_marker_warning_leaves_out_a_station_a_distance_filter_skips_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With the nulls dropped, a station `skip_empty` skips under a distance filter is not counted, the others are."""
+    _stub_dwd_daily(
+        station_ids=["00001", "00002", "00003"],
+        data_year_by_station=dict.fromkeys(["00001", "00002", "00003"], 1990),
+        monkeypatch=monkeypatch,
+    )
+    _stub_marked_readings(monkeypatch, markers_of={"00001": 4, "00002": 1, "00003": 1})
+    begin_response()
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        start="1990-01-01",
+        end="1990-01-04",
+        options=Options(skip_empty=True, skip_threshold=0.5),
+    )
+
+    df = request.filter_by_distance(latlon=(50.0, 8.0), distance=30).values().all().df
+
+    assert sorted(df.get_column("station_id").unique().to_list()) == ["00002", "00003"]
     messages = _the_missing_value_marker_warning()
     assert len(messages) == 1
     assert messages[0].startswith("2 readings of the source")

@@ -29,6 +29,7 @@ from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.meteofrance.synop.metadata import MeteoFranceSynopMetadata
 from wetterdienst.util.archive import gunzip
 from wetterdienst.util.network import cached_copy_is_held, download_file
+from wetterdienst.util.response_warnings import note_skipped_download
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel, ParameterModel
@@ -235,6 +236,7 @@ class MeteoFranceSynopValues(TimeseriesValues):
             if file.status != 404 or year != current_year:
                 file.raise_if_exception()
             if isinstance(file.content, Exception):
+                note_skipped_download()
                 log.warning(f"Failed to download {file.url}: {file.content}")
                 continue
             df = pl.read_csv(gunzip(file), separator=";", schema=_SYNOP_CSV_SCHEMA, columns=read_columns)

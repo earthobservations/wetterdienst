@@ -19,6 +19,7 @@ from wetterdienst.provider.dwd.derived.metadata import (
     SOIL_DATASETS,
     DwdDerivedMetadata,
 )
+from wetterdienst.util.response_warnings import note_skipped_download
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel
@@ -114,9 +115,11 @@ def _parse_climate_derived_data(
             infer_schema=False,
         )
     except pl.exceptions.SchemaError:
+        note_skipped_download()
         log.warning(f"The file representing {file.filename} could not be parsed and is skipped.")
         return pl.LazyFrame()
     except ValueError:
+        note_skipped_download()
         log.warning(f"The file representing {file.filename} is None and is skipped.")
         return pl.LazyFrame()
     df = df.with_columns(cs.string().str.strip_chars())
