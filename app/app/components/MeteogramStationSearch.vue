@@ -16,12 +16,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 
 const { data, pending } = useFetch<{ stations: Station[] }>('/api/stations', {
-  query: {
-    provider: 'dwd',
-    network: 'mosmix',
-    parameters: 'hourly/large',
-    all: 'true',
-  },
+  query: FORECAST_STATIONS_QUERY,
   ...RETRY_TRANSIENT,
   default: () => ({ stations: [] }),
 })

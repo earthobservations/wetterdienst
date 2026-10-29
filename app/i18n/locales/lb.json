@@ -156,6 +156,19 @@
     "support": "E Problem mellen, matmaachen, spenden",
     "settings": "Sprooch, Faarwen an Eenheeten"
   },
+  "palette": {
+    "open": "Sichen",
+    "title": "An der App sichen",
+    "inputLabel": "Säiten, Plazen an Astellunge sichen",
+    "placeholder": "Eng Säit, eng Plaz oder eng Astellung …",
+    "hint": "Tipp den Numm vun enger Plaz oder eng Statiouns-ID, fir hir Prognos ze fannen.",
+    "groupPlaces": "Plazen",
+    "groupPages": "Säiten",
+    "groupSettings": "Astellungen",
+    "stationDesc": "Prognos fir d'Statioun {id}",
+    "empty": "Näischt fonnt. Probéier en anert Wuert oder eng Statiouns-ID.",
+    "keysHint": "↑ ↓ fir ze bewegen, Enter fir opzemaachen, Esc fir zouzemaachen"
+  },
   "footer": {
     "copyright": "© {year} earthobservations",
     "legal": "Impressum",

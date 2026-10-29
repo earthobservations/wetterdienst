@@ -156,6 +156,19 @@
     "support": "Report a problem, contribute, donate",
     "settings": "Language, colours and units"
   },
+  "palette": {
+    "open": "Search",
+    "title": "Search the app",
+    "inputLabel": "Search pages, places and settings",
+    "placeholder": "A page, a place or a setting …",
+    "hint": "Type a place name or a station ID to find its forecast.",
+    "groupPlaces": "Places",
+    "groupPages": "Pages",
+    "groupSettings": "Settings",
+    "stationDesc": "Forecast for the station {id}",
+    "empty": "Nothing found. Try another word, or a station ID.",
+    "keysHint": "↑ ↓ to move, Enter to open, Esc to close"
+  },
   "footer": {
     "copyright": "© {year} earthobservations",
     "legal": "Legal notice",

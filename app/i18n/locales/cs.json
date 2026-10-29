@@ -156,6 +156,19 @@
     "support": "Nahlas problém, přispěj, daruj",
     "settings": "Jazyk, barvy a jednotky"
   },
+  "palette": {
+    "open": "Hledat",
+    "title": "Hledat v aplikaci",
+    "inputLabel": "Hledat stránky, místa a nastavení",
+    "placeholder": "Stránka, místo nebo nastavení …",
+    "hint": "Napiš název místa nebo ID stanice a najdeš její předpověď.",
+    "groupPlaces": "Místa",
+    "groupPages": "Stránky",
+    "groupSettings": "Nastavení",
+    "stationDesc": "Předpověď pro stanici {id}",
+    "empty": "Nic nenalezeno. Zkus jiné slovo nebo ID stanice.",
+    "keysHint": "↑ ↓ pohyb, Enter otevřít, Esc zavřít"
+  },
   "footer": {
     "copyright": "© {year} earthobservations",
     "legal": "Právní informace",

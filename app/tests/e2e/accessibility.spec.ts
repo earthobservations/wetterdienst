@@ -344,6 +344,21 @@ const STATES: State[] = [
       await expect(page.getByRole('navigation').last()).toBeVisible()
     },
   },
+  {
+    // the command palette (GH-3518), with a query that finds a place, pages and a setting
+    page: 'index',
+    state: 'palette-open',
+    keepFocus: true,
+    path: '/',
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'palette.open'), exact: true }).click()
+      const dialog = page.getByRole('dialog', { name: message(locale, 'palette.title') })
+      await expect(dialog).toBeVisible()
+      await dialog.getByRole('combobox', { name: message(locale, 'palette.inputLabel') }).fill('en')
+      await expect(dialog.getByRole('group', { name: message(locale, 'palette.groupPlaces') }).getByRole('option').first()).toBeVisible()
+      await expect(dialog.getByRole('group', { name: message(locale, 'palette.groupPages') })).toBeVisible()
+    },
+  },
 ]
 
 /** Opens `path` and waits until the app, in this variant, has taken the page up */
@@ -581,6 +596,56 @@ test.describe('keyboard operation', () => {
     }
     await expect(dialog).toBeHidden()
     await expect(hamburger).toBeFocused()
+  })
+
+  test('the command palette opens by Ctrl+K, is a combobox the arrow keys move in, keeps the focus, and gives it back on Escape', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await open(page, '/', variant)
+    const opener = page.getByRole('button', { name: message('en', 'palette.open'), exact: true })
+    await opener.focus()
+    await page.keyboard.press('Control+k')
+
+    const dialog = page.getByRole('dialog', { name: message('en', 'palette.title') })
+    await expect(dialog).toBeVisible()
+    // the field has the focus, not the close button, and controls the list
+    const field = dialog.getByRole('combobox', { name: message('en', 'palette.inputLabel') })
+    await expect(field).toBeFocused()
+    await expect(field).toHaveAttribute('aria-expanded', 'true')
+    await expect(field).toHaveAttribute('aria-controls', (await dialog.getByRole('listbox').getAttribute('id'))!)
+
+    // typing finds; the active option is the field's active descendant, the one selected, and the arrow keys move it
+    await page.keyboard.type('st')
+    await expect(dialog.getByRole('group', { name: message('en', 'palette.groupPlaces') }).getByRole('option')).not.toHaveCount(0)
+    const activeId = () => field.getAttribute('aria-activedescendant')
+    const first = await activeId()
+    expect(first).toBeTruthy()
+    await expect(dialog.locator(`[id="${first}"]`)).toHaveAttribute('aria-selected', 'true')
+    await page.keyboard.press('ArrowDown')
+    await expect.poll(activeId).not.toBe(first)
+    await expect(dialog.locator(`[id="${await activeId()}"]`)).toHaveRole('option')
+    await page.keyboard.press('ArrowUp')
+    await expect.poll(activeId).toBe(first)
+
+    // Tab walks round inside the dialog
+    for (const key of ['Tab', 'Shift+Tab']) {
+      for (let stop = 0; stop < 6; stop++) {
+        await page.keyboard.press(key)
+        expect(await dialog.evaluate(node => node.contains(document.activeElement))).toBe(true)
+      }
+    }
+
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeHidden()
+    await expect(opener).toBeFocused()
+
+    // Enter takes the active option: a page
+    await opener.press('Enter')
+    await expect(field).toBeFocused()
+    await page.keyboard.type('glossary')
+    await expect(dialog.getByRole('option', { selected: true })).toHaveAccessibleName(message('en', 'nav.glossary'))
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(/\/glossary$/)
+    await expect(dialog).toBeHidden()
   })
 })
 

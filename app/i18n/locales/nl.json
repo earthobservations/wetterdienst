@@ -156,6 +156,19 @@
     "support": "Meld een probleem, draag bij, doneer",
     "settings": "Taal, kleuren en eenheden"
   },
+  "palette": {
+    "open": "Zoeken",
+    "title": "Zoeken in de app",
+    "inputLabel": "Pagina's, plaatsen en instellingen zoeken",
+    "placeholder": "Een pagina, een plaats of een instelling …",
+    "hint": "Typ een plaatsnaam of een station-ID om de verwachting te vinden.",
+    "groupPlaces": "Plaatsen",
+    "groupPages": "Pagina's",
+    "groupSettings": "Instellingen",
+    "stationDesc": "Verwachting voor het station {id}",
+    "empty": "Niets gevonden. Probeer een ander woord of een station-ID.",
+    "keysHint": "↑ ↓ om te bewegen, Enter om te openen, Esc om te sluiten"
+  },
   "footer": {
     "copyright": "© {year} earthobservations",
     "legal": "Colofon",

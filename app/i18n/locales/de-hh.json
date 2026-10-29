@@ -156,6 +156,19 @@
     "support": "En Fehler mellen, mitmaken, spennen",
     "settings": "Spraak, Farven un Eenheiten"
   },
+  "palette": {
+    "open": "Söken",
+    "title": "In de App söken",
+    "inputLabel": "Sieden, Oorten un Instellungen söken",
+    "placeholder": "En Siet, en Oort oder en Instellen …",
+    "hint": "Tipp en Oortsnaam oder en Stationskennung, denn finnst du de Utsicht.",
+    "groupPlaces": "Oorten",
+    "groupPages": "Sieden",
+    "groupSettings": "Instellungen",
+    "stationDesc": "Utsicht för de Station {id}",
+    "empty": "Nix funnen. Versöök en anner Woort oder en Stationskennung.",
+    "keysHint": "↑ ↓ to'n Bewegen, Enter to'n Apenmaken, Esc to'n Tomaken"
+  },
   "footer": {
     "copyright": "© {year} earthobservations",
     "legal": "Impressum",

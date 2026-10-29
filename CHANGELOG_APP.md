@@ -21,9 +21,10 @@ Types of changes:
 - `[Design]` A new look in the logo's colours: the home page asks for a place first and shows its
   weather now, its forecast, climate stripes and nearby measurements; the place is kept in the
   browser (`wd_place`, named in the privacy policy). The header names the forecast, stripes and
-  explorer, and a menu holds every page. Every page shares one width and gutter, the head of the
-  page shows a sky of the place's time of day and weather, and the text is set in Figtree, served
-  by the app itself (GH-3518)
+  explorer, a menu holds every page, and a search (its button, or Ctrl+K / ⌘K on any page) finds
+  the pages, the appearance and language settings and the places. Every page shares one width and
+  gutter, the head of the page shows a sky of the place's time of day and weather, and the text is
+  set in Figtree, served by the app itself (GH-3518)
 
 ## [0.39.0] - 2026-10-28
 

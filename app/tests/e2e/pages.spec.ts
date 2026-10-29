@@ -414,6 +414,52 @@ test.describe('Widget Page', () => {
   })
 })
 
+test.describe('Command palette', () => {
+  test('opens by Ctrl+K on any page, finds a page and goes there by Enter', async ({ page }) => {
+    await page.goto('/providers')
+    await page.waitForLoadState('networkidle')
+    await page.keyboard.press('Control+k')
+    const dialog = page.getByRole('dialog', { name: 'Search the app' })
+    const field = dialog.getByRole('combobox', { name: 'Search pages, places and settings' })
+    await expect(field).toBeFocused()
+    await page.keyboard.type('history')
+    await expect(dialog.getByRole('option', { selected: true })).toHaveAccessibleName('History')
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(/\/history$/)
+  })
+
+  test('finds a place among the forecast\'s stations and opens its forecast', async ({ page }) => {
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+    const opener = page.getByRole('button', { name: 'Search', exact: true })
+    await opener.click()
+    const dialog = page.getByRole('dialog', { name: 'Search the app' })
+    await dialog.getByRole('combobox').fill('Jan Mayen')
+    const place = dialog.getByRole('group', { name: 'Places' }).getByRole('option', { name: 'Jan Mayen' })
+    await expect(place).toBeVisible({ timeout: 30_000 })
+    await place.click()
+    await expect(page).toHaveURL(/\/meteogram\?station=01001/)
+  })
+
+  test('sets the appearance, and gives the focus back to the button on Escape', async ({ page }) => {
+    await page.goto('/about')
+    await page.waitForLoadState('networkidle')
+    const opener = page.getByRole('button', { name: 'Search', exact: true })
+    await opener.click()
+    const dialog = page.getByRole('dialog', { name: 'Search the app' })
+    await page.keyboard.type('dark')
+    await page.keyboard.press('Enter')
+    await expect(dialog).toBeHidden()
+    await expect(page.locator('html')).toHaveClass(/dark/)
+
+    await opener.click()
+    await expect(dialog).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeHidden()
+    await expect(opener).toBeFocused()
+  })
+})
+
 test.describe('Color Mode Toggle', () => {
   test('should have color mode toggle button', async ({ page }) => {
     await page.goto('/')

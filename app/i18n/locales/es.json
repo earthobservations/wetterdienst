@@ -156,6 +156,19 @@
     "support": "Informa de un problema, colabora, dona",
     "settings": "Idioma, colores y unidades"
   },
+  "palette": {
+    "open": "Buscar",
+    "title": "Buscar en la aplicación",
+    "inputLabel": "Buscar páginas, lugares y ajustes",
+    "placeholder": "Una página, un lugar o un ajuste …",
+    "hint": "Escribe el nombre de un lugar o el identificador de una estación para ver su pronóstico.",
+    "groupPlaces": "Lugares",
+    "groupPages": "Páginas",
+    "groupSettings": "Ajustes",
+    "stationDesc": "Pronóstico para la estación {id}",
+    "empty": "No se ha encontrado nada. Prueba otra palabra o un identificador de estación.",
+    "keysHint": "↑ ↓ para moverte, Intro para abrir, Esc para cerrar"
+  },
   "footer": {
     "copyright": "© {year} earthobservations",
     "legal": "Aviso legal",

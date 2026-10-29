@@ -18,6 +18,14 @@ export interface Place {
   weatherAt?: number
 }
 
+/** The forecast's stations, the places to choose from: the query of `/api/stations` for the place search and the palette */
+export const FORECAST_STATIONS_QUERY = {
+  provider: 'dwd',
+  network: 'mosmix',
+  parameters: 'hourly/large',
+  all: 'true',
+} as const
+
 /** A station as a place, or null where the station list gives it no position */
 export function placeOfStation(station: { station_id: string, name: string | null, latitude: number | null, longitude: number | null }): Omit<Place, 'weather' | 'weatherAt'> | null {
   if (station.latitude === null || station.longitude === null || !Number.isFinite(station.latitude) || !Number.isFinite(station.longitude))

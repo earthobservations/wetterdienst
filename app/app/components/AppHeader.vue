@@ -13,6 +13,21 @@ const route = useRoute()
 watch(() => route.fullPath, () => {
   menuOpen.value = false
 })
+
+// The command palette (AppPalette.vue): the search button, and Ctrl+K / ⌘K on every page, which browsers would
+// otherwise take for their own search bar. The menu gives way to it.
+const paletteOpen = ref(false)
+const isMac = ref(false)
+onMounted(() => {
+  isMac.value = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)
+})
+useEventListener(window, 'keydown', (event: KeyboardEvent) => {
+  if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'k') {
+    event.preventDefault()
+    menuOpen.value = false
+    paletteOpen.value = true
+  }
+})
 </script>
 
 <template>
@@ -55,6 +70,19 @@ watch(() => route.fullPath, () => {
           <span class="sr-only">{{ t('header.yourPlace') }}:</span>
           <span class="truncate max-w-40">{{ placeName(place.name) }}</span>
         </NuxtLink>
+        <button
+          type="button"
+          class="flex h-9 items-center gap-2 rounded-full bg-white/80 px-2.5 text-sm font-semibold text-ink-700 ring-1 ring-ink-200 transition-colors hover:bg-white hover:text-ink-900 md:pr-2 md:pl-3 dark:bg-ink-900/70 dark:text-ink-200 dark:ring-ink-700 dark:hover:bg-ink-900 dark:hover:text-white"
+          :aria-label="t('palette.open')"
+          aria-haspopup="dialog"
+          :aria-expanded="paletteOpen"
+          aria-keyshortcuts="Control+K Meta+K"
+          @click="paletteOpen = true"
+        >
+          <UIcon name="i-lucide-search" class="size-4 shrink-0" />
+          <span class="hidden md:inline">{{ t('palette.open') }}</span>
+          <kbd class="hidden rounded-md bg-ink-100 px-1.5 py-0.5 font-sans text-xs text-ink-700 md:inline dark:bg-ink-800 dark:text-ink-200" aria-hidden="true">{{ isMac ? '⌘K' : 'Ctrl K' }}</kbd>
+        </button>
         <SettingsMenu />
         <UButton
           icon="i-lucide-menu"
@@ -71,5 +99,6 @@ watch(() => route.fullPath, () => {
       </div>
     </div>
     <AppMenu v-model:open="menuOpen" />
+    <AppPalette v-model:open="paletteOpen" />
   </header>
 </template>

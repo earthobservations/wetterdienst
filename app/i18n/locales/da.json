@@ -156,6 +156,19 @@
     "support": "Meld en fejl, bidrag, donér",
     "settings": "Sprog, farver og enheder"
   },
+  "palette": {
+    "open": "Søg",
+    "title": "Søg i appen",
+    "inputLabel": "Søg efter sider, steder og indstillinger",
+    "placeholder": "En side, et sted eller en indstilling …",
+    "hint": "Skriv et stednavn eller et stations-id for at finde vejrudsigten.",
+    "groupPlaces": "Steder",
+    "groupPages": "Sider",
+    "groupSettings": "Indstillinger",
+    "stationDesc": "Vejrudsigt for stationen {id}",
+    "empty": "Intet fundet. Prøv et andet ord eller et stations-id.",
+    "keysHint": "↑ ↓ for at flytte, Enter for at åbne, Esc for at lukke"
+  },
   "footer": {
     "copyright": "© {year} earthobservations",
     "legal": "Juridisk meddelelse",

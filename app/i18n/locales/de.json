@@ -156,6 +156,19 @@
     "support": "Fehler melden, mitmachen, spenden",
     "settings": "Sprache, Farben und Einheiten"
   },
+  "palette": {
+    "open": "Suche",
+    "title": "In der App suchen",
+    "inputLabel": "Seiten, Orte und Einstellungen suchen",
+    "placeholder": "Eine Seite, ein Ort oder eine Einstellung …",
+    "hint": "Tippe einen Ortsnamen oder eine Stationskennung, um die Vorhersage zu finden.",
+    "groupPlaces": "Orte",
+    "groupPages": "Seiten",
+    "groupSettings": "Einstellungen",
+    "stationDesc": "Vorhersage für die Station {id}",
+    "empty": "Nichts gefunden. Versuche ein anderes Wort oder eine Stationskennung.",
+    "keysHint": "↑ ↓ zum Bewegen, Enter zum Öffnen, Esc zum Schließen"
+  },
   "footer": {
     "copyright": "© {year} earthobservations",
     "legal": "Impressum",
