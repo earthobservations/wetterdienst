@@ -88,6 +88,21 @@ Types of changes:
 
 ### Fixed
 
+- On Windows, two processes that share a cache directory no longer lose the date a cached file
+  arrived with (the `updated` column and `data_updated_at` came back null) nor download the file
+  once more, when one reads or replaces its date at the moment the other does: that is asked again
+  for under a second (GH-3632)
+- The `noaa/ghcn` parameter descriptions no longer offer a choice of units. 30 daily rows read
+  "mm or inches as per user preference" or "Fahrenheit or Celsius", the wording of NCEI's
+  ordering form; the files hold one unit, which the values already came in (mm, °C, m/s, km,
+  cm), and the descriptions now say so. The hourly `relative_humidity` no longer says it is
+  always calculated from air temperature and dew point (GHCNh: "Depending on the source,
+  relative humidity is either measured directly or calculated") (GH-3136)
+- The `eccc/observation` hourly dataset no longer claims a wind gust and weather: it holds air
+  temperature, dew point, humidity, precipitation, station pressure, visibility, wind direction
+  and speed, wind chill and humidex. Its parameter descriptions now say what ECCC's glossary and
+  technical documentation say (the climatological day, the degree-day base of 18 °C, the
+  gust published above 30 km/h only, the humidex and wind chill ranges) (GH-3136)
 - `chmi/observation` lists, for `10_minutes` and `hourly`, only the stations that can have files
   there: 767 of the 1,603 (read 2026-10-30), those whose period ends in 2018 or later, when these
   files begin, and that have a daily file. The 836 left out answered every request with an empty
