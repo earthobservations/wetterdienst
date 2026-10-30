@@ -75,7 +75,8 @@ CHMI, LHMT, Environment Agency and Hub'Eau rows (GH-3136, the fifth group), and 
 rows again against their live sources (GH-3136, the sixth group: the NWS temperature, dew point, wind and
 visibility rows now say the statistic and height the ASOS User's Guide gives), and the NOAA GHCN rows (GH-3136,
 the eighth group: the daily rows say what the readme of the files says in the unit the reader returns, where they
-were the table of the ordering form with its choice of units; the hourly rows follow Table 1 of GHCNh 1.1.0). CHMI describes its elements only by
+were the table of the ordering form with its choice of units; the hourly rows follow Table 1 of GHCNh 1.1.0).
+CHMI describes its elements only by
 name, unit, height and schedule (``metadata/meta2.csv``) and the Environment Agency by a table of parameter, period,
 statistic and unit on its reference page, so what those entries say about a window or a weighting is what the data
 show, with the evidence in a comment beside them; SMHI's windows are the ones its own CSV columns give; Hub'Eau
