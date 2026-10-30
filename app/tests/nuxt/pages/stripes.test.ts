@@ -614,6 +614,8 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
       await new Promise(resolve => setTimeout(resolve, 50))
       // the newer drawing's move, and none of the older one's
       expect(plotly.relayout).toHaveBeenCalledOnce()
+      // and the scheme the chart is drawn in, not the one of the drawing that came too late
+      expect(shown.dataset.chartScheme).toBe('light')
     }
     finally {
       document.documentElement.classList.remove('dark')

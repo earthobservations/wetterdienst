@@ -548,11 +548,12 @@ async function drawStripes(data: StripesValuesResponse, keepZoom = false, newest
   if (!figure)
     return
   await Plotly.newPlot(plotContainer.value, figure.traces as any, figure.layout as any, figure.config)
-  // said at once, before anything after it can fail: the chart is drawn in these colours whatever follows
-  markChartScheme(plotContainer.value, drawnIn)
-  // a newer drawing, or a Reset, came meanwhile: it purges and draws again, and this one moves nothing
+  // a newer drawing, or a Reset, came meanwhile: it purges, draws and marks the chart itself, and this one neither
+  // marks nor moves anything
   if (!newest())
     return
+  // said at once, before anything after it can fail: the chart is drawn in these colours whatever follows
+  markChartScheme(plotContainer.value, drawnIn)
   // drawn in the range of its own, which a reset of the chart goes back to, and then moved to the one it was in
   const moves = { ...rangesRelayout(zoom), ...(figure.title ? { title: figure.title } : {}) }
   if (Object.keys(moves).length > 0)
