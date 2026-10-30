@@ -694,6 +694,38 @@ def test_collect_nulls_a_value_outside_the_range_of_its_parameter_and_keeps_what
 
 
 @pytest.mark.parametrize(
+    ("resolution", "parameter"),
+    [("daily", "acc_precip"), ("daily", "max_precip_30m"), ("monthly", "max_precip_24h"), ("hourly", "acc_precip")],
+)
+def test_collect_reads_the_trace_of_precipitation_as_zero_and_keeps_its_text(resolution: str, parameter: str) -> None:
+    """DMI's -0.1 is a trace of precipitation: 0.0 with `raw:-0.1`, as the other providers write one (GH-3621).
+
+    The lower bound of 0 of the range of the parameter read it as out of range and made it null.
+    """
+    rows = [
+        (parameter, "2012-01-01T06:00:00+00:00", -0.1, "manual", True),
+        (parameter, "2012-02-01T06:00:00+00:00", 0.0, "manual", True),
+        (parameter, "2012-03-01T06:00:00+00:00", 1.2, "manual", True),
+        # a negative amount that is no trace stays out of range
+        (parameter, "2012-04-01T06:00:00+00:00", -0.5, "manual", True),
+    ]
+    df = _collect_station_values(resolution, rows).sort("timestamp")
+    assert df.select("value", "quality_flags").rows() == [
+        (0.0, "manual,validity:true,raw:-0.1"),
+        (0.0, "manual,validity:true"),
+        (1.2, "manual,validity:true"),
+        (None, "manual,validity:true,raw:-0.5"),
+    ]
+
+
+def test_collect_reads_minus_0_1_of_no_precipitation_amount_as_a_trace() -> None:
+    """The -0.1 is a trace of precipitation only: the same number of a temperature is a reading."""
+    rows = [("mean_temp", "2012-01-01T06:00:00+00:00", -0.1, "manual", True)]
+    df = _collect_station_values("monthly", rows)
+    assert df.select("value", "quality_flags").rows() == [(-0.1, "manual,validity:true")]
+
+
+@pytest.mark.parametrize(
     ("resolution", "reading", "no_reading"),
     [
         # `acc_precip` of 04339 (read 2026-10-16): 989 and 1978 mm in a day of 2011; 3,229.9 mm in the month 2012-10;

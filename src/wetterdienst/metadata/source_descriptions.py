@@ -2087,15 +2087,18 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("monthly", "data", "max_temperature"): (
             "Highest daily maximum air temperature of the month (the source's extreme maximum). The source states no "
-            "height; the 2 m of the name is the convention."
+            "height; the 2 m of the name is the convention. A month with a missing day reads `I` in `quality_flags`, "
+            "which wetterdienst derives from `days_with_valid_max_temp`."
         ),
         ("monthly", "data", "mean_temperature"): (
             "Mean air temperature of the month: the mean of the daily mean temperatures. Published even when days are "
-            "missing; `days_with_valid_mean_temp` counts the days behind it."
+            "missing; `days_with_valid_mean_temp` counts the days behind it. A month of more than 5 missing days reads "
+            "`I` in `quality_flags`, which wetterdienst derives from that count."
         ),
         ("monthly", "data", "min_temperature"): (
             "Lowest daily minimum air temperature of the month (the source's extreme minimum). The source states no "
-            "height; the 2 m of the name is the convention."
+            "height; the 2 m of the name is the convention. A month with a missing day reads `I` in `quality_flags`, "
+            "which wetterdienst derives from `days_with_valid_min_temp`."
         ),
         ("monthly", "data", "normal_mean_temperature"): (
             "Climate normal of the mean air temperature for the calendar month, the daily mean being calculated from "
@@ -2120,11 +2123,12 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("monthly", "data", "total_precipitation"): (
             "Total precipitation of the month: the sum of the daily totals (rainfall plus the water equivalent of the "
             "snowfall), in mm. Published even when days are missing; `days_with_valid_precip` counts the days behind "
-            "it."
+            "it. A month with a missing day reads `I` in `quality_flags`, which wetterdienst derives from that count."
         ),
         ("monthly", "data", "total_snowfall"): (
             "Total snowfall of the month: the sum of the daily snowfalls, in cm. Published even when days are missing; "
-            "`days_with_valid_snowfall` counts the days behind it."
+            "`days_with_valid_snowfall` counts the days behind it. A month with a missing day reads `I` in "
+            "`quality_flags`, which wetterdienst derives from that count."
         ),
     },
     "GeosphereObservationMetadata": {

@@ -88,6 +88,15 @@ Types of changes:
 
 ### Fixed
 
+- `eccc/observation` monthly values carry `I` in `quality_flags` for a month with missing days,
+  following the archive's rule (Technical Documentation, Notes 25 and 26) applied to the
+  collection's counts `count_days_valid_*`: any missing day for the extremes, precipitation and
+  snowfall, more than 5 for the mean temperature (the "3 in a row" half is not published, so the
+  mean is under-flagged). It is derived, not ECCC's own flag, and set for months before 1994 too,
+  from which the documentation dates the archive's flag (GH-3621)
+- `dmi/observation` reads DMI's -0.1 in `precipitation_amount` (and the maxima of a day or 30
+  minutes) as a trace of precipitation: 0.0 with `raw:-0.1` in `quality_flags`, where it was
+  null as out of range, as the trace of KNMI, AEMET and `meteofrance/synop` is (GH-3621)
 - On Windows, two processes that share a cache directory no longer lose the date a cached file
   arrived with (the `updated` column and `data_updated_at` came back null) nor download the file
   once more, when one reads or replaces its date at the moment the other does: that is asked again

@@ -1843,6 +1843,31 @@ def _dmi_annual(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
     return stations_result(request, "annual", "data", "04339").values().all().df
 
 
+def _dmi_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # `acc_precip` of `timeResolution=day`: DMI's documentation (https://www.dmi.dk/friedata/dokumentation/climate-data,
+    # read 2026-10-30, "Precipitation Codes") says that acc_precip, max_precip_past24h and max_precip_30m return an
+    # amount in mm "with the exception of" -0.1: "traces of precipitation, less than 0.1 kg/m2" (GH-3621). No sampled
+    # record carried the value; the rows are made up. A trace is 0.0 and keeps `raw:-0.1`, as the trace of KNMI, AEMET
+    # and Meteo-France's synop does
+    rows = [
+        ("2025-03-29T00:00:00.001000+01:00", "2025-03-30T00:00:00+01:00", 9.8),
+        ("2025-03-30T00:00:00.001000+01:00", "2025-03-31T00:00:00+02:00", -0.1),
+    ]
+    features = [
+        {"properties": {"parameterId": "acc_precip", "from": start, "to": end, "value": value}}
+        for start, end, value in rows
+    ]
+    serve(monkeypatch, dmi_api, {"stationValue": json.dumps({"features": features}).encode()})
+    request = DmiObservationRequest(
+        parameters=[("daily", "data")],
+        start=_day(2025, 3, 29),
+        end=_day(2025, 3, 31),
+        settings=_settings(),
+        options=_options(drop_nulls),
+    )
+    return stations_result(request, "daily", "data", "06180").values().all().df
+
+
 def _rmi_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # `aws:aws_1day` of station 6414 (read 2026-10-15): 2003-08-05 is a day of readings, on 2003-08-06 the mean is
     # 110.26 and the maximum 4021 degrees, which no thermometer read, and `validated` is false for both (GH-2797). The
@@ -2218,6 +2243,13 @@ STUBS = [
         reading=("wind_direction_mean", 250.0),
         sentinels=(("wind_direction_mean", 0.0),),
         tokens=(("wind_direction_mean", "0", None),),
+    ),
+    ValueStub(
+        "dmi/observation daily/data",
+        _dmi_daily,
+        reading=("precipitation_amount", 9.8),
+        # the trace is no missing value: it is 0.0, with the text DMI wrote
+        tokens=(("precipitation_amount", "-0.1", 0.0),),
     ),
     ValueStub(
         "dmi/observation annual/data",
