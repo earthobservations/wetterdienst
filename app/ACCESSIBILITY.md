@@ -27,14 +27,15 @@ The same pages and states (in light/English and dark/German) are scanned twice m
 - **hover**: every link, button, tab, option, menu item and element with a `hover:` style is hovered, once
   for each look (the same classes under a parent of the same classes are one), and axe's `color-contrast` is
   run on it (1.4.3; the scans at rest never hover, GH-2991),
-- **keyboard**: the page is walked Tab by Tab from its top to where the order comes round (an open menu or
-  dialog, from where it holds the focus). Each stop is checked for a focus indicator, an outline, a ring
+- **keyboard**: the page is walked Tab by Tab from its top to where the order comes round, or to where a
+  focus guard keeps the focus through more than three Tabs (an open menu or dialog, from where it holds the
+  focus). Each stop is checked for a focus indicator, an outline, a ring
   (`box-shadow`, also on `::before` and `::after`) or Reka's highlight (2.4.7, `focus-not-visible`); for that
   indicator having 3:1 against what it lies on (1.4.11, `focus-indicator-contrast`); for not being hidden
   behind other content or outside what a map shows, sampled at five points of the part in the window and
   again half a second later (2.4.11, `focus-obscured`); for the focus leaving the page at once (2.1.2,
-  `focus-lost`); and for the contrast of the text with the focus on it. Reka's invisible focus guards are not
-  stops. The rules are the app's own ids, in `CUSTOM_RULES` of `interact.ts`.
+  `focus-lost`); and for the contrast of the text with the focus on it. Reka's invisible focus guards, and
+  the proxies at either end of the toast region, are not stops. The rules are the app's own ids, in `CUSTOM_RULES` of `interact.ts`.
 
 Beside the scans, `accessibility.spec.ts` drives widgets by keys alone (`keyboard operation`: the station
 picker, a collapsible, a menu, and the narrow layout's menu, which is a dialog that keeps the focus and gives

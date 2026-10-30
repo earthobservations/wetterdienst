@@ -41,6 +41,10 @@ precipitation.
 Not every station measures every parameter — a station/parameter combination that CHMI doesn't
 have simply contributes no rows.
 
+CHMI's station catalogue (`meta1.csv`) also lists two stations abroad, Reykjavik
+(`0-20000-0-04030`) and Marambio Base in Antarctica (`0-20000-0-89055`). The portal has no file
+for them in any resolution (checked 2026-10-29), so they are left out of the station lists.
+
 ## License
 
 Data is © Czech Hydrometeorological Institute (CHMI), licensed under

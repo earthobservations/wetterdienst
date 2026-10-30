@@ -65,6 +65,7 @@ from wetterdienst.util.network import (
     _is_superseded_layout,
     _legacy_cleanup_done,
     _LockedWholeFileCacheFileSystem,
+    _OneWriteCacheMetadata,
     _reclaim_done,
     _sends_credentials,
     _swept_dirs,
@@ -1513,6 +1514,10 @@ def _age_metadata(storage: Path, seconds: float) -> None:
     metadata = json.loads(metadata_path.read_text())
     for detail in metadata.values():
         detail["time"] -= seconds
+        # the blob as well: a blob written within the expiry is kept whatever its row says (GH-3485)
+        blob = storage / detail["fn"]
+        when = blob.stat().st_mtime - seconds
+        os.utime(blob, (when, when))
     metadata_path.write_text(json.dumps(metadata))
 
 
@@ -2407,7 +2412,7 @@ def test_a_fan_out_never_reads_the_metadata_file_while_another_thread_replaces_i
     bookkeeping = threading.Lock()
     saves: list[str] = []
     original_load = CacheMetadata._load  # noqa: SLF001
-    original_save = CacheMetadata._save  # noqa: SLF001
+    original_save = _OneWriteCacheMetadata._save  # noqa: SLF001
 
     def enter(fn: str, operation: str) -> None:
         with bookkeeping:
@@ -2438,7 +2443,7 @@ def test_a_fan_out_never_reads_the_metadata_file_while_another_thread_replaces_i
             leave(fn, "write")
 
     monkeypatch.setattr(CacheMetadata, "_load", load)
-    monkeypatch.setattr(CacheMetadata, "_save", save)
+    monkeypatch.setattr(_OneWriteCacheMetadata, "_save", save)
 
     try:
         files = download_files(urls=urls, cache_dir=tmp_path, ttl=CacheExpiry.TWELVE_HOURS)
