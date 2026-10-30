@@ -73,7 +73,10 @@ the four IPMA rows that read the canonical sentence and the WSV parameters (GH-3
 the DWD POI, MOSMIX, DMO, derived and SWSMOS rows (GH-3136, the fourth group), and the SMHI,
 CHMI, LHMT, Environment Agency and Hub'Eau rows (GH-3136, the fifth group), and the IPMA, NWS and Geosphere
 rows again against their live sources (GH-3136, the sixth group: the NWS temperature, dew point, wind and
-visibility rows now say the statistic and height the ASOS User's Guide gives). CHMI describes its elements only by
+visibility rows now say the statistic and height the ASOS User's Guide gives), and the DMI rows (GH-3136, the ninth
+group: from the canonical sentence of the quantity to what DMI's documentation says of how each value is made, the
+type of day and the heights).
+CHMI describes its elements only by
 name, unit, height and schedule (``metadata/meta2.csv``) and the Environment Agency by a table of parameter, period,
 statistic and unit on its reference page, so what those entries say about a window or a weighting is what the data
 show, with the evidence in a comment beside them; SMHI's windows are the ones its own CSV columns give; Hub'Eau
@@ -1865,15 +1868,6 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "mean wind speed over the period the station states (10 or 15 minutes, none stated in some station groups)"
         ),
     },
-    # the "Revised service" table of https://environment.data.gov.uk/hydrology/doc/reference (read 2026-10-21): "Flow
-    # 15min instantaneous m3/s", "Flow daily mean, min, max m3/s", "Level 15min instantaneous m", "Level daily min,
-    # max m", "GroundwaterLevel sub-daily instantaneous Groundwater Logged mAOD" ("for logged groundwater data the
-    # sub-daily values may be a mix of 15min and hourly intervals"), and of the unit "m (for meters with an unspecified
-    # datum)", against "mAOD" and "mASD". Every river level measure of the measures listing has the unit m (2,638 each
-    # of level-i-900, level-max-86400 and level-min-86400). The daily window is not in the documentation: a daily
-    # reading is stamped 09:00 and the mean of a day equals the mean of the 15 minute flows from that 09:00 to the
-    # next in 27 of 27, 30 of 30 and 27 of 27 days (Felsted in Feb and Jul 2025, Ulting Sarasota in Feb 2025; no
-    # other start hour does), and a maximum or minimum is stamped at the instant of the extreme inside it
     "DmiObservationMetadata": {
         # DMI's documentation of the climate data (https://www.dmi.dk/friedata/dokumentation/climate-data, the
         # parameter table, the "Calculation Method for stationValue Parameters" table and "Types of Days"; the type of
@@ -1886,7 +1880,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         # 2023: the daily heating degree days are max(0, 17 - mean_temp) on 62 of 62 days, the monthly ones, highest
         # temperature, highest daily precipitation and lowest temperature the sum, highest, highest and lowest of the
         # daily values on February and March, the mean of the daily maxima 6.1 against 6.14 and 7.5 against 7.45).
-        ("hourly", "data", "mean_temp"): ("Mean air temperature of the hour (UTC), measured 2 m over terrain."),
+        ("hourly", "data", "mean_temp"): (
+            "Mean air temperature of the hour (UTC), measured 2 m over terrain; in Greenland possibly the "
+            "reading at minute 0."
+        ),
         ("daily", "data", "mean_temp"): (
             "Mean air temperature of the day: the average of all hourly values within the day (the local day "
             "in Denmark; 06:00 to 06:00 UTC in Greenland and the Faroe Islands)."
@@ -1910,7 +1907,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("annual", "data", "max_temp_w_date"): (
             "Highest air temperature of the year: the highest of the underlying daily values."
         ),
-        ("hourly", "data", "min_temp"): ("Lowest air temperature of the hour (UTC), measured 2 m over terrain."),
+        ("hourly", "data", "min_temp"): "Lowest air temperature of the hour (UTC), measured 2 m over terrain.",
         ("daily", "data", "min_temp"): (
             "Lowest air temperature of the day: the lowest of all the hourly values within the day (the local"
             " day in Denmark; 06:00 to 06:00 UTC in Greenland and the Faroe Islands)."
@@ -1976,11 +1973,11 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Mean atmospheric pressure of the year, reduced to mean sea level: the average of the underlying "
             "daily values."
         ),
-        ("hourly", "data", "acc_precip"): ("Accumulated precipitation of the hour (UTC), in mm."),
+        ("hourly", "data", "acc_precip"): "Accumulated precipitation of the hour (UTC), in mm.",
         ("daily", "data", "acc_precip"): (
             "Accumulated precipitation of the day, in mm: the sum of all hourly values within the day (the "
             "local day in Denmark; in Greenland and the Faroe Islands 06:00 to 06:00 UTC, or 12:00 to 12:00 "
-            "UTC at a station that measures by hand)."
+            "UTC at the few Greenland stations that measure it by hand)."
         ),
         ("monthly", "data", "acc_precip"): (
             "Accumulated precipitation of the month, in mm: the sum of the underlying daily values."
@@ -2032,7 +2029,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("hourly", "data", "mean_wind_dir"): (
             "Direction the wind blows from (north is 360, 0 means calm) over the hour (UTC), measured 10 m "
-            "over terrain. The source's 0 beside a mean wind speed of 0 (a calm wind) is null."
+            "over terrain; in Greenland possibly the reading at minute 0. The source's 0 beside a mean wind speed of "
+            "0 (a calm wind) is null."
         ),
         ("daily", "data", "mean_wind_dir"): (
             "Direction the wind blows from (north is 360, 0 means calm) over the day: the mean of components "
@@ -2071,6 +2069,15 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "mean temperature)."
         ),
     },
+    # the "Revised service" table of https://environment.data.gov.uk/hydrology/doc/reference (read 2026-10-21): "Flow
+    # 15min instantaneous m3/s", "Flow daily mean, min, max m3/s", "Level 15min instantaneous m", "Level daily min,
+    # max m", "GroundwaterLevel sub-daily instantaneous Groundwater Logged mAOD" ("for logged groundwater data the
+    # sub-daily values may be a mix of 15min and hourly intervals"), and of the unit "m (for meters with an unspecified
+    # datum)", against "mAOD" and "mASD". Every river level measure of the measures listing has the unit m (2,638 each
+    # of level-i-900, level-max-86400 and level-min-86400). The daily window is not in the documentation: a daily
+    # reading is stamped 09:00 and the mean of a day equals the mean of the 15 minute flows from that 09:00 to the
+    # next in 27 of 27, 30 of 30 and 27 of 27 days (Felsted in Feb and Jul 2025, Ulting Sarasota in Feb 2025; no
+    # other start hour does), and a maximum or minimum is stamped at the instant of the extreme inside it
     "EAHydrologyMetadata": {
         ("15_minutes", "data", "flow-i-900"): "instant flow at timestamp",
         ("15_minutes", "data", "level-i-900"): (
