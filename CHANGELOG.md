@@ -82,6 +82,12 @@ Types of changes:
 
 ### Fixed
 
+- `/api/stripes/image` now sends the licence, the credit line and the warnings in the headers
+  `X-Wetterdienst-License`, `Link`, `X-Wetterdienst-Attribution` and `X-Wetterdienst-Warnings`,
+  so a client or the MCP tool `stripes_image` can tell that the image is DWD data under CC BY 4.0;
+  the image itself is unchanged. `/api/stripes/values` never recorded the warnings of its read, so
+  its `metadata.warnings` and `X-Wetterdienst-Warnings` (and the MCP tool `stripes_values`) were
+  always empty; they now tell them (GH-3581)
 - A reading no sensor can have produced is now null, with the number the file wrote kept as
   `raw:` in `quality_flags`. `dwd/observation`: a wind speed below 0 or above 115 m/s (the hourly
   urban wind read -0.80 m/s at Berlin-Alexanderplatz) and a pressure outside 500 to 1090 hPa in
