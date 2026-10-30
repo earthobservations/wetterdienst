@@ -26,6 +26,12 @@ Types of changes:
   `compact=true` links still open the compact view, and an old `meteogram.compact` is taken over
   once. The widget is unchanged (GH-3406)
 
+### Security
+
+- `[Dependencies]` `vue-i18n` and `@intlify/*` are 11.4.16, out of the range of
+  GHSA-83rm-6c8r-g728 (`escapeParameter` and `srcdoc`) and its low sibling. The app does not
+  set `escapeParameter`, so the shipped app was not affected (GH-3636)
+
 ### Fixed
 
 - `[Meteogram]` The compact view no longer makes the page scroll sideways on a narrow screen
