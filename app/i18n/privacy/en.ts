@@ -9,7 +9,7 @@ import type { PrivacyPolicy } from './de'
 
 export const privacy: PrivacyPolicy = {
   title: 'Privacy policy',
-  updated: 'Last updated: 26 October 2026',
+  updated: 'Last updated: 29 October 2026',
   binding: 'This is a translation. The German version (Datenschutzerklärung) is the legally binding one.',
   intro: 'This policy describes which personal data is processed when you visit wetterdienst.eobs.org and when you use the REST API and the MCP server of Wetterdienst. There are no user accounts, no registration, no analytics or tracking services and no advertising.',
   controller: {
@@ -51,7 +51,7 @@ export const privacy: PrivacyPolicy = {
       items: [
         'Cookie wd_lang: stores the language of the interface. Lifetime 365 days, path /, SameSite=Lax.',
         'localStorage wd_settings: your display settings (parameter names, units and the display of the climate stripes).',
-        'localStorage meteogram.compact: whether the meteogram is shown in its compact view.',
+        'localStorage meteogram.view: whether the meteogram is shown as a chart, in its compact view or as a table. A value stored earlier under meteogram.compact is taken over once and deleted.',
         'localStorage nuxt-color-mode: the colour scheme you chose (light, dark or system).',
       ],
     },
