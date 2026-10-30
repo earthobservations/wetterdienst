@@ -88,6 +88,26 @@ Types of changes:
 
 ### Fixed
 
+- The `noaa/ghcn` parameter descriptions no longer offer a choice of units. 30 daily rows read
+  "mm or inches as per user preference" or "Fahrenheit or Celsius", the wording of NCEI's
+  ordering form; the files hold one unit, which the values already came in (mm, °C, m/s, km,
+  cm), and the descriptions now say so. The hourly `relative_humidity` no longer says it is
+  always calculated from air temperature and dew point (GHCNh: "Depending on the source,
+  relative humidity is either measured directly or calculated") (GH-3136)
+- The `eccc/observation` hourly dataset no longer claims a wind gust and weather: it holds air
+  temperature, dew point, humidity, precipitation, station pressure, visibility, wind direction
+  and speed, wind chill and humidex. Its parameter descriptions now say what ECCC's glossary and
+  technical documentation say (the climatological day, the degree-day base of 18 °C, the
+  gust published above 30 km/h only, the humidex and wind chill ranges) (GH-3136)
+- `chmi/observation` lists, for `10_minutes` and `hourly`, only the stations that can have files
+  there: 767 of the 1,603 (read 2026-10-30), those whose period ends in 2018 or later, when these
+  files begin, and that have a daily file. The 836 left out answered every request with an empty
+  frame (795 closed before 2018, 41 more with no daily file); no station with a 10 minute or hourly
+  file is among them. `daily`, `monthly` and `annual` are unchanged. The daily directories are
+  read for a sub-daily stations request now (GH-3623)
+- Two processes that share a cache directory no longer fail a download on Windows with
+  `PermissionError` when one opens a cached file while the other replaces it: the open is asked
+  again for under a second, and a file that stays unreadable still raises (GH-3630)
 - A request that asks several resolutions or datasets of one provider no longer returns some
   readings under another parameter's name. The humanized name is now looked up per resolution
   and dataset, where a name the source gives two parameters took the last one's: chmi (`T`, `H`,

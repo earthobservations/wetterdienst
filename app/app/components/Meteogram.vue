@@ -2,12 +2,13 @@
 import type { SunTimes } from 'suncalc'
 import type { Value } from '#shared/types/api'
 import type { ChartTheme } from '~/utils/chart-theme'
+import type { MeteogramView } from '~/utils/meteogram'
 import type { WeatherKind } from '~/utils/weather-kind'
 import { DateTime } from 'luxon'
 import tzLookup from 'tz-lookup'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { formatDayMonth, formatNumber, plotlyDateLocale, plotlyHoverFormat, plotlySeparators, weekdayShort } from '~/utils/format'
-import { extremeWindowHours, extremeWindowSteps, interpSeries, METEOGRAM_SERIES, nearestNeighbor, resampleCadenceMs, wetBulbApprox } from '~/utils/meteogram'
+import { extremeWindowHours, extremeWindowSteps, interpSeries, METEOGRAM_SERIES, meteogramView, meteogramViewFromQuery, nearestNeighbor, resampleCadenceMs, wetBulbApprox } from '~/utils/meteogram'
 import { WEATHER_SYMBOLS, weatherCodeToKind } from '~/utils/weather-kind'
 
 const props = defineProps<{
@@ -36,12 +37,21 @@ let overlayAttached = false
 // scheme in force (utils/chart-theme.ts); a switch of the scheme draws the chart again below
 const { theme, isDark } = useChartTheme()
 
-// Compact mode toggles a denser, lower-height rendering of the meteogram.
-const compact = ref(false)
+// The forecast is shown as the chart, as the compact overview (day cards) or as the table of its values: one
+// choice, remembered in local storage and written to the URL (`?view=table`), so that a link opens the view.
+const view = ref<MeteogramView>('chart')
+const compact = computed(() => view.value === 'compact')
 const chartHeight = computed(() => (compact.value ? '320px' : '540px'))
 // Limit how many days the compact view will show by default
 const MAX_COMPACT_DAYS = 7
-const LOCAL_STORAGE_KEY = 'meteogram.compact'
+const LOCAL_STORAGE_KEY = 'meteogram.view'
+// the key from before the table was a view: `true` for the compact overview, `false` for the chart
+const LEGACY_STORAGE_KEY = 'meteogram.compact'
+const viewOptions = computed<{ value: MeteogramView, label: string, icon: string }[]>(() => [
+  { value: 'chart', label: t('meteogram.chart.viewChart'), icon: 'i-lucide-chart-line' },
+  { value: 'compact', label: t('meteogram.chart.viewCompact'), icon: 'i-lucide-layout-grid' },
+  { value: 'table', label: t('meteogram.chart.viewTable'), icon: 'i-lucide-table' },
+])
 
 // Interactive panel visibility controls
 const visiblePanels = ref({
@@ -71,20 +81,36 @@ watch(visiblePanels, (newVal) => {
 
 const seriesCache = computed(() => buildSeries(props.values ?? []))
 
+// The view last chosen. The old key held only whether the view was the compact overview: its value is taken over
+// once, as the same choice under the new key, and the old key is gone.
+function storedView(): MeteogramView | null {
+  try {
+    const stored = meteogramView(localStorage.getItem(LOCAL_STORAGE_KEY))
+    if (stored)
+      return stored
+    const legacy = localStorage.getItem(LEGACY_STORAGE_KEY)
+    if (legacy === null)
+      return null
+    const migrated = legacy === 'true' ? 'compact' : 'chart'
+    localStorage.setItem(LOCAL_STORAGE_KEY, migrated)
+    localStorage.removeItem(LEGACY_STORAGE_KEY)
+    return migrated
+  }
+  catch {
+    return null
+  }
+}
+
 // On mount try to restore user preference and auto-enable compact on small screens,
 // with URL params taking precedence over localStorage.
 onMounted(() => {
-  try {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem(LOCAL_STORAGE_KEY)
-      if (stored !== null)
-        compact.value = stored === 'true'
-      else if (window.innerWidth <= 640)
-        compact.value = true
-    }
-  }
-  catch {
-    // ignore
+  if (typeof window !== 'undefined') {
+    const stored = storedView()
+    // the widget has no control to leave the table with: it shows the chart or the day cards
+    if (stored && !(props.widget && stored === 'table'))
+      view.value = stored
+    else if (!stored && window.innerWidth <= 640)
+      view.value = 'compact'
   }
 
   if (!props.widget) {
@@ -104,8 +130,10 @@ onMounted(() => {
         pressure: names.includes('pressure'),
       }
     }
-    if (q.compact)
-      compact.value = q.compact.toString() === 'true'
+    // `compact=true` is the link of the time the table was no view: it still opens the compact overview
+    const linked = meteogramViewFromQuery(q)
+    if (linked)
+      view.value = linked
 
     const router = useRouter()
     const route = useRoute()
@@ -131,9 +159,10 @@ onMounted(() => {
       void router.replace({ query: q }).catch(() => {})
     }, { deep: true })
 
-    watch(compact, (c) => {
+    watch(view, (v) => {
       const q = { ...route.query } as Record<string, any>
-      q.compact = c ? 'true' : 'false'
+      q.view = v
+      delete q.compact
       void router.replace({ query: q }).catch(() => {})
     })
   }
@@ -157,12 +186,11 @@ function resetChart() {
   }
 }
 
-function toggleCompact() {
-  compact.value = !compact.value
+// A choice of the reader's: remembered. A view that a link or the small screen gave is not.
+function chooseView(next: MeteogramView) {
+  view.value = next
   try {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(LOCAL_STORAGE_KEY, String(compact.value))
-    }
+    localStorage.setItem(LOCAL_STORAGE_KEY, next)
   }
   catch {
     // ignore
@@ -191,8 +219,6 @@ onUnmounted(() => {
     }
   }
 })
-
-const compactLabel = computed(() => compact.value ? t('meteogram.chart.viewNormal') : t('meteogram.chart.viewCompact'))
 
 // Toolbar timezone label (updated when chart renders)
 const toolbarTzLabel = ref<string>('UTC')
@@ -450,7 +476,8 @@ const chartTable = computed(() => {
       ...(temperatures.length
         ? [t('meteogram.chart.summaryTemperature', { min: formatNumber(Math.min(...temperatures), locale.value, 1), max: formatNumber(Math.max(...temperatures), locale.value, 1) })]
         : []),
-      t('common.chartTableHint'),
+      // the page chooses the table with the view control above the chart; the widget has the table below it
+      props.widget ? t('common.chartTableHint') : t('meteogram.chart.summaryTableHint'),
     ].join(' '),
   }
 })
@@ -1979,7 +2006,7 @@ watch(
   { immediate: true, deep: true },
 )
 watch(
-  compact,
+  view,
   () => {
     requestRender(false)
   },
@@ -2117,29 +2144,25 @@ watch(
           </div>
         </div>
 
-        <!-- View Controls & Zoom Reset -->
-        <div class="flex items-center gap-2 ml-auto shrink-0">
-          <div v-if="!compact" class="hidden sm:block text-xs text-gray-500 dark:text-gray-400 select-none truncate max-w-[160px]">
-            {{ toolbarTzLabel }}
-          </div>
+        <!-- View Controls & Zoom Reset: the view first on a narrow screen, where the toolbar stacks -->
+        <div class="flex items-center gap-2 md:ml-auto shrink-0 order-first md:order-last">
           <UButton
-            v-if="!compact"
+            v-if="view === 'chart'"
             icon="i-lucide-rotate-ccw"
             size="sm"
             variant="outline"
             color="neutral"
             :title="t('meteogram.chart.resetZoom')"
+            :aria-label="t('meteogram.chart.resetZoom')"
+            class="shrink-0"
             @click="resetChart"
           />
-          <UButton
-            :icon="compact ? 'i-lucide-chart-line' : 'i-lucide-layout-grid'"
-            size="sm"
-            color="primary"
-            :title="compactLabel"
-            @click="toggleCompact"
-          >
-            <span class="hidden sm:inline">{{ compactLabel }}</span>
-          </UButton>
+          <SegmentedControl
+            :model-value="view"
+            :options="viewOptions"
+            :label="t('meteogram.chart.viewLabel')"
+            @update:model-value="chooseView"
+          />
         </div>
       </div>
 
@@ -2172,10 +2195,14 @@ watch(
           <span class="font-semibold text-gray-800 dark:text-gray-100">{{ summaryStats.pressure.min }}–{{ summaryStats.pressure.max }}</span>
           <span class="text-gray-500 dark:text-gray-400 text-xs">hPa</span>
         </div>
+        <!-- the time zone of the chart's axis: the table names its own in its header -->
+        <div v-if="view === 'chart'" class="hidden sm:block ml-auto self-center text-xs text-gray-500 dark:text-gray-400 select-none">
+          {{ toolbarTzLabel }}
+        </div>
       </div>
 
       <!-- Main Interactive Chart Container -->
-      <div v-if="!compact">
+      <div v-if="view === 'chart'">
         <div class="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
           <div
             v-if="renderFailed"
@@ -2209,13 +2236,21 @@ watch(
           <p :id="summaryId" class="sr-only">
             {{ chartTable.summary }}
           </p>
-          <ChartTable :caption="chartLabel" :columns="chartTable.columns" :rows="chartTable.rows" />
+          <!-- the widget has no control to choose the table with: its text alternative stays below the chart -->
+          <ChartTable v-if="widget" :caption="chartLabel" :columns="chartTable.columns" :rows="chartTable.rows" />
         </template>
+      </div>
+
+      <!-- The values the chart draws, as a table of their own at the width of the page -->
+      <div v-else-if="view === 'table'">
+        <ValuesTable v-if="chartTable" full :caption="chartLabel" :columns="chartTable.columns" :rows="chartTable.rows" />
+        <UEmpty v-else icon="i-lucide-table" :title="t('meteogram.chart.noData')" />
       </div>
 
       <!-- Premium Compact Overview Grid -->
       <div v-else class="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-md p-4">
-        <div class="flex items-center justify-start gap-4 overflow-x-auto whitespace-nowrap py-1 px-1">
+        <!-- relative: the cards' visually hidden texts are positioned, and would otherwise lie outside the box that scrolls and make the page scroll sideways (WCAG 1.4.10) -->
+        <div class="relative flex items-center justify-start gap-4 overflow-x-auto whitespace-nowrap py-1 px-1">
           <template v-for="(d, idx) in compactDays" :key="idx">
             <div
               class="inline-flex flex-col items-center justify-center text-center p-4 rounded-2xl border transition-all duration-300 min-w-[105px] flex-shrink-0" :class="[
