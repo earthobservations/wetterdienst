@@ -652,23 +652,24 @@ _DAILY_NO_WIND_DIRECTION = (*_NO_WIND_DIRECTION, "400")
 
 
 # No frost at the stations of these departments (GH-3135), the first digits of the id of the station: Guadeloupe 971
-# (with Saint-Martin and Saint-Barthelemy; 15.9 to 18.1 N, 1 to 1,417 m at La Soufriere), Martinique 972 (14.4 to
-# 14.9 N, 2 to 690 m), Guyane 973 (2.3 to 5.7 N, 2 to 290 m), the Iles Eparses 98403 (Glorieuses, Juan de Nova, Europa,
-# Tromelin; 11.6 to 22.3 S, 3 to 9 m; the daily minima run from 10.2 C at Europa), Mayotte 985 (12.7 to 13.0 S, 6 to
-# 594 m), Wallis-et-Futuna 986 (13.2 to 14.3 S, 4 to 75 m; 9.7 C is the lowest hourly value of 2020 to 2024) and
-# French Polynesia 987 (8.0 to 27.6 S). Of the 226 stations of 987 in the registry the 93 that have data stand at 0 to
-# 816 m (TOOVII-PLATEAU); the one above, FAAA 5 (1,420 m), closed in 1993 and has none, and no station lies above
-# 1,500 m. The southernmost, RAPA (98741001, 27.6 S, 2 m), reads 4.3 C at the lowest hourly value of 2020 to 2024
-# (8.5 C daily), TUBUAI 7.4 C and MANGAREVA 7.0 C. A temperature below 0 C of the air at 2 m, its extremes or its dew
-# point is no reading there. The hourly files of 971 (2000 to 2024) and of the six others (2020 to 2024) hold 20 T,
+# (with Saint-Martin and Saint-Barthelemy; 15.9 to 18.1 N, 1 to 1,417 m at La Soufriere), Martinique 972 (14.4 to 14.9
+# N, 2 to 690 m), Guyane 973 (2.3 to 5.7 N, 2 to 290 m), the Iles Eparses 98403 (Glorieuses, Juan de Nova, Europa,
+# Tromelin; 11.6 to 22.3 S, 3 to 9 m; the daily minima run from 10.2 C at Europa), Mayotte 985 (12.7 to 13.0 S, 6 to 594
+# m), Wallis-et-Futuna 986 (13.2 to 14.3 S, 4 to 75 m; T stays at or above 17.8 C in every period, and the lowest hourly
+# dew point is 9.7 C, of 2010 to 2019) and French Polynesia 987 (8.0 to 27.6 S). Of the 226 stations of 987 in the
+# registry the 93 with a temperature stand at 0 to 816 m (TOOVII-PLATEAU); the one above, FAAA 5 (1,420 m), closed in
+# 1993 and has no temperature, and no station lies above 1,500 m. The southernmost, RAPA (98741001, 27.6 S, 2 m), reads
+# 9.1 C of T (8.9 C of TN) at the lowest hour of 2020 to 2024 and 8.5 C of TN at the lowest day since 1950 (1972), its
+# dew point 4.3 C; TUBUAI and MANGAREVA stay above 12 C. A temperature below 0 C of the air at 2 m, its extremes or its
+# dew point is no reading there. The hourly files of 971 (2000 to 2024) and of the six others (2020 to 2024) hold 20 T,
 # 18 TN, 1 TX and 734 TD hours below 0 C, at stations of 3 to 441 m and, for the dew point, at ST-CLAUDE CITERNE
-# (97124009, 1,141 m): runs of failed sensors, such as TD -39.5 C with U 1 % in 227 hours of 2010 to 2019 there,
-# -20.0 C of T, TN and TX at GROS-MORNE BOISLEZ (97212007, 441 m, 2021-05-10 12 h and 13 h), -26.6 C of the dew point
-# at FRANCOIS-CHOPOT (97210001, 39 hours) or -4.5 C at VAHIBE_SAPC (98511003, 222 m). The daily and monthly files
-# add -10.9 C at ST-MARTIN GRAND-CASE (97127004, 5 m) and -11.5 C; TNSOL and TN50, which the library does not offer,
-# hold -40.0 and -34.1 C at PETIT-BOURG (110 m) and MARIPASOULA (106 m). The value is null, and the number stays as
-# the `raw` token. Out of the list: La Reunion 974 (to 2,580 m, where frost occurs: -2.3 C at the PLAINE DES CHICOTS,
-# 1,834 m, quality 1), Saint-Pierre-et-Miquelon 975 (47 N), the southern territories 98404 (Kerguelen, Crozet,
+# (97124009, 1,141 m): runs of failed sensors, such as TD -39.5 C with U 1 % in 227 hours of 2010 to 2019 there, -20.0 C
+# of T, TN and TX at GROS-MORNE BOISLEZ (97212007, 441 m, 2021-05-10 12 h and 13 h), -26.6 C of the dew point at
+# FRANCOIS-CHOPOT (97210001, 39 hours) or -4.5 C at VAHIBE_SAPC (98511003, 222 m). The daily and monthly files add -10.9
+# C at ST-MARTIN GRAND-CASE (97127004, 5 m) and -11.5 C; TNSOL and TN50, which the library does not offer, hold -40.0
+# and -34.1 C at PETIT-BOURG (110 m) and MARIPASOULA (106 m). The value is null, and the number stays as the `raw`
+# token. Out of the list: La Reunion 974 (to 2,580 m, where frost occurs: -2.3 C at the PLAINE DES CHICOTS, 1,834 m,
+# quality 1), Saint-Pierre-et-Miquelon 975 (47 N), the southern territories 98404 (Kerguelen, Crozet,
 # Nouvelle-Amsterdam, Dumont d'Urville, Port-Martin: sub-Antarctic and Antarctic, where frost is the rule) and New
 # Caledonia 988. The registry's `department_id` is the prefix for every station of 97x and 98x.
 _FROSTLESS_PREFIXES = ("971", "972", "973", "98403", "985", "986", "987")

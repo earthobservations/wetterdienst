@@ -95,7 +95,7 @@ Types of changes:
   extremes, the dew point) at a station of Guadeloupe (971), Martinique (972), Guyane (973),
   Mayotte (985), Wallis-et-Futuna (986), French Polynesia (987) or the Iles Eparses (Glorieuses,
   Juan de Nova, Europa, Tromelin) is null, with the number kept as `raw:`: there is no frost
-  there, and the files hold -20.0 C at 441 m in Martinique, -39.5 C of the dew point at 1,141 m
+  there, and the files hold -20.0 C at 441 m in Martinique, dew points of -39.5 C at 1,141 m
   in Guadeloupe, -32.6 C at Hao (French Polynesia) and -21.6 C at Tromelin. Synop names its 24
   stations. La Reunion, Saint-Pierre-et-Miquelon, the southern territories and New Caledonia
   are not (GH-3135)
