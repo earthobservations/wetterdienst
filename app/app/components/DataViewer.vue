@@ -9,6 +9,7 @@ import { h } from 'vue'
 import QueryPanel from '~/components/QueryPanel.vue'
 import { describeFetchError } from '~/utils/api-error'
 import { formatDate, formatNumber, plotlySeparators } from '~/utils/format'
+import { plotlyLocaleConfigOrFailure, plotlyText } from '~/utils/plotly-locale'
 import { timestampDate } from '~/utils/timestamp'
 import { pinnedUnitTargets } from '~/utils/unit-targets'
 import { exportColumns, field, fieldText, valuesToCsv, valuesToJson } from '~/utils/values-export'
@@ -23,7 +24,7 @@ const props = defineProps<{
   unitTargetDefaults?: Record<string, string>
 }>()
 
-const { t, locale } = useI18n()
+const { t, locale, localeProperties } = useI18n()
 const { parameterLabel, resolutionLabel, datasetLabel } = useParameterLabel()
 const { settings: appSettings } = useSettings()
 
@@ -1126,18 +1127,24 @@ function hoverMode(large: boolean): PlotlyLayout['hovermode'] {
 // The modebar's camera is Plotly's own with one difference: what it saves is the light chart, as every
 // chart this page saves is (utils/chart-export.ts). It is the last button but the logo, and the title
 // is Plotly's own ("Download plot as a PNG"), which names it; the file is Plotly's own `newplot.png`. One
-// config for the page, as a new `click` for each drawing would make Plotly see a config that changed
-let config: { of: unknown, value: Partial<PlotlyConfig> } | undefined
-function plotlyConfig(plotly: typeof import('plotly.js-basic-dist-min')): Partial<PlotlyConfig> {
-  if (config?.of === plotly)
+// config for the page, as a new `click` for each drawing would make Plotly see a config that changed;
+// it changes with the page's language, which the buttons' names and the dates are written in (GH-3625)
+let config: { of: unknown, language: string, value: Partial<PlotlyConfig> } | undefined
+async function plotlyConfig(plotly: typeof import('plotly.js-basic-dist-min')): Promise<Partial<PlotlyConfig>> {
+  const language = localeProperties.value.language ?? locale.value
+  const key = `${locale.value}/${language}`
+  if (config?.of === plotly && config.language === key)
     return config.value
+  const { config: plotLocale, failed } = await plotlyLocaleConfigOrFailure(locale.value, language)
   const value: Partial<PlotlyConfig> = {
+    ...plotLocale,
     responsive: true,
     displayModeBar: true,
     modeBarButtonsToRemove: ['lasso2d', 'select2d', 'toImage'],
     modeBarButtonsToAdd: [{
       name: 'toImage',
-      title: 'Download plot as a PNG',
+      // Plotly translates the names of its own buttons, not of one that is added to it
+      title: plotlyText(plotLocale, 'Download plot as a PNG'),
       icon: plotly.Icons.camera,
       click: (chart: HTMLDivElement) => void saveLightImage(plotly, [chart], 'png', false, 'newplot').then(() => {
         toast.add({ title: t('dataViewer.downloaded'), description: t('dataViewer.downloadedChart', { format: 'PNG' }), color: 'success' })
@@ -1147,7 +1154,9 @@ function plotlyConfig(plotly: typeof import('plotly.js-basic-dist-min')): Partia
       }),
     }],
   }
-  config = { of: plotly, value }
+  // the English fallback of a language whose buttons could not be loaded is not kept as the language's: the next drawing asks again
+  if (!failed)
+    config = { of: plotly, language: key, value }
   return value
 }
 
@@ -1156,8 +1165,10 @@ function plotlyConfig(plotly: typeof import('plotly.js-basic-dist-min')): Partia
 async function saveLightImage(plotly: typeof import('plotly.js-basic-dist-min'), charts: HTMLDivElement[], format: 'png' | 'jpeg' | 'svg', stacked: boolean, filename = 'chart') {
   const copies: OffscreenChart[] = []
   try {
+    // the image is in the language of the page, as the chart is: the names of its dates
+    const { locale: copyLocale, locales } = await plotlyConfig(plotly)
     for (const chart of charts)
-      copies.push(await drawLightCopy(plotly, chart))
+      copies.push(await drawLightCopy(plotly, chart, { locale: copyLocale, locales }))
     const elements = copies.map(copy => copy.element) as HTMLDivElement[]
     if (stacked)
       saveBlob(await stackCharts(plotly, elements, format), `chart.${format}`)
@@ -1216,6 +1227,7 @@ async function drawMainChart(newest: () => boolean) {
   if (viewMode.value !== 'graph' || facetByParameter.value)
     return
   const plotly = await ensurePlotly()
+  const drawConfig = await plotlyConfig(plotly)
 
   await nextTick()
   if (!newest())
@@ -1225,7 +1237,7 @@ async function drawMainChart(newest: () => boolean) {
     // switch of the scheme can come in the middle of
     const drawnIn = theme.value
     plotly.purge(chartRef.value)
-    await plotly.newPlot(chartRef.value, chartTraces.value, themedLayout({ ...chartLayout.value, hovermode: hoverMode(isLargeChart.value) }, drawnIn), plotlyConfig(plotly))
+    await plotly.newPlot(chartRef.value, chartTraces.value, themedLayout({ ...chartLayout.value, hovermode: hoverMode(isLargeChart.value) }, drawnIn), drawConfig)
     markChartScheme(chartRef.value, drawnIn)
   }
 }
@@ -1234,6 +1246,7 @@ async function drawFacetedCharts(newest: () => boolean) {
   if (viewMode.value !== 'graph' || !facetByParameter.value)
     return
   const plotly = await ensurePlotly()
+  const drawConfig = await plotlyConfig(plotly)
 
   await nextTick()
   for (const facet of facetedChartData.value) {
@@ -1251,7 +1264,7 @@ async function drawFacetedCharts(newest: () => boolean) {
         autosize: true,
       }
       const drawnIn = theme.value
-      await plotly.react(el, facet.traces, themedLayout(layout, drawnIn), plotlyConfig(plotly))
+      await plotly.react(el, facet.traces, themedLayout(layout, drawnIn), drawConfig)
       markChartScheme(el, drawnIn)
     }
   }
@@ -1261,6 +1274,26 @@ async function drawFacetedCharts(newest: () => boolean) {
 // and, importantly, does not reach for Plotly.
 onMounted(async () => {
   await renderShownChart()
+})
+
+// Plotly keeps a `resize` listener of the window for each chart drawn with `responsive`, which holds the
+// chart (and its detached element) until it is purged: every chart goes with the viewer (GH-3619). Before
+// the unmount, as the template refs are cleared by then
+onBeforeUnmount(() => {
+  if (!Plotly)
+    return
+  for (const chart of [chartRef.value, ...facetChartRefs.value.values()]) {
+    if (chart)
+      Plotly.purge(chart)
+  }
+})
+
+// And a chart whose element goes while the viewer stays: the table shown in its place, the facets turned off
+// or on, an answer of other parameters or of none (GH-3619). The single chart's ref is null then; the
+// facets' go through `setFacetChartRef`
+watch(chartRef, (chart, gone) => {
+  if (gone && gone !== chart)
+    Plotly?.purge(gone)
 })
 
 // The colour scheme switched: every chart drawn takes the new chrome as it is
@@ -1366,6 +1399,9 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
     facetChartRefs.value.set(parameter, el)
   }
   else {
+    const gone = facetChartRefs.value.get(parameter)
+    if (gone)
+      Plotly?.purge(gone)
     facetChartRefs.value.delete(parameter)
   }
 }

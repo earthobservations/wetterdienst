@@ -16,8 +16,11 @@ export interface OffscreenChart {
   dispose: () => void
 }
 
-/** Draws `data` and `layout` in a copy out of sight, `width` by `height` px, for the export */
-export async function drawOffscreen(plotly: PlotlyDrawing, data: unknown, layout: unknown, size: { width: number, height: number }): Promise<OffscreenChart> {
+/**
+ * Draws `data` and `layout` in a copy out of sight, `width` by `height` px, for the export. `config` is what the
+ * copy needs of the chart's own, its language (`locale` and `locales`): the names of the dates in the image.
+ */
+export async function drawOffscreen(plotly: PlotlyDrawing, data: unknown, layout: unknown, size: { width: number, height: number }, config: object = {}): Promise<OffscreenChart> {
   const element = document.createElement('div')
   element.style.cssText = `position:fixed;left:-20000px;top:0;width:${size.width}px;height:${size.height}px;pointer-events:none`
   element.setAttribute('aria-hidden', 'true')
@@ -32,7 +35,7 @@ export async function drawOffscreen(plotly: PlotlyDrawing, data: unknown, layout
   }
   try {
     // a static chart: no modebar, no hover, nothing to listen to
-    await plotly.newPlot(element, data, layout, { staticPlot: true })
+    await plotly.newPlot(element, data, layout, { ...config, staticPlot: true })
   }
   catch (error) {
     dispose()
@@ -86,8 +89,8 @@ export function markChartScheme(chart: unknown, theme: { dark: boolean }) {
  * chart's own layout with the light chrome over it. A chart that holds colours of its own in its text (the
  * stripes' years) builds its own copy instead.
  */
-export function drawLightCopy(plotly: PlotlyDrawing, chart: HTMLElement): Promise<OffscreenChart> {
+export function drawLightCopy(plotly: PlotlyDrawing, chart: HTMLElement, config: object = {}): Promise<OffscreenChart> {
   const drawn = chart as HTMLElement & { data: unknown, layout: object }
   const layout = mergeLayouts(cloneLayout(drawn.layout), chartThemeLayout(readDocumentChartTheme('light'), drawnAxisNames(chart)))
-  return drawOffscreen(plotly, drawn.data, layout, { width: chart.clientWidth, height: chart.clientHeight })
+  return drawOffscreen(plotly, drawn.data, layout, { width: chart.clientWidth, height: chart.clientHeight }, config)
 }
