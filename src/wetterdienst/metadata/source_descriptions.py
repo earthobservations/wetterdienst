@@ -75,7 +75,9 @@ CHMI, LHMT, Environment Agency and Hub'Eau rows (GH-3136, the fifth group), and 
 rows again against their live sources (GH-3136, the sixth group: the NWS temperature, dew point, wind and
 visibility rows now say the statistic and height the ASOS User's Guide gives), and the NOAA GHCN rows (GH-3136,
 the eighth group: the daily rows say what the readme of the files says in the unit the reader returns, where they
-were the table of the ordering form with its choice of units; the hourly rows follow Table 1 of GHCNh 1.1.0).
+were the table of the ordering form with its choice of units; the hourly rows follow Table 1 of GHCNh 1.1.0), and
+the DMI rows (GH-3136, the ninth group: from the canonical sentence of the quantity to what DMI's documentation says
+of how each value is made, the type of day and the heights).
 CHMI describes its elements only by
 name, unit, height and schedule (``metadata/meta2.csv``) and the Environment Agency by a table of parameter, period,
 statistic and unit on its reference page, so what those entries say about a window or a weighting is what the data
@@ -115,12 +117,6 @@ _SOIL_EMD_ZONE = (
 # source's, which `test_wsv_every_parameter_is_described` catches.
 _WSV_PEGEL_RESOLUTIONS = ("1_minute", "5_minutes", "10_minutes", "15_minutes", "hourly")
 _HUBEAU_RESOLUTIONS = ("5_minutes", "6_minutes", "10_minutes", "15_minutes", "hourly")
-
-# DMI writes a mean wind direction of 0 where the mean wind speed is 0, at every resolution (GH-2794)
-_DMI_MEAN_WIND_DIRECTION = (
-    "Direction the wind is blowing from, clockwise from true north. "
-    "The source's 0 beside a mean wind speed of 0 (a calm wind) is null."
-)
 
 # Pegelonline names each timeseries in German (``longname``), e.g. HL is LUFTFEUCHTE and SIGH
 # SIGNIFIKANTEWELLENHÖHE, and says of its measurements: "tagesaktuelle Rohdaten" that "die Wasserstraßen- und
@@ -1881,6 +1877,207 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("15_minutes", "data", "windSpeed"): (
             "mean wind speed over the period the station states (10 or 15 minutes, none stated in some station groups)"
+        ),
+    },
+    "DmiObservationMetadata": {
+        # DMI's documentation of the climate data (https://www.dmi.dk/friedata/dokumentation/climate-data, the
+        # parameter table, the "Calculation Method for stationValue Parameters" table and "Types of Days"; the type of
+        # day of each parameter at /climate-data/parameters-for-station-value; the heights of the underlying
+        # observations at /meteorological-observations-data: "measured 2 m over terrain" for the temperature and
+        # humidity, "10 m over terrain" for the wind). The parameter table gives a name, a unit and a short
+        # description ("Mean temperature"); how a value of each resolution is made is in the calculation table.
+        # Read against opendataapi.dmi.dk, 2026-10-30, key-less (06180 Kastrup and 04250 Nuuk,
+        # daily values of January 2024: Kastrup's days run from 00:00 local, Nuuk's from 06:00 UTC to 06:00 UTC;
+        # 2023: the daily heating degree days are max(0, 17 - mean_temp) on 62 of 62 days, the monthly ones, highest
+        # temperature, highest daily precipitation and lowest temperature the sum, highest, highest and lowest of the
+        # daily values on February and March, the mean of the daily maxima 6.1 against 6.14 and 7.5 against 7.45).
+        ("hourly", "data", "mean_temp"): (
+            "Mean air temperature of the hour (UTC), measured 2 m over terrain; in Greenland possibly the "
+            "reading at minute 0."
+        ),
+        ("daily", "data", "mean_temp"): (
+            "Mean air temperature of the day: the average of all hourly values within the day (the local day "
+            "in Denmark; 06:00 to 06:00 UTC in Greenland and the Faroe Islands)."
+        ),
+        ("monthly", "data", "mean_temp"): (
+            "Mean air temperature of the month: the average of all the underlying daily values."
+        ),
+        ("annual", "data", "mean_temp"): (
+            "Mean air temperature of the year: the average of all the underlying daily values."
+        ),
+        ("hourly", "data", "max_temp_w_date"): (
+            "Highest air temperature of the hour (UTC), measured 2 m over terrain."
+        ),
+        ("daily", "data", "max_temp_w_date"): (
+            "Highest air temperature of the day: the highest of all the hourly values within the day (the "
+            "local day in Denmark; 06:00 to 06:00 UTC in Greenland and the Faroe Islands)."
+        ),
+        ("monthly", "data", "max_temp_w_date"): (
+            "Highest air temperature of the month: the highest of the underlying daily values."
+        ),
+        ("annual", "data", "max_temp_w_date"): (
+            "Highest air temperature of the year: the highest of the underlying daily values."
+        ),
+        ("hourly", "data", "min_temp"): "Lowest air temperature of the hour (UTC), measured 2 m over terrain.",
+        ("daily", "data", "min_temp"): (
+            "Lowest air temperature of the day: the lowest of all the hourly values within the day (the local"
+            " day in Denmark; 06:00 to 06:00 UTC in Greenland and the Faroe Islands)."
+        ),
+        ("monthly", "data", "min_temp"): (
+            "Lowest air temperature of the month: the lowest of the underlying daily values."
+        ),
+        ("annual", "data", "min_temp"): (
+            "Lowest air temperature of the year: the lowest of the underlying daily values."
+        ),
+        ("monthly", "data", "mean_daily_max_temp"): (
+            "Mean of the daily maximum air temperature of the month: the average of all the underlying daily "
+            "values of the highest temperature."
+        ),
+        ("annual", "data", "mean_daily_max_temp"): (
+            "Mean of the daily maximum air temperature of the year: the average of all the underlying daily "
+            "values of the highest temperature."
+        ),
+        ("monthly", "data", "mean_daily_min_temp"): (
+            "Mean of the daily minimum air temperature of the month: the average of all the underlying daily "
+            "values of the lowest temperature."
+        ),
+        ("annual", "data", "mean_daily_min_temp"): (
+            "Mean of the daily minimum air temperature of the year: the average of all the underlying daily "
+            "values of the lowest temperature."
+        ),
+        ("hourly", "data", "mean_relative_hum"): (
+            "Mean relative humidity of the hour (UTC), measured 2 m over terrain: in Denmark the average of "
+            "the 6 underlying values within the hour."
+        ),
+        ("daily", "data", "mean_relative_hum"): (
+            "Mean relative humidity of the day: the average of all hourly values within the day (the local "
+            "day in Denmark; 06:00 to 06:00 UTC in Greenland and the Faroe Islands)."
+        ),
+        ("monthly", "data", "mean_relative_hum"): (
+            "Mean relative humidity of the month: the average of the underlying daily values."
+        ),
+        ("annual", "data", "mean_relative_hum"): (
+            "Mean relative humidity of the year: the average of the underlying daily values."
+        ),
+        ("monthly", "data", "max_relative_hum"): (
+            "Highest relative humidity of the month: the highest of all the daily values, each the highest "
+            "hourly mean relative humidity of its day."
+        ),
+        ("monthly", "data", "min_relative_hum"): (
+            "Lowest relative humidity of the month: the lowest of all the daily values, each the lowest "
+            "hourly mean relative humidity of its day."
+        ),
+        ("hourly", "data", "mean_pressure"): (
+            "Mean atmospheric pressure of the hour (UTC), reduced to mean sea level: in Denmark the average "
+            "of the 6 underlying values within the hour."
+        ),
+        ("daily", "data", "mean_pressure"): (
+            "Mean atmospheric pressure of the day, reduced to mean sea level: the average of all hourly "
+            "values within the day (the local day in Denmark; 06:00 to 06:00 UTC in Greenland and the Faroe "
+            "Islands)."
+        ),
+        ("monthly", "data", "mean_pressure"): (
+            "Mean atmospheric pressure of the month, reduced to mean sea level: the average of the underlying"
+            " daily values."
+        ),
+        ("annual", "data", "mean_pressure"): (
+            "Mean atmospheric pressure of the year, reduced to mean sea level: the average of the underlying "
+            "daily values."
+        ),
+        ("hourly", "data", "acc_precip"): "Accumulated precipitation of the hour (UTC), in mm.",
+        ("daily", "data", "acc_precip"): (
+            "Accumulated precipitation of the day, in mm: the sum of all hourly values within the day (the "
+            "local day in Denmark; in Greenland and the Faroe Islands 06:00 to 06:00 UTC, or 12:00 to 12:00 "
+            "UTC at the few Greenland stations that measure it by hand)."
+        ),
+        ("monthly", "data", "acc_precip"): (
+            "Accumulated precipitation of the month, in mm: the sum of the underlying daily values."
+        ),
+        ("annual", "data", "acc_precip"): (
+            "Accumulated precipitation of the year, in mm: the sum of the underlying daily values."
+        ),
+        ("hourly", "data", "mean_wind_speed"): (
+            "Mean wind speed of the hour (UTC), measured 10 m over terrain: the average of the 6 underlying "
+            "values within the hour. For Greenland the source says the value is not calculated correctly "
+            "before 2024."
+        ),
+        ("daily", "data", "mean_wind_speed"): (
+            "Mean wind speed of the day: the average of all hourly values within the day (the local day in "
+            "Denmark; 06:00 to 06:00 UTC in Greenland and the Faroe Islands)."
+        ),
+        ("monthly", "data", "mean_wind_speed"): (
+            "Mean wind speed of the month: the average of the underlying daily values."
+        ),
+        ("annual", "data", "mean_wind_speed"): (
+            "Mean wind speed of the year: the average of the underlying daily values."
+        ),
+        ("hourly", "data", "max_wind_speed_10min"): (
+            "Highest of the 6 underlying 10 minute average wind speeds within the hour (UTC), measured 10 m "
+            "over terrain."
+        ),
+        ("daily", "data", "max_wind_speed_10min"): (
+            "Highest 10 minute average wind speed of the day: the highest of all hourly values within the day"
+            " (the local day in Denmark; 06:00 to 06:00 UTC in Greenland and the Faroe Islands)."
+        ),
+        ("monthly", "data", "max_wind_speed_10min"): (
+            "Highest 10 minute average wind speed of the month: the highest of the underlying daily values."
+        ),
+        ("annual", "data", "max_wind_speed_10min"): (
+            "Highest 10 minute average wind speed of the year: the highest of the underlying daily values."
+        ),
+        ("hourly", "data", "max_wind_speed_3sec"): (
+            "Highest 3 second average wind speed (gust) of the hour (UTC), measured 10 m over terrain."
+        ),
+        ("daily", "data", "max_wind_speed_3sec"): (
+            "Highest 3 second average wind speed (gust) of the day: the highest of all hourly values within "
+            "the day (the local day in Denmark; 06:00 to 06:00 UTC in Greenland and the Faroe Islands)."
+        ),
+        ("monthly", "data", "max_wind_speed_3sec"): (
+            "Highest 3 second average wind speed (gust) of the month: the highest of the underlying daily values."
+        ),
+        ("annual", "data", "max_wind_speed_3sec"): (
+            "Highest 3 second average wind speed (gust) of the year: the highest of the underlying daily values."
+        ),
+        ("hourly", "data", "mean_wind_dir"): (
+            "Direction the wind blows from (north is 360, 0 means calm) over the hour (UTC), measured 10 m "
+            "over terrain; in Greenland possibly the reading at minute 0. The source's 0 beside a mean wind speed of "
+            "0 (a calm wind) is null."
+        ),
+        ("daily", "data", "mean_wind_dir"): (
+            "Direction the wind blows from (north is 360, 0 means calm) over the day: the mean of components "
+            "of the hourly values (the local day in Denmark; 06:00 to 06:00 UTC in Greenland and the Faroe "
+            "Islands). The source's 0 beside a mean wind speed of 0 (a calm wind) is null."
+        ),
+        ("monthly", "data", "mean_wind_dir"): (
+            "Direction the wind blows from (north is 360, 0 means calm) over the month: the mean of "
+            "components. The source's 0 beside a mean wind speed of 0 (a calm wind) is null."
+        ),
+        ("annual", "data", "mean_wind_dir"): (
+            "Direction the wind blows from (north is 360, 0 means calm) over the year: the mean of "
+            "components. The source's 0 beside a mean wind speed of 0 (a calm wind) is null."
+        ),
+        ("daily", "data", "max_precip_30m"): (
+            "Largest precipitation depth in any 30 minutes of the day, found from 23:31 local time of the "
+            "previous day to 24:00 local time of the day."
+        ),
+        ("monthly", "data", "max_precip_24h"): (
+            "Largest daily precipitation total of the month, the highest of the underlying daily values."
+        ),
+        ("annual", "data", "max_precip_24h"): (
+            "Largest daily precipitation total of the year, the highest of the underlying daily values."
+        ),
+        ("daily", "data", "acc_heating_degree_days_17"): (
+            "Heating degree days of the day: 17 °C minus the daily mean temperature, 0 for a mean above 17 "
+            "°C. The source lists the unit as “no. of days”; the values are degrees (a mean of 2.0 °C is "
+            "15.0)."
+        ),
+        ("monthly", "data", "acc_heating_degree_days_17"): (
+            "Heating degree days of the month: the sum of the underlying daily values (17 °C minus the daily "
+            "mean temperature)."
+        ),
+        ("annual", "data", "acc_heating_degree_days_17"): (
+            "Heating degree days of the year: the sum of the underlying daily values (17 °C minus the daily "
+            "mean temperature)."
         ),
     },
     # the "Revised service" table of https://environment.data.gov.uk/hydrology/doc/reference (read 2026-10-21): "Flow
@@ -4022,26 +4219,6 @@ DERIVED_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("subdaily", "visibility", "qn_4"): "Quality flag published by the source for the values in the same dataset.",
         ("subdaily", "wind", "qn_4"): "Quality flag published by the source for the values in the same dataset.",
-    },
-    "DmiObservationMetadata": {
-        # DMI's documentation (https://www.dmi.dk/friedata/dokumentation/climate-data): "Maximum 30 minutes intensity in
-        # 24 hours with date", "is found by inspecting the period from 23:31 local time to the previous day to 24.00
-        # local time of the respective day"; "Maximum 24-hour precipitation with associated date", "the highest of
-        # the underlying daily values of acc_precip" (GH-2614)
-        ("daily", "data", "max_precip_30m"): (
-            "Largest precipitation depth in any 30 minutes of the day, found from 23:31 local time of the previous "
-            "day to 24:00 local time of the day."
-        ),
-        ("monthly", "data", "max_precip_24h"): (
-            "Largest daily precipitation total of the month, the highest of the underlying daily values."
-        ),
-        ("annual", "data", "max_precip_24h"): (
-            "Largest daily precipitation total of the year, the highest of the underlying daily values."
-        ),
-        ("annual", "data", "mean_wind_dir"): _DMI_MEAN_WIND_DIRECTION,
-        ("daily", "data", "mean_wind_dir"): _DMI_MEAN_WIND_DIRECTION,
-        ("hourly", "data", "mean_wind_dir"): _DMI_MEAN_WIND_DIRECTION,
-        ("monthly", "data", "mean_wind_dir"): _DMI_MEAN_WIND_DIRECTION,
     },
     "ImgwMeteorologyMetadata": {
         ("monthly", "synop", "maksymalna dobowa suma opadów"): "precipitation height max",
