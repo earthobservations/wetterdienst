@@ -82,6 +82,11 @@ Types of changes:
 
 ### Fixed
 
+- The `eccc/observation` hourly dataset no longer claims a wind gust and weather: it holds air
+  temperature, dew point, humidity, precipitation, station pressure, visibility, wind direction
+  and speed, wind chill and humidex. Its parameter descriptions now say what ECCC's glossary and
+  technical documentation say (the climatological day, the degree-day base of 18 °C, the
+  gust published above 30 km/h only, the humidex and wind chill ranges) (GH-3136)
 - `chmi/observation` no longer lists the two stations abroad of CHMI's catalogue, Reykjavik
   (`0-20000-0-04030`) and Marambio Base (`0-20000-0-89055`), in the `10_minutes` and `hourly`
   station lists: the portal has no file for them in any resolution, so they never had a value

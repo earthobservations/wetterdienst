@@ -604,7 +604,11 @@ _GUST_LAST_10MIN = "wind_gust_max_last_10min"
 # GH-2697 moved DWD wind_synoptic, DWD POI and AEMET hourly, GH-2707 FMI, MET Norway, SMHI and Météo-France hourly,
 # so none is left. A row the rule finds in a provider added later goes here until its pass of GH-2688; the test
 # also fails when an entry no longer matches, so the list only shrinks.
-_WIND_MEAN_WINDOW_NOT_YET_NAMED: dict[str, str] = {}
+_WIND_MEAN_WINDOW_NOT_YET_NAMED: dict[str, str] = {
+    # the glossary: "the average speed during the one-, two- or ten-minute period ending at the time of observation",
+    # so no one window fits the column; the direction states two minutes and is named for them (GH-2837, GH-3136)
+    "EcccObservationMetadata hourly/data/wind_speed [wind_speed]": "ECCC states one, two or ten minutes",
+}
 
 
 def _states_a_shorter_wind_mean(evidence: str, resolution: str) -> bool:

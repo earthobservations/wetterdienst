@@ -50,6 +50,9 @@ _PLAIN_ON_PURPOSE = {
     # is right for the merged dataset (GH-3010)
     ("DwdRoadMetadata", "15_minutes", "data", "windSpeed"),
     ("DwdRoadMetadata", "15_minutes", "data", "windDirection"),
+    # the glossary says "the one-, two- or ten-minute period ending at the time of observation", so no one window
+    # fits the column (GH-2837); its direction states two minutes and is named for them
+    ("EcccObservationMetadata", "hourly", "data", "wind_speed"),
 }
 # a provider whose "average" is not evidence yet: PEGELONLINE publishes raw data at the equidistance of each station and
 # the audit of GH-2614 doubts the descriptions, so its rows wait for WSV's confirmation (GH-3151)
