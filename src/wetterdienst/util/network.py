@@ -1646,31 +1646,39 @@ def _write_sidecar(blob: Path, last_modified: dt.datetime | None, written: os.st
     (`_has_sidecar_record`), which is what tells it from a copy made before. Never raises: a date lost is a null, not a
     failed download. A replace that Windows refuses, because another process holds the sidecar open, is asked again
     after the pauses of `_ask_again` (GH-3632) before the date is given up, and each try checks the blob again. Those
-    pauses, under a second in all, hold the lock of the cache directory, which the check needs.
+    pauses, under a second in all, hold the lock of the cache directory, which the check needs, and with it the lock
+    file the other processes take turns on.
 
-    Written under the lock of the cache directory and only if the blob is still the file `written` describes: of two
-    fetches that replace the blob one after the other, the one that comes later may write its sidecar first, and the
-    earlier one then finds a blob that is not its own and leaves the sidecar of the other where it is.
+    Written under the lock of the cache directory, against the other processes that share it as well as the threads
+    of this one (`_locked_across_processes`, GH-3634), and only if the blob is still the file `written` describes: of
+    two fetches that replace the blob one after the other, the one that comes later may write its sidecar first, and
+    the earlier one then finds a blob that is not its own and leaves the sidecar of the other where it is. The check
+    and the replace are one step for that lock, as the rename of a blob onto its place is (`_open`): between a check
+    and a replace outside it another process could rename its blob there and write its sidecar, and the replace
+    would then bury that record under one of the blob that is gone. Where another process holds the lock past the
+    wait the write is skipped: the copy has no date, which is a null, and counts as undated, so it is fetched once
+    more (`refetch_undated`). The directory is the blob's own.
     """
     sidecar = _sidecar_of(blob)
     temp = sidecar.with_name(f"{sidecar.name}.{uuid.uuid4().hex}.tmp")
     try:
-        with _cache_dir_lock:
-            record = {
-                "last_modified": None if last_modified is None else last_modified.isoformat(),
-                "size": written.st_size,
-                "mtime_ns": written.st_mtime_ns,
-            }
-            temp.write_text(json.dumps(record), encoding="utf-8")
+        record = {
+            "last_modified": None if last_modified is None else last_modified.isoformat(),
+            "size": written.st_size,
+            "mtime_ns": written.st_mtime_ns,
+        }
+        temp.write_text(json.dumps(record), encoding="utf-8")
 
-            def replace_if_still_described() -> None:
-                # asked again with each try: another process may have put its blob there, and its record, since the
-                # one before, and a late replace of this record would overwrite the record of the blob that is there
-                current = blob.stat()
-                if (current.st_size, current.st_mtime_ns) == (written.st_size, written.st_mtime_ns):
-                    os.replace(temp, sidecar)  # noqa: PTH105
+        def replace_if_still_described() -> None:
+            # asked again with each try: another process may have put its blob there, and its record, since the
+            # one before, and a late replace of this record would overwrite the record of the blob that is there
+            current = blob.stat()
+            if (current.st_size, current.st_mtime_ns) == (written.st_size, written.st_mtime_ns):
+                os.replace(temp, sidecar)  # noqa: PTH105
 
-            _ask_again(replace_if_still_described, sidecar)
+        with _locked_across_processes(blob.parent, otherwise=f"the date of {blob.name} is not kept") as proceed:
+            if proceed:
+                _ask_again(replace_if_still_described, sidecar)
     except OSError:
         log.debug(f"Failed keeping the date of {blob}", exc_info=True)
     finally:

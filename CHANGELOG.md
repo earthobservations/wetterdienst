@@ -101,6 +101,11 @@ Types of changes:
   arrived with (the `updated` column and `data_updated_at` came back null) nor download the file
   once more, when one reads or replaces its date at the moment the other does: that is asked again
   for under a second (GH-3632)
+- On any system, two processes that share a cache directory no longer overwrite each other's
+  date of a cached file: the `updated` column and `data_updated_at` could come back null, and the
+  file was downloaded once more, when one wrote the date at the moment the other replaced the
+  file. The date is now kept under the lock the directory's other writes take, and skipped, as
+  before, where another process holds it for over 10 seconds (GH-3634)
 - The `noaa/ghcn` parameter descriptions no longer offer a choice of units. 30 daily rows read
   "mm or inches as per user preference" or "Fahrenheit or Celsius", the wording of NCEI's
   ordering form; the files hold one unit, which the values already came in (mm, °C, m/s, km,
