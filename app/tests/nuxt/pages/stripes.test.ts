@@ -530,13 +530,46 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
     expect(plotly.purge).not.toHaveBeenCalledWith(shown)
   })
 
+  // zoomed in: Plotly holds the ranges it shows, which the layout built from the data does not know
+  const zoomed = { _fullLayout: { xaxis: { range: [2019.5, 2019.9] }, yaxis: { range: [0.2, 0.8] } } }
+  const rangesOf = (layout: unknown) => layout as { xaxis: { range: number[], autorange?: boolean }, yaxis: { range: number[] } }
+
+  it('saves the stripes at the zoom they are shown in', async () => {
+    const vm = await showStripes()
+    await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
+    Object.assign((plotly.newPlot.mock.lastCall as unknown as [HTMLElement])[0], zoomed)
+    plotly.newPlot.mockClear()
+
+    await vm.downloadStripes('png')
+
+    const [copy, , layout] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement, unknown, unknown]
+    expect(copy.getAttribute('aria-hidden')).toBe('true')
+    expect(rangesOf(layout).xaxis).toMatchObject({ range: [2019.5, 2019.9], autorange: false })
+    expect(rangesOf(layout).yaxis.range).toEqual([0.2, 0.8])
+  })
+
+  it('draws the stripes again at the zoom they are shown in where the colour scheme switches', async () => {
+    await showStripes()
+    await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
+    Object.assign((plotly.newPlot.mock.lastCall as unknown as [HTMLElement])[0], zoomed)
+    plotly.newPlot.mockClear()
+    document.documentElement.classList.add('dark')
+    try {
+      await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
+      expect(rangesOf((plotly.newPlot.mock.lastCall as unknown as unknown[])[2]).xaxis.range).toEqual([2019.5, 2019.9])
+    }
+    finally {
+      document.documentElement.classList.remove('dark')
+    }
+  })
+
   it('has the camera of the modebar save the same, in the place of Plotly\'s own', async () => {
     await showStripes()
     await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
     const [, , , config] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement, unknown, unknown, { modeBarButtonsToRemove: string[], modeBarButtonsToAdd: { name: string, title: string, click: () => void }[], toImageButtonOptions?: unknown }]
     expect(config.modeBarButtonsToRemove).toContain('toImage')
     const [camera] = config.modeBarButtonsToAdd
-    expect([camera!.name, camera!.title]).toEqual(['toImage', 'Download plot as a png'])
+    expect([camera!.name, camera!.title]).toEqual(['toImage', 'Download plot as a PNG'])
     plotly.downloadImage.mockClear()
     camera!.click()
     await vi.waitFor(() => expect(plotly.downloadImage).toHaveBeenCalledOnce())

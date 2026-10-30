@@ -38,6 +38,12 @@ export function useChartTheme() {
     window.addEventListener('afterprint', () => startPrinting(false))
     window.matchMedia('print').addEventListener('change', event => startPrinting(event.matches))
   }
-  const theme = computed(() => (printing.value ? printTheme : current.value) ?? EMPTY_CHART_THEME)
+  // a page that is light prints as it is: the very theme it shows, so that nothing watching it redraws
+  const theme = computed(() => {
+    const screen = current.value ?? EMPTY_CHART_THEME
+    if (!printing.value || !printTheme)
+      return screen
+    return same(printTheme, screen) ? screen : printTheme
+  })
   return { theme, isDark: computed(() => theme.value.dark) }
 }

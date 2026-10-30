@@ -256,14 +256,15 @@ async function fetchAndPlotStripes() {
   }
 }
 
-async function plotStripes(data: StripesValuesResponse) {
+// `keepZoom`: drawn again in other colours (the scheme switched, a print), so the range the stripes are shown in stays
+async function plotStripes(data: StripesValuesResponse, keepZoom = false) {
   const plot = ++plotsStarted
   try {
     await ensurePlotly()
     // a newer drawing, or a Reset, came while Plotly loaded: this one draws nothing
     if (plot !== plotsStarted)
       return
-    await drawStripes(data)
+    await drawStripes(data, keepZoom)
     if (plot === plotsStarted)
       plotFailed.value = false
   }
@@ -500,7 +501,7 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
     modeBarButtonsToRemove: ['lasso2d', 'select2d', 'toImage'],
     modeBarButtonsToAdd: [{
       name: 'toImage',
-      title: 'Download plot as a png',
+      title: 'Download plot as a PNG',
       icon: Plotly!.Icons.camera as Plotly.Icon,
       click: () => void saveStripes({
         format: 'png',
@@ -532,17 +533,20 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
   }
 }
 
-async function drawStripes(data: StripesValuesResponse) {
+async function drawStripes(data: StripesValuesResponse, keepZoom = false) {
   if (!plotContainer.value || !Plotly)
     return
 
+  // the range shown now, which a purge forgets
+  const zoom = keepZoom ? drawnRanges(plotContainer.value) : {}
   // Purge any existing plot first to ensure clean render
   Plotly.purge(plotContainer.value)
 
   const figure = stripesFigure(data, theme.value, plotContainer.value.clientWidth)
   if (!figure)
     return
-  await Plotly.newPlot(plotContainer.value, figure.traces as any, figure.layout as any, figure.config)
+  await Plotly.newPlot(plotContainer.value, figure.traces as any, mergeLayouts(figure.layout, zoom) as any, figure.config)
+  markChartScheme(plotContainer.value, theme.value)
   if (figure.title)
     await Plotly.relayout(plotContainer.value, { title: figure.title })
 }
@@ -556,7 +560,9 @@ async function saveStripes(options: { format: 'png' | 'jpeg' | 'svg', filename: 
   if (!figure)
     return
   const { format, filename, width, height, scale } = options
-  const copy = await drawOffscreen(Plotly, figure.traces, figure.layout, { width: plotContainer.value.clientWidth, height: plotContainer.value.clientHeight })
+  // as the page shows them: the range the stripes are zoomed to is the image's
+  const layout = mergeLayouts(figure.layout, drawnRanges(plotContainer.value))
+  const copy = await drawOffscreen(Plotly, figure.traces, layout, { width: plotContainer.value.clientWidth, height: plotContainer.value.clientHeight })
   try {
     if (figure.title)
       await Plotly.relayout(copy.element, { title: figure.title })
@@ -689,7 +695,7 @@ watch(stations, () => {
 // and follow it (utils/chart-theme.ts); the stripes' own colours are the data and do not
 watch(theme, async () => {
   if (lastFetchedData.value && hasPlot.value) {
-    await plotStripes(lastFetchedData.value)
+    await plotStripes(lastFetchedData.value, true)
   }
 })
 

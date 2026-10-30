@@ -1125,27 +1125,35 @@ function hoverMode(large: boolean): PlotlyLayout['hovermode'] {
 
 // The modebar's camera is Plotly's own with one difference: what it saves is the light chart, as every
 // chart this page saves is (utils/chart-export.ts). It is the last button but the logo, and the title
-// is Plotly's own ("Download plot as a png"), which names it
+// is Plotly's own ("Download plot as a PNG"), which names it; the file is Plotly's own `newplot.png`. One
+// config for the page, as a new `click` for each drawing would make Plotly see a config that changed
+let config: { of: unknown, value: Partial<PlotlyConfig> } | undefined
 function plotlyConfig(plotly: typeof import('plotly.js-basic-dist-min')): Partial<PlotlyConfig> {
-  return {
+  if (config?.of === plotly)
+    return config.value
+  const value: Partial<PlotlyConfig> = {
     responsive: true,
     displayModeBar: true,
     modeBarButtonsToRemove: ['lasso2d', 'select2d', 'toImage'],
     modeBarButtonsToAdd: [{
       name: 'toImage',
-      title: 'Download plot as a png',
+      title: 'Download plot as a PNG',
       icon: plotly.Icons.camera,
-      click: (chart: HTMLDivElement) => void saveLightImage(plotly, [chart], 'png', false).catch((error: unknown) => {
+      click: (chart: HTMLDivElement) => void saveLightImage(plotly, [chart], 'png', false, 'newplot').then(() => {
+        toast.add({ title: t('dataViewer.downloaded'), description: t('dataViewer.downloadedChart', { format: 'PNG' }), color: 'success' })
+      }, (error: unknown) => {
         console.error('The chart image could not be saved', error)
         toast.add({ title: t('dataViewer.chartImageNotSaved'), color: 'error' })
       }),
     }],
   }
+  config = { of: plotly, value }
+  return value
 }
 
 // Saves `charts` in the light theme, whatever the page shows: each drawn again, off screen, for the export.
 // Stacked into one image where they are the facets, the single chart through Plotly's own download
-async function saveLightImage(plotly: typeof import('plotly.js-basic-dist-min'), charts: HTMLDivElement[], format: 'png' | 'jpeg' | 'svg', stacked: boolean) {
+async function saveLightImage(plotly: typeof import('plotly.js-basic-dist-min'), charts: HTMLDivElement[], format: 'png' | 'jpeg' | 'svg', stacked: boolean, filename = 'chart') {
   const copies: OffscreenChart[] = []
   try {
     for (const chart of charts)
@@ -1154,7 +1162,7 @@ async function saveLightImage(plotly: typeof import('plotly.js-basic-dist-min'),
     if (stacked)
       saveBlob(await stackCharts(plotly, elements, format), `chart.${format}`)
     else
-      await plotly.downloadImage(elements[0]!, { format, filename: 'chart', width: undefined, height: undefined })
+      await plotly.downloadImage(elements[0]!, { format, filename, width: undefined, height: undefined })
   }
   finally {
     copies.forEach(copy => copy.dispose())
@@ -1216,6 +1224,7 @@ async function drawMainChart(newest: () => boolean) {
     // Use newPlot for clean initialization
     plotly.purge(chartRef.value)
     await plotly.newPlot(chartRef.value, chartTraces.value, themedLayout({ ...chartLayout.value, hovermode: hoverMode(isLargeChart.value) }, theme.value), plotlyConfig(plotly))
+    markChartScheme(chartRef.value, theme.value)
   }
 }
 
@@ -1240,6 +1249,7 @@ async function drawFacetedCharts(newest: () => boolean) {
         autosize: true,
       }
       await plotly.react(el, facet.traces, themedLayout(layout, theme.value), plotlyConfig(plotly))
+      markChartScheme(el, theme.value)
     }
   }
 }
@@ -1258,6 +1268,7 @@ watch(theme, async (next) => {
   const charts = [chartRef.value, ...facetChartRefs.value.values()]
   // a chart that cannot be restyled keeps its colours; the others take theirs
   await Promise.allSettled(charts.map(chart => restyleChart(plotly, chart, next)))
+  charts.forEach(chart => markChartScheme(chart, next))
 })
 
 // Render main chart when data changes

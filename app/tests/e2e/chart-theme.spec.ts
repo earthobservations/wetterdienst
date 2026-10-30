@@ -301,7 +301,7 @@ async function expectLight(page: Page, download: Download) {
   expect(luminance(corner), `the saved image is light (its corner is ${corner})`).toBeGreaterThan(0.9)
   // the chart on the page is as dark as it was, and the copy that was drawn for the image is gone
   expect(luminance((await papers(page))[0]!)).toBeLessThan(0.05)
-  await expect(page.locator('.js-plotly-plot')).toHaveCount((await papers(page)).length)
+  await expect(page.locator('.js-plotly-plot[aria-hidden="true"]')).toHaveCount(0)
 }
 
 test.describe('a saved chart is the light one', () => {
@@ -323,7 +323,7 @@ test.describe('a saved chart is the light one', () => {
     await expectLight(page, await menu('JPEG'))
 
     // the camera is Plotly's own icon and name, and saves the same
-    const camera = page.locator('.js-plotly-plot .modebar-btn[aria-label="Download plot as a png"]')
+    const camera = page.locator('.js-plotly-plot .modebar-btn[aria-label="Download plot as a PNG"]')
     await expect(camera).toHaveCount(1)
     const saved = page.waitForEvent('download')
     await camera.click()
@@ -346,7 +346,7 @@ test.describe('a saved chart is the light one', () => {
     await page.getByRole('menuitem', { name: 'Download as PNG' }).click()
     await expectLight(page, await menuSaved)
 
-    const camera = page.locator('.js-plotly-plot .modebar-btn[aria-label="Download plot as a png"]')
+    const camera = page.locator('.js-plotly-plot .modebar-btn[aria-label="Download plot as a PNG"]')
     await expect(camera).toHaveCount(1)
     const saved = page.waitForEvent('download')
     await camera.click()
@@ -366,12 +366,92 @@ for (const chart of CASES) {
 
     await page.emulateMedia({ media: 'print' })
     await expect.poll(async () => luminance((await chromeOf(page)).paper), { message: 'drawn light for the print' }).toBeGreaterThan(0.9)
-    // and whatever has not been redrawn yet prints readably: no background, text in black
-    const svg = page.locator('.js-plotly-plot .main-svg').first()
-    expect(await svg.evaluate(element => getComputedStyle(element).backgroundColor)).toBe('rgba(0, 0, 0, 0)')
-    expect(await page.locator('.js-plotly-plot .main-svg text').first().evaluate(element => getComputedStyle(element).fill)).toBe('rgb(0, 0, 0)')
+    // and it says so, which is what the print rules of main.css leave a chart alone by
+    await expect(page.locator('.js-plotly-plot').first()).toHaveAttribute('data-chart-scheme', 'light')
 
     await page.emulateMedia({ media: 'screen' })
     await expect.poll(async () => luminance((await chromeOf(page)).paper)).toBeLessThan(0.05)
+    await expect(page.locator('.js-plotly-plot').first()).toHaveAttribute('data-chart-scheme', 'dark')
+  })
+
+  test(`${chart.name} is not drawn again where a page that is light is printed`, async ({ page, baseURL, context }) => {
+    await context.addInitScript(() => localStorage.setItem('nuxt-color-mode', 'light'))
+    await mockBackend(page, baseURL!)
+    await page.goto(chart.path)
+    await chart.reach(page)
+    await expect.poll(async () => luminance((await chromeOf(page)).paper)).toBeGreaterThan(0.9)
+    // every drawing of Plotly, a redraw or a restyle, ends in this event
+    const chartElement = page.locator('.js-plotly-plot').first()
+    await chartElement.evaluate((element) => {
+      ;(window as any).__afterplot = 0
+      ;(element as any).on('plotly_afterplot', () => (window as any).__afterplot++)
+    })
+    await page.emulateMedia({ media: 'print' })
+    await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')))
+    await page.waitForTimeout(1000)
+    await page.evaluate(() => window.dispatchEvent(new Event('afterprint')))
+    await page.emulateMedia({ media: 'screen' })
+    await page.waitForTimeout(500)
+    expect(await page.evaluate(() => (window as any).__afterplot), 'drawings while it was printed').toBe(0)
   })
 }
+
+test('the print rules make a chart that is still dark readable, and leave one drawn light as it is', async ({ page, baseURL }) => {
+  // the redraw for a print is asynchronous for some charts, so a print that comes before it is made readable by
+  // main.css, for the charts that say they are drawn dark; the rules are tried on stand-ins for the charts' parts
+  await mockBackend(page, baseURL!)
+  await page.goto('/')
+  await page.evaluate(() => {
+    for (const scheme of ['dark', 'light']) {
+      const chart = document.createElement('div')
+      chart.className = 'js-plotly-plot'
+      chart.id = `chart-${scheme}`
+      chart.dataset.chartScheme = scheme
+      chart.innerHTML = '<svg class="main-svg" style="background: rgb(15, 23, 43)"><text style="fill: rgb(226, 232, 240)">Mo</text></svg><canvas class="meteogram-overlay-canvas"></canvas>'
+      document.body.appendChild(chart)
+    }
+  })
+  await page.emulateMedia({ media: 'print' })
+  const styleOf = (scheme: string) => page.evaluate((id) => {
+    const chart = document.getElementById(id)!
+    return {
+      background: getComputedStyle(chart.querySelector('.main-svg')!).backgroundColor,
+      text: getComputedStyle(chart.querySelector('text')!).fill,
+      barbs: getComputedStyle(chart.querySelector('.meteogram-overlay-canvas')!).filter,
+    }
+  }, `chart-${scheme}`)
+  expect(await styleOf('dark')).toEqual({ background: 'rgba(0, 0, 0, 0)', text: 'rgb(0, 0, 0)', barbs: 'invert(1)' })
+  expect(await styleOf('light')).toEqual({ background: 'rgb(15, 23, 43)', text: 'rgb(226, 232, 240)', barbs: 'none' })
+})
+
+test('zoomed stripes stay zoomed where the scheme switches or the page is printed, and are saved as shown', async ({ page, baseURL, context }) => {
+  await context.addInitScript(() => localStorage.setItem('nuxt-color-mode', 'light'))
+  await mockBackend(page, baseURL!)
+  await page.goto('/stripes?kind=temperature&station=00011')
+  await fetchButton(page).click()
+  await expect(plotly(page)).toBeVisible()
+
+  const range = () => page.locator('.js-plotly-plot').first().evaluate(chart => (chart as any)._fullLayout.xaxis.range as number[])
+  const full = await range()
+  const area = page.locator('.js-plotly-plot .nsewdrag').first()
+  await area.scrollIntoViewIfNeeded()
+  const box = (await area.boundingBox())!
+  await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.5)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.5, { steps: 5 })
+  await page.mouse.up()
+  await expect.poll(range).not.toEqual(full)
+  const zoomed = await range()
+
+  // the scheme switched: drawn again, in the range it was in
+  await setColorScheme(page, 'Dark')
+  await expect.poll(async () => luminance((await chromeOf(page)).paper)).toBeLessThan(0.05)
+  expect(await range()).toEqual(zoomed)
+  // printed: light, and in that range still
+  await page.emulateMedia({ media: 'print' })
+  await expect.poll(async () => luminance((await chromeOf(page)).paper)).toBeGreaterThan(0.9)
+  expect(await range()).toEqual(zoomed)
+  await page.emulateMedia({ media: 'screen' })
+  await expect.poll(async () => luminance((await chromeOf(page)).paper)).toBeLessThan(0.05)
+  expect(await range()).toEqual(zoomed)
+})

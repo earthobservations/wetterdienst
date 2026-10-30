@@ -51,6 +51,27 @@ function cloneLayout(layout: object): object {
   }
 }
 
+/** The ranges the axes of a drawn chart show now (a zoom, a pan), as a layout to lay over one built from the data */
+export function drawnRanges(chart: unknown): Record<string, { range: unknown[], autorange: false }> {
+  const full = (chart as { _fullLayout?: Record<string, { range?: unknown[] } | undefined> } | null)?._fullLayout
+  const ranges: Record<string, { range: unknown[], autorange: false }> = {}
+  for (const axis of drawnAxisNames(chart)) {
+    const range = full?.[axis]?.range
+    if (Array.isArray(range))
+      ranges[axis] = { range: [...range], autorange: false }
+  }
+  return ranges
+}
+
+/**
+ * Says on the chart which scheme it is drawn in, `dark` or `light`, for the print rules of main.css: a chart
+ * drawn dark that is printed before it is drawn light is made readable by CSS, one drawn light is left as drawn.
+ */
+export function markChartScheme(chart: unknown, theme: { dark: boolean }) {
+  if (chart instanceof HTMLElement)
+    chart.dataset.chartScheme = theme.dark ? 'dark' : 'light'
+}
+
 /**
  * A drawn chart again in the light theme, as it is shown now (its data, its zoom and ranges, its sizes): the
  * chart's own layout with the light chrome over it. A chart that holds colours of its own in its text (the

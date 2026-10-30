@@ -23,6 +23,8 @@ const language = computed(() => localeProperties.value.language ?? locale.value)
 
 const chartRef = ref<HTMLDivElement | null>(null)
 let Plotly: any = null
+// loaded once, as Plotly is: a drawing in the colours of a switched scheme, or of a print, has no wait for it
+let SunCalc: typeof import('suncalc') | null = null
 const plotlyLoaded = ref(false)
 let overlayCanvas: HTMLCanvasElement | null = null
 let overlayAttached = false
@@ -964,7 +966,12 @@ async function renderChart() {
   }
 }
 
+// the next drawing is of the colour scheme switched (or of a print) and keeps the zoom the chart is in
+let keepZoomNext = false
+
 async function renderChartActual() {
+  const keepZoom = keepZoomNext
+  keepZoomNext = false
   await nextTick()
   if (!chartRef.value) {
     try {
@@ -1155,7 +1162,7 @@ async function renderChartActual() {
   const dayShapes: any[] = []
   const days = getCalendarDays(minTime, displayMaxTime, stationTZ)
   if (props.stationCoords && props.stationCoords.latitude != null && props.stationCoords.longitude != null) {
-    const SunCalc = await importChartCode(() => import('suncalc'))
+    SunCalc ??= await importChartCode(() => import('suncalc'))
     const lat = props.stationCoords.latitude
     const lon = props.stationCoords.longitude
     for (const day of days) {
@@ -1916,8 +1923,13 @@ async function renderChartActual() {
       cleanupOverlay()
     }
     catch {}
+    // the time range the chart shows now, if it is a redraw of the same chart in other colours
+    const kept = keepZoom ? drawnRanges(chartRef.value).xaxis : undefined
+    if (kept)
+      layout.xaxis.range = kept.range
     Plotly.purge(chartRef.value)
     await Plotly.newPlot(chartRef.value, activeTraces, themedLayout(layout, theme.value), config)
+    markChartScheme(chartRef.value, theme.value)
 
     // Setup overlay drawing of wind barbs using a canvas overlay
     if (typeof window !== 'undefined' && windKey && chartRef.value && visiblePanels.value.wind) {
@@ -1959,6 +1971,7 @@ watch(
 watch(
   theme,
   () => {
+    keepZoomNext = true
     void renderChart()
   },
 )

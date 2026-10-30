@@ -1034,11 +1034,13 @@ describe('dataViewer chart images', () => {
     const [shown, , , config] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement, unknown, unknown, { modeBarButtonsToRemove: string[], modeBarButtonsToAdd: { name: string, title: string, click: (chart: HTMLElement) => void }[] }]
     expect(config.modeBarButtonsToRemove).toContain('toImage')
     const [camera] = config.modeBarButtonsToAdd
-    expect([camera!.name, camera!.title]).toEqual(['toImage', 'Download plot as a png'])
+    expect([camera!.name, camera!.title]).toEqual(['toImage', 'Download plot as a PNG'])
     plotly.downloadImage.mockClear()
     camera!.click(shown)
     await vi.waitFor(() => expect(plotly.downloadImage).toHaveBeenCalledOnce())
-    expect(plotly.downloadImage).toHaveBeenCalledWith(plotly.copies.at(-1)!.root, expect.objectContaining({ format: 'png', filename: 'chart' }))
+    expect(plotly.downloadImage).toHaveBeenCalledWith(plotly.copies.at(-1)!.root, expect.objectContaining({ format: 'png', filename: 'newplot' }))
+    // told as the menu tells it
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as PNG'))
   })
 
   it('saves the facets as one PNG, drawn from their stacked SVG', async () => {

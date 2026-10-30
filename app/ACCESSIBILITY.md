@@ -86,8 +86,10 @@ not parse `oklch()`; no canvas, whose pixels a browser that resists fingerprinti
 `useChartTheme()` reads them again when the class of `<html>` changes, so a chart follows a switch
 without a reload. A chart that is saved (the download menus, and the camera of the modebar) or printed is
 always the light one, whatever the screen shows: it is drawn again, off screen, in the light theme
-(`utils/chart-export.ts`), and a print is drawn light for as long as it lasts, with a `@media print` rule in
-`main.css` for what has not been redrawn by then. On the themed chrome (the Explorer, the stripes, the
+(`utils/chart-export.ts`), and a print is drawn light for as long as it lasts (a light page is printed as it is, and a zoom is kept),
+with a `@media print` rule in `main.css` for a chart that says it is still drawn dark
+(`data-chart-scheme="dark"`) when the print comes before the redraw: transparent paper, black text and
+wind barbs; a chart drawn light is left as drawn. On the themed chrome (the Explorer, the stripes, the
 Forecast's hour labels) text and tick labels are the page's text and muted text (4.5:1 or more on the page
 in both modes) and the zero line the muted text colour (3:1 or more), checked on the drawn charts by
 `tests/e2e/chart-theme.spec.ts`; the grid is decoration. The series and the stripes' palette are data and

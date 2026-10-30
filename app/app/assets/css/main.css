@@ -114,17 +114,22 @@
 
 /* A printed chart is always the light one (the screen's dark chart is white on a printer's white, or
    unreadable text on it). The charts are drawn light for it (useChartTheme), which is asynchronous for
-   some of them: this is what a print that comes before that shows, a transparent paper and dark text. */
+   some of them: a chart that says it is drawn dark (data-chart-scheme, set after each drawing) and is
+   printed before it is redrawn prints with a transparent paper, black text and black wind barbs. A chart
+   drawn light is left as it was drawn, with its series colours and its own marks. */
 @media print {
-  .js-plotly-plot .main-svg {
+  .js-plotly-plot[data-chart-scheme="dark"] .main-svg {
     background: transparent !important;
   }
-  .js-plotly-plot .main-svg .bg {
+  .js-plotly-plot[data-chart-scheme="dark"] .main-svg .bg {
     fill: transparent !important;
   }
-  .js-plotly-plot .main-svg text,
-  .js-plotly-plot .main-svg tspan {
+  .js-plotly-plot[data-chart-scheme="dark"] .main-svg text,
+  .js-plotly-plot[data-chart-scheme="dark"] .main-svg tspan {
     fill: black !important;
+  }
+  .js-plotly-plot[data-chart-scheme="dark"] .meteogram-overlay-canvas {
+    filter: invert(1);
   }
   .js-plotly-plot .modebar-container {
     display: none !important;
