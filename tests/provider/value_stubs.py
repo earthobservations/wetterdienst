@@ -682,6 +682,33 @@ def _ghcn_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
     return request.filter_by_station_id("ACM00078861").values().all().df
 
 
+def _ghcn_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # access/USS0054K01S.csv (McNeil River, read 2026-10-30), AWDR with AWND beside it, in the tenths of the readme: the
+    # 0 of 2023-12-20 is beside 0 and is a calm, with no direction (GH-3222); the 189 of the day before is beside 0 too,
+    # and is a bearing. A 0 beside a wind that blows stays: tests/provider/noaa/ghcn. The files leave a missing value
+    # empty (no -9999 in the four files read); the readme gives -9999 for the `.dly` files only
+    body = (
+        b'"STATION","DATE","LATITUDE","LONGITUDE","ELEVATION","NAME","AWDR","AWDR_ATTRIBUTES","AWND","AWND_ATTRIBUTES"\n'
+        b'"USS0054K01S","2023-12-19","59.08","-154.28","42.7","MCNEIL RIVER SGS, AK US","  189",",,T","    0",",,T"\n'
+        b'"USS0054K01S","2023-12-20","59.08","-154.28","42.7","MCNEIL RIVER SGS, AK US","    0",",,T","    0",",,T"\n'
+    )
+    stations = b"USS0054K01S  59.0800 -154.2800   42.7 AK MCNEIL RIVER SGS                                  \n"
+    inventory = b"USS0054K01S  59.0800 -154.2800 AWDR 2019 2026\n"
+    serve(
+        monkeypatch,
+        ghcn_api,
+        {"ghcnd-stations": stations, "ghcnd-inventory": inventory, "access/USS0054K01S": body},
+    )
+    request = NoaaGhcnRequest(
+        parameters=[("daily", "data", "wind_direction_mean"), ("daily", "data", "wind_speed_mean")],
+        start=_day(2023, 12, 19),
+        end=_day(2023, 12, 20),
+        settings=_settings(),
+        options=_options(drop_nulls),
+    )
+    return request.filter_by_station_id("USS0054K01S").values().all().df
+
+
 def _serve_meteofrance(
     monkeypatch: pytest.MonkeyPatch, resolution: str, dataset: str, title: str, rows: list[dict[str, str]]
 ) -> None:
@@ -1786,6 +1813,10 @@ def _dmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
         ("mean_wind_speed", "2020-02-14T03:00:00+00:00", 0.0),
         ("mean_wind_dir", "2020-02-14T06:00:00+00:00", 250.0),
         ("mean_wind_speed", "2020-02-14T06:00:00+00:00", 4.1),
+        # metObs documents 112 for "sky obscured by fog and/or other meteorological phenomena" beside the 0 to 100 of
+        # the oktas in percent (GH-3622); none of 68,107 hourly values of the climate data carries it, so it is made up
+        ("mean_cloud_cover", "2020-02-14T03:00:00+00:00", 112.0),
+        ("mean_cloud_cover", "2020-02-14T06:00:00+00:00", 90.0),
     ]
     features = [
         {
@@ -1844,14 +1875,16 @@ def _dmi_annual(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
 
 
 def _dmi_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
-    # `acc_precip` of `timeResolution=day`: DMI's documentation (https://www.dmi.dk/friedata/dokumentation/climate-data,
-    # read 2026-10-30, "Precipitation Codes") says that acc_precip, max_precip_past24h and max_precip_30m return an
-    # amount in mm "with the exception of" -0.1: "traces of precipitation, less than 0.1 kg/m2" (GH-3621). No sampled
-    # record carried the value; the rows are made up. A trace is 0.0 and keeps `raw:-0.1`, as the trace of KNMI, AEMET
-    # and Meteo-France's synop does
+    # `acc_precip` of `timeResolution=day` of 22375 (read 2026-10-30): DMI's documentation
+    # (https://www.dmi.dk/friedata/dokumentation/climate-data, "Precipitation Codes") says that acc_precip,
+    # max_precip_past24h and max_precip_30m return an amount in mm "with the exception of" -0.1: "traces of
+    # precipitation, less than 0.1 kg/m2" (GH-3621). The station has nine such days in 2001 (June to October), the only
+    # ones of all stations found, and the rows below are those of 2001-06-04 to 2001-06-06 (GH-3638). A trace is 0.0 and
+    # keeps `raw:-0.1`, as the trace of KNMI, AEMET and Meteo-France's synop does
     rows = [
-        ("2025-03-29T00:00:00.001000+01:00", "2025-03-30T00:00:00+01:00", 9.8),
-        ("2025-03-30T00:00:00.001000+01:00", "2025-03-31T00:00:00+02:00", -0.1),
+        ("2001-06-04T00:00:00.001000+02:00", "2001-06-05T00:00:00+02:00", 2.7),
+        ("2001-06-05T00:00:00.001000+02:00", "2001-06-06T00:00:00+02:00", -0.1),
+        ("2001-06-06T00:00:00.001000+02:00", "2001-06-07T00:00:00+02:00", 3.5),
     ]
     features = [
         {"properties": {"parameterId": "acc_precip", "from": start, "to": end, "value": value}}
@@ -1860,12 +1893,12 @@ def _dmi_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.D
     serve(monkeypatch, dmi_api, {"stationValue": json.dumps({"features": features}).encode()})
     request = DmiObservationRequest(
         parameters=[("daily", "data")],
-        start=_day(2025, 3, 29),
-        end=_day(2025, 3, 31),
+        start=_day(2001, 6, 4),
+        end=_day(2001, 6, 6),
         settings=_settings(),
         options=_options(drop_nulls),
     )
-    return stations_result(request, "daily", "data", "06180").values().all().df
+    return stations_result(request, "daily", "data", "22375").values().all().df
 
 
 def _rmi_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -2129,6 +2162,13 @@ STUBS = [
         ),
     ),
     ValueStub(
+        "noaa/ghcn daily/data",
+        _ghcn_daily,
+        reading=("wind_direction_mean", 189.0),
+        sentinels=(("wind_direction_mean", 0.0),),
+        tokens=(("wind_direction_mean", "0", None),),
+    ),
+    ValueStub(
         "metoffice/observation daily/rain",
         _metoffice_daily_rain,
         reading=("precipitation_amount", 3.7),
@@ -2241,13 +2281,13 @@ STUBS = [
         "dmi/observation hourly/data",
         _dmi_hourly,
         reading=("wind_direction_mean", 250.0),
-        sentinels=(("wind_direction_mean", 0.0),),
-        tokens=(("wind_direction_mean", "0", None),),
+        sentinels=(("wind_direction_mean", 0.0), ("cloud_cover_total", 1.12)),
+        tokens=(("wind_direction_mean", "0", None), ("cloud_cover_total", "112", None)),
     ),
     ValueStub(
         "dmi/observation daily/data",
         _dmi_daily,
-        reading=("precipitation_amount", 9.8),
+        reading=("precipitation_amount", 3.5),
         # the trace is no missing value: it is 0.0, with the text DMI wrote
         tokens=(("precipitation_amount", "-0.1", 0.0),),
     ),

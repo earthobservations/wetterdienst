@@ -102,6 +102,11 @@ _AIR_TEMPERATURE = (-90.0, 60.0)  # degree Celsius
 _DAY_PRECIPITATION = (0.0, 500.0)  # mm, the most of a day, which the maxima of a part of it cannot pass
 _WIND_SPEED = (0.0, 115.0)  # m/s
 _HUMIDITY = (0.0, 130.0)  # percent; a hygrometer reads past 100 now and then
+# metObs documents 112 for a cloud cover of "sky obscured by fog and/or other meteorological phenomena" beside the 0 to
+# 100 of its oktas (https://www.dmi.dk/friedata/dokumentation/meteorological-observations-data, "Cloud_cover", read
+# 2026-10-30). No hourly value of January to June 2019 (68,107, 15 stations) nor daily one of 2011 to 2025 (93,519) is
+# above 100, but a 112 would be more than the whole sky, and the mean of a day or a month with one in it a wrong one
+_CLOUD_COVER = (0.0, 100.0)  # percent
 _COMMON_RANGES: dict[str, tuple[float, float]] = {
     "mean_temp": _AIR_TEMPERATURE,
     "max_temp_w_date": _AIR_TEMPERATURE,
@@ -112,8 +117,24 @@ _COMMON_RANGES: dict[str, tuple[float, float]] = {
     "max_wind_speed_10min": _WIND_SPEED,
     "max_wind_speed_3sec": _WIND_SPEED,
     "mean_wind_dir": (0.0, 360.0),  # degree
+    "mean_cloud_cover": _CLOUD_COVER,
 }
 _HEATING_DEGREE_DAYS = (0.0, 20_000.0)  # degree Celsius days; a year of heating is below 10,000
+# the sunshine cannot last longer than the span it is measured over, give or take a tenth: minutes of an hour, hours of
+# a day, of the longest month and of a leap year. DMI's highest (read 2026-10-30) are 60 minutes, 16.5 hours in a day,
+# 386.3 in a month and 2,234.4 in a year. The counts of days are those of a year at most
+_SUNSHINE_OF_AN_HOUR = (0.0, 66.0)  # minutes
+_SUNSHINE_OF_A_DAY = (0.0, 26.4)  # hours
+_SUNSHINE_OF_A_MONTH = (0.0, 818.4)  # hours
+_SUNSHINE_OF_A_YEAR = (0.0, 8_784.0)  # hours
+_DAYS = (0.0, 366.0)
+_DAY_COUNT_PARAMETERS = (
+    "no_ice_days",
+    "no_frost_days",
+    "no_days_acc_precip_01",
+    "no_days_acc_precip_1",
+    "no_days_acc_precip_10",
+)
 _MONTHLY_RANGES: dict[str, tuple[float, float]] = {
     **_COMMON_RANGES,
     "acc_precip": (0.0, 1_500.0),
@@ -123,25 +144,28 @@ _MONTHLY_RANGES: dict[str, tuple[float, float]] = {
     "max_relative_hum": _HUMIDITY,
     "min_relative_hum": _HUMIDITY,
     "acc_heating_degree_days_17": _HEATING_DEGREE_DAYS,
+    "bright_sunshine": _SUNSHINE_OF_A_MONTH,
+    **dict.fromkeys(_DAY_COUNT_PARAMETERS, _DAYS),
 }
 _RANGES: dict[str, dict[str, tuple[float, float]]] = {
-    "hourly": {**_COMMON_RANGES, "acc_precip": (0.0, 600.0)},
+    "hourly": {
+        **_COMMON_RANGES,
+        "acc_precip": (0.0, 600.0),
+        "bright_sunshine": _SUNSHINE_OF_AN_HOUR,
+        "mean_radiation": (-200.0, 2_000.0),  # W/m2; the solar constant is 1,361
+    },
     "daily": {
         **_COMMON_RANGES,
         "acc_precip": _DAY_PRECIPITATION,
         "max_precip_30m": _DAY_PRECIPITATION,
+        "max_relative_hum": _HUMIDITY,
+        "min_relative_hum": _HUMIDITY,
         "acc_heating_degree_days_17": _HEATING_DEGREE_DAYS,
+        "bright_sunshine": _SUNSHINE_OF_A_DAY,
+        "snow_depth": (-50.0, 1_500.0),  # cm
     },
     "monthly": _MONTHLY_RANGES,
-    # the years have no humidity extremes
-    "annual": {
-        **{
-            name: bounds
-            for name, bounds in _MONTHLY_RANGES.items()
-            if name not in {"max_relative_hum", "min_relative_hum"}
-        },
-        "acc_precip": (0.0, 4_000.0),
-    },
+    "annual": {**_MONTHLY_RANGES, "acc_precip": (0.0, 4_000.0), "bright_sunshine": _SUNSHINE_OF_A_YEAR},
 }
 _OUT_OF_RANGE = {
     resolution: tuple(

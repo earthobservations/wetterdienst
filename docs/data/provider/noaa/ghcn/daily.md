@@ -36,6 +36,11 @@
 | {term}`cloud_cover_total_mean_sunrise_to_sunset` | acsc | Average cloudiness sunrise to sunset from 30-second ceilometer data (percent) | % | >=0,<=100 |
 | {term}`cloud_cover_total_mean_sunrise_to_sunset_manual` | acsh | Average cloudiness sunrise to sunset from manual observations (percent) | % | >=0,<=100 |
 | {term}`wind_speed_mean` | awnd | Average daily wind speed (m/s; the file has tenths of m/s) | m/s | >=0 |
+| {term}`temperature_dew_point_mean_2m` | adpt | Average dew point temperature for the day (°C; the file has tenths of degrees) | °C | - |
+| {term}`pressure_air_sea_level_mean` | aslp | Average sea level pressure for the day (hPa; the file has tenths of hPa) | hPa | >=0 |
+| {term}`pressure_air_site_mean` | astp | Average station level pressure for the day (hPa; the file has tenths of hPa) | hPa | >=0 |
+| {term}`temperature_wet_mean_2m` | awbt | Average wet bulb temperature for the day (°C; the file has tenths of degrees) | °C | - |
+| {term}`wind_direction_mean` | awdr | Average daily wind direction (degrees). A 0 beside an average wind speed of 0 (a calm day) is null. | ° | >=0,<=360 |
 | {term}`count_days_multiday_evaporation` | daev | Number of days included in the multiday evaporation total (MDEV) | - | >=0 |
 | {term}`count_days_multiday_precipitation` | dapr | Number of days included in the multiday precipitation total (MDPR) | - | >=0 |
 | {term}`count_days_multiday_snow_depth_new` | dasf | Number of days included in the multiday snowfall total (MDSF) | - | >=0 |
@@ -57,6 +62,9 @@
 | {term}`temperature_water_evaporation_pan_min` | mnpn | Daily minimum temperature of water in an evaporation pan (°C; the file has tenths of degrees) | °C | - |
 | {term}`temperature_water_evaporation_pan_max` | mxpn | Daily maximum temperature of water in an evaporation pan (°C; the file has tenths of degrees) | °C | - |
 | {term}`sunshine_duration_relative` | psun | Daily percent of possible sunshine (percent) | % | >=0,<=100 |
+| {term}`humidity_relative_mean` | rhav | Average relative humidity for the day (percent) | % | >=0,<=100 |
+| {term}`humidity_relative_min` | rhmn | Minimum relative humidity for the day (percent) | % | >=0,<=100 |
+| {term}`humidity_relative_max` | rhmx | Maximum relative humidity for the day (percent) | % | >=0,<=100 |
 | {term}`temperature_soil_min_unknown_0_05m` | sn01 | Minimum soil temperature of unknown ground at 5cm depth | °C | - |
 | {term}`temperature_soil_min_unknown_0_1m` | sn02 | Minimum soil temperature of unknown ground at 10cm depth | °C | - |
 | {term}`temperature_soil_min_unknown_0_2m` | sn03 | Minimum soil temperature of unknown ground at 20cm depth | °C | - |
