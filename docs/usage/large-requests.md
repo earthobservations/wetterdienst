@@ -401,8 +401,10 @@ would return about 614,866 rows, more than the 500,000 this server sends as one 
 does not stream. The refusal a tool gets therefore names only what works through one, a shorter `timestamp` window, fewer
 `parameters` or fewer stations, and not `format=ndjson` or `format=csv`, which the REST API advises (GH-3464). Those
 formats work through a tool, as text content of the result, but a tool is held to the `rows` limit in every format,
-not to the higher `stream_rows`: the assistant reads the whole answer through its context. What does help is to ask
-for less and to ask in slices:
+not to the higher `stream_rows`: the assistant reads the whole answer through its context. `interpolate` and
+`summarize` name no stations (the radius chooses them) and have no `ndjson`, and their `csv` is not streamed, so their
+refusal, over REST as through a tool, names a shorter `timestamp` window or fewer `parameters` only (GH-3576). What
+does help is to ask for less and to ask in slices:
 
 - Ask for a window: a day, a month or a year, "the daily maximum of 2024". The assistant can follow the refusal, which
   says what to shorten, and ask again for the next window.
@@ -419,7 +421,9 @@ sentence of app.md ("A request the backend refuses ...") say what main does toda
 
 The Explorer calls the REST API, so a request it makes is held to the limits of the backend, and when one is exceeded
 it shows what the backend answered: the limit, the number the request came to and how to narrow it (see the
-[Web app](app.md)). Follow the text in the form: a shorter date range, fewer parameters or fewer stations. For more than
+[Web app](app.md)). Follow the text in the form: a shorter date range, fewer parameters or, for a listing or a series
+of stations, fewer stations (an interpolation or a summary names no stations: a shorter date range or fewer parameters).
+For more than
 that, leave the app for the data and keep it for finding what to read: the app serves the API of its backend under
 `/api`, so the requests of this page work against the address of the app too (`https://wetterdienst.eobs.org/api/...`
 for the hosted instance), counted by the [rate limit](app.md#rate-limit) of the app.

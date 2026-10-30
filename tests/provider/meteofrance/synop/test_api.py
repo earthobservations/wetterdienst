@@ -34,6 +34,7 @@ def _values(
     drop_nulls: bool = True,
     year: int = 2024,
     end: datetime | None = None,
+    station_id: str = "07005",
 ) -> pl.DataFrame:
     """Read rows through the reader as the columns of the source's file, empty where a row has none."""
     schema = list(synop_api._SYNOP_CSV_SCHEMA)  # noqa: SLF001
@@ -48,7 +49,7 @@ def _values(
         settings=Settings(cache_disable=True),
         options=Options(drop_nulls=drop_nulls),
     )
-    return stations_result(request, "subdaily", "data", "07005").values().all().df.sort("timestamp")
+    return stations_result(request, "subdaily", "data", station_id).values().all().df.sort("timestamp")
 
 
 def test_meteofrance_synop_api_a_file_that_unpacks_past_the_ceiling_is_a_download_error(
@@ -324,6 +325,199 @@ def test_meteofrance_synop_api_obscured_sky_is_null(monkeypatch: pytest.MonkeyPa
         datetime(2024, 1, 1, 6, tzinfo=UTC),
     ]
     assert df.get_column("value").to_list() == [0.0, 0.9, 1.0]
+
+
+def test_meteofrance_synop_api_a_reading_no_sensor_produced_is_null_with_its_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that pressure, temperature and rain beyond the records are null with the number the file wrote (GH-3135).
+
+    The rows are those of the files of 1996 to 2005 (`pres` 11170 Pa at LA DESIRADE, `t` 369.15 K at 07117, `td` 358.95
+    K at 61997, `rr1` 800 mm at 61976), moved to 07005 and to 2024. The first row is the edge of every bound, which
+    stays: 50,000 and 85,000 Pa, 183.15 K, 600 mm; the second the other edge: 110,000 Pa, 333.15 K, 2,000 mm. The trace
+    of -0.1 is still 0.0, and a rr6 of 805 mm and a rr24 of 999.4 mm are inside the records.
+    """
+    rows = [
+        {
+            "geo_id_wmo": "07005",
+            "validity_time": "2024-01-01T00:00:00Z",
+            "pres": "50000",
+            "pmer": "85000",
+            "t": "183.15",
+            "td": "183.15",
+            "rr1": "600.0",
+            "rr3": "1200.0",
+            "rr6": "805.0",
+            "rr24": "999.4",
+        },
+        {
+            "geo_id_wmo": "07005",
+            "validity_time": "2024-01-01T03:00:00Z",
+            "pres": "110000",
+            "pmer": "110000",
+            "t": "333.15",
+            "td": "333.15",
+            "rr1": "-0.1",
+            "rr24": "2000.0",
+        },
+        {
+            "geo_id_wmo": "07005",
+            "validity_time": "2024-01-01T06:00:00Z",
+            "pres": "11170",
+            "pmer": "84990",
+            "t": "369.15",
+            "td": "358.95",
+            "rr1": "800.0",
+            "rr3": "1200.1",
+            "rr6": "1200.1",
+            "rr24": "2000.1",
+        },
+        {
+            "geo_id_wmo": "07005",
+            "validity_time": "2024-01-01T09:00:00Z",
+            "pres": "110000.5",
+            "pmer": "110000.5",
+            "t": "183.1",
+            "td": "333.2",
+            "rr1": "-0.2",
+        },
+    ]
+    parameters = [
+        "pressure_air_site",
+        "pressure_air_sea_level",
+        "temperature_air_2m",
+        "temperature_dew_point_2m",
+        "precipitation_amount_last_1h",
+        "precipitation_amount_last_3h",
+        "precipitation_amount_last_6h",
+        "precipitation_amount_last_24h",
+    ]
+    df = _values(monkeypatch, rows, parameters, drop_nulls=False)
+    by_parameter = {
+        str(parameter): group.sort("timestamp")
+        for (parameter,), group in df.partition_by("parameter", as_dict=True).items()
+    }
+
+    def values(parameter: str) -> list[float | None]:
+        return by_parameter[parameter].get_column("value").to_list()
+
+    def raw(parameter: str) -> list[str | None]:
+        return by_parameter[parameter].get_column("quality_flags").to_list()
+
+    assert values("pressure_air_site") == [500.0, 1100.0, None, None]
+    assert raw("pressure_air_site") == [None, None, "raw:11170", "raw:110000.5"]
+    assert values("pressure_air_sea_level") == [850.0, 1100.0, None, None]
+    assert raw("pressure_air_sea_level") == [None, None, "raw:84990", "raw:110000.5"]
+    assert values("temperature_air_2m") == [-90.0, 60.0, None, None]
+    assert raw("temperature_air_2m") == [None, None, "raw:369.15", "raw:183.1"]
+    assert values("temperature_dew_point_2m") == [-90.0, 60.0, None, None]
+    assert raw("temperature_dew_point_2m") == [None, None, "raw:358.95", "raw:333.2"]
+    assert values("precipitation_amount_last_1h") == [600.0, 0.0, None, None]
+    assert raw("precipitation_amount_last_1h") == [None, "raw:-0.1", "raw:800.0", "raw:-0.2"]
+    assert values("precipitation_amount_last_3h") == [1200.0, None, None, None]
+    assert raw("precipitation_amount_last_3h") == [None, None, "raw:1200.1", None]
+    assert values("precipitation_amount_last_6h") == [805.0, None, None, None]
+    assert raw("precipitation_amount_last_6h") == [None, None, "raw:1200.1", None]
+    assert values("precipitation_amount_last_24h") == [999.4, 2000.0, None, None]
+    assert raw("precipitation_amount_last_24h") == [None, None, "raw:2000.1", None]
+
+
+@pytest.mark.parametrize(
+    ("station", "kept"),
+    [
+        # Guadeloupe (LA DESIRADE, ST-BARTHELEMY, LE RAIZET), Martinique, Guyane and Mayotte (PAMANDZI)
+        ("78890", False),
+        ("78894", False),
+        ("78897", False),
+        ("78922", False),
+        ("78925", False),
+        ("81401", False),
+        ("81405", False),
+        ("81408", False),
+        ("81415", False),
+        ("67005", False),
+        # the Iles Eparses (984): GLORIEUSES, JUAN DE NOVA, EUROPA, TROMELIN
+        ("61968", False),
+        ("61970", False),
+        ("61972", False),
+        ("61976", False),
+        # Wallis-et-Futuna (986): HIHIFO, MAOPOOPO
+        ("91753", False),
+        ("91754", False),
+        # French Polynesia (987): HIVA-OA, BORA-BORA, TAIARAPU-EST, FAAA, TAKAROA, HAO, MANGAREVA, RAPA (27.6 S)
+        ("91925", False),
+        ("91929", False),
+        ("91936", False),
+        ("91938", False),
+        ("91943", False),
+        ("91944", False),
+        ("91948", False),
+        ("91958", False),
+        # La Reunion has frost at altitude, Saint-Pierre is at 47 degrees north, the mainland has frost, and the
+        # southern territories (KERGUELEN, CROZET, DUMONT D'URVILLE) and New Caledonia (NOUMEA) are not in the rule
+        ("61980", True),
+        ("71805", True),
+        ("07005", True),
+        ("61998", True),
+        ("61997", True),
+        ("89642", True),
+        ("91592", True),
+    ],
+)
+def test_meteofrance_synop_api_a_temperature_below_zero_is_null_where_there_is_no_frost(
+    monkeypatch: pytest.MonkeyPatch,
+    station: str,
+    kept: bool,  # noqa: FBT001
+) -> None:
+    """Test that a temperature below 0 C where there is no frost is null, at the stations named for it (GH-3135).
+
+    The first row is that of MARIPASOULA (81415) at 2025-02-12T00:00Z in synop_2025.csv.gz (`td` 255.65 K beside `t`
+    297.95 K) moved to the station of the case (the files hold no reading below 0 C at Wallis-et-Futuna and French
+    Polynesia, where the case is the same row), the second the 0 C of the edge, which stays, as does any reading of
+    another station.
+    """
+    rows = [
+        {
+            "geo_id_wmo": station,
+            "validity_time": "2025-02-12T00:00:00Z",
+            "t": "297.95",
+            "td": "255.65",
+            "tn24": "270.15",
+            "tx24": "304.55",
+        },
+        {"geo_id_wmo": station, "validity_time": "2025-02-12T03:00:00Z", "t": "273.15", "td": "273.15"},
+    ]
+    parameters = [
+        "temperature_air_2m",
+        "temperature_dew_point_2m",
+        "temperature_air_min_2m_last_24h",
+        "temperature_air_max_2m_last_24h",
+    ]
+    df = _values(
+        monkeypatch,
+        rows,
+        parameters,
+        drop_nulls=False,
+        year=2025,
+        end=datetime(2025, 2, 13, tzinfo=UTC),
+        station_id=station,
+    )
+    by_parameter = {
+        str(parameter): group.sort("timestamp")
+        for (parameter,), group in df.partition_by("parameter", as_dict=True).items()
+    }
+    assert by_parameter["temperature_air_2m"].get_column("value").to_list() == pytest.approx([24.8, 0.0])
+    assert by_parameter["temperature_air_max_2m_last_24h"].get_column("value").to_list() == pytest.approx([31.4, None])
+    dew_point = by_parameter["temperature_dew_point_2m"]
+    minimum = by_parameter["temperature_air_min_2m_last_24h"]
+    if kept:
+        assert dew_point.get_column("value").to_list() == pytest.approx([-17.5, 0.0])
+        assert minimum.get_column("value").to_list() == pytest.approx([-3.0, None])
+    else:
+        assert dew_point.get_column("value").to_list() == [None, 0.0]
+        assert dew_point.get_column("quality_flags").to_list() == ["raw:255.65", None]
+        assert minimum.get_column("value").to_list() == [None, None]
+        assert minimum.get_column("quality_flags").to_list() == ["raw:270.15", None]
 
 
 @pytest.mark.remote

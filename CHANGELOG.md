@@ -88,6 +88,31 @@ Types of changes:
   the image itself is unchanged. `/api/stripes/values` never recorded the warnings of its read, so
   its `metadata.warnings` and `X-Wetterdienst-Warnings` (and the MCP tool `stripes_values`) were
   always empty; they now tell them (GH-3581)
+- A reading no sensor can have produced is now null, with the number the file wrote kept as
+  `raw:` in `quality_flags`. `dwd/observation`: a wind speed below 0 or above 115 m/s (the hourly
+  urban wind read -0.80 m/s at Berlin-Alexanderplatz) and a pressure outside 500 to 1090 hPa in
+  `pressure_air_site`, `pressure_air_site_mean` (daily `PM`) and `pressure_air_sea_level` (the
+  hourly `P0` read 1093.3 hPa at 00433); the vapour pressures are not bound. `meteofrance/synop`:
+  `pres` outside 500 to 1100 hPa (31 rows of 108.6 to 420.6 hPa in the files of 1996, 2000, 2005,
+  2010 and 2015), `pmer` outside 850 to 1100 hPa, temperatures and dew point outside -90 to
+  60 C, `rr1` outside 0 to 600 mm, `rr3`, `rr6`, `rr12` outside 0 to 1200 mm, `rr24` outside
+  0 to 2000 mm (GH-3135)
+- `meteofrance/observation` and `meteofrance/synop`: a temperature below 0 C (air at 2 m, its
+  extremes, the dew point) at a station of Guadeloupe (971), Martinique (972), Guyane (973),
+  Mayotte (985), Wallis-et-Futuna (986), French Polynesia (987) or the Iles Eparses (Glorieuses,
+  Juan de Nova, Europa, Tromelin) is null, with the number kept as `raw:`: there is no frost
+  there, and the files hold -20.0 C at 441 m in Martinique, dew points of -39.5 C at 1,141 m
+  in Guadeloupe, -32.6 C at Hao (French Polynesia) and -21.6 C at Tromelin. Synop names its 24
+  stations. La Reunion, Saint-Pierre-et-Miquelon, the southern territories and New Caledonia
+  are not (GH-3135)
+- `chmi/observation` no longer lists the two stations abroad of CHMI's catalogue, Reykjavik
+  (`0-20000-0-04030`) and Marambio Base (`0-20000-0-89055`), in the `10_minutes` and `hourly`
+  station lists: the portal has no file for them in any resolution, so they never had a value
+  (GH-3589)
+- The row-limit refusal and the 504 timeout of `interpolate` and `summarize` (REST and the MCP
+  tools) no longer advise fewer stations, which a point request does not name, nor
+  `format=ndjson` or `format=csv`: they say to ask for a shorter `timestamp` window or fewer
+  `parameters`. The problem keeps `limit`, `maximum` and `requested` (GH-3576, GH-3590)
 - The MCP tools answer every `format` they offer, where `csv`, `ndjson`, `html` and `svg` of the
   tools with an output schema failed ("has an output schema but did not return structured
   content") and so did `png`, `jpg`, `webp` and `pdf` of every tool (a decoding error). A text
@@ -97,7 +122,8 @@ Types of changes:
   loads plotly.js from the CDN (9 KB, not 4.8 MB). A tool answers one body in every format, held
   to the `rows` limit (`csv` and `ndjson` get no `stream_rows`), and its refusals (row limit,
   timeout) no longer advise `format=ndjson` or `format=csv`: they name a shorter `timestamp`
-  window, fewer `parameters` or fewer stations. REST and the command line are unchanged (GH-3464)
+  window, fewer `parameters` or fewer stations (the point tools: a window or fewer parameters,
+  GH-3576). REST and the command line are unchanged (GH-3464)
 - A download, post or listing whose TLS handshake the peer answers wrongly (a non-TLS answer,
   `WRONG_VERSION_NUMBER`; an invalid session, `INVALID_SESSION_ID`) is retried like any other
   transient network error, where the first one failed the answer: `www.dwd.de` throws them now
@@ -119,12 +145,33 @@ Types of changes:
   with `drop_nulls` on (the default) or off: not those of a station `skip_empty` leaves out, nor of
   one a `rank` walk passes over for having no reading. `interpolate` and `summarize`, whose answer
   is an estimate, carry no such warning now (GH-3554)
+- Processes that share a cache directory take turns on it, through a lock file beside each
+  directory (new dependency: `filelock` 3.30 or later). The metadata read-merge-write no longer
+  loses a row another process saved in between (its file was then fetched again), the save no
+  longer fails with `PermissionError` on Windows while another process has the metadata open, and a
+  sweep no longer deletes a file another process has just fetched again. A process waits for the
+  lock as long as it moves between processes (60 s at most) and 10 s behind one holder; a holder
+  stuck that long costs that wait once, in which the process's other cache misses wait too, and
+  then the loads, saves and sweeps of the directory for a minute, which are skipped with a warning:
+  a skipped load reads nothing and a skipped save fetches again. No request fails. A killed process
+  leaves no stale lock, and a file system without `flock` goes without the lock. The metadata file
+  is written in one go, about four times faster for a directory of tens of thousands of entries,
+  with the same content (GH-3485)
 - The `station-skipped` warning is told for a station `skip_empty` leaves out whatever `drop_nulls`
   is: with the nulls dropped (the default) a station that held nothing but missing values was left
   out unsaid, and with them kept it was told. The warning is the same for both, and so is
   `parameter-without-rows`: a parameter or dataset that held only missing values at a station left
   out (wholly or with some readings) is no longer named there. The rows of an answer are unchanged
   (GH-3567)
+- `skip_empty` judges a station by the same span whether `drop_nulls` is on or off. For a request
+  that names no window the coverage is measured against the span of the station's own series, and
+  that was read after the empty readings had been dropped: a station whose first or last readings
+  were nulls looked complete (and was kept) with `drop_nulls=True`, the default, and sparse (and
+  was skipped) with `drop_nulls=False`. The span now includes the empty readings, so with the
+  default setting such stations are skipped, and the answer has fewer stations than before. The
+  same holds for a resolution with no fixed interval (`subdaily`), where the share of readings
+  with a value was taken of the rows left, always all of them, so nothing was skipped. A request
+  with a window and a fixed interval is unchanged (GH-3578)
 
 ## [0.178.0] - 2026-10-28
 

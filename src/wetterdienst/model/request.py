@@ -1502,7 +1502,7 @@ class TimeseriesRequest:
             name = (
                 pl.when(
                     pl.col("resolution").eq(parameter.dataset.resolution.name),
-                    pl.col("dataset").eq(parameter.dataset.name),
+                    pl.col("dataset").eq(parameter.dataset.name.lower()),
                     pl.col("parameter").eq(parameter.name),
                 )
                 .then(pl.lit(parameter.name_original))
