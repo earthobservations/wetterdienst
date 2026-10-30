@@ -50,13 +50,13 @@ Types of changes:
   published, but are), the manual snow depth of the day (`snow_depth_manual`) and the monthly and
   annual counts of ice days, frost days and days with 0.1, 1 and 10 mm (`count_days_*`). A cloud
   cover above 100 is null, with the number as `raw:` in `quality_flags`. Not offered yet: the
-  radiation of a day and longer, the pressure extremes and the other counts (Part of #3622)
+  radiation of a day and longer, the pressure extremes and the other counts (Part of GH-3622)
 - `noaa/ghcn` daily now offers the average dew point (`temperature_dew_point_mean_2m`, ADPT),
   sea level and station pressure (`pressure_air_sea_level_mean`, `pressure_air_site_mean`; ASLP,
   ASTP), wet bulb temperature (`temperature_wet_mean_2m`, AWBT), wind direction
   (`wind_direction_mean`, AWDR) and relative humidity (`humidity_relative_mean`/`_min`/`_max`;
   RHAV, RHMN, RHMX), at the US stations that report them. A direction of 0 beside an average wind
-  speed of 0 is null, with `raw:0` in `quality_flags`. TAXN is listed for no station (Part of #3622)
+  speed of 0 is null, with `raw:0` in `quality_flags`. TAXN is listed for no station (Part of GH-3622)
 
 ### Changed
 

@@ -12,6 +12,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 import polars as pl
 import pytest
@@ -110,9 +111,17 @@ def _values(
     drop_nulls: bool = True,
     records: list[dict] | None = None,
 ) -> pl.DataFrame:
-    """Collect the dataset of a resolution for a station from the records of `published_parameters.json`."""
-    features = [{"properties": row} for row in (records if records is not None else _RECORDS[resolution])]
-    serve(monkeypatch, dmi_api, {"stationValue": json.dumps({"features": features}).encode()})
+    """Collect the dataset of a resolution for a station from the records of `published_parameters.json`.
+
+    DMI answers the records of the `stationId` of the request, as the mock does: a station gets its own rows only.
+    """
+    rows = records if records is not None else _RECORDS[resolution]
+
+    def answer(url: str) -> bytes:
+        asked = parse_qs(urlparse(url).query)["stationId"][0]
+        return json.dumps({"features": [{"properties": row} for row in rows if row["stationId"] == asked]}).encode()
+
+    serve(monkeypatch, dmi_api, {"stationValue": answer})
     request = DmiObservationRequest(
         parameters=[(resolution, "data")],
         start=start,
@@ -135,26 +144,24 @@ def _by_day(df: pl.DataFrame, parameter: str) -> dict[dt.date, float]:
 
 def test_hourly_sunshine_radiation_and_cloud_cover(monkeypatch: pytest.MonkeyPatch) -> None:
     """06041 and 04250, 2024-06-03 11:00 and 12:00 UTC: minutes of sunshine, W/m2 and the cloud cover at minute 0."""
-    df = _values(
-        monkeypatch,
-        "hourly",
-        "06041",
-        dt.datetime(2024, 6, 3, 11, tzinfo=_UTC),
-        dt.datetime(2024, 6, 3, 12, tzinfo=_UTC),
-    )
+    start, end = dt.datetime(2024, 6, 3, 11, tzinfo=_UTC), dt.datetime(2024, 6, 3, 12, tzinfo=_UTC)
+    df = _values(monkeypatch, "hourly", "06041", start, end)
+    nuuk = _values(monkeypatch, "hourly", "04250", start, end)
     # minutes come back as seconds, the unit of `time`; the intensity stays in W/m2; the cloud cover in percent is a
     # fraction of 1, and the 10 and 40 DMI writes for 1 okta or less and 3 oktas are 0.1 and 0.4
     assert _by_hour(df, "sunshine_duration") == {11: pytest.approx(5.0 * 60), 12: pytest.approx(23.4 * 60)}
     assert _by_hour(df, "radiation_global_intensity_mean") == {11: 632.0, 12: 808.0}
-    assert _by_hour(df, "cloud_cover_total") == {11: pytest.approx(0.1), 12: pytest.approx(0.4)}
+    assert _by_hour(nuuk, "cloud_cover_total") == {11: pytest.approx(0.1), 12: pytest.approx(0.4)}
+    assert set(df["parameter"]) == {"sunshine_duration", "radiation_global_intensity_mean"}
+    assert set(nuuk["parameter"]) == {"cloud_cover_total"}
     assert set(df["resolution"]) == {"hourly"}
 
 
 def test_daily_humidity_extremes_sunshine_cloud_cover_and_snow_depth(monkeypatch: pytest.MonkeyPatch) -> None:
     """04250 (06:00 to 06:00 UTC days), 06041 (local days) and 28240, which reads the snow once a day at 07:00 UTC."""
-    df = _values(
-        monkeypatch, "daily", "04250", dt.datetime(2021, 2, 12, tzinfo=_UTC), dt.datetime(2024, 6, 4, tzinfo=_UTC)
-    )
+    start, end = dt.datetime(2021, 2, 12, tzinfo=_UTC), dt.datetime(2024, 6, 4, tzinfo=_UTC)
+    df = _values(monkeypatch, "daily", "04250", start, end)
+    assert set(df["parameter"]) == {"humidity_relative_max", "humidity_relative_min", "cloud_cover_total_mean"}
     assert _by_day(df, "humidity_relative_max") == {
         dt.date(2024, 1, 10): pytest.approx(0.99),
         dt.date(2024, 1, 11): pytest.approx(0.87),
@@ -170,13 +177,14 @@ def test_daily_humidity_extremes_sunshine_cloud_cover_and_snow_depth(monkeypatch
         dt.date(2024, 1, 11): pytest.approx(0.94),
         dt.date(2024, 1, 12): pytest.approx(0.85),
     }
-    assert _by_day(df, "sunshine_duration") == {
+    skagen = _values(monkeypatch, "daily", "06041", start, end)
+    assert _by_day(skagen, "sunshine_duration") == {
         dt.date(2024, 6, 3): pytest.approx(7.8 * _HOUR),
         dt.date(2024, 6, 4): pytest.approx(10.2 * _HOUR),
     }
     # the snow depth of the day beginning at 06:00 UTC is the reading of 07:00 UTC of that date (metObs
     # `snow_depth_man`: 4.0 on 2021-02-12, 3.0 on the 13th)
-    assert _by_day(df, "snow_depth_manual") == {
+    assert _by_day(_values(monkeypatch, "daily", "28240", start, end), "snow_depth_manual") == {
         dt.date(2021, 2, 12): 4.0,
         dt.date(2021, 2, 13): 3.0,
         dt.date(2021, 2, 14): 3.0,
@@ -195,7 +203,7 @@ def test_a_value_dmi_does_not_validate_keeps_its_flag(monkeypatch: pytest.Monkey
 
 
 def test_monthly_sunshine_cloud_cover_and_counts_of_days(monkeypatch: pytest.MonkeyPatch) -> None:
-    """06041, July 2023: 207.9 hours of sunshine, 23, 19 and 1 days of 0.1, 1 and 10 mm, no ice and no frost days."""
+    """06041, July 2023: 207.9 hours of sunshine, 23, 19 and 1 days of 0.1, 1 and 10 mm; Nuuk's cloud cover."""
     df = _values(
         monkeypatch, "monthly", "06041", dt.datetime(2023, 7, 1, tzinfo=_UTC), dt.datetime(2023, 7, 1, tzinfo=_UTC)
     )
@@ -207,12 +215,17 @@ def test_monthly_sunshine_cloud_cover_and_counts_of_days(monkeypatch: pytest.Mon
         "count_days_precipitation_amount_ge_10mm": 1.0,
         "count_days_frost": 0.0,
         "count_days_ice": 0.0,
-        "cloud_cover_total_mean": pytest.approx(0.79),
+    }
+    nuuk = _values(
+        monkeypatch, "monthly", "04250", dt.datetime(2023, 7, 1, tzinfo=_UTC), dt.datetime(2023, 7, 1, tzinfo=_UTC)
+    )
+    assert {row["parameter"]: row["value"] for row in nuuk.iter_rows(named=True)} == {
+        "cloud_cover_total_mean": pytest.approx(0.79)
     }
 
 
 def test_annual_humidity_extremes_sunshine_cloud_cover_and_counts_of_days(monkeypatch: pytest.MonkeyPatch) -> None:
-    """06041, 2023: the annual humidity extremes the dataset used to leave out, and the year's counts of days."""
+    """06041, 2023, and Nuuk's cloud cover: the annual humidity extremes the dataset left out, and the year's counts."""
     df = _values(
         monkeypatch, "annual", "06041", dt.datetime(2023, 1, 1, tzinfo=_UTC), dt.datetime(2023, 1, 1, tzinfo=_UTC)
     )
@@ -221,12 +234,17 @@ def test_annual_humidity_extremes_sunshine_cloud_cover_and_counts_of_days(monkey
         "humidity_relative_max": pytest.approx(0.998),
         "humidity_relative_min": pytest.approx(0.527),
         "sunshine_duration": pytest.approx(1853.1 * _HOUR),
-        "cloud_cover_total_mean": pytest.approx(0.80),
         "count_days_precipitation_amount_ge_0_1mm": 194.0,
         "count_days_precipitation_amount_ge_1mm": 124.0,
         "count_days_precipitation_amount_ge_10mm": 23.0,
         "count_days_frost": 36.0,
         "count_days_ice": 6.0,
+    }
+    nuuk = _values(
+        monkeypatch, "annual", "04250", dt.datetime(2023, 1, 1, tzinfo=_UTC), dt.datetime(2023, 1, 1, tzinfo=_UTC)
+    )
+    assert {row["parameter"]: row["value"] for row in nuuk.iter_rows(named=True)} == {
+        "cloud_cover_total_mean": pytest.approx(0.80)
     }
 
 

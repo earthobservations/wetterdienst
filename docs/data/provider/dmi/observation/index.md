@@ -49,8 +49,9 @@ found with the code, has nine trace days in 2001 (checked on 2026-10-30 against 
 1998 to 2004 and for January and July of the odd years from 1991 to 2025). Its June has three and a total of 44.7 mm,
 which is the sum of the days with the traces as `-0.1`, against 45.0 mm with them as `0.0`. The other four months and
 the year agree the same way: July 42.0 mm (42.1 with the trace as `0.0`), August 74.1 (74.2), September 139.6 (139.9),
-October 43.5 (43.6) and the year 657.6 (658.5). The library returns the totals as DMI publishes them and the daily trace as `0.0`, so the sum of the daily
-values it returns is 0.1 mm above DMI's total for each trace day in it.
+October 43.5 (43.6) and the year 657.6 (658.5). The library returns the totals as DMI publishes them and
+the daily trace as `0.0`, so the sum of the daily values it returns is 0.1 mm above DMI's total for each trace day
+in it.
 
 ## License
 

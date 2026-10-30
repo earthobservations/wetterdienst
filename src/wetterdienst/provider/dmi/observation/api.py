@@ -120,8 +120,9 @@ _COMMON_RANGES: dict[str, tuple[float, float]] = {
     "mean_cloud_cover": _CLOUD_COVER,
 }
 _HEATING_DEGREE_DAYS = (0.0, 20_000.0)  # degree Celsius days; a year of heating is below 10,000
-# the sunshine cannot last longer than the span it is measured over, give or take a tenth: minutes of an hour, hours of
-# a day, of the longest month and of a leap year. DMI's highest (read 2026-10-30) are 60 minutes, 16.5 hours in a day,
+# the sunshine cannot last longer than the span it is measured over, with a tenth to spare for an hour, a day and the
+# longest month (the range of `physical_ranges.py`), and none for a leap year, whose range has none: minutes of an hour,
+# hours of a day, of a month and of a year. DMI's highest (read 2026-10-30) are 60 minutes, 16.5 hours in a day,
 # 386.3 in a month and 2,234.4 in a year. The counts of days are those of a year at most
 _SUNSHINE_OF_AN_HOUR = (0.0, 66.0)  # minutes
 _SUNSHINE_OF_A_DAY = (0.0, 26.4)  # hours
