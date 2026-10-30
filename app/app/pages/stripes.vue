@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { ChartTheme } from '~/utils/chart-theme'
 import { describeFetchError } from '~/utils/api-error'
 import { formatNumber, plotlySeparators } from '~/utils/format'
 import { stripeYears } from '~/utils/stripes'
@@ -275,19 +276,23 @@ async function plotStripes(data: StripesValuesResponse) {
   }
 }
 
-async function drawStripes(data: StripesValuesResponse) {
-  if (!plotContainer.value || !Plotly)
-    return
+interface StripesFigure {
+  traces: Plotly.Data[]
+  layout: Partial<Plotly.Layout>
+  config: Partial<Plotly.Config>
+  /** Plotly v3 draws it from a relayout after the plot, not from the layout it is plotted with */
+  title: object | null
+}
 
-  // Purge any existing plot first to ensure clean render
-  Plotly.purge(plotContainer.value)
-
+// What the stripes are drawn from, in the colours of `theme` and `width` px wide: on the page, in the
+// theme the page is in, and for a saved image in the light one (see saveStripes)
+function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: number): StripesFigure | null {
   // Filter out null values and prepare data
   const validData = data.values.filter(v => v.value !== null && v.timestamp !== null)
 
   if (validData.length === 0) {
     console.warn('No valid data to plot')
-    return
+    return null
   }
 
   // Extract years and values: each year's value comes at its first moment in UTC, read in UTC, as
@@ -320,7 +325,7 @@ async function drawStripes(data: StripesValuesResponse) {
         showarrow: false,
         xanchor: 'left',
         yanchor: 'top',
-        font: { size: 18, color: theme.value.text },
+        font: { size: 18, color: theme.text },
       },
       {
         x: maxYear,
@@ -331,7 +336,7 @@ async function drawStripes(data: StripesValuesResponse) {
         showarrow: false,
         xanchor: 'right',
         yanchor: 'top',
-        font: { size: 18, color: theme.value.text },
+        font: { size: 18, color: theme.text },
       },
     )
   }
@@ -362,7 +367,7 @@ async function drawStripes(data: StripesValuesResponse) {
       yref: 'paper',
       xanchor: 'center',
       yanchor: 'top',
-      font: { size: 14, color: theme.value.textMuted },
+      font: { size: 14, color: theme.textMuted },
     })
   }
 
@@ -450,7 +455,6 @@ async function drawStripes(data: StripesValuesResponse) {
 
   // Layout configuration
   const titleText = plotTitle(data)
-  const containerWidth = plotContainer.value.clientWidth
 
   const layout: Partial<Plotly.Layout> = {
     // the hover texts write the language's decimal separator, as Plotly writes a point otherwise
@@ -483,7 +487,7 @@ async function drawStripes(data: StripesValuesResponse) {
     },
     showlegend: false,
     autosize: false,
-    width: containerWidth,
+    width,
     height: showTitle.value ? 600 : 550,
     annotations,
   }
@@ -492,30 +496,74 @@ async function drawStripes(data: StripesValuesResponse) {
     responsive: true,
     displayModeBar: true,
     displaylogo: false,
-    modeBarButtonsToRemove: ['lasso2d', 'select2d'],
-    toImageButtonOptions: {
-      format: 'png',
-      filename: `climate_stripes_${kind.value}_${data.series.station.station_id}`,
-      height: showTitle.value ? 700 : 600,
-      width: 1400,
-      scale: 2,
-    },
+    // the camera is Plotly's with one difference: what it saves is the light chart, as everything saved is
+    modeBarButtonsToRemove: ['lasso2d', 'select2d', 'toImage'],
+    modeBarButtonsToAdd: [{
+      name: 'toImage',
+      title: 'Download plot as a png',
+      icon: Plotly!.Icons.camera as Plotly.Icon,
+      click: () => void saveStripes({
+        format: 'png',
+        filename: `climate_stripes_${kind.value}_${data.series.station.station_id}`,
+        height: showTitle.value ? 700 : 600,
+        width: 1400,
+        scale: 2,
+      }).catch((error: unknown) => {
+        console.error('The chart image could not be saved', error)
+        toast.add({ title: t('dataViewer.chartImageNotSaved'), color: 'error' })
+      }),
+    }],
   }
 
-  await Plotly.newPlot(plotContainer.value, traces as any, themedLayout(layout, theme.value) as any, config)
+  return {
+    traces,
+    layout: themedLayout(layout, theme),
+    config,
+    title: showTitle.value
+      ? {
+          text: titleText,
+          font: { size: 16, color: theme.text },
+          y: showDataAvailability.value ? 0.96 : 0.99,
+          x: 0.5,
+          xanchor: 'center',
+          yanchor: 'top',
+        }
+      : null,
+  }
+}
 
-  // Plotly v3 requires relayout to render the title after newPlot
-  if (showTitle.value) {
-    await Plotly.relayout(plotContainer.value, {
-      title: {
-        text: titleText,
-        font: { size: 16, color: theme.value.text },
-        y: showDataAvailability.value ? 0.96 : 0.99,
-        x: 0.5,
-        xanchor: 'center',
-        yanchor: 'top',
-      },
-    })
+async function drawStripes(data: StripesValuesResponse) {
+  if (!plotContainer.value || !Plotly)
+    return
+
+  // Purge any existing plot first to ensure clean render
+  Plotly.purge(plotContainer.value)
+
+  const figure = stripesFigure(data, theme.value, plotContainer.value.clientWidth)
+  if (!figure)
+    return
+  await Plotly.newPlot(plotContainer.value, figure.traces as any, figure.layout as any, figure.config)
+  if (figure.title)
+    await Plotly.relayout(plotContainer.value, { title: figure.title })
+}
+
+// A saved image is always the light one, whatever the page shows: the stripes are drawn again, off screen,
+// in the light theme (utils/chart-export.ts), and that copy is exported
+async function saveStripes(options: { format: 'png' | 'jpeg' | 'svg', filename: string, width: number, height: number, scale: number }) {
+  if (!Plotly || !lastFetchedData.value || !plotContainer.value)
+    return
+  const figure = stripesFigure(lastFetchedData.value, readDocumentChartTheme('light'), plotContainer.value.clientWidth)
+  if (!figure)
+    return
+  const { format, filename, width, height, scale } = options
+  const copy = await drawOffscreen(Plotly, figure.traces, figure.layout, { width: plotContainer.value.clientWidth, height: plotContainer.value.clientHeight })
+  try {
+    if (figure.title)
+      await Plotly.relayout(copy.element, { title: figure.title })
+    await Plotly.downloadImage(copy.element, { format, filename, width, height, scale })
+  }
+  finally {
+    copy.dispose()
   }
 }
 
@@ -531,7 +579,7 @@ async function downloadStripes(format: 'png' | 'jpeg' | 'svg' = 'png') {
   // This preserves aspect ratio AND scales text/annotations proportionally
   const station = lastFetchedData.value.series.station
   try {
-    await Plotly.downloadImage(plotContainer.value, {
+    await saveStripes({
       format,
       filename: `climate_stripes_${kind.value}_${station.station_id}_${station.name}`,
       height: containerHeight,

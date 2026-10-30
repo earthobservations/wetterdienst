@@ -1,4 +1,5 @@
-import type { Page } from '@playwright/test'
+import type { Download, Page } from '@playwright/test'
+import { readFileSync } from 'node:fs'
 import { expect, test } from '@playwright/test'
 import { mockBackend } from './accessibility/mock-backend'
 
@@ -247,3 +248,130 @@ test('the focus ring of a modebar button is the page\'s own, 3:1 on the dark pap
   expect(ring.width).toBeGreaterThanOrEqual(2)
   expect(contrast(ring.color, (await chromeOf(page)).paper)).toBeGreaterThanOrEqual(3)
 })
+
+/** Every Plotly chart of the page: its paper, as Plotly holds it */
+const papers = (page: Page) => page.locator('.js-plotly-plot').evaluateAll(charts => charts.map(chart => (chart as any)._fullLayout.paper_bgcolor as string))
+
+async function openExplorerChart(page: Page, baseURL: string) {
+  await mockBackend(page, baseURL)
+  await page.goto(EXPLORER)
+  await fetchButton(page).click()
+  await expect(page.getByRole('table').first()).toBeVisible()
+  await page.getByRole('button', { name: 'Show as chart', exact: true }).click()
+  await expect(plotly(page)).toBeVisible()
+}
+
+test('both charts of a faceted Explorer follow the scheme', async ({ page, baseURL, context }) => {
+  await context.addInitScript(() => localStorage.setItem('nuxt-color-mode', 'light'))
+  await openExplorerChart(page, baseURL!)
+  await page.getByLabel('Facet by parameter').check()
+  await expect(page.locator('.js-plotly-plot')).toHaveCount(2)
+  await expect(plotly(page)).toBeVisible()
+
+  const light = await papers(page)
+  expect(light.map(luminance).every(l => l > 0.9)).toBe(true)
+  await setColorScheme(page, 'Dark')
+  await expect.poll(async () => (await papers(page)).map(luminance).every(l => l < 0.05), { message: 'both facets are drawn dark' }).toBe(true)
+  await setColorScheme(page, 'Light')
+  await expect.poll(() => papers(page)).toEqual(light)
+})
+
+// A chart that is saved or printed is the light one, whatever the screen shows, so that images in a report
+// or a slide look alike (the maintainers' decision, GH-3528). A saved image is drawn again off screen in the
+// light theme; the chart on the page stays as it is.
+
+/** The pixel at the top left of a downloaded PNG or JPEG: the paper, which is the margin of every chart */
+async function cornerOf(page: Page, download: Download): Promise<string> {
+  const file = await download.path()
+  const base64 = readFileSync(file).toString('base64')
+  return page.evaluate(async (data) => {
+    const image = await createImageBitmap(new Blob([Uint8Array.from(atob(data), c => c.charCodeAt(0))]))
+    const canvas = document.createElement('canvas')
+    canvas.width = image.width
+    canvas.height = image.height
+    const context = canvas.getContext('2d', { willReadFrequently: true })!
+    context.drawImage(image, 0, 0)
+    const [r, g, b] = context.getImageData(2, 2, 1, 1).data
+    return `rgb(${r}, ${g}, ${b})`
+  }, base64)
+}
+
+async function expectLight(page: Page, download: Download) {
+  const corner = await cornerOf(page, download)
+  expect(luminance(corner), `the saved image is light (its corner is ${corner})`).toBeGreaterThan(0.9)
+  // the chart on the page is as dark as it was, and the copy that was drawn for the image is gone
+  expect(luminance((await papers(page))[0]!)).toBeLessThan(0.05)
+  await expect(page.locator('.js-plotly-plot')).toHaveCount((await papers(page)).length)
+}
+
+test.describe('a saved chart is the light one', () => {
+  test.beforeEach(async ({ context }) => {
+    await context.addInitScript(() => localStorage.setItem('nuxt-color-mode', 'dark'))
+  })
+
+  test('the Explorer\'s download menu and the camera of its modebar, single and faceted', async ({ page, baseURL }) => {
+    await openExplorerChart(page, baseURL!)
+    expect(luminance((await papers(page))[0]!)).toBeLessThan(0.05)
+
+    const menu = async (format: string) => {
+      await page.getByRole('button', { name: 'Download chart' }).click()
+      const saved = page.waitForEvent('download')
+      await page.getByRole('menuitem', { name: format, exact: true }).click()
+      return saved
+    }
+    await expectLight(page, await menu('PNG'))
+    await expectLight(page, await menu('JPEG'))
+
+    // the camera is Plotly's own icon and name, and saves the same
+    const camera = page.locator('.js-plotly-plot .modebar-btn[aria-label="Download plot as a png"]')
+    await expect(camera).toHaveCount(1)
+    const saved = page.waitForEvent('download')
+    await camera.click()
+    await expectLight(page, await saved)
+
+    // faceted: the charts are stacked into one image, each drawn light
+    await page.getByLabel('Facet by parameter').check()
+    await expect(page.locator('.js-plotly-plot')).toHaveCount(2)
+    await expectLight(page, await menu('PNG'))
+  })
+
+  test('the stripes\' download menu and the camera of its modebar', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await page.goto('/stripes?kind=temperature&station=00011')
+    await fetchButton(page).click()
+    await expect(plotly(page)).toBeVisible()
+
+    await page.getByRole('button', { name: 'Download image' }).click()
+    const menuSaved = page.waitForEvent('download')
+    await page.getByRole('menuitem', { name: 'Download as PNG' }).click()
+    await expectLight(page, await menuSaved)
+
+    const camera = page.locator('.js-plotly-plot .modebar-btn[aria-label="Download plot as a png"]')
+    await expect(camera).toHaveCount(1)
+    const saved = page.waitForEvent('download')
+    await camera.click()
+    await expectLight(page, await saved)
+  })
+})
+
+// printing: the charts are drawn light for as long as the page is printed, and a print that comes before they
+// are has a transparent paper and dark text (main.css)
+for (const chart of CASES) {
+  test(`${chart.name} is light when printed, dark again after`, async ({ page, baseURL, context }) => {
+    await context.addInitScript(() => localStorage.setItem('nuxt-color-mode', 'dark'))
+    await mockBackend(page, baseURL!)
+    await page.goto(chart.path)
+    await chart.reach(page)
+    await expect.poll(async () => luminance((await chromeOf(page)).paper)).toBeLessThan(0.05)
+
+    await page.emulateMedia({ media: 'print' })
+    await expect.poll(async () => luminance((await chromeOf(page)).paper), { message: 'drawn light for the print' }).toBeGreaterThan(0.9)
+    // and whatever has not been redrawn yet prints readably: no background, text in black
+    const svg = page.locator('.js-plotly-plot .main-svg').first()
+    expect(await svg.evaluate(element => getComputedStyle(element).backgroundColor)).toBe('rgba(0, 0, 0, 0)')
+    expect(await page.locator('.js-plotly-plot .main-svg text').first().evaluate(element => getComputedStyle(element).fill)).toBe('rgb(0, 0, 0)')
+
+    await page.emulateMedia({ media: 'screen' })
+    await expect.poll(async () => luminance((await chromeOf(page)).paper)).toBeLessThan(0.05)
+  })
+}

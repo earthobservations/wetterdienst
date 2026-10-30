@@ -4,6 +4,7 @@ import type { Config as PlotlyConfig, Data as PlotlyData, Layout as PlotlyLayout
 import type { DataSettings } from '~/types/data-settings.type'
 import type { ParameterSelectionState } from '~/types/parameter-selection-state.type'
 import type { StationMode, StationSelectionState } from '~/types/station-selection-state.type'
+import type { OffscreenChart } from '~/utils/chart-export'
 import { h } from 'vue'
 import QueryPanel from '~/components/QueryPanel.vue'
 import { describeFetchError } from '~/utils/api-error'
@@ -1037,19 +1038,7 @@ async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {
   // the export itself can fail too, such as a stack of many facets past the browser's canvas size,
   // which turning it into PNG or JPEG draws on: nothing is saved, and that is told
   try {
-    const plotly = await ensurePlotly()
-    if (faceted) {
-      saveBlob(await stackCharts(plotly, charts as HTMLDivElement[], format), `chart.${format}`)
-    }
-    else {
-      await plotly.downloadImage(charts[0]!, {
-        format,
-        filename: 'chart',
-        // Plotly expects number | undefined for width/height; use undefined to let it auto-size
-        width: undefined,
-        height: undefined,
-      })
-    }
+    await saveLightImage(await ensurePlotly(), charts as HTMLDivElement[], format, faceted)
   }
   catch (error) {
     console.error('The chart image could not be saved', error)
@@ -1109,12 +1098,10 @@ const chartLayout = computed((): Partial<PlotlyLayout> => {
     margin: { l: 60, r: 20, t: 40, b: 60 },
     // no axis line, as before: the theme gives an axis line its colour, and Plotly draws a line for any axis that has one
     xaxis: {
-      title: t('dataViewer.axisDate'),
       type: 'date',
       showline: false,
     },
     yaxis: {
-      title: t('dataViewer.axisValue'),
       showline: false,
     },
     // Plotly cuts a series' name in a hover label after 15 characters, which a label such as
@@ -1136,10 +1123,42 @@ function hoverMode(large: boolean): PlotlyLayout['hovermode'] {
   return large ? 'closest' : 'x unified'
 }
 
-const plotlyConfig: Partial<PlotlyConfig> = {
-  responsive: true,
-  displayModeBar: true,
-  modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+// The modebar's camera is Plotly's own with one difference: what it saves is the light chart, as every
+// chart this page saves is (utils/chart-export.ts). It is the last button but the logo, and the title
+// is Plotly's own ("Download plot as a png"), which names it
+function plotlyConfig(plotly: typeof import('plotly.js-basic-dist-min')): Partial<PlotlyConfig> {
+  return {
+    responsive: true,
+    displayModeBar: true,
+    modeBarButtonsToRemove: ['lasso2d', 'select2d', 'toImage'],
+    modeBarButtonsToAdd: [{
+      name: 'toImage',
+      title: 'Download plot as a png',
+      icon: plotly.Icons.camera,
+      click: (chart: HTMLDivElement) => void saveLightImage(plotly, [chart], 'png', false).catch((error: unknown) => {
+        console.error('The chart image could not be saved', error)
+        toast.add({ title: t('dataViewer.chartImageNotSaved'), color: 'error' })
+      }),
+    }],
+  }
+}
+
+// Saves `charts` in the light theme, whatever the page shows: each drawn again, off screen, for the export.
+// Stacked into one image where they are the facets, the single chart through Plotly's own download
+async function saveLightImage(plotly: typeof import('plotly.js-basic-dist-min'), charts: HTMLDivElement[], format: 'png' | 'jpeg' | 'svg', stacked: boolean) {
+  const copies: OffscreenChart[] = []
+  try {
+    for (const chart of charts)
+      copies.push(await drawLightCopy(plotly, chart))
+    const elements = copies.map(copy => copy.element) as HTMLDivElement[]
+    if (stacked)
+      saveBlob(await stackCharts(plotly, elements, format), `chart.${format}`)
+    else
+      await plotly.downloadImage(elements[0]!, { format, filename: 'chart', width: undefined, height: undefined })
+  }
+  finally {
+    copies.forEach(copy => copy.dispose())
+  }
 }
 
 function startRender(renders: ChartRenders, draw: (newest: () => boolean) => Promise<void>) {
@@ -1196,7 +1215,7 @@ async function drawMainChart(newest: () => boolean) {
   if (chartRef.value && chartTraces.value.length > 0) {
     // Use newPlot for clean initialization
     plotly.purge(chartRef.value)
-    await plotly.newPlot(chartRef.value, chartTraces.value, themedLayout({ ...chartLayout.value, hovermode: hoverMode(isLargeChart.value) }, theme.value), plotlyConfig)
+    await plotly.newPlot(chartRef.value, chartTraces.value, themedLayout({ ...chartLayout.value, hovermode: hoverMode(isLargeChart.value) }, theme.value), plotlyConfig(plotly))
   }
 }
 
@@ -1211,23 +1230,16 @@ async function drawFacetedCharts(newest: () => boolean) {
       return
     const el = facetChartRefs.value.get(facet.parameter)
     if (el) {
-      // Ensure y-axis title does not overflow by enabling automargin and using standoff
-      // For long parameter labels (e.g., resolution/dataset/parameter) split title into multiple lines,
-      // one per part: a translated label may hold a slash of its own
-      const splitTitle = facet.parts.join('<br>')
       const layout: Partial<PlotlyLayout> = {
         ...chartLayout.value,
         hovermode: hoverMode(facet.large),
         yaxis: {
-          // Plotly yaxis.title can be either string or object; ensure we pass a string for typing
-          title: splitTitle,
           showline: false,
           automargin: true,
-          // Use standoff via layout annotations when necessary instead of nested object to satisfy types
         },
         autosize: true,
       }
-      await plotly.react(el, facet.traces, themedLayout(layout, theme.value), plotlyConfig)
+      await plotly.react(el, facet.traces, themedLayout(layout, theme.value), plotlyConfig(plotly))
     }
   }
 }

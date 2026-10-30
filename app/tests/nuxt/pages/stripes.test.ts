@@ -32,6 +32,7 @@ const plotly = vi.hoisted(() => ({
   relayout: vi.fn(async () => {}),
   purge: vi.fn(),
   downloadImage: vi.fn(async () => 'stripes'),
+  Icons: { camera: { width: 1000, height: 1000, path: '' } },
 }))
 vi.mock('plotly.js-basic-dist-min', () => plotly)
 
@@ -504,6 +505,43 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
     expect(layout.annotations.map(a => a.text)).not.toContain('2020')
     expect(fetched).not.toHaveBeenCalled()
     expect(vm.isLoading).toBe(false)
+  })
+
+  it('saves the stripes drawn again off screen, the light chart whatever the page shows, and leaves the chart as it is', async () => {
+    const vm = await showStripes()
+    await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
+    const [shown, , shownLayout] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement, unknown, { annotations: Array<{ text: string }> }]
+    plotly.newPlot.mockClear()
+    plotly.purge.mockClear()
+    plotly.downloadImage.mockClear()
+
+    await vm.downloadStripes('png')
+
+    const [copy, traces, layout] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement, unknown[], { annotations: Array<{ text: string }> }]
+    expect(copy).not.toBe(shown)
+    expect(copy.getAttribute('aria-hidden')).toBe('true')
+    // the same stripes, with the same labels
+    expect(traces.length).toBeGreaterThan(0)
+    expect(layout.annotations.map(a => a.text)).toEqual(shownLayout.annotations.map(a => a.text))
+    expect(plotly.downloadImage).toHaveBeenCalledWith(copy, expect.objectContaining({ format: 'png' }))
+    // the copy is gone once saved, and the chart shown was not touched
+    expect(plotly.purge).toHaveBeenCalledWith(copy)
+    expect(copy.isConnected).toBe(false)
+    expect(plotly.purge).not.toHaveBeenCalledWith(shown)
+  })
+
+  it('has the camera of the modebar save the same, in the place of Plotly\'s own', async () => {
+    await showStripes()
+    await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
+    const [, , , config] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement, unknown, unknown, { modeBarButtonsToRemove: string[], modeBarButtonsToAdd: { name: string, title: string, click: () => void }[], toImageButtonOptions?: unknown }]
+    expect(config.modeBarButtonsToRemove).toContain('toImage')
+    const [camera] = config.modeBarButtonsToAdd
+    expect([camera!.name, camera!.title]).toEqual(['toImage', 'Download plot as a png'])
+    plotly.downloadImage.mockClear()
+    camera!.click()
+    await vi.waitFor(() => expect(plotly.downloadImage).toHaveBeenCalledOnce())
+    // the size Plotly's own camera had saved, 1400 px wide at twice the size
+    expect(plotly.downloadImage).toHaveBeenCalledWith(expect.any(HTMLElement), expect.objectContaining({ format: 'png', width: 1400, scale: 2 }))
   })
 
   it('says the stripes image could not be saved where its export fails', async () => {

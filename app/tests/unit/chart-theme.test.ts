@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { CHART_TOKENS, chartThemeLayout, chartThemeRelayout, drawnAxisNames, EMPTY_CHART_THEME, readChartTheme, restyleChart, themedLayout, withAlpha } from '../../app/utils/chart-theme'
+import { CHART_TOKENS, chartThemeLayout, chartThemeRelayout, drawnAxisNames, EMPTY_CHART_THEME, mergeLayouts, parseCssColor, readChartTheme, restyleChart, themedLayout, withAlpha } from '../../app/utils/chart-theme'
 
 // The custom properties as the browser would answer them in each colour scheme, in the syntax the
 // tokens are written in (oklch), and the resolver standing in for the canvas that turns them into rgb()
@@ -82,7 +82,8 @@ describe('chartThemeLayout', () => {
       // none that makes Plotly draw what the chart does not: tick marks, or an axis line, come with their colour
       expect(layout[axis].tickcolor).toBeUndefined()
       expect(layout[axis].tickfont.color).toBe(theme.textMuted)
-      expect(layout[axis].title.font.color).toBe(theme.text)
+      // an axis title takes the layout's font, which is the theme's: none of its own to set (and none to relayout)
+      expect(layout[axis].title).toBeUndefined()
     }
   })
 
@@ -111,9 +112,10 @@ describe('themedLayout', () => {
     expect(themed.paper_bgcolor).toBe(theme.paper)
   })
 
-  it('turns an axis title written as a string into the text of one, to give it a colour', () => {
-    const themed = themedLayout({ xaxis: { title: 'Date' } } as any, theme) as Record<string, any>
-    expect(themed.xaxis.title).toEqual({ text: 'Date', font: { color: theme.text } })
+  it('leaves an axis title as the chart wrote it, a string too', () => {
+    const themed = themedLayout({ xaxis: { title: 'Date' }, yaxis: { title: { text: 'Value', standoff: 4 } } } as any, theme) as Record<string, any>
+    expect(themed.xaxis.title).toBe('Date')
+    expect(themed.yaxis.title).toEqual({ text: 'Value', standoff: 4 })
   })
 
   it('does not change the layout it is given', () => {
@@ -133,7 +135,6 @@ describe('chartThemeRelayout', () => {
       'font.color': theme.text,
       'xaxis.gridcolor': theme.grid,
       'xaxis.tickfont.color': theme.textMuted,
-      'yaxis2.title.font.color': theme.text,
       'hoverlabel.bgcolor': theme.hoverBg,
       'hoverlabel.font.color': theme.hoverText,
       'modebar.color': theme.modebar,
@@ -153,6 +154,53 @@ describe('chartThemeRelayout', () => {
     expect(calls).toHaveLength(1)
     expect(calls[0]![0]).toBe(drawn)
     expect(calls[0]![1]).toHaveProperty(['yaxis2.gridcolor'], themeOf('dark').grid)
+    // no path of an axis title, which Plotly refuses on an axis that has none ("container is not an object")
+    expect(Object.keys(calls[0]![1] as object).filter(path => path.includes('.title'))).toEqual([])
+  })
+})
+
+describe('mergeLayouts', () => {
+  it('lays one layout over another: objects key by key, anything else replaced', () => {
+    const base = { font: { size: 11, color: 'a' }, margin: { l: 1 }, shapes: [1, 2], xaxis: { range: [0, 1] } }
+    const merged = mergeLayouts(base, { font: { color: 'b' }, shapes: [3], xaxis: { range: [4, 5] }, title: 'T' })
+    expect(merged).toEqual({ font: { size: 11, color: 'b' }, margin: { l: 1 }, shapes: [3], xaxis: { range: [4, 5] }, title: 'T' })
+    expect(base.font.color).toBe('a')
+  })
+})
+
+describe('parseCssColor', () => {
+  it.each([
+    ['rgb(15, 23, 43)', 'rgb(15, 23, 43)'],
+    ['rgb(15 23 43)', 'rgb(15, 23, 43)'],
+    ['rgba(15, 23, 43, 0.5)', 'rgba(15, 23, 43, 0.5)'],
+    ['rgb(15 23 43 / 50%)', 'rgba(15, 23, 43, 0.5)'],
+    ['rgba(15, 23, 43, 1)', 'rgb(15, 23, 43)'],
+  ])('reads the rgb() a browser answers for %s', (computed, expected) => {
+    expect(parseCssColor(computed)).toBe(expected)
+  })
+
+  it.each([
+    // what a browser answers for a colour written in oklch() and mixed in sRGB
+    ['color(srgb 0.0588235 0.0901961 0.168627)', 'rgb(15, 23, 43)'],
+    ['color(srgb 1 1 1)', 'rgb(255, 255, 255)'],
+    ['color(srgb 0 0 0)', 'rgb(0, 0, 0)'],
+    ['color(srgb 0.0588235 0.0901961 0.168627 / 0.5)', 'rgba(15, 23, 43, 0.5)'],
+    ['color(srgb 1 0 0 / 25%)', 'rgba(255, 0, 0, 0.25)'],
+    ['color(srgb 50% 0% 100%)', 'rgb(128, 0, 255)'],
+    // a low alpha is kept as it is (a canvas pixel rounds it to 0.012 or 0.016)
+    ['color(srgb 0.2 0.4 0.6 / 0.0137)', 'rgba(51, 102, 153, 0.014)'],
+    ['color(srgb 0.2 0.4 0.6 / 0)', 'rgba(51, 102, 153, 0)'],
+  ])('reads %s', (computed, expected) => {
+    expect(parseCssColor(computed)).toBe(expected)
+  })
+
+  it('clamps a colour outside the sRGB gamut, which a mix of an oklch() colour can be', () => {
+    expect(parseCssColor('color(srgb -0.02 0.5 1.03)')).toBe('rgb(0, 128, 255)')
+    expect(parseCssColor('color(srgb 0.5 0.5 0.5 / 1.5)')).toBe('rgb(128, 128, 128)')
+  })
+
+  it.each(['', 'oklch(0.2 0.04 266)', 'color(display-p3 1 0 0)', 'color(srgb 1 0)', 'color(srgb 1 0 x)', 'rgb(1, 2)', 'rgb(1, 2, 3, 4, 5)', 'red', 'color(srgb %  0 0)'])('answers nothing for %j, so that Plotly keeps its default', (computed) => {
+    expect(parseCssColor(computed)).toBe('')
   })
 })
 
@@ -169,21 +217,29 @@ describe('withAlpha', () => {
 })
 
 describe('the tokens in main.css', () => {
-  const css = readFileSync(fileURLToPath(new URL('../../app/assets/css/main.css', import.meta.url)), 'utf-8')
+  // without its comments, which name the properties and say what they are for
+  const css = readFileSync(fileURLToPath(new URL('../../app/assets/css/main.css', import.meta.url)), 'utf-8').replace(/\/\*[\s\S]*?\*\//g, '')
+  // every declaration of a chart token, with the at-rule it is in, if any
+  const declarations = [...css.matchAll(/(--app-chart-[a-z-]+):([^;]+);/g)].map(match => ({
+    property: match[1]!,
+    value: match[2]!.trim(),
+  }))
 
-  it.each(Object.entries(CHART_TOKENS))('%s is set from a Nuxt UI token (or the focus ring) on :root', (_key, property) => {
-    const value = new RegExp(`${property}:\\s*var\\((--[a-z-]+)\\)`).exec(css)?.[1]
-    expect(value, property).toMatch(/^--(ui|app-focus)-/)
+  it.each(Object.entries(CHART_TOKENS))('%s is declared once, from a Nuxt UI token (or the focus ring)', (_key, property) => {
+    const own = declarations.filter(declaration => declaration.property === property)
+    // once: a second declaration, for `.dark`, `:root.dark`, `html.dark` or a media query, would be a second place
+    expect(own, property).toHaveLength(1)
+    expect(own[0]!.value, property).toMatch(/^var\(--(ui|app-focus)-[a-z0-9-]+\)$/)
   })
 
-  it('does not redefine any of them for .dark: the Nuxt UI tokens they are made of switch by themselves', () => {
-    const dark = [...css.matchAll(/\.dark\s*\{([^}]*)\}/g)].map(match => match[1]).join('\n')
-    expect(dark).not.toContain('--app-chart-')
+  it('declares them on :root and on .light and .dark, which Nuxt UI\'s tokens switch on, and in no media query', () => {
+    expect(/([^{}]+)\{[^{}]*--app-chart-paper:/.exec(css)?.[1]?.replace(/\s+/g, '')).toBe(':root,.light,.dark')
+    // a media query (prefers-color-scheme, print) with a rule of its own inside
+    const queries = css.match(/@media[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g) ?? []
+    expect(queries.filter(query => query.includes('--app-chart-'))).toEqual([])
   })
 
-  it('has no hex colour for the chart chrome: a redesign changes one place', () => {
-    const block = [...css.matchAll(/--app-chart-[a-z-]+:([^;]+);/g)].map(match => match[1])
-    expect(block.length).toBe(Object.keys(CHART_TOKENS).length)
-    expect(block.some(value => /#[0-9a-f]{3,8}\b/i.test(value!))).toBe(false)
+  it('lists every property of the theme and no other', () => {
+    expect(declarations.map(declaration => declaration.property).sort()).toEqual(Object.values(CHART_TOKENS).sort())
   })
 })

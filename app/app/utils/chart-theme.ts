@@ -6,7 +6,8 @@ import type { Layout } from 'plotly.js-basic-dist-min'
 // series and the stripes' palette are data and stay each chart's own.
 //
 // Plotly parses hex, rgb(), hsl() and named colours, not the oklch() and color-mix() the tokens are
-// written in, so a token is resolved to rgb() through a canvas pixel (`resolveColor`).
+// written in, so a token is resolved to rgb() by the browser's own computed value of a probe element
+// (`resolveColor`): no canvas, whose pixels a browser that resists fingerprinting scrambles.
 
 /** The theme's colours and the CSS custom property each is read from */
 export const CHART_TOKENS = {
@@ -46,39 +47,76 @@ export function readChartTheme(read: (property: string) => string, resolve: (col
   return theme
 }
 
-let probe: CanvasRenderingContext2D | null | undefined
-
-/** A CSS colour in any syntax the browser knows (oklch(), color-mix(), var() resolved) as rgb(), by drawing it; unchanged where it is no colour */
-export function resolveColor(color: string): string {
-  if (probe === undefined) {
-    try {
-      probe = document.createElement('canvas').getContext('2d', { willReadFrequently: true })
-    }
-    catch {
-      probe = null
-    }
+/**
+ * A computed CSS colour as rgb() (or rgba() with an alpha below 1), clamped to the sRGB gamut, or '' where it
+ * is none we read. A browser answers `rgb(15, 23, 43)`, `rgba(...)`, or, for a colour written in another space
+ * and mixed in sRGB, `color(srgb 0.06 0.09 0.17)` with an alpha after a slash.
+ */
+export function parseCssColor(computed: string): string {
+  const match = /^(rgba?\(|color\(\s*srgb\s)([^()]*)\)$/i.exec(computed.trim())
+  if (!match)
+    return ''
+  const parts = match[2]!.trim().split(/[\s,/]+/)
+  if (parts.length !== 3 && parts.length !== 4)
+    return ''
+  const srgb = match[1]!.toLowerCase().startsWith('color')
+  // a number, or a percentage of `full`, clamped to 0..full; NaN where it is neither
+  const read = (part: string, full: number) => {
+    const percent = part.endsWith('%')
+    const n = Number(percent ? part.slice(0, -1) : part)
+    return part === '' || part === '%' || Number.isNaN(n) ? Number.NaN : Math.min(full, Math.max(0, percent ? n * full / 100 : n))
   }
-  if (!probe)
-    return color
-  // an assignment the canvas cannot parse is ignored, so a colour is valid if the two probes agree
-  probe.fillStyle = '#000'
-  probe.fillStyle = color
-  const onBlack = probe.fillStyle
-  probe.fillStyle = '#fff'
-  probe.fillStyle = color
-  if (onBlack !== probe.fillStyle)
-    return color
-  probe.clearRect(0, 0, 1, 1)
-  probe.fillRect(0, 0, 1, 1)
-  const [r, g, b, a] = probe.getImageData(0, 0, 1, 1).data
-  return a === 255 ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${Number((a! / 255).toFixed(3))})`
+  const [red, green, blue] = parts.slice(0, 3).map(part => Math.round(read(part, srgb ? 1 : 255) * (srgb ? 255 : 1)))
+  const alpha = parts[3] === undefined ? 1 : read(parts[3], 1)
+  if ([red, green, blue, alpha].some(n => Number.isNaN(n)))
+    return ''
+  return alpha < 1 ? `rgba(${red}, ${green}, ${blue}, ${Number(alpha.toFixed(3))})` : `rgb(${red}, ${green}, ${blue})`
 }
 
-/** The theme of the document in the browser: the page is dark where Nuxt's colour mode has put `dark` on <html> */
-export function readDocumentChartTheme(): ChartTheme {
+let probe: HTMLElement | undefined
+
+/**
+ * A CSS colour in any syntax the browser knows (oklch(), color-mix()) as rgb(), by asking the browser for
+ * the computed colour of a hidden element, mixed in sRGB so that it is written in it. '' where the browser
+ * does not know it, so that Plotly keeps its own default rather than get a colour it cannot parse.
+ */
+export function resolveColor(color: string): string {
+  if (!probe) {
+    probe = document.createElement('span')
+    probe.hidden = true
+    document.documentElement.appendChild(probe)
+  }
+  // an assignment the browser cannot parse is ignored, so the colour is reset to see that it was taken
+  probe.style.color = ''
+  probe.style.color = `color-mix(in srgb, ${color} 100%, transparent)`
+  if (!probe.style.color)
+    return ''
+  return parseCssColor(getComputedStyle(probe).color)
+}
+
+/**
+ * The theme of the document in the browser: the page is dark where Nuxt's colour mode has put `dark` on <html>.
+ * With a `scheme`, the theme of that scheme whatever the page shows: what a saved or printed chart is drawn
+ * in. The tokens switch on a `.light` or `.dark` class on any element (main.css), so a probe with the class
+ * is asked.
+ */
+export function readDocumentChartTheme(scheme?: 'light' | 'dark'): ChartTheme {
   const root = document.documentElement
-  const style = getComputedStyle(root)
-  return readChartTheme(property => style.getPropertyValue(property), resolveColor, root.classList.contains('dark'))
+  let element: HTMLElement = root
+  if (scheme) {
+    element = document.createElement('div')
+    element.className = scheme
+    element.hidden = true
+    root.appendChild(element)
+  }
+  try {
+    const style = getComputedStyle(element)
+    return readChartTheme(property => style.getPropertyValue(property), resolveColor, scheme ? scheme === 'dark' : root.classList.contains('dark'))
+  }
+  finally {
+    if (scheme)
+      element.remove()
+  }
 }
 
 /** `color` (an rgb() or rgba()) at `alpha`, for a hairline or a wash drawn from a text colour */
@@ -111,7 +149,6 @@ function axisTheme(theme: ChartTheme) {
     zerolinecolor: theme.zeroline,
     spikecolor: theme.axis,
     tickfont: { color: theme.textMuted },
-    title: { font: { color: theme.text } },
   })
 }
 
@@ -139,16 +176,14 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-function mergeDeep(base: Record<string, unknown>, over: Record<string, unknown>): Record<string, unknown> {
-  const merged: Record<string, unknown> = { ...base }
+/** `over` laid over `base`, objects merged key by key and anything else (a string, a number, an array) replaced */
+export function mergeLayouts<L extends object>(base: L, over: object): L {
+  const merged: Record<string, unknown> = { ...(base as Record<string, unknown>) }
   for (const [key, value] of Object.entries(over)) {
     const current = merged[key]
-    // a title written as a string is the text of one
-    const left = key === 'title' && typeof current === 'string' ? { text: current } : current
-    const right = key === 'title' && typeof value === 'string' ? { text: value } : value
-    merged[key] = isObject(left) && isObject(right) ? mergeDeep(left, right) : right
+    merged[key] = isObject(current) && isObject(value) ? mergeLayouts(current, value) : value
   }
-  return merged
+  return merged as L
 }
 
 /**
@@ -157,7 +192,7 @@ function mergeDeep(base: Record<string, unknown>, over: Record<string, unknown>)
  */
 export function themedLayout<L extends object>(layout: L, theme: ChartTheme): L {
   const axisNames = [...new Set(['xaxis', 'yaxis', ...Object.keys(layout).filter(key => AXIS.test(key))])]
-  return mergeDeep(chartThemeLayout(theme, axisNames) as Record<string, unknown>, layout as Record<string, unknown>) as L
+  return mergeLayouts(chartThemeLayout(theme, axisNames), layout) as L
 }
 
 function flatten(prefix: string, value: unknown, into: Record<string, string>) {
