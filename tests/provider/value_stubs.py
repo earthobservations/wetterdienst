@@ -1844,10 +1844,11 @@ def _dmi_annual(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
 
 
 def _dmi_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
-    # `acc_precip` of `timeResolution=day` as DMI documents it: -0.1 is "traces of precipitation" (GH-3621). The
-    # documentation host (opendatadocs.dmi.govcloud.dk) answered 404 on 2026-10-30, so the sentence is the issue's
-    # quote and no sampled record carried the value; the rows are made up. A trace is 0.0 and keeps `raw:-0.1`, as
-    # the trace of KNMI, AEMET and Meteo-France's synop does
+    # `acc_precip` of `timeResolution=day`: DMI's documentation (https://www.dmi.dk/friedata/dokumentation/climate-data,
+    # read 2026-10-30, "Precipitation Codes") says that acc_precip, max_precip_past24h and max_precip_30m return an
+    # amount in mm "with the exception of" -0.1: "traces of precipitation, less than 0.1 kg/m2" (GH-3621). No sampled
+    # record carried the value; the rows are made up. A trace is 0.0 and keeps `raw:-0.1`, as the trace of KNMI, AEMET
+    # and Meteo-France's synop does
     rows = [
         ("2025-03-29T00:00:00.001000+01:00", "2025-03-30T00:00:00+01:00", 9.8),
         ("2025-03-30T00:00:00.001000+01:00", "2025-03-31T00:00:00+02:00", -0.1),

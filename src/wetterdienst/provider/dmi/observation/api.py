@@ -71,7 +71,10 @@ _CALM_WIND = Sentinel(
     & pl.col("value").filter(pl.col("parameterId").eq(_MEAN_WIND_SPEED)).first().over("from", "to").eq(0),
 )
 
-# DMI writes -0.1 for "traces of precipitation" in the amounts of precipitation: some rain below what the gauge
+# DMI documents -0.1 as a code, not an amount: "Precipitation Codes: the parameters acc_precip, max_precip_past24h,
+# acc_precip_past12h, acc_precip_past24h and max_precip_30m return the amount of precipitation within the given period
+# in mm with the exception of the codes listed below. -0.1: traces of precipitation, less than 0.1 kg/m2"
+# (https://www.dmi.dk/friedata/dokumentation/climate-data, read 2026-10-30). It is some rain below what the gauge
 # reports, so it is 0.0 and no negative amount, as the trace of FMI, KNMI, AEMET and Meteo-France's synop is. It keeps
 # the text as the `raw:-0.1` token of `quality_flags` (GH-2759), which is how those providers mark a trace and so how
 # a caller finds one. Without the rule the lower bound of 0 below read it as out of range and null (GH-3621).

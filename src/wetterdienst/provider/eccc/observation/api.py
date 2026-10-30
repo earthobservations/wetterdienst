@@ -57,6 +57,46 @@ _GUST_NOT_REPORTED = Sentinel("0", where=pl.col("parameter").eq("speed_max_gust"
 # no direction, so the 0 beside a speed of 0 is null (GH-2794, GH-3222).
 _WIND_SPEED_OF_DIRECTION = {"wind_direction": "wind_speed", "direction_max_gust": "speed_max_gust"}
 
+# ECCC's archive flags a monthly value ``I`` ("incomplete") when the month had missing days: Technical Documentation
+# (https://climate.weather.gc.ca/doc/Technical_Documentation.pdf, modified 2023-01-16), Notes 25 and 26, "Beginning in
+# 1994". Note 25 (elements 044 extreme maximum temperature, 046 extreme minimum temperature, 048 to 050 total rainfall,
+# snowfall and precipitation, among others): "one or more missing daily values". Note 26 (040 to 042, the mean
+# temperatures): "more than 3 consecutive missing daily values or more than 5 missing daily values in total". The
+# `climate-monthly` collection publishes the value without that flag, but with the number of days each value rests on
+# (`DAYS_WITH_VALID_*`), so the flag is derived from the days of the month: the days that are not valid are the missing
+# days. The collection does not say which element a field is, which is read from the values: `MAX_TEMPERATURE` and
+# `MIN_TEMPERATURE` are the extremes of the month (044 and 046: 22 and -12 degrees in March 1990 at Ridgetown, beside a
+# mean of 0.6), `TOTAL_PRECIPITATION` and `TOTAL_SNOWFALL` are 050 and 049, `MEAN_TEMPERATURE` is 042 (GH-3621). That is
+# ours and not the archive's mapping, and so is the flag of a month before 1994, which the archive did not flag. The
+# run of consecutive missing days of Note 26 is not published, so a mean temperature is flagged for more than 5 missing
+# days only: a month with 4 or 5 missing days, 4 of them in a row, is not flagged, where the archive flags it. Fields
+# that no note names (sunshine, degree days, the counts of days, the snow on the ground) are not flagged.
+#: Per monthly field the count of valid days it rests on, and the number of missing days it allows without the flag.
+_MONTHLY_VALID_DAYS: dict[str, tuple[str, int]] = {
+    "max_temperature": ("days_with_valid_max_temp", 0),
+    "min_temperature": ("days_with_valid_min_temp", 0),
+    "total_precipitation": ("days_with_valid_precip", 0),
+    "total_snowfall": ("days_with_valid_snowfall", 0),
+    "mean_temperature": ("days_with_valid_mean_temp", 5),
+}
+#: The flag of an incomplete month, as the archive writes it.
+_INCOMPLETE = "I"
+
+
+def _flag_incomplete_months(df: pl.LazyFrame) -> pl.LazyFrame:
+    """Add the ``<field>_flag`` column of the monthly fields whose month has more missing days than they allow.
+
+    The days of the month come from ``date`` ("2023-06"). A field whose count of valid days is null is not flagged: the
+    collection does not say how many days it rests on.
+    """
+    names = df.collect_schema().names()
+    days_in_month = (pl.col("date") + "-01").str.to_date("%Y-%m-%d").dt.month_end().dt.day()
+    return df.with_columns(
+        pl.when(days_in_month - pl.col(valid) > allowed).then(pl.lit(_INCOMPLETE)).alias(f"{field}_flag")
+        for field, (valid, allowed) in _MONTHLY_VALID_DAYS.items()
+        if field in names and valid in names
+    )
+
 
 #: Local Standard Time of the station list's TIMEZONE codes, as the offset from UTC all year: the codes name
 #: standard time, which the station keeps whether or not daylight saving time is adopted for other purposes
@@ -145,8 +185,11 @@ class EcccObservationValues(TimeseriesValues):
         """Convert wide-format dataframe to long format, pairing value columns with their *_flag columns.
 
         The flag is the source's own letter (`M` missing, `E` estimated, `T` trace, ...), kept verbatim
-        in `quality_flags`. Monthly rows carry no flags, so theirs is null.
+        in `quality_flags`. The monthly collection carries no flags, so the ``I`` of an incomplete month is derived from
+        its counts of valid days first (`_flag_incomplete_months`, which only the monthly frame has the columns for) and
+        the other monthly values have none.
         """
+        df = _flag_incomplete_months(df)
         # column names arrive lower-cased; `date` is the time axis, made `timestamp` further down
         schema_names = df.collect_schema().names()
         flag_columns = {col for col in schema_names if col.endswith("_flag")}
@@ -306,7 +349,7 @@ class EcccObservationValues(TimeseriesValues):
             field = parameter.name_original.upper()
             fields.append(field)
             if dataset.resolution.value in (Resolution.HOURLY, Resolution.DAILY):
-                # monthly carries no per-value flags
+                # monthly carries no per-value flags; its `I` is derived in `_tidy_up_df`
                 fields.append(f"{field}_FLAG")
         # Hourly rows are stamped from UTC_DATE. The hourly LOCAL_DATE is Local Standard Time, which does not follow
         # daylight saving (the bulk CSV header reads "Date/Time (LST)"), and it was read as the station's civil time:

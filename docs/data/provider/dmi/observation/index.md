@@ -37,6 +37,12 @@ sum of that 3,229.9 mm and two months, is below the bound and is not: station 04
 long shape drops the rows without a value by default, so the token shows with
 `drop_nulls=False`.
 
+DMI's `-0.1` in `precipitation_amount` and the largest amounts of a day or of half an hour is not an
+amount but a code: "traces of precipitation, less than 0.1 kg/m2" ([DMI's climate data
+documentation](https://www.dmi.dk/friedata/dokumentation/climate-data), "Precipitation Codes"). It is
+read as `0.0` and keeps the text as the last token of `quality_flags`, `manual,validity:true,raw:-0.1`,
+as the trace of KNMI, AEMET and Meteo-France's synop does.
+
 ## License
 
 Data is © DMI (Danish Meteorological Institute) and licensed under

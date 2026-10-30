@@ -509,6 +509,113 @@ def test_eccc_monthly_count_and_normal_of_the_mean_carry_the_name_of_the_mean(
     }
 
 
+# Rows of RIDGETOWN AUTOMATIC CLIMATE STATION (STN_ID 4679) as climate-monthly answers them (read 2026-10-30), served
+# for the test station: March 1990 has a mean from 12 days, extremes from 12, precipitation from 24 and snowfall from
+# 30 of its 31 days; February is whole. The other months are made up for the rule of the mean temperature: 5 and 6
+# missing days of 30 (April), and the leap day of February 1992 (29 days) with 28 valid.
+_RIDGETOWN_MONTHLY_ROWS = [
+    {
+        "LOCAL_DATE": "1990-02",
+        "MEAN_TEMPERATURE": -1.082142857142857,
+        "DAYS_WITH_VALID_MEAN_TEMP": 28,
+        "MIN_TEMPERATURE": -19,
+        "DAYS_WITH_VALID_MIN_TEMP": 28,
+        "MAX_TEMPERATURE": 13.5,
+        "DAYS_WITH_VALID_MAX_TEMP": 28,
+        "TOTAL_PRECIPITATION": 131.4,
+        "DAYS_WITH_VALID_PRECIP": 28,
+        "TOTAL_SNOWFALL": 25,
+        "DAYS_WITH_VALID_SNOWFALL": 28,
+        "HEATING_DEGREE_DAYS": 534.3,
+    },
+    {
+        "LOCAL_DATE": "1990-03",
+        "MEAN_TEMPERATURE": 0.5833333333333334,
+        "DAYS_WITH_VALID_MEAN_TEMP": 12,
+        "MIN_TEMPERATURE": -12,
+        "DAYS_WITH_VALID_MIN_TEMP": 12,
+        "MAX_TEMPERATURE": 22,
+        "DAYS_WITH_VALID_MAX_TEMP": 12,
+        "TOTAL_PRECIPITATION": 0,
+        "DAYS_WITH_VALID_PRECIP": 24,
+        "TOTAL_SNOWFALL": 0,
+        "DAYS_WITH_VALID_SNOWFALL": 30,
+        "HEATING_DEGREE_DAYS": 209,
+    },
+    {"LOCAL_DATE": "1990-04", "MEAN_TEMPERATURE": 10.0, "DAYS_WITH_VALID_MEAN_TEMP": 25},
+    {"LOCAL_DATE": "1990-05", "MEAN_TEMPERATURE": 13.0, "DAYS_WITH_VALID_MEAN_TEMP": 25},
+    {"LOCAL_DATE": "1992-02", "TOTAL_PRECIPITATION": 12.5, "DAYS_WITH_VALID_PRECIP": 28},
+    {"LOCAL_DATE": "1992-03", "TOTAL_PRECIPITATION": 7.5, "DAYS_WITH_VALID_PRECIP": None},
+]
+
+
+def _monthly_flags(monkeypatch: pytest.MonkeyPatch, options: Options) -> dict[tuple[str, str], str | None]:
+    """Read the monthly rows above and give the `quality_flags` by (parameter, month)."""
+    _serve_eccc(
+        monkeypatch,
+        _RIDGETOWN_MONTHLY_ROWS,
+        _TORONTO_STATION | {"FIRST_DATE": "1989-01-01 00:00:00", "MLY_FIRST_DATE": "1989-01-01 00:00:00"},
+    )
+    request = EcccObservationRequest(
+        parameters=[("monthly", "data")],
+        start="1990-01-01",
+        end="1992-12-31",
+        options=options,
+    )
+    df = request.filter_by_station_id("51459").values().all().df
+    return {
+        (row["parameter"], row["timestamp"].strftime("%Y-%m")): row["quality_flags"] for row in df.iter_rows(named=True)
+    }
+
+
+def test_eccc_monthly_flags_a_month_with_missing_days_as_incomplete(
+    monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
+) -> None:
+    """Notes 25 and 26 of ECCC's Technical Documentation: a month with missing days is `I`, derived here (GH-3621).
+
+    The collection publishes the value without the flag, but with the days it rests on. Ridgetown 1990-03 has a mean of
+    12 days (more than 5 missing), extremes from 12 days, precipitation from 24 and snowfall from 30: all `I`, and the
+    whole February of 1990 has none. The sunshine, the degree days and the counts are named by no note.
+    """
+    flags = _monthly_flags(monkeypatch, options_convert_units_false)
+    incomplete = {
+        "temperature_air_mean_minmax_2m",
+        "temperature_air_max_2m",
+        "temperature_air_min_2m",
+        "precipitation_amount",
+        "snow_depth_new",
+    }
+    march = {parameter: flag for (parameter, month), flag in flags.items() if month == "1990-03"}
+    assert {parameter for parameter, flag in march.items() if flag == "I"} == incomplete
+    assert {flag for parameter, flag in march.items() if parameter not in incomplete} == {None}
+    assert "heating_degree_day" in march
+    assert {flag for (_, month), flag in flags.items() if month == "1990-02"} == {None}
+
+
+def test_eccc_monthly_mean_temperature_is_incomplete_above_five_missing_days_only(
+    monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
+) -> None:
+    """Note 26 allows 5 missing days of the mean: 25 of 30 days is whole, 25 of 31 (6 missing) is `I`.
+
+    The other half of the rule, more than 3 days in a row, needs the run of missing days, which the collection does not
+    publish: such a month is not flagged here (GH-3621).
+    """
+    flags = _monthly_flags(monkeypatch, options_convert_units_false)
+    assert flags["temperature_air_mean_minmax_2m", "1990-04"] is None
+    assert flags["temperature_air_mean_minmax_2m", "1990-05"] == "I"
+
+
+def test_eccc_monthly_counts_the_days_of_the_month_it_is_in(
+    monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
+) -> None:
+    """28 valid days of February 1992 (29 days) are incomplete, of February 1990 (28 days) whole; no count, no flag."""
+    flags = _monthly_flags(monkeypatch, options_convert_units_false)
+    assert flags["precipitation_amount", "1992-02"] == "I"
+    assert flags["precipitation_amount", "1990-02"] is None
+    # a month the collection gives no count for is not flagged: the days it rests on are not known
+    assert flags["precipitation_amount", "1992-03"] is None
+
+
 # The first and last day of TORONTO INTL A, given by the station list with a time of day, "2013-06-11 09:00:00" and
 # "2026-10-08 12:30:10" in Local Standard Time (as FIRST_DATE and LAST_DATE are written; the dates of the daily
 # collection in the list read are at 00:00), which the offset (EST, -5 h all year) would move to 14:00 UTC and 17:30 UTC
