@@ -689,8 +689,6 @@
     "chartNotDrawn": "The chart could not be drawn",
     "chartCodeNotLoaded": "Its code could not be loaded. If trying again does not help, reload the page.",
     "chartImageNotSaved": "The chart image could not be saved",
-    "axisDate": "Date",
-    "axisValue": "Value",
     "paramLabelParameter": "Parameter",
     "paramLabelDatasetParameter": "Dataset / Parameter",
     "paramLabelFull": "Resolution / Dataset / Parameter",

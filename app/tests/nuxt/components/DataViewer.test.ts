@@ -1026,6 +1026,34 @@ describe('dataViewer chart images', () => {
     expect(shown.isConnected).toBe(true)
   })
 
+  it('hands every drawing the one config, so that Plotly sees none that changed', async () => {
+    // a new click function for each drawing made Plotly 3 take the config of every facet's `react` for a changed one
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    plotly.react.mockClear()
+    plotly.newPlot.mockClear()
+    await showChart(wrapper, true)
+    await vi.waitFor(() => expect(plotly.react).toHaveBeenCalledTimes(2))
+    const configs = plotly.react.mock.calls.map(call => (call as unknown as unknown[])[3])
+    expect(configs[0]).toBeDefined()
+    expect(configs[1]).toBe(configs[0])
+  })
+
+  it('hands the single chart that config too, drawn again as it is', async () => {
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    plotly.newPlot.mockClear()
+    await showChart(wrapper, false)
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
+    await toggleTrendline(wrapper)
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledTimes(2))
+    const configs = plotly.newPlot.mock.calls.map(call => (call as unknown as unknown[])[3])
+    expect(configs[0]).toBeDefined()
+    expect(configs[1]).toBe(configs[0])
+  })
+
   it('has the camera of the modebar save the same, in the place of Plotly\'s own', async () => {
     registerEndpoint('/api/values', () => ({ values: twoParameters }))
     const { wrapper, viewer } = await mountDataViewer()

@@ -442,11 +442,15 @@ test('zoomed stripes stay zoomed where the scheme switches or the page is printe
   await page.mouse.up()
   await expect.poll(range).not.toEqual(full)
   const zoomed = await range()
+  const initial = () => page.locator('.js-plotly-plot').first().evaluate(chart => [(chart as any)._fullLayout.xaxis._rangeInitial0, (chart as any)._fullLayout.xaxis._rangeInitial1] as number[])
+  expect(await initial(), 'the range a reset goes back to is the full one').toEqual(full)
 
   // the scheme switched: drawn again, in the range it was in
   await setColorScheme(page, 'Dark')
   await expect.poll(async () => luminance((await chromeOf(page)).paper)).toBeLessThan(0.05)
   expect(await range()).toEqual(zoomed)
+  // and a reset still goes back to the full view, not to the zoom the chart was redrawn at
+  expect(await initial()).toEqual(full)
   // printed: light, and in that range still
   await page.emulateMedia({ media: 'print' })
   await expect.poll(async () => luminance((await chromeOf(page)).paper)).toBeGreaterThan(0.9)
@@ -454,4 +458,31 @@ test('zoomed stripes stay zoomed where the scheme switches or the page is printe
   await page.emulateMedia({ media: 'screen' })
   await expect.poll(async () => luminance((await chromeOf(page)).paper)).toBeLessThan(0.05)
   expect(await range()).toEqual(zoomed)
+})
+
+test('a zoomed Forecast stays zoomed where the scheme switches, and its reset still goes back to the full view', async ({ page, baseURL, context }) => {
+  await context.addInitScript(() => localStorage.setItem('nuxt-color-mode', 'light'))
+  await mockBackend(page, baseURL!)
+  await page.goto('/meteogram?station=01001')
+  await expect(plotly(page)).toBeVisible()
+
+  const axis = () => page.locator('.js-plotly-plot').first().evaluate((chart) => {
+    const xaxis = (chart as any)._fullLayout.xaxis
+    return { range: xaxis.range as string[], initial: [xaxis._rangeInitial0, xaxis._rangeInitial1] }
+  })
+  const full = await axis()
+  const area = page.locator('.js-plotly-plot .nsewdrag').first()
+  await area.scrollIntoViewIfNeeded()
+  const box = (await area.boundingBox())!
+  await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.5)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.5, { steps: 5 })
+  await page.mouse.up()
+  await expect.poll(async () => (await axis()).range).not.toEqual(full.range)
+  const zoomed = (await axis()).range
+
+  await setColorScheme(page, 'Dark')
+  await expect.poll(async () => luminance((await chromeOf(page)).paper)).toBeLessThan(0.05)
+  await expect.poll(async () => (await axis()).range).toEqual(zoomed)
+  expect((await axis()).initial, 'the range a reset goes back to is the full one').toEqual(full.initial)
 })

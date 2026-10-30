@@ -21,11 +21,10 @@ Types of changes:
 - `[Explorer/Stripes/Meteogram]` The charts follow the colour scheme: in dark mode the paper, text,
   grid, zero line and hover label are the page's dark (the Explorer's and the stripes' were white,
   the Forecast's a grey of its own), and they change with the scheme without a reload; a zoomed
-  Explorer chart stays zoomed. The colours are read from the CSS tokens `--app-chart-*` in
-  `main.css`; the series and the stripes' own colours are the data and do not change. A chart that
-  is saved (download menu or the modebar's camera) or printed is always the light one. The focus
-  ring of a chart's buttons is the page's own, as Plotly's black one is 1.2:1 on the dark chart
-  (GH-3528)
+  chart stays zoomed. The series and the stripes' own colours are the data and do not change. A
+  chart that is saved (download menu or the modebar's camera) or printed is always the light one.
+  The focus ring of a chart's buttons is the page's own, as Plotly's black one is 1.2:1 on the dark
+  chart (GH-3528)
 - `[Accessibility]` A toast, an error of the Explorer for one, no longer hides the link of the
   footer that the Tab key has reached ("Third-party licences" under it at 1280x720): while a toast
   is shown the page has room for it at its foot and scrolls a focused element clear of it

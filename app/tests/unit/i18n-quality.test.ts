@@ -395,7 +395,6 @@ const UI_SAME: Record<string, Same> = {
   'dateRange.optional': { en: ['de', 'lb'], why: COGNATE },
   'dateRange.max': { en: ['it'], de: ['cs', 'nl'], why: COGNATE },
   'dataViewer.dataTitle': { en: ['cs', 'da'], why: COGNATE },
-  'dataViewer.axisDate': { en: ['fr'], de: ['cs', 'nl'], why: COGNATE },
   'dataViewer.paramLabelParameter': { en: ['da', 'de-hh', 'de', 'lb', 'nl'], why: COGNATE },
   'dataViewer.paramLabelDatasetParameter': { en: ['nl'], why: COGNATE },
   'dataViewer.statDataset': { en: ['it', 'nl'], why: COGNATE },

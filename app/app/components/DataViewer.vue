@@ -1221,10 +1221,12 @@ async function drawMainChart(newest: () => boolean) {
   if (!newest())
     return
   if (chartRef.value && chartTraces.value.length > 0) {
-    // Use newPlot for clean initialization
+    // Use newPlot for clean initialization. The theme it is drawn in is taken before the drawing, which a
+    // switch of the scheme can come in the middle of
+    const drawnIn = theme.value
     plotly.purge(chartRef.value)
-    await plotly.newPlot(chartRef.value, chartTraces.value, themedLayout({ ...chartLayout.value, hovermode: hoverMode(isLargeChart.value) }, theme.value), plotlyConfig(plotly))
-    markChartScheme(chartRef.value, theme.value)
+    await plotly.newPlot(chartRef.value, chartTraces.value, themedLayout({ ...chartLayout.value, hovermode: hoverMode(isLargeChart.value) }, drawnIn), plotlyConfig(plotly))
+    markChartScheme(chartRef.value, drawnIn)
   }
 }
 
@@ -1248,8 +1250,9 @@ async function drawFacetedCharts(newest: () => boolean) {
         },
         autosize: true,
       }
-      await plotly.react(el, facet.traces, themedLayout(layout, theme.value), plotlyConfig(plotly))
-      markChartScheme(el, theme.value)
+      const drawnIn = theme.value
+      await plotly.react(el, facet.traces, themedLayout(layout, drawnIn), plotlyConfig(plotly))
+      markChartScheme(el, drawnIn)
     }
   }
 }
@@ -1266,9 +1269,12 @@ watch(theme, async (next) => {
     return
   const plotly = Plotly
   const charts = [chartRef.value, ...facetChartRefs.value.values()]
-  // a chart that cannot be restyled keeps its colours; the others take theirs
-  await Promise.allSettled(charts.map(chart => restyleChart(plotly, chart, next)))
-  charts.forEach(chart => markChartScheme(chart, next))
+  // a chart that cannot be restyled keeps its colours, and the scheme it says it is in; the others take theirs
+  const results = await Promise.allSettled(charts.map(chart => restyleChart(plotly, chart, next)))
+  results.forEach((result, index) => {
+    if (result.status === 'fulfilled' && result.value)
+      markChartScheme(charts[index], next)
+  })
 })
 
 // Render main chart when data changes

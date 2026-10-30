@@ -147,7 +147,7 @@ function resetChart() {
   try {
     const el = chartRef.value as any
     Plotly.relayout(el, { 'xaxis.autorange': true })
-    void renderChart()
+    requestRender(false)
   }
   catch {
     // ignore
@@ -966,12 +966,19 @@ async function renderChart() {
   }
 }
 
-// the next drawing is of the colour scheme switched (or of a print) and keeps the zoom the chart is in
-let keepZoomNext = false
+// Whether the next drawing keeps the zoom the chart is in: only a drawing in other colours (the scheme
+// switched, a print) does, and drawings asked for are merged while one is under way, so a drawing for
+// anything else (a horizon, a panel, new values) among them starts the chart over. null: none asked for
+let keepZoomNext: boolean | null = null
+
+function requestRender(keepZoom: boolean) {
+  keepZoomNext = (keepZoomNext ?? true) && keepZoom
+  void renderChart()
+}
 
 async function renderChartActual() {
-  const keepZoom = keepZoomNext
-  keepZoomNext = false
+  const keepZoom = keepZoomNext ?? false
+  keepZoomNext = null
   await nextTick()
   if (!chartRef.value) {
     try {
@@ -1925,11 +1932,14 @@ async function renderChartActual() {
     catch {}
     // the time range the chart shows now, if it is a redraw of the same chart in other colours
     const kept = keepZoom ? drawnRanges(chartRef.value).xaxis : undefined
-    if (kept)
-      layout.xaxis.range = kept.range
+    // the theme it is drawn in is taken before the drawing, which a switch of the scheme can come in the middle of
+    const drawnIn = theme.value
     Plotly.purge(chartRef.value)
-    await Plotly.newPlot(chartRef.value, activeTraces, themedLayout(layout, theme.value), config)
-    markChartScheme(chartRef.value, theme.value)
+    await Plotly.newPlot(chartRef.value, activeTraces, themedLayout(layout, drawnIn), config)
+    // drawn in the range of the layout, which is what the chart's reset goes back to, and then moved to the one it was in
+    if (kept)
+      await Plotly.relayout(chartRef.value, { 'xaxis.range': kept.range })
+    markChartScheme(chartRef.value, drawnIn)
 
     // Setup overlay drawing of wind barbs using a canvas overlay
     if (typeof window !== 'undefined' && windKey && chartRef.value && visiblePanels.value.wind) {
@@ -1958,40 +1968,39 @@ async function renderChartActual() {
 watch(
   () => props.values,
   () => {
-    void renderChart()
+    requestRender(false)
   },
   { immediate: true, deep: true },
 )
 watch(
   compact,
   () => {
-    void renderChart()
+    requestRender(false)
   },
 )
 watch(
   theme,
   () => {
-    keepZoomNext = true
-    void renderChart()
+    requestRender(true)
   },
 )
 watch(
   locale,
   () => {
-    void renderChart()
+    requestRender(false)
   },
 )
 watch(
   visiblePanels,
   () => {
-    void renderChart()
+    requestRender(false)
   },
   { deep: true },
 )
 watch(
   horizonHours,
   () => {
-    void renderChart()
+    requestRender(false)
   },
 )
 </script>
@@ -2178,7 +2187,7 @@ watch(
                 <span class="block text-sm">{{ t('dataViewer.chartCodeNotLoaded') }}</span>
               </template>
             </span>
-            <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="renderChart()" />
+            <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="requestRender(false)" />
             <UButton v-if="chartCodeNotLoaded" :label="t('common.reloadPage')" icon="i-lucide-refresh-cw" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
           </div>
           <!-- a figure, as the app's other charts, and no landmark; drawn without Plotly's modebar, it holds

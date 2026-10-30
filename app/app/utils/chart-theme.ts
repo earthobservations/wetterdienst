@@ -222,11 +222,12 @@ export function drawnAxisNames(element: unknown): string[] {
   return full ? Object.keys(full).filter(key => AXIS.test(key)) : []
 }
 
-/** Gives a drawn chart the chrome of `theme` without drawing it again, so that its zoom stays */
-export async function restyleChart(plotly: { relayout: (element: any, update: any) => Promise<unknown> }, element: unknown, theme: ChartTheme) {
+/** Gives a drawn chart the chrome of `theme` without drawing it again, so that its zoom stays; false where there was no chart to */
+export async function restyleChart(plotly: { relayout: (element: any, update: any) => Promise<unknown> }, element: unknown, theme: ChartTheme): Promise<boolean> {
   const axisNames = drawnAxisNames(element)
   // a chart not drawn (yet) is drawn in the theme of the moment it is
   if (axisNames.length === 0)
-    return
+    return false
   await plotly.relayout(element, chartThemeRelayout(theme, axisNames))
+  return true
 }

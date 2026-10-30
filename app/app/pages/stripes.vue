@@ -542,13 +542,17 @@ async function drawStripes(data: StripesValuesResponse, keepZoom = false) {
   // Purge any existing plot first to ensure clean render
   Plotly.purge(plotContainer.value)
 
-  const figure = stripesFigure(data, theme.value, plotContainer.value.clientWidth)
+  // the theme it is drawn in is taken before the drawing, which a switch of the scheme can come in the middle of
+  const drawnIn = theme.value
+  const figure = stripesFigure(data, drawnIn, plotContainer.value.clientWidth)
   if (!figure)
     return
-  await Plotly.newPlot(plotContainer.value, figure.traces as any, mergeLayouts(figure.layout, zoom) as any, figure.config)
-  markChartScheme(plotContainer.value, theme.value)
-  if (figure.title)
-    await Plotly.relayout(plotContainer.value, { title: figure.title })
+  await Plotly.newPlot(plotContainer.value, figure.traces as any, figure.layout as any, figure.config)
+  // drawn in the range of its own, which a reset of the chart goes back to, and then moved to the one it was in
+  const moves = { ...rangesRelayout(zoom), ...(figure.title ? { title: figure.title } : {}) }
+  if (Object.keys(moves).length > 0)
+    await Plotly.relayout(plotContainer.value, moves)
+  markChartScheme(plotContainer.value, drawnIn)
 }
 
 // A saved image is always the light one, whatever the page shows: the stripes are drawn again, off screen,

@@ -548,15 +548,20 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
     expect(rangesOf(layout).yaxis.range).toEqual([0.2, 0.8])
   })
 
-  it('draws the stripes again at the zoom they are shown in where the colour scheme switches', async () => {
+  it('draws the stripes again at the zoom they are shown in where the colour scheme switches, which a reset still goes back from', async () => {
     await showStripes()
     await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
-    Object.assign((plotly.newPlot.mock.lastCall as unknown as [HTMLElement])[0], zoomed)
+    const [shown] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement]
+    Object.assign(shown, zoomed)
     plotly.newPlot.mockClear()
+    plotly.relayout.mockClear()
     document.documentElement.classList.add('dark')
     try {
       await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
-      expect(rangesOf((plotly.newPlot.mock.lastCall as unknown as unknown[])[2]).xaxis.range).toEqual([2019.5, 2019.9])
+      // plotted in the range of its own (Plotly takes that for the one a reset goes back to), then moved
+      expect(rangesOf((plotly.newPlot.mock.lastCall as unknown as unknown[])[2]).xaxis.range).not.toEqual([2019.5, 2019.9])
+      await vi.waitFor(() => expect(plotly.relayout).toHaveBeenCalledWith(shown, expect.objectContaining({ 'xaxis.range': [2019.5, 2019.9], 'yaxis.range': [0.2, 0.8] })))
+      expect(shown.dataset.chartScheme).toBe('dark')
     }
     finally {
       document.documentElement.classList.remove('dark')

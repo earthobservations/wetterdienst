@@ -689,8 +689,6 @@
     "chartNotDrawn": "Graf se nepodařilo vykreslit",
     "chartCodeNotLoaded": "Jeho kód se nepodařilo načíst. Pokud nepomůže zkusit znovu, načti stránku znovu.",
     "chartImageNotSaved": "Obrázek grafu se nepodařilo uložit",
-    "axisDate": "Datum",
-    "axisValue": "Hodnota",
     "paramLabelParameter": "Parametr",
     "paramLabelDatasetParameter": "Datová sada / Parametr",
     "paramLabelFull": "Rozlišení / Datová sada / Parametr",

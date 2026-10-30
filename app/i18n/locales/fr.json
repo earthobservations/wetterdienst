@@ -689,8 +689,6 @@
     "chartNotDrawn": "Le graphique n'a pas pu être dessiné",
     "chartCodeNotLoaded": "Son code n'a pas pu être chargé. Si réessayer ne suffit pas, recharge la page.",
     "chartImageNotSaved": "L'image du graphique n'a pas pu être enregistrée",
-    "axisDate": "Date",
-    "axisValue": "Valeur",
     "paramLabelParameter": "Paramètre",
     "paramLabelDatasetParameter": "Jeu de données / Paramètre",
     "paramLabelFull": "Résolution / Jeu de données / Paramètre",

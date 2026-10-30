@@ -1,5 +1,6 @@
 import process from 'node:process'
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
+import { flushPromises } from '@vue/test-utils'
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import Meteogram from '~/components/Meteogram.vue'
@@ -768,5 +769,94 @@ describe('meteogram wind barbs', { timeout: 15_000 }, () => {
     // no further drawing is announced: the barbs are there without one
     await vi.waitFor(() => expect(document.body.querySelector('.meteogram-overlay-canvas')).not.toBeNull())
     expect(strokes).toHaveBeenCalled()
+  })
+})
+
+// A chart drawn in other colours (the scheme switched, a print) is in the range it was zoomed to, and no
+// other redraw is: not a new horizon, not new values
+describe('meteogram chart redrawn in other colours', { timeout: 15_000 }, () => {
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  const zoomed = ['2026-10-01 06:00:00', '2026-10-01 12:00:00']
+
+  // drawn, and then zoomed, as Plotly holds the range it shows
+  async function shownAndZoomed() {
+    plotly.newPlot.mockClear()
+    plotly.relayout.mockClear()
+    wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Berlin' }, attachTo: document.body })
+    await wrapper.setProps({ values })
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
+    await flushPromises()
+    const chart = (plotly.newPlot.mock.lastCall as unknown as [HTMLElement])[0]
+    Object.assign(chart, { _fullLayout: { xaxis: { range: zoomed } } })
+    plotly.newPlot.mockClear()
+    plotly.relayout.mockClear()
+    return chart
+  }
+
+  afterEach(() => {
+    document.documentElement.classList.remove('dark')
+    wrapper?.unmount()
+    wrapper = undefined
+    document.body.innerHTML = ''
+  })
+
+  it('keeps the zoom where the scheme switches, as a move from the range the chart is drawn in, which its reset goes back to', async () => {
+    const chart = await shownAndZoomed()
+    document.documentElement.classList.add('dark')
+    await vi.waitFor(() => expect(plotly.relayout).toHaveBeenCalledWith(chart, { 'xaxis.range': zoomed }))
+    // plotted in the range of its own: that is the one Plotly takes for the chart's initial range
+    const layout = (plotly.newPlot.mock.lastCall as unknown as [unknown, unknown, { xaxis: { range: string[] } }])[2]
+    expect(layout.xaxis.range).not.toEqual(zoomed)
+    expect(chart.dataset.chartScheme).toBe('dark')
+  })
+
+  it('starts the chart over where a new horizon and a switch of the scheme come while it is drawn', async () => {
+    const chart = await shownAndZoomed()
+    let release!: () => void
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    plotly.newPlot.mockImplementationOnce(async () => {
+      await held
+    })
+    // a drawing for the scheme, held
+    document.documentElement.classList.add('dark')
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
+    // meanwhile a new horizon, and the scheme back: one drawing is left to do, which is not only for the colours
+    ;(wrapper!.vm as unknown as { horizonHours: number }).horizonHours = 24
+    await flushPromises()
+    document.documentElement.classList.remove('dark')
+    await flushPromises()
+    release()
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledTimes(2))
+    await flushPromises()
+    // the first drawing moved to the zoom, the second did not
+    expect(plotly.relayout).toHaveBeenCalledTimes(1)
+    expect(chart.dataset.chartScheme).toBe('light')
+  })
+
+  it('names the scheme of the theme it was drawn in, not the one the page has come to by the end of the drawing', async () => {
+    const chart = await shownAndZoomed()
+    const gates = [0, 1].map(() => {
+      let open!: () => void
+      const opened = new Promise<void>((resolve) => {
+        open = resolve
+      })
+      return { open, opened }
+    })
+    gates.forEach(gate => plotly.newPlot.mockImplementationOnce(async () => {
+      await gate.opened
+    }))
+    document.documentElement.classList.add('dark')
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
+    // the scheme back while the dark drawing is under way
+    document.documentElement.classList.remove('dark')
+    await flushPromises()
+    gates[0]!.open()
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledTimes(2))
+    // the dark drawing is done and the light one held: the chart is a dark one, and says so
+    expect(chart.dataset.chartScheme).toBe('dark')
+    gates[1]!.open()
+    await vi.waitFor(() => expect(chart.dataset.chartScheme).toBe('light'))
   })
 })

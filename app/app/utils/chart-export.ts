@@ -64,6 +64,15 @@ export function drawnRanges(chart: unknown): Record<string, { range: unknown[], 
 }
 
 /**
+ * The ranges of `drawnRanges` as flat attribute paths for `Plotly.relayout`. A chart drawn with its own
+ * range and then moved to these by a relayout goes back to its own on a reset, where one drawn with them
+ * would take them for its own (Plotly keeps the range a chart is plotted with as its initial one).
+ */
+export function rangesRelayout(ranges: ReturnType<typeof drawnRanges>): Record<string, unknown[]> {
+  return Object.fromEntries(Object.entries(ranges).map(([axis, { range }]) => [`${axis}.range`, range]))
+}
+
+/**
  * Says on the chart which scheme it is drawn in, `dark` or `light`, for the print rules of main.css: a chart
  * drawn dark that is printed before it is drawn light is made readable by CSS, one drawn light is left as drawn.
  */
