@@ -295,6 +295,14 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     #: before `drop_nulls` took the nulls out (null or not), in the station in hand: the rows the station has with the
     #: nulls kept, which tell `station-skipped` of a station they empty just the same (GH-3567)
     _window_parameters: list[pl.DataFrame] = field(default_factory=list, init=False, repr=False, compare=False)
+    #: under `skip_empty`, the span of the readings in the window per `resolution, dataset` (`first`, `last`) before
+    #: `drop_nulls` took the nulls out, in the station in hand: the series `_get_actual_percentage` measures a request
+    #: without a window against, which is the same with the nulls dropped as with them kept (GH-3578)
+    _window_spans: list[pl.DataFrame] = field(default_factory=list, init=False, repr=False, compare=False)
+    #: under `skip_empty`, the number of readings in the window per `resolution, dataset, parameter` (`rows`) before
+    #: `drop_nulls` took the nulls out, in the station in hand: what `_get_actual_percentage` divides by where the
+    #: resolution has no grid to count against, the same with the nulls dropped as with them kept (GH-3578)
+    _window_rows: list[pl.DataFrame] = field(default_factory=list, init=False, repr=False, compare=False)
     #: whether `query` tells, at the end of the walk, the parameters of the request that no station had a row of
     #: (`parameter-without-rows`, GH-3539); a caller that reads stations only to estimate between them (interpolation,
     #: summary) sets it False, as a station without a parameter is what it expects there; the stations whose file the
@@ -413,6 +421,8 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             self._data_updated.clear()
             self._markers_in_window = 0
             self._window_parameters.clear()
+            self._window_spans.clear()
+            self._window_rows.clear()
             self._advance_fetch_ahead(ahead, position, stations_collected)
             # Collect data for this station
             with rows.collecting(station_id):
@@ -428,7 +438,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                 self._pass_over(rows, station_id)
                 continue
             if self.sr.options.skip_empty:
-                percentage = self._get_actual_percentage(df=df)
+                percentage = self._get_actual_percentage(df=df, spans=self._station_spans(), rows=self._station_rows())
                 if percentage < self.sr.options.skip_threshold:
                     # a parameter that holds nothing but nulls is a row the station has, with the nulls kept
                     self._note_nulls_dropped(rows)
@@ -481,6 +491,27 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             # `skip_empty` leaves it out, as it does with the nulls kept
             self._warn_station_skipped(station_id, 0.0)
         self._tell_missing_value_markers(emptied=True)
+
+    def _station_spans(self) -> pl.DataFrame | None:
+        """Give the span of the station's readings in the window per dataset, before `drop_nulls`, or None for none."""
+        if not self._window_spans:
+            return None
+        return (
+            pl.concat(self._window_spans)
+            .group_by("resolution", "dataset")
+            .agg(pl.col("first").min(), pl.col("last").max())
+        )
+
+    def _station_rows(self) -> pl.DataFrame | None:
+        """Give the readings of the station in the window per parameter, before `drop_nulls`, or None for none."""
+        if not self._window_rows:
+            return None
+        return (
+            pl.concat(self._window_rows)
+            .with_columns(pl.col("parameter").str.to_lowercase())
+            .group_by("resolution", "dataset", "parameter")
+            .agg(pl.col("rows").sum())
+        )
 
     def _note_nulls_dropped(self, rows: ParameterRows) -> bool:
         """Note the parameters the station has in the window before `drop_nulls`, of a station `skip_empty` leaves out.
@@ -825,6 +856,18 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             self._markers_in_window += in_window.filter(
                 pl.col("value").is_null() & pl.col(QUALITY_FLAGS).str.contains(RAW_TOKEN)
             ).height
+        if self.sr.options.skip_empty:
+            # the span the nulls make with them kept, and the readings they are, which the coverage is measured
+            # against where there is no window or no grid to count readings by, whether the nulls are dropped or not
+            # (`_get_actual_percentage`)
+            self._window_spans.append(
+                in_window.group_by("resolution", "dataset").agg(
+                    pl.col("timestamp").min().alias("first"), pl.col("timestamp").max().alias("last")
+                )
+            )
+            self._window_rows.append(
+                in_window.group_by("resolution", "dataset", "parameter").agg(pl.len().alias("rows"))
+            )
         if self.sr.options.drop_nulls_effective:
             if self.sr.options.skip_empty:
                 # what the station has with the nulls kept, were `skip_empty` to leave it out (`_query_stations`)
@@ -1053,7 +1096,38 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         """Create mapping of original to humanized parameter names."""
         return {parameter.name_original: parameter.name for parameter in self.sr.parameters}
 
-    def _get_actual_percentage(self, df: pl.DataFrame) -> float:
+    @staticmethod
+    def _series_span(
+        df_dataset: pl.DataFrame, spans: pl.DataFrame | None, resolution: str, dataset: str
+    ) -> tuple[dt.datetime | None, dt.datetime | None]:
+        """Give the first and last stamp of a dataset's readings: ``spans`` where it has them, else ``df_dataset``."""
+        if spans is not None:
+            row = spans.filter(pl.col("resolution").eq(resolution), pl.col("dataset").eq(dataset.lower()))
+            if not row.is_empty():
+                return cast("dt.datetime | None", row.item(0, "first")), cast("dt.datetime | None", row.item(0, "last"))
+        if df_dataset.is_empty():
+            return None, None
+        dates = df_dataset.get_column("timestamp")
+        return cast("dt.datetime", dates.min()), cast("dt.datetime", dates.max())
+
+    @staticmethod
+    def _rows_held(
+        df_parameter: pl.DataFrame, rows: pl.DataFrame | None, resolution: str, parameter: ParameterModel
+    ) -> int:
+        """Give how many readings the station has of a parameter in the window: ``rows`` if given, else the frame's."""
+        if rows is not None:
+            row = rows.filter(
+                pl.col("resolution").eq(resolution),
+                pl.col("dataset").eq(parameter.dataset.name.lower()),
+                pl.col("parameter").eq(parameter.name_original.lower()),
+            )
+            if not row.is_empty():
+                return cast("int", row.item(0, "rows"))
+        return df_parameter.height
+
+    def _get_actual_percentage(
+        self, df: pl.DataFrame, spans: pl.DataFrame | None = None, rows: pl.DataFrame | None = None
+    ) -> float:
         """Share of the readings a request asked for that the station actually delivered.
 
         The denominator is how many readings the requested window can hold at the parameter's own
@@ -1066,6 +1140,15 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         for the dataset in question, since that is the only window there is; and where even that
         says nothing -- a resolution that names no interval, or a window too short to hold a
         single reading -- what is left is the share of the returned rows that carry a value.
+
+        That span is read off the readings with the nulls kept, null or not: ``spans`` (``resolution``, ``dataset``,
+        ``first``, ``last``) is what the frame held before ``drop_nulls`` took the nulls out, and without it the span is
+        read off ``df``. So a station whose readings end in a stretch of nulls is judged the same with the nulls
+        dropped as with them kept, and not against the shorter series of its non-null readings (GH-3578).
+
+        Where there is no grid to count against, the share is of the readings the station has with the nulls kept:
+        ``rows`` (``resolution``, ``dataset``, ``parameter``, ``rows``) is how many the window held before
+        ``drop_nulls``, and without it the rows of ``df`` are counted.
 
         A parameter that was asked for and came back with nothing counts as zero rather than
         going unmeasured: a request for two parameters where one is missing is not fully covered.
@@ -1093,9 +1176,8 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                 pl.col("parameter").str.to_lowercase().eq(parameter.name_original.lower()),
             )
             start_date, end_date = self.sr.start, self.sr.end
-            if (start_date is None or end_date is None) and not df_dataset.is_empty():
-                dates = df_dataset.get_column("timestamp")
-                start_date, end_date = cast("dt.datetime", dates.min()), cast("dt.datetime", dates.max())
+            if start_date is None or end_date is None:
+                start_date, end_date = self._series_span(df_dataset, spans, resolution.name, parameter.dataset.name)
             expected = (
                 count_readings(resolution.value, start_date, end_date)
                 if start_date is not None and end_date is not None
@@ -1103,11 +1185,8 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             )
             interval = reading_interval(resolution.value)
             if not expected or interval is None:
-                percentages.append(
-                    df_parameter.get_column("value").drop_nulls().len() / df_parameter.height
-                    if df_parameter.height
-                    else 0.0,
-                )
+                held = self._rows_held(df_parameter, rows, resolution.name, parameter)
+                percentages.append(df_parameter.get_column("value").drop_nulls().len() / held if held else 0.0)
                 continue
             # counted as readings landing in distinct slots of the resolution's grid rather than
             # as readings. A station is free to report more often than the resolution it is listed
