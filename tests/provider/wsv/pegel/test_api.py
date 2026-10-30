@@ -86,7 +86,7 @@ def test_wsv_wave_height_comes_back_in_centimetres() -> None:
     centimetres read as metres, which would put that station's median in the thousands. No sea state
     moves a median across either.
     """
-    request = WsvPegelRequest(parameters=[("1_minute", "data", "wave_height_significant")])
+    request = WsvPegelRequest(parameters=[("1_minute", "data", "wave_height_significant")], **WINDOW)
     df = request.all().values().all().df.drop_nulls("value")
     assert not df.is_empty(), "no wave height data at any station"
     # every station offering the parameter, so a station added or dropped upstream is covered
@@ -145,7 +145,7 @@ def test_wsv_stage_is_scaled_for_metre_gauges() -> None:
     sea level, which used to be reported unscaled as centimetres -- 56.5 where the true figure is 5650.
     The datum still differs between the two groups; `gauge_zero` in the station metadata says which.
     """
-    stations = WsvPegelRequest(parameters=[("1_minute", "data", "stage")]).filter_by_station_id("27800090")
+    stations = WsvPegelRequest(parameters=[("1_minute", "data", "stage")], **WINDOW).filter_by_station_id("27800090")
     series = stations.values().all().df.get_column("value").drop_nulls()
     assert not series.is_empty()
     # metres above sea level for this canal gauge, so thousands of centimetres rather than tens
@@ -162,6 +162,7 @@ def test_wsv_multiple_parameters_with_missing_data() -> None:
     """
     request = WsvPegelRequest(
         parameters=[("1_minute", "data", p) for p in ("wave_period", "flow_direction", "wave_height_significant")],
+        **WINDOW,
     )
     df = request.filter_by_station_id("9460041").values().all().df
     # flow_direction has no data at this station while the other two do, which is the whole point:
@@ -319,7 +320,7 @@ def test_wsv_station_mixing_intervals_serves_each_parameter_at_its_own_resolutio
         for resolution in ("15_minutes", "hourly")
         for parameter in ("stage", "temperature_air")
     ]
-    request = WsvPegelRequest(parameters=parameters).filter_by_station_id("10091008")
+    request = WsvPegelRequest(parameters=parameters, **WINDOW).filter_by_station_id("10091008")
     assert set(request.df.get_column("resolution")) == {"15_minutes", "hourly"}
     df = request.values().all().df
     served = {
