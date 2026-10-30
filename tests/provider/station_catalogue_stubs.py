@@ -213,6 +213,8 @@ def _imgw_hydrology(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         "1;149180010;Krzyżanowice;Odra (1);1927;49 59 37;18 17 14;184.806;713.04\r\n"
         "55;149190360;LUDŹMIERZ ;Lepietnica (2141156);1922;49 28 07;19 58 32;596.044;0.27\r\n"
         "58;149190390;LUDŹMIERZ;Wielki Rogoźnik (214116);1924;49 27 34;19 59 12;592.828;0.4\r\n"
+        "791;154160150;Darłowo;Morze Bałtyckie (0);1819;54 26 25;16 22 40;-4.904;\r\n"
+        "792;154160160;Zielnowo;Wieprza (46);2024;54 26 31;16 28 32;;10.23\r\n"
     )
     _serve(monkeypatch, imgw_hydrology_api, {"kody_stacji": catalogue.encode("utf8")})
     return _stations(ImgwHydrologyRequest, ("daily", "hydrology"))
