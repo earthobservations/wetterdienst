@@ -2122,7 +2122,9 @@
           "pressure_air_sea_level",
           "pressure_air_site",
           "temperature_air_2m",
+          "temperature_air_max_2m_last_12h",
           "temperature_air_max_2m_last_24h",
+          "temperature_air_min_2m_last_12h",
           "temperature_air_min_2m_last_24h",
           "temperature_dew_point_2m",
           "visibility",
@@ -3454,5 +3456,5 @@
     "parameters": {},
     "in_dataset": {}
   },
-  "x-release": "0.178.0"
+  "x-release": "0.179.0"
 }

@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.179.0] - 2026-10-30
+
 ### Added
 
 - A response warning `file-skipped` (REST, MCP, command line and, as a log line at WARNING,
@@ -6936,7 +6938,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.178.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.179.0...HEAD
+[0.179.0]: https://github.com/earthobservations/wetterdienst/compare/v0.178.0...v0.179.0
 [0.178.0]: https://github.com/earthobservations/wetterdienst/compare/v0.177.0...v0.178.0
 [0.177.0]: https://github.com/earthobservations/wetterdienst/compare/v0.176.0...v0.177.0
 [0.176.0]: https://github.com/earthobservations/wetterdienst/compare/v0.175.0...v0.176.0
