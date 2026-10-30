@@ -566,7 +566,8 @@ def test_a_closed_walk_starts_nothing_more_and_leaves_no_thread_and_no_part_of_a
         "/3/0",
         "/4/0",
     ]
-    cached = [path for path in (tmp_path / "cache").rglob("*") if path.is_file()]
+    # the lock file beside each cache directory is no blob (GH-3485)
+    cached = [path for path in (tmp_path / "cache").rglob("*") if path.is_file() and path.suffix != ".lock"]
     assert [path for path in cached if path.suffix == ".tmp"] == []
     blobs = [path for path in cached if path.name not in {"cache", ".last-used"} and path.suffix != ".lm"]
     # the four files of the station in hand, the first file of each of the four after it, each whole

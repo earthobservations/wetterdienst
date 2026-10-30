@@ -263,3 +263,21 @@ def test_the_empty_long_form_concatenates_with_a_shaped_frame(dataset: DatasetMo
     result = pl.concat([_shape(pl.DataFrame(), dataset), shaped])
 
     assert_frame_equal(result, shaped)
+
+
+def test_a_name_in_another_casing_is_written_as_the_metadata_declares_it(dataset: DatasetModel) -> None:
+    """A provider's `TMK` is the declared `tmk`, so that every later match of the name agrees (GH-3595)."""
+    declared = {parameter.name_original for parameter in dataset}
+    assert "tmk" in declared
+    df = pl.DataFrame(
+        {
+            "parameter": ["TMK", "tmk", "Tmk", "not_a_parameter", "NOT_A_PARAMETER"],
+            "timestamp": [NOON] * 5,
+            "value": [1.0] * 5,
+        },
+    )
+
+    result = _shape(df, dataset)
+
+    # a name that matches no parameter in any casing stays as it was written
+    assert result.get_column("parameter").to_list() == ["tmk", "tmk", "tmk", "not_a_parameter", "NOT_A_PARAMETER"]

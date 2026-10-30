@@ -10,7 +10,7 @@ import logging
 import os
 import re
 import zoneinfo
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from typing import get_args
@@ -118,6 +118,12 @@ DF_STATIONS_MINIMUM_COLUMNS = {
     "region",
 }
 DF_VALUES_MINIMUM_COLUMNS = {"resolution", "dataset", "station_id", "parameter", "timestamp", "value", "quality_flags"}
+
+
+def _last_days(days: int) -> dict[str, datetime]:
+    """Give the window of the last `days` days, for a dataset that is read by a window and serves only recent data."""
+    end = datetime.now(UTC)
+    return {"start": end - timedelta(days=days), "end": end}
 
 
 def _is_complete_stations_df(
@@ -784,6 +790,7 @@ def test_api_dwd_road(default_settings: Settings) -> None:
     """Test dwd road API."""
     request = DwdRoadRequest(
         parameters=[("15_minutes", "data", "temperature_air")],
+        **_last_days(1),
         settings=default_settings,
     ).all()
     assert not request.df.is_empty()
@@ -857,7 +864,12 @@ def test_api_rmi_observation(default_settings: Settings) -> None:
 @pytest.mark.remote
 def test_api_eccc_observation(default_settings: Settings) -> None:
     """Test eccc observation API."""
-    request = EcccObservationRequest(parameters=[("daily", "data")], settings=default_settings).all()
+    request = EcccObservationRequest(
+        parameters=[("daily", "data")],
+        start="2023-01-01",
+        end="2023-01-31",
+        settings=default_settings,
+    ).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
     assert _is_complete_stations_df(request.df, exclude_columns={"start_timestamp", "end_timestamp", "elevation"})
@@ -917,6 +929,8 @@ def test_api_noaa_ghcn_hourly(default_settings: Settings) -> None:
     """Test noaa ghcn hourly API."""
     request = NoaaGhcnRequest(
         parameters=[("hourly", "data", "precipitation_amount_since_last_routine_report")],
+        start="2023-01-01",
+        end="2023-01-31",
         settings=default_settings,
     ).filter_by_station_id("AQC00914594")
     assert not request.df.is_empty()
@@ -938,6 +952,8 @@ def test_api_noaa_ghcn_daily(default_settings: Settings) -> None:
     """Test noaa ghcn daily API."""
     request = NoaaGhcnRequest(
         parameters=[("daily", "data", "precipitation_amount")],
+        start="2023-01-01",
+        end="2023-01-31",
         settings=default_settings,
     ).filter_by_station_id("AQC00914594")
     assert not request.df.is_empty()
@@ -958,7 +974,11 @@ def test_api_noaa_ghcn_daily(default_settings: Settings) -> None:
 def test_api_wsv_pegel(default_settings: Settings) -> None:
     """Test wsv pegel API."""
     # stage at the 15-minute gauges, which is two thirds of the network
-    request = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")], settings=default_settings).all()
+    request = WsvPegelRequest(
+        parameters=[("15_minutes", "data", "stage")],
+        **_last_days(1),
+        settings=default_settings,
+    ).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
     assert _is_complete_stations_df(
@@ -979,7 +999,12 @@ def test_api_wsv_pegel(default_settings: Settings) -> None:
 @pytest.mark.remote
 def test_api_ea_hydrology(default_settings: Settings) -> None:
     """Test ea hydrology API."""
-    request = EAHydrologyRequest(parameters=[("daily", "data", "discharge_max")], settings=default_settings).all()
+    request = EAHydrologyRequest(
+        parameters=[("daily", "data", "discharge_max")],
+        start="2023-01-01",
+        end="2023-01-31",
+        settings=default_settings,
+    ).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
     # the listing gives "Banks Road" no position, the only one of 9537 stations (GH-2933)
@@ -1004,6 +1029,7 @@ def test_api_nws_observation(default_settings: Settings) -> None:
     """Test nws observation API."""
     request = NwsObservationRequest(
         parameters=[("hourly", "data", "temperature_air_2m")],
+        **_last_days(2),
         settings=default_settings,
     ).filter_by_station_id("KBHM")
     assert not request.df.is_empty()
@@ -1023,7 +1049,11 @@ def test_api_nws_observation(default_settings: Settings) -> None:
 @pytest.mark.remote
 def test_api_eaufrance_hubeau(default_settings: Settings) -> None:
     """Test eaufrance hubeau API."""
-    request = HubeauRequest(parameters=[("5_minutes", "data", "discharge")], settings=default_settings).all()
+    request = HubeauRequest(
+        parameters=[("5_minutes", "data", "discharge")],
+        **_last_days(1),
+        settings=default_settings,
+    ).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
     first_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
@@ -1072,6 +1102,8 @@ def test_api_geosphere_observation(default_settings: Settings) -> None:
     """Test geosphere observation API."""
     request = GeosphereObservationRequest(
         parameters=[("daily", "data", "precipitation_amount")],
+        start="2023-01-01",
+        end="2023-01-31",
         settings=default_settings,
     ).filter_by_station_id("5882")
     assert not request.df.is_empty()
@@ -1141,6 +1173,8 @@ def test_api_meteoswiss_observation(default_settings: Settings) -> None:
     """Test MeteoSwiss observation API."""
     request = MeteoswissObservationRequest(
         parameters=[("daily", "data", "temperature_air_mean_2m")],
+        start="2023-01-01",
+        end="2023-01-31",
         settings=default_settings,
     ).filter_by_station_id("ABO")
     assert not request.df.is_empty()
