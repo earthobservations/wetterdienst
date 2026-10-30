@@ -71,6 +71,13 @@ _CALM_WIND = Sentinel(
     & pl.col("value").filter(pl.col("parameterId").eq(_MEAN_WIND_SPEED)).first().over("from", "to").eq(0),
 )
 
+# DMI writes -0.1 for "traces of precipitation" in the amounts of precipitation: some rain below what the gauge
+# reports, so it is 0.0 and no negative amount, as the trace of FMI, KNMI, AEMET and Meteo-France's synop is. It keeps
+# the text as the `raw:-0.1` token of `quality_flags` (GH-2759), which is how those providers mark a trace and so how
+# a caller finds one. Without the rule the lower bound of 0 below read it as out of range and null (GH-3621).
+_PRECIPITATION_AMOUNTS = ("acc_precip", "max_precip_24h", "max_precip_30m")
+_TRACE = Sentinel("-0.1", where=pl.col("parameterId").is_in(_PRECIPITATION_AMOUNTS), to=0.0)
+
 # The range of a reading per resolution and parameterId, in the unit DMI writes it in, outside which no sensor can have
 # produced it: the physical ranges of `tests/provider/physical_ranges.py`, generous on purpose, in the unit of the
 # source, and no wider than they are (`test_physical_ranges.py` holds them to it). The rain of a span grows with it, so
@@ -372,9 +379,12 @@ class DmiObservationValues(TimeseriesValues):
         df = pl.concat(records).filter(pl.col("parameterId").is_in(known_parameters)).unique(maintain_order=True)
         if df.is_empty():
             return pl.DataFrame()
-        # the 0 of a calm wind and a value outside the range of its parameter are mapped before anything is made of the
-        # value, and stay as `raw:0` (GH-2794) and `raw:17802` (GH-2797)
-        value, raw = null_sentinels(pl.col("value"), _CALM_WIND, *_OUT_OF_RANGE[dataset.resolution.name], text=False)
+        # the 0 of a calm wind, the -0.1 of a trace and a value outside the range of its parameter are mapped before
+        # anything is made of the value, and stay as `raw:0` (GH-2794), `raw:-0.1` (GH-3621) and `raw:17802`
+        # (GH-2797); the trace comes before the ranges, whose lower bound would null it
+        value, raw = null_sentinels(
+            pl.col("value"), _CALM_WIND, _TRACE, *_OUT_OF_RANGE[dataset.resolution.name], text=False
+        )
         # the station, resolution and dataset, the order of the columns and the dtypes are the core's to write
         # (`shape_provider_frame`); a frame without a row is the empty long form there, whatever it holds
         return df.select(
@@ -394,7 +404,8 @@ def _quality_flags(raw: pl.Expr) -> pl.Expr:
     generally not correct", and sets it ``false`` for Greenland and, rarely, Denmark. The value of such a
     record is kept unless it is outside the physical range of its parameter, so a caller can drop it by the flag
     (GH-2797). ``raw`` is the text a mapped sentinel or an impossible value was written with (``raw:0`` of a calm
-    wind, GH-2794; ``raw:17802`` of a month of rain, GH-2797), which closes the column.
+    wind, GH-2794; ``raw:-0.1`` of a trace of precipitation, GH-3621; ``raw:17802`` of a month of rain, GH-2797),
+    which closes the column.
     """
     return join_quality_flags(pl.col("qcStatus"), validity=pl.col("validity"), raw=raw)
 

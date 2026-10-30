@@ -88,6 +88,9 @@ Types of changes:
 
 ### Fixed
 
+- `dmi/observation` reads DMI's -0.1 in `precipitation_amount` (and the maxima of a day or 30
+  minutes) as a trace of precipitation: 0.0 with `raw:-0.1` in `quality_flags`, where it was
+  null as out of range, as the trace of KNMI, AEMET and `meteofrance/synop` is (GH-3621)
 - Two processes that share a cache directory no longer fail a download on Windows with
   `PermissionError` when one opens a cached file while the other replaces it: the open is asked
   again for under a second, and a file that stays unreadable still raises (GH-3630)
