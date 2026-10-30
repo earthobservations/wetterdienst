@@ -97,6 +97,10 @@ Types of changes:
 - `dmi/observation` reads DMI's -0.1 in `precipitation_amount` (and the maxima of a day or 30
   minutes) as a trace of precipitation: 0.0 with `raw:-0.1` in `quality_flags`, where it was
   null as out of range, as the trace of KNMI, AEMET and `meteofrance/synop` is (GH-3621)
+- On Windows, two processes that share a cache directory no longer lose the date a cached file
+  arrived with (the `updated` column and `data_updated_at` came back null) nor download the file
+  once more, when one reads or replaces its date at the moment the other does: that is asked again
+  for under a second (GH-3632)
 - The `noaa/ghcn` parameter descriptions no longer offer a choice of units. 30 daily rows read
   "mm or inches as per user preference" or "Fahrenheit or Celsius", the wording of NCEI's
   ordering form; the files hold one unit, which the values already came in (mm, °C, m/s, km,
