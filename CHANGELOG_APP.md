@@ -28,6 +28,13 @@ Types of changes:
 
 ### Fixed
 
+- `[Explorer/Stripes/Meteogram]` The charts follow the colour scheme: in dark mode the paper, text,
+  grid, zero line and hover label are the page's dark (the Explorer's and the stripes' were white,
+  the Forecast's a grey of its own), and they change with the scheme without a reload; a zoomed
+  chart stays zoomed. The series and the stripes' own colours are the data and do not change. A
+  chart that is saved (download menu or the modebar's camera) or printed is always the light one.
+  The focus ring of a chart's buttons is the page's own, as Plotly's black one is 1.2:1 on the dark
+  chart (GH-3528)
 - `[Meteogram]` The compact view no longer makes the page scroll sideways on a narrow screen
   (320 px), where the weather words of its day cards lay outside the box that scrolls (GH-3406)
 - `[Translations]` Parameter labels now say what the English ones say: the maximum wind gust was

@@ -9,7 +9,10 @@
    Light takes a quarter of the way from neutral-500 to neutral-600, so that it still clears 4.5:1
    when a hovered field is tinted (4.9:1 on neutral-100), and muted text takes the same colour, so
    that a placeholder does not read stronger than a description. */
-:root {
+/* (`.light` as well as :root: a probe element with that class, which asks what a light chart looks like
+   in a dark page (utils/chart-theme.ts), takes Nuxt UI's tokens from its own class, not from :root) */
+:root,
+.light {
   --ui-text-dimmed: color-mix(in oklab, var(--ui-color-neutral-500), var(--ui-color-neutral-600) 25%);
   --ui-text-muted: var(--ui-text-dimmed);
 }
@@ -55,7 +58,8 @@
    colour on light (4.9:1 on white) and shade 400 on dark (10:1 on the page); the rings and outlines of the
    components stay as they are, beside it. Not in a layer, so that it wins over the utilities of the components.
    Not for what takes the focus without being a control (a dialog, a chart, a scroll area: tabindex -1). */
-:root {
+:root,
+.light {
   --app-focus-ring: var(--ui-color-primary-700);
 }
 .dark {
@@ -69,6 +73,67 @@
 .leaflet-container:focus-visible,
 .leaflet-container :focus-visible:not([tabindex="-1"]) {
   outline-color: var(--ui-color-primary-700);
+}
+
+/* The chrome of the Plotly charts (paper, plot, text, grid, axis lines, hover label, modebar), which
+   utils/chart-theme.ts reads at runtime with getComputedStyle: one place to restyle every chart. Each is
+   a Nuxt UI token, and those switch with .dark (and .light, for the probe that asks what a light chart
+   is, as a saved or printed one is), so nothing is redefined for .dark here. The series and the stripes'
+   palette are data, not chrome, and are not in this list. Measured on the Explorer's drawn chart, light
+   and dark: text 10.4:1 and 14.5:1 on the paper; muted text (tick labels) 5.4:1 and 6.8:1; the zero
+   line and the modebar's icons, which are the muted colour, the same, past the 3:1 of non-text; the
+   hover label's text 9.5:1 and 11.9:1 on its fill. The grid (1.5:1 and 1.7:1) is decoration. That is the
+   themed chrome (the Explorer, the stripes, the Forecast's hour labels): the Forecast's axis titles and
+   ticks keep their series colours, which do not clear it (#3618). tests/e2e/chart-theme.spec.ts holds
+   the ratios of the drawn charts. */
+:root,
+.light,
+.dark {
+  --app-chart-paper: var(--ui-bg);
+  --app-chart-plot: var(--ui-bg);
+  --app-chart-text: var(--ui-text);
+  --app-chart-text-strong: var(--ui-text-highlighted);
+  --app-chart-text-muted: var(--ui-text-muted);
+  --app-chart-grid: var(--ui-border-accented);
+  --app-chart-axis: var(--ui-text-muted);
+  --app-chart-zeroline: var(--ui-text-muted);
+  --app-chart-hover-bg: var(--ui-bg-elevated);
+  --app-chart-hover-border: var(--ui-border-accented);
+  --app-chart-hover-text: var(--ui-text);
+  --app-chart-modebar: var(--ui-text-muted);
+  --app-chart-modebar-active: var(--app-focus-ring);
+}
+
+/* The focus of a modebar button: Plotly draws a 1 px black outline, 21:1 on its white paper and 1.2:1 on the
+   dark paper (WCAG 1.4.11, 3:1), where it is the page's own ring instead (--app-focus-ring). One class more
+   than Plotly's own rule, which is injected after this sheet. */
+.js-plotly-plot .plotly .modebar .modebar-btn:focus-visible {
+  outline: 2px solid var(--app-focus-ring);
+  outline-offset: 1px;
+}
+
+/* A printed chart is always the light one (the screen's dark chart is white on a printer's white, or
+   unreadable text on it). The charts are drawn light for it (useChartTheme), which is asynchronous for
+   some of them: a chart that says it is drawn dark (data-chart-scheme, set after each drawing) and is
+   printed before it is redrawn prints with a transparent paper, black text and black wind barbs. A chart
+   drawn light is left as it was drawn, with its series colours and its own marks. */
+@media print {
+  .js-plotly-plot[data-chart-scheme="dark"] .main-svg {
+    background: transparent !important;
+  }
+  .js-plotly-plot[data-chart-scheme="dark"] .main-svg .bg {
+    fill: transparent !important;
+  }
+  .js-plotly-plot[data-chart-scheme="dark"] .main-svg text,
+  .js-plotly-plot[data-chart-scheme="dark"] .main-svg tspan {
+    fill: black !important;
+  }
+  .js-plotly-plot[data-chart-scheme="dark"] .meteogram-overlay-canvas {
+    filter: invert(1);
+  }
+  .js-plotly-plot .modebar-container {
+    display: none !important;
+  }
 }
 
 /* Undo Tailwind v4 preflight that breaks Plotly's stacked SVG layout.
