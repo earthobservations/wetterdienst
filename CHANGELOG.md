@@ -82,6 +82,12 @@ Types of changes:
 
 ### Fixed
 
+- The `noaa/ghcn` parameter descriptions no longer offer a choice of units. 30 daily rows read
+  "mm or inches as per user preference" or "Fahrenheit or Celsius", the wording of NCEI's
+  ordering form; the files hold one unit, which the values already came in (mm, °C, m/s, km,
+  cm), and the descriptions now say so. The hourly `relative_humidity` no longer says it is
+  always calculated from air temperature and dew point (GHCNh: "measured directly or
+  calculated, depending on the source") (GH-3136)
 - `chmi/observation` no longer lists the two stations abroad of CHMI's catalogue, Reykjavik
   (`0-20000-0-04030`) and Marambio Base (`0-20000-0-89055`), in the `10_minutes` and `hourly`
   station lists: the portal has no file for them in any resolution, so they never had a value
