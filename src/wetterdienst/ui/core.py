@@ -57,6 +57,7 @@ from wetterdienst.util.ui import read_list
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Hashable
+    from types import ModuleType
 
     import plotly.graph_objs as go
 
@@ -2243,12 +2244,26 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
     return StripesData(series=series, df=df)
 
 
+def _require_plotting() -> ModuleType:
+    """Give plotly's graph objects, or raise the `MissingDependencyError` that says to install the `plotting` extra.
+
+    Asked before a station's record is downloaded, so that a server without the extra refuses at once (GH-3581).
+    """
+    return import_optional("plotly.graph_objects", "Plotting warming stripes", extra="plotting")
+
+
 def _plot_stripes(stripes: StripesImageRequest) -> go.Figure:
-    """Create warming stripes for station in Germany, for a request its model has checked.
+    """Create warming stripes for station in Germany, for a request its model has checked."""
+    _require_plotting()
+    return _draw_stripes(_get_stripes_data(stripes), stripes)
+
+
+def _draw_stripes(stripes_data: StripesData, stripes: StripesImageRequest) -> go.Figure:
+    """Draw the warming stripes of data `_get_stripes_data` has read, so that the caller can tell whose they are.
 
     Code similar to: https://www.s4f-freiburg.de/temperaturstreifen/
     """
-    go = import_optional("plotly.graph_objects", "Plotting warming stripes", extra="plotting")
+    go = _require_plotting()
 
     kind = stripes.kind
     show_title, show_years, show_data_availability = (
@@ -2256,7 +2271,6 @@ def _plot_stripes(stripes: StripesImageRequest) -> go.Figure:
         stripes.show_years,
         stripes.show_data_availability,
     )
-    stripes_data = _get_stripes_data(stripes)
 
     df = stripes_data.df
     station_dict = stripes_data.series.station

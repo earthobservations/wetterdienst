@@ -1605,7 +1605,9 @@ def test_create_humanized_column_names_mapping() -> None:
     )
     hcnm = DwdObservationValues.from_stations(stations_result)._create_humanized_parameters_mapping()  # noqa: SLF001
 
-    assert set(kl_daily_hcnm.items()).issubset(set(hcnm.items()))
+    # per resolution and dataset (GH-3605): the rows of daily/climate_summary hold the names above
+    daily = hcnm.filter(pl.col("resolution").eq("daily"), pl.col("dataset").eq("climate_summary"))
+    assert set(kl_daily_hcnm.items()).issubset(set(zip(daily["parameter"], daily["humanized"], strict=True)))
 
 
 @pytest.mark.remote
