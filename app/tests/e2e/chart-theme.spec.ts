@@ -24,6 +24,10 @@ interface Chrome {
 type Rgb = [number, number, number]
 
 function channels(color: string): Rgb {
+  // a series' label colour is written as hex, which Plotly holds as it was given
+  const hex = /^#([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(color)
+  if (hex)
+    return [Number.parseInt(hex[1]!, 16), Number.parseInt(hex[2]!, 16), Number.parseInt(hex[3]!, 16)]
   const match = /^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/.exec(color)
   if (!match)
     throw new Error(`not an rgb() colour: ${JSON.stringify(color)}`)
@@ -35,7 +39,16 @@ function luminance(color: string) {
   const [r, g, b] = channels(color).map(c => c / 255).map(c => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
   return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!
 }
+/** `color` as it looks on `over`: a wash (rgba) is mixed into what lies under it, so its ratio is the one the eye has */
+function onPaper(color: string, over: string): string {
+  const alpha = /^rgba\(\s*\d+[\s,]+\d+[\s,]+\d+[\s,/]+([\d.]+)\s*\)$/.exec(color)?.[1]
+  if (alpha === undefined || Number(alpha) >= 1)
+    return color
+  const [top, under] = [channels(color), channels(over)]
+  return `rgb(${top.map((c, i) => Math.round(c * Number(alpha) + under[i]! * (1 - Number(alpha)))).join(', ')})`
+}
 function contrast(a: string, b: string) {
+  a = onPaper(a, b)
   const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
   return (hi! + 0.05) / (lo! + 0.05)
 }
@@ -485,4 +498,109 @@ test('a zoomed Forecast stays zoomed where the scheme switches, and its reset st
   await expect.poll(async () => luminance((await chromeOf(page)).paper)).toBeLessThan(0.05)
   await expect.poll(async () => (await axis()).range).toEqual(zoomed)
   expect((await axis()).initial, 'the range a reset goes back to is the full one').toEqual(full.initial)
+})
+
+// The text that names a series (GH-3618): the Forecast's y axes, as its temperature axis, its weekend day labels,
+// and its zero line, which carries meaning, are read on the paper in both schemes. The series keep their colours.
+test('the Forecast\'s axis labels, weekend day labels and zero line reach contrast in both schemes', async ({ page, baseURL, context }) => {
+  await context.addInitScript(() => localStorage.setItem('nuxt-color-mode', 'light'))
+  // a Friday, so that the days of the forecast (it runs three days from now) hold a weekend whenever this runs
+  await page.clock.setSystemTime(new Date('2026-10-30T09:00:00Z'))
+  await mockBackend(page, baseURL!)
+  await page.goto('/meteogram?station=01001')
+  await expect(plotly(page)).toBeVisible()
+
+  const labels = () => page.locator('.js-plotly-plot').first().evaluate((chart) => {
+    const full = (chart as any)._fullLayout
+    const axes = Object.keys(full)
+      .filter(key => /^yaxis\d*$/.test(key) && full[key].visible)
+      .map(key => ({
+        axis: key,
+        title: full[key].title?.font?.color as string | undefined,
+        tick: full[key].tickfont?.color as string | undefined,
+        zeroline: full[key].zeroline ? full[key].zerolinecolor as string : null,
+      }))
+    const days = (full.annotations as { text: string, font: { color: string } }[])
+      .filter(annotation => annotation.text.startsWith('<b>'))
+      .map(annotation => ({ text: annotation.text, color: annotation.font.color }))
+    return { paper: full.paper_bgcolor as string, text: full.font.color as string, axes, days }
+  })
+
+  for (const scheme of ['light', 'dark'] as const) {
+    if (scheme === 'dark') {
+      await setColorScheme(page, 'Dark')
+      await expect.poll(async () => luminance((await labels()).paper)).toBeLessThan(0.05)
+    }
+    const { paper, axes, days } = await labels()
+    // the four series' axes and the temperature axis, which has the zero line
+    expect(axes.length, `${scheme}: the axes drawn`).toBeGreaterThanOrEqual(4)
+    for (const axis of axes) {
+      expect(contrast(axis.title!, paper), `${scheme}: ${axis.axis} title ${axis.title}`).toBeGreaterThanOrEqual(4.5)
+      expect(contrast(axis.tick!, paper), `${scheme}: ${axis.axis} tick labels ${axis.tick}`).toBeGreaterThanOrEqual(4.5)
+    }
+    const zero = axes.filter(axis => axis.zeroline)
+    expect(zero.length, `${scheme}: the axis with a zero line`).toBe(1)
+    expect(contrast(zero[0]!.zeroline!, paper), `${scheme}: zero line ${zero[0]!.zeroline}`).toBeGreaterThanOrEqual(3)
+    // the weekend's labels are in a colour of their own (the Saturday and the Sunday of the three days)
+    const weekend = days.filter(day => /^<b>(?:Sat|Sun)/.test(day.text))
+    expect(weekend.length, `${scheme}: the weekend's labels ${JSON.stringify(days)}`).toBeGreaterThanOrEqual(1)
+    for (const day of days)
+      expect(contrast(day.color, paper), `${scheme}: ${day.text} ${day.color}`).toBeGreaterThanOrEqual(4.5)
+  }
+})
+
+test('the stripes\' "data availability" label reaches contrast in both schemes', async ({ page, baseURL, context }) => {
+  await context.addInitScript(() => localStorage.setItem('nuxt-color-mode', 'light'))
+  await mockBackend(page, baseURL!)
+  await page.goto('/stripes?kind=temperature&station=00011&show_data_availability=true')
+  await fetchButton(page).click()
+  await expect(plotly(page)).toBeVisible()
+
+  const label = () => page.locator('.js-plotly-plot').first().evaluate((chart) => {
+    const full = (chart as any)._fullLayout
+    const annotation = (full.annotations as { text: string, font: { color: string } }[]).find(a => a.text === 'Data availability')
+    return { paper: full.paper_bgcolor as string, color: annotation?.font.color }
+  })
+  for (const scheme of ['light', 'dark'] as const) {
+    if (scheme === 'dark') {
+      await setColorScheme(page, 'Dark')
+      await expect.poll(async () => luminance((await label()).paper)).toBeLessThan(0.05)
+    }
+    const { paper, color } = await label()
+    expect(color, `${scheme}: the label is drawn`).toBeTruthy()
+    expect(contrast(color!, paper), `${scheme}: ${color}`).toBeGreaterThanOrEqual(4.5)
+  }
+})
+
+// The widget's ?theme= is the widget's alone (GH-3619): the colour-mode module saves a preference to localStorage,
+// which the app reads on the same origin
+test.describe('the widget\'s theme', () => {
+  const saved = (page: Page) => page.evaluate(() => localStorage.getItem('nuxt-color-mode'))
+
+  for (const [chosen, widgetTheme] of [['light', 'dark'], ['dark', 'light']] as const) {
+    test(`?theme=${widgetTheme} leaves the saved ${chosen} scheme of the app as it is`, async ({ page, baseURL, context }) => {
+      // set once, before the first page of the test: the widget must not be what changes it
+      await context.addInitScript((mode) => {
+        if (!sessionStorage.getItem('seeded')) {
+          sessionStorage.setItem('seeded', '1')
+          localStorage.setItem('nuxt-color-mode', mode)
+        }
+      }, chosen)
+      await mockBackend(page, baseURL!)
+      await page.goto('/')
+      await expect(page.locator('html')).toHaveClass(chosen === 'dark' ? /dark/ : /^(?!.*dark)/)
+
+      await page.goto(`/widget?station=01001&theme=${widgetTheme}`)
+      await expect(plotly(page)).toBeVisible()
+      await expect(page.locator('html')).toHaveClass(widgetTheme === 'dark' ? /dark/ : /^(?!.*dark)/)
+      // the chart is drawn in the widget's scheme
+      expect(luminance((await chromeOf(page)).paper) < 0.05).toBe(widgetTheme === 'dark')
+      expect(await saved(page)).toBe(chosen)
+
+      // the app, opened after the widget, is in the scheme it was saved in
+      await page.goto('/')
+      await expect(page.locator('html')).toHaveClass(chosen === 'dark' ? /dark/ : /^(?!.*dark)/)
+      expect(await saved(page)).toBe(chosen)
+    })
+  }
 })

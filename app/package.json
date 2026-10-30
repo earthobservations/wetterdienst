@@ -43,6 +43,7 @@
     "nuxt": "^4.6.2",
     "nuxt-security": "^2.6.0",
     "plotly.js-basic-dist-min": "^3.7.0",
+    "plotly.js-locales": "^3.7.0",
     "suncalc": "^2.1.0",
     "swagger-ui-dist": "^5.33.2",
     "tailwindcss": "^4.3.3",
