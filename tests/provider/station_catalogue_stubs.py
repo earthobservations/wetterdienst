@@ -234,6 +234,10 @@ def _chmi_catalogue(monkeypatch: pytest.MonkeyPatch) -> None:
         "0-203-0-41302035001,B1NLHO01,1976-07-20T00:00Z,1980-06-30T23:59Z,Nová Lhota  ?,17.6133,48.8736,420,\n"
         "0-203-0-11566,P2SADS01,1897-01-01T00:00Z,1934-12-31T23:59Z,Sadská,14.9833,50.1333,187,\n"
         "0-203-0-11566,P2SADS01,1936-01-01T00:00Z,1945-12-31T23:59Z,Sadská,14.9833,50.1333,187,\n"
+        # active, with files in the monthly and annual directories only (the rows CHMI added on 2026-10-27, GH-3259): no
+        # daily file, so none of the lists of the stub names it, the sub-daily ones included (GH-3623)
+        "0-203-0-10101019002,H4DDHP01,2009-09-01T00:00Z,3999-12-31T23:59Z,Dolní Dvůr  Hanapetrova paseka,"
+        "15.654731,50.676074,875,\n"
         # the two stations of abroad of the list (GH_ID `Z...`, 2026-10-29), for which the portal has no file: the
         # reader leaves them out. The daily list is cut by the files and would lose them anyway; the hourly one is
         # not, so the rules of the catalogue fail on them there if the reader keeps them (GH-3589)
@@ -243,11 +247,13 @@ def _chmi_catalogue(monkeypatch: pytest.MonkeyPatch) -> None:
     _serve(monkeypatch, chmi_api, {"meta1.csv": catalogue.encode("utf8")})
 
 
-def _chmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
-    _chmi_catalogue(monkeypatch)
-    # the directories of the daily elements, with files of the stations above as listed (2026-10-21), among them
-    # elements the provider does not read (`TPM`, `API30`), and the other directories left out: Sadská, a station
-    # closed in 1945, has no file, which the provider narrows the list by (GH-3259)
+def _chmi_daily_files(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Serve the directories of the daily elements, which cut the daily list and, since GH-3623, the sub-daily ones.
+
+    The files are those of the stations above as listed (2026-10-21), among them elements the provider does not read
+    (`TPM`, `API30`), and the other directories are left out: Sadská, a station closed in 1945, has no file, nor has
+    Dolní Dvůr (GH-3259).
+    """
     base = f"{chmi_api._BASE_URL}/data/daily"  # noqa: SLF001
     files = {
         f"{base}/temperature/": [
@@ -262,12 +268,20 @@ def _chmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
 
     monkeypatch.setattr(data_index, "list_files", list_files)
     monkeypatch.setattr(chmi_api, "list_remote_files_fsspec", list_files)
+
+
+def _chmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    _chmi_catalogue(monkeypatch)
+    _chmi_daily_files(monkeypatch)
     return _stations(ChmiObservationRequest, ("daily", "data"))
 
 
 def _chmi_hourly(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
-    # the sub-daily lists are not cut by the files (GH-3259), so they are the whole catalogue as the reader gives it
+    # the sub-daily lists are cut by the end of the period (2018, when their files begin) and the daily files, not by
+    # their own (GH-3623): Cheb and Javorový stay, Nová Lhota (closed 1980) and Sadská (1945) go, though Nová Lhota
+    # has a daily file, and so does Dolní Dvůr (active, no daily file)
     _chmi_catalogue(monkeypatch)
+    _chmi_daily_files(monkeypatch)
     return _stations(ChmiObservationRequest, ("hourly", "data"))
 
 
@@ -1673,7 +1687,7 @@ STUBS = [
         _chmi,
         (CHMI_NAME,),
     ),
-    Stub("chmi/observation hourly/data", _chmi_hourly, (CHMI_NAME,)),
+    Stub("chmi/observation hourly/data", _chmi_hourly),
     Stub("dwd/road 15_minutes/data", _dwd_road),
     Stub("dwd/swsmos hourly/data", _dwd_swsmos),
     Stub("ea/hydrology 15_minutes/data", _ea_hydrology, (EA_NO_POSITION,)),

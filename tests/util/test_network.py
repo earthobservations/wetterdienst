@@ -3190,6 +3190,58 @@ def test_a_blob_another_handle_holds_open_is_left_alone(monkeypatch: pytest.Monk
     assert not filesystem._check_file("/f.txt")  # noqa: SLF001
 
 
+def _refuse_opening(monkeypatch: pytest.MonkeyPatch, blob: Path, *, times: int) -> list[int]:
+    """Make the open of `blob` raise `PermissionError` the first `times` times, as Windows does while it is replaced."""
+    monkeypatch.setattr(network, "_BLOB_OPEN_PAUSES", (0.0,) * 3)
+    original = Path.open
+    refused = [0]
+
+    def open_(self: Path, *args: object, **kwargs: object) -> object:
+        if self == blob and refused[0] < times:
+            refused[0] += 1
+            msg = "[WinError 5] Access is denied"
+            raise PermissionError(msg)
+        return original(self, *args, **kwargs)  # ty: ignore[invalid-argument-type]
+
+    monkeypatch.setattr(Path, "open", open_)
+    return refused
+
+
+@pytest.mark.parametrize("cached", [False, True], ids=["fetched", "already-cached"])
+def test_an_open_of_the_blob_that_meets_a_replace_is_asked_again(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, cached: bool
+) -> None:
+    """Windows does not open a file another process is replacing onto for a moment: the read waits, it does not raise.
+
+    The open of the blob after the fetch, and the open of a blob the cache already held, both met the rename of a
+    second process fetching the same url (GH-3630).
+    """
+    filesystem, blob = _caching_over_slow_remote(tmp_path)
+    if cached:
+        assert filesystem.cat_file("/f.txt") == b"new-body"
+    refused = _refuse_opening(monkeypatch, blob, times=2)
+
+    assert filesystem.cat_file("/f.txt") == b"new-body"
+
+    assert refused == [2]
+
+
+@pytest.mark.parametrize("cached", [False, True], ids=["fetched", "already-cached"])
+def test_an_open_of_the_blob_that_stays_refused_is_raised_after_a_few_tries(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, cached: bool
+) -> None:
+    """A blob that cannot be read at all is not waited on for ever: the open's own error is raised (GH-3630)."""
+    filesystem, blob = _caching_over_slow_remote(tmp_path)
+    if cached:
+        assert filesystem.cat_file("/f.txt") == b"new-body"
+    refused = _refuse_opening(monkeypatch, blob, times=1000)
+
+    with pytest.raises(PermissionError, match="Access is denied"):
+        filesystem.cat_file("/f.txt")
+
+    assert refused == [len(network._BLOB_OPEN_PAUSES) + 1]  # noqa: SLF001
+
+
 def test_a_body_cut_short_leaves_no_file_in_the_cache(status_server: ThreadingHTTPServer, tmp_path: Path) -> None:
     """The stub of a truncated download is removed, not left for a sweep that never finds it (GH-2493)."""
     with stamina.set_testing(True, attempts=2):

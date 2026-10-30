@@ -13,6 +13,7 @@ See https://opendata.chmi.cz/meteorology/climate/historical_csv/ and the accompa
 
 from __future__ import annotations
 
+import datetime as dt
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, cast
@@ -37,7 +38,6 @@ from wetterdienst.util.network import _without_url_secrets, download_file, list_
 from wetterdienst.util.response_warnings import warn_response
 
 if TYPE_CHECKING:
-    import datetime as dt
     from collections.abc import Iterator, Sequence
 
     from wetterdienst.settings import Settings
@@ -45,6 +45,11 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 _BASE_URL = "https://opendata.chmi.cz/meteorology/climate/historical_csv"
+
+# the first year of the 10 minute and hourly files: the portal has no directory of an earlier one
+SUBDAILY_FIRST_YEAR = 2018
+# the stamps of the catalogue are naive here: the core reads them as UTC afterwards
+_SUBDAILY_START = dt.datetime(SUBDAILY_FIRST_YEAR, 1, 1)  # noqa: DTZ001
 
 # monthly/annual elements as (category, TIMEFUNCTION, MDFUNCTION): the daily value that is
 # aggregated, and how it is aggregated over the period -- the climatological mean of daily means /
@@ -164,6 +169,22 @@ def _stations_with_file(config: dict, requested: set[str], settings: Settings) -
             url, f"no file of the form {config['prefix']}-<station>-<element>.csv is listed for {wanted}"
         )
     return ids
+
+
+def _subdaily_candidates(catalogue: pl.DataFrame, settings: Settings) -> pl.DataFrame:
+    """Give the stations of the catalogue that can have a 10 minute or hourly file (GH-3623).
+
+    The files begin with 2018 (``SUBDAILY_FIRST_YEAR``), so a station whose period ended before that has none, and
+    every station with such a file has a daily file too, which the daily directories (cached, and read for a daily
+    request as well) list for any element read. Neither fact is the portal's word: a live test holds that no
+    category has a year directory before 2018, and that the stations with a file of a read element in the first and
+    the latest year of each category have a daily file and are listed.
+    """
+    daily = _RESOLUTION_CONFIG[Resolution.DAILY]
+    with_file = _stations_with_file(daily, set(daily["elements"]), settings)
+    # `end_timestamp` is null for a station that is still active
+    still_open = pl.col("end_timestamp").is_null() | (pl.col("end_timestamp") >= _SUBDAILY_START)
+    return catalogue.filter(still_open & pl.col("station_id").is_in(with_file))
 
 
 class ChmiObservationValues(TimeseriesValues):
@@ -379,9 +400,14 @@ class ChmiObservationRequest(TimeseriesRequest):
         # `meta1.csv` is one list for every resolution and element, and lists stations that have no file of the
         # requested ones (GH-3259, GH-3295): the daily, monthly and annual stations are narrowed to those whose files
         # of the requested parameters the directories list. The sub-daily files are one for each month, under a
-        # directory for each year (a listing of every year, 1.6 MB each, for every request), so the 10 minute and
-        # hourly stations stay the whole list.
+        # directory for each year (a listing of every year, up to 2.4 MB each, for every request), so they are not
+        # listed; the 10 minute and hourly stations are those whose period ends in 2018 or later, when these files
+        # begin, and that have a daily file of any element read, which the cached daily listings give (GH-3623). All
+        # the stations with a file of a read element in 2018 to 2025 pass (257 and 435); the live test holds it for
+        # the first and the latest year of each category (252 and 435), the five 10 minute stations left have files
+        # in the years between only.
         frames = []
+        subdaily_candidates: pl.DataFrame | None = None
         for dataset, parameters in group_parameters_by_dataset(
             parameter for parameter in self.parameters if isinstance(parameter, ParameterModel)
         ):
@@ -390,6 +416,10 @@ class ChmiObservationRequest(TimeseriesRequest):
             if config["layout"] != "subdaily":
                 with_file = _stations_with_file(config, {parameter.name_original for parameter in parameters}, settings)
                 stations = stations.filter(pl.col("station_id").is_in(with_file))
+            else:
+                if subdaily_candidates is None:
+                    subdaily_candidates = _subdaily_candidates(catalogue, settings)
+                stations = subdaily_candidates
             frames.append(
                 stations.with_columns(
                     pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
