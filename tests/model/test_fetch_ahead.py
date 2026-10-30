@@ -115,8 +115,21 @@ class _Upstream(ThreadingHTTPServer):
         msg = f"{count} files were not asked for"
         raise AssertionError(msg)
 
-    def settle(self, quiet: float = 0.08) -> None:
-        """Wait until nothing is asked any more and nothing is being answered."""
+    def settle(self, expect: set[int] | None = None, quiet: float = 0.08) -> None:
+        """Wait until the stations in ``expect`` have been asked, then until nothing more is asked or answered.
+
+        The first half waits for what the test asserts, however long a starved thread takes to ask for it (up to the
+        deadline). The second half is a quiet window that confirms nothing *more* is asked: an extra request that
+        comes inside it restarts it, so a busy machine makes the test slower, never wrongly failing. One that comes
+        only after the window has closed (a worker starved for longer) is not seen. Without ``expect`` only
+        the quiet window is waited for, which is for a test that asserts that nothing is asked.
+        """
+        deadline = time.monotonic() + 20
+        while expect is not None and not expect <= self.stations_asked():
+            if time.monotonic() >= deadline:
+                msg = f"the stations {sorted(expect - self.stations_asked())} were not asked for"
+                raise AssertionError(msg)
+            time.sleep(0.01)
         last = -1
         stable_since = time.monotonic()
         deadline = time.monotonic() + 20
@@ -374,7 +387,7 @@ def test_the_fetch_ahead_ran(upstream: _Upstream, monkeypatch: pytest.MonkeyPatc
 
     results = reader.query()
     next(results)
-    upstream.settle()
+    upstream.settle({0, 1, 2, 3, 4})
 
     assert upstream.stations_asked() == {0, 1, 2, 3, 4}
     results.close()
@@ -396,8 +409,9 @@ def test_no_more_than_depth_stations_are_ahead_of_the_one_in_hand(
 
     for index in range(stations):
         next(results)
-        upstream.settle()
-        assert upstream.stations_asked() == set(range(min(index + depth, stations - 1) + 1))
+        expected = set(range(min(index + depth, stations - 1) + 1))
+        upstream.settle(expected)
+        assert upstream.stations_asked() == expected
     with pytest.raises(StopIteration):
         next(results)
 
@@ -410,7 +424,7 @@ def test_a_station_that_the_walk_passes_over_takes_no_place_in_the_window(
 
     results = reader.query()
     next(results)
-    upstream.settle()
+    upstream.settle({0, 3, 4})
 
     assert upstream.stations_asked() == {0, 3, 4}
     results.close()
@@ -424,7 +438,7 @@ def test_a_ranked_walk_fetches_no_station_beyond_its_rank(
     ranked = reader.sr.request.filter_by_rank(latlon=(50.0, 8.0), rank=2).values()
 
     assert len(list(ranked.query())) == 2
-    upstream.settle()
+    upstream.settle({0, 1})
 
     assert upstream.stations_asked() == {0, 1}
 
@@ -482,7 +496,7 @@ def test_a_failure_after_the_last_station_read_is_not_raised(
 
     results = reader.query()
     first = [next(results) for _ in range(2)]
-    upstream.settle()
+    upstream.settle({4})
 
     assert _station_ids(first) == ["00000", "00001"]
     assert 4 in upstream.stations_asked()
@@ -513,11 +527,11 @@ def test_a_missing_file_is_no_reason_to_stop_fetching_ahead(
 
     results = reader.query()
     next(results)
-    upstream.settle()
+    upstream.settle({0, 1})
     assert upstream.stations_asked() == {0, 1}
     # station 1 has no data and is passed over, so the walk is at station 2 and has fetched the one after it
     assert _station_ids([next(results)]) == ["00002"]
-    upstream.settle()
+    upstream.settle({0, 1, 2, 3})
 
     assert upstream.stations_asked() == {0, 1, 2, 3}
     results.close()
@@ -738,7 +752,7 @@ def test_it_is_off_where_nothing_is_cached_or_it_is_switched_off(
     off = _reader(monkeypatch, tmp_path, stations=5, urls_of=_files(upstream, 1), depth=0)
     stage = off.query()
     next(stage)
-    upstream.settle()
+    upstream.settle({0})
     assert upstream.stations_asked() == {0}
     stage.close()
 
@@ -747,7 +761,7 @@ def test_it_is_off_where_nothing_is_cached_or_it_is_switched_off(
     uncached.sr.request.settings.cache_disable = True
     stage = uncached.query()
     next(stage)
-    upstream.settle()
+    upstream.settle({0})
     assert upstream.stations_asked() == {0}
     stage.close()
 
@@ -759,7 +773,7 @@ def test_a_provider_without_the_hook_is_read_as_it_was(
     reader = _reader(monkeypatch, tmp_path, stations=5, urls_of=_files(upstream, 1), depth=4, hook=False)
     stage = reader.query()
     next(stage)
-    upstream.settle()
+    upstream.settle({0})
 
     assert upstream.stations_asked() == {0}
     stage.close()
@@ -782,7 +796,7 @@ def test_a_files_ahead_that_raises_is_not_heard_of_until_its_station(
     results = reader.query()
     assert _station_ids([next(results)]) == ["00000"]
     assert _station_ids([next(results)]) == ["00001"]
-    upstream.settle()
+    upstream.settle({0, 1})
     asked_with_the_hook_failed = upstream.stations_asked()
     assert _station_ids(list(results)) == ["00002", "00003"]
 
@@ -809,7 +823,7 @@ def test_a_fetch_that_breaks_is_not_heard_of_and_stops_the_fetching(
     results = reader.query()
     next(results)
     next(results)
-    upstream.settle()
+    upstream.settle({0, 1})
     asked = upstream.stations_asked()
     assert _station_ids(list(results)) == ["00002", "00003"]
 
