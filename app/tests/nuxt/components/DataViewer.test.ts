@@ -38,15 +38,34 @@ vi.mock('@duckdb/duckdb-wasm', () => ({
   },
 }))
 
-// Plotly draws nothing in the test's document: each chart it is handed is known by its y axis' title,
-// and exported as an SVG of its on-screen size that names it
+// Plotly draws nothing in the test's document: each chart it is handed is known by the label of its figure
+// (a facet's) or, for the copy a saved image is drawn from, by the traces it is drawn from, and exported as
+// an SVG of its on-screen size that names it. It holds what it was given as `data` and `layout`, as Plotly
+// does, which the copy is made from. The copies (out of sight, `aria-hidden`) are what a saved image is drawn
+// from, and the charts the page shows are what the tests count, so a copy's drawing is kept in `copies` and
+// not among the calls of `newPlot`.
 const plotly = vi.hoisted(() => {
   const titles = new WeakMap<HTMLElement, string>()
-  const draw = async (root: HTMLElement, _data: unknown, layout?: { yaxis?: { title?: unknown } }) => {
-    titles.set(root, String(layout?.yaxis?.title))
+  const labelOfData = new WeakMap<object, string>()
+  const copies: { root: HTMLElement, data: unknown, layout: unknown }[] = []
+  const draw = async (root: HTMLElement, data: object, layout?: unknown) => {
+    const label = root.getAttribute('aria-label')?.replace(/^Chart of /, '') ?? labelOfData.get(data) ?? ''
+    labelOfData.set(data, label)
+    titles.set(root, label)
+    Object.assign(root, { data, layout })
   }
+  const newPlot = vi.fn(async (root: HTMLElement, data: object, layout?: unknown) => {
+    if (root.getAttribute('aria-hidden') === 'true') {
+      // not a drawing of the page's: taken out of the calls
+      newPlot.mock.calls.pop()
+      newPlot.mock.results.pop()
+      newPlot.mock.invocationCallOrder.pop()
+      copies.push({ root, data, layout })
+    }
+    await draw(root, data, layout)
+  })
   return {
-    newPlot: vi.fn(draw),
+    newPlot,
     react: vi.fn(draw),
     purge: vi.fn(),
     downloadImage: vi.fn(async () => 'chart'),
@@ -54,9 +73,14 @@ const plotly = vi.hoisted(() => {
       `<svg xmlns="http://www.w3.org/2000/svg" width="700" height="300"><text>${titles.get(root)}</text></svg>`,
     )}`),
     Snapshot: { svgToImg: vi.fn(async () => `data:image/png;base64,${btoa('png')}`) },
+    Icons: { camera: { width: 1000, height: 1000, path: '' } },
+    copies,
   }
 })
 vi.mock('plotly.js-basic-dist-min', () => plotly)
+
+// the parameter a facet's figure is of: its figure's label, "Chart of A" (there is no axis title to name it by)
+const facetOf = (root: HTMLElement) => root.getAttribute('aria-label')!.replace(/^Chart of /, '')
 
 // The date reader as it is, counted: the chart reads one date for every row it plots
 const { timestampDates } = vi.hoisted(() => ({ timestampDates: { calls: 0 } }))
@@ -979,6 +1003,74 @@ describe('dataViewer chart images', () => {
     expect(plotly.downloadImage).toHaveBeenCalledWith(expect.any(HTMLDivElement), expect.objectContaining({ format: 'jpeg', filename: 'chart' }))
   })
 
+  it('saves a chart drawn again off screen, and leaves the chart on the page as it is', async () => {
+    // a saved chart is the light one whatever the page shows (utils/chart-export.ts): its own copy, out of
+    // sight, from the shown chart's traces, which Plotly forgets and the page loses once it is saved
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, false)
+    const shown = plotly.newPlot.mock.lastCall![0] as HTMLElement
+    const drawnBefore = plotly.newPlot.mock.calls.length
+    plotly.downloadImage.mockClear()
+    plotly.purge.mockClear()
+    ;(await openDownloads(wrapper))[1]!.click()
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as JPEG'))
+    const copy = plotly.copies.at(-1)!
+    expect(copy.root).not.toBe(shown)
+    expect(copy.root.getAttribute('aria-hidden')).toBe('true')
+    expect(copy.data).toBe(plotly.newPlot.mock.lastCall![1])
+    expect(plotly.newPlot.mock.calls).toHaveLength(drawnBefore)
+    expect(plotly.purge).toHaveBeenCalledWith(copy.root)
+    expect(copy.root.isConnected).toBe(false)
+    expect(shown.isConnected).toBe(true)
+  })
+
+  it('hands every drawing the one config, so that Plotly sees none that changed', async () => {
+    // a new click function for each drawing made Plotly 3 take the config of every facet's `react` for a changed one
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    plotly.react.mockClear()
+    plotly.newPlot.mockClear()
+    await showChart(wrapper, true)
+    await vi.waitFor(() => expect(plotly.react).toHaveBeenCalledTimes(2))
+    const configs = plotly.react.mock.calls.map(call => (call as unknown as unknown[])[3])
+    expect(configs[0]).toBeDefined()
+    expect(configs[1]).toBe(configs[0])
+  })
+
+  it('hands the single chart that config too, drawn again as it is', async () => {
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    plotly.newPlot.mockClear()
+    await showChart(wrapper, false)
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
+    await toggleTrendline(wrapper)
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledTimes(2))
+    const configs = plotly.newPlot.mock.calls.map(call => (call as unknown as unknown[])[3])
+    expect(configs[0]).toBeDefined()
+    expect(configs[1]).toBe(configs[0])
+  })
+
+  it('has the camera of the modebar save the same, in the place of Plotly\'s own', async () => {
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, false)
+    const [shown, , , config] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement, unknown, unknown, { modeBarButtonsToRemove: string[], modeBarButtonsToAdd: { name: string, title: string, click: (chart: HTMLElement) => void }[] }]
+    expect(config.modeBarButtonsToRemove).toContain('toImage')
+    const [camera] = config.modeBarButtonsToAdd
+    expect([camera!.name, camera!.title]).toEqual(['toImage', 'Download plot as a PNG'])
+    plotly.downloadImage.mockClear()
+    camera!.click(shown)
+    await vi.waitFor(() => expect(plotly.downloadImage).toHaveBeenCalledOnce())
+    expect(plotly.downloadImage).toHaveBeenCalledWith(plotly.copies.at(-1)!.root, expect.objectContaining({ format: 'png', filename: 'newplot' }))
+    // told as the menu tells it
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as PNG'))
+  })
+
   it('saves the facets as one PNG, drawn from their stacked SVG', async () => {
     registerEndpoint('/api/values', () => ({ values: twoParameters }))
     const { wrapper, viewer } = await mountDataViewer()
@@ -1319,9 +1411,11 @@ describe('dataViewer chart images while drawn', () => {
       expect([...svg.children].map(chart => chart.textContent)).toEqual([airTemperature, precipitationAmount, windSpeed])
     }
     else {
+      // saved from a copy of the chart the page shows, drawn from its traces, and the copy taken away after
       const [chart] = plotly.downloadImage.mock.lastCall as unknown as [HTMLElement]
-      expect(chart.isConnected).toBe(true)
-      expect(chart).toBe(plotly.newPlot.mock.lastCall![0])
+      expect(chart).toBe(plotly.copies.at(-1)!.root)
+      expect(plotly.copies.at(-1)!.data).toBe(plotly.newPlot.mock.lastCall![1])
+      expect(chart.isConnected).toBe(false)
     }
   })
 
@@ -1344,8 +1438,9 @@ describe('dataViewer chart images while drawn', () => {
     if (faceted) {
       expect(plotly.toImage).not.toHaveBeenCalled()
       const [chart] = plotly.downloadImage.mock.lastCall as unknown as [HTMLElement]
-      expect(chart.isConnected).toBe(true)
-      expect(chart).toBe(plotly.newPlot.mock.lastCall![0])
+      expect(chart).toBe(plotly.copies.at(-1)!.root)
+      expect(plotly.copies.at(-1)!.data).toBe(plotly.newPlot.mock.lastCall![1])
+      expect(chart.isConnected).toBe(false)
     }
     else {
       expect(plotly.downloadImage).not.toHaveBeenCalled()
@@ -1858,8 +1953,8 @@ describe('dataViewer facets large or small by their own points', () => {
   // glossary does not know is prettified, so 'a' is 'A'
   function facetsDrawn() {
     const drawn = new Map<string, [string, string]>()
-    for (const [, traces, layout] of plotly.react.mock.calls as unknown as [HTMLElement, { mode: string }[], { hovermode: string, yaxis: { title: string } }][])
-      drawn.set(layout.yaxis.title, [traces[0]!.mode, layout.hovermode])
+    for (const [root, traces, layout] of plotly.react.mock.calls as unknown as [HTMLElement, { mode: string }[], { hovermode: string }][])
+      drawn.set(facetOf(root), [traces[0]!.mode, layout.hovermode])
     return Object.fromEntries(drawn)
   }
 
@@ -2168,8 +2263,8 @@ describe('dataViewer facets\' station colours', () => {
   // each facet's series as it was last drawn, each by its name and colour, by the facet's parameter
   function facetsDrawn() {
     const drawn = new Map<string, string[][]>()
-    for (const [, traces, layout] of plotly.react.mock.calls as unknown as [HTMLElement, { name: string, line: { color: string } }[], { yaxis: { title: string } }][])
-      drawn.set(layout.yaxis.title, traces.map(trace => [trace.name, trace.line.color]))
+    for (const [root, traces] of plotly.react.mock.calls as unknown as [HTMLElement, { name: string, line: { color: string } }[]][])
+      drawn.set(facetOf(root), traces.map(trace => [trace.name, trace.line.color]))
     return Object.fromEntries(drawn)
   }
 
@@ -2656,14 +2751,14 @@ describe('dataViewer names what it shows in the active locale', () => {
       expect(idsIn(drawn().join('\n'))).toEqual([])
     })
 
-    it.each(formats)('names each facet by its labels, as heading, figure and axis, format $format', async ({ format, parts }) => {
+    it.each(formats)('names each facet by its labels, as heading and figure, and gives it no axis title, format $format', async ({ format, parts }) => {
       const { wrapper, choose } = await mountIn(locale, true)
       await choose(format)
       const label = (parameter: string) => parts(n, parameter).join(' / ')
-      // one line of the axis' title per part, a slash in a label being no line break; the last two draws
-      // are the two facets of the format chosen
-      const titles = () => plotly.react.mock.calls.slice(-2).map(call => (call[2] as { yaxis: { title: string } }).yaxis.title)
-      await vi.waitFor(() => expect(titles()).toEqual([n.direction, n.speed].map(parameter => parts(n, parameter).join('<br>'))))
+      // the last two draws are the two facets of the format chosen: Plotly 3 draws no axis title written as a string
+      const drawn = () => plotly.react.mock.calls.slice(-2).map(call => call[2] as { yaxis: { title?: unknown } })
+      await vi.waitFor(() => expect(drawn()).toHaveLength(2))
+      expect(drawn().map(layout => layout.yaxis.title)).toEqual([undefined, undefined])
       expect(wrapper.findAll('h4').map(heading => heading.text())).toEqual([label(n.direction), label(n.speed)])
       expect(wrapper.findAll('[role="figure"]').map(figure => figure.attributes('aria-label'))).toEqual([n.direction, n.speed].map(parameter => chartOf[locale](label(parameter))))
       expect(idsIn(wrapper.text())).toEqual([])
@@ -2754,7 +2849,7 @@ describe('dataViewer names what it shows in the active locale', () => {
       { format: 'parameter', ids: ['wind_direction_mean_last_10min', 'wind_speed_mean_last_10min'] },
       { format: 'dataset/parameter', ids: ['urban_wind/wind_direction_mean_last_10min', 'urban_wind/wind_speed_mean_last_10min'] },
       { format: 'resolution/dataset/parameter', ids: ['10_minutes/urban_wind/wind_direction_mean_last_10min', '10_minutes/urban_wind/wind_speed_mean_last_10min'] },
-    ])('keeps the ids in the series, the facets and their axes, format $format', async ({ format, ids }) => {
+    ])('keeps the ids in the series and the facets, format $format', async ({ format, ids }) => {
       useSettings().settings.value.friendlyLabels = false
       const single = await mountIn('de', false)
       await single.choose(format)
@@ -2764,8 +2859,7 @@ describe('dataViewer names what it shows in the active locale', () => {
 
       const faceted = await mountIn('de', true)
       await faceted.choose(format)
-      const titles = () => plotly.react.mock.calls.slice(-2).map(call => (call[2] as { yaxis: { title: string } }).yaxis.title)
-      await vi.waitFor(() => expect(titles()).toEqual(ids.map(id => id.split('/').join('<br>'))))
+      await vi.waitFor(() => expect(plotly.react.mock.calls.length).toBeGreaterThanOrEqual(2))
       expect(faceted.wrapper.findAll('h4').map(heading => heading.text())).toEqual(ids)
       expect(faceted.wrapper.findAll('[role="figure"]').map(figure => figure.attributes('aria-label'))).toEqual(ids.map(id => chartOf.de(id)))
     })

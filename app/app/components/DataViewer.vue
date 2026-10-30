@@ -4,6 +4,7 @@ import type { Config as PlotlyConfig, Data as PlotlyData, Layout as PlotlyLayout
 import type { DataSettings } from '~/types/data-settings.type'
 import type { ParameterSelectionState } from '~/types/parameter-selection-state.type'
 import type { StationMode, StationSelectionState } from '~/types/station-selection-state.type'
+import type { OffscreenChart } from '~/utils/chart-export'
 import { h } from 'vue'
 import QueryPanel from '~/components/QueryPanel.vue'
 import { describeFetchError } from '~/utils/api-error'
@@ -1037,19 +1038,7 @@ async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {
   // the export itself can fail too, such as a stack of many facets past the browser's canvas size,
   // which turning it into PNG or JPEG draws on: nothing is saved, and that is told
   try {
-    const plotly = await ensurePlotly()
-    if (faceted) {
-      saveBlob(await stackCharts(plotly, charts as HTMLDivElement[], format), `chart.${format}`)
-    }
-    else {
-      await plotly.downloadImage(charts[0]!, {
-        format,
-        filename: 'chart',
-        // Plotly expects number | undefined for width/height; use undefined to let it auto-size
-        width: undefined,
-        height: undefined,
-      })
-    }
+    await saveLightImage(await ensurePlotly(), charts as HTMLDivElement[], format, faceted)
   }
   catch (error) {
     console.error('The chart image could not be saved', error)
@@ -1094,6 +1083,12 @@ async function stackCharts(plotly: typeof import('plotly.js-basic-dist-min'), ch
   return new Blob([Uint8Array.from(atob(data), c => c.charCodeAt(0))], { type: `image/${format}` })
 }
 
+// The chart's chrome (paper, text, grid, axis lines, hover label) is the app's, read from its CSS tokens
+// (utils/chart-theme.ts). It is put under the layout where a chart is drawn and not in `chartLayout`,
+// so that a switch of the colour scheme restyles the charts in place (below) rather than drawing them
+// again, and a zoomed chart stays zoomed.
+const { theme } = useChartTheme()
+
 // Plotly layout, apart from its hover mode, which is each chart's own: see hoverMode
 const chartLayout = computed((): Partial<PlotlyLayout> => {
   return {
@@ -1101,12 +1096,13 @@ const chartLayout = computed((): Partial<PlotlyLayout> => {
     // the hover texts and the axes write the language's decimal separator, as Plotly writes a point otherwise
     separators: plotlySeparators(locale.value),
     margin: { l: 60, r: 20, t: 40, b: 60 },
+    // no axis line, as before: the theme gives an axis line its colour, and Plotly draws a line for any axis that has one
     xaxis: {
-      title: t('dataViewer.axisDate'),
       type: 'date',
+      showline: false,
     },
     yaxis: {
-      title: t('dataViewer.axisValue'),
+      showline: false,
     },
     // Plotly cuts a series' name in a hover label after 15 characters, which a label such as
     // "Mean air temperature (2 m)" is longer than
@@ -1127,10 +1123,50 @@ function hoverMode(large: boolean): PlotlyLayout['hovermode'] {
   return large ? 'closest' : 'x unified'
 }
 
-const plotlyConfig: Partial<PlotlyConfig> = {
-  responsive: true,
-  displayModeBar: true,
-  modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+// The modebar's camera is Plotly's own with one difference: what it saves is the light chart, as every
+// chart this page saves is (utils/chart-export.ts). It is the last button but the logo, and the title
+// is Plotly's own ("Download plot as a PNG"), which names it; the file is Plotly's own `newplot.png`. One
+// config for the page, as a new `click` for each drawing would make Plotly see a config that changed
+let config: { of: unknown, value: Partial<PlotlyConfig> } | undefined
+function plotlyConfig(plotly: typeof import('plotly.js-basic-dist-min')): Partial<PlotlyConfig> {
+  if (config?.of === plotly)
+    return config.value
+  const value: Partial<PlotlyConfig> = {
+    responsive: true,
+    displayModeBar: true,
+    modeBarButtonsToRemove: ['lasso2d', 'select2d', 'toImage'],
+    modeBarButtonsToAdd: [{
+      name: 'toImage',
+      title: 'Download plot as a PNG',
+      icon: plotly.Icons.camera,
+      click: (chart: HTMLDivElement) => void saveLightImage(plotly, [chart], 'png', false, 'newplot').then(() => {
+        toast.add({ title: t('dataViewer.downloaded'), description: t('dataViewer.downloadedChart', { format: 'PNG' }), color: 'success' })
+      }, (error: unknown) => {
+        console.error('The chart image could not be saved', error)
+        toast.add({ title: t('dataViewer.chartImageNotSaved'), color: 'error' })
+      }),
+    }],
+  }
+  config = { of: plotly, value }
+  return value
+}
+
+// Saves `charts` in the light theme, whatever the page shows: each drawn again, off screen, for the export.
+// Stacked into one image where they are the facets, the single chart through Plotly's own download
+async function saveLightImage(plotly: typeof import('plotly.js-basic-dist-min'), charts: HTMLDivElement[], format: 'png' | 'jpeg' | 'svg', stacked: boolean, filename = 'chart') {
+  const copies: OffscreenChart[] = []
+  try {
+    for (const chart of charts)
+      copies.push(await drawLightCopy(plotly, chart))
+    const elements = copies.map(copy => copy.element) as HTMLDivElement[]
+    if (stacked)
+      saveBlob(await stackCharts(plotly, elements, format), `chart.${format}`)
+    else
+      await plotly.downloadImage(elements[0]!, { format, filename, width: undefined, height: undefined })
+  }
+  finally {
+    copies.forEach(copy => copy.dispose())
+  }
 }
 
 function startRender(renders: ChartRenders, draw: (newest: () => boolean) => Promise<void>) {
@@ -1185,9 +1221,12 @@ async function drawMainChart(newest: () => boolean) {
   if (!newest())
     return
   if (chartRef.value && chartTraces.value.length > 0) {
-    // Use newPlot for clean initialization
+    // Use newPlot for clean initialization. The theme it is drawn in is taken before the drawing, which a
+    // switch of the scheme can come in the middle of
+    const drawnIn = theme.value
     plotly.purge(chartRef.value)
-    await plotly.newPlot(chartRef.value, chartTraces.value, { ...chartLayout.value, hovermode: hoverMode(isLargeChart.value) }, plotlyConfig)
+    await plotly.newPlot(chartRef.value, chartTraces.value, themedLayout({ ...chartLayout.value, hovermode: hoverMode(isLargeChart.value) }, drawnIn), plotlyConfig(plotly))
+    markChartScheme(chartRef.value, drawnIn)
   }
 }
 
@@ -1202,22 +1241,18 @@ async function drawFacetedCharts(newest: () => boolean) {
       return
     const el = facetChartRefs.value.get(facet.parameter)
     if (el) {
-      // Ensure y-axis title does not overflow by enabling automargin and using standoff
-      // For long parameter labels (e.g., resolution/dataset/parameter) split title into multiple lines,
-      // one per part: a translated label may hold a slash of its own
-      const splitTitle = facet.parts.join('<br>')
       const layout: Partial<PlotlyLayout> = {
         ...chartLayout.value,
         hovermode: hoverMode(facet.large),
         yaxis: {
-          // Plotly yaxis.title can be either string or object; ensure we pass a string for typing
-          title: splitTitle,
+          showline: false,
           automargin: true,
-          // Use standoff via layout annotations when necessary instead of nested object to satisfy types
         },
         autosize: true,
       }
-      await plotly.react(el, facet.traces, layout, plotlyConfig)
+      const drawnIn = theme.value
+      await plotly.react(el, facet.traces, themedLayout(layout, drawnIn), plotlyConfig(plotly))
+      markChartScheme(el, drawnIn)
     }
   }
 }
@@ -1226,6 +1261,20 @@ async function drawFacetedCharts(newest: () => boolean) {
 // and, importantly, does not reach for Plotly.
 onMounted(async () => {
   await renderShownChart()
+})
+
+// The colour scheme switched: every chart drawn takes the new chrome as it is
+watch(theme, async (next) => {
+  if (!Plotly)
+    return
+  const plotly = Plotly
+  const charts = [chartRef.value, ...facetChartRefs.value.values()]
+  // a chart that cannot be restyled keeps its colours, and the scheme it says it is in; the others take theirs
+  const results = await Promise.allSettled(charts.map(chart => restyleChart(plotly, chart, next)))
+  results.forEach((result, index) => {
+    if (result.status === 'fulfilled' && result.value)
+      markChartScheme(charts[index], next)
+  })
 })
 
 // Render main chart when data changes

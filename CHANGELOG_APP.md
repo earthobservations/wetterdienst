@@ -16,8 +16,40 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Meteogram]` The forecast's table of values is a view of its own, no longer a "Show as table"
+  button below the chart: one control in the toolbar chooses Chart, Compact or Table (it replaces
+  the Compact button; the arrow keys move along it). The table is as wide as the page, keeps its
+  header and time column in view while it scrolls, and is not cut at a short height. The view is
+  in the URL as `?view=chart|compact|table` and remembered in the browser as `meteogram.view`;
+  `compact=true` links still open the compact view, and an old `meteogram.compact` is taken over
+  once. The widget is unchanged (GH-3406)
+
+### Security
+
+- `[Dependencies]` `vue-i18n` and `@intlify/*` are 11.4.16, out of the range of
+  GHSA-83rm-6c8r-g728 (`escapeParameter` and `srcdoc`) and its low sibling. The app does not
+  set `escapeParameter`, so the shipped app was not affected (GH-3636)
+
 ### Fixed
 
+- `[Explorer/Stripes/Meteogram]` The charts follow the colour scheme: in dark mode the paper, text,
+  grid, zero line and hover label are the page's dark (the Explorer's and the stripes' were white,
+  the Forecast's a grey of its own), and they change with the scheme without a reload; a zoomed
+  chart stays zoomed. The series and the stripes' own colours are the data and do not change. A
+  chart that is saved (download menu or the modebar's camera) or printed is always the light one.
+  The focus ring of a chart's buttons is the page's own, as Plotly's black one is 1.2:1 on the dark
+  chart (GH-3528)
+- `[Meteogram]` The compact view no longer makes the page scroll sideways on a narrow screen
+  (320 px), where the weather words of its day cards lay outside the box that scrolls (GH-3406)
+- `[Translations]` Parameter labels now say what the English ones say: the maximum wind gust was
+  just "a gust" in six languages, the fresh snow depth lost "depth" in nine, cooling degree days
+  and hours were "cooling days and hours" in Dutch and Danish, Italian loamy sand was "sabbia
+  limosa" (silty sand), soil temperatures under bare ground dropped "of the soil" in French,
+  Spanish and Italian, the Spanish minimum temperature 5 cm above the ground read as a soil
+  temperature, and Spanish and Italian had two words for the sunshine duration. Open terms:
+  `app/i18n/TERMS.md` (GH-2610)
 - `[Accessibility]` A toast, an error of the Explorer for one, no longer hides the link of the
   footer that the Tab key has reached ("Third-party licences" under it at 1280x720): while a toast
   is shown the page has room for it at its foot and scrolls a focused element clear of it

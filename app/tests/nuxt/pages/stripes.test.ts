@@ -32,6 +32,7 @@ const plotly = vi.hoisted(() => ({
   relayout: vi.fn(async () => {}),
   purge: vi.fn(),
   downloadImage: vi.fn(async () => 'stripes'),
+  Icons: { camera: { width: 1000, height: 1000, path: '' } },
 }))
 vi.mock('plotly.js-basic-dist-min', () => plotly)
 
@@ -504,6 +505,135 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
     expect(layout.annotations.map(a => a.text)).not.toContain('2020')
     expect(fetched).not.toHaveBeenCalled()
     expect(vm.isLoading).toBe(false)
+  })
+
+  it('saves the stripes drawn again off screen, the light chart whatever the page shows, and leaves the chart as it is', async () => {
+    const vm = await showStripes()
+    await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
+    const [shown, , shownLayout] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement, unknown, { annotations: Array<{ text: string }> }]
+    plotly.newPlot.mockClear()
+    plotly.purge.mockClear()
+    plotly.downloadImage.mockClear()
+
+    await vm.downloadStripes('png')
+
+    const [copy, traces, layout] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement, unknown[], { annotations: Array<{ text: string }> }]
+    expect(copy).not.toBe(shown)
+    expect(copy.getAttribute('aria-hidden')).toBe('true')
+    // the same stripes, with the same labels
+    expect(traces.length).toBeGreaterThan(0)
+    expect(layout.annotations.map(a => a.text)).toEqual(shownLayout.annotations.map(a => a.text))
+    expect(plotly.downloadImage).toHaveBeenCalledWith(copy, expect.objectContaining({ format: 'png' }))
+    // the copy is gone once saved, and the chart shown was not touched
+    expect(plotly.purge).toHaveBeenCalledWith(copy)
+    expect(copy.isConnected).toBe(false)
+    expect(plotly.purge).not.toHaveBeenCalledWith(shown)
+  })
+
+  // zoomed in: Plotly holds the ranges it shows, which the layout built from the data does not know
+  const zoomed = { _fullLayout: { xaxis: { range: [2019.5, 2019.9] }, yaxis: { range: [0.2, 0.8] } } }
+  const rangesOf = (layout: unknown) => layout as { xaxis: { range: number[], autorange?: boolean }, yaxis: { range: number[] } }
+
+  it('saves the stripes at the zoom they are shown in', async () => {
+    const vm = await showStripes()
+    await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
+    Object.assign((plotly.newPlot.mock.lastCall as unknown as [HTMLElement])[0], zoomed)
+    plotly.newPlot.mockClear()
+
+    await vm.downloadStripes('png')
+
+    const [copy, , layout] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement, unknown, unknown]
+    expect(copy.getAttribute('aria-hidden')).toBe('true')
+    expect(rangesOf(layout).xaxis).toMatchObject({ range: [2019.5, 2019.9], autorange: false })
+    expect(rangesOf(layout).yaxis.range).toEqual([0.2, 0.8])
+  })
+
+  it('draws the stripes again at the zoom they are shown in where the colour scheme switches, which a reset still goes back from', async () => {
+    await showStripes()
+    await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
+    const [shown] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement]
+    Object.assign(shown, zoomed)
+    plotly.newPlot.mockClear()
+    plotly.relayout.mockClear()
+    document.documentElement.classList.add('dark')
+    try {
+      await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
+      // plotted in the range of its own (Plotly takes that for the one a reset goes back to), then moved
+      expect(rangesOf((plotly.newPlot.mock.lastCall as unknown as unknown[])[2]).xaxis.range).not.toEqual([2019.5, 2019.9])
+      await vi.waitFor(() => expect(plotly.relayout).toHaveBeenCalledWith(shown, expect.objectContaining({ 'xaxis.range': [2019.5, 2019.9], 'yaxis.range': [0.2, 0.8] })))
+      expect(shown.dataset.chartScheme).toBe('dark')
+    }
+    finally {
+      document.documentElement.classList.remove('dark')
+    }
+  })
+
+  it('says the scheme the chart is drawn in whatever the relayout after the plot does', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    await showStripes()
+    await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
+    const [shown] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement]
+    expect(shown.dataset.chartScheme).toBe('light')
+    Object.assign(shown, zoomed)
+    plotly.newPlot.mockClear()
+    plotly.relayout.mockClear()
+    // the move to the zoom fails after the chart was plotted in the colours of the dark scheme
+    plotly.relayout.mockRejectedValueOnce(new Error('relayout failed'))
+    document.documentElement.classList.add('dark')
+    try {
+      await vi.waitFor(() => expect(plotly.relayout).toHaveBeenCalledOnce())
+      await vi.waitFor(() => expect(shown.dataset.chartScheme).toBe('dark'))
+    }
+    finally {
+      document.documentElement.classList.remove('dark')
+    }
+  })
+
+  it('moves nothing of a drawing that a newer one has replaced', async () => {
+    await showStripes()
+    await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
+    const [shown] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement]
+    Object.assign(shown, zoomed)
+    plotly.newPlot.mockClear()
+    plotly.relayout.mockClear()
+    // the drawing for the dark scheme held in Plotly, and the scheme switched back, which draws the chart again
+    let release!: () => void
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    plotly.newPlot.mockImplementationOnce(async () => {
+      await held
+    })
+    document.documentElement.classList.add('dark')
+    try {
+      await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
+      document.documentElement.classList.remove('dark')
+      await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledTimes(2))
+      await vi.waitFor(() => expect(plotly.relayout).toHaveBeenCalledOnce())
+      release()
+      await new Promise(resolve => setTimeout(resolve, 50))
+      // the newer drawing's move, and none of the older one's
+      expect(plotly.relayout).toHaveBeenCalledOnce()
+      // and the scheme the chart is drawn in, not the one of the drawing that came too late
+      expect(shown.dataset.chartScheme).toBe('light')
+    }
+    finally {
+      document.documentElement.classList.remove('dark')
+    }
+  })
+
+  it('has the camera of the modebar save the same, in the place of Plotly\'s own', async () => {
+    await showStripes()
+    await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
+    const [, , , config] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement, unknown, unknown, { modeBarButtonsToRemove: string[], modeBarButtonsToAdd: { name: string, title: string, click: () => void }[], toImageButtonOptions?: unknown }]
+    expect(config.modeBarButtonsToRemove).toContain('toImage')
+    const [camera] = config.modeBarButtonsToAdd
+    expect([camera!.name, camera!.title]).toEqual(['toImage', 'Download plot as a PNG'])
+    plotly.downloadImage.mockClear()
+    camera!.click()
+    await vi.waitFor(() => expect(plotly.downloadImage).toHaveBeenCalledOnce())
+    // the size Plotly's own camera had saved, 1400 px wide at twice the size
+    expect(plotly.downloadImage).toHaveBeenCalledWith(expect.any(HTMLElement), expect.objectContaining({ format: 'png', width: 1400, scale: 2 }))
   })
 
   it('says the stripes image could not be saved where its export fails', async () => {

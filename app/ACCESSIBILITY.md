@@ -78,6 +78,26 @@ The focus indicator is one solid 2 px outline for everything a keyboard reaches 
 the light one in both modes). Nuxt UI's own is an outline at 25 % of the primary colour (1.2:1 to 1.7:1 on
 white) and a ring in the primary colour (2.2:1), and its menu search fields draw none; they stay, beside it.
 
+The Plotly charts take their chrome from the same tokens as the page (GH-3528): paper, plot, text, grid,
+zero line, hover label and modebar are the `--app-chart-*` properties of `main.css`, made of Nuxt UI's
+`--ui-*` tokens, which switch with the colour mode. `utils/chart-theme.ts` reads them with
+`getComputedStyle` (resolved to `rgb()` by the browser's computed colour of a probe element, as Plotly does
+not parse `oklch()`; no canvas, whose pixels a browser that resists fingerprinting scrambles), and
+`useChartTheme()` reads them again when the class of `<html>` changes, so a chart follows a switch
+without a reload. A chart that is saved (the download menus, and the camera of the modebar) or printed is
+always the light one, whatever the screen shows: it is drawn again, off screen, in the light theme
+(`utils/chart-export.ts`), and a print is drawn light for as long as it lasts (a light page is printed as
+it is, and a zoom is kept), with a `@media print` rule in `main.css` for a chart that says it is still drawn dark
+(`data-chart-scheme="dark"`) when the print comes before the redraw: transparent paper, black text and
+wind barbs; a chart drawn light is left as drawn. On the themed chrome (the Explorer, the stripes, the
+Forecast's hour labels) text and tick labels are the page's text and muted text (4.5:1 or more on the page
+in both modes) and the zero line the muted text colour (3:1 or more), checked on the drawn charts by
+`tests/e2e/chart-theme.spec.ts`; the grid is decoration. The series and the stripes' palette are data and
+keep their colours. Not themed, and so not held to those ratios: the Forecast's y-axis titles and tick
+labels, which are in their series' colours (cyan, blue, red and lime, 2.0:1 to 3.8:1 on white), and its
+temperature zero line, a wash of the text colour (1.4:1 and 1.7:1), tracked in #3618; and the Plotly logo of
+the modebar, Plotly's own black tile with coloured dots.
+
 There is no sepia mode. `main.css` once held a `html.sepia` block that redefined the `--ui-*` tokens, which
 nothing in the app ever set (`colorMode` knows `light`, `dark` and `system`, and the settings offer those
 three). It was removed (GH-2991): it could not be reached, its dimmed text was 4.1:1 and 3.6:1 on two of its own
