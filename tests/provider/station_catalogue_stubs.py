@@ -213,12 +213,14 @@ def _imgw_hydrology(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         "1;149180010;Krzyżanowice;Odra (1);1927;49 59 37;18 17 14;184.806;713.04\r\n"
         "55;149190360;LUDŹMIERZ ;Lepietnica (2141156);1922;49 28 07;19 58 32;596.044;0.27\r\n"
         "58;149190390;LUDŹMIERZ;Wielki Rogoźnik (214116);1924;49 27 34;19 59 12;592.828;0.4\r\n"
+        "791;154160150;Darłowo;Morze Bałtyckie (0);1819;54 26 25;16 22 40;-4.904;\r\n"
+        "792;154160160;Zielnowo;Wieprza (46);2024;54 26 31;16 28 32;;10.23\r\n"
     )
     _serve(monkeypatch, imgw_hydrology_api, {"kody_stacji": catalogue.encode("utf8")})
     return _stations(ImgwHydrologyRequest, ("daily", "hydrology"))
 
 
-def _chmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+def _chmi_catalogue(monkeypatch: pytest.MonkeyPatch) -> None:
     catalogue = (
         "WSI,GH_ID,BEGIN_DATE,END_DATE,FULL_NAME,GEOGR1,GEOGR2,ELEVATION,\n"
         "0-20000-0-11406,L3CHEB01,1863-10-01T00:00Z,1919-12-31T23:59Z,Cheb,12.362892,50.076212,458,\n"
@@ -232,8 +234,17 @@ def _chmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         "0-203-0-41302035001,B1NLHO01,1976-07-20T00:00Z,1980-06-30T23:59Z,Nová Lhota  ?,17.6133,48.8736,420,\n"
         "0-203-0-11566,P2SADS01,1897-01-01T00:00Z,1934-12-31T23:59Z,Sadská,14.9833,50.1333,187,\n"
         "0-203-0-11566,P2SADS01,1936-01-01T00:00Z,1945-12-31T23:59Z,Sadská,14.9833,50.1333,187,\n"
+        # the two stations of abroad of the list (GH_ID `Z...`, 2026-10-29), for which the portal has no file: the
+        # reader leaves them out. The daily list is cut by the files and would lose them anyway; the hourly one is
+        # not, so the rules of the catalogue fail on them there if the reader keeps them (GH-3589)
+        "0-20000-0-04030,ZIS04030,2015-01-01T00:00Z,3999-12-31T23:59Z,Reykjavik,-21.903905,64.127653,51,\n"
+        "0-20000-0-89055,ZAR89055,2010-01-01T00:00Z,2020-01-31T23:59Z,Marambio  Base,56.623056,64.233056,196,\n"
     )
     _serve(monkeypatch, chmi_api, {"meta1.csv": catalogue.encode("utf8")})
+
+
+def _chmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    _chmi_catalogue(monkeypatch)
     # the directories of the daily elements, with files of the stations above as listed (2026-10-21), among them
     # elements the provider does not read (`TPM`, `API30`), and the other directories left out: Sadská, a station
     # closed in 1945, has no file, which the provider narrows the list by (GH-3259)
@@ -252,6 +263,12 @@ def _chmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     monkeypatch.setattr(data_index, "list_files", list_files)
     monkeypatch.setattr(chmi_api, "list_remote_files_fsspec", list_files)
     return _stations(ChmiObservationRequest, ("daily", "data"))
+
+
+def _chmi_hourly(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    # the sub-daily lists are not cut by the files (GH-3259), so they are the whole catalogue as the reader gives it
+    _chmi_catalogue(monkeypatch)
+    return _stations(ChmiObservationRequest, ("hourly", "data"))
 
 
 def _geosphere(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
@@ -1656,6 +1673,7 @@ STUBS = [
         _chmi,
         (CHMI_NAME,),
     ),
+    Stub("chmi/observation hourly/data", _chmi_hourly, (CHMI_NAME,)),
     Stub("dwd/road 15_minutes/data", _dwd_road),
     Stub("dwd/swsmos hourly/data", _dwd_swsmos),
     Stub("ea/hydrology 15_minutes/data", _ea_hydrology, (EA_NO_POSITION,)),
