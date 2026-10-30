@@ -55,6 +55,8 @@ const endYear = ref<number | null>(null)
 // Display toggles default to the user's saved stripes preferences; an explicit
 // URL query (e.g. from a shared link) still overrides these below.
 const { settings } = useSettings()
+// the chart's chrome, read from the app's CSS tokens for the colour scheme in force
+const { theme } = useChartTheme()
 const showTitle = ref(settings.value.stripes.showTitle)
 const showYears = ref(settings.value.stripes.showYears)
 const showDataAvailability = ref(settings.value.stripes.showDataAvailability)
@@ -318,7 +320,7 @@ async function drawStripes(data: StripesValuesResponse) {
         showarrow: false,
         xanchor: 'left',
         yanchor: 'top',
-        font: { size: 18, color: 'black' },
+        font: { size: 18, color: theme.value.text },
       },
       {
         x: maxYear,
@@ -329,7 +331,7 @@ async function drawStripes(data: StripesValuesResponse) {
         showarrow: false,
         xanchor: 'right',
         yanchor: 'top',
-        font: { size: 18, color: 'black' },
+        font: { size: 18, color: theme.value.text },
       },
     )
   }
@@ -360,7 +362,7 @@ async function drawStripes(data: StripesValuesResponse) {
       yref: 'paper',
       xanchor: 'center',
       yanchor: 'top',
-      font: { size: 14, color: '#666' },
+      font: { size: 14, color: theme.value.textMuted },
     })
   }
 
@@ -456,7 +458,6 @@ async function drawStripes(data: StripesValuesResponse) {
     font: {
       family: 'Arial, sans-serif',
       size: 14,
-      color: 'black',
     },
     xaxis: {
       showgrid: false,
@@ -480,8 +481,6 @@ async function drawStripes(data: StripesValuesResponse) {
       t: showTitle.value ? 30 : 20,
       b: 60,
     },
-    paper_bgcolor: 'white',
-    plot_bgcolor: 'white',
     showlegend: false,
     autosize: false,
     width: containerWidth,
@@ -503,14 +502,14 @@ async function drawStripes(data: StripesValuesResponse) {
     },
   }
 
-  await Plotly.newPlot(plotContainer.value, traces as any, layout as any, config)
+  await Plotly.newPlot(plotContainer.value, traces as any, themedLayout(layout, theme.value) as any, config)
 
   // Plotly v3 requires relayout to render the title after newPlot
   if (showTitle.value) {
     await Plotly.relayout(plotContainer.value, {
       title: {
         text: titleText,
-        font: { size: 16, color: 'black' },
+        font: { size: 16, color: theme.value.text },
         y: showDataAvailability.value ? 0.96 : 0.99,
         x: 0.5,
         xanchor: 'center',
@@ -635,6 +634,14 @@ watch(stations, () => {
     const only = stations.value[0]
     if (only)
       selectedStationId.value = only.station_id
+  }
+})
+
+// Re-plot where the colour scheme changes: the paper, the years and the title are the chart's chrome
+// and follow it (utils/chart-theme.ts); the stripes' own colours are the data and do not
+watch(theme, async () => {
+  if (lastFetchedData.value && hasPlot.value) {
+    await plotStripes(lastFetchedData.value)
   }
 })
 

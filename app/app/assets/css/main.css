@@ -71,6 +71,30 @@
   outline-color: var(--ui-color-primary-700);
 }
 
+/* The chrome of the Plotly charts (paper, plot, text, grid, axis lines, hover label, modebar), which
+   utils/chart-theme.ts reads at runtime with getComputedStyle: one place to restyle every chart. Each is
+   a Nuxt UI token, and those switch with .dark, so nothing is redefined for it here. The series and the
+   stripes' palette are data, not chrome, and are not in this list. Measured on the drawn charts, light
+   and dark: text 10.4:1 and 14.5:1 on the paper; muted text (tick labels) 5.4:1 and 6.8:1; the zero
+   line and the modebar's icons, which are the muted colour, the same, past the 3:1 of non-text; the hover
+   label's text 9.5:1 and 11.9:1 on its fill. The grid (1.5:1 and 1.7:1) is decoration. The ratios of
+   the drawn charts are held by tests/e2e/chart-theme.spec.ts. */
+:root {
+  --app-chart-paper: var(--ui-bg);
+  --app-chart-plot: var(--ui-bg);
+  --app-chart-text: var(--ui-text);
+  --app-chart-text-strong: var(--ui-text-highlighted);
+  --app-chart-text-muted: var(--ui-text-muted);
+  --app-chart-grid: var(--ui-border-accented);
+  --app-chart-axis: var(--ui-text-muted);
+  --app-chart-zeroline: var(--ui-text-muted);
+  --app-chart-hover-bg: var(--ui-bg-elevated);
+  --app-chart-hover-border: var(--ui-border-accented);
+  --app-chart-hover-text: var(--ui-text);
+  --app-chart-modebar: var(--ui-text-muted);
+  --app-chart-modebar-active: var(--app-focus-ring);
+}
+
 /* Undo Tailwind v4 preflight that breaks Plotly's stacked SVG layout.
    Plotly layers multiple <svg class="main-svg"> that must overlap;
    Tailwind's `svg { display: block }` causes them to stack vertically. */

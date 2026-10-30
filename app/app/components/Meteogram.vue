@@ -27,9 +27,9 @@ const plotlyLoaded = ref(false)
 let overlayCanvas: HTMLCanvasElement | null = null
 let overlayAttached = false
 
-// Color mode detection
-const colorMode = useColorMode()
-const isDark = computed(() => colorMode.value === 'dark')
+// The chart's chrome (paper, text, grid, hover label) is read from the app's CSS tokens for the colour
+// scheme in force (utils/chart-theme.ts); a switch of the scheme draws the chart again below
+const { theme, isDark } = useChartTheme()
 
 // Compact mode toggles a denser, lower-height rendering of the meteogram.
 const compact = ref(false)
@@ -603,7 +603,7 @@ function drawBarb(ctx: CanvasRenderingContext2D, px: number, py: number, dirFrom
   // rounded to 1.944 a speed either side of a barb boundary could be drawn as the next barb up
   const kt = (speed * 3600) / 1852
   const scale = compact.value ? 0.78 : 1.0
-  const barbColor = isDark.value ? '#f4f4f5' : '#0f172a'
+  const barbColor = theme.value.textStrong
   ctx.strokeStyle = barbColor
   ctx.fillStyle = barbColor
   ctx.lineWidth = Math.max(1, 1.5 * scale)
@@ -1252,7 +1252,7 @@ async function renderChartActual() {
       yref: 'paper',
       text: annotText,
       showarrow: false,
-      font: { size: annotFontSize, color: isWeekend ? '#ef4444' : (isDark.value ? '#e4e4e7' : '#374151') },
+      font: { size: annotFontSize, color: isWeekend ? '#ef4444' : theme.value.text },
       xanchor: 'center',
       yanchor: 'bottom',
     })
@@ -1654,9 +1654,11 @@ async function renderChartActual() {
   }
 
   // Dark-on-light or light-on-dark tokens
-  const W = (a: number) => isDark.value ? `rgba(244,244,245,${a})` : `rgba(55,65,81,${a})`
+  // washes of the text colour for the hairlines; the tick labels are the muted text colour itself, as
+  // a wash of 65 % of the text colour is 3.9:1 on white
+  const W = (a: number) => withAlpha(theme.value.text, a)
   const GRID = W(0.08)
-  const TICK = W(0.65)
+  const TICK = theme.value.textMuted
   const ZERO = W(0.20)
 
   // Panel divider lines
@@ -1795,14 +1797,9 @@ async function renderChartActual() {
     // the hover texts and the axes write the language's decimal separator, as Plotly writes a point otherwise
     separators: plotlySeparators(locale.value),
     margin: { l: 48, r: 8 + extraRight, t: (compact.value ? 44 : 72) + extraTop, b: compact.value ? 4 : 8 },
-    paper_bgcolor: isDark.value ? '#111827' : '#ffffff',
-    plot_bgcolor: isDark.value ? '#111827' : '#ffffff',
-    font: { family: '"Inter", system-ui, sans-serif', size: 11, color: isDark.value ? '#f3f4f6' : '#374151' },
+    font: { family: '"Inter", system-ui, sans-serif', size: 11 },
     hovermode: 'x unified',
-    hoverlabel: {
-      bgcolor: isDark.value ? '#1f2937' : '#ffffff',
-      font: { color: isDark.value ? '#f3f4f6' : '#374151', family: '"Inter", system-ui, sans-serif' },
-    },
+    hoverlabel: { font: { family: '"Inter", system-ui, sans-serif' } },
     bargap: 0.05,
     barmode: 'stack',
     shapes: [...dayShapes, ...separators, ...dividers],
@@ -1861,13 +1858,13 @@ async function renderChartActual() {
     yaxis5: {
       visible: !!domains.cloud,
       domain: domains.cloud ?? [0, 0],
-      title: { text: t('meteogram.chart.axisCloud'), font: { size: 9, color: isDark.value ? '#9ca3af' : '#64748b' }, standoff: 2 },
+      title: { text: t('meteogram.chart.axisCloud'), font: { size: 9, color: theme.value.textMuted }, standoff: 2 },
       gridcolor: GRID,
       linecolor: 'rgba(0,0,0,0)',
       zeroline: false,
       range: originalRanges.cloud,
       tickvals: axisTickVals.cloud ?? undefined,
-      tickfont: { size: compact.value ? 7 : 9, color: isDark.value ? '#9ca3af' : '#64748b' },
+      tickfont: { size: compact.value ? 7 : 9, color: theme.value.textMuted },
       tickcolor: 'rgba(148,163,184,0.45)',
       nticks: 3,
       fixedrange: true,
@@ -1920,7 +1917,7 @@ async function renderChartActual() {
     }
     catch {}
     Plotly.purge(chartRef.value)
-    await Plotly.newPlot(chartRef.value, activeTraces, layout, config)
+    await Plotly.newPlot(chartRef.value, activeTraces, themedLayout(layout, theme.value), config)
 
     // Setup overlay drawing of wind barbs using a canvas overlay
     if (typeof window !== 'undefined' && windKey && chartRef.value && visiblePanels.value.wind) {
@@ -1960,7 +1957,7 @@ watch(
   },
 )
 watch(
-  isDark,
+  theme,
   () => {
     void renderChart()
   },

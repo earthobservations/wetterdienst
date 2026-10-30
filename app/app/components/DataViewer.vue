@@ -1094,6 +1094,12 @@ async function stackCharts(plotly: typeof import('plotly.js-basic-dist-min'), ch
   return new Blob([Uint8Array.from(atob(data), c => c.charCodeAt(0))], { type: `image/${format}` })
 }
 
+// The chart's chrome (paper, text, grid, axis lines, hover label) is the app's, read from its CSS tokens
+// (utils/chart-theme.ts). It is put under the layout where a chart is drawn and not in `chartLayout`,
+// so that a switch of the colour scheme restyles the charts in place (below) rather than drawing them
+// again, and a zoomed chart stays zoomed.
+const { theme } = useChartTheme()
+
 // Plotly layout, apart from its hover mode, which is each chart's own: see hoverMode
 const chartLayout = computed((): Partial<PlotlyLayout> => {
   return {
@@ -1101,12 +1107,15 @@ const chartLayout = computed((): Partial<PlotlyLayout> => {
     // the hover texts and the axes write the language's decimal separator, as Plotly writes a point otherwise
     separators: plotlySeparators(locale.value),
     margin: { l: 60, r: 20, t: 40, b: 60 },
+    // no axis line, as before: the theme gives an axis line its colour, and Plotly draws a line for any axis that has one
     xaxis: {
       title: t('dataViewer.axisDate'),
       type: 'date',
+      showline: false,
     },
     yaxis: {
       title: t('dataViewer.axisValue'),
+      showline: false,
     },
     // Plotly cuts a series' name in a hover label after 15 characters, which a label such as
     // "Mean air temperature (2 m)" is longer than
@@ -1187,7 +1196,7 @@ async function drawMainChart(newest: () => boolean) {
   if (chartRef.value && chartTraces.value.length > 0) {
     // Use newPlot for clean initialization
     plotly.purge(chartRef.value)
-    await plotly.newPlot(chartRef.value, chartTraces.value, { ...chartLayout.value, hovermode: hoverMode(isLargeChart.value) }, plotlyConfig)
+    await plotly.newPlot(chartRef.value, chartTraces.value, themedLayout({ ...chartLayout.value, hovermode: hoverMode(isLargeChart.value) }, theme.value), plotlyConfig)
   }
 }
 
@@ -1212,12 +1221,13 @@ async function drawFacetedCharts(newest: () => boolean) {
         yaxis: {
           // Plotly yaxis.title can be either string or object; ensure we pass a string for typing
           title: splitTitle,
+          showline: false,
           automargin: true,
           // Use standoff via layout annotations when necessary instead of nested object to satisfy types
         },
         autosize: true,
       }
-      await plotly.react(el, facet.traces, layout, plotlyConfig)
+      await plotly.react(el, facet.traces, themedLayout(layout, theme.value), plotlyConfig)
     }
   }
 }
@@ -1226,6 +1236,16 @@ async function drawFacetedCharts(newest: () => boolean) {
 // and, importantly, does not reach for Plotly.
 onMounted(async () => {
   await renderShownChart()
+})
+
+// The colour scheme switched: every chart drawn takes the new chrome as it is
+watch(theme, async (next) => {
+  if (!Plotly)
+    return
+  const plotly = Plotly
+  const charts = [chartRef.value, ...facetChartRefs.value.values()]
+  // a chart that cannot be restyled keeps its colours; the others take theirs
+  await Promise.allSettled(charts.map(chart => restyleChart(plotly, chart, next)))
 })
 
 // Render main chart when data changes

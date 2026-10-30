@@ -18,6 +18,12 @@ Types of changes:
 
 ### Fixed
 
+- `[All pages]` The charts of the Explorer, the Climate stripes, the Forecast and the widget follow
+  the colour scheme: in dark mode their paper, text, grid, zero line and hover label are the page's
+  dark (the Explorer's and the stripes' were white, the Forecast's a grey of its own), and they
+  change with the scheme without a reload; a zoomed Explorer chart stays zoomed. The colours are
+  read from the CSS tokens `--app-chart-*` in `main.css`; the series and the stripes' own colours
+  are the data and do not change. A chart image saved in dark mode is dark too (GH-3528)
 - `[Accessibility]` A toast, an error of the Explorer for one, no longer hides the link of the
   footer that the Tab key has reached ("Third-party licences" under it at 1280x720): while a toast
   is shown the page has room for it at its foot and scrolls a focused element clear of it
