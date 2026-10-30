@@ -222,3 +222,28 @@ test('a zoomed chart of the explorer stays zoomed when the scheme switches', asy
   await expect.poll(async () => luminance((await chromeOf(page)).paper)).toBeLessThan(0.05)
   expect(await range()).toEqual(zoomed)
 })
+
+test('the focus ring of a modebar button is the page\'s own, 3:1 on the dark paper (WCAG 1.4.11)', async ({ page, baseURL, context }) => {
+  // Plotly's own is a black outline: 21:1 on white, 1.2:1 on the dark paper
+  await context.addInitScript(() => localStorage.setItem('nuxt-color-mode', 'dark'))
+  await mockBackend(page, baseURL!)
+  await page.goto('/stripes?kind=temperature&station=00011')
+  await fetchButton(page).click()
+  await expect(plotly(page)).toBeVisible()
+
+  const button = page.locator('.js-plotly-plot .modebar-btn[data-attr="zoom"][data-val="reset"]')
+  await button.focus()
+  await page.keyboard.press('Shift+Tab')
+  await page.keyboard.press('Tab')
+  await expect(button).toBeFocused()
+  const ring = await button.evaluate((element) => {
+    const style = getComputedStyle(element)
+    const context = document.createElement('canvas').getContext('2d', { willReadFrequently: true })!
+    context.fillStyle = style.outlineColor
+    context.fillRect(0, 0, 1, 1)
+    const [r, g, b] = context.getImageData(0, 0, 1, 1).data
+    return { color: `rgb(${r}, ${g}, ${b})`, width: Number.parseFloat(style.outlineWidth) }
+  })
+  expect(ring.width).toBeGreaterThanOrEqual(2)
+  expect(contrast(ring.color, (await chromeOf(page)).paper)).toBeGreaterThanOrEqual(3)
+})

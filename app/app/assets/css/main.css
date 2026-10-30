@@ -95,6 +95,14 @@
   --app-chart-modebar-active: var(--app-focus-ring);
 }
 
+/* The focus of a modebar button: Plotly draws a 1 px black outline, 21:1 on its white paper and 1.2:1 on the
+   dark paper (WCAG 1.4.11, 3:1), where it is the page's own ring instead (--app-focus-ring). One class more
+   than Plotly's own rule, which is injected after this sheet. */
+.js-plotly-plot .plotly .modebar .modebar-btn:focus-visible {
+  outline: 2px solid var(--app-focus-ring);
+  outline-offset: 1px;
+}
+
 /* Undo Tailwind v4 preflight that breaks Plotly's stacked SVG layout.
    Plotly layers multiple <svg class="main-svg"> that must overlap;
    Tailwind's `svg { display: block }` causes them to stack vertically. */
