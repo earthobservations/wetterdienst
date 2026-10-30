@@ -1645,7 +1645,7 @@ def _write_sidecar(blob: Path, last_modified: dt.datetime | None, written: os.st
     a null date: the copy has no date, and the record says it was made by a version that kept them
     (`_has_sidecar_record`), which is what tells it from a copy made before. Never raises: a date lost is a null, not a
     failed download. A replace that Windows refuses, because another process holds the sidecar open, is asked again
-    after the pauses of `_ask_again` (GH-3632) before the date is given up.
+    after the pauses of `_ask_again` (GH-3632) before the date is given up, and each try checks the blob again.
 
     Written under the lock of the cache directory and only if the blob is still the file `written` describes: of two
     fetches that replace the blob one after the other, the one that comes later may write its sidecar first, and the
@@ -1655,16 +1655,21 @@ def _write_sidecar(blob: Path, last_modified: dt.datetime | None, written: os.st
     temp = sidecar.with_name(f"{sidecar.name}.{uuid.uuid4().hex}.tmp")
     try:
         with _cache_dir_lock:
-            current = blob.stat()
-            if (current.st_size, current.st_mtime_ns) != (written.st_size, written.st_mtime_ns):
-                return
             record = {
                 "last_modified": None if last_modified is None else last_modified.isoformat(),
                 "size": written.st_size,
                 "mtime_ns": written.st_mtime_ns,
             }
             temp.write_text(json.dumps(record), encoding="utf-8")
-            _ask_again(lambda: os.replace(temp, sidecar))  # noqa: PTH105
+
+            def replace_if_still_described() -> None:
+                # asked again with each try: another process may have put its blob there, and its record, since the
+                # one before, and a late replace of this record would overwrite the record of the blob that is there
+                current = blob.stat()
+                if (current.st_size, current.st_mtime_ns) == (written.st_size, written.st_mtime_ns):
+                    os.replace(temp, sidecar)  # noqa: PTH105
+
+            _ask_again(replace_if_still_described, sidecar)
     except OSError:
         log.debug(f"Failed keeping the date of {blob}", exc_info=True)
     finally:
@@ -1680,7 +1685,7 @@ def _sidecar_record(blob: Path) -> dict | None:
     """
     try:
         sidecar = _sidecar_of(blob)
-        record = json.loads(_ask_again(lambda: sidecar.read_text(encoding="utf-8")))
+        record = json.loads(_ask_again(lambda: sidecar.read_text(encoding="utf-8"), sidecar))
         written = blob.stat()
         if record["size"] != written.st_size or record["mtime_ns"] != written.st_mtime_ns:
             return None
@@ -2135,31 +2140,33 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
 
 #: How long a read of a blob or of its sidecar, or the replace of a sidecar, waits, one pause after another, for a
 #: replace by another process to be over (GH-3630, GH-3632): under a second in all. A rename onto a file takes a
-#: moment; a refusal that outlasts these is a permission the file really lacks, which the caller then sees.
-_BLOB_OPEN_PAUSES = (0.01, 0.02, 0.05, 0.1, 0.2, 0.4)
+#: moment; a refusal that outlasts these is raised again for the blob (a permission the file really lacks, which the
+#: caller then sees) and given up for a sidecar (the date is lost, or the copy counts as undated).
+_REFUSED_PAUSES = (0.01, 0.02, 0.05, 0.1, 0.2, 0.4)
 
 
-def _ask_again(call: Callable[[], _T]) -> _T:
-    """Call `call`, again after each of `_BLOB_OPEN_PAUSES` where it raises `PermissionError` (GH-3630, GH-3632).
+def _ask_again(call: Callable[[], _T], path: Path) -> _T:
+    """Call `call` on `path`, again after each of `_REFUSED_PAUSES` where it raises `PermissionError` (GH-3632).
 
     On Windows a file that another process is `os.replace`-ing onto, or is holding open while it does, is not openable,
     readable or replaceable for a moment (the old one is delete-pending): a `PermissionError`, which is a sharing
     violation there. The file is a whole copy before and after the rename, so the call is asked again after a short
     pause, and no lock of the directory is taken for the wait of a read: it does not take turns with the writers. A
-    refusal that stays is raised as it was, so that a file that cannot be used at all is not waited on for long.
+    refusal that stays is raised as it was, so that a file that cannot be used at all is not waited on for long, and
+    any other error is raised at once.
     """
-    for pause in _BLOB_OPEN_PAUSES:
+    for pause in _REFUSED_PAUSES:
         try:
             return call()
         except PermissionError:
-            log.debug(f"Refused, trying again in {pause} s", exc_info=True)
+            log.debug(f"Refused {path}, trying again in {pause} s", exc_info=True)
             time.sleep(pause)
     return call()
 
 
 def _open_blob(blob: Path, mode: str) -> IO:
     """Open a cached blob for reading, again a few times where the open is refused (GH-3630): see `_ask_again`."""
-    return _ask_again(lambda: blob.open(mode))
+    return _ask_again(lambda: blob.open(mode), blob)
 
 
 def _check_cache_dir_writable(cache_path: Path) -> None:

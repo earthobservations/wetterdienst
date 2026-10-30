@@ -3193,7 +3193,7 @@ def test_a_blob_another_handle_holds_open_is_left_alone(monkeypatch: pytest.Monk
 
 def _refuse_opening(monkeypatch: pytest.MonkeyPatch, blob: Path, *, times: int) -> list[int]:
     """Make the open of `blob` raise `PermissionError` the first `times` times, as Windows does while it is replaced."""
-    monkeypatch.setattr(network, "_BLOB_OPEN_PAUSES", (0.0,) * 3)
+    monkeypatch.setattr(network, "_REFUSED_PAUSES", (0.0,) * 3)
     original = Path.open
     refused = [0]
 
@@ -3240,7 +3240,7 @@ def test_an_open_of_the_blob_that_stays_refused_is_raised_after_a_few_tries(
     with pytest.raises(PermissionError, match="Access is denied"):
         filesystem.cat_file("/f.txt")
 
-    assert refused == [len(network._BLOB_OPEN_PAUSES) + 1]  # noqa: SLF001
+    assert refused == [len(network._REFUSED_PAUSES) + 1]  # noqa: SLF001
 
 
 def _blob_with_sidecar_inputs(tmp_path: Path) -> tuple[Path, os.stat_result]:
@@ -3255,7 +3255,7 @@ _LAST_MODIFIED = dt.datetime(2026, 10, 1, 12, 0, tzinfo=dt.UTC)
 
 def _refuse_replacing_sidecar(monkeypatch: pytest.MonkeyPatch, sidecar: Path, *, times: int) -> list[int]:
     """Make the replace onto `sidecar` raise `PermissionError` the first `times` times, as Windows does."""
-    monkeypatch.setattr(network, "_BLOB_OPEN_PAUSES", (0.0,) * 3)
+    monkeypatch.setattr(network, "_REFUSED_PAUSES", (0.0,) * 3)
     replace = os.replace
     refused = [0]
 
@@ -3272,7 +3272,7 @@ def _refuse_replacing_sidecar(monkeypatch: pytest.MonkeyPatch, sidecar: Path, *,
 
 def _refuse_reading_sidecar(monkeypatch: pytest.MonkeyPatch, sidecar: Path, *, times: int) -> list[int]:
     """Make the read of `sidecar` raise `PermissionError` the first `times` times, as Windows does."""
-    monkeypatch.setattr(network, "_BLOB_OPEN_PAUSES", (0.0,) * 3)
+    monkeypatch.setattr(network, "_REFUSED_PAUSES", (0.0,) * 3)
     original = Path.read_text
     refused = [0]
 
@@ -3310,7 +3310,7 @@ def test_a_replace_of_the_sidecar_that_stays_refused_loses_the_date_and_raises_n
 
     network._write_sidecar(blob, _LAST_MODIFIED, written)  # noqa: SLF001
 
-    assert refused == [len(network._BLOB_OPEN_PAUSES) + 1]  # noqa: SLF001
+    assert refused == [len(network._REFUSED_PAUSES) + 1]  # noqa: SLF001
     assert network._read_sidecar(blob) is None  # noqa: SLF001
     assert _stray_files(tmp_path) == [blob.name]
 
@@ -3335,7 +3335,92 @@ def test_a_read_of_the_sidecar_that_stays_refused_is_no_record(monkeypatch: pyte
     refused = _refuse_reading_sidecar(monkeypatch, network._sidecar_of(blob), times=1000)  # noqa: SLF001
 
     assert network._sidecar_record(blob) is None  # noqa: SLF001
-    assert refused == [len(network._BLOB_OPEN_PAUSES) + 1]  # noqa: SLF001
+    assert refused == [len(network._REFUSED_PAUSES) + 1]  # noqa: SLF001
+
+
+def _fail_if_asked_again(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make a pause fail the test: only a `PermissionError` is asked again, after one (GH-3632)."""
+
+    def sleep(_seconds: float) -> None:
+        msg = "asked again"
+        raise AssertionError(msg)
+
+    monkeypatch.setattr(network.time, "sleep", sleep)
+
+
+def test_a_replace_of_the_sidecar_is_not_made_for_a_blob_another_process_has_replaced_since(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The retry checks the blob again: a late replace would overwrite the record of the blob there (GH-3632)."""
+    blob, written = _blob_with_sidecar_inputs(tmp_path)
+    sidecar = network._sidecar_of(blob)  # noqa: SLF001
+    monkeypatch.setattr(network, "_REFUSED_PAUSES", (0.0,) * 3)
+    replace = os.replace
+    attempts = [0]
+
+    def refuse_then_let_the_blob_change(source: str, destination: str) -> None:
+        if Path(destination) != sidecar:
+            replace(source, destination)
+            return
+        attempts[0] += 1
+        blob.write_bytes(b"the body of another fetch")  # what another process does between two tries
+        msg = "[WinError 5] Access is denied"
+        raise PermissionError(msg)
+
+    monkeypatch.setattr(network.os, "replace", refuse_then_let_the_blob_change)
+
+    network._write_sidecar(blob, _LAST_MODIFIED, written)  # noqa: SLF001
+
+    assert attempts == [1]
+    assert not sidecar.exists()
+    assert _stray_files(tmp_path) == [blob.name]
+
+
+def test_a_sidecar_that_is_not_there_is_read_once_and_is_no_record(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Only a refusal is asked again: a blob with no sidecar is answered at once, with no pause (GH-3632)."""
+    blob, _ = _blob_with_sidecar_inputs(tmp_path)
+    sidecar = network._sidecar_of(blob)  # noqa: SLF001
+    _fail_if_asked_again(monkeypatch)
+    original = Path.read_text
+    reads = [0]
+
+    def read_text(self: Path, *args: object, **kwargs: object) -> str:
+        reads[0] += int(self == sidecar)
+        return original(self, *args, **kwargs)  # ty: ignore[invalid-argument-type]
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    assert network._sidecar_record(blob) is None  # noqa: SLF001
+    assert reads == [1]
+
+
+def test_a_replace_of_the_sidecar_that_fails_otherwise_is_not_asked_again(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Only a `PermissionError` is a sharing violation: any other error of the replace is given up at once (GH-3632)."""
+    blob, written = _blob_with_sidecar_inputs(tmp_path)
+    sidecar = network._sidecar_of(blob)  # noqa: SLF001
+    _fail_if_asked_again(monkeypatch)
+    replace = os.replace
+    attempts = [0]
+
+    def fail(source: str, destination: str) -> None:
+        if Path(destination) != sidecar:
+            replace(source, destination)
+            return
+        attempts[0] += 1
+        msg = "No space left on device"
+        raise OSError(msg)
+
+    monkeypatch.setattr(network.os, "replace", fail)
+
+    network._write_sidecar(blob, _LAST_MODIFIED, written)  # noqa: SLF001
+
+    assert attempts == [1]
+    assert not sidecar.exists()
+    assert _stray_files(tmp_path) == [blob.name]
 
 
 def test_a_body_cut_short_leaves_no_file_in_the_cache(status_server: ThreadingHTTPServer, tmp_path: Path) -> None:
