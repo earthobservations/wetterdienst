@@ -116,6 +116,10 @@ def test_a_tool_that_advertises_a_format_answers_in_it(tool: str, monkeypatch: p
     have no body for the `metadata` block, and, for `values`, the warning the reader raised.
     """
     _stub_stream(monkeypatch, [_values_result_of_shape("long")])
+    # Every image format of the map of the stations is drawn by Kaleido/Chrome, which on a loaded runner under xdist
+    # outlasted the server's 60 s and was answered 504 (GH-3586). The test holds the format of each answer, not how
+    # long a render takes, so the server may take as long as a slow provider is given in a remote test.
+    monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "300")
     arguments = {**_VALUES, "parameters": "daily/climate_summary/temperature_air_mean_2m"}
     if tool == "stations":
         arguments = {key: value for key, value in arguments.items() if key != "stations"} | {"all": True}
