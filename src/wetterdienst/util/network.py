@@ -1210,8 +1210,9 @@ _cache_dir_lock = threading.RLock()
 
 #: How long a process waits for the lock file of a cache directory (GH-3485) while nothing moves: the longest it is
 #: held with no other process getting it in between. What is held for is a read, a merge and a replace of one metadata
-#: file, or a sweep of one directory: well under a second for a directory of thousands of entries, over a second (2.5 s
-#: on a loaded machine) for tens of thousands. The wait goes on past this while the lock goes from hand to hand
+#: file (with the rename of a fetched file and its date beside it, GH-3634), or a sweep of one directory: well under
+#: a second for a directory of thousands of entries, over a second (2.5 s on a loaded machine) for tens of thousands.
+#: The wait goes on past this while the lock goes from hand to hand
 #: (`_acquire_while_it_moves`), so a queue of six processes is no reason to give up, and ten seconds with the same
 #: process holding it is: that is a holder that is stuck.
 _CACHE_LOCK_TIMEOUT_SECONDS = 10.0
@@ -1333,8 +1334,8 @@ def _locked_across_processes(directory: Path, *, otherwise: str, wait: float | N
     * `False`: another process held it past the wait. What the caller does then is its own to say (`otherwise`, for the
       log line): a save is skipped, which costs a fetch again later at worst; a sweep is left to the next process; a
       load keeps the view it has; a drop of an entry and a clear go ahead without writing the file or reading it, and
-      the rename of a fetched file goes ahead without the row, and its date is
-      written without the lock, as it was before there was one (a date is never skipped for a busy lock).
+      the rename of a fetched file goes ahead without the row, with its date written without the lock as before
+      there was one (a date is never skipped for a busy lock).
 
     Args:
         directory: The cache directory (the one with the metadata file in it).
