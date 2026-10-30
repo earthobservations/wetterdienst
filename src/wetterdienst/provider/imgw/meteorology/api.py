@@ -873,6 +873,8 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
             # the list pads some names with a trailing blank (`RADZIECHOWY `),
             # which an exact comparison of the name then misses
             pl.col("name").str.strip_chars(),
+            # the river is trimmed the same way, and a station the list gives none is null, not an empty string
+            pl.col("river").str.strip_chars().replace("", None),
             convert_dms_string_to_dd(pl.col("latitude")),
             convert_dms_string_to_dd(pl.col("longitude")),
             pl.col("elevation").str.replace(" ", ""),

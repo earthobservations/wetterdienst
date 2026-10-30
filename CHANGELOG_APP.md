@@ -16,8 +16,27 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Meteogram]` The forecast's table of values is a view of its own, no longer a "Show as table"
+  button below the chart: one control in the toolbar chooses Chart, Compact or Table (it replaces
+  the Compact button; the arrow keys move along it). The table is as wide as the page, keeps its
+  header and time column in view while it scrolls, and is not cut at a short height. The view is
+  in the URL as `?view=chart|compact|table` and remembered in the browser as `meteogram.view`;
+  `compact=true` links still open the compact view, and an old `meteogram.compact` is taken over
+  once. The widget is unchanged (GH-3406)
+
 ### Fixed
 
+- `[Meteogram]` The compact view no longer makes the page scroll sideways on a narrow screen
+  (320 px), where the weather words of its day cards lay outside the box that scrolls (GH-3406)
+- `[Translations]` Parameter labels now say what the English ones say: the maximum wind gust was
+  just "a gust" in six languages, the fresh snow depth lost "depth" in nine, cooling degree days
+  and hours were "cooling days and hours" in Dutch and Danish, Italian loamy sand was "sabbia
+  limosa" (silty sand), soil temperatures under bare ground dropped "of the soil" in French,
+  Spanish and Italian, the Spanish minimum temperature 5 cm above the ground read as a soil
+  temperature, and Spanish and Italian had two words for the sunshine duration. Open terms:
+  `app/i18n/TERMS.md` (GH-2610)
 - `[Accessibility]` A toast, an error of the Explorer for one, no longer hides the link of the
   footer that the Tab key has reached ("Third-party licences" under it at 1280x720): while a toast
   is shown the page has room for it at its foot and scrolls a focused element clear of it

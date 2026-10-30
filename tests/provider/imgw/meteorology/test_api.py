@@ -57,6 +57,29 @@ def test_imgw_meteorology_station_list_gives_no_region(monkeypatch: pytest.Monke
     assert df["region"].is_null().all()
 
 
+def test_imgw_meteorology_station_list_trims_the_river_and_gives_none_as_null(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A river the list pads with blanks is the river, one it leaves empty is null (GH-3603), as in imgw/hydrology."""
+    catalogue = (
+        "LP.;Kod 9-znakowy;Nazwa stacji;Rzeka;Rok założenia;Szerokość geograficzna;Długość geograficzna;"
+        "Wysokość n.p.m.\r\n"
+        "1;249170080;Dzierżkowice;Opawa (112) ;2024;49 59 32;17 50 47;270\r\n"
+        "2;249180010;Pszczyna; ;1954;49 59 44;18 55 09;270\r\n"
+        "4;249180030;Chałupki;;1948;49 55 33;18 19 39;198\r\n"
+    )
+    monkeypatch.setattr(
+        "wetterdienst.provider.imgw.meteorology.api.download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(catalogue.encode("utf8")), status=200),
+    )
+
+    df = ImgwMeteorologyRequest(parameters=[("daily", "climate")]).all().df
+
+    assert df.select("station_id", "river").rows() == [
+        ("249170080", "Opawa (112)"),
+        ("249180010", None),
+        ("249180030", None),
+    ]
+
+
 def test_imgw_meteorology_station_list_reads_the_elevation_as_a_number_and_what_is_none_as_null(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
