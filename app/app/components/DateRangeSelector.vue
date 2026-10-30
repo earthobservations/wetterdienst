@@ -144,7 +144,7 @@ defineExpose({ isValid, validationError })
       color="error"
       variant="subtle"
       :title="validationError"
-      icon="i-lucide-alert-circle"
+      icon="i-ph-warning-circle"
     />
   </div>
 </template>

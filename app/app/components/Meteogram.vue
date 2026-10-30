@@ -49,9 +49,9 @@ const LOCAL_STORAGE_KEY = 'meteogram.view'
 // the key from before the table was a view: `true` for the compact overview, `false` for the chart
 const LEGACY_STORAGE_KEY = 'meteogram.compact'
 const viewOptions = computed<{ value: MeteogramView, label: string, icon: string }[]>(() => [
-  { value: 'chart', label: t('meteogram.chart.viewChart'), icon: 'i-lucide-chart-line' },
-  { value: 'compact', label: t('meteogram.chart.viewCompact'), icon: 'i-lucide-layout-grid' },
-  { value: 'table', label: t('meteogram.chart.viewTable'), icon: 'i-lucide-table' },
+  { value: 'chart', label: t('meteogram.chart.viewChart'), icon: 'i-ph-chart-line' },
+  { value: 'compact', label: t('meteogram.chart.viewCompact'), icon: 'i-ph-squares-four' },
+  { value: 'table', label: t('meteogram.chart.viewTable'), icon: 'i-ph-table' },
 ])
 
 // Interactive panel visibility controls
@@ -110,7 +110,8 @@ onMounted(() => {
     // the widget has no control to leave the table with: it shows the chart or the day cards
     if (stored && !(props.widget && stored === 'table'))
       view.value = stored
-    else if (!stored && window.innerWidth <= 640)
+    // in rem, so that a reader who has set a larger text size gets the compact view sooner (GH-3518)
+    else if (!stored && window.matchMedia('(max-width: 40rem)').matches)
       view.value = 'compact'
   }
 
@@ -2044,7 +2045,7 @@ watch(
   <div>
     <UEmpty
       v-if="!values || values.length === 0"
-      icon="i-lucide-cloud-off"
+      icon="i-ph-cloud-slash"
       :title="t('meteogram.chart.noData')"
     />
 
@@ -2068,7 +2069,7 @@ watch(
               ]"
               @click="visiblePanels.temp = !visiblePanels.temp"
             >
-              <UIcon name="i-lucide-thermometer" class="w-3.5 h-3.5" />
+              <UIcon name="i-ph-thermometer" class="w-3.5 h-3.5" />
             </button>
 
             <button
@@ -2082,7 +2083,7 @@ watch(
               ]"
               @click="visiblePanels.wind = !visiblePanels.wind"
             >
-              <UIcon name="i-lucide-wind" class="w-3.5 h-3.5" />
+              <UIcon name="i-ph-wind" class="w-3.5 h-3.5" />
             </button>
 
             <button
@@ -2096,7 +2097,7 @@ watch(
               ]"
               @click="visiblePanels.precip = !visiblePanels.precip"
             >
-              <UIcon name="i-lucide-cloud-rain" class="w-3.5 h-3.5" />
+              <UIcon name="i-ph-cloud-rain" class="w-3.5 h-3.5" />
             </button>
 
             <button
@@ -2111,7 +2112,7 @@ watch(
               :disabled="compact"
               @click="visiblePanels.cloud = !visiblePanels.cloud"
             >
-              <UIcon name="i-lucide-cloud" class="w-3.5 h-3.5" />
+              <UIcon name="i-ph-cloud" class="w-3.5 h-3.5" />
             </button>
 
             <button
@@ -2125,7 +2126,7 @@ watch(
               ]"
               @click="visiblePanels.pressure = !visiblePanels.pressure"
             >
-              <UIcon name="i-lucide-gauge" class="w-3.5 h-3.5" />
+              <UIcon name="i-ph-gauge" class="w-3.5 h-3.5" />
             </button>
           </div>
 
@@ -2150,7 +2151,7 @@ watch(
         <div class="flex items-center gap-2 md:ml-auto shrink-0 order-first md:order-last">
           <UButton
             v-if="view === 'chart'"
-            icon="i-lucide-rotate-ccw"
+            icon="i-ph-arrow-counter-clockwise"
             size="sm"
             variant="outline"
             color="neutral"
@@ -2171,29 +2172,29 @@ watch(
       <!-- Summary stats: same order as the panel toggles (temp/wind/precip/cloud/pressure) -->
       <div v-if="summaryStats && !widget" class="flex flex-wrap gap-x-5 gap-y-2 px-1 text-sm">
         <div v-if="summaryStats.temp" class="flex items-center gap-1.5">
-          <UIcon name="i-lucide-thermometer" class="w-4 h-4 text-red-500 shrink-0" />
+          <UIcon name="i-ph-thermometer" class="w-4 h-4 text-red-500 shrink-0" />
           <span class="text-blue-600 dark:text-blue-400 font-semibold">{{ summaryStats.temp.min }}°</span>
           <span class="text-gray-500 dark:text-gray-400">/</span>
           <span class="text-red-600 dark:text-red-400 font-semibold">{{ summaryStats.temp.max }}°C</span>
         </div>
         <div class="flex items-center gap-1.5">
-          <UIcon name="i-lucide-wind" class="w-4 h-4 text-cyan-500 shrink-0" />
+          <UIcon name="i-ph-wind" class="w-4 h-4 text-cyan-500 shrink-0" />
           <span class="font-semibold text-gray-800 dark:text-gray-100">{{ formatNumber(summaryStats.gust, locale, 1) }}</span>
           <span class="text-gray-500 dark:text-gray-400 text-xs">m/s</span>
           <span class="text-cyan-700 dark:text-cyan-400 text-xs">({{ Math.round(summaryStats.gust * 3.6) }} km/h)</span>
         </div>
         <div class="flex items-center gap-1.5">
-          <UIcon name="i-lucide-cloud-rain" class="w-4 h-4 text-blue-500 shrink-0" />
+          <UIcon name="i-ph-cloud-rain" class="w-4 h-4 text-blue-500 shrink-0" />
           <span class="font-semibold text-gray-800 dark:text-gray-100">{{ formatNumber(summaryStats.precip, locale, 1) }}</span>
           <span class="text-gray-500 dark:text-gray-400 text-xs">mm</span>
         </div>
         <div class="flex items-center gap-1.5">
-          <UIcon name="i-lucide-cloud" class="w-4 h-4 text-slate-400 shrink-0" />
+          <UIcon name="i-ph-cloud" class="w-4 h-4 text-slate-400 shrink-0" />
           <span class="font-semibold text-gray-800 dark:text-gray-100">{{ summaryStats.cloud }}</span>
           <span class="text-gray-500 dark:text-gray-400 text-xs">%</span>
         </div>
         <div v-if="summaryStats.pressure" class="flex items-center gap-1.5">
-          <UIcon name="i-lucide-gauge" class="w-4 h-4 text-lime-500 shrink-0" />
+          <UIcon name="i-ph-gauge" class="w-4 h-4 text-lime-500 shrink-0" />
           <span class="font-semibold text-gray-800 dark:text-gray-100">{{ summaryStats.pressure.min }}–{{ summaryStats.pressure.max }}</span>
           <span class="text-gray-500 dark:text-gray-400 text-xs">hPa</span>
         </div>
@@ -2205,7 +2206,7 @@ watch(
 
       <!-- Main Interactive Chart Container -->
       <div v-if="view === 'chart'">
-        <div class="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
+        <div class="rounded-xl border border-gray-200 dark:border-gray-800 bg-default shadow-sm overflow-hidden">
           <div
             v-if="renderFailed"
             ref="chartNotice"
@@ -2222,8 +2223,8 @@ watch(
                 <span class="block text-sm">{{ t('dataViewer.chartCodeNotLoaded') }}</span>
               </template>
             </span>
-            <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="requestRender(false)" />
-            <UButton v-if="chartCodeNotLoaded" :label="t('common.reloadPage')" icon="i-lucide-refresh-cw" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
+            <UButton :label="t('common.retry')" icon="i-ph-arrow-clockwise" size="sm" color="neutral" variant="outline" @click="requestRender(false)" />
+            <UButton v-if="chartCodeNotLoaded" :label="t('common.reloadPage')" icon="i-ph-arrows-clockwise" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
           </div>
           <!-- a figure, as the app's other charts, and no landmark; drawn without Plotly's modebar, it holds
                no controls of Plotly's to keep reachable. Described by what it shows; the table has the values -->
@@ -2246,7 +2247,7 @@ watch(
       <!-- The values the chart draws, as a table of their own at the width of the page -->
       <div v-else-if="view === 'table'">
         <ValuesTable v-if="chartTable" full :caption="chartLabel" :columns="chartTable.columns" :rows="chartTable.rows" />
-        <UEmpty v-else icon="i-lucide-table" :title="t('meteogram.chart.noData')" />
+        <UEmpty v-else icon="i-ph-table" :title="t('meteogram.chart.noData')" />
       </div>
 
       <!-- Premium Compact Overview Grid -->

@@ -62,6 +62,82 @@
     "kindRoadDesc": "État et température de la chaussée depuis les stations routières du DWD, avec leurs prévisions.",
     "aboutLink": "À propos du projet et des personnes qui le portent"
   },
+  "ask": {
+    "title": "Demande à la météo",
+    "lead": "Les questions que l'on se pose, avec des réponses tirées des mesures et prévisions officielles, et le graphique pour vérifier.",
+    "placeLabel": "Pour le lieu",
+    "placeChange": "changer de lieu",
+    "placeNotFound": "Le lieu du lien est introuvable.",
+    "placeDialogTitle": "Choisir un lieu",
+    "placePlaceholder": "Le nom d'une ville ou d'une station météo …",
+    "placeHint": "Tape le nom d'une ville ou d'une station météo.",
+    "placeSearching": "Recherche de lieux …",
+    "placeFailed": "Les lieux n'ont pas pu être recherchés.",
+    "placesGroup": "Stations météo",
+    "questionsLabel": "Liste des questions",
+    "idle": "Choisis une question : la réponse est donnée ici, à partir de données en direct.",
+    "q": {
+      "rain": "Va-t-il pleuvoir à {place} demain ?",
+      "summer": "L'été dernier a-t-il été plus chaud que d'habitude ici ?",
+      "wind": "Quel vent a-t-il fait le {day} ?",
+      "download": "Où télécharger des températures horaires ?"
+    },
+    "from": {
+      "rain": "Prévisions, DWD MOSMIX",
+      "summer": "Moyennes mensuelles, DWD",
+      "wind": "Relevés quotidiens, DWD",
+      "download": "Tous les services météorologiques"
+    },
+    "working": "Calcul de la réponse …",
+    "failed": "La réponse n'a pas pu être calculée.",
+    "showValues": "Afficher les valeurs",
+    "tableWhen": "Quand",
+    "leadsTo": "Ouvrir les données dans l'outil",
+    "rain": {
+      "yes": "Oui, de la pluie est probable.",
+      "maybe": "Peut-être, un peu.",
+      "no": "Probablement pas.",
+      "total": "{amount} mm prévus pour toute la journée.",
+      "wettest": "Heure la plus pluvieuse : de {from} h à {to} h, {amount} mm.",
+      "chance": "Plus forte probabilité de pluie sur une heure : {chance}.",
+      "point": "Prévisions pour {name}, le point de prévision le plus proche de {place} (à {distance} km).",
+      "pointNoDistance": "Prévisions pour {name}, le point de prévision le plus proche de {place}.",
+      "chart": "Pluie par heure demain, en {unit}",
+      "none": "Les prévisions pour {name} ne vont pas encore jusqu'à demain.",
+      "open": "Ouvrir les prévisions complètes"
+    },
+    "summer": {
+      "hotter": "Oui, {anomaly} °C de plus que d'habitude.",
+      "cooler": "Non, {anomaly} °C de moins que d'habitude.",
+      "usual": "Pas vraiment : à peu près comme d'habitude.",
+      "detail": "L'été {year} (juin à août) a eu une moyenne de {mean} °C ; les étés de {from} à {to}, de {normal} °C.",
+      "rank": "Rang {rank} sur {count} étés depuis {first}, en partant du plus chaud.",
+      "chart": "Chaque été par rapport à la moyenne de {from} à {to}, en {unit}",
+      "none": "Il y a trop peu d'étés complets ici pour comparer.",
+      "open": "Ouvrir les moyennes mensuelles",
+      "stripes": "Voir les bandes climatiques"
+    },
+    "wind": {
+      "calm": "Calme.",
+      "breezy": "Un peu de vent.",
+      "windy": "Venteux.",
+      "stormy": "Tempétueux.",
+      "mean": "Vent moyen {speed} m/s, Beaufort {force}.",
+      "gust": "Rafale la plus forte {speed} m/s, Beaufort {force}.",
+      "context": "Jours alentour avec des rafales plus fortes : {stronger} sur {around}.",
+      "chartGust": "Rafale la plus forte par jour, en {unit}",
+      "chartMean": "Vent moyen par jour, en {unit}",
+      "none": "Il n'y a pas de mesures de vent ici pour le {day}.",
+      "dayLabel": "Jour",
+      "open": "Ouvrir ces jours dans l'Explorateur"
+    },
+    "download": {
+      "answer": "Services météorologiques qui publient la température horaire de l'air : {count}.",
+      "detail": "Chacun s'ouvre dans l'Explorateur, prêt à télécharger en CSV, JSON ou GeoJSON.",
+      "none": "Aucun service météorologique ne publie de température horaire de l'air pour le moment.",
+      "api": "Ou utilise l'API REST"
+    }
+  },
   "seo": {
     "title": "Wetterdienst – données météorologiques et climatiques ouvertes des services météorologiques nationaux",
     "description": "Données météorologiques et climatiques ouvertes des services météorologiques nationaux, dans un seul format : explorateur, prévisions, bandes climatiques, API REST et serveur MCP. Open source et gratuit.",
@@ -117,6 +193,30 @@
     "api": "API",
     "glossary": "Glossaire",
     "support": "Aide"
+  },
+  "shell": {
+    "skipToContent": "Aller au contenu",
+    "mainNav": "Navigation principale",
+    "tools": "Outils",
+    "reference": "Référence",
+    "project": "Projet",
+    "search": "Rechercher",
+    "searchPlaceholder": "Aller à une page, une station, un fournisseur ou un réglage",
+    "searchEmpty": "Aucun résultat",
+    "results": "Résultats",
+    "resultsCount": "{count} résultat | {count} résultats",
+    "stations": "Prévisions pour une station",
+    "stationsHint": "Tape trois lettres ou plus pour trouver une station",
+    "stationForecast": "Prévisions pour la station {id}",
+    "keysHint": "↑ ↓ pour choisir, Entrée pour ouvrir, Échap pour fermer",
+    "desc": {
+      "support": "Signaler un bug, proposer une fonction ou soutenir le projet",
+      "impressum": "Qui publie ce site, et comment le joindre",
+      "privacy": "Ce qu'une visite enregistre, et pourquoi",
+      "docs": "Utiliser la bibliothèque Python, la ligne de commande et l'API",
+      "github": "Le code, les tickets et les pull requests",
+      "pypi": "Installer la bibliothèque Python avec pip"
+    }
   },
   "header": {
     "github": "GitHub",

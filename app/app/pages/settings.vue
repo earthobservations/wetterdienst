@@ -13,9 +13,9 @@ const selectedLanguage = computed({
 })
 
 const themeOptions = computed(() => [
-  { value: 'system', label: t('settings.themeSystem'), icon: 'i-lucide-monitor' },
-  { value: 'light', label: t('settings.themeLight'), icon: 'i-lucide-sun' },
-  { value: 'dark', label: t('settings.themeDark'), icon: 'i-lucide-moon' },
+  { value: 'system', label: t('settings.themeSystem'), icon: 'i-ph-monitor' },
+  { value: 'light', label: t('settings.themeLight'), icon: 'i-ph-sun' },
+  { value: 'dark', label: t('settings.themeDark'), icon: 'i-ph-moon' },
 ])
 
 // The unit choices this page offers and stores. They are *not* applied to a request today: a query
@@ -56,148 +56,142 @@ function unitItems(units: readonly string[]) {
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-2xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('settings.title') }}
-      </h1>
-      <p class="text-gray-600 dark:text-gray-400">
-        {{ t('settings.subtitle') }}
-      </p>
-    </div>
-
-    <!-- Language -->
-    <UCard>
-      <template #header>
-        <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-languages" class="text-primary-500 shrink-0" />
-          <h2 class="text-lg font-bold">
-            {{ t('settings.language') }}
-          </h2>
-        </div>
-      </template>
-      <USelect
-        v-model="selectedLanguage"
-        :items="languageItems"
-        :aria-label="t('settings.language')"
-        class="w-full sm:w-64"
-      />
-    </UCard>
-
-    <!-- Appearance -->
-    <UCard>
-      <template #header>
-        <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-palette" class="text-primary-500 shrink-0" />
-          <h2 class="text-lg font-bold">
-            {{ t('settings.theme') }}
-          </h2>
-        </div>
-      </template>
-      <UFieldGroup>
-        <UButton
-          v-for="opt in themeOptions"
-          :key="opt.value"
-          :icon="opt.icon"
-          :label="opt.label"
-          color="neutral"
-          :variant="colorMode.preference === opt.value ? 'solid' : 'ghost'"
-          @click="colorMode.preference = opt.value"
+  <div class="frame">
+    <PageHeader :title="t('settings.title')" :lede="t('settings.subtitle')" />
+    <div class="page-body" data-width="read">
+      <!-- Language -->
+      <UCard>
+        <template #header>
+          <div class="flex items-center gap-2">
+            <UIcon name="i-ph-translate" class="text-primary-500 shrink-0" />
+            <h2 class="text-lg font-bold">
+              {{ t('settings.language') }}
+            </h2>
+          </div>
+        </template>
+        <USelect
+          v-model="selectedLanguage"
+          :items="languageItems"
+          :aria-label="t('settings.language')"
+          class="w-full sm:w-64"
         />
-      </UFieldGroup>
-    </UCard>
+      </UCard>
 
-    <!-- Display & data -->
-    <UCard>
-      <template #header>
-        <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-ruler" class="text-primary-500 shrink-0" />
-          <h2 class="text-lg font-bold">
-            {{ t('settings.units') }}
-          </h2>
-        </div>
-      </template>
-      <div class="space-y-5">
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <label for="settings-friendly-labels" class="block font-medium">
-              {{ t('settings.friendlyLabels') }}
-            </label>
-            <p class="text-sm text-gray-500 dark:text-gray-400">
-              {{ t('settings.friendlyLabelsHint') }}
-            </p>
+      <!-- Appearance -->
+      <UCard>
+        <template #header>
+          <div class="flex items-center gap-2">
+            <UIcon name="i-ph-palette" class="text-primary-500 shrink-0" />
+            <h2 class="text-lg font-bold">
+              {{ t('settings.theme') }}
+            </h2>
           </div>
-          <USwitch id="settings-friendly-labels" v-model="settings.friendlyLabels" />
-        </div>
+        </template>
+        <UFieldGroup>
+          <UButton
+            v-for="opt in themeOptions"
+            :key="opt.value"
+            :icon="opt.icon"
+            :label="opt.label"
+            color="neutral"
+            :variant="colorMode.preference === opt.value ? 'solid' : 'ghost'"
+            @click="colorMode.preference = opt.value"
+          />
+        </UFieldGroup>
+      </UCard>
 
-        <USeparator />
-
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <label for="settings-convert-units" class="block font-medium">
-              {{ t('settings.convertUnits') }}
-            </label>
-            <p class="text-sm text-gray-500 dark:text-gray-400">
-              {{ t('settings.convertUnitsHint') }}
-            </p>
+      <!-- Display & data -->
+      <UCard>
+        <template #header>
+          <div class="flex items-center gap-2">
+            <UIcon name="i-ph-ruler" class="text-primary-500 shrink-0" />
+            <h2 class="text-lg font-bold">
+              {{ t('settings.units') }}
+            </h2>
           </div>
-          <USwitch id="settings-convert-units" v-model="settings.convertUnits" />
-        </div>
-
-        <div v-if="settings.convertUnits" class="space-y-5">
-          <div class="space-y-3">
-            <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-              {{ t('settings.unitsWeather') }}
+        </template>
+        <div class="space-y-5">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <label for="settings-friendly-labels" class="block font-medium">
+                {{ t('settings.friendlyLabels') }}
+              </label>
+              <p class="text-sm text-gray-500 dark:text-gray-400">
+                {{ t('settings.friendlyLabelsHint') }}
+              </p>
             </div>
-            <div
-              v-for="group in weatherUnitGroups"
-              :key="group.key"
-              class="flex items-center justify-between gap-4"
-            >
-              <label :for="`settings-unit-${group.key}`" class="text-sm">{{ t(group.label) }}</label>
-              <USelect
-                :id="`settings-unit-${group.key}`"
-                v-model="settings.units[group.key]"
-                :items="unitItems(group.units)"
-                class="w-56"
-              />
-            </div>
+            <USwitch id="settings-friendly-labels" v-model="settings.friendlyLabels" />
           </div>
 
-          <div class="space-y-3">
-            <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-              {{ t('settings.unitsOther') }}
+          <USeparator />
+
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <label for="settings-convert-units" class="block font-medium">
+                {{ t('settings.convertUnits') }}
+              </label>
+              <p class="text-sm text-gray-500 dark:text-gray-400">
+                {{ t('settings.convertUnitsHint') }}
+              </p>
             </div>
-            <div
-              v-for="group in otherUnitGroups"
-              :key="group.key"
-              class="flex items-center justify-between gap-4"
-            >
-              <label :for="`settings-unit-${group.key}`" class="text-sm">{{ t(group.label) }}</label>
-              <USelect
-                :id="`settings-unit-${group.key}`"
-                v-model="settings.units[group.key]"
-                :items="unitItems(group.units)"
-                class="w-56"
-              />
+            <USwitch id="settings-convert-units" v-model="settings.convertUnits" />
+          </div>
+
+          <div v-if="settings.convertUnits" class="space-y-5">
+            <div class="space-y-3">
+              <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                {{ t('settings.unitsWeather') }}
+              </div>
+              <div
+                v-for="group in weatherUnitGroups"
+                :key="group.key"
+                class="flex items-center justify-between gap-4"
+              >
+                <label :for="`settings-unit-${group.key}`" class="text-sm">{{ t(group.label) }}</label>
+                <USelect
+                  :id="`settings-unit-${group.key}`"
+                  v-model="settings.units[group.key]"
+                  :items="unitItems(group.units)"
+                  class="w-56"
+                />
+              </div>
+            </div>
+
+            <div class="space-y-3">
+              <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                {{ t('settings.unitsOther') }}
+              </div>
+              <div
+                v-for="group in otherUnitGroups"
+                :key="group.key"
+                class="flex items-center justify-between gap-4"
+              >
+                <label :for="`settings-unit-${group.key}`" class="text-sm">{{ t(group.label) }}</label>
+                <USelect
+                  :id="`settings-unit-${group.key}`"
+                  v-model="settings.units[group.key]"
+                  :items="unitItems(group.units)"
+                  class="w-56"
+                />
+              </div>
             </div>
           </div>
         </div>
+      </UCard>
+
+      <div class="flex items-center justify-between">
+        <p class="text-xs text-gray-500 dark:text-gray-400">
+          {{ t('settings.savedHint') }}
+        </p>
+        <UButton
+          :label="t('settings.reset')"
+          icon="i-ph-arrow-counter-clockwise"
+          color="neutral"
+          variant="outline"
+          size="sm"
+          @click="reset"
+        />
       </div>
-    </UCard>
-
-    <div class="flex items-center justify-between">
-      <p class="text-xs text-gray-500 dark:text-gray-400">
-        {{ t('settings.savedHint') }}
-      </p>
-      <UButton
-        :label="t('settings.reset')"
-        icon="i-lucide-rotate-ccw"
-        color="neutral"
-        variant="outline"
-        size="sm"
-        @click="reset"
-      />
     </div>
-  </UContainer>
+  </div>
 </template>

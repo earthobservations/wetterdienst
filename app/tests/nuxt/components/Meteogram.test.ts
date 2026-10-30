@@ -964,14 +964,24 @@ describe('meteogram text alternative', { timeout: 15_000 }, () => {
     })
 
     it('shows the compact overview on a small screen where nothing is stored or linked', async () => {
-      const width = window.innerWidth
-      window.innerWidth = 500
+      // the view is chosen by a media query in rem (GH-3518), so a reader with a larger text size gets it sooner
+      const original = window.matchMedia
+      window.matchMedia = ((query: string) => ({
+        matches: query === '(max-width: 40rem)',
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        addListener: () => {},
+        removeListener: () => {},
+        onchange: null,
+        dispatchEvent: () => false,
+      })) as typeof window.matchMedia
       try {
         await showForecast()
         expect(checked()).toEqual(['Compact'])
       }
       finally {
-        window.innerWidth = width
+        window.matchMedia = original
       }
     })
   })

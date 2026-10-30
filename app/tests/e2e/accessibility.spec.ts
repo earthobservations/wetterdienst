@@ -3,6 +3,7 @@ import type { Locale, Mode, Variant } from './accessibility/scan'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
+import { askHandlers } from './accessibility/ask-backend'
 import { scanHover, scanKeyboard } from './accessibility/interact'
 import { ApiFailure, mockBackend } from './accessibility/mock-backend'
 import { compareToBaseline, readBaseline, RECORDING, scan, variantKey } from './accessibility/scan'
@@ -360,6 +361,89 @@ const STATES: State[] = [
     reach: async (page, locale) => {
       await page.getByRole('button', { name: message(locale, 'header.menu'), exact: true }).click()
       await expect(page.getByRole('navigation').last()).toBeVisible()
+    },
+  },
+  {
+    // the reference of the wide header, a disclosure of links (GH-3518)
+    page: 'index',
+    state: 'reference-open',
+    path: '/',
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'shell.reference'), exact: true }).click()
+      await expect(page.getByRole('link', { name: new RegExp(message(locale, 'nav.glossary')) }).first()).toBeVisible()
+    },
+  },
+  {
+    // the search of the header, a dialog with a list of every place (GH-3518)
+    page: 'index',
+    state: 'search-open',
+    keepFocus: true,
+    path: '/',
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'shell.search') }).click()
+      await expect(page.getByRole('dialog')).toBeVisible()
+      await expect(page.getByRole('option').first()).toBeVisible()
+    },
+  },
+  {
+    // the search with a query typed: the pages and providers it matches, and the forecast stations the backend found
+    page: 'index',
+    state: 'search-results',
+    keepFocus: true,
+    path: '/',
+    reach: async (page, locale) => {
+      // the shortcut is the app's: it listens once the page has been drawn
+      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+      await page.keyboard.press('Control+k')
+      await expect(page.getByRole('combobox', { name: message(locale, 'shell.search') })).toBeFocused()
+      await page.keyboard.type('ber')
+      await expect(page.getByRole('option', { name: /BERLIN-TEMPELHOF/ })).toBeVisible()
+      await page.keyboard.press('ArrowDown')
+    },
+  },
+  {
+    // Ask the weather (GH-3518): a question open, with its verdict, its bars and the links into the tools
+    page: 'index',
+    state: 'ask-answer-open',
+    path: '/?ask=rain',
+    handlers: askHandlers(),
+    reach: async (page) => {
+      await expect(page.getByTestId('answer-verdict')).toBeVisible()
+    },
+  },
+  {
+    // the summer question: bars that hang from a line, the one asked about marked, the table of values opened
+    page: 'index',
+    state: 'ask-summer-values',
+    path: '/?ask=summer',
+    handlers: askHandlers(),
+    reach: async (page, locale) => {
+      await expect(page.getByTestId('answer-verdict')).toBeVisible()
+      await page.getByText(message(locale, 'ask.showValues'), { exact: true }).click()
+      await expect(page.getByRole('table')).toBeVisible()
+    },
+  },
+  {
+    // the search of a place of the questions, with a name typed
+    page: 'index',
+    state: 'ask-place-open',
+    keepFocus: true,
+    path: '/',
+    handlers: askHandlers(),
+    reach: async (page) => {
+      await page.getByTestId('place-button').click()
+      await page.getByRole('combobox').fill('ar')
+      await expect(page.getByRole('option').first()).toBeVisible()
+    },
+  },
+  {
+    // the tab bar of the narrow layout, on a tool's page
+    page: 'stripes',
+    state: 'tab-bar',
+    path: '/stripes',
+    viewport: { width: 390, height: 844 },
+    reach: async (page, locale) => {
+      await expect(page.getByRole('navigation').getByRole('link', { name: message(locale, 'nav.stripes') })).toHaveAttribute('aria-current', 'page')
     },
   },
 ]
@@ -884,7 +968,9 @@ test.describe('page titles', () => {
   test('a navigation within the app changes the title and announces the page', async ({ page, baseURL }) => {
     await mockBackend(page, baseURL!)
     await open(page, '/', { mode: 'light', locale: 'en' })
-    await page.getByRole('navigation').first().getByRole('link', { name: message('en', 'nav.glossary') }).click()
+    // the glossary is in the reference of the header, a disclosure (GH-3518)
+    await page.getByRole('navigation').first().getByRole('button', { name: message('en', 'shell.reference') }).click()
+    await page.getByRole('navigation').first().getByRole('link', { name: new RegExp(`^${message('en', 'nav.glossary')}`) }).click()
     await expect(page).toHaveTitle(`${message('en', 'glossary.title')} - Wetterdienst`)
     await expect(page.locator('.nuxt-route-announcer [aria-live]')).toHaveText(`${message('en', 'glossary.title')} - Wetterdienst`)
   })

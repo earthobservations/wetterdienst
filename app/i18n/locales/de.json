@@ -62,6 +62,82 @@
     "kindRoadDesc": "Fahrbahnzustand und -temperaturen der DWD-Straßenwetterstationen, mitsamt deren Vorhersagen.",
     "aboutLink": "Über das Projekt und die Menschen dahinter"
   },
+  "ask": {
+    "title": "Frag das Wetter",
+    "lead": "Die Fragen, die Menschen ans Wetter haben, beantwortet aus amtlichen Messungen und Vorhersagen, mit dem Diagramm zum Nachprüfen.",
+    "placeLabel": "Gefragt für",
+    "placeChange": "Ort ändern",
+    "placeNotFound": "Den Ort aus dem Link gibt es nicht.",
+    "placeDialogTitle": "Ort wählen",
+    "placePlaceholder": "Name eines Ortes oder einer Wetterstation …",
+    "placeHint": "Tippe den Namen eines Ortes oder einer Wetterstation.",
+    "placeSearching": "Orte werden gesucht …",
+    "placeFailed": "Die Orte ließen sich nicht durchsuchen.",
+    "placesGroup": "Wetterstationen",
+    "questionsLabel": "Fragen",
+    "idle": "Such dir eine Frage aus, sie wird hier aus aktuellen Daten beantwortet.",
+    "q": {
+      "rain": "Regnet es morgen in {place}?",
+      "summer": "War der letzte Sommer hier heißer als sonst?",
+      "wind": "Wie windig war es am {day}?",
+      "download": "Wo kann ich stündliche Temperaturen herunterladen?"
+    },
+    "from": {
+      "rain": "Vorhersage, DWD MOSMIX",
+      "summer": "Monatsmittel, DWD",
+      "wind": "Tageswerte, DWD",
+      "download": "Alle Wetterdienste"
+    },
+    "working": "Die Antwort wird ermittelt …",
+    "failed": "Die Antwort ließ sich nicht ermitteln.",
+    "showValues": "Werte anzeigen",
+    "tableWhen": "Wann",
+    "leadsTo": "Die Daten im Werkzeug öffnen",
+    "rain": {
+      "yes": "Ja, wahrscheinlich Regen.",
+      "maybe": "Vielleicht, ein wenig.",
+      "no": "Eher nicht.",
+      "total": "{amount} mm für den ganzen Tag vorhergesagt.",
+      "wettest": "Nasseste Stunde: {from}:00 bis {to}:00 Uhr, {amount} mm.",
+      "chance": "Höchste Regenwahrscheinlichkeit in einer Stunde: {chance}.",
+      "point": "Vorhersage für {name}, den nächsten Vorhersagepunkt zu {place} ({distance} km entfernt).",
+      "pointNoDistance": "Vorhersage für {name}, den nächsten Vorhersagepunkt zu {place}.",
+      "chart": "Regen pro Stunde morgen, in {unit}",
+      "none": "Die Vorhersage für {name} reicht noch nicht bis morgen.",
+      "open": "Ganze Vorhersage öffnen"
+    },
+    "summer": {
+      "hotter": "Ja, {anomaly} °C wärmer als sonst.",
+      "cooler": "Nein, {anomaly} °C kühler als sonst.",
+      "usual": "Nicht wirklich: etwa so warm wie sonst.",
+      "detail": "Der Sommer {year} (Juni bis August) hatte im Mittel {mean} °C, die Sommer von {from} bis {to} im Mittel {normal} °C.",
+      "rank": "Platz {rank} von {count} Sommern seit {first}, vom wärmsten an gezählt.",
+      "chart": "Jeder Sommer gegenüber dem Mittel von {from} bis {to}, in {unit}",
+      "none": "Hier gibt es zu wenige vollständige Sommer für einen Vergleich.",
+      "open": "Monatsmittel öffnen",
+      "stripes": "Klimastreifen ansehen"
+    },
+    "wind": {
+      "calm": "Ruhig.",
+      "breezy": "Leicht windig.",
+      "windy": "Windig.",
+      "stormy": "Stürmisch.",
+      "mean": "Mittlerer Wind {speed} m/s, Beaufort {force}.",
+      "gust": "Stärkste Böe {speed} m/s, Beaufort {force}.",
+      "context": "Tage rundherum mit stärkeren Böen: {stronger} von {around}.",
+      "chartGust": "Stärkste Böe pro Tag, in {unit}",
+      "chartMean": "Mittlerer Wind pro Tag, in {unit}",
+      "none": "Für den {day} gibt es hier keine Windmessungen.",
+      "dayLabel": "Tag",
+      "open": "Diese Tage im Explorer öffnen"
+    },
+    "download": {
+      "answer": "Wetterdienste mit stündlicher Lufttemperatur: {count}.",
+      "detail": "Jeder öffnet sich im Explorer, bereit zum Download als CSV, JSON oder GeoJSON.",
+      "none": "Gerade nennt kein Wetterdienst eine stündliche Lufttemperatur.",
+      "api": "Oder die REST-API nutzen"
+    }
+  },
   "seo": {
     "title": "Wetterdienst – offene Wetter- und Klimadaten von nationalen Wetterdiensten",
     "description": "Offene Wetter- und Klimadaten nationaler Wetterdienste, einheitlich abrufbar: Explorer, Vorhersage, Klimastreifen, REST-API und MCP-Server. Quelloffen und kostenlos.",
@@ -117,6 +193,30 @@
     "api": "API",
     "glossary": "Glossar",
     "support": "Unterstützen"
+  },
+  "shell": {
+    "skipToContent": "Zum Inhalt springen",
+    "mainNav": "Hauptnavigation",
+    "tools": "Werkzeuge",
+    "reference": "Nachschlagen",
+    "project": "Projekt",
+    "search": "Suchen",
+    "searchPlaceholder": "Zu einer Seite, einer Station, einem Anbieter oder einer Einstellung springen",
+    "searchEmpty": "Nichts gefunden",
+    "results": "Ergebnisse",
+    "resultsCount": "{count} Treffer | {count} Treffer",
+    "stations": "Vorhersage für eine Station",
+    "stationsHint": "Tippe drei Buchstaben oder mehr, um eine Station zu finden",
+    "stationForecast": "Vorhersage für Station {id}",
+    "keysHint": "↑ ↓ wählen, Enter öffnen, Esc schließen",
+    "desc": {
+      "support": "Einen Fehler melden, eine Funktion wünschen oder das Projekt unterstützen",
+      "impressum": "Wer diese Seite betreibt und wie du ihn erreichst",
+      "privacy": "Was ein Besuch speichert, und warum",
+      "docs": "Die Python-Bibliothek, die Kommandozeile und die API nutzen",
+      "github": "Der Code, die Issues und die Pull Requests",
+      "pypi": "Die Python-Bibliothek mit pip installieren"
+    }
   },
   "header": {
     "github": "GitHub",

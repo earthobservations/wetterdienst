@@ -137,7 +137,7 @@ const PROVIDER_LIST: ProvidersResponse = {
     api_version: '1',
     schema_version: '1',
     retrieved_at: '2026-10-17T10:00:00.000000+00:00',
-    counts: { providers: 2, networks: 3 },
+    counts: { providers: 2, networks: 3, parameters: 18 },
     warnings: [],
   },
   providers: [
@@ -333,6 +333,10 @@ export function defaultHandlers(): Handlers {
       const all = mosmix ? MOSMIX_STATIONS : STATIONS
       // a list is comma-separated, and the key given more than once is read as the same list
       const wanted = url.searchParams.getAll('stations').flatMap(ids => ids.split(','))
+      // a place by its name: the backend answers its best five matches, here the ones whose name holds the text
+      const name = url.searchParams.get('name')?.toLowerCase()
+      if (name)
+        return { stations: all.filter(station => station.name?.toLowerCase().includes(name)).slice(0, 5) }
       return { stations: wanted.length ? all.filter(station => wanted.includes(station.station_id)) : all }
     },
     'values': url => ({ values: url.searchParams.get('network') === 'mosmix' ? forecastValues(url) : observationValues(url) }),

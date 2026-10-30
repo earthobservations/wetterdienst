@@ -131,14 +131,15 @@ export function withAlpha(color: string, alpha: number): string {
  * The series themselves (their lines, bars and swatches) keep their colours, which are data and need 3:1
  * only. On white the series' colours are 2.0:1 to 3.8:1, so the light ones are the same hues one or two
  * steps darker (Tailwind's 700 for cyan and lime, 600 for blue and red, amber 700 for the gold of the
- * availability line); on the dark paper they are the series' own colours, 4.7:1 to 9.0:1. Held to the
- * drawn charts by `tests/e2e/chart-theme.spec.ts`.
+ * availability line); on the dark paper (the card, #12233f, in the design of GH-3518) they are the series' own
+ * colours, 4.8:1 to 8.0:1: cyan, lime and gold as drawn, blue and red a step lighter (the drawn ones are
+ * 4.3:1 and 4.2:1 there). Held to the drawn charts by `tests/e2e/chart-theme.spec.ts`.
  */
 export const SERIES_LABEL = {
   cyan: { light: '#0e7490', dark: '#06b6d4' },
   lime: { light: '#4d7c0f', dark: '#84cc16' },
-  blue: { light: '#2563eb', dark: '#3b82f6' },
-  red: { light: '#dc2626', dark: '#ef4444' },
+  blue: { light: '#2563eb', dark: '#5b9cf8' },
+  red: { light: '#dc2626', dark: '#f25b5b' },
   gold: { light: '#b45309', dark: '#daa520' },
 } as const
 

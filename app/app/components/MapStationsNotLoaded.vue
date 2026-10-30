@@ -20,6 +20,6 @@ function reloadPage() {
     <p role="alert" class="text-sm font-medium text-center text-red-600 dark:text-red-400">
       {{ t('map.markersNotShown') }}
     </p>
-    <UButton :label="t('common.reloadPage')" icon="i-lucide-refresh-cw" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
+    <UButton :label="t('common.reloadPage')" icon="i-ph-arrows-clockwise" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
   </div>
 </template>
