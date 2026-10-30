@@ -604,10 +604,14 @@ _GUST_LAST_10MIN = "wind_gust_max_last_10min"
 # GH-2697 moved DWD wind_synoptic, DWD POI and AEMET hourly, GH-2707 FMI, MET Norway, SMHI and Météo-France hourly,
 # so none is left. A row the rule finds in a provider added later goes here until its pass of GH-2688; the test
 # also fails when an entry no longer matches, so the list only shrinks.
-_WIND_MEAN_WINDOW_NOT_YET_NAMED: dict[str, str] = {
-    # the glossary: "the average speed during the one-, two- or ten-minute period ending at the time of observation",
-    # so no one window fits the column; the direction states two minutes and is named for them (GH-2837, GH-3136)
-    "EcccObservationMetadata hourly/data/wind_speed [wind_speed]": "ECCC states one, two or ten minutes",
+_WIND_MEAN_WINDOW_NOT_YET_NAMED: dict[str, str] = {}
+
+# Rows that state a mean over a window shorter than the interval and keep the plain name on purpose, for good: the
+# decision is settled and the entry does not shrink. ECCC's glossary: "the average speed during the one-, two- or
+# ten-minute period ending at the time of observation", so no one window fits the column, where its direction states
+# two minutes and is named for them (GH-2837).
+_WIND_MEAN_WINDOW_PLAIN_ON_PURPOSE: dict[str, str] = {
+    "EcccObservationMetadata hourly/data/wind_speed [wind_speed]": "ECCC states one, two or ten minutes (GH-2837)",
 }
 
 
@@ -644,15 +648,17 @@ def test_a_wind_mean_over_a_shorter_window_is_not_named_the_interval_mean() -> N
     AEMET's "over the 10 minutes preceding 'fint'" handed a caller the 10 minutes before the hour as though
     it were the hour's mean (GH-2697). The rule is the one for temperatures (GH-2660): a mean over a window
     shorter than the interval is not the interval's mean. Rows found by it in other providers are listed in
-    `_WIND_MEAN_WINDOW_NOT_YET_NAMED`.
+    `_WIND_MEAN_WINDOW_NOT_YET_NAMED` (a backlog) or, if kept plain on purpose, in
+    `_WIND_MEAN_WINDOW_PLAIN_ON_PURPOSE`.
     """
     found = _shorter_wind_mean_sites()
-    wrong = [site for site in found if site not in _WIND_MEAN_WINDOW_NOT_YET_NAMED]
+    allowed = {**_WIND_MEAN_WINDOW_NOT_YET_NAMED, **_WIND_MEAN_WINDOW_PLAIN_ON_PURPOSE}
+    wrong = [site for site in found if site not in allowed]
     assert not wrong, "\n".join(
         f"{site}: the source states a mean over a window shorter than the interval, the name is the interval's mean"
         for site in wrong
     )
-    stale = [site for site in _WIND_MEAN_WINDOW_NOT_YET_NAMED if site not in found]
+    stale = [site for site in allowed if site not in found]
     assert not stale, f"no longer found by the rule, remove from the list: {stale}"
 
 

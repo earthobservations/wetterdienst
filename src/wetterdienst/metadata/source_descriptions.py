@@ -207,7 +207,9 @@ _MO_DAILY_STAMP = (
 )
 
 # the window of a daily value of ECCC (the glossary, "Climatological Day"; Note 16 of the technical documentation)
-_ECCC_DAY = "the climatological day (at a station that observes all day, 0601 UTC to 0600 UTC of the next day)"
+_ECCC_DAY = (
+    "the climatological day (at a station that observes all day, since July 1961, 0601 UTC to 0600 UTC of the next day)"
+)
 
 # the window of a daily value of the Environment Agency hydrology API (see the comment at its entries)
 _EA_DAY = "the 24 hours from 09:00 of the day it is dated to 09:00 of the next (the source gives no zone; read as UTC)"
@@ -1995,13 +1997,13 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "respect to liquid water. The source states no height; the 2 m of the name is the convention."
         ),
         ("hourly", "data", "humidex"): (
-            "Humidex: an index of how hot or humid the weather feels, the air temperature plus 0.5555 times the vapour "
-            "pressure in hPa minus 10. The source shows it only when the air temperature is 20 °C or more and "
+            "Humidex: an index of how hot or humid the weather feels, the air temperature plus 0.5555 times (the "
+            "vapour pressure in hPa minus 10). The source shows it only when the air temperature is 20 °C or more and "
             "the humidex at least 1 degree above it."
         ),
         ("hourly", "data", "precip_amount"): (
-            "Precipitation amount in mm: the depth of water or water equivalent, to the nearest 0.2 mm; less is a "
-            "trace. The source states no period for the hourly amount."
+            "Precipitation of the hour in mm: the total for minutes 00 through 60, the sum of the four 15-minute "
+            "amounts, stored to 0.1 mm (from 2006)."
         ),
         ("hourly", "data", "relative_humidity"): (
             "Relative humidity in %: the ratio of the water vapour the air contains to the most it can hold at that "
@@ -2039,16 +2041,18 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         # the monthly summaries: "Mean Temperature", "Highest Monthly Maximum Temperature", "Lowest Monthly Minimum
         # Temperature" (the glossary's "Extreme Maximum/Minimum Temperature"), "Total Precipitation (mm)", "Snow on the
-        # ground last day (cm)"; "If more than 3 consecutive daily values are missing or more than 5 daily values in
-        # total in a given month are missing, the monthly mean should not be computed ... For total precipitation,
-        # degree-days, and 'days with' calculations, no missing days are allowed" (the glossary, the "3/5" rule).
+        # ground last day (cm)". The glossary's "3/5" rule is the WMO rule for the climate normals; the monthly values
+        # are published when days are missing and flagged "I" (incomplete, Notes 25 and 26 of the technical
+        # documentation), and `days_with_valid_*` is the number of days behind them (RIDGETOWN AUTOMATIC CLIMATE
+        # STATION, 1990-03: a mean temperature of 0.58 and 209 heating degree days from 12 valid days).
         # The documentation lists "Days with Valid Bright Sunshine" and the normals by name only.
         ("monthly", "data", "bright_sunshine"): (
             "Bright sunshine duration of the month, in hours. The source lists it by name and gives no more."
         ),
         ("monthly", "data", "cooling_degree_days"): (
             "Cooling degree-days of the month: the sum of the daily values (the degrees Celsius that the mean "
-            "temperature is above 18 °C). The source allows no missing day."
+            "temperature is above 18 °C). Published even when days are missing; `days_with_valid_mean_temp` counts the "
+            "days behind it."
         ),
         (
             "monthly",
@@ -2075,15 +2079,16 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("monthly", "data", "heating_degree_days"): (
             "Heating degree-days of the month: the sum of the daily values (the degrees Celsius that the mean "
-            "temperature is below 18 °C). The source allows no missing day."
+            "temperature is below 18 °C). Published even when days are missing; `days_with_valid_mean_temp` counts the "
+            "days behind it."
         ),
         ("monthly", "data", "max_temperature"): (
             "Highest daily maximum air temperature of the month (the source's extreme maximum). The source states no "
             "height; the 2 m of the name is the convention."
         ),
         ("monthly", "data", "mean_temperature"): (
-            "Mean air temperature of the month: the mean of the daily mean temperatures. The source computes it only "
-            "if no more than 3 consecutive and no more than 5 daily values in all are missing."
+            "Mean air temperature of the month: the mean of the daily mean temperatures. Published even when days are "
+            "missing; `days_with_valid_mean_temp` counts the days behind it."
         ),
         ("monthly", "data", "min_temperature"): (
             "Lowest daily minimum air temperature of the month (the source's extreme minimum). The source states no "
@@ -2111,10 +2116,12 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("monthly", "data", "total_precipitation"): (
             "Total precipitation of the month: the sum of the daily totals (rainfall plus the water equivalent of the "
-            "snowfall), in mm. The source allows no missing day."
+            "snowfall), in mm. Published even when days are missing; `days_with_valid_precip` counts the days behind "
+            "it."
         ),
         ("monthly", "data", "total_snowfall"): (
-            "Total snowfall of the month: the sum of the daily snowfalls, in cm. The source allows no missing day."
+            "Total snowfall of the month: the sum of the daily snowfalls, in cm. Published even when days are missing; "
+            "`days_with_valid_snowfall` counts the days behind it."
         ),
     },
     "GeosphereObservationMetadata": {
