@@ -119,8 +119,9 @@ class _Upstream(ThreadingHTTPServer):
         """Wait until the stations in ``expect`` have been asked, then until nothing more is asked or answered.
 
         The first half waits for what the test asserts, however long a starved thread takes to ask for it (up to the
-        deadline). The second half is a quiet window that confirms nothing *more* is asked: a late extra request
-        only restarts it, so a busy machine makes the test slower, never wrongly failing. Without ``expect`` only
+        deadline). The second half is a quiet window that confirms nothing *more* is asked: an extra request that
+        comes inside it restarts it, so a busy machine makes the test slower, never wrongly failing. One that comes
+        only after the window has closed (a worker starved for longer) is not seen. Without ``expect`` only
         the quiet window is waited for, which is for a test that asserts that nothing is asked.
         """
         deadline = time.monotonic() + 20
