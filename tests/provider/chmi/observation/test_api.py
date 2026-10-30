@@ -548,40 +548,55 @@ def test_chmi_observation_hourly_station_pressure_has_no_file_after_2024() -> No
         assert not names or any("-P_hm-" in name for name in names)
 
 
+def _sub_daily_stations_with_file(resolution: Resolution, settings: Settings) -> tuple[set[str], list[int]]:
+    """Give the stations with a file of a read element in the first and latest year of each category, and the years.
+
+    The categories are those of the elements the provider reads, the years those of their directories; a file of an
+    element that is not read (`E`, `VV` of the hourly `synop`) counts for nothing.
+    """
+    config = _RESOLUTION_CONFIG[resolution]
+    stations: set[str] = set()
+    years: list[int] = []
+    for category in dict.fromkeys(element_config[0] for element_config in config["elements"].values()):
+        url = f"{chmi_api._BASE_URL}/data/{config['path']}/{category}/"  # noqa: SLF001
+        category_years = sorted(
+            int(entry["name"].rstrip("/").rsplit("/", 1)[-1])
+            for entry in list_remote_directory_fsspec(url, settings, CacheExpiry.METAINDEX)
+            if entry["type"] == "directory"
+        )
+        assert category_years, f"CHMI lists no year directory under {url}"
+        years += category_years
+        read = {element for element, element_config in config["elements"].items() if element_config[0] == category}
+        for year in {category_years[0], category_years[-1]}:
+            for file in list_remote_files_fsspec(f"{url}{year}/", settings, CacheExpiry.METAINDEX):
+                name = file.rsplit("/", 1)[-1]
+                if not name.startswith(f"{config['prefix']}-"):
+                    continue
+                station, element, _ = name.removeprefix(f"{config['prefix']}-").rsplit("-", 2)
+                if element in read:
+                    stations.add(station)
+    return stations, years
+
+
 @pytest.mark.remote
-@pytest.mark.parametrize(
-    ("path", "category", "prefix", "resolution"),
-    [("10min", "temperature", "10m", "10_minutes"), ("1hour", "precipitation", "1h", "hourly")],
-)
-def test_chmi_observation_sub_daily_stations_with_files_are_listed(
-    path: str, category: str, prefix: str, resolution: str
-) -> None:
+@pytest.mark.parametrize("resolution", [Resolution.MINUTE_10, Resolution.HOURLY])
+def test_chmi_observation_sub_daily_stations_with_files_are_listed(resolution: Resolution) -> None:
     """The two facts the sub-daily station lists rest on (GH-3623), which the portal does not promise.
 
-    The files begin with 2018 (no year directory of an earlier one), so a station whose period ended before it has
-    none, and every station with a file in the latest year has a daily file of an element that is read. Both fail
-    when CHMI publishes older years or sub-daily files for a station without daily ones; the list would then drop
-    stations that have files, and this test is red.
+    The files begin with 2018 (no year directory of an earlier one in any category of the elements read), so a
+    station whose period ended before it has none; and every station with a file of a read element in the first or the
+    latest year of its category has a daily file of a read element and is listed. The stations that have files in the
+    years between only are not looked at. Either fact fails when CHMI publishes older years, or sub-daily files for a
+    station without daily ones; the list would then drop stations that have files, and this test is red.
     """
     settings = Settings(cache_disable=True)
-    url = f"{chmi_api._BASE_URL}/data/{path}/{category}/"  # noqa: SLF001
-    years = sorted(
-        int(entry["name"].rstrip("/").rsplit("/", 1)[-1])
-        for entry in list_remote_directory_fsspec(url, settings, CacheExpiry.METAINDEX)
-        if entry["type"] == "directory"
-    )
-    assert years, f"CHMI lists no year directory under {url}"
-    assert years[0] >= chmi_api.SUBDAILY_FIRST_YEAR, f"CHMI lists {resolution} files of {years[0]}, before 2018"
-    names = [
-        file.rsplit("/", 1)[-1]
-        for file in list_remote_files_fsspec(f"{url}{years[-1]}/", settings, CacheExpiry.METAINDEX)
-    ]
-    with_file = {name.removeprefix(f"{prefix}-").rsplit("-", 2)[0] for name in names if name.startswith(f"{prefix}-")}
-    assert with_file, f"CHMI lists no {resolution} file for {years[-1]}"
+    with_file, years = _sub_daily_stations_with_file(resolution, settings)
+    assert min(years) >= chmi_api.SUBDAILY_FIRST_YEAR, f"CHMI lists {resolution.name} files of {min(years)}"
+    assert with_file, f"CHMI lists no {resolution.name} file"
     daily = _RESOLUTION_CONFIG[Resolution.DAILY]
     assert with_file <= chmi_api._stations_with_file(daily, set(daily["elements"]), settings)  # noqa: SLF001
-    listed = set(ChmiObservationRequest(parameters=[(resolution, "data")]).all().df["station_id"])
-    assert with_file <= listed, f"{len(with_file - listed)} stations with a {resolution} file are not listed"
+    listed = set(ChmiObservationRequest(parameters=[(resolution.name, "data")]).all().df["station_id"])
+    assert with_file <= listed, f"{len(with_file - listed)} stations with a {resolution.name} file are not listed"
 
 
 @pytest.mark.remote

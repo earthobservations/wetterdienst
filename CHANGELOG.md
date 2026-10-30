@@ -85,9 +85,9 @@ Types of changes:
 - `chmi/observation` lists, for `10_minutes` and `hourly`, only the stations that can have files
   there: 767 of the 1,603 (read 2026-10-30), those whose period ends in 2018 or later, when these
   files begin, and that have a daily file. The 836 left out answered every request with an empty
-  frame (795 closed before 2018, 41 more with no daily file); no station with a 10 minute or
-  hourly file is among them. `daily`, `monthly` and `annual` are
-  unchanged. The daily directories are read for a sub-daily stations request now (GH-3623)
+  frame (795 closed before 2018, 41 more with no daily file); no station with a 10 minute or hourly
+  file is among them. `daily`, `monthly` and `annual` are unchanged. The daily directories are
+  read for a sub-daily stations request now (GH-3623)
 - `chmi/observation` lists stations that `meta1.csv` (read 2026-10-30, 1,603 stations) has since
   been given rows for: the 29 monthly and 22 annual ids with files but no row (e.g.
   `0-203-0-10101019002`), and 14 more, 43 in all, none with a `daily` file. `monthly` lists 1,567

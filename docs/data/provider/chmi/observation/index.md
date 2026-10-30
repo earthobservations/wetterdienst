@@ -16,14 +16,17 @@ is still active. The catalogue is one list for every resolution and element, so 
 one of the requested parameters (each parameter is one element, such as `T` or `SRA`; a whole
 dataset requests them all), read from the directories of the portal, one per category of the
 requested elements. The `10_minutes` and `hourly` resolutions list the stations that can have files
-there. Their files are one per month under a directory per year (about 1.6 MB each, eight years),
-which every request would have to read, so the list is cut by what is known without them: the files
-begin with 2018, so a station whose period ended before it is left out, and so is one with no daily
-file of an element that is read (the daily directories are cached, as a daily request reads them).
-Every station with a 10 minute or hourly file passes both, which a live test holds. Of the 1,603
-stations of `meta1.csv`, 767 are listed (read 2026-10-30). Every file of the
-`daily`, `monthly` and `annual` directories has a station in `meta1.csv` (read 2026-10-30; before
-CHMI updated it, the files of 29 monthly and 22 annual stations had none).
+there. Their files are one per month under a directory per year (up to about 2.4 MB each, eight
+years), which every request would have to read, so the list is cut by what is known without them:
+the files begin with 2018, so a station whose period ended before it is left out, and so is one with
+no daily file of an element that is read (the daily directories are cached, as a daily request reads
+them). A live test holds that no year directory is before 2018 and that the stations with a file of
+an element read in the first and the latest year of each category (252 of the 257 with a 10 minute
+file, all 435 with an hourly one, in 2018-2025) have a daily file and are listed; the other five
+have files in the years between only, and pass as well. Of the 1,603 stations of `meta1.csv`, 767
+are listed (read 2026-10-30). Every file of the `daily`, `monthly` and `annual` directories has a
+station in `meta1.csv` (read 2026-10-30; before CHMI updated it, the files of 29 monthly and 22
+annual stations had none).
 
 Observations are addressed per station and element. The `daily`, `monthly` and `annual`
 resolutions store one flat CSV per station/element (e.g. `dly-<WSI>-T.csv`); the `10_minutes`

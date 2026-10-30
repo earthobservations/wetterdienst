@@ -176,7 +176,9 @@ def _subdaily_candidates(catalogue: pl.DataFrame, settings: Settings) -> pl.Data
 
     The files begin with 2018 (``SUBDAILY_FIRST_YEAR``), so a station whose period ended before that has none, and
     every station with such a file has a daily file too, which the daily directories (cached, and read for a daily
-    request as well) list for any element read. Neither fact is the portal's word: a live test holds both.
+    request as well) list for any element read. Neither fact is the portal's word: a live test holds that no
+    category has a year directory before 2018, and that the stations with a file of a read element in the first and
+    the latest year of each category have a daily file and are listed.
     """
     daily = _RESOLUTION_CONFIG[Resolution.DAILY]
     with_file = _stations_with_file(daily, set(daily["elements"]), settings)
@@ -398,11 +400,12 @@ class ChmiObservationRequest(TimeseriesRequest):
         # `meta1.csv` is one list for every resolution and element, and lists stations that have no file of the
         # requested ones (GH-3259, GH-3295): the daily, monthly and annual stations are narrowed to those whose files
         # of the requested parameters the directories list. The sub-daily files are one for each month, under a
-        # directory for each year (a listing of every year, 1.6 MB each, for every request), so they are not listed;
-        # the 10 minute and hourly stations are those whose period ends in 2018 or later, when these files begin,
-        # and that have a daily file of any element read, which the cached daily listings give (GH-3623). Of the
-        # stations with a file of a sub-daily element in 2018 to 2025 all pass (257 and 435); a live test holds the
-        # two facts this rests on.
+        # directory for each year (a listing of every year, up to 2.4 MB each, for every request), so they are not
+        # listed; the 10 minute and hourly stations are those whose period ends in 2018 or later, when these files
+        # begin, and that have a daily file of any element read, which the cached daily listings give (GH-3623). All
+        # the stations with a file of a read element in 2018 to 2025 pass (257 and 435); the live test holds it for
+        # the first and the latest year of each category (252 and 435), the five 10 minute stations left have files
+        # in the years between only.
         frames = []
         subdaily_candidates: pl.DataFrame | None = None
         for dataset, parameters in group_parameters_by_dataset(
