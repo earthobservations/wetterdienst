@@ -73,7 +73,10 @@ the four IPMA rows that read the canonical sentence and the WSV parameters (GH-3
 the DWD POI, MOSMIX, DMO, derived and SWSMOS rows (GH-3136, the fourth group), and the SMHI,
 CHMI, LHMT, Environment Agency and Hub'Eau rows (GH-3136, the fifth group), and the IPMA, NWS and Geosphere
 rows again against their live sources (GH-3136, the sixth group: the NWS temperature, dew point, wind and
-visibility rows now say the statistic and height the ASOS User's Guide gives). CHMI describes its elements only by
+visibility rows now say the statistic and height the ASOS User's Guide gives), and the NOAA GHCN rows (GH-3136,
+the eighth group: the daily rows say what the readme of the files says in the unit the reader returns, where they
+were the table of the ordering form with its choice of units; the hourly rows follow Table 1 of GHCNh 1.1.0).
+CHMI describes its elements only by
 name, unit, height and schedule (``metadata/meta2.csv``) and the Environment Agency by a table of parameter, period,
 statistic and unit on its reference page, so what those entries say about a window or a weighting is what the data
 show, with the evidence in a comment beside them; SMHI's windows are the ones its own CSV columns give; Hub'Eau
@@ -2489,18 +2492,25 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
     },
     "NoaaGhcnMetadata": {
+        # daily: the element list of ghcnd-readme.txt (https://www.ncei.noaa.gov/pub/data/ghcn/daily/readme.txt), the
+        # documentation of the `.dly` and `access/<station>.csv` files this provider reads. The rows used to be the
+        # element table of GHCND_documentation.pdf, the documentation of NCEI's Daily Summaries ordering form, where the
+        # user picks metric or standard units ("mm or inches as per user preference"): the files carry one unit, the
+        # readme's (tenths of mm, of degrees C, of m/s), which the reader converts (USW00094846, 2019-07-19: TMAX 339
+        # and AWND 53 are 33.9 degrees and 5.3 m/s; 2019-01-30: SNWD 200 is 20 cm). SN*#, SX*#, WT** and WV** are the
+        # readme's code tables, spelled out. hourly: Table 1 of ghcnh_DOCUMENTATION.pdf (version 1.1.0, 2026-03-10).
         ("daily", "data", "tavg"): (
-            "Average daily temperature. From source 'S' an average of hourly readings for the period ending at 2400 "
-            "UTC; from other sources computed in a variety of ways, including traditional fixed hours of the day."
+            "Average daily temperature (°C; the file has tenths of degrees). From source 'S' an average of "
+            "hourly readings for the period ending at 2400 UTC rather than local midnight; from other sources"
+            " computed in a variety of ways, including traditional fixed hours of the day, whereas TAXN (not served "
+            "here) is solely the average of TMAX and TMIN."
         ),
         ("daily", "data", "wdfm"): "Fastest mile wind direction (degrees).",
         ("daily", "data", "acmc"): "Average cloudiness midnight to midnight from 30-second ceilometer data (percent)",
-        ("daily", "data", "acmh"): "Average cloudiness midnight to midnight from manual observation (percent)",
+        ("daily", "data", "acmh"): "Average cloudiness midnight to midnight from manual observations (percent)",
         ("daily", "data", "acsc"): "Average cloudiness sunrise to sunset from 30-second ceilometer data (percent)",
-        ("daily", "data", "acsh"): "Average cloudiness sunrise to sunset from manual observation (percent)",
-        ("daily", "data", "awnd"): (
-            "Average daily wind speed (meters per second or miles per hour as per user preference)"
-        ),
+        ("daily", "data", "acsh"): "Average cloudiness sunrise to sunset from manual observations (percent)",
+        ("daily", "data", "awnd"): "Average daily wind speed (m/s; the file has tenths of m/s)",
         ("daily", "data", "daev"): "Number of days included in the multiday evaporation total (MDEV)",
         ("daily", "data", "dapr"): "Number of days included in the multiday precipitation total (MDPR)",
         ("daily", "data", "dasf"): "Number of days included in the multiday snowfall total (MDSF)",
@@ -2510,35 +2520,26 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "dwpr"): (
             "Number of days with non-zero precipitation included in multiday precipitation total (MDPR)"
         ),
-        ("daily", "data", "evap"): (
-            "Evaporation of water from evaporation pan (mm or inches as per user preference, or "
-            "hundredths of inches on Daily Form pdf file)"
-        ),
-        ("daily", "data", "frgb"): "Base of frozen ground layer (cm or inches as per user preference)",
-        ("daily", "data", "frgt"): "Top of frozen ground layer (cm or inches as per user preference)",
-        ("daily", "data", "frth"): "Thickness of frozen ground layer (cm or inches as per user preference)",
-        ("daily", "data", "gaht"): "Difference between river and gauge height (cm or inches as per user preference)",
-        ("daily", "data", "mdev"): "Multiday evaporation total (mm or inches as per user preference; use with DAEV)",
+        ("daily", "data", "evap"): "Evaporation of water from evaporation pan (mm; the file has tenths of mm)",
+        ("daily", "data", "frgb"): "Base of frozen ground layer (cm)",
+        ("daily", "data", "frgt"): "Top of frozen ground layer (cm)",
+        ("daily", "data", "frth"): "Thickness of frozen ground layer (cm)",
+        ("daily", "data", "gaht"): "Difference between river and gauge height (cm)",
+        ("daily", "data", "mdev"): "Multiday evaporation total (mm; the file has tenths of mm; use with DAEV)",
         ("daily", "data", "mdpr"): (
-            "Multiday precipitation total (mm or inches as per user preference; use with DAPR and DWPR, if available)"
+            "Multiday precipitation total (mm; the file has tenths of mm; use with DAPR and DWPR, if available)"
         ),
-        ("daily", "data", "mdsf"): "Multiday snowfall total (mm or inches as per user preference)",
-        ("daily", "data", "mdtn"): (
-            "Multiday minimum temperature (Fahrenheit or Celsius as per user preference ; use with DATN)"
-        ),
-        ("daily", "data", "mdtx"): (
-            "Multiday maximum temperature (Fahrenheit or Celsius as per user preference ; use with DATX)"
-        ),
-        ("daily", "data", "mdwm"): "Multiday wind movement (miles or km as per user preference)",
+        ("daily", "data", "mdsf"): ("Multiday snowfall total (mm, like SNOW; the readme names no unit)"),
+        ("daily", "data", "mdtn"): "Multiday minimum temperature (°C; the file has tenths of degrees; use with DATN)",
+        ("daily", "data", "mdtx"): "Multiday maximum temperature (°C; the file has tenths of degrees; use with DATX)",
+        ("daily", "data", "mdwm"): "Multiday wind movement (km)",
         ("daily", "data", "mnpn"): (
-            "Daily minimum temperature of water in an evaporation pan (Fahrenheit or Celsius as per user preference)"
+            "Daily minimum temperature of water in an evaporation pan (°C; the file has tenths of degrees)"
         ),
         ("daily", "data", "mxpn"): (
-            "Daily maximum temperature of water in an evaporation pan  (Fahrenheit or Celsius as per user preference)"
+            "Daily maximum temperature of water in an evaporation pan (°C; the file has tenths of degrees)"
         ),
-        ("daily", "data", "prcp"): (
-            "Precipitation (mm or inches as per user preference, inches to hundredths on Daily Form pdf file)"
-        ),
+        ("daily", "data", "prcp"): "Precipitation (mm; the file has tenths of mm)",
         ("daily", "data", "psun"): "Daily percent of possible sunshine (percent)",
         ("daily", "data", "sn01"): "Minimum soil temperature of unknown ground at 5cm depth",
         ("daily", "data", "sn02"): "Minimum soil temperature of unknown ground at 10cm depth",
@@ -2603,10 +2604,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "sn85"): "Minimum soil temperature of bare_muck ground at 100cm depth",
         ("daily", "data", "sn86"): "Minimum soil temperature of bare_muck ground at 150cm depth",
         ("daily", "data", "sn87"): "Minimum soil temperature of bare_muck ground at 180cm depth",
-        ("daily", "data", "snow"): (
-            "Snowfall (mm or inches as per user preference, inches to tenths on Daily Form pdf file)"
-        ),
-        ("daily", "data", "snwd"): "Snow depth (mm or inches as per user preference, inches on Daily Form pdf file)",
+        ("daily", "data", "snow"): "Snowfall (mm)",
+        ("daily", "data", "snwd"): "Snow depth (mm)",
         ("daily", "data", "sx01"): "Maximum soil temperature of unknown ground at 5cm depth",
         ("daily", "data", "sx02"): "Maximum soil temperature of unknown ground at 10cm depth",
         ("daily", "data", "sx03"): "Maximum soil temperature of unknown ground at 20cm depth",
@@ -2670,47 +2669,25 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "sx85"): "Maximum soil temperature of bare_muck ground at 100cm depth",
         ("daily", "data", "sx86"): "Maximum soil temperature of bare_muck ground at 150cm depth",
         ("daily", "data", "sx87"): "Maximum soil temperature of bare_muck ground at 180cm depth",
-        ("daily", "data", "thic"): "Thickness of ice on water (inches or mm as per user preference)",
-        ("daily", "data", "tmax"): (
-            "Maximum  temperature  (Fahrenheit  or  Celsius  as per  user  preference, Fahrenheit  to "
-            "tenths on Daily Form pdf file"
-        ),
-        ("daily", "data", "tmin"): (
-            "Minimum  temperature  (Fahrenheit  or  Celsius  as per  user  preference, Fahrenheit  to "
-            "tenths  on Daily Form pdf file"
-        ),
-        ("daily", "data", "tobs"): (
-            "Temperature at the time of observation  (Fahrenheit or Celsius as per user preference)"
-        ),
+        ("daily", "data", "thic"): "Thickness of ice on water (mm; the file has tenths of mm)",
+        ("daily", "data", "tmax"): "Maximum temperature (°C; the file has tenths of degrees)",
+        ("daily", "data", "tmin"): "Minimum temperature (°C; the file has tenths of degrees)",
+        ("daily", "data", "tobs"): "Temperature at the time of observation (°C; the file has tenths of degrees)",
         ("daily", "data", "tsun"): "Daily total sunshine (minutes)",
         ("daily", "data", "wdf1"): "Direction of fastest 1-minute wind (degrees)",
         ("daily", "data", "wdf2"): "Direction of fastest 2-minute wind (degrees)",
         ("daily", "data", "wdf5"): "Direction of fastest 5-second wind (degrees)",
         ("daily", "data", "wdfg"): "Direction of peak wind gust (degrees)",
         ("daily", "data", "wdfi"): "Direction of highest instantaneous wind (degrees)",
-        ("daily", "data", "wdmv"): (
-            "24-hour wind movement (km or miles as per user preference, miles on Daily Form pdf file)"
-        ),
-        ("daily", "data", "wesd"): "Water equivalent of snow on the ground (inches or mm as per user preference)",
-        ("daily", "data", "wesf"): "Water equivalent of snowfall (inches or mm as per user preference)",
-        ("daily", "data", "wsf1"): (
-            "Fastest 1-minute wind speed (miles per hour or  meters per second as per user preference)"
-        ),
-        ("daily", "data", "wsf2"): (
-            "Fastest 2-minute wind speed (miles per hour or  meters per second as per user preference)"
-        ),
-        ("daily", "data", "wsf5"): (
-            "Fastest 5-second wind speed (miles per hour or  meters per second as per user preference)"
-        ),
-        ("daily", "data", "wsfg"): (
-            "Peak guest wind speed (miles per hour or  meters per second as per user preference)"
-        ),
-        ("daily", "data", "wsfi"): (
-            "Highest instantaneous wind speed (miles per hour or  meters per second as per user preference)"
-        ),
-        ("daily", "data", "wsfm"): (
-            "Fastest mile wind speed (miles per hour or  meters per second as per user preference)"
-        ),
+        ("daily", "data", "wdmv"): "24-hour wind movement (km)",
+        ("daily", "data", "wesd"): "Water equivalent of snow on the ground (mm; the file has tenths of mm)",
+        ("daily", "data", "wesf"): "Water equivalent of snowfall (mm; the file has tenths of mm)",
+        ("daily", "data", "wsf1"): "Fastest 1-minute wind speed (m/s; the file has tenths of m/s)",
+        ("daily", "data", "wsf2"): "Fastest 2-minute wind speed (m/s; the file has tenths of m/s)",
+        ("daily", "data", "wsf5"): "Fastest 5-second wind speed (m/s; the file has tenths of m/s)",
+        ("daily", "data", "wsfg"): "Peak gust wind speed (m/s; the file has tenths of m/s)",
+        ("daily", "data", "wsfi"): "Highest instantaneous wind speed (m/s; the file has tenths of m/s)",
+        ("daily", "data", "wsfm"): "Fastest mile wind speed (m/s; the file has tenths of m/s)",
         ("daily", "data", "wt01"): "Fog, ice fog, or freezing fog (may include heavy fog)",
         ("daily", "data", "wt02"): "Heavy fog or heaving freezing fog (not always distinguished from fog)",
         ("daily", "data", "wt03"): "Thunder",
@@ -2737,7 +2714,11 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "wv07"): "Ash, dust, sand, or other blowing obstruction in the Vicinity",
         ("daily", "data", "wv18"): "Snow or ice crystals in the Vicinity",
         ("daily", "data", "wv20"): "Rain or snow shower in the Vicinity",
-        ("hourly", "data", "altimeter"): "Reduced pressure (hectopascals)",
+        ("hourly", "data", "altimeter"): (
+            'Altimeter setting: the pressure "reduced" to mean sea level using the temperature profile of the'
+            ' "standard" atmosphere, which is representative of average conditions over the United States at '
+            "40 degrees north latitude (hPa)"
+        ),
         ("hourly", "data", "dew_point_temperature"): "Dew Point Temperature (⁰C to tenths)",
         ("hourly", "data", "precipitation"): (
             "total liquid precipitation (rain or melted snow), nominally for the hour: a METAR's amount is the "
@@ -2785,20 +2766,35 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "reports; a “T” in the measurement code column indicates a trace amount of precipitation "
             "(millimeters)"
         ),
-        ("hourly", "data", "pressure_3hr_change"): "3-hour pressure change (hectopascals)",
-        ("hourly", "data", "relative_humidity"): (
-            "Relative humidity is calculated from air (dry bulb) temperature and dewpoint temperature (whole percent)"
+        ("hourly", "data", "pressure_3hr_change"): (
+            "Change in atmospheric pressure measured at the beginning and end of a three hour period; the "
+            "source accompanies it with a tendency code in the measurement code field (hPa)"
         ),
-        ("hourly", "data", "sea_level_pressure"): "Sea level pressure (hectopascals)",
+        ("hourly", "data", "relative_humidity"): (
+            "Depending on the source, relative humidity is either measured directly or calculated from air "
+            "(dry bulb) temperature and dew point temperature (whole percent)"
+        ),
+        ("hourly", "data", "sea_level_pressure"): (
+            "Sea level pressure: the reduction estimates the pressure that would exist at sea level at a "
+            "point directly below the station using a temperature profile based on temperatures that actually"
+            " exist at the station (hPa)"
+        ),
         ("hourly", "data", "snow_depth"): "depth of snowpack on the ground (millimeters)",
-        ("hourly", "data", "station_level_pressure"): "Station pressure (hectopascals)",
+        ("hourly", "data", "station_level_pressure"): (
+            "Station level pressure: the pressure observed at a specific elevation, the true barometric "
+            "pressure of a location, exerted by the atmosphere at a point as a result of gravity acting upon "
+            "the column of air that lies directly above it (hPa)"
+        ),
         ("hourly", "data", "temperature"): (
             "2 meter (circa) Above Ground Level Air (dry bulb) Temperature (⁰C to tenths)"
         ),
         ("hourly", "data", "visibility"): (
             "horizontal distance at which an object can be seen and identified (kilometers)"
         ),
-        ("hourly", "data", "wet_bulb_temperature"): "Wet bulb temperature (⁰C to tenths)",
+        ("hourly", "data", "wet_bulb_temperature"): (
+            "Depending on the source, wet bulb temperature is either measured directly or calculated from air"
+            " (dry bulb) temperature, dew point temperature, and station pressure (⁰C to tenths)"
+        ),
         ("hourly", "data", "wind_direction"): (
             "Wind direction from true north using compass directions (e.g. 360=true north, 180=south, "
             "270=west, etc.). Note: A direction of “000” is given for calm winds. (whole degrees) "
