@@ -372,9 +372,14 @@ def test_parse_dwd_hourly_moisture_historical_row_and_documented_sentinel() -> N
 
 def test_parse_dwd_hourly_moisture_rule_is_per_dataset_and_per_column() -> None:
     """Test that -99.9 is only a missing value in the five columns of this dataset, not a blanket rule."""
-    df = _parse_moisture("14006;2025010501;    3;   3.2;   4.8;  -1.6;  -99.9;  -99.9;  95.0;  -1.2;eor\n")
-    assert df.get_column("p_std").to_list() == ["-99.9"]
+    df = _parse_moisture("14006;2025010501;    3;   3.2;   4.8;  -1.6;  995.9;  -99.9;  95.0;  -1.2;eor\n")
+    assert df.get_column("p_std").to_list() == ["995.9"]
     assert df.get_column("tt_std").to_list() == ["-99.9"]
+    # a -99.9 in `P_STD` is no missing value of this rule, but a pressure no station reads, which the bound of the
+    # pressure nulls with its text (GH-3135)
+    df = _parse_moisture("14006;2025010501;    3;   3.2;   4.8;  -1.6;  -99.9;  -0.1;  95.0;  -1.2;eor\n")
+    assert df.get_column("p_std").to_list() == [None]
+    assert df.get_column(raw_column("p_std")).to_list() == ["-99.9"]
     # the same column names under another dataset are not this dataset's rule
     other = File(
         url="",
@@ -883,3 +888,114 @@ def test_parse_dwd_daily_precipitation_form_keeps_every_code_the_files_hold(
     codes = df.get_column(column).to_list()
     assert codes == ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", None]
     assert {int(code) for code in codes if code is not None} == _documented_codes("daily.md", column)
+
+
+def _parse(dataset: DatasetModel, payload: str, period: Period = Period.RECENT) -> pl.DataFrame:
+    file = File(url="", content=BytesIO(payload.encode("utf8")), status=200)
+    return parse_climate_observations_data(files=[file], dataset=dataset, period=period).collect()
+
+
+def test_parse_dwd_hourly_urban_wind_nulls_a_negative_speed_and_keeps_the_text() -> None:
+    """Test that the -0.80 m/s of Berlin-Alexanderplatz is null with its text, and the speeds around it stay (GH-3135).
+
+    The rows are those of stundenwerte_wind_399_akt.zip at 2017-06-06 11:00, 2017-06-07 00:00 and 02:00 UTC, which
+    is the only negative speed of the file. The calm 0.00 and a speed at the top of the range are readings.
+    """
+    df = _parse(
+        DwdObservationMetadata.hourly.urban_wind,
+        "STATIONS_ID; MESS_DATUM; QUALITAETS_NIVEAU; STRUKTUR_VERSION; WINDGESCHWINDIGKEIT; WINDRICHTUNG; eor\n"
+        "       399;   2017060611;    2;0;  8.30;140;eor\n"
+        "       399;   2017060700;    2;0; -0.80; 70;eor\n"
+        "       399;   2017060702;    2;0; 15.20;250;eor\n"
+        "       399;   2017060703;    2;0;  0.00;  0;eor\n"
+        "       399;   2017060704;    2;0;113.30;250;eor\n"
+        "       399;   2017060705;    2;0;115.50;250;eor\n",
+    )
+    assert df.get_column("windgeschwindigkeit").to_list() == ["8.30", None, "15.20", "0.00", "113.30", None]
+    assert df.get_column(raw_column("windgeschwindigkeit")).to_list() == [None, "-0.80", None, None, None, "115.50"]
+
+
+@pytest.mark.parametrize(
+    ("dataset", "header", "speeds"),
+    [
+        (DwdObservationMetadata.hourly.wind, "STATIONS_ID;MESS_DATUM;QN_3;F;D;eor", ["f"]),
+        (DwdObservationMetadata.hourly.wind_synoptic, "STATIONS_ID;MESS_DATUM;QN_8;FF;DD;eor", ["ff"]),
+        (DwdObservationMetadata.hourly.wind_extreme, "STATIONS_ID;MESS_DATUM;QN_8;FX_911;eor", ["fx_911"]),
+        (DwdObservationMetadata.daily.climate_summary, "STATIONS_ID;MESS_DATUM;QN_3;FX;FM;eor", ["fx", "fm"]),
+        (DwdObservationMetadata.minute_10.wind, "STATIONS_ID;MESS_DATUM;QN;FF_10;DD_10;eor", ["ff_10"]),
+    ],
+    ids=["hourly/wind", "hourly/wind_synoptic", "hourly/wind_extreme", "daily/climate_summary", "10_minutes/wind"],
+)
+def test_parse_dwd_data_nulls_a_negative_speed_in_every_dataset_that_has_one(
+    dataset: DatasetModel, header: str, speeds: list[str]
+) -> None:
+    """Test that the rule is the unit type's: a speed of every dataset below 0 is null, with its text (GH-3135)."""
+    columns = header.lower().split(";")
+    assert {parameter.name_original for parameter in dataset if parameter.unit_type == "speed"} >= set(speeds)
+    cells = ["1", "2025010100"] + ["-1.5" if column in speeds else "90" for column in columns[2:-1]] + ["eor"]
+    df = _parse(dataset, header + "\n" + ";".join(cells) + "\n")
+    for speed in speeds:
+        assert df.get_column(speed).to_list() == [None], speed
+        assert df.get_column(raw_column(speed)).to_list() == ["-1.5"], speed
+
+
+def test_parse_dwd_hourly_pressure_nulls_a_pressure_above_the_highest_ever_measured() -> None:
+    """Test that the P0 of 1093.3 hPa of 00433 (1994-03-18 00:00 UTC) is null, the readings around it stay (GH-3135).
+
+    The row has a P of 1009.4 hPa beside it, which is a reading; 1084.8 hPa is the highest sea level pressure on record,
+    and a station pressure cannot be above it. Both columns are held to 500 to 1090 hPa.
+    """
+    df = _parse(
+        DwdObservationMetadata.hourly.pressure,
+        "STATIONS_ID;MESS_DATUM;QN_8;       P;      P0;eor\n"
+        "       433;1994031723;    1;  1009.8;  1003.9;eor\n"
+        "       433;1994031800;    1;  1009.4;  1093.3;eor\n"
+        "       433;1994031801;    1;  1084.8;  1085.0;eor\n"
+        "       433;1994031802;    1;   499.0;   499.9;eor\n"
+        "       433;1994031803;    1;   690.0;   700.0;eor\n",
+        period=Period.HISTORICAL,
+    )
+    assert df.get_column("p").to_list() == ["1009.8", "1009.4", "1084.8", None, "690.0"]
+    assert df.get_column("p0").to_list() == ["1003.9", None, "1085.0", None, "700.0"]
+    assert df.get_column(raw_column("p0")).to_list() == [None, "1093.3", None, "499.9", None]
+
+
+def test_parse_dwd_out_of_range_rule_is_per_parameter_and_leaves_a_missing_value_alone() -> None:
+    """Test that a temperature below 0 and a vapour pressure stay, and the station pressure is bound (GH-3135).
+
+    The hourly moisture dataset has a `P_STD` that is the station pressure (held to 500 to 1090 hPa), a `VP_STD` that is
+    the vapour pressure (a few hPa, no bound of this rule) and a `TT_STD` that is a temperature of a winter night. The
+    -999 of a missing value keeps its own text.
+    """
+    df = _parse(
+        DwdObservationMetadata.hourly.moisture,
+        MOISTURE_HEADER + "14006;2025010500;    3;   0.1;   0.4;  -0.3;  1100.0;  -25.0;  95.7;  -0.7;eor\n"
+        "14006;2025010501;    3;  -999;  -999;  -999;  995.9;  -999;  -999;  -999;eor\n"
+        "14006;2025010502;    3;   0.1;   0.4;  -0.3;  995.9;  -25.0;  95.7;  -0.7;eor\n"
+        "14006;2025010503;    3;   0.1;   0.4;  -0.3;  995.9;  -25.0;  95.7;  -0.7;eor\n",
+    )
+    assert df.get_column("tt_std").to_list() == ["-25.0", None, "-25.0", "-25.0"]
+    assert df.get_column("vp_std").to_list() == ["0.4", None, "0.4", "0.4"]
+    assert df.get_column(raw_column("tt_std")).to_list() == [None, "-999", None, None]
+    assert df.get_column("p_std").to_list() == [None, "995.9", "995.9", "995.9"]
+    assert df.get_column(raw_column("p_std")).to_list() == ["1100.0", None, None, None]
+
+
+def test_parse_dwd_daily_pressure_mean_is_bound_and_the_vapour_pressure_is_not() -> None:
+    """Test that the daily mean station pressure `PM` is held to 500 to 1090 hPa, `VPM` not (GH-3135).
+
+    The Zugspitze (05792) reads a `PM` of 683.5 to 726.57 hPa in the recent file, and Berlin-Tempelhof (00433) up to
+    1041.6, which stay; 1100.0 and 99.9 are no mean of a day, and a vapour pressure of 1100.0 is not this rule's.
+    """
+    df = _parse(
+        DwdObservationMetadata.daily.climate_summary,
+        "STATIONS_ID;MESS_DATUM;QN_3;VPM;PM;eor\n"
+        "5792;20250101;10;5.1;726.57;eor\n"
+        "5792;20250102;10;5.2;683.5;eor\n"
+        "433;20250103;10;5.3;1041.6;eor\n"
+        "433;20250104;10;1100.0;1100.0;eor\n"
+        "433;20250105;10;5.4;99.9;eor\n",
+    )
+    assert df.get_column("pm").to_list() == ["726.57", "683.5", "1041.6", None, None]
+    assert df.get_column(raw_column("pm")).to_list() == [None, None, None, "1100.0", "99.9"]
+    assert df.get_column("vpm").to_list() == ["5.1", "5.2", "5.3", "1100.0", "5.4"]

@@ -33,6 +33,9 @@ To hold a quantity to a different range, add it to `PARAMETER_RANGES` (one name)
 A reader that nulls the values outside a range (`OutOfRange`, GH-2797) keeps one per resolution as well, in the unit of
 its source. It may be narrower than the range here, never wider (a source whose own validated records stay far below
 the world's record, or whose precision needs no slack, can say so), and `test_physical_ranges.py` holds it to that.
+DWD observation (the wind speeds and the station and sea level pressures) and Météo-France synop (the pressures,
+temperatures and amounts of rain) null only the columns they name, a bound of the world's records or inside it, and
+`test_physical_ranges.py` holds those to the range here as well (GH-3135).
 """
 
 from __future__ import annotations
