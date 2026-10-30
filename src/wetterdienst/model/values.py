@@ -171,8 +171,9 @@ def shape_provider_frame(
     Done once here so that a provider need not: the core writes ``station_id``, ``resolution`` and ``dataset``
     (whatever the provider put there is replaced), casts ``parameter`` to String, ``timestamp`` to
     ``Datetime("us", "UTC")`` and ``value`` to Float64, fills ``quality_flags`` with a String null where the
-    provider left it out, orders the columns as `LONG_SCHEMA` does and drops any other. A frame that is the long
-    form already comes out unchanged.
+    provider left it out, writes a ``parameter`` in another casing than the metadata's as the metadata declares it
+    (GH-3595), orders the columns as `LONG_SCHEMA` does and drops any other. A frame that is the long form already
+    comes out unchanged, unless its ``parameter`` is in another casing than the metadata's.
 
     A frame without a row is no data and is the same answer whatever it holds: a station without data for the
     parameter may be handed over as a bare ``pl.DataFrame()``, as a frame with the columns and none of the rows, or
@@ -210,12 +211,15 @@ def shape_provider_frame(
         "resolution": dataset.resolution.name,
         "dataset": dataset.name.lower(),
     }
+    declared = _declared_parameter_names(df, dataset)
     columns = []
     for column, dtype in LONG_SCHEMA.items():
         if column in identity:
             columns.append(pl.lit(identity[column], dtype=dtype).alias(column))
         elif column == "value":
             columns.append(value.alias(column))
+        elif column == "parameter" and declared:
+            columns.append(pl.col(column).cast(dtype).replace(declared))
         elif column in df.columns:
             columns.append(pl.col(column).cast(dtype, strict=column != "value"))
         else:
@@ -223,6 +227,26 @@ def shape_provider_frame(
             # String column of the providers that do deliver it
             columns.append(pl.lit(None, dtype=dtype).alias(column))
     return df.select(columns)
+
+
+def _declared_parameter_names(df: pl.DataFrame, dataset: DatasetModel) -> dict[str, str]:
+    """Give the names a provider wrote in its own casing, each with the name the metadata declares (GH-3595).
+
+    The names are matched exactly where the frame is filtered to the parameters asked for (a grouped dataset), where
+    the answer is humanized and where `_note_files_with_rows` keeps the rows that date it, and case-insensitively where
+    the units are converted and the share of readings is measured, so a name in another casing than the metadata's
+    would be dropped, or kept under the source's spelling. Written as declared before any of them, they see one name.
+
+    A name that matches no parameter in any casing is left as the provider wrote it: a grouped dataset's filter drops
+    it, and a non-grouped call's unit conversion refuses it (when units are converted). So is a name that two different
+    declared names match alike (`Ab` and `aB` declared, `AB` emitted): only the lower-cased names that occur more than
+    once are left out, the rest are mapped. A name declared twice is one name.
+    """
+    declared = {parameter.name_original for parameter in dataset}
+    lowered = [name.lower() for name in declared]
+    by_lower = {name.lower(): name for name in declared if lowered.count(name.lower()) == 1}
+    emitted = df.get_column("parameter").cast(pl.String).unique().drop_nulls().to_list()
+    return {name: by_lower[name.lower()] for name in emitted if name not in declared and name.lower() in by_lower}
 
 
 def _value_as_number(df: pl.DataFrame, provider: str) -> pl.Expr:
@@ -315,6 +339,12 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             ["parameter"],
             maintain_order=True,
         ):
+            if parameter.lower() not in conversions:
+                message = (
+                    f"{type(self).__name__} returned the parameter {parameter!r}, which the dataset "
+                    f"{dataset.resolution.name}/{dataset.name} does not declare in any casing"
+                )
+                raise ProviderContractError(message)
             lambda_, decimals = conversions[parameter.lower()]
             # rounded to avoid long floats, by as many decimals as the target unit needs to keep the
             # reading's precision -- see `UnitConverter.decimals`. The conversions are plain arithmetic, so
@@ -694,6 +724,11 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         # with a value, and then drops the rows without a value: the files whose rows are the ones it keeps are the ones
         # that date the answer, so it is done here in the same order, on the same key and before the rows without a
         # value go
+        # the name is written as declared first, as `shape_provider_frame` does after this, so that the rows the core
+        # keeps are the rows counted here
+        declared = _declared_parameter_names(df, dataset)
+        if declared:
+            df = df.with_columns(pl.col("parameter").cast(pl.String).replace(declared))
         df = merge_duplicate_readings(df, ["parameter", "timestamp"])
         kept = pl.col("parameter").is_in(requested)
         stamp = self._window_stamp(df)
@@ -821,8 +856,8 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         Returns:
             One long-form frame of the readings of the station for that parameter or dataset, with the columns
 
-            - ``parameter`` (String): the source's own name of the parameter, `name_original`, which the unit
-              conversion looks up case-insensitively and a grouped dataset's filter matches exactly. Required. A
+            - ``parameter`` (String): the source's own name of the parameter, `name_original`; a name in another
+              casing than the metadata's is written as the metadata declares it (`shape_provider_frame`). Required. A
               non-grouped call returns the one parameter it was asked for: nothing filters the others out.
             - ``timestamp`` (Datetime): the instant of the reading, and not null on a row that has a value. The core
               casts it to ``Datetime("us", "UTC")``: a naive stamp is read as UTC, a zoned one is converted, so a
@@ -1052,9 +1087,9 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                 pl.col("dataset").eq(parameter.dataset.name.lower()),
             )
             df_parameter = df_dataset.filter(
-                # matched case-insensitively: a provider is free to emit a name in its own casing
-                # (WSV reports `w` where its metadata declares `W`), and an exact match there
-                # counts a parameter that is present as missing and skips the station over it
+                # matched case-insensitively, as the unit conversion looks the name up: an exact match
+                # would count a parameter that is present as missing and skip the station over it
+                # (`shape_provider_frame` writes the declared name already, so this is the same name)
                 pl.col("parameter").str.to_lowercase().eq(parameter.name_original.lower()),
             )
             start_date, end_date = self.sr.start, self.sr.end
