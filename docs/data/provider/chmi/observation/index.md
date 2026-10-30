@@ -17,8 +17,10 @@ one of the requested parameters (each parameter is one element, such as `T` or `
 dataset requests them all), read from the directories of the portal, one per category of the
 requested elements. The `10_minutes` and `hourly` resolutions list the whole catalogue: their files
 are one per month under a directory per year (about 1.6 MB each, eight years), which every request
-would have to read. Files of stations that `meta1.csv` does not carry stay unlisted, as no file
-gives them a position.
+would have to read, so they also list stations without a file there: those that closed before 2018,
+when these files begin, and those that have files in other resolutions only. Every file of the
+`daily`, `monthly` and `annual` directories has a station in `meta1.csv` (read 2026-10-30; before
+CHMI updated it, the files of 29 monthly and 22 annual stations had none).
 
 Observations are addressed per station and element. The `daily`, `monthly` and `annual`
 resolutions store one flat CSV per station/element (e.g. `dly-<WSI>-T.csv`); the `10_minutes`
@@ -40,6 +42,10 @@ precipitation.
 
 Not every station measures every parameter — a station/parameter combination that CHMI doesn't
 have simply contributes no rows.
+
+CHMI's station catalogue (`meta1.csv`) also lists two stations abroad, Reykjavik
+(`0-20000-0-04030`) and Marambio Base in Antarctica (`0-20000-0-89055`). The portal has no file
+for them in any resolution (checked 2026-10-29), so they are left out of the station lists.
 
 ## License
 

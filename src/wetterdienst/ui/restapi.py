@@ -83,9 +83,10 @@ from wetterdienst.ui.core import (
     SummaryRequest,
     ValuesRequest,
     _caller_refusal_status,
+    _draw_stripes,
     _get_stripes_data,
     _get_stripes_stations,
-    _plot_stripes,
+    _require_plotting,
     check_timeseries_api,
     failure_status,
     get_auth,
@@ -2291,6 +2292,8 @@ def stripes_values(
     WD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it, which a stripes request has no parameter
     for: the target of the quantity where the values are converted, the source's unit where not.
     """
+    begin_response()
+
     # checked outside the handler below, as for `/api/stripes/stations`
     Settings()
     try:
@@ -2331,20 +2334,27 @@ def stripes_image(
     # the image is rendered at `dpi / 100` times plotly's default size
     _refuse_oversized_image(None, None, request.dpi / 100, lower="dpi")
 
+    begin_response()
+
     # checked outside the handler below, as for `/api/stripes/stations`
     Settings()
     try:
-        fig = _plot_stripes(request)
+        # before the record is downloaded: a server without the `plotting` extra refuses at once
+        _require_plotting()
+        stripes_data = _get_stripes_data(request)
+        fig = _draw_stripes(stripes_data, request)
     except AssertionError:
         # a request its model should have refused: our bug, which FastAPI answers as a 500
         raise
     except Exception as e:
         raise _failure(e, request, "plot stripes") from e
     require_kaleido()
+    # the licence, the credit line and the warnings are told in the headers, as for every answer: an image holds
+    # none of it (GH-3581)
     return Response(
         content=fig.to_image(request.format, scale=request.dpi / 100),
         media_type=_MEDIA_TYPES.get(request.format, "application/octet-stream"),
-        headers=_image_headers(request.format),
+        headers={**response_headers(stripes_metadata(stripes_data, request)), **_image_headers(request.format)},
     )
 
 

@@ -432,7 +432,7 @@ _READERS = [
     pytest.param("history", "get_stations", {**_SERIES, "stations": "01048"}, id="history"),
     pytest.param("issues", "get_issues", {"provider": "dwd", "network": "mosmix", "station": "10147"}, id="issues"),
     pytest.param("stripes/values", "_get_stripes_data", _STRIPES, id="stripes-values"),
-    pytest.param("stripes/image", "_plot_stripes", _STRIPES, id="stripes-image"),
+    pytest.param("stripes/image", "_get_stripes_data", _STRIPES, id="stripes-image"),
     pytest.param("stripes/stations", "_get_stripes_stations", {"kind": "temperature"}, id="stripes-stations"),
 ]
 
