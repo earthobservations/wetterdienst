@@ -17,8 +17,9 @@ one of the requested parameters (each parameter is one element, such as `T` or `
 dataset requests them all), read from the directories of the portal, one per category of the
 requested elements. The `10_minutes` and `hourly` resolutions list the whole catalogue: their files
 are one per month under a directory per year (about 1.6 MB each, eight years), which every request
-would have to read. Files of stations that `meta1.csv` does not carry stay unlisted, as no file
-gives them a position.
+would have to read, so they also list stations that have files in the other resolutions only. Every file
+of the `daily`, `monthly` and `annual` directories has a station in `meta1.csv` (read 2026-10-30; before
+CHMI updated it, 29 monthly and 22 annual files had none).
 
 Observations are addressed per station and element. The `daily`, `monthly` and `annual`
 resolutions store one flat CSV per station/element (e.g. `dly-<WSI>-T.csv`); the `10_minutes`

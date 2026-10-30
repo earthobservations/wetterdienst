@@ -82,6 +82,11 @@ Types of changes:
 
 ### Fixed
 
+- `chmi/observation` lists stations that `meta1.csv` has since been given rows for: the 29 monthly
+  and 22 annual ids with files but no row (e.g. `0-203-0-10101019002`, Dolní Dvůr), and 14 more,
+  43 in all, none with a `daily` file (`meta1.csv` as read on 2026-10-30, 1,603 stations). `monthly`
+  lists 1,567 stations (was 1,538), `annual` 1,555 (was 1,533), `10_minutes` and `hourly` 1,603
+  (was 1,560): the 43 have no sub-daily file in 2018, 2020, 2022 or 2025 (GH-3259)
 - `chmi/observation` no longer lists the two stations abroad of CHMI's catalogue, Reykjavik
   (`0-20000-0-04030`) and Marambio Base (`0-20000-0-89055`), in the `10_minutes` and `hourly`
   station lists: the portal has no file for them in any resolution, so they never had a value
