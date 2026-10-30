@@ -15,7 +15,14 @@ import polars.selectors as cs
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, group_parameters_by_dataset
-from wetterdienst.model.quality_flags import SPEED_BESIDE, Sentinel, calm, join_quality_flags, null_sentinels
+from wetterdienst.model.quality_flags import (
+    SPEED_BESIDE,
+    Sentinel,
+    calm,
+    join_quality_flags,
+    null_sentinels,
+    with_speed_beside,
+)
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.noaa.ghcn.metadata import (
@@ -45,6 +52,17 @@ GHCNH_WIND_DIRECTION_MISSING = "999"
 # one (1.5 m/s, 1985) have a wind speed of 0, and 12,384 and 28,366 are 360. The 0 beside a speed of 0 is null; the
 # one beside a wind that blows stays, as in every provider (`calm`, GH-3222), where it was null too
 GHCNH_WIND_SPEED_OF_DIRECTION = {"wind_direction": "wind_speed"}
+# the speed of the direction of each fastest or peak wind of the daily files (the element names, lower case): the
+# readme lists WDF1, WDF2, WDF5, WDFG, WDFI and WDFM as "Direction of ..." the wind WSF1, WSF2, WSF5, WSFG, WSFI and
+# WSFM give the speed of, in tenths of m/s
+GHCND_WIND_SPEED_OF_DIRECTION = {
+    "wdf1": "wsf1",
+    "wdf2": "wsf2",
+    "wdf5": "wsf5",
+    "wdfg": "wsfg",
+    "wdfi": "wsfi",
+    "wdfm": "wsfm",
+}
 GHCNH_PRECIPITATION_MISSING = "-9999"
 GHCNH_NONE = "-None"
 # the reports of Table 4 that are specials, filed between the routine ones: FM16 is a SPECI, SAOSP an airways special
@@ -408,6 +426,21 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
             pl.col("parameter").str.to_lowercase(),
             pl.col("value").str.strip_chars(),
             "quality_flags",
+        )
+        # The direction of a fastest or peak wind is 0 beside a speed of 0 as much as it is a bearing beside a wind that
+        # blows (9 station files read 2026-10-30; the readme gives no code for a day without a direction). Of the 1,799
+        # zeros of WDFG 1,798 have a WSFG of 0 (1,789 at CAN03031640, source flag C), and 123 zeros of WDF5 at
+        # USW00014755 (1998 to 2002) are beside a WSF5 of 4.0 to 59.0 m/s, besides its 360 for north. WDF1, WDF2 and
+        # WDF5 have 2 of 3, 8 of 23 and 11 of 134 zeros beside a speed of 0, WDFI and WDFM none in 8,410 and 28,815
+        # directions. The 0 beside a speed of exactly 0 is a calm and null, and stays as `raw:0` in `quality_flags`
+        # (GH-3222); the 0 beside a wind that blows stays (GH-3648)
+        df = with_speed_beside(df, GHCND_WIND_SPEED_OF_DIRECTION, on=["station_id", "timestamp"])
+        value, raw = null_sentinels(
+            pl.col("value"),
+            calm(pl.col(SPEED_BESIDE), where=pl.col("parameter").is_in(list(GHCND_WIND_SPEED_OF_DIRECTION))),
+        )
+        df = df.with_columns(value.alias("value"), join_quality_flags(pl.col("quality_flags"), raw=raw)).drop(
+            SPEED_BESIDE
         )
         # A daily value is stamped at 00:00 UTC of the date the file gives it, whichever time zone the station is in:
         # the date is handed over as it is, which the core reads as midnight UTC. The date is the station's own

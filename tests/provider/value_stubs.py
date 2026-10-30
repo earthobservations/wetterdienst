@@ -682,6 +682,44 @@ def _ghcn_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
     return request.filter_by_station_id("ACM00078861").values().all().df
 
 
+def _ghcn_daily_gusts(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # access/USW00014755.csv (Mount Washington, NH, read 2026-10-30), the directions of the peak gust (WDFG) and of the
+    # fastest 5-second wind (WDF5) with the speeds beside them, in the tenths of the readme. The readme gives no code
+    # for a day without a direction, and the files write a 0 for it: 1958-03-09 has WDFG 0 beside WSFG 0, a calm, with
+    # no direction (GH-3648; 1,798 of the 1,799 zeros of WDFG in 9 station files are beside a speed of 0). The 0 of
+    # 2002-08-29 is beside 12.5 m/s and stays, as the 123 zeros of WDF5 of 1998 to 2002 do, beside 4.0 to 59.0 m/s
+    body = (
+        b'"STATION","DATE","LATITUDE","LONGITUDE","ELEVATION","NAME","WDF5","WDF5_ATTRIBUTES","WDFG",'
+        b'"WDFG_ATTRIBUTES","WSF5","WSF5_ATTRIBUTES","WSFG","WSFG_ATTRIBUTES"\n'
+        b'"USW00014755","1958-03-09","44.27018","-71.30336","1911.7","MOUNT WASHINGTON, NH US","","",'
+        b'"    0","W,,X","","","    0",",,X"\n'
+        b'"USW00014755","1998-04-04","44.27018","-71.30336","1911.7","MOUNT WASHINGTON, NH US","    0",",,W",'
+        b'"  360",",,X","  286",",,W","  286",",,X"\n'
+        b'"USW00014755","2002-08-29","44.27018","-71.30336","1911.7","MOUNT WASHINGTON, NH US","    0",",,W",'
+        b'"    0",",,X","  125",",,W","  125",",,X"\n'
+    )
+    stations = b"USW00014755  44.2703  -71.3033 1911.7 NH MOUNT WASHINGTON                                  \n"
+    inventory = b"USW00014755  44.2703  -71.3033 WDFG 1948 2005\nUSW00014755  44.2703  -71.3033 WDF5 1998 2025\n"
+    serve(
+        monkeypatch,
+        ghcn_api,
+        {"ghcnd-stations": stations, "ghcnd-inventory": inventory, "access/USW00014755": body},
+    )
+    request = NoaaGhcnRequest(
+        parameters=[
+            ("daily", "data", "wind_direction_gust_max"),
+            ("daily", "data", "wind_gust_max"),
+            ("daily", "data", "wind_direction_gust_max_5sec"),
+            ("daily", "data", "wind_gust_max_5sec"),
+        ],
+        start=_day(1958, 3, 9),
+        end=_day(2002, 8, 29),
+        settings=_settings(),
+        options=_options(drop_nulls),
+    )
+    return request.filter_by_station_id("USW00014755").values().all().df
+
+
 def _serve_meteofrance(
     monkeypatch: pytest.MonkeyPatch, resolution: str, dataset: str, title: str, rows: list[dict[str, str]]
 ) -> None:
@@ -2127,6 +2165,13 @@ STUBS = [
             ("precipitation_amount_since_last_routine_report", "-9999", None),
             ("temperature_air_2m", "-None", None),
         ),
+    ),
+    ValueStub(
+        "noaa/ghcn daily/gusts",
+        _ghcn_daily_gusts,
+        reading=("wind_direction_gust_max", 360.0),
+        # the 0 beside a speed of 0 is a calm and null; the one beside a wind that blows is a reading and stays
+        tokens=(("wind_direction_gust_max", "0", None),),
     ),
     ValueStub(
         "metoffice/observation daily/rain",
