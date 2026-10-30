@@ -33,7 +33,7 @@ The `climate-monthly` collection publishes the value without the flag, so the li
 to the collection's own counts of valid days: the plain `I` in `quality_flags` is derived from the days of
 the month and the `count_days_valid_*` of the value, not read from the archive. It does not reproduce the
 archive's flags where the collection and the archive differ (at Ridgetown the archive flags 1997-11 to
-1999-11, where the collection counts every day valid).
+1999-11, where the collection counts every day valid in most of those months).
 
 - `temperature_air_max_2m`, `temperature_air_min_2m`, `precipitation_amount` and `snow_depth_new`: `I` when
   any day of the month is not valid.
@@ -47,7 +47,8 @@ archive's flags where the collection and the archive differ (at Ridgetown the ar
 Which collection field is which element is our reading, not ECCC's statement: `MAX_TEMPERATURE` and
 `MIN_TEMPERATURE` are the extremes of the month (elements 044 and 046), `TOTAL_PRECIPITATION` and
 `TOTAL_SNOWFALL` are elements 050 and 049, `MEAN_TEMPERATURE` is 042. The flag is derived for every month,
-also before 1994, where the archive set no `I`: there it is ours and not the archive's. Ridgetown (`4679`)
+also before 1994: the documentation dates the archive's flag from 1994, and the archive has `I` in some earlier
+months too (Ridgetown 1992-01 and 1993-12, where the derived flag agrees), but the rule there is ours. Ridgetown (`4679`)
 1990-03 has a mean temperature from 12 days (the archive publishes no mean or extremes for it and writes
 `M`); the collection gives the values and counts them, and the derived flag marks them.
 

@@ -66,14 +66,16 @@ _WIND_SPEED_OF_DIRECTION = {"wind_direction": "wind_speed", "direction_max_gust"
 # (`DAYS_WITH_VALID_*`), so the flag follows the archive's rule, applied to those counts: the days of the month that
 # are not valid are the missing days. It does not reproduce the archive's own flags: the collection's counts and
 # values differ from the archive's where it flags (1997-11 to 1999-11 at Ridgetown, where the collection counts every
-# day valid), and the archive wrote `E` for 1993-12. The collection does not say which element a field is, which is
-# read from the values: `MAX_TEMPERATURE` and `MIN_TEMPERATURE` are the extremes of the month (044 and 046: 22 and -12
-# degrees in March 1990 at Ridgetown, beside a mean of 0.6), `TOTAL_PRECIPITATION` and `TOTAL_SNOWFALL` are 050 and
-# 049, `MEAN_TEMPERATURE` is 042 (GH-3621). That is ours and not the archive's mapping, and so is the flag of a month
-# before 1994, where the archive set no `I`. The run of consecutive missing days of Note 26 is not published, so a
-# mean temperature is flagged for more than 5 missing days only: a month with 4 or 5 missing days, 4 of them in a row,
-# is not flagged, where the archive flags it. Fields that no note names (sunshine, degree days, the counts of days,
-# the snow on the ground) are not flagged, and neither is a value that is null (a count of 0 beside no value).
+# day valid in most months), and the archive wrote `E` for the extreme and mean maximum of 1993-12, where the others
+# are `I`. The collection does not say which element a field is, which is read from the values: `MAX_TEMPERATURE` and
+# `MIN_TEMPERATURE` are the extremes of the month (044 and 046: 22 and -12 degrees in March 1990 at Ridgetown, beside
+# a mean of 0.6), `TOTAL_PRECIPITATION` and `TOTAL_SNOWFALL` are 050 and 049, `MEAN_TEMPERATURE` is 042 (GH-3621).
+# That is ours and not the archive's mapping, and so is the flag of a month before 1994: the documentation dates the
+# archive's flag from 1994, and the archive has `I` in some earlier months too (Ridgetown 1992-01 and 1993-12), where
+# the derived flag agrees. The run of consecutive missing days of Note 26 is not published, so a mean temperature is
+# flagged for more than 5 missing days only: a month with 4 or 5 missing days, 4 of them in a row, is not flagged,
+# where the archive flags it. Fields that no note names (sunshine, degree days, the counts of days, the snow on the
+# ground) are not flagged, and neither is a value that is null (a count of 0 beside no value).
 #: Per monthly field the count of valid days it rests on, and the number of missing days it allows without the flag.
 _MONTHLY_VALID_DAYS: dict[str, tuple[str, int]] = {
     "max_temperature": ("days_with_valid_max_temp", 0),

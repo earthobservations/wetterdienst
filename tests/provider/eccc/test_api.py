@@ -512,8 +512,8 @@ def test_eccc_monthly_count_and_normal_of_the_mean_carry_the_name_of_the_mean(
 # Rows of RIDGETOWN AUTOMATIC CLIMATE STATION (STN_ID 4679) as climate-monthly answers them (read 2026-10-30), served
 # for the test station: March 1990 has a mean from 12 days, extremes from 12, precipitation from 24 and snowfall from
 # 30 of its 31 days; February is whole. The other months are made up for the rule of the mean temperature: 5 and 6
-# missing days of 30 (April), the leap day of February 1992 (29 days) with 28 valid, a June whose minimum rests on 29
-# days and whose maximum on 30 (the counts of March are 12 for both), and a July with no snowfall at all, null beside a
+# missing days of 30 (April), the leap day of February 1992 (29 days) with 28 valid, a June whose maximum rests on 29
+# days and whose minimum on 30 (the counts of March are 12 for both), and a July with no snowfall at all, null beside a
 # count of 0 as the collection writes it (70 of Ridgetown's 201 months).
 _RIDGETOWN_MONTHLY_ROWS = [
     {
@@ -549,9 +549,9 @@ _RIDGETOWN_MONTHLY_ROWS = [
     {
         "LOCAL_DATE": "1990-06",
         "MAX_TEMPERATURE": 28.0,
-        "DAYS_WITH_VALID_MAX_TEMP": 30,
+        "DAYS_WITH_VALID_MAX_TEMP": 29,
         "MIN_TEMPERATURE": 9.5,
-        "DAYS_WITH_VALID_MIN_TEMP": 29,
+        "DAYS_WITH_VALID_MIN_TEMP": 30,
     },
     {
         "LOCAL_DATE": "1990-07",
@@ -626,8 +626,9 @@ def test_eccc_monthly_flags_the_extremes_by_their_own_counts(
 ) -> None:
     """The maximum rests on its own count of valid days and the minimum on theirs, not on each other's."""
     flags = _monthly_flags(monkeypatch, options_convert_units_false)
-    assert flags["temperature_air_max_2m", "1990-06"] is None
-    assert flags["temperature_air_min_2m", "1990-06"] == "I"
+    # one missing day of 30 is enough for an extreme, which allows none (the mean allows 5)
+    assert flags["temperature_air_max_2m", "1990-06"] == "I"
+    assert flags["temperature_air_min_2m", "1990-06"] is None
 
 
 def test_eccc_monthly_does_not_flag_a_value_that_is_null(monkeypatch: pytest.MonkeyPatch) -> None:
