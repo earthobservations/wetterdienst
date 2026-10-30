@@ -94,6 +94,9 @@ Types of changes:
   frame (795 closed before 2018, 41 more with no daily file); no station with a 10 minute or hourly
   file is among them. `daily`, `monthly` and `annual` are unchanged. The daily directories are
   read for a sub-daily stations request now (GH-3623)
+- Two processes that share a cache directory no longer fail a download on Windows with
+  `PermissionError` when one opens a cached file while the other replaces it: the open is asked
+  again for under a second, and a file that stays unreadable still raises (GH-3630)
 - A request that asks several resolutions or datasets of one provider no longer returns some
   readings under another parameter's name. The humanized name is now looked up per resolution
   and dataset, where a name the source gives two parameters took the last one's: chmi (`T`, `H`,

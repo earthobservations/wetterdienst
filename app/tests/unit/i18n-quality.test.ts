@@ -359,7 +359,6 @@ const UI_SAME: Record<string, Same> = {
   'meteogram.chart.panelTemperature': { de: ['da'], why: COGNATE },
   'meteogram.chart.panelWind': { en: ['de-hh', 'de', 'nl'], why: COGNATE },
   'meteogram.chart.horizonAll': { de: ['nl'], why: COGNATE },
-  'meteogram.chart.viewNormal': { en: ['da', 'de-hh', 'de', 'es', 'fr', 'lb'], why: COGNATE },
   'meteogram.chart.viewCompact': { en: ['fr', 'nl'], de: ['da'], why: COGNATE },
   'meteogram.chart.seriesTemperature': { de: ['da'], why: COGNATE },
   'meteogram.chart.seriesWind': { en: ['de-hh', 'de', 'nl'], why: COGNATE },

@@ -59,7 +59,7 @@ describe('privacy policy texts', () => {
 
   it.each(Object.keys(texts))('name the cookie and the localStorage keys the app writes in %s', (code) => {
     const text = allText(texts[code as keyof typeof texts])
-    for (const key of ['wd_lang', 'wd_settings', 'meteogram.compact', 'nuxt-color-mode'])
+    for (const key of ['wd_lang', 'wd_settings', 'meteogram.view', 'nuxt-color-mode'])
       expect(text, key).toContain(key)
   })
 
