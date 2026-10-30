@@ -2921,3 +2921,121 @@ describe('dataViewer chart separators in the active locale', () => {
     await vi.waitFor(() => expect(separatorsDrawn(false)).toBe(',.'))
   })
 })
+
+describe('dataViewer charts in the language of the page and at its end', () => {
+  async function setLocale(locale: string) {
+    const harness = await mountSuspended(defineComponent({
+      setup: () => ({ setLocale: useI18n().setLocale }),
+      render: () => h('div'),
+    }))
+    await (harness.vm as unknown as { setLocale: (locale: string) => Promise<void> }).setLocale(locale)
+    harness.unmount()
+  }
+
+  afterEach(async () => {
+    await setLocale('en')
+  })
+
+  interface Drawn { locale: string, locales: Record<string, { dictionary?: Record<string, string>, format: { shortMonths: string[] } }> }
+  const configOf = (call: unknown[] | undefined) => call![3] as Drawn
+
+  // Plotly's own translation of the modebar's buttons ("Zoom", "Pan", "Download plot as a PNG") and the
+  // names of the months of a date axis, for the language of the page (GH-3625)
+  it.each([
+    ['en', 'en-GB', undefined],
+    ['de', 'de-DE', 'Verschieben'],
+    ['de-hh', 'de-DE', 'Verschieben'],
+    ['lb', 'lb-LU', 'Verschieben'],
+  ] as const)('gives the single chart the language of %s and the facets too', async (code, language, pan) => {
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    await setLocale(code)
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    plotly.newPlot.mockClear()
+    await showChart(wrapper, false)
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
+    const config = configOf(plotly.newPlot.mock.lastCall)
+    expect(config.locale).toBe(language)
+    expect(config.locales[language]!.dictionary?.Pan).toBe(pan)
+    expect(config.locales[language]!.format.shortMonths).toHaveLength(12)
+
+    plotly.react.mockClear()
+    ;(viewer.vm as unknown as { facetByParameter: boolean }).facetByParameter = true
+    await flushPromises()
+    await vi.waitFor(() => expect(plotly.react).toHaveBeenCalledTimes(2))
+    for (const call of plotly.react.mock.calls) {
+      const config = configOf(call as unknown as unknown[])
+      expect(config.locale).toBe(language)
+      expect(config.locales[language]!.dictionary?.Pan).toBe(pan)
+    }
+  })
+
+  it('draws the chart again in the language it is switched to, with that language\'s buttons', async () => {
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    plotly.newPlot.mockClear()
+    await showChart(wrapper, false)
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
+    expect(configOf(plotly.newPlot.mock.lastCall).locale).toBe('en-GB')
+
+    await setLocale('fr')
+    await vi.waitFor(() => expect(configOf(plotly.newPlot.mock.lastCall).locale).toBe('fr-FR'))
+    expect(configOf(plotly.newPlot.mock.lastCall).locales['fr-FR']!.dictionary?.Pan).toBe('Translation')
+  })
+
+  it('keeps the camera\'s button in the config of the language, as the one config', async () => {
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    await setLocale('de')
+    const { viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    plotly.newPlot.mockClear()
+    plotly.react.mockClear()
+    // the buttons of the page are German, so the facets are asked for through the viewer itself
+    const vm = viewer.vm as unknown as { viewMode: string, facetByParameter: boolean }
+    vm.viewMode = 'graph'
+    vm.facetByParameter = true
+    await flushPromises()
+    await vi.waitFor(() => expect(plotly.react).toHaveBeenCalledTimes(2))
+    const configs = plotly.react.mock.calls.map(call => (call as unknown as unknown[])[3])
+    expect(configs[1]).toBe(configs[0])
+    const added = (configs[0] as { modeBarButtonsToAdd: { title: string }[] }).modeBarButtonsToAdd
+    expect(added).toHaveLength(1)
+    // Plotly translates its own buttons, and the camera is the page's: it is written in the language too
+    expect(added[0]!.title).toBe('Graphen als PNG herunterladen')
+  })
+
+  // Plotly keeps a window `resize` listener for each chart drawn with `responsive`, which holds the chart until
+  // it is purged (GH-3619)
+  it('purges the single chart where the viewer goes', async () => {
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, false)
+    const [chart] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement]
+    plotly.purge.mockClear()
+    wrapper.unmount()
+    expect(plotly.purge).toHaveBeenCalledWith(chart)
+  })
+
+  it('purges every facet where the viewer goes', async () => {
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    plotly.react.mockClear()
+    await showChart(wrapper, true)
+    await vi.waitFor(() => expect(plotly.react).toHaveBeenCalledTimes(2))
+    const facets = plotly.react.mock.calls.map(call => (call as unknown as unknown[])[0] as HTMLElement)
+    plotly.purge.mockClear()
+    wrapper.unmount()
+    for (const facet of facets)
+      expect(plotly.purge).toHaveBeenCalledWith(facet)
+  })
+
+  it('purges nothing where no chart was ever asked for', async () => {
+    const { wrapper } = await mountDataViewer()
+    plotly.purge.mockClear()
+    wrapper.unmount()
+    expect(plotly.purge).not.toHaveBeenCalled()
+  })
+})

@@ -7,6 +7,7 @@ import { UApp } from '#components'
 import { clearNuxtData, useToast } from '#imports'
 import MapStations from '~/components/MapStations.vue'
 import StripesPage from '~/pages/stripes.vue'
+import { SERIES_LABEL } from '~/utils/chart-theme'
 
 // Real Leaflet draws nothing in happy-dom. The LMap stub holds a stand-in Leaflet map, as LMap
 // holds the real one, for the station map to centre; it never emits ready, so no markers are built.
@@ -1317,5 +1318,104 @@ describe('stripes Page text alternative', () => {
     wrapper!.findAll('button').find((b: { text: () => string }) => b.text() === 'Reset')!.trigger('click')
     await vi.waitFor(() => expect(toggle()).toBeUndefined())
     expect(figure().getAttribute('aria-describedby')).toBeNull()
+  })
+})
+
+describe('stripes Page chart in the language of the page, readable, and purged at its end', () => {
+  const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_timestamp: '1950-01-01', end_timestamp: '2020-01-01' }
+
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  let harness: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  afterEach(async () => {
+    wrapper?.unmount()
+    wrapper = undefined
+    await (harness?.vm as any)?.setLocale('en')
+    harness?.unmount()
+    harness = undefined
+  })
+
+  async function setLocale(language: string) {
+    harness = await mountSuspended(defineComponent({
+      setup: () => ({ setLocale: useI18n().setLocale }),
+      render: () => h('div'),
+    }))
+    await (harness.vm as any).setLocale(language)
+  }
+
+  // what Show does, whatever language its button is written in
+  async function showStripes(query = 'kind=temperature') {
+    registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
+    registerEndpoint('/api/stripes/values', () => ({
+      series: { station },
+      values: [
+        { timestamp: '2019-01-01T00:00:00+00:00', value: 9.1 },
+        { timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 },
+      ],
+    }))
+    wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route: `/stripes?${query}` })
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
+    vm.selectedStation = station
+    await nextTick()
+    plotly.newPlot.mockClear()
+    await vm.fetchAndPlotStripes()
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
+  }
+
+  interface Config { locale: string, locales: Record<string, { dictionary?: Record<string, string>, format: { shortMonths: string[] } }> }
+  const configDrawn = () => (plotly.newPlot.mock.lastCall as unknown as [unknown, unknown, unknown, Config])[3]
+
+  // Plotly's own translation of the modebar's buttons, for the language of the page (GH-3625)
+  it.each([
+    ['en', 'en-GB', undefined],
+    ['de', 'de-DE', 'Verschieben'],
+    ['de-hh', 'de-DE', 'Verschieben'],
+    ['lb', 'lb-LU', 'Verschieben'],
+  ] as const)('gives Plotly the language of %s', async (code, language, pan) => {
+    await setLocale(code)
+    await showStripes()
+    expect(configDrawn().locale).toBe(language)
+    expect(configDrawn().locales[language]!.dictionary?.Pan).toBe(pan)
+    expect(configDrawn().locales[language]!.format.shortMonths).toHaveLength(12)
+    // Plotly translates its own buttons, and the camera is the page's: it is written in the language too
+    const [added] = (configDrawn() as unknown as { modeBarButtonsToAdd: { title: string }[] }).modeBarButtonsToAdd
+    expect(added!.title).toBe(pan ? 'Graphen als PNG herunterladen' : 'Download plot as a PNG')
+  })
+
+  it('draws the stripes again, with the buttons of the language it is switched to', async () => {
+    await showStripes()
+    expect(configDrawn().locale).toBe('en-GB')
+    plotly.newPlot.mockClear()
+    await setLocale('fr')
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
+    expect(configDrawn().locale).toBe('fr-FR')
+    expect(configDrawn().locales['fr-FR']!.dictionary?.Pan).toBe('Translation')
+  })
+
+  // the label of the line of years with data is gold, which on white is 2.2:1 (GH-3618)
+  it('writes the availability label in the gold that reads on the paper', async () => {
+    await showStripes('kind=temperature&show_data_availability=true')
+    const [, , layout] = plotly.newPlot.mock.lastCall as unknown as [unknown, unknown, { annotations: { text: string, font: { color: string } }[] }]
+    const label = layout.annotations.find(annotation => annotation.text === 'Data availability')
+    expect(label?.font.color).toBe(SERIES_LABEL.gold.light)
+  })
+
+  // Plotly keeps a window `resize` listener for a chart drawn with `responsive`, which holds the chart until it is purged (GH-3619)
+  it('purges the stripes where the page goes', async () => {
+    await showStripes()
+    const [chart] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement]
+    plotly.purge.mockClear()
+    wrapper!.unmount()
+    wrapper = undefined
+    expect(plotly.purge).toHaveBeenCalledWith(chart)
+  })
+
+  it('purges nothing where no stripes were drawn', async () => {
+    registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
+    wrapper = await mountSuspended(StripesPage, { attachTo: document.body })
+    plotly.purge.mockClear()
+    wrapper.unmount()
+    wrapper = undefined
+    expect(plotly.purge).not.toHaveBeenCalled()
   })
 })

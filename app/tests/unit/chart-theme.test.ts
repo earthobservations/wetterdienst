@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { CHART_TOKENS, chartThemeLayout, chartThemeRelayout, drawnAxisNames, EMPTY_CHART_THEME, mergeLayouts, parseCssColor, readChartTheme, restyleChart, themedLayout, withAlpha } from '../../app/utils/chart-theme'
+import { CHART_TOKENS, chartThemeLayout, chartThemeRelayout, drawnAxisNames, EMPTY_CHART_THEME, mergeLayouts, parseCssColor, readChartTheme, restyleChart, SERIES_LABEL, seriesLabelColor, themedLayout, withAlpha } from '../../app/utils/chart-theme'
 
 // The custom properties as the browser would answer them in each colour scheme, in the syntax the
 // tokens are written in (oklch), and the resolver standing in for the canvas that turns them into rgb()
@@ -241,5 +241,31 @@ describe('the tokens in main.css', () => {
 
   it('lists every property of the theme and no other', () => {
     expect(declarations.map(declaration => declaration.property).sort()).toEqual(Object.values(CHART_TOKENS).sort())
+  })
+})
+
+// The text that names a series is held to 4.5:1 on the paper (WCAG 1.4.3, GH-3618). The paper is the page's:
+// white, and Tailwind's gray-900 (`--ui-bg` of the dark mode); tests/e2e/chart-theme.spec.ts holds the drawn charts.
+describe('the colours of the text that names a series', () => {
+  const PAPER = { light: '#ffffff', dark: '#101828' }
+  const luminance = (hex: string) => {
+    const [r, g, b] = [1, 3, 5].map(i => Number.parseInt(hex.slice(i, i + 2), 16) / 255).map(c => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
+    return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!
+  }
+  const contrast = (a: string, b: string) => {
+    const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
+    return (hi! + 0.05) / (lo! + 0.05)
+  }
+
+  it.each(Object.keys(SERIES_LABEL) as (keyof typeof SERIES_LABEL)[])('read on the light and the dark paper for %s', (series) => {
+    expect(contrast(seriesLabelColor(series, false), PAPER.light)).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(seriesLabelColor(series, true), PAPER.dark)).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('are the series\' own hue: the dark paper keeps the colour of the line, the light one is a darker step of it', () => {
+    expect(SERIES_LABEL.cyan.dark).toBe('#06b6d4')
+    expect(SERIES_LABEL.lime.dark).toBe('#84cc16')
+    for (const { light, dark } of Object.values(SERIES_LABEL))
+      expect(luminance(light)).toBeLessThan(luminance(dark))
   })
 })

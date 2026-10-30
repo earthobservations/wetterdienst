@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import type { SunTimes } from 'suncalc'
 import type { Value } from '#shared/types/api'
-import type { ChartTheme } from '~/utils/chart-theme'
+import type { ChartTheme, SeriesLabel } from '~/utils/chart-theme'
 import type { MeteogramView } from '~/utils/meteogram'
 import type { WeatherKind } from '~/utils/weather-kind'
 import { DateTime } from 'luxon'
 import tzLookup from 'tz-lookup'
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { formatDayMonth, formatNumber, plotlyDateLocale, plotlyHoverFormat, plotlySeparators, weekdayShort } from '~/utils/format'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { formatDayMonth, formatNumber, plotlyHoverFormat, plotlySeparators, weekdayShort } from '~/utils/format'
 import { extremeWindowHours, extremeWindowSteps, interpSeries, METEOGRAM_SERIES, meteogramView, meteogramViewFromQuery, nearestNeighbor, resampleCadenceMs, wetBulbApprox } from '~/utils/meteogram'
+import { plotlyLocaleConfig } from '~/utils/plotly-locale'
 import { WEATHER_SYMBOLS, weatherCodeToKind } from '~/utils/weather-kind'
 
 const props = defineProps<{
@@ -197,7 +198,7 @@ function chooseView(next: MeteogramView) {
   }
 }
 
-onUnmounted(() => {
+onBeforeUnmount(() => {
   try {
     cleanupPlotlyOverlayHandlers()
   }
@@ -1297,7 +1298,7 @@ async function renderChartActual() {
       yref: 'paper',
       text: annotText,
       showarrow: false,
-      font: { size: annotFontSize, color: isWeekend ? '#ef4444' : theme.value.text },
+      font: { size: annotFontSize, color: isWeekend ? seriesLabelColor('red', isDark.value) : theme.value.text },
       xanchor: 'center',
       yanchor: 'bottom',
     })
@@ -1704,7 +1705,8 @@ async function renderChartActual() {
   const W = (a: number) => withAlpha(theme.value.text, a)
   const GRID = W(0.08)
   const TICK = theme.value.textMuted
-  const ZERO = W(0.20)
+  // the colour of the text that names a series: its hue, dark enough to read on the paper (GH-3618)
+  const LABEL = (series: SeriesLabel) => seriesLabelColor(series, isDark.value)
 
   // Panel divider lines
   const dividers: any[] = []
@@ -1871,14 +1873,14 @@ async function renderChartActual() {
     yaxis: {
       visible: !!domains.wind,
       domain: domains.wind ?? [0, 0],
-      title: { text: t('meteogram.chart.axisWind'), font: { size: 9, color: '#06b6d4' }, standoff: 2 },
+      title: { text: t('meteogram.chart.axisWind'), font: { size: 9, color: LABEL('cyan') }, standoff: 2 },
       gridcolor: GRID,
       linecolor: 'rgba(0,0,0,0)',
       zeroline: false,
       rangemode: 'tozero',
       range: originalRanges.wind,
       tickvals: axisTickVals.wind ?? undefined,
-      tickfont: { size: compact.value ? 7 : 9, color: '#06b6d4' },
+      tickfont: { size: compact.value ? 7 : 9, color: LABEL('cyan') },
       tickcolor: 'rgba(6,182,212,0.45)',
       nticks: 4,
       fixedrange: true,
@@ -1887,14 +1889,14 @@ async function renderChartActual() {
     yaxis2: {
       visible: !!domains.precip,
       domain: domains.precip ?? [0, 0],
-      title: { text: t('meteogram.chart.axisPrecip'), font: { size: 9, color: '#3b82f6' }, standoff: 2 },
+      title: { text: t('meteogram.chart.axisPrecip'), font: { size: 9, color: LABEL('blue') }, standoff: 2 },
       gridcolor: GRID,
       linecolor: 'rgba(0,0,0,0)',
       zeroline: false,
       rangemode: 'tozero',
       range: originalRanges.precip,
       tickvals: axisTickVals.precip ?? undefined,
-      tickfont: { size: compact.value ? 7 : 9, color: '#3b82f6' },
+      tickfont: { size: compact.value ? 7 : 9, color: LABEL('blue') },
       tickcolor: 'rgba(37,99,235,0.45)',
       nticks: 3,
       fixedrange: true,
@@ -1918,15 +1920,15 @@ async function renderChartActual() {
     yaxis3: {
       visible: !!domains.temp,
       domain: domains.temp ?? [0, 0],
-      title: { text: t('meteogram.chart.axisTemp'), font: { size: 9, color: '#ef4444' }, standoff: 2 },
+      title: { text: t('meteogram.chart.axisTemp'), font: { size: 9, color: LABEL('red') }, standoff: 2 },
       gridcolor: GRID,
       linecolor: 'rgba(0,0,0,0)',
       zeroline: true,
-      zerolinecolor: ZERO,
+      zerolinecolor: theme.value.zeroline,
       zerolinewidth: 1,
       range: originalRanges.temp,
       tickvals: axisTickVals.temp ?? undefined,
-      tickfont: { size: compact.value ? 7 : 9, color: '#ef4444' },
+      tickfont: { size: compact.value ? 7 : 9, color: LABEL('red') },
       tickcolor: 'rgba(239,68,68,0.45)',
       fixedrange: true,
     },
@@ -1934,14 +1936,14 @@ async function renderChartActual() {
     yaxis4: {
       visible: !!domains.pressure,
       domain: domains.pressure ?? [0, 0],
-      title: { text: t('meteogram.chart.axisPressure'), font: { size: 9, color: '#84cc16' }, standoff: 2 },
+      title: { text: t('meteogram.chart.axisPressure'), font: { size: 9, color: LABEL('lime') }, standoff: 2 },
       gridcolor: GRID,
       linecolor: 'rgba(0,0,0,0)',
       zeroline: false,
       rangemode: 'normal',
       range: originalRanges.pressure,
       tickvals: axisTickVals.pressure ?? undefined,
-      tickfont: { size: compact.value ? 7 : 9, color: '#84cc16' },
+      tickfont: { size: compact.value ? 7 : 9, color: LABEL('lime') },
       tickcolor: 'rgba(132,204,22,0.45)',
       nticks: 3,
       fixedrange: true,
@@ -1950,7 +1952,7 @@ async function renderChartActual() {
 
   const isTouchDevice = typeof window !== 'undefined' && window.matchMedia('(hover: none) and (pointer: coarse)').matches
   // the weekday of the hover heading is written by Plotly, which knows English only unless it is given the language
-  const config = { responsive: true, displayModeBar: false, locale: language.value, locales: { [language.value]: plotlyDateLocale(language.value) }, ...(isTouchDevice ? { dragmode: 'pan', scrollZoom: false } : {}) }
+  const config = { responsive: true, displayModeBar: false, ...(await plotlyLocaleConfig(locale.value, language.value)), ...(isTouchDevice ? { dragmode: 'pan', scrollZoom: false } : {}) }
 
   if (chartRef.value) {
     try {

@@ -4,6 +4,7 @@ import { flushPromises } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import Meteogram from '~/components/Meteogram.vue'
+import { SERIES_LABEL } from '~/utils/chart-theme'
 
 // Plotly draws nothing in the test's document: its calls are recorded
 const plotly = vi.hoisted(() => ({
@@ -477,6 +478,55 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
     expect(config.locale).toBe(language)
     // Sunday first, as Plotly has it
     expect(config.locales[language]!.format.shortDays[4]).toBe(weekday)
+  })
+
+  // Plotly's own translation of its buttons and texts, which the chart is given in the language of the page (GH-3625);
+  // Luxembourgish and Hamburg's German have none of their own, and English is Plotly's own
+  it.each([
+    ['en', 'en-GB', undefined],
+    ['de', 'de-DE', 'Verschieben'],
+    ['de-hh', 'de-DE', 'Verschieben'],
+    ['lb', 'lb-LU', 'Verschieben'],
+    ['fr', 'fr-FR', 'Translation'],
+  ] as const)('gives Plotly its translation for %s (%s)', async (code, language, pan) => {
+    await inLanguage(code)
+    await showMeteogram()
+    const [, , , config] = plotly.newPlot.mock.lastCall as unknown as [unknown, unknown, unknown, { locale: string, locales: Record<string, { dictionary?: Record<string, string> }> }]
+    expect(config.locale).toBe(language)
+    expect(config.locales[language]!.dictionary?.Pan).toBe(pan)
+  })
+
+  it('names the series of the y axes and the weekend in colours that read on the paper (GH-3618)', async () => {
+    await showMeteogram()
+    const [, , layout] = plotly.newPlot.mock.lastCall as unknown as [unknown, unknown, Record<string, { title?: { font: { color: string } }, tickfont?: { color: string } }> & { annotations: { text: string, font: { color: string } }[] }]
+    const expected = { yaxis: 'cyan', yaxis2: 'blue', yaxis3: 'red', yaxis4: 'lime' } as const
+    for (const [axis, series] of Object.entries(expected)) {
+      expect(layout[axis]!.title!.font.color, axis).toBe(SERIES_LABEL[series].light)
+      expect(layout[axis]!.tickfont!.color, axis).toBe(SERIES_LABEL[series].light)
+    }
+  })
+
+  it('writes the label of a weekend day in a red that reads on the paper, and the others in the text colour (GH-3618)', async () => {
+    plotly.newPlot.mockClear()
+    // Thursday the 15th and Saturday the 17th
+    const saturday = day.map(value => ({ ...value, timestamp: value.timestamp.replace('-15T', '-17T') }))
+    wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Berlin' }, attachTo: document.body })
+    await wrapper.setProps({ values: [...day, ...saturday] })
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
+    const [, , layout] = plotly.newPlot.mock.lastCall as unknown as [unknown, unknown, { annotations: { text: string, font: { color: string } }[] }]
+    const labels = layout.annotations.filter(annotation => annotation.text.startsWith('<b>'))
+    const colourOf = (weekday: string) => labels.find(label => label.text.startsWith(`<b>${weekday}</b>`))?.font.color
+    expect(colourOf('Sat')).toBe(SERIES_LABEL.red.light)
+    expect(colourOf('Thu')).not.toBe(SERIES_LABEL.red.light)
+  })
+
+  it('purges its chart where it goes (GH-3619)', async () => {
+    await showMeteogram()
+    const [chart] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement]
+    plotly.purge.mockClear()
+    wrapper!.unmount()
+    wrapper = undefined
+    expect(plotly.purge).toHaveBeenCalledWith(chart)
   })
 
   it('draws the chart again in the language it is switched to', async () => {

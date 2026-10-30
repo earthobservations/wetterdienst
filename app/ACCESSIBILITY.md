@@ -93,10 +93,20 @@ wind barbs; a chart drawn light is left as drawn. On the themed chrome (the Expl
 Forecast's hour labels) text and tick labels are the page's text and muted text (4.5:1 or more on the page
 in both modes) and the zero line the muted text colour (3:1 or more), checked on the drawn charts by
 `tests/e2e/chart-theme.spec.ts`; the grid is decoration. The series and the stripes' palette are data and
-keep their colours. Not themed, and so not held to those ratios: the Forecast's y-axis titles and tick
-labels, which are in their series' colours (cyan, blue, red and lime, 2.0:1 to 3.8:1 on white), and its
-temperature zero line, a wash of the text colour (1.4:1 and 1.7:1), tracked in #3618; and the Plotly logo of
-the modebar, Plotly's own black tile with coloured dots.
+keep their colours, and the text that names a series is the series' hue at 4.5:1 or more on the paper
+(`SERIES_LABEL` in `utils/chart-theme.ts`, GH-3618): the Forecast's y-axis titles and tick labels and its
+weekend day labels, and the stripes' "data availability" label. On white that is a darker step of the
+hue, #0e7490 for the wind's cyan (5.4:1; the line is #06b6d4, 2.4:1), #2563eb for the precipitation's blue
+(5.2:1; 3.7:1), #dc2626 for the temperature's red and the weekend (4.8:1; 3.8:1), #4d7c0f for the pressure's
+lime (5.0:1; 2.0:1) and #b45309 for the availability's gold (5.0:1; 2.2:1); on the dark paper (#101828) the
+series' own colours already read (7.3:1, 4.8:1, 4.7:1, 9.0:1) and gold is #daa520 (7.9:1). The Forecast's
+temperature zero line is the muted text colour like the Explorer's (3:1 or more). Not held to those ratios:
+the Plotly logo of the modebar, Plotly's own black tile with coloured dots.
+
+Every chart speaks the language of the page (GH-3625, 3.1.2): the names of the modebar's buttons and of
+the weekdays and months of a date axis, through `plotly.js-locales` and Intl (`utils/plotly-locale.ts`,
+which follows a switch of the language like a switch of the scheme). Plotly has no button names in Polish
+or Danish and only some in Dutch, which stay English; Luxembourgish and Hamburg's German take German's.
 
 There is no sepia mode. `main.css` once held a `html.sepia` block that redefined the `--ui-*` tokens, which
 nothing in the app ever set (`colorMode` knows `light`, `dark` and `system`, and the settings offer those

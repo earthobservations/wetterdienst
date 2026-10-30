@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import type { ChartTheme } from '~/utils/chart-theme'
+import type { PlotlyLocaleConfig } from '~/utils/plotly-locale'
 import { describeFetchError } from '~/utils/api-error'
 import { formatNumber, plotlySeparators } from '~/utils/format'
+import { plotlyLocaleConfig, plotlyText } from '~/utils/plotly-locale'
 import { stripeYears } from '~/utils/stripes'
 import { unitSymbol } from '~/utils/unit-targets'
 
-const { t, locale } = useI18n()
+const { t, locale, localeProperties } = useI18n()
 
 // the title says which page this is: WCAG 2.4.2, and what a screen reader announces after a navigation
 useHead({ title: () => t('stripes.title') })
@@ -285,9 +287,14 @@ interface StripesFigure {
   title: object | null
 }
 
+// The page's language as Plotly takes it: the buttons' names and the dates (utils/plotly-locale.ts)
+function plotLocaleOfPage() {
+  return plotlyLocaleConfig(locale.value, localeProperties.value.language ?? locale.value)
+}
+
 // What the stripes are drawn from, in the colours of `theme` and `width` px wide: on the page, in the
 // theme the page is in, and for a saved image in the light one (see saveStripes)
-function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: number): StripesFigure | null {
+function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: number, plotLocale: PlotlyLocaleConfig): StripesFigure | null {
   // Filter out null values and prepare data
   const validData = data.values.filter(v => v.value !== null && v.timestamp !== null)
 
@@ -353,7 +360,7 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
       showarrow: false,
       xanchor: 'left',
       yanchor: 'bottom',
-      font: { color: 'goldenrod', size: 11 },
+      font: { color: seriesLabelColor('gold', theme.dark), size: 11 },
     })
   }
 
@@ -494,6 +501,8 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
   }
 
   const config: Partial<Plotly.Config> = {
+    // the buttons' names and the dates in the page's language
+    ...plotLocale,
     responsive: true,
     displayModeBar: true,
     displaylogo: false,
@@ -501,7 +510,8 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
     modeBarButtonsToRemove: ['lasso2d', 'select2d', 'toImage'],
     modeBarButtonsToAdd: [{
       name: 'toImage',
-      title: 'Download plot as a PNG',
+      // Plotly translates the names of its own buttons, not of one that is added to it
+      title: plotlyText(plotLocale, 'Download plot as a PNG'),
       icon: Plotly!.Icons.camera as Plotly.Icon,
       click: () => void saveStripes({
         format: 'png',
@@ -544,7 +554,7 @@ async function drawStripes(data: StripesValuesResponse, keepZoom = false, newest
 
   // the theme it is drawn in is taken before the drawing, which a switch of the scheme can come in the middle of
   const drawnIn = theme.value
-  const figure = stripesFigure(data, drawnIn, plotContainer.value.clientWidth)
+  const figure = stripesFigure(data, drawnIn, plotContainer.value.clientWidth, await plotLocaleOfPage())
   if (!figure)
     return
   await Plotly.newPlot(plotContainer.value, figure.traces as any, figure.layout as any, figure.config)
@@ -565,7 +575,7 @@ async function drawStripes(data: StripesValuesResponse, keepZoom = false, newest
 async function saveStripes(options: { format: 'png' | 'jpeg' | 'svg', filename: string, width: number, height: number, scale: number }) {
   if (!Plotly || !lastFetchedData.value || !plotContainer.value)
     return
-  const figure = stripesFigure(lastFetchedData.value, readDocumentChartTheme('light'), plotContainer.value.clientWidth)
+  const figure = stripesFigure(lastFetchedData.value, readDocumentChartTheme('light'), plotContainer.value.clientWidth, await plotLocaleOfPage())
   if (!figure)
     return
   const { format, filename, width, height, scale } = options
@@ -794,6 +804,13 @@ watch(selectedStationItem, (item) => {
 // Load Plotly dynamically on mount; a failure is told where the stripes are drawn
 onMounted(() => {
   ensurePlotly().catch(() => {})
+})
+
+// Plotly keeps a `resize` listener of the window for a chart drawn with `responsive`, which holds the
+// chart until it is purged (GH-3619). Before the unmount, as the template ref is cleared by then
+onBeforeUnmount(() => {
+  if (plotContainer.value && Plotly)
+    Plotly.purge(plotContainer.value)
 })
 </script>
 
