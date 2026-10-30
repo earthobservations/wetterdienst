@@ -19,12 +19,12 @@ Types of changes:
 ### Fixed
 
 - `[Translations]` Parameter labels now say what the English ones say: the maximum wind gust was
-  just "a gust" in nl, da, cs, pl, lb and de-hh; the fresh snow depth lost "depth" in nine
-  languages; cooling degree days and hours were "cooling days and hours" in nl and da (cs had a
-  non-word); it loamy sand was "sabbia limosa" (silty sand); the soil temperatures under bare
-  ground dropped "of the soil" in fr, es and it; es and it called the sunshine duration two ways;
-  da "frossen lag" is "frosset lag"; the French glossary sets a no-break space before the colon.
-  Terms left to a native speaker are in `app/i18n/TERMS.md` (GH-2610)
+  just "a gust" in six languages, the fresh snow depth lost "depth" in nine, cooling degree days
+  and hours were "cooling days and hours" in Dutch and Danish, Italian loamy sand was "sabbia
+  limosa" (silty sand), soil temperatures under bare ground dropped "of the soil" in French,
+  Spanish and Italian, the Spanish minimum temperature 5 cm above the ground read as a soil
+  temperature, and Spanish and Italian had two words for the sunshine duration. Open terms:
+  `app/i18n/TERMS.md` (GH-2610)
 - `[Accessibility]` A toast, an error of the Explorer for one, no longer hides the link of the
   footer that the Tab key has reached ("Third-party licences" under it at 1280x720): while a toast
   is shown the page has room for it at its foot and scrolls a focused element clear of it

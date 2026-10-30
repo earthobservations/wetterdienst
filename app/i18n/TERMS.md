@@ -102,14 +102,20 @@ takes one reads a point. Chrome has no data for Luxembourgish, so `withData` wri
 ## Parameter glossaries
 
 The labels of the parameters, resolutions and datasets (`glossary/<locale>.ts`) are held by
-`tests/unit/glossary-translations.test.ts` to more than being there and being translated: an English
-label that opens with "Maximum", "Minimum" or "Mean" (also "Highest", "Greatest", "Strongest") is
-translated with the locale's word for it (the stems are in the test, and a new locale adds its own);
-one English label has one translation; an hour after a number is `h` (`u` in nl, `t` in da); a soil
-temperature of a cover or a texture opens with the words of the plain soil temperature, so that
-"Maximum soil temperature under grass" is not "Maximum temperature under grass"; and French sets a
-no-break space before a colon, as the catalog does. A label that is right and breaks one of these is
-written down in the test with its reason, as for the copies of English.
+`tests/unit/glossary-translations.test.ts` to more than being there and being translated:
+
+- an English label that names a "Maximum", "Minimum" or "Mean" (also "Highest", "Greatest",
+  "Strongest"), wherever in the label, is translated with the locale's word for it; the stems are in
+  the test and a new locale adds its own;
+- one English label has one translation;
+- an hour after a number is `h` (`u` in nl, `t` in da), with the English number;
+- a soil temperature of a cover or a texture has the word for the soil, and in fr, es and it it opens
+  with the words of the plain soil temperature, so that "Maximum soil temperature under grass" is not
+  "Maximum temperature under grass" (the other languages put an adjective before the noun, and a
+  correct label of theirs has no fixed opening);
+- French sets a no-break space before a colon, as the catalog does.
+
+There is no list of exceptions: a label that is right and breaks one of these changes the rule.
 
 ## Review status: not natively reviewed
 
@@ -205,18 +211,18 @@ The key is a glossary key (a family is named by its stem, `...` standing for the
 | `lb` | `sunshine_duration`, `sunshine_duration_*` | `Sonnenscheindauer` (parameter, dataset) next to `Sonnendauer` (the other eleven) | one word, `Sonnenschäindauer` as the dataset `sun` is `Sonnenschäin` | medium |
 | `de-hh` | `annual_*`, `immediate_*`, `temperature_air*`, `temperature_soil*`, `ph_value`, `turbidity` | 91 datasets and 25 parameters equal to `de` (`Jahresmelder: Mais`, `Lufttemperatur`, `Trübung`) | Low German words where there are any; `Jahresmelder`/`Sofortmelder` | low |
 | `de-hh` | `cooling_degree_*`, `heating_degree*` | `Köhlgradstunnen`, `Heizgraddaag` (parameters) and `Köhlgraadstünn`, `Heizgraaddaag` (datasets) | one spelling of `grad`/`graad` | medium |
+| `de-hh` | `snow_depth*`, `water_equivalent*` and the labels with `Snee`/`Snéé`/`Schnee`, `Snééhööchd`/`Snehööch`/`Neeschneehööch` | snow spelt three ways and height `hööch`/`hööchd` | one spelling, `Snee` as the UI has it | medium |
 | `fr` | `*loamy_silt*` (soil moisture, evaporation, soil temperature) | `limon argileux` (argileux is clayey) | `limon` | low |
 | `fr` | `pressure_vapor`, `pressure_vapor_mean` | `Pression de vapeur` | `Tension de vapeur`, the term of Météo-France | low |
 | `es` | `*loamy_silt*` | `limo franco` | `franco limoso`, the name of the texture class | low |
 | `es` | `count_days_glaze`, `weather_type_glaze_rime` | `Días con hielo`, `hielo o escarcha`: the same word as `count_days_ice` (`Días de hielo`) | a word for glaze ice that is not `hielo` alone | low |
 | `it` | `*loamy_silt*` | `limo argilloso` (argilloso is clayey) | `franco limoso` | low |
-| `it` | `home.kindObservationsDesc` (UI) | `soleggiamento`, where the glossary says `insolazione` (ITAF, ISPRA) since GH-2610 | `insolazione` in that sentence | medium |
 | `pl` | `temperature_soil_max_*`, `temperature_soil_min_*` | `Maksymalna temperatura gleby ...` (about 100 labels) next to `Temperatura gruntu` for the other soil temperatures; IMGW says `temperatura gruntu` | one word, `gruntu`, with the covers rephrased (`pod gruntem odkrytym` reads badly after it) | low |
 | `pl` | `frozen_ground_layer_*` | `Warstwa zmarzliny` (`zmarzlina` is permafrost) | `Przemarznięta warstwa gruntu` (IMGW: `przemarznięcie gruntu`) | low |
-| `pl` | `temperature_soil_*_straw_mulch_*` | `ściółką słomianą` (`ściółka` is litter) | `okrywą ze słomy` | low |
 | `pl` | `*loamy_silt*` | `pył gliniasty` | the name from the soil texture classes of PTG | low |
+| `pl` | `snow_depth*`, `snow_depth_new*` | `Grubość pokrywy śnieżnej`, `Grubość świeżego śniegu` | IMGW writes `wysokość pokrywy śnieżnej` and `wysokość świeżo spadłego śniegu` | medium |
 | `cs` | `*loamy_silt*` (soil moisture, evaporation, soil temperature) | `hlinitá hlína`, `hlinitou hlínou` ("loamy loam") | `prachovitá hlína` | medium |
-| `cs` | `phenology_bud_swelling` | `Nalévání pupenů` (`nalévání` is the filling of grain and fruit) | `Bobtnání pupenů` | medium |
+| `cs` | `phenology_bud_swelling` | `Nalévání pupenů` (`nalévání` is the filling of grain and fruit; it may be ČHMÚ's own name of the phase) | `Bobtnání pupenů` if it is not | low |
 | `nl` | `water_equivalent_snow_depth*`, `water_equivalent` | `Sneeuwwatergehalte` next to `Waterequivalent versgevallen sneeuw` | one term | low |
 | `da` | `sunshine_duration`, `sunshine_duration_*` | `Solskinstimer` (parameter, dataset) next to `Relativ solskinsvarighed` | `Solskinsvarighed` | low |
 | `da` | `phenology_turning_green_beginning`, `phenology_panicle_emergence_beginning`, `phenology_tassel_tip_visible` | `Grønnes` (a verb), `Toplysskridning`, `Toppens spids synlig` | `Grønning, begyndelse`; a word for panicle emergence | low |
