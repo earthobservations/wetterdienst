@@ -82,6 +82,14 @@ Types of changes:
 
 ### Fixed
 
+- `chmi/observation` no longer lists the two stations abroad of CHMI's catalogue, Reykjavik
+  (`0-20000-0-04030`) and Marambio Base (`0-20000-0-89055`), in the `10_minutes` and `hourly`
+  station lists: the portal has no file for them in any resolution, so they never had a value
+  (GH-3589)
+- The row-limit refusal and the 504 timeout of `interpolate` and `summarize` (REST and the MCP
+  tools) no longer advise fewer stations, which a point request does not name, nor
+  `format=ndjson` or `format=csv`: they say to ask for a shorter `timestamp` window or fewer
+  `parameters`. The problem keeps `limit`, `maximum` and `requested` (GH-3576, GH-3590)
 - The MCP tools answer every `format` they offer, where `csv`, `ndjson`, `html` and `svg` of the
   tools with an output schema failed ("has an output schema but did not return structured
   content") and so did `png`, `jpg`, `webp` and `pdf` of every tool (a decoding error). A text
@@ -91,7 +99,8 @@ Types of changes:
   loads plotly.js from the CDN (9 KB, not 4.8 MB). A tool answers one body in every format, held
   to the `rows` limit (`csv` and `ndjson` get no `stream_rows`), and its refusals (row limit,
   timeout) no longer advise `format=ndjson` or `format=csv`: they name a shorter `timestamp`
-  window, fewer `parameters` or fewer stations. REST and the command line are unchanged (GH-3464)
+  window, fewer `parameters` or fewer stations (the point tools: a window or fewer parameters,
+  GH-3576). REST and the command line are unchanged (GH-3464)
 - A download, post or listing whose TLS handshake the peer answers wrongly (a non-TLS answer,
   `WRONG_VERSION_NUMBER`; an invalid session, `INVALID_SESSION_ID`) is retried like any other
   transient network error, where the first one failed the answer: `www.dwd.de` throws them now
@@ -113,6 +122,18 @@ Types of changes:
   with `drop_nulls` on (the default) or off: not those of a station `skip_empty` leaves out, nor of
   one a `rank` walk passes over for having no reading. `interpolate` and `summarize`, whose answer
   is an estimate, carry no such warning now (GH-3554)
+- Processes that share a cache directory take turns on it, through a lock file beside each
+  directory (new dependency: `filelock` 3.30 or later). The metadata read-merge-write no longer
+  loses a row another process saved in between (its file was then fetched again), the save no
+  longer fails with `PermissionError` on Windows while another process has the metadata open, and a
+  sweep no longer deletes a file another process has just fetched again. A process waits for the
+  lock as long as it moves between processes (60 s at most) and 10 s behind one holder; a holder
+  stuck that long costs that wait once, in which the process's other cache misses wait too, and
+  then the loads, saves and sweeps of the directory for a minute, which are skipped with a warning:
+  a skipped load reads nothing and a skipped save fetches again. No request fails. A killed process
+  leaves no stale lock, and a file system without `flock` goes without the lock. The metadata file
+  is written in one go, about four times faster for a directory of tens of thousands of entries,
+  with the same content (GH-3485)
 - The `station-skipped` warning is told for a station `skip_empty` leaves out whatever `drop_nulls`
   is: with the nulls dropped (the default) a station that held nothing but missing values was left
   out unsaid, and with them kept it was told. The warning is the same for both, and so is

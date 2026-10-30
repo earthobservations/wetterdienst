@@ -47,12 +47,15 @@ from aiohttp import (
     TraceRequestStartParams,
 )
 from aiohttp.client_reqrep import ConnectionKey
+from filelock import FileLock, Timeout
 from fsspec.asyn import sync, sync_wrapper
 from fsspec.callbacks import DEFAULT_CALLBACK, Callback
 from fsspec.exceptions import FSTimeoutError
+from fsspec.implementations import cache_metadata as _fsspec_cache_metadata
+from fsspec.implementations.cache_metadata import CacheMetadata
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.http import HTTPFileSystem as _HTTPFileSystem
-from fsspec.utils import isfilelike
+from fsspec.utils import atomic_write, isfilelike
 
 from wetterdienst.exceptions import CredentialRejectedError, DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
@@ -1205,6 +1208,191 @@ _swept_dirs: set[Path] = set()
 #: inside the lock.
 _cache_dir_lock = threading.RLock()
 
+#: How long a process waits for the lock file of a cache directory (GH-3485) while nothing moves: the longest it is
+#: held with no other process getting it in between. What is held for is a read, a merge and a replace of one metadata
+#: file, or a sweep of one directory: well under a second for a directory of thousands of entries, over a second (2.5 s
+#: on a loaded machine) for tens of thousands. The wait goes on past this while the lock goes from hand to hand
+#: (`_acquire_while_it_moves`), so a queue of six processes is no reason to give up, and ten seconds with the same
+#: process holding it is: that is a holder that is stuck.
+_CACHE_LOCK_TIMEOUT_SECONDS = 10.0
+
+#: The longest a process waits for the lock file of one directory in all, however the lock moves in the meantime. It
+#: bounds the wait behind a holder that takes the lock again and again while this process never gets it, which
+#: progress alone would not: a minute is some twenty holds of a 40000-entry file, so more than the processes that
+#: share a directory are in the habit of being.
+_CACHE_LOCK_MAX_WAIT_SECONDS = 60.0
+
+#: How long a directory counts as contended after a wait for it ran out. The wait happens with `_cache_dir_lock` held
+#: (see `_locked_across_processes`), so a holder that is stuck would cost every thread of this process a timeout for
+#: every file it downloads. Until this has passed the lock is only tried, never waited for, and the first hold that
+#: gets it ends the period. So a stuck holder costs one timeout a minute for each directory, and the threads that
+#: queue behind it find the directory marked. A wait marks it when it ran out with the lock in one hand for the whole
+#: timeout, and when it ran out at `_CACHE_LOCK_MAX_WAIT_SECONDS` with the lock moving but never reaching this process:
+#: the second is no stuck holder, but another wait of that length for every file would stall the process's cache misses
+#: just the same. A holder that lets go, or a lock that goes from hand to hand and reaches this process, is contention
+#: and marks nothing, and a save that was only tried for a minute afterwards would lose its row to every other process
+#: that happened to hold the lock then.
+_CACHE_LOCK_CONTENDED_SECONDS = 60.0
+
+#: How often the lock file is tried while it is waited for. `filelock` tries every 50 ms, which is unfair to a waiter
+#: against processes that take and release it in a hurry: a waiter that is not there at the moment it is free is left
+#: waiting while the others pass it between them, and the timeout runs out for a lock that is free most of the time.
+_CACHE_LOCK_POLL_SECONDS = 0.005
+
+#: The lock files this process has opened, by process id and path. The process id is in the key because a child made by
+#: `fork` inherits the table, and a lock object that was held (or only opened) in the parent is the parent's. One object
+#: per path, and not one per use, because the lock is reentrant by count on the object: a second object on the same file
+#: would wait for the first one, which is this very thread, for the whole timeout.
+_cache_dir_file_locks: dict[tuple[int, Path], FileLock] = {}
+
+#: The directories whose lock a wait has given up on, until when (`time.monotonic()`): loads, saves and sweeps only try
+#: them. Guarded by `_cache_dir_lock`.
+_cache_dirs_contended_until: dict[Path, float] = {}
+
+
+def _lock_file_of(directory: Path) -> Path:
+    """Name the file beside a cache directory that the processes sharing it take turns on.
+
+    Beside it and not in it, deliberately: `clear_cache` and the reclaim remove the directory, and a lock file removed
+    from under a process that waits on it is a lock two processes can hold at once (each has a different file). The
+    reclaim of a directory removes its lock file while it holds the lock, which is then not named by anyone any more.
+    """
+    return directory.with_name(directory.name + ".lock")
+
+
+def _lock_stamp(lock_file: Path) -> int | None:
+    """Name the state of a lock file by its modification time, which every hold sets (`_locked_across_processes`)."""
+    try:
+        return lock_file.stat().st_mtime_ns
+    except OSError:
+        return None
+
+
+def _acquire_while_it_moves(file_lock: FileLock, timeout: float) -> None:
+    """Take the lock file, waiting as long as it goes from hand to hand and `timeout` as long as one hold lasts.
+
+    A wait of `timeout` seconds that ran out while the lock file's modification time changed (every hold sets it on
+    taking the lock) is a queue and not a stuck holder, and is waited out again; one that ran out with the same stamp
+    is one hold for the whole time, which is what is called stuck. The stamp can only be moved by another process:
+    this one takes the lock one thread at a time and holds `_cache_dir_lock` through the wait. The waits together are
+    held to `_CACHE_LOCK_MAX_WAIT_SECONDS`, which bounds the wait behind a lock that moves without ever reaching this
+    process. A hold that was taken just after the first stamp was read looks like progress once, and costs one more
+    wait.
+
+    Raises:
+        Timeout: If the lock did not move for `timeout` seconds, or the waits used up `_CACHE_LOCK_MAX_WAIT_SECONDS`.
+
+    """
+    lock_file = Path(file_lock.lock_file)
+    deadline = time.monotonic() + _CACHE_LOCK_MAX_WAIT_SECONDS
+    seen = _lock_stamp(lock_file)
+    while True:
+        remaining = deadline - time.monotonic()
+        try:
+            file_lock.acquire(timeout=min(timeout, max(remaining, 0.0)), poll_interval=_CACHE_LOCK_POLL_SECONDS)
+        except Timeout:
+            latest = _lock_stamp(lock_file)
+            if timeout <= 0 or latest == seen or deadline - time.monotonic() <= 0:
+                raise
+            seen = latest
+        else:
+            return
+
+
+@contextlib.contextmanager
+def _locked_across_processes(directory: Path, *, otherwise: str, wait: float | None = None) -> Iterator[bool]:
+    """Hold the lock of a cache directory against every other process (and thread) that shares it (GH-3485).
+
+    `_cache_dir_lock` is taken first and kept to the end, always in that order, so that two threads cannot each hold
+    one and wait for the other; and so that the lock file is only ever held by one thread of this process, which is
+    what lets its count stand for reentrancy. It is held while the lock file is waited for, which is the price of that
+    order (a thread that holds `_cache_dir_lock` and waits for the file lock of a thread that waits for it would
+    otherwise be possible): the wait goes on while the lock goes from hand to hand and is bounded by
+    `_CACHE_LOCK_MAX_WAIT_SECONDS` (`_acquire_while_it_moves`), and after one that ran out with the lock in one hand
+    for `_CACHE_LOCK_TIMEOUT_SECONDS` the directory is only tried for `_CACHE_LOCK_CONTENDED_SECONDS`, so that a stuck
+    holder costs one timeout a minute and not one per file, and every load, save and sweep of the directory in that
+    minute.
+    Every cache miss of this process waits behind that wait, whatever the directory. The lock is taken around the short
+    critical sections (the read, merge and replace of the metadata file; the rename of a fetched file onto its blob and
+    the row for it; the sweep) and never around a download.
+
+    The lock is `filelock`'s `flock` on POSIX and `msvcrt.locking` on Windows, and never its `SoftFileLock`
+    (`fallback_to_soft=False`: a file system without `flock` answers `ENOSYS`, the lock is not taken and the caller goes
+    ahead as it did before there was one, where the existence of a marker left by a process that is dead, or on another
+    host, would hold every later save and sweep for good). The first two belong to the open file and are released by the
+    operating system when the process ends, however it ends (`kill -9`, a crash, a reboot), so a lock file left behind
+    by a dead process does not hold anything and there is no stale lock to detect. What can hold a lock for long is a
+    process that is alive and stuck, which is what the timeout is for.
+
+    Yields whether the caller may go ahead:
+
+    * `True`: the lock is held, or it could not be taken at all (a file system without `flock`, a read-only
+      directory). That is the caller's situation before there was a lock, and nothing is better done about it than
+      going on.
+    * `False`: another process held it past the wait. What the caller does then is its own to say (`otherwise`, for the
+      log line): a save is skipped, which costs a fetch again later at worst; a sweep is left to the next process; a
+      load keeps the view it has; a drop of an entry and a clear go ahead without writing the file or reading it, and
+      the rename of a fetched file goes ahead without the row.
+
+    Args:
+        directory: The cache directory (the one with the metadata file in it).
+        otherwise: What the caller does where it does not get the lock, for the log line.
+        wait: How many seconds the lock may stay in one hand while it is waited for, at most; the timeout where
+            `None`. Zero tries once, and marks nothing.
+
+    """
+    with _cache_dir_lock:
+        key = (os.getpid(), directory)
+        file_lock = _cache_dir_file_locks.get(key)
+        if file_lock is None:
+            file_lock = _cache_dir_file_locks[key] = FileLock(
+                str(_lock_file_of(directory)), thread_local=False, fallback_to_soft=False
+            )
+        contended = time.monotonic() < _cache_dirs_contended_until.get(directory, 0.0)
+        timeout = (
+            0.0
+            if contended
+            else _CACHE_LOCK_TIMEOUT_SECONDS
+            if wait is None
+            else min(wait, _CACHE_LOCK_TIMEOUT_SECONDS)
+        )
+        acquired = False
+        proceed = True
+        try:
+            taken_before = file_lock.is_locked
+            _acquire_while_it_moves(file_lock, timeout)
+            acquired = True
+            if not taken_before:
+                # tells the processes that wait that the lock moves, which is what keeps them from calling it stuck
+                with contextlib.suppress(OSError):
+                    os.utime(file_lock.lock_file)
+            # the lock is free, so whatever held it is not stuck
+            _cache_dirs_contended_until.pop(directory, None)
+        except Timeout:
+            proceed = False
+            if timeout > 0:
+                # a wait that ran out, with the lock in one hand for the timeout or moving past the cap without reaching
+                # this process, and not a try: the directory is marked, and the line is said once
+                until = time.time() + _CACHE_LOCK_CONTENDED_SECONDS
+                _cache_dirs_contended_until[directory] = time.monotonic() + _CACHE_LOCK_CONTENDED_SECONDS
+                log.warning(
+                    f"Gave up waiting for another process that holds {file_lock.lock_file} (it did not let go, or "
+                    "kept it moving without this process getting it): until "
+                    f"{time.strftime('%H:%M:%S', time.localtime(until))} the loads, saves and sweeps of {directory} "
+                    "only try the lock, and are skipped where it is held; the first that gets it ends that"
+                )
+            else:
+                log.debug(f"{file_lock.lock_file} is held by another process, so {otherwise}")
+        except Exception:
+            # `OSError` (a directory that cannot be written to, `ENOSYS` where there is no `flock`)
+            log.debug(f"Could not lock {directory}, going on without", exc_info=True)
+        try:
+            yield proceed
+        finally:
+            if acquired:
+                with contextlib.suppress(Exception):
+                    file_lock.release()
+
 
 def _sweep_expired_blobs(
     filesystem: WholeFileCacheFileSystem,
@@ -1239,8 +1427,9 @@ def _sweep_expired_blobs(
       will not give it one. A download takes it for each load and save of the metadata, which keeps
       the two from overlapping, and the sweep reads the file again under the same hold
       (`_refresh_metadata`), so the rows a sibling *thread* saved are merged in before it writes.
-      What stays open is another *process* saving between that read and the write, whose row is
-      lost: the lock is per process (GH-3485).
+      Another *process* saving between that read and the write is kept out by the lock file of the
+      directory, which `clear_expired_cache` holds for the whole of the sweep
+      (`_locked_across_processes`, GH-3485): a sweep that cannot get it in time is skipped.
 
     Args:
         filesystem: The caching filesystem that owns this directory.
@@ -1414,11 +1603,21 @@ def _reclaim_unreachable_cache_dirs(fsspec_root: Path, keep: Path) -> None:
             reclaimed += sum(f.stat().st_size for f in directory.rglob("*") if f.is_file())
         except OSError:
             log.debug(f"Failed sizing unreachable cache directory {directory}", exc_info=True)
-        try:
-            shutil.rmtree(directory)
-        except OSError:
-            log.debug(f"Failed removing unreachable cache directory {directory}", exc_info=True)
-            continue
+        # not while a process of this version is in the middle of something in it: the lock is tried, never waited for,
+        # and a directory that is held is somebody's and is left (the next run that finds it idle tries again)
+        with _locked_across_processes(directory, otherwise="the directory is left alone", wait=0) as free:
+            if not free:
+                continue
+            try:
+                shutil.rmtree(directory)
+            except OSError:
+                log.debug(f"Failed removing unreachable cache directory {directory}", exc_info=True)
+                continue
+            # the file the processes that shared it took turns on, while it is held: nobody names this directory any
+            # more. Where the platform refuses to remove a file that is locked (Windows) it stays until the lock is let
+            # go, where `filelock` removes it
+            with contextlib.suppress(OSError):
+                _lock_file_of(directory).unlink(missing_ok=True)
         removed += 1
     if removed:
         # what went, not what was considered: the sweep that removes nothing because every `rmtree`
@@ -1509,6 +1708,14 @@ def _drop_orphaned_sidecars(directory: Path) -> None:
         with contextlib.suppress(OSError):
             if not sidecar.with_name(sidecar.name.removesuffix(_SIDECAR_SUFFIX)).exists():
                 sidecar.unlink(missing_ok=True)
+
+
+def _written_after(path: Path, moment: float) -> bool:
+    """Whether a file was written after `moment` (as `time.time()` has it): False for one that is not there."""
+    try:
+        return path.stat().st_mtime > moment
+    except OSError:
+        return False
 
 
 def _remove_unclaimed_files(directory: Path, rows: dict[str, Any], older_than: float) -> None:
@@ -1610,6 +1817,28 @@ def _held_in_view(filesystem: object, url: str) -> Literal[False] | tuple[dict[s
     return False
 
 
+#: The `json` fsspec writes its metadata with: the standard one, or `ujson` where that is installed
+_fsspec_json = _fsspec_cache_metadata.json
+
+
+class _OneWriteCacheMetadata(CacheMetadata):
+    """fsspec's `CacheMetadata`, writing its file with one `dumps` and one write instead of `json.dump` (GH-3485).
+
+    `json.dump` feeds the file the encoder's chunks one by one, which bypasses the C encoder: 122 ms against 33 ms for
+    a file of 40000 rows. The saves of the processes sharing a directory take turns now, so the time one takes is the
+    time the others wait. The file is the one fsspec writes, byte for byte (`json` is the module fsspec uses, `ujson`
+    where it is installed), and written the way fsspec writes it, to a file of its own that replaces the old one
+    (`atomic_write`). `tests/util/test_cache_lock.py` holds both to fsspec's `CacheMetadata._save`, and that the
+    filesystem uses this class, so that a change in fsspec's way of writing it is a test failure and not a drift.
+    """
+
+    def _save(self, metadata_to_save: dict, fn: str) -> None:
+        """Write the metadata to `fn`, replacing the file as a whole."""
+        text = _fsspec_json.dumps(metadata_to_save)
+        with atomic_write(fn, mode="w") as f:
+            f.write(text)
+
+
 class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
     """A `WholeFileCacheFileSystem` that reads and writes its metadata file under `_cache_dir_lock`.
 
@@ -1625,17 +1854,56 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
     `save_cache`, under the lock like every other caller.
     """
 
+    def __init__(self, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
+        """Build the filesystem, with a metadata that writes its file in one go (`_OneWriteCacheMetadata`).
+
+        fsspec makes the `CacheMetadata` in its own `__init__`, and reads the file with it before this returns; the
+        class is changed afterwards, which is all the difference there is: it only overrides how the file is written.
+        """
+        super().__init__(*args, **kwargs)
+        self._metadata.__class__ = _OneWriteCacheMetadata
+
     def load_cache(self) -> None:
-        """Read the metadata file, with no other thread in the middle of replacing it."""
-        with _cache_dir_lock:
+        """Read the metadata file, with no other thread or process in the middle of replacing it.
+
+        A load that does not get the lock file of the directory (another process has held it for the whole timeout,
+        or it is in a period of being only tried) does not read the file: it keeps the view it has, which at the first
+        load is an empty one. On Windows a read that meets another process's replace is a `PermissionError`, and a
+        view that is a little behind costs a fetch again at most, where a read without the lock could cost the
+        request. The stamp stays what it was, so that the next miss asks again (`_refresh_metadata`).
+        """
+        with _locked_across_processes(
+            Path(self.storage[-1]), otherwise="the metadata is not read, the view is kept"
+        ) as proceed:
+            if not proceed:
+                self._mkcache()
+                # what a first load that was skipped has not set: no stamp (so that the next miss reads) and a view as
+                # old as it can be (so that `_check_cache` reads again)
+                if not hasattr(self, "_wd_metadata_stamp"):
+                    self._wd_metadata_stamp = None
+                if not hasattr(self, "last_cache"):
+                    self.last_cache = 0.0
+                return
             # before the read: a file replaced during it then differs from the stamp, and is read again
             stamp = _metadata_stamp(self)
             super().load_cache()
             self._wd_metadata_stamp = stamp
 
     def save_cache(self) -> None:
-        """Read, merge and replace the metadata file, with no other thread reading or replacing it."""
-        with _cache_dir_lock:
+        """Read, merge and replace the metadata file, with no other thread or process reading or replacing it.
+
+        The read-merge-write is one step for the lock file of the directory (GH-3485): a row another process saved
+        between the read and the replace was lost to it, and on Windows the replace (`os.replace` in fsspec's
+        `atomic_write`) is a `PermissionError` while another process has the file open, which a reader in this lock
+        does not. Where another process holds the lock past the timeout the save is skipped: the row is not written,
+        the entry does not stay in this filesystem's view for long (fsspec reads the file again after `cache_check`),
+        the blob stays where it is, and the file is fetched again by whoever needs it next.
+        """
+        with _locked_across_processes(
+            Path(self.storage[-1]), otherwise="the save of the metadata is skipped"
+        ) as proceed:
+            if not proceed:
+                return
             super().save_cache()
             self._wd_metadata_stamp = _metadata_stamp(self)
 
@@ -1660,8 +1928,27 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
         return super()._check_file(path)
 
     def pop_from_cache(self, path: str) -> None:
-        """Drop one entry from the metadata file, which saves it, and the date kept beside its blob."""
-        with _cache_dir_lock:
+        """Drop one entry from the metadata file, which saves it, and the date kept beside its blob.
+
+        Not skipped where the lock file is held past the timeout: the entry is dropped because its file is no good,
+        and keeping it would serve that file again. It is then dropped from the view and its blob removed, and the
+        file is not written (fsspec's would read it without the lock): the row that stays in it names a blob that is
+        not there, which every filesystem reads as a copy that is not held.
+        """
+        with _locked_across_processes(
+            Path(self.storage[-1]), otherwise="the entry is dropped from the view and the file is not written"
+        ) as proceed:
+            if not proceed:
+                stripped = self._strip_protocol(path)
+                held = self._metadata.check_file(stripped, None)
+                self._metadata.cached_files[-1].pop(stripped, None)
+                self._cache_size = None
+                if held:
+                    with contextlib.suppress(OSError):
+                        Path(held[1]).unlink(missing_ok=True)
+                    with contextlib.suppress(OSError):
+                        _sidecar_of(Path(held[1])).unlink(missing_ok=True)
+                return
             if not self._metadata.check_file(self._strip_protocol(path), None):
                 # the copy may be one another thread cached since this view was read, which is then not dropped
                 _refresh_metadata(self)
@@ -1685,10 +1972,18 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
         `<blob>.<uuid>.tmp` of a fetch that was killed), so those are collected here: the ones older than the expiry
         and than an hour (`_remove_unclaimed_files`), which keeps the file of a fetch that is stalled but not dead.
 
-        Writing the file back after an expiry is still a read-merge-write that is not safe against another process
-        writing at that moment: a row it adds in between is lost (GH-3485).
+        The sweep holds the lock file of the directory from the read to the last removal, so that no other process
+        saves a row between the read and the write (GH-3485); one that cannot get it within the timeout leaves the
+        sweep to the next process, which is what a sweep that did not run costs. A blob whose file was written within
+        the expiry is not removed even where its row says it expired: a process that fetches again renames the new
+        file onto the blob and saves the row under the same lock (`_open`), so the sweep sees both or neither, except
+        where that process did not get the lock in time and went ahead without it, and the old row is then all the
+        sweep can see. It is collected by a later sweep if no row comes to name it.
         """
-        with _cache_dir_lock:
+        directory = Path(self.storage[-1])
+        with _locked_across_processes(directory, otherwise="the sweep is skipped") as proceed:
+            if not proceed:
+                return
             self._check_cache()
             # what another process has written since this was read is part of what is swept, not lost to it
             _refresh_metadata(self)
@@ -1697,11 +1992,13 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
             # no expiry is no expiry, as `_check_file` reads it: fsspec's reads a zero as "all of it has expired"
             if not expiry:
                 return
-            directory = Path(self.storage[-1])
             if any(time.time() - _entry_time(detail) > expiry for detail in held.values()):
                 # fsspec annotates the expiry an int; a float is compared the same
                 expired_blobs, now_empty = self._metadata.clear_expired(expiry)  # ty: ignore[invalid-argument-type]
+                written_since = time.time() - expiry
                 for blob in expired_blobs:
+                    if _written_after(Path(blob), written_since):
+                        continue
                     # a blob another handle holds open is left to the next sweep (Windows: `PermissionError`)
                     with contextlib.suppress(OSError):
                         Path(blob).unlink(missing_ok=True)
@@ -1713,9 +2010,15 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
             _drop_orphaned_sidecars(directory)
 
     def clear_cache(self) -> None:
-        """Delete the directory, metadata file and all, and load the empty metadata back."""
-        with _cache_dir_lock:
+        """Delete the directory, metadata file and all, and load the empty metadata back.
+
+        Not skipped where the lock file is held past the timeout, because it was asked for. The lock file is beside
+        the directory, so it is not deleted with it. The metadata is empty after it whether or not its load got the
+        lock: the directory it was read from is gone.
+        """
+        with _locked_across_processes(Path(self.storage[-1]), otherwise="the cache is cleared without it"):
             super().clear_cache()
+            self._metadata.cached_files = [{}]
 
     def _open(self, path: str, mode: str = "rb", **kwargs) -> object:  # noqa: ANN003
         """Open the cached copy of a file, fetching it first when the cache does not hold one.
@@ -1786,22 +2089,30 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
                 # the date this fetch brought, and the file as written, which is what names the blob it becomes
                 last_modified = None if registry is None else registry.get(path)
                 written = Path(temp).stat()
-                try:
-                    os.replace(temp, blob)  # noqa: PTH105
-                except PermissionError:
-                    # Windows refuses to replace a blob another handle holds open. That blob is a
-                    # whole copy, put there by the same kind of rename, so it is left alone and
-                    # this read is served from the file just fetched, in memory because that file
-                    # cannot be removed while open. No entry is recorded: it would call the blob,
-                    # which still holds the older copy, fresh, so the next read fetches again
-                    log.debug(f"Could not replace {blob}, serving {path} from the fetched copy", exc_info=True)
-                    # `open` has turned a text mode into a binary one by now and wraps the handle itself
-                    return BytesIO(Path(temp).read_bytes())
-                # the record and its save as one step for the lock: a thread that reads the metadata file again
-                # replaces what the filesystem holds, and keeps the entries it held only after that, so one that
-                # came between the record and the line that sets its time would find the entry missing (a filesystem
-                # used by more than one thread: the reader of a forecast moves threads)
-                with _cache_dir_lock:
+                # the rename onto the blob and the row that names it are one step for the lock file of the directory
+                # (GH-3485): a sweep of another process that reads the old row between the two would delete the new
+                # file, and the row saved next would then name nothing. The lock is for these two and not for the
+                # download, which is over. Where it is not got in time the rename is done all the same, as before the
+                # lock, and the sweep's check of the file's time is what protects it
+                with _locked_across_processes(
+                    Path(self.storage[-1]),
+                    otherwise="the rename goes ahead without it and the save of its row is skipped",
+                ):
+                    try:
+                        os.replace(temp, blob)  # noqa: PTH105
+                    except PermissionError:
+                        # Windows refuses to replace a blob another handle holds open. That blob is a
+                        # whole copy, put there by the same kind of rename, so it is left alone and
+                        # this read is served from the file just fetched, in memory because that file
+                        # cannot be removed while open. No entry is recorded: it would call the blob,
+                        # which still holds the older copy, fresh, so the next read fetches again
+                        log.debug(f"Could not replace {blob}, serving {path} from the fetched copy", exc_info=True)
+                        # `open` has turned a text mode into a binary one by now and wraps the handle itself
+                        return BytesIO(Path(temp).read_bytes())
+                    # the record and its save as one step for the lock: a thread that reads the metadata file again
+                    # replaces what the filesystem holds, and keeps the entries it held only after that, so one that
+                    # came between the record and the line that sets its time would find the entry missing (a
+                    # filesystem used by more than one thread: the reader of a forecast moves threads)
                     self._make_local_details(path)
                     self._metadata.cached_files[-1][path]["time"] = started
                     self.save_cache()
