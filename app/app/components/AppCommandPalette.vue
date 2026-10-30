@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { Station } from '#shared/types/api'
+import type { Place } from '~/composables/usePlace'
 import type { PaletteGroup, PaletteItem } from '~/utils/palette'
 import type { Tile } from '~/utils/sections'
+import { PLACE_NETWORK, placeOf } from '~/composables/usePlace'
 import { filterGroups } from '~/utils/palette'
 import { EXTERNAL, HOME, LEGAL, PROJECT, REFERENCE, TOOLS } from '~/utils/sections'
 
@@ -17,7 +19,14 @@ import { EXTERNAL, HOME, LEGAL, PROJECT, REFERENCE, TOOLS } from '~/utils/sectio
 //
 // The stations come from the backend (`GET /api/stations` with `name`, its best five matches), from three letters
 // on and a moment after the last key; the rest is matched here (utils/palette.ts).
-const emit = defineEmits<{ done: [] }>()
+//
+// In its place mode (`mode="place"`, the home page's "Ask the weather") it is the same field and list for one thing
+// only: the place the questions are about. It lists DWD's measuring stations by name (from two letters on), a station
+// that has stopped reporting long ago left out, and choosing one makes it the reader's place (composables/usePlace.ts).
+const props = withDefaults(defineProps<{
+  mode?: 'search' | 'place'
+}>(), { mode: 'search' })
+const emit = defineEmits<{ done: [], place: [place: Place] }>()
 
 const { t, locale, setLocale } = useI18n()
 const colorMode = useColorMode()
@@ -27,9 +36,12 @@ const query = ref('')
 const activeIndex = ref(0)
 const listId = useId()
 
-const MIN_STATION_QUERY = 3
+const placeMode = computed(() => props.mode === 'place')
+const MIN_STATION_QUERY = computed(() => placeMode.value ? 2 : 3)
+const { setPlace } = usePlace()
 const stations = ref<Station[]>([])
 const stationsPending = ref(false)
+const stationsFailed = ref(false)
 let stationTicket = 0
 // a search typed just before the dialog closed asks for nothing once it is gone
 let closed = false
@@ -41,23 +53,33 @@ watchDebounced(query, async (value) => {
     return
   const text = value.trim()
   const ticket = ++stationTicket
-  if (text.length < MIN_STATION_QUERY) {
+  if (text.length < MIN_STATION_QUERY.value) {
     stations.value = []
     stationsPending.value = false
     return
   }
   stationsPending.value = true
+  stationsFailed.value = false
   try {
     const answer = await $fetch<{ stations: Station[] }>('/api/stations', {
-      query: { provider: 'dwd', network: 'mosmix', parameters: 'hourly/large', name: text },
+      query: placeMode.value
+        ? { ...PLACE_NETWORK, name: text }
+        : { provider: 'dwd', network: 'mosmix', parameters: 'hourly/large', name: text },
     })
-    if (ticket === stationTicket)
-      stations.value = (answer.stations ?? []).slice(0, 5)
+    if (ticket === stationTicket) {
+      // a station that stopped reporting years ago has no recent weather to ask about
+      const recent = Date.now() - 2 * 365 * 86_400_000
+      stations.value = placeMode.value
+        ? (answer.stations ?? []).filter(station => !station.end_timestamp || Date.parse(station.end_timestamp) > recent).slice(0, 8)
+        : (answer.stations ?? []).slice(0, 5)
+    }
   }
   catch {
     // a station search that fails leaves the pages and actions to choose from
-    if (ticket === stationTicket)
+    if (ticket === stationTicket) {
       stations.value = []
+      stationsFailed.value = true
+    }
   }
   finally {
     if (ticket === stationTicket)
@@ -83,8 +105,29 @@ const THEMES = [
   { value: 'dark', label: 'settings.themeDark', icon: 'i-ph-moon' },
 ] as const
 
+function choosePlace(place: Place) {
+  setPlace(place)
+  emit('place', place)
+}
+
 const groups = computed<PaletteGroup[]>(() => {
   const searching = query.value.trim().length > 0
+  if (placeMode.value) {
+    return [{
+      id: 'places',
+      label: t('ask.placesGroup'),
+      items: stations.value
+        .map(placeOf)
+        .filter((place): place is Place => place !== null)
+        .map(place => ({
+          id: `place-${place.id}`,
+          label: place.name,
+          description: place.region ?? undefined,
+          icon: 'i-ph-map-pin',
+          run: () => choosePlace(place),
+        })),
+    }]
+  }
   return [
     { id: 'tools', label: t('shell.tools'), items: TOOLS.map(section => page(section)) },
     {
@@ -153,6 +196,9 @@ const groups = computed<PaletteGroup[]>(() => {
 
 // the stations are the backend's matches already; everything else is matched here
 const shown = computed(() => {
+  // the places are the backend's matches, as they are
+  if (placeMode.value)
+    return groups.value.filter(group => group.items.length)
   const stationGroup = groups.value.find(group => group.id === 'stations')!
   const filtered = filterGroups(groups.value.filter(group => group.id !== 'stations'), query.value)
   if (stationGroup.items.length)
@@ -175,10 +221,21 @@ watch(activeId, async (id) => {
 
 const status = computed(() => {
   if (stationsPending.value)
-    return t('common.loading')
+    return placeMode.value ? t('ask.placeSearching') : t('common.loading')
+  if (placeMode.value) {
+    if (stationsFailed.value)
+      return t('ask.placeFailed')
+    return query.value.trim().length < MIN_STATION_QUERY.value ? t('ask.placeHint') : t('shell.resultsCount', flat.value.length)
+  }
   const count = t('shell.resultsCount', flat.value.length)
   const typed = query.value.trim().length
-  return typed > 0 && typed < MIN_STATION_QUERY ? `${count}. ${t('shell.stationsHint')}` : count
+  return typed > 0 && typed < MIN_STATION_QUERY.value ? `${count}. ${t('shell.stationsHint')}` : count
+})
+
+const emptyText = computed(() => {
+  if (!placeMode.value)
+    return t('shell.searchEmpty')
+  return query.value.trim().length < MIN_STATION_QUERY.value ? t('ask.placeHint') : stationsPending.value ? t('ask.placeSearching') : stationsFailed.value ? t('ask.placeFailed') : t('shell.searchEmpty')
 })
 
 function choose(item: PaletteItem | undefined) {
@@ -226,11 +283,11 @@ function onKeydown(event: KeyboardEvent) {
         autocomplete="off"
         spellcheck="false"
         aria-autocomplete="list"
-        :aria-label="t('shell.search')"
+        :aria-label="placeMode ? t('ask.placeDialogTitle') : t('shell.search')"
         :aria-expanded="flat.length > 0"
         :aria-controls="flat.length ? listId : undefined"
         :aria-activedescendant="activeId"
-        :placeholder="t('shell.searchPlaceholder')"
+        :placeholder="placeMode ? t('ask.placePlaceholder') : t('shell.searchPlaceholder')"
         class="palette-input -ms-2 h-12 min-w-0 flex-1 bg-transparent px-2 text-base text-highlighted placeholder:text-dimmed"
         @keydown="onKeydown"
       >
@@ -275,7 +332,7 @@ function onKeydown(event: KeyboardEvent) {
       </div>
     </div>
     <p v-else class="flex-1 px-6 py-10 text-center text-muted">
-      {{ t('shell.searchEmpty') }}
+      {{ emptyText }}
     </p>
 
     <div class="flex items-center justify-between gap-4 border-t border-default px-4 py-2.5 text-xs text-muted">

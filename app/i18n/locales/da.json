@@ -62,6 +62,82 @@
     "kindRoadDesc": "Vejbaneforhold og -temperaturer fra DWD's vejvejrstationer samt deres prognoser.",
     "aboutLink": "Om projektet og menneskene bag"
   },
+  "ask": {
+    "title": "Spørg vejret",
+    "lead": "De spørgsmål, folk har, besvaret ud fra officielle målinger og udsigter, med grafen til at tjekke svaret.",
+    "placeLabel": "Spørger om",
+    "placeChange": "skift sted",
+    "placeNotFound": "Stedet fra linket blev ikke fundet.",
+    "placeDialogTitle": "Vælg et sted",
+    "placePlaceholder": "Navnet på en by eller vejrstation …",
+    "placeHint": "Skriv navnet på en by eller vejrstation.",
+    "placeSearching": "Søger efter steder …",
+    "placeFailed": "Stederne kunne ikke søges.",
+    "placesGroup": "Vejrstationer",
+    "questionsLabel": "Spørgsmål",
+    "idle": "Vælg et spørgsmål, så får du svaret her, ud fra aktuelle data.",
+    "q": {
+      "rain": "Regner det i {place} i morgen?",
+      "summer": "Var sidste sommer varmere end normalt her?",
+      "wind": "Hvor meget blæste det den {day}?",
+      "download": "Hvor kan jeg downloade timetemperaturer?"
+    },
+    "from": {
+      "rain": "Udsigt, DWD MOSMIX",
+      "summer": "Månedsmiddel, DWD",
+      "wind": "Døgnværdier, DWD",
+      "download": "Alle vejrtjenester"
+    },
+    "working": "Svaret regnes ud …",
+    "failed": "Svaret kunne ikke regnes ud.",
+    "showValues": "Vis værdierne",
+    "tableWhen": "Hvornår",
+    "leadsTo": "Åbn dataene i værktøjet",
+    "rain": {
+      "yes": "Ja, der kommer sandsynligvis regn.",
+      "maybe": "Måske, lidt.",
+      "no": "Nok ikke.",
+      "total": "{amount} mm ventet for hele dagen.",
+      "wettest": "Vådeste time: {from}:00 til {to}:00, {amount} mm.",
+      "chance": "Største chance for regn i en time: {chance}.",
+      "point": "Udsigt for {name}, udsigtspunktet nærmest {place} ({distance} km væk).",
+      "pointNoDistance": "Udsigt for {name}, udsigtspunktet nærmest {place}.",
+      "chart": "Regn pr. time i morgen, i {unit}",
+      "none": "Udsigten for {name} rækker endnu ikke til i morgen.",
+      "open": "Åbn hele udsigten"
+    },
+    "summer": {
+      "hotter": "Ja, {anomaly} °C varmere end normalt.",
+      "cooler": "Nej, {anomaly} °C køligere end normalt.",
+      "usual": "Egentlig ikke: omtrent som normalt.",
+      "detail": "Sommeren {year} (juni til august) havde et gennemsnit på {mean} °C; somrene fra {from} til {to} {normal} °C.",
+      "rank": "Nummer {rank} af {count} somre siden {first}, talt fra den varmeste.",
+      "chart": "Hver sommer i forhold til gennemsnittet {from} til {to}, i {unit}",
+      "none": "Der er for få hele somre her til en sammenligning.",
+      "open": "Åbn månedsmidlerne",
+      "stripes": "Se klimastriberne"
+    },
+    "wind": {
+      "calm": "Stille.",
+      "breezy": "Let blæst.",
+      "windy": "Blæsende.",
+      "stormy": "Stormfuldt.",
+      "mean": "Middelvind {speed} m/s, Beaufort {force}.",
+      "gust": "Kraftigste vindstød {speed} m/s, Beaufort {force}.",
+      "context": "Dage omkring med kraftigere vindstød: {stronger} af {around}.",
+      "chartGust": "Kraftigste vindstød pr. dag, i {unit}",
+      "chartMean": "Middelvind pr. dag, i {unit}",
+      "none": "Der er ingen vindmålinger her for den {day}.",
+      "dayLabel": "Dato",
+      "open": "Åbn disse dage i Udforsker"
+    },
+    "download": {
+      "answer": "Vejrtjenester, der udgiver lufttemperatur pr. time: {count}.",
+      "detail": "Hver åbner i Udforsker, klar til download som CSV, JSON eller GeoJSON.",
+      "none": "Ingen vejrtjeneste udgiver lufttemperatur pr. time lige nu.",
+      "api": "Eller brug REST-API'et"
+    }
+  },
   "seo": {
     "title": "Wetterdienst – åbne vejr- og klimadata fra nationale vejrtjenester",
     "description": "Åbne vejr- og klimadata fra nationale vejrtjenester i ét format: udforsker, vejrudsigt, klimastriber, REST API og MCP-server. Open source og gratis.",

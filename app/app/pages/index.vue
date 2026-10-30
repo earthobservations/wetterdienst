@@ -147,6 +147,12 @@ const dataKinds = computed(() => [
       </div>
     </section>
 
+    <!-- The questions people bring, answered here from live data (GH-3518). Straight under the hero, so that they are
+         among the first things on the page, and before the description of the data: an answer shows what the data is -->
+    <div class="home-section home-ask">
+      <AskTheWeather />
+    </div>
+
     <!-- What actually arrives when you press a button above: who publishes it, and in what shapes -->
     <section class="home-section" aria-labelledby="home-data">
       <div class="home-section-head">
@@ -307,14 +313,14 @@ const dataKinds = computed(() => [
 .home-hero {
   display: grid;
   gap: 2.5rem;
-  padding-block: 2.5rem 3rem;
+  padding-block: 2.5rem 2rem;
 }
 @media (min-width: 64rem) {
   .home-hero {
     grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
     gap: 4rem;
     align-items: center;
-    padding-block: 4.5rem 5rem;
+    padding-block: 4rem 3.5rem;
   }
 }
 .home-title {
@@ -408,6 +414,9 @@ const dataKinds = computed(() => [
 .home-section {
   padding-block: 2.5rem;
   border-top: 1px solid var(--ui-border);
+}
+.home-ask {
+  padding-top: 2rem;
 }
 .home-section:last-child {
   padding-bottom: 4rem;

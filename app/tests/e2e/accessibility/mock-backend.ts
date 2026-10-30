@@ -137,7 +137,7 @@ const PROVIDER_LIST: ProvidersResponse = {
     api_version: '1',
     schema_version: '1',
     retrieved_at: '2026-10-17T10:00:00.000000+00:00',
-    counts: { providers: 2, networks: 3 },
+    counts: { providers: 2, networks: 3, parameters: 18 },
     warnings: [],
   },
   providers: [

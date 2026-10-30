@@ -62,6 +62,82 @@
     "kindRoadDesc": "Stav a teplota vozovky ze silničních stanic DWD, včetně jejich předpovědí.",
     "aboutLink": "O projektu a lidech za ním"
   },
+  "ask": {
+    "title": "Zeptej se počasí",
+    "lead": "Otázky, které lidé mají, zodpovězené z oficiálních měření a předpovědí, s grafem k ověření.",
+    "placeLabel": "Otázky pro",
+    "placeChange": "změnit místo",
+    "placeNotFound": "Místo z odkazu nebylo nalezeno.",
+    "placeDialogTitle": "Vybrat místo",
+    "placePlaceholder": "Název obce nebo meteorologické stanice …",
+    "placeHint": "Napiš název obce nebo meteorologické stanice.",
+    "placeSearching": "Hledám místa …",
+    "placeFailed": "Místa se nepodařilo prohledat.",
+    "placesGroup": "Meteorologické stanice",
+    "questionsLabel": "Otázky",
+    "idle": "Vyber otázku a odpověď se zde objeví z aktuálních dat.",
+    "q": {
+      "rain": "Bude zítra pršet v {place}?",
+      "summer": "Bylo poslední léto tady teplejší než obvykle?",
+      "wind": "Jak foukalo {day}?",
+      "download": "Kde si můžu stáhnout hodinové teploty?"
+    },
+    "from": {
+      "rain": "Předpověď, DWD MOSMIX",
+      "summer": "Měsíční průměry, DWD",
+      "wind": "Denní údaje, DWD",
+      "download": "Všechny meteorologické služby"
+    },
+    "working": "Počítám odpověď …",
+    "failed": "Odpověď se nepodařilo spočítat.",
+    "showValues": "Zobrazit hodnoty",
+    "tableWhen": "Kdy",
+    "leadsTo": "Otevřít data v nástroji",
+    "rain": {
+      "yes": "Ano, déšť je pravděpodobný.",
+      "maybe": "Možná, trochu.",
+      "no": "Spíš ne.",
+      "total": "Předpověď na celý den: {amount} mm.",
+      "wettest": "Nejdeštivější hodina: od {from}:00 do {to}:00, {amount} mm.",
+      "chance": "Nejvyšší pravděpodobnost deště v jedné hodině: {chance}.",
+      "point": "Předpověď pro {name}, nejbližší bod předpovědi k místu {place} ({distance} km).",
+      "pointNoDistance": "Předpověď pro {name}, nejbližší bod předpovědi k místu {place}.",
+      "chart": "Déšť po hodinách zítra, v {unit}",
+      "none": "Předpověď pro {name} ještě nesahá do zítřka.",
+      "open": "Otevřít celou předpověď"
+    },
+    "summer": {
+      "hotter": "Ano, o {anomaly} °C tepleji než obvykle.",
+      "cooler": "Ne, o {anomaly} °C chladněji než obvykle.",
+      "usual": "Ani ne: zhruba jako obvykle.",
+      "detail": "Léto {year} (červen až srpen) mělo průměr {mean} °C; léta {from} až {to} průměr {normal} °C.",
+      "rank": "Pořadí {rank} z {count} let od roku {first}, od nejteplejšího.",
+      "chart": "Každé léto oproti průměru {from} až {to}, v {unit}",
+      "none": "Je tu příliš málo úplných let pro srovnání.",
+      "open": "Otevřít měsíční průměry",
+      "stripes": "Zobrazit klimatické pruhy"
+    },
+    "wind": {
+      "calm": "Klidno.",
+      "breezy": "Mírný vítr.",
+      "windy": "Větrno.",
+      "stormy": "Bouřlivo.",
+      "mean": "Průměrný vítr {speed} m/s, Beaufort {force}.",
+      "gust": "Nejsilnější náraz {speed} m/s, Beaufort {force}.",
+      "context": "Okolní dny se silnějšími nárazy: {stronger} z {around}.",
+      "chartGust": "Nejsilnější náraz za den, v {unit}",
+      "chartMean": "Průměrný vítr za den, v {unit}",
+      "none": "Pro {day} tu nejsou žádná měření větru.",
+      "dayLabel": "Den",
+      "open": "Otevřít tyto dny v Průzkumníku"
+    },
+    "download": {
+      "answer": "Meteorologické služby, které zveřejňují hodinovou teplotu vzduchu: {count}.",
+      "detail": "Každá se otevře v Průzkumníku, připravená ke stažení jako CSV, JSON nebo GeoJSON.",
+      "none": "Žádná meteorologická služba teď nezveřejňuje hodinovou teplotu vzduchu.",
+      "api": "Nebo použij REST API"
+    }
+  },
   "seo": {
     "title": "Wetterdienst – otevřená data o počasí a klimatu od národních meteorologických služeb",
     "description": "Otevřená data o počasí a klimatu od národních meteorologických služeb v jednotném formátu: průzkumník, předpověď, klimatické pruhy, REST API a server MCP. Open source a zdarma.",

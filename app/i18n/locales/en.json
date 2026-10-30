@@ -62,6 +62,82 @@
     "kindRoadDesc": "Road surface conditions and temperatures from the DWD road weather stations, and their forecasts.",
     "aboutLink": "About the project and the people behind it"
   },
+  "ask": {
+    "title": "Ask the weather",
+    "lead": "The questions people bring, answered from official measurements and forecasts, with the chart to check the answer.",
+    "placeLabel": "Asking about",
+    "placeChange": "change the place",
+    "placeNotFound": "The place in the link was not found.",
+    "placeDialogTitle": "Choose a place",
+    "placePlaceholder": "The name of a town or weather station …",
+    "placeHint": "Type the name of a town or weather station.",
+    "placeSearching": "Looking for places …",
+    "placeFailed": "Places could not be searched.",
+    "placesGroup": "Weather stations",
+    "questionsLabel": "Questions",
+    "idle": "Pick a question and it is answered here, from live data.",
+    "q": {
+      "rain": "Will it rain in {place} tomorrow?",
+      "summer": "Was last summer hotter than usual here?",
+      "wind": "How windy was it on {day}?",
+      "download": "Where can I download hourly temperatures?"
+    },
+    "from": {
+      "rain": "Forecast, DWD MOSMIX",
+      "summer": "Monthly means, DWD",
+      "wind": "Daily readings, DWD",
+      "download": "All weather services"
+    },
+    "working": "Working out the answer …",
+    "failed": "The answer could not be worked out.",
+    "showValues": "Show the values",
+    "tableWhen": "When",
+    "leadsTo": "Open the data in the tool",
+    "rain": {
+      "yes": "Yes, rain is likely.",
+      "maybe": "Maybe, a little.",
+      "no": "Probably not.",
+      "total": "{amount} mm forecast for the whole day.",
+      "wettest": "Wettest hour: {from}:00 to {to}:00, {amount} mm.",
+      "chance": "Highest chance of rain in any hour: {chance}.",
+      "point": "Forecast for {name}, the forecast point nearest to {place} ({distance} km away).",
+      "pointNoDistance": "Forecast for {name}, the forecast point nearest to {place}.",
+      "chart": "Rain per hour tomorrow, in {unit}",
+      "none": "The forecast for {name} does not reach tomorrow yet.",
+      "open": "Open the full forecast"
+    },
+    "summer": {
+      "hotter": "Yes, {anomaly} °C warmer than usual.",
+      "cooler": "No, {anomaly} °C cooler than usual.",
+      "usual": "Not really: about as warm as usual.",
+      "detail": "Summer {year} (June to August) averaged {mean} °C; the summers from {from} to {to} averaged {normal} °C.",
+      "rank": "Number {rank} of {count} summers since {first}, counted from the warmest.",
+      "chart": "Each summer against the average of {from} to {to}, in {unit}",
+      "none": "There are too few complete summers here to compare.",
+      "open": "Open the monthly means",
+      "stripes": "See the climate stripes"
+    },
+    "wind": {
+      "calm": "Calm.",
+      "breezy": "Breezy.",
+      "windy": "Windy.",
+      "stormy": "Stormy.",
+      "mean": "Mean wind {speed} m/s, Beaufort {force}.",
+      "gust": "Strongest gust {speed} m/s, Beaufort {force}.",
+      "context": "Days around it with stronger gusts: {stronger} of {around}.",
+      "chartGust": "Strongest gust per day, in {unit}",
+      "chartMean": "Mean wind per day, in {unit}",
+      "none": "There are no wind readings here for {day}.",
+      "dayLabel": "Day",
+      "open": "Open these days in the Explorer"
+    },
+    "download": {
+      "answer": "Weather services that publish hourly air temperature: {count}.",
+      "detail": "Each one opens in the Explorer, ready to download as CSV, JSON or GeoJSON.",
+      "none": "No weather service lists hourly air temperature right now.",
+      "api": "Or use the REST API"
+    }
+  },
   "seo": {
     "title": "Wetterdienst – open weather and climate data from national weather services",
     "description": "Open weather and climate data from national weather services, in one format: explorer, forecast, climate stripes, REST API and MCP server. Open source and free.",

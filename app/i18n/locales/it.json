@@ -62,6 +62,82 @@
     "kindRoadDesc": "Condizioni e temperature del manto stradale dalle stazioni stradali del DWD, con le relative previsioni.",
     "aboutLink": "Il progetto e le persone che ci stanno dietro"
   },
+  "ask": {
+    "title": "Chiedi al tempo",
+    "lead": "Le domande che le persone si fanno, con risposte tratte da misure e previsioni ufficiali, e il grafico per verificarle.",
+    "placeLabel": "Domande su",
+    "placeChange": "cambia luogo",
+    "placeNotFound": "Il luogo del link non è stato trovato.",
+    "placeDialogTitle": "Scegli un luogo",
+    "placePlaceholder": "Il nome di una città o di una stazione meteo …",
+    "placeHint": "Scrivi il nome di una città o di una stazione meteo.",
+    "placeSearching": "Ricerca dei luoghi …",
+    "placeFailed": "Non è stato possibile cercare i luoghi.",
+    "placesGroup": "Stazioni meteorologiche",
+    "questionsLabel": "Domande",
+    "idle": "Scegli una domanda: la risposta arriva qui, da dati in tempo reale.",
+    "q": {
+      "rain": "Domani pioverà a {place}?",
+      "summer": "L'estate scorsa è stata più calda del solito qui?",
+      "wind": "Quanto vento c'era il {day}?",
+      "download": "Dove posso scaricare le temperature orarie?"
+    },
+    "from": {
+      "rain": "Previsioni, DWD MOSMIX",
+      "summer": "Medie mensili, DWD",
+      "wind": "Dati giornalieri, DWD",
+      "download": "Tutti i servizi meteorologici"
+    },
+    "working": "Sto calcolando la risposta …",
+    "failed": "Non è stato possibile calcolare la risposta.",
+    "showValues": "Mostra i valori",
+    "tableWhen": "Quando",
+    "leadsTo": "Apri i dati nello strumento",
+    "rain": {
+      "yes": "Sì, è probabile che piova.",
+      "maybe": "Forse, un po'.",
+      "no": "Probabilmente no.",
+      "total": "{amount} mm previsti per l'intera giornata.",
+      "wettest": "Ora più piovosa: dalle {from}:00 alle {to}:00, {amount} mm.",
+      "chance": "Probabilità di pioggia più alta in un'ora: {chance}.",
+      "point": "Previsioni per {name}, il punto di previsione più vicino a {place} (a {distance} km).",
+      "pointNoDistance": "Previsioni per {name}, il punto di previsione più vicino a {place}.",
+      "chart": "Pioggia per ora domani, in {unit}",
+      "none": "Le previsioni per {name} non arrivano ancora a domani.",
+      "open": "Apri le previsioni complete"
+    },
+    "summer": {
+      "hotter": "Sì, {anomaly} °C più calda del solito.",
+      "cooler": "No, {anomaly} °C più fresca del solito.",
+      "usual": "Non proprio: più o meno come al solito.",
+      "detail": "L'estate {year} (da giugno ad agosto) ha avuto una media di {mean} °C; le estati dal {from} al {to}, di {normal} °C.",
+      "rank": "Posizione {rank} su {count} estati dal {first}, partendo dalla più calda.",
+      "chart": "Ogni estate rispetto alla media dal {from} al {to}, in {unit}",
+      "none": "Qui ci sono troppe poche estati complete per un confronto.",
+      "open": "Apri le medie mensili",
+      "stripes": "Guarda le strisce climatiche"
+    },
+    "wind": {
+      "calm": "Calmo.",
+      "breezy": "Un po' di brezza.",
+      "windy": "Ventoso.",
+      "stormy": "Tempestoso.",
+      "mean": "Vento medio {speed} m/s, Beaufort {force}.",
+      "gust": "Raffica più forte {speed} m/s, Beaufort {force}.",
+      "context": "Giorni vicini con raffiche più forti: {stronger} su {around}.",
+      "chartGust": "Raffica più forte al giorno, in {unit}",
+      "chartMean": "Vento medio al giorno, in {unit}",
+      "none": "Qui non ci sono misure del vento per il {day}.",
+      "dayLabel": "Giorno",
+      "open": "Apri questi giorni nell'Esploratore"
+    },
+    "download": {
+      "answer": "Servizi meteorologici che pubblicano la temperatura oraria dell'aria: {count}.",
+      "detail": "Ognuno si apre nell'Esploratore, pronto da scaricare in CSV, JSON o GeoJSON.",
+      "none": "Al momento nessun servizio meteorologico pubblica la temperatura oraria dell'aria.",
+      "api": "Oppure usa l'API REST"
+    }
+  },
   "seo": {
     "title": "Wetterdienst – dati meteorologici e climatici aperti dei servizi meteorologici nazionali",
     "description": "Dati meteorologici e climatici aperti dei servizi meteorologici nazionali, in un unico formato: esploratore, previsioni, strisce climatiche, API REST e server MCP. Open source e gratuito.",

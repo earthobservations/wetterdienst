@@ -2,15 +2,28 @@ import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { clearNuxtData } from '#app'
 import AppCommandPalette from '~/components/AppCommandPalette.vue'
+import { DEFAULT_PLACE } from '~/composables/usePlace'
 import { providersResponse } from '../fixtures/providers'
 
 // The command palette of the search (GH-3518): the ARIA combobox with a listbox, its keys, and what it finds.
 
 registerEndpoint('/api/providers', () => providersResponse())
 const stationQueries: string[] = []
+const stationNetworks: string[] = []
 registerEndpoint('/api/stations', (event) => {
-  const name = new URL(event.path, 'http://localhost').searchParams.get('name') ?? ''
+  const query = new URL(event.path, 'http://localhost').searchParams
+  const name = query.get('name') ?? ''
   stationQueries.push(name)
+  stationNetworks.push(`${query.get('provider')}/${query.get('network')}`)
+  // the measuring stations, as the places of the questions are looked for: one that reports and one that stopped
+  if (query.get('network') === 'observation') {
+    return {
+      stations: [
+        { station_id: '00183', name: 'Arkona', region: 'Mecklenburg-Vorpommern', latitude: 54.68, longitude: 13.43, elevation: 42, start_timestamp: '1991-01-01T00:00:00+00:00', end_timestamp: null },
+        { station_id: '00198', name: 'Artern', region: 'Thüringen', latitude: 51.37, longitude: 11.29, elevation: 164, start_timestamp: '1991-01-01T00:00:00+00:00', end_timestamp: '2018-12-31T00:00:00+00:00' },
+      ],
+    }
+  }
   return { stations: [{ station_id: '10384', name: 'BERLIN-TEMPELHOF', region: null, latitude: 52.47, longitude: 13.4, elevation: 49, start_timestamp: null, end_timestamp: null }] }
 })
 
@@ -25,6 +38,7 @@ afterEach(() => {
   mounted.splice(0).forEach(wrapper => wrapper.unmount())
   clearNuxtData()
   stationQueries.length = 0
+  stationNetworks.length = 0
 })
 
 describe('the command palette', () => {
@@ -119,5 +133,57 @@ describe('the command palette', () => {
     expect(wrapper.find('[role="listbox"]').exists()).toBe(false)
     expect(input.attributes('aria-expanded')).toBe('false')
     expect(input.attributes('aria-controls')).toBeUndefined()
+  })
+})
+
+// In its place mode the palette is the search of the place the home page's questions are about (GH-3518)
+describe('the command palette as the search of a place', () => {
+  async function mountPlaces() {
+    const wrapper = await mountSuspended(AppCommandPalette, { attachTo: document.body, props: { mode: 'place' } })
+    mounted.push(wrapper)
+    return wrapper
+  }
+
+  it('is a combobox named for the place, with nothing to choose until a name is typed', async () => {
+    const wrapper = await mountPlaces()
+    const input = wrapper.find('input[role="combobox"]')
+    expect(input.attributes('aria-label')).toBe('Choose a place')
+    expect(input.attributes('placeholder')).toBe('The name of a town or weather station …')
+    expect(input.attributes('aria-expanded')).toBe('false')
+    expect(wrapper.find('[role="listbox"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Type the name of a town or weather station.')
+    // none of the pages and settings of the search
+    expect(wrapper.text()).not.toContain('Glossary')
+  })
+
+  it('finds the measuring stations by name from two letters on, leaves out one that stopped reporting, and makes the one chosen the place', async () => {
+    vi.useFakeTimers()
+    try {
+      usePlace().place.value = DEFAULT_PLACE
+      const wrapper = await mountPlaces()
+      const input = wrapper.find('input[role="combobox"]')
+      await input.setValue('a')
+      await vi.advanceTimersByTimeAsync(400)
+      expect(stationQueries).toEqual([])
+      await input.setValue('ar')
+      await vi.advanceTimersByTimeAsync(400)
+      vi.useRealTimers()
+      await vi.waitFor(() => expect(wrapper.findAll('[role="option"]')).toHaveLength(1))
+      expect(stationNetworks).toEqual(['dwd/observation'])
+      const option = wrapper.find('[role="option"]')
+      expect(option.text()).toContain('Arkona')
+      expect(option.text()).toContain('Mecklenburg-Vorpommern')
+      expect(wrapper.text()).not.toContain('Artern')
+      expect(wrapper.find('[role="group"]').text()).toContain('Weather stations')
+
+      await input.trigger('keydown', { key: 'Enter' })
+      expect(usePlace().place.value).toMatchObject({ id: '00183', name: 'Arkona', latitude: 54.68, longitude: 13.43 })
+      expect(wrapper.emitted('place')![0]![0]).toMatchObject({ id: '00183' })
+      expect(wrapper.emitted('done')).toHaveLength(1)
+    }
+    finally {
+      vi.useRealTimers()
+      usePlace().place.value = DEFAULT_PLACE
+    }
   })
 })

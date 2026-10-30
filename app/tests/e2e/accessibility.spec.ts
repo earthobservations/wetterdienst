@@ -3,6 +3,7 @@ import type { Locale, Mode, Variant } from './accessibility/scan'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
+import { askHandlers } from './accessibility/ask-backend'
 import { scanHover, scanKeyboard } from './accessibility/interact'
 import { ApiFailure, mockBackend } from './accessibility/mock-backend'
 import { compareToBaseline, readBaseline, RECORDING, scan, variantKey } from './accessibility/scan'
@@ -398,6 +399,41 @@ const STATES: State[] = [
       await page.keyboard.type('ber')
       await expect(page.getByRole('option', { name: /BERLIN-TEMPELHOF/ })).toBeVisible()
       await page.keyboard.press('ArrowDown')
+    },
+  },
+  {
+    // Ask the weather (GH-3518): a question open, with its verdict, its bars and the links into the tools
+    page: 'index',
+    state: 'ask-answer-open',
+    path: '/?ask=rain',
+    handlers: askHandlers(),
+    reach: async (page) => {
+      await expect(page.getByTestId('answer-verdict')).toBeVisible()
+    },
+  },
+  {
+    // the summer question: bars that hang from a line, the one asked about marked, the table of values opened
+    page: 'index',
+    state: 'ask-summer-values',
+    path: '/?ask=summer',
+    handlers: askHandlers(),
+    reach: async (page, locale) => {
+      await expect(page.getByTestId('answer-verdict')).toBeVisible()
+      await page.getByText(message(locale, 'ask.showValues'), { exact: true }).click()
+      await expect(page.getByRole('table')).toBeVisible()
+    },
+  },
+  {
+    // the search of a place of the questions, with a name typed
+    page: 'index',
+    state: 'ask-place-open',
+    keepFocus: true,
+    path: '/',
+    handlers: askHandlers(),
+    reach: async (page) => {
+      await page.getByTestId('place-button').click()
+      await page.getByRole('combobox').fill('ar')
+      await expect(page.getByRole('option').first()).toBeVisible()
     },
   },
   {

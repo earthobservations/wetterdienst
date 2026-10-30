@@ -62,6 +62,82 @@
     "kindRoadDesc": "Wegdekcondities en -temperaturen van de DWD-wegweerstations, met hun verwachtingen.",
     "aboutLink": "Over het project en de mensen erachter"
   },
+  "ask": {
+    "title": "Vraag het weer",
+    "lead": "De vragen die mensen hebben, beantwoord met officiële metingen en verwachtingen, met de grafiek om het na te gaan.",
+    "placeLabel": "Vragen over",
+    "placeChange": "andere plaats kiezen",
+    "placeNotFound": "De plaats uit de link is niet gevonden.",
+    "placeDialogTitle": "Kies een plaats",
+    "placePlaceholder": "De naam van een plaats of weerstation …",
+    "placeHint": "Typ de naam van een plaats of weerstation.",
+    "placeSearching": "Plaatsen zoeken …",
+    "placeFailed": "Plaatsen konden niet worden gezocht.",
+    "placesGroup": "Weerstations",
+    "questionsLabel": "Lijst met vragen",
+    "idle": "Kies een vraag, het antwoord komt hier, uit actuele gegevens.",
+    "q": {
+      "rain": "Gaat het morgen regenen in {place}?",
+      "summer": "Was de afgelopen zomer hier warmer dan normaal?",
+      "wind": "Hoe hard waaide het op {day}?",
+      "download": "Waar kan ik temperaturen per uur downloaden?"
+    },
+    "from": {
+      "rain": "Verwachting, DWD MOSMIX",
+      "summer": "Maandgemiddelden, DWD",
+      "wind": "Dagwaarden, DWD",
+      "download": "Alle weerdiensten"
+    },
+    "working": "Het antwoord wordt berekend …",
+    "failed": "Het antwoord kon niet worden berekend.",
+    "showValues": "Waarden tonen",
+    "tableWhen": "Wanneer",
+    "leadsTo": "De gegevens openen in het hulpmiddel",
+    "rain": {
+      "yes": "Ja, waarschijnlijk regen.",
+      "maybe": "Misschien, een beetje.",
+      "no": "Waarschijnlijk niet.",
+      "total": "{amount} mm verwacht voor de hele dag.",
+      "wettest": "Natste uur: {from}:00 tot {to}:00, {amount} mm.",
+      "chance": "Grootste kans op regen in een uur: {chance}.",
+      "point": "Verwachting voor {name}, het verwachtingspunt dichtst bij {place} ({distance} km verderop).",
+      "pointNoDistance": "Verwachting voor {name}, het verwachtingspunt dichtst bij {place}.",
+      "chart": "Regen per uur morgen, in {unit}",
+      "none": "De verwachting voor {name} reikt nog niet tot morgen.",
+      "open": "Volledige verwachting openen"
+    },
+    "summer": {
+      "hotter": "Ja, {anomaly} °C warmer dan normaal.",
+      "cooler": "Nee, {anomaly} °C koeler dan normaal.",
+      "usual": "Niet echt: ongeveer zoals normaal.",
+      "detail": "Zomer {year} (juni tot augustus) was gemiddeld {mean} °C; de zomers van {from} tot {to} gemiddeld {normal} °C.",
+      "rank": "Plaats {rank} van {count} zomers sinds {first}, vanaf de warmste geteld.",
+      "chart": "Elke zomer tegenover het gemiddelde van {from} tot {to}, in {unit}",
+      "none": "Er zijn hier te weinig volledige zomers om te vergelijken.",
+      "open": "Maandgemiddelden openen",
+      "stripes": "Klimaatstrepen bekijken"
+    },
+    "wind": {
+      "calm": "Rustig.",
+      "breezy": "Een beetje wind.",
+      "windy": "Winderig.",
+      "stormy": "Stormachtig.",
+      "mean": "Gemiddelde wind {speed} m/s, Beaufort {force}.",
+      "gust": "Sterkste windstoot {speed} m/s, Beaufort {force}.",
+      "context": "Dagen eromheen met sterkere windstoten: {stronger} van {around}.",
+      "chartGust": "Sterkste windstoot per dag, in {unit}",
+      "chartMean": "Gemiddelde wind per dag, in {unit}",
+      "none": "Er zijn hier geen windmetingen voor {day}.",
+      "dayLabel": "Datum",
+      "open": "Deze dagen openen in de Verkenner"
+    },
+    "download": {
+      "answer": "Weerdiensten die de luchttemperatuur per uur publiceren: {count}.",
+      "detail": "Elk opent in de Verkenner, klaar om te downloaden als CSV, JSON of GeoJSON.",
+      "none": "Op dit moment publiceert geen weerdienst de luchttemperatuur per uur.",
+      "api": "Of gebruik de REST-API"
+    }
+  },
   "seo": {
     "title": "Wetterdienst – open weer- en klimaatdata van nationale weerdiensten",
     "description": "Open weer- en klimaatdata van nationale weerdiensten in één formaat: verkenner, weersverwachting, klimaatstrepen, REST-API en MCP-server. Open source en gratis.",
