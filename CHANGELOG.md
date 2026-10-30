@@ -37,6 +37,12 @@ Types of changes:
   by none for Paris-Montsouris. Where `tn12` repeats the `tx12` of its own row (three overseas
   stations at some hours: Cayenne-Matoury, Le Raizet, Lamentin) it is null, with the number kept as
   `raw:` in `quality_flags` (GH-3540)
+- `imgw/hydrology` stations now list the river the gauge is on (`river`, with IMGW's hydrographic
+  code, `Odra (1)`), its position along it in kilometres from the mouth (`river_kilometer`) and
+  the altitude of the gauge's zero in metres (`gauge_zero`), under the names `wsv/pegel` uses; null
+  where IMGW's list is empty. `river_kilometer` is not comparable with `wsv/pegel`'s waterway
+  kilometre, which grows downstream. `gauge_zero_datum` is null, as the list states no datum
+  (GH-3599)
 
 ### Changed
 
@@ -82,6 +88,40 @@ Types of changes:
 
 ### Fixed
 
+- A request that asks several resolutions or datasets of one provider no longer returns some
+  readings under another parameter's name. The humanized name is now looked up per resolution
+  and dataset, where a name the source gives two parameters took the last one's: chmi (`T`, `H`,
+  `P`, `F`, `TMA`, `TMI`), geosphere (`p`, `sh`, `tsmin`, `tl_mittel`), meteofrance/observation
+  (`TN`, `TX`) and aemet (`hr`). The 10 minute `T` of chmi, asked with the daily one, came back
+  as `temperature_air_mean_2m` (GH-3605)
+- `chmi/observation` lists stations that `meta1.csv` (read 2026-10-30, 1,603 stations) has since
+  been given rows for: the 29 monthly and 22 annual ids with files but no row (e.g.
+  `0-203-0-10101019002`), and 14 more, 43 in all, none with a `daily` file. `monthly` lists 1,567
+  stations (was 1,538), `annual` 1,555 (was 1,533). `10_minutes` and `hourly` list them too (1,603,
+  was 1,560), though none of the 43 has a file there in any year (2018-2025) (GH-3259, #3623)
+- `/api/stripes/image` now sends the licence, the credit line and the warnings in the headers
+  `X-Wetterdienst-License`, `Link`, `X-Wetterdienst-Attribution` and `X-Wetterdienst-Warnings`,
+  so a client or the MCP tool `stripes_image` can tell that the image is DWD data under CC BY 4.0;
+  the image itself is unchanged. `/api/stripes/values` never recorded the warnings of its read, so
+  its `metadata.warnings` and `X-Wetterdienst-Warnings` (and the MCP tool `stripes_values`) were
+  always empty; they now tell them (GH-3581)
+- A reading no sensor can have produced is now null, with the number the file wrote kept as
+  `raw:` in `quality_flags`. `dwd/observation`: a wind speed below 0 or above 115 m/s (the hourly
+  urban wind read -0.80 m/s at Berlin-Alexanderplatz) and a pressure outside 500 to 1090 hPa in
+  `pressure_air_site`, `pressure_air_site_mean` (daily `PM`) and `pressure_air_sea_level` (the
+  hourly `P0` read 1093.3 hPa at 00433); the vapour pressures are not bound. `meteofrance/synop`:
+  `pres` outside 500 to 1100 hPa (31 rows of 108.6 to 420.6 hPa in the files of 1996, 2000, 2005,
+  2010 and 2015), `pmer` outside 850 to 1100 hPa, temperatures and dew point outside -90 to
+  60 C, `rr1` outside 0 to 600 mm, `rr3`, `rr6`, `rr12` outside 0 to 1200 mm, `rr24` outside
+  0 to 2000 mm (GH-3135)
+- `meteofrance/observation` and `meteofrance/synop`: a temperature below 0 C (air at 2 m, its
+  extremes, the dew point) at a station of Guadeloupe (971), Martinique (972), Guyane (973),
+  Mayotte (985), Wallis-et-Futuna (986), French Polynesia (987) or the Iles Eparses (Glorieuses,
+  Juan de Nova, Europa, Tromelin) is null, with the number kept as `raw:`: there is no frost
+  there, and the files hold -20.0 C at 441 m in Martinique, dew points of -39.5 C at 1,141 m
+  in Guadeloupe, -32.6 C at Hao (French Polynesia) and -21.6 C at Tromelin. Synop names its 24
+  stations. La Reunion, Saint-Pierre-et-Miquelon, the southern territories and New Caledonia
+  are not (GH-3135)
 - `chmi/observation` no longer lists the two stations abroad of CHMI's catalogue, Reykjavik
   (`0-20000-0-04030`) and Marambio Base (`0-20000-0-89055`), in the `10_minutes` and `hourly`
   station lists: the portal has no file for them in any resolution, so they never had a value
@@ -140,6 +180,15 @@ Types of changes:
   `parameter-without-rows`: a parameter or dataset that held only missing values at a station left
   out (wholly or with some readings) is no longer named there. The rows of an answer are unchanged
   (GH-3567)
+- `skip_empty` judges a station by the same span whether `drop_nulls` is on or off. For a request
+  that names no window the coverage is measured against the span of the station's own series, and
+  that was read after the empty readings had been dropped: a station whose first or last readings
+  were nulls looked complete (and was kept) with `drop_nulls=True`, the default, and sparse (and
+  was skipped) with `drop_nulls=False`. The span now includes the empty readings, so with the
+  default setting such stations are skipped, and the answer has fewer stations than before. The
+  same holds for a resolution with no fixed interval (`subdaily`), where the share of readings
+  with a value was taken of the rows left, always all of them, so nothing was skipped. A request
+  with a window and a fixed interval is unchanged (GH-3578)
 
 ## [0.178.0] - 2026-10-28
 
