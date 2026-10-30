@@ -88,6 +88,11 @@ Types of changes:
 
 ### Fixed
 
+- The `eccc/observation` hourly dataset no longer claims a wind gust and weather: it holds air
+  temperature, dew point, humidity, precipitation, station pressure, visibility, wind direction
+  and speed, wind chill and humidex. Its parameter descriptions now say what ECCC's glossary and
+  technical documentation say (the climatological day, the degree-day base of 18 °C, the
+  gust published above 30 km/h only, the humidex and wind chill ranges) (GH-3136)
 - `chmi/observation` lists, for `10_minutes` and `hourly`, only the stations that can have files
   there: 767 of the 1,603 (read 2026-10-30), those whose period ends in 2018 or later, when these
   files begin, and that have a daily file. The 836 left out answered every request with an empty
