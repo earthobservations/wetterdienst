@@ -264,7 +264,7 @@ async function plotStripes(data: StripesValuesResponse, keepZoom = false) {
     // a newer drawing, or a Reset, came while Plotly loaded: this one draws nothing
     if (plot !== plotsStarted)
       return
-    await drawStripes(data, keepZoom)
+    await drawStripes(data, keepZoom, () => plot === plotsStarted)
     if (plot === plotsStarted)
       plotFailed.value = false
   }
@@ -533,7 +533,7 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
   }
 }
 
-async function drawStripes(data: StripesValuesResponse, keepZoom = false) {
+async function drawStripes(data: StripesValuesResponse, keepZoom = false, newest: () => boolean = () => true) {
   if (!plotContainer.value || !Plotly)
     return
 
@@ -548,11 +548,15 @@ async function drawStripes(data: StripesValuesResponse, keepZoom = false) {
   if (!figure)
     return
   await Plotly.newPlot(plotContainer.value, figure.traces as any, figure.layout as any, figure.config)
+  // said at once, before anything after it can fail: the chart is drawn in these colours whatever follows
+  markChartScheme(plotContainer.value, drawnIn)
+  // a newer drawing, or a Reset, came meanwhile: it purges and draws again, and this one moves nothing
+  if (!newest())
+    return
   // drawn in the range of its own, which a reset of the chart goes back to, and then moved to the one it was in
   const moves = { ...rangesRelayout(zoom), ...(figure.title ? { title: figure.title } : {}) }
   if (Object.keys(moves).length > 0)
     await Plotly.relayout(plotContainer.value, moves)
-  markChartScheme(plotContainer.value, drawnIn)
 }
 
 // A saved image is always the light one, whatever the page shows: the stripes are drawn again, off screen,

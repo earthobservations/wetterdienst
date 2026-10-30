@@ -568,6 +568,58 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
     }
   })
 
+  it('says the scheme the chart is drawn in whatever the relayout after the plot does', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    await showStripes()
+    await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
+    const [shown] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement]
+    expect(shown.dataset.chartScheme).toBe('light')
+    Object.assign(shown, zoomed)
+    plotly.newPlot.mockClear()
+    plotly.relayout.mockClear()
+    // the move to the zoom fails after the chart was plotted in the colours of the dark scheme
+    plotly.relayout.mockRejectedValueOnce(new Error('relayout failed'))
+    document.documentElement.classList.add('dark')
+    try {
+      await vi.waitFor(() => expect(plotly.relayout).toHaveBeenCalledOnce())
+      await vi.waitFor(() => expect(shown.dataset.chartScheme).toBe('dark'))
+    }
+    finally {
+      document.documentElement.classList.remove('dark')
+    }
+  })
+
+  it('moves nothing of a drawing that a newer one has replaced', async () => {
+    await showStripes()
+    await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
+    const [shown] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement]
+    Object.assign(shown, zoomed)
+    plotly.newPlot.mockClear()
+    plotly.relayout.mockClear()
+    // the drawing for the dark scheme held in Plotly, and the scheme switched back, which draws the chart again
+    let release!: () => void
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    plotly.newPlot.mockImplementationOnce(async () => {
+      await held
+    })
+    document.documentElement.classList.add('dark')
+    try {
+      await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
+      document.documentElement.classList.remove('dark')
+      await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledTimes(2))
+      await vi.waitFor(() => expect(plotly.relayout).toHaveBeenCalledOnce())
+      release()
+      await new Promise(resolve => setTimeout(resolve, 50))
+      // the newer drawing's move, and none of the older one's
+      expect(plotly.relayout).toHaveBeenCalledOnce()
+    }
+    finally {
+      document.documentElement.classList.remove('dark')
+    }
+  })
+
   it('has the camera of the modebar save the same, in the place of Plotly\'s own', async () => {
     await showStripes()
     await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())

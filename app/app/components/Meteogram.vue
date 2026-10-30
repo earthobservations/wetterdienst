@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { SunTimes } from 'suncalc'
 import type { Value } from '#shared/types/api'
+import type { ChartTheme } from '~/utils/chart-theme'
 import type { WeatherKind } from '~/utils/weather-kind'
 import { DateTime } from 'luxon'
 import tzLookup from 'tz-lookup'
@@ -23,6 +24,8 @@ const language = computed(() => localeProperties.value.language ?? locale.value)
 
 const chartRef = ref<HTMLDivElement | null>(null)
 let Plotly: any = null
+// the theme the chart on the page was last drawn in, which its overlay of wind barbs is painted in
+let drawnTheme: ChartTheme | null = null
 // loaded once, as Plotly is: a drawing in the colours of a switched scheme, or of a print, has no wait for it
 let SunCalc: typeof import('suncalc') | null = null
 const plotlyLoaded = ref(false)
@@ -605,7 +608,8 @@ function drawBarb(ctx: CanvasRenderingContext2D, px: number, py: number, dirFrom
   // rounded to 1.944 a speed either side of a barb boundary could be drawn as the next barb up
   const kt = (speed * 3600) / 1852
   const scale = compact.value ? 0.78 : 1.0
-  const barbColor = theme.value.textStrong
+  // in the colours the chart was drawn in, which a switch of the scheme is yet to redraw it in
+  const barbColor = (drawnTheme ?? theme.value).textStrong
   ctx.strokeStyle = barbColor
   ctx.fillStyle = barbColor
   ctx.lineWidth = Math.max(1, 1.5 * scale)
@@ -1934,12 +1938,14 @@ async function renderChartActual() {
     const kept = keepZoom ? drawnRanges(chartRef.value).xaxis : undefined
     // the theme it is drawn in is taken before the drawing, which a switch of the scheme can come in the middle of
     const drawnIn = theme.value
+    drawnTheme = drawnIn
     Plotly.purge(chartRef.value)
     await Plotly.newPlot(chartRef.value, activeTraces, themedLayout(layout, drawnIn), config)
+    // said at once, before anything after it can fail: the chart is drawn in these colours whatever follows
+    markChartScheme(chartRef.value, drawnIn)
     // drawn in the range of the layout, which is what the chart's reset goes back to, and then moved to the one it was in
     if (kept)
       await Plotly.relayout(chartRef.value, { 'xaxis.range': kept.range })
-    markChartScheme(chartRef.value, drawnIn)
 
     // Setup overlay drawing of wind barbs using a canvas overlay
     if (typeof window !== 'undefined' && windKey && chartRef.value && visiblePanels.value.wind) {

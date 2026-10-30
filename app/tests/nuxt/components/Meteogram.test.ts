@@ -810,6 +810,15 @@ describe('meteogram chart redrawn in other colours', { timeout: 15_000 }, () => 
     expect(chart.dataset.chartScheme).toBe('dark')
   })
 
+  it('says the scheme the chart is drawn in whatever the move to the zoom after the plot does', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const chart = await shownAndZoomed()
+    plotly.relayout.mockRejectedValueOnce(new Error('relayout failed'))
+    document.documentElement.classList.add('dark')
+    await vi.waitFor(() => expect(plotly.relayout).toHaveBeenCalledOnce())
+    await vi.waitFor(() => expect(chart.dataset.chartScheme).toBe('dark'))
+  })
+
   it('starts the chart over where a new horizon and a switch of the scheme come while it is drawn', async () => {
     const chart = await shownAndZoomed()
     let release!: () => void
