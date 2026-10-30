@@ -924,7 +924,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         # column name conflicts
         datasets_by_resolution: dict[str, set[str]] = defaultdict(set)
         for parameter in self.sr.parameters:
-            datasets_by_resolution[parameter.dataset.resolution.name].add(parameter.dataset.name)
+            datasets_by_resolution[parameter.dataset.resolution.name].add(parameter.dataset.name.lower())
         datasets = {name for names in datasets_by_resolution.values() for name in names}
         if len(datasets) > 1:
             df = df.with_columns(
@@ -972,7 +972,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         requested = []
         for parameter in self.sr.parameters:
             name = parameter.name_original if not self.sr.options.humanize else parameter.name
-            requested.append(f"{parameter.dataset.name}_{name}" if len(datasets) > 1 else name)
+            requested.append(f"{parameter.dataset.name.lower()}_{name}" if len(datasets) > 1 else name)
         # once: the same parameter of a dataset of one name at two resolutions is one column
         requested = list(dict.fromkeys(requested))
 
