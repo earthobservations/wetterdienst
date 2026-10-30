@@ -98,8 +98,8 @@ keep their colours, and the text that names a series is the series' hue at 4.5:1
 weekend day labels, and the stripes' "data availability" label. On white that is a darker step of the
 hue, #0e7490 for the wind's cyan (5.4:1; the line is #06b6d4, 2.4:1), #2563eb for the precipitation's blue
 (5.2:1; 3.7:1), #dc2626 for the temperature's red and the weekend (4.8:1; 3.8:1), #4d7c0f for the pressure's
-lime (5.0:1; 2.0:1) and #b45309 for the availability's gold (5.0:1; 2.2:1); on the dark paper (#101828) the
-series' own colours already read (7.3:1, 4.8:1, 4.7:1, 9.0:1) and gold is #daa520 (7.9:1). The Forecast's
+lime (5.0:1; 2.0:1) and #b45309 for the availability's gold (5.0:1; 2.2:1); on the dark paper (#0f172b) the
+series' own colours already read (7.3:1, 4.9:1, 4.7:1, 9.0:1) and gold is #daa520 (8.0:1). The Forecast's
 temperature zero line is the muted text colour like the Explorer's (3:1 or more). Not held to those ratios:
 the Plotly logo of the modebar, Plotly's own black tile with coloured dots.
 

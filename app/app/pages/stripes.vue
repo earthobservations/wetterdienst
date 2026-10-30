@@ -547,6 +547,12 @@ async function drawStripes(data: StripesValuesResponse, keepZoom = false, newest
   if (!plotContainer.value || !Plotly)
     return
 
+  // The language's buttons come first, which can take a chunk's load: a newer drawing, or a Reset, came
+  // meanwhile and this one draws nothing (an older drawing must not put its language over the newer chart's),
+  // and the chart stays as it is while the chunk loads instead of being blank
+  const plotLocale = await plotLocaleOfPage()
+  if (!newest() || !plotContainer.value)
+    return
   // the range shown now, which a purge forgets
   const zoom = keepZoom ? drawnRanges(plotContainer.value) : {}
   // Purge any existing plot first to ensure clean render
@@ -554,7 +560,7 @@ async function drawStripes(data: StripesValuesResponse, keepZoom = false, newest
 
   // the theme it is drawn in is taken before the drawing, which a switch of the scheme can come in the middle of
   const drawnIn = theme.value
-  const figure = stripesFigure(data, drawnIn, plotContainer.value.clientWidth, await plotLocaleOfPage())
+  const figure = stripesFigure(data, drawnIn, plotContainer.value.clientWidth, plotLocale)
   if (!figure)
     return
   await Plotly.newPlot(plotContainer.value, figure.traces as any, figure.layout as any, figure.config)
@@ -581,7 +587,9 @@ async function saveStripes(options: { format: 'png' | 'jpeg' | 'svg', filename: 
   const { format, filename, width, height, scale } = options
   // as the page shows them: the range the stripes are zoomed to is the image's
   const layout = mergeLayouts(figure.layout, drawnRanges(plotContainer.value))
-  const copy = await drawOffscreen(Plotly, figure.traces, layout, { width: plotContainer.value.clientWidth, height: plotContainer.value.clientHeight })
+  // in the language of the page, as the chart is
+  const { locale: copyLocale, locales } = figure.config
+  const copy = await drawOffscreen(Plotly, figure.traces, layout, { width: plotContainer.value.clientWidth, height: plotContainer.value.clientHeight }, { locale: copyLocale, locales })
   try {
     if (figure.title)
       await Plotly.relayout(copy.element, { title: figure.title })

@@ -9,7 +9,7 @@ import { h } from 'vue'
 import QueryPanel from '~/components/QueryPanel.vue'
 import { describeFetchError } from '~/utils/api-error'
 import { formatDate, formatNumber, plotlySeparators } from '~/utils/format'
-import { plotlyLocaleConfig, plotlyText } from '~/utils/plotly-locale'
+import { plotlyLocaleConfigOrFailure, plotlyText } from '~/utils/plotly-locale'
 import { timestampDate } from '~/utils/timestamp'
 import { pinnedUnitTargets } from '~/utils/unit-targets'
 import { exportColumns, field, fieldText, valuesToCsv, valuesToJson } from '~/utils/values-export'
@@ -1135,7 +1135,7 @@ async function plotlyConfig(plotly: typeof import('plotly.js-basic-dist-min')): 
   const key = `${locale.value}/${language}`
   if (config?.of === plotly && config.language === key)
     return config.value
-  const plotLocale = await plotlyLocaleConfig(locale.value, language)
+  const { config: plotLocale, failed } = await plotlyLocaleConfigOrFailure(locale.value, language)
   const value: Partial<PlotlyConfig> = {
     ...plotLocale,
     responsive: true,
@@ -1154,7 +1154,9 @@ async function plotlyConfig(plotly: typeof import('plotly.js-basic-dist-min')): 
       }),
     }],
   }
-  config = { of: plotly, language: key, value }
+  // the English fallback of a language whose buttons could not be loaded is not kept as the language's: the next drawing asks again
+  if (!failed)
+    config = { of: plotly, language: key, value }
   return value
 }
 
@@ -1163,8 +1165,10 @@ async function plotlyConfig(plotly: typeof import('plotly.js-basic-dist-min')): 
 async function saveLightImage(plotly: typeof import('plotly.js-basic-dist-min'), charts: HTMLDivElement[], format: 'png' | 'jpeg' | 'svg', stacked: boolean, filename = 'chart') {
   const copies: OffscreenChart[] = []
   try {
+    // the image is in the language of the page, as the chart is: the names of its dates
+    const { locale: copyLocale, locales } = await plotlyConfig(plotly)
     for (const chart of charts)
-      copies.push(await drawLightCopy(plotly, chart))
+      copies.push(await drawLightCopy(plotly, chart, { locale: copyLocale, locales }))
     const elements = copies.map(copy => copy.element) as HTMLDivElement[]
     if (stacked)
       saveBlob(await stackCharts(plotly, elements, format), `chart.${format}`)
@@ -1284,6 +1288,14 @@ onBeforeUnmount(() => {
   }
 })
 
+// And a chart whose element goes while the viewer stays: the table shown in its place, the facets turned off
+// or on, an answer of other parameters or of none (GH-3619). The single chart's ref is null then; the
+// facets' go through `setFacetChartRef`
+watch(chartRef, (chart, gone) => {
+  if (gone && gone !== chart)
+    Plotly?.purge(gone)
+})
+
 // The colour scheme switched: every chart drawn takes the new chrome as it is
 watch(theme, async (next) => {
   if (!Plotly)
@@ -1387,6 +1399,9 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
     facetChartRefs.value.set(parameter, el)
   }
   else {
+    const gone = facetChartRefs.value.get(parameter)
+    if (gone)
+      Plotly?.purge(gone)
     facetChartRefs.value.delete(parameter)
   }
 }

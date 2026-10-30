@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { plotlyDictionary, plotlyDictionaryCode, plotlyLocaleConfig, plotlyText } from '../../app/utils/plotly-locale'
+import { plotlyDictionary, plotlyDictionaryCode, plotlyLocaleConfig, plotlyLocaleConfigOrFailure, plotlyText } from '../../app/utils/plotly-locale'
 
 // The language of a Plotly chart (GH-3625): Plotly's own translations of its buttons, for the app's locales
 // (nuxt.config.ts), and the names of the dates in the language's tag.
 
 describe('the translation Plotly has for a locale of the app', () => {
-  it.each(['de', 'fr', 'es', 'it', 'pl', 'nl', 'cs', 'da'])('is its own for %s', (code) => {
+  it.each(['de', 'fr', 'es', 'it', 'nl', 'cs'])('is its own for %s', (code) => {
     expect(plotlyDictionaryCode(code)).toBe(code)
   })
 
@@ -14,8 +14,10 @@ describe('the translation Plotly has for a locale of the app', () => {
     expect(plotlyDictionaryCode('de-hh')).toBe('de')
   })
 
-  it('is none for English, which is Plotly\'s own', () => {
+  it('is none for English, which is Plotly\'s own, and for Polish and Danish, which Plotly ships empty', () => {
     expect(plotlyDictionaryCode('en')).toBeUndefined()
+    expect(plotlyDictionaryCode('pl')).toBeUndefined()
+    expect(plotlyDictionaryCode('da')).toBeUndefined()
   })
 
   it.each([
@@ -32,9 +34,12 @@ describe('the translation Plotly has for a locale of the app', () => {
   })
 
   // Plotly ships polish and danish with the names of the dates only, and dutch with a part of its texts: their
-  // buttons stay English, as Plotly's own
-  it.each(['pl', 'da'])('has Plotly no buttons of %s to give: the dates are the language\'s own', async (code) => {
-    expect(await plotlyDictionary(code)).toEqual({})
+  // buttons stay English, as Plotly's own, and nothing is loaded for an empty dictionary
+  it.each(['pl', 'da'])('loads nothing for %s, whose buttons Plotly has none of: the dates are Intl\'s', async (code) => {
+    expect(await plotlyDictionary(code)).toBeUndefined()
+    const { config, failed } = await plotlyLocaleConfigOrFailure(code, `${code}-XX`)
+    expect(failed).toBe(false)
+    expect(config.locales[`${code}-XX`]!.dictionary).toBeUndefined()
   })
 })
 
@@ -70,5 +75,24 @@ describe('the name of a button the app adds', () => {
     expect(plotlyText(await plotlyLocaleConfig('lb', 'lb-LU'), 'Download plot as a PNG')).toBe('Graphen als PNG herunterladen')
     expect(plotlyText(await plotlyLocaleConfig('pl', 'pl-PL'), 'Download plot as a PNG')).toBe('Download plot as a PNG')
     expect(plotlyText(await plotlyLocaleConfig('en', 'en-GB'), 'Download plot as a PNG')).toBe('Download plot as a PNG')
+  })
+})
+
+describe('a language whose buttons could not be loaded', () => {
+  it('is told, so that no one keeps the English fallback as its config', async () => {
+    const { vi } = await import('vitest')
+    vi.resetModules()
+    vi.doMock('plotly.js-locales/it', () => {
+      throw new Error('chunk failed to load')
+    })
+    const fresh = await import('../../app/utils/plotly-locale')
+    const failed = await fresh.plotlyLocaleConfigOrFailure('it', 'it-IT')
+    expect(failed.failed).toBe(true)
+    expect(failed.config.locales['it-IT']!.dictionary).toBeUndefined()
+    // not remembered as the answer: where the chunk loads, the next ask has it
+    vi.doUnmock('plotly.js-locales/it')
+    const loaded = await fresh.plotlyLocaleConfigOrFailure('it', 'it-IT')
+    expect(loaded.failed).toBe(false)
+    expect(loaded.config.locales['it-IT']!.dictionary?.Pan).toBe('Sposta')
   })
 })

@@ -245,9 +245,10 @@ describe('the tokens in main.css', () => {
 })
 
 // The text that names a series is held to 4.5:1 on the paper (WCAG 1.4.3, GH-3618). The paper is the page's:
-// white, and Tailwind's gray-900 (`--ui-bg` of the dark mode); tests/e2e/chart-theme.spec.ts holds the drawn charts.
+// white, and slate-900 (#0f172b, `--ui-bg` of the dark mode, as button-contrast.test.ts has it);
+// tests/e2e/chart-theme.spec.ts holds the drawn charts.
 describe('the colours of the text that names a series', () => {
-  const PAPER = { light: '#ffffff', dark: '#101828' }
+  const PAPER = { light: '#ffffff', dark: '#0f172b' }
   const luminance = (hex: string) => {
     const [r, g, b] = [1, 3, 5].map(i => Number.parseInt(hex.slice(i, i + 2), 16) / 255).map(c => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
     return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!

@@ -8,6 +8,7 @@ import { clearNuxtData, useToast } from '#imports'
 import MapStations from '~/components/MapStations.vue'
 import StripesPage from '~/pages/stripes.vue'
 import { SERIES_LABEL } from '~/utils/chart-theme'
+import { plotlyLocaleConfig } from '~/utils/plotly-locale'
 
 // Real Leaflet draws nothing in happy-dom. The LMap stub holds a stand-in Leaflet map, as LMap
 // holds the real one, for the station map to centre; it never emits ready, so no markers are built.
@@ -36,6 +37,12 @@ const plotly = vi.hoisted(() => ({
   Icons: { camera: { width: 1000, height: 1000, path: '' } },
 }))
 vi.mock('plotly.js-basic-dist-min', () => plotly)
+
+// The language's config as it is, a call of it that a test holds back where it is the chunk of a language that is late
+vi.mock('~/utils/plotly-locale', async (importOriginal) => {
+  const original = await importOriginal<typeof import('~/utils/plotly-locale')>()
+  return { ...original, plotlyLocaleConfig: vi.fn(original.plotlyLocaleConfig) }
+})
 
 // Nuxt's reload of the page: the test's document does not take it
 const { reloadNuxtApp } = vi.hoisted(() => ({ reloadNuxtApp: vi.fn() }))
@@ -1408,6 +1415,47 @@ describe('stripes Page chart in the language of the page, readable, and purged a
     wrapper!.unmount()
     wrapper = undefined
     expect(plotly.purge).toHaveBeenCalledWith(chart)
+  })
+
+  // The language's chunk of an older drawing comes late, after a newer drawing has drawn: the older one draws
+  // nothing (it put its language over the newer chart's), and the chart is not blank while the chunk loads
+  it('draws nothing for an older drawing whose language comes after the newer one has drawn', async () => {
+    await showStripes()
+    const vm = wrapper!.vm as any
+    const late = Promise.withResolvers<Awaited<ReturnType<typeof plotlyLocaleConfig>>>()
+    vi.mocked(plotlyLocaleConfig).mockImplementationOnce(() => late.promise)
+    plotly.newPlot.mockClear()
+    plotly.purge.mockClear()
+
+    const older = vm.plotStripes(vm.lastFetchedData)
+    await nextTick()
+    // the chart is not blank while the language loads
+    expect(plotly.purge).not.toHaveBeenCalled()
+    const newer = vm.plotStripes(vm.lastFetchedData)
+    await newer
+    expect(plotly.newPlot).toHaveBeenCalledOnce()
+    const drawn = configDrawn()
+
+    late.resolve(await (await import('~/utils/plotly-locale')).plotlyLocaleConfig('de', 'de-DE'))
+    await older
+    expect(plotly.newPlot).toHaveBeenCalledOnce()
+    expect(configDrawn()).toBe(drawn)
+    expect(plotly.purge).toHaveBeenCalledOnce()
+  })
+
+  // the image that is saved is in the language of the page, as the chart is
+  it('draws the copy of the saved stripes in the language of the page', async () => {
+    await setLocale('de')
+    await showStripes()
+    const vm = wrapper!.vm as any
+    plotly.newPlot.mockClear()
+    plotly.downloadImage.mockClear()
+    await vm.downloadStripes('png')
+    expect(plotly.downloadImage).toHaveBeenCalledOnce()
+    // the copy, out of sight, is the one drawn static
+    const [, , , config] = plotly.newPlot.mock.calls.find(call => (call as unknown as unknown[])[3] && ((call as unknown as unknown[])[3] as { staticPlot?: boolean }).staticPlot) as unknown as [unknown, unknown, unknown, Config & { staticPlot: boolean }]
+    expect(config.locale).toBe('de-DE')
+    expect(config.locales['de-DE']!.format.shortMonths).toHaveLength(12)
   })
 
   it('purges nothing where no stripes were drawn', async () => {

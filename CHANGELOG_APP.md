@@ -49,14 +49,17 @@ Types of changes:
 - `[Widget]` A widget opened with `?theme=dark` (or `light`) no longer changes the scheme the app
   shows afterwards: the scheme is the widget's alone, and the app's saved choice is left as it was
   (GH-3619)
-- `[Explorer/Stripes/Meteogram]` The charts no longer stay in memory after the page is left: the
-  Explorer and the stripes now purge their Plotly charts (the Meteogram's purge never ran), which
-  kept a window listener for each (GH-3619)
+- `[Explorer/Stripes/Meteogram]` The charts no longer stay in memory after they are gone: the
+  Explorer and the stripes purge their Plotly charts where the page is left, and the Explorer also
+  where a chart is replaced by the table or by the facets (the Meteogram's purge never ran). Each
+  kept a window listener (GH-3619)
 - `[Explorer/Stripes/Meteogram]` The charts speak the language of the page: the modebar's buttons
   ("Zoom", "Pan", "Reset axes") and the months of the Explorer's date axis were English on a German
   page. French, Spanish, Italian, Czech and German (also for Luxembourgish and Hamburg's) have
   Plotly's own button names, Dutch some; Polish and Danish have none and stay English. A switch of
-  the language redraws the charts. New dependency `plotly.js-locales` (GH-3625)
+  the language redraws the charts, and a saved image has the page's month and weekday names. The
+  stripes keep showing the chart while a language loads. New dependency `plotly.js-locales`
+  (GH-3625)
 - `[Meteogram]` The compact view no longer makes the page scroll sideways on a narrow screen
   (320 px), where the weather words of its day cards lay outside the box that scrolls (GH-3406)
 - `[Translations]` Parameter labels now say what the English ones say: the maximum wind gust was

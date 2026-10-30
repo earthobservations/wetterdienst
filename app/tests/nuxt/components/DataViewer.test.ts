@@ -47,20 +47,20 @@ vi.mock('@duckdb/duckdb-wasm', () => ({
 const plotly = vi.hoisted(() => {
   const titles = new WeakMap<HTMLElement, string>()
   const labelOfData = new WeakMap<object, string>()
-  const copies: { root: HTMLElement, data: unknown, layout: unknown }[] = []
+  const copies: { root: HTMLElement, data: unknown, layout: unknown, config: unknown }[] = []
   const draw = async (root: HTMLElement, data: object, layout?: unknown) => {
     const label = root.getAttribute('aria-label')?.replace(/^Chart of /, '') ?? labelOfData.get(data) ?? ''
     labelOfData.set(data, label)
     titles.set(root, label)
     Object.assign(root, { data, layout })
   }
-  const newPlot = vi.fn(async (root: HTMLElement, data: object, layout?: unknown) => {
+  const newPlot = vi.fn(async (root: HTMLElement, data: object, layout?: unknown, config?: unknown) => {
     if (root.getAttribute('aria-hidden') === 'true') {
       // not a drawing of the page's: taken out of the calls
       newPlot.mock.calls.pop()
       newPlot.mock.results.pop()
       newPlot.mock.invocationCallOrder.pop()
-      copies.push({ root, data, layout })
+      copies.push({ root, data, layout, config })
     }
     await draw(root, data, layout)
   })
@@ -3030,6 +3030,138 @@ describe('dataViewer charts in the language of the page and at its end', () => {
     wrapper.unmount()
     for (const facet of facets)
       expect(plotly.purge).toHaveBeenCalledWith(facet)
+  })
+
+  // a chart whose element goes while the viewer stays has Plotly's `resize` listener hold it all the same
+  it('purges the single chart where the table is shown in its place', async () => {
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, false)
+    const [chart] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement]
+    plotly.purge.mockClear()
+    ;(viewer.vm as unknown as { viewMode: string }).viewMode = 'table'
+    await flushPromises()
+    expect(chart.isConnected).toBe(false)
+    expect(plotly.purge).toHaveBeenCalledWith(chart)
+  })
+
+  it('purges the single chart where the facets take its place, and the facets where it comes back', async () => {
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, false)
+    const [single] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement]
+    const vm = viewer.vm as unknown as { facetByParameter: boolean }
+    plotly.react.mockClear()
+    plotly.purge.mockClear()
+    vm.facetByParameter = true
+    await flushPromises()
+    await vi.waitFor(() => expect(plotly.react).toHaveBeenCalledTimes(2))
+    expect(plotly.purge).toHaveBeenCalledWith(single)
+
+    const facets = plotly.react.mock.calls.map(call => (call as unknown as unknown[])[0] as HTMLElement)
+    plotly.purge.mockClear()
+    vm.facetByParameter = false
+    await flushPromises()
+    for (const facet of facets)
+      expect(plotly.purge).toHaveBeenCalledWith(facet)
+  })
+
+  it('purges the facets of parameters an answer no longer has', async () => {
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    plotly.react.mockClear()
+    ;(viewer.vm as unknown as { viewMode: string, facetByParameter: boolean }).facetByParameter = true
+    ;(viewer.vm as unknown as { viewMode: string }).viewMode = 'graph'
+    await flushPromises()
+    await vi.waitFor(() => expect(plotly.react).toHaveBeenCalledTimes(2))
+    const facets = plotly.react.mock.calls.map(call => (call as unknown as unknown[])[0] as HTMLElement)
+    plotly.purge.mockClear()
+    // another answer, of one parameter only
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    await fetchData(viewer)
+    await flushPromises()
+    expect(wrapper.exists()).toBe(true)
+    expect(plotly.purge).toHaveBeenCalledWith(facets[1])
+  })
+
+  // the image that is saved is in the language of the page, as the chart is: the names of its dates
+  it('draws the copy of the saved single chart in the language of the page', async () => {
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    await setLocale('de')
+    const { viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    plotly.newPlot.mockClear()
+    ;(viewer.vm as unknown as { viewMode: string }).viewMode = 'graph'
+    await flushPromises()
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
+    const [shown, , , config] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement, unknown, unknown, { modeBarButtonsToAdd: { click: (chart: HTMLElement) => void }[] }]
+    plotly.copies.length = 0
+    plotly.downloadImage.mockClear()
+    config.modeBarButtonsToAdd[0]!.click(shown)
+    await vi.waitFor(() => expect(plotly.downloadImage).toHaveBeenCalledOnce())
+    const copy = plotly.copies.at(-1)!.config as Drawn
+    expect(copy.locale).toBe('de-DE')
+    expect(copy.locales['de-DE']!.format.shortMonths[2]).toMatch(/^Mär/)
+  })
+
+  it('draws the copies of the saved facets in the language of the page', async () => {
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    await setLocale('de')
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    plotly.react.mockClear()
+    const vm = viewer.vm as unknown as { viewMode: string, facetByParameter: boolean }
+    vm.facetByParameter = true
+    vm.viewMode = 'graph'
+    await flushPromises()
+    await vi.waitFor(() => expect(plotly.react).toHaveBeenCalledTimes(2))
+    plotly.copies.length = 0
+    const saved = catchDownload()
+    ;(await openDownloads(wrapper))[0]!.click()
+    await vi.waitFor(() => expect(saved).toHaveLength(1))
+    expect(plotly.copies).toHaveLength(2)
+    for (const { config } of plotly.copies) {
+      expect((config as Drawn).locale).toBe('de-DE')
+      expect((config as { staticPlot: boolean }).staticPlot).toBe(true)
+    }
+  })
+
+  // a language whose buttons could not be loaded is drawn in English, and asked for again by the next drawing
+  it('asks again for the buttons of a language whose chunk failed, with the next drawing', async () => {
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    vi.doMock('plotly.js-locales/es', () => {
+      throw new Error('chunk failed to load')
+    })
+    await setLocale('es')
+    const { viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    plotly.newPlot.mockClear()
+    const vm = viewer.vm as unknown as { viewMode: string, showTrendline: boolean }
+    vm.viewMode = 'graph'
+    await flushPromises()
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
+    const failed = configOf(plotly.newPlot.mock.lastCall)
+    expect(failed.locale).toBe('es-ES')
+    expect(failed.locales['es-ES']!.dictionary).toBeUndefined()
+
+    // the chunk is there now, and the chart is drawn again
+    vi.doUnmock('plotly.js-locales/es')
+    // the trend line, through the viewer itself: the page is Spanish
+    vm.showTrendline = !vm.showTrendline
+    await flushPromises()
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledTimes(2))
+    const drawn = configOf(plotly.newPlot.mock.lastCall)
+    expect(drawn.locales['es-ES']!.dictionary?.Pan).toBe('Modo Panorámica')
+    expect(drawn).not.toBe(failed)
+    // and from then on the one config for every drawing, as before
+    // the trend line, through the viewer itself: the page is Spanish
+    vm.showTrendline = !vm.showTrendline
+    await flushPromises()
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledTimes(3))
+    expect(configOf(plotly.newPlot.mock.lastCall)).toBe(drawn)
   })
 
   it('purges nothing where no chart was ever asked for', async () => {
