@@ -1368,9 +1368,9 @@ def test_meteofrance_observation_api_an_outage_of_the_file_host_serves_the_copy_
 
 
 # the departments without frost (GH-3135): a temperature below 0 C is no reading there. Each case is a row of the
-# source's file as it writes it (the Martinique, Guyane and Guadeloupe ones are real; Mayotte holds none, so the
-# 98508001 one is made up), with the period file it is in, the parameter that reads it, the window that holds it, and
-# the text it keeps
+# source's file as it writes it (the fields the case reads and those beside them; Wallis-et-Futuna holds no reading
+# below 0 C in any period, so its case is made up), with the period file it is in, the parameter that reads it, the
+# window that holds it, and the text it keeps
 _FROSTLESS = [
     pytest.param(
         "hourly",
@@ -1421,16 +1421,53 @@ _FROSTLESS = [
         id="972 monthly TMM -11.5 (MORNE-ROUGE CHAMDST, 474 m)",
     ),
     pytest.param(
-        "daily",
-        "core",
-        "temperature_air_min_2m",
+        "hourly",
+        "others",
+        "temperature_dew_point_2m",
         "985",
-        "QUOT_departement_985_periode_1950-2024_RR-T-Vent",
-        "98508001",
-        {"AAAAMMJJ": "20240101", "TN": "-1.0", "QTN": "1"},
-        (_utc(2024, 1, 1), _utc(2024, 1, 2)),
+        "HOR_departement_985_periode_2025-2026",
+        "98511003",
+        # between TD 20.0 at 06 h and 20.6 at 08 h
+        {"AAAAMMJJHH": "2025061007", "T": "23.8", "QT": "1", "TD": "-4.5", "QTD": "9", "U": "15", "QU": "9"},
+        (_utc(2025, 6, 10), _utc(2025, 6, 11)),
+        "-4.5",
+        id="985 (Mayotte) hourly TD -4.5 (VAHIBE_SAPC, 222 m)",
+    ),
+    pytest.param(
+        "hourly",
+        "others",
+        "temperature_dew_point_2m",
+        "984",
+        "HOR_departement_984_periode_2010-2019",
+        "98403004",
+        {"AAAAMMJJHH": "2014040100", "T": "27.3", "QT": "1", "TD": "-21.6", "QTD": "9", "U": "3", "QU": "9"},
+        (_utc(2014, 3, 31), _utc(2014, 4, 1, 12)),
+        "-21.6",
+        id="984 (Iles Eparses) hourly TD -21.6 (TROMELIN, 7 m)",
+    ),
+    pytest.param(
+        "hourly",
+        "others",
+        "temperature_dew_point_2m",
+        "987",
+        "HOR_departement_987_periode_2020-2024",
+        "98720002",
+        {"AAAAMMJJHH": "2023031401", "T": "28.3", "QT": "1", "TD": "-32.6", "QTD": "1", "U": "1", "QU": "1"},
+        (_utc(2023, 3, 14), _utc(2023, 3, 15)),
+        "-32.6",
+        id="987 (French Polynesia) hourly TD -32.6 (HAO AERO, 5 m)",
+    ),
+    pytest.param(
+        "hourly",
+        "core",
+        "temperature_air_2m",
+        "986",
+        "HOR_departement_986_periode_2020-2024",
+        "98611001",
+        {"AAAAMMJJHH": "2023031401", "T": "-1.0", "QT": "1"},
+        (_utc(2023, 3, 13), _utc(2023, 3, 15)),
         "-1.0",
-        id="985 (Mayotte) daily TN -1.0, made up",
+        id="986 (Wallis-et-Futuna) hourly T -1.0, made up (MAOPOOPO, 35 m)",
     ),
 ]
 
@@ -1467,10 +1504,19 @@ def test_meteofrance_observation_api_a_temperature_below_zero_is_null_where_ther
         # Saint-Pierre-et-Miquelon, at 47 degrees north, and a station of the mainland
         ("975", "97502001", "-5.0", True),
         ("07", "07005001", "-5.0", True),
+        # the southern territories (984, KERGUELEN) and New Caledonia (988, OUANAHAM) are not in the rule
+        ("984", "98404001", "-5.0", True),
+        ("988", "98814001", "-5.0", True),
         # 0 C is no reading below it, and a warm one is none either
         ("971", "97127004", "0.0", True),
         ("971", "97127004", "25.4", True),
         ("972", "97212007", "-0.1", False),
+        # the lowest-lying edge of each department of the rule: the Iles Eparses (EUROPA), Mayotte, Wallis-et-Futuna and
+        # French Polynesia (RAPA, 27.6 S)
+        ("984", "98403003", "-0.1", False),
+        ("985", "98508001", "-0.1", False),
+        ("986", "98613001", "-0.1", False),
+        ("987", "98741001", "-0.1", False),
     ],
 )
 def test_meteofrance_observation_api_a_temperature_below_zero_is_null_only_where_there_is_no_frost(

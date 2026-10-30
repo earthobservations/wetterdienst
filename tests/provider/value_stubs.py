@@ -921,60 +921,118 @@ def _meteofrance_synop(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True)
 
 
 def _meteofrance_synop_impossible(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
-    # synop_1996.csv.gz to synop_2015.csv.gz, read 2026-10-30, moved to 07005 and to 2024-01-01: no code tells these
-    # readings no sensor produced, which the Descriptif technique (2026-04-20) does not mention either. LA DESIRADE
-    # (78890) at 2005-01-10T00:00Z writes pres=11170 Pa (110,000 is the most) beside pmer=101550; 07117 at
-    # 1996-01-07T06:00Z t=369.15 K (96 C); 61997 at 2000-01-21T06:00Z td=358.95 K; 61976 at 2000-07-06T03:00Z rr1=800
-    # mm. 31 rows of pres (10,860 to 42,060 Pa), 20 of t and 14 of td in the files of 1996, 2000, 2005, 2010 and
-    # 2015, none
-    # in those of 2020, 2022, 2024 and 2025 (GH-3135). The first row is
-    # made up (a 2024 tropical morning), and so is its tn12; the tn12 of 30.17 K is 61997 at 2000-06-12T06:00Z. A rr6 of
-    # 805 mm (78890, 2005-11-11) and a rr24 of 999.4 mm (78897, 2005-08-18) are inside the records and stay (see
-    # `_SYNOP_RANGES`)
+    # rows of TROMELIN (61976, 7 m, 15.9 degrees south, one of the Iles Eparses, which have no frost, GH-3135) in
+    # synop_2000.csv.gz, read 2026-10-30, as the file writes them (the columns the stub asks for and those beside
+    # them): at 2000-03-20T09:00Z `t` 343.55 K (70.4 C) beside a `td` of 297.04 K; at 2000-06-01T18:00Z `t` 248.35 K
+    # (-24.8 C) beside a `td` of 294.65 K and a `tx12` of 301.45 K; at 2000-07-06T00:00Z and 03:00Z a `td` of 252.05 and
+    # 251.65 K beside an `u` of 4 % and `t` 296.75 K, and at 03:00Z an `rr1` of 800.0 mm, with the rows around them.
+    # The file of 2000 holds 4 `t` above 60 C and 2 below 0 C, 4 `td` below 0 C and this `rr1` at TROMELIN. The 31
+    # rows of `pres` (10,860 to 42,060 Pa) of the files of 1996, 2000, 2005, 2010 and 2015 are at other stations, and
+    # the unit test of the synop reader serves them (GH-3135)
     schema = list(synop_api._SYNOP_CSV_SCHEMA)  # noqa: SLF001
+    station = {"geo_id_wmo": "61976"}
     rows = [
         {
-            "geo_id_wmo": "07005",
-            "validity_time": "2024-01-01T00:00:00Z",
-            "pres": "98860",
-            "pmer": "101550",
-            "t": "297.65",
-            "td": "294.15",
-            "tn12": "295.15",
-            "rr1": "0.4",
-            "rr6": "805.0",
-            "rr24": "999.4",
+            **station,
+            "validity_time": "2000-03-20T09:00:00Z",
+            "pmer": "101210.0",
+            "dd": "110",
+            "ff": "8",
+            "t": "343.55",
+            "td": "297.04",
+            "rr3": "0.0",
         },
         {
-            "geo_id_wmo": "07005",
-            "validity_time": "2024-01-01T03:00:00Z",
-            "pres": "11170",
-            "pmer": "101550",
-            "t": "369.15",
-            "td": "358.95",
-            "tn12": "30.17",
+            **station,
+            "validity_time": "2000-06-01T15:00:00Z",
+            "pmer": "101690.0",
+            "dd": "140",
+            "ff": "7",
+            "t": "298.54",
+            "td": "294.04",
+            "u": "76",
+            "rr3": "0.0",
+        },
+        {
+            **station,
+            "validity_time": "2000-06-01T18:00:00Z",
+            "pmer": "101820.0",
+            "dd": "140",
+            "ff": "8",
+            "t": "248.35",
+            "td": "294.65",
+            "tx12": "301.45",
+            "rr12": "0.0",
+        },
+        {
+            **station,
+            "validity_time": "2000-06-01T21:00:00Z",
+            "dd": "140",
+            "ff": "7",
+            "t": "297.85",
+            "td": "295.54",
+            "u": "87",
+            "pres": "101580",
+        },
+        {
+            **station,
+            "validity_time": "2000-07-05T21:00:00Z",
+            "pmer": "101660.0",
+            "dd": "80",
+            "ff": "6",
+            "t": "296.95",
+            "td": "294.65",
+            "u": "87",
+            "rr3": "0.0",
+        },
+        {
+            **station,
+            "validity_time": "2000-07-06T00:00:00Z",
+            "dd": "80",
+            "ff": "6",
+            "t": "296.75",
+            "td": "252.05",
+            "u": "4",
+            "rr6": "0.0",
+        },
+        {
+            **station,
+            "validity_time": "2000-07-06T03:00:00Z",
+            "pmer": "101630.0",
+            "dd": "70",
+            "ff": "5",
+            "t": "296.75",
+            "td": "251.65",
+            "u": "4",
             "rr1": "800.0",
+        },
+        {
+            **station,
+            "validity_time": "2000-07-06T06:00:00Z",
+            "pmer": "101740.0",
+            "dd": "70",
+            "ff": "7",
+            "t": "298.85",
+            "td": "294.75",
+            "u": "78",
+            "tn12": "296.45",
+            "rr24": "0.0",
         },
     ]
     lines = [";".join(schema)] + [";".join(row.get(column, "") for column in schema) for row in rows]
-    serve(monkeypatch, synop_api, {"/data/OBS/SYNOP/synop_2024.csv.gz": gzip.compress("\n".join(lines).encode("utf8"))})
+    serve(monkeypatch, synop_api, {"/data/OBS/SYNOP/synop_2000.csv.gz": gzip.compress("\n".join(lines).encode("utf8"))})
     request = MeteoFranceSynopRequest(
         parameters=[
-            ("subdaily", "data", "pressure_air_site"),
-            ("subdaily", "data", "pressure_air_sea_level"),
             ("subdaily", "data", "temperature_air_2m"),
             ("subdaily", "data", "temperature_dew_point_2m"),
-            ("subdaily", "data", "temperature_air_min_2m_last_12h"),
             ("subdaily", "data", "precipitation_amount_last_1h"),
-            ("subdaily", "data", "precipitation_amount_last_6h"),
-            ("subdaily", "data", "precipitation_amount_last_24h"),
         ],
-        start=_day(2024, 1, 1),
-        end=_day(2024, 1, 2),
+        start=_day(2000, 1, 1),
+        end=_day(2000, 12, 31),
         settings=_settings(),
         options=_options(drop_nulls),
     )
-    return stations_result(request, "subdaily", "data", "07005").values().all().df
+    return stations_result(request, "subdaily", "data", "61976").values().all().df
 
 
 def _meteofrance_synop_guyane(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -2343,19 +2401,19 @@ STUBS = [
     ValueStub(
         "meteofrance/synop subdaily/data (readings no sensor produced)",
         _meteofrance_synop_impossible,
-        reading=("precipitation_amount_last_1h", 0.4),
+        reading=("temperature_air_2m", 25.39),
         sentinels=(
-            ("pressure_air_site", 111.7),
-            ("temperature_air_2m", 96.0),
-            ("temperature_dew_point_2m", 85.8),
-            ("temperature_air_min_2m_last_12h", -242.98),
+            ("temperature_air_2m", 70.4),
+            ("temperature_air_2m", -24.8),
+            ("temperature_dew_point_2m", -21.1),
+            ("temperature_dew_point_2m", -21.5),
             ("precipitation_amount_last_1h", 800.0),
         ),
         tokens=(
-            ("pressure_air_site", "11170", None),
-            ("temperature_air_2m", "369.15", None),
-            ("temperature_dew_point_2m", "358.95", None),
-            ("temperature_air_min_2m_last_12h", "30.17", None),
+            ("temperature_air_2m", "343.55", None),
+            ("temperature_air_2m", "248.35", None),
+            ("temperature_dew_point_2m", "252.05", None),
+            ("temperature_dew_point_2m", "251.65", None),
             ("precipitation_amount_last_1h", "800.0", None),
         ),
     ),

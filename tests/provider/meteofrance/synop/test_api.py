@@ -436,10 +436,32 @@ def test_meteofrance_synop_api_a_reading_no_sensor_produced_is_null_with_its_tex
         ("81408", False),
         ("81415", False),
         ("67005", False),
-        # La Reunion has frost at altitude, Saint-Pierre is at 47 degrees north, the mainland has frost
+        # the Iles Eparses (984): GLORIEUSES, JUAN DE NOVA, EUROPA, TROMELIN
+        ("61968", False),
+        ("61970", False),
+        ("61972", False),
+        ("61976", False),
+        # Wallis-et-Futuna (986): HIHIFO, MAOPOOPO
+        ("91753", False),
+        ("91754", False),
+        # French Polynesia (987): HIVA-OA, BORA-BORA, TAIARAPU-EST, FAAA, TAKAROA, HAO, MANGAREVA, RAPA (27.6 S)
+        ("91925", False),
+        ("91929", False),
+        ("91936", False),
+        ("91938", False),
+        ("91943", False),
+        ("91944", False),
+        ("91948", False),
+        ("91958", False),
+        # La Reunion has frost at altitude, Saint-Pierre is at 47 degrees north, the mainland has frost, and the
+        # southern territories (KERGUELEN, CROZET, DUMONT D'URVILLE) and New Caledonia (NOUMEA) are not in the rule
         ("61980", True),
         ("71805", True),
         ("07005", True),
+        ("61998", True),
+        ("61997", True),
+        ("89642", True),
+        ("91592", True),
     ],
 )
 def test_meteofrance_synop_api_a_temperature_below_zero_is_null_where_there_is_no_frost(
@@ -447,10 +469,12 @@ def test_meteofrance_synop_api_a_temperature_below_zero_is_null_where_there_is_n
     station: str,
     kept: bool,  # noqa: FBT001
 ) -> None:
-    """Test that a temperature below 0 C at a station of Guadeloupe, Martinique, Guyane or Mayotte is null (GH-3135).
+    """Test that a temperature below 0 C where there is no frost is null, at the stations named for it (GH-3135).
 
     The first row is that of MARIPASOULA (81415) at 2025-02-12T00:00Z in synop_2025.csv.gz (`td` 255.65 K beside `t`
-    297.95 K), the second the 0 C of the edge, which stays, as does any reading of another station.
+    297.95 K) moved to the station of the case (the files hold no reading below 0 C at Wallis-et-Futuna and French
+    Polynesia, where the case is the same row), the second the 0 C of the edge, which stays, as does any reading of
+    another station.
     """
     rows = [
         {

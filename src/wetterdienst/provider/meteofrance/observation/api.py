@@ -651,19 +651,27 @@ _NO_WIND_DIRECTION = ("999",)
 _DAILY_NO_WIND_DIRECTION = (*_NO_WIND_DIRECTION, "400")
 
 
-# No frost in these departments (GH-3135). Guadeloupe (971, with Saint-Martin and Saint-Barthelemy), Martinique (972),
-# Guyane (973) and Mayotte (985 in the source's numbering) lie between 2 and 18 degrees north, and 13 degrees south,
-# with their stations (the registry lists 104, 90, 43 and 21) from sea level to 1,417 m (La Soufriere), 690 m, 290 m
-# and 594 m. A temperature below 0 C of the air at 2 m, its extremes or its dew point is no reading there. The files
-# hold a few, each alone at a station of 5 to 474 m: -20.0 C of T, TN and TX at GROS-MORNE BOISLEZ (97212007, 441 m,
-# 2021-05-10 12 h and 13 h, quality 9), -26.6 C of the dew point at FRANCOIS-CHOPOT (97210001, 53 m, 39 hours), -4.9 C
-# at CAPESTERRE-BE BOIS DEBOUT (97107009, 70 m), -10.9 C of the daily mean at ST-MARTIN GRAND-CASE (97127004, 5 m,
-# 2008-11-29), -28.8 C at FOND-DENIS GLIS (97208006, 367 m); TNSOL and TN50, which the library does not offer, hold
-# -40.0 and -34.1 C at PETIT-BOURG (110 m) and MARIPASOULA (106 m). The value is null, and the number stays as the `raw`
-# token. La Reunion (974) is not in the list: its stations reach 2,580 m, where frost occurs (-2.3 C at the PLAINE DES
-# CHICOTS, 1,834 m, quality 1), nor is Saint-Pierre-et-Miquelon (975), at 47 degrees north. The department is the first
-# three digits of the id of the station, which the registry confirms for every station of 97x and 98x.
-_FROSTLESS_DEPARTMENTS = frozenset({"971", "972", "973", "985"})
+# No frost at the stations of these departments (GH-3135), the first digits of the id of the station: Guadeloupe 971
+# (with Saint-Martin and Saint-Barthelemy; 15.9 to 18.1 N, 1 to 1,417 m at La Soufriere), Martinique 972 (14.4 to
+# 14.9 N, 2 to 690 m), Guyane 973 (2.3 to 5.7 N, 2 to 290 m), the Iles Eparses 98403 (Glorieuses, Juan de Nova, Europa,
+# Tromelin; 11.6 to 22.3 S, 3 to 9 m; the daily minima run from 10.2 C at Europa), Mayotte 985 (12.7 to 13.0 S, 6 to
+# 594 m), Wallis-et-Futuna 986 (13.2 to 14.3 S, 4 to 75 m; 9.7 C is the lowest hourly value of 2020 to 2024) and
+# French Polynesia 987 (8.0 to 27.6 S). Of the 226 stations of 987 in the registry the 93 that have data stand at 0 to
+# 816 m (TOOVII-PLATEAU); the one above, FAAA 5 (1,420 m), closed in 1993 and has none, and no station lies above
+# 1,500 m. The southernmost, RAPA (98741001, 27.6 S, 2 m), reads 4.3 C at the lowest hourly value of 2020 to 2024
+# (8.5 C daily), TUBUAI 7.4 C and MANGAREVA 7.0 C. A temperature below 0 C of the air at 2 m, its extremes or its dew
+# point is no reading there. The hourly files of 971 (2000 to 2024) and of the six others (2020 to 2024) hold 20 T,
+# 18 TN, 1 TX and 734 TD hours below 0 C, at stations of 3 to 441 m and, for the dew point, at ST-CLAUDE CITERNE
+# (97124009, 1,141 m): runs of failed sensors, such as TD -39.5 C with U 1 % in 227 hours of 2010 to 2019 there,
+# -20.0 C of T, TN and TX at GROS-MORNE BOISLEZ (97212007, 441 m, 2021-05-10 12 h and 13 h), -26.6 C of the dew point
+# at FRANCOIS-CHOPOT (97210001, 39 hours) or -4.5 C at VAHIBE_SAPC (98511003, 222 m). The daily and monthly files
+# add -10.9 C at ST-MARTIN GRAND-CASE (97127004, 5 m) and -11.5 C; TNSOL and TN50, which the library does not offer,
+# hold -40.0 and -34.1 C at PETIT-BOURG (110 m) and MARIPASOULA (106 m). The value is null, and the number stays as
+# the `raw` token. Out of the list: La Reunion 974 (to 2,580 m, where frost occurs: -2.3 C at the PLAINE DES CHICOTS,
+# 1,834 m, quality 1), Saint-Pierre-et-Miquelon 975 (47 N), the southern territories 98404 (Kerguelen, Crozet,
+# Nouvelle-Amsterdam, Dumont d'Urville, Port-Martin: sub-Antarctic and Antarctic, where frost is the rule) and New
+# Caledonia 988. The registry's `department_id` is the prefix for every station of 97x and 98x.
+_FROSTLESS_PREFIXES = ("971", "972", "973", "98403", "985", "986", "987")
 _TEMPERATURE_COLUMNS = {
     resolution.name: {
         parameter.name_original
@@ -673,6 +681,11 @@ _TEMPERATURE_COLUMNS = {
     }
     for resolution in MeteoFranceObservationMetadata
 }
+
+
+def _is_frostless(station_id: str) -> bool:
+    """Tell whether a station lies where there is no frost (``_FROSTLESS_PREFIXES``)."""
+    return station_id.startswith(_FROSTLESS_PREFIXES)
 
 
 def _department_from_station_id(station_id: str) -> str:
@@ -1080,7 +1093,7 @@ class MeteoFranceObservationValues(TimeseriesValues):
         # the codes the source writes in place of a number become null before the unit conversion (GH-2687, GH-2720),
         # and keep their text as `raw:` after the validation code; a text that is no number was nulled by the cast
         # alone (the files hold none: GH-2719) and now keeps its text too
-        value, raw = null_sentinels(pl.col("value"), *_sentinels(resolution_name, department), non_numeric=True)
+        value, raw = null_sentinels(pl.col("value"), *_sentinels(resolution_name, station_id), non_numeric=True)
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`)
         df = df.select(
             # kept as published (e.g. "RR", "TN"), matching the case of name_original in the
@@ -1097,13 +1110,13 @@ class MeteoFranceObservationValues(TimeseriesValues):
         return self._note_files_with_rows(df, dataset)
 
 
-def _sentinels(resolution_name: str, department: str) -> list[Sentinel | OutOfRange]:
-    """List the codes the source writes in place of a number, for the files of a resolution of a department.
+def _sentinels(resolution_name: str, station_id: str) -> list[Sentinel | OutOfRange]:
+    """List the codes the source writes in place of a number, for the files of a resolution of a station.
 
-    A temperature below 0 C is the rule of the departments without frost (``_FROSTLESS_DEPARTMENTS``), after the codes.
+    A temperature below 0 C is the rule of the stations without frost (``_FROSTLESS_PREFIXES``), after the codes.
     """
     rules: list[Sentinel | OutOfRange] = _codes(resolution_name)
-    if department in _FROSTLESS_DEPARTMENTS and _TEMPERATURE_COLUMNS.get(resolution_name):
+    if _is_frostless(station_id) and _TEMPERATURE_COLUMNS.get(resolution_name):
         rules.append(
             OutOfRange(0.0, math.inf, where=pl.col("parameter").is_in(sorted(_TEMPERATURE_COLUMNS[resolution_name])))
         )

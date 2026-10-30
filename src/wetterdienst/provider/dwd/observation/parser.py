@@ -297,7 +297,8 @@ _NO_WIND_DIRECTION = no_direction_code("0")
 #   level pressure is 870 hPa (typhoon Tip, 1979) and the highest 1084.8 hPa (Tosontsengel, 2001), and a German
 #   station lies from -3.5 m to 2,964 m (Zugspitze, about 700 hPa), so a station value above the highest sea level
 #   pressure plus the 5 hPa of slack is no reading, nor is one below 500 hPa. The daily `PM` of 25 files (35,556 days)
-#   reads 935.1 to 1041.6 hPa, and the Zugspitze (05792) 683.5 to 726.6.
+#   reads 935.1 to 1041.6 hPa, and the Zugspitze (05792; 45,652 days of the historical file)
+#   668.2 to 726.9.
 _WIND_SPEED_RANGE = (0.0, 115.0)
 _PRESSURE_RANGE = (500.0, 1090.0)
 OUT_OF_RANGE_BY_NAME = {

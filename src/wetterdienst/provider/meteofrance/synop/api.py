@@ -95,7 +95,7 @@ _SYNOP_MAXIMUM_BESIDE = "__tx12_beside"
 # 2020, 2022, 2024 and 2025. The bounds are in the unit of the file and sit inside the range of
 # `tests/provider/physical_ranges.py`; each rests on a record, with room above it:
 # - `pres`, the pressure at the station, 50,000 to 110,000 Pa: the highest sea level pressure is 108,480 Pa
-#   (Tosontsengel, 2001) and a station of the archive lies from sea level to the Piton des Neiges and the Alps; 500 hPa
+#   (Tosontsengel, 2001) and the highest station of the archive is MONT AIGOUAL (07560, 1,567 m, about 840 hPa); 500 hPa
 #   is the air at 5,500 m;
 # - `pmer`, the pressure reduced to sea level, 85,000 to 110,000 Pa: 87,000 Pa is the lowest (typhoon Tip, 1979);
 # - `t`, `td`, `tn12`, `tx12`, `tn24`, `tx24`, 183.15 to 333.15 K (-90 to 60 C): the lowest air temperature is -89.2 C
@@ -122,16 +122,47 @@ _SYNOP_RANGES: dict[str, tuple[float, float]] = {
     "rr24": (0.0, 2_000.0),
 }
 
-# No frost at these stations (GH-3135, as the departments of `meteofrance/observation` of the same name): Guadeloupe
-# (LA DESIRADE 78890, ST-BARTHELEMY 78894, LE RAIZET 78897), Martinique (TRINITE-CARAVEL 78922, LAMENTIN 78925), Guyane
-# (81401, 81405, 81408, 81415) and Mayotte (PAMANDZI 67005) lie between 4 and 18 degrees of latitude, at 3 to 106 m. A
-# temperature below 0 C (273.15 K) of the air, its 12 and 24 hour extremes or its dew point is no reading there, and
-# the nine files of 1996 to 2025 read hold 57 of them, each alone: `td` of 244 to 272 K (41 rows; 7 at 81401 in 2022,
-# 12 at 81415 in 2025), `t` of 242 to 251 K (5, 2000 and 2005), `tn24` of 249.85 K and 272.95 K (9), `tn12` (2). The
-# stations are the WMO ids of the geojson, as the file has no department. GILLOT (61980, La Reunion) and the Iles
-# Eparses are not in the list: La Reunion has frost at altitude, and the registry puts the Iles Eparses in 984.
+# No frost at these stations (GH-3135, as the stations of `meteofrance/observation` of the same departments). The
+# stations are the WMO ids of the geojson, as the file has no department, and they are the ones of the departments of
+# that rule that the archive has: Guadeloupe (LA DESIRADE 78890, ST-BARTHELEMY 78894, LE RAIZET 78897), Martinique
+# (TRINITE-CARAVEL 78922, LAMENTIN 78925), Guyane (81401, 81405, 81408 and MARIPASOULA 81415; 3.6 to 5.5 N, 4 to
+# 106 m), Mayotte (PAMANDZI 67005), the Iles Eparses (GLORIEUSES 61968, JUAN DE NOVA 61970, EUROPA 61972, TROMELIN
+# 61976; 11.6 to 22.3 S, 3 to 9 m), Wallis-et-Futuna (HIHIFO 91753, MAOPOOPO 91754) and French Polynesia (HIVA-OA
+# 91925, BORA-BORA-MOTU-AERO 91929, TAIARAPU-EST 91936, FAAA 91938, TAKAROA 91943, HAO 91944, MANGAREVA 91948 and RAPA
+# 91958 at 27.6 S): all at 2 to 106 m, between 3.6 N and 27.6 S. A temperature below 0 C (273.15 K) of the air, its 12
+# and 24 hour extremes or its dew point is no reading there. The nine files of 1996 to 2025 read hold 135 of them:
+# `td` 115 (TROMELIN 73, of which 44 in 2015 and 24 in 2022; MARIPASOULA 16, 12 of them in 2025; SAINT GEORGES 81408 9
+# in 2000), `t` 9 (242 to 252 K; EUROPA, TROMELIN, ST-BARTHELEMY, SAINT LAURENT, PAMANDZI), `tn24` 9 (8 at 81415 in
+# 2025) and `tn12` 2. The `t` of RAPA, the southernmost, reaches 12.4 C at the lowest. Out of the list: GILLOT (61980,
+# La Reunion, where frost occurs at altitude), SAINT-PIERRE (71805), New Caledonia (91570 to 91592) and the southern
+# territories (Kerguelen 61998, Crozet 61997, Nouvelle-Amsterdam 61996, Dumont d'Urville 89642).
 _SYNOP_FROSTLESS_STATIONS = frozenset(
-    {"78890", "78894", "78897", "78922", "78925", "81401", "81405", "81408", "81415", "67005"}
+    {
+        "78890",
+        "78894",
+        "78897",
+        "78922",
+        "78925",
+        "81401",
+        "81405",
+        "81408",
+        "81415",
+        "67005",
+        "61968",
+        "61970",
+        "61972",
+        "61976",
+        "91753",
+        "91754",
+        "91925",
+        "91929",
+        "91936",
+        "91938",
+        "91943",
+        "91944",
+        "91948",
+        "91958",
+    }
 )
 _SYNOP_TEMPERATURE_COLUMNS = ("t", "td", "tn12", "tx12", "tn24", "tx24")
 

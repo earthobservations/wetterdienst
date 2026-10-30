@@ -92,11 +92,13 @@ Types of changes:
   60 C, `rr1` outside 0 to 600 mm, `rr3`, `rr6`, `rr12` outside 0 to 1200 mm, `rr24` outside
   0 to 2000 mm (GH-3135)
 - `meteofrance/observation` and `meteofrance/synop`: a temperature below 0 C (air at 2 m, its
-  extremes, the dew point) at a station of Guadeloupe (971, Saint-Martin and Saint-Barthelemy
-  included), Martinique (972), Guyane (973) or Mayotte (985) is null, with the number kept as
-  `raw:`: there is no frost there, and the files hold -20.0 C at 441 m in Martinique and -10.9 C
-  at 5 m in Guadeloupe. Synop names the stations (78890, 78894, 78897, 78922, 78925, 81401,
-  81405, 81408, 81415, 67005). La Reunion (974) and Saint-Pierre-et-Miquelon are not (GH-3135)
+  extremes, the dew point) at a station of Guadeloupe (971), Martinique (972), Guyane (973),
+  Mayotte (985), Wallis-et-Futuna (986), French Polynesia (987) or the Iles Eparses (Glorieuses,
+  Juan de Nova, Europa, Tromelin) is null, with the number kept as `raw:`: there is no frost
+  there, and the files hold -20.0 C at 441 m in Martinique, -39.5 C of the dew point at 1,141 m
+  in Guadeloupe, -32.6 C at Hao (French Polynesia) and -21.6 C at Tromelin. Synop names its 24
+  stations. La Reunion, Saint-Pierre-et-Miquelon, the southern territories and New Caledonia
+  are not (GH-3135)
 - `chmi/observation` no longer lists the two stations abroad of CHMI's catalogue, Reykjavik
   (`0-20000-0-04030`) and Marambio Base (`0-20000-0-89055`), in the `10_minutes` and `hourly`
   station lists: the portal has no file for them in any resolution, so they never had a value
