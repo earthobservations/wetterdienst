@@ -30,7 +30,8 @@ vertical datum that altitude is given in, as Pegelonline publishes it, as `gauge
 
 It also names the river the gauge is on, as Pegelonline publishes it (`ELBE`), as `river`, and the
 gauge's position along it, in kilometres, as `river_kilometer`; the latter is null for the few gauges
-that have none.
+that have none. It is the German waterway kilometre, which grows downstream; `imgw/hydrology` counts
+its `river_kilometer` from the river's mouth instead.
 
 ```{toctree}
 :hidden:

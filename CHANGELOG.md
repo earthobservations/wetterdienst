@@ -18,6 +18,12 @@ Types of changes:
 
 ### Added
 
+- A response warning `file-skipped` (REST, MCP, command line and, as a log line at WARNING,
+  Python) names the stations whose file the provider let go (a refused download, a file withdrawn
+  since the listing, a maintenance page answered with HTTP 200, a file that would not parse), so
+  that a partial answer can be told from a whole one: one warning for the request, with
+  `stations` and the datasets read at them. Try again later. Not told for `interpolate` and
+  `summarize` (GH-3552)
 - A response warning `parameter-without-rows` (REST, MCP, command line and, as a log line at
   WARNING, Python) names a requested parameter the source has no values for, with `parameter`
   and `stations`, where the answer used to be an empty header that read like a failed request
@@ -31,14 +37,26 @@ Types of changes:
   by none for Paris-Montsouris. Where `tn12` repeats the `tx12` of its own row (three overseas
   stations at some hours: Cayenne-Matoury, Le Raizet, Lamentin) it is null, with the number kept as
   `raw:` in `quality_flags` (GH-3540)
+- `imgw/hydrology` stations now list the river the gauge is on (`river`, with IMGW's hydrographic
+  code, `Odra (1)`), its position along it in kilometres from the mouth (`river_kilometer`) and
+  the altitude of the gauge's zero in metres (`gauge_zero`), under the names `wsv/pegel` uses; null
+  where IMGW's list is empty. `river_kilometer` is not comparable with `wsv/pegel`'s waterway
+  kilometre, which grows downstream. `gauge_zero_datum` is null, as the list states no datum
+  (GH-3599)
 
 ### Changed
 
+- **Breaking**: asking the Python API for the values of a `date_required` dataset without `start`
+  and `end` raises `DateRequiredError` (a `ValueError`) naming the dataset, from
+  `stations.values()` on, as REST, CLI and MCP already refused it. `noaa/ghcn`, `meteoswiss`,
+  `meteofrance`, `geosphere`, `eccc`, `imgw`, `dwd/road` and `ea` used to answer the whole record,
+  `wsv`, `nws`, `ipma` and `eaufrance/hubeau` a recent slice; `aemet` (daily to annual), `chmi`
+  (sub-daily), `dmi`, `fmi`, `knmi`, `lhmt`, `rmi` and `metno/frost` an empty frame. Pass `start`
+  and `end`; listing stations needs no window (GH-3562)
 - **Breaking**: the REST API, CLI and MCP refuse a `metno/frost` request for `daily`, `monthly` or
   `annual` values without a start and end date, as for the other resolutions (REST: 400,
   `timestamp` is required). Such a request was answered with no rows and no reason, as the source
-  is only asked within a window; the Python API still returns an empty frame. Pass a window
-  instead (GH-3560)
+  is only asked within a window. Pass a window instead (GH-3560, GH-3562)
 - **Breaking**: `coverage` (`/api/coverage`, the MCP tool, `about coverage`,
   `TimeseriesRequest.discover()`) gives a parameter the unit its values come back in as `unit`
   (`degree_celsius`, `decimal` for a percentage: what `glossary` gives, following the server's
@@ -70,6 +88,92 @@ Types of changes:
 
 ### Fixed
 
+- `eccc/observation` monthly values carry `I` in `quality_flags` for a month with missing days,
+  following the archive's rule (Technical Documentation, Notes 25 and 26) applied to the
+  collection's counts `count_days_valid_*`: any missing day for the extremes, precipitation and
+  snowfall, more than 5 for the mean temperature (the "3 in a row" half is not published, so the
+  mean is under-flagged). It is derived, not ECCC's own flag, and set for months before 1994 too,
+  from which the documentation dates the archive's flag (GH-3621)
+- `dmi/observation` reads DMI's -0.1 in `precipitation_amount` (and the maxima of a day or 30
+  minutes) as a trace of precipitation: 0.0 with `raw:-0.1` in `quality_flags`, where it was
+  null as out of range, as the trace of KNMI, AEMET and `meteofrance/synop` is (GH-3621)
+- On Windows, two processes that share a cache directory no longer lose the date a cached file
+  arrived with (the `updated` column and `data_updated_at` came back null) nor download the file
+  once more, when one reads or replaces its date at the moment the other does: that is asked again
+  for under a second (GH-3632)
+- The `noaa/ghcn` parameter descriptions no longer offer a choice of units. 30 daily rows read
+  "mm or inches as per user preference" or "Fahrenheit or Celsius", the wording of NCEI's
+  ordering form; the files hold one unit, which the values already came in (mm, °C, m/s, km,
+  cm), and the descriptions now say so. The hourly `relative_humidity` no longer says it is
+  always calculated from air temperature and dew point (GHCNh: "Depending on the source,
+  relative humidity is either measured directly or calculated") (GH-3136)
+- The `eccc/observation` hourly dataset no longer claims a wind gust and weather: it holds air
+  temperature, dew point, humidity, precipitation, station pressure, visibility, wind direction
+  and speed, wind chill and humidex. Its parameter descriptions now say what ECCC's glossary and
+  technical documentation say (the climatological day, the degree-day base of 18 °C, the
+  gust published above 30 km/h only, the humidex and wind chill ranges) (GH-3136)
+- `chmi/observation` lists, for `10_minutes` and `hourly`, only the stations that can have files
+  there: 767 of the 1,603 (read 2026-10-30), those whose period ends in 2018 or later, when these
+  files begin, and that have a daily file. The 836 left out answered every request with an empty
+  frame (795 closed before 2018, 41 more with no daily file); no station with a 10 minute or hourly
+  file is among them. `daily`, `monthly` and `annual` are unchanged. The daily directories are
+  read for a sub-daily stations request now (GH-3623)
+- Two processes that share a cache directory no longer fail a download on Windows with
+  `PermissionError` when one opens a cached file while the other replaces it: the open is asked
+  again for under a second, and a file that stays unreadable still raises (GH-3630)
+- A request that asks several resolutions or datasets of one provider no longer returns some
+  readings under another parameter's name. The humanized name is now looked up per resolution
+  and dataset, where a name the source gives two parameters took the last one's: chmi (`T`, `H`,
+  `P`, `F`, `TMA`, `TMI`), geosphere (`p`, `sh`, `tsmin`, `tl_mittel`), meteofrance/observation
+  (`TN`, `TX`) and aemet (`hr`). The 10 minute `T` of chmi, asked with the daily one, came back
+  as `temperature_air_mean_2m` (GH-3605)
+- `chmi/observation` lists stations that `meta1.csv` (read 2026-10-30, 1,603 stations) has since
+  been given rows for: the 29 monthly and 22 annual ids with files but no row (e.g.
+  `0-203-0-10101019002`), and 14 more, 43 in all, none with a `daily` file. `monthly` lists 1,567
+  stations (was 1,538), `annual` 1,555 (was 1,533). `10_minutes` and `hourly` list them too (1,603,
+  was 1,560), though none of the 43 has a file there in any year (2018-2025) (GH-3259, #3623)
+- `/api/stripes/image` now sends the licence, the credit line and the warnings in the headers
+  `X-Wetterdienst-License`, `Link`, `X-Wetterdienst-Attribution` and `X-Wetterdienst-Warnings`,
+  so a client or the MCP tool `stripes_image` can tell that the image is DWD data under CC BY 4.0;
+  the image itself is unchanged. `/api/stripes/values` never recorded the warnings of its read, so
+  its `metadata.warnings` and `X-Wetterdienst-Warnings` (and the MCP tool `stripes_values`) were
+  always empty; they now tell them (GH-3581)
+- A reading no sensor can have produced is now null, with the number the file wrote kept as
+  `raw:` in `quality_flags`. `dwd/observation`: a wind speed below 0 or above 115 m/s (the hourly
+  urban wind read -0.80 m/s at Berlin-Alexanderplatz) and a pressure outside 500 to 1090 hPa in
+  `pressure_air_site`, `pressure_air_site_mean` (daily `PM`) and `pressure_air_sea_level` (the
+  hourly `P0` read 1093.3 hPa at 00433); the vapour pressures are not bound. `meteofrance/synop`:
+  `pres` outside 500 to 1100 hPa (31 rows of 108.6 to 420.6 hPa in the files of 1996, 2000, 2005,
+  2010 and 2015), `pmer` outside 850 to 1100 hPa, temperatures and dew point outside -90 to
+  60 C, `rr1` outside 0 to 600 mm, `rr3`, `rr6`, `rr12` outside 0 to 1200 mm, `rr24` outside
+  0 to 2000 mm (GH-3135)
+- `meteofrance/observation` and `meteofrance/synop`: a temperature below 0 C (air at 2 m, its
+  extremes, the dew point) at a station of Guadeloupe (971), Martinique (972), Guyane (973),
+  Mayotte (985), Wallis-et-Futuna (986), French Polynesia (987) or the Iles Eparses (Glorieuses,
+  Juan de Nova, Europa, Tromelin) is null, with the number kept as `raw:`: there is no frost
+  there, and the files hold -20.0 C at 441 m in Martinique, dew points of -39.5 C at 1,141 m
+  in Guadeloupe, -32.6 C at Hao (French Polynesia) and -21.6 C at Tromelin. Synop names its 24
+  stations. La Reunion, Saint-Pierre-et-Miquelon, the southern territories and New Caledonia
+  are not (GH-3135)
+- `chmi/observation` no longer lists the two stations abroad of CHMI's catalogue, Reykjavik
+  (`0-20000-0-04030`) and Marambio Base (`0-20000-0-89055`), in the `10_minutes` and `hourly`
+  station lists: the portal has no file for them in any resolution, so they never had a value
+  (GH-3589)
+- The row-limit refusal and the 504 timeout of `interpolate` and `summarize` (REST and the MCP
+  tools) no longer advise fewer stations, which a point request does not name, nor
+  `format=ndjson` or `format=csv`: they say to ask for a shorter `timestamp` window or fewer
+  `parameters`. The problem keeps `limit`, `maximum` and `requested` (GH-3576, GH-3590)
+- The MCP tools answer every `format` they offer, where `csv`, `ndjson`, `html` and `svg` of the
+  tools with an output schema failed ("has an output schema but did not return structured
+  content") and so did `png`, `jpg`, `webp` and `pdf` of every tool (a decoding error). A text
+  body is the text content of the result, an image its image content and a PDF an embedded
+  resource; the structured content is one sentence about it that also gives the licence, the
+  attribution and the warnings, which REST sends in headers for these formats. An `html` chart
+  loads plotly.js from the CDN (9 KB, not 4.8 MB). A tool answers one body in every format, held
+  to the `rows` limit (`csv` and `ndjson` get no `stream_rows`), and its refusals (row limit,
+  timeout) no longer advise `format=ndjson` or `format=csv`: they name a shorter `timestamp`
+  window, fewer `parameters` or fewer stations (the point tools: a window or fewer parameters,
+  GH-3576). REST and the command line are unchanged (GH-3464)
 - A download, post or listing whose TLS handshake the peer answers wrongly (a non-TLS answer,
   `WRONG_VERSION_NUMBER`; an invalid session, `INVALID_SESSION_ID`) is retried like any other
   transient network error, where the first one failed the answer: `www.dwd.de` throws them now
@@ -91,6 +195,33 @@ Types of changes:
   with `drop_nulls` on (the default) or off: not those of a station `skip_empty` leaves out, nor of
   one a `rank` walk passes over for having no reading. `interpolate` and `summarize`, whose answer
   is an estimate, carry no such warning now (GH-3554)
+- Processes that share a cache directory take turns on it, through a lock file beside each
+  directory (new dependency: `filelock` 3.30 or later). The metadata read-merge-write no longer
+  loses a row another process saved in between (its file was then fetched again), the save no
+  longer fails with `PermissionError` on Windows while another process has the metadata open, and a
+  sweep no longer deletes a file another process has just fetched again. A process waits for the
+  lock as long as it moves between processes (60 s at most) and 10 s behind one holder; a holder
+  stuck that long costs that wait once, in which the process's other cache misses wait too, and
+  then the loads, saves and sweeps of the directory for a minute, which are skipped with a warning:
+  a skipped load reads nothing and a skipped save fetches again. No request fails. A killed process
+  leaves no stale lock, and a file system without `flock` goes without the lock. The metadata file
+  is written in one go, about four times faster for a directory of tens of thousands of entries,
+  with the same content (GH-3485)
+- The `station-skipped` warning is told for a station `skip_empty` leaves out whatever `drop_nulls`
+  is: with the nulls dropped (the default) a station that held nothing but missing values was left
+  out unsaid, and with them kept it was told. The warning is the same for both, and so is
+  `parameter-without-rows`: a parameter or dataset that held only missing values at a station left
+  out (wholly or with some readings) is no longer named there. The rows of an answer are unchanged
+  (GH-3567)
+- `skip_empty` judges a station by the same span whether `drop_nulls` is on or off. For a request
+  that names no window the coverage is measured against the span of the station's own series, and
+  that was read after the empty readings had been dropped: a station whose first or last readings
+  were nulls looked complete (and was kept) with `drop_nulls=True`, the default, and sparse (and
+  was skipped) with `drop_nulls=False`. The span now includes the empty readings, so with the
+  default setting such stations are skipped, and the answer has fewer stations than before. The
+  same holds for a resolution with no fixed interval (`subdaily`), where the share of readings
+  with a value was taken of the rows left, always all of them, so nothing was skipped. A request
+  with a window and a fixed interval is unchanged (GH-3578)
 
 ## [0.178.0] - 2026-10-28
 

@@ -27,14 +27,15 @@ The same pages and states (in light/English and dark/German) are scanned twice m
 - **hover**: every link, button, tab, option, menu item and element with a `hover:` style is hovered, once
   for each look (the same classes under a parent of the same classes are one), and axe's `color-contrast` is
   run on it (1.4.3; the scans at rest never hover, GH-2991),
-- **keyboard**: the page is walked Tab by Tab from its top to where the order comes round (an open menu or
-  dialog, from where it holds the focus). Each stop is checked for a focus indicator, an outline, a ring
+- **keyboard**: the page is walked Tab by Tab from its top to where the order comes round, or to where a
+  focus guard keeps the focus through more than three Tabs (an open menu or dialog, from where it holds the
+  focus). Each stop is checked for a focus indicator, an outline, a ring
   (`box-shadow`, also on `::before` and `::after`) or Reka's highlight (2.4.7, `focus-not-visible`); for that
   indicator having 3:1 against what it lies on (1.4.11, `focus-indicator-contrast`); for not being hidden
   behind other content or outside what a map shows, sampled at five points of the part in the window and
   again half a second later (2.4.11, `focus-obscured`); for the focus leaving the page at once (2.1.2,
-  `focus-lost`); and for the contrast of the text with the focus on it. Reka's invisible focus guards are not
-  stops. The rules are the app's own ids, in `CUSTOM_RULES` of `interact.ts`.
+  `focus-lost`); and for the contrast of the text with the focus on it. Reka's invisible focus guards, and
+  the proxies at either end of the toast region, are not stops. The rules are the app's own ids, in `CUSTOM_RULES` of `interact.ts`.
 
 Beside the scans, `accessibility.spec.ts` drives widgets by keys alone (`keyboard operation`: the station
 picker, a collapsible, a menu, and the narrow layout's menu, which is a dialog that keeps the focus and gives
@@ -83,6 +84,36 @@ tab bar of the narrow layout are fixed, and the page scrolls a focused control c
 (`scroll-padding`); in a window lower than 30 rem (a phone on its side, 400 % zoom) neither is fixed. In forced
 colours (Windows contrast themes) the icons are painted in the colour of their text, so an icon-only button
 keeps its icon, the tiles of the tools are outlined, and the tab of the current page is underlined.
+
+The Plotly charts take their chrome from the same tokens as the page (GH-3528): paper, plot, text, grid,
+zero line, hover label and modebar are the `--app-chart-*` properties of `main.css`, made of Nuxt UI's
+`--ui-*` tokens, which switch with the colour mode. `utils/chart-theme.ts` reads them with
+`getComputedStyle` (resolved to `rgb()` by the browser's computed colour of a probe element, as Plotly does
+not parse `oklch()`; no canvas, whose pixels a browser that resists fingerprinting scrambles), and
+`useChartTheme()` reads them again when the class of `<html>` changes, so a chart follows a switch
+without a reload. A chart that is saved (the download menus, and the camera of the modebar) or printed is
+always the light one, whatever the screen shows: it is drawn again, off screen, in the light theme
+(`utils/chart-export.ts`), and a print is drawn light for as long as it lasts (a light page is printed as
+it is, and a zoom is kept), with a `@media print` rule in `main.css` for a chart that says it is still drawn dark
+(`data-chart-scheme="dark"`) when the print comes before the redraw: transparent paper, black text and
+wind barbs; a chart drawn light is left as drawn. On the themed chrome (the Explorer, the stripes, the
+Forecast's hour labels) text and tick labels are the page's text and muted text (4.5:1 or more on the page
+in both modes) and the zero line the muted text colour (3:1 or more), checked on the drawn charts by
+`tests/e2e/chart-theme.spec.ts`; the grid is decoration. The series and the stripes' palette are data and
+keep their colours, and the text that names a series is the series' hue at 4.5:1 or more on the paper
+(`SERIES_LABEL` in `utils/chart-theme.ts`, GH-3618): the Forecast's y-axis titles and tick labels and its
+weekend day labels, and the stripes' "data availability" label. On white that is a darker step of the
+hue, #0e7490 for the wind's cyan (5.4:1; the line is #06b6d4, 2.4:1), #2563eb for the precipitation's blue
+(5.2:1; 3.7:1), #dc2626 for the temperature's red and the weekend (4.8:1; 3.8:1), #4d7c0f for the pressure's
+lime (5.0:1; 2.0:1) and #b45309 for the availability's gold (5.0:1; 2.2:1); on the dark paper (#0f172b) the
+series' own colours already read (7.3:1, 4.9:1, 4.7:1, 9.0:1) and gold is #daa520 (8.0:1). The Forecast's
+temperature zero line is the muted text colour like the Explorer's (3:1 or more). Not held to those ratios:
+the Plotly logo of the modebar, Plotly's own black tile with coloured dots.
+
+Every chart speaks the language of the page (GH-3625, 3.1.2): the names of the modebar's buttons and of
+the weekdays and months of a date axis, through `plotly.js-locales` and Intl (`utils/plotly-locale.ts`,
+which follows a switch of the language like a switch of the scheme). Plotly has no button names in Polish
+or Danish and only some in Dutch, which stay English; Luxembourgish and Hamburg's German take German's.
 
 There is no sepia mode. `main.css` once held a `html.sepia` block that redefined the `--ui-*` tokens, which
 nothing in the app ever set (`colorMode` knows `light`, `dark` and `system`, and the settings offer those
@@ -137,7 +168,7 @@ WCAG 2.2 first, as axe has no rule for most of them.
 | Criterion | Result |
 | --- | --- |
 | 2.4.7 Focus visible, 1.4.11 Non-text contrast of the focus indicator | The keyboard scan measures it at every stop. **Was failing** nearly everywhere: 382 stops, counted per page so that the header links count on each, in 27 of the light/English scans had under 3:1; see above. |
-| 2.4.11 Focus not obscured (minimum) | The keyboard scan checks it on every page and state. The sticky header hides no focused element. Leaflet draws markers beyond what the map shows and lets Tab reach them: a marker that takes the focus now pans the map until it is in view (`MapStations.vue`). |
+| 2.4.11 Focus not obscured (minimum) | The keyboard scan checks it on every page and state. The sticky header hides no focused element. Leaflet draws markers beyond what the map shows and lets Tab reach them: a marker that takes the focus now pans the map until it is in view (`MapStations.vue`). The toasts stand over the foot of the page: while one is shown the page has room for it below the footer and a focused element scrolls clear of it (`useToastInset`, `html { scroll-padding-bottom }`; the footer's licences link was under the error toast at 1280x720, GH-3575). Tested (`keyboard operation`). |
 | 2.5.7 Dragging movements | The map pans by drag, and by the arrow keys with the map focused, and zooms by its buttons and `+`/`-`; a station is also chosen in the list beside it. Plotly's charts zoom and pan by drag, with the modebar's buttons (zoom in, out, reset) as the single-pointer way. |
 | 2.5.8 Target size (minimum) | axe's `target-size` is among the tags scanned (wcag22aa), on every page and state in both modes: no entry. |
 | 3.2.6 Consistent help | The support and documentation links are in the footer of every page, in the same order, and support is also a heart in the wide header; the narrow layout has them in its menu sheet, and the search finds them. The widget has no header or footer by design. |

@@ -3,6 +3,7 @@
 """Tests for CHMI observation provider."""
 
 import datetime as dt
+import logging
 from collections.abc import Callable, Iterator
 from io import BytesIO
 from zoneinfo import ZoneInfo
@@ -25,7 +26,7 @@ from wetterdienst.provider.chmi.observation.parser import (
     parse_chmi_values_subdaily,
 )
 from wetterdienst.settings import Settings
-from wetterdienst.util.network import File, list_remote_files_fsspec
+from wetterdienst.util.network import File, list_remote_directory_fsspec, list_remote_files_fsspec
 from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
 CHEB = "0-20000-0-11406"
@@ -217,20 +218,73 @@ def test_chmi_observation_stations_list_only_the_directories_of_the_requested_el
     assert _ids(df, "daily") == ["0-A"]
 
 
-def test_chmi_observation_sub_daily_stations_are_the_whole_list(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The month files of the 10 minute and hourly resolutions are under a directory for each year: no narrowing."""
+def test_chmi_observation_stations_of_abroad_are_left_out(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The stations `meta1.csv` lists with a `Z` GH_ID have no file on the portal and are no stations (GH-3589)."""
+    catalogue = (
+        b"WSI,GH_ID,BEGIN_DATE,END_DATE,FULL_NAME,GEOGR1,GEOGR2,ELEVATION,\n"
+        b"0-20000-0-11406,L3CHEB01,2001-01-01T00:00Z,3999-12-31T23:59Z,Cheb,12.391389,50.068333,483,\n"
+        b"0-20000-0-04030,ZIS04030,2015-01-01T00:00Z,3999-12-31T23:59Z,Reykjavik,-21.903905,64.127653,51,\n"
+        b"0-20000-0-89055,ZAR89055,2010-01-01T00:00Z,2020-01-31T23:59Z,Marambio  Base,56.623056,64.233056,196,\n"
+        b"0-203-0-20303032003,O1JAVR01,2025-04-03T16:00Z,3999-12-31T23:59Z,Javorovy,18.627222,49.628333,930,\n"
+    )
+    # a daily file of each, the Z stations included, so that the reader is what leaves them out of the sub-daily lists
+    ids = pl.read_csv(BytesIO(catalogue), infer_schema_length=0)["WSI"].to_list()
+    _serve_catalogue(monkeypatch, catalogue, {"/daily/temperature/": [f"dly-{station}-T.csv" for station in ids]})
+    with caplog.at_level(logging.DEBUG, logger="wetterdienst.provider.chmi.observation.parser"):
+        df = ChmiObservationRequest(parameters=[("10_minutes", "data"), ("hourly", "data")]).all().df
+    for resolution in ("10_minutes", "hourly"):
+        assert _ids(df, resolution) == ["0-20000-0-11406", "0-203-0-20303032003"]
+    assert "0-20000-0-04030, 0-20000-0-89055" in caplog.text
+
+
+_SUB_DAILY_CATALOGUE = (
+    b"WSI,GH_ID,BEGIN_DATE,END_DATE,FULL_NAME,GEOGR1,GEOGR2,ELEVATION,\n"
+    b"0-A,GA,1961-01-01T00:00Z,3999-12-31T23:59Z,Open with a file,12.3,50.0,458,\n"
+    b"0-B,GB,1925-01-01T00:00Z,1926-12-31T23:59Z,Closed with a file,13.0,49.5,300,\n"
+    b"0-C,GC,2009-09-01T00:00Z,3999-12-31T23:59Z,Open and monthly only,14.0,49.0,200,\n"
+    b"0-D,GD,2002-01-01T00:00Z,2018-03-01T00:00Z,Closed in 2018,15.0,49.2,250,\n"
+    b"0-E,GE,2002-01-01T00:00Z,2017-12-31T23:59Z,Closed in 2017,15.5,49.3,260,\n"
+    b"0-F,GF,1990-01-01T00:00Z,3999-12-31T23:59Z,Open with a file not read,16.0,49.4,270,\n"
+)
+_SUB_DAILY_DIRECTORIES = {
+    "/daily/temperature/": ["dly-0-A-T.csv", "dly-0-B-T.csv", "dly-0-E-TMA.csv", "dly-0-F-TPM.csv"],
+    "/daily/precipitation/": ["dly-0-D-SRA.csv", "dly-0-F-API30.csv"],
+    "/monthly/temperature/": ["mly-0-C-T.csv"],
+}
+
+
+@pytest.mark.parametrize("parameters", [[("10_minutes", "data")], [("hourly", "data")]])
+def test_chmi_observation_sub_daily_stations_can_have_files(
+    monkeypatch: pytest.MonkeyPatch, parameters: list[tuple[str, ...]]
+) -> None:
+    """The 10 minute and hourly lists hold the stations whose period ends in 2018 or later and that have a daily file.
+
+    Their files begin with 2018 and every station that has one has a daily file (GH-3623). Out go a station that
+    closed before 2018 (`0-B`, `0-E`, which have a daily file), one with no daily file of an element that is read
+    (`0-C`, monthly only; `0-F`, a file of `TPM` and `API30`), and the stations of both kinds stay out of the
+    others; one that ended in 2018 stays (`0-D`).
+    """
+    df = _stations_of(monkeypatch, _SUB_DAILY_CATALOGUE, _SUB_DAILY_DIRECTORIES, parameters)
+    assert _ids(df, parameters[0][0]) == ["0-A", "0-D"]
+    assert df.schema == STATIONS_SCHEMA
+
+
+def test_chmi_observation_sub_daily_stations_read_the_daily_directories_only(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The year directories of the sub-daily files are not listed (1.6 MB each); the daily ones are, for any element."""
     asked: list[str] = []
 
     def list_files(url: str, *_args: object, **_kwargs: object) -> list[str]:
-        asked.append(url)
-        return []
+        asked.append(url.removeprefix(chmi_api._BASE_URL))  # noqa: SLF001
+        return [f"{url}dly-0-A-T.csv"]
 
-    _serve_catalogue(monkeypatch, _CATALOGUE, {})
+    _serve_catalogue(monkeypatch, _SUB_DAILY_CATALOGUE, {})
     monkeypatch.setattr(chmi_api, "list_remote_files_fsspec", list_files)
     df = ChmiObservationRequest(parameters=[("10_minutes", "data"), ("hourly", "data")]).all().df
-    assert _ids(df, "10_minutes") == ["0-A", "0-B", "0-C", "0-D"]
-    assert _ids(df, "hourly") == ["0-A", "0-B", "0-C", "0-D"]
-    assert asked == []
+    assert _ids(df, "10_minutes") == _ids(df, "hourly") == ["0-A"]
+    daily = _RESOLUTION_CONFIG[Resolution.DAILY]["elements"]
+    assert set(asked) == {f"/data/daily/{category}/" for category in {element[0] for element in daily.values()}}
 
 
 def test_chmi_observation_stations_raise_when_a_directory_cannot_be_listed(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -492,6 +546,57 @@ def test_chmi_observation_hourly_station_pressure_has_no_file_after_2024() -> No
         assert names or year > last_year + 1, f"CHMI lists no hourly file for {year}"
         assert not [name for name in names if "-P-" in name], f"CHMI publishes hourly P files for {year}"
         assert not names or any("-P_hm-" in name for name in names)
+
+
+def _sub_daily_stations_with_file(resolution: Resolution, settings: Settings) -> tuple[set[str], list[int]]:
+    """Give the stations with a file of a read element in the first and latest year of each category, and the years.
+
+    The categories are those of the elements the provider reads, the years those of their directories; a file of an
+    element that is not read (`E`, `VV` of the hourly `synop`) counts for nothing.
+    """
+    config = _RESOLUTION_CONFIG[resolution]
+    stations: set[str] = set()
+    years: list[int] = []
+    for category in dict.fromkeys(element_config[0] for element_config in config["elements"].values()):
+        url = f"{chmi_api._BASE_URL}/data/{config['path']}/{category}/"  # noqa: SLF001
+        category_years = sorted(
+            int(entry["name"].rstrip("/").rsplit("/", 1)[-1])
+            for entry in list_remote_directory_fsspec(url, settings, CacheExpiry.METAINDEX)
+            if entry["type"] == "directory"
+        )
+        assert category_years, f"CHMI lists no year directory under {url}"
+        years += category_years
+        read = {element for element, element_config in config["elements"].items() if element_config[0] == category}
+        for year in {category_years[0], category_years[-1]}:
+            for file in list_remote_files_fsspec(f"{url}{year}/", settings, CacheExpiry.METAINDEX):
+                name = file.rsplit("/", 1)[-1]
+                if not name.startswith(f"{config['prefix']}-"):
+                    continue
+                station, element, _ = name.removeprefix(f"{config['prefix']}-").rsplit("-", 2)
+                if element in read:
+                    stations.add(station)
+    return stations, years
+
+
+@pytest.mark.remote
+@pytest.mark.parametrize("resolution", [Resolution.MINUTE_10, Resolution.HOURLY])
+def test_chmi_observation_sub_daily_stations_with_files_are_listed(resolution: Resolution) -> None:
+    """The two facts the sub-daily station lists rest on (GH-3623), which the portal does not promise.
+
+    The files begin with 2018 (no year directory of an earlier one in any category of the elements read), so a
+    station whose period ended before it has none; and every station with a file of a read element in the first or the
+    latest year of its category has a daily file of a read element and is listed. The stations that have files in the
+    years between only are not looked at. Either fact fails when CHMI publishes older years, or sub-daily files for a
+    station without daily ones; the list would then drop stations that have files, and this test is red.
+    """
+    settings = Settings(cache_disable=True)
+    with_file, years = _sub_daily_stations_with_file(resolution, settings)
+    assert min(years) >= chmi_api.SUBDAILY_FIRST_YEAR, f"CHMI lists {resolution.name} files of {min(years)}"
+    assert with_file, f"CHMI lists no {resolution.name} file"
+    daily = _RESOLUTION_CONFIG[Resolution.DAILY]
+    assert with_file <= chmi_api._stations_with_file(daily, set(daily["elements"]), settings)  # noqa: SLF001
+    listed = set(ChmiObservationRequest(parameters=[(resolution.name, "data")]).all().df["station_id"])
+    assert with_file <= listed, f"{len(with_file - listed)} stations with a {resolution.name} file are not listed"
 
 
 @pytest.mark.remote

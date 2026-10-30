@@ -46,6 +46,7 @@ from wetterdienst.model.request import (
     DEFAULT_NAME_RANK_LISTING,
     TimeseriesRequest,
     limit_to_window,
+    require_window,
 )
 from wetterdienst.options import Options, SkipThreshold, StationWindowEndBuffer, options_from_mapping
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
@@ -56,6 +57,7 @@ from wetterdienst.util.ui import read_list
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Hashable
+    from types import ModuleType
 
     import plotly.graph_objs as go
 
@@ -214,8 +216,9 @@ _StreamFormatField = Annotated[
     Literal["json", "geojson", "csv", "ndjson", "html", "png", "jpg", "webp", "svg", "pdf"],
     Field(
         description="Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, "
-        "svg, pdf). ndjson, and csv as well, are sent as they are built, station by station, so they allow a "
-        "longer answer than the others: see the limits of the server."
+        "svg, pdf). Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to "
+        "the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the "
+        "limits of the server."
     ),
 ]
 _PrettyField = Annotated[bool, Field(description="Pretty-print JSON/GeoJSON output.")]
@@ -1739,13 +1742,16 @@ def _get_stations_request(
         msg = f"No valid parameters could be parsed from {request.parameters!r} for {api.__name__}"
         raise NoParametersFoundError(msg)
 
-    any_date_required = any(parameter.dataset.date_required for parameter in parameters)
-    if any_date_required and (not start_date or not end_date) and not isinstance(request, StationsRequest):
-        msg = "Start and end date required for single period datasets"
-        # a history request takes no window at all, so there is no option to tell its caller to pass
-        if isinstance(request, HistoryRequest):
-            raise StartDateEndDateError(msg)
-        raise DateRequiredError(msg)
+    # a stations request lists the stations of such a dataset without a window; the others need one
+    if not isinstance(request, StationsRequest):
+        try:
+            require_window(parameters, start_date, end_date)
+        except DateRequiredError as e:
+            # a history request takes no window at all, so there is no option to tell its caller to pass
+            if isinstance(request, HistoryRequest):
+                msg = "Start and end date required for single period datasets"
+                raise StartDateEndDateError(msg) from e
+            raise
 
     kwargs: dict[str, Any] = {
         # a dataset stays one entry, which the request reads as all its parameters: it then knows that none of them was
@@ -2238,12 +2244,26 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
     return StripesData(series=series, df=df)
 
 
+def _require_plotting() -> ModuleType:
+    """Give plotly's graph objects, or raise the `MissingDependencyError` that says to install the `plotting` extra.
+
+    Asked before a station's record is downloaded, so that a server without the extra refuses at once (GH-3581).
+    """
+    return import_optional("plotly.graph_objects", "Plotting warming stripes", extra="plotting")
+
+
 def _plot_stripes(stripes: StripesImageRequest) -> go.Figure:
-    """Create warming stripes for station in Germany, for a request its model has checked.
+    """Create warming stripes for station in Germany, for a request its model has checked."""
+    _require_plotting()
+    return _draw_stripes(_get_stripes_data(stripes), stripes)
+
+
+def _draw_stripes(stripes_data: StripesData, stripes: StripesImageRequest) -> go.Figure:
+    """Draw the warming stripes of data `_get_stripes_data` has read, so that the caller can tell whose they are.
 
     Code similar to: https://www.s4f-freiburg.de/temperaturstreifen/
     """
-    go = import_optional("plotly.graph_objects", "Plotting warming stripes", extra="plotting")
+    go = _require_plotting()
 
     kind = stripes.kind
     show_title, show_years, show_data_availability = (
@@ -2251,7 +2271,6 @@ def _plot_stripes(stripes: StripesImageRequest) -> go.Figure:
         stripes.show_years,
         stripes.show_data_availability,
     )
-    stripes_data = _get_stripes_data(stripes)
 
     df = stripes_data.df
     station_dict = stripes_data.series.station

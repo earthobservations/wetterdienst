@@ -25,6 +25,61 @@ Types of changes:
   margins and a left-aligned title, the tools put their settings beside the result on wide
   screens, and the app has its own fonts (Atkinson Hyperlegible) and icons (Phosphor), in the
   logo's colours. Charts print at paper width (GH-3518)
+- `[Meteogram]` The forecast's table of values is a view of its own, no longer a "Show as table"
+  button below the chart: one control in the toolbar chooses Chart, Compact or Table (it replaces
+  the Compact button; the arrow keys move along it). The table is as wide as the page, keeps its
+  header and time column in view while it scrolls, and is not cut at a short height. The view is
+  in the URL as `?view=chart|compact|table` and remembered in the browser as `meteogram.view`;
+  `compact=true` links still open the compact view, and an old `meteogram.compact` is taken over
+  once. The widget is unchanged (GH-3406)
+
+### Security
+
+- `[Dependencies]` `vue-i18n` and `@intlify/*` are 11.4.16, out of the range of
+  GHSA-83rm-6c8r-g728 (`escapeParameter` and `srcdoc`) and its low sibling. The app does not
+  set `escapeParameter`, so the shipped app was not affected (GH-3636)
+
+### Fixed
+
+- `[Explorer/Stripes/Meteogram]` The charts follow the colour scheme: in dark mode the paper, text,
+  grid, zero line and hover label are the page's dark (the Explorer's and the stripes' were white,
+  the Forecast's a grey of its own), and they change with the scheme without a reload; a zoomed
+  chart stays zoomed. The series and the stripes' own colours are the data and do not change. A
+  chart that is saved (download menu or the modebar's camera) or printed is always the light one.
+  The focus ring of a chart's buttons is the page's own, as Plotly's black one is 1.2:1 on the dark
+  chart (GH-3528)
+- `[Meteogram/Stripes]` The text that names a series reads on the page: the Forecast's y-axis titles
+  and tick labels (cyan, blue, red and lime were 2.0:1 to 3.8:1 on white), its weekend day labels,
+  and the stripes' "data availability" label are darker steps of the same hue in the light mode, 4.5:1
+  or more in both. The Forecast's temperature zero line is the muted text colour, no longer a wash
+  of 1.4:1 (GH-3618)
+- `[Widget]` A widget opened with `?theme=dark` (or `light`) no longer changes the scheme the app
+  shows afterwards: the scheme is the widget's alone, and the app's saved choice is left as it was
+  (GH-3619)
+- `[Explorer/Stripes/Meteogram]` The charts no longer stay in memory after they are gone: the
+  Explorer and the stripes purge their Plotly charts where the page is left, and the Explorer also
+  where a chart is replaced by the table or by the facets (the Meteogram's purge never ran). Each
+  kept a window listener (GH-3619)
+- `[Explorer/Stripes/Meteogram]` The charts speak the language of the page: the modebar's buttons
+  ("Zoom", "Pan", "Reset axes") and the months of the Explorer's date axis were English on a German
+  page. French, Spanish, Italian, Czech and German (also for Luxembourgish and Hamburg's) have
+  Plotly's own button names, Dutch some; Polish and Danish have none and stay English. A switch of
+  the language redraws the charts, and a saved image has the page's month and weekday names. The
+  stripes keep showing the chart while a language loads. New dependency `plotly.js-locales`
+  (GH-3625)
+- `[Meteogram]` The compact view no longer makes the page scroll sideways on a narrow screen
+  (320 px), where the weather words of its day cards lay outside the box that scrolls (GH-3406)
+- `[Translations]` Parameter labels now say what the English ones say: the maximum wind gust was
+  just "a gust" in six languages, the fresh snow depth lost "depth" in nine, cooling degree days
+  and hours were "cooling days and hours" in Dutch and Danish, Italian loamy sand was "sabbia
+  limosa" (silty sand), soil temperatures under bare ground dropped "of the soil" in French,
+  Spanish and Italian, the Spanish minimum temperature 5 cm above the ground read as a soil
+  temperature, and Spanish and Italian had two words for the sunshine duration. Open terms:
+  `app/i18n/TERMS.md` (GH-2610)
+- `[Accessibility]` A toast, an error of the Explorer for one, no longer hides the link of the
+  footer that the Tab key has reached ("Third-party licences" under it at 1280x720): while a toast
+  is shown the page has room for it at its foot and scrolls a focused element clear of it
+  (WCAG 2.4.11) (GH-3575)
 
 ## [0.39.0] - 2026-10-28
 

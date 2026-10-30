@@ -100,6 +100,17 @@ An error comes back as the text of the REST problem, for instance
 does not take is refused with the name of the one it takes (`station was renamed to stations`). No tool takes
 `debug`: the log level of the server is its operator's, and a call that gives it is refused saying so.
 
+Every `format` a tool offers is answered, as one body held to the `rows` limit. `json` and `geojson` are the
+structured content of the result. The other formats are content blocks: `csv`, `ndjson`, `html` and `svg` are text, as
+the REST API sends them; `png`, `jpg` and `webp` are image content and `pdf` is an embedded resource. The structured
+content that the output schema of the tool requires is then one sentence about the answer: its media type and size in
+bytes, and the licence, the attribution and the warnings that the REST API sends in headers for these formats (the same
+in the `_meta` of the result, under `wetterdienst`). The body is not repeated in it. An `html` chart loads plotly.js
+from the CDN, so the page is a few kilobytes (9 KB for one station) where the REST API sends it inline, about 4.8 MB,
+and the page needs the network to draw. The default is `json` (`png` for `stripes_image`, which only draws), which
+the assistant reads without further ado: a chart is for a client that shows it, and a long `csv` goes through the
+context of the assistant.
+
 ## Text from the providers
 
 A tool answers what the REST route answers, and some of that is text written by the provider: station names, the free
@@ -117,11 +128,13 @@ create a session at `initialize`, sends no `mcp-session-id` header and has nothi
 earlier one: `tools/list` and `tools/call` work without an `initialize`. A request that carries an `mcp-session-id`
 is served as one without. The two requests that belong to a session are answered with a 405, as the specification
 lets a server do: `DELETE` (ending a session; clients that send it on closing carry on) and `GET` (opening a stream
-of messages from the server, of which a server of tools has none). A tool's answer is one body and is not streamed:
-the long answers are the ones that `format=ndjson` and `csv` stream on the REST API. A tool makes its request to the
+of messages from the server, of which a server of tools has none). A tool's answer is one body and is not streamed
+(`format=ndjson` and `csv` are text content of the result, held to the same `rows` limit as every other format of
+a tool, not the higher `stream_rows` of the REST API). A tool makes its request to the
 API in process, so it is held to the [limits](restapi.md#limits), the [timeout](restapi.md#timeout) and the
 [concurrency](restapi.md#concurrency) of the server like any request. A request that a tool is refused for its size is
-asked again for a window or fewer stations, or made from the library: see
+asked again for a window or fewer stations (for `interpolate` and `summarize`, which name no stations: a shorter
+window or fewer parameters, or a smaller radius when it reaches too many stations), or made from the library: see
 [Getting more than the limit](large-requests.md#from-an-assistant).
 
 ## Versioning

@@ -23,10 +23,19 @@ const stationId = computed(() => route.query.station as string | undefined)
 const themeParam = computed(() => route.query.theme as string | undefined)
 
 const colorMode = useColorMode()
-// Apply theme from query param if provided
+// The scheme of the widget's `?theme=` is the widget's alone (GH-3619). The colour-mode module saves a
+// `preference` to localStorage, which the whole origin shares, so a widget embedded with `?theme=dark` would
+// have switched the app's scheme for whoever opened it. A forced mode is its page's, as `colorMode` of
+// `definePageMeta` is: the module puts the class on <html> and saves nothing, and puts the saved preference
+// back with the next navigation. That navigation also covers a change of the query, so the scheme is set
+// again after each (the route's path is read for that).
 watchEffect(() => {
-  if (themeParam.value === 'dark' || themeParam.value === 'light')
-    colorMode.preference = themeParam.value
+  void route.fullPath
+  if (themeParam.value === 'dark' || themeParam.value === 'light') {
+    colorMode.forced = true
+    // typed read-only, as the module's own watcher is what sets it for a preference
+    ;(colorMode as { value: string }).value = themeParam.value
+  }
 })
 
 const station = ref<Station | null>(null)

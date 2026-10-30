@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { de as uiDe, en as uiEn } from '@nuxt/ui/locale'
 import { canonicalUrl, findSeoRoute, HOME_TITLE_KEY, isNotIndexed, siteOrigin } from '#shared/utils/seo'
+import { TOAST_VIEWPORT_CLASS } from '~/composables/useToastInset'
 
 const { t, locale, localeProperties } = useI18n()
 const route = useRoute()
+
+// a toast over the footer must not hide the link the focus is on (GH-3575)
+useToastInset()
 
 // What a search engine and a link preview are told about the page (GH-3497). The server writes the same tags into the
 // shell for a crawler that runs no script (`server/plugins/seo-head.ts`); these replace them, in the language the
@@ -56,7 +60,7 @@ const isWidget = computed(() => isWidgetPath(route.path))
 
 <template>
   <div v-if="blank" />
-  <UApp v-else :locale="uiLocale">
+  <UApp v-else :locale="uiLocale" :toaster="{ ui: { viewport: TOAST_VIEWPORT_CLASS } }">
     <!-- tells a screen reader which page the client-side navigation has arrived on (WCAG 4.1.3) -->
     <NuxtRouteAnnouncer />
     <!-- The shell (GH-3518): the header, the tab bar of the narrow layout, the page and the footer, all in the one

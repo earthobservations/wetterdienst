@@ -199,7 +199,9 @@ LEGENDS: dict[str, list[QualityKind]] = {
     "eccc/observation": [
         _plain(
             "ECCC's own flag letter of the value in the hourly and daily files (`M` missing, `E` estimated, `T` "
-            "trace, ...), verbatim. The monthly files have none.",
+            "trace, ...), verbatim. The monthly files have none: the `I` of a monthly value is not ECCC's letter "
+            "but wetterdienst's, derived from the collection's counts of valid days by the rule of ECCC's Notes 25 "
+            "and 26 (incomplete month).",
         ),
         RAW,
     ],

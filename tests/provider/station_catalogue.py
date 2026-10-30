@@ -239,8 +239,10 @@ FROST_FOREIGN_WMO = Accepted(
     "has 03015 at 52.2085, 14.1180, 200 m from the listed position), SN743400 is 07434 Limoges-Bellegarde (FR; NOAA's "
     "isd-history has 45.863, 1.179), SN623500 is 06235 De Kooy (NL), SN848200 is 08482 Malaga (ES), SN1240000 is "
     "12400 Zielona Gora (PL), SN1298200 is 12982 Szeged (HU): more than two hundred in all, with positions that are "
-    "right and stations that are not in Norway. The library passes them on, and the extent stays that of Norway; "
-    "a Norwegian id outside the box is still a failure",
+    "right and stations that are not in Norway. Frost serves observations for them (checked 2026-10-29, GH-3495: "
+    "Limoges, De Kooy and Malaga all answered), mostly with short recent series, so they stay in the list. The "
+    "library passes them on, and the extent stays that of Norway; a Norwegian id outside the box is still a "
+    "failure",
     where=lambda row: re.fullmatch(r"SN\d{4,5}00", row["station_id"]) is not None,
 )
 

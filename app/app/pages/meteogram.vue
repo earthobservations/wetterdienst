@@ -178,7 +178,7 @@ watch([selectedStation, selectedIssue], ([station, issue]) => {
   if (issue)
     q.issue = issue
   // Preserve display params managed by the Meteogram component
-  for (const k of ['horizon', 'panels', 'compact'] as const) {
+  for (const k of ['horizon', 'panels', 'view', 'compact'] as const) {
     const v = route.query[k]
     if (v)
       q[k] = v.toString()

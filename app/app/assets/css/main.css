@@ -120,7 +120,10 @@
 }
 
 /* ---- Tokens of the components (Nuxt UI), light ---------------------------------------------------------------- */
-:root {
+/* (`.light` as well as :root: a probe element with that class, which asks what a light chart looks like in a dark
+   page (utils/chart-theme.ts), takes Nuxt UI's tokens from its own class, not from :root) */
+:root,
+.light {
   /* the page behind the cards: paper; the cards, menus and fields: white */
   --app-canvas: var(--color-ink-50);
   --ui-bg: #ffffff;
@@ -286,6 +289,68 @@
    is 4.5:1 there (the markers' rings lie on the tiles, and keep shade 700) */
 .dark .leaflet-container:focus-visible {
   outline-color: var(--color-brand-500);
+}
+
+/* The chrome of the Plotly charts (paper, plot, text, grid, axis lines, hover label, modebar), which
+   utils/chart-theme.ts reads at runtime with getComputedStyle: one place to restyle every chart. Each is
+   a Nuxt UI token, and those switch with .dark (and .light, for the probe that asks what a light chart
+   is, as a saved or printed one is), so nothing is redefined for .dark here. The series and the stripes'
+   palette are data, not chrome, and are not in this list. Measured on the Explorer's drawn chart, light
+   and dark: text 10.4:1 and 14.5:1 on the paper; muted text (tick labels) 5.4:1 and 6.8:1; the zero
+   line and the modebar's icons, which are the muted colour, the same, past the 3:1 of non-text; the
+   hover label's text 9.5:1 and 11.9:1 on its fill. The grid (1.5:1 and 1.7:1) is decoration. That is the
+   themed chrome (the Explorer, the stripes, the Forecast's hour labels and zero line). The text that
+   names a series (the Forecast's axis titles and tick labels, its weekend day labels, the stripes'
+   availability label) is the series' hue at 4.5:1 or more (`SERIES_LABEL` in utils/chart-theme.ts,
+   GH-3618). tests/e2e/chart-theme.spec.ts holds the ratios of the drawn charts. */
+:root,
+.light,
+.dark {
+  --app-chart-paper: var(--ui-bg);
+  --app-chart-plot: var(--ui-bg);
+  --app-chart-text: var(--ui-text);
+  --app-chart-text-strong: var(--ui-text-highlighted);
+  --app-chart-text-muted: var(--ui-text-muted);
+  --app-chart-grid: var(--ui-border-accented);
+  --app-chart-axis: var(--ui-text-muted);
+  --app-chart-zeroline: var(--ui-text-muted);
+  --app-chart-hover-bg: var(--ui-bg-elevated);
+  --app-chart-hover-border: var(--ui-border-accented);
+  --app-chart-hover-text: var(--ui-text);
+  --app-chart-modebar: var(--ui-text-muted);
+  --app-chart-modebar-active: var(--app-focus-ring);
+}
+
+/* The focus of a modebar button: Plotly draws a 1 px black outline, 21:1 on its white paper and 1.2:1 on the
+   dark paper (WCAG 1.4.11, 3:1), where it is the page's own ring instead (--app-focus-ring). One class more
+   than Plotly's own rule, which is injected after this sheet. */
+.js-plotly-plot .plotly .modebar .modebar-btn:focus-visible {
+  outline: 2px solid var(--app-focus-ring);
+  outline-offset: 1px;
+}
+
+/* A printed chart is always the light one (the screen's dark chart is white on a printer's white, or
+   unreadable text on it). The charts are drawn light for it (useChartTheme), which is asynchronous for
+   some of them: a chart that says it is drawn dark (data-chart-scheme, set after each drawing) and is
+   printed before it is redrawn prints with a transparent paper, black text and black wind barbs. A chart
+   drawn light is left as it was drawn, with its series colours and its own marks. */
+@media print {
+  .js-plotly-plot[data-chart-scheme="dark"] .main-svg {
+    background: transparent !important;
+  }
+  .js-plotly-plot[data-chart-scheme="dark"] .main-svg .bg {
+    fill: transparent !important;
+  }
+  .js-plotly-plot[data-chart-scheme="dark"] .main-svg text,
+  .js-plotly-plot[data-chart-scheme="dark"] .main-svg tspan {
+    fill: black !important;
+  }
+  .js-plotly-plot[data-chart-scheme="dark"] .meteogram-overlay-canvas {
+    filter: invert(1);
+  }
+  .js-plotly-plot .modebar-container {
+    display: none !important;
+  }
 }
 
 /* ---- The frame of every page ----------------------------------------------------------------------------------- */
@@ -796,4 +861,15 @@
   [data-print="no-urls"] a::after {
     content: none;
   }
+}
+
+/* What the toasts cover at the bottom of the window (useToastInset, GH-3575; 0px with none): the page grows
+   by it, and a focused element scrolls clear of it, so a link of the footer that the Tab key reaches is not
+   under a toast (WCAG 2.4.11 Focus Not Obscured). Unlayered, so it wins over the layered rule of the base: the
+   scroll padding is the larger of that (the tab bar and a rem) and the toasts. */
+html {
+  scroll-padding-bottom: max(calc(var(--tabbar-height) + 1rem), var(--app-toast-inset, 0px));
+}
+body {
+  padding-bottom: var(--app-toast-inset, 0px);
 }

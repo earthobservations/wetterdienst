@@ -17,6 +17,7 @@ from measurement.measures import Distance
 from measurement.utils import guess
 
 from wetterdienst.exceptions import (
+    DateRequiredError,
     InvalidBoundingBoxError,
     InvalidParameterError,
     InvalidTimeIntervalError,
@@ -154,6 +155,39 @@ _BOUND_FORMS = (
 # an iterable of either: ["historical", "recent"] or {Period.HISTORICAL, Period.RECENT}
 _PERIOD_TYPE_SINGULAR = str | Period
 _PERIODS_TYPE = _PERIOD_TYPE_SINGULAR | Iterable[_PERIOD_TYPE_SINGULAR] | None
+
+
+def require_window(parameters: Iterable[ParameterModel], start: dt.datetime | None, end: dt.datetime | None) -> None:
+    """Refuse the datasets that are read by a window when the request has none (GH-3562).
+
+    A dataset marked `date_required` is asked for by a window. Asked for values without one the library used to answer
+    an empty frame, or whatever slice the provider chose, which a caller could not tell from a source that has
+    nothing. This is the one check for the library (`TimeseriesValues`) and for the REST API, the
+    command line and MCP (`_get_stations_request`), which word the same refusal in terms of their `timestamp`.
+    Listing the stations of such a dataset needs no window and does not come here.
+
+    Raises:
+        DateRequiredError: when a dataset of the parameters is `date_required` and `start` or `end` is missing. It names
+            the datasets and what to pass.
+
+    """
+    if start is not None and end is not None:
+        return
+    names = list(
+        dict.fromkeys(
+            f"{parameter.dataset.resolution.name}/{parameter.dataset.name}"
+            for parameter in parameters
+            if parameter.dataset.date_required
+        )
+    )
+    if not names:
+        return
+    subject = f"The dataset {names[0]} needs" if len(names) == 1 else f"The datasets {', '.join(names)} need"
+    msg = (
+        f"{subject} a window (`date_required`). "
+        "Pass 'start' and 'end' to the request (a bound given alone is the whole day, month or year it names)."
+    )
+    raise DateRequiredError(msg)
 
 
 def _format_periods(periods: Iterable[Period]) -> str:
@@ -1468,7 +1502,7 @@ class TimeseriesRequest:
             name = (
                 pl.when(
                     pl.col("resolution").eq(parameter.dataset.resolution.name),
-                    pl.col("dataset").eq(parameter.dataset.name),
+                    pl.col("dataset").eq(parameter.dataset.name.lower()),
                     pl.col("parameter").eq(parameter.name),
                 )
                 .then(pl.lit(parameter.name_original))

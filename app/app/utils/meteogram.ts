@@ -261,3 +261,30 @@ export const METEOGRAM_VALUES_SETTINGS = {
   }),
   skip_empty: 'false',
 } as const satisfies Record<string, string>
+
+/** The ways the forecast is shown: the chart, the day cards of the compact overview, the table of its values. */
+export const METEOGRAM_VIEWS = ['chart', 'compact', 'table'] as const
+export type MeteogramView = typeof METEOGRAM_VIEWS[number]
+
+/** The view a stored or linked value names, or null where it names none. */
+export function meteogramView(value: unknown): MeteogramView | null {
+  return METEOGRAM_VIEWS.find(view => view === value) ?? null
+}
+
+/**
+ * The view a link asks for: `view=table`, or, as links made before the table was a view have it,
+ * `compact=true` (or `1`) for the compact overview and `compact=false` (or `0`) for the chart.
+ * `view` wins where both are given. Null where the link says nothing.
+ */
+export function meteogramViewFromQuery(query: Record<string, unknown>): MeteogramView | null {
+  const first = (value: unknown) => String(Array.isArray(value) ? value[0] : value ?? '')
+  const view = meteogramView(first(query.view))
+  if (view)
+    return view
+  const compact = first(query.compact)
+  if (compact === 'true' || compact === '1')
+    return 'compact'
+  if (compact === 'false' || compact === '0')
+    return 'chart'
+  return null
+}

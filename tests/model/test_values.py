@@ -2,15 +2,17 @@
 
 import datetime as dt
 import logging
+from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
+from wetterdienst.exceptions import ProviderContractError
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.model.schema import LONG_SCHEMA
-from wetterdienst.model.values import TimeseriesValues, merge_duplicate_readings
+from wetterdienst.model.values import TimeseriesValues, _declared_parameter_names, merge_duplicate_readings
 from wetterdienst.options import Options
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata, DwdObservationRequest
 from wetterdienst.provider.dwd.observation.api import DwdObservationValues
@@ -22,7 +24,8 @@ from wetterdienst.util.response_warnings import begin_response, recorded_warning
 
 def _values(parameters: list[tuple[str, str, str]]) -> TimeseriesValues:
     """Build a values object for the given parameters without touching the network."""
-    request = WsvPegelRequest(parameters=parameters)
+    # WSV is read by a window (`date_required`), and the reader refuses a request without one (GH-3562)
+    request = WsvPegelRequest(parameters=parameters, start="2020-01-01", end="2020-01-02")
     return WsvPegelValues(
         sr=StationsResult(
             request=request,
@@ -485,6 +488,7 @@ def _stub_dwd_daily(
     monkeypatch: pytest.MonkeyPatch,
     datasets: list[str] | None = None,
     collected: list[str] | None = None,
+    resolution: str = "daily",
     index_start: dt.datetime | None = None,
     index_end: dt.datetime | None = None,
 ) -> None:
@@ -499,7 +503,7 @@ def _stub_dwd_daily(
     rows = [(station_id, dataset) for station_id in station_ids for dataset in datasets]
     df_stations = pl.DataFrame(
         {
-            "resolution": ["daily"] * len(rows),
+            "resolution": [resolution] * len(rows),
             "dataset": [dataset for _, dataset in rows],
             "station_id": [station_id for station_id, _ in rows],
             "start_timestamp": [index_start or dt.datetime(1900, 1, 1, tzinfo=utc)] * len(rows),
@@ -532,6 +536,116 @@ def _stub_dwd_daily(
         )
 
     monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+
+
+def test_a_grouped_dataset_keeps_a_parameter_the_provider_wrote_in_another_casing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that a name in another casing than the metadata's is neither dropped nor left unhumanized (GH-3595).
+
+    No provider does this today (every grouped dataset of every offline fixture was checked). The core matches names
+    exactly where it filters a grouped dataset and where it humanizes, and case-insensitively where it converts units
+    and measures the share of readings, so a provider that wrote `TMK` for the declared `tmk` lost the rows of the
+    first and would have kept the source's spelling in the second.
+    """
+    _stub_dwd_daily(station_ids=["00001"], data_year_by_station={"00001": 1990}, monkeypatch=monkeypatch)
+    parameter = "temperature_air_mean_2m"
+    declared = DwdObservationRequest(parameters=[("daily", "climate_summary", parameter)]).parameters[0].name_original
+    assert declared == declared.lower()
+
+    def collect(self, station_id: str, parameter_or_dataset) -> pl.DataFrame:  # noqa: ANN001, ARG001
+        return pl.DataFrame(
+            {
+                "timestamp": [dt.datetime(1990, 1, 1, tzinfo=ZoneInfo("UTC"))],
+                "parameter": [declared.upper()],
+                "value": [1.0],
+                "quality_flags": ["1"],
+            },
+        )
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", parameter)],
+        start="1990-01-01",
+        end="1990-01-03",
+    )
+
+    df = request.filter_by_station_id("00001").values().all().df
+
+    assert df.get_column("parameter").to_list() == [parameter]
+    assert df.get_column("value").to_list() == [1.0]
+
+
+def _climate_values() -> DwdObservationValues:
+    """Build the values of a daily DWD dataset without touching the network."""
+    request = DwdObservationRequest(parameters=[("daily", "climate_summary", "temperature_air_mean_2m")])
+    return DwdObservationValues(
+        sr=StationsResult(
+            request=request, df=pl.DataFrame(), _df_all=pl.DataFrame(), _stations_filter=StationsFilter.ALL
+        ),
+    )
+
+
+def test_a_file_whose_only_rows_are_in_another_casing_still_dates_the_answer() -> None:
+    """Test that `_note_files_with_rows` counts the rows the core keeps, whatever the casing of the name (GH-3595)."""
+    values = _climate_values()
+    updated = dt.datetime(2026, 10, 26, 6, 0, tzinfo=ZoneInfo("UTC"))
+    df = pl.DataFrame(
+        {
+            "parameter": ["TMK"],
+            "timestamp": [dt.datetime(1990, 1, 1, tzinfo=ZoneInfo("UTC"))],
+            "value": [1.0],
+            "updated": [updated],
+        },
+    )
+
+    result = values._note_files_with_rows(df, values.sr.parameters[0].dataset)  # noqa: SLF001
+
+    assert values._data_updated == [updated]  # noqa: SLF001
+    assert result.get_column("parameter").to_list() == ["tmk"]
+
+
+class _Dataset(list):
+    """A dataset as `_declared_parameter_names` reads it: a sequence of parameters with a `name_original`."""
+
+
+def _names(emitted: list[str], *declared: str) -> dict[str, str]:
+    dataset = _Dataset(SimpleNamespace(name_original=name) for name in declared)
+    return _declared_parameter_names(pl.DataFrame({"parameter": emitted}), dataset)  # ty: ignore[invalid-argument-type]
+
+
+def test_a_name_two_declared_names_match_alike_is_left_but_the_others_are_mapped() -> None:
+    """Test that an ambiguous casing switches off its own name only, not the rewrite of the dataset (GH-3595)."""
+    # `AB` could be `Ab` or `aB`, so it is left as written; `w` and `W` are declared as they are written
+    assert _names(["TMK", "AB", "w", "W"], "Ab", "aB", "W", "w", "tmk") == {"TMK": "tmk"}
+
+
+def test_a_name_declared_twice_is_one_name() -> None:
+    """Test that an exact duplicate in the metadata does not switch the rewrite off (GH-3595)."""
+    assert _names(["TMK"], "tmk", "tmk") == {"TMK": "tmk"}
+    assert _names(["W", "w"], "W", "W") == {"w": "W"}
+
+
+def test_a_non_grouped_call_with_an_undeclared_name_is_a_contract_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the unit conversion names the parameter and the dataset instead of raising a bare `KeyError`."""
+    _stub_dwd_daily(station_ids=["00001"], data_year_by_station={"00001": 1990}, monkeypatch=monkeypatch)
+    values = _climate_values()
+    dataset = values.sr.parameters[0].dataset
+    df = pl.DataFrame(
+        {
+            "station_id": ["00001"],
+            "resolution": ["daily"],
+            "dataset": ["climate_summary"],
+            "parameter": ["not_a_parameter"],
+            "timestamp": [dt.datetime(1990, 1, 1, tzinfo=ZoneInfo("UTC"))],
+            "value": [1.0],
+            "quality_flags": [None],
+        },
+        schema_overrides={"quality_flags": pl.String},
+    )
+
+    with pytest.raises(ProviderContractError, match=r"DwdObservationValues.*'not_a_parameter'.*daily/climate_summary"):
+        values._convert_units(df, dataset)  # noqa: SLF001
 
 
 def test_rank_is_not_spent_on_a_station_whose_data_misses_the_window(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1409,6 +1523,272 @@ def test_an_estimate_carries_no_missing_value_marker_warning(monkeypatch: pytest
     assert _the_missing_value_marker_warning() == []
 
 
+def _warning_codes_by_station() -> dict[str, list[str]]:
+    """Give the codes of the warnings recorded for the request, with the message of each `station-skipped`."""
+    return {
+        "station-skipped": [w["message"] for w in recorded_warnings() if w["code"] == "station-skipped"],
+        "parameter-without-rows": [w["message"] for w in recorded_warnings() if w["code"] == "parameter-without-rows"],
+    }
+
+
+@pytest.mark.parametrize("by", ["station_id", "rank"])
+@pytest.mark.parametrize("shape", ["long", "wide"])
+@pytest.mark.parametrize("skip_empty", [True, False])
+@pytest.mark.parametrize("drop_nulls", [True, False])
+def test_station_skipped_is_told_for_a_station_of_nulls_whatever_drop_nulls_is(
+    monkeypatch: pytest.MonkeyPatch, *, drop_nulls: bool, skip_empty: bool, shape: str, by: str
+) -> None:
+    """`skip_empty` leaves a station out and says so, with the nulls dropped (the default) or kept (GH-3567).
+
+    The first station holds nothing but markers, the second four readings. With the nulls dropped the first station's
+    frame is empty and used to be passed over unsaid; with them kept it is a frame of nulls, which `skip_empty` skips
+    and tells. A rank walk that does not have `skip_empty` passes it over (nulls dropped) or ends on it (nulls kept):
+    it is not skipped by `skip_empty` and nothing is told, as before. What the answer holds does not depend on this.
+    """
+    _stub_dwd_daily(
+        station_ids=["00001", "00002"], data_year_by_station={"00001": 1990, "00002": 1990}, monkeypatch=monkeypatch
+    )
+    _stub_marked_readings(monkeypatch, markers_of={"00001": 4, "00002": 0})
+    begin_response()
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        start="1990-01-01",
+        end="1990-01-04",
+        options=Options(drop_nulls=drop_nulls, skip_empty=skip_empty, skip_threshold=0.5, shape=shape),
+    )
+    stations = (
+        request.filter_by_station_id("00001")
+        if by == "station_id"
+        else request.filter_by_rank(latlon=(50.0, 8.0), rank=1)
+    )
+
+    df = stations.values().all().df
+
+    codes = _warning_codes_by_station()
+    if skip_empty:
+        assert codes["station-skipped"] == [
+            "station 00001 is skipped as percentage of actual values (0.0) is below threshold (0.5)."
+        ]
+    else:
+        assert codes["station-skipped"] == []
+    # the data is not what this changes: a station the walk leaves out is not in the answer, in either setting
+    # (the wide shape drops no nulls: `drop_nulls` is ignored there)
+    nulls_kept = not drop_nulls or shape == "wide"
+    in_answer = df.get_column("station_id").unique().to_list()
+    if by == "station_id":
+        assert in_answer == ([] if skip_empty or not nulls_kept else ["00001"])
+    else:
+        assert in_answer == (["00001"] if not skip_empty and nulls_kept else ["00002"])
+
+
+@pytest.mark.parametrize("shape", ["long", "wide"])
+@pytest.mark.parametrize("skip_empty", [True, False])
+def test_a_station_skip_empty_leaves_out_is_told_the_same_with_the_nulls_dropped_or_kept(
+    monkeypatch: pytest.MonkeyPatch, *, skip_empty: bool, shape: str
+) -> None:
+    """The warnings of a station of nulls that the request names are the same under `skip_empty`, nulls dropped or kept.
+
+    Besides `station-skipped`, `parameter-without-rows`: the station had rows (of nulls), so under `skip_empty` it
+    says nothing of them, as with the nulls kept. Without `skip_empty` the nulls dropped leave the parameter without
+    a row, as ever (and the station is in the answer, as a frame of nulls, only with them kept).
+    """
+    by_drop_nulls = {}
+    for drop_nulls in (True, False):
+        _stub_dwd_daily(station_ids=["00001"], data_year_by_station={"00001": 1990}, monkeypatch=monkeypatch)
+        _stub_marked_readings(monkeypatch, markers_of={"00001": 4})
+        begin_response()
+        request = DwdObservationRequest(
+            parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+            start="1990-01-01",
+            end="1990-01-04",
+            options=Options(drop_nulls=drop_nulls, skip_empty=skip_empty, skip_threshold=0.5, shape=shape),
+        )
+        request.filter_by_station_id("00001").values().all()
+        by_drop_nulls[drop_nulls] = _warning_codes_by_station()
+
+    if skip_empty or shape == "wide":
+        assert by_drop_nulls[True] == by_drop_nulls[False]
+    if skip_empty:
+        assert len(by_drop_nulls[True]["station-skipped"]) == 1
+        assert by_drop_nulls[True]["parameter-without-rows"] == []
+
+
+def test_a_station_with_no_reading_in_the_window_is_not_told_as_skipped(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A station with no row in the window at all is left out unsaid, with the nulls dropped or kept (GH-3567)."""
+    for drop_nulls in (True, False):
+        _stub_dwd_daily(station_ids=["00001"], data_year_by_station={"00001": 1980}, monkeypatch=monkeypatch)
+        begin_response()
+        request = DwdObservationRequest(
+            parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+            start="1990-01-01",
+            end="1990-01-04",
+            options=Options(drop_nulls=drop_nulls, skip_empty=True, skip_threshold=0.5),
+        )
+
+        request.filter_by_station_id("00001").values().all()
+
+        assert _warning_codes_by_station()["station-skipped"] == []
+
+
+def _stub_readings(
+    monkeypatch: pytest.MonkeyPatch, *, readings_of: dict[str, tuple[int, dict[str, list[float | None]]]]
+) -> None:
+    """Have each station hold the readings `readings_of` gives: its year of January, and the values of each parameter.
+
+    The parameters are named by their dataset and canonical name (`climate_summary/temperature_air_mean_2m`); a
+    parameter a station has no entry for has no rows, and a dataset asked for whole is answered with the parameters the
+    station has. A value of None is a reading without a value.
+    """
+    utc = ZoneInfo("UTC")
+
+    def collect(self, station_id: str, parameter_or_dataset) -> pl.DataFrame:  # noqa: ANN001, ARG001
+        year, values_of = readings_of[station_id]
+        parameters = [parameter_or_dataset] if hasattr(parameter_or_dataset, "dataset") else list(parameter_or_dataset)
+        timestamps, names, values = [], [], []
+        for parameter in parameters:
+            for day, value in enumerate(values_of.get(f"{parameter.dataset.name}/{parameter.name}", []), start=1):
+                timestamps.append(dt.datetime(year, 1, day, tzinfo=utc))
+                names.append(parameter.name_original)
+                values.append(value)
+        return pl.DataFrame(
+            {
+                "timestamp": timestamps,
+                "parameter": names,
+                "value": values,
+                "quality_flags": ["1"] * len(values),
+            },
+            schema={
+                "timestamp": pl.Datetime(time_zone="UTC"),
+                "parameter": pl.String,
+                "value": pl.Float64,
+                "quality_flags": pl.String,
+            },
+        )
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+
+
+_REQUESTED_PARTLY_EMPTIED = {
+    "parameters": (
+        [
+            ("daily", "climate_summary", "temperature_air_mean_2m"),
+            ("daily", "climate_summary", "temperature_air_max_2m"),
+        ],
+        {
+            "climate_summary/temperature_air_mean_2m": [None] * 4,
+            "climate_summary/temperature_air_max_2m": [1.0, None, None, None],
+        },
+    ),
+    "datasets": (
+        [("daily", "climate_summary"), ("daily", "precipitation_more")],
+        {
+            "climate_summary/temperature_air_mean_2m": [None] * 4,
+            "precipitation_more/precipitation_amount": [1.0, None, None, None],
+        },
+    ),
+}
+
+
+@pytest.mark.parametrize("by", ["station_id", "rank"])
+@pytest.mark.parametrize("requested", ["parameters", "datasets"])
+@pytest.mark.parametrize("drop_nulls", [True, False])
+def test_a_station_skip_empty_leaves_out_with_a_parameter_of_nulls_is_told_the_same_whatever_drop_nulls_is(
+    monkeypatch: pytest.MonkeyPatch, *, drop_nulls: bool, requested: str, by: str
+) -> None:
+    """A station skipped with some readings left, one parameter or dataset of it all nulls, says no more (GH-3567).
+
+    The parameter of nulls is a row the station has, as with the nulls kept: so `parameter-without-rows` is told of
+    neither parameter (or dataset), with the nulls dropped as well as kept, and `station-skipped` of the station.
+    """
+    parameters, values = _REQUESTED_PARTLY_EMPTIED[requested]
+    _stub_dwd_daily(
+        station_ids=["00001"],
+        data_year_by_station={"00001": 1990},
+        monkeypatch=monkeypatch,
+        datasets=["climate_summary", "more_precip"],
+    )
+    _stub_readings(monkeypatch, readings_of={"00001": (1990, values)})
+    begin_response()
+    request = DwdObservationRequest(
+        parameters=parameters,
+        start="1990-01-01",
+        end="1990-01-04",
+        options=Options(drop_nulls=drop_nulls, skip_empty=True, skip_threshold=0.5),
+    )
+    stations = (
+        request.filter_by_station_id("00001")
+        if by == "station_id"
+        else request.filter_by_rank(latlon=(50.0, 8.0), rank=1)
+    )
+
+    df = stations.values().all().df
+
+    assert df.is_empty()
+    assert [warning["code"] for warning in recorded_warnings()] == ["station-skipped"]
+    assert recorded_warnings()[0]["message"].startswith("station 00001 is skipped as percentage of actual values (")
+
+
+@pytest.mark.parametrize("drop_nulls", [True, False])
+def test_a_rank_walk_tells_station_skipped_of_the_station_of_nulls_only(
+    monkeypatch: pytest.MonkeyPatch, *, drop_nulls: bool
+) -> None:
+    """The nulls of one station are not the next station's: the walk past a station with no row in the window is silent.
+
+    00001 holds nothing but nulls (skipped, told), 00002 has rows only outside the window (passed over, unsaid), 00003
+    has values (the rank is spent on it).
+    """
+    name = "temperature_air_mean_2m"
+    key = f"climate_summary/{name}"
+    _stub_dwd_daily(
+        station_ids=["00001", "00002", "00003"],
+        data_year_by_station={"00001": 1990, "00002": 1980, "00003": 1990},
+        monkeypatch=monkeypatch,
+    )
+    _stub_readings(
+        monkeypatch,
+        readings_of={
+            "00001": (1990, {key: [None] * 4}),
+            "00002": (1980, {key: [1.0] * 4}),
+            "00003": (1990, {key: [1.0] * 4}),
+        },
+    )
+    begin_response()
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", name)],
+        start="1990-01-01",
+        end="1990-01-04",
+        options=Options(drop_nulls=drop_nulls, skip_empty=True, skip_threshold=0.5),
+    )
+
+    df = request.filter_by_rank(latlon=(50.0, 8.0), rank=1).values().all().df
+
+    assert df.get_column("station_id").unique().to_list() == ["00003"]
+    skipped = [warning["message"] for warning in recorded_warnings() if warning["code"] == "station-skipped"]
+    assert len(skipped) == 1
+    assert skipped[0].startswith("station 00001 is skipped")
+
+
+@pytest.mark.parametrize("drop_nulls", [True, False])
+def test_the_nulls_outside_the_window_are_not_a_station_skipped(
+    monkeypatch: pytest.MonkeyPatch, *, drop_nulls: bool
+) -> None:
+    """A station whose readings without a value all lie outside the window has no row in it, and is left out unsaid."""
+    name = "temperature_air_mean_2m"
+    _stub_dwd_daily(station_ids=["00001"], data_year_by_station={"00001": 1980}, monkeypatch=monkeypatch)
+    _stub_readings(monkeypatch, readings_of={"00001": (1980, {f"climate_summary/{name}": [None] * 4})})
+    begin_response()
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", name)],
+        start="1990-01-01",
+        end="1990-01-04",
+        options=Options(drop_nulls=drop_nulls, skip_empty=True, skip_threshold=0.5),
+    )
+
+    request.filter_by_station_id("00001").values().all()
+
+    assert [warning for warning in recorded_warnings() if warning["code"] == "station-skipped"] == []
+
+
 @pytest.mark.parametrize("blank", ["", " ", "n/a", "nan", "inf"])
 def test_merge_duplicate_readings_reads_a_text_that_is_no_number_as_no_value(blank: str) -> None:
     """A frame whose `value` is still text (as the provider hands it over) has a value where a number can be read."""
@@ -1440,3 +1820,228 @@ def test_merge_duplicate_readings_does_not_collide_with_a_column_of_its_own_name
     assert merged.row(0, named=True)["row"] == 2
     assert merged.row(0, named=True)["conflict"] == "b"
     assert merged.row(0, named=True)["_row"] == 4
+
+
+def _stub_readings_by_station(monkeypatch: pytest.MonkeyPatch, readings: dict[str, list[float | None]]) -> None:
+    """Have each station hold the daily readings of January 1990 `readings` names (None is a null), from the 1st on."""
+    utc = ZoneInfo("UTC")
+    name = DwdObservationMetadata.daily.climate_summary.temperature_air_mean_2m.name_original
+
+    def collect(self, station_id: str, parameter_or_dataset) -> pl.DataFrame:  # noqa: ANN001, ARG001
+        values = readings[station_id]
+        return pl.DataFrame(
+            {
+                "timestamp": [dt.datetime(1990, 1, day + 1, tzinfo=utc) for day in range(len(values))],
+                "parameter": [name] * len(values),
+                "value": values,
+                "quality_flags": [None if value is not None else "raw:-999" for value in values],
+            },
+            schema_overrides={"value": pl.Float64, "quality_flags": pl.String},
+        )
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+
+
+@pytest.mark.parametrize("drop_nulls", [True, False])
+def test_skip_empty_measures_a_request_without_a_window_against_the_span_with_the_nulls_kept(
+    monkeypatch: pytest.MonkeyPatch, *, drop_nulls: bool
+) -> None:
+    """The same stations are skipped with the nulls dropped or kept, for a request that names no window (GH-3578).
+
+    A request without a window measures a station against the span of its own series. That span was read off the frame
+    after `drop_nulls`, so a station whose first readings are nulls was measured against the shorter series of its
+    values: complete, and kept, with the nulls dropped, and skipped with them kept (2 of the 4 days). Now both are
+    measured against the series with the nulls in it (the threshold is 0.8):
+
+    - `lead` and `lead_one` begin with nulls (2/4 and 3/4 of the days have a value): skipped
+    - `trail` ends in a null (3/4): skipped
+    - `middle` has a null among its readings (3/4): skipped, as it always was
+    - `full` has all four: kept
+    """
+    readings: dict[str, list[float | None]] = {
+        "00001": [None, None, 1.0, 1.0],  # lead
+        "00002": [None, 1.0, 1.0, 1.0],  # lead_one
+        "00003": [1.0, 1.0, 1.0, None],  # trail
+        "00004": [1.0, None, 1.0, 1.0],  # middle
+        "00005": [1.0, 1.0, 1.0, 1.0],  # full
+    }
+    _stub_dwd_daily(
+        station_ids=list(readings), data_year_by_station=dict.fromkeys(readings, 1990), monkeypatch=monkeypatch
+    )
+    _stub_readings_by_station(monkeypatch, readings)
+    begin_response()
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        options=Options(drop_nulls=drop_nulls, skip_empty=True, skip_threshold=0.8),
+    )
+
+    df = request.filter_by_station_id(list(readings)).values().all().df
+
+    assert df.get_column("station_id").unique().to_list() == ["00005"]
+    assert sorted(_warning_codes_by_station()["station-skipped"]) == [
+        f"station {station_id} is skipped as percentage of actual values ({share}) is below threshold (0.8)."
+        for station_id, share in [("00001", 0.5), ("00002", 0.75), ("00003", 0.75), ("00004", 0.75)]
+    ]
+
+
+def test_skip_empty_with_a_window_does_not_depend_on_drop_nulls(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A request that names a window is measured against it, so `drop_nulls` never mattered there."""
+    readings: dict[str, list[float | None]] = {"00001": [None, None, 1.0, 1.0], "00002": [1.0, 1.0, 1.0, 1.0]}
+    _stub_dwd_daily(
+        station_ids=list(readings), data_year_by_station=dict.fromkeys(readings, 1990), monkeypatch=monkeypatch
+    )
+    _stub_readings_by_station(monkeypatch, readings)
+    kept = []
+    for drop_nulls in (True, False):
+        request = DwdObservationRequest(
+            parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+            start="1990-01-01",
+            end="1990-01-04",
+            options=Options(drop_nulls=drop_nulls, skip_empty=True, skip_threshold=0.8),
+        )
+        kept.append(
+            request.filter_by_station_id(list(readings)).values().all().df.get_column("station_id").unique().to_list()
+        )
+
+    assert kept == [["00002"], ["00002"]]
+
+
+_SUBDAILY_CASES = {
+    # half of 00001's readings are nulls: skipped
+    "no-window": (None, {"00001": [None, None, 1.0, 1.0], "00002": [1.0, 1.0, 1.0, 1.0]}, {"00001": 0.5}),
+    # the window ends at 12:00 and holds three of the four readings: 00001 has a value for each of them (its null is
+    # outside), 00003 for one of the three
+    "window-cuts-readings": (
+        ("1990-01-01", "1990-01-01 12:00"),
+        {"00001": [1.0, 1.0, 1.0, None], "00002": [1.0, 1.0, 1.0, 1.0], "00003": [None, None, 1.0, 1.0]},
+        {"00003": 1 / 3},
+    ),
+}
+
+
+@pytest.mark.parametrize("drop_nulls", [True, False])
+@pytest.mark.parametrize("case", list(_SUBDAILY_CASES), ids=list(_SUBDAILY_CASES))
+def test_skip_empty_of_a_resolution_without_a_grid_does_not_depend_on_drop_nulls(
+    monkeypatch: pytest.MonkeyPatch, *, drop_nulls: bool, case: str
+) -> None:
+    """A subdaily request, which has no grid to count readings by, skips the same stations whatever `drop_nulls` is.
+
+    The share is then of the readings the station has in the window: the non-null ones of those it holds with the
+    nulls kept. It was of the rows left by `drop_nulls`, which are all non-null, so the nulls-dropped share was always
+    1 and no station was skipped (GH-3578). The same holds with a window, which does not give a subdaily series a grid,
+    and it is the readings in the window that count, not those of the whole file.
+    """
+    utc = ZoneInfo("UTC")
+    window, readings, skipped = _SUBDAILY_CASES[case]
+    _stub_dwd_daily(
+        station_ids=list(readings),
+        data_year_by_station=dict.fromkeys(readings, 1990),
+        datasets=["temperature_air"],
+        resolution="subdaily",
+        monkeypatch=monkeypatch,
+    )
+    name = DwdObservationMetadata.subdaily.temperature_air.temperature_air_2m.name_original
+
+    def collect(self, station_id: str, parameter_or_dataset) -> pl.DataFrame:  # noqa: ANN001, ARG001
+        values = readings[station_id]
+        return pl.DataFrame(
+            {
+                "timestamp": [dt.datetime(1990, 1, 1, 6 * hour, tzinfo=utc) for hour in range(len(values))],
+                "parameter": [name] * len(values),
+                "value": values,
+                "quality_flags": [None] * len(values),
+            },
+            schema_overrides={"value": pl.Float64, "quality_flags": pl.String},
+        )
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+    begin_response()
+    start, end = window or (None, None)
+    request = DwdObservationRequest(
+        parameters=[("subdaily", "temperature_air", "temperature_air_2m")],
+        start=start,
+        end=end,
+        options=Options(drop_nulls=drop_nulls, skip_empty=True, skip_threshold=0.8),
+    )
+
+    df = request.filter_by_station_id(list(readings)).values().all().df
+
+    assert sorted(df.get_column("station_id").unique().to_list()) == sorted(set(readings) - set(skipped))
+    assert sorted(_warning_codes_by_station()["station-skipped"]) == [
+        f"station {station_id} is skipped as percentage of actual values ({share}) is below threshold (0.8)."
+        for station_id, share in sorted(skipped.items())
+    ]
+
+
+@pytest.mark.parametrize("drop_nulls", [True, False])
+def test_skip_empty_spans_are_those_of_the_station_in_hand(
+    monkeypatch: pytest.MonkeyPatch, *, drop_nulls: bool
+) -> None:
+    """A station without a window is measured against its own span, not against the one of the stations before it.
+
+    Both stations are complete over their own days (1 to 10 and 6 to 10 of January). Measured against the span of
+    both, the second would hold half of it and be skipped.
+    """
+    utc = ZoneInfo("UTC")
+    days = {"00001": range(1, 11), "00002": range(6, 11)}
+    _stub_dwd_daily(station_ids=list(days), data_year_by_station=dict.fromkeys(days, 1990), monkeypatch=monkeypatch)
+    name = DwdObservationMetadata.daily.climate_summary.temperature_air_mean_2m.name_original
+
+    def collect(self, station_id: str, parameter_or_dataset) -> pl.DataFrame:  # noqa: ANN001, ARG001
+        return pl.DataFrame(
+            {
+                "timestamp": [dt.datetime(1990, 1, day, tzinfo=utc) for day in days[station_id]],
+                "parameter": [name] * len(days[station_id]),
+                "value": [1.0] * len(days[station_id]),
+                "quality_flags": [None] * len(days[station_id]),
+            },
+            schema_overrides={"quality_flags": pl.String},
+        )
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+    begin_response()
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        options=Options(drop_nulls=drop_nulls, skip_empty=True, skip_threshold=0.8),
+    )
+
+    df = request.filter_by_station_id(list(days)).values().all().df
+
+    assert sorted(df.get_column("station_id").unique().to_list()) == ["00001", "00002"]
+    assert _warning_codes_by_station()["station-skipped"] == []
+
+
+def test_the_readings_a_station_has_are_matched_to_a_parameter_in_the_providers_own_casing() -> None:
+    """The readings counted before `drop_nulls` are found for a parameter the provider writes in its own casing.
+
+    As for the frame (WSV reports `w` where its metadata declares `W`): the rows of `TT_TER` are those of `tt_ter`, or
+    the share would be taken of the rows left, which are all non-null (GH-3578).
+    """
+    request = DwdObservationRequest(parameters=[("subdaily", "temperature_air", "temperature_air_2m")])
+    values = DwdObservationValues(
+        sr=StationsResult(
+            request=request,
+            df=pl.DataFrame(),
+            _df_all=pl.DataFrame(),
+            _stations_filter=StationsFilter.ALL,
+        ),
+    )
+    stamps = [dt.datetime(1990, 1, 1, 6 * hour, tzinfo=ZoneInfo("UTC")) for hour in range(2)]
+    # two readings are left of four once the nulls are dropped
+    df = pl.DataFrame(
+        {
+            "station_id": ["01048"] * 2,
+            "resolution": ["subdaily"] * 2,
+            "dataset": ["temperature_air"] * 2,
+            "parameter": ["tt_ter"] * 2,
+            "timestamp": stamps,
+            "value": [1.0, 1.0],
+            "quality_flags": [None] * 2,
+        },
+        schema_overrides={"quality_flags": pl.String},
+    )
+    values._window_rows.append(  # noqa: SLF001
+        pl.DataFrame({"resolution": ["subdaily"], "dataset": ["temperature_air"], "parameter": ["TT_TER"], "rows": [4]})
+    )
+
+    assert values._get_actual_percentage(df=df, rows=values._station_rows()) == 0.5  # noqa: SLF001

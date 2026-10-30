@@ -83,9 +83,10 @@ from wetterdienst.ui.core import (
     SummaryRequest,
     ValuesRequest,
     _caller_refusal_status,
+    _draw_stripes,
     _get_stripes_data,
     _get_stripes_stations,
-    _plot_stripes,
+    _require_plotting,
     check_timeseries_api,
     failure_status,
     get_auth,
@@ -103,6 +104,7 @@ from wetterdienst.ui.core import (
 )
 from wetterdienst.ui.limits import (
     Limits,
+    check_point_rows,
     check_rows,
     check_station_count,
     check_stations_in_reach,
@@ -372,11 +374,15 @@ def _problem_response(
 
 
 def _problem_of(request: Request, error: StarletteHTTPException) -> JSONResponse:
-    """Answer with the problem an `HTTPException` is, the kind and the members it was raised with."""
+    """Answer with the problem an `HTTPException` is, the kind and the members it was raised with.
+
+    An MCP tool's request gets the `tool_detail` of the problem where it has one (`ProblemError`).
+    """
+    tool_detail = getattr(error, "tool_detail", None) if is_tool_request(request.scope) else None
     return _problem_response(
         request,
         error.status_code,
-        str(error.detail),
+        tool_detail or str(error.detail),
         kind_of(error),
         extra=getattr(error, "extra", None),
         headers=error.headers,
@@ -635,6 +641,8 @@ async def _refuse_oversized_render(request: Request, exc: ImageTooLargeError) ->
 # for jpg or svg, and the stripes image sent `image/pdf` for a PDF (GH-2063)
 _MEDIA_TYPES = {
     "csv": "text/csv",
+    # only a tool's request is answered as one body in ndjson (`_is_streamed`); any other is streamed
+    "ndjson": NDJSON_MEDIA_TYPE,
     "html": "text/html",
     "png": "image/png",
     "jpg": "image/jpeg",
@@ -1585,7 +1593,7 @@ def _geo_limit_check(limits: Limits) -> Callable[[TimeseriesRequest], None]:
                 cast("dt.datetime | None", request.start),
                 cast("dt.datetime | None", request.end),
             )
-            check_rows(rows, limits, streamed=False)
+            check_point_rows(rows, limits)
 
     return check
 
@@ -1602,17 +1610,18 @@ def _geo_reach_check(limits: Limits, distance: str) -> Callable[[int], None]:
     return check
 
 
-def _is_streamed(request: ValuesRequest) -> bool:
+def _is_streamed(request: ValuesRequest, http_request: Request) -> bool:
     """Tell whether a values request is answered as a stream: ndjson, and csv unless `sql_values` filters the whole.
 
     A `sql_values` clause filters the answer as a frame, which a stream never holds, so csv with one is the answer
-    in one body as it was before; ndjson is refused with it (and with `with_stations`).
+    in one body as it was before; ndjson is refused with it (and with `with_stations`). An MCP tool's request is
+    never streamed: a tool answers one body, held to `rows` in every format (GH-3464).
     """
     if request.format == "ndjson":
         if (refusal := ndjson_refusal(request)) is not None:
             raise ProblemError(400, refusal)
-        return True
-    return request.format == "csv" and not request.sql_values
+        return not is_tool_request(http_request.scope)
+    return request.format == "csv" and not request.sql_values and not is_tool_request(http_request.scope)
 
 
 def _stream_headers(metadata: ResponseMetadata) -> dict[str, str]:
@@ -1798,7 +1807,8 @@ def stations(
     # lazily during value collection, and a plain listing returns just the N closest asked for
     stations_ = limit_stations_to_rank(limit_stations_to_window(stations_))
 
-    streamed = request.format in STREAM_FORMATS
+    # a tool's request is answered as one body in every format, held to `rows` (GH-3464)
+    streamed = request.format in STREAM_FORMATS and not is_tool_request(http_request.scope)
     check_rows(stations_.df.height, limits_of(settings), streamed=streamed)
 
     metadata = response_metadata(stations_, request)
@@ -1885,7 +1895,7 @@ def values(
     options = _request_options(request, http_request.query_params.keys(), ValuesSettings)
     limits = limits_of(settings)
 
-    if _is_streamed(request):
+    if _is_streamed(request, http_request):
         return _stream_values(api, request, settings, options, limits)
     values_ = _values(api=api, request=request, settings=settings, options=options, limits=limits)
 
@@ -2282,6 +2292,8 @@ def stripes_values(
     WD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it, which a stripes request has no parameter
     for: the target of the quantity where the values are converted, the source's unit where not.
     """
+    begin_response()
+
     # checked outside the handler below, as for `/api/stripes/stations`
     Settings()
     try:
@@ -2322,20 +2334,27 @@ def stripes_image(
     # the image is rendered at `dpi / 100` times plotly's default size
     _refuse_oversized_image(None, None, request.dpi / 100, lower="dpi")
 
+    begin_response()
+
     # checked outside the handler below, as for `/api/stripes/stations`
     Settings()
     try:
-        fig = _plot_stripes(request)
+        # before the record is downloaded: a server without the `plotting` extra refuses at once
+        _require_plotting()
+        stripes_data = _get_stripes_data(request)
+        fig = _draw_stripes(stripes_data, request)
     except AssertionError:
         # a request its model should have refused: our bug, which FastAPI answers as a 500
         raise
     except Exception as e:
         raise _failure(e, request, "plot stripes") from e
     require_kaleido()
+    # the licence, the credit line and the warnings are told in the headers, as for every answer: an image holds
+    # none of it (GH-3581)
     return Response(
         content=fig.to_image(request.format, scale=request.dpi / 100),
         media_type=_MEDIA_TYPES.get(request.format, "application/octet-stream"),
-        headers=_image_headers(request.format),
+        headers={**response_headers(stripes_metadata(stripes_data, request)), **_image_headers(request.format)},
     )
 
 

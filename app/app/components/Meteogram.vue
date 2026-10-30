@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import type { SunTimes } from 'suncalc'
 import type { Value } from '#shared/types/api'
+import type { ChartTheme, SeriesLabel } from '~/utils/chart-theme'
+import type { MeteogramView } from '~/utils/meteogram'
 import type { WeatherKind } from '~/utils/weather-kind'
 import { DateTime } from 'luxon'
 import tzLookup from 'tz-lookup'
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { formatDayMonth, formatNumber, plotlyDateLocale, plotlyHoverFormat, plotlySeparators, weekdayShort } from '~/utils/format'
-import { extremeWindowHours, extremeWindowSteps, interpSeries, METEOGRAM_SERIES, nearestNeighbor, resampleCadenceMs, wetBulbApprox } from '~/utils/meteogram'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { formatDayMonth, formatNumber, plotlyHoverFormat, plotlySeparators, weekdayShort } from '~/utils/format'
+import { extremeWindowHours, extremeWindowSteps, interpSeries, METEOGRAM_SERIES, meteogramView, meteogramViewFromQuery, nearestNeighbor, resampleCadenceMs, wetBulbApprox } from '~/utils/meteogram'
+import { plotlyLocaleConfig } from '~/utils/plotly-locale'
 import { WEATHER_SYMBOLS, weatherCodeToKind } from '~/utils/weather-kind'
 
 const props = defineProps<{
@@ -23,20 +26,33 @@ const language = computed(() => localeProperties.value.language ?? locale.value)
 
 const chartRef = ref<HTMLDivElement | null>(null)
 let Plotly: any = null
+// the theme the chart on the page was last drawn in, which its overlay of wind barbs is painted in
+let drawnTheme: ChartTheme | null = null
+// loaded once, as Plotly is: a drawing in the colours of a switched scheme, or of a print, has no wait for it
+let SunCalc: typeof import('suncalc') | null = null
 const plotlyLoaded = ref(false)
 let overlayCanvas: HTMLCanvasElement | null = null
 let overlayAttached = false
 
-// Color mode detection
-const colorMode = useColorMode()
-const isDark = computed(() => colorMode.value === 'dark')
+// The chart's chrome (paper, text, grid, hover label) is read from the app's CSS tokens for the colour
+// scheme in force (utils/chart-theme.ts); a switch of the scheme draws the chart again below
+const { theme, isDark } = useChartTheme()
 
-// Compact mode toggles a denser, lower-height rendering of the meteogram.
-const compact = ref(false)
+// The forecast is shown as the chart, as the compact overview (day cards) or as the table of its values: one
+// choice, remembered in local storage and written to the URL (`?view=table`), so that a link opens the view.
+const view = ref<MeteogramView>('chart')
+const compact = computed(() => view.value === 'compact')
 const chartHeight = computed(() => (compact.value ? '320px' : '540px'))
 // Limit how many days the compact view will show by default
 const MAX_COMPACT_DAYS = 7
-const LOCAL_STORAGE_KEY = 'meteogram.compact'
+const LOCAL_STORAGE_KEY = 'meteogram.view'
+// the key from before the table was a view: `true` for the compact overview, `false` for the chart
+const LEGACY_STORAGE_KEY = 'meteogram.compact'
+const viewOptions = computed<{ value: MeteogramView, label: string, icon: string }[]>(() => [
+  { value: 'chart', label: t('meteogram.chart.viewChart'), icon: 'i-ph-chart-line' },
+  { value: 'compact', label: t('meteogram.chart.viewCompact'), icon: 'i-ph-squares-four' },
+  { value: 'table', label: t('meteogram.chart.viewTable'), icon: 'i-ph-table' },
+])
 
 // Interactive panel visibility controls
 const visiblePanels = ref({
@@ -66,21 +82,37 @@ watch(visiblePanels, (newVal) => {
 
 const seriesCache = computed(() => buildSeries(props.values ?? []))
 
+// The view last chosen. The old key held only whether the view was the compact overview: its value is taken over
+// once, as the same choice under the new key, and the old key is gone.
+function storedView(): MeteogramView | null {
+  try {
+    const stored = meteogramView(localStorage.getItem(LOCAL_STORAGE_KEY))
+    if (stored)
+      return stored
+    const legacy = localStorage.getItem(LEGACY_STORAGE_KEY)
+    if (legacy === null)
+      return null
+    const migrated = legacy === 'true' ? 'compact' : 'chart'
+    localStorage.setItem(LOCAL_STORAGE_KEY, migrated)
+    localStorage.removeItem(LEGACY_STORAGE_KEY)
+    return migrated
+  }
+  catch {
+    return null
+  }
+}
+
 // On mount try to restore user preference and auto-enable compact on small screens,
 // with URL params taking precedence over localStorage.
 onMounted(() => {
-  try {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem(LOCAL_STORAGE_KEY)
-      if (stored !== null)
-        compact.value = stored === 'true'
-      // in rem, so that a reader who has set a larger text size gets the compact view sooner (GH-3518)
-      else if (window.matchMedia('(max-width: 40rem)').matches)
-        compact.value = true
-    }
-  }
-  catch {
-    // ignore
+  if (typeof window !== 'undefined') {
+    const stored = storedView()
+    // the widget has no control to leave the table with: it shows the chart or the day cards
+    if (stored && !(props.widget && stored === 'table'))
+      view.value = stored
+    // in rem, so that a reader who has set a larger text size gets the compact view sooner (GH-3518)
+    else if (!stored && window.matchMedia('(max-width: 40rem)').matches)
+      view.value = 'compact'
   }
 
   if (!props.widget) {
@@ -100,8 +132,10 @@ onMounted(() => {
         pressure: names.includes('pressure'),
       }
     }
-    if (q.compact)
-      compact.value = q.compact.toString() === 'true'
+    // `compact=true` is the link of the time the table was no view: it still opens the compact overview
+    const linked = meteogramViewFromQuery(q)
+    if (linked)
+      view.value = linked
 
     const router = useRouter()
     const route = useRoute()
@@ -127,9 +161,10 @@ onMounted(() => {
       void router.replace({ query: q }).catch(() => {})
     }, { deep: true })
 
-    watch(compact, (c) => {
+    watch(view, (v) => {
       const q = { ...route.query } as Record<string, any>
-      q.compact = c ? 'true' : 'false'
+      q.view = v
+      delete q.compact
       void router.replace({ query: q }).catch(() => {})
     })
   }
@@ -146,26 +181,25 @@ function resetChart() {
   try {
     const el = chartRef.value as any
     Plotly.relayout(el, { 'xaxis.autorange': true })
-    void renderChart()
+    requestRender(false)
   }
   catch {
     // ignore
   }
 }
 
-function toggleCompact() {
-  compact.value = !compact.value
+// A choice of the reader's: remembered. A view that a link or the small screen gave is not.
+function chooseView(next: MeteogramView) {
+  view.value = next
   try {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(LOCAL_STORAGE_KEY, String(compact.value))
-    }
+    localStorage.setItem(LOCAL_STORAGE_KEY, next)
   }
   catch {
     // ignore
   }
 }
 
-onUnmounted(() => {
+onBeforeUnmount(() => {
   try {
     cleanupPlotlyOverlayHandlers()
   }
@@ -187,8 +221,6 @@ onUnmounted(() => {
     }
   }
 })
-
-const compactLabel = computed(() => compact.value ? t('meteogram.chart.viewNormal') : t('meteogram.chart.viewCompact'))
 
 // Toolbar timezone label (updated when chart renders)
 const toolbarTzLabel = ref<string>('UTC')
@@ -446,7 +478,8 @@ const chartTable = computed(() => {
       ...(temperatures.length
         ? [t('meteogram.chart.summaryTemperature', { min: formatNumber(Math.min(...temperatures), locale.value, 1), max: formatNumber(Math.max(...temperatures), locale.value, 1) })]
         : []),
-      t('common.chartTableHint'),
+      // the page chooses the table with the view control above the chart; the widget has the table below it
+      props.widget ? t('common.chartTableHint') : t('meteogram.chart.summaryTableHint'),
     ].join(' '),
   }
 })
@@ -604,7 +637,8 @@ function drawBarb(ctx: CanvasRenderingContext2D, px: number, py: number, dirFrom
   // rounded to 1.944 a speed either side of a barb boundary could be drawn as the next barb up
   const kt = (speed * 3600) / 1852
   const scale = compact.value ? 0.78 : 1.0
-  const barbColor = isDark.value ? '#f4f4f5' : '#0f172a'
+  // in the colours the chart was drawn in, which a switch of the scheme is yet to redraw it in
+  const barbColor = (drawnTheme ?? theme.value).textStrong
   ctx.strokeStyle = barbColor
   ctx.fillStyle = barbColor
   ctx.lineWidth = Math.max(1, 1.5 * scale)
@@ -965,7 +999,19 @@ async function renderChart() {
   }
 }
 
+// Whether the next drawing keeps the zoom the chart is in: only a drawing in other colours (the scheme
+// switched, a print) does, and drawings asked for are merged while one is under way, so a drawing for
+// anything else (a horizon, a panel, new values) among them starts the chart over. null: none asked for
+let keepZoomNext: boolean | null = null
+
+function requestRender(keepZoom: boolean) {
+  keepZoomNext = (keepZoomNext ?? true) && keepZoom
+  void renderChart()
+}
+
 async function renderChartActual() {
+  const keepZoom = keepZoomNext ?? false
+  keepZoomNext = null
   await nextTick()
   if (!chartRef.value) {
     try {
@@ -1156,7 +1202,7 @@ async function renderChartActual() {
   const dayShapes: any[] = []
   const days = getCalendarDays(minTime, displayMaxTime, stationTZ)
   if (props.stationCoords && props.stationCoords.latitude != null && props.stationCoords.longitude != null) {
-    const SunCalc = await importChartCode(() => import('suncalc'))
+    SunCalc ??= await importChartCode(() => import('suncalc'))
     const lat = props.stationCoords.latitude
     const lon = props.stationCoords.longitude
     for (const day of days) {
@@ -1253,7 +1299,7 @@ async function renderChartActual() {
       yref: 'paper',
       text: annotText,
       showarrow: false,
-      font: { size: annotFontSize, color: isWeekend ? '#ef4444' : (isDark.value ? '#e4e4e7' : '#374151') },
+      font: { size: annotFontSize, color: isWeekend ? seriesLabelColor('red', isDark.value) : theme.value.text },
       xanchor: 'center',
       yanchor: 'bottom',
     })
@@ -1655,10 +1701,13 @@ async function renderChartActual() {
   }
 
   // Dark-on-light or light-on-dark tokens
-  const W = (a: number) => isDark.value ? `rgba(244,244,245,${a})` : `rgba(55,65,81,${a})`
+  // washes of the text colour for the hairlines; the tick labels are the muted text colour itself, as
+  // a wash of 65 % of the text colour is 3.9:1 on white
+  const W = (a: number) => withAlpha(theme.value.text, a)
   const GRID = W(0.08)
-  const TICK = W(0.65)
-  const ZERO = W(0.20)
+  const TICK = theme.value.textMuted
+  // the colour of the text that names a series: its hue, dark enough to read on the paper (GH-3618)
+  const LABEL = (series: SeriesLabel) => seriesLabelColor(series, isDark.value)
 
   // Panel divider lines
   const dividers: any[] = []
@@ -1796,14 +1845,9 @@ async function renderChartActual() {
     // the hover texts and the axes write the language's decimal separator, as Plotly writes a point otherwise
     separators: plotlySeparators(locale.value),
     margin: { l: 48, r: 8 + extraRight, t: (compact.value ? 44 : 72) + extraTop, b: compact.value ? 4 : 8 },
-    paper_bgcolor: isDark.value ? '#111827' : '#ffffff',
-    plot_bgcolor: isDark.value ? '#111827' : '#ffffff',
-    font: { family: '"Inter", system-ui, sans-serif', size: 11, color: isDark.value ? '#f3f4f6' : '#374151' },
+    font: { family: '"Inter", system-ui, sans-serif', size: 11 },
     hovermode: 'x unified',
-    hoverlabel: {
-      bgcolor: isDark.value ? '#1f2937' : '#ffffff',
-      font: { color: isDark.value ? '#f3f4f6' : '#374151', family: '"Inter", system-ui, sans-serif' },
-    },
+    hoverlabel: { font: { family: '"Inter", system-ui, sans-serif' } },
     bargap: 0.05,
     barmode: 'stack',
     shapes: [...dayShapes, ...separators, ...dividers],
@@ -1830,14 +1874,14 @@ async function renderChartActual() {
     yaxis: {
       visible: !!domains.wind,
       domain: domains.wind ?? [0, 0],
-      title: { text: t('meteogram.chart.axisWind'), font: { size: 9, color: '#06b6d4' }, standoff: 2 },
+      title: { text: t('meteogram.chart.axisWind'), font: { size: 9, color: LABEL('cyan') }, standoff: 2 },
       gridcolor: GRID,
       linecolor: 'rgba(0,0,0,0)',
       zeroline: false,
       rangemode: 'tozero',
       range: originalRanges.wind,
       tickvals: axisTickVals.wind ?? undefined,
-      tickfont: { size: compact.value ? 7 : 9, color: '#06b6d4' },
+      tickfont: { size: compact.value ? 7 : 9, color: LABEL('cyan') },
       tickcolor: 'rgba(6,182,212,0.45)',
       nticks: 4,
       fixedrange: true,
@@ -1846,14 +1890,14 @@ async function renderChartActual() {
     yaxis2: {
       visible: !!domains.precip,
       domain: domains.precip ?? [0, 0],
-      title: { text: t('meteogram.chart.axisPrecip'), font: { size: 9, color: '#3b82f6' }, standoff: 2 },
+      title: { text: t('meteogram.chart.axisPrecip'), font: { size: 9, color: LABEL('blue') }, standoff: 2 },
       gridcolor: GRID,
       linecolor: 'rgba(0,0,0,0)',
       zeroline: false,
       rangemode: 'tozero',
       range: originalRanges.precip,
       tickvals: axisTickVals.precip ?? undefined,
-      tickfont: { size: compact.value ? 7 : 9, color: '#3b82f6' },
+      tickfont: { size: compact.value ? 7 : 9, color: LABEL('blue') },
       tickcolor: 'rgba(37,99,235,0.45)',
       nticks: 3,
       fixedrange: true,
@@ -1862,13 +1906,13 @@ async function renderChartActual() {
     yaxis5: {
       visible: !!domains.cloud,
       domain: domains.cloud ?? [0, 0],
-      title: { text: t('meteogram.chart.axisCloud'), font: { size: 9, color: isDark.value ? '#9ca3af' : '#64748b' }, standoff: 2 },
+      title: { text: t('meteogram.chart.axisCloud'), font: { size: 9, color: theme.value.textMuted }, standoff: 2 },
       gridcolor: GRID,
       linecolor: 'rgba(0,0,0,0)',
       zeroline: false,
       range: originalRanges.cloud,
       tickvals: axisTickVals.cloud ?? undefined,
-      tickfont: { size: compact.value ? 7 : 9, color: isDark.value ? '#9ca3af' : '#64748b' },
+      tickfont: { size: compact.value ? 7 : 9, color: theme.value.textMuted },
       tickcolor: 'rgba(148,163,184,0.45)',
       nticks: 3,
       fixedrange: true,
@@ -1877,15 +1921,15 @@ async function renderChartActual() {
     yaxis3: {
       visible: !!domains.temp,
       domain: domains.temp ?? [0, 0],
-      title: { text: t('meteogram.chart.axisTemp'), font: { size: 9, color: '#ef4444' }, standoff: 2 },
+      title: { text: t('meteogram.chart.axisTemp'), font: { size: 9, color: LABEL('red') }, standoff: 2 },
       gridcolor: GRID,
       linecolor: 'rgba(0,0,0,0)',
       zeroline: true,
-      zerolinecolor: ZERO,
+      zerolinecolor: theme.value.zeroline,
       zerolinewidth: 1,
       range: originalRanges.temp,
       tickvals: axisTickVals.temp ?? undefined,
-      tickfont: { size: compact.value ? 7 : 9, color: '#ef4444' },
+      tickfont: { size: compact.value ? 7 : 9, color: LABEL('red') },
       tickcolor: 'rgba(239,68,68,0.45)',
       fixedrange: true,
     },
@@ -1893,14 +1937,14 @@ async function renderChartActual() {
     yaxis4: {
       visible: !!domains.pressure,
       domain: domains.pressure ?? [0, 0],
-      title: { text: t('meteogram.chart.axisPressure'), font: { size: 9, color: '#84cc16' }, standoff: 2 },
+      title: { text: t('meteogram.chart.axisPressure'), font: { size: 9, color: LABEL('lime') }, standoff: 2 },
       gridcolor: GRID,
       linecolor: 'rgba(0,0,0,0)',
       zeroline: false,
       rangemode: 'normal',
       range: originalRanges.pressure,
       tickvals: axisTickVals.pressure ?? undefined,
-      tickfont: { size: compact.value ? 7 : 9, color: '#84cc16' },
+      tickfont: { size: compact.value ? 7 : 9, color: LABEL('lime') },
       tickcolor: 'rgba(132,204,22,0.45)',
       nticks: 3,
       fixedrange: true,
@@ -1909,7 +1953,7 @@ async function renderChartActual() {
 
   const isTouchDevice = typeof window !== 'undefined' && window.matchMedia('(hover: none) and (pointer: coarse)').matches
   // the weekday of the hover heading is written by Plotly, which knows English only unless it is given the language
-  const config = { responsive: true, displayModeBar: false, locale: language.value, locales: { [language.value]: plotlyDateLocale(language.value) }, ...(isTouchDevice ? { dragmode: 'pan', scrollZoom: false } : {}) }
+  const config = { responsive: true, displayModeBar: false, ...(await plotlyLocaleConfig(locale.value, language.value)), ...(isTouchDevice ? { dragmode: 'pan', scrollZoom: false } : {}) }
 
   if (chartRef.value) {
     try {
@@ -1920,8 +1964,18 @@ async function renderChartActual() {
       cleanupOverlay()
     }
     catch {}
+    // the time range the chart shows now, if it is a redraw of the same chart in other colours
+    const kept = keepZoom ? drawnRanges(chartRef.value).xaxis : undefined
+    // the theme it is drawn in is taken before the drawing, which a switch of the scheme can come in the middle of
+    const drawnIn = theme.value
+    drawnTheme = drawnIn
     Plotly.purge(chartRef.value)
-    await Plotly.newPlot(chartRef.value, activeTraces, layout, config)
+    await Plotly.newPlot(chartRef.value, activeTraces, themedLayout(layout, drawnIn), config)
+    // said at once, before anything after it can fail: the chart is drawn in these colours whatever follows
+    markChartScheme(chartRef.value, drawnIn)
+    // drawn in the range of the layout, which is what the chart's reset goes back to, and then moved to the one it was in
+    if (kept)
+      await Plotly.relayout(chartRef.value, { 'xaxis.range': kept.range })
 
     // Setup overlay drawing of wind barbs using a canvas overlay
     if (typeof window !== 'undefined' && windKey && chartRef.value && visiblePanels.value.wind) {
@@ -1950,39 +2004,39 @@ async function renderChartActual() {
 watch(
   () => props.values,
   () => {
-    void renderChart()
+    requestRender(false)
   },
   { immediate: true, deep: true },
 )
 watch(
-  compact,
+  view,
   () => {
-    void renderChart()
+    requestRender(false)
   },
 )
 watch(
-  isDark,
+  theme,
   () => {
-    void renderChart()
+    requestRender(true)
   },
 )
 watch(
   locale,
   () => {
-    void renderChart()
+    requestRender(false)
   },
 )
 watch(
   visiblePanels,
   () => {
-    void renderChart()
+    requestRender(false)
   },
   { deep: true },
 )
 watch(
   horizonHours,
   () => {
-    void renderChart()
+    requestRender(false)
   },
 )
 </script>
@@ -2093,29 +2147,25 @@ watch(
           </div>
         </div>
 
-        <!-- View Controls & Zoom Reset -->
-        <div class="flex items-center gap-2 ml-auto shrink-0">
-          <div v-if="!compact" class="hidden sm:block text-xs text-gray-500 dark:text-gray-400 select-none truncate max-w-[160px]">
-            {{ toolbarTzLabel }}
-          </div>
+        <!-- View Controls & Zoom Reset: the view first on a narrow screen, where the toolbar stacks -->
+        <div class="flex items-center gap-2 md:ml-auto shrink-0 order-first md:order-last">
           <UButton
-            v-if="!compact"
+            v-if="view === 'chart'"
             icon="i-ph-arrow-counter-clockwise"
             size="sm"
             variant="outline"
             color="neutral"
             :title="t('meteogram.chart.resetZoom')"
+            :aria-label="t('meteogram.chart.resetZoom')"
+            class="shrink-0"
             @click="resetChart"
           />
-          <UButton
-            :icon="compact ? 'i-ph-chart-line' : 'i-ph-squares-four'"
-            size="sm"
-            color="primary"
-            :title="compactLabel"
-            @click="toggleCompact"
-          >
-            <span class="hidden sm:inline">{{ compactLabel }}</span>
-          </UButton>
+          <SegmentedControl
+            :model-value="view"
+            :options="viewOptions"
+            :label="t('meteogram.chart.viewLabel')"
+            @update:model-value="chooseView"
+          />
         </div>
       </div>
 
@@ -2148,11 +2198,15 @@ watch(
           <span class="font-semibold text-gray-800 dark:text-gray-100">{{ summaryStats.pressure.min }}–{{ summaryStats.pressure.max }}</span>
           <span class="text-gray-500 dark:text-gray-400 text-xs">hPa</span>
         </div>
+        <!-- the time zone of the chart's axis: the table names its own in its header -->
+        <div v-if="view === 'chart'" class="hidden sm:block ml-auto self-center text-xs text-gray-500 dark:text-gray-400 select-none">
+          {{ toolbarTzLabel }}
+        </div>
       </div>
 
       <!-- Main Interactive Chart Container -->
-      <div v-if="!compact">
-        <div class="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
+      <div v-if="view === 'chart'">
+        <div class="rounded-xl border border-gray-200 dark:border-gray-800 bg-default shadow-sm overflow-hidden">
           <div
             v-if="renderFailed"
             ref="chartNotice"
@@ -2169,7 +2223,7 @@ watch(
                 <span class="block text-sm">{{ t('dataViewer.chartCodeNotLoaded') }}</span>
               </template>
             </span>
-            <UButton :label="t('common.retry')" icon="i-ph-arrow-clockwise" size="sm" color="neutral" variant="outline" @click="renderChart()" />
+            <UButton :label="t('common.retry')" icon="i-ph-arrow-clockwise" size="sm" color="neutral" variant="outline" @click="requestRender(false)" />
             <UButton v-if="chartCodeNotLoaded" :label="t('common.reloadPage')" icon="i-ph-arrows-clockwise" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
           </div>
           <!-- a figure, as the app's other charts, and no landmark; drawn without Plotly's modebar, it holds
@@ -2185,12 +2239,20 @@ watch(
           <p :id="summaryId" class="sr-only">
             {{ chartTable.summary }}
           </p>
-          <ChartTable :caption="chartLabel" :columns="chartTable.columns" :rows="chartTable.rows" />
+          <!-- the widget has no control to choose the table with: its text alternative stays below the chart -->
+          <ChartTable v-if="widget" :caption="chartLabel" :columns="chartTable.columns" :rows="chartTable.rows" />
         </template>
+      </div>
+
+      <!-- The values the chart draws, as a table of their own at the width of the page -->
+      <div v-else-if="view === 'table'">
+        <ValuesTable v-if="chartTable" full :caption="chartLabel" :columns="chartTable.columns" :rows="chartTable.rows" />
+        <UEmpty v-else icon="i-ph-table" :title="t('meteogram.chart.noData')" />
       </div>
 
       <!-- Premium Compact Overview Grid -->
       <div v-else class="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-md p-4">
+        <!-- relative: the cards' visually hidden texts are positioned, and would otherwise lie outside the box that scrolls and make the page scroll sideways (WCAG 1.4.10) -->
         <div class="relative flex items-center justify-start gap-4 overflow-x-auto whitespace-nowrap py-1 px-1">
           <template v-for="(d, idx) in compactDays" :key="idx">
             <div

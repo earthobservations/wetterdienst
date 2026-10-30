@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, cast
@@ -17,6 +18,7 @@ from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.quality_flags import (
     SPEED_BESIDE,
     NoReading,
+    OutOfRange,
     Sentinel,
     calm,
     join_quality_flags,
@@ -84,6 +86,85 @@ _SYNOP_WIND_SPEED_OF_DIRECTION = {_SYNOP_WIND_DIRECTION_COLUMN: "ff"}
 _SYNOP_MINIMUM_12H = "tn12"
 _SYNOP_MAXIMUM_12H = "tx12"
 _SYNOP_MAXIMUM_BESIDE = "__tx12_beside"
+
+# A reading no sensor can have produced is null, and keeps the number the file wrote as the `raw` token (GH-3135, as
+# GH-2797 does for DMI, RMI and the DWD road stations). The files hold a few, with no code to tell them: in the files
+# of 1996, 2000, 2005, 2010 and 2015 `pres` reads 10,860 to 42,060 Pa in 31 rows (3, 23, 3, 0 and 2 per file; La
+# Desirade 2005-01-10: 11,170 Pa beside a `pmer` of 101,550, and 41,450 Pa at 78890 on 1996-06-02 at 15 h, a station
+# at 27 m), `t` 333.95 to 369.15 K in 20 rows, `td` in 14, `rr1` 800 mm (61976, 2000-07-06), and none in the files of
+# 2020, 2022, 2024 and 2025. The bounds are in the unit of the file and sit inside the range of
+# `tests/provider/physical_ranges.py`; each rests on a record, with room above it:
+# - `pres`, the pressure at the station, 50,000 to 110,000 Pa: the highest sea level pressure is 108,480 Pa
+#   (Tosontsengel, 2001) and the highest station of the archive is MONT AIGOUAL (07560, 1,567 m, about 840 hPa); 500 hPa
+#   is the air at 5,500 m;
+# - `pmer`, the pressure reduced to sea level, 85,000 to 110,000 Pa: 87,000 Pa is the lowest (typhoon Tip, 1979);
+# - `t`, `td`, `tn12`, `tx12`, `tn24`, `tx24`, 183.15 to 333.15 K (-90 to 60 C): the lowest air temperature is -89.2 C
+#   (Vostok, 1983), the highest 56.7 C (Furnace Creek, 1913);
+# - `rr1`, 0 to 600 mm: the most in an hour is 401 mm (Shangdi, 1975);
+# - `rr3`, `rr6`, `rr12`, 0 to 1,200 mm: the most in 12 hours is 1,144 mm (Foc-Foc, La Reunion, 1966), and a shorter
+#   span cannot hold more;
+# - `rr24`, 0 to 2,000 mm: the most in a day is 1,825 mm (Foc-Foc, 1966).
+# The trace -0.1 is mapped to 0.0 before, so the lower bound of 0 leaves it alone. A `rr6` of 805 mm (78890, 2005-11-11)
+# and a `rr24` of 999.4 mm (78897, 2005-08-18) are inside these bounds, as a tropical storm can bring them: they stay.
+_SYNOP_RANGES: dict[str, tuple[float, float]] = {
+    "pres": (50_000.0, 110_000.0),
+    "pmer": (85_000.0, 110_000.0),
+    "t": (183.15, 333.15),
+    "td": (183.15, 333.15),
+    "tn12": (183.15, 333.15),
+    "tx12": (183.15, 333.15),
+    "tn24": (183.15, 333.15),
+    "tx24": (183.15, 333.15),
+    "rr1": (0.0, 600.0),
+    "rr3": (0.0, 1_200.0),
+    "rr6": (0.0, 1_200.0),
+    "rr12": (0.0, 1_200.0),
+    "rr24": (0.0, 2_000.0),
+}
+
+# No frost at these stations (GH-3135, as the stations of `meteofrance/observation` of the same departments). The
+# stations are the WMO ids of the geojson, as the file has no department, and they are the ones of the departments of
+# that rule that the archive has: Guadeloupe (LA DESIRADE 78890, ST-BARTHELEMY 78894, LE RAIZET 78897), Martinique
+# (TRINITE-CARAVEL 78922, LAMENTIN 78925), Guyane (81401, 81405, 81408 and MARIPASOULA 81415; 3.6 to 5.5 N, 4 to
+# 106 m), Mayotte (PAMANDZI 67005), the Iles Eparses (GLORIEUSES 61968, JUAN DE NOVA 61970, EUROPA 61972, TROMELIN
+# 61976; 11.6 to 22.3 S, 3 to 9 m), Wallis-et-Futuna (HIHIFO 91753, MAOPOOPO 91754) and French Polynesia (HIVA-OA
+# 91925, BORA-BORA-MOTU-AERO 91929, TAIARAPU-EST 91936, FAAA 91938, TAKAROA 91943, HAO 91944, MANGAREVA 91948 and RAPA
+# 91958 at 27.6 S): all at 2 to 106 m, between 3.6 N and 27.6 S. A temperature below 0 C (273.15 K) of the air, its 12
+# and 24 hour extremes or its dew point is no reading there. The nine files of 1996 to 2025 read hold 135 of them:
+# `td` 115 (TROMELIN 73, of which 44 in 2015 and 24 in 2022; MARIPASOULA 16, 12 of them in 2025; SAINT GEORGES 81408 9
+# in 2000), `t` 9 (242 to 252 K; EUROPA, TROMELIN, ST-BARTHELEMY, SAINT LAURENT, PAMANDZI), `tn24` 9 (8 at 81415 in
+# 2025) and `tn12` 2. The `t` of RAPA, the southernmost, reaches 12.4 C at the lowest. Out of the list: GILLOT (61980,
+# La Reunion, where frost occurs at altitude), SAINT-PIERRE (71805), New Caledonia (91570 to 91592) and the southern
+# territories (Kerguelen 61998, Crozet 61997, Nouvelle-Amsterdam 61996, Dumont d'Urville 89642).
+_SYNOP_FROSTLESS_STATIONS = frozenset(
+    {
+        "78890",
+        "78894",
+        "78897",
+        "78922",
+        "78925",
+        "81401",
+        "81405",
+        "81408",
+        "81415",
+        "67005",
+        "61968",
+        "61970",
+        "61972",
+        "61976",
+        "91753",
+        "91754",
+        "91925",
+        "91929",
+        "91936",
+        "91938",
+        "91943",
+        "91944",
+        "91948",
+        "91958",
+    }
+)
+_SYNOP_TEMPERATURE_COLUMNS = ("t", "td", "tn12", "tx12", "tn24", "tx24")
 
 # explicit schema of the exact columns published by the source, read as strings throughout since
 # many columns are entirely empty for a given station or year, which would otherwise lead to
@@ -204,6 +285,13 @@ def _download_year(year: int, current_year: int, settings: Settings) -> File:
     return copy
 
 
+def _frostless_rules(station_id: str) -> list[OutOfRange]:
+    """Give the rule of a station without frost (``_SYNOP_FROSTLESS_STATIONS``): a temperature below 0 C is none."""
+    if station_id not in _SYNOP_FROSTLESS_STATIONS:
+        return []
+    return [OutOfRange(273.15, math.inf, where=pl.col("parameter").is_in(_SYNOP_TEMPERATURE_COLUMNS))]
+
+
 class MeteoFranceSynopValues(TimeseriesValues):
     """Values class for Météo-France SYNOP data."""
 
@@ -273,6 +361,8 @@ class MeteoFranceSynopValues(TimeseriesValues):
                 .cast(pl.Float64, strict=False)
                 .eq(pl.col(_SYNOP_MAXIMUM_BESIDE).str.strip_chars().cast(pl.Float64, strict=False))
             ),
+            *(OutOfRange(low, high, where=pl.col("parameter").eq(name)) for name, (low, high) in _SYNOP_RANGES.items()),
+            *_frostless_rules(station_id),
             # a missing reading is an empty field; a text that is no number was nulled by the cast alone
             # (the 2024 file holds none) and now keeps its text too
             non_numeric=True,

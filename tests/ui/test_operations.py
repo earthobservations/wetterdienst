@@ -633,6 +633,12 @@ def test_a_geo_answer_of_too_many_rows_is_refused(client: TestClient, monkeypatc
         assert short.json()["detail"] == "the estimate was reached", endpoint
         assert long.json()["type"] == "urn:wetterdienst:problem:limit-exceeded", endpoint
         assert (long.json()["limit"], long.json()["maximum"]) == ("rows", 100)
+        assert long.json()["requested"] > 100
+        # these routes name no stations and offer no stream: only the window and the parameters help (GH-3576)
+        detail = long.json()["detail"]
+        assert detail.endswith("Ask for a shorter `timestamp` window or fewer `parameters`."), endpoint
+        for advice in ("stations", "ndjson", "csv", "format"):
+            assert advice not in detail, endpoint
 
 
 def test_a_stations_listing_is_held_to_the_row_limit(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
