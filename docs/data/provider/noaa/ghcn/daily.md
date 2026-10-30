@@ -30,7 +30,7 @@
 | {term}`snow_depth` | snwd | Snow depth (mm) | mm | >=0 |
 | {term}`temperature_air_max_2m` | tmax | Maximum temperature (°C; the file has tenths of degrees) | °C | - |
 | {term}`temperature_air_min_2m` | tmin | Minimum temperature (°C; the file has tenths of degrees) | °C | - |
-| {term}`temperature_air_mean_2m` | tavg | Average daily temperature (°C; the file has tenths of degrees). From source 'S' an average of hourly readings for the period ending at 2400 UTC rather than local midnight; from other sources computed in a variety of ways, including traditional fixed hours of the day, whereas the source's TAXN is a separate element. | °C | - |
+| {term}`temperature_air_mean_2m` | tavg | Average daily temperature (°C; the file has tenths of degrees). From source 'S' an average of hourly readings for the period ending at 2400 UTC rather than local midnight; from other sources computed in a variety of ways, including traditional fixed hours of the day, whereas TAXN (not served here) is solely the average of TMAX and TMIN. | °C | - |
 | {term}`cloud_cover_total_mean_midnight_to_midnight` | acmc | Average cloudiness midnight to midnight from 30-second ceilometer data (percent) | % | >=0,<=100 |
 | {term}`cloud_cover_total_mean_midnight_to_midnight_manual` | acmh | Average cloudiness midnight to midnight from manual observations (percent) | % | >=0,<=100 |
 | {term}`cloud_cover_total_mean_sunrise_to_sunset` | acsc | Average cloudiness sunrise to sunset from 30-second ceilometer data (percent) | % | >=0,<=100 |
@@ -50,7 +50,7 @@
 | {term}`distance_river_gauge_height` | gaht | Difference between river and gauge height (cm) | cm | >=0 |
 | {term}`evaporation_amount_multiday` | mdev | Multiday evaporation total (mm; the file has tenths of mm; use with DAEV) | mm | >=0 |
 | {term}`precipitation_amount_multiday` | mdpr | Multiday precipitation total (mm; the file has tenths of mm; use with DAPR and DWPR, if available) | mm | >=0 |
-| {term}`snow_depth_new_multiday` | mdsf | Multiday snowfall total (mm; the readme names no unit, the NCEI Daily Summaries documentation says mm) | mm | >=0 |
+| {term}`snow_depth_new_multiday` | mdsf | Multiday snowfall total (mm, like SNOW; the readme names no unit) | mm | >=0 |
 | {term}`temperature_air_min_2m_multiday` | mdtn | Multiday minimum temperature (°C; the file has tenths of degrees; use with DATN) | °C | - |
 | {term}`temperature_air_max_2m_multiday` | mdtx | Multiday maximum temperature (°C; the file has tenths of degrees; use with DATX) | °C | - |
 | {term}`wind_movement_multiday` | mdwm | Multiday wind movement (km) | km | >=0 |
