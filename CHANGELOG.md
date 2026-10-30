@@ -88,6 +88,9 @@ Types of changes:
 
 ### Fixed
 
+- Two processes that share a cache directory no longer fail a download on Windows with
+  `PermissionError` when one opens a cached file while the other replaces it: the open is asked
+  again for under a second, and a file that stays unreadable still raises (GH-3630)
 - A request that asks several resolutions or datasets of one provider no longer returns some
   readings under another parameter's name. The humanized name is now looked up per resolution
   and dataset, where a name the source gives two parameters took the last one's: chmi (`T`, `H`,

@@ -2124,7 +2124,32 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
                 # the download met, which is what the caller's status and retry go by
                 with contextlib.suppress(OSError):
                     Path(temp).unlink(missing_ok=True)
-        return Path(blob).open(mode)
+        return _open_blob(Path(blob), mode)
+
+
+#: How long a read of a blob waits, one pause after another, for a replace of it by another process to be over
+#: (GH-3630): under a second in all. A rename onto a file takes a moment, and the replace of a metadata file or a blob
+#: is as quick; a refusal that outlasts these is a permission the file really lacks, which the caller then sees.
+_BLOB_OPEN_PAUSES = (0.01, 0.02, 0.05, 0.1, 0.2, 0.4)
+
+
+def _open_blob(blob: Path, mode: str) -> IO:
+    """Open a cached blob for reading, again a few times where the open is refused (GH-3630).
+
+    On Windows a file that another process is `os.replace`-ing onto is not openable for a moment (the old one is
+    delete-pending): the open of a blob that a fetch has just put there, or that the cache already held, meets the
+    rename of a second process fetching the same url, and is a `PermissionError`. The blob is a whole copy before and
+    after the rename, so the open is asked again after a short pause, for `_BLOB_OPEN_PAUSES` in all, with no lock
+    of the directory: a read does not take turns with the writers. A refusal that stays is raised as it was, so
+    that a blob that cannot be read at all is not waited on for long, nor swallowed.
+    """
+    for pause in _BLOB_OPEN_PAUSES:
+        try:
+            return blob.open(mode)
+        except PermissionError:
+            log.debug(f"Could not open {blob}, trying again in {pause} s", exc_info=True)
+            time.sleep(pause)
+    return blob.open(mode)
 
 
 def _check_cache_dir_writable(cache_path: Path) -> None:
