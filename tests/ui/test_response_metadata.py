@@ -398,15 +398,11 @@ def test_the_stripes_values_have_the_block_and_a_series_for_what_they_are_of(
     assert response.headers["X-Wetterdienst-License"] == "CC-BY-4.0"
 
 
-@pytest.fixture
-def _unrecorded() -> None:
-    """Start the test with no record of warnings, as the thread of a server has before its handler begins one.
+class _Figure:
+    """The drawing of a stripes image, which hands out these bytes as the image."""
 
-    The autouse `_no_ambient_settings` begins a record, which the client carries into the handler: a route that never
-    calls `begin_response` would then record all the same.
-    """
-    _RECORDED.set(None)
-    _COUNTED.set(None)
+    def to_image(self, *_args: object, **_kwargs: object) -> bytes:
+        return b"image"
 
 
 def _read_and_warn(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -424,22 +420,7 @@ def _read_and_warn(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(restapi, "_get_stripes_data", read_and_warn)
 
 
-@pytest.mark.usefixtures("_no_ambient_settings", "_unrecorded")
-def test_the_stripes_values_tell_the_warnings_of_the_read(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The values of a stripes station record the warnings of their read, in the block and in the header (GH-3581).
-
-    The route never began a record, so both were always empty.
-    """
-    _read_and_warn(monkeypatch)
-
-    response = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048"})
-
-    assert response.status_code == 200, response.text
-    assert [warning["code"] for warning in response.json()["metadata"]["warnings"]] == ["station-skipped"]
-    assert response.headers["X-Wetterdienst-Warnings"] == "station-skipped"
-
-
-@pytest.mark.usefixtures("_no_ambient_settings", "_unrecorded")
+@pytest.mark.usefixtures("_no_ambient_settings")
 @pytest.mark.parametrize("prefix", ["/api", "/api/v1"])
 @pytest.mark.parametrize("fmt", ["png", "jpg", "svg", "pdf"])
 def test_the_stripes_image_has_the_headers_of_every_answer(
@@ -450,10 +431,6 @@ def test_the_stripes_image_has_the_headers_of_every_answer(
     Nothing is drawn into it (GH-3581): the only way to a caller that reads no pixels is the headers.
     """
     _read_and_warn(monkeypatch)
-
-    class _Figure:
-        def to_image(self, *_args: object, **_kwargs: object) -> bytes:
-            return b"image"
 
     monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
 
@@ -475,10 +452,6 @@ def test_the_stripes_image_names_the_same_terms_as_the_stripes_values(
     from tests.ui.test_restapi import _stub_stripes_station  # noqa: PLC0415
 
     _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
-
-    class _Figure:
-        def to_image(self, *_args: object, **_kwargs: object) -> bytes:
-            return b"image"
 
     monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
     params = {"kind": "temperature", "station": "01048"}
@@ -610,6 +583,16 @@ def _read_stripes_stations(monkeypatch: pytest.MonkeyPatch) -> None:
     _warn_first(monkeypatch, restapi, "_get_stripes_stations")
 
 
+def _read_stripes_values(monkeypatch: pytest.MonkeyPatch) -> None:
+    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    _warn_first(monkeypatch, restapi, "_get_stripes_data")
+
+
+def _draw_stripes_image(monkeypatch: pytest.MonkeyPatch) -> None:
+    _read_stripes_values(monkeypatch)
+    monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
+
+
 def _read_values_of(endpoint: str) -> Callable[[pytest.MonkeyPatch], None]:
     def read(monkeypatch: pytest.MonkeyPatch) -> None:
         _stub_result(monkeypatch, endpoint)
@@ -635,14 +618,17 @@ _ROUTES_WITH_WARNINGS = [
     ),
     pytest.param("/api/summarize", _params("/api/summarize"), _read_values_of("/api/summarize"), id="summarize"),
     pytest.param("/api/stripes/stations", {"kind": "temperature"}, _read_stripes_stations, id="stripes-stations"),
+    pytest.param(
+        "/api/stripes/values", {"kind": "temperature", "station": "01048"}, _read_stripes_values, id="stripes-values"
+    ),
+    pytest.param(
+        "/api/stripes/image", {"kind": "temperature", "station": "01048"}, _draw_stripes_image, id="stripes-image"
+    ),
     pytest.param("/api/history", {**_OBSERVATION, "stations": "02564"}, _read_history, id="history"),
     pytest.param("/api/alerts", {}, _read_alerts, id="alerts"),
 ]
 #: the routes that answer without a block: a catalogue of the library, the server's own state
 _ROUTES_WITHOUT_WARNINGS = {"/version", "/settings", "/auth", "/coverage", "/glossary"}
-#: the routes the cases above do not cover yet, and why: `/stripes/values` and `/stripes/image` began no record
-#: (GH-3581), which the cases are to hold them to once they do
-_ROUTES_NOT_COVERED_YET = {"/stripes/values", "/stripes/image"}
 
 
 @pytest.mark.parametrize(("path", "params", "arrange"), _ROUTES_WITH_WARNINGS)
@@ -665,7 +651,11 @@ def test_a_route_records_the_warnings_of_its_read_without_a_record_begun_for_it(
     response = client.get(path, params=params)
 
     assert response.status_code == 200, response.text
-    assert [warning["code"] for warning in response.json()["metadata"]["warnings"]] == ["left-out"]
+    if path == "/api/stripes/image":
+        # an image has no block: the headers are where its warnings are (GH-3581)
+        assert response.content == b"image"
+    else:
+        assert [warning["code"] for warning in response.json()["metadata"]["warnings"]] == ["left-out"]
     assert response.headers["X-Wetterdienst-Warnings"] == "left-out"
     # the record belongs to the request: the test's own context is left as it was
     assert _RECORDED.get() is None
@@ -676,8 +666,8 @@ def test_every_route_of_the_api_is_held_to_the_warnings_or_says_why_not() -> Non
     paths = {route.path for route in restapi.router.routes}
     covered = {param.values[0].removeprefix(restapi.API_ALIAS_PREFIX) for param in _ROUTES_WITH_WARNINGS}
 
-    assert paths == covered | _ROUTES_WITHOUT_WARNINGS | _ROUTES_NOT_COVERED_YET
-    assert not covered & (_ROUTES_WITHOUT_WARNINGS | _ROUTES_NOT_COVERED_YET)
+    assert paths == covered | _ROUTES_WITHOUT_WARNINGS
+    assert not covered & _ROUTES_WITHOUT_WARNINGS
 
 
 @pytest.mark.parametrize("fmt", ["ndjson", "csv"])
