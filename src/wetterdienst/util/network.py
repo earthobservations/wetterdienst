@@ -1645,7 +1645,8 @@ def _write_sidecar(blob: Path, last_modified: dt.datetime | None, written: os.st
     a null date: the copy has no date, and the record says it was made by a version that kept them
     (`_has_sidecar_record`), which is what tells it from a copy made before. Never raises: a date lost is a null, not a
     failed download. A replace that Windows refuses, because another process holds the sidecar open, is asked again
-    after the pauses of `_ask_again` (GH-3632) before the date is given up, and each try checks the blob again.
+    after the pauses of `_ask_again` (GH-3632) before the date is given up, and each try checks the blob again. Those
+    pauses, under a second in all, hold the lock of the cache directory, which the check needs.
 
     Written under the lock of the cache directory and only if the blob is still the file `written` describes: of two
     fetches that replace the blob one after the other, the one that comes later may write its sidecar first, and the
@@ -2146,14 +2147,15 @@ _REFUSED_PAUSES = (0.01, 0.02, 0.05, 0.1, 0.2, 0.4)
 
 
 def _ask_again(call: Callable[[], _T], path: Path) -> _T:
-    """Call `call` on `path`, again after each of `_REFUSED_PAUSES` where it raises `PermissionError` (GH-3632).
+    """Call `call`, again after each of `_REFUSED_PAUSES` where it raises `PermissionError` (GH-3632).
 
-    On Windows a file that another process is `os.replace`-ing onto, or is holding open while it does, is not openable,
-    readable or replaceable for a moment (the old one is delete-pending): a `PermissionError`, which is a sharing
-    violation there. The file is a whole copy before and after the rename, so the call is asked again after a short
-    pause, and no lock of the directory is taken for the wait of a read: it does not take turns with the writers. A
-    refusal that stays is raised as it was, so that a file that cannot be used at all is not waited on for long, and
-    any other error is raised at once.
+    `path` is the file the call uses, named in the log. On Windows a file that another process is `os.replace`-ing onto
+    is not openable or readable for a moment (the old one is delete-pending), and a file another process holds open is
+    not replaceable: a `PermissionError`, which is a sharing violation there. The file is a whole copy before and after
+    the rename, so the call is asked again after a short pause. The wait takes no lock of its own: a read waits
+    unlocked, as it does not take turns with the writers, while the replace of a sidecar waits under the lock of the
+    cache directory its caller holds. A refusal that stays is raised as it was, so that a file that cannot be used at
+    all is not waited on for long, and any other error is raised at once.
     """
     for pause in _REFUSED_PAUSES:
         try:
