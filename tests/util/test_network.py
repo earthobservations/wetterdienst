@@ -4,6 +4,7 @@
 
 import atexit
 import contextlib
+import datetime as dt
 import json
 import logging
 import os
@@ -3239,6 +3240,101 @@ def test_an_open_of_the_blob_that_stays_refused_is_raised_after_a_few_tries(
     with pytest.raises(PermissionError, match="Access is denied"):
         filesystem.cat_file("/f.txt")
 
+    assert refused == [len(network._BLOB_OPEN_PAUSES) + 1]  # noqa: SLF001
+
+
+def _blob_with_sidecar_inputs(tmp_path: Path) -> tuple[Path, os.stat_result]:
+    """Write a cached blob and give the stat of it as the fetch that wrote it saw it."""
+    blob = tmp_path / "blob"
+    blob.write_bytes(b"body")
+    return blob, blob.stat()
+
+
+_LAST_MODIFIED = dt.datetime(2026, 10, 1, 12, 0, tzinfo=dt.UTC)
+
+
+def _refuse_replacing_sidecar(monkeypatch: pytest.MonkeyPatch, sidecar: Path, *, times: int) -> list[int]:
+    """Make the replace onto `sidecar` raise `PermissionError` the first `times` times, as Windows does."""
+    monkeypatch.setattr(network, "_BLOB_OPEN_PAUSES", (0.0,) * 3)
+    replace = os.replace
+    refused = [0]
+
+    def refuse(source: str, destination: str) -> None:
+        if Path(destination) == sidecar and refused[0] < times:
+            refused[0] += 1
+            msg = "[WinError 5] Access is denied"
+            raise PermissionError(msg)
+        replace(source, destination)
+
+    monkeypatch.setattr(network.os, "replace", refuse)
+    return refused
+
+
+def _refuse_reading_sidecar(monkeypatch: pytest.MonkeyPatch, sidecar: Path, *, times: int) -> list[int]:
+    """Make the read of `sidecar` raise `PermissionError` the first `times` times, as Windows does."""
+    monkeypatch.setattr(network, "_BLOB_OPEN_PAUSES", (0.0,) * 3)
+    original = Path.read_text
+    refused = [0]
+
+    def read_text(self: Path, *args: object, **kwargs: object) -> str:
+        if self == sidecar and refused[0] < times:
+            refused[0] += 1
+            msg = "[WinError 5] Access is denied"
+            raise PermissionError(msg)
+        return original(self, *args, **kwargs)  # ty: ignore[invalid-argument-type]
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+    return refused
+
+
+def test_a_replace_of_the_sidecar_that_meets_another_handle_is_asked_again(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Windows refuses the replace onto a sidecar another handle holds open for a moment: the date is kept (GH-3632)."""
+    blob, written = _blob_with_sidecar_inputs(tmp_path)
+    refused = _refuse_replacing_sidecar(monkeypatch, network._sidecar_of(blob), times=2)  # noqa: SLF001
+
+    network._write_sidecar(blob, _LAST_MODIFIED, written)  # noqa: SLF001
+
+    assert refused == [2]
+    assert network._read_sidecar(blob) == _LAST_MODIFIED  # noqa: SLF001
+    assert _stray_files(tmp_path) == [blob.name]
+
+
+def test_a_replace_of_the_sidecar_that_stays_refused_loses_the_date_and_raises_nothing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The write stays best-effort: after the pauses the date is lost, the temporary file is gone (GH-3632)."""
+    blob, written = _blob_with_sidecar_inputs(tmp_path)
+    refused = _refuse_replacing_sidecar(monkeypatch, network._sidecar_of(blob), times=1000)  # noqa: SLF001
+
+    network._write_sidecar(blob, _LAST_MODIFIED, written)  # noqa: SLF001
+
+    assert refused == [len(network._BLOB_OPEN_PAUSES) + 1]  # noqa: SLF001
+    assert network._read_sidecar(blob) is None  # noqa: SLF001
+    assert _stray_files(tmp_path) == [blob.name]
+
+
+def test_a_read_of_the_sidecar_that_meets_a_replace_is_asked_again(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Windows refuses the read of a sidecar being replaced for a moment: the copy still has its record (GH-3632)."""
+    blob, written = _blob_with_sidecar_inputs(tmp_path)
+    network._write_sidecar(blob, _LAST_MODIFIED, written)  # noqa: SLF001
+    refused = _refuse_reading_sidecar(monkeypatch, network._sidecar_of(blob), times=2)  # noqa: SLF001
+
+    assert network._has_sidecar_record(blob)  # noqa: SLF001
+    assert refused == [2]
+    assert network._read_sidecar(blob) == _LAST_MODIFIED  # noqa: SLF001
+
+
+def test_a_read_of_the_sidecar_that_stays_refused_is_no_record(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """After the pauses a sidecar that cannot be read is answered `None`, as it was before (GH-3632)."""
+    blob, written = _blob_with_sidecar_inputs(tmp_path)
+    network._write_sidecar(blob, _LAST_MODIFIED, written)  # noqa: SLF001
+    refused = _refuse_reading_sidecar(monkeypatch, network._sidecar_of(blob), times=1000)  # noqa: SLF001
+
+    assert network._sidecar_record(blob) is None  # noqa: SLF001
     assert refused == [len(network._BLOB_OPEN_PAUSES) + 1]  # noqa: SLF001
 
 

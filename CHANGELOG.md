@@ -88,6 +88,10 @@ Types of changes:
 
 ### Fixed
 
+- On Windows, the `Last-Modified` date a cached file arrived with is no longer lost, and the file no
+  longer fetched once more with `refetch_undated`, when another process is replacing or reading its
+  date file at the same moment: the replace and the read are asked again for under a second
+  (GH-3632)
 - Two processes that share a cache directory no longer fail a download on Windows with
   `PermissionError` when one opens a cached file while the other replaces it: the open is asked
   again for under a second, and a file that stays unreadable still raises (GH-3630)
