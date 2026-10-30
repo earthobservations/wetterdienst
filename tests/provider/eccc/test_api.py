@@ -512,7 +512,9 @@ def test_eccc_monthly_count_and_normal_of_the_mean_carry_the_name_of_the_mean(
 # Rows of RIDGETOWN AUTOMATIC CLIMATE STATION (STN_ID 4679) as climate-monthly answers them (read 2026-10-30), served
 # for the test station: March 1990 has a mean from 12 days, extremes from 12, precipitation from 24 and snowfall from
 # 30 of its 31 days; February is whole. The other months are made up for the rule of the mean temperature: 5 and 6
-# missing days of 30 (April), and the leap day of February 1992 (29 days) with 28 valid.
+# missing days of 30 (April), the leap day of February 1992 (29 days) with 28 valid, a June whose minimum rests on 29
+# days and whose maximum on 30 (the counts of March are 12 for both), and a July with no snowfall at all, null beside a
+# count of 0 as the collection writes it (70 of Ridgetown's 201 months).
 _RIDGETOWN_MONTHLY_ROWS = [
     {
         "LOCAL_DATE": "1990-02",
@@ -544,6 +546,20 @@ _RIDGETOWN_MONTHLY_ROWS = [
     },
     {"LOCAL_DATE": "1990-04", "MEAN_TEMPERATURE": 10.0, "DAYS_WITH_VALID_MEAN_TEMP": 25},
     {"LOCAL_DATE": "1990-05", "MEAN_TEMPERATURE": 13.0, "DAYS_WITH_VALID_MEAN_TEMP": 25},
+    {
+        "LOCAL_DATE": "1990-06",
+        "MAX_TEMPERATURE": 28.0,
+        "DAYS_WITH_VALID_MAX_TEMP": 30,
+        "MIN_TEMPERATURE": 9.5,
+        "DAYS_WITH_VALID_MIN_TEMP": 29,
+    },
+    {
+        "LOCAL_DATE": "1990-07",
+        "MEAN_TEMPERATURE": 21.0,
+        "DAYS_WITH_VALID_MEAN_TEMP": 31,
+        "TOTAL_SNOWFALL": None,
+        "DAYS_WITH_VALID_SNOWFALL": 0,
+    },
     {"LOCAL_DATE": "1992-02", "TOTAL_PRECIPITATION": 12.5, "DAYS_WITH_VALID_PRECIP": 28},
     {"LOCAL_DATE": "1992-03", "TOTAL_PRECIPITATION": 7.5, "DAYS_WITH_VALID_PRECIP": None},
 ]
@@ -603,6 +619,24 @@ def test_eccc_monthly_mean_temperature_is_incomplete_above_five_missing_days_onl
     flags = _monthly_flags(monkeypatch, options_convert_units_false)
     assert flags["temperature_air_mean_minmax_2m", "1990-04"] is None
     assert flags["temperature_air_mean_minmax_2m", "1990-05"] == "I"
+
+
+def test_eccc_monthly_flags_the_extremes_by_their_own_counts(
+    monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
+) -> None:
+    """The maximum rests on its own count of valid days and the minimum on theirs, not on each other's."""
+    flags = _monthly_flags(monkeypatch, options_convert_units_false)
+    assert flags["temperature_air_max_2m", "1990-06"] is None
+    assert flags["temperature_air_min_2m", "1990-06"] == "I"
+
+
+def test_eccc_monthly_does_not_flag_a_value_that_is_null(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A snowfall that is null beside a count of 0 is no incomplete value, however the rows are shaped (GH-3621)."""
+    flags = _monthly_flags(monkeypatch, Options(convert_units=False, drop_nulls=False))
+    assert flags["snow_depth_new", "1990-07"] is None
+    # the month's other value, with its count whole, and the March snowfall, with a value, are as before
+    assert flags["temperature_air_mean_minmax_2m", "1990-07"] is None
+    assert flags["snow_depth_new", "1990-03"] == "I"
 
 
 def test_eccc_monthly_counts_the_days_of_the_month_it_is_in(
@@ -1507,7 +1541,10 @@ def test_eccc_hourly_wind_direction_of_0_is_a_calm_and_null_and_36_is_north(monk
 def test_eccc_monthly_has_no_flags_and_so_null_quality_flags(
     monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
 ) -> None:
-    """Test that monthly rows, which ECCC publishes without flags, come back with null `quality_flags`."""
+    """Test that a monthly row without a count of valid days has null `quality_flags`, ECCC publishing no flags.
+
+    The `I` of an incomplete month is derived from the counts and needs one; a row that has none carries nothing.
+    """
     _serve_eccc(monkeypatch, [{"LOCAL_DATE": "2025-01", "MEAN_TEMPERATURE": -5.4}])
     request = EcccObservationRequest(
         parameters=[("monthly", "data", "temperature_air_mean_minmax_2m")],

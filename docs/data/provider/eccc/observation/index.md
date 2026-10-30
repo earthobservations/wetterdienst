@@ -29,22 +29,27 @@ ECCC's archive flags a monthly value `I` when the month has missing days ([Techn
 Documentation](https://climate.weather.gc.ca/doc/Technical_Documentation.pdf), Notes 25 and 26: for the
 extreme temperatures and the totals of rain, snow and precipitation one or more missing daily values,
 for the mean temperatures more than 3 consecutive or more than 5 missing in total, beginning in 1994).
-The `climate-monthly` collection publishes the value without the flag, so the library derives it, as the
-plain `I` in `quality_flags`, from the days of the month and the `count_days_valid_*` of the value:
+The `climate-monthly` collection publishes the value without the flag, so the library applies that rule
+to the collection's own counts of valid days: the plain `I` in `quality_flags` is derived from the days of
+the month and the `count_days_valid_*` of the value, not read from the archive. It does not reproduce the
+archive's flags where the collection and the archive differ (at Ridgetown the archive flags 1997-11 to
+1999-11, where the collection counts every day valid).
 
 - `temperature_air_max_2m`, `temperature_air_min_2m`, `precipitation_amount` and `snow_depth_new`: `I` when
   any day of the month is not valid.
 - `temperature_air_mean_minmax_2m`: `I` when more than 5 days are not valid. The "more than 3 consecutive"
   half of Note 26 needs the run of missing days, which the collection does not give, so a month of 4 or 5
   missing days in a row is not flagged here, where the archive flags it: the flag under-flags the mean.
-- A value whose count of valid days is null is not flagged, and neither are the sunshine, the degree days,
-  the counts and the normals, which no note names.
+- A value that is null, or whose count of valid days is null, is not flagged (a count of 0 beside no value
+  is no incomplete value), and neither are the sunshine, the degree days, the counts and the normals, which
+  no note names.
 
 Which collection field is which element is our reading, not ECCC's statement: `MAX_TEMPERATURE` and
 `MIN_TEMPERATURE` are the extremes of the month (elements 044 and 046), `TOTAL_PRECIPITATION` and
 `TOTAL_SNOWFALL` are elements 050 and 049, `MEAN_TEMPERATURE` is 042. The flag is derived for every month,
-also before 1994, where the archive set none: there it is ours and not the archive's. Ridgetown
-(`4679`) 1990-03, a mean temperature from 12 days, is such a month.
+also before 1994, where the archive set no `I`: there it is ours and not the archive's. Ridgetown (`4679`)
+1990-03 has a mean temperature from 12 days (the archive publishes no mean or extremes for it and writes
+`M`); the collection gives the values and counts them, and the derived flag marks them.
 
 ```{toctree}
 :hidden:

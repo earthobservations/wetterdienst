@@ -59,18 +59,21 @@ _WIND_SPEED_OF_DIRECTION = {"wind_direction": "wind_speed", "direction_max_gust"
 
 # ECCC's archive flags a monthly value ``I`` ("incomplete") when the month had missing days: Technical Documentation
 # (https://climate.weather.gc.ca/doc/Technical_Documentation.pdf, modified 2023-01-16), Notes 25 and 26, "Beginning in
-# 1994". Note 25 (elements 044 extreme maximum temperature, 046 extreme minimum temperature, 048 to 050 total rainfall,
-# snowfall and precipitation, among others): "one or more missing daily values". Note 26 (040 to 042, the mean
-# temperatures): "more than 3 consecutive missing daily values or more than 5 missing daily values in total". The
+# 1994". Note 25 (elements 044 extreme maximum temperature, 046 extreme minimum temperature, 048 to 050 total
+# rainfall, snowfall and precipitation, among others): "one or more missing daily values". Note 26 (040 to 042, the
+# mean temperatures): "more than 3 consecutive missing daily values or more than 5 missing daily values in total". The
 # `climate-monthly` collection publishes the value without that flag, but with the number of days each value rests on
-# (`DAYS_WITH_VALID_*`), so the flag is derived from the days of the month: the days that are not valid are the missing
-# days. The collection does not say which element a field is, which is read from the values: `MAX_TEMPERATURE` and
-# `MIN_TEMPERATURE` are the extremes of the month (044 and 046: 22 and -12 degrees in March 1990 at Ridgetown, beside a
-# mean of 0.6), `TOTAL_PRECIPITATION` and `TOTAL_SNOWFALL` are 050 and 049, `MEAN_TEMPERATURE` is 042 (GH-3621). That is
-# ours and not the archive's mapping, and so is the flag of a month before 1994, which the archive did not flag. The
-# run of consecutive missing days of Note 26 is not published, so a mean temperature is flagged for more than 5 missing
-# days only: a month with 4 or 5 missing days, 4 of them in a row, is not flagged, where the archive flags it. Fields
-# that no note names (sunshine, degree days, the counts of days, the snow on the ground) are not flagged.
+# (`DAYS_WITH_VALID_*`), so the flag follows the archive's rule, applied to those counts: the days of the month that
+# are not valid are the missing days. It does not reproduce the archive's own flags: the collection's counts and
+# values differ from the archive's where it flags (1997-11 to 1999-11 at Ridgetown, where the collection counts every
+# day valid), and the archive wrote `E` for 1993-12. The collection does not say which element a field is, which is
+# read from the values: `MAX_TEMPERATURE` and `MIN_TEMPERATURE` are the extremes of the month (044 and 046: 22 and -12
+# degrees in March 1990 at Ridgetown, beside a mean of 0.6), `TOTAL_PRECIPITATION` and `TOTAL_SNOWFALL` are 050 and
+# 049, `MEAN_TEMPERATURE` is 042 (GH-3621). That is ours and not the archive's mapping, and so is the flag of a month
+# before 1994, where the archive set no `I`. The run of consecutive missing days of Note 26 is not published, so a
+# mean temperature is flagged for more than 5 missing days only: a month with 4 or 5 missing days, 4 of them in a row,
+# is not flagged, where the archive flags it. Fields that no note names (sunshine, degree days, the counts of days,
+# the snow on the ground) are not flagged, and neither is a value that is null (a count of 0 beside no value).
 #: Per monthly field the count of valid days it rests on, and the number of missing days it allows without the flag.
 _MONTHLY_VALID_DAYS: dict[str, tuple[str, int]] = {
     "max_temperature": ("days_with_valid_max_temp", 0),
@@ -79,7 +82,7 @@ _MONTHLY_VALID_DAYS: dict[str, tuple[str, int]] = {
     "total_snowfall": ("days_with_valid_snowfall", 0),
     "mean_temperature": ("days_with_valid_mean_temp", 5),
 }
-#: The flag of an incomplete month, as the archive writes it.
+#: The flag of an incomplete month, the letter the archive writes for it.
 _INCOMPLETE = "I"
 
 
@@ -87,12 +90,15 @@ def _flag_incomplete_months(df: pl.LazyFrame) -> pl.LazyFrame:
     """Add the ``<field>_flag`` column of the monthly fields whose month has more missing days than they allow.
 
     The days of the month come from ``date`` ("2023-06"). A field whose count of valid days is null is not flagged: the
-    collection does not say how many days it rests on.
+    collection does not say how many days it rests on. Neither is a value that is null, whose count is 0 for the month
+    that has no value at all (Ridgetown's snowfall of 70 of 201 months): no value is no incomplete value.
     """
     names = df.collect_schema().names()
     days_in_month = (pl.col("date") + "-01").str.to_date("%Y-%m-%d").dt.month_end().dt.day()
     return df.with_columns(
-        pl.when(days_in_month - pl.col(valid) > allowed).then(pl.lit(_INCOMPLETE)).alias(f"{field}_flag")
+        pl.when((days_in_month - pl.col(valid) > allowed) & pl.col(field).is_not_null())
+        .then(pl.lit(_INCOMPLETE))
+        .alias(f"{field}_flag")
         for field, (valid, allowed) in _MONTHLY_VALID_DAYS.items()
         if field in names and valid in names
     )

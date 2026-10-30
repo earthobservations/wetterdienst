@@ -255,8 +255,18 @@ NOT_HELD: dict[str, str] = {
 
 # the datasets of a network that is held that are not: `<network> <resolution>/<dataset>` and the reason
 NOT_HELD_DATASETS: dict[str, str] = {
-    "chmi/observation 10_minutes/data": "one file for each element, station and month under a directory for each year",
-    "chmi/observation hourly/data": "one file for each element, station and month under a directory for each year",
+    "chmi/observation 10_minutes/data": (
+        "one file for each element, station and month under a directory for each year; the list is cut by the end "
+        "of the period (2018) and the daily files, so it holds stations that have none here; "
+        "`test_chmi_observation_sub_daily_stations_with_files_are_listed` holds that the stations with a file in the "
+        "first and the latest year of each category are listed (GH-3623)"
+    ),
+    "chmi/observation hourly/data": (
+        "one file for each element, station and month under a directory for each year; the list is cut by the end "
+        "of the period (2018) and the daily files, so it holds stations that have none here; "
+        "`test_chmi_observation_sub_daily_stations_with_files_are_listed` holds that the stations with a file in the "
+        "first and the latest year of each category are listed (GH-3623)"
+    ),
     "dwd/derived monthly/heating_degreedays": "one file for each month holds every station",
     "dwd/derived monthly/cooling_degreehours_13": "one file for each month holds every station",
     "dwd/derived monthly/cooling_degreehours_16": "one file for each month holds every station",

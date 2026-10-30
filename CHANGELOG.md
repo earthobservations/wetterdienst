@@ -88,14 +88,26 @@ Types of changes:
 
 ### Fixed
 
-- `eccc/observation` monthly values carry `I` in `quality_flags` for a month with missing days, as
-  the archive flags it (Technical Documentation, Notes 25 and 26), derived from the days of the
-  month and `count_days_valid_*`: any missing day for the extremes, precipitation and snowfall,
-  more than 5 for the mean temperature (the "3 in a row" half is not published, so the mean is
-  under-flagged). It is set for months before 1994 too, which the archive did not flag (GH-3621)
+- `eccc/observation` monthly values carry `I` in `quality_flags` for a month with missing days,
+  following the archive's rule (Technical Documentation, Notes 25 and 26) applied to the
+  collection's counts `count_days_valid_*`: any missing day for the extremes, precipitation and
+  snowfall, more than 5 for the mean temperature (the "3 in a row" half is not published, so the
+  mean is under-flagged). It is derived, not ECCC's own flag, and set for months before 1994 too
+  (GH-3621)
 - `dmi/observation` reads DMI's -0.1 in `precipitation_amount` (and the maxima of a day or 30
   minutes) as a trace of precipitation: 0.0 with `raw:-0.1` in `quality_flags`, where it was
   null as out of range, as the trace of KNMI, AEMET and `meteofrance/synop` is (GH-3621)
+- The `eccc/observation` hourly dataset no longer claims a wind gust and weather: it holds air
+  temperature, dew point, humidity, precipitation, station pressure, visibility, wind direction
+  and speed, wind chill and humidex. Its parameter descriptions now say what ECCC's glossary and
+  technical documentation say (the climatological day, the degree-day base of 18 °C, the
+  gust published above 30 km/h only, the humidex and wind chill ranges) (GH-3136)
+- `chmi/observation` lists, for `10_minutes` and `hourly`, only the stations that can have files
+  there: 767 of the 1,603 (read 2026-10-30), those whose period ends in 2018 or later, when these
+  files begin, and that have a daily file. The 836 left out answered every request with an empty
+  frame (795 closed before 2018, 41 more with no daily file); no station with a 10 minute or hourly
+  file is among them. `daily`, `monthly` and `annual` are unchanged. The daily directories are
+  read for a sub-daily stations request now (GH-3623)
 - Two processes that share a cache directory no longer fail a download on Windows with
   `PermissionError` when one opens a cached file while the other replaces it: the open is asked
   again for under a second, and a file that stays unreadable still raises (GH-3630)
