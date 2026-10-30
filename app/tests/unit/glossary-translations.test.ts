@@ -160,3 +160,105 @@ describe.each(records)('%s', (record) => {
     }
   })
 })
+
+// What the labels say, beyond that they exist and are not copied (GH-2610). Each of these found a defect
+// in a glossary that had passed every check above: the statistic that was dropped ("Windstoot" for the
+// maximum gust), a variant that lost the words of its base ("Température maximale sous sol nu" among
+// "Température maximale du sol sous gazon"), a unit that was spelt out, a plain space before a colon.
+describe('what a label says', () => {
+  // The word each locale uses for the statistic an English label opens with: "Maximum ...", "Mean ...",
+  // "Minimum ...", "Highest ...", "Greatest ...", "Strongest ...". A label that does not contain one
+  // has dropped it, and a maximum then reads as an instantaneous value. Stems, not words, so that the
+  // inflections of a language (pl, cs, lb) are met; a locale that needs another stem adds it here.
+  const STATISTIC: Record<string, Record<'max' | 'min' | 'mean', RegExp>> = {
+    'de': { max: /höchst|maximal|größt|spitzen|stärkst/i, min: /tiefst|niedrigst|minimal|kleinst/i, mean: /mittler|mittel|durchschnitt|arithmetisch/i },
+    'de-hh': { max: /hööch|maximal|gröttst|spitzen|starkst/i, min: /sietst|minimal|kleinst/i, mean: /middl|mittel|arithmet/i },
+    'fr': { max: /maxim|plus fort|plus élev/i, min: /minim|plus faible/i, mean: /moyen/i },
+    'es': { max: /máxim|mayor|más fuerte/i, min: /mínim|menor/i, mean: /medi[ao]/i },
+    'it': { max: /massim|più forte/i, min: /minim/i, mean: /medi[ao]/i },
+    'pl': { max: /maksym|najwyższ|największ|najsilniejsz/i, min: /minim|najniższ|najmniejsz/i, mean: /średni|arytmetyczn/i },
+    'nl': { max: /maxim|hoogste|grootste|sterkste/i, min: /minim|laagste|kleinste/i, mean: /gemiddeld|rekenkundig/i },
+    'cs': { max: /maxim|nejvyšší|největší|nejsilnější/i, min: /minim|nejnižší|nejmenší/i, mean: /průměr/i },
+    'da': { max: /maks|højeste|største|kraftigste/i, min: /minim|laveste|mindste/i, mean: /gennemsnit|middel/i },
+    'lb': { max: /maxim|héchst|gréisst|stäerkst/i, min: /minim|niddregst|klengst/i, mean: /mëttel|mëttler|arithmet/i },
+  }
+  const OPENS: Array<['max' | 'min' | 'mean', RegExp]> = [
+    ['max', /^(Maximum|Highest|Greatest|Strongest)\b/],
+    ['min', /^(Minimum|Lowest)\b/],
+    ['mean', /^(Mean|Average)\b/],
+  ]
+
+  it('has a statistic word for every locale', () => {
+    expect(Object.keys(STATISTIC).sort()).toEqual(others)
+  })
+
+  it.each(Object.keys(STATISTIC))('keeps the maximum, the minimum and the mean of the English label in %s', (locale) => {
+    const lost: string[] = []
+    for (const [id, english] of Object.entries(glossaries.en!.parameters)) {
+      for (const [statistic, opens] of OPENS) {
+        const label = glossaries[locale]!.parameters[id] ?? ''
+        if (opens.test(english) && !STATISTIC[locale]![statistic].test(label))
+          lost.push(`${id}: ${english} -> ${label}`)
+      }
+    }
+    expect(lost, `${locale} labels that dropped the statistic`).toEqual([])
+  })
+
+  it.each(others)('translates one English label one way in %s', (locale) => {
+    // "Soil temperature (2 m)" is two ids; a reader of the language sees one measurement
+    const split: string[] = []
+    for (const record of records) {
+      const byEnglish = new Map<string, Set<string>>()
+      for (const [id, english] of Object.entries(glossaries.en![record]))
+        byEnglish.set(english, (byEnglish.get(english) ?? new Set()).add(glossaries[locale]![record][id] ?? ''))
+      for (const [english, labels] of byEnglish) {
+        if (labels.size > 1)
+          split.push(`${record} "${english}" -> ${[...labels].join(' / ')}`)
+      }
+    }
+    expect(split).toEqual([])
+  })
+
+  it.each(others)('writes an hour as the locale\'s symbol after a number in %s', (locale) => {
+    // "(3 h)" is "(3 u)" in Dutch and "(3 t)" in Danish, as the labels around it have it, and never
+    // "(3 uur)" or "(3 timer)" in one label and "(12 u)" in the next
+    const symbol = ({ nl: 'u', da: 't' } as Record<string, string>)[locale] ?? 'h'
+    const wrong: string[] = []
+    for (const [id, english] of Object.entries(glossaries.en!.parameters)) {
+      if (!/\d h\)/.test(english))
+        continue
+      const label = glossaries[locale]!.parameters[id] ?? ''
+      if (!new RegExp(`\\d ${symbol}\\)`).test(label))
+        wrong.push(`${id}: ${english} -> ${label}`)
+    }
+    expect(wrong).toEqual([])
+  })
+
+  it.each(others)('keeps the words of the measurement in a soil temperature of a cover or a texture in %s', (locale) => {
+    // "Maximum soil temperature (10 cm)" and "Maximum soil temperature under grass (5 cm)" read as one
+    // family: the second opens with the words of the first
+    const parameters = glossaries[locale]!.parameters
+    const stem = (id: string) => (parameters[id] ?? '').replace(/ \(.*$/, '')
+    const bases: Array<[RegExp, string]> = [
+      [/^temperature_soil_max_[a-z_]+_\d/, 'temperature_soil_max_0_1m'],
+      [/^temperature_soil_min_[a-z_]+_\d/, 'temperature_soil_min_0_1m'],
+      [/^temperature_soil_mean_(loamy_sand|loamy_silt)_/, 'temperature_soil_mean_0_05m'],
+    ]
+    const drifted: string[] = []
+    for (const id of Object.keys(parameters)) {
+      for (const [pattern, base] of bases) {
+        if (pattern.test(id) && !(parameters[id] ?? '').startsWith(stem(base)))
+          drifted.push(`${id}: ${parameters[id]} (does not open with "${stem(base)}")`)
+      }
+    }
+    expect(drifted).toEqual([])
+  })
+
+  it('sets a French colon with a no-break space', () => {
+    // the French rule of TERMS.md ("a no-break space before : ; ? !"), which the glossary's
+    // "Déclarants annuels : Maïs" followed in no label
+    const loose = records.flatMap(record =>
+      Object.entries(glossaries.fr![record]).filter(([, label]) => / [:;?!]/.test(label)).map(([id, label]) => `${record} ${id}: ${label}`))
+    expect(loose).toEqual([])
+  })
+})
