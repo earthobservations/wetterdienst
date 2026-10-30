@@ -97,6 +97,12 @@ Types of changes:
 - `dmi/observation` reads DMI's -0.1 in `precipitation_amount` (and the maxima of a day or 30
   minutes) as a trace of precipitation: 0.0 with `raw:-0.1` in `quality_flags`, where it was
   null as out of range, as the trace of KNMI, AEMET and `meteofrance/synop` is (GH-3621)
+- The `noaa/ghcn` parameter descriptions no longer offer a choice of units. 30 daily rows read
+  "mm or inches as per user preference" or "Fahrenheit or Celsius", the wording of NCEI's
+  ordering form; the files hold one unit, which the values already came in (mm, °C, m/s, km,
+  cm), and the descriptions now say so. The hourly `relative_humidity` no longer says it is
+  always calculated from air temperature and dew point (GHCNh: "Depending on the source,
+  relative humidity is either measured directly or calculated") (GH-3136)
 - The `eccc/observation` hourly dataset no longer claims a wind gust and weather: it holds air
   temperature, dew point, humidity, precipitation, station pressure, visibility, wind direction
   and speed, wind chill and humidex. Its parameter descriptions now say what ECCC's glossary and
