@@ -770,6 +770,7 @@
   "tests/provider/imgw/meteorology/test_api.py::test_imgw_meteorology_station_list_gives_no_region": [["ImgwMeteorologyRequest", "1ac47b2e", 3, "4c1b36cf710fa8b9"]],
   "tests/provider/imgw/meteorology/test_api.py::test_imgw_meteorology_station_list_reads_the_elevation_as_a_number_and_what_is_none_as_null": [["ImgwMeteorologyRequest", "1ac47b2e", 2, "babce8e6a5cee3e9"]],
   "tests/provider/imgw/meteorology/test_api.py::test_imgw_meteorology_station_list_returns_every_row": [["ImgwMeteorologyRequest", "1ac47b2e", 2, "a8497bf11f91aa27"], ["ImgwMeteorologyRequest", "1ac47b2e", 2, "a8497bf11f91aa27"]],
+  "tests/provider/imgw/meteorology/test_api.py::test_imgw_meteorology_station_list_trims_the_river_and_gives_none_as_null": [["ImgwMeteorologyRequest", "1ac47b2e", 3, "7f67d59a6f34ef9e"]],
   "tests/provider/ipma/observation/test_api.py::test_ipma_observation_a_text_or_nan_value_is_null_and_the_station_kept": [["IpmaObservationRequest", "61767a67", 1, "57b0419dccdc95d0"]],
   "tests/provider/ipma/observation/test_api.py::test_ipma_observation_stations_have_a_position_and_no_period_or_elevation": [["IpmaObservationRequest", "61767a67", 1, "80becc6ad5819eed"]],
   "tests/provider/ipma/observation/test_api.py::test_ipma_observation_stations_of_a_catalogue_without_a_feature_are_the_empty_frame[\"nothing\"]": [["IpmaObservationRequest", "61767a67", 0, "e3b0c44298fc1c14"]],
