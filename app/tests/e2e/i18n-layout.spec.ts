@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
+import { mockBackend } from './accessibility/mock-backend'
 
 // Text that does not fit in the languages whose words run long (GH-2610): German, Dutch,
 // Luxembourgish and Czech. A string longer than its button, tab or table header either pushes the
@@ -71,4 +72,32 @@ LONG_LANGUAGES.forEach((language) => {
       })
     }
   })
+})
+
+// The forecast in each of its views, with the view control and, in the table, its header: the control's
+// labels and the table's headers are the longest texts on the page. The backend is the accessibility
+// spec's, answered in the browser.
+const METEOGRAM_VIEWS = [
+  { view: 'chart', ready: '.js-plotly-plot .main-svg' },
+  { view: 'compact', ready: '[role="radio"][aria-checked="true"]' },
+  { view: 'table', ready: 'table' },
+] as const
+
+LONG_LANGUAGES.forEach((language) => {
+  for (const { view, ready } of METEOGRAM_VIEWS) {
+    test(`the forecast's ${view} view in ${language} fits at ${VIEWPORTS.map(viewport => `${viewport.width}px`).join(' and ')}`, async ({ page, context, baseURL }) => {
+      await mockBackend(page, baseURL!)
+      await context.addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
+      await page.setViewportSize({ width: VIEWPORTS[0]!.width, height: VIEWPORTS[0]!.height })
+      await page.goto(`/meteogram?station=01001&view=${view}`)
+      await expect(page.locator(ready).first()).toBeVisible({ timeout: 30_000 })
+      await expect(page.getByRole('radiogroup')).toBeVisible()
+
+      for (const viewport of VIEWPORTS) {
+        await page.setViewportSize({ width: viewport.width, height: viewport.height })
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+        expect(await offendersOf(page), `the ${view} view in ${language} on a ${viewport.name} (${viewport.width}px)`).toEqual([])
+      }
+    })
+  }
 })
