@@ -82,6 +82,10 @@ Types of changes:
 
 ### Fixed
 
+- `chmi/observation` no longer lists the two stations abroad of CHMI's catalogue, Reykjavik
+  (`0-20000-0-04030`) and Marambio Base (`0-20000-0-89055`), in the `10_minutes` and `hourly`
+  station lists: the portal has no file for them in any resolution, so they never had a value
+  (GH-3589)
 - The row-limit refusal and the 504 timeout of `interpolate` and `summarize` (REST and the MCP
   tools) no longer advise fewer stations, which a point request does not name, nor
   `format=ndjson` or `format=csv`: they say to ask for a shorter `timestamp` window or fewer
