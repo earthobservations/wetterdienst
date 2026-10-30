@@ -223,6 +223,14 @@ Types of changes:
   with a value was taken of the rows left, always all of them, so nothing was skipped. A request
   with a window and a fixed interval is unchanged (GH-3578)
 
+### Security
+
+- `uv.lock` pins `joserfc` 1.7.7 (was 1.7.5), which closes GHSA-9pg5-8c7x-5hfx (CVE-2026-119284,
+  fixed in 1.7.6) and the `vulnerable` check that failed on it. It comes in only through the `mcp`
+  extra (`fastmcp`, `authlib`), and wetterdienst neither imports it nor serves an authenticated
+  MCP endpoint, so its own code did not reach the affected path; a source install with the extra
+  and the Docker image (built from the lock) now carry the fixed version (GH-3653)
+
 ## [0.178.0] - 2026-10-28
 
 ### Security
