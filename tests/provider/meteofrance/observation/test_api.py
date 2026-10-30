@@ -1365,3 +1365,129 @@ def test_meteofrance_observation_api_an_outage_of_the_file_host_serves_the_copy_
     assert recovered[0] == [22.5]
     assert recovered[1] is not None
     assert recovered[1] > made
+
+
+# the departments without frost (GH-3135): a temperature below 0 C is no reading there. Each case is a row of the
+# source's file as it writes it (the Martinique, Guyane and Guadeloupe ones are real; Mayotte holds none, so the
+# 98508001 one is made up), with the period file it is in, the parameter that reads it, the window that holds it, and
+# the text it keeps
+_FROSTLESS = [
+    pytest.param(
+        "hourly",
+        "core",
+        "temperature_air_2m",
+        "972",
+        "HOR_departement_972_periode_2020-2024",
+        "97212007",
+        {"AAAAMMJJHH": "2021051012", "T": "-20.0", "QT": "9"},
+        (_utc(2021, 5, 10), _utc(2021, 5, 11)),
+        "-20.0",
+        id="972 hourly T -20.0 (GROS-MORNE BOISLEZ, 441 m)",
+    ),
+    pytest.param(
+        "hourly",
+        "others",
+        "temperature_dew_point_2m",
+        "973",
+        "HOR_departement_973_periode_2020-2024",
+        "97353001",
+        {"AAAAMMJJHH": "2022122914", "TD": "-23.8", "QTD": "9"},
+        (_utc(2022, 12, 29), _utc(2022, 12, 30)),
+        "-23.8",
+        id="973 hourly TD -23.8 (MARIPASOULA, 106 m)",
+    ),
+    pytest.param(
+        "daily",
+        "core",
+        "temperature_air_mean_2m",
+        "971",
+        "QUOT_departement_971_periode_1950-2024_RR-T-Vent",
+        "97127004",
+        {"AAAAMMJJ": "20081129", "TM": "-10.9", "QTM": "9"},
+        (_utc(2008, 11, 29), _utc(2008, 11, 30)),
+        "-10.9",
+        id="971 daily TM -10.9 (ST-MARTIN GRAND-CASE, 5 m)",
+    ),
+    pytest.param(
+        "monthly",
+        "data",
+        "temperature_air_mean_2m",
+        "972",
+        "MENS_departement_972_periode_1950-2024",
+        "97218013",
+        {"AAAAMM": "200106", "TMM": "-11.5", "QTMM": "1"},
+        (_utc(2001, 6, 1), _utc(2001, 7, 1)),
+        "-11.5",
+        id="972 monthly TMM -11.5 (MORNE-ROUGE CHAMDST, 474 m)",
+    ),
+    pytest.param(
+        "daily",
+        "core",
+        "temperature_air_min_2m",
+        "985",
+        "QUOT_departement_985_periode_1950-2024_RR-T-Vent",
+        "98508001",
+        {"AAAAMMJJ": "20240101", "TN": "-1.0", "QTN": "1"},
+        (_utc(2024, 1, 1), _utc(2024, 1, 2)),
+        "-1.0",
+        id="985 (Mayotte) daily TN -1.0, made up",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("resolution", "dataset", "parameter", "department", "title", "station", "row", "window", "text"), _FROSTLESS
+)
+def test_meteofrance_observation_api_a_temperature_below_zero_is_null_where_there_is_no_frost(
+    monkeypatch: pytest.MonkeyPatch,
+    resolution: str,
+    dataset: str,
+    parameter: str,
+    department: str,
+    title: str,
+    station: str,
+    row: dict[str, str],
+    window: tuple[datetime, datetime],
+    text: str,
+) -> None:
+    """Test that a temperature below 0 C in Guadeloupe, Martinique, Guyane and Mayotte is null with its text."""
+    assert station.startswith(department)
+    files = {title: _climate_gz(resolution, dataset, [{"NUM_POSTE": station, **row}])}
+    _serve_climate(monkeypatch, files)
+    df = _values(resolution, dataset, parameter, station, *window, drop_nulls=False)
+    assert df.get_column("value").to_list() == [None]
+    assert df.get_column("quality_flags").to_list()[0].endswith(f"raw:{text}")
+
+
+@pytest.mark.parametrize(
+    ("department", "station", "value", "kept"),
+    [
+        # La Reunion has frost at altitude: PLAINE DES CHICOTS (97411170, 1,834 m) read -2.3 C in 2020-08-11 02 h FU
+        ("974", "97411170", "-2.3", True),
+        # Saint-Pierre-et-Miquelon, at 47 degrees north, and a station of the mainland
+        ("975", "97502001", "-5.0", True),
+        ("07", "07005001", "-5.0", True),
+        # 0 C is no reading below it, and a warm one is none either
+        ("971", "97127004", "0.0", True),
+        ("971", "97127004", "25.4", True),
+        ("972", "97212007", "-0.1", False),
+    ],
+)
+def test_meteofrance_observation_api_a_temperature_below_zero_is_null_only_where_there_is_no_frost(
+    monkeypatch: pytest.MonkeyPatch,
+    department: str,
+    station: str,
+    value: str,
+    kept: bool,  # noqa: FBT001
+) -> None:
+    """Test that the rule leaves La Reunion, Saint-Pierre and the mainland alone, and 0 C and warmer stay (GH-3135).
+
+    The reading of La Reunion is that of PLAINE DES CHICOTS; -0.1 C in Martinique is the nearest below the edge.
+    """
+    title = f"HOR_departement_{department}_periode_2020-2024"
+    row = {"NUM_POSTE": station, "AAAAMMJJHH": "2020081102", "T": value, "QT": "1"}
+    _serve_climate(monkeypatch, {title: _climate_gz("hourly", "core", [row])})
+    df = _values(
+        "hourly", "core", "temperature_air_2m", station, _utc(2020, 8, 10), _utc(2020, 8, 12), drop_nulls=False
+    )
+    assert df.get_column("value").to_list() == [float(value) if kept else None]

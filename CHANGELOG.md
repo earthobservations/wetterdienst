@@ -83,14 +83,20 @@ Types of changes:
 ### Fixed
 
 - A reading no sensor can have produced is now null, with the number the file wrote kept as
-  `raw:` in `quality_flags`, in two providers. `dwd/observation`: a wind speed below 0 or above 115 m/s in
-  every wind column (`hourly/urban_wind` read -0.80 m/s at Berlin-Alexanderplatz, 2017-06-07
-  00:00 UTC, between 8.3 and 15.2 m/s) and a station or sea level pressure outside 500 to
-  1090 hPa (the `P0` of `hourly/pressure` read 1093.3, 1098.2 and 1099.3 hPa at 00433 and 03032,
-  1991 to 1995). `meteofrance/synop`: `pres` outside 500 to 1100 hPa, `pmer` outside 850 to
-  1100 hPa, the temperatures and dew point outside -90 to 60 C, `rr1` outside 0 to 600 mm,
-  `rr3`, `rr6` and `rr12` outside 0 to 1200 mm and `rr24` outside 0 to 2000 mm (20 rows of
-  `pres`, 20 of `t` and one `rr1` of 800 mm in the files of 1996 to 2015) (GH-3135)
+  `raw:` in `quality_flags`. `dwd/observation`: a wind speed below 0 or above 115 m/s (the hourly
+  urban wind read -0.80 m/s at Berlin-Alexanderplatz) and a pressure outside 500 to 1090 hPa in
+  `pressure_air_site`, `pressure_air_site_mean` (daily `PM`) and `pressure_air_sea_level` (the
+  hourly `P0` read 1093.3 hPa at 00433); the vapour pressures are not bound. `meteofrance/synop`:
+  `pres` outside 500 to 1100 hPa (31 rows of 108.6 to 420.6 hPa in the files of 1996, 2000, 2005,
+  2010 and 2015), `pmer` outside 850 to 1100 hPa, temperatures and dew point outside -90 to
+  60 C, `rr1` outside 0 to 600 mm, `rr3`, `rr6`, `rr12` outside 0 to 1200 mm, `rr24` outside
+  0 to 2000 mm (GH-3135)
+- `meteofrance/observation` and `meteofrance/synop`: a temperature below 0 C (air at 2 m, its
+  extremes, the dew point) at a station of Guadeloupe (971, Saint-Martin and Saint-Barthelemy
+  included), Martinique (972), Guyane (973) or Mayotte (985) is null, with the number kept as
+  `raw:`: there is no frost there, and the files hold -20.0 C at 441 m in Martinique and -10.9 C
+  at 5 m in Guadeloupe. Synop names the stations (78890, 78894, 78897, 78922, 78925, 81401,
+  81405, 81408, 81415, 67005). La Reunion (974) and Saint-Pierre-et-Miquelon are not (GH-3135)
 - `chmi/observation` no longer lists the two stations abroad of CHMI's catalogue, Reykjavik
   (`0-20000-0-04030`) and Marambio Base (`0-20000-0-89055`), in the `10_minutes` and `hourly`
   station lists: the portal has no file for them in any resolution, so they never had a value

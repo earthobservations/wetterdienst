@@ -477,16 +477,20 @@ def _dwd_hourly_urban_wind_below_zero(monkeypatch: pytest.MonkeyPatch, drop_null
 
 
 def _dwd_hourly_pressure_typo(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
-    # stundenwerte_P0_00433_19490101_20251231_hist.zip, read 2026-10-30: P0 reads 1093.3 hPa at 1994-03-18 00:00 beside
-    # a P of 1009.4 (QN 1), where the station pressure of Berlin-Tempelhof (48 m) is a few hPa below the one reduced
-    # to sea level; 1093.3 is above the highest sea level pressure ever measured, 1084.8 hPa. Station 03032 reads
-    # 1098.2 (1991-06-21 18:00, P 1012.4) and 1099.3 (1995-11-15 13:00, P 996.6) the same way: three one-digit typos
-    # in the 1.09 million rows of the two historical files (GH-3135). The other rows are made up
+    # lines 337312 to 337316 of produkt_p0_stunde_19490101_20251231_00433.txt in
+    # stundenwerte_P0_00433_19490101_20251231_hist.zip, read 2026-10-30, as the file writes them: P0 reads 1093.3 hPa at
+    # 1994-03-18 00:00 beside a P of 1009.4 (QN 1), where the station pressure of Berlin-Tempelhof (48 m) is a few
+    # hPa below the one reduced to sea level, as the hours around it show; 1093.3 is above the highest sea level
+    # pressure ever measured, 1084.8 hPa. Station 03032 reads 1098.2 (1991-06-21 18:00, P 1012.4) and 1099.3
+    # (1995-11-15 13:00, P 996.6) the same way: three one-digit typos in the 1.09 million rows of the two
+    # historical series (GH-3135)
     product = (
-        "STATIONS_ID;MESS_DATUM;QN_8;       P;      P0;eor\n"
-        "       433;1994031723;    1;  1009.8;  1003.9;eor\n"
-        "       433;1994031800;    1;  1009.4;  1093.3;eor\n"
-        "       433;1994031801;    1;  1009.1;  1003.1;eor\n"
+        "STATIONS_ID;MESS_DATUM;QN_8;   P;  P0;eor\n"
+        "        433;1994031722;    1; 1008.2; 1002.1;eor\n"
+        "        433;1994031723;    1; 1008.4; 1002.3;eor\n"
+        "        433;1994031800;    1; 1009.4; 1093.3;eor\n"
+        "        433;1994031801;    1; 1010.0; 1003.9;eor\n"
+        "        433;1994031802;    1; 1010.5; 1004.4;eor\n"
     )
     return _dwd_observation(monkeypatch, "hourly", "pressure", product, "00433", year=1994, drop_nulls=drop_nulls)
 
@@ -756,6 +760,75 @@ def _meteofrance_observation_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: 
     return stations_result(request, "daily", "core", "07005001").values().all().df
 
 
+def _meteofrance_observation_hourly_martinique(
+    monkeypatch: pytest.MonkeyPatch,
+    drop_nulls: bool = True,  # noqa: FBT001, FBT002
+) -> pl.DataFrame:
+    # HOR_departement_972_periode_2020-2024 of data.gouv.fr, read 2026-10-30, the rows of GROS-MORNE BOISLEZ (97212007,
+    # 441 m) at 2021-05-10 12 h to 14 h FU as the file writes them: T, TN and TX of -20.0 with the validation code 9 in
+    # Martinique, which lies at 14.4 to 14.9 degrees north and has no frost (GH-3135). The department 972 is the first
+    # three digits of the id. RR1 0.4 of the next hour is the reading
+    hour = {"NUM_POSTE": "97212007"}
+    rows = [
+        {**hour, "AAAAMMJJHH": "2021051012", "T": "-20.0", "QT": "9"},
+        {
+            **hour,
+            "AAAAMMJJHH": "2021051013",
+            "RR1": "0.0",
+            "QRR1": "1",
+            "T": "-20.0",
+            "QT": "9",
+            "TN": "-20.0",
+            "QTN": "9",
+            "HTN": "1201",
+            "TX": "-20.0",
+            "QTX": "9",
+            "HTX": "1201",
+        },
+        {**hour, "AAAAMMJJHH": "2021051014", "RR1": "0.4", "QRR1": "1"},
+    ]
+    _serve_meteofrance(monkeypatch, "hourly", "core", "HOR_departement_972_periode_2020-2024", rows)
+    request = MeteoFranceObservationRequest(
+        parameters=[
+            ("hourly", "core", "temperature_air_2m"),
+            ("hourly", "core", "temperature_air_min_2m"),
+            ("hourly", "core", "temperature_air_max_2m"),
+            ("hourly", "core", "precipitation_amount"),
+        ],
+        start=_day(2021, 5, 10),
+        end=_day(2021, 5, 11),
+        settings=_settings(),
+        options=_options(drop_nulls),
+    )
+    return stations_result(request, "hourly", "core", "97212007").values().all().df
+
+
+def _meteofrance_observation_daily_guadeloupe(
+    monkeypatch: pytest.MonkeyPatch,
+    drop_nulls: bool = True,  # noqa: FBT001, FBT002
+) -> pl.DataFrame:
+    # QUOT_departement_971_periode_1950-2024_RR-T-Vent of data.gouv.fr, read 2026-10-30, the rows of ST-MARTIN
+    # GRAND-CASE
+    # (97127004, 5 m, 18.1 degrees north) at 2008-11-26, 27 and 29 as the file writes them: the daily mean of -10.9
+    # with the validation code 9 after 25.4 of the 27th, in Guadeloupe (971), which has no frost (GH-3135). The
+    # same file holds TNSOL -40.0 and TN50 -39.5 at two other stations, which the library does not offer
+    day = {"NUM_POSTE": "97127004"}
+    rows = [
+        {**day, "AAAAMMJJ": "20081126", "TM": "25.6", "QTM": "1"},
+        {**day, "AAAAMMJJ": "20081127", "TM": "25.4", "QTM": "1"},
+        {**day, "AAAAMMJJ": "20081129", "TM": "-10.9", "QTM": "9"},
+    ]
+    _serve_meteofrance(monkeypatch, "daily", "core", "QUOT_departement_971_periode_1950-2024_RR-T-Vent", rows)
+    request = MeteoFranceObservationRequest(
+        parameters=[("daily", "core", "temperature_air_mean_2m")],
+        start=_day(2008, 11, 26),
+        end=_day(2008, 11, 30),
+        settings=_settings(),
+        options=_options(drop_nulls),
+    )
+    return stations_result(request, "daily", "core", "97127004").values().all().df
+
+
 def _meteofrance_observation_hourly_core(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     return _meteofrance_observation_hourly(
         monkeypatch,
@@ -852,7 +925,9 @@ def _meteofrance_synop_impossible(monkeypatch: pytest.MonkeyPatch, drop_nulls: b
     # readings no sensor produced, which the Descriptif technique (2026-04-20) does not mention either. LA DESIRADE
     # (78890) at 2005-01-10T00:00Z writes pres=11170 Pa (110,000 is the most) beside pmer=101550; 07117 at
     # 1996-01-07T06:00Z t=369.15 K (96 C); 61997 at 2000-01-21T06:00Z td=358.95 K; 61976 at 2000-07-06T03:00Z rr1=800
-    # mm. 20 rows of pres, 20 of t and 14 of td in the seven files, none in 2020 to 2025 (GH-3135). The first row is
+    # mm. 31 rows of pres (10,860 to 42,060 Pa), 20 of t and 14 of td in the files of 1996, 2000, 2005, 2010 and
+    # 2015, none
+    # in those of 2020, 2022, 2024 and 2025 (GH-3135). The first row is
     # made up (a 2024 tropical morning), and so is its tn12; the tn12 of 30.17 K is 61997 at 2000-06-12T06:00Z. A rr6 of
     # 805 mm (78890, 2005-11-11) and a rr24 of 999.4 mm (78897, 2005-08-18) are inside the records and stay (see
     # `_SYNOP_RANGES`)
@@ -900,6 +975,54 @@ def _meteofrance_synop_impossible(monkeypatch: pytest.MonkeyPatch, drop_nulls: b
         options=_options(drop_nulls),
     )
     return stations_result(request, "subdaily", "data", "07005").values().all().df
+
+
+def _meteofrance_synop_guyane(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # synop_2025.csv.gz, read 2026-10-30, the rows of MARIPASOULA (81415, 106 m, 3.6 degrees north in Guyane, which has
+    # no frost, GH-3135) as the file writes them: at 2025-02-12T00:00Z `td` 255.65 K (-17.5 C) beside `t` 297.95 K and
+    # an `u` of 5 %, and at 2025-12-14T00:00Z `tn24` 272.95 K (-0.2 C) beside `t` 297.65 K and `tx24` 302.25 K. The
+    # file holds 8 rows of that `tn24` and 12 of `td` below 0 C for this station in 2025, and 7 of 81401 in 2022
+    schema = list(synop_api._SYNOP_CSV_SCHEMA)  # noqa: SLF001
+    rows = [
+        {
+            "geo_id_wmo": "81415",
+            "validity_time": "2025-02-12T00:00:00Z",
+            "pmer": "101090.0",
+            "dd": "360",
+            "ff": "0",
+            "t": "297.95",
+            "td": "255.65",
+            "u": "5",
+            "pres": "99860",
+            "tn24": "295.45",
+            "tx24": "304.55",
+        },
+        {
+            "geo_id_wmo": "81415",
+            "validity_time": "2025-12-14T00:00:00Z",
+            "dd": "70",
+            "ff": "1.8",
+            "t": "297.65",
+            "pres": "99900",
+            "tn24": "272.95",
+            "tx24": "302.25",
+        },
+    ]
+    lines = [";".join(schema)] + [";".join(row.get(column, "") for column in schema) for row in rows]
+    serve(monkeypatch, synop_api, {"/data/OBS/SYNOP/synop_2025.csv.gz": gzip.compress("\n".join(lines).encode("utf8"))})
+    request = MeteoFranceSynopRequest(
+        parameters=[
+            ("subdaily", "data", "temperature_air_2m"),
+            ("subdaily", "data", "temperature_dew_point_2m"),
+            ("subdaily", "data", "temperature_air_min_2m_last_24h"),
+            ("subdaily", "data", "temperature_air_max_2m_last_24h"),
+        ],
+        start=_day(2025, 1, 1),
+        end=_day(2025, 12, 31),
+        settings=_settings(),
+        options=_options(drop_nulls),
+    )
+    return stations_result(request, "subdaily", "data", "81415").values().all().df
 
 
 def _dwd_derived_radiation(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -2167,6 +2290,28 @@ STUBS = [
         tokens=(("wind_direction_mean_last_10min", "0", None), ("wind_direction_mean_last_10min", "999", None)),
     ),
     ValueStub(
+        "meteofrance/observation hourly/core (Martinique, no frost)",
+        _meteofrance_observation_hourly_martinique,
+        reading=("precipitation_amount", 0.4),
+        sentinels=(
+            ("temperature_air_2m", -20.0),
+            ("temperature_air_min_2m", -20.0),
+            ("temperature_air_max_2m", -20.0),
+        ),
+        tokens=(
+            ("temperature_air_2m", "-20.0", None),
+            ("temperature_air_min_2m", "-20.0", None),
+            ("temperature_air_max_2m", "-20.0", None),
+        ),
+    ),
+    ValueStub(
+        "meteofrance/observation daily/core (Guadeloupe, no frost)",
+        _meteofrance_observation_daily_guadeloupe,
+        reading=("temperature_air_mean_2m", 25.4),
+        sentinels=(("temperature_air_mean_2m", -10.9),),
+        tokens=(("temperature_air_mean_2m", "-10.9", None),),
+    ),
+    ValueStub(
         "meteofrance/observation daily/core",
         _meteofrance_observation_daily,
         reading=("temperature_air_min_2m", -1.0),
@@ -2184,6 +2329,16 @@ STUBS = [
         # the octas are converted to a fraction on their way
         sentinels=(("cloud_cover_total", 1.125),),
         tokens=(("cloud_cover_total", "9", None),),
+    ),
+    ValueStub(
+        "meteofrance/synop subdaily/data (Guyane, no frost)",
+        _meteofrance_synop_guyane,
+        reading=("temperature_air_2m", 24.8),
+        sentinels=(("temperature_dew_point_2m", -17.5), ("temperature_air_min_2m_last_24h", -0.2)),
+        tokens=(
+            ("temperature_dew_point_2m", "255.65", None),
+            ("temperature_air_min_2m_last_24h", "272.95", None),
+        ),
     ),
     ValueStub(
         "meteofrance/synop subdaily/data (readings no sensor produced)",

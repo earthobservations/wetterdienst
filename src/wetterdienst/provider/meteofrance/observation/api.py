@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import re
 import time
 from dataclasses import dataclass
@@ -18,6 +19,7 @@ import polars as pl
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.quality_flags import (
     SPEED_BESIDE,
+    OutOfRange,
     Sentinel,
     calm,
     join_quality_flags,
@@ -649,6 +651,30 @@ _NO_WIND_DIRECTION = ("999",)
 _DAILY_NO_WIND_DIRECTION = (*_NO_WIND_DIRECTION, "400")
 
 
+# No frost in these departments (GH-3135). Guadeloupe (971, with Saint-Martin and Saint-Barthelemy), Martinique (972),
+# Guyane (973) and Mayotte (985 in the source's numbering) lie between 2 and 18 degrees north, and 13 degrees south,
+# with their stations (the registry lists 104, 90, 43 and 21) from sea level to 1,417 m (La Soufriere), 690 m, 290 m
+# and 594 m. A temperature below 0 C of the air at 2 m, its extremes or its dew point is no reading there. The files
+# hold a few, each alone at a station of 5 to 474 m: -20.0 C of T, TN and TX at GROS-MORNE BOISLEZ (97212007, 441 m,
+# 2021-05-10 12 h and 13 h, quality 9), -26.6 C of the dew point at FRANCOIS-CHOPOT (97210001, 53 m, 39 hours), -4.9 C
+# at CAPESTERRE-BE BOIS DEBOUT (97107009, 70 m), -10.9 C of the daily mean at ST-MARTIN GRAND-CASE (97127004, 5 m,
+# 2008-11-29), -28.8 C at FOND-DENIS GLIS (97208006, 367 m); TNSOL and TN50, which the library does not offer, hold
+# -40.0 and -34.1 C at PETIT-BOURG (110 m) and MARIPASOULA (106 m). The value is null, and the number stays as the `raw`
+# token. La Reunion (974) is not in the list: its stations reach 2,580 m, where frost occurs (-2.3 C at the PLAINE DES
+# CHICOTS, 1,834 m, quality 1), nor is Saint-Pierre-et-Miquelon (975), at 47 degrees north. The department is the first
+# three digits of the id of the station, which the registry confirms for every station of 97x and 98x.
+_FROSTLESS_DEPARTMENTS = frozenset({"971", "972", "973", "985"})
+_TEMPERATURE_COLUMNS = {
+    resolution.name: {
+        parameter.name_original
+        for dataset in resolution
+        for parameter in dataset
+        if parameter.unit_type == "temperature"
+    }
+    for resolution in MeteoFranceObservationMetadata
+}
+
+
 def _department_from_station_id(station_id: str) -> str:
     """Get the French department code from an 8-digit NUM_POSTE station id."""
     return station_id[:3] if station_id[:2] in ("97", "98") else station_id[:2]
@@ -1054,7 +1080,7 @@ class MeteoFranceObservationValues(TimeseriesValues):
         # the codes the source writes in place of a number become null before the unit conversion (GH-2687, GH-2720),
         # and keep their text as `raw:` after the validation code; a text that is no number was nulled by the cast
         # alone (the files hold none: GH-2719) and now keeps its text too
-        value, raw = null_sentinels(pl.col("value"), *_sentinels(resolution_name), non_numeric=True)
+        value, raw = null_sentinels(pl.col("value"), *_sentinels(resolution_name, department), non_numeric=True)
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`)
         df = df.select(
             # kept as published (e.g. "RR", "TN"), matching the case of name_original in the
@@ -1071,7 +1097,20 @@ class MeteoFranceObservationValues(TimeseriesValues):
         return self._note_files_with_rows(df, dataset)
 
 
-def _sentinels(resolution_name: str) -> list[Sentinel]:
+def _sentinels(resolution_name: str, department: str) -> list[Sentinel | OutOfRange]:
+    """List the codes the source writes in place of a number, for the files of a resolution of a department.
+
+    A temperature below 0 C is the rule of the departments without frost (``_FROSTLESS_DEPARTMENTS``), after the codes.
+    """
+    rules: list[Sentinel | OutOfRange] = _codes(resolution_name)
+    if department in _FROSTLESS_DEPARTMENTS and _TEMPERATURE_COLUMNS.get(resolution_name):
+        rules.append(
+            OutOfRange(0.0, math.inf, where=pl.col("parameter").is_in(sorted(_TEMPERATURE_COLUMNS[resolution_name])))
+        )
+    return rules
+
+
+def _codes(resolution_name: str) -> list[Sentinel | OutOfRange]:
     """List the codes the source writes in place of a number, for the files of a resolution."""
     directions = list(_WIND_SPEED_OF_DIRECTION.get(resolution_name, {}))
     # the speed of a direction's own reading, which `with_speed_beside` has laid beside it

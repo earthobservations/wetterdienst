@@ -396,10 +396,12 @@ def _inside_the_range(
 
 
 def test_the_bounds_of_dwd_observation_sit_inside_the_ranges() -> None:
-    """DWD observation nulls a negative wind speed and a pressure beyond the records, inside the range (GH-3135).
+    """DWD observation nulls wind speeds and three pressures beyond the records, inside the range (GH-3135).
 
-    The bounds are in the unit of the files, which is the returned one for both, and may be narrower than the range
-    of the parameter at the resolution (the pressure, 500 to 1090 hPa against 300 to 1100), never wider.
+    The wind speeds are held to 0 to 115 m/s, and `pressure_air_site`, `pressure_air_site_mean` and
+    `pressure_air_sea_level` to 500 to 1090 hPa; the vapour pressures are not. The bounds are in the unit of the
+    files, which is the returned one, and may be narrower than the range of the parameter at the resolution (the
+    pressure, 500 to 1090 hPa against 300 to 1100), never wider.
     """
     converter = UnitConverter()
     held = []
@@ -414,9 +416,11 @@ def test_the_bounds_of_dwd_observation_sit_inside_the_ranges() -> None:
                     f"{resolution.name}/{dataset.name}/{parameter.name}: {bounds}"
                 )
     assert {"wind_speed_mean", "wind_gust_max", "pressure_air_site", "pressure_air_sea_level"} <= set(held)
-    # every speed and every station or sea level pressure of the provider is held, and no other parameter
+    # every speed, and the station pressure, its daily mean and the sea level pressure, are held; the vapour pressures
+    # and every other parameter are not
     assert {name for name in held if PARAMETERS[name].unit_type != "speed"} == {
         "pressure_air_site",
+        "pressure_air_site_mean",
         "pressure_air_sea_level",
     }
 

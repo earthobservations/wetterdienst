@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, cast
@@ -88,9 +89,10 @@ _SYNOP_MAXIMUM_BESIDE = "__tx12_beside"
 
 # A reading no sensor can have produced is null, and keeps the number the file wrote as the `raw` token (GH-3135, as
 # GH-2797 does for DMI, RMI and the DWD road stations). The files hold a few, with no code to tell them: in the files
-# of 1996, 2000, 2005, 2010 and 2015 `pres` reads 10,860 to 22,030 Pa in 20 rows (La Desirade 2005-01-10: 11,170 Pa
-# beside a `pmer` of 101,550), `t` 335.95 to 369.15 K in 20 rows, `td` in 14, `rr1` 800 mm (61976, 2000-07-06), and
-# none in 2020, 2022, 2024 and 2025. The bounds are in the unit of the file and sit inside the range of
+# of 1996, 2000, 2005, 2010 and 2015 `pres` reads 10,860 to 42,060 Pa in 31 rows (3, 23, 3, 0 and 2 per file; La
+# Desirade 2005-01-10: 11,170 Pa beside a `pmer` of 101,550, and 41,450 Pa at 78890 on 1996-06-02 at 15 h, a station
+# at 27 m), `t` 333.95 to 369.15 K in 20 rows, `td` in 14, `rr1` 800 mm (61976, 2000-07-06), and none in the files of
+# 2020, 2022, 2024 and 2025. The bounds are in the unit of the file and sit inside the range of
 # `tests/provider/physical_ranges.py`; each rests on a record, with room above it:
 # - `pres`, the pressure at the station, 50,000 to 110,000 Pa: the highest sea level pressure is 108,480 Pa
 #   (Tosontsengel, 2001) and a station of the archive lies from sea level to the Piton des Neiges and the Alps; 500 hPa
@@ -119,6 +121,19 @@ _SYNOP_RANGES: dict[str, tuple[float, float]] = {
     "rr12": (0.0, 1_200.0),
     "rr24": (0.0, 2_000.0),
 }
+
+# No frost at these stations (GH-3135, as the departments of `meteofrance/observation` of the same name): Guadeloupe
+# (LA DESIRADE 78890, ST-BARTHELEMY 78894, LE RAIZET 78897), Martinique (TRINITE-CARAVEL 78922, LAMENTIN 78925), Guyane
+# (81401, 81405, 81408, 81415) and Mayotte (PAMANDZI 67005) lie between 4 and 18 degrees of latitude, at 3 to 106 m. A
+# temperature below 0 C (273.15 K) of the air, its 12 and 24 hour extremes or its dew point is no reading there, and
+# the nine files of 1996 to 2025 read hold 57 of them, each alone: `td` of 244 to 272 K (41 rows; 7 at 81401 in 2022,
+# 12 at 81415 in 2025), `t` of 242 to 251 K (5, 2000 and 2005), `tn24` of 249.85 K and 272.95 K (9), `tn12` (2). The
+# stations are the WMO ids of the geojson, as the file has no department. GILLOT (61980, La Reunion) and the Iles
+# Eparses are not in the list: La Reunion has frost at altitude, and the registry puts the Iles Eparses in 984.
+_SYNOP_FROSTLESS_STATIONS = frozenset(
+    {"78890", "78894", "78897", "78922", "78925", "81401", "81405", "81408", "81415", "67005"}
+)
+_SYNOP_TEMPERATURE_COLUMNS = ("t", "td", "tn12", "tx12", "tn24", "tx24")
 
 # explicit schema of the exact columns published by the source, read as strings throughout since
 # many columns are entirely empty for a given station or year, which would otherwise lead to
@@ -239,6 +254,13 @@ def _download_year(year: int, current_year: int, settings: Settings) -> File:
     return copy
 
 
+def _frostless_rules(station_id: str) -> list[OutOfRange]:
+    """Give the rule of a station without frost (``_SYNOP_FROSTLESS_STATIONS``): a temperature below 0 C is none."""
+    if station_id not in _SYNOP_FROSTLESS_STATIONS:
+        return []
+    return [OutOfRange(273.15, math.inf, where=pl.col("parameter").is_in(_SYNOP_TEMPERATURE_COLUMNS))]
+
+
 class MeteoFranceSynopValues(TimeseriesValues):
     """Values class for Météo-France SYNOP data."""
 
@@ -309,6 +331,7 @@ class MeteoFranceSynopValues(TimeseriesValues):
                 .eq(pl.col(_SYNOP_MAXIMUM_BESIDE).str.strip_chars().cast(pl.Float64, strict=False))
             ),
             *(OutOfRange(low, high, where=pl.col("parameter").eq(name)) for name, (low, high) in _SYNOP_RANGES.items()),
+            *_frostless_rules(station_id),
             # a missing reading is an empty field; a text that is no number was nulled by the cast alone
             # (the 2024 file holds none) and now keeps its text too
             non_numeric=True,

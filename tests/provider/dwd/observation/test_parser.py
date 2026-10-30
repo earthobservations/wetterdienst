@@ -979,3 +979,23 @@ def test_parse_dwd_out_of_range_rule_is_per_parameter_and_leaves_a_missing_value
     assert df.get_column(raw_column("tt_std")).to_list() == [None, "-999", None, None]
     assert df.get_column("p_std").to_list() == [None, "995.9", "995.9", "995.9"]
     assert df.get_column(raw_column("p_std")).to_list() == ["1100.0", None, None, None]
+
+
+def test_parse_dwd_daily_pressure_mean_is_bound_and_the_vapour_pressure_is_not() -> None:
+    """Test that the daily mean station pressure `PM` is held to 500 to 1090 hPa, `VPM` not (GH-3135).
+
+    The Zugspitze (05792) reads a `PM` of 683.5 to 726.57 hPa in the recent file, and Berlin-Tempelhof (00433) up to
+    1041.6, which stay; 1100.0 and 99.9 are no mean of a day, and a vapour pressure of 1100.0 is not this rule's.
+    """
+    df = _parse(
+        DwdObservationMetadata.daily.climate_summary,
+        "STATIONS_ID;MESS_DATUM;QN_3;VPM;PM;eor\n"
+        "5792;20250101;10;5.1;726.57;eor\n"
+        "5792;20250102;10;5.2;683.5;eor\n"
+        "433;20250103;10;5.3;1041.6;eor\n"
+        "433;20250104;10;1100.0;1100.0;eor\n"
+        "433;20250105;10;5.4;99.9;eor\n",
+    )
+    assert df.get_column("pm").to_list() == ["726.57", "683.5", "1041.6", None, None]
+    assert df.get_column(raw_column("pm")).to_list() == [None, None, None, "1100.0", "99.9"]
+    assert df.get_column("vpm").to_list() == ["5.1", "5.2", "5.3", "1100.0", "5.4"]

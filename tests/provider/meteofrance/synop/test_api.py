@@ -34,6 +34,7 @@ def _values(
     drop_nulls: bool = True,
     year: int = 2024,
     end: datetime | None = None,
+    station_id: str = "07005",
 ) -> pl.DataFrame:
     """Read rows through the reader as the columns of the source's file, empty where a row has none."""
     schema = list(synop_api._SYNOP_CSV_SCHEMA)  # noqa: SLF001
@@ -48,7 +49,7 @@ def _values(
         settings=Settings(cache_disable=True),
         options=Options(drop_nulls=drop_nulls),
     )
-    return stations_result(request, "subdaily", "data", "07005").values().all().df.sort("timestamp")
+    return stations_result(request, "subdaily", "data", station_id).values().all().df.sort("timestamp")
 
 
 def test_meteofrance_synop_api_a_file_that_unpacks_past_the_ceiling_is_a_download_error(
@@ -419,6 +420,80 @@ def test_meteofrance_synop_api_a_reading_no_sensor_produced_is_null_with_its_tex
     assert raw("precipitation_amount_last_6h") == [None, None, "raw:1200.1", None]
     assert values("precipitation_amount_last_24h") == [999.4, 2000.0, None, None]
     assert raw("precipitation_amount_last_24h") == [None, None, "raw:2000.1", None]
+
+
+@pytest.mark.parametrize(
+    ("station", "kept"),
+    [
+        # Guadeloupe (LA DESIRADE, ST-BARTHELEMY, LE RAIZET), Martinique, Guyane and Mayotte (PAMANDZI)
+        ("78890", False),
+        ("78894", False),
+        ("78897", False),
+        ("78922", False),
+        ("78925", False),
+        ("81401", False),
+        ("81405", False),
+        ("81408", False),
+        ("81415", False),
+        ("67005", False),
+        # La Reunion has frost at altitude, Saint-Pierre is at 47 degrees north, the mainland has frost
+        ("61980", True),
+        ("71805", True),
+        ("07005", True),
+    ],
+)
+def test_meteofrance_synop_api_a_temperature_below_zero_is_null_where_there_is_no_frost(
+    monkeypatch: pytest.MonkeyPatch,
+    station: str,
+    kept: bool,  # noqa: FBT001
+) -> None:
+    """Test that a temperature below 0 C at a station of Guadeloupe, Martinique, Guyane or Mayotte is null (GH-3135).
+
+    The first row is that of MARIPASOULA (81415) at 2025-02-12T00:00Z in synop_2025.csv.gz (`td` 255.65 K beside `t`
+    297.95 K), the second the 0 C of the edge, which stays, as does any reading of another station.
+    """
+    rows = [
+        {
+            "geo_id_wmo": station,
+            "validity_time": "2025-02-12T00:00:00Z",
+            "t": "297.95",
+            "td": "255.65",
+            "tn24": "270.15",
+            "tx24": "304.55",
+        },
+        {"geo_id_wmo": station, "validity_time": "2025-02-12T03:00:00Z", "t": "273.15", "td": "273.15"},
+    ]
+    parameters = [
+        "temperature_air_2m",
+        "temperature_dew_point_2m",
+        "temperature_air_min_2m_last_24h",
+        "temperature_air_max_2m_last_24h",
+    ]
+    df = _values(
+        monkeypatch,
+        rows,
+        parameters,
+        drop_nulls=False,
+        year=2025,
+        end=datetime(2025, 2, 13, tzinfo=UTC),
+        station_id=station,
+    )
+    by_parameter = {
+        str(parameter): group.sort("timestamp")
+        for (parameter,), group in df.partition_by("parameter", as_dict=True).items()
+    }
+    assert by_parameter["temperature_air_2m"].get_column("value").to_list() == pytest.approx([24.8, 0.0])
+    assert by_parameter["temperature_air_max_2m_last_24h"].get_column("value").to_list() == pytest.approx([31.4, None])
+    dew_point = by_parameter["temperature_dew_point_2m"]
+    minimum = by_parameter["temperature_air_min_2m_last_24h"]
+    if kept:
+        assert dew_point.get_column("value").to_list() == pytest.approx([-17.5, 0.0])
+        assert minimum.get_column("value").to_list() == pytest.approx([-3.0, None])
+    else:
+        assert dew_point.get_column("value").to_list() == [None, 0.0]
+        assert dew_point.get_column("quality_flags").to_list() == ["raw:255.65", None]
+        assert minimum.get_column("value").to_list() == [None, None]
+        assert minimum.get_column("quality_flags").to_list() == ["raw:270.15", None]
 
 
 @pytest.mark.remote
