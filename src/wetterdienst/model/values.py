@@ -407,9 +407,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         stations_collected = 0
         rows = ParameterRows(self.sr.request, self.sr.start, self.sr.end, enabled=self._warn_without_rows)
         # mapping of original to humanized parameter names is always the same
-        hpm: dict[str, str] = {}
-        if self.sr.options.humanize:
-            hpm = self._create_humanized_parameters_mapping()
+        hpm = self._create_humanized_parameters_mapping() if self.sr.options.humanize else None
         for position, ((station_id,), df_station_meta) in enumerate(groups):
             if stations_collected == self.sr._rank:  # noqa: SLF001
                 break
@@ -446,7 +444,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                     self._pass_over(rows, station_id)
                     continue
             self._tell_missing_value_markers()
-            if self.sr.options.humanize:
+            if hpm is not None:
                 df = self._humanize(df=df, humanized_parameters_mapping=hpm)
             if not self.sr.options.tidy:
                 df = self._widen_df(df=df)
@@ -1088,13 +1086,36 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             log.info(f"Exported data for station {result.df.get_column('station_id').unique()[0]} to {redacted}.")
 
     @staticmethod
-    def _humanize(df: pl.DataFrame, humanized_parameters_mapping: dict[str, str]) -> pl.DataFrame:
-        """Humanize parameter names in a DataFrame."""
-        return df.with_columns(pl.col("parameter").replace(humanized_parameters_mapping))
+    def _humanize(df: pl.DataFrame, humanized_parameters_mapping: pl.DataFrame) -> pl.DataFrame:
+        """Humanize parameter names in a DataFrame.
 
-    def _create_humanized_parameters_mapping(self) -> dict[str, str]:
-        """Create mapping of original to humanized parameter names."""
-        return {parameter.name_original: parameter.name for parameter in self.sr.parameters}
+        The name the source gives a parameter is only unique within a dataset of a resolution: chmi's `T` is
+        `temperature_air_2m` at 10 minutes and `temperature_air_mean_2m` daily. So the mapping is looked up on the
+        resolution and the dataset of the row as well (GH-3605). A name the mapping does not hold stays as it is.
+        """
+        keys = ["resolution", "dataset", "parameter"]
+        return (
+            df.join(humanized_parameters_mapping, on=keys, how="left", maintain_order="left")
+            .with_columns(pl.coalesce("humanized", "parameter").alias("parameter"))
+            .drop("humanized")
+        )
+
+    def _create_humanized_parameters_mapping(self) -> pl.DataFrame:
+        """Create the mapping of original to humanized parameter names, per resolution and dataset.
+
+        The columns are the identity columns a frame carries when it is humanized (`resolution` by name, `dataset`
+        by lowercased name, as `_long_form` writes them), `parameter` as the source names it, and `humanized`.
+        """
+        parameters = cast("Iterable[ParameterModel]", self.sr.parameters)
+        return pl.DataFrame(
+            {
+                "resolution": [parameter.dataset.resolution.name for parameter in parameters],
+                "dataset": [parameter.dataset.name.lower() for parameter in parameters],
+                "parameter": [parameter.name_original for parameter in parameters],
+                "humanized": [parameter.name for parameter in parameters],
+            },
+            schema={"resolution": pl.String, "dataset": pl.String, "parameter": pl.String, "humanized": pl.String},
+        ).unique(subset=["resolution", "dataset", "parameter"], keep="first", maintain_order=True)
 
     @staticmethod
     def _series_span(
