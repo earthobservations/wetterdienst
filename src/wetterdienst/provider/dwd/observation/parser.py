@@ -17,6 +17,7 @@ from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.quality_flags import (
     RAW_SUFFIX,
+    OutOfRange,
     Sentinel,
     calm,
     clear_sentinels,
@@ -34,7 +35,7 @@ if TYPE_CHECKING:
     from wetterdienst.util.network import File
 
 if TYPE_CHECKING:
-    from wetterdienst.model.metadata import DatasetModel
+    from wetterdienst.model.metadata import DatasetModel, ParameterModel
 
 log = logging.getLogger(__name__)
 
@@ -281,6 +282,39 @@ _WEATHER_NOT_REPORTED = Sentinel(str(WEATHER_NOT_REPORTED))
 _PRECIPITATION_FORM_MISSING = Sentinel(str(PRECIPITATION_FORM_MISSING))
 _WIND_DIRECTION_VARIABLE = no_direction_code(str(WIND_DIRECTION_VARIABLE))
 _NO_WIND_DIRECTION = no_direction_code("0")
+
+# A value no sensor can have produced is null, and keeps the number DWD wrote as `raw:` (GH-3135, as GH-2797 does for
+# DMI, RMI and the road stations). The sheets document only -999, and these columns hold readings that are no code: the
+# hourly urban wind of Berlin-Alexanderplatz (399) reads -0.80 m/s at 2017-06-07 00:00 UTC, between 8.3 and 15.2 m/s
+# (1 of 84,848 rows), and the hourly pressure of 00433 and 03032 reads a P0 of 1093.3, 1098.2 and 1099.3 hPa in 1991 to
+# 1995 beside a P of 1009.4, 1012.4 and 996.6, one digit off. The bounds are in the unit of the files, which is the
+# returned one (m/s, hPa), and sit inside the range of `tests/provider/physical_ranges.py`. They are the world's, not
+# Germany's, as a range that a record can cross would null a reading:
+# - a wind speed (mean, gust, minimum) is 0 to 115 m/s: it cannot be negative, and the fastest gust measured is
+#   113.3 m/s (Barrow Island, 1996);
+# - a pressure at the station (`pressure_air_site`, and its daily mean `pressure_air_site_mean`, `PM`) or reduced to
+#   sea level (`pressure_air_sea_level`) is 500 to 1090 hPa; the vapour pressures are not bound by it. The lowest sea
+#   level pressure is 870 hPa (typhoon Tip, 1979) and the highest 1084.8 hPa (Tosontsengel, 2001), and a German
+#   station lies from -3.5 m to 2,964 m (Zugspitze, about 700 hPa), so a station value above the highest sea level
+#   pressure plus the 5 hPa of slack is no reading, nor is one below 500 hPa. The daily `PM` of 25 files (35,556 days)
+#   reads 935.1 to 1041.6 hPa, and the Zugspitze (05792; 45,652 days of the historical file)
+#   668.2 to 726.9.
+_WIND_SPEED_RANGE = (0.0, 115.0)
+_PRESSURE_RANGE = (500.0, 1090.0)
+OUT_OF_RANGE_BY_NAME = {
+    "pressure_air_site": _PRESSURE_RANGE,
+    "pressure_air_site_mean": _PRESSURE_RANGE,
+    "pressure_air_sea_level": _PRESSURE_RANGE,
+}
+
+
+def out_of_range_bounds(parameter: ParameterModel) -> tuple[float, float] | None:
+    """Give the bounds a parameter's reading is held to, in the unit of the files, or ``None`` if it is held to none."""
+    if parameter.unit_type == "speed":
+        return _WIND_SPEED_RANGE
+    return OUT_OF_RANGE_BY_NAME.get(parameter.name)
+
+
 # the columns that identify a row or describe a station and are no parameter: no text is kept of their sentinel
 _NO_RAW_COLUMNS = {
     "stations_id",
@@ -482,6 +516,10 @@ def _parse_climate_observations_data(  # noqa: C901
     data_columns = sorted(column for column in columns if column not in _NO_RAW_COLUMNS and not _is_quality(column))
     df = clear_sentinels(df, sorted(columns), _MISSING_VALUE)
     df = df.drop(*(f"{column}{RAW_SUFFIX}" for column in sorted(columns) if column not in data_columns))
+    for parameter in dataset:
+        bounds = out_of_range_bounds(parameter)
+        if bounds is not None and parameter.name_original in columns:
+            df = clear_sentinels(df, [parameter.name_original], OutOfRange(*bounds))
     # turn what the file writes as text into the numbers the value column can hold, before anything
     # downstream expects a number
     df = df.with_columns(
