@@ -37,6 +37,12 @@ Types of changes:
   by none for Paris-Montsouris. Where `tn12` repeats the `tx12` of its own row (three overseas
   stations at some hours: Cayenne-Matoury, Le Raizet, Lamentin) it is null, with the number kept as
   `raw:` in `quality_flags` (GH-3540)
+- `imgw/hydrology` stations now list the river the gauge is on (`river`, with IMGW's hydrographic
+  code, `Odra (1)`), its position along it in kilometres from the mouth (`river_kilometer`) and
+  the altitude of the gauge's zero in metres (`gauge_zero`), under the names `wsv/pegel` uses; null
+  where IMGW's list is empty. `river_kilometer` is not comparable with `wsv/pegel`'s waterway
+  kilometre, which grows downstream. `gauge_zero_datum` is null, as the list states no datum
+  (GH-3599)
 
 ### Changed
 

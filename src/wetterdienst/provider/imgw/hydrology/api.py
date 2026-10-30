@@ -423,6 +423,16 @@ class ImgwHydrologyRequest(TimeseriesRequest):
     _values = ImgwHydrologyValues
     _endpoint = "https://dane.imgw.pl/datastore/getfiledown/Arch/Telemetria/Hydro/kody_stacji.csv"
 
+    # extend base columns of core class with the river a gauge is on and its position along it, the altitude of its
+    # zero and the datum that is given in, the names wsv/pegel uses for them
+    _base_columns: ClassVar = (
+        *TimeseriesRequest._base_columns,  # noqa: SLF001
+        "river",
+        "river_kilometer",
+        "gauge_zero",
+        "gauge_zero_datum",
+    )
+
     def _all(self) -> pl.LazyFrame:
         """:return:"""
         from typing import cast  # noqa: PLC0415
@@ -453,20 +463,32 @@ class ImgwHydrologyRequest(TimeseriesRequest):
             truncate_ragged_lines=True,
         )
         # columns (0-indexed): LP, Kod (station_id), Nazwa (name), Rzeka, Rok założenia, Szerokość (latitude),
-        # Długość (longitude), Rzędna zera wodowskazu, Kilometr biegu rzeki
-        df = df[:, [1, 2, 5, 6]]
+        # Długość (longitude), Rzędna zera wodowskazu, Kilometr biegu rzeki. "Rok założenia" (the founding year) is not
+        # kept. "Rzeka" is the river with its hydrographic code, as published (`Odra (1)`), as in imgw/meteorology
+        df = df[:, [1, 2, 3, 5, 6, 7, 8]]
         df.columns = [
             "station_id",
             "name",
+            "river",
             "latitude",
             "longitude",
+            "gauge_zero",
+            "river_kilometer",
         ]
         df = df.with_columns(
             # the list pads some names with a trailing blank (`LUDŹMIERZ `),
             # which an exact comparison of the name then misses
             pl.col("name").str.strip_chars(),
+            pl.col("river").str.strip_chars().replace("", None),
             convert_dms_string_to_dd(pl.col("latitude")),
             convert_dms_string_to_dd(pl.col("longitude")),
+            # metres above sea level (`184.806`, negative on the Baltic coast) and kilometres from the river's
+            # mouth (`713.04`, `0` where a coastal gauge is at it), both with a dot; a station without one has an
+            # empty field, and whatever is no number is null as in imgw/meteorology. The list states no vertical
+            # datum, so `gauge_zero_datum` is null
+            pl.col("gauge_zero").str.strip_chars().cast(pl.Float64, strict=False),
+            pl.col("river_kilometer").str.strip_chars().cast(pl.Float64, strict=False),
+            pl.lit(None, dtype=pl.String).alias("gauge_zero_datum"),
         )
         # the station list is shared across all datasets: the core tags each row once per requested resolution/dataset
         return df.lazy()
