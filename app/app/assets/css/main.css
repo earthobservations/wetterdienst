@@ -83,9 +83,10 @@
    and dark: text 10.4:1 and 14.5:1 on the paper; muted text (tick labels) 5.4:1 and 6.8:1; the zero
    line and the modebar's icons, which are the muted colour, the same, past the 3:1 of non-text; the
    hover label's text 9.5:1 and 11.9:1 on its fill. The grid (1.5:1 and 1.7:1) is decoration. That is the
-   themed chrome (the Explorer, the stripes, the Forecast's hour labels): the Forecast's axis titles and
-   ticks keep their series colours, which do not clear it (#3618). tests/e2e/chart-theme.spec.ts holds
-   the ratios of the drawn charts. */
+   themed chrome (the Explorer, the stripes, the Forecast's hour labels and zero line). The text that
+   names a series (the Forecast's axis titles and tick labels, its weekend day labels, the stripes'
+   availability label) is the series' hue at 4.5:1 or more (`SERIES_LABEL` in utils/chart-theme.ts,
+   GH-3618). tests/e2e/chart-theme.spec.ts holds the ratios of the drawn charts. */
 :root,
 .light,
 .dark {

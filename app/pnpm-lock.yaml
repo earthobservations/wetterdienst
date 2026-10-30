@@ -64,6 +64,9 @@ importers:
       plotly.js-basic-dist-min:
         specifier: ^3.7.0
         version: 3.7.0
+      plotly.js-locales:
+        specifier: ^3.7.0
+        version: 3.7.0
       suncalc:
         specifier: ^2.1.0
         version: 2.1.0
@@ -5520,6 +5523,9 @@ packages:
 
   plotly.js-basic-dist-min@3.7.0:
     resolution: {integrity: sha512-84KPQhLTrO5IHu6DCte2KwA4bzSoVIdIs3uDPWid3sgeTX8L5RjpDARjCG3spgOwQ8MYE8PL+MeQ0DQRWA1Emw==}
+
+  plotly.js-locales@3.7.0:
+    resolution: {integrity: sha512-ksB7hfy9Pk9SQtkfK1AfpRy2O/2iIh7CxQat8vsk1cCySwyLUuHXltsr4ReUeORScxPjGnyW00aNe97fDivsmA==}
 
   pluralize@8.0.0:
     resolution: {integrity: sha512-Nc3IT5yHzflTfbjgqWcCPpo7DaKy4FnpB0l/zCAW0Tc7jxAiuqSxHasntB3D7887LSrA93kDJ9IXovxJYxyLCA==}
@@ -12940,6 +12946,8 @@ snapshots:
       playwright-core: 1.63.0
 
   plotly.js-basic-dist-min@3.7.0: {}
+
+  plotly.js-locales@3.7.0: {}
 
   pluralize@8.0.0: {}
 

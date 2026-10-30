@@ -125,6 +125,30 @@ export function withAlpha(color: string, alpha: number): string {
   return match ? `rgba(${match[1]}, ${match[2]}, ${match[3]}, ${alpha})` : color
 }
 
+/**
+ * The colours of the text that names a series (a y axis' title and tick labels, the weekend's day label, the
+ * stripes' availability label): the series' own hue, at 4.5:1 or more on the paper (WCAG 1.4.3, GH-3618).
+ * The series themselves (their lines, bars and swatches) keep their colours, which are data and need 3:1
+ * only. On white the series' colours are 2.0:1 to 3.8:1, so the light ones are the same hues one or two
+ * steps darker (Tailwind's 700 for cyan and lime, 600 for blue and red, amber 700 for the gold of the
+ * availability line); on the dark paper they are the series' own colours, 4.7:1 to 9.0:1. Held to the
+ * drawn charts by `tests/e2e/chart-theme.spec.ts`.
+ */
+export const SERIES_LABEL = {
+  cyan: { light: '#0e7490', dark: '#06b6d4' },
+  lime: { light: '#4d7c0f', dark: '#84cc16' },
+  blue: { light: '#2563eb', dark: '#3b82f6' },
+  red: { light: '#dc2626', dark: '#ef4444' },
+  gold: { light: '#b45309', dark: '#daa520' },
+} as const
+
+export type SeriesLabel = keyof typeof SERIES_LABEL
+
+/** The colour of the text that names the `series` on a paper that is `dark` or not */
+export function seriesLabelColor(series: SeriesLabel, dark: boolean): string {
+  return SERIES_LABEL[series][dark ? 'dark' : 'light']
+}
+
 /** Transparent, for what lies on the paper (a legend, the modebar) and so follows it */
 export const TRANSPARENT = 'rgba(0, 0, 0, 0)'
 
