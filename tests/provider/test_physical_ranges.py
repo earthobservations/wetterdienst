@@ -21,12 +21,17 @@ from wetterdienst import Options, Settings
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.metadata.unit_type import UnitType
+from wetterdienst.model.metadata import ParameterModel
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.provider.dmi.observation import DmiObservationRequest
 from wetterdienst.provider.dmi.observation import api as dmi_api
+from wetterdienst.provider.dwd.observation import DwdObservationMetadata
+from wetterdienst.provider.dwd.observation.parser import out_of_range_bounds
 from wetterdienst.provider.dwd.road import api as dwd_road_api
 from wetterdienst.provider.dwd.road.api import DwdRoadRequest
 from wetterdienst.provider.lhmt.observation import LhmtObservationRequest
+from wetterdienst.provider.meteofrance.synop import MeteoFranceSynopRequest
+from wetterdienst.provider.meteofrance.synop import api as synop_api
 from wetterdienst.provider.rmi.observation import RmiObservationRequest
 from wetterdienst.provider.rmi.observation import api as rmi_api
 from wetterdienst.util.network import File
@@ -379,3 +384,49 @@ def test_a_reader_that_nulls_what_no_sensor_produced_uses_the_range_of_the_param
     # a narrower range names a parameter of the provider
     narrower = {name for who, _, name in _NARROWER if who == provider}
     assert narrower <= {name for per_resolution in ranges.values() for name in per_resolution}
+
+
+def _inside_the_range(
+    converter: UnitConverter, parameter: ParameterModel, resolution: str, bounds: tuple[float, float]
+) -> bool:
+    """Tell whether a reader's bounds, in the unit of its source, are the range of the parameter or inside it."""
+    to_target = converter.get_lambda(parameter.unit, parameter.unit_type)
+    wide = bounds_for(parameter.name, resolution)
+    return wide is not None and wide.low - 1e-9 <= to_target(bounds[0]) < to_target(bounds[1]) <= wide.high + 1e-9
+
+
+def test_the_bounds_of_dwd_observation_sit_inside_the_ranges() -> None:
+    """DWD observation nulls a negative wind speed and a pressure beyond the records, inside the range (GH-3135).
+
+    The bounds are in the unit of the files, which is the returned one for both, and may be narrower than the range
+    of the parameter at the resolution (the pressure, 500 to 1090 hPa against 300 to 1100), never wider.
+    """
+    converter = UnitConverter()
+    held = []
+    for resolution in DwdObservationMetadata:
+        for dataset in resolution:
+            for parameter in dataset:
+                bounds = out_of_range_bounds(parameter)
+                if bounds is None:
+                    continue
+                held.append(parameter.name)
+                assert _inside_the_range(converter, parameter, resolution.name, bounds), (
+                    f"{resolution.name}/{dataset.name}/{parameter.name}: {bounds}"
+                )
+    assert {"wind_speed_mean", "wind_gust_max", "pressure_air_site", "pressure_air_sea_level"} <= set(held)
+    # every speed and every station or sea level pressure of the provider is held, and no other parameter
+    assert {name for name in held if PARAMETERS[name].unit_type != "speed"} == {
+        "pressure_air_site",
+        "pressure_air_sea_level",
+    }
+
+
+def test_the_bounds_of_meteofrance_synop_sit_inside_the_ranges() -> None:
+    """Météo-France synop nulls what no sensor produced, inside the world's range of each parameter (GH-3135)."""
+    converter = UnitConverter()
+    ranges = synop_api._SYNOP_RANGES  # noqa: SLF001
+    (resolution,) = MeteoFranceSynopRequest.metadata
+    parameters = {parameter.name_original: parameter for dataset in resolution for parameter in dataset}
+    assert set(ranges) <= set(parameters)
+    for name, bounds in ranges.items():
+        assert _inside_the_range(converter, parameters[name], resolution.name, bounds), f"{name}: {bounds}"

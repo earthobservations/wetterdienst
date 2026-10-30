@@ -17,6 +17,7 @@ from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.quality_flags import (
     SPEED_BESIDE,
     NoReading,
+    OutOfRange,
     Sentinel,
     calm,
     join_quality_flags,
@@ -84,6 +85,40 @@ _SYNOP_WIND_SPEED_OF_DIRECTION = {_SYNOP_WIND_DIRECTION_COLUMN: "ff"}
 _SYNOP_MINIMUM_12H = "tn12"
 _SYNOP_MAXIMUM_12H = "tx12"
 _SYNOP_MAXIMUM_BESIDE = "__tx12_beside"
+
+# A reading no sensor can have produced is null, and keeps the number the file wrote as the `raw` token (GH-3135, as
+# GH-2797 does for DMI, RMI and the DWD road stations). The files hold a few, with no code to tell them: in the files
+# of 1996, 2000, 2005, 2010 and 2015 `pres` reads 10,860 to 22,030 Pa in 20 rows (La Desirade 2005-01-10: 11,170 Pa
+# beside a `pmer` of 101,550), `t` 335.95 to 369.15 K in 20 rows, `td` in 14, `rr1` 800 mm (61976, 2000-07-06), and
+# none in 2020, 2022, 2024 and 2025. The bounds are in the unit of the file and sit inside the range of
+# `tests/provider/physical_ranges.py`; each rests on a record, with room above it:
+# - `pres`, the pressure at the station, 50,000 to 110,000 Pa: the highest sea level pressure is 108,480 Pa
+#   (Tosontsengel, 2001) and a station of the archive lies from sea level to the Piton des Neiges and the Alps; 500 hPa
+#   is the air at 5,500 m;
+# - `pmer`, the pressure reduced to sea level, 85,000 to 110,000 Pa: 87,000 Pa is the lowest (typhoon Tip, 1979);
+# - `t`, `td`, `tn12`, `tx12`, `tn24`, `tx24`, 183.15 to 333.15 K (-90 to 60 C): the lowest air temperature is -89.2 C
+#   (Vostok, 1983), the highest 56.7 C (Furnace Creek, 1913);
+# - `rr1`, 0 to 600 mm: the most in an hour is 401 mm (Shangdi, 1975);
+# - `rr3`, `rr6`, `rr12`, 0 to 1,200 mm: the most in 12 hours is 1,144 mm (Foc-Foc, La Reunion, 1966), and a shorter
+#   span cannot hold more;
+# - `rr24`, 0 to 2,000 mm: the most in a day is 1,825 mm (Foc-Foc, 1966).
+# The trace -0.1 is mapped to 0.0 before, so the lower bound of 0 leaves it alone. A `rr6` of 805 mm (78890, 2005-11-11)
+# and a `rr24` of 999.4 mm (78897, 2005-08-18) are inside these bounds, as a tropical storm can bring them: they stay.
+_SYNOP_RANGES: dict[str, tuple[float, float]] = {
+    "pres": (50_000.0, 110_000.0),
+    "pmer": (85_000.0, 110_000.0),
+    "t": (183.15, 333.15),
+    "td": (183.15, 333.15),
+    "tn12": (183.15, 333.15),
+    "tx12": (183.15, 333.15),
+    "tn24": (183.15, 333.15),
+    "tx24": (183.15, 333.15),
+    "rr1": (0.0, 600.0),
+    "rr3": (0.0, 1_200.0),
+    "rr6": (0.0, 1_200.0),
+    "rr12": (0.0, 1_200.0),
+    "rr24": (0.0, 2_000.0),
+}
 
 # explicit schema of the exact columns published by the source, read as strings throughout since
 # many columns are entirely empty for a given station or year, which would otherwise lead to
@@ -273,6 +308,7 @@ class MeteoFranceSynopValues(TimeseriesValues):
                 .cast(pl.Float64, strict=False)
                 .eq(pl.col(_SYNOP_MAXIMUM_BESIDE).str.strip_chars().cast(pl.Float64, strict=False))
             ),
+            *(OutOfRange(low, high, where=pl.col("parameter").eq(name)) for name, (low, high) in _SYNOP_RANGES.items()),
             # a missing reading is an empty field; a text that is no number was nulled by the cast alone
             # (the 2024 file holds none) and now keeps its text too
             non_numeric=True,

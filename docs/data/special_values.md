@@ -80,7 +80,7 @@ it itself.
 | an empty field or a JSON null | null, without a token | every other provider |
 | a value cell that is a text and no number, or a JSON `NaN` | null and counted by the core; a reader that knows the text keeps it as `raw:<text>` | all; `raw:` in AEMET, DWD POI, swsmos, mosmix and dmo, FMI, Met Office, Météo-France |
 | a number padded with blanks | read | all (the core) |
-| a value outside the physical range of its parameter that is no code | null, `raw:<number>` as the source wrote it, in its unit | DMI, RMI, DWD road (`raw:198.15`: -75 °C, which KM's stopped sensors hold) |
+| a value outside the physical range of its parameter that is no code | null, `raw:<number>` as the source wrote it, in its unit | DMI, RMI, DWD road (`raw:198.15`: -75 °C, which KM's stopped sensors hold), DWD observation (a wind speed below 0 or above 115 m/s, a pressure outside 500 to 1090 hPa), Météo-France synop (a pressure, temperature or amount of rain beyond the records) |
 | a sensor stuck or dead over a period | null, `raw:<value>` | DWD observation (the pressure of a station without a barometer), RMI (sunshine) |
 | a sensor that holds one value for six hours | the value, with the flag `1` | DWD road (air, dew point and road surface temperature) |
 | a value the source flags missing | null, the flag | CHMI `4`, EA `Missing`, ECCC `M`, IMGW meteorology `8` |

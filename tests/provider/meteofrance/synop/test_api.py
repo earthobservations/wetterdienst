@@ -326,6 +326,101 @@ def test_meteofrance_synop_api_obscured_sky_is_null(monkeypatch: pytest.MonkeyPa
     assert df.get_column("value").to_list() == [0.0, 0.9, 1.0]
 
 
+def test_meteofrance_synop_api_a_reading_no_sensor_produced_is_null_with_its_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that pressure, temperature and rain beyond the records are null with the number the file wrote (GH-3135).
+
+    The rows are those of the files of 1996 to 2005 (`pres` 11170 Pa at LA DESIRADE, `t` 369.15 K at 07117, `td` 358.95
+    K at 61997, `rr1` 800 mm at 61976), moved to 07005 and to 2024. The first row is the edge of every bound, which
+    stays: 50,000 and 85,000 Pa, 183.15 K, 600 mm; the second the other edge: 110,000 Pa, 333.15 K, 2,000 mm. The trace
+    of -0.1 is still 0.0, and a rr6 of 805 mm and a rr24 of 999.4 mm are inside the records.
+    """
+    rows = [
+        {
+            "geo_id_wmo": "07005",
+            "validity_time": "2024-01-01T00:00:00Z",
+            "pres": "50000",
+            "pmer": "85000",
+            "t": "183.15",
+            "td": "183.15",
+            "rr1": "600.0",
+            "rr3": "1200.0",
+            "rr6": "805.0",
+            "rr24": "999.4",
+        },
+        {
+            "geo_id_wmo": "07005",
+            "validity_time": "2024-01-01T03:00:00Z",
+            "pres": "110000",
+            "pmer": "110000",
+            "t": "333.15",
+            "td": "333.15",
+            "rr1": "-0.1",
+            "rr24": "2000.0",
+        },
+        {
+            "geo_id_wmo": "07005",
+            "validity_time": "2024-01-01T06:00:00Z",
+            "pres": "11170",
+            "pmer": "84990",
+            "t": "369.15",
+            "td": "358.95",
+            "rr1": "800.0",
+            "rr3": "1200.1",
+            "rr6": "1200.1",
+            "rr24": "2000.1",
+        },
+        {
+            "geo_id_wmo": "07005",
+            "validity_time": "2024-01-01T09:00:00Z",
+            "pres": "110000.5",
+            "pmer": "110000.5",
+            "t": "183.1",
+            "td": "333.2",
+            "rr1": "-0.2",
+        },
+    ]
+    parameters = [
+        "pressure_air_site",
+        "pressure_air_sea_level",
+        "temperature_air_2m",
+        "temperature_dew_point_2m",
+        "precipitation_amount_last_1h",
+        "precipitation_amount_last_3h",
+        "precipitation_amount_last_6h",
+        "precipitation_amount_last_24h",
+    ]
+    df = _values(monkeypatch, rows, parameters, drop_nulls=False)
+    by_parameter = {
+        str(parameter): group.sort("timestamp")
+        for (parameter,), group in df.partition_by("parameter", as_dict=True).items()
+    }
+
+    def values(parameter: str) -> list[float | None]:
+        return by_parameter[parameter].get_column("value").to_list()
+
+    def raw(parameter: str) -> list[str | None]:
+        return by_parameter[parameter].get_column("quality_flags").to_list()
+
+    assert values("pressure_air_site") == [500.0, 1100.0, None, None]
+    assert raw("pressure_air_site") == [None, None, "raw:11170", "raw:110000.5"]
+    assert values("pressure_air_sea_level") == [850.0, 1100.0, None, None]
+    assert raw("pressure_air_sea_level") == [None, None, "raw:84990", "raw:110000.5"]
+    assert values("temperature_air_2m") == [-90.0, 60.0, None, None]
+    assert raw("temperature_air_2m") == [None, None, "raw:369.15", "raw:183.1"]
+    assert values("temperature_dew_point_2m") == [-90.0, 60.0, None, None]
+    assert raw("temperature_dew_point_2m") == [None, None, "raw:358.95", "raw:333.2"]
+    assert values("precipitation_amount_last_1h") == [600.0, 0.0, None, None]
+    assert raw("precipitation_amount_last_1h") == [None, "raw:-0.1", "raw:800.0", "raw:-0.2"]
+    assert values("precipitation_amount_last_3h") == [1200.0, None, None, None]
+    assert raw("precipitation_amount_last_3h") == [None, None, "raw:1200.1", None]
+    assert values("precipitation_amount_last_6h") == [805.0, None, None, None]
+    assert raw("precipitation_amount_last_6h") == [None, None, "raw:1200.1", None]
+    assert values("precipitation_amount_last_24h") == [999.4, 2000.0, None, None]
+    assert raw("precipitation_amount_last_24h") == [None, None, "raw:2000.1", None]
+
+
 @pytest.mark.remote
 def test_meteofrance_synop_api_stations() -> None:
     """Test that station metadata can be retrieved and is complete."""
