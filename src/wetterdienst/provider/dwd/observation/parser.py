@@ -17,12 +17,12 @@ from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.quality_flags import (
     RAW_SUFFIX,
+    NoReading,
     OutOfRange,
     Sentinel,
     calm,
     clear_sentinels,
     no_direction_code,
-    raw_column,
     station_pressure_range,
 )
 from wetterdienst.provider.dwd.observation.download import MEZ_DATASETS, ProductFile
@@ -361,22 +361,16 @@ CODED_STRING_PARAMETERS = {
 
 
 def _null_station_constant(df: pl.LazyFrame, column: str) -> pl.LazyFrame:
-    """Null a column of one file that holds at most a few values, keeping the text of each as `raw` (GH-2699).
+    """Judge a column of one file that holds at most a few values, as ``stuck`` (GH-2699, GH-3676).
 
     A file is the unit: this runs on one file before the files are put together, so a station whose
     recent file is constant and whose historical file is not is judged on each. The value is judged
-    as a number (`997.3` and `997.30` are one), and the `raw` token is the text the file wrote.
+    as a number (`997.3` and `997.30` are one). A hard ``stuck`` check nulls it and the text the file wrote is the
+    `raw` token; a soft one (the default) keeps it, flagged `suspect:stuck`.
     """
-    value = pl.col(column)
-    readings = value.cast(pl.Float64, strict=False).drop_nulls()
+    readings = pl.col(column).cast(pl.Float64, strict=False).drop_nulls()
     constant = (readings.len() >= STATION_CONSTANT_MIN_READINGS) & (readings.n_unique() <= STATION_CONSTANT_MAX_VALUES)
-    raw = pl.when(constant & value.is_not_null()).then(value)
-    if raw_column(column) in df.collect_schema():
-        raw = pl.coalesce(pl.col(raw_column(column)), raw)
-    return df.with_columns(
-        pl.when(constant).then(pl.lit(None, dtype=pl.String)).otherwise(value).alias(column),
-        raw.alias(raw_column(column)),
-    )
+    return clear_sentinels(df, [column], NoReading(constant, check="stuck"))
 
 
 def _decode_measurement_method(series: pl.Series) -> pl.Series:

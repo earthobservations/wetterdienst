@@ -24,14 +24,24 @@ NOT_JOINED = {
 }
 
 
+#: what a reader names when a plausibility check judges its values: the rules of `model/quality_flags.py`, which a
+#: `raw` text turns into the tokens `suspect` and `rejected`, written before `raw` (GH-3676)
+JUDGEMENTS = {"OutOfRange", "NoReading", "Floor", "station_pressure_range"}
+
+
 def _kinds_written() -> dict[str, set[str | None]]:
-    """Read from the readers what each network passes to `join_quality_flags`: `None` for a plain flag, else a kind."""
+    """Read from the readers what each network passes to `join_quality_flags`: `None` for a plain flag, else a kind.
+
+    A network whose readers declare a judgement writes the kinds `suspect` and `rejected` as well, though no reader
+    passes them: `join_quality_flags` writes them for the `raw` text of a rule.
+    """
     found: dict[str, set[str | None]] = {}
     for path in sorted(PROVIDER_DIR.rglob("*.py")):
         parts = path.relative_to(PROVIDER_DIR).parts
         if len(parts) < 3:
             continue
-        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
             is_call = isinstance(node, ast.Call) and getattr(node.func, "id", getattr(node.func, "attr", None))
             if is_call != "join_quality_flags":
                 continue
@@ -40,6 +50,8 @@ def _kinds_written() -> dict[str, set[str | None]]:
             if node.args and not (isinstance(node.args[0], ast.Constant) and node.args[0].value is None):
                 kinds.add(None)
             kinds.update(keyword.arg for keyword in node.keywords)
+        if any(isinstance(node, ast.Call) and getattr(node.func, "id", None) in JUDGEMENTS for node in ast.walk(tree)):
+            found.setdefault(f"{parts[0]}/{parts[1]}", set()).update({"suspect", "rejected"})
     return found
 
 

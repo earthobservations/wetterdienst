@@ -18,6 +18,14 @@ Types of changes:
 
 ### Added
 
+- The option `plausibility` sets what each plausibility check (`range`, `elevation`, `stuck`,
+  `consistency`, `floor`) does to a number it finds implausible: `hard` nulls it and keeps the number
+  as `rejected:<check>,raw:<number>` in `quality_flags`, `soft` keeps it and flags it
+  `suspect:<check>`. Set it with `Options(plausibility={"range": "soft"})`,
+  `WD_TS_PLAUSIBILITY__RANGE`, `--plausibility-range` or `plausibility_range` (REST, MCP), or
+  `plausibility="soft"`, `WD_TS_PLAUSIBILITY=soft`, `--plausibility soft` and `plausibility=soft` for
+  every check at once (a check named beside it wins); interpolation and summary always leave out a
+  suspect value (GH-3676)
 - `dmi/observation` now serves the highest and lowest pressure at sea level of the day, month and
   year (new `pressure_air_sea_level_max`/`_min`; 45 stations, 38 in Greenland), the monthly and
   annual summer days and tropical nights (`count_days_summer`, `count_days_tropical_night`) and
@@ -36,6 +44,11 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: `quality_flags` gain the tokens `suspect:<check>` and `rejected:<check>` before `raw:`.
+  A number a check rejected is `rejected:range,raw:4021` where it was `raw:4021`, so `raw:` alone is
+  now a code of the source. `dwd/observation` (the constant pressure of an hourly `moisture` file),
+  `rmi/observation` (the sunshine of 6477) and `dwd/road` (a stopped sensor, once quality `1`) now
+  keep their values, as `suspect:stuck`; `plausibility={"stuck": "hard"}` gives the null (GH-3676)
 - **Breaking**: `dwd/road` returns null, with the number DWD wrote as the last token of
   `quality_flags` (`raw:0.1`), for a `humidity_relative` below 1 % and for a `temperature_surface`
   more than 20 K above the `temperature_air` of the same minute with the sun more than 6 degrees

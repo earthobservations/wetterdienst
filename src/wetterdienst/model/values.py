@@ -20,6 +20,7 @@ from wetterdienst.metadata.resolution import count_readings, reading_interval
 from wetterdienst.model.fetch_ahead import FetchAhead, FilesAhead
 from wetterdienst.model.metadata import group_parameters_by_dataset
 from wetterdienst.model.parameter_rows import ParameterRows
+from wetterdienst.model.plausibility import applying
 from wetterdienst.model.quality_flags import QUALITY_FLAGS, RAW_TOKEN
 from wetterdienst.model.request import require_window
 from wetterdienst.model.result import StationsFilter, StationsResult, ValuesResult
@@ -832,6 +833,14 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         self, station_id: str, dataset: DatasetModel, parameters: Sequence[ParameterModel]
     ) -> pl.DataFrame:
         """Process data for a specific dataset."""
+        # the readers judge the numbers they parse with the modes of the request's `plausibility` (GH-3676)
+        with applying(self.sr.options.plausibility):
+            return self._process_dataset_in_effect(station_id, dataset, parameters)
+
+    def _process_dataset_in_effect(
+        self, station_id: str, dataset: DatasetModel, parameters: Sequence[ParameterModel]
+    ) -> pl.DataFrame:
+        """Process data for a specific dataset, as `_process_dataset` does inside the modes of the request."""
         if dataset.grouped:
             df = self._collect_station_parameter_or_dataset(
                 station_id=station_id,

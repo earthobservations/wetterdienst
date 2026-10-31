@@ -630,7 +630,7 @@ def test_collect_carries_qc_status_and_validity_in_quality_flags(monkeypatch: py
     assert df.schema["quality_flags"] == pl.String
     flags = {(row["parameter"], row["value"]): row["quality_flags"] for row in df.iter_rows(named=True)}
     assert flags == {
-        ("acc_precip", None): "manual,validity:false,raw:1978",
+        ("acc_precip", None): "manual,validity:false,rejected:range,raw:1978",
         ("acc_precip", 3.4): "manual,validity:true",
         ("mean_temp", 5.1): "none,validity:true",
         ("mean_temp", 5.3): None,
@@ -687,9 +687,9 @@ def test_collect_nulls_a_value_outside_the_range_of_its_parameter_and_keeps_what
     found = {(row["parameter"], row["timestamp"].year, row["timestamp"].month): row for row in df.iter_rows(named=True)}
     assert {key: (row["value"], row["quality_flags"]) for key, row in found.items()} == {
         ("acc_precip", 2011, 9): (1200.0, "manual,validity:true"),
-        ("acc_precip", 2011, 10): (None, "manual,validity:false,raw:17802"),
-        ("acc_precip", 2012, 10): (None, "manual,validity:false,raw:3229.9"),
-        ("max_temp_w_date", 2011, 9): (None, "manual,validity:true,raw:4021"),
+        ("acc_precip", 2011, 10): (None, "manual,validity:false,rejected:range,raw:17802"),
+        ("acc_precip", 2012, 10): (None, "manual,validity:false,rejected:range,raw:3229.9"),
+        ("max_temp_w_date", 2011, 9): (None, "manual,validity:true,rejected:range,raw:4021"),
         ("max_temp_w_date", 2011, 10): (8.5, "manual,validity:true"),
     }
 
@@ -715,7 +715,7 @@ def test_collect_reads_the_trace_of_precipitation_as_zero_and_keeps_its_text(res
         (0.0, "manual,validity:true,raw:-0.1"),
         (0.0, "manual,validity:true"),
         (1.2, "manual,validity:true"),
-        (None, "manual,validity:true,raw:-0.5"),
+        (None, "manual,validity:true,rejected:range,raw:-0.5"),
     ]
 
 
@@ -751,7 +751,7 @@ def test_collect_holds_the_rain_to_the_span_of_the_resolution(
     df = _collect_station_values(resolution, rows).sort("timestamp")
     assert df.select("value", "quality_flags").rows() == [
         (reading, "manual,validity:true"),
-        (None, f"manual,validity:false,raw:{no_reading:.15g}"),
+        (None, f"manual,validity:false,rejected:range,raw:{no_reading:.15g}"),
     ]
 
 
@@ -777,7 +777,7 @@ def test_collect_holds_the_largest_amount_of_a_part_of_a_day_to_the_day(
     df = _collect_station_values(resolution, rows).sort("timestamp")
     assert df.select("value", "quality_flags").rows() == [
         (reading, "manual,validity:true"),
-        (None, f"manual,validity:false,raw:{no_reading:.15g}"),
+        (None, f"manual,validity:false,rejected:range,raw:{no_reading:.15g}"),
     ]
 
 

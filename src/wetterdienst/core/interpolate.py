@@ -28,6 +28,7 @@ from wetterdienst.core.util import (
     extract_station_values,
     hold_stations_in_reach,
     lapse_rate_for,
+    leave_out_suspect,
     no_elevation_in_reach_error,
     one_row_per_station,
     open_parameter_data,
@@ -227,6 +228,8 @@ def request_stations(
         file=tqdm_out,
     ):
         station = stations_by_id[result.df.get_column("station_id")[0]]
+        # a value a soft check flags suspect is left out, whatever the mode of the request (GH-3676)
+        result_df = leave_out_suspect(result.df)
         valid_station_groups_exists = has_valid_station_group(stations_dict, utm_x, utm_y)
         # check if all parameters found enough stations and the stations build a valid station group
         if (
@@ -236,7 +239,7 @@ def request_stations(
             and valid_station_groups_exists
         ):
             break
-        if result.df.drop_nulls("value").is_empty():
+        if result_df.drop_nulls("value").is_empty():
             continue
         if not UTM_LATITUDE_MIN <= station["latitude"] <= UTM_LATITUDE_MAX:
             # UTM ends at 80 deg S and 84 deg N, so a station beyond, in reach of a point inside, has
@@ -245,7 +248,7 @@ def request_stations(
             log.info(f"station {station['station_id']} lies beyond the 80 deg S to 84 deg N UTM covers and is left out")
             continue
         contributed = apply_station_values_per_parameter(
-            result.df,
+            result_df,
             stations_ranked,
             param_dict,
             station,

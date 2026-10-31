@@ -19,6 +19,7 @@ from wetterdienst.core.util import (
     extract_station_values,
     hold_stations_in_reach,
     lapse_rate_for,
+    leave_out_suspect,
     no_elevation_in_reach_error,
     one_row_per_station,
     open_parameter_data,
@@ -158,15 +159,17 @@ def request_stations(
         file=tqdm_out,
     ):
         station = stations_by_id[result.df.get_column("station_id")[0]]
+        # a value a soft check flags suspect is left out, whatever the mode of the request (GH-3676)
+        result_df = leave_out_suspect(result.df)
         # check if all parameters found enough stations and the stations build a valid station group
         if collection_is_done(
             param_dict, dropped_for_elevation.keys() & parameters_still_in_reach(counts, station["distance"])
         ):
             break
-        if result.df.drop_nulls("value").is_empty():
+        if result_df.drop_nulls("value").is_empty():
             continue
         if apply_station_values_per_parameter(
-            result.df,
+            result_df,
             stations_ranked,
             param_dict,
             station,

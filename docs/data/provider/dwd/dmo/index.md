@@ -28,6 +28,11 @@ A forecast is dated by its model run: the `data_updated_at` of the
 [`metadata`](../../../../usage/restapi.md#response-metadata) of an answer is the run the forecast is of (the `IssueTime` that the file states), not the time DWD published the file, so it
 is the same however often the run is read, and `retrieved_at` less `data_updated_at` is how old the forecast is.
 
+The `rr1`, `rr3`, `rad1h` and `rads3` of ICON, which the model writes a little below 0 now and then, are held to the
+[plausibility](../../../plausibility.md) check `floor`: by default (hard) the value is set to 0.0 and the number stays as
+`rejected:floor,raw:-0.1`; with `plausibility={"floor": "soft"}` the value is kept as ICON wrote it and flagged
+`suspect:floor`.
+
 ```{toctree}
 :hidden:
 

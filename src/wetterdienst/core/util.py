@@ -15,6 +15,7 @@ from wetterdienst.exceptions import NoStationsWithElevationError
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.metadata.resolution import Frequency
 from wetterdienst.model.metadata import ParameterModel
+from wetterdienst.model.plausibility import SUSPECT_TOKEN
 from wetterdienst.util.response_warnings import warn_response
 
 if TYPE_CHECKING:
@@ -37,6 +38,19 @@ _ASK_INSTEAD = (
     "-- naming a station id instead asks at that station's own elevation -- or use a provider that "
     "publishes the elevations of its stations."
 )
+
+
+def leave_out_suspect(df: pl.DataFrame) -> pl.DataFrame:
+    """Null the value of every reading a soft plausibility check flagged ``suspect:`` (GH-3676).
+
+    An interpolation or a summary is an estimate made of the readings of many stations, and a number that a check finds
+    implausible has no place in it, whatever mode the request gave the check: the mode changes what a station's own
+    values show, not what is blended. The reading stays a row, as a rejected one does, with no value.
+    """
+    if "quality_flags" not in df.columns:
+        return df
+    suspect = pl.col("quality_flags").str.contains(SUSPECT_TOKEN).fill_null(value=False)
+    return df.with_columns(pl.when(suspect).then(None).otherwise(pl.col("value")).alias("value"))
 
 
 @dataclass

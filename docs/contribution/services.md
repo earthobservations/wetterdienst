@@ -305,6 +305,18 @@ narrower entries are named in `test_physical_ranges.py`, and the `raw` text is t
 column with `clear_sentinels` and `unpivot_with_raw`. Add a stub of the source with the sentinel written as the source writes it to
 `tests/provider/value_stubs.py` and name each `raw:` token it must carry in `tokens`.
 
+`OutOfRange`, `NoReading` and `Floor` are judgements, not the source's own codes, and each belongs to one
+[plausibility check](../data/plausibility.md) (`range`, `elevation`, `stuck`, `consistency`, `floor`) whose mode the
+request chooses with the option `plausibility` (GH-3676). A rule names its check (`NoReading(where, check="consistency")`;
+`OutOfRange` is `range` and `NoReading` is `stuck` by default, `station_pressure_range` is `elevation`), and
+`null_sentinels` reads the mode from the plausibility `TimeseriesValues` has put in effect for the reader: a reader
+passes no mode, and `join_quality_flags(..., raw=raw)` writes `rejected:<check>,raw:<number>` (hard) or
+`suspect:<check>` (soft) from the `raw` text. A `Sentinel` has no mode. A check that reads a second parameter takes it
+from the file the reader is already reading and stands aside where it has none: it never triggers a download. Name the
+number each stub's reader rejects in `verdicts` (and the soft ones in `suspects`), and add the network and its datasets
+to `COVERAGE` in `wetterdienst/model/plausibility.py` and to the table of `docs/data/plausibility.md`, which
+`tests/test_docs_plausibility.py` holds to the rules the reader declares.
+
 ## Step 4: What a new provider brings with it
 
 The tests hold every provider to the same rules, and fail until a new one has what they look for:

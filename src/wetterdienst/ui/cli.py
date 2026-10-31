@@ -32,11 +32,13 @@ from wetterdienst.exceptions import (
 )
 from wetterdienst.io.export import require_kaleido
 from wetterdienst.metadata.unit_type import UnitType
+from wetterdienst.model.plausibility import CHECKS, Mode
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.options import Options
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.settings import check_settings
 from wetterdienst.ui.core import (
+    PLAUSIBILITY_OPTIONS,
     RENAMED_REQUEST_PARAMETERS,
     HistoryRequest,
     InterpolationRequest,
@@ -271,6 +273,38 @@ station_window_end_buffer_opt = click.option(
         "two days up to daily, 62 for monthly and 732 for annual"
     ),
 )
+
+
+def _plausibility_option(check: str) -> Callable[[_CommandT], _CommandT]:
+    """Make the option that sets the mode of a plausibility check: `--plausibility-<check> soft|hard`."""
+    return click.option(
+        f"--plausibility-{check}",
+        type=click.Choice(["hard", "soft"]),
+        default="soft" if check == "stuck" else "hard",
+        help=(
+            f"What the check '{check}' does to a value it finds implausible: hard nulls it and keeps the number as "
+            f"`rejected:{check},raw:<number>` in quality_flags, soft keeps it and flags it `suspect:{check}`. "
+            f"Default: WD_TS_PLAUSIBILITY__{check.upper()} if set, else {'soft' if check == 'stuck' else 'hard'}"
+        ),
+    )
+
+
+def plausibility_opts(command: _CommandT) -> _CommandT:
+    """Add `--plausibility`, the mode of every check, and the five options that set one: `--plausibility-range`..."""
+    for check in reversed(CHECKS):
+        command = _plausibility_option(check)(command)
+    return click.option(
+        "--plausibility",
+        type=click.Choice(["hard", "soft"]),
+        help=(
+            "One mode for every plausibility check: soft keeps what a check finds implausible, flagged "
+            "`suspect:<check>`, hard nulls it and keeps the number as `rejected:<check>,raw:<number>`. A check "
+            "given beside it by --plausibility-<check> wins. Default: WD_TS_PLAUSIBILITY if set, else the mode of "
+            "each check"
+        ),
+    )(command)
+
+
 sql_values_opt = click.option(
     "--sql-values",
     type=click.STRING,
@@ -518,8 +552,12 @@ def _build_options(options: dict[str, tuple[str, Any]]) -> Options:
         for param, (option, value) in options.items()
         if ctx.get_parameter_source(param) is not ParameterSource.DEFAULT
     }
-    replacing = {option: value for option, (_, value) in given.items() if not isinstance(value, dict)}
-    merging = {option: value for option, (_, value) in given.items() if isinstance(value, dict)}
+    # a dict, and the mode of a plausibility check, which lays itself over the modes the environment sets
+    merged_kinds = [
+        option for option, (_, value) in given.items() if isinstance(value, dict) or option in PLAUSIBILITY_OPTIONS
+    ]
+    replacing = {option: value for option, (_, value) in given.items() if option not in merged_kinds}
+    merging = {option: value for option, (_, value) in given.items() if option in merged_kinds}
     try:
         # the environment is read here for what no option replaces
         built = Options(**replacing)
@@ -764,6 +802,10 @@ VALUES_EXAMPLES = r"""
     # the five stations closest to a point that have data for the date
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl \
         --latitude=49.9195 --longitude=8.9671 --rank=5 --timestamp=2020-06-30
+
+    # keep a number a plausibility check finds implausible, flagged `suspect:range`, instead of nulling it
+    wetterdienst values --provider=dwd --network=observation --parameters=hourly/moisture/pressure_air_site \
+        --stations=1048 --timestamp=2024-01 --plausibility-range=soft --plausibility-stuck=hard
 
     # MOSMIX and DMO forecasts
     wetterdienst values --provider=dwd --network=mosmix --parameters=hourly/large/ttt,hourly/large/ff --stations=65510
@@ -1787,6 +1829,7 @@ def history(
     help="Drop rows with null values from the output. Default: WD_TS_DROP_NULLS if set, else true",
 )
 @station_window_end_buffer_opt
+@plausibility_opts
 @stream_format_opt
 @width_opt
 @height_opt
@@ -1836,6 +1879,12 @@ def values(
     skip_threshold: float,
     drop_nulls: bool,  # noqa: FBT001
     station_window_end_buffer: int | None,
+    plausibility: Mode | None,
+    plausibility_range: Mode,
+    plausibility_elevation: Mode,
+    plausibility_stuck: Mode,
+    plausibility_consistency: Mode,
+    plausibility_floor: Mode,
     pretty: bool,  # noqa: FBT001
     with_metadata: bool,  # noqa: FBT001
     with_stations: bool,  # noqa: FBT001
@@ -1884,6 +1933,12 @@ def values(
             "skip_threshold": skip_threshold,
             "drop_nulls": drop_nulls,
             "station_window_end_buffer": station_window_end_buffer,
+            "plausibility": plausibility,
+            "plausibility_range": plausibility_range,
+            "plausibility_elevation": plausibility_elevation,
+            "plausibility_stuck": plausibility_stuck,
+            "plausibility_consistency": plausibility_consistency,
+            "plausibility_floor": plausibility_floor,
             "pretty": pretty,
             "with_metadata": with_metadata,
             "with_stations": with_stations,
@@ -1910,6 +1965,8 @@ def values(
             "skip_threshold": ("skip_threshold", request.skip_threshold),
             "drop_nulls": ("drop_nulls", request.drop_nulls),
             "station_window_end_buffer": ("station_window_end_buffer", request.station_window_end_buffer),
+            "plausibility": ("plausibility", request.plausibility),
+            **{name: (name, getattr(request, name)) for name in PLAUSIBILITY_OPTIONS},
         }
     )
 

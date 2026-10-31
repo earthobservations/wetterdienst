@@ -36,6 +36,10 @@ the world's record, or whose precision needs no slack, can say so), and `test_ph
 DWD observation (the wind speeds and the station and sea level pressures) and Météo-France synop (the pressures,
 temperatures and amounts of rain) null only the columns they name, a bound of the world's records or inside it, and
 `test_physical_ranges.py` holds those to the range here as well (GH-3135).
+
+A value outside its range that carries the token `suspect:` is kept on purpose: a plausibility check in the mode `soft`
+found it and left it, flagged (GH-3676), so the check here accepts it. Only the readers' own verdict counts; a number
+outside a range with no such token is still a sentinel the reader missed.
 """
 
 from __future__ import annotations
@@ -45,6 +49,7 @@ from typing import NamedTuple
 import polars as pl
 
 from wetterdienst.metadata.parameter_table import PARAMETERS
+from wetterdienst.model.plausibility import SUSPECT_TOKEN
 
 
 class Bounds(NamedTuple):
@@ -261,6 +266,10 @@ def out_of_range(df: pl.DataFrame, names: dict[str, str] | None = None, resoluti
         for column in ("resolution", "dataset", "station_id", "timestamp", "parameter", "value")
         if column in df.columns
     ]
+    if "quality_flags" in df.columns:
+        # a value that a soft plausibility check flagged `suspect:` is kept on purpose, outside its range or not
+        # (GH-3676): the flag is the reader's own finding, so the number is not a sentinel the reader missed
+        outside = outside & ~pl.col("quality_flags").str.contains(SUSPECT_TOKEN).fill_null(value=False)
     return df.filter(outside.fill_null(value=False)).select(keep)
 
 

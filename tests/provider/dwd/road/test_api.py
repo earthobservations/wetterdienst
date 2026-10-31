@@ -16,7 +16,8 @@ from tests.conftest import BUFR_AVAILABLE
 from wetterdienst import Options, Settings
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DatasetModel
-from wetterdienst.model.quality_flags import null_sentinels
+from wetterdienst.model.plausibility import Plausibility, applying
+from wetterdienst.model.quality_flags import join_quality_flags, null_sentinels
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.model.schema import LONG_SCHEMA
 from wetterdienst.model.values import shape_provider_frame
@@ -1528,7 +1529,7 @@ def _out_of_range(parameter: str, values: list[float]) -> pl.DataFrame:
     from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
 
     value, raw = null_sentinels(pl.col("value"), *api._OUT_OF_RANGE, text=False)  # noqa: SLF001
-    return _series("A006", parameter, values).select(value.alias("value"), raw.alias("raw"))
+    return _series("A006", parameter, values).select(value.alias("value"), join_quality_flags(raw=raw).alias("raw"))
 
 
 @pytest.mark.parametrize(
@@ -1557,7 +1558,7 @@ def test_dwd_road_weather_impossible_temperature_is_null(
     # every reading or none of them: the three hold the same value
     assert df.get_column("value").is_null().all() == nulled, case
     assert df.get_column("value").is_null().any() == nulled, case
-    assert df.get_column("raw").to_list() == ([str(published)] * 3 if nulled else [None] * 3), case
+    assert df.get_column("raw").to_list() == ([f"rejected:range,raw:{published}"] * 3 if nulled else [None] * 3), case
 
 
 def test_dwd_road_weather_impossible_temperature_needs_no_window() -> None:
@@ -1636,7 +1637,7 @@ def test_dwd_road_weather_an_impossible_value_is_null_with_its_number(monkeypatc
     rows = {
         parameter: (value, flags) for parameter, value, flags in df.select("parameter", "value", "quality_flags").rows()
     }
-    assert rows["roadSurfaceTemperature"] == (None, "1,raw:198.15")
+    assert rows["roadSurfaceTemperature"] == (None, "1,rejected:range,raw:198.15")
     assert rows["airTemperature"] == (285.25, "0")
 
 
@@ -1692,7 +1693,7 @@ def test_dwd_road_weather_a_humidity_under_one_percent_is_no_reading(
     df = _collect_one(monkeypatch, {**_DAY, "#1#relativeHumidity": humidity})
     value, flags = _by_parameter(df)["relativeHumidity"]
     if nulled:
-        assert (value, flags) == (None, f"raw:{humidity:g}")
+        assert (value, flags) == (None, f"rejected:range,raw:{humidity:g}")
     else:
         assert (value, flags) == (humidity, None)
 
@@ -1726,7 +1727,9 @@ def test_dwd_road_weather_a_surface_far_above_the_air_at_night_is_no_reading(
     if air is not None:
         subset["#1#airTemperature"] = air
     rows = _by_parameter(_collect_one(monkeypatch, subset))
-    assert rows["roadSurfaceTemperature"] == ((None, f"raw:{surface:g}") if nulled else (surface, None)), case
+    assert rows["roadSurfaceTemperature"] == (
+        (None, f"rejected:consistency,raw:{surface:g}") if nulled else (surface, None)
+    ), case
     # the air is never touched by the rule on the surface
     if air is not None and air > 200:
         assert rows["airTemperature"][0] == air, case
@@ -1757,7 +1760,7 @@ def test_dwd_road_weather_an_air_dwd_marks_suspect_does_not_null_the_surface(
     )
     rows = _by_parameter(df)
     # the bit of the air or of the ground sets the verdict of its own reading, `1` suspect, beside the `raw:` token
-    assert rows["roadSurfaceTemperature"] == ((None, "1,raw:338.75") if nulled else (338.75, "0"))
+    assert rows["roadSurfaceTemperature"] == ((None, "1,rejected:consistency,raw:338.75") if nulled else (338.75, "0"))
     assert rows["airTemperature"] == ((285.25, "0") if nulled else (285.25, "1"))
 
 
@@ -1787,9 +1790,78 @@ def test_dwd_road_weather_an_air_the_run_rule_marks_still_holds_the_surface_to_a
     surface = df.filter(pl.col("parameter").eq("roadSurfaceTemperature")).sort("timestamp")
     air = df.filter(pl.col("parameter").eq("airTemperature"))
     assert surface.get_column("value").to_list() == [None] * 26
-    assert surface.get_column("quality_flags").to_list() == [f"raw:{s['#1#roadSurfaceTemperature']:g}" for s in subsets]
+    assert surface.get_column("quality_flags").to_list() == [
+        f"rejected:consistency,raw:{s['#1#roadSurfaceTemperature']:g}" for s in subsets
+    ]
     assert air.get_column("value").to_list() == [248.15] * 26
-    assert air.get_column("quality_flags").to_list() == ["1"] * 26
+    # DWD sets no flag, and the stopped air is judged by the check `stuck`, which is soft by default
+    assert air.get_column("quality_flags").to_list() == ["suspect:stuck"] * 26
+
+
+def _a_night_of_a_stopped_air() -> list[dict[str, object]]:
+    """Give 26 readings every 15 minutes of an air stopped at -25.00 C and a surface that moves, 32 K above it."""
+    start = dt.datetime(2026, 9, 13, 20, 45, tzinfo=dt.UTC)
+    subsets = []
+    for i in range(26):
+        at = start + dt.timedelta(minutes=15 * i)
+        subsets.append(
+            {
+                "#1#day": at.day,
+                "#1#hour": at.hour,
+                "#1#minute": at.minute,
+                "#1#airTemperature": 248.15,
+                "#1#roadSurfaceTemperature": round(280.15 + 0.01 * i, 2),
+            }
+        )
+    return subsets
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_a_stopped_sensor_is_kept_and_flagged_suspect_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The check `stuck` is soft by default: the air holds -25.00 C, the value stays as DWD wrote it (GH-3676).
+
+    DWD's own flag is kept apart from the verdict: the flag is the plain code, `suspect:stuck` follows it. The same
+    night with the surface 32 K above the air is `consistency`, which is hard by default, so the surface is null.
+    """
+    df = _collect_many(monkeypatch, _a_night_of_a_stopped_air())
+    air = df.filter(pl.col("parameter").eq("airTemperature"))
+    assert air.get_column("value").to_list() == [248.15] * 26
+    assert set(air.get_column("quality_flags")) == {"suspect:stuck"}
+    surface = df.filter(pl.col("parameter").eq("roadSurfaceTemperature"))
+    assert surface.get_column("value").null_count() == 26
+    assert all(flags.startswith("rejected:consistency,raw:") for flags in surface.get_column("quality_flags"))
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_a_stopped_sensor_is_null_with_its_number_where_stuck_is_hard(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With `plausibility={"stuck": "hard"}` the air of the stopped sensor is null, `rejected:stuck,raw:248.15`."""
+    with applying(Plausibility(stuck="hard")):
+        df = _collect_many(monkeypatch, _a_night_of_a_stopped_air())
+    air = df.filter(pl.col("parameter").eq("airTemperature"))
+    assert air.get_column("value").null_count() == 26
+    assert set(air.get_column("quality_flags")) == {"rejected:stuck,raw:248.15"}
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_a_surface_far_above_the_air_is_kept_and_flagged_where_consistency_is_soft(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A surface of 65.6 C beside 12.1 C at midnight is `suspect:consistency`, a humidity under 1 % still null.
+
+    The humidity is the check `range`, which has a mode of its own (GH-3676).
+    """
+    with applying(Plausibility(consistency="soft")):
+        df = _collect_one(
+            monkeypatch,
+            {**_NIGHT, "#1#roadSurfaceTemperature": 338.75, "#1#airTemperature": 285.25, "#1#relativeHumidity": 0.4},
+        )
+    rows = _by_parameter(df)
+    assert rows["roadSurfaceTemperature"] == (338.75, "suspect:consistency")
+    assert rows["relativeHumidity"] == (None, "rejected:range,raw:0.4")
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
@@ -1810,7 +1882,9 @@ def test_dwd_road_weather_the_surface_is_held_to_an_air_that_was_not_asked_for(m
         parameters=[("15_minutes", "data", "temperature_surface")], options=Options(drop_nulls=False)
     )
     df = stations.values().all().df
-    assert df.select("parameter", "value", "quality_flags").rows() == [("temperature_surface", None, "raw:338.75")]
+    assert df.select("parameter", "value", "quality_flags").rows() == [
+        ("temperature_surface", None, "rejected:consistency,raw:338.75")
+    ]
 
 
 @pytest.mark.parametrize(

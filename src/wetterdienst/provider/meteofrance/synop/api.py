@@ -312,7 +312,8 @@ def _frostless_rules(station_id: str) -> list[OutOfRange | NoReading]:
         OutOfRange(_SYNOP_FROST, math.inf, where=pl.col("parameter").is_in(_SYNOP_TEMPERATURE_COLUMNS)),
         NoReading(
             pl.col("parameter").eq(_SYNOP_HUMIDITY)
-            & pl.col(_SYNOP_DEW_POINT_BESIDE).str.strip_chars().cast(pl.Float64, strict=False).lt(_SYNOP_FROST)
+            & pl.col(_SYNOP_DEW_POINT_BESIDE).str.strip_chars().cast(pl.Float64, strict=False).lt(_SYNOP_FROST),
+            check="consistency",
         ),
     ]
 
@@ -405,7 +406,8 @@ class MeteoFranceSynopValues(TimeseriesValues):
                 & pl.col("value")
                 .str.strip_chars()
                 .cast(pl.Float64, strict=False)
-                .eq(pl.col(_SYNOP_MAXIMUM_BESIDE).str.strip_chars().cast(pl.Float64, strict=False))
+                .eq(pl.col(_SYNOP_MAXIMUM_BESIDE).str.strip_chars().cast(pl.Float64, strict=False)),
+                check="consistency",
             ),
             *(OutOfRange(low, high, where=pl.col("parameter").eq(name)) for name, (low, high) in _SYNOP_RANGES.items()),
             *self._station_pressure_rules(station_id, dataset),

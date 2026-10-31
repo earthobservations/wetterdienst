@@ -2004,7 +2004,7 @@ def test_dmo_radiation_is_read_in_joule_per_square_centimeter(
             "Rad1h",
             "short",
             ["-0.16", "0.00", "142.09"],
-            ["raw:-0.16", None, None],
+            ["rejected:floor,raw:-0.16", None, None],
             id="rad1h",
         ),
         pytest.param(
@@ -2012,7 +2012,7 @@ def test_dmo_radiation_is_read_in_joule_per_square_centimeter(
             "RadS3",
             "long",
             ["-0.43", "0.00", "52.10"],
-            ["raw:-0.43", None, None],
+            ["rejected:floor,raw:-0.43", None, None],
             id="rads3",
         ),
     ],
@@ -2074,7 +2074,7 @@ def test_dmo_precipitation_below_zero_is_zero_and_keeps_the_number(
         Options(drop_nulls=False),
     ).filter(pl.col("parameter") == parameter)
     assert df.get_column("value").to_list() == pytest.approx([0.0, 1.2, None], nan_ok=True)
-    assert df.get_column("quality_flags").to_list() == ["raw:-0.1", None, "raw:-"]
+    assert df.get_column("quality_flags").to_list() == ["rejected:floor,raw:-0.1", None, "raw:-"]
 
 
 def test_dmo_long_wave_balance_below_zero_stays_as_written(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -2107,7 +2107,7 @@ def test_dmo_radiation_of_minus_zero_is_a_plain_zero(monkeypatch: pytest.MonkeyP
     values = df.get_column("value").to_list()
     assert values == [0.0, 0.0, 3.5]
     assert [math.copysign(1.0, value) for value in values] == [1.0, 1.0, 1.0]
-    assert df.get_column("quality_flags").to_list() == [None, "raw:-0.16", None]
+    assert df.get_column("quality_flags").to_list() == [None, "rejected:floor,raw:-0.16", None]
 
 
 def test_dmo_precipitation_of_minus_zero_is_a_plain_zero(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -2130,7 +2130,7 @@ def test_dmo_precipitation_of_minus_zero_is_a_plain_zero(monkeypatch: pytest.Mon
     values = df.get_column("value").to_list()
     assert values == [0.0, 0.0, 0.4]
     assert [math.copysign(1.0, value) for value in values] == [1.0, 1.0, 1.0]
-    assert df.get_column("quality_flags").to_list() == [None, "raw:-0.1", None]
+    assert df.get_column("quality_flags").to_list() == [None, "rejected:floor,raw:-0.1", None]
 
 
 def test_dmo_radiation_is_declared_in_joule_per_square_centimeter_by_both_products() -> None:

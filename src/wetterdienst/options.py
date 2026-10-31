@@ -16,7 +16,7 @@ import functools
 import logging
 from collections import defaultdict
 from collections.abc import Iterator, Mapping
-from typing import TYPE_CHECKING, Annotated, Any, Literal, Self
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Self, get_args
 
 from pydantic import Field, PrivateAttr, field_serializer, field_validator, model_validator
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
@@ -26,6 +26,7 @@ from wetterdienst.metadata.aliases import PARAMETER_ALIASES, use_alias
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
 from wetterdienst.metadata.renamed import RENAMED_PARAMETERS, RENAMED_RESOLUTIONS
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.plausibility import ALL, Mode, Plausibility
 from wetterdienst.model.unit import UnitConverter
 
 if TYPE_CHECKING:
@@ -123,6 +124,11 @@ def _reading_nested_as_json_would(source_class: type[PydanticBaseSettingsSource]
     # the base is a parameter: a source class of pydantic-settings, which this subclasses for every one it is given
     class Reading(source_class):  # ty: ignore[unsupported-base]
         def decode_complex_value(self, field_name: str, field: FieldInfo, value: Any) -> Any:  # noqa: ANN401
+            # `WD_TS_PLAUSIBILITY=soft` is a mode for every check, no JSON: a check named in its own variable wins
+            if field_name == "plausibility" and isinstance(value, (str, bytes)):
+                bare = value.decode() if isinstance(value, bytes) else value
+                if bare.strip() in get_args(Mode):
+                    return {ALL: bare.strip()}
             try:
                 return super().decode_complex_value(field_name, field, value)
             except RecursionError as error:
@@ -332,6 +338,11 @@ def _note_drop_nulls_ignored(shape: str, prefix: str, logger: logging.Logger) ->
 class Options(BaseSettings):
     """How the values of a request come back and how its stations are chosen.
 
+    ``plausibility`` names the mode of each check that judges a value (``Options(plausibility={"range": "soft"})``,
+    ``WD_TS_PLAUSIBILITY__RANGE=soft``): a ``hard`` check nulls the value and keeps the number as
+    ``rejected:<check>,raw:<number>`` in ``quality_flags``, a ``soft`` one keeps the value and flags it
+    ``suspect:<check>`` (GH-3676). A check that is not named keeps its mode, from the environment or its default.
+
     The defaults are read from ``WD_TS_*`` (``WD_TS_SHAPE`` for `shape`), from the environment and
     from a ``.env``, so that an operator sets them once for the host. An instance is frozen:
     `replace` makes a changed copy, validated as a new one. The mappings it holds are not copied,
@@ -400,6 +411,18 @@ class Options(BaseSettings):
     # this option defines how many additional stations are used in the interpolation process independent of the gain
     # of value pairs, so if the gain is not reached anymore, there at least `num` more stations added to the list
     geo_num_additional_stations: Annotated[int, Field(ge=0)] = 3
+    # the mode of every plausibility check, `hard` (null the value, keep the number as `rejected:<check>,raw:`) or
+    # `soft` (keep the value, flag it `suspect:<check>`): the checks are the fields of `Plausibility`, set from
+    # `WD_TS_PLAUSIBILITY__<CHECK>`. A check not named keeps its default (GH-3676)
+    plausibility: Plausibility = Field(
+        default_factory=Plausibility,
+        description="What a plausibility check does to a value it finds implausible: `hard` nulls it and keeps the "
+        "number as `rejected:<check>,raw:<number>` in `quality_flags`, `soft` keeps it and flags it "
+        "`suspect:<check>`. One mode per check (`range`, `elevation`, `stuck`, `consistency`, `floor`), or a bare "
+        "`soft` or `hard` for every check at once, which a check named beside it overrides; the "
+        "missing-value codes a source documents are no check and are not configurable. Interpolation and "
+        "summary always leave out a suspect value.",
+    )
 
     @classmethod
     def settings_customise_sources(
@@ -538,6 +561,7 @@ class Options(BaseSettings):
         """
         if not changes:
             return self
+        changes = _with_plausibility_merged(changes, self.plausibility)
         token = _REPLACING.set(True)
         try:
             with _quiet():
@@ -564,6 +588,19 @@ class Options(BaseSettings):
             yield name, (self._geo_station_distance_overrides or {}) if name == "geo_station_distance" else value
 
 
+def _with_plausibility_merged(changes: Mapping[str, Any], current: Plausibility) -> dict[str, Any]:
+    """Lay the modes a caller names over the ones the options have, so that a check not named keeps its mode.
+
+    The other options are replaced wholesale, as they are named. The checks are independent of one another, so naming
+    one is not a statement about the rest (GH-3676): ``replace(plausibility={"range": "soft"})`` leaves ``stuck`` as it
+    was. What is not a mapping is left for the field to refuse.
+    """
+    named = changes.get("plausibility")
+    if isinstance(named, Mapping):
+        return {**changes, "plausibility": {**current.model_dump(), **named}}
+    return dict(changes)
+
+
 def _options_from_fields(fields: Mapping[str, Any]) -> Options:
     """Build options from their fields alone, neither the environment nor a ``.env`` read, and with no notice given."""
     token = _REPLACING.set(True)
@@ -588,7 +625,7 @@ def options_from_mapping(given: Mapping[str, Any], base: Options | None = None) 
     if base is None:
         with _quiet():
             base = Options()
-    options = _options_from_fields({**base.model_dump(), **given})
+    options = _options_from_fields({**base.model_dump(), **_with_plausibility_merged(given, base.plausibility)})
     if options.shape != base.shape:
         _note_drop_nulls_ignored(options.shape, "", log)
     if "geo_station_distance" in given:

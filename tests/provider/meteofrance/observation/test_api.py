@@ -1493,7 +1493,7 @@ def test_meteofrance_observation_api_a_temperature_below_zero_is_null_where_ther
     _serve_climate(monkeypatch, files)
     df = _values(resolution, dataset, parameter, station, *window, drop_nulls=False)
     assert df.get_column("value").to_list() == [None]
-    assert df.get_column("quality_flags").to_list()[0].endswith(f"raw:{text}")
+    assert df.get_column("quality_flags").to_list()[0].endswith(f"rejected:range,raw:{text}")
 
 
 @pytest.mark.parametrize(
@@ -1578,7 +1578,7 @@ def test_meteofrance_observation_api_the_humidity_beside_a_dew_point_below_zero_
     assert df.get_column("parameter").unique().to_list() == ["humidity_relative"]
     assert df.get_column("value").to_list() == ([None, 0.78, 0.15] if not kept else [0.15, 0.78, 0.15])
     flags = df.get_column("quality_flags").to_list()
-    assert flags[0] == ("9" if kept else "9,raw:15")
+    assert flags[0] == ("9" if kept else "9,rejected:consistency,raw:15")
     assert flags[1] == "1"
     assert flags[2] == "1"
 
@@ -1600,6 +1600,8 @@ def test_meteofrance_observation_api_the_humidity_and_the_dew_point_are_nulled_t
     df = stations_result(request, "hourly", "others", station).values().all().df
     by_parameter = {str(p): g for (p,), g in df.partition_by("parameter", as_dict=True).items()}
     assert by_parameter["humidity_relative"].get_column("value").to_list() == [None]
-    assert by_parameter["humidity_relative"].get_column("quality_flags").to_list() == ["9,raw:3"]
+    assert by_parameter["humidity_relative"].get_column("quality_flags").to_list() == ["9,rejected:consistency,raw:3"]
     assert by_parameter["temperature_dew_point_2m"].get_column("value").to_list() == [None]
-    assert by_parameter["temperature_dew_point_2m"].get_column("quality_flags").to_list() == ["9,raw:-21.6"]
+    assert by_parameter["temperature_dew_point_2m"].get_column("quality_flags").to_list() == [
+        "9,rejected:range,raw:-21.6"
+    ]

@@ -227,8 +227,8 @@ def test_a_radiation_no_day_can_bring_is_null_and_keeps_the_text_dmi_wrote(monke
     [june] = _source("daily", "04339", "mean_radiation", "2021-06-10")
     assert june["value"] == 22.4
     assert df.select("value", "quality_flags").rows() == [
-        (None, "manual,validity:true,raw:278.6"),
-        (None, "manual,validity:true,raw:135.8"),
+        (None, "manual,validity:true,rejected:range,raw:278.6"),
+        (None, "manual,validity:true,rejected:range,raw:135.8"),
         (2240.0, "manual,validity:true"),
     ]
 
@@ -365,7 +365,7 @@ def test_the_vapour_pressure_is_the_mean_in_hpa_and_one_that_is_no_reading_is_nu
         "pressure_vapor_mean": 10.6
     }
     bad = _values(monkeypatch, "annual", "04219", _day(2023, 1, 1), _day(2023, 1, 1), drop_nulls=False)
-    assert bad.select("value", "quality_flags").rows() == [(None, "manual,validity:true,raw:109.3")]
+    assert bad.select("value", "quality_flags").rows() == [(None, "manual,validity:true,rejected:range,raw:109.3")]
 
 
 def test_the_greatest_snow_depth_is_in_cm_and_the_999_of_dmi_is_no_depth(monkeypatch: pytest.MonkeyPatch) -> None:

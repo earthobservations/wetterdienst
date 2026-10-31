@@ -2320,11 +2320,11 @@ def _p0(df: pl.DataFrame) -> list[tuple[float | None, str | None]]:
     ("elevation", "expected"),
     [
         # Berlin-Tempelhof, 48 m: 1007.5 hPa are expected, so 909.5 is out of the 75 hPa
-        (48.0, [(1038.9, "1"), (None, "1,raw:909.5"), (1009.6, "1")]),
+        (48.0, [(1038.9, "1"), (None, "1,rejected:elevation,raw:909.5"), (1009.6, "1")]),
         # a station list without an elevation leaves the reading to the bounds of the world, which it is inside of
         (None, [(1038.9, "1"), (909.5, "1"), (1009.6, "1")]),
         # the same readings at 500 m (954.6 hPa expected): 1038.9 is out of the 75 hPa, 909.5 is in
-        (500.0, [(None, "1,raw:1038.9"), (909.5, "1"), (1009.6, "1")]),
+        (500.0, [(None, "1,rejected:elevation,raw:1038.9"), (909.5, "1"), (1009.6, "1")]),
     ],
 )
 def test_dwd_observation_data_station_pressure_is_held_to_the_elevation_of_the_station(

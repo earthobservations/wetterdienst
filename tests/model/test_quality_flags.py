@@ -7,6 +7,7 @@ from __future__ import annotations
 import polars as pl
 import pytest
 
+from wetterdienst.model.plausibility import Plausibility
 from wetterdienst.model.quality_flags import (
     SPEED_BESIDE,
     Floor,
@@ -23,6 +24,9 @@ from wetterdienst.model.quality_flags import (
     unpivot_with_raw,
     with_speed_beside,
 )
+
+#: every check hard, as the stuck check is not by default
+HARD = Plausibility(stuck="hard")
 
 
 def _flags(df: pl.DataFrame, expr: pl.Expr) -> list[str | None]:
@@ -80,6 +84,12 @@ def test_a_call_without_a_flag_is_refused() -> None:
     """Test that there is nothing to join without a flag."""
     with pytest.raises(ValueError, match="at least one flag"):
         join_quality_flags()
+
+
+def _verdicts(raw: list[str | None]) -> list[str | None]:
+    """Write the raw texts the rules gave as `join_quality_flags` writes them into the column."""
+    frame = pl.DataFrame({"r": raw}, schema={"r": pl.String})
+    return frame.select(join_quality_flags(raw=pl.col("r"))).get_column("quality_flags").to_list()
 
 
 def _clean(values: list, *sentinels: Sentinel, **kwargs: bool) -> tuple[list, list]:
@@ -210,14 +220,23 @@ def test_a_number_outside_its_range_is_nulled_and_written_as_short_as_it_goes() 
         [4021.0, 110.26, 60.0, -90.0, -90.5, None, float("nan"), 0.0], OutOfRange(-90.0, 60.0), text=False
     )
     assert cleaned == [None, None, 60.0, -90.0, None, None, None, 0.0]
-    assert raw == ["4021", "110.26", None, None, "-90.5", None, "NaN", None]
+    assert _verdicts(raw) == [
+        "rejected:range,raw:4021",
+        "rejected:range,raw:110.26",
+        None,
+        None,
+        "rejected:range,raw:-90.5",
+        None,
+        "raw:NaN",
+        None,
+    ]
 
 
 def test_a_text_outside_its_range_keeps_the_cell_as_written() -> None:
     """Test that a value read from text is kept as the source wrote it, and a text that is no number is left alone."""
     cleaned, raw = _clean([" 4021.0", "12", "---", ""], OutOfRange(-90.0, 60.0))
     assert cleaned == [None, "12", "---", ""]
-    assert raw == ["4021.0", None, None, None]
+    assert _verdicts(raw) == ["rejected:range,raw:4021.0", None, None, None]
 
 
 def test_a_range_can_be_limited_to_the_values_an_expression_selects() -> None:
@@ -236,7 +255,13 @@ def test_a_range_can_be_limited_to_the_values_an_expression_selects() -> None:
         }
     ).select(cleaned.alias("cleaned"), raw.alias("raw"))
     assert out.get_column("cleaned").to_list() == [None, 1013.2, None, 999.0, None]
-    assert out.get_column("raw").to_list() == ["999", None, "5", None, "-999"]
+    assert _verdicts(out.get_column("raw").to_list()) == [
+        "rejected:range,raw:999",
+        None,
+        "rejected:range,raw:5",
+        None,
+        "raw:-999",
+    ]
 
 
 def test_a_range_that_holds_no_value_is_refused() -> None:
@@ -252,7 +277,7 @@ def test_a_wide_column_outside_its_range_goes_through_the_unpivot_with_its_text(
     )
     long = unpivot_with_raw(df, index=["at"]).sort("parameter", "at")
     assert long.get_column("value").to_list() == [1013.2, 5.0, None, 17.5]
-    assert long.get_column("raw").to_list() == [None, None, "4021", None]
+    assert _verdicts(long.get_column("raw").to_list()) == [None, None, "rejected:range,raw:4021", None]
 
 
 def test_a_value_below_its_floor_is_the_floor_and_keeps_the_number() -> None:
@@ -261,14 +286,14 @@ def test_a_value_below_its_floor_is_the_floor_and_keeps_the_number() -> None:
     assert cleaned[:4] == [0.0, 0.0, 0.0, 1.2]
     assert cleaned[4] is None
     assert cleaned[5] != cleaned[5]  # a NaN is no value below the floor, and stays one
-    assert raw == ["-0.02", "-0.1", None, None, None, None]
+    assert _verdicts(raw) == ["rejected:floor,raw:-0.02", "rejected:floor,raw:-0.1", None, None, None, None]
 
 
 def test_a_text_below_its_floor_is_read_as_a_number_and_keeps_the_cell() -> None:
     """Test that a text column becomes numbers, the cell as written is the token, and a non-number is null."""
     cleaned, raw = _clean(["-0.10", "2.5", "---", ""], Floor(0.0))
     assert cleaned == [0.0, 2.5, None, None]
-    assert raw == ["-0.10", None, None, None]
+    assert _verdicts(raw) == ["rejected:floor,raw:-0.10", None, None, None]
 
 
 def test_a_floor_can_be_limited_to_the_values_an_expression_selects_and_follows_the_first_rule() -> None:
@@ -280,7 +305,7 @@ def test_a_floor_can_be_limited_to_the_values_an_expression_selects_and_follows_
         {"parameter": ["rr1", "rr1", "ttt", "rr1"], "v": [-0.02, -999.0, -0.02, 0.4]},
     ).select(cleaned.alias("cleaned"), raw.alias("raw"))
     assert out.get_column("cleaned").to_list() == [0.0, None, -0.02, 0.4]
-    assert out.get_column("raw").to_list() == ["-0.02", "-999", None, None]
+    assert _verdicts(out.get_column("raw").to_list()) == ["rejected:floor,raw:-0.02", "raw:-999", None, None]
 
 
 def test_a_wide_column_below_its_floor_goes_through_the_unpivot_with_its_number() -> None:
@@ -288,17 +313,17 @@ def test_a_wide_column_below_its_floor_goes_through_the_unpivot_with_its_number(
     df = pl.DataFrame({"at": [1, 2, 3], "r": [-0.02, None, 0.5], "r__raw": [None, "-", None]})
     long = unpivot_with_raw(clear_sentinels(df, ["r"], Floor(0.0)), index=["at"])
     assert long.get_column("value").to_list() == [0.0, None, 0.5]
-    assert long.get_column("raw").to_list() == ["-0.02", "-", None]
+    assert _verdicts(long.get_column("raw").to_list()) == ["rejected:floor,raw:-0.02", "raw:-", None]
 
 
 def test_a_period_that_is_no_reading_nulls_what_it_selects_and_keeps_the_value() -> None:
-    """Test that `NoReading` nulls every number its `where` selects, whatever it is, and not a blank (GH-3031)."""
-    cleaned, raw = null_sentinels(pl.col("v"), NoReading(pl.col("stuck")), text=False)
+    """Test that a hard `NoReading` nulls every number its `where` selects, and not a blank (GH-3031)."""
+    cleaned, raw = null_sentinels(pl.col("v"), NoReading(pl.col("stuck")), text=False, plausibility=HARD)
     out = pl.DataFrame(
         {"stuck": [True, True, False, True], "v": [0.0, 980.0, 980.0, None]},
     ).select(cleaned.alias("cleaned"), raw.alias("raw"))
     assert out.get_column("cleaned").to_list() == [None, None, 980.0, None]
-    assert out.get_column("raw").to_list() == ["0", "980", None, None]
+    assert _verdicts(out.get_column("raw").to_list()) == ["rejected:stuck,raw:0", "rejected:stuck,raw:980", None, None]
 
 
 @pytest.mark.parametrize("lazy", [False, True], ids=["eager", "lazy"])
@@ -358,7 +383,15 @@ def test_a_station_pressure_outside_the_range_of_its_elevation_is_null_with_its_
         cleaned.alias("value"), raw.alias("raw")
     )
     assert df.get_column("value").to_list() == [None, None, 932.6, 1038.9, 1082.4, None, None]
-    assert df.get_column("raw").to_list() == ["909.5", "932.4", None, None, None, "1082.6", "1093.3"]
+    assert _verdicts(df.get_column("raw").to_list()) == [
+        "rejected:elevation,raw:909.5",
+        "rejected:elevation,raw:932.4",
+        None,
+        None,
+        None,
+        "rejected:elevation,raw:1082.6",
+        "rejected:elevation,raw:1093.3",
+    ]
 
 
 def test_a_deep_low_at_a_station_near_sea_level_is_kept_and_a_typo_of_the_zugspitze_is_not() -> None:
@@ -368,7 +401,7 @@ def test_a_deep_low_at_a_station_near_sea_level_is_kept_and_a_typo_of_the_zugspi
     cleaned, raw = null_sentinels(pl.col("value"), low, text=False)
     sea = pl.DataFrame({"value": [940.0, 938.2, 909.5]}).select(cleaned.alias("value"), raw.alias("raw"))
     assert sea.get_column("value").to_list() == [940.0, 938.2, None]
-    assert sea.get_column("raw").to_list() == [None, None, "909.5"]
+    assert _verdicts(sea.get_column("raw").to_list()) == [None, None, "rejected:elevation,raw:909.5"]
     high = station_pressure_range(2956.0)
     assert high is not None
     cleaned, raw = null_sentinels(pl.col("value"), high, text=False)
@@ -376,7 +409,13 @@ def test_a_deep_low_at_a_station_near_sea_level_is_kept_and_a_typo_of_the_zugspi
         cleaned.alias("value"), raw.alias("raw")
     )
     assert zugspitze.get_column("value").to_list() == [713.0, 780.0, None, None, None]
-    assert zugspitze.get_column("raw").to_list() == [None, None, "802.2", "908.6", "968.6"]
+    assert _verdicts(zugspitze.get_column("raw").to_list()) == [
+        None,
+        None,
+        "rejected:elevation,raw:802.2",
+        "rejected:elevation,raw:908.6",
+        "rejected:elevation,raw:968.6",
+    ]
 
 
 @pytest.mark.parametrize("elevation", [None, float("nan"), -999.0, 12_000.0])

@@ -121,7 +121,7 @@ Codes (cloud_cover_total_measurement_method):
 | {term}`humidity_absolute` | absf_std | Computed hourly value of absolute humidity. | g/m³ | >=0 |
 | {term}`pressure_vapor` | vp_std | Computed hourly value of vapour pressure. | hPa | >=0 |
 | {term}`temperature_wet_2m`      | tf_std | Computed hourly value of wet bulb temperature. | °C | - |
-| {term}`pressure_air_site` | p_std | Hourly value of barometric pressure. A station without a barometer carries one station constant in every row of a file, which is no reading: where a file of at least 500 readings holds at most three distinct values (a constant that changed once or twice) it is null, and the value stays in quality_flags as the last token, e.g. raw:997.3. | hPa | >=0 |
+| {term}`pressure_air_site` | p_std | Hourly value of barometric pressure. A station without a barometer carries one station constant in every row of a file, which is no reading: where a file of at least 500 readings holds at most three distinct values (a constant that changed once or twice) it is flagged `suspect:stuck` in quality_flags and kept (the check `stuck`, soft by default), or null with `rejected:stuck,raw:997.3` where the check is hard. | hPa | >=0 |
 | {term}`temperature_air_2m`      | tt_std | Air temperatur in 2m above ground. | °C | - |
 | {term}`humidity_relative` | rf_std | Relative humidity. | % | >=0,<=100 |
 | {term}`temperature_dew_point_2m`      | td_std | Dew point temperature in 2m above ground. | °C | - |
