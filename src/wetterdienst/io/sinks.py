@@ -9,6 +9,7 @@ it is used (`import_optional`).
 
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Callable
 from copy import copy
@@ -74,13 +75,10 @@ def _write_array_store(result: ExportMixin, filepath: str, *, netcdf: bool) -> N
 
     group = _array_group(result.df)
     df = result.df
-    if not netcdf:
-        # Problem: `TypeError: float() argument must be a string or a number, not 'NAType'`.
-        # Solution: Fill gaps in the data.
-        # NetCDF keeps its gaps as NaN, which is what a reader of a CF file expects: -999 with
-        # no `_FillValue` beside it reads as a measurement of -999, and a station with no
-        # elevation would report one 999 m below the sea
-        df = df.fill_null(-999)
+    # a gap stays a gap: NaN in a number, and in a time `NaT`, which numpy reads out of the string below. A text column
+    # has no NaN and holds an empty string, as it did. Zarr wrote -999 here (`fill_null(-999)` against
+    # `TypeError: float() argument must be a string or a number, not 'NAType'`), which a reader took for a measurement:
+    # an air temperature of -999 degrees, or a station 999 m below the sea. NetCDF kept its NaN all along
     # xarray encoding cannot handle a pandas Categorical (produced from Enum columns, which a caller
     # may have made of the frame's own), so cast them to String, and a list column is no more an array than it
     # is a CSV field
@@ -100,7 +98,7 @@ def _write_array_store(result: ExportMixin, filepath: str, *, netcdf: bool) -> N
     # the columns to read back as timestamps, taken before they are written as strings rather
     # than from a list of the names this library happens to use
     datetime_columns = df.select(cs.datetime()).columns
-    pandas_df = df.with_columns(cs.datetime().dt.to_string("iso:strict")).to_pandas()
+    pandas_df = df.with_columns(cs.datetime().dt.to_string("iso:strict").fill_null("NaT")).to_pandas()
     dataset = xarray.Dataset.from_dataframe(pandas_df)
     log.info(f"Converted to xarray Dataset. Size={dataset.sizes}")
     log.info(f"Writing to Zarr group '{filepath}'")
@@ -214,10 +212,20 @@ def _write_json(result: ExportMixin, filepath: str) -> None:
 
 
 def _write_jsonl(result: ExportMixin, filepath: str) -> None:
-    """Write the frame as JSON Lines."""
-    # one JSON object per line, which is what a stream of records is read as
+    """Write the frame as JSON Lines, which is NDJSON under either extension."""
+    # one JSON object per line, which is what a stream of records is read as: what `to_ndjson` returns
     log.info(f"Writing to JSON Lines file '{filepath}'")
     result._iso_datetimes().write_ndjson(filepath)  # noqa: SLF001
+
+
+def _write_geojson(result: ExportMixin, filepath: str) -> None:
+    """Write the frame as GeoJSON: the feature collection, written as `to_geojson` writes it."""
+    # the collection itself and not the `{"data": ...}` that `to_geojson` wraps it in: a `.geojson` file is read by
+    # tools that expect a `FeatureCollection` at the top, as a `.json` file holds the records and not the envelope
+    log.info(f"Writing to GeoJSON file '{filepath}'")
+    collection = result.to_ogc_feature_collection()["data"]
+    # bytes, as `ensure_ascii=False` writes UTF-8 and a text file would translate the newlines on Windows
+    Path(filepath).write_bytes(json.dumps(collection, indent=4, ensure_ascii=False).encode("utf-8"))
 
 
 def _write_feather(result: ExportMixin, filepath: str) -> None:
@@ -269,12 +277,14 @@ def _write_netcdf(result: ExportMixin, filepath: str) -> None:
     _write_array_store(result, filepath, netcdf=True)
 
 
-#: the file writers, by the extension a `file://` target ends in
+#: the file writers, by the extension a `file://` target ends in, which is read in any case (`.CSV` is `.csv`)
 FILE_WRITERS: dict[str, FileWriter] = {
     ".csv": _write_csv,
     ".xlsx": _write_xlsx,
     ".json": _write_json,
     ".jsonl": _write_jsonl,
+    ".ndjson": _write_jsonl,
+    ".geojson": _write_geojson,
     ".feather": _write_feather,
     ".parquet": _write_parquet,
     ".zarr": _write_zarr,
@@ -299,7 +309,7 @@ def _write_file(result: ExportMixin, target: str, connspec: ConnectionString, if
             return
 
     for extension, writer in FILE_WRITERS.items():
-        if target.endswith(extension):
+        if target.lower().endswith(extension):
             writer(result, filepath)
             return
     msg = f"Unknown export file type for target '{target}'"
@@ -489,6 +499,17 @@ def _write_influxdb(result: ExportMixin, target: str, connspec: ConnectionString
         version = 3
     else:
         msg = f"Unknown protocol variant '{protocol}' for InfluxDB"
+        raise ExportRefusedError(msg)
+
+    # a point is a reading at a time of a station, resolution and dataset: a frame without these, such as the stations
+    # (`start_timestamp` and `end_timestamp`, no `timestamp`), has nothing to write, and failed with a bare `KeyError`
+    # on the first row after the client had connected
+    missing = [name for name in ("timestamp", "station_id", "resolution", "dataset") if name not in result.df.columns]
+    if missing:
+        msg = (
+            f"InfluxDB stores readings at a time, and this frame has no {', '.join(f'`{name}`' for name in missing)} "
+            f"column to make a point of; write it to a file or another database instead (duckdb://, sqlite://, ...)."
+        )
         raise ExportRefusedError(msg)
 
     log.info(f"Writing to InfluxDB version {version}. database={database}, table={tablename}")

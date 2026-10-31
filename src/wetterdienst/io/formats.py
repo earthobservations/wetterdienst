@@ -7,8 +7,8 @@ formats (the command line's choices, the `format` of the REST API and the MCP to
 `tests/test_export_formats.py` holds to it. A format a surface offers that is not here, or one here that a surface
 and `docs/usage/export.md` leave out, fails that test.
 
-`ndjson` is not a format of `to_format`: the surfaces stream it, and the library writes the same rows as a `.jsonl`
-file target.
+`ndjson` is the rows of a result, one JSON object a line. The REST API and the command line put a `metadata` head and an
+`end` line round it and stream it, which stays theirs and is no part of this format.
 """
 
 from __future__ import annotations
@@ -49,6 +49,8 @@ FORMATS: dict[str, Format] = {
         Format("geojson", "data", "to_geojson", frozenset({"with_metadata", "indent"})),
         # `to_csv` passes its keywords to polars, and `to_format` gives it none
         Format("csv", "data", "to_csv", frozenset()),
+        # the rows and nothing else: the head and end lines of a stream are the surface's
+        Format("ndjson", "data", "to_ndjson", frozenset()),
         Format("html", "chart", "to_image", _IMAGE_ARGUMENTS),
         *(
             Format(name, "chart", "to_image", _IMAGE_ARGUMENTS, kaleido=True)

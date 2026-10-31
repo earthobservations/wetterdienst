@@ -234,7 +234,16 @@ def _public(cls: type) -> list[str]:
 # What a caller may rely on, as `dir` and `inspect` read it. A change here is a change of the surface the
 # library promises from 1.0, which is why it is pinned: it shows as a diff in a review (GH-2626, and
 # the snapshot of the public surface that #2625 asks for).
-_FORMATS = ["to_csv", "to_dict", "to_format", "to_geojson", "to_image", "to_json", "to_ogc_feature_collection"]
+_FORMATS = [
+    "to_csv",
+    "to_dict",
+    "to_format",
+    "to_geojson",
+    "to_image",
+    "to_json",
+    "to_ndjson",
+    "to_ogc_feature_collection",
+]
 _VALUES_SURFACE = [
     "data_updated_at",
     "df_stations",

@@ -1767,7 +1767,7 @@ def test_docs_formatter_table_gives_the_keywords_of_each_formatter() -> None:
                 listed = [] if documented is None else re.findall(r"`(\w+)`", shown)
                 if keywords != listed:
                     wrong.append(f"{cls.__name__}.{method}({', '.join(keywords)}): the page lists {shown}")
-    assert len(rows) == 7, "the table of formatters changed shape"
+    assert len(rows) == 8, "the table of formatters changed shape"
     assert not wrong, "\n".join(wrong)
 
 
