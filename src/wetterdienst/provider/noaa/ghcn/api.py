@@ -80,7 +80,7 @@ GHCNH_NO_CODE = "Null"
 # history, DWD MOSMIX, OpenStreetMap, Wikipedia, AEMET) that put the same place on the other side of the meridian and
 # within 4 km of the mirrored position; the values per station are in the pull requests of those issues.
 # The value is the (latitude, longitude) the lists gave when the station was checked: the longitude of a row is turned
-# only while the row still lists exactly this position (`_restore_lost_longitude_sign`), so a list that NOAA has
+# only while the row still lists exactly this position (`_turn_sign`, `_restore_lost_signs`), so a list that NOAA has
 # corrected, or moved, is read as it is, and an id that the lists use for another station is not touched. One table
 # serves both lists; UKW00015015 and UKW00015033 are in both with the same position, and AGUG0060517, MOI0000GMMK,
 # SPM00008164, SPM00008165 and SPM00008282 are in the hourly list only.
@@ -131,8 +131,26 @@ LOST_LONGITUDE_SIGN_STATIONS: dict[str, tuple[float, float]] = {
 }
 
 
-def _restore_lost_longitude_sign(df: pl.DataFrame) -> pl.DataFrame:
-    """Turn the sign of the longitude of the stations of `LOST_LONGITUDE_SIGN_STATIONS`, for either list (GH-3384).
+# stations whose latitude the lists give with the wrong sign, all 7 listed north of the equator where they lie south of
+# it, 160 to 16,800 km off: the list has lost the sign, as it has for the longitudes above (GH-3662). Each was
+# checked against two or more other sources (ISD history, OpenStreetMap, Wikipedia, GHCN daily list) that put the same
+# place on the other side of the equator and within 15 km of the mirrored position; the values per station are in the
+# pull request of that issue. Same guard as above: the value is the (latitude, longitude) the list gave when the
+# station was checked, and the latitude of a row is turned only while the row still lists exactly this position.
+# GB000004551 and GB000004560 are in the daily list, the other five in the hourly list only.
+LOST_LATITUDE_SIGN_STATIONS: dict[str, tuple[float, float]] = {
+    "ASU34-00001": (34.92, 138.6),  # AUSTRALIA-ADELAIDE_SBDY, hourly list only
+    "GB000004551": (0.72, 10.22),  # LAMBARENE, daily list only
+    "GB000004560": (0.83, 12.72),  # LASTOURSVILLE, daily list only
+    "GLUHALLEY-2": (75.52, -26.0),  # HALLEY (Antarctica), hourly list only
+    "GLUHALLEY-3": (75.5, -26.0),  # HALLEY (Antarctica), hourly list only
+    "GLUHALLEY-4": (75.6, -26.0),  # HALLEY (Antarctica), hourly list only
+    "TNU55-00239": (21.12, -175.2),  # NUKUALOFA, hourly list only
+}
+
+
+def _turn_sign(df: pl.DataFrame, table: dict[str, tuple[float, float]], column: str) -> pl.DataFrame:
+    """Turn the sign of `column` ("latitude" or "longitude") of the rows of `table`, for either list.
 
     A row is changed only if its id is in the table and its latitude and longitude are what the table recorded, so
     a list in which NOAA has put the sign right, or has moved the station, is read as it is.
@@ -140,21 +158,28 @@ def _restore_lost_longitude_sign(df: pl.DataFrame) -> pl.DataFrame:
     latitude = pl.col("latitude").str.strip_chars().cast(pl.Float64, strict=False)
     longitude = pl.col("longitude").str.strip_chars().cast(pl.Float64, strict=False)
     listed_latitude = pl.col("station_id").replace_strict(
-        {station_id: position[0] for station_id, position in LOST_LONGITUDE_SIGN_STATIONS.items()},
+        {station_id: position[0] for station_id, position in table.items()},
         default=None,
         return_dtype=pl.Float64,
     )
     listed_longitude = pl.col("station_id").replace_strict(
-        {station_id: position[1] for station_id, position in LOST_LONGITUDE_SIGN_STATIONS.items()},
+        {station_id: position[1] for station_id, position in table.items()},
         default=None,
         return_dtype=pl.Float64,
     )
+    value = latitude if column == "latitude" else longitude
     return df.with_columns(
         pl.when(latitude.eq(listed_latitude) & longitude.eq(listed_longitude))
-        .then((-longitude).cast(pl.String))
-        .otherwise(pl.col("longitude"))
-        .alias("longitude"),
+        .then((-value).cast(pl.String))
+        .otherwise(pl.col(column))
+        .alias(column),
     )
+
+
+def _restore_lost_signs(df: pl.DataFrame) -> pl.DataFrame:
+    """Turn the lost signs of the longitudes (GH-3384) and latitudes (GH-3662) of the two tables, for either list."""
+    df = _turn_sign(df, LOST_LONGITUDE_SIGN_STATIONS, "longitude")
+    return _turn_sign(df, LOST_LATITUDE_SIGN_STATIONS, "latitude")
 
 
 def _closes_its_hour(df: pl.DataFrame) -> pl.Series:
@@ -636,7 +661,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
         df = df.with_columns(
             pl.col("elevation").replace(["-999.9", "-999.0", "-99.0", "9999.0", "8191.0"], None),
         )
-        df = _restore_lost_longitude_sign(df)
+        df = _restore_lost_signs(df)
         # 0.0, 0.0 is no position either: BOGUS ARGENTINEAN and NAME AND LOC UNKN are listed there,
         # and their data rows repeat it. A station named BOGUS, such as BOGUS AUSTRIAN or the ten
         # BOGUS CHINESE, is a placeholder whose identity, so whose position, was not established. Both
@@ -727,7 +752,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
             .alias("elevation"),
         )
 
-        df = _restore_lost_longitude_sign(df)
+        df = _restore_lost_signs(df)
 
         inventory_url = "https://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-inventory.txt"
         inventory_file = download_file(
