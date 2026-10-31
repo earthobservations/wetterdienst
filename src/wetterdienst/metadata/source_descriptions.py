@@ -3071,7 +3071,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "wsf1"): "Fastest 1-minute wind speed (m/s; the file has tenths of m/s)",
         ("daily", "data", "wsf2"): "Fastest 2-minute wind speed (m/s; the file has tenths of m/s)",
         ("daily", "data", "wsf5"): "Fastest 5-second wind speed (m/s; the file has tenths of m/s)",
-        ("daily", "data", "wsfg"): "Peak gust wind speed (m/s; the file has tenths of m/s)",
+        ("daily", "data", "wsfg"): (
+            "Peak gust wind speed (m/s; the file has tenths of m/s)."
+            " A 0 of source C (Environment Canada) is a gust below 31 km/h that it does not report, and is null."
+        ),
         ("daily", "data", "wsfi"): "Highest instantaneous wind speed (m/s; the file has tenths of m/s)",
         ("daily", "data", "wsfm"): "Fastest mile wind speed (m/s; the file has tenths of m/s)",
         ("daily", "data", "wt01"): "Fog, ice fog, or freezing fog (may include heavy fog)",

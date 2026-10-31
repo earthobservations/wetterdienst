@@ -720,6 +720,36 @@ def _ghcn_daily_gusts(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) 
     return request.filter_by_station_id("USW00014755").values().all().df
 
 
+def _ghcn_daily_gust_not_reported(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # access/CAN03031640.csv (Claresholm, AB, source flag C, Environment Canada, read 2026-10-31), the peak gust WSFG
+    # with its direction WDFG, in the readme's tenths of m/s and degrees. Environment Canada does not report a gust
+    # below 31 km/h ("The stations do not report if less than 31 km/h", ECCC's glossary), and the file writes 0 for it:
+    # 1955-01-01 has WSFG 0 beside WDFG 0, no gust and no direction (GH-3655; 1,789 of the 7,940 WSFG of the station are
+    # 0, each beside a WDFG of 0, and the smallest above is 8.6 m/s, the 86 of 1955-04-06, which stays with its
+    # direction). The same holds at the 13 of 14 CAN stations read with a 0 in WSFG; a 0 of another source is a gust
+    # of 0 (USW00013904: 11)
+    body = (
+        b'"STATION","DATE","LATITUDE","LONGITUDE","ELEVATION","NAME","WDFG","WDFG_ATTRIBUTES","WSFG","WSFG_ATTRIBUTES"\n'
+        b'"CAN03031640","1955-01-01","50.0036","-113.6386","1009.0","CLARESHOLM, AB CA","    0",",,C","    0",",,C"\n'
+        b'"CAN03031640","1955-04-06","50.0036","-113.6386","1009.0","CLARESHOLM, AB CA","  250",",,C","   86",",,C"\n'
+    )
+    stations = b"CAN03031640  50.0036 -113.6386 1009.0 AB CLARESHOLM                             71234\n"
+    inventory = b"CAN03031640  50.0036 -113.6386 WDFG 1955 2026\nCAN03031640  50.0036 -113.6386 WSFG 1955 2026\n"
+    serve(
+        monkeypatch,
+        ghcn_api,
+        {"ghcnd-stations": stations, "ghcnd-inventory": inventory, "access/CAN03031640": body},
+    )
+    request = NoaaGhcnRequest(
+        parameters=[("daily", "data", "wind_direction_gust_max"), ("daily", "data", "wind_gust_max")],
+        start=_day(1955, 1, 1),
+        end=_day(1955, 4, 6),
+        settings=_settings(),
+        options=_options(drop_nulls),
+    )
+    return request.filter_by_station_id("CAN03031640").values().all().df
+
+
 def _ghcn_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # access/USS0054K01S.csv (McNeil River, read 2026-10-30), AWDR with AWND beside it, in the tenths of the readme: the
     # 0 of 2023-12-20 is beside 0 and is a calm, with no direction (GH-3222); the 189 of the day before is beside 0 too,
@@ -2365,6 +2395,14 @@ STUBS = [
             ("temperature_water", "99.9", None),
             ("temperature_water", "9999", None),
         ),
+    ),
+    ValueStub(
+        "noaa/ghcn daily/gust not reported",
+        _ghcn_daily_gust_not_reported,
+        reading=("wind_gust_max", 8.6),
+        # the gust of 0 of flag C is none, and so is the direction beside it
+        sentinels=(("wind_gust_max", 0.0),),
+        tokens=(("wind_gust_max", "0", None), ("wind_direction_gust_max", "0", None)),
     ),
     ValueStub(
         "eccc/observation daily/data",

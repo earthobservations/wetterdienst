@@ -64,6 +64,8 @@ GHCND_WIND_SPEED_OF_DIRECTION = {
     "wdfi": "wsfi",
     "wdfm": "wsfm",
 }
+# the source flag of Environment Canada, "C" in the readme's list of SFLAG, as `quality_flags` writes it (`source:C`)
+GHCND_ENVIRONMENT_CANADA = r"(^|,)source:C(,|$)"
 GHCNH_PRECIPITATION_MISSING = "-9999"
 GHCNH_NONE = "-None"
 # the reports of Table 4 that are specials, filed between the routine ones: FM16 is a SPECI, SAOSP an airways special
@@ -440,9 +442,21 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
         # directions. The readme gives no code for a day without a direction. The 0 beside a speed of exactly 0 is no
         # direction, a calm or a gust not reported, and is null with `raw:0` in `quality_flags` (GH-3222); the 0 beside
         # a wind that blows stays (GH-3648)
+        # The speed of that gust is no reading either, when Environment Canada wrote it. Of 14 CAN stations read
+        # (2026-10-31; the inventory has WSFG and no other speed at the 1,472 CAN stations) 13 have 212 to 7,878
+        # zeros in WSFG, all flag C and each beside a WDFG of 0 (but for 100 of CAN02300902 beside none); the 14th
+        # has none, and at all 14 the smallest WSFG above 0 is 8.6 or 8.9 m/s (31 or 32 km/h), ECCC's "do not report
+        # if less than 31 km/h". A 0 of another source is a reading: 1 to 11 zeros of WSFG (smallest above 0: 0.5 to
+        # 2.6 m/s) at 5 US stations, and 55 of WSF5 at USW00094728. It is null with `raw:0`
+        # (`_GUST_NOT_REPORTED` of eccc/observation, GH-3655); the direction beside it reads the speed as the file
+        # wrote it, so it is null by the rule above as well
         df = with_speed_beside(df, GHCND_WIND_SPEED_OF_DIRECTION, on=["station_id", "timestamp"])
         value, raw = null_sentinels(
             pl.col("value"),
+            Sentinel(
+                "0",
+                where=pl.col("parameter").eq("wsfg") & pl.col("quality_flags").str.contains(GHCND_ENVIRONMENT_CANADA),
+            ),
             calm(pl.col(SPEED_BESIDE), where=pl.col("parameter").is_in(list(GHCND_WIND_SPEED_OF_DIRECTION))),
         )
         df = df.with_columns(value.alias("value"), join_quality_flags(pl.col("quality_flags"), raw=raw)).drop(

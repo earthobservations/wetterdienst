@@ -41,7 +41,8 @@ rule of a calm with the speed it needs, and 223 of them beside an `FH` of 1 to 2
 
 A 0 the source writes for a quantity it did not measure is no reading, and is null with `raw:0`. ECCC's daily
 `wind_gust_max` is 0 below the 31 km/h the stations report gusts from, and `wind_direction_gust_max` beside it is
-null too.
+null too. So is NOAA GHCN daily's `wind_gust_max` of 0 with source flag C (Environment Canada); a 0 of any other
+source is a gust of 0.
 
 ## Precipitation and snow
 

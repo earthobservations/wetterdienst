@@ -25,6 +25,18 @@ Types of changes:
   in Denmark and 19 °C in Greenland. DMI counts the days above 25 and 20 °C, so a day at exactly
   25.0 or 20.0 °C is not counted, where the names count from the threshold (Part of GH-3622)
 
+### Fixed
+
+- `noaa/ghcn` daily: a direction of the fastest or peak wind of 0 beside a speed of exactly 0
+  (`wind_direction_gust_max` and its `_1min`, `_2min`, `_5sec`, `_instant`, `_1mile`) is null, with
+  `raw:0` in `quality_flags`, where it came back as north. The files write that 0 for a day
+  without a direction (1,798 of 1,799 in `wind_direction_gust_max` of 9 stations); a 0 beside a
+  wind that blows stays (GH-3648)
+- `noaa/ghcn` daily: `wind_gust_max` of 0 with source flag `C` (Environment Canada) is null, with
+  `raw:0` in `quality_flags`, where it came back as a peak gust of 0.0 m/s. Environment Canada
+  does not report a gust below 31 km/h and the files write 0 for it; a 0 of another source stays
+  (GH-3655)
+
 ## [0.179.0] - 2026-10-30
 
 ### Added
@@ -113,11 +125,6 @@ Types of changes:
 
 ### Fixed
 
-- `noaa/ghcn` daily: a direction of the fastest or peak wind of 0 beside a speed of exactly 0
-  (`wind_direction_gust_max` and its `_1min`, `_2min`, `_5sec`, `_instant`, `_1mile`) is null, with
-  `raw:0` in `quality_flags`, where it came back as north. The files write that 0 for a day
-  without a direction (1,798 of 1,799 in `wind_direction_gust_max` of 9 stations); a 0 beside a
-  wind that blows stays (GH-3648)
 - `eccc/observation` monthly values carry `I` in `quality_flags` for a month with missing days,
   following the archive's rule (Technical Documentation, Notes 25 and 26) applied to the
   collection's counts `count_days_valid_*`: any missing day for the extremes, precipitation and
