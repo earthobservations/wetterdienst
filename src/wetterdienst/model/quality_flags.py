@@ -238,8 +238,8 @@ def with_speed_beside(
 ) -> Frame:
     """Lay the speed of the same reading beside every wind direction of a long frame, as column ``SPEED_BESIDE``.
 
-    Any parameter can be laid beside another the same way, under the name ``into``: DWD's road weather lays the air
-    temperature beside the road surface temperature (GH-3624).
+    Any parameter can be laid beside another the same way, under the column name ``into`` (``SPEED_BESIDE`` by
+    default): DWD's road weather lays the air temperature beside the road surface temperature (GH-3624).
 
     Args:
         df: the long frame, with a ``parameter`` column and the value.
@@ -249,8 +249,8 @@ def with_speed_beside(
         into: the name of the column that carries the value beside, ``SPEED_BESIDE`` by default.
 
     Returns:
-        The frame with ``into`` (``SPEED_BESIDE``), null on every row that is no direction and where the speed is
-        missing, for ``calm(pl.col(SPEED_BESIDE))``. The rows and their order are those of ``df``.
+        The frame with the column ``into`` (``SPEED_BESIDE`` by default), null on every row that is no direction and
+        where the speed is missing, for ``calm(pl.col(SPEED_BESIDE))``. The rows and their order are those of ``df``.
 
     """
     value = pl.col("value") if value is None else value

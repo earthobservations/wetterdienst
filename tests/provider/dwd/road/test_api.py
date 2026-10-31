@@ -1643,6 +1643,9 @@ def test_dwd_road_weather_an_impossible_value_is_null_with_its_number(monkeypatc
 # the stub station of `_stub_stations`, Boeglum in Schleswig-Holstein
 _NIGHT = {"#1#hour": 0}
 _DAY = {"#1#hour": 12}
+# 2026-09-13 at the stub station (54.89 N, 8.91 E): the sun stands at -2.8 degrees at 18:00 UTC and at -9.0 at 18:45
+_TWILIGHT = {"#1#hour": 18, "#1#minute": 0}
+_DEEP_DUSK = {"#1#hour": 18, "#1#minute": 45}
 
 
 def _collect_one(
@@ -1702,6 +1705,8 @@ def test_dwd_road_weather_a_humidity_under_one_percent_is_no_reading(
         (_NIGHT, 300.25, 285.25, False, "15 K: a heated bridge deck or a stored heat is a road"),
         (_NIGHT, 275.25, 285.25, False, "10 K under the air is an ordinary clear night"),
         (_DAY, 338.75, 285.25, False, "the same readings at noon: sun on tarmac is a road at 65 C"),
+        (_TWILIGHT, 338.75, 285.25, False, "the sun at -2.8 degrees: the day's heat is not out of the road yet"),
+        (_DEEP_DUSK, 338.75, 285.25, True, "the sun at -9.0 degrees, past the end of civil twilight"),
         (_NIGHT, 338.75, None, False, "no air beside it, so nothing to hold it to"),
         (_NIGHT, 338.75, 198.15, False, "the air of -75 C is itself no reading, so it holds nothing to account"),
     ],
@@ -1726,6 +1731,34 @@ def test_dwd_road_weather_a_surface_far_above_the_air_at_night_is_no_reading(
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+@pytest.mark.parametrize(
+    ("suspect_bit", "nulled"),
+    [
+        (4, False),  # DWD marks the air suspect: it is not held against the surface (the M080 class)
+        (7, True),  # DWD marks the ground temperature suspect, not the air: the air stands
+    ],
+)
+def test_dwd_road_weather_an_air_dwd_marks_suspect_does_not_null_the_surface(
+    monkeypatch: pytest.MonkeyPatch,
+    suspect_bit: int,
+    nulled: bool,  # noqa: FBT001
+) -> None:
+    """Only DWD's own flag excuses the surface; the run rule's verdict depends on the request's window (GH-3624)."""
+    df = _collect_one(
+        monkeypatch,
+        {
+            **_NIGHT,
+            "#1#qualityInformationAwsData": 1 << (30 - suspect_bit),
+            "#1#roadSurfaceTemperature": 338.75,
+            "#1#airTemperature": 285.25,
+        },
+    )
+    value, flags = _by_parameter(df)["roadSurfaceTemperature"]
+    assert (value is None) == nulled
+    assert ("raw:338.75" in (flags or "")) == nulled
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_the_surface_is_held_to_an_air_that_was_not_asked_for(monkeypatch: pytest.MonkeyPatch) -> None:
     """A request for the surface alone holds it to the air beside it all the same, and hands out only the surface."""
     from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
@@ -1747,33 +1780,47 @@ def test_dwd_road_weather_the_surface_is_held_to_an_air_that_was_not_asked_for(m
 
 
 @pytest.mark.parametrize(
-    ("timestamp", "latitude", "longitude", "elevation"),
+    ("timestamp", "latitude", "longitude", "elevation", "tolerance"),
     [
-        # the Astronomical Almanac's sun against the published times: Berlin's sunrise on the solstice is 04:43 CEST,
-        # the sun then at the horizon less its refraction, which the formula leaves out
-        ("2026-06-21 02:43", 52.52, 13.405, -0.8),
-        # and its noon: the sun stands at 90 - latitude + 23.44 degrees at the solstice, at about 10:56 UTC for 10 E
-        ("2026-06-21 10:56", 50.0, 10.0, 63.44),
-        # at the winter solstice the sun at noon stands at 90 - latitude - 23.44
-        ("2026-12-21 11:00", 50.0, 10.0, 16.56),
-        # and its midnight, the lowest it gets
-        ("2026-12-21 23:00", 50.0, 10.0, -63.44),
+        # the end and the beginning of civil twilight, -6 degrees, as the US Naval Observatory publishes them to the
+        # minute (aa.usno.navy.mil/api/rstt/oneday, read 2026-10-31): late October at Berlin, the equinox and the
+        # solstices at 50 N 10 E. A minute is 0.1 to 0.2 degrees of the sun at the horizon
+        ("2026-10-31 16:14", 52.52, 13.405, -6.0, 0.15),
+        ("2026-10-31 05:25", 52.52, 13.405, -6.0, 0.15),
+        ("2026-09-23 17:48", 50.0, 10.0, -6.0, 0.15),
+        ("2026-09-23 04:35", 50.0, 10.0, -6.0, 0.15),
+        ("2026-06-21 20:18", 50.0, 10.0, -6.0, 0.15),
+        ("2026-06-21 02:26", 50.0, 10.0, -6.0, 0.15),
+        ("2026-12-21 15:59", 50.0, 10.0, -6.0, 0.15),
+        # sunrise and sunset: the horizon less the half degree of refraction and the radius of the sun, -0.83, which the
+        # formula leaves out
+        ("2026-10-31 06:01", 52.52, 13.405, -0.83, 0.15),
+        ("2026-10-31 15:39", 52.52, 13.405, -0.83, 0.15),
+        # the upper transit of the same source, where the sun stands at 90 - latitude + declination: 63.44 at the June
+        # solstice, 16.56 at the December one, and 90 - 50 - 0.17 at the equinox
+        ("2026-06-21 11:22", 50.0, 10.0, 63.44, 0.1),
+        ("2026-12-21 11:18", 50.0, 10.0, 16.56, 0.1),
+        ("2026-09-23 11:12", 50.0, 10.0, 39.83, 0.1),
+        # and the lower transit, twelve hours on, latitude + declination - 90
+        ("2026-06-21 23:22", 50.0, 10.0, -16.56, 0.1),
+        ("2026-12-21 23:18", 50.0, 10.0, -63.44, 0.1),
     ],
 )
-def test_dwd_road_weather_the_sun_stands_where_the_almanac_puts_it(
+def test_dwd_road_weather_the_sun_stands_where_the_observatory_puts_it(
     timestamp: str,
     latitude: float,
     longitude: float,
     elevation: float,
+    tolerance: float,
 ) -> None:
-    """The elevation of the sun that defines the night is within half a degree of what the almanac gives."""
+    """The sun that defines the night stands where published times put it, to a fraction of a degree."""
     from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
 
     frame = pl.DataFrame({"timestamp": [timestamp]}).with_columns(
         pl.col("timestamp").str.to_datetime("%Y-%m-%d %H:%M", time_zone="UTC")
     )
     computed = frame.select(api._sun_elevation(pl.col("timestamp"), latitude, longitude)).item()  # noqa: SLF001
-    assert computed == pytest.approx(elevation, abs=0.5)
+    assert computed == pytest.approx(elevation, abs=tolerance)
 
 
 _FAILED_DOWNLOAD_FILES = (

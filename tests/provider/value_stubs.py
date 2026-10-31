@@ -1830,7 +1830,7 @@ def _dwd_road(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.Da
     # that is no reading is the -75.00 C (198.15 K) KM's stopped sensors hold for days (GH-1917), beside an air
     # temperature that is one. The second minute reads -25.00 C, which a German winter reaches: it stays (GH-3222).
     # The hygrometer writes 0.4 % at the first minute and 87 at the second: the 0.4 is no reading (GH-3624). At
-    # midnight (UTC, the sun 40 degrees under the horizon at 50 N 10 E) the surface reads 27 C beside the air's -3 C,
+    # midnight (UTC, the sun 60.8 degrees under the horizon at 50 N 10 E) the surface reads 27 C beside the air's -3 C,
     # 30 K above it, which is no reading either; the same surface at noon would be a road in the sun
     if not bufr_is_available():
         pytest.skip("eccodes and pdbufr required")

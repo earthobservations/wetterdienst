@@ -419,13 +419,18 @@ _OUT_OF_RANGE = tuple(
 
 #: a relative humidity below this, in percent, is no reading (GH-3624). The range above is generous (0 to 130 %), and a
 #: hygrometer that has failed writes a value inside it: P925 gave 0.1 % for 43 readings of a 12 h window, beside a road
-#: surface of 61 to 75 C, and the stuck-sensor rule leaves it because the value varies. 1 % is far below any humidity
-#: the air of Germany reaches, so everything from there up is left as the sensor wrote it, a dry one included. In the
-#: 39 hours of every station group read on 2026-10-31 (see below) no humidity was under 5 %, so the rule nulled none.
+#: surface of 61 to 75 C. The run rule does not look at a humidity at all (`_STUCK_PARAMETERS` are the air, the dew
+#: point and the road surface), and a failed one varies. 1 % is far below any humidity the air of Germany reaches,
+#: so everything from there up is left as the sensor wrote it, a dry one included. In the 39 hours of every station
+#: group read on 2026-10-31 (see below) no humidity was under 5 %, so the rule nulled none.
 _NO_HUMIDITY_BELOW = 1.0
 
 _SURFACE = "roadSurfaceTemperature"
 _AIR = "airTemperature"
+
+#: the column that keeps DWD's own verdict on a reading (`_quality`) through `_flag_stuck_sensors`, which overwrites the
+#: verdict `quality` where a sensor has stopped
+_DWD_QUALITY = "_dwd_quality"
 
 #: a road surface this many kelvin warmer than the air of the same minute, with the sun below `_NIGHT_BELOW_DEGREES`,
 #: is no reading (GH-3624). By night a road radiates and cools to the air above it or below, and what it keeps of the
@@ -435,8 +440,9 @@ _AIR = "airTemperature"
 #: B545, F053 and M080), and the highest of every other station is 19.2 K (M531), so 20 K lies in the one gap the
 #: sample has between a station that runs warm and a sensor that reads a different quantity. The rule compares the
 #: surface only to the air beside it, so M080, whose *air* is the sensor that is wrong (-16 to -29 C beside a surface
-#: of 8 to 13 C), has its good surface nulled too: no neighbour is asked, which one of the two failed is not told. The
-#: rule is one-sided: a surface under the air is an ordinary clear night.
+#: of 8 to 13 C), has its good surface nulled too: no neighbour is asked, which one of the two failed is not told. Only
+#: an air that DWD's own flag marks suspect is not held against the surface; one stopped at a plausible value
+#: (-25.00 C) is. The rule is one-sided: a surface under the air is an ordinary clear night.
 _SURFACE_WARMER_THAN_AIR = 20.0
 
 #: and night is the sun more than 6 degrees below the horizon, the end of civil twilight (`_sun_elevation`): the day's
@@ -487,7 +493,8 @@ def _no_reading_rules(latitude: float | None, longitude: float | None) -> tuple[
 
     The value as DWD wrote it is kept as the `raw` token, as for a value outside a range. A station without a position
     has no night, so the rule of the surface stands aside for it; the air of the same minute is in the column
-    `_AIR_BESIDE`, null where there is none, and then the rule stands aside too.
+    `_AIR_BESIDE`, null where there is none (or it is outside its range, or DWD marks it suspect), and then the rule
+    stands aside too. The rule of the humidity reads the value alone.
     """
     rules = [NoReading(where=pl.col("parameter").eq("relativeHumidity") & pl.col("value").lt(_NO_HUMIDITY_BELOW))]
     if latitude is not None and longitude is not None:
@@ -922,13 +929,19 @@ class DwdRoadValues(TimeseriesValues[DatasetModel]):
         # the date DWD wrote the file of a reading travels with it (`_note_files_with_rows`, GH-2567)
         if UPDATED not in df.columns:
             df = df.with_columns(pl.lit(None, dtype=pl.Datetime("us", "UTC")).alias(UPDATED))
-        # the air of the minute, where it is a reading, beside the surface (`_no_reading_rules`)
+        # the air of the minute beside the surface (`_no_reading_rules`), where it is a reading: inside its range and
+        # not marked suspect by DWD's own flag (an empty frame has no verdict to read). Not the verdict of
+        # `_flag_stuck_sensors`, which depends on the window of the request
         low, high = _RANGES["15_minutes"][_AIR]
+        if _DWD_QUALITY not in df.columns:
+            df = df.with_columns(pl.lit(None, dtype=pl.Float64).alias(_DWD_QUALITY))
         df = with_speed_beside(
             df,
             {_SURFACE: _AIR},
             on=["timestamp"],
-            value=pl.when(pl.col("value").is_between(low, high)).then(pl.col("value")),
+            value=pl.when(
+                pl.col("value").is_between(low, high) & pl.col(_DWD_QUALITY).ne(1).fill_null(value=True)
+            ).then(pl.col("value")),
             into=_AIR_BESIDE,
         )
         # a value no sensor can have produced is null, and keeps the number DWD wrote (`_RANGES`, GH-3222), and so is
@@ -1112,7 +1125,9 @@ class DwdRoadValues(TimeseriesValues[DatasetModel]):
         # here rather than in the per-file parse: a sensor that has stopped can only be told from
         # one that is merely steady by watching it over hours, and one file is one minute
         source = files[0].url.rsplit("/", 1)[0] or "road"
-        return _flag_stuck_sensors(pl.concat(data), source)
+        # DWD's own verdict is kept beside the one `_flag_stuck_sensors` may overwrite: the stuck verdict depends on the
+        # window the request asked for, and what a rule nulls must not (`_DWD_QUALITY`, GH-3624)
+        return _flag_stuck_sensors(pl.concat(data).with_columns(pl.col("quality").alias(_DWD_QUALITY)), source)
 
     @staticmethod
     def __parse_dwd_road_weather_data(
@@ -1152,8 +1167,8 @@ class DwdRoadValues(TimeseriesValues[DatasetModel]):
         forty, on stations with one sensor as much as two, and none of that is decided here: a
         sensor has to be chosen, everything contested is then taken from that one so the row is a
         road rather than an average of two, and where the two disagree wildly the choice is the
-        rank order and nothing better. This library judges whether a reading is plausible only by the
-        ranges and the two rules of `_no_reading_rules`, and by nothing else here.
+        rank order and nothing better. The choice of sensor judges nothing: a reading is nulled only by `_RANGES`
+        and `_no_reading_rules`, and marked suspect only by DWD's flag and `_flag_stuck_sensors`.
 
         Where they carry different quantities they are two instruments of one installation -- the
         whole of the DD group, where the first sensor holds the surface temperature and the second

@@ -169,9 +169,8 @@ the `-75.00` of the exact round values among them, is **null**, with the number 
 `raw:198.15` in `quality_flags`, as DMI and RMI null theirs (see
 [special values](../../../special_values.md)). The stuck sensors it **marks**, in the
 `quality_flags` column, which is a different thing: the reading stays exactly as published, and a
-caller who wants the extremes keeps them. Two rules that read a value together with its minute (the section
-"readings inside every range that are no reading" below) null it as well, and keep the number
-the same way.
+caller who wants the extremes keeps them. Two rules (the section "readings inside every range that
+are no reading" below) null a value as well, and keep the number the same way.
 
 Which of the first bullet's readings are marked depends on the sensor rather than the value: its
 cold outliers are marked where the sensor that took them has stopped, and its warm ones are not
@@ -259,38 +258,44 @@ cannot reach.
 
 ##### readings inside every range that are no reading
 
-Two rules null a value that is inside every range, because of what it is beside (GH-3624). The reading
-is null in `value` and the number DWD wrote is the last token of `quality_flags`, `raw:0.1` or
-`raw:338.75` (the unit of the source: %, K), as for a value outside a range. Nothing else of the
-sensors is judged, and there is no comparison with neighbouring stations.
+Two rules null a value that is inside every range (GH-3624): the first reads the value alone, the
+second the value beside the air temperature of its minute. The reading is null in `value` and the
+number DWD wrote is the last token of `quality_flags`, `raw:0.1` or `raw:338.75` (the unit of the
+source: %, K), as for a value outside a range. Nothing else of the sensors is judged, and there is
+no comparison with neighbouring stations.
 
 - **a relative humidity below 1 %** is no reading. A hygrometer that has failed writes it for hours
-  while the value varies, so the run rule does not see it: P925 gave 0.1 % for 43 readings of a 12
-  hour window. In the 39 hours of every station group read on 2026-10-31 no humidity was below 5 %, so
-  the rule nulled none there. From 1 % up the value is returned as the sensor wrote it, a dry one
-  included.
+  while the value varies: P925 gave 0.1 % for 43 readings of a 12 hour window. The run rule does not
+  look at a humidity at all, only at the air, the dew point and the road surface temperature. In the
+  39 hours of every station group read on 2026-10-31 no humidity was below 5 %, so the rule nulled
+  none there. From 1 % up the value is returned as the sensor wrote it, a dry one included.
 - **a road surface temperature more than 20 K above the air temperature of the same minute, with the
   sun more than 6 degrees below the horizon** (the end of civil twilight, from the station's
   position and the time) is no reading. By night a road radiates to the air above it and keeps a few
   kelvin of the day's heat at most. In the same 39 hours, 99 % of the 62,895 night readings of 722
-  stations lay within 8.6 K above the air, and seven stations sat 26 to 81 K above it for most or all
-  of their night (P925, P034, V064, E237, B545, F053 and M080: a surface of 8 to 90 °C beside an air of
-  -29 to 10 °C), 472 readings in all. The highest of the other stations was 19.2 K (M531), so the
-  20 K line lies in the one gap the sample has, between a road that runs warm and a sensor that
+  stations lay within 8.6 K above the air, and seven stations sat 26 to 81 K above it for most or
+  all of their night (P925, P034, V064, E237, B545, F053 and M080: a surface of 8 to 90 °C beside an
+  air of -29 to 10 °C), 472 readings in all. The highest of the other stations was 19.2 K (M531), so
+  the 20 K line lies in the one gap the sample has, between a road that runs warm and a sensor that
   reads something else. By day the sun heats a road legitimately, so the rule stands aside, as it
-  does for a surface without an air temperature beside it (or with one that is itself outside its
-  range), and for a station without a position.
+  does for a surface without an air temperature beside it, with one that is itself outside its range
+  or that DWD's own flag marks suspect, and for a station without a position.
 
 Both numbers are read from that one sample, in late October, and a hot summer night may keep the
 road warmer than it did there: the line is set at more than twice what 99 % of the readings reached,
 to leave that room. What the rules do not do:
 
-- they do not say which sensor is wrong. At M080 it is the *air* temperature that reads -16 to
-  -29 °C beside a good surface of 8 to 13 °C, and it is the good surface that is nulled, the air
-  being left as published (it is inside its range);
+- they do not say which sensor is wrong. At M080 it is the *air* temperature that reads -16 to -29
+  °C beside a good surface of 8 to 13 °C, and it is the good surface that is nulled, the air being
+  left as published (it is inside its range). Only an air that DWD's own flag marks suspect is not
+  held against the surface, so an air sensor that has stopped at a plausible value (-25.00 °C) can
+  still null a good surface; the run rule's verdict is not used, as it depends on the window the
+  request asked for and the null would too;
 - they do not catch a surface that is wrong by less than 20 K (E769 sat 6.6 to 8.5 K and M531 14 to
   19 K above the air for most of their night, which can be a heated road or a sensor that reads
-  high), nor one that is wrong by day, nor a humidity above 1 % that is wrong (P925 read 10 % in that sample);
+  high), nor one that is wrong by day, nor a humidity above 1 % that is wrong (P925 read 10 % in
+  that sample);
+- a dew point beside a humidity below 1 % is returned, although it comes from the same probe;
 - the rule on the surface reads the air whether the air is asked for or not.
 
 ##### what a quality flag of `1` means
@@ -300,5 +305,6 @@ have the same standing -- DWD's bit 7 is verified against the data, with no stat
 temperature carrying it, where the run length is a threshold fitted to one day -- and the column
 does not distinguish them. The log does, for a caller who turns it up: the run rule writes a line at
 `DEBUG` naming the first five stations it marked -- which neither the CLI nor the REST API prints by
-default. A value nulled for its range or by one of the two rules above carries a `raw:` token after the
-flag, `1,raw:198.15` where the sensor has stopped as well. A `null` flag still means nobody has looked.
+default. A value nulled for its range or by one of the two rules above carries a `raw:` token
+after the flag, `1,raw:198.15` where the sensor has stopped as well. A `null` flag still means
+nobody has looked.
