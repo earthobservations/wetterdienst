@@ -23,6 +23,7 @@ from wetterdienst.model.quality_flags import (
     clear_sentinels,
     no_direction_code,
     raw_column,
+    station_pressure_range,
 )
 from wetterdienst.provider.dwd.observation.download import MEZ_DATASETS, ProductFile
 from wetterdienst.provider.dwd.observation.fileindex import DATE_RANGE_REGEX, MEZ_UNTIL_YEAR, is_mez_file
@@ -306,6 +307,24 @@ OUT_OF_RANGE_BY_NAME = {
     "pressure_air_site_mean": _PRESSURE_RANGE,
     "pressure_air_sea_level": _PRESSURE_RANGE,
 }
+
+
+# The pressure at the station (`pressure_air_site`, `pressure_air_site_mean`) is also held to what the barometric
+# formula expects at the station's elevation, 75 hPa either way (GH-3627): the world-wide range above lets through a P0
+# typed one digit off at a station near sea level (909.5 hPa at 00433, 1994-08-29 21:00; 795.0 at 03032, 1993-12-16
+# 20:00) and the Zugspitze's own file holds 968.6 hPa where 705 are expected at 2,956 m. The elevation is the one of the
+# station list, so a station that was moved by 500 m or more keeps the readings of its other site only while they lie
+# within the range. A reading outside is null and keeps the number DWD wrote as `raw:`.
+STATION_PRESSURE_PARAMETERS = frozenset({"pressure_air_site", "pressure_air_site_mean"})
+
+
+def null_implausible_station_pressure(df: pl.LazyFrame, dataset: DatasetModel, elevation: float | None) -> pl.LazyFrame:
+    """Null the station pressure of a parsed dataset that its station's elevation does not allow, keeping its text."""
+    rule = station_pressure_range(elevation)
+    if rule is None:
+        return df
+    columns = [parameter.name_original for parameter in dataset if parameter.name in STATION_PRESSURE_PARAMETERS]
+    return clear_sentinels(df, columns, rule)
 
 
 def out_of_range_bounds(parameter: ParameterModel) -> tuple[float, float] | None:

@@ -18,6 +18,8 @@ from wetterdienst.model.quality_flags import (
     join_quality_flags,
     null_sentinels,
     raw_column,
+    standard_station_pressure,
+    station_pressure_range,
     unpivot_with_raw,
     with_speed_beside,
 )
@@ -325,6 +327,62 @@ def test_a_wind_direction_of_0_is_a_calm_only_beside_a_speed_of_0(lazy: bool) ->
         (3, "ff", "0", None),
         (4, "dd", "0", None),
     ]
+
+
+@pytest.mark.parametrize(
+    ("elevation", "expected"),
+    # the table of the standard atmosphere: 898.76 hPa at 1,000 m, 795.01 at 2,000 m, 701.21 at 3,000 m, 540.48 at 5 km
+    [(0.0, 1013.25), (1000.0, 898.76), (2000.0, 795.01), (3000.0, 701.21), (5000.0, 540.48), (48.0, 1007.5)],
+)
+def test_the_standard_station_pressure_follows_the_barometric_formula(elevation: float, expected: float) -> None:
+    """Test that the pressure expected at an elevation is that of the standard atmosphere (GH-3627)."""
+    assert standard_station_pressure(elevation) == pytest.approx(expected, abs=0.5)
+
+
+def test_a_station_pressure_is_held_to_75_hpa_around_the_formula_in_the_unit_of_the_source() -> None:
+    """Test that the range is the pressure of the elevation less and plus 75 hPa, 100 times that in Pa (GH-3627)."""
+    hectopascal = station_pressure_range(48.0)
+    assert hectopascal is not None
+    assert (hectopascal.low, hectopascal.high) == pytest.approx((932.5, 1082.5), abs=0.1)
+    pascal = station_pressure_range(48.0, per_hectopascal=100.0)
+    assert pascal is not None
+    assert (pascal.low, pascal.high) == pytest.approx((93_250.0, 108_250.0), abs=10.0)
+
+
+def test_a_station_pressure_outside_the_range_of_its_elevation_is_null_with_its_text() -> None:
+    """Test that the rule is an OutOfRange: 909.5 hPa at 48 m is null with `raw:909.5`, 1038.9 and the edge stay."""
+    rule = station_pressure_range(48.0)
+    assert rule is not None
+    cleaned, raw = null_sentinels(pl.col("value"), rule, text=False)
+    df = pl.DataFrame({"value": [909.5, 932.4, 932.6, 1038.9, 1082.4, 1082.6, 1093.3]}).select(
+        cleaned.alias("value"), raw.alias("raw")
+    )
+    assert df.get_column("value").to_list() == [None, None, 932.6, 1038.9, 1082.4, None, None]
+    assert df.get_column("raw").to_list() == ["909.5", "932.4", None, None, None, "1082.6", "1093.3"]
+
+
+def test_a_deep_low_at_a_station_near_sea_level_is_kept_and_a_typo_of_the_zugspitze_is_not() -> None:
+    """Test that 940 hPa at 43 m (Dumont d'Urville, 1,008 expected) stays and the Zugspitze's outliers go (GH-3627)."""
+    low = station_pressure_range(43.0)
+    assert low is not None
+    cleaned, raw = null_sentinels(pl.col("value"), low, text=False)
+    sea = pl.DataFrame({"value": [940.0, 938.2, 909.5]}).select(cleaned.alias("value"), raw.alias("raw"))
+    assert sea.get_column("value").to_list() == [940.0, 938.2, None]
+    assert sea.get_column("raw").to_list() == [None, None, "909.5"]
+    high = station_pressure_range(2956.0)
+    assert high is not None
+    cleaned, raw = null_sentinels(pl.col("value"), high, text=False)
+    zugspitze = pl.DataFrame({"value": [713.0, 780.0, 802.2, 908.6, 968.6]}).select(
+        cleaned.alias("value"), raw.alias("raw")
+    )
+    assert zugspitze.get_column("value").to_list() == [713.0, 780.0, None, None, None]
+    assert zugspitze.get_column("raw").to_list() == [None, None, "802.2", "908.6", "968.6"]
+
+
+@pytest.mark.parametrize("elevation", [None, float("nan"), -999.0, 12_000.0])
+def test_a_station_without_a_plausible_elevation_has_no_pressure_rule(elevation: float | None) -> None:
+    """Test that a catalogue without an elevation, or with a code or a typo for one, is no ground to null a reading."""
+    assert station_pressure_range(elevation) is None
 
 
 def test_any_parameter_can_be_laid_beside_another_under_a_name_of_its_own() -> None:
