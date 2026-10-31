@@ -58,7 +58,6 @@ from wetterdienst.provider.dwd.observation.parser import (
     MEZ_MD_PREFIX,
     WOZ_COLUMN,
     mez_md_column,
-    null_implausible_station_pressure,
     parse_climate_observations_data,
 )
 from wetterdienst.settings import Settings
@@ -151,7 +150,6 @@ class DwdObservationValues(TimeseriesValues):
         else:
             dataset = parameter_or_dataset.dataset
         periods_and_date_ranges = self._periods_and_date_ranges(station_id, dataset, settings)
-        elevation = self._station_elevation(station_id, dataset)
         parameter_data = []
         # when DWD wrote the archives each period read (the `Last-Modified` of their download), by the rank of the
         # period: noted below for the periods whose rows are in the answer (GH-2567)
@@ -177,7 +175,6 @@ class DwdObservationValues(TimeseriesValues):
                 log.info(f"No data downloaded for {dataset_identifier}. Skipping period.")
                 continue
             period_df = parse_climate_observations_data(filenames_and_files, dataset, period)
-            period_df = null_implausible_station_pressure(period_df, dataset, elevation)
             written[rank] = [file.last_modified for file in filenames_and_files]
             parameter_data.append(
                 period_df.with_columns(pl.lit(rank, dtype=pl.UInt8).alias(_PERIOD_RANK)),

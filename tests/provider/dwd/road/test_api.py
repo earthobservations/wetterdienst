@@ -13,11 +13,12 @@ import polars as pl
 import pytest
 
 from tests.conftest import BUFR_AVAILABLE
+from tests.provider.judging import judged
 from wetterdienst import Options, Settings
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.model.judge import _stuck_runs, plan_for
 from wetterdienst.model.metadata import DatasetModel
 from wetterdienst.model.plausibility import Plausibility, applying
-from wetterdienst.model.quality_flags import join_quality_flags, null_sentinels
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.model.schema import LONG_SCHEMA
 from wetterdienst.model.values import shape_provider_frame
@@ -33,11 +34,36 @@ _PARSED_SCHEMA_FOR_TEST = {
 }
 
 
+_MELTING_POINT = 273.15
+
+
+def _flag_stuck_sensors(df: pl.DataFrame, source: str = "a-group") -> pl.DataFrame:  # noqa: ARG001
+    """Mark the readings of a stopped sensor as the reader did before the core judged them: `_stuck`, `quality` 1.
+
+    The core judges in °C, the frames of these tests are in kelvin as DWD writes them, so a temperature is converted
+    for the run rule and nothing else about the frame changes. Station by station, as the core is given one.
+    """
+    dataset = DwdRoadRequest.metadata["15_minutes"]["data"]
+    plan = plan_for("dwd/road", dataset)
+    parts = []
+    for part in df.partition_by("station_id", maintain_order=True) if not df.is_empty() else [df]:
+        if part.is_empty():
+            parts.append(part.with_columns(pl.lit(value=False).alias("_stuck")))
+            continue
+        celsius = part.with_columns(pl.col("value") - _MELTING_POINT)
+        parts.append(part.with_columns(_stuck_runs(celsius, plan).alias("_stuck")))
+    marked = pl.concat(parts)
+    return marked.with_columns(quality=pl.when(pl.col("_stuck")).then(pl.lit(1.0)).otherwise(pl.col("quality")))
+
+
 def _collected(values: object, station_id: str, dataset: DatasetModel | None = None) -> pl.DataFrame:
     """Collect one station's frame as the core hands it out: the provider's rows, shaped by the core."""
     dataset = dataset or DwdRoadRequest.metadata["15_minutes"]["data"]
     df = values._collect_station_parameter_or_dataset(station_id, dataset)  # noqa: SLF001
-    return shape_provider_frame(df, station_id=station_id, dataset=dataset, provider="DwdRoadValues")
+    df = shape_provider_frame(df, station_id=station_id, dataset=dataset, provider="DwdRoadValues")
+    # judged by the core, in canonical units, and handed back in the unit DWD wrote
+    rules = values._plausibility_rules(station_id, dataset)  # noqa: SLF001
+    return judged(df, network="dwd/road", dataset=dataset, rules=rules)
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
@@ -903,7 +929,7 @@ def _series(station_id: str, parameter: str, values: list[float | None]) -> pl.D
     )
 
 
-def test_dwd_road_weather_marks_a_sensor_that_has_stopped(caplog: pytest.LogCaptureFixture) -> None:
+def test_dwd_road_weather_marks_a_sensor_that_has_stopped() -> None:
     """A temperature that has not moved for six hours is a sensor, not a road.
 
     DWD's own flag names 4 of the 21 stations in a network-wide file that sit more than 10 K from
@@ -913,20 +939,13 @@ def test_dwd_road_weather_marks_a_sensor_that_has_stopped(caplog: pytest.LogCapt
     stopped. Matching them by value would have been worse than useless, -25 and -30 both being
     reachable in a German winter.
     """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     stuck = _series("H659", "roadSurfaceTemperature", [198.15] * 30)
-    with caplog.at_level(logging.DEBUG):
-        df = api._flag_stuck_sensors(stuck, "a-group")  # noqa: SLF001
+    df = _flag_stuck_sensors(stuck, "a-group")
 
     assert df.get_column("quality").to_list() == [1.0] * 30
-    # at debug, not info: the road values are collected a station at a time and each of those
-    # parses the whole group again, so at info this group-wide line is printed once per station
-    assert [record.levelname for record in caplog.records if "GH-1917" in record.message] == ["DEBUG"]
-    # marked, not removed: the reading is still exactly what DWD published
+    # marked, not removed: the reading is still exactly what DWD published (the debug line that named the sensors is
+    # gone with the move: the core judges a station at a time and has no group to name)
     assert df.get_column("value").to_list() == [198.15] * 30
-    assert "H659/roadSurfaceTemperature" in caplog.text
-    assert "kept as published" in caplog.text
 
 
 @pytest.mark.parametrize(
@@ -948,9 +967,7 @@ def test_dwd_road_weather_stuck_threshold(
     case: str,
 ) -> None:
     """The run that counts as stopped sits between what a working sensor does and what a dead one does."""
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
-    df = api._flag_stuck_sensors(_series("A006", "roadSurfaceTemperature", values), "a-group")  # noqa: SLF001
+    df = _flag_stuck_sensors(_series("A006", "roadSurfaceTemperature", values), "a-group")
     assert (df.get_column("quality").eq(1.0).any()) is expected, case
 
 
@@ -966,18 +983,16 @@ def test_dwd_road_weather_a_run_is_not_read_across_an_outage() -> None:
     the two: 99.5% of this network's intervals are the quarter hour it publishes on, and the tail
     runs past six hours.
     """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     plateau = _series("A006", "roadSurfaceTemperature", [285.0] * 12)
     later = plateau.with_columns(pl.col("timestamp") + pl.duration(days=3))
-    across = api._flag_stuck_sensors(pl.concat([plateau, later]), "a-group")  # noqa: SLF001
+    across = _flag_stuck_sensors(pl.concat([plateau, later]), "a-group")
     assert not across.get_column("quality").eq(1.0).any()
 
     # and the hole ends the run rather than the marking: a sensor that has stopped either side of
     # one is still stopped, where scoring the whole span at once let a single gap clear the lot
     long_enough = _series("A006", "roadSurfaceTemperature", [285.0] * 34)
     beyond = long_enough.with_columns(pl.col("timestamp") + pl.duration(hours=12))
-    both = api._flag_stuck_sensors(pl.concat([long_enough, beyond]), "a-group")  # noqa: SLF001
+    both = _flag_stuck_sensors(pl.concat([long_enough, beyond]), "a-group")
     assert both.get_column("quality").eq(1.0).all()
 
 
@@ -988,12 +1003,10 @@ def test_dwd_road_weather_a_missed_file_does_not_break_a_run() -> None:
     the ordinary missed file. FN/P367 holds one air temperature for 88 readings with seven such
     gaps among them, and is certainly broken.
     """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     readings = _series("A006", "roadSurfaceTemperature", [285.0] * 30)
     # every seventh reading dropped, which is a good deal worse than the network manages
     sparse = readings.filter(pl.int_range(pl.len()).mod(7).ne(0))
-    assert api._flag_stuck_sensors(sparse, "a-group").get_column("quality").eq(1.0).all()  # noqa: SLF001
+    assert _flag_stuck_sensors(sparse, "a-group").get_column("quality").eq(1.0).all()
 
 
 @pytest.mark.parametrize("every", [5, 15, 20, 30])
@@ -1004,13 +1017,11 @@ def test_dwd_road_weather_stuck_run_counts_readings_whatever_the_cadence(every: 
     never be flagged however long it had been stopped, and one publishing every five tripped at two
     hours where the count is documented as six.
     """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     readings = _series("A006", "roadSurfaceTemperature", [285.0] * 24)
     spaced = readings.with_columns(
         pl.col("timestamp").first() + pl.duration(minutes=every) * pl.int_range(pl.len()),
     )
-    assert api._flag_stuck_sensors(spaced, "a-group").get_column("quality").eq(1.0).all()  # noqa: SLF001
+    assert _flag_stuck_sensors(spaced, "a-group").get_column("quality").eq(1.0).all()
 
 
 def test_dwd_road_weather_a_minute_arriving_twice_is_one_minute() -> None:
@@ -1022,15 +1033,13 @@ def test_dwd_road_weather_a_minute_arriving_twice_is_one_minute() -> None:
     a duplicated minute puts a zero among the intervals and so a zero in their median, which ends
     a run at every reading: a sensor stuck for a whole day came back with nothing marked at all.
     """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     stuck = _series("A006", "roadSurfaceTemperature", [285.0] * 30)
     air = _series("B999", "airTemperature", [280.0] * 30)
     doubled_air = pl.concat([stuck, _series("A006", "airTemperature", [280.0] * 30), air, air])
-    assert api._flag_stuck_sensors(doubled_air, "a-group").height == doubled_air.height  # noqa: SLF001
+    assert _flag_stuck_sensors(doubled_air, "a-group").height == doubled_air.height
 
     doubled_readings = pl.concat([stuck, stuck])
-    marked = api._flag_stuck_sensors(doubled_readings, "a-group")  # noqa: SLF001
+    marked = _flag_stuck_sensors(doubled_readings, "a-group")
     assert marked.get_column("quality").eq(1.0).all()
 
 
@@ -1041,11 +1050,9 @@ def test_dwd_road_weather_a_verdict_stays_with_the_reading_it_was_reached_from()
     landed on the second as well -- including one holding a value that had moved and belonged to no
     run at all, which came back marked as though the sensor had never budged.
     """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     stuck = _series("A006", "roadSurfaceTemperature", [285.0] * 30)
     moved = stuck.tail(1).with_columns(value=pl.lit(286.4))
-    marked = api._flag_stuck_sensors(pl.concat([stuck, moved]), "a-group")  # noqa: SLF001
+    marked = _flag_stuck_sensors(pl.concat([stuck, moved]), "a-group")
 
     assert marked.filter(pl.col("value").eq(286.4)).get_column("quality").to_list() == [None]
     assert marked.filter(pl.col("value").eq(285.0)).get_column("quality").eq(1.0).all()
@@ -1059,8 +1066,6 @@ def test_dwd_road_weather_a_frost_is_not_a_thaw() -> None:
     docs described the bound as "within 10 degrees of freezing", which reads as both sides and is
     what actually separates a thaw from a frost.
     """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     melting_point = 273.15
     df = pl.concat(
         [
@@ -1068,7 +1073,7 @@ def test_dwd_road_weather_a_frost_is_not_a_thaw() -> None:
             _series("A006", "airTemperature", [melting_point - 20] * 30),
         ],
     )
-    marked = api._flag_stuck_sensors(df, "a-group").filter(  # noqa: SLF001
+    marked = _flag_stuck_sensors(df, "a-group").filter(
         pl.col("parameter").eq("roadSurfaceTemperature"),
     )
     assert marked.get_column("quality").eq(1.0).all()
@@ -1082,13 +1087,11 @@ def test_dwd_road_weather_only_the_quantities_that_can_be_marked_are_examined() 
     peak memory against 2.06, inside the one function the code around it was restructured to keep
     out of memory.
     """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     stuck = _series("A006", "roadSurfaceTemperature", [285.0] * 30)
     others = pl.concat(
         [_series("A006", name, [0.0] * 30) for name in ("precipitationType", "waterFilmThickness", "windSpeed")],
     )
-    marked = api._flag_stuck_sensors(pl.concat([stuck, others]), "a-group")  # noqa: SLF001
+    marked = _flag_stuck_sensors(pl.concat([stuck, others]), "a-group")
 
     # the ones that cannot be marked come back exactly as they went in, constant though they are
     assert marked.filter(pl.col("parameter").ne("roadSurfaceTemperature")).get_column("quality").is_null().all()
@@ -1102,28 +1105,24 @@ def test_dwd_road_weather_a_null_reading_is_a_missed_one() -> None:
     as a value, the null ended a run that the absent row was allowed to span, so a sensor dropping
     one reading in twenty was never flagged however long it had stopped.
     """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     with_nulls = _series("A006", "roadSurfaceTemperature", [285.0 if i % 20 else None for i in range(96)])
     absent = with_nulls.drop_nulls("value")
-    marked_nulls = api._flag_stuck_sensors(with_nulls, "a-group")  # noqa: SLF001
-    marked_absent = api._flag_stuck_sensors(absent, "a-group")  # noqa: SLF001
+    marked_nulls = _flag_stuck_sensors(with_nulls, "a-group")
+    marked_absent = _flag_stuck_sensors(absent, "a-group")
     assert marked_nulls.get_column("quality").eq(1.0).sum() == marked_absent.get_column("quality").eq(1.0).sum()
     assert marked_absent.get_column("quality").eq(1.0).all()
 
 
 def test_dwd_road_weather_stuck_marking_leaves_the_frame_as_it_found_it() -> None:
     """Marking changes a verdict and nothing else about the frame."""
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     df = _series("A006", "roadSurfaceTemperature", [285.0] * 30)
-    marked = api._flag_stuck_sensors(df, "a-group")  # noqa: SLF001
+    marked = _flag_stuck_sensors(df, "a-group")
     assert marked.get_column("value").to_list() == df.get_column("value").to_list()
     assert marked.select("station_id", "timestamp", "parameter").equals(
         df.select("station_id", "timestamp", "parameter")
     )
     # and running it again says the same thing, the column it writes being one it also reads
-    assert api._flag_stuck_sensors(marked, "a-group").get_column("quality").to_list() == (  # noqa: SLF001
+    assert _flag_stuck_sensors(marked, "a-group").get_column("quality").to_list() == (
         marked.get_column("quality").to_list()
     )
 
@@ -1135,8 +1134,6 @@ def test_dwd_road_weather_melting_is_asked_of_the_reading_not_the_window() -> No
     excuses every plateau in it, and the same day then answers differently depending on how much of
     the year the caller asked for.
     """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     df = pl.concat(
         [
             _series("A006", "roadSurfaceTemperature", [273.15] * 96),
@@ -1144,7 +1141,7 @@ def test_dwd_road_weather_melting_is_asked_of_the_reading_not_the_window() -> No
             _series("A006", "airTemperature", [299.15] * 90 + [277.05] * 6),
         ],
     )
-    surface = api._flag_stuck_sensors(df, "a-group").filter(  # noqa: SLF001
+    surface = _flag_stuck_sensors(df, "a-group").filter(
         pl.col("parameter").eq("roadSurfaceTemperature"),
     )
     # the readings taken while nothing could have been melting, and not the six that could
@@ -1175,15 +1172,13 @@ def test_dwd_road_weather_brine_holds_a_salted_road_below_zero(
     range is bounded below all the same, which is what keeps a sensor stopped at -30 C in a frost
     from being excused along with it.
     """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     df = pl.concat(
         [
             _series("A006", "roadSurfaceTemperature", [surface] * 30),
             _series("A006", "airTemperature", [air] * 30),
         ],
     )
-    marked = api._flag_stuck_sensors(df, "a-group").filter(  # noqa: SLF001
+    marked = _flag_stuck_sensors(df, "a-group").filter(
         pl.col("parameter").eq("roadSurfaceTemperature"),
     )
     assert marked.get_column("quality").eq(1.0).any() is expected, case
@@ -1212,11 +1207,9 @@ def test_dwd_road_weather_stuck_needs_the_hours_as_well_as_the_readings(
     A floor and not a divisor: measuring against a fixed cadence instead once made a station
     reporting every twenty minutes impossible to flag at all.
     """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     series = _series("A006", "roadSurfaceTemperature", [285.0] * readings)
     spaced = series.with_columns(pl.col("timestamp").first() + pl.duration(minutes=every) * pl.int_range(pl.len()))
-    marked = api._flag_stuck_sensors(spaced, "a-group")  # noqa: SLF001
+    marked = _flag_stuck_sensors(spaced, "a-group")
     assert marked.get_column("quality").eq(1.0).any() is expected, case
 
 
@@ -1240,15 +1233,13 @@ def test_dwd_road_weather_a_melting_road_is_not_a_stopped_sensor(
     -- FN/P717 sits at 0.00 C all day and is broken -- so it is told by the air: ice does not melt
     on a road whose own station reports 26 C, which is what P717's does.
     """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     df = pl.concat(
         [
             _series("A006", "roadSurfaceTemperature", [273.15] * 30),
             _series("A006", "airTemperature", [air + 0.01 * i for i in range(30)]),
         ],
     )
-    marked = api._flag_stuck_sensors(df, "a-group")  # noqa: SLF001
+    marked = _flag_stuck_sensors(df, "a-group")
     surface = marked.filter(pl.col("parameter").eq("roadSurfaceTemperature"))
     assert surface.get_column("quality").eq(1.0).any() is expected, case
 
@@ -1265,16 +1256,12 @@ def test_dwd_road_weather_does_not_call_a_quiet_day_a_fault(parameter: str) -> N
     of five groups, a threshold applied to these would have called 547 of 571 stations' surface
     condition a fault, and 61 of 581 humidities -- a quiet day reported as a broken network.
     """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
-    df = api._flag_stuck_sensors(_series("A006", parameter, [0.0] * 96), "a-group")  # noqa: SLF001
+    df = _flag_stuck_sensors(_series("A006", parameter, [0.0] * 96), "a-group")
     assert df.get_column("quality").to_list() == [None] * 96
 
 
 def test_dwd_road_weather_stuck_check_keeps_one_station_out_of_another(caplog: pytest.LogCaptureFixture) -> None:
     """One station standing still says nothing about the next one's readings."""
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     moving = [280.0 + 0.1 * i for i in range(30)]
     df = pl.concat(
         [
@@ -1283,7 +1270,7 @@ def test_dwd_road_weather_stuck_check_keeps_one_station_out_of_another(caplog: p
         ],
     )
     with caplog.at_level(logging.INFO):
-        out = api._flag_stuck_sensors(df, "a-group")  # noqa: SLF001
+        out = _flag_stuck_sensors(df, "a-group")
 
     assert out.filter(pl.col("station_id").eq("H659")).get_column("quality").to_list() == [1.0] * 30
     assert out.filter(pl.col("station_id").eq("A006")).get_column("quality").to_list() == [None] * 30
@@ -1300,14 +1287,12 @@ def test_dwd_road_weather_stuck_check_counts_minutes_not_rows() -> None:
     publishing under two families, a file republished -- counted twice would halve the window, and
     a working sensor's measured 14-reading plateau would double into a fault.
     """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     # thirteen minutes at one value, which is three and a quarter hours and no fault
     plateau = _series("A006", "airTemperature", [285.0] * 13)
-    assert not api._flag_stuck_sensors(plateau, "a-group").get_column("quality").eq(1.0).any()  # noqa: SLF001
+    assert not _flag_stuck_sensors(plateau, "a-group").get_column("quality").eq(1.0).any()
     doubled = pl.concat([plateau, plateau])
     assert doubled.get_column("timestamp").n_unique() == 13
-    assert not api._flag_stuck_sensors(doubled, "a-group").get_column("quality").eq(1.0).any()  # noqa: SLF001
+    assert not _flag_stuck_sensors(doubled, "a-group").get_column("quality").eq(1.0).any()
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
@@ -1526,10 +1511,9 @@ def test_dwd_road_weather_a_real_file_decodes() -> None:
 
 def _out_of_range(parameter: str, values: list[float]) -> pl.DataFrame:
     """Give the value and the `raw` text the reader's ranges make of readings of one descriptor."""
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
-    value, raw = null_sentinels(pl.col("value"), *api._OUT_OF_RANGE, text=False)  # noqa: SLF001
-    return _series("A006", parameter, values).select(value.alias("value"), join_quality_flags(raw=raw).alias("raw"))
+    dataset = DwdRoadRequest.metadata["15_minutes"]["data"]
+    df = judged(_series("A006", parameter, values), network="dwd/road", dataset=dataset)
+    return df.select("value", pl.col("quality_flags").alias("raw"))
 
 
 @pytest.mark.parametrize(
@@ -1550,9 +1534,7 @@ def test_dwd_road_weather_impossible_temperature_is_null(
     case: str,
 ) -> None:
     """A temperature no reading can hold is null with the number DWD wrote; a merely extreme one stays (GH-3222)."""
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
-    published = round(api._MELTING_POINT + celsius, 2)  # noqa: SLF001
+    published = round(_MELTING_POINT + celsius, 2)
     df = _out_of_range("roadSurfaceTemperature", [published] * 3)
 
     # every reading or none of them: the three hold the same value
@@ -1568,12 +1550,10 @@ def test_dwd_road_weather_impossible_temperature_needs_no_window() -> None:
     sensors; asked for one, it has five readings to judge from and marks nothing, while the station
     still reports -75 C.
     """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     # five readings, as an hour of this network holds -- far short of the 24 the run rule wants
     an_hour = _series("A006", "roadSurfaceTemperature", [198.15] * 5)
 
-    assert not api._flag_stuck_sensors(an_hour, "a-group").get_column("quality").eq(1.0).any()  # noqa: SLF001
+    assert not _flag_stuck_sensors(an_hour, "a-group").get_column("quality").eq(1.0).any()
     assert _out_of_range("roadSurfaceTemperature", [198.15] * 5).get_column("value").is_null().all()
 
 

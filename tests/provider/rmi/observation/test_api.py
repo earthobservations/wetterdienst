@@ -13,6 +13,7 @@ import polars as pl
 import pytest
 
 import wetterdienst.provider.rmi.observation.api as rmi_api
+from tests.provider.judging import judged
 from tests.provider.value_stubs import stations_result
 from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.model.plausibility import Plausibility, applying
@@ -269,7 +270,10 @@ def _collect_wide(
         end=dt.datetime(2003, 10, 9, tzinfo=UTC),
     )
     values._iter_value_pages = lambda *_args, **_kwargs: iter([wide])  # noqa: SLF001
-    return values._shape(values._collect_station_parameter_or_dataset(station, dataset), station, dataset)  # noqa: SLF001
+    shaped = values._shape(values._collect_station_parameter_or_dataset(station, dataset), station, dataset)  # noqa: SLF001
+    # the range of an attribute and the periods of a dead sensor are judged by the core, in canonical units
+    rules = values._plausibility_rules(station, dataset)  # noqa: SLF001
+    return judged(shaped, network="rmi/observation", dataset=dataset, rules=rules)
 
 
 def test_collect_nulls_a_value_outside_the_range_of_its_attribute_and_keeps_what_it_was() -> None:
