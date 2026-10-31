@@ -69,12 +69,8 @@ def test_a_published_parameter_is_mapped_to_the_name_of_its_statistic(resolution
 
 
 def test_the_parameters_that_wait_for_a_decision_are_not_served() -> None:
-    """What has no canonical name, no unit, or another threshold than the canonical one is left out (GH-3622)."""
+    """What has no canonical name or no unit is left out (GH-3622)."""
     left_out = {
-        "max_pressure",
-        "min_pressure",
-        "no_summer_days",
-        "no_tropical_nights",
         "no_cold_days",
         "no_windy_days",
         "no_stormy_days",
@@ -83,6 +79,7 @@ def test_the_parameters_that_wait_for_a_decision_are_not_served() -> None:
         "no_clear_days",
         "no_cloudy_days",
         "no_days_snow_cover",
+        # read as the `acc_heating_degree_days_17`, one parameter (test_pressure_counts_heating_degree_days.py)
         "acc_heating_degree_days_19",
     }
     served = {

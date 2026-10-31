@@ -1992,6 +1992,32 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Mean atmospheric pressure of the year, reduced to mean sea level: the average of the underlying "
             "daily values."
         ),
+        ("daily", "data", "max_pressure"): (
+            "Highest atmospheric pressure of the day, reduced to mean sea level: the highest hourly value of "
+            "mean_pressure within the day (the local day in Denmark; 06:00 to 06:00 UTC in Greenland and the "
+            "Faroe Islands). Published for some stations only."
+        ),
+        ("monthly", "data", "max_pressure"): (
+            "Highest atmospheric pressure of the month, reduced to mean sea level: the highest of the "
+            "underlying daily values."
+        ),
+        ("annual", "data", "max_pressure"): (
+            "Highest atmospheric pressure of the year, reduced to mean sea level: the highest of the "
+            "underlying daily values."
+        ),
+        ("daily", "data", "min_pressure"): (
+            "Lowest atmospheric pressure of the day, reduced to mean sea level: the lowest hourly value of "
+            "mean_pressure within the day (the local day in Denmark; 06:00 to 06:00 UTC in Greenland and the "
+            "Faroe Islands). Published for some stations only."
+        ),
+        ("monthly", "data", "min_pressure"): (
+            "Lowest atmospheric pressure of the month, reduced to mean sea level: the lowest of the "
+            "underlying daily values."
+        ),
+        ("annual", "data", "min_pressure"): (
+            "Lowest atmospheric pressure of the year, reduced to mean sea level: the lowest of the "
+            "underlying daily values."
+        ),
         ("hourly", "data", "acc_precip"): "Accumulated precipitation of the hour (UTC), in mm.",
         ("daily", "data", "acc_precip"): (
             "Accumulated precipitation of the day, in mm: the sum of all hourly values within the day (the "
@@ -2075,17 +2101,20 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Largest daily precipitation total of the year, the highest of the underlying daily values."
         ),
         ("daily", "data", "acc_heating_degree_days_17"): (
-            "Heating degree days of the day: 17 °C minus the daily mean temperature, 0 for a mean above 17 "
-            "°C. The source lists the unit as “no. of days”; the values are degrees (a mean of 2.0 °C is "
-            "15.0)."
+            "Heating degree days of the day: the base temperature minus the daily mean temperature, 0 for a "
+            "mean above the base. The base is 17 °C in Denmark (acc_heating_degree_days_17) and 19 °C in "
+            "Greenland (acc_heating_degree_days_19), which are read as this one parameter. The source lists "
+            "the unit as “no. of days”; the values are degrees (a mean of 2.0 °C is 15.0 in Denmark)."
         ),
         ("monthly", "data", "acc_heating_degree_days_17"): (
-            "Heating degree days of the month: the sum of the underlying daily values (17 °C minus the daily "
-            "mean temperature)."
+            "Heating degree days of the month: the sum of the underlying daily values (the base temperature "
+            "minus the daily mean temperature). The base is 17 °C in Denmark (acc_heating_degree_days_17) and "
+            "19 °C in Greenland (acc_heating_degree_days_19), which are read as this one parameter."
         ),
         ("annual", "data", "acc_heating_degree_days_17"): (
-            "Heating degree days of the year: the sum of the underlying daily values (17 °C minus the daily "
-            "mean temperature)."
+            "Heating degree days of the year: the sum of the underlying daily values (the base temperature "
+            "minus the daily mean temperature). The base is 17 °C in Denmark (acc_heating_degree_days_17) and "
+            "19 °C in Greenland (acc_heating_degree_days_19), which are read as this one parameter."
         ),
         ("daily", "data", "max_relative_hum"): (
             "Highest relative humidity of the day: the highest of all hourly mean relative humidities "
@@ -2173,6 +2202,26 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("annual", "data", "no_frost_days"): (
             "Number of days with frost of the year: the days on which the lowest temperature (min_temp) was below 0 °C."
+        ),
+        ("monthly", "data", "no_summer_days"): (
+            "Number of summer days of the month: the days on which the highest temperature (max_temp_w_date) "
+            "was above 25 °C. A day at exactly 25.0 °C is no summer day here, where the canonical name counts "
+            "from 25 °C."
+        ),
+        ("annual", "data", "no_summer_days"): (
+            "Number of summer days of the year: the days on which the highest temperature (max_temp_w_date) "
+            "was above 25 °C. A day at exactly 25.0 °C is no summer day here, where the canonical name counts "
+            "from 25 °C."
+        ),
+        ("monthly", "data", "no_tropical_nights"): (
+            "Number of tropical nights of the month: the days on which the lowest temperature (min_temp) was "
+            "above 20 °C. A day at exactly 20.0 °C is no tropical night here, where the canonical name counts "
+            "from 20 °C."
+        ),
+        ("annual", "data", "no_tropical_nights"): (
+            "Number of tropical nights of the year: the days on which the lowest temperature (min_temp) was "
+            "above 20 °C. A day at exactly 20.0 °C is no tropical night here, where the canonical name counts "
+            "from 20 °C."
         ),
         ("monthly", "data", "no_ice_days"): (
             "Number of ice days of the month: the days on which the highest temperature (max_temp_w_date) "

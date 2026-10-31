@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `dmi/observation` now serves the highest and lowest pressure at sea level of the day, month and
+  year (new `pressure_air_sea_level_max`/`_min`; 45 stations, 38 in Greenland), the monthly and
+  annual summer days and tropical nights (`count_days_summer`, `count_days_tropical_night`) and
+  the heating degree days of Greenland, as `heating_degree_day` beside Denmark's: the base is 17 °C
+  in Denmark and 19 °C in Greenland. DMI counts the days above 25 and 20 °C, so a day at exactly
+  25.0 or 20.0 °C is not counted, where the names count from the threshold (Part of GH-3622)
+
 ## [0.179.0] - 2026-10-30
 
 ### Added

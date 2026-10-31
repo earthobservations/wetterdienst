@@ -107,19 +107,31 @@ _HUMIDITY = (0.0, 130.0)  # percent; a hygrometer reads past 100 now and then
 # 2026-10-30). No hourly value of January to June 2019 (68,107, 15 stations) nor daily one of 2011 to 2025 (93,519) is
 # above 100, but a 112 would be more than the whole sky, and the mean of a day or a month with one in it a wrong one
 _CLOUD_COVER = (0.0, 100.0)  # percent
+_PRESSURE = (300.0, 1_100.0)  # hPa
 _COMMON_RANGES: dict[str, tuple[float, float]] = {
     "mean_temp": _AIR_TEMPERATURE,
     "max_temp_w_date": _AIR_TEMPERATURE,
     "min_temp": _AIR_TEMPERATURE,
     "mean_relative_hum": _HUMIDITY,
-    "mean_pressure": (300.0, 1_100.0),  # hPa
+    "mean_pressure": _PRESSURE,
     "mean_wind_speed": _WIND_SPEED,
     "max_wind_speed_10min": _WIND_SPEED,
     "max_wind_speed_3sec": _WIND_SPEED,
     "mean_wind_dir": (0.0, 360.0),  # degree
     "mean_cloud_cover": _CLOUD_COVER,
 }
-_HEATING_DEGREE_DAYS = (0.0, 20_000.0)  # degree Celsius days; a year of heating is below 10,000
+_HEATING_DEGREE_DAYS = (
+    0.0,
+    20_000.0,
+)  # degree Celsius days; the most of a year read is 18,022.8 (04416 Summit, Greenland, 2011)
+# DMI's heating degree days of Greenland (base 19) are the field `acc_heating_degree_days_19`, where those of Denmark
+# (base 17) are `acc_heating_degree_days_17`: no station has both, so the one is read as the other and the two are the
+# one parameter, `heating_degree_day`. Its range holds for either base: the highest year DMI publishes is 18,022.8
+# (04416 Summit on the ice sheet, 2011; 17,747.8 in 2009 and 17,612.7 in 2013) and the highest month 2,114.3 (2011-12),
+# so the bound of 20,000 leaves about 10 % above the highest year (read 2026-10-31)
+_FIELD_SERVED_AS = {"acc_heating_degree_days_19": "acc_heating_degree_days_17"}
+# the highest and lowest pressure of a day, a month and a year, in hPa at sea level
+_PRESSURE_EXTREMES = {"max_pressure": _PRESSURE, "min_pressure": _PRESSURE}
 # the sunshine cannot last longer than the span it is measured over, with a tenth to spare for an hour, a day and the
 # longest month (the range of `physical_ranges.py`), and none for a leap year, whose range has none: minutes of an hour,
 # hours of a day, of a month and of a year. DMI's highest (read 2026-10-30) are 60 minutes, 16.5 hours in a day,
@@ -132,6 +144,8 @@ _DAYS = (0.0, 366.0)
 _DAY_COUNT_PARAMETERS = (
     "no_ice_days",
     "no_frost_days",
+    "no_summer_days",
+    "no_tropical_nights",
     "no_days_acc_precip_01",
     "no_days_acc_precip_1",
     "no_days_acc_precip_10",
@@ -146,6 +160,7 @@ _MONTHLY_RANGES: dict[str, tuple[float, float]] = {
     "min_relative_hum": _HUMIDITY,
     "acc_heating_degree_days_17": _HEATING_DEGREE_DAYS,
     "bright_sunshine": _SUNSHINE_OF_A_MONTH,
+    **_PRESSURE_EXTREMES,
     **dict.fromkeys(_DAY_COUNT_PARAMETERS, _DAYS),
 }
 _RANGES: dict[str, dict[str, tuple[float, float]]] = {
@@ -162,6 +177,7 @@ _RANGES: dict[str, dict[str, tuple[float, float]]] = {
         "max_relative_hum": _HUMIDITY,
         "min_relative_hum": _HUMIDITY,
         "acc_heating_degree_days_17": _HEATING_DEGREE_DAYS,
+        **_PRESSURE_EXTREMES,
         "bright_sunshine": _SUNSHINE_OF_A_DAY,
         "snow_depth": (-50.0, 1_500.0),  # cm
     },
@@ -404,7 +420,13 @@ class DmiObservationValues(TimeseriesValues):
         if not records:
             return pl.DataFrame()
 
-        df = pl.concat(records).filter(pl.col("parameterId").is_in(known_parameters)).unique(maintain_order=True)
+        # the heating degree days of Greenland are read as those of Denmark: one parameter, `heating_degree_day`
+        df = (
+            pl.concat(records)
+            .with_columns(pl.col("parameterId").replace(_FIELD_SERVED_AS))
+            .filter(pl.col("parameterId").is_in(known_parameters))
+            .unique(maintain_order=True)
+        )
         if df.is_empty():
             return pl.DataFrame()
         # the 0 of a calm wind, the -0.1 of a trace and a value outside the range of its parameter are mapped before

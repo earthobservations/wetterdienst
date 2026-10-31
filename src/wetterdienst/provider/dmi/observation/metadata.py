@@ -10,15 +10,10 @@ from wetterdienst.model.metadata import CC_BY_4_0, DATASET_NAME_DEFAULT, License
 # station/resolution/date-range in a single request, so each resolution is modelled as one
 # grouped default dataset. `name_original` is the raw DMI parameterId.
 #
-# Only the parameters with a clean canonical equivalent are mapped here (GH-3622). Left out, for want of
-# a canonical name or of a unit, or because the statistic differs: the maximum and minimum pressure
-# (`max_pressure`, `min_pressure`; sea level, which `pressure_air_site_max` is not), the radiation of a day, month
-# and year (`mean_radiation` in MJ/m2, which `energy_per_area` has no unit for), the counts of days that
-# have no canonical name (`no_cold_days`, `no_windy_days`, `no_stormy_days`, `no_days_w_storm`,
-# `no_days_w_hurricane`, `no_clear_days`, `no_cloudy_days`, `no_days_snow_cover`), the counts `no_summer_days` (DMI:
-# "more than 25", counted as > 25 in 121 of 121 months of 06180, against 116 for >= 25) and `no_tropical_nights` ("more
-# than 20"), whose canonical names count from the threshold itself, and the heating degree days of Greenland
-# (`acc_heating_degree_days_19`, base 19 against the base 17 of Denmark).
+# Only the parameters with a canonical equivalent are mapped here (GH-3622). Left out, for want of a canonical name or
+# of a unit: the radiation of a day, month and year (`mean_radiation` in MJ/m2, which `energy_per_area` has no unit
+# for) and the counts of days that have no canonical name (`no_cold_days`, `no_windy_days`, `no_stormy_days`,
+# `no_days_w_storm`, `no_days_w_hurricane`, `no_clear_days`, `no_cloudy_days`, `no_days_snow_cover`).
 
 # Parameters available at every resolution (hour, day, month, year).
 _BASE_PARAMETERS = [
@@ -77,12 +72,34 @@ _BASE_PARAMETERS = [
     },
 ]
 
-# Heating degree days (base 17 °C) are aggregated from day resolution upwards.
+# Heating degree days are aggregated from day resolution upwards. DMI publishes them as two fields, by country:
+# `acc_heating_degree_days_17` (17 degrees Celsius minus the daily mean temperature; "graddage - Danmark") and
+# `acc_heating_degree_days_19` (19 degrees; "graddage - Grønland"). A station has one of the two: the stations of the
+# 17 (06019 to 06197, Denmark) and of the 19 (04203 to 04416, Greenland) do not overlap in the days of 2024-01-10 to
+# 2024-01-12 nor in the months and years of 2022 and 2023 (read 2026-10-31). So the reader reads the 19 as the 17
+# (`_FIELD_SERVED_AS` of `api.py`) and both are the one parameter, whose base is that of the station's country
+# (GH-3622).
 _HEATING_DEGREE_DAY = {
     "name": "heating_degree_day",
     "name_original": "acc_heating_degree_days_17",
     "unit": "degree_celsius_day",
 }
+# The highest and lowest of the hourly means of the pressure reduced to mean sea level of the day (DMI: "highest hourly
+# value of mean_pressure within a day"), of the month and of the year (the highest and lowest of the underlying daily
+# values). Not published at the hour. Published for 45 stations, 38 in Greenland (04xxx) and 7 of 06007 to 06014, none
+# of the 06019 to 06197 of Denmark (day, month and year of 2022 to 2024, read 2026-10-31).
+_PRESSURE_EXTREMES = [
+    {
+        "name": "pressure_air_sea_level_max",
+        "name_original": "max_pressure",
+        "unit": "hectopascal",
+    },
+    {
+        "name": "pressure_air_sea_level_min",
+        "name_original": "min_pressure",
+        "unit": "hectopascal",
+    },
+]
 
 # Sunshine, radiation and cloud cover are published for a part of the stations only (the cloud cover of the hours for
 # 15 stations, all in Greenland, the sunshine of the hours for 28, read 2026-10-30).
@@ -117,7 +134,11 @@ _CLOUD_COVER_MEAN = {
 }
 # Counts of the days of a month or a year on which a threshold was passed. DMI counts the precipitation days at "greater
 # than or equal to" 0.1, 1 and 10 mm, the ice days at a maximum below 0 and the frost days at a minimum below 0 degrees
-# Celsius, as the canonical names do.
+# Celsius, as the canonical names do. The summer days ("maximum temperature > 25 °C") and the tropical nights ("minimum
+# temperature > 20 °C") are counted past the threshold, where `count_days_summer` and `count_days_tropical_night` count
+# from it (GH-3622): DMI's monthly counts equal the days of its daily values above the threshold in all 157 months it
+# published for 2010 to 2023 (of 168) at each of 06180, 06070 and 06041, and fall short of the days at it or above in
+# 5, 13 and 1 of them for the summer days (06180, 06070, 06041) and in 0, 1 and 1 for the tropical nights.
 _DAY_COUNTS = [
     {
         "name": "count_days_ice",
@@ -127,6 +148,16 @@ _DAY_COUNTS = [
     {
         "name": "count_days_frost",
         "name_original": "no_frost_days",
+        "unit": "dimensionless",
+    },
+    {
+        "name": "count_days_summer",
+        "name_original": "no_summer_days",
+        "unit": "dimensionless",
+    },
+    {
+        "name": "count_days_tropical_night",
+        "name_original": "no_tropical_nights",
         "unit": "dimensionless",
     },
     {
@@ -165,6 +196,7 @@ _HOURLY_PARAMETERS = [
 
 _DAILY_PARAMETERS = [
     *_BASE_PARAMETERS,
+    *_PRESSURE_EXTREMES,
     *_HUMIDITY_RELATIVE_EXTREMES,
     _SUNSHINE,
     _CLOUD_COVER_MEAN,
@@ -189,6 +221,7 @@ _DAILY_PARAMETERS = [
 # maximum 24-hour precipitation total and the counts of days.
 _MONTHLY_PARAMETERS = [
     *_BASE_PARAMETERS,
+    *_PRESSURE_EXTREMES,
     _HEATING_DEGREE_DAY,
     _SUNSHINE,
     _CLOUD_COVER_MEAN,
