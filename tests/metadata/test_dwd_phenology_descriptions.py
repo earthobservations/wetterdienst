@@ -4,8 +4,8 @@
 
 The source is the ``PH_Beschreibung_Phasendefinition_*.txt`` files beside the data (read 2026-10-31): for each plant
 and phase the sentence that says when the phase is reached. DWD's English phase name alone, which was the whole
-description, leaves out the share of the plants the date depends on, and that the flowering of a wind-pollinated tree
-is the release of pollen. Each pin is a fact of those files; the files themselves are not fetched here.
+description, leaves out the share of the flowers, ears, stems or plants the date depends on, and that the flowering of
+some plants is the release of pollen. Each pin is a fact of those files; the files themselves are not fetched here.
 """
 
 from wetterdienst.metadata.parameter_table import PARAMETERS
@@ -40,7 +40,7 @@ def test_the_flowering_of_a_wind_pollinated_tree_is_the_release_of_pollen() -> N
 
 
 def test_wrong_claims_are_gone() -> None:
-    """The ears are not the first ones, nothing is harvested by hand, and the seedlings are not the first."""
+    """The ears are not the first ones, the hand harvest is not by hand alone, and the seedlings are not the first."""
     assert "first" not in PARAMETERS["phenology_heading_beginning"].description
     assert "flag leaf" not in PARAMETERS["phenology_heading_beginning"].description
     assert "by hand" not in PARAMETERS["phenology_harvest_by_hand"].description

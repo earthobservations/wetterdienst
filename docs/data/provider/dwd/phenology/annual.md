@@ -47,7 +47,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field is sown or drilled. | dimensionless |
 | {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
 | {term}`phenology_stand_closed` | 13 | Closed stand (Bestand geschlossen): about 50% of the plants touch across the rows. | dimensionless |
 | {term}`phenology_harvest` | 24 | Harvest (Ernte). | dimensionless |
@@ -68,7 +68,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field is sown or drilled. | dimensionless |
 | {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
 | {term}`phenology_stand_closed` | 13 | Closed stand (Bestand geschlossen): about 50% of the plants touch across the rows. | dimensionless |
 | {term}`phenology_harvest` | 24 | Harvest (Ernte). | dimensionless |
@@ -91,7 +91,7 @@
 |------|---------------|-------------|------|
 | {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): about 5% of the plants have the middle branches of the panicle in bloom. | dimensionless |
 | {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): on about 50% of the plants the anthers visibly release pollen. | dimensionless |
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field is sown or drilled. | dimensionless |
 | {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the plants have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
 | {term}`phenology_milk_ripeness_beginning` | 19 | Beginning of milk ripeness (Milchreife Beginn): the first maize kernels have reached their final size. | dimensionless |
 | {term}`phenology_dough_ripeness_beginning` | 20 | Beginning of wax-ripe stage (Teigreife Beginn): the first maize kernels are yellowish to yellow outside. | dimensionless |
@@ -116,7 +116,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field is sown or drilled. | dimensionless |
 | {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
 | {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn): about 50% of the plants grow clearly in length and the first stem node can be felt above the ground. | dimensionless |
 | {term}`phenology_milk_ripeness_beginning` | 19 | Beginning of milk ripeness (Milchreife Beginn): the first grains in several panicles have reached their final size but are still soft and green. | dimensionless |
@@ -142,7 +142,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_turning_green_beginning` | 1 | Beginning of turning green (Ergrünen Beginn): about 25% of the selected permanent grassland shows fresh green, i.e. leaf growth has begun. | dimensionless |
+| {term}`phenology_turning_green_beginning` | 1 | Beginning of turning green (Ergrünen Beginn): about 25% of the selected permanent grassland shows fresh green. | dimensionless |
 | {term}`phenology_hay_cut_first` | 25 | First cut for hay (1. Heuschnitt). | dimensionless |
 | {term}`phenology_silage_cut_first` | 26 | First cut for silage (1. Silageschnitt). | dimensionless |
 | {term}`phenology_hay_cut_second` | 27 | Second cut for hay (2. Heuschnitt). | dimensionless |
@@ -166,7 +166,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field is sown or drilled. | dimensionless |
 | {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
 | {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn): about 50% of the plants grow clearly in length and the first stem node can be felt above the ground. | dimensionless |
 | {term}`phenology_heading_beginning` | 18 | Beginning of heading (Ährenschieben Beginn): the tips of the ears push out sideways from the leaf sheaths on about 50% of the stems. | dimensionless |
@@ -191,7 +191,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field is sown or drilled. | dimensionless |
 | {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
 | {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn): about 50% of the plants grow clearly in length and the first stem node can be felt above the ground. | dimensionless |
 | {term}`phenology_heading_beginning` | 18 | Beginning of heading (Ährenschieben Beginn): the tips of the ears push out sideways from the leaf sheaths on about 50% of the stems. | dimensionless |
@@ -216,7 +216,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field is sown or drilled. | dimensionless |
 | {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
 | {term}`phenology_stand_closed` | 13 | Closed stand (Bestand geschlossen): about 50% of the plants touch across the rows. | dimensionless |
 | {term}`phenology_harvest` | 24 | Harvest (Ernte). | dimensionless |
@@ -238,7 +238,7 @@
 | name | original name | description | unit |
 |------|---------------|-------------|------|
 | {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): on about 5% of the flower heads the anthers of the first to third ring of flowers are visible. | dimensionless |
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field is sown or drilled. | dimensionless |
 | {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the shoots have broken through the soil and begin to stretch. | dimensionless |
 | {term}`phenology_leaf_formation_beginning` | 16 | Beginning of formation of leaves (Blattbildung Beginn): about 50% of the plants have unfolded their first pair of leaves. | dimensionless |
 | {term}`phenology_bud_formation_beginning` | 17 | Beginning of bud formation (Knospenbildung Beginn): the flower bud, tightly enclosed by the young leaves, becomes visible at the shoot tip on about 50% of the plants. | dimensionless |
@@ -299,7 +299,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field is sown or drilled. | dimensionless |
 | {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
 | {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn): about 50% of the plants grow clearly in length and the first stem node can be felt above the ground. | dimensionless |
 | {term}`phenology_heading_beginning` | 18 | Beginning of heading (Ährenschieben Beginn): the tips of the ears push out sideways from the leaf sheaths on about 50% of the stems. | dimensionless |
@@ -325,7 +325,7 @@
 | name | original name | description | unit |
 |------|---------------|-------------|------|
 | {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): about 5% of the yellow flowers have opened fully. | dimensionless |
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field is sown or drilled. | dimensionless |
 | {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
 | {term}`phenology_rosette_formation_beginning` | 14 | Beginning of rosette formation (Rosettenbildung Beginn): about 50% of the plants have formed the fourth serrated leaf of the rosette. | dimensionless |
 | {term}`phenology_bud_formation_beginning` | 17 | Beginning of bud formation (Knospenbildung Beginn): the terminal buds on the main shoot become visible on about 50% of the plants. | dimensionless |
@@ -352,7 +352,7 @@
 |------|---------------|-------------|------|
 | {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): on about 5% of the ears the first flowers in the middle of the ear have opened and the anthers are visible. | dimensionless |
 | {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): on about 50% of the ears the flowers have opened and release pollen. | dimensionless |
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field is sown or drilled. | dimensionless |
 | {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
 | {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn): about 50% of the plants grow clearly in length and the first stem node can be felt above the ground. | dimensionless |
 | {term}`phenology_heading_beginning` | 18 | Beginning of heading (Ährenschieben Beginn): the tips of the ears push out sideways from the leaf sheaths on about 50% of the stems. | dimensionless |
@@ -377,7 +377,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field is sown or drilled. | dimensionless |
 | {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
 | {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn): about 50% of the plants grow clearly in length and the first stem node can be felt above the ground. | dimensionless |
 | {term}`phenology_heading_beginning` | 18 | Beginning of heading (Ährenschieben Beginn): the tips of the ears push out sideways from the leaf sheaths on about 50% of the stems. | dimensionless |
@@ -1542,7 +1542,7 @@
 | name | original name | description | unit |
 |------|---------------|-------------|------|
 | {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): about 5% of the plants have the middle branches of the panicle in bloom. | dimensionless |
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field is sown or drilled. | dimensionless |
 | {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the plants have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
 | {term}`phenology_milk_ripeness_beginning` | 19 | Beginning of milk ripeness (Milchreife Beginn): the kernels have reached their final size; they are white to yellowish outside, soft and hold a milky liquid. | dimensionless |
 | {term}`phenology_dough_ripeness_beginning` | 20 | Beginning of wax-ripe stage (Teigreife Beginn): the kernels are yellowish to yellow outside. | dimensionless |
@@ -1568,7 +1568,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field is sown or drilled. | dimensionless |
 | {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
 | {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn): about 50% of the plants grow clearly in length and the first stem node can be felt above the ground. | dimensionless |
 | {term}`phenology_yellow_ripeness_beginning` | 21 | Yellow ripeness (Gelbreife Beginn): the first grains have finished turning from green to yellow and come away easily, on about half of the panicles. | dimensionless |
@@ -1592,7 +1592,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_turning_green_beginning` | 1 | Beginning of turning green (Ergrünen Beginn): about 25% of the selected permanent grassland shows fresh green, i.e. leaf growth has begun. | dimensionless |
+| {term}`phenology_turning_green_beginning` | 1 | Beginning of turning green (Ergrünen Beginn): about 25% of the selected permanent grassland shows fresh green. | dimensionless |
 | {term}`phenology_hay_cut_first` | 25 | First cut for hay (1. Heuschnitt). | dimensionless |
 | {term}`phenology_silage_cut_first` | 26 | First cut for silage (1. Silageschnitt). | dimensionless |
 | {term}`phenology_hay_cut_second` | 27 | Second cut for hay (2. Heuschnitt). | dimensionless |
@@ -1638,7 +1638,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field is sown or drilled. | dimensionless |
 | {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
 | {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn): about 50% of the plants grow clearly in length and the first stem node can be felt above the ground. | dimensionless |
 | {term}`phenology_heading_beginning` | 18 | Beginning of heading (Ährenschieben Beginn): the tips of the ears push out sideways from the leaf sheaths on about 50% of the stems. | dimensionless |
@@ -1661,7 +1661,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field is sown or drilled. | dimensionless |
 | {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
 | {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn): about 50% of the plants grow clearly in length and the first stem node can be felt above the ground. | dimensionless |
 | {term}`phenology_heading_beginning` | 18 | Beginning of heading (Ährenschieben Beginn): the tips of the ears push out sideways from the leaf sheaths on about 50% of the stems. | dimensionless |
@@ -1687,7 +1687,7 @@
 |------|---------------|-------------|------|
 | {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): about 5% of the yellow flowers are open. | dimensionless |
 | {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende): about 95% of the stand has finished flowering. | dimensionless |
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field is sown or drilled. | dimensionless |
 | {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
 | {term}`phenology_bud_formation_beginning` | 17 | Beginning of bud formation (Knospenbildung Beginn): the terminal buds on the main shoot become visible on about 50% of the plants. | dimensionless |
 | {term}`phenology_full_ripeness_beginning` | 22 | Beginning of full ripeness (Vollreife Beginn): most rapeseed grains are black on one half. | dimensionless |
@@ -1712,7 +1712,7 @@
 |------|---------------|-------------|------|
 | {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): on about 5% of the ears the first flowers in the middle of the ear have opened and the anthers are visible. | dimensionless |
 | {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): on about 50% of the ears the flowers have opened and release pollen. | dimensionless |
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field is sown or drilled. | dimensionless |
 | {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
 | {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn): about 50% of the plants grow clearly in length and the first stem node can be felt above the ground. | dimensionless |
 | {term}`phenology_heading_beginning` | 18 | Beginning of heading (Ährenschieben Beginn): the tips of the ears push out sideways from the leaf sheaths on about 50% of the stems. | dimensionless |
@@ -1736,7 +1736,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field is sown or drilled. | dimensionless |
 | {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
 | {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn): about 50% of the plants grow clearly in length and the first stem node can be felt above the ground. | dimensionless |
 | {term}`phenology_heading_beginning` | 18 | Beginning of heading (Ährenschieben Beginn): the tips of the ears push out sideways from the leaf sheaths on about 50% of the stems. | dimensionless |

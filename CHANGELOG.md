@@ -37,8 +37,8 @@ Types of changes:
   does not report a gust below 31 km/h and the files write 0 for it; a 0 of another source stays
   (GH-3655)
 - `dwd/phenology`: 304 of the 404 parameter descriptions now carry DWD's definition of the phase,
-  where they gave its name only: the share of the plants that decides the date (5, 25, 50 or
-  95 %), pollen release as the flowering of hazel, birch, spruce and others.
+  where they gave its name only: the share of the flowers, ears, stems or plants that decides the
+  date, pollen release as the flowering of hazel, birch, spruce and others.
   `phenology_heading_beginning` was "the first ears" (DWD: about half of the stems),
   `phenology_harvest_by_hand` begins with a scythe or simple machine, and
   `phenology_emergence_beginning` no longer says "first seedlings" (GH-3136)

@@ -200,7 +200,7 @@ _OBJECTS: dict[int, tuple[str, str, str]] = {
 
 # What the ``PH_Beschreibung_Phasendefinition_*.txt`` files DWD publishes in the directories of the data (one per
 # reporter group and plant group) say a phase is, translated (GH-3136). DWD's English phase name alone leaves out what
-# decides the date: the share of the plants that must show the stage (5, 25, 50 or 95 %, set per plant), that the
+# decides the date: the share of the flowers, ears, stems or plants that must show the stage (set per plant), that the
 # flowering of some plants is the release of pollen and not an open flower, and what ripe means for a crop.
 # A phase that is absent here has a name that already says it (``Ernte``, ``Lese``, the cuts of the grassland) and
 # keeps it. ``_DEFINITIONS`` is the sentence for a phase; ``_PLANT_DEFINITIONS`` replaces it for a plant whose
@@ -211,13 +211,13 @@ _OBJECTS: dict[int, tuple[str, str, str]] = {
 # the name alone; so does annual winter rye's full ripeness (phase 22), whose DWD text is the one of its yellow ripeness
 # at a weaker stage, a defect of the sheet.
 _DEFINITIONS: dict[int, str] = {
-    1: "about 25% of the selected permanent grassland shows fresh green, i.e. leaf growth has begun",
+    1: "about 25% of the selected permanent grassland shows fresh green",
     5: "the first flowers have opened fully",
     6: "about 50% of the flowers have opened fully",
     7: "about 95% of the flowers have shed their petals",
     8: "the first buds burst and their sheaths detach from the bud margin",
     9: "the second leaf flush of the year, recognisable by its fresh, partly reddish colour",
-    10: "the first field of the observation area is sown or drilled",
+    10: "the first field is sown or drilled",
     12: "the cotyledons have broken through the soil surface and reached a height of about 1 cm",
     13: "about 50% of the plants touch across the rows",
     14: "about 50% of the plants have formed the fourth serrated leaf of the rosette",
