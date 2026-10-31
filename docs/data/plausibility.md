@@ -199,7 +199,9 @@ What no check covers, and why:
   year without data). The mode changes only what a station's own values show. The values stay rows with no value, as a
   rejected one does.
 - **`skip_empty`** judges a station by its unflagged values alone: a value flagged `suspect` is no coverage, so a station
-  with only such values is skipped, as it was when the check nulled them.
+  with only such values is skipped. For the checks that used to null (`range`, `elevation`, `consistency`, `floor`, and
+  `stuck` of DWD observation and RMI) this is as before. For `stuck` of DWD road, which used to keep the value with
+  the flag `1` and count it, it is a change: a road station with long stuck runs can be skipped where it was kept.
 - **A rejected value carries only the hard verdict.** Where a hard check rejects a value and a soft one also finds it
   suspect, the value is null and the token is `rejected:<hard checks>,raw:<number>`; the soft check is not listed.
 - **`drop_nulls=True`** keeps dropping the rows of hard-rejected values, as it drops any null. A soft row has a value and
