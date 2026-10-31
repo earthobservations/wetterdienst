@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+import math
 import re
 from dataclasses import dataclass
 from enum import Enum
@@ -23,7 +24,13 @@ from wetterdienst.model.metadata import (
     ParameterModel,
     build_metadata_model,
 )
-from wetterdienst.model.quality_flags import OutOfRange, join_quality_flags, null_sentinels
+from wetterdienst.model.quality_flags import (
+    NoReading,
+    OutOfRange,
+    join_quality_flags,
+    null_sentinels,
+    with_speed_beside,
+)
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.dwd.metadata import _METADATA, EXTENT_GERMANY
@@ -409,6 +416,85 @@ _RANGES: dict[str, dict[str, tuple[float, float]]] = {
 _OUT_OF_RANGE = tuple(
     OutOfRange(low, high, where=pl.col("parameter").eq(name)) for name, (low, high) in _RANGES["15_minutes"].items()
 )
+
+#: a relative humidity below this, in percent, is no reading (GH-3624). The range above is generous (0 to 130 %), and a
+#: hygrometer that has failed writes a value inside it: P925 gave 0.1 % for 43 readings of a 12 h window, beside a road
+#: surface of 61 to 75 C, and the stuck-sensor rule leaves it because the value varies. 1 % is far below any humidity
+#: the air of Germany reaches, so everything from there up is left as the sensor wrote it, a dry one included. In the
+#: 39 hours of every station group read on 2026-10-31 (see below) no humidity was under 5 %, so the rule nulled none.
+_NO_HUMIDITY_BELOW = 1.0
+
+_SURFACE = "roadSurfaceTemperature"
+_AIR = "airTemperature"
+
+#: a road surface this many kelvin warmer than the air of the same minute, with the sun below `_NIGHT_BELOW_DEGREES`,
+#: is no reading (GH-3624). By night a road radiates and cools to the air above it or below, and what it keeps of the
+#: day's heat is a few kelvin: of the 62,895 night readings of 722 stations in the 39 hours from 2026-10-29 20:00 to
+#: 2026-10-31 11:30 UTC (every group), 99 % lie within 8.6 K above the air. The stations above 20 K are seven, at that
+#: difference for all of their night (a surface of 8 to 90 C beside an air of -29 to 10 C: P925, P034, V064, E237,
+#: B545, F053 and M080), and the highest of every other station is 19.2 K (M531), so 20 K lies in the one gap the
+#: sample has between a station that runs warm and a sensor that reads a different quantity. The rule compares the
+#: surface only to the air beside it, so M080, whose *air* is the sensor that is wrong (-16 to -29 C beside a surface
+#: of 8 to 13 C), has its good surface nulled too: no neighbour is asked, which one of the two failed is not told. The
+#: rule is one-sided: a surface under the air is an ordinary clear night.
+_SURFACE_WARMER_THAN_AIR = 20.0
+
+#: and night is the sun more than 6 degrees below the horizon, the end of civil twilight (`_sun_elevation`): the day's
+#: heat is out of the road by then in the sample (39 of 5,536 readings between -6 and 0 degrees are over 20 K, all of
+#: them at six of the seven stations above). The line falls at a time that depends on the place and the date, which no
+#: hour of the clock can name.
+_NIGHT_BELOW_DEGREES = -6.0
+
+#: the column the air temperature of the same minute is laid beside a surface temperature in (`with_speed_beside`)
+_AIR_BESIDE = "__air_beside"
+
+#: the seconds of a day, and of the epoch J2000 (2000-01-01 12:00 UTC) the sun's position is counted from
+_DAY = 86_400.0
+_J2000_EPOCH_SECONDS = 946_728_000.0
+
+
+def _sun_elevation(timestamp: pl.Expr, latitude: float, longitude: float) -> pl.Expr:
+    """Give the elevation of the sun above the horizon in degrees, at a UTC instant and a place.
+
+    The low-precision formulas of the Astronomical Almanac, which place the sun within 0.01 degrees and so the end of
+    twilight within a minute, far inside the margin that `_NIGHT_BELOW_DEGREES` needs. The refraction is not added,
+    which is half a degree at the horizon and nothing six degrees below it.
+
+    Args:
+        timestamp: the instant, a datetime in UTC.
+        latitude: the latitude of the place in degrees north.
+        longitude: the longitude of the place in degrees east.
+
+    """
+    days = (timestamp.dt.epoch("s").cast(pl.Float64) - _J2000_EPOCH_SECONDS) / _DAY
+    mean_longitude = 280.460 + 0.9856474 * days
+    mean_anomaly = (357.528 + 0.9856003 * days).radians()
+    ecliptic_longitude = (mean_longitude + 1.915 * mean_anomaly.sin() + 0.020 * (2 * mean_anomaly).sin()).radians()
+    obliquity = (23.439 - 4.0e-7 * days).radians()
+    right_ascension = pl.arctan2(obliquity.cos() * ecliptic_longitude.sin(), ecliptic_longitude.cos())
+    declination = (obliquity.sin() * ecliptic_longitude.sin()).arcsin()
+    # the Greenwich mean sidereal time in hours, and from it the hour angle of the sun at the place
+    sidereal_hours = (18.697374558 + 24.06570982441908 * days) % 24
+    hour_angle = (sidereal_hours * 15 + longitude).radians() - right_ascension
+    sine = math.sin(math.radians(latitude)) * declination.sin() + (
+        math.cos(math.radians(latitude)) * declination.cos() * hour_angle.cos()
+    )
+    return sine.arcsin().degrees()
+
+
+def _no_reading_rules(latitude: float | None, longitude: float | None) -> tuple[NoReading, ...]:
+    """Give the rules of a value that lies inside every range and is no reading all the same (GH-3624).
+
+    The value as DWD wrote it is kept as the `raw` token, as for a value outside a range. A station without a position
+    has no night, so the rule of the surface stands aside for it; the air of the same minute is in the column
+    `_AIR_BESIDE`, null where there is none, and then the rule stands aside too.
+    """
+    rules = [NoReading(where=pl.col("parameter").eq("relativeHumidity") & pl.col("value").lt(_NO_HUMIDITY_BELOW))]
+    if latitude is not None and longitude is not None:
+        night = _sun_elevation(pl.col("timestamp"), latitude, longitude).lt(_NIGHT_BELOW_DEGREES)
+        warmer = (pl.col("value") - pl.col(_AIR_BESIDE)).gt(_SURFACE_WARMER_THAN_AIR)
+        rules.append(NoReading(where=pl.col("parameter").eq("roadSurfaceTemperature") & night & warmer))
+    return tuple(rules)
 
 
 def _flag_stuck_sensors(df: pl.DataFrame, source: str) -> pl.DataFrame:
@@ -823,8 +909,10 @@ class DwdRoadValues(TimeseriesValues[DatasetModel]):
         parameter_or_dataset: DatasetModel,
     ) -> pl.DataFrame:
         """Collect data from DWD Road Weather stations."""
-        station_group = self.sr.df.filter(pl.col("station_id").eq(station_id)).get_column("station_group").item()
-        station_group = DwdRoadStationGroup(station_group)
+        station = self.sr.df.filter(pl.col("station_id").eq(station_id))
+        station_group = DwdRoadStationGroup(station.get_column("station_group").item())
+        # the dataset is `grouped`: it is collected whole, the air temperature with the road surface, and the core
+        # leaves out what was not asked for
         parameters = list(parameter_or_dataset)
         df = self._collect_data_by_station_group(station_group, parameters)
         # the group may have published no file for the window, or only files holding nothing: `df` is then a frame of
@@ -834,8 +922,23 @@ class DwdRoadValues(TimeseriesValues[DatasetModel]):
         # the date DWD wrote the file of a reading travels with it (`_note_files_with_rows`, GH-2567)
         if UPDATED not in df.columns:
             df = df.with_columns(pl.lit(None, dtype=pl.Datetime("us", "UTC")).alias(UPDATED))
-        # a value no sensor can have produced is null, and keeps the number DWD wrote (`_RANGES`, GH-3222)
-        value, raw = null_sentinels(pl.col("value"), *_OUT_OF_RANGE, text=False)
+        # the air of the minute, where it is a reading, beside the surface (`_no_reading_rules`)
+        low, high = _RANGES["15_minutes"][_AIR]
+        df = with_speed_beside(
+            df,
+            {_SURFACE: _AIR},
+            on=["timestamp"],
+            value=pl.when(pl.col("value").is_between(low, high)).then(pl.col("value")),
+            into=_AIR_BESIDE,
+        )
+        # a value no sensor can have produced is null, and keeps the number DWD wrote (`_RANGES`, GH-3222), and so is
+        # a value inside every range that is no reading (`_no_reading_rules`, GH-3624)
+        value, raw = null_sentinels(
+            pl.col("value"),
+            *_OUT_OF_RANGE,
+            *_no_reading_rules(*station.select("latitude", "longitude").row(0)),
+            text=False,
+        )
         df = df.select(
             "parameter",
             "timestamp",
@@ -1049,8 +1152,8 @@ class DwdRoadValues(TimeseriesValues[DatasetModel]):
         forty, on stations with one sensor as much as two, and none of that is decided here: a
         sensor has to be chosen, everything contested is then taken from that one so the row is a
         road rather than an average of two, and where the two disagree wildly the choice is the
-        rank order and nothing better. This library does not judge whether a reading is plausible,
-        here or anywhere else.
+        rank order and nothing better. This library judges whether a reading is plausible only by the
+        ranges and the two rules of `_no_reading_rules`, and by nothing else here.
 
         Where they carry different quantities they are two instruments of one installation -- the
         whole of the DD group, where the first sensor holds the surface temperature and the second
