@@ -15,7 +15,14 @@ import polars.selectors as cs
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, group_parameters_by_dataset
-from wetterdienst.model.quality_flags import SPEED_BESIDE, Sentinel, calm, join_quality_flags, null_sentinels
+from wetterdienst.model.quality_flags import (
+    SPEED_BESIDE,
+    Sentinel,
+    calm,
+    join_quality_flags,
+    null_sentinels,
+    with_speed_beside,
+)
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.noaa.ghcn.metadata import (
@@ -45,6 +52,8 @@ GHCNH_WIND_DIRECTION_MISSING = "999"
 # one (1.5 m/s, 1985) have a wind speed of 0, and 12,384 and 28,366 are 360. The 0 beside a speed of 0 is null; the
 # one beside a wind that blows stays, as in every provider (`calm`, GH-3222), where it was null too
 GHCNH_WIND_SPEED_OF_DIRECTION = {"wind_direction": "wind_speed"}
+# the speed of the average daily wind direction (the element names of the daily files, lower case)
+GHCND_WIND_SPEED_OF_DIRECTION = {"awdr": "awnd"}
 GHCNH_PRECIPITATION_MISSING = "-9999"
 GHCNH_NONE = "-None"
 # the reports of Table 4 that are specials, filed between the routine ones: FM16 is a SPECI, SAOSP an airways special
@@ -408,6 +417,15 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
             pl.col("parameter").str.to_lowercase(),
             pl.col("value").str.strip_chars(),
             "quality_flags",
+        )
+        # AWDR, the average daily wind direction, is 0 beside an AWND of 0 (a calm day) as much as it is a bearing
+        # beside a wind that blows: at USS0054K01S (read 2026-10-30) 2 of its 11 directions of 0 have a speed of 0 and 5
+        # have one above, besides the 360 of 2025-06-30. The 0 beside a speed of exactly 0 is null, and stays as
+        # `raw:0` in `quality_flags` (GH-3222). The readme gives no code for a day without a direction
+        df = with_speed_beside(df, GHCND_WIND_SPEED_OF_DIRECTION, on=["station_id", "timestamp"])
+        value, raw = null_sentinels(pl.col("value"), calm(pl.col(SPEED_BESIDE), where=pl.col("parameter").eq("awdr")))
+        df = df.with_columns(value.alias("value"), join_quality_flags(pl.col("quality_flags"), raw=raw)).drop(
+            SPEED_BESIDE
         )
         # A daily value is stamped at 00:00 UTC of the date the file gives it, whichever time zone the station is in:
         # the date is handed over as it is, which the core reads as midnight UTC. The date is the station's own
