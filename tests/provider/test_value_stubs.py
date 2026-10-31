@@ -26,6 +26,11 @@ SPEED_OF_DIRECTION = {
     "wind_direction_mean_last_10min": ("wind_speed_mean_last_10min",),
     "wind_direction_mean_last_2min": ("wind_speed_mean_last_2min", "wind_speed"),
     "wind_direction_gust_max": ("wind_gust_max",),
+    "wind_direction_gust_max_1min": ("wind_gust_max_1min",),
+    "wind_direction_gust_max_2min": ("wind_gust_max_2min",),
+    "wind_direction_gust_max_5sec": ("wind_gust_max_5sec",),
+    "wind_direction_gust_max_instant": ("wind_gust_max_instant",),
+    "wind_direction_gust_max_1mile": ("wind_gust_max_1mile",),
 }
 # the rule of a no-direction code (`no_direction_code`, GH-3222): the stubs whose wind direction 0 is no bearing,
 # and is null whatever the speed, with what makes it one. The source names it a code, or its data rules out a bearing.

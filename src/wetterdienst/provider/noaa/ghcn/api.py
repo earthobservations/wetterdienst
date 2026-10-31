@@ -52,8 +52,18 @@ GHCNH_WIND_DIRECTION_MISSING = "999"
 # one (1.5 m/s, 1985) have a wind speed of 0, and 12,384 and 28,366 are 360. The 0 beside a speed of 0 is null; the
 # one beside a wind that blows stays, as in every provider (`calm`, GH-3222), where it was null too
 GHCNH_WIND_SPEED_OF_DIRECTION = {"wind_direction": "wind_speed"}
-# the speed of the average daily wind direction (the element names of the daily files, lower case)
-GHCND_WIND_SPEED_OF_DIRECTION = {"awdr": "awnd"}
+# the speed of the direction of each daily wind direction (the element names of the daily files, lower case): AWDR,
+# the average direction, beside AWND, and the readme's "Direction of ..." the fastest or peak wind (WDF1, WDF2, WDF5,
+# WDFG, WDFI and WDFM) beside WSF1, WSF2, WSF5, WSFG, WSFI and WSFM, the speed of that wind, in tenths of m/s
+GHCND_WIND_SPEED_OF_DIRECTION = {
+    "awdr": "awnd",
+    "wdf1": "wsf1",
+    "wdf2": "wsf2",
+    "wdf5": "wsf5",
+    "wdfg": "wsfg",
+    "wdfi": "wsfi",
+    "wdfm": "wsfm",
+}
 GHCNH_PRECIPITATION_MISSING = "-9999"
 GHCNH_NONE = "-None"
 # the reports of Table 4 that are specials, filed between the routine ones: FM16 is a SPECI, SAOSP an airways special
@@ -420,10 +430,21 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
         )
         # AWDR, the average daily wind direction, is 0 beside an AWND of 0 (a calm day) as much as it is a bearing
         # beside a wind that blows: at USS0054K01S (read 2026-10-30) 2 of its 11 directions of 0 have a speed of 0 and 5
-        # have one above, besides the 360 of 2025-06-30. The 0 beside a speed of exactly 0 is null, and stays as
-        # `raw:0` in `quality_flags` (GH-3222). The readme gives no code for a day without a direction
+        # have one above, besides the 360 of 2025-06-30. So are the directions of the fastest and peak winds (9 station
+        # files read 2026-10-30): of the 1,799 zeros of WDFG 1,798 have a WSFG of 0. 1,789 of them are at CAN03031640
+        # (source flag C), where every WSFG of 0 sits beside a WDFG of 0 and the smallest WSFG above 0 is 8.6 m/s
+        # (31 km/h): the gust below 31 km/h that Environment Canada does not report (`_GUST_NOT_REPORTED` of
+        # eccc/observation), no calm. There 0 and 0 are no wind and no direction either. At USW00014755 123 zeros of
+        # WDF5 (1998 to 2002) are beside a WSF5 of 4.0 to 59.0 m/s, besides its 360 for north. WDF1, WDF2 and WDF5
+        # have 2 of 3, 8 of 23 and 11 of 134 zeros beside a speed of 0, WDFI and WDFM none in 8,410 and 28,815
+        # directions. The readme gives no code for a day without a direction. The 0 beside a speed of exactly 0 is no
+        # direction, a calm or a gust not reported, and is null with `raw:0` in `quality_flags` (GH-3222); the 0 beside
+        # a wind that blows stays (GH-3648)
         df = with_speed_beside(df, GHCND_WIND_SPEED_OF_DIRECTION, on=["station_id", "timestamp"])
-        value, raw = null_sentinels(pl.col("value"), calm(pl.col(SPEED_BESIDE), where=pl.col("parameter").eq("awdr")))
+        value, raw = null_sentinels(
+            pl.col("value"),
+            calm(pl.col(SPEED_BESIDE), where=pl.col("parameter").is_in(list(GHCND_WIND_SPEED_OF_DIRECTION))),
+        )
         df = df.with_columns(value.alias("value"), join_quality_flags(pl.col("quality_flags"), raw=raw)).drop(
             SPEED_BESIDE
         )
