@@ -18,7 +18,7 @@
 |---------------|----------------------------------------------------------------------------------------------------------------|
 | name          | climate |
 | original name | klimat                                                                                                         |
-| description   | historical monthly climate data                                                                                |
+| description   | Monthly data of the climatological stations (klimat)                                                                                |
 | access        | [here](https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_meteorologiczne/miesieczne/klimat/) |
 
 #### parameters
@@ -46,7 +46,7 @@
 |---------------|--------------------------------------------------------------------------------------------------------------|
 | name          | precipitation                                                                                                |
 | original name | opad                                                                                                         |
-| description   | historical monthly precipitation data                                                                        |
+| description   | Monthly data of the precipitation stations (opad)                                                                        |
 | access        | [here](https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_meteorologiczne/miesieczne/opad/) |
 
 #### parameters
@@ -64,7 +64,7 @@
 |---------------|---------------------------------------------------------------------------------------------------------------|
 | name          | synop                                                                                                         |
 | original name | synop                                                                                                         |
-| description   | historical monthly synop data                                                                                 |
+| description   | Monthly data of the synoptic stations (synop)                                                                                 |
 | access        | [here](https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_meteorologiczne/miesieczne/synop/) |
 
 #### parameters

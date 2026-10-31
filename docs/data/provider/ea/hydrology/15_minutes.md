@@ -18,7 +18,7 @@
 |---------------|-------------------------------------------------------------------------------------------------------|
 | name          | data                                                                                                  |
 | original name | data                                                                                                  |
-| description   | Historical 15 minute station observations of flow, river water level and groundwater level for the UK |
+| description   | Station observations of flow, river water level and groundwater level for England, instantaneous values mainly every 15 minutes (the logged groundwater level every 15 minutes to every hour) |
 | access        | [here](https://environment.data.gov.uk/hydrology/doc/reference)                                       |
 
 #### parameters
