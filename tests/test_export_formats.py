@@ -177,7 +177,7 @@ def test_find_format_reads_any_case() -> None:
 
 
 def test_the_error_is_a_str_without_quotes() -> None:
-    """A `KeyError` prints its message in quotes, and this one is not printed so (its pickling: `test_exceptions.py`)."""
+    """A `KeyError` prints its message in quotes, and this one is not printed so."""
     error = UnknownFormatError("xml", ("json", "csv"))
     assert not str(error).startswith(("'", '"'))
 
