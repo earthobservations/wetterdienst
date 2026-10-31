@@ -105,6 +105,9 @@ Types of changes:
 
 ### Fixed
 
+- `ImageTooLargeError` pickles: it failed with a `TypeError` on unpickling, which broke it for
+  a caller that passes it across processes (multiprocessing, `ProcessPoolExecutor`). Its size, its limit and any notes now
+  come through the copy (GH-3673)
 - `noaa/ghcn` daily: a direction of the fastest or peak wind of 0 beside a speed of exactly 0
   (`wind_direction_gust_max` and its `_1min`, `_2min`, `_5sec`, `_instant`, `_1mile`) is null, with
   `raw:0` in `quality_flags`, where it came back as north. The files write that 0 for a day
