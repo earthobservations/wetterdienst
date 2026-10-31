@@ -165,23 +165,47 @@ def test_the_os_errors_keep_the_layout_of_their_built_in_class() -> None:
     assert isinstance(NoInternetError("offline"), OSError)
 
 
-@pytest.mark.parametrize(
-    "error",
-    [
-        NoInternetError("offline"),
-        MetaFileNotFoundError("no meta file"),
-        StationNotFoundError("no station"),
-        IssueNotFoundError("no issue"),
-        MissingDependencyError("pip install wetterdienst[export]"),
-        DownloadError("https://example.com/a", "timed out"),
-    ],
-    ids=lambda error: type(error).__name__,
-)
-def test_an_error_pickles_with_its_class_and_message(error: Exception) -> None:
-    """The new base does not change how the errors cross a process boundary."""
+#: constructor arguments of the classes that do not take a message
+_CONSTRUCTOR_ARGS: dict[type[BaseException], tuple] = {
+    DownloadError: ("https://example.com/a", "timed out"),
+    ImageTooLargeError: (1, 2, 3),
+    MetaFileNotFoundError: (2, "No such file", "meta.txt"),
+    ProductFileNotFoundError: (2, "No such file", "product.txt"),
+    CredentialRejectedError: (13, "Permission denied"),
+    NoInternetError: (61, "Connection refused"),
+}
+
+
+def _built(cls: type[BaseException]) -> BaseException:
+    """Build an instance as a caller would, with a note and an attribute set on it the way a handler does."""
+    error = cls(*_CONSTRUCTOR_ARGS.get(cls, ("a message",)))
+    error.add_note("a note")
+    error.extra = "an attribute"  # ty: ignore[unresolved-attribute]
+    return error
+
+
+@pytest.mark.parametrize("cls", _classes_of_the_module(), ids=lambda cls: cls.__name__)
+def test_an_error_pickles_with_its_class_message_args_attributes_and_notes(cls: type[BaseException]) -> None:
+    """Every class of the module crosses a process boundary whole: a class that does not is a failure here.
+
+    The classes are discovered, so a new one with a constructor that takes more than a message has to be given
+    its arguments in `_CONSTRUCTOR_ARGS` and a `__reduce__`, or this fails for it.
+    """
+    error = _built(cls)
     copy = pickle.loads(pickle.dumps(error))  # noqa: S301
-    assert type(copy) is type(error)
+    assert type(copy) is cls
     assert str(copy) == str(error)
+    assert copy.args == error.args
+    assert copy.__dict__ == error.__dict__
+    assert copy.__notes__ == ["a note"]
+    assert copy.extra == "an attribute"
+
+
+def test_an_image_too_large_error_keeps_its_size_and_limit() -> None:
+    """The size and the limit come through the copy as the numbers they were, and the message is the same."""
+    copy = pickle.loads(pickle.dumps(ImageTooLargeError(1200.0, 3000, 2048)))  # noqa: S301
+    assert (copy.width, copy.height, copy.max_side) == (1200.0, 3000, 2048)
+    assert "1200 x 3000 px" in str(copy)
 
 
 def test_the_hierarchy_is_public() -> None:

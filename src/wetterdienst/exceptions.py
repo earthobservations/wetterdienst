@@ -280,6 +280,10 @@ class ImageTooLargeError(RequestError):
             f"{max_side} px."
         )
 
+    def __reduce__(self) -> tuple:
+        """Rebuild from the size and the limit, not from the message in `args`, so the error pickles."""
+        return type(self), (self.width, self.height, self.max_side), self.__dict__
+
 
 class ExportRefusedError(WetterdienstError):
     """Raised when a sink will not perform an export, for a reason the caller can act on.
