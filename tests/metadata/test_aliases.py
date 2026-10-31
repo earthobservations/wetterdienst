@@ -26,7 +26,7 @@ from tests.baselines.common import project_version
 from tests.baselines.parameters import breaking_changes, build_surface
 from wetterdienst import Options
 from wetterdienst.exceptions import InvalidParameterError
-from wetterdienst.io.export import ExportMixin
+from wetterdienst.io.sql_filter import filter_by_sql
 from wetterdienst.metadata import renamed
 from wetterdienst.metadata.aliases import (
     DEPRECATED_PARAMETER,
@@ -356,7 +356,7 @@ def test_a_sql_filter_takes_the_alias_of_a_column_and_answers_the_frames_columns
     df = pl.DataFrame({"station_id": ["a", "b"], NEW: [1.5, 7.5], f"{NEW}_quality_flags": ["10", "10"]})
 
     with pytest.warns(DeprecationWarning, match="'air_temp' was renamed"):
-        filtered = ExportMixin._filter_by_sql(df, f"{OLD} > 5")  # noqa: SLF001
+        filtered = filter_by_sql(df, f"{OLD} > 5")
 
     assert filtered.columns == df.columns
     assert filtered.get_column("station_id").to_list() == ["b"]
@@ -376,9 +376,7 @@ def test_a_sql_filter_follows_the_alias_into_the_prefixed_and_the_quality_column
     )
 
     with pytest.warns(DeprecationWarning, match="was renamed to"):
-        filtered = ExportMixin._filter_by_sql(  # noqa: SLF001
-            df, f"climate_summary_{OLD} > 5 AND climate_summary_{OLD}_quality_flags = '20'"
-        )
+        filtered = filter_by_sql(df, f"climate_summary_{OLD} > 5 AND climate_summary_{OLD}_quality_flags = '20'")
 
     assert filtered.columns == df.columns
     assert filtered.height == 1
@@ -392,10 +390,10 @@ def test_a_sql_filter_on_a_column_that_is_no_alias_fails_as_it_did() -> None:
     df = pl.DataFrame({NEW: [1.5]})
 
     with pytest.raises(duckdb.BinderException, match="not_there"):
-        ExportMixin._filter_by_sql(df, "not_there > 5")  # noqa: SLF001
+        filter_by_sql(df, "not_there > 5")
     # an alias whose new column the frame does not hold is no column of it
     with pytest.raises(duckdb.BinderException, match="precipitation_amount"):
-        ExportMixin._filter_by_sql(pl.DataFrame({"precipitation_amount": [1.0]}), f"{OLD} > 5")  # noqa: SLF001
+        filter_by_sql(pl.DataFrame({"precipitation_amount": [1.0]}), f"{OLD} > 5")
 
 
 # --- the length of an alias ---------------------------------------------------------------------------------------
@@ -593,11 +591,11 @@ def test_text_a_clause_plants_in_an_error_is_no_missing_column() -> None:
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         with pytest.raises(duckdb.Error) as error:
-            ExportMixin._filter_by_sql(df, _HOSTILE)  # noqa: SLF001
+            filter_by_sql(df, _HOSTILE)
         assert recorded_warnings() == []
         # a qualified column of the clause is still an alias
         warnings.simplefilter("ignore")
-        assert ExportMixin._filter_by_sql(df, f"df.{OLD} > 0").height == 1  # noqa: SLF001
+        assert filter_by_sql(df, f"df.{OLD} > 0").height == 1
 
     assert type(error.value).__name__ == "BinderException"
 
@@ -610,7 +608,7 @@ def test_a_frame_that_has_the_old_name_is_not_aliased() -> None:
 
     with warnings.catch_warnings():
         warnings.simplefilter("error")
-        assert ExportMixin._filter_by_sql(df, f"{OLD} = 1").height == 1  # noqa: SLF001
+        assert filter_by_sql(df, f"{OLD} = 1").height == 1
 
 
 @pytest.mark.sql
@@ -621,8 +619,8 @@ def test_a_long_frame_is_not_filtered_by_the_old_name_in_its_parameter_column() 
 
     with warnings.catch_warnings():
         warnings.simplefilter("error")
-        assert ExportMixin._filter_by_sql(df, f"parameter = '{OLD}'").is_empty()  # noqa: SLF001
-        assert ExportMixin._filter_by_sql(df, f"parameter = '{NEW}'").height == 1  # noqa: SLF001
+        assert filter_by_sql(df, f"parameter = '{OLD}'").is_empty()
+        assert filter_by_sql(df, f"parameter = '{NEW}'").height == 1
 
 
 @pytest.mark.sql
