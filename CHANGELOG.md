@@ -34,6 +34,15 @@ Types of changes:
   A greatest snow depth of 999.0 is null (`raw:999.0`) and the trace code −0.1 of the 12 and 24 hour
   precipitation is 0.0 with `raw:-0.1` (Part of GH-3622)
 
+### Changed
+
+- **Breaking**: 5 `noaa/ghcn` hourly stations are placed west of Greenwich, no longer east of it,
+  where `ghcnh-station-list.csv` has lost the sign of their longitude: Nemours/Ghazaouet
+  (AGUG0060517), Khouribga military airport (MOI0000GMMK), Alcaniz, Bujaraloz and Oliva
+  (SPM00008164, -8165, -8282). They were 16 to 1,299 km off, so a nearest-station search or a
+  distance filter near them picked the wrong stations; a filter on the old position needs the new
+  one (GH-2886)
+
 ### Fixed
 
 - `noaa/ghcn` daily: a direction of the fastest or peak wind of 0 beside a speed of exactly 0
