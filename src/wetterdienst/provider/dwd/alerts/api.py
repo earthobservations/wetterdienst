@@ -30,6 +30,7 @@ from wetterdienst.exceptions import (
     MetaFileFormatError,
     MetaFileNotFoundError,
     RequestError,
+    UnknownFormatError,
 )
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import Extent, ProviderTerms
@@ -196,8 +197,7 @@ class DwdWeatherAlertResult:
             return self.to_geojson(indent=indent)
         if fmt == "csv":
             return self.to_csv()
-        msg = f"format {fmt!r} not supported, use one of json, geojson, csv"
-        raise ValueError(msg)
+        raise UnknownFormatError(fmt, ("json", "geojson", "csv"))
 
 
 class DwdWeatherAlertRequest:

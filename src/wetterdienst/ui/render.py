@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeAlias, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, WithJsonSchema
 
+from wetterdienst.io.formats import renders_with_kaleido
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.plausibility import CHECKS, Mode
 from wetterdienst.model.unit import UnitConverter
@@ -246,7 +247,7 @@ def render_kwargs(
     kwargs: dict[str, Any] = {"fmt": request.format, "with_metadata": request.with_metadata}
     if request.format in ("json", "geojson"):
         kwargs["indent"] = request.pretty
-    if request.format in ("png", "jpg", "webp", "svg", "pdf"):
+    if renders_with_kaleido(request.format):
         kwargs["width"] = request.width
         kwargs["height"] = request.height
         kwargs["scale"] = request.scale

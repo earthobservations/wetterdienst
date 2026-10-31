@@ -19,6 +19,14 @@ Each class that was an exception of its own before keeps the built-in classes it
 it still does.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from typing import Self
+
 
 class WetterdienstError(Exception):
     """Root of the exception classes of wetterdienst.
@@ -279,6 +287,32 @@ class ImageTooLargeError(RequestError):
             f"The image would be {width:.0f} x {height:.0f} px, and this server renders no side longer than "
             f"{max_side} px."
         )
+
+
+class UnknownFormatError(RequestError, KeyError):
+    """Raised when an output format is asked for that nothing here renders, naming it and the ones that are.
+
+    A `RequestError`, so a `ValueError` and what the REST API answers with a 400, and also the `KeyError`
+    that `to_format` and the charts raised before this class, so both `except KeyError` and `except ValueError`
+    still catch it. The alerts result raised a `ValueError`.
+    """
+
+    def __init__(self, fmt: str, supported: Sequence[str]) -> None:
+        """Keep the format that was asked for and the ones that are supported."""
+        self.fmt = fmt
+        self.supported = tuple(supported)
+        super().__init__(f"Unknown output format {fmt!r}: use one of {', '.join(self.supported)}")
+
+    def __str__(self) -> str:
+        """Give the message as it is, where a `KeyError` would give it in quotes."""
+        return Exception.__str__(self)
+
+    def __reduce__(self) -> tuple[type[Self], tuple[str, tuple[str, ...]], dict[str, object]]:
+        """Rebuild from the format and the list, as the message is no argument of the constructor.
+
+        The `__dict__` goes along, which is where a note added to the error (`__notes__`) is kept.
+        """
+        return type(self), (self.fmt, self.supported), self.__dict__
 
 
 class ExportRefusedError(WetterdienstError):

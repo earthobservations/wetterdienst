@@ -735,7 +735,8 @@ What a request answers is a result, and the results are what a caller reads:
   `to_geojson(with_metdata=True)` is an error, and a type checker reports it. `to_csv` and `to_image` pass their
   keywords on (`to_csv` to polars' `write_csv`, `to_image` to the image: `fmt`, `width`, `height`, `scale` and
   `max_side`). `to_format(fmt, **kwargs)` takes one set of arguments for any format and gives each format those
-  it takes (CSV none), which is what the command line, the REST API and MCP rely on.
+  it takes (CSV none), which is what the command line, the REST API and MCP rely on. A name that no format takes
+  is a `TypeError` listing the ones that are, and a format it does not know an `UnknownFormatError`.
 - **A result is built by the library, and by keyword.** The constructors take keyword arguments only
   (`ValuesResult(stations=..., df=...)`); a positional call raises a `TypeError`.
 
@@ -762,7 +763,8 @@ full explanation, supported parameters, settings, CLI and REST usage.
 
 A result renders itself in the formats below. The arguments are keyword-only and the ones in the table: a keyword a
 method does not take is a `TypeError`. `to_format(fmt, **kwargs)` takes one set of arguments for any format and gives
-each format those it takes, which is what the command line, the REST API and the MCP tools do.
+each format those it takes, which is what the command line, the REST API and the MCP tools do. A keyword that no
+format takes is a `TypeError` too, and the formats by surface are in the table of [Export](export.md#formats-by-surface).
 
 | Method | `StationsResult` | `ValuesResult`, `InterpolatedValuesResult`, `SummarizedValuesResult` | `HistoryResult` |
 | --- | --- | --- | --- |
@@ -937,7 +939,7 @@ below it say what kind of failure it is:
 
 | Class | Raised when | Also a |
 | --- | --- | --- |
-| `RequestError` | the request cannot be served as phrased and can be rephrased: an invalid parameter (`InvalidParameterError`), period, date, window or point | `ValueError` |
+| `RequestError` | the request cannot be served as phrased and can be rephrased: an invalid parameter (`InvalidParameterError`), period, date, window or point, or an output format nothing renders (`UnknownFormatError`, also a `KeyError`) | `ValueError` |
 | `NotFoundError` | what the request names does not exist: a provider, network, resolution or dataset (`MetadataNotFoundError`), station or forecast run | `LookupError` |
 | `ConfigurationError` | this installation cannot serve it: a missing credential or optional package | |
 | `UpstreamError` | the provider's side failed or sent what the parser does not expect: `DownloadError`, `NoInternetError` | |

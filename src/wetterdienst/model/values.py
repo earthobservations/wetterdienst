@@ -1102,7 +1102,12 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         return ValuesResult(stations=self.sr, df=df, data_updated_at=newest(updated))
 
     def to_target(self, target: str, if_exists: Literal["replace", "append", "fail", "skip"] = "fail") -> None:
-        """Wrap to_target of all queried results."""
+        """Wrap to_target of all queried results.
+
+        `if_exists` is for the first station and defaults to 'fail', where a result's `to_target` defaults to
+        'replace': this is one table being filled station by station rather than one frame being written, so the
+        first station must not overwrite a table that already holds data. Every station after it is appended.
+        """
         tqdm_out = TqdmToLogger(log, level=logging.INFO)
         redacted = redact_password(target)
         for i, result in tqdm(enumerate(self.query()), total=len(self.sr.station_id), file=tqdm_out):
