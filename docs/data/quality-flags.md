@@ -71,7 +71,7 @@ The rules behind them, one per situation and the same for every provider, are on
 | DWD dmo | `-` for a value the run does not have (null); the number ICON wrote below 0 in `rr1`, `rr3`, `rad1h` and `rads3`, such as `-0.1` (0.0) |
 | DWD poi | `---`, and any text that is no number (null); `113` and `126` in `cloud_cover_total`, no amount (null); `0` in the wind direction beside a speed of 0, a calm (null) |
 | DWD swsmos | any text that is no number (null); none is in the run file read on 2026-10-12 |
-| DWD road | a value outside the range of its quantity, in DWD's unit, such as the 198.15 K (-75 °C) of KM's stopped sensors (null); the temperatures are null below -60 °C |
+| DWD road | a value outside the range of its quantity, in DWD's unit, such as the 198.15 K (-75 °C) of KM's stopped sensors (null); the temperatures are null below -60 °C; a `humidity_relative` below 1 %, such as `0.1` (null); a `temperature_surface` more than 20 K above the `temperature_air` of the same minute with the sun more than 6 degrees below the horizon, such as `338.75` (null) |
 | AEMET | `99` in the wind direction of the daily maximum gust, calm or variable (null); `Ip` in the precipitation of the daily, monthly and annual values, a trace (0.0); any other text that is no number in the daily, monthly and annual values (null) |
 | DMI | `0` in the mean wind direction beside a mean wind speed of 0, calm (null); a value outside the range of its parameter at the resolution, such as the 17,802 mm of a month of rain or the 1978 mm of a day (null) |
 | FMI | `NaN` (null); `-1.0` in `precipitation_amount` and `snow_depth`, none (0.0); `0.0` in the wind direction beside a speed of 0, a calm (null); any text that is no number (null) |

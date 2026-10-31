@@ -36,6 +36,12 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: `dwd/road` returns null, with the number DWD wrote as the last token of
+  `quality_flags` (`raw:0.1`), for a `humidity_relative` below 1 % and for a `temperature_surface`
+  more than 20 K above the `temperature_air` of the same minute with the sun more than 6 degrees
+  below the horizon (`raw:338.75`, in K); both came back as published, among them a surface of
+  61 to 75 °C at night. Read the old number from `raw:`. The other road readings stay raw data
+  apart from the values outside their range, as the docs now say (GH-3624)
 - **Breaking**: 5 `noaa/ghcn` hourly stations are placed west of Greenwich, no longer east of it,
   where `ghcnh-station-list.csv` has lost the sign of their longitude: Nemours/Ghazaouet
   (AGUG0060517), Khouribga military airport (MOI0000GMMK), Alcaniz, Bujaraloz and Oliva

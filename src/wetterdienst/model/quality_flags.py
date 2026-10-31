@@ -234,27 +234,32 @@ def with_speed_beside(
     *,
     on: list[str],
     value: pl.Expr | None = None,
+    into: str = SPEED_BESIDE,
 ) -> Frame:
     """Lay the speed of the same reading beside every wind direction of a long frame, as column ``SPEED_BESIDE``.
+
+    Any parameter can be laid beside another the same way, under the column name ``into`` (``SPEED_BESIDE`` by
+    default): DWD's road weather lays the air temperature beside the road surface temperature (GH-3624).
 
     Args:
         df: the long frame, with a ``parameter`` column and the value.
         pairs: the direction and the speed of its reading, as the frame names them (``{"dd": "ff"}``).
         on: the columns that make one reading besides ``parameter`` (the timestamp).
         value: the expression of the value, ``pl.col("value")`` by default.
+        into: the name of the column that carries the value beside, ``SPEED_BESIDE`` by default.
 
     Returns:
-        The frame with ``SPEED_BESIDE``, null on every row that is no direction and where the speed is missing, for
-        ``calm(pl.col(SPEED_BESIDE))``. The rows and their order are those of ``df``.
+        The frame with the column ``into`` (``SPEED_BESIDE`` by default), null on every row that is no direction and
+        where the speed is missing, for ``calm(pl.col(SPEED_BESIDE))``. The rows and their order are those of ``df``.
 
     """
     value = pl.col("value") if value is None else value
     if not pairs:
         # polars types `with_columns` on the union `DataFrame | LazyFrame`, not on the constrained `Frame` TypeVar
-        return df.with_columns(pl.lit(None, dtype=pl.Float64).alias(SPEED_BESIDE))  # ty: ignore[invalid-return-type]
+        return df.with_columns(pl.lit(None, dtype=pl.Float64).alias(into))  # ty: ignore[invalid-return-type]
     parts = [
         df.filter(pl.col("parameter") == speed).select(
-            *on, pl.lit(direction, dtype=pl.String).alias("parameter"), value.alias(SPEED_BESIDE)
+            *on, pl.lit(direction, dtype=pl.String).alias("parameter"), value.alias(into)
         )
         for direction, speed in pairs.items()
     ]
