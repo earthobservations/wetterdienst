@@ -18,7 +18,7 @@
 |---------------|----------------------------------------------------------|
 | name          | data                                                     |
 | original name | data                                                     |
-| description   | Flow and stage for France                                |
+| description   | Real-time observations of flow and stage (water height) of the French hydrometric network, stored by the producer every 5 to 60 minutes; the source keeps a history of one month                                |
 | access        | [here](https://hubeau.eaufrance.fr/page/api-hydrometrie) |
 
 #### parameters
