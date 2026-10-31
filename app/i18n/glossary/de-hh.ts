@@ -526,6 +526,8 @@ export const parameters: Record<string, string> = {
   precipitation_amount_since_last_routine_report: 'Nedderslaghööch siet den lesten Routinebericht',
   precipitation_intensity: 'Nedderslagsintensität',
   precipitation_intensity_mean: 'Middlere Nedderslagsintensität',
+  pressure_air_sea_level_max: 'Hööchsten Luftdruck (Seehööchd)',
+  pressure_air_sea_level_min: 'Sietsten Luftdruck (Seehööchd)',
   pressure_air_site_delta_last_3h: 'Luftdrucktendenz (lest 3 h)',
   pressure_air_site_max: 'Hööchsten Luftdruck in Statschoonshööch',
   pressure_air_site_min: 'Sietsten Luftdruck in Statschoonshööch',

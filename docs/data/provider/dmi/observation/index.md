@@ -53,6 +53,24 @@ October 43.5 (43.6) and the year 657.6 (658.5). The library returns the totals a
 the daily trace as `0.0`, so the sum of the daily values it returns is 0.1 mm above DMI's total for each trace day
 in it.
 
+The heating degree days are two fields at DMI, by country, and one parameter here, `heating_degree_day`:
+`acc_heating_degree_days_17` (17 °C minus the daily mean temperature; "graddage - Danmark") at the stations of
+Denmark and `acc_heating_degree_days_19` (19 °C; "graddage - Grønland") at those of Greenland. No station has both
+(checked on 2026-10-31 for all stations in the days of 2024-01-10 to 2024-01-12 and the months and years of 2022 and
+2023), so the base of a value is that of the country of its station and the two are not comparable.
+
+The summer days (`no_summer_days`) and tropical nights (`no_tropical_nights`) are counted by DMI "more than" 25 °C of
+the highest and 20 °C of the lowest temperature of the day, where `count_days_summer` and `count_days_tropical_night`
+count from the threshold. DMI's monthly counts are those of its daily values above the threshold in all 157 months
+it published for 2010 to 2023 (of 168) at each of 06180, 06070 and 06041, and differ from the days at or above it in
+5, 13 and 1 of them for the summer days and in 0, 1 and 1 for the tropical nights (a day at exactly 25.0 or 20.0 °C is not counted). Both are
+published for the stations of Denmark and, the summer days only, for those of Greenland.
+
+The highest and lowest pressure of a day (`pressure_air_sea_level_max` and `_min`) are the highest and lowest of the
+hourly values of `mean_pressure`, which is reduced to mean sea level, and those of a month and a year the highest and
+lowest of the daily values. DMI publishes them for 45 stations (38 in Greenland, 7 from 06007 to 06014), not at the hour
+and not for the stations of Denmark proper.
+
 ## License
 
 Data is © DMI (Danish Meteorological Institute) and licensed under

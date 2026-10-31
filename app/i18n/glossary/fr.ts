@@ -526,6 +526,8 @@ export const parameters: Record<string, string> = {
   precipitation_amount_since_last_routine_report: 'Précipitations depuis le dernier bulletin de routine',
   precipitation_intensity: 'Intensité des précipitations',
   precipitation_intensity_mean: 'Intensité moyenne des précipitations',
+  pressure_air_sea_level_max: 'Pression maximale (niveau de la mer)',
+  pressure_air_sea_level_min: 'Pression minimale (niveau de la mer)',
   pressure_air_site_delta_last_3h: 'Tendance barométrique (dernières 3 h)',
   pressure_air_site_max: 'Pression maximale à l\'altitude de la station',
   pressure_air_site_min: 'Pression minimale à l\'altitude de la station',

@@ -544,6 +544,8 @@ export const parameters: Record<string, string> = {
   precipitation_amount_since_last_routine_report: 'Niederschlagshöhe seit dem letzten Routinebericht',
   precipitation_intensity: 'Niederschlagsintensität',
   precipitation_intensity_mean: 'Mittlere Niederschlagsintensität',
+  pressure_air_sea_level_max: 'Höchster Luftdruck (Meereshöhe)',
+  pressure_air_sea_level_min: 'Niedrigster Luftdruck (Meereshöhe)',
   pressure_air_site_delta_last_3h: 'Luftdrucktendenz (letzte 3 h)',
   pressure_air_site_max: 'Höchster Luftdruck in Stationshöhe',
   pressure_air_site_min: 'Niedrigster Luftdruck in Stationshöhe',

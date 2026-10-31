@@ -526,6 +526,8 @@ export const parameters: Record<string, string> = {
   precipitation_amount_since_last_routine_report: 'Srážky od poslední pravidelné zprávy',
   precipitation_intensity: 'Intenzita srážek',
   precipitation_intensity_mean: 'Průměrná intenzita srážek',
+  pressure_air_sea_level_max: 'Maximální tlak vzduchu (hladina moře)',
+  pressure_air_sea_level_min: 'Minimální tlak vzduchu (hladina moře)',
   pressure_air_site_delta_last_3h: 'Tendence tlaku (posledních 3 h)',
   pressure_air_site_max: 'Maximální tlak vzduchu ve výšce stanice',
   pressure_air_site_min: 'Minimální tlak vzduchu ve výšce stanice',

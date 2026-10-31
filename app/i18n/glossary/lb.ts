@@ -526,6 +526,8 @@ export const parameters: Record<string, string> = {
   precipitation_amount_since_last_routine_report: 'Nidderschlagshéicht zënter dem leschte Routinebericht',
   precipitation_intensity: 'Nidderschlagsintensitéit',
   precipitation_intensity_mean: 'Mëttler Nidderschlagsintensitéit',
+  pressure_air_sea_level_max: 'Maximale Loftdrock (Mieresniveau)',
+  pressure_air_sea_level_min: 'Minimale Loftdrock (Mieresniveau)',
   pressure_air_site_delta_last_3h: 'Loftdrocktendenz (lescht 3 h)',
   pressure_air_site_max: 'Maximale Loftdrock op Statiounshéicht',
   pressure_air_site_min: 'Minimale Loftdrock op Statiounshéicht',

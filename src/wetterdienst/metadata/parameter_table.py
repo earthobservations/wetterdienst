@@ -975,9 +975,22 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
+        "pressure_air_sea_level_max",
+        "pressure",
+        "Highest air pressure reduced to mean sea level over the period, so that stations at different heights "
+        "compare.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
         "pressure_air_sea_level_mean",
         "pressure",
         "Mean air pressure reduced to mean sea level over the period, so that stations at different heights compare.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "pressure_air_sea_level_min",
+        "pressure",
+        "Lowest air pressure reduced to mean sea level over the period, so that stations at different heights compare.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(

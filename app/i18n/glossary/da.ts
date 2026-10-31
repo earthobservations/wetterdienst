@@ -526,6 +526,8 @@ export const parameters: Record<string, string> = {
   precipitation_amount_since_last_routine_report: 'Nedbør siden sidste rutinemelding',
   precipitation_intensity: 'Nedbørintensitet',
   precipitation_intensity_mean: 'Gennemsnitlig nedbørintensitet',
+  pressure_air_sea_level_max: 'Maksimalt lufttryk (havniveau)',
+  pressure_air_sea_level_min: 'Minimalt lufttryk (havniveau)',
   pressure_air_site_delta_last_3h: 'Tryktendens (seneste 3 t)',
   pressure_air_site_max: 'Maksimalt lufttryk i stationshøjde',
   pressure_air_site_min: 'Minimalt lufttryk i stationshøjde',

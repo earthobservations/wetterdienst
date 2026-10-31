@@ -66,7 +66,9 @@ UNIT_TYPE_RANGES: dict[str, Bounds | None] = {
     # of its own in `PARAMETER_RANGES`, which this one would otherwise call a sentinel
     "concentration": Bounds(0.0, 30.0),
     "conductivity": Bounds(0.0, 80_000.0),  # µS/cm; sea water is 50_000
-    "degree_day": Bounds(0.0, 20_000.0),  # °C·day; a year of heating in the cold north is below 10_000
+    # °C·day; the most of a year DMI publishes is 18_022.8 (base 19, 04416 Summit, Greenland, 2011), so the bound
+    # leaves about 10 % above it
+    "degree_day": Bounds(0.0, 20_000.0),
     "degree_hour": Bounds(0.0, 20_000.0),  # °C·h
     "dimensionless": None,
     "energy_per_area": Bounds(-100.0, 500_000.0),  # J/cm²; a year of global radiation is about 360_000

@@ -526,6 +526,8 @@ export const parameters: Record<string, string> = {
   precipitation_amount_since_last_routine_report: 'Neerslag sinds de laatste routinemelding',
   precipitation_intensity: 'Neerslagintensiteit',
   precipitation_intensity_mean: 'Gemiddelde neerslagintensiteit',
+  pressure_air_sea_level_max: 'Maximale luchtdruk (zeeniveau)',
+  pressure_air_sea_level_min: 'Minimale luchtdruk (zeeniveau)',
   pressure_air_site_delta_last_3h: 'Luchtdruktendens (laatste 3 u)',
   pressure_air_site_max: 'Maximale luchtdruk op stationshoogte',
   pressure_air_site_min: 'Minimale luchtdruk op stationshoogte',
