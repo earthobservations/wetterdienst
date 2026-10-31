@@ -3865,9 +3865,9 @@ def _raise_unit_target_refusal(**_kwargs: object) -> None:
 def _raise_sql_refusal(**_kwargs: object) -> None:
     import polars as pl  # noqa: PLC0415
 
-    from wetterdienst.io.export import ExportMixin  # noqa: PLC0415
+    from wetterdienst.io.sql_filter import filter_by_sql  # noqa: PLC0415
 
-    ExportMixin._filter_by_sql(pl.DataFrame({"value": [1.0]}), "foo = 1")  # noqa: SLF001
+    filter_by_sql(pl.DataFrame({"value": [1.0]}), "foo = 1")
 
 
 def _raise_station_not_found(**_kwargs: object) -> None:

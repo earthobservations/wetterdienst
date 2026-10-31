@@ -71,6 +71,39 @@ hourly values of `mean_pressure`, which is reduced to mean sea level, and those 
 lowest of the daily values. DMI publishes them for 45 stations (38 in Greenland, 7 from 06007 to 06014), not at the hour
 and not for the stations of Denmark proper.
 
+The global radiation of a day, a month and a year (`mean_radiation`) is the energy summed over the span, which DMI
+publishes in MJ/m² ("for all other time resolutions the unit is MJ/m^2"; the sum of the underlying hourly values times
+3600 / 10^6). The library has no MJ/m² and returns it as `radiation_global` in the unit asked for (J/cm² by default),
+reading the value as kJ/m² (DMI's value times 1000). A clear June day in Denmark brings 15 to 30 MJ/m² (25.4 MJ/m² at
+06041 on 2023-06-22, which the 24 hourly means of that day add up to). The hour stays `radiation_global_intensity_mean`
+in W/m². A day above 60 MJ/m², a month above 1860 and a year above 5000 are read as null: 04339 has days of 135 to 284
+MJ/m² in the polar night of January 2021 that DMI marks valid.
+
+The counts of days are `count_days_*` with the threshold of DMI's own definition (its calculation table, read on
+2026-10-31), each held to the daily records DMI publishes. The cold days are those with a minimum temperature "less
+than -10 °C" (`count_days_temperature_air_min_2m_lt_minus_10c`). The windy, stormy, storm and hurricane days
+(`no_windy_days`, `no_stormy_days`, `no_days_w_storm`, `no_days_w_hurricane`) are the days on which the highest
+10-minute mean wind speed (`max_wind_speed_10min`) was "greater or equal to" 10.8, 20.8, 24.5 and 28.5 m/s
+(`count_days_wind_speed_rolling_mean_max_ge_10_8mps` and so on); the parameter list of the documentation says "mean
+wind speed", but the counts fit the 10-minute maximum (the daily mean wind speed in 2 of 60 months at 06180, the
+maximum in 59, and `>` in 27). The clear and cloudy days are those with a mean cloud cover "less than 20%" and
+"greater than 80%" (`count_days_cloud_cover_total_mean_lt_20pct` and `_gt_80pct`), a day of exactly 20 % being no
+clear day and one of exactly 80 % no cloudy day; DMI publishes them for every day as 1 or 0. The days with snow cover
+are those with a snow depth "greater than 0" and a snow cover "greater than 50" percent
+(`count_days_snow_cover_gt_50pct`, published for 2011 to 2015 only).
+
+DMI also publishes the mean vapour pressure from the day on (`pressure_vapor_mean`), the greatest snow depth of a
+month and a year (`snow_depth_max`; a 999.0 of September 2020 at 24043 and 31259 is no depth and is null), the highest
+and lowest temperature and the precipitation of the last 12 and 24 hours (`temperature_air_max_2m_last_12h`,
+`temperature_air_min_2m_last_12h`, `precipitation_amount_last_12h` and `_24h`) and the soil temperature at 10 cm
+(`temperature_soil_mean_0_1m`). The 12 hour values are reports of 06:00 and 18:00 UTC (the temperatures also of 12:00
+and 00:00 UTC for a few stations), the 24 hour values of 00:00, 06:00, 12:00 and 18:00 UTC, and they are stamped at
+the end of their window, the report time: DMI's `from` is the start of the last hour of the window (17:00 for the
+18:00 report), where the other values of the hour are stamped by their `from`. Not served, for want of a canonical
+name that fits exactly: `snow_cover` (would be `snow_cover`), `leaf_moisture` (`leaf_wetness_duration`), `temp_grass`,
+the air temperature at grass height of 5 to 20 cm (`temperature_air_mean_grass_height`), `temp_soil_30`
+(`temperature_soil_mean_0_3m`) and `vapour_pressure_deficit_mean` (`vapor_pressure_deficit_mean`).
+
 ## License
 
 Data is © DMI (Danish Meteorological Institute) and licensed under

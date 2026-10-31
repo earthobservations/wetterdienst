@@ -1401,7 +1401,7 @@ def _caller_refusal_status(e: Exception, request: BaseModel) -> int | None:
     Beyond the hierarchy (`failure_status`): the caller's own `sql` or `sql_values` is the only SQL
     run on the way, so a DuckDB error about the statement -- its syntax, a column or function it
     names, a value it compares -- is theirs, a 400. So, where the request carries a clause, are the
-    refusals of the connection the clause runs on (`ExportMixin._filter_by_sql`): a file, URL or
+    refusals of the connection the clause runs on (`wetterdienst.io.sql_filter.filter_by_sql`): a file, URL or
     extension it may not touch (`PermissionException`), more memory than the limit sized to the
     frame lets it build (`OutOfMemoryException`), a construct DuckDB does not implement, such as an
     outer join on a correlated column (`NotSupportedError`), and an extension DuckDB would install
