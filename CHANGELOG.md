@@ -45,8 +45,8 @@ Types of changes:
 - Dataset and resolution descriptions that stated a wrong fact now follow their source:
   `dwd/observation` `annual/climate_summary` no longer lists air pressure (it has none), the
   `subdaily` datasets are no longer "recent" only (they have a historical period), the `subdaily`
-  resolution gives DWD's observation hours (06, 12, 18 UTC in the recent files, 07, 14, 21 CET in
-  the historical ones, not "7am, 2pm, 9pm"), and `ea/hydrology` covers England, not the UK
+  resolution gives DWD's observation hours by date (07, 14, 21 until March 2001, 06, 12, 18 UTC
+  from April 2001, not "7am, 2pm, 9pm"), and `ea/hydrology` covers England, not the UK
   (GH-3136)
 
 ## [0.179.0] - 2026-10-30

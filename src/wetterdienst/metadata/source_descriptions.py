@@ -4017,9 +4017,9 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
             "of 78 hours, and 3-hourly from 78 to 168 hours."
         ),
         ("hourly", "icon_eu"): (
-            "Direct model output of the regional ICON-EU model, transferred to the stations it is published for "
-            "by simple, weather-independent empirical formulas (for the 2 m temperature a standard gradient to the "
-            "station's height), a smaller set than the global product's though not a subset of it. "
+            "Direct model output of the regional ICON-EU model, for the stations it is published for, a smaller set "
+            "than the global product's though not a subset of it, transferred to them by simple, weather-independent "
+            "empirical formulas (for the 2 m temperature a standard gradient to the station's height). "
             "Issued twice a day (00 and 12 UTC), hourly out to a lead-time of 78 hours."
         ),
     },
@@ -4288,9 +4288,10 @@ RESOLUTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
     # themselves, and filling those in would read as information without being any.
     "DwdObservationMetadata": {
         "subdaily": (
-            "Observations at the main synoptic times: 07, 14 and 21 CET in the historical files, 06, 12 and 18 UTC "
-            "in the recent files (some stations also at 00 UTC; the extreme wind at 03, 09, 15 and 21 UTC for the "
-            "3-hour maximum and at 00, 06, 12 and 18 UTC for the 6-hour one)."
+            "Three fixed observation times a day: until March 2001 at 07, 14 and 21 (local mean time; from 1987 "
+            "07:30, 14:30 and 21:30 CET, which the files stamp as 07, 14 and 21), from April 2001 at 06, 12 and "
+            "18 UTC (some stations also at 00 UTC; East German stations 1960-1990 at 00, 06, 12 and 18 UTC); the "
+            "extreme wind at 03, 09, 15 and 21 UTC (3-hour maximum) and 00, 06, 12 and 18 UTC (6-hour maximum)."
         ),
     },
     "MeteoFranceSynopMetadata": {
