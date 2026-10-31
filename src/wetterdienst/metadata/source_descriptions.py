@@ -241,12 +241,12 @@ _EA_DAY = "the 24 hours from 09:00 of the day it is dated to 09:00 of the next (
 #   days, cooling hours and days reproduce from DWD's daily and hourly air temperature on stations 00044, 00073, 00078
 #   (September 2026); the DUETT hour fits (HH-2):50 to (HH-1):50 best (mean absolute error 4.05 J/cm2, against 15.7
 #   for the sheet's other hour and 5.0 for a window 10 minutes off; 4 pseudo-stations, 4799 hours from 2026-09-01).
-# - DMO: ICON's `Rad1h`, `RadS3`, `RR1` and `RR3` are not clipped at 0 (2026-10-22, 12 stations of icon and icon-eu
+# - DMO: ICON's `Rad1h`, `RadS3`, `RR1` and `RR3` run below 0 (2026-10-22, 12 stations of icon and icon-eu
 #   and the two latest runs of each: `Rad1h` negative in 411 of 1872 icon-eu values, to -0.15, and 18 of 78 icon
 #   steps at 10382, to -0.17; `RadS3` in 273 of 1209, to -0.43; `RR1` in 3 of 1872 icon-eu values, to -0.01; all
 #   stations of the icon run of 22 12Z: `Rad1h` to -0.77, `RR1` negative in 2769 of 459,732 values, to -0.10, `RR3`
 #   to -0.04, `RadS3` to -0.46); the MOSMIX_L file of station 10382 has no negative `Rad1h` or `RR1c`. The reader
-#   returns `RR1` and `RR3` as 0.0 with `raw:` (GH-3263), `Rad1h` and `RadS3` as written.
+#   returns all four as 0.0 with `raw:` (GH-3263).
 # - derived: the English sheets in the `cdh_13`, `cdh_16` and `cdh_18` directories of cooling_degreehours (named
 #   `..._hdh_..._en.pdf`) are the text of the heating degree days sheet (Monatsgradtage, Heiztage, 15 degree
 #   Celsius), so the docs link the English sheet one directory up (`..._cdh_..._en.pdf`), which gives the unit
@@ -905,14 +905,15 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "icon", "pppp"): "Surface pressure, reduced",
         ("hourly", "icon", "rad1h"): (
             "Global Irradiance, as the energy of the last hour: the DMO values are in J/cm2 (the file states no "
-            "unit; they are about a tenth of the MOSMIX kJ/m2 number for the same hour). Direct model output, "
-            "not clipped at 0: in the night hours it is often a little below it (mostly above -0.2 J/cm2, at a "
-            "few stations to about -0.8) and is returned as written."
+            "unit; they are about a tenth of the MOSMIX kJ/m2 number for the same hour). ICON writes "
+            "a little below 0 in the night hours (mostly above -0.2 J/cm2, at a few stations to about -0.8); "
+            "that is returned as 0.0, with the number kept as `raw:` in `quality_flags`."
         ),
         ("hourly", "icon", "radl3"): "Long wave radiation balance during the last 3 hours",
         ("hourly", "icon", "rads3"): (
-            "Short wave radiation balance during the last 3 hours. Direct model output, not clipped at 0: in the "
-            "night hours it is often a little below it (to about -0.4 J/cm2) and is returned as written."
+            "Short wave radiation balance during the last 3 hours. ICON writes a little below 0 in the "
+            "night hours (to about -0.5 J/cm2); that is returned as 0.0, with the number kept as `raw:` in "
+            "`quality_flags`."
         ),
         ("hourly", "icon", "rr1"): (
             "Total precipitation during the last hour. ICON writes a little below 0 now and then (to about -0.1 mm); "
@@ -953,9 +954,9 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "icon_eu", "pppp"): "Surface pressure, reduced",
         ("hourly", "icon_eu", "rad1h"): (
             "Global Irradiance, as the energy of the last hour: the DMO values are in J/cm2 (the file states no "
-            "unit; they are about a tenth of the MOSMIX kJ/m2 number for the same hour). Direct model output, "
-            "not clipped at 0: in the night hours it is often a little below it (mostly above -0.2 J/cm2, at a "
-            "few stations to about -0.8) and is returned as written."
+            "unit; they are about a tenth of the MOSMIX kJ/m2 number for the same hour). ICON writes "
+            "a little below 0 in the night hours (mostly above -0.2 J/cm2, at a few stations to about -0.8); "
+            "that is returned as 0.0, with the number kept as `raw:` in `quality_flags`."
         ),
         ("hourly", "icon_eu", "rr1"): (
             "Total precipitation during the last hour. ICON writes a little below 0 now and then (to about -0.1 mm); "
