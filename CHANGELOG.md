@@ -53,6 +53,14 @@ Types of changes:
   tests for `NaN` (`np.isnan`, or `xarray`'s `.isnull()`), as for NetCDF; with pandas 3 a frame
   with a missing time, such as stations that have not ended, could not be written to Zarr and now
   can (GH-3449)
+- **Breaking**: 7 `noaa/ghcn` stations are placed south of the equator, no longer north of it,
+  where the lists have lost the sign of their latitude: Lambarene and Lastoursville in Gabon
+  (GB000004551, GB000004560) in `ghcnd-stations.txt`; Adelaide (ASU34-00001), Halley in
+  Antarctica (GLUHALLEY-2, -3, -4) and Nuku'alofa (TNU55-00239) in `ghcnh-station-list.csv`.
+  They were 160 to 16,800 km off, so a nearest-station search or a distance filter near them
+  picked the wrong stations; a filter on the old position needs the new one. A row is turned only
+  while it lists the position that was checked, so a list NOAA corrects is read as it is
+  (GH-3662)
 - **Breaking**: `to_format` refuses an argument that no format takes, with a `TypeError` listing
   the ones that are (`with_metadata`, `with_stations`, `indent`, `width`, `height`, `scale`,
   `max_side`), where it dropped it: `to_format("csv", separator=";")` wrote a comma CSV and said
@@ -98,6 +106,9 @@ Types of changes:
 - `to_target("influxdb://…")` of a frame with no `timestamp`, `station_id`, `resolution` or
   `dataset`, such as the stations, is refused with an `ExportRefusedError` naming what is missing,
   before the client is built, where it failed with a bare `KeyError('timestamp')` (GH-3449)
+- `ImageTooLargeError` pickles: it failed with a `TypeError` on unpickling, which broke it for
+  a caller that passes it across processes (multiprocessing, `ProcessPoolExecutor`). Its size, its limit and any notes now
+  come through the copy (GH-3673)
 - `noaa/ghcn` daily: a direction of the fastest or peak wind of 0 beside a speed of exactly 0
   (`wind_direction_gust_max` and its `_1min`, `_2min`, `_5sec`, `_instant`, `_1mile`) is null, with
   `raw:0` in `quality_flags`, where it came back as north. The files write that 0 for a day

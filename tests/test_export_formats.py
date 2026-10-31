@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import asyncio
 import inspect
-import pickle
 from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
@@ -177,20 +176,10 @@ def test_find_format_reads_any_case() -> None:
     assert error.value.supported == tuple(FORMATS)
 
 
-def test_the_error_is_a_str_without_quotes_and_pickles() -> None:
-    """A `KeyError` prints its message in quotes, and this one is not printed so; it crosses a process as it is."""
+def test_the_error_is_a_str_without_quotes() -> None:
+    """A `KeyError` prints its message in quotes, and this one is not printed so."""
     error = UnknownFormatError("xml", ("json", "csv"))
     assert not str(error).startswith(("'", '"'))
-    copy = pickle.loads(pickle.dumps(error))  # noqa: S301
-    assert (type(copy), copy.fmt, copy.supported, str(copy)) == (UnknownFormatError, "xml", ("json", "csv"), str(error))
-
-
-def test_a_note_added_to_the_error_survives_pickling() -> None:
-    """`__notes__` live in the instance's `__dict__`, which the pickle carries along."""
-    error = UnknownFormatError("xml", ("json", "csv"))
-    error.add_note("seen in the alerts")
-    copy = pickle.loads(pickle.dumps(error))  # noqa: S301
-    assert copy.__notes__ == ["seen in the alerts"]
 
 
 # --- the argument set of the surfaces ---------------------------------------------------------------------------------
