@@ -42,7 +42,7 @@ Types of changes:
   some gauges without saying when (Warszawa-Nadwilanówka and Brudnice in November 1990), so a stage
   jumps there while the discharge does not, and no flag marks it. It also says that about 500
   stations are only in the archive, with no station row and so no way to request their values,
-  because IMGW publishes no position for them (Part of GH-3611)
+  because IMGW publishes no position for them (GH-3611)
 
 ### Fixed
 
