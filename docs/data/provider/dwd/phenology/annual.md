@@ -47,9 +47,9 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn). | dimensionless |
-| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn). | dimensionless |
-| {term}`phenology_stand_closed` | 13 | Closed stand (Bestand geschlossen). | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
+| {term}`phenology_stand_closed` | 13 | Closed stand (Bestand geschlossen): about 50% of the plants touch across the rows. | dimensionless |
 | {term}`phenology_harvest` | 24 | Harvest (Ernte). | dimensionless |
 
 ### annual_fodder_beet
@@ -68,9 +68,9 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn). | dimensionless |
-| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn). | dimensionless |
-| {term}`phenology_stand_closed` | 13 | Closed stand (Bestand geschlossen). | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
+| {term}`phenology_stand_closed` | 13 | Closed stand (Bestand geschlossen): about 50% of the plants touch across the rows. | dimensionless |
 | {term}`phenology_harvest` | 24 | Harvest (Ernte). | dimensionless |
 
 ### annual_maize
@@ -89,16 +89,16 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte). | dimensionless |
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn). | dimensionless |
-| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn). | dimensionless |
-| {term}`phenology_milk_ripeness_beginning` | 19 | Beginning of milk ripeness (Milchreife Beginn). | dimensionless |
-| {term}`phenology_dough_ripeness_beginning` | 20 | Beginning of wax-ripe stage (Teigreife Beginn). | dimensionless |
-| {term}`phenology_yellow_ripeness_beginning` | 21 | Yellow ripeness (Gelbreife Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): about 5% of the plants have the middle branches of the panicle in bloom. | dimensionless |
+| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): on about 50% of the plants the anthers visibly release pollen. | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the plants have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
+| {term}`phenology_milk_ripeness_beginning` | 19 | Beginning of milk ripeness (Milchreife Beginn): the first maize kernels have reached their final size. | dimensionless |
+| {term}`phenology_dough_ripeness_beginning` | 20 | Beginning of wax-ripe stage (Teigreife Beginn): the kernels are yellowish to yellow outside. | dimensionless |
+| {term}`phenology_yellow_ripeness_beginning` | 21 | Yellow ripeness (Gelbreife Beginn): about 50% of the kernels are hard outside and yellowish to dark yellow. | dimensionless |
 | {term}`phenology_harvest` | 24 | Harvest (Ernte). | dimensionless |
-| {term}`phenology_tassel_tip_visible` | 65 | Tip of tassel visible (Fahnenschieben Beginn). | dimensionless |
-| {term}`phenology_height_growth_beginning` | 67 | Beginning of growth in height (Längenwachstum Beginn). | dimensionless |
+| {term}`phenology_tassel_tip_visible` | 65 | Tip of tassel visible (Fahnenschieben Beginn): the tassel becomes visible at the end of the stem on about 50% of the plants. | dimensionless |
+| {term}`phenology_height_growth_beginning` | 67 | Beginning of growth in height (Längenwachstum Beginn): the first node above the ground (between the sixth and seventh leaf) becomes visible by stem elongation on about 50% of the plants. | dimensionless |
 
 ### annual_oat
 
@@ -116,15 +116,15 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn). | dimensionless |
-| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn). | dimensionless |
-| {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn). | dimensionless |
-| {term}`phenology_milk_ripeness_beginning` | 19 | Beginning of milk ripeness (Milchreife Beginn). | dimensionless |
-| {term}`phenology_yellow_ripeness_beginning` | 21 | Yellow ripeness (Gelbreife Beginn). | dimensionless |
-| {term}`phenology_full_ripeness_beginning` | 22 | Beginning of full ripeness (Vollreife Beginn). | dimensionless |
-| {term}`phenology_harvest_by_hand` | 23 | Hand harvest (Ernte von Hand). | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
+| {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn): about 50% of the plants grow clearly in length and the first stem node can be felt above the ground. | dimensionless |
+| {term}`phenology_milk_ripeness_beginning` | 19 | Beginning of milk ripeness (Milchreife Beginn): the first grains in several panicles have reached their final size but are still soft and green. | dimensionless |
+| {term}`phenology_yellow_ripeness_beginning` | 21 | Yellow ripeness (Gelbreife Beginn): the first grains have finished turning from green to yellow and come away easily, on about half of the panicles. | dimensionless |
+| {term}`phenology_full_ripeness_beginning` | 22 | Beginning of full ripeness (Vollreife Beginn): the grains that turned yellow have visibly shrunk and hardened. | dimensionless |
+| {term}`phenology_harvest_by_hand` | 23 | Hand harvest (Ernte von Hand): the harvest begins with a scythe or a simple machine (e.g. a reaper-binder). | dimensionless |
 | {term}`phenology_harvest` | 24 | Harvest (Ernte). | dimensionless |
-| {term}`phenology_panicle_emergence_beginning` | 66 | Beginning tassel emergence (Rispenschieben Beginn). | dimensionless |
+| {term}`phenology_panicle_emergence_beginning` | 66 | Beginning tassel emergence (Rispenschieben Beginn): the tips of the panicles push out sideways from the leaf sheaths on about 50% of the stems. | dimensionless |
 
 ### annual_permanent_grassland
 
@@ -142,7 +142,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_turning_green_beginning` | 1 | Beginning of turning green (Ergrünen Beginn). | dimensionless |
+| {term}`phenology_turning_green_beginning` | 1 | Beginning of turning green (Ergrünen Beginn): about 25% of the selected permanent grassland shows fresh green, i.e. leaf growth has begun. | dimensionless |
 | {term}`phenology_hay_cut_first` | 25 | First cut for hay (1. Heuschnitt). | dimensionless |
 | {term}`phenology_silage_cut_first` | 26 | First cut for silage (1. Silageschnitt). | dimensionless |
 | {term}`phenology_hay_cut_second` | 27 | Second cut for hay (2. Heuschnitt). | dimensionless |
@@ -166,13 +166,13 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn). | dimensionless |
-| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn). | dimensionless |
-| {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn). | dimensionless |
-| {term}`phenology_heading_beginning` | 18 | Beginning of heading (Ährenschieben Beginn). | dimensionless |
-| {term}`phenology_yellow_ripeness_beginning` | 21 | Yellow ripeness (Gelbreife Beginn). | dimensionless |
-| {term}`phenology_full_ripeness_beginning` | 22 | Beginning of full ripeness (Vollreife Beginn). | dimensionless |
-| {term}`phenology_harvest_by_hand` | 23 | Hand harvest (Ernte von Hand). | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
+| {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn): about 50% of the plants grow clearly in length and the first stem node can be felt above the ground. | dimensionless |
+| {term}`phenology_heading_beginning` | 18 | Beginning of heading (Ährenschieben Beginn): the tips of the ears push out sideways from the leaf sheaths on about 50% of the stems. | dimensionless |
+| {term}`phenology_yellow_ripeness_beginning` | 21 | Yellow ripeness (Gelbreife Beginn): the first grains have finished turning from green to yellow and come away easily, on about half of the ears. | dimensionless |
+| {term}`phenology_full_ripeness_beginning` | 22 | Beginning of full ripeness (Vollreife Beginn): the grains that turned yellow have visibly shrunk and hardened. | dimensionless |
+| {term}`phenology_harvest_by_hand` | 23 | Hand harvest (Ernte von Hand): the harvest begins with a scythe or a simple machine (e.g. a reaper-binder). | dimensionless |
 | {term}`phenology_harvest` | 24 | Harvest (Ernte). | dimensionless |
 
 ### annual_spring_wheat
@@ -191,13 +191,13 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn). | dimensionless |
-| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn). | dimensionless |
-| {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn). | dimensionless |
-| {term}`phenology_heading_beginning` | 18 | Beginning of heading (Ährenschieben Beginn). | dimensionless |
-| {term}`phenology_yellow_ripeness_beginning` | 21 | Yellow ripeness (Gelbreife Beginn). | dimensionless |
-| {term}`phenology_full_ripeness_beginning` | 22 | Beginning of full ripeness (Vollreife Beginn). | dimensionless |
-| {term}`phenology_harvest_by_hand` | 23 | Hand harvest (Ernte von Hand). | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
+| {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn): about 50% of the plants grow clearly in length and the first stem node can be felt above the ground. | dimensionless |
+| {term}`phenology_heading_beginning` | 18 | Beginning of heading (Ährenschieben Beginn): the tips of the ears push out sideways from the leaf sheaths on about 50% of the stems. | dimensionless |
+| {term}`phenology_yellow_ripeness_beginning` | 21 | Yellow ripeness (Gelbreife Beginn): the first grains in several ears have finished turning from green to yellow and come away easily. | dimensionless |
+| {term}`phenology_full_ripeness_beginning` | 22 | Beginning of full ripeness (Vollreife Beginn): the grains that turned yellow have visibly shrunk and hardened. | dimensionless |
+| {term}`phenology_harvest_by_hand` | 23 | Hand harvest (Ernte von Hand): the harvest begins with a scythe or a simple machine (e.g. a reaper-binder). | dimensionless |
 | {term}`phenology_harvest` | 24 | Harvest (Ernte). | dimensionless |
 
 ### annual_sugar_beet
@@ -216,9 +216,9 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn). | dimensionless |
-| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn). | dimensionless |
-| {term}`phenology_stand_closed` | 13 | Closed stand (Bestand geschlossen). | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
+| {term}`phenology_stand_closed` | 13 | Closed stand (Bestand geschlossen): about 50% of the plants touch across the rows. | dimensionless |
 | {term}`phenology_harvest` | 24 | Harvest (Ernte). | dimensionless |
 
 ### annual_sunflower
@@ -237,11 +237,11 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn). | dimensionless |
-| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn). | dimensionless |
-| {term}`phenology_leaf_formation_beginning` | 16 | Beginning of formation of leaves (Blattbildung Beginn). | dimensionless |
-| {term}`phenology_bud_formation_beginning` | 17 | Beginning of bud formation (Knospenbildung Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): on about 5% of the flower heads the anthers of the first to third ring of flowers are visible. | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the shoots have broken through the soil and begin to stretch. | dimensionless |
+| {term}`phenology_leaf_formation_beginning` | 16 | Beginning of formation of leaves (Blattbildung Beginn): about 50% of the plants have unfolded their first pair of leaves. | dimensionless |
+| {term}`phenology_bud_formation_beginning` | 17 | Beginning of bud formation (Knospenbildung Beginn): the flower bud, tightly enclosed by the young leaves, becomes visible at the shoot tip on about 50% of the plants. | dimensionless |
 | {term}`phenology_harvest` | 24 | Harvest (Ernte). | dimensionless |
 
 ### annual_tomato
@@ -260,7 +260,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
 | {term}`phenology_planting_beginning` | 11 | Beginning of planting (Pflanzen Beginn). | dimensionless |
 | {term}`phenology_harvest` | 24 | Harvest (Ernte). | dimensionless |
 
@@ -299,13 +299,13 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn). | dimensionless |
-| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn). | dimensionless |
-| {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn). | dimensionless |
-| {term}`phenology_heading_beginning` | 18 | Beginning of heading (Ährenschieben Beginn). | dimensionless |
-| {term}`phenology_yellow_ripeness_beginning` | 21 | Yellow ripeness (Gelbreife Beginn). | dimensionless |
-| {term}`phenology_full_ripeness_beginning` | 22 | Beginning of full ripeness (Vollreife Beginn). | dimensionless |
-| {term}`phenology_harvest_by_hand` | 23 | Hand harvest (Ernte von Hand). | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
+| {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn): about 50% of the plants grow clearly in length and the first stem node can be felt above the ground. | dimensionless |
+| {term}`phenology_heading_beginning` | 18 | Beginning of heading (Ährenschieben Beginn): the tips of the ears push out sideways from the leaf sheaths on about 50% of the stems. | dimensionless |
+| {term}`phenology_yellow_ripeness_beginning` | 21 | Yellow ripeness (Gelbreife Beginn): the first grains have finished turning from green to yellow and come away easily, on about half of the ears. | dimensionless |
+| {term}`phenology_full_ripeness_beginning` | 22 | Beginning of full ripeness (Vollreife Beginn): the grains that turned yellow have visibly shrunk and hardened. | dimensionless |
+| {term}`phenology_harvest_by_hand` | 23 | Hand harvest (Ernte von Hand): the harvest begins with a scythe or a simple machine (e.g. a reaper-binder). | dimensionless |
 | {term}`phenology_harvest` | 24 | Harvest (Ernte). | dimensionless |
 
 ### annual_winter_oilseed_rape
@@ -324,15 +324,15 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn). | dimensionless |
-| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn). | dimensionless |
-| {term}`phenology_rosette_formation_beginning` | 14 | Beginning of rosette formation (Rosettenbildung Beginn). | dimensionless |
-| {term}`phenology_bud_formation_beginning` | 17 | Beginning of bud formation (Knospenbildung Beginn). | dimensionless |
-| {term}`phenology_full_ripeness_beginning` | 22 | Beginning of full ripeness (Vollreife Beginn). | dimensionless |
-| {term}`phenology_harvest_by_hand` | 23 | Hand harvest (Ernte von Hand). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): about 5% of the yellow flowers have opened fully. | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
+| {term}`phenology_rosette_formation_beginning` | 14 | Beginning of rosette formation (Rosettenbildung Beginn): about 50% of the plants have formed the fourth serrated leaf of the rosette. | dimensionless |
+| {term}`phenology_bud_formation_beginning` | 17 | Beginning of bud formation (Knospenbildung Beginn): the terminal buds on the main shoot become visible on about 50% of the plants. | dimensionless |
+| {term}`phenology_full_ripeness_beginning` | 22 | Beginning of full ripeness (Vollreife Beginn): most rapeseed grains are black on one half. | dimensionless |
+| {term}`phenology_harvest_by_hand` | 23 | Hand harvest (Ernte von Hand): the harvest begins with a scythe or a simple machine (e.g. a reaper-binder). | dimensionless |
 | {term}`phenology_harvest` | 24 | Harvest (Ernte). | dimensionless |
-| {term}`phenology_height_growth_beginning` | 67 | Beginning of growth in height (Längenwachstum Beginn). | dimensionless |
+| {term}`phenology_height_growth_beginning` | 67 | Beginning of growth in height (Längenwachstum Beginn): the stems of about 50% of the plants are longer than 5 cm, measured from where the cotyledons attach to the growing point. | dimensionless |
 
 ### annual_winter_rye
 
@@ -350,15 +350,15 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte). | dimensionless |
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn). | dimensionless |
-| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn). | dimensionless |
-| {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn). | dimensionless |
-| {term}`phenology_heading_beginning` | 18 | Beginning of heading (Ährenschieben Beginn). | dimensionless |
-| {term}`phenology_yellow_ripeness_beginning` | 21 | Yellow ripeness (Gelbreife Beginn). | dimensionless |
-| {term}`phenology_full_ripeness_beginning` | 22 | Beginning of full ripeness (Vollreife Beginn). | dimensionless |
-| {term}`phenology_harvest_by_hand` | 23 | Hand harvest (Ernte von Hand). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): on about 5% of the ears the first flowers in the middle of the ear have opened and the anthers are visible. | dimensionless |
+| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): on about 50% of the ears the flowers have opened and release pollen. | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
+| {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn): about 50% of the plants grow clearly in length and the first stem node can be felt above the ground. | dimensionless |
+| {term}`phenology_heading_beginning` | 18 | Beginning of heading (Ährenschieben Beginn): the tips of the ears push out sideways from the leaf sheaths on about 50% of the stems. | dimensionless |
+| {term}`phenology_yellow_ripeness_beginning` | 21 | Yellow ripeness (Gelbreife Beginn): the first grains have finished turning from green to yellow and come away easily, on about half of the ears. | dimensionless |
+| {term}`phenology_full_ripeness_beginning` | 22 | Beginning of full ripeness (Vollreife Beginn): the first grains in several ears have finished turning from green to yellow and come away easily. | dimensionless |
+| {term}`phenology_harvest_by_hand` | 23 | Hand harvest (Ernte von Hand): the harvest begins with a scythe or a simple machine (e.g. a reaper-binder). | dimensionless |
 | {term}`phenology_harvest` | 24 | Harvest (Ernte). | dimensionless |
 
 ### annual_winter_wheat
@@ -377,14 +377,14 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn). | dimensionless |
-| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn). | dimensionless |
-| {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn). | dimensionless |
-| {term}`phenology_heading_beginning` | 18 | Beginning of heading (Ährenschieben Beginn). | dimensionless |
-| {term}`phenology_milk_ripeness_beginning` | 19 | Beginning of milk ripeness (Milchreife Beginn). | dimensionless |
-| {term}`phenology_yellow_ripeness_beginning` | 21 | Yellow ripeness (Gelbreife Beginn). | dimensionless |
-| {term}`phenology_full_ripeness_beginning` | 22 | Beginning of full ripeness (Vollreife Beginn). | dimensionless |
-| {term}`phenology_harvest_by_hand` | 23 | Hand harvest (Ernte von Hand). | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
+| {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn): about 50% of the plants grow clearly in length and the first stem node can be felt above the ground. | dimensionless |
+| {term}`phenology_heading_beginning` | 18 | Beginning of heading (Ährenschieben Beginn): the tips of the ears push out sideways from the leaf sheaths on about 50% of the stems. | dimensionless |
+| {term}`phenology_milk_ripeness_beginning` | 19 | Beginning of milk ripeness (Milchreife Beginn): the first grains in several ears have reached their final size but are still soft and green. | dimensionless |
+| {term}`phenology_yellow_ripeness_beginning` | 21 | Yellow ripeness (Gelbreife Beginn): the first grains have finished turning from green to yellow and come away easily, on about half of the ears. | dimensionless |
+| {term}`phenology_full_ripeness_beginning` | 22 | Beginning of full ripeness (Vollreife Beginn): the grains that turned yellow have visibly shrunk and hardened. | dimensionless |
+| {term}`phenology_harvest_by_hand` | 23 | Hand harvest (Ernte von Hand): the harvest begins with a scythe or a simple machine (e.g. a reaper-binder). | dimensionless |
 | {term}`phenology_harvest` | 24 | Harvest (Ernte). | dimensionless |
 
 ### annual_field_work
@@ -403,7 +403,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_activity_beginning` | 33 | Beginning (Beginn). | dimensionless |
+| {term}`phenology_activity_beginning` | 33 | Beginning (Beginn): the first spring field work that prepares the seedbed directly (e.g. harrowing, cultivator). | dimensionless |
 
 ### annual_grazing
 
@@ -421,8 +421,8 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_activity_beginning` | 33 | Beginning (Beginn). | dimensionless |
-| {term}`phenology_activity_end` | 34 | Ending (Ende). | dimensionless |
+| {term}`phenology_activity_beginning` | 33 | Beginning (Beginn): the dairy cattle are driven onto the pasture for good in spring. | dimensionless |
+| {term}`phenology_activity_end` | 34 | Ending (Ende): the dairy cattle are driven off the pasture for good in autumn, i.e. housed. | dimensionless |
 
 ### annual_apple
 
@@ -441,11 +441,11 @@
 | name | original name | description | unit |
 |------|---------------|-------------|------|
 | {term}`phenology_sprouting_beginning` | 3 | Sprouting of leaves (Austrieb Beginn). | dimensionless |
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte). | dimensionless |
-| {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende). | dimensionless |
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn). | dimensionless |
-| {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): about 50% of the flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende): about 95% of the flowers have shed their petals. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
+| {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall): about 50% of the leaves have fallen. | dimensionless |
 
 ### annual_apple_early_ripening
 
@@ -464,11 +464,11 @@
 | name | original name | description | unit |
 |------|---------------|-------------|------|
 | {term}`phenology_sprouting_beginning` | 3 | Sprouting of leaves (Austrieb Beginn). | dimensionless |
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte). | dimensionless |
-| {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende). | dimensionless |
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn). | dimensionless |
-| {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): about 50% of the flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende): about 95% of the flowers have shed their petals. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
+| {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall): about 50% of the leaves have fallen. | dimensionless |
 
 ### annual_apple_late_ripening
 
@@ -487,11 +487,11 @@
 | name | original name | description | unit |
 |------|---------------|-------------|------|
 | {term}`phenology_sprouting_beginning` | 3 | Sprouting of leaves (Austrieb Beginn). | dimensionless |
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte). | dimensionless |
-| {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende). | dimensionless |
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn). | dimensionless |
-| {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): about 50% of the flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende): about 95% of the flowers have shed their petals. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
+| {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall): about 50% of the leaves have fallen. | dimensionless |
 
 ### annual_currant_all_varieties
 
@@ -509,8 +509,8 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
 
 ### annual_gooseberry
 
@@ -530,8 +530,8 @@
 |------|---------------|-------------|------|
 | {term}`phenology_sprouting_beginning` | 3 | Sprouting of leaves (Austrieb Beginn). | dimensionless |
 | {term}`phenology_leaf_unfolding_beginning` | 4 | Beginning of unfolding of leaves (Blattentfaltung Beginn). | dimensionless |
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
 
 ### annual_pear
 
@@ -549,10 +549,10 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte). | dimensionless |
-| {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende). | dimensionless |
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): about 50% of the flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende): about 95% of the flowers have shed their petals. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
 
 ### annual_pear_early_ripening
 
@@ -570,10 +570,10 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte). | dimensionless |
-| {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende). | dimensionless |
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): about 50% of the flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende): about 95% of the flowers have shed their petals. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
 
 ### annual_pear_late_ripening
 
@@ -591,10 +591,10 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte). | dimensionless |
-| {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende). | dimensionless |
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): about 50% of the flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende): about 95% of the flowers have shed their petals. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
 
 ### annual_plum_early_ripening
 
@@ -612,7 +612,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn). | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
 
 ### annual_plum_late_ripening
 
@@ -630,7 +630,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn). | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
 
 ### annual_red_currant
 
@@ -648,8 +648,8 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
 
 ### annual_sour_cherry
 
@@ -667,10 +667,10 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte). | dimensionless |
-| {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende). | dimensionless |
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): about 50% of the flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende): about 95% of the flowers have shed their petals. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
 
 ### annual_sweet_cherry
 
@@ -688,11 +688,11 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte). | dimensionless |
-| {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende). | dimensionless |
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn). | dimensionless |
-| {term}`phenology_leaf_colouring_autumn` | 31 | Autumn colouring of leaves (herbstliche Blattverfärbung). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): about 50% of the flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende): about 95% of the flowers have shed their petals. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
+| {term}`phenology_leaf_colouring_autumn` | 31 | Autumn colouring of leaves (herbstliche Blattverfärbung): about 50% of the leaves have taken on their autumn colour. | dimensionless |
 
 ### annual_sweet_cherry_early_ripening
 
@@ -710,11 +710,11 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte). | dimensionless |
-| {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende). | dimensionless |
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn). | dimensionless |
-| {term}`phenology_leaf_colouring_autumn` | 31 | Autumn colouring of leaves (herbstliche Blattverfärbung). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): about 50% of the flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende): about 95% of the flowers have shed their petals. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
+| {term}`phenology_leaf_colouring_autumn` | 31 | Autumn colouring of leaves (herbstliche Blattverfärbung): about 50% of the leaves have taken on their autumn colour. | dimensionless |
 
 ### annual_sweet_cherry_late_ripening
 
@@ -732,11 +732,11 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte). | dimensionless |
-| {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende). | dimensionless |
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn). | dimensionless |
-| {term}`phenology_leaf_colouring_autumn` | 31 | Autumn colouring of leaves (herbstliche Blattverfärbung). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): about 50% of the flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende): about 95% of the flowers have shed their petals. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
+| {term}`phenology_leaf_colouring_autumn` | 31 | Autumn colouring of leaves (herbstliche Blattverfärbung): about 50% of the leaves have taken on their autumn colour. | dimensionless |
 
 ### annual_grapevine
 
@@ -755,13 +755,13 @@
 | name | original name | description | unit |
 |------|---------------|-------------|------|
 | {term}`phenology_sprouting_beginning` | 3 | Sprouting of leaves (Austrieb Beginn). | dimensionless |
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte). | dimensionless |
-| {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): about 5% of the flowers have opened fully (the caps are shed). | dimensionless |
+| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): about 50% of the flowers have opened fully and shed their caps. | dimensionless |
+| {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende): about 95% of the inflorescences have finished flowering. | dimensionless |
 | {term}`phenology_grape_harvest` | 30 | Grape harvest (Lese). | dimensionless |
-| {term}`phenology_leaf_colouring_autumn` | 31 | Autumn colouring of leaves (herbstliche Blattverfärbung). | dimensionless |
-| {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall). | dimensionless |
-| {term}`phenology_grape_ripeness_beginning` | 42 | Beginning of ripeness of grapes (Reife Beginn Weinrebe). | dimensionless |
+| {term}`phenology_leaf_colouring_autumn` | 31 | Autumn colouring of leaves (herbstliche Blattverfärbung): about 50% of the leaves have taken on their autumn colour. | dimensionless |
+| {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall): about 50% of the leaves have fallen. | dimensionless |
+| {term}`phenology_grape_ripeness_beginning` | 42 | Beginning of ripeness of grapes (Reife Beginn Weinrebe): on about 25% of the grapes the berries begin to soften and become lighter. | dimensionless |
 
 ### annual_grapevine_blue_grapes
 
@@ -780,7 +780,7 @@
 | name | original name | description | unit |
 |------|---------------|-------------|------|
 | {term}`phenology_grape_harvest` | 30 | Grape harvest (Lese). | dimensionless |
-| {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall). | dimensionless |
+| {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall): about 50% of the leaves have fallen. | dimensionless |
 
 ### annual_grapevine_early_ripening
 
@@ -801,13 +801,13 @@
 | {term}`phenology_bleeding_first` | 2 | First bleeding of the vines (Erstes Bluten). | dimensionless |
 | {term}`phenology_sprouting_beginning` | 3 | Sprouting of leaves (Austrieb Beginn). | dimensionless |
 | {term}`phenology_leaf_unfolding_beginning` | 4 | Beginning of unfolding of leaves (Blattentfaltung Beginn). | dimensionless |
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte). | dimensionless |
-| {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): about 5% of the flowers have opened fully (the caps are shed). | dimensionless |
+| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): about 50% of the flowers have opened fully and shed their caps. | dimensionless |
+| {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende): about 95% of the inflorescences have finished flowering. | dimensionless |
 | {term}`phenology_grape_harvest` | 30 | Grape harvest (Lese). | dimensionless |
-| {term}`phenology_leaf_colouring_autumn` | 31 | Autumn colouring of leaves (herbstliche Blattverfärbung). | dimensionless |
-| {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall). | dimensionless |
-| {term}`phenology_grape_ripeness_beginning` | 42 | Beginning of ripeness of grapes (Reife Beginn Weinrebe). | dimensionless |
+| {term}`phenology_leaf_colouring_autumn` | 31 | Autumn colouring of leaves (herbstliche Blattverfärbung): about 50% of the leaves have taken on their autumn colour. | dimensionless |
+| {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall): about 50% of the leaves have fallen. | dimensionless |
+| {term}`phenology_grape_ripeness_beginning` | 42 | Beginning of ripeness of grapes (Reife Beginn Weinrebe): on about 25% of the grapes the berries begin to soften and become lighter. | dimensionless |
 
 ### annual_grapevine_late_ripening
 
@@ -828,13 +828,13 @@
 | {term}`phenology_bleeding_first` | 2 | First bleeding of the vines (Erstes Bluten). | dimensionless |
 | {term}`phenology_sprouting_beginning` | 3 | Sprouting of leaves (Austrieb Beginn). | dimensionless |
 | {term}`phenology_leaf_unfolding_beginning` | 4 | Beginning of unfolding of leaves (Blattentfaltung Beginn). | dimensionless |
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte). | dimensionless |
-| {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): about 5% of the flowers have opened fully (the caps are shed). | dimensionless |
+| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): about 50% of the flowers have opened fully and shed their caps. | dimensionless |
+| {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende): about 95% of the inflorescences have finished flowering. | dimensionless |
 | {term}`phenology_grape_harvest` | 30 | Grape harvest (Lese). | dimensionless |
-| {term}`phenology_leaf_colouring_autumn` | 31 | Autumn colouring of leaves (herbstliche Blattverfärbung). | dimensionless |
-| {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall). | dimensionless |
-| {term}`phenology_grape_ripeness_beginning` | 42 | Beginning of ripeness of grapes (Reife Beginn Weinrebe). | dimensionless |
+| {term}`phenology_leaf_colouring_autumn` | 31 | Autumn colouring of leaves (herbstliche Blattverfärbung): about 50% of the leaves have taken on their autumn colour. | dimensionless |
+| {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall): about 50% of the leaves have fallen. | dimensionless |
+| {term}`phenology_grape_ripeness_beginning` | 42 | Beginning of ripeness of grapes (Reife Beginn Weinrebe): on about 25% of the grapes the berries begin to soften and become lighter. | dimensionless |
 
 ### annual_grapevine_middle_late_ripening
 
@@ -853,7 +853,7 @@
 | name | original name | description | unit |
 |------|---------------|-------------|------|
 | {term}`phenology_grape_harvest` | 30 | Grape harvest (Lese). | dimensionless |
-| {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall). | dimensionless |
+| {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall): about 50% of the leaves have fallen. | dimensionless |
 
 ### annual_ash
 
@@ -872,7 +872,7 @@
 | name | original name | description | unit |
 |------|---------------|-------------|------|
 | {term}`phenology_leaf_unfolding_beginning` | 4 | Beginning of unfolding of leaves (Blattentfaltung Beginn). | dimensionless |
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first purple anthers of male or hermaphrodite flowers burst and release pollen. | dimensionless |
 
 ### annual_autumn_crocus
 
@@ -890,7 +890,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
 
 ### annual_bird_cherry
 
@@ -908,7 +908,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
 
 ### annual_black_alder
 
@@ -927,7 +927,7 @@
 | name | original name | description | unit |
 |------|---------------|-------------|------|
 | {term}`phenology_leaf_unfolding_beginning` | 4 | Beginning of unfolding of leaves (Blattentfaltung Beginn). | dimensionless |
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first catkins have extended fully and release pollen. | dimensionless |
 
 ### annual_black_elder
 
@@ -945,8 +945,8 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_fruit_ripe_first` | 62 | First ripe fruit (erste reife Früchte). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): about 50% of the single flowers of the most advanced cyme have opened fully. | dimensionless |
+| {term}`phenology_fruit_ripe_first` | 62 | First ripe fruit (erste reife Früchte): all fruits of the most advanced cyme have turned blue-black. | dimensionless |
 
 ### annual_black_locust
 
@@ -965,7 +965,7 @@
 | name | original name | description | unit |
 |------|---------------|-------------|------|
 | {term}`phenology_leaf_unfolding_beginning` | 4 | Beginning of unfolding of leaves (Blattentfaltung Beginn). | dimensionless |
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
 
 ### annual_blackthorn
 
@@ -983,7 +983,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
 
 ### annual_coltsfoot
 
@@ -1001,7 +1001,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flower heads have opened fully. | dimensionless |
 
 ### annual_common_hazel
 
@@ -1019,7 +1019,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first catkins have extended fully and release pollen. | dimensionless |
 
 ### annual_common_heather
 
@@ -1037,7 +1037,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened in several places. | dimensionless |
 
 ### annual_common_snowdrop
 
@@ -1055,7 +1055,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first snowdrops spread their outer petals and the stamens can be seen inside. | dimensionless |
 
 ### annual_common_wormwood
 
@@ -1073,7 +1073,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers at the base of the main shoot and the side branches have burst open and release pollen. | dimensionless |
 
 ### annual_cornelian_cherry
 
@@ -1091,8 +1091,8 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_fruit_ripe_first` | 62 | First ripe fruit (erste reife Früchte). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
+| {term}`phenology_fruit_ripe_first` | 62 | First ripe fruit (erste reife Früchte): the first fruits are fully coloured. | dimensionless |
 
 ### annual_dandelion
 
@@ -1110,7 +1110,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flower heads have opened fully. | dimensionless |
 
 ### annual_dog_rose
 
@@ -1128,8 +1128,8 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_fruit_ripe_first` | 62 | First ripe fruit (erste reife Früchte). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
+| {term}`phenology_fruit_ripe_first` | 62 | First ripe fruit (erste reife Früchte): the first fruits are fully coloured. | dimensionless |
 
 ### annual_european_beech
 
@@ -1148,10 +1148,10 @@
 | name | original name | description | unit |
 |------|---------------|-------------|------|
 | {term}`phenology_leaf_unfolding_beginning` | 4 | Beginning of unfolding of leaves (Blattentfaltung Beginn). | dimensionless |
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_leaf_colouring_autumn` | 31 | Autumn colouring of leaves (herbstliche Blattverfärbung). | dimensionless |
-| {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall). | dimensionless |
-| {term}`phenology_fruit_ripe_first` | 62 | First ripe fruit (erste reife Früchte). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the flowers have opened and release pollen. | dimensionless |
+| {term}`phenology_leaf_colouring_autumn` | 31 | Autumn colouring of leaves (herbstliche Blattverfärbung): about 50% of the leaves have taken on their autumn colour. | dimensionless |
+| {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall): about 50% of the leaves have fallen. | dimensionless |
+| {term}`phenology_fruit_ripe_first` | 62 | First ripe fruit (erste reife Früchte): the fruit husk bursts and the seed falls. | dimensionless |
 
 ### annual_european_larch
 
@@ -1169,10 +1169,10 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the male inflorescences (barely 1 cm, pointing downwards, yellow) release pollen. | dimensionless |
 | {term}`phenology_needle_unfolding_beginning` | 61 | Beginning of unfolding of needles (Nadelentfaltung Beginn). | dimensionless |
-| {term}`phenology_needle_colouring_autumn` | 63 | Autumn colouring of needles (herbstliche Nadelverfärbung). | dimensionless |
-| {term}`phenology_needle_fall_autumn` | 64 | Autumn needle fall (herbstlicher Nadelfall). | dimensionless |
+| {term}`phenology_needle_colouring_autumn` | 63 | Autumn colouring of needles (herbstliche Nadelverfärbung): about 50% of the needles have turned golden yellow. | dimensionless |
+| {term}`phenology_needle_fall_autumn` | 64 | Autumn needle fall (herbstlicher Nadelfall): about 50% of the needles have fallen. | dimensionless |
 
 ### annual_forsythia
 
@@ -1190,7 +1190,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
 
 ### annual_goat_willow
 
@@ -1208,7 +1208,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first catkins have extended fully and release pollen. | dimensionless |
 
 ### annual_horse_chestnut
 
@@ -1228,10 +1228,10 @@
 |------|---------------|-------------|------|
 | {term}`phenology_sprouting_beginning` | 3 | Sprouting of leaves (Austrieb Beginn). | dimensionless |
 | {term}`phenology_leaf_unfolding_beginning` | 4 | Beginning of unfolding of leaves (Blattentfaltung Beginn). | dimensionless |
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_leaf_colouring_autumn` | 31 | Autumn colouring of leaves (herbstliche Blattverfärbung). | dimensionless |
-| {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall). | dimensionless |
-| {term}`phenology_fruit_ripe_first` | 62 | First ripe fruit (erste reife Früchte). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the lowest flowers on several panicles have opened fully. | dimensionless |
+| {term}`phenology_leaf_colouring_autumn` | 31 | Autumn colouring of leaves (herbstliche Blattverfärbung): about 50% of the leaves have taken on their autumn colour. | dimensionless |
+| {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall): about 50% of the leaves have fallen. | dimensionless |
+| {term}`phenology_fruit_ripe_first` | 62 | First ripe fruit (erste reife Früchte): the first ripe, brown, matt glossy chestnuts lie on the ground. | dimensionless |
 
 ### annual_large_leaved_lime
 
@@ -1250,7 +1250,7 @@
 | name | original name | description | unit |
 |------|---------------|-------------|------|
 | {term}`phenology_leaf_unfolding_beginning` | 4 | Beginning of unfolding of leaves (Blattentfaltung Beginn). | dimensionless |
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
 
 ### annual_lilac
 
@@ -1268,7 +1268,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the lowest flowers on several panicles begin to open. | dimensionless |
 
 ### annual_meadow_foxtail
 
@@ -1286,8 +1286,8 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): on about 50% of the spikelets the anthers hang out and release pollen when touched. | dimensionless |
 
 ### annual_midland_hawthorn
 
@@ -1305,8 +1305,8 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_fruit_ripe_first` | 62 | First ripe fruit (erste reife Früchte). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
+| {term}`phenology_fruit_ripe_first` | 62 | First ripe fruit (erste reife Früchte): the first fruits are fully coloured. | dimensionless |
 
 ### annual_norway_maple
 
@@ -1324,7 +1324,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
 
 ### annual_norway_spruce
 
@@ -1342,8 +1342,8 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_may_sprouting` | 8 | Beginning of may sprouting (Maitrieb). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the flowers have opened and release pollen. | dimensionless |
+| {term}`phenology_may_sprouting` | 8 | Beginning of may sprouting (Maitrieb): the first buds burst and their sheaths detach from the bud margin. | dimensionless |
 
 ### annual_orchard_grass
 
@@ -1361,7 +1361,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte). | dimensionless |
+| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): on about 50% of the spikelets the grey-violet anthers hang on long filaments and release pollen on touch. | dimensionless |
 
 ### annual_pedunculate_oak
 
@@ -1380,11 +1380,11 @@
 | name | original name | description | unit |
 |------|---------------|-------------|------|
 | {term}`phenology_leaf_unfolding_beginning` | 4 | Beginning of unfolding of leaves (Blattentfaltung Beginn). | dimensionless |
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_st_johns_sprouting` | 9 | St. john's sprout (Johannistrieb). | dimensionless |
-| {term}`phenology_leaf_colouring_autumn` | 31 | Autumn colouring of leaves (herbstliche Blattverfärbung). | dimensionless |
-| {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall). | dimensionless |
-| {term}`phenology_fruit_ripe_first` | 62 | First ripe fruit (erste reife Früchte). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the flowers have opened and release pollen. | dimensionless |
+| {term}`phenology_st_johns_sprouting` | 9 | St. john's sprout (Johannistrieb): the second leaf flush of the year, recognisable by its fresh, partly reddish colour. | dimensionless |
+| {term}`phenology_leaf_colouring_autumn` | 31 | Autumn colouring of leaves (herbstliche Blattverfärbung): about 50% of the leaves have taken on their autumn colour. | dimensionless |
+| {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall): about 50% of the leaves have fallen. | dimensionless |
+| {term}`phenology_fruit_ripe_first` | 62 | First ripe fruit (erste reife Früchte): the first ripe acorns with the characteristic longitudinal stripes lie on the ground. | dimensionless |
 
 ### annual_rowan
 
@@ -1404,9 +1404,9 @@
 |------|---------------|-------------|------|
 | {term}`phenology_sprouting_beginning` | 3 | Sprouting of leaves (Austrieb Beginn). | dimensionless |
 | {term}`phenology_leaf_unfolding_beginning` | 4 | Beginning of unfolding of leaves (Blattentfaltung Beginn). | dimensionless |
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall). | dimensionless |
-| {term}`phenology_fruit_ripe_first` | 62 | First ripe fruit (erste reife Früchte). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers open on some of the downy umbel-like panicles. | dimensionless |
+| {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall): about 50% of the leaves have fallen. | dimensionless |
+| {term}`phenology_fruit_ripe_first` | 62 | First ripe fruit (erste reife Früchte): all single fruits of the most advanced umbel are fully coloured. | dimensionless |
 
 ### annual_scots_pine
 
@@ -1424,8 +1424,8 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_may_sprouting` | 8 | Beginning of may sprouting (Maitrieb). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first new cone-shaped shoots, about 1 cm long, release pollen at the base. | dimensionless |
+| {term}`phenology_may_sprouting` | 8 | Beginning of may sprouting (Maitrieb): the first bud sheaths at the tip of the upright short shoots burst and the green needle tips can be seen. | dimensionless |
 
 ### annual_silver_birch
 
@@ -1445,9 +1445,9 @@
 |------|---------------|-------------|------|
 | {term}`phenology_sprouting_beginning` | 3 | Sprouting of leaves (Austrieb Beginn). | dimensionless |
 | {term}`phenology_leaf_unfolding_beginning` | 4 | Beginning of unfolding of leaves (Blattentfaltung Beginn). | dimensionless |
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_leaf_colouring_autumn` | 31 | Autumn colouring of leaves (herbstliche Blattverfärbung). | dimensionless |
-| {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first catkins have extended fully and release pollen. | dimensionless |
+| {term}`phenology_leaf_colouring_autumn` | 31 | Autumn colouring of leaves (herbstliche Blattverfärbung): about 50% of the leaves have taken on their autumn colour. | dimensionless |
+| {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall): about 50% of the leaves have fallen. | dimensionless |
 
 ### annual_silver_fir
 
@@ -1465,8 +1465,8 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_may_sprouting` | 8 | Beginning of may sprouting (Maitrieb). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the flowers have opened and release pollen. | dimensionless |
+| {term}`phenology_may_sprouting` | 8 | Beginning of may sprouting (Maitrieb): the first buds burst and their sheaths detach from the bud margin. | dimensionless |
 
 ### annual_small_leaved_lime
 
@@ -1485,7 +1485,7 @@
 | name | original name | description | unit |
 |------|---------------|-------------|------|
 | {term}`phenology_leaf_unfolding_beginning` | 4 | Beginning of unfolding of leaves (Blattentfaltung Beginn). | dimensionless |
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
 
 ### annual_wood_anemone
 
@@ -1503,7 +1503,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first white flower stars show. | dimensionless |
 
 ### immediate_beet
 
@@ -1541,16 +1541,16 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn). | dimensionless |
-| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn). | dimensionless |
-| {term}`phenology_milk_ripeness_beginning` | 19 | Beginning of milk ripeness (Milchreife Beginn). | dimensionless |
-| {term}`phenology_dough_ripeness_beginning` | 20 | Beginning of wax-ripe stage (Teigreife Beginn). | dimensionless |
-| {term}`phenology_full_ripeness_beginning` | 22 | Beginning of full ripeness (Vollreife Beginn). | dimensionless |
-| {term}`phenology_silk_emergence_beginning` | 37 | Beginning of silk emergence (Narbenfädenschieben Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): about 5% of the plants have the middle branches of the panicle in bloom. | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the plants have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
+| {term}`phenology_milk_ripeness_beginning` | 19 | Beginning of milk ripeness (Milchreife Beginn): the kernels have reached their final size; they are white to yellowish outside, soft and hold a milky liquid. | dimensionless |
+| {term}`phenology_dough_ripeness_beginning` | 20 | Beginning of wax-ripe stage (Teigreife Beginn): the kernels are yellowish to yellow outside. | dimensionless |
+| {term}`phenology_full_ripeness_beginning` | 22 | Beginning of full ripeness (Vollreife Beginn): the grains that turned yellow have visibly shrunk and hardened. | dimensionless |
+| {term}`phenology_silk_emergence_beginning` | 37 | Beginning of silk emergence (Narbenfädenschieben Beginn): on about 50% of the plants the female inflorescences appear in the leaf axils as cobs with long silks. | dimensionless |
 | {term}`phenology_grain_harvest_beginning` | 38 | Grain harvest (Körner-Ernte Beginn). | dimensionless |
 | {term}`phenology_silage_harvest_beginning` | 39 | Silage harvest (Silo-Ernte Beginn). | dimensionless |
-| {term}`phenology_tassel_tip_visible` | 65 | Tip of tassel visible (Fahnenschieben Beginn). | dimensionless |
+| {term}`phenology_tassel_tip_visible` | 65 | Tip of tassel visible (Fahnenschieben Beginn): the tassel becomes visible at the end of the stem on about 50% of the plants. | dimensionless |
 
 ### immediate_oat
 
@@ -1568,13 +1568,13 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn). | dimensionless |
-| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn). | dimensionless |
-| {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn). | dimensionless |
-| {term}`phenology_yellow_ripeness_beginning` | 21 | Yellow ripeness (Gelbreife Beginn). | dimensionless |
-| {term}`phenology_full_ripeness_beginning` | 22 | Beginning of full ripeness (Vollreife Beginn). | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
+| {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn): about 50% of the plants grow clearly in length and the first stem node can be felt above the ground. | dimensionless |
+| {term}`phenology_yellow_ripeness_beginning` | 21 | Yellow ripeness (Gelbreife Beginn): the first grains have finished turning from green to yellow and come away easily, on about half of the panicles. | dimensionless |
+| {term}`phenology_full_ripeness_beginning` | 22 | Beginning of full ripeness (Vollreife Beginn): the grains that turned yellow have visibly shrunk and hardened. | dimensionless |
 | {term}`phenology_harvest` | 24 | Harvest (Ernte). | dimensionless |
-| {term}`phenology_panicle_emergence_beginning` | 66 | Beginning tassel emergence (Rispenschieben Beginn). | dimensionless |
+| {term}`phenology_panicle_emergence_beginning` | 66 | Beginning tassel emergence (Rispenschieben Beginn): the tips of the panicles push out sideways from the leaf sheaths on about 50% of the stems. | dimensionless |
 
 ### immediate_permanent_grassland
 
@@ -1592,7 +1592,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_turning_green_beginning` | 1 | Beginning of turning green (Ergrünen Beginn). | dimensionless |
+| {term}`phenology_turning_green_beginning` | 1 | Beginning of turning green (Ergrünen Beginn): about 25% of the selected permanent grassland shows fresh green, i.e. leaf growth has begun. | dimensionless |
 | {term}`phenology_hay_cut_first` | 25 | First cut for hay (1. Heuschnitt). | dimensionless |
 | {term}`phenology_silage_cut_first` | 26 | First cut for silage (1. Silageschnitt). | dimensionless |
 | {term}`phenology_hay_cut_second` | 27 | Second cut for hay (2. Heuschnitt). | dimensionless |
@@ -1616,10 +1616,10 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn). | dimensionless |
-| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn). | dimensionless |
-| {term}`phenology_stand_closed` | 13 | Closed stand (Bestand geschlossen). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first potatoes are put into the ground. | dimensionless |
+| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): about half of the plants in the observed field have broken through the soil completely. | dimensionless |
+| {term}`phenology_stand_closed` | 13 | Closed stand (Bestand geschlossen): about 50% of the plants touch across the rows. | dimensionless |
 | {term}`phenology_harvest` | 24 | Harvest (Ernte). | dimensionless |
 
 ### immediate_spring_barley
@@ -1638,11 +1638,11 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn). | dimensionless |
-| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn). | dimensionless |
-| {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn). | dimensionless |
-| {term}`phenology_heading_beginning` | 18 | Beginning of heading (Ährenschieben Beginn). | dimensionless |
-| {term}`phenology_yellow_ripeness_beginning` | 21 | Yellow ripeness (Gelbreife Beginn). | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
+| {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn): about 50% of the plants grow clearly in length and the first stem node can be felt above the ground. | dimensionless |
+| {term}`phenology_heading_beginning` | 18 | Beginning of heading (Ährenschieben Beginn): the tips of the ears push out sideways from the leaf sheaths on about 50% of the stems. | dimensionless |
+| {term}`phenology_yellow_ripeness_beginning` | 21 | Yellow ripeness (Gelbreife Beginn): the first grains in several ears have finished turning from green to yellow and come away easily. | dimensionless |
 | {term}`phenology_harvest` | 24 | Harvest (Ernte). | dimensionless |
 
 ### immediate_winter_barley
@@ -1661,12 +1661,12 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn). | dimensionless |
-| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn). | dimensionless |
-| {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn). | dimensionless |
-| {term}`phenology_heading_beginning` | 18 | Beginning of heading (Ährenschieben Beginn). | dimensionless |
-| {term}`phenology_yellow_ripeness_beginning` | 21 | Yellow ripeness (Gelbreife Beginn). | dimensionless |
-| {term}`phenology_full_ripeness_beginning` | 22 | Beginning of full ripeness (Vollreife Beginn). | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
+| {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn): about 50% of the plants grow clearly in length and the first stem node can be felt above the ground. | dimensionless |
+| {term}`phenology_heading_beginning` | 18 | Beginning of heading (Ährenschieben Beginn): the tips of the ears push out sideways from the leaf sheaths on about 50% of the stems. | dimensionless |
+| {term}`phenology_yellow_ripeness_beginning` | 21 | Yellow ripeness (Gelbreife Beginn): the first grains have finished turning from green to yellow and come away easily, on about half of the ears. | dimensionless |
+| {term}`phenology_full_ripeness_beginning` | 22 | Beginning of full ripeness (Vollreife Beginn): the grains that turned yellow have visibly shrunk and hardened. | dimensionless |
 | {term}`phenology_harvest` | 24 | Harvest (Ernte). | dimensionless |
 
 ### immediate_winter_oilseed_rape
@@ -1685,14 +1685,14 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende). | dimensionless |
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn). | dimensionless |
-| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn). | dimensionless |
-| {term}`phenology_bud_formation_beginning` | 17 | Beginning of bud formation (Knospenbildung Beginn). | dimensionless |
-| {term}`phenology_full_ripeness_beginning` | 22 | Beginning of full ripeness (Vollreife Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): about 5% of the yellow flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende): about 95% of the stand has finished flowering. | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
+| {term}`phenology_bud_formation_beginning` | 17 | Beginning of bud formation (Knospenbildung Beginn): the terminal buds on the main shoot become visible on about 50% of the plants. | dimensionless |
+| {term}`phenology_full_ripeness_beginning` | 22 | Beginning of full ripeness (Vollreife Beginn): most rapeseed grains are black on one half. | dimensionless |
 | {term}`phenology_harvest` | 24 | Harvest (Ernte). | dimensionless |
-| {term}`phenology_height_growth_beginning` | 67 | Beginning of growth in height (Längenwachstum Beginn). | dimensionless |
+| {term}`phenology_height_growth_beginning` | 67 | Beginning of growth in height (Längenwachstum Beginn): the stems of about 50% of the plants are longer than 5 cm, measured from where the cotyledons attach to the growing point. | dimensionless |
 
 ### immediate_winter_rye
 
@@ -1710,15 +1710,15 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte). | dimensionless |
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn). | dimensionless |
-| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn). | dimensionless |
-| {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn). | dimensionless |
-| {term}`phenology_heading_beginning` | 18 | Beginning of heading (Ährenschieben Beginn). | dimensionless |
-| {term}`phenology_yellow_ripeness_beginning` | 21 | Yellow ripeness (Gelbreife Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): on about 5% of the ears the first flowers in the middle of the ear have opened and the anthers are visible. | dimensionless |
+| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): on about 50% of the ears the flowers have opened and release pollen. | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
+| {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn): about 50% of the plants grow clearly in length and the first stem node can be felt above the ground. | dimensionless |
+| {term}`phenology_heading_beginning` | 18 | Beginning of heading (Ährenschieben Beginn): the tips of the ears push out sideways from the leaf sheaths on about 50% of the stems. | dimensionless |
+| {term}`phenology_yellow_ripeness_beginning` | 21 | Yellow ripeness (Gelbreife Beginn): the first grains have finished turning from green to yellow and come away easily, on about half of the ears. | dimensionless |
 | {term}`phenology_harvest` | 24 | Harvest (Ernte). | dimensionless |
-| {term}`phenology_flowering_end_observation_area` | 41 | End of flowering in the observation area (Blüte Ende im Beobachtungsgebiet). | dimensionless |
+| {term}`phenology_flowering_end_observation_area` | 41 | End of flowering in the observation area (Blüte Ende im Beobachtungsgebiet): the pollen shedding of the latest winter rye stand of the observation area has ended. | dimensionless |
 
 ### immediate_winter_wheat
 
@@ -1736,12 +1736,12 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn). | dimensionless |
-| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn). | dimensionless |
-| {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn). | dimensionless |
-| {term}`phenology_heading_beginning` | 18 | Beginning of heading (Ährenschieben Beginn). | dimensionless |
-| {term}`phenology_yellow_ripeness_beginning` | 21 | Yellow ripeness (Gelbreife Beginn). | dimensionless |
-| {term}`phenology_full_ripeness_beginning` | 22 | Beginning of full ripeness (Vollreife Beginn). | dimensionless |
+| {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
+| {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
+| {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn): about 50% of the plants grow clearly in length and the first stem node can be felt above the ground. | dimensionless |
+| {term}`phenology_heading_beginning` | 18 | Beginning of heading (Ährenschieben Beginn): the tips of the ears push out sideways from the leaf sheaths on about 50% of the stems. | dimensionless |
+| {term}`phenology_yellow_ripeness_beginning` | 21 | Yellow ripeness (Gelbreife Beginn): the first grains have finished turning from green to yellow and come away easily, on about half of the ears. | dimensionless |
+| {term}`phenology_full_ripeness_beginning` | 22 | Beginning of full ripeness (Vollreife Beginn): the grains that turned yellow have visibly shrunk and hardened. | dimensionless |
 | {term}`phenology_harvest` | 24 | Harvest (Ernte). | dimensionless |
 
 ### immediate_apple
@@ -1761,10 +1761,10 @@
 | name | original name | description | unit |
 |------|---------------|-------------|------|
 | {term}`phenology_sprouting_beginning` | 3 | Sprouting of leaves (Austrieb Beginn). | dimensionless |
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende). | dimensionless |
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn). | dimensionless |
-| {term}`phenology_flowering_end_observation_area` | 41 | End of flowering in the observation area (Blüte Ende im Beobachtungsgebiet). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende): about 95% of the flowers have shed their petals. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
+| {term}`phenology_flowering_end_observation_area` | 41 | End of flowering in the observation area (Blüte Ende im Beobachtungsgebiet): the latest-flowering varieties of the observation area have finished flowering. | dimensionless |
 
 ### immediate_apple_late_ripening
 
@@ -1782,7 +1782,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall). | dimensionless |
+| {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall): about 50% of the leaves have fallen. | dimensionless |
 
 ### immediate_gooseberry
 
@@ -1818,7 +1818,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn). | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
 
 ### immediate_sweet_cherry
 
@@ -1836,8 +1836,8 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
 
 ### immediate_grapevine_early_ripening
 
@@ -1926,8 +1926,8 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_flowering_end_observation_area` | 41 | End of flowering in the observation area (Blüte Ende im Beobachtungsgebiet). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first catkins have extended fully and release pollen. | dimensionless |
+| {term}`phenology_flowering_end_observation_area` | 41 | End of flowering in the observation area (Blüte Ende im Beobachtungsgebiet): the pollen shedding of the latest alder of the observation area has ended. | dimensionless |
 
 ### immediate_ash
 
@@ -1945,7 +1945,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first purple anthers of male or hermaphrodite flowers burst and release pollen. | dimensionless |
 
 ### immediate_birch_all_species
 
@@ -1963,8 +1963,8 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_flowering_end_observation_area` | 41 | End of flowering in the observation area (Blüte Ende im Beobachtungsgebiet). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first catkins have extended fully and release pollen. | dimensionless |
+| {term}`phenology_flowering_end_observation_area` | 41 | End of flowering in the observation area (Blüte Ende im Beobachtungsgebiet): the pollen shedding of the latest birch of the observation area has ended. | dimensionless |
 
 ### immediate_black_alder
 
@@ -1982,7 +1982,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first catkins have extended fully and release pollen. | dimensionless |
 
 ### immediate_black_elder
 
@@ -2000,8 +2000,8 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_fruit_ripe_first` | 62 | First ripe fruit (erste reife Früchte). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): about 50% of the single flowers of the most advanced cyme have opened fully. | dimensionless |
+| {term}`phenology_fruit_ripe_first` | 62 | First ripe fruit (erste reife Früchte): all fruits of the most advanced cyme have turned blue-black. | dimensionless |
 
 ### immediate_black_locust
 
@@ -2019,7 +2019,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
 
 ### immediate_blackthorn
 
@@ -2037,7 +2037,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
 
 ### immediate_coltsfoot
 
@@ -2055,7 +2055,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flower heads have opened fully. | dimensionless |
 
 ### immediate_common_hazel
 
@@ -2073,7 +2073,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first catkins have extended fully and release pollen. | dimensionless |
 | {term}`phenology_flowering_end_observation_area` | 41 | End of flowering in the observation area (Blüte Ende im Beobachtungsgebiet). | dimensionless |
 
 ### immediate_common_snowdrop
@@ -2092,7 +2092,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first snowdrops spread their outer petals and the stamens can be seen inside. | dimensionless |
 
 ### immediate_common_wormwood
 
@@ -2110,7 +2110,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers at the base of the main shoot and the side branches have burst open and release pollen. | dimensionless |
 
 ### immediate_dandelion
 
@@ -2128,7 +2128,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flower heads have opened fully. | dimensionless |
 
 ### immediate_european_beech
 
@@ -2147,10 +2147,10 @@
 | name | original name | description | unit |
 |------|---------------|-------------|------|
 | {term}`phenology_leaf_unfolding_beginning` | 4 | Beginning of unfolding of leaves (Blattentfaltung Beginn). | dimensionless |
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_leaf_colouring_autumn` | 31 | Autumn colouring of leaves (herbstliche Blattverfärbung). | dimensionless |
-| {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall). | dimensionless |
-| {term}`phenology_fruit_ripe_first` | 62 | First ripe fruit (erste reife Früchte). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the flowers have opened and release pollen. | dimensionless |
+| {term}`phenology_leaf_colouring_autumn` | 31 | Autumn colouring of leaves (herbstliche Blattverfärbung): about 50% of the leaves have taken on their autumn colour. | dimensionless |
+| {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall): about 50% of the leaves have fallen. | dimensionless |
+| {term}`phenology_fruit_ripe_first` | 62 | First ripe fruit (erste reife Früchte): the fruit husk bursts and the seed falls. | dimensionless |
 
 ### immediate_forsythia
 
@@ -2168,7 +2168,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
 
 ### immediate_goat_willow
 
@@ -2186,7 +2186,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first catkins have extended fully and release pollen. | dimensionless |
 
 ### immediate_horse_chestnut
 
@@ -2204,7 +2204,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_fruit_ripe_first` | 62 | First ripe fruit (erste reife Früchte). | dimensionless |
+| {term}`phenology_fruit_ripe_first` | 62 | First ripe fruit (erste reife Früchte): the first ripe, brown, matt glossy chestnuts lie on the ground. | dimensionless |
 
 ### immediate_large_leaved_lime
 
@@ -2222,7 +2222,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
 
 ### immediate_meadow_foxtail
 
@@ -2240,8 +2240,8 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
-| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): on about 50% of the spikelets the anthers hang out and release pollen when touched. | dimensionless |
 
 ### immediate_pedunculate_oak
 
@@ -2260,9 +2260,9 @@
 | name | original name | description | unit |
 |------|---------------|-------------|------|
 | {term}`phenology_leaf_unfolding_beginning` | 4 | Beginning of unfolding of leaves (Blattentfaltung Beginn). | dimensionless |
-| {term}`phenology_leaf_colouring_autumn` | 31 | Autumn colouring of leaves (herbstliche Blattverfärbung). | dimensionless |
-| {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall). | dimensionless |
-| {term}`phenology_fruit_ripe_first` | 62 | First ripe fruit (erste reife Früchte). | dimensionless |
+| {term}`phenology_leaf_colouring_autumn` | 31 | Autumn colouring of leaves (herbstliche Blattverfärbung): about 50% of the leaves have taken on their autumn colour. | dimensionless |
+| {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall): about 50% of the leaves have fallen. | dimensionless |
+| {term}`phenology_fruit_ripe_first` | 62 | First ripe fruit (erste reife Früchte): the first ripe acorns with the characteristic longitudinal stripes lie on the ground. | dimensionless |
 | {term}`phenology_bud_swelling` | 68 | Bud swelling (Knospenschwellen). | dimensionless |
 
 ### immediate_silver_birch
@@ -2282,4 +2282,4 @@
 | name | original name | description | unit |
 |------|---------------|-------------|------|
 | {term}`phenology_leaf_unfolding_beginning` | 4 | Beginning of unfolding of leaves (Blattentfaltung Beginn). | dimensionless |
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn). | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first catkins have extended fully and release pollen. | dimensionless |

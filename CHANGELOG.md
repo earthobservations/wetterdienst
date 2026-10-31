@@ -36,6 +36,11 @@ Types of changes:
   `raw:0` in `quality_flags`, where it came back as a peak gust of 0.0 m/s. Environment Canada
   does not report a gust below 31 km/h and the files write 0 for it; a 0 of another source stays
   (GH-3655)
+- `dwd/phenology`: 302 of the 404 parameter descriptions now carry DWD's definition of the phase,
+  where they gave its name only: the share of the plants that decides the date (5, 25, 50 or
+  95 %), pollen release as the flowering of wind-pollinated trees. `heading_beginning` was "the
+  first ears" (DWD: about half of the stems), `harvest_by_hand` begins with a scythe or simple
+  machine, and `emergence_beginning` no longer says "first seedlings" (GH-3136)
 
 ## [0.179.0] - 2026-10-30
 

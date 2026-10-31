@@ -77,7 +77,10 @@ visibility rows now say the statistic and height the ASOS User's Guide gives), a
 the eighth group: the daily rows say what the readme of the files says in the unit the reader returns, where they
 were the table of the ordering form with its choice of units; the hourly rows follow Table 1 of GHCNh 1.1.0), and
 the DMI rows (GH-3136, the ninth group: from the canonical sentence of the quantity to what DMI's documentation says
-of how each value is made, the type of day and the heights).
+of how each value is made, the type of day and the heights), and the DWD phenology rows (GH-3136, the tenth group:
+the phase names of ``PH_Beschreibung_Phase.txt`` were the whole description, and the definitions of the
+``PH_Beschreibung_Phasendefinition_*.txt`` files now follow them; they are declared in the provider module, which wins
+over this table).
 CHMI describes its elements only by
 name, unit, height and schedule (``metadata/meta2.csv``) and the Environment Agency by a table of parameter, period,
 statistic and unit on its reference page, so what those entries say about a window or a weighting is what the data

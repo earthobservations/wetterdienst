@@ -198,6 +198,183 @@ _OBJECTS: dict[int, tuple[str, str, str]] = {
     4111: ("Müller-Thurgau", "vine (Müller-Thurgau)", "Vitis vinifera"),
 }
 
+# What the ``PH_Beschreibung_Phasendefinition_*.txt`` files DWD publishes in the directories of the data (one per
+# reporter group and plant group) say a phase is, translated (GH-3136). DWD's English phase name alone leaves out what
+# decides the date: the share of the plants that must show the stage (5, 25, 50 or 95 %, set per plant), that the
+# flowering of a wind-pollinated tree is the release of pollen and not an open flower, and what ripe means for a crop.
+# A phase that is absent here has a name that already says it (``Ernte``, ``Lese``, the cuts of the grassland) and
+# keeps it. ``_DEFINITIONS`` is the sentence for a phase; ``_PLANT_DEFINITIONS`` replaces it for a plant whose
+# definition says something else, keyed by ``(Objekt_id, Phase_id)``, or by ``("a" or "i", Objekt_id, Phase_id)``
+# where the two reporter groups' definitions differ. ``_NO_DEFINITION`` is every row DWD defines for no plant of its
+# reporter group: the beet of the current year, immediate hazel's end of flowering and immediate oak's leaf unfolding
+# (the definition files miss them); the grapevine of the immediate reporters has no definition file at all. Those keep
+# the name alone.
+_DEFINITIONS: dict[int, str] = {
+    1: "about 25% of the selected permanent grassland shows fresh green, i.e. leaf growth has begun",
+    5: "the first flowers have opened fully",
+    6: "about 50% of the flowers have opened fully",
+    7: "about 95% of the flowers have shed their petals",
+    8: "the first buds burst and their sheaths detach from the bud margin",
+    9: "the second leaf flush of the year, recognisable by its fresh, partly reddish colour",
+    10: "the first field of the observation area is sown or drilled",
+    12: "the cotyledons have broken through the soil surface and reached a height of about 1 cm",
+    13: "about 50% of the plants touch across the rows",
+    14: "about 50% of the plants have formed the fourth serrated leaf of the rosette",
+    15: "about 50% of the plants grow clearly in length and the first stem node can be felt above the ground",
+    16: "about 50% of the plants have unfolded their first pair of leaves",
+    17: "the terminal buds on the main shoot become visible on about 50% of the plants",
+    18: "the tips of the ears push out sideways from the leaf sheaths on about 50% of the stems",
+    19: "the first grains in several ears have reached their final size but are still soft and green",
+    20: "the kernels are yellowish to yellow outside",
+    21: "the first grains have finished turning from green to yellow and come away easily, on about half of the ears",
+    22: "the grains that turned yellow have visibly shrunk and hardened",
+    23: "the harvest begins with a scythe or a simple machine (e.g. a reaper-binder)",
+    29: "a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily",
+    31: "about 50% of the leaves have taken on their autumn colour",
+    32: "about 50% of the leaves have fallen",
+    33: "the first spring field work that prepares the seedbed directly (e.g. harrowing, cultivator)",
+    34: "the dairy cattle are driven off the pasture for good in autumn, i.e. housed",
+    37: "on about 50% of the plants the female inflorescences appear in the leaf axils as cobs with long silks",
+    41: "the latest-flowering varieties of the observation area have finished flowering",
+    42: "on about 25% of the grapes the berries begin to soften and become lighter",
+    62: "the first fruits are fully coloured",
+    63: "about 50% of the needles have turned golden yellow",
+    64: "about 50% of the needles have fallen",
+    65: "the tassel becomes visible at the end of the stem on about 50% of the plants",
+    66: "the tips of the panicles push out sideways from the leaf sheaths on about 50% of the stems",
+    67: "the first node above the ground (between the sixth and seventh leaf) becomes visible by stem elongation on "
+    "about 50% of the plants",
+}
+_CATKINS = "the first catkins have extended fully and release pollen"
+_POLLEN = "the flowers have opened and release pollen"
+_PLANT_DEFINITIONS: dict[tuple[int, int] | tuple[str, int, int], str] = {
+    # 5: beginning of flowering. The wind-pollinated trees are given by the release of pollen
+    (
+        101,
+        5,
+    ): "the first flowers at the base of the main shoot and the side branches have burst open and release pollen",
+    (102, 5): "the first white flower stars show",
+    (103, 5): "the first flowers open on some of the downy umbel-like panicles",
+    (104, 5): "the first purple anthers of male or hermaphrodite flowers burst and release pollen",
+    (105, 5): "the male inflorescences (barely 1 cm, pointing downwards, yellow) release pollen",
+    (107, 5): _POLLEN,
+    (108, 5): "the lowest flowers on several panicles begin to open",
+    (111, 5): _CATKINS,
+    (112, 5): _CATKINS,
+    (113, 5): _CATKINS,
+    (114, 5): "the first flowers have opened in several places",
+    (116, 5): "the first flower heads have opened fully",
+    (118, 5): "the first new cone-shaped shoots, about 1 cm long, release pollen at the base",
+    (120, 5): "the first flower heads have opened fully",
+    (122, 5): "the lowest flowers on several panicles have opened fully",
+    (123, 5): _POLLEN,
+    (124, 5): _CATKINS,
+    (127, 5): "the first snowdrops spread their outer petals and the stamens can be seen inside",
+    (128, 5): _CATKINS,
+    (129, 5): "about 50% of the single flowers of the most advanced cyme have opened fully",
+    (132, 5): _POLLEN,
+    (133, 5): _POLLEN,
+    (139, 5): _CATKINS,
+    (
+        203,
+        5,
+    ): "on about 5% of the ears the first flowers in the middle of the ear have opened and the anthers are visible",
+    (205, 5): "about 5% of the yellow flowers have opened fully",
+    (209, 5): "on about 5% of the flower heads the anthers of the first to third ring of flowers are visible",
+    (210, 5): "about 5% of the plants have the middle branches of the panicle in bloom",
+    (215, 5): "about 5% of the plants have the middle branches of the panicle in bloom",
+    (410, 5): "about 5% of the flowers have opened fully (the caps are shed)",
+    (411, 5): "about 5% of the flowers have opened fully (the caps are shed)",
+    (413, 5): "about 5% of the flowers have opened fully (the caps are shed)",
+    # 6: general flowering
+    (135, 6): "on about 50% of the spikelets the anthers hang out and release pollen when touched",
+    (
+        136,
+        6,
+    ): "on about 50% of the spikelets the grey-violet anthers hang on long filaments and release pollen on touch",
+    (203, 6): "on about 50% of the ears the flowers have opened and release pollen",
+    (215, 6): "on about 50% of the plants the anthers visibly release pollen",
+    (410, 6): "about 50% of the flowers have opened fully and shed their caps",
+    (411, 6): "about 50% of the flowers have opened fully and shed their caps",
+    (413, 6): "about 50% of the flowers have opened fully and shed their caps",
+    # 7: end of flowering
+    (205, 7): "about 95% of the stand has finished flowering",
+    (410, 7): "about 95% of the inflorescences have finished flowering",
+    (411, 7): "about 95% of the inflorescences have finished flowering",
+    (413, 7): "about 95% of the inflorescences have finished flowering",
+    # 8: may sprouting, of the conifers
+    (
+        118,
+        8,
+    ): "the first bud sheaths at the tip of the upright short shoots burst and the green needle tips can be seen",
+    # 10: sowing, for the potato the putting into the ground
+    (231, 10): "the first potatoes are put into the ground",
+    # 12: emergence
+    (209, 12): "the shoots have broken through the soil and begin to stretch",
+    (210, 12): "the plants have broken through the soil surface and reached a height of about 1 cm",
+    (215, 12): "the plants have broken through the soil surface and reached a height of about 1 cm",
+    (231, 12): "about half of the plants in the observed field have broken through the soil completely",
+    # 17: bud formation
+    (
+        209,
+        17,
+    ): "the flower bud, tightly enclosed by the young leaves, becomes visible at the shoot tip on about 50% of the "
+    "plants",
+    # 19, 21, 22: ripeness of the cereals, the maize and the rapeseed
+    (215, 19): "the first maize kernels have reached their final size",
+    (208, 19): "the first grains in several panicles have reached their final size but are still soft and green",
+    (
+        210,
+        19,
+    ): "the kernels have reached their final size; they are white to yellowish outside, soft and hold a milky liquid",
+    (206, 21): "the first grains in several ears have finished turning from green to yellow and come away easily",
+    ("i", 207, 21): "the first grains in several ears have finished turning from green to yellow and come away easily",
+    (208, 21): "the first grains have finished turning from green to yellow and come away easily, on about half of the "
+    "panicles",
+    (215, 21): "about 50% of the kernels are hard outside and yellowish to dark yellow",
+    (203, 22): "the first grains in several ears have finished turning from green to yellow and come away easily",
+    (205, 22): "most rapeseed grains are black on one half",
+    # 33: the first farming activity of the spring
+    (601, 33): "the dairy cattle are driven onto the pasture for good in spring",
+    # 41: end of flowering in the observation area
+    (111, 41): "the pollen shedding of the latest birch of the observation area has ended",
+    (139, 41): "the pollen shedding of the latest alder of the observation area has ended",
+    (203, 41): "the pollen shedding of the latest winter rye stand of the observation area has ended",
+    # 62: first ripe fruit
+    (103, 62): "all single fruits of the most advanced umbel are fully coloured",
+    (122, 62): "the first ripe, brown, matt glossy chestnuts lie on the ground",
+    (123, 62): "the fruit husk bursts and the seed falls",
+    (129, 62): "all fruits of the most advanced cyme have turned blue-black",
+    (132, 62): "the first ripe acorns with the characteristic longitudinal stripes lie on the ground",
+    # 67: growth in height
+    (
+        205,
+        67,
+    ): "the stems of about 50% of the plants are longer than 5 cm, measured from where the cotyledons attach to "
+    "the growing point",
+}
+_NO_DEFINITION = frozenset(
+    {
+        *(("a", 25, phase) for phase in (10, 12, 13, 24)),
+        *(("i", 25, phase) for phase in (10, 12, 13)),
+        ("i", 113, 41),
+        ("i", 132, 4),
+    },
+)
+
+
+def _definition(reporter: str, group: str, object_id: int, phase: int) -> str | None:
+    """Return DWD's definition of the phase for the plant, or None where the name says all there is to say."""
+    key = reporter[0]
+    if (key, object_id, phase) in _NO_DEFINITION or (group == "vine" and key == "i"):
+        return None
+    return (
+        _PLANT_DEFINITIONS.get((key, object_id, phase))
+        or _PLANT_DEFINITIONS.get((object_id, phase))
+        or _DEFINITIONS.get(phase)
+    )
+
+
 # One entry per source file: (reporter directory, group directory, file stem, dataset name
 # without the reporter prefix, ``Objekt_id``, periods that publish it, ``Phase_id``s observed).
 # The file stem is the name without the ``_akt.txt`` / ``_<from>_<to>_hist.txt`` suffix that the
@@ -1174,6 +1351,13 @@ _PLANTS: tuple[tuple[str, str, str, str, int, tuple[str, ...], tuple[int, ...]],
 )
 
 
+def _phase_description(reporter: str, group: str, object_id: int, phase: int) -> str:
+    """Return DWD's phase name, in English and German, followed by its definition for the plant where it gives one."""
+    name = f"{_PHASES[phase][2].capitalize()} ({_PHASES[phase][1]})"
+    definition = _definition(reporter, group, object_id, phase)
+    return f"{name}: {definition}." if definition else f"{name}."
+
+
 def _dataset(
     reporter: str,
     group: str,
@@ -1200,7 +1384,7 @@ def _dataset(
                 "name": _PHASES[phase][0],
                 "name_original": str(phase),
                 "unit": "dimensionless",
-                "description": f"{_PHASES[phase][2].capitalize()} ({_PHASES[phase][1]}).",
+                "description": _phase_description(reporter, group, object_id, phase),
             }
             for phase in phases
         ],
