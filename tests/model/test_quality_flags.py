@@ -383,3 +383,17 @@ def test_a_deep_low_at_a_station_near_sea_level_is_kept_and_a_typo_of_the_zugspi
 def test_a_station_without_a_plausible_elevation_has_no_pressure_rule(elevation: float | None) -> None:
     """Test that a catalogue without an elevation, or with a code or a typo for one, is no ground to null a reading."""
     assert station_pressure_range(elevation) is None
+
+
+def test_any_parameter_can_be_laid_beside_another_under_a_name_of_its_own() -> None:
+    """Test that `into` names the column, so that the air temperature can be laid beside the road surface (GH-3624)."""
+    df = pl.DataFrame(
+        {
+            "timestamp": [1, 1, 2],
+            "parameter": ["surface", "air", "surface"],
+            "value": [30.0, 5.0, 31.0],
+        }
+    )
+    out = with_speed_beside(df, {"surface": "air"}, on=["timestamp"], into="__air")
+    assert SPEED_BESIDE not in out.columns
+    assert out.get_column("__air").to_list() == [5.0, None, None]

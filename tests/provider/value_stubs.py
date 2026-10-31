@@ -1944,26 +1944,31 @@ def _meteoswiss_10_minutes(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = T
 def _dwd_road(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # a flat read of a KM file, as pdbufr gives it: ecCodes decodes a missing value to null itself, so the one value
     # that is no reading is the -75.00 C (198.15 K) KM's stopped sensors hold for days (GH-1917), beside an air
-    # temperature that is one. The second minute reads -25.00 C, which a German winter reaches: it stays (GH-3222)
+    # temperature that is one. The second minute reads -25.00 C, which a German winter reaches: it stays (GH-3222).
+    # The hygrometer writes 0.4 % at the first minute and 87 at the second: the 0.4 is no reading (GH-3624). At
+    # midnight (UTC, the sun 60.8 degrees under the horizon at 50 N 10 E) the surface reads 27 C beside the air's -3 C,
+    # 30 K above it, which is no reading either; the same surface at noon would be a road in the sun
     if not bufr_is_available():
         pytest.skip("eccodes and pdbufr required")
     import pandas as pd  # noqa: PLC0415
 
-    def subset(minute: int, road: float) -> dict[str, object]:
+    def subset(hour: int, minute: int, road: float, humidity: float) -> dict[str, object]:
         return {
             "#1#year": 2026,
             "#1#month": 1,
             "#1#day": 13,
-            "#1#hour": 12,
+            "#1#hour": hour,
             "#1#minute": minute,
             "#1#shortStationName": "K001",
             "#1#airTemperature": 270.15,
             "#1#roadSurfaceTemperature": road,
+            "#1#relativeHumidity": humidity,
         }
 
     files = {
-        "swis2-ISXD70_DWKM_131200-2601131200-KM---bin": pd.DataFrame([subset(0, 198.15)]),
-        "swis2-ISXD70_DWKM_131215-2601131215-KM---bin": pd.DataFrame([subset(15, 248.15)]),
+        "swis2-ISXD70_DWKM_130000-2601130000-KM---bin": pd.DataFrame([subset(0, 0, 300.15, 93.0)]),
+        "swis2-ISXD70_DWKM_131200-2601131200-KM---bin": pd.DataFrame([subset(12, 0, 198.15, 0.4)]),
+        "swis2-ISXD70_DWKM_131215-2601131215-KM---bin": pd.DataFrame([subset(12, 15, 248.15, 87.0)]),
     }
     monkeypatch.setattr(dwd_road_api, "list_remote_files_fsspec", lambda *_args, **_kwargs: list(files))
     monkeypatch.setattr(
@@ -1981,7 +1986,7 @@ def _dwd_road(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.Da
     monkeypatch.setattr("pdbufr.read_bufr", read_bufr)
     request = DwdRoadRequest(
         parameters=[("15_minutes", "data")],
-        start=_day(2026, 1, 13, 12),
+        start=_day(2026, 1, 13, 0),
         end=_day(2026, 1, 13, 13),
         settings=_settings(),
         options=_options(drop_nulls),
@@ -2094,6 +2099,30 @@ def _dmi_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.D
         options=_options(drop_nulls),
     )
     return stations_result(request, "daily", "data", "22375").values().all().df
+
+
+def _dmi_monthly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # `max_snow_depth` of `timeResolution=month` (read 2026-10-31, GH-3622): 24043 has 999.0 cm for September 2020,
+    # as has 31259, both marked `validity: true` with 7 values in the calculation. DMI's documentation names no code
+    # for it and the 8,490 other monthly and 1,229 annual values run to 138 cm, so it is a sentinel that looks like a
+    # depth in a Danish September. The 5 cm below are made up
+    rows = [
+        ("2020-08-01T00:00:00.001000+02:00", "2020-09-01T00:00:00+02:00", 5.0),
+        ("2020-09-01T00:00:00.001000+02:00", "2020-10-01T00:00:00+02:00", 999.0),
+    ]
+    features = [
+        {"properties": {"parameterId": "max_snow_depth", "from": start, "to": end, "value": value}}
+        for start, end, value in rows
+    ]
+    serve(monkeypatch, dmi_api, {"stationValue": json.dumps({"features": features}).encode()})
+    request = DmiObservationRequest(
+        parameters=[("monthly", "data")],
+        start=_day(2020, 8, 1),
+        end=_day(2020, 9, 1),
+        settings=_settings(),
+        options=_options(drop_nulls),
+    )
+    return stations_result(request, "monthly", "data", "24043").values().all().df
 
 
 def _rmi_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -2489,9 +2518,14 @@ STUBS = [
         "dwd/road 15_minutes/data",
         _dwd_road,
         reading=("temperature_surface", -25.0),
-        # no sensor reads -75 C: null, with the kelvin DWD wrote
-        sentinels=(("temperature_surface", -75.0),),
-        tokens=(("temperature_surface", "198.15", None),),
+        # no sensor reads -75 C: null, with the kelvin DWD wrote; nor 0.4 % of humidity, nor a road 30 K warmer than the
+        # air at midnight (GH-3624)
+        sentinels=(("temperature_surface", -75.0), ("temperature_surface", 27.0), ("humidity_relative", 0.4)),
+        tokens=(
+            ("temperature_surface", "198.15", None),
+            ("temperature_surface", "300.15", None),
+            ("humidity_relative", "0.4", None),
+        ),
     ),
     ValueStub(
         "dmi/observation hourly/data",
@@ -2506,6 +2540,14 @@ STUBS = [
         reading=("precipitation_amount", 3.5),
         # the trace is no missing value: it is 0.0, with the text DMI wrote
         tokens=(("precipitation_amount", "-0.1", 0.0),),
+    ),
+    ValueStub(
+        "dmi/observation monthly/data",
+        _dmi_monthly,
+        reading=("snow_depth_max", 5.0),
+        # DMI's 999.0 for a month of September is no snow depth: null, with the text DMI wrote
+        sentinels=(("snow_depth_max", 999.0),),
+        tokens=(("snow_depth_max", "999", None),),
     ),
     ValueStub(
         "dmi/observation annual/data",

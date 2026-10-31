@@ -24,9 +24,24 @@ Types of changes:
   the heating degree days of Greenland, as `heating_degree_day` beside Denmark's: the base is 17 °C
   in Denmark and 19 °C in Greenland. DMI counts the days above 25 and 20 °C, so a day at exactly
   25.0 or 20.0 °C is not counted, where the names count from the threshold (Part of GH-3622)
+- `dmi/observation` now serves the global radiation of the day, month and year as `radiation_global`
+  (DMI publishes MJ/m²; it comes back in J/cm² by default), eight counts of days with DMI's own
+  thresholds (new `count_days_temperature_air_min_2m_lt_minus_10c`,
+  `count_days_wind_speed_rolling_mean_max_ge_10_8mps` and `_20_8`, `_24_5`, `_28_5`,
+  `count_days_cloud_cover_total_mean_lt_20pct`/`_gt_80pct`, `count_days_snow_cover_gt_50pct`, 2011
+  to 2015 only), the mean vapour pressure, the greatest snow depth, the 12 and 24 hour extremes and
+  precipitation (stamped at the end of their window) and the soil temperature at 10 cm. A greatest
+  snow depth of 999.0 is null (`raw:999`) and the trace code −0.1 of the 12 and 24 hour
+  precipitation is 0.0 with `raw:-0.1` (Part of GH-3622)
 
 ### Changed
 
+- **Breaking**: `dwd/road` returns null, with the number DWD wrote as the last token of
+  `quality_flags` (`raw:0.1`), for a `humidity_relative` below 1 % and for a `temperature_surface`
+  more than 20 K above the `temperature_air` of the same minute with the sun more than 6 degrees
+  below the horizon (`raw:338.75`, in K); both came back as published, among them a surface of
+  61 to 75 °C at night. Read the old number from `raw:`. The other road readings stay raw data
+  apart from the values outside their range, as the docs now say (GH-3624)
 - **Breaking**: 5 `noaa/ghcn` hourly stations are placed west of Greenwich, no longer east of it,
   where `ghcnh-station-list.csv` has lost the sign of their longitude: Nemours/Ghazaouet
   (AGUG0060517), Khouribga military airport (MOI0000GMMK), Alcaniz, Bujaraloz and Oliva

@@ -85,6 +85,7 @@ it itself.
 | a station pressure further than 75 hPa from the pressure the barometric formula of the standard atmosphere expects at the elevation of the station in the station list: a reading inside the bounds of the world that is mistyped (909.5 hPa at 48 m) or is the pressure of another height (968.6 hPa at the Zugspitze, 2,956 m) | null, `raw:<number>` as the source wrote it | DWD observation (`pressure_air_site`, `pressure_air_site_mean`), Météo-France synop (`pres`, ±7,500 Pa); a station without an elevation in the list is held to the bounds of the world only |
 | a temperature below 0 C where there is no frost: air at 2 m, its extremes and the dew point of Guadeloupe (971), Martinique (972), Guyane (973), Mayotte (985), Wallis-et-Futuna (986), French Polynesia (987) and the Îles Éparses (984: Glorieuses, Juan de Nova, Europa, Tromelin) | null, `raw:<number>` as the source wrote it | Météo-France observation and synop (the 24 synop stations are named in `synop/api.py`), the relative humidity of the row whose dew point is nulled included (the same hygrometer failed, `raw:<number>`; no floor on the humidity itself); not La Réunion, where frost occurs at altitude, nor Saint-Pierre-et-Miquelon, the southern territories (Kerguelen, Crozet, Nouvelle-Amsterdam, Dumont d'Urville) or New Caledonia |
 | a sensor stuck or dead over a period | null, `raw:<value>` | DWD observation (the pressure of a station without a barometer), RMI (sunshine) |
+| a value inside every range that is no reading, alone or beside another of its minute | null, `raw:<value>` | DWD road (a relative humidity below 1 %; a road surface temperature more than 20 K above the air temperature of its minute with the sun more than 6 degrees below the horizon) |
 | a sensor that holds one value for six hours | the value, with the flag `1` | DWD road (air, dew point and road surface temperature) |
 | a value the source flags missing | null, the flag | CHMI `4`, EA `Missing`, ECCC `M`, IMGW meteorology `8` |
 | a value the source flags suspect or invalid | the value, with the flag | all that flag (DMI `validity:false`, RMI, GHCN, Met Office, Frost, SMHI `Y`, NWS, DWD road) |
@@ -97,7 +98,7 @@ These values are returned as the source writes them, with no token:
   FMI 50,000 m, NWS and NOAA GHCN 16,093 m, ECCC 24.1 km, Météo-France synop 60,000 to 80,000 m): a lower bound, not
   the visibility. A visibility at that value says only that it was at least that far;
 - a relative humidity of 100 % and above: a hygrometer reads past 100 now and then, and no blanket rule nulls it.
-  DMI, RMI and DWD road null a humidity above 130 %, outside the physical range;
+  DMI, RMI and DWD road null a humidity above 130 %, outside the physical range, and DWD road one below 1 %;
 - a radiation of 0 at night; a long wave radiation balance that is negative (DWD DMO `radl3`);
 - a snow depth below 0 that no source documents: MeteoSwiss' automatic gauge `htoautd0` reads -1 to -5 cm on warm
   days (11 % of the hours at PLF), a spread around a bare ground and not a code;

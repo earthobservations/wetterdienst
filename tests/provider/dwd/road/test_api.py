@@ -13,7 +13,7 @@ import polars as pl
 import pytest
 
 from tests.conftest import BUFR_AVAILABLE
-from wetterdienst import Settings
+from wetterdienst import Options, Settings
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DatasetModel
 from wetterdienst.model.quality_flags import null_sentinels
@@ -98,6 +98,7 @@ def test_dwd_road_weather_station_groups() -> None:
 def _stub_stations(
     station_ids: tuple[str, ...] = ("A006",),
     parameters: list[tuple[str, str, str]] | None = None,
+    options: Options | None = None,
 ) -> StationsResult:
     """Stand a road station up rather than look one up.
 
@@ -106,7 +107,10 @@ def _stub_stations(
     """
     # the road feed is read by a window (`date_required`); this one holds every reading a test stands up
     request = DwdRoadRequest(
-        parameters=parameters or [("15_minutes", "data", "temperature_air")], start="2000-01-01", end="2100-01-01"
+        parameters=parameters or [("15_minutes", "data", "temperature_air")],
+        start="2000-01-01",
+        end="2100-01-01",
+        options=options,
     )
     df_stations = pl.DataFrame(
         [
@@ -1634,6 +1638,225 @@ def test_dwd_road_weather_an_impossible_value_is_null_with_its_number(monkeypatc
     }
     assert rows["roadSurfaceTemperature"] == (None, "1,raw:198.15")
     assert rows["airTemperature"] == (285.25, "0")
+
+
+# the stub station of `_stub_stations`, Boeglum in Schleswig-Holstein
+_NIGHT = {"#1#hour": 0}
+_DAY = {"#1#hour": 12}
+# 2026-09-13 at the stub station (54.89 N, 8.91 E): the sun stands at -2.8 degrees at 18:00 UTC and at -9.0 at 18:45
+_TWILIGHT = {"#1#hour": 18, "#1#minute": 0}
+_DEEP_DUSK = {"#1#hour": 18, "#1#minute": 45}
+
+
+def _collect_one(monkeypatch: pytest.MonkeyPatch, subset: dict[str, object]) -> pl.DataFrame:
+    """Read one subset of the stub station through the reader, as the core collects the whole dataset of it."""
+    return _collect_many(monkeypatch, [subset])
+
+
+def _collect_many(monkeypatch: pytest.MonkeyPatch, subsets: list[dict[str, object]]) -> pl.DataFrame:
+    """Read the subsets of the stub station, all in one file, through the reader."""
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    reading = _flat(*({"#1#shortStationName": "A006", **subset} for subset in subsets))
+    monkeypatch.setattr("pdbufr.read_bufr", lambda *_args, **_kwargs: reading)
+    name = "swis2-ISXD70_DWDD_131200-2609131200-DD---bin"
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [name])
+    monkeypatch.setattr(
+        api, "download_files", lambda **_kwargs: [File(url=name, content=BytesIO(b"x" * 500), status=200)]
+    )
+    return _collected(_stub_stations().values(), "A006")
+
+
+def _by_parameter(df: pl.DataFrame) -> dict[str, tuple[float | None, str | None]]:
+    return {name: (value, flags) for name, value, flags in df.select("parameter", "value", "quality_flags").rows()}
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+@pytest.mark.parametrize(
+    ("humidity", "nulled"),
+    [
+        (0.1, True),  # P925's hygrometer: 43 readings of 0.1 % in a 12 h window (GH-3624)
+        (0.0, True),
+        (0.99, True),
+        (1.0, False),  # the line: from 1 % up is left as the sensor wrote it
+        (9.0, False),  # a dry sensor, or a dry day, is not a failed one
+        (87.0, False),
+    ],
+)
+def test_dwd_road_weather_a_humidity_under_one_percent_is_no_reading(
+    monkeypatch: pytest.MonkeyPatch,
+    humidity: float,
+    nulled: bool,  # noqa: FBT001
+) -> None:
+    """A relative humidity under 1 % is null and keeps the number DWD wrote as the last token (GH-3624)."""
+    df = _collect_one(monkeypatch, {**_DAY, "#1#relativeHumidity": humidity})
+    value, flags = _by_parameter(df)["relativeHumidity"]
+    if nulled:
+        assert (value, flags) == (None, f"raw:{humidity:g}")
+    else:
+        assert (value, flags) == (humidity, None)
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+@pytest.mark.parametrize(
+    ("when", "surface", "air", "nulled", "case"),
+    [
+        (_NIGHT, 338.75, 285.25, True, "65.6 C beside 12.1 C at midnight: the 53 K of P034 and P925 (GH-3624)"),
+        (_NIGHT, 305.26, 285.25, True, "20.01 K above the air, the nearest above the line"),
+        (_NIGHT, 305.25, 285.25, False, "20.00 K above the air is on the line, which is the reading's"),
+        (_NIGHT, 300.25, 285.25, False, "15 K: a heated bridge deck or a stored heat is a road"),
+        (_NIGHT, 275.25, 285.25, False, "10 K under the air is an ordinary clear night"),
+        (_DAY, 338.75, 285.25, False, "the same readings at noon: sun on tarmac is a road at 65 C"),
+        (_TWILIGHT, 338.75, 285.25, False, "the sun at -2.8 degrees: the day's heat is not out of the road yet"),
+        (_DEEP_DUSK, 338.75, 285.25, True, "the sun at -9.0 degrees, past the end of civil twilight"),
+        (_NIGHT, 338.75, None, False, "no air beside it, so nothing to hold it to"),
+        (_NIGHT, 338.75, 198.15, False, "the air of -75 C is itself no reading, so it holds nothing to account"),
+    ],
+)
+def test_dwd_road_weather_a_surface_far_above_the_air_at_night_is_no_reading(
+    monkeypatch: pytest.MonkeyPatch,
+    when: dict[str, int],
+    surface: float,
+    air: float | None,
+    nulled: bool,  # noqa: FBT001
+    case: str,
+) -> None:
+    """A road surface more than 20 K above the air with the sun below -6 degrees is null, and keeps its number."""
+    subset = {**when, "#1#roadSurfaceTemperature": surface}
+    if air is not None:
+        subset["#1#airTemperature"] = air
+    rows = _by_parameter(_collect_one(monkeypatch, subset))
+    assert rows["roadSurfaceTemperature"] == ((None, f"raw:{surface:g}") if nulled else (surface, None)), case
+    # the air is never touched by the rule on the surface
+    if air is not None and air > 200:
+        assert rows["airTemperature"][0] == air, case
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+@pytest.mark.parametrize(
+    ("suspect_bit", "nulled"),
+    [
+        (4, False),  # DWD marks the air suspect: it is not held against the surface (the M080 class)
+        (7, True),  # DWD marks the ground temperature suspect, not the air: the air stands
+    ],
+)
+def test_dwd_road_weather_an_air_dwd_marks_suspect_does_not_null_the_surface(
+    monkeypatch: pytest.MonkeyPatch,
+    suspect_bit: int,
+    nulled: bool,  # noqa: FBT001
+) -> None:
+    """Only DWD's own flag excuses the surface; the run rule's verdict depends on the request's window (GH-3624)."""
+    df = _collect_one(
+        monkeypatch,
+        {
+            **_NIGHT,
+            "#1#qualityInformationAwsData": 1 << (30 - suspect_bit),
+            "#1#roadSurfaceTemperature": 338.75,
+            "#1#airTemperature": 285.25,
+        },
+    )
+    rows = _by_parameter(df)
+    # the bit of the air or of the ground sets the verdict of its own reading, `1` suspect, beside the `raw:` token
+    assert rows["roadSurfaceTemperature"] == ((None, "1,raw:338.75") if nulled else (338.75, "0"))
+    assert rows["airTemperature"] == ((285.25, "0") if nulled else (285.25, "1"))
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_an_air_the_run_rule_marks_still_holds_the_surface_to_account(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The verdict that excuses an air is DWD's own, not the stuck-sensor rule's, which the request's window decides.
+
+    The air holds -25.00 C for 26 readings of a night (6 h and 15 min) and DWD sets no flag, so the run rule marks it
+    `1`; the surface, 32 K above it and moving, is null all the same (GH-3624).
+    """
+    start = dt.datetime(2026, 9, 13, 20, 45, tzinfo=dt.UTC)
+    subsets = []
+    for i in range(26):
+        at = start + dt.timedelta(minutes=15 * i)
+        subsets.append(
+            {
+                "#1#day": at.day,
+                "#1#hour": at.hour,
+                "#1#minute": at.minute,
+                "#1#airTemperature": 248.15,
+                "#1#roadSurfaceTemperature": round(280.15 + 0.01 * i, 2),
+            }
+        )
+    df = _collect_many(monkeypatch, subsets)
+    surface = df.filter(pl.col("parameter").eq("roadSurfaceTemperature")).sort("timestamp")
+    air = df.filter(pl.col("parameter").eq("airTemperature"))
+    assert surface.get_column("value").to_list() == [None] * 26
+    assert surface.get_column("quality_flags").to_list() == [f"raw:{s['#1#roadSurfaceTemperature']:g}" for s in subsets]
+    assert air.get_column("value").to_list() == [248.15] * 26
+    assert air.get_column("quality_flags").to_list() == ["1"] * 26
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_the_surface_is_held_to_an_air_that_was_not_asked_for(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A request for the surface alone holds it to the air beside it all the same, and hands out only the surface."""
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    reading = _flat(
+        {**_NIGHT, "#1#shortStationName": "A006", "#1#roadSurfaceTemperature": 338.75, "#1#airTemperature": 285.25}
+    )
+    monkeypatch.setattr("pdbufr.read_bufr", lambda *_args, **_kwargs: reading)
+    name = "swis2-ISXD70_DWDD_131200-2609131200-DD---bin"
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [name])
+    monkeypatch.setattr(
+        api, "download_files", lambda **_kwargs: [File(url=name, content=BytesIO(b"x" * 500), status=200)]
+    )
+    stations = _stub_stations(
+        parameters=[("15_minutes", "data", "temperature_surface")], options=Options(drop_nulls=False)
+    )
+    df = stations.values().all().df
+    assert df.select("parameter", "value", "quality_flags").rows() == [("temperature_surface", None, "raw:338.75")]
+
+
+@pytest.mark.parametrize(
+    ("timestamp", "latitude", "longitude", "elevation", "tolerance"),
+    [
+        # the end and the beginning of civil twilight, -6 degrees, as the US Naval Observatory publishes them to the
+        # minute (aa.usno.navy.mil/api/rstt/oneday, read 2026-10-31): late October at Berlin, the equinox and the
+        # solstices at 50 N 10 E. A minute is 0.1 to 0.2 degrees of the sun at the horizon
+        ("2026-10-31 16:14", 52.52, 13.405, -6.0, 0.15),
+        ("2026-10-31 05:25", 52.52, 13.405, -6.0, 0.15),
+        ("2026-09-23 17:48", 50.0, 10.0, -6.0, 0.15),
+        ("2026-09-23 04:35", 50.0, 10.0, -6.0, 0.15),
+        ("2026-06-21 20:18", 50.0, 10.0, -6.0, 0.15),
+        ("2026-06-21 02:26", 50.0, 10.0, -6.0, 0.15),
+        ("2026-12-21 15:59", 50.0, 10.0, -6.0, 0.15),
+        # sunrise and sunset: the horizon less the half degree of refraction and the radius of the sun, -0.83, which the
+        # formula leaves out
+        ("2026-10-31 06:01", 52.52, 13.405, -0.83, 0.15),
+        ("2026-10-31 15:39", 52.52, 13.405, -0.83, 0.15),
+        # the upper transit of the same source (its time, the elevation not being published): the sun stands at
+        # 90 - latitude + declination. The declinations are not the observatory's but the textbook's: the obliquity of
+        # the ecliptic, 23.44 degrees, at the two solstices, and about -0.17 degrees at 11:12 UTC on 23 September, 11
+        # hours after the equinox of 00:05 UTC (the sun moves 0.4 degrees of declination a day there)
+        ("2026-06-21 11:22", 50.0, 10.0, 63.44, 0.1),
+        ("2026-12-21 11:18", 50.0, 10.0, 16.56, 0.1),
+        ("2026-09-23 11:12", 50.0, 10.0, 39.83, 0.1),
+        # and the lower transit, twelve hours on, latitude + declination - 90
+        ("2026-06-21 23:22", 50.0, 10.0, -16.56, 0.1),
+        ("2026-12-21 23:18", 50.0, 10.0, -63.44, 0.1),
+    ],
+)
+def test_dwd_road_weather_the_sun_stands_where_the_observatory_puts_it(
+    timestamp: str,
+    latitude: float,
+    longitude: float,
+    elevation: float,
+    tolerance: float,
+) -> None:
+    """The sun that defines the night stands where published times put it, to a fraction of a degree."""
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    frame = pl.DataFrame({"timestamp": [timestamp]}).with_columns(
+        pl.col("timestamp").str.to_datetime("%Y-%m-%d %H:%M", time_zone="UTC")
+    )
+    computed = frame.select(api._sun_elevation(pl.col("timestamp"), latitude, longitude)).item()  # noqa: SLF001
+    assert computed == pytest.approx(elevation, abs=tolerance)
 
 
 _FAILED_DOWNLOAD_FILES = (
