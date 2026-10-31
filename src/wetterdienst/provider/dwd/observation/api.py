@@ -151,7 +151,7 @@ class DwdObservationValues(TimeseriesValues):
         else:
             dataset = parameter_or_dataset.dataset
         periods_and_date_ranges = self._periods_and_date_ranges(station_id, dataset, settings)
-        elevation = self._station_elevation(station_id)
+        elevation = self._station_elevation(station_id, dataset)
         parameter_data = []
         # when DWD wrote the archives each period read (the `Last-Modified` of their download), by the rank of the
         # period: noted below for the periods whose rows are in the answer (GH-2567)

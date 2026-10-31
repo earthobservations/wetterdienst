@@ -312,7 +312,7 @@ OUT_OF_RANGE_BY_NAME = {
 # The pressure at the station (`pressure_air_site`, `pressure_air_site_mean`) is also held to what the barometric
 # formula expects at the station's elevation, 75 hPa either way (GH-3627): the world-wide range above lets through a P0
 # typed one digit off at a station near sea level (909.5 hPa at 00433, 1994-08-29 21:00; 795.0 at 03032, 1993-12-16
-# 20:00) and the Zugspitze's own file holds 968.6 hPa where 704 are expected at 2,964 m. The elevation is the one of the
+# 20:00) and the Zugspitze's own file holds 968.6 hPa where 705 are expected at 2,956 m. The elevation is the one of the
 # station list, so a station that was moved by 500 m or more keeps the readings of its other site only while they lie
 # within the range. A reading outside is null and keeps the number DWD wrote as `raw:`.
 STATION_PRESSURE_PARAMETERS = frozenset({"pressure_air_site", "pressure_air_site_mean"})

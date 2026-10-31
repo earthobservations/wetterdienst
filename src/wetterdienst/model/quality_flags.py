@@ -216,7 +216,7 @@ def station_pressure_range(
 
     The world-wide bounds of a pressure at the station (500 to 1090 hPa) are too wide to find a reading mistyped by a
     digit at a station near sea level (a P0 of 909.5 hPa at 48 m) or one that is a pressure of another height (968.6
-    hPa at the Zugspitze, 2,964 m, where 704 hPa are expected): 75 hPa are about 650 m of height, which the weather at
+    hPa at the Zugspitze, 2,956 m, where 705 hPa are expected): 75 hPa are about 650 m of height, which the weather at
     the station stays within: the deep lows of Dumont d'Urville (938 hPa at 43 m, where 1008 are expected) are inside.
     A reading outside is null and keeps the number as ``raw`` (``OutOfRange``).
 
@@ -226,7 +226,7 @@ def station_pressure_range(
         where: restricts the rule to the parameter(s) this expression selects.
 
     Returns:
-        The rule, or ``None`` where the station has no elevation or one from -500 to 9000 m that is not.
+        The rule, or ``None`` where the station has no elevation or one outside -500 to 9000 m.
 
     """
     if elevation is None or not _STATION_ELEVATIONS[0] <= elevation <= _STATION_ELEVATIONS[1]:

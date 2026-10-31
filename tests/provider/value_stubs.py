@@ -951,6 +951,35 @@ def _meteofrance_observation_hourly_martinique(
     return stations_result(request, "hourly", "core", "97212007").values().all().df
 
 
+def _meteofrance_observation_hourly_mayotte(
+    monkeypatch: pytest.MonkeyPatch,
+    drop_nulls: bool = True,  # noqa: FBT001, FBT002
+) -> pl.DataFrame:
+    # HOR_departement_985_periode_2025-2026 of data.gouv.fr, read 2026-10-30, the row of VAHIBE_SAPC (98511003, 222
+    # m) at 2025-06-10 07 h as the file writes it: `TD` -4.5 (validation code 9) beside `T` 23.8 and `U` 15 (code 9),
+    # in Mayotte, which lies at 12.7 to 13.0 degrees south and has no frost (GH-3135, GH-3629). The dew point is
+    # between 20.0 at 06 h and 20.6 at 08 h; the humidity of those two hours is worded by the stub. The humidity of
+    # the failed hygrometer is null with the dew point and keeps `raw:15`
+    hour = {"NUM_POSTE": "98511003"}
+    rows = [
+        {**hour, "AAAAMMJJHH": "2025061006", "T": "23.5", "QT": "1", "TD": "20.0", "QTD": "1", "U": "81", "QU": "1"},
+        {**hour, "AAAAMMJJHH": "2025061007", "T": "23.8", "QT": "1", "TD": "-4.5", "QTD": "9", "U": "15", "QU": "9"},
+        {**hour, "AAAAMMJJHH": "2025061008", "T": "24.4", "QT": "1", "TD": "20.6", "QTD": "1", "U": "79", "QU": "1"},
+    ]
+    _serve_meteofrance(monkeypatch, "hourly", "others", "HOR_departement_985_periode_2025-2026", rows)
+    request = MeteoFranceObservationRequest(
+        parameters=[
+            ("hourly", "others", "temperature_dew_point_2m"),
+            ("hourly", "others", "humidity_relative"),
+        ],
+        start=_day(2025, 6, 10),
+        end=_day(2025, 6, 11),
+        settings=_settings(),
+        options=_options(drop_nulls),
+    )
+    return stations_result(request, "hourly", "others", "98511003", elevation=222.0).values().all().df
+
+
 def _meteofrance_observation_daily_guadeloupe(
     monkeypatch: pytest.MonkeyPatch,
     drop_nulls: bool = True,  # noqa: FBT001, FBT002
@@ -1183,6 +1212,36 @@ def _meteofrance_synop_impossible(monkeypatch: pytest.MonkeyPatch, drop_nulls: b
         options=_options(drop_nulls),
     )
     return stations_result(request, "subdaily", "data", "61976").values().all().df
+
+
+def _meteofrance_synop_pressure_off_the_elevation(
+    monkeypatch: pytest.MonkeyPatch,
+    drop_nulls: bool = True,  # noqa: FBT001, FBT002
+) -> pl.DataFrame:
+    # rows of TROMELIN (61976, 7 m, where the standard atmosphere expects 1012.4 hPa) in synop_2000.csv.gz, read
+    # 2026-10-31, as the file writes them: at 2000-07-17T21:00Z `pres` 109730 Pa (1097.3 hPa, inside the bounds of the
+    # world) beside a `pmer` of 101880 and `t` 295.85 K, and at 18:00Z a `pmer` of 101890 with no `pres`. The file holds
+    # 43 `pres` more than 7,500 Pa from the pressure of their station's elevation in 2000, 20 of them inside the bounds
+    # of the world (GH-3627)
+    schema = list(synop_api._SYNOP_CSV_SCHEMA)  # noqa: SLF001
+    station = {"geo_id_wmo": "61976"}
+    rows = [
+        {**station, "validity_time": "2000-07-17T18:00:00Z", "pmer": "101890.0", "t": "295.75"},
+        {**station, "validity_time": "2000-07-17T21:00:00Z", "pres": "109730", "pmer": "101880.0", "t": "295.85"},
+    ]
+    lines = [";".join(schema)] + [";".join(row.get(column, "") for column in schema) for row in rows]
+    serve(monkeypatch, synop_api, {"/data/OBS/SYNOP/synop_2000.csv.gz": gzip.compress("\n".join(lines).encode("utf8"))})
+    request = MeteoFranceSynopRequest(
+        parameters=[
+            ("subdaily", "data", "pressure_air_site"),
+            ("subdaily", "data", "pressure_air_sea_level"),
+        ],
+        start=_day(2000, 7, 17),
+        end=_day(2000, 7, 18),
+        settings=_settings(),
+        options=_options(drop_nulls),
+    )
+    return stations_result(request, "subdaily", "data", "61976", elevation=7.0).values().all().df
 
 
 def _meteofrance_synop_guyane(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -2619,6 +2678,13 @@ STUBS = [
         ),
     ),
     ValueStub(
+        "meteofrance/observation hourly/others (Mayotte, no frost)",
+        _meteofrance_observation_hourly_mayotte,
+        reading=("temperature_dew_point_2m", 20.0),
+        sentinels=(("temperature_dew_point_2m", -4.5), ("humidity_relative", 0.15)),
+        tokens=(("temperature_dew_point_2m", "-4.5", None), ("humidity_relative", "15", None)),
+    ),
+    ValueStub(
         "meteofrance/observation hourly/others",
         _meteofrance_observation_hourly_others,
         reading=("cloud_cover_total", 0.5),
@@ -2640,6 +2706,14 @@ STUBS = [
             ("temperature_air_min_2m_last_24h", "272.95", None),
             ("humidity_relative", "5", None),
         ),
+    ),
+    ValueStub(
+        "meteofrance/synop subdaily/data (pressure off the elevation)",
+        _meteofrance_synop_pressure_off_the_elevation,
+        reading=("pressure_air_sea_level", 1018.8),
+        # the station pressure of 1097.3 hPa at 7 m is no reading, though it is inside the bounds of the world
+        sentinels=(("pressure_air_site", 1097.3),),
+        tokens=(("pressure_air_site", "109730", None),),
     ),
     ValueStub(
         "meteofrance/synop subdaily/data (readings no sensor produced)",

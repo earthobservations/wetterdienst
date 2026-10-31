@@ -320,10 +320,10 @@ def _frostless_rules(station_id: str) -> list[OutOfRange | NoReading]:
 class MeteoFranceSynopValues(TimeseriesValues):
     """Values class for Météo-France SYNOP data."""
 
-    def _station_pressure_rules(self, station_id: str) -> list[OutOfRange]:
+    def _station_pressure_rules(self, station_id: str, dataset: DatasetModel) -> list[OutOfRange]:
         """Give the rule of the pressure at the station: what its elevation allows, in Pa (GH-3627)."""
         rule = station_pressure_range(
-            self._station_elevation(station_id),
+            self._station_elevation(station_id, dataset),
             per_hectopascal=_PA_PER_HPA,
             where=pl.col("parameter").eq(_SYNOP_PRESSURE_COLUMN),
         )
@@ -408,7 +408,7 @@ class MeteoFranceSynopValues(TimeseriesValues):
                 .eq(pl.col(_SYNOP_MAXIMUM_BESIDE).str.strip_chars().cast(pl.Float64, strict=False))
             ),
             *(OutOfRange(low, high, where=pl.col("parameter").eq(name)) for name, (low, high) in _SYNOP_RANGES.items()),
-            *self._station_pressure_rules(station_id),
+            *self._station_pressure_rules(station_id, dataset),
             *_frostless_rules(station_id),
             # a missing reading is an empty field; a text that is no number was nulled by the cast alone
             # (the 2024 file holds none) and now keeps its text too

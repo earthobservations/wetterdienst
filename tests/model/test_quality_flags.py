@@ -339,7 +339,7 @@ def test_the_standard_station_pressure_follows_the_barometric_formula(elevation:
     assert standard_station_pressure(elevation) == pytest.approx(expected, abs=0.5)
 
 
-def test_a_station_pressure_is_held_to_60_hpa_around_the_formula_in_the_unit_of_the_source() -> None:
+def test_a_station_pressure_is_held_to_75_hpa_around_the_formula_in_the_unit_of_the_source() -> None:
     """Test that the range is the pressure of the elevation less and plus 75 hPa, 100 times that in Pa (GH-3627)."""
     hectopascal = station_pressure_range(48.0)
     assert hectopascal is not None
