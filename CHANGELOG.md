@@ -42,6 +42,11 @@ Types of changes:
   `phenology_heading_beginning` was "the first ears" (DWD: about half of the stems),
   `phenology_harvest_by_hand` begins with a scythe or simple machine, and
   `phenology_emergence_beginning` no longer says "first seedlings" (GH-3136)
+- **Breaking**: `dwd/dmo` `radiation_global` (`rad1h`) and `radiation_short_wave_net_last_3h`
+  (`rads3`) are 0.0 where ICON writes a little below 0 at night (to -0.77 and -0.46 J/cm2), with
+  the number kept as `raw:-0.16` in `quality_flags`; they were negative, and a `-0.00` was `-0.0`.
+  `rr1` and `rr3` already did this. Nothing to change in a caller; filter on `raw:` for the old
+  numbers (GH-3263)
 
 ## [0.179.0] - 2026-10-30
 
