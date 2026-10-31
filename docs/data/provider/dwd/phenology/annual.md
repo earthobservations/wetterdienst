@@ -94,7 +94,7 @@
 | {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
 | {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the plants have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
 | {term}`phenology_milk_ripeness_beginning` | 19 | Beginning of milk ripeness (Milchreife Beginn): the first maize kernels have reached their final size. | dimensionless |
-| {term}`phenology_dough_ripeness_beginning` | 20 | Beginning of wax-ripe stage (Teigreife Beginn): the kernels are yellowish to yellow outside. | dimensionless |
+| {term}`phenology_dough_ripeness_beginning` | 20 | Beginning of wax-ripe stage (Teigreife Beginn): the first maize kernels are yellowish to yellow outside. | dimensionless |
 | {term}`phenology_yellow_ripeness_beginning` | 21 | Yellow ripeness (Gelbreife Beginn): about 50% of the kernels are hard outside and yellowish to dark yellow. | dimensionless |
 | {term}`phenology_harvest` | 24 | Harvest (Ernte). | dimensionless |
 | {term}`phenology_tassel_tip_visible` | 65 | Tip of tassel visible (Fahnenschieben Beginn): the tassel becomes visible at the end of the stem on about 50% of the plants. | dimensionless |
@@ -357,7 +357,7 @@
 | {term}`phenology_shooting_beginning` | 15 | Beginning of shooting (Schossen Beginn): about 50% of the plants grow clearly in length and the first stem node can be felt above the ground. | dimensionless |
 | {term}`phenology_heading_beginning` | 18 | Beginning of heading (Ährenschieben Beginn): the tips of the ears push out sideways from the leaf sheaths on about 50% of the stems. | dimensionless |
 | {term}`phenology_yellow_ripeness_beginning` | 21 | Yellow ripeness (Gelbreife Beginn): the first grains have finished turning from green to yellow and come away easily, on about half of the ears. | dimensionless |
-| {term}`phenology_full_ripeness_beginning` | 22 | Beginning of full ripeness (Vollreife Beginn): the first grains in several ears have finished turning from green to yellow and come away easily. | dimensionless |
+| {term}`phenology_full_ripeness_beginning` | 22 | Beginning of full ripeness (Vollreife Beginn). | dimensionless |
 | {term}`phenology_harvest_by_hand` | 23 | Hand harvest (Ernte von Hand): the harvest begins with a scythe or a simple machine (e.g. a reaper-binder). | dimensionless |
 | {term}`phenology_harvest` | 24 | Harvest (Ernte). | dimensionless |
 
@@ -444,7 +444,7 @@
 | {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
 | {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): about 50% of the flowers have opened fully. | dimensionless |
 | {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende): about 95% of the flowers have shed their petals. | dimensionless |
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): the first fruits have their variety-typical colour and come away from the fruit wood when lifted or twisted lightly. | dimensionless |
 | {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall): about 50% of the leaves have fallen. | dimensionless |
 
 ### annual_apple_early_ripening
@@ -467,7 +467,7 @@
 | {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
 | {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): about 50% of the flowers have opened fully. | dimensionless |
 | {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende): about 95% of the flowers have shed their petals. | dimensionless |
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): the first fruits have their variety-typical colour and come away from the fruit wood when lifted or twisted lightly. | dimensionless |
 | {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall): about 50% of the leaves have fallen. | dimensionless |
 
 ### annual_apple_late_ripening
@@ -490,7 +490,7 @@
 | {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
 | {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): about 50% of the flowers have opened fully. | dimensionless |
 | {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende): about 95% of the flowers have shed their petals. | dimensionless |
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): the first fruits have their variety-typical colour and come away from the fruit wood when lifted or twisted lightly. | dimensionless |
 | {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall): about 50% of the leaves have fallen. | dimensionless |
 
 ### annual_currant_all_varieties
@@ -510,7 +510,7 @@
 | name | original name | description | unit |
 |------|---------------|-------------|------|
 | {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): the first fruits have their variety-typical red colour and come away easily from the stalk. | dimensionless |
 
 ### annual_gooseberry
 
@@ -531,7 +531,7 @@
 | {term}`phenology_sprouting_beginning` | 3 | Sprouting of leaves (Austrieb Beginn). | dimensionless |
 | {term}`phenology_leaf_unfolding_beginning` | 4 | Beginning of unfolding of leaves (Blattentfaltung Beginn). | dimensionless |
 | {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): the first fruits come away easily from the stalk. | dimensionless |
 
 ### annual_pear
 
@@ -552,7 +552,7 @@
 | {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
 | {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): about 50% of the flowers have opened fully. | dimensionless |
 | {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende): about 95% of the flowers have shed their petals. | dimensionless |
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): the first fruits come away from the fruit wood when lifted or twisted lightly. | dimensionless |
 
 ### annual_pear_early_ripening
 
@@ -573,7 +573,7 @@
 | {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
 | {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): about 50% of the flowers have opened fully. | dimensionless |
 | {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende): about 95% of the flowers have shed their petals. | dimensionless |
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): the first fruits come away from the fruit wood when lifted or twisted lightly. | dimensionless |
 
 ### annual_pear_late_ripening
 
@@ -594,7 +594,7 @@
 | {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
 | {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): about 50% of the flowers have opened fully. | dimensionless |
 | {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende): about 95% of the flowers have shed their petals. | dimensionless |
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): the first fruits come away from the fruit wood when lifted or twisted lightly. | dimensionless |
 
 ### annual_plum_early_ripening
 
@@ -612,7 +612,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): the fruits are coloured enough for a first picking to be worthwhile. | dimensionless |
 
 ### annual_plum_late_ripening
 
@@ -630,7 +630,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): the fruits are coloured enough for a first picking to be worthwhile. | dimensionless |
 
 ### annual_red_currant
 
@@ -649,7 +649,7 @@
 | name | original name | description | unit |
 |------|---------------|-------------|------|
 | {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): the first fruits have their variety-typical red colour and come away easily from the stalk. | dimensionless |
 
 ### annual_sour_cherry
 
@@ -670,7 +670,7 @@
 | {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
 | {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): about 50% of the flowers have opened fully. | dimensionless |
 | {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende): about 95% of the flowers have shed their petals. | dimensionless |
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): the fruits are coloured enough for a first picking to be worthwhile. | dimensionless |
 
 ### annual_sweet_cherry
 
@@ -691,7 +691,7 @@
 | {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
 | {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): about 50% of the flowers have opened fully. | dimensionless |
 | {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende): about 95% of the flowers have shed their petals. | dimensionless |
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): the fruits are coloured enough for a first picking to be worthwhile. | dimensionless |
 | {term}`phenology_leaf_colouring_autumn` | 31 | Autumn colouring of leaves (herbstliche Blattverfärbung): about 50% of the leaves have taken on their autumn colour. | dimensionless |
 
 ### annual_sweet_cherry_early_ripening
@@ -713,7 +713,7 @@
 | {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
 | {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): about 50% of the flowers have opened fully. | dimensionless |
 | {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende): about 95% of the flowers have shed their petals. | dimensionless |
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): the fruits are coloured enough for a first picking to be worthwhile. | dimensionless |
 | {term}`phenology_leaf_colouring_autumn` | 31 | Autumn colouring of leaves (herbstliche Blattverfärbung): about 50% of the leaves have taken on their autumn colour. | dimensionless |
 
 ### annual_sweet_cherry_late_ripening
@@ -735,7 +735,7 @@
 | {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
 | {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): about 50% of the flowers have opened fully. | dimensionless |
 | {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende): about 95% of the flowers have shed their petals. | dimensionless |
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): the fruits are coloured enough for a first picking to be worthwhile. | dimensionless |
 | {term}`phenology_leaf_colouring_autumn` | 31 | Autumn colouring of leaves (herbstliche Blattverfärbung): about 50% of the leaves have taken on their autumn colour. | dimensionless |
 
 ### annual_grapevine
@@ -890,7 +890,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully and release pollen. | dimensionless |
 
 ### annual_bird_cherry
 
@@ -908,7 +908,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully and release pollen. | dimensionless |
 
 ### annual_black_alder
 
@@ -1286,7 +1286,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully and the violet anthers become visible. | dimensionless |
 | {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): on about 50% of the spikelets the anthers hang out and release pollen when touched. | dimensionless |
 
 ### annual_midland_hawthorn
@@ -1760,10 +1760,10 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_sprouting_beginning` | 3 | Sprouting of leaves (Austrieb Beginn). | dimensionless |
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
+| {term}`phenology_sprouting_beginning` | 3 | Sprouting of leaves (Austrieb Beginn): the first buds break open and the first leaf green becomes visible, in at least 3 places of the observed plant. | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully, in at least 3 places of the observed plant. | dimensionless |
 | {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende): about 95% of the flowers have shed their petals. | dimensionless |
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): the fruits have their characteristic colour and a first picking is worthwhile. | dimensionless |
 | {term}`phenology_flowering_end_observation_area` | 41 | End of flowering in the observation area (Blüte Ende im Beobachtungsgebiet): the latest-flowering varieties of the observation area have finished flowering. | dimensionless |
 
 ### immediate_apple_late_ripening
@@ -1818,7 +1818,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): the first fruits have their variety-typical red colour and come away easily from the stalk. | dimensionless |
 
 ### immediate_sweet_cherry
 
@@ -1836,8 +1836,8 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily. | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully, in at least 3 places of the observed plant. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): the fruits are coloured enough for a first picking to be worthwhile. | dimensionless |
 
 ### immediate_grapevine_early_ripening
 
@@ -1926,7 +1926,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first catkins have extended fully and release pollen. | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the blue-violet bracts of the male catkins have moved apart far enough for pollen to be released when moved, in at least 3 places of the observed plant. | dimensionless |
 | {term}`phenology_flowering_end_observation_area` | 41 | End of flowering in the observation area (Blüte Ende im Beobachtungsgebiet): the pollen shedding of the latest alder of the observation area has ended. | dimensionless |
 
 ### immediate_ash
@@ -1945,7 +1945,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first purple anthers of male or hermaphrodite flowers burst and release pollen. | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first purple anthers of male or hermaphrodite flowers burst and release pollen, in at least 3 places of the observed plant. | dimensionless |
 
 ### immediate_birch_all_species
 
@@ -1963,7 +1963,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first catkins have extended fully and release pollen. | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first catkins have extended fully and release pollen, in at least 3 places of the observed plant. | dimensionless |
 | {term}`phenology_flowering_end_observation_area` | 41 | End of flowering in the observation area (Blüte Ende im Beobachtungsgebiet): the pollen shedding of the latest birch of the observation area has ended. | dimensionless |
 
 ### immediate_black_alder
@@ -1982,7 +1982,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first catkins have extended fully and release pollen. | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the blue-violet bracts of the male catkins have moved apart far enough for pollen to be released when moved, in at least 3 places of the observed plant. | dimensionless |
 
 ### immediate_black_elder
 
@@ -2019,7 +2019,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully, in at least 3 places of the observed plant. | dimensionless |
 
 ### immediate_blackthorn
 
@@ -2037,7 +2037,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully, in at least 3 places of the observed plant. | dimensionless |
 
 ### immediate_coltsfoot
 
@@ -2073,7 +2073,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first catkins have extended fully and release pollen. | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first catkins have extended fully and release pollen, in at least 3 places of the observed plant. | dimensionless |
 | {term}`phenology_flowering_end_observation_area` | 41 | End of flowering in the observation area (Blüte Ende im Beobachtungsgebiet). | dimensionless |
 
 ### immediate_common_snowdrop
@@ -2146,8 +2146,8 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_leaf_unfolding_beginning` | 4 | Beginning of unfolding of leaves (Blattentfaltung Beginn). | dimensionless |
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the flowers have opened and release pollen. | dimensionless |
+| {term}`phenology_leaf_unfolding_beginning` | 4 | Beginning of unfolding of leaves (Blattentfaltung Beginn): the first leaves have pushed completely out of the bud and unfolded to the stalk, in at least 3 places of the observed plant. | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the flowers have opened and release pollen, in at least 3 places of the observed plant. | dimensionless |
 | {term}`phenology_leaf_colouring_autumn` | 31 | Autumn colouring of leaves (herbstliche Blattverfärbung): about 50% of the leaves have taken on their autumn colour. | dimensionless |
 | {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall): about 50% of the leaves have fallen. | dimensionless |
 | {term}`phenology_fruit_ripe_first` | 62 | First ripe fruit (erste reife Früchte): the fruit husk bursts and the seed falls. | dimensionless |
@@ -2168,7 +2168,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully, in at least 3 places of the observed plant. | dimensionless |
 
 ### immediate_goat_willow
 
@@ -2186,7 +2186,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first catkins have extended fully and release pollen. | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first catkins have extended fully and release pollen, in at least 3 places of the observed plant. | dimensionless |
 
 ### immediate_horse_chestnut
 
@@ -2222,7 +2222,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully, in at least 3 places of the observed plant. | dimensionless |
 
 ### immediate_meadow_foxtail
 
@@ -2240,7 +2240,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully and the violet anthers become visible. | dimensionless |
 | {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): on about 50% of the spikelets the anthers hang out and release pollen when touched. | dimensionless |
 
 ### immediate_pedunculate_oak
@@ -2281,5 +2281,5 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_leaf_unfolding_beginning` | 4 | Beginning of unfolding of leaves (Blattentfaltung Beginn). | dimensionless |
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first catkins have extended fully and release pollen. | dimensionless |
+| {term}`phenology_leaf_unfolding_beginning` | 4 | Beginning of unfolding of leaves (Blattentfaltung Beginn): the first leaves have pushed completely out of the bud and unfolded to the stalk, in at least 3 places of the observed plant. | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first catkins have extended fully and release pollen, in at least 3 places of the observed plant. | dimensionless |

@@ -600,12 +600,18 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "phenology_flowering_beginning",
         "dimensionless",
         _phase(
-            "on which the first flowers opened (the first pollen released, for wind-pollinated trees; about 5% of the "
-            "flowers, for rapeseed, rye, sunflower, maize and grapevine)"
+            "on which flowering began, as DWD defines it per plant: mostly the first flowers opened, for some plants "
+            "the first pollen released, for a few a share of the flowers, ears, flower heads or plants (5%, for elder "
+            "50%)"
         ),
     ),
     CanonicalParameter(
-        "phenology_flowering_end", "dimensionless", _phase("on which about 95% of the flowers had faded")
+        "phenology_flowering_end",
+        "dimensionless",
+        _phase(
+            "on which flowering was nearly over: about 95% of the flowers, of the stand (rapeseed) or of the "
+            "inflorescences (grapevine) had faded"
+        ),
     ),
     CanonicalParameter(
         "phenology_flowering_end_observation_area",
@@ -613,7 +619,12 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         _phase("on which flowering ended across the whole observation area"),
     ),
     CanonicalParameter(
-        "phenology_flowering_general", "dimensionless", _phase("on which about half of the flowers were open")
+        "phenology_flowering_general",
+        "dimensionless",
+        _phase(
+            "on which about half of the flowers were open (for rye, the grasses and maize: about half of the ears, "
+            "spikelets or plants releasing pollen)"
+        ),
     ),
     CanonicalParameter(
         "phenology_fruit_ripe_first", "dimensionless", _phase("on which the first fruits were fully ripe")

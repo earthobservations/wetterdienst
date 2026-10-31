@@ -229,7 +229,7 @@ _DEFINITIONS: dict[int, str] = {
     21: "the first grains have finished turning from green to yellow and come away easily, on about half of the ears",
     22: "the grains that turned yellow have visibly shrunk and hardened",
     23: "the harvest begins with a scythe or a simple machine (e.g. a reaper-binder)",
-    29: "a first picking is worthwhile: the first fruits have their variety-typical colour and come away easily",
+    29: "the fruits are coloured enough for a first picking to be worthwhile",
     31: "about 50% of the leaves have taken on their autumn colour",
     32: "about 50% of the leaves have fallen",
     33: "the first spring field work that prepares the seedbed directly (e.g. harrowing, cultivator)",
@@ -246,6 +246,7 @@ _DEFINITIONS: dict[int, str] = {
     "about 50% of the plants",
 }
 _CATKINS = "the first catkins have extended fully and release pollen"
+_BRACTS = "the blue-violet bracts of the male catkins have moved apart far enough for pollen to be released when moved"
 _POLLEN = "the flowers have opened and release pollen"
 _PLANT_DEFINITIONS: dict[tuple[int, int] | tuple[str, int, int], str] = {
     # 5: beginning of flowering. The wind-pollinated trees are given by the release of pollen
@@ -263,6 +264,7 @@ _PLANT_DEFINITIONS: dict[tuple[int, int] | tuple[str, int, int], str] = {
     (112, 5): _CATKINS,
     (113, 5): _CATKINS,
     (114, 5): "the first flowers have opened in several places",
+    (115, 5): "the first flowers have opened fully and release pollen",
     (116, 5): "the first flower heads have opened fully",
     (118, 5): "the first new cone-shaped shoots, about 1 cm long, release pollen at the base",
     (120, 5): "the first flower heads have opened fully",
@@ -271,10 +273,11 @@ _PLANT_DEFINITIONS: dict[tuple[int, int] | tuple[str, int, int], str] = {
     (124, 5): _CATKINS,
     (127, 5): "the first snowdrops spread their outer petals and the stamens can be seen inside",
     (128, 5): _CATKINS,
+    ("i", 128, 5): _BRACTS,
     (129, 5): "about 50% of the single flowers of the most advanced cyme have opened fully",
     (132, 5): _POLLEN,
     (133, 5): _POLLEN,
-    (139, 5): _CATKINS,
+    (139, 5): _BRACTS,
     (
         203,
         5,
@@ -287,6 +290,8 @@ _PLANT_DEFINITIONS: dict[tuple[int, int] | tuple[str, int, int], str] = {
     (411, 5): "about 5% of the flowers have opened fully (the caps are shed)",
     (413, 5): "about 5% of the flowers have opened fully (the caps are shed)",
     # 6: general flowering
+    (134, 5): "the first flowers have opened fully and release pollen",
+    (135, 5): "the first flowers have opened fully and the violet anthers become visible",
     (135, 6): "on about 50% of the spikelets the anthers hang out and release pollen when touched",
     (
         136,
@@ -302,6 +307,10 @@ _PLANT_DEFINITIONS: dict[tuple[int, int] | tuple[str, int, int], str] = {
     (410, 7): "about 95% of the inflorescences have finished flowering",
     (411, 7): "about 95% of the inflorescences have finished flowering",
     (413, 7): "about 95% of the inflorescences have finished flowering",
+    # 3, 4: only the immediate rows of apple, beech and birch carry a sentence, for the rule on the places they add
+    ("i", 310, 3): "the first buds break open and the first leaf green becomes visible",
+    ("i", 123, 4): "the first leaves have pushed completely out of the bud and unfolded to the stalk",
+    ("i", 112, 4): "the first leaves have pushed completely out of the bud and unfolded to the stalk",
     # 8: may sprouting, of the conifers
     (
         118,
@@ -321,6 +330,7 @@ _PLANT_DEFINITIONS: dict[tuple[int, int] | tuple[str, int, int], str] = {
     ): "the flower bud, tightly enclosed by the young leaves, becomes visible at the shoot tip on about 50% of the "
     "plants",
     # 19, 21, 22: ripeness of the cereals, the maize and the rapeseed
+    (215, 20): "the first maize kernels are yellowish to yellow outside",
     (215, 19): "the first maize kernels have reached their final size",
     (208, 19): "the first grains in several panicles have reached their final size but are still soft and green",
     (
@@ -332,8 +342,22 @@ _PLANT_DEFINITIONS: dict[tuple[int, int] | tuple[str, int, int], str] = {
     (208, 21): "the first grains have finished turning from green to yellow and come away easily, on about half of the "
     "panicles",
     (215, 21): "about 50% of the kernels are hard outside and yellowish to dark yellow",
-    (203, 22): "the first grains in several ears have finished turning from green to yellow and come away easily",
     (205, 22): "most rapeseed grains are black on one half",
+    # 29: ripe to pick. DWD gives the colour and the ease of picking for apple and currants, the ease alone for pear
+    # and gooseberry, and the worth of a first picking for plum and cherries (and for immediate apple)
+    (310, 29): "the first fruits have their variety-typical colour and come away from the fruit wood when lifted or "
+    "twisted lightly",
+    (311, 29): "the first fruits have their variety-typical colour and come away from the fruit wood when lifted or "
+    "twisted lightly",
+    (313, 29): "the first fruits have their variety-typical colour and come away from the fruit wood when lifted or "
+    "twisted lightly",
+    ("i", 310, 29): "the fruits have their characteristic colour and a first picking is worthwhile",
+    (320, 29): "the first fruits come away from the fruit wood when lifted or twisted lightly",
+    (321, 29): "the first fruits come away from the fruit wood when lifted or twisted lightly",
+    (322, 29): "the first fruits come away from the fruit wood when lifted or twisted lightly",
+    (350, 29): "the first fruits come away easily from the stalk",
+    (360, 29): "the first fruits have their variety-typical red colour and come away easily from the stalk",
+    (361, 29): "the first fruits have their variety-typical red colour and come away easily from the stalk",
     # 33: the first farming activity of the spring
     (601, 33): "the dairy cattle are driven onto the pasture for good in spring",
     # 41: end of flowering in the observation area
@@ -353,10 +377,36 @@ _PLANT_DEFINITIONS: dict[tuple[int, int] | tuple[str, int, int], str] = {
     ): "the stems of about 50% of the plants are longer than 5 cm, measured from where the cotyledons attach to "
     "the growing point",
 }
+# The immediate reporters' definitions that end "(an mind. 3 Stellen des Beobachtungsobjektes)": the observation counts
+# only when it holds in at least three places of the plant observed. Keyed by ``(Objekt_id, Phase_id)``.
+_AT_LEAST_3_PLACES = frozenset(
+    {
+        (310, 3),
+        (310, 5),
+        (330, 5),
+        (139, 5),
+        (104, 5),
+        (111, 5),
+        (128, 5),
+        (121, 5),
+        (125, 5),
+        (113, 5),
+        (123, 4),
+        (123, 5),
+        (109, 5),
+        (124, 5),
+        (130, 5),
+        (112, 4),
+        (112, 5),
+    },
+)
 _NO_DEFINITION = frozenset(
     {
         *(("a", 25, phase) for phase in (10, 12, 13, 24)),
         *(("i", 25, phase) for phase in (10, 12, 13)),
+        # DWD's annual winter rye text for phase 22 is the one of phase 21 but for "mehreren Ähren" instead of half
+        # the ears, i.e. a weaker stage than rye's own yellow ripeness (a defect of the sheet): the name alone
+        ("a", 203, 22),
         ("i", 113, 41),
         ("i", 132, 4),
     },
@@ -368,11 +418,14 @@ def _definition(reporter: str, group: str, object_id: int, phase: int) -> str | 
     key = reporter[0]
     if (key, object_id, phase) in _NO_DEFINITION or (group == "vine" and key == "i"):
         return None
-    return (
+    definition = (
         _PLANT_DEFINITIONS.get((key, object_id, phase))
         or _PLANT_DEFINITIONS.get((object_id, phase))
         or _DEFINITIONS.get(phase)
     )
+    if definition and key == "i" and (object_id, phase) in _AT_LEAST_3_PLACES:
+        definition += ", in at least 3 places of the observed plant"
+    return definition
 
 
 # One entry per source file: (reporter directory, group directory, file stem, dataset name

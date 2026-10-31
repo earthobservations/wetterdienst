@@ -59,15 +59,76 @@ def test_a_row_dwd_defines_for_no_one_keeps_its_name_alone() -> None:
 
 
 def test_every_definition_is_used_and_reads_as_a_sentence() -> None:
-    """No override is left that matches no row, and a description has no table pipe or double full stop."""
-    keys = set()
+    """No override is left that applies to no row, and a description has no table pipe or double full stop.
+
+    A key counts as used only if a row gets its sentence from it: a row in `_NO_DEFINITION`, or one of the
+    immediate vine that DWD publishes no definition file for, applies none.
+    """
+    applied = set()
     for reporter, group, _stem, _plant, object_id, _periods, phases in phenology._PLANTS:  # noqa: SLF001
         for phase in phases:
-            keys |= {(reporter[0], object_id, phase), (object_id, phase)}
             definition = phenology._definition(reporter, group, object_id, phase)  # noqa: SLF001
             assert definition is None or not definition.endswith("."), (object_id, phase)
-    assert set(phenology._PLANT_DEFINITIONS) <= keys  # noqa: SLF001
+            if definition is None:
+                continue
+            key = reporter[0]
+            if (key, object_id, phase) in phenology._PLANT_DEFINITIONS:  # noqa: SLF001
+                applied.add((key, object_id, phase))
+            else:
+                applied.add((object_id, phase))
+    assert set(phenology._PLANT_DEFINITIONS) <= applied  # noqa: SLF001
     for dataset in DwdPhenologyMetadata["annual"].datasets:
         for parameter in dataset.parameters:
             assert "|" not in parameter.description
             assert ".." not in parameter.description
+
+
+def test_winter_rye_full_ripeness_keeps_the_name_alone() -> None:
+    """DWD's annual winter rye text for phase 22 is a weaker stage than rye's own yellow ripeness (phase 21)."""
+    assert _description("annual_winter_rye", 22) == "Beginning of full ripeness (Vollreife Beginn)."
+    assert "about half of the ears" in _description("annual_winter_rye", 21)
+
+
+def test_the_immediate_reporters_have_their_own_alder_text_and_the_rule_on_the_places() -> None:
+    """The immediate alder text is the bracts', not the annual catkins'; 17 immediate rows hold in 3 places only.
+
+    "(an mind. 3 Stellen des Beobachtungsobjektes)" ends the immediate reporters' definition of these 17 rows and
+    no annual one.
+    """
+    annual = DwdPhenologyMetadata["annual"]
+    assert "bracts" in _description("immediate_black_alder", 5)
+    assert "bracts" not in _description("annual_black_alder", 5)
+    rows = {
+        ("apple", 3),
+        ("apple", 5),
+        ("sweet_cherry", 5),
+        ("alder_all_species", 5),
+        ("ash", 5),
+        ("birch_all_species", 5),
+        ("black_alder", 5),
+        ("black_locust", 5),
+        ("blackthorn", 5),
+        ("common_hazel", 5),
+        ("european_beech", 4),
+        ("european_beech", 5),
+        ("forsythia", 5),
+        ("goat_willow", 5),
+        ("large_leaved_lime", 5),
+        ("silver_birch", 4),
+        ("silver_birch", 5),
+    }
+    places = "in at least 3 places of the observed plant"
+    for dataset in annual.datasets:
+        reporter, _, plant = dataset.name.partition("_")
+        for parameter in dataset.parameters:
+            held = (plant, int(parameter.name_original)) in rows
+            assert (places in parameter.description) == (held and reporter == "immediate"), dataset.name
+
+
+def test_a_first_picking_is_said_only_of_the_fruits_whose_text_says_it() -> None:
+    """DWD names colour and ease for apple, ease for pear and gooseberry, the worth of a picking for plum."""
+    assert "worthwhile" not in _description("annual_apple", 29)
+    assert "colour" not in _description("annual_pear", 29)
+    assert "colour" not in _description("annual_gooseberry", 29)
+    assert "worthwhile" in _description("annual_plum_early_ripening", 29)
+    assert "first maize kernels are yellowish" in _description("annual_maize", 20)
