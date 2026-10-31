@@ -1648,14 +1648,16 @@ _TWILIGHT = {"#1#hour": 18, "#1#minute": 0}
 _DEEP_DUSK = {"#1#hour": 18, "#1#minute": 45}
 
 
-def _collect_one(
-    monkeypatch: pytest.MonkeyPatch,
-    subset: dict[str, object],
-) -> pl.DataFrame:
+def _collect_one(monkeypatch: pytest.MonkeyPatch, subset: dict[str, object]) -> pl.DataFrame:
     """Read one subset of the stub station through the reader, as the core collects the whole dataset of it."""
+    return _collect_many(monkeypatch, [subset])
+
+
+def _collect_many(monkeypatch: pytest.MonkeyPatch, subsets: list[dict[str, object]]) -> pl.DataFrame:
+    """Read the subsets of the stub station, all in one file, through the reader."""
     from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
 
-    reading = _flat({"#1#shortStationName": "A006", **subset})
+    reading = _flat(*({"#1#shortStationName": "A006", **subset} for subset in subsets))
     monkeypatch.setattr("pdbufr.read_bufr", lambda *_args, **_kwargs: reading)
     name = "swis2-ISXD70_DWDD_131200-2609131200-DD---bin"
     monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [name])
@@ -1753,9 +1755,41 @@ def test_dwd_road_weather_an_air_dwd_marks_suspect_does_not_null_the_surface(
             "#1#airTemperature": 285.25,
         },
     )
-    value, flags = _by_parameter(df)["roadSurfaceTemperature"]
-    assert (value is None) == nulled
-    assert ("raw:338.75" in (flags or "")) == nulled
+    rows = _by_parameter(df)
+    # the bit of the air or of the ground sets the verdict of its own reading, `1` suspect, beside the `raw:` token
+    assert rows["roadSurfaceTemperature"] == ((None, "1,raw:338.75") if nulled else (338.75, "0"))
+    assert rows["airTemperature"] == ((285.25, "0") if nulled else (285.25, "1"))
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_an_air_the_run_rule_marks_still_holds_the_surface_to_account(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The verdict that excuses an air is DWD's own, not the stuck-sensor rule's, which the request's window decides.
+
+    The air holds -25.00 C for 26 readings of a night (6 h and 15 min) and DWD sets no flag, so the run rule marks it
+    `1`; the surface, 32 K above it and moving, is null all the same (GH-3624).
+    """
+    start = dt.datetime(2026, 9, 13, 20, 45, tzinfo=dt.UTC)
+    subsets = []
+    for i in range(26):
+        at = start + dt.timedelta(minutes=15 * i)
+        subsets.append(
+            {
+                "#1#day": at.day,
+                "#1#hour": at.hour,
+                "#1#minute": at.minute,
+                "#1#airTemperature": 248.15,
+                "#1#roadSurfaceTemperature": round(280.15 + 0.01 * i, 2),
+            }
+        )
+    df = _collect_many(monkeypatch, subsets)
+    surface = df.filter(pl.col("parameter").eq("roadSurfaceTemperature")).sort("timestamp")
+    air = df.filter(pl.col("parameter").eq("airTemperature"))
+    assert surface.get_column("value").to_list() == [None] * 26
+    assert surface.get_column("quality_flags").to_list() == [f"raw:{s['#1#roadSurfaceTemperature']:g}" for s in subsets]
+    assert air.get_column("value").to_list() == [248.15] * 26
+    assert air.get_column("quality_flags").to_list() == ["1"] * 26
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
@@ -1796,8 +1830,10 @@ def test_dwd_road_weather_the_surface_is_held_to_an_air_that_was_not_asked_for(m
         # formula leaves out
         ("2026-10-31 06:01", 52.52, 13.405, -0.83, 0.15),
         ("2026-10-31 15:39", 52.52, 13.405, -0.83, 0.15),
-        # the upper transit of the same source, where the sun stands at 90 - latitude + declination: 63.44 at the June
-        # solstice, 16.56 at the December one, and 90 - 50 - 0.17 at the equinox
+        # the upper transit of the same source (its time, the elevation not being published): the sun stands at
+        # 90 - latitude + declination. The declinations are not the observatory's but the textbook's: the obliquity of
+        # the ecliptic, 23.44 degrees, at the two solstices, and about -0.17 degrees at 11:12 UTC on 23 September, 11
+        # hours after the equinox of 00:05 UTC (the sun moves 0.4 degrees of declination a day there)
         ("2026-06-21 11:22", 50.0, 10.0, 63.44, 0.1),
         ("2026-12-21 11:18", 50.0, 10.0, 16.56, 0.1),
         ("2026-09-23 11:12", 50.0, 10.0, 39.83, 0.1),
