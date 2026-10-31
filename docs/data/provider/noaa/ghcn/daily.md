@@ -194,12 +194,12 @@
 | {term}`ice_on_water_thickness` | thic | Thickness of ice on water (mm; the file has tenths of mm) | mm | >=0 |
 | {term}`temperature_air_2m` | tobs | Temperature at the time of observation (°C; the file has tenths of degrees) | °C | - |
 | {term}`sunshine_duration` | tsun | Daily total sunshine (minutes) | min | >=0 |
-| {term}`wind_direction_gust_max_5sec` | wdf5 | Direction of fastest 5-second wind (degrees) | ° | >=0,<=360 |
-| {term}`wind_direction_gust_max_1min` | wdf1 | Direction of fastest 1-minute wind (degrees) | ° | >=0,<=360 |
-| {term}`wind_direction_gust_max_2min` | wdf2 | Direction of fastest 2-minute wind (degrees) | ° | >=0,<=360 |
-| {term}`wind_direction_gust_max` | wdfg | Direction of peak wind gust (degrees) | ° | >=0,<=360 |
-| {term}`wind_direction_gust_max_instant` | wdfi | Direction of highest instantaneous wind (degrees) | ° | >=0,<=360 |
-| {term}`wind_direction_gust_max_1mile` | wdfm | Fastest mile wind direction (degrees). | ° | >=0,<=360 |
+| {term}`wind_direction_gust_max_5sec` | wdf5 | Direction of fastest 5-second wind (degrees). A 0 beside a speed of exactly 0 (a calm, or a gust the source did not report) is null. | ° | >=0,<=360 |
+| {term}`wind_direction_gust_max_1min` | wdf1 | Direction of fastest 1-minute wind (degrees). A 0 beside a speed of exactly 0 (a calm, or a gust the source did not report) is null. | ° | >=0,<=360 |
+| {term}`wind_direction_gust_max_2min` | wdf2 | Direction of fastest 2-minute wind (degrees). A 0 beside a speed of exactly 0 (a calm, or a gust the source did not report) is null. | ° | >=0,<=360 |
+| {term}`wind_direction_gust_max` | wdfg | Direction of peak wind gust (degrees). A 0 beside a speed of exactly 0 (a calm, or a gust the source did not report) is null. | ° | >=0,<=360 |
+| {term}`wind_direction_gust_max_instant` | wdfi | Direction of highest instantaneous wind (degrees). A 0 beside a speed of exactly 0 (a calm, or a gust the source did not report) is null. | ° | >=0,<=360 |
+| {term}`wind_direction_gust_max_1mile` | wdfm | Fastest mile wind direction (degrees). A 0 beside a speed of exactly 0 (a calm, or a gust the source did not report) is null. | ° | >=0,<=360 |
 | {term}`wind_movement` | wdmv | 24-hour wind movement (km) | km | >=0 |
 | {term}`water_equivalent_snow_depth` | wesd | Water equivalent of snow on the ground (mm; the file has tenths of mm) | mm | >=0 |
 | {term}`water_equivalent_snow_depth_new` | wesf | Water equivalent of snowfall (mm; the file has tenths of mm) | mm | >=0 |

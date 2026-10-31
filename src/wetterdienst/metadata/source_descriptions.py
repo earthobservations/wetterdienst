@@ -2863,7 +2863,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             " computed in a variety of ways, including traditional fixed hours of the day, whereas TAXN (not served "
             "here) is solely the average of TMAX and TMIN."
         ),
-        ("daily", "data", "wdfm"): "Fastest mile wind direction (degrees).",
+        ("daily", "data", "wdfm"): (
+            "Fastest mile wind direction (degrees)."
+            " A 0 beside a speed of exactly 0 (a calm, or a gust the source did not report) is null."
+        ),
         ("daily", "data", "acmc"): "Average cloudiness midnight to midnight from 30-second ceilometer data (percent)",
         ("daily", "data", "acmh"): "Average cloudiness midnight to midnight from manual observations (percent)",
         ("daily", "data", "acsc"): "Average cloudiness sunrise to sunset from 30-second ceilometer data (percent)",
@@ -3042,11 +3045,26 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "tmin"): "Minimum temperature (°C; the file has tenths of degrees)",
         ("daily", "data", "tobs"): "Temperature at the time of observation (°C; the file has tenths of degrees)",
         ("daily", "data", "tsun"): "Daily total sunshine (minutes)",
-        ("daily", "data", "wdf1"): "Direction of fastest 1-minute wind (degrees)",
-        ("daily", "data", "wdf2"): "Direction of fastest 2-minute wind (degrees)",
-        ("daily", "data", "wdf5"): "Direction of fastest 5-second wind (degrees)",
-        ("daily", "data", "wdfg"): "Direction of peak wind gust (degrees)",
-        ("daily", "data", "wdfi"): "Direction of highest instantaneous wind (degrees)",
+        ("daily", "data", "wdf1"): (
+            "Direction of fastest 1-minute wind (degrees)."
+            " A 0 beside a speed of exactly 0 (a calm, or a gust the source did not report) is null."
+        ),
+        ("daily", "data", "wdf2"): (
+            "Direction of fastest 2-minute wind (degrees)."
+            " A 0 beside a speed of exactly 0 (a calm, or a gust the source did not report) is null."
+        ),
+        ("daily", "data", "wdf5"): (
+            "Direction of fastest 5-second wind (degrees)."
+            " A 0 beside a speed of exactly 0 (a calm, or a gust the source did not report) is null."
+        ),
+        ("daily", "data", "wdfg"): (
+            "Direction of peak wind gust (degrees)."
+            " A 0 beside a speed of exactly 0 (a calm, or a gust the source did not report) is null."
+        ),
+        ("daily", "data", "wdfi"): (
+            "Direction of highest instantaneous wind (degrees)."
+            " A 0 beside a speed of exactly 0 (a calm, or a gust the source did not report) is null."
+        ),
         ("daily", "data", "wdmv"): "24-hour wind movement (km)",
         ("daily", "data", "wesd"): "Water equivalent of snow on the ground (mm; the file has tenths of mm)",
         ("daily", "data", "wesf"): "Water equivalent of snowfall (mm; the file has tenths of mm)",

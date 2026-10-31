@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.40.0] - 2026-10-31
+
 ### Changed
 
 - `[Meteogram]` The forecast's table of values is a view of its own, no longer a "Show as table"
@@ -1721,7 +1723,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.39.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.40.0...HEAD
+[0.40.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.39.0...app-v0.40.0
 [0.39.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.38.0...app-v0.39.0
 [0.38.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.37.0...app-v0.38.0
 [0.37.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.36.0...app-v0.37.0
