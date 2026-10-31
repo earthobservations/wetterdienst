@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Iterable
@@ -18,6 +19,8 @@ from typing_extensions import TypeVar
 from wetterdienst.exceptions import ProviderContractError
 from wetterdienst.metadata.resolution import count_readings, reading_interval
 from wetterdienst.model.fetch_ahead import FetchAhead, FilesAhead
+from wetterdienst.model.judge import SOURCE as SOURCE_COLUMN
+from wetterdienst.model.judge import Beside, Plan, Rule, from_canonical, judge, plan_for, to_canonical
 from wetterdienst.model.metadata import group_parameters_by_dataset
 from wetterdienst.model.parameter_rows import ParameterRows
 from wetterdienst.model.plausibility import applying, leave_out_suspect
@@ -271,6 +274,21 @@ def _value_as_number(df: pl.DataFrame, provider: str) -> pl.Expr:
     return value
 
 
+#: an experiment of the spike: convert and judge only the parameters asked for and the neighbours a rule reads, which
+#: costs the checks that look at a parameter nobody asked for (the answer holds the same, since a verdict on a parameter
+#: that is cut afterwards is never seen); `WD_SPIKE_PRUNE=1`
+_PRUNE_BEFORE_JUDGING = os.environ.get("WD_SPIKE_PRUNE") == "1"
+
+
+def _network_of(request: object) -> str:
+    """Name the network of a request as `provider/network`, from the module its class lives in."""
+    parts = type(request).__module__.split(".")
+    if "provider" in parts:
+        tail = parts[parts.index("provider") + 1 :]
+        return "/".join(tail[:2])
+    return ""
+
+
 @dataclass
 class TimeseriesValues(ABC, Generic[_UnitT]):
     """Core for sources of timeseries where data is related to a station.
@@ -332,6 +350,63 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         """
         if updated is not None and is_plausible_update(updated):
             self._data_updated.append(updated)
+
+    def _plausibility_rules(self, station_id: str, dataset: DatasetModel) -> Sequence[Rule]:  # noqa: ARG002
+        """Give the rules only this provider knows for the station in hand, to be judged beside the core's own.
+
+        The stations without frost, the periods in which one sensor of one station did not work, the relation of a
+        road surface to the air of its minute at night (`Bound`, `StuckPeriod`, `Beside` of `model/judge.py`); a
+        provider with none keeps this.
+        """
+        return ()
+
+    def _judge_in_canonical_units(
+        self,
+        df: pl.DataFrame,
+        station_id: str,
+        dataset: DatasetModel,
+        plan: Plan,
+        rules: Sequence[Rule],
+        parameters_asked: Sequence[ParameterModel] = (),
+    ) -> pl.DataFrame:
+        """Convert every parameter of a collected frame to its canonical unit and judge it there (`model/judge.py`).
+
+        The number the source wrote stays in `SOURCE_COLUMN`, for the `raw:` token of a rejected value and for a caller
+        that does not convert units.
+        """
+        if _PRUNE_BEFORE_JUDGING:
+            # experiment: only the parameters asked for, and the neighbours a rule reads, are converted and judged
+            needed = {parameter.name_original for parameter in parameters_asked} | {
+                plan.by_name[rule.partner]
+                for rule in rules
+                if isinstance(rule, Beside) and rule.partner in plan.by_name
+            }
+            if plan.runs[1] is not None:
+                needed.add(plan.runs[1])
+            df = df.filter(pl.col("parameter").is_in(needed))
+        df = df.with_columns(pl.col("value").alias(SOURCE_COLUMN))
+        canonical = to_canonical(plan)
+        if canonical is not None:
+            df = df.with_columns(canonical.alias("value"))
+        elevation = self._station_elevation(station_id, dataset) if plan.pressure and hasattr(self.sr, "df") else None
+        return judge(df, plan, self.sr.options.plausibility, rules, elevation)
+
+    def _to_requested_units(self, df: pl.DataFrame, dataset: DatasetModel, plan: Plan) -> pl.DataFrame:
+        """Convert the canonical values of the parameters asked for to the unit asked for, and drop `SOURCE_COLUMN`."""
+        if not self.sr.options.convert_units:
+            return df.with_columns(pl.col(SOURCE_COLUMN).alias("value")).drop(SOURCE_COLUMN)
+        declared = {name.lower() for name in plan.parameters}
+        names = df.get_column("parameter").unique(maintain_order=True).to_list()
+        for name in names:
+            if name.lower() not in declared:
+                message = (
+                    f"{type(self).__name__} returned the parameter {name!r}, which the dataset "
+                    f"{dataset.resolution.name}/{dataset.name} does not declare in any casing"
+                )
+                raise ProviderContractError(message)
+        present = [name for name in plan.parameters if name in set(names)]
+        convert = from_canonical(plan, present, self.unit_converter, decimals=self.unit_converter.decimals)
+        return df.with_columns(convert).drop(SOURCE_COLUMN)
 
     def _convert_units(self, df: pl.DataFrame, dataset: DatasetModel) -> pl.DataFrame:
         """Convert values to metric units with help of conversion factors."""
@@ -837,10 +912,17 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         with applying(self.sr.options.plausibility):
             return self._process_dataset_in_effect(station_id, dataset, parameters)
 
-    def _process_dataset_in_effect(
+    def _process_dataset_in_effect(  # noqa: C901
         self, station_id: str, dataset: DatasetModel, parameters: Sequence[ParameterModel]
     ) -> pl.DataFrame:
         """Process data for a specific dataset, as `_process_dataset` does inside the modes of the request."""
+        parameter_names = {parameter.name_original for parameter in parameters}
+        # every check runs in the core, in canonical units, before the parameters are cut to those asked for
+        # (`model/judge.py`); a dataset no check applies to is converted straight to the unit asked for, as ever
+        network = _network_of(getattr(self.sr, "request", None))
+        plan = plan_for(network, dataset)
+        rules = self._plausibility_rules(station_id, dataset)
+        judged = plan.judges or bool(rules)
         if dataset.grouped:
             df = self._collect_station_parameter_or_dataset(
                 station_id=station_id,
@@ -849,7 +931,8 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                 parameter_or_dataset=cast("_UnitT", dataset),
             )
             df = self._shape(df, station_id, dataset)
-            parameter_names = {parameter.name_original for parameter in parameters}
+            if judged and not df.is_empty():
+                df = self._judge_in_canonical_units(df, station_id, dataset, plan, rules, parameters)
             df = df.filter(pl.col("parameter").is_in(parameter_names))
         else:
             data = []
@@ -864,10 +947,14 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                 # DataFrame of width 0"), and it contributes no rows
                 data.append(self._shape(df, station_id, dataset))
             df = pl.concat(data) if data else pl.DataFrame(schema=LONG_SCHEMA)
+            if judged and not df.is_empty():
+                df = self._judge_in_canonical_units(df, station_id, dataset, plan, rules, parameters)
         if df.is_empty():
             # the empty frame of `LONG_SCHEMA`, as `shape_provider_frame` makes it of any provider frame without rows
             return df
-        if self.sr.options.convert_units:
+        if SOURCE_COLUMN in df.columns:
+            df = self._to_requested_units(df, dataset, plan)
+        elif self.sr.options.convert_units:
             df = self._convert_units(df, dataset)
         df = merge_duplicate_readings(df, ["station_id", "resolution", "dataset", "parameter", "timestamp"])
         in_window = self._filter_by_window(df)

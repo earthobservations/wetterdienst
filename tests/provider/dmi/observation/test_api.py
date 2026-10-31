@@ -14,9 +14,11 @@ import polars as pl
 import pytest
 
 import wetterdienst.provider.dmi.observation.api as dmi_api
+from tests.provider.judging import judged
 from tests.provider.value_stubs import stations_result
 from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.values import shape_provider_frame
 from wetterdienst.settings import Settings
 from wetterdienst.util.network import File
 
@@ -627,6 +629,11 @@ def test_collect_carries_qc_status_and_validity_in_quality_flags(monkeypatch: py
     )
     dataset = dmi_api.DmiObservationMetadata["daily"].datasets[0]
     df = values._collect_station_parameter_or_dataset("04339", dataset)  # noqa: SLF001
+    df = judged(
+        shape_provider_frame(df, station_id="04339", dataset=dataset, provider="DmiObservationValues"),
+        network="dmi/observation",
+        dataset=dataset,
+    )
     assert df.schema["quality_flags"] == pl.String
     flags = {(row["parameter"], row["value"]): row["quality_flags"] for row in df.iter_rows(named=True)}
     assert flags == {
@@ -663,7 +670,12 @@ def _collect_station_values(resolution: str, rows: list[tuple[str, str, float, s
     dataset = dmi_api.DmiObservationMetadata[resolution].datasets[0]
     with pytest.MonkeyPatch.context() as monkeypatch:
         monkeypatch.setattr(dmi_api, "download_file", lambda **_: File(url="", content=BytesIO(content), status=200))
-        return values._collect_station_parameter_or_dataset("04339", dataset)  # noqa: SLF001
+        df = values._collect_station_parameter_or_dataset("04339", dataset)  # noqa: SLF001
+    # the range of a parameter is judged by the core, in canonical units
+    shaped = shape_provider_frame(df, station_id="04339", dataset=dataset, provider="DmiObservationValues")
+    return judged(shaped, network="dmi/observation", dataset=dataset).select(
+        "parameter", "timestamp", "value", "quality_flags"
+    )
 
 
 def test_collect_nulls_a_value_outside_the_range_of_its_parameter_and_keeps_what_it_was() -> None:

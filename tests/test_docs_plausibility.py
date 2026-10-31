@@ -3,9 +3,9 @@
 """The page on the plausibility checks says what the readers do (GH-3676).
 
 `wetterdienst.model.plausibility.COVERAGE` names the networks and datasets each check runs on, and
-`docs/data/plausibility.md` has them as a table. Three things are held to one another so that none can drift: the rules
-the providers declare (`OutOfRange`, `NoReading`, `Floor` and `station_pressure_range`, with the check each belongs
-to), `COVERAGE`, and the table.
+`docs/data/plausibility.md` has them as a table. Three things are held to one another so that none can drift: what the
+values core is told to judge (the tables of `model/judge.py` and `model/plausibility_ranges.py`, and the rules a
+provider hands it: `Bound`, `Beside`, `StuckPeriod`), `COVERAGE`, and the table.
 """
 
 from __future__ import annotations
@@ -20,8 +20,9 @@ import pytest
 import wetterdienst
 from tests.provider.value_stubs import STUBS
 from wetterdienst import Wetterdienst
+from wetterdienst.model.judge import CONSTANT, ELEVATION_NETWORKS, FLOORS, RUNS, plan_for
 from wetterdienst.model.plausibility import CHECKS, COVERAGE, Plausibility
-from wetterdienst.provider.dwd.observation.parser import STATION_PRESSURE_PARAMETERS, out_of_range_bounds
+from wetterdienst.model.plausibility_ranges import SCOPE
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
@@ -32,29 +33,29 @@ ROOT = Path(__file__).parent.parent
 PAGE = ROOT / "docs" / "data" / "plausibility.md"
 PROVIDER_DIR = Path(wetterdienst.__file__).parent / "provider"
 
-#: the check a rule belongs to where its call names none
-_DEFAULT_CHECK = {"OutOfRange": "range", "NoReading": "stuck", "Floor": "floor", "station_pressure_range": "elevation"}
+#: the rule a provider hands the core, and the check it belongs to
+_PROVIDER_RULES = {"Bound": "range", "Beside": "consistency", "StuckPeriod": "stuck"}
 
 
 def _declared() -> dict[str, set[str]]:
-    """Read from the providers which checks the rules of each network belong to: `{check: {provider/network}}`."""
+    """Read which checks the core judges each network with: `{check: {provider/network}}`.
+
+    From the tables the core reads (the scope of the ranges, the constants, the runs, the floors) and from the rules a
+    provider hands it.
+    """
     found: dict[str, set[str]] = {check: set() for check in CHECKS}
+    found["range"] |= set(SCOPE)
+    found["elevation"] |= set(ELEVATION_NETWORKS)
+    found["stuck"] |= set(CONSTANT) | set(RUNS)
+    found["floor"] |= set(FLOORS)
     for path in sorted(PROVIDER_DIR.rglob("*.py")):
         parts = path.relative_to(PROVIDER_DIR).parts
         if len(parts) < 3:
             continue
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-            if not isinstance(node, ast.Call):
-                continue
-            name = getattr(node.func, "id", getattr(node.func, "attr", None))
-            if name not in _DEFAULT_CHECK:
-                continue
-            check = _DEFAULT_CHECK[name]
-            for keyword in node.keywords:
-                if keyword.arg == "check":
-                    assert isinstance(keyword.value, ast.Constant), f"{path}: the check of a rule is a literal"
-                    check = keyword.value.value
-            found[check].add(f"{parts[0]}/{parts[1]}")
+            name = getattr(getattr(node, "func", None), "id", None) if isinstance(node, ast.Call) else None
+            if name in _PROVIDER_RULES:
+                found[_PROVIDER_RULES[name]].add(f"{parts[0]}/{parts[1]}")
     return found
 
 
@@ -109,51 +110,44 @@ def _datasets(network: str, *, has: Callable[[str, DatasetModel], bool]) -> set[
 
 
 def _derived() -> dict[str, dict[str, set[str]]]:
-    """Derive the datasets of `COVERAGE` from the rules the readers declare and from the metadata of the networks.
+    """Derive the datasets of `COVERAGE` from what the core is told and from the metadata of the networks.
 
-    Each is read off the constants the reader builds its rules from, so that a dataset that gains a parameter the rule
-    names, or a resolution that gains a bound, shows here. Derived for every check and network of `COVERAGE` but one
-    kind: a network whose reader applies a rule to every dataset it has (the road and SYNOP networks have one each) is
-    held to all of them, which is what `COVERAGE` says, and not to a reading of its code.
+    Each is read off the plan the core makes of a dataset (`plan_for`) or off the parameters a provider's rule names, so
+    that a dataset that gains a parameter the rule names, or a resolution that gains a bound, shows here. A network whose
+    provider hands the core a rule for every dataset it has (the road and SYNOP networks have one each) is held to all
+    of them, which is what `COVERAGE` says, and not to a reading of its code.
     """
-    from wetterdienst.provider.dmi.observation import api as dmi  # noqa: PLC0415
-    from wetterdienst.provider.dwd.dmo import api as dmo  # noqa: PLC0415
-    from wetterdienst.provider.dwd.observation.parser import STATION_CONSTANT_PARAMETERS  # noqa: PLC0415
-    from wetterdienst.provider.meteofrance.observation import api as meteofrance  # noqa: PLC0415
-    from wetterdienst.provider.rmi.observation import api as rmi  # noqa: PLC0415
 
     def named(dataset: DatasetModel, names: Iterable[str]) -> bool:
-        return any(parameter.name_original in set(names) for parameter in dataset)
+        return any(parameter.name in set(names) for parameter in dataset)
 
     everything = {"dwd/road": ("15_minutes/data",), "meteofrance/synop": ("subdaily/data",)}
-    constant = {f"{dataset.resolution.name}/{dataset.name}" for dataset, _ in STATION_CONSTANT_PARAMETERS}
+    constant = {network: {dataset_id for dataset_id in datasets} for network, datasets in CONSTANT.items()}
     return {
         "range": {
-            "dmi/observation": _datasets("dmi/observation", has=lambda resolution, _: resolution in dmi._RANGES),  # noqa: SLF001
-            "dwd/observation": _datasets(
-                "dwd/observation", has=lambda _, dataset: any(out_of_range_bounds(parameter) for parameter in dataset)
-            ),
+            **{
+                network: _datasets(network, has=lambda _, dataset, n=network: bool(plan_for(n, dataset).ranges))
+                for network in SCOPE
+            },
             "meteofrance/observation": _datasets(
                 "meteofrance/observation",
-                has=lambda resolution, dataset: named(dataset, meteofrance._TEMPERATURE_COLUMNS.get(resolution, ())),  # noqa: SLF001
+                has=lambda _, dataset: any(parameter.unit_type == "temperature" for parameter in dataset),
             ),
-            "rmi/observation": _datasets("rmi/observation", has=lambda resolution, _: resolution in rmi._RANGES),  # noqa: SLF001
-            **{network: set(datasets) for network, datasets in everything.items()},
+            "meteofrance/synop": set(everything["meteofrance/synop"]),
         },
         "elevation": {
             "dwd/observation": _datasets(
                 "dwd/observation",
-                has=lambda _, dataset: any(parameter.name in STATION_PRESSURE_PARAMETERS for parameter in dataset),
+                has=lambda _, dataset: bool(plan_for("dwd/observation", dataset).pressure),
             ),
             "meteofrance/synop": set(everything["meteofrance/synop"]),
         },
         "stuck": {
-            "dwd/observation": constant,
+            "dwd/observation": constant["dwd/observation"],
             "dwd/road": set(everything["dwd/road"]),
-            # the periods of a station are read for the sunshine, a parameter of every resolution the ranges name
+            # the periods of a station are read for the sunshine, a parameter of every resolution of the network
             "rmi/observation": _datasets(
-                "rmi/observation",
-                has=lambda resolution, dataset: resolution in rmi._RANGES and named(dataset, ["sun_duration"]),  # noqa: SLF001
+                "rmi/observation", has=lambda _, dataset: named(dataset, ["sunshine_duration"])
             ),
         },
         "consistency": {
@@ -161,14 +155,13 @@ def _derived() -> dict[str, dict[str, set[str]]]:
             "meteofrance/observation": _datasets(
                 "meteofrance/observation",
                 has=lambda _, dataset: (
-                    named(dataset, [meteofrance._HUMIDITY_COLUMN])  # noqa: SLF001
-                    and named(dataset, [meteofrance._DEW_POINT_COLUMN])  # noqa: SLF001
+                    named(dataset, ["humidity_relative"]) and named(dataset, ["temperature_dew_point_2m"])
                 ),
             ),
             "meteofrance/synop": set(everything["meteofrance/synop"]),
         },
         "floor": {
-            "dwd/dmo": _datasets("dwd/dmo", has=lambda _, dataset: named(dataset, dmo._DMO_NON_NEGATIVE)),  # noqa: SLF001
+            "dwd/dmo": _datasets("dwd/dmo", has=lambda _, dataset: bool(plan_for("dwd/dmo", dataset).floors)),
         },
     }
 

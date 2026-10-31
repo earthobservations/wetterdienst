@@ -2346,8 +2346,9 @@ STUBS = [
         _dwd_hourly_urban_wind_below_zero,
         reading=("wind_speed_mean", 8.3),
         sentinels=(("wind_speed_mean", -0.8),),
-        tokens=(("wind_speed_mean", "-0.80", None),),
-        verdicts=(("wind_speed_mean", "-0.80", "range"),),
+        # the core writes a judged number as short as it goes: `raw:-0.8` where DWD wrote -0.80
+        tokens=(("wind_speed_mean", "-0.8", None),),
+        verdicts=(("wind_speed_mean", "-0.8", "range"),),
     ),
     ValueStub(
         "dwd/observation hourly/pressure",
@@ -2355,7 +2356,8 @@ STUBS = [
         reading=("pressure_air_sea_level", 1009.4),
         sentinels=(("pressure_air_site", 1093.3),),
         tokens=(("pressure_air_site", "1093.3", None),),
-        verdicts=(("pressure_air_site", "1093.3", "range"),),
+        # judged all at once by the core: both checks reject it, as the soft mode always said
+        verdicts=(("pressure_air_site", "1093.3", "elevation+range"),),
     ),
     ValueStub(
         "dwd/observation hourly/pressure (off the elevation, 48 m)",
@@ -2769,14 +2771,14 @@ STUBS = [
             ("temperature_air_max_2m", -20.0),
         ),
         tokens=(
-            ("temperature_air_2m", "-20.0", None),
-            ("temperature_air_min_2m", "-20.0", None),
-            ("temperature_air_max_2m", "-20.0", None),
+            ("temperature_air_2m", "-20", None),
+            ("temperature_air_min_2m", "-20", None),
+            ("temperature_air_max_2m", "-20", None),
         ),
         verdicts=(
-            ("temperature_air_2m", "-20.0", "range"),
-            ("temperature_air_min_2m", "-20.0", "range"),
-            ("temperature_air_max_2m", "-20.0", "range"),
+            ("temperature_air_2m", "-20", "range"),
+            ("temperature_air_min_2m", "-20", "range"),
+            ("temperature_air_max_2m", "-20", "range"),
         ),
     ),
     ValueStub(
@@ -2862,7 +2864,7 @@ STUBS = [
             ("temperature_dew_point_2m", "251.65", None),
             # the failed hygrometer's humidity beside the two dew points, null with them (GH-3629)
             ("humidity_relative", "4", None),
-            ("precipitation_amount_last_1h", "800.0", None),
+            ("precipitation_amount_last_1h", "800", None),
         ),
         verdicts=(
             ("temperature_air_2m", "343.55", "range"),
@@ -2870,7 +2872,7 @@ STUBS = [
             ("temperature_dew_point_2m", "252.05", "range"),
             ("temperature_dew_point_2m", "251.65", "range"),
             ("humidity_relative", "4", "consistency"),
-            ("precipitation_amount_last_1h", "800.0", "range"),
+            ("precipitation_amount_last_1h", "800", "range"),
         ),
     ),
     ValueStub(
