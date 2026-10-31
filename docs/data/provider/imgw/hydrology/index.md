@@ -33,7 +33,10 @@ of the roughly 1,370 station codes in the monthly archive are in this case, Brud
 among them. IMGW publishes no position for them: the archive's own list of stations,
 [`lista_stacji_hydro.csv`](https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_hydrologiczne/lista_stacji_hydro.csv),
 gives only the code, the name, the river and IMGW's hydro code, and neither the content maps nor the
-CSV files carry coordinates. These stations get no row rather than one at a guessed position.
+CSV files carry coordinates. IMGW's telemetry API
+(`danepubliczne.imgw.pl/api/data/hydro`) lists 32 stations that are not in the station-code list, 30
+of them in the archive, and writes `0` for the latitude and the longitude of each, which is no
+position. These stations get no row rather than one at a guessed position or at `0, 0`.
 
 ## The gauge zero can move
 
