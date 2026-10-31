@@ -68,36 +68,6 @@ def test_a_published_parameter_is_mapped_to_the_name_of_its_statistic(resolution
     assert (parameters[parameter_id].name, parameters[parameter_id].unit) == _MAPPING[(resolution, parameter_id)]
 
 
-def test_the_parameters_that_wait_for_a_decision_are_not_served() -> None:
-    """What has no canonical name or no unit is left out (GH-3622)."""
-    left_out = {
-        "no_cold_days",
-        "no_windy_days",
-        "no_stormy_days",
-        "no_days_w_storm",
-        "no_days_w_hurricane",
-        "no_clear_days",
-        "no_cloudy_days",
-        "no_days_snow_cover",
-        # read as the `acc_heating_degree_days_17`, one parameter (test_pressure_counts_heating_degree_days.py)
-        "acc_heating_degree_days_19",
-    }
-    served = {
-        parameter.name_original
-        for resolution in DmiObservationMetadata
-        for parameter in resolution.datasets[0].parameters
-    }
-    assert served & left_out == set()
-    # the radiation of a day, month and year is in MJ/m2, which no unit of `energy_per_area` is: only the hour is served
-    radiation = {
-        resolution.name
-        for resolution in DmiObservationMetadata
-        for parameter in resolution.datasets[0].parameters
-        if parameter.name_original == "mean_radiation"
-    }
-    assert radiation == {"hourly"}
-
-
 def _values(
     monkeypatch: pytest.MonkeyPatch,
     resolution: str,
