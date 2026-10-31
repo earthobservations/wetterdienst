@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any, Literal, Self
 import polars as pl
 
 from wetterdienst.exceptions import ImageTooLargeError
+from wetterdienst.io.formats import find_format, refuse_unknown_arguments
 from wetterdienst.io.sinks import find_sink, join_list_columns
 from wetterdienst.io.sql_filter import filter_by_sql
 from wetterdienst.metadata.renamed import RefusesRenamedMembers
@@ -203,29 +204,30 @@ class ExportMixin(RefusesRenamedMembers):
 
         The one set of arguments a caller builds for every format (`with_metadata`, `indent`,
         `width`, ...) is given, and each formatter is passed those it takes: `indent` is not passed
-        to a chart, `width` not to JSON, and CSV is given none. An argument that no format takes is dropped here, as the
-        method that is called is the one that is exact about its arguments (GH-3043).
+        to a chart, `width` not to JSON, and CSV is given none. An argument that no format takes is refused with a
+        `TypeError` listing the ones that are, so a typo is no more silent here than in the method that is called
+        (GH-3043).
 
         Args:
-            fmt: Output format
+            fmt: Output format, in any case: one of the formats of `wetterdienst.io.formats.FORMATS`
             **kwargs: Arguments for the formatting method, of which it is given those it takes
 
         Returns:
             Formatted data
 
-        """
-        fmt = fmt.lower()
+        Raises:
+            UnknownFormatError: Nothing renders `fmt`. It is a `KeyError` and a `ValueError`.
+            TypeError: An argument that is the name of none of the arguments any format takes.
 
-        if fmt == "json":
-            return self.to_json(**_taken_by(self.to_json, kwargs))
-        if fmt == "csv":
-            return self.to_csv()
-        if fmt == "geojson":
-            return self.to_geojson(**_taken_by(self.to_geojson, kwargs))
-        if fmt in ("html", "png", "jpg", "webp", "svg", "pdf"):
-            return self.to_image(fmt=fmt, **_taken_by(self._to_image, kwargs))
-        msg = "Unknown output format"
-        raise KeyError(msg)
+        """
+        format_ = find_format(fmt)
+        refuse_unknown_arguments(kwargs)
+
+        if format_.kind == "chart":
+            return self.to_image(fmt=format_.name, **_taken_by(self._to_image, kwargs))
+        formatter = getattr(self, format_.method)
+        # `to_csv` passes its keywords to polars, so it is given none
+        return formatter(**_taken_by(formatter, kwargs)) if format_.takes else formatter()
 
     def to_target(self, target: str, if_exists: Literal["replace", "append", "fail", "skip"] = "replace") -> None:
         """Emit data to a target.
@@ -246,7 +248,8 @@ class ExportMixin(RefusesRenamedMembers):
         Args:
             target: Connection string
             if_exists: Behavior when the target already exists. Options: 'replace', 'append', 'fail', 'skip'.
-                Default is 'replace'.
+                Default is 'replace', as a result is one frame written as a whole; `TimeseriesValues.to_target`
+                defaults to 'fail', as it fills one table station by station.
                 - 'replace': Drop and recreate the target (default, backward compatible)
                 - 'append': Append data to the target
                 - 'fail': Raise error if target exists

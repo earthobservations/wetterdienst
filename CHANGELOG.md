@@ -24,6 +24,11 @@ Types of changes:
   the heating degree days of Greenland, as `heating_degree_day` beside Denmark's: the base is 17 °C
   in Denmark and 19 °C in Greenland. DMI counts the days above 25 and 20 °C, so a day at exactly
   25.0 or 20.0 °C is not counted, where the names count from the threshold (Part of GH-3622)
+- `wetterdienst.exceptions.UnknownFormatError` is what `to_format`, the charts' `to_image` and the
+  alerts result's `to_format` raise for a format they do not render, naming it and listing the
+  supported ones. It is a `RequestError`, and a `KeyError` as `to_format` raised and a `ValueError`
+  as the alerts result did, so an `except KeyError` or `except ValueError` still catches it; the
+  REST API and the command line never reach it, as their `format` is a choice (GH-3449)
 - `dmi/observation` now serves the global radiation of the day, month and year as `radiation_global`
   (DMI publishes MJ/m²; it comes back in J/cm² by default), eight counts of days with DMI's own
   thresholds (new `count_days_temperature_air_min_2m_lt_minus_10c`,
@@ -36,6 +41,12 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: `to_format` refuses an argument that no format takes, with a `TypeError` listing
+  the ones that are (`with_metadata`, `with_stations`, `indent`, `width`, `height`, `scale`,
+  `max_side`), where it dropped it: `to_format("csv", separator=";")` wrote a comma CSV and said
+  nothing. An argument that another format takes is still dropped, so the one set the command line,
+  the REST API and MCP build is unaffected; pass `to_csv(separator=";")` to give polars an argument
+  (GH-3449)
 - **Breaking**: `dwd/road` returns null, with the number DWD wrote as the last token of
   `quality_flags` (`raw:0.1`), for a `humidity_relative` below 1 % and for a `temperature_surface`
   more than 20 K above the `temperature_air` of the same minute with the sun more than 6 degrees

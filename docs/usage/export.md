@@ -109,3 +109,38 @@ wetterdienst values --provider=dwd --network=observation \
     --parameters=daily/kl/temperature_air_mean_2m --periods=recent --stations=01048 \
     --target="duckdb:////var/lib/wetterdienst/obs.duckdb?table=weather" --if-exists=append
 ```
+
+## Formats by surface
+
+Which format each surface takes. `all` is `stations`, `values`, `interpolate` and `summarize`, the four commands,
+routes and MCP tools that return a result; `alerts`, `history` and `stripes` have fewer formats and are described
+with their own commands. A file target is chosen by its extension, not by a format, so it has its own column.
+`tests/test_export_formats.py` holds this table to the code: a format that a surface takes and the table leaves
+out, or the other way round, fails it.
+
+| Format | `to_format` | `to_target` file | CLI `--format` | REST `format` | MCP `format` |
+| --- | --- | --- | --- | --- | --- |
+| `json` | yes | `.json` | all | all | all |
+| `geojson` | yes | no | all | all | all |
+| `csv` | yes | `.csv` | all | all | all |
+| `ndjson` | no | `.jsonl` | stations, values | stations, values | stations, values |
+| `html` | yes | no | all | all | all |
+| `png` | yes | no | all | all | all |
+| `jpg` | yes | no | all | all | all |
+| `webp` | yes | no | all | all | all |
+| `svg` | yes | no | all | all | all |
+| `pdf` | yes | no | all | all | all |
+| `xlsx` | no | `.xlsx` | no | no | no |
+| `parquet` | no | `.parquet` | no | no | no |
+| `feather` | no | `.feather` | no | no | no |
+| `zarr` | no | `.zarr` | no | no | no |
+| `nc` | no | `.nc` | no | no | no |
+
+`to_format` takes one set of arguments for any format and gives each format those it takes: `with_metadata`,
+`with_stations` and `indent` for JSON (a stations result has no `with_stations`), `with_metadata` and `indent` for
+GeoJSON, `width`, `height`, `scale` and `max_side` for a chart, and none for CSV. A name that is none of these is a
+`TypeError` listing them. A format it does not know is an `UnknownFormatError`, which names the format and lists the
+supported ones; it is a `KeyError` and a `ValueError` both, so either `except` catches it.
+
+A `.json` or `.jsonl` file holds the records of the frame, where `--format=json` and `to_json` write the response
+envelope. NDJSON is what the command line and the REST API stream; the library writes the same rows as a `.jsonl` file.
