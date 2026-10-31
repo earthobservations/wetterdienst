@@ -85,6 +85,7 @@
   "tests/provider/dwd/derived/test_derived_frames.py::test_daily_soil_comes_out_as_the_long_form": [["DwdDerivedValues daily/soil", "d9b22919", 6, "ad8351ccf6309cba"]],
   "tests/provider/dwd/derived/test_derived_frames.py::test_hourly_sunshine_duration_comes_out_as_the_long_form": [["DwdDerivedValues hourly/sunshine_duration", "d9b22919", 6, "d1a3fee4dd7826f1"]],
   "tests/provider/dwd/derived/test_derived_frames.py::test_monthly_soil_comes_out_as_the_long_form": [["DwdDerivedValues monthly/soil", "d9b22919", 6, "979610d576bf0701"]],
+  "tests/provider/dwd/dmo/test_api.py::test_dmo_long_wave_balance_below_zero_stays_as_written": [["DwdDmoValues hourly/icon", "d9b22919", 3, "06a6345e46f7479b"]],
   "tests/provider/dwd/dmo/test_api.py::test_dmo_precipitation_below_zero_is_zero_and_keeps_the_number[rr1]": [["DwdDmoValues hourly/icon", "d9b22919", 6, "13a9e6f7c0f52308"]],
   "tests/provider/dwd/dmo/test_api.py::test_dmo_precipitation_below_zero_is_zero_and_keeps_the_number[rr3]": [["DwdDmoValues hourly/icon", "d9b22919", 6, "3ecd32b6f899e294"]],
   "tests/provider/dwd/dmo/test_api.py::test_dmo_precipitation_of_minus_zero_is_a_plain_zero": [["DwdDmoValues hourly/icon", "d9b22919", 3, "b5b20ba7d5e36cb4"]],

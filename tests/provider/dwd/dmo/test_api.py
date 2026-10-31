@@ -2025,7 +2025,7 @@ def test_dmo_radiation_below_zero_is_zero_and_keeps_the_number(
     written: list[str],
     tokens: list[str | None],
 ) -> None:
-    """ICON's radiation below 0 at night is 0.0 with the number as `raw:`; (GH-3263).
+    """ICON's radiation below 0 at night is 0.0 with the number as `raw:` (GH-3263).
 
     Station 10382, run 2026-10-22 00Z: `Rad1h` is negative in 18 of 78 hourly steps, to -0.17 J/cm2, and `RadS3` to
     -0.21; all stations of the icon run of 12Z go to -0.77 and -0.46. MOSMIX_L of the same station has none.
@@ -2075,6 +2075,22 @@ def test_dmo_precipitation_below_zero_is_zero_and_keeps_the_number(
     ).filter(pl.col("parameter") == parameter)
     assert df.get_column("value").to_list() == pytest.approx([0.0, 1.2, None], nan_ok=True)
     assert df.get_column("quality_flags").to_list() == ["raw:-0.1", None, "raw:-"]
+
+
+def test_dmo_long_wave_balance_below_zero_stays_as_written(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`radl3`, the long wave balance, is negative by nature (it loses heat), so it is not clipped (GH-3263)."""
+    from tests.provider.value_stubs import dwd_dmo_values  # noqa: PLC0415
+
+    df = dwd_dmo_values(
+        monkeypatch,
+        {"RadL3": "-52.30 -0.43 3.10"},
+        [("hourly", "icon", "radiation_long_wave_net_last_3h")],
+        "long",
+        Options(drop_nulls=False),
+    )
+    # the file's kJ/m2 come back in J/cm2, like the other radiation of the dataset
+    assert df.get_column("value").to_list() == pytest.approx([-5.23, -0.043, 0.31])
+    assert df.get_column("quality_flags").null_count() == df.height
 
 
 def test_dmo_radiation_of_minus_zero_is_a_plain_zero(monkeypatch: pytest.MonkeyPatch) -> None:
