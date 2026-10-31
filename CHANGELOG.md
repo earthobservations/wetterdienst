@@ -27,6 +27,14 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: 8 `noaa/ghcn` stations are placed south of the equator, no longer north of it,
+  where the lists have lost the sign of their latitude: Lambarene and Lastoursville in Gabon
+  (GB000004551, GB000004560) and the 1945-46 base on Baltra, Galapagos (ECW00050904) in
+  `ghcnd-stations.txt`; Adelaide (ASU34-00001), Halley in Antarctica (GLUHALLEY-2, -3, -4) and
+  Nuku'alofa (TNU55-00239) in `ghcnh-station-list.csv`. They were 96 to 16,800 km off, so a
+  nearest-station search or a distance filter near them picked the wrong stations; a filter on the
+  old position needs the new one. A row is turned only while it lists the position that was
+  checked, so a list NOAA corrects is read as it is (GH-3662)
 - **Breaking**: 5 `noaa/ghcn` hourly stations are placed west of Greenwich, no longer east of it,
   where `ghcnh-station-list.csv` has lost the sign of their longitude: Nemours/Ghazaouet
   (AGUG0060517), Khouribga military airport (MOI0000GMMK), Alcaniz, Bujaraloz and Oliva
