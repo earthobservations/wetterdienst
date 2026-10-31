@@ -13,6 +13,7 @@ from __future__ import annotations
 import ast
 import re
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -21,6 +22,11 @@ from tests.provider.value_stubs import STUBS
 from wetterdienst import Wetterdienst
 from wetterdienst.model.plausibility import CHECKS, COVERAGE, Plausibility
 from wetterdienst.provider.dwd.observation.parser import STATION_PRESSURE_PARAMETERS, out_of_range_bounds
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
+
+    from wetterdienst.model.metadata import DatasetModel
 
 ROOT = Path(__file__).parent.parent
 PAGE = ROOT / "docs" / "data" / "plausibility.md"
@@ -90,19 +96,96 @@ def test_every_dataset_of_the_coverage_exists() -> None:
             assert len(datasets) == len(set(datasets)), f"{check} {network}: a dataset is listed twice"
 
 
-def test_the_datasets_of_dwd_observation_are_those_with_a_parameter_the_rules_name() -> None:
-    """The bounds of `range` and the pressures of `elevation` name parameters, which decides the datasets they cover."""
-    from wetterdienst.provider.dwd.observation import DwdObservationMetadata  # noqa: PLC0415
+def _datasets(network: str, *, has: Callable[[str, DatasetModel], bool]) -> set[str]:
+    """Give the datasets (`resolution/dataset`) of a network for which `has(resolution name, dataset)` holds."""
+    provider, name = network.split("/")
+    metadata = Wetterdienst.resolve(provider, name).metadata
+    return {
+        f"{resolution.name}/{dataset.name}"
+        for resolution in metadata
+        for dataset in resolution
+        if has(resolution.name, dataset)
+    }
 
-    ranged, elevated = set(), set()
-    for resolution in DwdObservationMetadata:
-        for dataset in resolution:
-            if any(out_of_range_bounds(parameter) for parameter in dataset):
-                ranged.add(f"{resolution.name}/{dataset.name}")
-            if any(parameter.name in STATION_PRESSURE_PARAMETERS for parameter in dataset):
-                elevated.add(f"{resolution.name}/{dataset.name}")
-    assert set(COVERAGE["range"]["dwd/observation"]) == ranged
-    assert set(COVERAGE["elevation"]["dwd/observation"]) == elevated
+
+def _derived() -> dict[str, dict[str, set[str]]]:
+    """Derive the datasets of `COVERAGE` from the rules the readers declare and from the metadata of the networks.
+
+    Each is read off the constants the reader builds its rules from, so that a dataset that gains a parameter the rule
+    names, or a resolution that gains a bound, shows here. Derived for every check and network of `COVERAGE` but one
+    kind: a network whose reader applies a rule to every dataset it has (the road and SYNOP networks have one each) is
+    held to all of them, which is what `COVERAGE` says, and not to a reading of its code.
+    """
+    from wetterdienst.provider.dmi.observation import api as dmi  # noqa: PLC0415
+    from wetterdienst.provider.dwd.dmo import api as dmo  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation.parser import STATION_CONSTANT_PARAMETERS  # noqa: PLC0415
+    from wetterdienst.provider.meteofrance.observation import api as meteofrance  # noqa: PLC0415
+    from wetterdienst.provider.rmi.observation import api as rmi  # noqa: PLC0415
+
+    def named(dataset: DatasetModel, names: Iterable[str]) -> bool:
+        return any(parameter.name_original in set(names) for parameter in dataset)
+
+    everything = {"dwd/road": ("15_minutes/data",), "meteofrance/synop": ("subdaily/data",)}
+    constant = {f"{dataset.resolution.name}/{dataset.name}" for dataset, _ in STATION_CONSTANT_PARAMETERS}
+    return {
+        "range": {
+            "dmi/observation": _datasets("dmi/observation", has=lambda resolution, _: resolution in dmi._RANGES),  # noqa: SLF001
+            "dwd/observation": _datasets(
+                "dwd/observation", has=lambda _, dataset: any(out_of_range_bounds(parameter) for parameter in dataset)
+            ),
+            "meteofrance/observation": _datasets(
+                "meteofrance/observation",
+                has=lambda resolution, dataset: named(dataset, meteofrance._TEMPERATURE_COLUMNS.get(resolution, ())),  # noqa: SLF001
+            ),
+            "rmi/observation": _datasets("rmi/observation", has=lambda resolution, _: resolution in rmi._RANGES),  # noqa: SLF001
+            **{network: set(datasets) for network, datasets in everything.items()},
+        },
+        "elevation": {
+            "dwd/observation": _datasets(
+                "dwd/observation",
+                has=lambda _, dataset: any(parameter.name in STATION_PRESSURE_PARAMETERS for parameter in dataset),
+            ),
+            "meteofrance/synop": set(everything["meteofrance/synop"]),
+        },
+        "stuck": {
+            "dwd/observation": constant,
+            "dwd/road": set(everything["dwd/road"]),
+            # the periods of a station are read for the sunshine, a parameter of every resolution the ranges name
+            "rmi/observation": _datasets(
+                "rmi/observation",
+                has=lambda resolution, dataset: resolution in rmi._RANGES and named(dataset, ["sun_duration"]),  # noqa: SLF001
+            ),
+        },
+        "consistency": {
+            "dwd/road": set(everything["dwd/road"]),
+            "meteofrance/observation": _datasets(
+                "meteofrance/observation",
+                has=lambda _, dataset: (
+                    named(dataset, [meteofrance._HUMIDITY_COLUMN])  # noqa: SLF001
+                    and named(dataset, [meteofrance._DEW_POINT_COLUMN])  # noqa: SLF001
+                ),
+            ),
+            "meteofrance/synop": set(everything["meteofrance/synop"]),
+        },
+        "floor": {
+            "dwd/dmo": _datasets("dwd/dmo", has=lambda _, dataset: named(dataset, dmo._DMO_NON_NEGATIVE)),  # noqa: SLF001
+        },
+    }
+
+
+def test_the_datasets_of_the_coverage_follow_the_rules_and_the_metadata() -> None:
+    """The datasets of every check and network are those the constants of the reader and the metadata give.
+
+    Held by derivation for every row: the DWD observation datasets with a parameter that has a bound or is a station
+    pressure, the datasets of DMI and RMI whose resolution has a range, those of Météo-France with a temperature,
+    or with a humidity and a dew point in one file, the DMO datasets with an element that cannot be negative. The
+    road and SYNOP networks each have one dataset, which every rule of theirs covers; that is stated, not derived.
+    """
+    derived = _derived()
+    for check, networks in COVERAGE.items():
+        assert set(networks) == set(derived[check]), check
+        for network, datasets in networks.items():
+            assert set(datasets) == derived[check][network], f"{check} {network}"
 
 
 def test_a_stub_names_only_checks_that_run_where_it_reads() -> None:

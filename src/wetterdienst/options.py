@@ -26,7 +26,7 @@ from wetterdienst.metadata.aliases import PARAMETER_ALIASES, use_alias
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
 from wetterdienst.metadata.renamed import RENAMED_PARAMETERS, RENAMED_RESOLUTIONS
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.model.plausibility import ALL, Mode, Plausibility
+from wetterdienst.model.plausibility import CHECKS, Mode, Plausibility
 from wetterdienst.model.unit import UnitConverter
 
 if TYPE_CHECKING:
@@ -124,11 +124,15 @@ def _reading_nested_as_json_would(source_class: type[PydanticBaseSettingsSource]
     # the base is a parameter: a source class of pydantic-settings, which this subclasses for every one it is given
     class Reading(source_class):  # ty: ignore[unsupported-base]
         def decode_complex_value(self, field_name: str, field: FieldInfo, value: Any) -> Any:  # noqa: ANN401
-            # `WD_TS_PLAUSIBILITY=soft` is a mode for every check, no JSON: a check named in its own variable wins
+            # `WD_TS_PLAUSIBILITY=soft` is a mode for every check and no JSON, which a check named in its own variable
+            # (`WD_TS_PLAUSIBILITY__RANGE`) overrides, as the nested variables are laid over what this returns. Any
+            # other text that is no mapping is left to the model, whose message names the two modes
             if field_name == "plausibility" and isinstance(value, (str, bytes)):
-                bare = value.decode() if isinstance(value, bytes) else value
-                if bare.strip() in get_args(Mode):
-                    return {ALL: bare.strip()}
+                bare = (value.decode() if isinstance(value, bytes) else value).strip()
+                if bare in get_args(Mode):
+                    return dict.fromkeys(CHECKS, bare)
+                if not bare.startswith("{"):
+                    return bare
             try:
                 return super().decode_complex_value(field_name, field, value)
             except RecursionError as error:

@@ -116,8 +116,9 @@ def _raw_tail(raw: pl.Expr) -> pl.Expr:
     ``_MARK``): ``suspect:range`` with no text, ``rejected:range,raw:4021`` with the number. Null where the reading was
     not mapped.
     """
-    raw = raw.cast(pl.String)
-    return _as_code(pl.when(raw.str.starts_with(_MARK)).then(raw.str.slice(1)).otherwise(pl.lit("raw:") + raw))
+    # stripped, and null where it is blank, as every flag is; the mark is no whitespace and stays
+    text = _as_code(raw)
+    return pl.when(text.str.starts_with(_MARK)).then(text.str.slice(1)).otherwise(pl.lit("raw:") + text)
 
 
 def _as_code(expr: pl.Expr) -> pl.Expr:
@@ -441,7 +442,8 @@ def null_sentinels(  # noqa: C901
     floors: list[tuple[pl.Expr, pl.Expr, pl.Expr]] = []
     hard_hits: dict[str, list[pl.Expr]] = {}
     soft_hits: dict[str, list[pl.Expr]] = {}
-    unreadable: list[pl.Expr] = []
+    # where the ranges apply, one entry for each, None for a range of every value
+    ranged: list[pl.Expr | None] = []
     for sentinel in sentinels:
         if isinstance(sentinel, Sentinel):
             mapped = null if sentinel.to is None else pl.lit(sentinel.to, dtype=pl.Float64)
@@ -458,10 +460,8 @@ def null_sentinels(  # noqa: C901
             outside = _outside(number, sentinel)
             if isinstance(sentinel, OutOfRange):
                 # a NaN or an infinity lies outside every range, and is no judgement of the number but a text that is
-                # none, mapped as a code is
-                outside = outside & number.is_finite()
-                bad = ~number.is_finite() & number.is_not_null()
-                unreadable.append(bad if sentinel.where is None else bad & sentinel.where)
+                # none, mapped as a code is (below, ahead of the judgements, which it therefore never reaches)
+                ranged.append(sentinel.where)
             if sentinel.where is not None:
                 outside = outside & sentinel.where
             chosen = outside.fill_null(value=False)
@@ -473,8 +473,12 @@ def null_sentinels(  # noqa: C901
             hard_hits.setdefault(sentinel.check, []).append(chosen)
         else:
             soft_hits.setdefault(sentinel.check, []).append(chosen)
-    if unreadable:
-        coded.append((pl.any_horizontal(*unreadable).fill_null(value=False), null, written))
+    if ranged:
+        # one term for all the ranges, not one for each
+        bad = ~number.is_finite() & number.is_not_null()
+        if all(where is not None for where in ranged):
+            bad = bad & pl.any_horizontal(*ranged)
+        coded.append((bad.fill_null(value=False), null, written))
     if non_numeric:
         # a free text may hold the separator of the tokens
         # (a NaN or an infinity is no reading either; `cast` takes `nan` and `inf` for numbers)

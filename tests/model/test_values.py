@@ -244,6 +244,26 @@ def _percentage(values: TimeseriesValues, df: pl.DataFrame, criteria: str = "min
     return values._get_actual_percentage(df=df)  # noqa: SLF001
 
 
+def test_actual_percentage_counts_the_values_no_soft_check_flagged_suspect() -> None:
+    """Test that a value flagged `suspect:` is no coverage, so a station with only such values is skipped (GH-3676).
+
+    Three of the four hourly readings of the window are values and one of them is flagged suspect by a check that is
+    soft; the coverage is the two unflagged ones. A station whose every value is flagged covers nothing, as it did when
+    the check nulled them. A `raw:` token and a source's own flag are no suspicion.
+    """
+    start_date = dt.datetime(2026, 1, 1, 0, tzinfo=ZoneInfo("UTC"))
+    end_date = dt.datetime(2026, 1, 1, 3, tzinfo=ZoneInfo("UTC"))
+    hours = [dt.datetime(2026, 1, 1, hour, tzinfo=ZoneInfo("UTC")) for hour in range(3)]
+    df = _hourly_long(hours)
+    values = _hourly_values(start_date, end_date)
+    assert _percentage(values, df) == 0.75
+    flagged = df.with_columns(pl.Series("quality_flags", ["3,suspect:range", "3,raw:-999", "3"]))
+    assert _percentage(values, flagged) == 0.5
+    only_suspect = df.with_columns(pl.lit("suspect:stuck").alias("quality_flags"))
+    assert _percentage(values, only_suspect) == 0.0
+    assert _percentage(values, only_suspect, "max") == 0.0
+
+
 def test_actual_percentage_measures_against_the_requested_window() -> None:
     """Test that coverage is the share of the readings the request asked for.
 

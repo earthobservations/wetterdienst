@@ -706,7 +706,7 @@ the query parameters `plausibility_range`, `plausibility_elevation`, `plausibili
 `WD_TS_PLAUSIBILITY__RANGE` and so on). A hard check nulls the value and writes `rejected:<check>,raw:<number>` into
 `quality_flags`, a soft check keeps the value and writes `suspect:<check>`; a check not named keeps the server's mode.
 See [plausibility checks](../data/plausibility.md). `interpolate` and `summarize` take no mode: they leave out a
-suspect value in any case.
+suspect value in any case, and so do `stripes/values` and `stripes/image`.
 
 A request that asks for more than the [limits](#limits) allow is refused;
 [Getting more than the limit](large-requests.md) shows how to get the data anyway.

@@ -13,12 +13,10 @@ from zoneinfo import ZoneInfo
 import polars as pl
 import pytest
 from pydantic import ValidationError
-from pydantic_settings import SettingsError
 
 from tests.provider import value_stubs
 from wetterdienst import Options
-from wetterdienst.core.util import leave_out_suspect
-from wetterdienst.model.plausibility import CHECKS, DEFAULTS, Plausibility, active, applying
+from wetterdienst.model.plausibility import CHECKS, DEFAULTS, Plausibility, active, applying, leave_out_suspect
 from wetterdienst.model.quality_flags import (
     Floor,
     NoReading,
@@ -136,10 +134,46 @@ def test_the_environment_takes_a_bare_mode_and_a_check_beside_it_wins(monkeypatc
     # a mapping given for the options is laid over the environment's modes, a check not named keeping its own
     options = resolve_options({"plausibility": {"floor": "hard"}})
     assert options.plausibility == Plausibility(**{**dict.fromkeys(CHECKS, "soft"), "range": "hard", "floor": "hard"})
-    # a text that is neither a mode nor JSON is refused by the name of the option, as a malformed mapping is
-    monkeypatch.setenv("WD_TS_PLAUSIBILITY", "off")
-    with pytest.raises(SettingsError, match="plausibility"):
-        Options()
+    # a text that is neither a mode nor a mapping is refused with the model's own message, naming the two modes
+    for bad in ("off", "Soft", "none"):
+        monkeypatch.setenv("WD_TS_PLAUSIBILITY", bad)
+        with pytest.raises(ValidationError, match="one of soft, hard"):
+            Options()
+
+
+def test_the_all_key_is_no_part_of_a_mapping(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`__all__` is no check: a mapping given as options is refused and points to the bare-string shorthand."""
+    for name in list(os.environ):
+        if name.startswith("WD_TS_"):
+            monkeypatch.delenv(name)
+    mapping = {"__all__": "soft", "range": "hard"}
+    for build in (
+        lambda: Options(plausibility=mapping),
+        lambda: Options().replace(plausibility=mapping),
+        lambda: resolve_options({"plausibility": mapping}),
+        lambda: Plausibility.model_validate(mapping),
+    ):
+        with pytest.raises(ValidationError, match="bare `soft` or `hard`"):
+            build()
+
+
+def test_raw_text_is_stripped_and_a_blank_is_no_token() -> None:
+    """`raw:` is never written empty or padded; the verdict of a check keeps its text.
+
+    A blank text leaves the token out, as it did, and one with blanks is written stripped.
+    """
+    frame = pl.DataFrame({"r": ["", "  ", " -999 ", "-999", None]}, schema={"r": pl.String})
+    assert frame.select(join_quality_flags(raw=pl.col("r"))).get_column("quality_flags").to_list() == [
+        None,
+        None,
+        "raw:-999",
+        "raw:-999",
+        None,
+    ]
+    cleaned, raw = null_sentinels(pl.col("v"), OutOfRange(0.0, 10.0), text=False, plausibility=HARD)
+    out = pl.DataFrame({"v": [4021.0]}).select(join_quality_flags(raw=raw))
+    assert out.get_column("quality_flags").to_list() == ["rejected:range,raw:4021"]
+    del cleaned
 
 
 def test_the_environment_takes_json_as_before(monkeypatch: pytest.MonkeyPatch) -> None:

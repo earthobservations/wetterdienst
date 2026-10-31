@@ -20,7 +20,7 @@ from wetterdienst.metadata.resolution import count_readings, reading_interval
 from wetterdienst.model.fetch_ahead import FetchAhead, FilesAhead
 from wetterdienst.model.metadata import group_parameters_by_dataset
 from wetterdienst.model.parameter_rows import ParameterRows
-from wetterdienst.model.plausibility import applying
+from wetterdienst.model.plausibility import applying, leave_out_suspect
 from wetterdienst.model.quality_flags import QUALITY_FLAGS, RAW_TOKEN
 from wetterdienst.model.request import require_window
 from wetterdienst.model.result import StationsFilter, StationsResult, ValuesResult
@@ -1201,12 +1201,17 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         ``drop_nulls``, and without it the rows of ``df`` are counted.
 
         A parameter that was asked for and came back with nothing counts as zero rather than
-        going unmeasured: a request for two parameters where one is missing is not fully covered.
+        going unmeasured: a request for two parameters where one is missing is not fully covered. So does one whose
+        values are all flagged ``suspect:`` by a soft plausibility check: the coverage counts the unflagged values
+        alone, as an interpolation and the climate stripes do.
         """
         # a station that returned nothing inside the window covers none of it, and there is no
         # frame under the question to read a span or a dtype off
         if df.is_empty():
             return 0.0
+        # a value a soft plausibility check flagged suspect is no coverage: a station with only such values is skipped
+        # as it was when the check nulled them, whatever the mode (GH-3676)
+        df = leave_out_suspect(df)
         percentages = []
         for parameter in cast("Iterable[ParameterModel]", self.sr.parameters):
             resolution = parameter.dataset.resolution

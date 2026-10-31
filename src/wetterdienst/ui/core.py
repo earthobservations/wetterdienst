@@ -41,7 +41,7 @@ from wetterdienst.metadata.aliases import PARAMETER_ALIASES, use_alias
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
 from wetterdienst.model.metadata import parse_parameters, whole_datasets_kept
-from wetterdienst.model.plausibility import CHECKS, Mode
+from wetterdienst.model.plausibility import CHECKS, Mode, leave_out_suspect
 from wetterdienst.model.request import (
     DEFAULT_NAME_RANK,
     DEFAULT_NAME_RANK_LISTING,
@@ -2246,7 +2246,8 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
         raise StationNotFoundError(msg)
     station = found[0]
 
-    df = stations.values().all().df.sort("timestamp")
+    # a value a soft plausibility check flagged suspect is no year with data, whatever the mode (GH-3676)
+    df = leave_out_suspect(stations.values().all().df).sort("timestamp")
     df = df.set_sorted("timestamp")
     df = df.select("timestamp", "value")
     # a station that returns no rows has no first and last year to upsample between (polars raises

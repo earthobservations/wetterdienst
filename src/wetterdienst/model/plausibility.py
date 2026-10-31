@@ -26,6 +26,7 @@ import contextlib
 import contextvars
 from typing import TYPE_CHECKING, Literal, get_args
 
+import polars as pl
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 if TYPE_CHECKING:
@@ -33,7 +34,8 @@ if TYPE_CHECKING:
 
 Mode = Literal["soft", "hard"]
 Check = Literal["range", "elevation", "stuck", "consistency", "floor"]
-#: the checks, in the order their names are written when several apply to one value (``suspect:range+stuck``)
+#: the checks, as the issue lists them; several that apply to one value are written in alphabetical order
+#: (``suspect:range+stuck``, ``_WRITE_ORDER`` of ``model/quality_flags.py``)
 CHECKS: tuple[str, ...] = get_args(Check)
 
 #: the kinds of token a check writes into ``quality_flags``, before ``raw:``
@@ -43,10 +45,6 @@ REJECTED = "rejected"
 SUSPECT_TOKEN = rf"(^|,){SUSPECT}:"
 #: and for the one a hard check writes
 REJECTED_TOKEN = rf"(^|,){REJECTED}:"
-
-#: the key under which a mode for every check at once travels as a mapping (the environment's
-#: `WD_TS_PLAUSIBILITY=soft`): it is the shorthand a bare `"soft"` or `"hard"` is, and a check named beside it wins
-ALL = "__all__"
 
 _HARD_MEANS = (
     "`hard` nulls the value and keeps the number the source wrote as `rejected:{check},raw:<number>` in "
@@ -112,9 +110,9 @@ class Plausibility(BaseModel):
                 msg = f"a mode for every check is one of {', '.join(get_args(Mode))}, or give the checks as a mapping"
                 raise ValueError(msg)
             return dict.fromkeys(CHECKS, data)
-        if isinstance(data, dict) and ALL in data:
-            named = {name: mode for name, mode in data.items() if name != ALL}
-            return {**dict.fromkeys(CHECKS, data[ALL]), **named}
+        if isinstance(data, dict) and "__all__" in data:
+            msg = "`__all__` is no check: give a bare `soft` or `hard` to set every check at once"
+            raise ValueError(msg)
         return data
 
     def mode(self, check: str) -> Mode:
@@ -203,3 +201,17 @@ def applying(plausibility: Plausibility) -> Iterator[None]:
         yield
     finally:
         _ACTIVE.reset(token)
+
+
+def leave_out_suspect(df: pl.DataFrame) -> pl.DataFrame:
+    """Null the value of every reading a soft plausibility check flagged ``suspect:`` (GH-3676).
+
+    An interpolation, a summary, climate stripes and the coverage of ``skip_empty`` read what a station measured, and a
+    number that a check finds implausible has no place in them, whatever mode the request gave the check: the mode
+    changes what a station's own values show, not what is made of them. The reading stays a row, as a rejected one
+    does, with no value.
+    """
+    if "quality_flags" not in df.columns:
+        return df
+    suspect = pl.col("quality_flags").str.contains(SUSPECT_TOKEN).fill_null(value=False)
+    return df.with_columns(pl.when(suspect).then(None).otherwise(pl.col("value")).alias("value"))

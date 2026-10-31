@@ -194,9 +194,14 @@ What no check covers, and why:
 
 ## Soft mode and the rest of the request
 
-- **Interpolation and summary** always leave out a `suspect` value, whatever the mode: a number a check finds
-  implausible has no place in a weighted mean or a nearest station's answer. The mode changes only what a station's own
-  values show. The values stay rows with no value, as a rejected one does.
+- **Interpolation, summary and climate stripes** always leave out a `suspect` value, whatever the mode: a number a check
+  finds implausible has no place in a weighted mean, a nearest station's answer or a year of stripes (which shows as a
+  year without data). The mode changes only what a station's own values show. The values stay rows with no value, as a
+  rejected one does.
+- **`skip_empty`** judges a station by its unflagged values alone: a value flagged `suspect` is no coverage, so a station
+  with only such values is skipped, as it was when the check nulled them.
+- **A rejected value carries only the hard verdict.** Where a hard check rejects a value and a soft one also finds it
+  suspect, the value is null and the token is `rejected:<hard checks>,raw:<number>`; the soft check is not listed.
 - **`drop_nulls=True`** keeps dropping the rows of hard-rejected values, as it drops any null. A soft row has a value and
   stays. `drop_nulls=False`, or the wide shape, shows the rejected rows with their flags.
 - **Unit conversion** acts on a soft value as on any other: the number is converted, and the flag stays. The `raw:` of a

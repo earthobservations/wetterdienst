@@ -28,7 +28,6 @@ from wetterdienst.core.util import (
     extract_station_values,
     hold_stations_in_reach,
     lapse_rate_for,
-    leave_out_suspect,
     no_elevation_in_reach_error,
     one_row_per_station,
     open_parameter_data,
@@ -41,6 +40,7 @@ from wetterdienst.core.util import (
 from wetterdienst.exceptions import LocationOutOfRangeError
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.model.metadata import ParameterModel
+from wetterdienst.model.plausibility import leave_out_suspect
 from wetterdienst.model.schema import INTERPOLATED_SCHEMA, select_schema
 from wetterdienst.util.logging import TqdmToLogger
 

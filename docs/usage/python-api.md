@@ -702,7 +702,8 @@ suspect = values.df.filter(pl.col("quality_flags").str.contains(r"(^|,)suspect:"
 `Options(plausibility="soft")` sets every check at once (everything a source wrote, flagged), and a check named beside
 it, as in the environment (`WD_TS_PLAUSIBILITY=soft` with `WD_TS_PLAUSIBILITY__RANGE=hard`), wins.
 
-Interpolation and summary leave out a suspect value in any mode. [Plausibility checks](../data/plausibility.md)
+Interpolation, summary and climate stripes leave out a suspect value in any mode, and `skip_empty` counts the unflagged
+values alone. [Plausibility checks](../data/plausibility.md)
 describes each check, the networks and datasets it covers, the tokens with filters for them, and the caveats.
 
 ### Results
