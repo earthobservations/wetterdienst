@@ -1603,6 +1603,58 @@ def test_station_skipped_is_told_for_a_station_of_nulls_whatever_drop_nulls_is(
 
 @pytest.mark.parametrize("shape", ["long", "wide"])
 @pytest.mark.parametrize("skip_empty", [True, False])
+@pytest.mark.parametrize("drop_nulls", [True, False])
+def test_a_station_of_suspect_values_only_is_skipped_by_skip_empty(
+    monkeypatch: pytest.MonkeyPatch, *, drop_nulls: bool, skip_empty: bool, shape: str
+) -> None:
+    """`skip_empty` counts the unflagged values alone: a station whose values a soft check flagged is skipped (GH-3676).
+
+    Both stations hold four readings with a value. The first has every one flagged `suspect:range` (a check that is
+    soft keeps the value), the second none, and a `raw:` token or the source's own flag is no suspicion. Without
+    `skip_empty` the first station's values are in the answer, flagged; with it the station is skipped and told, as a
+    station of nulls is, and the second stays.
+    """
+    _stub_dwd_daily(
+        station_ids=["00001", "00002"], data_year_by_station={"00001": 1990, "00002": 1990}, monkeypatch=monkeypatch
+    )
+    utc = ZoneInfo("UTC")
+    name = DwdObservationMetadata.daily.climate_summary.temperature_air_mean_2m.name_original
+    flags = {"00001": "3,suspect:range", "00002": "3"}
+
+    def collect(self, station_id: str, parameter_or_dataset) -> pl.DataFrame:  # noqa: ANN001, ARG001
+        return pl.DataFrame(
+            {
+                "timestamp": [dt.datetime(1990, 1, day, tzinfo=utc) for day in range(1, 5)],
+                "parameter": [name] * 4,
+                "value": [1.0] * 4,
+                "quality_flags": [flags[station_id]] * 4,
+            },
+        )
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+    begin_response()
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        start="1990-01-01",
+        end="1990-01-04",
+        options=Options(drop_nulls=drop_nulls, skip_empty=skip_empty, skip_threshold=0.5, shape=shape),
+    )
+
+    df = request.filter_by_station_id(["00001", "00002"]).values().all().df
+
+    in_answer = sorted(df.get_column("station_id").unique().to_list())
+    if skip_empty:
+        assert in_answer == ["00002"]
+        assert _warning_codes_by_station()["station-skipped"] == [
+            "station 00001 is skipped as percentage of actual values (0.0) is below threshold (0.5)."
+        ]
+    else:
+        assert in_answer == ["00001", "00002"]
+        assert _warning_codes_by_station()["station-skipped"] == []
+
+
+@pytest.mark.parametrize("shape", ["long", "wide"])
+@pytest.mark.parametrize("skip_empty", [True, False])
 def test_a_station_skip_empty_leaves_out_is_told_the_same_with_the_nulls_dropped_or_kept(
     monkeypatch: pytest.MonkeyPatch, *, skip_empty: bool, shape: str
 ) -> None:

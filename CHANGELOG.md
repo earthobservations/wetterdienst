@@ -19,13 +19,14 @@ Types of changes:
 ### Added
 
 - The option `plausibility` sets what each plausibility check (`range`, `elevation`, `stuck`,
-  `consistency`, `floor`) does to a number it finds implausible: `hard` nulls it and keeps the number
-  as `rejected:<check>,raw:<number>` in `quality_flags`, `soft` keeps it and flags it
+  `consistency`, `floor`) does to a number it finds implausible: `hard` nulls it and keeps the
+  number as `rejected:<check>,raw:<number>` in `quality_flags`, `soft` keeps it and flags it
   `suspect:<check>`. Set it with `Options(plausibility={"range": "soft"})`,
   `WD_TS_PLAUSIBILITY__RANGE`, `--plausibility-range` or `plausibility_range` (REST, MCP), or
-  `plausibility="soft"`, `WD_TS_PLAUSIBILITY=soft`, `--plausibility soft` and `plausibility=soft` for
-  every check at once (a check named beside it wins). Interpolation, summary and climate stripes
-  always leave out a suspect value, and `skip_empty` counts the unflagged values alone (GH-3676)
+  `plausibility="soft"`, `WD_TS_PLAUSIBILITY=soft`, `--plausibility soft` and `plausibility=soft`
+  for every check at once (a check named beside it wins). Interpolation, summary and climate
+  stripes always leave out a suspect value, and `skip_empty` counts the unflagged values alone
+  (GH-3676)
 - `dmi/observation` now serves the highest and lowest pressure at sea level of the day, month and
   year (new `pressure_air_sea_level_max`/`_min`; 45 stations, 38 in Greenland), the monthly and
   annual summer days and tropical nights (`count_days_summer`, `count_days_tropical_night`) and
@@ -49,14 +50,17 @@ Types of changes:
 
 ### Changed
 
-- **Breaking**: `quality_flags` gain the tokens `suspect:<check>` and `rejected:<check>` before `raw:`.
-  A number a check rejected is `rejected:range,raw:4021` where it was `raw:4021`, so `raw:` alone is
-  now a code of the source; `str.replace(r"rejected:[a-z+]+,", "")` gives the old string. The
-  `stuck` check is soft by default: `dwd/observation` (the constant pressure of an hourly `moisture`
-  file), `rmi/observation` (the sunshine of station 6477 in its dead periods) and `dwd/road` (a
-  stopped sensor, once quality `1`) now keep their values, as `suspect:stuck`. For the null again,
-  set `stuck` to hard: `plausibility={"stuck": "hard"}`, `WD_TS_PLAUSIBILITY__STUCK=hard`,
-  `--plausibility-stuck hard` or `plausibility_stuck=hard` (GH-3676)
+- **Breaking**: `quality_flags` gain the tokens `suspect:<check>` and `rejected:<check>` before
+  `raw:`. A number a check rejected is `rejected:range,raw:4021` where it was `raw:4021`, so `raw:`
+  alone is now a code of the source; `str.replace(r"rejected:[a-z+]+,", "")` gives the old string.
+  The `stuck` check is soft by default: `dwd/observation` (the constant pressure of an hourly
+  `moisture` file) and `rmi/observation` (the sunshine of station 6477 in its dead periods), which
+  were null, now keep their values as `suspect:stuck`. `dwd/road` (a stopped sensor, once quality
+  `1`) keeps its value as before, now as `suspect:stuck` beside DWD's own flag; as that is a
+  suspect value, `skip_empty` no longer counts it, so a road station with long stuck runs can be
+  skipped where it was kept. For the null again, set `stuck` to hard:
+  `plausibility={"stuck": "hard"}`, `WD_TS_PLAUSIBILITY__STUCK=hard`, `--plausibility-stuck hard`
+  or `plausibility_stuck=hard` (GH-3676)
 - **Breaking**: 7 `noaa/ghcn` stations are placed south of the equator, no longer north of it,
   where the lists have lost the sign of their latitude: Lambarene and Lastoursville in Gabon
   (GB000004551, GB000004560) in `ghcnd-stations.txt`; Adelaide (ASU34-00001), Halley in
@@ -75,8 +79,9 @@ Types of changes:
   `quality_flags` (`rejected:range,raw:0.1`), for a `humidity_relative` below 1 % and for a
   `temperature_surface` more than 20 K above the `temperature_air` of the same minute with the sun
   more than 6 degrees below the horizon (`rejected:consistency,raw:338.75`, in K); both came back as
-  published, among them a surface of 61 to 75 °C at night. Read the old number from `raw:`. The other road readings stay raw data
-  apart from the values outside their range, as the docs now say (GH-3624)
+  published, among them a surface of 61 to 75 °C at night. Read the old number from `raw:`. The
+  other road readings stay raw data apart from the values outside their range, as the docs now say
+  (GH-3624)
 - **Breaking**: 5 `noaa/ghcn` hourly stations are placed west of Greenwich, no longer east of it,
   where `ghcnh-station-list.csv` has lost the sign of their longitude: Nemours/Ghazaouet
   (AGUG0060517), Khouribga military airport (MOI0000GMMK), Alcaniz, Bujaraloz and Oliva
@@ -86,8 +91,9 @@ Types of changes:
 - **Breaking**: `dwd/observation` `pressure_air_site` and `pressure_air_site_mean` (the hourly
   `P0` and `P_STD`, the subdaily and 10 minute station pressure, the urban station pressure
   `LUFTDRUCK_STATIONSHOEHE` and `P0_ST_10`, the daily mean `PM`) and `meteofrance/synop` `pres` are
-  null, with the number the source wrote as `rejected:elevation,raw:` in `quality_flags`, where they are more than
-  75 hPa (7,500 Pa) from the pressure the standard atmosphere expects at the station's elevation:
+  null, with the number the source wrote as `rejected:elevation,raw:` in `quality_flags`, where
+  they are more than 75 hPa (7,500 Pa) from the pressure the standard atmosphere expects at the
+  station's elevation:
   909.5 hPa at Berlin-Tempelhof (48 m) and 968.6 hPa at the Zugspitze (2,956 m, where 705 hPa are
   expected) came back as readings. The old number is the `raw:` token; a station without an
   elevation in the list is held to the world-wide bounds as before (500 to 1090 hPa, 1100 for
@@ -99,9 +105,9 @@ Types of changes:
   as it is. The old number is the `raw:` token (GH-3629)
 - **Breaking**: `dwd/dmo` `radiation_global` (`rad1h`) and `radiation_short_wave_net_last_3h`
   (`rads3`) are 0.0 where ICON writes a little below 0 at night (to -0.77 and -0.46 J/cm2), with
-  the number kept as `rejected:floor,raw:-0.16` in `quality_flags`; they were negative, and a `-0.00`
-  was `-0.0`. `rr1` and `rr3` already did this. Nothing to change in a caller; filter on `raw:` for
-  the old numbers (GH-3263)
+  the number kept as `rejected:floor,raw:-0.16` in `quality_flags`; they were negative, and a
+  `-0.00` was `-0.0`. `rr1` and `rr3` already did this. Nothing to change in a caller; filter on
+  `raw:` for the old numbers (GH-3263)
 
 ### Fixed
 

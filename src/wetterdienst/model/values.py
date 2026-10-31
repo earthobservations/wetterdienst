@@ -1209,8 +1209,9 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         # frame under the question to read a span or a dtype off
         if df.is_empty():
             return 0.0
-        # a value a soft plausibility check flagged suspect is no coverage: a station with only such values is skipped
-        # as it was when the check nulled them, whatever the mode (GH-3676)
+        # a value a soft plausibility check flagged suspect is no coverage: a station with only such values is skipped,
+        # whatever the mode (GH-3676). As it was where the check used to null the value; a road sensor that stopped,
+        # which kept its value and counted, no longer counts
         df = leave_out_suspect(df)
         percentages = []
         for parameter in cast("Iterable[ParameterModel]", self.sr.parameters):
