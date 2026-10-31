@@ -383,3 +383,12 @@ def test_a_format_added_to_the_registry_is_rendered_and_guarded_without_another_
     assert seen["format"] == "gif"
     request = SimpleNamespace(format="gif", with_metadata=False, pretty=False, width=1, height=2, scale=1.0)
     assert render_kwargs(request, max_side=100)["max_side"] == 100  # ty: ignore[invalid-argument-type]
+
+    # and the REST API refuses an oversized one, from the registry and not from a list of its own
+    from wetterdienst.ui.problems import ProblemError  # noqa: PLC0415
+    from wetterdienst.ui.restapi import _refuse_oversized_chart  # noqa: PLC0415
+
+    oversized = SimpleNamespace(format="gif", width=10**6, height=1, scale=1)
+    with pytest.raises(ProblemError) as refused:
+        _refuse_oversized_chart(oversized)  # ty: ignore[invalid-argument-type]
+    assert refused.value.status_code == 400
