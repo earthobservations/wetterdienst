@@ -328,6 +328,14 @@ _NARROWER = {
     ("dmi", "monthly", "max_precip_24h"),
     ("dmi", "annual", "max_precip_24h"),
     ("dmi", "daily", "max_precip_30m"),
+    # the 12 and 24 hours of rain are no more than a day's, as the day's own 500 mm
+    ("dmi", "hourly", "acc_precip_past12h"),
+    ("dmi", "hourly", "acc_precip_past24h"),
+    # the energy of a day cannot pass 60 MJ/m2 (the top of the atmosphere at 82 degrees north in midsummer is 48), a
+    # month 31 such days, and a year is held to 5,000 MJ/m2 and no less than 0
+    ("dmi", "daily", "mean_radiation"),
+    ("dmi", "monthly", "mean_radiation"),
+    ("dmi", "annual", "mean_radiation"),
     ("rmi", "10_minutes", "sun_duration"),
     ("rmi", "hourly", "sun_duration"),
     ("rmi", "daily", "sun_duration"),

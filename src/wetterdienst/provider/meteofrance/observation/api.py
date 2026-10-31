@@ -19,6 +19,7 @@ import polars as pl
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.quality_flags import (
     SPEED_BESIDE,
+    NoReading,
     OutOfRange,
     Sentinel,
     calm,
@@ -684,6 +685,17 @@ _TEMPERATURE_COLUMNS = {
 }
 
 
+# The relative humidity `U` of an hour whose dew point `TD` that rule nulls is null too (GH-3629): the same hygrometer
+# failed, and its `U` is as wrong as the `TD` computed from it (1 to 3 % at ST-CLAUDE CITERNE 97124009, 15 % at VAHIBE
+# 98511003, 13 to 20 % at DZOUMOGNE and COCONI, 3 % at TROMELIN beside a TD of -21.6 C). The dew point is read for it
+# whether it is asked for or not, and kept beside the humidity of its hour in `_DEW_POINT_BESIDE`. No floor on the
+# humidity itself: a `U` of 20 % is a reading in a dry spell, and only the dew point tells. Only the hourly files hold
+# both columns.
+_HUMIDITY_COLUMN = "U"
+_DEW_POINT_COLUMN = "TD"
+_DEW_POINT_BESIDE = "__td_beside"
+
+
 def _is_frostless(station_id: str) -> bool:
     """Tell whether a station lies where there is no frost (``_FROSTLESS_PREFIXES``)."""
     return station_id.startswith(_FROSTLESS_PREFIXES)
@@ -1044,7 +1056,14 @@ class MeteoFranceObservationValues(TimeseriesValues):
         parameter_columns = [parameter.name_original for parameter in dataset]
         # a parameter's validation code is published in the column of its name with a Q in front (QRR for RR)
         flag_columns = {name: f"Q{name}" for name in parameter_columns}
-        read_columns = ["NUM_POSTE", date_column, *parameter_columns, *flag_columns.values()]
+        # the dew point of the hour for the humidity at a station without frost (`_HUMIDITY_COLUMN`)
+        dew_point_beside = _is_frostless(station_id) and _HUMIDITY_COLUMN in parameter_columns
+        read_columns = [
+            "NUM_POSTE",
+            date_column,
+            *dict.fromkeys([*parameter_columns, *([_DEW_POINT_COLUMN] if dew_point_beside else [])]),
+            *flag_columns.values(),
+        ]
         files_by_url = _download_climate_resources(matches, settings)
         # _download_climate_resources already retried each once; a failure other than a 404 surviving
         # that is an outage, and is raised rather than leaving the bucket out of a result that reads
@@ -1076,13 +1095,14 @@ class MeteoFranceObservationValues(TimeseriesValues):
         df = df.select(
             date_column,
             UPDATED,
+            (pl.col(_DEW_POINT_COLUMN) if dew_point_beside else pl.lit(None, dtype=pl.String)).alias(_DEW_POINT_BESIDE),
             *(
                 pl.struct(pl.col(name).alias("value"), pl.col(flag_columns[name]).alias("quality_flags")).alias(name)
                 for name in parameter_columns
             ),
         ).unpivot(
             on=parameter_columns,
-            index=[date_column, UPDATED],
+            index=[date_column, UPDATED, _DEW_POINT_BESIDE],
             variable_name="parameter",
             value_name="value",
         )
@@ -1111,16 +1131,24 @@ class MeteoFranceObservationValues(TimeseriesValues):
         return self._note_files_with_rows(df, dataset)
 
 
-def _sentinels(resolution_name: str, station_id: str) -> list[Sentinel | OutOfRange]:
+def _sentinels(resolution_name: str, station_id: str) -> list[Sentinel | OutOfRange | NoReading]:
     """List the codes the source writes in place of a number, for the files of a resolution of a station.
 
-    A temperature below 0 C is the rule of the stations without frost (``_FROSTLESS_PREFIXES``), after the codes.
+    A temperature below 0 C is the rule of the stations without frost (``_FROSTLESS_PREFIXES``), after the codes, and
+    so is the humidity of an hour whose dew point is below 0 C (``_HUMIDITY_COLUMN``).
     """
-    rules: list[Sentinel | OutOfRange] = _codes(resolution_name)
+    rules: list[Sentinel | OutOfRange | NoReading] = list(_codes(resolution_name))
     if _is_frostless(station_id) and _TEMPERATURE_COLUMNS.get(resolution_name):
         rules.append(
             OutOfRange(0.0, math.inf, where=pl.col("parameter").is_in(sorted(_TEMPERATURE_COLUMNS[resolution_name])))
         )
+        if resolution_name == "hourly":
+            rules.append(
+                NoReading(
+                    pl.col("parameter").eq(_HUMIDITY_COLUMN)
+                    & pl.col(_DEW_POINT_BESIDE).str.strip_chars().cast(pl.Float64, strict=False).lt(0.0)
+                )
+            )
     return rules
 
 

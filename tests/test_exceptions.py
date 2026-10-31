@@ -46,6 +46,7 @@ from wetterdienst.exceptions import (
     ReversedTimeIntervalError,
     StartDateEndDateError,
     StationNotFoundError,
+    UnknownFormatError,
     UpstreamError,
     WetterdienstError,
 )
@@ -83,6 +84,7 @@ _BASES: dict[type[BaseException], tuple[type[WetterdienstError], tuple[type[Base
     NoStationsWithElevationError: (RequestError, (ValueError,)),
     ParameterNotCarriedError: (RequestError, (ValueError,)),
     ImageTooLargeError: (RequestError, (Exception,)),
+    UnknownFormatError: (RequestError, (KeyError, ValueError)),
     ExportRefusedError: (WetterdienstError, (Exception,)),
     ProviderContractError: (WetterdienstError, (Exception,)),
 }
