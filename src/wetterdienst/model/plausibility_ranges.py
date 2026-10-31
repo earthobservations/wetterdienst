@@ -18,9 +18,10 @@ Faroe Islands and Greenland, and the rain DMI marks `validity: true` runs to 183
 3,291.3 in a year, where its `validity: false` values (1978 mm in a day, 17,802 in a month) are no gauge reading, so
 the day is held to 500 mm, the month to 1,500 and the year to 4,000. RMI's gust is held to 60 m/s, the highest in
 Belgium being 51 m/s (the 81.5 m/s of 6414 is `validated: false`), and its sunshine to the span itself (RMI writes
-minutes to two decimals, and no day holds the 3,808 minutes that were written). DWD's station pressure is 500 to 1090 hPa: the
-highest sea level pressure is 1084.8 hPa (Tosontsengel, 2001) and no German station lies where a pressure is lower than
-500 hPa. A German road station reports no -60 degrees, and its hygrometer writes 0.1 % when it has failed (GH-3624).
+minutes to two decimals, and no day holds the 3,808 minutes that were written). DWD's station pressure is 500 to
+1090 hPa: the highest sea level pressure is 1084.8 hPa (Tosontsengel, 2001) and no German station lies where a
+pressure is lower than 500 hPa. A German road station reports no -60 degrees, and its hygrometer writes 0.1 % when it
+has failed (GH-3624).
 
 The table is built from the bounds the readers declared before the move (``tests/model/test_plausibility_core.py``
 holds it to them), and each stays inside ``tests/provider/physical_ranges.py``.
