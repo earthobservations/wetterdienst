@@ -6,7 +6,7 @@
 |---------------|------------------------------------------------------------------------------------------------|
 | name          | subdaily                                                                                       |
 | original name | subdaily                                                                                       |
-| description   | measurements at 7am, 2pm, 9pm. |
+| description   | Observations at the main synoptic times: 07, 14 and 21 CET in the historical files, 06, 12 and 18 UTC in the recent files (some stations also at 00 UTC; the extreme wind at 03, 09, 15 and 21 UTC for the 3-hour maximum and at 00, 06, 12 and 18 UTC for the 6-hour one). |
 | url           | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/subdaily/) |
 
 ## datasets
@@ -19,7 +19,7 @@
 |---------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | name          | cloudiness                                                                                                                                                                                                               |
 | original name | cloudiness                                                                                                                                                                                                               |
-| description   | Recent subdaily cloud cover and cloud density of stations in Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
+| description   | Subdaily cloud cover and cloud density of stations in Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
 | access        | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/subdaily/cloudiness/)                                                                                                                |
 
 #### parameters
@@ -38,7 +38,7 @@
 |---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | name          | moisture                                                                                                                                                                                                                                                                              |
 | original name | moisture                                                                                                                                                                                                                                                                              |
-| description   | Recent subdaily vapor pressure, wet bulb temperature, ice on the wet bulb thermometer and relative humidity of stations in Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
+| description   | Subdaily vapor pressure, wet bulb temperature, ice on the wet bulb thermometer and relative humidity of stations in Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
 | access        | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/subdaily/moisture/)                                                                                                                                                                               |
 
 #### parameters
@@ -59,7 +59,7 @@
 |---------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | name          | pressure                                                                                                                                                                                               |
 | original name | pressure                                                                                                                                                                                               |
-| description   | Recent air pressure at site of stations in Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
+| description   | Air pressure at site of stations in Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
 | access        | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/subdaily/pressure/)                                                                                                |
 
 #### parameters
@@ -77,7 +77,7 @@
 |---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | name          | soil                                                                                                                                                                                                            |
 | original name | soil                                                                                                                                                                                                            |
-| description   | Recent subdaily coded ground state of stations in Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
+| description   | Subdaily coded ground state of stations in Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
 | access        | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/subdaily/soil/)                                                                                                             |
 
 #### parameters
@@ -95,7 +95,7 @@
 |---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | name          | temperature_air                                                                                                                                                                                                         |
 | original name | air_temperature                                                                                                                                                                                                         |
-| description   | Recent subdaily air temperature and humidity of stations in Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
+| description   | Subdaily air temperature and humidity of stations in Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
 | access        | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/subdaily/air_temperature/)                                                                                                          |
 
 #### parameters
@@ -113,7 +113,7 @@
 |---------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | name          | visibility                                                                                                                                                                                         |
 | original name | visibility                                                                                                                                                                                         |
-| description   | Recent visibility range of stations in Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
+| description   | Visibility range of stations in Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
 | access        | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/subdaily/visibility/)                                                                                          |
 
 #### parameters
@@ -130,7 +130,7 @@
 |---------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | name          | wind                                                                                                                                                                                                                       |
 | original name | wind                                                                                                                                                                                                                       |
-| description   | Recent wind direction and wind force (beaufort) of stations in Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
+| description   | Wind direction and wind force (beaufort) of stations in Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
 | access        | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/subdaily/wind/)                                                                                                                        |
 
 #### parameters
@@ -148,7 +148,7 @@
 |---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | name          | wind_extreme                                                                                                                                                                                            |
 | original name | extreme_wind                                                                                                                                                                                            |
-| description   | Recent subdaily extreme wind of stations in Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
+| description   | Subdaily extreme wind of stations in Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
 | access        | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/subdaily/extreme_wind/)                                                                                             |
 
 #### parameters

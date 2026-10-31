@@ -10,7 +10,7 @@ The data provided through ``wetterdienst`` includes:
 - river water level (stage)
 - groundwater level (15 minutes)
 
-in resolutions 15 minutes and daily for UK wide stations.
+in resolutions 15 minutes and daily for stations in England.
 
 ```{toctree}
 :hidden:
