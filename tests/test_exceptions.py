@@ -165,14 +165,10 @@ def test_the_os_errors_keep_the_layout_of_their_built_in_class() -> None:
     assert isinstance(NoInternetError("offline"), OSError)
 
 
-#: constructor arguments of the classes that do not take a message
+#: constructor arguments of the classes whose constructor takes more than a message
 _CONSTRUCTOR_ARGS: dict[type[BaseException], tuple] = {
     DownloadError: ("https://example.com/a", "timed out"),
     ImageTooLargeError: (1, 2, 3),
-    MetaFileNotFoundError: (2, "No such file", "meta.txt"),
-    ProductFileNotFoundError: (2, "No such file", "product.txt"),
-    CredentialRejectedError: (13, "Permission denied"),
-    NoInternetError: (61, "Connection refused"),
 }
 
 
@@ -199,6 +195,25 @@ def test_an_error_pickles_with_its_class_message_args_attributes_and_notes(cls: 
     assert copy.__dict__ == error.__dict__
     assert copy.__notes__ == ["a note"]
     assert copy.extra == "an attribute"
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        MetaFileNotFoundError(2, "No such file", "meta.txt"),
+        ProductFileNotFoundError(2, "No such file", "product.txt"),
+        CredentialRejectedError(13, "Permission denied"),
+        NoInternetError(61, "Connection refused"),
+    ],
+    ids=lambda error: type(error).__name__,
+)
+def test_an_os_error_with_an_errno_pickles_whole(error: OSError) -> None:
+    """The `OSError` form with an errno, a message and a filename comes through the copy as it was."""
+    copy = pickle.loads(pickle.dumps(error))  # noqa: S301
+    assert type(copy) is type(error)
+    assert str(copy) == str(error)
+    assert copy.args == error.args
+    assert (copy.errno, copy.strerror, copy.filename) == (error.errno, error.strerror, error.filename)
 
 
 def test_an_image_too_large_error_keeps_its_size_and_limit() -> None:
