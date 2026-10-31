@@ -583,7 +583,9 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "phenology_bleeding_first", "dimensionless", _phase("on which sap first bled from the pruned vine")
     ),
     CanonicalParameter(
-        "phenology_bud_formation_beginning", "dimensionless", _phase("on which flower bud formation began")
+        "phenology_bud_formation_beginning",
+        "dimensionless",
+        _phase("on which the terminal or flower bud of about half of the plants became visible"),
     ),
     CanonicalParameter("phenology_bud_swelling", "dimensionless", _phase("on which the buds first swelled noticeably")),
     CanonicalParameter(
@@ -592,17 +594,39 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         _phase("on which the grain reached dough (wax-ripe) stage"),
     ),
     CanonicalParameter(
-        "phenology_emergence_beginning", "dimensionless", _phase("on which the first seedlings emerged")
+        "phenology_emergence_beginning",
+        "dimensionless",
+        _phase("on which the plants or seedlings had broken through the soil"),
     ),
-    CanonicalParameter("phenology_flowering_beginning", "dimensionless", _phase("on which the first flowers opened")),
-    CanonicalParameter("phenology_flowering_end", "dimensionless", _phase("on which the last flowers had faded")),
+    CanonicalParameter(
+        "phenology_flowering_beginning",
+        "dimensionless",
+        _phase(
+            "on which flowering began, as DWD defines it per plant: mostly the first flowers opened, for some plants "
+            "the first pollen released, for a few a share of the flowers, ears, flower heads or plants (5%, for elder "
+            "50%)"
+        ),
+    ),
+    CanonicalParameter(
+        "phenology_flowering_end",
+        "dimensionless",
+        _phase(
+            "on which flowering was nearly over: about 95% of the flowers, of the stand (rapeseed) or of the "
+            "inflorescences (grapevine) had faded"
+        ),
+    ),
     CanonicalParameter(
         "phenology_flowering_end_observation_area",
         "dimensionless",
         _phase("on which flowering ended across the whole observation area"),
     ),
     CanonicalParameter(
-        "phenology_flowering_general", "dimensionless", _phase("on which about half of the flowers were open")
+        "phenology_flowering_general",
+        "dimensionless",
+        _phase(
+            "on which about half of the flowers were open (for rye, the grasses and maize: about half of the ears, "
+            "spike-like panicles, spikelets or plants releasing pollen)"
+        ),
     ),
     CanonicalParameter(
         "phenology_fruit_ripe_first", "dimensionless", _phase("on which the first fruits were fully ripe")
@@ -622,10 +646,16 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "phenology_grape_ripeness_beginning",
         "dimensionless",
-        _phase("on which the grapes began to ripen (veraison)"),
+        _phase(
+            "on which the berries began to soften and lighten (veraison), on about a quarter of the bunches or berries"
+        ),
     ),
     CanonicalParameter("phenology_harvest", "dimensionless", _phase("on which the crop was harvested")),
-    CanonicalParameter("phenology_harvest_by_hand", "dimensionless", _phase("on which the crop was harvested by hand")),
+    CanonicalParameter(
+        "phenology_harvest_by_hand",
+        "dimensionless",
+        _phase("on which the harvest began with a scythe or a simple machine"),
+    ),
     CanonicalParameter("phenology_hay_cut_first", "dimensionless", _phase("of the first cut of the grassland for hay")),
     CanonicalParameter(
         "phenology_hay_cut_second", "dimensionless", _phase("of the second cut of the grassland for hay")
@@ -643,9 +673,13 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "phenology_heading_beginning",
         "dimensionless",
-        _phase("on which the first ears emerged from the flag leaf"),
+        _phase("on which the tips of the ears pushed out of the leaf sheaths on about half of the stems"),
     ),
-    CanonicalParameter("phenology_height_growth_beginning", "dimensionless", _phase("on which growth in height began")),
+    CanonicalParameter(
+        "phenology_height_growth_beginning",
+        "dimensionless",
+        _phase("on which about half of the plants had begun to grow in height"),
+    ),
     CanonicalParameter(
         "phenology_leaf_colouring_autumn",
         "dimensionless",
@@ -654,11 +688,15 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "phenology_leaf_fall_autumn", "dimensionless", _phase("on which about half of the leaves had fallen")
     ),
-    CanonicalParameter("phenology_leaf_formation_beginning", "dimensionless", _phase("on which leaf formation began")),
+    CanonicalParameter(
+        "phenology_leaf_formation_beginning",
+        "dimensionless",
+        _phase("on which about half of the plants had unfolded their first pair of leaves"),
+    ),
     CanonicalParameter(
         "phenology_leaf_unfolding_beginning",
         "dimensionless",
-        _phase("on which the first leaves had fully unfolded"),
+        _phase("on which the first leaves had unfolded (for the horse chestnut, the leaflets risen into a hand)"),
     ),
     CanonicalParameter(
         "phenology_may_sprouting",
@@ -686,7 +724,9 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         _phase("on which the first needle bundles unfolded"),
     ),
     CanonicalParameter(
-        "phenology_panicle_emergence_beginning", "dimensionless", _phase("on which the panicle first emerged")
+        "phenology_panicle_emergence_beginning",
+        "dimensionless",
+        _phase("on which the tips of the panicles pushed out of the leaf sheaths on about half of the stems"),
     ),
     CanonicalParameter(
         "phenology_picking_ripeness_beginning",
@@ -697,10 +737,14 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "phenology_planting_beginning", "dimensionless", _phase("on which planting out of the crop began")
     ),
     CanonicalParameter(
-        "phenology_rosette_formation_beginning", "dimensionless", _phase("on which rosette formation began")
+        "phenology_rosette_formation_beginning",
+        "dimensionless",
+        _phase("on which about half of the plants had formed the fourth leaf of the rosette"),
     ),
     CanonicalParameter(
-        "phenology_shooting_beginning", "dimensionless", _phase("on which stem elongation (shooting) began")
+        "phenology_shooting_beginning",
+        "dimensionless",
+        _phase("on which about half of the plants were elongating clearly and the first stem node was palpable"),
     ),
     CanonicalParameter(
         "phenology_silage_cut_first", "dimensionless", _phase("of the first cut of the grassland for silage")
@@ -714,7 +758,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "phenology_silk_emergence_beginning",
         "dimensionless",
-        _phase("on which the silks of the maize first emerged"),
+        _phase("on which the female inflorescences, with long silks, appeared on about half of the maize plants"),
     ),
     CanonicalParameter(
         "phenology_sowing_beginning", "dimensionless", _phase("on which sowing or drilling of the crop began")
@@ -722,7 +766,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "phenology_sprouting_beginning",
         "dimensionless",
-        _phase("on which the first buds broke and leaf green became visible"),
+        _phase("on which the first buds broke open, for most plants with the first leaf green visible"),
     ),
     CanonicalParameter(
         "phenology_st_johns_sprouting",
@@ -730,15 +774,17 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         _phase("on which the midsummer (St. John's) shoot appeared"),
     ),
     CanonicalParameter(
-        "phenology_stand_closed", "dimensionless", _phase("on which the crop stand had closed over the rows")
+        "phenology_stand_closed", "dimensionless", _phase("on which about half of the plants touched across the rows")
     ),
     CanonicalParameter(
         "phenology_tassel_tip_visible",
         "dimensionless",
-        _phase("on which the tip of the maize tassel first became visible"),
+        _phase("on which the tassel became visible on about half of the maize plants"),
     ),
     CanonicalParameter(
-        "phenology_turning_green_beginning", "dimensionless", _phase("on which the plant began to turn green")
+        "phenology_turning_green_beginning",
+        "dimensionless",
+        _phase("on which about a quarter of the grassland showed fresh green"),
     ),
     CanonicalParameter(
         "phenology_yellow_ripeness_beginning",
