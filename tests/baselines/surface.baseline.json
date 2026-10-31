@@ -139,7 +139,7 @@
     "dmi/observation": "(parameters, start=None, end=None, settings=..., periods=None, *, options=None, on_unknown='raise')",
     "dwd/alerts": "(granularity=..., language=..., timestamp=None, settings=None, **kwargs)",
     "dwd/derived": "(parameters, start=None, end=None, settings=..., periods=None, *, options=None, on_unknown='raise')",
-    "dwd/dmo": "(parameters, start=None, end=None, settings=..., periods=None, issue=..., station_group=None, lead_time=None, _coverage_cache=..., _placemark_cache=..., *, options=None, on_unknown='raise')",
+    "dwd/dmo": "(parameters, start=None, end=None, settings=..., periods=None, issue=..., station_group=None, lead_time=None, _coverage_cache=..., _placemark_cache=..., *, options=None, on_unknown='raise', _lead_time_asked=None)",
     "dwd/mosmix": "(parameters, start=None, end=None, settings=..., periods=None, issue=..., station_group=..., *, options=None, on_unknown='raise')",
     "dwd/observation": "(parameters, start=None, end=None, settings=..., periods=None, *, options=None, on_unknown='raise')",
     "dwd/phenology": "(parameters, start=None, end=None, settings=..., periods=None, *, options=None, on_unknown='raise')",
@@ -203,5 +203,5 @@
     "smhi/observation": "wetterdienst.provider.smhi.observation.SmhiObservationRequest",
     "wsv/pegel": "wetterdienst.provider.wsv.pegel.WsvPegelRequest"
   },
-  "x-release": "0.178.0"
+  "x-release": "0.179.0"
 }
