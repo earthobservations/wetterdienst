@@ -9,6 +9,7 @@ takes that file with a lock object of its own, which excludes the code under tes
 
 from __future__ import annotations
 
+import datetime as dt
 import errno
 import inspect
 import json
@@ -694,3 +695,139 @@ def test_the_metadata_is_written_as_fsspec_writes_it_and_through_the_class_that_
     assert type(view._metadata) is _OneWriteCacheMetadata  # noqa: SLF001
     assert ours.read_bytes() == theirs.read_bytes()
     assert [path.name for path in tmp_path.iterdir() if path.name.startswith("we-write-")] == []  # no temp file left
+
+
+# the sidecar that keeps the date of a blob (GH-3634)
+
+FIRST = dt.datetime(2026, 10, 1, 12, 0, tzinfo=dt.UTC)
+SECOND = dt.datetime(2026, 10, 2, 12, 0, tzinfo=dt.UTC)
+
+
+def _put_blob(blob: Path, body: bytes) -> os.stat_result:
+    """Put a body where the blob is by renaming a file of its own onto it, as a fetch does, and give its stat."""
+    temp = blob.with_name(f"{blob.name}.{len(body)}.tmp")
+    temp.write_bytes(body)
+    written = temp.stat()
+    temp.replace(blob)
+    return written
+
+
+def test_the_check_of_the_blob_and_the_replace_of_its_sidecar_are_made_under_the_lock(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Another process cannot rename its blob between the check and the replace; the lock is let go of after."""
+    storage = _storage(tmp_path)
+    mine = _LockedWholeFileCacheFileSystem(fs=_source(), cache_storage=str(storage), expiry_time=3600)
+    blob = storage / mine._mapper("/mine.txt")  # noqa: SLF001
+    held_during_check_and_replace: list[bool] = []
+    original = network._ask_again  # noqa: SLF001
+
+    def ask_again(call: object, path: Path) -> object:
+        if path.suffix == ".lm":
+            try:
+                with FileLock(_lock_file(storage), timeout=0):
+                    held_during_check_and_replace.append(False)
+            except Timeout:
+                held_during_check_and_replace.append(True)
+        return original(call, path)  # ty: ignore[invalid-argument-type]
+
+    monkeypatch.setattr(network, "_ask_again", ask_again)
+
+    mine.cat_file("/mine.txt")
+
+    assert held_during_check_and_replace == [True]
+    assert network._has_sidecar_record(blob)  # noqa: SLF001
+    with FileLock(_lock_file(storage), timeout=0):  # and it is let go of
+        pass
+
+
+def test_a_fetch_that_gets_the_lock_once_asks_for_it_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The date is written in the hold of the rename and the row: not a second turn in the queue per download."""
+    storage = _storage(tmp_path)
+    mine = _LockedWholeFileCacheFileSystem(fs=_source(), cache_storage=str(storage), expiry_time=3600)
+    renamed: list[bool] = []
+    held_after_the_rename: list[bool] = []
+    replace = os.replace
+    original = network._locked_across_processes  # noqa: SLF001
+
+    def rename(source: str, target: str) -> None:
+        replace(source, target)
+        renamed.append(True)
+
+    def locked(directory: Path, **kwargs: object) -> object:
+        if renamed:
+            held_after_the_rename.append(any(lock.is_locked for lock in network._cache_dir_file_locks.values()))  # noqa: SLF001
+        return original(directory, **kwargs)  # ty: ignore[invalid-argument-type]
+
+    monkeypatch.setattr(network.os, "replace", rename)
+    monkeypatch.setattr(network, "_locked_across_processes", locked)
+
+    mine.cat_file("/mine.txt")
+
+    # what asks for the lock after the rename (the save of the row) does so inside the hold of the rename, and the date
+    # does not ask at all, or it would find the hold let go of when it is written outside it
+    assert held_after_the_rename
+    assert all(held_after_the_rename)
+    assert network._has_sidecar_record(storage / mine._mapper("/mine.txt"))  # noqa: SLF001
+
+
+def test_a_date_is_still_written_where_another_process_holds_the_lock(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The rename goes ahead without the lock, and so does the date: not more dates lost than before the lock."""
+    monkeypatch.setattr(network, "_CACHE_LOCK_TIMEOUT_SECONDS", 0.2)
+    storage = _storage(tmp_path)
+    mine = _LockedWholeFileCacheFileSystem(fs=_source(), cache_storage=str(storage), expiry_time=3600)
+    blob = storage / mine._mapper("/mine.txt")  # noqa: SLF001
+
+    with FileLock(_lock_file(storage)):
+        started = time.monotonic()
+        data = mine.cat_file("/mine.txt")
+        waited = time.monotonic() - started
+
+    assert data == b"mine"
+    assert waited < 5
+    assert network._has_sidecar_record(blob)  # noqa: SLF001
+    assert sorted(path.name for path in storage.iterdir() if path.suffix in {".tmp", ".lm"}) == [blob.name + ".lm"]
+
+
+def test_a_blob_another_process_renames_in_after_the_check_keeps_its_own_sidecar(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The window of GH-3634: the check has passed, the other process renames its blob in and writes its sidecar.
+
+    The other process starts the moment the stat of the blob in the check returns, so a check made before the lock was
+    taken, or no lock at all, lets it finish first: our replace then lands on top of its record, and the copy loses
+    its date. With the lock held from the check to the replace its rename waits for the replace, and then finds the
+    blob its own and a record that is theirs to write.
+    """
+    storage = _storage(tmp_path)
+    mine = _LockedWholeFileCacheFileSystem(fs=_source(), cache_storage=str(storage), expiry_time=3600)
+    blob = storage / mine._mapper("/mine.txt")  # noqa: SLF001
+    other: list[threading.Thread] = []
+
+    def other_process() -> None:
+        # their own fetch, in a process of its own: no lock of this one is shared, only the lock file
+        with FileLock(_lock_file(storage)):
+            written_by_them = _put_blob(blob, b"the body of theirs, which is longer")
+            record = {"last_modified": SECOND.isoformat(), "size": written_by_them.st_size}
+            record["mtime_ns"] = written_by_them.st_mtime_ns
+            network._sidecar_of(blob).write_text(json.dumps(record), encoding="utf-8")  # noqa: SLF001
+
+    original = Path.stat
+
+    def stat(self: Path, *args: object, **kwargs: object) -> os.stat_result:
+        result = original(self, *args, **kwargs)  # ty: ignore[invalid-argument-type]
+        # the check of the blob for our sidecar, once: what it saw is what it goes by
+        if self == blob and sys._getframe(1).f_code.co_name == "replace_if_still_described" and not other:  # noqa: SLF001
+            other.append(threading.Thread(target=other_process))
+            other[0].start()
+            other[0].join(timeout=0.3)  # long enough for them to be done where nothing holds them back
+        return result
+
+    monkeypatch.setattr(Path, "stat", stat)
+
+    mine.cat_file("/mine.txt")
+    other[0].join(timeout=30)
+
+    assert network._read_sidecar(blob) == SECOND  # noqa: SLF001

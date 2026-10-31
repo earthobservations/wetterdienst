@@ -1210,8 +1210,9 @@ _cache_dir_lock = threading.RLock()
 
 #: How long a process waits for the lock file of a cache directory (GH-3485) while nothing moves: the longest it is
 #: held with no other process getting it in between. What is held for is a read, a merge and a replace of one metadata
-#: file, or a sweep of one directory: well under a second for a directory of thousands of entries, over a second (2.5 s
-#: on a loaded machine) for tens of thousands. The wait goes on past this while the lock goes from hand to hand
+#: file (with the rename of a fetched file and its date beside it, GH-3634), or a sweep of one directory: well under
+#: a second for a directory of thousands of entries, over a second (2.5 s on a loaded machine) for tens of thousands.
+#: The wait goes on past this while the lock goes from hand to hand
 #: (`_acquire_while_it_moves`), so a queue of six processes is no reason to give up, and ten seconds with the same
 #: process holding it is: that is a holder that is stuck.
 _CACHE_LOCK_TIMEOUT_SECONDS = 10.0
@@ -1313,8 +1314,9 @@ def _locked_across_processes(directory: Path, *, otherwise: str, wait: float | N
     holder costs one timeout a minute and not one per file, and every load, save and sweep of the directory in that
     minute.
     Every cache miss of this process waits behind that wait, whatever the directory. The lock is taken around the short
-    critical sections (the read, merge and replace of the metadata file; the rename of a fetched file onto its blob and
-    the row for it; the sweep) and never around a download.
+    critical sections (the read, merge and replace of the metadata file; the rename of a fetched file onto its blob, the
+    row for it and the date kept beside it (`_write_sidecar`, GH-3634), in one hold; the sweep) and never around a
+    download.
 
     The lock is `filelock`'s `flock` on POSIX and `msvcrt.locking` on Windows, and never its `SoftFileLock`
     (`fallback_to_soft=False`: a file system without `flock` answers `ENOSYS`, the lock is not taken and the caller goes
@@ -1332,7 +1334,8 @@ def _locked_across_processes(directory: Path, *, otherwise: str, wait: float | N
     * `False`: another process held it past the wait. What the caller does then is its own to say (`otherwise`, for the
       log line): a save is skipped, which costs a fetch again later at worst; a sweep is left to the next process; a
       load keeps the view it has; a drop of an entry and a clear go ahead without writing the file or reading it, and
-      the rename of a fetched file goes ahead without the row.
+      the rename of a fetched file goes ahead without the row, with its date written without the lock as before
+      there was one (a date is never skipped for a busy lock).
 
     Args:
         directory: The cache directory (the one with the metadata file in it).
@@ -1646,11 +1649,22 @@ def _write_sidecar(blob: Path, last_modified: dt.datetime | None, written: os.st
     (`_has_sidecar_record`), which is what tells it from a copy made before. Never raises: a date lost is a null, not a
     failed download. A replace that Windows refuses, because another process holds the sidecar open, is asked again
     after the pauses of `_ask_again` (GH-3632) before the date is given up, and each try checks the blob again. Those
-    pauses, under a second in all, hold the lock of the cache directory, which the check needs.
+    pauses, under a second in all, hold the lock of the cache directory, which the check needs, and the lock
+    file with it.
 
-    Written under the lock of the cache directory and only if the blob is still the file `written` describes: of two
-    fetches that replace the blob one after the other, the one that comes later may write its sidecar first, and the
-    earlier one then finds a blob that is not its own and leaves the sidecar of the other where it is.
+    Written only if the blob is still the file `written` describes: of two fetches that replace the blob one after the
+    other, the one that comes later may write its sidecar first, and the earlier one then finds a blob that is not its
+    own and leaves the sidecar of the other where it is.
+
+    The check and the replace are one step against the other processes that share the directory (GH-3634): between a
+    check and a replace outside their lock another process could rename its blob there and write its sidecar, and the
+    replace would bury that record under one of a blob that is gone, so that the copy loses its date and counts as
+    undated (fetched once more). So the caller holds the lock file of the directory (`_locked_across_processes`) around
+    the call, the hold it took for the rename of the blob and the row, and this takes none of its own: a second turn in
+    the queue for every download, with `_cache_dir_lock` held through the wait, is a cost every cache miss of the
+    process would share. Where that hold did not get the lock the call is made all the same, as it was before there
+    was a lock to hold: a date is skipped only where it was lost before, never because the lock was busy. This takes
+    `_cache_dir_lock` itself, for the threads of this process.
     """
     sidecar = _sidecar_of(blob)
     temp = sidecar.with_name(f"{sidecar.name}.{uuid.uuid4().hex}.tmp")
@@ -2104,11 +2118,12 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
                 # the rename onto the blob and the row that names it are one step for the lock file of the directory
                 # (GH-3485): a sweep of another process that reads the old row between the two would delete the new
                 # file, and the row saved next would then name nothing. The lock is for these two and not for the
-                # download, which is over. Where it is not got in time the rename is done all the same, as before the
-                # lock, and the sweep's check of the file's time is what protects it
+                # download, which is over. The date kept beside the blob is written in the same hold. Where the lock
+                # is not got in time the rename is done all the same, as before the lock, and the sweep's check of
+                # the file's time is what protects it; the date is written too
                 with _locked_across_processes(
                     Path(self.storage[-1]),
-                    otherwise="the rename goes ahead without it and the save of its row is skipped",
+                    otherwise="the rename goes ahead without it, the row is not saved, the date is written without it",
                 ):
                     try:
                         os.replace(temp, blob)  # noqa: PTH105
@@ -2128,9 +2143,11 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
                     self._make_local_details(path)
                     self._metadata.cached_files[-1][path]["time"] = started
                     self.save_cache()
-                # after the entry: a copy is dated once the cache holds it. Written whether or not this fetch had a
-                # date, so that a copy fetched anew over an older one does not keep the older one's
-                _write_sidecar(Path(blob), last_modified, written)
+                    # after the entry: a copy is dated once the cache holds it. Written whether or not this fetch had
+                    # a date, so that a copy fetched anew over an older one does not keep the older one's. In the same
+                    # hold, so that the check of the blob and the replace of its sidecar are one step against the other
+                    # processes too (GH-3634), and the row and the date are published together
+                    _write_sidecar(Path(blob), last_modified, written)
             finally:
                 # best effort: an unlink that fails must not replace the bytes in hand or the error
                 # the download met, which is what the caller's status and retry go by

@@ -43,6 +43,20 @@ Types of changes:
   where IMGW's list is empty. `river_kilometer` is not comparable with `wsv/pegel`'s waterway
   kilometre, which grows downstream. `gauge_zero_datum` is null, as the list states no datum
   (GH-3599)
+- `dmi/observation` now offers the sunshine duration (`sunshine_duration`), the cloud cover
+  (`cloud_cover_total` at minute 0 of the hour, `cloud_cover_total_mean` from the day), the hourly
+  global radiation (`radiation_global_intensity_mean`), the highest and lowest relative humidity of
+  the day and of the year (`humidity_relative_max`/`_min`; the annual ones were left out as not
+  published, but are), the manual snow depth of the day (`snow_depth_manual`) and the monthly and
+  annual counts of ice days, frost days and days with 0.1, 1 and 10 mm (`count_days_*`). A cloud
+  cover above 100 is null, with the number as `raw:` in `quality_flags`. Not offered yet: the
+  radiation of a day and longer, the pressure extremes and the other counts (Part of GH-3622)
+- `noaa/ghcn` daily now offers the average dew point (`temperature_dew_point_mean_2m`, ADPT),
+  sea level and station pressure (`pressure_air_sea_level_mean`, `pressure_air_site_mean`; ASLP,
+  ASTP), wet bulb temperature (`temperature_wet_mean_2m`, AWBT), wind direction
+  (`wind_direction_mean`, AWDR) and relative humidity (`humidity_relative_mean`/`_min`/`_max`;
+  RHAV, RHMN, RHMX), at the US stations that report them. A direction of 0 beside an average wind
+  speed of 0 is null, with `raw:0` in `quality_flags`. TAXN is listed for no station (Part of GH-3622)
 
 ### Changed
 
@@ -106,6 +120,11 @@ Types of changes:
   arrived with (the `updated` column and `data_updated_at` came back null) nor download the file
   once more, when one reads or replaces its date at the moment the other does: that is asked again
   for under a second (GH-3632)
+- On any system, two processes that share a cache directory no longer overwrite each other's
+  date of a cached file, which made the `updated` column and `data_updated_at` come back null
+  when one wrote the date at the moment the other replaced the file. The date is now written
+  under the same lock as the file and its entry in the cache; where another process keeps that
+  lock too long, it is written without it, as before (GH-3634)
 - The `noaa/ghcn` parameter descriptions no longer offer a choice of units. 30 daily rows read
   "mm or inches as per user preference" or "Fahrenheit or Celsius", the wording of NCEI's
   ordering form; the files hold one unit, which the values already came in (mm, °C, m/s, km,
@@ -227,6 +246,14 @@ Types of changes:
   same holds for a resolution with no fixed interval (`subdaily`), where the share of readings
   with a value was taken of the rows left, always all of them, so nothing was skipped. A request
   with a window and a fixed interval is unchanged (GH-3578)
+
+### Security
+
+- `uv.lock` pins `joserfc` 1.7.7 (was 1.7.5), which closes GHSA-9pg5-8c7x-5hfx (CVE-2026-119284,
+  fixed in 1.7.6) and the `vulnerable` check that failed on it. It comes in only through the `mcp`
+  extra (`fastmcp`, `authlib`), and wetterdienst neither imports it nor serves an authenticated
+  MCP endpoint, so its own code did not reach the affected path; a source install with the extra
+  and the Docker image (built from the lock) now carry the fixed version (GH-3653)
 
 ## [0.178.0] - 2026-10-28
 

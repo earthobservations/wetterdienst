@@ -52,10 +52,11 @@ GHCNH_WIND_DIRECTION_MISSING = "999"
 # one (1.5 m/s, 1985) have a wind speed of 0, and 12,384 and 28,366 are 360. The 0 beside a speed of 0 is null; the
 # one beside a wind that blows stays, as in every provider (`calm`, GH-3222), where it was null too
 GHCNH_WIND_SPEED_OF_DIRECTION = {"wind_direction": "wind_speed"}
-# the speed of the direction of each fastest or peak wind of the daily files (the element names, lower case): the
-# readme lists WDF1, WDF2, WDF5, WDFG, WDFI and WDFM as "Direction of ..." the wind WSF1, WSF2, WSF5, WSFG, WSFI and
-# WSFM give the speed of, in tenths of m/s
+# the speed of the direction of each daily wind direction (the element names of the daily files, lower case): AWDR,
+# the average direction, beside AWND, and the readme's "Direction of ..." the fastest or peak wind (WDF1, WDF2, WDF5,
+# WDFG, WDFI and WDFM) beside WSF1, WSF2, WSF5, WSFG, WSFI and WSFM, the speed of that wind, in tenths of m/s
 GHCND_WIND_SPEED_OF_DIRECTION = {
+    "awdr": "awnd",
     "wdf1": "wsf1",
     "wdf2": "wsf2",
     "wdf5": "wsf5",
@@ -427,13 +428,15 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
             pl.col("value").str.strip_chars(),
             "quality_flags",
         )
-        # The direction of a fastest or peak wind is 0 beside a speed of 0 as much as it is a bearing beside a wind that
-        # blows (9 station files read 2026-10-30; the readme gives no code for a day without a direction). Of the 1,799
-        # zeros of WDFG 1,798 have a WSFG of 0 (1,789 at CAN03031640, source flag C), and 123 zeros of WDF5 at
-        # USW00014755 (1998 to 2002) are beside a WSF5 of 4.0 to 59.0 m/s, besides its 360 for north. WDF1, WDF2 and
-        # WDF5 have 2 of 3, 8 of 23 and 11 of 134 zeros beside a speed of 0, WDFI and WDFM none in 8,410 and 28,815
-        # directions. The 0 beside a speed of exactly 0 is a calm and null, and stays as `raw:0` in `quality_flags`
-        # (GH-3222); the 0 beside a wind that blows stays (GH-3648)
+        # AWDR, the average daily wind direction, is 0 beside an AWND of 0 (a calm day) as much as it is a bearing
+        # beside a wind that blows: at USS0054K01S (read 2026-10-30) 2 of its 11 directions of 0 have a speed of 0 and 5
+        # have one above, besides the 360 of 2025-06-30. So are the directions of the fastest and peak winds (9 station
+        # files read 2026-10-30): of the 1,799 zeros of WDFG 1,798 have a WSFG of 0 (1,789 at CAN03031640, source flag
+        # C), and 123 zeros of WDF5 at USW00014755 (1998 to 2002) are beside a WSF5 of 4.0 to 59.0 m/s, besides its 360
+        # for north. WDF1, WDF2 and WDF5 have 2 of 3, 8 of 23 and 11 of 134 zeros beside a speed of 0, WDFI and WDFM
+        # none in 8,410 and 28,815 directions. The readme gives no code for a day without a direction. The 0 beside a
+        # speed of exactly 0 is a calm and null, and stays as `raw:0` in `quality_flags` (GH-3222); the 0 beside a
+        # wind that blows stays (GH-3648)
         df = with_speed_beside(df, GHCND_WIND_SPEED_OF_DIRECTION, on=["station_id", "timestamp"])
         value, raw = null_sentinels(
             pl.col("value"),
