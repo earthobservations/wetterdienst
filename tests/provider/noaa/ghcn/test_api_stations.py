@@ -364,7 +364,6 @@ def test_noaa_ghcn_hourly_stations_lost_sign_five_more(
 GHCND_LOST_LATITUDE_ROWS = (
     "GB000004551   0.7200   10.2200   82.0    LAMBARENE                                   ",
     "GB000004560   0.8300   12.7200  483.0    LASTOURSVILLE                               ",
-    "ECW00050904   0.4333  -90.2833   23.2    GALAPAGOS ISLAND NF                         ",
 )
 GHCNH_LOST_LATITUDE_ROWS = (
     "ASU34-00001,34.92,138.6,0.0,,AUSTRALIA-ADELAIDE_SBDY,,,,,AU",
@@ -380,7 +379,7 @@ LOST_LATITUDE_SIGN_POSITIONS = {
 
 
 def test_noaa_ghcn_daily_stations_south_latitude(monkeypatch: pytest.MonkeyPatch, default_settings: Settings) -> None:
-    """Lambarene, Lastoursville and the Galapagos base are south of the equator, as the other catalogues have them.
+    """Lambarene and Lastoursville are south of the equator, as the other catalogues have them.
 
     The rows are copied from `ghcnd-stations.txt` as NOAA publishes it, read 2026-10-31: the latitude is listed north
     where ISD, OpenStreetMap and Wikipedia put each of them south. Port Gentil (GBM00064550) is made up, listed south
@@ -399,12 +398,10 @@ def test_noaa_ghcn_daily_stations_south_latitude(monkeypatch: pytest.MonkeyPatch
     assert dict(df.select("station_id", "latitude").rows()) == {
         "GB000004551": -0.72,
         "GB000004560": -0.83,
-        "ECW00050904": -0.4333,
         "GBM00064551": -0.704,
         "GBM00064550": -0.712,
     }
     assert dict(df.select("station_id", "longitude").rows())["GB000004551"] == 10.22
-    assert dict(df.select("station_id", "longitude").rows())["ECW00050904"] == -90.2833
 
 
 def test_noaa_ghcn_daily_stations_lost_latitude_sign_guard(
@@ -413,13 +410,13 @@ def test_noaa_ghcn_daily_stations_lost_latitude_sign_guard(
     """A row is turned only while it lists the position that was checked; a moved row is read as it is (GH-3662).
 
     Lambarene is listed with a latitude NOAA has moved by 0.01, Lastoursville with a longitude NOAA has moved by 0.01,
-    both still north: those two are no longer the rows the correction was verified on. The Galapagos base is listed
-    with the sign put right.
+    both still north: those two are no longer the rows the correction was verified on. Port Gentil is listed with
+    the sign put right.
     """
     rows = (
         "GB000004551   0.7300   10.2200   82.0    LAMBARENE                                   ",
         "GB000004560   0.8300   12.7300  483.0    LASTOURSVILLE                               ",
-        "ECW00050904  -0.4333  -90.2833   23.2    GALAPAGOS ISLAND NF                         ",
+        "GBM00064550  -0.7120    8.7540    4.0    PORT GENTIL                            64550",
     )
     stations = "\n".join(rows) + "\n"
     inventory = "".join(f"{row[:11]} {row[12:20]} {row[21:30]} TMAX 1950 2026\n" for row in rows)
@@ -428,7 +425,7 @@ def test_noaa_ghcn_daily_stations_lost_latitude_sign_guard(
     assert dict(df.select("station_id", "latitude").rows()) == {
         "GB000004551": 0.73,
         "GB000004560": 0.83,
-        "ECW00050904": -0.4333,
+        "GBM00064550": -0.712,
     }
 
 

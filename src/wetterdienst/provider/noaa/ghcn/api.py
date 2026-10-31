@@ -131,16 +131,15 @@ LOST_LONGITUDE_SIGN_STATIONS: dict[str, tuple[float, float]] = {
 }
 
 
-# stations whose latitude the lists give with the wrong sign, all 8 listed north of the equator where they lie south of
-# it, 96 to 16,800 km off: the list has lost the sign, as it has for the longitudes above (GH-3662). Each was
+# stations whose latitude the lists give with the wrong sign, all 7 listed north of the equator where they lie south of
+# it, 158 to 16,800 km off: the list has lost the sign, as it has for the longitudes above (GH-3662). Each was
 # checked against two or more other sources (ISD history, OpenStreetMap, Wikipedia, GHCN daily list) that put the same
 # place on the other side of the equator and within 15 km of the mirrored position; the values per station are in the
 # pull request of that issue. Same guard as above: the value is the (latitude, longitude) the list gave when the
 # station was checked, and the latitude of a row is turned only while the row still lists exactly this position.
-# GB000004551, GB000004560 and ECW00050904 are in the daily list, the other five in the hourly list only.
+# GB000004551 and GB000004560 are in the daily list, the other five in the hourly list only.
 LOST_LATITUDE_SIGN_STATIONS: dict[str, tuple[float, float]] = {
     "ASU34-00001": (34.92, 138.6),  # AUSTRALIA-ADELAIDE_SBDY, hourly list only
-    "ECW00050904": (0.4333, -90.2833),  # GALAPAGOS ISLAND NF (Baltra), daily list only
     "GB000004551": (0.72, 10.22),  # LAMBARENE, daily list only
     "GB000004560": (0.83, 12.72),  # LASTOURSVILLE, daily list only
     "GLUHALLEY-2": (75.52, -26.0),  # HALLEY (Antarctica), hourly list only
