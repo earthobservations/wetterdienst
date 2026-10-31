@@ -955,16 +955,16 @@ def _meteofrance_observation_hourly_mayotte(
     monkeypatch: pytest.MonkeyPatch,
     drop_nulls: bool = True,  # noqa: FBT001, FBT002
 ) -> pl.DataFrame:
-    # HOR_departement_985_periode_2025-2026 of data.gouv.fr, read 2026-10-30, the row of VAHIBE_SAPC (98511003, 222
-    # m) at 2025-06-10 07 h as the file writes it: `TD` -4.5 (validation code 9) beside `T` 23.8 and `U` 15 (code 9),
-    # in Mayotte, which lies at 12.7 to 13.0 degrees south and has no frost (GH-3135, GH-3629). The dew point is
-    # between 20.0 at 06 h and 20.6 at 08 h; the humidity of those two hours is worded by the stub. The humidity of
-    # the failed hygrometer is null with the dew point and keeps `raw:15`
+    # H_985_latest-2025-2026.csv.gz of data.gouv.fr (HOR_departement_985_periode_2025-2026), the rows of VAHIBE_SAPC
+    # (98511003, 222 m) at 2025-06-10 06 h to 08 h as the file writes them: at 07 h `TD` -4.5 (validation code 9) beside
+    # `T` 23.8 and `U` 15 (code 9), between a `TD` of 20.0 with `U` 82 and one of 20.6 with `U` 79, in Mayotte, which
+    # lies at 12.7 to 13.0 degrees south and has no frost (GH-3135, GH-3629). The humidity of the failed hygrometer is
+    # null with the dew point and keeps `raw:15`
     hour = {"NUM_POSTE": "98511003"}
     rows = [
-        {**hour, "AAAAMMJJHH": "2025061006", "T": "23.5", "QT": "1", "TD": "20.0", "QTD": "1", "U": "81", "QU": "1"},
+        {**hour, "AAAAMMJJHH": "2025061006", "T": "23.2", "QT": "1", "TD": "20.0", "QTD": "1", "U": "82", "QU": "1"},
         {**hour, "AAAAMMJJHH": "2025061007", "T": "23.8", "QT": "1", "TD": "-4.5", "QTD": "9", "U": "15", "QU": "9"},
-        {**hour, "AAAAMMJJHH": "2025061008", "T": "24.4", "QT": "1", "TD": "20.6", "QTD": "1", "U": "79", "QU": "1"},
+        {**hour, "AAAAMMJJHH": "2025061008", "T": "24.5", "QT": "1", "TD": "20.6", "QTD": "1", "U": "79", "QU": "1"},
     ]
     _serve_meteofrance(monkeypatch, "hourly", "others", "HOR_departement_985_periode_2025-2026", rows)
     request = MeteoFranceObservationRequest(

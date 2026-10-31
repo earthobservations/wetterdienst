@@ -2068,7 +2068,7 @@ def test_the_elevation_of_a_station_is_the_one_of_the_row_of_its_dataset() -> No
     pressure = DwdObservationMetadata.hourly.pressure
     assert values._station_elevation("00433", pressure) == 51.0  # noqa: SLF001
     assert values._station_elevation("00433", DwdObservationMetadata.daily.climate_summary) == 48.0  # noqa: SLF001
-    # a dataset the station has no row of has no elevation, and none asked for takes the first of the station's rows
+    # a dataset whose row has no elevation, or that the station has no row of, gives none
     assert values._station_elevation("00433", DwdObservationMetadata.hourly.moisture) is None  # noqa: SLF001
     assert values._station_elevation("05792", DwdObservationMetadata.daily.climate_summary) is None  # noqa: SLF001
     assert values._station_elevation("00433") == 48.0  # noqa: SLF001
