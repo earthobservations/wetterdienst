@@ -303,22 +303,26 @@ def _or_list(names: Iterable[str]) -> str:
     return f"{', '.join(head)} or {last}"
 
 
+# the formats of a command that answers in one body: `ndjson`, which `to_format` has, is the stream of `stations` and
+# `values` only, as `interpolate` and `summarize` name no stations to stream by (GH-3590)
+_BODY_FORMATS = [name for name in FORMATS if name != "ndjson"]
+_BODY_DATA_FORMATS = [name for name in names_of("data") if name != "ndjson"]
+
 format_opt = click.option(
     "--format",
     "fmt",
-    type=click.Choice(list(FORMATS), case_sensitive=False),
+    type=click.Choice(_BODY_FORMATS, case_sensitive=False),
     default="json",
-    help=f"Output format: {_or_list(names_of('data'))} for data, {_or_list(names_of('chart'))} for a chart. "
+    help=f"Output format: {_or_list(_BODY_DATA_FORMATS)} for data, {_or_list(names_of('chart'))} for a chart. "
     "Default: json",
 )
 # of `stations` and `values`, whose csv is streamed by the REST API and which have ndjson (GH-3065)
 stream_format_opt = click.option(
     "--format",
     "fmt",
-    # ndjson is the stream the surfaces write, no format of `to_format`: after the data formats, as it is listed
-    type=click.Choice([*names_of("data"), "ndjson", *names_of("chart")], case_sensitive=False),
+    type=click.Choice(list(FORMATS), case_sensitive=False),
     default="json",
-    help=f"Output format: {_or_list([*names_of('data'), 'ndjson'])} (the metadata, a line for each row, then the end) "
+    help=f"Output format: {_or_list(names_of('data'))} (the metadata, a line for each row, then the end) "
     f"for data, {_or_list(names_of('chart'))} for a chart. Default: json",
 )
 # the size of a chart, for --format of html, png, jpg, webp, svg or pdf

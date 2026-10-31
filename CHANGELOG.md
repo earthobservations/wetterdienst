@@ -38,9 +38,21 @@ Types of changes:
   precipitation (stamped at the end of their window) and the soil temperature at 10 cm. A greatest
   snow depth of 999.0 is null (`raw:999`) and the trace code −0.1 of the 12 and 24 hour
   precipitation is 0.0 with `raw:-0.1` (Part of GH-3622)
+- `ndjson` is a format of `to_format`, with a new `to_ndjson()` on the results: the rows, one JSON
+  object per line, no envelope, what the `.jsonl` file holds and the records of the lines the REST
+  API and the command line send between their `metadata` and `end` lines (which stay as they are;
+  a number may be written `0.00005` here and `5e-05` there). `.ndjson` is a second extension of
+  that file target, and `.geojson` a new one that writes the feature collection of `to_geojson`,
+  without the `{"data": ...}` it wraps it in (GH-3449)
 
 ### Changed
 
+- **Breaking**: a Zarr file (`file://x.zarr`) holds a gap as `NaN`, and a missing time as `NaT`,
+  where it held -999 (an integer column with a gap is now a float one). It read as a measurement:
+  an air temperature of -999 degrees, a station 999 m below the sea. A reader that tested for -999
+  tests for `NaN` (`np.isnan`, or `xarray`'s `.isnull()`), as for NetCDF; with pandas 3 a frame
+  with a missing time, such as stations that have not ended, could not be written to Zarr and now
+  can (GH-3449)
 - **Breaking**: 7 `noaa/ghcn` stations are placed south of the equator, no longer north of it,
   where the lists have lost the sign of their latitude: Lambarene and Lastoursville in Gabon
   (GB000004551, GB000004560) in `ghcnd-stations.txt`; Adelaide (ASU34-00001), Halley in
@@ -89,6 +101,11 @@ Types of changes:
 
 ### Fixed
 
+- File extensions of `to_target` are read in any case: `file://x.CSV` was refused as an unknown
+  file type, the path is kept as written (GH-3449)
+- `to_target("influxdb://…")` of a frame with no `timestamp`, `station_id`, `resolution` or
+  `dataset`, such as the stations, is refused with an `ExportRefusedError` naming what is missing,
+  before the client is built, where it failed with a bare `KeyError('timestamp')` (GH-3449)
 - `ImageTooLargeError` pickles: it failed with a `TypeError` on unpickling, which broke it for
   a caller that passes it across processes (multiprocessing, `ProcessPoolExecutor`). Its size, its limit and any notes now
   come through the copy (GH-3673)

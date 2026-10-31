@@ -696,8 +696,8 @@ What a request answers is a result, and the results are what a caller reads:
 - **A values result does not hold the reader** that produced it, so one you keep for a long job keeps
   the stations, their request and the frame alive, but not the reader. `df_stations` names the stations that have values.
 - Every result but the history one has `to_dict`, `to_json`, `to_ogc_feature_collection`, `to_geojson`,
-  `to_csv`, `to_format`, `to_target`, `to_plot` and `to_image`; the history one has `to_dict` and `to_json`
-  only. They are documented below.
+  `to_csv`, `to_ndjson`, `to_format`, `to_target`, `to_plot` and `to_image`; the history one has `to_dict` and
+  `to_json` only. They are documented below.
 - **The formats take the arguments they have, and no others.** `to_json`, `to_geojson`,
   `to_ogc_feature_collection` and `to_plot` raise a `TypeError` for a keyword they do not know, so a typo such as
   `to_geojson(with_metdata=True)` is an error, and a type checker reports it. `to_csv` and `to_image` pass their
@@ -741,6 +741,7 @@ format takes is a `TypeError` too, and the formats by surface are in the table o
 | `to_geojson` | `with_metadata`, `indent` | `with_metadata`, `indent` | none |
 | `to_ogc_feature_collection` | `with_metadata` | `with_metadata` | none |
 | `to_csv` | `**kwargs` of polars' `write_csv` | the same | none |
+| `to_ndjson` | none | none | none |
 | `to_image` | `**kwargs`: `fmt`, `width`, `height`, `scale`, `max_side` | the same | none |
 | `to_plot` | none | none | none |
 
