@@ -4428,11 +4428,15 @@ def test_influxdb_refuses_a_stations_frame_by_saying_it_has_no_readings(target: 
 def test_to_ndjson_is_the_rows_the_rest_api_streams(
     df_values: pl.DataFrame, df_interpolated_values: pl.DataFrame
 ) -> None:
-    """`to_ndjson` is the lines of the REST API between its head and its end line, from the one serializer (GH-3449).
+    """`to_ndjson` holds the records of the lines the REST API sends between its head and its end line (GH-3449).
 
-    The REST API writes a row with `ndjson_line` from `to_dict`; the file target writes the frame through polars.
-    The three give the same bytes, so a caller who streams and one who writes a file hold the same rows.
+    The REST API writes a row with `ndjson_line` from `to_dict`; the file target and `to_ndjson` write the frame
+    through polars. The records are the same, the text of a number is not always: polars writes `0.00005` where
+    `json.dumps` writes `5e-05`, and a NaN or an infinity is `null` in one and `NaN` in the other.
     """
+    import dataclasses  # noqa: PLC0415
+
+    from tests.model.test_results import _every_result  # noqa: PLC0415
     from wetterdienst.ui.render import ndjson_line  # noqa: PLC0415
 
     for frame in (df_values, df_interpolated_values):
@@ -4442,13 +4446,24 @@ def test_to_ndjson_is_the_rows_the_rest_api_streams(
         assert [json.loads(line) for line in written.splitlines()] == json.loads(result._iso_datetimes().write_json())  # noqa: SLF001
         assert result.to_format("ndjson") == written
     assert ExportMixin(df=df_values.clear()).to_ndjson() == ""
-    # from the rows of a result, as the stream's batches are made
-    from tests.model.test_results import _every_result  # noqa: PLC0415
 
-    for name, key in (("stations", "stations"), ("values", "values"), ("interpolated", "values")):
-        result_ = _every_result()[name]
-        lines = b"".join(ndjson_line(row) for row in result_.to_dict()[key]).decode()  # ty: ignore[unresolved-attribute]
-        assert lines == result_.to_ndjson()  # ty: ignore[unresolved-attribute]
+    # from the rows of a result, as the stream's batches are made
+    results: dict[str, Any] = _every_result()
+    values = results["values"]
+    small = dataclasses.replace(values, df=values.df.with_columns(pl.lit(0.00005).alias("value")))
+    for result_, key in (
+        (results["stations"], "stations"),
+        (values, "values"),
+        (results["interpolated"], "values"),
+        (small, "values"),
+    ):
+        streamed = b"".join(ndjson_line(row) for row in result_.to_dict()[key]).decode()
+        assert [json.loads(line) for line in streamed.splitlines()] == [
+            json.loads(line) for line in result_.to_ndjson().splitlines()
+        ]
+    # the number is the same, and its text is the serializer's: the reason this compares records and not bytes
+    assert "5e-05" in b"".join(ndjson_line(row) for row in small.to_dict()["values"]).decode()
+    assert json.loads(small.to_ndjson().splitlines()[0])["value"] == 0.00005
 
 
 @pytest.mark.parametrize("extension", ["jsonl", "ndjson", "JSONL", "NdJson"])

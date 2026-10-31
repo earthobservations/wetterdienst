@@ -144,17 +144,20 @@ out, or the other way round, fails it.
 
 `to_format` takes one set of arguments for any format and gives each format those it takes: `with_metadata`,
 `with_stations` and `indent` for JSON (a stations result has no `with_stations`), `with_metadata` and `indent` for
-GeoJSON, `width`, `height`, `scale` and `max_side` for a chart, and none for CSV and NDJSON. A name that is none of these is a
-`TypeError` listing them. A format it does not know is an `UnknownFormatError`, which names the format and lists the
+GeoJSON, `width`, `height`, `scale` and `max_side` for a chart, and none for CSV and NDJSON. A name that is none of
+these is a `TypeError` listing them. A format it does not know is an `UnknownFormatError`, which names the format and lists the
 supported ones; it is a `KeyError` and a `ValueError` both, so either `except` catches it.
 
 A `.json` or `.jsonl` file holds the records of the frame, where `--format=json` and `to_json` write the response
 envelope. `ndjson` is those records alone, a JSON object a line: `to_format("ndjson")` and the `.jsonl` file hold
-them, and so do the lines between the `metadata` head and the `end` line that the command line and the REST API
-stream (they keep those two lines, and the stream, as the transport's; `interpolate` and `summarize` have none).
+them, and the lines between the `metadata` head and the `end` line that the command line and the REST API stream
+hold the same records (they keep those two lines, and the stream, as the transport's; `interpolate` and `summarize`
+have none). The records are the same and the text of a number need not be: polars writes `0.00005` where the
+stream has `5e-05`.
 
-InfluxDB stores readings at a time, so a frame without a `timestamp`, such as the stations, is refused with an
-`ExportRefusedError` that says so; write the stations to a file or to another database.
+InfluxDB stores readings at a time, so a frame without a `timestamp`, such as the stations, or without a `station_id`,
+`resolution` or `dataset`, such as an interpolated or summarized result, is refused with an `ExportRefusedError` that
+names what is missing; write those to a file or to another database.
 
 ## Formats and targets not offered
 

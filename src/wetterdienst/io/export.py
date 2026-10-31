@@ -168,8 +168,10 @@ class ExportMixin(RefusesRenamedMembers):
     def to_ndjson(self) -> str:
         """Convert the rows to NDJSON: one JSON object per line, the records of the frame and no envelope.
 
-        What the `.jsonl` and `.ndjson` file targets hold, and what the REST API and the command line send as the
-        lines between their `metadata` and `end` lines. Timestamps are ISO strings and a list stays a list.
+        What the `.jsonl` and `.ndjson` file targets hold, and the records of the lines the REST API and the command
+        line send between their `metadata` and `end` lines. The records are the same; the text of a number need not
+        be, as polars writes `0.00005` where `json.dumps` writes `5e-05`. Timestamps are ISO strings and a list stays
+        a list.
 
         Returns:
             NDJSON string, a line of every row and none for a frame without rows
