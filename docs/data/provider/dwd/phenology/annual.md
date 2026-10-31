@@ -761,7 +761,7 @@
 | {term}`phenology_grape_harvest` | 30 | Grape harvest (Lese). | dimensionless |
 | {term}`phenology_leaf_colouring_autumn` | 31 | Autumn colouring of leaves (herbstliche Blattverfärbung): about 50% of the leaves have taken on their autumn colour. | dimensionless |
 | {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall): about 50% of the leaves have fallen. | dimensionless |
-| {term}`phenology_grape_ripeness_beginning` | 42 | Beginning of ripeness of grapes (Reife Beginn Weinrebe): on about 25% of the grapes the berries begin to soften and become lighter. | dimensionless |
+| {term}`phenology_grape_ripeness_beginning` | 42 | Beginning of ripeness of grapes (Reife Beginn Weinrebe): on about 25% of the bunches the berries begin to soften and become lighter. | dimensionless |
 
 ### annual_grapevine_blue_grapes
 
@@ -807,7 +807,7 @@
 | {term}`phenology_grape_harvest` | 30 | Grape harvest (Lese). | dimensionless |
 | {term}`phenology_leaf_colouring_autumn` | 31 | Autumn colouring of leaves (herbstliche Blattverfärbung): about 50% of the leaves have taken on their autumn colour. | dimensionless |
 | {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall): about 50% of the leaves have fallen. | dimensionless |
-| {term}`phenology_grape_ripeness_beginning` | 42 | Beginning of ripeness of grapes (Reife Beginn Weinrebe): on about 25% of the grapes the berries begin to soften and become lighter. | dimensionless |
+| {term}`phenology_grape_ripeness_beginning` | 42 | Beginning of ripeness of grapes (Reife Beginn Weinrebe): about 25% of the berries begin to soften and become lighter. | dimensionless |
 
 ### annual_grapevine_late_ripening
 
@@ -834,7 +834,7 @@
 | {term}`phenology_grape_harvest` | 30 | Grape harvest (Lese). | dimensionless |
 | {term}`phenology_leaf_colouring_autumn` | 31 | Autumn colouring of leaves (herbstliche Blattverfärbung): about 50% of the leaves have taken on their autumn colour. | dimensionless |
 | {term}`phenology_leaf_fall_autumn` | 32 | Autumn leave fall (herbstlicher Blattfall): about 50% of the leaves have fallen. | dimensionless |
-| {term}`phenology_grape_ripeness_beginning` | 42 | Beginning of ripeness of grapes (Reife Beginn Weinrebe): on about 25% of the grapes the berries begin to soften and become lighter. | dimensionless |
+| {term}`phenology_grape_ripeness_beginning` | 42 | Beginning of ripeness of grapes (Reife Beginn Weinrebe): on about 25% of the bunches the berries begin to soften and become lighter. | dimensionless |
 
 ### annual_grapevine_middle_late_ripening
 
@@ -1287,7 +1287,7 @@
 | name | original name | description | unit |
 |------|---------------|-------------|------|
 | {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully and the violet anthers become visible. | dimensionless |
-| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): on about 50% of the spikelets the anthers hang out and release pollen when touched. | dimensionless |
+| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): on about 50% of the spike-like panicles the anthers hang out and release pollen when touched. | dimensionless |
 
 ### annual_midland_hawthorn
 
@@ -1616,7 +1616,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers of the observed field have opened. | dimensionless |
 | {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first potatoes are put into the ground. | dimensionless |
 | {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): about half of the plants in the observed field have broken through the soil completely. | dimensionless |
 | {term}`phenology_stand_closed` | 13 | Closed stand (Bestand geschlossen): about 50% of the plants touch across the rows. | dimensionless |
@@ -1685,7 +1685,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): about 5% of the yellow flowers have opened fully. | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): about 5% of the yellow flowers are open. | dimensionless |
 | {term}`phenology_flowering_end` | 7 | End of flowering (Blüte Ende): about 95% of the stand has finished flowering. | dimensionless |
 | {term}`phenology_sowing_beginning` | 10 | Beginning of tilling sowing drilling (Bestellung Beginn): the first field of the observation area is sown or drilled. | dimensionless |
 | {term}`phenology_emergence_beginning` | 12 | Beginning of emergence (Auflaufen Beginn): the cotyledons have broken through the soil surface and reached a height of about 1 cm. | dimensionless |
@@ -1818,7 +1818,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): the first fruits have their variety-typical red colour and come away easily from the stalk. | dimensionless |
+| {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): the berries have their variety-typical red colour and come away easily from the stalk. | dimensionless |
 
 ### immediate_sweet_cherry
 
@@ -1836,7 +1836,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully, in at least 3 places of the observed plant. | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened, in at least 3 places of the observed plant. | dimensionless |
 | {term}`phenology_picking_ripeness_beginning` | 29 | Fruit ripe for picking (Pflückreife Beginn): the fruits are coloured enough for a first picking to be worthwhile. | dimensionless |
 
 ### immediate_grapevine_early_ripening
@@ -2019,7 +2019,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully, in at least 3 places of the observed plant. | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers open on the racemes that bend down gradually, in at least 3 places of the observed plant. | dimensionless |
 
 ### immediate_blackthorn
 
@@ -2186,7 +2186,7 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first catkins have extended fully and release pollen, in at least 3 places of the observed plant. | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flower catkins have extended far enough for the opened yellow anthers to be seen, and release pollen when touched, in at least 3 places of the observed plant. | dimensionless |
 
 ### immediate_horse_chestnut
 
@@ -2240,8 +2240,8 @@
 
 | name | original name | description | unit |
 |------|---------------|-------------|------|
-| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers have opened fully and the violet anthers become visible. | dimensionless |
-| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): on about 50% of the spikelets the anthers hang out and release pollen when touched. | dimensionless |
+| {term}`phenology_flowering_beginning` | 5 | Beginning of flowering (Blüte Beginn): the first flowers open and the violet anthers become visible. | dimensionless |
+| {term}`phenology_flowering_general` | 6 | General flowering (Vollblüte): on about 50% of the spike-like panicles the anthers hang out and release pollen when touched. | dimensionless |
 
 ### immediate_pedunculate_oak
 

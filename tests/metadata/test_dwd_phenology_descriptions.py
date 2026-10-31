@@ -27,7 +27,7 @@ def test_the_share_of_the_plants_is_the_one_dwd_defines() -> None:
     assert "about 5% of the yellow flowers" in _description("annual_winter_oilseed_rape", 5)
     assert "about 25% of the selected permanent grassland" in _description("annual_permanent_grassland", 1)
     assert "about 50% of the stems" in _description("annual_winter_rye", 18)
-    assert "about 25% of the grapes" in _description("annual_grapevine", 42)
+    assert "about 25% of the bunches" in _description("annual_grapevine", 42)
     assert "about 95% of the flowers have shed their petals" in _description("annual_apple", 7)
 
 
@@ -92,37 +92,36 @@ def test_winter_rye_full_ripeness_keeps_the_name_alone() -> None:
 def test_the_immediate_reporters_have_their_own_alder_text_and_the_rule_on_the_places() -> None:
     """The immediate alder text is the bracts', not the annual catkins'; 17 immediate rows hold in 3 places only.
 
-    "(an mind. 3 Stellen des Beobachtungsobjektes)" ends the immediate reporters' definition of these 17 rows and
-    no annual one.
+    "(an mind. 3 Stellen des Beobachtungsobjektes)" ends the immediate reporters' definition of 17 rows and no annual
+    one. The rows come from `_AT_LEAST_3_PLACES`; what is held here is that no annual row and no row outside it
+    says so, and that a row of it says it once.
     """
-    annual = DwdPhenologyMetadata["annual"]
     assert "bracts" in _description("immediate_black_alder", 5)
     assert "bracts" not in _description("annual_black_alder", 5)
-    rows = {
-        ("apple", 3),
-        ("apple", 5),
-        ("sweet_cherry", 5),
-        ("alder_all_species", 5),
-        ("ash", 5),
-        ("birch_all_species", 5),
-        ("black_alder", 5),
-        ("black_locust", 5),
-        ("blackthorn", 5),
-        ("common_hazel", 5),
-        ("european_beech", 4),
-        ("european_beech", 5),
-        ("forsythia", 5),
-        ("goat_willow", 5),
-        ("large_leaved_lime", 5),
-        ("silver_birch", 4),
-        ("silver_birch", 5),
-    }
     places = "in at least 3 places of the observed plant"
-    for dataset in annual.datasets:
+    plants = {(r[0], r[3]): r[4] for r in phenology._PLANTS}  # noqa: SLF001
+    said = 0
+    for dataset in DwdPhenologyMetadata["annual"].datasets:
         reporter, _, plant = dataset.name.partition("_")
+        object_id = plants[(f"{reporter}_reporters", plant)]
         for parameter in dataset.parameters:
-            held = (plant, int(parameter.name_original)) in rows
-            assert (places in parameter.description) == (held and reporter == "immediate"), dataset.name
+            held = (object_id, int(parameter.name_original)) in phenology._AT_LEAST_3_PLACES  # noqa: SLF001
+            if reporter == "immediate" and held:
+                assert parameter.description.count(places) == 1, dataset.name
+                said += 1
+            else:
+                assert places not in parameter.description, dataset.name
+    assert said == len(phenology._AT_LEAST_3_PLACES)  # noqa: SLF001
+
+
+def test_every_row_that_has_no_definition_hides_one() -> None:
+    """Each `_NO_DEFINITION` entry names a row that exists, so none is left over after a plant or phase moves."""
+    rows = {
+        (reporter[0], object_id, phase)
+        for reporter, _group, _stem, _plant, object_id, _periods, phases in phenology._PLANTS  # noqa: SLF001
+        for phase in phases
+    }
+    assert set(phenology._NO_DEFINITION) <= rows  # noqa: SLF001
 
 
 def test_a_first_picking_is_said_only_of_the_fruits_whose_text_says_it() -> None:
@@ -132,3 +131,18 @@ def test_a_first_picking_is_said_only_of_the_fruits_whose_text_says_it() -> None
     assert "colour" not in _description("annual_gooseberry", 29)
     assert "worthwhile" in _description("annual_plum_early_ripening", 29)
     assert "first maize kernels are yellowish" in _description("annual_maize", 20)
+
+
+def test_a_sentence_claims_no_more_than_the_text_of_its_reporter_group() -> None:
+    """The immediate texts say "geöffnet" where the annual ones say "vollständig geöffnet"; bunches are not berries."""
+    assert "fully" not in _description("immediate_winter_oilseed_rape", 5)
+    assert "fully" in _description("annual_winter_oilseed_rape", 5)
+    assert "fully" not in _description("immediate_sweet_cherry", 5)
+    assert "fully" not in _description("immediate_goat_willow", 5)
+    assert "first fruits" not in _description("immediate_red_currant", 29)
+    assert "spike-like panicles" in _description("annual_meadow_foxtail", 6)
+    assert "spike-like panicles" in _description("immediate_meadow_foxtail", 6)
+    assert "bunches" in _description("annual_grapevine", 42)
+    assert "25% of the berries" in _description("annual_grapevine_early_ripening", 42)
+    assert "plants or seedlings" in PARAMETERS["phenology_emergence_beginning"].description
+    assert "fully unfolded" not in PARAMETERS["phenology_leaf_unfolding_beginning"].description

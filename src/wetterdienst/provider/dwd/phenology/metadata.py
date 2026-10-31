@@ -201,14 +201,15 @@ _OBJECTS: dict[int, tuple[str, str, str]] = {
 # What the ``PH_Beschreibung_Phasendefinition_*.txt`` files DWD publishes in the directories of the data (one per
 # reporter group and plant group) say a phase is, translated (GH-3136). DWD's English phase name alone leaves out what
 # decides the date: the share of the plants that must show the stage (5, 25, 50 or 95 %, set per plant), that the
-# flowering of a wind-pollinated tree is the release of pollen and not an open flower, and what ripe means for a crop.
+# flowering of some plants is the release of pollen and not an open flower, and what ripe means for a crop.
 # A phase that is absent here has a name that already says it (``Ernte``, ``Lese``, the cuts of the grassland) and
 # keeps it. ``_DEFINITIONS`` is the sentence for a phase; ``_PLANT_DEFINITIONS`` replaces it for a plant whose
 # definition says something else, keyed by ``(Objekt_id, Phase_id)``, or by ``("a" or "i", Objekt_id, Phase_id)``
 # where the two reporter groups' definitions differ. ``_NO_DEFINITION`` is every row DWD defines for no plant of its
 # reporter group: the beet of the current year, immediate hazel's end of flowering and immediate oak's leaf unfolding
 # (the definition files miss them); the grapevine of the immediate reporters has no definition file at all. Those keep
-# the name alone.
+# the name alone; so does annual winter rye's full ripeness (phase 22), whose DWD text is the one of its yellow ripeness
+# at a weaker stage, a defect of the sheet.
 _DEFINITIONS: dict[int, str] = {
     1: "about 25% of the selected permanent grassland shows fresh green, i.e. leaf growth has begun",
     5: "the first flowers have opened fully",
@@ -236,7 +237,7 @@ _DEFINITIONS: dict[int, str] = {
     34: "the dairy cattle are driven off the pasture for good in autumn, i.e. housed",
     37: "on about 50% of the plants the female inflorescences appear in the leaf axils as cobs with long silks",
     41: "the latest-flowering varieties of the observation area have finished flowering",
-    42: "on about 25% of the grapes the berries begin to soften and become lighter",
+    42: "on about 25% of the bunches the berries begin to soften and become lighter",
     62: "the first fruits are fully coloured",
     63: "about 50% of the needles have turned golden yellow",
     64: "about 50% of the needles have fallen",
@@ -249,7 +250,7 @@ _CATKINS = "the first catkins have extended fully and release pollen"
 _BRACTS = "the blue-violet bracts of the male catkins have moved apart far enough for pollen to be released when moved"
 _POLLEN = "the flowers have opened and release pollen"
 _PLANT_DEFINITIONS: dict[tuple[int, int] | tuple[str, int, int], str] = {
-    # 5: beginning of flowering. The wind-pollinated trees are given by the release of pollen
+    # 5: beginning of flowering. Some plants are given by the release of pollen, a few by a share
     (
         101,
         5,
@@ -283,16 +284,23 @@ _PLANT_DEFINITIONS: dict[tuple[int, int] | tuple[str, int, int], str] = {
         5,
     ): "on about 5% of the ears the first flowers in the middle of the ear have opened and the anthers are visible",
     (205, 5): "about 5% of the yellow flowers have opened fully",
+    ("i", 205, 5): "about 5% of the yellow flowers are open",
     (209, 5): "on about 5% of the flower heads the anthers of the first to third ring of flowers are visible",
     (210, 5): "about 5% of the plants have the middle branches of the panicle in bloom",
     (215, 5): "about 5% of the plants have the middle branches of the panicle in bloom",
     (410, 5): "about 5% of the flowers have opened fully (the caps are shed)",
     (411, 5): "about 5% of the flowers have opened fully (the caps are shed)",
     (413, 5): "about 5% of the flowers have opened fully (the caps are shed)",
-    # 6: general flowering
     (134, 5): "the first flowers have opened fully and release pollen",
     (135, 5): "the first flowers have opened fully and the violet anthers become visible",
-    (135, 6): "on about 50% of the spikelets the anthers hang out and release pollen when touched",
+    ("i", 135, 5): "the first flowers open and the violet anthers become visible",
+    ("i", 121, 5): "the first flowers open on the racemes that bend down gradually",
+    ("i", 330, 5): "the first flowers have opened",
+    ("i", 231, 5): "the first flowers of the observed field have opened",
+    ("i", 124, 5): "the first flower catkins have extended far enough for the opened yellow anthers to be seen, and "
+    "release pollen when touched",
+    # 6: general flowering
+    (135, 6): "on about 50% of the spike-like panicles the anthers hang out and release pollen when touched",
     (
         136,
         6,
@@ -329,7 +337,7 @@ _PLANT_DEFINITIONS: dict[tuple[int, int] | tuple[str, int, int], str] = {
         17,
     ): "the flower bud, tightly enclosed by the young leaves, becomes visible at the shoot tip on about 50% of the "
     "plants",
-    # 19, 21, 22: ripeness of the cereals, the maize and the rapeseed
+    # 19 to 22: ripeness of the cereals, the maize and the rapeseed
     (215, 20): "the first maize kernels are yellowish to yellow outside",
     (215, 19): "the first maize kernels have reached their final size",
     (208, 19): "the first grains in several panicles have reached their final size but are still soft and green",
@@ -356,6 +364,7 @@ _PLANT_DEFINITIONS: dict[tuple[int, int] | tuple[str, int, int], str] = {
     (321, 29): "the first fruits come away from the fruit wood when lifted or twisted lightly",
     (322, 29): "the first fruits come away from the fruit wood when lifted or twisted lightly",
     (350, 29): "the first fruits come away easily from the stalk",
+    ("i", 360, 29): "the berries have their variety-typical red colour and come away easily from the stalk",
     (360, 29): "the first fruits have their variety-typical red colour and come away easily from the stalk",
     (361, 29): "the first fruits have their variety-typical red colour and come away easily from the stalk",
     # 33: the first farming activity of the spring
@@ -364,6 +373,8 @@ _PLANT_DEFINITIONS: dict[tuple[int, int] | tuple[str, int, int], str] = {
     (111, 41): "the pollen shedding of the latest birch of the observation area has ended",
     (139, 41): "the pollen shedding of the latest alder of the observation area has ended",
     (203, 41): "the pollen shedding of the latest winter rye stand of the observation area has ended",
+    # 42: the early-ripening vine counts berries where the others count bunches
+    (411, 42): "about 25% of the berries begin to soften and become lighter",
     # 62: first ripe fruit
     (103, 62): "all single fruits of the most advanced umbel are fully coloured",
     (122, 62): "the first ripe, brown, matt glossy chestnuts lie on the ground",

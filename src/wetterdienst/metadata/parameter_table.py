@@ -594,7 +594,9 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         _phase("on which the grain reached dough (wax-ripe) stage"),
     ),
     CanonicalParameter(
-        "phenology_emergence_beginning", "dimensionless", _phase("on which the seedlings had broken through the soil")
+        "phenology_emergence_beginning",
+        "dimensionless",
+        _phase("on which the plants or seedlings had broken through the soil"),
     ),
     CanonicalParameter(
         "phenology_flowering_beginning",
@@ -623,7 +625,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "dimensionless",
         _phase(
             "on which about half of the flowers were open (for rye, the grasses and maize: about half of the ears, "
-            "spikelets or plants releasing pollen)"
+            "spike-like panicles, spikelets or plants releasing pollen)"
         ),
     ),
     CanonicalParameter(
@@ -644,7 +646,9 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "phenology_grape_ripeness_beginning",
         "dimensionless",
-        _phase("on which about a quarter of the grapes began to soften and lighten (veraison)"),
+        _phase(
+            "on which the berries began to soften and lighten (veraison), on about a quarter of the bunches or berries"
+        ),
     ),
     CanonicalParameter("phenology_harvest", "dimensionless", _phase("on which the crop was harvested")),
     CanonicalParameter(
@@ -692,7 +696,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "phenology_leaf_unfolding_beginning",
         "dimensionless",
-        _phase("on which the first leaves had fully unfolded"),
+        _phase("on which the first leaves had unfolded (for the horse chestnut, the leaflets risen into a hand)"),
     ),
     CanonicalParameter(
         "phenology_may_sprouting",
@@ -762,7 +766,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "phenology_sprouting_beginning",
         "dimensionless",
-        _phase("on which the first buds broke and leaf green became visible"),
+        _phase("on which the first buds broke open, for most plants with the first leaf green visible"),
     ),
     CanonicalParameter(
         "phenology_st_johns_sprouting",
