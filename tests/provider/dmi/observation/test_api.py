@@ -389,8 +389,9 @@ def test_collect_windows_a_long_range_below_the_offset_cap(monkeypatch: pytest.M
 @pytest.mark.parametrize(
     ("resolution", "window"),
     [
-        # 02:00 to 06:00 in Copenhagen (UTC+2 in June) is 00:00 to 04:00 UTC, which an hourly request sends as it is
-        ("hourly", "2023-06-01T00:00:00Z/2023-06-01T04:00:00Z"),
+        # 02:00 to 06:00 in Copenhagen (UTC+2 in June) is 00:00 to 04:00 UTC, which an hourly request sends with an hour
+        # more at the start: the 12 and 24 hour values are stamped by their `to`, an hour after their `from`
+        ("hourly", "2023-05-31T23:00:00Z/2023-06-01T04:00:00Z"),
         # a daily request is widened by a day on each side, in UTC
         ("daily", "2023-05-31T00:00:00Z/2023-06-02T04:00:00Z"),
     ],

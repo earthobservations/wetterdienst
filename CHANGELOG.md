@@ -29,6 +29,15 @@ Types of changes:
   supported ones. It is a `RequestError`, and a `KeyError` as `to_format` raised and a `ValueError`
   as the alerts result did, so an `except KeyError` or `except ValueError` still catches it; the
   REST API and the command line never reach it, as their `format` is a choice (GH-3449)
+- `dmi/observation` now serves the global radiation of the day, month and year as `radiation_global`
+  (DMI publishes MJ/m²; it comes back in J/cm² by default), eight counts of days with DMI's own
+  thresholds (new `count_days_temperature_air_min_2m_lt_minus_10c`,
+  `count_days_wind_speed_rolling_mean_max_ge_10_8mps` and `_20_8`, `_24_5`, `_28_5`,
+  `count_days_cloud_cover_total_mean_lt_20pct`/`_gt_80pct`, `count_days_snow_cover_gt_50pct`, 2011
+  to 2015 only), the mean vapour pressure, the greatest snow depth, the 12 and 24 hour extremes and
+  precipitation (stamped at the end of their window) and the soil temperature at 10 cm. A greatest
+  snow depth of 999.0 is null (`raw:999`) and the trace code −0.1 of the 12 and 24 hour
+  precipitation is 0.0 with `raw:-0.1` (Part of GH-3622)
 
 ### Changed
 
@@ -38,12 +47,32 @@ Types of changes:
   nothing. An argument that another format takes is still dropped, so the one set the command line,
   the REST API and MCP build is unaffected; pass `to_csv(separator=";")` to give polars an argument
   (GH-3449)
+- **Breaking**: `dwd/road` returns null, with the number DWD wrote as the last token of
+  `quality_flags` (`raw:0.1`), for a `humidity_relative` below 1 % and for a `temperature_surface`
+  more than 20 K above the `temperature_air` of the same minute with the sun more than 6 degrees
+  below the horizon (`raw:338.75`, in K); both came back as published, among them a surface of
+  61 to 75 °C at night. Read the old number from `raw:`. The other road readings stay raw data
+  apart from the values outside their range, as the docs now say (GH-3624)
 - **Breaking**: 5 `noaa/ghcn` hourly stations are placed west of Greenwich, no longer east of it,
   where `ghcnh-station-list.csv` has lost the sign of their longitude: Nemours/Ghazaouet
   (AGUG0060517), Khouribga military airport (MOI0000GMMK), Alcaniz, Bujaraloz and Oliva
   (SPM00008164, -8165, -8282). They were 16 to 1,299 km off, so a nearest-station search or a
   distance filter near them picked the wrong stations; a filter on the old position needs the new
   one (GH-2886)
+- **Breaking**: `dwd/observation` `pressure_air_site` and `pressure_air_site_mean` (the hourly
+  `P0` and `P_STD`, the subdaily and 10 minute station pressure, the urban station pressure
+  `LUFTDRUCK_STATIONSHOEHE` and `P0_ST_10`, the daily mean `PM`) and `meteofrance/synop` `pres` are
+  null, with the number the source wrote as `raw:` in `quality_flags`, where they are more than
+  75 hPa (7,500 Pa) from the pressure the standard atmosphere expects at the station's elevation:
+  909.5 hPa at Berlin-Tempelhof (48 m) and 968.6 hPa at the Zugspitze (2,956 m, where 705 hPa are
+  expected) came back as readings. The old number is the `raw:` token; a station without an
+  elevation in the list is held to the world-wide bounds as before (500 to 1090 hPa, 1100 for
+  synop) (GH-3627)
+- **Breaking**: `meteofrance/observation` (hourly `U`) and `meteofrance/synop` (`u`): at the
+  stations without frost, the relative humidity of a row with a dew point below 0 °C is null too,
+  with its number as `raw:`, where it came back as 1 to 20 % beside a dew point of -20 C, the same
+  failed hygrometer. A humidity beside a dew point that is a reading stays, low as it is. The old
+  number is the `raw:` token (GH-3629)
 - **Breaking**: `dwd/dmo` `radiation_global` (`rad1h`) and `radiation_short_wave_net_last_3h`
   (`rads3`) are 0.0 where ICON writes a little below 0 at night (to -0.77 and -0.46 J/cm2), with
   the number kept as `raw:-0.16` in `quality_flags`; they were negative, and a `-0.00` was `-0.0`.

@@ -2045,3 +2045,38 @@ def test_the_readings_a_station_has_are_matched_to_a_parameter_in_the_providers_
     )
 
     assert values._get_actual_percentage(df=df, rows=values._station_rows()) == 0.5  # noqa: SLF001
+
+
+def _values_with_stations(df: pl.DataFrame) -> DwdObservationValues:
+    """Give a values object whose station list is `df`, without a request behind it."""
+    values = DwdObservationValues.__new__(DwdObservationValues)
+    values.sr = SimpleNamespace(df=df)  # ty: ignore[invalid-assignment]
+    return values
+
+
+def test_the_elevation_of_a_station_is_the_one_of_the_row_of_its_dataset() -> None:
+    """Test that a list with a row per resolution and dataset gives the elevation of the dataset asked for (GH-3627)."""
+    df = pl.DataFrame(
+        {
+            "station_id": ["00433", "00433", "00433", "05792"],
+            "resolution": ["daily", "hourly", "hourly", "hourly"],
+            "dataset": ["climate_summary", "pressure", "moisture", "pressure"],
+            "elevation": [48.0, 51.0, None, 2956.0],
+        }
+    )
+    values = _values_with_stations(df)
+    pressure = DwdObservationMetadata.hourly.pressure
+    assert values._station_elevation("00433", pressure) == 51.0  # noqa: SLF001
+    assert values._station_elevation("00433", DwdObservationMetadata.daily.climate_summary) == 48.0  # noqa: SLF001
+    # a dataset whose row has no elevation, or that the station has no row of, gives none
+    assert values._station_elevation("00433", DwdObservationMetadata.hourly.moisture) is None  # noqa: SLF001
+    assert values._station_elevation("05792", DwdObservationMetadata.daily.climate_summary) is None  # noqa: SLF001
+    assert values._station_elevation("00433") == 48.0  # noqa: SLF001
+
+
+def test_the_elevation_of_a_station_list_without_dataset_columns_or_elevation() -> None:
+    """Test that a list without resolution and dataset columns is read by station, and one without elevation is none."""
+    with_elevation = _values_with_stations(pl.DataFrame({"station_id": ["1", "1"], "elevation": [None, 7.0]}))
+    assert with_elevation._station_elevation("1", DwdObservationMetadata.hourly.pressure) == 7.0  # noqa: SLF001
+    without = _values_with_stations(pl.DataFrame({"station_id": ["1"]}))
+    assert without._station_elevation("1") is None  # noqa: SLF001
