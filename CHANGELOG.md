@@ -42,6 +42,11 @@ Types of changes:
   (SPM00008164, -8165, -8282). They were 16 to 1,299 km off, so a nearest-station search or a
   distance filter near them picked the wrong stations; a filter on the old position needs the new
   one (GH-2886)
+- **Breaking**: `dwd/dmo` `radiation_global` (`rad1h`) and `radiation_short_wave_net_last_3h`
+  (`rads3`) are 0.0 where ICON writes a little below 0 at night (to -0.77 and -0.46 J/cm2), with
+  the number kept as `raw:-0.16` in `quality_flags`; they were negative, and a `-0.00` was `-0.0`.
+  `rr1` and `rr3` already did this. Nothing to change in a caller; filter on `raw:` for the old
+  numbers (GH-3263)
 
 ### Fixed
 
@@ -60,6 +65,12 @@ Types of changes:
   `phenology_heading_beginning` was "the first ears" (DWD: about half of the stems),
   `phenology_harvest_by_hand` begins with a scythe or simple machine, and
   `phenology_emergence_beginning` no longer says "first seedlings" (GH-3136)
+- Dataset and resolution descriptions that stated a wrong fact now follow their source:
+  `dwd/observation` `annual/climate_summary` no longer lists air pressure (it has none), the
+  `subdaily` datasets are no longer "recent" only (they have a historical period), the `subdaily`
+  resolution gives DWD's observation hours by date (07, 14, 21 until March 2001, 06, 12, 18 UTC
+  from April 2001, not "7am, 2pm, 9pm"), and `ea/hydrology` covers England, not the UK
+  (GH-3136)
 
 ## [0.179.0] - 2026-10-30
 

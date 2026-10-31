@@ -1279,11 +1279,22 @@ def dwd_dmo_values(
 
 
 def _dwd_dmo(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
-    # the same KML as MOSMIX's, with the same `-`, and an hour's precipitation of -0.02 mm, which is 0.0 (GH-3263)
+    # the same KML as MOSMIX's, with the same `-`, and an hour's precipitation of -0.02 mm and a night's radiation of
+    # -0.16 J/cm2, which are 0.0 (GH-3263)
     return dwd_dmo_values(
         monkeypatch,
-        {"TTT": "275.15 - 276.15", "Td": "273.15 274.15 -", "RR1": "-0.02 0.40 -"},
-        [("hourly", "icon", "ttt"), ("hourly", "icon", "td"), ("hourly", "icon", "rr1")],
+        {
+            "TTT": "275.15 - 276.15",
+            "Td": "273.15 274.15 -",
+            "RR1": "-0.02 0.40 -",
+            "Rad1h": "-0.16 0.00 142.09",
+        },
+        [
+            ("hourly", "icon", "ttt"),
+            ("hourly", "icon", "td"),
+            ("hourly", "icon", "rr1"),
+            ("hourly", "icon", "rad1h"),
+        ],
         options=_options(drop_nulls),
     )
 
@@ -2494,6 +2505,7 @@ STUBS = [
             ("temperature_air_2m", "-", None),
             ("temperature_dew_point_2m", "-", None),
             ("precipitation_amount_last_1h", "-0.02", 0.0),
+            ("radiation_global", "-0.16", 0.0),
         ),
     ),
     ValueStub(

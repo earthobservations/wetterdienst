@@ -489,7 +489,7 @@ class Settings(BaseSettings):
     # connection to the host at once. 0 switches it off: the files are fetched one station after the other
     fetch_ahead: int = Field(default=FETCH_AHEAD, ge=0, le=FETCH_AHEAD_MAX)
     # opt-in: let REST API and MCP clients pass `sql` / `sql_values` clauses. Off by default because
-    # the clause runs in DuckDB on this host with only per-request limits (see `_filter_by_sql`);
+    # the clause runs in DuckDB on this host with only per-request limits (see `wetterdienst.io.sql_filter`);
     # the library and the CLI, whose caller is the host's own user, are not gated
     restapi_sql: bool = Field(default=False)
     # the limits of the REST API and the MCP tools (GH-3065): a request that would pass one is refused before

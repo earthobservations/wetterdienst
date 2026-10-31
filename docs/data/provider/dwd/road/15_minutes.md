@@ -18,7 +18,7 @@
 |---------------|--------------------------------------------------------------------------------|
 | name          | data                                                                           |
 | original_name | data                                                                           |
-| description   | 15-minute road weather data of German highway stations                         |
+| description   | Road weather data of the road weather stations on German roads (Glättemeldeanlagen of the road authorities of the Länder), reported in the standard period of 15 minutes                         |
 | access        | [here](https://opendata.dwd.de/weather/weather_reports/road_weather_stations/) |
 
 #### parameters
