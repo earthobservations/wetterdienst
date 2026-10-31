@@ -141,8 +141,15 @@ def _values(
     """Collect the dataset of a resolution for a station from the records of the fixture, as DMI answers by station."""
 
     def answer(url: str) -> bytes:
-        asked = parse_qs(urlparse(url).query)["stationId"][0]
-        rows = [row for row in _RECORDS[resolution] if row["stationId"] == asked]
+        query = parse_qs(urlparse(url).query)
+        asked = query["stationId"][0]
+        # DMI keeps the records whose `from` instant lies in the `datetime` interval, both ends included
+        first, last = (dt.datetime.fromisoformat(instant) for instant in query["datetime"][0].split("/"))
+        rows = [
+            row
+            for row in _RECORDS[resolution]
+            if row["stationId"] == asked and first <= dt.datetime.fromisoformat(row["from"]) <= last
+        ]
         return json.dumps({"features": [{"properties": row} for row in rows]}).encode()
 
     serve(monkeypatch, dmi_api, {"stationValue": answer})
@@ -362,13 +369,13 @@ def test_the_vapour_pressure_is_the_mean_in_hpa_and_one_that_is_no_reading_is_nu
 
 
 def test_the_greatest_snow_depth_is_in_cm_and_the_999_of_dmi_is_no_depth(monkeypatch: pytest.MonkeyPatch) -> None:
-    """06030, January 2011: 105 cm stays; 24043, September 2020 and the year 2020: 999.0 is null with `raw:999.0`."""
+    """06030, January 2011: 105 cm stays; 24043, September 2020 and the year 2020: 999.0 is null with `raw:999`."""
     kept = _values(monkeypatch, "monthly", "06030", _day(2011, 1, 1), _day(2011, 1, 1))
     assert _by_parameter(kept) == {"snow_depth_max": 105.0}
     for resolution, when in (("monthly", _day(2020, 9, 1)), ("annual", _day(2020, 1, 1))):
         df = _values(monkeypatch, resolution, "24043", when, when, drop_nulls=False)
         assert df.select("parameter", "value", "quality_flags").rows() == [
-            ("snow_depth_max", None, "manual,validity:true,raw:999.0")
+            ("snow_depth_max", None, "manual,validity:true,raw:999")
         ]
 
 

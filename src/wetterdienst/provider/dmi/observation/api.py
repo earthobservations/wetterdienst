@@ -91,8 +91,8 @@ _TRACE = Sentinel("-0.1", where=pl.col("parameterId").is_in(_PRECIPITATION_AMOUN
 # year), both marked `validity: true` with 7 values in the calculation: a snow depth of 9.99 m in a Danish September.
 # DMI documents no code for it (the climate data documentation, read 2026-10-31, mentions 999 nowhere), the other
 # 8,490 monthly and 1,229 annual values run to 138 cm, and 999.0 is the value that stands for a missing one in
-# DMI's other fields (`max_precip_24h` of 04320, 2013-09). It is null and keeps `raw:999.0`.
-_MISSING_SNOW_DEPTH = Sentinel("999.0", where=pl.col("parameterId").eq("max_snow_depth"))
+# DMI's other fields (`max_precip_24h` of 04320, 2013-09). It is null and keeps `raw:999`.
+_MISSING_SNOW_DEPTH = Sentinel("999", where=pl.col("parameterId").eq("max_snow_depth"))
 
 # The range of a reading per resolution and parameterId, in the unit DMI writes it in (but the radiation of a day, a
 # month and a year, whose bounds are in kJ/m2, the unit the metadata declares: `_TO_DECLARED_UNIT`), outside which no
@@ -230,7 +230,7 @@ _RANGES: dict[str, dict[str, tuple[float, float]]] = {
         "acc_heating_degree_days_17": _HEATING_DEGREE_DAYS,
         **_PRESSURE_EXTREMES,
         "bright_sunshine": _SUNSHINE_OF_A_DAY,
-        "snow_depth": (-50.0, 1_500.0),  # cm
+        "snow_depth": _SNOW_DEPTH,
         "mean_radiation": _RADIATION_OF_A_DAY,
         "mean_vapour_pressure": _VAPOUR_PRESSURE,
         "temp_soil_10": _SOIL_TEMPERATURE,
@@ -322,8 +322,10 @@ class DmiObservationValues(TimeseriesValues):
     def _date_expression(resolution: Resolution) -> pl.Expr:
         """Build the ``timestamp`` column expression from DMI's ``from`` and ``to`` timestamps.
 
-        DMI labels each aggregate by the start of its period. Hourly data is aligned to UTC
-        (``from`` carries a ``+00:00`` offset), so it is parsed and normalised to UTC directly.
+        DMI labels each aggregate by the start of its period, but for the extremes and sums of the last 12 and 24 hours,
+        whose ``from`` is the start of the last hour of the window: those are stamped by their ``to``, the end of the
+        window (``_STAMPED_BY_THE_END_OF_THE_WINDOW``, applied in the collection, not here). Hourly data is
+        aligned to UTC (``from`` carries a ``+00:00`` offset), so it is parsed and normalised to UTC directly.
         Day/month/year aggregates use *local civil* period boundaries (``from`` carries the
         station's local offset, e.g. ``2023-06-02T00:00:00.001000+02:00``). Their civil date
         is taken straight from the leading characters of the string -- this is timezone

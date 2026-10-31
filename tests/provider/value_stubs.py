@@ -2396,7 +2396,7 @@ STUBS = [
         reading=("snow_depth_max", 5.0),
         # DMI's 999.0 for a month of September is no snow depth: null, with the text DMI wrote
         sentinels=(("snow_depth_max", 999.0),),
-        tokens=(("snow_depth_max", "999.0", None),),
+        tokens=(("snow_depth_max", "999", None),),
     ),
     ValueStub(
         "dmi/observation annual/data",

@@ -24,24 +24,20 @@ Types of changes:
   the heating degree days of Greenland, as `heating_degree_day` beside Denmark's: the base is 17 °C
   in Denmark and 19 °C in Greenland. DMI counts the days above 25 and 20 °C, so a day at exactly
   25.0 or 20.0 °C is not counted, where the names count from the threshold (Part of GH-3622)
-- `dmi/observation` now serves the global radiation of the day, month and year as
-  `radiation_global` (DMI publishes MJ/m²; it comes back in J/cm² by default), eight counts of days
-  with DMI's own thresholds (new `count_days_temperature_air_min_2m_lt_minus_10c`,
+- `dmi/observation` now serves the global radiation of the day, month and year as `radiation_global`
+  (DMI publishes MJ/m²; it comes back in J/cm² by default), eight counts of days with DMI's own
+  thresholds (new `count_days_temperature_air_min_2m_lt_minus_10c`,
   `count_days_wind_speed_rolling_mean_max_ge_10_8mps` and `_20_8`, `_24_5`, `_28_5`,
-  `count_days_cloud_cover_total_mean_lt_20pct`/`_gt_80pct`, `count_days_snow_cover_gt_50pct`,
-  published for 2011 to 2015), the mean vapour pressure, the greatest snow depth, the 12 and 24 hour
-  extremes and precipitation (stamped at the end of their window) and the soil temperature at 10 cm.
-  A greatest snow depth of 999.0 is null (`raw:999.0`) and the trace code −0.1 of the 12 and 24 hour
-  precipitation is 0.0 with `raw:-0.1` (Part of GH-3622)
-
-### Changed
-
-- **Breaking**: 5 `noaa/ghcn` hourly stations are placed west of Greenwich, no longer east of it,
-  where `ghcnh-station-list.csv` has lost the sign of their longitude: Nemours/Ghazaouet
-  (AGUG0060517), Khouribga military airport (MOI0000GMMK), Alcaniz, Bujaraloz and Oliva
-  (SPM00008164, -8165, -8282). They were 16 to 1,299 km off, so a nearest-station search or a
-  distance filter near them picked the wrong stations; a filter on the old position needs the new
-  one (GH-2886)
+  `count_days_cloud_cover_total_mean_lt_20pct`/`_gt_80pct`, `count_days_snow_cover_gt_50pct`, 2011
+  to 2015 only), the mean vapour pressure, the greatest snow depth, the 12 and 24 hour extremes and
+  precipitation (stamped at the end of their window) and the soil temperature at 10 cm. A greatest
+  snow depth of 999.0 is null (`raw:999`) and the trace code −0.1 of the 12 and 24 hour
+  precipitation is 0.0 with `raw:-0.1` (Part of GH-3622) ### Changed - **Breaking**: 5 `noaa/ghcn`
+  hourly stations are placed west of Greenwich, no longer east of it, where `ghcnh-station-list.csv`
+  has lost the sign of their longitude: Nemours/Ghazaouet (AGUG0060517), Khouribga military airport
+  (MOI0000GMMK), Alcaniz, Bujaraloz and Oliva (SPM00008164, -8165, -8282). They were 16 to 1,299 km
+  off, so a nearest-station search or a distance filter near them picked the wrong stations; a
+  filter on the old position needs the new one (GH-2886)
 
 ### Fixed
 

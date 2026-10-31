@@ -81,16 +81,16 @@ MJ/m² in the polar night of January 2021 that DMI marks valid.
 
 The counts of days are `count_days_*` with the threshold of DMI's own definition (its calculation table, read on
 2026-10-31), each held to the daily records DMI publishes. The cold days are those with a minimum temperature "less
-than -10 °C" (`count_days_temperature_air_min_2m_lt_minus_10c`). The windy, stormy, storm and hurricane days (`no_windy_days`, `no_stormy_days`,
-`no_days_w_storm`, `no_days_w_hurricane`) are the days on which the highest 10-minute mean wind speed
-(`max_wind_speed_10min`) was "greater or equal to" 10.8, 20.8, 24.5 and 28.5 m/s
+than -10 °C" (`count_days_temperature_air_min_2m_lt_minus_10c`). The windy, stormy, storm and hurricane days
+(`no_windy_days`, `no_stormy_days`, `no_days_w_storm`, `no_days_w_hurricane`) are the days on which the highest
+10-minute mean wind speed (`max_wind_speed_10min`) was "greater or equal to" 10.8, 20.8, 24.5 and 28.5 m/s
 (`count_days_wind_speed_rolling_mean_max_ge_10_8mps` and so on); the parameter list of the documentation says "mean
 wind speed", but the counts fit the 10-minute maximum (the daily mean wind speed in 2 of 60 months at 06180, the
 maximum in 59, and `>` in 27). The clear and cloudy days are those with a mean cloud cover "less than 20%" and
-"greater than 80%" (`count_days_cloud_cover_total_mean_lt_20pct` and `_gt_80pct`), a day of exactly 20 % being no clear
-day and one of exactly 80 % no cloudy day; DMI publishes them for every day as 1 or 0. The days with snow cover are
-those with a snow depth "greater than 0" and a snow cover "greater than 50" percent (`count_days_snow_cover_gt_50pct`,
-published for 2011 to 2015 only).
+"greater than 80%" (`count_days_cloud_cover_total_mean_lt_20pct` and `_gt_80pct`), a day of exactly 20 % being no
+clear day and one of exactly 80 % no cloudy day; DMI publishes them for every day as 1 or 0. The days with snow cover
+are those with a snow depth "greater than 0" and a snow cover "greater than 50" percent
+(`count_days_snow_cover_gt_50pct`, published for 2011 to 2015 only).
 
 DMI also publishes the mean vapour pressure from the day on (`pressure_vapor_mean`), the greatest snow depth of a
 month and a year (`snow_depth_max`; a 999.0 of September 2020 at 24043 and 31259 is no depth and is null), the highest
