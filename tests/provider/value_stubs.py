@@ -1969,6 +1969,30 @@ def _dmi_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.D
     return stations_result(request, "daily", "data", "22375").values().all().df
 
 
+def _dmi_monthly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # `max_snow_depth` of `timeResolution=month` (read 2026-10-31, GH-3622): 24043 has 999.0 cm for September 2020,
+    # as has 31259, both marked `validity: true` with 7 values in the calculation. DMI's documentation names no code
+    # for it and the 9,000 other monthly and annual values run to 138 cm, so it is a sentinel that looks like a depth
+    # in a Danish September. The 5 cm below are made up
+    rows = [
+        ("2020-08-01T00:00:00.001000+02:00", "2020-09-01T00:00:00+02:00", 5.0),
+        ("2020-09-01T00:00:00.001000+02:00", "2020-10-01T00:00:00+02:00", 999.0),
+    ]
+    features = [
+        {"properties": {"parameterId": "max_snow_depth", "from": start, "to": end, "value": value}}
+        for start, end, value in rows
+    ]
+    serve(monkeypatch, dmi_api, {"stationValue": json.dumps({"features": features}).encode()})
+    request = DmiObservationRequest(
+        parameters=[("monthly", "data")],
+        start=_day(2020, 8, 1),
+        end=_day(2020, 9, 1),
+        settings=_settings(),
+        options=_options(drop_nulls),
+    )
+    return stations_result(request, "monthly", "data", "24043").values().all().df
+
+
 def _rmi_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # `aws:aws_1day` of station 6414 (read 2026-10-15): 2003-08-05 is a day of readings, on 2003-08-06 the mean is
     # 110.26 and the maximum 4021 degrees, which no thermometer read, and `validated` is false for both (GH-2797). The
@@ -2365,6 +2389,14 @@ STUBS = [
         reading=("precipitation_amount", 3.5),
         # the trace is no missing value: it is 0.0, with the text DMI wrote
         tokens=(("precipitation_amount", "-0.1", 0.0),),
+    ),
+    ValueStub(
+        "dmi/observation monthly/data",
+        _dmi_monthly,
+        reading=("snow_depth_max", 5.0),
+        # DMI's 999.0 for a month of September is no snow depth: null, with the text DMI wrote
+        sentinels=(("snow_depth_max", 999.0),),
+        tokens=(("snow_depth_max", "999.0", None),),
     ),
     ValueStub(
         "dmi/observation annual/data",

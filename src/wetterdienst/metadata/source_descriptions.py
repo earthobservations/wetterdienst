@@ -2173,8 +2173,142 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("hourly", "data", "mean_radiation"): (
             "Mean intensity of the global radiation (305 to 2800 nm) over the hour (UTC), in W/m². The "
-            "source gives the radiation of a day, month and year in MJ/m², which the library does not "
-            "serve."
+            "source gives the radiation of a day, month and year as a sum in MJ/m²."
+        ),
+        ("daily", "data", "mean_radiation"): (
+            "Global radiation (305 to 2800 nm) of the day, as the energy summed over the day: the sum of the "
+            "underlying hourly values, which the source publishes in MJ/m² (the library multiplies it by "
+            "1000 and returns kJ/m², converted to the unit asked for). Published for some stations only."
+        ),
+        ("monthly", "data", "mean_radiation"): (
+            "Global radiation (305 to 2800 nm) of the month, as the energy summed over the month: the sum of "
+            "the underlying daily values, which the source publishes in MJ/m² (the library multiplies it by "
+            "1000 and returns kJ/m², converted to the unit asked for)."
+        ),
+        ("annual", "data", "mean_radiation"): (
+            "Global radiation (305 to 2800 nm) of the year, as the energy summed over the year: the sum of "
+            "the underlying daily values, which the source publishes in MJ/m² (the library multiplies it by "
+            "1000 and returns kJ/m², converted to the unit asked for)."
+        ),
+        ("daily", "data", "mean_vapour_pressure"): (
+            "Mean vapour pressure of the day, in hPa: the mean of the hourly values that could be calculated "
+            "from the hourly mean temperature and mean relative humidity. The source marks some values 0.0 "
+            "with validity false."
+        ),
+        ("monthly", "data", "mean_vapour_pressure"): (
+            "Mean vapour pressure of the month, in hPa: the average of the underlying daily values."
+        ),
+        ("annual", "data", "mean_vapour_pressure"): (
+            "Mean vapour pressure of the year, in hPa: the average of the underlying daily values."
+        ),
+        ("monthly", "data", "max_snow_depth"): (
+            "Greatest snow depth of the month, in cm: the highest of the underlying daily values of "
+            "snow_depth, which are read by hand once a day, with the date and the place. A value of 999.0 "
+            "(24043 and 31259, September 2020) is no depth and is null."
+        ),
+        ("annual", "data", "max_snow_depth"): (
+            "Greatest snow depth of the year, in cm: the highest of the underlying daily values of "
+            "snow_depth, which are read by hand once a day, with the date and the place. A value of 999.0 "
+            "(24043 and 31259, 2020) is no depth and is null."
+        ),
+        ("hourly", "data", "max_temp_12h"): (
+            "Highest temperature within the last 12 hours, in °C: the highest of the 12 hourly values that "
+            "end with the hour (UTC) the value is dated by. Given at 05:00 and 17:00 UTC (the reports of 06 "
+            "and 18 UTC) and at 11:00 and 23:00 UTC by part of the stations."
+        ),
+        ("hourly", "data", "min_temperature_12h"): (
+            "Lowest temperature within the last 12 hours, in °C: the lowest of the 12 hourly values that end "
+            "with the hour (UTC) the value is dated by. Given at 05:00 and 17:00 UTC (the reports of 06 and "
+            "18 UTC) and at 11:00 and 23:00 UTC by part of the stations."
+        ),
+        ("hourly", "data", "acc_precip_past12h"): (
+            "Accumulated precipitation during the past 12 hours, in mm, read at the end of the hour (UTC) the "
+            "value is dated by and given at 05:00 and 17:00 UTC (the reports of 06 and 18 UTC). It is the "
+            "gauge's own reading, not the sum of the hourly values, which differs from it by a few tenths of "
+            "a millimetre. A trace, below 0.1 mm, is written -0.1 and is 0.0 here."
+        ),
+        ("hourly", "data", "acc_precip_past24h"): (
+            "Accumulated precipitation during the past 24 hours, in mm, read at the end of the hour (UTC) the "
+            "value is dated by and given at 05:00, 11:00, 17:00 and 23:00 UTC by part of the stations. It is "
+            "the gauge's own reading, not the sum of the hourly values, which differs from it by a few tenths "
+            "of a millimetre. A trace, below 0.1 mm, is written -0.1 and is 0.0 here."
+        ),
+        ("hourly", "data", "temp_soil_10"): (
+            "Soil temperature at a depth of 10 cm, in °C: the mean of the hour (UTC), given by part of the stations."
+        ),
+        ("daily", "data", "temp_soil_10"): (
+            "Soil temperature at a depth of 10 cm, in °C: the average of the hourly values within the day."
+        ),
+        ("monthly", "data", "no_cold_days"): (
+            "Number of cold days of the month: the days on which the lowest temperature (min_temp) was less "
+            "than -10 °C."
+        ),
+        ("annual", "data", "no_cold_days"): (
+            "Number of cold days of the year: the days on which the lowest temperature (min_temp) was less than -10 °C."
+        ),
+        ("monthly", "data", "no_windy_days"): (
+            "Number of windy days of the month: the days on which max_wind_speed_10min, the highest 10 "
+            "minute average wind speed, was greater than or equal to 10.8 m/s. The source's parameter list "
+            "says mean wind speed, its calculation table (and its counts) the 10 minute maximum."
+        ),
+        ("annual", "data", "no_windy_days"): (
+            "Number of windy days of the year: the days on which max_wind_speed_10min, the highest 10 minute "
+            "average wind speed, was greater than or equal to 10.8 m/s. The source's parameter list says "
+            "mean wind speed, its calculation table (and its counts) the 10 minute maximum."
+        ),
+        ("monthly", "data", "no_stormy_days"): (
+            "Number of stormy days of the month: the days on which max_wind_speed_10min, the highest 10 "
+            "minute average wind speed, was greater than or equal to 20.8 m/s."
+        ),
+        ("annual", "data", "no_stormy_days"): (
+            "Number of stormy days of the year: the days on which max_wind_speed_10min, the highest 10 "
+            "minute average wind speed, was greater than or equal to 20.8 m/s."
+        ),
+        ("monthly", "data", "no_days_w_storm"): (
+            "Number of days with storm of the month: the days on which max_wind_speed_10min, the highest 10 "
+            "minute average wind speed, was greater than or equal to 24.5 m/s."
+        ),
+        ("annual", "data", "no_days_w_storm"): (
+            "Number of days with storm of the year: the days on which max_wind_speed_10min, the highest 10 "
+            "minute average wind speed, was greater than or equal to 24.5 m/s."
+        ),
+        ("monthly", "data", "no_days_w_hurricane"): (
+            "Number of days with hurricane of the month: the days on which max_wind_speed_10min, the highest "
+            "10 minute average wind speed, was greater than or equal to 28.5 m/s."
+        ),
+        ("annual", "data", "no_days_w_hurricane"): (
+            "Number of days with hurricane of the year: the days on which max_wind_speed_10min, the highest "
+            "10 minute average wind speed, was greater than or equal to 28.5 m/s."
+        ),
+        ("daily", "data", "no_clear_days"): (
+            "Clear day: 1 if the mean cloud cover (mean_cloud_cover) of the day was less than 20%, 0 if it "
+            "was 20% or more."
+        ),
+        ("monthly", "data", "no_clear_days"): (
+            "Number of clear days of the month: the days on which mean_cloud_cover was less than 20%."
+        ),
+        ("annual", "data", "no_clear_days"): (
+            "Number of clear days of the year: the days on which mean_cloud_cover was less than 20%."
+        ),
+        ("daily", "data", "no_cloudy_days"): (
+            "Cloudy day: 1 if the mean cloud cover (mean_cloud_cover) of the day was greater than 80%, 0 if "
+            "it was 80% or less."
+        ),
+        ("monthly", "data", "no_cloudy_days"): (
+            "Number of cloudy days of the month: the days on which mean_cloud_cover was greater than 80%."
+        ),
+        ("annual", "data", "no_cloudy_days"): (
+            "Number of cloudy days of the year: the days on which mean_cloud_cover was greater than 80%."
+        ),
+        ("monthly", "data", "no_days_snow_cover"): (
+            "Number of days with snow cover of the month: the days on which snow_depth was greater than 0 "
+            "and snow_cover (the share of the ground covered, in percent) was greater than 50. Published "
+            "for 2011 to 2015 only."
+        ),
+        ("annual", "data", "no_days_snow_cover"): (
+            "Number of days with snow cover of the year: the days on which snow_depth was greater than 0 "
+            "and snow_cover (the share of the ground covered, in percent) was greater than 50. Published "
+            "for 2011 to 2015 only."
         ),
         ("monthly", "data", "no_days_acc_precip_01"): (
             "Number of days of the month with 0.1 mm of precipitation or more: the days on which "

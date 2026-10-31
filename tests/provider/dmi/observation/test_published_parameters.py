@@ -68,34 +68,10 @@ def test_a_published_parameter_is_mapped_to_the_name_of_its_statistic(resolution
     assert (parameters[parameter_id].name, parameters[parameter_id].unit) == _MAPPING[(resolution, parameter_id)]
 
 
-def test_the_parameters_that_wait_for_a_decision_are_not_served() -> None:
-    """What has no canonical name or no unit is left out (GH-3622)."""
-    left_out = {
-        "no_cold_days",
-        "no_windy_days",
-        "no_stormy_days",
-        "no_days_w_storm",
-        "no_days_w_hurricane",
-        "no_clear_days",
-        "no_cloudy_days",
-        "no_days_snow_cover",
-        # read as the `acc_heating_degree_days_17`, one parameter (test_pressure_counts_heating_degree_days.py)
-        "acc_heating_degree_days_19",
-    }
-    served = {
-        parameter.name_original
-        for resolution in DmiObservationMetadata
-        for parameter in resolution.datasets[0].parameters
-    }
-    assert served & left_out == set()
-    # the radiation of a day, month and year is in MJ/m2, which no unit of `energy_per_area` is: only the hour is served
-    radiation = {
-        resolution.name
-        for resolution in DmiObservationMetadata
-        for parameter in resolution.datasets[0].parameters
-        if parameter.name_original == "mean_radiation"
-    }
-    assert radiation == {"hourly"}
+def test_the_hourly_radiation_is_the_mean_intensity() -> None:
+    """The hour is a mean in W/m2; the radiation of a day, month and year is a sum (test_radiation_counts_extras.py)."""
+    parameters = {p.name_original: p for p in DmiObservationMetadata["hourly"].datasets[0].parameters}
+    assert parameters["mean_radiation"].name == "radiation_global_intensity_mean"
 
 
 def _values(

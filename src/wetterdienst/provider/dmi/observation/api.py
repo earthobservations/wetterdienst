@@ -78,8 +78,21 @@ _CALM_WIND = Sentinel(
 # reports, so it is 0.0 and no negative amount, as the trace of KNMI, AEMET and Meteo-France's synop is. It keeps
 # the text as the `raw:-0.1` token of `quality_flags` (GH-2759), which is how those providers mark a trace and so how
 # a caller finds one. Without the rule the lower bound of 0 below read it as out of range and null (GH-3621).
-_PRECIPITATION_AMOUNTS = ("acc_precip", "max_precip_24h", "max_precip_30m")
+_PRECIPITATION_AMOUNTS = (
+    "acc_precip",
+    "max_precip_24h",
+    "max_precip_30m",
+    "acc_precip_past12h",
+    "acc_precip_past24h",
+)
 _TRACE = Sentinel("-0.1", where=pl.col("parameterId").is_in(_PRECIPITATION_AMOUNTS), to=0.0)
+
+# DMI's greatest snow depth of a month and of a year is 999.0 for September 2020 at 24043 and 31259 (and for 2020 as a
+# year), both marked `validity: true` with 7 values in the calculation: a snow depth of 9.99 m in a Danish September.
+# DMI documents no code for it (the climate data documentation, read 2026-10-31, mentions 999 nowhere), the other
+# 8,490 monthly and 1,229 annual values run to 138 cm, and 999.0 is the value that stands for a missing one in
+# DMI's other fields (`max_precip_24h` of 04320, 2013-09). It is null and keeps `raw:999.0`.
+_MISSING_SNOW_DEPTH = Sentinel("999.0", where=pl.col("parameterId").eq("max_snow_depth"))
 
 # The range of a reading per resolution and parameterId, in the unit DMI writes it in, outside which no sensor can have
 # produced it: the physical ranges of `tests/provider/physical_ranges.py`, generous on purpose, in the unit of the
@@ -108,6 +121,10 @@ _HUMIDITY = (0.0, 130.0)  # percent; a hygrometer reads past 100 now and then
 # above 100, but a 112 would be more than the whole sky, and the mean of a day or a month with one in it a wrong one
 _CLOUD_COVER = (0.0, 100.0)  # percent
 _PRESSURE = (300.0, 1_100.0)  # hPa
+_VAPOUR_PRESSURE = (0.0, 100.0)  # hPa; read 2026-10-31 DMI's daily values run to 16.7 (06014) and a year's to 11.3
+# at the stations of Denmark, while 109.3 (04219, 2023, `validity: true`) and 312.1 (04211, 2017-01) are not readings
+_SOIL_TEMPERATURE = (-90.0, 100.0)  # degree Celsius, the range of any temperature
+_SNOW_DEPTH = (-50.0, 1_500.0)  # cm, the range of a snow depth
 _COMMON_RANGES: dict[str, tuple[float, float]] = {
     "mean_temp": _AIR_TEMPERATURE,
     "max_temp_w_date": _AIR_TEMPERATURE,
@@ -141,6 +158,21 @@ _SUNSHINE_OF_A_DAY = (0.0, 26.4)  # hours
 _SUNSHINE_OF_A_MONTH = (0.0, 818.4)  # hours
 _SUNSHINE_OF_A_YEAR = (0.0, 8_784.0)  # hours
 _DAYS = (0.0, 366.0)
+# The radiation of a day, a month and a year is a sum in MJ/m2 that the reader writes in kJ/m2 (`_TO_DECLARED_UNIT`),
+# so these bounds are in kJ/m2. No day brings more than 60 MJ/m2 (the sun at the top of the atmosphere on the day of
+# the longest daylight at 82 degrees north, where DMI's northernmost station is, is 48), a month is 31 such days, and
+# a year keeps the 5,000 MJ/m2 of the range of any year (DMI's highest valid year is 4,533.2, 06141, 2020). The daily
+# records of 04339 in January 2021 (up to 284 MJ/m2, `validity: true`, in the polar night) lie above the day's bound.
+_RADIATION_OF_A_DAY = (0.0, 60_000.0)
+_RADIATION_OF_A_MONTH = (0.0, 1_860_000.0)
+_RADIATION_OF_A_YEAR = (0.0, 5_000_000.0)
+# DMI's value of a parameter that the metadata declares in another unit is multiplied by this factor after the
+# ranges, which are in the unit of the source (the megajoules), have been applied
+_TO_DECLARED_UNIT: dict[str, dict[str, float]] = {
+    "daily": {"mean_radiation": 1_000.0},
+    "monthly": {"mean_radiation": 1_000.0},
+    "annual": {"mean_radiation": 1_000.0},
+}
 _DAY_COUNT_PARAMETERS = (
     "no_ice_days",
     "no_frost_days",
@@ -149,6 +181,14 @@ _DAY_COUNT_PARAMETERS = (
     "no_days_acc_precip_01",
     "no_days_acc_precip_1",
     "no_days_acc_precip_10",
+    "no_cold_days",
+    "no_windy_days",
+    "no_stormy_days",
+    "no_days_w_storm",
+    "no_days_w_hurricane",
+    "no_days_snow_cover",
+    "no_clear_days",
+    "no_cloudy_days",
 )
 _MONTHLY_RANGES: dict[str, tuple[float, float]] = {
     **_COMMON_RANGES,
@@ -160,6 +200,9 @@ _MONTHLY_RANGES: dict[str, tuple[float, float]] = {
     "min_relative_hum": _HUMIDITY,
     "acc_heating_degree_days_17": _HEATING_DEGREE_DAYS,
     "bright_sunshine": _SUNSHINE_OF_A_MONTH,
+    "mean_radiation": _RADIATION_OF_A_MONTH,
+    "mean_vapour_pressure": _VAPOUR_PRESSURE,
+    "max_snow_depth": _SNOW_DEPTH,
     **_PRESSURE_EXTREMES,
     **dict.fromkeys(_DAY_COUNT_PARAMETERS, _DAYS),
 }
@@ -169,6 +212,13 @@ _RANGES: dict[str, dict[str, tuple[float, float]]] = {
         "acc_precip": (0.0, 600.0),
         "bright_sunshine": _SUNSHINE_OF_AN_HOUR,
         "mean_radiation": (-200.0, 2_000.0),  # W/m2; the solar constant is 1,361
+        "max_temp_12h": _AIR_TEMPERATURE,
+        "min_temperature_12h": _AIR_TEMPERATURE,
+        # the most of 12 and of 24 hours is no more than the day's; DMI's 989 mm (04339, 2011-10) and 393.6 mm
+        # (04360, 2026-04) are `validity: false`
+        "acc_precip_past12h": _DAY_PRECIPITATION,
+        "acc_precip_past24h": _DAY_PRECIPITATION,
+        "temp_soil_10": _SOIL_TEMPERATURE,
     },
     "daily": {
         **_COMMON_RANGES,
@@ -180,13 +230,28 @@ _RANGES: dict[str, dict[str, tuple[float, float]]] = {
         **_PRESSURE_EXTREMES,
         "bright_sunshine": _SUNSHINE_OF_A_DAY,
         "snow_depth": (-50.0, 1_500.0),  # cm
+        "mean_radiation": _RADIATION_OF_A_DAY,
+        "mean_vapour_pressure": _VAPOUR_PRESSURE,
+        "temp_soil_10": _SOIL_TEMPERATURE,
+        **dict.fromkeys(("no_clear_days", "no_cloudy_days"), _DAYS),
     },
     "monthly": _MONTHLY_RANGES,
-    "annual": {**_MONTHLY_RANGES, "acc_precip": (0.0, 4_000.0), "bright_sunshine": _SUNSHINE_OF_A_YEAR},
+    "annual": {
+        **_MONTHLY_RANGES,
+        "acc_precip": (0.0, 4_000.0),
+        "bright_sunshine": _SUNSHINE_OF_A_YEAR,
+        "mean_radiation": _RADIATION_OF_A_YEAR,
+    },
 }
+# the bounds above are in the unit the metadata declares, and the rules read the value as DMI wrote it
 _OUT_OF_RANGE = {
     resolution: tuple(
-        OutOfRange(low, high, where=pl.col("parameterId").eq(name)) for name, (low, high) in ranges.items()
+        OutOfRange(
+            low / _TO_DECLARED_UNIT.get(resolution, {}).get(name, 1.0),
+            high / _TO_DECLARED_UNIT.get(resolution, {}).get(name, 1.0),
+            where=pl.col("parameterId").eq(name),
+        )
+        for name, (low, high) in ranges.items()
     )
     for resolution, ranges in _RANGES.items()
 }
@@ -433,8 +498,17 @@ class DmiObservationValues(TimeseriesValues):
         # anything is made of the value, and stay as `raw:0` (GH-2794), `raw:-0.1` (GH-3621) and `raw:17802`
         # (GH-2797); the trace comes before the ranges, whose lower bound would null it
         value, raw = null_sentinels(
-            pl.col("value"), _CALM_WIND, _TRACE, *_OUT_OF_RANGE[dataset.resolution.name], text=False
+            pl.col("value"),
+            _CALM_WIND,
+            _TRACE,
+            _MISSING_SNOW_DEPTH,
+            *_OUT_OF_RANGE[dataset.resolution.name],
+            text=False,
         )
+        # the radiation of a day, a month and a year is written in MJ/m2 and declared in kJ/m2 (GH-3622); the rounding
+        # takes the float error of the product away, DMI's values having one decimal
+        for name, factor in _TO_DECLARED_UNIT.get(dataset.resolution.name, {}).items():
+            value = pl.when(pl.col("parameterId").eq(name)).then((value * factor).round(3)).otherwise(value)
         # the station, resolution and dataset, the order of the columns and the dtypes are the core's to write
         # (`shape_provider_frame`); a frame without a row is the empty long form there, whatever it holds
         return df.select(

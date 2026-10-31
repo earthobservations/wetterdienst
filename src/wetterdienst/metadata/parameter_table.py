@@ -263,6 +263,21 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Cooling degree hours, the temperature excess above a base value summed over each hour.",
         interpolation="homogeneous",
     ),
+    CanonicalParameter(
+        "count_days_cloud_cover_total_mean_gt_80pct",
+        "dimensionless",
+        "Number of days on which the mean total cloud cover was more than 80 percent.",
+    ),
+    CanonicalParameter(
+        "count_days_cloud_cover_total_mean_lt_20pct",
+        "dimensionless",
+        "Number of days on which the mean total cloud cover was less than 20 percent.",
+    ),
+    CanonicalParameter(
+        "count_days_cold",
+        "dimensionless",
+        "Number of days on which the minimum air temperature fell below -10 degrees Celsius.",
+    ),
     CanonicalParameter("count_days_cooling_degree", "dimensionless", "Number of days on which cooling was required."),
     CanonicalParameter(
         "count_days_frost",
@@ -340,6 +355,12 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Number of days on which at least 5 mm of precipitation fell.",
     ),
     CanonicalParameter(
+        "count_days_snow_cover_gt_50pct",
+        "dimensionless",
+        "Number of days on which the snow depth was more than 0 and more than 50 percent of the ground was covered "
+        "by snow.",
+    ),
+    CanonicalParameter(
         "count_days_snow_depth_ge_1cm",
         "dimensionless",
         "Number of days on which the snow depth reached at least 1 cm.",
@@ -389,6 +410,30 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "count_days_valid_temperature_air_min_2m",
         "dimensionless",
         "Number of days in the period carrying a valid minimum air temperature observation.",
+    ),
+    CanonicalParameter(
+        "count_days_wind_speed_rolling_mean_max_ge_10_8mps",
+        "dimensionless",
+        "Number of days on which the highest rolling mean wind speed (`wind_speed_rolling_mean_max`) reached at "
+        "least 10.8 m/s.",
+    ),
+    CanonicalParameter(
+        "count_days_wind_speed_rolling_mean_max_ge_20_8mps",
+        "dimensionless",
+        "Number of days on which the highest rolling mean wind speed (`wind_speed_rolling_mean_max`) reached at "
+        "least 20.8 m/s.",
+    ),
+    CanonicalParameter(
+        "count_days_wind_speed_rolling_mean_max_ge_24_5mps",
+        "dimensionless",
+        "Number of days on which the highest rolling mean wind speed (`wind_speed_rolling_mean_max`) reached at "
+        "least 24.5 m/s.",
+    ),
+    CanonicalParameter(
+        "count_days_wind_speed_rolling_mean_max_ge_28_5mps",
+        "dimensionless",
+        "Number of days on which the highest rolling mean wind speed (`wind_speed_rolling_mean_max`) reached at "
+        "least 28.5 m/s.",
     ),
     CanonicalParameter(
         "count_hours_cooling_degree", "dimensionless", "Number of hours during which cooling was required."
