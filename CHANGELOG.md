@@ -25,6 +25,15 @@ Types of changes:
   in Denmark and 19 °C in Greenland. DMI counts the days above 25 and 20 °C, so a day at exactly
   25.0 or 20.0 °C is not counted, where the names count from the threshold (Part of GH-3622)
 
+### Changed
+
+- **Breaking**: 5 `noaa/ghcn` hourly stations are placed west of Greenwich, no longer east of it,
+  where `ghcnh-station-list.csv` has lost the sign of their longitude: Nemours/Ghazaouet
+  (AGUG0060517), Khouribga military airport (MOI0000GMMK), Alcaniz, Bujaraloz and Oliva
+  (SPM00008164, -8165, -8282). They were 16 to 1,299 km off, so a nearest-station search or a
+  distance filter near them picked the wrong stations; a filter on the old position needs the new
+  one (GH-2886)
+
 ### Fixed
 
 - `noaa/ghcn` daily: a direction of the fastest or peak wind of 0 beside a speed of exactly 0
