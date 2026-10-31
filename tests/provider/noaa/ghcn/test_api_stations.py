@@ -247,6 +247,8 @@ def test_noaa_ghcn_daily_stations_west_longitude_more_stations(
         "FRE00104044": (49.18, 0.4558),
         "SP000008416": (39.4806, 0.3664),
     }
+    # the five hourly-only ids are pinned by the raw rows of the hourly test below
+    pinned |= GHCNH_ONLY_LOST_SIGN_POSITIONS
     assert pinned == LOST_LONGITUDE_SIGN_STATIONS
 
 
@@ -306,6 +308,57 @@ def test_noaa_ghcn_hourly_stations_lost_sign(monkeypatch: pytest.MonkeyPatch, de
         "UKW00015034": -0.1167,
         "UKW00015041": 0.7,
     }
+
+
+GHCNH_ONLY_LOST_SIGN_ROWS = (
+    "AGUG0060517,35.1,1.85,83.0,,NEMOURS,,,,,DZ",
+    "MOI0000GMMK,32.859,6.9454,780.9,,KHOURIBGA MILITARY ARPT,,,,GMMK,MA",
+    "SPM00008164,41.0578,0.1414,334.0,,ALCANIZ,,,08164,,ES",
+    "SPM00008165,41.5217,0.1742,357.0,,BUJARALOZ,,,08165,,ES",
+    "SPM00008282,38.9289,0.0956,5.0,,OLIVA,,,08282,,ES",
+)
+GHCNH_ONLY_LOST_SIGN_POSITIONS = {
+    row.split(",")[0]: (float(row.split(",")[1]), float(row.split(",")[2])) for row in GHCNH_ONLY_LOST_SIGN_ROWS
+}
+
+
+def test_noaa_ghcn_hourly_stations_lost_sign_five_more(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """Nemours (Ghazaouet), Khouribga, Alcaniz, Bujaraloz and Oliva are west of Greenwich in the hourly list (GH-2886).
+
+    The rows are copied from `ghcnh-station-list.csv` as NOAA publishes it, read 2026-10-31: the longitude is listed
+    east where ECA&D, OpenStreetMap and Wikipedia put each of them west, 16 to 1,299 km away. The daily list has
+    Nemours (AGE00147716) and the hourly list has Khouribga (MOM00060178) and Bujaraloz (SPN0009576C) right under
+    other ids, and those are read as listed. Lowestoft is listed east and lies east, and is read as listed.
+    """
+    rows = (
+        *GHCNH_ONLY_LOST_SIGN_ROWS,
+        "AGU0517-0-1,35.1,-1.85,83.0,,NEMOURS(GHAZAOUET),,,,,DZ",
+        "MOM00060178,32.8667,-6.9667,781.0,,KHOURIBGA,,,60178,,MA",
+        "SPN0009576C,41.523,-0.174,357.0,,BUJARALOZ,,,400,,ES",
+        "UKU91-00001,52.4889,1.75,25.0,,LOWESTOFT,,,,,GB",
+    )
+    text = "GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n" + "\n".join(
+        rows
+    )
+    monkeypatch.setattr(
+        "wetterdienst.provider.noaa.ghcn.api.download_file",
+        lambda url, **_kwargs: File(url=url, content=BytesIO(text.encode("utf8")), status=200),
+    )
+    df = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=default_settings).all().df
+    longitudes = dict(df.select("station_id", "longitude").rows())
+    assert {station_id: longitudes[station_id] for station_id in GHCNH_ONLY_LOST_SIGN_POSITIONS} == {
+        "AGUG0060517": -1.85,
+        "MOI0000GMMK": -6.9454,
+        "SPM00008164": -0.1414,
+        "SPM00008165": -0.1742,
+        "SPM00008282": -0.0956,
+    }
+    assert longitudes["AGU0517-0-1"] == -1.85
+    assert longitudes["SPN0009576C"] == -0.174
+    assert longitudes["UKU91-00001"] == 1.75
+    assert df.filter(pl.col("station_id") == "MOI0000GMMK").select("latitude").item() == 32.859
 
 
 def test_noaa_ghcn_stations_hourly_and_daily_lost_sign_take_the_daily_elevation(
@@ -1043,21 +1096,23 @@ def test_noaa_ghcn_lost_sign_table_entries_are_not_dead(default_settings: Settin
     dead = {
         station_id: (recorded, daily.get(station_id))
         for station_id, recorded in LOST_LONGITUDE_SIGN_STATIONS.items()
-        if daily.get(station_id) != recorded and not (daily.get(station_id) or (0.0, 0.0))[1] < 0
+        if station_id not in GHCNH_ONLY_LOST_SIGN_POSITIONS
+        and daily.get(station_id) != recorded
+        and not (daily.get(station_id) or (0.0, 0.0))[1] < 0
     }
     assert not dead, f"entries that match no row and are not corrected, id: (recorded, listed): {dead}"
 
 
 @pytest.mark.remote
 def test_noaa_ghcn_lost_sign_table_entries_are_not_dead_hourly(default_settings: Settings) -> None:
-    """The two hourly rows of GH-3384 still match the live hourly list or have been corrected there."""
+    """The hourly rows of GH-3384 and GH-2886 still match the live hourly list or have been corrected there."""
     hourly = _listed_rows(
         default_settings,
         "https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh-station-list.csv",
     )
     dead = {
         station_id: (LOST_LONGITUDE_SIGN_STATIONS[station_id], hourly.get(station_id))
-        for station_id in ("UKW00015015", "UKW00015033")
+        for station_id in ("UKW00015015", "UKW00015033", *GHCNH_ONLY_LOST_SIGN_POSITIONS)
         if hourly.get(station_id) != LOST_LONGITUDE_SIGN_STATIONS[station_id]
         and not (hourly.get(station_id) or (0.0, 0.0))[1] < 0
     }
