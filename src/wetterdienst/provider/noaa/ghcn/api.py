@@ -75,23 +75,26 @@ GHCNH_SPECIAL_REPORT_TYPES = ("FM16", "SAOSP")
 GHCNH_NO_CODE = "Null"
 
 # stations whose longitude `ghcnd-stations.txt` (and `ghcnd-inventory.txt`) and `ghcnh-station-list.csv` list with the
-# wrong sign, all 38 listed east of Greenwich where they lie west of it, 6 to 756 km off: the list has lost the sign
+# wrong sign, all 43 listed east of Greenwich where they lie west of it, 6 to 1,299 km off: the list has lost the sign
 # (GH-2645, GH-2886, GH-3384). Each was checked against two or more other sources (ECA&D, GHCN hourly list, ISD
 # history, DWD MOSMIX, OpenStreetMap, Wikipedia, AEMET) that put the same place on the other side of the meridian and
 # within 4 km of the mirrored position; the values per station are in the pull requests of those issues.
 # The value is the (latitude, longitude) the lists gave when the station was checked: the longitude of a row is turned
 # only while the row still lists exactly this position (`_restore_lost_longitude_sign`), so a list that NOAA has
 # corrected, or moved, is read as it is, and an id that the lists use for another station is not touched. One table
-# serves both lists; UKW00015015 and UKW00015033 are in both with the same position.
+# serves both lists; UKW00015015 and UKW00015033 are in both with the same position, and AGUG0060517, MOI0000GMMK,
+# SPM00008164, SPM00008165 and SPM00008282 are in the hourly list only.
 LOST_LONGITUDE_SIGN_STATIONS: dict[str, tuple[float, float]] = {
     "AGE00135039": (35.7297, 0.65),  # ORAN-HOPITAL MILITAIRE
     "AGE00147714": (35.77, 0.8),  # ORAN-CAP FALCON
     "AGE00147717": (35.2, 0.63),  # SIDI-BEL-ABBES
+    "AGUG0060517": (35.1, 1.85),  # NEMOURS (GHAZAOUET), hourly list only
     "FR000007510": (44.8306, 0.6914),  # BORDEAUX-MERIGNAC
     "FRE00104044": (49.18, 0.4558),  # CAEN-CARPIQUET
     "FRE00104957": (43.2481, 0.155),  # ESPOEY
     "FRE00106203": (43.9094, 0.5003),  # MONT-DE-MARSAN
     "SP000007038": (37.9769, 0.7106),  # TORREVIEJA
+    "MOI0000GMMK": (32.859, 6.9454),  # KHOURIBGA MILITARY ARPT, hourly list only
     "SP000008416": (39.4806, 0.3664),  # VALENCIA
     "SPE00101035": (38.2828, 0.5706),  # ALICANTE EL ALTET
     "SPE00101043": (38.3725, 0.4942),  # ALICANTE
@@ -100,6 +103,9 @@ LOST_LONGITUDE_SIGN_STATIONS: dict[str, tuple[float, float]] = {
     "SPE00120161": (42.0831, 0.3264),  # HUESCA
     "SPE00120341": (37.7889, 0.8031),  # MURCIA/SAN JAVIER
     "SPE00120584": (39.4867, 0.4731),  # VALENCIA/AEROPUERTO
+    "SPM00008164": (41.0578, 0.1414),  # ALCANIZ, hourly list only
+    "SPM00008165": (41.5217, 0.1742),  # BUJARALOZ, hourly list only
+    "SPM00008282": (38.9289, 0.0956),  # OLIVA, hourly list only
     "UK000003377": (53.1658, 0.5239),  # WADDINGTON
     "UKE00100808": (53.7667, 0.3667),  # HULL
     "UKE00105894": (54.105, 0.6417),  # HIGH MOWTHORPE
