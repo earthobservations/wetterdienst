@@ -31,7 +31,7 @@ Types of changes:
   where the lists have lost the sign of their latitude: Lambarene and Lastoursville in Gabon
   (GB000004551, GB000004560) in `ghcnd-stations.txt`; Adelaide (ASU34-00001), Halley in
   Antarctica (GLUHALLEY-2, -3, -4) and Nuku'alofa (TNU55-00239) in `ghcnh-station-list.csv`.
-  They were 158 to 16,800 km off, so a nearest-station search or a distance filter near them
+  They were 160 to 16,800 km off, so a nearest-station search or a distance filter near them
   picked the wrong stations; a filter on the old position needs the new one. A row is turned only
   while it lists the position that was checked, so a list NOAA corrects is read as it is
   (GH-3662)

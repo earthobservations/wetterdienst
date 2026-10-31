@@ -80,7 +80,7 @@ GHCNH_NO_CODE = "Null"
 # history, DWD MOSMIX, OpenStreetMap, Wikipedia, AEMET) that put the same place on the other side of the meridian and
 # within 4 km of the mirrored position; the values per station are in the pull requests of those issues.
 # The value is the (latitude, longitude) the lists gave when the station was checked: the longitude of a row is turned
-# only while the row still lists exactly this position (`_restore_lost_longitude_sign`), so a list that NOAA has
+# only while the row still lists exactly this position (`_turn_sign`, `_restore_lost_signs`), so a list that NOAA has
 # corrected, or moved, is read as it is, and an id that the lists use for another station is not touched. One table
 # serves both lists; UKW00015015 and UKW00015033 are in both with the same position, and AGUG0060517, MOI0000GMMK,
 # SPM00008164, SPM00008165 and SPM00008282 are in the hourly list only.
@@ -132,7 +132,7 @@ LOST_LONGITUDE_SIGN_STATIONS: dict[str, tuple[float, float]] = {
 
 
 # stations whose latitude the lists give with the wrong sign, all 7 listed north of the equator where they lie south of
-# it, 158 to 16,800 km off: the list has lost the sign, as it has for the longitudes above (GH-3662). Each was
+# it, 160 to 16,800 km off: the list has lost the sign, as it has for the longitudes above (GH-3662). Each was
 # checked against two or more other sources (ISD history, OpenStreetMap, Wikipedia, GHCN daily list) that put the same
 # place on the other side of the equator and within 15 km of the mirrored position; the values per station are in the
 # pull request of that issue. Same guard as above: the value is the (latitude, longitude) the list gave when the

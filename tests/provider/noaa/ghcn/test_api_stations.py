@@ -410,13 +410,11 @@ def test_noaa_ghcn_daily_stations_lost_latitude_sign_guard(
     """A row is turned only while it lists the position that was checked; a moved row is read as it is (GH-3662).
 
     Lambarene is listed with a latitude NOAA has moved by 0.01, Lastoursville with a longitude NOAA has moved by 0.01,
-    both still north: those two are no longer the rows the correction was verified on. Port Gentil is listed with
-    the sign put right.
+    both still north: those two are no longer the rows the correction was verified on.
     """
     rows = (
         "GB000004551   0.7300   10.2200   82.0    LAMBARENE                                   ",
         "GB000004560   0.8300   12.7300  483.0    LASTOURSVILLE                               ",
-        "GBM00064550  -0.7120    8.7540    4.0    PORT GENTIL                            64550",
     )
     stations = "\n".join(rows) + "\n"
     inventory = "".join(f"{row[:11]} {row[12:20]} {row[21:30]} TMAX 1950 2026\n" for row in rows)
@@ -425,8 +423,18 @@ def test_noaa_ghcn_daily_stations_lost_latitude_sign_guard(
     assert dict(df.select("station_id", "latitude").rows()) == {
         "GB000004551": 0.73,
         "GB000004560": 0.83,
-        "GBM00064550": -0.712,
     }
+
+
+def test_noaa_ghcn_daily_stations_south_latitude_corrected_list(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """A list in which NOAA has put the sign of the latitude right is not turned back north (GH-3662)."""
+    stations = "GB000004551  -0.7200   10.2200   82.0    LAMBARENE                                   \n"
+    inventory = "GB000004551  -0.7200   10.2200 TMAX 1950 1980\n"
+    _serve_ghcnd(monkeypatch, stations, inventory)
+    df = NoaaGhcnRequest(parameters=[("daily", "data")], settings=default_settings).all().df
+    assert df.select("station_id", "latitude", "longitude").rows() == [("GB000004551", -0.72, 10.22)]
 
 
 def test_noaa_ghcn_hourly_stations_south_latitude(monkeypatch: pytest.MonkeyPatch, default_settings: Settings) -> None:
