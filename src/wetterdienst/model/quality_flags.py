@@ -28,6 +28,10 @@ rule for every provider, and ``with_speed_beside`` lays the speed beside the dir
 A stuck or dead sensor over a period of time gives values inside every range. ``NoReading`` maps what a
 station, a parameter and a period select to null the same way, keeping the value as ``raw`` (GH-3031).
 
+A station pressure that the barometric formula does not expect at the station's elevation (a typo still inside every
+world-wide bound: 909 hPa at a station at sea level) is mapped by ``OutOfRange`` too, with the range
+``station_pressure_range`` gives (GH-3627).
+
 A model that writes a little below the floor of its quantity (an amount of precipitation of -0.02 mm) rounds to
 nothing: ``Floor`` maps what is below the floor to the floor and keeps the number as ``raw``, as a trace is (GH-3263).
 """
@@ -152,7 +156,9 @@ class NoReading:
     The rule of a value that is no sentinel and lies inside every range, because the whole series of a station for a
     span of time is a defect of the sensor (a sunshine that follows the length of the day whatever the weather, a
     zero every day of a summer), and no single number gives it away (GH-3031). It maps such a value to null and keeps
-    it as the ``raw`` token, as ``OutOfRange`` does. A value that is blank or no number is not touched.
+    it as the ``raw`` token, as ``OutOfRange`` does. A value that is blank or no number is not touched. It is also the
+    rule of a reading that is no reading because the one beside it, of the same sensor, was nulled as impossible: the
+    relative humidity of the hour whose dew point a station without frost cannot have (GH-3629).
 
     Args:
         where: the values this expression selects, the station, the parameter and the period of the defect.
@@ -186,6 +192,50 @@ class Floor:
         """Declare the floor."""
         self.floor = floor
         self.where = where
+
+
+# the pressure of the standard atmosphere at sea level, in hPa, and what the barometric formula of it (the international
+# standard atmosphere, valid in the troposphere) expects at a height: a station pressure that lies further than
+# `STATION_PRESSURE_TOLERANCE` from it is no reading (GH-3627)
+STANDARD_SEA_LEVEL_PRESSURE = 1013.25
+STATION_PRESSURE_TOLERANCE = 60.0
+# the elevations the check is made for, in metres: a catalogue that gives another (a missing-value code, a typo) tells
+# nothing, and the formula is the standard atmosphere's to 11 km
+_STATION_ELEVATIONS = (-500.0, 9000.0)
+
+
+def standard_station_pressure(elevation: float) -> float:
+    """Give the pressure in hPa that the barometric formula of the standard atmosphere expects at an elevation in m."""
+    return STANDARD_SEA_LEVEL_PRESSURE * (1.0 - 2.25577e-5 * elevation) ** 5.25588
+
+
+def station_pressure_range(
+    elevation: float | None, *, per_hectopascal: float = 1.0, where: pl.Expr | None = None
+) -> OutOfRange | None:
+    """Give the rule of a station pressure: the barometric formula at the station's elevation, 60 hPa either way.
+
+    The world-wide bounds of a pressure at the station (500 to 1090 hPa) are too wide to find a reading mistyped by a
+    digit at a station near sea level (a P0 of 909.5 hPa at 48 m) or one that is a pressure of another height (968.6
+    hPa at the Zugspitze, 2,964 m, where 704 hPa are expected): 60 hPa are about 500 m of height, which every weather
+    at the station stays within. A reading outside is null and keeps the number as ``raw`` (``OutOfRange``).
+
+    Args:
+        elevation: the elevation of the station in m, as its catalogue gives it.
+        per_hectopascal: how many units of the source make a hPa (100 for Pa); the range is in the unit of the source.
+        where: restricts the rule to the parameter(s) this expression selects.
+
+    Returns:
+        The rule, or ``None`` where the station has no elevation or one from -500 to 9000 m that is not.
+
+    """
+    if elevation is None or not _STATION_ELEVATIONS[0] <= elevation <= _STATION_ELEVATIONS[1]:
+        return None
+    expected = standard_station_pressure(elevation)
+    return OutOfRange(
+        (expected - STATION_PRESSURE_TOLERANCE) * per_hectopascal,
+        (expected + STATION_PRESSURE_TOLERANCE) * per_hectopascal,
+        where=where,
+    )
 
 
 # the text of the direction of a calm wind, as every source that writes one writes it

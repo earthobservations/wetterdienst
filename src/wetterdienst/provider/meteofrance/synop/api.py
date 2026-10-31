@@ -24,6 +24,7 @@ from wetterdienst.model.quality_flags import (
     join_quality_flags,
     no_direction_code,
     null_sentinels,
+    station_pressure_range,
     with_speed_beside,
 )
 from wetterdienst.model.request import TimeseriesRequest
@@ -86,6 +87,13 @@ _SYNOP_WIND_SPEED_OF_DIRECTION = {_SYNOP_WIND_DIRECTION_COLUMN: "ff"}
 _SYNOP_MINIMUM_12H = "tn12"
 _SYNOP_MAXIMUM_12H = "tx12"
 _SYNOP_MAXIMUM_BESIDE = "__tx12_beside"
+
+# The pressure at the station is also held to what the barometric formula expects at the station's elevation (`Altitude`
+# of the station list), 6,000 Pa either way (`station_pressure_range`, GH-3627): the bounds below let through a `pres`
+# typed wrong by a digit at a station near sea level, such as 41,450 Pa at LA DESIRADE (27 m) in 1996-06-02 or 100,500
+# at the Mont Aigoual (1,567 m). The first of the two rules that matches decides, and both keep the number as `raw`.
+_SYNOP_PRESSURE_COLUMN = "pres"
+_PA_PER_HPA = 100.0
 
 # A reading no sensor can have produced is null, and keeps the number the file wrote as the `raw` token (GH-3135, as
 # GH-2797 does for DMI, RMI and the DWD road stations). The files hold a few, with no code to tell them: in the files
@@ -165,6 +173,14 @@ _SYNOP_FROSTLESS_STATIONS = frozenset(
     }
 )
 _SYNOP_TEMPERATURE_COLUMNS = ("t", "td", "tn12", "tx12", "tn24", "tx24")
+# The relative humidity of a reading whose dew point that rule nulls is null too (GH-3629): the same hygrometer failed,
+# and its `u` is as wrong as the `td` that was computed from it (4 to 5 % at MARIPASOULA 81415 and TROMELIN 61976,
+# beside `td` of 255 K and less). The `td` is read for it whether it is asked for or not, as the `tx12` is for the
+# `tn12`. No floor on the humidity itself: a `u` of 20 % is a reading in a dry spell, and only the dew point tells.
+_SYNOP_DEW_POINT = "td"
+_SYNOP_HUMIDITY = "u"
+_SYNOP_DEW_POINT_BESIDE = "__td_beside"
+_SYNOP_FROST = 273.15
 
 # explicit schema of the exact columns published by the source, read as strings throughout since
 # many columns are entirely empty for a given station or year, which would otherwise lead to
@@ -285,15 +301,33 @@ def _download_year(year: int, current_year: int, settings: Settings) -> File:
     return copy
 
 
-def _frostless_rules(station_id: str) -> list[OutOfRange]:
-    """Give the rule of a station without frost (``_SYNOP_FROSTLESS_STATIONS``): a temperature below 0 C is none."""
+def _frostless_rules(station_id: str) -> list[OutOfRange | NoReading]:
+    """Give the rules of a station without frost (``_SYNOP_FROSTLESS_STATIONS``).
+
+    A temperature below 0 C is none, and the humidity beside a dew point below 0 C is none either (GH-3629).
+    """
     if station_id not in _SYNOP_FROSTLESS_STATIONS:
         return []
-    return [OutOfRange(273.15, math.inf, where=pl.col("parameter").is_in(_SYNOP_TEMPERATURE_COLUMNS))]
+    return [
+        OutOfRange(_SYNOP_FROST, math.inf, where=pl.col("parameter").is_in(_SYNOP_TEMPERATURE_COLUMNS)),
+        NoReading(
+            pl.col("parameter").eq(_SYNOP_HUMIDITY)
+            & pl.col(_SYNOP_DEW_POINT_BESIDE).str.strip_chars().cast(pl.Float64, strict=False).lt(_SYNOP_FROST)
+        ),
+    ]
 
 
 class MeteoFranceSynopValues(TimeseriesValues):
     """Values class for Météo-France SYNOP data."""
+
+    def _station_pressure_rules(self, station_id: str) -> list[OutOfRange]:
+        """Give the rule of the pressure at the station: what its elevation allows, in Pa (GH-3627)."""
+        rule = station_pressure_range(
+            self._station_elevation(station_id),
+            per_hectopascal=_PA_PER_HPA,
+            where=pl.col("parameter").eq(_SYNOP_PRESSURE_COLUMN),
+        )
+        return [] if rule is None else [rule]
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -308,7 +342,14 @@ class MeteoFranceSynopValues(TimeseriesValues):
         parameter_columns = [parameter.name_original for parameter in dataset]
         # the maximum of the 12 hours is read for the minimum to be held to it, whether it is asked for or not
         beside = [_SYNOP_MAXIMUM_12H] if _SYNOP_MINIMUM_12H in parameter_columns else []
-        read_columns = ["geo_id_wmo", "validity_time", *dict.fromkeys([*parameter_columns, *beside])]
+        # and the dew point for the humidity at a station without frost
+        frostless = station_id in _SYNOP_FROSTLESS_STATIONS
+        dew_point_beside = frostless and _SYNOP_HUMIDITY in parameter_columns
+        read_columns = [
+            "geo_id_wmo",
+            "validity_time",
+            *dict.fromkeys([*parameter_columns, *beside, *([_SYNOP_DEW_POINT] if dew_point_beside else [])]),
+        ]
         dfs = []
         # clamp to the years actually covered by the archive: station opening dates (used as a
         # request start by e.g. the app) can predate 1996, and requesting a year
@@ -340,9 +381,14 @@ class MeteoFranceSynopValues(TimeseriesValues):
             df = df.with_columns(pl.col(_SYNOP_MAXIMUM_12H).alias(_SYNOP_MAXIMUM_BESIDE))
         else:
             df = df.with_columns(pl.lit(None, dtype=pl.String).alias(_SYNOP_MAXIMUM_BESIDE))
+        df = df.with_columns(
+            (pl.col(_SYNOP_DEW_POINT) if dew_point_beside else pl.lit(None, dtype=pl.String)).alias(
+                _SYNOP_DEW_POINT_BESIDE
+            )
+        )
         df = df.unpivot(
             on=parameter_columns,
-            index=["validity_time", UPDATED, _SYNOP_MAXIMUM_BESIDE],
+            index=["validity_time", UPDATED, _SYNOP_MAXIMUM_BESIDE, _SYNOP_DEW_POINT_BESIDE],
             variable_name="parameter",
             value_name="value",
         )
@@ -362,6 +408,7 @@ class MeteoFranceSynopValues(TimeseriesValues):
                 .eq(pl.col(_SYNOP_MAXIMUM_BESIDE).str.strip_chars().cast(pl.Float64, strict=False))
             ),
             *(OutOfRange(low, high, where=pl.col("parameter").eq(name)) for name, (low, high) in _SYNOP_RANGES.items()),
+            *self._station_pressure_rules(station_id),
             *_frostless_rules(station_id),
             # a missing reading is an empty field; a text that is no number was nulled by the cast alone
             # (the 2024 file holds none) and now keeps its text too

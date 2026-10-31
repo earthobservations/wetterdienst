@@ -2308,3 +2308,40 @@ def test_dwd_observation_tidy_up_writes_the_qn_code_as_a_flag_string() -> None:
     given_df = DwdObservationValues._tidy_up_df(df)  # noqa: SLF001
     assert given_df.get_column("quality_flags").to_list() == ["3", None]
     assert given_df.schema["quality_flags"] == pl.String
+
+
+def _p0(df: pl.DataFrame) -> list[tuple[float | None, str | None]]:
+    """Give the value and the flags of the station pressure, by stamp."""
+    rows = df.filter(pl.col("parameter").eq("pressure_air_site")).sort("timestamp")
+    return list(zip(rows.get_column("value").to_list(), rows.get_column("quality_flags").to_list(), strict=True))
+
+
+@pytest.mark.parametrize(
+    ("elevation", "expected"),
+    [
+        # Berlin-Tempelhof, 48 m: 1007.5 hPa are expected, so 909.5 is out of the 60 hPa
+        (48.0, [(1038.9, "1"), (None, "1,raw:909.5"), (1009.6, "1")]),
+        # a station list without an elevation leaves the reading to the bounds of the world, which it is inside of
+        (None, [(1038.9, "1"), (909.5, "1"), (1009.6, "1")]),
+        # the same readings at 500 m (954.6 hPa expected): 1038.9 is out of the 60 hPa, 909.5 is in
+        (500.0, [(None, "1,raw:1038.9"), (909.5, "1"), (1009.6, "1")]),
+    ],
+)
+def test_dwd_observation_data_station_pressure_is_held_to_the_elevation_of_the_station(
+    monkeypatch: pytest.MonkeyPatch,
+    elevation: float | None,
+    expected: list[tuple[float | None, str | None]],
+) -> None:
+    """Test that the elevation of the station list decides which P0 is a reading, the rows of 00433 (GH-3627)."""
+    from tests.provider.value_stubs import _dwd_observation  # noqa: PLC0415
+
+    product = (
+        "STATIONS_ID;MESS_DATUM;QN_8;   P;  P0;eor\n"
+        "        433;1994082920;    1; 1014.7; 1038.9;eor\n"
+        "        433;1994082921;    1; 1015.4;  909.5;eor\n"
+        "        433;1994082922;    1; 1015.5; 1009.6;eor\n"
+    )
+    df = _dwd_observation(
+        monkeypatch, "hourly", "pressure", product, "00433", year=1994, drop_nulls=False, elevation=elevation
+    )
+    assert _p0(df) == expected

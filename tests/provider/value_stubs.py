@@ -159,8 +159,19 @@ def ghcnh_psv(station: str, columns: list[str], rows: list[tuple[str, dict[str, 
     return "\n".join(lines).encode("utf8")
 
 
-def stations_result(request: Any, resolution: str, dataset: str, station_id: str) -> StationsResult:  # noqa: ANN401
-    """Stand a station up rather than look it up, for a provider whose catalogue is not worth serving."""
+def stations_result(
+    request: Any,  # noqa: ANN401
+    resolution: str,
+    dataset: str,
+    station_id: str,
+    *,
+    elevation: float | None = 100.0,
+) -> StationsResult:
+    """Stand a station up rather than look it up, for a provider whose catalogue is not worth serving.
+
+    The station lies at ``elevation`` m (none where the catalogue gives none), which the check of a station pressure
+    reads (GH-3627).
+    """
     df = pl.DataFrame(
         [
             {
@@ -171,7 +182,7 @@ def stations_result(request: Any, resolution: str, dataset: str, station_id: str
                 "end_timestamp": None,
                 "latitude": 50.0,
                 "longitude": 10.0,
-                "elevation": 100.0,
+                "elevation": elevation,
                 "name": "Stub",
             }
         ],
@@ -285,8 +296,12 @@ def _dwd_observation(
     year: int = 2025,
     *,
     drop_nulls: bool = True,
+    elevation: float | None = 100.0,
 ) -> pl.DataFrame:
-    """Give the values of one station from a product file of DWD, as the parser and the framework make them."""
+    """Give the values of one station from a product file of DWD, as the parser and the framework make them.
+
+    The station lies at ``elevation`` m, which the check of a station pressure reads (GH-3627).
+    """
     monkeypatch.setattr(
         dwd_observation_api,
         "create_file_list_for_climate_observations",
@@ -307,7 +322,7 @@ def _dwd_observation(
         settings=_settings(),
         options=_options(drop_nulls),
     )
-    return stations_result(request, resolution, dataset, station_id).values().all().df
+    return stations_result(request, resolution, dataset, station_id, elevation=elevation).values().all().df
 
 
 def _dwd_daily_climate_summary(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -493,6 +508,44 @@ def _dwd_hourly_pressure_typo(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool 
         "        433;1994031802;    1; 1010.5; 1004.4;eor\n"
     )
     return _dwd_observation(monkeypatch, "hourly", "pressure", product, "00433", year=1994, drop_nulls=drop_nulls)
+
+
+def _dwd_hourly_pressure_off_the_elevation(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # lines 341263 to 341265 of produkt_p0_stunde_19490101_20251231_00433.txt in
+    # stundenwerte_P0_00433_19490101_20251231_hist.zip, read 2026-10-31, as the file writes them: Berlin-Tempelhof (48
+    # m, where the standard atmosphere expects 1007.5 hPa) reads a P0 of 909.5 hPa at 1994-08-29 21:00 (QN 1) between
+    # 1038.9 and 1009.6, a reading that is inside every bound of the world; the P of that hour is 1015.4. 1038.9 is 31
+    # hPa from the expected pressure and stays. 00433 holds 2 readings of 333,581 further than 60 hPa from it, this and
+    # the 1093.3 above, and 03032 (List auf Sylt, 25 m) 5 of 332,702: 910.1, 908.5, 795.0, 1098.2 and 1099.3 (GH-3627)
+    product = (
+        "STATIONS_ID;MESS_DATUM;QN_8;   P;  P0;eor\n"
+        "        433;1994082920;    1; 1014.7; 1038.9;eor\n"
+        "        433;1994082921;    1; 1015.4;  909.5;eor\n"
+        "        433;1994082922;    1; 1015.5; 1009.6;eor\n"
+    )
+    return _dwd_observation(
+        monkeypatch, "hourly", "pressure", product, "00433", year=1994, drop_nulls=drop_nulls, elevation=48.0
+    )
+
+
+def _dwd_hourly_pressure_zugspitze(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # lines 18097 and 19267 to 19270 of produkt_p0_stunde_19871101_20251231_05792.txt in
+    # stundenwerte_P0_05792_19871101_20251231_hist.zip, read 2026-10-31, as the file writes them: the Zugspitze (2,956
+    # m, where the standard atmosphere expects 705 hPa) reads a P0 of 713.0 hPa and then 908.6 at 1990-05-31 23:00, and
+    # 968.6 at 1990-04-08 11:00, the highest of its file; P is -999 (no barometer reduced to sea level). The file holds
+    # 12 readings of 323,911 further than 60 hPa from the expected pressure, 802.2 to 968.6, and none below 670.6;
+    # see GH-3627
+    product = (
+        "STATIONS_ID;MESS_DATUM;QN_8;   P;  P0;eor\n"
+        "       5792;1990040811;    1;   -999;  968.6;eor\n"
+        "       5792;1990053121;    1;   -999;  713.0;eor\n"
+        "       5792;1990053122;    1;   -999;  713.0;eor\n"
+        "       5792;1990053123;    1;   -999;  908.6;eor\n"
+        "       5792;1990060100;    1;   -999;  712.9;eor\n"
+    )
+    return _dwd_observation(
+        monkeypatch, "hourly", "pressure", product, "05792", year=1990, drop_nulls=drop_nulls, elevation=2956.0
+    )
 
 
 def _dwd_10_minutes_urban_solar(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -1021,6 +1074,7 @@ def _meteofrance_synop_impossible(monkeypatch: pytest.MonkeyPatch, drop_nulls: b
     # them): at 2000-03-20T09:00Z `t` 343.55 K (70.4 C) beside a `td` of 297.04 K; at 2000-06-01T18:00Z `t` 248.35 K
     # (-24.8 C) beside a `td` of 294.65 K and a `tx12` of 301.45 K; at 2000-07-06T00:00Z and 03:00Z a `td` of 252.05 and
     # 251.65 K beside an `u` of 4 % and `t` 296.75 K, and at 03:00Z an `rr1` of 800.0 mm, with the rows around them.
+    # The `u` of 4 % is the failed hygrometer's, null with the `td` (GH-3629), the 76 to 87 % around it stay.
     # The file of 2000 holds 4 `t` above 60 C and 2 below 0 C, 4 `td` below 0 C and this `rr1` at TROMELIN. The 31
     # rows of `pres` (10,860 to 42,060 Pa) of the files of 1996, 2000, 2005, 2010 and 2015 are at other stations, and
     # the unit test of the synop reader serves them (GH-3135)
@@ -1120,6 +1174,7 @@ def _meteofrance_synop_impossible(monkeypatch: pytest.MonkeyPatch, drop_nulls: b
         parameters=[
             ("subdaily", "data", "temperature_air_2m"),
             ("subdaily", "data", "temperature_dew_point_2m"),
+            ("subdaily", "data", "humidity_relative"),
             ("subdaily", "data", "precipitation_amount_last_1h"),
         ],
         start=_day(2000, 1, 1),
@@ -1134,7 +1189,8 @@ def _meteofrance_synop_guyane(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool 
     # synop_2025.csv.gz, read 2026-10-30, the rows of MARIPASOULA (81415, 106 m, 3.6 degrees north in Guyane, which has
     # no frost, GH-3135) as the file writes them: at 2025-02-12T00:00Z `td` 255.65 K (-17.5 C) beside `t` 297.95 K and
     # an `u` of 5 %, and at 2025-12-14T00:00Z `tn24` 272.95 K (-0.2 C) beside `t` 297.65 K and `tx24` 302.25 K. The
-    # file holds 8 rows of that `tn24` and 12 of `td` below 0 C for this station in 2025, and 7 of 81401 in 2022
+    # file holds 8 rows of that `tn24` and 12 of `td` below 0 C for this station in 2025, and 7 of 81401 in 2022. The
+    # `u` of 5 % beside that `td` is the failed hygrometer's too, and is null with it (GH-3629)
     schema = list(synop_api._SYNOP_CSV_SCHEMA)  # noqa: SLF001
     rows = [
         {
@@ -1169,6 +1225,7 @@ def _meteofrance_synop_guyane(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool 
             ("subdaily", "data", "temperature_dew_point_2m"),
             ("subdaily", "data", "temperature_air_min_2m_last_24h"),
             ("subdaily", "data", "temperature_air_max_2m_last_24h"),
+            ("subdaily", "data", "humidity_relative"),
         ],
         start=_day(2025, 1, 1),
         end=_day(2025, 12, 31),
@@ -2164,6 +2221,20 @@ STUBS = [
         tokens=(("pressure_air_site", "1093.3", None),),
     ),
     ValueStub(
+        "dwd/observation hourly/pressure (off the elevation, 48 m)",
+        _dwd_hourly_pressure_off_the_elevation,
+        reading=("pressure_air_site", 1009.6),
+        sentinels=(("pressure_air_site", 909.5),),
+        tokens=(("pressure_air_site", "909.5", None),),
+    ),
+    ValueStub(
+        "dwd/observation hourly/pressure (the Zugspitze, 2,956 m)",
+        _dwd_hourly_pressure_zugspitze,
+        reading=("pressure_air_site", 713.0),
+        sentinels=(("pressure_air_site", 908.6), ("pressure_air_site", 968.6)),
+        tokens=(("pressure_air_site", "908.6", None), ("pressure_air_site", "968.6", None)),
+    ),
+    ValueStub(
         "dwd/observation 10_minutes/urban_solar",
         _dwd_10_minutes_urban_solar,
         # hours in the file, seconds in the output: 0.17 h
@@ -2547,10 +2618,15 @@ STUBS = [
         "meteofrance/synop subdaily/data (Guyane, no frost)",
         _meteofrance_synop_guyane,
         reading=("temperature_air_2m", 24.8),
-        sentinels=(("temperature_dew_point_2m", -17.5), ("temperature_air_min_2m_last_24h", -0.2)),
+        sentinels=(
+            ("temperature_dew_point_2m", -17.5),
+            ("temperature_air_min_2m_last_24h", -0.2),
+            ("humidity_relative", 5.0),
+        ),
         tokens=(
             ("temperature_dew_point_2m", "255.65", None),
             ("temperature_air_min_2m_last_24h", "272.95", None),
+            ("humidity_relative", "5", None),
         ),
     ),
     ValueStub(
@@ -2562,6 +2638,7 @@ STUBS = [
             ("temperature_air_2m", -24.8),
             ("temperature_dew_point_2m", -21.1),
             ("temperature_dew_point_2m", -21.5),
+            ("humidity_relative", 4.0),
             ("precipitation_amount_last_1h", 800.0),
         ),
         tokens=(
@@ -2569,6 +2646,8 @@ STUBS = [
             ("temperature_air_2m", "248.35", None),
             ("temperature_dew_point_2m", "252.05", None),
             ("temperature_dew_point_2m", "251.65", None),
+            # the failed hygrometer's humidity beside the two dew points, null with them (GH-3629)
+            ("humidity_relative", "4", None),
             ("precipitation_amount_last_1h", "800.0", None),
         ),
     ),

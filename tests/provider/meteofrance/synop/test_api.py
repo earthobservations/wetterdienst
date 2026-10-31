@@ -35,8 +35,12 @@ def _values(
     year: int = 2024,
     end: datetime | None = None,
     station_id: str = "07005",
+    elevation: float | None = 100.0,
 ) -> pl.DataFrame:
-    """Read rows through the reader as the columns of the source's file, empty where a row has none."""
+    """Read rows through the reader as the columns of the source's file, empty where a row has none.
+
+    The station lies at ``elevation`` m, none where the list gives none.
+    """
     schema = list(synop_api._SYNOP_CSV_SCHEMA)  # noqa: SLF001
     lines = [";".join(schema)] + [";".join(row.get(column, "") for column in schema) for row in rows]
     serve(
@@ -49,7 +53,12 @@ def _values(
         settings=Settings(cache_disable=True),
         options=Options(drop_nulls=drop_nulls),
     )
-    return stations_result(request, "subdaily", "data", station_id).values().all().df.sort("timestamp")
+    return (
+        stations_result(request, "subdaily", "data", station_id, elevation=elevation)
+        .values()
+        .all()
+        .df.sort("timestamp")
+    )
 
 
 def test_meteofrance_synop_api_a_file_that_unpacks_past_the_ceiling_is_a_download_error(
@@ -392,7 +401,8 @@ def test_meteofrance_synop_api_a_reading_no_sensor_produced_is_null_with_its_tex
         "precipitation_amount_last_6h",
         "precipitation_amount_last_24h",
     ]
-    df = _values(monkeypatch, rows, parameters, drop_nulls=False)
+    # a station list without an elevation, so that only the bounds of the world hold (GH-3627)
+    df = _values(monkeypatch, rows, parameters, drop_nulls=False, elevation=None)
     by_parameter = {
         str(parameter): group.sort("timestamp")
         for (parameter,), group in df.partition_by("parameter", as_dict=True).items()
@@ -518,6 +528,130 @@ def test_meteofrance_synop_api_a_temperature_below_zero_is_null_where_there_is_n
         assert dew_point.get_column("quality_flags").to_list() == ["raw:255.65", None]
         assert minimum.get_column("value").to_list() == [None, None]
         assert minimum.get_column("quality_flags").to_list() == ["raw:270.15", None]
+
+
+@pytest.mark.parametrize(
+    ("elevation", "pressures", "values", "flags"),
+    [
+        # LE RAIZET-like, 11 m: 1012.0 hPa expected, 6,000 Pa either way
+        (
+            11.0,
+            ["101500", "41450", "95500", "94000", "107000", "108200"],
+            [1015.0, None, 955.0, None, 1070.0, None],
+            [None, "raw:41450", None, "raw:94000", None, "raw:108200"],
+        ),
+        # MONT AIGOUAL, 1,567 m: 838.6 hPa expected, so what is a pressure at sea level is none
+        (
+            1567.0,
+            ["84000", "100500", "78000", "77800"],
+            [840.0, None, 780.0, None],
+            [None, "raw:100500", None, "raw:77800"],
+        ),
+        # no elevation in the list: only the bounds of the world, 50,000 to 110,000 Pa
+        (
+            None,
+            ["41450", "50000", "100500", "110000.5"],
+            [None, 500.0, 1005.0, None],
+            ["raw:41450", None, None, "raw:110000.5"],
+        ),
+    ],
+)
+def test_meteofrance_synop_api_a_station_pressure_is_null_where_its_elevation_does_not_allow_it(
+    monkeypatch: pytest.MonkeyPatch,
+    elevation: float | None,
+    pressures: list[str],
+    values: list[float | None],
+    flags: list[str | None],
+) -> None:
+    """Test that a `pres` further than 60 hPa from the barometric formula at the station's elevation is null (GH-3627).
+
+    The rows of LA DESIRADE (27 m) of 1996-06-02 15:00 (`pres` 41,450 Pa beside a `pmer` of 101,550) and of the
+    Mont Aigoual (`pmer`-like 100,500 at 1,567 m) are the kind of the mistyped values that lie inside the bounds of
+    the world; the pressure reduced to sea level is not held to the elevation.
+    """
+    rows = [
+        {
+            "geo_id_wmo": "07005",
+            "validity_time": f"2024-01-01T{3 * hour:02d}:00:00Z",
+            "pres": pressure,
+            "pmer": pressure,
+        }
+        for hour, pressure in enumerate(pressures)
+    ]
+    df = _values(
+        monkeypatch, rows, ["pressure_air_site", "pressure_air_sea_level"], drop_nulls=False, elevation=elevation
+    )
+    site = df.filter(pl.col("parameter").eq("pressure_air_site")).sort("timestamp")
+    assert site.get_column("value").to_list() == values
+    assert site.get_column("quality_flags").to_list() == flags
+    # the pressure reduced to sea level keeps its own bounds (85,000 to 110,000 Pa)
+    sea_level = df.filter(pl.col("parameter").eq("pressure_air_sea_level")).sort("timestamp")
+    assert sea_level.get_column("value").null_count() == sum(
+        not 85_000 <= float(pressure) <= 110_000 for pressure in pressures
+    )
+
+
+@pytest.mark.parametrize(
+    ("station", "humidity", "kept"),
+    [
+        # MARIPASOULA (Guyane) and TROMELIN (Iles Eparses) are the stations of the issue, no frost
+        ("81415", ["5", "78"], [None, 0.78]),
+        ("61976", ["4", "78"], [None, 0.78]),
+        # La Reunion has frost at altitude and the mainland has it: the humidity stays beside its dew point
+        ("61980", ["5", "78"], [0.05, 0.78]),
+        ("07005", ["5", "78"], [0.05, 0.78]),
+    ],
+)
+def test_meteofrance_synop_api_the_humidity_beside_a_dew_point_below_zero_is_null_where_there_is_no_frost(
+    monkeypatch: pytest.MonkeyPatch,
+    station: str,
+    humidity: list[str],
+    kept: list[float | None],
+) -> None:
+    """Test that the `u` of a row whose `td` the frost rule nulls is null too, keeping its text (GH-3629).
+
+    The first row is that of MARIPASOULA (81415) at 2025-02-12T00:00Z (`td` 255.65 K beside `u` 5 %), the second a
+    humid hour beside a dew point of 294.65 K, which stays. The humidity alone is asked for: the dew point is read
+    for it and is not in the answer. A `u` of 5 % is no reading to null by itself (no floor on the humidity).
+    """
+    rows = [
+        {"geo_id_wmo": station, "validity_time": "2025-02-12T00:00:00Z", "td": "255.65", "u": humidity[0]},
+        {"geo_id_wmo": station, "validity_time": "2025-02-12T03:00:00Z", "td": "294.65", "u": humidity[1]},
+    ]
+    df = _values(
+        monkeypatch,
+        rows,
+        ["humidity_relative"],
+        drop_nulls=False,
+        year=2025,
+        end=datetime(2025, 2, 13, tzinfo=UTC),
+        station_id=station,
+    )
+    assert df.get_column("parameter").unique().to_list() == ["humidity_relative"]
+    assert df.get_column("value").to_list() == kept
+    flags = df.get_column("quality_flags").to_list()
+    assert flags == ([f"raw:{humidity[0]}", None] if kept[0] is None else [None, None])
+
+
+def test_meteofrance_synop_api_the_humidity_beside_a_dew_point_of_zero_or_a_missing_one_stays(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that a dew point of 0 C (273.15 K) and a row without a dew point leave the `u` where it is (GH-3629)."""
+    rows = [
+        {"geo_id_wmo": "81415", "validity_time": "2025-02-12T00:00:00Z", "td": "273.15", "u": "40"},
+        {"geo_id_wmo": "81415", "validity_time": "2025-02-12T03:00:00Z", "u": "41"},
+    ]
+    df = _values(
+        monkeypatch,
+        rows,
+        ["humidity_relative", "temperature_dew_point_2m"],
+        drop_nulls=False,
+        year=2025,
+        end=datetime(2025, 2, 13, tzinfo=UTC),
+        station_id="81415",
+    )
+    humidity = df.filter(pl.col("parameter").eq("humidity_relative")).sort("timestamp")
+    assert humidity.get_column("value").to_list() == [0.4, 0.41]
 
 
 @pytest.mark.remote

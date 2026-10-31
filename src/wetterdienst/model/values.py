@@ -788,6 +788,19 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             df = self._widen_df(df=df)
         return df
 
+    def _station_elevation(self, station_id: str) -> float | None:
+        """Give the elevation in m that the station list holds for a station, or ``None`` where it holds none."""
+        if "elevation" not in self.sr.df.columns:
+            return None
+        elevations = (
+            self.sr.df.filter(pl.col("station_id").eq(station_id))
+            .get_column("elevation")
+            .cast(pl.Float64, strict=False)
+            .drop_nulls()
+            .drop_nans()
+        )
+        return None if elevations.is_empty() else float(elevations[0])
+
     def _get_available_datasets(self, df: pl.DataFrame) -> list[DatasetModel]:
         """Extract available datasets for the station."""
         resolution_dataset_pairs = (

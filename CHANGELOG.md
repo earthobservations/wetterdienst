@@ -33,6 +33,19 @@ Types of changes:
   (SPM00008164, -8165, -8282). They were 16 to 1,299 km off, so a nearest-station search or a
   distance filter near them picked the wrong stations; a filter on the old position needs the new
   one (GH-2886)
+- **Breaking**: `dwd/observation` `pressure_air_site` and `pressure_air_site_mean` (the hourly
+  `P0` and `P_STD`, the subdaily and 10 minute station pressure, the daily mean `PM`) and
+  `meteofrance/synop` `pres` are null, with the number the source wrote as `raw:` in
+  `quality_flags`, where they are more than 60 hPa (6,000 Pa) from the pressure the standard
+  atmosphere expects at the station's elevation: 909.5 hPa at Berlin-Tempelhof (48 m) and
+  968.6 hPa at the Zugspitze (2,956 m, where 705 hPa are expected) came back as readings. The old
+  number is the `raw:` token; a station without an elevation in the list is held to 500 to
+  1090 hPa as before (GH-3627)
+- **Breaking**: `meteofrance/observation` (hourly `U`) and `meteofrance/synop` (`u`): at the
+  stations without frost, the relative humidity of a row whose dew point the frost rule nulls is
+  null too, with its number as `raw:`, where it came back as 1 to 20 % beside a dew point of
+  -20 C, the same failed hygrometer. A humidity beside a dew point that is a reading stays, low
+  as it is. The old number is the `raw:` token (GH-3629)
 
 ### Fixed
 
