@@ -340,13 +340,13 @@ def test_the_standard_station_pressure_follows_the_barometric_formula(elevation:
 
 
 def test_a_station_pressure_is_held_to_60_hpa_around_the_formula_in_the_unit_of_the_source() -> None:
-    """Test that the range is the pressure of the elevation less and plus 60 hPa, 100 times that in Pa (GH-3627)."""
+    """Test that the range is the pressure of the elevation less and plus 75 hPa, 100 times that in Pa (GH-3627)."""
     hectopascal = station_pressure_range(48.0)
     assert hectopascal is not None
-    assert (hectopascal.low, hectopascal.high) == pytest.approx((947.5, 1067.5), abs=0.1)
+    assert (hectopascal.low, hectopascal.high) == pytest.approx((932.5, 1082.5), abs=0.1)
     pascal = station_pressure_range(48.0, per_hectopascal=100.0)
     assert pascal is not None
-    assert (pascal.low, pascal.high) == pytest.approx((94_750.0, 106_750.0), abs=10.0)
+    assert (pascal.low, pascal.high) == pytest.approx((93_250.0, 108_250.0), abs=10.0)
 
 
 def test_a_station_pressure_outside_the_range_of_its_elevation_is_null_with_its_text() -> None:
@@ -354,11 +354,29 @@ def test_a_station_pressure_outside_the_range_of_its_elevation_is_null_with_its_
     rule = station_pressure_range(48.0)
     assert rule is not None
     cleaned, raw = null_sentinels(pl.col("value"), rule, text=False)
-    df = pl.DataFrame({"value": [909.5, 947.6, 1038.9, 1067.4, 1093.3]}).select(
+    df = pl.DataFrame({"value": [909.5, 932.4, 932.6, 1038.9, 1082.4, 1082.6, 1093.3]}).select(
         cleaned.alias("value"), raw.alias("raw")
     )
-    assert df.get_column("value").to_list() == [None, 947.6, 1038.9, 1067.4, None]
-    assert df.get_column("raw").to_list() == ["909.5", None, None, None, "1093.3"]
+    assert df.get_column("value").to_list() == [None, None, 932.6, 1038.9, 1082.4, None, None]
+    assert df.get_column("raw").to_list() == ["909.5", "932.4", None, None, None, "1082.6", "1093.3"]
+
+
+def test_a_deep_low_at_a_station_near_sea_level_is_kept_and_a_typo_of_the_zugspitze_is_not() -> None:
+    """Test that 940 hPa at 43 m (Dumont d'Urville, 1,008 expected) stays and the Zugspitze's outliers go (GH-3627)."""
+    low = station_pressure_range(43.0)
+    assert low is not None
+    cleaned, raw = null_sentinels(pl.col("value"), low, text=False)
+    sea = pl.DataFrame({"value": [940.0, 938.2, 909.5]}).select(cleaned.alias("value"), raw.alias("raw"))
+    assert sea.get_column("value").to_list() == [940.0, 938.2, None]
+    assert sea.get_column("raw").to_list() == [None, None, "909.5"]
+    high = station_pressure_range(2956.0)
+    assert high is not None
+    cleaned, raw = null_sentinels(pl.col("value"), high, text=False)
+    zugspitze = pl.DataFrame({"value": [713.0, 780.0, 802.2, 908.6, 968.6]}).select(
+        cleaned.alias("value"), raw.alias("raw")
+    )
+    assert zugspitze.get_column("value").to_list() == [713.0, 780.0, None, None, None]
+    assert zugspitze.get_column("raw").to_list() == [None, None, "802.2", "908.6", "968.6"]
 
 
 @pytest.mark.parametrize("elevation", [None, float("nan"), -999.0, 12_000.0])

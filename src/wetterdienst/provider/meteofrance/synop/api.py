@@ -89,7 +89,7 @@ _SYNOP_MAXIMUM_12H = "tx12"
 _SYNOP_MAXIMUM_BESIDE = "__tx12_beside"
 
 # The pressure at the station is also held to what the barometric formula expects at the station's elevation (`Altitude`
-# of the station list), 6,000 Pa either way (`station_pressure_range`, GH-3627): the bounds below let through a `pres`
+# of the station list), 7,500 Pa either way (`station_pressure_range`, GH-3627): the bounds below let through a `pres`
 # typed wrong by a digit at a station near sea level, such as 41,450 Pa at LA DESIRADE (27 m) in 1996-06-02 or 100,500
 # at the Mont Aigoual (1,567 m). The first of the two rules that matches decides, and both keep the number as `raw`.
 _SYNOP_PRESSURE_COLUMN = "pres"

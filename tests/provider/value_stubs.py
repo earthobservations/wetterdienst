@@ -515,7 +515,7 @@ def _dwd_hourly_pressure_off_the_elevation(monkeypatch: pytest.MonkeyPatch, drop
     # stundenwerte_P0_00433_19490101_20251231_hist.zip, read 2026-10-31, as the file writes them: Berlin-Tempelhof (48
     # m, where the standard atmosphere expects 1007.5 hPa) reads a P0 of 909.5 hPa at 1994-08-29 21:00 (QN 1) between
     # 1038.9 and 1009.6, a reading that is inside every bound of the world; the P of that hour is 1015.4. 1038.9 is 31
-    # hPa from the expected pressure and stays. 00433 holds 2 readings of 333,581 further than 60 hPa from it, this and
+    # hPa from the expected pressure and stays. 00433 holds 2 readings of 333,581 further than 75 hPa from it, this and
     # the 1093.3 above, and 03032 (List auf Sylt, 25 m) 5 of 332,702: 910.1, 908.5, 795.0, 1098.2 and 1099.3 (GH-3627)
     product = (
         "STATIONS_ID;MESS_DATUM;QN_8;   P;  P0;eor\n"
@@ -533,7 +533,7 @@ def _dwd_hourly_pressure_zugspitze(monkeypatch: pytest.MonkeyPatch, drop_nulls: 
     # stundenwerte_P0_05792_19871101_20251231_hist.zip, read 2026-10-31, as the file writes them: the Zugspitze (2,956
     # m, where the standard atmosphere expects 705 hPa) reads a P0 of 713.0 hPa and then 908.6 at 1990-05-31 23:00, and
     # 968.6 at 1990-04-08 11:00, the highest of its file; P is -999 (no barometer reduced to sea level). The file holds
-    # 12 readings of 323,911 further than 60 hPa from the expected pressure, 802.2 to 968.6, and none below 670.6;
+    # 12 readings of 323,911 further than 75 hPa from the expected pressure, 802.2 to 968.6, and none below 670.6;
     # see GH-3627
     product = (
         "STATIONS_ID;MESS_DATUM;QN_8;   P;  P0;eor\n"

@@ -1005,10 +1005,10 @@ def test_parse_dwd_daily_pressure_mean_is_bound_and_the_vapour_pressure_is_not()
 
 
 def test_dwd_hourly_pressure_is_held_to_the_pressure_the_elevation_expects() -> None:
-    """Test that a P0 more than 60 hPa from the barometric formula at the station's elevation is null with its text.
+    """Test that a P0 more than 75 hPa from the barometric formula at the station's elevation is null with its text.
 
     Berlin-Tempelhof (48 m, 1007.5 hPa expected) reads 909.5 hPa at 1994-08-29 21:00 between 1038.9 and 1009.6, which is
-    inside the 500 to 1090 hPa of the world. 947.4 and 1067.6 are just outside the 60 hPa, 947.6 and 1067.4 just inside.
+    inside the 500 to 1090 hPa of the world. 932.4 and 1082.6 are just outside the 75 hPa, 932.6 and 1082.4 just inside.
     The P, the pressure reduced to sea level, is not this rule's (GH-3627).
     """
     parsed = _parse(
@@ -1017,16 +1017,16 @@ def test_dwd_hourly_pressure_is_held_to_the_pressure_the_elevation_expects() -> 
         "        433;1994082920;    1; 1014.7; 1038.9;eor\n"
         "        433;1994082921;    1; 1015.4;  909.5;eor\n"
         "        433;1994082922;    1; 1015.5; 1009.6;eor\n"
-        "        433;1994082923;    1;  909.5;  947.4;eor\n"
-        "        433;1994083000;    1; 1015.5;  947.6;eor\n"
-        "        433;1994083001;    1; 1015.5; 1067.4;eor\n"
-        "        433;1994083002;    1; 1015.5; 1067.6;eor\n"
+        "        433;1994082923;    1;  909.5;  932.4;eor\n"
+        "        433;1994083000;    1; 1015.5;  932.6;eor\n"
+        "        433;1994083001;    1; 1015.5; 1082.4;eor\n"
+        "        433;1994083002;    1; 1015.5; 1082.6;eor\n"
         "        433;1994083003;    1; 1015.5; -999;eor\n",
         period=Period.HISTORICAL,
     )
     df = null_implausible_station_pressure(parsed.lazy(), DwdObservationMetadata.hourly.pressure, 48.0).collect()
-    assert df.get_column("p0").to_list() == ["1038.9", None, "1009.6", None, "947.6", "1067.4", None, None]
-    assert df.get_column(raw_column("p0")).to_list() == [None, "909.5", None, "947.4", None, None, "1067.6", "-999"]
+    assert df.get_column("p0").to_list() == ["1038.9", None, "1009.6", None, "932.6", "1082.4", None, None]
+    assert df.get_column(raw_column("p0")).to_list() == [None, "909.5", None, "932.4", None, None, "1082.6", "-999"]
     # the sea level pressure is left to the world's bounds
     assert df.get_column("p").to_list() == [
         "1014.7",

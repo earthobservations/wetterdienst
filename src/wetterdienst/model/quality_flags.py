@@ -198,7 +198,7 @@ class Floor:
 # standard atmosphere, valid in the troposphere) expects at a height: a station pressure that lies further than
 # `STATION_PRESSURE_TOLERANCE` from it is no reading (GH-3627)
 STANDARD_SEA_LEVEL_PRESSURE = 1013.25
-STATION_PRESSURE_TOLERANCE = 60.0
+STATION_PRESSURE_TOLERANCE = 75.0
 # the elevations the check is made for, in metres: a catalogue that gives another (a missing-value code, a typo) tells
 # nothing, and the formula is the standard atmosphere's to 11 km
 _STATION_ELEVATIONS = (-500.0, 9000.0)
@@ -212,12 +212,13 @@ def standard_station_pressure(elevation: float) -> float:
 def station_pressure_range(
     elevation: float | None, *, per_hectopascal: float = 1.0, where: pl.Expr | None = None
 ) -> OutOfRange | None:
-    """Give the rule of a station pressure: the barometric formula at the station's elevation, 60 hPa either way.
+    """Give the rule of a station pressure: the barometric formula at the station's elevation, 75 hPa either way.
 
     The world-wide bounds of a pressure at the station (500 to 1090 hPa) are too wide to find a reading mistyped by a
     digit at a station near sea level (a P0 of 909.5 hPa at 48 m) or one that is a pressure of another height (968.6
-    hPa at the Zugspitze, 2,964 m, where 704 hPa are expected): 60 hPa are about 500 m of height, which every weather
-    at the station stays within. A reading outside is null and keeps the number as ``raw`` (``OutOfRange``).
+    hPa at the Zugspitze, 2,964 m, where 704 hPa are expected): 75 hPa are about 650 m of height, which the weather at
+    the station stays within: the deep lows of Dumont d'Urville (938 hPa at 43 m, where 1008 are expected) are inside.
+    A reading outside is null and keeps the number as ``raw`` (``OutOfRange``).
 
     Args:
         elevation: the elevation of the station in m, as its catalogue gives it.

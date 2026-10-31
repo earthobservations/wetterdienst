@@ -533,19 +533,27 @@ def test_meteofrance_synop_api_a_temperature_below_zero_is_null_where_there_is_n
 @pytest.mark.parametrize(
     ("elevation", "pressures", "values", "flags"),
     [
-        # LE RAIZET-like, 11 m: 1012.0 hPa expected, 6,000 Pa either way
+        # LE RAIZET-like, 11 m: 1011.9 hPa expected, 7,500 Pa either way
         (
             11.0,
-            ["101500", "41450", "95500", "94000", "107000", "108200"],
+            ["101500", "41450", "95500", "93000", "107000", "108800"],
             [1015.0, None, 955.0, None, 1070.0, None],
-            [None, "raw:41450", None, "raw:94000", None, "raw:108200"],
+            [None, "raw:41450", None, "raw:93000", None, "raw:108800"],
+        ),
+        # DUMONT D'URVILLE, 43 m: 1008.1 hPa expected; the deep lows of 2010-09-10 (938.2 hPa) and of 2020-12-28 (944.1)
+        # are readings, 909.5 and 932.9 are not
+        (
+            43.0,
+            ["93820", "94410", "90950", "93290"],
+            [938.2, 944.1, None, None],
+            [None, None, "raw:90950", "raw:93290"],
         ),
         # MONT AIGOUAL, 1,567 m: 838.6 hPa expected, so what is a pressure at sea level is none
         (
             1567.0,
-            ["84000", "100500", "78000", "77800"],
+            ["84000", "100500", "78000", "76000"],
             [840.0, None, 780.0, None],
-            [None, "raw:100500", None, "raw:77800"],
+            [None, "raw:100500", None, "raw:76000"],
         ),
         # no elevation in the list: only the bounds of the world, 50,000 to 110,000 Pa
         (
@@ -563,7 +571,7 @@ def test_meteofrance_synop_api_a_station_pressure_is_null_where_its_elevation_do
     values: list[float | None],
     flags: list[str | None],
 ) -> None:
-    """Test that a `pres` further than 60 hPa from the barometric formula at the station's elevation is null (GH-3627).
+    """Test that a `pres` further than 75 hPa from the barometric formula at the station's elevation is null (GH-3627).
 
     The rows of LA DESIRADE (27 m) of 1996-06-02 15:00 (`pres` 41,450 Pa beside a `pmer` of 101,550) and of the
     Mont Aigoual (`pmer`-like 100,500 at 1,567 m) are the kind of the mistyped values that lie inside the bounds of

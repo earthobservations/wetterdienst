@@ -36,7 +36,7 @@ Types of changes:
 - **Breaking**: `dwd/observation` `pressure_air_site` and `pressure_air_site_mean` (the hourly
   `P0` and `P_STD`, the subdaily and 10 minute station pressure, the daily mean `PM`) and
   `meteofrance/synop` `pres` are null, with the number the source wrote as `raw:` in
-  `quality_flags`, where they are more than 60 hPa (6,000 Pa) from the pressure the standard
+  `quality_flags`, where they are more than 75 hPa (7,500 Pa) from the pressure the standard
   atmosphere expects at the station's elevation: 909.5 hPa at Berlin-Tempelhof (48 m) and
   968.6 hPa at the Zugspitze (2,956 m, where 705 hPa are expected) came back as readings. The old
   number is the `raw:` token; a station without an elevation in the list is held to 500 to
