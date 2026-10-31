@@ -31,6 +31,7 @@ from wetterdienst.exceptions import (
     ReversedTimeIntervalError,
 )
 from wetterdienst.io.export import require_kaleido
+from wetterdienst.io.formats import FORMATS, names_of
 from wetterdienst.metadata.unit_type import UnitType
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.options import Options
@@ -87,7 +88,7 @@ from wetterdienst.util.ui import read_list
 from wetterdienst.util.url import file_target_path, redact_password
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping
+    from collections.abc import Callable, Iterable, Mapping
 
     from pydantic_core import ErrorDetails
 
@@ -295,23 +296,30 @@ humanize_opt = _bool_opt(
     help="Use canonical parameter names instead of the provider's own codes. Default: WD_TS_HUMANIZE if set, else true",
 )
 
+
+def _or_list(names: Iterable[str]) -> str:
+    """Write names as a list ending in "or": `json, geojson or csv`."""
+    *head, last = names
+    return f"{', '.join(head)} or {last}"
+
+
 format_opt = click.option(
     "--format",
     "fmt",
-    type=click.Choice(["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"], case_sensitive=False),
+    type=click.Choice(list(FORMATS), case_sensitive=False),
     default="json",
-    help="Output format: json, geojson or csv for data, html, png, jpg, webp, svg or pdf for a chart. Default: json",
+    help=f"Output format: {_or_list(names_of('data'))} for data, {_or_list(names_of('chart'))} for a chart. "
+    "Default: json",
 )
 # of `stations` and `values`, whose csv is streamed by the REST API and which have ndjson (GH-3065)
 stream_format_opt = click.option(
     "--format",
     "fmt",
-    type=click.Choice(
-        ["json", "geojson", "csv", "ndjson", "html", "png", "jpg", "webp", "svg", "pdf"], case_sensitive=False
-    ),
+    # ndjson is the stream the surfaces write, no format of `to_format`: after the data formats, as it is listed
+    type=click.Choice([*names_of("data"), "ndjson", *names_of("chart")], case_sensitive=False),
     default="json",
-    help="Output format: json, geojson, csv or ndjson (the metadata, a line for each row, then the end) for data, "
-    "html, png, jpg, webp, svg or pdf for a chart. Default: json",
+    help=f"Output format: {_or_list([*names_of('data'), 'ndjson'])} (the metadata, a line for each row, then the end) "
+    f"for data, {_or_list(names_of('chart'))} for a chart. Default: json",
 )
 # the size of a chart, for --format of html, png, jpg, webp, svg or pdf
 width_opt = click.option("--width", type=click.IntRange(min=1), help="Width of a rendered chart in pixels.")
@@ -326,7 +334,9 @@ target_opt = click.option(
 )
 # what a target that already holds data does with the next write. `to_target` has taken this since
 # it was written, and the docs advertise it, but no command passed it, so every CLI export replaced
-# -- which is only the wrong default for a schedule, where the point is usually to accumulate
+# -- which is only the wrong default for a schedule, where the point is usually to accumulate.
+# `replace` is the default of a result's `to_target`, which the command writes: one frame, written as a whole,
+# where `TimeseriesValues.to_target` defaults to `fail` as it fills one table station by station
 if_exists_opt = click.option(
     "--if-exists",
     type=click.Choice(["replace", "append", "fail", "skip"]),

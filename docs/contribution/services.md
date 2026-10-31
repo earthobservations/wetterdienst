@@ -301,7 +301,7 @@ sentinel to name: `OutOfRange(low, high)` takes it the same way, with bounds in 
 taken from `tests/provider/physical_ranges.py` and kept per resolution (the rain and the sunshine of a day
 are not those of a minute; generous, so that a real reading of the provider is never outside). A reader may
 be narrower than that range where its source's own records or precision allow it, never wider; the
-narrower entries are named in `test_physical_ranges.py`, and the `raw` text is the number as it is written. A model's amount that is a little below its floor (-0.02 mm of rain) is `Floor(0.0)`: the floor, with the number as `raw`. A wide frame keeps the text beside each
+narrower entries are named in `test_physical_ranges.py`, and the `raw` text is the number as it is written. A pressure at the station is also held to the elevation of the station: `station_pressure_range(elevation)` (`model/quality_flags.py`) gives the `OutOfRange` of the barometric formula of the standard atmosphere, 75 hPa either way (`per_hectopascal=100.0` for a source in Pa), and `TimeseriesValues._station_elevation(station_id)` the elevation of the station list; `dwd/observation` and `meteofrance/synop` use them. A model's amount that is a little below its floor (-0.02 mm of rain) is `Floor(0.0)`: the floor, with the number as `raw`. A wide frame keeps the text beside each
 column with `clear_sentinels` and `unpivot_with_raw`. Add a stub of the source with the sentinel written as the source writes it to
 `tests/provider/value_stubs.py` and name each `raw:` token it must carry in `tokens`.
 

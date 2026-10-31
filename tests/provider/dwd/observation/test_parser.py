@@ -19,7 +19,10 @@ from wetterdienst import Period
 from wetterdienst.model.metadata import DatasetModel
 from wetterdienst.model.quality_flags import raw_column
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata
-from wetterdienst.provider.dwd.observation.parser import parse_climate_observations_data
+from wetterdienst.provider.dwd.observation.parser import (
+    null_implausible_station_pressure,
+    parse_climate_observations_data,
+)
 from wetterdienst.util.network import File
 
 
@@ -999,3 +1002,64 @@ def test_parse_dwd_daily_pressure_mean_is_bound_and_the_vapour_pressure_is_not()
     assert df.get_column("pm").to_list() == ["726.57", "683.5", "1041.6", None, None]
     assert df.get_column(raw_column("pm")).to_list() == [None, None, None, "1100.0", "99.9"]
     assert df.get_column("vpm").to_list() == ["5.1", "5.2", "5.3", "1100.0", "5.4"]
+
+
+def test_dwd_hourly_pressure_is_held_to_the_pressure_the_elevation_expects() -> None:
+    """Test that a P0 more than 75 hPa from the barometric formula at the station's elevation is null with its text.
+
+    Berlin-Tempelhof (48 m, 1007.5 hPa expected) reads 909.5 hPa at 1994-08-29 21:00 between 1038.9 and 1009.6, which is
+    inside the 500 to 1090 hPa of the world. 932.4 and 1082.6 are just outside the 75 hPa, 932.6 and 1082.4 just inside.
+    The P, the pressure reduced to sea level, is not this rule's (GH-3627).
+    """
+    parsed = _parse(
+        DwdObservationMetadata.hourly.pressure,
+        "STATIONS_ID;MESS_DATUM;QN_8;   P;  P0;eor\n"
+        "        433;1994082920;    1; 1014.7; 1038.9;eor\n"
+        "        433;1994082921;    1; 1015.4;  909.5;eor\n"
+        "        433;1994082922;    1; 1015.5; 1009.6;eor\n"
+        "        433;1994082923;    1;  909.5;  932.4;eor\n"
+        "        433;1994083000;    1; 1015.5;  932.6;eor\n"
+        "        433;1994083001;    1; 1015.5; 1082.4;eor\n"
+        "        433;1994083002;    1; 1015.5; 1082.6;eor\n"
+        "        433;1994083003;    1; 1015.5; -999;eor\n",
+        period=Period.HISTORICAL,
+    )
+    df = null_implausible_station_pressure(parsed.lazy(), DwdObservationMetadata.hourly.pressure, 48.0).collect()
+    assert df.get_column("p0").to_list() == ["1038.9", None, "1009.6", None, "932.6", "1082.4", None, None]
+    assert df.get_column(raw_column("p0")).to_list() == [None, "909.5", None, "932.4", None, None, "1082.6", "-999"]
+    # the sea level pressure is left to the world's bounds
+    assert df.get_column("p").to_list() == [
+        "1014.7",
+        "1015.4",
+        "1015.5",
+        "909.5",
+        "1015.5",
+        "1015.5",
+        "1015.5",
+        "1015.5",
+    ]
+
+
+def test_dwd_station_pressure_of_a_station_without_an_elevation_is_left_to_the_bounds_of_the_world() -> None:
+    """Test that no elevation is no check: 909.5 hPa stays, as the parser alone leaves it (GH-3627)."""
+    parsed = _parse(
+        DwdObservationMetadata.hourly.pressure,
+        "STATIONS_ID;MESS_DATUM;QN_8;   P;  P0;eor\n        433;1994082921;    1; 1015.4;  909.5;eor\n",
+        period=Period.HISTORICAL,
+    )
+    df = null_implausible_station_pressure(parsed.lazy(), DwdObservationMetadata.hourly.pressure, None).collect()
+    assert df.get_column("p0").to_list() == ["909.5"]
+
+
+def test_dwd_daily_mean_station_pressure_is_held_to_the_pressure_the_elevation_expects() -> None:
+    """Test that the daily mean `PM` of the Zugspitze is checked at 2,956 m (705 hPa expected), `VPM` not (GH-3627)."""
+    parsed = _parse(
+        DwdObservationMetadata.daily.climate_summary,
+        "STATIONS_ID;MESS_DATUM;QN_3;VPM;PM;eor\n5792;20250101;10;5.1;726.57;eor\n5792;20250102;10;780.0;968.6;eor\n",
+    )
+    df = null_implausible_station_pressure(
+        parsed.lazy(), DwdObservationMetadata.daily.climate_summary, 2956.0
+    ).collect()
+    assert df.get_column("pm").to_list() == ["726.57", None]
+    assert df.get_column(raw_column("pm")).to_list() == [None, "968.6"]
+    assert df.get_column("vpm").to_list() == ["5.1", "780.0"]
