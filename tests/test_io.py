@@ -1145,9 +1145,9 @@ def test_export_netcdf_without_an_engine_says_so(
     Left to xarray the failure is a ValueError listing backends, which says nothing about how to
     get one from here.
     """
-    from wetterdienst.io import export  # noqa: PLC0415
+    from wetterdienst.io import sinks  # noqa: PLC0415
 
-    monkeypatch.setattr(export, "_netcdf_engine", lambda: None)
+    monkeypatch.setattr(sinks, "_netcdf_engine", lambda: None)
     with pytest.raises(ImportError, match=r"wetterdienst\[export\]"):
         ExportMixin(df=df_values).to_target(f"file://{tmp_path.joinpath('values.nc')}")
 
@@ -2409,7 +2409,7 @@ def test_sql_sink_names_psycopg_for_a_bare_postgresql_target(
     """
     sqlalchemy = pytest.importorskip("sqlalchemy")
     pytest.importorskip("pandas")
-    with mock.patch("wetterdienst.io.export._psycopg_imports", return_value=psycopg):
+    with mock.patch("wetterdienst.io.sinks._psycopg_imports", return_value=psycopg):
         assert _urls_the_sink_asks_for(sqlalchemy, target, tmp_path) == [connects_to]
 
 
@@ -2460,7 +2460,7 @@ def test_psycopg_counts_as_installed_only_when_it_imports() -> None:
     Its pure-Python package is found on the path but fails on import with `no pq wrapper
     available`, so naming it would turn a URL psycopg2 could serve into an `ImportError`.
     """
-    from wetterdienst.io.export import _psycopg_imports  # noqa: PLC0415
+    from wetterdienst.io.sinks import _psycopg_imports  # noqa: PLC0415
 
     with mock.patch("importlib.import_module", side_effect=ImportError("no pq wrapper available")) as probe:
         assert not _psycopg_imports()
@@ -3944,7 +3944,7 @@ def test_netcdf_engine_is_named_as_xarray_names_it(
     """Test the NetCDF engine is the one xarray knows, `netcdf4` for the `netCDF4` module (GH-2666)."""
     import importlib.util  # noqa: PLC0415
 
-    from wetterdienst.io.export import _netcdf_engine  # noqa: PLC0415
+    from wetterdienst.io.sinks import _netcdf_engine  # noqa: PLC0415
 
     monkeypatch.setattr(importlib.util, "find_spec", lambda name: object() if name in installed else None)
     assert _netcdf_engine() == engine
@@ -4283,7 +4283,7 @@ def test_driver_missing_names_the_driver_the_postgresql_extra_installs(
     SQLAlchemy 2.0 behaviour is told here directly.
     """
     sqlalchemy = pytest.importorskip("sqlalchemy")
-    from wetterdienst.io.export import _driver_missing  # noqa: PLC0415
+    from wetterdienst.io.sinks import _driver_missing  # noqa: PLC0415
 
     if installed:
         stub = types.ModuleType("psycopg")

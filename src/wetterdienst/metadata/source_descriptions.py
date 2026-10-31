@@ -241,12 +241,12 @@ _EA_DAY = "the 24 hours from 09:00 of the day it is dated to 09:00 of the next (
 #   days, cooling hours and days reproduce from DWD's daily and hourly air temperature on stations 00044, 00073, 00078
 #   (September 2026); the DUETT hour fits (HH-2):50 to (HH-1):50 best (mean absolute error 4.05 J/cm2, against 15.7
 #   for the sheet's other hour and 5.0 for a window 10 minutes off; 4 pseudo-stations, 4799 hours from 2026-09-01).
-# - DMO: ICON's `Rad1h`, `RadS3`, `RR1` and `RR3` are not clipped at 0 (2026-10-22, 12 stations of icon and icon-eu
+# - DMO: ICON's `Rad1h`, `RadS3`, `RR1` and `RR3` run below 0 (2026-10-22, 12 stations of icon and icon-eu
 #   and the two latest runs of each: `Rad1h` negative in 411 of 1872 icon-eu values, to -0.15, and 18 of 78 icon
 #   steps at 10382, to -0.17; `RadS3` in 273 of 1209, to -0.43; `RR1` in 3 of 1872 icon-eu values, to -0.01; all
 #   stations of the icon run of 22 12Z: `Rad1h` to -0.77, `RR1` negative in 2769 of 459,732 values, to -0.10, `RR3`
 #   to -0.04, `RadS3` to -0.46); the MOSMIX_L file of station 10382 has no negative `Rad1h` or `RR1c`. The reader
-#   returns `RR1` and `RR3` as 0.0 with `raw:` (GH-3263), `Rad1h` and `RadS3` as written.
+#   returns all four as 0.0 with `raw:` (GH-3263).
 # - derived: the English sheets in the `cdh_13`, `cdh_16` and `cdh_18` directories of cooling_degreehours (named
 #   `..._hdh_..._en.pdf`) are the text of the heating degree days sheet (Monatsgradtage, Heiztage, 15 degree
 #   Celsius), so the docs link the English sheet one directory up (`..._cdh_..._en.pdf`), which gives the unit
@@ -905,14 +905,15 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "icon", "pppp"): "Surface pressure, reduced",
         ("hourly", "icon", "rad1h"): (
             "Global Irradiance, as the energy of the last hour: the DMO values are in J/cm2 (the file states no "
-            "unit; they are about a tenth of the MOSMIX kJ/m2 number for the same hour). Direct model output, "
-            "not clipped at 0: in the night hours it is often a little below it (mostly above -0.2 J/cm2, at a "
-            "few stations to about -0.8) and is returned as written."
+            "unit; they are about a tenth of the MOSMIX kJ/m2 number for the same hour). ICON writes "
+            "a little below 0 in the night hours (mostly above -0.2 J/cm2, at a few stations to about -0.8); "
+            "that is returned as 0.0, with the number kept as `raw:` in `quality_flags`."
         ),
         ("hourly", "icon", "radl3"): "Long wave radiation balance during the last 3 hours",
         ("hourly", "icon", "rads3"): (
-            "Short wave radiation balance during the last 3 hours. Direct model output, not clipped at 0: in the "
-            "night hours it is often a little below it (to about -0.4 J/cm2) and is returned as written."
+            "Short wave radiation balance during the last 3 hours. ICON writes a little below 0 in the "
+            "night hours (to about -0.5 J/cm2); that is returned as 0.0, with the number kept as `raw:` in "
+            "`quality_flags`."
         ),
         ("hourly", "icon", "rr1"): (
             "Total precipitation during the last hour. ICON writes a little below 0 now and then (to about -0.1 mm); "
@@ -953,9 +954,9 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "icon_eu", "pppp"): "Surface pressure, reduced",
         ("hourly", "icon_eu", "rad1h"): (
             "Global Irradiance, as the energy of the last hour: the DMO values are in J/cm2 (the file states no "
-            "unit; they are about a tenth of the MOSMIX kJ/m2 number for the same hour). Direct model output, "
-            "not clipped at 0: in the night hours it is often a little below it (mostly above -0.2 J/cm2, at a "
-            "few stations to about -0.8) and is returned as written."
+            "unit; they are about a tenth of the MOSMIX kJ/m2 number for the same hour). ICON writes "
+            "a little below 0 in the night hours (mostly above -0.2 J/cm2, at a few stations to about -0.8); "
+            "that is returned as 0.0, with the number kept as `raw:` in `quality_flags`."
         ),
         ("hourly", "icon_eu", "rr1"): (
             "Total precipitation during the last hour. ICON writes a little below 0 now and then (to about -0.1 mm); "
@@ -4000,7 +4001,9 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
         ("monthly", "cooling_degreehours_16"): _cooling_degreehours(16),
         ("monthly", "cooling_degreehours_18"): _cooling_degreehours(18),
         ("monthly", "heating_degreedays"): (
-            "Data on degree days, comparing the monthly temperatures to the reference temperature of 20 degree Celsius."
+            "Monthly degree days according to VDI 3807 (heating degree days): the difference between the room "
+            "temperature of 20 degree Celsius and the daily mean air temperature, summed over the days of the "
+            "month with a daily mean below 15 degree Celsius."
         ),
         ("monthly", "soil"): (
             "Monthly aggregated soil data including temperature at various depths, soil moisture, and "
@@ -4009,13 +4012,15 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
     },
     "DwdDmoMetadata": {
         ("hourly", "icon"): (
-            "Direct model output of the global ICON model, extracted at worldwide stations. "
-            "Issued twice a day (00 and 12 UTC) as two runs: hourly out to a lead-time of 78 "
-            "hours, and 3-hourly from 78 to 168 hours."
+            "Direct model output of the global ICON model, transferred to stations worldwide by simple, "
+            "weather-independent empirical formulas (for the 2 m temperature a standard gradient to the station's "
+            "height). Issued twice a day (00 and 12 UTC), each issue in two files: hourly out to a lead-time "
+            "of 78 hours, and 3-hourly from 78 to 168 hours."
         ),
         ("hourly", "icon_eu"): (
-            "Direct model output of the regional ICON-EU model, extracted at the stations it is "
-            "published for, a smaller set than the global product's though not a subset of it. "
+            "Direct model output of the regional ICON-EU model, for the stations it is published for, a smaller set "
+            "than the global product's though not a subset of it, transferred to them by simple, weather-independent "
+            "empirical formulas (for the 2 m temperature a standard gradient to the station's height). "
             "Issued twice a day (00 and 12 UTC), hourly out to a lead-time of 78 hours."
         ),
     },
@@ -4057,8 +4062,8 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
             "Germany, derived from the daily climate observations."
         ),
         ("annual", "climate_summary"): (
-            "Historical annual station observations (temperature, pressure, precipitation, sunshine "
-            "duration, etc.) for Germany (details missing, parameter descriptions "
+            "Historical annual station observations (temperature, precipitation, sunshine duration, wind and "
+            "cloud cover) for Germany (details missing, parameter descriptions "
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
         ("annual", "precipitation_indices"): (
@@ -4071,8 +4076,8 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
         ("annual", "weather_phenomena"): (
-            "Counts of weather phenomena fog, thunder, storm (strong wind), storm (stormier wind), dew, glaze, "
-            "graupel and hail for stations of Germany (details missing, parameter descriptions "
+            "Counts of days with the weather phenomena fog, thunder, storm (strong wind), storm (stormier wind), "
+            "dew, glaze, graupel and hail for stations of Germany (details missing, parameter descriptions "
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
         ("daily", "climate_summary"): (
@@ -4107,7 +4112,7 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
         ),
         ("hourly", "sun"): "Hourly station observations of sunshine duration for Germany.",
         ("hourly", "temperature_air"): "Hourly station observations of 2 m air temperature and humidity for Germany.",
-        ("hourly", "temperature_soil"): "Hourly station observations of of soil temperature for Germany.",
+        ("hourly", "temperature_soil"): "Hourly station observations of soil temperature for Germany.",
         ("hourly", "urban_precipitation"): (
             "Recent hourly precipitation, observed at urban stations for selected urban areas in Germany."
         ),
@@ -4146,45 +4151,45 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
         ),
         ("monthly", "precipitation_more"): "Monthly precipitation observations for Germany.",
         ("monthly", "weather_phenomena"): (
-            "Counts of weather phenomena fog, thunder, storm (strong wind), storm (stormier wind), dew, glaze, "
-            "graupel and hail for stations of Germany (details missing, parameter descriptions "
+            "Counts of days with the weather phenomena fog, thunder, storm (strong wind), storm (stormier wind), "
+            "dew, glaze, graupel and hail for stations of Germany (details missing, parameter descriptions "
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
         ("subdaily", "cloudiness"): (
-            "Recent subdaily cloud cover and cloud density of stations in Germany (details missing, "
+            "Subdaily cloud cover and cloud density of stations in Germany (details missing, "
             "parameter descriptions "
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
         ("subdaily", "moisture"): (
-            "Recent subdaily vapor pressure, wet bulb temperature, ice on the wet bulb thermometer and relative "
+            "Subdaily vapor pressure, wet bulb temperature, ice on the wet bulb thermometer and relative "
             "humidity of stations in Germany (details missing, parameter descriptions "
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
         ("subdaily", "pressure"): (
-            "Recent air pressure at site of stations in Germany (details missing, parameter "
+            "Air pressure at site of stations in Germany (details missing, parameter "
             "descriptions "
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
         ("subdaily", "soil"): (
-            "Recent subdaily coded ground state of stations in Germany (details missing, parameter descriptions "
+            "Subdaily coded ground state of stations in Germany (details missing, parameter descriptions "
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
         ("subdaily", "temperature_air"): (
-            "Recent subdaily air temperature and humidity of stations in Germany (details missing, "
+            "Subdaily air temperature and humidity of stations in Germany (details missing, "
             "parameter descriptions "
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
         ("subdaily", "visibility"): (
-            "Recent visibility range of stations in Germany (details missing, parameter descriptions "
+            "Visibility range of stations in Germany (details missing, parameter descriptions "
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
         ("subdaily", "wind"): (
-            "Recent wind direction and wind force (beaufort) of stations in Germany (details missing, "
+            "Wind direction and wind force (beaufort) of stations in Germany (details missing, "
             "parameter descriptions "
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
         ("subdaily", "wind_extreme"): (
-            "Recent subdaily extreme wind of stations in Germany (details missing, parameter "
+            "Subdaily extreme wind of stations in Germany (details missing, parameter "
             "descriptions "
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
@@ -4204,16 +4209,23 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
         ),
     },
     "DwdRoadMetadata": {
-        ("15_minutes", "data"): "15-minute road weather data of German highway stations.",
+        ("15_minutes", "data"): (
+            "Road weather data of the road weather stations on German roads (Glättemeldeanlagen of the road "
+            "authorities of the Länder), reported in the standard period of 15 minutes."
+        ),
     },
     "DwdPoiMetadata": {
         ("hourly", "data"): "Hourly weather reports of the last day, for the stations DWD forecasts for.",
     },
     "EAHydrologyMetadata": {
         ("15_minutes", "data"): (
-            "Historical 15 minute station observations of flow, river water level and groundwater level for the UK."
+            "Station observations of flow, river water level and groundwater level for England, instantaneous "
+            "values mainly every 15 minutes (the logged groundwater level every 15 minutes to every hour)."
         ),
-        ("daily", "data"): "Historical daily station observations of flow and river water level for the UK.",
+        ("daily", "data"): (
+            "Daily station observations of flow (mean, minimum, maximum) and river water level (minimum, "
+            "maximum) for England."
+        ),
     },
     "EcccObservationMetadata": {
         ("daily", "data"): "Historical daily station observations for Canada.",
@@ -4232,18 +4244,24 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
         ("hourly", "data"): "Historical hourly station observations for Austria, with quality information.",
         ("monthly", "data"): "Historical monthly station observations for Austria, with quality information.",
     },
-    "HubeauMetadata": {(resolution, "data"): "Flow and stage for France." for resolution in _HUBEAU_RESOLUTIONS},
+    "HubeauMetadata": {
+        (resolution, "data"): (
+            "Real-time observations of flow and stage (water height) of the French hydrometric network, stored by "
+            "the producer every 5 to 60 minutes; the source keeps a history of one month."
+        )
+        for resolution in _HUBEAU_RESOLUTIONS
+    },
     "ImgwHydrologyMetadata": {
         ("daily", "hydrology"): "historical daily hydrology data.",
         ("monthly", "hydrology"): "historical monthly hydrology data.",
     },
     "ImgwMeteorologyMetadata": {
-        ("daily", "climate"): "historical daily climate data.",
-        ("daily", "precipitation"): "historical daily precipitation data.",
-        ("daily", "synop"): "historical daily synop data.",
-        ("monthly", "climate"): "historical monthly climate data.",
-        ("monthly", "precipitation"): "historical monthly precipitation data.",
-        ("monthly", "synop"): "historical monthly synop data.",
+        ("daily", "climate"): "Daily data of the climatological stations (klimat).",
+        ("daily", "precipitation"): "Daily data of the precipitation stations (opad).",
+        ("daily", "synop"): "Daily data of the synoptic stations (synop).",
+        ("monthly", "climate"): "Monthly data of the climatological stations (klimat).",
+        ("monthly", "precipitation"): "Monthly data of the precipitation stations (opad).",
+        ("monthly", "synop"): "Monthly data of the synoptic stations (synop).",
     },
     "NoaaGhcnMetadata": {
         ("daily", "data"): "Historical daily weather data from the Global Historical Climatology Network (GHCN).",
@@ -4270,7 +4288,12 @@ RESOLUTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
     # Only where the name underdetermines what arrives. "hourly" and "daily" say everything about
     # themselves, and filling those in would read as information without being any.
     "DwdObservationMetadata": {
-        "subdaily": "measurements at 7am, 2pm, 9pm.",
+        "subdaily": (
+            "Three fixed observation times a day: until March 2001 at 07, 14 and 21 (local mean time; from 1987 "
+            "07:30, 14:30 and 21:30 CET, which the files stamp as 07, 14 and 21), from April 2001 at 06, 12 and "
+            "18 UTC (some stations also at 00 UTC; East German stations 1960-1990 at 00, 06, 12 and 18 UTC); the "
+            "extreme wind at 03, 09, 15 and 21 UTC (3-hour maximum) and 00, 06, 12 and 18 UTC (6-hour maximum)."
+        ),
     },
     "MeteoFranceSynopMetadata": {
         "subdaily": "SYNOP reports, made at their native three-hourly interval.",

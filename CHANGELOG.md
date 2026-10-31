@@ -34,18 +34,24 @@ Types of changes:
   distance filter near them picked the wrong stations; a filter on the old position needs the new
   one (GH-2886)
 - **Breaking**: `dwd/observation` `pressure_air_site` and `pressure_air_site_mean` (the hourly
-  `P0` and `P_STD`, the subdaily and 10 minute station pressure, the daily mean `PM`) and
-  `meteofrance/synop` `pres` are null, with the number the source wrote as `raw:` in
-  `quality_flags`, where they are more than 75 hPa (7,500 Pa) from the pressure the standard
-  atmosphere expects at the station's elevation: 909.5 hPa at Berlin-Tempelhof (48 m) and
-  968.6 hPa at the Zugspitze (2,956 m, where 705 hPa are expected) came back as readings. The old
-  number is the `raw:` token; a station without an elevation in the list is held to 500 to
-  1090 hPa as before (GH-3627)
+  `P0` and `P_STD`, the subdaily and 10 minute station pressure, the urban station pressure
+  `LUFTDRUCK_STATIONSHOEHE` and `P0_ST_10`, the daily mean `PM`) and `meteofrance/synop` `pres` are
+  null, with the number the source wrote as `raw:` in `quality_flags`, where they are more than
+  75 hPa (7,500 Pa) from the pressure the standard atmosphere expects at the station's elevation:
+  909.5 hPa at Berlin-Tempelhof (48 m) and 968.6 hPa at the Zugspitze (2,956 m, where 705 hPa are
+  expected) came back as readings. The old number is the `raw:` token; a station without an
+  elevation in the list is held to the world-wide bounds as before (500 to 1090 hPa, 1100 for
+  synop) (GH-3627)
 - **Breaking**: `meteofrance/observation` (hourly `U`) and `meteofrance/synop` (`u`): at the
-  stations without frost, the relative humidity of a row whose dew point the frost rule nulls is
-  null too, with its number as `raw:`, where it came back as 1 to 20 % beside a dew point of
-  -20 C, the same failed hygrometer. A humidity beside a dew point that is a reading stays, low
-  as it is. The old number is the `raw:` token (GH-3629)
+  stations without frost, the relative humidity of a row with a dew point below 0 °C is null too,
+  with its number as `raw:`, where it came back as 1 to 20 % beside a dew point of -20 C, the same
+  failed hygrometer. A humidity beside a dew point that is a reading stays, low as it is. The old
+  number is the `raw:` token (GH-3629)
+- **Breaking**: `dwd/dmo` `radiation_global` (`rad1h`) and `radiation_short_wave_net_last_3h`
+  (`rads3`) are 0.0 where ICON writes a little below 0 at night (to -0.77 and -0.46 J/cm2), with
+  the number kept as `raw:-0.16` in `quality_flags`; they were negative, and a `-0.00` was `-0.0`.
+  `rr1` and `rr3` already did this. Nothing to change in a caller; filter on `raw:` for the old
+  numbers (GH-3263)
 
 ### Fixed
 
@@ -64,6 +70,12 @@ Types of changes:
   `phenology_heading_beginning` was "the first ears" (DWD: about half of the stems),
   `phenology_harvest_by_hand` begins with a scythe or simple machine, and
   `phenology_emergence_beginning` no longer says "first seedlings" (GH-3136)
+- Dataset and resolution descriptions that stated a wrong fact now follow their source:
+  `dwd/observation` `annual/climate_summary` no longer lists air pressure (it has none), the
+  `subdaily` datasets are no longer "recent" only (they have a historical period), the `subdaily`
+  resolution gives DWD's observation hours by date (07, 14, 21 until March 2001, 06, 12, 18 UTC
+  from April 2001, not "7am, 2pm, 9pm"), and `ea/hydrology` covers England, not the UK
+  (GH-3136)
 
 ## [0.179.0] - 2026-10-30
 
