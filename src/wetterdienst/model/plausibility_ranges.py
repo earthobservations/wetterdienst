@@ -1,30 +1,58 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""The bounds of the ``range`` check, in one table keyed by canonical parameter name (spike of GH-3676).
+"""The bounds of the ``range`` check, in one table keyed by canonical parameter name (GH-3676).
 
 The values core judges a reading in the canonical unit of its unit type (``UnitConverter().targets``: °C, hPa, m/s,
 mm, J/cm², a fraction as a decimal, seconds), whatever unit the source writes and whatever unit the caller asks for, so
 a bound is written once per quantity and not once per reader and unit.
 
 ``RANGES`` holds the bounds of a quantity, by resolution where the quantity grows with the span (the rain of a day is
-not the rain of ten minutes) and under ``"*"`` where it does not. Where several readers declared different bounds for
-the same quantity and resolution the table holds the widest. A reader whose own bound is narrower on purpose (DMI's
-daily rain, DWD's station pressure, RMI's gusts and sunshine) is an entry of ``OVERRIDES`` for its network.
-``SCOPE`` names the quantities each network judges, so that a network is held to what its reader held it to and no
-further: adding a name to the scope of a network is what extends the check to it.
+not the rain of ten minutes) and under ``"*"`` where it does not. Where several providers declared different bounds
+for the same quantity and resolution the table holds the widest. A network whose own bound is narrower on purpose
+(DMI's daily rain, DWD's station pressure, RMI's gusts and sunshine) has an entry in ``OVERRIDES``. ``SCOPE`` names the
+quantities each network judges, so that a network is held to what it was held to and no further: adding a name to the
+scope of a network is what extends the check to it. A provider adds its bounds here (``docs/contribution/services.md``).
 
-Why the narrower ones are narrower (the argument of the readers, kept here with the bound): DMI covers Denmark, the
-Faroe Islands and Greenland, and the rain DMI marks `validity: true` runs to 183.5 mm in a day, 641.8 in a month and
-3,291.3 in a year, where its `validity: false` values (1978 mm in a day, 17,802 in a month) are no gauge reading, so
-the day is held to 500 mm, the month to 1,500 and the year to 4,000. RMI's gust is held to 60 m/s, the highest in
-Belgium being 51 m/s (the 81.5 m/s of 6414 is `validated: false`), and its sunshine to the span itself (RMI writes
-minutes to two decimals, and no day holds the 3,808 minutes that were written). DWD's station pressure is 500 to
-1090 hPa: the highest sea level pressure is 1084.8 hPa (Tosontsengel, 2001) and no German station lies where a
-pressure is lower than 500 hPa. A German road station reports no -60 degrees, and its hygrometer writes 0.1 % when it
-has failed (GH-3624).
+``tests/model/test_plausibility_core.py`` holds the table to the bounds the readers declared before the checks moved to
+the core (``tests/model/data/ranges_before_the_move.json``), and ``tests/provider/test_physical_ranges.py`` holds each
+bound to the generous ranges of ``tests/provider/physical_ranges.py``. The bounds are generous on purpose: they find a
+value that is a defect of the source, not an extreme, and none lies inside a record.
 
-The table is built from the bounds the readers declared before the move (``tests/model/test_plausibility_core.py``
-holds it to them), and each stays inside ``tests/provider/physical_ranges.py``.
+Where the bounds come from (the argument of each provider's reader, kept here with the bound). The world records are
+those of the WMO World Weather and Climate Extremes Archive, table of 31 July 2025
+(https://public.wmo.int/sites/default/files/2025-07/Table_Records_25Jul2025.pdf), read for the research of GH-3681:
+
+- Air temperature -90 to 60 °C: the highest is 56.7 °C (Furnace Creek, 1913-07-10), the lowest -89.2 °C (Vostok,
+  1983-07-21). The dew point has the same bounds; ISD, HadISD and WMO-No. 305 allow it down to -98 to -100 °C, so the
+  lower bound is tighter than theirs (GH-3681 section 7). The road network holds -60 °C as its cold end: Germany's
+  record is -45.9 °C (Funtensee, 2001), a road surface tracks the air, and the stopped sensors of station KM write
+  -75.00 °C.
+- Pressure at the station and at sea level, 300 to 1100 hPa, and 500 to 1090 hPa for DWD, the Météo-France synop
+  (500 to 1100, sea level 850 to 1100): the highest sea level pressure the WMO table lists is 1089.1 hPa (Tosontsengel,
+  2004-12-30, above 750 m; 1083.8 hPa, Agata 1968-12-31, below 750 m), the lowest 870 hPa (Typhoon Tip, 1979-10-12).
+  The comments of the readers quoted 1084.8 hPa (Tosontsengel, 2001), which the table does not list today. The highest
+  German station is the Zugspitze (about 700 hPa) and DWD's daily mean at the station of 25 files reads 935.1 to
+  1041.6 hPa, so nothing a station reads is below 500 hPa.
+- Wind speed 0 to 115 m/s: the highest gust is 113.2 m/s (Barrow Island, 1996-04-10; the comments quoted 113.3). RMI
+  holds a gust to 60 m/s: the highest of its daily layer and of the hourly one is 51.05 m/s (6434, 2002-12-30), and the
+  81.5 m/s of 6414 (2003-10-09, `validated: false`) is no reading.
+- Rain: the most in 1 minute is 31.2 mm (Unionville MD, 1956-07-04), in 60 minutes 305 mm (Holt MO, 1947-06-22), in 12
+  hours 1,144 mm and in 24 hours 1,825 mm (Foc-Foc, 1966-01-07/08), in 12 months 26,470 mm (Cherrapunji, 1860/61). The
+  hourly bound of 600 mm and the 10- and 15-minute bounds rest on other lists (BoM, NWS HDSC: Shangdi 1975, 401 mm in
+  an hour, is not in the WMO table). DMI covers Denmark, the Faroe Islands and Greenland, and the rain it marks
+  `validity: true` runs to 183.5 mm in a day, 641.8 in a month and 3,291.3 in a year, where its `validity: false`
+  values (1978 mm in a day, 17,802 mm in a month) are no gauge reading, so DMI's day is held to 500 mm, its month to
+  1,500 and its year to 4,000. The largest amount of a day in a month and of 30 minutes in a day are no more than a
+  day, so 500 mm.
+- Sunshine cannot last longer than the span it is measured over, with a tenth to spare (DMI's hour, day and month); RMI
+  holds it to the span itself, as it writes minutes to two decimals and no day holds the 3,808 minutes that were
+  written (6459, 2013-03-24).
+- Radiation: the solar constant is 1,361 W/m²; no day brings more than 60 MJ/m² (the top of the atmosphere at 82
+  degrees north in midsummer is 48), a month is 31 such days, a year 5,000 MJ/m² (DMI's highest valid year is 4,533.2).
+- Relative humidity up to 130 %: a hygrometer reads past 100 % now and then. The road holds 1 % as its lower bound
+  where the others hold 0: a hygrometer that failed writes 0.1 % (P925, GH-3624).
+- Snow depth -50 to 1,500 cm: an automatic gauge reads a few centimetres below zero. Heating degree days up to 20,000:
+  the most of a year DMI publishes is 18,022.8 (04416 Summit, 2011). Vapour pressure up to 100 hPa.
 """
 
 from __future__ import annotations

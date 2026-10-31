@@ -1568,9 +1568,9 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "moisture", "absf_std"): "Computed hourly value of absolute humidity.",
         ("hourly", "moisture", "p_std"): (
             "Hourly value of barometric pressure. A station without a barometer carries one station constant in every "
-            "row of a file, which is no reading: where a file of at least 500 readings holds at most three distinct "
-            "values (a constant that changed once or twice) it is flagged `suspect:stuck` in quality_flags and kept "
-            "(the check `stuck`, soft by default), or null with `rejected:stuck,raw:997.3` where the check is hard."
+            "row of a file, which is no reading: a run of 72 hourly readings of one value is flagged "
+            "`suspect:stuck` in quality_flags and kept (the check `stuck`, soft by default), or null with "
+            "`rejected:stuck,raw:997.3` where the check is hard."
         ),
         ("hourly", "moisture", "rf_std"): "Relative humidity.",
         ("hourly", "moisture", "td_std"): "Dew point temperature in 2m above ground.",

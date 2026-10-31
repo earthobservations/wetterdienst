@@ -361,8 +361,12 @@ class DmiObservationValues(TimeseriesValues):
         value, raw = null_sentinels(pl.col("value"), _CALM_WIND, _TRACE, _MISSING_SNOW_DEPTH, text=False)
         # the radiation of a day, a month and a year is written in MJ/m2 and declared in kJ/m2 (GH-3622); the rounding
         # takes the float error of the product away, DMI's values having one decimal
+        # the megajoules DMI wrote are the text of the value for the `raw:` token of a rejected one (`source_text`)
+        source_text = pl.lit(None, dtype=pl.String)
         for name, factor in _TO_DECLARED_UNIT.get(dataset.resolution.name, {}).items():
-            value = pl.when(pl.col("parameterId").eq(name)).then((value * factor).round(3)).otherwise(value)
+            converted = pl.col("parameterId").eq(name)
+            value = pl.when(converted).then((value * factor).round(3)).otherwise(value)
+            source_text = pl.when(converted).then(pl.col("value").cast(pl.String)).otherwise(source_text)
         # the station, resolution and dataset, the order of the columns and the dtypes are the core's to write
         # (`shape_provider_frame`); a frame without a row is the empty long form there, whatever it holds
         timestamp = self._date_expression(resolution)
@@ -379,6 +383,7 @@ class DmiObservationValues(TimeseriesValues):
             pl.col("parameterId").alias("parameter"),
             timestamp.alias("timestamp"),
             value.alias("value"),
+            source_text.alias("source_text"),
             _quality_flags(raw),
         )
 

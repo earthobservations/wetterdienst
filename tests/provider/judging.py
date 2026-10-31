@@ -10,18 +10,33 @@ wrote them, the way `convert_units=False` does.
 
 from __future__ import annotations
 
+import contextlib
+import contextvars
 from typing import TYPE_CHECKING
 
 import polars as pl
 
 from wetterdienst.model.judge import SOURCE, judge, plan_for, to_canonical
-from wetterdienst.model.plausibility import Plausibility, active
+from wetterdienst.model.plausibility import Plausibility
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Iterator, Sequence
 
     from wetterdienst.model.judge import Rule
     from wetterdienst.model.metadata import DatasetModel
+
+
+_MODES: contextvars.ContextVar[Plausibility | None] = contextvars.ContextVar("modes_of_a_test", default=None)
+
+
+@contextlib.contextmanager
+def applying(modes: Plausibility) -> Iterator[None]:
+    """Judge the frames `judged` is given inside with the modes of a test, in this context alone."""
+    token = _MODES.set(modes)
+    try:
+        yield
+    finally:
+        _MODES.reset(token)
 
 
 def judged(
@@ -41,5 +56,5 @@ def judged(
     canonical = to_canonical(plan)
     if canonical is not None:
         df = df.with_columns(canonical.alias("value"))
-    df = judge(df, plan, modes or active(), rules, elevation)
+    df = judge(df, plan, modes or _MODES.get() or Plausibility(), rules, elevation)
     return df.with_columns(pl.col(SOURCE).alias("value")).drop(SOURCE)

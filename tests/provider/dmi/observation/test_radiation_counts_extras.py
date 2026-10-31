@@ -226,11 +226,10 @@ def test_a_radiation_no_day_can_bring_is_null_and_keeps_the_text_dmi_wrote(monke
     # 2021-06-10 is a day of the midnight sun at 70 degrees north, 22.4 MJ/m2 by DMI, inside the bound
     [june] = _source("daily", "04339", "mean_radiation", "2021-06-10")
     assert june["value"] == 22.4
-    # the token holds the number the reader hands the core, in the kJ/m2 the metadata declares (the megajoules DMI
-    # writes are multiplied before the core sees them): 278.6 MJ/m2 is `raw:278600`
+    # the token holds the megajoules DMI wrote (the reader hands them over as `source_text`), not its kJ/m2
     assert df.select("value", "quality_flags").rows() == [
-        (None, "manual,validity:true,rejected:range,raw:278600"),
-        (None, "manual,validity:true,rejected:range,raw:135800"),
+        (None, "manual,validity:true,rejected:range,raw:278.6"),
+        (None, "manual,validity:true,rejected:range,raw:135.8"),
         (2240.0, "manual,validity:true"),
     ]
 

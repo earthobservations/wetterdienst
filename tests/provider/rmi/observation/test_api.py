@@ -13,10 +13,10 @@ import polars as pl
 import pytest
 
 import wetterdienst.provider.rmi.observation.api as rmi_api
-from tests.provider.judging import judged
+from tests.provider.judging import applying, judged
 from tests.provider.value_stubs import stations_result
 from wetterdienst.exceptions import DownloadError, NoInternetError
-from wetterdienst.model.plausibility import Plausibility, applying
+from wetterdienst.model.plausibility import Plausibility
 from wetterdienst.model.schema import LONG_SCHEMA
 from wetterdienst.settings import Settings
 from wetterdienst.util.network import File

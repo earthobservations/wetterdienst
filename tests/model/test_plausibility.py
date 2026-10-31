@@ -16,18 +16,7 @@ from pydantic import ValidationError
 
 from tests.provider import value_stubs
 from wetterdienst import Options
-from wetterdienst.model.plausibility import CHECKS, DEFAULTS, Plausibility, active, applying, leave_out_suspect
-from wetterdienst.model.quality_flags import (
-    Floor,
-    NoReading,
-    OutOfRange,
-    Sentinel,
-    clear_sentinels,
-    join_quality_flags,
-    null_sentinels,
-    station_pressure_range,
-    unpivot_with_raw,
-)
+from wetterdienst.model.plausibility import CHECKS, Plausibility, leave_out_suspect
 from wetterdienst.options import resolve_options
 
 if TYPE_CHECKING:
@@ -35,15 +24,6 @@ if TYPE_CHECKING:
 
 HARD = Plausibility(stuck="hard")
 SOFT = Plausibility(range="soft", elevation="soft", stuck="soft", consistency="soft", floor="soft")
-
-
-def _judge(
-    values: list[float | None], *rules: Sentinel | OutOfRange | NoReading | Floor, plausibility: Plausibility
-) -> tuple[list[float | None], list[str | None]]:
-    """Give the values and the `quality_flags` a column of numbers gets from the rules, in a mode."""
-    cleaned, raw = null_sentinels(pl.col("v"), *rules, text=False, plausibility=plausibility)
-    out = pl.DataFrame({"v": values}, schema={"v": pl.Float64}).select(cleaned.alias("v"), join_quality_flags(raw=raw))
-    return out.get_column("v").to_list(), out.get_column("quality_flags").to_list()
 
 
 # --- the model and the options ---------------------------------------------------------------------------------------
@@ -64,7 +44,7 @@ def test_every_check_is_hard_but_stuck_by_default() -> None:
         "consistency": "hard",
         "floor": "hard",
     }
-    assert Options().plausibility == Plausibility() == DEFAULTS
+    assert Options().plausibility == Plausibility() == Plausibility()
 
 
 def test_a_mode_is_soft_or_hard_and_nothing_else() -> None:
@@ -157,25 +137,6 @@ def test_the_all_key_is_no_part_of_a_mapping(monkeypatch: pytest.MonkeyPatch) ->
             build()
 
 
-def test_raw_text_is_stripped_and_a_blank_is_no_token() -> None:
-    """`raw:` is never written empty or padded; the verdict of a check keeps its text.
-
-    A blank text leaves the token out, as it did, and one with blanks is written stripped.
-    """
-    frame = pl.DataFrame({"r": ["", "  ", " -999 ", "-999", None]}, schema={"r": pl.String})
-    assert frame.select(join_quality_flags(raw=pl.col("r"))).get_column("quality_flags").to_list() == [
-        None,
-        None,
-        "raw:-999",
-        "raw:-999",
-        None,
-    ]
-    cleaned, raw = null_sentinels(pl.col("v"), OutOfRange(0.0, 10.0), text=False, plausibility=HARD)
-    out = pl.DataFrame({"v": [4021.0]}).select(join_quality_flags(raw=raw))
-    assert out.get_column("quality_flags").to_list() == ["rejected:range,raw:4021"]
-    del cleaned
-
-
 def test_the_environment_takes_json_as_before(monkeypatch: pytest.MonkeyPatch) -> None:
     """The mapping as JSON in `WD_TS_PLAUSIBILITY` still works beside the shorthand."""
     for name in list(os.environ):
@@ -194,215 +155,13 @@ def test_the_environment_names_a_check_by_its_nested_variable(monkeypatch: pytes
         Options()
 
 
-def test_the_plausibility_in_effect_is_the_requests_while_its_readers_run() -> None:
-    """A reader called on its own applies the defaults, one called by a request the request's modes."""
-    assert active() == DEFAULTS
-    with applying(SOFT):
-        assert active() == SOFT
-        with applying(HARD):
-            assert active() == HARD
-        assert active() == SOFT
-    assert active() == DEFAULTS
-
-
-def test_null_sentinels_applies_the_plausibility_in_effect() -> None:
-    """The readers pass no mode: `null_sentinels` reads it, as it builds its expressions, from the request in effect."""
-    frame = pl.DataFrame({"v": [4021.0]})
-    cleaned, _ = null_sentinels(pl.col("v"), OutOfRange(0.0, 10.0), text=False)
-    assert frame.select(cleaned.alias("v")).get_column("v").to_list() == [None]
-    with applying(SOFT):
-        cleaned, _ = null_sentinels(pl.col("v"), OutOfRange(0.0, 10.0), text=False)
-    assert frame.select(cleaned.alias("v")).get_column("v").to_list() == [4021.0]
-
-
 # --- every check, in both modes --------------------------------------------------------------------------------------
-
-
-def test_range_hard_nulls_the_value_and_soft_keeps_it() -> None:
-    """4021 degrees is `rejected:range,raw:4021` and null, or `suspect:range` and 4021."""
-    rule = OutOfRange(-90.0, 60.0)
-    assert _judge([4021.0, 12.0], rule, plausibility=HARD) == ([None, 12.0], ["rejected:range,raw:4021", None])
-    assert _judge([4021.0, 12.0], rule, plausibility=SOFT) == ([4021.0, 12.0], ["suspect:range", None])
-
-
-def test_elevation_hard_nulls_the_value_and_soft_keeps_it() -> None:
-    """909.5 hPa at a station at 48 m is `rejected:elevation,raw:909.5` and null, or `suspect:elevation` and kept."""
-    rule = station_pressure_range(48.0)
-    assert rule is not None
-    assert _judge([909.5, 1009.6], rule, plausibility=HARD) == ([None, 1009.6], ["rejected:elevation,raw:909.5", None])
-    assert _judge([909.5, 1009.6], rule, plausibility=SOFT) == ([909.5, 1009.6], ["suspect:elevation", None])
-
-
-def test_stuck_hard_nulls_the_value_and_soft_keeps_it() -> None:
-    """A sensor that held -25.00 is `rejected:stuck,raw:-25` and null, or `suspect:stuck` and kept; no blank is."""
-    rule = NoReading(pl.col("v").lt(0) | pl.col("v").is_null())
-    assert _judge([-25.0, 3.0, None], rule, plausibility=HARD) == (
-        [None, 3.0, None],
-        ["rejected:stuck,raw:-25", None, None],
-    )
-    assert _judge([-25.0, 3.0, None], rule, plausibility=SOFT) == ([-25.0, 3.0, None], ["suspect:stuck", None, None])
-
-
-def test_consistency_hard_nulls_the_value_and_soft_keeps_it() -> None:
-    """A road surface 30 K above the air is `rejected:consistency,raw:` and null, or `suspect:consistency` and kept."""
-    rule = NoReading(pl.col("v").gt(300.0), check="consistency")
-    assert _judge([338.75, 285.0], rule, plausibility=HARD) == (
-        [None, 285.0],
-        ["rejected:consistency,raw:338.75", None],
-    )
-    assert _judge([338.75, 285.0], rule, plausibility=SOFT) == ([338.75, 285.0], ["suspect:consistency", None])
-
-
-def test_floor_hard_sets_the_floor_and_soft_keeps_the_value() -> None:
-    """-0.1 mm is `rejected:floor,raw:-0.1` and 0.0 (not null), or `suspect:floor` and -0.1."""
-    rule = Floor(0.0)
-    assert _judge([-0.1, 0.4], rule, plausibility=HARD) == ([0.0, 0.4], ["rejected:floor,raw:-0.1", None])
-    assert _judge([-0.1, 0.4], rule, plausibility=SOFT) == ([-0.1, 0.4], ["suspect:floor", None])
-
-
-def test_one_mode_for_a_check_whatever_rule_belongs_to_it() -> None:
-    """The mode is the check's: the `range` rules of every parameter and the `elevation` rule follow their own."""
-    modes = Plausibility(range="soft", elevation="hard")
-    pressure = station_pressure_range(48.0, where=pl.col("v") < 1000)
-    assert pressure is not None
-    values, flags = _judge([909.5, 4021.0], OutOfRange(0.0, 2000.0), pressure, plausibility=modes)
-    assert flags == ["rejected:elevation,raw:909.5", "suspect:range"]
-    assert values == [None, 4021.0]
-
-
-def test_a_rule_refuses_a_name_that_is_no_check() -> None:
-    """A rule names its check, and a name outside the five is a defect of the reader."""
-    with pytest.raises(ValueError, match="no plausibility check"):
-        OutOfRange(0.0, 1.0, check="nonsense")
-    with pytest.raises(ValueError, match="no plausibility check"):
-        NoReading(pl.lit(value=True), check="nonsense")
 
 
 # --- the tokens ------------------------------------------------------------------------------------------------------
 
 
-def test_the_verdict_stands_after_the_sources_flags_and_before_raw() -> None:
-    """`3,zone:mez,suspect:range` for a kept value and `3,zone:mez,rejected:range,raw:4021` for a rejected one."""
-    cleaned, raw = null_sentinels(pl.col("v"), OutOfRange(0.0, 10.0), text=False, plausibility=SOFT)
-    soft = pl.DataFrame({"v": [4021.0]}).select(join_quality_flags(pl.lit("3"), zone=pl.lit("mez"), raw=raw))
-    assert soft.get_column("quality_flags").to_list() == ["3,zone:mez,suspect:range"]
-    cleaned, raw = null_sentinels(pl.col("v"), OutOfRange(0.0, 10.0), text=False, plausibility=HARD)
-    hard = pl.DataFrame({"v": [4021.0]}).select(join_quality_flags(pl.lit("3"), zone=pl.lit("mez"), raw=raw))
-    assert hard.get_column("quality_flags").to_list() == ["3,zone:mez,rejected:range,raw:4021"]
-    del cleaned
-
-
-def test_a_sentinel_keeps_only_raw_and_decides_before_any_judgement() -> None:
-    """-999 is the source's code: `raw:-999` in both modes, though it is outside every range, and never `suspect`."""
-    rules = (Sentinel("-999"), OutOfRange(-90.0, 60.0), NoReading(pl.lit(value=True)))
-    for modes in (HARD, SOFT):
-        values, flags = _judge([-999.0, 4021.0], *rules, plausibility=modes)
-        assert values[0] is None
-        assert flags[0] == "raw:-999"
-    # the source's code, however it is listed against the judgements
-    values, flags = _judge([-999.0], OutOfRange(-90.0, 60.0), Sentinel("-999"), plausibility=SOFT)
-    assert (values, flags) == ([None], ["raw:-999"])
-
-
-def test_a_documented_code_that_maps_to_a_value_has_no_mode() -> None:
-    """A trace of -0.1 that the source means as 0.0 is a code: `raw:-0.1` in both modes, not a `floor` verdict."""
-    for modes in (HARD, SOFT):
-        values, flags = _judge(
-            [-0.1, -0.5], Sentinel("-0.1", to=0.0), Floor(-1.0), OutOfRange(0.0, 10.0), plausibility=modes
-        )
-        assert values[0] == 0.0
-        assert flags[0] == "raw:-0.1"
-
-
-def test_several_checks_that_find_a_value_suspect_are_joined_with_a_plus() -> None:
-    """`suspect:range+stuck`, in alphabetical order whatever the order of the rules."""
-    rules = (NoReading(pl.lit(value=True)), OutOfRange(0.0, 10.0))
-    assert _judge([4021.0], *rules, plausibility=SOFT) == ([4021.0], ["suspect:range+stuck"])
-    assert _judge([4021.0], *reversed(rules), plausibility=SOFT) == ([4021.0], ["suspect:range+stuck"])
-
-
-def test_several_checks_that_reject_a_value_are_joined_and_the_number_is_kept_once() -> None:
-    """`rejected:range+stuck,raw:4021`."""
-    rules = (NoReading(pl.lit(value=True)), OutOfRange(0.0, 10.0))
-    assert _judge([4021.0], *rules, plausibility=HARD) == ([None], ["rejected:range+stuck,raw:4021"])
-
-
-def test_a_rejected_value_carries_the_verdict_of_the_hard_checks_alone() -> None:
-    """Where one check rejects and another finds suspect, the value is null and says why: `rejected:range,raw:`."""
-    rules = (NoReading(pl.lit(value=True)), OutOfRange(0.0, 10.0))
-    modes = Plausibility(range="hard", stuck="soft")
-    assert _judge([4021.0], *rules, plausibility=modes) == ([None], ["rejected:range,raw:4021"])
-
-
-def test_a_nan_outside_a_range_is_a_code_and_not_a_verdict() -> None:
-    """A NaN is no number: null with its text in both modes, with no `suspect:` or `rejected:` token."""
-    for modes in (HARD, SOFT):
-        values, flags = _judge([float("nan"), 4021.0], OutOfRange(0.0, 10.0), plausibility=modes)
-        assert values[0] is None
-        assert flags[0] == "raw:NaN"
-
-
-def test_a_text_column_is_judged_as_the_text_the_source_wrote() -> None:
-    """A cell read as text keeps its text: `suspect:range` keeps `4021.0`, `rejected:range,raw:4021.0` nulls it."""
-    for modes, expected in (
-        (SOFT, (["4021.0", "12"], ["suspect:range", None])),
-        (HARD, ([None, "12"], ["rejected:range,raw:4021.0", None])),
-    ):
-        cleaned, raw = null_sentinels(pl.col("v"), OutOfRange(-90.0, 60.0), plausibility=modes)
-        out = pl.DataFrame({"v": [" 4021.0", "12"]}).select(cleaned.alias("v"), join_quality_flags(raw=raw))
-        assert (out.get_column("v").to_list(), out.get_column("quality_flags").to_list()) == expected
-
-
 # --- a column cleaned by several calls -------------------------------------------------------------------------------
-
-
-def _wide(modes: Plausibility) -> pl.DataFrame:
-    """Clean a wide column of text in two calls, as a reader does, and write its flags."""
-    df = pl.DataFrame({"v": ["4021", "5", "5", "99", "-999"], "stuck": [True, True, False, False, False]})
-    with applying(modes):
-        df = clear_sentinels(df, ["v"], Sentinel("-999"))
-        df = clear_sentinels(df, ["v"], OutOfRange(0.0, 50.0))
-        df = clear_sentinels(df, ["v"], NoReading(pl.col("stuck")))
-    return unpivot_with_raw(df.drop("stuck"), index=[]).select("value", join_quality_flags(raw=pl.col("raw")))
-
-
-def test_later_calls_add_their_checks_to_a_soft_verdict() -> None:
-    """A value found suspect by two calls is `suspect:range+stuck`, one by a single call has that call's check."""
-    out = _wide(SOFT)
-    assert out.get_column("value").to_list() == ["4021", "5", "5", "99", None]
-    assert out.get_column("quality_flags").to_list() == [
-        "suspect:range+stuck",
-        "suspect:stuck",
-        None,
-        "suspect:range",
-        "raw:-999",
-    ]
-
-
-def test_a_later_hard_check_replaces_the_suspicion_before_it() -> None:
-    """A value a later call rejects is null and carries the rejection and its text: the suspicion is moot."""
-    out = _wide(Plausibility(range="soft", stuck="hard"))
-    assert out.get_column("value").to_list() == [None, None, "5", "99", None]
-    assert out.get_column("quality_flags").to_list() == [
-        "rejected:stuck,raw:4021",
-        "rejected:stuck,raw:5",
-        None,
-        "suspect:range",
-        "raw:-999",
-    ]
-
-
-def test_a_value_a_hard_check_nulled_is_not_judged_again() -> None:
-    """A value null after the first call is no reading for the next, so it keeps the first verdict."""
-    out = _wide(HARD)
-    assert out.get_column("value").to_list() == [None, None, "5", None, None]
-    assert out.get_column("quality_flags").to_list() == [
-        "rejected:range,raw:4021",
-        "rejected:stuck,raw:5",
-        None,
-        "rejected:range,raw:99",
-        "raw:-999",
-    ]
 
 
 # --- what reaches the readers from the request -----------------------------------------------------------------------

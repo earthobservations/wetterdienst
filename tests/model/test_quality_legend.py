@@ -12,7 +12,7 @@ import pytest
 import wetterdienst
 from tests.provider.value_stubs import STUBS, ValueStub
 from wetterdienst import Wetterdienst
-from wetterdienst.model.judge import CONSTANT, ELEVATION_NETWORKS, FLOORS, RUNS
+from wetterdienst.model.judge import CONSTANT_RUNS, ELEVATION_NETWORKS, FLOORS, RUNS
 from wetterdienst.model.plausibility_ranges import SCOPE
 from wetterdienst.model.quality_legend import LEGENDS, RAW, quality_legend
 
@@ -58,7 +58,7 @@ def _kinds_written() -> dict[str, set[str | None]]:
 
 def _judged_networks() -> set[str]:
     """Name the networks the core judges: a range scope, a floor, a constant, a run or a rule of their own."""
-    networks = set(SCOPE) | set(FLOORS) | set(CONSTANT) | set(RUNS) | set(ELEVATION_NETWORKS)
+    networks = set(SCOPE) | set(FLOORS) | set(CONSTANT_RUNS) | set(RUNS) | set(ELEVATION_NETWORKS)
     for path in sorted(PROVIDER_DIR.rglob("*.py")):
         parts = path.relative_to(PROVIDER_DIR).parts
         if len(parts) >= 3 and "def _plausibility_rules" in path.read_text(encoding="utf-8"):

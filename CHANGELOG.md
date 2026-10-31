@@ -18,6 +18,8 @@ Types of changes:
 
 ### Added
 
+- `Wetterdienst.network_of(request_class)` names the network a request class serves as `provider/network`, as
+  the registry has it (GH-3676)
 - The option `plausibility` sets what each plausibility check (`range`, `elevation`, `stuck`,
   `consistency`, `floor`) does to a number it finds implausible: `hard` nulls it and keeps the
   number as `rejected:<check>,raw:<number>` in `quality_flags`, `soft` keeps it and flags it
@@ -67,6 +69,17 @@ Types of changes:
   skipped where it was kept. For the null again, set `stuck` to hard:
   `plausibility={"stuck": "hard"}`, `WD_TS_PLAUSIBILITY__STUCK=hard`, `--plausibility-stuck hard`
   or `plausibility_stuck=hard` (GH-3676)
+- **Breaking**: the constant pressure of `dwd/observation` is a run, not a file: 72 hourly readings,
+  5 days or 36 readings at 10 minutes of one `pressure_air_site` or `pressure_air_site_mean` are
+  `stuck` (HadISD, ECA&D), in the series of the periods read, so a station whose historical file is
+  constant and whose recent one is not is flagged for the stretch that is. A constant stretch below
+  the run is no longer flagged (a file of 500 readings with at most three values was), the verdict
+  depends on the window of the request, and the check now also covers the pressure of the hourly
+  `pressure`, `urban_pressure`, the 10-minute `temperature_air` and `urban_pressure` and the daily
+  `climate_summary` (GH-3676)
+- A pressure that both the range and the elevation reject is `rejected:elevation+range,raw:1093.3`,
+  where `dwd/observation` wrote `rejected:range` (the checks judge one number, as the soft mode said);
+  `raw:` of a judged value is still the text the source wrote (GH-3676)
 - **Breaking**: a Zarr file (`file://x.zarr`) holds a gap as `NaN`, and a missing time as `NaT`,
   where it held -999 (an integer column with a gap is now a float one). It read as a measurement:
   an air temperature of -999 degrees, a station 999 m below the sea. A reader that tested for -999

@@ -26,7 +26,7 @@ unless the table says so.
   rain, a barometer that held one value for a month) is judged by a [plausibility check](plausibility.md), and its
   token comes before `raw:`. Where the check is `hard` the value is null and the token is
   `rejected:<check>,raw:<number>`, the number as short as it can be written (`rejected:range,raw:4021`,
-  `rejected:range,raw:110.26`); where it is `soft` the value is kept and the token is `suspect:<check>`, with no
+  `rejected:range,raw:110.26`; the text the source wrote where it gives one, `raw:-0.80`); where it is `soft` the value is kept and the token is `suspect:<check>`, with no
   `raw:`. The checks are `range`, `elevation`, `stuck`, `consistency` and `floor`, several joined with `+`
   (`suspect:range+stuck`); the `plausibility` option sets the mode of each, and every check is hard but `stuck`. The
   ranges are generous and, for the rain and the sunshine of a span, grow with the resolution (what is no reading of a

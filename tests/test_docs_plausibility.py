@@ -20,7 +20,7 @@ import pytest
 import wetterdienst
 from tests.provider.value_stubs import STUBS
 from wetterdienst import Wetterdienst
-from wetterdienst.model.judge import CONSTANT, ELEVATION_NETWORKS, FLOORS, RUNS, plan_for
+from wetterdienst.model.judge import CONSTANT_RUNS, ELEVATION_NETWORKS, FLOORS, RUNS, plan_for
 from wetterdienst.model.plausibility import CHECKS, COVERAGE, Plausibility
 from wetterdienst.model.plausibility_ranges import SCOPE
 
@@ -46,7 +46,7 @@ def _declared() -> dict[str, set[str]]:
     found: dict[str, set[str]] = {check: set() for check in CHECKS}
     found["range"] |= set(SCOPE)
     found["elevation"] |= set(ELEVATION_NETWORKS)
-    found["stuck"] |= set(CONSTANT) | set(RUNS)
+    found["stuck"] |= set(CONSTANT_RUNS) | set(RUNS)
     found["floor"] |= set(FLOORS)
     for path in sorted(PROVIDER_DIR.rglob("*.py")):
         parts = path.relative_to(PROVIDER_DIR).parts
@@ -122,7 +122,6 @@ def _derived() -> dict[str, dict[str, set[str]]]:
         return any(parameter.name in set(names) for parameter in dataset)
 
     everything = {"dwd/road": ("15_minutes/data",), "meteofrance/synop": ("subdaily/data",)}
-    constant = {network: set(datasets) for network, datasets in CONSTANT.items()}
     return {
         "range": {
             **{
@@ -143,7 +142,9 @@ def _derived() -> dict[str, dict[str, set[str]]]:
             "meteofrance/synop": set(everything["meteofrance/synop"]),
         },
         "stuck": {
-            "dwd/observation": constant["dwd/observation"],
+            "dwd/observation": _datasets(
+                "dwd/observation", has=lambda _, dataset: bool(plan_for("dwd/observation", dataset).constants)
+            ),
             "dwd/road": set(everything["dwd/road"]),
             # the periods of a station are read for the sunshine, a parameter of every resolution of the network
             "rmi/observation": _datasets(

@@ -1111,6 +1111,8 @@ class MeteoFranceObservationValues(TimeseriesValues):
             pl.col("parameter"),
             _parse_climate_date(pl.col(date_column), resolution_name, fu_hours).alias("timestamp"),
             value.alias("value"),
+            # the text the file wrote, which the core writes in the `raw:` token of a value it rejects
+            pl.col("value").alias("source_text"),
             # the validation code (9 filtered, 0 protected, 1 validated, 2 doubtful), verbatim and null where the
             # source leaves it blank (GH-2018)
             join_quality_flags(pl.col("quality_flags"), raw=raw),

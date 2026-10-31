@@ -13,7 +13,7 @@ temperature below 0 °C at a station without frost (Guadeloupe, Martinique, Guya
 Polynesia, the Îles Éparses). `elevation`: a station pressure `pres` more than 7,500 Pa from what the barometric formula
 of the standard atmosphere expects at the station's elevation in the station list. `consistency`: the humidity `u` of a
 row whose `td` is below 0 °C at a station without frost, and a `tn12` that is the text of the `tx12` beside it (a copy,
-no minimum); both second values are read from the same file. A rejected value is `rejected:<check>,raw:<number>`, and
+no minimum); both second values are in the same dataset, which is collected whole. A rejected value is `rejected:<check>,raw:<number>`, and
 is kept as `suspect:<check>` where the check is soft.
 
 ```{toctree}

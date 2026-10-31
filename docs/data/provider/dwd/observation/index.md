@@ -340,10 +340,12 @@ or above 115 m/s, and a station or sea level pressure (`pressure_air_site`, `pre
 `pressure_air_sea_level`) outside 500 to 1090 hPa, such as the `1093.3` of the hourly `pressure`
 (`rejected:range,raw:1093.3`). `elevation` (hard): a `pressure_air_site` or `pressure_air_site_mean` more than 75 hPa from
 what the barometric formula of the standard atmosphere expects at the elevation of the station in the station list
-(`rejected:elevation,raw:909.5`). `stuck` (**soft** by default): the `pressure_air_site` of a file of the hourly
-`moisture` dataset with 500 readings or more and at most three distinct values, the constant a station without a
-barometer writes; the value is kept and flagged `suspect:stuck`, and null with `rejected:stuck,raw:997.3` where the
-check is hard (`plausibility={"stuck": "hard"}`). The `-999` of every dataset and the other codes of the files are no
+(`rejected:elevation,raw:909.5`). `stuck` (**soft** by default): a run of 72 hourly readings (5 days, 36 readings at 10 minutes) of one value of
+`pressure_air_site` or `pressure_air_site_mean`, the constant a station without a barometer writes (HadISD and ECA&D, see
+[the limit of a run](../../../plausibility.md#the-limit-of-a-run)); the value is kept and flagged `suspect:stuck`, and null
+with `rejected:stuck,raw:997.3` where the check is hard (`plausibility={"stuck": "hard"}`). The run is judged in the
+series of the periods read, the historical archive before the recent file, so a station whose historical file is constant
+and whose recent one is not is flagged for the stretch that is. The `-999` of every dataset and the other codes of the files are no
 check: they are null with `raw:` alone. The datasets each check covers are in the
 [table of the plausibility page](../../../plausibility.md#where-each-check-runs).
 

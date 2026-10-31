@@ -1493,8 +1493,7 @@ def test_meteofrance_observation_api_a_temperature_below_zero_is_null_where_ther
     _serve_climate(monkeypatch, files)
     df = _values(resolution, dataset, parameter, station, *window, drop_nulls=False)
     assert df.get_column("value").to_list() == [None]
-    # the core writes a judged number as short as it goes: `raw:-20` where Météo-France wrote -20.0
-    assert df.get_column("quality_flags").to_list()[0].endswith(f"rejected:range,raw:{text.removesuffix('.0')}")
+    assert df.get_column("quality_flags").to_list()[0].endswith(f"rejected:range,raw:{text}")
 
 
 @pytest.mark.parametrize(

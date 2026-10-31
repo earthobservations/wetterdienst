@@ -51,7 +51,7 @@ def test_the_core_holds_every_network_to_the_bounds_its_reader_declared_and_to_n
 
 
 def _frame(rows: list[tuple[str, float | None]], flags: list[str | None] | None = None) -> pl.DataFrame:
-    stamps = [dt.datetime(2024, 1, 1, hour, tzinfo=UTC) for hour in range(len(rows))]
+    stamps = [dt.datetime(2024, 1, 1, tzinfo=UTC) + dt.timedelta(hours=hour) for hour in range(len(rows))]
     return pl.DataFrame(
         {
             "parameter": [name for name, _ in rows],
@@ -154,3 +154,92 @@ def test_a_frame_without_a_verdict_is_handed_back_as_it_is() -> None:
     assert out.get_column("quality_flags").to_list() == [None, None]
     assert out.get_column("value").to_list() == pytest.approx([16.85, 17.85])
     assert out.get_column(SOURCE).to_list() == [290.0, 291.0]
+
+
+def test_a_judged_value_keeps_the_text_the_source_wrote() -> None:
+    """`raw:` is the cell as the source wrote it (`-0.80`), not the number as short as it goes (`-0.8`)."""
+    dataset = _datasets("dwd/observation")[("hourly", "urban_wind")]
+    plan = plan_for("dwd/observation", dataset)
+    speed = next(name for name, c in plan.parameters.items() if c.name == "wind_speed_mean")
+    df = _frame([(speed, -0.8), (speed, 8.3)]).with_columns(pl.Series("source_text", [" -0.80", "8.30"]))
+    out = judged(df, network="dwd/observation", dataset=dataset)
+    assert out.get_column("quality_flags").to_list() == ["rejected:range,raw:-0.80", None]
+    # a provider that gives no text has the number written as short as it goes
+    assert judged(df.drop("source_text"), network="dwd/observation", dataset=dataset).get_column(
+        "quality_flags"
+    ).to_list() == ["rejected:range,raw:-0.8", None]
+
+
+@pytest.mark.parametrize(
+    ("resolution", "dataset_name", "limit"),
+    [("hourly", "moisture", 72), ("daily", "climate_summary", 5), ("10_minutes", "temperature_air", 36)],
+)
+def test_a_barometer_that_holds_one_value_for_a_run_is_stuck(resolution: str, dataset_name: str, limit: int) -> None:
+    """The limit is a resolution's: 72 hourly readings, 5 daily, 36 at 10 minutes; one reading short is no run."""
+    dataset = _datasets("dwd/observation")[(resolution, dataset_name)]
+    plan = plan_for("dwd/observation", dataset)
+    name = next(n for n, c in plan.parameters.items() if c.name in {"pressure_air_site", "pressure_air_site_mean"})
+    for length, flagged in ((limit - 1, False), (limit, True)):
+        values = [1000.0] * length + [1000.1 + 0.1 * i for i in range(10)] + [990.0] * (limit - 1)
+        df = _frame([(name, value) for value in values])
+        out = judged(df, network="dwd/observation", dataset=dataset)
+        marked = out.get_column("quality_flags").to_list()
+        assert marked[:length] == (["suspect:stuck"] * length if flagged else [None] * length)
+        # the stretch that is one short of the limit later in the series is no run, and a varying one is none
+        assert marked[length:] == [None] * (len(values) - length)
+
+
+def test_a_constant_historical_file_is_flagged_beside_a_recent_one_that_varies(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The periods are one series when the core judges: the constant stretch of the historical archive is a run."""
+    from io import BytesIO  # noqa: PLC0415
+
+    from tests.provider import value_stubs  # noqa: PLC0415
+    from wetterdienst import Options, Settings  # noqa: PLC0415
+    from wetterdienst.metadata.period import Period  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation import api as dwd_api  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    header = "STATIONS_ID;MESS_DATUM;QN_8;ABSF_STD;VP_STD;TF_STD;P_STD;TT_STD;RF_STD;TD_STD;eor\n"
+
+    def product(start: dt.datetime, pressures: list[float]) -> bytes:
+        rows = [
+            f"   14006;{start + dt.timedelta(hours=hour):%Y%m%d%H};    3;   4.0;   5.0;  -0.5;"
+            f"  {p:.1f};  -0.2;  90.0;  -0.9;eor"
+            for hour, p in enumerate(pressures)
+        ]
+        return (header + "\n".join(rows) + "\n").encode("latin-1")
+
+    files = {
+        "historical": product(dt.datetime(2024, 1, 1, tzinfo=UTC), [995.9] * 200),
+        "recent": product(dt.datetime(2024, 3, 1, tzinfo=UTC), [995.0 + 0.1 * (hour % 37) for hour in range(200)]),
+    }
+    monkeypatch.setattr(
+        dwd_api,
+        "create_file_list_for_climate_observations",
+        lambda _station, _dataset, period, *_a, **_k: pl.Series([f"https://example.invalid/{period.value}"]),
+    )
+    monkeypatch.setattr(
+        dwd_api,
+        "download_climate_observations_data",
+        lambda remote_files, *_a, **_k: [
+            File(
+                url="https://example.invalid/produkt.txt",
+                content=BytesIO(files[remote_files[0].rsplit("/", 1)[1]]),
+                status=200,
+            )
+        ],
+    )
+    request = DwdObservationRequest(
+        parameters=[("hourly", "moisture", "pressure_air_site")],
+        periods={Period.HISTORICAL, Period.RECENT},
+        start=dt.datetime(2024, 1, 1, tzinfo=UTC),
+        end=dt.datetime(2024, 12, 31, tzinfo=UTC),
+        settings=Settings(cache_disable=True),
+        options=Options(),
+    )
+    df = value_stubs.stations_result(request, "hourly", "moisture", "14006", elevation=133.0).values().all().df
+    flagged = df.filter(pl.col("quality_flags").str.contains("suspect:stuck"))
+    assert flagged.height == 200
+    assert flagged.get_column("timestamp").max() < dt.datetime(2024, 3, 1, tzinfo=UTC)
+    assert df.height == 400

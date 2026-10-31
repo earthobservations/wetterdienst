@@ -2,9 +2,9 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """The plausibility checks of a request and the mode each one runs in (GH-3676).
 
-A reader judges a number it has parsed: a temperature of 4021 degrees, a sensor that held one value for a month, a
-road surface 30 K above the air at night. What it does with the verdict is the caller's to choose, per kind of
-check:
+The values core judges the numbers a reader has parsed: a temperature of 4021 degrees, a sensor that held one value for
+a month, a road surface 30 K above the air at night (``model/judge.py``). What it does with the verdict is the caller's
+to choose, per kind of check:
 
 - ``hard``: the value is null (or, for ``floor``, the floor of its quantity) and the number the source wrote stays in
   ``quality_flags`` as ``rejected:<check>,raw:<number>``;
@@ -14,23 +14,16 @@ There is no mode that skips a check: a soft check already keeps the value, and t
 What a source documents as a code (``-999``, ``---``, a trace, a calm) is no judgement and has no mode: it is decoded
 as the source says and written as ``raw:`` alone.
 
-``Plausibility`` is the nested model of ``Options`` that names the mode of every check. The rules of
-``model/quality_flags.py`` each declare the check they belong to, and ``null_sentinels`` reads the mode from the
-plausibility in effect: the one a ``TimeseriesValues`` has set for the readers it calls (``applying``), or the
-defaults for a reader called on its own.
+``Plausibility`` is the nested model of ``Options`` that names the mode of every check; the core reads it from the
+options of the request.
 """
 
 from __future__ import annotations
 
-import contextlib
-import contextvars
-from typing import TYPE_CHECKING, Literal, get_args
+from typing import Literal, get_args
 
 import polars as pl
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-
-if TYPE_CHECKING:
-    from collections.abc import Iterator
 
 Mode = Literal["soft", "hard"]
 Check = Literal["range", "elevation", "stuck", "consistency", "floor"]
@@ -168,7 +161,14 @@ COVERAGE: dict[str, dict[str, tuple[str, ...]]] = {
         "meteofrance/synop": ("subdaily/data",),
     },
     "stuck": {
-        "dwd/observation": ("hourly/moisture",),
+        "dwd/observation": (
+            "10_minutes/temperature_air",
+            "10_minutes/urban_pressure",
+            "hourly/moisture",
+            "hourly/pressure",
+            "hourly/urban_pressure",
+            "daily/climate_summary",
+        ),
         "dwd/road": ("15_minutes/data",),
         "rmi/observation": ("10_minutes/data", "hourly/data", "daily/data"),
     },
@@ -181,26 +181,6 @@ COVERAGE: dict[str, dict[str, tuple[str, ...]]] = {
         "dwd/dmo": ("hourly/icon", "hourly/icon_eu"),
     },
 }
-
-#: what a reader that is called on its own, with no request around it, applies
-DEFAULTS = Plausibility()
-
-_ACTIVE: contextvars.ContextVar[Plausibility] = contextvars.ContextVar("wetterdienst_plausibility", default=DEFAULTS)
-
-
-def active() -> Plausibility:
-    """Give the plausibility in effect: the request's while its readers run, else the defaults."""
-    return _ACTIVE.get()
-
-
-@contextlib.contextmanager
-def applying(plausibility: Plausibility) -> Iterator[None]:
-    """Run the readers called inside with the modes of ``plausibility``, in this context alone."""
-    token = _ACTIVE.set(plausibility)
-    try:
-        yield
-    finally:
-        _ACTIVE.reset(token)
 
 
 def leave_out_suspect(df: pl.DataFrame) -> pl.DataFrame:

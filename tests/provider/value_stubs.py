@@ -401,10 +401,10 @@ def _dwd_hourly_moisture(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = Tru
     # the description says `missing value = -999`; the files write -99.9
     # (stundenwerte_TF_03735_19490101_19511231_hist.zip, 1949-01-28 06:00; station 14006, 2025-01-05 01:00,
     # in stundenwerte_TF_14006_20201104_20251231_hist.zip). That file holds 995.9 in P_STD in all of its 44531 rows, the
-    # pressure of a station without a barometer: the sheet ("Stundenwerte Luftdruck") says nothing of it, the reader
-    # nulls a constant from 500 readings on (GH-2699), so the file is served with 500 rows. The constant that changed
-    # once is two values, as at 00091 (977.1, then 977.6 from 2024-03-25) and 54 more files (GH-3139): the second half
-    # of the rows write 996.4, which the file of 14006 does not, so that the rule that nulls both is the one served
+    # pressure of a station without a barometer: the sheet ("Stundenwerte Luftdruck") says nothing of it, the core
+    # judges a run of 72 hourly readings of one value (GH-2699), so the file is served with 500 rows. The constant that
+    # changed once is two stretches, as at 00091 (977.1, then 977.6 from 2024-03-25) and 54 more files (GH-3139): the
+    # second half of the rows write 996.4, which the file of 14006 does not, so that both stretches are runs
     rows = [
         "   14006;2025010500;    3;   4.6;   5.8;  -0.3;  995.9;  -0.1;  95.7;  -0.7;eor",
         "   14006;2025010501;    3; -99.9; -99.9; -99.9;  995.9;  -0.7; -99.9; -99.9;eor",
@@ -520,8 +520,8 @@ def _dwd_hourly_pressure_typo(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool 
     # stundenwerte_P0_00433_19490101_20251231_hist.zip, read 2026-10-30, as the file writes them: P0 reads 1093.3 hPa at
     # 1994-03-18 00:00 beside a P of 1009.4 (QN 1), where the station pressure of Berlin-Tempelhof (48 m) is a few
     # hPa below the one reduced to sea level, as the hours around it show; 1093.3 is above the highest sea level
-    # pressure ever measured, 1084.8 hPa. Station 03032 reads 1098.2 (1991-06-21 18:00, P 1012.4) and 1099.3
-    # (1995-11-15 13:00, P 996.6) the same way: three one-digit typos in the 1.09 million rows of the two
+    # pressure ever measured (1089.1 hPa, WMO table of 2025). Station 03032 reads 1098.2 (1991-06-21 18:00, P 1012.4)
+    # and 1099.3 (1995-11-15 13:00, P 996.6) the same way: three one-digit typos in the 1.09 million rows of the two
     # historical series (GH-3135)
     product = (
         "STATIONS_ID;MESS_DATUM;QN_8;   P;  P0;eor\n"
@@ -2346,9 +2346,8 @@ STUBS = [
         _dwd_hourly_urban_wind_below_zero,
         reading=("wind_speed_mean", 8.3),
         sentinels=(("wind_speed_mean", -0.8),),
-        # the core writes a judged number as short as it goes: `raw:-0.8` where DWD wrote -0.80
-        tokens=(("wind_speed_mean", "-0.8", None),),
-        verdicts=(("wind_speed_mean", "-0.8", "range"),),
+        tokens=(("wind_speed_mean", "-0.80", None),),
+        verdicts=(("wind_speed_mean", "-0.80", "range"),),
     ),
     ValueStub(
         "dwd/observation hourly/pressure",
@@ -2771,14 +2770,14 @@ STUBS = [
             ("temperature_air_max_2m", -20.0),
         ),
         tokens=(
-            ("temperature_air_2m", "-20", None),
-            ("temperature_air_min_2m", "-20", None),
-            ("temperature_air_max_2m", "-20", None),
+            ("temperature_air_2m", "-20.0", None),
+            ("temperature_air_min_2m", "-20.0", None),
+            ("temperature_air_max_2m", "-20.0", None),
         ),
         verdicts=(
-            ("temperature_air_2m", "-20", "range"),
-            ("temperature_air_min_2m", "-20", "range"),
-            ("temperature_air_max_2m", "-20", "range"),
+            ("temperature_air_2m", "-20.0", "range"),
+            ("temperature_air_min_2m", "-20.0", "range"),
+            ("temperature_air_max_2m", "-20.0", "range"),
         ),
     ),
     ValueStub(
@@ -2864,7 +2863,7 @@ STUBS = [
             ("temperature_dew_point_2m", "251.65", None),
             # the failed hygrometer's humidity beside the two dew points, null with them (GH-3629)
             ("humidity_relative", "4", None),
-            ("precipitation_amount_last_1h", "800", None),
+            ("precipitation_amount_last_1h", "800.0", None),
         ),
         verdicts=(
             ("temperature_air_2m", "343.55", "range"),
@@ -2872,7 +2871,7 @@ STUBS = [
             ("temperature_dew_point_2m", "252.05", "range"),
             ("temperature_dew_point_2m", "251.65", "range"),
             ("humidity_relative", "4", "consistency"),
-            ("precipitation_amount_last_1h", "800", "range"),
+            ("precipitation_amount_last_1h", "800.0", "range"),
         ),
     ),
     ValueStub(

@@ -85,9 +85,9 @@ UNIT_TYPE_RANGES: dict[str, Bounds | None] = {
     "power_per_area": Bounds(-200.0, 2_000.0),  # W/m²; the solar constant is 1_361
     "precipitation": Bounds(0.0, 6_000.0),  # mm; a month of rain in the wettest places is 5_000 at most
     "precipitation_intensity": Bounds(0.0, 3_000.0),  # mm/h
-    "pressure": Bounds(300.0, 1_100.0),  # hPa; Everest is 330, the highest sea level pressure 1_084
+    "pressure": Bounds(300.0, 1_100.0),  # hPa; Everest is 330, the highest sea level pressure 1_089 (WMO)
     "significant_weather": Bounds(0.0, 99.0),
-    "speed": Bounds(0.0, 115.0),  # m/s; the fastest gust measured is 113
+    "speed": Bounds(0.0, 115.0),  # m/s; the fastest gust measured is 113.2 (WMO)
     "temperature": Bounds(-90.0, 100.0),  # °C; narrowed for the air below
     "time": Bounds(0.0, 366 * 86_400.0),  # s; a year of sunshine is the most there is
     "turbidity": Bounds(0.0, 5_000.0),  # NTU

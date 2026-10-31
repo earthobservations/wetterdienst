@@ -10,6 +10,7 @@ import pytest
 from polars.testing import assert_frame_equal
 
 from wetterdienst.exceptions import ProviderContractError
+from wetterdienst.model.judge import plan_for
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.model.schema import LONG_SCHEMA
 from wetterdienst.model.values import TimeseriesValues, _declared_parameter_names, merge_duplicate_readings
@@ -665,7 +666,7 @@ def test_a_non_grouped_call_with_an_undeclared_name_is_a_contract_error(monkeypa
     )
 
     with pytest.raises(ProviderContractError, match=r"DwdObservationValues.*'not_a_parameter'.*daily/climate_summary"):
-        values._convert_units(df, dataset)  # noqa: SLF001
+        values._to_requested_units(df, dataset, plan_for("dwd/observation", dataset), canonical=False)  # noqa: SLF001
 
 
 def test_rank_is_not_spent_on_a_station_whose_data_misses_the_window(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -837,7 +838,9 @@ def test_convert_units_keeps_a_reading_a_much_larger_target_holds_little_of() ->
     )
     df = _long([("daily", "climate_summary", "shk_tag", 0, 5.0), ("daily", "climate_summary", "shk_tag", 1, 150.0)])
 
-    result = values._convert_units(df, request.parameters[0].dataset)  # noqa: SLF001
+    result = values._to_requested_units(  # noqa: SLF001
+        df, request.parameters[0].dataset, plan_for("dwd/observation", request.parameters[0].dataset), canonical=False
+    )
 
     assert result.get_column("value").to_list() == [0.000031069, 0.000932057]
 
@@ -859,10 +862,12 @@ def test_convert_units_keeps_the_value_column_whatever_the_conversion_starts_wit
             _stations_filter=StationsFilter.ALL,
         ),
     )
-    monkeypatch.setattr(values, "_create_conversions", lambda _dataset: {"shk_tag": (lambda x: 9 / 5 * x, 2)})
+    monkeypatch.setattr(values.unit_converter, "lambda_between", lambda *_: lambda x: 9 / 5 * x)
     df = _long([("daily", "climate_summary", "shk_tag", 0, 5.0), ("daily", "climate_summary", "shk_tag", 1, 10.0)])
 
-    result = values._convert_units(df, request.parameters[0].dataset)  # noqa: SLF001
+    result = values._to_requested_units(  # noqa: SLF001
+        df, request.parameters[0].dataset, plan_for("dwd/observation", request.parameters[0].dataset), canonical=False
+    )
 
     assert result.columns == df.columns
     assert result.get_column("value").to_list() == [9.0, 18.0]

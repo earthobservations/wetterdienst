@@ -264,8 +264,8 @@ cannot reach.
 ##### readings inside every range that are no reading
 
 Two rules null a value that is inside every range (GH-3624): the first reads the value alone (the check `range`), the
-second the value beside the air temperature of its minute (the check `consistency`, which reads the air from the same
-file and stands aside where it has none). The reading is null in `value` and the number DWD wrote is the last token of
+second the value beside the air temperature of its minute (the check `consistency`, which reads the air of the same minute
+from the same dataset and stands aside where it has none). The reading is null in `value` and the number DWD wrote is the last token of
 `quality_flags`, `rejected:range,raw:0.1` or `rejected:consistency,raw:338.75` (the unit of the source: %, K), as for a
 value outside a range; with the check soft the value stays and is flagged `suspect:range` or `suspect:consistency`. Nothing else of the sensors is judged, and there is
 no comparison with neighbouring stations.

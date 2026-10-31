@@ -13,12 +13,12 @@ import polars as pl
 import pytest
 
 from tests.conftest import BUFR_AVAILABLE
-from tests.provider.judging import judged
+from tests.provider.judging import applying, judged
 from wetterdienst import Options, Settings
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.judge import _stuck_runs, plan_for
 from wetterdienst.model.metadata import DatasetModel
-from wetterdienst.model.plausibility import Plausibility, applying
+from wetterdienst.model.plausibility import Plausibility
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.model.schema import LONG_SCHEMA
 from wetterdienst.model.values import shape_provider_frame

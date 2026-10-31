@@ -17,7 +17,6 @@ from polars.testing import assert_frame_equal
 
 from wetterdienst import Period
 from wetterdienst.model.metadata import DatasetModel
-from wetterdienst.model.plausibility import Plausibility, applying
 from wetterdienst.model.quality_flags import join_quality_flags, raw_column
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata
 from wetterdienst.provider.dwd.observation.parser import (
@@ -333,17 +332,14 @@ def _written(df: pl.DataFrame, column: str) -> list[str | None]:
     return df.select(join_quality_flags(raw=pl.col(raw_column(column)))).get_column("quality_flags").to_list()
 
 
-def _parse_moisture(
-    rows: str, period: Period = Period.RECENT, plausibility: Plausibility | None = None
-) -> pl.DataFrame:
-    """Parse a hourly moisture file, with every check as it is by default but `stuck`, which is hard here."""
+def _parse_moisture(rows: str, period: Period = Period.RECENT) -> pl.DataFrame:
+    """Parse a hourly moisture file: the parser decodes its codes and judges nothing."""
     file = File(url="", content=BytesIO((MOISTURE_HEADER + rows).encode("utf8")), status=200)
-    with applying(plausibility or Plausibility(stuck="hard")):
-        return parse_climate_observations_data(
-            files=[file],
-            dataset=DwdObservationMetadata.hourly.moisture,
-            period=period,
-        ).collect()
+    return parse_climate_observations_data(
+        files=[file],
+        dataset=DwdObservationMetadata.hourly.moisture,
+        period=period,
+    ).collect()
 
 
 def test_parse_dwd_hourly_moisture_nulls_minus_99_9() -> None:

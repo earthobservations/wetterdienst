@@ -26,8 +26,8 @@ Two [checks](../../../plausibility.md) judge values here, both hard by default: 
 at 2 m, its extremes and the dew point) at a station of Guadeloupe, Martinique, Guyane, Mayotte, Wallis-et-Futuna,
 French Polynesia or the Îles Éparses, where there is no frost (`rejected:range,raw:-20.0`; the datasets `hourly/core`,
 `hourly/others`, `daily/core` and `monthly/data`), and `consistency`, the hourly humidity `U` of an hour whose dew point
-`TD` is such a temperature (`rejected:consistency,raw:15`; `hourly/others`). The dew point is read from the file being
-read, whether it is asked for or not, and no other file is downloaded for the check. With `plausibility={"range":
+`TD` is such a temperature (`rejected:consistency,raw:15`; `hourly/others`). The dew point is read from the same dataset (collected whole), whether it is asked for or not, and nothing is
+downloaded for the check. With `plausibility={"range":
 "soft"}` the value is kept and flagged `suspect:range`.
 
 ```{toctree}

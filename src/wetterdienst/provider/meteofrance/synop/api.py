@@ -346,6 +346,8 @@ class MeteoFranceSynopValues(TimeseriesValues):
             pl.col("parameter").str.to_lowercase(),
             pl.col("validity_time").str.to_datetime("%Y-%m-%dT%H:%M:%SZ", strict=False).alias("timestamp"),
             value.alias("value"),
+            # the text the file wrote, which the core writes in the `raw:` token of a value it rejects
+            pl.col("value").alias("source_text"),
             join_quality_flags(None, raw=raw),
             UPDATED,
         )

@@ -426,7 +426,7 @@ def test_meteofrance_synop_api_a_reading_no_sensor_produced_is_null_with_its_tex
     assert raw("precipitation_amount_last_1h") == [
         None,
         "raw:-0.1",
-        "rejected:range,raw:800",
+        "rejected:range,raw:800.0",
         "rejected:range,raw:-0.2",
     ]
     assert values("precipitation_amount_last_3h") == [1200.0, None, None, None]

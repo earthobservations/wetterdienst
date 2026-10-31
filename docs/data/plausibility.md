@@ -1,8 +1,10 @@
 # Plausibility checks
 
 Some numbers a source publishes are no readings, though they are no code: 4021 °C for a daily maximum, 909.5 hPa at a
-station at sea level, a sensor that held one value for a month, a road surface 30 K above the air at night. A reader
-that finds one judges it, and what happens to the value is yours to choose, **per kind of check**:
+station at sea level, a sensor that held one value for a month, a road surface 30 K above the air at night. A check
+that finds one judges it, and what happens to the value is yours to choose, **per kind of check**. The judging is the
+core's, not the reader's: a reader decodes what its source writes as a code and hands the numbers over in the source's
+unit, and the library judges them all in one place, in one unit per quantity ([how](#how-the-core-judges)):
 
 - **hard**: the value is null (for `floor`, the floor of its quantity) and the number the source wrote stays in
   `quality_flags` as `rejected:<check>,raw:<number>`;
@@ -15,21 +17,62 @@ FMI's `-1.0` for no snow, a direction of 0 beside a speed of 0 (a calm), the `-0
 meanings, not ours, and a soft `-999` would return -999 as a number. They are decoded as before, with `raw:` alone, in
 both modes ([special values](special_values.md)).
 
-The tests hold this page to the readers: `tests/test_docs_plausibility.py` compares the table below with the rules the
-providers declare, and `tests/provider/test_plausibility_modes.py` runs every stubbed source with every check soft.
+The tests hold this page to the code: `tests/test_docs_plausibility.py` compares the table below with what the core is
+told to judge (its tables and the rules the providers hand it), and `tests/provider/test_plausibility_modes.py` runs
+every stubbed source with every check soft.
+
+## How the core judges
+
+For a dataset that a check applies to, the core does this for each station, after the reader has handed over its rows:
+
+1. The rows of the periods the reader read (the historical archive, the recent file, the current one) are made one
+   series, the first reading that has a value winning (for DWD the historical archive before the recent one), so that
+   no check sees a reading twice.
+2. Every parameter of the frame, those nobody asked for included, is converted to the canonical unit of its unit type
+   (°C, hPa, m/s, mm, J/cm², a fraction as a decimal, seconds), without rounding. The bounds are therefore written once
+   per quantity and not once per source and unit, and a bound does not depend on the unit you ask for.
+3. The five checks judge the frame in canonical units. A check that compares two parameters (a road surface and the air
+   of its minute) reads both from the frame of the station at the same timestamp, so such a dataset is collected whole.
+4. The frame is cut to the parameters you asked for and converted to the unit you asked for, rounded once.
+
+The bounds are one table, by canonical name and by resolution where the quantity grows with the span
+(`wetterdienst.model.plausibility_ranges`), with the sources of the narrower ones noted beside them. What only a provider
+knows it hands the core as data, through one hook: the stations without frost, the periods in which one sensor of one
+station did not work, the relation of a road surface to the air at night, and the bounds a network holds narrower than the
+table ([contributing a provider](../contribution/services.md)).
+
+A judged value's `raw:` is the text the source wrote for it (`raw:-0.80`), in the unit of the source: the reader hands
+the text over beside the value and the core writes it. Where a source gives the core only a number, the number is
+written as short as it goes (`4021.0` as `4021`).
 
 ## The checks
 
 | check | judges | default | rule and bounds |
 | --- | --- | --- | --- |
-| `range` | a reading outside the physical range of its parameter | hard | The bounds are the reader's, per resolution where the quantity grows with the span (the rain of a minute and of a day), in the unit of the source, and generous: each rests on a record with room above it, so that a value that is only odd stays. See each provider's page, e.g. [DMI](provider/dmi/observation/index.md), [RMI](provider/rmi/observation/index.md), [DWD road](provider/dwd/road/15_minutes.md). DWD road holds a relative humidity below 1 % to this check as well: a failed hygrometer writes a value inside every range, and 1 % is far below any humidity the air of Germany reaches |
+| `range` | a reading outside the physical range of its parameter | hard | One table of bounds by canonical parameter and resolution (the rain of a minute and of a day differ), in the canonical unit, and generous: each rests on a record with room above it, so that a value that is only odd stays. A network holds a quantity narrower where it knows its source better; the table says why beside the bound. See each provider's page, e.g. [DMI](provider/dmi/observation/index.md), [RMI](provider/rmi/observation/index.md), [DWD road](provider/dwd/road/15_minutes.md). DWD road holds a relative humidity below 1 % to this check as well: a failed hygrometer writes a value inside every range, and 1 % is far below any humidity the air of Germany reaches |
 | `elevation` | a station pressure the barometric formula does not expect at the station's elevation | hard | The pressure of the international standard atmosphere at the elevation of the station in the station list, 75 hPa either way (about 650 m of height). The world-wide bounds (500 to 1090 hPa) let through a P0 mistyped by a digit at a station near sea level (909.5 hPa at 48 m) or the pressure of another height (968.6 hPa at the Zugspitze, 2,956 m, where 705 are expected). A station without an elevation, or one outside -500 to 9,000 m, is not judged. 75 hPa is wide enough for the deep lows of Dumont d'Urville (938 hPa at 43 m, where 1,008 are expected) |
-| `stuck` | a sensor that held one value over a period it should not have | **soft** | DWD observation: a file of the hourly `moisture` dataset with 500 readings or more and at most three distinct values in `pressure_air_site` (a station without a barometer writes its constant in every row). DWD road: 24 readings or more (6 h) of one value of the air, the dew point or the road surface temperature, a gap longer than four times the station's usual one ending the run, melting ice excepted. RMI: the sunshine of station 6477 in the periods its sensor was stuck or dead |
+| `stuck` | a sensor that held one value over a period it should not have | **soft** | DWD observation: a run of consecutive readings of one value of the station pressure (`pressure_air_site`, `pressure_air_site_mean`): 72 hourly readings, 5 days, 36 readings at 10 minutes (HadISD and ECA&D, see [the limits](#the-limit-of-a-run)); a station without a barometer writes its constant in every row. DWD road: 24 readings or more (6 h) of one value of the air, the dew point or the road surface temperature, a gap longer than four times the station's usual one ending the run, melting ice excepted. RMI: the sunshine of station 6477 in the periods its sensor was stuck or dead |
 | `consistency` | a reading that another parameter of the same file contradicts | hard | DWD road: a road surface more than 20 K above the air of the same minute with the sun more than 6 degrees below the horizon. Météo-France: the humidity of an hour whose dew point lies below 0 °C at a station without frost (the same hygrometer), and a `tn12` that is the text of the `tx12` beside it (a copy, no minimum) |
 | `floor` | a model value a little below the floor of its quantity | hard | DWD DMO: ICON writes -0.02 mm for the precipitation of an hour, down to -0.10, and the radiation of a night below 0. **hard sets the floor**, 0.0, and keeps the number; soft keeps the number as the value |
 
 `stuck` is soft by default because its verdict depends on the window of the request (see the caveats). Every other
 check is hard, which reproduces what the library did before the modes existed.
+
+### The limit of a run
+
+A barometer that writes one pressure for hours reflects the station and not the weather. The limit is the number of
+consecutive readings of one value (null readings skipped) that is taken for it, per resolution, from the research for
+[GH-3681](https://github.com/earthobservations/wetterdienst/issues/3681):
+
+| resolution | readings | source |
+| --- | --- | --- |
+| hourly | 72 | HadISD (Dunn et al. 2012, Climate of the Past 8, 1649-1679, table 4): a straight repeat of 72 values of the sea level pressure at a resolution of 0.1 hPa, which DWD's pressures have |
+| daily | 5 | ECA&D (KNMI, Algorithm Theoretical Basis Document v11, 2021, section 3): the daily pressure may not be exactly the same 5 days in a row |
+| 10 minutes | 36 (6 hours) | derived in the research: no source publishes a count at 10 minutes |
+
+Sub-daily, monthly and annual values have no source and are not judged. The run is judged in the series the core is
+handed, after the periods are merged, so a station whose historical file is constant and whose recent file is not is
+flagged for the stretch that is.
 
 ## Setting the modes
 
@@ -133,7 +176,7 @@ clean = values.df.filter(~flags.str.contains(r"(^|,)(suspect|rejected):").fill_n
 
 ## Where each check runs
 
-The table is what the readers declare: a network that is in no row judges no value, and extending the checks to the
+The table is what the core is told to judge: a network that is in no row judges no value, and extending the checks to the
 networks that have none is a follow-up. A dataset is `resolution/dataset`.
 
 <!-- coverage:start -->
@@ -148,7 +191,7 @@ networks that have none is a follow-up. A dataset is `resolution/dataset`.
 | `range` | `rmi/observation` | `10_minutes/data`, `hourly/data`, `daily/data` |
 | `elevation` | `dwd/observation` | `10_minutes/temperature_air`, `10_minutes/urban_pressure`, `hourly/moisture`, `hourly/pressure`, `hourly/urban_pressure`, `subdaily/pressure`, `daily/climate_summary` |
 | `elevation` | `meteofrance/synop` | `subdaily/data` |
-| `stuck` | `dwd/observation` | `hourly/moisture` |
+| `stuck` | `dwd/observation` | `10_minutes/temperature_air`, `10_minutes/urban_pressure`, `hourly/moisture`, `hourly/pressure`, `hourly/urban_pressure`, `daily/climate_summary` |
 | `stuck` | `dwd/road` | `15_minutes/data` |
 | `stuck` | `rmi/observation` | `10_minutes/data`, `hourly/data`, `daily/data` |
 | `consistency` | `dwd/road` | `15_minutes/data` |
@@ -160,16 +203,15 @@ networks that have none is a follow-up. A dataset is `resolution/dataset`.
 
 Within a dataset a check covers the parameters its rule names, not every parameter: `range` of DWD observation the wind
 speeds and the pressures, `elevation` the `pressure_air_site` and `pressure_air_site_mean`, `stuck` the
-`pressure_air_site` of `hourly/moisture`. The provider pages and [special values](special_values.md) list them.
+`pressure_air_site` and `pressure_air_site_mean`. The provider pages and [special values](special_values.md) list them.
 
 What no check covers, and why:
 
-- **A second parameter in another file or dataset.** A check never triggers a download. A consistency check reads its
-  second parameter only from the file already being read: where that parameter is not requested it is parsed from the
-  bytes already downloaded, used and dropped before the result is built (Météo-France reads `TD` for the humidity this
-  way; a DWD road dataset is one file). Where the second parameter lives in another file, the check does not run. DWD
-  observation holds its hourly `temperature_air` and `moisture` in two files, so the humidity of one is not held to the
-  dew point of the other.
+- **A second parameter in another dataset.** A check never triggers a download. A consistency check reads its second
+  parameter from the frame of the station and the same timestamp, which is the whole dataset (every dataset a relation
+  needs is collected whole, and the parameters nobody asked for are dropped after judging). Where the second parameter
+  lives in another dataset, the check does not run. DWD observation holds its hourly `temperature_air` and `moisture` in
+  two datasets, so the humidity of one is not held to the dew point of the other.
 - **Networks with no check yet.** Most networks judge nothing: a number outside every range stays as the source wrote
   it. The sources' own "erroneous" flags (GHCN `QFLAG`, Frost `7`, GHCNh `3`, ...) are the source's and are returned as
   its flags, not as a check.
@@ -180,15 +222,16 @@ What no check covers, and why:
   only found when the window covers enough of it, and a request for an hour of the road network has fewer readings than
   the 24 that mark a run. The same day can answer differently for a different window. For this reason the road surface
   rule of `consistency` does not use the stuck verdict, and `stuck` is soft by default: the value stays and you decide.
-  DWD observation judges a file as it is, so its verdict follows the files of the periods read.
+  DWD observation judges the series of the periods it read, so a constant stretch shorter than the limit of a run (71
+  hourly readings, 4 days) is no longer flagged, as the earlier rule on a whole file did not need a run, and a request for
+  a window that holds only part of a longer run may not reach the limit.
 - **`elevation` uses the station list's current elevation for every period.** A station that was moved by 500 m or more
   keeps the readings of its other site only while they lie within the range. DWD's historical outliers were checked
   against the station list and are bad readings, not station moves.
 - **A check stands aside where the second value is missing.** A consistency check that finds no second value for a row
   (null, not a number, outside its own range, or marked suspect by the source's own flag) returns the value unflagged.
-- **A reader that judges in steps does not show a value an earlier step rejected to the next.** DWD observation checks
-  the range while it parses and the elevation after: a pressure of 1093.3 hPa at 100 m is `rejected:range,raw:1093.3`
-  with both hard, and `suspect:elevation+range` with both soft, as nothing was rejected before the second check.
+- **Every check judges the same number.** A pressure of 1093.3 hPa at 100 m is outside the range and outside the
+  elevation: `rejected:elevation+range,raw:1093.3` with both hard, and `suspect:elevation+range` with both soft.
 - **A hard check can only judge a number it can read.** A text that is no number (`mq`, `---`) and a NaN or an infinity
   are no judgement: they are null with their text, as a code is, in both modes.
 
@@ -207,7 +250,7 @@ What no check covers, and why:
 - **`drop_nulls=True`** keeps dropping the rows of hard-rejected values, as it drops any null. A soft row has a value and
   stays. `drop_nulls=False`, or the wide shape, shows the rejected rows with their flags.
 - **Unit conversion** acts on a soft value as on any other: the number is converted, and the flag stays. The `raw:` of a
-  hard verdict is the number as the source wrote it, in the unit of the source.
+  hard verdict is the text the source wrote, in the unit of the source (DMI's radiation is the megajoules it wrote).
 - **The wide shape** has the flag beside each value, in `<parameter>_quality_flags`, with the same tokens.
 - **Physical ranges in tests.** A value outside its range that carries `suspect:` is kept on purpose, so the range check
   of the provider tests accepts it.

@@ -34,7 +34,7 @@ import polars as pl
 
 from wetterdienst.model.plausibility import CHECKS, REJECTED, SUSPECT, Plausibility
 from wetterdienst.model.plausibility_ranges import OVERRIDES, RANGES, SCOPE
-from wetterdienst.model.quality_flags import RAW_TOKEN, station_pressure_range
+from wetterdienst.model.quality_flags import RAW_TOKEN
 from wetterdienst.model.unit import UnitConverter
 
 if TYPE_CHECKING:
@@ -46,12 +46,23 @@ _CONVERTER = UnitConverter()
 _INF = math.inf
 SOURCE = "__source"
 _SOURCE = SOURCE
+#: the column a provider hands the text of the source's value in, beside the value (the cell of a file, the megajoules
+#: of a source that the reader converts): the core writes it in the `raw:` token of a value it rejects
+SOURCE_TEXT = "source_text"
 _HIT = "__hit_"
 _ELIGIBLE = "__eligible"
 
 #: the station pressure that is also held to what the elevation of the station allows (check ``elevation``), by network
 STATION_PRESSURE = ("pressure_air_site", "pressure_air_site_mean")
 ELEVATION_NETWORKS = ("dwd/observation", "meteofrance/synop")
+# the pressure of the standard atmosphere at sea level, in hPa, and what the barometric formula of it (the international
+# standard atmosphere, valid in the troposphere) expects at a height: a station pressure that lies further than
+# `STATION_PRESSURE_TOLERANCE` from it is no reading (GH-3627)
+STANDARD_SEA_LEVEL_PRESSURE = 1013.25
+STATION_PRESSURE_TOLERANCE = 75.0
+# the elevations the check is made for, in metres: a catalogue that gives another (a missing-value code, a typo) tells
+# nothing, and the formula is the standard atmosphere's to 11 km
+_STATION_ELEVATIONS = (-500.0, 9000.0)
 #: the amounts a model writes a little below zero (check ``floor``), by network
 FLOORS: dict[str, tuple[str, ...]] = {
     "dwd/dmo": (
@@ -61,15 +72,19 @@ FLOORS: dict[str, tuple[str, ...]] = {
         "radiation_short_wave_net_last_3h",
     ),
 }
-#: a quantity whose readings in one collected frame are too few distinct values to be a measurement (check ``stuck``):
-#: by network, then ``resolution/dataset``, the quantity, the readings it takes and the most distinct values it may
-#: have. A barometer that writes one pressure for a whole file reflects the station and not the weather (GH-2699): 761
-#: of the 1314 hourly moisture files of DWD hold one value in all their readings (997.3 hPa in the 12,844 rows of
-#: stundenwerte_TF_14072_akt.zip), 55 more two, and of the 1,305 files of 500 readings or more none holds 3 to 46, the
-#: fewest of any other being 47: three sits in that gap. The reader judged one file at a time; the core judges the frame
-#: it was handed, which holds the periods asked for together
-CONSTANT: dict[str, dict[str, tuple[tuple[str, int, int], ...]]] = {
-    "dwd/observation": {"hourly/moisture": (("pressure_air_site", 500, 3),)},
+#: a barometer that writes one pressure for hours reflects the station and not the weather (check ``stuck``, GH-2699):
+#: by network, the quantities, and by resolution the number of consecutive readings of one value that makes it so. The
+#: run is judged in the series the core is handed, the periods of the archive merged (the historical file first), so a
+#: station whose historical file is constant and whose recent one is not is flagged for the stretch that is.
+#:
+#: The numbers are those of the research for GH-3681 (section 4.1, persistence of station and sea level pressure).
+#: Hourly, 72 readings: HadISD (Dunn et al. 2012, Clim. Past 8, 1649-1679, Table 4) holds a straight repeat of 72
+#: values at a resolution of 0.1 hPa, which DWD's pressures have (it says 100 at 0.5 hPa and 120 at 1 hPa). Daily, 5
+#: days: ECA&D (KNMI, Algorithm Theoretical Basis Document v11, 2021, section 3: PP, "not exactly the same value 5 days
+#: in a row"). 10 minutes, 36 readings (6 hours): derived by the research, since no source publishes a 10-minute
+#: count. Sub-daily, monthly and annual values have no source and are not judged.
+CONSTANT_RUNS: dict[str, tuple[tuple[str, ...], dict[str, int]]] = {
+    "dwd/observation": (STATION_PRESSURE, {"10_minutes": 36, "hourly": 72, "daily": 5}),
 }
 #: a sensor that did not move for hours (check ``stuck``), by network: the quantities, and the one whose reading of the
 #: same minute tells whether melting ice can hold a road surface at its melting point (GH-1917)
@@ -86,6 +101,30 @@ RUN_GAP_FACTOR = 4
 MELTING_PLATEAU = 0.05
 MELTING_BRINE_DEPRESSION = 10.0
 MELTING_AIR_MARGIN = 10.0
+
+
+def standard_station_pressure(elevation: float) -> float:
+    """Give the pressure in hPa that the barometric formula of the standard atmosphere expects at an elevation in m."""
+    return STANDARD_SEA_LEVEL_PRESSURE * (1.0 - 2.25577e-5 * elevation) ** 5.25588
+
+
+def station_pressure_bounds(elevation: float | None) -> tuple[float, float] | None:
+    """Give the pressure in hPa a station at an elevation may read: the barometric formula there, 75 hPa either way.
+
+    The world-wide bounds of a pressure at the station (500 to 1090 hPa) are too wide to find a reading mistyped by a
+    digit at a station near sea level (a P0 of 909.5 hPa at 48 m) or one that is a pressure of another height (968.6
+    hPa at the Zugspitze, 2,956 m, where 705 hPa are expected): 75 hPa are about 650 m of height, which the weather at
+    the station stays within: the deep lows of Dumont d'Urville (938 hPa at 43 m, where 1008 are expected) are inside
+    (GH-3627).
+
+    Returns:
+        The bounds, or ``None`` where the station has no elevation or one outside -500 to 9000 m.
+
+    """
+    if elevation is None or not _STATION_ELEVATIONS[0] <= elevation <= _STATION_ELEVATIONS[1]:
+        return None
+    expected = standard_station_pressure(elevation)
+    return expected - STATION_PRESSURE_TOLERANCE, expected + STATION_PRESSURE_TOLERANCE
 
 
 @dataclass(frozen=True)
@@ -149,7 +188,7 @@ class Plan:
     ranges: dict[str, tuple[float, float]]
     pressure: tuple[str, ...] = ()
     floors: tuple[str, ...] = ()
-    constants: tuple[tuple[str, int, int], ...] = ()
+    constants: tuple[tuple[str, int], ...] = ()
     runs: tuple[tuple[str, ...], str | None] = ((), None)
     by_name: dict[str, str] = field(default_factory=dict)
 
@@ -159,21 +198,20 @@ class Plan:
         return bool(self.ranges or self.pressure or self.floors or self.constants or self.runs[0])
 
 
-_PLANS: dict[tuple[str, str, str], Plan] = {}
+_PLANS: dict[tuple[int, str], tuple[DatasetModel, Plan]] = {}
 
 
 def plan_for(network: str, dataset: DatasetModel) -> Plan:
-    """Give the plan of a network's dataset, built on first use."""
-    key = (network, dataset.resolution.name, dataset.name)
-    plan = _PLANS.get(key)
-    if plan is None:
-        plan = _PLANS[key] = _build_plan(network, dataset)
-    return plan
+    """Give the plan of a network's dataset, built on first use (and kept for as long as the dataset lives)."""
+    key = (id(dataset), network)
+    cached = _PLANS.get(key)
+    if cached is None or cached[0] is not dataset:
+        cached = _PLANS[key] = (dataset, _build_plan(network, dataset))
+    return cached[1]
 
 
 def _build_plan(network: str, dataset: DatasetModel) -> Plan:
     resolution = dataset.resolution.name
-    dataset_id = f"{resolution}/{dataset.name}"
     parameters: dict[str, Conversion] = {}
     by_name: dict[str, str] = {}
     ranges: dict[str, tuple[float, float]] = {}
@@ -197,10 +235,9 @@ def _build_plan(network: str, dataset: DatasetModel) -> Plan:
         tuple(original[name] for name in STATION_PRESSURE if name in original) if network in ELEVATION_NETWORKS else ()
     )
     floors = tuple(original[name] for name in FLOORS.get(network, ()) if name in original)
+    names, limits = CONSTANT_RUNS.get(network, ((), {}))
     constants = tuple(
-        (original[name], readings, values)
-        for name, readings, values in CONSTANT.get(network, {}).get(dataset_id, ())
-        if name in original
+        (original[name], limits[resolution]) for name in names if name in original and resolution in limits
     )
     runs: tuple[tuple[str, ...], str | None] = ((), None)
     if network in RUNS:
@@ -227,21 +264,20 @@ def to_canonical(plan: Plan) -> pl.Expr | None:
     return pl.coalesce(*branches, value)
 
 
-def from_canonical(
-    plan: Plan, requested: Sequence[str], converter: UnitConverter, *, decimals: Callable[[str, str], int]
-) -> pl.Expr:
-    """Give the expression that converts the canonical ``value`` of the parameters asked for to the unit asked for.
+def to_requested(plan: Plan, requested: Sequence[str], converter: UnitConverter, *, canonical: bool) -> pl.Expr:
+    """Give the expression that converts the ``value`` of the parameters asked for to the unit asked for, in one.
 
-    Rounded once, to as many decimals as the target unit needs (``UnitConverter.decimals``), as the direct conversion
-    from the source did.
+    From the canonical unit of the judged frame (``canonical``) or from the unit of the source, whichever the frame is
+    in. Rounded once, to as many decimals as the target unit needs to keep the reading's precision
+    (``UnitConverter.decimals``), whatever the unit it came from.
     """
     groups: dict[tuple[str, str, int], tuple[Callable[[pl.Expr], pl.Expr], list[str]]] = {}
     for name in requested:
         conversion = plan.parameters[name]
         target = converter.targets[conversion.unit_type].name
-        places = decimals(conversion.unit, target)
-        convert = converter.lambda_between(conversion.canonical, target)
-        groups.setdefault((conversion.canonical, target, places), (convert, []))[1].append(name)
+        places = converter.decimals(conversion.unit, target)
+        source = conversion.canonical if canonical else conversion.unit
+        groups.setdefault((source, target, places), (converter.lambda_between(source, target), []))[1].append(name)
     value = pl.col("value")
     if len(groups) == 1:
         (convert, _), places = next(iter(groups.values())), next(iter(groups))[2]
@@ -289,15 +325,13 @@ def judge(  # noqa: C901
         outside = (value < low) | (value > high)
         exprs["range"].append(outside)
     if plan.pressure and elevation is not None:
-        rule = station_pressure_range(elevation)
-        if rule is not None:
-            exprs["elevation"].append(parameter.is_in(plan.pressure) & ((value < rule.low) | (value > rule.high)))
+        allowed = station_pressure_bounds(elevation)
+        if allowed is not None:
+            exprs["elevation"].append(parameter.is_in(plan.pressure) & ((value < allowed[0]) | (value > allowed[1])))
     if plan.floors:
         exprs["floor"].append(parameter.is_in(plan.floors) & (value < 0.0))
-    for name, readings, distinct in plan.constants:
-        rows = df.filter(parameter.eq(name)).get_column("value").drop_nulls()
-        if rows.len() >= readings and rows.n_unique() <= distinct:
-            exprs["stuck"].append(parameter.eq(name))
+    if plan.constants:
+        series["stuck"].append(_constant_runs(df, plan))
     for rule in rules:
         if isinstance(rule, StuckPeriod) and rule.parameter in plan.by_name:
             stamp = pl.col("timestamp")
@@ -352,7 +386,13 @@ def _verdicts(rows: pl.DataFrame, checks: list[str], modes: Plausibility) -> pl.
     hard = [check for check in checks if modes.mode(check) == "hard"]
     soft = [check for check in checks if modes.mode(check) == "soft"]
     hit = {check: pl.col(_HIT + check) for check in checks}
-    written = pl.col(_SOURCE).cast(pl.String).str.replace(r"\.0$", "")
+    # the text the source wrote where the provider gave it, else the number as short as it goes (`4021.0` as `4021`)
+    short = pl.col(_SOURCE).cast(pl.String).str.replace(r"\.0$", "")
+    if SOURCE_TEXT in rows.columns:
+        text = pl.col(SOURCE_TEXT).str.strip_chars().replace("", None)
+        written = pl.coalesce(text.str.replace_all(",", ";"), short)
+    else:
+        written = short
     tokens = []
     if hard:
         hard_names = pl.concat_str([pl.when(hit[c]).then(pl.lit(c)) for c in hard], separator="+", ignore_nulls=True)
@@ -387,6 +427,33 @@ def _verdicts(rows: pl.DataFrame, checks: list[str], modes: Plausibility) -> pl.
         .alias("quality_flags"),
         source.alias(_SOURCE),
     )
+
+
+def _constant_runs(df: pl.DataFrame, plan: Plan) -> pl.Series:
+    """Mark the readings of a quantity that held one value for as many consecutive readings as its limit says."""
+    limits = dict(plan.constants)
+    runs = (
+        df.select("parameter", "timestamp", "value")
+        .with_row_index("_row")
+        .filter(pl.col("parameter").is_in(list(limits)) & pl.col("value").is_not_null())
+        .sort("parameter", "timestamp", "_row")
+        .with_columns(
+            _run=pl.col("value")
+            .ne(pl.col("value").shift().over("parameter"))
+            .fill_null(value=True)
+            .cum_sum()
+            .over("parameter")
+        )
+        .with_columns(
+            _length=pl.len().over("parameter", "_run"),
+            _limit=pl.col("parameter").replace_strict(limits, return_dtype=pl.Int64),
+        )
+        .filter(pl.col("_length") >= pl.col("_limit"))
+    )
+    if runs.is_empty():
+        return _no_hits(df)
+    mask = pl.repeat(value=False, n=df.height, dtype=pl.Boolean, eager=True)
+    return mask.scatter(runs.get_column("_row"), True).alias("hit")  # noqa: FBT003
 
 
 def _no_hits(df: pl.DataFrame) -> pl.Series:

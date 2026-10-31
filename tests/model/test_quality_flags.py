@@ -10,17 +10,12 @@ import pytest
 from wetterdienst.model.plausibility import Plausibility
 from wetterdienst.model.quality_flags import (
     SPEED_BESIDE,
-    Floor,
-    NoReading,
-    OutOfRange,
     Sentinel,
     calm,
     clear_sentinels,
     join_quality_flags,
     null_sentinels,
     raw_column,
-    standard_station_pressure,
-    station_pressure_range,
     unpivot_with_raw,
     with_speed_beside,
 )
@@ -214,118 +209,6 @@ def test_a_column_without_a_rule_has_no_raw_text() -> None:
     assert long.get_column("raw").to_list() == [None]
 
 
-def test_a_number_outside_its_range_is_nulled_and_written_as_short_as_it_goes() -> None:
-    """Test that 4021 is no 4021.0 in the token, the bounds are readings, and a NaN lies outside every range."""
-    cleaned, raw = _clean(
-        [4021.0, 110.26, 60.0, -90.0, -90.5, None, float("nan"), 0.0], OutOfRange(-90.0, 60.0), text=False
-    )
-    assert cleaned == [None, None, 60.0, -90.0, None, None, None, 0.0]
-    assert _verdicts(raw) == [
-        "rejected:range,raw:4021",
-        "rejected:range,raw:110.26",
-        None,
-        None,
-        "rejected:range,raw:-90.5",
-        None,
-        "raw:NaN",
-        None,
-    ]
-
-
-def test_a_text_outside_its_range_keeps_the_cell_as_written() -> None:
-    """Test that a value read from text is kept as the source wrote it, and a text that is no number is left alone."""
-    cleaned, raw = _clean([" 4021.0", "12", "---", ""], OutOfRange(-90.0, 60.0))
-    assert cleaned == [None, "12", "---", ""]
-    assert _verdicts(raw) == ["rejected:range,raw:4021.0", None, None, None]
-
-
-def test_a_range_can_be_limited_to_the_values_an_expression_selects() -> None:
-    """Test that `where` holds each parameter to its own range, and a sentinel before it decides first."""
-    cleaned, raw = null_sentinels(
-        pl.col("v"),
-        Sentinel("-999"),
-        OutOfRange(0.0, 130.0, where=pl.col("parameter") == "humidity"),
-        OutOfRange(300.0, 1_100.0, where=pl.col("parameter") == "pressure"),
-        text=False,
-    )
-    out = pl.DataFrame(
-        {
-            "parameter": ["humidity", "pressure", "pressure", "temperature", "humidity"],
-            "v": [999.0, 1013.2, 5.0, 999.0, -999.0],
-        }
-    ).select(cleaned.alias("cleaned"), raw.alias("raw"))
-    assert out.get_column("cleaned").to_list() == [None, 1013.2, None, 999.0, None]
-    assert _verdicts(out.get_column("raw").to_list()) == [
-        "rejected:range,raw:999",
-        None,
-        "rejected:range,raw:5",
-        None,
-        "raw:-999",
-    ]
-
-
-def test_a_range_that_holds_no_value_is_refused() -> None:
-    """Test that swapped bounds are a defect of the reader, not a rule that nulls everything."""
-    with pytest.raises(ValueError, match="holds no value"):
-        OutOfRange(60.0, -90.0)
-
-
-def test_a_wide_column_outside_its_range_goes_through_the_unpivot_with_its_text() -> None:
-    """Test that `clear_sentinels` takes a range, and the long frame carries what the value was."""
-    df = clear_sentinels(
-        pl.DataFrame({"at": [1, 2], "t": [4021.0, 17.5], "p": [1013.2, 5.0]}), ["t"], OutOfRange(-90.0, 60.0)
-    )
-    long = unpivot_with_raw(df, index=["at"]).sort("parameter", "at")
-    assert long.get_column("value").to_list() == [1013.2, 5.0, None, 17.5]
-    assert _verdicts(long.get_column("raw").to_list()) == [None, None, "rejected:range,raw:4021", None]
-
-
-def test_a_value_below_its_floor_is_the_floor_and_keeps_the_number() -> None:
-    """Test that `Floor` maps what is below it to the floor, written as short as it goes, and no more (GH-3263)."""
-    cleaned, raw = _clean([-0.02, -0.1, 0.0, 1.2, None, float("nan")], Floor(0.0), text=False)
-    assert cleaned[:4] == [0.0, 0.0, 0.0, 1.2]
-    assert cleaned[4] is None
-    assert cleaned[5] != cleaned[5]  # a NaN is no value below the floor, and stays one
-    assert _verdicts(raw) == ["rejected:floor,raw:-0.02", "rejected:floor,raw:-0.1", None, None, None, None]
-
-
-def test_a_text_below_its_floor_is_read_as_a_number_and_keeps_the_cell() -> None:
-    """Test that a text column becomes numbers, the cell as written is the token, and a non-number is null."""
-    cleaned, raw = _clean(["-0.10", "2.5", "---", ""], Floor(0.0))
-    assert cleaned == [0.0, 2.5, None, None]
-    assert _verdicts(raw) == ["rejected:floor,raw:-0.10", None, None, None]
-
-
-def test_a_floor_can_be_limited_to_the_values_an_expression_selects_and_follows_the_first_rule() -> None:
-    """Test that `where` keeps the floor to its parameter, and a sentinel before it decides first."""
-    cleaned, raw = null_sentinels(
-        pl.col("v"), Sentinel("-999"), Floor(0.0, where=pl.col("parameter") == "rr1"), text=False
-    )
-    out = pl.DataFrame(
-        {"parameter": ["rr1", "rr1", "ttt", "rr1"], "v": [-0.02, -999.0, -0.02, 0.4]},
-    ).select(cleaned.alias("cleaned"), raw.alias("raw"))
-    assert out.get_column("cleaned").to_list() == [0.0, None, -0.02, 0.4]
-    assert _verdicts(out.get_column("raw").to_list()) == ["rejected:floor,raw:-0.02", "raw:-999", None, None]
-
-
-def test_a_wide_column_below_its_floor_goes_through_the_unpivot_with_its_number() -> None:
-    """Test that `clear_sentinels` takes a floor, and keeps an earlier text beside the column."""
-    df = pl.DataFrame({"at": [1, 2, 3], "r": [-0.02, None, 0.5], "r__raw": [None, "-", None]})
-    long = unpivot_with_raw(clear_sentinels(df, ["r"], Floor(0.0)), index=["at"])
-    assert long.get_column("value").to_list() == [0.0, None, 0.5]
-    assert _verdicts(long.get_column("raw").to_list()) == ["rejected:floor,raw:-0.02", "raw:-", None]
-
-
-def test_a_period_that_is_no_reading_nulls_what_it_selects_and_keeps_the_value() -> None:
-    """Test that a hard `NoReading` nulls every number its `where` selects, and not a blank (GH-3031)."""
-    cleaned, raw = null_sentinels(pl.col("v"), NoReading(pl.col("stuck")), text=False, plausibility=HARD)
-    out = pl.DataFrame(
-        {"stuck": [True, True, False, True], "v": [0.0, 980.0, 980.0, None]},
-    ).select(cleaned.alias("cleaned"), raw.alias("raw"))
-    assert out.get_column("cleaned").to_list() == [None, None, 980.0, None]
-    assert _verdicts(out.get_column("raw").to_list()) == ["rejected:stuck,raw:0", "rejected:stuck,raw:980", None, None]
-
-
 @pytest.mark.parametrize("lazy", [False, True], ids=["eager", "lazy"])
 def test_a_wind_direction_of_0_is_a_calm_only_beside_a_speed_of_0(lazy: bool) -> None:  # noqa: FBT001
     """Test that the 0 of a direction is null with `raw:0` beside a speed of 0 of its reading alone (GH-3222).
@@ -352,76 +235,6 @@ def test_a_wind_direction_of_0_is_a_calm_only_beside_a_speed_of_0(lazy: bool) ->
         (3, "ff", "0", None),
         (4, "dd", "0", None),
     ]
-
-
-@pytest.mark.parametrize(
-    ("elevation", "expected"),
-    # the table of the standard atmosphere: 898.76 hPa at 1,000 m, 795.01 at 2,000 m, 701.21 at 3,000 m, 540.48 at 5 km
-    [(0.0, 1013.25), (1000.0, 898.76), (2000.0, 795.01), (3000.0, 701.21), (5000.0, 540.48), (48.0, 1007.5)],
-)
-def test_the_standard_station_pressure_follows_the_barometric_formula(elevation: float, expected: float) -> None:
-    """Test that the pressure expected at an elevation is that of the standard atmosphere (GH-3627)."""
-    assert standard_station_pressure(elevation) == pytest.approx(expected, abs=0.5)
-
-
-def test_a_station_pressure_is_held_to_75_hpa_around_the_formula_in_the_unit_of_the_source() -> None:
-    """Test that the range is the pressure of the elevation less and plus 75 hPa, 100 times that in Pa (GH-3627)."""
-    hectopascal = station_pressure_range(48.0)
-    assert hectopascal is not None
-    assert (hectopascal.low, hectopascal.high) == pytest.approx((932.5, 1082.5), abs=0.1)
-    pascal = station_pressure_range(48.0, per_hectopascal=100.0)
-    assert pascal is not None
-    assert (pascal.low, pascal.high) == pytest.approx((93_250.0, 108_250.0), abs=10.0)
-
-
-def test_a_station_pressure_outside_the_range_of_its_elevation_is_null_with_its_text() -> None:
-    """Test that the rule is an OutOfRange: 909.5 hPa at 48 m is null with `raw:909.5`, 1038.9 and the edge stay."""
-    rule = station_pressure_range(48.0)
-    assert rule is not None
-    cleaned, raw = null_sentinels(pl.col("value"), rule, text=False)
-    df = pl.DataFrame({"value": [909.5, 932.4, 932.6, 1038.9, 1082.4, 1082.6, 1093.3]}).select(
-        cleaned.alias("value"), raw.alias("raw")
-    )
-    assert df.get_column("value").to_list() == [None, None, 932.6, 1038.9, 1082.4, None, None]
-    assert _verdicts(df.get_column("raw").to_list()) == [
-        "rejected:elevation,raw:909.5",
-        "rejected:elevation,raw:932.4",
-        None,
-        None,
-        None,
-        "rejected:elevation,raw:1082.6",
-        "rejected:elevation,raw:1093.3",
-    ]
-
-
-def test_a_deep_low_at_a_station_near_sea_level_is_kept_and_a_typo_of_the_zugspitze_is_not() -> None:
-    """Test that 940 hPa at 43 m (Dumont d'Urville, 1,008 expected) stays and the Zugspitze's outliers go (GH-3627)."""
-    low = station_pressure_range(43.0)
-    assert low is not None
-    cleaned, raw = null_sentinels(pl.col("value"), low, text=False)
-    sea = pl.DataFrame({"value": [940.0, 938.2, 909.5]}).select(cleaned.alias("value"), raw.alias("raw"))
-    assert sea.get_column("value").to_list() == [940.0, 938.2, None]
-    assert _verdicts(sea.get_column("raw").to_list()) == [None, None, "rejected:elevation,raw:909.5"]
-    high = station_pressure_range(2956.0)
-    assert high is not None
-    cleaned, raw = null_sentinels(pl.col("value"), high, text=False)
-    zugspitze = pl.DataFrame({"value": [713.0, 780.0, 802.2, 908.6, 968.6]}).select(
-        cleaned.alias("value"), raw.alias("raw")
-    )
-    assert zugspitze.get_column("value").to_list() == [713.0, 780.0, None, None, None]
-    assert _verdicts(zugspitze.get_column("raw").to_list()) == [
-        None,
-        None,
-        "rejected:elevation,raw:802.2",
-        "rejected:elevation,raw:908.6",
-        "rejected:elevation,raw:968.6",
-    ]
-
-
-@pytest.mark.parametrize("elevation", [None, float("nan"), -999.0, 12_000.0])
-def test_a_station_without_a_plausible_elevation_has_no_pressure_rule(elevation: float | None) -> None:
-    """Test that a catalogue without an elevation, or with a code or a typo for one, is no ground to null a reading."""
-    assert station_pressure_range(elevation) is None
 
 
 def test_any_parameter_can_be_laid_beside_another_under_a_name_of_its_own() -> None:
