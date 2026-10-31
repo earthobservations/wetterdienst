@@ -24,9 +24,20 @@ Types of changes:
   the heating degree days of Greenland, as `heating_degree_day` beside Denmark's: the base is 17 °C
   in Denmark and 19 °C in Greenland. DMI counts the days above 25 and 20 °C, so a day at exactly
   25.0 or 20.0 °C is not counted, where the names count from the threshold (Part of GH-3622)
+- `wetterdienst.exceptions.UnknownFormatError` is what `to_format`, the charts' `to_image` and the
+  alerts result's `to_format` raise for a format they do not render, naming it and listing the
+  supported ones. It is a `RequestError`, and a `KeyError` as `to_format` raised and a `ValueError`
+  as the alerts result did, so an `except KeyError` or `except ValueError` still catches it; the
+  REST API and the command line never reach it, as their `format` is a choice (GH-3449)
 
 ### Changed
 
+- **Breaking**: `to_format` refuses an argument that no format takes, with a `TypeError` listing
+  the ones that are (`with_metadata`, `with_stations`, `indent`, `width`, `height`, `scale`,
+  `max_side`), where it dropped it: `to_format("csv", separator=";")` wrote a comma CSV and said
+  nothing. An argument that another format takes is still dropped, so the one set the command line,
+  the REST API and MCP build is unaffected; pass `to_csv(separator=";")` to give polars an argument
+  (GH-3449)
 - **Breaking**: 5 `noaa/ghcn` hourly stations are placed west of Greenwich, no longer east of it,
   where `ghcnh-station-list.csv` has lost the sign of their longitude: Nemours/Ghazaouet
   (AGUG0060517), Khouribga military airport (MOI0000GMMK), Alcaniz, Bujaraloz and Oliva

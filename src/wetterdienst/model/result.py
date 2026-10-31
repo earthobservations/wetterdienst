@@ -19,6 +19,7 @@ from pydantic import ConfigDict, with_config
 # not `typing.TypedDict`: pydantic refuses that as a response model on Python below 3.12
 from typing_extensions import TypedDict
 
+from wetterdienst.exceptions import UnknownFormatError
 from wetterdienst.io.export import (
     _DEFAULT_IMAGE_HEIGHT,
     _DEFAULT_IMAGE_WIDTH,
@@ -27,6 +28,7 @@ from wetterdienst.io.export import (
     figure_to_html,
     require_kaleido,
 )
+from wetterdienst.io.formats import names_of
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.model.util import create_station_id_from_string, filter_by_date
 from wetterdienst.util.datetime import format_timestamp, timestamps_to_string
@@ -660,8 +662,7 @@ class StationsResult(_EqualByFields, ExportMixin):
                 fig.update_layout(map={"center": center, "zoom": zoom})
             img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
         else:
-            msg = f"Invalid format: {fmt}"
-            raise KeyError(msg)
+            raise UnknownFormatError(fmt, names_of("chart"))
         return img
 
 
@@ -1116,8 +1117,7 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
             require_kaleido()
             img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
         else:
-            msg = f"Invalid format: {fmt}"
-            raise KeyError(msg)
+            raise UnknownFormatError(fmt, names_of("chart"))
         return img
 
 
@@ -1450,8 +1450,7 @@ class InterpolatedValuesResult(_ValuesResult[list[_InterpolatedValuesItemDict], 
             require_kaleido()
             img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
         else:
-            msg = f"Invalid format: {fmt}"
-            raise KeyError(msg)
+            raise UnknownFormatError(fmt, names_of("chart"))
         return img
 
 
@@ -1642,8 +1641,7 @@ class SummarizedValuesResult(_ValuesResult[list[_SummarizedValuesItemDict], _Sum
             require_kaleido()
             img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
         else:
-            msg = f"Invalid format: {fmt}"
-            raise KeyError(msg)
+            raise UnknownFormatError(fmt, names_of("chart"))
         return img
 
 

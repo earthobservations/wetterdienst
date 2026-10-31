@@ -742,6 +742,7 @@ _STATUS_OF = {
     "ReversedTimeIntervalError": 400,
     "StartDateEndDateError": 400,
     "StationNotFoundError": 404,
+    "UnknownFormatError": 400,
     "UpstreamError": 502,
     "WetterdienstError": 500,
 }
