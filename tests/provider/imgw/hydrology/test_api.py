@@ -268,7 +268,9 @@ def test_imgw_hydrology_archive_list_of_stations_gives_no_position() -> None:
     )
     file.raise_if_exception()
     assert isinstance(file.content, BytesIO)
-    rows = [[field.strip() for field in row] for row in csv.reader(file.content.read().decode("cp1250").splitlines())]
+    # whatever the encoding, a BOM and a re-encoding of the names are not what this test is about
+    text = file.content.read().decode("cp1250", errors="replace").lstrip("\ufeff")
+    rows = [[field.strip() for field in row] for row in csv.reader(text.splitlines())]
     # the 9-character code, the name, the river and IMGW's hydro code; no coordinates
     assert len(rows) > 1000
     assert {len(row) for row in rows} == {4}
