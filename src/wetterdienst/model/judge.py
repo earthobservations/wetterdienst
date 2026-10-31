@@ -192,6 +192,19 @@ class Plan:
     runs: tuple[tuple[str, ...], str | None] = ((), None)
     by_name: dict[str, str] = field(default_factory=dict)
 
+    def read_beside(self, rules: Sequence[Rule]) -> set[str]:
+        """Name the parameters (as the source does) that the checks read beside the ones asked for.
+
+        The neighbour of a relation (`Beside`: the air beside a road surface, the dew point beside a humidity) and the
+        air of the road's run rule, which tells whether melting ice holds a surface at its melting point.
+        """
+        names = {
+            self.by_name[rule.partner] for rule in rules if isinstance(rule, Beside) and rule.partner in self.by_name
+        }
+        if self.runs[1] is not None:
+            names.add(self.runs[1])
+        return names
+
     @property
     def judges(self) -> bool:
         """Tell whether any check applies to every station of the dataset."""

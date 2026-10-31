@@ -895,6 +895,10 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         # stamp. The rows of the periods a provider read are one series here, the first that has a value first (for DWD
         # the historical archive before the recent one), before any check looks at it
         if judged:
+            if dataset.grouped:
+                # a verdict on a parameter that is cut afterwards is never seen: only what is asked for and what a rule
+                # reads beside it is merged, converted and judged, which is the same answer for a fraction of the work
+                df = df.filter(pl.col("parameter").is_in(parameter_names | plan.read_beside(rules)))
             df = self._judge_in_canonical_units(
                 merge_duplicate_readings(df, ["parameter", "timestamp"]), station_id, dataset, plan, rules
             )
