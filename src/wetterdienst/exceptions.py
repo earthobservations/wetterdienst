@@ -307,9 +307,12 @@ class UnknownFormatError(RequestError, KeyError):
         """Give the message as it is, where a `KeyError` would give it in quotes."""
         return Exception.__str__(self)
 
-    def __reduce__(self) -> tuple[type[Self], tuple[str, tuple[str, ...]]]:
-        """Rebuild from the format and the list, as the message is no argument of the constructor."""
-        return type(self), (self.fmt, self.supported)
+    def __reduce__(self) -> tuple[type[Self], tuple[str, tuple[str, ...]], dict[str, object]]:
+        """Rebuild from the format and the list, as the message is no argument of the constructor.
+
+        The `__dict__` goes along, which is where a note added to the error (`__notes__`) is kept.
+        """
+        return type(self), (self.fmt, self.supported), self.__dict__
 
 
 class ExportRefusedError(WetterdienstError):

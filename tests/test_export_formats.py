@@ -152,8 +152,8 @@ def test_a_chart_in_a_format_it_has_not_is_an_unknown_format_error_listing_the_c
     result: Any = _every_result()[name]
     # the figure is built before the format is looked at, and the frame of the fixture has no chart to make of it
     monkeypatch.setattr(type(result), "to_plot", lambda _self: object())
-    with pytest.raises(UnknownFormatError, match="'gif'") as error:
-        result._to_image("gif")  # noqa: SLF001
+    with pytest.raises(UnknownFormatError, match="'bmp'") as error:
+        result._to_image("bmp")  # noqa: SLF001
     assert error.value.supported == names_of("chart")
 
 
@@ -169,12 +169,12 @@ def test_the_alerts_result_raises_it_too_with_its_own_formats() -> None:
         result.to_format("xml")
 
 
-def test_find_format_reads_any_case_and_keeps_to_the_formats_it_is_given() -> None:
-    """A format is found in any case, and among the ones a caller names only."""
+def test_find_format_reads_any_case() -> None:
+    """A format is found in any case."""
     assert find_format("PNG") is FORMATS["png"]
     with pytest.raises(UnknownFormatError) as error:
-        find_format("png", ("json", "csv"))
-    assert error.value.supported == ("json", "csv")
+        find_format("bmp")
+    assert error.value.supported == tuple(FORMATS)
 
 
 def test_the_error_is_a_str_without_quotes_and_pickles() -> None:
@@ -183,6 +183,14 @@ def test_the_error_is_a_str_without_quotes_and_pickles() -> None:
     assert not str(error).startswith(("'", '"'))
     copy = pickle.loads(pickle.dumps(error))  # noqa: S301
     assert (type(copy), copy.fmt, copy.supported, str(copy)) == (UnknownFormatError, "xml", ("json", "csv"), str(error))
+
+
+def test_a_note_added_to_the_error_survives_pickling() -> None:
+    """`__notes__` live in the instance's `__dict__`, which the pickle carries along."""
+    error = UnknownFormatError("xml", ("json", "csv"))
+    error.add_note("seen in the alerts")
+    copy = pickle.loads(pickle.dumps(error))  # noqa: S301
+    assert copy.__notes__ == ["seen in the alerts"]
 
 
 # --- the argument set of the surfaces ---------------------------------------------------------------------------------
@@ -197,7 +205,6 @@ def test_the_arguments_the_surfaces_build_are_all_taken_by_some_format(format_na
     """
     request = SimpleNamespace(format=format_name, with_metadata=True, pretty=True, width=1, height=2, scale=1.5)
     kwargs = render_kwargs(request, max_side=max_side)  # ty: ignore[invalid-argument-type]
-    assert set(kwargs) - {"fmt"} <= ARGUMENTS
     assert {*kwargs, "with_stations"} - {"fmt"} <= ARGUMENTS
 
 
@@ -316,7 +323,8 @@ def test_the_table_holds_the_python_column_to_the_registry() -> None:
 def test_the_table_holds_the_file_column_to_the_writers() -> None:
     """A file extension is written when the table says so, and the table lists every writer once."""
     cells = {name: row["to_target file"] for name, row in _table().items() if row["to_target file"] != "no"}
-    assert set(cells.values()) == set(FILE_WRITERS)
+    # once each: a list, not a set, so that an extension named by two rows is a failure
+    assert sorted(cells.values()) == sorted(FILE_WRITERS)
     # a row that is itself an extension names it
     for name, cell in cells.items():
         if f".{name}" in FILE_WRITERS:
@@ -333,3 +341,45 @@ def test_the_table_holds_each_surface_to_the_formats_it_takes(surface: str, colu
     assert documented == _expected(taken)
     # and no surface offers a format `to_format` has not, but the stream
     assert set().union(*taken.values()) <= {*FORMATS, "ndjson"}
+
+
+# --- a chart format is the registry's to decide --------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("name", _WITH_FORMATS)
+@pytest.mark.parametrize("format_name", list(names_of("chart")))
+def test_every_chart_format_of_the_registry_is_rendered(
+    name: str, format_name: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`_to_image` renders each chart format the registry lists and raises `UnknownFormatError` for none of them."""
+    from wetterdienst.model import result as result_module  # noqa: PLC0415
+
+    result: Any = _every_result()[name]
+    figure = SimpleNamespace(
+        to_image=lambda **_: b"image", to_html=lambda **_: "<html>", layout=SimpleNamespace(width=None, height=None)
+    )
+    monkeypatch.setattr(type(result), "to_plot", lambda _self: figure)
+    monkeypatch.setattr(result_module, "require_kaleido", lambda: None)
+    assert result._to_image(format_name) in (b"image", "<html>")  # noqa: SLF001
+
+
+def test_a_format_added_to_the_registry_is_rendered_and_guarded_without_another_list(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A chart format added to `FORMATS` reaches `to_format`, and the size guard of a surface covers it (GH-3449)."""
+    from wetterdienst.io import formats  # noqa: PLC0415
+    from wetterdienst.model import result as result_module  # noqa: PLC0415
+
+    monkeypatch.setitem(FORMATS, "gif", formats.Format("gif", "chart", "to_image", FORMATS["png"].takes, kaleido=True))
+    result: Any = _every_result()["values"]
+    seen: dict[str, object] = {}
+    figure = SimpleNamespace(
+        to_image=lambda **kwargs: seen.update(kwargs) or b"gif", layout=SimpleNamespace(width=None, height=None)
+    )
+    monkeypatch.setattr(type(result), "to_plot", lambda _self: figure)
+    monkeypatch.setattr(result_module, "require_kaleido", lambda: None)
+
+    assert result.to_format("gif", width=3) == b"gif"
+    assert seen["format"] == "gif"
+    request = SimpleNamespace(format="gif", with_metadata=False, pretty=False, width=1, height=2, scale=1.0)
+    assert render_kwargs(request, max_side=100)["max_side"] == 100  # ty: ignore[invalid-argument-type]

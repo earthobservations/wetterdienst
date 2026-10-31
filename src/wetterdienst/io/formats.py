@@ -34,6 +34,9 @@ class Format:
     #: the arguments some result's method takes, which `to_format` gives it where the one it is called on takes them:
     #: `to_json` takes `with_stations` of a values result and not of a stations result
     takes: frozenset[str]
+    #: rendered to an image by Kaleido, which is every chart but `html`: the size of what it renders is checked, and the
+    #: browser it starts is needed
+    kaleido: bool = False
 
 
 _IMAGE_ARGUMENTS = frozenset({"width", "height", "scale", "max_side"})
@@ -46,7 +49,11 @@ FORMATS: dict[str, Format] = {
         Format("geojson", "data", "to_geojson", frozenset({"with_metadata", "indent"})),
         # `to_csv` passes its keywords to polars, and `to_format` gives it none
         Format("csv", "data", "to_csv", frozenset()),
-        *(Format(name, "chart", "to_image", _IMAGE_ARGUMENTS) for name in ("html", "png", "jpg", "webp", "svg", "pdf")),
+        Format("html", "chart", "to_image", _IMAGE_ARGUMENTS),
+        *(
+            Format(name, "chart", "to_image", _IMAGE_ARGUMENTS, kaleido=True)
+            for name in ("png", "jpg", "webp", "svg", "pdf")
+        ),
     )
 }
 
@@ -59,17 +66,22 @@ def names_of(kind: Literal["data", "chart"]) -> tuple[str, ...]:
     return tuple(name for name, format_ in FORMATS.items() if kind == format_.kind)
 
 
-def find_format(fmt: str, among: Iterable[str] | None = None) -> Format:
-    """Find the format a caller names, in any case, among the ones given (all, by default).
+def renders_with_kaleido(fmt: str) -> bool:
+    """Tell whether a chart format is rendered to an image by Kaleido: the registry says, not a list of names."""
+    format_ = FORMATS.get(fmt)
+    return format_ is not None and format_.kaleido
+
+
+def find_format(fmt: str) -> Format:
+    """Find the format a caller names, in any case.
 
     Raises:
-        UnknownFormatError: Nothing here renders it, or `among` leaves it out.
+        UnknownFormatError: Nothing here renders it.
 
     """
-    allowed = tuple(FORMATS if among is None else among)
     name = fmt.lower()
-    if name not in allowed:
-        raise UnknownFormatError(fmt, allowed)
+    if name not in FORMATS:
+        raise UnknownFormatError(fmt, tuple(FORMATS))
     return FORMATS[name]
 
 
@@ -86,5 +98,6 @@ def refuse_unknown_arguments(kwargs: Iterable[str]) -> None:
     unknown = sorted(set(kwargs) - ARGUMENTS)
     if unknown:
         names = ", ".join(repr(name) for name in unknown)
-        msg = f"to_format() got an unexpected keyword argument {names}; the formats take {', '.join(sorted(ARGUMENTS))}"
+        noun = "arguments" if len(unknown) > 1 else "argument"
+        msg = f"to_format() got an unexpected keyword {noun} {names}; the formats take {', '.join(sorted(ARGUMENTS))}"
         raise TypeError(msg)

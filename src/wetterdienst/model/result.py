@@ -28,7 +28,7 @@ from wetterdienst.io.export import (
     figure_to_html,
     require_kaleido,
 )
-from wetterdienst.io.formats import names_of
+from wetterdienst.io.formats import names_of, renders_with_kaleido
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.model.util import create_station_id_from_string, filter_by_date
 from wetterdienst.util.datetime import format_timestamp, timestamps_to_string
@@ -653,7 +653,7 @@ class StationsResult(_EqualByFields, ExportMixin):
         fig = self.to_plot()
         if fmt == "html":
             img = figure_to_html(fig)
-        elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
+        elif renders_with_kaleido(fmt):
             check_image_size(fig, width, height, scale, max_side)
             require_kaleido()
             if (width or height) and not self.df.is_empty():
@@ -1112,7 +1112,7 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
         fig = self.to_plot()
         if fmt == "html":
             img = figure_to_html(fig)
-        elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
+        elif renders_with_kaleido(fmt):
             check_image_size(fig, width, height, scale, max_side)
             require_kaleido()
             img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
@@ -1445,7 +1445,7 @@ class InterpolatedValuesResult(_ValuesResult[list[_InterpolatedValuesItemDict], 
         fig = self.to_plot()
         if fmt == "html":
             img = figure_to_html(fig)
-        elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
+        elif renders_with_kaleido(fmt):
             check_image_size(fig, width, height, scale, max_side)
             require_kaleido()
             img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
@@ -1636,7 +1636,7 @@ class SummarizedValuesResult(_ValuesResult[list[_SummarizedValuesItemDict], _Sum
         fig = self.to_plot()
         if fmt == "html":
             img = figure_to_html(fig)
-        elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
+        elif renders_with_kaleido(fmt):
             check_image_size(fig, width, height, scale, max_side)
             require_kaleido()
             img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
