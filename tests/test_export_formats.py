@@ -65,9 +65,9 @@ def _formatter(result: object, format_name: str) -> Callable[..., object]:
 
 
 def test_the_formats_are_the_ones_the_docs_listed_before_the_registry() -> None:
-    """The formats of `to_format`, in the order the surfaces list them, are json, geojson and csv, then the charts."""
-    assert list(FORMATS) == ["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"]
-    assert names_of("data") == ("json", "geojson", "csv")
+    """The formats of `to_format`, in the order the surfaces list them, are the data formats, then the charts."""
+    assert list(FORMATS) == ["json", "geojson", "csv", "ndjson", "html", "png", "jpg", "webp", "svg", "pdf"]
+    assert names_of("data") == ("json", "geojson", "csv", "ndjson")
     assert names_of("chart") == ("html", "png", "jpg", "webp", "svg", "pdf")
 
 
@@ -196,7 +196,7 @@ def test_a_note_added_to_the_error_survives_pickling() -> None:
 # --- the argument set of the surfaces ---------------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("format_name", [*FORMATS, "ndjson"])
+@pytest.mark.parametrize("format_name", list(FORMATS))
 @pytest.mark.parametrize("max_side", [None, 4000])
 def test_the_arguments_the_surfaces_build_are_all_taken_by_some_format(format_name: str, max_side: int | None) -> None:
     """The command line, the REST API and MCP build one set for every format, and `to_format` refuses none of it.
@@ -308,8 +308,8 @@ def _expected(surface: dict[str, set[str]]) -> dict[str, set[str]]:
 def test_the_table_lists_every_format_once_and_the_ones_of_the_code() -> None:
     """The rows are the formats of `to_format`, the stream, and the file types that are no format."""
     rows = set(_table())
-    expected = {*FORMATS, "ndjson", *(extension.removeprefix(".") for extension in FILE_WRITERS)}
-    # `.jsonl` is the file of the `ndjson` row
+    expected = {*FORMATS, *(extension.removeprefix(".") for extension in FILE_WRITERS)}
+    # `.jsonl` is a file of the `ndjson` row, as `.ndjson` is
     assert rows == expected - {"jsonl"}
 
 
@@ -323,12 +323,13 @@ def test_the_table_holds_the_python_column_to_the_registry() -> None:
 def test_the_table_holds_the_file_column_to_the_writers() -> None:
     """A file extension is written when the table says so, and the table lists every writer once."""
     cells = {name: row["to_target file"] for name, row in _table().items() if row["to_target file"] != "no"}
+    listed = [extension.strip() for cell in cells.values() for extension in cell.split(",")]
     # once each: a list, not a set, so that an extension named by two rows is a failure
-    assert sorted(cells.values()) == sorted(FILE_WRITERS)
+    assert sorted(listed) == sorted(FILE_WRITERS)
     # a row that is itself an extension names it
     for name, cell in cells.items():
         if f".{name}" in FILE_WRITERS:
-            assert cell == f".{name}"
+            assert f".{name}" in [extension.strip() for extension in cell.split(",")]
 
 
 @pytest.mark.parametrize(
@@ -340,7 +341,7 @@ def test_the_table_holds_each_surface_to_the_formats_it_takes(surface: str, colu
     documented = {name: _commands_of(row[column]) for name, row in _table().items() if row[column] != "no"}
     assert documented == _expected(taken)
     # and no surface offers a format `to_format` has not, but the stream
-    assert set().union(*taken.values()) <= {*FORMATS, "ndjson"}
+    assert set().union(*taken.values()) <= set(FORMATS)
 
 
 # --- a chart format is the registry's to decide --------------------------------------------------------------------

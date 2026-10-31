@@ -16,6 +16,7 @@ import tomllib
 import types
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 from unittest import mock
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
@@ -1112,8 +1113,8 @@ def test_export_netcdf(df_interpolated_values: pl.DataFrame, tmp_path: Path) -> 
 def test_export_netcdf_keeps_gaps_as_gaps(df_values: pl.DataFrame, tmp_path: Path) -> None:
     """A missing value is NaN in NetCDF, not a number standing in for one.
 
-    Zarr fills gaps with -999, which a CF reader would take for a measurement -- an air temperature
-    of -999 degrees, or a station 999 m below the sea.
+    A number such as -999 would be taken by a CF reader for a measurement -- an air temperature
+    of -999 degrees, or a station 999 m below the sea. Zarr wrote that until GH-3449.
     """
     xarray = pytest.importorskip("xarray")
     pytest.importorskip("h5netcdf")
@@ -4341,3 +4342,148 @@ def test_filter_by_sql_keeps_duckdbs_error_for_an_in_dataset_name_the_frame_has_
     df = pl.DataFrame({"wind_gust": [1.5], "temperature_air_mean_2m": [1.0]})
     with pytest.raises(duckdb.BinderException, match='Referenced column "wind_speed" not found'):
         ExportMixin(df=df).filtered_by_sql("wind_speed > 1")
+
+
+def test_export_zarr_keeps_gaps_as_gaps(df_values: pl.DataFrame, tmp_path: Path) -> None:
+    """A missing number is NaN in Zarr, a missing time `NaT`, and no number stands in for either (GH-3449).
+
+    Zarr wrote -999 for every gap, which a reader took for a measurement: an air temperature of -999 degrees,
+    or a station 999 m below the sea. A text column has no NaN and holds an empty string, as it always did.
+    """
+    zarr = pytest.importorskip("zarr")
+    pytest.importorskip("xarray")
+    df = df_values.with_columns(
+        pl.when(pl.col("timestamp").dt.year() == 2019).then(None).otherwise(pl.col("value")).alias("value"),
+        pl.col("value").cast(pl.Int64, strict=False).alias("count"),
+        pl.when(pl.col("timestamp").dt.month() == 1).then(None).otherwise(pl.col("timestamp")).alias("end_timestamp"),
+    )
+    assert df.get_column("value").null_count() > 0
+    filename = tmp_path.joinpath("values.zarr")
+    ExportMixin(df=df).to_target(f"file://{filename}")
+
+    group = zarr.open(filename, mode="r")["climate_summary"]
+    values = group["value"][:]
+    assert math.isnan(values[0])
+    assert -999 not in values
+    assert -999 not in group["count"][:]
+    assert str(group["end_timestamp"][0]) == "NaT"
+    assert str(group["end_timestamp"][1]).startswith("2019-12-01")
+
+
+def test_export_zarr_takes_a_stations_frame_with_a_station_without_an_end(tmp_path: Path) -> None:
+    """A station that has not ended has no `end_timestamp`, and no elevation is NaN rather than 999 m below the sea."""
+    zarr = pytest.importorskip("zarr")
+    pytest.importorskip("xarray")
+    df = pl.DataFrame(
+        {
+            "station_id": ["01048", "01050"],
+            "start_timestamp": [dt.datetime(1957, 5, 1, tzinfo=ZoneInfo("UTC"))] * 2,
+            "end_timestamp": [dt.datetime(1995, 11, 30, tzinfo=ZoneInfo("UTC")), None],
+            "elevation": [645.0, None],
+        }
+    )
+    filename = tmp_path.joinpath("stations.zarr")
+    ExportMixin(df=df).to_target(f"file://{filename}")
+
+    group = zarr.open(filename, mode="r")["data"]
+    assert math.isnan(group["elevation"][1])
+    assert -999 not in group["elevation"][:]
+    assert str(group["end_timestamp"][1]) == "NaT"
+    assert str(group["end_timestamp"][0]).startswith("1995-11-30")
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        "influxdb://localhost/?database=dwd",
+        "influxdb2://acme:token@localhost/?database=dwd",
+        "influxdb3://acme:token@localhost/?database=dwd",
+    ],
+)
+def test_influxdb_refuses_a_stations_frame_by_saying_it_has_no_readings(target: str) -> None:
+    """A stations frame has no `timestamp` to make a point of: `ExportRefusedError`, not a bare `KeyError` (GH-3449).
+
+    Refused before the client is built, so nothing connects.
+    """
+    stations = ExportMixin(
+        df=pl.DataFrame(
+            {
+                "station_id": ["01048"],
+                "start_timestamp": [dt.datetime(1957, 5, 1, tzinfo=ZoneInfo("UTC"))],
+                "end_timestamp": [dt.datetime(1995, 11, 30, tzinfo=ZoneInfo("UTC"))],
+                "name": ["Freyung vorm Wald"],
+            }
+        )
+    )
+    with (
+        mock.patch("influxdb.InfluxDBClient") as v1,
+        mock.patch("influxdb_client.InfluxDBClient") as v2,
+        mock.patch("influxdb_client_3.InfluxDBClient3") as v3,
+        pytest.raises(ExportRefusedError, match="`timestamp`, `resolution`, `dataset`"),
+    ):
+        stations.to_target(target)
+    assert [v1.called, v2.called, v3.called] == [False, False, False]
+
+
+def test_to_ndjson_is_the_rows_the_rest_api_streams(
+    df_values: pl.DataFrame, df_interpolated_values: pl.DataFrame
+) -> None:
+    """`to_ndjson` is the lines of the REST API between its head and its end line, from the one serializer (GH-3449).
+
+    The REST API writes a row with `ndjson_line` from `to_dict`; the file target writes the frame through polars.
+    The three give the same bytes, so a caller who streams and one who writes a file hold the same rows.
+    """
+    from wetterdienst.ui.render import ndjson_line  # noqa: PLC0415
+
+    for frame in (df_values, df_interpolated_values):
+        result = ExportMixin(df=frame)
+        written = result.to_ndjson()
+        assert written.endswith("\n")
+        assert [json.loads(line) for line in written.splitlines()] == json.loads(result._iso_datetimes().write_json())  # noqa: SLF001
+        assert result.to_format("ndjson") == written
+    assert ExportMixin(df=df_values.clear()).to_ndjson() == ""
+    # from the rows of a result, as the stream's batches are made
+    from tests.model.test_results import _every_result  # noqa: PLC0415
+
+    for name, key in (("stations", "stations"), ("values", "values"), ("interpolated", "values")):
+        result_ = _every_result()[name]
+        lines = b"".join(ndjson_line(row) for row in result_.to_dict()[key]).decode()  # ty: ignore[unresolved-attribute]
+        assert lines == result_.to_ndjson()  # ty: ignore[unresolved-attribute]
+
+
+@pytest.mark.parametrize("extension", ["jsonl", "ndjson", "JSONL", "NdJson"])
+def test_export_ndjson_file_targets_hold_to_ndjson(df_values: pl.DataFrame, tmp_path: Path, extension: str) -> None:
+    """A `.jsonl` and a `.ndjson` file, in any case, hold what `to_ndjson` returns (GH-3449)."""
+    filename = tmp_path.joinpath(f"values.{extension}")
+    result = ExportMixin(df=df_values)
+    result.to_target(f"file://{filename}")
+    assert filename.read_text(encoding="utf-8") == result.to_ndjson()
+
+
+@pytest.mark.parametrize("name", ["stations", "values", "interpolated", "summarized"])
+def test_export_geojson_file_target_holds_the_feature_collection(name: str, tmp_path: Path) -> None:
+    """A `.geojson` file is the feature collection `to_geojson` wraps in `data`, as readers expect it (GH-3449)."""
+    from tests.model.test_results import _every_result  # noqa: PLC0415
+
+    result: Any = _every_result()[name]
+    filename = tmp_path.joinpath("result.GeoJSON")
+    result.to_target(f"file://{filename}")
+    written = json.loads(filename.read_text(encoding="utf-8"))
+    assert written["type"] == "FeatureCollection"
+    assert written == json.loads(result.to_format("geojson"))["data"]
+    assert filename.read_bytes() == json.dumps(written, indent=4, ensure_ascii=False).encode("utf-8")
+
+
+@pytest.mark.parametrize("name", ["stations.CSV", "Stations.Json", "S.Parquet"])
+def test_file_extensions_are_read_in_any_case(df_stations: pl.DataFrame, tmp_path: Path, name: str) -> None:
+    """`.CSV` was refused as an unknown file type: the extension is read in any case, the path as written (GH-3449)."""
+    filename = tmp_path.joinpath(name)
+    ExportMixin(df=df_stations).to_target(f"file://{filename}")
+    assert filename.exists()
+    assert {path.name for path in tmp_path.iterdir()} == {name}
+
+
+def test_an_unknown_file_extension_is_still_refused(df_stations: pl.DataFrame, tmp_path: Path) -> None:
+    """A file type nothing writes is refused, whatever its case."""
+    with pytest.raises(ExportRefusedError, match="Unknown export file type"):
+        ExportMixin(df=df_stations).to_target(f"file://{tmp_path.joinpath('chart.PNG')}")

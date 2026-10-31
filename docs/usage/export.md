@@ -15,18 +15,24 @@ File targets are identified by their extension:
 
 - file:///path/to/dwd.csv
 - file:///path/to/dwd.json
-- file:///path/to/dwd.jsonl
+- file:///path/to/dwd.jsonl (or `.ndjson`)
+- file:///path/to/dwd.geojson
 - file:///path/to/dwd.xlsx
 - file:///path/to/dwd.parquet
 - file:///path/to/dwd.feather
 - file:///path/to/dwd.zarr
 - file:///path/to/dwd.nc
 
+The extension is read in any case: `file:///path/to/dwd.CSV` is a CSV file.
+
 CSV and spreadsheets are written the way ``to_csv`` returns them, with timestamps as ISO strings
 and a list of station ids as one comma-separated field. JSON and JSON Lines hold the same records
 with the list kept as a list, JSON having arrays of its own, rather than the response envelope
-``to_json`` wraps them in. Zarr and NetCDF go through xarray, grouped by the datasets the frame holds;
-NetCDF writes its timestamps as CF units, Zarr as the nanoseconds since the epoch it reads back.
+``to_json`` wraps them in; a `.jsonl` or `.ndjson` file is what ``to_ndjson`` returns. A `.geojson` file is what
+``to_format("geojson")`` returns. Zarr and NetCDF go through xarray, grouped by the datasets the frame holds;
+NetCDF writes its timestamps as CF units, Zarr as the nanoseconds since the epoch it reads back. A gap is `NaN` in
+both (`NaT` in a time, and an empty string in a text column, which has no `NaN`); it was `-999` in Zarr, which a reader
+took for a measurement.
 
 ```python
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
@@ -121,9 +127,9 @@ out, or the other way round, fails it.
 | Format | `to_format` | `to_target` file | CLI `--format` | REST `format` | MCP `format` |
 | --- | --- | --- | --- | --- | --- |
 | `json` | yes | `.json` | all | all | all |
-| `geojson` | yes | no | all | all | all |
+| `geojson` | yes | `.geojson` | all | all | all |
 | `csv` | yes | `.csv` | all | all | all |
-| `ndjson` | no | `.jsonl` | stations, values | stations, values | stations, values |
+| `ndjson` | yes | `.jsonl`, `.ndjson` | stations, values | stations, values | stations, values |
 | `html` | yes | no | all | all | all |
 | `png` | yes | no | all | all | all |
 | `jpg` | yes | no | all | all | all |
@@ -138,9 +144,33 @@ out, or the other way round, fails it.
 
 `to_format` takes one set of arguments for any format and gives each format those it takes: `with_metadata`,
 `with_stations` and `indent` for JSON (a stations result has no `with_stations`), `with_metadata` and `indent` for
-GeoJSON, `width`, `height`, `scale` and `max_side` for a chart, and none for CSV. A name that is none of these is a
+GeoJSON, `width`, `height`, `scale` and `max_side` for a chart, and none for CSV and NDJSON. A name that is none of these is a
 `TypeError` listing them. A format it does not know is an `UnknownFormatError`, which names the format and lists the
 supported ones; it is a `KeyError` and a `ValueError` both, so either `except` catches it.
 
 A `.json` or `.jsonl` file holds the records of the frame, where `--format=json` and `to_json` write the response
-envelope. NDJSON is what the command line and the REST API stream; the library writes the same rows as a `.jsonl` file.
+envelope. `ndjson` is those records alone, a JSON object a line: `to_format("ndjson")` and the `.jsonl` file hold
+them, and so do the lines between the `metadata` head and the `end` line that the command line and the REST API
+stream (they keep those two lines, and the stream, as the transport's; `interpolate` and `summarize` have none).
+
+InfluxDB stores readings at a time, so a frame without a `timestamp`, such as the stations, is refused with an
+`ExportRefusedError` that says so; write the stations to a file or to another database.
+
+## Formats and targets not offered
+
+These are left out on purpose, so that none is asked for again without a reason to change it.
+
+- **`to_pandas` and `to_arrow`**: a result's frame is a polars `DataFrame`, `result.df`, which converts itself
+  (`result.df.to_pandas()`, `result.df.to_arrow()`). A method on the result would add two dependencies' types to
+  its surface for a call that is one attribute away.
+- **ClickHouse**: no sink of its own, and none of the tested SQLAlchemy dialects. A ClickHouse table needs an engine
+  and a sort key that wetterdienst cannot choose for the caller. Write a Parquet file and load that.
+- **S3, GCS and Azure**: no `s3://`, `gs://` or `az://` target. A bucket needs credentials, a client and retries that
+  belong to the caller's deployment; write a file and copy it, or open the store yourself with `fsspec` or `boto3`
+  and give it `result.df.write_parquet(...)`.
+- **Markdown and HTML tables**: a table is a view of a frame rather than a format of data, and every choice (columns,
+  rounding, escaping) is a rendering decision. polars prints the frame, and `to_csv` has the data.
+- **xarray as a format**: Zarr and NetCDF are written through xarray, but `to_format` returns text or bytes and an
+  `xarray.Dataset` is neither. Build one from `result.df` where you need it.
+- **Image file targets**: a chart is a `to_format` or `to_image` result (`png`, `svg`, ...), which you write to a file
+  yourself; `to_target` takes frames, and `file://chart.png` is refused as an unknown file type.

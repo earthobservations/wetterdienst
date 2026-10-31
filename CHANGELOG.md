@@ -38,9 +38,19 @@ Types of changes:
   precipitation (stamped at the end of their window) and the soil temperature at 10 cm. A greatest
   snow depth of 999.0 is null (`raw:999`) and the trace code −0.1 of the 12 and 24 hour
   precipitation is 0.0 with `raw:-0.1` (Part of GH-3622)
+- `ndjson` is a format of `to_format`, with a new `to_ndjson()` on the results: the rows, one JSON
+  object per line, no envelope, what the `.jsonl` file holds and the REST API and the command line
+  send between their `metadata` and `end` lines (which stay as they are). `.ndjson` is a second
+  extension of that file target, and `.geojson` a new one that writes the feature collection of
+  `to_geojson`, without the `{"data": ...}` it wraps it in (GH-3449)
 
 ### Changed
 
+- **Breaking**: a Zarr file (`file://x.zarr`) holds a gap as `NaN`, and a missing time as `NaT`,
+  where it held -999 (an integer column with a gap is now a float one). It read as a measurement:
+  an air temperature of -999 degrees, a station 999 m below the sea. A reader that tested for -999
+  tests for `NaN` (`np.isnan`, or `xarray`'s `.isnull()`), as for NetCDF; a frame with a missing
+  time, such as stations that have not ended, could not be written to Zarr and now can (GH-3449)
 - **Breaking**: `to_format` refuses an argument that no format takes, with a `TypeError` listing
   the ones that are (`with_metadata`, `with_stations`, `indent`, `width`, `height`, `scale`,
   `max_side`), where it dropped it: `to_format("csv", separator=";")` wrote a comma CSV and said
@@ -81,6 +91,11 @@ Types of changes:
 
 ### Fixed
 
+- File extensions of `to_target` are read in any case: `file://x.CSV` was refused as an unknown
+  file type, the path is kept as written (GH-3449)
+- `to_target("influxdb://…")` of a frame with no `timestamp`, `station_id`, `resolution` or
+  `dataset`, such as the stations, is refused with an `ExportRefusedError` naming what is missing,
+  before the client is built, where it failed with a bare `KeyError('timestamp')` (GH-3449)
 - `noaa/ghcn` daily: a direction of the fastest or peak wind of 0 beside a speed of exactly 0
   (`wind_direction_gust_max` and its `_1min`, `_2min`, `_5sec`, `_instant`, `_1mile`) is null, with
   `raw:0` in `quality_flags`, where it came back as north. The files write that 0 for a day

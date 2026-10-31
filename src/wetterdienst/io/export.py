@@ -165,6 +165,18 @@ class ExportMixin(RefusesRenamedMembers):
         """
         return self._flatten().write_csv(**kwargs)
 
+    def to_ndjson(self) -> str:
+        """Convert the rows to NDJSON: one JSON object per line, the records of the frame and no envelope.
+
+        What the `.jsonl` and `.ndjson` file targets hold, and what the REST API and the command line send as the
+        lines between their `metadata` and `end` lines. Timestamps are ISO strings and a list stays a list.
+
+        Returns:
+            NDJSON string, a line of every row and none for a frame without rows
+
+        """
+        return self._iso_datetimes().write_ndjson()
+
     @abstractmethod
     def to_plot(self) -> go.Figure:
         """Create a plotly figure from the DataFrame."""
@@ -200,6 +212,7 @@ class ExportMixin(RefusesRenamedMembers):
         - `to_json`
         - `to_csv`
         - `to_geojson`
+        - `to_ndjson`
         - `to_image`
 
         The one set of arguments a caller builds for every format (`with_metadata`, `indent`,
