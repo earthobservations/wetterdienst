@@ -43,8 +43,8 @@ _MAPPING = {
     ("daily", "mean_radiation"): ("radiation_global", "kilojoule_per_square_meter"),
     ("monthly", "mean_radiation"): ("radiation_global", "kilojoule_per_square_meter"),
     ("annual", "mean_radiation"): ("radiation_global", "kilojoule_per_square_meter"),
-    ("monthly", "no_cold_days"): ("count_days_cold", "dimensionless"),
-    ("annual", "no_cold_days"): ("count_days_cold", "dimensionless"),
+    ("monthly", "no_cold_days"): ("count_days_temperature_air_min_2m_lt_minus_10c", "dimensionless"),
+    ("annual", "no_cold_days"): ("count_days_temperature_air_min_2m_lt_minus_10c", "dimensionless"),
     ("monthly", "no_windy_days"): ("count_days_wind_speed_rolling_mean_max_ge_10_8mps", "dimensionless"),
     ("monthly", "no_stormy_days"): ("count_days_wind_speed_rolling_mean_max_ge_20_8mps", "dimensionless"),
     ("monthly", "no_days_w_storm"): ("count_days_wind_speed_rolling_mean_max_ge_24_5mps", "dimensionless"),
@@ -216,13 +216,14 @@ def test_a_radiation_no_day_can_bring_is_null_and_keeps_the_text_dmi_wrote(monke
     df = _values(monkeypatch, "daily", "04339", _day(2021, 1, 10), _day(2021, 6, 10), drop_nulls=False).sort(
         "timestamp"
     )
+    # 2021-06-10 is a day of the midnight sun at 70 degrees north, 22.4 MJ/m2 by DMI, inside the bound
+    [june] = _source("daily", "04339", "mean_radiation", "2021-06-10")
+    assert june["value"] == 22.4
     assert df.select("value", "quality_flags").rows() == [
         (None, "manual,validity:true,raw:278.6"),
         (None, "manual,validity:true,raw:135.8"),
-        (pytest.approx(df["value"][2]), "manual,validity:true"),
+        (2240.0, "manual,validity:true"),
     ]
-    # 2021-06-10: the clear sky of a day near the pole, inside the bound
-    assert 20_000 / 10 < df["value"][2] < 60_000 / 10
 
 
 def test_the_windy_days_of_dmi_are_the_days_at_or_above_10_8_ms_of_the_ten_minute_maximum(
@@ -254,7 +255,7 @@ def test_the_cold_days_of_dmi_are_the_days_below_minus_10_not_at_or_below(monkey
     assert sum(value < -10 for value in minima) == 16
     assert sum(value <= -10 for value in minima) == 17
     monthly = _values(monkeypatch, "monthly", "04250", _day(2011, 4, 1), _day(2011, 4, 1))
-    assert _by_parameter(monthly)["count_days_cold"] == 16.0
+    assert _by_parameter(monthly)["count_days_temperature_air_min_2m_lt_minus_10c"] == 16.0
 
 
 def test_the_clear_and_cloudy_days_of_dmi_are_below_20_and_above_80_percent(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -290,16 +291,21 @@ def test_the_days_with_snow_cover_of_dmi_have_a_snow_depth_above_0_and_a_cover_a
     assert counted == _by_parameter(monthly)["count_days_snow_cover_gt_50pct"] == 15.0
 
 
-def test_the_extremes_and_sums_of_12_and_24_hours_end_with_their_hour(monkeypatch: pytest.MonkeyPatch) -> None:
-    """04339, June 2025: the 12 hour extremes of 2025-06-09 17:00 UTC are those of the 12 hourly values up to it.
+def test_the_extremes_and_sums_of_12_and_24_hours_are_stamped_by_the_end_of_their_window(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """04339, June 2025: the 12 hour extremes of the 18 UTC report are those of the 12 hourly values before it.
 
-    The precipitation of 12 and 24 hours is the gauge's own reading and within a few tenths of a millimetre of the sum
-    of the hourly values that end with the hour (0.7 and 9.4 mm of 2025-06-27 05:00 and 17:00 UTC).
+    DMI's `from` of the report is 17:00 (`to` 18:00), the start of the last hour of the window, and the value is
+    stamped 18:00, the end of the window, as dwd/poi, meteofrance/synop and noaa/ghcn stamp theirs. The precipitation
+    of 12 and 24 hours is the gauge's own reading and within a few tenths of a millimetre of the sum of the hourly
+    values of the window (0.7 and 9.4 mm of the reports of 2025-06-27 06:00 and 18:00 UTC).
     """
     rows = {(row["parameterId"], row["from"]): row["value"] for row in _source_all("hourly", "04339")}
 
-    def hours(end: dt.datetime, count: int, parameter: str) -> list[float]:
-        return [rows[(parameter, (end - dt.timedelta(hours=h)).isoformat())] for h in range(count)]
+    def hours(report: dt.datetime, count: int, parameter: str) -> list[float]:
+        """Give the hourly values of the `count` hours that end with the report, stamped by DMI's `from`."""
+        return [rows[(parameter, (report - dt.timedelta(hours=h + 1)).isoformat())] for h in range(count)]
 
     df = _values(monkeypatch, "hourly", "04339", _day(2025, 6, 9), _day(2025, 6, 27, 23))
     at = {
@@ -307,16 +313,23 @@ def test_the_extremes_and_sums_of_12_and_24_hours_end_with_their_hour(monkeypatc
         for row in df.iter_rows(named=True)
         if row["parameter"].endswith(("_last_12h", "_last_24h"))
     }
-    t17 = _day(2025, 6, 9, 17)
-    assert at[("temperature_air_max_2m_last_12h", t17)] == max(hours(t17, 12, "max_temp_w_date"))
-    assert at[("temperature_air_min_2m_last_12h", t17)] == min(hours(t17, 12, "min_temp"))
-    assert t17 - dt.timedelta(hours=12) not in {stamp for _, stamp in at}
+    report = _day(2025, 6, 9, 18)
+    assert rows[("max_temp_12h", "2025-06-09T17:00:00+00:00")] == at[("temperature_air_max_2m_last_12h", report)]
+    assert at[("temperature_air_max_2m_last_12h", report)] == max(hours(report, 12, "max_temp_w_date"))
+    assert at[("temperature_air_min_2m_last_12h", report)] == min(hours(report, 12, "min_temp"))
+    assert _day(2025, 6, 9, 17) not in {stamp for _, stamp in at}
     for key, end, count, published in (
-        ("precipitation_amount_last_12h", _day(2025, 6, 27, 5), 12, 0.7),
-        ("precipitation_amount_last_24h", _day(2025, 6, 27, 17), 24, 9.4),
+        ("precipitation_amount_last_12h", _day(2025, 6, 27, 6), 12, 0.7),
+        ("precipitation_amount_last_24h", _day(2025, 6, 27, 18), 24, 9.4),
     ):
         assert at[(key, end)] == published
         assert sum(hours(end, count, "acc_precip")) == pytest.approx(published, abs=0.31)
+    # a request that starts at the report returns it, though DMI's `from` is an hour before the start
+    edge = _values(monkeypatch, "hourly", "04339", report, report)
+    assert {row["parameter"] for row in edge.iter_rows(named=True)} >= {
+        "temperature_air_max_2m_last_12h",
+        "temperature_air_min_2m_last_12h",
+    }
 
 
 def _source_all(resolution: str, station: str) -> list[dict]:
@@ -324,8 +337,8 @@ def _source_all(resolution: str, station: str) -> list[dict]:
 
 
 def test_a_trace_in_the_12_hour_precipitation_is_zero_and_keeps_its_text(monkeypatch: pytest.MonkeyPatch) -> None:
-    """04220, 2014-01-01 05:00 UTC: DMI documents -0.1 as the code of a trace for acc_precip_past12h too."""
-    df = _values(monkeypatch, "hourly", "04220", _day(2014, 1, 1, 5), _day(2014, 1, 1, 5), drop_nulls=False)
+    """04220, report of 2014-01-01 06:00 UTC: DMI documents -0.1 as the code of a trace for acc_precip_past12h too."""
+    df = _values(monkeypatch, "hourly", "04220", _day(2014, 1, 1, 6), _day(2014, 1, 1, 6), drop_nulls=False)
     assert df.select("parameter", "value", "quality_flags").rows() == [
         ("precipitation_amount_last_12h", 0.0, "manual,validity:true,raw:-0.1"),
     ]
@@ -336,10 +349,11 @@ def test_the_vapour_pressure_is_the_mean_in_hpa_and_one_that_is_no_reading_is_nu
 ) -> None:
     """04301 daily and monthly, and the years 2023 of 06011 (kept) and 04219 (109.3 hPa, marked valid, is null)."""
     day = _values(monkeypatch, "daily", "04301", _day(2025, 6, 16), _day(2025, 6, 17))
+    source = _source("daily", "04301", "mean_vapour_pressure")
     assert _by_day(day, "pressure_vapor_mean") == {
-        row["timestamp"].date(): row["value"] for row in day.iter_rows(named=True)
+        dt.date.fromisoformat(row["from"][:10]): row["value"] for row in source
     }
-    assert len(day) == 2
+    assert sorted(_by_day(day, "pressure_vapor_mean").values()) == [4.1, 4.5]
     assert _by_parameter(_values(monkeypatch, "annual", "06011", _day(2023, 1, 1), _day(2023, 1, 1))) == {
         "pressure_vapor_mean": 10.6
     }

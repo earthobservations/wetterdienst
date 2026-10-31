@@ -1972,8 +1972,8 @@ def _dmi_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.D
 def _dmi_monthly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # `max_snow_depth` of `timeResolution=month` (read 2026-10-31, GH-3622): 24043 has 999.0 cm for September 2020,
     # as has 31259, both marked `validity: true` with 7 values in the calculation. DMI's documentation names no code
-    # for it and the 9,000 other monthly and annual values run to 138 cm, so it is a sentinel that looks like a depth
-    # in a Danish September. The 5 cm below are made up
+    # for it and the 8,490 other monthly and 1,229 annual values run to 138 cm, so it is a sentinel that looks like a
+    # depth in a Danish September. The 5 cm below are made up
     rows = [
         ("2020-08-01T00:00:00.001000+02:00", "2020-09-01T00:00:00+02:00", 5.0),
         ("2020-09-01T00:00:00.001000+02:00", "2020-10-01T00:00:00+02:00", 999.0),

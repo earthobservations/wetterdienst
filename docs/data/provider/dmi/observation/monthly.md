@@ -40,7 +40,7 @@
 | {term}`count_days_precipitation_amount_ge_0_1mm` | no_days_acc_precip_01 | Number of days of the month with 0.1 mm of precipitation or more: the days on which acc_precip was 0.1 or more. | - |
 | {term}`count_days_precipitation_amount_ge_1mm` | no_days_acc_precip_1 | Number of days of the month with 1 mm of precipitation or more: the days on which acc_precip was 1 or more. | - |
 | {term}`count_days_precipitation_amount_ge_10mm` | no_days_acc_precip_10 | Number of days of the month with 10 mm of precipitation or more: the days on which acc_precip was 10 or more. | - |
-| {term}`count_days_cold` | no_cold_days | Number of cold days of the month: the days on which the lowest temperature (min_temp) was less than -10 °C. | - |
+| {term}`count_days_temperature_air_min_2m_lt_minus_10c` | no_cold_days | Number of cold days of the month: the days on which the lowest temperature (min_temp) was less than -10 °C. | - |
 | {term}`count_days_wind_speed_rolling_mean_max_ge_10_8mps` | no_windy_days | Number of windy days of the month: the days on which max_wind_speed_10min, the highest 10 minute average wind speed, was greater than or equal to 10.8 m/s. The source's parameter list says mean wind speed, its calculation table (and its counts) the 10 minute maximum. | - |
 | {term}`count_days_wind_speed_rolling_mean_max_ge_20_8mps` | no_stormy_days | Number of stormy days of the month: the days on which max_wind_speed_10min, the highest 10 minute average wind speed, was greater than or equal to 20.8 m/s. | - |
 | {term}`count_days_wind_speed_rolling_mean_max_ge_24_5mps` | no_days_w_storm | Number of days with storm of the month: the days on which max_wind_speed_10min, the highest 10 minute average wind speed, was greater than or equal to 24.5 m/s. | - |

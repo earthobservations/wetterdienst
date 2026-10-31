@@ -2212,26 +2212,26 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "(24043 and 31259, 2020) is no depth and is null."
         ),
         ("hourly", "data", "max_temp_12h"): (
-            "Highest temperature within the last 12 hours, in °C: the highest of the 12 hourly values that "
-            "end with the hour (UTC) the value is dated by. Given at 05:00 and 17:00 UTC (the reports of 06 "
-            "and 18 UTC) and at 11:00 and 23:00 UTC by part of the stations."
+            "Highest temperature within the last 12 hours, in °C: the highest of the 12 hourly values before the "
+            "time (UTC) the value is dated by, which is the end of the 12 hours, the time of the report. Given at "
+            "06:00 and 18:00 UTC and at 12:00 and 00:00 UTC by part of the stations."
         ),
         ("hourly", "data", "min_temperature_12h"): (
-            "Lowest temperature within the last 12 hours, in °C: the lowest of the 12 hourly values that end "
-            "with the hour (UTC) the value is dated by. Given at 05:00 and 17:00 UTC (the reports of 06 and "
-            "18 UTC) and at 11:00 and 23:00 UTC by part of the stations."
+            "Lowest temperature within the last 12 hours, in °C: the lowest of the 12 hourly values before the "
+            "time (UTC) the value is dated by, which is the end of the 12 hours, the time of the report. Given at "
+            "06:00 and 18:00 UTC and at 12:00 and 00:00 UTC by part of the stations."
         ),
         ("hourly", "data", "acc_precip_past12h"): (
-            "Accumulated precipitation during the past 12 hours, in mm, read at the end of the hour (UTC) the "
-            "value is dated by and given at 05:00 and 17:00 UTC (the reports of 06 and 18 UTC). It is the "
+            "Accumulated precipitation during the past 12 hours, in mm, up to the time (UTC) the value is dated by, "
+            "which is the end of the 12 hours, the time of the report; given at 06:00 and 18:00 UTC. It is the "
             "gauge's own reading, not the sum of the hourly values, which differs from it by a few tenths of "
             "a millimetre. A trace, below 0.1 mm, is written -0.1 and is 0.0 here."
         ),
         ("hourly", "data", "acc_precip_past24h"): (
-            "Accumulated precipitation during the past 24 hours, in mm, read at the end of the hour (UTC) the "
-            "value is dated by and given at 05:00, 11:00, 17:00 and 23:00 UTC by part of the stations. It is "
-            "the gauge's own reading, not the sum of the hourly values, which differs from it by a few tenths "
-            "of a millimetre. A trace, below 0.1 mm, is written -0.1 and is 0.0 here."
+            "Accumulated precipitation during the past 24 hours, in mm, up to the time (UTC) the value is dated by, "
+            "which is the end of the 24 hours, the time of the report; given at 06:00, 12:00, 18:00 and 00:00 UTC by "
+            "part of the stations. It is the gauge's own reading, not the sum of the hourly values, which differs "
+            "from it by a few tenths of a millimetre. A trace, below 0.1 mm, is written -0.1 and is 0.0 here."
         ),
         ("hourly", "data", "temp_soil_10"): (
             "Soil temperature at a depth of 10 cm, in °C: the mean of the hour (UTC), given by part of the stations."

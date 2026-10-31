@@ -68,12 +68,6 @@ def test_a_published_parameter_is_mapped_to_the_name_of_its_statistic(resolution
     assert (parameters[parameter_id].name, parameters[parameter_id].unit) == _MAPPING[(resolution, parameter_id)]
 
 
-def test_the_hourly_radiation_is_the_mean_intensity() -> None:
-    """The hour is a mean in W/m2; the radiation of a day, month and year is a sum (test_radiation_counts_extras.py)."""
-    parameters = {p.name_original: p for p in DmiObservationMetadata["hourly"].datasets[0].parameters}
-    assert parameters["mean_radiation"].name == "radiation_global_intensity_mean"
-
-
 def _values(
     monkeypatch: pytest.MonkeyPatch,
     resolution: str,

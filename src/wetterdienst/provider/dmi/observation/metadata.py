@@ -210,7 +210,7 @@ _VAPOUR_PRESSURE = {
 #   the months of 2011 to 2015 at five stations (all 35 months of 06180).
 _COUNTS_OF_DAYS_PAST_A_THRESHOLD = [
     {
-        "name": "count_days_cold",
+        "name": "count_days_temperature_air_min_2m_lt_minus_10c",
         "name_original": "no_cold_days",
         "unit": "dimensionless",
     },
@@ -281,11 +281,12 @@ _HOURLY_PARAMETERS = [
         "name_original": "mean_cloud_cover",
         "unit": "percent",
     },
-    # the extremes and the sums of the 12 and 24 hours up to the end of the hour, reported at 06 and 18 UTC (12 hours)
-    # and at 00, 06, 12 and 18 UTC (24 hours) by part of the stations. The temperatures are the highest and lowest of
-    # the 12 hourly values that end with their hour (75 of 75 values of 04339, June 2025, for both); the precipitation
-    # is the gauge's own reading and within a few tenths of a millimetre of the sum of the hourly values (33 of 39
-    # 12 hour and 38 of 44 24 hour values of the month are the sum to a tenth)
+    # the extremes and the sums of the 12 and 24 hours up to the report, at 06 and 18 UTC (12 hours; the temperatures
+    # also at 12 and 00 UTC for a few stations) and at 00, 06, 12 and 18 UTC (24 hours). DMI's `from` is the start of
+    # the last hour of the window, so the reader stamps them by `to`, the end of the window (`api.py`). The
+    # temperatures are the highest and lowest of the 12 hourly values before the report (75 of 75 values of 04339, June
+    # 2025, for both); the precipitation is the gauge's own reading and within a few tenths of a millimetre of the sum
+    # of the hourly values (33 of 39 12 hour and 38 of 44 24 hour values of the month are the sum to a tenth)
     {
         "name": "temperature_air_max_2m_last_12h",
         "name_original": "max_temp_12h",

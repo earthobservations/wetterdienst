@@ -273,11 +273,6 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "dimensionless",
         "Number of days on which the mean total cloud cover was less than 20 percent.",
     ),
-    CanonicalParameter(
-        "count_days_cold",
-        "dimensionless",
-        "Number of days on which the minimum air temperature fell below -10 degrees Celsius.",
-    ),
     CanonicalParameter("count_days_cooling_degree", "dimensionless", "Number of days on which cooling was required."),
     CanonicalParameter(
         "count_days_frost",
@@ -374,6 +369,11 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "count_days_summer",
         "dimensionless",
         "Number of days on which the maximum air temperature reached at least 25 degrees Celsius.",
+    ),
+    CanonicalParameter(
+        "count_days_temperature_air_min_2m_lt_minus_10c",
+        "dimensionless",
+        "Number of days on which the minimum air temperature fell below -10 degrees Celsius.",
     ),
     CanonicalParameter(
         "count_days_tropical_night",
