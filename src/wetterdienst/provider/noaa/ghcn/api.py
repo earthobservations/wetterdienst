@@ -431,12 +431,15 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
         # AWDR, the average daily wind direction, is 0 beside an AWND of 0 (a calm day) as much as it is a bearing
         # beside a wind that blows: at USS0054K01S (read 2026-10-30) 2 of its 11 directions of 0 have a speed of 0 and 5
         # have one above, besides the 360 of 2025-06-30. So are the directions of the fastest and peak winds (9 station
-        # files read 2026-10-30): of the 1,799 zeros of WDFG 1,798 have a WSFG of 0 (1,789 at CAN03031640, source flag
-        # C), and 123 zeros of WDF5 at USW00014755 (1998 to 2002) are beside a WSF5 of 4.0 to 59.0 m/s, besides its 360
-        # for north. WDF1, WDF2 and WDF5 have 2 of 3, 8 of 23 and 11 of 134 zeros beside a speed of 0, WDFI and WDFM
-        # none in 8,410 and 28,815 directions. The readme gives no code for a day without a direction. The 0 beside a
-        # speed of exactly 0 is a calm and null, and stays as `raw:0` in `quality_flags` (GH-3222); the 0 beside a
-        # wind that blows stays (GH-3648)
+        # files read 2026-10-30): of the 1,799 zeros of WDFG 1,798 have a WSFG of 0. 1,789 of them are at CAN03031640
+        # (source flag C), where every WSFG of 0 sits beside a WDFG of 0 and the smallest WSFG above 0 is 8.6 m/s
+        # (31 km/h): the gust below 31 km/h that Environment Canada does not report (`_GUST_NOT_REPORTED` of
+        # eccc/observation), no calm. There 0 and 0 are no wind and no direction either. At USW00014755 123 zeros of
+        # WDF5 (1998 to 2002) are beside a WSF5 of 4.0 to 59.0 m/s, besides its 360 for north. WDF1, WDF2 and WDF5
+        # have 2 of 3, 8 of 23 and 11 of 134 zeros beside a speed of 0, WDFI and WDFM none in 8,410 and 28,815
+        # directions. The readme gives no code for a day without a direction. The 0 beside a speed of exactly 0 is no
+        # direction, a calm or a gust not reported, and is null with `raw:0` in `quality_flags` (GH-3222); the 0 beside
+        # a wind that blows stays (GH-3648)
         df = with_speed_beside(df, GHCND_WIND_SPEED_OF_DIRECTION, on=["station_id", "timestamp"])
         value, raw = null_sentinels(
             pl.col("value"),

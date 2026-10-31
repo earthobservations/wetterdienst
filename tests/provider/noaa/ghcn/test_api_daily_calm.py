@@ -2,11 +2,12 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """The calm of the directions of the fastest and peak winds of GHCN daily (GH-3648, the rule of GH-3222).
 
-The daily files write a direction of 0 for a day without one: beside a speed of 0 it is a calm, null with `raw:0`, and
-beside a wind that blows it is a reading that stays. The rows are the ones NOAA wrote, read key-less on 2026-10-30 from
-the per-station files at ncei.noaa.gov/data/global-historical-climatology-network-daily/access/ and cut to the
-columns of the pair; the speeds are the tenths of m/s of the readme. WDFI and WDFM have no 0 in 8,410 and 28,815
-directions of the 9 files read, so their rows are made up (`test_the_instant_and_the_mile_follow_the_rule`).
+The daily files write a direction of 0 for a day without one: beside a speed of 0 it is no direction, a calm or a gust
+the source did not report, null with `raw:0`, and beside a wind that blows it is a reading that stays. The rows are the
+ones NOAA wrote, read key-less on 2026-10-30 from the per-station files at
+ncei.noaa.gov/data/global-historical-climatology-network-daily/access/ and cut to the columns of the pair; the speeds
+are the tenths of m/s of the readme. WDFI and WDFM have no 0 in 8,410 and 28,815 directions of the 9 files read, so
+their rows are made up (`test_the_instant_and_the_mile_follow_the_rule`).
 """
 
 import datetime as dt
@@ -85,7 +86,7 @@ _BLOWING = [
 
 
 @pytest.mark.parametrize(("element", "station", "date", "direction", "speed"), _CALMS, ids=[c[0] for c in _CALMS])
-def test_a_direction_of_0_beside_a_speed_of_0_is_a_calm(
+def test_a_direction_of_0_beside_a_speed_of_0_is_no_direction(
     monkeypatch: pytest.MonkeyPatch,
     element: str,
     station: str,
@@ -93,14 +94,20 @@ def test_a_direction_of_0_beside_a_speed_of_0_is_a_calm(
     direction: tuple[str, str],
     speed: tuple[str, str],
 ) -> None:
-    """The 0 of the direction is null and keeps `raw:0` as the last token; the speed of 0 is a reading."""
+    """The 0 of the direction is null and keeps `raw:0` as the last token.
+
+    The speed of 0 of the US rows is a reading. At CAN03031640 (flag C) it is not: every WSFG of 0 sits beside a WDFG of
+    0 and the smallest above is 8.6 m/s, Environment Canada's "gust below 31 km/h, not reported", so that speed is not
+    asserted here (its nulling is GH-3655).
+    """
     speed_element = _PAIRS[element][1]
     body = _file(station, "TEST STATION", date, {element: direction, speed_element: speed})
     df = _daily(monkeypatch, station, body, date, element)
     day = dt.date.fromisoformat(date)
     flag = direction[1].split(",")[2]
     assert _rows(df, _PAIRS[element][0]) == [(day, None, f"source:{flag},raw:0")]
-    assert _rows(df, _PAIRS[element][2]) == [(day, 0.0, f"source:{flag}")]
+    if station != "CAN03031640":
+        assert _rows(df, _PAIRS[element][2]) == [(day, 0.0, f"source:{flag}")]
 
 
 @pytest.mark.parametrize(("element", "station", "date", "direction", "speed"), _BLOWING, ids=[c[0] for c in _BLOWING])

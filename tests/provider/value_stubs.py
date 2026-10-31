@@ -2210,7 +2210,7 @@ STUBS = [
         "noaa/ghcn daily/gusts",
         _ghcn_daily_gusts,
         reading=("wind_direction_gust_max", 360.0),
-        # the 0 beside a speed of 0 is a calm and null; the one beside a wind that blows is a reading and stays
+        # the 0 beside a speed of 0 is no direction and null; the one beside a wind that blows is a reading and stays
         tokens=(("wind_direction_gust_max", "0", None),),
     ),
     ValueStub(
