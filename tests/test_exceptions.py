@@ -171,6 +171,7 @@ def test_the_os_errors_keep_the_layout_of_their_built_in_class() -> None:
 _CONSTRUCTOR_ARGS: dict[type[BaseException], tuple] = {
     DownloadError: ("https://example.com/a", "timed out"),
     ImageTooLargeError: (1, 2, 3),
+    UnknownFormatError: ("xml", ("csv", "json")),
 }
 
 
