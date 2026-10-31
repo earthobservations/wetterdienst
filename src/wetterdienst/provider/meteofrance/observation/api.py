@@ -1146,7 +1146,8 @@ def _sentinels(resolution_name: str, station_id: str) -> list[Sentinel | OutOfRa
             rules.append(
                 NoReading(
                     pl.col("parameter").eq(_HUMIDITY_COLUMN)
-                    & pl.col(_DEW_POINT_BESIDE).str.strip_chars().cast(pl.Float64, strict=False).lt(0.0)
+                    & pl.col(_DEW_POINT_BESIDE).str.strip_chars().cast(pl.Float64, strict=False).lt(0.0),
+                    check="consistency",
                 )
             )
     return rules

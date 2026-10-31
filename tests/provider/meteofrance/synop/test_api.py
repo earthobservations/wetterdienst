@@ -182,7 +182,7 @@ def test_meteofrance_synop_api_a_tn12_that_copies_the_tx12_of_its_row_is_null_wi
     df = _values(monkeypatch, _COPIED_TN12, parameters, drop_nulls=False)
     minimum = df.filter(pl.col("parameter") == "temperature_air_min_2m_last_12h")
     assert minimum.get_column("value").round(2).to_list() == [None, 12.6, None]
-    assert minimum.get_column("quality_flags").to_list() == ["raw:303.75", None, None]
+    assert minimum.get_column("quality_flags").to_list() == ["rejected:consistency,raw:303.75", None, None]
     if len(parameters) == 2:
         maximum = df.filter(pl.col("parameter") == "temperature_air_max_2m_last_12h")
         assert maximum.get_column("value").round(2).to_list() == [30.6, 14.7, 17.0]
@@ -415,21 +415,26 @@ def test_meteofrance_synop_api_a_reading_no_sensor_produced_is_null_with_its_tex
         return by_parameter[parameter].get_column("quality_flags").to_list()
 
     assert values("pressure_air_site") == [500.0, 1100.0, None, None]
-    assert raw("pressure_air_site") == [None, None, "raw:11170", "raw:110000.5"]
+    assert raw("pressure_air_site") == [None, None, "rejected:range,raw:11170", "rejected:range,raw:110000.5"]
     assert values("pressure_air_sea_level") == [850.0, 1100.0, None, None]
-    assert raw("pressure_air_sea_level") == [None, None, "raw:84990", "raw:110000.5"]
+    assert raw("pressure_air_sea_level") == [None, None, "rejected:range,raw:84990", "rejected:range,raw:110000.5"]
     assert values("temperature_air_2m") == [-90.0, 60.0, None, None]
-    assert raw("temperature_air_2m") == [None, None, "raw:369.15", "raw:183.1"]
+    assert raw("temperature_air_2m") == [None, None, "rejected:range,raw:369.15", "rejected:range,raw:183.1"]
     assert values("temperature_dew_point_2m") == [-90.0, 60.0, None, None]
-    assert raw("temperature_dew_point_2m") == [None, None, "raw:358.95", "raw:333.2"]
+    assert raw("temperature_dew_point_2m") == [None, None, "rejected:range,raw:358.95", "rejected:range,raw:333.2"]
     assert values("precipitation_amount_last_1h") == [600.0, 0.0, None, None]
-    assert raw("precipitation_amount_last_1h") == [None, "raw:-0.1", "raw:800.0", "raw:-0.2"]
+    assert raw("precipitation_amount_last_1h") == [
+        None,
+        "raw:-0.1",
+        "rejected:range,raw:800.0",
+        "rejected:range,raw:-0.2",
+    ]
     assert values("precipitation_amount_last_3h") == [1200.0, None, None, None]
-    assert raw("precipitation_amount_last_3h") == [None, None, "raw:1200.1", None]
+    assert raw("precipitation_amount_last_3h") == [None, None, "rejected:range,raw:1200.1", None]
     assert values("precipitation_amount_last_6h") == [805.0, None, None, None]
-    assert raw("precipitation_amount_last_6h") == [None, None, "raw:1200.1", None]
+    assert raw("precipitation_amount_last_6h") == [None, None, "rejected:range,raw:1200.1", None]
     assert values("precipitation_amount_last_24h") == [999.4, 2000.0, None, None]
-    assert raw("precipitation_amount_last_24h") == [None, None, "raw:2000.1", None]
+    assert raw("precipitation_amount_last_24h") == [None, None, "rejected:range,raw:2000.1", None]
 
 
 @pytest.mark.parametrize(
@@ -525,9 +530,9 @@ def test_meteofrance_synop_api_a_temperature_below_zero_is_null_where_there_is_n
         assert minimum.get_column("value").to_list() == pytest.approx([-3.0, None])
     else:
         assert dew_point.get_column("value").to_list() == [None, 0.0]
-        assert dew_point.get_column("quality_flags").to_list() == ["raw:255.65", None]
+        assert dew_point.get_column("quality_flags").to_list() == ["rejected:range,raw:255.65", None]
         assert minimum.get_column("value").to_list() == [None, None]
-        assert minimum.get_column("quality_flags").to_list() == ["raw:270.15", None]
+        assert minimum.get_column("quality_flags").to_list() == ["rejected:range,raw:270.15", None]
 
 
 @pytest.mark.parametrize(
@@ -538,7 +543,14 @@ def test_meteofrance_synop_api_a_temperature_below_zero_is_null_where_there_is_n
             11.0,
             ["101500", "41450", "95500", "93000", "107000", "108800"],
             [1015.0, None, 955.0, None, 1070.0, None],
-            [None, "raw:41450", None, "raw:93000", None, "raw:108800"],
+            [
+                None,
+                "rejected:elevation+range,raw:41450",
+                None,
+                "rejected:elevation,raw:93000",
+                None,
+                "rejected:elevation,raw:108800",
+            ],
         ),
         # DUMONT D'URVILLE, 43 m: 1008.1 hPa expected; the deep lows of 2010-09-10 (938.2 hPa) and of 2020-12-28 (944.1)
         # are readings, 909.5 and 932.9 are not
@@ -546,21 +558,21 @@ def test_meteofrance_synop_api_a_temperature_below_zero_is_null_where_there_is_n
             43.0,
             ["93820", "94410", "90950", "93290"],
             [938.2, 944.1, None, None],
-            [None, None, "raw:90950", "raw:93290"],
+            [None, None, "rejected:elevation,raw:90950", "rejected:elevation,raw:93290"],
         ),
         # MONT AIGOUAL, 1,567 m: 838.6 hPa expected, so what is a pressure at sea level is none
         (
             1567.0,
             ["84000", "100500", "78000", "76000"],
             [840.0, None, 780.0, None],
-            [None, "raw:100500", None, "raw:76000"],
+            [None, "rejected:elevation,raw:100500", None, "rejected:elevation,raw:76000"],
         ),
         # no elevation in the list: only the bounds of the world, 50,000 to 110,000 Pa
         (
             None,
             ["41450", "50000", "100500", "110000.5"],
             [None, 500.0, 1005.0, None],
-            ["raw:41450", None, None, "raw:110000.5"],
+            ["rejected:range,raw:41450", None, None, "rejected:range,raw:110000.5"],
         ),
     ],
 )
@@ -638,7 +650,7 @@ def test_meteofrance_synop_api_the_humidity_beside_a_dew_point_below_zero_is_nul
     assert df.get_column("parameter").unique().to_list() == ["humidity_relative"]
     assert df.get_column("value").to_list() == kept
     flags = df.get_column("quality_flags").to_list()
-    assert flags == ([f"raw:{humidity[0]}", None] if kept[0] is None else [None, None])
+    assert flags == ([f"rejected:consistency,raw:{humidity[0]}", None] if kept[0] is None else [None, None])
 
 
 def test_meteofrance_synop_api_the_humidity_beside_a_dew_point_of_zero_or_a_missing_one_stays(

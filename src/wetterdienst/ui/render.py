@@ -10,6 +10,7 @@ module imports no web framework, so the command line can without the `restapi` e
 
 from __future__ import annotations
 
+import functools
 import json
 from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeAlias, TypeVar
 
@@ -17,6 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, WithJsonSchema
 
 from wetterdienst.io.formats import renders_with_kaleido
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.plausibility import CHECKS, Mode
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.options import SkipThreshold, StationWindowEndBuffer  # noqa: TC001, needed at runtime by pydantic
 from wetterdienst.ui.response_metadata import ResponseMetadata, alerts_metadata, metadata_to_dict, response_metadata
@@ -115,6 +117,15 @@ class StationsSettings(BaseModel):
     )
 
 
+def _plausibility_setting(check: str) -> Any:  # noqa: ANN401
+    """Make the setting that reports the mode of a plausibility check, set by the request field of the same name."""
+    return Field(
+        validation_alias=f"plausibility_{check}",
+        description=f"The mode of the check `{check}`: `hard` nulls a value it finds implausible "
+        f"(`rejected:{check}` in `quality_flags`), `soft` keeps it and flags it (`suspect:{check}`).",
+    )
+
+
 class ValuesSettings(_AppliedSettings):
     """The settings of `/api/values`."""
 
@@ -122,6 +133,11 @@ class ValuesSettings(_AppliedSettings):
     station_window_end_buffer: StationWindowEndBuffer | None = Field(
         validation_alias="station_window_end_buffer", description=_STATION_WINDOW_END_BUFFER_DESCRIPTION
     )
+    plausibility_range: Mode = _plausibility_setting("range")
+    plausibility_elevation: Mode = _plausibility_setting("elevation")
+    plausibility_stuck: Mode = _plausibility_setting("stuck")
+    plausibility_consistency: Mode = _plausibility_setting("consistency")
+    plausibility_floor: Mode = _plausibility_setting("floor")
 
 
 _STATION_DISTANCE_DESCRIPTION = (
@@ -197,6 +213,8 @@ def _applied_settings(model: type[_M], options: Options) -> _M:
         return {quantity: unit.name for quantity, unit in converter.targets.items()}
 
     reported: dict[str, Callable[[], object]] = {
+        # the modes are the checks of one option, reported one by one as they are set
+        **{f"plausibility_{check}": functools.partial(options.plausibility.mode, check) for check in CHECKS},
         "unit_targets": unit_targets,
         "drop_nulls": lambda: options.drop_nulls_effective,
         "geo_station_distance": lambda: options.model_dump(include={"geo_station_distance"})["geo_station_distance"],

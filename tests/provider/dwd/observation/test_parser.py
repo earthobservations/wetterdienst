@@ -17,7 +17,8 @@ from polars.testing import assert_frame_equal
 
 from wetterdienst import Period
 from wetterdienst.model.metadata import DatasetModel
-from wetterdienst.model.quality_flags import raw_column
+from wetterdienst.model.plausibility import Plausibility, applying
+from wetterdienst.model.quality_flags import join_quality_flags, raw_column
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata
 from wetterdienst.provider.dwd.observation.parser import (
     null_implausible_station_pressure,
@@ -328,13 +329,22 @@ MOISTURE_COLUMNS = ("absf_std", "vp_std", "tf_std", "rf_std", "td_std")
 MOISTURE_HEADER = "STATIONS_ID;MESS_DATUM;QN_8;ABSF_STD;VP_STD;TF_STD;P_STD;TT_STD;RF_STD;TD_STD;eor\n"
 
 
-def _parse_moisture(rows: str, period: Period = Period.RECENT) -> pl.DataFrame:
+def _written(df: pl.DataFrame, column: str) -> list[str | None]:
+    """Write the text the parser kept beside a column as `join_quality_flags` writes it into `quality_flags`."""
+    return df.select(join_quality_flags(raw=pl.col(raw_column(column)))).get_column("quality_flags").to_list()
+
+
+def _parse_moisture(
+    rows: str, period: Period = Period.RECENT, plausibility: Plausibility | None = None
+) -> pl.DataFrame:
+    """Parse a hourly moisture file, with every check as it is by default but `stuck`, which is hard here."""
     file = File(url="", content=BytesIO((MOISTURE_HEADER + rows).encode("utf8")), status=200)
-    return parse_climate_observations_data(
-        files=[file],
-        dataset=DwdObservationMetadata.hourly.moisture,
-        period=period,
-    ).collect()
+    with applying(plausibility or Plausibility(stuck="hard")):
+        return parse_climate_observations_data(
+            files=[file],
+            dataset=DwdObservationMetadata.hourly.moisture,
+            period=period,
+        ).collect()
 
 
 def test_parse_dwd_hourly_moisture_nulls_minus_99_9() -> None:
@@ -382,7 +392,7 @@ def test_parse_dwd_hourly_moisture_rule_is_per_dataset_and_per_column() -> None:
     # pressure nulls with its text (GH-3135)
     df = _parse_moisture("14006;2025010501;    3;   3.2;   4.8;  -1.6;  -99.9;  -0.1;  95.0;  -1.2;eor\n")
     assert df.get_column("p_std").to_list() == [None]
-    assert df.get_column(raw_column("p_std")).to_list() == ["-99.9"]
+    assert _written(df, "p_std") == ["rejected:range,raw:-99.9"]
     # the same column names under another dataset are not this dataset's rule
     other = File(
         url="",
@@ -415,7 +425,11 @@ def _moisture_file(rows: str) -> File:
 
 
 def _raw_pressure(df: pl.DataFrame) -> list[str | None]:
-    return df.get_column(raw_column("p_std")).to_list()
+    """Give the text of the pressure the parser kept, without the `rejected:stuck` the stuck rule writes before it."""
+    return [
+        flags.removeprefix("rejected:stuck,").removeprefix("raw:") if flags is not None else None
+        for flags in _written(df, "p_std")
+    ]
 
 
 def test_parse_dwd_hourly_moisture_nulls_a_pressure_that_is_one_value_in_the_file() -> None:
@@ -494,21 +508,23 @@ def test_parse_dwd_hourly_moisture_pressure_constant_is_judged_per_file() -> Non
     """Test that the files put together are judged one by one: a constant file does not null a moving one."""
     constant = _moisture_file(_moisture_rows(["997.3"] * 500))
     moving = _moisture_file(_moisture_rows([f"{990 + hour % 100 / 10:.1f}" for hour in range(500)]))
-    df = parse_climate_observations_data(
-        files=[constant, moving],
-        dataset=DwdObservationMetadata.hourly.moisture,
-        period=Period.HISTORICAL,
-    ).collect()
+    with applying(Plausibility(stuck="hard")):
+        df = parse_climate_observations_data(
+            files=[constant, moving],
+            dataset=DwdObservationMetadata.hourly.moisture,
+            period=Period.HISTORICAL,
+        ).collect()
     assert df.get_column("p_std").null_count() == 500
     assert df.get_column("p_std").head(500).null_count() == 500
     assert df.get_column("p_std").tail(500).null_count() == 0
     # and a value a moving file holds once is not made a constant by the other file's value
     same = _moisture_file(_moisture_rows(["997.3"] * 100 + [f"{990 + hour % 100 / 10:.1f}" for hour in range(400)]))
-    df = parse_climate_observations_data(
-        files=[constant, same],
-        dataset=DwdObservationMetadata.hourly.moisture,
-        period=Period.HISTORICAL,
-    ).collect()
+    with applying(Plausibility(stuck="hard")):
+        df = parse_climate_observations_data(
+            files=[constant, same],
+            dataset=DwdObservationMetadata.hourly.moisture,
+            period=Period.HISTORICAL,
+        ).collect()
     assert df.get_column("p_std").tail(500).null_count() == 0
 
 
@@ -915,7 +931,14 @@ def test_parse_dwd_hourly_urban_wind_nulls_a_negative_speed_and_keeps_the_text()
         "       399;   2017060705;    2;0;115.50;250;eor\n",
     )
     assert df.get_column("windgeschwindigkeit").to_list() == ["8.30", None, "15.20", "0.00", "113.30", None]
-    assert df.get_column(raw_column("windgeschwindigkeit")).to_list() == [None, "-0.80", None, None, None, "115.50"]
+    assert _written(df, "windgeschwindigkeit") == [
+        None,
+        "rejected:range,raw:-0.80",
+        None,
+        None,
+        None,
+        "rejected:range,raw:115.50",
+    ]
 
 
 @pytest.mark.parametrize(
@@ -939,7 +962,7 @@ def test_parse_dwd_data_nulls_a_negative_speed_in_every_dataset_that_has_one(
     df = _parse(dataset, header + "\n" + ";".join(cells) + "\n")
     for speed in speeds:
         assert df.get_column(speed).to_list() == [None], speed
-        assert df.get_column(raw_column(speed)).to_list() == ["-1.5"], speed
+        assert _written(df, speed) == ["rejected:range,raw:-1.5"], speed
 
 
 def test_parse_dwd_hourly_pressure_nulls_a_pressure_above_the_highest_ever_measured() -> None:
@@ -960,7 +983,7 @@ def test_parse_dwd_hourly_pressure_nulls_a_pressure_above_the_highest_ever_measu
     )
     assert df.get_column("p").to_list() == ["1009.8", "1009.4", "1084.8", None, "690.0"]
     assert df.get_column("p0").to_list() == ["1003.9", None, "1085.0", None, "700.0"]
-    assert df.get_column(raw_column("p0")).to_list() == [None, "1093.3", None, "499.9", None]
+    assert _written(df, "p0") == [None, "rejected:range,raw:1093.3", None, "rejected:range,raw:499.9", None]
 
 
 def test_parse_dwd_out_of_range_rule_is_per_parameter_and_leaves_a_missing_value_alone() -> None:
@@ -981,7 +1004,7 @@ def test_parse_dwd_out_of_range_rule_is_per_parameter_and_leaves_a_missing_value
     assert df.get_column("vp_std").to_list() == ["0.4", None, "0.4", "0.4"]
     assert df.get_column(raw_column("tt_std")).to_list() == [None, "-999", None, None]
     assert df.get_column("p_std").to_list() == [None, "995.9", "995.9", "995.9"]
-    assert df.get_column(raw_column("p_std")).to_list() == ["1100.0", None, None, None]
+    assert _written(df, "p_std") == ["rejected:range,raw:1100.0", None, None, None]
 
 
 def test_parse_dwd_daily_pressure_mean_is_bound_and_the_vapour_pressure_is_not() -> None:
@@ -1000,7 +1023,7 @@ def test_parse_dwd_daily_pressure_mean_is_bound_and_the_vapour_pressure_is_not()
         "433;20250105;10;5.4;99.9;eor\n",
     )
     assert df.get_column("pm").to_list() == ["726.57", "683.5", "1041.6", None, None]
-    assert df.get_column(raw_column("pm")).to_list() == [None, None, None, "1100.0", "99.9"]
+    assert _written(df, "pm") == [None, None, None, "rejected:range,raw:1100.0", "rejected:range,raw:99.9"]
     assert df.get_column("vpm").to_list() == ["5.1", "5.2", "5.3", "1100.0", "5.4"]
 
 
@@ -1026,7 +1049,16 @@ def test_dwd_hourly_pressure_is_held_to_the_pressure_the_elevation_expects() -> 
     )
     df = null_implausible_station_pressure(parsed.lazy(), DwdObservationMetadata.hourly.pressure, 48.0).collect()
     assert df.get_column("p0").to_list() == ["1038.9", None, "1009.6", None, "932.6", "1082.4", None, None]
-    assert df.get_column(raw_column("p0")).to_list() == [None, "909.5", None, "932.4", None, None, "1082.6", "-999"]
+    assert _written(df, "p0") == [
+        None,
+        "rejected:elevation,raw:909.5",
+        None,
+        "rejected:elevation,raw:932.4",
+        None,
+        None,
+        "rejected:elevation,raw:1082.6",
+        "raw:-999",
+    ]
     # the sea level pressure is left to the world's bounds
     assert df.get_column("p").to_list() == [
         "1014.7",
@@ -1061,5 +1093,5 @@ def test_dwd_daily_mean_station_pressure_is_held_to_the_pressure_the_elevation_e
         parsed.lazy(), DwdObservationMetadata.daily.climate_summary, 2956.0
     ).collect()
     assert df.get_column("pm").to_list() == ["726.57", None]
-    assert df.get_column(raw_column("pm")).to_list() == [None, "968.6"]
+    assert _written(df, "pm") == [None, "rejected:elevation,raw:968.6"]
     assert df.get_column("vpm").to_list() == ["5.1", "780.0"]

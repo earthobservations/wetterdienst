@@ -907,21 +907,24 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Global Irradiance, as the energy of the last hour: the DMO values are in J/cm2 (the file states no "
             "unit; they are about a tenth of the MOSMIX kJ/m2 number for the same hour). ICON writes "
             "a little below 0 in the night hours (mostly above -0.2 J/cm2, at a few stations to about -0.8); "
-            "that is returned as 0.0, with the number kept as `raw:` in `quality_flags`."
+            "that is returned as 0.0, with the number kept as `raw:` "
+            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`)."
         ),
         ("hourly", "icon", "radl3"): "Long wave radiation balance during the last 3 hours",
         ("hourly", "icon", "rads3"): (
             "Short wave radiation balance during the last 3 hours. ICON writes a little below 0 in the "
-            "night hours (to about -0.5 J/cm2); that is returned as 0.0, with the number kept as `raw:` in "
-            "`quality_flags`."
+            "night hours (to about -0.5 J/cm2); that is returned as 0.0, with the number kept as `raw:` "
+            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`)."
         ),
         ("hourly", "icon", "rr1"): (
             "Total precipitation during the last hour. ICON writes a little below 0 now and then (to about -0.1 mm); "
-            "that is returned as 0.0, with the number kept as `raw:` in `quality_flags`."
+            "that is returned as 0.0, with the number kept as `raw:` "
+            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`)."
         ),
         ("hourly", "icon", "rr3"): (
             "Total precipitation during the last 3 hours. ICON writes a little below 0 now and then (to about "
-            "-0.04 mm); that is returned as 0.0, with the number kept as `raw:` in `quality_flags`."
+            "-0.04 mm); that is returned as 0.0, with the number kept as `raw:` "
+            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`)."
         ),
         ("hourly", "icon", "rrs1c"): "Snow-Rain-Equivalent during the last hour",
         ("hourly", "icon", "rrs3c"): "Snow-Rain-Equivalent during the last 3 hours",
@@ -956,11 +959,13 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Global Irradiance, as the energy of the last hour: the DMO values are in J/cm2 (the file states no "
             "unit; they are about a tenth of the MOSMIX kJ/m2 number for the same hour). ICON writes "
             "a little below 0 in the night hours (mostly above -0.2 J/cm2, at a few stations to about -0.8); "
-            "that is returned as 0.0, with the number kept as `raw:` in `quality_flags`."
+            "that is returned as 0.0, with the number kept as `raw:` "
+            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`)."
         ),
         ("hourly", "icon_eu", "rr1"): (
             "Total precipitation during the last hour. ICON writes a little below 0 now and then (to about -0.1 mm); "
-            "that is returned as 0.0, with the number kept as `raw:` in `quality_flags`."
+            "that is returned as 0.0, with the number kept as `raw:` "
+            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`)."
         ),
         ("hourly", "icon_eu", "rrs1c"): "Snow-Rain-Equivalent during the last hour",
         ("hourly", "icon_eu", "t5cm"): "Temperature 5cm above surface",
@@ -1564,8 +1569,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "moisture", "p_std"): (
             "Hourly value of barometric pressure. A station without a barometer carries one station constant in every "
             "row of a file, which is no reading: where a file of at least 500 readings holds at most three distinct "
-            "values (a constant that changed once or twice) it is null, and the value stays in quality_flags as the "
-            "last token, e.g. raw:997.3."
+            "values (a constant that changed once or twice) it is flagged `suspect:stuck` in quality_flags and kept "
+            "(the check `stuck`, soft by default), or null with `rejected:stuck,raw:997.3` where the check is hard."
         ),
         ("hourly", "moisture", "rf_std"): "Relative humidity.",
         ("hourly", "moisture", "td_std"): "Dew point temperature in 2m above ground.",

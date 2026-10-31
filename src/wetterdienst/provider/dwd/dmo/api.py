@@ -545,12 +545,17 @@ class DwdDmoValues(TimeseriesValues[DatasetModel]):
             return df
         # ICON writes a little below 0 for the precipitation and the radiation of a step now and then (-0.02 mm; 2769
         # of 459,732 values of `RR1` in one run, to -0.10; `Rad1h` to -0.77 J/cm2 at night), which is no rain and no
-        # energy: 0.0, with the number kept as `raw:` (GH-3263)
+        # energy: 0.0, with the number kept as `raw:` (GH-3263); with a soft `floor` check the value is kept as it is,
+        # flagged `suspect:floor` (GH-3676)
         df = clear_sentinels(df, _DMO_NON_NEGATIVE, Floor(0.0))
         # the file also writes `-0.00` (308 of the 3077 negative-looking cells), a negative zero that is not below 0 and
-        # would still print a minus sign. Nothing is below 0 now, so the absolute value only drops that sign (a `+ 0.0`
-        # is folded away by polars)
-        df = df.with_columns(pl.col(column).abs() for column in _DMO_NON_NEGATIVE if column in df.columns)
+        # would still print a minus sign: a zero is written as `0.0`. A value below 0 stays as it is, where a soft
+        # `floor` check keeps it
+        df = df.with_columns(
+            pl.when(pl.col(column).eq(0)).then(pl.lit(0.0)).otherwise(pl.col(column)).alias(column)
+            for column in _DMO_NON_NEGATIVE
+            if column in df.columns
+        )
         df = unpivot_with_raw(df, index=["timestamp"])
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`); the stamp is a text,
         # which the core rejects, so it is read here, as the UTC its `Z` says

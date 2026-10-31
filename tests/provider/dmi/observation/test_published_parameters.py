@@ -236,5 +236,5 @@ def test_a_cloud_cover_above_the_whole_sky_is_null_and_keeps_its_text(monkeypatc
     ).sort("timestamp")
     assert df.select("value", "quality_flags").rows() == [
         (1.0, "manual,validity:true"),
-        (None, "manual,validity:true,raw:112"),
+        (None, "manual,validity:true,rejected:range,raw:112"),
     ]

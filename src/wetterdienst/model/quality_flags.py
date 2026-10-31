@@ -34,6 +34,13 @@ world-wide bound: 909 hPa at a station at sea level) is mapped by ``OutOfRange``
 
 A model that writes a little below the floor of its quantity (an amount of precipitation of -0.02 mm) rounds to
 nothing: ``Floor`` maps what is below the floor to the floor and keeps the number as ``raw``, as a trace is (GH-3263).
+
+``OutOfRange``, ``NoReading`` and ``Floor`` are judgements, and each belongs to one plausibility check (``range``,
+``elevation``, ``stuck``, ``consistency``, ``floor``: ``model/plausibility.py``) whose mode the request chooses
+(GH-3676). A ``hard`` check does what is described above and writes ``rejected:<check>`` before ``raw:``; a ``soft``
+one keeps the value and writes ``suspect:<check>``, with no ``raw:``. A ``Sentinel`` is the source's own code and has no
+mode. The readers do not pass the mode: ``null_sentinels`` takes it from the plausibility in effect, and the
+``raw`` text it returns carries the verdict to ``join_quality_flags``, which writes the tokens.
 """
 
 from __future__ import annotations
@@ -41,6 +48,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, TypeVar
 
 import polars as pl
+
+from wetterdienst.model.plausibility import CHECKS, REJECTED, SUSPECT, Plausibility, active
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -54,6 +63,18 @@ RAW_TOKEN = rf"(^|,){RAW}:"
 RAW_SUFFIX = "__raw"
 
 Frame = TypeVar("Frame", pl.DataFrame, pl.LazyFrame)
+
+# the `raw` text a reader carries beside a value is the text of a sentinel, or, where a plausibility check judged the
+# value, the tokens of the verdict behind a start mark: `rejected:range+stuck,raw:4021` for a value that was rejected,
+# `suspect:range` for one that was kept. `join_quality_flags` writes them as they are, without the mark, and the text of
+# a sentinel as `raw:<text>`. The mark is a control character no source writes.
+_MARK = "\x1e"
+# what `_merge_raw` reads the tokens with: the kind, the checks, and the text of a rejected value
+_KIND = rf"^{_MARK}([a-z]+):"
+_CHECKS = rf"^{_MARK}[a-z]+:([a-z+]+)"
+_TEXT = r"(?s),raw:(.*)$"
+# the order the names of several checks are written in, which is the order of a merge as well
+_WRITE_ORDER = tuple(sorted(CHECKS))
 
 
 def join_quality_flags(quality: pl.Expr | None = None, /, **kinds: pl.Expr) -> pl.Expr:
@@ -74,20 +95,43 @@ def join_quality_flags(quality: pl.Expr | None = None, /, **kinds: pl.Expr) -> p
     tokens = []
     if quality is not None:
         tokens.append(_as_code(quality))
-    tokens.extend(
-        pl.when(code.is_not_null()).then(pl.lit(f"{kind}:") + code)
-        for kind, code in ((kind, _as_code(expr)) for kind, expr in kinds.items())
-    )
+    for kind, expr in kinds.items():
+        if kind == RAW:
+            # the verdict of a plausibility check comes before the text, which stays the last token
+            tokens.append(_raw_tail(expr))
+            continue
+        code = _as_code(expr)
+        tokens.append(pl.when(code.is_not_null()).then(pl.lit(f"{kind}:") + code))
     if not tokens:
         msg = "at least one flag is needed"
         raise ValueError(msg)
-    joined = pl.concat_str(tokens, separator=",", ignore_nulls=True)
-    return pl.when(joined.str.len_chars() > 0).then(joined).alias(QUALITY_FLAGS)
+    # one occurrence of the tokens, which hold the `raw` expression of a reader: a `when` would repeat them
+    return pl.concat_str(tokens, separator=",", ignore_nulls=True).replace("", None).alias(QUALITY_FLAGS)
+
+
+def _raw_tail(raw: pl.Expr) -> pl.Expr:
+    """Write the ``raw`` text of a reading as the tokens it stands for: the verdict of a check, then ``raw:<text>``.
+
+    The text is a sentinel's as the source wrote it (``raw:-999``), or the tokens of a verdict behind the mark (see
+    ``_MARK``): ``suspect:range`` with no text, ``rejected:range,raw:4021`` with the number. Null where the reading was
+    not mapped.
+    """
+    # stripped, and null where it is blank, as every flag is; the mark is no whitespace and stays
+    text = _as_code(raw)
+    return pl.when(text.str.starts_with(_MARK)).then(text.str.slice(1)).otherwise(pl.lit("raw:") + text)
 
 
 def _as_code(expr: pl.Expr) -> pl.Expr:
     """Read a flag as the text of its code: stripped, and null where it is blank."""
     return expr.cast(pl.String).str.strip_chars().replace("", None)
+
+
+def _checked(check: str) -> str:
+    """Refuse a name that is no plausibility check."""
+    if check not in CHECKS:
+        msg = f"{check!r} is no plausibility check: {', '.join(CHECKS)}"
+        raise ValueError(msg)
+    return check
 
 
 class Sentinel:
@@ -132,6 +176,8 @@ class OutOfRange:
             reads the value in, before any conversion).
         high: the highest value that is a reading, included.
         where: restricts the rule to the values this expression selects (a parameter), the range being the one of it.
+        check: the plausibility check the rule belongs to, which decides what happens to a value outside: ``range`` for
+            a bound of the parameter, ``elevation`` for a station pressure the elevation does not allow.
 
     The bounds are to be generous, such that no record lies outside them: they find a value that is a defect of the
     source, not an extreme. A NaN or an infinity lies outside every range, and is mapped as any other value. The
@@ -140,7 +186,7 @@ class OutOfRange:
 
     """
 
-    def __init__(self, low: float, high: float, *, where: pl.Expr | None = None) -> None:
+    def __init__(self, low: float, high: float, *, where: pl.Expr | None = None, check: str = "range") -> None:
         """Declare a range, refusing one that holds no value."""
         if not low <= high:
             msg = f"the range {low}..{high} holds no value"
@@ -148,6 +194,7 @@ class OutOfRange:
         self.low = low
         self.high = high
         self.where = where
+        self.check = _checked(check)
 
 
 class NoReading:
@@ -162,12 +209,16 @@ class NoReading:
 
     Args:
         where: the values this expression selects, the station, the parameter and the period of the defect.
+        check: the plausibility check the rule belongs to: ``stuck`` for a sensor that held still or was dead over a
+            period, which is what the rule is for; ``consistency`` for a reading that the one beside it, of another
+            parameter of the same file, contradicts; ``range`` for a bound on the value alone.
 
     """
 
-    def __init__(self, where: pl.Expr) -> None:
+    def __init__(self, where: pl.Expr, *, check: str = "stuck") -> None:
         """Declare the rule."""
         self.where = where
+        self.check = _checked(check)
 
 
 class Floor:
@@ -187,6 +238,9 @@ class Floor:
         where: restricts the rule to the values this expression selects (a parameter).
 
     """
+
+    #: the plausibility check of every floor
+    check = "floor"
 
     def __init__(self, floor: float, *, where: pl.Expr | None = None) -> None:
         """Declare the floor."""
@@ -218,7 +272,7 @@ def station_pressure_range(
     digit at a station near sea level (a P0 of 909.5 hPa at 48 m) or one that is a pressure of another height (968.6
     hPa at the Zugspitze, 2,956 m, where 705 hPa are expected): 75 hPa are about 650 m of height, which the weather at
     the station stays within: the deep lows of Dumont d'Urville (938 hPa at 43 m, where 1008 are expected) are inside.
-    A reading outside is null and keeps the number as ``raw`` (``OutOfRange``).
+    A reading outside is null and keeps the number as ``raw`` (``OutOfRange``), under the check ``elevation``.
 
     Args:
         elevation: the elevation of the station in m, as its catalogue gives it.
@@ -236,6 +290,7 @@ def station_pressure_range(
         (expected - STATION_PRESSURE_TOLERANCE) * per_hectopascal,
         (expected + STATION_PRESSURE_TOLERANCE) * per_hectopascal,
         where=where,
+        check="elevation",
     )
 
 
@@ -320,11 +375,12 @@ def with_speed_beside(
     return df.join(speeds, on=[*on, "parameter"], how="left", maintain_order="left")  # ty: ignore[invalid-return-type]
 
 
-def null_sentinels(
+def null_sentinels(  # noqa: C901
     value: pl.Expr,
     *sentinels: Sentinel | OutOfRange | NoReading | Floor,
     text: bool = True,
     non_numeric: bool = False,
+    plausibility: Plausibility | None = None,
 ) -> tuple[pl.Expr, pl.Expr]:
     """Map the sentinels of a source to null and return the text the source wrote for each, with the value.
 
@@ -335,17 +391,28 @@ def null_sentinels(
     A sentinel matches by number (``"-999"`` matches ``-999``, ``-999.0`` and ``" -999.00"``), after the text is
     stripped, and ``"NaN"`` matches a NaN.
 
+    A ``Sentinel`` is the source's own code and always maps its value. An ``OutOfRange``, a ``NoReading`` and a
+    ``Floor`` are judgements, whose mode the plausibility check each belongs to has in ``plausibility`` (GH-3676): a
+    ``hard`` one maps the value (to null, a ``Floor`` to its floor) and the ``raw`` text carries ``rejected:<check>``
+    with the number; a ``soft`` one leaves the value as it is and the ``raw`` text carries ``suspect:<check>``. A
+    sentinel decides before any judgement; a value that several checks reject is rejected by all of them, and one that
+    several checks only find suspect is suspect for all of them, their names joined with ``+``. A rejected value
+    carries the verdict of the hard checks alone. A NaN or an infinity outside a range is no judgement: it is mapped as
+    a code is, null with its text.
+
     Args:
         value: the expression of the reading. With ``text=True`` the text the source wrote, a String column,
             which is what a reader that sets ``infer_schema_length=0`` has; with ``text=False`` a number.
         *sentinels: the sentinels, ranges and periods (``Sentinel``, ``OutOfRange``, ``NoReading``,
-            ``Floor``), the first that matches decides.
+            ``Floor``), the first sentinel that matches decides, then the first hard rule.
         text: whether ``value`` is the text of the source. Then the ``raw`` text is the stripped cell as it was
             written (``-999.0`` stays ``-999.0``); from a number it is the text the matching sentinel was
             declared with, or for an ``OutOfRange`` or a ``Floor`` the number as short as it goes.
         non_numeric: also map every non-blank text that is no number (``mq``, ``---``, ``Ip``, ``nan``, ``inf``) to
             null, with the text as its ``raw`` token (a comma in it is written as a semicolon, as the tokens are
             separated by commas). Needs ``text=True``.
+        plausibility: the mode of every check; the plausibility in effect (``model.plausibility.active``) by default,
+            which is the request's while a ``TimeseriesValues`` runs the reader.
 
     Returns:
         ``(cleaned, raw)``. With ``text=True`` the cleaned value is the stripped text, String, unless
@@ -357,41 +424,149 @@ def null_sentinels(
     if non_numeric and not text:
         msg = "`non_numeric` reads the text of the source, so it needs `text=True`"
         raise ValueError(msg)
+    modes = plausibility if plausibility is not None else active()
     cell = value.str.strip_chars() if text else value
     number = cell.cast(pl.Float64, strict=False)
     reads_number = text and (non_numeric or _maps_to_a_value(sentinels))
     # a number keeps its dtype (an integer column stays one), a text its String unless it is read as a number
     base = number if reads_number else (cell if text else value)
     null = pl.lit(None, dtype=pl.Float64 if reads_number else (pl.String if text else None))
+    # a number is written as short as it goes, `4021.0` as `4021`; a text as it was written
+    written = cell if text else _written(number)
 
-    branches: list[tuple[pl.Expr, pl.Expr, pl.Expr]] = []
+    # what decides first: the codes of the source, then the numbers that are no number
+    coded: list[tuple[pl.Expr, pl.Expr, pl.Expr]] = []
+    # then the judgements of a hard check, which null the value (a floor sets it to the floor), and those of a soft one,
+    # which only flag it, each by the check they belong to
+    rejects: list[pl.Expr] = []
+    floors: list[tuple[pl.Expr, pl.Expr, pl.Expr]] = []
+    hard_hits: dict[str, list[pl.Expr]] = {}
+    soft_hits: dict[str, list[pl.Expr]] = {}
+    # where the ranges apply, one entry for each, None for a range of every value
+    ranged: list[pl.Expr | None] = []
     for sentinel in sentinels:
+        if isinstance(sentinel, Sentinel):
+            mapped = null if sentinel.to is None else pl.lit(sentinel.to, dtype=pl.Float64)
+            for sentinel_text in sentinel.texts:
+                hit = _is(cell, number, sentinel_text, text=text)
+                if sentinel.where is not None:
+                    hit = hit & sentinel.where
+                coded.append((hit.fill_null(value=False), mapped, cell if text else pl.lit(sentinel_text)))
+            continue
         if isinstance(sentinel, NoReading):
             # a blank cell or a text that is no number is nothing to take back
-            chosen = sentinel.where & number.is_not_null()
-            branches.append((chosen.fill_null(value=False), null, cell if text else _written(number)))
-            continue
-        if isinstance(sentinel, (OutOfRange, Floor)):
+            chosen = (sentinel.where & number.is_not_null()).fill_null(value=False)
+        else:
             outside = _outside(number, sentinel)
+            if isinstance(sentinel, OutOfRange):
+                # a NaN or an infinity lies outside every range, and is no judgement of the number but a text that is
+                # none, mapped as a code is (below, ahead of the judgements, which it therefore never reaches)
+                ranged.append(sentinel.where)
             if sentinel.where is not None:
                 outside = outside & sentinel.where
-            # a number is written as short as it goes, `4021.0` as `4021`; a text as it was written
-            written = cell if text else _written(number)
-            to = pl.lit(sentinel.floor, dtype=pl.Float64) if isinstance(sentinel, Floor) else null
-            branches.append((outside.fill_null(value=False), to, written))
-            continue
-        mapped = null if sentinel.to is None else pl.lit(sentinel.to, dtype=pl.Float64)
-        for sentinel_text in sentinel.texts:
-            hit = _is(cell, number, sentinel_text, text=text)
-            if sentinel.where is not None:
-                hit = hit & sentinel.where
-            branches.append((hit.fill_null(value=False), mapped, cell if text else pl.lit(sentinel_text)))
+            chosen = outside.fill_null(value=False)
+        if modes.mode(sentinel.check) == "hard":
+            if isinstance(sentinel, Floor):
+                floors.append((chosen, pl.lit(sentinel.floor, dtype=pl.Float64), written))
+            else:
+                rejects.append(chosen)
+            hard_hits.setdefault(sentinel.check, []).append(chosen)
+        else:
+            soft_hits.setdefault(sentinel.check, []).append(chosen)
+    if ranged:
+        # one term for all the ranges, not one for each
+        bad = ~number.is_finite() & number.is_not_null()
+        if all(where is not None for where in ranged):
+            bad = bad & pl.any_horizontal(*ranged)
+        coded.append((bad.fill_null(value=False), null, written))
     if non_numeric:
         # a free text may hold the separator of the tokens
         # (a NaN or an infinity is no reading either; `cast` takes `nan` and `inf` for numbers)
         no_number = number.is_null() | number.is_nan() | number.is_infinite()
-        branches.append(((cell.str.len_chars() > 0) & no_number, null, cell.str.replace_all(",", ";")))
-    return _first_hit(branches, 1, base), _first_hit(branches, 2, pl.lit(None, dtype=pl.String))
+        coded.append(((cell.str.len_chars() > 0) & no_number, null, cell.str.replace_all(",", ";")))
+    # the rules that null a value are one branch: they map it alike, and a long list of them (a range for each
+    # parameter) would otherwise be as many branches of the plan
+    nulled = [(pl.any_horizontal(*rejects), null, written)] if rejects else []
+    cleaned = _first_hit([*coded, *nulled, *floors], 1, base)
+    raw = _first_hit(coded, 2, _verdict(hard_hits, soft_hits, written))
+    return cleaned, raw
+
+
+def _verdict(hard: dict[str, list[pl.Expr]], soft: dict[str, list[pl.Expr]], written: pl.Expr) -> pl.Expr:
+    """Give the ``raw`` text of a value that no code mapped: the tokens of the checks' verdict, null if none hit.
+
+    A value one hard check rejects carries the hard checks that did, and the number; one that only soft checks find
+    suspect carries those checks, and no number, the value being kept. Each rule is in the expression once.
+    """
+    if not hard and not soft:
+        return pl.lit(None, dtype=pl.String)
+    parts = []
+    if hard:
+        parts.append(_annotate(REJECTED, _names(hard), pl.lit(",raw:") + written))
+    if soft:
+        parts.append(_annotate(SUSPECT, _names(soft), pl.lit("")))
+    return pl.coalesce(*parts)
+
+
+def _names(hits: dict[str, list[pl.Expr]]) -> pl.Expr:
+    """Write the names of the checks that hit, joined with ``+`` in the order of ``_WRITE_ORDER``; null if none did."""
+    names = pl.concat_str(
+        [pl.when(pl.any_horizontal(*hits[name])).then(pl.lit(name)) for name in _WRITE_ORDER if name in hits],
+        separator="+",
+        ignore_nulls=True,
+    )
+    return names.replace("", None)
+
+
+def _annotate(kind: str | pl.Expr, names: pl.Expr, suffix: pl.Expr) -> pl.Expr:
+    """Write the tokens of a verdict behind the mark; null where there are no names."""
+    kind = pl.lit(kind) if isinstance(kind, str) else kind
+    return pl.concat_str(pl.lit(_MARK), kind, pl.lit(":"), names, suffix)
+
+
+def _merge_raw(previous: pl.Expr, new: pl.Expr) -> pl.Expr:
+    """Lay the ``raw`` text of a later rule on the one a column already carries.
+
+    The first text stays where there is one, as it always did, with two exceptions that keep the verdicts of the
+    checks together (GH-3676). Two soft verdicts become one with both checks (``suspect:range+stuck``). A value that a
+    later hard check rejected, or that a later sentinel mapped, carries that and not the suspicion before it, which a
+    rejected value does not keep. A rejected value keeps its own text, and a code before a judgement stays.
+    """
+    previous_annotated = previous.str.starts_with(_MARK)
+    new_annotated = new.str.starts_with(_MARK)
+    previous_kind, new_kind = previous.str.extract(_KIND, 1), new.str.extract(_KIND, 1)
+    previous_checks, new_checks = previous.str.extract(_CHECKS, 1), new.str.extract(_CHECKS, 1)
+    previous_rejected, new_rejected = previous_kind.eq(REJECTED), new_kind.eq(REJECTED)
+    both = (
+        pl.concat_str(previous_checks, new_checks, separator="+")
+        .str.split("+")
+        .list.unique()
+        .list.sort()
+        .list.join("+")
+    )
+    previous_text, new_text = previous.str.extract(_TEXT, 1), new.str.extract(_TEXT, 1)
+    text = pl.when(previous_rejected).then(previous_text).otherwise(new_text)
+    together = _annotate(
+        pl.when(previous_rejected | new_rejected).then(pl.lit(REJECTED)).otherwise(pl.lit(SUSPECT)),
+        pl.when(previous_rejected.eq(new_rejected))
+        .then(both)
+        .when(new_rejected)
+        .then(new_checks)
+        .otherwise(previous_checks),
+        pl.when(text.is_not_null()).then(pl.lit(",raw:") + text).otherwise(pl.lit("")),
+    )
+    return (
+        pl.when(previous.is_null())
+        .then(new)
+        .when(new.is_null())
+        .then(previous)
+        .when(previous_annotated & new_annotated)
+        .then(together)
+        # a code that follows a suspicion is the verdict on the value it nulled
+        .when(previous_annotated & previous_kind.eq(SUSPECT))
+        .then(new)
+        .otherwise(previous)
+    )
 
 
 def _maps_to_a_value(sentinels: tuple[Sentinel | OutOfRange | NoReading | Floor, ...]) -> bool:
@@ -459,7 +634,7 @@ def clear_sentinels(
             pl.col(column), *sentinels, text=schema[column] == pl.String, non_numeric=non_numeric
         )
         if raw_column(column) in schema:
-            raw = pl.coalesce(pl.col(raw_column(column)), raw)
+            raw = _merge_raw(pl.col(raw_column(column)), raw)
         expressions += [cleaned.alias(column), raw.alias(raw_column(column))]
     # polars types `with_columns` on the union `DataFrame | LazyFrame`, not on the constrained `Frame` TypeVar,
     # so the checker cannot see that a DataFrame in gives a DataFrame out and a LazyFrame a LazyFrame

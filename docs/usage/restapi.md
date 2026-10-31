@@ -591,13 +591,16 @@ what each of them takes, keyed by endpoint, with `unit_targets` naming the unit 
 
 It takes the settings query parameters of the three endpoints, and answers what they resolve to
 over the server's, for each endpoint that takes the parameter: `humanize`, `convert_units` and
-`unit_targets` apply to all three, `station_window_end_buffer` to `values` alone, and
+`unit_targets` apply to all three, `station_window_end_buffer` and the five `plausibility_<check>` to `values` alone, and
 `min_gain_of_value_pairs` and `num_additional_stations` to `interpolate` and `summarize`. A value an endpoint refuses is refused here the same way, and an
 unknown parameter too, so a set of settings can be checked before fetching. Nothing is stored on
 the server: the parameters apply to that one answer.
 
 ```bash
 http localhost:7890/api/settings
+
+# What a values request with a soft range check would get.
+http localhost:7890/api/settings plausibility_range==soft
 
 # What a values request with shape=wide would get: the wide shape turns drop_nulls off.
 http localhost:7890/api/settings shape==wide
@@ -685,7 +688,25 @@ http localhost:7890/api/values provider==dwd network==observation parameters==da
 
 # Acquire ICON data (the latest forecast run; a past timestamp has none).
 http localhost:7890/api/values provider==dwd network==dmo parameters==hourly/icon/temperature_air_2m stations==01001
+
+# Keep a number the range check finds implausible, flagged `suspect:range`, and null a stuck sensor (`rejected:stuck`).
+http localhost:7890/api/values provider==dwd network==observation parameters==hourly/moisture/pressure_air_site stations==01048 timestamp==2024-01 plausibility_range==soft plausibility_stuck==hard
+
+# Every check soft but the range: what the source wrote, flagged, and the range rejected.
+http localhost:7890/api/values provider==dwd network==observation parameters==hourly/moisture/pressure_air_site stations==01048 timestamp==2024-01 plausibility==soft plausibility_range==hard
 ```
+
+`plausibility=soft` (or `hard`) sets the mode of every check at once, and a `plausibility_<check>` given beside it wins:
+`plausibility==soft plausibility_range==hard` is every check soft but the range, and everything a source wrote comes back
+flagged.
+
+The plausibility checks `range`, `elevation`, `stuck`, `consistency` and `floor` each take a mode, `hard` or `soft`, as
+the query parameters `plausibility_range`, `plausibility_elevation`, `plausibility_stuck`,
+`plausibility_consistency` and `plausibility_floor` (the environment variable of a server is
+`WD_TS_PLAUSIBILITY__RANGE` and so on). A hard check nulls the value and writes `rejected:<check>,raw:<number>` into
+`quality_flags`, a soft check keeps the value and writes `suspect:<check>`; a check not named keeps the server's mode.
+See [plausibility checks](../data/plausibility.md). `interpolate` and `summarize` take no mode: they leave out a
+suspect value in any case, and so do `stripes/values` and `stripes/image`.
 
 A request that asks for more than the [limits](#limits) allow is refused;
 [Getting more than the limit](large-requests.md) shows how to get the data anyway.

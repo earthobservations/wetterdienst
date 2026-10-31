@@ -432,6 +432,10 @@ _AIR = "airTemperature"
 #: verdict `quality` where a sensor has stopped
 _DWD_QUALITY = "_dwd_quality"
 
+#: the column `_flag_stuck_sensors` marks the readings of a stopped sensor in, which is what the `stuck` check judges
+#: (GH-3676): a soft check keeps the value and writes `suspect:stuck`, a hard one nulls it and writes `rejected:stuck`
+_STUCK_COLUMN = "_stuck"
+
 #: a road surface this many kelvin warmer than the air of the same minute, with the sun below `_NIGHT_BELOW_DEGREES`,
 #: is no reading (GH-3624). By night a road radiates and cools to the air above it or below, and what it keeps of the
 #: day's heat is a few kelvin: of the 62,895 night readings of 722 stations in the 39 hours from 2026-10-29 20:00 to
@@ -496,11 +500,17 @@ def _no_reading_rules(latitude: float | None, longitude: float | None) -> tuple[
     `_AIR_BESIDE`, null where there is none (or it is outside its range, or DWD marks it suspect), and then the rule
     stands aside too. The rule of the humidity reads the value alone.
     """
-    rules = [NoReading(where=pl.col("parameter").eq("relativeHumidity") & pl.col("value").lt(_NO_HUMIDITY_BELOW))]
+    rules = [
+        NoReading(
+            where=pl.col("parameter").eq("relativeHumidity") & pl.col("value").lt(_NO_HUMIDITY_BELOW), check="range"
+        )
+    ]
     if latitude is not None and longitude is not None:
         night = _sun_elevation(pl.col("timestamp"), latitude, longitude).lt(_NIGHT_BELOW_DEGREES)
         warmer = (pl.col("value") - pl.col(_AIR_BESIDE)).gt(_SURFACE_WARMER_THAN_AIR)
-        rules.append(NoReading(where=pl.col("parameter").eq("roadSurfaceTemperature") & night & warmer))
+        rules.append(
+            NoReading(where=pl.col("parameter").eq("roadSurfaceTemperature") & night & warmer, check="consistency")
+        )
     return tuple(rules)
 
 
@@ -525,6 +535,8 @@ def _flag_stuck_sensors(df: pl.DataFrame, source: str) -> pl.DataFrame:
     different claim: not that a sensor has stopped, but that no reading can be that cold, and it
     needs no six hours to be seen.
     """
+    # a frame that was marked is marked again from its readings
+    df = df.drop(_STUCK_COLUMN, strict=False)
     if df.is_empty():
         return df
     keys = ["station_id", "parameter"]
@@ -626,12 +638,10 @@ def _flag_stuck_sensors(df: pl.DataFrame, source: str) -> pl.DataFrame:
         # and only where there is a reading to judge, as the parse itself does: a station-minute
         # arriving twice, once with the reading and once with a null for this descriptor, would
         # otherwise have the null marked suspect too
-        .with_columns(
-            quality=pl.when(pl.col("_stuck") & pl.col("value").is_not_null())
-            .then(pl.lit(1.0))
-            .otherwise(pl.col("quality")),
-        )
-        .select(df.columns)
+        .with_columns(_stuck=(pl.col("_stuck") & pl.col("value").is_not_null()).fill_null(value=False))
+        .with_columns(quality=pl.when(pl.col("_stuck")).then(pl.lit(1.0)).otherwise(pl.col("quality")))
+        # the verdict goes on as a column, for the `stuck` check to judge (`_STUCK_COLUMN`)
+        .select(*df.columns, _STUCK_COLUMN)
     )
 
 
@@ -945,19 +955,24 @@ class DwdRoadValues(TimeseriesValues[DatasetModel]):
             into=_AIR_BESIDE,
         )
         # a value no sensor can have produced is null, and keeps the number DWD wrote (`_RANGES`, GH-3222), and so is
-        # a value inside every range that is no reading (`_no_reading_rules`, GH-3624)
+        # a value inside every range that is no reading (`_no_reading_rules`, GH-3624), as the checks `range` and
+        # `consistency` say; the readings of a stopped sensor are the check `stuck`, soft by default (GH-3676)
+        if _STUCK_COLUMN not in df.columns:
+            df = df.with_columns(pl.lit(value=False).alias(_STUCK_COLUMN))
         value, raw = null_sentinels(
             pl.col("value"),
             *_OUT_OF_RANGE,
             *_no_reading_rules(*station.select("latitude", "longitude").row(0)),
+            NoReading(pl.col(_STUCK_COLUMN), check="stuck"),
             text=False,
         )
         df = df.select(
             "parameter",
             "timestamp",
             value.alias("value"),
-            # the internal 0 / 1 verdict (see `_quality`), written as a flag: "0", "1" or null
-            join_quality_flags(pl.col("quality").cast(pl.Int8), raw=raw),
+            # the internal 0 / 1 verdict of DWD's flag (see `_quality`), written as a flag: "0", "1" or null. Not the
+            # one `_flag_stuck_sensors` overwrites: a stopped sensor is the check `stuck`, whose token follows
+            join_quality_flags(pl.col(_DWD_QUALITY).cast(pl.Int8), raw=raw),
             UPDATED,
         )
         return self._note_files_with_rows(df, parameter_or_dataset)

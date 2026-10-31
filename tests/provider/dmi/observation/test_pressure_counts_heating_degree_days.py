@@ -255,5 +255,5 @@ def test_a_pressure_outside_the_physical_range_is_null_and_keeps_its_text(monkey
     ).sort("timestamp")
     assert df.select("value", "quality_flags").rows() == [
         (1018.6, "manual,validity:true"),
-        (None, "manual,validity:true,raw:1500"),
+        (None, "manual,validity:true,rejected:range,raw:1500"),
     ]

@@ -25,11 +25,13 @@ documents `validity` as whether the climatologists consider the value valid: "In
 generally not correct". It is `false` mostly for Greenland (station 04339 Ittoqqortoormiit has daily
 precipitation totals of 1978 mm and annual ones of 9574 mm marked so) and rarely for Denmark. The
 library returns those values as they are and leaves it to the caller to filter on the flag, with one
-exception: a value outside the generous physical range of its parameter (60 degrees of air
+exception: a value outside the generous physical range of its parameter, the check `range`, hard by default (60 degrees of air
 temperature; for precipitation 600 mm in an hour, 500 mm in a day, 1,500 mm in a month and 4,000 mm
 in a year, the last three where DMI validated 183.5, 641.8 and 3,291.3 mm at most; the largest amounts of a day or
 of half an hour, `precipitation_amount_max` and `precipitation_amount_max_30min`, 500 mm) is null and
-keeps what DMI wrote as the last token of `quality_flags`, `manual,validity:false,raw:17802`. So the
+keeps what DMI wrote as the last token of `quality_flags`, `manual,validity:false,rejected:range,raw:17802`. With
+`plausibility={"range": "soft"}` the value is kept and flagged `manual,validity:false,suspect:range`
+([plausibility checks](../../../plausibility.md)). So the
 monthly 17,802 mm of 04339 for 2011-10 and 3,229.9 mm for 2012-10, its daily 1978 and 989 mm of 2011
 and its yearly 9,574.3 mm (2014) and 6,026.5 mm (2015) are nulled. Its yearly 3,253.4 mm of 2012, the
 sum of that 3,229.9 mm and two months, is below the bound and is not: station 04390 has a year of

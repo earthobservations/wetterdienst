@@ -673,6 +673,39 @@ flags its source publishes for it, null where the source gives none. What a code
 provider, so a code from one says nothing about one from another. The tokens, the codes of each provider and the
 sentinels that are kept as `raw:<text>` are on the [quality flags](../data/quality-flags.md) page.
 
+#### Plausibility checks
+
+A number no sensor can have produced (4021 °C for a daily maximum, 909.5 hPa at a station at sea level, a barometer
+that held one value for a month) is judged by a **check**, and the option `plausibility` chooses what happens to it,
+per check: `"hard"` makes the value null and keeps the number as `rejected:<check>,raw:<number>` in `quality_flags`,
+`"soft"` keeps the value and flags it `suspect:<check>`. The checks are `range`, `elevation`, `stuck`, `consistency`
+and `floor`; all are hard but `stuck`, which is soft because its verdict depends on the window of the request. A check
+not named keeps its mode, and `WD_TS_PLAUSIBILITY__RANGE=soft` sets one for a host. The codes a source documents
+(`-999`, a calm, a trace) are no check and have no mode.
+
+```python
+import polars as pl
+from wetterdienst import Options
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+request = DwdObservationRequest(
+    parameters=[("daily", "climate_summary", "pressure_air_site_mean")],
+    start="2023-01-01",
+    end="2023-01-31",
+    options=Options(plausibility={"range": "soft"}),  # or options={"plausibility": {"range": "soft"}}
+)
+values = request.filter_by_station_id("01048").values().all()
+# the values a soft check kept, flagged `suspect:range`
+suspect = values.df.filter(pl.col("quality_flags").str.contains(r"(^|,)suspect:"))
+```
+
+`Options(plausibility="soft")` sets every check at once (everything a source wrote, flagged), and a check named beside
+it, as in the environment (`WD_TS_PLAUSIBILITY=soft` with `WD_TS_PLAUSIBILITY__RANGE=hard`), wins.
+
+Interpolation, summary and climate stripes leave out a suspect value in any mode, and `skip_empty` counts the unflagged
+values alone. [Plausibility checks](../data/plausibility.md)
+describes each check, the networks and datasets it covers, the tokens with filters for them, and the caveats.
+
 ### Results
 
 What a request answers is a result, and the results are what a caller reads:
