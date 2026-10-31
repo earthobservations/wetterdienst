@@ -112,17 +112,17 @@ def _datasets(network: str, *, has: Callable[[str, DatasetModel], bool]) -> set[
 def _derived() -> dict[str, dict[str, set[str]]]:
     """Derive the datasets of `COVERAGE` from what the core is told and from the metadata of the networks.
 
-    Each is read off the plan the core makes of a dataset (`plan_for`) or off the parameters a provider's rule names, so
-    that a dataset that gains a parameter the rule names, or a resolution that gains a bound, shows here. A network whose
-    provider hands the core a rule for every dataset it has (the road and SYNOP networks have one each) is held to all
-    of them, which is what `COVERAGE` says, and not to a reading of its code.
+    Each is read off the plan the core makes of a dataset (`plan_for`) or off the parameters a provider's rule names,
+    so that a dataset that gains a parameter the rule names, or a resolution that gains a bound, shows here. A network
+    whose provider hands the core a rule for every dataset it has (the road and SYNOP networks have one each) is held
+    to all of them, which is what `COVERAGE` says, and not to a reading of its code.
     """
 
     def named(dataset: DatasetModel, names: Iterable[str]) -> bool:
         return any(parameter.name in set(names) for parameter in dataset)
 
     everything = {"dwd/road": ("15_minutes/data",), "meteofrance/synop": ("subdaily/data",)}
-    constant = {network: {dataset_id for dataset_id in datasets} for network, datasets in CONSTANT.items()}
+    constant = {network: set(datasets) for network, datasets in CONSTANT.items()}
     return {
         "range": {
             **{
