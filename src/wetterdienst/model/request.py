@@ -30,7 +30,7 @@ from wetterdienst.exceptions import (
     ReversedTimeIntervalError,
     StationNotFoundError,
 )
-from wetterdienst.io.export import ExportMixin
+from wetterdienst.io.sql_filter import filter_by_sql
 from wetterdienst.metadata.parameter_table import INTERPOLATABLE_PARAMETERS
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.renamed import refuse_renamed_arguments
@@ -1220,7 +1220,7 @@ class TimeseriesRequest:
         df_all = self.all().df
         # the same filter a result runs, rather than a second copy of it naming the two timestamp
         # columns a stations frame happens to have and calling whatever comes back UTC
-        df = ExportMixin._filter_by_sql(df_all, sql)  # noqa: SLF001
+        df = filter_by_sql(df_all, sql)
         if df.is_empty():
             log.info(f"No stations were found for sql {sql}")
         return StationsResult(request=self, df=df, _df_all=df_all, _stations_filter=StationsFilter.BY_SQL)
