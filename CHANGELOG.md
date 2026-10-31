@@ -38,6 +38,11 @@ Types of changes:
   the number kept as `raw:-0.16` in `quality_flags`; they were negative, and a `-0.00` was `-0.0`.
   `rr1` and `rr3` already did this. Nothing to change in a caller; filter on `raw:` for the old
   numbers (GH-3263)
+- The `imgw/hydrology` page now says what a stage series can not tell: IMGW has moved the zero of
+  some gauges without saying when (Warszawa-Nadwilanówka and Brudnice in November 1990), so a stage
+  jumps there while the discharge does not, and no flag marks it. It also says that about 500
+  stations are only in the archive, with no station row and so no way to request their values,
+  because IMGW publishes no position for them (Part of GH-3611)
 
 ### Fixed
 

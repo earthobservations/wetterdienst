@@ -2,6 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for the IMGW hydrology API."""
 
+import csv
 import datetime as dt
 from io import BytesIO
 from zoneinfo import ZoneInfo
@@ -243,6 +244,36 @@ def test_imgw_hydrology_api_monthly_recent_export_formats() -> None:
         values = request.values().all()
         discharge = values.df.filter(pl.col("parameter").str.starts_with("discharge")).sort("parameter")
         assert discharge.get_column("value").to_list() == [expected_max, expected_mean, expected_min]
+
+
+@pytest.mark.remote
+def test_imgw_hydrology_archive_list_of_stations_gives_no_position() -> None:
+    """The archive's list of stations has no position, so a station only in the archive has no row (GH-3611).
+
+    The provider page says so. The day IMGW adds a latitude and longitude to it, this fails, and the stations that
+    are in the archive but not in the station-code list can get a row from it.
+    """
+    from wetterdienst import Settings  # noqa: PLC0415
+    from wetterdienst.metadata.cache import CacheExpiry  # noqa: PLC0415
+    from wetterdienst.util.network import download_file  # noqa: PLC0415
+
+    settings = Settings()
+    file = download_file(
+        url="https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_hydrologiczne/lista_stacji_hydro.csv",
+        cache_dir=settings.cache_dir,
+        ttl=CacheExpiry.METAINDEX,
+        client_kwargs=settings.fsspec_client_kwargs,
+        cache_disable=settings.cache_disable,
+        use_certifi=settings.use_certifi,
+    )
+    file.raise_if_exception()
+    assert isinstance(file.content, BytesIO)
+    rows = [[field.strip() for field in row] for row in csv.reader(file.content.read().decode("cp1250").splitlines())]
+    # the 9-character code, the name, the river and IMGW's hydro code; no coordinates
+    assert len(rows) > 1000
+    assert {len(row) for row in rows} == {4}
+    assert all(row[0].isdigit() and len(row[0]) == 9 for row in rows)
+    assert all(row[3].isdigit() for row in rows)
 
 
 def test_imgw_hydrology_raises_a_failed_download_and_drops_a_missing_file(monkeypatch: pytest.MonkeyPatch) -> None:
