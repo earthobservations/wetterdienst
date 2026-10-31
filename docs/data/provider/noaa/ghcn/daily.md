@@ -206,7 +206,7 @@
 | {term}`wind_gust_max_5sec` | wsf5 | Fastest 5-second wind speed (m/s; the file has tenths of m/s) | m/s | >=0 |
 | {term}`wind_gust_max_1min` | wsf1 | Fastest 1-minute wind speed (m/s; the file has tenths of m/s) | m/s | >=0 |
 | {term}`wind_gust_max_2min` | wsf2 | Fastest 2-minute wind speed (m/s; the file has tenths of m/s) | m/s | >=0 |
-| {term}`wind_gust_max` | wsfg | Peak gust wind speed (m/s; the file has tenths of m/s) | m/s | >=0 |
+| {term}`wind_gust_max` | wsfg | Peak gust wind speed (m/s; the file has tenths of m/s). A 0 of source C (Environment Canada) is a gust below 31 km/h that it does not report, and is null. | m/s | >=0 |
 | {term}`wind_gust_max_instant` | wsfi | Highest instantaneous wind speed (m/s; the file has tenths of m/s) | m/s | >=0 |
 | {term}`wind_gust_max_1mile` | wsfm | Fastest mile wind speed (m/s; the file has tenths of m/s) | m/s | >=0 |
 | {term}`weather_type_fog` | wt01 | Fog, ice fog, or freezing fog (may include heavy fog) | - | - |

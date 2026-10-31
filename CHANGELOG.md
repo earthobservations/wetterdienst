@@ -113,6 +113,10 @@ Types of changes:
 
 ### Fixed
 
+- `noaa/ghcn` daily: `wind_gust_max` of 0 with source flag `C` (Environment Canada) is null, with
+  `raw:0` in `quality_flags`, where it came back as a peak gust of 0.0 m/s. Environment Canada
+  does not report a gust below 31 km/h and the files write 0 for it (at 13 of 14 CAN stations
+  read, the smallest gust above 0 is 8.6 or 8.9 m/s); a 0 of another source stays (GH-3655)
 - `noaa/ghcn` daily: a direction of the fastest or peak wind of 0 beside a speed of exactly 0
   (`wind_direction_gust_max` and its `_1min`, `_2min`, `_5sec`, `_instant`, `_1mile`) is null, with
   `raw:0` in `quality_flags`, where it came back as north. The files write that 0 for a day

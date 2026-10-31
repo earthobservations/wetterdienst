@@ -2,6 +2,9 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """The calm of the directions of the fastest and peak winds of GHCN daily (GH-3648, the rule of GH-3222).
 
+The peak gust WSFG of 0 with the source flag C (Environment Canada) is a gust not reported, below 31 km/h, and is null
+with `raw:0` as its direction is (GH-3655); any other 0 is a reading.
+
 The daily files write a direction of 0 for a day without one: beside a speed of 0 it is no direction, a calm or a gust
 the source did not report, null with `raw:0`, and beside a wind that blows it is a reading that stays. The rows are the
 ones NOAA wrote, read key-less on 2026-10-30 from the per-station files at
@@ -97,8 +100,8 @@ def test_a_direction_of_0_beside_a_speed_of_0_is_no_direction(
     """The 0 of the direction is null and keeps `raw:0` as the last token.
 
     The speed of 0 of the US rows is a reading. At CAN03031640 (flag C) it is not: every WSFG of 0 sits beside a WDFG of
-    0 and the smallest above is 8.6 m/s, Environment Canada's "gust below 31 km/h, not reported", so that speed is not
-    asserted here (its nulling is GH-3655).
+    0 and the smallest above is 8.6 m/s, Environment Canada's "gust below 31 km/h, not reported", so that speed is null
+    with `raw:0` too (GH-3655).
     """
     speed_element = _PAIRS[element][1]
     body = _file(station, "TEST STATION", date, {element: direction, speed_element: speed})
@@ -106,7 +109,9 @@ def test_a_direction_of_0_beside_a_speed_of_0_is_no_direction(
     day = dt.date.fromisoformat(date)
     flag = direction[1].split(",")[2]
     assert _rows(df, _PAIRS[element][0]) == [(day, None, f"source:{flag},raw:0")]
-    if station != "CAN03031640":
+    if station == "CAN03031640":
+        assert _rows(df, _PAIRS[element][2]) == [(day, None, f"source:{flag},raw:0")]
+    else:
         assert _rows(df, _PAIRS[element][2]) == [(day, 0.0, f"source:{flag}")]
 
 
@@ -127,6 +132,58 @@ def test_a_direction_of_0_beside_a_wind_that_blows_stays(
     flag = direction[1].split(",")[2]
     assert _rows(df, _PAIRS[element][0]) == [(day, 0.0, f"source:{flag}")]
     assert _rows(df, _PAIRS[element][2]) == [(day, pytest.approx(int(speed[0]) / 10), f"source:{flag}")]
+
+
+# the peak gust of two stations of the files, one day each, as NOAA wrote them (direction in degrees, speed in tenths of
+# m/s; read 2026-10-31): CAN03031640 (flag C) on 1955-01-01 is the gust not reported, a 0 beside a 0, and on 1955-04-06
+# the smallest one reported, 8.6 m/s; USW00013904 (flag X) on 1948-03-15 has a 0 as well, beside a direction of 30
+_GUSTS = [
+    ("CAN03031640", "1955-01-01", ("    0", ",,C"), ("    0", ",,C"), None, "source:C,raw:0"),
+    ("CAN03031640", "1955-04-06", ("  250", ",,C"), ("   86", ",,C"), 8.6, "source:C"),
+    ("USW00013904", "1948-03-15", ("   30", ",,X"), ("    0", ",,X"), 0.0, "source:X"),
+]
+
+
+@pytest.mark.parametrize(("station", "date", "direction", "speed", "value", "flags"), _GUSTS)
+def test_a_peak_gust_of_0_from_environment_canada_is_a_gust_not_reported(
+    monkeypatch: pytest.MonkeyPatch,
+    station: str,
+    date: str,
+    direction: tuple[str, str],
+    speed: tuple[str, str],
+    value: float | None,
+    flags: str,
+) -> None:
+    """The WSFG of 0 of flag C is null with `raw:0`; a reported gust of flag C and a 0 of any other source stay.
+
+    The 0 of the last row is a reading: a station of flag X (USW00013904 has 11 of 7,271 in WSFG, none beside a
+    WDFG of 0), so the rule is the source's, not the number's. The direction of the last row stays too.
+    """
+    body = _file(station, "TEST STATION", date, {"wdfg": direction, "wsfg": speed})
+    df = _daily(monkeypatch, station, body, date, "wdfg")
+    day = dt.date.fromisoformat(date)
+    assert _rows(df, "wind_gust_max") == [(day, pytest.approx(value) if value is not None else None, flags)]
+    # the direction is null beside the gust not reported (GH-3648), and stays beside a gust, a 0 of flag X included
+    degrees = None if value is None else float(direction[0])
+    assert _rows(df, "wind_direction_gust_max") == [
+        (day, degrees, flags if value is None else flags.split(",", maxsplit=1)[0]),
+    ]
+
+
+@pytest.mark.synthetic_values
+@pytest.mark.parametrize("element", ["wdf2", "wdf5"])
+def test_only_the_peak_gust_is_a_gust_not_reported(monkeypatch: pytest.MonkeyPatch, element: str) -> None:
+    """The inventory has WSFG and no other speed at a CAN station, so a 0 of flag C in WSF2 or WSF5 is made up here.
+
+    Nothing says it is a gust not reported, and it stays a 0 (the direction beside it is null by the rule of a calm).
+    """
+    speed_element = _PAIRS[element][1]
+    body = _file(
+        "CAN03031640", "CLARESHOLM", "1955-01-01", {element: ("    0", ",,C"), speed_element: ("    0", ",,C")}
+    )
+    df = _daily(monkeypatch, "CAN03031640", body, "1955-01-01", element)
+    assert _rows(df, _PAIRS[element][2]) == [(dt.date(1955, 1, 1), 0.0, "source:C")]
+    assert _rows(df, _PAIRS[element][0]) == [(dt.date(1955, 1, 1), None, "source:C,raw:0")]
 
 
 @pytest.mark.synthetic_values
