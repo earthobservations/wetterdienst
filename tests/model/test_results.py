@@ -296,7 +296,7 @@ def test_the_public_methods_of_the_results_are_the_ones_the_library_promises() -
     assert _public(ValuesResult) == _VALUES_SURFACE
     assert _public(InterpolatedValuesResult) == sorted([*_VALUES_SURFACE, "elevation"])
     assert _public(SummarizedValuesResult) == sorted([*_VALUES_SURFACE, "elevation"])
-    assert _public(HistoryResult) == ["to_dict", "to_json"]
+    assert _public(HistoryResult) == ["to_dict", "to_format", "to_json"]
 
 
 def test_the_signatures_the_documentation_shows_are_the_ones_the_results_have() -> None:
@@ -443,6 +443,7 @@ def test_the_dictionaries_of_the_results_are_importable_by_a_public_name() -> No
         assert getattr(result_module, public) is getattr(result_module, private), public
         assert public in result_module.__all__
     assert sorted(set(result_module.__all__) - set(names)) == [
+        "FormattableResult",
         "HistoryResult",
         "InterpolatedValuesResult",
         "StationsFilter",

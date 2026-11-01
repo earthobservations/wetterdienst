@@ -33,6 +33,7 @@ from wetterdienst.model.history import TimeseriesHistory
 from wetterdienst.model.metadata import CoverageNetwork, CoverageResolution, DatasetModel, MetadataModel
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.result import (
+    FormattableResult,
     HistoryDict,
     InterpolatedValuesDict,
     InterpolatedValuesOgcFeatureCollection,
@@ -49,7 +50,7 @@ from wetterdienst.model.result import (
     ValuesResult,
 )
 from wetterdienst.model.values import TimeseriesValues
-from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest
+from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest, DwdWeatherAlertResult
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata, DwdObservationRequest
 from wetterdienst.provider.dwd.radar import DwdRadarValues
@@ -171,6 +172,31 @@ assert_type(summarized, SummarizedValuesResult)
 assert_type(summarized.to_dict()["values"][0]["distance"], float | None)
 assert_type(summarized.to_dict(), SummarizedValuesDict)
 assert_type(summarized.to_ogc_feature_collection(), SummarizedValuesOgcFeatureCollection)
+
+
+# every result satisfies the protocol, so one function writes whatever a request answered (GH-3449)
+def write(result: FormattableResult) -> str | bytes:
+    """Write a result as a caller's own function would, whatever kind of result it is."""
+    result.to_dict(with_metadata=True)
+    result.to_json(with_metadata=True, indent=2)
+    return result.to_format("json", with_metadata=True, indent=2)
+
+
+write(stations)
+write(values)
+write(interpolated)
+write(summarized)
+for history_result in stations.history().query():
+    write(history_result)
+    assert_type(history_result.to_format("json"), str)
+
+
+def write_alerts(alerts: DwdWeatherAlertResult) -> None:
+    """Write the result of the warnings, which satisfies the protocol too and indents by flag, number or not."""
+    write(alerts)
+    assert_type(alerts.to_format("GeoJSON", with_metadata=True, indent=2), str)
+    assert_type(alerts.to_json(True), str)  # noqa: FBT003
+
 
 # a forecast, whose request takes an issue
 mosmix = DwdMosmixRequest(parameters="hourly/small", issue="latest")

@@ -97,7 +97,10 @@ The other results are made the same way. `history()` builds a `TimeseriesHistory
 request's `_history` and raises `NotImplementedError` when the provider has none; its hook is `_collect_station_history`.
 `InterpolatedValuesResult` and `SummarizedValuesResult` share their base with `ValuesResult` and come out of
 `request.interpolate()` and `request.summarize()` (see [Interpolation, summary and export](#interpolation-summary-and-export)).
-The stations and values results share `ExportMixin` for their formats and targets; `HistoryResult` does not have it.
+The stations and values results share `ExportMixin` for their formats and targets; `HistoryResult` does not have it,
+and has `to_format` for JSON on its own. What the results have in common is the `FormattableResult` protocol
+(`to_dict`, `to_json`, `to_format`) of `model/result.py`, which the alerts result satisfies
+too; `tests/test_formattable_result.py` holds all six to it.
 
 ## The registry
 

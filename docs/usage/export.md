@@ -183,6 +183,13 @@ out, or the other way round, fails it.
 | `zarr` | no | `.zarr` | no | no | no |
 | `nc` | no | `.nc` | no | no | no |
 
+The five results and the alerts result of `dwd/alerts` satisfy `FormattableResult` (`wetterdienst.model.result`), a
+small `typing.Protocol` of `to_dict`, `to_json` and `to_format`, so that one function can write them all (the radar
+result is a set of arrays, not a table, and does not). The history result has JSON
+and no other format: `to_format("json")`, in any case, is its `to_json`, and `to_format("csv")` is an
+`UnknownFormatError` naming `json` as the only one supported. The alerts result of `dwd/alerts` has `json`, `geojson`
+and `csv`, in any case, and takes the `indent` and the `with_metadata` of the others; it has no `to_target` yet.
+
 `to_format` takes one set of arguments for any format and gives each format those it takes: `with_metadata`,
 `with_stations` and `indent` for JSON (a stations result has no `with_stations`), `with_metadata` and `indent` for
 GeoJSON, `width`, `height`, `scale` and `max_side` for a chart, and none for CSV and NDJSON. A name that is none of
