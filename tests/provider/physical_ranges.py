@@ -90,6 +90,9 @@ UNIT_TYPE_RANGES: dict[str, Bounds | None] = {
     "significant_weather": Bounds(0.0, 99.0),
     "speed": Bounds(0.0, 115.0),  # m/s; the fastest gust measured is 113.2 (WMO)
     "temperature": Bounds(-90.0, 100.0),  # °C; narrowed for the air below
+    # a difference of temperatures, signed, in K: the spread of the coldest and the hottest places is under 150. The
+    # `error_absolute_temperature_*` of MOSMIX are of this type and held to nothing below (GH-3688)
+    "temperature_difference": Bounds(-150.0, 150.0),  # K
     "time": Bounds(0.0, 366 * 86_400.0),  # s; a year of sunshine is the most there is
     "turbidity": Bounds(0.0, 5_000.0),  # NTU
     # m³; the water held in a reservoir, from none to the 180 km³ of Lake Kariba, the largest reservoir by volume

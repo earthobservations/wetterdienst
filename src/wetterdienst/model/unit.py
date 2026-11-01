@@ -122,6 +122,14 @@ class UnitConverter:
                 Unit("degree_kelvin", "K"),
                 Unit("degree_fahrenheit", "°F"),
             ],
+            # a difference of two temperatures, such as the expected error of a forecast temperature. It has
+            # no offset to convert by (2 K of error is 2 degrees Celsius of error, not -271.15) and is held in
+            # the kelvin the sources write it in, whatever `temperature` is asked for: the one unit it has is
+            # its only target, as `dimensionless` has. It shares the name `degree_kelvin` with the reading,
+            # which is no clash with a single unit, as no conversion is looked up between them
+            "temperature_difference": [
+                Unit("degree_kelvin", "K"),
+            ],
             "time": [
                 Unit("second", "s"),
                 Unit("minute", "min"),
@@ -181,6 +189,7 @@ class UnitConverter:
             "significant_weather": self.units["significant_weather"][0],
             "speed": self.units["speed"][0],
             "temperature": self.units["temperature"][0],
+            "temperature_difference": self.units["temperature_difference"][0],
             "time": self.units["time"][0],
             "turbidity": self.units["turbidity"][0],
             "volume": self.units["volume"][0],

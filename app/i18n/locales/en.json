@@ -148,6 +148,7 @@
     "convertUnitsHint": "Convert values into the units you choose.",
     "units": "Units",
     "unitTemperature": "Temperature",
+    "unitTemperatureDifference": "Temperature difference",
     "unitSpeed": "Wind speed",
     "unitPressure": "Pressure",
     "unitPrecipitation": "Precipitation",

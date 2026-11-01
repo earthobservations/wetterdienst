@@ -37,6 +37,7 @@ def test_unit_converter_targets_defaults(unit_converter: UnitConverter) -> None:
         "significant_weather": "significant_weather",
         "speed": "meter_per_second",
         "temperature": "degree_celsius",
+        "temperature_difference": "degree_kelvin",
         "time": "second",
         "turbidity": "nephelometric_turbidity",
         "volume": "cubic_meter",
@@ -244,6 +245,28 @@ def test_unit_converter_lambdas(
     """Test that the lambda functions work as expected."""
     lambda_ = unit_converter._get_lambda(unit, target)  # noqa: SLF001
     assert lambda_(value) == expected
+
+
+def test_a_temperature_difference_is_kept_in_kelvin_and_gets_no_offset(unit_converter: UnitConverter) -> None:
+    """2 K of error is 2.0 K, not the -271.15 that `temperature` makes of it, and no target moves it (GH-3688).
+
+    The unit of `dwd/mosmix` `e_ttt` is kelvin, and the unit type decides which conversion it goes through. A
+    difference has the one unit, so it is its only target: the target of a reading does not apply to it, and none
+    of the units of a reading can be asked for it.
+    """
+    values = pl.DataFrame({"v": [2.0, 0.0, 0.5]})
+    reading = values.select(unit_converter.get_lambda("degree_kelvin", "temperature")(pl.col("v")))["v"].to_list()
+    assert reading == [2.0 - 273.15, -273.15, 0.5 - 273.15]
+    difference = values.select(unit_converter.get_lambda("degree_kelvin", "temperature_difference")(pl.col("v")))
+    assert difference["v"].to_list() == [2.0, 0.0, 0.5]
+    assert unit_converter.get_unit("degree_kelvin", "temperature_difference").symbol == "K"
+    assert [unit.name for unit in unit_converter.units["temperature_difference"]] == ["degree_kelvin"]
+    unit_converter.update_targets({"temperature": "degree_fahrenheit", "temperature_difference": "degree_kelvin"})
+    assert unit_converter.targets["temperature_difference"].name == "degree_kelvin"
+    assert unit_converter.get_lambda("degree_kelvin", "temperature_difference")(2.0) == 2.0
+    for target in ("degree_celsius", "degree_fahrenheit"):
+        with pytest.raises(ValueError, match=rf"Unit {target} not supported for type temperature_difference"):
+            unit_converter.update_targets({"temperature_difference": target})
 
 
 def test_unit_converter_refuses_a_source_only_unit_as_a_target(unit_converter: UnitConverter) -> None:

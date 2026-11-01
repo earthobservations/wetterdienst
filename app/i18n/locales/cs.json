@@ -148,6 +148,7 @@
     "convertUnitsHint": "Převádět hodnoty na jednotky, které si zvolíš.",
     "units": "Jednotky",
     "unitTemperature": "Teplota",
+    "unitTemperatureDifference": "Rozdíl teplot",
     "unitSpeed": "Rychlost větru",
     "unitPressure": "Tlak",
     "unitPrecipitation": "Srážky",
