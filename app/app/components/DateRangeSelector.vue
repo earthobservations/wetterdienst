@@ -181,8 +181,8 @@ defineExpose({ isValid, validationError })
     </div>
 
     <!-- the page's own choice of range, and why: a status, announced as its text changes, and the description
-         of both fields. Empty it stays in the accessibility tree (`sr-only`, which also takes no space), so that
-         a text arriving later is a change in a live region and not a new one -->
+         of both fields (which is how it is reached where this component is mounted with the note already in it,
+         by the first station). Empty it stays in the accessibility tree (`sr-only`, which also takes no space) -->
     <p :id="noteId" role="status" class="text-sm text-gray-600 empty:sr-only dark:text-gray-400" data-testid="default-range-note">
       <template v-if="note">
         {{ note }}
