@@ -397,6 +397,8 @@ line-length = 120
 target-version = "py311"
 include = [
     "benchmarks/**/*.py",
+    # the manual MCP benchmark (tests/ui/test_mcp_benchmark_*.py hold it to the cases and to itself)
+    ".claude/skills/**/*.py",
     "examples/**/*.py",
     "tests/**/*.py",
     "src/wetterdienst/**/*.py",
@@ -436,6 +438,8 @@ unfixable = ["ERA", "F401", "F841", "T20", "ERA001"]
 "**/__init__.py" = ["F401", "D104"]
 "tests/*" = ["S101"]
 "benchmarks/*" = ["T20", "INP001"]
+# a command-line script that prints its answers, with figures written in the Unicode the models write them in
+".claude/skills/**/*.py" = ["T20", "EXE001", "RUF001"]
 "examples/*" = ["T20", "INP001"]
 
 [tool.deptry]
