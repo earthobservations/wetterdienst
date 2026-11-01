@@ -25,7 +25,7 @@ Types of changes:
   refuse. A station whose longitude or latitude is not finite has no position in GeoJSON, and one
   whose elevation is not finite no z. `to_dict` still returns the float (GH-3679)
 - Writing a frame with a `pl.Categorical` column to a `.zarr` or `.nc` target no longer fails with
-  `Cannot interpret 'CategoricalDtype(...)' as a data type`; the column is written as text, as an
+  `Cannot interpret 'CategoricalDtype(...)' as a data type`; the column is written as text, as a
   `pl.Enum` column was (GH-3679)
 - A `file://` target is matched to its file type by the path it names, decoded. A query string
   was never ignored: everything after `file://` is the path, so `file:///x.csv?a=1` names a file

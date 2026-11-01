@@ -277,7 +277,7 @@ def _write_netcdf(result: ExportMixin, filepath: str) -> None:
     _write_array_store(result, filepath, netcdf=True)
 
 
-#: the file writers, by the extension a `file://` target ends in, which is read in any case (`.CSV` is `.csv`)
+#: the file writers, by the extension the decoded path of a `file://` target ends in, read in any case (`.CSV`)
 FILE_WRITERS: dict[str, FileWriter] = {
     ".csv": _write_csv,
     ".xlsx": _write_xlsx,
