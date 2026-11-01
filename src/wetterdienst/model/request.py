@@ -69,6 +69,7 @@ from wetterdienst.settings import Settings
 from wetterdienst.util.datetime import newest, parse_date_window
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.extras import import_optional
+from wetterdienst.util.geo import require_location_in_range
 from wetterdienst.util.logging import get_one_line_logger
 from wetterdienst.util.names import match_names
 from wetterdienst.util.python import to_list
@@ -1358,7 +1359,8 @@ class TimeseriesRequest:
         Summarize means we take any available data of the closest station as representative for the timestamp.
 
         Args:
-            latlon: Latitude and longitude for the requested point.
+            latlon: Latitude and longitude for the requested point, within -90..90 and -180..180 degrees as on
+                the REST API; the poles are allowed, since the nearest station is picked with no projection.
             elevation: Elevation of the requested point in metres above sea level. Given, a reading of a quantity that
                 falls with height is brought from the station's altitude to this one -- which
                 matters more here than in an interpolation, one station's reading standing for the
@@ -1368,6 +1370,7 @@ class TimeseriesRequest:
             SummarizedValuesResult: Summarized values.
 
         Raises:
+            LocationOutOfRangeError: Where the latitude or the longitude is outside that range.
             NoStationsWithElevationError: Where an elevation is asked about and leaving out the
                 stations whose elevation the provider does not report leaves nothing that can answer
                 it. A few providers report no elevation for any station.
@@ -1389,6 +1392,7 @@ class TimeseriesRequest:
         """
         from wetterdienst.core.summarize import get_summarized_df  # noqa: PLC0415
 
+        require_location_in_range(*latlon)
         if not self.start:
             msg = "start and end are required for summarization"
             raise MissingTimeIntervalError(msg)
@@ -1459,7 +1463,7 @@ class TimeseriesRequest:
                 here, so the reading as it came is asked for by coordinates: pass the station's
                 own to `summarize`.
             LocationOutOfRangeError: Where the station has no position, as `interpolate_by_station_id`
-                says.
+                says, or one outside -90..90 and -180..180 degrees, as `summarize` says.
 
         """
         df_all = self.all().df

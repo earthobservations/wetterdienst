@@ -86,6 +86,11 @@ Types of changes:
   they did a `pl.Enum` column, not as a pandas Categorical. SQLite and DuckDB wrote the text
   either way; the dialects that could not be tried are no longer left to read a Categorical
   (GH-3694)
+- **Breaking**: `summarize` and `summarize_by_station_id` of the Python API refuse a latitude
+  outside -90..90 or a longitude outside -180..180 with `LocationOutOfRangeError`, naming the
+  range, as the REST API, the command line and MCP did. They answered with an empty frame, and
+  with `nan` too. The poles and the antimeridian are accepted. Catch the error, or pass a point
+  on the globe (GH-3714)
 
 ## [0.180.0] - 2026-11-01
 

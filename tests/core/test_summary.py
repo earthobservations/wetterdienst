@@ -4,6 +4,7 @@
 
 import dataclasses
 import datetime as dt
+import re
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -11,7 +12,7 @@ import pytest
 from polars.testing import assert_frame_equal
 
 from wetterdienst import Settings
-from wetterdienst.exceptions import NoStationsWithElevationError
+from wetterdienst.exceptions import LocationOutOfRangeError, NoStationsWithElevationError
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import (
     DwdObservationRequest,
@@ -180,3 +181,77 @@ def test_summary_at_an_elevation_none_of_the_stations_can_answer(
         request.summarize(latlon=(47.48, 11.06), elevation=200.0)
     # and without an elevation the same stations answer as they always did
     assert not request.summarize(latlon=(47.48, 11.06)).df.is_empty()
+
+
+class _ReachedStationSelection(Exception):  # noqa: N818
+    """Raised by the stand-in for the selection of the stations, which is where a point is accepted."""
+
+
+@pytest.fixture
+def station_selection(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Stand in for the station list and the selection, offline; the list records what was fetched."""
+    fetched: list[str] = []
+    stations = pl.DataFrame(
+        {"station_id": ["00001"], "latitude": [95.0], "longitude": [10.0], "elevation": [None]},
+        schema_overrides={"elevation": pl.Float64},
+    )
+
+    def all_stations(self: DwdObservationRequest) -> object:  # noqa: ARG001
+        fetched.append("stations")
+        return dataclasses.make_dataclass("Stations", ["df"])(df=stations)
+
+    def select(*args: object, **kwargs: object) -> object:  # noqa: ARG001
+        raise _ReachedStationSelection
+
+    monkeypatch.setattr(DwdObservationRequest, "all", all_stations)
+    monkeypatch.setattr("wetterdienst.core.summarize.get_summarized_df", select)
+    return fetched
+
+
+def _request(default_settings: Settings) -> DwdObservationRequest:
+    return DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        start=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(2022, 1, 3, tzinfo=ZoneInfo("UTC")),
+        settings=default_settings,
+    )
+
+
+@pytest.mark.parametrize(
+    ("latlon", "named"),
+    [
+        ((95.0, 0.0), "latitude 95.0 is outside the range -90 to 90"),
+        ((-90.1, 0.0), "latitude -90.1 is outside the range -90 to 90"),
+        ((0.0, 200.0), "longitude 200.0 is outside the range -180 to 180"),
+        ((0.0, -180.1), "longitude -180.1 is outside the range -180 to 180"),
+        ((float("nan"), 0.0), "latitude nan is outside the range -90 to 90"),
+        ((0.0, float("inf")), "longitude inf is outside the range -180 to 180"),
+    ],
+)
+def test_summary_refuses_a_point_beyond_the_globe(
+    default_settings: Settings, station_selection: list[str], latlon: tuple[float, float], named: str
+) -> None:
+    """A point off the globe is refused, naming the range, before any station list is fetched (GH-3714).
+
+    The REST API, the command line and MCP refused it already; the library answered with an empty frame.
+    """
+    with pytest.raises(LocationOutOfRangeError, match=re.escape(named)):
+        _request(default_settings).summarize(latlon=latlon)
+    assert station_selection == []
+
+
+@pytest.mark.usefixtures("station_selection")
+@pytest.mark.parametrize("latlon", [(90.0, 0.0), (-90.0, 180.0), (0.0, -180.0), (-90, -180), (90, 180)])
+def test_summary_accepts_the_poles_and_the_antimeridian(
+    default_settings: Settings, latlon: tuple[float, float]
+) -> None:
+    """The edges of the range are points on the globe, and the nearest station is picked with no projection."""
+    with pytest.raises(_ReachedStationSelection):
+        _request(default_settings).summarize(latlon=latlon)
+
+
+@pytest.mark.usefixtures("station_selection")
+def test_summary_by_station_id_refuses_a_station_listed_beyond_the_globe(default_settings: Settings) -> None:
+    """A station whose listed position is off the globe is refused as a point is, not summarized at."""
+    with pytest.raises(LocationOutOfRangeError, match=re.escape("latitude 95.0 is outside the range -90 to 90")):
+        _request(default_settings).summarize_by_station_id(station_id="00001")
