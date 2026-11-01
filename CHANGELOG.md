@@ -59,6 +59,13 @@ Types of changes:
   nearest-station search or a distance filter near them picked the wrong stations; a filter on
   the old position needs the new one. A row is turned only while it lists the position that was
   checked, so a list NOAA corrects is read as it is (GH-2886)
+- **Breaking**: the `missing-value-marker` warning no longer counts a calm wind direction (the
+  source writes 0, null with `raw:0`): a calm has no direction, and no reading is missing. A new
+  warning `calm-wind-direction` counts them, with the same `drop_nulls` behaviour. The count of
+  `missing-value-marker` drops for a wind direction dataset; a client that wants the old sum adds
+  the two. A 0 that is no calm stays a marker: a code for no direction (`dwd/observation` hourly
+  `wind_synoptic` and `urban_wind`, `ipma/observation`) or the direction of a gust that is not
+  reported (`eccc/observation` daily, `noaa/ghcn` daily at Environment Canada) (GH-3696)
 
 ### Fixed
 

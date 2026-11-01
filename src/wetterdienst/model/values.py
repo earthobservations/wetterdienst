@@ -23,7 +23,7 @@ from wetterdienst.model.judge import SOURCE_TEXT, Plan, Rule, judge, plan_for, t
 from wetterdienst.model.metadata import group_parameters_by_dataset
 from wetterdienst.model.parameter_rows import ParameterRows
 from wetterdienst.model.plausibility import REJECTED_TOKEN, leave_out_suspect
-from wetterdienst.model.quality_flags import QUALITY_FLAGS, RAW_TOKEN
+from wetterdienst.model.quality_flags import CALM_TOKEN, QUALITY_FLAGS, RAW_TOKEN
 from wetterdienst.model.request import require_window
 from wetterdienst.model.result import StationsFilter, StationsResult, ValuesResult
 from wetterdienst.model.schema import (
@@ -36,6 +36,8 @@ from wetterdienst.model.unit import UnitConverter
 from wetterdienst.util.datetime import is_plausible_update, newest
 from wetterdienst.util.logging import TqdmToLogger
 from wetterdienst.util.response_warnings import (
+    CALM_WIND_DIRECTION,
+    CALM_WIND_DIRECTION_MESSAGE,
     MISSING_VALUE_MARKER,
     MISSING_VALUE_MARKER_MESSAGE,
     REJECTED_BY_PLAUSIBILITY,
@@ -310,6 +312,9 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     #: the readings of the window that the source marked as missing, in the station in hand: counted by
     #: `_process_dataset`, told by `_query_stations` once the station is not left out (GH-3554)
     _markers_in_window: int = field(default=0, init=False, repr=False, compare=False)
+    #: the same for the wind directions the source wrote as a calm (`raw:0`): a state of the wind and not a missing
+    #: reading, so `missing-value-marker` leaves them out and `calm-wind-direction` counts them (GH-3696)
+    _calm_in_window: int = field(default=0, init=False, repr=False, compare=False)
     #: the same for the nulls a hard plausibility check made (`rejected:<check>`), by check: the source wrote a number
     #: there and not a marker, so `missing-value-marker` leaves them out and `rejected-by-plausibility` counts them
     #: (GH-3682)
@@ -454,6 +459,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             rows.examine(station_id, available_datasets)
             self._data_updated.clear()
             self._markers_in_window = 0
+            self._calm_in_window = 0
             self._rejected_in_window = 0
             self._rejected_by_check.clear()
             self._window_parameters.clear()
@@ -598,12 +604,36 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             return
         if self._count_missing_value_markers:
             count_response_warning(MISSING_VALUE_MARKER, self._markers_in_window, MISSING_VALUE_MARKER_MESSAGE)
+            count_response_warning(CALM_WIND_DIRECTION, self._calm_in_window, CALM_WIND_DIRECTION_MESSAGE)
             count_response_warning(
                 REJECTED_BY_PLAUSIBILITY,
                 self._rejected_in_window,
                 REJECTED_BY_PLAUSIBILITY_MESSAGE,
                 details=self._rejected_by_check,
             )
+
+    @staticmethod
+    def _rows_of(*parameters: ParameterModel) -> pl.Expr:
+        """Select the rows of a long frame that hold one of the parameters, by `resolution`, `dataset` and `parameter`.
+
+        The `parameter` column holds the source's own name (`name_original`) until the answer is humanized.
+        """
+        return pl.any_horizontal(
+            pl.col("resolution").eq(parameter.dataset.resolution.name)
+            & pl.col("dataset").eq(parameter.dataset.name)
+            & pl.col("parameter").eq(parameter.name_original)
+            for parameter in parameters
+        )
+
+    def _zero_direction_is_no_bearing(self) -> pl.Expr:
+        """Select the rows whose wind direction of `raw:0` is a code of no bearing, and no calm (GH-3696).
+
+        `calm-wind-direction` counts the nulls of a wind direction whose `raw` token is the 0 of a calm. A provider
+        whose 0 is something else overrides this with an expression of the `resolution`, `dataset` and `parameter`
+        columns that is true for them, and those stay with `missing-value-marker`: a code of the source for a variable
+        wind or for a direction it does not report, which is missing and not a state of the wind.
+        """
+        return pl.lit(value=False)
 
     def _advance_fetch_ahead(self, ahead: FetchAhead | None, position: int, stations_collected: int) -> None:
         """Have the files of the stations after ``position`` fetched, and wait for those of ``position``."""
@@ -949,7 +979,20 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             # a null a hard check made carries the number the source wrote, not a marker: counted apart (GH-3682)
             nulled = in_window.filter(pl.col("value").is_null() & pl.col(QUALITY_FLAGS).str.contains(RAW_TOKEN))
             rejected = pl.col(QUALITY_FLAGS).str.contains(REJECTED_TOKEN)
-            self._markers_in_window += nulled.filter(~rejected).height
+            # a calm has no direction: the source wrote 0 for it, and the wind is not missing (GH-3696)
+            # (`parameter` is the source's own name here, so the directions are told by the metadata)
+            directions = [
+                parameter.name_original for parameter in dataset if parameter.name.startswith("wind_direction")
+            ]
+            calm = (
+                pl.col("parameter").is_in(directions)
+                & pl.col(QUALITY_FLAGS).str.contains(CALM_TOKEN)
+                & ~self._zero_direction_is_no_bearing()
+            )
+            written = nulled.filter(~rejected)
+            calms = written.filter(calm).height
+            self._calm_in_window += calms
+            self._markers_in_window += written.height - calms
             self._count_rejected(nulled.filter(rejected))
         if self.sr.options.skip_empty:
             # the span the nulls make with them kept, and the readings they are, which the coverage is measured
