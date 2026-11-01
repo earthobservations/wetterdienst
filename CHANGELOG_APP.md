@@ -18,10 +18,6 @@ Types of changes:
 
 ### Added
 
-- `[Glossary]` The new unit type `temperature_difference` (the expected errors of `dwd/mosmix`
-  temperatures, in K) has its label in the unit filter, in all eleven languages ("Temperature
-  difference"). Needs the backend that serves it: release the backend first. The
-  Low German and Luxembourgish labels are not reviewed by a native speaker (GH-3688)
 - `[Explorer]` A request the server refuses over its limits (`limit-exceeded`: too many rows for
   one answer, too many stations) is a state of the table in the page's language, with the numbers
   as the language writes them and what the selection holds, in place of the server's English
@@ -42,6 +38,20 @@ Types of changes:
   window of at most 100,000 values, which the form accepts, where it used to be the whole span of
   the stations' records, which it refused. Dates you have edited are no longer replaced when you
   choose other stations (GH-3457)
+
+## [0.42.0] - 2026-11-01
+
+### Added
+
+- `[Glossary]` Five parameters of `dmi/observation` have labels in all eleven languages (Part of
+  GH-3622): snow cover, leaf wetness duration, air temperature at grass height, mean vapour
+  pressure deficit and the soil temperature at 30 cm. Needs the backend that serves them (0.181.0):
+  release the backend first. The Low German and Luxembourgish labels are not reviewed by a native
+  speaker
+- `[Glossary]` The new unit type `temperature_difference` (the expected errors of `dwd/mosmix`
+  temperatures, in K) has its label in the unit filter, in all eleven languages ("Temperature
+  difference"). Needs the backend that serves it (0.181.0): release the backend first. The
+  Low German and Luxembourgish labels are not reviewed by a native speaker (GH-3688)
 
 ## [0.41.0] - 2026-11-01
 
@@ -1760,7 +1770,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.41.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.42.0...HEAD
+[0.42.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.41.0...app-v0.42.0
 [0.41.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.40.0...app-v0.41.0
 [0.40.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.39.0...app-v0.40.0
 [0.39.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.38.0...app-v0.39.0

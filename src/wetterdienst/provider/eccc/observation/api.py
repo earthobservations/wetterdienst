@@ -188,6 +188,10 @@ class EcccObservationValues(TimeseriesValues):
         Resolution.MONTHLY: "climate-monthly",
     }
 
+    def _zero_direction_is_no_bearing(self) -> pl.Expr:
+        """Have the daily gust direction of 0 stay with `missing-value-marker`: it is a gust not reported (GH-3696)."""
+        return self._rows_of(EcccObservationMetadata.daily.data.wind_direction_gust_max)
+
     @staticmethod
     def _tidy_up_df(df: pl.LazyFrame) -> pl.LazyFrame:
         """Convert wide-format dataframe to long format, pairing value columns with their *_flag columns.
