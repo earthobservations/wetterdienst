@@ -480,8 +480,13 @@ function startDateRange() {
       wholeSpan()
     return
   }
-  if (rangeCleared.value && !dateRangeRequired.value)
+  if (rangeCleared.value && !dateRangeRequired.value) {
+    // asking for everything is kept, also after a point (which requires a range) filled the fields
+    range.startDate = undefined
+    range.endDate = undefined
+    defaultWindow.value = null
     return
+  }
   const chosen = defaultRange({
     resolution,
     records: stations,
