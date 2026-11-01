@@ -192,7 +192,7 @@ defineExpose({ isValid, validationError })
     <UButton
       v-if="canClear"
       :label="t('dateRange.clear')"
-      icon="i-lucide-x"
+      icon="i-ph-x"
       size="xs"
       color="neutral"
       variant="ghost"
