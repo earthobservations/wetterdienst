@@ -167,6 +167,14 @@ describe('limit notice', () => {
     expect(wrapper.find('[data-testid="limit-notice"]').text()).toContain('streamed')
   })
 
+  it('leaves the link to the browser: a click is no navigation of the app (the address is the proxy\'s, not a page)', async () => {
+    const { wrapper } = await refused()
+    const link = wrapper.find('[data-testid="limit-download"]')
+    const click = new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 })
+    link.element.dispatchEvent(click)
+    expect(click.defaultPrevented).toBe(false)
+  })
+
   it('offers no CSV where the stream would be refused too', async () => {
     const { wrapper } = await refused(undefined, { ...REFUSAL, requested: 50_000_000 })
     expect(wrapper.find('[data-testid="limit-download"]').exists()).toBe(false)

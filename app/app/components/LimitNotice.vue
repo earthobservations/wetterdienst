@@ -112,6 +112,7 @@ const headingId = useId()
         color="neutral"
         variant="outline"
         :href="csvHref"
+        external
         download="values.csv"
         class="h-auto w-full sm:w-auto"
         :ui="{ label: 'whitespace-normal text-left' }"

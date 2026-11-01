@@ -533,13 +533,17 @@ function onRangeEdited() {
   defaultWindow.value = null
   if (!startDate && !endDate) {
     // a range that is not required, emptied: asking for everything, which is kept. One that is required
-    // cannot be empty, and is the page's to fill again at the next change, as it always was
-    rangeCleared.value = !dateRangeRequired.value
+    // cannot be empty, and is the page's to fill again at the next change, as it always was; whether
+    // everything was asked for before it was required (a point) is not decided by emptying its fields
+    if (!dateRangeRequired.value)
+      rangeCleared.value = true
     rangeEdited.value = false
   }
   else {
     rangeEdited.value = true
-    rangeCleared.value = false
+    // a field emptied of a required range is no choice of everything; dates in both are an edit of it
+    if (!dateRangeRequired.value || (startDate && endDate))
+      rangeCleared.value = false
   }
 }
 

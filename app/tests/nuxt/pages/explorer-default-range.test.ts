@@ -151,6 +151,22 @@ describe('explorer default date range', () => {
     expect(vm.defaultWindow).toBeNull()
   })
 
+  it('keeps a range the user cleared cleared when a point\'s fields are emptied by hand', async () => {
+    const { wrapper, vm, list } = await open()
+    await select(wrapper, vm, list.slice(0, 30))
+    await vi.waitFor(() => expect(dates(vm).endDate).toBe(TODAY))
+    await wrapper.find('[data-testid="clear-date-range"]').trigger('click')
+    vm.stationSelectionState.mode = 'interpolation'
+    await vi.waitFor(() => expect(dates(vm).startDate).toBeDefined())
+    vm.stationSelectionState.dateRange.startDate = undefined
+    vm.onRangeEdited()
+    vm.stationSelectionState.dateRange.endDate = undefined
+    vm.onRangeEdited()
+    vm.stationSelectionState.mode = 'station'
+    await vi.waitFor(() => expect(dates(vm)).toEqual({ startDate: undefined, endDate: undefined }))
+    expect(vm.defaultWindow).toBeNull()
+  })
+
   it('leaves the range empty where the whole record fits', async () => {
     const { wrapper, vm, list } = await open()
     await select(wrapper, vm, list.slice(0, 2))
