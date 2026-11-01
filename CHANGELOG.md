@@ -41,9 +41,17 @@ Types of changes:
   `to_json`, `to_geojson` and `to_format` (`indent=0` now breaks lines without indenting, as on
   the others), and `with_metadata` (the block of the others); its default stays one line. It is
   outside the frozen results (GH-3449)
+- `wetterdienst stations`, `values`, `interpolate` and `summarize` pass `--with-metadata` to
+  `--target`, as `to_target(..., with_metadata=True)` takes it: a file `<file>.metadata.json`
+  beside a CSV, spreadsheet, JSON, JSON Lines, GeoJSON or Feather file, and the units and the
+  quality legend in the block of a Parquet, NetCDF or Zarr file (GH-3704)
 
 ### Changed
 
+- **Breaking**: `--with-metadata` with a database `--target` of `wetterdienst stations`, `values`,
+  `interpolate` or `summarize` is refused with the library's message and exit code 1, before
+  anything is written, where the flag was ignored and the table written. Leave the flag out for a
+  database target. A result with no rows writes nothing and is no refusal (GH-3704)
 - **Breaking**: 5 more `noaa/ghcn` hourly stations are placed west of Greenwich, no longer east
   of it, where `ghcnh-station-list.csv` has lost the sign of their longitude: Freetown in Sierra
   Leone (CMU55-00161), Surtsey (ICM00004102), Buhta Providenja (RSU025594-5), Calanda
@@ -80,6 +88,12 @@ Types of changes:
   They are told by a new warning `rejected-by-plausibility`, with the count per check; a value
   that several checks rejected is counted under each. A client that summed the old count to
   find the rejected values reads the new warning instead (GH-3682)
+- `wetterdienst history --target` accepts a file name ending in `.JSON` or any other case of
+  `.json`, as `values` and `stations` do; it refused all but the lowercase one (GH-3693)
+- The CrateDB and SQL (SQLAlchemy) targets hand the database a `pl.Categorical` column as text, as
+  they did a `pl.Enum` column, not as a pandas Categorical. SQLite and DuckDB wrote the text
+  either way; the dialects that could not be tried are no longer left to read a Categorical
+  (GH-3694)
 
 ## [0.180.0] - 2026-11-01
 
