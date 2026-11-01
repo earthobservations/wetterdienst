@@ -25,6 +25,11 @@ File targets are identified by their extension:
 
 The extension is read in any case: `file:///path/to/dwd.CSV` is a CSV file.
 
+Everything after `file://` is the path, percent-decoded, and the extension is read from the end of that path. A file
+target has no query string: `file:///path/to/dwd.csv?a=1` names a file `dwd.csv?a=1`, has no extension and is refused
+as an unknown file type (`ExportRefusedError`) rather than written with its query dropped. A `?` that belongs to the
+name of a file is written `%3F` (Windows has no such file name); a `#` is part of the name as it stands.
+
 CSV and spreadsheets are written the way ``to_csv`` returns them, with timestamps as ISO strings
 and a list of station ids as one comma-separated field. JSON and JSON Lines hold the same records
 with the list kept as a list, JSON having arrays of its own, rather than the response envelope
@@ -116,6 +121,42 @@ wetterdienst values --provider=dwd --network=observation \
     --target="duckdb:////var/lib/wetterdienst/obs.duckdb?table=weather" --if-exists=append
 ```
 
+### Licence, credit and date in a file
+
+An answer of the REST API says in its `metadata` block where the data comes from, under which licence it may be used,
+which credit line to give, and when it was retrieved. A file carries the same block where its format has a place for
+it, with `retrieved_at` the time the file is written:
+
+| File | Default | With `with_metadata=True` |
+| --- | --- | --- |
+| `.parquet` | in the key-value metadata of the file | adds the units and the quality legend |
+| `.nc`, `.zarr` | in the attributes of the group the frame is written into | adds the units and the quality legend |
+| `.csv`, `.xlsx`, `.json`, `.jsonl`, `.ndjson`, `.geojson`, `.feather` | bare, as before | `<file>.metadata.json` beside it |
+
+A Parquet file, a NetCDF file and a Zarr group hold the whole block as JSON under `wetterdienst_metadata` and, for a
+tool that lists the keys (`parquet-tools`, `ncdump -h`), its parts as `provider`, `license`, `license_url`,
+`attribution`, `retrieved_at` and `data_updated_at`; a part the provider or the source does not state is left out.
+`pl.read_parquet_metadata(path)` reads them back from Parquet, `xarray.open_dataset(path, group=...).attrs` from NetCDF.
+The text formats stay bare by default: a CSV or a JSON file holds the records and nothing else, so that a tool reading
+it gets what it always got. `with_metadata=True` on `to_target` and on `to_csv(file=...)` writes the sidecar, which
+holds the block of an answer with `with_metadata`, its heavy parts included:
+
+```python
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+request = DwdObservationRequest(parameters=("daily", "climate_summary"), periods="recent")
+values = request.filter_by_station_id(station_id=[1048]).values().all()
+values.to_target("file:///path/to/dwd.csv", with_metadata=True)  # dwd.csv and dwd.csv.metadata.json
+```
+
+A sidecar is written beside a file only: `with_metadata=True` for a database target is refused with an
+`ExportRefusedError`, as is a frame that is no result of a request (an `ExportMixin` built of a frame, or a result of
+a request class that is not one of the library's networks), which has no provider to describe; it is refused before
+the file is written, for every file type (not for a file that `if_exists` skips or refuses). A file that is skipped under `if_exists="skip"` gets no sidecar, and a
+sidecar is overwritten by the next write with `with_metadata=True` and left as it is by one without. The command line
+writes the light block into Parquet, NetCDF and Zarr files with `--target`; `--with-metadata` neither adds the heavy
+parts to them nor writes a sidecar yet. Charts are not files of `to_target` and carry nothing (#2567).
+
 ## Formats by surface
 
 Which format each surface takes. `all` is `stations`, `values`, `interpolate` and `summarize`, the four commands,
@@ -142,11 +183,25 @@ out, or the other way round, fails it.
 | `zarr` | no | `.zarr` | no | no | no |
 | `nc` | no | `.nc` | no | no | no |
 
+The five results and the alerts result of `dwd/alerts` satisfy `FormattableResult` (`wetterdienst.model.result`), a
+small `typing.Protocol` of `to_dict`, `to_json` and `to_format`, so that one function can write them all (the radar
+result is a set of arrays, not a table, and does not). The history result has JSON
+and no other format: `to_format("json")`, in any case, is its `to_json`, and `to_format("csv")` is an
+`UnknownFormatError` naming `json` as the only one supported. The alerts result of `dwd/alerts` has `json`, `geojson`
+and `csv`, in any case, and takes the `indent` and the `with_metadata` of the others; it has no `to_target` yet.
+
 `to_format` takes one set of arguments for any format and gives each format those it takes: `with_metadata`,
 `with_stations` and `indent` for JSON (a stations result has no `with_stations`), `with_metadata` and `indent` for
 GeoJSON, `width`, `height`, `scale` and `max_side` for a chart, and none for CSV and NDJSON. A name that is none of
 these is a `TypeError` listing them. A format it does not know is an `UnknownFormatError`, which names the format and lists the
 supported ones; it is a `KeyError` and a `ValueError` both, so either `except` catches it.
+
+A number that is not finite, `NaN` or an infinity, is written as `null` in every JSON format: `to_json`, `to_geojson`,
+the `.json`, `.geojson`, `.jsonl` and `.ndjson` file targets, and the JSON, GeoJSON and NDJSON answers of the command
+line, the REST API and MCP. JSON has no such number (RFC 8259), and a strict parser such as JavaScript's `JSON.parse`
+refuses the bare `NaN` and `Infinity` that Python writes. A position is numbers only in GeoJSON, so a station whose
+elevation is not finite has no z, and one whose longitude or latitude is not finite has a `null` geometry. `to_dict`
+returns the float as it is.
 
 A `.json` or `.jsonl` file holds the records of the frame, where `--format=json` and `to_json` write the response
 envelope. `ndjson` is those records alone, a JSON object a line: `to_format("ndjson")` and the `.jsonl` file hold

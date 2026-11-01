@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Literal
 from wetterdienst.exceptions import UnknownFormatError
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Sequence
 
 
 @dataclass(frozen=True)
@@ -74,32 +74,43 @@ def renders_with_kaleido(fmt: str) -> bool:
     return format_ is not None and format_.kaleido
 
 
-def find_format(fmt: str) -> Format:
+def find_format(fmt: str, only: Sequence[str] | None = None) -> Format:
     """Find the format a caller names, in any case.
 
+    Args:
+        fmt: The name the caller gave.
+        only: The names a result renders, where it renders some of the formats and not all (the alerts, a history):
+            the others are unknown to it, and the error lists these.
+
     Raises:
-        UnknownFormatError: Nothing here renders it.
+        UnknownFormatError: Nothing here renders it, or the result renders only some and it is not among them.
 
     """
     name = fmt.lower()
-    if name not in FORMATS:
-        raise UnknownFormatError(fmt, tuple(FORMATS))
+    supported = tuple(FORMATS) if only is None else tuple(only)
+    if name not in FORMATS or name not in supported:
+        raise UnknownFormatError(fmt, supported)
     return FORMATS[name]
 
 
-def refuse_unknown_arguments(kwargs: Iterable[str]) -> None:
+def refuse_unknown_arguments(kwargs: Iterable[str], also: Iterable[str] = ()) -> None:
     """Refuse an argument that no format takes, listing the ones that are.
 
     An argument that some other format takes is not refused: `to_format` takes one set of arguments for every format
     and gives each the ones it takes.
 
+    Args:
+        kwargs: The names the caller gave.
+        also: The names a result's own method takes besides those of the formats (the `sections` of a history).
+
     Raises:
         TypeError: An argument that is the name of none.
 
     """
-    unknown = sorted(set(kwargs) - ARGUMENTS)
+    arguments = ARGUMENTS | frozenset(also)
+    unknown = sorted(set(kwargs) - arguments)
     if unknown:
         names = ", ".join(repr(name) for name in unknown)
         noun = "arguments" if len(unknown) > 1 else "argument"
-        msg = f"to_format() got an unexpected keyword {noun} {names}; the formats take {', '.join(sorted(ARGUMENTS))}"
+        msg = f"to_format() got an unexpected keyword {noun} {names}; the formats take {', '.join(sorted(arguments))}"
         raise TypeError(msg)

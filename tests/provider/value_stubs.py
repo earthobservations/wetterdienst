@@ -2004,18 +2004,19 @@ def _meteoswiss_10_minutes(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = T
 
 
 def _dwd_road(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
-    # a flat read of a KM file, as pdbufr gives it: ecCodes decodes a missing value to null itself. The -75.00 C
-    # (198.15 K) KM's stopped sensors hold for days (GH-1917) lies inside the -90 to 100 C of the table of ranges, the
-    # same for every provider (GH-3681), so only the check `stuck` finds it, and only over a run of 24 readings, which
-    # this file does not hold: it arrives. The second minute reads -25.00 C, which a German winter reaches: it stays
-    # (GH-3222). The hygrometer writes 0.4 % at the first minute and 87 at the second: the 0.4 is no reading
-    # (GH-3624). At midnight (UTC, the sun 60.8 degrees under the horizon at 50 N 10 E) the surface reads 27 C beside
+    # a flat read of a KM file, as pdbufr gives it: ecCodes decodes a missing value to null itself, so the one value
+    # that is no reading is the -75.00 C (198.15 K) KM's stopped sensors hold for days (GH-1917): GH-1917 read it in the
+    # road surface temperature of KM/H659 and KM/H438 (2026-09-16) beside an air that is one, and it is a code of this
+    # source, mapped by the reader (it lies inside the table of ranges, GH-3681), the air carrying it in the fourth file
+    # by the decision of GH-3681. The second minute reads -25.00 C, which a German winter reaches: it stays (GH-3222).
+    # The hygrometer writes 0.4 % at the first minute and 87 at the second: the 0.4 is no reading (GH-3624). At
+    # midnight (UTC, the sun 60.8 degrees under the horizon at 50 N 10 E) the surface reads 27 C beside
     # the air's -3 C, 30 K above it, which is no reading either; the same surface at noon would be a road in the sun
     if not bufr_is_available():
         pytest.skip("eccodes and pdbufr required")
     import pandas as pd  # noqa: PLC0415
 
-    def subset(hour: int, minute: int, road: float, humidity: float) -> dict[str, object]:
+    def subset(hour: int, minute: int, road: float, humidity: float, air: float = 270.15) -> dict[str, object]:
         return {
             "#1#year": 2026,
             "#1#month": 1,
@@ -2023,7 +2024,7 @@ def _dwd_road(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.Da
             "#1#hour": hour,
             "#1#minute": minute,
             "#1#shortStationName": "K001",
-            "#1#airTemperature": 270.15,
+            "#1#airTemperature": air,
             "#1#roadSurfaceTemperature": road,
             "#1#relativeHumidity": humidity,
         }
@@ -2032,6 +2033,7 @@ def _dwd_road(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.Da
         "swis2-ISXD70_DWKM_130000-2601130000-KM---bin": pd.DataFrame([subset(0, 0, 300.15, 93.0)]),
         "swis2-ISXD70_DWKM_131200-2601131200-KM---bin": pd.DataFrame([subset(12, 0, 198.15, 0.4)]),
         "swis2-ISXD70_DWKM_131215-2601131215-KM---bin": pd.DataFrame([subset(12, 15, 248.15, 87.0)]),
+        "swis2-ISXD70_DWKM_131230-2601131230-KM---bin": pd.DataFrame([subset(12, 30, 270.15, 87.0, air=198.15)]),
     }
     monkeypatch.setattr(dwd_road_api, "list_remote_files_fsspec", lambda *_args, **_kwargs: list(files))
     monkeypatch.setattr(
@@ -2590,9 +2592,20 @@ STUBS = [
         "dwd/road 15_minutes/data",
         _dwd_road,
         reading=("temperature_surface", -25.0),
-        # no hygrometer reads 0.4 %, and no road is 30 K warmer than the air at midnight (GH-3624)
-        sentinels=(("temperature_surface", 27.0), ("humidity_relative", 0.4)),
-        tokens=(("temperature_surface", "300.15", None), ("humidity_relative", "0.4", None)),
+        # no sensor reads -75 C: null, with the kelvin DWD wrote, in the surface and in the air (a code of the source,
+        # no verdict of a check); nor 0.4 % of humidity, nor a road 30 K warmer than the air at midnight (GH-3624)
+        sentinels=(
+            ("temperature_surface", -75.0),
+            ("temperature_air", -75.0),
+            ("temperature_surface", 27.0),
+            ("humidity_relative", 0.4),
+        ),
+        tokens=(
+            ("temperature_surface", "198.15", None),
+            ("temperature_air", "198.15", None),
+            ("temperature_surface", "300.15", None),
+            ("humidity_relative", "0.4", None),
+        ),
         verdicts=(("temperature_surface", "300.15", "consistency"), ("humidity_relative", "0.4", "range")),
     ),
     ValueStub(

@@ -10,12 +10,7 @@ from wetterdienst.model.metadata import CC_BY_4_0, DATASET_NAME_DEFAULT, License
 # station/resolution/date-range in a single request, so each resolution is modelled as one
 # grouped default dataset. `name_original` is the raw DMI parameterId.
 #
-# Only the parameters with a canonical equivalent are mapped here (GH-3622). Left out, for want of a canonical name that
-# fits exactly: `snow_cover` (the share of the ground covered by snow, in percent; would be `snow_cover`),
-# `leaf_moisture` (the minutes of the hour or day with a wet leaf; `leaf_wetness_duration`), `temp_grass` (the air
-# temperature at grass height, 5 to 20 cm over the terrain, which is neither `temperature_air_mean_0_05m` nor
-# `temperature_air_mean_0_1m`; `temperature_air_mean_grass_height`), `temp_soil_30` (the soil temperature at 30 cm;
-# `temperature_soil_mean_0_3m`) and `vapour_pressure_deficit_mean` (in kPa; `vapor_pressure_deficit_mean`).
+# Only the parameters with a canonical equivalent are mapped here (GH-3622).
 
 # Parameters available at every resolution (hour, day, month, year).
 _BASE_PARAMETERS = [
@@ -266,6 +261,53 @@ _SOIL_TEMPERATURE = {
     "unit": "degree_celsius",
 }
 
+# Five parameters that DMI publishes for part of its stations only, read from the live service on 2026-11-01 (GH-3622).
+# `snow_cover` is a daily value of 2011-01-01 to 2015-11-21 and nothing else (hour, month and year come back empty);
+# the other four are published by the hour and the day, with no month or year. The daily value is the average of the
+# hourly values, as DMI's calculation table says, except the minutes of leaf wetness, which the day adds up (see
+# `_LEAF_WETNESS`).
+#
+# The air temperature at grass height, "5-20 cm over terrain": the mean of the hour (`temp_grass_mean_past1h`).
+_GRASS_TEMPERATURE = {
+    "name": "temperature_air_mean_grass_height",
+    "name_original": "temp_grass",
+    "unit": "degree_celsius",
+}
+# The soil temperature at a depth of 30 cm, daily only: DMI's day is the "average of all hourly values within a day",
+# a mean, but it names no metObs parameter for the hourly value ("N/A" in the calculation table), and the 10 cm value
+# beside it is documented as the mean of the hour (`temp_soil_mean_past1h`). A source that states no statistic below
+# daily takes a spot name (GH-2657), so the hourly value of `temp_soil_30` waits for DMI's answer (GH-3622).
+_SOIL_TEMPERATURE_30 = {
+    "name": "temperature_soil_mean_0_3m",
+    "name_original": "temp_soil_30",
+    "unit": "degree_celsius",
+}
+# The minutes of the hour with a wet leaf (`leav_hum_dur_past1h` of metObs, 0 to 60). DMI's calculation table says the
+# day is "average of all hourly values within a day", but the values are the sum: a mean of minutes cannot pass 60,
+# and 06135 has 1332.0, 39.0 and 364.0 on 2025-06-10 to 12 (the fixture of the tests), 06068 1440.0 (24 times 60.0)
+# on 2025-06-11 (GH-3622).
+_LEAF_WETNESS = {
+    "name": "leaf_wetness_duration",
+    "name_original": "leaf_moisture",
+    "unit": "minute",
+}
+# The share of the ground covered by snow, in percent, observed by hand once a day like the snow depth
+# (`snow_cover_man` of metObs; DMI: "derived directly ..., but codes are changed to %"), a day of 06:00 to 06:00 UTC
+# labelled by the date it begins. All 62,399 values of 91 stations are whole percent from 0 to 100,
+# and none is a sentinel.
+_SNOW_COVER = {
+    "name": "snow_cover",
+    "name_original": "snow_cover",
+    "unit": "percent",
+}
+# The vapour pressure deficit, from the hourly mean temperature and mean relative humidity ("Calculation method for
+# vapour_pressure_deficit_mean"), in kPa.
+_VAPOUR_PRESSURE_DEFICIT = {
+    "name": "vapor_pressure_deficit_mean",
+    "name_original": "vapour_pressure_deficit_mean",
+    "unit": "kilopascal",
+}
+
 _HOURLY_PARAMETERS = [
     *_BASE_PARAMETERS,
     _SUNSHINE_HOURLY,
@@ -308,6 +350,9 @@ _HOURLY_PARAMETERS = [
         "unit": "millimeter",
     },
     _SOIL_TEMPERATURE,
+    _GRASS_TEMPERATURE,
+    _LEAF_WETNESS,
+    _VAPOUR_PRESSURE_DEFICIT,
 ]
 
 _DAILY_PARAMETERS = [
@@ -319,6 +364,11 @@ _DAILY_PARAMETERS = [
     _RADIATION_SUM,
     _VAPOUR_PRESSURE,
     _SOIL_TEMPERATURE,
+    _GRASS_TEMPERATURE,
+    _SOIL_TEMPERATURE_30,
+    _LEAF_WETNESS,
+    _VAPOUR_PRESSURE_DEFICIT,
+    _SNOW_COVER,
     *_CLEAR_AND_CLOUDY_DAYS,
     {
         # measured by hand once a day, at 07:00 UTC (`snow_depth_man` of metObs), and so a reading of the day of 06:00

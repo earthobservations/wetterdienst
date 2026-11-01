@@ -52,7 +52,8 @@ class Plausibility(BaseModel):
     and the flag keeps the judgement visible. The missing-value codes and documented meanings a source writes
     (``-999``, ``---``, a trace, a calm) are no check and are not configurable.
 
-    The defaults reproduce what the library did before the modes existed, except ``stuck``, which is soft: it judges a
+    The defaults are what the library did for the networks it judged before the modes existed (since GH-3681 ``range``
+    and ``elevation`` judge every network), except ``stuck``, which is soft: it judges a
     series and not a value (identical readings are a sign of a stuck sensor and no proof), and what it finds depends
     on what was read: the window of the request for ``dwd/road``, the periods and files read for ``dwd/observation``.
     Set it from ``WD_TS_PLAUSIBILITY__<CHECK>`` (``WD_TS_PLAUSIBILITY__RANGE=soft``) or

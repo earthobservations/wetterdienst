@@ -729,8 +729,14 @@ What a request answers is a result, and the results are what a caller reads:
 - **A values result does not hold the reader** that produced it, so one you keep for a long job keeps
   the stations, their request and the frame alive, but not the reader. `df_stations` names the stations that have values.
 - Every result but the history one has `to_dict`, `to_json`, `to_ogc_feature_collection`, `to_geojson`,
-  `to_csv`, `to_ndjson`, `to_format`, `to_target`, `to_plot` and `to_image`; the history one has `to_dict` and
-  `to_json` only. They are documented below.
+  `to_csv`, `to_ndjson`, `to_format`, `to_target`, `to_plot` and `to_image`; the history one has `to_dict`, `to_json`
+  and `to_format`, which has JSON and no other format. They are documented below.
+- **`FormattableResult` is what all of them can do**: a `typing.Protocol` of `to_dict`, `to_json` and `to_format`,
+  importable from `wetterdienst.model.result`. The five results satisfy it, and so does the alerts result of
+  `dwd/alerts`, without inheriting from it, so a function that writes whatever a request answered annotates its
+  argument with it (`def save(result: FormattableResult) -> str | bytes`). `isinstance(result, FormattableResult)`
+  tells whether an object has the three methods. A format a result does not have, such as CSV for a history, is an
+  `UnknownFormatError` from its `to_format`.
 - **The formats take the arguments they have, and no others.** `to_json`, `to_geojson`,
   `to_ogc_feature_collection` and `to_plot` raise a `TypeError` for a keyword they do not know, so a typo such as
   `to_geojson(with_metdata=True)` is an error, and a type checker reports it. `to_csv` and `to_image` pass their
@@ -777,6 +783,7 @@ format takes is a `TypeError` too, and the formats by surface are in the table o
 | `to_ndjson` | none | none | none |
 | `to_image` | `**kwargs`: `fmt`, `width`, `height`, `scale`, `max_side` | the same | none |
 | `to_plot` | none | none | none |
+| `to_format` | `fmt`, `**kwargs` | the same | `fmt`, `**kwargs`: JSON only |
 
 `indent` defaults to 4 (`True` is 4, `False` or `None` writes the JSON on one line); `with_metadata` and `with_stations` default to `False`.
 `to_dict` and `to_ogc_feature_collection` return dictionaries typed as `StationsDict`, `ValuesDict`,

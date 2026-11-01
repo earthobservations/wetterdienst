@@ -98,7 +98,7 @@ _MISSING_SNOW_DEPTH = Sentinel("999", where=pl.col("parameterId").eq("max_snow_d
 # (base 17) are `acc_heating_degree_days_17`: no station has both, so the one is read as the other and the two are the
 # one parameter, `heating_degree_day`. Its range holds for either base: the highest year DMI publishes is 18,022.8
 # (04416 Summit on the ice sheet, 2011; 17,747.8 in 2009 and 17,612.7 in 2013) and the highest month 2,114.3 (2011-12),
-# so the bound of 20,000 of the range table leaves about 10 % above the highest year (read 2026-10-31)
+# so the bounds of the range table (115 a day, 3,600 a month, 42,100 a year) lie well above both (read 2026-10-31)
 _FIELD_SERVED_AS = {"acc_heating_degree_days_19": "acc_heating_degree_days_17"}
 # DMI's value of a parameter that the metadata declares in another unit is multiplied by this factor: the radiation of
 # a day, a month and a year is a sum in MJ/m2 that the metadata declares in kJ/m2 (GH-3622)

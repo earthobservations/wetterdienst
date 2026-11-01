@@ -62,6 +62,12 @@ STATION_PRESSURE = ("pressure_air_site", "pressure_air_site_mean")
 #: the station pressure that is also held to what the elevation of the station allows (check ``elevation``): in every
 #: network, for every station of it that has an elevation
 ELEVATION_PRESSURE = ("pressure_air_site", "pressure_air_site_mean", "pressure_air_site_min", "pressure_air_site_max")
+#: the networks whose list writes 0.0 for a station of which it knows no elevation, so that 0.0 is no elevation there:
+#: GHCN lists 54 hourly stations at 0.0 that stand between 150 and 4,329 m (CHM00052940 reads 500.2 to 998 hPa; the
+#: daily list has BRM00083566, inland at about 827 m), and a pressure of the height they stand at is none for the sea
+#: level the list puts them at (GH-3681). The 0.0 of the lists read is a coast (those of DWD, ECCC, IMGW and
+#: Météo-France, read 2026-11-01, hold no station at 0.0 that stands higher than 75 m)
+ELEVATION_ZERO_IS_UNKNOWN = frozenset({"noaa/ghcn"})
 # the pressure of the standard atmosphere at sea level, in hPa, and what the barometric formula of it (the international
 # standard atmosphere, valid in the troposphere) expects at a height (GH-3627). A station pressure further below it
 # than `STATION_PRESSURE_LOW_SHARE` of it or further above it than `STATION_PRESSURE_HIGH_MARGIN` is no reading
@@ -162,16 +168,13 @@ class Beside:
     ``when`` is given the value of ``target`` and the value of ``partner`` of the same timestamp, in canonical units,
     and says whether the target is no reading; it may read any column of the frame (``pl.col("timestamp")``). Where the
     partner is missing the check stands aside. ``partner_plausible``: the partner counts only where it passed the range
-    check; ``partner_unless_stuck``: nor where it is a reading of a sensor that did not move for hours (``stuck``, and
-    only where the network has a run rule); ``partner_usable``: a further condition on the partner's rows (``value``,
-    ``quality_flags``).
+    check; ``partner_usable``: a further condition on the partner's rows (``value``, ``quality_flags``).
     """
 
     target: str
     partner: str
     when: Callable[[pl.Expr, pl.Expr], pl.Expr]
     partner_plausible: bool = False
-    partner_unless_stuck: bool = False
     partner_usable: Callable[[], pl.Expr] | None = None
 
 
@@ -359,7 +362,7 @@ def judge(  # noqa: C901
         high = parameter.replace_strict({n: b[1] for n, b in bounds.items()}, default=_INF, return_dtype=pl.Float64)
         outside = (value < low) | (value > high)
         exprs["range"].append(outside)
-    if plan.pressure and elevation is not None:
+    if plan.pressure and elevation is not None and not (elevation == 0.0 and plan.network in ELEVATION_ZERO_IS_UNKNOWN):
         allowed = station_pressure_bounds(elevation)
         if allowed is not None:
             exprs["elevation"].append(parameter.is_in(plan.pressure) & ((value < allowed[0]) | (value > allowed[1])))
@@ -373,13 +376,11 @@ def judge(  # noqa: C901
             first = dt.datetime.combine(rule.first, dt.time(), tzinfo=dt.UTC)
             end = dt.datetime.combine(rule.last + dt.timedelta(days=1), dt.time(), tzinfo=dt.UTC)
             exprs["stuck"].append(parameter.eq(plan.by_name[rule.parameter]) & (stamp >= first) & (stamp < end))
-    stopped = None
     if plan.runs[0]:
-        stopped = _stuck_runs(df, plan)
-        series["stuck"].append(stopped)
+        series["stuck"].append(_stuck_runs(df, plan))
     for rule in rules:
         if isinstance(rule, Beside) and rule.target in plan.by_name and rule.partner in plan.by_name:
-            series["consistency"].append(_beside(df, plan, rule, outside, stopped))
+            series["consistency"].append(_beside(df, plan, rule, outside))
 
     columns = {check: pl.any_horizontal(*items) for check, items in exprs.items() if items}
     frame = df.with_columns(*(expr.alias(_HIT + check) for check, expr in columns.items()))
@@ -514,25 +515,16 @@ def _any_of(items: list[pl.Series]) -> pl.Series:
     return result
 
 
-def _beside(
-    df: pl.DataFrame, plan: Plan, rule: Beside, outside: pl.Expr | None, stopped: pl.Series | None = None
-) -> pl.Series:
-    """Evaluate a relation between two parameters of one timestamp over the long frame: the rows it rejects.
-
-    ``stopped`` marks the readings of a sensor that did not move for hours (the check ``stuck``): where the rule says
-    so, the partner counts only where it is not one of them.
-    """
+def _beside(df: pl.DataFrame, plan: Plan, rule: Beside, outside: pl.Expr | None) -> pl.Series:
+    """Evaluate a relation between two parameters of one timestamp over the long frame: the rows it rejects."""
     target, partner = plan.by_name[rule.target], plan.by_name[rule.partner]
-    marked = df.with_columns(stopped.alias("__stopped")) if rule.partner_unless_stuck and stopped is not None else df
-    beside = marked.filter(pl.col("parameter").eq(partner))
+    beside = df.filter(pl.col("parameter").eq(partner))
     if beside.is_empty():
         return _no_hits(df)
     usable = pl.lit(value=True)
     if rule.partner_plausible and outside is not None:
         beside = beside.with_columns(outside.alias("__outside"))
         usable = ~pl.col("__outside").fill_null(value=False)
-    if "__stopped" in beside.columns:
-        usable = usable & ~pl.col("__stopped").fill_null(value=False)
     if rule.partner_usable is not None:
         usable = usable & rule.partner_usable()
     beside = beside.select("timestamp", pl.when(usable).then(pl.col("value")).alias("__beside")).unique(

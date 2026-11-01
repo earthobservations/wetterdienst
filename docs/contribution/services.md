@@ -321,10 +321,10 @@ the numbers over in the unit of its source, and:
   its unit type; a new quantity with a record is added to the table with its source (the WMO record rounded outward, then
   the definition, then a named source), once for all networks, and `tests/provider/physical_ranges.py` reads the same
   table for the provider tests. A bound a provider alone would want is not an entry: the rules it hands over (next
-  point) are, and `Bound` is the one narrow case. The other checks are declared in `model/judge.py`: the station
-  pressure held to the elevation of the station (`ELEVATION_PRESSURE`, for every network that has an elevation), the
-  amounts a model writes below zero (`FLOORS`), the run of one value of a barometer (`CONSTANT_RUNS`), the road's run rule
-  (`RUNS`).
+  point) are, and `Bound` is the one narrow case. The other checks are declared in `model/judge.py`: the station pressure held to the elevation of the station
+  (`ELEVATION_PRESSURE`, for every network that has an elevation; a list that writes 0.0 for an elevation it does not
+  know is named in `ELEVATION_ZERO_IS_UNKNOWN`), the amounts a model writes below zero (`FLOORS`), the run of one
+  value of a barometer (`CONSTANT_RUNS`), the road's run rule (`RUNS`).
 - **hands over what only it knows** by overriding `TimeseriesValues._plausibility_rules(station_id, dataset)` and
   returning rules of `wetterdienst.model.judge`, in canonical names and units: `Bound` (a range for one station, such as
   the stations without frost), `Beside` (a reading that the reading of another parameter at the same timestamp

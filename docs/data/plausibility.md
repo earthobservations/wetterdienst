@@ -52,15 +52,16 @@ written as short as it goes (`4021.0` as `4021`).
 
 | check | judges | default | rule and bounds |
 | --- | --- | --- | --- |
-| `range` | a reading outside the physical range of its parameter | hard | One table of bounds for every network, by canonical parameter and resolution (the rain of a minute and of a day differ), in the canonical unit, and generous: each rests on a record with room above it, so that a value that is only odd stays ([the table](#the-table-of-ranges)). No network has bounds of its own. DWD road holds a relative humidity below 1 % to this check as well: a failed hygrometer writes a value inside every range, and 1 % is far below any humidity the air of Germany reaches |
-| `elevation` | a station pressure the standard atmosphere does not allow at the station's elevation | hard | In every network that serves a station pressure (`pressure_air_site`, `_mean`, `_min`, `_max`), for each station of the list that has an elevation. Against the pressure of the international standard atmosphere at that elevation, from **870/1013.25 of it** (143 hPa below at sea level: the lowest pressure on record, 870 hPa in Typhoon Tip, as a share of the standard atmosphere) to **75 hPa above it** (the 1,083.8 hPa of Agata, 261 m, the highest sea level pressure of a low station, reduced to the station with the cold column of that day lies 59 to 64 hPa above the standard atmosphere there, the 1,089.1 hPa of Tosontsengel, 1,725 m, 14 to 40: a derivation of GH-3681). The world-wide bounds (300 to 1100 hPa) let through the pressure of another height (968.6 hPa at the Zugspitze, 2,956 m, where 705 are expected) and a P0 mistyped by a digit above the standard atmosphere (1093.3 hPa at 48 m, 85.8 above). A station without an elevation, or one outside -500 to 9,000 m, is not judged. The margin below keeps Hurricane Irma (917.4 hPa at 10:00 and 936.0 hPa an hour earlier at St-Barthélemy, 3 m, 2017-09-06, quality code 1) and the deep lows of Dumont d'Urville (938 hPa at 43 m, where 1,008 are expected); it lets 3 of the 19 readings of DWD's hourly station pressure beyond 75 hPa of the standard atmosphere (the research of GH-3681, over Berlin-Tempelhof, List auf Sylt and the Zugspitze) pass: 909.5, 910.1 and 908.5 hPa, 98 to 102 hPa below, which the step check planned in [GH-3681](https://github.com/earthobservations/wetterdienst/issues/3681) is to catch |
+| `range` | a reading outside the physical range of its parameter | hard | One table of bounds for every network, by canonical parameter and resolution (the rain of a minute and of a day differ), in the canonical unit, and generous: each rests on a record with room above it, so that a value that is only odd stays ([the table](#the-table-of-ranges)). No network has bounds of its own in the table; a provider's `Bound` rule can only narrow it (Météo-France: no air below 0 °C at a station without frost). DWD road holds a relative humidity below 1 % to this check as well: a failed hygrometer writes a value inside every range, and 1 % is far below any humidity the air of Germany reaches |
+| `elevation` | a station pressure the standard atmosphere does not allow at the station's elevation | hard | In every network that serves a station pressure (`pressure_air_site`, `_mean`, `_min`, `_max`), for each station of the list that has an elevation. Against the pressure of the international standard atmosphere at that elevation, from **870/1013.25 of it** (143 hPa below at sea level: the lowest pressure on record, 870 hPa in Typhoon Tip, as a share of the standard atmosphere) to **75 hPa above it** (the 1,083.8 hPa of Agata, 261 m, the highest sea level pressure of a low station, reduced to the station with the cold column of that day lies 59 to 64 hPa above the standard atmosphere there, the 1,089.1 hPa of Tosontsengel, 1,725 m, 14 to 40: a derivation of GH-3681). The world-wide bounds (300 to 1100 hPa) let through the pressure of another height (968.6 hPa at the Zugspitze, 2,956 m, where 705 are expected) and a P0 mistyped by a digit above the standard atmosphere (1093.3 hPa at 48 m, 85.8 above). A station without an elevation, or one outside -500 to 9,000 m, is not judged. So is a `noaa/ghcn` station at 0.0 m: its lists write 0.0 for stations they know no elevation of (the daily one BRM00083566, inland at about 827 m), and 54 of the 271 at 0.0 in the hourly one stand between 150 and 4,329 m (CHM00052940 reads 500.2 to 998 hPa), while the 0.0 of the lists read (DWD, ECCC, IMGW, Météo-France) is a coast. The margin below keeps Hurricane Irma (917.4 hPa at 10:00 and 936.0 hPa an hour earlier at St-Barthélemy, 3 m, 2017-09-06, quality code 1) and the deep lows of Dumont d'Urville (938 hPa at 43 m, where 1,008 are expected); it lets 3 of the 19 readings of DWD's hourly station pressure beyond 75 hPa of the standard atmosphere (the research of GH-3681, over Berlin-Tempelhof, List auf Sylt and the Zugspitze) pass: 909.5, 910.1 and 908.5 hPa, 98 to 102 hPa below, which the step check planned in [GH-3681](https://github.com/earthobservations/wetterdienst/issues/3681) is to catch |
 | `stuck` | a sensor that held one value over a period it should not have | **soft** | DWD observation: a run of consecutive readings of one value of the station pressure (`pressure_air_site`, `pressure_air_site_mean`): 72 hourly readings, 5 days, 36 readings at 10 minutes (HadISD and ECA&D, see [the limits](#the-limit-of-a-run)); a station without a barometer writes its constant in every row. DWD road: 24 readings or more (6 h) of one value of the air, the dew point or the road surface temperature, a gap longer than four times the station's usual one ending the run, melting ice excepted. RMI: the sunshine of station 6477 in the periods its sensor was stuck or dead |
-| `consistency` | a reading that another parameter of the same file contradicts | hard | DWD road: a road surface more than 20 K above the air of the same minute with the sun more than 6 degrees below the horizon, the air counting only where it passed `range`, is not marked suspect by DWD's own flag and is not a stopped sensor's (`stuck`). Météo-France: the humidity of an hour whose dew point lies below 0 °C at a station without frost (the same hygrometer), and a `tn12` that is the text of the `tx12` beside it (a copy, no minimum) |
+| `consistency` | a reading that another parameter of the same file contradicts | hard | DWD road: a road surface more than 20 K above the air of the same minute with the sun more than 6 degrees below the horizon, the air counting only where it passed `range` and is not marked suspect by DWD's own flag. Météo-France: the humidity of an hour whose dew point lies below 0 °C at a station without frost (the same hygrometer), and a `tn12` that is the text of the `tx12` beside it (a copy, no minimum) |
 | `floor` | a model value a little below the floor of its quantity | hard | DWD DMO: ICON writes -0.02 mm for the precipitation of an hour, down to -0.10, and the radiation of a night below 0. **hard sets the floor**, 0.0, and keeps the number; soft keeps the number as the value |
 
 `stuck` is soft by default because it judges a series and not a value: identical readings are a sign of a stuck sensor
 and no proof, and what is found depends on what was read, which differs by network (see the caveats). Every other check
-is hard, which reproduces what the library did before the modes existed.
+is hard, which is what the library did for the networks it judged before the modes existed; since GH-3681 `range` and
+`elevation` judge every network.
 
 ### The limit of a run
 
@@ -89,8 +90,8 @@ month of `-999` between two readings of 997.3 hPa is two stretches and not one.
 The `range` check has **one table for every provider**. A quantity has the bound of the quantity and not of the network
 that serves it: DMI's rain, DWD's station pressure and RMI's gusts and sunshine were once held to bounds of their own, and
 are held to the table now. Every network is judged against it, wherever its parameters have a bound. A bound is the first
-of these that exists, rounded outward to a round number (steps of 5 to 50 below 2,000, 500 or 1,000 above: 31.2 is 40,
-1,144 is 1,150, 1,825 is 1,850), so that it finds a value that is a defect of the source and never a
+of these that exists, rounded outward to a round number (31.2 is 40, 1,144 is 1,150, 1,825 is 1,850, 26,470 is 30,000; the irradiance of
+2,000 W/m² lies between the 1,600 of WMO-No. 488 and the 2,141 of BSRN), so that it finds a value that is a defect of the source and never a
 record:
 
 1. the extreme the WMO World Weather and Climate Extremes Archive lists
@@ -118,7 +119,10 @@ the main ones are:
 | rain in a month | 0 to 10,000 mm | 9,300 mm in July 1861 (Cherrapunji; Bureau of Meteorology, a secondary source) |
 | rain in a year | 0 to 30,000 mm | WMO: 26,470 mm in 12 months (Cherrapunji, 1860/61) |
 | relative humidity | 0 to 100 % | definition |
-| sunshine and precipitation duration | 0 to the span + 5 % | definition, with the margin of ECA&D for the length of the day |
+| snow cover | 0 to 100 % | definition |
+| vapour pressure deficit | -10 to 200 hPa | the saturation pressure at the 60 °C of the air bound, 199 hPa by Magnus; DMI writes some hours and days a little below 0 (-3 hPa at 06193, 2025-07-25), so the lower end leaves them |
+| new snow in a day, in a month | 0 to 200 cm, 0 to 6,200 cm | Durre et al. 192.5 cm; a month (the sums of the daily depths, ECCC's normal snowfall) is that times 31 |
+| sunshine, precipitation and leaf wetness duration | 0 to the span + 5 % | definition, with the margin of ECA&D for the length of the day |
 | short-wave irradiance | 0 to 2,000 W/m² | WMO-No. 488 holds 0 to 1,600, BSRN 2,141 at the zenith |
 | snow depth | -10 to 1,200 cm | ISD 1,200 cm, Durre et al. 1,146 cm; a gauge reads a few centimetres below 0 |
 | water temperature | -5 to 50 °C | MADIS holds the sea surface to -2 to 40 °C |
@@ -126,7 +130,7 @@ the main ones are:
 
 Quantities that are **derived** from others (wind chill, humidex, evaporation, the net radiation of DMO and the forecast
 errors `error_absolute_*`), codes and flags, and the **hydrology gauges** (stage, discharge, groundwater level, distance
-to the gauge, flow speed: a datum of their own, and a tidal river runs backwards) have no bound.
+to the gauge, flow speed and the direction of the current, whose unit the source does not explain: a datum of their own, and a tidal river runs backwards) have no bound.
 
 **Shangdi.** The one documented exceedance is Shangdi (Inner Mongolia, 1975-08-01): 401 mm in 60 minutes, which is in
 the lists of the Bureau of Meteorology and the NWS but not in the WMO table, so the bound of an hour is 350 mm and the
@@ -155,10 +159,10 @@ A bound that holds for every provider cannot see a defect that lies inside it. T
 - **A station pressure keyed in by a digit, between the margins of `elevation`**: 909.5, 910.1 and 908.5 hPa at DWD's
   Berlin-Tempelhof and List auf Sylt, 98 to 102 hPa under the standard atmosphere, as far as the eye of a hurricane
   (917.4 hPa at 3 m). Steps of 90 to 129 hPa in an hour, against the 43 of Irma, tell them; that is the step check, too.
-- **The stopped sensors of DWD road at -75.00 °C** (station group KM): inside the -90 °C of the air record. The check
-  `stuck` finds them over a run of 24 readings (6 hours), which a request for an hour does not hold. DWD road keeps two
-  narrow rules of its own: a humidity below 1 % is no reading (a `Bound`), and an air that `stuck` finds a stopped
-  sensor's is no partner of the road surface (`consistency`, no bound).
+- **The stopped sensors of DWD road at -75.00 °C** (station group KM): inside the -90 °C of the air record, so no
+  bound finds them. They are a code of the source and the reader of DWD road maps them to null, keeping `raw:198.15`.
+  DWD road keeps one narrow rule of its own beside it: a humidity below 1 % is no reading (a `Bound`). The `-30.00` and
+  `-25.00` of other stopped sensors are readings a German winter reaches, and stay with the check `stuck`.
 - **A sensor stuck at a plausible value, a sunshine of 1,440 minutes on a day of December** (RMI, 6477) and other
   quantities that look like data: `stuck` and the rules of a provider, not the table.
 
@@ -237,6 +241,12 @@ The two kinds sit after the source's own flags and before `raw:`, which stays th
 - A soft verdict has no `raw:`: the value is the number the source wrote, after the unit conversion as any other.
 - The outcome is in the token and not only in the options, because an exported file does not carry the options it was
   made with. `raw:` alone is the source's own code; `rejected:` before it is our judgement.
+
+A REST answer tells the two apart in its `warnings` ([REST API](../usage/restapi.md)): `missing-value-marker` counts the
+nulls that carry a code the source wrote (`raw:` alone), `rejected-by-plausibility` the nulls a hard check made
+(`rejected:` before `raw:`), with the count per check in its message. A value that two checks rejected is one value,
+told under both. A soft check keeps the value and raises no warning, and neither does the `floor` check, whose value is
+the floor and not null.
 
 ```python
 import polars as pl
@@ -350,9 +360,7 @@ What no check covers, and why:
   - *DWD road*: the verdict depends on the window of the request, because the reader cuts to the window. A run of
     identical values that crosses the start of the request is only found when the window covers enough of it, and a
     request for an hour has fewer readings than the 24 that mark a run: the same day can answer differently for a
-    different window. The road surface rule of `consistency` uses it in one place: an air that `stuck` finds a stopped
-    sensor's is no partner of the surface (the -75.00 °C of station group KM, which lies inside the range). A request that
-    holds fewer than the 24 readings of a run cannot see the stop, and holds the surface to the air as to any other.
+    different window. For this reason the road surface rule of `consistency` does not use the stuck verdict.
   - *DWD observation*: the verdict depends on the periods and files read (historical, recent, now), not on the window:
     the core judges the merged series before the window is cut, so the same file answers the same for any window inside
     it. A request for the recent period alone sees the runs of the recent file alone. A constant stretch below the limit

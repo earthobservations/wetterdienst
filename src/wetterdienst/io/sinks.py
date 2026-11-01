@@ -2,16 +2,19 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Write a result to a target: the file writers by extension and the database sinks by scheme.
 
-`ExportMixin.to_target` reads the connection string and hands the result to the sink `find_sink` names for it. A file
-target is then written by the function `FILE_WRITERS` holds for its extension. Each writer imports its dependency when
-it is used (`import_optional`).
+`ExportMixin.to_target` reads the connection string and hands the result to the sink `find_sink` names for it
+(`write_to_target`). A file target is then written by the function `FILE_WRITERS` holds for its extension. Each writer
+imports its dependency when it is used (`import_optional`).
+
+A file of a format that can hold it carries the licence, the credit line and the date of its data (`SELF_DESCRIBING`:
+Parquet, Zarr, NetCDF), and any other file gets them as a sidecar where the caller asks for it with `with_metadata`
+(`io/file_metadata.py`, GH-3449).
 """
 
 from __future__ import annotations
 
-import json
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from copy import copy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -20,7 +23,9 @@ import polars as pl
 import polars.selectors as cs
 
 from wetterdienst.exceptions import ExportRefusedError, MissingDependencyError
+from wetterdienst.io.file_metadata import block_attributes, metadata_block, require_block, write_sidecar
 from wetterdienst.util.extras import as_missing_dependency, import_optional, missing_dependency_message
+from wetterdienst.util.json_util import dumps_json
 from wetterdienst.util.url import ConnectionString, redact_password
 
 if TYPE_CHECKING:
@@ -33,8 +38,9 @@ log = logging.getLogger(__name__)
 #: what `to_target` does with a target that already exists
 IfExists = Literal["replace", "append", "fail", "skip"]
 
-#: writes the result to the file at the path
-FileWriter = Callable[["ExportMixin", str], None]
+#: writes the result to the file at the path; the writer of a self-describing format takes the `attributes` to write
+#: into the file as a keyword, and the other writers take none
+FileWriter = Callable[..., None]
 
 #: writes the result to the target: the result, the target as written, its reading and `if_exists`
 Sink = Callable[["ExportMixin", str, ConnectionString, IfExists], None]
@@ -55,13 +61,17 @@ def _array_group(df: pl.DataFrame) -> str:
     return "data"
 
 
-def _write_array_store(result: ExportMixin, filepath: str, *, netcdf: bool) -> None:
+def _write_array_store(
+    result: ExportMixin, filepath: str, *, netcdf: bool, attributes: Mapping[str, str] | None = None
+) -> None:
     """Write the frame to a Zarr group or a NetCDF file, through xarray.
 
     The two share everything but their notion of time. NetCDF has a convention for it, so the
     timestamps stay timestamps and xarray writes them as CF units; Zarr keeps the ISO strings
     and the `datetime64` encoding that turns them back into the epoch nanoseconds a reader of
     an existing store expects, which is a contract this must not break.
+
+    `attributes` are the licence, the credit line and the date of the data, written as the attributes of the group.
     """
     xarray = import_optional("xarray", "Writing Zarr and NetCDF", extra="export")
 
@@ -81,8 +91,8 @@ def _write_array_store(result: ExportMixin, filepath: str, *, netcdf: bool) -> N
     # an air temperature of -999 degrees, or a station 999 m below the sea. NetCDF kept its NaN all along
     # xarray encoding cannot handle a pandas Categorical (produced from Enum columns, which a caller
     # may have made of the frame's own), so cast them to String, and a list column is no more an array than it
-    # is a CSV field
-    df = join_list_columns(df).with_columns(pl.col(pl.Enum).cast(pl.String))
+    # is a CSV field. A `pl.Categorical` fails on its own: `Cannot interpret 'CategoricalDtype(...)' as a data type`
+    df = join_list_columns(df).with_columns(pl.col(pl.Enum, pl.Categorical).cast(pl.String))
     # every timestamp the frame carries, in UTC without the zone: a stations frame has
     # `start_timestamp` and `end_timestamp` and no `timestamp`, and naming the values column alone (then
     # `date`) took it down with a missing column before it could be written at all
@@ -91,6 +101,7 @@ def _write_array_store(result: ExportMixin, filepath: str, *, netcdf: bool) -> N
     if netcdf:
         log.info(f"Writing to NetCDF file '{filepath}'")
         dataset = xarray.Dataset.from_dataframe(df.to_pandas())
+        dataset.attrs.update(attributes or {})
         dataset.to_netcdf(filepath, group=group, engine=engine)
         log.info(f"Wrote NetCDF file with variables={list(dataset.data_vars)}")
         return
@@ -100,9 +111,9 @@ def _write_array_store(result: ExportMixin, filepath: str, *, netcdf: bool) -> N
     datetime_columns = df.select(cs.datetime()).columns
     pandas_df = df.with_columns(cs.datetime().dt.to_string("iso:strict").fill_null("NaT")).to_pandas()
     dataset = xarray.Dataset.from_dataframe(pandas_df)
+    dataset.attrs.update(attributes or {})
     log.info(f"Converted to xarray Dataset. Size={dataset.sizes}")
     log.info(f"Writing to Zarr group '{filepath}'")
-    # TODO: Also use attributes: `store.set_attribute()`
     store = dataset.to_zarr(
         filepath,
         mode="w",
@@ -225,7 +236,7 @@ def _write_geojson(result: ExportMixin, filepath: str) -> None:
     log.info(f"Writing to GeoJSON file '{filepath}'")
     collection = result.to_ogc_feature_collection()["data"]
     # bytes, as `ensure_ascii=False` writes UTF-8 and a text file would translate the newlines on Windows
-    Path(filepath).write_bytes(json.dumps(collection, indent=4, ensure_ascii=False).encode("utf-8"))
+    Path(filepath).write_bytes(dumps_json(collection, indent=4, ensure_ascii=False).encode("utf-8"))
 
 
 def _write_feather(result: ExportMixin, filepath: str) -> None:
@@ -235,8 +246,8 @@ def _write_feather(result: ExportMixin, filepath: str) -> None:
     result.df.write_ipc(filepath, compression="lz4")
 
 
-def _write_parquet(result: ExportMixin, filepath: str) -> None:
-    """Write the frame as Parquet."""
+def _write_parquet(result: ExportMixin, filepath: str, *, attributes: Mapping[str, str] | None = None) -> None:
+    """Write the frame as Parquet, with the licence, the credit line and the date in its key-value metadata."""
     """
     # Acquire data and store to Parquet file.
     alias fetch="wetterdienst values --provider=dwd --network=observation --stations=1048,4411 --parameters=daily/kl --periods=recent"
@@ -252,15 +263,15 @@ def _write_parquet(result: ExportMixin, filepath: str) -> None:
 
     log.info(f"Writing to Parquet file '{filepath}'")
 
-    result.df.write_parquet(filepath)
+    result.df.write_parquet(filepath, metadata=dict(attributes or {}) or None)
 
 
-def _write_zarr(result: ExportMixin, filepath: str) -> None:
+def _write_zarr(result: ExportMixin, filepath: str, *, attributes: Mapping[str, str] | None = None) -> None:
     """Write the frame to a Zarr group."""
-    _write_array_store(result, filepath, netcdf=False)
+    _write_array_store(result, filepath, netcdf=False, attributes=attributes)
 
 
-def _write_netcdf(result: ExportMixin, filepath: str) -> None:
+def _write_netcdf(result: ExportMixin, filepath: str, *, attributes: Mapping[str, str] | None = None) -> None:
     """Write the frame to a NetCDF file."""
     """
     # Acquire data and store to Zarr group or NetCDF file.
@@ -274,10 +285,10 @@ def _write_netcdf(result: ExportMixin, filepath: str) -> None:
     - https://xarray.pydata.org/en/stable/generated/xarray.Dataset.to_netcdf.html
     """
 
-    _write_array_store(result, filepath, netcdf=True)
+    _write_array_store(result, filepath, netcdf=True, attributes=attributes)
 
 
-#: the file writers, by the extension a `file://` target ends in, which is read in any case (`.CSV` is `.csv`)
+#: the file writers, by the extension the decoded path of a `file://` target ends in, read in any case (`.CSV`)
 FILE_WRITERS: dict[str, FileWriter] = {
     ".csv": _write_csv,
     ".xlsx": _write_xlsx,
@@ -292,8 +303,43 @@ FILE_WRITERS: dict[str, FileWriter] = {
 }
 
 
-def _write_file(result: ExportMixin, target: str, connspec: ConnectionString, if_exists: IfExists) -> None:
-    """Write the frame to the file a `file://` target names, by its extension."""
+#: the file types that hold the licence, the credit line and the date of the data themselves, in Parquet's key-value
+#: metadata and in the attributes of a NetCDF file and a Zarr group, so that they are written with it by default. The
+#: others are bare, and `with_metadata` writes the block beside them
+SELF_DESCRIBING = frozenset({".parquet", ".zarr", ".nc"})
+
+
+def _write_with_metadata(
+    writer: FileWriter, extension: str, result: ExportMixin, filepath: str, *, with_metadata: bool
+) -> None:
+    """Write the file, with the metadata block in it or beside it as the type and `with_metadata` say."""
+    # built before anything is written: a result with nothing to describe is refused with no file left behind
+    if with_metadata:
+        block = require_block(result, heavy=True, beside=filepath)
+    elif extension in SELF_DESCRIBING:
+        block = metadata_block(result, heavy=False)
+    else:
+        block = None
+    if extension in SELF_DESCRIBING:
+        writer(result, filepath, attributes=None if block is None else block_attributes(block))
+        return
+    writer(result, filepath)
+    if block is not None:
+        log.info(f"Writing the metadata beside '{filepath}'")
+        write_sidecar(block, filepath)
+
+
+def _write_file(
+    result: ExportMixin, target: str, connspec: ConnectionString, if_exists: IfExists, *, with_metadata: bool = False
+) -> None:
+    """Write the frame to the file a `file://` target names, by its extension.
+
+    A self-describing file carries the metadata block of the REST API, light by default and with its units and quality
+    legend under `with_metadata`. Any other file is bare unless `with_metadata` asks for `<file>.metadata.json` beside
+    it, which holds the same block with those heavy parts. Nothing is written for a file that is skipped, and
+    `with_metadata` for a result with no provider to describe is refused before the file is written, for any type.
+    A sidecar of an earlier write is overwritten by the next `with_metadata` write and left as it is by one without.
+    """
     if if_exists == "append":
         msg = "Append mode is not supported for file exports."
         raise ExportRefusedError(msg)
@@ -309,10 +355,16 @@ def _write_file(result: ExportMixin, target: str, connspec: ConnectionString, if
             return
 
     for extension, writer in FILE_WRITERS.items():
-        if target.lower().endswith(extension):
-            writer(result, filepath)
+        if filepath.lower().endswith(extension):
+            _write_with_metadata(writer, extension, result, filepath, with_metadata=with_metadata)
             return
     msg = f"Unknown export file type for target '{target}'"
+    # the target as written, where a `?` that is a query is not the `%3F` of a file name, which the path has decoded
+    raw = target.removeprefix("file://").lower()
+    if any(raw[:i].endswith(tuple(FILE_WRITERS)) for i, char in enumerate(raw) if char == "?"):
+        # everything after `file://` is the path, so a `?a=1` after a known extension belongs to the file name, which
+        # then has no extension: that is a query string, where `what?.png` is an unknown type with a `?` in its name
+        msg += ". A file target has no query string: write a '?' of the file name as %3F, and leave a query out"
     raise ExportRefusedError(msg)
 
 
@@ -878,6 +930,29 @@ SINKS: dict[str, Sink] = {
     "influxdb": _write_influxdb,
     "crate": _write_cratedb,
 }
+
+
+def write_to_target(
+    result: ExportMixin, target: str, connspec: ConnectionString, if_exists: IfExists, *, with_metadata: bool = False
+) -> None:
+    """Hand the result to the sink that writes the target.
+
+    Raises:
+        ExportRefusedError: `with_metadata` for a target that is not a file: it writes a file beside the file, and a
+            database has none.
+
+    """
+    sink = find_sink(target, connspec.protocol)
+    if sink is _write_file:
+        _write_file(result, target, connspec, if_exists, with_metadata=with_metadata)
+        return
+    if with_metadata:
+        msg = (
+            "with_metadata writes the metadata beside a file target (file://...); "
+            f"a {connspec.protocol or 'database'} target has no file to write it beside"
+        )
+        raise ExportRefusedError(msg)
+    sink(result, target, connspec, if_exists)
 
 
 def find_sink(target: str, protocol: str) -> Sink:

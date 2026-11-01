@@ -193,7 +193,8 @@ LEGENDS: dict[str, list[QualityKind]] = {
         _plain(
             "The verdict on the reading, derived by the library from the station's quality flag word: `1` suspect, "
             "`0` checked and not suspect. No token where it is unknown (an unchecked or missing flag); that is told "
-            "apart from a reading found sound. A sensor that has stopped is no part of it: that is the check `stuck`, "
+            "apart from a reading found sound. A sensor that has stopped is no part of it: the 198.15 K it writes for "
+            "days is null with `raw:198.15`, and a sensor that holds any other value is the check `stuck`, "
             "`suspect:stuck`.",
             codes=_codes(c_0="Checked, not suspect", c_1="Suspect"),
         ),

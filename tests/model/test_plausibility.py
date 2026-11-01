@@ -36,7 +36,7 @@ def test_the_checks_are_the_five_the_issue_names() -> None:
 
 
 def test_every_check_is_hard_but_stuck_by_default() -> None:
-    """The defaults reproduce what the library did, except `stuck`, whose verdict depends on the request's window."""
+    """Every check is hard but `stuck`, whose verdict depends on the request's window."""
     assert Plausibility().model_dump() == {
         "range": "hard",
         "elevation": "hard",
@@ -167,7 +167,7 @@ def test_the_environment_names_a_check_by_its_nested_variable(monkeypatch: pytes
 # --- what reaches the readers from the request -----------------------------------------------------------------------
 
 
-def _annual_rain(monkeypatch: pytest.MonkeyPatch, **options: object) -> pl.DataFrame:
+def _monthly_rain(monkeypatch: pytest.MonkeyPatch, **options: object) -> pl.DataFrame:
     """Read the stub monthly rain of DMI, which holds 17,802 mm (no gauge reads it), with these options."""
     monkeypatch.setattr(value_stubs, "_options", lambda drop_nulls: Options(drop_nulls=drop_nulls, **options))
     return value_stubs._dmi_monthly_rain(monkeypatch, drop_nulls=False)  # noqa: SLF001
@@ -178,8 +178,8 @@ def test_the_options_of_a_request_reach_its_readers(monkeypatch: pytest.MonkeyPa
     for name in list(os.environ):
         if name.startswith("WD_TS_"):
             monkeypatch.delenv(name)
-    hard = _annual_rain(monkeypatch)
-    soft = _annual_rain(monkeypatch, plausibility={"range": "soft"})
+    hard = _monthly_rain(monkeypatch)
+    soft = _monthly_rain(monkeypatch, plausibility={"range": "soft"})
     for df in (hard, soft):
         assert df.filter(pl.col("quality_flags").str.contains("validity:true")).height > 0
     rejected = hard.filter(pl.col("value").is_null()).get_column("quality_flags").to_list()

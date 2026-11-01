@@ -65,9 +65,20 @@ def _datasets(network: str) -> list:
         ("precipitation_duration", "hourly", (0.0, 3780.0)),
         ("count_days_frost", "monthly", (0.0, 31.0)),
         ("count_days_frost", "annual", (0.0, 366.0)),
+        ("snow_cover", "daily", (0.0, 1.0)),
+        ("leaf_wetness_duration", "hourly", (0.0, 3780.0)),
+        ("leaf_wetness_duration", "daily", (0.0, 90720.0)),  # DMI's sum of the minutes of a day, 1,440 at most
+        # a month of ECCC's normal snowfall is the day's 200 cm times 31, as the sums of the daily depths are
+        ("snow_depth_new_normal", "monthly", (0.0, 6200.0)),
+        ("snow_depth_new", "monthly", (0.0, 6200.0)),
+        ("precipitation_amount_normal", "monthly", (0.0, 10000.0)),
+        ("sunshine_duration_normal", "monthly", (0.0, 2678400.0)),
         # a named source
         ("pressure_air_site", "hourly", (300.0, 1100.0)),
         ("pressure_vapor_mean", "daily", (0.0, 60.0)),
+        # a deficit is no pressure of the air: its upper end is the saturation at 60 °C, ~199 hPa; the lower end leaves
+        # DMI's slightly negative days (-0.3 kPa at 06193 on 2025-07-25)
+        ("vapor_pressure_deficit_mean", "hourly", (-10.0, 200.0)),
         ("temperature_dew_point_2m", "hourly", (-100.0, 60.0)),
         ("radiation_global_intensity_mean", "hourly", (0.0, 2000.0)),
         # a family without a record is held to its definition: at least 0, no upper end
@@ -93,6 +104,7 @@ def test_the_bounds_the_maintainer_decided(name: str, resolution: str, expected:
         "groundwater_level",
         "distance_river_gauge_height",
         "flow_speed",
+        "flow_direction",
         # derived quantities follow from checked inputs (D8)
         "temperature_wind_chill",
         "temperature_humidex",
@@ -117,6 +129,50 @@ def test_what_has_no_range(name: str) -> None:
     """A quantity that is derived, a code, or has a datum of its own is held to nothing, at any resolution."""
     for resolution in (None, "hourly", "daily", "monthly"):
         assert bounds_for(name, resolution) is None, (name, resolution)
+
+
+#: the families a quantity may be held to nothing in, and why (D7, D8): a code, a flag or an index has no range, a
+#: derived quantity follows from checked inputs, a hydrology gauge has a datum of its own
+_HELD_TO_NOTHING = (
+    "weather",
+    "cloud_type_",
+    "cloud_density",
+    "cloud_cover_total_measurement_method",
+    "climate_correction_factor",
+    "precipitation_form",
+    "precipitation_type_flags",
+    "precipitation_index",
+    "road_surface_condition",
+    "soil_state_index",
+    "visibility_index",
+    "visibility_measurement_method",
+    "temperature_wet_ice_formation",
+    "quality",
+    "error_absolute_",
+    "evaporation_",
+    "evapotranspiration",
+    "temperature_wind_chill",
+    "temperature_humidex",
+    "radiation_global_uncertainty",
+    "radiation_long_wave_net_last_3h",
+    "radiation_short_wave_net_last_3h",
+    "stage",
+    "discharge",
+    "groundwater_level",
+    "distance_river_gauge",
+    "flow_",
+)
+
+
+def test_every_canonical_parameter_is_bounded_or_deliberately_held_to_nothing() -> None:
+    """A new canonical name that no row of the table reaches is a gap in the check, not a pass."""
+    from wetterdienst.metadata.parameter_table import PARAMETERS  # noqa: PLC0415
+
+    unbounded = [name for name in PARAMETERS if bounds_for(name) is None]
+    assert [name for name in unbounded if not name.startswith(_HELD_TO_NOTHING)] == []
+    # the quantities of the DMI additions (GH-3622) are bounded, not in a family held to nothing
+    dmi = ("snow_cover", "leaf_wetness_duration", "vapor_pressure_deficit_mean", "temperature_air_mean_grass_height")
+    assert [name for name in dmi if bounds_for(name) is None] == []
 
 
 def test_a_bound_is_not_a_record() -> None:
@@ -247,6 +303,33 @@ def test_a_station_without_an_elevation_is_not_judged() -> None:
     assert out.get_column("quality_flags").to_list() == [None, None]
     out = judged(df, network="meteofrance/observation", dataset=dataset, elevation=48.0)
     assert out.get_column("quality_flags").to_list() == ["rejected:elevation,raw:1093.3", "rejected:elevation,raw:800"]
+
+
+def test_an_elevation_of_zero_is_none_where_the_list_writes_it_for_an_unknown_one() -> None:
+    """GHCN hourly lists CHM00052940 (4,329 m) at 0.0 and it reads 500.2 hPa: no elevation, so no judgement."""
+    dataset = next(d for d in _datasets("noaa/ghcn") if d.resolution.name == "hourly")
+    plan = plan_for("noaa/ghcn", dataset)
+    name = next(original for original, c in plan.parameters.items() if c.name == "pressure_air_site")
+    stamps = [dt.datetime(2024, 1, 1, tzinfo=UTC) + dt.timedelta(hours=hour) for hour in range(2)]
+    df = pl.DataFrame(
+        {"parameter": [name] * 2, "timestamp": stamps, "value": [500.2, 998.0], "quality_flags": [None, None]},
+        schema_overrides={"value": pl.Float64, "quality_flags": pl.String},
+    )
+    assert judged(df, network="noaa/ghcn", dataset=dataset, elevation=0.0).get_column("quality_flags").to_list() == [
+        None,
+        None,
+    ]
+    # the same list at 4,329 m would hold the 500.2 and a station at 5 m would not: only the zero is set aside
+    assert judged(df, network="noaa/ghcn", dataset=dataset, elevation=5.0).get_column("quality_flags").to_list()[0] == (
+        "rejected:elevation,raw:500.2"
+    )
+    # the 0.0 of the DWD list is a height, a coast
+    dwd = next(d for d in _datasets("dwd/observation") if d.name == "pressure" and d.resolution.name == "hourly")
+    dwd_plan = plan_for("dwd/observation", dwd)
+    dwd_name = next(original for original, c in dwd_plan.parameters.items() if c.name == "pressure_air_site")
+    dwd_df = df.with_columns(pl.lit(dwd_name).alias("parameter"))
+    out = judged(dwd_df, network="dwd/observation", dataset=dwd, elevation=0.0)
+    assert out.get_column("quality_flags").to_list()[0] == "rejected:elevation,raw:500.2"
 
 
 def test_the_known_dwd_slip_between_the_margins_is_kept_until_the_step_check(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -4,14 +4,25 @@
 
 from __future__ import annotations
 
-import json
 import math
 import typing
 from dataclasses import dataclass, fields, replace
 from datetime import datetime
 from enum import Enum
 from functools import update_wrapper
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, NotRequired, Protocol, Self, TypeVar, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ClassVar,
+    Generic,
+    Literal,
+    NotRequired,
+    Protocol,
+    Self,
+    TypeVar,
+    cast,
+    runtime_checkable,
+)
 
 import polars as pl
 from pydantic import ConfigDict, with_config
@@ -26,6 +37,7 @@ from wetterdienst.io.export import (
     ExportMixin,
     check_image_size,
     figure_to_html,
+    render_data_format,
     require_kaleido,
 )
 from wetterdienst.io.formats import names_of, renders_with_kaleido
@@ -33,6 +45,7 @@ from wetterdienst.model.unit import UnitConverter
 from wetterdienst.model.util import create_station_id_from_string, filter_by_date
 from wetterdienst.util.datetime import format_timestamp, timestamps_to_string
 from wetterdienst.util.extras import import_optional
+from wetterdienst.util.json_util import dumps_json, json_indent
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Mapping
@@ -43,7 +56,7 @@ if TYPE_CHECKING:
 
     from wetterdienst import Settings
     from wetterdienst.model.history import History, TimeseriesHistory
-    from wetterdienst.model.metadata import LicenseModel, ParameterModel
+    from wetterdienst.model.metadata import LicenseModel, ParameterModel, ProviderTerms
     from wetterdienst.model.request import TimeseriesRequest
     from wetterdienst.model.values import TimeseriesValues
     from wetterdienst.options import Options
@@ -215,7 +228,7 @@ def describe_producer() -> _Producer:
     }
 
 
-def describe_provider(terms: _ProviderTerms, data_updated_at: datetime | None = None) -> _Metadata:
+def describe_provider(terms: _ProviderTerms | ProviderTerms, data_updated_at: datetime | None = None) -> _Metadata:
     """Give the `provider` and `producer` blocks of an answer: who published the data, under which terms, and us.
 
     And `data_updated_at`, the date the source states for the data, where the answer has one (GH-2567).
@@ -310,6 +323,11 @@ def _metadata_of(stations: StationsResult, data_updated_at: datetime | None = No
     caller who wants the provider's metadata as an object reads ``stations.request.metadata``.
     """
     return describe_provider(stations.request.metadata, data_updated_at)
+
+
+def _is_finite(value: float | None) -> bool:
+    """Tell whether a coordinate is a number JSON has: not null, not NaN, not an infinity."""
+    return value is not None and math.isfinite(value)
 
 
 def _same(left: object, right: object) -> bool:
@@ -499,11 +517,7 @@ class StationsResult(_EqualByFields, ExportMixin):
             JSON string with station information.
 
         """
-        if indent is True:
-            indent = 4
-        elif indent is False:
-            indent = None
-        return json.dumps(self.to_dict(with_metadata=with_metadata), indent=indent)
+        return dumps_json(self.to_dict(with_metadata=with_metadata), indent=json_indent(indent))
 
     def _ogc_extra_columns(self) -> list[str]:
         """Name the station columns a provider declares beyond the core ones, such as WSV's gauge_zero.
@@ -529,9 +543,10 @@ class StationsResult(_EqualByFields, ExportMixin):
         # longitude, such as a postcode of DWD derived's climate_correction_factor, has no position
         # at all, and RFC 7946 3.2 writes such an unlocated feature with a null geometry.
         geometry: _OgcFeatureGeometry | None = None
-        if station["longitude"] is not None and station["latitude"] is not None:
+        # A NaN or an infinity is no number of a position either: JSON has none, and it would be written as null
+        if _is_finite(station["longitude"]) and _is_finite(station["latitude"]):
             coordinates = [station["longitude"], station["latitude"]]
-            if station["elevation"] is not None:
+            if _is_finite(station["elevation"]):
                 coordinates.append(station["elevation"])
             geometry = {"type": "Point", "coordinates": coordinates}
         return {
@@ -809,11 +824,9 @@ class _ValuesResult(_EqualByFields, ExportMixin, Generic[_RowsT, _DictT]):
         indent: int | bool | None = 4,
     ) -> str:
         """Format values as JSON."""
-        if indent is True:
-            indent = 4
-        elif indent is False:
-            indent = None
-        return json.dumps(self.to_dict(with_metadata=with_metadata, with_stations=with_stations), indent=indent)
+        return dumps_json(
+            self.to_dict(with_metadata=with_metadata, with_stations=with_stations), indent=json_indent(indent)
+        )
 
     def _unit_symbols(self) -> dict[str, str]:
         """Map every parameter a frame can carry to the symbol its values are written in.
@@ -1192,14 +1205,10 @@ def history_to_json(
     indent: int | bool | None = 4,
 ) -> str:
     """Format station histories as JSON, as `history_to_dict` has them."""
-    if indent is True:
-        indent = 4
-    elif indent is False:
-        indent = None
     data = history_to_dict(
         stations, histories, with_metadata=with_metadata, with_stations=with_stations, sections=sections
     )
-    return json.dumps(data, indent=indent)
+    return dumps_json(data, indent=json_indent(indent))
 
 
 @dataclass(frozen=True, kw_only=True, eq=False)
@@ -1253,6 +1262,27 @@ class HistoryResult(_EqualByFields):
             sections=sections,
             indent=indent,
         )
+
+    def to_format(self, fmt: str, **kwargs: Any) -> str:  # noqa: ANN401
+        """Format the history in the format asked for, which is JSON: the only format a history has.
+
+        Like `to_format` of the other results, it takes the one set of arguments a caller builds for every format and
+        gives `to_json` those it takes (`with_metadata`, `with_stations`, `sections`, `indent`).
+
+        Args:
+            fmt: The format, `json` in any case
+            **kwargs: Arguments for `to_json`, of which it is given those it takes
+
+        Returns:
+            The history as JSON, as `to_json` has it.
+
+        Raises:
+            UnknownFormatError: `fmt` is not `json`; a history is no table, so there is no CSV. It is a `KeyError` and
+                a `ValueError`.
+            TypeError: An argument that is the name of none of the arguments any format takes, and not `sections`.
+
+        """
+        return render_data_format(self, fmt, kwargs, only=("json",), also=("sections",))
 
 
 class _InterpolatedOrSummarizedOgcFeatureProperties(TypedDict):
@@ -1645,6 +1675,30 @@ class SummarizedValuesResult(_ValuesResult[list[_SummarizedValuesItemDict], _Sum
         return img
 
 
+@runtime_checkable
+class FormattableResult(Protocol):
+    """What the results have in common: their data as a dictionary, as JSON and in a format asked for by name (GH-3449).
+
+    `StationsResult`, `ValuesResult`, `InterpolatedValuesResult`, `SummarizedValuesResult`, `HistoryResult` and the
+    `DwdWeatherAlertResult` of `dwd/alerts` satisfy it without inheriting from it, so a function that writes whatever
+    a request answered annotates its argument with it. Only these three methods are common to all of them: a history
+    has no `to_csv` and an alerts result no `to_target`, and `to_format` raises `UnknownFormatError` for a format
+    the result does not have. `isinstance(result, FormattableResult)` tells whether an object has the three methods.
+    """
+
+    def to_dict(self, *, with_metadata: bool = False) -> Mapping[str, object]:
+        """Give the data as a dictionary, with the `metadata` block where `with_metadata` asks for it."""
+        ...
+
+    def to_json(self, *, with_metadata: bool = False, indent: int | bool | None = 4) -> str:
+        """Give the data as JSON; `indent` is a number of spaces, `True` is 4, `False` or `None` is one line."""
+        ...
+
+    def to_format(self, fmt: str, **kwargs: Any) -> str | bytes:  # noqa: ANN401
+        """Give the data in the format named by `fmt`, in any case, with the arguments the format takes."""
+        ...
+
+
 # The dictionaries the results return, under names a caller can import to annotate a function that takes
 # or returns one (GH-3046). The classes keep their leading underscore: the REST API's OpenAPI components
 # are named after them, and `/api/v1` freezes those names.
@@ -1660,6 +1714,7 @@ SummarizedValuesOgcFeatureCollection = _SummarizedValuesOgcFeatureCollection
 HistoryDict = _HistoryDict
 
 __all__ = [
+    "FormattableResult",
     "HistoryDict",
     "HistoryResult",
     "InterpolatedValuesDict",

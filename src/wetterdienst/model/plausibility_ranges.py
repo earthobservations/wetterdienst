@@ -13,8 +13,9 @@ day) is given by resolution.
 ``tests/provider/physical_ranges.py`` reads the same table for the remote check of the provider tests and for the
 parameters a test serves; it keeps no bounds of its own (GH-3681).
 
-Where the bounds come from. A bound is the first of these that exists, rounded outward to a round number (steps of 5
-to 50 below 2,000, 500 or 1,000 above; 31.2 is 40, 1,144 is 1,150, 1,825 is 1,850), so that it finds a
+Where the bounds come from. A bound is the first of these that exists, rounded outward to a round number (31.2 is 40,
+1,144 is 1,150, 1,825 is 1,850, 26,470 is 30,000; the irradiance of 2,000 W/m² is a round number between the 1,600
+of WMO-No. 488 and the 2,141 of BSRN), so that it finds a
 value that is a defect of the source and never a record:
 
 1. **W**: the extreme the WMO World Weather and Climate Extremes Archive lists, table of 31 July 2025
@@ -41,13 +42,17 @@ The sources, by quantity:
   (Dunn et al. 2012) holds a minimum of -100.0 and ISD one of -98.2 °C, the upper end is the air's.
 - Soil, surface, concrete and radiant temperature -90 to 100 °C (N): the lower end is the air's (D); the highest
   ground temperature is 93.9 °C (201 °F, Furnace Creek, 1972-07-15, US National Park Service; Wikipedia calls it
-  unverified). Water temperature -5 to 50 °C (N): MADIS holds the sea surface to -2.0 to 40 °C, rounded outward.
-- Pressure at sea level 850 to 1100 hPa (W): the highest is 1,089.1 hPa (Tosontsengel, 2004-12-30, above 750 m;
+  unverified). Water temperature -5 to 50 °C (N): MADIS holds the sea surface to -2.0 to 40 °C, rounded outward; the
+  bound is applied to river water and the evaporation pan as well, for which no source is named.
+- Pressure at sea level, and the altimeter setting of the METAR (``pressure_air_site_reduced``, a station pressure
+  corrected to sea level), 850 to 1100 hPa (W): the highest is 1,089.1 hPa (Tosontsengel, 2004-12-30, above 750 m;
   1,083.8 hPa, Agata, 1968-12-31, below 750 m), the lowest 870 hPa (Typhoon Tip, 1979-10-12). At the station 300 to
   1100 hPa (D, N): the upper end is the sea level class, for the lower end Everest reads about 330 hPa and WMO-No. 305
   (1993, withdrawn) called a station pressure below 300 or above 1100 hPa erroneous. A pressure change over 3 hours is
   -50 to 50 hPa (N): MADIS holds 0 to 30.5 and WMO-No. 305 (1993) 9 hPa. Vapour pressure 0 to 60 hPa (D): the
   saturation pressure at 35 °C, the highest dew point on record (Dhahran, 2003-07-08, NOAA).
+  The vapour pressure deficit is -10 to 200 hPa (D): the saturation pressure at the 60 °C of the air bound is 199 hPa
+  by Magnus, and DMI's slightly negative hours (-3 hPa) stay.
 - Wind: the highest gust is 113.2 m/s (W, Barrow Island, 1996-04-10), so a gust and a mean wind (which cannot exceed
   the gust of its interval, D) are 0 to 115 m/s; a direction is 0 to 360 and a zenith angle 0 to 180 degrees, Beaufort
   0 to 12 (D); the run of wind in a day is 115 m/s for 86,400 s, 9,936 km (D).
@@ -61,14 +66,15 @@ The sources, by quantity:
   in a minute, 1,872 mm/h, so 2,000 (W).
 - Snow depth -10 to 1,200 cm (N): the ISD field runs to 1,200 cm and Durre et al. (2010) hold 1,146 cm (Tamarack CA);
   the automatic gauge of MeteoSwiss at PLF reads -1 to -5 cm in 11 % of its hours, though the definition says 0. New
-  snow in a day 0 to 200 cm (N, Durre et al. 192.5 cm); sums of the daily depths over a month and a year are the bound
-  times the days (D). Water equivalent, thicknesses of frozen ground, thawing and ice are at least 0 (D).
+  snow in a day 0 to 200 cm (N, Durre et al. 192.5 cm); sums of the daily depths over a month and a year (ECCC's
+  normal snowfall of a month included) are the bound times the days (D). Water equivalent, thicknesses of frozen
+  ground, thawing and ice are at least 0 (D).
 - Sunshine and the duration of precipitation: not longer than the span they are measured over, and 5 % more for a
   reading of a resolution (D, the day-length margin of ECA&D; DWD's urban 10-minute sunshine is written in hours with
   two decimals, 0.17 h for a full interval, which is 612 s, and RMI's 63.86 min in an hour, 3,831.6 s, is above
   3,780).
-- Relative humidity 0 to 100 % (D), cloud cover, the probabilities of a model and the relative sunshine 0 to 100 %
-  (D); soil moisture is a share of the field capacity, which saturated soil goes past (D, at least 0).
+- Relative humidity 0 to 100 % (D), cloud cover, the probabilities of a model, the relative sunshine and the snow
+  cover 0 to 100 % (D); soil moisture is a share of the field capacity, which saturated soil goes past (D, at least 0).
 - Radiation: the short-wave irradiance 0 to 2,000 W/m² (N): WMO-No. 488 (App. VI.2) holds 0 to 1,600 and BSRN 1.5
   times the solar constant (1,361 W/m²) times the cosine of the zenith angle to the 1.2 plus 100 W/m², 2,141 at the
   zenith; the lower bound is 0 as the definition says. A sum of short-wave radiation is at most the solar constant
@@ -77,8 +83,8 @@ The sources, by quantity:
   days, 186,000 and 2,200,000 (the sunniest places receive about 900,000 J/cm² in a year); the long-wave radiation
   from the sky is at least 0.
 - Degree days: the heating of a day is at most the 25 °C base plus the air record (D), 115, a month 3,600, a year
-  42,100; the cooling of a day 50, a month 1,600, a year 18,300. A degree hour, a volume, a conductivity, a turbidity
-  and a dissolved substance are at least 0 (D).
+  42,100; the cooling of a day is the air bound (60 °C) less a base of 15 °C, 45, rounded up to 50 (D), a month 1,600,
+  a year 18,300. A degree hour, a volume, a conductivity, a turbidity and a dissolved substance are at least 0 (D).
 - Counts: of days at most 31 in a month and 366 otherwise, of hours 744 in a month and 8,784 otherwise (D); the days
   of a month 28 to 31 and its hours 672 to 744. A pH is 0 to 14 (D).
 - Visibility 0 to 200 km (N, ISD 160 km, MADIS 160.9 km), the height of a cloud 0 to 25 km (N, ISD 22 km), absolute
@@ -135,7 +141,7 @@ _DAYS = {"monthly": 31, "annual": 366}
 
 
 def _rain(hours: float) -> float:
-    """Give the most rain that fell in a span of up to a day, from the records of the WMO (rounded outward)."""
+    """Give the most rain that fell in a span of hours, from the records of the WMO (rounded outward)."""
     if hours <= 1 / 60:
         return 40.0  # 31.2 mm in 1 minute
     if hours <= 1:
@@ -192,6 +198,9 @@ PARAMETER_RANGES: dict[str, Range] = {
     "radiation_long_wave_net_last_3h": None,
     "radiation_short_wave_net_last_3h": None,
     "flow_speed": None,
+    # the direction of the current: WSV writes it in a unit the documentation does not explain (MGN), perhaps gon (0 to
+    # 400) and from magnetic north, so with no definition to bound it it is held to nothing
+    "flow_direction": None,
     # the days and hours a month has
     "count_days_in_month": Bounds(28.0, 31.0),
     "count_hours_in_month": Bounds(672.0, 744.0),
@@ -219,17 +228,21 @@ PARAMETER_RANGES: dict[str, Range] = {
     # new snow: at most 200 cm in a day (Durre et al. 192.5), the sums of the daily depths the days of the span
     "snow_depth_new": _by_days(200.0),
     "snow_depth_new_max": Bounds(0.0, 200.0),
-    "snow_depth_new_normal": Bounds(0.0, 200.0),
+    "snow_depth_new_normal": Bounds(0.0, 6_200.0),  # a month: 200 cm a day times 31 (ECCC's normal of the month)
     "snow_depth_new_multiday": _NON_NEGATIVE,
     "snow_depth_sum": _by_days(1_200.0),
-    # sunshine and the duration of precipitation: the span and 5 % more
+    # the share of the ground covered by snow, 0 to 100 % (D)
+    "snow_cover": _SHARE,
+    # sunshine, the duration of precipitation and of a wet leaf: the span and 5 % more (D5). DMI's daily leaf wetness is
+    # a sum of minutes, 0 to 1,440
     "sunshine_duration": _DURATION_BY_SPAN,
+    "leaf_wetness_duration": _DURATION_BY_SPAN,
     "precipitation_duration": _DURATION_BY_SPAN,
     # these three are the span itself, with no margin: they are not a reading of a resolution
     "sunshine_duration_last_3h": Bounds(0.0, 3 * 3_600.0),
     "sunshine_duration_yesterday": Bounds(0.0, _DAY),
     "sunshine_duration_normal": Bounds(0.0, 31 * _DAY),
-    "sunshine_duration_uncertainty": Bounds(0.0, 3_600.0),
+    "sunshine_duration_uncertainty": Bounds(0.0, 3_600.0),  # (D) the uncertainty of an hour is not more than the hour
     "true_local_time_offset": Bounds(-45_000.0, 45_000.0),  # 12 hours and the equation of time
     # the heat the air lacks to 25 degrees over a day at the air record, and the cold it brings over one
     "heating_degree_day": {
@@ -242,10 +255,16 @@ PARAMETER_RANGES: dict[str, Range] = {
         "monthly": Bounds(0.0, 1_600.0),
         "annual": Bounds(0.0, 18_300.0),
     },
-    # the share of the global radiation of an hour, and of the soil's water: no upper end
+    # the share of the global radiation of an hour, and the long-wave irradiance from the sky: no upper end
     "radiation_global_relative_last_1h": _NON_NEGATIVE,
-    "radiation_sky_long_wave_intensity_mean": _NON_NEGATIVE,  # the long-wave irradiance from the sky, in W/m²
+    "radiation_sky_long_wave_intensity_mean": _NON_NEGATIVE,  # in W/m²
     "humidity_absolute": Bounds(0.0, 40.0),
+    # a deficit is the difference of two pressures and not a pressure of the air, so the 0 to 60 hPa of the vapour
+    # pressure is not its bound. Its definition is at least 0 and its upper end the saturation pressure at the 60 °C of
+    # the air bound, 199 hPa by Magnus (0.611 exp(17.27 t / (t + 237.3)) kPa), so 200 (D). The lower end is -10 hPa and
+    # not 0: DMI writes its deficit to one decimal of a kPa from a humidity that may read past 100 %, and some hours and
+    # days are slightly negative, -0.3 kPa (-3 hPa) at 06193 on 2025-07-25 (see the page of dmi/observation)
+    "vapor_pressure_deficit_mean": Bounds(-10.0, 200.0),
     "visibility_index": None,
     "visibility_measurement_method": None,
     # the quantities of a body of water or a structure, at least 0
@@ -300,13 +319,12 @@ PREFIX_RANGES: tuple[tuple[str, Range], ...] = (
     ("pressure_air_sea_level", _SEA_LEVEL),
     ("pressure_air_site_reduced", _SEA_LEVEL),
     ("wind_direction", Bounds(0.0, 360.0)),
-    ("flow_direction", Bounds(0.0, 360.0)),
     ("wind_force_beaufort", Bounds(0.0, 12.0)),
     ("wind_gust", _WIND),
     ("wind_speed", _WIND),
     ("water_equivalent_snow_depth", _NON_NEGATIVE),
     ("precipitation_amount", _RAIN_BY_SPAN),
-    ("snow_depth_new", Bounds(0.0, 200.0)),
+    ("snow_depth_new", Bounds(0.0, 200.0)),  # a name not listed above, before the depth that starts the same
     ("snow_depth", Bounds(-10.0, 1_200.0)),
     ("frozen_ground", _NON_NEGATIVE),
     ("thawing_thickness", _NON_NEGATIVE),

@@ -16,31 +16,63 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- A Parquet file, a NetCDF file and a Zarr group written by `to_target` carry the licence, the credit
+  line and the date of the data: the `metadata` block of the REST API, as JSON under
+  `wetterdienst_metadata` and as `license`, `attribution`, `retrieved_at` and more, in Parquet's
+  key-value metadata and in the attributes of the group. CSV, spreadsheets, JSON, JSON Lines,
+  GeoJSON and Feather files stay bare; `to_target(..., with_metadata=True)` and `to_csv(file=...,
+  with_metadata=True)` write the block beside them as `<file>.metadata.json`, and add the units and
+  the quality legend to the three that carry it. A database target refuses `with_metadata` (GH-3449)
+- `dmi/observation` now serves five more DMI parameters under new names: `snow_cover` (daily,
+  2011-01-01 to 2015-11-21 only; percent, returned as a decimal), `leaf_wetness_duration` (minutes,
+  returned in seconds), `temperature_air_mean_grass_height` (5 to 20 cm above ground) and
+  `vapor_pressure_deficit_mean` (kPa, returned in hPa), hourly and daily, and
+  `temperature_soil_mean_0_3m`, daily only. The daily leaf wetness is the minutes of the day (0 to
+  1440), not the average of the hourly values the source's table names. The library holds none of
+  the five to a range, so the impossible values DMI writes for some days and hours are kept
+  (Part of GH-3622)
+- `FormattableResult` (`wetterdienst.model.result`) is a `typing.Protocol` of `to_dict`,
+  `to_json` and `to_format` that the five results and the alerts result satisfy, so one function
+  can write them all. `HistoryResult` gets `to_format`, for JSON only: any other format, CSV
+  included, is an `UnknownFormatError` naming `json`. The alerts result of `dwd/alerts` takes the
+  format in any case (`to_format("JSON")`, refused before), `indent` as a number or a flag in
+  `to_json`, `to_geojson` and `to_format` (`indent=0` now breaks lines without indenting, as on
+  the others), and `with_metadata` (the block of the others); its default stays one line. It is
+  outside the frozen results (GH-3449)
+
 ### Changed
 
 - **Breaking**: the `range` check judges every network, against one table of bounds that is the
   same for every provider (WMO records rounded outward, then the definition, then a named source;
-  `docs/data/plausibility.md`). Five networks were judged before, each with bounds of its own; the
-  others returned a number outside any range as the source wrote it and now null it, as
-  `rejected:range,raw:<number>`, or flag it `suspect:range`. To keep every number set
-  `plausibility={"range": "soft"}` (`WD_TS_PLAUSIBILITY__RANGE=soft`, `--plausibility-range soft`,
-  `plausibility_range=soft`) (GH-3681)
-- **Breaking**: the bounds of `range` changed: relative humidity is 0 to 100 % (130 before), rain
-  350 mm in an hour, 1,850 in a day, 10,000 in a month, 30,000 in a year, air -90 to 60 °C, station
-  pressure 300 to 1100 hPa, `dwd/observation` sea level pressure 850 to 1100, snow depth -10 to
-  1,200 cm, sunshine the span plus 5 %. Geosphere's `-1` of rain and new snow outside its daily
-  layer is now null. DMI's 989 mm day, 3,229.9 mm month and 9,574.3 mm
-  year (`validity:false`), RMI's 81.5 m/s gust and DWD road's `-75.00` °C are no longer null: no
-  table for the world sees a defect inside it (GH-3681)
+  `docs/data/plausibility.md`). Five networks were judged before, each with bounds of its own and
+  only for a short list of quantities (`dwd/observation` its winds and pressures), and
+  `meteofrance/observation` by its rule for the temperatures of frost-free stations; every
+  quantity of every network that has a bound now is, and a number outside it, which was returned
+  as the source wrote it, is null, as `rejected:range,raw:<number>`, or flagged `suspect:range`.
+  To keep every number set `plausibility={"range": "soft"}` (`WD_TS_PLAUSIBILITY__RANGE=soft`,
+  `--plausibility-range soft`, `plausibility_range=soft`) (GH-3681)
+- **Breaking**: the bounds of `range` changed: relative humidity is 0 to 100 % (130 in DMI, RMI and
+  DWD road before, none elsewhere), irradiance 0 to 2,000 W/m² (-200 before), rain 350 mm in an
+  hour, 1,850 in a day, 10,000 in a month, 30,000 in a year, air -90 to 60 °C, station pressure
+  300 to 1100 hPa, snow depth -10 to 1,200 cm, sunshine the span plus 5 %, among others
+  (`docs/usage/migrating.md` lists them). Geosphere's `-1` of rain and new snow outside its daily
+  layer is now null. DMI's 989 mm day, 3,229.9 mm month and 9,574.3 mm year (`validity:false`) and
+  RMI's 81.5 m/s gust are no longer null: no table for the world sees a defect inside it.
+  `range: soft` keeps a number the table now rejects; filter DMI on `validity:false` (GH-3681)
 - **Breaking**: the `elevation` check holds `pressure_air_site` and its `_mean`, `_min`, `_max` in
   every network whose stations have an elevation (`meteofrance/observation` included), from
   870/1013.25 of the standard atmosphere at the station (143 hPa below at sea level) to 75 hPa
   above it, where it was 75 hPa either way in two networks. Hurricane Irma's 917.4 hPa at 3 m is
-  kept; 909.5 hPa at 48 m (DWD) is kept too, 1093.3 hPa there is null. `plausibility={"elevation":
+  kept; 909.5 hPa at 48 m (DWD) is kept too, 1093.3 hPa there is null. A GHCN station
+  listed at 0.0 m is not judged (its lists write 0.0 for unknown). `plausibility={"elevation":
   "soft"}` keeps every number (GH-3670, GH-3681)
-- **Breaking**: `dwd/road` holds a surface more than 20 K above the air at night to the air only
-  where the air is no stopped sensor's (`suspect:stuck`, 24 readings or more), so the surface
-  beside the `-75.00` °C of station group KM is kept (GH-3681)
+- **Breaking**: `dwd/road` keeps no bound of its own but the humidity, so a temperature below
+  -60 °C and down to -90 °C (a dew point -100 °C) is returned. The 198.15 K (-75.00 °C) of the
+  stopped sensors (seen in group KM) stays null in any window, now as a code of the source:
+  `raw:198.15`, no longer `rejected:range,raw:198.15`, so `range: soft` no longer returns it:
+  filter on `raw:198.15` (GH-3681)
 - **Breaking**: 5 more `noaa/ghcn` hourly stations are placed west of Greenwich, no longer east
   of it, where `ghcnh-station-list.csv` has lost the sign of their longitude: Freetown in Sierra
   Leone (CMU55-00161), Surtsey (ICM00004102), Buhta Providenja (RSU025594-5), Calanda
@@ -48,6 +80,27 @@ Types of changes:
   nearest-station search or a distance filter near them picked the wrong stations; a filter on
   the old position needs the new one. A row is turned only while it lists the position that was
   checked, so a list NOAA corrects is read as it is (GH-2886)
+
+### Fixed
+
+- `to_json`, `to_geojson`, the `.geojson` file target and the JSON, GeoJSON and NDJSON answers of
+  the REST API, the command line and MCP write a `NaN` or an infinity as `null`, as polars does
+  for `to_ndjson` and the `.json`, `.jsonl` and `.ndjson` files. They wrote the bare tokens `NaN`,
+  `Infinity` and `-Infinity`, which are not JSON and which `JSON.parse` and other strict parsers
+  refuse. A station whose longitude or latitude is not finite has no position in GeoJSON, and one
+  whose elevation is not finite no z. `to_dict` still returns the float (GH-3679)
+- Writing a frame with a `pl.Categorical` column to a `.zarr` or `.nc` target no longer fails with
+  `Cannot interpret 'CategoricalDtype(...)' as a data type`; the column is written as text, as a
+  `pl.Enum` column was (GH-3679)
+- A `file://` target is matched to its file type by the path it names, decoded. A query string
+  was never ignored: everything after `file://` is the path, so `file:///x.csv?a=1` names a file
+  `x.csv?a=1` and is refused as an unknown file type, which the message now explains and names
+  `%3F` as the way to write a `?` that belongs to the file name (GH-3679)
+- The `missing-value-marker` warning no longer counts the values a hard plausibility check
+  rejected (`rejected:<check>,raw:<number>`): the source wrote a number there, not a marker.
+  They are told by a new warning `rejected-by-plausibility`, with the count per check; a value
+  that several checks rejected is counted under each. A client that summed the old count to
+  find the rejected values reads the new warning instead (GH-3682)
 
 ## [0.180.0] - 2026-11-01
 
