@@ -121,6 +121,39 @@ wetterdienst values --provider=dwd --network=observation \
     --target="duckdb:////var/lib/wetterdienst/obs.duckdb?table=weather" --if-exists=append
 ```
 
+### Licence, credit and date in a file
+
+An answer of the REST API says in its `metadata` block where the data comes from, under which licence it may be used,
+which credit line to give, and when it was retrieved. A file carries the same block where its format has a place for it:
+
+| File | Default | With `with_metadata=True` |
+| --- | --- | --- |
+| `.parquet` | in the key-value metadata of the file | adds the units and the quality legend |
+| `.nc`, `.zarr` | in the attributes of the group the frame is written into | adds the units and the quality legend |
+| `.csv`, `.xlsx`, `.json`, `.jsonl`, `.ndjson`, `.geojson`, `.feather` | bare, as before | `<file>.metadata.json` beside it |
+
+A Parquet file, a NetCDF file and a Zarr group hold the whole block as JSON under `wetterdienst_metadata` and, for a
+tool that lists the keys (`parquet-tools`, `ncdump -h`), its parts as `provider`, `license`, `license_url`,
+`attribution`, `retrieved_at` and `data_updated_at`; a part the provider or the source does not state is left out.
+`pl.read_parquet_metadata(path)` reads them back from Parquet, `xarray.open_dataset(path, group=...).attrs` from NetCDF.
+The text formats stay bare by default: a CSV or a JSON file holds the records and nothing else, so that a tool reading
+it gets what it always got. `with_metadata=True` on `to_target` and on `to_csv(file=...)` writes the sidecar, which
+holds the block of an answer with `with_metadata`, its heavy parts included:
+
+```python
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+request = DwdObservationRequest(parameters=("daily", "climate_summary"), periods="recent")
+values = request.filter_by_station_id(station_id=[1048]).values().all()
+values.to_target("file:///path/to/dwd.csv", with_metadata=True)  # dwd.csv and dwd.csv.metadata.json
+```
+
+A sidecar is written beside a file only: `with_metadata=True` for a database target is refused with an
+`ExportRefusedError`, as is a frame that is no result of a request (an `ExportMixin` built of a frame), which has no
+provider to describe. A file that is skipped under `if_exists="skip"` gets no sidecar, and one that is replaced gets
+a new one. The command line writes the attributes of Parquet, NetCDF and Zarr files with `--target`; `--with-metadata` does
+not write a sidecar yet. Charts are not files of `to_target` and carry nothing (#2567).
+
 ## Formats by surface
 
 Which format each surface takes. `all` is `stations`, `values`, `interpolate` and `summarize`, the four commands,

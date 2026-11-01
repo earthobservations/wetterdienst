@@ -309,7 +309,9 @@ connection string with `to_target`: a `file://` path (CSV, Excel, JSON, JSON lin
 by its extension), `duckdb://`, `influxdb*://`, `crate://` or any SQLAlchemy URL. The writers are in `io/sinks.py`,
 the file ones by extension and the database ones by scheme (`FILE_WRITERS`, `SINKS`). `filtered_by_sql` filters a result
 with DuckDB (`io/sql_filter.py`). Each writer imports its dependency when it is used (`import_optional`) and raises
-`MissingDependencyError`, naming the extra, if it is not installed. The optional dependency groups are listed under
+`MissingDependencyError`, naming the extra, if it is not installed. A Parquet, NetCDF or Zarr file carries the
+`metadata` block of the REST API, which `io/file_metadata.py` takes from `ui/response_metadata.py`, and `with_metadata`
+writes it beside any other file. The optional dependency groups are listed under
 `[project.optional-dependencies]` in `pyproject.toml`; among them are `export`, `sql`, `duckdb`, `excel`, `plotting`
 (image export), `influxdb`, `cratedb`, `postgresql`, `mysql`, `interpolation`, `restapi`, `mcp`, `bufr` and `radar`. See [Export](../usage/export.md) and [Interpolation & Summary](../usage/interpolation.md).
 
