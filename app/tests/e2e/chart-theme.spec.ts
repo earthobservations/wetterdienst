@@ -504,9 +504,11 @@ test('a zoomed Forecast stays zoomed where the scheme switches, and its reset st
 // and its zero line, which carries meaning, are read on the paper in both schemes. The series keep their colours.
 test('the Forecast\'s axis labels, weekend day labels and zero line reach contrast in both schemes', async ({ page, baseURL, context }) => {
   await context.addInitScript(() => localStorage.setItem('nuxt-color-mode', 'light'))
-  // a Friday, so that the days of the forecast (it runs three days from now) hold a weekend whenever this runs
-  await page.clock.setSystemTime(new Date('2026-10-30T09:00:00Z'))
-  await mockBackend(page, baseURL!)
+  // a Friday, so that the days of the forecast (it runs three days from now) hold a weekend whenever this runs: the
+  // page's clock and the forecast the mock serves both start at this instant, not at the day the test runs
+  const friday = new Date('2026-10-30T09:00:00Z')
+  await page.clock.setSystemTime(friday)
+  await mockBackend(page, baseURL!, {}, friday)
   await page.goto('/meteogram?station=01001')
   await expect(plotly(page)).toBeVisible()
 
