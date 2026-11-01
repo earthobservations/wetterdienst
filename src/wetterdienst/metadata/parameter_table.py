@@ -609,6 +609,11 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "humidity_relative_min", "fraction", "Lowest relative humidity over the period.", interpolation="homogeneous"
     ),
     CanonicalParameter("ice_on_water_thickness", "length_short", "Thickness of the ice covering the water surface."),
+    CanonicalParameter(
+        "leaf_wetness_duration",
+        "time",
+        "Length of time during which the leaves of a plant were wet.",
+    ),
     CanonicalParameter("count_days_in_month", "dimensionless", "Number of days in the month the record covers."),
     CanonicalParameter("count_hours_in_month", "dimensionless", "Number of hours in the month the record covers."),
     CanonicalParameter("oxygen_level", "concentration", "Concentration of oxygen dissolved in the water."),
@@ -1653,6 +1658,12 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "road stations' `road_surface_condition` (0 dry, 1 moist, 2 wet, ...).",
     ),
     CanonicalParameter(
+        "snow_cover",
+        "fraction",
+        "Fraction of the ground that is covered by snow.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
         "snow_depth",
         "length_short",
         "Depth of the snow lying on the ground, where the source states no statistic or a reading at one "
@@ -2005,6 +2016,12 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "temperature_air_mean_0_1m",
         "temperature",
         "Mean air temperature at 0.1 m above ground.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "temperature_air_mean_grass_height",
+        "temperature",
+        "Mean air temperature at grass height, 5 to 20 cm above ground.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
@@ -2622,6 +2639,12 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
+        "temperature_soil_mean_0_3m",
+        "temperature",
+        "Mean soil temperature at 0.3 m depth.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
         "temperature_soil_mean_0_5m",
         "temperature",
         "Mean soil temperature at 0.5 m depth.",
@@ -3110,6 +3133,13 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "longitude correction plus the equation of time.",
     ),
     CanonicalParameter("turbidity", "turbidity", "Cloudiness of the water caused by suspended particles."),
+    CanonicalParameter(
+        "vapor_pressure_deficit_mean",
+        "pressure",
+        "Mean difference between the pressure of water vapour in saturated air and the partial pressure of water "
+        "vapour in the air, at the temperature of the air, over the period.",
+        interpolation="homogeneous",
+    ),
     CanonicalParameter(
         "visibility",
         "length_medium",

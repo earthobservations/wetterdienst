@@ -93,24 +93,6 @@ def test_the_hourly_radiation_stays_the_mean_intensity() -> None:
         assert parameters["mean_radiation"].unit_type == "energy_per_area"
 
 
-def test_the_published_parameters_without_a_name_that_fits_are_not_served() -> None:
-    """What no canonical name fits exactly is left out, with the name it would take (module comment of `metadata`)."""
-    left_out = {
-        "snow_cover",
-        "leaf_moisture",
-        "temp_grass",
-        "temp_soil_30",
-        "vapour_pressure_deficit_mean",
-        "acc_heating_degree_days_19",
-    }
-    served = {
-        parameter.name_original
-        for resolution in DmiObservationMetadata
-        for parameter in resolution.datasets[0].parameters
-    }
-    assert served & left_out == set()
-
-
 def test_the_descriptions_state_the_thresholds_as_dmi_writes_them() -> None:
     """Each count states its threshold, `>`, `>=` or `<`, in its description."""
     expected = {

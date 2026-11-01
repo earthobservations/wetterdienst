@@ -110,6 +110,11 @@ PARAMETER_RANGES: dict[str, Bounds | None] = {
     "pressure_air_site_delta_last_3h": Bounds(-100.0, 100.0),
     "pressure_vapor": Bounds(0.0, 100.0),  # hPa
     "pressure_vapor_mean": Bounds(0.0, 100.0),  # hPa
+    # a deficit is the difference of two pressures, not a pressure of the air: 0 in saturated air, about 100 hPa (10
+    # kPa) in the hottest, driest air. DMI's hourly values of the Julys of 2012 to 2026 run from -0.3 kPa (-3 hPa,
+    # 06193, 2025-07-25) to 4.2 kPa (42 hPa), so the unit type's 300 to 1,100 hPa would call every one a sentinel
+    # (see the page of dmi/observation)
+    "vapor_pressure_deficit_mean": Bounds(-10.0, 100.0),  # hPa
     # a zenith angle runs from the sun overhead to below the horizon
     "sun_zenith_angle": Bounds(0.0, 180.0),
     "count_days_in_month": Bounds(28.0, 31.0),
