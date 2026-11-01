@@ -17,6 +17,7 @@ import polars as pl
 import pytest
 
 from tests.model.test_results import _every_result
+from wetterdienst.api import Wetterdienst
 from wetterdienst.exceptions import ExportRefusedError
 from wetterdienst.io.export import ExportMixin
 from wetterdienst.io.file_metadata import BLOCK_KEY, SIDECAR_SUFFIX, block_attributes
@@ -31,7 +32,7 @@ if TYPE_CHECKING:
 #: the results that are written to a file: a stations result and the three that hold values
 _RESULTS = ("stations", "values", "interpolated", "summarized")
 
-#: what the file types that are bare by default are written as; Feather has no place for it either
+#: what the file types that are bare by default are written as; Feather is written without it by polars
 _BARE = [".csv", ".json", ".jsonl", ".ndjson", ".geojson", ".xlsx", ".feather"]
 
 
@@ -118,7 +119,10 @@ def test_netcdf_carries_the_block_as_attributes(name: str, tmp_path: Path) -> No
     filename = tmp_path / "data.nc"
     result.to_target(f"file://{filename}")
     attrs = dict(xarray.open_dataset(filename, group=_group_of(result)).attrs)
-    _same_block(_block_of(attrs), _rest_block(result, heavy=False))
+    block = _block_of(attrs)
+    assert "parameters" not in block
+    assert "quality" not in block
+    _same_block(block, _rest_block(result, heavy=False))
     assert attrs["license"]
     assert attrs["attribution"]
     assert attrs["retrieved_at"]
@@ -140,7 +144,10 @@ def test_zarr_carries_the_block_as_attributes(name: str, tmp_path: Path) -> None
     filename = tmp_path / "data.zarr"
     result.to_target(f"file://{filename}")
     attrs = dict(xarray.open_zarr(filename, group=_group_of(result), consolidated=False).attrs)
-    _same_block(_block_of(attrs), _rest_block(result, heavy=False))
+    block = _block_of(attrs)
+    assert "parameters" not in block
+    assert "quality" not in block
+    _same_block(block, _rest_block(result, heavy=False))
     assert attrs["license"]
     assert attrs["attribution"]
 
@@ -219,6 +226,16 @@ def test_a_file_that_is_skipped_gets_no_sidecar(tmp_path: Path) -> None:
     assert filename.read_text() == "kept"
 
 
+def test_a_write_without_with_metadata_leaves_the_sidecar_of_an_earlier_one(tmp_path: Path) -> None:
+    """The sidecar is the caller's to keep or delete: only a `with_metadata` write touches it."""
+    filename = tmp_path / "data.csv"
+    _result("values").to_target(f"file://{filename}", with_metadata=True)
+    sidecar = tmp_path / f"data.csv{SIDECAR_SUFFIX}"
+    sidecar.write_text("earlier")
+    _result("values").to_target(f"file://{filename}")
+    assert sidecar.read_text() == "earlier"
+
+
 def test_a_sidecar_is_replaced_with_its_file(tmp_path: Path) -> None:
     """The sidecar follows the file under `replace`: the second write leaves one block."""
     filename = tmp_path / "data.csv"
@@ -280,11 +297,34 @@ def test_with_metadata_for_a_database_is_refused(tmp_path: Path) -> None:
     assert list(tmp_path.iterdir()) == []
 
 
-def test_with_metadata_for_a_frame_without_a_provider_is_refused(tmp_path: Path) -> None:
-    """A bare `ExportMixin` of a frame has no provider, so there is nothing to describe."""
+@pytest.mark.parametrize("extension", [*_BARE, *sorted(SELF_DESCRIBING)])
+def test_with_metadata_for_a_frame_without_a_provider_is_refused(extension: str, tmp_path: Path) -> None:
+    """A bare `ExportMixin` of a frame has no provider, so there is nothing to describe: refused, whatever the type."""
     exporter = ExportMixin(df=pl.DataFrame({"a": [1]}))
     with pytest.raises(ExportRefusedError, match="has no provider to describe"):
-        exporter.to_target(f"file://{tmp_path / 'data.csv'}", with_metadata=True)
+        exporter.to_target(f"file://{tmp_path / f'data{extension}'}", with_metadata=True)
+    # before anything is written, not after the data file
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_to_csv_with_metadata_for_a_frame_without_a_provider_writes_no_file(tmp_path: Path) -> None:
+    """The refusal comes before the CSV is written, as for `to_target`."""
+    with pytest.raises(ExportRefusedError, match="has no provider to describe"):
+        ExportMixin(df=pl.DataFrame({"a": [1]})).to_csv(file=tmp_path / "data.csv", with_metadata=True)
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_a_request_class_the_registry_does_not_name_has_no_provider_to_describe(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The registry says which provider and network the data is from: without it the block is refused, not guessed."""
+    monkeypatch.setattr(Wetterdienst, "_network_of", classmethod(lambda _cls, _request_class: ""))
+    result = _result("values")
+    result.to_target(f"file://{tmp_path / 'data.parquet'}")
+    assert BLOCK_KEY not in pl.read_parquet_metadata(tmp_path / "data.parquet")
+    with pytest.raises(ExportRefusedError, match="registry of Wetterdienst names"):
+        result.to_target(f"file://{tmp_path / 'data.csv'}", with_metadata=True)
+    assert [path.name for path in tmp_path.iterdir()] == ["data.parquet"]
 
 
 def test_a_self_describing_file_of_a_frame_without_a_provider_is_written_without(tmp_path: Path) -> None:

@@ -5,9 +5,13 @@
 A REST answer says in its `metadata` block where its data comes from, under which licence and with which credit
 line, and when it was retrieved. A file written by `to_target` or `to_csv` carries the same block: inside the file
 where the format has a place for it (Parquet's key-value metadata, the attributes of a NetCDF file or a Zarr group),
-and beside it, as `<file>.metadata.json`, where the caller asks for it with `with_metadata=True` and the format has
-none (CSV, spreadsheets, JSON, JSON Lines, GeoJSON, Feather). The block is the one `ui.response_metadata` builds for the
-REST API, the command line and MCP; this module only picks the provider and the network out of a result and writes it.
+and beside it, as `<file>.metadata.json`, where the caller asks for it with `with_metadata=True` and the format is not
+written with it (CSV, spreadsheets, JSON, JSON Lines, GeoJSON and Feather, whose writer in polars takes no metadata).
+The block is the one `ui.response_metadata` builds for the REST API, the command line and MCP; this module only picks
+the provider and the network out of a result and writes it.
+
+The block describes the file as it is written: `retrieved_at` is the time of the write, and `warnings` are those
+recorded since the command or request began (`begin_response`); a library call records none, so they are empty there.
 """
 
 from __future__ import annotations
@@ -37,7 +41,9 @@ def metadata_block(result: ExportMixin, *, heavy: bool) -> dict[str, Any] | None
     `heavy` adds the unit of every parameter and what `quality_flags` holds, as `with_metadata` does for an answer.
 
     Returns:
-        The block, or `None` for a result that has no provider to describe: a bare `ExportMixin` built of a frame.
+        The block, or `None` for a result that has no provider to describe: a bare `ExportMixin` built of a frame,
+        or a result of a request class that the registry of `Wetterdienst` does not name (the block says which
+        provider and network the data is from).
 
     """
     # the module imports the results, which import `ExportMixin`; and the block is the REST API's, built once there
@@ -49,6 +55,8 @@ def metadata_block(result: ExportMixin, *, heavy: bool) -> dict[str, Any] | None
         return None
     stations = result if isinstance(result, StationsResult) else result.stations
     provider, _, network = Wetterdienst._network_of(type(stations.request)).partition("/")  # noqa: SLF001
+    if not network:
+        return None
     return metadata_to_dict(result_metadata(result, provider=provider, network=network, heavy=heavy))
 
 
@@ -74,34 +82,37 @@ def block_attributes(block: dict[str, Any]) -> dict[str, str]:
     }
 
 
-def file_attributes(result: ExportMixin, *, heavy: bool) -> dict[str, str]:
-    """Give the key-value pairs a Parquet, NetCDF or Zarr file is written with, none for a result without a provider."""
-    block = metadata_block(result, heavy=heavy)
-    return {} if block is None else block_attributes(block)
-
-
 def sidecar_path(filepath: str | os.PathLike[str]) -> Path:
     """Name the file that holds the block beside the file at `filepath`: the path and `.metadata.json`."""
     return Path(f"{os.fspath(filepath)}{SIDECAR_SUFFIX}")
 
 
-def write_sidecar(result: ExportMixin, filepath: str | os.PathLike[str]) -> Path:
-    """Write the `metadata` block of the REST API, with its heavy parts, beside the file at `filepath`.
+def require_block(result: ExportMixin, *, heavy: bool, beside: str | os.PathLike[str]) -> dict[str, Any]:
+    """Build the block for a caller that asked for it, before anything is written.
+
+    Raises:
+        ExportRefusedError: The result has no provider to describe, so `with_metadata` has nothing to write beside
+            the file at `beside`.
+
+    """
+    block = metadata_block(result, heavy=heavy)
+    if block is None:
+        msg = (
+            f"{type(result).__name__} has no provider to describe, so there is no metadata to write for "
+            f"'{os.fspath(beside)}'; with_metadata needs the result of a stations or a values request that the "
+            "registry of Wetterdienst names"
+        )
+        raise ExportRefusedError(msg)
+    return block
+
+
+def write_sidecar(block: dict[str, Any], filepath: str | os.PathLike[str]) -> Path:
+    """Write the `metadata` block beside the file at `filepath`, as `<file>.metadata.json`.
 
     Returns:
         The path of the sidecar
 
-    Raises:
-        ExportRefusedError: The result has no provider to describe.
-
     """
-    block = metadata_block(result, heavy=True)
-    if block is None:
-        msg = (
-            f"{type(result).__name__} has no provider to describe, so there is no metadata to write beside "
-            f"'{os.fspath(filepath)}'; with_metadata needs the result of a stations or a values request"
-        )
-        raise ExportRefusedError(msg)
     path = sidecar_path(filepath)
     # bytes, as `ensure_ascii=False` writes UTF-8 and a text file would translate the newlines on Windows
     path.write_bytes(dumps_json(block, indent=4, ensure_ascii=False).encode("utf-8"))

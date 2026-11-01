@@ -21,8 +21,8 @@ Types of changes:
 - A Parquet file, a NetCDF file and a Zarr group written by `to_target` carry the licence, the credit
   line and the date of the data: the `metadata` block of the REST API, as JSON under
   `wetterdienst_metadata` and as `license`, `attribution`, `retrieved_at` and more, in Parquet's
-  key-value metadata and in the attributes of the group. CSV, spreadsheets, JSON, JSON Lines and
-  GeoJSON files stay bare; `to_target(..., with_metadata=True)` and `to_csv(file=...,
+  key-value metadata and in the attributes of the group. CSV, spreadsheets, JSON, JSON Lines,
+  GeoJSON and Feather files stay bare; `to_target(..., with_metadata=True)` and `to_csv(file=...,
   with_metadata=True)` write the block beside them as `<file>.metadata.json`, and add the units and
   the quality legend to the three that carry it. A database target refuses `with_metadata` (GH-3449)
 

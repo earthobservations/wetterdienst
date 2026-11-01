@@ -23,7 +23,7 @@ import polars as pl
 import polars.selectors as cs
 
 from wetterdienst.exceptions import ExportRefusedError, MissingDependencyError
-from wetterdienst.io.file_metadata import file_attributes, write_sidecar
+from wetterdienst.io.file_metadata import block_attributes, metadata_block, require_block, write_sidecar
 from wetterdienst.util.extras import as_missing_dependency, import_optional, missing_dependency_message
 from wetterdienst.util.json_util import dumps_json
 from wetterdienst.util.url import ConnectionString, redact_password
@@ -309,6 +309,26 @@ FILE_WRITERS: dict[str, FileWriter] = {
 SELF_DESCRIBING = frozenset({".parquet", ".zarr", ".nc"})
 
 
+def _write_with_metadata(
+    writer: FileWriter, extension: str, result: ExportMixin, filepath: str, *, with_metadata: bool
+) -> None:
+    """Write the file, with the metadata block in it or beside it as the type and `with_metadata` say."""
+    # built before anything is written: a result with nothing to describe is refused with no file left behind
+    if with_metadata:
+        block = require_block(result, heavy=True, beside=filepath)
+    elif extension in SELF_DESCRIBING:
+        block = metadata_block(result, heavy=False)
+    else:
+        block = None
+    if extension in SELF_DESCRIBING:
+        writer(result, filepath, attributes=None if block is None else block_attributes(block))
+        return
+    writer(result, filepath)
+    if block is not None:
+        log.info(f"Writing the metadata beside '{filepath}'")
+        write_sidecar(block, filepath)
+
+
 def _write_file(
     result: ExportMixin, target: str, connspec: ConnectionString, if_exists: IfExists, *, with_metadata: bool = False
 ) -> None:
@@ -316,7 +336,9 @@ def _write_file(
 
     A self-describing file carries the metadata block of the REST API, light by default and with its units and quality
     legend under `with_metadata`. Any other file is bare unless `with_metadata` asks for `<file>.metadata.json` beside
-    it, which holds the same block with those heavy parts. Nothing is written for a file that is skipped.
+    it, which holds the same block with those heavy parts. Nothing is written for a file that is skipped, and
+    `with_metadata` for a result with no provider to describe is refused before the file is written, for any type.
+    A sidecar of an earlier write is overwritten by the next `with_metadata` write and left as it is by one without.
     """
     if if_exists == "append":
         msg = "Append mode is not supported for file exports."
@@ -334,13 +356,7 @@ def _write_file(
 
     for extension, writer in FILE_WRITERS.items():
         if filepath.lower().endswith(extension):
-            if extension in SELF_DESCRIBING:
-                writer(result, filepath, attributes=file_attributes(result, heavy=with_metadata))
-            else:
-                writer(result, filepath)
-                if with_metadata:
-                    log.info(f"Writing the metadata beside '{filepath}'")
-                    write_sidecar(result, filepath)
+            _write_with_metadata(writer, extension, result, filepath, with_metadata=with_metadata)
             return
     msg = f"Unknown export file type for target '{target}'"
     # the target as written, where a `?` that is a query is not the `%3F` of a file name, which the path has decoded

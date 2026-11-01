@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any, Literal, Self
 import polars as pl
 
 from wetterdienst.exceptions import ImageTooLargeError
-from wetterdienst.io.file_metadata import write_sidecar
+from wetterdienst.io.file_metadata import require_block, write_sidecar
 from wetterdienst.io.formats import find_format, refuse_unknown_arguments
 from wetterdienst.io.sinks import join_list_columns, write_to_target
 from wetterdienst.io.sql_filter import filter_by_sql
@@ -177,9 +177,11 @@ class ExportMixin(RefusesRenamedMembers):
         if with_metadata and not isinstance(kwargs.get("file"), str | os.PathLike):
             msg = "with_metadata writes the metadata beside the CSV file: give the path of the file as `file`"
             raise ValueError(msg)
+        # built first, so that a result with nothing to describe is refused with no file written
+        block = require_block(self, heavy=True, beside=kwargs["file"]) if with_metadata else None
         csv = self._flatten().write_csv(**kwargs)
-        if with_metadata:
-            write_sidecar(self, kwargs["file"])
+        if block is not None:
+            write_sidecar(block, kwargs["file"])
         return csv
 
     def to_ndjson(self) -> str:

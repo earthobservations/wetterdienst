@@ -124,7 +124,8 @@ wetterdienst values --provider=dwd --network=observation \
 ### Licence, credit and date in a file
 
 An answer of the REST API says in its `metadata` block where the data comes from, under which licence it may be used,
-which credit line to give, and when it was retrieved. A file carries the same block where its format has a place for it:
+which credit line to give, and when it was retrieved. A file carries the same block where its format has a place for
+it, with `retrieved_at` the time the file is written:
 
 | File | Default | With `with_metadata=True` |
 | --- | --- | --- |
@@ -149,10 +150,12 @@ values.to_target("file:///path/to/dwd.csv", with_metadata=True)  # dwd.csv and d
 ```
 
 A sidecar is written beside a file only: `with_metadata=True` for a database target is refused with an
-`ExportRefusedError`, as is a frame that is no result of a request (an `ExportMixin` built of a frame), which has no
-provider to describe. A file that is skipped under `if_exists="skip"` gets no sidecar, and one that is replaced gets
-a new one. The command line writes the attributes of Parquet, NetCDF and Zarr files with `--target`; `--with-metadata` does
-not write a sidecar yet. Charts are not files of `to_target` and carry nothing (#2567).
+`ExportRefusedError`, as is a frame that is no result of a request (an `ExportMixin` built of a frame, or a result of
+a request class that is not one of the library's networks), which has no provider to describe; it is refused before
+the file is written, for every file type (not for a file that `if_exists` skips or refuses). A file that is skipped under `if_exists="skip"` gets no sidecar, and a
+sidecar is overwritten by the next write with `with_metadata=True` and left as it is by one without. The command line
+writes the light block into Parquet, NetCDF and Zarr files with `--target`; `--with-metadata` neither adds the heavy
+parts to them nor writes a sidecar yet. Charts are not files of `to_target` and carry nothing (#2567).
 
 ## Formats by surface
 
