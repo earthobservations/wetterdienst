@@ -402,6 +402,17 @@ with_metadata_opt = _bool_opt(
         "which is always there. Default: false"
     ),
 )
+# for the commands that write a result to a `--target`: it reaches the file as `to_target(..., with_metadata=True)`
+with_metadata_target_opt = _bool_opt(
+    "--with-metadata",
+    default=False,
+    help=(
+        "Add the units and the quality flags to the metadata block of JSON/GeoJSON output, "
+        "which is always there. With a file --target it writes the block beside the file as "
+        "<file>.metadata.json (CSV, Excel, JSON, GeoJSON and the other bare types) and adds those parts to the "
+        "block in a Parquet, NetCDF or Zarr file; a database --target is refused. Default: false"
+    ),
+)
 with_stations_opt = _bool_opt(
     "--with-stations",
     default=False,
@@ -1027,12 +1038,12 @@ def _finish(
         if empty:
             log.warning(NOTHING_WRITTEN)
             return
-        _export_or_exit(values_, target, if_exists)
+        _export_or_exit(values_, target, if_exists, with_metadata=request.with_metadata)
         return
     _echo(render(values_, request, applied, options))
 
 
-def _export_or_exit(result: Any, target: str, if_exists: str) -> None:  # noqa: ANN401
+def _export_or_exit(result: Any, target: str, if_exists: str, *, with_metadata: bool = False) -> None:  # noqa: ANN401
     """Write to the target, telling a sink that refuses apart from a sink that broke.
 
     A refusal is a finished sentence and wants nothing else -- `Append mode is not supported for
@@ -1045,9 +1056,12 @@ def _export_or_exit(result: Any, target: str, if_exists: str) -> None:  # noqa: 
     got that right for long. A `KeyError` from inside a sink was reported as advice and printed its
     own argument and nothing else -- exporting a stations frame to InfluxDB pops a `timestamp` column
     that only values carry, and the whole report was `ERROR date`, as the column was then called.
+
+    `--with-metadata` goes to `to_target` as it is: a file target gets `<file>.metadata.json` beside it, or the
+    heavy parts in the block of a Parquet, NetCDF or Zarr file, and a database target is refused (GH-3704).
     """
     try:
-        result.to_target(target, if_exists=if_exists)
+        result.to_target(target, if_exists=if_exists, with_metadata=with_metadata)
     except (ExportRefusedError, MissingDependencyError) as e:
         # a refusal, or a sink whose package is not installed: the message is the whole of it
         log.error(str(e))  # noqa: TRY400
@@ -1487,7 +1501,7 @@ def fields(
 @target_opt
 @if_exists_opt
 @pretty_opt
-@with_metadata_opt
+@with_metadata_target_opt
 @debug_opt
 def stations(
     provider: str,
@@ -1597,7 +1611,7 @@ def stations(
         if empty:
             log.warning(NOTHING_WRITTEN)
             return
-        _export_or_exit(stations_, target, if_exists)
+        _export_or_exit(stations_, target, if_exists, with_metadata=request.with_metadata)
         return
 
     _echo(render_stations(stations_, request))
@@ -1718,7 +1732,7 @@ def history(
     _refuse_non_file_target(target, "history")
     # a local path, or a `file://` URI read as `alerts` reads it; the `.json` check reads the path it names
     path = file_target_path(target) if target else None
-    if path is not None and not path.endswith(".json"):
+    if path is not None and not path.lower().endswith(".json"):
         msg = "--target for history endpoint must end with .json"
         raise click.BadParameter(msg)
 
@@ -1851,7 +1865,7 @@ def history(
 @target_opt
 @if_exists_opt
 @pretty_opt
-@with_metadata_opt
+@with_metadata_target_opt
 @with_stations_opt
 @debug_opt
 def values(
@@ -2023,7 +2037,7 @@ def values(
 @target_opt
 @if_exists_opt
 @pretty_opt
-@with_metadata_opt
+@with_metadata_target_opt
 @with_stations_opt
 @debug_opt
 def interpolate(
@@ -2170,7 +2184,7 @@ def interpolate(
 @target_opt
 @if_exists_opt
 @pretty_opt
-@with_metadata_opt
+@with_metadata_target_opt
 @with_stations_opt
 @debug_opt
 def summarize(
