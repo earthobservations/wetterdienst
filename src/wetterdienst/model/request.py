@@ -1378,7 +1378,7 @@ class TimeseriesRequest:
             SummarizedValuesResult: Summarized values.
 
         Raises:
-            LocationOutOfRangeError: Where the latitude or the longitude is outside that range.
+            LocationOutOfRangeError: Where the latitude or the longitude is outside that range, or is NaN.
             NoStationsWithElevationError: Where an elevation is asked about and leaving out the
                 stations whose elevation the provider does not report leaves nothing that can answer
                 it. A few providers report no elevation for any station.

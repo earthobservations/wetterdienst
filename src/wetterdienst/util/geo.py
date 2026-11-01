@@ -17,7 +17,8 @@ pc: Any = _pc
 EARTH_RADIUS_IN_KM = 6371
 
 #: the range of a point on the globe, in degrees; the poles and the antimeridian are in it. The fields of the REST
-#: API, the command line and MCP and `summarize` of the Python API all hold a latitude and a longitude to it
+#: API, the command line and MCP, and `summarize`, `filter_by_rank` and `filter_by_distance` of the Python API,
+#: all hold a latitude and a longitude to it
 LATITUDE_MIN = -90
 LATITUDE_MAX = 90
 LONGITUDE_MIN = -180
