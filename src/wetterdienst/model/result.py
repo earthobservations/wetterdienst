@@ -312,6 +312,11 @@ def _metadata_of(stations: StationsResult, data_updated_at: datetime | None = No
     return describe_provider(stations.request.metadata, data_updated_at)
 
 
+def _is_finite(value: float | None) -> bool:
+    """Tell whether a coordinate is a number JSON has: not null, not NaN, not an infinity."""
+    return value is not None and math.isfinite(value)
+
+
 def _same(left: object, right: object) -> bool:
     """Compare two fields of a result: frames by their columns and values, the rest by ``==``."""
     if isinstance(left, pl.DataFrame) or isinstance(right, pl.DataFrame):
@@ -529,9 +534,10 @@ class StationsResult(_EqualByFields, ExportMixin):
         # longitude, such as a postcode of DWD derived's climate_correction_factor, has no position
         # at all, and RFC 7946 3.2 writes such an unlocated feature with a null geometry.
         geometry: _OgcFeatureGeometry | None = None
-        if station["longitude"] is not None and station["latitude"] is not None:
+        # A NaN or an infinity is no number of a position either: JSON has none, and it would be written as null
+        if _is_finite(station["longitude"]) and _is_finite(station["latitude"]):
             coordinates = [station["longitude"], station["latitude"]]
-            if station["elevation"] is not None:
+            if _is_finite(station["elevation"]):
                 coordinates.append(station["elevation"])
             geometry = {"type": "Point", "coordinates": coordinates}
         return {

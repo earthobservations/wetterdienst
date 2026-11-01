@@ -4560,6 +4560,18 @@ def test_to_geojson_writes_null_for_what_is_not_a_finite_number(name: str) -> No
     assert _read_strictly(result.to_geojson(indent=False)) == written
 
 
+def test_a_non_finite_coordinate_is_no_position_in_geojson() -> None:
+    """A position is numbers only (RFC 7946 3.1.1): no z for a non-finite elevation, no geometry without a position."""
+    result = _with_non_finite_numbers("stations")
+    features = _read_strictly(result.to_geojson())["data"]["features"]
+    assert [len(feature["geometry"]["coordinates"]) for feature in features] == [2, 2]
+
+    df = result.df.with_columns(pl.Series("latitude", [float("nan"), 51.0]), pl.Series("elevation", [1.0, 2.0]))
+    features = _read_strictly(dataclasses.replace(result, df=df).to_geojson())["data"]["features"]
+    assert features[0]["geometry"] is None
+    assert features[1]["geometry"]["coordinates"] == [13.0, 51.0, 2.0]
+
+
 @pytest.mark.parametrize("name", ["stations", "values"])
 def test_the_geojson_file_target_writes_null_for_what_is_not_a_finite_number(name: str, tmp_path: Path) -> None:
     """A `.geojson` file is read by tools that parse it strictly (GH-3679)."""
@@ -4652,6 +4664,11 @@ def test_a_file_target_has_no_query_string(df_stations: pl.DataFrame, tmp_path: 
     assert target in str(refused.value)
     assert ("no query string" in str(refused.value)) == ("?" in query)
     assert not list(tmp_path.iterdir())
+
+    # no query to explain: the name has a `?` and an extension nothing writes
+    with pytest.raises(ExportRefusedError, match="Unknown export file type") as refused:
+        ExportMixin(df=df_stations).to_target(f"file://{tmp_path}/what?.png")
+    assert "no query string" not in str(refused.value)
 
     if IS_WINDOWS:
         return

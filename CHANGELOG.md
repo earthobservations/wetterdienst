@@ -20,9 +20,10 @@ Types of changes:
 
 - `to_json`, `to_geojson`, the `.geojson` file target and the JSON, GeoJSON and NDJSON answers of
   the REST API, the command line and MCP write a `NaN` or an infinity as `null`, as polars does
-  for `to_ndjson` and the `.json` and `.ndjson` files. They wrote the bare tokens `NaN` and
-  `Infinity`, which is not JSON and which `JSON.parse` and other strict parsers refuse. `to_dict`
-  still returns the float (GH-3679)
+  for `to_ndjson` and the `.json`, `.jsonl` and `.ndjson` files. They wrote the bare tokens `NaN`,
+  `Infinity` and `-Infinity`, which are not JSON and which `JSON.parse` and other strict parsers
+  refuse. A station whose longitude or latitude is not finite has no position in GeoJSON, and one
+  whose elevation is not finite no z. `to_dict` still returns the float (GH-3679)
 - Writing a frame with a `pl.Categorical` column to a `.zarr` or `.nc` target no longer fails with
   `Cannot interpret 'CategoricalDtype(...)' as a data type`; the column is written as text, as an
   `pl.Enum` column was (GH-3679)
