@@ -170,11 +170,15 @@ watch(selectedStation, (station) => {
   }
 })
 
+let requestedFromUrl: string | undefined
+
 // Sync station + issue to URL (fires once when both change together)
 watch([selectedStation, selectedIssue], ([station, issue]) => {
   if (!station)
     return
   const q: Record<string, string> = { station: station.station_id }
+  // what the URL names now is the page's own choice: a later search for the station it left is a new request
+  requestedFromUrl = station.station_id
   if (issue)
     q.issue = issue
   // Preserve display params managed by the Meteogram component
@@ -190,7 +194,6 @@ watch([selectedStation, selectedIssue], ([station, issue]) => {
 
 // Restore selected station and issue from URL query params on page load, and when the URL names another station
 // while the page is shown (the search of the header goes to `/meteogram?station=…`, GH-3518)
-let requestedFromUrl: string | undefined
 async function restoreFromUrl() {
   const stationId = route.query.station as string | undefined
   const issueFromUrl = route.query.issue?.toString()

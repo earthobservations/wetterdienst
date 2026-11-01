@@ -255,6 +255,41 @@ describe('the meteogram page\'s requests answered with a 500', () => {
   })
 })
 
+describe('the meteogram page followed to a station by the search of the header (GH-3518)', () => {
+  const stations: Record<string, { station_id: string, name: string, latitude: number, longitude: number }> = {
+    '01001': { station_id: '01001', name: 'JAN MAYEN', latitude: 70.93, longitude: -8.67 },
+    '10381': { station_id: '10381', name: 'BERLIN', latitude: 52.46, longitude: 13.31 },
+  }
+  let wrapper: VueWrapper | undefined
+  const endpoints: Array<() => void> = []
+
+  beforeEach(() => {
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ values: [] }), { status: 200 }))
+    endpoints.push(registerEndpoint('/api/stations', (event) => {
+      const station = stations[String(getQuery(event).stations)]
+      return { stations: station ? [station] : [] }
+    }))
+  })
+
+  afterEach(() => {
+    wrapper?.unmount()
+    wrapper = undefined
+    endpoints.splice(0).forEach(dispose => dispose())
+  })
+
+  it('shows the station the URL names again after the page chose another one', async () => {
+    wrapper = await mountSuspended(MeteogramPage, { route: '/meteogram?station=01001' })
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.selectedStation?.station_id).toBe('01001'))
+    // the reader picks another station in the page, which the page writes to the URL
+    vm.selectedStation = stations['10381']
+    await vi.waitFor(() => expect(useRoute().query.station).toBe('10381'))
+    // and then searches the first one again in the header
+    await navigateTo('/meteogram?station=01001')
+    await vi.waitFor(() => expect(vm.selectedStation?.station_id).toBe('01001'))
+  })
+})
+
 describe('the meteogram page\'s requests answered with a 503 once', () => {
   const janMayen = { station_id: '01001', name: 'JAN MAYEN', latitude: 70.93, longitude: -8.67 }
   let wrapper: VueWrapper | undefined
