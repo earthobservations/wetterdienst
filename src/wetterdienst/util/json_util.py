@@ -38,7 +38,7 @@ def dumps_json(value: Any, **kwargs: Any) -> str:  # noqa: ANN401
     try:
         return json.dumps(value, allow_nan=False, **kwargs)
     except ValueError as e:
-        # `json.dumps` raises a `ValueError` for a circular reference as well, which the second attempt raises again
+        # `json.dumps` raises a `ValueError` for a circular reference as well, which is passed on as it is
         if "Out of range float values" not in str(e):
             raise
         return json.dumps(_non_finite_as_null(value), allow_nan=False, **kwargs)

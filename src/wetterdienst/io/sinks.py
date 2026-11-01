@@ -313,8 +313,9 @@ def _write_file(result: ExportMixin, target: str, connspec: ConnectionString, if
             writer(result, filepath)
             return
     msg = f"Unknown export file type for target '{target}'"
-    if "?" in target:
-        # everything after `file://` is the path, so `?a=1` belongs to the file name and the extension is not at its end
+    if "?" in target.rpartition("/")[2]:
+        # everything after `file://` is the path, so a `?a=1` ending it belongs to the file name, which then has no
+        # extension; a `?` in a directory is not what the refusal is about
         msg += ". A file target has no query string: write a '?' of the file name as %3F, and leave a query out"
     raise ExportRefusedError(msg)
 

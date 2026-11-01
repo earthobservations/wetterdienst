@@ -28,7 +28,7 @@ The extension is read in any case: `file:///path/to/dwd.CSV` is a CSV file.
 Everything after `file://` is the path, percent-decoded, and the extension is read from the end of that path. A file
 target has no query string: `file:///path/to/dwd.csv?a=1` names a file `dwd.csv?a=1`, has no extension and is refused
 as an unknown file type (`ExportRefusedError`) rather than written with its query dropped. A `?` that belongs to the
-name of a file is written `%3F`; a `#` is part of the name as it stands.
+name of a file is written `%3F` (Windows has no such file name); a `#` is part of the name as it stands.
 
 CSV and spreadsheets are written the way ``to_csv`` returns them, with timestamps as ISO strings
 and a list of station ids as one comma-separated field. JSON and JSON Lines hold the same records
