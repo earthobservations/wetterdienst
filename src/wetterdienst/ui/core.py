@@ -319,7 +319,8 @@ def _plausibility_field(check: str, what: str) -> Any:  # noqa: ANN401
         Field(
             description=f"What the check `{check}` does to {what}: `hard` nulls the value and keeps the number as "
             f"`rejected:{check},raw:<number>` in `quality_flags`; `soft` keeps the value and flags it "
-            f"`suspect:{check}`. Interpolation and summary leave a suspect value out in any case. "
+            f"`suspect:{check}`. A forecast network (`kind` `forecast`) is judged soft whatever the mode, but for "
+            f"`floor`. Interpolation and summary leave a suspect value out in any case. "
             f"Default: the server's WD_TS_PLAUSIBILITY__{check.upper()} if set, else "
             f"{'soft' if check == 'stuck' else 'hard'}.",
         ),
@@ -331,7 +332,8 @@ _PlausibilityField = Annotated[
     Field(
         description="One mode for every plausibility check at once: `soft` keeps every value a check finds "
         "implausible and flags it (`suspect:<check>`), `hard` nulls it and keeps the number "
-        "(`rejected:<check>,raw:<number>`). A check given beside it by `plausibility_<check>` wins. "
+        "(`rejected:<check>,raw:<number>`), except on a forecast network (`kind` `forecast`), where every check but "
+        "`floor` is soft whatever the mode. A check given beside it by `plausibility_<check>` wins. "
         "Default: the server's WD_TS_PLAUSIBILITY if set, else the mode of each check.",
     ),
 ]

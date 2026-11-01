@@ -262,8 +262,9 @@ PARAMETER_RANGES: dict[str, Range] = {
     # a deficit is the difference of two pressures and not a pressure of the air, so the 0 to 60 hPa of the vapour
     # pressure is not its bound. Its definition is at least 0 and its upper end the saturation pressure at the 60 °C of
     # the air bound, 199 hPa by Magnus (0.611 exp(17.27 t / (t + 237.3)) kPa), so 200 (D). The lower end is -10 hPa and
-    # not 0: DMI writes its deficit to one decimal of a kPa from a humidity that may read past 100 %, and some hours and
-    # days are slightly negative, -0.3 kPa (-3 hPa) at 06193 on 2025-07-25 (see the page of dmi/observation)
+    # not 0: DMI writes its deficit to one decimal of a kPa from a humidity that may read past 100 %, and publishes
+    # negatives marked valid (`validity: true`, `qcStatus: none`): -0.3 kPa (-3 hPa) at 06193 at 06:00 UTC on
+    # 2025-07-25, -0.2 in the six hours before (read 2026-11-01; see the page of dmi/observation)
     "vapor_pressure_deficit_mean": Bounds(-10.0, 200.0),
     "visibility_index": None,
     "visibility_measurement_method": None,

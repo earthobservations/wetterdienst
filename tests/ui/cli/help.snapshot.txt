@@ -376,7 +376,11 @@ Options:
   --pretty BOOLEAN                Pretty-print JSON with 4-space indentation, as REST's pretty=true.
                                   Default: false
   --with-metadata BOOLEAN         Add the units and the quality flags to the metadata block of
-                                  JSON/GeoJSON output, which is always there. Default: false
+                                  JSON/GeoJSON output, which is always there. With a file --target
+                                  it writes the block beside the file as <file>.metadata.json (CSV,
+                                  Excel, JSON, GeoJSON and the other bare types) and adds those
+                                  parts to the block in a Parquet, NetCDF or Zarr file; a database
+                                  --target is refused. Default: false
   --with-stations BOOLEAN         Include the stations in JSON/GeoJSON output. Default: false
   --debug BOOLEAN                 Log at debug level. Default: false
   --help                          Show this message and exit.
@@ -548,7 +552,11 @@ Options:
   --pretty BOOLEAN                Pretty-print JSON with 4-space indentation, as REST's pretty=true.
                                   Default: false
   --with-metadata BOOLEAN         Add the units and the quality flags to the metadata block of
-                                  JSON/GeoJSON output, which is always there. Default: false
+                                  JSON/GeoJSON output, which is always there. With a file --target
+                                  it writes the block beside the file as <file>.metadata.json (CSV,
+                                  Excel, JSON, GeoJSON and the other bare types) and adds those
+                                  parts to the block in a Parquet, NetCDF or Zarr file; a database
+                                  --target is refused. Default: false
   --debug BOOLEAN                 Log at debug level. Default: false
   --help                          Show this message and exit.
 
@@ -741,7 +749,11 @@ Options:
   --pretty BOOLEAN                Pretty-print JSON with 4-space indentation, as REST's pretty=true.
                                   Default: false
   --with-metadata BOOLEAN         Add the units and the quality flags to the metadata block of
-                                  JSON/GeoJSON output, which is always there. Default: false
+                                  JSON/GeoJSON output, which is always there. With a file --target
+                                  it writes the block beside the file as <file>.metadata.json (CSV,
+                                  Excel, JSON, GeoJSON and the other bare types) and adds those
+                                  parts to the block in a Parquet, NetCDF or Zarr file; a database
+                                  --target is refused. Default: false
   --with-stations BOOLEAN         Include the stations in JSON/GeoJSON output. Default: false
   --debug BOOLEAN                 Log at debug level. Default: false
   --help                          Show this message and exit.
@@ -838,35 +850,44 @@ Options:
   --plausibility [hard|soft]      One mode for every plausibility check: soft keeps what a check
                                   finds implausible, flagged `suspect:<check>`, hard nulls it and
                                   keeps the number as `rejected:<check>,raw:<number>`. A check given
-                                  beside it by --plausibility-<check> wins. Default:
-                                  WD_TS_PLAUSIBILITY if set, else the mode of each check
+                                  beside it by --plausibility-<check> wins. A forecast network (kind
+                                  forecast) is soft in every check but floor, whatever is given.
+                                  Default: WD_TS_PLAUSIBILITY if set, else the mode of each check
   --plausibility-range [hard|soft]
                                   What the check 'range' does to a value it finds implausible: hard
                                   nulls it and keeps the number as `rejected:range,raw:<number>` in
-                                  quality_flags, soft keeps it and flags it `suspect:range`.
-                                  Default: WD_TS_PLAUSIBILITY__RANGE if set, else hard
+                                  quality_flags, soft keeps it and flags it `suspect:range`. A
+                                  forecast network (kind forecast) is soft in every check but floor,
+                                  whatever is given. Default: WD_TS_PLAUSIBILITY__RANGE if set, else
+                                  hard
   --plausibility-elevation [hard|soft]
                                   What the check 'elevation' does to a value it finds implausible:
                                   hard nulls it and keeps the number as
                                   `rejected:elevation,raw:<number>` in quality_flags, soft keeps it
-                                  and flags it `suspect:elevation`. Default:
-                                  WD_TS_PLAUSIBILITY__ELEVATION if set, else hard
+                                  and flags it `suspect:elevation`. A forecast network (kind
+                                  forecast) is soft in every check but floor, whatever is given.
+                                  Default: WD_TS_PLAUSIBILITY__ELEVATION if set, else hard
   --plausibility-stuck [hard|soft]
                                   What the check 'stuck' does to a value it finds implausible: hard
                                   nulls it and keeps the number as `rejected:stuck,raw:<number>` in
-                                  quality_flags, soft keeps it and flags it `suspect:stuck`.
-                                  Default: WD_TS_PLAUSIBILITY__STUCK if set, else soft
+                                  quality_flags, soft keeps it and flags it `suspect:stuck`. A
+                                  forecast network (kind forecast) is soft in every check but floor,
+                                  whatever is given. Default: WD_TS_PLAUSIBILITY__STUCK if set, else
+                                  soft
   --plausibility-consistency [hard|soft]
                                   What the check 'consistency' does to a value it finds implausible:
                                   hard nulls it and keeps the number as
                                   `rejected:consistency,raw:<number>` in quality_flags, soft keeps
-                                  it and flags it `suspect:consistency`. Default:
-                                  WD_TS_PLAUSIBILITY__CONSISTENCY if set, else hard
+                                  it and flags it `suspect:consistency`. A forecast network (kind
+                                  forecast) is soft in every check but floor, whatever is given.
+                                  Default: WD_TS_PLAUSIBILITY__CONSISTENCY if set, else hard
   --plausibility-floor [hard|soft]
                                   What the check 'floor' does to a value it finds implausible: hard
                                   nulls it and keeps the number as `rejected:floor,raw:<number>` in
-                                  quality_flags, soft keeps it and flags it `suspect:floor`.
-                                  Default: WD_TS_PLAUSIBILITY__FLOOR if set, else hard
+                                  quality_flags, soft keeps it and flags it `suspect:floor`. A
+                                  forecast network (kind forecast) is soft in every check but floor,
+                                  whatever is given. Default: WD_TS_PLAUSIBILITY__FLOOR if set, else
+                                  hard
   --format [json|geojson|csv|ndjson|html|png|jpg|webp|svg|pdf]
                                   Output format: json, geojson, csv or ndjson (the metadata, a line
                                   for each row, then the end) for data, html, png, jpg, webp, svg or
@@ -885,7 +906,11 @@ Options:
   --pretty BOOLEAN                Pretty-print JSON with 4-space indentation, as REST's pretty=true.
                                   Default: false
   --with-metadata BOOLEAN         Add the units and the quality flags to the metadata block of
-                                  JSON/GeoJSON output, which is always there. Default: false
+                                  JSON/GeoJSON output, which is always there. With a file --target
+                                  it writes the block beside the file as <file>.metadata.json (CSV,
+                                  Excel, JSON, GeoJSON and the other bare types) and adds those
+                                  parts to the block in a Parquet, NetCDF or Zarr file; a database
+                                  --target is refused. Default: false
   --with-stations BOOLEAN         Include the stations in JSON/GeoJSON output. Default: false
   --debug BOOLEAN                 Log at debug level. Default: false
   --help                          Show this message and exit.

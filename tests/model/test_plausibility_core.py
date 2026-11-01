@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import datetime as dt
+from dataclasses import replace
 
 import polars as pl
 import pytest
@@ -308,3 +309,101 @@ def test_every_resolution_of_a_constant_run_has_a_step_to_bound_its_gap() -> Non
                 plan = plan_for(network, dataset)
                 if plan.constants:
                     assert plan.constant_gap == reading_step(resolution.value) * RUN_GAP_FACTOR
+
+
+# --- a forecast is judged soft only (GH-3681) -------------------------------------------------------------------------
+
+
+def _all_datasets() -> list[tuple[str, object]]:
+    return [
+        (f"{provider}/{network}", dataset)
+        for provider, networks in Wetterdienst.registry.items()
+        for network in networks
+        if not Wetterdienst.is_standalone(provider, network)
+        for resolution in Wetterdienst.resolve(provider, network).metadata
+        for dataset in resolution
+    ]
+
+
+def test_a_network_is_a_forecast_by_the_kind_its_metadata_declares() -> None:
+    """No list of networks: the plan of every dataset says `forecast` where, and only where, `kind` does."""
+    kinds = {}
+    for network, dataset in _all_datasets():
+        provider, name = network.split("/")
+        kind = Wetterdienst.resolve(provider, name).metadata.kind
+        kinds[network] = kind
+        assert plan_for(network, dataset).forecast is (kind == "forecast"), network
+    assert {network for network, kind in kinds.items() if kind == "forecast"} >= {"dwd/mosmix", "dwd/dmo", "dwd/swsmos"}
+    assert kinds["dwd/observation"] == "observation"
+
+
+def test_a_forecast_is_judged_with_every_check_soft_but_the_one_that_corrects() -> None:
+    """`hard`, given or default, is `soft` for a forecast; `floor` corrects and keeps the mode it was given."""
+    assert Plausibility.model_validate("hard").for_forecast().model_dump() == {
+        "range": "soft",
+        "elevation": "soft",
+        "stuck": "soft",
+        "consistency": "soft",
+        "floor": "hard",
+    }
+    assert Plausibility(floor="soft").for_forecast() == Plausibility.model_validate("soft")
+    assert Plausibility().for_forecast().model_dump()["floor"] == "hard"
+
+
+def test_a_forecast_keeps_the_value_a_hard_range_check_would_null() -> None:
+    """ICON's 394.92 mm of rain in an hour (83827, run of 2026-10-31 12Z) is flagged and kept, in any mode."""
+    dataset = _datasets("dwd/dmo")[("hourly", "icon")]
+    plan = plan_for("dwd/dmo", dataset)
+    rr1 = next(name for name, c in plan.parameters.items() if c.name == "precipitation_amount_last_1h")
+    df = _frame([(rr1, 394.92), (rr1, 0.3)])
+    for modes in (None, Plausibility(range="hard"), Plausibility.model_validate("hard")):
+        out = judged(df, network="dwd/dmo", dataset=dataset, modes=modes)
+        assert out.get_column("value").to_list() == [394.92, 0.3]
+        assert out.get_column("quality_flags").to_list() == ["suspect:range", None]
+
+
+def test_an_observation_in_hard_mode_still_nulls_the_same_value() -> None:
+    """The rule is the network's kind: the same 394.92 mm in an hour at a DWD station is null."""
+    dataset = _datasets("dwd/observation")[("hourly", "precipitation")]
+    plan = plan_for("dwd/observation", dataset)
+    rain = next(name for name, c in plan.parameters.items() if c.name == "precipitation_amount")
+    out = judged(_frame([(rain, 394.92), (rain, 0.3)]), network="dwd/observation", dataset=dataset)
+    assert out.get_column("value").to_list() == [None, 0.3]
+    assert out.get_column("quality_flags").to_list() == ["rejected:range,raw:394.92", None]
+
+
+def test_the_elevation_the_stuck_and_the_consistency_checks_are_soft_on_a_forecast() -> None:
+    """The checks no forecast dataset of the library triggers still never null on a forecast plan."""
+    dataset = _datasets("dwd/dmo")[("hourly", "icon")]
+    plan = plan_for("dwd/dmo", dataset)
+    names = {c.name: name for name, c in plan.parameters.items()}
+    # the elevation: 1090 hPa at 48 m is 82.5 hPa above the standard atmosphere, which hard would null
+    with_pressure = replace(plan, pressure=(names["pressure_air_sea_level"],))
+    df = _frame([(names["pressure_air_sea_level"], 1090.0)]).with_columns(pl.col("value").alias(SOURCE))
+    out = judge(df, with_pressure, Plausibility.model_validate("hard"), elevation=48.0)
+    assert out.get_column("value").to_list() == [1090.0]
+    assert out.get_column("quality_flags").to_list() == ["suspect:elevation"]
+    # the same plan as an observation's would null it
+    out = judge(df, replace(with_pressure, forecast=False), Plausibility.model_validate("hard"), elevation=48.0)
+    assert out.get_column("quality_flags").to_list() == ["rejected:elevation,raw:1090"]
+    # stuck, from a dated period, and consistency, from a relation of two readings of one timestamp
+    air, dew = names["temperature_air_2m"], names["temperature_dew_point_2m"]
+    rules = (
+        StuckPeriod("temperature_air_2m", dt.date(2024, 1, 1), dt.date(2024, 1, 1)),
+        Beside("temperature_dew_point_2m", "temperature_air_2m", lambda dew_point, air_: dew_point.gt(air_)),
+    )
+    df = _frame([(air, 5.0), (dew, 9.0)]).with_columns(pl.lit(dt.datetime(2024, 1, 1, tzinfo=UTC)).alias("timestamp"))
+    df = df.with_columns(pl.col("value").alias(SOURCE))
+    out = judge(df, plan, Plausibility.model_validate("hard"), rules)
+    assert out.get_column("value").to_list() == [5.0, 9.0]
+    assert out.get_column("quality_flags").to_list() == ["suspect:stuck", "suspect:consistency"]
+
+
+def test_a_forecast_floor_still_sets_the_floor() -> None:
+    """`floor` corrects and does not reject, so a forecast keeps its mode: 0.0 and the number as `raw:`."""
+    dataset = _datasets("dwd/dmo")[("hourly", "icon")]
+    plan = plan_for("dwd/dmo", dataset)
+    rr1 = next(name for name, c in plan.parameters.items() if c.name == "precipitation_amount_last_1h")
+    out = judged(_frame([(rr1, -0.02)]), network="dwd/dmo", dataset=dataset, modes=Plausibility.model_validate("hard"))
+    assert out.get_column("value").to_list() == [0.0]
+    assert out.get_column("quality_flags").to_list() == ["rejected:floor,raw:-0.02"]

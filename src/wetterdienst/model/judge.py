@@ -23,7 +23,9 @@ the air of its minute at night.
 
 Modes and tokens are those of ``Plausibility``: ``hard`` nulls the value (``floor`` sets it to 0) and writes
 ``rejected:<checks>,raw:<text>``, ``soft`` keeps it and writes ``suspect:<checks>``; several checks are joined with
-``+`` in alphabetical order, and a value that a hard check rejects carries only the hard checks.
+``+`` in alphabetical order, and a value that a hard check rejects carries only the hard checks. On a forecast network
+(the ``kind`` of its metadata) every check is soft but ``floor``, whatever the request sets
+(``Plausibility.for_forecast``).
 """
 
 from __future__ import annotations
@@ -207,6 +209,8 @@ class Plan:
     network: str
     parameters: dict[str, Conversion]
     ranges: dict[str, tuple[float, float]]
+    #: the network is a forecast (its metadata ``kind``): its checks are soft whatever the request sets
+    forecast: bool = False
     pressure: tuple[str, ...] = ()
     floors: tuple[str, ...] = ()
     constants: tuple[tuple[str, int], ...] = ()
@@ -246,6 +250,18 @@ def plan_for(network: str, dataset: DatasetModel) -> Plan:
     return cached[1]
 
 
+def _is_forecast(network: str) -> bool:
+    """Tell whether a network is a forecast by the ``kind`` its metadata declares (what ``coverage`` reports)."""
+    from wetterdienst.api import Wetterdienst  # noqa: PLC0415
+    from wetterdienst.exceptions import ApiNotFoundError  # noqa: PLC0415
+
+    provider, _, name = network.partition("/")
+    try:
+        return Wetterdienst.resolve(provider, name).metadata.kind == "forecast"
+    except ApiNotFoundError:
+        return False
+
+
 def _build_plan(network: str, dataset: DatasetModel) -> Plan:
     resolution = dataset.resolution.name
     parameters: dict[str, Conversion] = {}
@@ -274,7 +290,9 @@ def _build_plan(network: str, dataset: DatasetModel) -> Plan:
         names, air = RUNS[network]
         if all(name in original for name in names):
             runs = (tuple(original[name] for name in names), original[air])
-    return Plan(network, parameters, ranges, pressure, floors, constants, constant_gap, runs, by_name)
+    return Plan(
+        network, parameters, ranges, _is_forecast(network), pressure, floors, constants, constant_gap, runs, by_name
+    )
 
 
 def to_canonical(plan: Plan) -> pl.Expr | None:
@@ -335,6 +353,8 @@ def judge(  # noqa: C901
     wrote, set where a hard check mapped the value (null, or 0 for a floor), for a caller that does not convert units.
     A reading that carries a ``raw:`` token already is a code of the source, which decides first, and is not judged.
     """
+    if plan.forecast:
+        modes = modes.for_forecast()
     parameter = pl.col("parameter")
     value = pl.col("value")
     exprs: dict[str, list[pl.Expr]] = defaultdict(list)

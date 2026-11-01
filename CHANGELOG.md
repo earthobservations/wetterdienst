@@ -30,9 +30,8 @@ Types of changes:
   returned in seconds), `temperature_air_mean_grass_height` (5 to 20 cm above ground) and
   `vapor_pressure_deficit_mean` (kPa, returned in hPa), hourly and daily, and
   `temperature_soil_mean_0_3m`, daily only. The daily leaf wetness is the minutes of the day (0 to
-  1440), not the average of the hourly values the source's table names. The library holds none of
-  the five to a range, so the impossible values DMI writes for some days and hours are kept
-  (Part of GH-3622)
+  1440), not the average of the hourly values the source's table names. The five are held to the
+  table of ranges like any other quantity (Part of GH-3622)
 - `FormattableResult` (`wetterdienst.model.result`) is a `typing.Protocol` of `to_dict`,
   `to_json` and `to_format` that the five results and the alerts result satisfy, so one function
   can write them all. `HistoryResult` gets `to_format`, for JSON only: any other format, CSV
@@ -41,6 +40,10 @@ Types of changes:
   `to_json`, `to_geojson` and `to_format` (`indent=0` now breaks lines without indenting, as on
   the others), and `with_metadata` (the block of the others); its default stays one line. It is
   outside the frozen results (GH-3449)
+- `wetterdienst stations`, `values`, `interpolate` and `summarize` pass `--with-metadata` to
+  `--target`, as `to_target(..., with_metadata=True)` takes it: a file `<file>.metadata.json`
+  beside a CSV, spreadsheet, JSON, JSON Lines, GeoJSON or Feather file, and the units and the
+  quality legend in the block of a Parquet, NetCDF or Zarr file (GH-3704)
 
 ### Changed
 
@@ -53,6 +56,11 @@ Types of changes:
   as the source wrote it, is null, as `rejected:range,raw:<number>`, or flagged `suspect:range`.
   To keep every number set `plausibility={"range": "soft"}` (`WD_TS_PLAUSIBILITY__RANGE=soft`,
   `--plausibility-range soft`, `plausibility_range=soft`) (GH-3681)
+- A forecast network (its metadata `kind`: `dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`) is judged soft in
+  every check but `floor`, whatever mode is set (options, CLI, REST, environment): a value a check
+  finds is flagged `suspect:<check>` and never null, as a model's output is no reading (ICON's
+  394.92 mm of rain in an hour is `suspect:range`). `floor` still sets a small negative to 0.0
+  (GH-3681)
 - **Breaking**: the bounds of `range` changed: relative humidity is 0 to 100 % (130 in DMI, RMI and
   DWD road before, none elsewhere), irradiance 0 to 2,000 W/m² (-200 before), rain 350 mm in an
   hour, 1,850 in a day, 10,000 in a month, 30,000 in a year, air -90 to 60 °C, station pressure
@@ -73,6 +81,10 @@ Types of changes:
   stopped sensors (seen in group KM) stays null in any window, now as a code of the source:
   `raw:198.15`, no longer `rejected:range,raw:198.15`, so `range: soft` no longer returns it:
   filter on `raw:198.15` (GH-3681)
+- **Breaking**: `--with-metadata` with a database `--target` of `wetterdienst stations`, `values`,
+  `interpolate` or `summarize` is refused with the library's message and exit code 1, before
+  anything is written, where the flag was ignored and the table written. Leave the flag out for a
+  database target. A result with no rows writes nothing and is no refusal (GH-3704)
 - **Breaking**: 5 more `noaa/ghcn` hourly stations are placed west of Greenwich, no longer east
   of it, where `ghcnh-station-list.csv` has lost the sign of their longitude: Freetown in Sierra
   Leone (CMU55-00161), Surtsey (ICM00004102), Buhta Providenja (RSU025594-5), Calanda
@@ -101,6 +113,12 @@ Types of changes:
   They are told by a new warning `rejected-by-plausibility`, with the count per check; a value
   that several checks rejected is counted under each. A client that summed the old count to
   find the rejected values reads the new warning instead (GH-3682)
+- `wetterdienst history --target` accepts a file name ending in `.JSON` or any other case of
+  `.json`, as `values` and `stations` do; it refused all but the lowercase one (GH-3693)
+- The CrateDB and SQL (SQLAlchemy) targets hand the database a `pl.Categorical` column as text, as
+  they did a `pl.Enum` column, not as a pandas Categorical. SQLite and DuckDB wrote the text
+  either way; the dialects that could not be tried are no longer left to read a Categorical
+  (GH-3694)
 
 ## [0.180.0] - 2026-11-01
 

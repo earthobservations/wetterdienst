@@ -69,7 +69,8 @@ _CHECKS = (
 SUSPECT = QualityKind(
     kind="suspect",
     written="suspect:<check>",
-    meaning="The value is kept, and a plausibility check in the mode `soft` finds it implausible: one of "
+    meaning="The value is kept, and a plausibility check in the mode `soft` (always, on a forecast network) finds it "
+    "implausible: one of "
     + _CHECKS
     + ", several joined with `+` (`suspect:range+stuck`). The checks and their modes are the `plausibility` option "
     "of the request; the default of `stuck` is soft. No `raw` token: the value is the number the source wrote. "
@@ -84,7 +85,8 @@ REJECTED = QualityKind(
     "`hard` rejected the number the source wrote, which `raw` holds: one of "
     + _CHECKS
     + ", several joined with `+`. It tells a number rejected by the library from a missing-value code of the "
-    "source, which has `raw` alone.",
+    "source, which has `raw` alone. A forecast network (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`) never has one but for "
+    "`floor`: its checks are soft whatever the mode, so a value is flagged `suspect:<check>` and not nulled.",
 )
 
 #: the last token of any network that maps a missing-value marker or an impossible number to null
@@ -187,7 +189,7 @@ LEGENDS: dict[str, list[QualityKind]] = {
         RAW,
     ],
     "dwd/derived": [_DWD_QN, SUSPECT, REJECTED, RAW],
-    "dwd/mosmix": [SUSPECT, REJECTED, RAW],
+    "dwd/mosmix": [SUSPECT, RAW],
     "dwd/dmo": [SUSPECT, REJECTED, RAW],
     "dwd/road": [
         _plain(
@@ -202,7 +204,7 @@ LEGENDS: dict[str, list[QualityKind]] = {
         REJECTED,
         RAW,
     ],
-    "dwd/swsmos": [SUSPECT, REJECTED, RAW],
+    "dwd/swsmos": [SUSPECT, RAW],
     "dwd/poi": [SUSPECT, REJECTED, RAW],
     "dwd/phenology": [
         _plain(

@@ -12,6 +12,17 @@ unit, and the library judges them all in one place, in one unit per quantity ([h
 
 There is no mode that skips a check. A soft check already keeps the value, and the flag keeps the judgement visible.
 
+**A forecast is judged soft only.** A network whose metadata `kind` is `forecast` (what `coverage` reports: `dwd/mosmix`,
+`dwd/dmo`, `dwd/swsmos`, and any provider that declares one) has every check soft, **whatever mode is set**: the default,
+`hard` given by `Options`, `--plausibility-range=hard`, `plausibility_range=hard` of the REST API or `WD_TS_PLAUSIBILITY`
+in the environment. A forecast is the output of a model and no reading, so a value that a check finds (ICON's 394.92 mm of rain
+in an hour at 83827 Foz do Iguaçu, above the 350 mm of the table) is kept and flagged `suspect:range`, and never nulled; a
+caller who sets `hard` on a forecast and finds nothing nulled sees this rule at work, and the answer is not a missing check.
+The one exception is `floor`, which does not reject: it sets the model's small negative to the floor of its quantity
+(0.0) and keeps the number as `rejected:floor,raw:<number>`, so it keeps the mode it was given, hard by default. The
+networks are told by their `kind`, not by a list, so a new forecast network is judged so from its metadata. An
+observation or derived network in `hard` mode still nulls.
+
 A check judges. What a source **documents** is no judgement and has no mode: `-999`, `---`, `NaN`, AEMET's `Ip` trace,
 FMI's `-1.0` for no snow, a direction of 0 beside a speed of 0 (a calm), the `-0.1` trace of DMI. These are the source's
 meanings, not ours, and a soft `-999` would return -999 as a number. They are decoded as before, with `raw:` alone, in
@@ -56,7 +67,7 @@ written as short as it goes (`4021.0` as `4021`).
 | `elevation` | a station pressure the standard atmosphere does not allow at the station's elevation | hard | In every network that serves a station pressure (`pressure_air_site`, `_mean`, `_min`, `_max`), for each station of the list that has an elevation. Against the pressure of the international standard atmosphere at that elevation, from **870/1013.25 of it** (143 hPa below at sea level: the lowest pressure on record, 870 hPa in Typhoon Tip, as a share of the standard atmosphere) to **75 hPa above it** (the 1,083.8 hPa of Agata, 261 m, the highest sea level pressure of a low station, reduced to the station with the cold column of that day lies 59 to 64 hPa above the standard atmosphere there, the 1,089.1 hPa of Tosontsengel, 1,725 m, 14 to 40: a derivation of GH-3681). The world-wide bounds (300 to 1100 hPa) let through the pressure of another height (968.6 hPa at the Zugspitze, 2,956 m, where 705 are expected) and a P0 mistyped by a digit above the standard atmosphere (1093.3 hPa at 48 m, 85.8 above). A station without an elevation, or one outside -500 to 9,000 m, is not judged. So is a `noaa/ghcn` station at 0.0 m: its lists write 0.0 for stations they know no elevation of (the daily one BRM00083566, inland at about 827 m), and 54 of the 271 at 0.0 in the hourly one stand between 150 and 4,329 m (CHM00052940 reads 500.2 to 998 hPa), while the 0.0 of the lists read (DWD, ECCC, IMGW, Météo-France) is a coast. The margin below keeps Hurricane Irma (917.4 hPa at 10:00 and 936.0 hPa an hour earlier at St-Barthélemy, 3 m, 2017-09-06, quality code 1) and the deep lows of Dumont d'Urville (938 hPa at 43 m, where 1,008 are expected); it lets 3 of the 19 readings of DWD's hourly station pressure beyond 75 hPa of the standard atmosphere (the research of GH-3681, over Berlin-Tempelhof, List auf Sylt and the Zugspitze) pass: 909.5, 910.1 and 908.5 hPa, 98 to 102 hPa below, which the step check planned in [GH-3681](https://github.com/earthobservations/wetterdienst/issues/3681) is to catch |
 | `stuck` | a sensor that held one value over a period it should not have | **soft** | DWD observation: a run of consecutive readings of one value of the station pressure (`pressure_air_site`, `pressure_air_site_mean`): 72 hourly readings, 5 days, 36 readings at 10 minutes (HadISD and ECA&D, see [the limits](#the-limit-of-a-run)); a station without a barometer writes its constant in every row. DWD road: 24 readings or more (6 h) of one value of the air, the dew point or the road surface temperature, a gap longer than four times the station's usual one ending the run, melting ice excepted. RMI: the sunshine of station 6477 in the periods its sensor was stuck or dead |
 | `consistency` | a reading that another parameter of the same file contradicts | hard | DWD road: a road surface more than 20 K above the air of the same minute with the sun more than 6 degrees below the horizon, the air counting only where it passed `range` and is not marked suspect by DWD's own flag. Météo-France: the humidity of an hour whose dew point lies below 0 °C at a station without frost (the same hygrometer), and a `tn12` that is the text of the `tx12` beside it (a copy, no minimum) |
-| `floor` | a model value a little below the floor of its quantity | hard | DWD DMO: ICON writes -0.02 mm for the precipitation of an hour, down to -0.10, and the radiation of a night below 0. **hard sets the floor**, 0.0, and keeps the number; soft keeps the number as the value |
+| `floor` | a model value a little below the floor of its quantity | hard | DWD DMO (a forecast, soft in every other check, but `floor` corrects and does not reject, so it keeps its mode): ICON writes -0.02 mm for the precipitation of an hour, down to -0.10, and the radiation of a night below 0. **hard sets the floor**, 0.0, and keeps the number; soft keeps the number as the value |
 
 `stuck` is soft by default because it judges a series and not a value: identical readings are a sign of a stuck sensor
 and no proof, and what is found depends on what was read, which differs by network (see the caveats). Every other check
@@ -220,7 +231,7 @@ and REST have both the shorthand and the checks, and the checks win whatever the
 `hard` is refused.
 
 The REST API and the MCP tools take `plausibility` and `plausibility_range`, `plausibility_elevation`, `plausibility_stuck`,
-`plausibility_consistency` and `plausibility_floor` on `values`; `/api/settings` reports the modes in effect. A value
+`plausibility_consistency` and `plausibility_floor` on `values`; `/api/settings` reports the modes as set (a forecast network is soft in every check but `floor` whatever they are). A value
 other than `soft` or `hard` is refused.
 
 ## The tokens

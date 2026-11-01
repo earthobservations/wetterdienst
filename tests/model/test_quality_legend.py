@@ -50,7 +50,11 @@ def _kinds_written() -> dict[str, set[str | None]]:
                 kinds.add(None)
             kinds.update(keyword.arg for keyword in node.keywords)
     for network in _judged_networks():
-        found.setdefault(network, set()).update({"suspect", "rejected", "raw"})
+        provider, name = network.split("/")
+        # a forecast is judged soft whatever the mode (GH-3681), so it is never `rejected` but by a floor
+        forecast = Wetterdienst.resolve(provider, name).metadata.kind == "forecast"
+        kinds = {"suspect", "raw"} if forecast and network not in FLOORS else {"suspect", "rejected", "raw"}
+        found.setdefault(network, set()).update(kinds)
     return found
 
 

@@ -295,10 +295,10 @@
                   "type": "null"
                 }
               ],
-              "description": "One mode for every plausibility check at once: `soft` keeps every value a check finds implausible and flags it (`suspect:<check>`), `hard` nulls it and keeps the number (`rejected:<check>,raw:<number>`). A check given beside it by `plausibility_<check>` wins. Default: the server's WD_TS_PLAUSIBILITY if set, else the mode of each check.",
+              "description": "One mode for every plausibility check at once: `soft` keeps every value a check finds implausible and flags it (`suspect:<check>`), `hard` nulls it and keeps the number (`rejected:<check>,raw:<number>`), except on a forecast network (`kind` `forecast`), where every check but `floor` is soft whatever the mode. A check given beside it by `plausibility_<check>` wins. Default: the server's WD_TS_PLAUSIBILITY if set, else the mode of each check.",
               "title": "Plausibility"
             },
-            "description": "One mode for every plausibility check at once: `soft` keeps every value a check finds implausible and flags it (`suspect:<check>`), `hard` nulls it and keeps the number (`rejected:<check>,raw:<number>`). A check given beside it by `plausibility_<check>` wins. Default: the server's WD_TS_PLAUSIBILITY if set, else the mode of each check."
+            "description": "One mode for every plausibility check at once: `soft` keeps every value a check finds implausible and flags it (`suspect:<check>`), `hard` nulls it and keeps the number (`rejected:<check>,raw:<number>`), except on a forecast network (`kind` `forecast`), where every check but `floor` is soft whatever the mode. A check given beside it by `plausibility_<check>` wins. Default: the server's WD_TS_PLAUSIBILITY if set, else the mode of each check."
           },
           {
             "name": "plausibility_range",
@@ -310,11 +310,11 @@
                 "hard"
               ],
               "type": "string",
-              "description": "What the check `range` does to a reading outside the physical range of its parameter: `hard` nulls the value and keeps the number as `rejected:range,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:range`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__RANGE if set, else hard.",
+              "description": "What the check `range` does to a reading outside the physical range of its parameter: `hard` nulls the value and keeps the number as `rejected:range,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:range`. A forecast network (`kind` `forecast`) is judged soft whatever the mode, but for `floor`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__RANGE if set, else hard.",
               "default": "hard",
               "title": "Plausibility Range"
             },
-            "description": "What the check `range` does to a reading outside the physical range of its parameter: `hard` nulls the value and keeps the number as `rejected:range,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:range`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__RANGE if set, else hard."
+            "description": "What the check `range` does to a reading outside the physical range of its parameter: `hard` nulls the value and keeps the number as `rejected:range,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:range`. A forecast network (`kind` `forecast`) is judged soft whatever the mode, but for `floor`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__RANGE if set, else hard."
           },
           {
             "name": "plausibility_elevation",
@@ -326,11 +326,11 @@
                 "hard"
               ],
               "type": "string",
-              "description": "What the check `elevation` does to a station pressure the barometric formula does not expect at the station's elevation: `hard` nulls the value and keeps the number as `rejected:elevation,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:elevation`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__ELEVATION if set, else hard.",
+              "description": "What the check `elevation` does to a station pressure the barometric formula does not expect at the station's elevation: `hard` nulls the value and keeps the number as `rejected:elevation,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:elevation`. A forecast network (`kind` `forecast`) is judged soft whatever the mode, but for `floor`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__ELEVATION if set, else hard.",
               "default": "hard",
               "title": "Plausibility Elevation"
             },
-            "description": "What the check `elevation` does to a station pressure the barometric formula does not expect at the station's elevation: `hard` nulls the value and keeps the number as `rejected:elevation,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:elevation`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__ELEVATION if set, else hard."
+            "description": "What the check `elevation` does to a station pressure the barometric formula does not expect at the station's elevation: `hard` nulls the value and keeps the number as `rejected:elevation,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:elevation`. A forecast network (`kind` `forecast`) is judged soft whatever the mode, but for `floor`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__ELEVATION if set, else hard."
           },
           {
             "name": "plausibility_stuck",
@@ -342,11 +342,11 @@
                 "hard"
               ],
               "type": "string",
-              "description": "What the check `stuck` does to a sensor that held one value over a period it should not have (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:stuck,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:stuck`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STUCK if set, else soft.",
+              "description": "What the check `stuck` does to a sensor that held one value over a period it should not have (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:stuck,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:stuck`. A forecast network (`kind` `forecast`) is judged soft whatever the mode, but for `floor`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STUCK if set, else soft.",
               "default": "soft",
               "title": "Plausibility Stuck"
             },
-            "description": "What the check `stuck` does to a sensor that held one value over a period it should not have (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:stuck,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:stuck`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STUCK if set, else soft."
+            "description": "What the check `stuck` does to a sensor that held one value over a period it should not have (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:stuck,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:stuck`. A forecast network (`kind` `forecast`) is judged soft whatever the mode, but for `floor`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STUCK if set, else soft."
           },
           {
             "name": "plausibility_consistency",
@@ -358,11 +358,11 @@
                 "hard"
               ],
               "type": "string",
-              "description": "What the check `consistency` does to a reading that another parameter of the same file contradicts (never downloaded for the check): `hard` nulls the value and keeps the number as `rejected:consistency,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:consistency`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__CONSISTENCY if set, else hard.",
+              "description": "What the check `consistency` does to a reading that another parameter of the same file contradicts (never downloaded for the check): `hard` nulls the value and keeps the number as `rejected:consistency,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:consistency`. A forecast network (`kind` `forecast`) is judged soft whatever the mode, but for `floor`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__CONSISTENCY if set, else hard.",
               "default": "hard",
               "title": "Plausibility Consistency"
             },
-            "description": "What the check `consistency` does to a reading that another parameter of the same file contradicts (never downloaded for the check): `hard` nulls the value and keeps the number as `rejected:consistency,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:consistency`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__CONSISTENCY if set, else hard."
+            "description": "What the check `consistency` does to a reading that another parameter of the same file contradicts (never downloaded for the check): `hard` nulls the value and keeps the number as `rejected:consistency,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:consistency`. A forecast network (`kind` `forecast`) is judged soft whatever the mode, but for `floor`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__CONSISTENCY if set, else hard."
           },
           {
             "name": "plausibility_floor",
@@ -374,11 +374,11 @@
                 "hard"
               ],
               "type": "string",
-              "description": "What the check `floor` does to a model value a little below the floor of its quantity (`hard` sets the floor, not null): `hard` nulls the value and keeps the number as `rejected:floor,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:floor`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__FLOOR if set, else hard.",
+              "description": "What the check `floor` does to a model value a little below the floor of its quantity (`hard` sets the floor, not null): `hard` nulls the value and keeps the number as `rejected:floor,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:floor`. A forecast network (`kind` `forecast`) is judged soft whatever the mode, but for `floor`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__FLOOR if set, else hard.",
               "default": "hard",
               "title": "Plausibility Floor"
             },
-            "description": "What the check `floor` does to a model value a little below the floor of its quantity (`hard` sets the floor, not null): `hard` nulls the value and keeps the number as `rejected:floor,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:floor`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__FLOOR if set, else hard."
+            "description": "What the check `floor` does to a model value a little below the floor of its quantity (`hard` sets the floor, not null): `hard` nulls the value and keeps the number as `rejected:floor,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:floor`. A forecast network (`kind` `forecast`) is judged soft whatever the mode, but for `floor`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__FLOOR if set, else hard."
           },
           {
             "name": "interpolation_station_distance",
@@ -2361,10 +2361,10 @@
                   "type": "null"
                 }
               ],
-              "description": "One mode for every plausibility check at once: `soft` keeps every value a check finds implausible and flags it (`suspect:<check>`), `hard` nulls it and keeps the number (`rejected:<check>,raw:<number>`). A check given beside it by `plausibility_<check>` wins. Default: the server's WD_TS_PLAUSIBILITY if set, else the mode of each check.",
+              "description": "One mode for every plausibility check at once: `soft` keeps every value a check finds implausible and flags it (`suspect:<check>`), `hard` nulls it and keeps the number (`rejected:<check>,raw:<number>`), except on a forecast network (`kind` `forecast`), where every check but `floor` is soft whatever the mode. A check given beside it by `plausibility_<check>` wins. Default: the server's WD_TS_PLAUSIBILITY if set, else the mode of each check.",
               "title": "Plausibility"
             },
-            "description": "One mode for every plausibility check at once: `soft` keeps every value a check finds implausible and flags it (`suspect:<check>`), `hard` nulls it and keeps the number (`rejected:<check>,raw:<number>`). A check given beside it by `plausibility_<check>` wins. Default: the server's WD_TS_PLAUSIBILITY if set, else the mode of each check."
+            "description": "One mode for every plausibility check at once: `soft` keeps every value a check finds implausible and flags it (`suspect:<check>`), `hard` nulls it and keeps the number (`rejected:<check>,raw:<number>`), except on a forecast network (`kind` `forecast`), where every check but `floor` is soft whatever the mode. A check given beside it by `plausibility_<check>` wins. Default: the server's WD_TS_PLAUSIBILITY if set, else the mode of each check."
           },
           {
             "name": "plausibility_range",
@@ -2376,11 +2376,11 @@
                 "hard"
               ],
               "type": "string",
-              "description": "What the check `range` does to a reading outside the physical range of its parameter: `hard` nulls the value and keeps the number as `rejected:range,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:range`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__RANGE if set, else hard.",
+              "description": "What the check `range` does to a reading outside the physical range of its parameter: `hard` nulls the value and keeps the number as `rejected:range,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:range`. A forecast network (`kind` `forecast`) is judged soft whatever the mode, but for `floor`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__RANGE if set, else hard.",
               "default": "hard",
               "title": "Plausibility Range"
             },
-            "description": "What the check `range` does to a reading outside the physical range of its parameter: `hard` nulls the value and keeps the number as `rejected:range,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:range`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__RANGE if set, else hard."
+            "description": "What the check `range` does to a reading outside the physical range of its parameter: `hard` nulls the value and keeps the number as `rejected:range,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:range`. A forecast network (`kind` `forecast`) is judged soft whatever the mode, but for `floor`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__RANGE if set, else hard."
           },
           {
             "name": "plausibility_elevation",
@@ -2392,11 +2392,11 @@
                 "hard"
               ],
               "type": "string",
-              "description": "What the check `elevation` does to a station pressure the barometric formula does not expect at the station's elevation: `hard` nulls the value and keeps the number as `rejected:elevation,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:elevation`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__ELEVATION if set, else hard.",
+              "description": "What the check `elevation` does to a station pressure the barometric formula does not expect at the station's elevation: `hard` nulls the value and keeps the number as `rejected:elevation,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:elevation`. A forecast network (`kind` `forecast`) is judged soft whatever the mode, but for `floor`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__ELEVATION if set, else hard.",
               "default": "hard",
               "title": "Plausibility Elevation"
             },
-            "description": "What the check `elevation` does to a station pressure the barometric formula does not expect at the station's elevation: `hard` nulls the value and keeps the number as `rejected:elevation,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:elevation`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__ELEVATION if set, else hard."
+            "description": "What the check `elevation` does to a station pressure the barometric formula does not expect at the station's elevation: `hard` nulls the value and keeps the number as `rejected:elevation,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:elevation`. A forecast network (`kind` `forecast`) is judged soft whatever the mode, but for `floor`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__ELEVATION if set, else hard."
           },
           {
             "name": "plausibility_stuck",
@@ -2408,11 +2408,11 @@
                 "hard"
               ],
               "type": "string",
-              "description": "What the check `stuck` does to a sensor that held one value over a period it should not have (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:stuck,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:stuck`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STUCK if set, else soft.",
+              "description": "What the check `stuck` does to a sensor that held one value over a period it should not have (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:stuck,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:stuck`. A forecast network (`kind` `forecast`) is judged soft whatever the mode, but for `floor`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STUCK if set, else soft.",
               "default": "soft",
               "title": "Plausibility Stuck"
             },
-            "description": "What the check `stuck` does to a sensor that held one value over a period it should not have (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:stuck,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:stuck`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STUCK if set, else soft."
+            "description": "What the check `stuck` does to a sensor that held one value over a period it should not have (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:stuck,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:stuck`. A forecast network (`kind` `forecast`) is judged soft whatever the mode, but for `floor`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STUCK if set, else soft."
           },
           {
             "name": "plausibility_consistency",
@@ -2424,11 +2424,11 @@
                 "hard"
               ],
               "type": "string",
-              "description": "What the check `consistency` does to a reading that another parameter of the same file contradicts (never downloaded for the check): `hard` nulls the value and keeps the number as `rejected:consistency,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:consistency`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__CONSISTENCY if set, else hard.",
+              "description": "What the check `consistency` does to a reading that another parameter of the same file contradicts (never downloaded for the check): `hard` nulls the value and keeps the number as `rejected:consistency,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:consistency`. A forecast network (`kind` `forecast`) is judged soft whatever the mode, but for `floor`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__CONSISTENCY if set, else hard.",
               "default": "hard",
               "title": "Plausibility Consistency"
             },
-            "description": "What the check `consistency` does to a reading that another parameter of the same file contradicts (never downloaded for the check): `hard` nulls the value and keeps the number as `rejected:consistency,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:consistency`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__CONSISTENCY if set, else hard."
+            "description": "What the check `consistency` does to a reading that another parameter of the same file contradicts (never downloaded for the check): `hard` nulls the value and keeps the number as `rejected:consistency,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:consistency`. A forecast network (`kind` `forecast`) is judged soft whatever the mode, but for `floor`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__CONSISTENCY if set, else hard."
           },
           {
             "name": "plausibility_floor",
@@ -2440,11 +2440,11 @@
                 "hard"
               ],
               "type": "string",
-              "description": "What the check `floor` does to a model value a little below the floor of its quantity (`hard` sets the floor, not null): `hard` nulls the value and keeps the number as `rejected:floor,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:floor`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__FLOOR if set, else hard.",
+              "description": "What the check `floor` does to a model value a little below the floor of its quantity (`hard` sets the floor, not null): `hard` nulls the value and keeps the number as `rejected:floor,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:floor`. A forecast network (`kind` `forecast`) is judged soft whatever the mode, but for `floor`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__FLOOR if set, else hard.",
               "default": "hard",
               "title": "Plausibility Floor"
             },
-            "description": "What the check `floor` does to a model value a little below the floor of its quantity (`hard` sets the floor, not null): `hard` nulls the value and keeps the number as `rejected:floor,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:floor`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__FLOOR if set, else hard."
+            "description": "What the check `floor` does to a model value a little below the floor of its quantity (`hard` sets the floor, not null): `hard` nulls the value and keeps the number as `rejected:floor,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:floor`. A forecast network (`kind` `forecast`) is judged soft whatever the mode, but for `floor`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__FLOOR if set, else hard."
           }
         ],
         "responses": {
@@ -6237,7 +6237,7 @@
               "hard"
             ],
             "title": "Plausibility Range",
-            "description": "The mode of the check `range`: `hard` nulls a value it finds implausible (`rejected:range` in `quality_flags`), `soft` keeps it and flags it (`suspect:range`)."
+            "description": "The mode of the check `range`: `hard` nulls a value it finds implausible (`rejected:range` in `quality_flags`), `soft` keeps it and flags it (`suspect:range`). It is the mode as set: a forecast network (`kind` `forecast`) is judged `soft` in every check but `floor` whatever it is."
           },
           "plausibility_elevation": {
             "type": "string",
@@ -6246,7 +6246,7 @@
               "hard"
             ],
             "title": "Plausibility Elevation",
-            "description": "The mode of the check `elevation`: `hard` nulls a value it finds implausible (`rejected:elevation` in `quality_flags`), `soft` keeps it and flags it (`suspect:elevation`)."
+            "description": "The mode of the check `elevation`: `hard` nulls a value it finds implausible (`rejected:elevation` in `quality_flags`), `soft` keeps it and flags it (`suspect:elevation`). It is the mode as set: a forecast network (`kind` `forecast`) is judged `soft` in every check but `floor` whatever it is."
           },
           "plausibility_stuck": {
             "type": "string",
@@ -6255,7 +6255,7 @@
               "hard"
             ],
             "title": "Plausibility Stuck",
-            "description": "The mode of the check `stuck`: `hard` nulls a value it finds implausible (`rejected:stuck` in `quality_flags`), `soft` keeps it and flags it (`suspect:stuck`)."
+            "description": "The mode of the check `stuck`: `hard` nulls a value it finds implausible (`rejected:stuck` in `quality_flags`), `soft` keeps it and flags it (`suspect:stuck`). It is the mode as set: a forecast network (`kind` `forecast`) is judged `soft` in every check but `floor` whatever it is."
           },
           "plausibility_consistency": {
             "type": "string",
@@ -6264,7 +6264,7 @@
               "hard"
             ],
             "title": "Plausibility Consistency",
-            "description": "The mode of the check `consistency`: `hard` nulls a value it finds implausible (`rejected:consistency` in `quality_flags`), `soft` keeps it and flags it (`suspect:consistency`)."
+            "description": "The mode of the check `consistency`: `hard` nulls a value it finds implausible (`rejected:consistency` in `quality_flags`), `soft` keeps it and flags it (`suspect:consistency`). It is the mode as set: a forecast network (`kind` `forecast`) is judged `soft` in every check but `floor` whatever it is."
           },
           "plausibility_floor": {
             "type": "string",
@@ -6273,7 +6273,7 @@
               "hard"
             ],
             "title": "Plausibility Floor",
-            "description": "The mode of the check `floor`: `hard` nulls a value it finds implausible (`rejected:floor` in `quality_flags`), `soft` keeps it and flags it (`suspect:floor`)."
+            "description": "The mode of the check `floor`: `hard` nulls a value it finds implausible (`rejected:floor` in `quality_flags`), `soft` keeps it and flags it (`suspect:floor`). It is the mode as set: a forecast network (`kind` `forecast`) is judged `soft` in every check but `floor` whatever it is."
           }
         },
         "additionalProperties": false,

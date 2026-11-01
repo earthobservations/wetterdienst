@@ -3036,6 +3036,79 @@ def test_to_target_writes_cratedb_with_a_password_holding_delimiters() -> None:
     assert (to_sql.call_args.kwargs["schema"], to_sql.call_args.kwargs["name"]) == ("obs", "readings")
 
 
+def _text_columns_frame() -> ExportMixin:
+    """Build a frame with a `pl.Categorical` and a `pl.Enum` column, which pandas both turns into a Categorical."""
+    return ExportMixin(
+        df=pl.DataFrame(
+            {
+                "station_id": ["01048", "00044"],
+                "category": pl.Series(["a", None], dtype=pl.Categorical),
+                "kind": pl.Series(["x", "y"], dtype=pl.Enum(["x", "y"])),
+                "value": [1.0, 2.0],
+            }
+        )
+    )
+
+
+@pytest.mark.usefixtures("cratedb_dialect")
+def test_cratedb_sink_hands_pandas_text_for_a_categorical_and_an_enum_column() -> None:
+    """A `pl.Categorical` column is cast to String as a `pl.Enum` one is, so no pandas Categorical reaches the driver.
+
+    Not checked against a live CrateDB: the frame handed to `to_sql` is read off a stubbed call (GH-3694).
+    """
+    pytest.importorskip("sqlalchemy")
+    pd = pytest.importorskip("pandas")
+    with mock.patch.object(pd.DataFrame, "to_sql", autospec=True) as to_sql:
+        _text_columns_frame().to_target("crate://localhost/?database=test&table=testdrive")
+    frame = to_sql.call_args.args[0]
+    assert not any(isinstance(dtype, pd.CategoricalDtype) for dtype in frame.dtypes)
+    assert frame["category"].tolist()[0] == "a"
+    assert frame["kind"].tolist() == ["x", "y"]
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        pytest.param("sqlite:///{path}?table=weather", id="sqlite"),
+        pytest.param("mssql+pyodbc://u:p@localhost/dwd?table=weather&driver=ODBC+Driver+18+for+SQL+Server", id="mssql"),
+    ],
+)
+def test_sql_sink_hands_pandas_text_for_a_categorical_and_an_enum_column(target: str, tmp_path: Path) -> None:
+    """A `pl.Categorical` column is cast to String as a `pl.Enum` one is, so no pandas Categorical reaches the dialect.
+
+    Neither SQLite nor DuckDB fails on a Categorical (the text is written either way), so the frame handed to
+    `to_sql` is read off a stubbed call. The other dialects are not checked against a live server (GH-3694).
+    """
+    sqlalchemy = pytest.importorskip("sqlalchemy")
+    pd = pytest.importorskip("pandas")
+    create_engine = sqlalchemy.create_engine
+    handed = []
+
+    def engine_for(url: object, **kwargs: object) -> object:
+        # the target's real dialect, with a stand-in driver: nothing connects before `to_sql`
+        driver = mock.MagicMock(version="5.2.0", __version__="2.3.13")
+        if str(url).startswith("sqlite"):
+            return create_engine(url, **kwargs)
+        return create_engine(url, module=driver, **kwargs)
+
+    def to_sql(frame: object, **kwargs: object) -> None:
+        handed.append((frame, kwargs["dtype"]))
+
+    with (
+        mock.patch("sqlalchemy.create_engine", side_effect=engine_for),
+        mock.patch.object(pd.DataFrame, "to_sql", autospec=True, side_effect=to_sql),
+    ):
+        _text_columns_frame().to_target(target.format(path=tmp_path / "weather.db"))
+
+    ((frame, dtype),) = handed
+    assert not any(isinstance(column_type, pd.CategoricalDtype) for column_type in frame.dtypes)
+    assert frame["kind"].tolist() == ["x", "y"]
+    if dtype is not None:
+        # SQL Server declares text as `NVARCHAR`, and the cast columns are text for it
+        nvarchar = {name for name, column_type in dtype.items() if type(column_type).__name__ == "NVARCHAR"}
+        assert {"category", "kind"} <= nvarchar
+
+
 @pytest.mark.parametrize(
     "written",
     [pytest.param(_DELIMITED, id="delimiters"), pytest.param("pa/ss", id="slash")],

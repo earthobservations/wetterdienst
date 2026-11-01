@@ -425,7 +425,8 @@ class Options(BaseSettings):
         "`suspect:<check>`. One mode per check (`range`, `elevation`, `stuck`, `consistency`, `floor`), or a bare "
         "`soft` or `hard` for every check at once, which a check named beside it overrides; the "
         "missing-value codes a source documents are no check and are not configurable. Interpolation and "
-        "summary always leave out a suspect value.",
+        "summary always leave out a suspect value. A forecast network (metadata `kind` `forecast`) is judged `soft` in "
+        "every check but `floor`, whatever is set here.",
     )
 
     @classmethod

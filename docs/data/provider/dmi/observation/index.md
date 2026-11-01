@@ -127,8 +127,8 @@ some days are outside it (1442.0 at 06019 on 2022-05-24, which stays: it is with
 days down to -799.0 at 06041 on 2023-03-05 and at three more stations in the first quarter of 2023, which are null)
 and so are some hours (62.0 at 06019 on 2022-05-24, which stays; -33.0 at 06041 on 2023-03-05, which is null). Grass
 temperature: -48.0 °C by the hour at 06056 in July 2022 and 50.9 °C by the day at 06065 in 2013, both inside the range
-and returned. Vapour pressure deficit, written to one decimal: some hours and days are slightly negative (-0.3 kPa at
-06193 on 2025-07-25, -0.1 at 06169 on 2024-12-26).
+and returned. Vapour pressure deficit, written to one decimal: some hours and days are slightly negative and marked
+`validity:true` (-0.3 kPa at 06193 on 2025-07-25, -0.1 at 06169 on 2024-12-26), which the bound of -10 hPa leaves.
 
 The snow cover (`snow_cover`) is the share of the ground covered by snow, observed by hand once a day like the snow
 depth, so a day is 06:00 to 06:00 UTC and is labelled by the date it begins. DMI writes whole percent, "derived

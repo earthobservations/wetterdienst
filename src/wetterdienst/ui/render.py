@@ -123,7 +123,8 @@ def _plausibility_setting(check: str) -> Any:  # noqa: ANN401
     return Field(
         validation_alias=f"plausibility_{check}",
         description=f"The mode of the check `{check}`: `hard` nulls a value it finds implausible "
-        f"(`rejected:{check}` in `quality_flags`), `soft` keeps it and flags it (`suspect:{check}`).",
+        f"(`rejected:{check}` in `quality_flags`), `soft` keeps it and flags it (`suspect:{check}`). It is the mode "
+        f"as set: a forecast network (`kind` `forecast`) is judged `soft` in every check but `floor` whatever it is.",
     )
 
 

@@ -175,6 +175,21 @@ def test_every_canonical_parameter_is_bounded_or_deliberately_held_to_nothing() 
     assert [name for name in dmi if bounds_for(name) is None] == []
 
 
+@pytest.mark.parametrize("unit_type", [None, "temperature", "temperature_difference"])
+@pytest.mark.parametrize("name", ["error_absolute_temperature_air_2m", "error_absolute_temperature_dew_point_2m"])
+def test_the_error_of_a_forecast_temperature_is_in_no_temperature_rule(name: str, unit_type: str | None) -> None:
+    """These are errors in kelvin, not readings (GH-3688): by name and by family they stay out of the air and dew rules.
+
+    Whatever unit type the lookup is given, the family `error_absolute_` holds them to nothing, before any
+    `temperature_` family could, so the move to the unit type `temperature_difference` changes no bound.
+    """
+    for resolution in (None, "hourly", "daily"):
+        assert bounds_for(name, resolution, unit_type) is None
+    assert not any(
+        name.startswith(prefix) for prefix, _ in plausibility_ranges.PREFIX_RANGES if prefix != "error_absolute_"
+    )
+
+
 def test_a_bound_is_not_a_record() -> None:
     """Every extreme the module cites lies inside its bound; the one documented exceedance lies outside."""
     records = [

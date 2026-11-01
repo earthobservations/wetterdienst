@@ -31,6 +31,9 @@ Check = Literal["range", "elevation", "stuck", "consistency", "floor"]
 #: (``suspect:range+stuck``, ``_WRITE_ORDER`` of ``model/quality_flags.py``)
 CHECKS: tuple[str, ...] = get_args(Check)
 
+#: the checks that correct a value instead of rejecting it, and so run as they are set on a forecast network
+CORRECTING_CHECKS: tuple[str, ...] = ("floor",)
+
 #: the kinds of token a check writes into ``quality_flags``, before ``raw:``
 SUSPECT = "suspect"
 REJECTED = "rejected"
@@ -51,6 +54,10 @@ class Plausibility(BaseModel):
     A check has exactly one mode at a time and none can be switched off, because a soft check already keeps the value
     and the flag keeps the judgement visible. The missing-value codes and documented meanings a source writes
     (``-999``, ``---``, a trace, a calm) are no check and are not configurable.
+
+    On a forecast network (the ``kind`` of its metadata) every check is soft but ``floor``, whatever is set here
+    (``for_forecast``): a forecast is a model's output and no reading, so a value a check finds is flagged and never
+    nulled.
 
     The defaults are what the library did for the networks it judged before the modes existed (since GH-3681 ``range``
     and ``elevation`` judge every network), except ``stuck``, which is soft: it judges a
@@ -93,6 +100,17 @@ class Plausibility(BaseModel):
         "sets the floor (0.0), not null, and keeps the number as `rejected:floor,raw:<number>`; `soft` keeps the "
         "value and flags it `suspect:floor`.",
     )
+
+    def for_forecast(self) -> Plausibility:
+        """Give the modes a forecast network is judged with: every check soft, whatever mode it was given (GH-3681).
+
+        A forecast is a model's output and not a reading, and what a check finds in it (a rain above any record, a
+        pressure the elevation does not allow) is a flag on a value the model wrote, so no check nulls it, however
+        ``hard`` is set (the options, the CLI, the REST API, the environment). The one exception is ``floor``, which
+        does not reject: it sets a value a little below the floor of its quantity to the floor and keeps the number
+        as ``rejected:floor,raw:<number>``, so it keeps the mode it was given.
+        """
+        return Plausibility(**{check: self.mode(check) if check in CORRECTING_CHECKS else "soft" for check in CHECKS})
 
     @model_validator(mode="before")
     @classmethod
