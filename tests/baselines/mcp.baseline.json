@@ -156,6 +156,7 @@
                 "significant_weather",
                 "speed",
                 "temperature",
+                "temperature_difference",
                 "time",
                 "turbidity",
                 "volume",
@@ -1685,5 +1686,5 @@
       ]
     }
   },
-  "x-release": "0.180.0"
+  "x-release": "0.181.0"
 }

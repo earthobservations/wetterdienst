@@ -13,7 +13,7 @@
       "identifier": "MIT",
       "url": "https://github.com/earthobservations/wetterdienst/blob/main/LICENSE.md"
     },
-    "version": "0.180.0",
+    "version": "0.181.0",
     "x-api-version": "1"
   },
   "servers": [
@@ -950,6 +950,7 @@
                     "significant_weather",
                     "speed",
                     "temperature",
+                    "temperature_difference",
                     "time",
                     "turbidity",
                     "volume",
@@ -4728,6 +4729,7 @@
               "significant_weather",
               "speed",
               "temperature",
+              "temperature_difference",
               "time",
               "turbidity",
               "volume",
@@ -4931,6 +4933,7 @@
               "significant_weather",
               "speed",
               "temperature",
+              "temperature_difference",
               "time",
               "turbidity",
               "volume",
@@ -7910,5 +7913,5 @@
       "description": "This instance: its version and limits, its settings, and its health."
     }
   ],
-  "x-release": "0.180.0"
+  "x-release": "0.181.0"
 }
