@@ -1,5 +1,6 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { reactive } from 'vue'
 import { DateRangeSelector } from '#components'
 
 describe('dateRangeSelector Component', () => {
@@ -130,6 +131,17 @@ describe('dateRangeSelector start and clear (GH-3457)', () => {
     expect(modelValue).toEqual({ startDate: undefined, endDate: undefined })
     expect(wrapper.emitted('cleared')).toHaveLength(1)
     expect(wrapper.emitted('edited')).toBeUndefined()
+  })
+
+  it('hands the focus of the button it removes to the first date field', async () => {
+    const modelValue = reactive({ startDate: '2020-01-01', endDate: '2020-12-31' }) as { startDate?: string, endDate?: string }
+    const wrapper = await mountSuspended(DateRangeSelector, { attachTo: document.body, props: { required: false, modelValue } })
+    const button = wrapper.find('[data-testid="clear-date-range"]')
+    ;(button.element as HTMLElement).focus()
+    await button.trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="clear-date-range"]').exists()).toBe(false))
+    expect(document.activeElement).toBe(wrapper.findAll('input[type="date"]')[0]!.element)
+    wrapper.unmount()
   })
 
   it('has no button to clear what is empty, or what has to be there', async () => {

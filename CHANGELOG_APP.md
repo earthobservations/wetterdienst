@@ -24,7 +24,7 @@ Types of changes:
   text and a red error. For the rows it offers the newest window that fits (about 90 % of the
   limit, rounded down to days, months or years for the resolution) as one button that fills the
   date range and asks again, and the whole request as a streamed CSV download (`format=csv`,
-  which the server allows more rows). All eleven locales; pl, cs, lb and de-hh are not natively
+  for which the server allows more rows). All eleven locales; pl, cs, lb and de-hh are not natively
   reviewed (GH-3457)
 - `[Explorer]` A selection whose whole record is more than the server sends as one answer starts
   with the newest window that fits in the date range, with a note under the fields that says so,

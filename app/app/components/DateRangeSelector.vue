@@ -118,10 +118,14 @@ function setDate(field: 'startDate' | 'endDate', value: unknown) {
   emit('edited')
 }
 
-function clearRange() {
+// the button goes with the dates it clears: the focus it held goes to the first field, where a range is typed
+const startInput = ref<{ inputRef?: HTMLInputElement | null } | null>(null)
+async function clearRange() {
   modelValue.value.startDate = undefined
   modelValue.value.endDate = undefined
   emit('cleared')
+  await nextTick()
+  startInput.value?.inputRef?.focus()
 }
 
 const noteId = useId()
@@ -157,6 +161,7 @@ defineExpose({ isValid, validationError })
     <div class="flex gap-4">
       <UFormField :label="t('dateRange.startDate')" class="flex-1" :error="!modelValue.startDate && requiresDateRange ? t('dateRange.required') : undefined">
         <UInput
+          ref="startInput"
           :model-value="modelValue.startDate"
           type="date"
           class="w-full"
@@ -175,9 +180,10 @@ defineExpose({ isValid, validationError })
       </UFormField>
     </div>
 
-    <!-- the page's own choice of range, and why: a status, announced when the stations are chosen (the
-         element is there before its text, as a live region has to be), and the description of both fields -->
-    <p :id="noteId" role="status" class="text-sm text-gray-600 empty:hidden dark:text-gray-400" data-testid="default-range-note">
+    <!-- the page's own choice of range, and why: a status, announced as its text changes, and the description
+         of both fields. Empty it stays in the accessibility tree (`sr-only`, which also takes no space), so that
+         a text arriving later is a change in a live region and not a new one -->
+    <p :id="noteId" role="status" class="text-sm text-gray-600 empty:sr-only dark:text-gray-400" data-testid="default-range-note">
       <template v-if="note">
         {{ note }}
       </template>

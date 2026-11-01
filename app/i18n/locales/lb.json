@@ -706,7 +706,7 @@
     "statMean": "Duerchschnëtt",
     "statSum": "Zomm",
     "limitRowsTitle": "Ze vill Zeilen fir eng Äntwert",
-    "limitRowsBody": "Dës Auswiel gëtt ongeféier {requested} Zeilen, méi wéi dëse Server a enger Äntwert schéckt (Limit: {maximum}).",
+    "limitRowsBody": "Dës Auswiel gëtt ongeféier {requested} Zeilen, méi wéi dëse Server an enger Äntwert schéckt (Limit: {maximum}).",
     "limitStationsTitle": "Ze vill Statioune fir eng Ufro",
     "limitStationsBody": "Du hues méi Statioune gewielt, wéi dëse Server an enger Ufro liest: {requested} gewielt, {maximum} erlaabt.",
     "limitNarrow": "Fir d'Daten hei ze gesinn, schränk d'Auswiel an: Wiel e méi kuerzen Datumberäich, manner Parameter oder manner Statioune. Du hues {stations} an {parameters} gewielt.",
