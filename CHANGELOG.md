@@ -16,6 +16,17 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `dmi/observation` now serves five more DMI parameters under new names: `snow_cover` (daily,
+  2011-01-01 to 2015-11-21 only; percent, returned as a decimal), `leaf_wetness_duration` (minutes,
+  returned in seconds), `temperature_air_mean_grass_height` (5 to 20 cm above ground) and
+  `vapor_pressure_deficit_mean` (kPa, returned in hPa), hourly and daily, and
+  `temperature_soil_mean_0_3m`, daily only. The daily leaf wetness is the minutes of the day (0 to
+  1440), not the average of the hourly values the source's table names. The library holds none of
+  the five to a range, so the impossible values DMI writes for some days and hours are kept
+  (Part of GH-3622)
+
 ## [0.180.0] - 2026-11-01
 
 ### Added

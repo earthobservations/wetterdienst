@@ -2245,6 +2245,46 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "temp_soil_10"): (
             "Soil temperature at a depth of 10 cm, in °C: the average of the hourly values within the day."
         ),
+        ("hourly", "data", "temp_grass"): (
+            "Air temperature measured at grass height (5-20 cm over terrain), in °C: the mean of the hour (UTC), "
+            "given by part of the stations."
+        ),
+        ("daily", "data", "temp_grass"): (
+            "Air temperature measured at grass height (5-20 cm over terrain), in °C: the average of the hourly "
+            "values within the day."
+        ),
+        ("daily", "data", "temp_soil_30"): (
+            "Soil temperature at a depth of 30 cm, in °C: the average of the hourly values within the day."
+        ),
+        ("hourly", "data", "leaf_moisture"): (
+            "Leaf moisture (in Danish bladfugt), in minutes: the minutes of the hour (UTC), "
+            "0 to 60, during which the leaf was wet, given by part of the stations. A few hours are outside the hour "
+            "(62.0 at 06019 on 2022-05-24; -33.0 in every hour of 06041 from 2023-03-04 on)."
+        ),
+        ("daily", "data", "leaf_moisture"): (
+            "Leaf moisture (in Danish bladfugt), in minutes: the minutes of the day, 0 to "
+            "1440, during which the leaf was wet. The source says the day is the average of the hourly values, "
+            "but the values are their sum (1440.0 on a day of 24 hours of 60.0). A few values are outside the "
+            "day (1442.0 at 06019 in 2022 and 2023, and negative values down to -799 at 06032, 06041, 06116 and "
+            "06183 in the first quarter of 2023)."
+        ),
+        ("hourly", "data", "vapour_pressure_deficit_mean"): (
+            "Vapour pressure deficit (in Danish mætningsdeficit), in kPa, to one decimal: "
+            "the saturation vapour pressure of the hourly mean temperature, 0.611 exp(17.27 t / (t + 237.3)) "
+            "above 0 °C and 0.611 exp(21.87 t / (t + 265.5)) at or below it, times (100 - the mean relative "
+            "humidity) / 100. A few hours are negative (-0.3 at 06193 on 2025-07-25)."
+        ),
+        ("daily", "data", "vapour_pressure_deficit_mean"): (
+            "Vapour pressure deficit (in Danish mætningsdeficit), in kPa, to one decimal: "
+            "the average of the hourly values within the day, each the saturation vapour pressure of the hourly "
+            "mean temperature, 0.611 exp(17.27 t / (t + 237.3)) above 0 °C and 0.611 exp(21.87 t / (t + 265.5)) "
+            "at or below it, times (100 - the mean relative humidity) / 100."
+        ),
+        ("daily", "data", "snow_cover"): (
+            "Snow cover, the share of the ground covered by snow, in percent: observed by hand once a day and "
+            '"derived directly, but codes are changed to %" (a day of 06:00 to 06:00 UTC, labelled by the date '
+            "it begins). Published from 2011-01-01 to 2015-11-21 only, for 91 stations."
+        ),
         ("monthly", "data", "no_cold_days"): (
             "Number of cold days of the month: the days on which the lowest temperature (min_temp) was less "
             "than -10 °C."

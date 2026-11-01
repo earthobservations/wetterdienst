@@ -101,10 +101,32 @@ and lowest temperature and the precipitation of the last 12 and 24 hours (`tempe
 (`temperature_soil_mean_0_1m`). The 12 hour values are reports of 06:00 and 18:00 UTC (the temperatures also of 12:00
 and 00:00 UTC for a few stations), the 24 hour values of 00:00, 06:00, 12:00 and 18:00 UTC, and they are stamped at
 the end of their window, the report time: DMI's `from` is the start of the last hour of the window (17:00 for the
-18:00 report), where the other values of the hour are stamped by their `from`. Not served, for want of a canonical
-name that fits exactly: `snow_cover` (would be `snow_cover`), `leaf_moisture` (`leaf_wetness_duration`), `temp_grass`,
-the air temperature at grass height of 5 to 20 cm (`temperature_air_mean_grass_height`), `temp_soil_30`
-(`temperature_soil_mean_0_3m`) and `vapour_pressure_deficit_mean` (`vapor_pressure_deficit_mean`).
+18:00 report), where the other values of the hour are stamped by their `from`.
+
+Five more parameters are served (read on 2026-11-01). `temp_grass`
+(`temperature_air_mean_grass_height`) is the air temperature at grass height, "5-20 cm over terrain", `temp_soil_30`
+(`temperature_soil_mean_0_3m`) the soil temperature at 30 cm, `leaf_moisture` (`leaf_wetness_duration`; "leave
+moisture", in Danish bladfugt) the minutes with a wet leaf and `vapour_pressure_deficit_mean`
+(`vapor_pressure_deficit_mean`, in kPa; it comes back in hPa by default) the vapour pressure deficit, calculated from
+the hourly mean temperature and mean relative humidity. DMI publishes these four by the hour and the day and not by the
+month or the year. The hourly `temp_soil_30` is not served: DMI names no source for it ("N/A" in its calculation table;
+the 10 cm value is documented as the mean of the hour) and states the mean only for the day, "the average of all
+hourly values within a day", so the hour waits for DMI's answer. The daily `leaf_moisture` is a sum although DMI's
+calculation table says "average of all hourly values within a day": it is 1332.0, 39.0 and 364.0 at 06135 on 2025-06-10
+to 12, which no mean of minutes could be, and 1440.0 at 06068 on a day of 24 hours of 60.0, so it is the minutes of the
+day, 0 to 1440. A few values are not possible and are kept as DMI writes them, since the library holds these
+five parameters to no range: 1442.0 at 06019 (2022-05-24 and 2023-04-19, the hour of 07:00 UTC of the first being 62.0), negative
+minutes down to -799 at 06032, 06041, 06116 and 06183 in the first quarter of 2023 (-33.0 in every hour of 06041
+from 2023-03-04 on), hourly grass temperatures down to -48.0 °C at 06056 in July 2022
+and daily ones up to 50.9 °C at 06065 in 2013, and a few hourly vapour pressure deficits below 0 (-0.3 kPa at 06193 on
+2025-07-25). The vapour pressure deficit is written to one decimal.
+
+The snow cover (`snow_cover`) is the share of the ground covered by snow, observed by hand once a day like the snow
+depth, so a day is 06:00 to 06:00 UTC and is labelled by the date it begins. DMI writes whole percent, "derived
+directly, but codes are changed to %": all 62,399 values of 91 stations from 2011-01-01 to 2015-11-21 are 0 to 100, with
+0, 25, 50, 75 and 100 the commonest (1,382 of 25 %, 997 of 50 %, 1,231 of 75 %, 4,696 of 100 %), and a 99 is a value
+and no code, as 98 is. DMI publishes no snow cover from 2015-11-22 on and none by the month or the year, and the hours
+of 15 January of each year from 2005 to 2026 hold none.
 
 ## License
 
