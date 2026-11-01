@@ -313,7 +313,9 @@ def _write_file(result: ExportMixin, target: str, connspec: ConnectionString, if
             writer(result, filepath)
             return
     msg = f"Unknown export file type for target '{target}'"
-    if "?" in filepath and filepath.partition("?")[0].lower().endswith(tuple(FILE_WRITERS)):
+    # the target as written, where a `?` that is a query is not the `%3F` of a file name, which the path has decoded
+    raw = target.removeprefix("file://").lower()
+    if any(raw[:i].endswith(tuple(FILE_WRITERS)) for i, char in enumerate(raw) if char == "?"):
         # everything after `file://` is the path, so a `?a=1` after a known extension belongs to the file name, which
         # then has no extension: that is a query string, where `what?.png` is an unknown type with a `?` in its name
         msg += ". A file target has no query string: write a '?' of the file name as %3F, and leave a query out"

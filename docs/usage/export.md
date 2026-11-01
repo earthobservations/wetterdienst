@@ -156,7 +156,9 @@ supported ones; it is a `KeyError` and a `ValueError` both, so either `except` c
 A number that is not finite, `NaN` or an infinity, is written as `null` in every JSON format: `to_json`, `to_geojson`,
 the `.json`, `.geojson`, `.jsonl` and `.ndjson` file targets, and the JSON, GeoJSON and NDJSON answers of the command
 line, the REST API and MCP. JSON has no such number (RFC 8259), and a strict parser such as JavaScript's `JSON.parse`
-refuses the bare `NaN` and `Infinity` that Python writes. `to_dict` returns the float as it is.
+refuses the bare `NaN` and `Infinity` that Python writes. A position is numbers only in GeoJSON, so a station whose
+elevation is not finite has no z, and one whose longitude or latitude is not finite has a `null` geometry. `to_dict`
+returns the float as it is.
 
 A `.json` or `.jsonl` file holds the records of the frame, where `--format=json` and `to_json` write the response
 envelope. `ndjson` is those records alone, a JSON object a line: `to_format("ndjson")` and the `.jsonl` file hold

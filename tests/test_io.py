@@ -4665,10 +4665,11 @@ def test_a_file_target_has_no_query_string(df_stations: pl.DataFrame, tmp_path: 
     assert ("no query string" in str(refused.value)) == ("?" in query)
     assert not list(tmp_path.iterdir())
 
-    # no query to explain: the name has a `?` and an extension nothing writes
-    with pytest.raises(ExportRefusedError, match="Unknown export file type") as refused:
-        ExportMixin(df=df_stations).to_target(f"file://{tmp_path}/what?.png")
-    assert "no query string" not in str(refused.value)
+    # no query to explain: the name has a `?` and an extension nothing writes, or the `?` is written `%3F`
+    for name, hint in (("what?.png", False), ("x.csv%3Fa=1", False), ("x?y.csv?a=1", True)):
+        with pytest.raises(ExportRefusedError, match="Unknown export file type") as refused:
+            ExportMixin(df=df_stations).to_target(f"file://{tmp_path}/{name}")
+        assert ("no query string" in str(refused.value)) == hint, name
 
     if IS_WINDOWS:
         return
