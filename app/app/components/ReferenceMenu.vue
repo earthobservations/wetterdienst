@@ -27,7 +27,10 @@ function onKeydown(event: KeyboardEvent) {
   }
 }
 function onFocusout(event: FocusEvent) {
-  if (!root.value?.contains(event.relatedTarget as Node | null))
+  // a focus that goes nowhere (`relatedTarget` null: a click on the panel's padding, a link a browser does not
+  // focus on mousedown, the window losing focus) leaves it open: a click elsewhere is `onClickOutside`'s
+  const next = event.relatedTarget as Node | null
+  if (next && !root.value?.contains(next))
     open.value = false
 }
 </script>
