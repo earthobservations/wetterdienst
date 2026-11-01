@@ -233,7 +233,8 @@ def test_summary_refuses_a_point_beyond_the_globe(
 ) -> None:
     """A point off the globe is refused, naming the range, before any station list is fetched (GH-3714).
 
-    The REST API, the command line and MCP refused it already; the library answered with an empty frame.
+    The REST API, the command line and MCP refused it already; the library answered for the station at the
+    point the coordinates wrap round to (a longitude of 373.4 as 13.4), or with an empty frame.
     """
     with pytest.raises(LocationOutOfRangeError, match=re.escape(named)):
         _request(default_settings).summarize(latlon=latlon)
