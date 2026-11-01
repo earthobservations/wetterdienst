@@ -311,3 +311,24 @@ def test_the_network_of_every_request_class_is_its_entry_of_the_registry() -> No
                 continue
             assert Wetterdienst._network_of(Wetterdienst.resolve(provider, network)) == f"{provider}/{network}"  # noqa: SLF001
     assert Wetterdienst._network_of(object) == ""  # noqa: SLF001
+
+
+def test_every_resolution_of_a_constant_run_has_a_step_to_bound_its_gap() -> None:
+    """A limit for a resolution with no fixed step (a month, a year, sub-daily) would leave `constant_gap` None.
+
+    The gap rule would then end no run, silently: the comparison with `None` is null. The limit is declared for a
+    resolution with a step, or not at all, and the plan of every dataset that has one carries the gap.
+    """
+    from wetterdienst.metadata.resolution import reading_step  # noqa: PLC0415
+    from wetterdienst.model.judge import CONSTANT_RUNS, RUN_GAP_FACTOR  # noqa: PLC0415
+
+    for network, (_, limits) in CONSTANT_RUNS.items():
+        provider, name = network.split("/")
+        metadata = Wetterdienst.resolve(provider, name).metadata
+        for resolution_name in limits:
+            resolution = next(r for r in metadata if r.name == resolution_name)
+            assert reading_step(resolution.value) is not None, f"{network} {resolution_name}: no fixed step"
+            for dataset in resolution:
+                plan = plan_for(network, dataset)
+                if plan.constants:
+                    assert plan.constant_gap == reading_step(resolution.value) * RUN_GAP_FACTOR
