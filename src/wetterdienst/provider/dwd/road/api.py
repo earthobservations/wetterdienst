@@ -17,7 +17,7 @@ from urllib.parse import urljoin
 import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.model.judge import Beside, Rule
+from wetterdienst.model.judge import Beside, Bound, Rule
 from wetterdienst.model.metadata import (
     DATASET_NAME_DEFAULT,
     DatasetModel,
@@ -304,9 +304,15 @@ _QUALITY_BITS = {
 #: sample has between a station that runs warm and a sensor that reads a different quantity. The rule compares the
 #: surface only to the air beside it, so M080, whose *air* is the sensor that is wrong (-16 to -29 C beside a surface
 #: of 8 to 13 C), has its good surface nulled too: no neighbour is asked, which one of the two failed is not told. Only
-#: an air that DWD's own flag marks suspect is not held against the surface; one stopped at a plausible value
-#: (-25.00 C) is. The rule is one-sided: a surface under the air is an ordinary clear night.
+#: an air that DWD's own flag marks suspect, or that the check `stuck` finds a stopped sensor's (the -75.00 C of station
+#: KM, which the table of ranges lets through, GH-3681), is not held against the surface. The rule is one-sided: a
+#: surface under the air is an ordinary clear night.
 _SURFACE_WARMER_THAN_AIR = 20.0
+
+#: a relative humidity under 1 % is no reading: a failed hygrometer writes 0.0, 0.1, 0.4 or 0.99 %, which lies inside
+#: every range (P925 wrote 0.1 % in 43 readings of a 12 h window, GH-3624), and the air of Germany is never that dry
+#: at the road. The one narrow rule of this network that the table of ranges, the same for every provider, cannot hold
+_ROAD_HUMIDITY_FLOOR = Bound(low=0.01, names=("humidity_relative",))
 
 #: and night is the sun more than 6 degrees below the horizon, the end of civil twilight (`_sun_elevation`): the day's
 #: heat is out of the road by then in the sample (39 of 5,536 readings between -6 and 0 degrees are over 20 K, all of
@@ -352,8 +358,9 @@ def road_rules(latitude: float | None, longitude: float | None) -> tuple[Beside,
     """Give the relation of a road surface to the air of its minute, which no range can say (GH-3624).
 
     The surface is no reading by night where it is warmer than the air by `_SURFACE_WARMER_THAN_AIR`; the check is
-    ``consistency``, and the air counts only where it is a reading itself: inside its range, and not marked suspect by
-    DWD's own flag. A station without a position has no night, so the rule stands aside for it.
+    ``consistency``, and the air counts only where it is a reading itself: inside its range, not marked suspect by
+    DWD's own flag, and not a stopped sensor's (``stuck``). A station without a position has no night, so the rule
+    stands aside for it.
     """
     if latitude is None or longitude is None:
         return ()
@@ -364,6 +371,7 @@ def road_rules(latitude: float | None, longitude: float | None) -> tuple[Beside,
             partner="temperature_air",
             when=lambda surface, air: night & (surface - air).gt(_SURFACE_WARMER_THAN_AIR),
             partner_plausible=True,
+            partner_unless_stuck=True,
             partner_usable=lambda: pl.col("quality_flags").str.split(",").list.first().ne("1").fill_null(value=True),
         ),
     )
@@ -634,12 +642,14 @@ class DwdRoadValues(TimeseriesValues[DatasetModel]):
         self._group_cache: tuple[tuple[str, tuple[str, ...]], pl.DataFrame, bool] | None = None
 
     def _plausibility_rules(self, station_id: str, dataset: DatasetModel) -> tuple[Rule, ...]:  # noqa: ARG002
-        """Give the relation of the road surface to the air at night, for a station that has a position."""
+        """Give the humidity floor, and the relation of the road surface to the air at night where there is one."""
         stations = getattr(self.sr, "df", None)
         if stations is None:
-            return ()
+            return (_ROAD_HUMIDITY_FLOOR,)
         station = stations.filter(pl.col("station_id").eq(station_id))
-        return road_rules(*station.select("latitude", "longitude").row(0)) if not station.is_empty() else ()
+        if station.is_empty():
+            return (_ROAD_HUMIDITY_FLOOR,)
+        return (_ROAD_HUMIDITY_FLOOR, *road_rules(*station.select("latitude", "longitude").row(0)))
 
     def _collect_station_parameter_or_dataset(
         self,

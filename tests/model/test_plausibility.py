@@ -168,9 +168,9 @@ def test_the_environment_names_a_check_by_its_nested_variable(monkeypatch: pytes
 
 
 def _annual_rain(monkeypatch: pytest.MonkeyPatch, **options: object) -> pl.DataFrame:
-    """Read the stub annual rain of DMI, which holds 9574.3 and 6026.5 mm (no gauge reads them), with these options."""
+    """Read the stub monthly rain of DMI, which holds 17,802 mm (no gauge reads it), with these options."""
     monkeypatch.setattr(value_stubs, "_options", lambda drop_nulls: Options(drop_nulls=drop_nulls, **options))
-    return value_stubs._dmi_annual(monkeypatch, drop_nulls=False)  # noqa: SLF001
+    return value_stubs._dmi_monthly_rain(monkeypatch, drop_nulls=False)  # noqa: SLF001
 
 
 def test_the_options_of_a_request_reach_its_readers(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -183,12 +183,9 @@ def test_the_options_of_a_request_reach_its_readers(monkeypatch: pytest.MonkeyPa
     for df in (hard, soft):
         assert df.filter(pl.col("quality_flags").str.contains("validity:true")).height > 0
     rejected = hard.filter(pl.col("value").is_null()).get_column("quality_flags").to_list()
-    assert sorted(flags.split(",", 1)[1].split(",", 1)[1] for flags in rejected) == [
-        "rejected:range,raw:6026.5",
-        "rejected:range,raw:9574.3",
-    ]
+    assert sorted(flags.split(",", 1)[1].split(",", 1)[1] for flags in rejected) == ["rejected:range,raw:17802"]
     kept = soft.filter(pl.col("quality_flags").str.contains("suspect:range"))
-    assert sorted(kept.get_column("value").to_list()) == [6026.5, 9574.3]
+    assert sorted(kept.get_column("value").to_list()) == [17802.0]
     assert soft.filter(pl.col("value").is_null()).is_empty()
 
 
@@ -199,16 +196,15 @@ def test_drop_nulls_drops_a_rejected_value_and_keeps_a_suspect_one(monkeypatch: 
             monkeypatch.delenv(name)
     monkeypatch.setattr(value_stubs, "_options", lambda _: Options(drop_nulls=True))
     assert (
-        not value_stubs._dmi_annual(monkeypatch, drop_nulls=True)  # noqa: SLF001
+        not value_stubs._dmi_monthly_rain(monkeypatch, drop_nulls=True)  # noqa: SLF001
         .get_column("quality_flags")
         .str.contains("rejected:")
         .any()
     )
     monkeypatch.setattr(value_stubs, "_options", lambda _: Options(drop_nulls=True, plausibility={"range": "soft"}))
-    kept = value_stubs._dmi_annual(monkeypatch, drop_nulls=True)  # noqa: SLF001
+    kept = value_stubs._dmi_monthly_rain(monkeypatch, drop_nulls=True)  # noqa: SLF001
     assert sorted(kept.filter(pl.col("quality_flags").str.contains("suspect:range")).get_column("value").to_list()) == [
-        6026.5,
-        9574.3,
+        17802.0
     ]
 
 

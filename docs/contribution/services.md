@@ -313,15 +313,18 @@ the numbers over in the unit of its source, and:
   (`raw:-0.80`, not `raw:-0.8`). A reader whose `value` is a text needs nothing (its `value` is the text), one whose
   `value` is a number gets the number as short as it goes, and one that converts the unit itself (DMI's megajoules to
   kilojoules) hands the text it read.
-- **declares the bounds of its parameters by adding them to the table** `RANGES` of
-  `wetterdienst/model/plausibility_ranges.py`, by canonical parameter name and, where the quantity grows with the span,
-  by resolution, in the canonical unit (°C, hPa, m/s, mm, J/cm², a fraction as a decimal, seconds). Name the network in
-  `SCOPE` with the quantities it is held to. A bound that is narrower than the table's for the same quantity, because the
-  source's own validated records stay far below the world's, is an entry of `OVERRIDES` for the network, with the
-  argument beside it, and `tests/provider/test_physical_ranges.py` holds it inside the generous range of
-  `tests/provider/physical_ranges.py`. The table's other checks are declared in `model/judge.py`: the pressure that is
-  also held to the elevation (`ELEVATION_NETWORKS`), the amounts a model writes below zero (`FLOORS`), the run of one
-  value of a barometer (`CONSTANT_RUNS`), the road's run rule (`RUNS`).
+- **declares no bounds**: the table `wetterdienst/model/plausibility_ranges.py` is the same for every provider, by
+  canonical parameter name and, where the quantity grows with the span, by resolution, in the canonical unit (°C, hPa,
+  m/s, mm, J/cm², a fraction as a decimal, seconds), and judges a new network's parameters as soon as they have a
+  canonical name (`tests/test_docs_plausibility.py` holds the coverage table of
+  [the page](../data/plausibility.md) to it). A parameter the table has no bound for gets the one of its family, or of
+  its unit type; a new quantity with a record is added to the table with its source (the WMO record rounded outward, then
+  the definition, then a named source), once for all networks, and `tests/provider/physical_ranges.py` reads the same
+  table for the provider tests. A bound a provider alone would want is not an entry: the rules it hands over (next
+  point) are, and `Bound` is the one narrow case. The other checks are declared in `model/judge.py`: the station
+  pressure held to the elevation of the station (`ELEVATION_PRESSURE`, for every network that has an elevation), the
+  amounts a model writes below zero (`FLOORS`), the run of one value of a barometer (`CONSTANT_RUNS`), the road's run rule
+  (`RUNS`).
 - **hands over what only it knows** by overriding `TimeseriesValues._plausibility_rules(station_id, dataset)` and
   returning rules of `wetterdienst.model.judge`, in canonical names and units: `Bound` (a range for one station, such as
   the stations without frost), `Beside` (a reading that the reading of another parameter at the same timestamp

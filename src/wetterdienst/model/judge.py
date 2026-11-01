@@ -38,7 +38,7 @@ import polars as pl
 
 from wetterdienst.metadata.resolution import reading_step
 from wetterdienst.model.plausibility import CHECKS, REJECTED, SUSPECT, Plausibility
-from wetterdienst.model.plausibility_ranges import OVERRIDES, RANGES, SCOPE
+from wetterdienst.model.plausibility_ranges import bounds_for
 from wetterdienst.model.quality_flags import RAW_TOKEN
 from wetterdienst.model.unit import UnitConverter
 
@@ -57,14 +57,23 @@ SOURCE_TEXT = "source_text"
 _HIT = "__hit_"
 _ELIGIBLE = "__eligible"
 
-#: the station pressure that is also held to what the elevation of the station allows (check ``elevation``), by network
+#: the station pressure whose constant run is a barometer that does not work (check ``stuck``, DWD observation)
 STATION_PRESSURE = ("pressure_air_site", "pressure_air_site_mean")
-ELEVATION_NETWORKS = ("dwd/observation", "meteofrance/synop")
+#: the station pressure that is also held to what the elevation of the station allows (check ``elevation``): in every
+#: network, for every station of it that has an elevation
+ELEVATION_PRESSURE = ("pressure_air_site", "pressure_air_site_mean", "pressure_air_site_min", "pressure_air_site_max")
 # the pressure of the standard atmosphere at sea level, in hPa, and what the barometric formula of it (the international
-# standard atmosphere, valid in the troposphere) expects at a height: a station pressure that lies further than
-# `STATION_PRESSURE_TOLERANCE` from it is no reading (GH-3627)
+# standard atmosphere, valid in the troposphere) expects at a height (GH-3627). A station pressure further below it
+# than `STATION_PRESSURE_LOW_SHARE` of it or further above it than `STATION_PRESSURE_HIGH_MARGIN` is no reading
+# (GH-3681). The low end is the lowest pressure the WMO Archive lists at sea level, 870 hPa (Typhoon Tip, 1979-10-12),
+# as a share of the standard atmosphere's 1013.25 hPa, so that it holds at every height: 143 hPa below at sea level,
+# which keeps the 917.4 hPa of Hurricane Irma at St-Barthélemy (3 m, 2017-09-06, quality code 1). The high end is
+# from the highest sea level pressures on record, 1,083.8 hPa (Agata, 261 m, 1968-12-31) and 1,089.1 hPa (Tosontsengel,
+# 1,725 m, 2004-12-30), reduced to the station with the cold column of those days: 59 to 64 hPa over the standard
+# atmosphere at Agata and 14 to 40 at Tosontsengel (a derivation of GH-3681), so 75 hPa leaves room above
 STANDARD_SEA_LEVEL_PRESSURE = 1013.25
-STATION_PRESSURE_TOLERANCE = 75.0
+STATION_PRESSURE_LOW_SHARE = 870.0 / STANDARD_SEA_LEVEL_PRESSURE
+STATION_PRESSURE_HIGH_MARGIN = 75.0
 # the elevations the check is made for, in metres: a catalogue that gives another (a missing-value code, a typo) tells
 # nothing, and the formula is the standard atmosphere's to 11 km
 _STATION_ELEVATIONS = (-500.0, 9000.0)
@@ -114,13 +123,14 @@ def standard_station_pressure(elevation: float) -> float:
 
 
 def station_pressure_bounds(elevation: float | None) -> tuple[float, float] | None:
-    """Give the pressure in hPa a station at an elevation may read: the barometric formula there, 75 hPa either way.
+    """Give the pressure in hPa a station at an elevation may read: the standard atmosphere there, less and more.
 
-    The world-wide bounds of a pressure at the station (500 to 1090 hPa) are too wide to find a reading mistyped by a
-    digit at a station near sea level (a P0 of 909.5 hPa at 48 m) or one that is a pressure of another height (968.6
-    hPa at the Zugspitze, 2,956 m, where 705 hPa are expected): 75 hPa are about 650 m of height, which the weather at
-    the station stays within: the deep lows of Dumont d'Urville (938 hPa at 43 m, where 1008 are expected) are inside
-    (GH-3627).
+    The world-wide bounds of a pressure at the station (300 to 1100 hPa) are too wide to find a reading of another
+    height (968.6 hPa at the Zugspitze, 2,956 m, where 705 hPa are expected) or one mistyped by a digit above the
+    standard atmosphere of the station (a P0 of 1093.3 hPa at 48 m). The low end is the lowest pressure on record at sea
+    level as a share of the standard atmosphere (870/1013.25), which lets the deepest storms through: Irma read 917.4
+    hPa at 3 m, 95.5 hPa below the standard atmosphere there, and Typhoon Tip 143 hPa below it at sea level. A reading
+    mistyped by a digit to a pressure in between (909.5 hPa at 48 m) is for the checks of a step in a series to find.
 
     Returns:
         The bounds, or ``None`` where the station has no elevation or one outside -500 to 9000 m.
@@ -129,7 +139,7 @@ def station_pressure_bounds(elevation: float | None) -> tuple[float, float] | No
     if elevation is None or not _STATION_ELEVATIONS[0] <= elevation <= _STATION_ELEVATIONS[1]:
         return None
     expected = standard_station_pressure(elevation)
-    return expected - STATION_PRESSURE_TOLERANCE, expected + STATION_PRESSURE_TOLERANCE
+    return expected * STATION_PRESSURE_LOW_SHARE, expected + STATION_PRESSURE_HIGH_MARGIN
 
 
 @dataclass(frozen=True)
@@ -152,13 +162,16 @@ class Beside:
     ``when`` is given the value of ``target`` and the value of ``partner`` of the same timestamp, in canonical units,
     and says whether the target is no reading; it may read any column of the frame (``pl.col("timestamp")``). Where the
     partner is missing the check stands aside. ``partner_plausible``: the partner counts only where it passed the range
-    check; ``partner_usable``: a further condition on the partner's rows (``value``, ``quality_flags``).
+    check; ``partner_unless_stuck``: nor where it is a reading of a sensor that did not move for hours (``stuck``, and
+    only where the network has a run rule); ``partner_usable``: a further condition on the partner's rows (``value``,
+    ``quality_flags``).
     """
 
     target: str
     partner: str
     when: Callable[[pl.Expr, pl.Expr], pl.Expr]
     partner_plausible: bool = False
+    partner_unless_stuck: bool = False
     partner_usable: Callable[[], pl.Expr] | None = None
 
 
@@ -235,25 +248,17 @@ def _build_plan(network: str, dataset: DatasetModel) -> Plan:
     parameters: dict[str, Conversion] = {}
     by_name: dict[str, str] = {}
     ranges: dict[str, tuple[float, float]] = {}
-    scope = set(SCOPE.get(network, ()))
-    overrides = OVERRIDES.get(network, {})
     for parameter in dataset:
         unit_type = parameter.unit_type
         canonical = _CONVERTER.targets[unit_type].name
         to = None if parameter.unit == canonical else _CONVERTER.lambda_between(parameter.unit, canonical)
         parameters[parameter.name_original] = Conversion(parameter.name, parameter.unit, unit_type, canonical, to)
         by_name.setdefault(parameter.name, parameter.name_original)
-        if parameter.name in scope:
-            bounds = overrides.get(parameter.name, {}).get(resolution)
-            if bounds is None:
-                table = RANGES.get(parameter.name, {})
-                bounds = table.get(resolution, table.get("*"))
-            if bounds is not None:
-                ranges[parameter.name_original] = bounds
+        bounds = bounds_for(parameter.name, resolution, unit_type)
+        if bounds is not None:
+            ranges[parameter.name_original] = tuple(bounds)
     original = by_name
-    pressure = (
-        tuple(original[name] for name in STATION_PRESSURE if name in original) if network in ELEVATION_NETWORKS else ()
-    )
+    pressure = tuple(original[name] for name in ELEVATION_PRESSURE if name in original)
     floors = tuple(original[name] for name in FLOORS.get(network, ()) if name in original)
     names, limits = CONSTANT_RUNS.get(network, ((), {}))
     constants = tuple(
@@ -333,6 +338,11 @@ def judge(  # noqa: C901
     series: dict[str, list[pl.Series]] = defaultdict(list)
 
     bounds = dict(plan.ranges)
+    # a value below the floor of a quantity the model writes a little below it is the floor's to map to the floor
+    # (GH-3681): the range stands aside at the low end, as it never judged these networks before
+    for name in plan.floors:
+        if name in bounds:
+            bounds[name] = (-_INF, bounds[name][1])
     for rule in rules:
         if isinstance(rule, Bound):
             names = [
@@ -363,11 +373,13 @@ def judge(  # noqa: C901
             first = dt.datetime.combine(rule.first, dt.time(), tzinfo=dt.UTC)
             end = dt.datetime.combine(rule.last + dt.timedelta(days=1), dt.time(), tzinfo=dt.UTC)
             exprs["stuck"].append(parameter.eq(plan.by_name[rule.parameter]) & (stamp >= first) & (stamp < end))
+    stopped = None
     if plan.runs[0]:
-        series["stuck"].append(_stuck_runs(df, plan))
+        stopped = _stuck_runs(df, plan)
+        series["stuck"].append(stopped)
     for rule in rules:
         if isinstance(rule, Beside) and rule.target in plan.by_name and rule.partner in plan.by_name:
-            series["consistency"].append(_beside(df, plan, rule, outside))
+            series["consistency"].append(_beside(df, plan, rule, outside, stopped))
 
     columns = {check: pl.any_horizontal(*items) for check, items in exprs.items() if items}
     frame = df.with_columns(*(expr.alias(_HIT + check) for check, expr in columns.items()))
@@ -502,16 +514,25 @@ def _any_of(items: list[pl.Series]) -> pl.Series:
     return result
 
 
-def _beside(df: pl.DataFrame, plan: Plan, rule: Beside, outside: pl.Expr | None) -> pl.Series:
-    """Evaluate a relation between two parameters of one timestamp over the long frame: the rows it rejects."""
+def _beside(
+    df: pl.DataFrame, plan: Plan, rule: Beside, outside: pl.Expr | None, stopped: pl.Series | None = None
+) -> pl.Series:
+    """Evaluate a relation between two parameters of one timestamp over the long frame: the rows it rejects.
+
+    ``stopped`` marks the readings of a sensor that did not move for hours (the check ``stuck``): where the rule says
+    so, the partner counts only where it is not one of them.
+    """
     target, partner = plan.by_name[rule.target], plan.by_name[rule.partner]
-    beside = df.filter(pl.col("parameter").eq(partner))
+    marked = df.with_columns(stopped.alias("__stopped")) if rule.partner_unless_stuck and stopped is not None else df
+    beside = marked.filter(pl.col("parameter").eq(partner))
     if beside.is_empty():
         return _no_hits(df)
     usable = pl.lit(value=True)
     if rule.partner_plausible and outside is not None:
         beside = beside.with_columns(outside.alias("__outside"))
         usable = ~pl.col("__outside").fill_null(value=False)
+    if "__stopped" in beside.columns:
+        usable = usable & ~pl.col("__stopped").fill_null(value=False)
     if rule.partner_usable is not None:
         usable = usable & rule.partner_usable()
     beside = beside.select("timestamp", pl.when(usable).then(pl.col("value")).alias("__beside")).unique(

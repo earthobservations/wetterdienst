@@ -675,7 +675,7 @@ sentinels that are kept as `raw:<text>` are on the [quality flags](../data/quali
 
 #### Plausibility checks
 
-A number no sensor can have produced (4021 °C for a daily maximum, 909.5 hPa at a station at sea level, a barometer
+A number no sensor can have produced (4021 °C for a daily maximum, 1093.3 hPa at a station at sea level, a barometer
 that held one value for a month) is judged by a **check**, and the option `plausibility` chooses what happens to it,
 per check: `"hard"` makes the value null and keeps the number as `rejected:<check>,raw:<number>` in `quality_flags`,
 `"soft"` keeps the value and flags it `suspect:<check>`. The checks are `range`, `elevation`, `stuck`, `consistency`

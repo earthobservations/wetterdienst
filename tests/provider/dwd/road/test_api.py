@@ -1519,9 +1519,10 @@ def _out_of_range(parameter: str, values: list[float]) -> pl.DataFrame:
 @pytest.mark.parametrize(
     ("celsius", "nulled", "case"),
     [
-        (-75.0, True, "the value KM's stopped sensors hold, colder than anywhere on earth has been"),
-        (-61.0, True, "below the line"),
-        (-59.0, False, "cold beyond anything Germany has recorded, but not impossible"),
+        (-95.0, True, "colder than the air record of the world, -89.2 C at Vostok"),
+        (-91.0, True, "below the line"),
+        (-75.0, False, "KM's stopped sensors: inside the range, and for the check `stuck` to find over a run"),
+        (-61.0, False, "cold beyond anything Germany has recorded, but the table is the same for every provider"),
         (-45.9, False, "Germany's record low, which the network may legitimately report"),
         (-30.0, False, "reachable on a German road in winter; the run rule judges this one"),
         (-25.0, False, "likewise"),
@@ -1533,7 +1534,7 @@ def test_dwd_road_weather_impossible_temperature_is_null(
     nulled: bool,  # noqa: FBT001
     case: str,
 ) -> None:
-    """A temperature no reading can hold is null with the number DWD wrote; a merely extreme one stays (GH-3222)."""
+    """A temperature no reading can hold is null with the number DWD wrote; a merely extreme one stays (GH-3681)."""
     published = round(_MELTING_POINT + celsius, 2)
     df = _out_of_range("roadSurfaceTemperature", [published] * 3)
 
@@ -1543,18 +1544,17 @@ def test_dwd_road_weather_impossible_temperature_is_null(
     assert df.get_column("raw").to_list() == ([f"rejected:range,raw:{published}"] * 3 if nulled else [None] * 3), case
 
 
-def test_dwd_road_weather_impossible_temperature_needs_no_window() -> None:
-    """The range does not wait for the six hours the run rule needs to see.
+def test_dwd_road_weather_the_stopped_sensors_of_km_are_inside_the_range_and_an_hour_of_them_is_not_found() -> None:
+    """The -75.00 C that KM's stopped sensors hold is inside the -90 to 100 C of the table of ranges (GH-3681).
 
-    Which is the whole of what it adds: asked for twelve hours, the run rule marks KM's stopped
-    sensors; asked for one, it has five readings to judge from and marks nothing, while the station
-    still reports -75 C.
+    The table is the same for every provider and the road keeps no line of its own: the check `stuck` finds the
+    stopped sensor over a run of 24 readings, and asked for one hour, which holds five, it has too few to judge from.
+    The value arrives as DWD wrote it, the cost of one table (a decision of GH-3681, the other being a road line).
     """
-    # five readings, as an hour of this network holds -- far short of the 24 the run rule wants
     an_hour = _series("A006", "roadSurfaceTemperature", [198.15] * 5)
 
     assert not _flag_stuck_sensors(an_hour, "a-group").get_column("quality").eq(1.0).any()
-    assert _out_of_range("roadSurfaceTemperature", [198.15] * 5).get_column("value").is_null().all()
+    assert not _out_of_range("roadSurfaceTemperature", [198.15] * 5).get_column("value").is_null().any()
 
 
 @pytest.mark.parametrize(
@@ -1591,7 +1591,7 @@ def test_dwd_road_weather_a_code_is_held_to_no_range() -> None:
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_an_impossible_value_is_null_with_its_number(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The reader nulls a value no sensor can hold and keeps the number as the last token (GH-3222).
+    """The reader nulls a value no sensor can hold (-100 C) and keeps the number as the last token (GH-3222).
 
     The station's own verdict stays before it, as the stuck-sensor rule's does: a quality flag says what DWD or the
     data say of a reading, the `raw:` token what it was.
@@ -1603,7 +1603,7 @@ def test_dwd_road_weather_an_impossible_value_is_null_with_its_number(monkeypatc
         {
             "#1#shortStationName": "P034",
             "#1#qualityInformationAwsData": ground_suspect,
-            "#1#roadSurfaceTemperature": 198.15,
+            "#1#roadSurfaceTemperature": 173.15,
             "#1#airTemperature": 285.25,
         },
     )
@@ -1617,7 +1617,7 @@ def test_dwd_road_weather_an_impossible_value_is_null_with_its_number(monkeypatc
     rows = {
         parameter: (value, flags) for parameter, value, flags in df.select("parameter", "value", "quality_flags").rows()
     }
-    assert rows["roadSurfaceTemperature"] == (None, "1,rejected:range,raw:198.15")
+    assert rows["roadSurfaceTemperature"] == (None, "1,rejected:range,raw:173.15")
     assert rows["airTemperature"] == (285.25, "0")
 
 
@@ -1691,7 +1691,8 @@ def test_dwd_road_weather_a_humidity_under_one_percent_is_no_reading(
         (_TWILIGHT, 338.75, 285.25, False, "the sun at -2.8 degrees: the day's heat is not out of the road yet"),
         (_DEEP_DUSK, 338.75, 285.25, True, "the sun at -9.0 degrees, past the end of civil twilight"),
         (_NIGHT, 338.75, None, False, "no air beside it, so nothing to hold it to"),
-        (_NIGHT, 338.75, 198.15, False, "the air of -75 C is itself no reading, so it holds nothing to account"),
+        # a lone -75 C is not seen as a stopped sensor, which takes a run of 24 readings: the air counts (GH-3681)
+        (_NIGHT, 338.75, 198.15, True, "a lone air of -75 C is inside its range and holds the surface to account"),
     ],
 )
 def test_dwd_road_weather_a_surface_far_above_the_air_at_night_is_no_reading(
@@ -1745,13 +1746,15 @@ def test_dwd_road_weather_an_air_dwd_marks_suspect_does_not_null_the_surface(
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
-def test_dwd_road_weather_an_air_the_run_rule_marks_still_holds_the_surface_to_account(
+def test_dwd_road_weather_an_air_the_run_rule_marks_does_not_hold_the_surface_to_account(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The verdict that excuses an air is DWD's own, not the stuck-sensor rule's, which the request's window decides.
+    """An air the check `stuck` finds a stopped sensor's is no partner of the surface (GH-3681).
 
-    The air holds -25.00 C for 26 readings of a night (6 h and 15 min) and DWD sets no flag, so the run rule marks it
-    `1`; the surface, 32 K above it and moving, is null all the same (GH-3624).
+    The air holds -25.00 C for 26 readings of a night (6 h and 15 min) and DWD sets no flag, so the run rule marks it;
+    the surface, 32 K above it and moving, is kept: a stopped sensor holds nothing to account. The verdict depends on
+    the window the request asked for, as the run does: a window with fewer than the 24 readings of a run does not see
+    the stop, and holds the surface to the air.
     """
     start = dt.datetime(2026, 9, 13, 20, 45, tzinfo=dt.UTC)
     subsets = []
@@ -1769,10 +1772,8 @@ def test_dwd_road_weather_an_air_the_run_rule_marks_still_holds_the_surface_to_a
     df = _collect_many(monkeypatch, subsets)
     surface = df.filter(pl.col("parameter").eq("roadSurfaceTemperature")).sort("timestamp")
     air = df.filter(pl.col("parameter").eq("airTemperature"))
-    assert surface.get_column("value").to_list() == [None] * 26
-    assert surface.get_column("quality_flags").to_list() == [
-        f"rejected:consistency,raw:{s['#1#roadSurfaceTemperature']:g}" for s in subsets
-    ]
+    assert surface.get_column("value").to_list() == [s["#1#roadSurfaceTemperature"] for s in subsets]
+    assert surface.get_column("quality_flags").to_list() == [None] * 26
     assert air.get_column("value").to_list() == [248.15] * 26
     # DWD sets no flag, and the stopped air is judged by the check `stuck`, which is soft by default
     assert air.get_column("quality_flags").to_list() == ["suspect:stuck"] * 26
@@ -1803,15 +1804,15 @@ def test_dwd_road_weather_a_stopped_sensor_is_kept_and_flagged_suspect_by_defaul
     """The check `stuck` is soft by default: the air holds -25.00 C, the value stays as DWD wrote it (GH-3676).
 
     DWD's own flag is kept apart from the verdict: the flag is the plain code, `suspect:stuck` follows it. The same
-    night with the surface 32 K above the air is `consistency`, which is hard by default, so the surface is null.
+    night with the surface 32 K above the air is not `consistency`: a stopped air is no partner (GH-3681).
     """
     df = _collect_many(monkeypatch, _a_night_of_a_stopped_air())
     air = df.filter(pl.col("parameter").eq("airTemperature"))
     assert air.get_column("value").to_list() == [248.15] * 26
     assert set(air.get_column("quality_flags")) == {"suspect:stuck"}
     surface = df.filter(pl.col("parameter").eq("roadSurfaceTemperature"))
-    assert surface.get_column("value").null_count() == 26
-    assert all(flags.startswith("rejected:consistency,raw:") for flags in surface.get_column("quality_flags"))
+    assert surface.get_column("value").null_count() == 0
+    assert surface.get_column("quality_flags").to_list() == [None] * 26
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")

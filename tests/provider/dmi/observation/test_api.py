@@ -679,13 +679,14 @@ def _collect_station_values(resolution: str, rows: list[tuple[str, str, float, s
 
 
 def test_collect_nulls_a_value_outside_the_range_of_its_parameter_and_keeps_what_it_was() -> None:
-    """A month of 17,802 mm and one of 3,229.9 mm of 04339 are null with `raw:`; the 1,200 mm beside them is only odd.
+    """A month of 17,802 mm of 04339 is null with `raw:`; the 1,200 mm and the 3,229.9 mm beside it are only odd.
 
     Rows as DMI serves them for 04339 (checked 2026-10-16): the monthly `acc_precip` of 2011-10 is 17802.0 and that of
-    2012-10 is 3229.9, both with `qcStatus: manual` and `validity: false`. The 1,200 mm of the month before and the
-    4021 degrees of `max_temp_w_date` are made up: the first is within the 1,500 mm bound of a month's precipitation
-    (the most DMI validated is 641.8), the second is outside the range of an air temperature, each parameter having
-    its own.
+    2012-10 is 3229.9, both with `qcStatus: manual` and `validity: false`. The 17,802 mm are above the 10,000 mm of a
+    month (the most that fell in a month on record is 9,300, the most DMI validated 641.8); the 3,229.9 mm are inside
+    it, as the table of ranges is the same for every provider (GH-3681), and only `validity:false` tells them (the
+    planned `source` check, GH-3677). The 1,200 mm of the month before and the 4021 degrees of `max_temp_w_date` are
+    made up: the second is outside the range of an air temperature, each parameter having its own.
     """
     rows = [
         # (parameterId, from, value, qcStatus, validity)
@@ -700,7 +701,7 @@ def test_collect_nulls_a_value_outside_the_range_of_its_parameter_and_keeps_what
     assert {key: (row["value"], row["quality_flags"]) for key, row in found.items()} == {
         ("acc_precip", 2011, 9): (1200.0, "manual,validity:true"),
         ("acc_precip", 2011, 10): (None, "manual,validity:false,rejected:range,raw:17802"),
-        ("acc_precip", 2012, 10): (None, "manual,validity:false,rejected:range,raw:3229.9"),
+        ("acc_precip", 2012, 10): (3229.9, "manual,validity:false"),
         ("max_temp_w_date", 2011, 9): (None, "manual,validity:true,rejected:range,raw:4021"),
         ("max_temp_w_date", 2011, 10): (8.5, "manual,validity:true"),
     }
@@ -741,15 +742,15 @@ def test_collect_reads_minus_0_1_of_no_precipitation_amount_as_a_trace() -> None
 @pytest.mark.parametrize(
     ("resolution", "reading", "no_reading"),
     [
-        # `acc_precip` of 04339 (read 2026-10-16): 989 and 1978 mm in a day of 2011; 3,229.9 mm in the month 2012-10;
-        # 9,574.3 mm in the year 2014. The readings are what DMI validated at most (183.5, 641.8 and 3,291.3 mm, 04390)
-        ("daily", 183.5, 989.0),
+        # `acc_precip` of 04339 (read 2026-10-16): 1978 mm in a day of 2011; 17,802 mm in the month 2011-10. The
+        # readings are what DMI validated at most (183.5, 641.8 and 3,291.3 mm, 04390). The bounds are the records of
+        # the WMO rounded outward: 1,850 mm in a day, 10,000 in a month, 30,000 in a year (GH-3681)
         ("daily", 183.5, 1978.0),
-        ("monthly", 641.8, 3229.9),
-        ("annual", 3291.3, 9574.3),
-        # the same number is a reading of a longer span: 989 mm is no day, but a month of rain
+        ("monthly", 641.8, 17802.0),
+        ("annual", 3291.3, 30001.0),
+        # the same number is a reading of a longer span: 989 mm is a day of rain, 9,574.3 mm a year of it
         ("monthly", 989.0, 17802.0),
-        ("annual", 3229.9, 4178.9),
+        ("annual", 9574.3, 31000.0),
     ],
 )
 def test_collect_holds_the_rain_to_the_span_of_the_resolution(
@@ -770,11 +771,10 @@ def test_collect_holds_the_rain_to_the_span_of_the_resolution(
 @pytest.mark.parametrize(
     ("resolution", "parameter", "reading", "no_reading"),
     [
-        # the largest amount of a day of a month (04339 2011-10: 1978; 04320 2013-09: 999) and of a year (04320: 999)
+        # the largest amount of a day of a month (04339 2011-10: 1978) and of a year: no more than 1,850 mm, a day
         ("monthly", "max_precip_24h", 183.5, 1978.0),
-        ("monthly", "max_precip_24h", 183.5, 999.0),
-        ("annual", "max_precip_24h", 183.5, 999.0),
-        # the largest of 30 minutes of the day can be no more than the day
+        ("annual", "max_precip_24h", 183.5, 1978.0),
+        # the largest of 30 minutes of the day can be no more than the 60 minutes on record, 350 mm
         ("daily", "max_precip_30m", 40.0, 989.0),
     ],
 )
@@ -793,19 +793,28 @@ def test_collect_holds_the_largest_amount_of_a_part_of_a_day_to_the_day(
     ]
 
 
-def test_collect_leaves_a_year_of_rain_that_a_validated_year_equals() -> None:
-    """The 3,253.4 mm of 04339 in 2012 (a sum of the month of 3,229.9 mm) stays: 04390 has 3,291.3 mm, validated.
+def test_collect_leaves_the_rain_that_no_world_range_separates_from_a_validated_one() -> None:
+    """The totals of 04339 that DMI marks `validity:false` and that lie inside the ranges stay (GH-3681, GH-3677).
 
-    No range tells the two years apart; `quality_flags` says `validity:false` for the one and `true` for the other.
+    The 3,253.4 mm of 2012 (a sum of the month of 3,229.9 mm) stays: 04390 has 3,291.3 mm, validated. The 989 mm of a
+    day and the 9,574.3 mm of a year are inside the 1,850 and 30,000 mm of the records. No range tells them apart from
+    a wet day or a wet year; `quality_flags` says `validity:false` for the one and `true` for the other, and the
+    planned `source` check is to use it.
     """
     rows = [
         ("acc_precip", "2012-01-01T06:00:00+00:00", 3253.4, "none", False),
         ("acc_precip", "2013-01-01T06:00:00+00:00", 3291.3, "manual", True),
+        ("acc_precip", "2014-01-01T06:00:00+00:00", 9574.3, "manual", False),
     ]
     df = _collect_station_values("annual", rows).sort("timestamp")
     assert df.select("value", "quality_flags").rows() == [
         (3253.4, "none,validity:false"),
         (3291.3, "manual,validity:true"),
+        (9574.3, "manual,validity:false"),
+    ]
+    rows = [("acc_precip", "2011-07-25T06:00:00+00:00", 989.0, "manual", False)]
+    assert _collect_station_values("daily", rows).select("value", "quality_flags").rows() == [
+        (989.0, "manual,validity:false")
     ]
 
 

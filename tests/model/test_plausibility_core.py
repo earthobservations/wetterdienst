@@ -5,8 +5,6 @@
 from __future__ import annotations
 
 import datetime as dt
-import json
-from pathlib import Path
 
 import polars as pl
 import pytest
@@ -15,9 +13,7 @@ from tests.provider.judging import judged
 from wetterdienst import Wetterdienst
 from wetterdienst.model.judge import SOURCE, Beside, Bound, StuckPeriod, judge, plan_for, to_canonical
 from wetterdienst.model.plausibility import Plausibility
-from wetterdienst.model.plausibility_ranges import SCOPE
 
-BEFORE = json.loads((Path(__file__).parent / "data" / "ranges_before_the_move.json").read_text(encoding="utf-8"))
 UTC = dt.UTC
 
 
@@ -28,26 +24,6 @@ def _datasets(network: str) -> dict[tuple[str, str], object]:
         for resolution in Wetterdienst.resolve(provider, name).metadata
         for dataset in resolution
     }
-
-
-def test_the_core_holds_every_network_to_the_bounds_its_reader_declared_and_to_no_more() -> None:
-    """The table of the core, converted by the plan of each dataset, is the bounds of the readers before the move.
-
-    `ranges_before_the_move.json` holds them in canonical units, read off the readers before their tables were taken
-    out: the network, the dataset, the name of the source and the bounds. The table of the core says the same, per
-    dataset, and judges no parameter that no reader judged.
-    """
-    expected = {(row["net"], row["res"], row["ds"], row["orig"]): (row["low"], row["high"]) for row in BEFORE}
-    # the road's range of the humidity and its rule of a humidity under 1 % were two rules of `range`: one bound
-    expected["dwd/road", "15_minutes", "data", "relativeHumidity"] = (0.01, 1.3)
-    found = {}
-    for network in SCOPE:
-        for (resolution, name), dataset in _datasets(network).items():
-            for original, bounds in plan_for(network, dataset).ranges.items():
-                found[network, resolution, name, original] = bounds
-    assert set(found) == set(expected)
-    for key, (low, high) in expected.items():
-        assert found[key] == pytest.approx((low, high), rel=1e-6, abs=1e-6), key
 
 
 def _frame(
@@ -81,24 +57,24 @@ def test_the_checks_have_their_modes_and_a_rejected_value_carries_only_the_hard_
     dataset = _datasets("dwd/observation")[("hourly", "pressure")]
     plan = plan_for("dwd/observation", dataset)
     p0 = next(name for name, c in plan.parameters.items() if c.name == "pressure_air_site")
-    df = _frame([(p0, 1093.3), (p0, 1010.0)])
+    df = _frame([(p0, 1150.0), (p0, 1010.0)])
     hard = judged(df, network="dwd/observation", dataset=dataset, elevation=48.0, modes=Plausibility())
-    assert hard.get_column("quality_flags").to_list() == ["rejected:elevation+range,raw:1093.3", None]
+    assert hard.get_column("quality_flags").to_list() == ["rejected:elevation+range,raw:1150", None]
     soft = judged(df, network="dwd/observation", dataset=dataset, elevation=48.0, modes=Plausibility(range="soft"))
-    assert soft.get_column("quality_flags").to_list() == ["rejected:elevation,raw:1093.3", None]
+    assert soft.get_column("quality_flags").to_list() == ["rejected:elevation,raw:1150", None]
     every = judged(
         df, network="dwd/observation", dataset=dataset, elevation=48.0, modes=Plausibility.model_validate("soft")
     )
     assert every.get_column("quality_flags").to_list() == ["suspect:elevation+range", None]
-    assert every.get_column("value").to_list() == [1093.3, 1010.0]
+    assert every.get_column("value").to_list() == [1150.0, 1010.0]
 
 
 def test_a_value_a_source_code_decided_is_judged_by_nobody() -> None:
     """A reading that carries a `raw:` token already is the source's code, which decides first."""
     dataset = _datasets("dmi/observation")[("daily", "data")]
-    df = _frame([("acc_precip", 0.0), ("acc_precip", 900.0)], ["manual,raw:-0.1", "manual"])
+    df = _frame([("acc_precip", 0.0), ("acc_precip", 2000.0)], ["manual,raw:-0.1", "manual"])
     out = judged(df, network="dmi/observation", dataset=dataset)
-    assert out.get_column("quality_flags").to_list() == ["manual,raw:-0.1", "manual,rejected:range,raw:900"]
+    assert out.get_column("quality_flags").to_list() == ["manual,raw:-0.1", "manual,rejected:range,raw:2000"]
 
 
 def test_the_checks_of_a_provider_are_rules_the_core_applies_across_parameters() -> None:
@@ -299,7 +275,7 @@ def test_a_request_class_that_subclasses_a_network_is_judged_as_the_network(monk
     monkeypatch.setattr(value_stubs, "DwdObservationRequest", MyRequest)
     df = value_stubs._dwd_hourly_pressure_typo(monkeypatch, drop_nulls=False)  # noqa: SLF001
     rejected = df.filter(pl.col("quality_flags").str.contains("rejected:"))
-    assert rejected.get_column("quality_flags").to_list() == ["1,rejected:elevation+range,raw:1093.3"]
+    assert rejected.get_column("quality_flags").to_list() == ["1,rejected:elevation,raw:1093.3"]
     assert rejected.get_column("value").to_list() == [None]
 
 

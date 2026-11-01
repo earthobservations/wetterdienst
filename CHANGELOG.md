@@ -16,6 +16,32 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: the `range` check judges every network, against one table of bounds that is the
+  same for every provider (WMO records rounded outward, then the definition, then a named source;
+  `docs/data/plausibility.md`). Five networks were judged before, each with bounds of its own; the
+  others returned a number outside any range as the source wrote it and now null it, as
+  `rejected:range,raw:<number>`, or flag it `suspect:range`. To keep every number set
+  `plausibility={"range": "soft"}` (`WD_TS_PLAUSIBILITY__RANGE=soft`, `--plausibility-range soft`,
+  `plausibility_range=soft`) (GH-3681)
+- **Breaking**: the bounds of `range` changed: relative humidity is 0 to 100 % (130 before), rain
+  350 mm in an hour, 1,850 in a day, 10,000 in a month, 30,000 in a year, air -90 to 60 °C, station
+  pressure 300 to 1100 hPa, `dwd/observation` sea level pressure 850 to 1100, snow depth -10 to
+  1,200 cm, sunshine the span plus 5 %. Geosphere's `-1` of rain and new snow outside its daily
+  layer is now null. DMI's 989 mm day, 3,229.9 mm month and 9,574.3 mm
+  year (`validity:false`), RMI's 81.5 m/s gust and DWD road's `-75.00` °C are no longer null: no
+  table for the world sees a defect inside it (GH-3681)
+- **Breaking**: the `elevation` check holds `pressure_air_site` and its `_mean`, `_min`, `_max` in
+  every network whose stations have an elevation (`meteofrance/observation` included), from
+  870/1013.25 of the standard atmosphere at the station (143 hPa below at sea level) to 75 hPa
+  above it, where it was 75 hPa either way in two networks. Hurricane Irma's 917.4 hPa at 3 m is
+  kept; 909.5 hPa at 48 m (DWD) is kept too, 1093.3 hPa there is null. `plausibility={"elevation":
+  "soft"}` keeps every number (GH-3670, GH-3681)
+- **Breaking**: `dwd/road` holds a surface more than 20 K above the air at night to the air only
+  where the air is no stopped sensor's (`suspect:stuck`, 24 readings or more), so the surface
+  beside the `-75.00` °C of station group KM is kept (GH-3681)
+
 ## [0.180.0] - 2026-11-01
 
 ### Added

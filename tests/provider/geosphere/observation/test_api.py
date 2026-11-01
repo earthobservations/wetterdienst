@@ -412,7 +412,7 @@ def test_geosphere_observation_values_of_a_whole_dataset_batch_the_parameters(
     requests = _serve_archive_of_parameters(monkeypatch, step, archive_start, archive_end)
     request = GeosphereObservationRequest(
         parameters=[(resolution, "data")],
-        options=Options(humanize=False, convert_units=False),
+        options=Options(humanize=False, convert_units=False, plausibility="soft"),
     )
     names = [parameter.name_original for parameter in request.parameters]
     df = request.filter_by_station_id("4821").values().all().df
@@ -442,7 +442,7 @@ def test_geosphere_observation_values_ask_for_the_requested_parameters_only(monk
         ],
         start=start,
         end=end,
-        options=Options(humanize=False, convert_units=False),
+        options=Options(humanize=False, convert_units=False, plausibility="soft"),
     )
     df = request.filter_by_station_id("4821").values().all().df
     assert [(names, dataset) for _, _, names, dataset in requests] == [
@@ -475,7 +475,9 @@ def test_geosphere_observation_values_of_one_daily_or_monthly_parameter_are_one_
     """
     start = datetime(1900, 1, 1, tzinfo=ZoneInfo("UTC"))
     requests = _serve_archive_of_parameters(monkeypatch, timedelta(days=30), start, start + timedelta(days=90))
-    request = GeosphereObservationRequest(parameters=[(resolution, "data", parameter)])
+    request = GeosphereObservationRequest(
+        parameters=[(resolution, "data", parameter)], options=Options(plausibility="soft")
+    )
     df = request.filter_by_station_id("4821").values().all().df
     assert len(requests) == 1
     assert df.height == 4
@@ -618,14 +620,16 @@ def test_geosphere_observation_daily_none_code_is_zero_not_minus_one(
 
 @pytest.mark.synthetic_values  # the -1 is served on purpose, where it would be no reading
 @pytest.mark.parametrize(
-    ("resolution", "parameter", "original"),
+    ("resolution", "parameter", "original", "rejected"),
     [
-        ("10_minutes", "precipitation_amount", "rr"),
-        ("hourly", "precipitation_amount", "rr"),
-        ("10_minutes", "snow_depth_mean", "sh"),
-        ("hourly", "snow_depth", "sh"),
-        ("monthly", "precipitation_amount", "rr"),
-        ("monthly", "snow_depth_new", "shneu_manu"),
+        # an amount of rain or new snow below 0 is no reading: the table of ranges, the same for every provider, says so
+        ("10_minutes", "precipitation_amount", "rr", True),
+        ("hourly", "precipitation_amount", "rr", True),
+        ("monthly", "precipitation_amount", "rr", True),
+        ("monthly", "snow_depth_new", "shneu_manu", True),
+        # a snow depth may read a few centimetres below zero (MeteoSwiss' gauge at PLF), so a -1 stays one
+        ("10_minutes", "snow_depth_mean", "sh", False),
+        ("hourly", "snow_depth", "sh", False),
     ],
 )
 def test_geosphere_observation_none_code_is_a_daily_one(
@@ -633,17 +637,28 @@ def test_geosphere_observation_none_code_is_a_daily_one(
     resolution: str,
     parameter: str,
     original: str,
+    rejected: bool,  # noqa: FBT001
 ) -> None:
-    """Test that the other resolutions are left alone: their metadata states no such code (GH-2671)."""
+    """Test that the other resolutions read the -1 as a number, not as the daily code (GH-2671).
+
+    A -1 is no amount of rain or new snow, and since the range of a quantity is the same for every provider
+    (GH-3681) it is rejected as such, with the number it was as `rejected:range,raw:-1`. In a snow depth it lies
+    inside the range and stays.
+    """
     _serve_values(monkeypatch, {original: [0.3, -1.0, 0.0]})
     request = GeosphereObservationRequest(
         parameters=[(resolution, "data", parameter)],
         start=datetime(2024, 1, 8, tzinfo=ZoneInfo("UTC")),
         end=datetime(2024, 1, 10, tzinfo=ZoneInfo("UTC")),
         settings=Settings(cache_disable=True),
+        options=Options(drop_nulls=False),
     )
-    df = request.filter_by_station_id("4821").values().all().df
-    assert -1.0 in df.get_column("value").to_list()
+    df = request.filter_by_station_id("4821").values().all().df.sort("timestamp")
+    if rejected:
+        assert df.get_column("value").to_list() == [0.3, None, 0.0]
+        assert df.get_column("quality_flags").to_list()[1] == "rejected:range,raw:-1"
+    else:
+        assert df.get_column("value").to_list() == [0.3, -1.0, 0.0]
 
 
 @pytest.mark.parametrize("resolution", ["10_minutes", "hourly"])

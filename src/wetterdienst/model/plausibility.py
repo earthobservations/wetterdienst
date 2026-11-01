@@ -64,13 +64,13 @@ class Plausibility(BaseModel):
 
     range: Mode = Field(
         default="hard",
-        description="A reading outside the physical range of its parameter (4021 degrees C for a daily mean, "
-        "17,802 mm of rain in a month). " + _HARD_MEANS.format(check="range"),
+        description="A reading outside the physical range of its parameter, the same for every provider (4021 "
+        "degrees C for a daily mean, 17,802 mm of rain in a month). " + _HARD_MEANS.format(check="range"),
     )
     elevation: Mode = Field(
         default="hard",
-        description="A station pressure the barometric formula does not expect at the elevation of the station "
-        "(909.5 hPa at a station at 48 m). " + _HARD_MEANS.format(check="elevation"),
+        description="A station pressure the standard atmosphere does not allow at the elevation of the station "
+        "(1093.3 hPa at a station at 48 m, 968.6 hPa at the Zugspitze). " + _HARD_MEANS.format(check="elevation"),
     )
     stuck: Mode = Field(
         default="soft",
@@ -118,49 +118,58 @@ class Plausibility(BaseModel):
         return getattr(self, check)
 
 
-#: where each check runs: by check, the networks (`provider/network`) and their datasets (`resolution/dataset`). The
-#: table of `docs/data/plausibility.md` is this, and `tests/test_docs_plausibility.py` holds the three to one another:
-#: the rules the readers declare, this and the page. A network that is in no list judges no value (extending the checks
-#: to the networks that have none is a follow-up)
+#: where each check runs: by check, the networks (`provider/network`) and their datasets (`resolution/dataset`), or `*`
+#: for every dataset of the network that has a parameter the check judges. The table of `docs/data/plausibility.md` is
+#: this, and `tests/test_docs_plausibility.py` holds the three to one another: the rules the readers declare, this and
+#: the page. `range` and `elevation` run on every network that has a quantity of their tables (GH-3681): the bounds
+#: are the same for every provider (`model/plausibility_ranges.py`). A network that is in no list judges no value
 COVERAGE: dict[str, dict[str, tuple[str, ...]]] = {
     "range": {
-        "dmi/observation": ("hourly/data", "daily/data", "monthly/data", "annual/data"),
-        "dwd/observation": (
-            "10_minutes/temperature_air",
-            "10_minutes/urban_pressure",
-            "10_minutes/urban_wind",
-            "10_minutes/urban_wind_extreme",
-            "10_minutes/wind",
-            "10_minutes/wind_extreme",
-            "hourly/moisture",
-            "hourly/pressure",
-            "hourly/urban_pressure",
-            "hourly/urban_wind",
-            "hourly/wind",
-            "hourly/wind_extreme",
-            "hourly/wind_synoptic",
-            "subdaily/pressure",
-            "subdaily/wind_extreme",
-            "daily/climate_summary",
-            "monthly/climate_summary",
-            "annual/climate_summary",
-        ),
-        "dwd/road": ("15_minutes/data",),
-        "meteofrance/observation": ("hourly/core", "hourly/others", "daily/core", "monthly/data"),
-        "meteofrance/synop": ("subdaily/data",),
-        "rmi/observation": ("10_minutes/data", "hourly/data", "daily/data"),
+        "aemet/observation": ("*",),
+        "chmi/observation": ("*",),
+        "dmi/observation": ("*",),
+        "dwd/derived": ("*",),
+        "dwd/dmo": ("*",),
+        "dwd/mosmix": ("*",),
+        "dwd/observation": ("*",),
+        "dwd/phenology": ("*",),
+        "dwd/poi": ("*",),
+        "dwd/road": ("*",),
+        "dwd/swsmos": ("*",),
+        "eccc/observation": ("*",),
+        "fmi/observation": ("*",),
+        "geosphere/observation": ("*",),
+        "imgw/hydrology": ("*",),
+        "imgw/meteorology": ("*",),
+        "ipma/observation": ("*",),
+        "knmi/observation": ("*",),
+        "lhmt/observation": ("*",),
+        "meteofrance/observation": ("*",),
+        "meteofrance/synop": ("*",),
+        "meteoswiss/observation": ("*",),
+        "metno/frost": ("*",),
+        "metoffice/observation": ("*",),
+        "noaa/ghcn": ("*",),
+        "nws/observation": ("*",),
+        "rmi/observation": ("*",),
+        "smhi/observation": ("*",),
+        "wsv/pegel": ("*",),
     },
     "elevation": {
-        "dwd/observation": (
-            "10_minutes/temperature_air",
-            "10_minutes/urban_pressure",
-            "hourly/moisture",
-            "hourly/pressure",
-            "hourly/urban_pressure",
-            "subdaily/pressure",
-            "daily/climate_summary",
-        ),
-        "meteofrance/synop": ("subdaily/data",),
+        "aemet/observation": ("*",),
+        "chmi/observation": ("*",),
+        "dwd/observation": ("*",),
+        "eccc/observation": ("*",),
+        "geosphere/observation": ("*",),
+        "imgw/meteorology": ("*",),
+        "knmi/observation": ("*",),
+        "meteofrance/observation": ("*",),
+        "meteofrance/synop": ("*",),
+        "meteoswiss/observation": ("*",),
+        "metno/frost": ("*",),
+        "metoffice/observation": ("*",),
+        "noaa/ghcn": ("*",),
+        "rmi/observation": ("*",),
     },
     "stuck": {
         "dwd/observation": (

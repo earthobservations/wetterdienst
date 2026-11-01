@@ -22,10 +22,14 @@ and not the name, and the registry does not tell Corsica's two départements apa
 
 ## Plausibility checks
 
-Two [checks](../../../plausibility.md) judge values here, both hard by default: `range`, a temperature below 0 °C (the air
-at 2 m, its extremes and the dew point) at a station of Guadeloupe, Martinique, Guyane, Mayotte, Wallis-et-Futuna,
-French Polynesia or the Îles Éparses, where there is no frost (`rejected:range,raw:-20.0`; the datasets `hourly/core`,
-`hourly/others`, `daily/core` and `monthly/data`), and `consistency`, the hourly humidity `U` of an hour whose dew point
+Three [checks](../../../plausibility.md) judge values here, all hard by default: `range`, the one table of bounds of
+every provider and a temperature below 0 °C (the air at 2 m, its extremes and the dew point) at a station of Guadeloupe,
+Martinique, Guyane, Mayotte, Wallis-et-Futuna, French Polynesia or the Îles Éparses, where there is no frost
+(`rejected:range,raw:-20.0`; the datasets `hourly/core`, `hourly/others`, `daily/core` and `monthly/data`);
+`elevation`, the hourly station pressure `PSTAT` of a station with an elevation in the list, which the standard
+atmosphere does not allow, from 870/1013.25 of it (143 hPa below at sea level) to 75 hPa above it (`rejected:elevation,raw:1093.3`:
+Hurricane Irma's 917.4 hPa at St-Barthélemy, 3 m, 2017-09-06, is kept; 14.6 million readings of the files of 2025 and
+2026 and of 77 of the 210 department files of 2010 to 2024 held none that the rule rejects; `hourly/others`); and `consistency`, the hourly humidity `U` of an hour whose dew point
 `TD` is such a temperature (`rejected:consistency,raw:15`; `hourly/others`). The dew point is read from the same dataset (collected whole), whether it is asked for or not, and nothing is
 downloaded for the check. With `plausibility={"range":
 "soft"}` the value is kept and flagged `suspect:range`.

@@ -116,7 +116,7 @@ _DWD_QN = _plain(
 
 #: every network by `provider/network`; the order is that of the column
 LEGENDS: dict[str, list[QualityKind]] = {
-    "aemet/observation": [RAW],
+    "aemet/observation": [SUSPECT, REJECTED, RAW],
     "chmi/observation": [
         _plain(
             "The QUALITY code of the daily and sub-daily files, as CHMI's metadata/meta4.csv lists it, written as the "
@@ -150,6 +150,9 @@ LEGENDS: dict[str, list[QualityKind]] = {
             "The FLAG_INTERRUPTED of an aggregate file: the value is computed although daily values of the period "
             "are missing, so the series was interrupted. Read off the files, as `repeat`.",
         ),
+        SUSPECT,
+        REJECTED,
+        RAW,
     ],
     "dmi/observation": [
         _plain(
@@ -183,8 +186,8 @@ LEGENDS: dict[str, list[QualityKind]] = {
         REJECTED,
         RAW,
     ],
-    "dwd/derived": [_DWD_QN, RAW],
-    "dwd/mosmix": [RAW],
+    "dwd/derived": [_DWD_QN, SUSPECT, REJECTED, RAW],
+    "dwd/mosmix": [SUSPECT, REJECTED, RAW],
     "dwd/dmo": [SUSPECT, REJECTED, RAW],
     "dwd/road": [
         _plain(
@@ -198,8 +201,8 @@ LEGENDS: dict[str, list[QualityKind]] = {
         REJECTED,
         RAW,
     ],
-    "dwd/swsmos": [RAW],
-    "dwd/poi": [RAW],
+    "dwd/swsmos": [SUSPECT, REJECTED, RAW],
+    "dwd/poi": [SUSPECT, REJECTED, RAW],
     "dwd/phenology": [
         _plain(
             "DWD's Qualitaetsniveau of the phase report, as DWD writes it.",
@@ -209,6 +212,9 @@ LEGENDS: dict[str, list[QualityKind]] = {
                 c_10="Checked and corrected",
             ),
         ),
+        SUSPECT,
+        REJECTED,
+        RAW,
     ],
     "ea/hydrology": [
         _plain(
@@ -239,11 +245,13 @@ LEGENDS: dict[str, list[QualityKind]] = {
             "but wetterdienst's, derived from the collection's counts of valid days by the rule of ECCC's Notes 25 "
             "and 26 (incomplete month).",
         ),
+        SUSPECT,
+        REJECTED,
         RAW,
     ],
-    "fmi/observation": [RAW],
-    "geosphere/observation": [RAW],
-    "imgw/hydrology": [RAW],
+    "fmi/observation": [SUSPECT, REJECTED, RAW],
+    "geosphere/observation": [SUSPECT, REJECTED, RAW],
+    "imgw/hydrology": [SUSPECT, REJECTED, RAW],
     "imgw/meteorology": [
         _plain(
             "IMGW's status column of the value, from the file's *_format.txt, verbatim; blank (null) where the value "
@@ -256,10 +264,13 @@ LEGENDS: dict[str, list[QualityKind]] = {
                 "phenomenon: returned as 0 mm (daily precipitation); assigned by the library",
             ),
         ),
+        SUSPECT,
+        REJECTED,
+        RAW,
     ],
-    "ipma/observation": [RAW],
-    "knmi/observation": [RAW],
-    "lhmt/observation": [],
+    "ipma/observation": [SUSPECT, REJECTED, RAW],
+    "knmi/observation": [SUSPECT, REJECTED, RAW],
+    "lhmt/observation": [SUSPECT, REJECTED, RAW],
     "meteofrance/observation": [
         _plain(
             "Météo-France's validation code of the value, verbatim; null where the source leaves it blank.",
@@ -270,9 +281,11 @@ LEGENDS: dict[str, list[QualityKind]] = {
         RAW,
     ],
     "meteofrance/synop": [SUSPECT, REJECTED, RAW],
-    "meteoswiss/observation": [RAW],
+    "meteoswiss/observation": [SUSPECT, REJECTED, RAW],
     "metno/frost": [
         _plain("The qualityCode of the observation in Frost, as the service writes it, a whole number."),
+        SUSPECT,
+        REJECTED,
         RAW,
     ],
     "metoffice/observation": [
@@ -282,6 +295,8 @@ LEGENDS: dict[str, list[QualityKind]] = {
             "aspect of the quality, so a larger number is not worse.",
             documentation=_MESQL,
         ),
+        SUSPECT,
+        REJECTED,
         RAW,
     ],
     "noaa/ghcn": [
@@ -303,6 +318,8 @@ LEGENDS: dict[str, list[QualityKind]] = {
             "The source flag: which source or network the value comes from, for the daily data NOAA's SFLAG, for the "
             "hourly data the source code that says which list the quality code is read in.",
         ),
+        SUSPECT,
+        REJECTED,
         RAW,
     ],
     "nws/observation": [
@@ -322,6 +339,8 @@ LEGENDS: dict[str, list[QualityKind]] = {
             ),
             documentation="https://madis.ncep.noaa.gov/madis_sfc_qc_notes.shtml",
         ),
+        SUSPECT,
+        REJECTED,
         RAW,
     ],
     "rmi/observation": [
@@ -342,9 +361,11 @@ LEGENDS: dict[str, list[QualityKind]] = {
                 Y="Misstänkta eller aggregerade värden: suspect or aggregated values",
             ),
         ),
+        SUSPECT,
+        REJECTED,
         RAW,
     ],
-    "wsv/pegel": [],
+    "wsv/pegel": [SUSPECT, REJECTED, RAW],
 }
 
 

@@ -1,6 +1,9 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""The physical ranges catch a missing-value sentinel, leave a record alone, and cover every parameter (GH-2615)."""
+"""The physical ranges catch a missing-value sentinel, leave a record alone, and cover every parameter (GH-2615).
+
+The ranges are the one table of the library (GH-3681); the tests here hold the check of the provider tests to it.
+"""
 
 import datetime as dt
 from io import BytesIO
@@ -9,20 +12,12 @@ from typing import get_args
 import polars as pl
 import pytest
 
-from tests.provider.physical_ranges import (
-    PARAMETER_RANGES,
-    PREFIX_RANGES,
-    RESOLUTION_RANGES,
-    UNIT_TYPE_RANGES,
-    bounds_for,
-    out_of_range,
-)
-from wetterdienst import Options, Settings, Wetterdienst
+from tests.provider.physical_ranges import bounds_for, out_of_range
+from wetterdienst import Options, Settings
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.metadata.unit_type import UnitType
-from wetterdienst.model.judge import plan_for
-from wetterdienst.model.plausibility_ranges import SCOPE
+from wetterdienst.model.plausibility_ranges import PARAMETER_RANGES, PREFIX_RANGES, SPAN_HOURS, UNIT_TYPE_RANGES
 from wetterdienst.provider.lhmt.observation import LhmtObservationRequest
 from wetterdienst.util.network import File
 
@@ -42,14 +37,15 @@ def _frame(parameter: str, *values: float | None) -> pl.DataFrame:
     ("parameter", "sentinels"),
     [
         ("temperature_air_mean_2m", [-9999.0, -999.0, -99.0, 99.9, 999.0, 9999.0]),
-        ("temperature_dew_point_2m", [-9999.0, -999.0, -99.0, 99.9, 999.0, 9999.0]),
+        # -99 is inside the bound of the dew point: ISD holds -98.2 and HadISD -100.0 (GH-3681)
+        ("temperature_dew_point_2m", [-9999.0, -999.0, 99.9, 999.0, 9999.0]),
         ("pressure_air_site", [-9999.0, -999.0, -99.0, 9999.0]),
         ("wind_speed", [-9999.0, -999.0, -99.0, -1.0, 999.0, 9999.0]),
         ("wind_direction", [-9999.0, -999.0, -99.0, -1.0, 999.0, 9999.0]),
         ("snow_depth", [-9999.0, -999.0, -99.0, 9999.0]),
         ("sunshine_duration", [-9999.0, -999.0, -99.0, -1.0]),
         ("humidity_relative", [-9999.0, -999.0, -99.0, -1.0, 999.0, 9999.0]),
-        ("precipitation_amount", [-9999.0, -999.0, -99.0, -1.0, 9999.0]),
+        ("precipitation_amount", [-9999.0, -999.0, -99.0, -1.0, 99999.0]),
         ("phenology_flowering_beginning", [-9999.0, -999.0, 999.0, 9999.0]),
     ],
 )
@@ -76,7 +72,6 @@ def test_a_sentinel_is_outside_the_range_of_the_common_parameters(parameter: str
         ("wind_direction", 360.0),
         ("wind_direction", 0.0),
         ("humidity_relative", 1.0),
-        ("humidity_relative", 1.02),  # a hygrometer reads past 100 %
         ("precipitation_amount", 0.0),
         ("precipitation_amount", 1825.0),  # the most rain in one day
         ("snow_depth", 1182.0),  # the deepest snow pack
@@ -129,7 +124,7 @@ def test_every_unit_type_has_a_range_or_says_it_has_none() -> None:
 
 
 def test_a_dissolved_oxygen_reading_passes_and_a_sentinel_does_not() -> None:
-    """`concentration` is held to what dissolved oxygen can be, and the parameter has no range of its own (GH-3246)."""
+    """`concentration` is held to its definition, at least 0, and the parameter has no range of its own (GH-3246)."""
     assert [name for name, parameter in PARAMETERS.items() if parameter.unit_type == "concentration"] == [
         "oxygen_level"
     ]
@@ -137,16 +132,18 @@ def test_a_dissolved_oxygen_reading_passes_and_a_sentinel_does_not() -> None:
     assert bounds_for("oxygen_level") == UNIT_TYPE_RANGES["concentration"]
     # saturation at 0 °C, a summer reading and the supersaturation of an algal bloom
     assert out_of_range(_frame("oxygen_level", 0.0, 8.7, 14.6, 21.0)).is_empty()
-    sentinels = [-9999.0, -999.0, -99.0, -1.0, 99.9, 999.0, 9999.0]
-    assert out_of_range(_frame("oxygen_level", *sentinels)).get_column("value").to_list() == sentinels
+    # a quantity with no record is held to its definition alone (GH-3681): a negative number is a sentinel
+    sentinels = [-9999.0, -999.0, -99.0, -1.0]
+    assert out_of_range(_frame("oxygen_level", *sentinels, 99.9)).get_column("value").to_list() == sentinels
 
 
 def test_every_canonical_parameter_resolves_to_a_range_or_none() -> None:
-    """A parameter is never left unlooked at by a name that falls between the tables."""
+    """A parameter is never left unlooked at by a name that falls between the tables, at any resolution."""
     for name in PARAMETERS:
-        bounds = bounds_for(name)
-        if bounds is not None:
-            assert bounds.low < bounds.high, name
+        for resolution in (None, *SPAN_HOURS):
+            bounds = bounds_for(name, resolution)
+            if bounds is not None:
+                assert bounds.low < bounds.high, (name, resolution)
 
 
 def test_every_special_range_is_used() -> None:
@@ -154,8 +151,10 @@ def test_every_special_range_is_used() -> None:
     assert set(PARAMETER_RANGES) <= set(PARAMETERS)
     for prefix, _ in PREFIX_RANGES:
         assert any(name.startswith(prefix) for name in PARAMETERS), prefix
-    assert {name for ranges in RESOLUTION_RANGES.values() for name in ranges} <= set(PARAMETERS)
-    assert set(RESOLUTION_RANGES) <= {resolution.value for resolution in Resolution}
+    resolutions = {resolution.value for resolution in Resolution} | {"*"}
+    for range_ in [*PARAMETER_RANGES.values(), *(range_ for _, range_ in PREFIX_RANGES), *UNIT_TYPE_RANGES.values()]:
+        if isinstance(range_, dict):
+            assert set(range_) <= resolutions, range_
 
 
 def test_a_prefix_holds_one_unit_type_unless_a_name_is_taken_out() -> None:
@@ -164,10 +163,18 @@ def test_a_prefix_holds_one_unit_type_unless_a_name_is_taken_out() -> None:
     `cloud_cover_total_measurement_method` is a dimensionless code, and the `cloud_cover_` fraction range of 0 to 1
     called every hour that an instrument measured (the code 2) a sentinel.
     """
-    for prefix, _ in PREFIX_RANGES:
-        matched = {name: PARAMETERS[name].unit_type for name in PARAMETERS if name.startswith(prefix)}
+    for prefix, range_ in PREFIX_RANGES:
+        if range_ is None:
+            continue
+        matched = {
+            name: PARAMETERS[name].unit_type
+            for name in PARAMETERS
+            if name.startswith(prefix) and name not in PARAMETER_RANGES
+        }
+        if not matched:
+            continue
         family = max(sorted(set(matched.values())), key=list(matched.values()).count)
-        odd = {name for name, unit_type in matched.items() if unit_type != family and name not in PARAMETER_RANGES}
+        odd = {name for name, unit_type in matched.items() if unit_type != family}
         assert odd == set(), f"{prefix} holds {sorted(odd)} to the range of {family}: add them to PARAMETER_RANGES"
 
 
@@ -198,9 +205,9 @@ def test_a_sum_over_a_month_or_a_year_may_exceed_the_depth_of_one_reading() -> N
         # the most rain in a minute, 15 minutes, an hour and a day on record, and the sentinel of the next span up
         ("precipitation_amount", "1_minute", 31.2, 99.9),
         ("precipitation_amount", "10_minutes", 70.0, 999.0),
-        ("precipitation_amount", "hourly", 401.0, 999.0),
+        ("precipitation_amount", "hourly", 305.0, 999.0),  # Holt 1947; Shangdi 1975 (401 mm) is not in the WMO table
         ("precipitation_amount", "daily", 1825.0, 2500.0),
-        ("precipitation_amount", "monthly", 3000.0, 9999.0),
+        ("precipitation_amount", "monthly", 9300.0, 12_000.0),  # Cherrapunji, July 1861
         # a span of sunshine in seconds
         ("sunshine_duration", "10_minutes", 600.0, 3600.0),
         ("sunshine_duration", "hourly", 3600.0, 86400.0),
@@ -228,7 +235,13 @@ def test_the_rain_and_the_sunshine_of_a_span_grow_with_it() -> None:
 def _lhmt_values(
     monkeypatch: pytest.MonkeyPatch, temperature: float, options: Options, pressure: float = 1007.4
 ) -> pl.DataFrame:
-    """Give the values of one LHMT station for a day with one reading, as its reader and the framework make them."""
+    """Give the values of one LHMT station for a day with one reading, as its reader and the framework make them.
+
+    The core would reject a -999 before the hook of the provider tests sees it, so the test holds it to no bounds:
+    the hook is what is under test, not the core.
+    """
+    monkeypatch.setattr("wetterdienst.model.judge.bounds_for", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr("wetterdienst.model.judge._PLANS", {})
     stations = (
         b'[{"code": "vilniaus-ams", "name": "Vilniaus AMS", '
         b'"coordinates": {"latitude": 54.625992, "longitude": 25.107064}}]'
@@ -303,75 +316,3 @@ def test_a_frame_that_is_not_converted_is_left_alone(
 
     assert sorted(df.get_column("value").to_list()) == [-999.0, 1007.4]
     assert physical_range_findings == []
-
-
-def _core_bounds() -> list[tuple[str, str, str, tuple[float, float]]]:
-    """List every bound the values core holds a network to: the network, the resolution, the name and the bounds."""
-    found = []
-    for network in SCOPE:
-        provider, name = network.split("/")
-        for resolution in Wetterdienst.resolve(provider, name).metadata:
-            for dataset in resolution:
-                plan = plan_for(network, dataset)
-                for original, bounds in plan.ranges.items():
-                    found.append((network, resolution.name, plan.parameters[original].name, bounds))
-    return found
-
-
-# the bounds of the table of `model/plausibility_ranges.py` that are narrower than the range of the world, because the
-# source's own validated records stay far below the world's, or its precision needs no slack: the network, the
-# resolution and the canonical name. The argument is in the comment of the table.
-_NARROWER = {
-    ("dmi/observation", "daily", "precipitation_amount"),
-    ("dmi/observation", "monthly", "precipitation_amount"),
-    ("dmi/observation", "annual", "precipitation_amount"),
-    ("rmi/observation", "10_minutes", "wind_gust_max"),
-    ("rmi/observation", "hourly", "wind_gust_max"),
-    ("rmi/observation", "daily", "wind_gust_max"),
-    ("dmi/observation", "monthly", "precipitation_amount_max"),
-    ("dmi/observation", "annual", "precipitation_amount_max"),
-    ("dmi/observation", "daily", "precipitation_amount_max_30min"),
-    ("dmi/observation", "hourly", "precipitation_amount_last_12h"),
-    ("dmi/observation", "hourly", "precipitation_amount_last_24h"),
-    ("dmi/observation", "daily", "radiation_global"),
-    ("dmi/observation", "monthly", "radiation_global"),
-    ("dmi/observation", "annual", "radiation_global"),
-    ("rmi/observation", "10_minutes", "sunshine_duration"),
-    ("rmi/observation", "hourly", "sunshine_duration"),
-    ("rmi/observation", "daily", "sunshine_duration"),
-    ("dwd/road", "15_minutes", "temperature_air"),
-    ("dwd/road", "15_minutes", "temperature_dew_point"),
-    ("dwd/road", "15_minutes", "temperature_surface"),
-    # DWD road: a hygrometer that failed writes 0.1 %, so the road holds 1 % and not 0 % at the low end
-    ("dwd/road", "15_minutes", "humidity_relative"),
-    # the pressure of DWD at the station is 500 to 1090 hPa, inside the 300 to 1100 of the world
-    ("dwd/observation", "10_minutes", "pressure_air_site"),
-    ("dwd/observation", "hourly", "pressure_air_site"),
-    ("dwd/observation", "subdaily", "pressure_air_site"),
-    ("dwd/observation", "daily", "pressure_air_site_mean"),
-    ("dwd/observation", "10_minutes", "pressure_air_sea_level"),
-    ("dwd/observation", "hourly", "pressure_air_sea_level"),
-    ("meteofrance/synop", "subdaily", "pressure_air_site"),
-    ("meteofrance/synop", "subdaily", "pressure_air_sea_level"),
-    ("meteofrance/synop", "subdaily", "precipitation_amount_last_1h"),
-    ("meteofrance/synop", "subdaily", "precipitation_amount_last_3h"),
-    ("meteofrance/synop", "subdaily", "precipitation_amount_last_6h"),
-    ("meteofrance/synop", "subdaily", "precipitation_amount_last_12h"),
-    ("meteofrance/synop", "subdaily", "precipitation_amount_last_24h"),
-}
-
-
-def test_the_core_bounds_sit_inside_the_ranges() -> None:
-    """Every bound of the core's table is the range of its parameter at the resolution, or inside it (GH-2797, GH-3135).
-
-    The table holds a bound in canonical units, which are the units `physical_ranges.py` holds a value to. A bound
-    may be narrower where the network knows its source better (`_NARROWER`), never wider.
-    """
-    found = _core_bounds()
-    assert found
-    for network, resolution, name, (low, high) in found:
-        wide = bounds_for(name, resolution)
-        assert wide is not None, f"{network} {resolution} {name}: the range of the parameter is none"
-        assert wide.low - 1e-9 <= low < high <= wide.high + 1e-9, f"{network} {resolution} {name}: {(low, high)}"
-        if (network, resolution, name) not in _NARROWER:
-            assert (low, high) == pytest.approx(tuple(wide)), f"{network} {resolution} {name}: not the range"

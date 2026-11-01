@@ -335,12 +335,13 @@ Quality level (column header: ``QN``):
 
 ## Plausibility checks
 
-Three [checks](../../../plausibility.md) judge values of this network. `range` (hard by default): a wind speed below 0
-or above 115 m/s, and a station or sea level pressure (`pressure_air_site`, `pressure_air_site_mean`,
-`pressure_air_sea_level`) outside 500 to 1090 hPa. `elevation` (hard): a `pressure_air_site` or `pressure_air_site_mean`
-more than 75 hPa from what the barometric formula of the standard atmosphere expects at the elevation of the station in
-the station list (`rejected:elevation,raw:909.5`). The `1093.3` hPa of the hourly `pressure` of 00433 (48 m) is both,
-and is `rejected:elevation+range,raw:1093.3` (`suspect:elevation+range` with both soft). `stuck` (**soft** by default):
+Three [checks](../../../plausibility.md) judge values of this network. `range` (hard by default): the one table of
+bounds of every provider, such as a wind speed below 0 or above 115 m/s, and a station pressure outside 300 to 1100 hPa or
+a sea level pressure outside 850 to 1100 hPa. `elevation` (hard): a `pressure_air_site`, `pressure_air_site_mean`,
+`_min` or `_max` that the standard atmosphere does not allow at the elevation of the station in the station list, from 870/1013.25 of it
+(143 hPa below at sea level) to 75 hPa above it (`rejected:elevation,raw:1093.3`: the hourly `pressure` of 00433, 48 m,
+where 1007.5 hPa are expected). Three of the 19 readings of 00433, 03032 and the Zugspitze beyond 75 hPa of the standard atmosphere (909.5, 910.1 and 908.5 hPa) lie between the
+margins and stay, for the step check of [GH-3681](https://github.com/earthobservations/wetterdienst/issues/3681). `stuck` (**soft** by default):
 a run of 72 hourly readings (5 days; 36 readings at 10 minutes, a limit the research for GH-3681 derives and no source
 publishes) of one value of `pressure_air_site` or `pressure_air_site_mean`, the constant a station without a barometer
 writes (HadISD and ECA&D, see [the limit of a run](../../../plausibility.md#the-limit-of-a-run)); the value is kept and

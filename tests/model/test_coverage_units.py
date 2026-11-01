@@ -61,7 +61,8 @@ def _value_in_the_answer(api: type[TimeseriesRequest], dataset: DatasetModel, pa
     """
     values_class = api._values  # noqa: SLF001
     values = object.__new__(values_class)
-    options = Options()
+    # soft: 21.5 is no plausible value of every parameter (a relative humidity of 2150 %), and the test is about units
+    options = Options(plausibility="soft")
     values.sr = SimpleNamespace(options=options, start=None, end=None)  # ty: ignore[invalid-assignment]
     values.unit_converter = UnitConverter()
     values.unit_converter.update_targets(options.unit_targets)
