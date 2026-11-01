@@ -20,7 +20,7 @@ from wetterdienst.exceptions import DownloadError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
-from wetterdienst.model.quality_flags import OutOfRange, Sentinel, join_quality_flags, null_sentinels
+from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dmi.observation.metadata import DmiObservationMetadata
@@ -78,78 +78,35 @@ _CALM_WIND = Sentinel(
 # reports, so it is 0.0 and no negative amount, as the trace of KNMI, AEMET and Meteo-France's synop is. It keeps
 # the text as the `raw:-0.1` token of `quality_flags` (GH-2759), which is how those providers mark a trace and so how
 # a caller finds one. Without the rule the lower bound of 0 below read it as out of range and null (GH-3621).
-_PRECIPITATION_AMOUNTS = ("acc_precip", "max_precip_24h", "max_precip_30m")
+_PRECIPITATION_AMOUNTS = (
+    "acc_precip",
+    "max_precip_24h",
+    "max_precip_30m",
+    "acc_precip_past12h",
+    "acc_precip_past24h",
+)
 _TRACE = Sentinel("-0.1", where=pl.col("parameterId").is_in(_PRECIPITATION_AMOUNTS), to=0.0)
 
-# The range of a reading per resolution and parameterId, in the unit DMI writes it in, outside which no sensor can have
-# produced it: the physical ranges of `tests/provider/physical_ranges.py`, generous on purpose, in the unit of the
-# source, and no wider than they are (`test_physical_ranges.py` holds them to it). The rain of a span grows with it, so
-# `acc_precip` has a bound per resolution; those of a day, a month and a year are narrower than the world's, because
-# DMI covers Denmark, the Faroe Islands and Greenland. Read on 2026-10-16 (every station the API lists, 4.1 million
-# days and 136,000 months), the values DMI marks `validity: true` run to 183.5 mm in a day (04390, 1964), 641.8 in a
-# month and 3,291.3 in a year (04390, 1965), and the values above are marked `validity: false`, among them 1978 mm on
-# 14 and 989 mm on 3 days of 2011 at 04339 and 1770 mm on 2021-12-03 at 04360 (24 days of 04360 and 04320 are
-# above 500 mm); 17,802 mm (04339, 2011-10), 8,661 mm (04360, 2022-01) and 3,229.9 mm (04339, 2012-10) in a month
-# (18 months are above 1,500 mm); 9,574 mm (04339, 2014), 7,196 mm (04390, 2016) and 4,178.9 mm (04320, 2014) in
-# a year, none of which a gauge read (GH-2797). Such a value is read as null and keeps its text as `raw:17802`. The
-# largest amount of a day in a month (`max_precip_24h`) and the largest of 30 minutes in a day (`max_precip_30m`) are
-# no more than a day, so they are held to the day's 500 mm: the monthly `max_precip_24h` has six months above 500, among
-# them 1978 mm (04339, 2011-10), 1770 mm (04360, 2021-12) and a 999.0 (04320, 2013-09, the same in the year). What
-# lies below a bound stays, and DMI's flag says what it thinks of it: the 3,253.4 mm of 04339 in 2012 is the sum of
-# that 3,229.9 and two months of 8.4 and 15.1, and no range separates it from the 3,291.3 mm that DMI validated for
-# 04390 (the bound of a year is 4,000).
-_AIR_TEMPERATURE = (-90.0, 60.0)  # degree Celsius
-_DAY_PRECIPITATION = (0.0, 500.0)  # mm, the most of a day, which the maxima of a part of it cannot pass
-_WIND_SPEED = (0.0, 115.0)  # m/s
-_HUMIDITY = (0.0, 130.0)  # percent; a hygrometer reads past 100 now and then
-_COMMON_RANGES: dict[str, tuple[float, float]] = {
-    "mean_temp": _AIR_TEMPERATURE,
-    "max_temp_w_date": _AIR_TEMPERATURE,
-    "min_temp": _AIR_TEMPERATURE,
-    "mean_relative_hum": _HUMIDITY,
-    "mean_pressure": (300.0, 1_100.0),  # hPa
-    "mean_wind_speed": _WIND_SPEED,
-    "max_wind_speed_10min": _WIND_SPEED,
-    "max_wind_speed_3sec": _WIND_SPEED,
-    "mean_wind_dir": (0.0, 360.0),  # degree
-}
-_HEATING_DEGREE_DAYS = (0.0, 20_000.0)  # degree Celsius days; a year of heating is below 10,000
-_MONTHLY_RANGES: dict[str, tuple[float, float]] = {
-    **_COMMON_RANGES,
-    "acc_precip": (0.0, 1_500.0),
-    "max_precip_24h": _DAY_PRECIPITATION,
-    "mean_daily_max_temp": _AIR_TEMPERATURE,
-    "mean_daily_min_temp": _AIR_TEMPERATURE,
-    "max_relative_hum": _HUMIDITY,
-    "min_relative_hum": _HUMIDITY,
-    "acc_heating_degree_days_17": _HEATING_DEGREE_DAYS,
-}
-_RANGES: dict[str, dict[str, tuple[float, float]]] = {
-    "hourly": {**_COMMON_RANGES, "acc_precip": (0.0, 600.0)},
-    "daily": {
-        **_COMMON_RANGES,
-        "acc_precip": _DAY_PRECIPITATION,
-        "max_precip_30m": _DAY_PRECIPITATION,
-        "acc_heating_degree_days_17": _HEATING_DEGREE_DAYS,
-    },
-    "monthly": _MONTHLY_RANGES,
-    # the years have no humidity extremes
-    "annual": {
-        **{
-            name: bounds
-            for name, bounds in _MONTHLY_RANGES.items()
-            if name not in {"max_relative_hum", "min_relative_hum"}
-        },
-        "acc_precip": (0.0, 4_000.0),
-    },
-}
-_OUT_OF_RANGE = {
-    resolution: tuple(
-        OutOfRange(low, high, where=pl.col("parameterId").eq(name)) for name, (low, high) in ranges.items()
-    )
-    for resolution, ranges in _RANGES.items()
-}
+# DMI's greatest snow depth of a month and of a year is 999.0 for September 2020 at 24043 and 31259 (and for 2020 as a
+# year), both marked `validity: true` with 7 values in the calculation: a snow depth of 9.99 m in a Danish September.
+# DMI documents no code for it (the climate data documentation, read 2026-10-31, mentions 999 nowhere), the other
+# 8,490 monthly and 1,229 annual values run to 138 cm, and 999.0 is the value that stands for a missing one in
+# DMI's other fields (`max_precip_24h` of 04320, 2013-09). It is null and keeps `raw:999`.
+_MISSING_SNOW_DEPTH = Sentinel("999", where=pl.col("parameterId").eq("max_snow_depth"))
 
+# DMI's heating degree days of Greenland (base 19) are the field `acc_heating_degree_days_19`, where those of Denmark
+# (base 17) are `acc_heating_degree_days_17`: no station has both, so the one is read as the other and the two are the
+# one parameter, `heating_degree_day`. Its range holds for either base: the highest year DMI publishes is 18,022.8
+# (04416 Summit on the ice sheet, 2011; 17,747.8 in 2009 and 17,612.7 in 2013) and the highest month 2,114.3 (2011-12),
+# so the bound of 20,000 of the range table leaves about 10 % above the highest year (read 2026-10-31)
+_FIELD_SERVED_AS = {"acc_heating_degree_days_19": "acc_heating_degree_days_17"}
+# DMI's value of a parameter that the metadata declares in another unit is multiplied by this factor: the radiation of
+# a day, a month and a year is a sum in MJ/m2 that the metadata declares in kJ/m2 (GH-3622)
+_TO_DECLARED_UNIT: dict[str, dict[str, float]] = {
+    "daily": {"mean_radiation": 1_000.0},
+    "monthly": {"mean_radiation": 1_000.0},
+    "annual": {"mean_radiation": 1_000.0},
+}
 _STATION_VALUE_SCHEMA = pl.Schema(
     {
         "features": pl.List(
@@ -195,6 +152,12 @@ _STATION_SCHEMA = pl.Schema(
 )
 
 
+# The extremes and sums of the last 12 and 24 hours are stamped by the end of the window, as dwd/poi, meteofrance/synop
+# and noaa/ghcn stamp theirs: DMI's `from` is the start of the last hour of the window (`from` 17:00, `to` 18:00 UTC for
+# the 18 UTC report, whose 12 hours start at 06:00), so the `to` of the record is the report time (GH-3622).
+_STAMPED_BY_THE_END_OF_THE_WINDOW = ("max_temp_12h", "min_temperature_12h", "acc_precip_past12h", "acc_precip_past24h")
+
+
 class DmiObservationValues(TimeseriesValues):
     """Values class for DMI climate data observations."""
 
@@ -209,8 +172,10 @@ class DmiObservationValues(TimeseriesValues):
     def _date_expression(resolution: Resolution) -> pl.Expr:
         """Build the ``timestamp`` column expression from DMI's ``from`` and ``to`` timestamps.
 
-        DMI labels each aggregate by the start of its period. Hourly data is aligned to UTC
-        (``from`` carries a ``+00:00`` offset), so it is parsed and normalised to UTC directly.
+        DMI labels each aggregate by the start of its period, but for the extremes and sums of the last 12 and 24 hours,
+        whose ``from`` is the start of the last hour of the window: those are stamped by their ``to``, the end of the
+        window (``_STAMPED_BY_THE_END_OF_THE_WINDOW``, applied in the collection, not here). Hourly data is
+        aligned to UTC (``from`` carries a ``+00:00`` offset), so it is parsed and normalised to UTC directly.
         Day/month/year aggregates use *local civil* period boundaries (``from`` carries the
         station's local offset, e.g. ``2023-06-02T00:00:00.001000+02:00``). Their civil date
         is taken straight from the leading characters of the string -- this is timezone
@@ -353,10 +318,12 @@ class DmiObservationValues(TimeseriesValues):
         # Widen the requested window by a day on each side for those resolutions;
         # TimeseriesValues.query() trims the result back to the exact requested range by the
         # assigned `timestamp`. Hourly aggregates are already UTC-aligned (label == `from`), so no
-        # margin is needed and none is added -- widening would only fetch extra data. The
+        # margin is needed at the end and none is added -- widening would only fetch extra data. The
+        # values of the last 12 and 24 hours are stamped by their `to`, an hour after their `from`, so
+        # a value stamped at the start of the window has its `from` an hour before it. The
         # request's bounds are UTC, so the "Z" filter is true.
         margin = dt.timedelta(0) if resolution == Resolution.HOURLY else dt.timedelta(days=1)
-        start = start_date - margin
+        start = start_date - (dt.timedelta(hours=1) if resolution == Resolution.HOURLY else margin)
         end = end_date + margin
 
         # DMI returns every parameter for the station in one response; keep only the ones
@@ -379,21 +346,44 @@ class DmiObservationValues(TimeseriesValues):
         if not records:
             return pl.DataFrame()
 
-        df = pl.concat(records).filter(pl.col("parameterId").is_in(known_parameters)).unique(maintain_order=True)
+        # the heating degree days of Greenland are read as those of Denmark: one parameter, `heating_degree_day`
+        df = (
+            pl.concat(records)
+            .with_columns(pl.col("parameterId").replace(_FIELD_SERVED_AS))
+            .filter(pl.col("parameterId").is_in(known_parameters))
+            .unique(maintain_order=True)
+        )
         if df.is_empty():
             return pl.DataFrame()
-        # the 0 of a calm wind, the -0.1 of a trace and a value outside the range of its parameter are mapped before
-        # anything is made of the value, and stay as `raw:0` (GH-2794), `raw:-0.1` (GH-3621) and `raw:17802`
-        # (GH-2797); the trace comes before the ranges, whose lower bound would null it
-        value, raw = null_sentinels(
-            pl.col("value"), _CALM_WIND, _TRACE, *_OUT_OF_RANGE[dataset.resolution.name], text=False
-        )
+        # the 0 of a calm wind, the -0.1 of a trace and the 999 of a missing snow depth are mapped before anything is
+        # made of the value, and stay as `raw:0` (GH-2794), `raw:-0.1` (GH-3621) and `raw:999`; a value outside the
+        # range of its parameter is the core's to judge (`model/judge.py`)
+        value, raw = null_sentinels(pl.col("value"), _CALM_WIND, _TRACE, _MISSING_SNOW_DEPTH, text=False)
+        # the radiation of a day, a month and a year is written in MJ/m2 and declared in kJ/m2 (GH-3622); the rounding
+        # takes the float error of the product away, DMI's values having one decimal
+        # the megajoules DMI wrote are the text of the value for the `raw:` token of a rejected one (`source_text`)
+        source_text = pl.lit(None, dtype=pl.String)
+        for name, factor in _TO_DECLARED_UNIT.get(dataset.resolution.name, {}).items():
+            converted = pl.col("parameterId").eq(name)
+            value = pl.when(converted).then((value * factor).round(3)).otherwise(value)
+            source_text = pl.when(converted).then(pl.col("value").cast(pl.String)).otherwise(source_text)
         # the station, resolution and dataset, the order of the columns and the dtypes are the core's to write
         # (`shape_provider_frame`); a frame without a row is the empty long form there, whatever it holds
+        timestamp = self._date_expression(resolution)
+        if resolution == Resolution.HOURLY:
+            end_of_window = (
+                pl.col("to").str.to_datetime("%Y-%m-%dT%H:%M:%S%.f%z", time_unit="us").dt.convert_time_zone("UTC")
+            )
+            timestamp = (
+                pl.when(pl.col("parameterId").is_in(_STAMPED_BY_THE_END_OF_THE_WINDOW))
+                .then(end_of_window)
+                .otherwise(timestamp)
+            )
         return df.select(
             pl.col("parameterId").alias("parameter"),
-            self._date_expression(resolution).alias("timestamp"),
+            timestamp.alias("timestamp"),
             value.alias("value"),
+            source_text.alias("source_text"),
             _quality_flags(raw),
         )
 

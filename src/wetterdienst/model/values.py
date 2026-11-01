@@ -18,9 +18,12 @@ from typing_extensions import TypeVar
 from wetterdienst.exceptions import ProviderContractError
 from wetterdienst.metadata.resolution import count_readings, reading_interval
 from wetterdienst.model.fetch_ahead import FetchAhead, FilesAhead
+from wetterdienst.model.judge import SOURCE as SOURCE_COLUMN
+from wetterdienst.model.judge import SOURCE_TEXT, Plan, Rule, judge, plan_for, to_canonical, to_requested
 from wetterdienst.model.metadata import group_parameters_by_dataset
 from wetterdienst.model.parameter_rows import ParameterRows
-from wetterdienst.model.quality_flags import QUALITY_FLAGS, RAW_TOKEN
+from wetterdienst.model.plausibility import REJECTED_TOKEN, leave_out_suspect
+from wetterdienst.model.quality_flags import CALM_TOKEN, QUALITY_FLAGS, RAW_TOKEN
 from wetterdienst.model.request import require_window
 from wetterdienst.model.result import StationsFilter, StationsResult, ValuesResult
 from wetterdienst.model.schema import (
@@ -33,8 +36,12 @@ from wetterdienst.model.unit import UnitConverter
 from wetterdienst.util.datetime import is_plausible_update, newest
 from wetterdienst.util.logging import TqdmToLogger
 from wetterdienst.util.response_warnings import (
+    CALM_WIND_DIRECTION,
+    CALM_WIND_DIRECTION_MESSAGE,
     MISSING_VALUE_MARKER,
     MISSING_VALUE_MARKER_MESSAGE,
+    REJECTED_BY_PLAUSIBILITY,
+    REJECTED_BY_PLAUSIBILITY_MESSAGE,
     count_response_warning,
     warn_response,
 )
@@ -42,7 +49,7 @@ from wetterdienst.util.url import redact_password
 
 if TYPE_CHECKING:
     import datetime as dt
-    from collections.abc import Callable, Iterable, Iterator, Sequence
+    from collections.abc import Iterable, Iterator, Sequence
 
     from wetterdienst.model.metadata import DatasetModel, ParameterModel
 
@@ -159,12 +166,13 @@ def _check_provider_columns(df: pl.DataFrame, provider: str) -> None:
             raise ProviderContractError(message)
 
 
-def shape_provider_frame(
+def shape_provider_frame(  # noqa: C901
     df: pl.DataFrame,
     *,
     station_id: str,
     dataset: DatasetModel,
     provider: str = "the provider",
+    keep_source_text: bool = False,
 ) -> pl.DataFrame:
     """Make the frame a provider handed the core the long form: its columns, their order and their dtypes (GH-2627).
 
@@ -188,10 +196,14 @@ def shape_provider_frame(
         station_id: the station the call was made for.
         dataset: the dataset the call was made for, which names ``resolution`` and ``dataset``.
         provider: the name to put in a message, the provider's class.
+        keep_source_text: also give the column `SOURCE_TEXT`, the text the source wrote for the value, for the checks of
+            the core to write in the `raw:` token of a value they reject (`model/judge.py`). It is the column
+            `source_text` of the provider's frame where it has one, else its `value` where that is a text, else null,
+            and the core then writes the number as short as it goes.
 
     Returns:
-        The frame with exactly the columns of `LONG_SCHEMA`, in its order and with its dtypes; with no row, the empty
-        frame of `LONG_SCHEMA`.
+        The frame with exactly the columns of `LONG_SCHEMA`, in its order and with its dtypes (and `SOURCE_TEXT` last,
+        where asked for); with no row, the empty frame of `LONG_SCHEMA`.
 
     Raises:
         ProviderContractError: ``parameter``, ``timestamp`` or ``value`` is missing, or has a type that cannot be made
@@ -199,11 +211,12 @@ def shape_provider_frame(
             without a row is never one.
 
     """
+    extra = pl.Schema({SOURCE_TEXT: pl.String}) if keep_source_text else pl.Schema()
     if df.is_empty():
-        return pl.DataFrame(schema=LONG_SCHEMA)
+        return pl.DataFrame(schema=pl.Schema({**LONG_SCHEMA, **extra}))
     _check_provider_columns(df, provider)
     value = _value_as_number(df, provider)
-    surplus = [column for column in df.columns if column not in LONG_SCHEMA]
+    surplus = [column for column in df.columns if column not in LONG_SCHEMA and column != SOURCE_TEXT]
     if surplus:
         log.debug("%s: dropped the column(s) %s, which the long form does not have", provider, ", ".join(surplus))
     identity = {
@@ -226,6 +239,14 @@ def shape_provider_frame(
             # a column the provider did not deliver is a typed null: an untyped one would not concatenate with the
             # String column of the providers that do deliver it
             columns.append(pl.lit(None, dtype=dtype).alias(column))
+    if keep_source_text:
+        # the text is not read or stripped here: it is written for the few rows a check rejects
+        if SOURCE_TEXT in df.columns:
+            columns.append(pl.col(SOURCE_TEXT).cast(pl.String))
+        elif df.schema["value"] == pl.String:
+            columns.append(pl.col("value").alias(SOURCE_TEXT))
+        else:
+            columns.append(pl.lit(None, dtype=pl.String).alias(SOURCE_TEXT))
     return df.select(columns)
 
 
@@ -291,6 +312,14 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     #: the readings of the window that the source marked as missing, in the station in hand: counted by
     #: `_process_dataset`, told by `_query_stations` once the station is not left out (GH-3554)
     _markers_in_window: int = field(default=0, init=False, repr=False, compare=False)
+    #: the same for the wind directions the source wrote as a calm (`raw:0`): a state of the wind and not a missing
+    #: reading, so `missing-value-marker` leaves them out and `calm-wind-direction` counts them (GH-3696)
+    _calm_in_window: int = field(default=0, init=False, repr=False, compare=False)
+    #: the same for the nulls a hard plausibility check made (`rejected:<check>`), by check: the source wrote a number
+    #: there and not a marker, so `missing-value-marker` leaves them out and `rejected-by-plausibility` counts them
+    #: (GH-3682)
+    _rejected_in_window: int = field(default=0, init=False, repr=False, compare=False)
+    _rejected_by_check: dict[str, int] = field(default_factory=dict, init=False, repr=False, compare=False)
     #: under `skip_empty` with the nulls dropped, the `resolution, dataset, parameter` of the readings in the window
     #: before `drop_nulls` took the nulls out (null or not), in the station in hand: the rows the station has with the
     #: nulls kept, which tell `station-skipped` of a station they empty just the same (GH-3567)
@@ -332,53 +361,65 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         if updated is not None and is_plausible_update(updated):
             self._data_updated.append(updated)
 
-    def _convert_units(self, df: pl.DataFrame, dataset: DatasetModel) -> pl.DataFrame:
-        """Convert values to metric units with help of conversion factors."""
-        if df.is_empty():
+    def _plausibility_rules(self, station_id: str, dataset: DatasetModel) -> Sequence[Rule]:  # noqa: ARG002
+        """Give the rules only this provider knows for the station in hand, to be judged beside the core's own.
+
+        The stations without frost, the periods in which one sensor of one station did not work, the relation of a
+        road surface to the air of its minute at night (`Bound`, `StuckPeriod`, `Beside` of `model/judge.py`); a
+        provider with none keeps this.
+        """
+        return ()
+
+    def _network(self) -> str:
+        """Name the network this values object reads as `provider/network`, as the registry of `Wetterdienst` has it."""
+        from wetterdienst.api import Wetterdienst  # noqa: PLC0415
+
+        return Wetterdienst._network_of(type(getattr(self.sr, "request", None)))  # noqa: SLF001
+
+    def _judge_in_canonical_units(
+        self, df: pl.DataFrame, station_id: str, dataset: DatasetModel, plan: Plan, rules: Sequence[Rule]
+    ) -> pl.DataFrame:
+        """Convert every parameter of a collected frame to its canonical unit and judge it there (`model/judge.py`).
+
+        The number the source wrote stays in `SOURCE_COLUMN`, for a caller that does not convert units, and its text in
+        `SOURCE_TEXT` for the `raw:` token of a rejected value, which is dropped here.
+        """
+        df = df.with_columns(pl.col("value").alias(SOURCE_COLUMN))
+        canonical = to_canonical(plan)
+        if canonical is not None:
+            df = df.with_columns(canonical.alias("value"))
+        elevation = self._station_elevation(station_id, dataset) if plan.pressure and hasattr(self.sr, "df") else None
+        return judge(df, plan, self.sr.options.plausibility, rules, elevation).drop(SOURCE_TEXT, strict=False)
+
+    def _to_requested_units(
+        self, df: pl.DataFrame, dataset: DatasetModel, plan: Plan, *, canonical: bool
+    ) -> pl.DataFrame:
+        """Convert the values of the parameters asked for to the unit asked for, in one expression, rounding once.
+
+        From the canonical unit where the frame was judged (and `SOURCE_COLUMN` dropped), from the unit of the source
+        where it was not. Nothing is converted where the options say so, and the numbers the source wrote are handed
+        back (but for what a hard check mapped).
+        """
+        if canonical and not self.sr.options.convert_units:
+            return df.with_columns(pl.col(SOURCE_COLUMN).alias("value")).drop(SOURCE_COLUMN)
+        if not self.sr.options.convert_units:
             return df
-
-        # create lambdas here because not every parameter exists in DataFrame
-        # and we can just use the name of the parameter to get the conversion factor
-        # without going back to the dataset model
-        conversions = self._create_conversions(dataset)
-
-        data = []
-        for (parameter,), df_group in df.group_by(
-            ["parameter"],
-            maintain_order=True,
-        ):
-            if parameter.lower() not in conversions:
+        # a name is matched to the parameter that declares it in any casing, as it always was
+        by_lower = {name.lower(): name for name in plan.parameters}
+        present: dict[str, str] = {}
+        for name in df.get_column("parameter").unique(maintain_order=True).to_list():
+            if name.lower() not in by_lower:
                 message = (
-                    f"{type(self).__name__} returned the parameter {parameter!r}, which the dataset "
+                    f"{type(self).__name__} returned the parameter {name!r}, which the dataset "
                     f"{dataset.resolution.name}/{dataset.name} does not declare in any casing"
                 )
                 raise ProviderContractError(message)
-            lambda_, decimals = conversions[parameter.lower()]
-            # rounded to avoid long floats, by as many decimals as the target unit needs to keep the
-            # reading's precision -- see `UnitConverter.decimals`. The conversions are plain arithmetic, so
-            # the column goes through them as an expression, as the Float64 the long form declares; named
-            # again because `9 / 5 * x` is named after its leftmost operand, the literal
-            df_group = df_group.with_columns(
-                lambda_(pl.col("value").cast(pl.Float64)).round(decimals).alias("value"),
-            )
-            data.append(df_group)
-
-        return pl.concat(data)
-
-    def _create_conversions(
-        self,
-        dataset: DatasetModel,
-    ) -> dict[str, tuple[Callable[[Any], Any], int]]:
-        """Create each parameter's conversion of a given dataset, and the decimals to round it to."""
-        conversions = {}
-        for parameter in dataset:
-            lambda_ = self.unit_converter.get_lambda(parameter.unit, parameter.unit_type)
-            target = self.unit_converter.targets[parameter.unit_type].name
-            conversions[parameter.name_original.lower()] = (
-                lambda_,
-                self.unit_converter.decimals(parameter.unit, target),
-            )
-        return conversions
+            present[name] = by_lower[name.lower()]
+        # rounded to avoid long floats, by as many decimals as the target unit needs to keep the reading's precision
+        # (`UnitConverter.decimals`)
+        convert = to_requested(plan, present, self.unit_converter, canonical=canonical)
+        df = df.with_columns(convert)
+        return df.drop(SOURCE_COLUMN) if canonical else df
 
     def query(self) -> Iterator[ValuesResult]:
         """Query data for all stations and parameters and return a DataFrame for each station.
@@ -418,6 +459,9 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             rows.examine(station_id, available_datasets)
             self._data_updated.clear()
             self._markers_in_window = 0
+            self._calm_in_window = 0
+            self._rejected_in_window = 0
+            self._rejected_by_check.clear()
             self._window_parameters.clear()
             self._window_spans.clear()
             self._window_rows.clear()
@@ -527,6 +571,22 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         rows.note(parameters)
         return not parameters.is_empty()
 
+    def _count_rejected(self, rejected: pl.DataFrame) -> None:
+        """Count the nulls of the window that a hard check made, in all and by the check that rejected them."""
+        if rejected.is_empty():
+            return
+        self._rejected_in_window += rejected.height
+        checks = (
+            rejected.get_column(QUALITY_FLAGS)
+            .str.extract(rf"{REJECTED_TOKEN}([a-z+]+)", 2)
+            .str.split("+")
+            .explode()
+            .drop_nulls()
+            .value_counts()
+        )
+        for check, number in checks.iter_rows():
+            self._rejected_by_check[check] = self._rejected_by_check.get(check, 0) + number
+
     def _tell_missing_value_markers(self, *, emptied: bool = False) -> None:
         """Add the markers of the station in hand to the warning of the request, unless the station is left out.
 
@@ -544,6 +604,36 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             return
         if self._count_missing_value_markers:
             count_response_warning(MISSING_VALUE_MARKER, self._markers_in_window, MISSING_VALUE_MARKER_MESSAGE)
+            count_response_warning(CALM_WIND_DIRECTION, self._calm_in_window, CALM_WIND_DIRECTION_MESSAGE)
+            count_response_warning(
+                REJECTED_BY_PLAUSIBILITY,
+                self._rejected_in_window,
+                REJECTED_BY_PLAUSIBILITY_MESSAGE,
+                details=self._rejected_by_check,
+            )
+
+    @staticmethod
+    def _rows_of(*parameters: ParameterModel) -> pl.Expr:
+        """Select the rows of a long frame that hold one of the parameters, by `resolution`, `dataset` and `parameter`.
+
+        The `parameter` column holds the source's own name (`name_original`) until the answer is humanized.
+        """
+        return pl.any_horizontal(
+            pl.col("resolution").eq(parameter.dataset.resolution.name)
+            & pl.col("dataset").eq(parameter.dataset.name)
+            & pl.col("parameter").eq(parameter.name_original)
+            for parameter in parameters
+        )
+
+    def _zero_direction_is_no_bearing(self) -> pl.Expr:
+        """Select the rows whose wind direction of `raw:0` is a code of no bearing, and no calm (GH-3696).
+
+        `calm-wind-direction` counts the nulls of a wind direction whose `raw` token is the 0 of a calm. A provider
+        whose 0 is something else overrides this with an expression of the `resolution`, `dataset` and `parameter`
+        columns that is true for them, and those stay with `missing-value-marker`: a code of the source for a variable
+        wind or for a direction it does not report, which is missing and not a state of the wind.
+        """
+        return pl.lit(value=False)
 
     def _advance_fetch_ahead(self, ahead: FetchAhead | None, position: int, stations_collected: int) -> None:
         """Have the files of the stations after ``position`` fetched, and wait for those of ``position``."""
@@ -788,6 +878,21 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             df = self._widen_df(df=df)
         return df
 
+    def _station_elevation(self, station_id: str, dataset: DatasetModel | None = None) -> float | None:
+        """Give the elevation in m that the station list holds for a station, or ``None`` where it holds none.
+
+        A list that has a row per resolution and dataset (as the DWD and Météo-France ones do) may hold another
+        elevation for each; with ``dataset`` the row of that resolution and dataset is the one read.
+        """
+        columns = self.sr.df.columns
+        if "elevation" not in columns:
+            return None
+        rows = self.sr.df.filter(pl.col("station_id").eq(station_id))
+        if dataset is not None and "resolution" in columns and "dataset" in columns:
+            rows = rows.filter(pl.col("resolution").eq(dataset.resolution.name) & pl.col("dataset").eq(dataset.name))
+        elevations = rows.get_column("elevation").cast(pl.Float64, strict=False).drop_nulls().drop_nans()
+        return None if elevations.is_empty() else float(elevations[0])
+
     def _get_available_datasets(self, df: pl.DataFrame) -> list[DatasetModel]:
         """Extract available datasets for the station."""
         resolution_dataset_pairs = (
@@ -813,10 +918,17 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                 data.append(df)
         return pl.concat(data) if data else pl.DataFrame(schema=LONG_SCHEMA)
 
-    def _process_dataset(
+    def _process_dataset(  # noqa: C901
         self, station_id: str, dataset: DatasetModel, parameters: Sequence[ParameterModel]
     ) -> pl.DataFrame:
         """Process data for a specific dataset."""
+        parameter_names = {parameter.name_original for parameter in parameters}
+        # every check runs here, in canonical units, once the duplicates of the periods are merged and before the
+        # parameters are cut to those asked for (`model/judge.py`); a dataset no check applies to is cut and converted
+        # straight to the unit asked for
+        plan = plan_for(self._network(), dataset)
+        rules = self._plausibility_rules(station_id, dataset)
+        judged = plan.judges or bool(rules)
         if dataset.grouped:
             df = self._collect_station_parameter_or_dataset(
                 station_id=station_id,
@@ -824,9 +936,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                 # saying so, and the type parameter is what it said it would be handed
                 parameter_or_dataset=cast("_UnitT", dataset),
             )
-            df = self._shape(df, station_id, dataset)
-            parameter_names = {parameter.name_original for parameter in parameters}
-            df = df.filter(pl.col("parameter").is_in(parameter_names))
+            df = self._shape(df, station_id, dataset, keep_source_text=judged)
         else:
             data = []
             for parameter in parameters:
@@ -838,22 +948,52 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                 # with no data for this station is the empty frame of that schema, whatever the provider handed over
                 # (a bare frame with no columns would raise "unable to append to a DataFrame of width 6 with a
                 # DataFrame of width 0"), and it contributes no rows
-                data.append(self._shape(df, station_id, dataset))
+                data.append(self._shape(df, station_id, dataset, keep_source_text=judged))
             df = pl.concat(data) if data else pl.DataFrame(schema=LONG_SCHEMA)
         if df.is_empty():
             # the empty frame of `LONG_SCHEMA`, as `shape_provider_frame` makes it of any provider frame without rows
-            return df
-        if self.sr.options.convert_units:
-            df = self._convert_units(df, dataset)
-        df = merge_duplicate_readings(df, ["station_id", "resolution", "dataset", "parameter", "timestamp"])
+            return df.drop(SOURCE_TEXT, strict=False)
+        # the station, the resolution and the dataset are the same on every row, so the reading is the parameter and the
+        # stamp. The rows of the periods a provider read are one series here, the first that has a value first (for DWD
+        # the historical archive before the recent one), before any check looks at it
+        if judged:
+            if dataset.grouped:
+                # a verdict on a parameter that is cut afterwards is never seen: only what is asked for and what a rule
+                # reads beside it is merged, converted and judged, which is the same answer for a fraction of the work
+                df = df.filter(pl.col("parameter").is_in(parameter_names | plan.read_beside(rules)))
+            df = self._judge_in_canonical_units(
+                merge_duplicate_readings(df, ["parameter", "timestamp"]), station_id, dataset, plan, rules
+            )
+        if dataset.grouped:
+            df = df.filter(pl.col("parameter").is_in(parameter_names))
+        if df.is_empty():
+            return df.drop(SOURCE_COLUMN, strict=False)
+        if not judged:
+            df = merge_duplicate_readings(df, ["parameter", "timestamp"])
+        df = self._to_requested_units(df, dataset, plan, canonical=judged)
         in_window = self._filter_by_window(df)
         if QUALITY_FLAGS in df.columns:
             # the readings the source marked as missing may leave with the nulls; the answer still tells how many,
             # of the window it is cut to (`_filter_by_window`, later) and not of the whole file, and of the stations
             # it keeps: counted here, told by `_query_stations` (`_tell_missing_value_markers`)
-            self._markers_in_window += in_window.filter(
-                pl.col("value").is_null() & pl.col(QUALITY_FLAGS).str.contains(RAW_TOKEN)
-            ).height
+            # a null a hard check made carries the number the source wrote, not a marker: counted apart (GH-3682)
+            nulled = in_window.filter(pl.col("value").is_null() & pl.col(QUALITY_FLAGS).str.contains(RAW_TOKEN))
+            rejected = pl.col(QUALITY_FLAGS).str.contains(REJECTED_TOKEN)
+            # a calm has no direction: the source wrote 0 for it, and the wind is not missing (GH-3696)
+            # (`parameter` is the source's own name here, so the directions are told by the metadata)
+            directions = [
+                parameter.name_original for parameter in dataset if parameter.name.startswith("wind_direction")
+            ]
+            calm = (
+                pl.col("parameter").is_in(directions)
+                & pl.col(QUALITY_FLAGS).str.contains(CALM_TOKEN)
+                & ~self._zero_direction_is_no_bearing()
+            )
+            written = nulled.filter(~rejected)
+            calms = written.filter(calm).height
+            self._calm_in_window += calms
+            self._markers_in_window += written.height - calms
+            self._count_rejected(nulled.filter(rejected))
         if self.sr.options.skip_empty:
             # the span the nulls make with them kept, and the readings they are, which the coverage is measured
             # against where there is no window or no grid to count readings by, whether the nulls are dropped or not
@@ -873,9 +1013,13 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             df = df.drop_nulls(subset=["value"])
         return df
 
-    def _shape(self, df: pl.DataFrame, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
+    def _shape(
+        self, df: pl.DataFrame, station_id: str, dataset: DatasetModel, *, keep_source_text: bool = False
+    ) -> pl.DataFrame:
         """Make the frame of one provider call the long form, by `shape_provider_frame`."""
-        return shape_provider_frame(df, station_id=station_id, dataset=dataset, provider=type(self).__name__)
+        return shape_provider_frame(
+            df, station_id=station_id, dataset=dataset, provider=type(self).__name__, keep_source_text=keep_source_text
+        )
 
     @abstractmethod
     def _collect_station_parameter_or_dataset(
@@ -1078,7 +1222,12 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         return ValuesResult(stations=self.sr, df=df, data_updated_at=newest(updated))
 
     def to_target(self, target: str, if_exists: Literal["replace", "append", "fail", "skip"] = "fail") -> None:
-        """Wrap to_target of all queried results."""
+        """Wrap to_target of all queried results.
+
+        `if_exists` is for the first station and defaults to 'fail', where a result's `to_target` defaults to
+        'replace': this is one table being filled station by station rather than one frame being written, so the
+        first station must not overwrite a table that already holds data. Every station after it is appended.
+        """
         tqdm_out = TqdmToLogger(log, level=logging.INFO)
         redacted = redact_password(target)
         for i, result in tqdm(enumerate(self.query()), total=len(self.sr.station_id), file=tqdm_out):
@@ -1172,12 +1321,18 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         ``drop_nulls``, and without it the rows of ``df`` are counted.
 
         A parameter that was asked for and came back with nothing counts as zero rather than
-        going unmeasured: a request for two parameters where one is missing is not fully covered.
+        going unmeasured: a request for two parameters where one is missing is not fully covered. So does one whose
+        values are all flagged ``suspect:`` by a soft plausibility check: the coverage counts the unflagged values
+        alone, as an interpolation and the climate stripes do.
         """
         # a station that returned nothing inside the window covers none of it, and there is no
         # frame under the question to read a span or a dtype off
         if df.is_empty():
             return 0.0
+        # a value a soft plausibility check flagged suspect is no coverage: a station with only such values is skipped,
+        # whatever the mode (GH-3676). As it was where the check used to null the value; a road sensor that stopped,
+        # which kept its value and counted, no longer counts
+        df = leave_out_suspect(df)
         percentages = []
         for parameter in cast("Iterable[ParameterModel]", self.sr.parameters):
             resolution = parameter.dataset.resolution

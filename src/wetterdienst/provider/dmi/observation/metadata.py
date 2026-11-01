@@ -10,10 +10,7 @@ from wetterdienst.model.metadata import CC_BY_4_0, DATASET_NAME_DEFAULT, License
 # station/resolution/date-range in a single request, so each resolution is modelled as one
 # grouped default dataset. `name_original` is the raw DMI parameterId.
 #
-# Only the physical parameters with a clean canonical equivalent are mapped here. DMI also
-# exposes a set of derived day-count statistics (no_frost_days, no_summer_days,
-# no_tropical_nights, no_days_acc_precip_*, ...) at the coarser resolutions; those have no
-# canonical Parameter counterpart and are intentionally left out.
+# Only the parameters with a canonical equivalent are mapped here (GH-3622).
 
 # Parameters available at every resolution (hour, day, month, year).
 _BASE_PARAMETERS = [
@@ -72,39 +69,50 @@ _BASE_PARAMETERS = [
     },
 ]
 
-# Heating degree days (base 17 °C) are aggregated from day resolution upwards.
+# Heating degree days are aggregated from day resolution upwards. DMI publishes them as two fields, by country:
+# `acc_heating_degree_days_17` (17 degrees Celsius minus the daily mean temperature; "graddage - Danmark") and
+# `acc_heating_degree_days_19` (19 degrees; "graddage - Grønland"). A station has one of the two: the stations of the
+# 17 (06019 to 06197, Denmark) and of the 19 (04203 to 04416, Greenland) do not overlap in the days of 2024-01-10 to
+# 2024-01-12 nor in the months and years of 2022 and 2023 (read 2026-10-31). So the reader reads the 19 as the 17
+# (`_FIELD_SERVED_AS` of `api.py`) and both are the one parameter, whose base is that of the station's country
+# (GH-3622).
 _HEATING_DEGREE_DAY = {
     "name": "heating_degree_day",
     "name_original": "acc_heating_degree_days_17",
     "unit": "degree_celsius_day",
 }
-
-_DAILY_PARAMETERS = [
-    *_BASE_PARAMETERS,
+# The highest and lowest of the hourly means of the pressure reduced to mean sea level of the day (DMI: "highest hourly
+# value of mean_pressure within a day"), of the month and of the year (the highest and lowest of the underlying daily
+# values). Not published at the hour. Published for 45 stations, 38 in Greenland (04xxx) and 7 of 06007 to 06014, none
+# of the 06019 to 06197 of Denmark (day, month and year of 2022 to 2024, read 2026-10-31).
+_PRESSURE_EXTREMES = [
     {
-        # maximum 30-minute precipitation within the day, from 23:31 local time of the previous day (GH-2614)
-        "name": "precipitation_amount_max_30min",
-        "name_original": "max_precip_30m",
-        "unit": "millimeter",
+        "name": "pressure_air_sea_level_max",
+        "name_original": "max_pressure",
+        "unit": "hectopascal",
     },
-    _HEATING_DEGREE_DAY,
+    {
+        "name": "pressure_air_sea_level_min",
+        "name_original": "min_pressure",
+        "unit": "hectopascal",
+    },
 ]
 
-# Monthly aggregates add mean daily extremes, relative-humidity extremes and the
-# maximum 24-hour precipitation total.
-_MONTHLY_PARAMETERS = [
-    *_BASE_PARAMETERS,
-    _HEATING_DEGREE_DAY,
-    {
-        "name": "temperature_air_max_2m_mean",
-        "name_original": "mean_daily_max_temp",
-        "unit": "degree_celsius",
-    },
-    {
-        "name": "temperature_air_min_2m_mean",
-        "name_original": "mean_daily_min_temp",
-        "unit": "degree_celsius",
-    },
+# Sunshine, radiation and cloud cover are published for a part of the stations only (the cloud cover of the hours for
+# 15 stations, all in Greenland, the sunshine of the hours for 28, read 2026-10-30).
+_SUNSHINE_HOURLY = {
+    # the minutes of the hour with sunshine ("sun_last1h_glob" of metObs)
+    "name": "sunshine_duration",
+    "name_original": "bright_sunshine",
+    "unit": "minute",
+}
+_SUNSHINE = {
+    # the sum of the hours of the underlying hourly values, in hours
+    "name": "sunshine_duration",
+    "name_original": "bright_sunshine",
+    "unit": "hour",
+}
+_HUMIDITY_RELATIVE_EXTREMES = [
     {
         "name": "humidity_relative_max",
         "name_original": "max_relative_hum",
@@ -115,6 +123,295 @@ _MONTHLY_PARAMETERS = [
         "name_original": "min_relative_hum",
         "unit": "percent",
     },
+]
+_CLOUD_COVER_MEAN = {
+    "name": "cloud_cover_total_mean",
+    "name_original": "mean_cloud_cover",
+    "unit": "percent",
+}
+# Counts of the days of a month or a year on which a threshold was passed. DMI counts the precipitation days at "greater
+# than or equal to" 0.1, 1 and 10 mm, the ice days at a maximum below 0 and the frost days at a minimum below 0 degrees
+# Celsius, as the canonical names do. The summer days ("maximum temperature > 25 °C") and the tropical nights ("minimum
+# temperature > 20 °C") are counted past the threshold, where `count_days_summer` and `count_days_tropical_night` count
+# from it (GH-3622): DMI's monthly counts equal the days of its daily values above the threshold in all 157 months it
+# published for 2010 to 2023 (of 168) at each of 06180, 06070 and 06041, and fall short of the days at it or above in
+# 5, 13 and 1 of them for the summer days (06180, 06070, 06041) and in 0, 1 and 1 for the tropical nights.
+_DAY_COUNTS = [
+    {
+        "name": "count_days_ice",
+        "name_original": "no_ice_days",
+        "unit": "dimensionless",
+    },
+    {
+        "name": "count_days_frost",
+        "name_original": "no_frost_days",
+        "unit": "dimensionless",
+    },
+    {
+        "name": "count_days_summer",
+        "name_original": "no_summer_days",
+        "unit": "dimensionless",
+    },
+    {
+        "name": "count_days_tropical_night",
+        "name_original": "no_tropical_nights",
+        "unit": "dimensionless",
+    },
+    {
+        "name": "count_days_precipitation_amount_ge_0_1mm",
+        "name_original": "no_days_acc_precip_01",
+        "unit": "dimensionless",
+    },
+    {
+        "name": "count_days_precipitation_amount_ge_1mm",
+        "name_original": "no_days_acc_precip_1",
+        "unit": "dimensionless",
+    },
+    {
+        "name": "count_days_precipitation_amount_ge_10mm",
+        "name_original": "no_days_acc_precip_10",
+        "unit": "dimensionless",
+    },
+]
+
+# The global radiation of a day, a month and a year (the sum of the underlying hourly values), which DMI publishes in
+# MJ/m2: "for hourly time resolution the unit is W/m^2, for all other time resolutions the unit is MJ/m^2"
+# (https://www.dmi.dk/friedata/dokumentation/climate-data, parameter table, read 2026-10-31). The library has no MJ/m2,
+# so the reader multiplies the value by 1000 (`_TO_DECLARED_UNIT` of `api.py`) and the metadata declares kJ/m2.
+_RADIATION_SUM = {
+    "name": "radiation_global",
+    "name_original": "mean_radiation",
+    "unit": "kilojoule_per_square_meter",
+}
+# The mean vapour pressure, from the hourly values of the mean temperature and the mean relative humidity
+# (DMI: "calculation method of mean_vapour_pressure"), published from the day on.
+_VAPOUR_PRESSURE = {
+    "name": "pressure_vapor_mean",
+    "name_original": "mean_vapour_pressure",
+    "unit": "hectopascal",
+}
+# Counts of the days on which DMI's own threshold was passed (DMI's calculation table, read 2026-10-31). Each is
+# `>=` or `>` or `<` as DMI writes it, and each was held to the daily values DMI publishes (GH-3622):
+# - `no_cold_days`: the days with `min_temp` "less than -10 °C" (`<` fits the monthly counts of 04339, 04250 and 04320
+#   of 2011 to 2025 in 152 of 153, 176 of 177 and 180 of 180 months, `<=` in 135, 157 and 172);
+# - `no_windy_days`, `no_stormy_days`, `no_days_w_storm`, `no_days_w_hurricane`: the days with `max_wind_speed_10min`
+#   (the highest 10-minute mean of the day, `wind_speed_rolling_mean_max`) "greater or equal to" 10.8, 20.8, 24.5 and
+#   28.5 m/s; the parameter table calls it "mean wind speed" but the daily mean does not fit the counts (2 of 60 months
+#   at 06180 for the windy days against 59 for the maximum), `>` does not either (121 of 145 months at 04339);
+# - `no_clear_days` and `no_cloudy_days`: the days with `mean_cloud_cover` "less than 20%" and "greater than 80%",
+#   published for every day as 1 or 0 and summed for months and years (every one of 5,404, 5,142 and 5,245 days of
+#   04220, 04250 and 04270 is as `<` 20 and `>` 80 say, 63, 74 and 84 days have exactly 80);
+# - `no_days_snow_cover`: the days with `snow_depth` "greater than 0" and `snow_cover` "greater than 50" (percent), in
+#   the months of 2011 to 2015 at five stations (all 35 months of 06180).
+_COUNTS_OF_DAYS_PAST_A_THRESHOLD = [
+    {
+        "name": "count_days_temperature_air_min_2m_lt_minus_10c",
+        "name_original": "no_cold_days",
+        "unit": "dimensionless",
+    },
+    {
+        "name": "count_days_wind_speed_rolling_mean_max_ge_10_8mps",
+        "name_original": "no_windy_days",
+        "unit": "dimensionless",
+    },
+    {
+        "name": "count_days_wind_speed_rolling_mean_max_ge_20_8mps",
+        "name_original": "no_stormy_days",
+        "unit": "dimensionless",
+    },
+    {
+        "name": "count_days_wind_speed_rolling_mean_max_ge_24_5mps",
+        "name_original": "no_days_w_storm",
+        "unit": "dimensionless",
+    },
+    {
+        "name": "count_days_wind_speed_rolling_mean_max_ge_28_5mps",
+        "name_original": "no_days_w_hurricane",
+        "unit": "dimensionless",
+    },
+    {
+        "name": "count_days_snow_cover_gt_50pct",
+        "name_original": "no_days_snow_cover",
+        "unit": "dimensionless",
+    },
+]
+_CLEAR_AND_CLOUDY_DAYS = [
+    {
+        "name": "count_days_cloud_cover_total_mean_lt_20pct",
+        "name_original": "no_clear_days",
+        "unit": "dimensionless",
+    },
+    {
+        "name": "count_days_cloud_cover_total_mean_gt_80pct",
+        "name_original": "no_cloudy_days",
+        "unit": "dimensionless",
+    },
+]
+# The greatest depth of snow of a month and of a year (the highest of the daily `snow_depth`), published for 115
+# stations, with the date it was reached.
+_SNOW_DEPTH_MAX = {
+    "name": "snow_depth_max",
+    "name_original": "max_snow_depth",
+    "unit": "centimeter",
+}
+# The soil temperature at 10 cm: the mean of the hour, and of the day the average of the hourly values.
+_SOIL_TEMPERATURE = {
+    "name": "temperature_soil_mean_0_1m",
+    "name_original": "temp_soil_10",
+    "unit": "degree_celsius",
+}
+
+# Five parameters that DMI publishes for part of its stations only, read from the live service on 2026-11-01 (GH-3622).
+# `snow_cover` is a daily value of 2011-01-01 to 2015-11-21 and nothing else (hour, month and year come back empty);
+# the other four are published by the hour and the day, with no month or year. The daily value is the average of the
+# hourly values, as DMI's calculation table says, except the minutes of leaf wetness, which the day adds up (see
+# `_LEAF_WETNESS`).
+#
+# The air temperature at grass height, "5-20 cm over terrain": the mean of the hour (`temp_grass_mean_past1h`).
+_GRASS_TEMPERATURE = {
+    "name": "temperature_air_mean_grass_height",
+    "name_original": "temp_grass",
+    "unit": "degree_celsius",
+}
+# The soil temperature at a depth of 30 cm, daily only: DMI's day is the "average of all hourly values within a day",
+# a mean, but it names no metObs parameter for the hourly value ("N/A" in the calculation table), and the 10 cm value
+# beside it is documented as the mean of the hour (`temp_soil_mean_past1h`). A source that states no statistic below
+# daily takes a spot name (GH-2657), so the hourly value of `temp_soil_30` waits for DMI's answer (GH-3622).
+_SOIL_TEMPERATURE_30 = {
+    "name": "temperature_soil_mean_0_3m",
+    "name_original": "temp_soil_30",
+    "unit": "degree_celsius",
+}
+# The minutes of the hour with a wet leaf (`leav_hum_dur_past1h` of metObs, 0 to 60). DMI's calculation table says the
+# day is "average of all hourly values within a day", but the values are the sum: a mean of minutes cannot pass 60,
+# and 06135 has 1332.0, 39.0 and 364.0 on 2025-06-10 to 12 (the fixture of the tests), 06068 1440.0 (24 times 60.0)
+# on 2025-06-11 (GH-3622).
+_LEAF_WETNESS = {
+    "name": "leaf_wetness_duration",
+    "name_original": "leaf_moisture",
+    "unit": "minute",
+}
+# The share of the ground covered by snow, in percent, observed by hand once a day like the snow depth
+# (`snow_cover_man` of metObs; DMI: "derived directly ..., but codes are changed to %"), a day of 06:00 to 06:00 UTC
+# labelled by the date it begins. All 62,399 values of 91 stations are whole percent from 0 to 100,
+# and none is a sentinel.
+_SNOW_COVER = {
+    "name": "snow_cover",
+    "name_original": "snow_cover",
+    "unit": "percent",
+}
+# The vapour pressure deficit, from the hourly mean temperature and mean relative humidity ("Calculation method for
+# vapour_pressure_deficit_mean"), in kPa.
+_VAPOUR_PRESSURE_DEFICIT = {
+    "name": "vapor_pressure_deficit_mean",
+    "name_original": "vapour_pressure_deficit_mean",
+    "unit": "kilopascal",
+}
+
+_HOURLY_PARAMETERS = [
+    *_BASE_PARAMETERS,
+    _SUNSHINE_HOURLY,
+    {
+        # the mean intensity of the hour (`radia_glob_past1h` of metObs), in W/m2
+        "name": "radiation_global_intensity_mean",
+        "name_original": "mean_radiation",
+        "unit": "watt_per_square_meter",
+    },
+    {
+        # the reading at minute 0 of the hour (`cloud_cover` of metObs), no mean
+        "name": "cloud_cover_total",
+        "name_original": "mean_cloud_cover",
+        "unit": "percent",
+    },
+    # the extremes and the sums of the 12 and 24 hours up to the report, at 06 and 18 UTC (12 hours; the temperatures
+    # also at 12 and 00 UTC for a few stations) and at 00, 06, 12 and 18 UTC (24 hours). DMI's `from` is the start of
+    # the last hour of the window, so the reader stamps them by `to`, the end of the window (`api.py`). The
+    # temperatures are the highest and lowest of the 12 hourly values before the report (75 of 75 values of 04339, June
+    # 2025, for both); the precipitation is the gauge's own reading and within a few tenths of a millimetre of the sum
+    # of the hourly values (33 of 39 12 hour and 38 of 44 24 hour values of the month are the sum to a tenth)
+    {
+        "name": "temperature_air_max_2m_last_12h",
+        "name_original": "max_temp_12h",
+        "unit": "degree_celsius",
+    },
+    {
+        "name": "temperature_air_min_2m_last_12h",
+        "name_original": "min_temperature_12h",
+        "unit": "degree_celsius",
+    },
+    {
+        "name": "precipitation_amount_last_12h",
+        "name_original": "acc_precip_past12h",
+        "unit": "millimeter",
+    },
+    {
+        "name": "precipitation_amount_last_24h",
+        "name_original": "acc_precip_past24h",
+        "unit": "millimeter",
+    },
+    _SOIL_TEMPERATURE,
+    _GRASS_TEMPERATURE,
+    _LEAF_WETNESS,
+    _VAPOUR_PRESSURE_DEFICIT,
+]
+
+_DAILY_PARAMETERS = [
+    *_BASE_PARAMETERS,
+    *_PRESSURE_EXTREMES,
+    *_HUMIDITY_RELATIVE_EXTREMES,
+    _SUNSHINE,
+    _CLOUD_COVER_MEAN,
+    _RADIATION_SUM,
+    _VAPOUR_PRESSURE,
+    _SOIL_TEMPERATURE,
+    _GRASS_TEMPERATURE,
+    _SOIL_TEMPERATURE_30,
+    _LEAF_WETNESS,
+    _VAPOUR_PRESSURE_DEFICIT,
+    _SNOW_COVER,
+    *_CLEAR_AND_CLOUDY_DAYS,
+    {
+        # measured by hand once a day, at 07:00 UTC (`snow_depth_man` of metObs), and so a reading of the day of 06:00
+        # to 06:00 UTC that it falls in the start of. DMI turns the codes of the source into numbers: -1 ("less than
+        # 0.5 cm") is 0.5 and -2 is 0
+        "name": "snow_depth_manual",
+        "name_original": "snow_depth",
+        "unit": "centimeter",
+    },
+    {
+        # maximum 30-minute precipitation within the day, from 23:31 local time of the previous day (GH-2614)
+        "name": "precipitation_amount_max_30min",
+        "name_original": "max_precip_30m",
+        "unit": "millimeter",
+    },
+    _HEATING_DEGREE_DAY,
+]
+
+# Monthly aggregates add mean daily extremes, relative-humidity extremes, the
+# maximum 24-hour precipitation total and the counts of days.
+_MONTHLY_PARAMETERS = [
+    *_BASE_PARAMETERS,
+    *_PRESSURE_EXTREMES,
+    _HEATING_DEGREE_DAY,
+    _SUNSHINE,
+    _CLOUD_COVER_MEAN,
+    _RADIATION_SUM,
+    _VAPOUR_PRESSURE,
+    _SNOW_DEPTH_MAX,
+    *_DAY_COUNTS,
+    *_COUNTS_OF_DAYS_PAST_A_THRESHOLD,
+    *_CLEAR_AND_CLOUDY_DAYS,
+    {
+        "name": "temperature_air_max_2m_mean",
+        "name_original": "mean_daily_max_temp",
+        "unit": "degree_celsius",
+    },
+    {
+        "name": "temperature_air_min_2m_mean",
+        "name_original": "mean_daily_min_temp",
+        "unit": "degree_celsius",
+    },
+    *_HUMIDITY_RELATIVE_EXTREMES,
     {
         "name": "precipitation_amount_max",
         "name_original": "max_precip_24h",
@@ -122,13 +419,8 @@ _MONTHLY_PARAMETERS = [
     },
 ]
 
-# Yearly aggregates match monthly minus the relative-humidity extremes (not published at
-# year resolution).
-_ANNUAL_PARAMETERS = [
-    parameter
-    for parameter in _MONTHLY_PARAMETERS
-    if parameter["name"] not in ("humidity_relative_max", "humidity_relative_min")
-]
+# Yearly aggregates are the monthly ones, the relative-humidity extremes included.
+_ANNUAL_PARAMETERS = list(_MONTHLY_PARAMETERS)
 
 
 def _default_dataset(parameters: list[dict]) -> dict:
@@ -170,7 +462,7 @@ _DmiObservationMetadataSpec = {
             "name_original": "hour",
             "periods": ["historical"],
             "date_required": True,
-            "datasets": [_default_dataset(_BASE_PARAMETERS)],
+            "datasets": [_default_dataset(_HOURLY_PARAMETERS)],
         },
         {
             "name": "daily",

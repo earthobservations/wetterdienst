@@ -13,10 +13,12 @@ import polars as pl
 import pytest
 
 from tests.conftest import BUFR_AVAILABLE
-from wetterdienst import Settings
+from tests.provider.judging import applying, judged
+from wetterdienst import Options, Settings
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.model.judge import _stuck_runs, plan_for
 from wetterdienst.model.metadata import DatasetModel
-from wetterdienst.model.quality_flags import null_sentinels
+from wetterdienst.model.plausibility import Plausibility
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.model.schema import LONG_SCHEMA
 from wetterdienst.model.values import shape_provider_frame
@@ -32,11 +34,36 @@ _PARSED_SCHEMA_FOR_TEST = {
 }
 
 
+_MELTING_POINT = 273.15
+
+
+def _flag_stuck_sensors(df: pl.DataFrame, source: str = "a-group") -> pl.DataFrame:  # noqa: ARG001
+    """Mark the readings of a stopped sensor as the reader did before the core judged them: `_stuck`, `quality` 1.
+
+    The core judges in °C, the frames of these tests are in kelvin as DWD writes them, so a temperature is converted
+    for the run rule and nothing else about the frame changes. Station by station, as the core is given one.
+    """
+    dataset = DwdRoadRequest.metadata["15_minutes"]["data"]
+    plan = plan_for("dwd/road", dataset)
+    parts = []
+    for part in df.partition_by("station_id", maintain_order=True) if not df.is_empty() else [df]:
+        if part.is_empty():
+            parts.append(part.with_columns(pl.lit(value=False).alias("_stuck")))
+            continue
+        celsius = part.with_columns(pl.col("value") - _MELTING_POINT)
+        parts.append(part.with_columns(_stuck_runs(celsius, plan).alias("_stuck")))
+    marked = pl.concat(parts)
+    return marked.with_columns(quality=pl.when(pl.col("_stuck")).then(pl.lit(1.0)).otherwise(pl.col("quality")))
+
+
 def _collected(values: object, station_id: str, dataset: DatasetModel | None = None) -> pl.DataFrame:
     """Collect one station's frame as the core hands it out: the provider's rows, shaped by the core."""
     dataset = dataset or DwdRoadRequest.metadata["15_minutes"]["data"]
     df = values._collect_station_parameter_or_dataset(station_id, dataset)  # noqa: SLF001
-    return shape_provider_frame(df, station_id=station_id, dataset=dataset, provider="DwdRoadValues")
+    df = shape_provider_frame(df, station_id=station_id, dataset=dataset, provider="DwdRoadValues")
+    # judged by the core, in canonical units, and handed back in the unit DWD wrote
+    rules = values._plausibility_rules(station_id, dataset)  # noqa: SLF001
+    return judged(df, network="dwd/road", dataset=dataset, rules=rules)
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
@@ -98,6 +125,7 @@ def test_dwd_road_weather_station_groups() -> None:
 def _stub_stations(
     station_ids: tuple[str, ...] = ("A006",),
     parameters: list[tuple[str, str, str]] | None = None,
+    options: Options | None = None,
 ) -> StationsResult:
     """Stand a road station up rather than look one up.
 
@@ -106,7 +134,10 @@ def _stub_stations(
     """
     # the road feed is read by a window (`date_required`); this one holds every reading a test stands up
     request = DwdRoadRequest(
-        parameters=parameters or [("15_minutes", "data", "temperature_air")], start="2000-01-01", end="2100-01-01"
+        parameters=parameters or [("15_minutes", "data", "temperature_air")],
+        start="2000-01-01",
+        end="2100-01-01",
+        options=options,
     )
     df_stations = pl.DataFrame(
         [
@@ -898,7 +929,7 @@ def _series(station_id: str, parameter: str, values: list[float | None]) -> pl.D
     )
 
 
-def test_dwd_road_weather_marks_a_sensor_that_has_stopped(caplog: pytest.LogCaptureFixture) -> None:
+def test_dwd_road_weather_marks_a_sensor_that_has_stopped() -> None:
     """A temperature that has not moved for six hours is a sensor, not a road.
 
     DWD's own flag names 4 of the 21 stations in a network-wide file that sit more than 10 K from
@@ -908,20 +939,13 @@ def test_dwd_road_weather_marks_a_sensor_that_has_stopped(caplog: pytest.LogCapt
     stopped. Matching them by value would have been worse than useless, -25 and -30 both being
     reachable in a German winter.
     """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     stuck = _series("H659", "roadSurfaceTemperature", [198.15] * 30)
-    with caplog.at_level(logging.DEBUG):
-        df = api._flag_stuck_sensors(stuck, "a-group")  # noqa: SLF001
+    df = _flag_stuck_sensors(stuck, "a-group")
 
     assert df.get_column("quality").to_list() == [1.0] * 30
-    # at debug, not info: the road values are collected a station at a time and each of those
-    # parses the whole group again, so at info this group-wide line is printed once per station
-    assert [record.levelname for record in caplog.records if "GH-1917" in record.message] == ["DEBUG"]
-    # marked, not removed: the reading is still exactly what DWD published
+    # marked, not removed: the reading is still exactly what DWD published (the debug line that named the sensors is
+    # gone with the move: the core judges a station at a time and has no group to name)
     assert df.get_column("value").to_list() == [198.15] * 30
-    assert "H659/roadSurfaceTemperature" in caplog.text
-    assert "kept as published" in caplog.text
 
 
 @pytest.mark.parametrize(
@@ -943,9 +967,7 @@ def test_dwd_road_weather_stuck_threshold(
     case: str,
 ) -> None:
     """The run that counts as stopped sits between what a working sensor does and what a dead one does."""
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
-    df = api._flag_stuck_sensors(_series("A006", "roadSurfaceTemperature", values), "a-group")  # noqa: SLF001
+    df = _flag_stuck_sensors(_series("A006", "roadSurfaceTemperature", values), "a-group")
     assert (df.get_column("quality").eq(1.0).any()) is expected, case
 
 
@@ -961,18 +983,16 @@ def test_dwd_road_weather_a_run_is_not_read_across_an_outage() -> None:
     the two: 99.5% of this network's intervals are the quarter hour it publishes on, and the tail
     runs past six hours.
     """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     plateau = _series("A006", "roadSurfaceTemperature", [285.0] * 12)
     later = plateau.with_columns(pl.col("timestamp") + pl.duration(days=3))
-    across = api._flag_stuck_sensors(pl.concat([plateau, later]), "a-group")  # noqa: SLF001
+    across = _flag_stuck_sensors(pl.concat([plateau, later]), "a-group")
     assert not across.get_column("quality").eq(1.0).any()
 
     # and the hole ends the run rather than the marking: a sensor that has stopped either side of
     # one is still stopped, where scoring the whole span at once let a single gap clear the lot
     long_enough = _series("A006", "roadSurfaceTemperature", [285.0] * 34)
     beyond = long_enough.with_columns(pl.col("timestamp") + pl.duration(hours=12))
-    both = api._flag_stuck_sensors(pl.concat([long_enough, beyond]), "a-group")  # noqa: SLF001
+    both = _flag_stuck_sensors(pl.concat([long_enough, beyond]), "a-group")
     assert both.get_column("quality").eq(1.0).all()
 
 
@@ -983,12 +1003,10 @@ def test_dwd_road_weather_a_missed_file_does_not_break_a_run() -> None:
     the ordinary missed file. FN/P367 holds one air temperature for 88 readings with seven such
     gaps among them, and is certainly broken.
     """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     readings = _series("A006", "roadSurfaceTemperature", [285.0] * 30)
     # every seventh reading dropped, which is a good deal worse than the network manages
     sparse = readings.filter(pl.int_range(pl.len()).mod(7).ne(0))
-    assert api._flag_stuck_sensors(sparse, "a-group").get_column("quality").eq(1.0).all()  # noqa: SLF001
+    assert _flag_stuck_sensors(sparse, "a-group").get_column("quality").eq(1.0).all()
 
 
 @pytest.mark.parametrize("every", [5, 15, 20, 30])
@@ -999,13 +1017,11 @@ def test_dwd_road_weather_stuck_run_counts_readings_whatever_the_cadence(every: 
     never be flagged however long it had been stopped, and one publishing every five tripped at two
     hours where the count is documented as six.
     """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     readings = _series("A006", "roadSurfaceTemperature", [285.0] * 24)
     spaced = readings.with_columns(
         pl.col("timestamp").first() + pl.duration(minutes=every) * pl.int_range(pl.len()),
     )
-    assert api._flag_stuck_sensors(spaced, "a-group").get_column("quality").eq(1.0).all()  # noqa: SLF001
+    assert _flag_stuck_sensors(spaced, "a-group").get_column("quality").eq(1.0).all()
 
 
 def test_dwd_road_weather_a_minute_arriving_twice_is_one_minute() -> None:
@@ -1017,15 +1033,13 @@ def test_dwd_road_weather_a_minute_arriving_twice_is_one_minute() -> None:
     a duplicated minute puts a zero among the intervals and so a zero in their median, which ends
     a run at every reading: a sensor stuck for a whole day came back with nothing marked at all.
     """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     stuck = _series("A006", "roadSurfaceTemperature", [285.0] * 30)
     air = _series("B999", "airTemperature", [280.0] * 30)
     doubled_air = pl.concat([stuck, _series("A006", "airTemperature", [280.0] * 30), air, air])
-    assert api._flag_stuck_sensors(doubled_air, "a-group").height == doubled_air.height  # noqa: SLF001
+    assert _flag_stuck_sensors(doubled_air, "a-group").height == doubled_air.height
 
     doubled_readings = pl.concat([stuck, stuck])
-    marked = api._flag_stuck_sensors(doubled_readings, "a-group")  # noqa: SLF001
+    marked = _flag_stuck_sensors(doubled_readings, "a-group")
     assert marked.get_column("quality").eq(1.0).all()
 
 
@@ -1036,11 +1050,9 @@ def test_dwd_road_weather_a_verdict_stays_with_the_reading_it_was_reached_from()
     landed on the second as well -- including one holding a value that had moved and belonged to no
     run at all, which came back marked as though the sensor had never budged.
     """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     stuck = _series("A006", "roadSurfaceTemperature", [285.0] * 30)
     moved = stuck.tail(1).with_columns(value=pl.lit(286.4))
-    marked = api._flag_stuck_sensors(pl.concat([stuck, moved]), "a-group")  # noqa: SLF001
+    marked = _flag_stuck_sensors(pl.concat([stuck, moved]), "a-group")
 
     assert marked.filter(pl.col("value").eq(286.4)).get_column("quality").to_list() == [None]
     assert marked.filter(pl.col("value").eq(285.0)).get_column("quality").eq(1.0).all()
@@ -1054,8 +1066,6 @@ def test_dwd_road_weather_a_frost_is_not_a_thaw() -> None:
     docs described the bound as "within 10 degrees of freezing", which reads as both sides and is
     what actually separates a thaw from a frost.
     """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     melting_point = 273.15
     df = pl.concat(
         [
@@ -1063,7 +1073,7 @@ def test_dwd_road_weather_a_frost_is_not_a_thaw() -> None:
             _series("A006", "airTemperature", [melting_point - 20] * 30),
         ],
     )
-    marked = api._flag_stuck_sensors(df, "a-group").filter(  # noqa: SLF001
+    marked = _flag_stuck_sensors(df, "a-group").filter(
         pl.col("parameter").eq("roadSurfaceTemperature"),
     )
     assert marked.get_column("quality").eq(1.0).all()
@@ -1077,13 +1087,11 @@ def test_dwd_road_weather_only_the_quantities_that_can_be_marked_are_examined() 
     peak memory against 2.06, inside the one function the code around it was restructured to keep
     out of memory.
     """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     stuck = _series("A006", "roadSurfaceTemperature", [285.0] * 30)
     others = pl.concat(
         [_series("A006", name, [0.0] * 30) for name in ("precipitationType", "waterFilmThickness", "windSpeed")],
     )
-    marked = api._flag_stuck_sensors(pl.concat([stuck, others]), "a-group")  # noqa: SLF001
+    marked = _flag_stuck_sensors(pl.concat([stuck, others]), "a-group")
 
     # the ones that cannot be marked come back exactly as they went in, constant though they are
     assert marked.filter(pl.col("parameter").ne("roadSurfaceTemperature")).get_column("quality").is_null().all()
@@ -1097,28 +1105,24 @@ def test_dwd_road_weather_a_null_reading_is_a_missed_one() -> None:
     as a value, the null ended a run that the absent row was allowed to span, so a sensor dropping
     one reading in twenty was never flagged however long it had stopped.
     """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     with_nulls = _series("A006", "roadSurfaceTemperature", [285.0 if i % 20 else None for i in range(96)])
     absent = with_nulls.drop_nulls("value")
-    marked_nulls = api._flag_stuck_sensors(with_nulls, "a-group")  # noqa: SLF001
-    marked_absent = api._flag_stuck_sensors(absent, "a-group")  # noqa: SLF001
+    marked_nulls = _flag_stuck_sensors(with_nulls, "a-group")
+    marked_absent = _flag_stuck_sensors(absent, "a-group")
     assert marked_nulls.get_column("quality").eq(1.0).sum() == marked_absent.get_column("quality").eq(1.0).sum()
     assert marked_absent.get_column("quality").eq(1.0).all()
 
 
 def test_dwd_road_weather_stuck_marking_leaves_the_frame_as_it_found_it() -> None:
     """Marking changes a verdict and nothing else about the frame."""
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     df = _series("A006", "roadSurfaceTemperature", [285.0] * 30)
-    marked = api._flag_stuck_sensors(df, "a-group")  # noqa: SLF001
+    marked = _flag_stuck_sensors(df, "a-group")
     assert marked.get_column("value").to_list() == df.get_column("value").to_list()
     assert marked.select("station_id", "timestamp", "parameter").equals(
         df.select("station_id", "timestamp", "parameter")
     )
     # and running it again says the same thing, the column it writes being one it also reads
-    assert api._flag_stuck_sensors(marked, "a-group").get_column("quality").to_list() == (  # noqa: SLF001
+    assert _flag_stuck_sensors(marked, "a-group").get_column("quality").to_list() == (
         marked.get_column("quality").to_list()
     )
 
@@ -1130,8 +1134,6 @@ def test_dwd_road_weather_melting_is_asked_of_the_reading_not_the_window() -> No
     excuses every plateau in it, and the same day then answers differently depending on how much of
     the year the caller asked for.
     """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     df = pl.concat(
         [
             _series("A006", "roadSurfaceTemperature", [273.15] * 96),
@@ -1139,7 +1141,7 @@ def test_dwd_road_weather_melting_is_asked_of_the_reading_not_the_window() -> No
             _series("A006", "airTemperature", [299.15] * 90 + [277.05] * 6),
         ],
     )
-    surface = api._flag_stuck_sensors(df, "a-group").filter(  # noqa: SLF001
+    surface = _flag_stuck_sensors(df, "a-group").filter(
         pl.col("parameter").eq("roadSurfaceTemperature"),
     )
     # the readings taken while nothing could have been melting, and not the six that could
@@ -1170,15 +1172,13 @@ def test_dwd_road_weather_brine_holds_a_salted_road_below_zero(
     range is bounded below all the same, which is what keeps a sensor stopped at -30 C in a frost
     from being excused along with it.
     """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     df = pl.concat(
         [
             _series("A006", "roadSurfaceTemperature", [surface] * 30),
             _series("A006", "airTemperature", [air] * 30),
         ],
     )
-    marked = api._flag_stuck_sensors(df, "a-group").filter(  # noqa: SLF001
+    marked = _flag_stuck_sensors(df, "a-group").filter(
         pl.col("parameter").eq("roadSurfaceTemperature"),
     )
     assert marked.get_column("quality").eq(1.0).any() is expected, case
@@ -1207,11 +1207,9 @@ def test_dwd_road_weather_stuck_needs_the_hours_as_well_as_the_readings(
     A floor and not a divisor: measuring against a fixed cadence instead once made a station
     reporting every twenty minutes impossible to flag at all.
     """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     series = _series("A006", "roadSurfaceTemperature", [285.0] * readings)
     spaced = series.with_columns(pl.col("timestamp").first() + pl.duration(minutes=every) * pl.int_range(pl.len()))
-    marked = api._flag_stuck_sensors(spaced, "a-group")  # noqa: SLF001
+    marked = _flag_stuck_sensors(spaced, "a-group")
     assert marked.get_column("quality").eq(1.0).any() is expected, case
 
 
@@ -1235,15 +1233,13 @@ def test_dwd_road_weather_a_melting_road_is_not_a_stopped_sensor(
     -- FN/P717 sits at 0.00 C all day and is broken -- so it is told by the air: ice does not melt
     on a road whose own station reports 26 C, which is what P717's does.
     """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     df = pl.concat(
         [
             _series("A006", "roadSurfaceTemperature", [273.15] * 30),
             _series("A006", "airTemperature", [air + 0.01 * i for i in range(30)]),
         ],
     )
-    marked = api._flag_stuck_sensors(df, "a-group")  # noqa: SLF001
+    marked = _flag_stuck_sensors(df, "a-group")
     surface = marked.filter(pl.col("parameter").eq("roadSurfaceTemperature"))
     assert surface.get_column("quality").eq(1.0).any() is expected, case
 
@@ -1260,16 +1256,12 @@ def test_dwd_road_weather_does_not_call_a_quiet_day_a_fault(parameter: str) -> N
     of five groups, a threshold applied to these would have called 547 of 571 stations' surface
     condition a fault, and 61 of 581 humidities -- a quiet day reported as a broken network.
     """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
-    df = api._flag_stuck_sensors(_series("A006", parameter, [0.0] * 96), "a-group")  # noqa: SLF001
+    df = _flag_stuck_sensors(_series("A006", parameter, [0.0] * 96), "a-group")
     assert df.get_column("quality").to_list() == [None] * 96
 
 
 def test_dwd_road_weather_stuck_check_keeps_one_station_out_of_another(caplog: pytest.LogCaptureFixture) -> None:
     """One station standing still says nothing about the next one's readings."""
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     moving = [280.0 + 0.1 * i for i in range(30)]
     df = pl.concat(
         [
@@ -1278,7 +1270,7 @@ def test_dwd_road_weather_stuck_check_keeps_one_station_out_of_another(caplog: p
         ],
     )
     with caplog.at_level(logging.INFO):
-        out = api._flag_stuck_sensors(df, "a-group")  # noqa: SLF001
+        out = _flag_stuck_sensors(df, "a-group")
 
     assert out.filter(pl.col("station_id").eq("H659")).get_column("quality").to_list() == [1.0] * 30
     assert out.filter(pl.col("station_id").eq("A006")).get_column("quality").to_list() == [None] * 30
@@ -1295,14 +1287,12 @@ def test_dwd_road_weather_stuck_check_counts_minutes_not_rows() -> None:
     publishing under two families, a file republished -- counted twice would halve the window, and
     a working sensor's measured 14-reading plateau would double into a fault.
     """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     # thirteen minutes at one value, which is three and a quarter hours and no fault
     plateau = _series("A006", "airTemperature", [285.0] * 13)
-    assert not api._flag_stuck_sensors(plateau, "a-group").get_column("quality").eq(1.0).any()  # noqa: SLF001
+    assert not _flag_stuck_sensors(plateau, "a-group").get_column("quality").eq(1.0).any()
     doubled = pl.concat([plateau, plateau])
     assert doubled.get_column("timestamp").n_unique() == 13
-    assert not api._flag_stuck_sensors(doubled, "a-group").get_column("quality").eq(1.0).any()  # noqa: SLF001
+    assert not _flag_stuck_sensors(doubled, "a-group").get_column("quality").eq(1.0).any()
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
@@ -1521,10 +1511,9 @@ def test_dwd_road_weather_a_real_file_decodes() -> None:
 
 def _out_of_range(parameter: str, values: list[float]) -> pl.DataFrame:
     """Give the value and the `raw` text the reader's ranges make of readings of one descriptor."""
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
-    value, raw = null_sentinels(pl.col("value"), *api._OUT_OF_RANGE, text=False)  # noqa: SLF001
-    return _series("A006", parameter, values).select(value.alias("value"), raw.alias("raw"))
+    dataset = DwdRoadRequest.metadata["15_minutes"]["data"]
+    df = judged(_series("A006", parameter, values), network="dwd/road", dataset=dataset)
+    return df.select("value", pl.col("quality_flags").alias("raw"))
 
 
 @pytest.mark.parametrize(
@@ -1545,15 +1534,13 @@ def test_dwd_road_weather_impossible_temperature_is_null(
     case: str,
 ) -> None:
     """A temperature no reading can hold is null with the number DWD wrote; a merely extreme one stays (GH-3222)."""
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
-    published = round(api._MELTING_POINT + celsius, 2)  # noqa: SLF001
+    published = round(_MELTING_POINT + celsius, 2)
     df = _out_of_range("roadSurfaceTemperature", [published] * 3)
 
     # every reading or none of them: the three hold the same value
     assert df.get_column("value").is_null().all() == nulled, case
     assert df.get_column("value").is_null().any() == nulled, case
-    assert df.get_column("raw").to_list() == ([str(published)] * 3 if nulled else [None] * 3), case
+    assert df.get_column("raw").to_list() == ([f"rejected:range,raw:{published}"] * 3 if nulled else [None] * 3), case
 
 
 def test_dwd_road_weather_impossible_temperature_needs_no_window() -> None:
@@ -1563,12 +1550,10 @@ def test_dwd_road_weather_impossible_temperature_needs_no_window() -> None:
     sensors; asked for one, it has five readings to judge from and marks nothing, while the station
     still reports -75 C.
     """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     # five readings, as an hour of this network holds -- far short of the 24 the run rule wants
     an_hour = _series("A006", "roadSurfaceTemperature", [198.15] * 5)
 
-    assert not api._flag_stuck_sensors(an_hour, "a-group").get_column("quality").eq(1.0).any()  # noqa: SLF001
+    assert not _flag_stuck_sensors(an_hour, "a-group").get_column("quality").eq(1.0).any()
     assert _out_of_range("roadSurfaceTemperature", [198.15] * 5).get_column("value").is_null().all()
 
 
@@ -1632,8 +1617,300 @@ def test_dwd_road_weather_an_impossible_value_is_null_with_its_number(monkeypatc
     rows = {
         parameter: (value, flags) for parameter, value, flags in df.select("parameter", "value", "quality_flags").rows()
     }
-    assert rows["roadSurfaceTemperature"] == (None, "1,raw:198.15")
+    assert rows["roadSurfaceTemperature"] == (None, "1,rejected:range,raw:198.15")
     assert rows["airTemperature"] == (285.25, "0")
+
+
+# the stub station of `_stub_stations`, Boeglum in Schleswig-Holstein
+_NIGHT = {"#1#hour": 0}
+_DAY = {"#1#hour": 12}
+# 2026-09-13 at the stub station (54.89 N, 8.91 E): the sun stands at -2.8 degrees at 18:00 UTC and at -9.0 at 18:45
+_TWILIGHT = {"#1#hour": 18, "#1#minute": 0}
+_DEEP_DUSK = {"#1#hour": 18, "#1#minute": 45}
+
+
+def _collect_one(monkeypatch: pytest.MonkeyPatch, subset: dict[str, object]) -> pl.DataFrame:
+    """Read one subset of the stub station through the reader, as the core collects the whole dataset of it."""
+    return _collect_many(monkeypatch, [subset])
+
+
+def _collect_many(monkeypatch: pytest.MonkeyPatch, subsets: list[dict[str, object]]) -> pl.DataFrame:
+    """Read the subsets of the stub station, all in one file, through the reader."""
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    reading = _flat(*({"#1#shortStationName": "A006", **subset} for subset in subsets))
+    monkeypatch.setattr("pdbufr.read_bufr", lambda *_args, **_kwargs: reading)
+    name = "swis2-ISXD70_DWDD_131200-2609131200-DD---bin"
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [name])
+    monkeypatch.setattr(
+        api, "download_files", lambda **_kwargs: [File(url=name, content=BytesIO(b"x" * 500), status=200)]
+    )
+    return _collected(_stub_stations().values(), "A006")
+
+
+def _by_parameter(df: pl.DataFrame) -> dict[str, tuple[float | None, str | None]]:
+    return {name: (value, flags) for name, value, flags in df.select("parameter", "value", "quality_flags").rows()}
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+@pytest.mark.parametrize(
+    ("humidity", "nulled"),
+    [
+        (0.1, True),  # P925's hygrometer: 43 readings of 0.1 % in a 12 h window (GH-3624)
+        (0.0, True),
+        (0.99, True),
+        (1.0, False),  # the line: from 1 % up is left as the sensor wrote it
+        (9.0, False),  # a dry sensor, or a dry day, is not a failed one
+        (87.0, False),
+    ],
+)
+def test_dwd_road_weather_a_humidity_under_one_percent_is_no_reading(
+    monkeypatch: pytest.MonkeyPatch,
+    humidity: float,
+    nulled: bool,  # noqa: FBT001
+) -> None:
+    """A relative humidity under 1 % is null and keeps the number DWD wrote as the last token (GH-3624)."""
+    df = _collect_one(monkeypatch, {**_DAY, "#1#relativeHumidity": humidity})
+    value, flags = _by_parameter(df)["relativeHumidity"]
+    if nulled:
+        assert (value, flags) == (None, f"rejected:range,raw:{humidity:g}")
+    else:
+        assert (value, flags) == (humidity, None)
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+@pytest.mark.parametrize(
+    ("when", "surface", "air", "nulled", "case"),
+    [
+        (_NIGHT, 338.75, 285.25, True, "65.6 C beside 12.1 C at midnight: the 53 K of P034 and P925 (GH-3624)"),
+        (_NIGHT, 305.26, 285.25, True, "20.01 K above the air, the nearest above the line"),
+        (_NIGHT, 305.25, 285.25, False, "20.00 K above the air is on the line, which is the reading's"),
+        (_NIGHT, 300.25, 285.25, False, "15 K: a heated bridge deck or a stored heat is a road"),
+        (_NIGHT, 275.25, 285.25, False, "10 K under the air is an ordinary clear night"),
+        (_DAY, 338.75, 285.25, False, "the same readings at noon: sun on tarmac is a road at 65 C"),
+        (_TWILIGHT, 338.75, 285.25, False, "the sun at -2.8 degrees: the day's heat is not out of the road yet"),
+        (_DEEP_DUSK, 338.75, 285.25, True, "the sun at -9.0 degrees, past the end of civil twilight"),
+        (_NIGHT, 338.75, None, False, "no air beside it, so nothing to hold it to"),
+        (_NIGHT, 338.75, 198.15, False, "the air of -75 C is itself no reading, so it holds nothing to account"),
+    ],
+)
+def test_dwd_road_weather_a_surface_far_above_the_air_at_night_is_no_reading(
+    monkeypatch: pytest.MonkeyPatch,
+    when: dict[str, int],
+    surface: float,
+    air: float | None,
+    nulled: bool,  # noqa: FBT001
+    case: str,
+) -> None:
+    """A road surface more than 20 K above the air with the sun below -6 degrees is null, and keeps its number."""
+    subset = {**when, "#1#roadSurfaceTemperature": surface}
+    if air is not None:
+        subset["#1#airTemperature"] = air
+    rows = _by_parameter(_collect_one(monkeypatch, subset))
+    assert rows["roadSurfaceTemperature"] == (
+        (None, f"rejected:consistency,raw:{surface:g}") if nulled else (surface, None)
+    ), case
+    # the air is never touched by the rule on the surface
+    if air is not None and air > 200:
+        assert rows["airTemperature"][0] == air, case
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+@pytest.mark.parametrize(
+    ("suspect_bit", "nulled"),
+    [
+        (4, False),  # DWD marks the air suspect: it is not held against the surface (the M080 class)
+        (7, True),  # DWD marks the ground temperature suspect, not the air: the air stands
+    ],
+)
+def test_dwd_road_weather_an_air_dwd_marks_suspect_does_not_null_the_surface(
+    monkeypatch: pytest.MonkeyPatch,
+    suspect_bit: int,
+    nulled: bool,  # noqa: FBT001
+) -> None:
+    """Only DWD's own flag excuses the surface; the run rule's verdict depends on the request's window (GH-3624)."""
+    df = _collect_one(
+        monkeypatch,
+        {
+            **_NIGHT,
+            "#1#qualityInformationAwsData": 1 << (30 - suspect_bit),
+            "#1#roadSurfaceTemperature": 338.75,
+            "#1#airTemperature": 285.25,
+        },
+    )
+    rows = _by_parameter(df)
+    # the bit of the air or of the ground sets the verdict of its own reading, `1` suspect, beside the `raw:` token
+    assert rows["roadSurfaceTemperature"] == ((None, "1,rejected:consistency,raw:338.75") if nulled else (338.75, "0"))
+    assert rows["airTemperature"] == ((285.25, "0") if nulled else (285.25, "1"))
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_an_air_the_run_rule_marks_still_holds_the_surface_to_account(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The verdict that excuses an air is DWD's own, not the stuck-sensor rule's, which the request's window decides.
+
+    The air holds -25.00 C for 26 readings of a night (6 h and 15 min) and DWD sets no flag, so the run rule marks it
+    `1`; the surface, 32 K above it and moving, is null all the same (GH-3624).
+    """
+    start = dt.datetime(2026, 9, 13, 20, 45, tzinfo=dt.UTC)
+    subsets = []
+    for i in range(26):
+        at = start + dt.timedelta(minutes=15 * i)
+        subsets.append(
+            {
+                "#1#day": at.day,
+                "#1#hour": at.hour,
+                "#1#minute": at.minute,
+                "#1#airTemperature": 248.15,
+                "#1#roadSurfaceTemperature": round(280.15 + 0.01 * i, 2),
+            }
+        )
+    df = _collect_many(monkeypatch, subsets)
+    surface = df.filter(pl.col("parameter").eq("roadSurfaceTemperature")).sort("timestamp")
+    air = df.filter(pl.col("parameter").eq("airTemperature"))
+    assert surface.get_column("value").to_list() == [None] * 26
+    assert surface.get_column("quality_flags").to_list() == [
+        f"rejected:consistency,raw:{s['#1#roadSurfaceTemperature']:g}" for s in subsets
+    ]
+    assert air.get_column("value").to_list() == [248.15] * 26
+    # DWD sets no flag, and the stopped air is judged by the check `stuck`, which is soft by default
+    assert air.get_column("quality_flags").to_list() == ["suspect:stuck"] * 26
+
+
+def _a_night_of_a_stopped_air() -> list[dict[str, object]]:
+    """Give 26 readings every 15 minutes of an air stopped at -25.00 C and a surface that moves, 32 K above it."""
+    start = dt.datetime(2026, 9, 13, 20, 45, tzinfo=dt.UTC)
+    subsets = []
+    for i in range(26):
+        at = start + dt.timedelta(minutes=15 * i)
+        subsets.append(
+            {
+                "#1#day": at.day,
+                "#1#hour": at.hour,
+                "#1#minute": at.minute,
+                "#1#airTemperature": 248.15,
+                "#1#roadSurfaceTemperature": round(280.15 + 0.01 * i, 2),
+            }
+        )
+    return subsets
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_a_stopped_sensor_is_kept_and_flagged_suspect_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The check `stuck` is soft by default: the air holds -25.00 C, the value stays as DWD wrote it (GH-3676).
+
+    DWD's own flag is kept apart from the verdict: the flag is the plain code, `suspect:stuck` follows it. The same
+    night with the surface 32 K above the air is `consistency`, which is hard by default, so the surface is null.
+    """
+    df = _collect_many(monkeypatch, _a_night_of_a_stopped_air())
+    air = df.filter(pl.col("parameter").eq("airTemperature"))
+    assert air.get_column("value").to_list() == [248.15] * 26
+    assert set(air.get_column("quality_flags")) == {"suspect:stuck"}
+    surface = df.filter(pl.col("parameter").eq("roadSurfaceTemperature"))
+    assert surface.get_column("value").null_count() == 26
+    assert all(flags.startswith("rejected:consistency,raw:") for flags in surface.get_column("quality_flags"))
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_a_stopped_sensor_is_null_with_its_number_where_stuck_is_hard(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With `plausibility={"stuck": "hard"}` the air of the stopped sensor is null, `rejected:stuck,raw:248.15`."""
+    with applying(Plausibility(stuck="hard")):
+        df = _collect_many(monkeypatch, _a_night_of_a_stopped_air())
+    air = df.filter(pl.col("parameter").eq("airTemperature"))
+    assert air.get_column("value").null_count() == 26
+    assert set(air.get_column("quality_flags")) == {"rejected:stuck,raw:248.15"}
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_a_surface_far_above_the_air_is_kept_and_flagged_where_consistency_is_soft(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A surface of 65.6 C beside 12.1 C at midnight is `suspect:consistency`, a humidity under 1 % still null.
+
+    The humidity is the check `range`, which has a mode of its own (GH-3676).
+    """
+    with applying(Plausibility(consistency="soft")):
+        df = _collect_one(
+            monkeypatch,
+            {**_NIGHT, "#1#roadSurfaceTemperature": 338.75, "#1#airTemperature": 285.25, "#1#relativeHumidity": 0.4},
+        )
+    rows = _by_parameter(df)
+    assert rows["roadSurfaceTemperature"] == (338.75, "suspect:consistency")
+    assert rows["relativeHumidity"] == (None, "rejected:range,raw:0.4")
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_the_surface_is_held_to_an_air_that_was_not_asked_for(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A request for the surface alone holds it to the air beside it all the same, and hands out only the surface."""
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    reading = _flat(
+        {**_NIGHT, "#1#shortStationName": "A006", "#1#roadSurfaceTemperature": 338.75, "#1#airTemperature": 285.25}
+    )
+    monkeypatch.setattr("pdbufr.read_bufr", lambda *_args, **_kwargs: reading)
+    name = "swis2-ISXD70_DWDD_131200-2609131200-DD---bin"
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [name])
+    monkeypatch.setattr(
+        api, "download_files", lambda **_kwargs: [File(url=name, content=BytesIO(b"x" * 500), status=200)]
+    )
+    stations = _stub_stations(
+        parameters=[("15_minutes", "data", "temperature_surface")], options=Options(drop_nulls=False)
+    )
+    df = stations.values().all().df
+    assert df.select("parameter", "value", "quality_flags").rows() == [
+        ("temperature_surface", None, "rejected:consistency,raw:338.75")
+    ]
+
+
+@pytest.mark.parametrize(
+    ("timestamp", "latitude", "longitude", "elevation", "tolerance"),
+    [
+        # the end and the beginning of civil twilight, -6 degrees, as the US Naval Observatory publishes them to the
+        # minute (aa.usno.navy.mil/api/rstt/oneday, read 2026-10-31): late October at Berlin, the equinox and the
+        # solstices at 50 N 10 E. A minute is 0.1 to 0.2 degrees of the sun at the horizon
+        ("2026-10-31 16:14", 52.52, 13.405, -6.0, 0.15),
+        ("2026-10-31 05:25", 52.52, 13.405, -6.0, 0.15),
+        ("2026-09-23 17:48", 50.0, 10.0, -6.0, 0.15),
+        ("2026-09-23 04:35", 50.0, 10.0, -6.0, 0.15),
+        ("2026-06-21 20:18", 50.0, 10.0, -6.0, 0.15),
+        ("2026-06-21 02:26", 50.0, 10.0, -6.0, 0.15),
+        ("2026-12-21 15:59", 50.0, 10.0, -6.0, 0.15),
+        # sunrise and sunset: the horizon less the half degree of refraction and the radius of the sun, -0.83, which the
+        # formula leaves out
+        ("2026-10-31 06:01", 52.52, 13.405, -0.83, 0.15),
+        ("2026-10-31 15:39", 52.52, 13.405, -0.83, 0.15),
+        # the upper transit of the same source (its time, the elevation not being published): the sun stands at
+        # 90 - latitude + declination. The declinations are not the observatory's but the textbook's: the obliquity of
+        # the ecliptic, 23.44 degrees, at the two solstices, and about -0.17 degrees at 11:12 UTC on 23 September, 11
+        # hours after the equinox of 00:05 UTC (the sun moves 0.4 degrees of declination a day there)
+        ("2026-06-21 11:22", 50.0, 10.0, 63.44, 0.1),
+        ("2026-12-21 11:18", 50.0, 10.0, 16.56, 0.1),
+        ("2026-09-23 11:12", 50.0, 10.0, 39.83, 0.1),
+        # and the lower transit, twelve hours on, latitude + declination - 90
+        ("2026-06-21 23:22", 50.0, 10.0, -16.56, 0.1),
+        ("2026-12-21 23:18", 50.0, 10.0, -63.44, 0.1),
+    ],
+)
+def test_dwd_road_weather_the_sun_stands_where_the_observatory_puts_it(
+    timestamp: str,
+    latitude: float,
+    longitude: float,
+    elevation: float,
+    tolerance: float,
+) -> None:
+    """The sun that defines the night stands where published times put it, to a fraction of a degree."""
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    frame = pl.DataFrame({"timestamp": [timestamp]}).with_columns(
+        pl.col("timestamp").str.to_datetime("%Y-%m-%d %H:%M", time_zone="UTC")
+    )
+    computed = frame.select(api._sun_elevation(pl.col("timestamp"), latitude, longitude)).item()  # noqa: SLF001
+    assert computed == pytest.approx(elevation, abs=tolerance)
 
 
 _FAILED_DOWNLOAD_FILES = (

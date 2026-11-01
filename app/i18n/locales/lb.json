@@ -248,6 +248,7 @@
     "convertUnitsHint": "Rechen Wäerter an d'Eenheeten ëm, déi du auswiels.",
     "units": "Eenheeten",
     "unitTemperature": "Temperatur",
+    "unitTemperatureDifference": "Temperaturënnerscheed",
     "unitSpeed": "Wandgeschwindegkeet",
     "unitPressure": "Drock",
     "unitPrecipitation": "Néierschlag",
@@ -752,7 +753,10 @@
     "errStartRequired": "Ufanksdatum ass erfuerderlech",
     "errEndRequired": "Schlussdatum ass erfuerderlech",
     "errEndAfterStart": "Schlussdatum muss no dem Ufanksdatum leien",
-    "errExceedsLimit": "Geschate {count} Wäerter iwwerschreiden d'Limit vu {max}. Schränk w.e.g. de Datumberäich an."
+    "errExceedsLimit": "Geschate {count} Wäerter iwwerschreiden d'Limit vu {max}. Schränk w.e.g. de Datumberäich an.",
+    "defaultNote": "Standardberäich: déi neisten Daten ({span}, ongeféier {rows} Zeilen), sou datt de Server se op eemol ka schécken.",
+    "defaultNoteClear": "Läsch den Datumberäich, fir alles unzefroen.",
+    "clear": "Datumberäich läschen"
   },
   "map": {
     "centerAll": "Op all Statioune zentréieren",
@@ -801,7 +805,26 @@
     "statMin": "Min.",
     "statMax": "Max.",
     "statMean": "Duerchschnëtt",
-    "statSum": "Zomm"
+    "statSum": "Zomm",
+    "limitRowsTitle": "Ze vill Zeilen fir eng Äntwert",
+    "limitRowsBody": "Dës Auswiel gëtt ongeféier {requested} Zeilen, méi wéi dëse Server an enger Äntwert schéckt (Limit: {maximum}).",
+    "limitStationsTitle": "Ze vill Statioune fir eng Ufro",
+    "limitStationsBody": "Du hues méi Statioune gewielt, wéi dëse Server an enger Ufro liest: {requested} gewielt, {maximum} erlaabt.",
+    "limitNarrow": "Fir d'Daten hei ze gesinn, schränk d'Auswiel an: Wiel e méi kuerzen Datumberäich, manner Parameter oder manner Statioune. Du hues {stations} an {parameters} gewielt.",
+    "limitNarrowPoint": "Fir d'Daten hei ze gesinn, schränk d'Auswiel an: Wiel e méi kuerzen Datumberäich oder manner Parameter. Du hues {parameters} gewielt.",
+    "limitNarrowStations": "Huel Statioune aus der Auswiel eraus a kuck de Rescht an engem weidere Schrëtt. Du hues {stations} gewielt.",
+    "limitApply": "Nëmmen déi neisten Daten uweisen ({span}, ongeféier {rows} Zeilen)",
+    "limitNoWindow": "Och dee kuerzsten Datumberäich passt net an eng Äntwert.",
+    "limitDownload": "Alles als CSV eroflueden",
+    "limitDownloadHint": "De CSV gëtt gestreamt an dofir kann en méi Zeilen enthalen wéi eng Äntwert.",
+    "limitDownloadHintMax": "De CSV gëtt gestreamt an dofir kann en méi Zeilen enthalen wéi eng Äntwert: bis zu {maximum}.",
+    "limitStationsCount": "{count} Statioun | {count} Statioune",
+    "limitParametersCount": "{count} Parameter | {count} Parameteren",
+    "limitUnit": {
+      "days": "{count} Dag | {count} Deeg",
+      "months": "{count} Mount | {count} Méint",
+      "years": "{count} Joer | {count} Joer"
+    }
   },
   "query": {
     "enable": "Mat enger SQL-Ufro transforméieren",

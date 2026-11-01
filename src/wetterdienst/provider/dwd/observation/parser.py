@@ -17,12 +17,10 @@ from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.quality_flags import (
     RAW_SUFFIX,
-    OutOfRange,
     Sentinel,
     calm,
     clear_sentinels,
     no_direction_code,
-    raw_column,
 )
 from wetterdienst.provider.dwd.observation.download import MEZ_DATASETS, ProductFile
 from wetterdienst.provider.dwd.observation.fileindex import DATE_RANGE_REGEX, MEZ_UNTIL_YEAR, is_mez_file
@@ -35,7 +33,7 @@ if TYPE_CHECKING:
     from wetterdienst.util.network import File
 
 if TYPE_CHECKING:
-    from wetterdienst.model.metadata import DatasetModel, ParameterModel
+    from wetterdienst.model.metadata import DatasetModel
 
 log = logging.getLogger(__name__)
 
@@ -112,30 +110,6 @@ MOISTURE_MISSING_PARAMETERS = {
     DwdObservationMetadata.hourly.moisture.humidity_relative.name_original,
     DwdObservationMetadata.hourly.moisture.temperature_dew_point_2m.name_original,
 }
-
-# The hourly moisture file of a station without a barometer carries one pressure for the whole file, which is no
-# reading (GH-2699; read 2026-10-15 in all 1314 files of recent/ and historical/ of opendata.dwd.de). `P_STD` is
-# "Stundenwerte Luftdruck" ("hourly value of barometric pressure") in DWD's sheet, from SYNOP reports, and the sheet
-# says nothing of a constant. 761 files hold a single distinct value in every one of their 8 to 202,384 readings
-# (stundenwerte_TF_14072_akt.zip: 997.3 in 12,844 rows). 736 of them, and 55 more with two values, are zips without a
-# `Metadaten_Geraete_Luftdruck_*.txt`, the instrument list of the barometer (818 files have none); 471 of the 496 zips
-# that have one hold 10 or more distinct values (the others, 25, are constant). A mean, a trend or a pressure
-# reduction over the constant reflects the station, not the weather.
-#
-# Judged per file, here, before the files of the periods are put together: a file of at least
-# `STATION_CONSTANT_MIN_READINGS` readings with at most `STATION_CONSTANT_MAX_VALUES` distinct values has them nulled,
-# and each value stays as the text of `quality_flags`' `raw` token (`raw:997.3`). Fewer readings are no evidence (a
-# file of 24 rows is one day). A constant that changed once is two values (953.1 and then 954.8 from 2026-10-13 at
-# station 00142; 55 files, GH-3139, all without a barometer list; 00091's historical file holds 977.1 and then 977.6
-# from 2024-03-25). Read on the same 1314 files on 2026-10-19: of the 1,305 files with 500 or more readings
-# none holds 3 to 46 distinct values; the constants hold 1 (752) or 2 (55), the fewest of any other file is 47
-# (stundenwerte_TF_19271_akt.zip, a barometer in 7,643 readings) and the next 50, 53, 54, 57, 58, ... A threshold of
-# three sits in that gap, with room for a second step.
-STATION_CONSTANT_MIN_READINGS = 500
-STATION_CONSTANT_MAX_VALUES = 3
-STATION_CONSTANT_PARAMETERS = (
-    (DwdObservationMetadata.hourly.moisture, DwdObservationMetadata.hourly.moisture.pressure_air_site.name_original),
-)
 
 # The hourly weather phenomena file writes -1 in `WW` for every hour in which the present weather was not
 # reported, and says so in the text column beside it: `       1869;2025040900;    3;  -1;Wetter wurde
@@ -283,38 +257,6 @@ _PRECIPITATION_FORM_MISSING = Sentinel(str(PRECIPITATION_FORM_MISSING))
 _WIND_DIRECTION_VARIABLE = no_direction_code(str(WIND_DIRECTION_VARIABLE))
 _NO_WIND_DIRECTION = no_direction_code("0")
 
-# A value no sensor can have produced is null, and keeps the number DWD wrote as `raw:` (GH-3135, as GH-2797 does for
-# DMI, RMI and the road stations). The sheets document only -999, and these columns hold readings that are no code: the
-# hourly urban wind of Berlin-Alexanderplatz (399) reads -0.80 m/s at 2017-06-07 00:00 UTC, between 8.3 and 15.2 m/s
-# (1 of 84,848 rows), and the hourly pressure of 00433 and 03032 reads a P0 of 1093.3, 1098.2 and 1099.3 hPa in 1991 to
-# 1995 beside a P of 1009.4, 1012.4 and 996.6, one digit off. The bounds are in the unit of the files, which is the
-# returned one (m/s, hPa), and sit inside the range of `tests/provider/physical_ranges.py`. They are the world's, not
-# Germany's, as a range that a record can cross would null a reading:
-# - a wind speed (mean, gust, minimum) is 0 to 115 m/s: it cannot be negative, and the fastest gust measured is
-#   113.3 m/s (Barrow Island, 1996);
-# - a pressure at the station (`pressure_air_site`, and its daily mean `pressure_air_site_mean`, `PM`) or reduced to
-#   sea level (`pressure_air_sea_level`) is 500 to 1090 hPa; the vapour pressures are not bound by it. The lowest sea
-#   level pressure is 870 hPa (typhoon Tip, 1979) and the highest 1084.8 hPa (Tosontsengel, 2001), and a German
-#   station lies from -3.5 m to 2,964 m (Zugspitze, about 700 hPa), so a station value above the highest sea level
-#   pressure plus the 5 hPa of slack is no reading, nor is one below 500 hPa. The daily `PM` of 25 files (35,556 days)
-#   reads 935.1 to 1041.6 hPa, and the Zugspitze (05792; 45,652 days of the historical file)
-#   668.2 to 726.9.
-_WIND_SPEED_RANGE = (0.0, 115.0)
-_PRESSURE_RANGE = (500.0, 1090.0)
-OUT_OF_RANGE_BY_NAME = {
-    "pressure_air_site": _PRESSURE_RANGE,
-    "pressure_air_site_mean": _PRESSURE_RANGE,
-    "pressure_air_sea_level": _PRESSURE_RANGE,
-}
-
-
-def out_of_range_bounds(parameter: ParameterModel) -> tuple[float, float] | None:
-    """Give the bounds a parameter's reading is held to, in the unit of the files, or ``None`` if it is held to none."""
-    if parameter.unit_type == "speed":
-        return _WIND_SPEED_RANGE
-    return OUT_OF_RANGE_BY_NAME.get(parameter.name)
-
-
 # the columns that identify a row or describe a station and are no parameter: no text is kept of their sentinel
 _NO_RAW_COLUMNS = {
     "stations_id",
@@ -339,25 +281,6 @@ CODED_STRING_PARAMETERS = {
     DwdObservationMetadata.hourly.cloudiness.cloud_cover_total_measurement_method.name_original,
     DwdObservationMetadata.hourly.visibility.visibility_measurement_method.name_original,
 }
-
-
-def _null_station_constant(df: pl.LazyFrame, column: str) -> pl.LazyFrame:
-    """Null a column of one file that holds at most a few values, keeping the text of each as `raw` (GH-2699).
-
-    A file is the unit: this runs on one file before the files are put together, so a station whose
-    recent file is constant and whose historical file is not is judged on each. The value is judged
-    as a number (`997.3` and `997.30` are one), and the `raw` token is the text the file wrote.
-    """
-    value = pl.col(column)
-    readings = value.cast(pl.Float64, strict=False).drop_nulls()
-    constant = (readings.len() >= STATION_CONSTANT_MIN_READINGS) & (readings.n_unique() <= STATION_CONSTANT_MAX_VALUES)
-    raw = pl.when(constant & value.is_not_null()).then(value)
-    if raw_column(column) in df.collect_schema():
-        raw = pl.coalesce(pl.col(raw_column(column)), raw)
-    return df.with_columns(
-        pl.when(constant).then(pl.lit(None, dtype=pl.String)).otherwise(value).alias(column),
-        raw.alias(raw_column(column)),
-    )
 
 
 def _decode_measurement_method(series: pl.Series) -> pl.Series:
@@ -516,10 +439,6 @@ def _parse_climate_observations_data(  # noqa: C901
     data_columns = sorted(column for column in columns if column not in _NO_RAW_COLUMNS and not _is_quality(column))
     df = clear_sentinels(df, sorted(columns), _MISSING_VALUE)
     df = df.drop(*(f"{column}{RAW_SUFFIX}" for column in sorted(columns) if column not in data_columns))
-    for parameter in dataset:
-        bounds = out_of_range_bounds(parameter)
-        if bounds is not None and parameter.name_original in columns:
-            df = clear_sentinels(df, [parameter.name_original], OutOfRange(*bounds))
     # turn what the file writes as text into the numbers the value column can hold, before anything
     # downstream expects a number
     df = df.with_columns(
@@ -529,9 +448,6 @@ def _parse_climate_observations_data(  # noqa: C901
     df = clear_sentinels(df, sorted(CLOUD_COVER_PARAMETERS & columns), _SKY_OBSCURED)
     if dataset == DwdObservationMetadata.hourly.moisture:
         df = clear_sentinels(df, sorted(MOISTURE_MISSING_PARAMETERS & columns), _MOISTURE_MISSING)
-    for constant_dataset, parameter in STATION_CONSTANT_PARAMETERS:
-        if dataset == constant_dataset and parameter in columns:
-            df = _null_station_constant(df, parameter)
     if dataset == DwdObservationMetadata.hourly.weather_phenomena:
         df = clear_sentinels(df, sorted(WEATHER_NOT_REPORTED_PARAMETERS & columns), _WEATHER_NOT_REPORTED)
     if dataset == DwdObservationMetadata.hourly.precipitation:

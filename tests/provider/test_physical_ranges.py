@@ -17,23 +17,13 @@ from tests.provider.physical_ranges import (
     bounds_for,
     out_of_range,
 )
-from wetterdienst import Options, Settings
+from wetterdienst import Options, Settings, Wetterdienst
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.metadata.unit_type import UnitType
-from wetterdienst.model.metadata import ParameterModel
-from wetterdienst.model.unit import UnitConverter
-from wetterdienst.provider.dmi.observation import DmiObservationRequest
-from wetterdienst.provider.dmi.observation import api as dmi_api
-from wetterdienst.provider.dwd.observation import DwdObservationMetadata
-from wetterdienst.provider.dwd.observation.parser import out_of_range_bounds
-from wetterdienst.provider.dwd.road import api as dwd_road_api
-from wetterdienst.provider.dwd.road.api import DwdRoadRequest
+from wetterdienst.model.judge import plan_for
+from wetterdienst.model.plausibility_ranges import SCOPE
 from wetterdienst.provider.lhmt.observation import LhmtObservationRequest
-from wetterdienst.provider.meteofrance.synop import MeteoFranceSynopRequest
-from wetterdienst.provider.meteofrance.synop import api as synop_api
-from wetterdienst.provider.rmi.observation import RmiObservationRequest
-from wetterdienst.provider.rmi.observation import api as rmi_api
 from wetterdienst.util.network import File
 
 
@@ -315,122 +305,73 @@ def test_a_frame_that_is_not_converted_is_left_alone(
     assert physical_range_findings == []
 
 
-# where a reader holds a parameter to a range narrower than the one of the world, because its source's own validated
-# records stay far below the world's, or its precision needs no slack (the argument is in the comment of the reader's
-# table): the provider, the resolution and the attribute
+def _core_bounds() -> list[tuple[str, str, str, tuple[float, float]]]:
+    """List every bound the values core holds a network to: the network, the resolution, the name and the bounds."""
+    found = []
+    for network in SCOPE:
+        provider, name = network.split("/")
+        for resolution in Wetterdienst.resolve(provider, name).metadata:
+            for dataset in resolution:
+                plan = plan_for(network, dataset)
+                for original, bounds in plan.ranges.items():
+                    found.append((network, resolution.name, plan.parameters[original].name, bounds))
+    return found
+
+
+# the bounds of the table of `model/plausibility_ranges.py` that are narrower than the range of the world, because the
+# source's own validated records stay far below the world's, or its precision needs no slack: the network, the
+# resolution and the canonical name. The argument is in the comment of the table.
 _NARROWER = {
-    ("dmi", "daily", "acc_precip"),
-    ("dmi", "monthly", "acc_precip"),
-    ("dmi", "annual", "acc_precip"),
-    ("rmi", "10_minutes", "wind_gusts_speed"),
-    ("rmi", "hourly", "wind_gusts_speed"),
-    ("rmi", "daily", "wind_gusts_speed"),
-    ("dmi", "monthly", "max_precip_24h"),
-    ("dmi", "annual", "max_precip_24h"),
-    ("dmi", "daily", "max_precip_30m"),
-    ("rmi", "10_minutes", "sun_duration"),
-    ("rmi", "hourly", "sun_duration"),
-    ("rmi", "daily", "sun_duration"),
-    # a German road station reports no -60 °C, at the cold end only (`_IMPOSSIBLE_BELOW`)
-    ("dwd/road", "15_minutes", "airTemperature"),
-    ("dwd/road", "15_minutes", "dewpointTemperature"),
-    ("dwd/road", "15_minutes", "roadSurfaceTemperature"),
+    ("dmi/observation", "daily", "precipitation_amount"),
+    ("dmi/observation", "monthly", "precipitation_amount"),
+    ("dmi/observation", "annual", "precipitation_amount"),
+    ("rmi/observation", "10_minutes", "wind_gust_max"),
+    ("rmi/observation", "hourly", "wind_gust_max"),
+    ("rmi/observation", "daily", "wind_gust_max"),
+    ("dmi/observation", "monthly", "precipitation_amount_max"),
+    ("dmi/observation", "annual", "precipitation_amount_max"),
+    ("dmi/observation", "daily", "precipitation_amount_max_30min"),
+    ("dmi/observation", "hourly", "precipitation_amount_last_12h"),
+    ("dmi/observation", "hourly", "precipitation_amount_last_24h"),
+    ("dmi/observation", "daily", "radiation_global"),
+    ("dmi/observation", "monthly", "radiation_global"),
+    ("dmi/observation", "annual", "radiation_global"),
+    ("rmi/observation", "10_minutes", "sunshine_duration"),
+    ("rmi/observation", "hourly", "sunshine_duration"),
+    ("rmi/observation", "daily", "sunshine_duration"),
+    ("dwd/road", "15_minutes", "temperature_air"),
+    ("dwd/road", "15_minutes", "temperature_dew_point"),
+    ("dwd/road", "15_minutes", "temperature_surface"),
+    # DWD road: a hygrometer that failed writes 0.1 %, so the road holds 1 % and not 0 % at the low end
+    ("dwd/road", "15_minutes", "humidity_relative"),
+    # the pressure of DWD at the station is 500 to 1090 hPa, inside the 300 to 1100 of the world
+    ("dwd/observation", "10_minutes", "pressure_air_site"),
+    ("dwd/observation", "hourly", "pressure_air_site"),
+    ("dwd/observation", "subdaily", "pressure_air_site"),
+    ("dwd/observation", "daily", "pressure_air_site_mean"),
+    ("dwd/observation", "10_minutes", "pressure_air_sea_level"),
+    ("dwd/observation", "hourly", "pressure_air_sea_level"),
+    ("meteofrance/synop", "subdaily", "pressure_air_site"),
+    ("meteofrance/synop", "subdaily", "pressure_air_sea_level"),
+    ("meteofrance/synop", "subdaily", "precipitation_amount_last_1h"),
+    ("meteofrance/synop", "subdaily", "precipitation_amount_last_3h"),
+    ("meteofrance/synop", "subdaily", "precipitation_amount_last_6h"),
+    ("meteofrance/synop", "subdaily", "precipitation_amount_last_12h"),
+    ("meteofrance/synop", "subdaily", "precipitation_amount_last_24h"),
 }
 
 
-@pytest.mark.parametrize(
-    ("provider", "request_class", "ranges"),
-    [
-        ("rmi", RmiObservationRequest, rmi_api._RANGES),  # noqa: SLF001
-        ("dmi", DmiObservationRequest, dmi_api._RANGES),  # noqa: SLF001
-        ("dwd/road", DwdRoadRequest, dwd_road_api._RANGES),  # noqa: SLF001
-    ],
-    ids=["rmi/observation", "dmi/observation", "dwd/road"],
-)
-def test_a_reader_that_nulls_what_no_sensor_produced_uses_the_range_of_the_parameter(
-    provider: str, request_class: type, ranges: dict[str, dict[str, tuple[float, float]]]
-) -> None:
-    """The bounds of a reader are these ranges in the unit of its source, so the two cannot drift apart (GH-2797).
+def test_the_core_bounds_sit_inside_the_ranges() -> None:
+    """Every bound of the core's table is the range of its parameter at the resolution, or inside it (GH-2797, GH-3135).
 
-    A reader nulls a value before the unit conversion, so its bounds are in the source's unit, and converted to the
-    returned unit they have to be the range of the parameter at the resolution, or inside it where the reader knows
-    its source better (`_NARROWER`), never outside. A parameter the range holds to something has its entry at each
-    resolution it is published at, and an entry belongs to a parameter of the provider at that resolution.
+    The table holds a bound in canonical units, which are the units `physical_ranges.py` holds a value to. A bound
+    may be narrower where the network knows its source better (`_NARROWER`), never wider.
     """
-    converter = UnitConverter()
-    assert set(ranges) == {resolution.name for resolution in request_class.metadata}
-    for resolution in request_class.metadata:
-        held: dict[str, tuple] = {}
-        for dataset in resolution:
-            for parameter in dataset.parameters:
-                bounds = bounds_for(parameter.name, resolution.name)
-                if bounds is not None:
-                    held[parameter.name_original] = (parameter, bounds)
-        reader = ranges[resolution.name]
-        assert set(reader) == set(held), (
-            f"{resolution.name}: a parameter of the provider has no range, or a range no parameter"
-        )
-        for name, (low, high) in reader.items():
-            parameter, bounds = held[name]
-            to_target = converter.get_lambda(parameter.unit, parameter.unit_type)
-            got = (to_target(low), to_target(high))
-            if (provider, resolution.name, name) in _NARROWER:
-                # inside, at one end or both, and not the range itself (a bound converted is not exact)
-                inside = bounds.low - 1e-9 <= got[0] < got[1] <= bounds.high + 1e-9
-                assert inside, f"{resolution.name} {name}: not inside"
-                assert got != pytest.approx(tuple(bounds)), f"{resolution.name} {name}: not narrower"
-            else:
-                assert got == pytest.approx(tuple(bounds)), f"{resolution.name} {name}"
-    # a narrower range names a parameter of the provider
-    narrower = {name for who, _, name in _NARROWER if who == provider}
-    assert narrower <= {name for per_resolution in ranges.values() for name in per_resolution}
-
-
-def _inside_the_range(
-    converter: UnitConverter, parameter: ParameterModel, resolution: str, bounds: tuple[float, float]
-) -> bool:
-    """Tell whether a reader's bounds, in the unit of its source, are the range of the parameter or inside it."""
-    to_target = converter.get_lambda(parameter.unit, parameter.unit_type)
-    wide = bounds_for(parameter.name, resolution)
-    return wide is not None and wide.low - 1e-9 <= to_target(bounds[0]) < to_target(bounds[1]) <= wide.high + 1e-9
-
-
-def test_the_bounds_of_dwd_observation_sit_inside_the_ranges() -> None:
-    """DWD observation nulls wind speeds and three pressures beyond the records, inside the range (GH-3135).
-
-    The wind speeds are held to 0 to 115 m/s, and `pressure_air_site`, `pressure_air_site_mean` and
-    `pressure_air_sea_level` to 500 to 1090 hPa; the vapour pressures are not. The bounds are in the unit of the
-    files, which is the returned one, and may be narrower than the range of the parameter at the resolution (the
-    pressure, 500 to 1090 hPa against 300 to 1100), never wider.
-    """
-    converter = UnitConverter()
-    held = []
-    for resolution in DwdObservationMetadata:
-        for dataset in resolution:
-            for parameter in dataset:
-                bounds = out_of_range_bounds(parameter)
-                if bounds is None:
-                    continue
-                held.append(parameter.name)
-                assert _inside_the_range(converter, parameter, resolution.name, bounds), (
-                    f"{resolution.name}/{dataset.name}/{parameter.name}: {bounds}"
-                )
-    assert {"wind_speed_mean", "wind_gust_max", "pressure_air_site", "pressure_air_sea_level"} <= set(held)
-    # every speed, and the station pressure, its daily mean and the sea level pressure, are held; the vapour pressures
-    # and every other parameter are not
-    assert {name for name in held if PARAMETERS[name].unit_type != "speed"} == {
-        "pressure_air_site",
-        "pressure_air_site_mean",
-        "pressure_air_sea_level",
-    }
-
-
-def test_the_bounds_of_meteofrance_synop_sit_inside_the_ranges() -> None:
-    """Météo-France synop nulls what no sensor produced, inside the world's range of each parameter (GH-3135)."""
-    converter = UnitConverter()
-    ranges = synop_api._SYNOP_RANGES  # noqa: SLF001
-    (resolution,) = MeteoFranceSynopRequest.metadata
-    parameters = {parameter.name_original: parameter for dataset in resolution for parameter in dataset}
-    assert set(ranges) <= set(parameters)
-    for name, bounds in ranges.items():
-        assert _inside_the_range(converter, parameters[name], resolution.name, bounds), f"{name}: {bounds}"
+    found = _core_bounds()
+    assert found
+    for network, resolution, name, (low, high) in found:
+        wide = bounds_for(name, resolution)
+        assert wide is not None, f"{network} {resolution} {name}: the range of the parameter is none"
+        assert wide.low - 1e-9 <= low < high <= wide.high + 1e-9, f"{network} {resolution} {name}: {(low, high)}"
+        if (network, resolution, name) not in _NARROWER:
+            assert (low, high) == pytest.approx(tuple(wide)), f"{network} {resolution} {name}: not the range"

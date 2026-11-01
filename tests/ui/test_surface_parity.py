@@ -98,12 +98,14 @@ def _serve_dwd(monkeypatch: pytest.MonkeyPatch) -> None:
     def collect(self: object, station_id: str, parameter_or_dataset: Any) -> pl.DataFrame:  # noqa: ANN401, ARG001
         dataset = getattr(parameter_or_dataset, "dataset", parameter_or_dataset)
         names = [parameter.name_original for parameter in dataset]
+        # a reading of 1 hPa is no pressure: the core judges what the stub hands over, as it would the reader's
+        pressures = {parameter.name_original for parameter in dataset if parameter.name.startswith("pressure_air_s")}
         days = [dt.datetime(2020, 5, day, tzinfo=UTC) for day in range(1, 4)]
         return pl.DataFrame(
             {
                 "timestamp": [day for day in days for _ in names],
                 "parameter": names * len(days),
-                "value": [1.0] * (len(days) * len(names)),
+                "value": [1000.0 if name in pressures else 1.0 for _ in days for name in names],
                 "quality_flags": ["1"] * (len(days) * len(names)),
                 "resolution": ["daily"] * (len(days) * len(names)),
                 "dataset": [dataset.name] * (len(days) * len(names)),

@@ -83,6 +83,11 @@ _RESOLUTION_STEPS: dict[Resolution, dt.timedelta] = {
 }
 
 
+def reading_step(resolution: Resolution) -> dt.timedelta | None:
+    """Give how much time one reading of a resolution stands for, None for a calendar resolution (a month, a year)."""
+    return _RESOLUTION_STEPS.get(resolution)
+
+
 def reading_interval(resolution: Resolution) -> str | None:
     """Give the interval between two readings of a resolution, as a polars interval string.
 

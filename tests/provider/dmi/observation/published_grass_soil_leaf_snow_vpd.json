@@ -1,0 +1,411 @@
+{
+ "hourly": [
+  {
+   "stationId": "06072",
+   "parameterId": "leaf_moisture",
+   "from": "2025-06-10T06:00:00+00:00",
+   "to": "2025-06-10T07:00:00+00:00",
+   "value": 60.0,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06072",
+   "parameterId": "leaf_moisture",
+   "from": "2025-06-10T05:00:00+00:00",
+   "to": "2025-06-10T06:00:00+00:00",
+   "value": 60.0,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06072",
+   "parameterId": "leaf_moisture",
+   "from": "2025-06-10T04:00:00+00:00",
+   "to": "2025-06-10T05:00:00+00:00",
+   "value": 60.0,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06072",
+   "parameterId": "leaf_moisture",
+   "from": "2025-06-10T03:00:00+00:00",
+   "to": "2025-06-10T04:00:00+00:00",
+   "value": 60.0,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06072",
+   "parameterId": "leaf_moisture",
+   "from": "2025-06-10T02:00:00+00:00",
+   "to": "2025-06-10T03:00:00+00:00",
+   "value": 60.0,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06072",
+   "parameterId": "leaf_moisture",
+   "from": "2025-06-10T01:00:00+00:00",
+   "to": "2025-06-10T02:00:00+00:00",
+   "value": 60.0,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06072",
+   "parameterId": "leaf_moisture",
+   "from": "2025-06-10T00:00:00+00:00",
+   "to": "2025-06-10T01:00:00+00:00",
+   "value": 35.0,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06069",
+   "parameterId": "temp_grass",
+   "from": "2025-06-10T06:00:00+00:00",
+   "to": "2025-06-10T07:00:00+00:00",
+   "value": 11.4,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06069",
+   "parameterId": "temp_grass",
+   "from": "2025-06-10T05:00:00+00:00",
+   "to": "2025-06-10T06:00:00+00:00",
+   "value": 10.8,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06069",
+   "parameterId": "temp_grass",
+   "from": "2025-06-10T04:00:00+00:00",
+   "to": "2025-06-10T05:00:00+00:00",
+   "value": 10.4,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06069",
+   "parameterId": "temp_grass",
+   "from": "2025-06-10T03:00:00+00:00",
+   "to": "2025-06-10T04:00:00+00:00",
+   "value": 10.0,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06069",
+   "parameterId": "temp_grass",
+   "from": "2025-06-10T02:00:00+00:00",
+   "to": "2025-06-10T03:00:00+00:00",
+   "value": 10.0,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06069",
+   "parameterId": "temp_grass",
+   "from": "2025-06-10T01:00:00+00:00",
+   "to": "2025-06-10T02:00:00+00:00",
+   "value": 10.1,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06069",
+   "parameterId": "temp_grass",
+   "from": "2025-06-10T00:00:00+00:00",
+   "to": "2025-06-10T01:00:00+00:00",
+   "value": 10.3,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06069",
+   "parameterId": "temp_soil_30",
+   "from": "2025-06-10T06:00:00+00:00",
+   "to": "2025-06-10T07:00:00+00:00",
+   "value": 13.6,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06069",
+   "parameterId": "temp_soil_30",
+   "from": "2025-06-10T05:00:00+00:00",
+   "to": "2025-06-10T06:00:00+00:00",
+   "value": 13.5,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06069",
+   "parameterId": "temp_soil_30",
+   "from": "2025-06-10T04:00:00+00:00",
+   "to": "2025-06-10T05:00:00+00:00",
+   "value": 13.4,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06069",
+   "parameterId": "temp_soil_30",
+   "from": "2025-06-10T03:00:00+00:00",
+   "to": "2025-06-10T04:00:00+00:00",
+   "value": 13.7,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06069",
+   "parameterId": "temp_soil_30",
+   "from": "2025-06-10T02:00:00+00:00",
+   "to": "2025-06-10T03:00:00+00:00",
+   "value": 13.5,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06069",
+   "parameterId": "temp_soil_30",
+   "from": "2025-06-10T01:00:00+00:00",
+   "to": "2025-06-10T02:00:00+00:00",
+   "value": 13.6,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06069",
+   "parameterId": "temp_soil_30",
+   "from": "2025-06-10T00:00:00+00:00",
+   "to": "2025-06-10T01:00:00+00:00",
+   "value": 13.7,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06066",
+   "parameterId": "vapour_pressure_deficit_mean",
+   "from": "2025-06-10T06:00:00+00:00",
+   "to": "2025-06-10T07:00:00+00:00",
+   "value": 0.1,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06066",
+   "parameterId": "vapour_pressure_deficit_mean",
+   "from": "2025-06-10T05:00:00+00:00",
+   "to": "2025-06-10T06:00:00+00:00",
+   "value": 0.1,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06066",
+   "parameterId": "vapour_pressure_deficit_mean",
+   "from": "2025-06-10T04:00:00+00:00",
+   "to": "2025-06-10T05:00:00+00:00",
+   "value": 0.1,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06066",
+   "parameterId": "vapour_pressure_deficit_mean",
+   "from": "2025-06-10T03:00:00+00:00",
+   "to": "2025-06-10T04:00:00+00:00",
+   "value": 0.1,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06066",
+   "parameterId": "vapour_pressure_deficit_mean",
+   "from": "2025-06-10T02:00:00+00:00",
+   "to": "2025-06-10T03:00:00+00:00",
+   "value": 0.0,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06066",
+   "parameterId": "vapour_pressure_deficit_mean",
+   "from": "2025-06-10T01:00:00+00:00",
+   "to": "2025-06-10T02:00:00+00:00",
+   "value": 0.1,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06066",
+   "parameterId": "vapour_pressure_deficit_mean",
+   "from": "2025-06-10T00:00:00+00:00",
+   "to": "2025-06-10T01:00:00+00:00",
+   "value": 0.1,
+   "qcStatus": "none",
+   "validity": true
+  }
+ ],
+ "daily": [
+  {
+   "stationId": "06135",
+   "parameterId": "leaf_moisture",
+   "from": "2025-06-12T00:00:00.001000+02:00",
+   "to": "2025-06-13T00:00:00+02:00",
+   "value": 364.0,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06135",
+   "parameterId": "leaf_moisture",
+   "from": "2025-06-11T00:00:00.001000+02:00",
+   "to": "2025-06-12T00:00:00+02:00",
+   "value": 39.0,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06135",
+   "parameterId": "leaf_moisture",
+   "from": "2025-06-10T00:00:00.001000+02:00",
+   "to": "2025-06-11T00:00:00+02:00",
+   "value": 1332.0,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06070",
+   "parameterId": "temp_grass",
+   "from": "2025-06-13T00:00:00.001000+02:00",
+   "to": "2025-06-14T00:00:00+02:00",
+   "value": 19.8,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06070",
+   "parameterId": "temp_grass",
+   "from": "2025-06-12T00:00:00.001000+02:00",
+   "to": "2025-06-13T00:00:00+02:00",
+   "value": 19.3,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06070",
+   "parameterId": "temp_grass",
+   "from": "2025-06-11T00:00:00.001000+02:00",
+   "to": "2025-06-12T00:00:00+02:00",
+   "value": 15.3,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06069",
+   "parameterId": "temp_soil_30",
+   "from": "2025-06-13T00:00:00.001000+02:00",
+   "to": "2025-06-14T00:00:00+02:00",
+   "value": 14.2,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06069",
+   "parameterId": "temp_soil_30",
+   "from": "2025-06-12T00:00:00.001000+02:00",
+   "to": "2025-06-13T00:00:00+02:00",
+   "value": 13.8,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06069",
+   "parameterId": "temp_soil_30",
+   "from": "2025-06-11T00:00:00.001000+02:00",
+   "to": "2025-06-12T00:00:00+02:00",
+   "value": 13.6,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06073",
+   "parameterId": "vapour_pressure_deficit_mean",
+   "from": "2025-06-13T00:00:00.001000+02:00",
+   "to": "2025-06-14T00:00:00+02:00",
+   "value": 0.5,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06073",
+   "parameterId": "vapour_pressure_deficit_mean",
+   "from": "2025-06-12T00:00:00.001000+02:00",
+   "to": "2025-06-13T00:00:00+02:00",
+   "value": 0.4,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06073",
+   "parameterId": "vapour_pressure_deficit_mean",
+   "from": "2025-06-11T00:00:00.001000+02:00",
+   "to": "2025-06-12T00:00:00+02:00",
+   "value": 0.4,
+   "qcStatus": "none",
+   "validity": true
+  },
+  {
+   "stationId": "06180",
+   "parameterId": "snow_cover",
+   "from": "2011-01-18T06:00:00+00:00",
+   "to": "2011-01-19T06:00:00+00:00",
+   "value": 0.0,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "06180",
+   "parameterId": "snow_cover",
+   "from": "2011-01-17T06:00:00+00:00",
+   "to": "2011-01-18T06:00:00+00:00",
+   "value": 1.0,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "06180",
+   "parameterId": "snow_cover",
+   "from": "2011-01-16T06:00:00+00:00",
+   "to": "2011-01-17T06:00:00+00:00",
+   "value": 49.0,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "06180",
+   "parameterId": "snow_cover",
+   "from": "2011-01-15T06:00:00+00:00",
+   "to": "2011-01-16T06:00:00+00:00",
+   "value": 74.0,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "06180",
+   "parameterId": "snow_cover",
+   "from": "2011-01-14T06:00:00+00:00",
+   "to": "2011-01-15T06:00:00+00:00",
+   "value": 99.0,
+   "qcStatus": "manual",
+   "validity": true
+  }
+ ]
+}

@@ -269,7 +269,17 @@ what the answer is missing:
   and `period-not-narrowing` (a period that was asked for and does not apply), `elevation-unknown` (the stations of unknown
   elevation that an estimate at an elevation had to leave out), `missing-value-marker` (readings that are
   `null` because the source wrote a marker for a missing value: with `drop_nulls` they are not in the
-  answer, and this counts them; without it the `raw:` token of their `quality_flags` keeps the marker),
+  answer, and this counts them; without it the `raw:` token of their `quality_flags` keeps the marker; a number
+  that a plausibility check rejected is no marker and is told by the next code; a calm wind direction is none
+  either, see `calm-wind-direction`),
+  `rejected-by-plausibility` (values that are `null` because a hard [plausibility check](../data/plausibility.md)
+  rejected the number the source wrote, with the count per check in the message, a value several checks rejected
+  counted under each: with `drop_nulls` they are not in the answer, without it `rejected:<check>,raw:<number>` in
+  their `quality_flags` keeps them; a soft check keeps the value and raises nothing),
+  `calm-wind-direction` (wind directions that are `null` because the source wrote 0 for a calm, which has no
+  direction: no reading is missing. Counted apart from the markers, with the same `raw:0` token in `quality_flags`
+  and the same `drop_nulls` behaviour; a 0 that is a code for no direction or the direction of a gust that was
+  not reported stays a `missing-value-marker`),
   `parameter-ended` (the window reaches years in which the source no longer publishes a parameter, such as
   the hourly `pressure_air_site` of `chmi/observation` after 2024, so it has no values for them),
   `deprecated-parameter` (issued when a parameter is deprecated; none is at the moment),
@@ -378,7 +388,8 @@ tools return the REST answer, and so the block.
 ## The OpenAPI document
 
 `/openapi.json` (and `/docs`, the interactive reference) is the contract of the API. `tests/ui/openapi.snapshot.json`
-is that document as last reviewed: a test fails when the served document is not it, and
+is that document as last reviewed, without its `info.version` (the version of the package, which a release
+changes and which a test holds to the served one): a test fails when the served document is not it, and
 `uv run poe openapi:snapshot` writes it anew, for the diff to be read in the pull request that changes the contract.
 A second test holds the served document to `tests/ui/openapi.baseline.json`, the document of the last release: a path, a
 parameter, a status, a member or an enum member that release offered must still be there, with its type, and a
@@ -591,13 +602,16 @@ what each of them takes, keyed by endpoint, with `unit_targets` naming the unit 
 
 It takes the settings query parameters of the three endpoints, and answers what they resolve to
 over the server's, for each endpoint that takes the parameter: `humanize`, `convert_units` and
-`unit_targets` apply to all three, `station_window_end_buffer` to `values` alone, and
+`unit_targets` apply to all three, `station_window_end_buffer` and the five `plausibility_<check>` to `values` alone, and
 `min_gain_of_value_pairs` and `num_additional_stations` to `interpolate` and `summarize`. A value an endpoint refuses is refused here the same way, and an
 unknown parameter too, so a set of settings can be checked before fetching. Nothing is stored on
 the server: the parameters apply to that one answer.
 
 ```bash
 http localhost:7890/api/settings
+
+# What a values request with a soft range check would get.
+http localhost:7890/api/settings plausibility_range==soft
 
 # What a values request with shape=wide would get: the wide shape turns drop_nulls off.
 http localhost:7890/api/settings shape==wide
@@ -685,7 +699,25 @@ http localhost:7890/api/values provider==dwd network==observation parameters==da
 
 # Acquire ICON data (the latest forecast run; a past timestamp has none).
 http localhost:7890/api/values provider==dwd network==dmo parameters==hourly/icon/temperature_air_2m stations==01001
+
+# Keep a number the range check finds implausible, flagged `suspect:range`, and null a stuck sensor (`rejected:stuck`).
+http localhost:7890/api/values provider==dwd network==observation parameters==hourly/moisture/pressure_air_site stations==01048 timestamp==2024-01 plausibility_range==soft plausibility_stuck==hard
+
+# Every check soft but the range: what the source wrote, flagged, and the range rejected.
+http localhost:7890/api/values provider==dwd network==observation parameters==hourly/moisture/pressure_air_site stations==01048 timestamp==2024-01 plausibility==soft plausibility_range==hard
 ```
+
+`plausibility=soft` (or `hard`) sets the mode of every check at once, and a `plausibility_<check>` given beside it wins:
+`plausibility==soft plausibility_range==hard` is every check soft but the range, and everything a source wrote comes back
+flagged.
+
+The plausibility checks `range`, `elevation`, `stuck`, `consistency` and `floor` each take a mode, `hard` or `soft`, as
+the query parameters `plausibility_range`, `plausibility_elevation`, `plausibility_stuck`,
+`plausibility_consistency` and `plausibility_floor` (the environment variable of a server is
+`WD_TS_PLAUSIBILITY__RANGE` and so on). A hard check nulls the value and writes `rejected:<check>,raw:<number>` into
+`quality_flags`, a soft check keeps the value and writes `suspect:<check>`; a check not named keeps the server's mode.
+See [plausibility checks](../data/plausibility.md). `interpolate` and `summarize` take no mode: they leave out a
+suspect value in any case, and so do `stripes/values` and `stripes/image`.
 
 A request that asks for more than the [limits](#limits) allow is refused;
 [Getting more than the limit](large-requests.md) shows how to get the data anyway.

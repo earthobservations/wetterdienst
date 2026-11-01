@@ -29,9 +29,9 @@ export type Handler = (url: URL, route: Route) => unknown | Promise<unknown>
 /** The answers by `/api/<path>`, to be replaced one by one where a state needs a different one */
 export type Handlers = Record<string, Handler>
 
-/** What a handler returns to answer with an error instead of a body */
+/** What a handler returns to answer with an error instead of a body; `extra` are the fields of a problem beside `detail` */
 export class ApiFailure {
-  constructor(readonly status: number, readonly detail: string) {}
+  constructor(readonly status: number, readonly detail: string, readonly extra: Record<string, unknown> = {}) {}
 }
 
 const DWD = { name_short: 'DWD', country: 'Germany', auth: false, configured: false, date_required: false }
@@ -244,10 +244,10 @@ function observationValues(url: URL): Value[] {
   return values
 }
 
-/** Three days of hourly MOSMIX values from this hour on, for each series the meteogram draws */
-function forecastValues(url: URL): Value[] {
+/** Three days of hourly MOSMIX values from the hour of `now` on, for each series the meteogram draws */
+function forecastValues(url: URL, now: Date): Value[] {
   const station_id = url.searchParams.get('stations') ?? MOSMIX_STATION.station_id
-  const start = new Date()
+  const start = new Date(now)
   start.setUTCMinutes(0, 0, 0)
   const series: Record<string, (hour: number) => number> = {
     temperature_air_2m: hour => 8 + 5 * Math.sin((hour - 9) / 24 * 2 * Math.PI),
@@ -317,9 +317,13 @@ const HISTORY: HistoryResponse = {
 }
 
 /** The answers a state starts from: a backend with the DWD observation data and nothing else wrong */
-export function defaultHandlers(): Handlers {
+export function defaultHandlers(now: Date = new Date()): Handlers {
   return {
-    'version': () => ({ version: '0.0.0-accessibility', mcp_enabled: false }),
+    'version': () => ({
+      version: '0.0.0-accessibility',
+      mcp_enabled: false,
+      limits: { max_stations: 100, max_rows: 500_000, max_stream_rows: 10_000_000, timeout: 60, max_concurrent: 32 },
+    }),
     'coverage': (url) => {
       if (!url.searchParams.get('provider'))
         return PROVIDERS
@@ -339,7 +343,7 @@ export function defaultHandlers(): Handlers {
         return { stations: all.filter(station => station.name?.toLowerCase().includes(name)).slice(0, 5) }
       return { stations: wanted.length ? all.filter(station => wanted.includes(station.station_id)) : all }
     },
-    'values': url => ({ values: url.searchParams.get('network') === 'mosmix' ? forecastValues(url) : observationValues(url) }),
+    'values': url => ({ values: url.searchParams.get('network') === 'mosmix' ? forecastValues(url, now) : observationValues(url) }),
     'issues': () => ({ issues: ['2026-10-14T09:00:00+00:00', '2026-10-14T15:00:00+00:00', '2026-10-14T21:00:00+00:00'] }),
     'history': () => HISTORY,
     'glossary': () => GLOSSARY,
@@ -372,12 +376,18 @@ const QUIET_MS = 300
  * every request to another host with a transparent pixel (images) or a refusal (anything else).
  * `override` replaces handlers of the default set, per `/api/<path>`.
  */
-export async function mockBackend(page: Page, baseURL: string, override: Handlers = {}): Promise<Backend> {
+export async function mockBackend(
+  page: Page,
+  baseURL: string,
+  override: Handlers = {},
+  /** The instant the forecast starts at: the one the page's clock is set to, if the test sets it (default: the real now) */
+  now: Date = new Date(),
+): Promise<Backend> {
   const origin = new URL(baseURL).origin
   let inFlight = 0
   let lastAnswer = Date.now()
   const backend: Backend = {
-    handlers: { ...defaultHandlers(), ...override },
+    handlers: { ...defaultHandlers(now), ...override },
     unanswered: [],
     idle: async () => {
       const busy = () => inFlight > 0 || Date.now() - lastAnswer < QUIET_MS
@@ -400,7 +410,7 @@ export async function mockBackend(page: Page, baseURL: string, override: Handler
         }
         const body = await handler(url, route)
         if (body instanceof ApiFailure)
-          await route.fulfill({ status: body.status, json: { detail: body.detail } })
+          await route.fulfill({ status: body.status, json: { ...body.extra, detail: body.detail } })
         else
           await route.fulfill({ status: 200, json: body })
       }

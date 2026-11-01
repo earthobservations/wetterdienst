@@ -274,16 +274,19 @@ def test_stripes_selection(
     assert _errors(model, values) == errors
 
 
-def _stripes_of(monkeypatch: pytest.MonkeyPatch, values: dict[int, float | None]) -> None:
-    """Serve these annual values, by year, as the one station any stripes request finds."""
+def _stripes_of(
+    monkeypatch: pytest.MonkeyPatch, values: dict[int, float | None], flags: dict[int, str] | None = None
+) -> None:
+    """Serve these annual values, by year, as the one station any stripes request finds, with the flags by year."""
     from wetterdienst.model.unit import UnitConverter  # noqa: PLC0415
 
     frame = pl.DataFrame(
         {
             "timestamp": [dt.datetime(year, 1, 1, tzinfo=dt.UTC) for year in values],
             "value": list(values.values()),
+            "quality_flags": [(flags or {}).get(year) for year in values],
         },
-        schema={"timestamp": pl.Datetime(time_zone="UTC"), "value": pl.Float64},
+        schema={"timestamp": pl.Datetime(time_zone="UTC"), "value": pl.Float64, "quality_flags": pl.String},
     )
     # read with the parameter and options of the real request, which the metadata names the unit by
     real = core._get_stripes_temperature_request()  # noqa: SLF001
@@ -335,6 +338,26 @@ def test_stripes_need_two_years_with_data(
         match="At least two years with data are required to create climate stripes; station 01048 has data from 2000",
     ):
         _get_stripes_data(request)
+
+
+def test_stripes_leave_out_a_value_a_soft_check_flagged_suspect(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A year whose value is flagged `suspect:` is a year without data, whatever the mode of the check (GH-3676).
+
+    The 4021 of 2002 would have set the scale of the whole series; flagged suspect, the colours are scaled over the
+    three years that are left, and the year shows as a gap. The flag of a code (`raw:`) and the station's own are no
+    suspicion.
+    """
+    values = {2000: 1.0, 2001: 2.0, 2002: 4021.0, 2003: 3.0, 2004: 4.0}
+    _stripes_of(monkeypatch, values, {2002: "3,suspect:range", 2000: "3,raw:-999", 2001: "3"})
+    df = _get_stripes_data(StripesValuesRequest(kind="temperature", station="01048")).df
+    assert df.get_column("timestamp").dt.year().to_list() == [2000, 2001, 2002, 2003, 2004]
+    assert df.get_column("value").to_list() == [1.0, 2.0, None, 3.0, 4.0]
+    assert df.get_column("value_scaled").to_list() == [1.0, pytest.approx(2 / 3), None, pytest.approx(1 / 3), 0.0]
+    # the control: with no flag the value is a year of the series
+    _stripes_of(monkeypatch, values)
+    assert _get_stripes_data(StripesValuesRequest(kind="temperature", station="01048")).df.get_column(
+        "value"
+    ).to_list() == list(values.values())
 
 
 def test_stripes_of_one_value_take_the_middle_of_the_map(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -742,6 +765,7 @@ _STATUS_OF = {
     "ReversedTimeIntervalError": 400,
     "StartDateEndDateError": 400,
     "StationNotFoundError": 404,
+    "UnknownFormatError": 400,
     "UpstreamError": 502,
     "WetterdienstError": 500,
 }

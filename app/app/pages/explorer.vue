@@ -4,12 +4,14 @@ import type { Station } from '#shared/types/api'
 import type { DataSettings } from '~/types/data-settings.type'
 import type { ParameterSelectionState } from '~/types/parameter-selection-state.type'
 import type { StationMode, StationSelectionState } from '~/types/station-selection-state.type'
+import type { FittingWindow } from '~/utils/row-window'
 import DataViewer from '~/components/DataViewer.vue'
 import DateRangeSelector from '~/components/DateRangeSelector.vue'
 import InterpolationSummarySelection from '~/components/InterpolationSummarySelection.vue'
 import ParameterSelection from '~/components/ParameterSelection.vue'
 import StationSelection from '~/components/StationSelection.vue'
 import { STATION_DISTANCE_DEFAULTS } from '~/types/data-settings.type'
+import { defaultRange, HIGH_RESOLUTION_MAX_VALUES } from '~/utils/row-window'
 import { defaultUnitTargets, MAX_ADDITIONAL_STATIONS, MAX_STATION_DISTANCE, serverDataSettings } from '~/utils/server-settings'
 import { UNIT_TARGET_TYPES } from '~/utils/unit-targets'
 
@@ -169,6 +171,22 @@ const stationSelectionState = ref<StationSelectionState>({
     endDate: route.query.endDate?.toString(),
   },
 })
+// Who the date range belongs to (GH-3457). The page starts it for a selection whose whole record is more
+// than the server sends as one answer: the newest window that fits, with a note that says so
+// (`defaultWindow`). The rule, in one place:
+// - dates the user typed or picked, or applied from a refusal, are theirs (`rangeEdited`) and are never
+//   written over, whatever the selection does after, and a link that carries dates is theirs as well;
+// - a range the user cleared stays cleared (`rangeCleared`, in the link as `range=all`) while the
+//   selection stays within one dataset, so that asking for everything is a choice that is kept;
+// - otherwise the range is the page's, and is worked out again each time the stations, parameters,
+//   shape or the server's limits change: it may move, shrink, or go empty where the whole record fits.
+// A different dataset (provider, network, resolution, dataset) starts over, as it empties the stations.
+const rangeEdited = ref(Boolean(route.query.startDate || route.query.endDate))
+const rangeCleared = ref(route.query.range === 'all' && !rangeEdited.value)
+// the window the page chose and the user has not touched: what the note under the date fields says
+const defaultWindow = ref<FittingWindow | null>(null)
+const serverLimits = useServerLimits()
+
 const initialStationIds = ref<string[]>(stationIdsFromQuery(route.query))
 // The station the link names as the point (GH-2392). It has to be fetched before it can be
 // selected, which the picker does with its list, as `initialStationIds` is restored in station
@@ -322,6 +340,9 @@ watch(() => dataSettings.value.useStationDistancePerParameter, (newVal) => {
   })
 }, { deep: true, immediate: true })
 
+// Reference to DataViewer for accessing exposed stats
+const dataViewerRef = ref<InstanceType<typeof DataViewer> | null>(null)
+
 // Reference to DateRangeSelector for validation
 const dateRangeSelectorRef = ref<InstanceType<typeof DateRangeSelector> | null>(null)
 
@@ -350,6 +371,10 @@ watch(
     }
     initialStationIds.value = []
     initialInterpolationStationId.value = undefined
+    // another dataset: the range was for the old one
+    rangeEdited.value = false
+    rangeCleared.value = false
+    defaultWindow.value = null
     // a run chosen for one product is not carried over to the next one that offers the choice
     leadTime.value = 'short'
   },
@@ -361,6 +386,8 @@ watch(
     parameterSelectionState,
     () => stationSelectionState.value.selection.stations,
     () => stationSelectionState.value.interpolation,
+    () => stationSelectionState.value.dateRange,
+    rangeCleared,
     initialInterpolationStationId,
     () => dataSettings.value.humanize,
     () => dataSettings.value.convertUnits,
@@ -375,6 +402,8 @@ watch(
     query: {
       ...toQuery(parameterSelectionState.value, stationSelectionState.value, initialInterpolationStationId.value),
       ...dataSettingsToQuery(dataSettings.value),
+      // a range cleared stays so in a link: with none, the page would start one (GH-3457)
+      ...(rangeCleared.value && !stationSelectionState.value.dateRange.startDate && !stationSelectionState.value.dateRange.endDate ? { range: 'all' } : {}),
       // the default run is left out: unlike the data settings, it is no server setting, so a link
       // without it reads back the same run on any server
       ...(selectedLeadTime.value === 'long' ? { leadTime: 'long' } : {}),
@@ -416,27 +445,122 @@ const dateRangeRequired = computed(() =>
   || parameterSelectionState.value.selection.dateRequired === true,
 )
 
-// When dates are required and stations are selected, auto-fill from min(start_timestamp) / max(end_timestamp).
+// The date range the page starts for the stations (see `rangeEdited` for who it belongs to). A point
+// (interpolation, summary) has no rows to count, so it is the whole span of the stations' records, as a
+// required range always was; a station selection is the window that fits what the server sends, or the
+// whole span where that fits and a range is required, or no range where it is not.
+function startDateRange() {
+  const state = stationSelectionState.value
+  const stations = state.selection.stations
+  if (!stations.length) {
+    // a window was for stations that are no longer selected
+    defaultWindow.value = null
+    return
+  }
+  if (rangeEdited.value)
+    return
+  const range = state.dateRange
+  const today = new Date().toISOString().slice(0, 10)
+  const toDate = (iso: string | undefined | null) => iso ? iso.slice(0, 10) : null
+  const wholeSpan = () => {
+    const starts = stations.map(s => toDate(s.start_timestamp)).filter(Boolean) as string[]
+    // Active stations have no end_timestamp — treat them as ending today
+    const ends = stations.map(s => toDate(s.end_timestamp) ?? today)
+    if (starts.length) {
+      range.startDate = starts.reduce((a, b) => a < b ? a : b)
+      range.endDate = ends.reduce((a, b) => a > b ? a : b)
+    }
+  }
+  const { resolution, parameters } = parameterSelectionState.value.selection
+  if (state.mode !== 'station' || !resolution || !parameters.length) {
+    // the window a station selection started is not the range any more
+    defaultWindow.value = null
+    if (dateRangeRequired.value)
+      wholeSpan()
+    return
+  }
+  if (rangeCleared.value && !dateRangeRequired.value) {
+    // asking for everything is kept, also after a point (which requires a range) filled the fields
+    range.startDate = undefined
+    range.endDate = undefined
+    defaultWindow.value = null
+    return
+  }
+  const chosen = defaultRange({
+    resolution,
+    records: stations,
+    parameterCount: parameters.length,
+    tidy: dataSettings.value.shape !== 'wide',
+    maxRows: serverLimits.value.max_rows,
+    required: dateRangeRequired.value,
+  })
+  if (chosen.kind === 'window') {
+    range.startDate = chosen.window.startDate
+    range.endDate = chosen.window.endDate
+    defaultWindow.value = chosen.window
+  }
+  else if (chosen.kind === 'whole') {
+    range.startDate = chosen.startDate
+    range.endDate = chosen.endDate
+    defaultWindow.value = null
+  }
+  else {
+    // what the page started before no longer holds, and nothing is the user's
+    range.startDate = undefined
+    range.endDate = undefined
+    defaultWindow.value = null
+  }
+}
+
 watch(
   [
     () => stationSelectionState.value.selection.stations,
+    () => stationSelectionState.value.mode,
     dateRangeRequired,
+    () => parameterSelectionState.value.selection.resolution,
+    () => parameterSelectionState.value.selection.parameters,
+    () => dataSettings.value.shape,
+    serverLimits,
   ],
-  ([stations, required]) => {
-    if (!required || !(stations as Station[]).length)
-      return
-    const today = new Date().toISOString().slice(0, 10)
-    const toDate = (iso: string | undefined | null) => iso ? iso.slice(0, 10) : null
-    const starts = (stations as Station[]).map(s => toDate(s.start_timestamp)).filter(Boolean) as string[]
-    // Active stations have no end_timestamp — treat them as ending today
-    const ends = (stations as Station[]).map(s => toDate(s.end_timestamp) ?? today)
-    if (starts.length)
-      stationSelectionState.value.dateRange.startDate = starts.reduce((a, b) => a < b ? a : b)
-    if (ends.length)
-      stationSelectionState.value.dateRange.endDate = ends.reduce((a, b) => a > b ? a : b)
-  },
-  { deep: true },
+  startDateRange,
+  { deep: true, immediate: true },
 )
+
+// the user typed or picked a date: the fields are theirs from now on (a field emptied by hand is a range cleared)
+function onRangeEdited() {
+  const { startDate, endDate } = stationSelectionState.value.dateRange
+  defaultWindow.value = null
+  if (!startDate && !endDate) {
+    // a range that is not required, emptied: asking for everything, which is kept. One that is required
+    // cannot be empty, and is the page's to fill again at the next change, as it always was; whether
+    // everything was asked for before it was required (a point) is not decided by emptying its fields
+    if (!dateRangeRequired.value)
+      rangeCleared.value = true
+    rangeEdited.value = false
+  }
+  else {
+    rangeEdited.value = true
+    // a field emptied of a required range is no choice of everything; dates in both are an edit of it
+    if (!dateRangeRequired.value || (startDate && endDate))
+      rangeCleared.value = false
+  }
+}
+
+function onRangeCleared() {
+  rangeCleared.value = true
+  rangeEdited.value = false
+  defaultWindow.value = null
+}
+
+// the window that fits what the server refused (the table area's button): written as a user edit would,
+// and asked for again, whatever Fetch says of it, as the refusal is why there is nothing to hold
+async function applyRange(range: { startDate: string, endDate: string }) {
+  stationSelectionState.value.dateRange.startDate = range.startDate
+  stationSelectionState.value.dateRange.endDate = range.endDate
+  onRangeEdited()
+  await nextTick()
+  dataViewerRef.value?.fetchData()
+}
 
 // Check if station/interpolation/summary selection is complete
 const hasLocationSelection = computed(() => {
@@ -490,15 +614,12 @@ const isDateRangeValid = computed(() => {
     const paramCount = parameterSelectionState.value.selection.parameters.length
 
     const estimated = diffDays * perDay * stationCount * paramCount
-    if (estimated > 100000)
+    if (estimated > HIGH_RESOLUTION_MAX_VALUES)
       return false
   }
 
   return true
 })
-
-// Reference to DataViewer for accessing exposed stats
-const dataViewerRef = ref<InstanceType<typeof DataViewer> | null>(null)
 
 // Check if we can fetch
 const canFetch = computed(() => {
@@ -1070,6 +1191,9 @@ function handleUnitTargetChange(unitType: string, value: string) {
                 :resolution="parameterSelectionState.selection.resolution"
                 :station-count="stationSelectionState.mode === 'station' ? stationSelectionState.selection.stations.length : 1"
                 :parameter-count="parameterSelectionState.selection.parameters.length"
+                :default-window="defaultWindow"
+                @edited="onRangeEdited"
+                @cleared="onRangeCleared"
               />
 
               <USeparator v-if="showDateRangeSelector" />
@@ -1142,6 +1266,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
             v-if="hasLocationSelection" ref="dataViewerRef" :parameter-selection="parameterSelectionState.selection"
             :station-selection="stationSelectionState" :settings="dataSettings" :lead-time="selectedLeadTime"
             :unit-target-defaults="unitTargetDefaults"
+            @apply-range="applyRange"
           />
           <!-- where the result will be, until a place is chosen: the column of the result is not an empty hole -->
           <div

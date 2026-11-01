@@ -44,6 +44,7 @@ from wetterdienst.exceptions import (
     WetterdienstError,
 )
 from wetterdienst.io.export import require_kaleido
+from wetterdienst.io.formats import renders_with_kaleido
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import CoverageNetwork, CoverageParameter, Extent
 from wetterdienst.model.request import TimeseriesRequest
@@ -585,9 +586,6 @@ def _refuse_sql_unless_enabled(
         )
 
 
-#: the formats a chart is rendered to by the browser; `html` is the figure itself and has no size
-_IMAGE_FORMATS = frozenset({"png", "jpg", "webp", "svg", "pdf"})
-
 #: the longest side, in pixels once `scale` is applied, of an image this server renders. Chromium
 #: renders it for as long as it takes and holds the whole canvas: 14000 x 10000 px took 18 s, and
 #: 28000 x 20000 px 30 s and then an empty body that was answered with a 200 (GH-2765)
@@ -617,7 +615,7 @@ def _refuse_oversized_image(
 
 def _refuse_oversized_chart(request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest) -> None:
     """Refuse the size of a chart in an image format, see `_refuse_oversized_image`."""
-    if request.format in _IMAGE_FORMATS:
+    if renders_with_kaleido(request.format):
         _refuse_oversized_image(request.width, request.height, request.scale)
 
 
@@ -1929,6 +1927,10 @@ def _request_options(
         # not an option the request has no field for, which the server sets alone
         if field in type(request).model_fields and field in given and (value := getattr(request, field)) is not None
     }
+    # one mode for every check, which a `plausibility_<check>` given beside it overrides
+    every = getattr(request, "plausibility", None)
+    if every is not None and "plausibility" in given:
+        passed["plausibility"] = ("plausibility", every)
     try:
         return overlay_options(server, {option: value for option, (_, value) in passed.items()})
     except ValidationError as e:

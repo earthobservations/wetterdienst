@@ -16,8 +16,28 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[Explorer]` A request the server refuses over its limits (`limit-exceeded`: too many rows for
+  one answer, too many stations) is a state of the table in the page's language, with the numbers
+  as the language writes them and what the selection holds, in place of the server's English
+  text and a red error. For the rows it offers the newest window that fits (about 90 % of the
+  limit, rounded down to days, months or years for the resolution) as one button that fills the
+  date range and asks again, and the whole request as a streamed CSV download (`format=csv`,
+  for which the server allows more rows). All eleven locales; pl, cs, lb and de-hh are not natively
+  reviewed (GH-3457)
+- `[Explorer]` A selection whose whole record is more than the server sends as one answer starts
+  with the newest window that fits in the date range, with a note under the fields that says so,
+  where the range was empty (the server's limits come from `GET /api/version`). "Clear date range"
+  empties it and keeps it empty (`range=all` in the link); dates you type, apply or share in a link
+  are never replaced (GH-3457)
+
 ### Changed
 
+- `[Explorer]` A date range that is required (1, 5 and 10 minute data) is started with the newest
+  window of at most 100,000 values, which the form accepts, where it used to be the whole span of
+  the stations' records, which it refused. Dates you have edited are no longer replaced when you
+  choose other stations (GH-3457)
 - `[Design]` A new look: the four tools (forecast, explorer, climate stripes, station history)
   are tabs in the header and, on a phone, in a tab bar at the foot of the screen; providers,
   glossary and API are under "Reference", and a search on every page (Ctrl+K) goes to any page,
@@ -32,6 +52,35 @@ Types of changes:
   verdict, the numbers, the chart that backs it and a link into the tool that holds the data,
   already filled in. The place is a DWD station the reader can change; the open question and the
   place are in the link. Nothing is fetched until a question is picked (GH-3518)
+
+## [0.42.0] - 2026-11-01
+
+### Added
+
+- `[Glossary]` Five parameters of `dmi/observation` have labels in all eleven languages (Part of
+  GH-3622): snow cover, leaf wetness duration, air temperature at grass height, mean vapour
+  pressure deficit and the soil temperature at 30 cm. Needs the backend that serves them (0.181.0):
+  release the backend first. The Low German and Luxembourgish labels are not reviewed by a native
+  speaker
+- `[Glossary]` The new unit type `temperature_difference` (the expected errors of `dwd/mosmix`
+  temperatures, in K) has its label in the unit filter, in all eleven languages ("Temperature
+  difference"). Needs the backend that serves it (0.181.0): release the backend first. The
+  Low German and Luxembourgish labels are not reviewed by a native speaker (GH-3688)
+
+## [0.41.0] - 2026-11-01
+
+### Added
+
+- `[Glossary]` Ten parameters of `dmi/observation` have labels in all eleven languages (GH-3622):
+  the days with a mean cloud cover above 80 % or below 20 %, with snow cover, with a minimum below
+  -10 degrees C and with a strong wind (four thresholds), and the highest and lowest air pressure at
+  sea level. Needs the backend that serves them (0.180.0): release the backend first. The Low
+  German and Luxembourgish labels are not reviewed by a native speaker
+
+## [0.40.0] - 2026-10-31
+
+### Changed
+
 - `[Meteogram]` The forecast's table of values is a view of its own, no longer a "Show as table"
   button below the chart: one control in the toolbar chooses Chart, Compact or Table (it replaces
   the Compact button; the arrow keys move along it). The table is as wide as the page, keeps its
@@ -1735,7 +1784,10 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.39.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.42.0...HEAD
+[0.42.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.41.0...app-v0.42.0
+[0.41.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.40.0...app-v0.41.0
+[0.40.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.39.0...app-v0.40.0
 [0.39.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.38.0...app-v0.39.0
 [0.38.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.37.0...app-v0.38.0
 [0.37.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.36.0...app-v0.37.0

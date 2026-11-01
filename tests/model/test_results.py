@@ -234,7 +234,16 @@ def _public(cls: type) -> list[str]:
 # What a caller may rely on, as `dir` and `inspect` read it. A change here is a change of the surface the
 # library promises from 1.0, which is why it is pinned: it shows as a diff in a review (GH-2626, and
 # the snapshot of the public surface that #2625 asks for).
-_FORMATS = ["to_csv", "to_dict", "to_format", "to_geojson", "to_image", "to_json", "to_ogc_feature_collection"]
+_FORMATS = [
+    "to_csv",
+    "to_dict",
+    "to_format",
+    "to_geojson",
+    "to_image",
+    "to_json",
+    "to_ndjson",
+    "to_ogc_feature_collection",
+]
 _VALUES_SURFACE = [
     "data_updated_at",
     "df_stations",
@@ -287,7 +296,7 @@ def test_the_public_methods_of_the_results_are_the_ones_the_library_promises() -
     assert _public(ValuesResult) == _VALUES_SURFACE
     assert _public(InterpolatedValuesResult) == sorted([*_VALUES_SURFACE, "elevation"])
     assert _public(SummarizedValuesResult) == sorted([*_VALUES_SURFACE, "elevation"])
-    assert _public(HistoryResult) == ["to_dict", "to_json"]
+    assert _public(HistoryResult) == ["to_dict", "to_format", "to_json"]
 
 
 def test_the_signatures_the_documentation_shows_are_the_ones_the_results_have() -> None:
@@ -434,6 +443,7 @@ def test_the_dictionaries_of_the_results_are_importable_by_a_public_name() -> No
         assert getattr(result_module, public) is getattr(result_module, private), public
         assert public in result_module.__all__
     assert sorted(set(result_module.__all__) - set(names)) == [
+        "FormattableResult",
         "HistoryResult",
         "InterpolatedValuesResult",
         "StationsFilter",

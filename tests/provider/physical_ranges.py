@@ -30,12 +30,17 @@ named with `None`, never left out, so that a new unit type fails
 To hold a quantity to a different range, add it to `PARAMETER_RANGES` (one name) or `PREFIX_RANGES` (a family), or to
 `RESOLUTION_RANGES` where the range depends on the resolution.
 
-A reader that nulls the values outside a range (`OutOfRange`, GH-2797) keeps one per resolution as well, in the unit of
-its source. It may be narrower than the range here, never wider (a source whose own validated records stay far below
-the world's record, or whose precision needs no slack, can say so), and `test_physical_ranges.py` holds it to that.
-DWD observation (the wind speeds and the station and sea level pressures) and Météo-France synop (the pressures,
-temperatures and amounts of rain) null only the columns they name, a bound of the world's records or inside it, and
-`test_physical_ranges.py` holds those to the range here as well (GH-3135).
+The values core judges a reading against one table of bounds per network (`model/plausibility_ranges.py`, the check
+`range`, GH-2797), in the canonical unit, which is the unit this module holds a value to. A network may hold a quantity
+narrower than the range here, never wider (a source whose own validated records stay far below the world's record, or
+whose precision needs no slack, can say so, as an override with the argument beside it), and `test_physical_ranges.py`
+holds every bound of the table to the range here. DWD observation (the wind speeds and the station and sea level
+pressures) and Météo-France synop (the pressures, temperatures and amounts of rain) are judged on the quantities they
+name, a bound of the world's records or inside it (GH-3135).
+
+A value outside its range that carries the token `suspect:` is kept on purpose: a plausibility check in the mode `soft`
+found it and left it, flagged (GH-3676), so the check here accepts it. Only the core's own verdict counts; a number
+outside a range with no such token is still a sentinel the reader missed.
 """
 
 from __future__ import annotations
@@ -45,6 +50,7 @@ from typing import NamedTuple
 import polars as pl
 
 from wetterdienst.metadata.parameter_table import PARAMETERS
+from wetterdienst.model.plausibility import SUSPECT_TOKEN
 
 
 class Bounds(NamedTuple):
@@ -66,7 +72,9 @@ UNIT_TYPE_RANGES: dict[str, Bounds | None] = {
     # of its own in `PARAMETER_RANGES`, which this one would otherwise call a sentinel
     "concentration": Bounds(0.0, 30.0),
     "conductivity": Bounds(0.0, 80_000.0),  # µS/cm; sea water is 50_000
-    "degree_day": Bounds(0.0, 20_000.0),  # °C·day; a year of heating in the cold north is below 10_000
+    # °C·day; the most of a year DMI publishes is 18_022.8 (base 19, 04416 Summit, Greenland, 2011), so the bound
+    # leaves about 10 % above it
+    "degree_day": Bounds(0.0, 20_000.0),
     "degree_hour": Bounds(0.0, 20_000.0),  # °C·h
     "dimensionless": None,
     "energy_per_area": Bounds(-100.0, 500_000.0),  # J/cm²; a year of global radiation is about 360_000
@@ -78,10 +86,13 @@ UNIT_TYPE_RANGES: dict[str, Bounds | None] = {
     "power_per_area": Bounds(-200.0, 2_000.0),  # W/m²; the solar constant is 1_361
     "precipitation": Bounds(0.0, 6_000.0),  # mm; a month of rain in the wettest places is 5_000 at most
     "precipitation_intensity": Bounds(0.0, 3_000.0),  # mm/h
-    "pressure": Bounds(300.0, 1_100.0),  # hPa; Everest is 330, the highest sea level pressure 1_084
+    "pressure": Bounds(300.0, 1_100.0),  # hPa; Everest is 330, the highest sea level pressure 1_089 (WMO)
     "significant_weather": Bounds(0.0, 99.0),
-    "speed": Bounds(0.0, 115.0),  # m/s; the fastest gust measured is 113
+    "speed": Bounds(0.0, 115.0),  # m/s; the fastest gust measured is 113.2 (WMO)
     "temperature": Bounds(-90.0, 100.0),  # °C; narrowed for the air below
+    # a difference of temperatures, signed, in K: the spread of the coldest and the hottest places is under 150. The
+    # `error_absolute_temperature_*` of MOSMIX are of this type and held to nothing below (GH-3688)
+    "temperature_difference": Bounds(-150.0, 150.0),  # K
     "time": Bounds(0.0, 366 * 86_400.0),  # s; a year of sunshine is the most there is
     "turbidity": Bounds(0.0, 5_000.0),  # NTU
     # m³; the water held in a reservoir, from none to the 180 km³ of Lake Kariba, the largest reservoir by volume
@@ -102,6 +113,11 @@ PARAMETER_RANGES: dict[str, Bounds | None] = {
     "pressure_air_site_delta_last_3h": Bounds(-100.0, 100.0),
     "pressure_vapor": Bounds(0.0, 100.0),  # hPa
     "pressure_vapor_mean": Bounds(0.0, 100.0),  # hPa
+    # a deficit is the difference of two pressures, not a pressure of the air: 0 in saturated air, about 100 hPa (10
+    # kPa) in the hottest, driest air. DMI's hourly values of the Julys of 2012 to 2026 run from -0.3 kPa (-3 hPa,
+    # 06193, 2025-07-25) to 4.2 kPa (42 hPa), so the unit type's 300 to 1,100 hPa would call every one a sentinel
+    # (see the page of dmi/observation)
+    "vapor_pressure_deficit_mean": Bounds(-10.0, 100.0),  # hPa
     # a zenith angle runs from the sun overhead to below the horizon
     "sun_zenith_angle": Bounds(0.0, 180.0),
     "count_days_in_month": Bounds(28.0, 31.0),
@@ -259,6 +275,10 @@ def out_of_range(df: pl.DataFrame, names: dict[str, str] | None = None, resoluti
         for column in ("resolution", "dataset", "station_id", "timestamp", "parameter", "value")
         if column in df.columns
     ]
+    if "quality_flags" in df.columns:
+        # a value that a soft plausibility check flagged `suspect:` is kept on purpose, outside its range or not
+        # (GH-3676): the flag is the reader's own finding, so the number is not a sentinel the reader missed
+        outside = outside & ~pl.col("quality_flags").str.contains(SUSPECT_TOKEN).fill_null(value=False)
     return df.filter(outside.fill_null(value=False)).select(keep)
 
 

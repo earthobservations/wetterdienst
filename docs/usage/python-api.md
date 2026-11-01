@@ -673,6 +673,39 @@ flags its source publishes for it, null where the source gives none. What a code
 provider, so a code from one says nothing about one from another. The tokens, the codes of each provider and the
 sentinels that are kept as `raw:<text>` are on the [quality flags](../data/quality-flags.md) page.
 
+#### Plausibility checks
+
+A number no sensor can have produced (4021 °C for a daily maximum, 909.5 hPa at a station at sea level, a barometer
+that held one value for a month) is judged by a **check**, and the option `plausibility` chooses what happens to it,
+per check: `"hard"` makes the value null and keeps the number as `rejected:<check>,raw:<number>` in `quality_flags`,
+`"soft"` keeps the value and flags it `suspect:<check>`. The checks are `range`, `elevation`, `stuck`, `consistency`
+and `floor`; all are hard but `stuck`, which is soft because it judges a series and not a value (what it finds depends on what was read, see the
+[plausibility page](../data/plausibility.md)). A check not named keeps its mode, and `WD_TS_PLAUSIBILITY__RANGE=soft` sets one for a host. The codes a source documents
+(`-999`, a calm, a trace) are no check and have no mode.
+
+```python
+import polars as pl
+from wetterdienst import Options
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+request = DwdObservationRequest(
+    parameters=[("daily", "climate_summary", "pressure_air_site_mean")],
+    start="2023-01-01",
+    end="2023-01-31",
+    options=Options(plausibility={"range": "soft"}),  # or options={"plausibility": {"range": "soft"}}
+)
+values = request.filter_by_station_id("01048").values().all()
+# the values a soft check kept, flagged `suspect:range`
+suspect = values.df.filter(pl.col("quality_flags").str.contains(r"(^|,)suspect:"))
+```
+
+`Options(plausibility="soft")` sets every check at once (everything a source wrote, flagged), and a check named beside
+it, as in the environment (`WD_TS_PLAUSIBILITY=soft` with `WD_TS_PLAUSIBILITY__RANGE=hard`), wins.
+
+Interpolation, summary and climate stripes leave out a suspect value in any mode, and `skip_empty` counts the unflagged
+values alone. [Plausibility checks](../data/plausibility.md)
+describes each check, the networks and datasets it covers, the tokens with filters for them, and the caveats.
+
 ### Results
 
 What a request answers is a result, and the results are what a caller reads:
@@ -696,14 +729,21 @@ What a request answers is a result, and the results are what a caller reads:
 - **A values result does not hold the reader** that produced it, so one you keep for a long job keeps
   the stations, their request and the frame alive, but not the reader. `df_stations` names the stations that have values.
 - Every result but the history one has `to_dict`, `to_json`, `to_ogc_feature_collection`, `to_geojson`,
-  `to_csv`, `to_format`, `to_target`, `to_plot` and `to_image`; the history one has `to_dict` and `to_json`
-  only. They are documented below.
+  `to_csv`, `to_ndjson`, `to_format`, `to_target`, `to_plot` and `to_image`; the history one has `to_dict`, `to_json`
+  and `to_format`, which has JSON and no other format. They are documented below.
+- **`FormattableResult` is what all of them can do**: a `typing.Protocol` of `to_dict`, `to_json` and `to_format`,
+  importable from `wetterdienst.model.result`. The five results satisfy it, and so does the alerts result of
+  `dwd/alerts`, without inheriting from it, so a function that writes whatever a request answered annotates its
+  argument with it (`def save(result: FormattableResult) -> str | bytes`). `isinstance(result, FormattableResult)`
+  tells whether an object has the three methods. A format a result does not have, such as CSV for a history, is an
+  `UnknownFormatError` from its `to_format`.
 - **The formats take the arguments they have, and no others.** `to_json`, `to_geojson`,
   `to_ogc_feature_collection` and `to_plot` raise a `TypeError` for a keyword they do not know, so a typo such as
   `to_geojson(with_metdata=True)` is an error, and a type checker reports it. `to_csv` and `to_image` pass their
   keywords on (`to_csv` to polars' `write_csv`, `to_image` to the image: `fmt`, `width`, `height`, `scale` and
   `max_side`). `to_format(fmt, **kwargs)` takes one set of arguments for any format and gives each format those
-  it takes (CSV none), which is what the command line, the REST API and MCP rely on.
+  it takes (CSV none), which is what the command line, the REST API and MCP rely on. A name that no format takes
+  is a `TypeError` listing the ones that are, and a format it does not know an `UnknownFormatError`.
 - **A result is built by the library, and by keyword.** The constructors take keyword arguments only
   (`ValuesResult(stations=..., df=...)`); a positional call raises a `TypeError`.
 
@@ -730,7 +770,8 @@ full explanation, supported parameters, settings, CLI and REST usage.
 
 A result renders itself in the formats below. The arguments are keyword-only and the ones in the table: a keyword a
 method does not take is a `TypeError`. `to_format(fmt, **kwargs)` takes one set of arguments for any format and gives
-each format those it takes, which is what the command line, the REST API and the MCP tools do.
+each format those it takes, which is what the command line, the REST API and the MCP tools do. A keyword that no
+format takes is a `TypeError` too, and the formats by surface are in the table of [Export](export.md#formats-by-surface).
 
 | Method | `StationsResult` | `ValuesResult`, `InterpolatedValuesResult`, `SummarizedValuesResult` | `HistoryResult` |
 | --- | --- | --- | --- |
@@ -739,8 +780,10 @@ each format those it takes, which is what the command line, the REST API and the
 | `to_geojson` | `with_metadata`, `indent` | `with_metadata`, `indent` | none |
 | `to_ogc_feature_collection` | `with_metadata` | `with_metadata` | none |
 | `to_csv` | `**kwargs` of polars' `write_csv` | the same | none |
+| `to_ndjson` | none | none | none |
 | `to_image` | `**kwargs`: `fmt`, `width`, `height`, `scale`, `max_side` | the same | none |
 | `to_plot` | none | none | none |
+| `to_format` | `fmt`, `**kwargs` | the same | `fmt`, `**kwargs`: JSON only |
 
 `indent` defaults to 4 (`True` is 4, `False` or `None` writes the JSON on one line); `with_metadata` and `with_stations` default to `False`.
 `to_dict` and `to_ogc_feature_collection` return dictionaries typed as `StationsDict`, `ValuesDict`,
@@ -905,7 +948,7 @@ below it say what kind of failure it is:
 
 | Class | Raised when | Also a |
 | --- | --- | --- |
-| `RequestError` | the request cannot be served as phrased and can be rephrased: an invalid parameter (`InvalidParameterError`), period, date, window or point | `ValueError` |
+| `RequestError` | the request cannot be served as phrased and can be rephrased: an invalid parameter (`InvalidParameterError`), period, date, window or point, or an output format nothing renders (`UnknownFormatError`, also a `KeyError`) | `ValueError` |
 | `NotFoundError` | what the request names does not exist: a provider, network, resolution or dataset (`MetadataNotFoundError`), station or forecast run | `LookupError` |
 | `ConfigurationError` | this installation cannot serve it: a missing credential or optional package | |
 | `UpstreamError` | the provider's side failed or sent what the parser does not expect: `DownloadError`, `NoInternetError` | |

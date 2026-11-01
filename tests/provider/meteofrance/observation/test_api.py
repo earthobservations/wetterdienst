@@ -1493,7 +1493,7 @@ def test_meteofrance_observation_api_a_temperature_below_zero_is_null_where_ther
     _serve_climate(monkeypatch, files)
     df = _values(resolution, dataset, parameter, station, *window, drop_nulls=False)
     assert df.get_column("value").to_list() == [None]
-    assert df.get_column("quality_flags").to_list()[0].endswith(f"raw:{text}")
+    assert df.get_column("quality_flags").to_list()[0].endswith(f"rejected:range,raw:{text}")
 
 
 @pytest.mark.parametrize(
@@ -1537,3 +1537,71 @@ def test_meteofrance_observation_api_a_temperature_below_zero_is_null_only_where
         "hourly", "core", "temperature_air_2m", station, _utc(2020, 8, 10), _utc(2020, 8, 12), drop_nulls=False
     )
     assert df.get_column("value").to_list() == [float(value) if kept else None]
+
+
+@pytest.mark.parametrize(
+    ("department", "station", "kept"),
+    [
+        # the departments of the rule: Mayotte (VAHIBE_SAPC), Iles Eparses (TROMELIN), Guadeloupe (ST-CLAUDE CITERNE)
+        ("985", "98511003", False),
+        ("984", "98403004", False),
+        ("971", "97124009", False),
+        # La Reunion has frost at altitude, the southern territories and the mainland have it too
+        ("974", "97411170", True),
+        ("984", "98404001", True),
+        ("07", "07005001", True),
+    ],
+)
+def test_meteofrance_observation_api_the_humidity_beside_a_dew_point_below_zero_is_null_where_there_is_no_frost(
+    monkeypatch: pytest.MonkeyPatch,
+    department: str,
+    station: str,
+    kept: bool,  # noqa: FBT001
+) -> None:
+    """Test that the U of an hour whose TD the frost rule nulls is null too, with its text, and U alone is asked for.
+
+    The first row is that of VAHIBE_SAPC (98511003) at 2025-06-10 07 h (TD -4.5 C beside U 15 %), the second an hour of
+    a TD of 20.6 C beside U 78 %, the third a TD of 0.0 C, which is no reading below 0 C; a U of 15 % beside a dew point
+    that is a reading is none to null (no floor on the humidity). The dew point is read for the humidity and is not in
+    the answer (GH-3629).
+    """
+    rows = [
+        {"NUM_POSTE": station, "AAAAMMJJHH": "2025061007", "TD": "-4.5", "QTD": "9", "U": "15", "QU": "9"},
+        {"NUM_POSTE": station, "AAAAMMJJHH": "2025061008", "TD": "20.6", "QTD": "1", "U": "78", "QU": "1"},
+        {"NUM_POSTE": station, "AAAAMMJJHH": "2025061009", "TD": "0.0", "QTD": "1", "U": "15", "QU": "1"},
+    ]
+    title = f"HOR_departement_{department}_periode_2025-2026"
+    _serve_climate(monkeypatch, {title: _climate_gz("hourly", "others", rows)})
+    df = _values(
+        "hourly", "others", "humidity_relative", station, _utc(2025, 6, 10), _utc(2025, 6, 11), drop_nulls=False
+    )
+    assert df.get_column("parameter").unique().to_list() == ["humidity_relative"]
+    assert df.get_column("value").to_list() == ([None, 0.78, 0.15] if not kept else [0.15, 0.78, 0.15])
+    flags = df.get_column("quality_flags").to_list()
+    assert flags[0] == ("9" if kept else "9,rejected:consistency,raw:15")
+    assert flags[1] == "1"
+    assert flags[2] == "1"
+
+
+def test_meteofrance_observation_api_the_humidity_and_the_dew_point_are_nulled_together_in_one_answer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that asking for the dataset gives both nulled, each with its own text (GH-3629)."""
+    station = "98403004"
+    rows = [{"NUM_POSTE": station, "AAAAMMJJHH": "2014040100", "TD": "-21.6", "QTD": "9", "U": "3", "QU": "9"}]
+    _serve_climate(monkeypatch, {"HOR_departement_984_periode_2010-2019": _climate_gz("hourly", "others", rows)})
+    request = MeteoFranceObservationRequest(
+        parameters=[("hourly", "others", "humidity_relative"), ("hourly", "others", "temperature_dew_point_2m")],
+        start=_utc(2014, 3, 31),
+        end=_utc(2014, 4, 2),
+        settings=Settings(cache_disable=True),
+        options=Options(drop_nulls=False),
+    )
+    df = stations_result(request, "hourly", "others", station).values().all().df
+    by_parameter = {str(p): g for (p,), g in df.partition_by("parameter", as_dict=True).items()}
+    assert by_parameter["humidity_relative"].get_column("value").to_list() == [None]
+    assert by_parameter["humidity_relative"].get_column("quality_flags").to_list() == ["9,rejected:consistency,raw:3"]
+    assert by_parameter["temperature_dew_point_2m"].get_column("value").to_list() == [None]
+    assert by_parameter["temperature_dew_point_2m"].get_column("quality_flags").to_list() == [
+        "9,rejected:range,raw:-21.6"
+    ]

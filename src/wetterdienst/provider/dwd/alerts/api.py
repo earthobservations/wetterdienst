@@ -31,8 +31,10 @@ from wetterdienst.exceptions import (
     MetaFileNotFoundError,
     RequestError,
 )
+from wetterdienst.io.export import render_data_format
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import Extent, ProviderTerms
+from wetterdienst.model.result import describe_provider
 from wetterdienst.provider.dwd.alerts.metadata import (
     DWD_ALERTS_BASE_URL,
     DwdWeatherAlertGranularity,
@@ -43,10 +45,13 @@ from wetterdienst.provider.dwd.metadata import _METADATA
 from wetterdienst.settings import Settings
 from wetterdienst.util.archive import check_zip, read_unpacked
 from wetterdienst.util.datetime import format_timestamp, timestamps_to_string
+from wetterdienst.util.json_util import dumps_json, json_indent
 from wetterdienst.util.network import download_file, list_remote_directory_fsspec
 
 if TYPE_CHECKING:
     from io import BytesIO
+
+    from wetterdienst.model.result import ResultMetadata
 
 log = logging.getLogger(__name__)
 
@@ -142,27 +147,51 @@ class DwdWeatherAlertResult:
             alerts.append(alert)
         return alerts
 
-    def to_dict(self) -> dict[str, Any]:
+    def _metadata(self) -> ResultMetadata:
+        """Give the `metadata` block that `with_metadata` adds: the provider, this library and the date of the data.
+
+        The block of the other results, from the terms of the network; the REST API answers with a fuller one.
+        """
+        return describe_provider(DwdWeatherAlertRequest.terms, self.data_updated_at)
+
+    def to_dict(self, *, with_metadata: bool = False) -> dict[str, Any]:
         """Return the alerts as ``{"snapshot": ..., "alerts": [...]}`` with nested geometry/parameters.
 
         ``snapshot`` is the UTC production time (ISO string) of the selected snapshot, or ``None``
         for the latest one, so callers can tell which point-in-time snapshot they received.
+
+        Args:
+            with_metadata: whether to put the ``metadata`` block (provider, producer and the date of the data) first
+
         """
-        return {
+        data: dict[str, Any] = {
             "snapshot": format_timestamp(self.snapshot) if self.snapshot is not None else None,
             "alerts": self._alerts(),
         }
+        return {"metadata": self._metadata(), **data} if with_metadata else data
 
-    def to_json(self, indent: bool = False) -> str:  # noqa: FBT001, FBT002
-        """Return the alerts as a JSON string."""
-        return json.dumps(self.to_dict(), indent=4 if indent else None, ensure_ascii=False)
+    def to_json(self, indent: int | bool | None = False, *, with_metadata: bool = False) -> str:  # noqa: FBT001, FBT002
+        """Return the alerts as a JSON string.
 
-    def to_ogc_feature_collection(self) -> dict[str, Any]:
+        Args:
+            indent: a number of spaces, ``True`` for 4, ``False`` or ``None`` (the default) for one line, as the
+                ``indent`` of the other results' ``to_json``
+            with_metadata: whether to put the ``metadata`` block first
+
+        """
+        return dumps_json(self.to_dict(with_metadata=with_metadata), indent=json_indent(indent), ensure_ascii=False)
+
+    def to_ogc_feature_collection(self, *, with_metadata: bool = False) -> dict[str, Any]:
         """Return the alerts as a GeoJSON ``FeatureCollection``.
 
         Each alert becomes a ``Feature`` whose geometry is its ``MultiPolygon`` (``null`` when the
         alert only carries entity/``WARNCELLID`` areas without polygons) and whose properties are the
         remaining alert fields.
+
+        Args:
+            with_metadata: whether to carry the ``metadata`` block as a foreign member after ``type``, as the REST API
+                does (RFC 7946, 6.1)
+
         """
         features = []
         for alert in self._alerts():
@@ -171,13 +200,24 @@ class DwdWeatherAlertResult:
         # "snapshot" is a GeoJSON foreign member carrying the selected snapshot's UTC production time.
         return {
             "type": "FeatureCollection",
+            **({"metadata": self._metadata()} if with_metadata else {}),
             "snapshot": format_timestamp(self.snapshot) if self.snapshot is not None else None,
             "features": features,
         }
 
-    def to_geojson(self, indent: bool = False) -> str:  # noqa: FBT001, FBT002
-        """Return the alerts as a GeoJSON ``FeatureCollection`` string."""
-        return json.dumps(self.to_ogc_feature_collection(), indent=4 if indent else None, ensure_ascii=False)
+    def to_geojson(self, indent: int | bool | None = False, *, with_metadata: bool = False) -> str:  # noqa: FBT001, FBT002
+        """Return the alerts as a GeoJSON ``FeatureCollection`` string.
+
+        Args:
+            indent: a number of spaces, ``True`` for 4, ``False`` or ``None`` (the default) for one line
+            with_metadata: whether to carry the ``metadata`` block as a foreign member
+
+        """
+        return dumps_json(
+            self.to_ogc_feature_collection(with_metadata=with_metadata),
+            indent=json_indent(indent),
+            ensure_ascii=False,
+        )
 
     def to_csv(self) -> str:
         """Return the flat alert DataFrame as CSV.
@@ -188,16 +228,23 @@ class DwdWeatherAlertResult:
         df = timestamps_to_string(self.df.with_columns(pl.col(column).list.join(",") for column in _LIST_COLUMNS))
         return df.write_csv()
 
-    def to_format(self, fmt: str, *, indent: bool = False) -> str:
-        """Render the result in the requested format (``json``, ``geojson`` or ``csv``)."""
-        if fmt == "json":
-            return self.to_json(indent=indent)
-        if fmt == "geojson":
-            return self.to_geojson(indent=indent)
-        if fmt == "csv":
-            return self.to_csv()
-        msg = f"format {fmt!r} not supported, use one of json, geojson, csv"
-        raise ValueError(msg)
+    def to_format(self, fmt: str, **kwargs: Any) -> str:  # noqa: ANN401
+        """Render the result in the requested format (``json``, ``geojson`` or ``csv``), in any case.
+
+        Like ``to_format`` of the other results, it takes the one set of arguments a caller builds for every format and
+        gives each format those it takes: ``with_metadata`` and ``indent`` to JSON and GeoJSON, none to CSV (it has no
+        place for the ``metadata`` block).
+
+        Args:
+            fmt: the format, in any case
+            **kwargs: ``with_metadata`` and ``indent``, as ``to_json`` takes them
+
+        Raises:
+            UnknownFormatError: ``fmt`` is none of the three. It is a ``ValueError`` and a ``KeyError``.
+            TypeError: an argument that no format takes.
+
+        """
+        return render_data_format(self, fmt, kwargs, only=("json", "geojson", "csv"))
 
 
 class DwdWeatherAlertRequest:

@@ -116,9 +116,10 @@ Three contracts are held by snapshots, so that a change to one is a diff in the 
 | the `--help` of every command | `tests/ui/cli/help.snapshot.txt` | `uv run poe cli:snapshot` |
 | the public surface of the Python API | `tests/public_surface.snapshot.json` | `uv run poe surface:snapshot` |
 
-`uv run poe contracts:snapshot` does all three. A snapshot shows a change; it does not refuse one. So each contract
-is also checked against what the **last release** offered: a baseline is that surface as released, a test fails when
-the code no longer offers something the baseline does, and additions always pass.
+`uv run poe contracts:snapshot` does all three. The OpenAPI snapshot leaves out `info.version`, so the first
+regeneration after a release does not rewrite that line. A snapshot shows a change; it does not refuse one. So each
+contract is also checked against what the **last release** offered: a baseline is that surface as released, a test
+fails when the code no longer offers something the baseline does, and additions always pass.
 
 | Baseline | File | What must still be offered |
 | --- | --- | --- |
@@ -150,7 +151,7 @@ The checklist for the release that makes 0.x into 1.0.0, in the order to do it. 
 #2561 (REST, CLI, MCP) and the issues under them promise for the tag; every file named is in the repository. The
 release steps above (and the release commit of the last 0.x release, which did them last) are the
 mechanics; this list adds what only 1.0.0 needs. The app stays 0.x (`docs/usage/compatibility.md`, "The web app and
-the image"), so its release after this one is the next 0.x app version (after 0.39.0 today), not `app-v1.0.0`.
+the image"), so its release after this one is the next 0.x app version (after 0.42.0 today), not `app-v1.0.0`.
 
 ### 0. What must be true first
 
@@ -337,7 +338,7 @@ run on `main` proves the commit, not the published wheel.
 An app that ships against a backend it was not run with is how app 0.21.0 got a 422 from 0.155.0; the app is
 released after step 3, never in the same PR as the backend.
 
-- [ ] `app/package.json` `version` the next 0.x app version after 0.39.0 (`X.Y.Z` below); `CHANGELOG_APP.md` gets its
+- [ ] `app/package.json` `version` the next 0.x app version after 0.42.0 (`X.Y.Z` below); `CHANGELOG_APP.md` gets its
   `## [X.Y.Z] - YYYY-MM-DD` section cut from `[Unreleased]`; `.github/RELEASE_STRATEGY.md` "currently" line for the
   app; `docs/usage/migrating.md` (the pair sentence in the intro) names `app-vX.Y.Z` with 1.0.0. Land it.
 - [ ] `git tag app-vX.Y.Z && git push origin app-vX.Y.Z` (starts `docker-publish-app.yml`), then
@@ -368,8 +369,8 @@ Not decided anywhere this checklist could read, and each changes a line above.
 
 ## Version Management
 
-- **Backend**: Version in `pyproject.toml` (currently `0.178.0`)
-- **App**: Version in `app/package.json` (currently `0.39.0`; the package is also marked `private`)
+- **Backend**: Version in `pyproject.toml` (currently `0.181.0`)
+- **App**: Version in `app/package.json` (currently `0.42.0`; the package is also marked `private`)
 - Both can be versioned independently
 - Consider semantic versioning for both
 
