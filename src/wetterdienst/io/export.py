@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import inspect
 import logging
+import os
 from abc import abstractmethod
 from contextvars import ContextVar
 from dataclasses import dataclass, replace
@@ -14,8 +15,9 @@ from typing import TYPE_CHECKING, Any, Literal, Self
 import polars as pl
 
 from wetterdienst.exceptions import ImageTooLargeError
+from wetterdienst.io.file_metadata import require_block, write_sidecar
 from wetterdienst.io.formats import find_format, refuse_unknown_arguments
-from wetterdienst.io.sinks import find_sink, join_list_columns
+from wetterdienst.io.sinks import join_list_columns, write_to_target
 from wetterdienst.io.sql_filter import filter_by_sql
 from wetterdienst.metadata.renamed import RefusesRenamedMembers
 from wetterdienst.util.datetime import timestamps_to_string
@@ -153,17 +155,34 @@ class ExportMixin(RefusesRenamedMembers):
         """Render every timestamp the frame carries as an ISO string."""
         return timestamps_to_string(self.df)
 
-    def to_csv(self, **kwargs: Any) -> str:  # noqa: ANN401
+    def to_csv(self, *, with_metadata: bool = False, **kwargs: Any) -> str:  # noqa: ANN401
         """Convert DataFrame to CSV format.
 
+        The CSV is bare: a CSV has no place for the licence, the credit line and the date of its data. `with_metadata`
+        writes them beside the file, as `<file>.metadata.json`, holding the `metadata` block of the REST API.
+
         Args:
+            with_metadata: Write `<file>.metadata.json` beside the file `file` names. It needs `file`: a string has no
+                file to write the sidecar beside.
             **kwargs: Additional arguments passed to the CSV writer
 
         Returns:
             CSV string
 
+        Raises:
+            ValueError: `with_metadata` without `file` being the path of a file.
+            ExportRefusedError: `with_metadata` for a result that has no provider to describe.
+
         """
-        return self._flatten().write_csv(**kwargs)
+        if with_metadata and not isinstance(kwargs.get("file"), str | os.PathLike):
+            msg = "with_metadata writes the metadata beside the CSV file: give the path of the file as `file`"
+            raise ValueError(msg)
+        # built first, so that a result with nothing to describe is refused with no file written
+        block = require_block(self, heavy=True, beside=kwargs["file"]) if with_metadata else None
+        csv = self._flatten().write_csv(**kwargs)
+        if block is not None:
+            write_sidecar(block, kwargs["file"])
+        return csv
 
     def to_ndjson(self) -> str:
         """Convert the rows to NDJSON: one JSON object per line, the records of the frame and no envelope.
@@ -244,7 +263,13 @@ class ExportMixin(RefusesRenamedMembers):
         # `to_csv` passes its keywords to polars, so it is given none
         return formatter(**_taken_by(formatter, kwargs)) if format_.takes else formatter()
 
-    def to_target(self, target: str, if_exists: Literal["replace", "append", "fail", "skip"] = "replace") -> None:
+    def to_target(
+        self,
+        target: str,
+        if_exists: Literal["replace", "append", "fail", "skip"] = "replace",
+        *,
+        with_metadata: bool = False,
+    ) -> None:
         """Emit data to a target.
 
         The target is identified by a connection string.
@@ -269,12 +294,18 @@ class ExportMixin(RefusesRenamedMembers):
                 - 'append': Append data to the target
                 - 'fail': Raise error if target exists
                 - 'skip': Do not write if target exists (only for supported backends)
+            with_metadata: Write the `metadata` block of the REST API beside a file target, as `<file>.metadata.json`,
+                with the unit of every parameter and what `quality_flags` holds. A Parquet file, a NetCDF file and a
+                Zarr group carry the licence, the credit line and the date of the data themselves, always, in their
+                key-value metadata and attributes (`with_metadata` adds those heavy parts to them); the other files
+                are bare without it. Only a file target has a file to write it beside.
 
         Raises:
             ExportRefusedError: The sink will not perform this export -- a mode it does not
                 do, a target already holding data under ``if_exists='fail'``, a format or
-                protocol nothing here writes, or a target that cannot be read, such as one whose
-                password holds an unencoded ``@``.
+                protocol nothing here writes, a target that cannot be read, such as one whose
+                password holds an unencoded ``@``, or ``with_metadata`` for a target that is not
+                a file, or for a result that has no provider to describe.
 
         Returns:
             None (data is emitted to the target)
@@ -286,4 +317,4 @@ class ExportMixin(RefusesRenamedMembers):
 
         log.info(f"Exporting records to {redact_password(target)}\n{self.df.select(pl.len())}")
 
-        find_sink(target, connspec.protocol)(self, target, connspec, if_exists)
+        write_to_target(self, target, connspec, if_exists, with_metadata=with_metadata)
