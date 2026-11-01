@@ -3,6 +3,7 @@
 """Tests for export of timeseries data."""
 
 import contextlib
+import dataclasses
 import datetime as dt
 import importlib.machinery
 import json
@@ -18,7 +19,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 from unittest import mock
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -4502,3 +4503,157 @@ def test_an_unknown_file_extension_is_still_refused(df_stations: pl.DataFrame, t
     """A file type nothing writes is refused, whatever its case."""
     with pytest.raises(ExportRefusedError, match="Unknown export file type"):
         ExportMixin(df=df_stations).to_target(f"file://{tmp_path.joinpath('chart.PNG')}")
+
+
+def _read_strictly(text: str) -> Any:  # noqa: ANN401
+    """Read JSON as RFC 8259 has it, which `NaN`, `Infinity` and `-Infinity` are not part of (as `JSON.parse` does)."""
+
+    def refuse(constant: str) -> None:
+        msg = f"{constant} is not JSON"
+        raise ValueError(msg)
+
+    return json.loads(text, parse_constant=refuse)
+
+
+def _non_finite_column(name: str) -> str:
+    return "elevation" if name == "stations" else "value"
+
+
+def _with_non_finite_numbers(name: str) -> Any:  # noqa: ANN401
+    """Give the result `name` with a NaN, an infinity and a negative infinity as its first three numbers."""
+    from tests.model.test_results import _every_result  # noqa: PLC0415
+
+    result: Any = _every_result()[name]
+    numbers = [float("nan"), float("inf"), -float("inf")]
+    column = _non_finite_column(name)
+    return dataclasses.replace(
+        result, df=result.df.with_columns(pl.Series(column, (numbers + [1.0] * result.df.height)[: result.df.height]))
+    )
+
+
+@pytest.mark.parametrize("name", ["values", "interpolated", "summarized"])
+def test_to_json_writes_null_for_what_is_not_a_finite_number(name: str) -> None:
+    """A NaN or an infinity was `NaN` and `Infinity` in the text, which a strict parser refuses (GH-3679)."""
+    result = _with_non_finite_numbers(name)
+    for with_metadata in (False, True):
+        rows = _read_strictly(result.to_json(with_metadata=with_metadata))["values"]
+        assert [row["value"] for row in rows] == [None, None, None]
+    assert _read_strictly(result.to_json(indent=False))["values"][0]["value"] is None
+
+
+def test_to_json_of_stations_writes_null_for_what_is_not_a_finite_number() -> None:
+    """The same for a stations result (GH-3679)."""
+    result = _with_non_finite_numbers("stations")
+    for with_metadata in (False, True):
+        rows = _read_strictly(result.to_json(with_metadata=with_metadata))["stations"]
+        assert [row["elevation"] for row in rows][:2] == [None, None]
+
+
+@pytest.mark.parametrize("name", ["stations", "values", "interpolated", "summarized"])
+def test_to_geojson_writes_null_for_what_is_not_a_finite_number(name: str) -> None:
+    """The feature collection of a result holds no `NaN` or `Infinity` either (GH-3679)."""
+    result = _with_non_finite_numbers(name)
+    written = _read_strictly(result.to_geojson())
+    assert written["data"]["type"] == "FeatureCollection"
+    assert "null" in result.to_geojson()
+    assert _read_strictly(result.to_format("geojson")) == written
+    assert _read_strictly(result.to_geojson(indent=False)) == written
+
+
+@pytest.mark.parametrize("name", ["stations", "values"])
+def test_the_geojson_file_target_writes_null_for_what_is_not_a_finite_number(name: str, tmp_path: Path) -> None:
+    """A `.geojson` file is read by tools that parse it strictly (GH-3679)."""
+    result = _with_non_finite_numbers(name)
+    filename = tmp_path.joinpath("result.geojson")
+    result.to_target(f"file://{filename}")
+    written = _read_strictly(filename.read_text(encoding="utf-8"))
+    assert written == _read_strictly(result.to_geojson())["data"]
+    assert "null" in filename.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("name", ["stations", "values"])
+def test_the_rows_of_the_rest_api_write_null_as_polars_does(name: str, tmp_path: Path) -> None:
+    """The rows of `ndjson_line` agree with `to_ndjson` and the `.json` and `.ndjson` files (GH-3679)."""
+    from wetterdienst.ui.render import ndjson_line  # noqa: PLC0415
+
+    result = _with_non_finite_numbers(name)
+    column = _non_finite_column(name)
+    key = "stations" if name == "stations" else "values"
+    nulls = [None] * min(3, result.df.height)
+    streamed = b"".join(ndjson_line(row) for row in result.to_dict()[key]).decode()
+    assert [_read_strictly(line)[column] for line in streamed.splitlines()][:3] == nulls
+    assert [_read_strictly(line)[column] for line in result.to_ndjson().splitlines()][:3] == nulls
+    for extension in ("json", "ndjson"):
+        filename = tmp_path.joinpath(f"result.{extension}")
+        result.to_target(f"file://{filename}")
+        text = filename.read_text(encoding="utf-8")
+        rows = _read_strictly(text) if extension == "json" else [_read_strictly(line) for line in text.splitlines()]
+        assert [row[column] for row in rows][:3] == nulls
+
+
+def test_dumps_json_leaves_what_is_finite_alone() -> None:
+    """Only a value with a non-finite number is walked; the text of any other is `json.dumps`'s (GH-3679)."""
+    from wetterdienst.util.json_util import dumps_json  # noqa: PLC0415
+
+    plain = {"a": [1.0, 2, "x", None, True], "b": {"c": 0.00005}}
+    assert dumps_json(plain) == json.dumps(plain)
+    assert dumps_json(plain, indent=4, ensure_ascii=False) == json.dumps(plain, indent=4, ensure_ascii=False)
+    nested = {"a": [float("nan"), (float("inf"), 1.0)], "b": {"c": -float("inf")}, "d": "NaN"}
+    assert dumps_json(nested) == '{"a": [null, [null, 1.0]], "b": {"c": null}, "d": "NaN"}'
+    # the value given is not changed
+    assert math.isnan(nested["a"][0])
+    circular: list[Any] = []
+    circular.append(circular)
+    with pytest.raises(ValueError, match="Circular reference"):
+        dumps_json(circular)
+
+
+@pytest.mark.parametrize("dtype", [pl.Categorical, pl.Enum(["Třeboň", "Łódź"])], ids=["categorical", "enum"])
+@pytest.mark.parametrize("extension", ["zarr", "nc"])
+def test_zarr_and_netcdf_write_a_categorical_column(dtype: pl.DataType, extension: str, tmp_path: Path) -> None:
+    """A `pl.Categorical` failed with `Cannot interpret 'CategoricalDtype(...)'`, as an Enum did (GH-3679)."""
+    xarray = pytest.importorskip("xarray")
+    pytest.importorskip("zarr" if extension == "zarr" else "h5netcdf")
+    df = pl.DataFrame(
+        {
+            "station_id": ["01048", "01050"],
+            "name": pl.Series(["Třeboň", "Łódź"], dtype=dtype),
+            "elevation": [645.0, 12.0],
+        }
+    )
+    filename = tmp_path.joinpath(f"stations.{extension}")
+    ExportMixin(df=df).to_target(f"file://{filename}")
+
+    if extension == "zarr":
+        dataset = xarray.open_zarr(filename, group="data", consolidated=False)
+    else:
+        dataset = xarray.open_dataset(filename, group="data", engine="h5netcdf")
+    with dataset:
+        assert dataset["name"].values.tolist() == ["Třeboň", "Łódź"]
+
+
+@pytest.mark.parametrize("name", ["stations.csv", "my%2Edata.CSV", "x%20y.json"])
+def test_a_file_target_is_matched_by_its_path(df_stations: pl.DataFrame, tmp_path: Path, name: str) -> None:
+    """The extension is read from the path the target names, which is decoded, and not from the text of the target."""
+    ExportMixin(df=df_stations).to_target(f"file://{tmp_path}/{name}")
+    assert [path.name for path in tmp_path.iterdir()] == [unquote(name)]
+
+
+@pytest.mark.parametrize("query", ["?a=1", "?a=1&b=2", "#fragment"])
+def test_a_file_target_has_no_query_string(df_stations: pl.DataFrame, tmp_path: Path, query: str) -> None:
+    """Everything after `file://` is the path, so a query is part of the file name and the extension is gone: refused.
+
+    The message names the target and, for a `?`, says what to write instead (GH-3679). A `?` in the name of a file
+    that has one is written `%3F`, and that target is written.
+    """
+    target = f"file://{tmp_path}/x.csv{query}"
+    with pytest.raises(ExportRefusedError, match="Unknown export file type") as refused:
+        ExportMixin(df=df_stations).to_target(target)
+    assert target in str(refused.value)
+    assert ("no query string" in str(refused.value)) == ("?" in query)
+    assert not list(tmp_path.iterdir())
+
+    if IS_WINDOWS:
+        return
+    ExportMixin(df=df_stations).to_target(f"file://{tmp_path}/what%3F.csv")
+    assert [path.name for path in tmp_path.iterdir()] == ["what?.csv"]

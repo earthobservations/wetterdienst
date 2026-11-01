@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import json
 import math
 import typing
 from dataclasses import dataclass, fields, replace
@@ -33,6 +32,7 @@ from wetterdienst.model.unit import UnitConverter
 from wetterdienst.model.util import create_station_id_from_string, filter_by_date
 from wetterdienst.util.datetime import format_timestamp, timestamps_to_string
 from wetterdienst.util.extras import import_optional
+from wetterdienst.util.json_util import dumps_json
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Mapping
@@ -503,7 +503,7 @@ class StationsResult(_EqualByFields, ExportMixin):
             indent = 4
         elif indent is False:
             indent = None
-        return json.dumps(self.to_dict(with_metadata=with_metadata), indent=indent)
+        return dumps_json(self.to_dict(with_metadata=with_metadata), indent=indent)
 
     def _ogc_extra_columns(self) -> list[str]:
         """Name the station columns a provider declares beyond the core ones, such as WSV's gauge_zero.
@@ -813,7 +813,7 @@ class _ValuesResult(_EqualByFields, ExportMixin, Generic[_RowsT, _DictT]):
             indent = 4
         elif indent is False:
             indent = None
-        return json.dumps(self.to_dict(with_metadata=with_metadata, with_stations=with_stations), indent=indent)
+        return dumps_json(self.to_dict(with_metadata=with_metadata, with_stations=with_stations), indent=indent)
 
     def _unit_symbols(self) -> dict[str, str]:
         """Map every parameter a frame can carry to the symbol its values are written in.
@@ -1199,7 +1199,7 @@ def history_to_json(
     data = history_to_dict(
         stations, histories, with_metadata=with_metadata, with_stations=with_stations, sections=sections
     )
-    return json.dumps(data, indent=indent)
+    return dumps_json(data, indent=indent)
 
 
 @dataclass(frozen=True, kw_only=True, eq=False)

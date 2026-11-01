@@ -16,6 +16,21 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `to_json`, `to_geojson`, the `.geojson` file target and the JSON, GeoJSON and NDJSON answers of
+  the REST API, the command line and MCP write a `NaN` or an infinity as `null`, as polars does
+  for `to_ndjson` and the `.json` and `.ndjson` files. They wrote the bare tokens `NaN` and
+  `Infinity`, which is not JSON and which `JSON.parse` and other strict parsers refuse. `to_dict`
+  still returns the float (GH-3679)
+- Writing a frame with a `pl.Categorical` column to a `.zarr` or `.nc` target no longer fails with
+  `Cannot interpret 'CategoricalDtype(...)' as a data type`; the column is written as text, as an
+  `pl.Enum` column was (GH-3679)
+- A `file://` target is matched to its file type by the path it names, decoded. A query string
+  was never ignored: everything after `file://` is the path, so `file:///x.csv?a=1` names a file
+  `x.csv?a=1` and is refused as an unknown file type, which the message now explains and names
+  `%3F` as the way to write a `?` that belongs to the file name (GH-3679)
+
 ## [0.180.0] - 2026-11-01
 
 ### Added

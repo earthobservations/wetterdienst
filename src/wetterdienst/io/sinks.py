@@ -9,7 +9,6 @@ it is used (`import_optional`).
 
 from __future__ import annotations
 
-import json
 import logging
 from collections.abc import Callable
 from copy import copy
@@ -21,6 +20,7 @@ import polars.selectors as cs
 
 from wetterdienst.exceptions import ExportRefusedError, MissingDependencyError
 from wetterdienst.util.extras import as_missing_dependency, import_optional, missing_dependency_message
+from wetterdienst.util.json_util import dumps_json
 from wetterdienst.util.url import ConnectionString, redact_password
 
 if TYPE_CHECKING:
@@ -81,8 +81,8 @@ def _write_array_store(result: ExportMixin, filepath: str, *, netcdf: bool) -> N
     # an air temperature of -999 degrees, or a station 999 m below the sea. NetCDF kept its NaN all along
     # xarray encoding cannot handle a pandas Categorical (produced from Enum columns, which a caller
     # may have made of the frame's own), so cast them to String, and a list column is no more an array than it
-    # is a CSV field
-    df = join_list_columns(df).with_columns(pl.col(pl.Enum).cast(pl.String))
+    # is a CSV field. A `pl.Categorical` fails on its own: `Cannot interpret 'CategoricalDtype(...)' as a data type`
+    df = join_list_columns(df).with_columns(pl.col(pl.Enum, pl.Categorical).cast(pl.String))
     # every timestamp the frame carries, in UTC without the zone: a stations frame has
     # `start_timestamp` and `end_timestamp` and no `timestamp`, and naming the values column alone (then
     # `date`) took it down with a missing column before it could be written at all
@@ -225,7 +225,7 @@ def _write_geojson(result: ExportMixin, filepath: str) -> None:
     log.info(f"Writing to GeoJSON file '{filepath}'")
     collection = result.to_ogc_feature_collection()["data"]
     # bytes, as `ensure_ascii=False` writes UTF-8 and a text file would translate the newlines on Windows
-    Path(filepath).write_bytes(json.dumps(collection, indent=4, ensure_ascii=False).encode("utf-8"))
+    Path(filepath).write_bytes(dumps_json(collection, indent=4, ensure_ascii=False).encode("utf-8"))
 
 
 def _write_feather(result: ExportMixin, filepath: str) -> None:
@@ -309,10 +309,13 @@ def _write_file(result: ExportMixin, target: str, connspec: ConnectionString, if
             return
 
     for extension, writer in FILE_WRITERS.items():
-        if target.lower().endswith(extension):
+        if filepath.lower().endswith(extension):
             writer(result, filepath)
             return
     msg = f"Unknown export file type for target '{target}'"
+    if "?" in target:
+        # everything after `file://` is the path, so `?a=1` belongs to the file name and the extension is not at its end
+        msg += ". A file target has no query string: write a '?' of the file name as %3F, and leave a query out"
     raise ExportRefusedError(msg)
 
 
