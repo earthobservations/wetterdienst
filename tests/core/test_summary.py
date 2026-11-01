@@ -263,3 +263,56 @@ def test_summary_refuses_a_point_given_as_text_beyond_the_globe(default_settings
     """A coordinate given as text is read as a number first, so it is refused as a number is, not with a TypeError."""
     with pytest.raises(LocationOutOfRangeError, match=re.escape("longitude 373.4 is outside")):
         _request(default_settings).summarize(latlon=("52.5", "373.4"))  # ty: ignore[invalid-argument-type]
+
+
+_FILTERS = {
+    "filter_by_rank": lambda request, latlon: request.filter_by_rank(latlon, rank=1),
+    "filter_by_distance": lambda request, latlon: request.filter_by_distance(latlon, distance=100_000.0),
+}
+
+
+@pytest.mark.usefixtures("station_selection")
+@pytest.mark.parametrize("filter_name", list(_FILTERS))
+@pytest.mark.parametrize(
+    ("latlon", "named"),
+    [
+        ((95.0, 0.0), "latitude 95.0 is outside the range -90 to 90"),
+        ((-90.1, 0.0), "latitude -90.1 is outside the range -90 to 90"),
+        ((0.0, 200.0), "longitude 200.0 is outside the range -180 to 180"),
+        ((0.0, -180.1), "longitude -180.1 is outside the range -180 to 180"),
+        ((52.5, 373.4), "longitude 373.4 is outside the range -180 to 180"),
+        ((float("nan"), 0.0), "latitude nan is outside the range -90 to 90"),
+        ((0.0, float("inf")), "longitude inf is outside the range -180 to 180"),
+        (("52.5", "373.4"), "longitude 373.4 is outside the range -180 to 180"),
+    ],
+)
+def test_station_filters_refuse_a_point_beyond_the_globe(
+    default_settings: Settings, filter_name: str, latlon: tuple[float, float], named: str
+) -> None:
+    """The filters by rank and by distance refuse a point off the globe, as summarize does (GH-3717).
+
+    They ranked by the distance from the point the coordinates wrap round to (a longitude of 373.4 as 13.4).
+    """
+    with pytest.raises(LocationOutOfRangeError, match=re.escape(named)):
+        _FILTERS[filter_name](_request(default_settings), latlon)
+
+
+@pytest.mark.parametrize("filter_name", list(_FILTERS))
+def test_station_filters_refuse_before_the_station_list_is_fetched(
+    default_settings: Settings, station_selection: list[str], filter_name: str
+) -> None:
+    """A refused point costs no fetch of the station list."""
+    with pytest.raises(LocationOutOfRangeError):
+        _FILTERS[filter_name](_request(default_settings), (95.0, 0.0))
+    assert station_selection == []
+
+
+@pytest.mark.parametrize("filter_name", list(_FILTERS))
+@pytest.mark.parametrize("latlon", [(90.0, 0.0), (-90.0, 180.0), (0.0, -180.0), (-90, -180), (90, 180)])
+def test_station_filters_accept_the_poles_and_the_antimeridian(
+    default_settings: Settings, station_selection: list[str], filter_name: str, latlon: tuple[float, float]
+) -> None:
+    """The edges of the range are points on the globe: the filters go on to the station list and rank by it."""
+    result = _FILTERS[filter_name](_request(default_settings), latlon)
+    assert station_selection == ["stations"]
+    assert result.df.get_column("station_id").to_list() == ["00001"]

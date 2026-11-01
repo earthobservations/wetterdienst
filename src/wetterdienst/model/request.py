@@ -1082,13 +1082,16 @@ class TimeseriesRequest:
         too little of it, as ``skip_threshold`` and ``skip_criteria`` define.
 
         Args:
-            latlon: Latitude and longitude for the requested point.
+            latlon: Latitude and longitude for the requested point, within -90..90 and -180..180 degrees.
             rank: Number of stations requested.
             df_all: This request's own ``all().df``, for a caller that has it already; built here
                 where left out.
 
         Returns:
             StationsResult: Stations sorted by distance (see note above on ``rank``).
+
+        Raises:
+            LocationOutOfRangeError: Where the latitude or the longitude is outside that range, or is NaN.
 
         """
         from wetterdienst.util.geo import derive_nearest_neighbours  # noqa: PLC0415
@@ -1097,8 +1100,10 @@ class TimeseriesRequest:
         if rank <= 0:
             msg = "'rank' has to be at least 1."
             raise ValueError(msg)
-        # setup spatial parameters
-        q_lat, q_lon = latlon
+        # setup spatial parameters; a point off the globe is refused before the station list is built, as
+        # `summarize` does, and not ranked by the distances its wrapped coordinates have (GH-3717)
+        q_lat, q_lon = float(latlon[0]), float(latlon[1])
+        require_location_in_range(q_lat, q_lon)
         if df_all is None:
             df_all = self.all().df
         latitudes = df_all.get_column("latitude").to_arrow()
@@ -1136,7 +1141,7 @@ class TimeseriesRequest:
         """Filter stations by distance.
 
         Args:
-            latlon: Latitude and longitude for the requested point.
+            latlon: Latitude and longitude for the requested point, within -90..90 and -180..180 degrees.
             distance: Maximum distance to the requested point.
             unit: Unit of the distance.
             df_all: This request's own ``all().df``, for a caller that has it already; built here
@@ -1144,6 +1149,9 @@ class TimeseriesRequest:
 
         Returns:
             StationsResult: Filtered stations.
+
+        Raises:
+            LocationOutOfRangeError: Where the latitude or the longitude is outside that range, or is NaN.
 
         """
         distance = float(distance)
