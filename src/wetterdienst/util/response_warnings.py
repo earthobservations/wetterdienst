@@ -41,9 +41,18 @@ class ResponseWarning(TypedDict):
 #: the code of the warning that counts the readings the source wrote a marker for, and its message
 MISSING_VALUE_MARKER = "missing-value-marker"
 MISSING_VALUE_MARKER_MESSAGE = (
-    "{count} readings of the source were a marker for a missing value, or a number no sensor can have produced, "
-    "and are null; with drop_nulls they are not in the answer, without it the text the source wrote is the `raw:` "
-    "token of their quality_flags."
+    "{count} readings of the source were a marker for a missing value and are null; with drop_nulls they are not in "
+    "the answer, without it the text the source wrote is the `raw:` token of their quality_flags."
+)
+
+#: the code of the warning that counts the values a hard plausibility check rejected (GH-3682): the source wrote a
+#: number there, not a marker, so `missing-value-marker` does not count them. `{details}` is the count per check
+REJECTED_BY_PLAUSIBILITY = "rejected-by-plausibility"
+REJECTED_BY_PLAUSIBILITY_MESSAGE = (
+    "{count} values were numbers a plausibility check rejected ({details}; a value several checks rejected is "
+    "counted under each) and are null; with drop_nulls they are not in the answer, without it the number the "
+    "source wrote is the `raw:` token of their quality_flags, after `rejected:<check>`. Set the check to `soft` to "
+    "keep them."
 )
 
 #: the code of the warning that names a requested parameter the source holds no values for, at any station asked about
@@ -57,8 +66,8 @@ FILE_SKIPPED = "file-skipped"
 #: the request cannot tell where nothing is recorded (the library as a library)
 _NAMED: ContextVar[set[str] | None] = ContextVar("wetterdienst_named_parameters", default=None)
 _RECORDED: ContextVar[list[ResponseWarning] | None] = ContextVar("wetterdienst_response_warnings", default=None)
-#: the warnings that count something across the whole request, by code: the count and the message, where `{count}` is
-#: the number
+#: the warnings that count something across the whole request, by code: the count, the message, where `{count}` is
+#: the number, and the count by detail (`{details}` in the message, as `range 3, stuck 2`)
 _COUNTED: ContextVar[dict[str, list[Any]] | None] = ContextVar("wetterdienst_counted_warnings", default=None)
 
 
@@ -118,17 +127,20 @@ def begin_response() -> None:
     _COUNTED.set({})
 
 
-def count_response_warning(code: str, count: int, message: str) -> None:
+def count_response_warning(code: str, count: int, message: str, *, details: dict[str, int] | None = None) -> None:
     """Add `count` to the warning `code` of the request being served, whose `message` has `{count}` for the total.
 
     For what happens many times in a request, once for each station: the answer tells it once, with the sum.
-    Nothing is recorded outside a request.
+    `details` splits the count by a reason (the check that rejected a value), summed the same way, and a `message`
+    with `{details}` tells it, largest first. Nothing is recorded outside a request.
     """
     counted = _COUNTED.get()
     if counted is None or count <= 0:
         return
-    entry = counted.setdefault(code, [0, message])
+    entry = counted.setdefault(code, [0, message, {}])
     entry[0] += count
+    for detail, number in (details or {}).items():
+        entry[2][detail] = entry[2].get(detail, 0) + number
 
 
 def warn_response(
@@ -163,7 +175,14 @@ def warn_response(
 def recorded_warnings() -> list[ResponseWarning]:
     """Give the warnings recorded since `begin_response`, in the order they were raised, the counted ones last."""
     counted = [
-        ResponseWarning(code=code, message=message.format(count=count))
-        for code, (count, message) in (_COUNTED.get() or {}).items()
+        ResponseWarning(code=code, message=message.format(count=count, details=_tell_details(details)))
+        for code, (count, message, details) in (_COUNTED.get() or {}).items()
     ]
     return [*(_RECORDED.get() or []), *counted]
+
+
+def _tell_details(details: dict[str, int]) -> str:
+    """Give the counts by reason as `range 3, stuck 2`: the largest first, ties by name."""
+    return ", ".join(
+        f"{detail} {number}" for detail, number in sorted(details.items(), key=lambda item: (-item[1], item[0]))
+    )

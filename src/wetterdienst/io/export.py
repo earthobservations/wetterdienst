@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import inspect
-import json
 import logging
 from abc import abstractmethod
 from contextvars import ContextVar
@@ -21,6 +20,7 @@ from wetterdienst.io.sql_filter import filter_by_sql
 from wetterdienst.metadata.renamed import RefusesRenamedMembers
 from wetterdienst.util.datetime import timestamps_to_string
 from wetterdienst.util.extras import import_optional
+from wetterdienst.util.json_util import dumps_json
 from wetterdienst.util.url import ConnectionString, redact_password
 
 if TYPE_CHECKING:
@@ -135,7 +135,7 @@ class ExportMixin(RefusesRenamedMembers):
             indent = 4
         elif indent is False:
             indent = None
-        return json.dumps(
+        return dumps_json(
             self.to_ogc_feature_collection(with_metadata=with_metadata), indent=indent, ensure_ascii=False
         )
 
