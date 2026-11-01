@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.181.0] - 2026-11-01
+
 ### Added
 
 - A Parquet file, a NetCDF file and a Zarr group written by `to_target` carry the licence, the credit
@@ -7205,7 +7207,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.180.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.181.0...HEAD
+[0.181.0]: https://github.com/earthobservations/wetterdienst/compare/v0.180.0...v0.181.0
 [0.180.0]: https://github.com/earthobservations/wetterdienst/compare/v0.179.0...v0.180.0
 [0.179.0]: https://github.com/earthobservations/wetterdienst/compare/v0.178.0...v0.179.0
 [0.178.0]: https://github.com/earthobservations/wetterdienst/compare/v0.177.0...v0.178.0
