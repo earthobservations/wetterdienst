@@ -247,7 +247,7 @@ def test_noaa_ghcn_daily_stations_west_longitude_more_stations(
         "FRE00104044": (49.18, 0.4558),
         "SP000008416": (39.4806, 0.3664),
     }
-    # the five hourly-only ids are pinned by the raw rows of the hourly test below
+    # the ten hourly-only ids are pinned by the raw rows of the hourly test below
     pinned |= GHCNH_ONLY_LOST_SIGN_POSITIONS
     assert pinned == LOST_LONGITUDE_SIGN_STATIONS
 
@@ -312,25 +312,36 @@ def test_noaa_ghcn_hourly_stations_lost_sign(monkeypatch: pytest.MonkeyPatch, de
 
 GHCNH_ONLY_LOST_SIGN_ROWS = (
     "AGUG0060517,35.1,1.85,83.0,,NEMOURS,,,,,DZ",
+    "CMU55-00161,8.49,13.15,68.0,,FREETOWN,,,,,CM",
+    "ICM00004102,63.2993,20.5995,36.0,,SURTSEY,,,04102,,IS",
     "MOI0000GMMK,32.859,6.9454,780.9,,KHOURIBGA MILITARY ARPT,,,,GMMK,MA",
+    "RSU025594-5,64.38,173.23,4.0,,BUHTAPROVIDENJA,,,,,RU",
     "SPM00008164,41.0578,0.1414,334.0,,ALCANIZ,,,08164,,ES",
     "SPM00008165,41.5217,0.1742,357.0,,BUJARALOZ,,,08165,,ES",
+    "SPM00008166,40.9467,0.2378,480.0,,CALANDA,,,08166,,ES",
     "SPM00008282,38.9289,0.0956,5.0,,OLIVA,,,08282,,ES",
+    "USL000KNOH1,21.2833,157.8667,-11.0,HI,KILO NALU OBS (WAVE SENSOR),,,,,US",
 )
 GHCNH_ONLY_LOST_SIGN_POSITIONS = {
     row.split(",")[0]: (float(row.split(",")[1]), float(row.split(",")[2])) for row in GHCNH_ONLY_LOST_SIGN_ROWS
 }
 
 
-def test_noaa_ghcn_hourly_stations_lost_sign_five_more(
+def test_noaa_ghcn_hourly_stations_lost_sign_hourly_only(
     monkeypatch: pytest.MonkeyPatch, default_settings: Settings
 ) -> None:
-    """Nemours (Ghazaouet), Khouribga, Alcaniz, Bujaraloz and Oliva are west of Greenwich in the hourly list (GH-2886).
+    """The ten stations that only the hourly list has with an east longitude are west of Greenwich (GH-2886).
 
-    The rows are copied from `ghcnh-station-list.csv` as NOAA publishes it, read 2026-10-31: the longitude is listed
-    east where ECA&D, OpenStreetMap and Wikipedia put each of them west, 16 to 1,299 km away. The daily list has
-    Nemours (AGE00147716) and the hourly list has Khouribga (MOM00060178) and Bujaraloz (SPN0009576C) right under
-    other ids, and those are read as listed. Lowestoft is listed east and lies east, and is read as listed.
+    Nemours (Ghazaouet), Freetown, Surtsey, Khouribga, Buhta Providenja, Alcaniz, Bujaraloz, Calanda, Oliva and Kilo
+    Nalu. The rows are copied from `ghcnh-station-list.csv` as NOAA publishes it, read 2026-10-31 and 2026-11-01: the
+    longitude is listed east where ECA&D, ISD, OpenStreetMap, Wikipedia and the hourly list's own other rows put each
+    of them west, 16 to 4,571 km away. The daily list has Nemours (AGE00147716) and the hourly list has Khouribga
+    (MOM00060178), Bujaraloz (SPN0009576C), Calanda (SPN0009569A), Surtsey (ICU92-00102), Freetown (SLUeetown-2) and
+    Buhta Providenja (RSU025594-4) right under other ids, and those are read as listed. Lowestoft is listed east and
+    lies east, as do Shemya (USW00045715; one old ISD row, 999999-45715, lists it west, wrongly) and Geçitkale
+    (CYI0000LCGK), and they are read as listed. A second Freetown row, CMU55-00162 (8.3, 13.14), is left as listed
+    too: it is as certainly misplaced, but no second source puts it anywhere, so it is not in the table. Neither is
+    Yulinu (RSM00025187, 68.333, 177.717), whose side of the date line the sources do not settle.
     """
     rows = (
         *GHCNH_ONLY_LOST_SIGN_ROWS,
@@ -338,6 +349,12 @@ def test_noaa_ghcn_hourly_stations_lost_sign_five_more(
         "MOM00060178,32.8667,-6.9667,781.0,,KHOURIBGA,,,60178,,MA",
         "SPN0009576C,41.523,-0.174,357.0,,BUJARALOZ,,,400,,ES",
         "UKU91-00001,52.4889,1.75,25.0,,LOWESTOFT,,,,,GB",
+        'SLUeetown-2,8.49,-13.15,68.0,,"FREETOWN,SIERRALEONE",,,,,SL',
+        "ICU92-00102,63.299,-20.599,36.0,,SURTSEY,,,,,IS",
+        "SPN0009569A,40.947,-0.238,466.0,,CALANDA,,,400,,ES",
+        "RSU025594-4,64.38,-173.23,39.0,,BUHTAPROVIDENJA,,,,,RU",
+        "USW00045715,52.7167,174.1,37.2,AK,SHEMYA AFB,,,70414,PASY,US",
+        "CYI0000LCGK,35.2333,33.7333,45.0,,GECITKALE,,,,LCGK,CY",
     )
     text = "GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n" + "\n".join(
         rows
@@ -350,14 +367,30 @@ def test_noaa_ghcn_hourly_stations_lost_sign_five_more(
     longitudes = dict(df.select("station_id", "longitude").rows())
     assert {station_id: longitudes[station_id] for station_id in GHCNH_ONLY_LOST_SIGN_POSITIONS} == {
         "AGUG0060517": -1.85,
+        "CMU55-00161": -13.15,
+        "ICM00004102": -20.5995,
         "MOI0000GMMK": -6.9454,
+        "RSU025594-5": -173.23,
         "SPM00008164": -0.1414,
         "SPM00008165": -0.1742,
+        "SPM00008166": -0.2378,
         "SPM00008282": -0.0956,
+        "USL000KNOH1": -157.8667,
     }
     assert longitudes["AGU0517-0-1"] == -1.85
     assert longitudes["SPN0009576C"] == -0.174
     assert longitudes["UKU91-00001"] == 1.75
+    assert {
+        station_id: longitudes[station_id]
+        for station_id in ("SLUeetown-2", "ICU92-00102", "SPN0009569A", "RSU025594-4")
+    } == {"SLUeetown-2": -13.15, "ICU92-00102": -20.599, "SPN0009569A": -0.238, "RSU025594-4": -173.23}
+    # east of Greenwich and west of the date line, where Wikipedia and the maps put them
+    assert {station_id: longitudes[station_id] for station_id in ("USW00045715", "CYI0000LCGK")} == {
+        "USW00045715": 174.1,
+        "CYI0000LCGK": 33.7333,
+    }
+    # the latitude is never touched
+    assert dict(df.select("station_id", "latitude").rows())["CMU55-00161"] == 8.49
     assert df.filter(pl.col("station_id") == "MOI0000GMMK").select("latitude").item() == 32.859
 
 

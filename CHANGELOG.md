@@ -16,6 +16,16 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: 5 more `noaa/ghcn` hourly stations are placed west of Greenwich, no longer east
+  of it, where `ghcnh-station-list.csv` has lost the sign of their longitude: Freetown in Sierra
+  Leone (CMU55-00161), Surtsey (ICM00004102), Buhta Providenja (RSU025594-5), Calanda
+  (SPM00008166) and Kilo Nalu off Oahu (USL000KNOH1). They were 40 to 4,571 km off, so a
+  nearest-station search or a distance filter near them picked the wrong stations; a filter on
+  the old position needs the new one. A row is turned only while it lists the position that was
+  checked, so a list NOAA corrects is read as it is (GH-2886)
+
 ## [0.180.0] - 2026-11-01
 
 ### Added
