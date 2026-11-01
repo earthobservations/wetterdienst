@@ -98,6 +98,17 @@ def _is_value_column(column: str) -> bool:
 class DwdObservationValues(TimeseriesValues):
     """Values class for DWD observation data."""
 
+    def _zero_direction_is_no_bearing(self) -> pl.Expr:
+        """Have the hourly directions of 0 that are no calm alone stay with `missing-value-marker` (GH-3696).
+
+        The synoptic wind's `DD=00` is the code of a variable ("umlaufend") or calm wind, which the file does not tell
+        apart, and the 0 of the hourly urban wind is neither a calm nor north (`NO_DIRECTION_CODE_PARAMETERS`).
+        """
+        return self._rows_of(
+            DwdObservationMetadata.hourly.wind_synoptic.wind_direction,
+            DwdObservationMetadata.hourly.urban_wind.wind_direction_mean,
+        )
+
     def _periods_and_date_ranges(
         self, station_id: str, dataset: DatasetModel, settings: Settings
     ) -> list[tuple[Period, list[str] | None]]:
