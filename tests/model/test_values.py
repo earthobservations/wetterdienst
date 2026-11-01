@@ -20,7 +20,7 @@ from wetterdienst.provider.dwd.observation.api import DwdObservationValues
 from wetterdienst.provider.wsv.pegel import WsvPegelRequest
 from wetterdienst.provider.wsv.pegel.api import WsvPegelValues
 from wetterdienst.settings import Settings
-from wetterdienst.util.response_warnings import begin_response, recorded_warnings
+from wetterdienst.util.response_warnings import begin_response, count_response_warning, recorded_warnings
 
 
 def _values(parameters: list[tuple[str, str, str]]) -> TimeseriesValues:
@@ -1337,7 +1337,9 @@ def test_the_missing_value_marker_warning_counts_the_window_and_not_the_file(
     assert warnings[0]["message"].startswith("2 readings of the source")
 
 
-def _stub_marked_readings(monkeypatch: pytest.MonkeyPatch, *, markers_of: dict[str, int], days: int = 4) -> None:
+def _stub_marked_readings(
+    monkeypatch: pytest.MonkeyPatch, *, markers_of: dict[str, int], days: int = 4, marker: str = "raw:-999"
+) -> None:
     """Have each station hold `days` daily readings of January 1990, the first `markers_of[station]` of them a marker.
 
     A marker is a null value with the `raw:` token the source wrote, as a provider's reader leaves it.
@@ -1352,7 +1354,7 @@ def _stub_marked_readings(monkeypatch: pytest.MonkeyPatch, *, markers_of: dict[s
                 "timestamp": [dt.datetime(1990, 1, day + 1, tzinfo=utc) for day in range(days)],
                 "parameter": [name] * days,
                 "value": [None if mark else 1.0 for mark in marked],
-                "quality_flags": ["raw:-999" if mark else "1" for mark in marked],
+                "quality_flags": [marker if mark else "1" for mark in marked],
             },
             schema_overrides={"value": pl.Float64},
         )
@@ -1363,6 +1365,127 @@ def _stub_marked_readings(monkeypatch: pytest.MonkeyPatch, *, markers_of: dict[s
 def _the_missing_value_marker_warning() -> list[str]:
     """Give the messages of the `missing-value-marker` warnings recorded for the request."""
     return [warning["message"] for warning in recorded_warnings() if warning["code"] == "missing-value-marker"]
+
+
+def _stub_readings_of_a_day_each(
+    monkeypatch: pytest.MonkeyPatch,
+    readings: list[tuple[float | None, str | None]] | dict[str, list[tuple[float | None, str | None]]],
+) -> None:
+    """Have each station hold one daily station pressure of January 1990 per (value, flags), as a reader leaves it.
+
+    A list is the readings of station 00001; a dict gives them by station.
+    """
+    by_station = readings if isinstance(readings, dict) else {"00001": readings}
+    _stub_dwd_daily(
+        station_ids=list(by_station), data_year_by_station=dict.fromkeys(by_station, 1990), monkeypatch=monkeypatch
+    )
+    utc = ZoneInfo("UTC")
+    name = DwdObservationMetadata.daily.climate_summary.pressure_air_site_mean.name_original
+
+    def collect(self, station_id: str, parameter_or_dataset) -> pl.DataFrame:  # noqa: ANN001, ARG001
+        readings = by_station[station_id]
+        return pl.DataFrame(
+            {
+                "timestamp": [dt.datetime(1990, 1, day + 1, tzinfo=utc) for day in range(len(readings))],
+                "parameter": [name] * len(readings),
+                "value": [value for value, _ in readings],
+                "quality_flags": [flags for _, flags in readings],
+            },
+            schema_overrides={"value": pl.Float64},
+        )
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+
+
+def _warning_messages(code: str) -> list[str]:
+    return [warning["message"] for warning in recorded_warnings() if warning["code"] == code]
+
+
+@pytest.mark.parametrize("drop_nulls", [True, False])
+def test_a_value_a_hard_check_rejected_is_no_missing_value_marker_and_is_counted_by_check(
+    monkeypatch: pytest.MonkeyPatch, *, drop_nulls: bool
+) -> None:
+    """The source wrote the numbers 4021 and 5000 (range and elevation reject them) and `-999` for the third (GH-3682).
+
+    Only the `-999` is a marker; the numbers are told by `rejected-by-plausibility`, with the checks that rejected
+    them: two values, each counted under both checks.
+    """
+    _stub_readings_of_a_day_each(monkeypatch, [(4021.0, "3"), (5000.0, "3"), (None, "raw:-999"), (1013.0, "3")])
+    begin_response()
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "pressure_air_site_mean")],
+        start="1990-01-01",
+        end="1990-01-04",
+        options=Options(drop_nulls=drop_nulls),
+    )
+
+    df = request.filter_by_station_id("00001").values().all().df
+
+    markers = _warning_messages("missing-value-marker")
+    assert len(markers) == 1
+    assert markers[0].startswith("1 readings of the source were a marker for a missing value and are null;")
+    assert "no sensor" not in markers[0]
+    rejected = _warning_messages("rejected-by-plausibility")
+    assert len(rejected) == 1
+    assert rejected[0].startswith("2 values were numbers a plausibility check rejected (elevation 2, range 2;")
+    flags = df.filter(pl.col("value").is_null()).get_column("quality_flags").to_list()
+    assert flags == (
+        [] if drop_nulls else ["3,rejected:elevation+range,raw:4021", "3,rejected:elevation+range,raw:5000", "raw:-999"]
+    )
+
+
+def test_a_soft_check_rejects_nothing_and_the_warning_is_not_raised(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With the checks soft the values stay, flagged `suspect:`, and neither warning counts them."""
+    _stub_readings_of_a_day_each(monkeypatch, [(4021.0, "3"), (1013.0, "3")])
+    begin_response()
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "pressure_air_site_mean")],
+        start="1990-01-01",
+        end="1990-01-02",
+        options=Options(plausibility="soft"),
+    )
+
+    df = request.filter_by_station_id("00001").values().all().df
+
+    assert df.get_column("quality_flags").to_list() == ["3,suspect:elevation+range", "3"]
+    assert _warning_messages("missing-value-marker") == []
+    assert _warning_messages("rejected-by-plausibility") == []
+
+
+def test_the_rejected_by_plausibility_warning_counts_the_window_of_each_station_and_leaves_none_over(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Two stations, a window that cuts off a rejection of the first: only the rejections inside it are counted."""
+    _stub_readings_of_a_day_each(
+        monkeypatch,
+        {
+            "00001": [(4021.0, "3"), (1013.0, "3"), (5000.0, "3")],
+            "00002": [(5000.0, "3"), (1013.0, "3"), (1013.0, "3")],
+        },
+    )
+    begin_response()
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "pressure_air_site_mean")],
+        start="1990-01-01",
+        end="1990-01-02",
+    )
+
+    request.filter_by_station_id(["00001", "00002"]).values().all()
+
+    rejected = _warning_messages("rejected-by-plausibility")
+    assert len(rejected) == 1
+    assert rejected[0].startswith("2 values were numbers a plausibility check rejected (elevation 2, range 2;")
+
+
+def test_the_rejected_by_plausibility_warning_sums_the_stations_and_counts_a_value_under_each_check() -> None:
+    """One sum for the request, split by check; a value two checks rejected is one value and is told under both."""
+    begin_response()
+    count_response_warning("rejected-by-plausibility", 2, "{count} ({details})", details={"range": 1, "stuck": 2})
+    count_response_warning("rejected-by-plausibility", 2, "{count} ({details})", details={"stuck": 1, "elevation": 1})
+    count_response_warning("rejected-by-plausibility", 0, "{count} ({details})", details={"range": 5})
+
+    # the largest first, a tie by name
+    assert _warning_messages("rejected-by-plausibility") == ["4 (stuck 3, elevation 1, range 1)"]
 
 
 @pytest.mark.parametrize("drop_nulls", [True, False])
@@ -1387,6 +1510,28 @@ def test_the_missing_value_marker_warning_leaves_out_a_station_skip_empty_drops(
     df = request.filter_by_station_id("00001").values().all().df
 
     assert df.is_empty()
+    assert _the_missing_value_marker_warning() == []
+
+
+@pytest.mark.parametrize("drop_nulls", [True, False])
+def test_the_rejected_by_plausibility_warning_leaves_out_a_station_skip_empty_drops(
+    monkeypatch: pytest.MonkeyPatch, *, drop_nulls: bool
+) -> None:
+    """A station skipped for having no reading is not in the answer, and the values rejected in it are not counted."""
+    _stub_dwd_daily(station_ids=["00001"], data_year_by_station={"00001": 1990}, monkeypatch=monkeypatch)
+    _stub_marked_readings(monkeypatch, markers_of={"00001": 4}, marker="rejected:range,raw:4021")
+    begin_response()
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        start="1990-01-01",
+        end="1990-01-04",
+        options=Options(drop_nulls=drop_nulls, skip_empty=True, skip_threshold=0.5),
+    )
+
+    df = request.filter_by_station_id("00001").values().all().df
+
+    assert df.is_empty()
+    assert _warning_messages("rejected-by-plausibility") == []
     assert _the_missing_value_marker_warning() == []
 
 
@@ -1500,8 +1645,11 @@ def test_the_missing_value_marker_warning_leaves_out_a_station_a_distance_filter
     assert messages[0].startswith("2 readings of the source")
 
 
+@pytest.mark.parametrize("marker", ["raw:-999", "rejected:range,raw:4021"])
 @pytest.mark.parametrize("method", ["summarize", "interpolate"])
-def test_an_estimate_carries_no_missing_value_marker_warning(monkeypatch: pytest.MonkeyPatch, method: str) -> None:
+def test_an_estimate_carries_no_missing_value_marker_warning(
+    monkeypatch: pytest.MonkeyPatch, method: str, marker: str
+) -> None:
     """The estimate is not the readings of the source, so it does not count the markers of the stations it reads."""
     latitude, longitude = 50.0, 8.9
     offsets = {"00001": (-0.03, -0.03), "00002": (-0.03, 0.03), "00003": (0.03, 0.03), "00004": (0.03, -0.03)}
@@ -1534,7 +1682,7 @@ def test_an_estimate_carries_no_missing_value_marker_warning(monkeypatch: pytest
     monkeypatch.setattr(DwdObservationRequest, "all", all_)
     monkeypatch.setattr(DwdObservationRequest, "filter_by_distance", filter_by_distance)
     # a marker in each station, and three valid readings left of the four days
-    _stub_marked_readings(monkeypatch, markers_of=dict.fromkeys(offsets, 1))
+    _stub_marked_readings(monkeypatch, markers_of=dict.fromkeys(offsets, 1), marker=marker)
     begin_response()
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
@@ -1546,6 +1694,7 @@ def test_an_estimate_carries_no_missing_value_marker_warning(monkeypatch: pytest
 
     assert not result.df.is_empty()
     assert _the_missing_value_marker_warning() == []
+    assert _warning_messages("rejected-by-plausibility") == []
 
 
 def _warning_codes_by_station() -> dict[str, list[str]]:
