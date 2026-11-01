@@ -52,6 +52,12 @@ unit_converter = UnitConverter()
 unit_converter.source_only_units
 ```
 
+A temperature difference -- the expected error of a forecast temperature, say -- is not a temperature. A reading
+carries an offset (0 K is -273.15 °C), a difference does not: an error of 2 K is 2 K, and calling it -271.15 °C is
+wrong. Such parameters have the unit type `temperature_difference`, which has the one unit `degree_kelvin` (`K`)
+and so one target: they are returned in kelvin, whatever the target of `temperature` is, and any other target is
+refused. The parameters of the type are those `glossary` lists for `unit_type="temperature_difference"`.
+
 The `unit` that `coverage` (`discover()`) gives a parameter is this target of its unit type: the unit of its values
 for a request that passes no options, as `glossary` lists it, with the environment's `WD_TS_UNIT_TARGETS` and
 `WD_TS_CONVERT_UNITS` applied as `values` applies them. The unit the provider publishes the parameter in is

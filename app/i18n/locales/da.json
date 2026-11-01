@@ -148,6 +148,7 @@
     "convertUnitsHint": "Konvertér værdier til de enheder, du vælger.",
     "units": "Enheder",
     "unitTemperature": "Temperatur",
+    "unitTemperatureDifference": "Temperaturforskel",
     "unitSpeed": "Vindhastighed",
     "unitPressure": "Tryk",
     "unitPrecipitation": "Nedbør",
