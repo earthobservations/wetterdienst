@@ -183,10 +183,18 @@ _DistanceField = Annotated[
     float | None,
     Field(ge=0, description="Return stations within this many kilometres of the given latitude/longitude."),
 ]
-_LeftField = Annotated[float | None, Field(ge=-180, le=180, description="Western longitude of the bounding box.")]
-_BottomField = Annotated[float | None, Field(ge=-90, le=90, description="Southern latitude of the bounding box.")]
-_RightField = Annotated[float | None, Field(ge=-180, le=180, description="Eastern longitude of the bounding box.")]
-_TopField = Annotated[float | None, Field(ge=-90, le=90, description="Northern latitude of the bounding box.")]
+_LeftField = Annotated[
+    float | None, Field(ge=LONGITUDE_MIN, le=LONGITUDE_MAX, description="Western longitude of the bounding box.")
+]
+_BottomField = Annotated[
+    float | None, Field(ge=LATITUDE_MIN, le=LATITUDE_MAX, description="Southern latitude of the bounding box.")
+]
+_RightField = Annotated[
+    float | None, Field(ge=LONGITUDE_MIN, le=LONGITUDE_MAX, description="Eastern longitude of the bounding box.")
+]
+_TopField = Annotated[
+    float | None, Field(ge=LATITUDE_MIN, le=LATITUDE_MAX, description="Northern latitude of the bounding box.")
+]
 _SqlField = Annotated[
     str | None,
     Field(
