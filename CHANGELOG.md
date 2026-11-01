@@ -86,6 +86,11 @@ Types of changes:
   they did a `pl.Enum` column, not as a pandas Categorical. SQLite and DuckDB wrote the text
   either way; the dialects that could not be tried are no longer left to read a Categorical
   (GH-3694)
+- **Breaking**: `interpolate` and `summarize` refuse an `elevation` of NaN or infinity on the REST
+  API (422), the command line (usage error), MCP and in Python (`RequestError`, also from the
+  `_by_station_id` methods). It was accepted and written into the point's name and id
+  (`interpolation(51.0000,13.0000,nanm)`) and as the z of its GeoJSON position. Leave `elevation`
+  out for readings as they come. Latitude and longitude were refused already (GH-3689)
 
 ## [0.180.0] - 2026-11-01
 
