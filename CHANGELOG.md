@@ -66,6 +66,14 @@ Types of changes:
   the two. A 0 that is no calm stays a marker: a code for no direction (`dwd/observation` hourly
   `wind_synoptic` and `urban_wind`, `ipma/observation`) or the direction of a gust that is not
   reported (`eccc/observation` daily, `noaa/ghcn` daily at Environment Canada) (GH-3696)
+- **Breaking**: `error_absolute_temperature_air_2m` and `error_absolute_temperature_dew_point_2m`
+  of `dwd/mosmix` (`e_ttt`, `e_td`) are errors, temperature differences, and come back in kelvin
+  as the source wrote them: 2.0 for an expected error of 2 K. They were converted as readings and
+  came back 273.15 too low (-271.15) in the default °C; add 273.15 to a stored value to recover
+  the error in K.
+  Their unit type is the new `temperature_difference`, whose only unit is `degree_kelvin`, so
+  `unit_targets={"temperature": ...}` does not move them and no other target is accepted for it
+  (GH-3688)
 
 ### Fixed
 
@@ -93,6 +101,13 @@ Types of changes:
   they did a `pl.Enum` column, not as a pandas Categorical. SQLite and DuckDB wrote the text
   either way; the dialects that could not be tried are no longer left to read a Categorical
   (GH-3694)
+- **Breaking**: `interpolate` and `summarize` refuse an `elevation` of NaN or infinity on the REST
+  API (422), the command line (usage error), MCP and in Python (`RequestError`, also from the
+  `_by_station_id` methods). It was accepted and written into the point's name and id
+  (`interpolation(51.0000,13.0000,nanm)`) and as the z of its GeoJSON position. Leave `elevation`
+  out for readings as they come. Latitude and longitude were refused already, except by
+  `TimeseriesRequest.summarize` in Python, which answered no rows for a NaN or infinity and now
+  raises `LocationOutOfRangeError` as `interpolate` does (GH-3689)
 
 ## [0.180.0] - 2026-11-01
 
