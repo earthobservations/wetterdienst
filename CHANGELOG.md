@@ -54,9 +54,11 @@ Types of changes:
 - **Breaking**: `error_absolute_temperature_air_2m` and `error_absolute_temperature_dew_point_2m`
   of `dwd/mosmix` (`e_ttt`, `e_td`) are errors, temperature differences, and come back in kelvin
   as the source wrote them: 2.0 for an expected error of 2 K. They were converted as readings and
-  came back as -271.15. Their unit type is the new `temperature_difference`, whose only unit is
-  `degree_kelvin`, so `unit_targets={"temperature": ...}` does not move them and no other target
-  is accepted for it. Filter `glossary` by `unit_type="temperature_difference"` (GH-3688)
+  came back 273.15 too low (-271.15) in the default °C; add 273.15 to a stored value to recover
+  the error in K.
+  Their unit type is the new `temperature_difference`, whose only unit is `degree_kelvin`, so
+  `unit_targets={"temperature": ...}` does not move them and no other target is accepted for it
+  (GH-3688)
 
 ### Fixed
 
