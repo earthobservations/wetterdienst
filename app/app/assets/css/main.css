@@ -873,3 +873,12 @@ html {
 body {
   padding-bottom: var(--app-toast-inset, 0px);
 }
+
+/* Where the tab bar is (narrow layout), the toasts stand above it, not over it: a fixed tab cannot scroll clear of
+   a toast, and a focused one under it is not seen (WCAG 2.4.11). Unlayered, so it wins over the toaster's own
+   `bottom-4`; `--tabbar-height` is 0 where the bar scrolls with the page. */
+@media (width < 64rem) {
+  .app-toast-viewport {
+    bottom: calc(var(--tabbar-height) + 1rem);
+  }
+}
