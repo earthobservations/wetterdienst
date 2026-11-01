@@ -1,6 +1,6 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""Judge a reader's frame as the values core does, for the tests of a reader's rules (spike of GH-3676).
+"""Judge a reader's frame as the values core does, for the tests of a reader's rules (GH-3676).
 
 A reader no longer judges the numbers it parses: the core converts them to canonical units, judges them
 (`model/judge.py`) and converts them to the unit asked for. A test of what the table of ranges and the rules a provider

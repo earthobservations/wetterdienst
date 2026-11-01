@@ -1,6 +1,6 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""The values core judges in canonical units, and holds what the readers held before (spike of GH-3676)."""
+"""The values core judges in canonical units, and holds what the readers held before (GH-3676)."""
 
 from __future__ import annotations
 
@@ -50,8 +50,12 @@ def test_the_core_holds_every_network_to_the_bounds_its_reader_declared_and_to_n
         assert found[key] == pytest.approx((low, high), rel=1e-6, abs=1e-6), key
 
 
-def _frame(rows: list[tuple[str, float | None]], flags: list[str | None] | None = None) -> pl.DataFrame:
-    stamps = [dt.datetime(2024, 1, 1, tzinfo=UTC) + dt.timedelta(hours=hour) for hour in range(len(rows))]
+def _frame(
+    rows: list[tuple[str, float | None]],
+    flags: list[str | None] | None = None,
+    step: dt.timedelta = dt.timedelta(hours=1),
+) -> pl.DataFrame:
+    stamps = [dt.datetime(2024, 1, 1, tzinfo=UTC) + step * hour for hour in range(len(rows))]
     return pl.DataFrame(
         {
             "parameter": [name for name, _ in rows],
@@ -181,7 +185,8 @@ def test_a_barometer_that_holds_one_value_for_a_run_is_stuck(resolution: str, da
     name = next(n for n, c in plan.parameters.items() if c.name in {"pressure_air_site", "pressure_air_site_mean"})
     for length, flagged in ((limit - 1, False), (limit, True)):
         values = [1000.0] * length + [1000.1 + 0.1 * i for i in range(10)] + [990.0] * (limit - 1)
-        df = _frame([(name, value) for value in values])
+        step = {"10_minutes": dt.timedelta(minutes=10), "hourly": dt.timedelta(hours=1), "daily": dt.timedelta(days=1)}
+        df = _frame([(name, value) for value in values], step=step[resolution])
         out = judged(df, network="dwd/observation", dataset=dataset)
         marked = out.get_column("quality_flags").to_list()
         assert marked[:length] == (["suspect:stuck"] * length if flagged else [None] * length)
@@ -243,3 +248,66 @@ def test_a_constant_historical_file_is_flagged_beside_a_recent_one_that_varies(m
     assert flagged.height == 200
     assert flagged.get_column("timestamp").max() < dt.datetime(2024, 3, 1, tzinfo=UTC)
     assert df.height == 400
+
+
+def _moisture_pressure() -> tuple[object, str]:
+    dataset = _datasets("dwd/observation")[("hourly", "moisture")]
+    plan = plan_for("dwd/observation", dataset)
+    return dataset, next(n for n, c in plan.parameters.items() if c.name == "pressure_air_site")
+
+
+def _at(*hours: int) -> list[dt.datetime]:
+    return [dt.datetime(2024, 1, 1, tzinfo=UTC) + dt.timedelta(hours=hour) for hour in hours]
+
+
+def test_a_gap_of_more_than_four_intervals_ends_a_run_and_a_short_one_does_not() -> None:
+    """Equal values either side of a month without readings are two stretches; either side of a short gap, one run."""
+    dataset, name = _moisture_pressure()
+    # 50 and 50 equal readings, a month of readings missing between them (they are null or not there at all)
+    stamps = _at(*range(50), *range(24 * 30, 24 * 30 + 50))
+    df = _frame([(name, 997.3)] * 100).with_columns(pl.Series("timestamp", stamps))
+    out = judged(df, network="dwd/observation", dataset=dataset)
+    assert out.get_column("quality_flags").to_list() == [None] * 100
+    # the same month as rows of null (-999) between them: the nulls are skipped, and the gap ends the run all the same
+    nulls = _at(*range(50, 24 * 30))
+    month = pl.DataFrame({"parameter": name, "timestamp": nulls, "value": None, "quality_flags": "raw:-999"})
+    with_nulls = pl.concat(
+        [df.slice(0, 50), month.cast(dict(df.schema)), df.slice(50).select(df.columns)], how="vertical"
+    )
+    out = judged(with_nulls, network="dwd/observation", dataset=dataset)
+    assert out.filter(pl.col("quality_flags").str.contains("stuck").fill_null(value=False)).is_empty()
+    # three missing hours inside the stretch (a gap of 4 intervals) are bridged: 40 + 40 readings are one run of 80
+    stamps = _at(*range(40), *range(43, 83))
+    df = _frame([(name, 997.3)] * 80).with_columns(pl.Series("timestamp", stamps))
+    out = judged(df, network="dwd/observation", dataset=dataset)
+    assert out.get_column("quality_flags").to_list() == ["suspect:stuck"] * 80
+    # one hour more (a gap of 5 intervals) ends it: 40 and 40 are two stretches under the limit
+    stamps = _at(*range(40), *range(44, 84))
+    df = _frame([(name, 997.3)] * 80).with_columns(pl.Series("timestamp", stamps))
+    assert judged(df, network="dwd/observation", dataset=dataset).get_column("quality_flags").to_list() == [None] * 80
+
+
+def test_a_request_class_that_subclasses_a_network_is_judged_as_the_network(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`class My(DwdObservationRequest)` is still `dwd/observation`: a pressure of 1093.3 hPa is rejected."""
+    from tests.provider import value_stubs  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+
+    class MyRequest(DwdObservationRequest):
+        pass
+
+    assert Wetterdienst._network_of(MyRequest) == "dwd/observation"  # noqa: SLF001
+    monkeypatch.setattr(value_stubs, "DwdObservationRequest", MyRequest)
+    df = value_stubs._dwd_hourly_pressure_typo(monkeypatch, drop_nulls=False)  # noqa: SLF001
+    rejected = df.filter(pl.col("quality_flags").str.contains("rejected:"))
+    assert rejected.get_column("quality_flags").to_list() == ["1,rejected:elevation+range,raw:1093.3"]
+    assert rejected.get_column("value").to_list() == [None]
+
+
+def test_the_network_of_every_request_class_is_its_entry_of_the_registry() -> None:
+    """The network a class serves is read off the registry by module and name, for every network of it."""
+    for provider, networks in Wetterdienst.registry.items():
+        for network in networks:
+            if Wetterdienst.is_standalone(provider, network):
+                continue
+            assert Wetterdienst._network_of(Wetterdienst.resolve(provider, network)) == f"{provider}/{network}"  # noqa: SLF001
+    assert Wetterdienst._network_of(object) == ""  # noqa: SLF001

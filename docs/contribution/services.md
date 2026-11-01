@@ -296,13 +296,9 @@ pass the text as the last kind of the flags, `join_quality_flags(plain_flag, raw
 `raw:-999` after the plain flag. Declare the text as the source writes it (`Sentinel("-999")`, not
 `-999.0`); a value read from text keeps the text of its own cell. `Sentinel(..., where=...)` limits it to a
 parameter, `to=0.0` makes it a value the source documents (no precipitation), and `non_numeric=True` takes
-every text that is no number for one. A value no sensor can have produced (4021 degrees) has no
-sentinel to name: `OutOfRange(low, high)` takes it the same way, with bounds in the unit of the source
-taken from `tests/provider/physical_ranges.py` and kept per resolution (the rain and the sunshine of a day
-are not those of a minute; generous, so that a real reading of the provider is never outside). A reader may
-be narrower than that range where its source's own records or precision allow it, never wider; the
-narrower entries are named in `test_physical_ranges.py`, and the `raw` text is the number as it is written. A pressure at the station is also held to the elevation of the station: `station_pressure_range(elevation)` (`model/quality_flags.py`) gives the `OutOfRange` of the barometric formula of the standard atmosphere, 75 hPa either way (`per_hectopascal=100.0` for a source in Pa), and `TimeseriesValues._station_elevation(station_id)` the elevation of the station list; `dwd/observation` and `meteofrance/synop` use them. A model's amount that is a little below its floor (-0.02 mm of rain) is `Floor(0.0)`: the floor, with the number as `raw`. A wide frame keeps the text beside each
-column with `clear_sentinels` and `unpivot_with_raw`. Add a stub of the source with the sentinel written as the source writes it to
+every text that is no number for one. A wide frame keeps the text beside each column with `clear_sentinels` and
+`unpivot_with_raw`. A value no sensor can have produced (4021 degrees) is no sentinel and is not the reader's to
+judge, see below. Add a stub of the source with the sentinel written as the source writes it to
 `tests/provider/value_stubs.py` and name each `raw:` token it must carry in `tokens`.
 
 **A reader judges nothing.** What no sensor can have produced (a number outside the physical range of its parameter, a

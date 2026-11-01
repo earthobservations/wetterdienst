@@ -340,7 +340,9 @@ _PlausibilityElevationField = _plausibility_field(
     "elevation", "a station pressure the barometric formula does not expect at the station's elevation"
 )
 _PlausibilityStuckField = _plausibility_field(
-    "stuck", "a sensor that held one value over a period it should not have (a verdict that depends on the window)"
+    "stuck",
+    "a sensor that held one value over a period it should not have "
+    "(a verdict on a series, which depends on what was read)",
 )
 _PlausibilityConsistencyField = _plausibility_field(
     "consistency", "a reading that another parameter of the same file contradicts (never downloaded for the check)"

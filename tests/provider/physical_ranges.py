@@ -30,15 +30,16 @@ named with `None`, never left out, so that a new unit type fails
 To hold a quantity to a different range, add it to `PARAMETER_RANGES` (one name) or `PREFIX_RANGES` (a family), or to
 `RESOLUTION_RANGES` where the range depends on the resolution.
 
-A reader that nulls the values outside a range (`OutOfRange`, GH-2797) keeps one per resolution as well, in the unit of
-its source. It may be narrower than the range here, never wider (a source whose own validated records stay far below
-the world's record, or whose precision needs no slack, can say so), and `test_physical_ranges.py` holds it to that.
-DWD observation (the wind speeds and the station and sea level pressures) and Météo-France synop (the pressures,
-temperatures and amounts of rain) null only the columns they name, a bound of the world's records or inside it, and
-`test_physical_ranges.py` holds those to the range here as well (GH-3135).
+The values core judges a reading against one table of bounds per network (`model/plausibility_ranges.py`, the check
+`range`, GH-2797), in the canonical unit, which is the unit this module holds a value to. A network may hold a quantity
+narrower than the range here, never wider (a source whose own validated records stay far below the world's record, or
+whose precision needs no slack, can say so, as an override with the argument beside it), and `test_physical_ranges.py`
+holds every bound of the table to the range here. DWD observation (the wind speeds and the station and sea level
+pressures) and Météo-France synop (the pressures, temperatures and amounts of rain) are judged on the quantities they
+name, a bound of the world's records or inside it (GH-3135).
 
 A value outside its range that carries the token `suspect:` is kept on purpose: a plausibility check in the mode `soft`
-found it and left it, flagged (GH-3676), so the check here accepts it. Only the readers' own verdict counts; a number
+found it and left it, flagged (GH-3676), so the check here accepts it. Only the core's own verdict counts; a number
 outside a range with no such token is still a sentinel the reader missed.
 """
 

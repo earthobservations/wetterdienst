@@ -362,7 +362,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         """Name the network this values object reads as `provider/network`, as the registry of `Wetterdienst` has it."""
         from wetterdienst.api import Wetterdienst  # noqa: PLC0415
 
-        return Wetterdienst.network_of(type(getattr(self.sr, "request", None)))
+        return Wetterdienst._network_of(type(getattr(self.sr, "request", None)))  # noqa: SLF001
 
     def _judge_in_canonical_units(
         self, df: pl.DataFrame, station_id: str, dataset: DatasetModel, plan: Plan, rules: Sequence[Rule]
@@ -392,16 +392,17 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             return df.with_columns(pl.col(SOURCE_COLUMN).alias("value")).drop(SOURCE_COLUMN)
         if not self.sr.options.convert_units:
             return df
-        declared = {name.lower() for name in plan.parameters}
-        names = df.get_column("parameter").unique(maintain_order=True).to_list()
-        for name in names:
-            if name.lower() not in declared:
+        # a name is matched to the parameter that declares it in any casing, as it always was
+        by_lower = {name.lower(): name for name in plan.parameters}
+        present: dict[str, str] = {}
+        for name in df.get_column("parameter").unique(maintain_order=True).to_list():
+            if name.lower() not in by_lower:
                 message = (
                     f"{type(self).__name__} returned the parameter {name!r}, which the dataset "
                     f"{dataset.resolution.name}/{dataset.name} does not declare in any casing"
                 )
                 raise ProviderContractError(message)
-        present = [name for name in plan.parameters if name in set(names)]
+            present[name] = by_lower[name.lower()]
         # rounded to avoid long floats, by as many decimals as the target unit needs to keep the reading's precision
         # (`UnitConverter.decimals`)
         convert = to_requested(plan, present, self.unit_converter, canonical=canonical)

@@ -76,7 +76,6 @@
     "is_configured": "(api)",
     "is_standalone": "(provider, network)",
     "is_valid": "(api)",
-    "network_of": "(request_class)",
     "resolve": "(provider, network)",
     "resolve_standalone": "(provider, network)"
   },

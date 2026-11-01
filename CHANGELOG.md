@@ -18,8 +18,6 @@ Types of changes:
 
 ### Added
 
-- `Wetterdienst.network_of(request_class)` names the network a request class serves as `provider/network`, as
-  the registry has it (GH-3676)
 - The option `plausibility` sets what each plausibility check (`range`, `elevation`, `stuck`,
   `consistency`, `floor`) does to a number it finds implausible: `hard` nulls it and keeps the
   number as `rejected:<check>,raw:<number>` in `quality_flags`, `soft` keeps it and flags it
@@ -60,26 +58,23 @@ Types of changes:
 
 - **Breaking**: `quality_flags` gain the tokens `suspect:<check>` and `rejected:<check>` before
   `raw:`. A number a check rejected is `rejected:range,raw:4021` where it was `raw:4021`, so `raw:`
-  alone is now a code of the source; `str.replace(r"rejected:[a-z+]+,", "")` gives the old string.
-  The `stuck` check is soft by default: `dwd/observation` (the constant pressure of an hourly
-  `moisture` file) and `rmi/observation` (the sunshine of station 6477 in its dead periods), which
-  were null, now keep their values as `suspect:stuck`. `dwd/road` (a stopped sensor, once quality
-  `1`) keeps its value as before, now as `suspect:stuck` beside DWD's own flag; as that is a
-  suspect value, `skip_empty` no longer counts it, so a road station with long stuck runs can be
-  skipped where it was kept. For the null again, set `stuck` to hard:
-  `plausibility={"stuck": "hard"}`, `WD_TS_PLAUSIBILITY__STUCK=hard`, `--plausibility-stuck hard`
-  or `plausibility_stuck=hard` (GH-3676)
-- **Breaking**: the constant pressure of `dwd/observation` is a run, not a file: 72 hourly readings,
-  5 days or 36 readings at 10 minutes of one `pressure_air_site` or `pressure_air_site_mean` are
-  `stuck` (HadISD, ECA&D), in the series of the periods read, so a station whose historical file is
-  constant and whose recent one is not is flagged for the stretch that is. A constant stretch below
-  the run is no longer flagged (a file of 500 readings with at most three values was), the verdict
-  depends on the window of the request, and the check now also covers the pressure of the hourly
-  `pressure`, `urban_pressure`, the 10-minute `temperature_air` and `urban_pressure` and the daily
-  `climate_summary` (GH-3676)
-- A pressure that both the range and the elevation reject is `rejected:elevation+range,raw:1093.3`,
-  where `dwd/observation` wrote `rejected:range` (the checks judge one number, as the soft mode said);
-  `raw:` of a judged value is still the text the source wrote (GH-3676)
+  alone is now a code of the source; `str.replace(r"rejected:[a-z+]+,", "")` gives the old string
+  (GH-3676)
+- **Breaking**: the `stuck` check is soft by default: `rmi/observation` (the sunshine of station
+  6477 in its dead periods), which was null, keeps its values as `suspect:stuck`, and so does
+  `dwd/road` (a stopped sensor, once quality `1`) beside DWD's own flag; as that is a suspect
+  value, `skip_empty` no longer counts it, so a road station with long stuck runs can be skipped
+  where it was kept. For the null again, set `stuck` to hard: `plausibility={"stuck": "hard"}`,
+  `WD_TS_PLAUSIBILITY__STUCK=hard`, `--plausibility-stuck hard` or `plausibility_stuck=hard`
+  (GH-3676)
+- **Breaking**: the constant pressure of `dwd/observation` is a run of identical readings, not a
+  file of at most three values, and soft like the other `stuck` verdicts (`suspect:stuck`, null
+  with `stuck` hard): 72 hourly readings, 5 days or 36 readings at 10 minutes of one
+  `pressure_air_site` or `pressure_air_site_mean` (HadISD, ECA&D; the 36 is derived, not
+  published), in the series of the periods read, a gap of more than four times the interval ending
+  a run. A constant stretch below the run is no longer flagged, and the check now also covers the
+  hourly `pressure` and `urban_pressure`, the 10-minute `temperature_air` and `urban_pressure` and
+  the daily `climate_summary` (GH-3676)
 - **Breaking**: a Zarr file (`file://x.zarr`) holds a gap as `NaN`, and a missing time as `NaT`,
   where it held -999 (an integer column with a gap is now a float one). It read as a measurement:
   an air temperature of -999 degrees, a station 999 m below the sea. A reader that tested for -999
@@ -188,7 +183,7 @@ Types of changes:
   at 06 and 18 UTC by 158 of the 190 stations (2026), where `tx24`/`tn24` are given by 35 and
   by none for Paris-Montsouris. Where `tn12` repeats the `tx12` of its own row (three overseas
   stations at some hours: Cayenne-Matoury, Le Raizet, Lamentin) it is null, with the number kept as
-  `rejected:consistency,raw:` in `quality_flags` (GH-3540)
+  `raw:` in `quality_flags` (GH-3540)
 - `imgw/hydrology` stations now list the river the gauge is on (`river`, with IMGW's hydrographic
   code, `Odra (1)`), its position along it in kilometres from the mouth (`river_kilometer`) and
   the altitude of the gauge's zero in metres (`gauge_zero`), under the names `wsv/pegel` uses; null
@@ -201,7 +196,7 @@ Types of changes:
   the day and of the year (`humidity_relative_max`/`_min`; the annual ones were left out as not
   published, but are), the manual snow depth of the day (`snow_depth_manual`) and the monthly and
   annual counts of ice days, frost days and days with 0.1, 1 and 10 mm (`count_days_*`). A cloud
-  cover above 100 is null, with the number as `rejected:range,raw:` in `quality_flags`. Not offered yet: the
+  cover above 100 is null, with the number as `raw:` in `quality_flags`. Not offered yet: the
   radiation of a day and longer, the pressure extremes and the other counts (Part of GH-3622)
 - `noaa/ghcn` daily now offers the average dew point (`temperature_dew_point_mean_2m`, ADPT),
   sea level and station pressure (`pressure_air_sea_level_mean`, `pressure_air_site_mean`; ASLP,

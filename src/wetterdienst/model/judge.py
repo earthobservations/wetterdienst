@@ -1,24 +1,28 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""Every plausibility check, run by the values core in canonical units (spike of GH-3676).
+"""Every plausibility check, run by the values core in canonical units (GH-3676).
 
 A reader decodes what its source writes as a code (``-999``, ``---``, a trace, a calm) and hands the numbers over in
-the unit of its source. The core then
+the unit of its source. For a dataset a check applies to, the core then
 
-1. converts every parameter of what was collected to the canonical unit of its unit type (``UnitConverter().targets``),
-   without rounding, keeping the number as the source wrote it for the ``raw:`` token (``to_canonical``);
-2. judges the long frame with the five checks of ``Plausibility`` (``judge``), the bounds being the one table of
+1. makes the periods the reader read one series (``merge_duplicate_readings``, the first reading with a value winning);
+2. cuts the frame of a grouped dataset to the parameters asked for and the ones a rule reads beside them (the air beside
+   a road surface, the dew point beside a humidity: ``Plan.read_beside``), since a verdict on a parameter that is cut
+   afterwards is never seen;
+3. converts those parameters to the canonical unit of their unit type (``UnitConverter().targets``), without rounding,
+   keeping the number as the source wrote it (and its text, where the provider hands it over) for the ``raw:`` token
+   (``to_canonical``);
+4. judges the long frame with the five checks of ``Plausibility`` (``judge``), the bounds being the one table of
    ``plausibility_ranges`` and the relations between parameters being evaluated across the parameters of one station
    and timestamp;
-3. cuts the frame to the parameters asked for and converts the rest to the unit the caller wants, rounding once
-   (``from_canonical``).
+5. converts to the unit the caller wants, in one expression, rounding once (``to_requested``).
 
 What stays with a provider is what only it knows, handed over as rules by ``TimeseriesValues._plausibility_rules``: the
 stations without frost, the periods in which one sensor of one station did not work, the relation of a road surface to
 the air of its minute at night.
 
 Modes and tokens are those of ``Plausibility``: ``hard`` nulls the value (``floor`` sets it to 0) and writes
-``rejected:<checks>,raw:<number>``, ``soft`` keeps it and writes ``suspect:<checks>``; several checks are joined with
+``rejected:<checks>,raw:<text>``, ``soft`` keeps it and writes ``suspect:<checks>``; several checks are joined with
 ``+`` in alphabetical order, and a value that a hard check rejects carries only the hard checks.
 """
 
@@ -32,13 +36,14 @@ from typing import TYPE_CHECKING, NamedTuple
 
 import polars as pl
 
+from wetterdienst.metadata.resolution import reading_step
 from wetterdienst.model.plausibility import CHECKS, REJECTED, SUSPECT, Plausibility
 from wetterdienst.model.plausibility_ranges import OVERRIDES, RANGES, SCOPE
 from wetterdienst.model.quality_flags import RAW_TOKEN
 from wetterdienst.model.unit import UnitConverter
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable, Mapping, Sequence
 
     from wetterdienst.model.metadata import DatasetModel
 
@@ -189,6 +194,8 @@ class Plan:
     pressure: tuple[str, ...] = ()
     floors: tuple[str, ...] = ()
     constants: tuple[tuple[str, int], ...] = ()
+    #: the time between two readings that ends a run of one value: four times the interval of the resolution
+    constant_gap: dt.timedelta | None = None
     runs: tuple[tuple[str, ...], str | None] = ((), None)
     by_name: dict[str, str] = field(default_factory=dict)
 
@@ -252,12 +259,14 @@ def _build_plan(network: str, dataset: DatasetModel) -> Plan:
     constants = tuple(
         (original[name], limits[resolution]) for name in names if name in original and resolution in limits
     )
+    step = reading_step(dataset.resolution.value)
+    constant_gap = step * RUN_GAP_FACTOR if constants and step is not None else None
     runs: tuple[tuple[str, ...], str | None] = ((), None)
     if network in RUNS:
         names, air = RUNS[network]
         if all(name in original for name in names):
             runs = (tuple(original[name] for name in names), original[air])
-    return Plan(network, parameters, ranges, pressure, floors, constants, runs, by_name)
+    return Plan(network, parameters, ranges, pressure, floors, constants, constant_gap, runs, by_name)
 
 
 def to_canonical(plan: Plan) -> pl.Expr | None:
@@ -277,16 +286,19 @@ def to_canonical(plan: Plan) -> pl.Expr | None:
     return pl.coalesce(*branches, value)
 
 
-def to_requested(plan: Plan, requested: Sequence[str], converter: UnitConverter, *, canonical: bool) -> pl.Expr:
+def to_requested(plan: Plan, requested: Mapping[str, str], converter: UnitConverter, *, canonical: bool) -> pl.Expr:
     """Give the expression that converts the ``value`` of the parameters asked for to the unit asked for, in one.
 
     From the canonical unit of the judged frame (``canonical``) or from the unit of the source, whichever the frame is
     in. Rounded once, to as many decimals as the target unit needs to keep the reading's precision
     (``UnitConverter.decimals``), whatever the unit it came from.
+
+    ``requested`` maps each name the frame has to the parameter of the dataset that declares it (they differ in casing
+    where a provider wrote a name in another one).
     """
     groups: dict[tuple[str, str, int], tuple[Callable[[pl.Expr], pl.Expr], list[str]]] = {}
-    for name in requested:
-        conversion = plan.parameters[name]
+    for name, declared in requested.items():
+        conversion = plan.parameters[declared]
         target = converter.targets[conversion.unit_type].name
         places = converter.decimals(conversion.unit, target)
         source = conversion.canonical if canonical else conversion.unit
@@ -443,17 +455,25 @@ def _verdicts(rows: pl.DataFrame, checks: list[str], modes: Plausibility) -> pl.
 
 
 def _constant_runs(df: pl.DataFrame, plan: Plan) -> pl.Series:
-    """Mark the readings of a quantity that held one value for as many consecutive readings as its limit says."""
+    """Mark the readings of a quantity that held one value for as many consecutive readings as its limit says.
+
+    The nulls are skipped (a reading that is missing does not break a run) but a gap of more than four times the
+    interval of the resolution between two readings does.
+    """
     limits = dict(plan.constants)
     runs = (
         df.select("parameter", "timestamp", "value")
         .with_row_index("_row")
         .filter(pl.col("parameter").is_in(list(limits)) & pl.col("value").is_not_null())
         .sort("parameter", "timestamp", "_row")
+        .with_columns(_gap=pl.col("timestamp").diff().over("parameter"))
         .with_columns(
-            _run=pl.col("value")
-            .ne(pl.col("value").shift().over("parameter"))
-            .fill_null(value=True)
+            # a run ends where the value changes, and where the readings are further apart than the gap: a null
+            # between two readings of a short stretch is bridged, a month without readings is not
+            _run=(
+                pl.col("value").ne(pl.col("value").shift().over("parameter")).fill_null(value=True)
+                | (pl.col("_gap") > plan.constant_gap).fill_null(value=False)
+            )
             .cum_sum()
             .over("parameter")
         )

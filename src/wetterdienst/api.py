@@ -126,20 +126,22 @@ class Wetterdienst:
         return provider.strip().lower(), network.strip().lower()
 
     @classmethod
-    def network_of(cls, request_class: type) -> str:
+    def _network_of(cls, request_class: type) -> str:
         """Name the network a request class serves as `provider/network`, empty for a class the registry lacks.
 
-        Args:
-            request_class: the class of a request (`DwdObservationRequest`)
-
-        Returns:
-            The `provider/network` of its entry in the registry (`dwd/observation`)
-
+        The class itself or the first of its bases (`class My(DwdObservationRequest)`) that the registry names: the
+        registry names a class by the module of its package and its name (`wetterdienst.provider.dwd.observation.
+        DwdObservationRequest`), and the class lives in a module of that package (`...observation.api`) under the same
+        qualified name.
         """
-        for provider, networks in cls.registry.items():
-            for network, path in networks.items():
-                if path.rsplit(".", 1)[1] == request_class.__name__:
-                    return f"{provider}/{network}"
+        for base in request_class.__mro__:
+            for provider, networks in cls.registry.items():
+                for network, path in networks.items():
+                    package, name = path.rsplit(".", 1)
+                    if base.__qualname__ == name and (
+                        base.__module__ == package or base.__module__.startswith(f"{package}.")
+                    ):
+                        return f"{provider}/{network}"
         return ""
 
     @classmethod

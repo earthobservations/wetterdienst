@@ -342,11 +342,11 @@
                 "hard"
               ],
               "type": "string",
-              "description": "What the check `stuck` does to a sensor that held one value over a period it should not have (a verdict that depends on the window): `hard` nulls the value and keeps the number as `rejected:stuck,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:stuck`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STUCK if set, else soft.",
+              "description": "What the check `stuck` does to a sensor that held one value over a period it should not have (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:stuck,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:stuck`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STUCK if set, else soft.",
               "default": "soft",
               "title": "Plausibility Stuck"
             },
-            "description": "What the check `stuck` does to a sensor that held one value over a period it should not have (a verdict that depends on the window): `hard` nulls the value and keeps the number as `rejected:stuck,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:stuck`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STUCK if set, else soft."
+            "description": "What the check `stuck` does to a sensor that held one value over a period it should not have (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:stuck,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:stuck`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STUCK if set, else soft."
           },
           {
             "name": "plausibility_consistency",
@@ -2408,11 +2408,11 @@
                 "hard"
               ],
               "type": "string",
-              "description": "What the check `stuck` does to a sensor that held one value over a period it should not have (a verdict that depends on the window): `hard` nulls the value and keeps the number as `rejected:stuck,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:stuck`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STUCK if set, else soft.",
+              "description": "What the check `stuck` does to a sensor that held one value over a period it should not have (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:stuck,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:stuck`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STUCK if set, else soft.",
               "default": "soft",
               "title": "Plausibility Stuck"
             },
-            "description": "What the check `stuck` does to a sensor that held one value over a period it should not have (a verdict that depends on the window): `hard` nulls the value and keeps the number as `rejected:stuck,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:stuck`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STUCK if set, else soft."
+            "description": "What the check `stuck` does to a sensor that held one value over a period it should not have (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:stuck,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:stuck`. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STUCK if set, else soft."
           },
           {
             "name": "plausibility_consistency",

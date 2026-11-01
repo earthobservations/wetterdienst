@@ -28,12 +28,15 @@ For a dataset that a check applies to, the core does this for each station, afte
 1. The rows of the periods the reader read (the historical archive, the recent file, the current one) are made one
    series, the first reading that has a value winning (for DWD the historical archive before the recent one), so that
    no check sees a reading twice.
-2. Every parameter of the frame, those nobody asked for included, is converted to the canonical unit of its unit type
-   (°C, hPa, m/s, mm, J/cm², a fraction as a decimal, seconds), without rounding. The bounds are therefore written once
-   per quantity and not once per source and unit, and a bound does not depend on the unit you ask for.
-3. The five checks judge the frame in canonical units. A check that compares two parameters (a road surface and the air
+2. The frame of a grouped dataset is cut to the parameters you asked for and the ones a rule reads beside them (the air
+   beside a road surface, the dew point beside a humidity, the air of the road's run rule): a verdict on a parameter
+   that is cut afterwards would never be seen, so the others are not merged, converted or judged.
+3. Those parameters are converted to the canonical unit of their unit type (°C, hPa, m/s, mm, J/cm², a fraction as a
+   decimal, seconds), without rounding. The bounds are therefore written once per quantity and not once per source
+   and unit, and a bound does not depend on the unit you ask for.
+4. The five checks judge the frame in canonical units. A check that compares two parameters (a road surface and the air
    of its minute) reads both from the frame of the station at the same timestamp, so such a dataset is collected whole.
-4. The frame is cut to the parameters you asked for and converted to the unit you asked for, rounded once.
+5. The frame is cut to the parameters you asked for and converted to the unit you asked for, rounded once.
 
 The bounds are one table, by canonical name and by resolution where the quantity grows with the span
 (`wetterdienst.model.plausibility_ranges`), with the sources of the narrower ones noted beside them. What only a provider
@@ -55,24 +58,31 @@ written as short as it goes (`4021.0` as `4021`).
 | `consistency` | a reading that another parameter of the same file contradicts | hard | DWD road: a road surface more than 20 K above the air of the same minute with the sun more than 6 degrees below the horizon. Météo-France: the humidity of an hour whose dew point lies below 0 °C at a station without frost (the same hygrometer), and a `tn12` that is the text of the `tx12` beside it (a copy, no minimum) |
 | `floor` | a model value a little below the floor of its quantity | hard | DWD DMO: ICON writes -0.02 mm for the precipitation of an hour, down to -0.10, and the radiation of a night below 0. **hard sets the floor**, 0.0, and keeps the number; soft keeps the number as the value |
 
-`stuck` is soft by default because its verdict depends on the window of the request (see the caveats). Every other
-check is hard, which reproduces what the library did before the modes existed.
+`stuck` is soft by default because it judges a series and not a value: identical readings are a sign of a stuck sensor
+and no proof, and what is found depends on what was read, which differs by network (see the caveats). Every other check
+is hard, which reproduces what the library did before the modes existed.
 
 ### The limit of a run
 
 A barometer that writes one pressure for hours reflects the station and not the weather. The limit is the number of
-consecutive readings of one value (null readings skipped) that is taken for it, per resolution, from the research for
-[GH-3681](https://github.com/earthobservations/wetterdienst/issues/3681):
+consecutive readings of one value that is taken for it, per resolution, from the research for
+[GH-3681](https://github.com/earthobservations/wetterdienst/issues/3681) (section 4.1, persistence of station and sea
+level pressure):
 
 | resolution | readings | source |
 | --- | --- | --- |
 | hourly | 72 | HadISD (Dunn et al. 2012, Climate of the Past 8, 1649-1679, table 4): a straight repeat of 72 values of the sea level pressure at a resolution of 0.1 hPa, which DWD's pressures have |
 | daily | 5 | ECA&D (KNMI, Algorithm Theoretical Basis Document v11, 2021, section 3): the daily pressure may not be exactly the same 5 days in a row |
-| 10 minutes | 36 (6 hours) | derived in the research: no source publishes a count at 10 minutes |
+| 10 minutes | 36 (6 hours) | **derived, not published**: no source publishes a count at 10 minutes; the research derives 36 readings (6 hours) from the hourly one and marks it as its own derivation |
 
 Sub-daily, monthly and annual values have no source and are not judged. The run is judged in the series the core is
 handed, after the periods are merged, so a station whose historical file is constant and whose recent file is not is
 flagged for the stretch that is.
+
+A reading that is missing does not break a run: a null inside a short stretch is skipped, and the equal values on both
+sides are one run. A **gap** does: where two readings are more than four times the interval of the resolution apart
+(more than 4 hours at hourly, 40 minutes at 10 minutes, 4 days at daily), the run ends there, as the road rule's does. A
+month of `-999` between two readings of 997.3 hPa is two stretches and not one.
 
 ## Setting the modes
 
@@ -218,13 +228,18 @@ What no check covers, and why:
 
 ## Caveats
 
-- **`stuck` depends on the window of the request.** A run of identical values that crosses the start of the request is
-  only found when the window covers enough of it, and a request for an hour of the road network has fewer readings than
-  the 24 that mark a run. The same day can answer differently for a different window. For this reason the road surface
-  rule of `consistency` does not use the stuck verdict, and `stuck` is soft by default: the value stays and you decide.
-  DWD observation judges the series of the periods it read, so a constant stretch shorter than the limit of a run (71
-  hourly readings, 4 days) is no longer flagged, as the earlier rule on a whole file did not need a run, and a request for
-  a window that holds only part of a longer run may not reach the limit.
+- **What `stuck` finds depends on what was read, which differs by network.** The check judges a series and not a value,
+  which is why it is soft by default: the value stays and you decide.
+  - *DWD road*: the verdict depends on the window of the request, because the reader cuts to the window. A run of
+    identical values that crosses the start of the request is only found when the window covers enough of it, and a
+    request for an hour has fewer readings than the 24 that mark a run: the same day can answer differently for a
+    different window. For this reason the road surface rule of `consistency` does not use the stuck verdict.
+  - *DWD observation*: the verdict depends on the periods and files read (historical, recent, now), not on the window:
+    the core judges the merged series before the window is cut, so the same file answers the same for any window inside
+    it. A request for the recent period alone sees the runs of the recent file alone. A constant stretch below the limit
+    of a run (71 hourly readings, 4 days) is not flagged, where the earlier rule on a whole file of at most three values
+    flagged it whatever its length.
+  - *RMI*: the periods are fixed dates of one station (6477), so the verdict depends on neither.
 - **`elevation` uses the station list's current elevation for every period.** A station that was moved by 500 m or more
   keeps the readings of its other site only while they lie within the range. DWD's historical outliers were checked
   against the station list and are bad readings, not station moves.

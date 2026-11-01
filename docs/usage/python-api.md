@@ -679,8 +679,8 @@ A number no sensor can have produced (4021 °C for a daily maximum, 909.5 hPa at
 that held one value for a month) is judged by a **check**, and the option `plausibility` chooses what happens to it,
 per check: `"hard"` makes the value null and keeps the number as `rejected:<check>,raw:<number>` in `quality_flags`,
 `"soft"` keeps the value and flags it `suspect:<check>`. The checks are `range`, `elevation`, `stuck`, `consistency`
-and `floor`; all are hard but `stuck`, which is soft because its verdict depends on the window of the request. A check
-not named keeps its mode, and `WD_TS_PLAUSIBILITY__RANGE=soft` sets one for a host. The codes a source documents
+and `floor`; all are hard but `stuck`, which is soft because it judges a series and not a value (what it finds depends on what was read, see the
+[plausibility page](../data/plausibility.md)). A check not named keeps its mode, and `WD_TS_PLAUSIBILITY__RANGE=soft` sets one for a host. The codes a source documents
 (`-999`, a calm, a trace) are no check and have no mode.
 
 ```python

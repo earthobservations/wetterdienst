@@ -2157,3 +2157,26 @@ def test_the_elevation_of_a_station_list_without_dataset_columns_or_elevation() 
     assert with_elevation._station_elevation("1", DwdObservationMetadata.hourly.pressure) == 7.0  # noqa: SLF001
     without = _values_with_stations(pl.DataFrame({"station_id": ["1"]}))
     assert without._station_elevation("1") is None  # noqa: SLF001
+
+
+@pytest.mark.parametrize("canonical", [False, True])
+def test_a_parameter_name_in_another_casing_than_the_declared_one_is_converted_as_the_declared_one(
+    canonical: bool,  # noqa: FBT001
+) -> None:
+    """The name is matched to the parameter in any casing, where the contract error is as well (as ever)."""
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        options={"unit_targets": {"temperature": "degree_kelvin"}},
+    )
+    values = DwdObservationValues(
+        sr=StationsResult(
+            request=request, df=pl.DataFrame(), _df_all=pl.DataFrame(), _stations_filter=StationsFilter.ALL
+        ),
+    )
+    dataset = request.parameters[0].dataset
+    plan = plan_for("dwd/observation", dataset)
+    df = _long([("daily", "climate_summary", "TMK", 0, 5.0), ("daily", "climate_summary", "tmk", 1, 10.0)])
+    if canonical:
+        df = df.with_columns(pl.col("value").alias("__source"))
+    result = values._to_requested_units(df, dataset, plan, canonical=canonical)  # noqa: SLF001
+    assert result.get_column("value").to_list() == [278.15, 283.15]

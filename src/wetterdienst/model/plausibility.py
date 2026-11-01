@@ -52,11 +52,12 @@ class Plausibility(BaseModel):
     and the flag keeps the judgement visible. The missing-value codes and documented meanings a source writes
     (``-999``, ``---``, a trace, a calm) are no check and are not configurable.
 
-    The defaults reproduce what the library did before the modes existed, except ``stuck``, which is soft: the verdict
-    on a stuck sensor depends on the window the request asked for, so the value stays and is flagged. Set it from
-    ``WD_TS_PLAUSIBILITY__<CHECK>`` (``WD_TS_PLAUSIBILITY__RANGE=soft``) or ``Options(plausibility={"range": "soft"})``;
-    a check that is not named keeps its default. A bare mode sets every check at once (``Options(plausibility="soft")``,
-    ``WD_TS_PLAUSIBILITY=soft``), and a check named beside it wins.
+    The defaults reproduce what the library did before the modes existed, except ``stuck``, which is soft: it judges a
+    series and not a value (identical readings are a sign of a stuck sensor and no proof), and what it finds depends
+    on what was read: the window of the request for ``dwd/road``, the periods and files read for ``dwd/observation``.
+    Set it from ``WD_TS_PLAUSIBILITY__<CHECK>`` (``WD_TS_PLAUSIBILITY__RANGE=soft``) or
+    ``Options(plausibility={"range": "soft"})``; a check that is not named keeps its default. A bare mode sets every
+    check at once (``Options(plausibility="soft")``, ``WD_TS_PLAUSIBILITY=soft``), and a check named beside it wins.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
@@ -73,9 +74,10 @@ class Plausibility(BaseModel):
     )
     stuck: Mode = Field(
         default="soft",
-        description="A sensor that held one value over a period it should not have (a barometer that writes one "
-        "pressure for a whole file, a road sensor that did not move for hours): the verdict depends on the window of "
-        "the request, which is why it is soft by default. " + _HARD_MEANS.format(check="stuck"),
+        description="A sensor that held one value over a period it should not have (a station pressure that is one "
+        "value for 72 hourly readings in a row, a road sensor that did not move for hours, a dated period of a dead "
+        "sensor): the check judges a series and not a value, and what it finds depends on what was read, which is "
+        "why it is soft by default. " + _HARD_MEANS.format(check="stuck"),
     )
     consistency: Mode = Field(
         default="hard",
