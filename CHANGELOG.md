@@ -16,6 +16,20 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- **Breaking**: `summarize` and `summarize_by_station_id` of the Python API refuse a latitude
+  outside -90..90 or a longitude outside -180..180 with `LocationOutOfRangeError`, naming the
+  range, as the REST API, the command line and MCP did. They answered with the readings of the
+  station at the point the coordinates wrap round to (a longitude of 373.4 as 13.4), or with an
+  empty frame. The poles and the antimeridian are accepted. Pass a point on the globe (GH-3714)
+- **Breaking**: `filter_by_rank` and `filter_by_distance` of the Python API refuse a latitude
+  outside -90..90 or a longitude outside -180..180, or a NaN, with `LocationOutOfRangeError`,
+  as `summarize` now does. They ranked the stations by the distance from the point the
+  coordinates wrap round to (a longitude of 373.4 as 13.4). Pass a point on the globe (GH-3717)
+
+## [0.181.0] - 2026-11-01
+
 ### Added
 
 - A Parquet file, a NetCDF file and a Zarr group written by `to_target` carry the licence, the credit
@@ -59,6 +73,13 @@ Types of changes:
   nearest-station search or a distance filter near them picked the wrong stations; a filter on
   the old position needs the new one. A row is turned only while it lists the position that was
   checked, so a list NOAA corrects is read as it is (GH-2886)
+- **Breaking**: the `missing-value-marker` warning no longer counts a calm wind direction (the
+  source writes 0, null with `raw:0`): a calm has no direction, and no reading is missing. A new
+  warning `calm-wind-direction` counts them, with the same `drop_nulls` behaviour. The count of
+  `missing-value-marker` drops for a wind direction dataset; a client that wants the old sum adds
+  the two. A 0 that is no calm stays a marker: a code for no direction (`dwd/observation` hourly
+  `wind_synoptic` and `urban_wind`, `ipma/observation`) or the direction of a gust that is not
+  reported (`eccc/observation` daily, `noaa/ghcn` daily at Environment Canada) (GH-3696)
 - **Breaking**: `error_absolute_temperature_air_2m` and `error_absolute_temperature_dew_point_2m`
   of `dwd/mosmix` (`e_ttt`, `e_td`) are errors, temperature differences, and come back in kelvin
   as the source wrote them: 2.0 for an expected error of 2 K. They were converted as readings and
@@ -94,15 +115,13 @@ Types of changes:
   they did a `pl.Enum` column, not as a pandas Categorical. SQLite and DuckDB wrote the text
   either way; the dialects that could not be tried are no longer left to read a Categorical
   (GH-3694)
-- **Breaking**: `summarize` and `summarize_by_station_id` of the Python API refuse a latitude
-  outside -90..90 or a longitude outside -180..180 with `LocationOutOfRangeError`, naming the
-  range, as the REST API, the command line and MCP did. They answered with the readings of the
-  station at the point the coordinates wrap round to (a longitude of 373.4 as 13.4), or with an
-  empty frame. The poles and the antimeridian are accepted. Pass a point on the globe (GH-3714)
-- **Breaking**: `filter_by_rank` and `filter_by_distance` of the Python API refuse a latitude
-  outside -90..90 or a longitude outside -180..180, or a NaN, with `LocationOutOfRangeError`,
-  as `summarize` now does. They ranked the stations by the distance from the point the
-  coordinates wrap round to (a longitude of 373.4 as 13.4). Pass a point on the globe (GH-3717)
+- **Breaking**: `interpolate` and `summarize` refuse an `elevation` of NaN or infinity on the REST
+  API (422), the command line (usage error), MCP and in Python (`RequestError`, also from the
+  `_by_station_id` methods). It was accepted and written into the point's name and id
+  (`interpolation(51.0000,13.0000,nanm)`) and as the z of its GeoJSON position. Leave `elevation`
+  out for readings as they come. Latitude and longitude were refused already, except by
+  `TimeseriesRequest.summarize` in Python, which answered no rows for a NaN or infinity and now
+  raises `LocationOutOfRangeError` as `interpolate` does (GH-3689)
 
 ## [0.180.0] - 2026-11-01
 
@@ -7200,7 +7219,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.180.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.181.0...HEAD
+[0.181.0]: https://github.com/earthobservations/wetterdienst/compare/v0.180.0...v0.181.0
 [0.180.0]: https://github.com/earthobservations/wetterdienst/compare/v0.179.0...v0.180.0
 [0.179.0]: https://github.com/earthobservations/wetterdienst/compare/v0.178.0...v0.179.0
 [0.178.0]: https://github.com/earthobservations/wetterdienst/compare/v0.177.0...v0.178.0

@@ -41,6 +41,10 @@ _OBSERVATIONS_URL = f"{_BASE_URL}/observations.json"
 class IpmaObservationValues(TimeseriesValues):
     """Values class for IPMA observation data."""
 
+    def _zero_direction_is_no_bearing(self) -> pl.Expr:
+        """Have the direction code 0 stay with `missing-value-marker`: IPMA's "sem rumo", no direction (GH-3696)."""
+        return self._rows_of(IpmaObservationMetadata.hourly.data.wind_direction)
+
     def _observations_feed(self) -> dict | None:
         """Download and deserialise the all-stations feed once, memoised on the values instance.
 

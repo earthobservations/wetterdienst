@@ -45,6 +45,15 @@ MISSING_VALUE_MARKER_MESSAGE = (
     "the answer, without it the text the source wrote is the `raw:` token of their quality_flags."
 )
 
+#: the code of the warning that counts the wind directions the source wrote as a calm (GH-3696): a calm is a state of
+#: the wind with no direction, not a reading that is missing, so `missing-value-marker` does not count them
+CALM_WIND_DIRECTION = "calm-wind-direction"
+CALM_WIND_DIRECTION_MESSAGE = (
+    "{count} wind directions were a calm, which the source writes as 0 and which has no direction: they are null, "
+    "and no reading is missing; with drop_nulls they are not in the answer, without it `raw:0` in their "
+    "quality_flags keeps them."
+)
+
 #: the code of the warning that counts the values a hard plausibility check rejected (GH-3682): the source wrote a
 #: number there, not a marker, so `missing-value-marker` does not count them. `{details}` is the count per check
 REJECTED_BY_PLAUSIBILITY = "rejected-by-plausibility"
