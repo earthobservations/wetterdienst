@@ -1199,7 +1199,7 @@
   "tests/provider/noaa/ghcn/test_api_stations.py::test_noaa_ghcn_daily_stations_without_an_inventory_line_are_left_out": [["NoaaGhcnRequest", "af379c4e", 1, "2fc05952ea2d4f0f"], ["NoaaGhcnRequest", "af379c4e", 1, "2fc05952ea2d4f0f"]],
   "tests/provider/noaa/ghcn/test_api_stations.py::test_noaa_ghcn_daily_values_are_stamped_though_the_first_row_has_no_position": [["NoaaGhcnRequest", "af379c4e", 9, "c3499b51c40a5393"]],
   "tests/provider/noaa/ghcn/test_api_stations.py::test_noaa_ghcn_hourly_stations_lost_sign": [["NoaaGhcnRequest", "af379c4e", 5, "cd5aef14352e2a5d"]],
-  "tests/provider/noaa/ghcn/test_api_stations.py::test_noaa_ghcn_hourly_stations_lost_sign_five_more": [["NoaaGhcnRequest", "af379c4e", 9, "d258cc8d85ccb386"]],
+  "tests/provider/noaa/ghcn/test_api_stations.py::test_noaa_ghcn_hourly_stations_lost_sign_hourly_only": [["NoaaGhcnRequest", "af379c4e", 20, "3e24fc7efa5e4588"]],
   "tests/provider/noaa/ghcn/test_api_stations.py::test_noaa_ghcn_hourly_stations_minus_99_elevation": [["NoaaGhcnRequest", "af379c4e", 2, "3bc2df3371bf4d3c"]],
   "tests/provider/noaa/ghcn/test_api_stations.py::test_noaa_ghcn_hourly_stations_missing_elevation": [["NoaaGhcnRequest", "af379c4e", 3, "c20dafc3e80b3a9c"]],
   "tests/provider/noaa/ghcn/test_api_stations.py::test_noaa_ghcn_hourly_stations_placeholder_elevation": [["NoaaGhcnRequest", "af379c4e", 2, "62efe939a77d0462"], ["NoaaGhcnRequest", "af379c4e", 3, "cfb4fadcb8a4830d"]],
