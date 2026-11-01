@@ -653,7 +653,8 @@
     "errEndRequired": "Data końcowa jest wymagana",
     "errEndAfterStart": "Data końcowa musi być późniejsza niż data początkowa",
     "errExceedsLimit": "Szacowana liczba wartości ({count}) przekracza limit {max}. Zawęź zakres dat.",
-    "defaultNote": "Zakres domyślny: najnowsze dane ({span}, około {rows} wierszy), aby serwer mógł je wysłać naraz. Wyczyść zakres dat, aby zapytać o wszystko.",
+    "defaultNote": "Zakres domyślny: najnowsze dane ({span}, około {rows} wierszy), aby serwer mógł je wysłać naraz.",
+    "defaultNoteClear": "Wyczyść zakres dat, aby zapytać o wszystko.",
     "clear": "Wyczyść zakres dat"
   },
   "map": {
@@ -712,7 +713,7 @@
     "limitNarrowPoint": "Aby zobaczyć dane tutaj, zawęź wybór: wybierz krótszy zakres dat lub mniej parametrów. Aktualny wybór: {parameters}.",
     "limitNarrowStations": "Usuń stacje z wyboru i obejrzyj resztę w kolejnym kroku. Aktualny wybór: {stations}.",
     "limitApply": "Pokaż tylko najnowsze dane ({span}, około {rows} wierszy)",
-    "limitNoWindow": "Nawet najkrótszy zakres dat nie mieści się w jednej odpowiedzi. Wybierz mniej parametrów lub stacji albo pobierz wszystko.",
+    "limitNoWindow": "Nawet najkrótszy zakres dat nie mieści się w jednej odpowiedzi.",
     "limitDownload": "Pobierz wszystko jako CSV",
     "limitDownloadHint": "Plik CSV jest przesyłany strumieniowo, więc może zawierać więcej wierszy niż jedna odpowiedź.",
     "limitDownloadHintMax": "Plik CSV jest przesyłany strumieniowo, więc może zawierać więcej wierszy niż jedna odpowiedź: do {maximum}.",

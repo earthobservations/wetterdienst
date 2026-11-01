@@ -125,14 +125,19 @@ function clearRange() {
 }
 
 const noteId = useId()
-const note = computed(() => props.defaultWindow
-  ? t('dateRange.defaultNote', {
-      span: t(`dataViewer.limitUnit.${props.defaultWindow.unit}`, { count: props.defaultWindow.count }),
-      rows: formatNumber(props.defaultWindow.rows, locale.value, 0),
-    })
-  : null)
 // something to clear: a range that is required is never empty, and the dates are the page's to fill
 const canClear = computed(() => !requiresDateRange.value && !!(modelValue.value.startDate || modelValue.value.endDate))
+// the way to ask for everything is said where there is one: not for a range that is required
+const note = computed(() => {
+  const window = props.defaultWindow
+  if (!window)
+    return null
+  const text = t('dateRange.defaultNote', {
+    span: t(`dataViewer.limitUnit.${window.unit}`, { count: window.count }),
+    rows: formatNumber(window.rows, locale.value, 0),
+  })
+  return canClear.value ? `${text} ${t('dateRange.defaultNoteClear')}` : text
+})
 
 defineExpose({ isValid, validationError })
 </script>

@@ -653,7 +653,8 @@
     "errEndRequired": "Enddatum ist erforderlich",
     "errEndAfterStart": "Enddatum muss nach dem Startdatum liegen",
     "errExceedsLimit": "Geschätzte {count} Werte überschreiten das Limit von {max}. Bitte den Zeitraum eingrenzen.",
-    "defaultNote": "Voreingestellter Zeitraum: die neuesten Daten ({span}, etwa {rows} Zeilen), damit der Server sie auf einmal senden kann. Lösche den Zeitraum, um alles abzufragen.",
+    "defaultNote": "Voreingestellter Zeitraum: die neuesten Daten ({span}, etwa {rows} Zeilen), damit der Server sie auf einmal senden kann.",
+    "defaultNoteClear": "Lösche den Zeitraum, um alles abzufragen.",
     "clear": "Zeitraum löschen"
   },
   "map": {
@@ -712,7 +713,7 @@
     "limitNarrowPoint": "Um die Daten hier zu sehen, schränke die Auswahl ein: Wähle einen kürzeren Zeitraum oder weniger Parameter. Ausgewählt sind {parameters}.",
     "limitNarrowStations": "Nimm Stationen aus der Auswahl und sieh dir den Rest in einem weiteren Schritt an. Ausgewählt sind {stations}.",
     "limitApply": "Nur die neuesten Daten anzeigen ({span}, etwa {rows} Zeilen)",
-    "limitNoWindow": "Nicht einmal der kürzeste Zeitraum passt in eine Antwort. Wähle weniger Parameter oder Stationen oder lade alles herunter.",
+    "limitNoWindow": "Nicht einmal der kürzeste Zeitraum passt in eine Antwort.",
     "limitDownload": "Alles als CSV herunterladen",
     "limitDownloadHint": "Die CSV-Datei wird gestreamt und kann deshalb mehr Zeilen enthalten als eine Antwort.",
     "limitDownloadHintMax": "Die CSV-Datei wird gestreamt und kann deshalb mehr Zeilen enthalten als eine Antwort: bis zu {maximum}.",

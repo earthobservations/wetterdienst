@@ -653,7 +653,8 @@
     "errEndRequired": "Enndatum is nödig",
     "errEndAfterStart": "Enndatum mutt na dat Anfangsdatum liggen",
     "errExceedsLimit": "Schätte {count} Weerten överschrieden dat Limit vun {max}. Grenz den Tietruum bitte in.",
-    "defaultNote": "Standard-Tietruum: de niegsten Daten ({span}, rund {rows} Reegen), dormit de Server se up eenmal schicken kann. Wisch den Tietruum, wenn du allens afragen wullt.",
+    "defaultNote": "Standard-Tietruum: de niegsten Daten ({span}, rund {rows} Reegen), dormit de Server se up eenmal schicken kann.",
+    "defaultNoteClear": "Wisch den Tietruum, wenn du allens afragen wullt.",
     "clear": "Tietruum wischen"
   },
   "map": {
@@ -712,7 +713,7 @@
     "limitNarrowPoint": "Üm de Daten hier to sehn, maak de Utwahl lütter: Wähl en körtern Tietruum oder weniger Parameter. Du hest {parameters} utwählt.",
     "limitNarrowStations": "Nimm Stationen ut de Utwahl rut un kiek di den Rest in en annern Schritt an. Du hest {stations} utwählt.",
     "limitApply": "Blots de niegsten Daten wiesen ({span}, rund {rows} Reegen)",
-    "limitNoWindow": "Nich mal de körtste Tietruum passt in een Antwoort. Wähl weniger Parameter oder Stationen oder laad allens daal.",
+    "limitNoWindow": "Nich mal de körtste Tietruum passt in een Antwoort.",
     "limitDownload": "Allens as CSV daalladen",
     "limitDownloadHint": "De CSV warrt streamt un kann dorüm mehr Reegen hebben as een Antwoort.",
     "limitDownloadHintMax": "De CSV warrt streamt un kann dorüm mehr Reegen hebben as een Antwoort: bit to {maximum}.",

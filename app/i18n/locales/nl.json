@@ -653,7 +653,8 @@
     "errEndRequired": "Einddatum is vereist",
     "errEndAfterStart": "Einddatum moet na de begindatum liggen",
     "errExceedsLimit": "Geschatte {count} waarden overschrijden de limiet van {max}. Beperk het datumbereik.",
-    "defaultNote": "Standaardbereik: de nieuwste gegevens ({span}, ongeveer {rows} rijen), zodat de server ze in één keer kan versturen. Wis het datumbereik om alles op te vragen.",
+    "defaultNote": "Standaardbereik: de nieuwste gegevens ({span}, ongeveer {rows} rijen), zodat de server ze in één keer kan versturen.",
+    "defaultNoteClear": "Wis het datumbereik om alles op te vragen.",
     "clear": "Datumbereik wissen"
   },
   "map": {
@@ -712,7 +713,7 @@
     "limitNarrowPoint": "Om het hier te zien, maak je de selectie kleiner: kies een korter datumbereik of minder parameters. Je hebt {parameters} geselecteerd.",
     "limitNarrowStations": "Haal stations uit de selectie en bekijk de rest in een volgende stap. Je hebt {stations} geselecteerd.",
     "limitApply": "Alleen de nieuwste gegevens tonen ({span}, ongeveer {rows} rijen)",
-    "limitNoWindow": "Zelfs het kortste datumbereik past niet in één antwoord. Kies minder parameters of stations, of download alles.",
+    "limitNoWindow": "Zelfs het kortste datumbereik past niet in één antwoord.",
     "limitDownload": "Alles downloaden als CSV",
     "limitDownloadHint": "De CSV wordt gestreamd en kan daarom meer rijen bevatten dan één antwoord.",
     "limitDownloadHintMax": "De CSV wordt gestreamd en kan daarom meer rijen bevatten dan één antwoord: tot {maximum}.",

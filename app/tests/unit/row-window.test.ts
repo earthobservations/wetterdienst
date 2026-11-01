@@ -352,3 +352,53 @@ describe('limitRefusal', () => {
     expect(limitRefusal(error)).toBeNull()
   })
 })
+
+describe('a high resolution, counted as the date range form does', () => {
+  // the form: every selected station over the window, every parameter whatever the shape, and no more than 100,000
+  const formValues = (start: string, end: string, perDay: number, stations: number, parameters: number) =>
+    ((day(end) - day(start)) / 86_400_000) * perDay * stations * parameters
+
+  it('starts a window of the wide shape that the form accepts, as the form counts the parameters in it', () => {
+    const range = defaultRange({
+      resolution: '10_minutes',
+      records: [record('1993-01-01', null)],
+      parameterCount: 3,
+      tidy: false,
+      maxRows: 500_000,
+      required: true,
+      now: NOW,
+    })
+    expect(range.kind).toBe('window')
+    if (range.kind !== 'window')
+      return
+    expect(formValues(range.window.startDate, range.window.endDate, 144, 1, 3)).toBeLessThanOrEqual(100_000)
+  })
+
+  it('counts a station whose record ended before the window too, as the form counts every station', () => {
+    const range = defaultRange({
+      resolution: '10_minutes',
+      records: [record('1993-01-01', null), record('1993-01-01', '2000-12-31'), record('1993-01-01', '2000-12-31')],
+      parameterCount: 1,
+      maxRows: 500_000,
+      required: true,
+      now: NOW,
+    })
+    expect(range.kind).toBe('window')
+    if (range.kind !== 'window')
+      return
+    expect(formValues(range.window.startDate, range.window.endDate, 144, 3, 1)).toBeLessThanOrEqual(100_000)
+  })
+
+  it('fits the refusal\'s window to the form too', () => {
+    const window = windowForRefusal({
+      resolution: '1_minute',
+      records: [record('1993-01-01', null)],
+      parameterCount: 2,
+      tidy: false,
+      requested: 3_000_000,
+      maximum: 500_000,
+      now: NOW,
+    })!
+    expect(formValues(window.startDate, window.endDate, 1440, 1, 2)).toBeLessThanOrEqual(100_000)
+  })
+})

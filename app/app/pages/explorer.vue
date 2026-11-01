@@ -469,6 +469,8 @@ function startDateRange() {
   }
   const { resolution, parameters } = parameterSelectionState.value.selection
   if (state.mode !== 'station' || !resolution || !parameters.length) {
+    // the window a station selection started is not the range any more
+    defaultWindow.value = null
     if (dateRangeRequired.value)
       wholeSpan()
     return

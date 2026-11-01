@@ -108,6 +108,16 @@ describe('explorer default date range', () => {
     expect(query().range).toBeUndefined()
   })
 
+  it('takes the note away when the selection becomes a point, whose range is the whole span of the records', async () => {
+    const { wrapper, vm, list } = await open()
+    await select(wrapper, vm, list.slice(0, 30))
+    await vi.waitFor(() => expect(note(wrapper)).toContain('Default range: the newest data ('))
+    vm.stationSelectionState.mode = 'interpolation'
+    await vi.waitFor(() => expect(vm.defaultWindow).toBeNull())
+    // the whole span, as a required range always was
+    expect(dates(vm).startDate! < '1900-01-01').toBe(true)
+  })
+
   it('leaves the range empty where the whole record fits', async () => {
     const { wrapper, vm, list } = await open()
     await select(wrapper, vm, list.slice(0, 2))

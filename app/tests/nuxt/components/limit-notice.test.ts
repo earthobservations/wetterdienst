@@ -180,6 +180,14 @@ describe('limit notice', () => {
     expect(wrapper.find('[data-testid="limit-download"]').exists()).toBe(true)
   })
 
+  it('does not claim that no window fits where the page cannot count the span: no station publishes its record', async () => {
+    const stations = [{ station_id: '00044', name: 'A', start_timestamp: null, end_timestamp: null }] as Station[]
+    const { wrapper } = await refused({ mode: 'station', selection: { stations }, interpolation: { source: 'manual' }, dateRange: {} })
+    expect(wrapper.find('[data-testid="limit-apply"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="limit-no-window"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="limit-notice"]').text()).toContain('Too many rows for one answer')
+  })
+
   it('words the stations limit as fewer stations, with no window and no CSV', async () => {
     const { wrapper } = await refused(undefined, { ...REFUSAL, limit: 'stations', maximum: 100, requested: 1284 })
     const notice = wrapper.find('[data-testid="limit-notice"]')
@@ -255,6 +263,19 @@ describe('limit notice', () => {
     await fetchData(viewer)
     await vi.waitFor(() => expect(wrapper.find('[data-testid="limit-notice"]').exists()).toBe(false))
     await vi.waitFor(() => expect(wrapper.find('table').exists()).toBe(true))
+    expect(document.activeElement?.tagName).not.toBe('BODY')
+    expect(wrapper.element.contains(document.activeElement)).toBe(true)
+  })
+
+  it('keeps the focus in the table area when applying the window moves the selection and takes the button away', async () => {
+    const { wrapper, viewer, stationSelection } = await refused()
+    const apply = wrapper.find('[data-testid="limit-apply"]')
+    ;(apply.element as HTMLElement).focus()
+    await apply.trigger('click')
+    // the page writes the dates before it asks again: the button is gone with the change, ahead of the request
+    const [{ startDate, endDate }] = viewer.emitted('applyRange')![0] as [{ startDate: string, endDate: string }]
+    stationSelection.value = { ...stationSelection.value, dateRange: { startDate, endDate } }
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="limit-apply"]').exists()).toBe(false))
     expect(document.activeElement?.tagName).not.toBe('BODY')
     expect(wrapper.element.contains(document.activeElement)).toBe(true)
   })

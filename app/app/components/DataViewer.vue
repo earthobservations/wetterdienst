@@ -13,7 +13,7 @@ import { describeFetchError } from '~/utils/api-error'
 import { formatDate, formatNumber, plotlySeparators } from '~/utils/format'
 import { limitRefusal } from '~/utils/limit-refusal'
 import { plotlyLocaleConfigOrFailure, plotlyText } from '~/utils/plotly-locale'
-import { windowForRefusal } from '~/utils/row-window'
+import { estimateRows, windowForRefusal } from '~/utils/row-window'
 import { timestampDate } from '~/utils/timestamp'
 import { pinnedUnitTargets } from '~/utils/unit-targets'
 import { exportColumns, field, fieldText, valuesToCsv, valuesToJson } from '~/utils/values-export'
@@ -376,6 +376,14 @@ const limitNotice = computed(() => {
         range: context.range,
       })
     : null
+  // not even the shortest window fits: said only where the span is known (else the page cannot tell)
+  const noWindow = refusal.limit === 'rows' && !window && !!context.resolution && estimateRows({
+    resolution: context.resolution,
+    records: context.records,
+    parameterCount: context.parameterCount,
+    tidy: context.tidy,
+    range: context.range,
+  }).span !== null
   const stream = serverLimits.value.max_stream_rows
   // streamed, the rows are held to the stream limit (`values` only): offered where they fit it
   const csv = refusal.limit === 'rows' && stationMode && (stream === 0 || refusal.requested <= stream)
@@ -387,6 +395,7 @@ const limitNotice = computed(() => {
     stationCount: context.stationCount,
     parameterCount: context.parameterCount,
     window,
+    noWindow,
     // the window is for the selection the refusal was for, not one made since
     canApply: requestKey(request) === requestKey(selectedRequest.value),
     csvHref: csv,
@@ -413,6 +422,14 @@ const noticeBox = ref<HTMLElement | null>(null)
 const card = ref<{ $el: HTMLElement } | null>(null)
 const contentBox = computed(() => card.value?.$el ?? null)
 useFocusAfterRetry(() => limitNotice.value !== null, noticeBox, contentBox)
+
+// Applying a window changes the dates before the request is made again, and the button goes with the
+// change (the window is for the selection that was refused): the focus goes to the table area first,
+// while the button still has it
+function applyWindow(window: { startDate: string, endDate: string }) {
+  contentBox.value?.focus()
+  emit('applyRange', { startDate: window.startDate, endDate: window.endDate })
+}
 
 watch(valuesError, (err) => {
   if (!err || noticeFor(err, sentRequest.value))
@@ -1621,7 +1638,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
         <template v-else>
           <!-- a refusal of a limit, in either view: the table area says what it is and what can be done -->
           <div v-if="limitNotice" ref="noticeBox">
-            <LimitNotice v-bind="limitNotice" @apply="emit('applyRange', { startDate: $event.startDate, endDate: $event.endDate })" />
+            <LimitNotice v-bind="limitNotice" @apply="applyWindow" />
           </div>
           <div v-else-if="allValues.length === 0 && fetchErrorMessage" class="flex flex-col items-center justify-center gap-1 py-12 text-center text-red-600 dark:text-red-400">
             <span class="font-medium">{{ t('dataViewer.fetchError') }}</span>

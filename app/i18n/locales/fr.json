@@ -653,7 +653,8 @@
     "errEndRequired": "La date de fin est requise",
     "errEndAfterStart": "La date de fin doit être postérieure à la date de début",
     "errExceedsLimit": "Les {count} valeurs estimées dépassent la limite de {max}. Restreins la plage de dates.",
-    "defaultNote": "Plage par défaut : les données les plus récentes ({span}, environ {rows} lignes), pour que le serveur puisse les envoyer d'un coup. Supprime la plage de dates pour tout demander.",
+    "defaultNote": "Plage par défaut : les données les plus récentes ({span}, environ {rows} lignes), pour que le serveur puisse les envoyer d'un coup.",
+    "defaultNoteClear": "Supprime la plage de dates pour tout demander.",
     "clear": "Supprimer la plage de dates"
   },
   "map": {
@@ -712,7 +713,7 @@
     "limitNarrowPoint": "Pour voir les données ici, réduis la sélection : choisis une plage de dates plus courte ou moins de paramètres. Tu as sélectionné {parameters}.",
     "limitNarrowStations": "Retire des stations de la sélection et regarde le reste dans une étape suivante. Tu as sélectionné {stations}.",
     "limitApply": "Afficher seulement les données les plus récentes ({span}, environ {rows} lignes)",
-    "limitNoWindow": "Même la plage de dates la plus courte ne tient pas dans une seule réponse. Choisis moins de paramètres ou de stations, ou télécharge tout.",
+    "limitNoWindow": "Même la plage de dates la plus courte ne tient pas dans une seule réponse.",
     "limitDownload": "Tout télécharger en CSV",
     "limitDownloadHint": "Le CSV est transmis en flux continu, il peut donc contenir plus de lignes qu'une réponse.",
     "limitDownloadHintMax": "Le CSV est transmis en flux continu, il peut donc contenir plus de lignes qu'une réponse : jusqu'à {maximum}.",

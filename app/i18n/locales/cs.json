@@ -653,7 +653,8 @@
     "errEndRequired": "Koncové datum je povinné",
     "errEndAfterStart": "Koncové datum musí být pozdější než počáteční datum",
     "errExceedsLimit": "Odhadovaných {count} hodnot překračuje limit {max}. Zuž prosím rozsah dat.",
-    "defaultNote": "Výchozí rozsah: nejnovější data ({span}, asi {rows} řádků), aby je server mohl poslat najednou. Smaž rozsah dat, pokud chceš požádat o všechno.",
+    "defaultNote": "Výchozí rozsah: nejnovější data ({span}, asi {rows} řádků), aby je server mohl poslat najednou.",
+    "defaultNoteClear": "Smaž rozsah dat, pokud chceš požádat o všechno.",
     "clear": "Smazat rozsah dat"
   },
   "map": {
@@ -712,7 +713,7 @@
     "limitNarrowPoint": "Aby se data zobrazila zde, zúži výběr: vyber kratší rozsah dat nebo méně parametrů. Aktuální výběr: {parameters}.",
     "limitNarrowStations": "Odeber stanice z výběru a zbytek si prohlédni v dalším kroku. Aktuální výběr: {stations}.",
     "limitApply": "Zobrazit jen nejnovější data ({span}, asi {rows} řádků)",
-    "limitNoWindow": "Ani nejkratší rozsah dat se nevejde do jedné odpovědi. Vyber méně parametrů nebo stanic, nebo stáhni vše.",
+    "limitNoWindow": "Ani nejkratší rozsah dat se nevejde do jedné odpovědi.",
     "limitDownload": "Stáhnout vše jako CSV",
     "limitDownloadHint": "Soubor CSV se přenáší průběžně, proto může obsahovat více řádků než jedna odpověď.",
     "limitDownloadHintMax": "Soubor CSV se přenáší průběžně, proto může obsahovat více řádků než jedna odpověď: až {maximum}.",

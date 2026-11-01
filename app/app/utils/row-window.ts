@@ -127,10 +127,16 @@ export interface RowEstimateInput {
   parameterCount: number
   /** the wide shape holds a row for every timestamp rather than for every value */
   tidy?: boolean
-  /** the window the user gave: only one with both dates counts, as the request sends the end with a start alone */
+  /** the window the user gave: only one with both dates counts (a start alone is read by the server as that one day) */
   range?: DateWindow
   /** where a record that is still going on ends */
   now?: number
+  /**
+   * Count as the date range form does for a high resolution (`DateRangeSelector`): every selected
+   * station over the whole window, whatever its record, and every parameter, whatever the shape.
+   * What the form accepts is the page's own rule, which the server's count (never more) does not replace.
+   */
+  asForm?: boolean
 }
 
 export interface RowEstimate {
@@ -172,7 +178,7 @@ function rangeBounds(range: DateWindow | undefined): { start: number, end: numbe
 export function estimateRows(input: RowEstimateInput): RowEstimate {
   const now = input.now ?? Date.now()
   const bounds = rangeBounds(input.range)
-  const factor = input.tidy === false ? 1 : Math.max(input.parameterCount, 0)
+  const factor = input.tidy === false && !input.asForm ? 1 : Math.max(input.parameterCount, 0)
   let rows = 0
   let counted = false
   let unknown = 0
@@ -201,6 +207,8 @@ export function estimateRows(input: RowEstimateInput): RowEstimate {
   if (!counted)
     return { rows: null, span: null, unknown }
   const span = { start: dayOf(new Date(first)), end: dayOf(new Date(last)) }
+  if (input.asForm)
+    rows = input.records.length * factor * countReadings(input.resolution, bounds?.start ?? first, bounds?.end ?? last)
   return { rows: hasInterval(input.resolution) ? rows : null, span, unknown }
 }
 
@@ -318,11 +326,14 @@ export interface RefusalWindowInput extends Omit<RowEstimateInput, 'range'> {
  * total, as the server counts what the page does not know (the periods a dataset reads).
  */
 export function windowForRefusal(input: RefusalWindowInput): FittingWindow | null {
-  const { requested, range, ...rest } = input
+  const { range, ...base } = input
+  // a high resolution is held to the form's count, which is never below the server's: what fits it fits the server
+  const asForm = HIGH_RESOLUTIONS.includes(input.resolution)
+  const { requested, ...rest } = { ...base, asForm }
   const whole = estimateRows({ ...rest, range })
   const maximum = effectiveMaximum(input.resolution, input.maximum)
   return fittingWindow({
-    requested,
+    requested: asForm ? (whole.rows ?? requested) : requested,
     maximum,
     resolution: input.resolution,
     span: whole.span,
@@ -350,7 +361,8 @@ export interface DefaultRangeInput extends Omit<RowEstimateInput, 'range'> {
  * span where that fits, and the window where it does not.
  */
 export function defaultRange(input: DefaultRangeInput): DefaultRange {
-  const { maxRows, required, ...rest } = input
+  const { maxRows, required, ...base } = input
+  const rest = { ...base, asForm: HIGH_RESOLUTIONS.includes(input.resolution) }
   const whole = estimateRows(rest)
   const wholeRange = (): DefaultRange => whole.span
     ? { kind: 'whole', startDate: isoDay(whole.span.start), endDate: isoDay(whole.span.end) }

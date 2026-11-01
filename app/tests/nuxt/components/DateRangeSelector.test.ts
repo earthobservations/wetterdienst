@@ -149,6 +149,15 @@ describe('dateRangeSelector start and clear (GH-3457)', () => {
       expect(input.attributes('aria-describedby')).toBe(status.attributes('id'))
   })
 
+  it('does not offer to clear a default range that has to be there: the note leaves the way out unsaid', async () => {
+    const wrapper = await mountSuspended(DateRangeSelector, {
+      props: { required: false, resolution: '1_minute', defaultWindow: window, modelValue: { startDate: '2026-02-27', endDate: '2026-10-26' } },
+    })
+    const status = wrapper.find('[role="status"]')
+    expect(status.text()).toBe('Default range: the newest data (8 months, about 480,000 rows), so that the server can send it at once.')
+    expect(wrapper.find('[data-testid="clear-date-range"]').exists()).toBe(false)
+  })
+
   it('keeps an empty status for a range that is the user\'s, with no description to point at', async () => {
     const wrapper = await mountSuspended(DateRangeSelector, { props: { required: false, modelValue: { startDate: '2026-02-27' } } })
     expect(wrapper.find('[role="status"]').text()).toBe('')

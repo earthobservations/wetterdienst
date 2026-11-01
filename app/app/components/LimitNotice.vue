@@ -15,6 +15,8 @@ const props = defineProps<{
   parameterCount: number
   /** the newest window that fits, where there is one */
   window: FittingWindow | null
+  /** the page knows the span of the selection and not even its shortest window fits; false where it cannot tell */
+  noWindow?: boolean
   /** whether applying it is still what the page selects: not after the selection moved on */
   canApply: boolean
   /** the streamed CSV of the refused request, where the server streams that many rows */
@@ -61,8 +63,9 @@ const applyLabel = computed(() => {
   })
 })
 
-// the rows are the cause: no window to offer says so, as the buttons are not there to say it
-const showNoWindow = computed(() => !isStations.value && !props.window)
+// the rows are the cause: no window to offer says so, as the buttons are not there to say it. Said only
+// where the page could count the span: without one (no station publishes its record) it cannot tell
+const showNoWindow = computed(() => !isStations.value && !props.window && props.noWindow === true)
 
 const headingId = useId()
 </script>
