@@ -62,6 +62,7 @@ describe('unit type labels', () => {
     'significant_weather',
     'speed',
     'temperature',
+    'temperature_difference',
     'time',
     'turbidity',
     'volume',
