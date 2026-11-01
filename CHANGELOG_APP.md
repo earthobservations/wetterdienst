@@ -18,6 +18,10 @@ Types of changes:
 
 ### Added
 
+- `[Glossary]` The new unit type `temperature_difference` (the expected errors of `dwd/mosmix`
+  temperatures, in K) has its label in the unit filter, in all eleven languages ("Temperature
+  difference"). Needs the backend that serves it: release the backend first. The
+  Low German and Luxembourgish labels are not reviewed by a native speaker (GH-3688)
 - `[Explorer]` A request the server refuses over its limits (`limit-exceeded`: too many rows for
   one answer, too many stations) is a state of the table in the page's language, with the numbers
   as the language writes them and what the selection holds, in place of the server's English

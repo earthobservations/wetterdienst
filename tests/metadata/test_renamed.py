@@ -963,11 +963,9 @@ def test_mosmix_names_the_error_of_a_temperature_after_the_temperature(caplog: p
     assert names["e_ttt"] == "error_absolute_temperature_air_2m"
     assert names["td"] == "temperature_dew_point_2m"
     assert names["e_td"] == "error_absolute_temperature_dew_point_2m"
-    assert PARAMETERS["error_absolute_temperature_air_2m"].unit_type == PARAMETERS["temperature_air_2m"].unit_type
-    assert (
-        PARAMETERS["error_absolute_temperature_dew_point_2m"].unit_type
-        == PARAMETERS["temperature_dew_point_2m"].unit_type
-    )
+    # the error of a temperature is a difference of temperatures: it has no offset (GH-3688)
+    assert PARAMETERS["error_absolute_temperature_air_2m"].unit_type == "temperature_difference"
+    assert PARAMETERS["error_absolute_temperature_dew_point_2m"].unit_type == "temperature_difference"
     for old in ("error_absolute_temperature_air_mean_2m", "error_absolute_temperature_dew_point_mean_2m"):
         assert old not in PARAMETERS
         assert parse_parameters(f"hourly/large/{old}", DwdMosmixMetadata, on_unknown="warn") == []

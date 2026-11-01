@@ -332,3 +332,27 @@ def test_every_resolution_of_a_constant_run_has_a_step_to_bound_its_gap() -> Non
                 plan = plan_for(network, dataset)
                 if plan.constants:
                     assert plan.constant_gap == reading_step(resolution.value) * RUN_GAP_FACTOR
+
+
+def test_a_temperature_difference_is_held_to_no_temperature_bound() -> None:
+    """The error of a temperature is no temperature, so no range of one catches it (GH-3688).
+
+    An expected error of 0 K or of 40 K lies outside no bound of the air, and the rules that name the unit type
+    `temperature` (France's frostless stations, `Bound(low=0.0, unit_type="temperature")`) do not select a difference.
+    """
+    from wetterdienst.metadata.parameter_table import PARAMETER_TABLE  # noqa: PLC0415
+    from wetterdienst.model.plausibility_ranges import RANGES  # noqa: PLC0415
+
+    differences = {p.name for p in PARAMETER_TABLE if p.unit_type == "temperature_difference"}
+    assert differences == {"error_absolute_temperature_air_2m", "error_absolute_temperature_dew_point_2m"}
+    assert not differences & set(RANGES)
+    assert not [network for network, scope in SCOPE.items() if differences & set(scope)]
+    plan = plan_for("dwd/mosmix", _datasets("dwd/mosmix")[("hourly", "large")])
+    assert {c.name for c in plan.parameters.values() if c.name in differences} == differences
+    assert not [name for name, c in plan.parameters.items() if c.name in differences and name in plan.ranges]
+    # the kelvin of the file is the canonical unit of a difference, so it is judged as written, where a reading is
+    # converted to degrees Celsius and loses 273.15
+    assert {c.canonical for c in plan.parameters.values() if c.name in differences} == {"degree_kelvin"}
+    frame = pl.DataFrame({"parameter": ["e_ttt", "e_td", "ttt"], "value": [2.0, 0.5, 275.15]})
+    converted = frame.with_columns(to_canonical(plan).alias("value"))
+    assert converted["value"].to_list() == pytest.approx([2.0, 0.5, 2.0])
