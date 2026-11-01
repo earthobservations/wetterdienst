@@ -33,6 +33,14 @@ Types of changes:
   1440), not the average of the hourly values the source's table names. The library holds none of
   the five to a range, so the impossible values DMI writes for some days and hours are kept
   (Part of GH-3622)
+- `FormattableResult` (`wetterdienst.model.result`) is a `typing.Protocol` of `to_dict`,
+  `to_json` and `to_format` that the five results and the alerts result satisfy, so one function
+  can write them all. `HistoryResult` gets `to_format`, for JSON only: any other format, CSV
+  included, is an `UnknownFormatError` naming `json`. The alerts result of `dwd/alerts` takes the
+  format in any case (`to_format("JSON")`, refused before), `indent` as a number or a flag in
+  `to_json`, `to_geojson` and `to_format` (`indent=0` now breaks lines without indenting, as on
+  the others), and `with_metadata` (the block of the others); its default stays one line. It is
+  outside the frozen results (GH-3449)
 
 ### Changed
 

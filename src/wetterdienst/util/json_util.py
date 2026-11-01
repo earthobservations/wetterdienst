@@ -20,6 +20,18 @@ def _non_finite_as_null(value: Any) -> Any:  # noqa: ANN401
     return value
 
 
+def json_indent(indent: int | bool | None) -> int | None:  # noqa: FBT001
+    """Give the `indent` of `json.dumps` for the `indent` of a formatter: `True` is 4, `False` and `None` are one line.
+
+    The `indent` of `to_json` and `to_geojson` of every result is a number of spaces, or a flag for the usual four.
+    """
+    if indent is True:
+        return 4
+    if indent is False:
+        return None
+    return indent
+
+
 def dumps_json(value: Any, **kwargs: Any) -> str:  # noqa: ANN401
     """Write `value` as JSON, a NaN or an infinity as `null`.
 

@@ -22,13 +22,15 @@ from wetterdienst.io.sql_filter import filter_by_sql
 from wetterdienst.metadata.renamed import RefusesRenamedMembers
 from wetterdienst.util.datetime import timestamps_to_string
 from wetterdienst.util.extras import import_optional
-from wetterdienst.util.json_util import dumps_json
+from wetterdienst.util.json_util import dumps_json, json_indent
 from wetterdienst.util.url import ConnectionString, redact_password
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping
+    from collections.abc import Callable, Iterable, Mapping, Sequence
 
     import plotly.graph_objs as go
+
+    from wetterdienst.io.formats import Format
 
 log = logging.getLogger(__name__)
 
@@ -83,6 +85,39 @@ def _taken_by(method: Callable[..., object], kwargs: Mapping[str, Any]) -> dict[
     return {name: value for name, value in kwargs.items() if name in parameters}
 
 
+def render_with(result: object, format_: Format, kwargs: Mapping[str, Any]) -> str:
+    """Call the method that renders a data format, with the arguments of `kwargs` that it takes."""
+    formatter = getattr(result, format_.method)
+    # `to_csv` passes its keywords to polars, so it is given none
+    return formatter(**_taken_by(formatter, kwargs)) if format_.takes else formatter()
+
+
+def render_data_format(
+    result: object, fmt: str, kwargs: Mapping[str, Any], *, only: Sequence[str], also: Iterable[str] = ()
+) -> str:
+    """Render a result in one of the data formats it has, as `ExportMixin.to_format` does for those that have more.
+
+    The history and the alerts result render some of the data formats and not all, and take the one set of arguments a
+    caller builds for every format, so they go through the same registry and the same cutting down of the arguments
+    as the other results do (GH-3449).
+
+    Args:
+        result: The result, with a method for each format of `only`.
+        fmt: The format, in any case.
+        kwargs: The arguments of the caller, of which the formatter is given those it takes.
+        only: The formats the result renders.
+        also: The arguments the result's formatters take besides those of the formats of the registry.
+
+    Raises:
+        UnknownFormatError: `fmt` is no format of `only`.
+        TypeError: An argument that is the name of none of the arguments any format takes, and not in `also`.
+
+    """
+    format_ = find_format(fmt, only)
+    refuse_unknown_arguments(kwargs, also)
+    return render_with(result, format_, kwargs)
+
+
 @dataclass(frozen=True, kw_only=True)
 class ExportMixin(RefusesRenamedMembers):
     """Postprocessing data.
@@ -133,12 +168,8 @@ class ExportMixin(RefusesRenamedMembers):
             GeoJSON string
 
         """
-        if indent is True:
-            indent = 4
-        elif indent is False:
-            indent = None
         return dumps_json(
-            self.to_ogc_feature_collection(with_metadata=with_metadata), indent=indent, ensure_ascii=False
+            self.to_ogc_feature_collection(with_metadata=with_metadata), indent=json_indent(indent), ensure_ascii=False
         )
 
     def _flatten(self) -> pl.DataFrame:
@@ -259,9 +290,7 @@ class ExportMixin(RefusesRenamedMembers):
 
         if format_.kind == "chart":
             return self.to_image(fmt=format_.name, **_taken_by(self._to_image, kwargs))
-        formatter = getattr(self, format_.method)
-        # `to_csv` passes its keywords to polars, so it is given none
-        return formatter(**_taken_by(formatter, kwargs)) if format_.takes else formatter()
+        return render_with(self, format_, kwargs)
 
     def to_target(
         self,
