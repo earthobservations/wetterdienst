@@ -44,12 +44,14 @@ Types of changes:
 - `wetterdienst stations`, `values`, `interpolate` and `summarize` pass `--with-metadata` to
   `--target`, as `to_target(..., with_metadata=True)` takes it: a file `<file>.metadata.json`
   beside a CSV, spreadsheet, JSON, JSON Lines, GeoJSON or Feather file, and the units and the
-  quality legend in the block of a Parquet, NetCDF or Zarr file. With a database target it is now
-  refused with the library's message and exit code 1, before anything is written, where the flag
-  was ignored and the table written: leave it out for a database target (GH-3704)
+  quality legend in the block of a Parquet, NetCDF or Zarr file (GH-3704)
 
 ### Changed
 
+- **Breaking**: `--with-metadata` with a database `--target` of `wetterdienst stations`, `values`,
+  `interpolate` or `summarize` is refused with the library's message and exit code 1, before
+  anything is written, where the flag was ignored and the table written. Leave the flag out for a
+  database target. A result with no rows writes nothing and is no refusal (GH-3704)
 - **Breaking**: 5 more `noaa/ghcn` hourly stations are placed west of Greenwich, no longer east
   of it, where `ghcnh-station-list.csv` has lost the sign of their longitude: Freetown in Sierra
   Leone (CMU55-00161), Surtsey (ICM00004102), Buhta Providenja (RSU025594-5), Calanda
