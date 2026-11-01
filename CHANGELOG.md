@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- The `missing-value-marker` warning no longer counts the values a hard plausibility check
+  rejected (`rejected:<check>,raw:<number>`): the source wrote a number there, not a marker.
+  They are told by a new warning `rejected-by-plausibility`, with the count per check; a value
+  that several checks rejected is counted under each. A client that summed the old count to
+  find the rejected values reads the new warning instead (GH-3682)
+
 ## [0.180.0] - 2026-11-01
 
 ### Added

@@ -160,6 +160,12 @@ The two kinds sit after the source's own flags and before `raw:`, which stays th
 - The outcome is in the token and not only in the options, because an exported file does not carry the options it was
   made with. `raw:` alone is the source's own code; `rejected:` before it is our judgement.
 
+A REST answer tells the two apart in its `warnings` ([REST API](../usage/restapi.md)): `missing-value-marker` counts the
+nulls that carry a code the source wrote (`raw:` alone), `rejected-by-plausibility` the nulls a hard check made
+(`rejected:` before `raw:`), with the count per check in its message. A value that two checks rejected is one value,
+told under both. A soft check keeps the value and raises no warning, and neither does the `floor` check, whose value is
+the floor and not null.
+
 ```python
 import polars as pl
 
