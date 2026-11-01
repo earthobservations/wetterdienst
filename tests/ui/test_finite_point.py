@@ -73,6 +73,14 @@ def test_python_refuses_a_non_finite_elevation_given_with_a_station(kind: str, e
         getattr(_request(), f"{kind}_by_station_id")("00001", elevation)
 
 
+@pytest.mark.parametrize("kind", _KINDS)
+@pytest.mark.parametrize("point", [(math.nan, 10.0), (math.inf, 10.0), (50.0, math.nan), (50.0, -math.inf)])
+def test_python_refuses_a_non_finite_latitude_or_longitude(kind: str, point: tuple[float, float]) -> None:
+    """`interpolate` had it refused by UTM; `summarize` found no station for a NaN and answered no rows."""
+    with pytest.raises(exceptions.LocationOutOfRangeError):
+        getattr(_request(), kind)(point)
+
+
 # --- the request models: REST, CLI and MCP build them ------------------------------------------------------------
 
 

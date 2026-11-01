@@ -1389,6 +1389,7 @@ class TimeseriesRequest:
                 stations whose elevation the provider does not report leaves nothing that can answer
                 it. A few providers report no elevation for any station.
             RequestError: Where the elevation is NaN or infinite.
+            LocationOutOfRangeError: Where the latitude or longitude is NaN or infinite.
 
         """
         return self._summarize(latlon, elevation)
@@ -1424,6 +1425,10 @@ class TimeseriesRequest:
 
         lat, lon = latlon
         lat, lon = float(lat), float(lon)
+        # `interpolate` has a point UTM cannot place refused; here a NaN found no station and answered no rows
+        if not (math.isfinite(lat) and math.isfinite(lon)):
+            msg = f"latitude and longitude must be finite numbers, got {lat} and {lon}"
+            raise LocationOutOfRangeError(msg)
         if df_all is None:
             df_all = self.all().df
         data_updated: dict[str, dt.datetime] = {}

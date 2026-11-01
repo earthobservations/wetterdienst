@@ -90,7 +90,9 @@ Types of changes:
   API (422), the command line (usage error), MCP and in Python (`RequestError`, also from the
   `_by_station_id` methods). It was accepted and written into the point's name and id
   (`interpolation(51.0000,13.0000,nanm)`) and as the z of its GeoJSON position. Leave `elevation`
-  out for readings as they come. Latitude and longitude were refused already (GH-3689)
+  out for readings as they come. Latitude and longitude were refused already, except by
+  `TimeseriesRequest.summarize` in Python, which answered no rows for a NaN and now raises
+  `LocationOutOfRangeError` as `interpolate` does (GH-3689)
 
 ## [0.180.0] - 2026-11-01
 
