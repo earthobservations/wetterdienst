@@ -1927,6 +1927,10 @@ def _request_options(
         # not an option the request has no field for, which the server sets alone
         if field in type(request).model_fields and field in given and (value := getattr(request, field)) is not None
     }
+    # one mode for every check, which a `plausibility_<check>` given beside it overrides
+    every = getattr(request, "plausibility", None)
+    if every is not None and "plausibility" in given:
+        passed["plausibility"] = ("plausibility", every)
     try:
         return overlay_options(server, {option: value for option, (_, value) in passed.items()})
     except ValidationError as e:

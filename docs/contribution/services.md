@@ -296,14 +296,40 @@ pass the text as the last kind of the flags, `join_quality_flags(plain_flag, raw
 `raw:-999` after the plain flag. Declare the text as the source writes it (`Sentinel("-999")`, not
 `-999.0`); a value read from text keeps the text of its own cell. `Sentinel(..., where=...)` limits it to a
 parameter, `to=0.0` makes it a value the source documents (no precipitation), and `non_numeric=True` takes
-every text that is no number for one. A value no sensor can have produced (4021 degrees) has no
-sentinel to name: `OutOfRange(low, high)` takes it the same way, with bounds in the unit of the source
-taken from `tests/provider/physical_ranges.py` and kept per resolution (the rain and the sunshine of a day
-are not those of a minute; generous, so that a real reading of the provider is never outside). A reader may
-be narrower than that range where its source's own records or precision allow it, never wider; the
-narrower entries are named in `test_physical_ranges.py`, and the `raw` text is the number as it is written. A pressure at the station is also held to the elevation of the station: `station_pressure_range(elevation)` (`model/quality_flags.py`) gives the `OutOfRange` of the barometric formula of the standard atmosphere, 75 hPa either way (`per_hectopascal=100.0` for a source in Pa), and `TimeseriesValues._station_elevation(station_id)` the elevation of the station list; `dwd/observation` and `meteofrance/synop` use them. A model's amount that is a little below its floor (-0.02 mm of rain) is `Floor(0.0)`: the floor, with the number as `raw`. A wide frame keeps the text beside each
-column with `clear_sentinels` and `unpivot_with_raw`. Add a stub of the source with the sentinel written as the source writes it to
+every text that is no number for one. A wide frame keeps the text beside each column with `clear_sentinels` and
+`unpivot_with_raw`. A value no sensor can have produced (4021 degrees) is no sentinel and is not the reader's to
+judge, see below. Add a stub of the source with the sentinel written as the source writes it to
 `tests/provider/value_stubs.py` and name each `raw:` token it must carry in `tokens`.
+
+**A reader judges nothing.** What no sensor can have produced (a number outside the physical range of its parameter, a
+station pressure the elevation does not allow, a sensor that did not move for hours, a reading its neighbour contradicts,
+an amount a little below its floor) is judged by the values core, in canonical units, with the mode the request chose
+for each of the five [plausibility checks](../data/plausibility.md) (GH-3676); it writes `rejected:<check>,raw:<text>`
+(hard) or `suspect:<check>` (soft) itself. The reader decodes the codes its source documents (`Sentinel`, above), hands
+the numbers over in the unit of its source, and:
+
+- **hands the text beside the number** where it reads a text and converts or interprets it before the core sees it: a
+  column `source_text` of the frame next to `value`. The core writes it in the `raw:` token of a value it rejects
+  (`raw:-0.80`, not `raw:-0.8`). A reader whose `value` is a text needs nothing (its `value` is the text), one whose
+  `value` is a number gets the number as short as it goes, and one that converts the unit itself (DMI's megajoules to
+  kilojoules) hands the text it read.
+- **declares the bounds of its parameters by adding them to the table** `RANGES` of
+  `wetterdienst/model/plausibility_ranges.py`, by canonical parameter name and, where the quantity grows with the span,
+  by resolution, in the canonical unit (°C, hPa, m/s, mm, J/cm², a fraction as a decimal, seconds). Name the network in
+  `SCOPE` with the quantities it is held to. A bound that is narrower than the table's for the same quantity, because the
+  source's own validated records stay far below the world's, is an entry of `OVERRIDES` for the network, with the
+  argument beside it, and `tests/provider/test_physical_ranges.py` holds it inside the generous range of
+  `tests/provider/physical_ranges.py`. The table's other checks are declared in `model/judge.py`: the pressure that is
+  also held to the elevation (`ELEVATION_NETWORKS`), the amounts a model writes below zero (`FLOORS`), the run of one
+  value of a barometer (`CONSTANT_RUNS`), the road's run rule (`RUNS`).
+- **hands over what only it knows** by overriding `TimeseriesValues._plausibility_rules(station_id, dataset)` and
+  returning rules of `wetterdienst.model.judge`, in canonical names and units: `Bound` (a range for one station, such as
+  the stations without frost), `Beside` (a reading that the reading of another parameter at the same timestamp
+  contradicts: it is given both values and says whether the first is no reading), and `StuckPeriod` (a sensor of one
+  station that did not work in a span of days). A relation needs its second parameter in the frame, so the dataset is
+  `grouped`; the core never downloads one. Name the number each stub's reader rejects in `verdicts` (and the soft ones
+  in `suspects`), and add the network and its datasets to `COVERAGE` in `wetterdienst/model/plausibility.py` and to the
+  table of `docs/data/plausibility.md`, which `tests/test_docs_plausibility.py` holds to what the core is told.
 
 ## Step 4: What a new provider brings with it
 

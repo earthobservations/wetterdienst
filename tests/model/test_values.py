@@ -10,6 +10,7 @@ import pytest
 from polars.testing import assert_frame_equal
 
 from wetterdienst.exceptions import ProviderContractError
+from wetterdienst.model.judge import plan_for
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.model.schema import LONG_SCHEMA
 from wetterdienst.model.values import TimeseriesValues, _declared_parameter_names, merge_duplicate_readings
@@ -242,6 +243,26 @@ def _percentage(values: TimeseriesValues, df: pl.DataFrame, criteria: str = "min
     """Read the coverage of a frame the way `query` does, under the given skip criteria."""
     values.sr.request.options = values.sr.request.options.replace(skip_criteria=criteria)
     return values._get_actual_percentage(df=df)  # noqa: SLF001
+
+
+def test_actual_percentage_counts_the_values_no_soft_check_flagged_suspect() -> None:
+    """Test that a value flagged `suspect:` is no coverage, so a station with only such values is skipped (GH-3676).
+
+    Three of the four hourly readings of the window are values and one of them is flagged suspect by a check that is
+    soft; the coverage is the two unflagged ones. A station whose every value is flagged covers nothing, as it did when
+    the check nulled them. A `raw:` token and a source's own flag are no suspicion.
+    """
+    start_date = dt.datetime(2026, 1, 1, 0, tzinfo=ZoneInfo("UTC"))
+    end_date = dt.datetime(2026, 1, 1, 3, tzinfo=ZoneInfo("UTC"))
+    hours = [dt.datetime(2026, 1, 1, hour, tzinfo=ZoneInfo("UTC")) for hour in range(3)]
+    df = _hourly_long(hours)
+    values = _hourly_values(start_date, end_date)
+    assert _percentage(values, df) == 0.75
+    flagged = df.with_columns(pl.Series("quality_flags", ["3,suspect:range", "3,raw:-999", "3"]))
+    assert _percentage(values, flagged) == 0.5
+    only_suspect = df.with_columns(pl.lit("suspect:stuck").alias("quality_flags"))
+    assert _percentage(values, only_suspect) == 0.0
+    assert _percentage(values, only_suspect, "max") == 0.0
 
 
 def test_actual_percentage_measures_against_the_requested_window() -> None:
@@ -645,7 +666,7 @@ def test_a_non_grouped_call_with_an_undeclared_name_is_a_contract_error(monkeypa
     )
 
     with pytest.raises(ProviderContractError, match=r"DwdObservationValues.*'not_a_parameter'.*daily/climate_summary"):
-        values._convert_units(df, dataset)  # noqa: SLF001
+        values._to_requested_units(df, dataset, plan_for("dwd/observation", dataset), canonical=False)  # noqa: SLF001
 
 
 def test_rank_is_not_spent_on_a_station_whose_data_misses_the_window(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -817,7 +838,9 @@ def test_convert_units_keeps_a_reading_a_much_larger_target_holds_little_of() ->
     )
     df = _long([("daily", "climate_summary", "shk_tag", 0, 5.0), ("daily", "climate_summary", "shk_tag", 1, 150.0)])
 
-    result = values._convert_units(df, request.parameters[0].dataset)  # noqa: SLF001
+    result = values._to_requested_units(  # noqa: SLF001
+        df, request.parameters[0].dataset, plan_for("dwd/observation", request.parameters[0].dataset), canonical=False
+    )
 
     assert result.get_column("value").to_list() == [0.000031069, 0.000932057]
 
@@ -839,10 +862,12 @@ def test_convert_units_keeps_the_value_column_whatever_the_conversion_starts_wit
             _stations_filter=StationsFilter.ALL,
         ),
     )
-    monkeypatch.setattr(values, "_create_conversions", lambda _dataset: {"shk_tag": (lambda x: 9 / 5 * x, 2)})
+    monkeypatch.setattr(values.unit_converter, "lambda_between", lambda *_: lambda x: 9 / 5 * x)
     df = _long([("daily", "climate_summary", "shk_tag", 0, 5.0), ("daily", "climate_summary", "shk_tag", 1, 10.0)])
 
-    result = values._convert_units(df, request.parameters[0].dataset)  # noqa: SLF001
+    result = values._to_requested_units(  # noqa: SLF001
+        df, request.parameters[0].dataset, plan_for("dwd/observation", request.parameters[0].dataset), canonical=False
+    )
 
     assert result.columns == df.columns
     assert result.get_column("value").to_list() == [9.0, 18.0]
@@ -1583,6 +1608,58 @@ def test_station_skipped_is_told_for_a_station_of_nulls_whatever_drop_nulls_is(
 
 @pytest.mark.parametrize("shape", ["long", "wide"])
 @pytest.mark.parametrize("skip_empty", [True, False])
+@pytest.mark.parametrize("drop_nulls", [True, False])
+def test_a_station_of_suspect_values_only_is_skipped_by_skip_empty(
+    monkeypatch: pytest.MonkeyPatch, *, drop_nulls: bool, skip_empty: bool, shape: str
+) -> None:
+    """`skip_empty` counts the unflagged values alone: a station whose values a soft check flagged is skipped (GH-3676).
+
+    Both stations hold four readings with a value. The first has every one flagged `suspect:range` (a check that is
+    soft keeps the value), the second none, and a `raw:` token or the source's own flag is no suspicion. Without
+    `skip_empty` the first station's values are in the answer, flagged; with it the station is skipped and told, as a
+    station of nulls is, and the second stays.
+    """
+    _stub_dwd_daily(
+        station_ids=["00001", "00002"], data_year_by_station={"00001": 1990, "00002": 1990}, monkeypatch=monkeypatch
+    )
+    utc = ZoneInfo("UTC")
+    name = DwdObservationMetadata.daily.climate_summary.temperature_air_mean_2m.name_original
+    flags = {"00001": "3,suspect:range", "00002": "3"}
+
+    def collect(self, station_id: str, parameter_or_dataset) -> pl.DataFrame:  # noqa: ANN001, ARG001
+        return pl.DataFrame(
+            {
+                "timestamp": [dt.datetime(1990, 1, day, tzinfo=utc) for day in range(1, 5)],
+                "parameter": [name] * 4,
+                "value": [1.0] * 4,
+                "quality_flags": [flags[station_id]] * 4,
+            },
+        )
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+    begin_response()
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        start="1990-01-01",
+        end="1990-01-04",
+        options=Options(drop_nulls=drop_nulls, skip_empty=skip_empty, skip_threshold=0.5, shape=shape),
+    )
+
+    df = request.filter_by_station_id(["00001", "00002"]).values().all().df
+
+    in_answer = sorted(df.get_column("station_id").unique().to_list())
+    if skip_empty:
+        assert in_answer == ["00002"]
+        assert _warning_codes_by_station()["station-skipped"] == [
+            "station 00001 is skipped as percentage of actual values (0.0) is below threshold (0.5)."
+        ]
+    else:
+        assert in_answer == ["00001", "00002"]
+        assert _warning_codes_by_station()["station-skipped"] == []
+
+
+@pytest.mark.parametrize("shape", ["long", "wide"])
+@pytest.mark.parametrize("skip_empty", [True, False])
 def test_a_station_skip_empty_leaves_out_is_told_the_same_with_the_nulls_dropped_or_kept(
     monkeypatch: pytest.MonkeyPatch, *, skip_empty: bool, shape: str
 ) -> None:
@@ -2080,3 +2157,26 @@ def test_the_elevation_of_a_station_list_without_dataset_columns_or_elevation() 
     assert with_elevation._station_elevation("1", DwdObservationMetadata.hourly.pressure) == 7.0  # noqa: SLF001
     without = _values_with_stations(pl.DataFrame({"station_id": ["1"]}))
     assert without._station_elevation("1") is None  # noqa: SLF001
+
+
+@pytest.mark.parametrize("canonical", [False, True])
+def test_a_parameter_name_in_another_casing_than_the_declared_one_is_converted_as_the_declared_one(
+    canonical: bool,  # noqa: FBT001
+) -> None:
+    """The name is matched to the parameter in any casing, where the contract error is as well (as ever)."""
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        options={"unit_targets": {"temperature": "degree_kelvin"}},
+    )
+    values = DwdObservationValues(
+        sr=StationsResult(
+            request=request, df=pl.DataFrame(), _df_all=pl.DataFrame(), _stations_filter=StationsFilter.ALL
+        ),
+    )
+    dataset = request.parameters[0].dataset
+    plan = plan_for("dwd/observation", dataset)
+    df = _long([("daily", "climate_summary", "TMK", 0, 5.0), ("daily", "climate_summary", "tmk", 1, 10.0)])
+    if canonical:
+        df = df.with_columns(pl.col("value").alias("__source"))
+    result = values._to_requested_units(df, dataset, plan, canonical=canonical)  # noqa: SLF001
+    assert result.get_column("value").to_list() == [278.15, 283.15]

@@ -41,6 +41,7 @@ from wetterdienst.metadata.aliases import PARAMETER_ALIASES, use_alias
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
 from wetterdienst.model.metadata import parse_parameters, whole_datasets_kept
+from wetterdienst.model.plausibility import CHECKS, Mode, leave_out_suspect
 from wetterdienst.model.request import (
     DEFAULT_NAME_RANK,
     DEFAULT_NAME_RANK_LISTING,
@@ -309,6 +310,48 @@ _DropNullsField = Annotated[
         "Default: the server's WD_TS_DROP_NULLS if set, else true."
     ),
 ]
+
+
+def _plausibility_field(check: str, what: str) -> Any:  # noqa: ANN401
+    """Make the field of a plausibility check: its mode, `hard` or `soft`, as `plausibility_<check>`."""
+    return Annotated[
+        Mode,
+        Field(
+            description=f"What the check `{check}` does to {what}: `hard` nulls the value and keeps the number as "
+            f"`rejected:{check},raw:<number>` in `quality_flags`; `soft` keeps the value and flags it "
+            f"`suspect:{check}`. Interpolation and summary leave a suspect value out in any case. "
+            f"Default: the server's WD_TS_PLAUSIBILITY__{check.upper()} if set, else "
+            f"{'soft' if check == 'stuck' else 'hard'}.",
+        ),
+    ]
+
+
+_PlausibilityField = Annotated[
+    Mode | None,
+    Field(
+        description="One mode for every plausibility check at once: `soft` keeps every value a check finds "
+        "implausible and flags it (`suspect:<check>`), `hard` nulls it and keeps the number "
+        "(`rejected:<check>,raw:<number>`). A check given beside it by `plausibility_<check>` wins. "
+        "Default: the server's WD_TS_PLAUSIBILITY if set, else the mode of each check.",
+    ),
+]
+_PlausibilityRangeField = _plausibility_field("range", "a reading outside the physical range of its parameter")
+_PlausibilityElevationField = _plausibility_field(
+    "elevation", "a station pressure the barometric formula does not expect at the station's elevation"
+)
+_PlausibilityStuckField = _plausibility_field(
+    "stuck",
+    "a sensor that held one value over a period it should not have "
+    "(a verdict on a series, which depends on what was read)",
+)
+_PlausibilityConsistencyField = _plausibility_field(
+    "consistency", "a reading that another parameter of the same file contradicts (never downloaded for the check)"
+)
+_PlausibilityFloorField = _plausibility_field(
+    "floor", "a model value a little below the floor of its quantity (`hard` sets the floor, not null)"
+)
+#: the query parameters and command line options that set the mode of a check, by the check they set (GH-3676)
+PLAUSIBILITY_OPTIONS = {f"plausibility_{check}": check for check in CHECKS}
 _SectionsField = Annotated[
     set[Literal["name", "parameter", "device", "geography", "missing_data"]] | None,
     Field(
@@ -887,6 +930,12 @@ class ValuesRequest(_RefusesRenamedParameters):
     skip_criteria: _SkipCriteriaField = "min"
     drop_nulls: _DropNullsField = True
     station_window_end_buffer: _StationWindowEndBufferField = None
+    plausibility: _PlausibilityField = None
+    plausibility_range: _PlausibilityRangeField = "hard"
+    plausibility_elevation: _PlausibilityElevationField = "hard"
+    plausibility_stuck: _PlausibilityStuckField = "soft"
+    plausibility_consistency: _PlausibilityConsistencyField = "hard"
+    plausibility_floor: _PlausibilityFloorField = "hard"
 
     @field_validator("unit_targets", mode="before")
     @classmethod
@@ -1156,6 +1205,12 @@ class SettingsRequest(BaseModel):
     skip_criteria: _SkipCriteriaField = "min"
     drop_nulls: _DropNullsField = True
     station_window_end_buffer: _StationWindowEndBufferField = None
+    plausibility: _PlausibilityField = None
+    plausibility_range: _PlausibilityRangeField = "hard"
+    plausibility_elevation: _PlausibilityElevationField = "hard"
+    plausibility_stuck: _PlausibilityStuckField = "soft"
+    plausibility_consistency: _PlausibilityConsistencyField = "hard"
+    plausibility_floor: _PlausibilityFloorField = "hard"
     # interpolate
     interpolation_station_distance: _RestInterpolationStationDistanceField = None
     interpolation_station_distance_homogeneous: _RestStationDistanceHomogeneousField = None
@@ -1702,6 +1757,16 @@ def overlay_options(base: Options, given: Mapping[str, Any]) -> Options:
 
     """
     dumped = base.model_dump()
+    # the mode of a check is named by `plausibility_<check>` and laid over the checks the base has, as the mapping of
+    # one named `plausibility` is: a check not named keeps its mode (GH-3676)
+    checks = {PLAUSIBILITY_OPTIONS[name]: value for name, value in given.items() if name in PLAUSIBILITY_OPTIONS}
+    given = {name: value for name, value in given.items() if name not in PLAUSIBILITY_OPTIONS}
+    # a bare mode is that mode for every check, and a check named beside it wins
+    every = given.get("plausibility")
+    if isinstance(every, str):
+        given = {**given, "plausibility": dict.fromkeys(CHECKS, every)}
+    if checks:
+        given = {**given, "plausibility": {**given.get("plausibility", {}), **checks}}
     merged = {name: {**dumped[name], **value} if isinstance(value, Mapping) else value for name, value in given.items()}
     return options_from_mapping(merged, base)
 
@@ -2183,7 +2248,8 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
         raise StationNotFoundError(msg)
     station = found[0]
 
-    df = stations.values().all().df.sort("timestamp")
+    # a value a soft plausibility check flagged suspect is no year with data, whatever the mode (GH-3676)
+    df = leave_out_suspect(stations.values().all().df).sort("timestamp")
     df = df.set_sorted("timestamp")
     df = df.select("timestamp", "value")
     # a station that returns no rows has no first and last year to upsample between (polars raises

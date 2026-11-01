@@ -103,7 +103,9 @@ def test_a_sentinel_mapped_away_keeps_the_text_the_source_wrote(
     The default drops the rows without a value, and with them their flags: a caller sees the text with
     `drop_nulls=False` or in the wide shape.
     """
-    assert stub.tokens, f"{stub.provider}: a stub of a reader that maps a sentinel names the tokens it must carry"
+    assert stub.tokens or stub.suspects, (
+        f"{stub.provider}: a stub of a reader that maps a sentinel names the tokens it must carry"
+    )
     df = stub.build(monkeypatch, drop_nulls=False)
     # a sentinel the stub says the source writes has its text named, or the reader maps it and forgets it
     without_text = {name for name, _ in stub.sentinels} - {parameter for parameter, _, _ in stub.tokens}
@@ -136,6 +138,40 @@ def test_a_sentinel_mapped_away_keeps_the_text_the_source_wrote(
         assert not at.is_empty(), f"{stub.provider}: no values at {stub.empty_at}"
         silent = at.filter(pl.col("raws").fill_null(0) == 0)
         assert silent.is_empty(), f"{stub.provider}: {silent.height} values at {stub.empty_at} carry no `raw:` token"
+
+
+@pytest.mark.parametrize("stub", STUBS, ids=lambda stub: stub.provider)
+def test_a_judged_number_names_the_check_that_judged_it(stub: ValueStub, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Find the `rejected:` and `suspect:` tokens the stub names, and no other (GH-3676).
+
+    A number a hard check rejects is null with `rejected:<checks>,raw:<text>`; one a soft check finds suspect is kept
+    with `suspect:<checks>` last and no `raw:`. The stub names each, so that a reader that starts to judge a number, or
+    stops, fails until the stub and the docs follow.
+    """
+    df = stub.build(monkeypatch, drop_nulls=False)
+    flags = pl.col("quality_flags")
+    rejected = df.filter(flags.str.contains(r"(^|,)rejected:")).select(
+        "parameter",
+        flags.str.extract(r"rejected:([a-z+]+),raw:(.*)$", 2).alias("text"),
+        flags.str.extract(r"rejected:([a-z+]+),raw:", 1).alias("checks"),
+        pl.col("value"),
+    )
+    found = {(str(row["parameter"]), row["text"], row["checks"]) for row in rejected.to_dicts()}
+    assert found == set(stub.verdicts), f"{stub.provider}: rejected {sorted(found)}, the stub names {stub.verdicts}"
+    # a rejected number is null, unless it was set to the floor
+    assert rejected.filter(pl.col("checks") != "floor").get_column("value").is_null().all()
+    suspect = df.filter(flags.str.contains(r"(^|,)suspect:")).select(
+        "parameter",
+        pl.col("value"),
+        flags.str.extract(r"suspect:([a-z+]+)$", 1).alias("checks"),
+        flags.str.contains("raw:").alias("has_raw"),
+    )
+    found_suspects = {(str(row["parameter"]), row["value"], row["checks"]) for row in suspect.to_dicts()}
+    assert found_suspects == set(stub.suspects), (
+        f"{stub.provider}: suspect {sorted(found_suspects, key=str)}, the stub names {stub.suspects}"
+    )
+    assert not suspect.get_column("has_raw").any(), "a value that is kept has no `raw:` token"
+    assert suspect.get_column("value").is_not_null().all()
 
 
 def _assert_the_rule_of_a_calm(df: pl.DataFrame, stub: ValueStub) -> None:

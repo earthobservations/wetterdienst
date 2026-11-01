@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import json
 import logging
-import math
 import re
 import time
 from dataclasses import dataclass
@@ -17,10 +16,9 @@ from zoneinfo import ZoneInfo
 import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.model.judge import Beside, Bound, Rule
 from wetterdienst.model.quality_flags import (
     SPEED_BESIDE,
-    NoReading,
-    OutOfRange,
     Sentinel,
     calm,
     join_quality_flags,
@@ -674,26 +672,20 @@ _DAILY_NO_WIND_DIRECTION = (*_NO_WIND_DIRECTION, "400")
 # Nouvelle-Amsterdam, Dumont d'Urville, Port-Martin: sub-Antarctic and Antarctic, where frost is the rule) and New
 # Caledonia 988. The registry's `department_id` is the prefix for every station of 97x and 98x.
 _FROSTLESS_PREFIXES = ("971", "972", "973", "98403", "985", "986", "987")
-_TEMPERATURE_COLUMNS = {
-    resolution.name: {
-        parameter.name_original
-        for dataset in resolution
-        for parameter in dataset
-        if parameter.unit_type == "temperature"
-    }
-    for resolution in MeteoFranceObservationMetadata
-}
+_FROSTLESS_RULES: tuple[Rule, ...] = (
+    # a temperature below 0 C of the air at 2 m, its extremes or its dew point
+    Bound(low=0.0, unit_type="temperature"),
+    # the humidity beside such a dew point (the hourly files hold both columns)
+    Beside(target="humidity_relative", partner="temperature_dew_point_2m", when=lambda _, dew_point: dew_point.lt(0.0)),
+)
 
 
 # The relative humidity `U` of an hour whose dew point `TD` that rule nulls is null too (GH-3629): the same hygrometer
 # failed, and its `U` is as wrong as the `TD` computed from it (1 to 3 % at ST-CLAUDE CITERNE 97124009, 15 % at VAHIBE
 # 98511003, 13 to 20 % at DZOUMOGNE and COCONI, 3 % at TROMELIN beside a TD of -21.6 C). The dew point is read for it
-# whether it is asked for or not, and kept beside the humidity of its hour in `_DEW_POINT_BESIDE`. No floor on the
+# whether it is asked for or not. No floor on the
 # humidity itself: a `U` of 20 % is a reading in a dry spell, and only the dew point tells. Only the hourly files hold
 # both columns.
-_HUMIDITY_COLUMN = "U"
-_DEW_POINT_COLUMN = "TD"
-_DEW_POINT_BESIDE = "__td_beside"
 
 
 def _is_frostless(station_id: str) -> bool:
@@ -1028,6 +1020,10 @@ _STATIONS_REGISTRY_SCHEMA = {
 class MeteoFranceObservationValues(TimeseriesValues):
     """Values class for Météo-France observation data."""
 
+    def _plausibility_rules(self, station_id: str, dataset: DatasetModel) -> tuple[Rule, ...]:  # noqa: ARG002
+        """Give the rules of a station without frost (`_FROSTLESS_PREFIXES`), none for any other."""
+        return _FROSTLESS_RULES if _is_frostless(station_id) else ()
+
     def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
@@ -1056,14 +1052,7 @@ class MeteoFranceObservationValues(TimeseriesValues):
         parameter_columns = [parameter.name_original for parameter in dataset]
         # a parameter's validation code is published in the column of its name with a Q in front (QRR for RR)
         flag_columns = {name: f"Q{name}" for name in parameter_columns}
-        # the dew point of the hour for the humidity at a station without frost (`_HUMIDITY_COLUMN`)
-        dew_point_beside = _is_frostless(station_id) and _HUMIDITY_COLUMN in parameter_columns
-        read_columns = [
-            "NUM_POSTE",
-            date_column,
-            *dict.fromkeys([*parameter_columns, *([_DEW_POINT_COLUMN] if dew_point_beside else [])]),
-            *flag_columns.values(),
-        ]
+        read_columns = ["NUM_POSTE", date_column, *dict.fromkeys(parameter_columns), *flag_columns.values()]
         files_by_url = _download_climate_resources(matches, settings)
         # _download_climate_resources already retried each once; a failure other than a 404 surviving
         # that is an outage, and is raised rather than leaving the bucket out of a result that reads
@@ -1095,14 +1084,13 @@ class MeteoFranceObservationValues(TimeseriesValues):
         df = df.select(
             date_column,
             UPDATED,
-            (pl.col(_DEW_POINT_COLUMN) if dew_point_beside else pl.lit(None, dtype=pl.String)).alias(_DEW_POINT_BESIDE),
             *(
                 pl.struct(pl.col(name).alias("value"), pl.col(flag_columns[name]).alias("quality_flags")).alias(name)
                 for name in parameter_columns
             ),
         ).unpivot(
             on=parameter_columns,
-            index=[date_column, UPDATED, _DEW_POINT_BESIDE],
+            index=[date_column, UPDATED],
             variable_name="parameter",
             value_name="value",
         )
@@ -1114,7 +1102,7 @@ class MeteoFranceObservationValues(TimeseriesValues):
         # the codes the source writes in place of a number become null before the unit conversion (GH-2687, GH-2720),
         # and keep their text as `raw:` after the validation code; a text that is no number was nulled by the cast
         # alone (the files hold none: GH-2719) and now keeps its text too
-        value, raw = null_sentinels(pl.col("value"), *_sentinels(resolution_name, station_id), non_numeric=True)
+        value, raw = null_sentinels(pl.col("value"), *_codes(resolution_name), non_numeric=True)
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`)
         df = df.select(
             # kept as published (e.g. "RR", "TN"), matching the case of name_original in the
@@ -1123,6 +1111,8 @@ class MeteoFranceObservationValues(TimeseriesValues):
             pl.col("parameter"),
             _parse_climate_date(pl.col(date_column), resolution_name, fu_hours).alias("timestamp"),
             value.alias("value"),
+            # the text the file wrote, which the core writes in the `raw:` token of a value it rejects
+            pl.col("value").alias("source_text"),
             # the validation code (9 filtered, 0 protected, 1 validated, 2 doubtful), verbatim and null where the
             # source leaves it blank (GH-2018)
             join_quality_flags(pl.col("quality_flags"), raw=raw),
@@ -1131,28 +1121,7 @@ class MeteoFranceObservationValues(TimeseriesValues):
         return self._note_files_with_rows(df, dataset)
 
 
-def _sentinels(resolution_name: str, station_id: str) -> list[Sentinel | OutOfRange | NoReading]:
-    """List the codes the source writes in place of a number, for the files of a resolution of a station.
-
-    A temperature below 0 C is the rule of the stations without frost (``_FROSTLESS_PREFIXES``), after the codes, and
-    so is the humidity of an hour whose dew point is below 0 C (``_HUMIDITY_COLUMN``).
-    """
-    rules: list[Sentinel | OutOfRange | NoReading] = list(_codes(resolution_name))
-    if _is_frostless(station_id) and _TEMPERATURE_COLUMNS.get(resolution_name):
-        rules.append(
-            OutOfRange(0.0, math.inf, where=pl.col("parameter").is_in(sorted(_TEMPERATURE_COLUMNS[resolution_name])))
-        )
-        if resolution_name == "hourly":
-            rules.append(
-                NoReading(
-                    pl.col("parameter").eq(_HUMIDITY_COLUMN)
-                    & pl.col(_DEW_POINT_BESIDE).str.strip_chars().cast(pl.Float64, strict=False).lt(0.0)
-                )
-            )
-    return rules
-
-
-def _codes(resolution_name: str) -> list[Sentinel | OutOfRange]:
+def _codes(resolution_name: str) -> list[Sentinel]:
     """List the codes the source writes in place of a number, for the files of a resolution."""
     directions = list(_WIND_SPEED_OF_DIRECTION.get(resolution_name, {}))
     # the speed of a direction's own reading, which `with_speed_beside` has laid beside it

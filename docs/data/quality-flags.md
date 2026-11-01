@@ -22,12 +22,16 @@ unless the table says so.
   declares. The long shape drops the rows without a value by default, so the token shows with
   `drop_nulls=False` or in the wide shape; a filter on a null `quality_flags` as "no flag" meets
   these rows then.
-- A value outside the physical range of its parameter that is no code (4021 degrees for a daily
-  maximum, 17,802 mm for a month of rain) is treated the same way where the second table below names the
-  provider: null, with `raw:<number>` as the last token, the number as short as it can be written
-  (`raw:4021`, `raw:110.26`). The ranges are generous and, for the rain and the sunshine of a span,
-  grow with the resolution (what is no reading of a minute is one of a day), so a value that is only odd
-  stays.
+- A number no sensor can have produced that is no code (4021 degrees for a daily maximum, 17,802 mm for a month of
+  rain, a barometer that held one value for a month) is judged by a [plausibility check](plausibility.md), and its
+  token comes before `raw:`. Where the check is `hard` the value is null and the token is
+  `rejected:<check>,raw:<number>`, the number as short as it can be written (`rejected:range,raw:4021`,
+  `rejected:range,raw:110.26`; the text the source wrote where it gives one, `raw:-0.80`); where it is `soft` the value is kept and the token is `suspect:<check>`, with no
+  `raw:`. The checks are `range`, `elevation`, `stuck`, `consistency` and `floor`, several joined with `+`
+  (`suspect:range+stuck`); the `plausibility` option sets the mode of each, and every check is hard but `stuck`. The
+  ranges are generous and, for the rain and the sunshine of a span, grow with the resolution (what is no reading of a
+  minute is one of a day), so a value that is only odd stays. `raw:` without `rejected:` before it is the source's own
+  code (`-999`, `---`), which no check judged.
 - `str.split(",")` takes the tokens apart; where a numeric code was used before, cast it:
   `pl.col("quality_flags").cast(pl.Int64, strict=False)`; a code that is no number (IMGW's `Z`) and a
   value with several tokens become null, so take the first token of a code that can be followed by
@@ -41,7 +45,7 @@ The first table lists the plain codes and the further kinds; the `raw:` tokens a
 | DWD observation | `QN`, the quality control level of the file's row: `1` only formal control, `2` controlled with individually defined criteria, `3` automatic control and correction, `5` historic, subjective procedures, `7` second control done, before correction, `8` quality control outside routine, `9` not all parameters corrected, `10` quality control finished (data up to 1980 reach `5` at best; 10 minutes data `1` to `3`). A larger number is a more thorough check. Hourly `sun` adds `zone:woz` for a stamp of a period in the station's local true solar time, not UTC (`10,zone:woz`). Hourly `temperature_air` adds `zone:mez` for a stamp that was MEZ, UTC+1, in a period DWD's Metadaten_Parameter calls "Stundenwerte in MEZ (MD)" and is returned shifted to UTC (`3,zone:mez`). `DwdObservationRequest.describe_fields` prints the table of a dataset |
 | DWD derived | hourly `radiation_global` and `sunshine_duration` (DUETT, `QN_952`): `500` DUETT data without station and satellite data, `501` on station data only, `502` on satellite data only, `503` on station and satellite data; the other derived datasets: null |
 | DWD phenology | `Qualitaetsniveau`: `1` formal check only, `7` checked in routine but uncorrected, `10` checked and corrected |
-| DWD road | the station's own verdict, from `qualityInformationAwsData`, or this library's: `1` suspect, `0` checked and not found suspect, null unknown ([details](provider/dwd/road/15_minutes.md)) |
+| DWD road | the station's own verdict, from `qualityInformationAwsData`: `1` suspect, `0` checked and not found suspect, null unknown ([details](provider/dwd/road/15_minutes.md)); a stopped sensor is the check `stuck`, `suspect:stuck` |
 | DWD mosmix, dmo, poi, swsmos, radar and the other DWD networks | null (apart from `raw:`) |
 | Met Office observation | the MIDAS `*_q` flag `MESQL`, a five digit compound code, written by the file as an integer so that its leading zeros are missing (`2576` is `02576`; `str.zfill(5)` restores them) (marker, estimate, status, query, level: [QC flags](https://dap.ceda.ac.uk/badc/ukmo-midas/metadata/doc/QC_J_flags.html)); not a scale |
 | RMI | the validation of the value in `qc_flags`: `1` validated, `0` not validated |
@@ -62,6 +66,9 @@ The first table lists the plain codes and the further kinds; the `raw:` tokens a
 ## Sentinels in `quality_flags`
 
 The rules behind them, one per situation and the same for every provider, are on [special values](special_values.md).
+A text with `rejected:<check>` before it is a number a [plausibility check](plausibility.md) rejected (hard mode: a
+value outside a range, a station pressure the elevation does not allow, a stuck sensor, a reading another one
+contradicts, a model value below its floor); the others are the codes of the source, the same in both modes.
 
 | Provider | `raw:` text (value) |
 | --- | --- |

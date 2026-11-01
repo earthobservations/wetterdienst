@@ -15,16 +15,14 @@ from zoneinfo import ZoneInfo
 import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.model.judge import Beside, Bound, Rule
 from wetterdienst.model.quality_flags import (
     SPEED_BESIDE,
-    NoReading,
-    OutOfRange,
     Sentinel,
     calm,
     join_quality_flags,
     no_direction_code,
     null_sentinels,
-    station_pressure_range,
     with_speed_beside,
 )
 from wetterdienst.model.request import TimeseriesRequest
@@ -77,59 +75,6 @@ _SYNOP_NO_WIND_DIRECTION = ("400",)
 _SYNOP_WIND_DIRECTION_COLUMN = "dd"
 _SYNOP_WIND_SPEED_OF_DIRECTION = {_SYNOP_WIND_DIRECTION_COLUMN: "ff"}
 
-# `tn12` is the minimum of the 12 hours and `tx12` the maximum, so they are equal only where the temperature held
-# still. Three overseas stations write the maximum of the daytime into `tn12` as well, at some hours: Cayenne-Matoury
-# (81405) at 00 UTC, Le Raizet (78897) and Lamentin (78925) at 00 and 18 UTC, 1296 rows of the 2026 file and 1116 of
-# 2025 (read 2026-10-28); Cayenne at 2026-07-01T00:00Z has `tx12` and `tn12` 303.75 K (30.6 C) beside `t` 298.55 K.
-# The file defines neither; a `tn12` that is the very text of the `tx12` of its own row is a copy, no minimum, so it is
-# null and keeps its text as the `raw` token (GH-3540). A `tn12` above the `t` of its stamp, or a `tx12` below it, is
-# not mapped: Kerguelen (61998) has 28 rows of either, up to 3.5 K, a timing offset that was not investigated
-_SYNOP_MINIMUM_12H = "tn12"
-_SYNOP_MAXIMUM_12H = "tx12"
-_SYNOP_MAXIMUM_BESIDE = "__tx12_beside"
-
-# The pressure at the station is also held to what the barometric formula expects at the station's elevation (`Altitude`
-# of the station list), 7,500 Pa either way (`station_pressure_range`, GH-3627): the bounds below let through a `pres`
-# typed wrong by a digit at a station near sea level, such as 41,450 Pa at LA DESIRADE (27 m) in 1996-06-02 or 100,500
-# at the Mont Aigoual (1,567 m). The first of the two rules that matches decides, and both keep the number as `raw`.
-_SYNOP_PRESSURE_COLUMN = "pres"
-_PA_PER_HPA = 100.0
-
-# A reading no sensor can have produced is null, and keeps the number the file wrote as the `raw` token (GH-3135, as
-# GH-2797 does for DMI, RMI and the DWD road stations). The files hold a few, with no code to tell them: in the files
-# of 1996, 2000, 2005, 2010 and 2015 `pres` reads 10,860 to 42,060 Pa in 31 rows (3, 23, 3, 0 and 2 per file; La
-# Desirade 2005-01-10: 11,170 Pa beside a `pmer` of 101,550, and 41,450 Pa at 78890 on 1996-06-02 at 15 h, a station
-# at 27 m), `t` 333.95 to 369.15 K in 20 rows, `td` in 14, `rr1` 800 mm (61976, 2000-07-06), and none in the files of
-# 2020, 2022, 2024 and 2025. The bounds are in the unit of the file and sit inside the range of
-# `tests/provider/physical_ranges.py`; each rests on a record, with room above it:
-# - `pres`, the pressure at the station, 50,000 to 110,000 Pa: the highest sea level pressure is 108,480 Pa
-#   (Tosontsengel, 2001) and the highest station of the archive is MONT AIGOUAL (07560, 1,567 m, about 840 hPa); 500 hPa
-#   is the air at 5,500 m;
-# - `pmer`, the pressure reduced to sea level, 85,000 to 110,000 Pa: 87,000 Pa is the lowest (typhoon Tip, 1979);
-# - `t`, `td`, `tn12`, `tx12`, `tn24`, `tx24`, 183.15 to 333.15 K (-90 to 60 C): the lowest air temperature is -89.2 C
-#   (Vostok, 1983), the highest 56.7 C (Furnace Creek, 1913);
-# - `rr1`, 0 to 600 mm: the most in an hour is 401 mm (Shangdi, 1975);
-# - `rr3`, `rr6`, `rr12`, 0 to 1,200 mm: the most in 12 hours is 1,144 mm (Foc-Foc, La Reunion, 1966), and a shorter
-#   span cannot hold more;
-# - `rr24`, 0 to 2,000 mm: the most in a day is 1,825 mm (Foc-Foc, 1966).
-# The trace -0.1 is mapped to 0.0 before, so the lower bound of 0 leaves it alone. A `rr6` of 805 mm (78890, 2005-11-11)
-# and a `rr24` of 999.4 mm (78897, 2005-08-18) are inside these bounds, as a tropical storm can bring them: they stay.
-_SYNOP_RANGES: dict[str, tuple[float, float]] = {
-    "pres": (50_000.0, 110_000.0),
-    "pmer": (85_000.0, 110_000.0),
-    "t": (183.15, 333.15),
-    "td": (183.15, 333.15),
-    "tn12": (183.15, 333.15),
-    "tx12": (183.15, 333.15),
-    "tn24": (183.15, 333.15),
-    "tx24": (183.15, 333.15),
-    "rr1": (0.0, 600.0),
-    "rr3": (0.0, 1_200.0),
-    "rr6": (0.0, 1_200.0),
-    "rr12": (0.0, 1_200.0),
-    "rr24": (0.0, 2_000.0),
-}
-
 # No frost at these stations (GH-3135, as the stations of `meteofrance/observation` of the same departments). The
 # stations are the WMO ids of the geojson, as the file has no department, and they are the ones of the departments of
 # that rule that the archive has: Guadeloupe (LA DESIRADE 78890, ST-BARTHELEMY 78894, LE RAIZET 78897), Martinique
@@ -175,12 +120,11 @@ _SYNOP_FROSTLESS_STATIONS = frozenset(
 _SYNOP_TEMPERATURE_COLUMNS = ("t", "td", "tn12", "tx12", "tn24", "tx24")
 # The relative humidity of a reading whose dew point that rule nulls is null too (GH-3629): the same hygrometer failed,
 # and its `u` is as wrong as the `td` that was computed from it (4 to 5 % at MARIPASOULA 81415 and TROMELIN 61976,
-# beside `td` of 255 K and less). The `td` is read for it whether it is asked for or not, as the `tx12` is for the
-# `tn12`. No floor on the humidity itself: a `u` of 20 % is a reading in a dry spell, and only the dew point tells.
+# beside `td` of 255 K and less). No floor on the humidity itself: a `u` of 20 % is a reading in a dry spell, and only
+# the dew point tells.
 _SYNOP_DEW_POINT = "td"
 _SYNOP_HUMIDITY = "u"
-_SYNOP_DEW_POINT_BESIDE = "__td_beside"
-_SYNOP_FROST = 273.15
+_SYNOP_FROST_CELSIUS = 0.0
 
 # explicit schema of the exact columns published by the source, read as strings throughout since
 # many columns are entirely empty for a given station or year, which would otherwise lead to
@@ -301,33 +245,44 @@ def _download_year(year: int, current_year: int, settings: Settings) -> File:
     return copy
 
 
-def _frostless_rules(station_id: str) -> list[OutOfRange | NoReading]:
-    """Give the rules of a station without frost (``_SYNOP_FROSTLESS_STATIONS``).
+def _canonical(*originals: str) -> tuple[str, ...]:
+    """Give the canonical names of the parameters the file calls ``originals``."""
+    names = {
+        parameter.name_original: parameter.name
+        for dataset in MeteoFranceSynopMetadata.subdaily
+        for parameter in dataset
+    }
+    return tuple(names[original] for original in originals)
 
-    A temperature below 0 C is none, and the humidity beside a dew point below 0 C is none either (GH-3629).
-    """
-    if station_id not in _SYNOP_FROSTLESS_STATIONS:
-        return []
-    return [
-        OutOfRange(_SYNOP_FROST, math.inf, where=pl.col("parameter").is_in(_SYNOP_TEMPERATURE_COLUMNS)),
-        NoReading(
-            pl.col("parameter").eq(_SYNOP_HUMIDITY)
-            & pl.col(_SYNOP_DEW_POINT_BESIDE).str.strip_chars().cast(pl.Float64, strict=False).lt(_SYNOP_FROST)
-        ),
-    ]
+
+# `tn12` is the minimum of the 12 hours and `tx12` the maximum, so they are equal only where the temperature held
+# still. Three overseas stations write the maximum of the daytime into `tn12` as well, at some hours: Cayenne-Matoury
+# (81405) at 00 UTC, Le Raizet (78897) and Lamentin (78925) at 00 and 18 UTC, 1296 rows of the 2026 file and 1116 of
+# 2025 (read 2026-10-28); Cayenne at 2026-07-01T00:00Z has `tx12` and `tn12` 303.75 K (30.6 C) beside `t` 298.55 K.
+# The file defines neither; a `tn12` that is the very text of the `tx12` of its own row is a copy, no minimum, so it is
+# null and keeps its text as the `raw` token (GH-3540). A `tn12` above the `t` of its stamp, or a `tx12` below it, is
+# not mapped: Kerguelen (61998) has 28 rows of either, up to 3.5 K, a timing offset that was not investigated
+_MINIMUM_COPIES_MAXIMUM = Beside(
+    target=_canonical("tn12")[0],
+    partner=_canonical("tx12")[0],
+    when=lambda minimum, maximum: minimum.eq(maximum),
+)
+_FROSTLESS_RULES: tuple[Rule, ...] = (
+    Bound(high=math.inf, low=_SYNOP_FROST_CELSIUS, names=_canonical(*_SYNOP_TEMPERATURE_COLUMNS)),
+    Beside(
+        target=_canonical(_SYNOP_HUMIDITY)[0],
+        partner=_canonical(_SYNOP_DEW_POINT)[0],
+        when=lambda _, dew_point: dew_point.lt(_SYNOP_FROST_CELSIUS),
+    ),
+)
 
 
 class MeteoFranceSynopValues(TimeseriesValues):
     """Values class for Météo-France SYNOP data."""
 
-    def _station_pressure_rules(self, station_id: str, dataset: DatasetModel) -> list[OutOfRange]:
-        """Give the rule of the pressure at the station: what its elevation allows, in Pa (GH-3627)."""
-        rule = station_pressure_range(
-            self._station_elevation(station_id, dataset),
-            per_hectopascal=_PA_PER_HPA,
-            where=pl.col("parameter").eq(_SYNOP_PRESSURE_COLUMN),
-        )
-        return [] if rule is None else [rule]
+    def _plausibility_rules(self, station_id: str, dataset: DatasetModel) -> tuple[Rule, ...]:  # noqa: ARG002
+        """Give the rules of the file: no `tn12` that copies `tx12`, and no frost at the stations of the tropics."""
+        return (_MINIMUM_COPIES_MAXIMUM, *(_FROSTLESS_RULES if station_id in _SYNOP_FROSTLESS_STATIONS else ()))
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -340,16 +295,7 @@ class MeteoFranceSynopValues(TimeseriesValues):
         end_date = self.sr.end or datetime.now(tz=ZoneInfo("UTC"))
         settings = cast("Settings", self.sr.request.settings)
         parameter_columns = [parameter.name_original for parameter in dataset]
-        # the maximum of the 12 hours is read for the minimum to be held to it, whether it is asked for or not
-        beside = [_SYNOP_MAXIMUM_12H] if _SYNOP_MINIMUM_12H in parameter_columns else []
-        # and the dew point for the humidity at a station without frost
-        frostless = station_id in _SYNOP_FROSTLESS_STATIONS
-        dew_point_beside = frostless and _SYNOP_HUMIDITY in parameter_columns
-        read_columns = [
-            "geo_id_wmo",
-            "validity_time",
-            *dict.fromkeys([*parameter_columns, *beside, *([_SYNOP_DEW_POINT] if dew_point_beside else [])]),
-        ]
+        read_columns = ["geo_id_wmo", "validity_time", *dict.fromkeys(parameter_columns)]
         dfs = []
         # clamp to the years actually covered by the archive: station opening dates (used as a
         # request start by e.g. the app) can predate 1996, and requesting a year
@@ -377,39 +323,20 @@ class MeteoFranceSynopValues(TimeseriesValues):
         if not dfs:
             return pl.DataFrame()
         df = pl.concat(dfs, how="diagonal")
-        if beside:
-            df = df.with_columns(pl.col(_SYNOP_MAXIMUM_12H).alias(_SYNOP_MAXIMUM_BESIDE))
-        else:
-            df = df.with_columns(pl.lit(None, dtype=pl.String).alias(_SYNOP_MAXIMUM_BESIDE))
-        df = df.with_columns(
-            (pl.col(_SYNOP_DEW_POINT) if dew_point_beside else pl.lit(None, dtype=pl.String)).alias(
-                _SYNOP_DEW_POINT_BESIDE
-            )
-        )
         df = df.unpivot(
             on=parameter_columns,
-            index=["validity_time", UPDATED, _SYNOP_MAXIMUM_BESIDE, _SYNOP_DEW_POINT_BESIDE],
+            index=["validity_time", UPDATED],
             variable_name="parameter",
             value_name="value",
         )
         df = with_speed_beside(df, _SYNOP_WIND_SPEED_OF_DIRECTION, on=["validity_time"])
-        # before the unit conversion
+        # before the unit conversion; what is no reading by its range or its neighbours is the core's to judge
         value, raw = null_sentinels(
             pl.col("value"),
             Sentinel(_SYNOP_TRACE, where=pl.col("parameter").is_in(_SYNOP_TRACE_COLUMNS), to=0.0),
             Sentinel(_SYNOP_SKY_OBSCURED, where=pl.col("parameter").eq("n")),
             no_direction_code(*_SYNOP_NO_WIND_DIRECTION, where=pl.col("parameter").eq(_SYNOP_WIND_DIRECTION_COLUMN)),
             calm(pl.col(SPEED_BESIDE)),
-            NoReading(
-                pl.col("parameter").eq(_SYNOP_MINIMUM_12H)
-                & pl.col("value")
-                .str.strip_chars()
-                .cast(pl.Float64, strict=False)
-                .eq(pl.col(_SYNOP_MAXIMUM_BESIDE).str.strip_chars().cast(pl.Float64, strict=False))
-            ),
-            *(OutOfRange(low, high, where=pl.col("parameter").eq(name)) for name, (low, high) in _SYNOP_RANGES.items()),
-            *self._station_pressure_rules(station_id, dataset),
-            *_frostless_rules(station_id),
             # a missing reading is an empty field; a text that is no number was nulled by the cast alone
             # (the 2024 file holds none) and now keeps its text too
             non_numeric=True,
@@ -419,6 +346,8 @@ class MeteoFranceSynopValues(TimeseriesValues):
             pl.col("parameter").str.to_lowercase(),
             pl.col("validity_time").str.to_datetime("%Y-%m-%dT%H:%M:%SZ", strict=False).alias("timestamp"),
             value.alias("value"),
+            # the text the file wrote, which the core writes in the `raw:` token of a value it rejects
+            pl.col("value").alias("source_text"),
             join_quality_flags(None, raw=raw),
             UPDATED,
         )

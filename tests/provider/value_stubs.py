@@ -116,10 +116,34 @@ class ValueStub:
     # the `raw:` tokens that have to arrive, as (canonical parameter, the text the source wrote, the value it was mapped
     # to: None for null). The text is verbatim: `-999`, not `-999.0`, wherever the source writes it so
     tokens: tuple[tuple[str, str, float | None], ...] = ()
+    # the numbers a plausibility check rejects (mode `hard`) and keeps as `rejected:<checks>,raw:<text>`, as (canonical
+    # parameter, the text the source wrote, the checks that rejected it joined with `+`): `tokens` names the same texts
+    # for the `raw:` token, this the verdict before it (GH-3676). A reader that rejects a number the stub does not
+    # name fails `test_a_rejected_number_names_the_check_that_rejected_it`
+    verdicts: tuple[tuple[str, str, str], ...] = ()
+    # the numbers a plausibility check finds suspect (mode `soft`) and keeps, as (canonical parameter, the value, the
+    # checks joined with `+`): `quality_flags` ends with `suspect:<checks>` and has no `raw:` token
+    suspects: tuple[tuple[str, float, str], ...] = ()
+    # the modes the stub runs the reader in, as (check, mode): the defaults where a check is not named
+    plausibility: tuple[tuple[str, str], ...] = ()
     # the issue that tracks a sentinel the provider lets through
     leak: str | None = None
     # an instant at which the source has no reading at all, so that the output has no row for it, whatever the unit
     empty_at: dt.datetime | None = None
+
+    def __post_init__(self) -> None:
+        """Have the reader run in the modes the stub names, through the environment its options are read from."""
+        if not self.plausibility:
+            return
+        build = self.build
+        modes = self.plausibility
+
+        def build_with_modes(monkeypatch: pytest.MonkeyPatch, *args: Any, **kwargs: Any) -> pl.DataFrame:  # noqa: ANN401
+            for check, mode in modes:
+                monkeypatch.setenv(f"WD_TS_PLAUSIBILITY__{check.upper()}", mode)
+            return build(monkeypatch, *args, **kwargs)
+
+        object.__setattr__(self, "build", build_with_modes)
 
 
 def serve(monkeypatch: pytest.MonkeyPatch, module: Any, bodies: dict[str, bytes | Callable[[str], bytes]]) -> None:  # noqa: ANN401
@@ -377,10 +401,10 @@ def _dwd_hourly_moisture(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = Tru
     # the description says `missing value = -999`; the files write -99.9
     # (stundenwerte_TF_03735_19490101_19511231_hist.zip, 1949-01-28 06:00; station 14006, 2025-01-05 01:00,
     # in stundenwerte_TF_14006_20201104_20251231_hist.zip). That file holds 995.9 in P_STD in all of its 44531 rows, the
-    # pressure of a station without a barometer: the sheet ("Stundenwerte Luftdruck") says nothing of it, the reader
-    # nulls a constant from 500 readings on (GH-2699), so the file is served with 500 rows. The constant that changed
-    # once is two values, as at 00091 (977.1, then 977.6 from 2024-03-25) and 54 more files (GH-3139): the second half
-    # of the rows write 996.4, which the file of 14006 does not, so that the rule that nulls both is the one served
+    # pressure of a station without a barometer: the sheet ("Stundenwerte Luftdruck") says nothing of it, the core
+    # judges a run of 72 hourly readings of one value (GH-2699), so the file is served with 500 rows. The constant that
+    # changed once is two stretches, as at 00091 (977.1, then 977.6 from 2024-03-25) and 54 more files (GH-3139): the
+    # second half of the rows write 996.4, which the file of 14006 does not, so that both stretches are runs
     rows = [
         "   14006;2025010500;    3;   4.6;   5.8;  -0.3;  995.9;  -0.1;  95.7;  -0.7;eor",
         "   14006;2025010501;    3; -99.9; -99.9; -99.9;  995.9;  -0.7; -99.9; -99.9;eor",
@@ -496,8 +520,8 @@ def _dwd_hourly_pressure_typo(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool 
     # stundenwerte_P0_00433_19490101_20251231_hist.zip, read 2026-10-30, as the file writes them: P0 reads 1093.3 hPa at
     # 1994-03-18 00:00 beside a P of 1009.4 (QN 1), where the station pressure of Berlin-Tempelhof (48 m) is a few
     # hPa below the one reduced to sea level, as the hours around it show; 1093.3 is above the highest sea level
-    # pressure ever measured, 1084.8 hPa. Station 03032 reads 1098.2 (1991-06-21 18:00, P 1012.4) and 1099.3
-    # (1995-11-15 13:00, P 996.6) the same way: three one-digit typos in the 1.09 million rows of the two
+    # pressure ever measured (1089.1 hPa, WMO table of 2025). Station 03032 reads 1098.2 (1991-06-21 18:00, P 1012.4)
+    # and 1099.3 (1995-11-15 13:00, P 996.6) the same way: three one-digit typos in the 1.09 million rows of the two
     # historical series (GH-3135)
     product = (
         "STATIONS_ID;MESS_DATUM;QN_8;   P;  P0;eor\n"
@@ -2253,14 +2277,26 @@ STUBS = [
         tokens=(
             ("humidity_absolute", "-99.9", None),
             ("humidity_relative", "-99.9", None),
-            # GH-2699, GH-3139: the pressure of a file that holds one value, or one that changed once, is null
-            # with the text the file wrote
-            ("pressure_air_site", "995.9", None),
-            ("pressure_air_site", "996.4", None),
             ("pressure_vapor", "-99.9", None),
             ("temperature_dew_point_2m", "-99.9", None),
             ("temperature_wet_2m", "-99.9", None),
         ),
+        # GH-2699, GH-3139, GH-3676: the pressure of a file that holds one value, or one that changed once, is kept
+        # and flagged: the check `stuck` is soft by default
+        suspects=(("pressure_air_site", 995.9, "stuck"), ("pressure_air_site", 996.4, "stuck")),
+    ),
+    ValueStub(
+        "dwd/observation hourly/moisture (stuck hard)",
+        _dwd_hourly_moisture,
+        reading=("temperature_air_2m", -0.1),
+        tokens=(
+            # the pressure of a file that holds one value, or one that changed once, is null with the text the file
+            # wrote, where the check `stuck` is hard
+            ("pressure_air_site", "995.9", None),
+            ("pressure_air_site", "996.4", None),
+        ),
+        verdicts=(("pressure_air_site", "995.9", "stuck"), ("pressure_air_site", "996.4", "stuck")),
+        plausibility=(("stuck", "hard"),),
     ),
     ValueStub(
         "dwd/observation hourly/wind",
@@ -2311,6 +2347,7 @@ STUBS = [
         reading=("wind_speed_mean", 8.3),
         sentinels=(("wind_speed_mean", -0.8),),
         tokens=(("wind_speed_mean", "-0.80", None),),
+        verdicts=(("wind_speed_mean", "-0.80", "range"),),
     ),
     ValueStub(
         "dwd/observation hourly/pressure",
@@ -2318,6 +2355,8 @@ STUBS = [
         reading=("pressure_air_sea_level", 1009.4),
         sentinels=(("pressure_air_site", 1093.3),),
         tokens=(("pressure_air_site", "1093.3", None),),
+        # judged all at once by the core: both checks reject it, as the soft mode always said
+        verdicts=(("pressure_air_site", "1093.3", "elevation+range"),),
     ),
     ValueStub(
         "dwd/observation hourly/pressure (off the elevation, 48 m)",
@@ -2325,6 +2364,7 @@ STUBS = [
         reading=("pressure_air_site", 1009.6),
         sentinels=(("pressure_air_site", 909.5),),
         tokens=(("pressure_air_site", "909.5", None),),
+        verdicts=(("pressure_air_site", "909.5", "elevation"),),
     ),
     ValueStub(
         "dwd/observation hourly/pressure (the Zugspitze, 2,956 m)",
@@ -2332,6 +2372,7 @@ STUBS = [
         reading=("pressure_air_site", 713.0),
         sentinels=(("pressure_air_site", 908.6), ("pressure_air_site", 968.6)),
         tokens=(("pressure_air_site", "908.6", None), ("pressure_air_site", "968.6", None)),
+        verdicts=(("pressure_air_site", "908.6", "elevation"), ("pressure_air_site", "968.6", "elevation")),
     ),
     ValueStub(
         "dwd/observation 10_minutes/urban_solar",
@@ -2526,6 +2567,11 @@ STUBS = [
             ("temperature_surface", "300.15", None),
             ("humidity_relative", "0.4", None),
         ),
+        verdicts=(
+            ("temperature_surface", "198.15", "range"),
+            ("temperature_surface", "300.15", "consistency"),
+            ("humidity_relative", "0.4", "range"),
+        ),
     ),
     ValueStub(
         "dmi/observation hourly/data",
@@ -2533,6 +2579,7 @@ STUBS = [
         reading=("wind_direction_mean", 250.0),
         sentinels=(("wind_direction_mean", 0.0), ("cloud_cover_total", 1.12)),
         tokens=(("wind_direction_mean", "0", None), ("cloud_cover_total", "112", None)),
+        verdicts=(("cloud_cover_total", "112", "range"),),
     ),
     ValueStub(
         "dmi/observation daily/data",
@@ -2556,6 +2603,15 @@ STUBS = [
         # a sum no gauge produced is no sentinel: it is outside the range of its parameter
         sentinels=(("precipitation_amount", 9574.3), ("precipitation_amount", 6026.5)),
         tokens=(("precipitation_amount", "9574.3", None), ("precipitation_amount", "6026.5", None)),
+        verdicts=(("precipitation_amount", "9574.3", "range"), ("precipitation_amount", "6026.5", "range")),
+    ),
+    ValueStub(
+        "dmi/observation annual/data (range soft)",
+        _dmi_annual,
+        reading=("precipitation_amount", 1343.1),
+        # a sum no gauge produced is kept where the check `range` is soft, and flagged
+        suspects=(("precipitation_amount", 9574.3, "range"), ("precipitation_amount", 6026.5, "range")),
+        plausibility=(("range", "soft"),),
     ),
     ValueStub(
         "rmi/observation daily/data",
@@ -2565,8 +2621,22 @@ STUBS = [
         tokens=(
             ("temperature_air_mean_2m", "110.26", None),
             ("temperature_air_max_2m", "4021", None),
-            ("sunshine_duration", "1440", None),
         ),
+        verdicts=(("temperature_air_mean_2m", "110.26", "range"), ("temperature_air_max_2m", "4021", "range")),
+        # the sunshine of a day of 1,440 minutes of a station whose sensor was dead is kept, flagged `suspect:stuck`
+        suspects=(("sunshine_duration", 86400.0, "stuck"),),
+    ),
+    ValueStub(
+        "rmi/observation daily/data (stuck hard)",
+        _rmi_daily,
+        reading=("temperature_air_min_2m", 16.84),
+        tokens=(("sunshine_duration", "1440", None),),
+        verdicts=(
+            ("sunshine_duration", "1440", "stuck"),
+            ("temperature_air_mean_2m", "110.26", "range"),
+            ("temperature_air_max_2m", "4021", "range"),
+        ),
+        plausibility=(("stuck", "hard"),),
     ),
     ValueStub(
         "imgw/hydrology daily/hydrology",
@@ -2647,6 +2717,10 @@ STUBS = [
             ("precipitation_amount_last_1h", "-0.02", 0.0),
             ("radiation_global", "-0.16", 0.0),
         ),
+        verdicts=(
+            ("precipitation_amount_last_1h", "-0.02", "floor"),
+            ("radiation_global", "-0.16", "floor"),
+        ),
     ),
     ValueStub(
         "dwd/poi hourly/data",
@@ -2700,6 +2774,11 @@ STUBS = [
             ("temperature_air_min_2m", "-20.0", None),
             ("temperature_air_max_2m", "-20.0", None),
         ),
+        verdicts=(
+            ("temperature_air_2m", "-20.0", "range"),
+            ("temperature_air_min_2m", "-20.0", "range"),
+            ("temperature_air_max_2m", "-20.0", "range"),
+        ),
     ),
     ValueStub(
         "meteofrance/observation daily/core (Guadeloupe, no frost)",
@@ -2707,6 +2786,7 @@ STUBS = [
         reading=("temperature_air_mean_2m", 25.4),
         sentinels=(("temperature_air_mean_2m", -10.9),),
         tokens=(("temperature_air_mean_2m", "-10.9", None),),
+        verdicts=(("temperature_air_mean_2m", "-10.9", "range"),),
     ),
     ValueStub(
         "meteofrance/observation daily/core",
@@ -2725,6 +2805,7 @@ STUBS = [
         reading=("temperature_dew_point_2m", 20.0),
         sentinels=(("temperature_dew_point_2m", -4.5), ("humidity_relative", 0.15)),
         tokens=(("temperature_dew_point_2m", "-4.5", None), ("humidity_relative", "15", None)),
+        verdicts=(("temperature_dew_point_2m", "-4.5", "range"), ("humidity_relative", "15", "consistency")),
     ),
     ValueStub(
         "meteofrance/observation hourly/others",
@@ -2748,6 +2829,11 @@ STUBS = [
             ("temperature_air_min_2m_last_24h", "272.95", None),
             ("humidity_relative", "5", None),
         ),
+        verdicts=(
+            ("temperature_dew_point_2m", "255.65", "range"),
+            ("temperature_air_min_2m_last_24h", "272.95", "range"),
+            ("humidity_relative", "5", "consistency"),
+        ),
     ),
     ValueStub(
         "meteofrance/synop subdaily/data (pressure off the elevation)",
@@ -2756,6 +2842,7 @@ STUBS = [
         # the station pressure of 1097.3 hPa at 7 m is no reading, though it is inside the bounds of the world
         sentinels=(("pressure_air_site", 1097.3),),
         tokens=(("pressure_air_site", "109730", None),),
+        verdicts=(("pressure_air_site", "109730", "elevation"),),
     ),
     ValueStub(
         "meteofrance/synop subdaily/data (readings no sensor produced)",
@@ -2778,6 +2865,14 @@ STUBS = [
             ("humidity_relative", "4", None),
             ("precipitation_amount_last_1h", "800.0", None),
         ),
+        verdicts=(
+            ("temperature_air_2m", "343.55", "range"),
+            ("temperature_air_2m", "248.35", "range"),
+            ("temperature_dew_point_2m", "252.05", "range"),
+            ("temperature_dew_point_2m", "251.65", "range"),
+            ("humidity_relative", "4", "consistency"),
+            ("precipitation_amount_last_1h", "800.0", "range"),
+        ),
     ),
     ValueStub(
         "meteofrance/synop subdaily/data",
@@ -2798,6 +2893,7 @@ STUBS = [
             # a tn12 that is the text of the tx12 beside it is a copy, no minimum
             ("temperature_air_min_2m_last_12h", "303.75", None),
         ),
+        verdicts=(("temperature_air_min_2m_last_12h", "303.75", "consistency"),),
     ),
 ]
 

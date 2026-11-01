@@ -13,8 +13,10 @@ import polars as pl
 import pytest
 
 import wetterdienst.provider.rmi.observation.api as rmi_api
+from tests.provider.judging import applying, judged
 from tests.provider.value_stubs import stations_result
 from wetterdienst.exceptions import DownloadError, NoInternetError
+from wetterdienst.model.plausibility import Plausibility
 from wetterdienst.model.schema import LONG_SCHEMA
 from wetterdienst.settings import Settings
 from wetterdienst.util.network import File
@@ -268,7 +270,10 @@ def _collect_wide(
         end=dt.datetime(2003, 10, 9, tzinfo=UTC),
     )
     values._iter_value_pages = lambda *_args, **_kwargs: iter([wide])  # noqa: SLF001
-    return values._shape(values._collect_station_parameter_or_dataset(station, dataset), station, dataset)  # noqa: SLF001
+    shaped = values._shape(values._collect_station_parameter_or_dataset(station, dataset), station, dataset)  # noqa: SLF001
+    # the range of an attribute and the periods of a dead sensor are judged by the core, in canonical units
+    rules = values._plausibility_rules(station, dataset)  # noqa: SLF001
+    return judged(shaped, network="rmi/observation", dataset=dataset, rules=rules)
 
 
 def test_collect_nulls_a_value_outside_the_range_of_its_attribute_and_keeps_what_it_was() -> None:
@@ -288,18 +293,21 @@ def test_collect_nulls_a_value_outside_the_range_of_its_attribute_and_keeps_what
     df = _collect_wide("daily", rows, qc)
     found = {(row["parameter"], row["timestamp"].date().isoformat()): row for row in df.iter_rows(named=True)}
     assert {key: (row["value"], row["quality_flags"]) for key, row in found.items()} == {
-        ("temp_avg", "2003-08-06"): (None, "0,raw:110.26"),
-        ("temp_max", "2003-08-06"): (None, "0,raw:4021"),
+        ("temp_avg", "2003-08-06"): (None, "0,rejected:range,raw:110.26"),
+        ("temp_max", "2003-08-06"): (None, "0,rejected:range,raw:4021"),
         ("temp_min", "2003-08-06"): (16.84, "1"),
         ("temp_avg", "2003-10-09"): (14.05, "0"),
         ("temp_max", "2003-10-09"): (17.79, "0"),
-        ("wind_gusts_speed", "2003-10-09"): (None, "0,raw:81.5"),
+        ("wind_gusts_speed", "2003-10-09"): (None, "0,rejected:range,raw:81.5"),
         ("wind_gusts_speed", "2002-12-30"): (51.05, "0"),
     }
 
 
 def test_collect_nulls_the_sunshine_of_6477_in_the_periods_of_its_stuck_and_dead_sensor() -> None:
     """The sunshine of 6477 is no reading from 2016-04-30 to 2017-05-31 and in two summers of zeros (GH-3031).
+
+    A hard `stuck` check nulls it with `rejected:stuck,raw:`; the default is soft, which keeps the value as
+    `suspect:stuck` (GH-3676, `test_collect_keeps_the_sunshine_of_6477_in_its_stuck_periods_by_default`).
 
     Rows of `aws:aws_1day` of station 6477 (read 2026-10-17): 2016-04-29 reads 533 minutes, the day before the
     sensor sticks, and 2017-06-01 338.67, its last day; 2016-05-10 reads 910 minutes with a mean radiation of
@@ -322,21 +330,22 @@ def test_collect_nulls_the_sunshine_of_6477_in_the_periods_of_its_stuck_and_dead
         {"timestamp": "2015-04-24T00:00:00Z", "sun_duration": 260.09},
         {"timestamp": "2015-08-20T00:00:00Z", "sun_duration": 284.5},
     ]
-    df = _collect_wide("daily", rows, qc, station="6477")
+    with applying(Plausibility(stuck="hard")):
+        df = _collect_wide("daily", rows, qc, station="6477")
     sunshine = {
         row["timestamp"].date().isoformat(): (row["value"], row["quality_flags"])
         for row in df.filter(pl.col("parameter") == "sun_duration").iter_rows(named=True)
     }
     assert sunshine == {
         "2016-04-29": (533.0, "0"),
-        "2016-04-30": (None, "0,raw:890"),
-        "2016-05-10": (None, "0,raw:910"),
-        "2016-12-22": (None, "0,raw:980"),
-        "2016-12-24": (None, "0,raw:1440"),
-        "2017-05-31": (None, "0,raw:970"),
+        "2016-04-30": (None, "0,rejected:stuck,raw:890"),
+        "2016-05-10": (None, "0,rejected:stuck,raw:910"),
+        "2016-12-22": (None, "0,rejected:stuck,raw:980"),
+        "2016-12-24": (None, "0,rejected:stuck,raw:1440"),
+        "2017-05-31": (None, "0,rejected:stuck,raw:970"),
         "2017-06-01": (338.67, "0"),
-        "2015-06-15": (None, "0,raw:0"),
-        "2017-07-15": (None, "0,raw:0"),
+        "2015-06-15": (None, "0,rejected:stuck,raw:0"),
+        "2017-07-15": (None, "0,rejected:stuck,raw:0"),
         "2015-04-24": (260.09, "0"),
         "2015-08-20": (284.5, "0"),
     }
@@ -346,6 +355,25 @@ def test_collect_nulls_the_sunshine_of_6477_in_the_periods_of_its_stuck_and_dead
     # another station keeps the same numbers
     other = _collect_wide("daily", rows[2:3], qc, station="6447")
     assert other.filter(pl.col("parameter") == "sun_duration").get_column("value").to_list() == [910.0]
+
+
+def test_collect_keeps_the_sunshine_of_6477_in_its_stuck_periods_by_default() -> None:
+    """The check `stuck` is soft by default: the value stays and is flagged `suspect:stuck` (GH-3676)."""
+    rows = [
+        {"timestamp": "2016-04-29T00:00:00Z", "sun_duration": 533.0},
+        {"timestamp": "2016-04-30T00:00:00Z", "sun_duration": 890.0},
+        {"timestamp": "2015-06-15T00:00:00Z", "sun_duration": 0.0},
+    ]
+    df = _collect_wide("daily", rows, {"SUN_DURATION": False}, station="6477")
+    sunshine = {
+        row["timestamp"].date().isoformat(): (row["value"], row["quality_flags"])
+        for row in df.filter(pl.col("parameter") == "sun_duration").iter_rows(named=True)
+    }
+    assert sunshine == {
+        "2016-04-29": (533.0, "0"),
+        "2016-04-30": (890.0, "0,suspect:stuck"),
+        "2015-06-15": (0.0, "0,suspect:stuck"),
+    }
 
 
 @pytest.mark.parametrize(
@@ -376,7 +404,7 @@ def test_collect_holds_the_sunshine_to_the_span_of_the_resolution(
     if arrives:
         assert row["value"] == sunshine
     else:
-        assert (row["value"], row["quality_flags"]) == (None, f"raw:{sunshine:.15g}")
+        assert (row["value"], row["quality_flags"]) == (None, f"rejected:range,raw:{sunshine:.15g}")
 
 
 def test_collect_filters_a_zero_length_window_without_a_during_period() -> None:

@@ -61,6 +61,7 @@
     "geo_station_distance_resolution_factors",
     "geo_use_nearby_station_distance",
     "humanize",
+    "plausibility",
     "shape",
     "skip_criteria",
     "skip_empty",

@@ -117,8 +117,10 @@ distinction worth keeping.
 
 #### quality_flags
 
-Each reading carries the station's own verdict on the sensor that took it, in the `quality_flags` column
-(`"1"`, `"0"` or null), read from the `qualityInformationAwsData` flag (BUFR `0 33 005`) that ends every road subset:
+Each reading carries the station's own verdict on the sensor that took it, as the first token of the `quality_flags`
+column (`"1"`, `"0"` or null), read from the `qualityInformationAwsData` flag (BUFR `0 33 005`) that ends every road
+subset. The [plausibility checks](../../../plausibility.md) of this network add their own tokens after it
+(`suspect:stuck`, `rejected:range,raw:198.15`), described below:
 
 | quality_flags | meaning                                                             |
 |---------------|---------------------------------------------------------------------|
@@ -166,10 +168,11 @@ that took *out* the nonsense above would take genuine extremes with it. Do not r
 network as checked because it came back: a sensor that moves but is wrong, such as a hygrometer
 that reads 10 % for hours in fog, is returned. A value outside the physical range of its quantity,
 the `-75.00` of the exact round values among them, is **null**, with the number DWD wrote as
-`raw:198.15` in `quality_flags`, as DMI and RMI null theirs (see
-[special values](../../../special_values.md)). The stuck sensors it **marks**, in the
-`quality_flags` column, which is a different thing: the reading stays exactly as published, and a
-caller who wants the extremes keeps them. Two rules (the section "readings inside every range that
+`rejected:range,raw:198.15` in `quality_flags` (the check `range`, hard by default), as DMI and RMI null theirs (see
+[special values](../../../special_values.md)). The stuck sensors it **flags** `suspect:stuck` (the check `stuck`, soft
+by default), which is a different thing: the reading stays exactly as published, and a caller who wants the extremes
+keeps them. `plausibility={"stuck": "hard"}` nulls them as well, `plausibility={"range": "soft"}` keeps a value outside
+a range. Two rules (the section "readings inside every range that
 are no reading" below) null a value as well, and keep the number the same way.
 
 Which of the first bullet's readings are marked depends on the sensor rather than the value: its
@@ -180,7 +183,9 @@ marked at all, 79.8 °C on a road in September being implausible rather than imp
 
 The first of the two is a sensor that has stopped. Where an air temperature, a dew point or a road
 surface temperature reports the identical value for 24 readings -- six hours at this resolution --
-`quality_flags` becomes `1`. The reading is left exactly as published.
+the reading is flagged `suspect:stuck` (the check `stuck`: soft by default, so the reading is left exactly as
+published; hard, it is null with `rejected:stuck,raw:<value>`). DWD's own flag stays what the station wrote, as the
+first token.
 
 A run ends where the readings stop for more than four times the station's own usual interval, so
 two three-hour plateaus either side of a three-day outage are not a six-hour one. Against the
@@ -217,8 +222,8 @@ Two things the run rule does not catch, and one it cannot:
 
 - a run shorter than the window. A request covering less than six hours has too few readings for the
   question to be asked at all -- and because the check sees only the files the window selected, the
-  same reading can come back `null` from a two-hour request and `1` from a full day's. A caller
-  filtering on `quality_flags` should ask for the window it means. The values nulled in the next
+  same reading can come back unflagged from a two-hour request and `suspect:stuck` from a full day's. A caller
+  filtering on `quality_flags` should ask for the window it means. This is why the check is soft by default. The values nulled in the next
   section are the exception, as a range reads a value rather than a run and so needs no window at all.
 - a sensor that moves but is wrong. RH/L702 ran 76.5 to 79.8 °C across a day and HV/E237 46.9 to
   57.2 °C, both varying hour to hour exactly as a working sensor does.
@@ -232,8 +237,8 @@ Two things the run rule does not catch, and one it cannot:
 ##### values no reading can hold
 
 A value outside the physical range of its quantity is null whatever window was asked for, with the
-number DWD wrote as the last token of `quality_flags`, `raw:198.15` (GH-3222). Up to 0.163.0 it was
-returned as published and marked `1`. The ranges are those every provider is held to (a humidity to
+number DWD wrote as the last token of `quality_flags`, `rejected:range,raw:198.15` (the check `range`, GH-3222). Up to
+0.163.0 it was returned as published and marked `1`. The ranges are those every provider is held to (a humidity to
 130 %, a wind speed to 115 m/s, a visibility to 200 km, a direction to 360 degrees, a water film to
 1 m, the rain of 15 minutes to 300 mm), in DWD's own units; the surface condition and the
 precipitation type are codes, held to none. The temperatures are narrower at the cold end: below
@@ -258,10 +263,11 @@ cannot reach.
 
 ##### readings inside every range that are no reading
 
-Two rules null a value that is inside every range (GH-3624): the first reads the value alone, the
-second the value beside the air temperature of its minute. The reading is null in `value` and the
-number DWD wrote is the last token of `quality_flags`, `raw:0.1` or `raw:338.75` (the unit of the
-source: %, K), as for a value outside a range. Nothing else of the sensors is judged, and there is
+Two rules null a value that is inside every range (GH-3624): the first reads the value alone (the check `range`), the
+second the value beside the air temperature of its minute (the check `consistency`, which reads the air of the same minute
+from the same dataset and stands aside where it has none). The reading is null in `value` and the number DWD wrote is the last token of
+`quality_flags`, `rejected:range,raw:0.1` or `rejected:consistency,raw:338.75` (the unit of the source: %, K), as for a
+value outside a range; with the check soft the value stays and is flagged `suspect:range` or `suspect:consistency`. Nothing else of the sensors is judged, and there is
 no comparison with neighbouring stations.
 
 - **a relative humidity below 1 %** is no reading. A hygrometer that has failed writes it for hours
@@ -300,11 +306,10 @@ to leave that room. What the rules do not do:
 
 ##### what a quality flag of `1` means
 
-So a quality flag of `1` means suspect, whether DWD said so or the run rule did. They do not
-have the same standing -- DWD's bit 7 is verified against the data, with no station within 5 K of its own air
-temperature carrying it, where the run length is a threshold fitted to one day -- and the column
-does not distinguish them. The log does, for a caller who turns it up: the run rule writes a line at
-`DEBUG` naming the first five stations it marked -- which neither the CLI nor the REST API prints by
-default. A value nulled for its range or by one of the two rules above carries a `raw:` token
-after the flag, `1,raw:198.15` where the sensor has stopped as well. A `null` flag still means
-nobody has looked.
+A quality flag of `1` is DWD's verdict (and `0` its absence), and no longer the run rule's: a stopped sensor is the
+check `stuck`, whose token `suspect:stuck` comes after the flag (`0,suspect:stuck`). They do not have the same standing
+-- DWD's bit 7 is verified against the data, with no station within 5 K of its own air temperature carrying it, where
+the run length is a threshold fitted to one day -- and the two tokens let a caller tell them apart. The run rule also
+writes a line at `DEBUG` naming the first five stations it marked, which neither the CLI nor the REST API prints by
+default. A value nulled for its range or by one of the two rules above carries `rejected:<check>,raw:<number>` after the
+flag, `1,rejected:range,raw:198.15`. A `null` flag still means nobody has looked.
