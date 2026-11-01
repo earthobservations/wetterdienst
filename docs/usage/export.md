@@ -146,7 +146,7 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(parameters=("daily", "climate_summary"), periods="recent")
 values = request.filter_by_station_id(station_id=[1048]).values().all()
-values.to_target("file:///path/to/dwd.csv", with_metadata=True)  # dwd.csv and dwd.csv.metadata.json
+values.to_target("file://dwd.csv", with_metadata=True)  # dwd.csv and dwd.csv.metadata.json, in the working directory
 ```
 
 A sidecar is written beside a file only: `with_metadata=True` for a database target is refused with an
