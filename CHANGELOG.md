@@ -41,6 +41,11 @@ Types of changes:
   was never ignored: everything after `file://` is the path, so `file:///x.csv?a=1` names a file
   `x.csv?a=1` and is refused as an unknown file type, which the message now explains and names
   `%3F` as the way to write a `?` that belongs to the file name (GH-3679)
+- The `missing-value-marker` warning no longer counts the values a hard plausibility check
+  rejected (`rejected:<check>,raw:<number>`): the source wrote a number there, not a marker.
+  They are told by a new warning `rejected-by-plausibility`, with the count per check; a value
+  that several checks rejected is counted under each. A client that summed the old count to
+  find the rejected values reads the new warning instead (GH-3682)
 
 ## [0.180.0] - 2026-11-01
 

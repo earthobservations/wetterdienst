@@ -269,7 +269,12 @@ what the answer is missing:
   and `period-not-narrowing` (a period that was asked for and does not apply), `elevation-unknown` (the stations of unknown
   elevation that an estimate at an elevation had to leave out), `missing-value-marker` (readings that are
   `null` because the source wrote a marker for a missing value: with `drop_nulls` they are not in the
-  answer, and this counts them; without it the `raw:` token of their `quality_flags` keeps the marker),
+  answer, and this counts them; without it the `raw:` token of their `quality_flags` keeps the marker; a number
+  that a plausibility check rejected is no marker and is told by the next code),
+  `rejected-by-plausibility` (values that are `null` because a hard [plausibility check](../data/plausibility.md)
+  rejected the number the source wrote, with the count per check in the message, a value several checks rejected
+  counted under each: with `drop_nulls` they are not in the answer, without it `rejected:<check>,raw:<number>` in
+  their `quality_flags` keeps them; a soft check keeps the value and raises nothing),
   `parameter-ended` (the window reaches years in which the source no longer publishes a parameter, such as
   the hourly `pressure_air_site` of `chmi/observation` after 2024, so it has no values for them),
   `deprecated-parameter` (issued when a parameter is deprecated; none is at the moment),

@@ -22,7 +22,7 @@ from wetterdienst.model.judge import SOURCE as SOURCE_COLUMN
 from wetterdienst.model.judge import SOURCE_TEXT, Plan, Rule, judge, plan_for, to_canonical, to_requested
 from wetterdienst.model.metadata import group_parameters_by_dataset
 from wetterdienst.model.parameter_rows import ParameterRows
-from wetterdienst.model.plausibility import leave_out_suspect
+from wetterdienst.model.plausibility import REJECTED_TOKEN, leave_out_suspect
 from wetterdienst.model.quality_flags import QUALITY_FLAGS, RAW_TOKEN
 from wetterdienst.model.request import require_window
 from wetterdienst.model.result import StationsFilter, StationsResult, ValuesResult
@@ -38,6 +38,8 @@ from wetterdienst.util.logging import TqdmToLogger
 from wetterdienst.util.response_warnings import (
     MISSING_VALUE_MARKER,
     MISSING_VALUE_MARKER_MESSAGE,
+    REJECTED_BY_PLAUSIBILITY,
+    REJECTED_BY_PLAUSIBILITY_MESSAGE,
     count_response_warning,
     warn_response,
 )
@@ -308,6 +310,11 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     #: the readings of the window that the source marked as missing, in the station in hand: counted by
     #: `_process_dataset`, told by `_query_stations` once the station is not left out (GH-3554)
     _markers_in_window: int = field(default=0, init=False, repr=False, compare=False)
+    #: the same for the nulls a hard plausibility check made (`rejected:<check>`), by check: the source wrote a number
+    #: there and not a marker, so `missing-value-marker` leaves them out and `rejected-by-plausibility` counts them
+    #: (GH-3682)
+    _rejected_in_window: int = field(default=0, init=False, repr=False, compare=False)
+    _rejected_by_check: dict[str, int] = field(default_factory=dict, init=False, repr=False, compare=False)
     #: under `skip_empty` with the nulls dropped, the `resolution, dataset, parameter` of the readings in the window
     #: before `drop_nulls` took the nulls out (null or not), in the station in hand: the rows the station has with the
     #: nulls kept, which tell `station-skipped` of a station they empty just the same (GH-3567)
@@ -447,6 +454,8 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             rows.examine(station_id, available_datasets)
             self._data_updated.clear()
             self._markers_in_window = 0
+            self._rejected_in_window = 0
+            self._rejected_by_check.clear()
             self._window_parameters.clear()
             self._window_spans.clear()
             self._window_rows.clear()
@@ -556,6 +565,22 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         rows.note(parameters)
         return not parameters.is_empty()
 
+    def _count_rejected(self, rejected: pl.DataFrame) -> None:
+        """Count the nulls of the window that a hard check made, in all and by the check that rejected them."""
+        if rejected.is_empty():
+            return
+        self._rejected_in_window += rejected.height
+        checks = (
+            rejected.get_column(QUALITY_FLAGS)
+            .str.extract(rf"{REJECTED_TOKEN}([a-z+]+)", 2)
+            .str.split("+")
+            .explode()
+            .drop_nulls()
+            .value_counts()
+        )
+        for check, number in checks.iter_rows():
+            self._rejected_by_check[check] = self._rejected_by_check.get(check, 0) + number
+
     def _tell_missing_value_markers(self, *, emptied: bool = False) -> None:
         """Add the markers of the station in hand to the warning of the request, unless the station is left out.
 
@@ -573,6 +598,12 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             return
         if self._count_missing_value_markers:
             count_response_warning(MISSING_VALUE_MARKER, self._markers_in_window, MISSING_VALUE_MARKER_MESSAGE)
+            count_response_warning(
+                REJECTED_BY_PLAUSIBILITY,
+                self._rejected_in_window,
+                REJECTED_BY_PLAUSIBILITY_MESSAGE,
+                details=self._rejected_by_check,
+            )
 
     def _advance_fetch_ahead(self, ahead: FetchAhead | None, position: int, stations_collected: int) -> None:
         """Have the files of the stations after ``position`` fetched, and wait for those of ``position``."""
@@ -915,9 +946,11 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             # the readings the source marked as missing may leave with the nulls; the answer still tells how many,
             # of the window it is cut to (`_filter_by_window`, later) and not of the whole file, and of the stations
             # it keeps: counted here, told by `_query_stations` (`_tell_missing_value_markers`)
-            self._markers_in_window += in_window.filter(
-                pl.col("value").is_null() & pl.col(QUALITY_FLAGS).str.contains(RAW_TOKEN)
-            ).height
+            # a null a hard check made carries the number the source wrote, not a marker: counted apart (GH-3682)
+            nulled = in_window.filter(pl.col("value").is_null() & pl.col(QUALITY_FLAGS).str.contains(RAW_TOKEN))
+            rejected = pl.col(QUALITY_FLAGS).str.contains(REJECTED_TOKEN)
+            self._markers_in_window += nulled.filter(~rejected).height
+            self._count_rejected(nulled.filter(rejected))
         if self.sr.options.skip_empty:
             # the span the nulls make with them kept, and the readings they are, which the coverage is measured
             # against where there is no window or no grid to count readings by, whether the nulls are dropped or not
