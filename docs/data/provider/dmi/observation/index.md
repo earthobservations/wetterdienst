@@ -109,17 +109,21 @@ Five more parameters are served (read on 2026-11-01). `temp_grass`
 moisture", in Danish bladfugt) the minutes with a wet leaf and `vapour_pressure_deficit_mean`
 (`vapor_pressure_deficit_mean`, in kPa; it comes back in hPa by default) the vapour pressure deficit, calculated from
 the hourly mean temperature and mean relative humidity. DMI publishes these four by the hour and the day and not by the
-month or the year. The hourly `temp_soil_30` is not served: DMI names no source for it ("N/A" in its calculation table;
-the 10 cm value is documented as the mean of the hour) and states the mean only for the day, "the average of all
-hourly values within a day", so the hour waits for DMI's answer. The daily `leaf_moisture` is a sum although DMI's
-calculation table says "average of all hourly values within a day": it is 1332.0, 39.0 and 364.0 at 06135 on 2025-06-10
-to 12, which no mean of minutes could be, and 1440.0 at 06068 on a day of 24 hours of 60.0, so it is the minutes of the
-day, 0 to 1440. A few values are not possible and are kept as DMI writes them, since the library holds these
-five parameters to no range: 1442.0 at 06019 (2022-05-24 and 2023-04-19, the hour of 07:00 UTC of the first being 62.0), negative
-minutes down to -799 at 06032, 06041, 06116 and 06183 in the first quarter of 2023 (-33.0 in every hour of 06041
-from 2023-03-04 on), hourly grass temperatures down to -48.0 °C at 06056 in July 2022
-and daily ones up to 50.9 °C at 06065 in 2013, and a few hourly vapour pressure deficits below 0 (-0.3 kPa at 06193 on
-2025-07-25). The vapour pressure deficit is written to one decimal.
+month or the year. The hourly `temp_soil_30` is not served: DMI names no source for it ("N/A" in its calculation
+table; the 10 cm value is documented as the mean of the hour) and states the mean only for the day, "the average of all
+hourly values within a day", so the hour waits for DMI's answer.
+
+DMI says of these four (and of `temp_soil_10`) that they "are additional parameters, which are not quality controlled
+by DMI's climatologists. As a result, data can be erronous", and their records carry `qcStatus` `none`. The library
+holds the five new parameters to no range and returns what DMI writes, so values that cannot be real are among them.
+The examples are not a list. Leaf wetness: the daily `leaf_moisture` is a sum although DMI's calculation table
+says "average of all hourly values within a day", as 1332.0 at 06135 on 2025-06-10 and 364.0 on the 12th, which no mean
+of minutes could be, and 1440.0 at 06068 on a day of 24 hours of 60.0, show, so it is the minutes of the day, 0 to
+1440; some days are outside it (1442.0 at 06019 on 2022-05-24, negative days down to -799.0 at 06041 on 2023-03-05 and
+at three more stations in the first quarter of 2023) and so are some hours (62.0 at 06019 on 2022-05-24, -33.0 at 06041
+on 2023-03-05). Grass temperature: -48.0 °C by the hour at 06056 in July 2022 and 50.9 °C by the day at 06065 in 2013.
+Vapour pressure deficit, written to one decimal: some hours and days are slightly negative (-0.3 kPa at 06193 on
+2025-07-25, -0.1 at 06169 on 2024-12-26).
 
 The snow cover (`snow_cover`) is the share of the ground covered by snow, observed by hand once a day like the snow
 depth, so a day is 06:00 to 06:00 UTC and is labelled by the date it begins. DMI writes whole percent, "derived
