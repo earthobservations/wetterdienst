@@ -11,6 +11,10 @@ is a change to this file in the same pull request, where a reviewer sees it as a
 
 and read the diff: a removed or renamed path, parameter or member, a changed type, or a status that is
 gone is a break of the version the API is served under; an added optional parameter, member or path is not.
+
+The snapshot has no `info.version`: that is the version of the package, which changes at each release, and a
+line that a release makes stale would be rewritten by every regeneration, a diff unrelated to the change
+(GH-3720). The served one is held to the package's by `test_the_document_is_of_the_version_that_serves_it`.
 """
 
 from __future__ import annotations
@@ -84,9 +88,14 @@ def build_document() -> dict[str, Any]:
             restapi.app.openapi_schema = kept
 
 
+def without_version(document: dict[str, Any]) -> dict[str, Any]:
+    """Give the document without `info.version`, the one member of it that the package's release decides."""
+    return {**document, "info": {key: value for key, value in document["info"].items() if key != "version"}}
+
+
 def write_snapshot() -> None:
-    """Write the document as the snapshot, with the versions that wrote it."""
-    document = {**build_document(), GENERATED_WITH: installed_versions()}
+    """Write the document as the snapshot, without its `info.version` and with the versions that wrote it."""
+    document = {**without_version(build_document()), GENERATED_WITH: installed_versions()}
     SNAPSHOT.write_text(json.dumps(document, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
