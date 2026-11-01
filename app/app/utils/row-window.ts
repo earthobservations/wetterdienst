@@ -208,7 +208,7 @@ export function estimateRows(input: RowEstimateInput): RowEstimate {
     return { rows: null, span: null, unknown }
   const span = { start: dayOf(new Date(first)), end: dayOf(new Date(last)) }
   if (input.asForm)
-    rows = input.records.length * factor * countReadings(input.resolution, dayOf(new Date(first)), dayOf(new Date(last)) + DAY - 1)
+    rows = input.records.length * factor * countReadings(input.resolution, bounds?.start ?? dayOf(new Date(first)), bounds?.end ?? dayOf(new Date(last)) + DAY - 1)
   return { rows: hasInterval(input.resolution) ? rows : null, span, unknown }
 }
 
@@ -341,7 +341,10 @@ export function windowForRefusal(input: RefusalWindowInput): FittingWindow | nul
   const whole = estimateRows({ ...rest, range })
   const maximum = effectiveMaximum(input.resolution, input.maximum)
   return labelledAsServed(fittingWindow({
-    requested: asForm ? (whole.rows ?? requested) : requested,
+    // the form's count over the span the window is fitted to, so that the share of a window is exact
+    requested: asForm && whole.span
+      ? (estimateRows({ ...rest, range: { startDate: isoDay(whole.span.start), endDate: isoDay(whole.span.end) } }).rows ?? requested)
+      : requested,
     maximum,
     resolution: input.resolution,
     span: whole.span,

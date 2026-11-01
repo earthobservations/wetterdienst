@@ -526,8 +526,10 @@ watch(
 function onRangeEdited() {
   const { startDate, endDate } = stationSelectionState.value.dateRange
   defaultWindow.value = null
-  if (!startDate && !endDate && !dateRangeRequired.value) {
-    rangeCleared.value = true
+  if (!startDate && !endDate) {
+    // a range that is not required, emptied: asking for everything, which is kept. One that is required
+    // cannot be empty, and is the page's to fill again at the next change, as it always was
+    rangeCleared.value = !dateRangeRequired.value
     rangeEdited.value = false
   }
   else {

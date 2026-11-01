@@ -126,6 +126,18 @@ describe('explorer default date range', () => {
     await vi.waitFor(() => expect(vm.defaultWindow).toBeNull())
   })
 
+  it('fills a required range again at the next change, after it was emptied by hand', async () => {
+    const { wrapper, vm, list } = await open()
+    await select(wrapper, vm, list.slice(0, 3))
+    vm.stationSelectionState.mode = 'interpolation'
+    await vi.waitFor(() => expect(dates(vm).startDate).toBeDefined())
+    vm.stationSelectionState.dateRange.startDate = undefined
+    vm.stationSelectionState.dateRange.endDate = undefined
+    vm.onRangeEdited()
+    vm.stationSelectionState.selection.stations = list.slice(0, 4)
+    await vi.waitFor(() => expect(dates(vm).startDate).toBeDefined())
+  })
+
   it('leaves the range empty where the whole record fits', async () => {
     const { wrapper, vm, list } = await open()
     await select(wrapper, vm, list.slice(0, 2))

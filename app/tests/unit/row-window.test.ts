@@ -434,4 +434,22 @@ describe('a high resolution, counted as the date range form does', () => {
     const served = estimateRows({ resolution: '10_minutes', records: [record('1993-01-01', null)], parameterCount: 3, tidy: false, range: { startDate: range.window.startDate, endDate: range.window.endDate }, now: NOW }).rows!
     expect(range.window.rows).toBe(aboutRows(served))
   })
+
+  it('does not stretch a window across a gap in the records, where the form counts every day of it', () => {
+    const records = [record('2000-01-01', '2025-01-01'), record('2026-10-20', null)]
+    const range = defaultRange({ resolution: '1_minute', records, parameterCount: 1, maxRows: 500_000, required: true, now: NOW })
+    expect(range.kind).toBe('window')
+    if (range.kind === 'window')
+      expect(formValues(range.window.startDate, range.window.endDate, 1440, 2, 1)).toBeLessThanOrEqual(100_000)
+    const refused = windowForRefusal({
+      resolution: '1_minute',
+      records,
+      parameterCount: 1,
+      requested: 600_000,
+      maximum: 500_000,
+      range: { startDate: '2024-06-01', endDate: '2026-10-25' },
+      now: NOW,
+    })!
+    expect(formValues(refused.startDate, refused.endDate, 1440, 2, 1)).toBeLessThanOrEqual(100_000)
+  })
 })
