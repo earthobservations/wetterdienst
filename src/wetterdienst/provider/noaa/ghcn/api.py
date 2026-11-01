@@ -75,25 +75,30 @@ GHCNH_SPECIAL_REPORT_TYPES = ("FM16", "SAOSP")
 GHCNH_NO_CODE = "Null"
 
 # stations whose longitude `ghcnd-stations.txt` (and `ghcnd-inventory.txt`) and `ghcnh-station-list.csv` list with the
-# wrong sign, all 43 listed east of Greenwich where they lie west of it, 6 to 1,299 km off: the list has lost the sign
-# (GH-2645, GH-2886, GH-3384). Each was checked against two or more other sources (ECA&D, GHCN hourly list, ISD
-# history, DWD MOSMIX, OpenStreetMap, Wikipedia, AEMET) that put the same place on the other side of the meridian and
-# within 4 km of the mirrored position; the values per station are in the pull requests of those issues.
+# wrong sign, all 48 listed east of Greenwich where they lie west of it, 6 to 4,571 km off: the list has lost the sign
+# (GH-2645, GH-2886, GH-3384). Each was checked against two or more other sources (ECA&D, GHCN hourly and daily
+# lists, ISD history, DWD MOSMIX, OpenStreetMap, Wikipedia, AEMET, PacIOOS) that put the same place on the other side
+# of the meridian and within 10 km of the mirrored position; the values per station are in the pull requests of those
+# issues.
 # The value is the (latitude, longitude) the lists gave when the station was checked: the longitude of a row is turned
 # only while the row still lists exactly this position (`_turn_sign`, `_restore_lost_signs`), so a list that NOAA has
 # corrected, or moved, is read as it is, and an id that the lists use for another station is not touched. One table
-# serves both lists; UKW00015015 and UKW00015033 are in both with the same position, and AGUG0060517, MOI0000GMMK,
-# SPM00008164, SPM00008165 and SPM00008282 are in the hourly list only.
+# serves both lists; UKW00015015 and UKW00015033 are in both with the same position, and AGUG0060517, CMU55-00161,
+# ICM00004102, MOI0000GMMK, RSU025594-5, SPM00008164, SPM00008165, SPM00008166, SPM00008282 and USL000KNOH1 are in the
+# hourly list only.
 LOST_LONGITUDE_SIGN_STATIONS: dict[str, tuple[float, float]] = {
     "AGE00135039": (35.7297, 0.65),  # ORAN-HOPITAL MILITAIRE
     "AGE00147714": (35.77, 0.8),  # ORAN-CAP FALCON
     "AGE00147717": (35.2, 0.63),  # SIDI-BEL-ABBES
     "AGUG0060517": (35.1, 1.85),  # NEMOURS (GHAZAOUET), hourly list only
+    "CMU55-00161": (8.49, 13.15),  # FREETOWN (Sierra Leone, listed under Cameroon's prefix), hourly list only
     "FR000007510": (44.8306, 0.6914),  # BORDEAUX-MERIGNAC
     "FRE00104044": (49.18, 0.4558),  # CAEN-CARPIQUET
     "FRE00104957": (43.2481, 0.155),  # ESPOEY
     "FRE00106203": (43.9094, 0.5003),  # MONT-DE-MARSAN
+    "ICM00004102": (63.2993, 20.5995),  # SURTSEY, hourly list only
     "MOI0000GMMK": (32.859, 6.9454),  # KHOURIBGA MILITARY ARPT, hourly list only
+    "RSU025594-5": (64.38, 173.23),  # BUHTAPROVIDENJA, hourly list only
     "SP000007038": (37.9769, 0.7106),  # TORREVIEJA
     "SP000008416": (39.4806, 0.3664),  # VALENCIA
     "SPE00101035": (38.2828, 0.5706),  # ALICANTE EL ALTET
@@ -105,6 +110,7 @@ LOST_LONGITUDE_SIGN_STATIONS: dict[str, tuple[float, float]] = {
     "SPE00120584": (39.4867, 0.4731),  # VALENCIA/AEROPUERTO
     "SPM00008164": (41.0578, 0.1414),  # ALCANIZ, hourly list only
     "SPM00008165": (41.5217, 0.1742),  # BUJARALOZ, hourly list only
+    "SPM00008166": (40.9467, 0.2378),  # CALANDA, hourly list only
     "SPM00008282": (38.9289, 0.0956),  # OLIVA, hourly list only
     "UK000003377": (53.1658, 0.5239),  # WADDINGTON
     "UKE00100808": (53.7667, 0.3667),  # HULL
@@ -126,6 +132,7 @@ LOST_LONGITUDE_SIGN_STATIONS: dict[str, tuple[float, float]] = {
     "UKW00015034": (52.35, 0.1167),  # WYTON
     "UKW00015035": (53.1667, 0.5167),  # WADDINGTON
     "UKW00015041": (53.3667, 0.6833),  # STURGATE
+    "USL000KNOH1": (21.2833, 157.8667),  # KILO NALU OBS (WAVE SENSOR), Oahu, hourly list only
     "UV000005503": (12.35, 1.52),  # OUAGADOUGOU
     "UVM00065505": (12.467, 3.483),  # DEDOUGOU
 }

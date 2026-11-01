@@ -41,6 +41,13 @@ Types of changes:
 - **Breaking**: `dwd/road` holds a surface more than 20 K above the air at night to the air only
   where the air is no stopped sensor's (`suspect:stuck`, 24 readings or more), so the surface
   beside the `-75.00` °C of station group KM is kept (GH-3681)
+- **Breaking**: 5 more `noaa/ghcn` hourly stations are placed west of Greenwich, no longer east
+  of it, where `ghcnh-station-list.csv` has lost the sign of their longitude: Freetown in Sierra
+  Leone (CMU55-00161), Surtsey (ICM00004102), Buhta Providenja (RSU025594-5), Calanda
+  (SPM00008166) and Kilo Nalu off Oahu (USL000KNOH1). They were 40 to 4,571 km off, so a
+  nearest-station search or a distance filter near them picked the wrong stations; a filter on
+  the old position needs the new one. A row is turned only while it lists the position that was
+  checked, so a list NOAA corrects is read as it is (GH-2886)
 
 ## [0.180.0] - 2026-11-01
 
