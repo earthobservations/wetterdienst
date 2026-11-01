@@ -453,7 +453,12 @@ const dateRangeRequired = computed(() =>
 function startDateRange() {
   const state = stationSelectionState.value
   const stations = state.selection.stations
-  if (!stations.length || rangeEdited.value)
+  if (!stations.length) {
+    // a window was for stations that are no longer selected
+    defaultWindow.value = null
+    return
+  }
+  if (rangeEdited.value)
     return
   const range = state.dateRange
   const today = new Date().toISOString().slice(0, 10)

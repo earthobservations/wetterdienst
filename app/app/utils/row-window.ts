@@ -208,7 +208,7 @@ export function estimateRows(input: RowEstimateInput): RowEstimate {
     return { rows: null, span: null, unknown }
   const span = { start: dayOf(new Date(first)), end: dayOf(new Date(last)) }
   if (input.asForm)
-    rows = input.records.length * factor * countReadings(input.resolution, bounds?.start ?? first, bounds?.end ?? last)
+    rows = input.records.length * factor * countReadings(input.resolution, dayOf(new Date(first)), dayOf(new Date(last)) + DAY - 1)
   return { rows: hasInterval(input.resolution) ? rows : null, span, unknown }
 }
 
@@ -312,6 +312,14 @@ export function fittingWindow(input: FittingWindowInput): FittingWindow | null {
   return null
 }
 
+/** The window with the rows it holds as the server counts them, where it was sized by the form's count (a high resolution). */
+function labelledAsServed(window: FittingWindow | null, input: RowEstimateInput): FittingWindow | null {
+  if (!window || !input.asForm)
+    return window
+  const served = estimateRows({ ...input, asForm: false, range: { startDate: window.startDate, endDate: window.endDate } }).rows
+  return served === null ? window : { ...window, rows: aboutRows(served) }
+}
+
 export interface RefusalWindowInput extends Omit<RowEstimateInput, 'range'> {
   /** the rows the server counted, and the limit it holds them to */
   requested: number
@@ -332,13 +340,13 @@ export function windowForRefusal(input: RefusalWindowInput): FittingWindow | nul
   const { requested, ...rest } = { ...base, asForm }
   const whole = estimateRows({ ...rest, range })
   const maximum = effectiveMaximum(input.resolution, input.maximum)
-  return fittingWindow({
+  return labelledAsServed(fittingWindow({
     requested: asForm ? (whole.rows ?? requested) : requested,
     maximum,
     resolution: input.resolution,
     span: whole.span,
     rowsWithin: (start, end) => estimateRows({ ...rest, range: { startDate: isoDay(start), endDate: isoDay(end) } }).rows,
-  })
+  }), { ...rest, range })
 }
 
 /** What the explorer starts the date range with, once a selection is made. */
@@ -370,13 +378,13 @@ export function defaultRange(input: DefaultRangeInput): DefaultRange {
   const maximum = effectiveMaximum(input.resolution, maxRows)
   if (whole.rows === null || !whole.span || maximum <= 0 || whole.rows <= Math.floor(maximum * ROW_MARGIN))
     return required ? wholeRange() : { kind: 'none' }
-  const window = fittingWindow({
+  const window = labelledAsServed(fittingWindow({
     requested: whole.rows,
     maximum,
     resolution: input.resolution,
     span: whole.span,
     rowsWithin: (start, end) => estimateRows({ ...rest, range: { startDate: isoDay(start), endDate: isoDay(end) } }).rows,
-  })
+  }), rest)
   if (window)
     return { kind: 'window', window }
   return required ? wholeRange() : { kind: 'none' }

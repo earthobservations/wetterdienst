@@ -118,6 +118,14 @@ describe('explorer default date range', () => {
     expect(dates(vm).startDate! < '1900-01-01').toBe(true)
   })
 
+  it('takes the note away when the stations are removed before the selection becomes a point', async () => {
+    const { wrapper, vm, list } = await open()
+    await select(wrapper, vm, list.slice(0, 30))
+    await vi.waitFor(() => expect(vm.defaultWindow).not.toBeNull())
+    vm.stationSelectionState.selection.stations = []
+    await vi.waitFor(() => expect(vm.defaultWindow).toBeNull())
+  })
+
   it('leaves the range empty where the whole record fits', async () => {
     const { wrapper, vm, list } = await open()
     await select(wrapper, vm, list.slice(0, 2))

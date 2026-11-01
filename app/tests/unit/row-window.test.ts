@@ -401,4 +401,37 @@ describe('a high resolution, counted as the date range form does', () => {
     })!
     expect(formValues(window.startDate, window.endDate, 1440, 1, 2)).toBeLessThanOrEqual(100_000)
   })
+
+  it('scales the refusal\'s window by the stations\' records within the range, not by the whole range', () => {
+    // the record begins in June, the range in January: only the days of the record are rows
+    const window = windowForRefusal({
+      resolution: '10_minutes',
+      records: [record('2026-06-01', null)],
+      parameterCount: 1,
+      requested: 22_000,
+      maximum: 20_000,
+      range: { startDate: '2026-01-01', endDate: '2026-10-26' },
+      now: NOW,
+    })!
+    expect(window.unit).toBe('months')
+    expect(window.count).toBe(4)
+    expect(window.rows).toBe(aboutRows(estimateRows({ resolution: '10_minutes', records: [record('2026-06-01', null)], parameterCount: 1, range: { startDate: window.startDate, endDate: window.endDate }, now: NOW }).rows!))
+  })
+
+  it('says the rows of a window as the server counts them: the wide shape is a row for each timestamp', () => {
+    const range = defaultRange({
+      resolution: '10_minutes',
+      records: [record('1993-01-01', null)],
+      parameterCount: 3,
+      tidy: false,
+      maxRows: 500_000,
+      required: true,
+      now: NOW,
+    })
+    expect(range.kind).toBe('window')
+    if (range.kind !== 'window')
+      return
+    const served = estimateRows({ resolution: '10_minutes', records: [record('1993-01-01', null)], parameterCount: 3, tidy: false, range: { startDate: range.window.startDate, endDate: range.window.endDate }, now: NOW }).rows!
+    expect(range.window.rows).toBe(aboutRows(served))
+  })
 })
