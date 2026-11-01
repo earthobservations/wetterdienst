@@ -37,6 +37,10 @@ The same pages and states (in light/English and dark/German) are scanned twice m
   `focus-lost`); and for the contrast of the text with the focus on it. Reka's invisible focus guards, and
   the proxies at either end of the toast region, are not stops. The rules are the app's own ids, in `CUSTOM_RULES` of `interact.ts`.
 
+The prototype of an SVG forecast chart (`/meteogram-svg`, GH-3237, by URL only, not linked) is scanned like a page,
+and `svg meteogram` drives it by keys and pointer: one tab stop, arrow-key stepping, a readout that is hoverable,
+persistent and dismissed by Escape (1.4.13), zoom by buttons and keys, no animation under `prefers-reduced-motion`.
+
 Beside the scans, `accessibility.spec.ts` drives widgets by keys alone (`keyboard operation`: the station
 picker, a collapsible, a menu, and the narrow layout's menu, which is a dialog that keeps the focus and gives
 it back; `chart controls by keyboard`: Plotly's modebar, and the table of values that stands for the stripes
