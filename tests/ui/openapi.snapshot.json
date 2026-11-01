@@ -13,7 +13,6 @@
       "identifier": "MIT",
       "url": "https://github.com/earthobservations/wetterdienst/blob/main/LICENSE.md"
     },
-    "version": "0.178.0",
     "x-api-version": "1"
   },
   "servers": [
