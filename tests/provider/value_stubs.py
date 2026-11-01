@@ -1414,10 +1414,14 @@ def _forecast_kml(station_id: str, elements: dict[str, str]) -> bytes:
     ).encode()
 
 
-def _dwd_mosmix(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
-    # the file writes `-` for a value the run does not have, in the blank-separated list of an element; the
-    # temperature is in Kelvin, and the second hour of it and the third of the dew point are missing
-    kml = _forecast_kml("01001", {"TTT": "275.15 - 276.15", "Td": "273.15 274.15 -"})
+def dwd_mosmix_values(
+    monkeypatch: pytest.MonkeyPatch,
+    elements: dict[str, str],
+    parameters: list[tuple[str, str, str]],
+    options: Options | None = None,
+) -> pl.DataFrame:
+    """Give the values of station 01001 from a MOSMIX run that holds the given elements, as a caller gets them."""
+    kml = _forecast_kml("01001", elements)
     monkeypatch.setattr(
         dwd_mosmix_api.DwdMosmixValues,
         "get_url_for_date",
@@ -1425,11 +1429,22 @@ def _dwd_mosmix(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
     )
     monkeypatch.setattr(dwd_mosmix_api.KMLReader, "fetch", lambda _self, _url: BytesIO(kml))
     request = DwdMosmixRequest(
-        parameters=[("hourly", "small", "ttt"), ("hourly", "small", "td")],
+        parameters=parameters,
         settings=_settings(),
+        options=options or _options(drop_nulls=True),
+    )
+    return stations_result(request, "hourly", parameters[0][1], "01001").values().all().df
+
+
+def _dwd_mosmix(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # the file writes `-` for a value the run does not have, in the blank-separated list of an element; the
+    # temperature is in Kelvin, and the second hour of it and the third of the dew point are missing
+    return dwd_mosmix_values(
+        monkeypatch,
+        {"TTT": "275.15 - 276.15", "Td": "273.15 274.15 -"},
+        [("hourly", "small", "ttt"), ("hourly", "small", "td")],
         options=_options(drop_nulls),
     )
-    return stations_result(request, "hourly", "small", "01001").values().all().df
 
 
 def dwd_dmo_values(

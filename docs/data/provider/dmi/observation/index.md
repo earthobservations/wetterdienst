@@ -117,7 +117,7 @@ hourly values within a day", so the hour waits for DMI's answer.
 
 DMI says of these four (and of `temp_soil_10`) that they "are additional parameters, which are not quality controlled
 by DMI's climatologists. As a result, data can be erronous", and their records carry `qcStatus` `none`. The library
-holds them to the table of ranges like any other quantity (snow cover 0 to 100 %, leaf wetness the span and 5 % more,
+holds the five new parameters to the table of ranges like any other quantity (snow cover 0 to 100 %, leaf wetness the span and 5 % more,
 the deficit -10 to 200 hPa, the temperatures those of their families), so what lies outside is null with
 `rejected:range` and the number kept as `raw:`; values that cannot be real and lie inside are among what it returns.
 The examples are not a list. Leaf wetness: the daily `leaf_moisture` is a sum although DMI's calculation table says

@@ -16,35 +16,6 @@ Types of changes:
 
 ## [Unreleased]
 
-### Added
-
-- A Parquet file, a NetCDF file and a Zarr group written by `to_target` carry the licence, the credit
-  line and the date of the data: the `metadata` block of the REST API, as JSON under
-  `wetterdienst_metadata` and as `license`, `attribution`, `retrieved_at` and more, in Parquet's
-  key-value metadata and in the attributes of the group. CSV, spreadsheets, JSON, JSON Lines,
-  GeoJSON and Feather files stay bare; `to_target(..., with_metadata=True)` and `to_csv(file=...,
-  with_metadata=True)` write the block beside them as `<file>.metadata.json`, and add the units and
-  the quality legend to the three that carry it. A database target refuses `with_metadata` (GH-3449)
-- `dmi/observation` now serves five more DMI parameters under new names: `snow_cover` (daily,
-  2011-01-01 to 2015-11-21 only; percent, returned as a decimal), `leaf_wetness_duration` (minutes,
-  returned in seconds), `temperature_air_mean_grass_height` (5 to 20 cm above ground) and
-  `vapor_pressure_deficit_mean` (kPa, returned in hPa), hourly and daily, and
-  `temperature_soil_mean_0_3m`, daily only. The daily leaf wetness is the minutes of the day (0 to
-  1440), not the average of the hourly values the source's table names. The five are held to the
-  table of ranges like any other quantity (Part of GH-3622)
-- `FormattableResult` (`wetterdienst.model.result`) is a `typing.Protocol` of `to_dict`,
-  `to_json` and `to_format` that the five results and the alerts result satisfy, so one function
-  can write them all. `HistoryResult` gets `to_format`, for JSON only: any other format, CSV
-  included, is an `UnknownFormatError` naming `json`. The alerts result of `dwd/alerts` takes the
-  format in any case (`to_format("JSON")`, refused before), `indent` as a number or a flag in
-  `to_json`, `to_geojson` and `to_format` (`indent=0` now breaks lines without indenting, as on
-  the others), and `with_metadata` (the block of the others); its default stays one line. It is
-  outside the frozen results (GH-3449)
-- `wetterdienst stations`, `values`, `interpolate` and `summarize` pass `--with-metadata` to
-  `--target`, as `to_target(..., with_metadata=True)` takes it: a file `<file>.metadata.json`
-  beside a CSV, spreadsheet, JSON, JSON Lines, GeoJSON or Feather file, and the units and the
-  quality legend in the block of a Parquet, NetCDF or Zarr file (GH-3704)
-
 ### Changed
 
 - **Breaking**: the `range` check judges every network, against one table of bounds that is the
@@ -81,6 +52,46 @@ Types of changes:
   stopped sensors (seen in group KM) stays null in any window, now as a code of the source:
   `raw:198.15`, no longer `rejected:range,raw:198.15`, so `range: soft` no longer returns it:
   filter on `raw:198.15` (GH-3681)
+- **Breaking**: the five DMI parameters of 0.181.0 (snow cover, leaf wetness, grass and soil
+  temperature, vapour pressure deficit) are held to the table of ranges like any other quantity, so
+  a value outside it (a negative leaf wetness) is null with `rejected:range,raw:<number>`, where
+  0.181.0 returned it. The deficit is -10 to 200 hPa: DMI publishes slightly negative ones as
+  valid (GH-3681)
+
+## [0.181.0] - 2026-11-01
+
+### Added
+
+- A Parquet file, a NetCDF file and a Zarr group written by `to_target` carry the licence, the credit
+  line and the date of the data: the `metadata` block of the REST API, as JSON under
+  `wetterdienst_metadata` and as `license`, `attribution`, `retrieved_at` and more, in Parquet's
+  key-value metadata and in the attributes of the group. CSV, spreadsheets, JSON, JSON Lines,
+  GeoJSON and Feather files stay bare; `to_target(..., with_metadata=True)` and `to_csv(file=...,
+  with_metadata=True)` write the block beside them as `<file>.metadata.json`, and add the units and
+  the quality legend to the three that carry it. A database target refuses `with_metadata` (GH-3449)
+- `dmi/observation` now serves five more DMI parameters under new names: `snow_cover` (daily,
+  2011-01-01 to 2015-11-21 only; percent, returned as a decimal), `leaf_wetness_duration` (minutes,
+  returned in seconds), `temperature_air_mean_grass_height` (5 to 20 cm above ground) and
+  `vapor_pressure_deficit_mean` (kPa, returned in hPa), hourly and daily, and
+  `temperature_soil_mean_0_3m`, daily only. The daily leaf wetness is the minutes of the day (0 to
+  1440), not the average of the hourly values the source's table names. The library holds none of
+  the five to a range, so the impossible values DMI writes for some days and hours are kept
+  (Part of GH-3622)
+- `FormattableResult` (`wetterdienst.model.result`) is a `typing.Protocol` of `to_dict`,
+  `to_json` and `to_format` that the five results and the alerts result satisfy, so one function
+  can write them all. `HistoryResult` gets `to_format`, for JSON only: any other format, CSV
+  included, is an `UnknownFormatError` naming `json`. The alerts result of `dwd/alerts` takes the
+  format in any case (`to_format("JSON")`, refused before), `indent` as a number or a flag in
+  `to_json`, `to_geojson` and `to_format` (`indent=0` now breaks lines without indenting, as on
+  the others), and `with_metadata` (the block of the others); its default stays one line. It is
+  outside the frozen results (GH-3449)
+- `wetterdienst stations`, `values`, `interpolate` and `summarize` pass `--with-metadata` to
+  `--target`, as `to_target(..., with_metadata=True)` takes it: a file `<file>.metadata.json`
+  beside a CSV, spreadsheet, JSON, JSON Lines, GeoJSON or Feather file, and the units and the
+  quality legend in the block of a Parquet, NetCDF or Zarr file (GH-3704)
+
+### Changed
+
 - **Breaking**: `--with-metadata` with a database `--target` of `wetterdienst stations`, `values`,
   `interpolate` or `summarize` is refused with the library's message and exit code 1, before
   anything is written, where the flag was ignored and the table written. Leave the flag out for a
@@ -92,6 +103,21 @@ Types of changes:
   nearest-station search or a distance filter near them picked the wrong stations; a filter on
   the old position needs the new one. A row is turned only while it lists the position that was
   checked, so a list NOAA corrects is read as it is (GH-2886)
+- **Breaking**: the `missing-value-marker` warning no longer counts a calm wind direction (the
+  source writes 0, null with `raw:0`): a calm has no direction, and no reading is missing. A new
+  warning `calm-wind-direction` counts them, with the same `drop_nulls` behaviour. The count of
+  `missing-value-marker` drops for a wind direction dataset; a client that wants the old sum adds
+  the two. A 0 that is no calm stays a marker: a code for no direction (`dwd/observation` hourly
+  `wind_synoptic` and `urban_wind`, `ipma/observation`) or the direction of a gust that is not
+  reported (`eccc/observation` daily, `noaa/ghcn` daily at Environment Canada) (GH-3696)
+- **Breaking**: `error_absolute_temperature_air_2m` and `error_absolute_temperature_dew_point_2m`
+  of `dwd/mosmix` (`e_ttt`, `e_td`) are errors, temperature differences, and come back in kelvin
+  as the source wrote them: 2.0 for an expected error of 2 K. They were converted as readings and
+  came back 273.15 too low (-271.15) in the default °C; add 273.15 to a stored value to recover
+  the error in K.
+  Their unit type is the new `temperature_difference`, whose only unit is `degree_kelvin`, so
+  `unit_targets={"temperature": ...}` does not move them and no other target is accepted for it
+  (GH-3688)
 
 ### Fixed
 
@@ -119,6 +145,13 @@ Types of changes:
   they did a `pl.Enum` column, not as a pandas Categorical. SQLite and DuckDB wrote the text
   either way; the dialects that could not be tried are no longer left to read a Categorical
   (GH-3694)
+- **Breaking**: `interpolate` and `summarize` refuse an `elevation` of NaN or infinity on the REST
+  API (422), the command line (usage error), MCP and in Python (`RequestError`, also from the
+  `_by_station_id` methods). It was accepted and written into the point's name and id
+  (`interpolation(51.0000,13.0000,nanm)`) and as the z of its GeoJSON position. Leave `elevation`
+  out for readings as they come. Latitude and longitude were refused already, except by
+  `TimeseriesRequest.summarize` in Python, which answered no rows for a NaN or infinity and now
+  raises `LocationOutOfRangeError` as `interpolate` does (GH-3689)
 
 ## [0.180.0] - 2026-11-01
 
@@ -7216,7 +7249,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.180.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.181.0...HEAD
+[0.181.0]: https://github.com/earthobservations/wetterdienst/compare/v0.180.0...v0.181.0
 [0.180.0]: https://github.com/earthobservations/wetterdienst/compare/v0.179.0...v0.180.0
 [0.179.0]: https://github.com/earthobservations/wetterdienst/compare/v0.178.0...v0.179.0
 [0.178.0]: https://github.com/earthobservations/wetterdienst/compare/v0.177.0...v0.178.0

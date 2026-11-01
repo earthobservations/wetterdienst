@@ -407,3 +407,26 @@ def test_a_forecast_floor_still_sets_the_floor() -> None:
     out = judged(_frame([(rr1, -0.02)]), network="dwd/dmo", dataset=dataset, modes=Plausibility.model_validate("hard"))
     assert out.get_column("value").to_list() == [0.0]
     assert out.get_column("quality_flags").to_list() == ["rejected:floor,raw:-0.02"]
+
+
+def test_a_temperature_difference_is_held_to_no_temperature_bound() -> None:
+    """The error of a temperature is no temperature, so no range of one catches it (GH-3688).
+
+    An expected error of 0 K or of 40 K lies outside no bound of the air, and the rules that name the unit type
+    `temperature` (France's frostless stations, `Bound(low=0.0, unit_type="temperature")`) do not select a difference.
+    """
+    from wetterdienst.metadata.parameter_table import PARAMETER_TABLE  # noqa: PLC0415
+    from wetterdienst.model.plausibility_ranges import bounds_for  # noqa: PLC0415
+
+    differences = {p.name for p in PARAMETER_TABLE if p.unit_type == "temperature_difference"}
+    assert differences == {"error_absolute_temperature_air_2m", "error_absolute_temperature_dew_point_2m"}
+    assert [name for name in differences if bounds_for(name) is not None] == []
+    plan = plan_for("dwd/mosmix", _datasets("dwd/mosmix")[("hourly", "large")])
+    assert {c.name for c in plan.parameters.values() if c.name in differences} == differences
+    assert not [name for name, c in plan.parameters.items() if c.name in differences and name in plan.ranges]
+    # the kelvin of the file is the canonical unit of a difference, so it is judged as written, where a reading is
+    # converted to degrees Celsius and loses 273.15
+    assert {c.canonical for c in plan.parameters.values() if c.name in differences} == {"degree_kelvin"}
+    frame = pl.DataFrame({"parameter": ["e_ttt", "e_td", "ttt"], "value": [2.0, 0.5, 275.15]})
+    converted = frame.with_columns(to_canonical(plan).alias("value"))
+    assert converted["value"].to_list() == pytest.approx([2.0, 0.5, 2.0])

@@ -474,13 +474,13 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     ),
     CanonicalParameter(
         "error_absolute_temperature_air_2m",
-        "temperature",
-        "Absolute error attached to the reported air temperature.",
+        "temperature_difference",
+        "Absolute error attached to the reported air temperature, a temperature difference in kelvin.",
     ),
     CanonicalParameter(
         "error_absolute_temperature_dew_point_2m",
-        "temperature",
-        "Absolute error attached to the reported dew point.",
+        "temperature_difference",
+        "Absolute error attached to the reported dew point, a temperature difference in kelvin.",
     ),
     CanonicalParameter(
         "error_absolute_wind_direction", "angle", "Absolute error attached to the reported wind direction."

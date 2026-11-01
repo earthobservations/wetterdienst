@@ -143,6 +143,7 @@
         "data": [
           "cloud_cover_total",
           "humidity_relative_mean",
+          "leaf_wetness_duration",
           "precipitation_amount",
           "precipitation_amount_last_12h",
           "precipitation_amount_last_24h",
@@ -152,9 +153,11 @@
           "temperature_air_max_2m",
           "temperature_air_max_2m_last_12h",
           "temperature_air_mean_2m",
+          "temperature_air_mean_grass_height",
           "temperature_air_min_2m",
           "temperature_air_min_2m_last_12h",
           "temperature_soil_mean_0_1m",
+          "vapor_pressure_deficit_mean",
           "wind_direction_mean",
           "wind_gust_max",
           "wind_speed_mean",
@@ -170,6 +173,7 @@
           "humidity_relative_max",
           "humidity_relative_mean",
           "humidity_relative_min",
+          "leaf_wetness_duration",
           "precipitation_amount",
           "precipitation_amount_max_30min",
           "pressure_air_sea_level_max",
@@ -177,12 +181,16 @@
           "pressure_air_sea_level_min",
           "pressure_vapor_mean",
           "radiation_global",
+          "snow_cover",
           "snow_depth_manual",
           "sunshine_duration",
           "temperature_air_max_2m",
           "temperature_air_mean_2m",
+          "temperature_air_mean_grass_height",
           "temperature_air_min_2m",
           "temperature_soil_mean_0_1m",
+          "temperature_soil_mean_0_3m",
+          "vapor_pressure_deficit_mean",
           "wind_direction_mean",
           "wind_gust_max",
           "wind_speed_mean",
@@ -3530,5 +3538,5 @@
     "parameters": {},
     "in_dataset": {}
   },
-  "x-release": "0.180.0"
+  "x-release": "0.181.0"
 }

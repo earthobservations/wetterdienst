@@ -113,6 +113,9 @@ class Sentinel:
 
 # the text of the direction of a calm wind, as every source that writes one writes it
 CALM = "0"
+# a regular expression for the `raw` token of a calm in a `quality_flags` string: the last token, the zero as the source
+# wrote it (`0`, `0.0`, `000`), which `values` counts apart from the markers of a missing value (GH-3696)
+CALM_TOKEN = rf"(^|,){RAW}:0+(\.0+)?$"
 # the column a long frame carries the speed of a wind direction's own reading in, beside the direction
 # (`with_speed_beside`), until the reader drops it
 SPEED_BESIDE = "__speed_beside"

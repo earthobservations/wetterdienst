@@ -42,6 +42,22 @@ SUSPECT_TOKEN = rf"(^|,){SUSPECT}:"
 #: and for the one a hard check writes
 REJECTED_TOKEN = rf"(^|,){REJECTED}:"
 
+
+def hard_means(check: str) -> str:
+    """Say what ``hard`` does for a check: null the value (``floor``: set it to 0.0) and keep the number."""
+    does = "sets the value to 0.0" if check == "floor" else "nulls the value"
+    return f"{does} and keeps the number as `rejected:{check},raw:<number>` in `quality_flags`"
+
+
+def forecast_note(check: str) -> str:
+    """Say what a forecast network does with the mode of a check (``Plausibility.for_forecast``)."""
+    if check in CORRECTING_CHECKS:
+        return (
+            "A forecast network (`kind` `forecast`) keeps the mode as set for this check, and judges the others soft."
+        )
+    return "A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` keeps its mode)."
+
+
 _HARD_MEANS = (
     "`hard` nulls the value and keeps the number the source wrote as `rejected:{check},raw:<number>` in "
     "`quality_flags`; `soft` keeps the value and flags it `suspect:{check}`."

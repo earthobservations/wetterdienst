@@ -369,6 +369,8 @@ UNIT_TYPE_RANGES: dict[str, Range] = {
     "significant_weather": None,
     "speed": None,
     "temperature": None,
+    # an error in kelvin, signed (the `error_absolute_temperature_*` of MOSMIX, GH-3688): no reading, no bound
+    "temperature_difference": None,
     "time": _NON_NEGATIVE,
     "turbidity": _NON_NEGATIVE,
     "volume": _NON_NEGATIVE,

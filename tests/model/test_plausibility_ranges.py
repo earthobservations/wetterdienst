@@ -190,6 +190,12 @@ def test_the_error_of_a_forecast_temperature_is_in_no_temperature_rule(name: str
     )
 
 
+def test_the_unit_type_temperature_difference_is_held_to_nothing() -> None:
+    """A difference in kelvin is signed and no reading: the unit type has no range of its own (GH-3688)."""
+    assert plausibility_ranges.UNIT_TYPE_RANGES["temperature_difference"] is None
+    assert bounds_for("a_difference_no_table_names", None, "temperature_difference") is None
+
+
 def test_a_bound_is_not_a_record() -> None:
     """Every extreme the module cites lies inside its bound; the one documented exceedance lies outside."""
     records = [

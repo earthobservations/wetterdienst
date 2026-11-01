@@ -121,7 +121,7 @@ wetterdienst values --provider=dwd --network=observation \
     --target="duckdb:////var/lib/wetterdienst/obs.duckdb?table=weather" --if-exists=append
 ```
 
-### Licence, credit and date in a file
+## Licence, credit and date in a file
 
 An answer of the REST API says in its `metadata` block where the data comes from, under which licence it may be used,
 which credit line to give, and when it was retrieved. A file carries the same block where its format has a place for
@@ -146,7 +146,7 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(parameters=("daily", "climate_summary"), periods="recent")
 values = request.filter_by_station_id(station_id=[1048]).values().all()
-values.to_target("file:///path/to/dwd.csv", with_metadata=True)  # dwd.csv and dwd.csv.metadata.json
+values.to_target("file://dwd.csv", with_metadata=True)  # dwd.csv and dwd.csv.metadata.json, in the working directory
 ```
 
 A sidecar is written beside a file only: `with_metadata=True` for a database target is refused with an
