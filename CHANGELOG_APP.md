@@ -16,6 +16,16 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.41.0] - 2026-11-01
+
+### Added
+
+- `[Glossary]` Ten parameters of `dmi/observation` have labels in all eleven languages (GH-3622):
+  the days with a mean cloud cover above 80 % or below 20 %, with snow cover, with a minimum below
+  -10 degrees C and with a strong wind (four thresholds), and the highest and lowest air pressure at
+  sea level. Needs the backend that serves them (0.180.0): release the backend first. The Low
+  German and Luxembourgish labels are not reviewed by a native speaker
+
 ## [0.40.0] - 2026-10-31
 
 ### Changed
@@ -1723,7 +1733,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.40.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.41.0...HEAD
+[0.41.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.40.0...app-v0.41.0
 [0.40.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.39.0...app-v0.40.0
 [0.39.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.38.0...app-v0.39.0
 [0.38.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.37.0...app-v0.38.0
