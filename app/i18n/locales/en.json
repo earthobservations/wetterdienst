@@ -653,7 +653,10 @@
     "errStartRequired": "Start date is required",
     "errEndRequired": "End date is required",
     "errEndAfterStart": "End date must be after start date",
-    "errExceedsLimit": "Estimated {count} values exceeds limit of {max}. Please narrow the date range."
+    "errExceedsLimit": "Estimated {count} values exceeds limit of {max}. Please narrow the date range.",
+    "defaultNote": "Default range: the newest data ({span}, about {rows} rows), so that the server can send it at once.",
+    "defaultNoteClear": "Clear the date range to ask for everything.",
+    "clear": "Clear date range"
   },
   "map": {
     "centerAll": "Center on all stations",
@@ -702,7 +705,26 @@
     "statMin": "Min",
     "statMax": "Max",
     "statMean": "Mean",
-    "statSum": "Sum"
+    "statSum": "Sum",
+    "limitRowsTitle": "Too many rows for one answer",
+    "limitRowsBody": "This selection comes to about {requested} rows, more than this server sends as one answer (limit: {maximum}).",
+    "limitStationsTitle": "Too many stations for one request",
+    "limitStationsBody": "You selected more stations than this server reads in one request: {requested} selected, {maximum} allowed.",
+    "limitNarrow": "To see it here, narrow the selection: choose a shorter date range, fewer parameters or fewer stations. You have selected {stations} and {parameters}.",
+    "limitNarrowPoint": "To see it here, narrow the selection: choose a shorter date range or fewer parameters. You have selected {parameters}.",
+    "limitNarrowStations": "Remove stations from the selection and look at the rest in a further step. You have selected {stations}.",
+    "limitApply": "Show only the newest data ({span}, about {rows} rows)",
+    "limitNoWindow": "Not even the shortest date range fits into one answer.",
+    "limitDownload": "Download everything as CSV",
+    "limitDownloadHint": "The CSV is streamed, so it can hold more rows than one answer.",
+    "limitDownloadHintMax": "The CSV is streamed, so it can hold more rows than one answer: up to {maximum}.",
+    "limitStationsCount": "{count} station | {count} stations",
+    "limitParametersCount": "{count} parameter | {count} parameters",
+    "limitUnit": {
+      "days": "{count} day | {count} days",
+      "months": "{count} month | {count} months",
+      "years": "{count} year | {count} years"
+    }
   },
   "query": {
     "enable": "Transform with SQL Query",

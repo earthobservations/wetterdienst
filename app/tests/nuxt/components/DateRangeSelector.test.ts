@@ -1,5 +1,6 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { reactive } from 'vue'
 import { DateRangeSelector } from '#components'
 
 describe('dateRangeSelector Component', () => {
@@ -104,5 +105,74 @@ describe('dateRangeSelector Component', () => {
     const exposed = wrapper.vm as any
     expect(exposed.exceedsLimit).toBe(true)
     expect(wrapper.text()).toMatch(/max:/)
+  })
+})
+
+describe('dateRangeSelector start and clear (GH-3457)', () => {
+  const window = { unit: 'months', count: 8, startDate: '2026-02-27', endDate: '2026-10-26', rows: 480_000 } as const
+
+  it('says an edit, with the field changed', async () => {
+    const modelValue = { startDate: undefined, endDate: undefined } as { startDate?: string, endDate?: string }
+    const wrapper = await mountSuspended(DateRangeSelector, { props: { required: false, modelValue } })
+    await wrapper.findAll('input[type="date"]')[0]!.setValue('2020-02-01')
+    expect(modelValue.startDate).toBe('2020-02-01')
+    expect(wrapper.emitted('edited')).toHaveLength(1)
+    await wrapper.findAll('input[type="date"]')[0]!.setValue('')
+    expect(modelValue.startDate).toBeUndefined()
+    expect(wrapper.emitted('edited')).toHaveLength(2)
+  })
+
+  it('clears both dates with one button, and says so', async () => {
+    const modelValue = { startDate: '2020-01-01', endDate: '2020-12-31' } as { startDate?: string, endDate?: string }
+    const wrapper = await mountSuspended(DateRangeSelector, { props: { required: false, modelValue } })
+    const button = wrapper.find('[data-testid="clear-date-range"]')
+    expect(button.text()).toBe('Clear date range')
+    await button.trigger('click')
+    expect(modelValue).toEqual({ startDate: undefined, endDate: undefined })
+    expect(wrapper.emitted('cleared')).toHaveLength(1)
+    expect(wrapper.emitted('edited')).toBeUndefined()
+  })
+
+  it('hands the focus of the button it removes to the first date field', async () => {
+    const modelValue = reactive({ startDate: '2020-01-01', endDate: '2020-12-31' }) as { startDate?: string, endDate?: string }
+    const wrapper = await mountSuspended(DateRangeSelector, { attachTo: document.body, props: { required: false, modelValue } })
+    const button = wrapper.find('[data-testid="clear-date-range"]')
+    ;(button.element as HTMLElement).focus()
+    await button.trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="clear-date-range"]').exists()).toBe(false))
+    expect(document.activeElement).toBe(wrapper.findAll('input[type="date"]')[0]!.element)
+    wrapper.unmount()
+  })
+
+  it('has no button to clear what is empty, or what has to be there', async () => {
+    const empty = await mountSuspended(DateRangeSelector, { props: { required: false, modelValue: {} } })
+    expect(empty.find('[data-testid="clear-date-range"]').exists()).toBe(false)
+    const required = await mountSuspended(DateRangeSelector, { props: { required: true, modelValue: { startDate: '2020-01-01', endDate: '2020-12-31' } } })
+    expect(required.find('[data-testid="clear-date-range"]').exists()).toBe(false)
+  })
+
+  it('words the default range under the fields, in a status the fields are described by', async () => {
+    const wrapper = await mountSuspended(DateRangeSelector, {
+      props: { required: false, defaultWindow: window, modelValue: { startDate: '2026-02-27', endDate: '2026-10-26' } },
+    })
+    const status = wrapper.find('[role="status"]')
+    expect(status.text()).toBe('Default range: the newest data (8 months, about 480,000 rows), so that the server can send it at once. Clear the date range to ask for everything.')
+    for (const input of wrapper.findAll('input[type="date"]'))
+      expect(input.attributes('aria-describedby')).toBe(status.attributes('id'))
+  })
+
+  it('does not offer to clear a default range that has to be there: the note leaves the way out unsaid', async () => {
+    const wrapper = await mountSuspended(DateRangeSelector, {
+      props: { required: false, resolution: '1_minute', defaultWindow: window, modelValue: { startDate: '2026-02-27', endDate: '2026-10-26' } },
+    })
+    const status = wrapper.find('[role="status"]')
+    expect(status.text()).toBe('Default range: the newest data (8 months, about 480,000 rows), so that the server can send it at once.')
+    expect(wrapper.find('[data-testid="clear-date-range"]').exists()).toBe(false)
+  })
+
+  it('keeps an empty status for a range that is the user\'s, with no description to point at', async () => {
+    const wrapper = await mountSuspended(DateRangeSelector, { props: { required: false, modelValue: { startDate: '2026-02-27' } } })
+    expect(wrapper.find('[role="status"]').text()).toBe('')
+    expect(wrapper.find('input[type="date"]').attributes('aria-describedby')).toBeUndefined()
   })
 })

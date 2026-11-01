@@ -1,11 +1,23 @@
 <script setup lang="ts">
 import type { DateRange } from '~/types/station-selection-state.type'
+import type { FittingWindow } from '~/utils/row-window'
+import { formatNumber } from '~/utils/format'
+import { HIGH_RESOLUTION_MAX_VALUES } from '~/utils/row-window'
 
 const props = defineProps<{
   required: boolean
   resolution?: Resolution
   stationCount?: number
   parameterCount?: number
+  /** the range the page chose for the selection and the user has not touched, which the note says */
+  defaultWindow?: FittingWindow | null
+}>()
+
+const emit = defineEmits<{
+  /** the user typed a date or picked one: what is in the fields is theirs now, not the page's default */
+  edited: []
+  /** the user cleared the range: the request is for everything, and the page does not choose a range again */
+  cleared: []
 }>()
 
 const modelValue = defineModel<DateRange>({ required: true })
@@ -58,7 +70,8 @@ const estimatedValues = computed(() => {
   return Math.round(diffDays * perDay * stationMultiplier * paramMultiplier)
 })
 
-const MAX_VALUES = 100000
+// the range the fields hold, as the page's own rule for a high resolution (the server's limit is its own)
+const MAX_VALUES = HIGH_RESOLUTION_MAX_VALUES
 
 const exceedsLimit = computed(() => {
   if (!isHighResolution.value)
@@ -100,6 +113,36 @@ const isValid = computed(() => {
   return validationError.value === null
 })
 
+function setDate(field: 'startDate' | 'endDate', value: unknown) {
+  modelValue.value[field] = typeof value === 'string' && value ? value : undefined
+  emit('edited')
+}
+
+// the button goes with the dates it clears: the focus it held goes to the first field, where a range is typed
+const startInput = ref<{ inputRef?: HTMLInputElement | null } | null>(null)
+async function clearRange() {
+  modelValue.value.startDate = undefined
+  modelValue.value.endDate = undefined
+  emit('cleared')
+  await nextTick()
+  startInput.value?.inputRef?.focus()
+}
+
+const noteId = useId()
+// something to clear: a range that is required is never empty, and the dates are the page's to fill
+const canClear = computed(() => !requiresDateRange.value && !!(modelValue.value.startDate || modelValue.value.endDate))
+// the way to ask for everything is said where there is one: not for a range that is required
+const note = computed(() => {
+  const window = props.defaultWindow
+  if (!window)
+    return null
+  const text = t('dateRange.defaultNote', {
+    span: t(`dataViewer.limitUnit.${window.unit}`, { count: window.count }),
+    rows: formatNumber(window.rows, locale.value, 0),
+  })
+  return canClear.value ? `${text} ${t('dateRange.defaultNoteClear')}` : text
+})
+
 defineExpose({ isValid, validationError })
 </script>
 
@@ -118,19 +161,44 @@ defineExpose({ isValid, validationError })
     <div class="flex gap-4">
       <UFormField :label="t('dateRange.startDate')" class="flex-1" :error="!modelValue.startDate && requiresDateRange ? t('dateRange.required') : undefined">
         <UInput
-          v-model="modelValue.startDate"
+          ref="startInput"
+          :model-value="modelValue.startDate"
           type="date"
           class="w-full"
+          :aria-describedby="note ? noteId : undefined"
+          @update:model-value="setDate('startDate', $event)"
         />
       </UFormField>
       <UFormField :label="t('dateRange.endDate')" class="flex-1" :error="!modelValue.endDate && requiresDateRange ? t('dateRange.required') : undefined">
         <UInput
-          v-model="modelValue.endDate"
+          :model-value="modelValue.endDate"
           type="date"
           class="w-full"
+          :aria-describedby="note ? noteId : undefined"
+          @update:model-value="setDate('endDate', $event)"
         />
       </UFormField>
     </div>
+
+    <!-- the page's own choice of range, and why: a status, announced as its text changes, and the description
+         of both fields (which is how it is reached where this component is mounted with the note already in it,
+         by the first station). Empty it stays in the accessibility tree (`sr-only`, which also takes no space) -->
+    <p :id="noteId" role="status" class="text-sm text-gray-600 empty:sr-only dark:text-gray-400" data-testid="default-range-note">
+      <template v-if="note">
+        {{ note }}
+      </template>
+    </p>
+
+    <UButton
+      v-if="canClear"
+      :label="t('dateRange.clear')"
+      icon="i-lucide-x"
+      size="xs"
+      color="neutral"
+      variant="ghost"
+      data-testid="clear-date-range"
+      @click="clearRange"
+    />
 
     <div v-if="isHighResolution && estimatedValues !== null" class="text-sm">
       <span :class="exceedsLimit ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'">

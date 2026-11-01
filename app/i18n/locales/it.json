@@ -653,7 +653,10 @@
     "errStartRequired": "La data di inizio è obbligatoria",
     "errEndRequired": "La data di fine è obbligatoria",
     "errEndAfterStart": "La data di fine deve essere successiva alla data di inizio",
-    "errExceedsLimit": "I {count} valori stimati superano il limite di {max}. Restringi l'intervallo di date."
+    "errExceedsLimit": "I {count} valori stimati superano il limite di {max}. Restringi l'intervallo di date.",
+    "defaultNote": "Intervallo predefinito: i dati più recenti ({span}, circa {rows} righe), così che il server possa inviarli in una volta sola.",
+    "defaultNoteClear": "Cancella l'intervallo di date per chiedere tutto.",
+    "clear": "Cancella intervallo di date"
   },
   "map": {
     "centerAll": "Centra su tutte le stazioni",
@@ -702,7 +705,26 @@
     "statMin": "Min",
     "statMax": "Max",
     "statMean": "Media",
-    "statSum": "Somma"
+    "statSum": "Somma",
+    "limitRowsTitle": "Troppe righe per una sola risposta",
+    "limitRowsBody": "Questa selezione comporta circa {requested} righe, più di quante questo server ne invii in una risposta (limite: {maximum}).",
+    "limitStationsTitle": "Troppe stazioni per una sola richiesta",
+    "limitStationsBody": "Hai selezionato più stazioni di quante questo server ne legga in una richiesta: {requested} selezionate, {maximum} consentite.",
+    "limitNarrow": "Per vederli qui, riduci la selezione: scegli un intervallo di date più breve, meno parametri o meno stazioni. Hai selezionato {stations} e {parameters}.",
+    "limitNarrowPoint": "Per vederli qui, riduci la selezione: scegli un intervallo di date più breve o meno parametri. Hai selezionato {parameters}.",
+    "limitNarrowStations": "Togli delle stazioni dalla selezione e guarda il resto in un passaggio successivo. Hai selezionato {stations}.",
+    "limitApply": "Mostra solo i dati più recenti ({span}, circa {rows} righe)",
+    "limitNoWindow": "Nemmeno l'intervallo di date più breve entra in una risposta.",
+    "limitDownload": "Scarica tutto come CSV",
+    "limitDownloadHint": "Il CSV viene trasmesso in streaming, quindi può contenere più righe di una risposta.",
+    "limitDownloadHintMax": "Il CSV viene trasmesso in streaming, quindi può contenere più righe di una risposta: fino a {maximum}.",
+    "limitStationsCount": "{count} stazione | {count} stazioni",
+    "limitParametersCount": "{count} parametro | {count} parametri",
+    "limitUnit": {
+      "days": "{count} giorno | {count} giorni",
+      "months": "{count} mese | {count} mesi",
+      "years": "{count} anno | {count} anni"
+    }
   },
   "query": {
     "enable": "Trasforma con query SQL",

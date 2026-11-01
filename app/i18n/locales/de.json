@@ -653,7 +653,10 @@
     "errStartRequired": "Startdatum ist erforderlich",
     "errEndRequired": "Enddatum ist erforderlich",
     "errEndAfterStart": "Enddatum muss nach dem Startdatum liegen",
-    "errExceedsLimit": "Geschätzte {count} Werte überschreiten das Limit von {max}. Bitte den Zeitraum eingrenzen."
+    "errExceedsLimit": "Geschätzte {count} Werte überschreiten das Limit von {max}. Bitte den Zeitraum eingrenzen.",
+    "defaultNote": "Voreingestellter Zeitraum: die neuesten Daten ({span}, etwa {rows} Zeilen), damit der Server sie auf einmal senden kann.",
+    "defaultNoteClear": "Lösche den Zeitraum, um alles abzufragen.",
+    "clear": "Zeitraum löschen"
   },
   "map": {
     "centerAll": "Auf alle Stationen zentrieren",
@@ -702,7 +705,26 @@
     "statMin": "Min",
     "statMax": "Max",
     "statMean": "Mittel",
-    "statSum": "Summe"
+    "statSum": "Summe",
+    "limitRowsTitle": "Zu viele Zeilen für eine Antwort",
+    "limitRowsBody": "Diese Auswahl ergibt etwa {requested} Zeilen, mehr als dieser Server in einer Antwort sendet (Grenze: {maximum}).",
+    "limitStationsTitle": "Zu viele Stationen für eine Anfrage",
+    "limitStationsBody": "Du hast mehr Stationen ausgewählt, als dieser Server in einer Anfrage liest: {requested} ausgewählt, {maximum} erlaubt.",
+    "limitNarrow": "Um die Daten hier zu sehen, schränke die Auswahl ein: Wähle einen kürzeren Zeitraum, weniger Parameter oder weniger Stationen. Ausgewählt sind {stations} und {parameters}.",
+    "limitNarrowPoint": "Um die Daten hier zu sehen, schränke die Auswahl ein: Wähle einen kürzeren Zeitraum oder weniger Parameter. Ausgewählt sind {parameters}.",
+    "limitNarrowStations": "Nimm Stationen aus der Auswahl und sieh dir den Rest in einem weiteren Schritt an. Ausgewählt sind {stations}.",
+    "limitApply": "Nur die neuesten Daten anzeigen ({span}, etwa {rows} Zeilen)",
+    "limitNoWindow": "Nicht einmal der kürzeste Zeitraum passt in eine Antwort.",
+    "limitDownload": "Alles als CSV herunterladen",
+    "limitDownloadHint": "Die CSV-Datei wird gestreamt und kann deshalb mehr Zeilen enthalten als eine Antwort.",
+    "limitDownloadHintMax": "Die CSV-Datei wird gestreamt und kann deshalb mehr Zeilen enthalten als eine Antwort: bis zu {maximum}.",
+    "limitStationsCount": "{count} Station | {count} Stationen",
+    "limitParametersCount": "{count} Parameter | {count} Parameter",
+    "limitUnit": {
+      "days": "{count} Tag | {count} Tage",
+      "months": "{count} Monat | {count} Monate",
+      "years": "{count} Jahr | {count} Jahre"
+    }
   },
   "query": {
     "enable": "Mit SQL-Abfrage transformieren",

@@ -653,7 +653,10 @@
     "errStartRequired": "La fecha de inicio es obligatoria",
     "errEndRequired": "La fecha de fin es obligatoria",
     "errEndAfterStart": "La fecha de fin debe ser posterior a la fecha de inicio",
-    "errExceedsLimit": "Los {count} valores estimados superan el límite de {max}. Reduce el rango de fechas."
+    "errExceedsLimit": "Los {count} valores estimados superan el límite de {max}. Reduce el rango de fechas.",
+    "defaultNote": "Rango predeterminado: los datos más recientes ({span}, unas {rows} filas), para que el servidor pueda enviarlos de una vez.",
+    "defaultNoteClear": "Borra el rango de fechas para pedirlo todo.",
+    "clear": "Borrar rango de fechas"
   },
   "map": {
     "centerAll": "Centrar en todas las estaciones",
@@ -702,7 +705,26 @@
     "statMin": "Mín",
     "statMax": "Máx",
     "statMean": "Media",
-    "statSum": "Suma"
+    "statSum": "Suma",
+    "limitRowsTitle": "Demasiadas filas para una sola respuesta",
+    "limitRowsBody": "Esta selección da unas {requested} filas, más de las que este servidor envía en una respuesta (límite: {maximum}).",
+    "limitStationsTitle": "Demasiadas estaciones para una sola solicitud",
+    "limitStationsBody": "Has seleccionado más estaciones de las que este servidor lee en una solicitud: {requested} seleccionadas, {maximum} permitidas.",
+    "limitNarrow": "Para verlos aquí, reduce la selección: elige un rango de fechas más corto, menos parámetros o menos estaciones. Has seleccionado {stations} y {parameters}.",
+    "limitNarrowPoint": "Para verlos aquí, reduce la selección: elige un rango de fechas más corto o menos parámetros. Has seleccionado {parameters}.",
+    "limitNarrowStations": "Quita estaciones de la selección y consulta el resto en otro paso. Has seleccionado {stations}.",
+    "limitApply": "Mostrar solo los datos más recientes ({span}, unas {rows} filas)",
+    "limitNoWindow": "Ni siquiera el rango de fechas más corto cabe en una respuesta.",
+    "limitDownload": "Descargar todo como CSV",
+    "limitDownloadHint": "El CSV se transmite en flujo continuo, así que puede contener más filas que una respuesta.",
+    "limitDownloadHintMax": "El CSV se transmite en flujo continuo, así que puede contener más filas que una respuesta: hasta {maximum}.",
+    "limitStationsCount": "{count} estación | {count} estaciones",
+    "limitParametersCount": "{count} parámetro | {count} parámetros",
+    "limitUnit": {
+      "days": "{count} día | {count} días",
+      "months": "{count} mes | {count} meses",
+      "years": "{count} año | {count} años"
+    }
   },
   "query": {
     "enable": "Transformar con consulta SQL",

@@ -653,7 +653,10 @@
     "errStartRequired": "Data początkowa jest wymagana",
     "errEndRequired": "Data końcowa jest wymagana",
     "errEndAfterStart": "Data końcowa musi być późniejsza niż data początkowa",
-    "errExceedsLimit": "Szacowana liczba wartości ({count}) przekracza limit {max}. Zawęź zakres dat."
+    "errExceedsLimit": "Szacowana liczba wartości ({count}) przekracza limit {max}. Zawęź zakres dat.",
+    "defaultNote": "Zakres domyślny: najnowsze dane ({span}, około {rows} wierszy), aby serwer mógł je wysłać naraz.",
+    "defaultNoteClear": "Wyczyść zakres dat, aby zapytać o wszystko.",
+    "clear": "Wyczyść zakres dat"
   },
   "map": {
     "centerAll": "Wyśrodkuj na wszystkich stacjach",
@@ -702,7 +705,26 @@
     "statMin": "Min.",
     "statMax": "Maks.",
     "statMean": "Średnia",
-    "statSum": "Suma"
+    "statSum": "Suma",
+    "limitRowsTitle": "Za dużo wierszy na jedną odpowiedź",
+    "limitRowsBody": "Ten wybór daje około {requested} wierszy, więcej, niż ten serwer wysyła w jednej odpowiedzi (limit: {maximum}).",
+    "limitStationsTitle": "Za dużo stacji na jedno zapytanie",
+    "limitStationsBody": "Wybrano więcej stacji, niż ten serwer odczytuje w jednym zapytaniu: wybrane {requested}, dozwolone {maximum}.",
+    "limitNarrow": "Aby zobaczyć dane tutaj, zawęź wybór: wybierz krótszy zakres dat, mniej parametrów lub mniej stacji. Aktualny wybór: {stations} i {parameters}.",
+    "limitNarrowPoint": "Aby zobaczyć dane tutaj, zawęź wybór: wybierz krótszy zakres dat lub mniej parametrów. Aktualny wybór: {parameters}.",
+    "limitNarrowStations": "Usuń stacje z wyboru i obejrzyj resztę w kolejnym kroku. Aktualny wybór: {stations}.",
+    "limitApply": "Pokaż tylko najnowsze dane ({span}, około {rows} wierszy)",
+    "limitNoWindow": "Nawet najkrótszy zakres dat nie mieści się w jednej odpowiedzi.",
+    "limitDownload": "Pobierz wszystko jako CSV",
+    "limitDownloadHint": "Plik CSV jest przesyłany strumieniowo, więc może zawierać więcej wierszy niż jedna odpowiedź.",
+    "limitDownloadHintMax": "Plik CSV jest przesyłany strumieniowo, więc może zawierać więcej wierszy niż jedna odpowiedź: do {maximum}.",
+    "limitStationsCount": "{count} stacja | {count} stacje | {count} stacji",
+    "limitParametersCount": "{count} parametr | {count} parametry | {count} parametrów",
+    "limitUnit": {
+      "days": "{count} dzień | {count} dni | {count} dni",
+      "months": "{count} miesiąc | {count} miesiące | {count} miesięcy",
+      "years": "{count} rok | {count} lata | {count} lat"
+    }
   },
   "query": {
     "enable": "Przekształć zapytaniem SQL",

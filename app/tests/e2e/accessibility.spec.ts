@@ -177,6 +177,71 @@ const STATES: State[] = [
     },
   },
   {
+    page: 'explorer',
+    state: 'values-limit-refused',
+    path: EXPLORER_WITH_STATION,
+    // the problem of a limit, as the backend answers it: the page words its numbers itself (GH-3457)
+    handlers: {
+      values: () => new ApiFailure(400, 'This request would return about 614,866 rows, more than the 500,000 this server sends as one answer.', {
+        type: 'urn:wetterdienst:problem:limit-exceeded',
+        title: 'Bad Request',
+        status: 400,
+        limit: 'rows',
+        maximum: 500_000,
+        requested: 614_866,
+      }),
+    },
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'common.fetch'), exact: true }).click()
+      const notice = page.getByTestId('limit-notice')
+      await expect(notice).toBeVisible()
+      await expect(notice.getByRole('alert')).toBeVisible()
+      await expect(page.getByTestId('limit-apply')).toBeVisible()
+      await expect(page.getByTestId('limit-download')).toBeVisible()
+      // a refusal raises no toast: it is a state of the table, not a failure
+      await expect(page.locator('[data-slot="title"]', { hasText: message(locale, 'dataViewer.fetchErrorToastTitle') })).toHaveCount(0)
+    },
+  },
+  {
+    page: 'explorer',
+    state: 'values-limit-refused-narrow',
+    path: EXPLORER_WITH_STATION,
+    viewport: { width: 320, height: 844 },
+    handlers: {
+      values: () => new ApiFailure(400, 'English', {
+        type: 'urn:wetterdienst:problem:limit-exceeded',
+        title: 'Bad Request',
+        status: 400,
+        limit: 'rows',
+        maximum: 500_000,
+        requested: 614_866,
+      }),
+    },
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'common.fetch'), exact: true }).click()
+      await expect(page.getByTestId('limit-apply')).toBeVisible()
+      // the notice's text and buttons wrap, and none reaches past the screen (1.4.10): the page itself
+      // is wider at 320 px where a station is chosen, which is the explorer's own and no concern of the notice
+      const past = await page.evaluate(() => {
+        const width = document.documentElement.clientWidth
+        const notice = document.querySelector('[data-testid="limit-notice"]')!
+        return [...notice.querySelectorAll('*')].filter(el => el.getBoundingClientRect().right > width + 1).map(el => el.tagName)
+      })
+      expect(past).toEqual([])
+    },
+  },
+  {
+    page: 'explorer',
+    state: 'default-range-note',
+    // twelve stations of hourly data from the 1960s on are millions of rows: the page starts a window that fits
+    path: '/explorer?provider=dwd&network=observation&resolution=hourly&dataset=temperature_air&parameters=temperature_air_mean_2m,humidity&mode=station'
+      + '&stations=00011,00044,00071,00073,00091,00096,00102,00125,00131,00183,00198,00205',
+    reach: async (page) => {
+      await expect(page.getByTestId('default-range-note')).not.toBeEmpty()
+      await expect(page.getByTestId('clear-date-range')).toBeVisible()
+    },
+  },
+  {
     page: 'history',
     state: 'histories-shown',
     path: '/history',
