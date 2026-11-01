@@ -148,6 +148,7 @@
     "convertUnitsHint": "Reken waarden om naar de eenheden die je kiest.",
     "units": "Eenheden",
     "unitTemperature": "Temperatuur",
+    "unitTemperatureDifference": "Temperatuurverschil",
     "unitSpeed": "Windsnelheid",
     "unitPressure": "Luchtdruk",
     "unitPrecipitation": "Neerslag",

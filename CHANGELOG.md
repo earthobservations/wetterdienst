@@ -59,6 +59,14 @@ Types of changes:
   nearest-station search or a distance filter near them picked the wrong stations; a filter on
   the old position needs the new one. A row is turned only while it lists the position that was
   checked, so a list NOAA corrects is read as it is (GH-2886)
+- **Breaking**: `error_absolute_temperature_air_2m` and `error_absolute_temperature_dew_point_2m`
+  of `dwd/mosmix` (`e_ttt`, `e_td`) are errors, temperature differences, and come back in kelvin
+  as the source wrote them: 2.0 for an expected error of 2 K. They were converted as readings and
+  came back 273.15 too low (-271.15) in the default °C; add 273.15 to a stored value to recover
+  the error in K.
+  Their unit type is the new `temperature_difference`, whose only unit is `degree_kelvin`, so
+  `unit_targets={"temperature": ...}` does not move them and no other target is accepted for it
+  (GH-3688)
 
 ### Fixed
 
