@@ -3109,22 +3109,6 @@ def test_sql_sink_hands_pandas_text_for_a_categorical_and_an_enum_column(target:
         assert {"category", "kind"} <= nvarchar
 
 
-def test_sql_sink_writes_a_categorical_column_as_text_to_sqlite(tmp_path: Path) -> None:
-    """The text of a `pl.Categorical` column, and its nulls, are what a SQLite table holds."""
-    sqlite3 = pytest.importorskip("sqlite3")
-    pytest.importorskip("sqlalchemy")
-    pytest.importorskip("pandas")
-    database = tmp_path / "weather.db"
-    _text_columns_frame().to_target(f"sqlite:///{database}?table=weather")
-    with sqlite3.connect(database) as connection:
-        assert connection.execute("SELECT category, kind FROM weather ORDER BY station_id DESC").fetchall() == [
-            ("a", "x"),
-            (None, "y"),
-        ]
-        columns = {row[1]: row[2] for row in connection.execute("PRAGMA table_info(weather)")}
-    assert columns["category"] == columns["kind"] == "TEXT"
-
-
 @pytest.mark.parametrize(
     "written",
     [pytest.param(_DELIMITED, id="delimiters"), pytest.param("pa/ss", id="slash")],

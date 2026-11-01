@@ -43,10 +43,10 @@ Types of changes:
   outside the frozen results (GH-3449)
 - `wetterdienst stations`, `values`, `interpolate` and `summarize` pass `--with-metadata` to
   `--target`, as `to_target(..., with_metadata=True)` takes it: a file `<file>.metadata.json`
-  beside a CSV, spreadsheet, JSON or GeoJSON file, and the units and the quality legend in the
-  block of a Parquet, NetCDF or Zarr file. With a database target it is refused with the library's
-  message and exit code 1, before anything is written. It wrote nothing of the kind before
-  (GH-3704)
+  beside a CSV, spreadsheet, JSON, JSON Lines, GeoJSON or Feather file, and the units and the
+  quality legend in the block of a Parquet, NetCDF or Zarr file. With a database target it is now
+  refused with the library's message and exit code 1, before anything is written, where the flag
+  was ignored and the table written: leave it out for a database target (GH-3704)
 
 ### Changed
 

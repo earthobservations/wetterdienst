@@ -155,8 +155,8 @@ a request class that is not one of the library's networks), which has no provide
 the file is written, for every file type (not for a file that `if_exists` skips or refuses). A file that is skipped under `if_exists="skip"` gets no sidecar, and a
 sidecar is overwritten by the next write with `with_metadata=True` and left as it is by one without. The command line
 passes `--with-metadata` to `--target` of `stations`, `values`, `interpolate` and `summarize` as `to_target` takes it:
-`<file>.metadata.json` beside a CSV, spreadsheet, JSON or GeoJSON file, the heavy parts in the block of a Parquet, NetCDF
-or Zarr file, and a refusal, with the message of the `ExportRefusedError` and exit code 1, for a database target. The REST
+`<file>.metadata.json` beside any file but a Parquet, NetCDF or Zarr one (CSV, spreadsheet, JSON, JSON Lines, GeoJSON,
+Feather), the heavy parts in the block of those three, and a refusal, with the message of the `ExportRefusedError` and exit code 1, for a database target. The REST
 API has no `--target`: it answers with the block, which `with_metadata=true` completes. Charts are not files of `to_target`
 and carry nothing (#2567).
 

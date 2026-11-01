@@ -408,9 +408,9 @@ with_metadata_target_opt = _bool_opt(
     default=False,
     help=(
         "Add the units and the quality flags to the metadata block of JSON/GeoJSON output, "
-        "which is always there. With a file --target it writes the block beside a CSV, Excel, JSON or GeoJSON "
-        "file as <file>.metadata.json and adds those parts to the block in a Parquet, NetCDF or Zarr file; "
-        "a database --target is refused. Default: false"
+        "which is always there. With a file --target it writes the block beside the file as "
+        "<file>.metadata.json (CSV, Excel, JSON, GeoJSON and the other bare types) and adds those parts to the "
+        "block in a Parquet, NetCDF or Zarr file; a database --target is refused. Default: false"
     ),
 )
 with_stations_opt = _bool_opt(
