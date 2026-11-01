@@ -218,8 +218,8 @@ speeds and the pressures, `elevation` the `pressure_air_site` and `pressure_air_
 What no check covers, and why:
 
 - **A second parameter in another dataset.** A check never triggers a download. A consistency check reads its second
-  parameter from the frame of the station and the same timestamp, which is the whole dataset (every dataset a relation
-  needs is collected whole, and the parameters nobody asked for are dropped after judging). Where the second parameter
+  parameter from the frame of the station and the same timestamp: the dataset is collected whole, and the neighbour of a
+  relation is kept for the check even where nobody asked for it, and dropped after judging. Where the second parameter
   lives in another dataset, the check does not run. DWD observation holds its hourly `temperature_air` and `moisture` in
   two datasets, so the humidity of one is not held to the dew point of the other.
 - **Networks with no check yet.** Most networks judge nothing: a number outside every range stays as the source wrote
