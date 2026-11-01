@@ -445,6 +445,10 @@ class UnitConverter:
             msg = f"Conversion from {unit} to {unit_target} not supported"
             raise ValueError(msg) from e
 
+    def lambda_between(self, unit: str, unit_target: str) -> Callable[[Any], Any]:
+        """Get the lambda function for converting from one unit to another, by their names."""
+        return self._get_lambda(unit, unit_target)
+
     def get_lambda(self, unit: str, unit_type: str) -> Callable[[Any], Any]:
         """Get the lambda function for converting between units."""
         if unit_type not in self.targets:

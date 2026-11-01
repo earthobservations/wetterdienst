@@ -39,6 +39,7 @@
     "auth",
     "cache_dir",
     "cache_disable",
+    "fetch_ahead",
     "fsspec_client_kwargs",
     "restapi_allowed_hosts",
     "restapi_max_concurrent",
@@ -60,6 +61,7 @@
     "geo_station_distance_resolution_factors",
     "geo_use_nearby_station_distance",
     "humanize",
+    "plausibility",
     "shape",
     "skip_criteria",
     "skip_empty",
@@ -138,7 +140,7 @@
     "dmi/observation": "(parameters, start=None, end=None, settings=..., periods=None, *, options=None, on_unknown='raise')",
     "dwd/alerts": "(granularity=..., language=..., timestamp=None, settings=None, **kwargs)",
     "dwd/derived": "(parameters, start=None, end=None, settings=..., periods=None, *, options=None, on_unknown='raise')",
-    "dwd/dmo": "(parameters, start=None, end=None, settings=..., periods=None, issue=..., station_group=None, lead_time=None, _coverage_cache=..., _placemark_cache=..., *, options=None, on_unknown='raise')",
+    "dwd/dmo": "(parameters, start=None, end=None, settings=..., periods=None, issue=..., station_group=None, lead_time=None, _coverage_cache=..., _placemark_cache=..., *, options=None, on_unknown='raise', _lead_time_asked=None)",
     "dwd/mosmix": "(parameters, start=None, end=None, settings=..., periods=None, issue=..., station_group=..., *, options=None, on_unknown='raise')",
     "dwd/observation": "(parameters, start=None, end=None, settings=..., periods=None, *, options=None, on_unknown='raise')",
     "dwd/phenology": "(parameters, start=None, end=None, settings=..., periods=None, *, options=None, on_unknown='raise')",
@@ -202,5 +204,5 @@
     "smhi/observation": "wetterdienst.provider.smhi.observation.SmhiObservationRequest",
     "wsv/pegel": "wetterdienst.provider.wsv.pegel.WsvPegelRequest"
   },
-  "x-release": "0.176.0"
+  "x-release": "0.180.0"
 }

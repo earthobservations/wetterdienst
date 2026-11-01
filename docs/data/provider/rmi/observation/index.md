@@ -17,8 +17,10 @@ therefore need no timezone adjustment.
 Each value carries a code in `quality_flags` derived from the source `qc_flags` validation map: `1`
 when the parameter is validated, `0` when it is not.
 
-A value outside the physical range of its parameter, which no sensor can have produced, is null and
-keeps what the source wrote as the last token of `quality_flags`, `raw:4021` (`0,raw:4021`). The
+A value outside the physical range of its parameter, which no sensor can have produced (the check `range`, hard by
+default), is null and keeps what the source wrote as the last token of `quality_flags`, `rejected:range,raw:4021`
+(`0,rejected:range,raw:4021`); with `plausibility={"range": "soft"}` it is kept and flagged `suspect:range`
+([plausibility checks](../../../plausibility.md)). The
 bounds are generous, so a record is never outside them, and depend on the resolution where the
 amount grows with the span: rain is held to 200 mm in 10 minutes, 600 mm in an hour and 2,000 mm in a
 day, sunshine to 10, 60 and 1,440 minutes (the span), and a gust to 60 m/s. The daily layer has a `temp_max` of
@@ -32,9 +34,10 @@ stays. The long shape drops the rows without a value by default, so the token sh
 
 ## Sunshine of station 6477 (GH-3031)
 
-The `sun_duration` of station 6477 is null, with the source's value as `raw:<value>` in `quality_flags`
-(`0,raw:980`), in three periods of every resolution (10-minute, hourly, daily), because the sensor
-was stuck or dead and the values lie inside every range. The source does not say so: its `validated`
+The `sun_duration` of station 6477 is flagged `suspect:stuck` in `quality_flags` and kept (`0,suspect:stuck`: the check
+`stuck`, soft by default), in three periods of every resolution (10-minute, hourly, daily), because the sensor
+was stuck or dead and the values lie inside every range. With `plausibility={"stuck": "hard"}` it is null, with the
+source's value as `0,rejected:stuck,raw:980`. The source does not say so: its `validated`
 flag for sunshine is false on 7,720 of the 8,134 days of the daily layer (2004-06-30 to 2026-10-16,
 read 2026-10-17), so `quality_flags` `0` tells nothing here.
 

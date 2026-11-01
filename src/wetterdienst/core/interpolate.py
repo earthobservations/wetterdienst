@@ -40,6 +40,7 @@ from wetterdienst.core.util import (
 from wetterdienst.exceptions import LocationOutOfRangeError
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.model.metadata import ParameterModel
+from wetterdienst.model.plausibility import leave_out_suspect
 from wetterdienst.model.schema import INTERPOLATED_SCHEMA, select_schema
 from wetterdienst.util.logging import TqdmToLogger
 
@@ -211,14 +212,24 @@ def request_stations(
         # true of the request whatever the stations hold, so it is said without downloading them
         raise no_elevation_in_reach_error(unanswerable, elevation)
     tqdm_out = TqdmToLogger(log, level=logging.INFO)
+    values = stations_ranked.values()
+    # no files are fetched ahead of this walk: it stops where the stations found are enough, which only the data says,
+    # so what was fetched ahead of that point would be downloaded and never read (GH-3454)
+    values._fetch_ahead_allowed = False  # noqa: SLF001
+    # what it hands out is an estimate, not the readings of the source: the markers of the stations it reads are not
+    # the markers of its answer (GH-3554)
+    values._count_missing_value_markers = False  # noqa: SLF001
+    values._warn_without_rows = False  # noqa: SLF001
     for result in tqdm(
-        stations_ranked.values().query(),
+        values.query(),
         total=len(stations_by_id),
         desc="querying stations for interpolation",
         unit="station",
         file=tqdm_out,
     ):
         station = stations_by_id[result.df.get_column("station_id")[0]]
+        # a value a soft check flags suspect is left out, whatever the mode of the request (GH-3676)
+        result_df = leave_out_suspect(result.df)
         valid_station_groups_exists = has_valid_station_group(stations_dict, utm_x, utm_y)
         # check if all parameters found enough stations and the stations build a valid station group
         if (
@@ -228,7 +239,7 @@ def request_stations(
             and valid_station_groups_exists
         ):
             break
-        if result.df.drop_nulls("value").is_empty():
+        if result_df.drop_nulls("value").is_empty():
             continue
         if not UTM_LATITUDE_MIN <= station["latitude"] <= UTM_LATITUDE_MAX:
             # UTM ends at 80 deg S and 84 deg N, so a station beyond, in reach of a point inside, has
@@ -237,7 +248,7 @@ def request_stations(
             log.info(f"station {station['station_id']} lies beyond the 80 deg S to 84 deg N UTM covers and is left out")
             continue
         contributed = apply_station_values_per_parameter(
-            result.df,
+            result_df,
             stations_ranked,
             param_dict,
             station,

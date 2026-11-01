@@ -17,6 +17,7 @@ from measurement.measures import Distance
 from measurement.utils import guess
 
 from wetterdienst.exceptions import (
+    DateRequiredError,
     InvalidBoundingBoxError,
     InvalidParameterError,
     InvalidTimeIntervalError,
@@ -29,13 +30,14 @@ from wetterdienst.exceptions import (
     ReversedTimeIntervalError,
     StationNotFoundError,
 )
-from wetterdienst.io.export import ExportMixin
+from wetterdienst.io.sql_filter import filter_by_sql
 from wetterdienst.metadata.parameter_table import INTERPOLATABLE_PARAMETERS
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.renamed import refuse_renamed_arguments
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import (
     CoverageDataset,
+    CoverageParameter,
     CoverageResolution,
     DatasetModel,
     ExtentDict,
@@ -45,6 +47,7 @@ from wetterdienst.model.metadata import (
     check_on_unknown,
     group_parameters_by_dataset,
     parse_parameters,
+    requested_by_kind,
 )
 from wetterdienst.model.result import (
     InterpolatedValuesResult,
@@ -59,6 +62,7 @@ from wetterdienst.model.schema import (
     TIMESTAMP_DTYPE,
     coerce,
 )
+from wetterdienst.model.unit import UnitConverter
 from wetterdienst.model.util import create_station_id_from_string
 from wetterdienst.options import resolve_options
 from wetterdienst.settings import Settings
@@ -151,6 +155,39 @@ _BOUND_FORMS = (
 # an iterable of either: ["historical", "recent"] or {Period.HISTORICAL, Period.RECENT}
 _PERIOD_TYPE_SINGULAR = str | Period
 _PERIODS_TYPE = _PERIOD_TYPE_SINGULAR | Iterable[_PERIOD_TYPE_SINGULAR] | None
+
+
+def require_window(parameters: Iterable[ParameterModel], start: dt.datetime | None, end: dt.datetime | None) -> None:
+    """Refuse the datasets that are read by a window when the request has none (GH-3562).
+
+    A dataset marked `date_required` is asked for by a window. Asked for values without one the library used to answer
+    an empty frame, or whatever slice the provider chose, which a caller could not tell from a source that has
+    nothing. This is the one check for the library (`TimeseriesValues`) and for the REST API, the
+    command line and MCP (`_get_stations_request`), which word the same refusal in terms of their `timestamp`.
+    Listing the stations of such a dataset needs no window and does not come here.
+
+    Raises:
+        DateRequiredError: when a dataset of the parameters is `date_required` and `start` or `end` is missing. It names
+            the datasets and what to pass.
+
+    """
+    if start is not None and end is not None:
+        return
+    names = list(
+        dict.fromkeys(
+            f"{parameter.dataset.resolution.name}/{parameter.dataset.name}"
+            for parameter in parameters
+            if parameter.dataset.date_required
+        )
+    )
+    if not names:
+        return
+    subject = f"The dataset {names[0]} needs" if len(names) == 1 else f"The datasets {', '.join(names)} need"
+    msg = (
+        f"{subject} a window (`date_required`). "
+        "Pass 'start' and 'end' to the request (a bound given alone is the whole day, month or year it names)."
+    )
+    raise DateRequiredError(msg)
 
 
 def _format_periods(periods: Iterable[Period]) -> str:
@@ -356,6 +393,19 @@ class TimeseriesRequest:
     # within reach of the point once they are ranked, before the first value is downloaded, it refuses the request
     # by raising. The library sets none (`core.util.hold_stations_in_reach`)
     _check_reach: Callable[[int], None] | None = field(default=None, init=False, repr=False, compare=False)
+    # Not an argument: the periods a request asked for by name when that narrowed what it reads (`_selects_by_period`),
+    # which `parameter-without-rows` says it was held to; empty where none was asked for or all were
+    _periods_narrowed: frozenset[Period] = field(default=frozenset(), init=False, repr=False, compare=False)
+    # Not an argument: the periods the request would have read had it not been given any (`_resolve_periods(None)`:
+    # those the window reaches), which `periods` is judged against, set where `_periods_narrowed` is
+    _periods_inferred: frozenset[Period] = field(default=frozenset(), init=False, repr=False, compare=False)
+    # Not an argument: which of the parameters were asked for as a whole dataset (`(resolution, dataset)`) and which by
+    # their name (`(resolution, dataset, name_original)`), as `requested_by_kind` reads it in `__post_init__`. The
+    # flat `parameters` has lost that, and `parameter-without-rows` is told of a parameter by its name only
+    _requested_whole: frozenset[tuple[str, str]] = field(default=frozenset(), init=False, repr=False, compare=False)
+    _requested_named: frozenset[tuple[str, str, str]] = field(
+        default=frozenset(), init=False, repr=False, compare=False
+    )
 
     def __new__(cls, *args: object, **kwargs: object) -> Self:  # noqa: ARG004
         """Refuse a renamed argument before the dataclass __init__ rejects it without naming the new one.
@@ -400,6 +450,8 @@ class TimeseriesRequest:
                 error = InvalidParameterError(msg)
                 error.resolved = True
                 raise error from None
+        if self.parameters:
+            self._requested_whole, self._requested_named = requested_by_kind(requested, self.metadata)
         if not self.parameters:
             # with on_unknown="warn" the warnings parse_parameters logged say per parameter what was
             # wrong with it, but they are only visible to whoever configured logging, so name the
@@ -408,7 +460,16 @@ class TimeseriesRequest:
             raise NoParametersFoundError(msg)
         # Has to follow the parameters, which say which datasets -- and so which periods -- were
         # asked for, and the timestamps, which a provider may derive the periods from
+        asked_for_periods = bool(self.periods)
         self.periods = self._resolve_periods(self.periods)
+        self._note_narrowing_periods(asked_for_periods=asked_for_periods)
+
+    def _note_narrowing_periods(self, *, asked_for_periods: bool) -> None:
+        """Note the periods asked for if they leave some out, and the ones the window would have read without them."""
+        periods = cast("set[Period]", self.periods)
+        if asked_for_periods and self._selects_by_period and periods != self.published_periods:
+            self._periods_narrowed = frozenset(periods)
+            self._periods_inferred = frozenset(self._resolve_periods(None))
 
     # Columns that should be contained within any stations information
     _base_columns: ClassVar = tuple(STATIONS_SCHEMA)
@@ -445,6 +506,21 @@ class TimeseriesRequest:
         no such release, or has not measured it, gets. A provider that reads per period and has one overrides it.
         """
         return None
+
+    def _narrowed_by(self, dataset: DatasetModel) -> list[tuple[str, str | None]]:
+        """Name what the request asked for that holds back some of the source for a dataset: a phrase and a hint.
+
+        What `parameter-without-rows` says the answer is of, so that a caller knows another period may hold the values:
+        the periods asked for where they leave out one the dataset publishes. The hint is what to ask instead, None
+        where there is none. A request with a run or a lead time adds its own.
+        """
+        published = set(dataset.periods)
+        asked = set(self._periods_narrowed) & published
+        # narrowed only where the window would have read a period that was left out: asking for `recent` for a
+        # window that only `recent` holds changes nothing, and `try without periods` would answer the same
+        if asked and (set(self._periods_inferred) & published) - asked:
+            return [(f"the periods asked for ({_format_periods(asked)})", "try without `periods`")]
+        return []
 
     @classmethod
     def available_periods(cls) -> set[Period]:
@@ -653,11 +729,14 @@ class TimeseriesRequest:
              "parameters": [{"name": ..., "name_original": ..., "unit_type": ..., "unit": ...,
              "description": ...}]}}}}
 
-        `unit` is the unit the source publishes in, which is not always the unit a request answers
-        with: a value is converted to its type's target unless the option `convert_units` is off, so
-        `dwd/road` reports `degree_kelvin` here and answers in °C, and `millimeter_per_second` here
-        and answers in mm/h. `UnitConverter.targets`, which the option `unit_targets` overrides, is the other
-        side.
+        `unit` is the unit the values come back in for a caller who passes no options: the target of the
+        `unit_type` in the unit converter `values` and `glossary` build from the environment
+        (`WD_TS_UNIT_TARGETS`, `WD_TS_CONVERT_UNITS`), so `dwd/road` reports `degree_celsius` and
+        `millimeter_per_hour`. `unit_source` is the unit the provider publishes the parameter in
+        (`degree_kelvin`, `millimeter_per_second`), which the values come in with `convert_units` off. It is
+        there only where it differs from `unit`: absent means the same, which keeps the answer from repeating
+        itself for the parameters nothing converts. A `unit_targets` a caller passes to `values` is not followed,
+        this taking no options.
 
         Names are matched by either name of a resolution or dataset, in any case.
 
@@ -713,6 +792,29 @@ class TimeseriesRequest:
                 )
                 msg = f"Dataset '{name}' not found in {where}. Available datasets: {available}"
                 raise MetadataNotFoundError(msg)
+        # the unit the values come back in for a caller who passes no options: the converter `values` and `glossary`
+        # build, with the targets of the environment, so that the three cannot differ. With `convert_units` off the
+        # values keep the source's unit
+        options = resolve_options(None)
+        converter = UnitConverter()
+        converter.update_targets(options.unit_targets)
+
+        def described(parameter: ParameterModel) -> CoverageParameter:
+            unit = converter.targets[parameter.unit_type].name if options.convert_units else parameter.unit
+            entry: CoverageParameter = {
+                "name": parameter.name,
+                "name_original": parameter.name_original,
+                "unit_type": parameter.unit_type,
+                "unit": unit,
+                # the source's own words for its own field, where we have them; the canonical,
+                # provider-independent sentence lives in the glossary
+                "description": parameter.description,
+            }
+            # only where it says something: absent is the same as `unit`, as most are (GH-3537)
+            if parameter.unit != unit:
+                entry["unit_source"] = parameter.unit
+            return entry
+
         data: dict[str, CoverageResolution] = {}
         for resolution in selected:
             described_datasets: dict[str, CoverageDataset] = {}
@@ -724,18 +826,7 @@ class TimeseriesRequest:
                 extent = dataset.extent if dataset.extent is not None else cls.metadata.extent
                 described_datasets[dataset.name] = {
                     "description": dataset.description,
-                    "parameters": [
-                        {
-                            "name": parameter.name,
-                            "name_original": parameter.name_original,
-                            "unit_type": parameter.unit_type,
-                            "unit": parameter.unit,
-                            # the source's own words for its own field, where we have them; the
-                            # canonical, provider-independent sentence lives in the glossary
-                            "description": parameter.description,
-                        }
-                        for parameter in dataset
-                    ],
+                    "parameters": [described(parameter) for parameter in dataset],
                     "extent": cast("ExtentDict", extent.model_dump(mode="json")),
                 }
             if not described_datasets:
@@ -1021,7 +1112,7 @@ class TimeseriesRequest:
         # sorts first, ahead of the nearest station: it is left out, as `filter_by_distance` and
         # `filter_by_bbox` leave it out (GH-2380)
         df = df_all.with_columns(pl.lit(pl.Series(distances, dtype=pl.Float64)).alias("distance"))
-        located = df.filter(pl.col("distance").is_not_null()).sort(by=["distance", "station_id"])
+        located = df.filter(pl.col("distance").is_not_null()).sort(by=["distance", "station_id"], maintain_order=True)
         if located.is_empty() and not df.is_empty():
             log.info("None of the stations has a position to be ranked by")
         df = located
@@ -1129,7 +1220,7 @@ class TimeseriesRequest:
         df_all = self.all().df
         # the same filter a result runs, rather than a second copy of it naming the two timestamp
         # columns a stations frame happens to have and calling whatever comes back UTC
-        df = ExportMixin._filter_by_sql(df_all, sql)  # noqa: SLF001
+        df = filter_by_sql(df_all, sql)
         if df.is_empty():
             log.info(f"No stations were found for sql {sql}")
         return StationsResult(request=self, df=df, _df_all=df_all, _stations_filter=StationsFilter.BY_SQL)
@@ -1216,6 +1307,7 @@ class TimeseriesRequest:
             .explode("station_id", empty_as_null=True)
             .unique(),
             on="station_id",
+            maintain_order="left",
         )
         stations_result = StationsResult(
             request=self,
@@ -1335,6 +1427,7 @@ class TimeseriesRequest:
             other=summarized_values.select(pl.col("taken_station_id")).unique(),
             left_on="station_id",
             right_on="taken_station_id",
+            maintain_order="left",
         )
         stations_result = StationsResult(
             request=self,
@@ -1409,7 +1502,7 @@ class TimeseriesRequest:
             name = (
                 pl.when(
                     pl.col("resolution").eq(parameter.dataset.resolution.name),
-                    pl.col("dataset").eq(parameter.dataset.name),
+                    pl.col("dataset").eq(parameter.dataset.name.lower()),
                     pl.col("parameter").eq(parameter.name),
                 )
                 .then(pl.lit(parameter.name_original))

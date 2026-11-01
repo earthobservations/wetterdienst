@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, cast
@@ -14,6 +15,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.model.judge import Beside, Bound, Rule
 from wetterdienst.model.quality_flags import (
     SPEED_BESIDE,
     Sentinel,
@@ -28,6 +30,7 @@ from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.meteofrance.synop.metadata import MeteoFranceSynopMetadata
 from wetterdienst.util.archive import gunzip
 from wetterdienst.util.network import cached_copy_is_held, download_file
+from wetterdienst.util.response_warnings import note_skipped_download
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel, ParameterModel
@@ -71,6 +74,57 @@ _SYNOP_SKY_OBSCURED = "101"
 _SYNOP_NO_WIND_DIRECTION = ("400",)
 _SYNOP_WIND_DIRECTION_COLUMN = "dd"
 _SYNOP_WIND_SPEED_OF_DIRECTION = {_SYNOP_WIND_DIRECTION_COLUMN: "ff"}
+
+# No frost at these stations (GH-3135, as the stations of `meteofrance/observation` of the same departments). The
+# stations are the WMO ids of the geojson, as the file has no department, and they are the ones of the departments of
+# that rule that the archive has: Guadeloupe (LA DESIRADE 78890, ST-BARTHELEMY 78894, LE RAIZET 78897), Martinique
+# (TRINITE-CARAVEL 78922, LAMENTIN 78925), Guyane (81401, 81405, 81408 and MARIPASOULA 81415; 3.6 to 5.5 N, 4 to
+# 106 m), Mayotte (PAMANDZI 67005), the Iles Eparses (GLORIEUSES 61968, JUAN DE NOVA 61970, EUROPA 61972, TROMELIN
+# 61976; 11.6 to 22.3 S, 3 to 9 m), Wallis-et-Futuna (HIHIFO 91753, MAOPOOPO 91754) and French Polynesia (HIVA-OA
+# 91925, BORA-BORA-MOTU-AERO 91929, TAIARAPU-EST 91936, FAAA 91938, TAKAROA 91943, HAO 91944, MANGAREVA 91948 and RAPA
+# 91958 at 27.6 S): all at 2 to 106 m, between 3.6 N and 27.6 S. A temperature below 0 C (273.15 K) of the air, its 12
+# and 24 hour extremes or its dew point is no reading there. The nine files of 1996 to 2025 read hold 135 of them:
+# `td` 115 (TROMELIN 73, of which 44 in 2015 and 24 in 2022; MARIPASOULA 16, 12 of them in 2025; SAINT GEORGES 81408 9
+# in 2000), `t` 9 (242 to 252 K; EUROPA, TROMELIN, ST-BARTHELEMY, SAINT LAURENT, PAMANDZI), `tn24` 9 (8 at 81415 in
+# 2025) and `tn12` 2. The `t` of RAPA, the southernmost, reaches 12.4 C at the lowest. Out of the list: GILLOT (61980,
+# La Reunion, where frost occurs at altitude), SAINT-PIERRE (71805), New Caledonia (91570 to 91592) and the southern
+# territories (Kerguelen 61998, Crozet 61997, Nouvelle-Amsterdam 61996, Dumont d'Urville 89642).
+_SYNOP_FROSTLESS_STATIONS = frozenset(
+    {
+        "78890",
+        "78894",
+        "78897",
+        "78922",
+        "78925",
+        "81401",
+        "81405",
+        "81408",
+        "81415",
+        "67005",
+        "61968",
+        "61970",
+        "61972",
+        "61976",
+        "91753",
+        "91754",
+        "91925",
+        "91929",
+        "91936",
+        "91938",
+        "91943",
+        "91944",
+        "91948",
+        "91958",
+    }
+)
+_SYNOP_TEMPERATURE_COLUMNS = ("t", "td", "tn12", "tx12", "tn24", "tx24")
+# The relative humidity of a reading whose dew point that rule nulls is null too (GH-3629): the same hygrometer failed,
+# and its `u` is as wrong as the `td` that was computed from it (4 to 5 % at MARIPASOULA 81415 and TROMELIN 61976,
+# beside `td` of 255 K and less). No floor on the humidity itself: a `u` of 20 % is a reading in a dry spell, and only
+# the dew point tells.
+_SYNOP_DEW_POINT = "td"
+_SYNOP_HUMIDITY = "u"
+_SYNOP_FROST_CELSIUS = 0.0
 
 # explicit schema of the exact columns published by the source, read as strings throughout since
 # many columns are entirely empty for a given station or year, which would otherwise lead to
@@ -191,8 +245,44 @@ def _download_year(year: int, current_year: int, settings: Settings) -> File:
     return copy
 
 
+def _canonical(*originals: str) -> tuple[str, ...]:
+    """Give the canonical names of the parameters the file calls ``originals``."""
+    names = {
+        parameter.name_original: parameter.name
+        for dataset in MeteoFranceSynopMetadata.subdaily
+        for parameter in dataset
+    }
+    return tuple(names[original] for original in originals)
+
+
+# `tn12` is the minimum of the 12 hours and `tx12` the maximum, so they are equal only where the temperature held
+# still. Three overseas stations write the maximum of the daytime into `tn12` as well, at some hours: Cayenne-Matoury
+# (81405) at 00 UTC, Le Raizet (78897) and Lamentin (78925) at 00 and 18 UTC, 1296 rows of the 2026 file and 1116 of
+# 2025 (read 2026-10-28); Cayenne at 2026-07-01T00:00Z has `tx12` and `tn12` 303.75 K (30.6 C) beside `t` 298.55 K.
+# The file defines neither; a `tn12` that is the very text of the `tx12` of its own row is a copy, no minimum, so it is
+# null and keeps its text as the `raw` token (GH-3540). A `tn12` above the `t` of its stamp, or a `tx12` below it, is
+# not mapped: Kerguelen (61998) has 28 rows of either, up to 3.5 K, a timing offset that was not investigated
+_MINIMUM_COPIES_MAXIMUM = Beside(
+    target=_canonical("tn12")[0],
+    partner=_canonical("tx12")[0],
+    when=lambda minimum, maximum: minimum.eq(maximum),
+)
+_FROSTLESS_RULES: tuple[Rule, ...] = (
+    Bound(high=math.inf, low=_SYNOP_FROST_CELSIUS, names=_canonical(*_SYNOP_TEMPERATURE_COLUMNS)),
+    Beside(
+        target=_canonical(_SYNOP_HUMIDITY)[0],
+        partner=_canonical(_SYNOP_DEW_POINT)[0],
+        when=lambda _, dew_point: dew_point.lt(_SYNOP_FROST_CELSIUS),
+    ),
+)
+
+
 class MeteoFranceSynopValues(TimeseriesValues):
     """Values class for Météo-France SYNOP data."""
+
+    def _plausibility_rules(self, station_id: str, dataset: DatasetModel) -> tuple[Rule, ...]:  # noqa: ARG002
+        """Give the rules of the file: no `tn12` that copies `tx12`, and no frost at the stations of the tropics."""
+        return (_MINIMUM_COPIES_MAXIMUM, *(_FROSTLESS_RULES if station_id in _SYNOP_FROSTLESS_STATIONS else ()))
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -205,7 +295,7 @@ class MeteoFranceSynopValues(TimeseriesValues):
         end_date = self.sr.end or datetime.now(tz=ZoneInfo("UTC"))
         settings = cast("Settings", self.sr.request.settings)
         parameter_columns = [parameter.name_original for parameter in dataset]
-        read_columns = ["geo_id_wmo", "validity_time", *parameter_columns]
+        read_columns = ["geo_id_wmo", "validity_time", *dict.fromkeys(parameter_columns)]
         dfs = []
         # clamp to the years actually covered by the archive: station opening dates (used as a
         # request start by e.g. the app) can predate 1996, and requesting a year
@@ -221,6 +311,7 @@ class MeteoFranceSynopValues(TimeseriesValues):
             if file.status != 404 or year != current_year:
                 file.raise_if_exception()
             if isinstance(file.content, Exception):
+                note_skipped_download()
                 log.warning(f"Failed to download {file.url}: {file.content}")
                 continue
             df = pl.read_csv(gunzip(file), separator=";", schema=_SYNOP_CSV_SCHEMA, columns=read_columns)
@@ -239,7 +330,7 @@ class MeteoFranceSynopValues(TimeseriesValues):
             value_name="value",
         )
         df = with_speed_beside(df, _SYNOP_WIND_SPEED_OF_DIRECTION, on=["validity_time"])
-        # before the unit conversion
+        # before the unit conversion; what is no reading by its range or its neighbours is the core's to judge
         value, raw = null_sentinels(
             pl.col("value"),
             Sentinel(_SYNOP_TRACE, where=pl.col("parameter").is_in(_SYNOP_TRACE_COLUMNS), to=0.0),
@@ -255,6 +346,8 @@ class MeteoFranceSynopValues(TimeseriesValues):
             pl.col("parameter").str.to_lowercase(),
             pl.col("validity_time").str.to_datetime("%Y-%m-%dT%H:%M:%SZ", strict=False).alias("timestamp"),
             value.alias("value"),
+            # the text the file wrote, which the core writes in the `raw:` token of a value it rejects
+            pl.col("value").alias("source_text"),
             join_quality_flags(None, raw=raw),
             UPDATED,
         )

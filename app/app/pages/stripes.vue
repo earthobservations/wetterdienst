@@ -1,10 +1,13 @@
 <script setup lang="ts">
+import type { ChartTheme } from '~/utils/chart-theme'
+import type { PlotlyLocaleConfig } from '~/utils/plotly-locale'
 import { describeFetchError } from '~/utils/api-error'
 import { formatNumber, plotlySeparators } from '~/utils/format'
+import { plotlyLocaleConfig, plotlyText } from '~/utils/plotly-locale'
 import { stripeYears } from '~/utils/stripes'
 import { unitSymbol } from '~/utils/unit-targets'
 
-const { t, locale } = useI18n()
+const { t, locale, localeProperties } = useI18n()
 
 // the title says which page this is: WCAG 2.4.2, and what a screen reader announces after a navigation
 useHead({ title: () => t('stripes.title') })
@@ -55,6 +58,8 @@ const endYear = ref<number | null>(null)
 // Display toggles default to the user's saved stripes preferences; an explicit
 // URL query (e.g. from a shared link) still overrides these below.
 const { settings } = useSettings()
+// the chart's chrome, read from the app's CSS tokens for the colour scheme in force
+const { theme } = useChartTheme()
 const showTitle = ref(settings.value.stripes.showTitle)
 const showYears = ref(settings.value.stripes.showYears)
 const showDataAvailability = ref(settings.value.stripes.showDataAvailability)
@@ -253,14 +258,15 @@ async function fetchAndPlotStripes() {
   }
 }
 
-async function plotStripes(data: StripesValuesResponse) {
+// `keepZoom`: drawn again in other colours (the scheme switched, a print), so the range the stripes are shown in stays
+async function plotStripes(data: StripesValuesResponse, keepZoom = false) {
   const plot = ++plotsStarted
   try {
     await ensurePlotly()
     // a newer drawing, or a Reset, came while Plotly loaded: this one draws nothing
     if (plot !== plotsStarted)
       return
-    await drawStripes(data)
+    await drawStripes(data, keepZoom, () => plot === plotsStarted)
     if (plot === plotsStarted)
       plotFailed.value = false
   }
@@ -273,19 +279,28 @@ async function plotStripes(data: StripesValuesResponse) {
   }
 }
 
-async function drawStripes(data: StripesValuesResponse) {
-  if (!plotContainer.value || !Plotly)
-    return
+interface StripesFigure {
+  traces: Plotly.Data[]
+  layout: Partial<Plotly.Layout>
+  config: Partial<Plotly.Config>
+  /** Plotly v3 draws it from a relayout after the plot, not from the layout it is plotted with */
+  title: object | null
+}
 
-  // Purge any existing plot first to ensure clean render
-  Plotly.purge(plotContainer.value)
+// The page's language as Plotly takes it: the buttons' names and the dates (utils/plotly-locale.ts)
+function plotLocaleOfPage() {
+  return plotlyLocaleConfig(locale.value, localeProperties.value.language ?? locale.value)
+}
 
+// What the stripes are drawn from, in the colours of `theme` and `width` px wide: on the page, in the
+// theme the page is in, and for a saved image in the light one (see saveStripes)
+function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: number, plotLocale: PlotlyLocaleConfig): StripesFigure | null {
   // Filter out null values and prepare data
   const validData = data.values.filter(v => v.value !== null && v.timestamp !== null)
 
   if (validData.length === 0) {
     console.warn('No valid data to plot')
-    return
+    return null
   }
 
   // Extract years and values: each year's value comes at its first moment in UTC, read in UTC, as
@@ -318,7 +333,7 @@ async function drawStripes(data: StripesValuesResponse) {
         showarrow: false,
         xanchor: 'left',
         yanchor: 'top',
-        font: { size: 18, color: 'black' },
+        font: { size: 18, color: theme.text },
       },
       {
         x: maxYear,
@@ -329,7 +344,7 @@ async function drawStripes(data: StripesValuesResponse) {
         showarrow: false,
         xanchor: 'right',
         yanchor: 'top',
-        font: { size: 18, color: 'black' },
+        font: { size: 18, color: theme.text },
       },
     )
   }
@@ -345,7 +360,7 @@ async function drawStripes(data: StripesValuesResponse) {
       showarrow: false,
       xanchor: 'left',
       yanchor: 'bottom',
-      font: { color: 'goldenrod', size: 11 },
+      font: { color: seriesLabelColor('gold', theme.dark), size: 11 },
     })
   }
 
@@ -360,7 +375,7 @@ async function drawStripes(data: StripesValuesResponse) {
       yref: 'paper',
       xanchor: 'center',
       yanchor: 'top',
-      font: { size: 14, color: '#666' },
+      font: { size: 14, color: theme.textMuted },
     })
   }
 
@@ -448,7 +463,6 @@ async function drawStripes(data: StripesValuesResponse) {
 
   // Layout configuration
   const titleText = plotTitle(data)
-  const containerWidth = plotContainer.value.clientWidth
 
   const layout: Partial<Plotly.Layout> = {
     // the hover texts write the language's decimal separator, as Plotly writes a point otherwise
@@ -456,7 +470,6 @@ async function drawStripes(data: StripesValuesResponse) {
     font: {
       family: 'Arial, sans-serif',
       size: 14,
-      color: 'black',
     },
     xaxis: {
       showgrid: false,
@@ -480,43 +493,110 @@ async function drawStripes(data: StripesValuesResponse) {
       t: showTitle.value ? 30 : 20,
       b: 60,
     },
-    paper_bgcolor: 'white',
-    plot_bgcolor: 'white',
     showlegend: false,
     autosize: false,
-    width: containerWidth,
+    width,
     height: showTitle.value ? 600 : 550,
     annotations,
   }
 
   const config: Partial<Plotly.Config> = {
+    // the buttons' names and the dates in the page's language
+    ...plotLocale,
     responsive: true,
     displayModeBar: true,
     displaylogo: false,
-    modeBarButtonsToRemove: ['lasso2d', 'select2d'],
-    toImageButtonOptions: {
-      format: 'png',
-      filename: `climate_stripes_${kind.value}_${data.series.station.station_id}`,
-      height: showTitle.value ? 700 : 600,
-      width: 1400,
-      scale: 2,
-    },
+    // the camera is Plotly's with one difference: what it saves is the light chart, as everything saved is
+    modeBarButtonsToRemove: ['lasso2d', 'select2d', 'toImage'],
+    modeBarButtonsToAdd: [{
+      name: 'toImage',
+      // Plotly translates the names of its own buttons, not of one that is added to it
+      title: plotlyText(plotLocale, 'Download plot as a PNG'),
+      icon: Plotly!.Icons.camera as Plotly.Icon,
+      click: () => void saveStripes({
+        format: 'png',
+        filename: `climate_stripes_${kind.value}_${data.series.station.station_id}`,
+        height: showTitle.value ? 700 : 600,
+        width: 1400,
+        scale: 2,
+      }).catch((error: unknown) => {
+        console.error('The chart image could not be saved', error)
+        toast.add({ title: t('dataViewer.chartImageNotSaved'), color: 'error' })
+      }),
+    }],
   }
 
-  await Plotly.newPlot(plotContainer.value, traces as any, layout as any, config)
+  return {
+    traces,
+    layout: themedLayout(layout, theme),
+    config,
+    title: showTitle.value
+      ? {
+          text: titleText,
+          font: { size: 16, color: theme.text },
+          y: showDataAvailability.value ? 0.96 : 0.99,
+          x: 0.5,
+          xanchor: 'center',
+          yanchor: 'top',
+        }
+      : null,
+  }
+}
 
-  // Plotly v3 requires relayout to render the title after newPlot
-  if (showTitle.value) {
-    await Plotly.relayout(plotContainer.value, {
-      title: {
-        text: titleText,
-        font: { size: 16, color: 'black' },
-        y: showDataAvailability.value ? 0.96 : 0.99,
-        x: 0.5,
-        xanchor: 'center',
-        yanchor: 'top',
-      },
-    })
+async function drawStripes(data: StripesValuesResponse, keepZoom = false, newest: () => boolean = () => true) {
+  if (!plotContainer.value || !Plotly)
+    return
+
+  // The language's buttons come first, which can take a chunk's load: a newer drawing, or a Reset, came
+  // meanwhile and this one draws nothing (an older drawing must not put its language over the newer chart's),
+  // and the chart stays as it is while the chunk loads instead of being blank
+  const plotLocale = await plotLocaleOfPage()
+  if (!newest() || !plotContainer.value)
+    return
+  // the range shown now, which a purge forgets
+  const zoom = keepZoom ? drawnRanges(plotContainer.value) : {}
+  // Purge any existing plot first to ensure clean render
+  Plotly.purge(plotContainer.value)
+
+  // the theme it is drawn in is taken before the drawing, which a switch of the scheme can come in the middle of
+  const drawnIn = theme.value
+  const figure = stripesFigure(data, drawnIn, plotContainer.value.clientWidth, plotLocale)
+  if (!figure)
+    return
+  await Plotly.newPlot(plotContainer.value, figure.traces as any, figure.layout as any, figure.config)
+  // a newer drawing, or a Reset, came meanwhile: it purges, draws and marks the chart itself, and this one neither
+  // marks nor moves anything
+  if (!newest())
+    return
+  // said at once, before anything after it can fail: the chart is drawn in these colours whatever follows
+  markChartScheme(plotContainer.value, drawnIn)
+  // drawn in the range of its own, which a reset of the chart goes back to, and then moved to the one it was in
+  const moves = { ...rangesRelayout(zoom), ...(figure.title ? { title: figure.title } : {}) }
+  if (Object.keys(moves).length > 0)
+    await Plotly.relayout(plotContainer.value, moves)
+}
+
+// A saved image is always the light one, whatever the page shows: the stripes are drawn again, off screen,
+// in the light theme (utils/chart-export.ts), and that copy is exported
+async function saveStripes(options: { format: 'png' | 'jpeg' | 'svg', filename: string, width: number, height: number, scale: number }) {
+  if (!Plotly || !lastFetchedData.value || !plotContainer.value)
+    return
+  const figure = stripesFigure(lastFetchedData.value, readDocumentChartTheme('light'), plotContainer.value.clientWidth, await plotLocaleOfPage())
+  if (!figure)
+    return
+  const { format, filename, width, height, scale } = options
+  // as the page shows them: the range the stripes are zoomed to is the image's
+  const layout = mergeLayouts(figure.layout, drawnRanges(plotContainer.value))
+  // in the language of the page, as the chart is
+  const { locale: copyLocale, locales } = figure.config
+  const copy = await drawOffscreen(Plotly, figure.traces, layout, { width: plotContainer.value.clientWidth, height: plotContainer.value.clientHeight }, { locale: copyLocale, locales })
+  try {
+    if (figure.title)
+      await Plotly.relayout(copy.element, { title: figure.title })
+    await Plotly.downloadImage(copy.element, { format, filename, width, height, scale })
+  }
+  finally {
+    copy.dispose()
   }
 }
 
@@ -532,7 +612,7 @@ async function downloadStripes(format: 'png' | 'jpeg' | 'svg' = 'png') {
   // This preserves aspect ratio AND scales text/annotations proportionally
   const station = lastFetchedData.value.series.station
   try {
-    await Plotly.downloadImage(plotContainer.value, {
+    await saveStripes({
       format,
       filename: `climate_stripes_${kind.value}_${station.station_id}_${station.name}`,
       height: containerHeight,
@@ -638,6 +718,14 @@ watch(stations, () => {
   }
 })
 
+// Re-plot where the colour scheme changes: the paper, the years and the title are the chart's chrome
+// and follow it (utils/chart-theme.ts); the stripes' own colours are the data and do not
+watch(theme, async () => {
+  if (lastFetchedData.value && hasPlot.value) {
+    await plotStripes(lastFetchedData.value, true)
+  }
+})
+
 // Re-plot where the language changes: the hover texts and their separators are drawn in it
 watch(locale, async () => {
   if (lastFetchedData.value && hasPlot.value) {
@@ -724,6 +812,13 @@ watch(selectedStationItem, (item) => {
 // Load Plotly dynamically on mount; a failure is told where the stripes are drawn
 onMounted(() => {
   ensurePlotly().catch(() => {})
+})
+
+// Plotly keeps a `resize` listener of the window for a chart drawn with `responsive`, which holds the
+// chart until it is purged (GH-3619). Before the unmount, as the template ref is cleared by then
+onBeforeUnmount(() => {
+  if (plotContainer.value && Plotly)
+    Plotly.purge(plotContainer.value)
 })
 </script>
 

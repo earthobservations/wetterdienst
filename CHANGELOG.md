@@ -16,6 +16,495 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- A Parquet file, a NetCDF file and a Zarr group written by `to_target` carry the licence, the credit
+  line and the date of the data: the `metadata` block of the REST API, as JSON under
+  `wetterdienst_metadata` and as `license`, `attribution`, `retrieved_at` and more, in Parquet's
+  key-value metadata and in the attributes of the group. CSV, spreadsheets, JSON, JSON Lines,
+  GeoJSON and Feather files stay bare; `to_target(..., with_metadata=True)` and `to_csv(file=...,
+  with_metadata=True)` write the block beside them as `<file>.metadata.json`, and add the units and
+  the quality legend to the three that carry it. A database target refuses `with_metadata` (GH-3449)
+- `dmi/observation` now serves five more DMI parameters under new names: `snow_cover` (daily,
+  2011-01-01 to 2015-11-21 only; percent, returned as a decimal), `leaf_wetness_duration` (minutes,
+  returned in seconds), `temperature_air_mean_grass_height` (5 to 20 cm above ground) and
+  `vapor_pressure_deficit_mean` (kPa, returned in hPa), hourly and daily, and
+  `temperature_soil_mean_0_3m`, daily only. The daily leaf wetness is the minutes of the day (0 to
+  1440), not the average of the hourly values the source's table names. The library holds none of
+  the five to a range, so the impossible values DMI writes for some days and hours are kept
+  (Part of GH-3622)
+- `FormattableResult` (`wetterdienst.model.result`) is a `typing.Protocol` of `to_dict`,
+  `to_json` and `to_format` that the five results and the alerts result satisfy, so one function
+  can write them all. `HistoryResult` gets `to_format`, for JSON only: any other format, CSV
+  included, is an `UnknownFormatError` naming `json`. The alerts result of `dwd/alerts` takes the
+  format in any case (`to_format("JSON")`, refused before), `indent` as a number or a flag in
+  `to_json`, `to_geojson` and `to_format` (`indent=0` now breaks lines without indenting, as on
+  the others), and `with_metadata` (the block of the others); its default stays one line. It is
+  outside the frozen results (GH-3449)
+- `wetterdienst stations`, `values`, `interpolate` and `summarize` pass `--with-metadata` to
+  `--target`, as `to_target(..., with_metadata=True)` takes it: a file `<file>.metadata.json`
+  beside a CSV, spreadsheet, JSON, JSON Lines, GeoJSON or Feather file, and the units and the
+  quality legend in the block of a Parquet, NetCDF or Zarr file (GH-3704)
+
+### Changed
+
+- **Breaking**: `--with-metadata` with a database `--target` of `wetterdienst stations`, `values`,
+  `interpolate` or `summarize` is refused with the library's message and exit code 1, before
+  anything is written, where the flag was ignored and the table written. Leave the flag out for a
+  database target. A result with no rows writes nothing and is no refusal (GH-3704)
+- **Breaking**: 5 more `noaa/ghcn` hourly stations are placed west of Greenwich, no longer east
+  of it, where `ghcnh-station-list.csv` has lost the sign of their longitude: Freetown in Sierra
+  Leone (CMU55-00161), Surtsey (ICM00004102), Buhta Providenja (RSU025594-5), Calanda
+  (SPM00008166) and Kilo Nalu off Oahu (USL000KNOH1). They were 40 to 4,571 km off, so a
+  nearest-station search or a distance filter near them picked the wrong stations; a filter on
+  the old position needs the new one. A row is turned only while it lists the position that was
+  checked, so a list NOAA corrects is read as it is (GH-2886)
+
+### Fixed
+
+- `to_json`, `to_geojson`, the `.geojson` file target and the JSON, GeoJSON and NDJSON answers of
+  the REST API, the command line and MCP write a `NaN` or an infinity as `null`, as polars does
+  for `to_ndjson` and the `.json`, `.jsonl` and `.ndjson` files. They wrote the bare tokens `NaN`,
+  `Infinity` and `-Infinity`, which are not JSON and which `JSON.parse` and other strict parsers
+  refuse. A station whose longitude or latitude is not finite has no position in GeoJSON, and one
+  whose elevation is not finite no z. `to_dict` still returns the float (GH-3679)
+- Writing a frame with a `pl.Categorical` column to a `.zarr` or `.nc` target no longer fails with
+  `Cannot interpret 'CategoricalDtype(...)' as a data type`; the column is written as text, as a
+  `pl.Enum` column was (GH-3679)
+- A `file://` target is matched to its file type by the path it names, decoded. A query string
+  was never ignored: everything after `file://` is the path, so `file:///x.csv?a=1` names a file
+  `x.csv?a=1` and is refused as an unknown file type, which the message now explains and names
+  `%3F` as the way to write a `?` that belongs to the file name (GH-3679)
+- The `missing-value-marker` warning no longer counts the values a hard plausibility check
+  rejected (`rejected:<check>,raw:<number>`): the source wrote a number there, not a marker.
+  They are told by a new warning `rejected-by-plausibility`, with the count per check; a value
+  that several checks rejected is counted under each. A client that summed the old count to
+  find the rejected values reads the new warning instead (GH-3682)
+- `wetterdienst history --target` accepts a file name ending in `.JSON` or any other case of
+  `.json`, as `values` and `stations` do; it refused all but the lowercase one (GH-3693)
+- The CrateDB and SQL (SQLAlchemy) targets hand the database a `pl.Categorical` column as text, as
+  they did a `pl.Enum` column, not as a pandas Categorical. SQLite and DuckDB wrote the text
+  either way; the dialects that could not be tried are no longer left to read a Categorical
+  (GH-3694)
+
+## [0.180.0] - 2026-11-01
+
+### Added
+
+- The option `plausibility` sets what each plausibility check (`range`, `elevation`, `stuck`,
+  `consistency`, `floor`) does to a number it finds implausible: `hard` nulls it and keeps the
+  number as `rejected:<check>,raw:<number>` in `quality_flags`, `soft` keeps it and flags it
+  `suspect:<check>`. Set it with `Options(plausibility={"range": "soft"})`,
+  `WD_TS_PLAUSIBILITY__RANGE`, `--plausibility-range` or `plausibility_range` (REST, MCP), or
+  `plausibility="soft"`, `WD_TS_PLAUSIBILITY=soft`, `--plausibility soft` and `plausibility=soft`
+  for every check at once (a check named beside it wins). Interpolation, summary and climate
+  stripes always leave out a suspect value, and `skip_empty` counts the unflagged values alone
+  (GH-3676)
+- `dmi/observation` now serves the highest and lowest pressure at sea level of the day, month and
+  year (new `pressure_air_sea_level_max`/`_min`; 45 stations, 38 in Greenland), the monthly and
+  annual summer days and tropical nights (`count_days_summer`, `count_days_tropical_night`) and
+  the heating degree days of Greenland, as `heating_degree_day` beside Denmark's: the base is 17 °C
+  in Denmark and 19 °C in Greenland. DMI counts the days above 25 and 20 °C, so a day at exactly
+  25.0 or 20.0 °C is not counted, where the names count from the threshold (Part of GH-3622)
+- `wetterdienst.exceptions.UnknownFormatError` is what `to_format`, the charts' `to_image` and the
+  alerts result's `to_format` raise for a format they do not render, naming it and listing the
+  supported ones. It is a `RequestError`, and a `KeyError` as `to_format` raised and a `ValueError`
+  as the alerts result did, so an `except KeyError` or `except ValueError` still catches it; the
+  REST API and the command line never reach it, as their `format` is a choice (GH-3449)
+- `dmi/observation` now serves the global radiation of the day, month and year as `radiation_global`
+  (DMI publishes MJ/m²; it comes back in J/cm² by default), eight counts of days with DMI's own
+  thresholds (new `count_days_temperature_air_min_2m_lt_minus_10c`,
+  `count_days_wind_speed_rolling_mean_max_ge_10_8mps` and `_20_8`, `_24_5`, `_28_5`,
+  `count_days_cloud_cover_total_mean_lt_20pct`/`_gt_80pct`, `count_days_snow_cover_gt_50pct`, 2011
+  to 2015 only), the mean vapour pressure, the greatest snow depth, the 12 and 24 hour extremes and
+  precipitation (stamped at the end of their window) and the soil temperature at 10 cm. A greatest
+  snow depth of 999.0 is null (`raw:999`) and the trace code −0.1 of the 12 and 24 hour
+  precipitation is 0.0 with `raw:-0.1` (Part of GH-3622)
+- `ndjson` is a format of `to_format`, with a new `to_ndjson()` on the results: the rows, one JSON
+  object per line, no envelope, what the `.jsonl` file holds and the records of the lines the REST
+  API and the command line send between their `metadata` and `end` lines (which stay as they are;
+  a number may be written `0.00005` here and `5e-05` there). `.ndjson` is a second extension of
+  that file target, and `.geojson` a new one that writes the feature collection of `to_geojson`,
+  without the `{"data": ...}` it wraps it in (GH-3449)
+
+### Changed
+
+- **Breaking**: `quality_flags` gain the tokens `suspect:<check>` and `rejected:<check>` before
+  `raw:`. A number a check rejected is `rejected:range,raw:4021` where it was `raw:4021`, so `raw:`
+  alone is now a code of the source; `str.replace(r"rejected:[a-z+]+,", "")` gives the old string
+  (GH-3676)
+- **Breaking**: the `stuck` check is soft by default: `rmi/observation` (the sunshine of station
+  6477 in its dead periods), which was null, keeps its values as `suspect:stuck`, and so does
+  `dwd/road` (a stopped sensor, once quality `1`) beside DWD's own flag; as that is a suspect
+  value, `skip_empty` no longer counts it, so a road station with long stuck runs can be skipped
+  where it was kept. For the null again, set `stuck` to hard: `plausibility={"stuck": "hard"}`,
+  `WD_TS_PLAUSIBILITY__STUCK=hard`, `--plausibility-stuck hard` or `plausibility_stuck=hard`
+  (GH-3676)
+- **Breaking**: the constant pressure of `dwd/observation` is a run of identical readings, not a
+  file of at most three values, and soft like the other `stuck` verdicts (`suspect:stuck`, null
+  with `stuck` hard): 72 hourly readings, 5 days or 36 readings at 10 minutes of one
+  `pressure_air_site` or `pressure_air_site_mean` (HadISD, ECA&D; the 36 is derived, not
+  published), in the series of the periods read, a gap of more than four times the interval ending
+  a run. A constant stretch below the run is no longer flagged, and the check now also covers the
+  hourly `pressure` and `urban_pressure`, the 10-minute `temperature_air` and `urban_pressure` and
+  the daily `climate_summary` (GH-3676)
+- **Breaking**: a Zarr file (`file://x.zarr`) holds a gap as `NaN`, and a missing time as `NaT`,
+  where it held -999 (an integer column with a gap is now a float one). It read as a measurement:
+  an air temperature of -999 degrees, a station 999 m below the sea. A reader that tested for -999
+  tests for `NaN` (`np.isnan`, or `xarray`'s `.isnull()`), as for NetCDF; with pandas 3 a frame
+  with a missing time, such as stations that have not ended, could not be written to Zarr and now
+  can (GH-3449)
+- **Breaking**: 7 `noaa/ghcn` stations are placed south of the equator, no longer north of it,
+  where the lists have lost the sign of their latitude: Lambarene and Lastoursville in Gabon
+  (GB000004551, GB000004560) in `ghcnd-stations.txt`; Adelaide (ASU34-00001), Halley in
+  Antarctica (GLUHALLEY-2, -3, -4) and Nuku'alofa (TNU55-00239) in `ghcnh-station-list.csv`.
+  They were 160 to 16,800 km off, so a nearest-station search or a distance filter near them
+  picked the wrong stations; a filter on the old position needs the new one. A row is turned only
+  while it lists the position that was checked, so a list NOAA corrects is read as it is
+  (GH-3662)
+- **Breaking**: `to_format` refuses an argument that no format takes, with a `TypeError` listing
+  the ones that are (`with_metadata`, `with_stations`, `indent`, `width`, `height`, `scale`,
+  `max_side`), where it dropped it: `to_format("csv", separator=";")` wrote a comma CSV and said
+  nothing. An argument that another format takes is still dropped, so the one set the command line,
+  the REST API and MCP build is unaffected; pass `to_csv(separator=";")` to give polars an argument
+  (GH-3449)
+- **Breaking**: `dwd/road` returns null, with the number DWD wrote as the last token of
+  `quality_flags` (`rejected:range,raw:0.1`), for a `humidity_relative` below 1 % and for a
+  `temperature_surface` more than 20 K above the `temperature_air` of the same minute with the sun
+  more than 6 degrees below the horizon (`rejected:consistency,raw:338.75`, in K); both came back as
+  published, among them a surface of 61 to 75 °C at night. Read the old number from `raw:`. The
+  other road readings stay raw data apart from the values outside their range, as the docs now say
+  (GH-3624)
+- **Breaking**: 5 `noaa/ghcn` hourly stations are placed west of Greenwich, no longer east of it,
+  where `ghcnh-station-list.csv` has lost the sign of their longitude: Nemours/Ghazaouet
+  (AGUG0060517), Khouribga military airport (MOI0000GMMK), Alcaniz, Bujaraloz and Oliva
+  (SPM00008164, -8165, -8282). They were 16 to 1,299 km off, so a nearest-station search or a
+  distance filter near them picked the wrong stations; a filter on the old position needs the new
+  one (GH-2886)
+- **Breaking**: `dwd/observation` `pressure_air_site` and `pressure_air_site_mean` (the hourly
+  `P0` and `P_STD`, the subdaily and 10 minute station pressure, the urban station pressure
+  `LUFTDRUCK_STATIONSHOEHE` and `P0_ST_10`, the daily mean `PM`) and `meteofrance/synop` `pres` are
+  null, with the number the source wrote as `rejected:elevation,raw:` in `quality_flags`, where
+  they are more than 75 hPa (7,500 Pa) from the pressure the standard atmosphere expects at the
+  station's elevation:
+  909.5 hPa at Berlin-Tempelhof (48 m) and 968.6 hPa at the Zugspitze (2,956 m, where 705 hPa are
+  expected) came back as readings. The old number is the `raw:` token; a station without an
+  elevation in the list is held to the world-wide bounds as before (500 to 1090 hPa, 1100 for
+  synop) (GH-3627)
+- **Breaking**: `meteofrance/observation` (hourly `U`) and `meteofrance/synop` (`u`): at the
+  stations without frost, the relative humidity of a row with a dew point below 0 °C is null too,
+  with its number as `rejected:consistency,raw:`, where it came back as 1 to 20 % beside a dew point
+  of -20 C, the same failed hygrometer. A humidity beside a dew point that is a reading stays, low
+  as it is. The old number is the `raw:` token (GH-3629)
+- **Breaking**: `dwd/dmo` `radiation_global` (`rad1h`) and `radiation_short_wave_net_last_3h`
+  (`rads3`) are 0.0 where ICON writes a little below 0 at night (to -0.77 and -0.46 J/cm2), with
+  the number kept as `rejected:floor,raw:-0.16` in `quality_flags`; they were negative, and a
+  `-0.00` was `-0.0`. `rr1` and `rr3` already did this. Nothing to change in a caller; filter on
+  `raw:` for the old numbers (GH-3263)
+
+### Fixed
+
+- File extensions of `to_target` are read in any case: `file://x.CSV` was refused as an unknown
+  file type, the path is kept as written (GH-3449)
+- `to_target("influxdb://…")` of a frame with no `timestamp`, `station_id`, `resolution` or
+  `dataset`, such as the stations, is refused with an `ExportRefusedError` naming what is missing,
+  before the client is built, where it failed with a bare `KeyError('timestamp')` (GH-3449)
+- `ImageTooLargeError` pickles: it failed with a `TypeError` on unpickling, which broke it for
+  a caller that passes it across processes (multiprocessing, `ProcessPoolExecutor`). Its size, its limit and any notes now
+  come through the copy (GH-3673)
+- `noaa/ghcn` daily: a direction of the fastest or peak wind of 0 beside a speed of exactly 0
+  (`wind_direction_gust_max` and its `_1min`, `_2min`, `_5sec`, `_instant`, `_1mile`) is null, with
+  `raw:0` in `quality_flags`, where it came back as north. The files write that 0 for a day
+  without a direction (1,798 of 1,799 in `wind_direction_gust_max` of 9 stations); a 0 beside a
+  wind that blows stays (GH-3648)
+- `noaa/ghcn` daily: `wind_gust_max` of 0 with source flag `C` (Environment Canada) is null, with
+  `raw:0` in `quality_flags`, where it came back as a peak gust of 0.0 m/s. Environment Canada
+  does not report a gust below 31 km/h and the files write 0 for it; a 0 of another source stays
+  (GH-3655)
+- `dwd/phenology`: 304 of the 404 parameter descriptions now carry DWD's definition of the phase,
+  where they gave its name only: the share of the flowers, ears, stems or plants that decides the
+  date, pollen release as the flowering of hazel, birch, spruce and others.
+  `phenology_heading_beginning` was "the first ears" (DWD: about half of the stems),
+  `phenology_harvest_by_hand` begins with a scythe or simple machine, and
+  `phenology_emergence_beginning` no longer says "first seedlings" (GH-3136)
+- Dataset and resolution descriptions that stated a wrong fact now follow their source:
+  `dwd/observation` `annual/climate_summary` no longer lists air pressure (it has none), the
+  `subdaily` datasets are no longer "recent" only (they have a historical period), the `subdaily`
+  resolution gives DWD's observation hours by date (07, 14, 21 until March 2001, 06, 12, 18 UTC
+  from April 2001, not "7am, 2pm, 9pm"), and `ea/hydrology` covers England, not the UK
+  (GH-3136)
+
+## [0.179.0] - 2026-10-30
+
+### Added
+
+- A response warning `file-skipped` (REST, MCP, command line and, as a log line at WARNING,
+  Python) names the stations whose file the provider let go (a refused download, a file withdrawn
+  since the listing, a maintenance page answered with HTTP 200, a file that would not parse), so
+  that a partial answer can be told from a whole one: one warning for the request, with
+  `stations` and the datasets read at them. Try again later. Not told for `interpolate` and
+  `summarize` (GH-3552)
+- A response warning `parameter-without-rows` (REST, MCP, command line and, as a log line at
+  WARNING, Python) names a requested parameter the source has no values for, with `parameter`
+  and `stations`, where the answer used to be an empty header that read like a failed request
+  (`TX`/`TN` of `dwd/mosmix` for Los Angeles, `tx24` of `meteofrance/synop` for Paris). Told for
+  a parameter asked for by name when no station has a row of it, and for a dataset asked for
+  whole only when none has a row of any of its parameters. It names the `periods`, run or lead
+  time it is limited to, and leaves out a station whose file the provider let go (GH-3539)
+- `meteofrance/synop` now offers the 12 h maximum and minimum temperature
+  (`temperature_air_max_2m_last_12h`, `temperature_air_min_2m_last_12h`; `tx12`, `tn12`), given
+  at 06 and 18 UTC by 158 of the 190 stations (2026), where `tx24`/`tn24` are given by 35 and
+  by none for Paris-Montsouris. Where `tn12` repeats the `tx12` of its own row (three overseas
+  stations at some hours: Cayenne-Matoury, Le Raizet, Lamentin) it is null, with the number kept as
+  `raw:` in `quality_flags` (GH-3540)
+- `imgw/hydrology` stations now list the river the gauge is on (`river`, with IMGW's hydrographic
+  code, `Odra (1)`), its position along it in kilometres from the mouth (`river_kilometer`) and
+  the altitude of the gauge's zero in metres (`gauge_zero`), under the names `wsv/pegel` uses; null
+  where IMGW's list is empty. `river_kilometer` is not comparable with `wsv/pegel`'s waterway
+  kilometre, which grows downstream. `gauge_zero_datum` is null, as the list states no datum
+  (GH-3599)
+- `dmi/observation` now offers the sunshine duration (`sunshine_duration`), the cloud cover
+  (`cloud_cover_total` at minute 0 of the hour, `cloud_cover_total_mean` from the day), the hourly
+  global radiation (`radiation_global_intensity_mean`), the highest and lowest relative humidity of
+  the day and of the year (`humidity_relative_max`/`_min`; the annual ones were left out as not
+  published, but are), the manual snow depth of the day (`snow_depth_manual`) and the monthly and
+  annual counts of ice days, frost days and days with 0.1, 1 and 10 mm (`count_days_*`). A cloud
+  cover above 100 is null, with the number as `raw:` in `quality_flags`. Not offered yet: the
+  radiation of a day and longer, the pressure extremes and the other counts (Part of GH-3622)
+- `noaa/ghcn` daily now offers the average dew point (`temperature_dew_point_mean_2m`, ADPT),
+  sea level and station pressure (`pressure_air_sea_level_mean`, `pressure_air_site_mean`; ASLP,
+  ASTP), wet bulb temperature (`temperature_wet_mean_2m`, AWBT), wind direction
+  (`wind_direction_mean`, AWDR) and relative humidity (`humidity_relative_mean`/`_min`/`_max`;
+  RHAV, RHMN, RHMX), at the US stations that report them. A direction of 0 beside an average wind
+  speed of 0 is null, with `raw:0` in `quality_flags`. TAXN is listed for no station (Part of GH-3622)
+
+### Changed
+
+- **Breaking**: asking the Python API for the values of a `date_required` dataset without `start`
+  and `end` raises `DateRequiredError` (a `ValueError`) naming the dataset, from
+  `stations.values()` on, as REST, CLI and MCP already refused it. `noaa/ghcn`, `meteoswiss`,
+  `meteofrance`, `geosphere`, `eccc`, `imgw`, `dwd/road` and `ea` used to answer the whole record,
+  `wsv`, `nws`, `ipma` and `eaufrance/hubeau` a recent slice; `aemet` (daily to annual), `chmi`
+  (sub-daily), `dmi`, `fmi`, `knmi`, `lhmt`, `rmi` and `metno/frost` an empty frame. Pass `start`
+  and `end`; listing stations needs no window (GH-3562)
+- **Breaking**: the REST API, CLI and MCP refuse a `metno/frost` request for `daily`, `monthly` or
+  `annual` values without a start and end date, as for the other resolutions (REST: 400,
+  `timestamp` is required). Such a request was answered with no rows and no reason, as the source
+  is only asked within a window. Pass a window instead (GH-3560, GH-3562)
+- **Breaking**: `coverage` (`/api/coverage`, the MCP tool, `about coverage`,
+  `TimeseriesRequest.discover()`) gives a parameter the unit its values come back in as `unit`
+  (`degree_celsius`, `decimal` for a percentage: what `glossary` gives, following the server's
+  `WD_TS_UNIT_TARGETS` and `WD_TS_CONVERT_UNITS`), where it gave the unit the provider publishes
+  (`degree_kelvin`, `percent`) for 362 of the 2048 parameters, and a model told a user "Kelvin".
+  That unit is the new `unit_source`, there only where it differs from `unit` (absent: the same).
+  Read `unit_source` where you used `unit` to know what the source holds or what
+  `convert_units=false` returns. `coverage` takes no options: a `unit_targets` of a `values`
+  request changes the values, not `unit` (GH-3537)
+- **Breaking**: `nws/observation` fills a gap of the observation it keeps for an hour from the
+  nearest other observation of that hour (a verified 5-minute row for a METAR whose temperature
+  is not controlled yet), with that row's `quality_flags`. These come back where they were null:
+  temperature, dew point, humidity, both pressures, visibility, wind speed and the three
+  precipitation sums (the temperature in 1.8 % of the hours measured, the wind speed in 5.2 %).
+  The wind direction comes only together with a filled speed, from the same row; a report that
+  has a speed keeps its own direction (null for a variable wind). The running total since the
+  last routine report is taken from an earlier report only. Gust and wind chill stay as the
+  report has them. A value the kept observation has is never replaced. Nothing needs to be done
+  (GH-3480)
+- A read of many stations of `smhi/observation` fetches the per-parameter files of the next 4
+  stations into the cache while one is parsed, as `dwd/observation`, `chmi` and the others
+  already do (not with `cache_disable`, nor for `interpolate` and `summarize`). Answers, their
+  order and errors are unchanged; the connection limits and `Settings(fetch_ahead=...)` /
+  `WD_FETCH_AHEAD` (0 switches it off) are those of GH-3454 (GH-3507)
+- The description of the `large` dataset of `dwd/mosmix`, which `coverage` reports and the docs
+  page carries, says that which elements a station gets, and at which hours, depend on the station:
+  `tx` and `tn` at 06 and 18 UTC for Berlin, 12 and 00 UTC for Tokyo, none for Los Angeles, and
+  that an element without a value for it is an answer with no rows (GH-3539)
+
+### Fixed
+
+- `eccc/observation` monthly values carry `I` in `quality_flags` for a month with missing days,
+  following the archive's rule (Technical Documentation, Notes 25 and 26) applied to the
+  collection's counts `count_days_valid_*`: any missing day for the extremes, precipitation and
+  snowfall, more than 5 for the mean temperature (the "3 in a row" half is not published, so the
+  mean is under-flagged). It is derived, not ECCC's own flag, and set for months before 1994 too,
+  from which the documentation dates the archive's flag (GH-3621)
+- `dmi/observation` reads DMI's -0.1 in `precipitation_amount` (and the maxima of a day or 30
+  minutes) as a trace of precipitation: 0.0 with `raw:-0.1` in `quality_flags`, where it was
+  null as out of range, as the trace of KNMI, AEMET and `meteofrance/synop` is (GH-3621)
+- On Windows, two processes that share a cache directory no longer lose the date a cached file
+  arrived with (the `updated` column and `data_updated_at` came back null) nor download the file
+  once more, when one reads or replaces its date at the moment the other does: that is asked again
+  for under a second (GH-3632)
+- On any system, two processes that share a cache directory no longer overwrite each other's
+  date of a cached file, which made the `updated` column and `data_updated_at` come back null
+  when one wrote the date at the moment the other replaced the file. The date is now written
+  under the same lock as the file and its entry in the cache; where another process keeps that
+  lock too long, it is written without it, as before (GH-3634)
+- The `noaa/ghcn` parameter descriptions no longer offer a choice of units. 30 daily rows read
+  "mm or inches as per user preference" or "Fahrenheit or Celsius", the wording of NCEI's
+  ordering form; the files hold one unit, which the values already came in (mm, °C, m/s, km,
+  cm), and the descriptions now say so. The hourly `relative_humidity` no longer says it is
+  always calculated from air temperature and dew point (GHCNh: "Depending on the source,
+  relative humidity is either measured directly or calculated") (GH-3136)
+- The `eccc/observation` hourly dataset no longer claims a wind gust and weather: it holds air
+  temperature, dew point, humidity, precipitation, station pressure, visibility, wind direction
+  and speed, wind chill and humidex. Its parameter descriptions now say what ECCC's glossary and
+  technical documentation say (the climatological day, the degree-day base of 18 °C, the
+  gust published above 30 km/h only, the humidex and wind chill ranges) (GH-3136)
+- `chmi/observation` lists, for `10_minutes` and `hourly`, only the stations that can have files
+  there: 767 of the 1,603 (read 2026-10-30), those whose period ends in 2018 or later, when these
+  files begin, and that have a daily file. The 836 left out answered every request with an empty
+  frame (795 closed before 2018, 41 more with no daily file); no station with a 10 minute or hourly
+  file is among them. `daily`, `monthly` and `annual` are unchanged. The daily directories are
+  read for a sub-daily stations request now (GH-3623)
+- Two processes that share a cache directory no longer fail a download on Windows with
+  `PermissionError` when one opens a cached file while the other replaces it: the open is asked
+  again for under a second, and a file that stays unreadable still raises (GH-3630)
+- A request that asks several resolutions or datasets of one provider no longer returns some
+  readings under another parameter's name. The humanized name is now looked up per resolution
+  and dataset, where a name the source gives two parameters took the last one's: chmi (`T`, `H`,
+  `P`, `F`, `TMA`, `TMI`), geosphere (`p`, `sh`, `tsmin`, `tl_mittel`), meteofrance/observation
+  (`TN`, `TX`) and aemet (`hr`). The 10 minute `T` of chmi, asked with the daily one, came back
+  as `temperature_air_mean_2m` (GH-3605)
+- `chmi/observation` lists stations that `meta1.csv` (read 2026-10-30, 1,603 stations) has since
+  been given rows for: the 29 monthly and 22 annual ids with files but no row (e.g.
+  `0-203-0-10101019002`), and 14 more, 43 in all, none with a `daily` file. `monthly` lists 1,567
+  stations (was 1,538), `annual` 1,555 (was 1,533). `10_minutes` and `hourly` list them too (1,603,
+  was 1,560), though none of the 43 has a file there in any year (2018-2025) (GH-3259, #3623)
+- `/api/stripes/image` now sends the licence, the credit line and the warnings in the headers
+  `X-Wetterdienst-License`, `Link`, `X-Wetterdienst-Attribution` and `X-Wetterdienst-Warnings`,
+  so a client or the MCP tool `stripes_image` can tell that the image is DWD data under CC BY 4.0;
+  the image itself is unchanged. `/api/stripes/values` never recorded the warnings of its read, so
+  its `metadata.warnings` and `X-Wetterdienst-Warnings` (and the MCP tool `stripes_values`) were
+  always empty; they now tell them (GH-3581)
+- A reading no sensor can have produced is now null, with the number the file wrote kept as
+  `raw:` in `quality_flags`. `dwd/observation`: a wind speed below 0 or above 115 m/s (the hourly
+  urban wind read -0.80 m/s at Berlin-Alexanderplatz) and a pressure outside 500 to 1090 hPa in
+  `pressure_air_site`, `pressure_air_site_mean` (daily `PM`) and `pressure_air_sea_level` (the
+  hourly `P0` read 1093.3 hPa at 00433); the vapour pressures are not bound. `meteofrance/synop`:
+  `pres` outside 500 to 1100 hPa (31 rows of 108.6 to 420.6 hPa in the files of 1996, 2000, 2005,
+  2010 and 2015), `pmer` outside 850 to 1100 hPa, temperatures and dew point outside -90 to
+  60 C, `rr1` outside 0 to 600 mm, `rr3`, `rr6`, `rr12` outside 0 to 1200 mm, `rr24` outside
+  0 to 2000 mm (GH-3135)
+- `meteofrance/observation` and `meteofrance/synop`: a temperature below 0 C (air at 2 m, its
+  extremes, the dew point) at a station of Guadeloupe (971), Martinique (972), Guyane (973),
+  Mayotte (985), Wallis-et-Futuna (986), French Polynesia (987) or the Iles Eparses (Glorieuses,
+  Juan de Nova, Europa, Tromelin) is null, with the number kept as `raw:`: there is no frost
+  there, and the files hold -20.0 C at 441 m in Martinique, dew points of -39.5 C at 1,141 m
+  in Guadeloupe, -32.6 C at Hao (French Polynesia) and -21.6 C at Tromelin. Synop names its 24
+  stations. La Reunion, Saint-Pierre-et-Miquelon, the southern territories and New Caledonia
+  are not (GH-3135)
+- `chmi/observation` no longer lists the two stations abroad of CHMI's catalogue, Reykjavik
+  (`0-20000-0-04030`) and Marambio Base (`0-20000-0-89055`), in the `10_minutes` and `hourly`
+  station lists: the portal has no file for them in any resolution, so they never had a value
+  (GH-3589)
+- The row-limit refusal and the 504 timeout of `interpolate` and `summarize` (REST and the MCP
+  tools) no longer advise fewer stations, which a point request does not name, nor
+  `format=ndjson` or `format=csv`: they say to ask for a shorter `timestamp` window or fewer
+  `parameters`. The problem keeps `limit`, `maximum` and `requested` (GH-3576, GH-3590)
+- The MCP tools answer every `format` they offer, where `csv`, `ndjson`, `html` and `svg` of the
+  tools with an output schema failed ("has an output schema but did not return structured
+  content") and so did `png`, `jpg`, `webp` and `pdf` of every tool (a decoding error). A text
+  body is the text content of the result, an image its image content and a PDF an embedded
+  resource; the structured content is one sentence about it that also gives the licence, the
+  attribution and the warnings, which REST sends in headers for these formats. An `html` chart
+  loads plotly.js from the CDN (9 KB, not 4.8 MB). A tool answers one body in every format, held
+  to the `rows` limit (`csv` and `ndjson` get no `stream_rows`), and its refusals (row limit,
+  timeout) no longer advise `format=ndjson` or `format=csv`: they name a shorter `timestamp`
+  window, fewer `parameters` or fewer stations (the point tools: a window or fewer parameters,
+  GH-3576). REST and the command line are unchanged (GH-3464)
+- A download, post or listing whose TLS handshake the peer answers wrongly (a non-TLS answer,
+  `WRONG_VERSION_NUMBER`; an invalid session, `INVALID_SESSION_ID`) is retried like any other
+  transient network error, where the first one failed the answer: `www.dwd.de` throws them now
+  and then. A certificate that does not verify still fails at once (GH-3533)
+- A `dwd/dmo` request for a lead time its product does not publish (`lead_time=long` for
+  `icon_eu`, which has the short run alone) is refused as a 400 naming what the product
+  publishes, where it ended in a 500 (`Unable to find a 168 h forecast`) (GH-3539)
+- The stations come in one order from one request to the next, where they changed with every
+  request or process: by station id for `dwd/observation` and `dwd/derived`, in the order of the
+  catalogue for `smhi`, `dmi`, `chmi` and `hubeau`, and the datasets of a station in the
+  order the request names them (`eccc`, `dwd/dmo`, `knmi` followed the hash seed of the process).
+  So do the `stations` of a values, interpolate or summarize answer, the features of its OGC form
+  and `filter_by_rank` / `filter_by_distance`. The values rows of a station were not affected
+  (GH-3551)
+- The `missing-value-marker` warning of an answer counts the readings that are a marker for a
+  missing value inside the window the request asked for, where it counted those of every file read
+  (12,663 for a 3-day request at DWD station 00011, the whole archive) (GH-3550)
+- The `missing-value-marker` warning counts the readings of the stations that are in the answer,
+  with `drop_nulls` on (the default) or off: not those of a station `skip_empty` leaves out, nor of
+  one a `rank` walk passes over for having no reading. `interpolate` and `summarize`, whose answer
+  is an estimate, carry no such warning now (GH-3554)
+- Processes that share a cache directory take turns on it, through a lock file beside each
+  directory (new dependency: `filelock` 3.30 or later). The metadata read-merge-write no longer
+  loses a row another process saved in between (its file was then fetched again), the save no
+  longer fails with `PermissionError` on Windows while another process has the metadata open, and a
+  sweep no longer deletes a file another process has just fetched again. A process waits for the
+  lock as long as it moves between processes (60 s at most) and 10 s behind one holder; a holder
+  stuck that long costs that wait once, in which the process's other cache misses wait too, and
+  then the loads, saves and sweeps of the directory for a minute, which are skipped with a warning:
+  a skipped load reads nothing and a skipped save fetches again. No request fails. A killed process
+  leaves no stale lock, and a file system without `flock` goes without the lock. The metadata file
+  is written in one go, about four times faster for a directory of tens of thousands of entries,
+  with the same content (GH-3485)
+- The `station-skipped` warning is told for a station `skip_empty` leaves out whatever `drop_nulls`
+  is: with the nulls dropped (the default) a station that held nothing but missing values was left
+  out unsaid, and with them kept it was told. The warning is the same for both, and so is
+  `parameter-without-rows`: a parameter or dataset that held only missing values at a station left
+  out (wholly or with some readings) is no longer named there. The rows of an answer are unchanged
+  (GH-3567)
+- `skip_empty` judges a station by the same span whether `drop_nulls` is on or off. For a request
+  that names no window the coverage is measured against the span of the station's own series, and
+  that was read after the empty readings had been dropped: a station whose first or last readings
+  were nulls looked complete (and was kept) with `drop_nulls=True`, the default, and sparse (and
+  was skipped) with `drop_nulls=False`. The span now includes the empty readings, so with the
+  default setting such stations are skipped, and the answer has fewer stations than before. The
+  same holds for a resolution with no fixed interval (`subdaily`), where the share of readings
+  with a value was taken of the rows left, always all of them, so nothing was skipped. A request
+  with a window and a fixed interval is unchanged (GH-3578)
+
+### Security
+
+- `uv.lock` pins `joserfc` 1.7.7 (was 1.7.5), which closes GHSA-9pg5-8c7x-5hfx (CVE-2026-119284,
+  fixed in 1.7.6) and the `vulnerable` check that failed on it. It comes in only through the `mcp`
+  extra (`fastmcp`, `authlib`), and wetterdienst neither imports it nor serves an authenticated
+  MCP endpoint, so its own code did not reach the affected path; a source install with the extra
+  and the Docker image (built from the lock) now carry the fixed version (GH-3653)
+
+## [0.178.0] - 2026-10-28
+
+### Security
+
+- `uv.lock` pins `authlib` 1.9.1 (was 1.8.0) and `dnspython` 2.9.0 (was 2.8.0), which close the
+  open Dependabot alerts for both. They come in only through the `mcp` extra (`fastmcp`), and
+  wetterdienst neither imports them nor serves an authenticated MCP endpoint, so its own code
+  did not reach the affected paths; a source install with the extra and the Docker image
+  (built from the lock) now carry the fixed versions (GH-3514)
+
+## [0.177.0] - 2026-10-27
+
+### Changed
+
+- A read of many stations of `dwd/observation`, `dwd/derived`, `chmi` or the daily synop of
+  `imgw/meteorology` fetches the files of the next 4 stations into the cache while one is parsed
+  (not with `cache_disable`, nor for `interpolate` and `summarize`): 100 stations of one small file
+  took 17.5 s and now take 4.3 s against a local upstream of 120 ms latency. Answers, their order
+  and errors are unchanged. That is up to 4 more connections to the host beside the station's own
+  download, and 8 per host at most for all reads of a process together (a station's own downloads
+  are not counted); a missing or failed file is asked twice, ahead and at its turn, so an outage
+  can show up later, by up to twice the client timeout. `Settings(fetch_ahead=...)` or
+  `WD_FETCH_AHEAD` sets the 4 (at most 8), 0 switches it off (GH-3454)
+
+### Fixed
+
+- `dwd/observation`: a read of the historical period of a 1-, 5- or 10-minute dataset for a window
+  that no file of the station covers (the gap between two files, a window past the last one) no
+  longer downloads and parses every historical file of the station only for the rows to be
+  dropped. The answer is the same, the read is faster and makes fewer requests (GH-3505)
+- `eaufrance/hubeau` declares its `extent.bbox` up to 51.1 N, not 51.0: France reaches 51.09 N
+  (Bray-Dunes), so a correctly placed station there is no longer reported as outside the country
+  by the catalogue rules and a swapped one is corrected. The box of metropolitan France that
+  swaps a misplaced position moves with it (GH-3481)
+
 ## [0.176.0] - 2026-10-27
 
 ### Added
@@ -6694,7 +7183,11 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.176.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.180.0...HEAD
+[0.180.0]: https://github.com/earthobservations/wetterdienst/compare/v0.179.0...v0.180.0
+[0.179.0]: https://github.com/earthobservations/wetterdienst/compare/v0.178.0...v0.179.0
+[0.178.0]: https://github.com/earthobservations/wetterdienst/compare/v0.177.0...v0.178.0
+[0.177.0]: https://github.com/earthobservations/wetterdienst/compare/v0.176.0...v0.177.0
 [0.176.0]: https://github.com/earthobservations/wetterdienst/compare/v0.175.0...v0.176.0
 [0.175.0]: https://github.com/earthobservations/wetterdienst/compare/v0.174.0...v0.175.0
 [0.174.0]: https://github.com/earthobservations/wetterdienst/compare/v0.173.0...v0.174.0

@@ -508,6 +508,30 @@ def test_coverage_dwd_observation_dataset_climate_summary(client: TestClient) ->
     assert data["annual"]["datasets"].keys() == {"climate_summary"}
 
 
+def test_coverage_unit_is_the_unit_of_the_values_and_unit_source_the_providers(client: TestClient) -> None:
+    """Test that `coverage` reports the unit the values come back in, and the provider's own beside it (GH-3537)."""
+    response = client.get(
+        "/api/coverage",
+        params={"provider": "dwd", "network": "mosmix", "resolutions": "hourly", "datasets": "large"},
+    )
+    assert response.status_code == 200
+    parameters = {p["name"]: p for p in response.json()["hourly"]["datasets"]["large"]["parameters"]}
+    temperature = parameters["temperature_air_2m"]
+    assert (temperature["unit"], temperature["unit_source"]) == ("degree_celsius", "degree_kelvin")
+    probability = parameters["probability_precipitation_amount_gt_0_2mm_last_24h"]
+    assert (probability["unit"], probability["unit_source"]) == ("decimal", "percent")
+    # where the provider's unit is the one the values come in, the answer does not repeat it
+    unconverted = [p for p in parameters.values() if "unit_source" not in p]
+    assert unconverted
+    large = DwdMosmixRequest.metadata["hourly"]["large"]
+    assert all(p["unit"] == large[p["name"]].unit for p in unconverted)
+    # the glossary says the same of the quantity, which is what a reader who ignores `unit_source` is right by
+    glossary = {
+        e["name"]: e["unit"] for e in client.get("/api/glossary", params={"parameter": "temperature_air_2m"}).json()
+    }
+    assert glossary["temperature_air_2m"] == temperature["unit"]
+
+
 @pytest.mark.remote
 def test_coverage_wrong_only_provider_given(client: TestClient) -> None:
     """Test wrong request."""
@@ -1580,7 +1604,7 @@ def test_get_stations_request_mosmix_no_issue_defaults_to_latest() -> None:
 def test_get_stations_request_date_required_dataset_does_not_raise_for_stations_request() -> None:
     """_get_stations_request must NOT raise StartDateEndDateError for StationsRequest.
 
-    MetNo Frost marks its hourly, 10-minute, and 6-hour datasets as date_required=True.
+    MetNo Frost marks all its datasets as date_required=True.
     Previously the date-range check applied to StationsRequest too, so listing stations
     without a date range raised StartDateEndDateError and the Explorer showed no stations.
     """
@@ -1995,10 +2019,42 @@ def test_stripes_image_is_sent_as_its_media_type(
         def to_image(self, *_args: object, **_kwargs: object) -> bytes:
             return b"image"
 
-    monkeypatch.setattr(restapi, "_plot_stripes", lambda _request: _Figure())
+    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
     response = client.get("/api/stripes/image", params={"kind": "temperature", "station": "01048", "format": fmt})
     assert response.status_code == 200
     assert response.headers["content-type"] == media_type
+
+
+def _without_plotly(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make plotly not installed: its import raises what a missing package raises, imported before or not."""
+    import importlib  # noqa: PLC0415
+
+    real = importlib.import_module
+
+    def import_module(name: str, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+        if name.split(".", maxsplit=1)[0] == "plotly":
+            msg = "No module named 'plotly'"
+            raise ModuleNotFoundError(msg, name="plotly")
+        return real(name, *args, **kwargs)
+
+    monkeypatch.setattr(importlib, "import_module", import_module)
+
+
+def test_stripes_image_without_plotly_is_a_501_before_anything_is_fetched(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A server without the `plotting` extra refuses at once: the record of the station is not downloaded (GH-3581).
+
+    An unknown station would otherwise be a 404 and a known one a download, for the same 501 at the end.
+    """
+    _without_plotly(monkeypatch)
+    monkeypatch.setattr(restapi, "_get_stripes_data", _unreached)
+
+    response = client.get("/api/stripes/image", params={"kind": "temperature", "station": "99999"})
+
+    assert response.status_code == 501
+    assert "optional dependency" in response.json()["detail"]
 
 
 def test_stripes_image_without_kaleido_is_a_501(
@@ -2016,7 +2072,8 @@ def test_stripes_image_without_kaleido_is_a_501(
             pytest.fail("rendered although Kaleido is missing")
 
     monkeypatch.setitem(sys.modules, "kaleido", None)
-    monkeypatch.setattr(restapi, "_plot_stripes", lambda _request: _Figure())
+    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
 
     with caplog.at_level(logging.ERROR):
         response = client.get("/api/stripes/image", params={"kind": "temperature", "station": "01048"})
@@ -3808,9 +3865,9 @@ def _raise_unit_target_refusal(**_kwargs: object) -> None:
 def _raise_sql_refusal(**_kwargs: object) -> None:
     import polars as pl  # noqa: PLC0415
 
-    from wetterdienst.io.export import ExportMixin  # noqa: PLC0415
+    from wetterdienst.io.sql_filter import filter_by_sql  # noqa: PLC0415
 
-    ExportMixin._filter_by_sql(pl.DataFrame({"value": [1.0]}), "foo = 1")  # noqa: SLF001
+    filter_by_sql(pl.DataFrame({"value": [1.0]}), "foo = 1")
 
 
 def _raise_station_not_found(**_kwargs: object) -> None:
@@ -4511,7 +4568,7 @@ class _HistoryFails:
         ),
         pytest.param(
             "/api/stripes/image",
-            "_plot_stripes",
+            "_get_stripes_data",
             _fail,
             {"kind": "temperature", "station": "01048"},
             id="stripes-image",
@@ -5592,7 +5649,15 @@ _REPORTED_COMMON_SETTINGS = {
     "skip_criteria",
     "drop_nulls",
 }
-_REPORTED_VALUES_SETTINGS = _REPORTED_COMMON_SETTINGS | {"shape", "station_window_end_buffer"}
+_REPORTED_VALUES_SETTINGS = _REPORTED_COMMON_SETTINGS | {
+    "shape",
+    "station_window_end_buffer",
+    "plausibility_range",
+    "plausibility_elevation",
+    "plausibility_stuck",
+    "plausibility_consistency",
+    "plausibility_floor",
+}
 _REPORTED_GEO_SETTINGS = _REPORTED_COMMON_SETTINGS | {
     "min_gain_of_value_pairs",
     "num_additional_stations",
@@ -5639,6 +5704,11 @@ def test_settings_reports_wetterdienst_defaults(client: TestClient) -> None:
         "skip_criteria": "min",
         "drop_nulls": True,
         "station_window_end_buffer": None,
+        "plausibility_range": "hard",
+        "plausibility_elevation": "hard",
+        "plausibility_stuck": "soft",
+        "plausibility_consistency": "hard",
+        "plausibility_floor": "hard",
     }
     assert unit_targets["temperature"] == "degree_celsius"
     for endpoint, kind in (("interpolate", "interpolation"), ("summarize", "summary")):
@@ -5966,8 +6036,11 @@ def test_each_reported_setting_is_a_field_of_the_request_but_the_servers_own(
     reported = set(model.model_fields)
     requested = set(getattr(core, request_model).model_fields)
     assert reported - requested == server_only
-    # each read off the setting its alias names
-    assert {field.validation_alias for field in model.model_fields.values()} <= Options.model_fields.keys()
+    # each read off the setting its alias names, the mode of a plausibility check off the one `plausibility` holds
+    from wetterdienst.model.plausibility import CHECKS  # noqa: PLC0415
+
+    aliases = {field.validation_alias for field in model.model_fields.values()}
+    assert aliases - {f"plausibility_{check}" for check in CHECKS} <= Options.model_fields.keys()
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
@@ -6203,6 +6276,23 @@ _SETTINGS_PARAMETERS = [
     ("drop_nulls", "false", {"values": {"drop_nulls"}}),
     ("station_window_end_buffer", "7", {"values": {"station_window_end_buffer"}}),
     (
+        "plausibility",
+        "soft",
+        {
+            "values": {
+                "plausibility_elevation",
+                "plausibility_consistency",
+                "plausibility_floor",
+                "plausibility_range",
+            }
+        },
+    ),
+    ("plausibility_range", "soft", {"values": {"plausibility_range"}}),
+    ("plausibility_elevation", "soft", {"values": {"plausibility_elevation"}}),
+    ("plausibility_stuck", "hard", {"values": {"plausibility_stuck"}}),
+    ("plausibility_consistency", "soft", {"values": {"plausibility_consistency"}}),
+    ("plausibility_floor", "soft", {"values": {"plausibility_floor"}}),
+    (
         "interpolation_station_distance",
         '{"temperature_air_mean_2m": 5}',
         {"interpolate": {"interpolation_station_distance"}},
@@ -6268,6 +6358,11 @@ def test_settings_parameters_are_the_data_endpoints_settings_parameters() -> Non
             if parameter["name"] in settings:
                 expected.add(parameter["name"])
                 assert taken[parameter["name"]] == parameter, (endpoint, parameter["name"])
+    # `plausibility` is the one mode for every check, which the five `plausibility_<check>` settings report
+    assert taken["plausibility"] == next(
+        parameter for parameter in paths["/api/v1/values"]["get"]["parameters"] if parameter["name"] == "plausibility"
+    )
+    expected.add("plausibility")
     assert set(taken) == expected
     assert {name for name, _, _ in _SETTINGS_PARAMETERS} == expected
 
@@ -8056,6 +8151,30 @@ def test_a_dataset_queried_by_a_window_without_a_timestamp_names_timestamp(
     assert response.json()["detail"] == "timestamp is required for this dataset"
 
 
+@pytest.mark.parametrize("resolution", ["10_minutes", "hourly", "6_hours", "daily", "monthly", "annual"])
+def test_metno_frost_values_without_a_timestamp_are_refused(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, resolution: str
+) -> None:
+    """Every Frost resolution is refused without a `timestamp`, as its reader has nothing to ask for (GH-3560).
+
+    The daily, monthly and annual datasets were not marked, so such a request answered 200 with no
+    rows. Refused before anything is downloaded; the client id is a dummy.
+    """
+    monkeypatch.setenv("WD_AUTH__METNO_FROST", "dummy-client-id")
+    response = client.get(
+        "/api/values",
+        params={
+            "provider": "metno",
+            "network": "frost",
+            "parameters": f"{resolution}/data",
+            "stations": "SN18700",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "timestamp is required for this dataset"
+
+
 @pytest.mark.parametrize(
     ("tool", "arguments"),
     [
@@ -8109,7 +8228,7 @@ _LOOKUPS = [
     ),
     pytest.param(
         "/api/stripes/image",
-        "_plot_stripes",
+        "_get_stripes_data",
         {"kind": "temperature", "station": "01048"},
         "plot stripes",
         id="stripes-image",
@@ -8568,7 +8687,8 @@ def test_coverage_schema_in_openapi(client: TestClient) -> None:
     assert components["CoverageDataset"]["properties"]["extent"] == {"$ref": "#/components/schemas/Extent"}
     # lead_times is `dwd/dmo`'s alone: sent there, absent elsewhere
     required = {"name", "name_original", "unit_type", "unit", "description"}
-    assert shape("CoverageParameter") == (required | {"lead_times"}, required)
+    # `unit_source` is the provider's unit where that is not `unit`, absent where it is the same (GH-3537)
+    assert shape("CoverageParameter") == (required | {"lead_times", "unit_source"}, required)
     parameter = components["CoverageParameter"]["properties"]
     assert parameter["lead_times"]["items"] == {"enum": ["short", "long"], "type": "string"}
     assert parameter["unit_type"]["enum"] == list(get_args(UnitType))
@@ -9165,7 +9285,7 @@ def test_image_within_the_limit_goes_on_to_the_provider(size: dict[str, int]) ->
 
 def test_oversized_stripes_image_is_refused_before_anything_is_fetched(monkeypatch: pytest.MonkeyPatch) -> None:
     """The stripes image is plotly's 700 x 500 times `dpi / 100`, and is refused above 8192 px on a side."""
-    monkeypatch.setattr(restapi, "_plot_stripes", _unreached)
+    monkeypatch.setattr(restapi, "_get_stripes_data", _unreached)
     client = TestClient(restapi.app, raise_server_exceptions=False)
     params = {"kind": "temperature", "station": "01048"}
 

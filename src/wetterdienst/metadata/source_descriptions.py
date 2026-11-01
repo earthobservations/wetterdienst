@@ -71,12 +71,26 @@ then the rest of the Geosphere rows, the IMGW rows and the Météo-France observ
 the second group: the ones translated, or derived from the canonical name, against the source's text), and
 the four IPMA rows that read the canonical sentence and the WSV parameters (GH-3136, the third group), and
 the DWD POI, MOSMIX, DMO, derived and SWSMOS rows (GH-3136, the fourth group), and the SMHI,
-CHMI, LHMT, Environment Agency and Hub'Eau rows (GH-3136, the fifth group). CHMI describes its elements only by
+CHMI, LHMT, Environment Agency and Hub'Eau rows (GH-3136, the fifth group), and the IPMA, NWS and Geosphere
+rows again against their live sources (GH-3136, the sixth group: the NWS temperature, dew point, wind and
+visibility rows now say the statistic and height the ASOS User's Guide gives), and the NOAA GHCN rows (GH-3136,
+the eighth group: the daily rows say what the readme of the files says in the unit the reader returns, where they
+were the table of the ordering form with its choice of units; the hourly rows follow Table 1 of GHCNh 1.1.0), and
+the DMI rows (GH-3136, the ninth group: from the canonical sentence of the quantity to what DMI's documentation says
+of how each value is made, the type of day and the heights), and the DWD phenology rows (GH-3136, the tenth group:
+the phase names of ``PH_Beschreibung_Phase.txt`` were the whole description, and the definitions of the
+``PH_Beschreibung_Phasendefinition_*.txt`` files now follow them; they are declared in the provider module, which wins
+over this table).
+CHMI describes its elements only by
 name, unit, height and schedule (``metadata/meta2.csv``) and the Environment Agency by a table of parameter, period,
 statistic and unit on its reference page, so what those entries say about a window or a weighting is what the data
 show, with the evidence in a comment beside them; SMHI's windows are the ones its own CSV columns give; Hub'Eau
 states a unit, an update interval, the instant a value occurred and (for the height) the gauge zero it is relative
-to, and the entries say so.
+to, and the entries say so. The ECCC rows (GH-3136, the seventh group) restate the entries of the glossary at
+climate.weather.gc.ca/glossary_e.html, which are titled as the bulk CSV columns are, and the climatological day of
+Note 16 of climate.weather.gc.ca/doc/Technical_Documentation.pdf; the OGC API collections publish field names and
+types only. Where the glossary has none (the maximum relative humidity: a heading and no text) the canonical sentence
+stands.
 ``tests/metadata/test_parameter_statistics.py`` reads a statistic out of an entry only if it is not
 in ``DERIVED_DESCRIPTIONS``.
 
@@ -106,12 +120,6 @@ _SOIL_EMD_ZONE = (
 # source's, which `test_wsv_every_parameter_is_described` catches.
 _WSV_PEGEL_RESOLUTIONS = ("1_minute", "5_minutes", "10_minutes", "15_minutes", "hourly")
 _HUBEAU_RESOLUTIONS = ("5_minutes", "6_minutes", "10_minutes", "15_minutes", "hourly")
-
-# DMI writes a mean wind direction of 0 where the mean wind speed is 0, at every resolution (GH-2794)
-_DMI_MEAN_WIND_DIRECTION = (
-    "Direction the wind is blowing from, clockwise from true north. "
-    "The source's 0 beside a mean wind speed of 0 (a calm wind) is null."
-)
 
 # Pegelonline names each timeseries in German (``longname``), e.g. HL is LUFTFEUCHTE and SIGH
 # SIGNIFIKANTEWELLENHÖHE, and says of its measurements: "tagesaktuelle Rohdaten" that "die Wasserstraßen- und
@@ -200,6 +208,11 @@ _MO_DAILY_STAMP = (
     "after most of its coverage."
 )
 
+# the window of a daily value of ECCC (the glossary, "Climatological Day"; Note 16 of the technical documentation)
+_ECCC_DAY = (
+    "the climatological day (at a station that observes all day, since July 1961, 0601 UTC to 0600 UTC of the next day)"
+)
+
 # the window of a daily value of the Environment Agency hydrology API (see the comment at its entries)
 _EA_DAY = "the 24 hours from 09:00 of the day it is dated to 09:00 of the next (the source gives no zone; read as UTC)"
 
@@ -228,12 +241,12 @@ _EA_DAY = "the 24 hours from 09:00 of the day it is dated to 09:00 of the next (
 #   days, cooling hours and days reproduce from DWD's daily and hourly air temperature on stations 00044, 00073, 00078
 #   (September 2026); the DUETT hour fits (HH-2):50 to (HH-1):50 best (mean absolute error 4.05 J/cm2, against 15.7
 #   for the sheet's other hour and 5.0 for a window 10 minutes off; 4 pseudo-stations, 4799 hours from 2026-09-01).
-# - DMO: ICON's `Rad1h`, `RadS3`, `RR1` and `RR3` are not clipped at 0 (2026-10-22, 12 stations of icon and icon-eu
+# - DMO: ICON's `Rad1h`, `RadS3`, `RR1` and `RR3` run below 0 (2026-10-22, 12 stations of icon and icon-eu
 #   and the two latest runs of each: `Rad1h` negative in 411 of 1872 icon-eu values, to -0.15, and 18 of 78 icon
 #   steps at 10382, to -0.17; `RadS3` in 273 of 1209, to -0.43; `RR1` in 3 of 1872 icon-eu values, to -0.01; all
 #   stations of the icon run of 22 12Z: `Rad1h` to -0.77, `RR1` negative in 2769 of 459,732 values, to -0.10, `RR3`
 #   to -0.04, `RadS3` to -0.46); the MOSMIX_L file of station 10382 has no negative `Rad1h` or `RR1c`. The reader
-#   returns `RR1` and `RR3` as 0.0 with `raw:` (GH-3263), `Rad1h` and `RadS3` as written.
+#   returns all four as 0.0 with `raw:` (GH-3263).
 # - derived: the English sheets in the `cdh_13`, `cdh_16` and `cdh_18` directories of cooling_degreehours (named
 #   `..._hdh_..._en.pdf`) are the text of the heating degree days sheet (Monatsgradtage, Heiztage, 15 degree
 #   Celsius), so the docs link the English sheet one directory up (`..._cdh_..._en.pdf`), which gives the unit
@@ -892,22 +905,26 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "icon", "pppp"): "Surface pressure, reduced",
         ("hourly", "icon", "rad1h"): (
             "Global Irradiance, as the energy of the last hour: the DMO values are in J/cm2 (the file states no "
-            "unit; they are about a tenth of the MOSMIX kJ/m2 number for the same hour). Direct model output, "
-            "not clipped at 0: in the night hours it is often a little below it (mostly above -0.2 J/cm2, at a "
-            "few stations to about -0.8) and is returned as written."
+            "unit; they are about a tenth of the MOSMIX kJ/m2 number for the same hour). ICON writes "
+            "a little below 0 in the night hours (mostly above -0.2 J/cm2, at a few stations to about -0.8); "
+            "that is returned as 0.0, with the number kept as `raw:` "
+            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`)."
         ),
         ("hourly", "icon", "radl3"): "Long wave radiation balance during the last 3 hours",
         ("hourly", "icon", "rads3"): (
-            "Short wave radiation balance during the last 3 hours. Direct model output, not clipped at 0: in the "
-            "night hours it is often a little below it (to about -0.4 J/cm2) and is returned as written."
+            "Short wave radiation balance during the last 3 hours. ICON writes a little below 0 in the "
+            "night hours (to about -0.5 J/cm2); that is returned as 0.0, with the number kept as `raw:` "
+            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`)."
         ),
         ("hourly", "icon", "rr1"): (
             "Total precipitation during the last hour. ICON writes a little below 0 now and then (to about -0.1 mm); "
-            "that is returned as 0.0, with the number kept as `raw:` in `quality_flags`."
+            "that is returned as 0.0, with the number kept as `raw:` "
+            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`)."
         ),
         ("hourly", "icon", "rr3"): (
             "Total precipitation during the last 3 hours. ICON writes a little below 0 now and then (to about "
-            "-0.04 mm); that is returned as 0.0, with the number kept as `raw:` in `quality_flags`."
+            "-0.04 mm); that is returned as 0.0, with the number kept as `raw:` "
+            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`)."
         ),
         ("hourly", "icon", "rrs1c"): "Snow-Rain-Equivalent during the last hour",
         ("hourly", "icon", "rrs3c"): "Snow-Rain-Equivalent during the last 3 hours",
@@ -940,13 +957,15 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "icon_eu", "pppp"): "Surface pressure, reduced",
         ("hourly", "icon_eu", "rad1h"): (
             "Global Irradiance, as the energy of the last hour: the DMO values are in J/cm2 (the file states no "
-            "unit; they are about a tenth of the MOSMIX kJ/m2 number for the same hour). Direct model output, "
-            "not clipped at 0: in the night hours it is often a little below it (mostly above -0.2 J/cm2, at a "
-            "few stations to about -0.8) and is returned as written."
+            "unit; they are about a tenth of the MOSMIX kJ/m2 number for the same hour). ICON writes "
+            "a little below 0 in the night hours (mostly above -0.2 J/cm2, at a few stations to about -0.8); "
+            "that is returned as 0.0, with the number kept as `raw:` "
+            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`)."
         ),
         ("hourly", "icon_eu", "rr1"): (
             "Total precipitation during the last hour. ICON writes a little below 0 now and then (to about -0.1 mm); "
-            "that is returned as 0.0, with the number kept as `raw:` in `quality_flags`."
+            "that is returned as 0.0, with the number kept as `raw:` "
+            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`)."
         ),
         ("hourly", "icon_eu", "rrs1c"): "Snow-Rain-Equivalent during the last hour",
         ("hourly", "icon_eu", "t5cm"): "Temperature 5cm above surface",
@@ -1549,9 +1568,9 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "moisture", "absf_std"): "Computed hourly value of absolute humidity.",
         ("hourly", "moisture", "p_std"): (
             "Hourly value of barometric pressure. A station without a barometer carries one station constant in every "
-            "row of a file, which is no reading: where a file of at least 500 readings holds at most three distinct "
-            "values (a constant that changed once or twice) it is null, and the value stays in quality_flags as the "
-            "last token, e.g. raw:997.3."
+            "row of a file, which is no reading: a run of 72 hourly readings of one value is flagged "
+            "`suspect:stuck` in quality_flags and kept (the check `stuck`, soft by default), or null with "
+            "`rejected:stuck,raw:997.3` where the check is hard."
         ),
         ("hourly", "moisture", "rf_std"): "Relative humidity.",
         ("hourly", "moisture", "td_std"): "Dew point temperature in 2m above ground.",
@@ -1869,6 +1888,543 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "mean wind speed over the period the station states (10 or 15 minutes, none stated in some station groups)"
         ),
     },
+    "DmiObservationMetadata": {
+        # DMI's documentation of the climate data (https://www.dmi.dk/friedata/dokumentation/climate-data, the
+        # parameter table, the "Calculation Method for stationValue Parameters" table and "Types of Days"; the type of
+        # day of each parameter at /climate-data/parameters-for-station-value; the heights of the underlying
+        # observations at /meteorological-observations-data: "measured 2 m over terrain" for the temperature and
+        # humidity, "10 m over terrain" for the wind). The parameter table gives a name, a unit and a short
+        # description ("Mean temperature"); how a value of each resolution is made is in the calculation table.
+        # Read against opendataapi.dmi.dk, 2026-10-30, key-less (06180 Kastrup and 04250 Nuuk,
+        # daily values of January 2024: Kastrup's days run from 00:00 local, Nuuk's from 06:00 UTC to 06:00 UTC;
+        # 2023: the daily heating degree days are max(0, 17 - mean_temp) on 62 of 62 days, the monthly ones, highest
+        # temperature, highest daily precipitation and lowest temperature the sum, highest, highest and lowest of the
+        # daily values on February and March, the mean of the daily maxima 6.1 against 6.14 and 7.5 against 7.45).
+        # The sunshine, radiation, cloud cover, humidity extremes, snow depth and day counts (GH-3622) were read the
+        # same way on 2026-10-30. At 06041 the daily sunshine and the radiation of a day equal the hourly minutes
+        # divided by 60 and the hourly W/m2 times 3600 / 1e6 (MJ/m2) on 3 of 3 complete days. The monthly counts of
+        # ice days, frost days and days with 0.1 and 1 mm are those of the daily values in 120 of 120 complete months
+        # (2014 to 2023) at each of 06180, 06041 and 06070, bar one month of frost (2020-11, 06180: 3 against 2),
+        # against 102 to 109 of 121 for frost days counted at <= 0 and 84 to 91 for the 1 mm days at > 1. The manual
+        # snow depth of 28240 is that of metObs `snow_depth_man` (07:00 UTC) of the day beginning at 06:00 UTC: 4.0
+        # on 12 February 2021 and 3.0 on the 13th.
+        ("hourly", "data", "mean_temp"): (
+            "Mean air temperature of the hour (UTC), measured 2 m over terrain; in Greenland possibly the "
+            "reading at minute 0."
+        ),
+        ("daily", "data", "mean_temp"): (
+            "Mean air temperature of the day: the average of all hourly values within the day (the local day "
+            "in Denmark; 06:00 to 06:00 UTC in Greenland and the Faroe Islands)."
+        ),
+        ("monthly", "data", "mean_temp"): (
+            "Mean air temperature of the month: the average of all the underlying daily values."
+        ),
+        ("annual", "data", "mean_temp"): (
+            "Mean air temperature of the year: the average of all the underlying daily values."
+        ),
+        ("hourly", "data", "max_temp_w_date"): (
+            "Highest air temperature of the hour (UTC), measured 2 m over terrain."
+        ),
+        ("daily", "data", "max_temp_w_date"): (
+            "Highest air temperature of the day: the highest of all the hourly values within the day (the "
+            "local day in Denmark; 06:00 to 06:00 UTC in Greenland and the Faroe Islands)."
+        ),
+        ("monthly", "data", "max_temp_w_date"): (
+            "Highest air temperature of the month: the highest of the underlying daily values."
+        ),
+        ("annual", "data", "max_temp_w_date"): (
+            "Highest air temperature of the year: the highest of the underlying daily values."
+        ),
+        ("hourly", "data", "min_temp"): "Lowest air temperature of the hour (UTC), measured 2 m over terrain.",
+        ("daily", "data", "min_temp"): (
+            "Lowest air temperature of the day: the lowest of all the hourly values within the day (the local"
+            " day in Denmark; 06:00 to 06:00 UTC in Greenland and the Faroe Islands)."
+        ),
+        ("monthly", "data", "min_temp"): (
+            "Lowest air temperature of the month: the lowest of the underlying daily values."
+        ),
+        ("annual", "data", "min_temp"): (
+            "Lowest air temperature of the year: the lowest of the underlying daily values."
+        ),
+        ("monthly", "data", "mean_daily_max_temp"): (
+            "Mean of the daily maximum air temperature of the month: the average of all the underlying daily "
+            "values of the highest temperature."
+        ),
+        ("annual", "data", "mean_daily_max_temp"): (
+            "Mean of the daily maximum air temperature of the year: the average of all the underlying daily "
+            "values of the highest temperature."
+        ),
+        ("monthly", "data", "mean_daily_min_temp"): (
+            "Mean of the daily minimum air temperature of the month: the average of all the underlying daily "
+            "values of the lowest temperature."
+        ),
+        ("annual", "data", "mean_daily_min_temp"): (
+            "Mean of the daily minimum air temperature of the year: the average of all the underlying daily "
+            "values of the lowest temperature."
+        ),
+        ("hourly", "data", "mean_relative_hum"): (
+            "Mean relative humidity of the hour (UTC), measured 2 m over terrain: in Denmark the average of "
+            "the 6 underlying values within the hour."
+        ),
+        ("daily", "data", "mean_relative_hum"): (
+            "Mean relative humidity of the day: the average of all hourly values within the day (the local "
+            "day in Denmark; 06:00 to 06:00 UTC in Greenland and the Faroe Islands)."
+        ),
+        ("monthly", "data", "mean_relative_hum"): (
+            "Mean relative humidity of the month: the average of the underlying daily values."
+        ),
+        ("annual", "data", "mean_relative_hum"): (
+            "Mean relative humidity of the year: the average of the underlying daily values."
+        ),
+        ("monthly", "data", "max_relative_hum"): (
+            "Highest relative humidity of the month: the highest of all the daily values, each the highest "
+            "hourly mean relative humidity of its day."
+        ),
+        ("monthly", "data", "min_relative_hum"): (
+            "Lowest relative humidity of the month: the lowest of all the daily values, each the lowest "
+            "hourly mean relative humidity of its day."
+        ),
+        ("hourly", "data", "mean_pressure"): (
+            "Mean atmospheric pressure of the hour (UTC), reduced to mean sea level: in Denmark the average "
+            "of the 6 underlying values within the hour."
+        ),
+        ("daily", "data", "mean_pressure"): (
+            "Mean atmospheric pressure of the day, reduced to mean sea level: the average of all hourly "
+            "values within the day (the local day in Denmark; 06:00 to 06:00 UTC in Greenland and the Faroe "
+            "Islands)."
+        ),
+        ("monthly", "data", "mean_pressure"): (
+            "Mean atmospheric pressure of the month, reduced to mean sea level: the average of the underlying"
+            " daily values."
+        ),
+        ("annual", "data", "mean_pressure"): (
+            "Mean atmospheric pressure of the year, reduced to mean sea level: the average of the underlying "
+            "daily values."
+        ),
+        ("daily", "data", "max_pressure"): (
+            "Highest atmospheric pressure of the day, reduced to mean sea level: the highest hourly value of "
+            "mean_pressure within the day (the local day in Denmark; 06:00 to 06:00 UTC in Greenland and the "
+            "Faroe Islands). Published for some stations only."
+        ),
+        ("monthly", "data", "max_pressure"): (
+            "Highest atmospheric pressure of the month, reduced to mean sea level: the highest of the "
+            "underlying daily values."
+        ),
+        ("annual", "data", "max_pressure"): (
+            "Highest atmospheric pressure of the year, reduced to mean sea level: the highest of the "
+            "underlying daily values."
+        ),
+        ("daily", "data", "min_pressure"): (
+            "Lowest atmospheric pressure of the day, reduced to mean sea level: the lowest hourly value of "
+            "mean_pressure within the day (the local day in Denmark; 06:00 to 06:00 UTC in Greenland and the "
+            "Faroe Islands). Published for some stations only."
+        ),
+        ("monthly", "data", "min_pressure"): (
+            "Lowest atmospheric pressure of the month, reduced to mean sea level: the lowest of the "
+            "underlying daily values."
+        ),
+        ("annual", "data", "min_pressure"): (
+            "Lowest atmospheric pressure of the year, reduced to mean sea level: the lowest of the "
+            "underlying daily values."
+        ),
+        ("hourly", "data", "acc_precip"): "Accumulated precipitation of the hour (UTC), in mm.",
+        ("daily", "data", "acc_precip"): (
+            "Accumulated precipitation of the day, in mm: the sum of all hourly values within the day (the "
+            "local day in Denmark; in Greenland and the Faroe Islands 06:00 to 06:00 UTC, or 12:00 to 12:00 "
+            "UTC at the few Greenland stations that measure it by hand)."
+        ),
+        ("monthly", "data", "acc_precip"): (
+            "Accumulated precipitation of the month, in mm: the sum of the underlying daily values."
+        ),
+        ("annual", "data", "acc_precip"): (
+            "Accumulated precipitation of the year, in mm: the sum of the underlying daily values."
+        ),
+        ("hourly", "data", "mean_wind_speed"): (
+            "Mean wind speed of the hour (UTC), measured 10 m over terrain: the average of the 6 underlying "
+            "values within the hour. For Greenland the source says the value is not calculated correctly "
+            "before 2024."
+        ),
+        ("daily", "data", "mean_wind_speed"): (
+            "Mean wind speed of the day: the average of all hourly values within the day (the local day in "
+            "Denmark; 06:00 to 06:00 UTC in Greenland and the Faroe Islands)."
+        ),
+        ("monthly", "data", "mean_wind_speed"): (
+            "Mean wind speed of the month: the average of the underlying daily values."
+        ),
+        ("annual", "data", "mean_wind_speed"): (
+            "Mean wind speed of the year: the average of the underlying daily values."
+        ),
+        ("hourly", "data", "max_wind_speed_10min"): (
+            "Highest of the 6 underlying 10 minute average wind speeds within the hour (UTC), measured 10 m "
+            "over terrain."
+        ),
+        ("daily", "data", "max_wind_speed_10min"): (
+            "Highest 10 minute average wind speed of the day: the highest of all hourly values within the day"
+            " (the local day in Denmark; 06:00 to 06:00 UTC in Greenland and the Faroe Islands)."
+        ),
+        ("monthly", "data", "max_wind_speed_10min"): (
+            "Highest 10 minute average wind speed of the month: the highest of the underlying daily values."
+        ),
+        ("annual", "data", "max_wind_speed_10min"): (
+            "Highest 10 minute average wind speed of the year: the highest of the underlying daily values."
+        ),
+        ("hourly", "data", "max_wind_speed_3sec"): (
+            "Highest 3 second average wind speed (gust) of the hour (UTC), measured 10 m over terrain."
+        ),
+        ("daily", "data", "max_wind_speed_3sec"): (
+            "Highest 3 second average wind speed (gust) of the day: the highest of all hourly values within "
+            "the day (the local day in Denmark; 06:00 to 06:00 UTC in Greenland and the Faroe Islands)."
+        ),
+        ("monthly", "data", "max_wind_speed_3sec"): (
+            "Highest 3 second average wind speed (gust) of the month: the highest of the underlying daily values."
+        ),
+        ("annual", "data", "max_wind_speed_3sec"): (
+            "Highest 3 second average wind speed (gust) of the year: the highest of the underlying daily values."
+        ),
+        ("hourly", "data", "mean_wind_dir"): (
+            "Direction the wind blows from (north is 360, 0 means calm) over the hour (UTC), measured 10 m "
+            "over terrain; in Greenland possibly the reading at minute 0. The source's 0 beside a mean wind speed of "
+            "0 (a calm wind) is null."
+        ),
+        ("daily", "data", "mean_wind_dir"): (
+            "Direction the wind blows from (north is 360, 0 means calm) over the day: the mean of components "
+            "of the hourly values (the local day in Denmark; 06:00 to 06:00 UTC in Greenland and the Faroe "
+            "Islands). The source's 0 beside a mean wind speed of 0 (a calm wind) is null."
+        ),
+        ("monthly", "data", "mean_wind_dir"): (
+            "Direction the wind blows from (north is 360, 0 means calm) over the month: the mean of "
+            "components. The source's 0 beside a mean wind speed of 0 (a calm wind) is null."
+        ),
+        ("annual", "data", "mean_wind_dir"): (
+            "Direction the wind blows from (north is 360, 0 means calm) over the year: the mean of "
+            "components. The source's 0 beside a mean wind speed of 0 (a calm wind) is null."
+        ),
+        ("daily", "data", "max_precip_30m"): (
+            "Largest precipitation depth in any 30 minutes of the day, found from 23:31 local time of the "
+            "previous day to 24:00 local time of the day."
+        ),
+        ("monthly", "data", "max_precip_24h"): (
+            "Largest daily precipitation total of the month, the highest of the underlying daily values."
+        ),
+        ("annual", "data", "max_precip_24h"): (
+            "Largest daily precipitation total of the year, the highest of the underlying daily values."
+        ),
+        ("daily", "data", "acc_heating_degree_days_17"): (
+            "Heating degree days of the day: the base temperature minus the daily mean temperature, 0 for a "
+            "mean above the base. The base is 17 °C in Denmark (acc_heating_degree_days_17) and 19 °C in "
+            "Greenland (acc_heating_degree_days_19), which are read as this one parameter. The source lists "
+            "the unit as “no. of days”; the values are degrees (a mean of 2.0 °C is 15.0 in Denmark)."
+        ),
+        ("monthly", "data", "acc_heating_degree_days_17"): (
+            "Heating degree days of the month: the sum of the underlying daily values (the base temperature "
+            "minus the daily mean temperature). The base is 17 °C in Denmark (acc_heating_degree_days_17) and "
+            "19 °C in Greenland (acc_heating_degree_days_19), which are read as this one parameter."
+        ),
+        ("annual", "data", "acc_heating_degree_days_17"): (
+            "Heating degree days of the year: the sum of the underlying daily values (the base temperature "
+            "minus the daily mean temperature). The base is 17 °C in Denmark (acc_heating_degree_days_17) and "
+            "19 °C in Greenland (acc_heating_degree_days_19), which are read as this one parameter."
+        ),
+        ("daily", "data", "max_relative_hum"): (
+            "Highest relative humidity of the day: the highest of all hourly mean relative humidities "
+            "within the day (the local day in Denmark; 06:00 to 06:00 UTC in Greenland and the Faroe "
+            "Islands)."
+        ),
+        ("annual", "data", "max_relative_hum"): (
+            "Highest relative humidity of the year: the highest of all the daily values, each the highest "
+            "hourly mean relative humidity of its day."
+        ),
+        ("daily", "data", "min_relative_hum"): (
+            "Lowest relative humidity of the day: the lowest of all hourly mean relative humidities "
+            "within the day (the local day in Denmark; 06:00 to 06:00 UTC in Greenland and the Faroe "
+            "Islands)."
+        ),
+        ("annual", "data", "min_relative_hum"): (
+            "Lowest relative humidity of the year: the lowest of all the daily values, each the lowest "
+            "hourly mean relative humidity of its day."
+        ),
+        ("hourly", "data", "bright_sunshine"): (
+            "Minutes of sunshine within the hour (UTC), from the global radiation. The source says that "
+            "the algorithm that calculates it has changed since week 11 of 2026."
+        ),
+        ("daily", "data", "bright_sunshine"): (
+            "Sunshine duration of the day, in hours: the sum of the hourly minutes within the day divided "
+            "by 60 (the local day in Denmark; 06:00 to 06:00 UTC in Greenland and the Faroe Islands). The "
+            "source says that the algorithm that calculates it has changed since week 11 of 2026."
+        ),
+        ("monthly", "data", "bright_sunshine"): (
+            "Sunshine duration of the month, in hours: the sum of the underlying daily values. The source "
+            "says that the algorithm that calculates it has changed since week 11 of 2026."
+        ),
+        ("annual", "data", "bright_sunshine"): (
+            "Sunshine duration of the year, in hours: the sum of the underlying daily values. The source "
+            "says that the algorithm that calculates it has changed since week 11 of 2026."
+        ),
+        ("hourly", "data", "mean_cloud_cover"): (
+            "Fraction of the sky covered by cloud of any type or height at minute 0 of the hour (UTC), in "
+            "percent. The source writes the oktas as 0, 10 (1 okta or less, but not 0), 25, 40, 50, 60, "
+            "75, 90 (7 oktas or more, but not 8) and 100 (8 oktas); a value above 100, such as the 112 of "
+            "its observations for an obscured sky, is null."
+        ),
+        ("daily", "data", "mean_cloud_cover"): (
+            "Mean cloud cover of the day, in percent: the average of the hourly values, given a day with "
+            "at least 12 of them and no more than 2 missing in a row (the local day in Denmark; 06:00 to "
+            "06:00 UTC in Greenland and the Faroe Islands)."
+        ),
+        ("monthly", "data", "mean_cloud_cover"): (
+            "Mean cloud cover of the month, in percent: the average of the underlying daily values."
+        ),
+        ("annual", "data", "mean_cloud_cover"): (
+            "Mean cloud cover of the year, in percent: the average of the underlying daily values."
+        ),
+        ("hourly", "data", "mean_radiation"): (
+            "Mean intensity of the global radiation (305 to 2800 nm) over the hour (UTC), in W/m². The "
+            "source gives the radiation of a day, month and year as a sum in MJ/m²."
+        ),
+        ("daily", "data", "mean_radiation"): (
+            "Global radiation (305 to 2800 nm) of the day, as the energy summed over the day: the sum of the "
+            "underlying hourly values, which the source publishes in MJ/m² (the library multiplies it by "
+            "1000 and returns kJ/m², converted to the unit asked for). Published for some stations only."
+        ),
+        ("monthly", "data", "mean_radiation"): (
+            "Global radiation (305 to 2800 nm) of the month, as the energy summed over the month: the sum of "
+            "the underlying daily values, which the source publishes in MJ/m² (the library multiplies it by "
+            "1000 and returns kJ/m², converted to the unit asked for)."
+        ),
+        ("annual", "data", "mean_radiation"): (
+            "Global radiation (305 to 2800 nm) of the year, as the energy summed over the year: the sum of "
+            "the underlying daily values, which the source publishes in MJ/m² (the library multiplies it by "
+            "1000 and returns kJ/m², converted to the unit asked for)."
+        ),
+        ("daily", "data", "mean_vapour_pressure"): (
+            "Mean vapour pressure of the day, in hPa: the mean of the hourly values that could be calculated "
+            "from the hourly mean temperature and mean relative humidity. The source marks some values 0.0 "
+            "with validity false."
+        ),
+        ("monthly", "data", "mean_vapour_pressure"): (
+            "Mean vapour pressure of the month, in hPa: the average of the underlying daily values."
+        ),
+        ("annual", "data", "mean_vapour_pressure"): (
+            "Mean vapour pressure of the year, in hPa: the average of the underlying daily values."
+        ),
+        ("monthly", "data", "max_snow_depth"): (
+            "Greatest snow depth of the month, in cm: the highest of the underlying daily values of "
+            "snow_depth, which are read by hand once a day, with the date and the place. A value of 999.0 "
+            "(24043 and 31259, September 2020) is no depth and is null."
+        ),
+        ("annual", "data", "max_snow_depth"): (
+            "Greatest snow depth of the year, in cm: the highest of the underlying daily values of "
+            "snow_depth, which are read by hand once a day, with the date and the place. A value of 999.0 "
+            "(24043 and 31259, 2020) is no depth and is null."
+        ),
+        ("hourly", "data", "max_temp_12h"): (
+            "Highest temperature within the last 12 hours, in °C: the highest of the 12 hourly values before the "
+            "time (UTC) the value is dated by, which is the end of the 12 hours, the time of the report. Given at "
+            "06:00 and 18:00 UTC and at 12:00 and 00:00 UTC by part of the stations."
+        ),
+        ("hourly", "data", "min_temperature_12h"): (
+            "Lowest temperature within the last 12 hours, in °C: the lowest of the 12 hourly values before the "
+            "time (UTC) the value is dated by, which is the end of the 12 hours, the time of the report. Given at "
+            "06:00 and 18:00 UTC and at 12:00 and 00:00 UTC by part of the stations."
+        ),
+        ("hourly", "data", "acc_precip_past12h"): (
+            "Accumulated precipitation during the past 12 hours, in mm, up to the time (UTC) the value is dated by, "
+            "which is the end of the 12 hours, the time of the report; given at 06:00 and 18:00 UTC. It is the "
+            "gauge's own reading, not the sum of the hourly values, which differs from it by a few tenths of "
+            "a millimetre. A trace, below 0.1 mm, is written -0.1 and is 0.0 here."
+        ),
+        ("hourly", "data", "acc_precip_past24h"): (
+            "Accumulated precipitation during the past 24 hours, in mm, up to the time (UTC) the value is dated by, "
+            "which is the end of the 24 hours, the time of the report; given at 06:00, 12:00, 18:00 and 00:00 UTC by "
+            "part of the stations. It is the gauge's own reading, not the sum of the hourly values, which differs "
+            "from it by a few tenths of a millimetre. A trace, below 0.1 mm, is written -0.1 and is 0.0 here."
+        ),
+        ("hourly", "data", "temp_soil_10"): (
+            "Soil temperature at a depth of 10 cm, in °C: the mean of the hour (UTC), given by part of the stations."
+        ),
+        ("daily", "data", "temp_soil_10"): (
+            "Soil temperature at a depth of 10 cm, in °C: the average of the hourly values within the day."
+        ),
+        ("hourly", "data", "temp_grass"): (
+            "Air temperature measured at grass height (5-20 cm over terrain), in °C: the mean of the hour (UTC), "
+            "given by part of the stations. Not quality controlled by DMI's climatologists, so data can be "
+            "erroneous."
+        ),
+        ("daily", "data", "temp_grass"): (
+            "Air temperature measured at grass height (5-20 cm over terrain), in °C: the average of the hourly "
+            "values within the day. Not quality controlled by DMI's climatologists, so data can be erroneous."
+        ),
+        ("daily", "data", "temp_soil_30"): (
+            "Soil temperature at a depth of 30 cm, in °C: the average of the hourly values within the day. Not "
+            "quality controlled by DMI's climatologists, so data can be erroneous."
+        ),
+        ("hourly", "data", "leaf_moisture"): (
+            "Leaf moisture (in Danish bladfugt), in minutes: the minutes of the hour (UTC), 0 to 60, during which "
+            "the leaf was wet, given by part of the stations. Not quality controlled by DMI's climatologists, so "
+            "data can be erroneous. Some hours are outside the hour (for example 62.0 at 06019 on 2022-05-24 and "
+            "-33.0 at 06041 on 2023-03-05)."
+        ),
+        ("daily", "data", "leaf_moisture"): (
+            "Leaf moisture (in Danish bladfugt), in minutes: the minutes of the day, 0 to 1440, during which the "
+            "leaf was wet. The source says the day is the average of the hourly values, but the values are their "
+            "sum (1332.0 at 06135 on 2025-06-10, which no mean of minutes could be). Not quality controlled by "
+            "DMI's climatologists, so data can be erroneous. Some days are outside the day (for example 1442.0 at "
+            "06019 on 2022-05-24 and -799.0 at 06041 on 2023-03-05)."
+        ),
+        ("hourly", "data", "vapour_pressure_deficit_mean"): (
+            "Vapour pressure deficit (in Danish mætningsdeficit), in kPa, to one decimal: the saturation vapour "
+            "pressure of the hourly mean temperature, 0.611 exp(17.27 t / (t + 237.3)) above 0 °C and 0.611 "
+            "exp(21.87 t / (t + 265.5)) at or below it, times (100 - the mean relative humidity) / 100. Not "
+            "quality controlled by DMI's climatologists, so data can be erroneous. Some hours are slightly "
+            "negative (for example -0.3 at 06193 on 2025-07-25)."
+        ),
+        ("daily", "data", "vapour_pressure_deficit_mean"): (
+            "Vapour pressure deficit (in Danish mætningsdeficit), in kPa, to one decimal: the average of the "
+            "hourly values within the day, each the saturation vapour pressure of the hourly mean temperature, "
+            "0.611 exp(17.27 t / (t + 237.3)) above 0 °C and 0.611 exp(21.87 t / (t + 265.5)) at or below it, "
+            "times (100 - the mean relative humidity) / 100. Not quality controlled by DMI's climatologists, so "
+            "data can be erroneous. Some days are slightly negative (for example -0.1 at 06169 on 2024-12-26)."
+        ),
+        ("daily", "data", "snow_cover"): (
+            "Snow cover, the share of the ground covered by snow, in percent: observed by hand once a day and "
+            '"derived directly, but codes are changed to %" (a day of 06:00 to 06:00 UTC, labelled by the date '
+            "it begins). Published from 2011-01-01 to 2015-11-21 only, for 91 stations."
+        ),
+        ("monthly", "data", "no_cold_days"): (
+            "Number of cold days of the month: the days on which the lowest temperature (min_temp) was less "
+            "than -10 °C."
+        ),
+        ("annual", "data", "no_cold_days"): (
+            "Number of cold days of the year: the days on which the lowest temperature (min_temp) was less than -10 °C."
+        ),
+        ("monthly", "data", "no_windy_days"): (
+            "Number of windy days of the month: the days on which max_wind_speed_10min, the highest 10 "
+            "minute average wind speed, was greater than or equal to 10.8 m/s. The source's parameter list "
+            "says mean wind speed, its calculation table (and its counts) the 10 minute maximum."
+        ),
+        ("annual", "data", "no_windy_days"): (
+            "Number of windy days of the year: the days on which max_wind_speed_10min, the highest 10 minute "
+            "average wind speed, was greater than or equal to 10.8 m/s. The source's parameter list says "
+            "mean wind speed, its calculation table (and its counts) the 10 minute maximum."
+        ),
+        ("monthly", "data", "no_stormy_days"): (
+            "Number of stormy days of the month: the days on which max_wind_speed_10min, the highest 10 "
+            "minute average wind speed, was greater than or equal to 20.8 m/s."
+        ),
+        ("annual", "data", "no_stormy_days"): (
+            "Number of stormy days of the year: the days on which max_wind_speed_10min, the highest 10 "
+            "minute average wind speed, was greater than or equal to 20.8 m/s."
+        ),
+        ("monthly", "data", "no_days_w_storm"): (
+            "Number of days with storm of the month: the days on which max_wind_speed_10min, the highest 10 "
+            "minute average wind speed, was greater than or equal to 24.5 m/s."
+        ),
+        ("annual", "data", "no_days_w_storm"): (
+            "Number of days with storm of the year: the days on which max_wind_speed_10min, the highest 10 "
+            "minute average wind speed, was greater than or equal to 24.5 m/s."
+        ),
+        ("monthly", "data", "no_days_w_hurricane"): (
+            "Number of days with hurricane of the month: the days on which max_wind_speed_10min, the highest "
+            "10 minute average wind speed, was greater than or equal to 28.5 m/s."
+        ),
+        ("annual", "data", "no_days_w_hurricane"): (
+            "Number of days with hurricane of the year: the days on which max_wind_speed_10min, the highest "
+            "10 minute average wind speed, was greater than or equal to 28.5 m/s."
+        ),
+        ("daily", "data", "no_clear_days"): (
+            "Clear day: 1 if the mean cloud cover (mean_cloud_cover) of the day was less than 20%, 0 if it "
+            "was 20% or more."
+        ),
+        ("monthly", "data", "no_clear_days"): (
+            "Number of clear days of the month: the days on which mean_cloud_cover was less than 20%."
+        ),
+        ("annual", "data", "no_clear_days"): (
+            "Number of clear days of the year: the days on which mean_cloud_cover was less than 20%."
+        ),
+        ("daily", "data", "no_cloudy_days"): (
+            "Cloudy day: 1 if the mean cloud cover (mean_cloud_cover) of the day was greater than 80%, 0 if "
+            "it was 80% or less."
+        ),
+        ("monthly", "data", "no_cloudy_days"): (
+            "Number of cloudy days of the month: the days on which mean_cloud_cover was greater than 80%."
+        ),
+        ("annual", "data", "no_cloudy_days"): (
+            "Number of cloudy days of the year: the days on which mean_cloud_cover was greater than 80%."
+        ),
+        ("monthly", "data", "no_days_snow_cover"): (
+            "Number of days with snow cover of the month: the days on which snow_depth was greater than 0 "
+            "and snow_cover (the share of the ground covered, in percent) was greater than 50. Published "
+            "for 2011 to 2015 only."
+        ),
+        ("annual", "data", "no_days_snow_cover"): (
+            "Number of days with snow cover of the year: the days on which snow_depth was greater than 0 "
+            "and snow_cover (the share of the ground covered, in percent) was greater than 50. Published "
+            "for 2011 to 2015 only."
+        ),
+        ("monthly", "data", "no_days_acc_precip_01"): (
+            "Number of days of the month with 0.1 mm of precipitation or more: the days on which "
+            "acc_precip was 0.1 or more."
+        ),
+        ("annual", "data", "no_days_acc_precip_01"): (
+            "Number of days of the year with 0.1 mm of precipitation or more: the days on which "
+            "acc_precip was 0.1 or more."
+        ),
+        ("monthly", "data", "no_days_acc_precip_1"): (
+            "Number of days of the month with 1 mm of precipitation or more: the days on which acc_precip "
+            "was 1 or more."
+        ),
+        ("annual", "data", "no_days_acc_precip_1"): (
+            "Number of days of the year with 1 mm of precipitation or more: the days on which acc_precip was 1 or more."
+        ),
+        ("monthly", "data", "no_days_acc_precip_10"): (
+            "Number of days of the month with 10 mm of precipitation or more: the days on which "
+            "acc_precip was 10 or more."
+        ),
+        ("annual", "data", "no_days_acc_precip_10"): (
+            "Number of days of the year with 10 mm of precipitation or more: the days on which acc_precip "
+            "was 10 or more."
+        ),
+        ("monthly", "data", "no_frost_days"): (
+            "Number of days with frost of the month: the days on which the lowest temperature (min_temp) "
+            "was below 0 °C."
+        ),
+        ("annual", "data", "no_frost_days"): (
+            "Number of days with frost of the year: the days on which the lowest temperature (min_temp) was below 0 °C."
+        ),
+        ("monthly", "data", "no_summer_days"): (
+            "Number of summer days of the month: the days on which the highest temperature (max_temp_w_date) "
+            "was above 25 °C. A day at exactly 25.0 °C is no summer day here, where the canonical name counts "
+            "from 25 °C."
+        ),
+        ("annual", "data", "no_summer_days"): (
+            "Number of summer days of the year: the days on which the highest temperature (max_temp_w_date) "
+            "was above 25 °C. A day at exactly 25.0 °C is no summer day here, where the canonical name counts "
+            "from 25 °C."
+        ),
+        ("monthly", "data", "no_tropical_nights"): (
+            "Number of tropical nights of the month: the days on which the lowest temperature (min_temp) was "
+            "above 20 °C. A day at exactly 20.0 °C is no tropical night here, where the canonical name counts "
+            "from 20 °C."
+        ),
+        ("annual", "data", "no_tropical_nights"): (
+            "Number of tropical nights of the year: the days on which the lowest temperature (min_temp) was "
+            "above 20 °C. A day at exactly 20.0 °C is no tropical night here, where the canonical name counts "
+            "from 20 °C."
+        ),
+        ("monthly", "data", "no_ice_days"): (
+            "Number of ice days of the month: the days on which the highest temperature (max_temp_w_date) "
+            "was below 0 °C."
+        ),
+        ("annual", "data", "no_ice_days"): (
+            "Number of ice days of the year: the days on which the highest temperature (max_temp_w_date) "
+            "was below 0 °C."
+        ),
+        ("daily", "data", "snow_depth"): (
+            "Depth of the snow lying on the ground, measured by hand once a day at 07:00 UTC at the "
+            "stations that do so, in cm (a day of 06:00 to 06:00 UTC, labelled by the date it begins). "
+            "DMI turns the codes of its source into numbers: -1 (less than 0.5 cm) is 0.5 and -2 is 0."
+        ),
+    },
     # the "Revised service" table of https://environment.data.gov.uk/hydrology/doc/reference (read 2026-10-21): "Flow
     # 15min instantaneous m3/s", "Flow daily mean, min, max m3/s", "Level 15min instantaneous m", "Level daily min,
     # max m", "GroundwaterLevel sub-daily instantaneous Groundwater Logged mAOD" ("for logged groundwater data the
@@ -1900,58 +2456,222 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
     },
     "EcccObservationMetadata": {
-        ("daily", "data", "max_temperature"): "Daily maximum 2m air temperature.",
-        ("daily", "data", "mean_temperature"): "Daily mean 2m air temperature, (maximum + minimum) / 2.",
-        ("daily", "data", "min_temperature"): "Daily minimum 2m air temperature.",
-        ("daily", "data", "snow_on_ground"): "Total snow depth.",
-        ("daily", "data", "speed_max_gust"): "Maximum wind gust.",
-        ("daily", "data", "total_precipitation"): "Total precipitation.",
-        ("daily", "data", "total_rain"): "Total liquid precipitation.",
-        ("daily", "data", "total_snow"): "New snow depth.",
-        ("daily", "data", "cooling_degree_days"): "cooling degree days",
+        # ECCC's glossary (climate.weather.gc.ca/glossary_e.html) has an entry for most of the fields, titled as the
+        # bulk CSV column is ("Mean Temperature (C)", "Snow on the Ground (cm)", "Total Snow (cm)"); the technical
+        # documentation (climate.weather.gc.ca/doc/Technical_Documentation.pdf, Note 16) gives the climatological day.
+        # The OGC API collections publish field names and types only. Verified against the collections, TORONTO INTL
+        # A (6158731) 2019 unless said otherwise (GH-3136, read 2026-10-30, key-less): the daily mean is
+        # (max + min) / 2 on 364 of 364 days, the degree days are the excess/deficit of that mean over 18 degrees on
+        # 364 of 364; the monthly maximum, minimum and mean are the highest daily maximum, the lowest daily minimum
+        # and the mean of the daily means on 12 of 12 months, and the monthly total precipitation, total snowfall and
+        # both degree days the sum of the daily values on every month checked; the monthly "days with valid" counts
+        # are the daily values that exist (12 of 12 months, five fields).
+        ("daily", "data", "max_temperature"): (
+            f"Highest air temperature of {_ECCC_DAY}. "
+            "The source states no height; the 2 m of the name is the convention."
+        ),
+        ("daily", "data", "mean_temperature"): (
+            f"Mean air temperature of {_ECCC_DAY}: (maximum + minimum) / 2, as the source defines it."
+        ),
+        ("daily", "data", "min_temperature"): (
+            f"Lowest air temperature of {_ECCC_DAY}. "
+            "The source states no height; the 2 m of the name is the convention."
+        ),
+        # "Snow on the Ground (cm): ... The total depth of snow on the ground at the time of the observation is
+        # determined in whole centimetres by making a series of measurements and taking the average"; "Snow on the
+        # ground: for 'today' is based on 'today's' morning (AM) observation" (two observations a day). "Total" is the
+        # source's word for the depth, not a sum.
+        ("daily", "data", "snow_on_ground"): (
+            "Depth of snow on the ground in cm at the time of the observation, found from a series of "
+            "measurements over the site (at a station that observes twice a day, the morning observation)."
+        ),
+        # "The speed in kilometres per hour of the maximum wind gust during the day. The gust is the maximum or peak
+        # instantaneous or single reading from the anemometer ... The duration of a gust typically corresponds to an
+        # elapsed time of 3 to 5 seconds. Maximum wind or gust is displayed ... when greater than 30 km/h. The stations
+        # do not report if less than 31 km/h." The collection writes 0 for the other days (see `_GUST_NOT_REPORTED`).
+        ("daily", "data", "speed_max_gust"): (
+            "Speed of the day's maximum gust: the peak instantaneous reading of the anemometer, which typically lasts "
+            "3 to 5 seconds. The source reports it only above 30 km/h; the collection's 0 for the other days is null."
+        ),
+        # "Total Precipitation (mm): The sum of the total rainfall and the water equivalent of the total snowfall ...
+        # during a specified time interval. (See climatological day)"; on TORONTO INTL A 2019 a snow day reads
+        # 6.4 cm / 5.4 mm, 26.4 cm / 19.6 mm.
+        ("daily", "data", "total_precipitation"): (
+            f"Total precipitation of {_ECCC_DAY}: the rainfall plus the water equivalent of the snowfall, in mm."
+        ),
+        ("daily", "data", "total_rain"): (
+            f"Total rainfall of {_ECCC_DAY}: all liquid precipitation (rain, drizzle, freezing rain, hail), in mm."
+        ),
+        # "Total Snow (cm): The total snowfall, or amount of frozen (solid) precipitation in centimetres, such as snow
+        # and ice pellets"; "Snowfall is the measured depth of newly fallen snow, measured using a snow ruler"
+        ("daily", "data", "total_snow"): (
+            f"Total snowfall of {_ECCC_DAY}: the measured depth of newly fallen snow (snow, ice pellets), in cm."
+        ),
+        ("daily", "data", "cooling_degree_days"): (
+            "Cooling degree-days of the day: the degrees Celsius that the mean temperature is above 18 °C, 0 if "
+            "it is at or below."
+        ),
+        # "The direction of the maximum gust (true or geographic, not magnetic) from which the wind blows. Expressed in
+        # tens of degrees, 9 means 90 degrees true or an east wind, and 36 means 360 degrees true ... This value is only
+        # reported if the maximum gust speed for the day exceeds 29 km/h." TORONTO INTL A 2019: a direction on 339
+        # days, 335 beside a speed above 29 (the lowest is 32), the other four with the speed missing (flag M).
         ("daily", "data", "direction_max_gust"): (
-            "wind direction of maximum wind gust. The source's 0 beside a gust of 0 (none reported) is null."
+            "Direction (true, not magnetic) the day's maximum gust blew from, published in tens of degrees (\"36 means "
+            '360 degrees true") and returned in degrees. The source reports it only if the gust exceeds 29 km/h. The '
+            "source's 0 beside a gust of 0 (none reported) is null."
         ),
-        ("daily", "data", "heating_degree_days"): "heating degree days",
-        ("hourly", "data", "dew_point_temp"): "2m dew point temperature",
-        ("hourly", "data", "humidex"): "humidex apparent temperature",
-        ("hourly", "data", "precip_amount"): "precipitation height",
-        ("hourly", "data", "relative_humidity"): "humidity",
-        ("hourly", "data", "station_pressure"): "air pressure at site",
-        ("hourly", "data", "temp"): "2m air temperature",
-        ("hourly", "data", "visibility"): "visibility range",
-        # the glossary: "the average direction during the two minute period ending at the time of observation"; the
-        # speed is the average of "the one-, two- or ten-minute period", the direction is stated for two only
+        ("daily", "data", "heating_degree_days"): (
+            "Heating degree-days of the day: the degrees Celsius that the mean temperature is below 18 °C, 0 if "
+            "it is at or above."
+        ),
+        # "Minimum Relative Humidity (%): The minimum percentage value of all hourly relative humidity values observed
+        # at a specified location for a specified time interval." The glossary has the heading of "Maximum Relative
+        # Humidity" and no text, so that row reads the canonical sentence. TORONTO INTL A, July 2019: the daily value
+        # is the lowest hourly value of a 24 hour window in 30 of 30 days, for every start between 07 and 11 UTC (the
+        # hourly values do not settle the window).
+        ("daily", "data", "min_rel_humidity"): "Lowest of the hourly relative humidity values of the day, in %.",
+        # The hourly fields: the glossary entries of Dew Point Temperature, Relative Humidity, Station Pressure,
+        # Visibility, Wind Direction, Wind Speed, Humidex, Wind Chill and the "Hourly data" technical documentation
+        # (canada.ca, read through WebFetch since canada.ca resets curl's connection). TORONTO INTL A, July 2019 and
+        # January 2019: humidex only at 20 degrees or more (541 of 541 values; the formula, with the dew point,
+        # reproduces them within 0.6 on 541 of 541; 12 of them are less than 1 degree above the temperature, which the
+        # source says it is not shown for), wind chill only at 0 degrees or less (602 of 602), and of the 611 hours
+        # at or below 0 degrees the 9 without a wind chill all have a wind speed of 0.
+        ("hourly", "data", "dew_point_temp"): (
+            "Dew point temperature: the temperature to which the air would have to be cooled to reach saturation with "
+            "respect to liquid water. The source states no height; the 2 m of the name is the convention."
+        ),
+        ("hourly", "data", "humidex"): (
+            "Humidex: an index of how hot or humid the weather feels, the air temperature plus 0.5555 times (the "
+            "vapour pressure in hPa minus 10). The source shows it only when the air temperature is 20 °C or more and "
+            "the humidex at least 1 degree above it."
+        ),
+        ("hourly", "data", "precip_amount"): (
+            "Precipitation of the hour in mm: the total for minutes 00 through 60, the sum of the four 15-minute "
+            "amounts, stored to 0.1 mm (from 2006)."
+        ),
+        ("hourly", "data", "relative_humidity"): (
+            "Relative humidity in %: the ratio of the water vapour the air contains to the most it can hold at that "
+            "temperature."
+        ),
+        ("hourly", "data", "station_pressure"): (
+            "Atmospheric pressure in kPa at the station elevation, not reduced to sea level."
+        ),
+        ("hourly", "data", "temp"): (
+            "Air temperature in °C. The source states no height; the 2 m of the name is the convention."
+        ),
+        # Note 40 of the technical documentation: "the maximum visibility that can be recorded by manned climate
+        # stations is 15 statute miles, while the maximum for AWOS stations is 9 statute miles. A value of 15 ... or 9
+        # ... may mean that the actual visibility value exceeded that amount."
+        ("hourly", "data", "visibility"): (
+            "Visibility in km: the distance at which objects of suitable size can be seen and identified. The "
+            "source's largest value (15 statute miles, 24.1 km, at a manned station; 9, 14.5 km, at an automatic one) "
+            "can stand for a larger visibility."
+        ),
+        # the glossary: "the average direction during the two minute period ending at the time of observation", "true
+        # or geographic, not magnetic"; the speed is the average of "the one-, two- or ten-minute period", the
+        # direction is stated for two only
         ("hourly", "data", "wind_direction"): (
-            "wind direction (source: 10s deg), the average of the two minutes ending at the time of observation. "
-            "The source's 0 beside a wind speed of 0 (a calm wind) is null."
+            "Direction (true, not magnetic) the wind blows from, the average of the two minutes ending at the time of "
+            'observation, published in tens of degrees ("36 means 360 degrees true") and returned in degrees. The '
+            "source's 0 beside a wind speed of 0 (a calm wind) is null."
         ),
-        ("hourly", "data", "wind_speed"): "wind speed",
-        ("hourly", "data", "windchill"): "wind chill temperature",
-        ("monthly", "data", "bright_sunshine"): "bright sunshine duration",
-        ("monthly", "data", "cooling_degree_days"): "cooling degree days",
-        ("monthly", "data", "days_with_precip_ge_1mm"): "days with >= 1 mm precipitation",
-        ("monthly", "data", "days_with_valid_max_temp"): "days with a valid maximum temperature",
+        ("hourly", "data", "wind_speed"): (
+            "Wind speed in km/h: the average of the one-, two- or ten-minute period ending at the time of "
+            "observation, usually at 10 m."
+        ),
+        ("hourly", "data", "windchill"): (
+            "Wind chill: an index of how cold the weather feels, from the air temperature and the wind speed at 10 m. "
+            "The source gives it only at 0 °C or below and a wind speed above 0."
+        ),
+        # the monthly summaries: "Mean Temperature", "Highest Monthly Maximum Temperature", "Lowest Monthly Minimum
+        # Temperature" (the glossary's "Extreme Maximum/Minimum Temperature"), "Total Precipitation (mm)", "Snow on the
+        # ground last day (cm)". The glossary's "3/5" rule is the WMO rule for the climate normals; the monthly values
+        # are published when days are missing and flagged "I" (incomplete, Notes 25 and 26 of the technical
+        # documentation), and `days_with_valid_*` is the number of days behind them (RIDGETOWN AUTOMATIC CLIMATE
+        # STATION, 1990-03: a mean temperature of 0.58 and 209 heating degree days from 12 valid days).
+        # The documentation lists "Days with Valid Bright Sunshine" and the normals by name only.
+        ("monthly", "data", "bright_sunshine"): (
+            "Bright sunshine duration of the month, in hours. The source lists it by name and gives no more."
+        ),
+        ("monthly", "data", "cooling_degree_days"): (
+            "Cooling degree-days of the month: the sum of the daily values (the degrees Celsius that the mean "
+            "temperature is above 18 °C). Published even when days are missing; `days_with_valid_mean_temp` counts the "
+            "days behind it."
+        ),
+        (
+            "monthly",
+            "data",
+            "days_with_precip_ge_1mm",
+        ): "Number of days of the month with 1.0 mm of precipitation or more.",
+        ("monthly", "data", "days_with_valid_max_temp"): (
+            "Number of days of the month with a valid daily maximum temperature."
+        ),
         ("monthly", "data", "days_with_valid_mean_temp"): (
-            "days with a valid mean temperature, the daily mean being calculated from the daily extremes"
+            "Number of days of the month with a valid daily mean temperature, the daily mean being calculated from the "
+            "daily extremes."
         ),
-        ("monthly", "data", "days_with_valid_min_temp"): "days with a valid minimum temperature",
-        ("monthly", "data", "days_with_valid_precip"): "days with a valid precipitation observation",
-        ("monthly", "data", "days_with_valid_snowfall"): "days with a valid snowfall observation",
-        ("monthly", "data", "days_with_valid_sunshine"): "days with a valid sunshine observation",
-        ("monthly", "data", "heating_degree_days"): "heating degree days",
-        ("monthly", "data", "max_temperature"): "2m maximum air temperature",
-        ("monthly", "data", "mean_temperature"): "2m mean air temperature, the mean of the daily values",
-        ("monthly", "data", "min_temperature"): "2m minimum air temperature",
+        ("monthly", "data", "days_with_valid_min_temp"): (
+            "Number of days of the month with a valid daily minimum temperature."
+        ),
+        ("monthly", "data", "days_with_valid_precip"): "Number of days of the month with a valid precipitation total.",
+        ("monthly", "data", "days_with_valid_snowfall"): "Number of days of the month with a valid snowfall total.",
+        # 285 monthly rows of Ontario, 1985, have a value; 39 of them are not whole (ALBION FIELD CENTRE 1985-01:
+        # 26.583), every one a whole number of 24ths, which no count of days is
+        ("monthly", "data", "days_with_valid_sunshine"): (
+            "Number of days of the month with a valid sunshine observation. 39 of the 285 values of Ontario in 1985 "
+            "are fractions of a day, always a whole number of 24ths."
+        ),
+        ("monthly", "data", "heating_degree_days"): (
+            "Heating degree-days of the month: the sum of the daily values (the degrees Celsius that the mean "
+            "temperature is below 18 °C). Published even when days are missing; `days_with_valid_mean_temp` counts the "
+            "days behind it."
+        ),
+        ("monthly", "data", "max_temperature"): (
+            "Highest daily maximum air temperature of the month (the source's extreme maximum). The source states no "
+            "height; the 2 m of the name is the convention. A month with a missing day reads `I` in `quality_flags`, "
+            "which wetterdienst derives from `days_with_valid_max_temp`."
+        ),
+        ("monthly", "data", "mean_temperature"): (
+            "Mean air temperature of the month: the mean of the daily mean temperatures. Published even when days are "
+            "missing; `days_with_valid_mean_temp` counts the days behind it. A month of more than 5 missing days reads "
+            "`I` in `quality_flags`, which wetterdienst derives from that count."
+        ),
+        ("monthly", "data", "min_temperature"): (
+            "Lowest daily minimum air temperature of the month (the source's extreme minimum). The source states no "
+            "height; the 2 m of the name is the convention. A month with a missing day reads `I` in `quality_flags`, "
+            "which wetterdienst derives from `days_with_valid_min_temp`."
+        ),
         ("monthly", "data", "normal_mean_temperature"): (
-            "normal of the mean air temperature, the daily mean being calculated from the daily extremes"
+            "Climate normal of the mean air temperature for the calendar month, the daily mean being calculated from "
+            "the daily extremes. The source lists it by name and states no period."
         ),
-        ("monthly", "data", "normal_precipitation"): "normal of the precipitation height",
-        ("monthly", "data", "normal_snowfall"): "normal of the snowfall total",
-        ("monthly", "data", "normal_sunshine"): "normal of the sunshine duration",
-        ("monthly", "data", "snow_on_ground_last_day"): "snow depth on the last day",
-        ("monthly", "data", "total_precipitation"): "precipitation height",
-        ("monthly", "data", "total_snowfall"): "snowfall total",
+        ("monthly", "data", "normal_precipitation"): (
+            "Climate normal of the total precipitation for the calendar month. The source lists it by name and states "
+            "no period."
+        ),
+        ("monthly", "data", "normal_snowfall"): (
+            "Climate normal of the total snowfall for the calendar month. The source lists it by name and states no "
+            "period."
+        ),
+        ("monthly", "data", "normal_sunshine"): (
+            "Climate normal of the bright sunshine duration for the calendar month. The source lists it by name and "
+            "states no period."
+        ),
+        ("monthly", "data", "snow_on_ground_last_day"): (
+            'Depth of snow on the ground in cm on the last day of the month: "the monthly value displayed is for the '
+            'final day of the month".'
+        ),
+        ("monthly", "data", "total_precipitation"): (
+            "Total precipitation of the month: the sum of the daily totals (rainfall plus the water equivalent of the "
+            "snowfall), in mm. Published even when days are missing; `days_with_valid_precip` counts the days behind "
+            "it. A month with a missing day reads `I` in `quality_flags`, which wetterdienst derives from that count."
+        ),
+        ("monthly", "data", "total_snowfall"): (
+            "Total snowfall of the month: the sum of the daily snowfalls, in cm. Published even when days are missing; "
+            "`days_with_valid_snowfall` counts the days behind it. A month with a missing day reads `I` in "
+            "`quality_flags`, which wetterdienst derives from that count."
+        ),
     },
     "GeosphereObservationMetadata": {
         ("10_minutes", "data", "cglo"): "Global radiation, calibrated, 10-minute mean value.",
@@ -2130,7 +2850,12 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "not worked out for the day, is null."
         ),
         ("daily", "hydrology", "stan wody"): (
-            "Water level (Stan wody), in cm, one value per day. The source's 9999 or NULL (no data) is null."
+            "Water level (Stan wody), in cm, one value per day. The source's 9999 or NULL (no data) is null. "
+            "The stage is measured from the zero of the station's gauge, so stations share no reference level; the "
+            "station's `gauge_zero` is the altitude of today's zero in m a.s.l., as the station list gives it. IMGW "
+            "has moved the zero of some gauges (Warszawa-Nadwilanówka, 152210040, by about 2 m at the start of the "
+            "hydrological year 1991), and an older stage is measured from the zero of its time, which the source "
+            "does not publish."
         ),
         ("daily", "hydrology", "temperatura wody"): (
             "Water temperature (Temperatura wody), in °C, one value per day. The source's 99.9 or NULL (no data, for "
@@ -2142,7 +2867,12 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("monthly", "hydrology", "maksymalna stan wody"): (
             "Monthly maximum of the water level (Stan wody), in cm (the extremum indicator of the file is 3). The "
-            "source's 9999 or NULL, no data or gaps in the month's observations, is null."
+            "source's 9999 or NULL, no data or gaps in the month's observations, is null. "
+            "The stage is measured from the zero of the station's gauge, so stations share no reference level; the "
+            "station's `gauge_zero` is the altitude of today's zero in m a.s.l., as the station list gives it. IMGW "
+            "has moved the zero of some gauges (Warszawa-Nadwilanówka, 152210040, by about 2 m at the start of the "
+            "hydrological year 1991), and an older stage is measured from the zero of its time, which the source "
+            "does not publish."
         ),
         ("monthly", "hydrology", "maksymalna temperatura wody"): (
             "Monthly maximum of the water temperature (Temperatura wody), in °C (the extremum indicator of the file is "
@@ -2154,7 +2884,12 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("monthly", "hydrology", "minimalna stan wody"): (
             "Monthly minimum of the water level (Stan wody), in cm (the extremum indicator of the file is 1). The "
-            "source's 9999 or NULL, no data or gaps in the month's observations, is null."
+            "source's 9999 or NULL, no data or gaps in the month's observations, is null. "
+            "The stage is measured from the zero of the station's gauge, so stations share no reference level; the "
+            "station's `gauge_zero` is the altitude of today's zero in m a.s.l., as the station list gives it. IMGW "
+            "has moved the zero of some gauges (Warszawa-Nadwilanówka, 152210040, by about 2 m at the start of the "
+            "hydrological year 1991), and an older stage is measured from the zero of its time, which the source "
+            "does not publish."
         ),
         ("monthly", "hydrology", "minimalna temperatura wody"): (
             "Monthly minimum of the water temperature (Temperatura wody), in °C (the extremum indicator of the file is "
@@ -2166,7 +2901,12 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("monthly", "hydrology", "średnia stan wody"): (
             "Monthly mean of the water level (Stan wody), in cm (the extremum indicator of the file is 2). The "
-            "source's 9999 or NULL, no data or gaps in the month's observations, is null."
+            "source's 9999 or NULL, no data or gaps in the month's observations, is null. "
+            "The stage is measured from the zero of the station's gauge, so stations share no reference level; the "
+            "station's `gauge_zero` is the altitude of today's zero in m a.s.l., as the station list gives it. IMGW "
+            "has moved the zero of some gauges (Warszawa-Nadwilanówka, 152210040, by about 2 m at the start of the "
+            "hydrological year 1991), and an older stage is measured from the zero of its time, which the source "
+            "does not publish."
         ),
         ("monthly", "hydrology", "średnia temperatura wody"): (
             "Monthly mean of the water temperature (Temperatura wody), in °C (the extremum indicator of the file is "
@@ -2298,18 +3038,38 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
     },
     "NoaaGhcnMetadata": {
+        # daily: the element list of ghcnd-readme.txt (https://www.ncei.noaa.gov/pub/data/ghcn/daily/readme.txt), the
+        # documentation of the `.dly` and `access/<station>.csv` files this provider reads. The rows used to be the
+        # element table of GHCND_documentation.pdf, the documentation of NCEI's Daily Summaries ordering form, where the
+        # user picks metric or standard units ("mm or inches as per user preference"): the files carry one unit, the
+        # readme's (tenths of mm, of degrees C, of m/s), which the reader converts (USW00094846, 2019-07-19: TMAX 339
+        # and AWND 53 are 33.9 degrees and 5.3 m/s; 2019-01-30: SNWD 200 is 20 cm). SN*#, SX*#, WT** and WV** are the
+        # readme's code tables, spelled out. hourly: Table 1 of ghcnh_DOCUMENTATION.pdf (version 1.1.0, 2026-03-10).
         ("daily", "data", "tavg"): (
-            "Average daily temperature. From source 'S' an average of hourly readings for the period ending at 2400 "
-            "UTC; from other sources computed in a variety of ways, including traditional fixed hours of the day."
+            "Average daily temperature (°C; the file has tenths of degrees). From source 'S' an average of "
+            "hourly readings for the period ending at 2400 UTC rather than local midnight; from other sources"
+            " computed in a variety of ways, including traditional fixed hours of the day, whereas TAXN (not served "
+            "here) is solely the average of TMAX and TMIN."
         ),
-        ("daily", "data", "wdfm"): "Fastest mile wind direction (degrees).",
+        ("daily", "data", "wdfm"): (
+            "Fastest mile wind direction (degrees)."
+            " A 0 beside a speed of exactly 0 (a calm, or a gust the source did not report) is null."
+        ),
         ("daily", "data", "acmc"): "Average cloudiness midnight to midnight from 30-second ceilometer data (percent)",
-        ("daily", "data", "acmh"): "Average cloudiness midnight to midnight from manual observation (percent)",
+        ("daily", "data", "acmh"): "Average cloudiness midnight to midnight from manual observations (percent)",
         ("daily", "data", "acsc"): "Average cloudiness sunrise to sunset from 30-second ceilometer data (percent)",
-        ("daily", "data", "acsh"): "Average cloudiness sunrise to sunset from manual observation (percent)",
-        ("daily", "data", "awnd"): (
-            "Average daily wind speed (meters per second or miles per hour as per user preference)"
+        ("daily", "data", "acsh"): "Average cloudiness sunrise to sunset from manual observations (percent)",
+        ("daily", "data", "awnd"): "Average daily wind speed (m/s; the file has tenths of m/s)",
+        ("daily", "data", "adpt"): "Average dew point temperature for the day (°C; the file has tenths of degrees)",
+        ("daily", "data", "aslp"): "Average sea level pressure for the day (hPa; the file has tenths of hPa)",
+        ("daily", "data", "astp"): "Average station level pressure for the day (hPa; the file has tenths of hPa)",
+        ("daily", "data", "awbt"): "Average wet bulb temperature for the day (°C; the file has tenths of degrees)",
+        ("daily", "data", "awdr"): (
+            "Average daily wind direction (degrees). A 0 beside an average wind speed of 0 (a calm day) is null."
         ),
+        ("daily", "data", "rhav"): "Average relative humidity for the day (percent)",
+        ("daily", "data", "rhmn"): "Minimum relative humidity for the day (percent)",
+        ("daily", "data", "rhmx"): "Maximum relative humidity for the day (percent)",
         ("daily", "data", "daev"): "Number of days included in the multiday evaporation total (MDEV)",
         ("daily", "data", "dapr"): "Number of days included in the multiday precipitation total (MDPR)",
         ("daily", "data", "dasf"): "Number of days included in the multiday snowfall total (MDSF)",
@@ -2319,35 +3079,26 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "dwpr"): (
             "Number of days with non-zero precipitation included in multiday precipitation total (MDPR)"
         ),
-        ("daily", "data", "evap"): (
-            "Evaporation of water from evaporation pan (mm or inches as per user preference, or "
-            "hundredths of inches on Daily Form pdf file)"
-        ),
-        ("daily", "data", "frgb"): "Base of frozen ground layer (cm or inches as per user preference)",
-        ("daily", "data", "frgt"): "Top of frozen ground layer (cm or inches as per user preference)",
-        ("daily", "data", "frth"): "Thickness of frozen ground layer (cm or inches as per user preference)",
-        ("daily", "data", "gaht"): "Difference between river and gauge height (cm or inches as per user preference)",
-        ("daily", "data", "mdev"): "Multiday evaporation total (mm or inches as per user preference; use with DAEV)",
+        ("daily", "data", "evap"): "Evaporation of water from evaporation pan (mm; the file has tenths of mm)",
+        ("daily", "data", "frgb"): "Base of frozen ground layer (cm)",
+        ("daily", "data", "frgt"): "Top of frozen ground layer (cm)",
+        ("daily", "data", "frth"): "Thickness of frozen ground layer (cm)",
+        ("daily", "data", "gaht"): "Difference between river and gauge height (cm)",
+        ("daily", "data", "mdev"): "Multiday evaporation total (mm; the file has tenths of mm; use with DAEV)",
         ("daily", "data", "mdpr"): (
-            "Multiday precipitation total (mm or inches as per user preference; use with DAPR and DWPR, if available)"
+            "Multiday precipitation total (mm; the file has tenths of mm; use with DAPR and DWPR, if available)"
         ),
-        ("daily", "data", "mdsf"): "Multiday snowfall total (mm or inches as per user preference)",
-        ("daily", "data", "mdtn"): (
-            "Multiday minimum temperature (Fahrenheit or Celsius as per user preference ; use with DATN)"
-        ),
-        ("daily", "data", "mdtx"): (
-            "Multiday maximum temperature (Fahrenheit or Celsius as per user preference ; use with DATX)"
-        ),
-        ("daily", "data", "mdwm"): "Multiday wind movement (miles or km as per user preference)",
+        ("daily", "data", "mdsf"): ("Multiday snowfall total (mm, like SNOW; the readme names no unit)"),
+        ("daily", "data", "mdtn"): "Multiday minimum temperature (°C; the file has tenths of degrees; use with DATN)",
+        ("daily", "data", "mdtx"): "Multiday maximum temperature (°C; the file has tenths of degrees; use with DATX)",
+        ("daily", "data", "mdwm"): "Multiday wind movement (km)",
         ("daily", "data", "mnpn"): (
-            "Daily minimum temperature of water in an evaporation pan (Fahrenheit or Celsius as per user preference)"
+            "Daily minimum temperature of water in an evaporation pan (°C; the file has tenths of degrees)"
         ),
         ("daily", "data", "mxpn"): (
-            "Daily maximum temperature of water in an evaporation pan  (Fahrenheit or Celsius as per user preference)"
+            "Daily maximum temperature of water in an evaporation pan (°C; the file has tenths of degrees)"
         ),
-        ("daily", "data", "prcp"): (
-            "Precipitation (mm or inches as per user preference, inches to hundredths on Daily Form pdf file)"
-        ),
+        ("daily", "data", "prcp"): "Precipitation (mm; the file has tenths of mm)",
         ("daily", "data", "psun"): "Daily percent of possible sunshine (percent)",
         ("daily", "data", "sn01"): "Minimum soil temperature of unknown ground at 5cm depth",
         ("daily", "data", "sn02"): "Minimum soil temperature of unknown ground at 10cm depth",
@@ -2412,10 +3163,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "sn85"): "Minimum soil temperature of bare_muck ground at 100cm depth",
         ("daily", "data", "sn86"): "Minimum soil temperature of bare_muck ground at 150cm depth",
         ("daily", "data", "sn87"): "Minimum soil temperature of bare_muck ground at 180cm depth",
-        ("daily", "data", "snow"): (
-            "Snowfall (mm or inches as per user preference, inches to tenths on Daily Form pdf file)"
-        ),
-        ("daily", "data", "snwd"): "Snow depth (mm or inches as per user preference, inches on Daily Form pdf file)",
+        ("daily", "data", "snow"): "Snowfall (mm)",
+        ("daily", "data", "snwd"): "Snow depth (mm)",
         ("daily", "data", "sx01"): "Maximum soil temperature of unknown ground at 5cm depth",
         ("daily", "data", "sx02"): "Maximum soil temperature of unknown ground at 10cm depth",
         ("daily", "data", "sx03"): "Maximum soil temperature of unknown ground at 20cm depth",
@@ -2479,47 +3228,43 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "sx85"): "Maximum soil temperature of bare_muck ground at 100cm depth",
         ("daily", "data", "sx86"): "Maximum soil temperature of bare_muck ground at 150cm depth",
         ("daily", "data", "sx87"): "Maximum soil temperature of bare_muck ground at 180cm depth",
-        ("daily", "data", "thic"): "Thickness of ice on water (inches or mm as per user preference)",
-        ("daily", "data", "tmax"): (
-            "Maximum  temperature  (Fahrenheit  or  Celsius  as per  user  preference, Fahrenheit  to "
-            "tenths on Daily Form pdf file"
-        ),
-        ("daily", "data", "tmin"): (
-            "Minimum  temperature  (Fahrenheit  or  Celsius  as per  user  preference, Fahrenheit  to "
-            "tenths  on Daily Form pdf file"
-        ),
-        ("daily", "data", "tobs"): (
-            "Temperature at the time of observation  (Fahrenheit or Celsius as per user preference)"
-        ),
+        ("daily", "data", "thic"): "Thickness of ice on water (mm; the file has tenths of mm)",
+        ("daily", "data", "tmax"): "Maximum temperature (°C; the file has tenths of degrees)",
+        ("daily", "data", "tmin"): "Minimum temperature (°C; the file has tenths of degrees)",
+        ("daily", "data", "tobs"): "Temperature at the time of observation (°C; the file has tenths of degrees)",
         ("daily", "data", "tsun"): "Daily total sunshine (minutes)",
-        ("daily", "data", "wdf1"): "Direction of fastest 1-minute wind (degrees)",
-        ("daily", "data", "wdf2"): "Direction of fastest 2-minute wind (degrees)",
-        ("daily", "data", "wdf5"): "Direction of fastest 5-second wind (degrees)",
-        ("daily", "data", "wdfg"): "Direction of peak wind gust (degrees)",
-        ("daily", "data", "wdfi"): "Direction of highest instantaneous wind (degrees)",
-        ("daily", "data", "wdmv"): (
-            "24-hour wind movement (km or miles as per user preference, miles on Daily Form pdf file)"
+        ("daily", "data", "wdf1"): (
+            "Direction of fastest 1-minute wind (degrees)."
+            " A 0 beside a speed of exactly 0 (a calm, or a gust the source did not report) is null."
         ),
-        ("daily", "data", "wesd"): "Water equivalent of snow on the ground (inches or mm as per user preference)",
-        ("daily", "data", "wesf"): "Water equivalent of snowfall (inches or mm as per user preference)",
-        ("daily", "data", "wsf1"): (
-            "Fastest 1-minute wind speed (miles per hour or  meters per second as per user preference)"
+        ("daily", "data", "wdf2"): (
+            "Direction of fastest 2-minute wind (degrees)."
+            " A 0 beside a speed of exactly 0 (a calm, or a gust the source did not report) is null."
         ),
-        ("daily", "data", "wsf2"): (
-            "Fastest 2-minute wind speed (miles per hour or  meters per second as per user preference)"
+        ("daily", "data", "wdf5"): (
+            "Direction of fastest 5-second wind (degrees)."
+            " A 0 beside a speed of exactly 0 (a calm, or a gust the source did not report) is null."
         ),
-        ("daily", "data", "wsf5"): (
-            "Fastest 5-second wind speed (miles per hour or  meters per second as per user preference)"
+        ("daily", "data", "wdfg"): (
+            "Direction of peak wind gust (degrees)."
+            " A 0 beside a speed of exactly 0 (a calm, or a gust the source did not report) is null."
         ),
+        ("daily", "data", "wdfi"): (
+            "Direction of highest instantaneous wind (degrees)."
+            " A 0 beside a speed of exactly 0 (a calm, or a gust the source did not report) is null."
+        ),
+        ("daily", "data", "wdmv"): "24-hour wind movement (km)",
+        ("daily", "data", "wesd"): "Water equivalent of snow on the ground (mm; the file has tenths of mm)",
+        ("daily", "data", "wesf"): "Water equivalent of snowfall (mm; the file has tenths of mm)",
+        ("daily", "data", "wsf1"): "Fastest 1-minute wind speed (m/s; the file has tenths of m/s)",
+        ("daily", "data", "wsf2"): "Fastest 2-minute wind speed (m/s; the file has tenths of m/s)",
+        ("daily", "data", "wsf5"): "Fastest 5-second wind speed (m/s; the file has tenths of m/s)",
         ("daily", "data", "wsfg"): (
-            "Peak guest wind speed (miles per hour or  meters per second as per user preference)"
+            "Peak gust wind speed (m/s; the file has tenths of m/s)."
+            " A 0 of source C (Environment Canada) is a gust below 31 km/h that it does not report, and is null."
         ),
-        ("daily", "data", "wsfi"): (
-            "Highest instantaneous wind speed (miles per hour or  meters per second as per user preference)"
-        ),
-        ("daily", "data", "wsfm"): (
-            "Fastest mile wind speed (miles per hour or  meters per second as per user preference)"
-        ),
+        ("daily", "data", "wsfi"): "Highest instantaneous wind speed (m/s; the file has tenths of m/s)",
+        ("daily", "data", "wsfm"): "Fastest mile wind speed (m/s; the file has tenths of m/s)",
         ("daily", "data", "wt01"): "Fog, ice fog, or freezing fog (may include heavy fog)",
         ("daily", "data", "wt02"): "Heavy fog or heaving freezing fog (not always distinguished from fog)",
         ("daily", "data", "wt03"): "Thunder",
@@ -2546,7 +3291,11 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "wv07"): "Ash, dust, sand, or other blowing obstruction in the Vicinity",
         ("daily", "data", "wv18"): "Snow or ice crystals in the Vicinity",
         ("daily", "data", "wv20"): "Rain or snow shower in the Vicinity",
-        ("hourly", "data", "altimeter"): "Reduced pressure (hectopascals)",
+        ("hourly", "data", "altimeter"): (
+            'Altimeter setting: the pressure "reduced" to mean sea level using the temperature profile of the'
+            ' "standard" atmosphere, which is representative of average conditions over the United States at '
+            "40 degrees north latitude (hPa)"
+        ),
         ("hourly", "data", "dew_point_temperature"): "Dew Point Temperature (⁰C to tenths)",
         ("hourly", "data", "precipitation"): (
             "total liquid precipitation (rain or melted snow), nominally for the hour: a METAR's amount is the "
@@ -2594,20 +3343,35 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "reports; a “T” in the measurement code column indicates a trace amount of precipitation "
             "(millimeters)"
         ),
-        ("hourly", "data", "pressure_3hr_change"): "3-hour pressure change (hectopascals)",
-        ("hourly", "data", "relative_humidity"): (
-            "Relative humidity is calculated from air (dry bulb) temperature and dewpoint temperature (whole percent)"
+        ("hourly", "data", "pressure_3hr_change"): (
+            "Change in atmospheric pressure measured at the beginning and end of a three hour period; the "
+            "source accompanies it with a tendency code in the measurement code field (hPa)"
         ),
-        ("hourly", "data", "sea_level_pressure"): "Sea level pressure (hectopascals)",
+        ("hourly", "data", "relative_humidity"): (
+            "Depending on the source, relative humidity is either measured directly or calculated from air "
+            "(dry bulb) temperature and dew point temperature (whole percent)"
+        ),
+        ("hourly", "data", "sea_level_pressure"): (
+            "Sea level pressure: the reduction estimates the pressure that would exist at sea level at a "
+            "point directly below the station using a temperature profile based on temperatures that actually"
+            " exist at the station (hPa)"
+        ),
         ("hourly", "data", "snow_depth"): "depth of snowpack on the ground (millimeters)",
-        ("hourly", "data", "station_level_pressure"): "Station pressure (hectopascals)",
+        ("hourly", "data", "station_level_pressure"): (
+            "Station level pressure: the pressure observed at a specific elevation, the true barometric "
+            "pressure of a location, exerted by the atmosphere at a point as a result of gravity acting upon "
+            "the column of air that lies directly above it (hPa)"
+        ),
         ("hourly", "data", "temperature"): (
             "2 meter (circa) Above Ground Level Air (dry bulb) Temperature (⁰C to tenths)"
         ),
         ("hourly", "data", "visibility"): (
             "horizontal distance at which an object can be seen and identified (kilometers)"
         ),
-        ("hourly", "data", "wet_bulb_temperature"): "Wet bulb temperature (⁰C to tenths)",
+        ("hourly", "data", "wet_bulb_temperature"): (
+            "Depending on the source, wet bulb temperature is either measured directly or calculated from air"
+            " (dry bulb) temperature, dew point temperature, and station pressure (⁰C to tenths)"
+        ),
         ("hourly", "data", "wind_direction"): (
             "Wind direction from true north using compass directions (e.g. 360=true north, 180=south, "
             "270=west, etc.). Note: A direction of “000” is given for calm winds. (whole degrees) "
@@ -2624,8 +3388,13 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "barometricpressure"): (
             "air pressure reduced to mean sea level with the standard atmosphere, the altimeter setting"
         ),
+        # the ASOS User's Guide (https://www.weather.gov/media/asos/aum-toc.pdf, 3.1, read 2026-10-28): "ASOS provides
+        # a 5-minute average ambient air and dew point temperature every minute", reported "to the nearest tenth of a
+        # degree Celsius" in the T group of the hourly METAR. The guide gives no height for the hygrothermometer, and
+        # api.weather.gov (its OpenAPI document describes no observation property) none either (GH-3136)
         ("hourly", "data", "dewpoint"): (
-            "dew point temperature, to 0.1 °C in the METAR (the T group) and in whole degrees in the 5-minute rows"
+            "dew point temperature, the 5-minute average of the ASOS, to 0.1 °C in the METAR (the T group) and in "
+            "whole degrees in the 5-minute rows. The source states no height."
         ),
         # not declared: the endpoint's `maxTemperatureLast24Hours` and `minTemperatureLast24Hours` (the OpenAPI
         # document describes no property) came back null in all 49,688 observations of 108 stations read on
@@ -2660,25 +3429,40 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "air pressure at sea level, the SLP group of the METAR (the 5-minute rows carry none)"
         ),
         ("hourly", "data", "temperature"): (
-            "air temperature, to 0.1 °C in the METAR (the T group) and in whole degrees in the 5-minute rows"
+            "air temperature, the 5-minute average of the ASOS, to 0.1 °C in the METAR (the T group) and in whole "
+            "degrees in the 5-minute rows. The source states no height."
         ),
-        ("hourly", "data", "visibility"): "visibility range",
+        # the ASOS User's Guide, 4.2.2 and 4.2.3: "ASOS computes a running 10-minute harmonic mean once per minute" of
+        # the 1-minute visibilities, "rounded down to the nearest reportable visibility value", "Visibility in METAR is
+        # reported in statute miles (SM)" in steps of M1/4SM, 1/4SM, 1/2SM, ... 9SM and 10SM, and "visibilities of 10
+        # miles or greater are reported as 10SM" (the 5-minute rows of KORD on 2026-10-26 to 28 read 10 SM in 251 of
+        # 269, never more; 16,093.44 m is 10 SM, GH-3136)
+        ("hourly", "data", "visibility"): (
+            "visibility, the ASOS's harmonic mean over 10 minutes of the 1-minute values, reported in statute miles "
+            "in the METAR (rounded down to a step of the report, 10 SM at most) and returned in metres"
+        ),
         ("hourly", "data", "windchill"): (
             "wind chill temperature calculated by NWS (https://www.weather.gov/gjt/windchill)"
         ),
         # ASOS User's Guide: "ASOS reports a 2-minute average" of the wind direction, and of the speed, and the
         # reportable gust is "the highest gust stored in memory for the past 10 minutes"
+        # the guide, 3.2: "current federal standards for siting meteorological equipment specify (with some variance
+        # permitted) a height of 10 meters (32.8 feet). Typical ASOS wind sensor heights are 33 feet or 27 feet"
         ("hourly", "data", "winddirection"): (
-            "wind direction, the 2-minute average of the ASOS. The source's 0 (a calm wind) is null."
+            "wind direction, the 2-minute average of the ASOS, at about 10 m (the federal siting standard, with some "
+            "variance permitted). The source's 0 (a calm wind) is null."
         ),
         # the same guide, 3.2.2.2: "the greatest 5-second average speed observed during the past minute is stored in
         # memory as a gust for 10 minutes", and the highest of them is reported only if it is 3 knots or more above the
         # 2-minute average and exceeds the minimum 5-second wind of the 10 minutes by 10 knots or more
         ("hourly", "data", "windgust"): (
             "maximum wind gust of the past 10 minutes, the highest 5-second average wind speed the ASOS holds as "
-            "a gust, reported only when its gust criteria are met"
+            "a gust, reported only when its gust criteria are met, at about 10 m (the federal siting standard)"
         ),
-        ("hourly", "data", "windspeed"): "wind speed, the 2-minute average of the ASOS",
+        ("hourly", "data", "windspeed"): (
+            "wind speed, the 2-minute average of the ASOS, at about 10 m (the federal siting standard, with some "
+            "variance permitted)"
+        ),
     },
     "WsvPegelMetadata": {
         (resolution, "data", name_original): description
@@ -3353,6 +4137,21 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "ff",
         ): "Speed of the mean wind over 10 minutes, in whole m/s (the mean cut to the integer).",
         ("subdaily", "data", "t"): "Temperature.",
+        # the sheet: "tn12 température minimale sur 12 heures" and "tx12 température maximale sur 12 heures" (K); it
+        # names no hour. In the 2026 file (read 2026-10-28) 158 of 190 stations carry them (`tx24`/`tn24`: 35), 98 %
+        # of the values (89046 of 90410 maxima, 89047 of 91205 minima) at 06 and 18 UTC, the rest at 00, 12 and 21 UTC
+        ("subdaily", "data", "tn12"): (
+            'Minimum air temperature over the preceding 12 hours (the source: "température minimale sur 12 '
+            'heures"), given almost always at 06 and 18 UTC. Most stations report it, '
+            "where the 24 hour minimum is given by few. Where a report writes the same number in `tx12` "
+            "(Cayenne-Matoury, Le Raizet and Lamentin do at some hours), it is the maximum repeated and no "
+            "minimum: null, with the number kept as the `raw:` token of `quality_flags`."
+        ),
+        ("subdaily", "data", "tx12"): (
+            'Maximum air temperature over the preceding 12 hours (the source: "température maximale sur 12 '
+            'heures"), given almost always at 06 and 18 UTC. Most stations report it, '
+            "where the 24 hour maximum is given by few."
+        ),
     },
 }
 
@@ -3386,7 +4185,9 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
         ("monthly", "cooling_degreehours_16"): _cooling_degreehours(16),
         ("monthly", "cooling_degreehours_18"): _cooling_degreehours(18),
         ("monthly", "heating_degreedays"): (
-            "Data on degree days, comparing the monthly temperatures to the reference temperature of 20 degree Celsius."
+            "Monthly degree days according to VDI 3807 (heating degree days): the difference between the room "
+            "temperature of 20 degree Celsius and the daily mean air temperature, summed over the days of the "
+            "month with a daily mean below 15 degree Celsius."
         ),
         ("monthly", "soil"): (
             "Monthly aggregated soil data including temperature at various depths, soil moisture, and "
@@ -3395,13 +4196,15 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
     },
     "DwdDmoMetadata": {
         ("hourly", "icon"): (
-            "Direct model output of the global ICON model, extracted at worldwide stations. "
-            "Issued twice a day (00 and 12 UTC) as two runs: hourly out to a lead-time of 78 "
-            "hours, and 3-hourly from 78 to 168 hours."
+            "Direct model output of the global ICON model, transferred to stations worldwide by simple, "
+            "weather-independent empirical formulas (for the 2 m temperature a standard gradient to the station's "
+            "height). Issued twice a day (00 and 12 UTC), each issue in two files: hourly out to a lead-time "
+            "of 78 hours, and 3-hourly from 78 to 168 hours."
         ),
         ("hourly", "icon_eu"): (
-            "Direct model output of the regional ICON-EU model, extracted at the stations it is "
-            "published for, a smaller set than the global product's though not a subset of it. "
+            "Direct model output of the regional ICON-EU model, for the stations it is published for, a smaller set "
+            "than the global product's though not a subset of it, transferred to them by simple, weather-independent "
+            "empirical formulas (for the 2 m temperature a standard gradient to the station's height). "
             "Issued twice a day (00 and 12 UTC), hourly out to a lead-time of 78 hours."
         ),
     },
@@ -3443,8 +4246,8 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
             "Germany, derived from the daily climate observations."
         ),
         ("annual", "climate_summary"): (
-            "Historical annual station observations (temperature, pressure, precipitation, sunshine "
-            "duration, etc.) for Germany (details missing, parameter descriptions "
+            "Historical annual station observations (temperature, precipitation, sunshine duration, wind and "
+            "cloud cover) for Germany (details missing, parameter descriptions "
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
         ("annual", "precipitation_indices"): (
@@ -3457,8 +4260,8 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
         ("annual", "weather_phenomena"): (
-            "Counts of weather phenomena fog, thunder, storm (strong wind), storm (stormier wind), dew, glaze, "
-            "graupel and hail for stations of Germany (details missing, parameter descriptions "
+            "Counts of days with the weather phenomena fog, thunder, storm (strong wind), storm (stormier wind), "
+            "dew, glaze, graupel and hail for stations of Germany (details missing, parameter descriptions "
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
         ("daily", "climate_summary"): (
@@ -3493,7 +4296,7 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
         ),
         ("hourly", "sun"): "Hourly station observations of sunshine duration for Germany.",
         ("hourly", "temperature_air"): "Hourly station observations of 2 m air temperature and humidity for Germany.",
-        ("hourly", "temperature_soil"): "Hourly station observations of of soil temperature for Germany.",
+        ("hourly", "temperature_soil"): "Hourly station observations of soil temperature for Germany.",
         ("hourly", "urban_precipitation"): (
             "Recent hourly precipitation, observed at urban stations for selected urban areas in Germany."
         ),
@@ -3532,45 +4335,45 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
         ),
         ("monthly", "precipitation_more"): "Monthly precipitation observations for Germany.",
         ("monthly", "weather_phenomena"): (
-            "Counts of weather phenomena fog, thunder, storm (strong wind), storm (stormier wind), dew, glaze, "
-            "graupel and hail for stations of Germany (details missing, parameter descriptions "
+            "Counts of days with the weather phenomena fog, thunder, storm (strong wind), storm (stormier wind), "
+            "dew, glaze, graupel and hail for stations of Germany (details missing, parameter descriptions "
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
         ("subdaily", "cloudiness"): (
-            "Recent subdaily cloud cover and cloud density of stations in Germany (details missing, "
+            "Subdaily cloud cover and cloud density of stations in Germany (details missing, "
             "parameter descriptions "
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
         ("subdaily", "moisture"): (
-            "Recent subdaily vapor pressure, wet bulb temperature, ice on the wet bulb thermometer and relative "
+            "Subdaily vapor pressure, wet bulb temperature, ice on the wet bulb thermometer and relative "
             "humidity of stations in Germany (details missing, parameter descriptions "
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
         ("subdaily", "pressure"): (
-            "Recent air pressure at site of stations in Germany (details missing, parameter "
+            "Air pressure at site of stations in Germany (details missing, parameter "
             "descriptions "
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
         ("subdaily", "soil"): (
-            "Recent subdaily coded ground state of stations in Germany (details missing, parameter descriptions "
+            "Subdaily coded ground state of stations in Germany (details missing, parameter descriptions "
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
         ("subdaily", "temperature_air"): (
-            "Recent subdaily air temperature and humidity of stations in Germany (details missing, "
+            "Subdaily air temperature and humidity of stations in Germany (details missing, "
             "parameter descriptions "
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
         ("subdaily", "visibility"): (
-            "Recent visibility range of stations in Germany (details missing, parameter descriptions "
+            "Visibility range of stations in Germany (details missing, parameter descriptions "
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
         ("subdaily", "wind"): (
-            "Recent wind direction and wind force (beaufort) of stations in Germany (details missing, "
+            "Wind direction and wind force (beaufort) of stations in Germany (details missing, "
             "parameter descriptions "
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
         ("subdaily", "wind_extreme"): (
-            "Recent subdaily extreme wind of stations in Germany (details missing, parameter "
+            "Subdaily extreme wind of stations in Germany (details missing, parameter "
             "descriptions "
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
@@ -3580,26 +4383,39 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
             "Local forecast of 40 parameters for worldwide stations, 24 times a day with a lead-time of 240 hours."
         ),
         ("hourly", "large"): (
-            "Local forecast of 114 parameters for worldwide stations, 4 times a day with a lead-time of 240 hours."
+            "Local forecast of 114 parameters for worldwide stations, 4 times a day with a lead-time of 240 "
+            "hours. Which elements a station gets, and at which hours, depend on the station: `tx` and `tn` are "
+            "given at 06 and 18 UTC for Hamburg and Berlin, `tx` at 12 UTC and `tn` at 00 UTC for Tokyo, and not "
+            "at all for Los Angeles, New York and Honolulu, which have no precipitation amount (`rr1c`, `rrdc`) "
+            "either, and the probabilities `rd..` come at 06 and 07 UTC for Berlin, 06, 11 and 12 UTC for Los "
+            "Angeles. An element a station has no value of is an answer with no rows, not an error. The hours in "
+            "the parameter descriptions are DWD's, for Germany (run of 2026-10-28 09 UTC)."
         ),
     },
     "DwdRoadMetadata": {
-        ("15_minutes", "data"): "15-minute road weather data of German highway stations.",
+        ("15_minutes", "data"): (
+            "Road weather data of the road weather stations on German roads (Glättemeldeanlagen of the road "
+            "authorities of the Länder), reported in the standard period of 15 minutes."
+        ),
     },
     "DwdPoiMetadata": {
         ("hourly", "data"): "Hourly weather reports of the last day, for the stations DWD forecasts for.",
     },
     "EAHydrologyMetadata": {
         ("15_minutes", "data"): (
-            "Historical 15 minute station observations of flow, river water level and groundwater level for the UK."
+            "Station observations of flow, river water level and groundwater level for England, instantaneous "
+            "values mainly every 15 minutes (the logged groundwater level every 15 minutes to every hour)."
         ),
-        ("daily", "data"): "Historical daily station observations of flow and river water level for the UK.",
+        ("daily", "data"): (
+            "Daily station observations of flow (mean, minimum, maximum) and river water level (minimum, "
+            "maximum) for England."
+        ),
     },
     "EcccObservationMetadata": {
         ("daily", "data"): "Historical daily station observations for Canada.",
         ("hourly", "data"): (
-            "Historical hourly station observations of 2m air temperature, humidity, wind direction, "
-            "wind speed, visibility range, air pressure, wind gust and weather for Canada."
+            "Historical hourly station observations of air temperature, dew point, humidity, precipitation, "
+            "station pressure, visibility, wind direction, wind speed, wind chill and humidex for Canada."
         ),
         ("monthly", "data"): "Historical monthly station observations for Canada.",
     },
@@ -3612,18 +4428,24 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
         ("hourly", "data"): "Historical hourly station observations for Austria, with quality information.",
         ("monthly", "data"): "Historical monthly station observations for Austria, with quality information.",
     },
-    "HubeauMetadata": {(resolution, "data"): "Flow and stage for France." for resolution in _HUBEAU_RESOLUTIONS},
+    "HubeauMetadata": {
+        (resolution, "data"): (
+            "Real-time observations of flow and stage (water height) of the French hydrometric network, stored by "
+            "the producer every 5 to 60 minutes; the source keeps a history of one month."
+        )
+        for resolution in _HUBEAU_RESOLUTIONS
+    },
     "ImgwHydrologyMetadata": {
         ("daily", "hydrology"): "historical daily hydrology data.",
         ("monthly", "hydrology"): "historical monthly hydrology data.",
     },
     "ImgwMeteorologyMetadata": {
-        ("daily", "climate"): "historical daily climate data.",
-        ("daily", "precipitation"): "historical daily precipitation data.",
-        ("daily", "synop"): "historical daily synop data.",
-        ("monthly", "climate"): "historical monthly climate data.",
-        ("monthly", "precipitation"): "historical monthly precipitation data.",
-        ("monthly", "synop"): "historical monthly synop data.",
+        ("daily", "climate"): "Daily data of the climatological stations (klimat).",
+        ("daily", "precipitation"): "Daily data of the precipitation stations (opad).",
+        ("daily", "synop"): "Daily data of the synoptic stations (synop).",
+        ("monthly", "climate"): "Monthly data of the climatological stations (klimat).",
+        ("monthly", "precipitation"): "Monthly data of the precipitation stations (opad).",
+        ("monthly", "synop"): "Monthly data of the synoptic stations (synop).",
     },
     "NoaaGhcnMetadata": {
         ("daily", "data"): "Historical daily weather data from the Global Historical Climatology Network (GHCN).",
@@ -3632,7 +4454,8 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
     "NwsObservationMetadata": {
         ("hourly", "data"): (
             "Station observations (temperature, pressure, precipitation, etc.) for the US, one report for each "
-            "hour: the METAR or SPECI report nearest to the full hour, else the nearest 5-minute row."
+            "hour: the METAR or SPECI report nearest to the full hour, else the nearest 5-minute row; a quantity it "
+            "lacks (but the gust and the wind chill) is filled from the nearest other row of the hour."
         ),
     },
     "WsvPegelMetadata": {
@@ -3649,7 +4472,12 @@ RESOLUTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
     # Only where the name underdetermines what arrives. "hourly" and "daily" say everything about
     # themselves, and filling those in would read as information without being any.
     "DwdObservationMetadata": {
-        "subdaily": "measurements at 7am, 2pm, 9pm.",
+        "subdaily": (
+            "Three fixed observation times a day: until March 2001 at 07, 14 and 21 (local mean time; from 1987 "
+            "07:30, 14:30 and 21:30 CET, which the files stamp as 07, 14 and 21), from April 2001 at 06, 12 and "
+            "18 UTC (some stations also at 00 UTC; East German stations 1960-1990 at 00, 06, 12 and 18 UTC); the "
+            "extreme wind at 03, 09, 15 and 21 UTC (3-hour maximum) and 00, 06, 12 and 18 UTC (6-hour maximum)."
+        ),
     },
     "MeteoFranceSynopMetadata": {
         "subdaily": "SYNOP reports, made at their native three-hourly interval.",
@@ -3789,26 +4617,6 @@ DERIVED_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("subdaily", "visibility", "qn_4"): "Quality flag published by the source for the values in the same dataset.",
         ("subdaily", "wind", "qn_4"): "Quality flag published by the source for the values in the same dataset.",
-    },
-    "DmiObservationMetadata": {
-        # DMI's documentation (https://www.dmi.dk/friedata/dokumentation/climate-data): "Maximum 30 minutes intensity in
-        # 24 hours with date", "is found by inspecting the period from 23:31 local time to the previous day to 24.00
-        # local time of the respective day"; "Maximum 24-hour precipitation with associated date", "the highest of
-        # the underlying daily values of acc_precip" (GH-2614)
-        ("daily", "data", "max_precip_30m"): (
-            "Largest precipitation depth in any 30 minutes of the day, found from 23:31 local time of the previous "
-            "day to 24:00 local time of the day."
-        ),
-        ("monthly", "data", "max_precip_24h"): (
-            "Largest daily precipitation total of the month, the highest of the underlying daily values."
-        ),
-        ("annual", "data", "max_precip_24h"): (
-            "Largest daily precipitation total of the year, the highest of the underlying daily values."
-        ),
-        ("annual", "data", "mean_wind_dir"): _DMI_MEAN_WIND_DIRECTION,
-        ("daily", "data", "mean_wind_dir"): _DMI_MEAN_WIND_DIRECTION,
-        ("hourly", "data", "mean_wind_dir"): _DMI_MEAN_WIND_DIRECTION,
-        ("monthly", "data", "mean_wind_dir"): _DMI_MEAN_WIND_DIRECTION,
     },
     "ImgwMeteorologyMetadata": {
         ("monthly", "synop", "maksymalna dobowa suma opadów"): "precipitation height max",

@@ -52,7 +52,7 @@ if TYPE_CHECKING:
         IssuesRequest,
         StationsRequest,
         StripesData,
-        StripesValuesRequest,
+        StripesRequest,
         SummaryRequest,
         ValuesRequest,
     )
@@ -70,8 +70,10 @@ _QUALITY_FLAGS_DESCRIPTION = (
     "One nullable string per reading, comma-separated. The first token without a `kind:` prefix is the "
     "source's own quality flag as the source writes it. Every further token is `kind:code`: the kinds a "
     "provider publishes beside it (for instance `measurement:T`), `zone:` where the source's timestamps were "
-    "shifted to UTC, and, always last, `raw:` where a value was a missing-value marker or a number no sensor "
-    "can have produced and is returned as null, with the text the source wrote in its place."
+    "shifted to UTC, `suspect:<check>` where a plausibility check in the mode `soft` found the value implausible "
+    "and left it, and, always last, `raw:` where a value was a missing-value marker or a number no sensor can "
+    "have produced and is returned as null, with the text the source wrote in its place; a number a check in the "
+    "mode `hard` rejected has `rejected:<check>` before it."
 )
 
 
@@ -417,8 +419,8 @@ def issues_metadata(api: object, request: IssuesRequest, issues: Sequence[str]) 
     )
 
 
-def stripes_metadata(data: StripesData, request: StripesValuesRequest) -> ResponseMetadata:
-    """Build the block of the values of climate stripes (`/api/stripes/values`), which are DWD observation's."""
+def stripes_metadata(data: StripesData, request: StripesRequest) -> ResponseMetadata:
+    """Build the block of climate stripes (`/api/stripes/values` and `/image`), made of DWD observation's values."""
     from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
 
     stripes = data.series

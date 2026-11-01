@@ -627,7 +627,8 @@ def test_meteofrance_observation_api_unknown_fu_offset_warns_only_when_rows_come
     with caplog.at_level(logging.WARNING, logger=api.__name__):
         df = _values("hourly", "core", "temperature_air_2m", "98404006", _utc(2021, 1, 1), _utc(2021, 1, 2))
     assert df.is_empty()
-    assert "98404006" not in caplog.text
+    # the offset warning of the provider; the core says elsewhere that the source has no values of the station
+    assert "98404006" not in "".join(record.getMessage() for record in caplog.records if record.name == api.__name__)
 
 
 def test_meteofrance_observation_api_a_request_outside_every_period_file_is_the_empty_long_form(
@@ -1364,3 +1365,243 @@ def test_meteofrance_observation_api_an_outage_of_the_file_host_serves_the_copy_
     assert recovered[0] == [22.5]
     assert recovered[1] is not None
     assert recovered[1] > made
+
+
+# the departments without frost (GH-3135): a temperature below 0 C is no reading there. Each case is a row of the
+# source's file as it writes it (the fields the case reads and those beside them; Wallis-et-Futuna holds no reading
+# below 0 C in any period, so its case is made up), with the period file it is in, the parameter that reads it, the
+# window that holds it, and the text it keeps
+_FROSTLESS = [
+    pytest.param(
+        "hourly",
+        "core",
+        "temperature_air_2m",
+        "972",
+        "HOR_departement_972_periode_2020-2024",
+        "97212007",
+        {"AAAAMMJJHH": "2021051012", "T": "-20.0", "QT": "9"},
+        (_utc(2021, 5, 10), _utc(2021, 5, 11)),
+        "-20.0",
+        id="972 hourly T -20.0 (GROS-MORNE BOISLEZ, 441 m)",
+    ),
+    pytest.param(
+        "hourly",
+        "others",
+        "temperature_dew_point_2m",
+        "973",
+        "HOR_departement_973_periode_2020-2024",
+        "97353001",
+        {"AAAAMMJJHH": "2022122914", "TD": "-23.8", "QTD": "9"},
+        (_utc(2022, 12, 29), _utc(2022, 12, 30)),
+        "-23.8",
+        id="973 hourly TD -23.8 (MARIPASOULA, 106 m)",
+    ),
+    pytest.param(
+        "daily",
+        "core",
+        "temperature_air_mean_2m",
+        "971",
+        "QUOT_departement_971_periode_1950-2024_RR-T-Vent",
+        "97127004",
+        {"AAAAMMJJ": "20081129", "TM": "-10.9", "QTM": "9"},
+        (_utc(2008, 11, 29), _utc(2008, 11, 30)),
+        "-10.9",
+        id="971 daily TM -10.9 (ST-MARTIN GRAND-CASE, 5 m)",
+    ),
+    pytest.param(
+        "monthly",
+        "data",
+        "temperature_air_mean_2m",
+        "972",
+        "MENS_departement_972_periode_1950-2024",
+        "97218013",
+        {"AAAAMM": "200106", "TMM": "-11.5", "QTMM": "1"},
+        (_utc(2001, 6, 1), _utc(2001, 7, 1)),
+        "-11.5",
+        id="972 monthly TMM -11.5 (MORNE-ROUGE CHAMDST, 474 m)",
+    ),
+    pytest.param(
+        "hourly",
+        "others",
+        "temperature_dew_point_2m",
+        "985",
+        "HOR_departement_985_periode_2025-2026",
+        "98511003",
+        # between TD 20.0 at 06 h and 20.6 at 08 h
+        {"AAAAMMJJHH": "2025061007", "T": "23.8", "QT": "1", "TD": "-4.5", "QTD": "9", "U": "15", "QU": "9"},
+        (_utc(2025, 6, 10), _utc(2025, 6, 11)),
+        "-4.5",
+        id="985 (Mayotte) hourly TD -4.5 (VAHIBE_SAPC, 222 m)",
+    ),
+    pytest.param(
+        "hourly",
+        "others",
+        "temperature_dew_point_2m",
+        "984",
+        "HOR_departement_984_periode_2010-2019",
+        "98403004",
+        {"AAAAMMJJHH": "2014040100", "T": "27.3", "QT": "1", "TD": "-21.6", "QTD": "9", "U": "3", "QU": "9"},
+        (_utc(2014, 3, 31), _utc(2014, 4, 1, 12)),
+        "-21.6",
+        id="984 (Iles Eparses) hourly TD -21.6 (TROMELIN, 7 m)",
+    ),
+    pytest.param(
+        "hourly",
+        "others",
+        "temperature_dew_point_2m",
+        "987",
+        "HOR_departement_987_periode_2020-2024",
+        "98720002",
+        {"AAAAMMJJHH": "2023031401", "T": "28.3", "QT": "1", "TD": "-32.6", "QTD": "1", "U": "1", "QU": "1"},
+        (_utc(2023, 3, 14), _utc(2023, 3, 15)),
+        "-32.6",
+        id="987 (French Polynesia) hourly TD -32.6 (HAO AERO, 5 m)",
+    ),
+    pytest.param(
+        "hourly",
+        "core",
+        "temperature_air_2m",
+        "986",
+        "HOR_departement_986_periode_2020-2024",
+        "98611001",
+        {"AAAAMMJJHH": "2023031401", "T": "-1.0", "QT": "1"},
+        (_utc(2023, 3, 13), _utc(2023, 3, 15)),
+        "-1.0",
+        id="986 (Wallis-et-Futuna) hourly T -1.0, made up (MAOPOOPO, 35 m)",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("resolution", "dataset", "parameter", "department", "title", "station", "row", "window", "text"), _FROSTLESS
+)
+def test_meteofrance_observation_api_a_temperature_below_zero_is_null_where_there_is_no_frost(
+    monkeypatch: pytest.MonkeyPatch,
+    resolution: str,
+    dataset: str,
+    parameter: str,
+    department: str,
+    title: str,
+    station: str,
+    row: dict[str, str],
+    window: tuple[datetime, datetime],
+    text: str,
+) -> None:
+    """Test that a temperature below 0 C in Guadeloupe, Martinique, Guyane and Mayotte is null with its text."""
+    assert station.startswith(department)
+    files = {title: _climate_gz(resolution, dataset, [{"NUM_POSTE": station, **row}])}
+    _serve_climate(monkeypatch, files)
+    df = _values(resolution, dataset, parameter, station, *window, drop_nulls=False)
+    assert df.get_column("value").to_list() == [None]
+    assert df.get_column("quality_flags").to_list()[0].endswith(f"rejected:range,raw:{text}")
+
+
+@pytest.mark.parametrize(
+    ("department", "station", "value", "kept"),
+    [
+        # La Reunion has frost at altitude: PLAINE DES CHICOTS (97411170, 1,834 m) read -2.3 C in 2020-08-11 02 h FU
+        ("974", "97411170", "-2.3", True),
+        # Saint-Pierre-et-Miquelon, at 47 degrees north, and a station of the mainland
+        ("975", "97502001", "-5.0", True),
+        ("07", "07005001", "-5.0", True),
+        # the southern territories (984, KERGUELEN) and New Caledonia (988, OUANAHAM) are not in the rule
+        ("984", "98404001", "-5.0", True),
+        ("988", "98814001", "-5.0", True),
+        # 0 C is no reading below it, and a warm one is none either
+        ("971", "97127004", "0.0", True),
+        ("971", "97127004", "25.4", True),
+        ("972", "97212007", "-0.1", False),
+        # the lowest-lying edge of each department of the rule: the Iles Eparses (EUROPA), Mayotte, Wallis-et-Futuna and
+        # French Polynesia (RAPA, 27.6 S)
+        ("984", "98403003", "-0.1", False),
+        ("985", "98508001", "-0.1", False),
+        ("986", "98613001", "-0.1", False),
+        ("987", "98741001", "-0.1", False),
+    ],
+)
+def test_meteofrance_observation_api_a_temperature_below_zero_is_null_only_where_there_is_no_frost(
+    monkeypatch: pytest.MonkeyPatch,
+    department: str,
+    station: str,
+    value: str,
+    kept: bool,  # noqa: FBT001
+) -> None:
+    """Test that the rule leaves La Reunion, Saint-Pierre and the mainland alone, and 0 C and warmer stay (GH-3135).
+
+    The reading of La Reunion is that of PLAINE DES CHICOTS; -0.1 C in Martinique is the nearest below the edge.
+    """
+    title = f"HOR_departement_{department}_periode_2020-2024"
+    row = {"NUM_POSTE": station, "AAAAMMJJHH": "2020081102", "T": value, "QT": "1"}
+    _serve_climate(monkeypatch, {title: _climate_gz("hourly", "core", [row])})
+    df = _values(
+        "hourly", "core", "temperature_air_2m", station, _utc(2020, 8, 10), _utc(2020, 8, 12), drop_nulls=False
+    )
+    assert df.get_column("value").to_list() == [float(value) if kept else None]
+
+
+@pytest.mark.parametrize(
+    ("department", "station", "kept"),
+    [
+        # the departments of the rule: Mayotte (VAHIBE_SAPC), Iles Eparses (TROMELIN), Guadeloupe (ST-CLAUDE CITERNE)
+        ("985", "98511003", False),
+        ("984", "98403004", False),
+        ("971", "97124009", False),
+        # La Reunion has frost at altitude, the southern territories and the mainland have it too
+        ("974", "97411170", True),
+        ("984", "98404001", True),
+        ("07", "07005001", True),
+    ],
+)
+def test_meteofrance_observation_api_the_humidity_beside_a_dew_point_below_zero_is_null_where_there_is_no_frost(
+    monkeypatch: pytest.MonkeyPatch,
+    department: str,
+    station: str,
+    kept: bool,  # noqa: FBT001
+) -> None:
+    """Test that the U of an hour whose TD the frost rule nulls is null too, with its text, and U alone is asked for.
+
+    The first row is that of VAHIBE_SAPC (98511003) at 2025-06-10 07 h (TD -4.5 C beside U 15 %), the second an hour of
+    a TD of 20.6 C beside U 78 %, the third a TD of 0.0 C, which is no reading below 0 C; a U of 15 % beside a dew point
+    that is a reading is none to null (no floor on the humidity). The dew point is read for the humidity and is not in
+    the answer (GH-3629).
+    """
+    rows = [
+        {"NUM_POSTE": station, "AAAAMMJJHH": "2025061007", "TD": "-4.5", "QTD": "9", "U": "15", "QU": "9"},
+        {"NUM_POSTE": station, "AAAAMMJJHH": "2025061008", "TD": "20.6", "QTD": "1", "U": "78", "QU": "1"},
+        {"NUM_POSTE": station, "AAAAMMJJHH": "2025061009", "TD": "0.0", "QTD": "1", "U": "15", "QU": "1"},
+    ]
+    title = f"HOR_departement_{department}_periode_2025-2026"
+    _serve_climate(monkeypatch, {title: _climate_gz("hourly", "others", rows)})
+    df = _values(
+        "hourly", "others", "humidity_relative", station, _utc(2025, 6, 10), _utc(2025, 6, 11), drop_nulls=False
+    )
+    assert df.get_column("parameter").unique().to_list() == ["humidity_relative"]
+    assert df.get_column("value").to_list() == ([None, 0.78, 0.15] if not kept else [0.15, 0.78, 0.15])
+    flags = df.get_column("quality_flags").to_list()
+    assert flags[0] == ("9" if kept else "9,rejected:consistency,raw:15")
+    assert flags[1] == "1"
+    assert flags[2] == "1"
+
+
+def test_meteofrance_observation_api_the_humidity_and_the_dew_point_are_nulled_together_in_one_answer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that asking for the dataset gives both nulled, each with its own text (GH-3629)."""
+    station = "98403004"
+    rows = [{"NUM_POSTE": station, "AAAAMMJJHH": "2014040100", "TD": "-21.6", "QTD": "9", "U": "3", "QU": "9"}]
+    _serve_climate(monkeypatch, {"HOR_departement_984_periode_2010-2019": _climate_gz("hourly", "others", rows)})
+    request = MeteoFranceObservationRequest(
+        parameters=[("hourly", "others", "humidity_relative"), ("hourly", "others", "temperature_dew_point_2m")],
+        start=_utc(2014, 3, 31),
+        end=_utc(2014, 4, 2),
+        settings=Settings(cache_disable=True),
+        options=Options(drop_nulls=False),
+    )
+    df = stations_result(request, "hourly", "others", station).values().all().df
+    by_parameter = {str(p): g for (p,), g in df.partition_by("parameter", as_dict=True).items()}
+    assert by_parameter["humidity_relative"].get_column("value").to_list() == [None]
+    assert by_parameter["humidity_relative"].get_column("quality_flags").to_list() == ["9,rejected:consistency,raw:3"]
+    assert by_parameter["temperature_dew_point_2m"].get_column("value").to_list() == [None]
+    assert by_parameter["temperature_dew_point_2m"].get_column("quality_flags").to_list() == [
+        "9,rejected:range,raw:-21.6"
+    ]

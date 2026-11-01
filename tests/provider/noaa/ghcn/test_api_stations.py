@@ -16,7 +16,7 @@ from wetterdienst.core.util import one_row_per_station
 from wetterdienst.exceptions import LocationOutOfRangeError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnMetadata, NoaaGhcnRequest
-from wetterdienst.provider.noaa.ghcn.api import LOST_LONGITUDE_SIGN_STATIONS
+from wetterdienst.provider.noaa.ghcn.api import LOST_LATITUDE_SIGN_STATIONS, LOST_LONGITUDE_SIGN_STATIONS
 from wetterdienst.util.network import File, download_file
 
 
@@ -247,6 +247,8 @@ def test_noaa_ghcn_daily_stations_west_longitude_more_stations(
         "FRE00104044": (49.18, 0.4558),
         "SP000008416": (39.4806, 0.3664),
     }
+    # the ten hourly-only ids are pinned by the raw rows of the hourly test below
+    pinned |= GHCNH_ONLY_LOST_SIGN_POSITIONS
     assert pinned == LOST_LONGITUDE_SIGN_STATIONS
 
 
@@ -306,6 +308,209 @@ def test_noaa_ghcn_hourly_stations_lost_sign(monkeypatch: pytest.MonkeyPatch, de
         "UKW00015034": -0.1167,
         "UKW00015041": 0.7,
     }
+
+
+GHCNH_ONLY_LOST_SIGN_ROWS = (
+    "AGUG0060517,35.1,1.85,83.0,,NEMOURS,,,,,DZ",
+    "CMU55-00161,8.49,13.15,68.0,,FREETOWN,,,,,CM",
+    "ICM00004102,63.2993,20.5995,36.0,,SURTSEY,,,04102,,IS",
+    "MOI0000GMMK,32.859,6.9454,780.9,,KHOURIBGA MILITARY ARPT,,,,GMMK,MA",
+    "RSU025594-5,64.38,173.23,4.0,,BUHTAPROVIDENJA,,,,,RU",
+    "SPM00008164,41.0578,0.1414,334.0,,ALCANIZ,,,08164,,ES",
+    "SPM00008165,41.5217,0.1742,357.0,,BUJARALOZ,,,08165,,ES",
+    "SPM00008166,40.9467,0.2378,480.0,,CALANDA,,,08166,,ES",
+    "SPM00008282,38.9289,0.0956,5.0,,OLIVA,,,08282,,ES",
+    "USL000KNOH1,21.2833,157.8667,-11.0,HI,KILO NALU OBS (WAVE SENSOR),,,,,US",
+)
+GHCNH_ONLY_LOST_SIGN_POSITIONS = {
+    row.split(",")[0]: (float(row.split(",")[1]), float(row.split(",")[2])) for row in GHCNH_ONLY_LOST_SIGN_ROWS
+}
+
+
+def test_noaa_ghcn_hourly_stations_lost_sign_hourly_only(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """The ten stations that only the hourly list has with an east longitude are west of Greenwich (GH-2886).
+
+    Nemours (Ghazaouet), Freetown, Surtsey, Khouribga, Buhta Providenja, Alcaniz, Bujaraloz, Calanda, Oliva and Kilo
+    Nalu. The rows are copied from `ghcnh-station-list.csv` as NOAA publishes it, read 2026-10-31 and 2026-11-01: the
+    longitude is listed east where ECA&D, ISD, OpenStreetMap, Wikipedia and the hourly list's own other rows put each
+    of them west, 16 to 4,571 km away. The daily list has Nemours (AGE00147716) and the hourly list has Khouribga
+    (MOM00060178), Bujaraloz (SPN0009576C), Calanda (SPN0009569A), Surtsey (ICU92-00102), Freetown (SLUeetown-2) and
+    Buhta Providenja (RSU025594-4) right under other ids, and those are read as listed. Lowestoft is listed east and
+    lies east, as do Shemya (USW00045715; one old ISD row, 999999-45715, lists it west, wrongly) and Geçitkale
+    (CYI0000LCGK), and they are read as listed. A second Freetown row, CMU55-00162 (8.3, 13.14), is left as listed
+    too: it is as certainly misplaced, but no second source puts it anywhere, so it is not in the table. Neither is
+    Yulinu (RSM00025187, 68.333, 177.717), whose side of the date line the sources do not settle.
+    """
+    rows = (
+        *GHCNH_ONLY_LOST_SIGN_ROWS,
+        "AGU0517-0-1,35.1,-1.85,83.0,,NEMOURS(GHAZAOUET),,,,,DZ",
+        "MOM00060178,32.8667,-6.9667,781.0,,KHOURIBGA,,,60178,,MA",
+        "SPN0009576C,41.523,-0.174,357.0,,BUJARALOZ,,,400,,ES",
+        "UKU91-00001,52.4889,1.75,25.0,,LOWESTOFT,,,,,GB",
+        'SLUeetown-2,8.49,-13.15,68.0,,"FREETOWN,SIERRALEONE",,,,,SL',
+        "ICU92-00102,63.299,-20.599,36.0,,SURTSEY,,,,,IS",
+        "SPN0009569A,40.947,-0.238,466.0,,CALANDA,,,400,,ES",
+        "RSU025594-4,64.38,-173.23,39.0,,BUHTAPROVIDENJA,,,,,RU",
+        "USW00045715,52.7167,174.1,37.2,AK,SHEMYA AFB,,,70414,PASY,US",
+        "CYI0000LCGK,35.2333,33.7333,45.0,,GECITKALE,,,,LCGK,CY",
+    )
+    text = "GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n" + "\n".join(
+        rows
+    )
+    monkeypatch.setattr(
+        "wetterdienst.provider.noaa.ghcn.api.download_file",
+        lambda url, **_kwargs: File(url=url, content=BytesIO(text.encode("utf8")), status=200),
+    )
+    df = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=default_settings).all().df
+    longitudes = dict(df.select("station_id", "longitude").rows())
+    assert {station_id: longitudes[station_id] for station_id in GHCNH_ONLY_LOST_SIGN_POSITIONS} == {
+        "AGUG0060517": -1.85,
+        "CMU55-00161": -13.15,
+        "ICM00004102": -20.5995,
+        "MOI0000GMMK": -6.9454,
+        "RSU025594-5": -173.23,
+        "SPM00008164": -0.1414,
+        "SPM00008165": -0.1742,
+        "SPM00008166": -0.2378,
+        "SPM00008282": -0.0956,
+        "USL000KNOH1": -157.8667,
+    }
+    assert longitudes["AGU0517-0-1"] == -1.85
+    assert longitudes["SPN0009576C"] == -0.174
+    assert longitudes["UKU91-00001"] == 1.75
+    assert {
+        station_id: longitudes[station_id]
+        for station_id in ("SLUeetown-2", "ICU92-00102", "SPN0009569A", "RSU025594-4")
+    } == {"SLUeetown-2": -13.15, "ICU92-00102": -20.599, "SPN0009569A": -0.238, "RSU025594-4": -173.23}
+    # east of Greenwich and west of the date line, where Wikipedia and the maps put them
+    assert {station_id: longitudes[station_id] for station_id in ("USW00045715", "CYI0000LCGK")} == {
+        "USW00045715": 174.1,
+        "CYI0000LCGK": 33.7333,
+    }
+    # the latitude is never touched
+    assert dict(df.select("station_id", "latitude").rows())["CMU55-00161"] == 8.49
+    assert df.filter(pl.col("station_id") == "MOI0000GMMK").select("latitude").item() == 32.859
+
+
+GHCND_LOST_LATITUDE_ROWS = (
+    "GB000004551   0.7200   10.2200   82.0    LAMBARENE                                   ",
+    "GB000004560   0.8300   12.7200  483.0    LASTOURSVILLE                               ",
+)
+GHCNH_LOST_LATITUDE_ROWS = (
+    "ASU34-00001,34.92,138.6,0.0,,AUSTRALIA-ADELAIDE_SBDY,,,,,AU",
+    "GLUHALLEY-2,75.52,-26.0,9999.0,,HALLEY,,,,,GL",
+    "GLUHALLEY-3,75.5,-26.0,9999.0,,HALLEY,,,,,GL",
+    "GLUHALLEY-4,75.6,-26.0,9999.0,,HALLEY,,,,,GL",
+    "TNU55-00239,21.12,-175.2,32.0,,NUKUALOFA,,,,,TO",
+)
+LOST_LATITUDE_SIGN_POSITIONS = {
+    **{row[:11]: (float(row[12:20]), float(row[21:30])) for row in GHCND_LOST_LATITUDE_ROWS},
+    **{row.split(",")[0]: (float(row.split(",")[1]), float(row.split(",")[2])) for row in GHCNH_LOST_LATITUDE_ROWS},
+}
+
+
+def test_noaa_ghcn_daily_stations_south_latitude(monkeypatch: pytest.MonkeyPatch, default_settings: Settings) -> None:
+    """Lambarene and Lastoursville are south of the equator, as the other catalogues have them.
+
+    The rows are copied from `ghcnd-stations.txt` as NOAA publishes it, read 2026-10-31: the latitude is listed north
+    where ISD, OpenStreetMap and Wikipedia put each of them south. Port Gentil (GBM00064550) is made up, listed south
+    as it lies; Lambarene (GBM00064551) is listed right in its other row. The longitude is not touched (GH-3662).
+    """
+    right = (
+        "GBM00064551  -0.7040   10.2460   25.0    LAMBARENE                              64551",
+        "GBM00064550  -0.7120    8.7540    4.0    PORT GENTIL                            64550",
+    )
+    stations = "\n".join((*GHCND_LOST_LATITUDE_ROWS, *right)) + "\n"
+    inventory = "".join(
+        f"{row[:11]} {row[12:20]} {row[21:30]} TMAX 1950 2026\n" for row in (*GHCND_LOST_LATITUDE_ROWS, *right)
+    )
+    _serve_ghcnd(monkeypatch, stations, inventory)
+    df = NoaaGhcnRequest(parameters=[("daily", "data")], settings=default_settings).all().df
+    assert dict(df.select("station_id", "latitude").rows()) == {
+        "GB000004551": -0.72,
+        "GB000004560": -0.83,
+        "GBM00064551": -0.704,
+        "GBM00064550": -0.712,
+    }
+    assert dict(df.select("station_id", "longitude").rows())["GB000004551"] == 10.22
+
+
+def test_noaa_ghcn_daily_stations_lost_latitude_sign_guard(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """A row is turned only while it lists the position that was checked; a moved row is read as it is (GH-3662).
+
+    Lambarene is listed with a latitude NOAA has moved by 0.01, Lastoursville with a longitude NOAA has moved by 0.01,
+    both still north: those two are no longer the rows the correction was verified on.
+    """
+    rows = (
+        "GB000004551   0.7300   10.2200   82.0    LAMBARENE                                   ",
+        "GB000004560   0.8300   12.7300  483.0    LASTOURSVILLE                               ",
+    )
+    stations = "\n".join(rows) + "\n"
+    inventory = "".join(f"{row[:11]} {row[12:20]} {row[21:30]} TMAX 1950 2026\n" for row in rows)
+    _serve_ghcnd(monkeypatch, stations, inventory)
+    df = NoaaGhcnRequest(parameters=[("daily", "data")], settings=default_settings).all().df
+    assert dict(df.select("station_id", "latitude").rows()) == {
+        "GB000004551": 0.73,
+        "GB000004560": 0.83,
+    }
+
+
+def test_noaa_ghcn_daily_stations_south_latitude_corrected_list(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """A list in which NOAA has put the sign of the latitude right is not turned back north (GH-3662)."""
+    stations = "GB000004551  -0.7200   10.2200   82.0    LAMBARENE                                   \n"
+    inventory = "GB000004551  -0.7200   10.2200 TMAX 1950 1980\n"
+    _serve_ghcnd(monkeypatch, stations, inventory)
+    df = NoaaGhcnRequest(parameters=[("daily", "data")], settings=default_settings).all().df
+    assert df.select("station_id", "latitude", "longitude").rows() == [("GB000004551", -0.72, 10.22)]
+
+
+def test_noaa_ghcn_hourly_stations_south_latitude(monkeypatch: pytest.MonkeyPatch, default_settings: Settings) -> None:
+    """Adelaide, Halley (three rows) and Nuku'alofa are south of the equator in the hourly list too (GH-3662).
+
+    The rows are copied from `ghcnh-station-list.csv` as NOAA publishes it, read 2026-10-31: the latitude is listed
+    north where ISD, OpenStreetMap and Wikipedia put each of them south, 4,700 to 16,800 km away. The rows beside them
+    that have the sign right (ASU88-00084, AYUHALLEY-1, TNU55-00238) are read as listed. Lambarene (GBI0000FOGR) is
+    listed south, and the table has no entry for it.
+    """
+    right = (
+        "ASU88-00084,-34.92,138.6,46.0,,ADELAIDE_WYATT,,,,,AU",
+        "AYUHALLEY-1,-75.58,-26.0,9999.0,,HALLEY,,,,,AQ",
+        "TNU55-00238,-21.12,-175.2,3.0,,NUKUALOFA,,,,,TO",
+        "GBI0000FOGR,-0.7044,10.2457,25.0,,LAMBARENE,,,,FOGR,GA",
+    )
+    text = "GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n" + "\n".join(
+        (*GHCNH_LOST_LATITUDE_ROWS, *right)
+    )
+    monkeypatch.setattr(
+        "wetterdienst.provider.noaa.ghcn.api.download_file",
+        lambda url, **_kwargs: File(url=url, content=BytesIO(text.encode("utf8")), status=200),
+    )
+    df = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=default_settings).all().df
+    assert dict(df.select("station_id", "latitude").rows()) == {
+        "ASU34-00001": -34.92,
+        "GLUHALLEY-2": -75.52,
+        "GLUHALLEY-3": -75.5,
+        "GLUHALLEY-4": -75.6,
+        "TNU55-00239": -21.12,
+        "ASU88-00084": -34.92,
+        "AYUHALLEY-1": -75.58,
+        "TNU55-00238": -21.12,
+        "GBI0000FOGR": -0.7044,
+    }
+    assert dict(df.select("station_id", "longitude").rows())["TNU55-00239"] == -175.2
+
+
+def test_noaa_ghcn_lost_latitude_sign_table_is_pinned_by_the_rows() -> None:
+    """Every id of the table is pinned by a raw row above, at the position the table guards on."""
+    assert LOST_LATITUDE_SIGN_POSITIONS == LOST_LATITUDE_SIGN_STATIONS
+    # no station is in both tables: each is turned in one coordinate only
+    assert not set(LOST_LATITUDE_SIGN_STATIONS) & set(LOST_LONGITUDE_SIGN_STATIONS)
 
 
 def test_noaa_ghcn_stations_hourly_and_daily_lost_sign_take_the_daily_elevation(
@@ -919,6 +1124,8 @@ def test_noaa_ghcn_daily_values_are_stamped_though_the_first_row_has_no_position
             NoaaGhcnMetadata.daily.data.temperature_air_max_2m,
         ],
         settings=default_settings,
+        start="1938-01-01",
+        end="1938-12-31",
     )
     df = request.filter_by_station_id("AUM00011158").values().all().df
     assert sorted(df.select(pl.col("resolution"), "timestamp", "value").rows()) == [
@@ -1041,22 +1248,44 @@ def test_noaa_ghcn_lost_sign_table_entries_are_not_dead(default_settings: Settin
     dead = {
         station_id: (recorded, daily.get(station_id))
         for station_id, recorded in LOST_LONGITUDE_SIGN_STATIONS.items()
-        if daily.get(station_id) != recorded and not (daily.get(station_id) or (0.0, 0.0))[1] < 0
+        if station_id not in GHCNH_ONLY_LOST_SIGN_POSITIONS
+        and daily.get(station_id) != recorded
+        and not (daily.get(station_id) or (0.0, 0.0))[1] < 0
     }
     assert not dead, f"entries that match no row and are not corrected, id: (recorded, listed): {dead}"
 
 
 @pytest.mark.remote
 def test_noaa_ghcn_lost_sign_table_entries_are_not_dead_hourly(default_settings: Settings) -> None:
-    """The two hourly rows of GH-3384 still match the live hourly list or have been corrected there."""
+    """The hourly rows of GH-3384 and GH-2886 still match the live hourly list or have been corrected there."""
     hourly = _listed_rows(
         default_settings,
         "https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh-station-list.csv",
     )
     dead = {
         station_id: (LOST_LONGITUDE_SIGN_STATIONS[station_id], hourly.get(station_id))
-        for station_id in ("UKW00015015", "UKW00015033")
+        for station_id in ("UKW00015015", "UKW00015033", *GHCNH_ONLY_LOST_SIGN_POSITIONS)
         if hourly.get(station_id) != LOST_LONGITUDE_SIGN_STATIONS[station_id]
         and not (hourly.get(station_id) or (0.0, 0.0))[1] < 0
     }
+    assert not dead, f"entries that match no row and are not corrected, id: (recorded, listed): {dead}"
+
+
+@pytest.mark.remote
+def test_noaa_ghcn_lost_latitude_sign_table_entries_are_not_dead(default_settings: Settings) -> None:
+    """Every entry of the latitude table still matches its live list or has been corrected there (GH-3662).
+
+    An entry whose row NOAA has moved, but not corrected, is a no-op that leaves the station on the wrong side of
+    the equator: this fails with the id and both rows, so it is looked at and the table updated.
+    """
+    daily = _listed_rows(default_settings, "https://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-stations.txt")
+    hourly = _listed_rows(
+        default_settings,
+        "https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh-station-list.csv",
+    )
+    dead = {}
+    for station_id, recorded in LOST_LATITUDE_SIGN_STATIONS.items():
+        listed = (daily if station_id in {row[:11] for row in GHCND_LOST_LATITUDE_ROWS} else hourly).get(station_id)
+        if listed != recorded and not (listed or (0.0, 0.0))[0] * recorded[0] < 0:
+            dead[station_id] = (recorded, listed)
     assert not dead, f"entries that match no row and are not corrected, id: (recorded, listed): {dead}"

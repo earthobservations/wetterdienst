@@ -9,7 +9,7 @@ import logging
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypeVar, cast
+from typing import TYPE_CHECKING, Annotated, Any, Literal, NotRequired, TypeVar, cast
 
 from pydantic import (
     BaseModel,
@@ -142,12 +142,28 @@ class ExtentDict(TypedDict):
 
 @with_config(ConfigDict(extra="forbid"))
 class CoverageParameter(TypedDict):
-    """A parameter of a dataset, with `unit` as the source publishes it, which is not always the unit values come in."""
+    """A parameter of a dataset, with the unit its values come back in and, where it differs, the provider's.
+
+    `unit` is the unit of the values for a caller who passes no options: the target of the `unit_type`, the one
+    `glossary` gives (`degree_celsius` for a temperature, `decimal` (0 to 1) for a percentage), under the
+    environment's `unit_targets` and `convert_units`. A `unit_targets` a caller passes to `values` is not
+    followed: `coverage` takes no options. `unit_source` is the unit the provider publishes the parameter in
+    (`degree_kelvin`, `percent`), which the values come in with `convert_units` off. Absent: the same as `unit`.
+    """
 
     name: str
     name_original: str
     unit_type: UnitType
     unit: str
+    unit_source: NotRequired[
+        Annotated[
+            str,
+            Field(
+                description="The unit the provider publishes the parameter in, which the values come in with "
+                "`convert_units` off. Absent: the same as `unit`.",
+            ),
+        ]
+    ]
     description: str | None
     # `dwd/dmo` only: the lead times whose run carries the parameter, `short` before `long`
     lead_times: NotRequired[list[Literal["short", "long"]]]
@@ -1108,6 +1124,56 @@ def parse_parameters(
     for problem in problems:
         log.warning(problem)
     return parameters_found
+
+
+def requested_by_kind(
+    parameters: _PARAMETER_TYPE, metadata: MetadataModel
+) -> tuple[frozenset[tuple[str, str]], frozenset[tuple[str, str, str]]]:
+    """Tell which of what was asked for was a whole dataset and which a parameter by its name.
+
+    A request for ``hourly/large`` is read as every parameter of the dataset, which ``parse_parameters`` returns as
+    such: the flat list has lost that the caller named none of them. This keeps it, for what an answer says of a
+    parameter nobody named (``parameter-without-rows``). Returns the ``(resolution, dataset)`` of each entry that was a
+    dataset and the ``(resolution, dataset, name_original)`` of each that was a parameter, which one of a dataset also
+    asked for whole stays. An entry that does not resolve is left out: ``parse_parameters`` has said what is wrong with
+    it.
+    """
+    whole: set[tuple[str, str]] = set()
+    named: set[tuple[str, str, str]] = set()
+    for entry in _entries(parameters):
+        try:
+            search = ParameterSearch.parse(entry)
+            found = metadata.search_parameter(search)
+        except (ValueError, KeyError):
+            continue
+        for parameter in found:
+            key = (parameter.dataset.resolution.name, parameter.dataset.name)
+            if search.parameter is None:
+                whole.add(key)
+            else:
+                named.add((*key, parameter.name_original))
+    return frozenset(whole), frozenset(named)
+
+
+def whole_datasets_kept(parameters: _PARAMETER_TYPE, metadata: MetadataModel) -> list[DatasetModel | ParameterModel]:
+    """Resolve what was asked for as `parse_parameters` does, but keep an entry that was a dataset as that dataset.
+
+    For a caller that hands the result to a request, which reads a ``DatasetModel`` as every parameter of the dataset
+    and so gives the same parameters, and knows from it that none of them was named (`requested_by_kind`).
+    """
+    kept: list[DatasetModel | ParameterModel] = []
+    for entry in _entries(parameters):
+        try:
+            search = ParameterSearch.parse(entry)
+            found = metadata.search_parameter(search)
+        except (ValueError, KeyError):
+            continue
+        if search.parameter is None:
+            if found:
+                kept.append(found[0].dataset)
+        else:
+            kept.extend(found)
+    return kept
 
 
 def group_parameters_by_dataset(

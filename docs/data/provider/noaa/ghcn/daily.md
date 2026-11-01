@@ -25,17 +25,22 @@
 
 | name                                                       | original name | description                                                                                                                     | unit | constraints |
 |------------------------------------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------|------|-------------|
-| {term}`precipitation_amount` | prcp | Precipitation (mm or inches as per user preference, inches to hundredths on Daily Form pdf file) | mm | >=0 |
-| {term}`snow_depth_new` | snow | Snowfall (mm or inches as per user preference, inches to tenths on Daily Form pdf file) | mm | >=0 |
-| {term}`snow_depth` | snwd | Snow depth (mm or inches as per user preference, inches on Daily Form pdf file) | mm | >=0 |
-| {term}`temperature_air_max_2m` | tmax | Maximum  temperature  (Fahrenheit  or  Celsius  as per  user  preference, Fahrenheit  to tenths on Daily Form pdf file | °C | - |
-| {term}`temperature_air_min_2m` | tmin | Minimum  temperature  (Fahrenheit  or  Celsius  as per  user  preference, Fahrenheit  to tenths  on Daily Form pdf file | °C | - |
-| {term}`temperature_air_mean_2m` | tavg | Average daily temperature. From source 'S' an average of hourly readings for the period ending at 2400 UTC; from other sources computed in a variety of ways, including traditional fixed hours of the day. | °C | - |
+| {term}`precipitation_amount` | prcp | Precipitation (mm; the file has tenths of mm) | mm | >=0 |
+| {term}`snow_depth_new` | snow | Snowfall (mm) | mm | >=0 |
+| {term}`snow_depth` | snwd | Snow depth (mm) | mm | >=0 |
+| {term}`temperature_air_max_2m` | tmax | Maximum temperature (°C; the file has tenths of degrees) | °C | - |
+| {term}`temperature_air_min_2m` | tmin | Minimum temperature (°C; the file has tenths of degrees) | °C | - |
+| {term}`temperature_air_mean_2m` | tavg | Average daily temperature (°C; the file has tenths of degrees). From source 'S' an average of hourly readings for the period ending at 2400 UTC rather than local midnight; from other sources computed in a variety of ways, including traditional fixed hours of the day, whereas TAXN (not served here) is solely the average of TMAX and TMIN. | °C | - |
 | {term}`cloud_cover_total_mean_midnight_to_midnight` | acmc | Average cloudiness midnight to midnight from 30-second ceilometer data (percent) | % | >=0,<=100 |
-| {term}`cloud_cover_total_mean_midnight_to_midnight_manual` | acmh | Average cloudiness midnight to midnight from manual observation (percent) | % | >=0,<=100 |
+| {term}`cloud_cover_total_mean_midnight_to_midnight_manual` | acmh | Average cloudiness midnight to midnight from manual observations (percent) | % | >=0,<=100 |
 | {term}`cloud_cover_total_mean_sunrise_to_sunset` | acsc | Average cloudiness sunrise to sunset from 30-second ceilometer data (percent) | % | >=0,<=100 |
-| {term}`cloud_cover_total_mean_sunrise_to_sunset_manual` | acsh | Average cloudiness sunrise to sunset from manual observation (percent) | % | >=0,<=100 |
-| {term}`wind_speed_mean` | awnd | Average daily wind speed (meters per second or miles per hour as per user preference) | m/s | >=0 |
+| {term}`cloud_cover_total_mean_sunrise_to_sunset_manual` | acsh | Average cloudiness sunrise to sunset from manual observations (percent) | % | >=0,<=100 |
+| {term}`wind_speed_mean` | awnd | Average daily wind speed (m/s; the file has tenths of m/s) | m/s | >=0 |
+| {term}`temperature_dew_point_mean_2m` | adpt | Average dew point temperature for the day (°C; the file has tenths of degrees) | °C | - |
+| {term}`pressure_air_sea_level_mean` | aslp | Average sea level pressure for the day (hPa; the file has tenths of hPa) | hPa | >=0 |
+| {term}`pressure_air_site_mean` | astp | Average station level pressure for the day (hPa; the file has tenths of hPa) | hPa | >=0 |
+| {term}`temperature_wet_mean_2m` | awbt | Average wet bulb temperature for the day (°C; the file has tenths of degrees) | °C | - |
+| {term}`wind_direction_mean` | awdr | Average daily wind direction (degrees). A 0 beside an average wind speed of 0 (a calm day) is null. | ° | >=0,<=360 |
 | {term}`count_days_multiday_evaporation` | daev | Number of days included in the multiday evaporation total (MDEV) | - | >=0 |
 | {term}`count_days_multiday_precipitation` | dapr | Number of days included in the multiday precipitation total (MDPR) | - | >=0 |
 | {term}`count_days_multiday_snow_depth_new` | dasf | Number of days included in the multiday snowfall total (MDSF) | - | >=0 |
@@ -43,20 +48,23 @@
 | {term}`count_days_multiday_temperature_air_max_2m` | datx | Number of days included in the multiday maximum temperature (MDTX) | - | >=0 |
 | {term}`count_days_multiday_wind_movement` | dawm | Number of days included in the multiday wind movement (MDWM) | - | >=0 |
 | {term}`count_days_multiday_precipitation_amount_gt_0mm` | dwpr | Number of days with non-zero precipitation included in multiday precipitation total (MDPR) | - | >=0 |
-| {term}`evaporation_amount` | evap | Evaporation of water from evaporation pan (mm or inches as per user preference, or hundredths of inches on Daily Form pdf file) | mm | >=0 |
-| {term}`frozen_ground_layer_base` | frgb | Base of frozen ground layer (cm or inches as per user preference) | cm | >=0 |
-| {term}`frozen_ground_layer_top` | frgt | Top of frozen ground layer (cm or inches as per user preference) | cm | >=0 |
-| {term}`frozen_ground_layer_thickness` | frth | Thickness of frozen ground layer (cm or inches as per user preference) | cm | >=0 |
-| {term}`distance_river_gauge_height` | gaht | Difference between river and gauge height (cm or inches as per user preference) | cm | >=0 |
-| {term}`evaporation_amount_multiday` | mdev | Multiday evaporation total (mm or inches as per user preference; use with DAEV) | mm | >=0 |
-| {term}`precipitation_amount_multiday` | mdpr | Multiday precipitation total (mm or inches as per user preference; use with DAPR and DWPR, if available) | mm | >=0 |
-| {term}`snow_depth_new_multiday` | mdsf | Multiday snowfall total (mm or inches as per user preference) | mm | >=0 |
-| {term}`temperature_air_min_2m_multiday` | mdtn | Multiday minimum temperature (Fahrenheit or Celsius as per user preference ; use with DATN) | °C | - |
-| {term}`temperature_air_max_2m_multiday` | mdtx | Multiday maximum temperature (Fahrenheit or Celsius as per user preference ; use with DATX) | °C | - |
-| {term}`wind_movement_multiday` | mdwm | Multiday wind movement (miles or km as per user preference) | km | >=0 |
-| {term}`temperature_water_evaporation_pan_min` | mnpn | Daily minimum temperature of water in an evaporation pan (Fahrenheit or Celsius as per user preference) | °C | - |
-| {term}`temperature_water_evaporation_pan_max` | mxpn | Daily maximum temperature of water in an evaporation pan  (Fahrenheit or Celsius as per user preference) | °C | - |
+| {term}`evaporation_amount` | evap | Evaporation of water from evaporation pan (mm; the file has tenths of mm) | mm | >=0 |
+| {term}`frozen_ground_layer_base` | frgb | Base of frozen ground layer (cm) | cm | >=0 |
+| {term}`frozen_ground_layer_top` | frgt | Top of frozen ground layer (cm) | cm | >=0 |
+| {term}`frozen_ground_layer_thickness` | frth | Thickness of frozen ground layer (cm) | cm | >=0 |
+| {term}`distance_river_gauge_height` | gaht | Difference between river and gauge height (cm) | cm | >=0 |
+| {term}`evaporation_amount_multiday` | mdev | Multiday evaporation total (mm; the file has tenths of mm; use with DAEV) | mm | >=0 |
+| {term}`precipitation_amount_multiday` | mdpr | Multiday precipitation total (mm; the file has tenths of mm; use with DAPR and DWPR, if available) | mm | >=0 |
+| {term}`snow_depth_new_multiday` | mdsf | Multiday snowfall total (mm, like SNOW; the readme names no unit) | mm | >=0 |
+| {term}`temperature_air_min_2m_multiday` | mdtn | Multiday minimum temperature (°C; the file has tenths of degrees; use with DATN) | °C | - |
+| {term}`temperature_air_max_2m_multiday` | mdtx | Multiday maximum temperature (°C; the file has tenths of degrees; use with DATX) | °C | - |
+| {term}`wind_movement_multiday` | mdwm | Multiday wind movement (km) | km | >=0 |
+| {term}`temperature_water_evaporation_pan_min` | mnpn | Daily minimum temperature of water in an evaporation pan (°C; the file has tenths of degrees) | °C | - |
+| {term}`temperature_water_evaporation_pan_max` | mxpn | Daily maximum temperature of water in an evaporation pan (°C; the file has tenths of degrees) | °C | - |
 | {term}`sunshine_duration_relative` | psun | Daily percent of possible sunshine (percent) | % | >=0,<=100 |
+| {term}`humidity_relative_mean` | rhav | Average relative humidity for the day (percent) | % | >=0,<=100 |
+| {term}`humidity_relative_min` | rhmn | Minimum relative humidity for the day (percent) | % | >=0,<=100 |
+| {term}`humidity_relative_max` | rhmx | Maximum relative humidity for the day (percent) | % | >=0,<=100 |
 | {term}`temperature_soil_min_unknown_0_05m` | sn01 | Minimum soil temperature of unknown ground at 5cm depth | °C | - |
 | {term}`temperature_soil_min_unknown_0_1m` | sn02 | Minimum soil temperature of unknown ground at 10cm depth | °C | - |
 | {term}`temperature_soil_min_unknown_0_2m` | sn03 | Minimum soil temperature of unknown ground at 20cm depth | °C | - |
@@ -183,24 +191,24 @@
 | {term}`temperature_soil_max_bare_muck_1m` | sx85 | Maximum soil temperature of bare_muck ground at 100cm depth | °C | - |
 | {term}`temperature_soil_max_bare_muck_1_5m` | sx86 | Maximum soil temperature of bare_muck ground at 150cm depth | °C | - |
 | {term}`temperature_soil_max_bare_muck_1_8m` | sx87 | Maximum soil temperature of bare_muck ground at 180cm depth | °C | - |
-| {term}`ice_on_water_thickness` | thic | Thickness of ice on water (inches or mm as per user preference) | mm | >=0 |
-| {term}`temperature_air_2m` | tobs | Temperature at the time of observation  (Fahrenheit or Celsius as per user preference) | °C | - |
+| {term}`ice_on_water_thickness` | thic | Thickness of ice on water (mm; the file has tenths of mm) | mm | >=0 |
+| {term}`temperature_air_2m` | tobs | Temperature at the time of observation (°C; the file has tenths of degrees) | °C | - |
 | {term}`sunshine_duration` | tsun | Daily total sunshine (minutes) | min | >=0 |
-| {term}`wind_direction_gust_max_5sec` | wdf5 | Direction of fastest 5-second wind (degrees) | ° | >=0,<=360 |
-| {term}`wind_direction_gust_max_1min` | wdf1 | Direction of fastest 1-minute wind (degrees) | ° | >=0,<=360 |
-| {term}`wind_direction_gust_max_2min` | wdf2 | Direction of fastest 2-minute wind (degrees) | ° | >=0,<=360 |
-| {term}`wind_direction_gust_max` | wdfg | Direction of peak wind gust (degrees) | ° | >=0,<=360 |
-| {term}`wind_direction_gust_max_instant` | wdfi | Direction of highest instantaneous wind (degrees) | ° | >=0,<=360 |
-| {term}`wind_direction_gust_max_1mile` | wdfm | Fastest mile wind direction (degrees) | ° | >=0,<=360 |
-| {term}`wind_movement` | wdmv | 24-hour wind movement (km or miles as per user preference, miles on Daily Form pdf file) | km | >=0 |
-| {term}`water_equivalent_snow_depth` | wesd | Water equivalent of snow on the ground (inches or mm as per user preference) | mm | >=0 |
-| {term}`water_equivalent_snow_depth_new` | wesf | Water equivalent of snowfall (inches or mm as per user preference) | mm | >=0 |
-| {term}`wind_gust_max_5sec` | wsf5 | Fastest 5-second wind speed (miles per hour or  meters per second as per user preference) | m/s | >=0 |
-| {term}`wind_gust_max_1min` | wsf1 | Fastest 1-minute wind speed (miles per hour or  meters per second as per user preference) | m/s | >=0 |
-| {term}`wind_gust_max_2min` | wsf2 | Fastest 2-minute wind speed (miles per hour or  meters per second as per user preference) | m/s | >=0 |
-| {term}`wind_gust_max` | wsfg | Peak guest wind speed (miles per hour or  meters per second as per user preference) | m/s | >=0 |
-| {term}`wind_gust_max_instant` | wsfi | Highest instantaneous wind speed (miles per hour or  meters per second as per user preference) | m/s | >=0 |
-| {term}`wind_gust_max_1mile` | wsfm | Fastest mile wind speed (miles per hour or  meters per second as per user preference) | m/s | >=0 |
+| {term}`wind_direction_gust_max_5sec` | wdf5 | Direction of fastest 5-second wind (degrees). A 0 beside a speed of exactly 0 (a calm, or a gust the source did not report) is null. | ° | >=0,<=360 |
+| {term}`wind_direction_gust_max_1min` | wdf1 | Direction of fastest 1-minute wind (degrees). A 0 beside a speed of exactly 0 (a calm, or a gust the source did not report) is null. | ° | >=0,<=360 |
+| {term}`wind_direction_gust_max_2min` | wdf2 | Direction of fastest 2-minute wind (degrees). A 0 beside a speed of exactly 0 (a calm, or a gust the source did not report) is null. | ° | >=0,<=360 |
+| {term}`wind_direction_gust_max` | wdfg | Direction of peak wind gust (degrees). A 0 beside a speed of exactly 0 (a calm, or a gust the source did not report) is null. | ° | >=0,<=360 |
+| {term}`wind_direction_gust_max_instant` | wdfi | Direction of highest instantaneous wind (degrees). A 0 beside a speed of exactly 0 (a calm, or a gust the source did not report) is null. | ° | >=0,<=360 |
+| {term}`wind_direction_gust_max_1mile` | wdfm | Fastest mile wind direction (degrees). A 0 beside a speed of exactly 0 (a calm, or a gust the source did not report) is null. | ° | >=0,<=360 |
+| {term}`wind_movement` | wdmv | 24-hour wind movement (km) | km | >=0 |
+| {term}`water_equivalent_snow_depth` | wesd | Water equivalent of snow on the ground (mm; the file has tenths of mm) | mm | >=0 |
+| {term}`water_equivalent_snow_depth_new` | wesf | Water equivalent of snowfall (mm; the file has tenths of mm) | mm | >=0 |
+| {term}`wind_gust_max_5sec` | wsf5 | Fastest 5-second wind speed (m/s; the file has tenths of m/s) | m/s | >=0 |
+| {term}`wind_gust_max_1min` | wsf1 | Fastest 1-minute wind speed (m/s; the file has tenths of m/s) | m/s | >=0 |
+| {term}`wind_gust_max_2min` | wsf2 | Fastest 2-minute wind speed (m/s; the file has tenths of m/s) | m/s | >=0 |
+| {term}`wind_gust_max` | wsfg | Peak gust wind speed (m/s; the file has tenths of m/s). A 0 of source C (Environment Canada) is a gust below 31 km/h that it does not report, and is null. | m/s | >=0 |
+| {term}`wind_gust_max_instant` | wsfi | Highest instantaneous wind speed (m/s; the file has tenths of m/s) | m/s | >=0 |
+| {term}`wind_gust_max_1mile` | wsfm | Fastest mile wind speed (m/s; the file has tenths of m/s) | m/s | >=0 |
 | {term}`weather_type_fog` | wt01 | Fog, ice fog, or freezing fog (may include heavy fog) | - | - |
 | {term}`weather_type_heavy_fog` | wt02 | Heavy fog or heaving freezing fog (not always distinguished from fog) | - | - |
 | {term}`weather_type_thunder` | wt03 | Thunder | - | - |

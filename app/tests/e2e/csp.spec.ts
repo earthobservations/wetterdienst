@@ -27,7 +27,7 @@ test.describe('the policy the page is sent with', () => {
 
     // every script of the page is the one the header names: a script without it would not run
     const nonce = nonces[0]!.slice('\'nonce-'.length, -1)
-    const tags = (await response.text()).match(/<script\b[^>]*>/g) ?? []
+    const tags = (await response.text()).match(/<script\b[^>]*>/gi) ?? []
     expect(tags.length).toBeGreaterThan(0)
     for (const tag of tags)
       expect(tag).toContain(`nonce="${nonce}"`)

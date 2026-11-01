@@ -7,7 +7,7 @@ the DWD that takes model output and extracts it at known meteorological stations
 opposition to the Mosmix product, DMO is not a statistical postprocessing but a pure extraction of model output. The DMO 
 product is available for the ICON model in its global (ICON) and regional (ICON-EU) configuration. For ICON-EU, the DMO 
 product is available in hourly resolution with a lead time of 78 hours. For ICON, the DMO product is published as two 
-runs: hourly out to a lead time of 78 hours, and 3-hourly from 78 out to 168 hours. The long run starts where the 
+files: hourly out to a lead time of 78 hours, and 3-hourly from 78 out to 168 hours. The long file starts where the 
 short one ends -- it is not a 3-hourly grid over the whole 168 hours.
 
 Which parameters a run carries depends on that lead time. Each run carries the same 21 elements, except that the
@@ -19,13 +19,19 @@ declares both families, so with the default `lead_time="short"` the four 3-hourl
 either. Asking for the values of one of those by name raises a `ParameterNotCarriedError` naming the lead time
 that carries it; asking for the whole dataset, or for every parameter in it by name, is not refused, and returns
 data only for the parameters the requested run carries. `icon_eu` publishes only the 78-hour run, so its
-parameters are all carried by the default `lead_time="short"`.
+parameters are all carried by the default `lead_time="short"`, and `lead_time="long"` is refused for it with a
+`ParameterNotCarriedError` (HTTP 400) that names what the product publishes.
 
 ## Update date
 
 A forecast is dated by its model run: the `data_updated_at` of the
 [`metadata`](../../../../usage/restapi.md#response-metadata) of an answer is the run the forecast is of (the `IssueTime` that the file states), not the time DWD published the file, so it
 is the same however often the run is read, and `retrieved_at` less `data_updated_at` is how old the forecast is.
+
+The `rr1`, `rr3`, `rad1h` and `rads3` of ICON, which the model writes a little below 0 now and then, are held to the
+[plausibility](../../../plausibility.md) check `floor`: by default (hard) the value is set to 0.0 and the number stays as
+`rejected:floor,raw:-0.1`; with `plausibility={"floor": "soft"}` the value is kept as ICON wrote it and flagged
+`suspect:floor`.
 
 ```{toctree}
 :hidden:

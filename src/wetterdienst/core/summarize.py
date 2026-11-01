@@ -29,6 +29,7 @@ from wetterdienst.core.util import (
     widest_station_distance,
 )
 from wetterdienst.model.metadata import ParameterModel
+from wetterdienst.model.plausibility import leave_out_suspect
 from wetterdienst.model.schema import SUMMARIZED_SCHEMA, select_schema
 from wetterdienst.util.logging import TqdmToLogger
 
@@ -142,23 +143,33 @@ def request_stations(
         # true of the request whatever the stations hold, so it is said without downloading them
         raise no_elevation_in_reach_error(unanswerable, elevation)
     tqdm_out = TqdmToLogger(log, level=logging.INFO)
+    values = stations_ranked.values()
+    # no files are fetched ahead of this walk: it stops where the stations found are enough, which only the data says,
+    # so what was fetched ahead of that point would be downloaded and never read (GH-3454)
+    values._fetch_ahead_allowed = False  # noqa: SLF001
+    # what it hands out is an estimate, not the readings of the source: the markers of the stations it reads are not
+    # the markers of its answer (GH-3554)
+    values._count_missing_value_markers = False  # noqa: SLF001
+    values._warn_without_rows = False  # noqa: SLF001
     for result in tqdm(
-        stations_ranked.values().query(),
+        values.query(),
         total=len(stations_by_id),
         desc="querying stations for summary",
         unit="station",
         file=tqdm_out,
     ):
         station = stations_by_id[result.df.get_column("station_id")[0]]
+        # a value a soft check flags suspect is left out, whatever the mode of the request (GH-3676)
+        result_df = leave_out_suspect(result.df)
         # check if all parameters found enough stations and the stations build a valid station group
         if collection_is_done(
             param_dict, dropped_for_elevation.keys() & parameters_still_in_reach(counts, station["distance"])
         ):
             break
-        if result.df.drop_nulls("value").is_empty():
+        if result_df.drop_nulls("value").is_empty():
             continue
         if apply_station_values_per_parameter(
-            result.df,
+            result_df,
             stations_ranked,
             param_dict,
             station,

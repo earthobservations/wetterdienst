@@ -58,6 +58,35 @@ def _codes(**codes: str) -> list[QualityCode]:
 
 _MESQL = "https://dap.ceda.ac.uk/badc/ukmo-midas/metadata/doc/QC_J_flags.html"
 
+_CHECKS = (
+    "`range` (a number outside the physical range of its parameter), `elevation` (a station pressure the elevation "
+    "does not allow), `stuck` (a sensor that held one value, or was dead, over a period), `consistency` (a reading the "
+    "reading of another parameter of the same file contradicts) and `floor` (a model value a little below the floor of "
+    "its quantity)"
+)
+
+#: the token of a value a plausibility check found implausible and left as it was, in the mode `soft` (GH-3676)
+SUSPECT = QualityKind(
+    kind="suspect",
+    written="suspect:<check>",
+    meaning="The value is kept, and a plausibility check in the mode `soft` finds it implausible: one of "
+    + _CHECKS
+    + ", several joined with `+` (`suspect:range+stuck`). The checks and their modes are the `plausibility` option "
+    "of the request; the default of `stuck` is soft. No `raw` token: the value is the number the source wrote. "
+    "Interpolation and summary leave such a value out.",
+)
+
+#: the token of a value a plausibility check rejected, in the mode `hard`, written before `raw` (GH-3676)
+REJECTED = QualityKind(
+    kind="rejected",
+    written="rejected:<check>",
+    meaning="The value is null (the floor of its quantity for `floor`), because a plausibility check in the mode "
+    "`hard` rejected the number the source wrote, which `raw` holds: one of "
+    + _CHECKS
+    + ", several joined with `+`. It tells a number rejected by the library from a missing-value code of the "
+    "source, which has `raw` alone.",
+)
+
 #: the last token of any network that maps a missing-value marker or an impossible number to null
 RAW = QualityKind(
     kind="raw",
@@ -65,8 +94,8 @@ RAW = QualityKind(
     meaning="The value is null, or the value the source documents the marker to mean (no snow as 0), because the "
     "source wrote a missing-value marker or a number no sensor can have produced; this is what the source wrote in "
     "its place, as it wrote it ('-999', '99.9', '---', '4021'). Also the floor of the quantity (0.0) where a model "
-    "wrote a little below it (DWD DMO precipitation), the number as short as it goes ('-0.1' for '-0.10'). Always "
-    "the last token.",
+    "wrote a little below it (DWD DMO precipitation and radiation), the number as short as it goes ('-0.1' for "
+    "'-0.10'). Always the last token.",
 )
 
 
@@ -135,6 +164,8 @@ LEGENDS: dict[str, list[QualityKind]] = {
             "returned as published, so a caller can drop it by this token.",
             codes=_codes(true="Considered valid", false="Considered not valid"),
         ),
+        SUSPECT,
+        REJECTED,
         RAW,
     ],
     "dwd/observation": [
@@ -148,18 +179,23 @@ LEGENDS: dict[str, list[QualityKind]] = {
             "stamped in UTC carry no token.",
             codes=_codes(mez="Stamp shifted from MEZ (UTC+1) to UTC", woz="Stamp in local true solar time, unshifted"),
         ),
+        SUSPECT,
+        REJECTED,
         RAW,
     ],
     "dwd/derived": [_DWD_QN, RAW],
     "dwd/mosmix": [RAW],
-    "dwd/dmo": [RAW],
+    "dwd/dmo": [SUSPECT, REJECTED, RAW],
     "dwd/road": [
         _plain(
-            "The verdict on the reading, derived by the library from the station's quality flag word and from "
-            "whether the sensor has stopped: `1` suspect, `0` checked and not suspect. No token where it is "
-            "unknown (an unchecked or missing flag); that is told apart from a reading found sound.",
+            "The verdict on the reading, derived by the library from the station's quality flag word: `1` suspect, "
+            "`0` checked and not suspect. No token where it is unknown (an unchecked or missing flag); that is told "
+            "apart from a reading found sound. A sensor that has stopped is no part of it: that is the check `stuck`, "
+            "`suspect:stuck`.",
             codes=_codes(c_0="Checked, not suspect", c_1="Suspect"),
         ),
+        SUSPECT,
+        REJECTED,
         RAW,
     ],
     "dwd/swsmos": [RAW],
@@ -199,7 +235,9 @@ LEGENDS: dict[str, list[QualityKind]] = {
     "eccc/observation": [
         _plain(
             "ECCC's own flag letter of the value in the hourly and daily files (`M` missing, `E` estimated, `T` "
-            "trace, ...), verbatim. The monthly files have none.",
+            "trace, ...), verbatim. The monthly files have none: the `I` of a monthly value is not ECCC's letter "
+            "but wetterdienst's, derived from the collection's counts of valid days by the rule of ECCC's Notes 25 "
+            "and 26 (incomplete month).",
         ),
         RAW,
     ],
@@ -227,9 +265,11 @@ LEGENDS: dict[str, list[QualityKind]] = {
             "Météo-France's validation code of the value, verbatim; null where the source leaves it blank.",
             codes=_codes(c_9="Filtered", c_0="Protected", c_1="Validated", c_2="Doubtful"),
         ),
+        SUSPECT,
+        REJECTED,
         RAW,
     ],
-    "meteofrance/synop": [RAW],
+    "meteofrance/synop": [SUSPECT, REJECTED, RAW],
     "meteoswiss/observation": [RAW],
     "metno/frost": [
         _plain("The qualityCode of the observation in Frost, as the service writes it, a whole number."),
@@ -289,6 +329,8 @@ LEGENDS: dict[str, list[QualityKind]] = {
             "Whether the source validated the parameter, derived from RMI's qc_flags map.",
             codes=_codes(c_1="Validated", c_0="Not validated"),
         ),
+        SUSPECT,
+        REJECTED,
         RAW,
     ],
     "smhi/observation": [

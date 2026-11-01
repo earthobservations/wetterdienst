@@ -25,7 +25,15 @@ from fastapi.testclient import TestClient
 from tests.conftest import RESPONSE_METADATA_ALWAYS
 from tests.provider.test_data_updated_files import READERS
 from tests.ui.cli.test_cli_history import _stations_without_histories
-from tests.ui.test_restapi import _OBSERVATION, _station_of, _stub_result, _values_result_of_shape
+from tests.ui.test_restapi import (
+    _FETCH_OF_ENDPOINT,
+    _OBSERVATION,
+    _station_of,
+    _stub_result,
+    _stub_stream,
+    _stub_stripes_station,
+    _values_result_of_shape,
+)
 from wetterdienst import Options, Wetterdienst
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.ui import restapi
@@ -36,10 +44,11 @@ from wetterdienst.ui.response_metadata import (
     SCHEMA_VERSION,
     response_metadata,
 )
-from wetterdienst.util.response_warnings import begin_response, recorded_warnings, warn_response
+from wetterdienst.util.response_warnings import _COUNTED, _RECORDED, begin_response, recorded_warnings, warn_response
 
 if TYPE_CHECKING:
     import pathlib
+    from collections.abc import Callable, Iterator
 
 LOG = logging.getLogger(__name__)
 #: the members of the block that every answer has, whatever was asked for
@@ -50,11 +59,24 @@ ENDPOINTS = ["/api/values", "/api/interpolate", "/api/summarize"]
 @pytest.fixture(autouse=True)
 def _no_ambient_settings(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
     """Keep the WD_* variables and the `.env` of whoever runs the tests out of the settings."""
-    begin_response()
     for name in list(os.environ):
         if name.upper().startswith("WD_") and name.upper() != "WD_CACHE_DIR":
             monkeypatch.delenv(name)
     monkeypatch.chdir(tmp_path)
+
+
+@pytest.fixture(autouse=True)
+def _unrecorded() -> Iterator[None]:
+    """Start every test with no record of warnings, as the thread of a server has before its handler begins one.
+
+    The client carries the context of the test into the handler, so a record begun here (or left behind by a test of
+    another module) would be one a route that never calls `begin_response` records into all the same (GH-3593). The
+    record is put back as it was afterwards, so that nothing leaks either way.
+    """
+    recorded, counted = _RECORDED.set(None), _COUNTED.set(None)
+    yield
+    _COUNTED.reset(counted)
+    _RECORDED.reset(recorded)
 
 
 @pytest.fixture
@@ -376,6 +398,71 @@ def test_the_stripes_values_have_the_block_and_a_series_for_what_they_are_of(
     assert response.headers["X-Wetterdienst-License"] == "CC-BY-4.0"
 
 
+class _Figure:
+    """The drawing of a stripes image, which hands out these bytes as the image."""
+
+    def to_image(self, *_args: object, **_kwargs: object) -> bytes:
+        return b"image"
+
+
+def _read_and_warn(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Have the read of a stripes station raise a warning of the response, which the route has to record."""
+    from tests.ui.test_restapi import _stub_stripes_station  # noqa: PLC0415
+    from wetterdienst.ui import core  # noqa: PLC0415
+
+    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    read = core._get_stripes_data  # noqa: SLF001
+
+    def read_and_warn(request: object) -> object:
+        warn_response(restapi.log, "station-skipped", "station 00002 is skipped")
+        return read(request)
+
+    monkeypatch.setattr(restapi, "_get_stripes_data", read_and_warn)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("prefix", ["/api", "/api/v1"])
+@pytest.mark.parametrize("fmt", ["png", "jpg", "svg", "pdf"])
+def test_the_stripes_image_has_the_headers_of_every_answer(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, prefix: str, fmt: str
+) -> None:
+    """The image tells the licence, the credit line and the warnings in headers, as the values do.
+
+    Nothing is drawn into it (GH-3581): the only way to a caller that reads no pixels is the headers.
+    """
+    _read_and_warn(monkeypatch)
+
+    monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
+
+    response = client.get(f"{prefix}/stripes/image", params={"kind": "temperature", "station": "01048", "format": fmt})
+
+    assert response.status_code == 200, response.text
+    assert response.content == b"image"
+    assert response.headers["X-Wetterdienst-License"] == "CC-BY-4.0"
+    assert '<https://creativecommons.org/licenses/by/4.0/>; rel="license"' in response.headers["Link"]
+    assert "Deutscher Wetterdienst" in unquote(response.headers["X-Wetterdienst-Attribution"])
+    assert response.headers["X-Wetterdienst-Warnings"] == "station-skipped"
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_the_stripes_image_names_the_same_terms_as_the_stripes_values(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The image and the values of one station carry the same licence, credit line and Link, from the one helper."""
+    from tests.ui.test_restapi import _stub_stripes_station  # noqa: PLC0415
+
+    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+
+    monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
+    params = {"kind": "temperature", "station": "01048"}
+
+    image = client.get("/api/stripes/image", params=params)
+    values = client.get("/api/stripes/values", params=params)
+
+    names = ("X-Wetterdienst-License", "Link", "X-Wetterdienst-Attribution")
+    assert [image.headers[name] for name in names] == [values.headers[name] for name in names]
+
+
 @pytest.mark.parametrize(
     "path",
     ["/history", "/issues", "/alerts", "/stripes/stations", "/stripes/values"],
@@ -448,6 +535,183 @@ def test_a_request_starts_without_the_warnings_of_the_one_before(
 
     assert [warning["code"] for warning in listed["metadata"]["warnings"]] == ["left-out"]
     assert values["metadata"]["warnings"] == []
+
+
+# --- the warnings of each route (GH-3593) -------------------------------------------------------
+
+
+def _warn_first(monkeypatch: pytest.MonkeyPatch, owner: object, name: str) -> None:
+    """Have `owner.name`, which a route reads its answer with, raise a warning of the response before its work."""
+    original = getattr(owner, name)
+
+    def warning_first(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+        warn_response(LOG, "left-out", "an id was left out")
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(owner, name, warning_first)
+
+
+def _read_stations(monkeypatch: pytest.MonkeyPatch) -> None:
+    stations = _values_result_of_shape("long").stations
+    monkeypatch.setattr(restapi, "get_stations", lambda **_kwargs: stations)
+    _warn_first(monkeypatch, restapi, "get_stations")
+
+
+def _read_history(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(restapi, "get_stations", lambda **_kwargs: _stations_without_histories())
+    _warn_first(monkeypatch, restapi, "get_stations")
+
+
+def _read_issues(monkeypatch: pytest.MonkeyPatch) -> None:
+    _swsmos_lists_one_run(monkeypatch)
+    _warn_first(monkeypatch, restapi, "get_issues")
+
+
+def _read_alerts(monkeypatch: pytest.MonkeyPatch) -> None:
+    from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
+
+    _no_alerts(monkeypatch)
+    _warn_first(monkeypatch, DwdWeatherAlertRequest, "query")
+
+
+def _read_providers(monkeypatch: pytest.MonkeyPatch) -> None:
+    _warn_first(monkeypatch, restapi, "get_providers")
+
+
+def _read_stripes_stations(monkeypatch: pytest.MonkeyPatch) -> None:
+    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    _warn_first(monkeypatch, restapi, "_get_stripes_stations")
+
+
+def _read_stripes_values(monkeypatch: pytest.MonkeyPatch) -> None:
+    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    _warn_first(monkeypatch, restapi, "_get_stripes_data")
+
+
+def _draw_stripes_image(monkeypatch: pytest.MonkeyPatch) -> None:
+    _read_stripes_values(monkeypatch)
+    monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
+
+
+def _read_values_of(endpoint: str) -> Callable[[pytest.MonkeyPatch], None]:
+    def read(monkeypatch: pytest.MonkeyPatch) -> None:
+        _stub_result(monkeypatch, endpoint)
+        _warn_first(monkeypatch, restapi, _FETCH_OF_ENDPOINT[endpoint])
+
+    return read
+
+
+#: every route of the API that answers with a `metadata` block (or the headers of one), with a request that is answered
+#: and how to have its read raise a warning
+_ROUTES_WITH_WARNINGS = [
+    pytest.param("/api/providers", {}, _read_providers, id="providers"),
+    pytest.param("/api/stations", {**_OBSERVATION, "stations": "01048"}, _read_stations, id="stations"),
+    pytest.param(
+        "/api/issues",
+        {"provider": "dwd", "network": "swsmos", "station": "A006"},
+        _read_issues,
+        id="issues",
+    ),
+    pytest.param("/api/values", _params("/api/values"), _read_values_of("/api/values"), id="values"),
+    pytest.param(
+        "/api/interpolate", _params("/api/interpolate"), _read_values_of("/api/interpolate"), id="interpolate"
+    ),
+    pytest.param("/api/summarize", _params("/api/summarize"), _read_values_of("/api/summarize"), id="summarize"),
+    pytest.param("/api/stripes/stations", {"kind": "temperature"}, _read_stripes_stations, id="stripes-stations"),
+    pytest.param(
+        "/api/stripes/values", {"kind": "temperature", "station": "01048"}, _read_stripes_values, id="stripes-values"
+    ),
+    pytest.param(
+        "/api/stripes/image", {"kind": "temperature", "station": "01048"}, _draw_stripes_image, id="stripes-image"
+    ),
+    pytest.param("/api/history", {**_OBSERVATION, "stations": "02564"}, _read_history, id="history"),
+    pytest.param("/api/alerts", {}, _read_alerts, id="alerts"),
+]
+#: the routes that answer without a block: a catalogue of the library, the server's own state
+_ROUTES_WITHOUT_WARNINGS = {"/version", "/settings", "/auth", "/coverage", "/glossary"}
+
+
+@pytest.mark.parametrize(("path", "params", "arrange"), _ROUTES_WITH_WARNINGS)
+def test_a_route_records_the_warnings_of_its_read_without_a_record_begun_for_it(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    path: str,
+    params: dict[str, str],
+    arrange: Callable[[pytest.MonkeyPatch], None],
+) -> None:
+    """The route begins its own record: the warning of its read is in the block and in the header (GH-3593).
+
+    The test starts with none (`_unrecorded`), as a server's thread does. A route that never called `begin_response`
+    would answer with `warnings: []` and no `X-Wetterdienst-Warnings`, as `/api/stripes/values` did.
+    """
+    arrange(monkeypatch)
+    assert _RECORDED.get() is None
+    assert _COUNTED.get() is None
+
+    response = client.get(path, params=params)
+
+    assert response.status_code == 200, response.text
+    if path == "/api/stripes/image":
+        # an image has no block: the headers are where its warnings are (GH-3581)
+        assert response.content == b"image"
+    else:
+        assert [warning["code"] for warning in response.json()["metadata"]["warnings"]] == ["left-out"]
+    assert response.headers["X-Wetterdienst-Warnings"] == "left-out"
+    # the record belongs to the request: the test's own context is left as it was
+    assert _RECORDED.get() is None
+
+
+def test_every_route_of_the_api_is_held_to_the_warnings_or_says_why_not() -> None:
+    """A route added later is either one of the cases above or named here as one without a block."""
+    paths = {route.path for route in restapi.router.routes}
+    covered = {param.values[0].removeprefix(restapi.API_ALIAS_PREFIX) for param in _ROUTES_WITH_WARNINGS}
+
+    assert paths == covered | _ROUTES_WITHOUT_WARNINGS
+    assert not covered & _ROUTES_WITHOUT_WARNINGS
+
+
+@pytest.mark.parametrize("fmt", ["ndjson", "csv"])
+def test_a_streamed_values_answer_records_the_warnings_of_the_selection_without_a_record_begun_for_it(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, fmt: str
+) -> None:
+    """The stream begins its record too: the warning of the selection is in the headers and in the NDJSON lines."""
+    _stub_result(monkeypatch, "/api/values")
+    _warn_first(monkeypatch, restapi, "get_stations")
+
+    response = client.get("/api/values", params=_params("/api/values", format=fmt))
+
+    assert response.status_code == 200, response.text
+    assert response.headers["X-Wetterdienst-Warnings"] == "left-out"
+    if fmt == "ndjson":
+        lines = [json.loads(line) for line in response.text.splitlines()]
+        assert [warning["code"] for warning in lines[0]["metadata"]["warnings"]] == ["left-out"]
+        assert [warning["code"] for warning in lines[-1]["end"]["warnings"]] == ["left-out"]
+
+
+def test_a_streamed_values_answer_ends_with_the_warnings_of_the_stations_read_after_its_head(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A warning of a station read once the head is sent reaches the `end` line, from the record the route began."""
+    from wetterdienst.provider.dwd.observation.api import DwdObservationValues  # noqa: PLC0415
+
+    values = _values_result_of_shape("long")
+    _stub_stream(monkeypatch, [values, values])
+    queried = DwdObservationValues.query
+
+    def query(reader: object) -> Iterator[object]:
+        results = queried(reader)
+        yield next(results)
+        warn_response(LOG, "left-out", "an id was left out")
+        yield from results
+
+    monkeypatch.setattr(DwdObservationValues, "query", query)
+
+    response = client.get("/api/values", params=_params("/api/values", format="ndjson"))
+
+    assert response.status_code == 200, response.text
+    lines = [json.loads(line) for line in response.text.splitlines()]
+    assert lines[0]["metadata"]["warnings"] == []
+    assert [warning["code"] for warning in lines[-1]["end"]["warnings"]] == ["left-out"]
 
 
 # --- the headers ------------------------------------------------------------------------------

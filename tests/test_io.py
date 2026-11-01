@@ -3,6 +3,7 @@
 """Tests for export of timeseries data."""
 
 import contextlib
+import dataclasses
 import datetime as dt
 import importlib.machinery
 import json
@@ -16,8 +17,9 @@ import tomllib
 import types
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 from unittest import mock
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -1112,8 +1114,8 @@ def test_export_netcdf(df_interpolated_values: pl.DataFrame, tmp_path: Path) -> 
 def test_export_netcdf_keeps_gaps_as_gaps(df_values: pl.DataFrame, tmp_path: Path) -> None:
     """A missing value is NaN in NetCDF, not a number standing in for one.
 
-    Zarr fills gaps with -999, which a CF reader would take for a measurement -- an air temperature
-    of -999 degrees, or a station 999 m below the sea.
+    A number such as -999 would be taken by a CF reader for a measurement -- an air temperature
+    of -999 degrees, or a station 999 m below the sea. Zarr wrote that until GH-3449.
     """
     xarray = pytest.importorskip("xarray")
     pytest.importorskip("h5netcdf")
@@ -1145,9 +1147,9 @@ def test_export_netcdf_without_an_engine_says_so(
     Left to xarray the failure is a ValueError listing backends, which says nothing about how to
     get one from here.
     """
-    from wetterdienst.io import export  # noqa: PLC0415
+    from wetterdienst.io import sinks  # noqa: PLC0415
 
-    monkeypatch.setattr(export, "_netcdf_engine", lambda: None)
+    monkeypatch.setattr(sinks, "_netcdf_engine", lambda: None)
     with pytest.raises(ImportError, match=r"wetterdienst\[export\]"):
         ExportMixin(df=df_values).to_target(f"file://{tmp_path.joinpath('values.nc')}")
 
@@ -2409,7 +2411,7 @@ def test_sql_sink_names_psycopg_for_a_bare_postgresql_target(
     """
     sqlalchemy = pytest.importorskip("sqlalchemy")
     pytest.importorskip("pandas")
-    with mock.patch("wetterdienst.io.export._psycopg_imports", return_value=psycopg):
+    with mock.patch("wetterdienst.io.sinks._psycopg_imports", return_value=psycopg):
         assert _urls_the_sink_asks_for(sqlalchemy, target, tmp_path) == [connects_to]
 
 
@@ -2460,7 +2462,7 @@ def test_psycopg_counts_as_installed_only_when_it_imports() -> None:
     Its pure-Python package is found on the path but fails on import with `no pq wrapper
     available`, so naming it would turn a URL psycopg2 could serve into an `ImportError`.
     """
-    from wetterdienst.io.export import _psycopg_imports  # noqa: PLC0415
+    from wetterdienst.io.sinks import _psycopg_imports  # noqa: PLC0415
 
     with mock.patch("importlib.import_module", side_effect=ImportError("no pq wrapper available")) as probe:
         assert not _psycopg_imports()
@@ -3032,6 +3034,79 @@ def test_to_target_writes_cratedb_with_a_password_holding_delimiters() -> None:
         4200,
     )
     assert (to_sql.call_args.kwargs["schema"], to_sql.call_args.kwargs["name"]) == ("obs", "readings")
+
+
+def _text_columns_frame() -> ExportMixin:
+    """Build a frame with a `pl.Categorical` and a `pl.Enum` column, which pandas both turns into a Categorical."""
+    return ExportMixin(
+        df=pl.DataFrame(
+            {
+                "station_id": ["01048", "00044"],
+                "category": pl.Series(["a", None], dtype=pl.Categorical),
+                "kind": pl.Series(["x", "y"], dtype=pl.Enum(["x", "y"])),
+                "value": [1.0, 2.0],
+            }
+        )
+    )
+
+
+@pytest.mark.usefixtures("cratedb_dialect")
+def test_cratedb_sink_hands_pandas_text_for_a_categorical_and_an_enum_column() -> None:
+    """A `pl.Categorical` column is cast to String as a `pl.Enum` one is, so no pandas Categorical reaches the driver.
+
+    Not checked against a live CrateDB: the frame handed to `to_sql` is read off a stubbed call (GH-3694).
+    """
+    pytest.importorskip("sqlalchemy")
+    pd = pytest.importorskip("pandas")
+    with mock.patch.object(pd.DataFrame, "to_sql", autospec=True) as to_sql:
+        _text_columns_frame().to_target("crate://localhost/?database=test&table=testdrive")
+    frame = to_sql.call_args.args[0]
+    assert not any(isinstance(dtype, pd.CategoricalDtype) for dtype in frame.dtypes)
+    assert frame["category"].tolist()[0] == "a"
+    assert frame["kind"].tolist() == ["x", "y"]
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        pytest.param("sqlite:///{path}?table=weather", id="sqlite"),
+        pytest.param("mssql+pyodbc://u:p@localhost/dwd?table=weather&driver=ODBC+Driver+18+for+SQL+Server", id="mssql"),
+    ],
+)
+def test_sql_sink_hands_pandas_text_for_a_categorical_and_an_enum_column(target: str, tmp_path: Path) -> None:
+    """A `pl.Categorical` column is cast to String as a `pl.Enum` one is, so no pandas Categorical reaches the dialect.
+
+    Neither SQLite nor DuckDB fails on a Categorical (the text is written either way), so the frame handed to
+    `to_sql` is read off a stubbed call. The other dialects are not checked against a live server (GH-3694).
+    """
+    sqlalchemy = pytest.importorskip("sqlalchemy")
+    pd = pytest.importorskip("pandas")
+    create_engine = sqlalchemy.create_engine
+    handed = []
+
+    def engine_for(url: object, **kwargs: object) -> object:
+        # the target's real dialect, with a stand-in driver: nothing connects before `to_sql`
+        driver = mock.MagicMock(version="5.2.0", __version__="2.3.13")
+        if str(url).startswith("sqlite"):
+            return create_engine(url, **kwargs)
+        return create_engine(url, module=driver, **kwargs)
+
+    def to_sql(frame: object, **kwargs: object) -> None:
+        handed.append((frame, kwargs["dtype"]))
+
+    with (
+        mock.patch("sqlalchemy.create_engine", side_effect=engine_for),
+        mock.patch.object(pd.DataFrame, "to_sql", autospec=True, side_effect=to_sql),
+    ):
+        _text_columns_frame().to_target(target.format(path=tmp_path / "weather.db"))
+
+    ((frame, dtype),) = handed
+    assert not any(isinstance(column_type, pd.CategoricalDtype) for column_type in frame.dtypes)
+    assert frame["kind"].tolist() == ["x", "y"]
+    if dtype is not None:
+        # SQL Server declares text as `NVARCHAR`, and the cast columns are text for it
+        nvarchar = {name for name, column_type in dtype.items() if type(column_type).__name__ == "NVARCHAR"}
+        assert {"category", "kind"} <= nvarchar
 
 
 @pytest.mark.parametrize(
@@ -3944,7 +4019,7 @@ def test_netcdf_engine_is_named_as_xarray_names_it(
     """Test the NetCDF engine is the one xarray knows, `netcdf4` for the `netCDF4` module (GH-2666)."""
     import importlib.util  # noqa: PLC0415
 
-    from wetterdienst.io.export import _netcdf_engine  # noqa: PLC0415
+    from wetterdienst.io.sinks import _netcdf_engine  # noqa: PLC0415
 
     monkeypatch.setattr(importlib.util, "find_spec", lambda name: object() if name in installed else None)
     assert _netcdf_engine() == engine
@@ -4283,7 +4358,7 @@ def test_driver_missing_names_the_driver_the_postgresql_extra_installs(
     SQLAlchemy 2.0 behaviour is told here directly.
     """
     sqlalchemy = pytest.importorskip("sqlalchemy")
-    from wetterdienst.io.export import _driver_missing  # noqa: PLC0415
+    from wetterdienst.io.sinks import _driver_missing  # noqa: PLC0415
 
     if installed:
         stub = types.ModuleType("psycopg")
@@ -4341,3 +4416,368 @@ def test_filter_by_sql_keeps_duckdbs_error_for_an_in_dataset_name_the_frame_has_
     df = pl.DataFrame({"wind_gust": [1.5], "temperature_air_mean_2m": [1.0]})
     with pytest.raises(duckdb.BinderException, match='Referenced column "wind_speed" not found'):
         ExportMixin(df=df).filtered_by_sql("wind_speed > 1")
+
+
+def test_export_zarr_keeps_gaps_as_gaps(df_values: pl.DataFrame, tmp_path: Path) -> None:
+    """A missing number is NaN in Zarr, a missing time `NaT`, and no number stands in for either (GH-3449).
+
+    Zarr wrote -999 for every gap, which a reader took for a measurement: an air temperature of -999 degrees,
+    or a station 999 m below the sea. A text column has no NaN and holds an empty string, as it always did.
+    """
+    zarr = pytest.importorskip("zarr")
+    pytest.importorskip("xarray")
+    df = df_values.with_columns(
+        pl.when(pl.col("timestamp").dt.year() == 2019).then(None).otherwise(pl.col("value")).alias("value"),
+        pl.col("value").cast(pl.Int64, strict=False).alias("count"),
+        pl.when(pl.col("timestamp").dt.month() == 1).then(None).otherwise(pl.col("timestamp")).alias("end_timestamp"),
+    )
+    assert df.get_column("value").null_count() > 0
+    filename = tmp_path.joinpath("values.zarr")
+    ExportMixin(df=df).to_target(f"file://{filename}")
+
+    group = zarr.open(filename, mode="r")["climate_summary"]
+    values = group["value"][:]
+    assert math.isnan(values[0])
+    assert -999 not in values
+    assert -999 not in group["count"][:]
+    assert str(group["end_timestamp"][0]) == "NaT"
+    assert str(group["end_timestamp"][1]).startswith("2019-12-01")
+
+
+def test_export_zarr_takes_a_stations_frame_with_a_station_without_an_end(tmp_path: Path) -> None:
+    """A station that has not ended has no `end_timestamp`, and no elevation is NaN rather than 999 m below the sea."""
+    zarr = pytest.importorskip("zarr")
+    pytest.importorskip("xarray")
+    df = pl.DataFrame(
+        {
+            "station_id": ["01048", "01050"],
+            "start_timestamp": [dt.datetime(1957, 5, 1, tzinfo=ZoneInfo("UTC"))] * 2,
+            "end_timestamp": [dt.datetime(1995, 11, 30, tzinfo=ZoneInfo("UTC")), None],
+            "elevation": [645.0, None],
+        }
+    )
+    filename = tmp_path.joinpath("stations.zarr")
+    ExportMixin(df=df).to_target(f"file://{filename}")
+
+    group = zarr.open(filename, mode="r")["data"]
+    assert math.isnan(group["elevation"][1])
+    assert -999 not in group["elevation"][:]
+    assert str(group["end_timestamp"][1]) == "NaT"
+    assert str(group["end_timestamp"][0]).startswith("1995-11-30")
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        "influxdb://localhost/?database=dwd",
+        "influxdb2://acme:token@localhost/?database=dwd",
+        "influxdb3://acme:token@localhost/?database=dwd",
+    ],
+)
+def test_influxdb_refuses_a_stations_frame_by_saying_it_has_no_readings(target: str) -> None:
+    """A stations frame has no `timestamp` to make a point of: `ExportRefusedError`, not a bare `KeyError` (GH-3449).
+
+    Refused before the client is built, so nothing connects.
+    """
+    stations = ExportMixin(
+        df=pl.DataFrame(
+            {
+                "station_id": ["01048"],
+                "start_timestamp": [dt.datetime(1957, 5, 1, tzinfo=ZoneInfo("UTC"))],
+                "end_timestamp": [dt.datetime(1995, 11, 30, tzinfo=ZoneInfo("UTC"))],
+                "name": ["Freyung vorm Wald"],
+            }
+        )
+    )
+    with (
+        mock.patch("influxdb.InfluxDBClient") as v1,
+        mock.patch("influxdb_client.InfluxDBClient") as v2,
+        mock.patch("influxdb_client_3.InfluxDBClient3") as v3,
+        pytest.raises(ExportRefusedError, match="`timestamp`, `resolution`, `dataset`"),
+    ):
+        stations.to_target(target)
+    assert [v1.called, v2.called, v3.called] == [False, False, False]
+
+
+def test_to_ndjson_is_the_rows_the_rest_api_streams(
+    df_values: pl.DataFrame, df_interpolated_values: pl.DataFrame
+) -> None:
+    """`to_ndjson` holds the records of the lines the REST API sends between its head and its end line (GH-3449).
+
+    The REST API writes a row with `ndjson_line` from `to_dict`; the file target and `to_ndjson` write the frame
+    through polars. The records are the same, the text of a number is not always: polars writes `0.00005` where
+    `json.dumps` writes `5e-05`, and a NaN or an infinity is `null` in one and `NaN` in the other.
+    """
+    import dataclasses  # noqa: PLC0415
+
+    from tests.model.test_results import _every_result  # noqa: PLC0415
+    from wetterdienst.ui.render import ndjson_line  # noqa: PLC0415
+
+    for frame in (df_values, df_interpolated_values):
+        result = ExportMixin(df=frame)
+        written = result.to_ndjson()
+        assert written.endswith("\n")
+        assert [json.loads(line) for line in written.splitlines()] == json.loads(result._iso_datetimes().write_json())  # noqa: SLF001
+        assert result.to_format("ndjson") == written
+    assert ExportMixin(df=df_values.clear()).to_ndjson() == ""
+
+    # from the rows of a result, as the stream's batches are made
+    results: dict[str, Any] = _every_result()
+    values = results["values"]
+    small = dataclasses.replace(values, df=values.df.with_columns(pl.lit(0.00005).alias("value")))
+    for result_, key in (
+        (results["stations"], "stations"),
+        (values, "values"),
+        (results["interpolated"], "values"),
+        (small, "values"),
+    ):
+        streamed = b"".join(ndjson_line(row) for row in result_.to_dict()[key]).decode()
+        assert [json.loads(line) for line in streamed.splitlines()] == [
+            json.loads(line) for line in result_.to_ndjson().splitlines()
+        ]
+    # the number is the same, and its text is the serializer's: the reason this compares records and not bytes
+    assert "5e-05" in b"".join(ndjson_line(row) for row in small.to_dict()["values"]).decode()
+    assert json.loads(small.to_ndjson().splitlines()[0])["value"] == 0.00005
+
+
+@pytest.mark.parametrize("extension", ["jsonl", "ndjson", "JSONL", "NdJson"])
+def test_export_ndjson_file_targets_hold_to_ndjson(df_values: pl.DataFrame, tmp_path: Path, extension: str) -> None:
+    """A `.jsonl` and a `.ndjson` file, in any case, hold what `to_ndjson` returns (GH-3449)."""
+    filename = tmp_path.joinpath(f"values.{extension}")
+    result = ExportMixin(df=df_values)
+    result.to_target(f"file://{filename}")
+    assert filename.read_text(encoding="utf-8") == result.to_ndjson()
+
+
+@pytest.mark.parametrize("name", ["stations", "values", "interpolated", "summarized"])
+def test_export_geojson_file_target_holds_the_feature_collection(name: str, tmp_path: Path) -> None:
+    """A `.geojson` file is the feature collection `to_geojson` wraps in `data`, as readers expect it (GH-3449)."""
+    from tests.model.test_results import _every_result  # noqa: PLC0415
+
+    result: Any = _every_result()[name]
+    filename = tmp_path.joinpath("result.GeoJSON")
+    result.to_target(f"file://{filename}")
+    written = json.loads(filename.read_text(encoding="utf-8"))
+    assert written["type"] == "FeatureCollection"
+    assert written == json.loads(result.to_format("geojson"))["data"]
+    assert filename.read_bytes() == json.dumps(written, indent=4, ensure_ascii=False).encode("utf-8")
+
+
+@pytest.mark.parametrize("name", ["stations.CSV", "Stations.Json", "S.Parquet"])
+def test_file_extensions_are_read_in_any_case(df_stations: pl.DataFrame, tmp_path: Path, name: str) -> None:
+    """`.CSV` was refused as an unknown file type: the extension is read in any case, the path as written (GH-3449)."""
+    filename = tmp_path.joinpath(name)
+    ExportMixin(df=df_stations).to_target(f"file://{filename}")
+    assert filename.exists()
+    assert {path.name for path in tmp_path.iterdir()} == {name}
+
+
+def test_an_unknown_file_extension_is_still_refused(df_stations: pl.DataFrame, tmp_path: Path) -> None:
+    """A file type nothing writes is refused, whatever its case."""
+    with pytest.raises(ExportRefusedError, match="Unknown export file type"):
+        ExportMixin(df=df_stations).to_target(f"file://{tmp_path.joinpath('chart.PNG')}")
+
+
+def _read_strictly(text: str) -> Any:  # noqa: ANN401
+    """Read JSON as RFC 8259 has it, which `NaN`, `Infinity` and `-Infinity` are not part of (as `JSON.parse` does)."""
+
+    def refuse(constant: str) -> None:
+        msg = f"{constant} is not JSON"
+        raise ValueError(msg)
+
+    return json.loads(text, parse_constant=refuse)
+
+
+def _non_finite_column(name: str) -> str:
+    return "elevation" if name == "stations" else "value"
+
+
+def _with_non_finite_numbers(name: str) -> Any:  # noqa: ANN401
+    """Give the result `name` with a NaN, an infinity and a negative infinity as its first three numbers."""
+    from tests.model.test_results import _every_result  # noqa: PLC0415
+
+    result: Any = _every_result()[name]
+    numbers = [float("nan"), float("inf"), -float("inf")]
+    column = _non_finite_column(name)
+    return dataclasses.replace(
+        result, df=result.df.with_columns(pl.Series(column, (numbers + [1.0] * result.df.height)[: result.df.height]))
+    )
+
+
+@pytest.mark.parametrize("name", ["values", "interpolated", "summarized"])
+def test_to_json_writes_null_for_what_is_not_a_finite_number(name: str) -> None:
+    """A NaN or an infinity was `NaN` and `Infinity` in the text, which a strict parser refuses (GH-3679)."""
+    result = _with_non_finite_numbers(name)
+    for with_metadata in (False, True):
+        rows = _read_strictly(result.to_json(with_metadata=with_metadata))["values"]
+        assert [row["value"] for row in rows] == [None, None, None]
+    assert _read_strictly(result.to_json(indent=False))["values"][0]["value"] is None
+
+
+def test_to_json_of_stations_writes_null_for_what_is_not_a_finite_number() -> None:
+    """The same for a stations result (GH-3679)."""
+    result = _with_non_finite_numbers("stations")
+    for with_metadata in (False, True):
+        rows = _read_strictly(result.to_json(with_metadata=with_metadata))["stations"]
+        assert [row["elevation"] for row in rows][:2] == [None, None]
+
+
+@pytest.mark.parametrize("name", ["stations", "values", "interpolated", "summarized"])
+def test_to_geojson_writes_null_for_what_is_not_a_finite_number(name: str) -> None:
+    """The feature collection of a result holds no `NaN` or `Infinity` either (GH-3679)."""
+    result = _with_non_finite_numbers(name)
+    written = _read_strictly(result.to_geojson())
+    assert written["data"]["type"] == "FeatureCollection"
+    assert "null" in result.to_geojson()
+    assert _read_strictly(result.to_format("geojson")) == written
+    assert _read_strictly(result.to_geojson(indent=False)) == written
+
+
+def test_a_non_finite_coordinate_is_no_position_in_geojson() -> None:
+    """A position is numbers only (RFC 7946 3.1.1): no z for a non-finite elevation, no geometry without a position."""
+    result = _with_non_finite_numbers("stations")
+    features = _read_strictly(result.to_geojson())["data"]["features"]
+    assert [len(feature["geometry"]["coordinates"]) for feature in features] == [2, 2]
+
+    df = result.df.with_columns(pl.Series("latitude", [float("nan"), 51.0]), pl.Series("elevation", [1.0, 2.0]))
+    features = _read_strictly(dataclasses.replace(result, df=df).to_geojson())["data"]["features"]
+    assert features[0]["geometry"] is None
+    assert features[1]["geometry"]["coordinates"] == [13.0, 51.0, 2.0]
+
+
+@pytest.mark.parametrize("name", ["stations", "values"])
+def test_the_geojson_file_target_writes_null_for_what_is_not_a_finite_number(name: str, tmp_path: Path) -> None:
+    """A `.geojson` file is read by tools that parse it strictly (GH-3679)."""
+    result = _with_non_finite_numbers(name)
+    filename = tmp_path.joinpath("result.geojson")
+    result.to_target(f"file://{filename}")
+    written = _read_strictly(filename.read_text(encoding="utf-8"))
+    assert written == _read_strictly(result.to_geojson())["data"]
+    assert "null" in filename.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("name", ["stations", "values"])
+def test_the_rows_of_the_rest_api_write_null_as_polars_does(name: str, tmp_path: Path) -> None:
+    """The rows of `ndjson_line` agree with `to_ndjson` and the `.json` and `.ndjson` files (GH-3679)."""
+    from wetterdienst.ui.render import ndjson_line  # noqa: PLC0415
+
+    result = _with_non_finite_numbers(name)
+    column = _non_finite_column(name)
+    key = "stations" if name == "stations" else "values"
+    nulls = [None] * min(3, result.df.height)
+    streamed = b"".join(ndjson_line(row) for row in result.to_dict()[key]).decode()
+    assert [_read_strictly(line)[column] for line in streamed.splitlines()][:3] == nulls
+    assert [_read_strictly(line)[column] for line in result.to_ndjson().splitlines()][:3] == nulls
+    for extension in ("json", "ndjson"):
+        filename = tmp_path.joinpath(f"result.{extension}")
+        result.to_target(f"file://{filename}")
+        text = filename.read_text(encoding="utf-8")
+        rows = _read_strictly(text) if extension == "json" else [_read_strictly(line) for line in text.splitlines()]
+        assert [row[column] for row in rows][:3] == nulls
+
+
+def test_dumps_json_leaves_what_is_finite_alone() -> None:
+    """Only a value with a non-finite number is walked; the text of any other is `json.dumps`'s (GH-3679)."""
+    from wetterdienst.util.json_util import dumps_json  # noqa: PLC0415
+
+    plain = {"a": [1.0, 2, "x", None, True], "b": {"c": 0.00005}}
+    assert dumps_json(plain) == json.dumps(plain)
+    assert dumps_json(plain, indent=4, ensure_ascii=False) == json.dumps(plain, indent=4, ensure_ascii=False)
+    nested = {"a": [float("nan"), (float("inf"), 1.0)], "b": {"c": -float("inf")}, "d": "NaN"}
+    assert dumps_json(nested) == '{"a": [null, [null, 1.0]], "b": {"c": null}, "d": "NaN"}'
+    # the value given is not changed
+    assert math.isnan(nested["a"][0])
+    circular: list[Any] = []
+    circular.append(circular)
+    with pytest.raises(ValueError, match="Circular reference"):
+        dumps_json(circular)
+
+
+@pytest.mark.parametrize("dtype", [pl.Categorical, pl.Enum(["Třeboň", "Łódź"])], ids=["categorical", "enum"])
+@pytest.mark.parametrize("extension", ["zarr", "nc"])
+def test_zarr_and_netcdf_write_a_categorical_column(dtype: pl.DataType, extension: str, tmp_path: Path) -> None:
+    """A `pl.Categorical` failed with `Cannot interpret 'CategoricalDtype(...)'`, as an Enum did (GH-3679)."""
+    xarray = pytest.importorskip("xarray")
+    pytest.importorskip("zarr" if extension == "zarr" else "h5netcdf")
+    df = pl.DataFrame(
+        {
+            "station_id": ["01048", "01050"],
+            "name": pl.Series(["Třeboň", "Łódź"], dtype=dtype),
+            "elevation": [645.0, 12.0],
+        }
+    )
+    filename = tmp_path.joinpath(f"stations.{extension}")
+    ExportMixin(df=df).to_target(f"file://{filename}")
+
+    if extension == "zarr":
+        dataset = xarray.open_zarr(filename, group="data", consolidated=False)
+    else:
+        dataset = xarray.open_dataset(filename, group="data", engine="h5netcdf")
+    with dataset:
+        assert dataset["name"].values.tolist() == ["Třeboň", "Łódź"]
+
+
+@pytest.mark.parametrize("name", ["stations.csv", "my%2Edata.CSV", "x%20y.json", "data%2Ecsv", "kl.c%53v"])
+def test_a_file_target_is_matched_by_its_path(df_stations: pl.DataFrame, tmp_path: Path, name: str) -> None:
+    """The extension is read from the path the target names, which is decoded, and not from the text of the target."""
+    ExportMixin(df=df_stations).to_target(f"file://{tmp_path}/{name}")
+    assert [path.name for path in tmp_path.iterdir()] == [unquote(name)]
+
+
+@pytest.mark.parametrize("query", ["?a=1", "?a=1&b=2", "#fragment"])
+def test_a_file_target_has_no_query_string(df_stations: pl.DataFrame, tmp_path: Path, query: str) -> None:
+    """Everything after `file://` is the path, so a query is part of the file name and the extension is gone: refused.
+
+    The message names the target and, for a `?`, says what to write instead (GH-3679). A `?` in the name of a file
+    that has one is written `%3F`, and that target is written.
+    """
+    target = f"file://{tmp_path}/x.csv{query}"
+    with pytest.raises(ExportRefusedError, match="Unknown export file type") as refused:
+        ExportMixin(df=df_stations).to_target(target)
+    assert target in str(refused.value)
+    assert ("no query string" in str(refused.value)) == ("?" in query)
+    assert not list(tmp_path.iterdir())
+
+    # no query to explain: the name has a `?` and an extension nothing writes, or the `?` is written `%3F`
+    for name, hint in (("what?.png", False), ("x.csv%3Fa=1", False), ("x?y.csv?a=1", True)):
+        with pytest.raises(ExportRefusedError, match="Unknown export file type") as refused:
+            ExportMixin(df=df_stations).to_target(f"file://{tmp_path}/{name}")
+        assert ("no query string" in str(refused.value)) == hint, name
+
+    if IS_WINDOWS:
+        return
+    ExportMixin(df=df_stations).to_target(f"file://{tmp_path}/what%3F.csv")
+    assert [path.name for path in tmp_path.iterdir()] == ["what?.csv"]
+
+
+def test_the_alerts_and_stripes_json_write_null_for_what_is_not_a_finite_number() -> None:
+    """The other JSON writers of a frame, the alerts' own and the climate stripes', write `null` as well (GH-3679)."""
+    import types  # noqa: PLC0415
+
+    from tests.provider.dwd.alerts.test_api import _URL, CAP_XML, _make_zip  # noqa: PLC0415
+    from wetterdienst.provider.dwd.alerts.api import (  # noqa: PLC0415
+        DwdWeatherAlertGranularity,
+        DwdWeatherAlertLanguage,
+        DwdWeatherAlertRequest,
+        DwdWeatherAlertResult,
+    )
+    from wetterdienst.ui import render  # noqa: PLC0415
+
+    alerts = DwdWeatherAlertRequest._parse_archive(_make_zip(CAP_XML), _URL)  # noqa: SLF001
+    df = DwdWeatherAlertRequest._build_dataframe(alerts)  # noqa: SLF001
+    df = df.with_columns(pl.lit('{"type": "Point", "coordinates": [NaN, Infinity]}').alias("geometry"))
+    result = DwdWeatherAlertResult(df, DwdWeatherAlertGranularity.COMMUNITY, DwdWeatherAlertLanguage.ENGLISH, None)
+    assert _read_strictly(result.to_json())["alerts"][0]["geometry"]["coordinates"] == [None, None]
+    feature = _read_strictly(result.to_geojson())["features"][0]
+    assert feature["geometry"]["coordinates"] == [None, None]
+
+    data = types.SimpleNamespace(
+        df=pl.DataFrame(
+            {"timestamp": [dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC"))] * 2, "value": [float("nan"), 1.0]}
+        ),
+        series=types.SimpleNamespace(model_dump=dict),
+    )
+    request = types.SimpleNamespace(pretty=False)
+    with mock.patch.object(render, "metadata_to_dict", return_value={}):
+        written = _read_strictly(render.render_stripes_values(data, request, None))  # ty: ignore[invalid-argument-type]
+    assert [row["value"] for row in written["values"]] == [None, 1.0]

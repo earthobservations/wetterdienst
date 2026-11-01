@@ -15,7 +15,14 @@ import polars.selectors as cs
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, group_parameters_by_dataset
-from wetterdienst.model.quality_flags import SPEED_BESIDE, Sentinel, calm, join_quality_flags, null_sentinels
+from wetterdienst.model.quality_flags import (
+    SPEED_BESIDE,
+    Sentinel,
+    calm,
+    join_quality_flags,
+    null_sentinels,
+    with_speed_beside,
+)
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.noaa.ghcn.metadata import (
@@ -45,6 +52,20 @@ GHCNH_WIND_DIRECTION_MISSING = "999"
 # one (1.5 m/s, 1985) have a wind speed of 0, and 12,384 and 28,366 are 360. The 0 beside a speed of 0 is null; the
 # one beside a wind that blows stays, as in every provider (`calm`, GH-3222), where it was null too
 GHCNH_WIND_SPEED_OF_DIRECTION = {"wind_direction": "wind_speed"}
+# the speed of the direction of each daily wind direction (the element names of the daily files, lower case): AWDR,
+# the average direction, beside AWND, and the readme's "Direction of ..." the fastest or peak wind (WDF1, WDF2, WDF5,
+# WDFG, WDFI and WDFM) beside WSF1, WSF2, WSF5, WSFG, WSFI and WSFM, the speed of that wind, in tenths of m/s
+GHCND_WIND_SPEED_OF_DIRECTION = {
+    "awdr": "awnd",
+    "wdf1": "wsf1",
+    "wdf2": "wsf2",
+    "wdf5": "wsf5",
+    "wdfg": "wsfg",
+    "wdfi": "wsfi",
+    "wdfm": "wsfm",
+}
+# the source flag of Environment Canada, "C" in the readme's list of SFLAG, as `quality_flags` writes it (`source:C`)
+GHCND_ENVIRONMENT_CANADA = r"(^|,)source:C(,|$)"
 GHCNH_PRECIPITATION_MISSING = "-9999"
 GHCNH_NONE = "-None"
 # the reports of Table 4 that are specials, filed between the routine ones: FM16 is a SPECI, SAOSP an airways special
@@ -54,22 +75,30 @@ GHCNH_SPECIAL_REPORT_TYPES = ("FM16", "SAOSP")
 GHCNH_NO_CODE = "Null"
 
 # stations whose longitude `ghcnd-stations.txt` (and `ghcnd-inventory.txt`) and `ghcnh-station-list.csv` list with the
-# wrong sign, all 38 listed east of Greenwich where they lie west of it, 6 to 756 km off: the list has lost the sign
-# (GH-2645, GH-2886, GH-3384). Each was checked against two or more other sources (ECA&D, GHCN hourly list, ISD
-# history, DWD MOSMIX, OpenStreetMap, Wikipedia, AEMET) that put the same place on the other side of the meridian and
-# within 4 km of the mirrored position; the values per station are in the pull requests of those issues.
+# wrong sign, all 48 listed east of Greenwich where they lie west of it, 6 to 4,571 km off: the list has lost the sign
+# (GH-2645, GH-2886, GH-3384). Each was checked against two or more other sources (ECA&D, GHCN hourly and daily
+# lists, ISD history, DWD MOSMIX, OpenStreetMap, Wikipedia, AEMET, PacIOOS) that put the same place on the other side
+# of the meridian and within 10 km of the mirrored position; the values per station are in the pull requests of those
+# issues.
 # The value is the (latitude, longitude) the lists gave when the station was checked: the longitude of a row is turned
-# only while the row still lists exactly this position (`_restore_lost_longitude_sign`), so a list that NOAA has
+# only while the row still lists exactly this position (`_turn_sign`, `_restore_lost_signs`), so a list that NOAA has
 # corrected, or moved, is read as it is, and an id that the lists use for another station is not touched. One table
-# serves both lists; UKW00015015 and UKW00015033 are in both with the same position.
+# serves both lists; UKW00015015 and UKW00015033 are in both with the same position, and AGUG0060517, CMU55-00161,
+# ICM00004102, MOI0000GMMK, RSU025594-5, SPM00008164, SPM00008165, SPM00008166, SPM00008282 and USL000KNOH1 are in the
+# hourly list only.
 LOST_LONGITUDE_SIGN_STATIONS: dict[str, tuple[float, float]] = {
     "AGE00135039": (35.7297, 0.65),  # ORAN-HOPITAL MILITAIRE
     "AGE00147714": (35.77, 0.8),  # ORAN-CAP FALCON
     "AGE00147717": (35.2, 0.63),  # SIDI-BEL-ABBES
+    "AGUG0060517": (35.1, 1.85),  # NEMOURS (GHAZAOUET), hourly list only
+    "CMU55-00161": (8.49, 13.15),  # FREETOWN (Sierra Leone, listed under Cameroon's prefix), hourly list only
     "FR000007510": (44.8306, 0.6914),  # BORDEAUX-MERIGNAC
     "FRE00104044": (49.18, 0.4558),  # CAEN-CARPIQUET
     "FRE00104957": (43.2481, 0.155),  # ESPOEY
     "FRE00106203": (43.9094, 0.5003),  # MONT-DE-MARSAN
+    "ICM00004102": (63.2993, 20.5995),  # SURTSEY, hourly list only
+    "MOI0000GMMK": (32.859, 6.9454),  # KHOURIBGA MILITARY ARPT, hourly list only
+    "RSU025594-5": (64.38, 173.23),  # BUHTAPROVIDENJA, hourly list only
     "SP000007038": (37.9769, 0.7106),  # TORREVIEJA
     "SP000008416": (39.4806, 0.3664),  # VALENCIA
     "SPE00101035": (38.2828, 0.5706),  # ALICANTE EL ALTET
@@ -79,6 +108,10 @@ LOST_LONGITUDE_SIGN_STATIONS: dict[str, tuple[float, float]] = {
     "SPE00120161": (42.0831, 0.3264),  # HUESCA
     "SPE00120341": (37.7889, 0.8031),  # MURCIA/SAN JAVIER
     "SPE00120584": (39.4867, 0.4731),  # VALENCIA/AEROPUERTO
+    "SPM00008164": (41.0578, 0.1414),  # ALCANIZ, hourly list only
+    "SPM00008165": (41.5217, 0.1742),  # BUJARALOZ, hourly list only
+    "SPM00008166": (40.9467, 0.2378),  # CALANDA, hourly list only
+    "SPM00008282": (38.9289, 0.0956),  # OLIVA, hourly list only
     "UK000003377": (53.1658, 0.5239),  # WADDINGTON
     "UKE00100808": (53.7667, 0.3667),  # HULL
     "UKE00105894": (54.105, 0.6417),  # HIGH MOWTHORPE
@@ -99,13 +132,32 @@ LOST_LONGITUDE_SIGN_STATIONS: dict[str, tuple[float, float]] = {
     "UKW00015034": (52.35, 0.1167),  # WYTON
     "UKW00015035": (53.1667, 0.5167),  # WADDINGTON
     "UKW00015041": (53.3667, 0.6833),  # STURGATE
+    "USL000KNOH1": (21.2833, 157.8667),  # KILO NALU OBS (WAVE SENSOR), Oahu, hourly list only
     "UV000005503": (12.35, 1.52),  # OUAGADOUGOU
     "UVM00065505": (12.467, 3.483),  # DEDOUGOU
 }
 
 
-def _restore_lost_longitude_sign(df: pl.DataFrame) -> pl.DataFrame:
-    """Turn the sign of the longitude of the stations of `LOST_LONGITUDE_SIGN_STATIONS`, for either list (GH-3384).
+# stations whose latitude the lists give with the wrong sign, all 7 listed north of the equator where they lie south of
+# it, 160 to 16,800 km off: the list has lost the sign, as it has for the longitudes above (GH-3662). Each was
+# checked against two or more other sources (ISD history, OpenStreetMap, Wikipedia, GHCN daily list) that put the same
+# place on the other side of the equator and within 15 km of the mirrored position; the values per station are in the
+# pull request of that issue. Same guard as above: the value is the (latitude, longitude) the list gave when the
+# station was checked, and the latitude of a row is turned only while the row still lists exactly this position.
+# GB000004551 and GB000004560 are in the daily list, the other five in the hourly list only.
+LOST_LATITUDE_SIGN_STATIONS: dict[str, tuple[float, float]] = {
+    "ASU34-00001": (34.92, 138.6),  # AUSTRALIA-ADELAIDE_SBDY, hourly list only
+    "GB000004551": (0.72, 10.22),  # LAMBARENE, daily list only
+    "GB000004560": (0.83, 12.72),  # LASTOURSVILLE, daily list only
+    "GLUHALLEY-2": (75.52, -26.0),  # HALLEY (Antarctica), hourly list only
+    "GLUHALLEY-3": (75.5, -26.0),  # HALLEY (Antarctica), hourly list only
+    "GLUHALLEY-4": (75.6, -26.0),  # HALLEY (Antarctica), hourly list only
+    "TNU55-00239": (21.12, -175.2),  # NUKUALOFA, hourly list only
+}
+
+
+def _turn_sign(df: pl.DataFrame, table: dict[str, tuple[float, float]], column: str) -> pl.DataFrame:
+    """Turn the sign of `column` ("latitude" or "longitude") of the rows of `table`, for either list.
 
     A row is changed only if its id is in the table and its latitude and longitude are what the table recorded, so
     a list in which NOAA has put the sign right, or has moved the station, is read as it is.
@@ -113,21 +165,28 @@ def _restore_lost_longitude_sign(df: pl.DataFrame) -> pl.DataFrame:
     latitude = pl.col("latitude").str.strip_chars().cast(pl.Float64, strict=False)
     longitude = pl.col("longitude").str.strip_chars().cast(pl.Float64, strict=False)
     listed_latitude = pl.col("station_id").replace_strict(
-        {station_id: position[0] for station_id, position in LOST_LONGITUDE_SIGN_STATIONS.items()},
+        {station_id: position[0] for station_id, position in table.items()},
         default=None,
         return_dtype=pl.Float64,
     )
     listed_longitude = pl.col("station_id").replace_strict(
-        {station_id: position[1] for station_id, position in LOST_LONGITUDE_SIGN_STATIONS.items()},
+        {station_id: position[1] for station_id, position in table.items()},
         default=None,
         return_dtype=pl.Float64,
     )
+    value = latitude if column == "latitude" else longitude
     return df.with_columns(
         pl.when(latitude.eq(listed_latitude) & longitude.eq(listed_longitude))
-        .then((-longitude).cast(pl.String))
-        .otherwise(pl.col("longitude"))
-        .alias("longitude"),
+        .then((-value).cast(pl.String))
+        .otherwise(pl.col(column))
+        .alias(column),
     )
+
+
+def _restore_lost_signs(df: pl.DataFrame) -> pl.DataFrame:
+    """Turn the lost signs of the longitudes (GH-3384) and latitudes (GH-3662) of the two tables, for either list."""
+    df = _turn_sign(df, LOST_LONGITUDE_SIGN_STATIONS, "longitude")
+    return _turn_sign(df, LOST_LATITUDE_SIGN_STATIONS, "latitude")
 
 
 def _closes_its_hour(df: pl.DataFrame) -> pl.Series:
@@ -409,6 +468,38 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
             pl.col("value").str.strip_chars(),
             "quality_flags",
         )
+        # AWDR, the average daily wind direction, is 0 beside an AWND of 0 (a calm day) as much as it is a bearing
+        # beside a wind that blows: at USS0054K01S (read 2026-10-30) 2 of its 11 directions of 0 have a speed of 0 and 5
+        # have one above, besides the 360 of 2025-06-30. So are the directions of the fastest and peak winds (9 station
+        # files read 2026-10-30): of the 1,799 zeros of WDFG 1,798 have a WSFG of 0. 1,789 of them are at CAN03031640
+        # (source flag C), where every WSFG of 0 sits beside a WDFG of 0 and the smallest WSFG above 0 is 8.6 m/s
+        # (31 km/h): the gust below 31 km/h that Environment Canada does not report (`_GUST_NOT_REPORTED` of
+        # eccc/observation), no calm. There 0 and 0 are no wind and no direction either. At USW00014755 123 zeros of
+        # WDF5 (1998 to 2002) are beside a WSF5 of 4.0 to 59.0 m/s, besides its 360 for north. WDF1, WDF2 and WDF5
+        # have 2 of 3, 8 of 23 and 11 of 134 zeros beside a speed of 0, WDFI and WDFM none in 8,410 and 28,815
+        # directions. The readme gives no code for a day without a direction. The 0 beside a speed of exactly 0 is no
+        # direction, a calm or a gust not reported, and is null with `raw:0` in `quality_flags` (GH-3222); the 0 beside
+        # a wind that blows stays (GH-3648)
+        # The speed of that gust is no reading either, when Environment Canada wrote it. Of 14 CAN stations read
+        # (2026-10-31; the inventory has WSFG and no other speed at the 1,472 CAN stations) 13 have 212 to 7,878
+        # zeros in WSFG, all flag C and each beside a WDFG of 0 (but for 100 of CAN02300902 beside none); the 14th
+        # has none, and at all 14 the smallest WSFG above 0 is 8.6 or 8.9 m/s (31 or 32 km/h), ECCC's "do not report
+        # if less than 31 km/h". A 0 of another source is a reading: 1 to 11 zeros of WSFG (smallest above 0: 0.5 to
+        # 2.6 m/s) at 5 US stations, and 55 of WSF5 at USW00094728. It is null with `raw:0`
+        # (`_GUST_NOT_REPORTED` of eccc/observation, GH-3655); the direction beside it reads the speed as the file
+        # wrote it, so it is null by the rule above as well
+        df = with_speed_beside(df, GHCND_WIND_SPEED_OF_DIRECTION, on=["station_id", "timestamp"])
+        value, raw = null_sentinels(
+            pl.col("value"),
+            Sentinel(
+                "0",
+                where=pl.col("parameter").eq("wsfg") & pl.col("quality_flags").str.contains(GHCND_ENVIRONMENT_CANADA),
+            ),
+            calm(pl.col(SPEED_BESIDE), where=pl.col("parameter").is_in(list(GHCND_WIND_SPEED_OF_DIRECTION))),
+        )
+        df = df.with_columns(value.alias("value"), join_quality_flags(pl.col("quality_flags"), raw=raw)).drop(
+            SPEED_BESIDE
+        )
         # A daily value is stamped at 00:00 UTC of the date the file gives it, whichever time zone the station is in:
         # the date is handed over as it is, which the core reads as midnight UTC. The date is the station's own
         # observing day, which the readme gives no zone for, and a stamp shifted by the station's offset (Tokyo 15:00
@@ -577,7 +668,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
         df = df.with_columns(
             pl.col("elevation").replace(["-999.9", "-999.0", "-99.0", "9999.0", "8191.0"], None),
         )
-        df = _restore_lost_longitude_sign(df)
+        df = _restore_lost_signs(df)
         # 0.0, 0.0 is no position either: BOGUS ARGENTINEAN and NAME AND LOC UNKN are listed there,
         # and their data rows repeat it. A station named BOGUS, such as BOGUS AUSTRIAN or the ten
         # BOGUS CHINESE, is a placeholder whose identity, so whose position, was not established. Both
@@ -668,7 +759,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
             .alias("elevation"),
         )
 
-        df = _restore_lost_longitude_sign(df)
+        df = _restore_lost_signs(df)
 
         inventory_url = "https://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-inventory.txt"
         inventory_file = download_file(
@@ -704,7 +795,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
             .then(pl.col("end_timestamp").add(1).cast(pl.String).str.to_datetime("%Y").dt.offset_by("-1d"))
             .alias("end_timestamp"),
         )
-        df = df.join(other=inventory_df, how="left", on=["station_id"]).lazy()
+        df = df.join(other=inventory_df, how="left", on=["station_id"], maintain_order="left").lazy()
         df = df.with_columns(
             pl.lit("daily").alias("resolution"),
             pl.lit("data").alias("dataset"),

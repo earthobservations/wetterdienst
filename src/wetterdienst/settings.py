@@ -55,6 +55,14 @@ RESTAPI_TIMEOUT = 60.0
 #: until its handler is done, also after a timeout answered it, so the cap bounds the threads; it leaves the
 #: rest of the pool to the routes it does not count, such as `/health`
 RESTAPI_MAX_CONCURRENT = 32
+#: the stations beyond the one in hand whose files a read of many stations fetches meanwhile (GH-3454), so that this
+#: many connections to a host are open besides the one of the station in hand. Measured on a local upstream (100
+#: stations of one 43 kB file each, 15 ms of parsing each, cold cache): 17.5 s one station after the other, 4.3 s with
+#: 4 ahead and 4.7 s with 8 on a profile of 120 ms latency and 8 MB/s; 59.5 s, 14.5 s and 9.5 s at 500 ms and 1.5 MB/s
+FETCH_AHEAD = 4
+#: the most `fetch_ahead` may be set to, and the most connections to one host that all the reads of the process make
+#: for their fetch-ahead together. The behaviour of DWD's servers under parallel connections is not measured
+FETCH_AHEAD_MAX = 8
 
 #: what pydantic renders a secret as, and so what a credential looks like after a JSON round-trip
 _MASK = "*" * 10
@@ -477,8 +485,11 @@ class Settings(BaseSettings):
     fsspec_client_kwargs: dict[str, Any] = Field(default_factory=_default_fsspec_client_kwargs)
     auth: Auth = Field(default_factory=Auth)
     use_certifi: bool = Field(default=False)
+    # the stations after the one a read is at that have their files fetched while it is parsed (GH-3454); each is one
+    # connection to the host at once. 0 switches it off: the files are fetched one station after the other
+    fetch_ahead: int = Field(default=FETCH_AHEAD, ge=0, le=FETCH_AHEAD_MAX)
     # opt-in: let REST API and MCP clients pass `sql` / `sql_values` clauses. Off by default because
-    # the clause runs in DuckDB on this host with only per-request limits (see `_filter_by_sql`);
+    # the clause runs in DuckDB on this host with only per-request limits (see `wetterdienst.io.sql_filter`);
     # the library and the CLI, whose caller is the host's own user, are not gated
     restapi_sql: bool = Field(default=False)
     # the limits of the REST API and the MCP tools (GH-3065): a request that would pass one is refused before
@@ -530,6 +541,7 @@ class Settings(BaseSettings):
             fsspec_client_kwargs: Mapping[str, Any] = ...,
             auth: Auth | Mapping[str, Any] = ...,
             use_certifi: bool = ...,
+            fetch_ahead: int = ...,
             restapi_sql: bool = ...,
             restapi_max_stations: int = ...,
             restapi_max_rows: int = ...,

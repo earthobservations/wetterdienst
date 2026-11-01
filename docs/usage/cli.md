@@ -12,6 +12,22 @@ and the [REST API](restapi.md) render a result through the same function, so the
 same output, the `metadata` block of the [response metadata](restapi.md#response-metadata) and a
 `settings` block with `--with-metadata` included.
 
+The plausibility checks each have an option, `--plausibility-range`, `--plausibility-elevation`, `--plausibility-stuck`,
+`--plausibility-consistency` and `--plausibility-floor`, which take `hard` (null the value, keep the number as
+`rejected:<check>,raw:<number>` in `quality_flags`) or `soft` (keep the value, flag it `suspect:<check>`), and
+`WD_TS_PLAUSIBILITY__<CHECK>` sets one for a host. One not given keeps the host's mode, or its default (`stuck` is soft,
+the others hard). `--plausibility soft` (or `hard`) sets all five at once, and a check given beside it wins whatever the
+order: `--plausibility soft --plausibility-range hard`; `WD_TS_PLAUSIBILITY=soft` does it for a host. See [plausibility checks](../data/plausibility.md).
+
+```bash
+wetterdienst values --provider=dwd --network=observation --parameters=hourly/moisture/pressure_air_site \
+    --stations=01048 --timestamp=2024-01 --plausibility-range=soft --plausibility-stuck=hard
+
+# everything the source wrote, flagged: every check soft but the range
+wetterdienst values --provider=dwd --network=observation --parameters=hourly/moisture/pressure_air_site \
+    --stations=01048 --timestamp=2024-01 --plausibility=soft --plausibility-range=hard
+```
+
 The command line has none of the limits of the REST API on the rows or stations of a request. A long record or a
 whole network is written with `--target` to a file or a database, see
 [Getting more than the limit](large-requests.md#leave-the-server).

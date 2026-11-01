@@ -204,11 +204,12 @@ def _log_unmapped_steps(df: pl.DataFrame) -> None:
 
 # Where the stations of the referential are, one box for each area, `(south, north, west, east)` in degrees and a
 # little wider than the stations of 2026-10-26 (metropolitan France with Corsica: latitude 41.55 to 50.92, longitude
-# -4.68 to 9.47; Guadeloupe and Martinique, Guyane, Reunion and Mayotte as named). The declared extent of the network
-# is one box over all of them, which is no help against a swapped position: the swapped position of a station in
-# Nord (latitude 4.1, longitude 50.0) is in it too.
+# -4.68 to 9.47; Guadeloupe and Martinique, Guyane, Reunion and Mayotte as named). The north edge of metropolitan
+# France is 51.1, as France reaches 51.09 at Bray-Dunes (Dunkerque is at 51.03): a station there is in, and its swapped
+# position is told. The declared extent of the network is one box over all of them, which is no help against a swapped
+# position: the swapped position of a station in Nord (latitude 4.1, longitude 50.0) is in it too.
 _AREAS: dict[str, tuple[float, float, float, float]] = {
-    "metropolitan France": (41.0, 51.0, -5.5, 10.0),
+    "metropolitan France": (41.0, 51.1, -5.5, 10.0),
     "Guadeloupe and Martinique": (14.3, 16.6, -61.9, -60.7),
     "Guyane": (2.0, 5.9, -54.8, -51.5),
     "Reunion": (-21.5, -20.7, 55.1, 55.9),
@@ -363,9 +364,10 @@ _HubeauMetadataSpec = {
         "continents": ["africa", "europe", "north_america", "south_america"],
         "country_codes": ["FR"],
         # Guadeloupe and Martinique, Guyane, Reunion, Mayotte and Corsica, read from the referential the reader lists
-        # the stations of (`referentiel/stations?en_service=true`, 4,197 stations on 2026-10-26: longitude -61.78 to
-        # 55.72, latitude -21.38 to 50.92), which `test_the_hubeau_referential_is_in_the_extent_of_its_network` reads
-        "bbox": [-62.0, -22.0, 56.0, 51.0],
+        # the stations of (`referentiel/stations?en_service=true`, 4,200 stations, each with a position, on 2026-10-27:
+        # longitude -61.78 to 55.72, latitude -21.38 to 50.92, the box reaching to 51.1 as France does, Bray-Dunes at
+        # 51.09), which `test_the_hubeau_referential_is_in_the_extent_of_its_network` reads
+        "bbox": [-62.0, -22.0, 56.0, 51.1],
     },
     "timezone": "Europe/Paris",
     "resolutions": [
@@ -650,8 +652,8 @@ class HubeauRequest(TimeseriesRequest):
         # listed under no resolution: naming an interval for it would be a guess, and the join
         # below drops it. It returns to the list as soon as it transmits again.
         steps = self._station_steps(df_raw.get_column("station_id").to_list())
-        df = df_raw.join(steps, on="station_id", how="inner")
-        df = df.join(self._site_elevations(), on="code_site", how="left")
+        df = df_raw.join(steps, on="station_id", how="inner", maintain_order="left")
+        df = df.join(self._site_elevations(), on="code_site", how="left", maintain_order="left")
         df = df.with_columns(
             pl.col("step").replace_strict(_STEP_TO_RESOLUTION, default=None).alias("resolution"),
             pl.lit(DATASET_NAME_DEFAULT, pl.String).alias("dataset"),

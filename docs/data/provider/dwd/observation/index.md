@@ -266,6 +266,12 @@ the difference in the quality control procedure should be considered.
 There are still issues to be discovered in the historical data.
 The DWD welcomes any hints to improve the data basis (see contact).
 
+The periods overlap (the `recent` files reach back about 500 days, the `now` files a day or two). For a
+timestamp that several periods hold, the answer takes the reading of the preferred period: historical over
+recent over now. That holds even where the preferred file has a missing-value marker (`-999`, null) and
+another has a value: 18 readings of 50 million were such in a measurement of 2026-10 (577 station-datasets,
+mostly `hourly/solar` before 2024). The value of the other period is not filled in.
+
 ### Examples
 
 As an example, these sections display different means of
@@ -326,6 +332,24 @@ Quality level (column header: ``QN``):
     2- Controlled with individually defined criteria
     3- ROUTINE automatic control and correction with QUALIMET
 ```
+
+## Plausibility checks
+
+Three [checks](../../../plausibility.md) judge values of this network. `range` (hard by default): a wind speed below 0
+or above 115 m/s, and a station or sea level pressure (`pressure_air_site`, `pressure_air_site_mean`,
+`pressure_air_sea_level`) outside 500 to 1090 hPa. `elevation` (hard): a `pressure_air_site` or `pressure_air_site_mean`
+more than 75 hPa from what the barometric formula of the standard atmosphere expects at the elevation of the station in
+the station list (`rejected:elevation,raw:909.5`). The `1093.3` hPa of the hourly `pressure` of 00433 (48 m) is both,
+and is `rejected:elevation+range,raw:1093.3` (`suspect:elevation+range` with both soft). `stuck` (**soft** by default):
+a run of 72 hourly readings (5 days; 36 readings at 10 minutes, a limit the research for GH-3681 derives and no source
+publishes) of one value of `pressure_air_site` or `pressure_air_site_mean`, the constant a station without a barometer
+writes (HadISD and ECA&D, see [the limit of a run](../../../plausibility.md#the-limit-of-a-run)); the value is kept and
+flagged `suspect:stuck`, and null with `rejected:stuck,raw:997.3` where the check is hard (`plausibility={"stuck":
+"hard"}`). The run is judged in the series of the periods read, the historical archive before the recent file, so a
+station whose historical file is constant and whose recent one is not is flagged for the stretch that is; a gap of more
+than four times the interval ends a run. The `-999` of every dataset and the other codes of the files are no check: they
+are null with `raw:` alone. The datasets each check covers are in the [table of the plausibility
+page](../../../plausibility.md#where-each-check-runs).
 
 ```{toctree}
 :hidden:

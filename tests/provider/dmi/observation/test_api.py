@@ -14,9 +14,11 @@ import polars as pl
 import pytest
 
 import wetterdienst.provider.dmi.observation.api as dmi_api
+from tests.provider.judging import judged
 from tests.provider.value_stubs import stations_result
 from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.values import shape_provider_frame
 from wetterdienst.settings import Settings
 from wetterdienst.util.network import File
 
@@ -389,8 +391,9 @@ def test_collect_windows_a_long_range_below_the_offset_cap(monkeypatch: pytest.M
 @pytest.mark.parametrize(
     ("resolution", "window"),
     [
-        # 02:00 to 06:00 in Copenhagen (UTC+2 in June) is 00:00 to 04:00 UTC, which an hourly request sends as it is
-        ("hourly", "2023-06-01T00:00:00Z/2023-06-01T04:00:00Z"),
+        # 02:00 to 06:00 in Copenhagen (UTC+2 in June) is 00:00 to 04:00 UTC, which an hourly request sends with an hour
+        # more at the start: the 12 and 24 hour values are stamped by their `to`, an hour after their `from`
+        ("hourly", "2023-05-31T23:00:00Z/2023-06-01T04:00:00Z"),
         # a daily request is widened by a day on each side, in UTC
         ("daily", "2023-05-31T00:00:00Z/2023-06-02T04:00:00Z"),
     ],
@@ -626,10 +629,15 @@ def test_collect_carries_qc_status_and_validity_in_quality_flags(monkeypatch: py
     )
     dataset = dmi_api.DmiObservationMetadata["daily"].datasets[0]
     df = values._collect_station_parameter_or_dataset("04339", dataset)  # noqa: SLF001
+    df = judged(
+        shape_provider_frame(df, station_id="04339", dataset=dataset, provider="DmiObservationValues"),
+        network="dmi/observation",
+        dataset=dataset,
+    )
     assert df.schema["quality_flags"] == pl.String
     flags = {(row["parameter"], row["value"]): row["quality_flags"] for row in df.iter_rows(named=True)}
     assert flags == {
-        ("acc_precip", None): "manual,validity:false,raw:1978",
+        ("acc_precip", None): "manual,validity:false,rejected:range,raw:1978",
         ("acc_precip", 3.4): "manual,validity:true",
         ("mean_temp", 5.1): "none,validity:true",
         ("mean_temp", 5.3): None,
@@ -662,7 +670,12 @@ def _collect_station_values(resolution: str, rows: list[tuple[str, str, float, s
     dataset = dmi_api.DmiObservationMetadata[resolution].datasets[0]
     with pytest.MonkeyPatch.context() as monkeypatch:
         monkeypatch.setattr(dmi_api, "download_file", lambda **_: File(url="", content=BytesIO(content), status=200))
-        return values._collect_station_parameter_or_dataset("04339", dataset)  # noqa: SLF001
+        df = values._collect_station_parameter_or_dataset("04339", dataset)  # noqa: SLF001
+    # the range of a parameter is judged by the core, in canonical units
+    shaped = shape_provider_frame(df, station_id="04339", dataset=dataset, provider="DmiObservationValues")
+    return judged(shaped, network="dmi/observation", dataset=dataset).select(
+        "parameter", "timestamp", "value", "quality_flags"
+    )
 
 
 def test_collect_nulls_a_value_outside_the_range_of_its_parameter_and_keeps_what_it_was() -> None:
@@ -686,11 +699,43 @@ def test_collect_nulls_a_value_outside_the_range_of_its_parameter_and_keeps_what
     found = {(row["parameter"], row["timestamp"].year, row["timestamp"].month): row for row in df.iter_rows(named=True)}
     assert {key: (row["value"], row["quality_flags"]) for key, row in found.items()} == {
         ("acc_precip", 2011, 9): (1200.0, "manual,validity:true"),
-        ("acc_precip", 2011, 10): (None, "manual,validity:false,raw:17802"),
-        ("acc_precip", 2012, 10): (None, "manual,validity:false,raw:3229.9"),
-        ("max_temp_w_date", 2011, 9): (None, "manual,validity:true,raw:4021"),
+        ("acc_precip", 2011, 10): (None, "manual,validity:false,rejected:range,raw:17802"),
+        ("acc_precip", 2012, 10): (None, "manual,validity:false,rejected:range,raw:3229.9"),
+        ("max_temp_w_date", 2011, 9): (None, "manual,validity:true,rejected:range,raw:4021"),
         ("max_temp_w_date", 2011, 10): (8.5, "manual,validity:true"),
     }
+
+
+@pytest.mark.parametrize(
+    ("resolution", "parameter"),
+    [("daily", "acc_precip"), ("daily", "max_precip_30m"), ("monthly", "max_precip_24h"), ("hourly", "acc_precip")],
+)
+def test_collect_reads_the_trace_of_precipitation_as_zero_and_keeps_its_text(resolution: str, parameter: str) -> None:
+    """DMI's -0.1 is a trace of precipitation: 0.0 with `raw:-0.1`, as the other providers write one (GH-3621).
+
+    The lower bound of 0 of the range of the parameter read it as out of range and made it null.
+    """
+    rows = [
+        (parameter, "2012-01-01T06:00:00+00:00", -0.1, "manual", True),
+        (parameter, "2012-02-01T06:00:00+00:00", 0.0, "manual", True),
+        (parameter, "2012-03-01T06:00:00+00:00", 1.2, "manual", True),
+        # a negative amount that is no trace stays out of range
+        (parameter, "2012-04-01T06:00:00+00:00", -0.5, "manual", True),
+    ]
+    df = _collect_station_values(resolution, rows).sort("timestamp")
+    assert df.select("value", "quality_flags").rows() == [
+        (0.0, "manual,validity:true,raw:-0.1"),
+        (0.0, "manual,validity:true"),
+        (1.2, "manual,validity:true"),
+        (None, "manual,validity:true,rejected:range,raw:-0.5"),
+    ]
+
+
+def test_collect_reads_minus_0_1_of_no_precipitation_amount_as_a_trace() -> None:
+    """The -0.1 is a trace of precipitation only: the same number of a temperature is a reading."""
+    rows = [("mean_temp", "2012-01-01T06:00:00+00:00", -0.1, "manual", True)]
+    df = _collect_station_values("monthly", rows)
+    assert df.select("value", "quality_flags").rows() == [(-0.1, "manual,validity:true")]
 
 
 @pytest.mark.parametrize(
@@ -718,7 +763,7 @@ def test_collect_holds_the_rain_to_the_span_of_the_resolution(
     df = _collect_station_values(resolution, rows).sort("timestamp")
     assert df.select("value", "quality_flags").rows() == [
         (reading, "manual,validity:true"),
-        (None, f"manual,validity:false,raw:{no_reading:.15g}"),
+        (None, f"manual,validity:false,rejected:range,raw:{no_reading:.15g}"),
     ]
 
 
@@ -744,7 +789,7 @@ def test_collect_holds_the_largest_amount_of_a_part_of_a_day_to_the_day(
     df = _collect_station_values(resolution, rows).sort("timestamp")
     assert df.select("value", "quality_flags").rows() == [
         (reading, "manual,validity:true"),
-        (None, f"manual,validity:false,raw:{no_reading:.15g}"),
+        (None, f"manual,validity:false,rejected:range,raw:{no_reading:.15g}"),
     ]
 
 

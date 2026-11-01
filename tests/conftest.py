@@ -8,6 +8,7 @@ import os
 import platform
 import re
 import socket
+import ssl
 import sys
 import threading
 import time
@@ -20,7 +21,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 import pytest
-from aiohttp import ClientResponseError
+from aiohttp import ClientResponseError, ClientSSLError
 
 from wetterdienst import Info, Options, Settings
 from wetterdienst.exceptions import DownloadError, NoInternetError
@@ -167,6 +168,10 @@ def _is_upstream_outage(error: Exception, unresolved_hosts: Collection[str] = ()
             isinstance(cause, socket.gaierror) and _host_of(failure) in unresolved_hosts
         )
         return unanswered and _runner_has_network()
+    # a TLS failure is no outage for a test, though the library asks again for a handshake the server
+    # fumbled: one that is still failing after those attempts is a failure to look at (GH-3533)
+    if isinstance(failure, (ClientSSLError, ssl.SSLError)):
+        return False
     return isinstance(failure, Exception) and (
         _worth_retrying(failure)
         or _is_server_fault(failure)
@@ -354,6 +359,26 @@ def _worker_unique_cache_dir(tmp_path_factory: pytest.TempPathFactory, worker_id
     os.environ["WD_CACHE_DIR"] = str(cache)
     yield
     del os.environ["WD_CACHE_DIR"]
+
+
+@pytest.fixture(autouse=True)
+def _no_fetch_ahead_unless_asked_for(request: pytest.FixtureRequest) -> Generator[None]:
+    """Have the tests read one station after the other: the fetch-ahead of the core (GH-3454) is off unless one asks.
+
+    A test that stands in for the collection of DWD's stations but leaves its file index to the network would have the
+    hook that names a station's files ask that index of the network from the thread of the test. A test that wants it
+    (`tests/model/test_fetch_ahead.py`) names the fixture `fetch_ahead_wanted`.
+
+    Not through the `monkeypatch` fixture: that is undone after the fixtures set up later, and a test that patches
+    what another autouse fixture of its own clears (`tests/util/test_eccodes.py`) needs its patch undone first.
+    """
+    from wetterdienst.model.values import TimeseriesValues  # noqa: PLC0415
+
+    original = TimeseriesValues._fetch_ahead  # noqa: SLF001
+    if "fetch_ahead_wanted" not in request.fixturenames:
+        TimeseriesValues._fetch_ahead = lambda self, groups: None  # type: ignore[method-assign]  # noqa: ARG005, SLF001
+    yield
+    TimeseriesValues._fetch_ahead = original  # type: ignore[method-assign]  # noqa: SLF001
 
 
 def _is_local_address(address: object) -> bool:
@@ -795,6 +820,17 @@ def _block_network(request: pytest.FixtureRequest) -> Generator[None]:
 def default_settings() -> Settings:
     """Provide default settings."""
     return Settings()
+
+
+@pytest.fixture
+def window_not_required(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Let a reader be built for a request that names no window, for a dataset that is read by one (GH-3562).
+
+    `TimeseriesValues` refuses such a request, so the code a provider keeps for it -- the first row of a collection
+    asked for, an open end, a URL without a window -- cannot be reached through the library. A test that holds that
+    code to what it did takes this fixture; it goes with the code.
+    """
+    monkeypatch.setattr("wetterdienst.model.values.require_window", lambda *_args, **_kwargs: None)
 
 
 @pytest.fixture

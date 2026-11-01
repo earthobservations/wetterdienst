@@ -22,12 +22,16 @@ unless the table says so.
   declares. The long shape drops the rows without a value by default, so the token shows with
   `drop_nulls=False` or in the wide shape; a filter on a null `quality_flags` as "no flag" meets
   these rows then.
-- A value outside the physical range of its parameter that is no code (4021 degrees for a daily
-  maximum, 17,802 mm for a month of rain) is treated the same way where the second table below names the
-  provider: null, with `raw:<number>` as the last token, the number as short as it can be written
-  (`raw:4021`, `raw:110.26`). The ranges are generous and, for the rain and the sunshine of a span,
-  grow with the resolution (what is no reading of a minute is one of a day), so a value that is only odd
-  stays.
+- A number no sensor can have produced that is no code (4021 degrees for a daily maximum, 17,802 mm for a month of
+  rain, a barometer that held one value for a month) is judged by a [plausibility check](plausibility.md), and its
+  token comes before `raw:`. Where the check is `hard` the value is null and the token is
+  `rejected:<check>,raw:<number>`, the number as short as it can be written (`rejected:range,raw:4021`,
+  `rejected:range,raw:110.26`; the text the source wrote where it gives one, `raw:-0.80`); where it is `soft` the value is kept and the token is `suspect:<check>`, with no
+  `raw:`. The checks are `range`, `elevation`, `stuck`, `consistency` and `floor`, several joined with `+`
+  (`suspect:range+stuck`); the `plausibility` option sets the mode of each, and every check is hard but `stuck`. The
+  ranges are generous and, for the rain and the sunshine of a span, grow with the resolution (what is no reading of a
+  minute is one of a day), so a value that is only odd stays. `raw:` without `rejected:` before it is the source's own
+  code (`-999`, `---`), which no check judged.
 - `str.split(",")` takes the tokens apart; where a numeric code was used before, cast it:
   `pl.col("quality_flags").cast(pl.Int64, strict=False)`; a code that is no number (IMGW's `Z`) and a
   value with several tokens become null, so take the first token of a code that can be followed by
@@ -41,7 +45,7 @@ The first table lists the plain codes and the further kinds; the `raw:` tokens a
 | DWD observation | `QN`, the quality control level of the file's row: `1` only formal control, `2` controlled with individually defined criteria, `3` automatic control and correction, `5` historic, subjective procedures, `7` second control done, before correction, `8` quality control outside routine, `9` not all parameters corrected, `10` quality control finished (data up to 1980 reach `5` at best; 10 minutes data `1` to `3`). A larger number is a more thorough check. Hourly `sun` adds `zone:woz` for a stamp of a period in the station's local true solar time, not UTC (`10,zone:woz`). Hourly `temperature_air` adds `zone:mez` for a stamp that was MEZ, UTC+1, in a period DWD's Metadaten_Parameter calls "Stundenwerte in MEZ (MD)" and is returned shifted to UTC (`3,zone:mez`). `DwdObservationRequest.describe_fields` prints the table of a dataset |
 | DWD derived | hourly `radiation_global` and `sunshine_duration` (DUETT, `QN_952`): `500` DUETT data without station and satellite data, `501` on station data only, `502` on satellite data only, `503` on station and satellite data; the other derived datasets: null |
 | DWD phenology | `Qualitaetsniveau`: `1` formal check only, `7` checked in routine but uncorrected, `10` checked and corrected |
-| DWD road | the station's own verdict, from `qualityInformationAwsData`, or this library's: `1` suspect, `0` checked and not found suspect, null unknown ([details](provider/dwd/road/15_minutes.md)) |
+| DWD road | the station's own verdict, from `qualityInformationAwsData`: `1` suspect, `0` checked and not found suspect, null unknown ([details](provider/dwd/road/15_minutes.md)); a stopped sensor is the check `stuck`, `suspect:stuck` |
 | DWD mosmix, dmo, poi, swsmos, radar and the other DWD networks | null (apart from `raw:`) |
 | Met Office observation | the MIDAS `*_q` flag `MESQL`, a five digit compound code, written by the file as an integer so that its leading zeros are missing (`2576` is `02576`; `str.zfill(5)` restores them) (marker, estimate, status, query, level: [QC flags](https://dap.ceda.ac.uk/badc/ukmo-midas/metadata/doc/QC_J_flags.html)); not a scale |
 | RMI | the validation of the value in `qc_flags`: `1` validated, `0` not validated |
@@ -62,16 +66,19 @@ The first table lists the plain codes and the further kinds; the `raw:` tokens a
 ## Sentinels in `quality_flags`
 
 The rules behind them, one per situation and the same for every provider, are on [special values](special_values.md).
+A text with `rejected:<check>` before it is a number a [plausibility check](plausibility.md) rejected (hard mode: a
+value outside a range, a station pressure the elevation does not allow, a stuck sensor, a reading another one
+contradicts, a model value below its floor); the others are the codes of the source, the same in both modes.
 
 | Provider | `raw:` text (value) |
 | --- | --- |
-| DWD observation | `-999` in every dataset (null); `-1` in the hourly cloud cover, `cloud_type` layers included, where the sky was not visible (null); `-99.9` in the five hourly `moisture` columns (null); `-1` in the hourly `weather_phenomena` `weather`, "not reported" (null); `990` in the wind direction of hourly and 10 minute `wind`, a variable direction (null); `0` in a wind direction beside a speed of 0 (10 minute and hourly `wind`, 10 minute `wind_extreme` beside the gust, 10 minute `urban_wind`, subdaily `wind` beside a force of 0), a calm (null), and every `0` of hourly `wind_synoptic` (a calm or variable wind) and hourly `urban_wind` (null) |
+| DWD observation | `-999` in every dataset (null); a wind speed below 0 or above 115 m/s, such as the `-0.80` of the hourly urban wind, and `pressure_air_site`, `pressure_air_site_mean` (daily `PM`) or `pressure_air_sea_level` outside 500 to 1090 hPa, such as the `1093.3` of the hourly `pressure`; not the vapour pressures (null); `pressure_air_site` or `pressure_air_site_mean` more than 75 hPa from the pressure the barometric formula of the standard atmosphere expects at the elevation of the station in the station list, such as the `909.5` of 00433 (48 m) or the `968.6` of the Zugspitze (null); `-1` in the hourly cloud cover, `cloud_type` layers included, where the sky was not visible (null); `-99.9` in the five hourly `moisture` columns (null); `-1` in the hourly `weather_phenomena` `weather`, "not reported" (null); `990` in the wind direction of hourly and 10 minute `wind`, a variable direction (null); `0` in a wind direction beside a speed of 0 (10 minute and hourly `wind`, 10 minute `wind_extreme` beside the gust, 10 minute `urban_wind`, subdaily `wind` beside a force of 0), a calm (null), and every `0` of hourly `wind_synoptic` (a calm or variable wind) and hourly `urban_wind` (null) |
 | DWD derived | `-999` and `-9999` (null) |
 | DWD mosmix | `-` for a value the run does not have (null) |
-| DWD dmo | `-` for a value the run does not have (null); the number ICON wrote below 0 in `rr1` and `rr3`, such as `-0.1` (0.0) |
+| DWD dmo | `-` for a value the run does not have (null); the number ICON wrote below 0 in `rr1`, `rr3`, `rad1h` and `rads3`, such as `-0.1` (0.0) |
 | DWD poi | `---`, and any text that is no number (null); `113` and `126` in `cloud_cover_total`, no amount (null); `0` in the wind direction beside a speed of 0, a calm (null) |
 | DWD swsmos | any text that is no number (null); none is in the run file read on 2026-10-12 |
-| DWD road | a value outside the range of its quantity, in DWD's unit, such as the 198.15 K (-75 °C) of KM's stopped sensors (null); the temperatures are null below -60 °C |
+| DWD road | a value outside the range of its quantity, in DWD's unit, such as the 198.15 K (-75 °C) of KM's stopped sensors (null); the temperatures are null below -60 °C; a `humidity_relative` below 1 %, such as `0.1` (null); a `temperature_surface` more than 20 K above the `temperature_air` of the same minute with the sun more than 6 degrees below the horizon, such as `338.75` (null) |
 | AEMET | `99` in the wind direction of the daily maximum gust, calm or variable (null); `Ip` in the precipitation of the daily, monthly and annual values, a trace (0.0); any other text that is no number in the daily, monthly and annual values (null) |
 | DMI | `0` in the mean wind direction beside a mean wind speed of 0, calm (null); a value outside the range of its parameter at the resolution, such as the 17,802 mm of a month of rain or the 1978 mm of a day (null) |
 | FMI | `NaN` (null); `-1.0` in `precipitation_amount` and `snow_depth`, none (0.0); `0.0` in the wind direction beside a speed of 0, a calm (null); any text that is no number (null) |
@@ -82,8 +89,8 @@ The rules behind them, one per situation and the same for every provider, are on
 | KNMI | `NaN`, the fill value (null); `-1` in `precipitation_amount` and `sunshine_duration`, a trace (0.0); `0` and `990` in the hourly wind direction, calm and variable (null); `9` in the hourly `cloud_cover_total` and the daily `cloud_cover_total_mean`, the sky is invisible (null) |
 | Met Office observation | `NA`, and any text that is no number (null); a day with an `NA` beside readings has the value of the readings; `0` in the hourly wind directions beside a speed of 0, a calm (null); `9` in the hourly `cloud_cover_total`, the sky is obscured (null) |
 | MET Norway Frost | `-1` in `snow_depth`, no snow (0.0); `-3` and `9` in `cloud_cover_total`, not estimated (null); the code as Frost documents it |
-| Météo-France observation | `9` in the hourly cloud cover, the sky is invisible (null); `999` in the wind directions `DD` (hourly) and `DXI` (daily) and `400` in `DXI`, no direction (null); `0` in them beside an `FF` or `FXI` of 0, a calm (null); any text that is no number (null) |
-| Météo-France synop | `-0.1` in the precipitation, a trace (0.0); `101` in the cloud cover, the sky is obscured (null); `0` in the wind direction beside an `ff` of 0, a calm, and `400` (null); any text that is no number (null) |
+| Météo-France observation | a temperature below 0 C at a station of Guadeloupe, Martinique, Guyane, Mayotte, Wallis-et-Futuna, French Polynesia or the Îles Éparses, such as the `-20.0` of a Martinique hour, and the hourly `U` of an hour whose `TD` is such a dew point, the same hygrometer (null); `9` in the hourly cloud cover, the sky is invisible (null); `999` in the wind directions `DD` (hourly) and `DXI` (daily) and `400` in `DXI`, no direction (null); `0` in them beside an `FF` or `FXI` of 0, a calm (null); any text that is no number (null) |
+| Météo-France synop | a temperature or dew point below 0 C at a station of Guadeloupe, Martinique, Guyane, Mayotte, Wallis-et-Futuna, French Polynesia or the Îles Éparses, and the `u` of a row whose `td` is such a dew point, the same hygrometer (null); a pressure, temperature, dew point or amount of rain beyond the records, such as the `369.15` K of a temperature or the `11170` Pa of a station pressure (null); a `pres` more than 7,500 Pa from the pressure the barometric formula of the standard atmosphere expects at the elevation of the station in the station list (null); `-0.1` in the precipitation, a trace (0.0); `101` in the cloud cover, the sky is obscured (null); `0` in the wind direction beside an `ff` of 0, a calm, and `400` (null); any text that is no number (null) |
 | SMHI | `0` in the wind directions beside a speed of 0, a calm wind (null); `113` in the hourly cloud cover, the sky is obscured (null) |
 | RMI | a value outside the range of its parameter at the resolution, such as the 4021 degrees of a daily maximum or the 81.5 m/s of a daily gust (null) |
 | MeteoSwiss | `0` in the wind directions beside a speed of 0, a calm (null) |

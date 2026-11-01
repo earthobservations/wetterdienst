@@ -24,7 +24,7 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
         - `icon`: more than 5000 stations worldwide, 23 parameters
         - `icon_eu`: the stations it is published for, about 3700, 19 parameters
     - Road
-        - Historical weather observations of German highway stations
+        - Historical weather observations of the road weather stations on German roads
     - SWSMOS
         - road weather forecast (Straßenwetter-MOS) for ~1800 German road weather stations
         - hourly, out to +167 hours; air/dew/road-surface temperature, precipitation, road condition
@@ -62,7 +62,7 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
         - ~1060 stations; open data, no authentication required
 - EA (Environment Agency)
     - Hydrology
-        - data of river network of UK
+        - data of the river network of England
         - parameters flow, river water level (stage) and groundwater level
 - Eaufrance
     - Hubeau

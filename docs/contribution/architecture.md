@@ -73,11 +73,34 @@ that say how `df` was selected. Every filter (`filter_by_station_id`, `filter_by
 A station that returns nothing in the window does not count towards a `filter_by_rank` selection, so the ranked walk
 goes on to the next one (`StationsResult._rank`).
 
+**Fetch-ahead.** A provider whose files are one set per station can name them beforehand by implementing
+`TimeseriesValues._files_ahead(station_id, datasets)`, which returns a `FilesAhead` (the URLs and the cache expiry the
+provider downloads them with). `query()` then has the files of the next `Settings.fetch_ahead` stations (4 by default,
+at most 8, 0 for none) downloaded into the cache by that many daemon threads while one station is parsed, and the
+provider's own download at the station's turn finds them there: `_collect_station_parameter_or_dataset` is not changed
+and is still what raises, at the station it raises at. A thread fetches the files of a station one after the other; when
+the walk comes to the station, it ends the file it is at and the provider's own download, which fetches a station's
+files side by side, takes the rest, so a provider whose stations have many files gains little (at the default of 4 it is
+not slower; with 1 or 2 stations ahead it can be). A fetch ahead raises nothing itself; after a failure other than a 404 (or a failing
+hook) nothing more is fetched ahead for that read. A file that is missing or failed is asked for again at its station's
+turn, so an outage can show up later than the first failed request, by up to twice the client timeout.
+
+What is limited: the fetch-ahead's own connections, to `fetch_ahead` for a read and to 8 per host for all the reads of a
+process (`HOST_CONNECTIONS` in `model/fetch_ahead.py`). What is not: the connections of the station in hand (the
+provider's own download, which may fetch its files side by side) and those of other reads. It is off where nothing is
+cached (`cache_disable`), for one station, for a provider that does not implement the hook, and for `interpolate` and
+`summarize` (`TimeseriesValues._fetch_ahead_allowed`), which stop where the data says. `dwd/observation`,
+`dwd/derived`, `chmi`, `imgw/meteorology` and `smhi/observation` implement it; `dwd/phenology`, `dwd/road` and `meteofrance` read files of
+the whole network or of a department, which the first station downloads and the others find in the cache.
+
 The other results are made the same way. `history()` builds a `TimeseriesHistory` (`model/history.py`) from the
 request's `_history` and raises `NotImplementedError` when the provider has none; its hook is `_collect_station_history`.
 `InterpolatedValuesResult` and `SummarizedValuesResult` share their base with `ValuesResult` and come out of
 `request.interpolate()` and `request.summarize()` (see [Interpolation, summary and export](#interpolation-summary-and-export)).
-The stations and values results share `ExportMixin` for their formats and targets; `HistoryResult` does not have it.
+The stations and values results share `ExportMixin` for their formats and targets; `HistoryResult` does not have it,
+and has `to_format` for JSON on its own. What the results have in common is the `FormattableResult` protocol
+(`to_dict`, `to_json`, `to_format`) of `model/result.py`, which the alerts result satisfies
+too; `tests/test_formattable_result.py` holds all six to it.
 
 ## The registry
 
@@ -111,7 +134,8 @@ declaration fails when the module is imported.
   `observation`, `forecast` or `derived`.
 - **Periods and `date_required`** can be declared on the resolution and are copied to every dataset that does not
   declare its own.
-- **A parameter** declares the canonical `name`, the source's `name_original` and the `unit` the source publishes. It
+- **A parameter** declares the canonical `name`, the source's `name_original` and the `unit` the source publishes (`coverage`
+  reports it as `unit_source` where it differs from `unit`, the target of its unit type, which is what the values come back in). It
   does not declare a unit type: that is read from the canonical parameter table (`wetterdienst.metadata.parameter_table`)
   through the canonical name, so one quantity cannot have two unit types.
 - **Descriptions** may be declared (every level has a `description` field) and one a provider declares wins.
@@ -186,8 +210,10 @@ answered. The cache is a directory of files, not a service: `Settings.cache_dir`
 
 **Retry.** `stamina` retries what may be a blip and nothing else. A download is tried twice, a listing three times; both
 retry a refused or dropped connection, a body that stopped arriving, a timeout and a 5xx, and a download also retries a
-404 once, because a file index can be read minutes before the files it names. A 4xx (a 429 included), a certificate that
-does not verify and a size or time cap (`MAX_DOWNLOAD_BYTES`, `MAX_DOWNLOAD_SECONDS`) are not retried.
+404 once, because a file index can be read minutes before the files it names. A TLS handshake the peer answers wrongly
+(`WRONG_VERSION_NUMBER`, `INVALID_SESSION_ID`) is retried as well; a certificate that does not verify never is, whatever
+else it says. A 4xx (a 429 included), a handshake the two cannot agree on and a size or time cap (`MAX_DOWNLOAD_BYTES`,
+`MAX_DOWNLOAD_SECONDS`) are not retried.
 
 **Failures.** The errors are told apart by what they mean to a caller, and every provider must keep them apart:
 
@@ -215,7 +241,7 @@ Two pydantic-settings classes, kept apart on purpose ([the user's view](../usage
 | --- | --- | --- |
 | Belongs to | the host: one per process | one request |
 | Environment | `WD_*`, nested with `__` (`WD_AUTH__KNMI`) | `WD_TS_*` |
-| Holds | `cache_dir`, `cache_disable`, `fsspec_client_kwargs`, `use_certifi`, the credentials (`auth`), and the limits, timeout and allowed hosts of the REST API (`restapi_*`) | `shape`, `humanize`, `convert_units`, `unit_targets`, `skip_empty`, `skip_threshold`, `skip_criteria`, `drop_nulls`, `station_window_end_buffer`, and the interpolation distances (`geo_*`) |
+| Holds | `cache_dir`, `cache_disable`, `fsspec_client_kwargs`, `use_certifi`, `fetch_ahead`, the credentials (`auth`), and the limits, timeout and allowed hosts of the REST API (`restapi_*`) | `shape`, `humanize`, `convert_units`, `unit_targets`, `skip_empty`, `skip_threshold`, `skip_criteria`, `drop_nulls`, `station_window_end_buffer`, and the interpolation distances (`geo_*`) |
 | Read by | the providers (through `request.settings`), the network layer, `ui/` | the values, the interpolation and the summary; never a provider |
 | Passed as | `settings=` on the request (a `Settings` or a dict) | `options=` on the request (an `Options`, a dict, or none to take the environment) |
 | Mutable | by assignment, which is validated | no: frozen, `replace()` makes a changed copy |
@@ -283,9 +309,12 @@ which decides whether a quantity is interpolated at all. The REST API and MCP se
 **Export** (`wetterdienst/io/export.py`) is `ExportMixin`, shared by the stations and values results. It renders to a
 dictionary, JSON, an OGC feature collection and GeoJSON, CSV, a plot and an image, and writes to a target named by a
 connection string with `to_target`: a `file://` path (CSV, Excel, JSON, JSON lines, Feather, Parquet, Zarr or NetCDF,
-by its extension), `duckdb://`, `influxdb*://`, `crate://` or any SQLAlchemy URL. `filtered_by_sql` filters a result with
-DuckDB. Each writer imports its dependency when it is used (`import_optional`) and raises `MissingDependencyError`,
-naming the extra, if it is not installed. The optional dependency groups are listed under
+by its extension), `duckdb://`, `influxdb*://`, `crate://` or any SQLAlchemy URL. The writers are in `io/sinks.py`,
+the file ones by extension and the database ones by scheme (`FILE_WRITERS`, `SINKS`). `filtered_by_sql` filters a result
+with DuckDB (`io/sql_filter.py`). Each writer imports its dependency when it is used (`import_optional`) and raises
+`MissingDependencyError`, naming the extra, if it is not installed. A Parquet, NetCDF or Zarr file carries the
+`metadata` block of the REST API, which `io/file_metadata.py` takes from `ui/response_metadata.py`, and `with_metadata`
+writes it beside any other file. The optional dependency groups are listed under
 `[project.optional-dependencies]` in `pyproject.toml`; among them are `export`, `sql`, `duckdb`, `excel`, `plotting`
 (image export), `influxdb`, `cratedb`, `postgresql`, `mysql`, `interpolation`, `restapi`, `mcp`, `bufr` and `radar`. See [Export](../usage/export.md) and [Interpolation & Summary](../usage/interpolation.md).
 

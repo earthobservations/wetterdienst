@@ -196,6 +196,14 @@ CASES = [
         {"values": {"station_window_end_buffer": "7"}},
         {"values": ["--station-window-end-buffer=7"]},
     ),
+    Case(
+        "plausibility",
+        {"range": "soft"},
+        '{"range": "soft"}',
+        _VALUES,
+        {"values": {"plausibility_range": "soft"}},
+        {"values": ["--plausibility-range=soft"]},
+    ),
     # set by the server alone: no query parameter and no command line option names it
     Case("geo_station_distance_resolution_factors", {"daily": 3.0}, '{"daily": 3.0}', _GEO),
 ]
@@ -373,6 +381,54 @@ def test_an_argument_outranks_the_environment_and_a_dict_is_merged_into_it(monke
     assert options.shape == "long"
     cli_options = _cli(monkeypatch, "values", [f"--unit-targets={given['unit_targets']}", "--shape=long"])
     assert cli_options.model_dump() == options.model_dump()
+
+
+def test_a_check_given_is_laid_over_the_checks_the_environment_sets(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The mode of one check given as an argument leaves the modes the environment sets for the others (GH-3676)."""
+    monkeypatch.setenv("WD_TS_PLAUSIBILITY__STUCK", "hard")
+    monkeypatch.setenv("WD_TS_PLAUSIBILITY__RANGE", "soft")
+    options = _rest(monkeypatch, "values", {"plausibility_range": "hard", "plausibility_floor": "soft"})
+    assert options.plausibility.model_dump() == {
+        "range": "hard",
+        "elevation": "hard",
+        "stuck": "hard",
+        "consistency": "hard",
+        "floor": "soft",
+    }
+    cli_options = _cli(monkeypatch, "values", ["--plausibility-range=hard", "--plausibility-floor=soft"])
+    assert cli_options.model_dump() == options.model_dump()
+    # a request that names none takes the server's
+    assert _rest(monkeypatch, "values", {}).plausibility.range == "soft"
+    assert _cli(monkeypatch, "values", []).plausibility.stuck == "hard"
+
+
+def test_one_mode_for_every_check_and_a_check_that_wins(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`plausibility=soft` sets all five, and `plausibility_range=hard` beside it keeps that one hard (GH-3676)."""
+    every = {"range": "soft", "elevation": "soft", "stuck": "soft", "consistency": "soft", "floor": "soft"}
+    for surface, options in (
+        ("rest", _rest(monkeypatch, "values", {"plausibility": "soft"})),
+        ("cli", _cli(monkeypatch, "values", ["--plausibility=soft"])),
+    ):
+        assert options.plausibility.model_dump() == every, surface
+    rest = _rest(monkeypatch, "values", {"plausibility": "soft", "plausibility_range": "hard"})
+    cli = _cli(monkeypatch, "values", ["--plausibility=soft", "--plausibility-range=hard"])
+    assert rest.plausibility.model_dump() == {**every, "range": "hard"} == cli.plausibility.model_dump()
+    # the order on the command line is no matter: the check named wins
+    reverse = _cli(monkeypatch, "values", ["--plausibility-range=hard", "--plausibility=soft"])
+    assert reverse.plausibility.model_dump() == {**every, "range": "hard"}
+    # and the environment's `WD_TS_PLAUSIBILITY` is the shorthand the request leaves out
+    monkeypatch.setenv("WD_TS_PLAUSIBILITY", "soft")
+    assert _rest(monkeypatch, "values", {}).plausibility.model_dump() == every
+    assert _cli(monkeypatch, "values", ["--plausibility-floor=hard"]).plausibility.floor == "hard"
+    assert _rest(monkeypatch, "values", {"plausibility": "hard"}).plausibility.range == "hard"
+
+
+def test_a_value_that_is_no_mode_is_refused_by_rest_and_the_command_line() -> None:
+    """`plausibility=off` is a 422 and a usage error, as `plausibility_range=off` is."""
+    response = TestClient(restapi.app).get("/api/values", params={**_REST_BASE["values"], "plausibility": "off"})
+    assert response.status_code == 422
+    result = CliRunner().invoke(cli, ["values", *_CLI_BASE["values"], "--plausibility=off"])
+    assert result.exit_code == 2
 
 
 def _getter_options(getter: Callable[..., object], monkeypatch: pytest.MonkeyPatch, request: object) -> Options:
