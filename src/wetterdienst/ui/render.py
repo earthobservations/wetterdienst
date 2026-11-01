@@ -23,6 +23,7 @@ from wetterdienst.model.unit import UnitConverter
 from wetterdienst.options import SkipThreshold, StationWindowEndBuffer  # noqa: TC001, needed at runtime by pydantic
 from wetterdienst.ui.response_metadata import ResponseMetadata, alerts_metadata, metadata_to_dict, response_metadata
 from wetterdienst.util.datetime import format_timestamp
+from wetterdienst.util.json_util import dumps_json
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
@@ -271,12 +272,12 @@ def _json_answer(
         answer["settings"] = json.loads(settings.model_dump_json())
     answer.update(data)
     fmt = getattr(request, "format", "json")
-    return json.dumps(answer, indent=4 if request.pretty else None, ensure_ascii=fmt == "json")
+    return dumps_json(answer, indent=4 if request.pretty else None, ensure_ascii=fmt == "json")
 
 
 def ndjson_line(value: Mapping[str, Any]) -> bytes:
     """Write one line of an NDJSON answer: compact JSON, UTF-8, a newline."""
-    return json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode() + b"\n"
+    return dumps_json(value, ensure_ascii=False, separators=(",", ":")).encode() + b"\n"
 
 
 def ndjson_head(metadata: ResponseMetadata, settings: _AppliedSettings | None = None) -> dict[str, Any]:
@@ -392,7 +393,7 @@ def render_history(
 def render_issues(issues: list[str], metadata: ResponseMetadata, *, pretty: bool = False) -> str:
     """Write the issue times of a forecast network as JSON: `{"metadata": ..., "issues": [...]}`."""
     answer = {"metadata": metadata_to_dict(metadata), "issues": issues}
-    return json.dumps(answer, indent=4 if pretty else None)
+    return dumps_json(answer, indent=4 if pretty else None)
 
 
 def render_alerts(result: DwdWeatherAlertResult, fmt: str, *, pretty: bool = False) -> tuple[str, ResponseMetadata]:
@@ -409,7 +410,7 @@ def render_alerts(result: DwdWeatherAlertResult, fmt: str, *, pretty: bool = Fal
     data = result.to_dict() if fmt == "json" else result.to_ogc_feature_collection()
     head = {"type": data.pop("type")} if fmt == "geojson" else {}
     answer = {**head, "metadata": metadata_to_dict(metadata), **data}
-    return json.dumps(answer, indent=4 if pretty else None, ensure_ascii=False), metadata
+    return dumps_json(answer, indent=4 if pretty else None, ensure_ascii=False), metadata
 
 
 def render_stripes_stations(result: StationsResult, request: StripesStationsRequest, metadata: ResponseMetadata) -> str:
@@ -430,4 +431,4 @@ def render_stripes_values(data: StripesData, request: StripesValuesRequest, meta
         for row in data.df.select("timestamp", "value").iter_rows(named=True)
     ]
     answer = {"metadata": metadata_to_dict(metadata), "series": data.series.model_dump(), "values": values}
-    return json.dumps(answer, indent=4 if request.pretty else None)
+    return dumps_json(answer, indent=4 if request.pretty else None)

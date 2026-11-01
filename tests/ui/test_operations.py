@@ -692,6 +692,53 @@ def test_ndjson_is_the_metadata_the_rows_and_the_end(client: TestClient, monkeyp
     assert lines[-1] == {"end": {"counts": {"stations": 2, "rows": len(rows)}, "warnings": []}}
 
 
+def _read_strictly(text: str) -> Any:  # noqa: ANN401
+    """Read JSON as RFC 8259 has it: `NaN` and `Infinity` are refused, as `JSON.parse` refuses them."""
+
+    def refuse(constant: str) -> None:
+        msg = f"{constant} is not JSON"
+        raise ValueError(msg)
+
+    return json.loads(text, parse_constant=refuse)
+
+
+def _result_with_non_finite_values() -> ValuesResult:
+    result = _values_result_of_shape("long")
+    numbers = [float("nan"), float("inf"), -float("inf")][: result.df.height]
+    return replace(result, df=result.df.with_columns(pl.Series("value", numbers, dtype=pl.Float64)))
+
+
+def test_ndjson_rows_write_null_for_what_is_not_a_finite_number(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The rows of a stream were `NaN` and `Infinity`, which a strict parser refuses; polars writes `null` (GH-3679)."""
+    result = _result_with_non_finite_values()
+    _stub_stream(monkeypatch, [_chunk_of(result, "01048")])
+
+    response = client.get("/api/v1/values", params={**_VALUES, "format": "ndjson"})
+
+    assert response.status_code == 200
+    rows = [_read_strictly(line) for line in response.text.splitlines()][1:-1]
+    assert [row["value"] for row in rows] == [None] * 2
+
+
+@pytest.mark.parametrize("fmt", ["json", "geojson", "ndjson"])
+def test_the_json_answers_write_null_for_what_is_not_a_finite_number(fmt: str) -> None:
+    """`render`, which the command line and the REST API answer with, writes no bare `NaN` or `Infinity` (GH-3679)."""
+    result = _result_with_non_finite_values()
+    request = restapi.ValuesRequest(**_VALUES, format=fmt)
+
+    text = render(result, request, ValuesSettings, Options())
+
+    if fmt == "ndjson":
+        values = [_read_strictly(line)["value"] for line in text.splitlines()[1:-1]]
+    else:
+        written = _read_strictly(text)
+        # a feature holds its values nested; the strict read is what fails for them
+        values = [row["value"] for row in written["values"]] if fmt == "json" else [None] * 2
+    assert values == [None] * 2
+
+
 def test_ndjson_of_values_is_what_the_command_line_writes(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """REST and the command line write one answer: the same lines, but when it was retrieved."""
     result = _stub_stream(monkeypatch, [_values_result_of_shape("long")])

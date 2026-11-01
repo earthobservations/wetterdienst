@@ -25,6 +25,11 @@ File targets are identified by their extension:
 
 The extension is read in any case: `file:///path/to/dwd.CSV` is a CSV file.
 
+Everything after `file://` is the path, percent-decoded, and the extension is read from the end of that path. A file
+target has no query string: `file:///path/to/dwd.csv?a=1` names a file `dwd.csv?a=1`, has no extension and is refused
+as an unknown file type (`ExportRefusedError`) rather than written with its query dropped. A `?` that belongs to the
+name of a file is written `%3F` (Windows has no such file name); a `#` is part of the name as it stands.
+
 CSV and spreadsheets are written the way ``to_csv`` returns them, with timestamps as ISO strings
 and a list of station ids as one comma-separated field. JSON and JSON Lines hold the same records
 with the list kept as a list, JSON having arrays of its own, rather than the response envelope
@@ -147,6 +152,13 @@ out, or the other way round, fails it.
 GeoJSON, `width`, `height`, `scale` and `max_side` for a chart, and none for CSV and NDJSON. A name that is none of
 these is a `TypeError` listing them. A format it does not know is an `UnknownFormatError`, which names the format and lists the
 supported ones; it is a `KeyError` and a `ValueError` both, so either `except` catches it.
+
+A number that is not finite, `NaN` or an infinity, is written as `null` in every JSON format: `to_json`, `to_geojson`,
+the `.json`, `.geojson`, `.jsonl` and `.ndjson` file targets, and the JSON, GeoJSON and NDJSON answers of the command
+line, the REST API and MCP. JSON has no such number (RFC 8259), and a strict parser such as JavaScript's `JSON.parse`
+refuses the bare `NaN` and `Infinity` that Python writes. A position is numbers only in GeoJSON, so a station whose
+elevation is not finite has no z, and one whose longitude or latitude is not finite has a `null` geometry. `to_dict`
+returns the float as it is.
 
 A `.json` or `.jsonl` file holds the records of the frame, where `--format=json` and `to_json` write the response
 envelope. `ndjson` is those records alone, a JSON object a line: `to_format("ndjson")` and the `.jsonl` file hold

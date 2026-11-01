@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import json
 import math
 import typing
 from dataclasses import dataclass, fields, replace
@@ -33,6 +32,7 @@ from wetterdienst.model.unit import UnitConverter
 from wetterdienst.model.util import create_station_id_from_string, filter_by_date
 from wetterdienst.util.datetime import format_timestamp, timestamps_to_string
 from wetterdienst.util.extras import import_optional
+from wetterdienst.util.json_util import dumps_json
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Mapping
@@ -312,6 +312,11 @@ def _metadata_of(stations: StationsResult, data_updated_at: datetime | None = No
     return describe_provider(stations.request.metadata, data_updated_at)
 
 
+def _is_finite(value: float | None) -> bool:
+    """Tell whether a coordinate is a number JSON has: not null, not NaN, not an infinity."""
+    return value is not None and math.isfinite(value)
+
+
 def _same(left: object, right: object) -> bool:
     """Compare two fields of a result: frames by their columns and values, the rest by ``==``."""
     if isinstance(left, pl.DataFrame) or isinstance(right, pl.DataFrame):
@@ -503,7 +508,7 @@ class StationsResult(_EqualByFields, ExportMixin):
             indent = 4
         elif indent is False:
             indent = None
-        return json.dumps(self.to_dict(with_metadata=with_metadata), indent=indent)
+        return dumps_json(self.to_dict(with_metadata=with_metadata), indent=indent)
 
     def _ogc_extra_columns(self) -> list[str]:
         """Name the station columns a provider declares beyond the core ones, such as WSV's gauge_zero.
@@ -529,9 +534,10 @@ class StationsResult(_EqualByFields, ExportMixin):
         # longitude, such as a postcode of DWD derived's climate_correction_factor, has no position
         # at all, and RFC 7946 3.2 writes such an unlocated feature with a null geometry.
         geometry: _OgcFeatureGeometry | None = None
-        if station["longitude"] is not None and station["latitude"] is not None:
+        # A NaN or an infinity is no number of a position either: JSON has none, and it would be written as null
+        if _is_finite(station["longitude"]) and _is_finite(station["latitude"]):
             coordinates = [station["longitude"], station["latitude"]]
-            if station["elevation"] is not None:
+            if _is_finite(station["elevation"]):
                 coordinates.append(station["elevation"])
             geometry = {"type": "Point", "coordinates": coordinates}
         return {
@@ -813,7 +819,7 @@ class _ValuesResult(_EqualByFields, ExportMixin, Generic[_RowsT, _DictT]):
             indent = 4
         elif indent is False:
             indent = None
-        return json.dumps(self.to_dict(with_metadata=with_metadata, with_stations=with_stations), indent=indent)
+        return dumps_json(self.to_dict(with_metadata=with_metadata, with_stations=with_stations), indent=indent)
 
     def _unit_symbols(self) -> dict[str, str]:
         """Map every parameter a frame can carry to the symbol its values are written in.
@@ -1199,7 +1205,7 @@ def history_to_json(
     data = history_to_dict(
         stations, histories, with_metadata=with_metadata, with_stations=with_stations, sections=sections
     )
-    return json.dumps(data, indent=indent)
+    return dumps_json(data, indent=indent)
 
 
 @dataclass(frozen=True, kw_only=True, eq=False)

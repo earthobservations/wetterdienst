@@ -44,6 +44,7 @@ from wetterdienst.provider.dwd.metadata import _METADATA
 from wetterdienst.settings import Settings
 from wetterdienst.util.archive import check_zip, read_unpacked
 from wetterdienst.util.datetime import format_timestamp, timestamps_to_string
+from wetterdienst.util.json_util import dumps_json
 from wetterdienst.util.network import download_file, list_remote_directory_fsspec
 
 if TYPE_CHECKING:
@@ -156,7 +157,7 @@ class DwdWeatherAlertResult:
 
     def to_json(self, indent: bool = False) -> str:  # noqa: FBT001, FBT002
         """Return the alerts as a JSON string."""
-        return json.dumps(self.to_dict(), indent=4 if indent else None, ensure_ascii=False)
+        return dumps_json(self.to_dict(), indent=4 if indent else None, ensure_ascii=False)
 
     def to_ogc_feature_collection(self) -> dict[str, Any]:
         """Return the alerts as a GeoJSON ``FeatureCollection``.
@@ -178,7 +179,7 @@ class DwdWeatherAlertResult:
 
     def to_geojson(self, indent: bool = False) -> str:  # noqa: FBT001, FBT002
         """Return the alerts as a GeoJSON ``FeatureCollection`` string."""
-        return json.dumps(self.to_ogc_feature_collection(), indent=4 if indent else None, ensure_ascii=False)
+        return dumps_json(self.to_ogc_feature_collection(), indent=4 if indent else None, ensure_ascii=False)
 
     def to_csv(self) -> str:
         """Return the flat alert DataFrame as CSV.
