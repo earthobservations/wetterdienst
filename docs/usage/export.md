@@ -121,7 +121,7 @@ wetterdienst values --provider=dwd --network=observation \
     --target="duckdb:////var/lib/wetterdienst/obs.duckdb?table=weather" --if-exists=append
 ```
 
-### Licence, credit and date in a file
+## Licence, credit and date in a file
 
 An answer of the REST API says in its `metadata` block where the data comes from, under which licence it may be used,
 which credit line to give, and when it was retrieved. A file carries the same block where its format has a place for
