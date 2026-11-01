@@ -376,7 +376,11 @@ Options:
   --pretty BOOLEAN                Pretty-print JSON with 4-space indentation, as REST's pretty=true.
                                   Default: false
   --with-metadata BOOLEAN         Add the units and the quality flags to the metadata block of
-                                  JSON/GeoJSON output, which is always there. Default: false
+                                  JSON/GeoJSON output, which is always there. With a file --target
+                                  it writes the block beside a CSV, Excel, JSON or GeoJSON file as
+                                  <file>.metadata.json and adds those parts to the block in a
+                                  Parquet, NetCDF or Zarr file; a database --target is refused.
+                                  Default: false
   --with-stations BOOLEAN         Include the stations in JSON/GeoJSON output. Default: false
   --debug BOOLEAN                 Log at debug level. Default: false
   --help                          Show this message and exit.
@@ -548,7 +552,11 @@ Options:
   --pretty BOOLEAN                Pretty-print JSON with 4-space indentation, as REST's pretty=true.
                                   Default: false
   --with-metadata BOOLEAN         Add the units and the quality flags to the metadata block of
-                                  JSON/GeoJSON output, which is always there. Default: false
+                                  JSON/GeoJSON output, which is always there. With a file --target
+                                  it writes the block beside a CSV, Excel, JSON or GeoJSON file as
+                                  <file>.metadata.json and adds those parts to the block in a
+                                  Parquet, NetCDF or Zarr file; a database --target is refused.
+                                  Default: false
   --debug BOOLEAN                 Log at debug level. Default: false
   --help                          Show this message and exit.
 
@@ -741,7 +749,11 @@ Options:
   --pretty BOOLEAN                Pretty-print JSON with 4-space indentation, as REST's pretty=true.
                                   Default: false
   --with-metadata BOOLEAN         Add the units and the quality flags to the metadata block of
-                                  JSON/GeoJSON output, which is always there. Default: false
+                                  JSON/GeoJSON output, which is always there. With a file --target
+                                  it writes the block beside a CSV, Excel, JSON or GeoJSON file as
+                                  <file>.metadata.json and adds those parts to the block in a
+                                  Parquet, NetCDF or Zarr file; a database --target is refused.
+                                  Default: false
   --with-stations BOOLEAN         Include the stations in JSON/GeoJSON output. Default: false
   --debug BOOLEAN                 Log at debug level. Default: false
   --help                          Show this message and exit.
@@ -885,7 +897,11 @@ Options:
   --pretty BOOLEAN                Pretty-print JSON with 4-space indentation, as REST's pretty=true.
                                   Default: false
   --with-metadata BOOLEAN         Add the units and the quality flags to the metadata block of
-                                  JSON/GeoJSON output, which is always there. Default: false
+                                  JSON/GeoJSON output, which is always there. With a file --target
+                                  it writes the block beside a CSV, Excel, JSON or GeoJSON file as
+                                  <file>.metadata.json and adds those parts to the block in a
+                                  Parquet, NetCDF or Zarr file; a database --target is refused.
+                                  Default: false
   --with-stations BOOLEAN         Include the stations in JSON/GeoJSON output. Default: false
   --debug BOOLEAN                 Log at debug level. Default: false
   --help                          Show this message and exit.

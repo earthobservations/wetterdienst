@@ -758,11 +758,11 @@ def _write_cratedb(result: ExportMixin, target: str, connspec: ConnectionString,
 
     # Convert timezone-aware datetime fields to naive ones.
     # FIXME: Omit this as soon as the CrateDB driver is capable of supporting timezone-qualified timestamps.
-    # Cast an Enum column, which a caller may have made of the frame's own, to String so the
-    # pandas/SQLAlchemy write gets plain text.
+    # Cast an Enum or a Categorical column, which a caller may have made of the frame's own, to String so
+    # the pandas/SQLAlchemy write gets plain text, not a pandas Categorical (GH-3694).
     df = result.df.with_columns(
         cs.datetime().dt.replace_time_zone(time_zone=None),
-        pl.col(pl.Enum).cast(pl.String),
+        pl.col(pl.Enum, pl.Categorical).cast(pl.String),
     )
     if if_exists in ("skip", "fail"):
         engine = sqlalchemy.create_engine(cratedb_target)
@@ -877,7 +877,9 @@ def _write_sqlalchemy(result: ExportMixin, target: str, connspec: ConnectionStri
             # a refusal is one class wherever it comes from
             msg = f"Table '{tablename}' already exists in the database, aborting write due to if_exists='fail'."
             raise ExportRefusedError(msg)
-        columns = [pl.col(pl.Enum).cast(pl.String)]
+        # an Enum or a Categorical column, which a caller may have made of the frame's own, as plain text:
+        # pandas would hand the dialect a Categorical (GH-3694)
+        columns = [pl.col(pl.Enum, pl.Categorical).cast(pl.String)]
         # `to_sql` takes SQLAlchemy types here, which pandas' annotation leaves out
         dtype: dict[Any, Any] | None = None
         if isinstance(engine.dialect, (MySQLDialect, MSDialect)):
@@ -902,7 +904,7 @@ def _write_sqlalchemy(result: ExportMixin, target: str, connspec: ConnectionStri
             # such as `SQL_Latin1_General_CP1_CI_AS` (Windows-1252, the default of an
             # English install) a name like `Łódź` or `Třeboň` loses every character
             # outside it to a `?`.
-            # `NVARCHAR(max)` holds Unicode. Read off the frame after the Enum cast, and
+            # `NVARCHAR(max)` holds Unicode. Read off the frame after the Enum and Categorical cast, and
             # with a column of nothing but nulls, which pandas also declares as `Text`
             dtype |= {
                 name: NVARCHAR()

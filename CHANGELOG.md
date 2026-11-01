@@ -41,6 +41,12 @@ Types of changes:
   `to_json`, `to_geojson` and `to_format` (`indent=0` now breaks lines without indenting, as on
   the others), and `with_metadata` (the block of the others); its default stays one line. It is
   outside the frozen results (GH-3449)
+- `wetterdienst stations`, `values`, `interpolate` and `summarize` pass `--with-metadata` to
+  `--target`, as `to_target(..., with_metadata=True)` takes it: a file `<file>.metadata.json`
+  beside a CSV, spreadsheet, JSON or GeoJSON file, and the units and the quality legend in the
+  block of a Parquet, NetCDF or Zarr file. With a database target it is refused with the library's
+  message and exit code 1, before anything is written. It wrote nothing of the kind before
+  (GH-3704)
 
 ### Changed
 
@@ -72,6 +78,12 @@ Types of changes:
   They are told by a new warning `rejected-by-plausibility`, with the count per check; a value
   that several checks rejected is counted under each. A client that summed the old count to
   find the rejected values reads the new warning instead (GH-3682)
+- `wetterdienst history --target` accepts a file name ending in `.JSON` or any other case of
+  `.json`, as `values` and `stations` do; it refused all but the lowercase one (GH-3693)
+- The CrateDB and SQL (SQLAlchemy) targets hand the database a `pl.Categorical` column as text, as
+  they did a `pl.Enum` column, not as a pandas Categorical. SQLite and DuckDB wrote the text
+  either way; the dialects that could not be tried are no longer left to read a Categorical
+  (GH-3694)
 
 ## [0.180.0] - 2026-11-01
 
