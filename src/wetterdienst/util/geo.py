@@ -31,7 +31,7 @@ def require_location_in_range(latitude: float, longitude: float) -> None:
     """Refuse a latitude outside -90..90 or a longitude outside -180..180, which names no point on the globe.
 
     Raises:
-        LocationOutOfRangeError: where either is beyond, or is not a number, naming the range allowed
+        LocationOutOfRangeError: where either is beyond or is NaN, naming the range allowed
 
     """
     if not LATITUDE_MIN <= latitude <= LATITUDE_MAX:

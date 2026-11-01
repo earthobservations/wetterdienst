@@ -88,9 +88,9 @@ Types of changes:
   (GH-3694)
 - **Breaking**: `summarize` and `summarize_by_station_id` of the Python API refuse a latitude
   outside -90..90 or a longitude outside -180..180 with `LocationOutOfRangeError`, naming the
-  range, as the REST API, the command line and MCP did. They answered with an empty frame, and
-  with `nan` too. The poles and the antimeridian are accepted. Catch the error, or pass a point
-  on the globe (GH-3714)
+  range, as the REST API, the command line and MCP did. They answered with the readings of the
+  station at the point the coordinates wrap round to (a longitude of 373.4 as 13.4), or with an
+  empty frame. The poles and the antimeridian are accepted. Pass a point on the globe (GH-3714)
 
 ## [0.180.0] - 2026-11-01
 

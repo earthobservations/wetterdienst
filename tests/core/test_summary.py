@@ -255,3 +255,10 @@ def test_summary_by_station_id_refuses_a_station_listed_beyond_the_globe(default
     """A station whose listed position is off the globe is refused as a point is, not summarized at."""
     with pytest.raises(LocationOutOfRangeError, match=re.escape("latitude 95.0 is outside the range -90 to 90")):
         _request(default_settings).summarize_by_station_id(station_id="00001")
+
+
+@pytest.mark.usefixtures("station_selection")
+def test_summary_refuses_a_point_given_as_text_beyond_the_globe(default_settings: Settings) -> None:
+    """A coordinate given as text is read as a number first, so it is refused as a number is, not with a TypeError."""
+    with pytest.raises(LocationOutOfRangeError, match=re.escape("longitude 373.4 is outside")):
+        _request(default_settings).summarize(latlon=("52.5", "373.4"))  # ty: ignore[invalid-argument-type]

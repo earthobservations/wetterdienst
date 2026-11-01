@@ -1392,7 +1392,8 @@ class TimeseriesRequest:
         """
         from wetterdienst.core.summarize import get_summarized_df  # noqa: PLC0415
 
-        require_location_in_range(*latlon)
+        lat, lon = float(latlon[0]), float(latlon[1])
+        require_location_in_range(lat, lon)
         if not self.start:
             msg = "start and end are required for summarization"
             raise MissingTimeIntervalError(msg)
@@ -1406,8 +1407,6 @@ class TimeseriesRequest:
         ):
             log.warning("Summary might be slow for high resolutions due to mass of data")
 
-        lat, lon = latlon
-        lat, lon = float(lat), float(lon)
         if df_all is None:
             df_all = self.all().df
         data_updated: dict[str, dt.datetime] = {}
