@@ -16,6 +16,18 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- **Breaking**: `summarize` and `summarize_by_station_id` of the Python API refuse a latitude
+  outside -90..90 or a longitude outside -180..180 with `LocationOutOfRangeError`, naming the
+  range, as the REST API, the command line and MCP did. They answered with the readings of the
+  station at the point the coordinates wrap round to (a longitude of 373.4 as 13.4), or with an
+  empty frame. The poles and the antimeridian are accepted. Pass a point on the globe (GH-3714)
+- **Breaking**: `filter_by_rank` and `filter_by_distance` of the Python API refuse a latitude
+  outside -90..90 or a longitude outside -180..180, or a NaN, with `LocationOutOfRangeError`,
+  as `summarize` now does. They ranked the stations by the distance from the point the
+  coordinates wrap round to (a longitude of 373.4 as 13.4). Pass a point on the globe (GH-3717)
+
 ## [0.181.0] - 2026-11-01
 
 ### Added
