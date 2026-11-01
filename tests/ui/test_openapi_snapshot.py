@@ -14,7 +14,14 @@ from typing import Any
 
 import pytest
 
-from tests.ui.openapi_snapshot import GENERATED_WITH, SNAPSHOT, build_document, installed_versions, locked_versions
+from tests.ui.openapi_snapshot import (
+    GENERATED_WITH,
+    SNAPSHOT,
+    build_document,
+    installed_versions,
+    locked_versions,
+    without_version,
+)
 from wetterdienst import __version__
 from wetterdienst.ui.response_metadata import API_VERSION
 from wetterdienst.ui.restapi import API_PREFIX
@@ -29,15 +36,6 @@ _REGENERATE = (
 
 def _snapshot() -> dict[str, Any]:
     return json.loads(SNAPSHOT.read_text(encoding="utf-8"))
-
-
-def _unversioned(document: dict[str, Any]) -> dict[str, Any]:
-    """Give a document without `info.version`, which is the version of the package and so changes at each release.
-
-    The snapshot is not rewritten for a release: `test_the_document_is_of_the_version_that_serves_it` holds the
-    served `info.version` to the package's.
-    """
-    return {**document, "info": {key: value for key, value in document["info"].items() if key != "version"}}
 
 
 def _changes(served: object, committed: object, where: str = "#") -> list[str]:
@@ -68,7 +66,7 @@ def test_the_served_openapi_document_is_the_committed_snapshot() -> None:
     if installed_versions() != locked_versions():
         pytest.skip(f"the snapshot is written with {locked_versions()}, and {installed_versions()} is installed")
 
-    changes = _changes(_unversioned(build_document()), _unversioned(committed))
+    changes = _changes(without_version(build_document()), committed)
 
     assert not changes, f"{_REGENERATE}\n" + "\n".join(changes[:40])
 
@@ -112,8 +110,13 @@ _PYPROJECT = tomllib.loads((Path(__file__).parents[2] / "pyproject.toml").read_t
 
 
 def test_the_document_is_of_the_version_that_serves_it() -> None:
-    """`info.version` is the version of wetterdienst, whichever release the snapshot was written in."""
+    """`info.version` is the version of wetterdienst that serves the document; the snapshot leaves it out."""
     assert build_document()["info"]["version"] == __version__
+
+
+def test_the_snapshot_has_no_version() -> None:
+    """The version is the package's and changes at each release, so the file does not hold it (GH-3720)."""
+    assert "version" not in _snapshot()["info"]
 
 
 def test_the_info_is_the_projects_own() -> None:
