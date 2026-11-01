@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import copy
 import datetime as dt
+import math
 from abc import abstractmethod
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
@@ -27,6 +28,7 @@ from wetterdienst.exceptions import (
     NoParametersFoundError,
     NoPeriodsFoundError,
     ProviderContractError,
+    RequestError,
     ReversedTimeIntervalError,
     StationNotFoundError,
 )
@@ -188,6 +190,18 @@ def require_window(parameters: Iterable[ParameterModel], start: dt.datetime | No
         "Pass 'start' and 'end' to the request (a bound given alone is the whole day, month or year it names)."
     )
     raise DateRequiredError(msg)
+
+
+def _require_finite_elevation(elevation: float | None) -> None:
+    """Refuse an elevation that is NaN or infinite: it would be written into the point's name and the z of its position.
+
+    Raises:
+        RequestError: where the elevation is not a finite number of metres. Leave it out for the readings as they come.
+
+    """
+    if elevation is not None and not math.isfinite(elevation):
+        msg = f"elevation must be a finite number of metres above sea level, got {elevation}; leave it out to use none"
+        raise RequestError(msg)
 
 
 def _format_periods(periods: Iterable[Period]) -> str:
@@ -1244,6 +1258,7 @@ class TimeseriesRequest:
             NoStationsWithElevationError: Where an elevation is asked about and leaving out the
                 stations whose elevation the provider does not report leaves nothing that can answer
                 it. A few providers report no elevation for any station.
+            RequestError: Where the elevation is NaN or infinite.
 
         """
         return self._interpolate(latlon, elevation)
@@ -1260,6 +1275,7 @@ class TimeseriesRequest:
         The core ranks the stations near the point and the result names the stations taken, both off
         this one frame, so that the provider builds its station list once.
         """
+        _require_finite_elevation(elevation)
         # scipy, shapely and utm are imported by the module, so a missing one surfaces from this
         interpolate = import_optional("wetterdienst.core.interpolate", "Interpolation", extra="interpolation")
         get_interpolated_df, place_in_utm = interpolate.get_interpolated_df, interpolate.place_in_utm
@@ -1344,6 +1360,7 @@ class TimeseriesRequest:
                 station listed at 0.0, 0.0 or named BOGUS.
 
         """
+        _require_finite_elevation(elevation)
         df_all = self.all().df
         latitude, longitude, station_elevation = self._get_position_by_station_id(station_id, df_all=df_all)
         return self._interpolate(
@@ -1371,6 +1388,8 @@ class TimeseriesRequest:
             NoStationsWithElevationError: Where an elevation is asked about and leaving out the
                 stations whose elevation the provider does not report leaves nothing that can answer
                 it. A few providers report no elevation for any station.
+            RequestError: Where the elevation is NaN or infinite.
+            LocationOutOfRangeError: Where the latitude or longitude is NaN or infinite.
 
         """
         return self._summarize(latlon, elevation)
@@ -1389,6 +1408,8 @@ class TimeseriesRequest:
         """
         from wetterdienst.core.summarize import get_summarized_df  # noqa: PLC0415
 
+        _require_finite_elevation(elevation)
+
         if not self.start:
             msg = "start and end are required for summarization"
             raise MissingTimeIntervalError(msg)
@@ -1404,6 +1425,10 @@ class TimeseriesRequest:
 
         lat, lon = latlon
         lat, lon = float(lat), float(lon)
+        # `interpolate` has a point UTM cannot place refused; here a NaN found no station and answered no rows
+        if not (math.isfinite(lat) and math.isfinite(lon)):
+            msg = f"latitude and longitude must be finite numbers, got {lat} and {lon}"
+            raise LocationOutOfRangeError(msg)
         if df_all is None:
             df_all = self.all().df
         data_updated: dict[str, dt.datetime] = {}
@@ -1462,6 +1487,7 @@ class TimeseriesRequest:
                 says.
 
         """
+        _require_finite_elevation(elevation)
         df_all = self.all().df
         latitude, longitude, station_elevation = self._get_position_by_station_id(station_id, df_all=df_all)
         return self._summarize(

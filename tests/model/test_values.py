@@ -1488,6 +1488,154 @@ def test_the_rejected_by_plausibility_warning_sums_the_stations_and_counts_a_val
     assert _warning_messages("rejected-by-plausibility") == ["4 (stuck 3, elevation 1, range 1)"]
 
 
+def _stub_wind_directions(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    dataset: str,
+    name_original: str,
+    readings: list[tuple[float | None, str | None]],
+) -> None:
+    """Have station 00001 hold one hourly reading per (value, flags) of a DWD wind direction, as a reader leaves it."""
+    _stub_dwd_daily(
+        station_ids=["00001"],
+        data_year_by_station={"00001": 1990},
+        monkeypatch=monkeypatch,
+        datasets=[dataset],
+        resolution="hourly",
+    )
+    utc = ZoneInfo("UTC")
+
+    def collect(self, station_id: str, parameter_or_dataset) -> pl.DataFrame:  # noqa: ANN001, ARG001
+        return pl.DataFrame(
+            {
+                "timestamp": [dt.datetime(1990, 1, 1, hour, tzinfo=utc) for hour in range(len(readings))],
+                "parameter": [name_original] * len(readings),
+                "value": [value for value, _ in readings],
+                "quality_flags": [flags for _, flags in readings],
+            },
+            schema_overrides={"value": pl.Float64},
+        )
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+
+
+@pytest.mark.parametrize("drop_nulls", [True, False])
+def test_a_calm_wind_direction_is_counted_apart_from_a_missing_value_marker(
+    monkeypatch: pytest.MonkeyPatch, *, drop_nulls: bool
+) -> None:
+    """A calm (`raw:0`, however spelled) and a `-999` are counted apart, each under its own code (GH-3696).
+
+    The 990 of a variable wind is a code of no direction and stays a marker, as does a 0 that is no wind direction.
+    """
+    parameter = DwdObservationMetadata.hourly.wind.wind_direction_mean
+    _stub_wind_directions(
+        monkeypatch,
+        dataset="wind",
+        name_original=parameter.name_original,
+        readings=[
+            (None, "raw:0"),
+            (None, "3,raw:0.0"),
+            (None, "raw:-999"),
+            (None, "raw:990"),
+            (None, "raw:10"),
+            (180.0, "3"),
+        ],
+    )
+    begin_response()
+    request = DwdObservationRequest(
+        parameters=[("hourly", "wind", "wind_direction_mean")],
+        start="1990-01-01",
+        end="1990-01-02",
+        options=Options(drop_nulls=drop_nulls),
+    )
+
+    request.filter_by_station_id("00001").values().all()
+
+    calm = _warning_messages("calm-wind-direction")
+    assert len(calm) == 1
+    assert calm[0].startswith("2 wind directions were a calm, which the source writes as 0")
+    markers = _warning_messages("missing-value-marker")
+    assert len(markers) == 1
+    assert markers[0].startswith("3 readings of the source were a marker for a missing value")
+
+
+@pytest.mark.parametrize(
+    ("dataset", "parameter"),
+    [("wind_synoptic", "wind_direction"), ("urban_wind", "wind_direction_mean")],
+)
+def test_the_hourly_direction_code_dwd_documents_as_no_calm_stays_a_missing_value_marker(
+    monkeypatch: pytest.MonkeyPatch, dataset: str, parameter: str
+) -> None:
+    """The 0 of the hourly synoptic wind (variable or calm) and of the hourly urban wind is no calm (GH-3696)."""
+    declared = getattr(DwdObservationMetadata.hourly, dataset)[parameter]
+    _stub_wind_directions(
+        monkeypatch, dataset=dataset, name_original=declared.name_original, readings=[(None, "raw:0"), (180.0, "3")]
+    )
+    begin_response()
+    request = DwdObservationRequest(parameters=[("hourly", dataset, parameter)], start="1990-01-01", end="1990-01-02")
+
+    request.filter_by_station_id("00001").values().all()
+
+    assert _warning_messages("calm-wind-direction") == []
+    assert len(_warning_messages("missing-value-marker")) == 1
+
+
+def test_a_zero_that_is_no_wind_direction_is_no_calm(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Only a wind direction can be a calm: a `raw:0` of any other parameter is the marker it always was (GH-3696)."""
+    _stub_readings_of_a_day_each(monkeypatch, [(None, "raw:0"), (1013.0, "3")])
+    begin_response()
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "pressure_air_site_mean")], start="1990-01-01", end="1990-01-02"
+    )
+
+    request.filter_by_station_id("00001").values().all()
+
+    assert _warning_messages("calm-wind-direction") == []
+    assert len(_warning_messages("missing-value-marker")) == 1
+
+
+def test_a_provider_declares_the_zero_directions_that_are_no_calm() -> None:
+    """IPMA's "sem rumo", ECCC's and GHCN's gust not reported are declared by the provider (GH-3696)."""
+    from wetterdienst.provider.eccc.observation.api import EcccObservationValues  # noqa: PLC0415
+    from wetterdienst.provider.eccc.observation.metadata import EcccObservationMetadata  # noqa: PLC0415
+    from wetterdienst.provider.ipma.observation.api import IpmaObservationValues  # noqa: PLC0415
+    from wetterdienst.provider.ipma.observation.metadata import IpmaObservationMetadata  # noqa: PLC0415
+    from wetterdienst.provider.noaa.ghcn.api import NoaaGhcnValues  # noqa: PLC0415
+    from wetterdienst.provider.noaa.ghcn.metadata import NoaaGhcnMetadata  # noqa: PLC0415
+
+    def selected(values: type[TimeseriesValues], parameter) -> list[bool]:  # noqa: ANN001
+        """Tell for the parameter, and for the same source name in another resolution, whether the zero is no calm."""
+        frame = pl.DataFrame(
+            {
+                "resolution": [parameter.dataset.resolution.name, "other"],
+                "dataset": [parameter.dataset.name] * 2,
+                "parameter": [parameter.name_original] * 2,
+                "quality_flags": ["source:C,raw:0"] * 2,
+            }
+        )
+        no_bearing = values.__new__(values)._zero_direction_is_no_bearing()  # noqa: SLF001
+        return frame.select(no_bearing.alias("x")).get_column("x").to_list()
+
+    assert selected(IpmaObservationValues, IpmaObservationMetadata.hourly.data.wind_direction) == [True, False]
+    assert selected(EcccObservationValues, EcccObservationMetadata.daily.data.wind_direction_gust_max) == [True, False]
+    assert selected(NoaaGhcnValues, NoaaGhcnMetadata.daily.data.wind_direction_gust_max) == [True, False]
+    # GHCN: only Environment Canada's (source flag C) zero is a gust not reported, any other source's is a calm
+    gust = NoaaGhcnMetadata.daily.data.wind_direction_gust_max
+    frame = pl.DataFrame(
+        {
+            "resolution": [gust.dataset.resolution.name] * 2,
+            "dataset": [gust.dataset.name] * 2,
+            "parameter": [gust.name_original] * 2,
+            "quality_flags": ["source:C,raw:0", "source:X,raw:0"],
+        }
+    )
+    no_bearing = NoaaGhcnValues.__new__(NoaaGhcnValues)._zero_direction_is_no_bearing()  # noqa: SLF001
+    assert frame.select(no_bearing.alias("x")).get_column("x").to_list() == [True, False]
+    # the mean direction of the same sources is a calm
+    assert selected(EcccObservationValues, EcccObservationMetadata.hourly.data.wind_direction) == [False, False]
+    assert selected(NoaaGhcnValues, NoaaGhcnMetadata.hourly.data.wind_direction) == [False, False]
+
+
 @pytest.mark.parametrize("drop_nulls", [True, False])
 def test_the_missing_value_marker_warning_leaves_out_a_station_skip_empty_drops(
     monkeypatch: pytest.MonkeyPatch, *, drop_nulls: bool

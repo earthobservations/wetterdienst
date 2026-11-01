@@ -105,6 +105,7 @@ _PeriodsField = Annotated[
 _ElevationField = Annotated[
     float | None,
     Field(
+        allow_inf_nan=False,
         description="Elevation of the requested point in metres above sea level. Given, a quantity "
         "that falls with height -- air temperature, dew point -- is brought from each station's "
         "altitude to this one, which is what tells a valley reading from a summit one. "

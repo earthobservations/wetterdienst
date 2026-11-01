@@ -48,7 +48,8 @@ The usual reasons:
 - **A name matched nothing.** A name is matched fuzzily with a threshold (`name_threshold`, 0.8 by default); lower it
   or look at the best matches (`rank`).
 - **Nulls were dropped.** The long shape drops rows without a value by default (`drop_nulls`); a reading the source
-  marks as missing is null with the source's text in `quality_flags` (`raw:-999`). `drop_nulls=False` shows them.
+  marks as missing is null with the source's text in `quality_flags` (`raw:-999`), and a calm wind direction is null
+  with `raw:0` (`calm-wind-direction` warning). `drop_nulls=False` shows them.
 - **A station was skipped** for having too little data, if `skip_empty` is on (`station-skipped` warning), with
   `drop_nulls` on or off.
 

@@ -283,6 +283,16 @@ def _one_report_per_hour(df: pl.DataFrame) -> pl.DataFrame:
 class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
     """Values class for NOAA GHCN data provider."""
 
+    def _zero_direction_is_no_bearing(self) -> pl.Expr:
+        """Have the daily gust direction of 0 of Environment Canada stay with `missing-value-marker` (GH-3696).
+
+        At its stations (source flag `C`) a gust speed of 0 is a gust under 31 km/h that is not reported, and the
+        direction beside it is none; at any other source the 0 beside a speed of 0 is a calm, as for `wdf1`.
+        """
+        return self._rows_of(NoaaGhcnMetadata.daily.data.wind_direction_gust_max) & pl.col(
+            "quality_flags"
+        ).str.contains(GHCND_ENVIRONMENT_CANADA)
+
     def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
