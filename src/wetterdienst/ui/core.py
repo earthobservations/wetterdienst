@@ -40,7 +40,7 @@ from wetterdienst.exceptions import (
 from wetterdienst.metadata.aliases import PARAMETER_ALIASES, use_alias
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
-from wetterdienst.model.limits import LIMITS_DESCRIPTION, Limit, with_normal_names
+from wetterdienst.model.limits import LIMITS_DESCRIPTION, Limit, with_aliases_resolved, with_normal_names
 from wetterdienst.model.metadata import parse_parameters, whole_datasets_kept
 from wetterdienst.model.plausibility import CHECKS, Mode, forecast_note, hard_means, leave_out_suspect
 from wetterdienst.model.request import (
@@ -1802,7 +1802,7 @@ def overlay_options(base: Options, given: Mapping[str, Any]) -> Options:
     # the names of the bounds are spelled one way before they are merged, so that the host's entry cannot decide which
     # of two spellings of one key in the request is the later one (GH-3687)
     if isinstance(given.get("limits"), Mapping):
-        given = {**given, "limits": with_normal_names(given["limits"])}
+        given = {**given, "limits": with_normal_names(with_aliases_resolved(given["limits"]))}
     merged = {name: {**dumped[name], **value} if isinstance(value, Mapping) else value for name, value in given.items()}
     return options_from_mapping(merged, base)
 

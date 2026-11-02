@@ -318,9 +318,12 @@ def _read_limits(_ctx: click.Context, _param: click.Parameter, values: tuple[str
                 if not isinstance(given, dict):
                     msg = f"{text!r} is not a JSON object"
                     raise ValueError(msg)  # noqa: TRY301
-                limits.update(given)
+                pairs = list(given.items())
             else:
-                name, pair = read_limit_text(text)
+                pairs = [read_limit_text(text)]
+            for name, pair in pairs:
+                # a name given again goes to the end, so that the last of its spellings given is the later
+                limits.pop(name, None)
                 limits[name] = pair
         except ValueError as e:
             raise click.BadParameter(str(e), param_hint="--limits") from e

@@ -358,6 +358,16 @@ def test_a_limit_set_by_the_alias_of_every_dataset_is_set_for_the_new_name() -> 
 
 
 @pytest.mark.usefixtures("alias_everywhere")
+def test_a_limit_of_a_request_by_the_alias_is_the_later_whatever_the_host_holds() -> None:
+    """The host's entry for the new name does not make the request's alias the earlier key (GH-3687)."""
+    given = {"limits": {OLD: (1, 2), NEW: (5, 6)}}
+    with pytest.warns(DeprecationWarning, match="'air_temp' was renamed"):
+        assert core.overlay_options(Options(), given).limits == {NEW: (5.0, 6.0)}
+    with pytest.warns(DeprecationWarning, match="'air_temp' was renamed"):
+        assert core.overlay_options(Options(limits={NEW: (9, 10)}), given).limits == {NEW: (5.0, 6.0)}
+
+
+@pytest.mark.usefixtures("alias_everywhere")
 def test_a_radius_key_that_is_no_alias_is_refused_as_it_was() -> None:
     """The other keys are checked as before."""
     with pytest.raises(ValueError, match="not in the canonical parameters"):

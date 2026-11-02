@@ -211,7 +211,7 @@ def with_normal_names(values: Mapping[str, _T]) -> dict[str, _T]:
     return spelled
 
 
-def _with_aliases_resolved(values: Mapping[str, object]) -> Mapping[str, object]:
+def with_aliases_resolved(values: Mapping[str, object]) -> Mapping[str, object]:
     """Write the new name for a key that is an alias of a renamed canonical name, and warn that it was one (GH-2625).
 
     Only for a canonical name: inside `resolution/dataset/parameter` the old name is refused. Where the old and the new
@@ -246,7 +246,7 @@ def checked_limit_names(values: object) -> object:
         return {}
     if not isinstance(values, Mapping):
         return values
-    values = _with_aliases_resolved(values)
+    values = with_aliases_resolved(values)
     problems = [problem for key in values if (problem := _problem_with(key)) is not None]
     if problems:
         msg = (

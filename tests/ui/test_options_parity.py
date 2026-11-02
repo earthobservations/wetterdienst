@@ -469,6 +469,17 @@ def test_the_command_line_reads_limits_as_json_or_as_name_low_high(monkeypatch: 
     }
 
 
+def test_the_last_limit_given_wins_for_a_key_spelled_in_two_ways(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A name repeated moves to the end, so that it is the later spelling of its key (GH-3687)."""
+    spelled = "daily/climate_summary/temperature_air_mean_2m"
+    options = _cli(
+        monkeypatch,
+        "values",
+        ["--limits=daily/kl/tmk=1:2", f"--limits={spelled}=3:4", "--limits=daily/kl/tmk=5:6"],
+    )
+    assert options.limits == {spelled: (5.0, 6.0)}
+
+
 @pytest.mark.parametrize(
     "limits",
     [
