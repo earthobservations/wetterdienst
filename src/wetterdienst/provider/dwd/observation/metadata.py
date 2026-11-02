@@ -1742,7 +1742,7 @@ _DwdObservationMetadataSpec = {
                         {
                             "name": "snow_depth_sum",
                             "name_original": "mo_sh_s",
-                            "unit": "centimeter",
+                            "unit": "centimeter_day",
                         },
                         {
                             "name": "precipitation_amount_max",
@@ -1995,7 +1995,7 @@ _DwdObservationMetadataSpec = {
                         {
                             "name": "snow_depth_sum",
                             "name_original": "ja_sh_s",
-                            "unit": "centimeter",
+                            "unit": "centimeter_day",
                         },
                         {
                             "name": "precipitation_amount_max",

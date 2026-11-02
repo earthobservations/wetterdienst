@@ -8,7 +8,7 @@ from itertools import permutations, product
 import polars as pl
 import pytest
 
-from wetterdienst.metadata.parameter_table import PARAMETER_TABLE
+from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
 from wetterdienst.model.unit import UnitConverter
 
 
@@ -26,8 +26,11 @@ def test_unit_converter_targets_defaults(unit_converter: UnitConverter) -> None:
         "concentration": "milligram_per_liter",
         "conductivity": "microsiemens_per_centimeter",
         "dimensionless": "dimensionless",
-        "energy_per_area": "joule_per_square_centimeter",
-        "fraction": "decimal",
+        "duration": "hour",
+        "energy_per_area": "megajoule_per_square_meter",
+        "fraction": "percent",
+        "length_day": "centimeter_day",
+        "length_tiny": "millimeter",
         "length_short": "centimeter",
         "mass_per_volume": "gram_per_cubic_meter",
         "length_medium": "meter",
@@ -68,14 +71,14 @@ def test_unit_converter_update_targets(unit_converter: UnitConverter) -> None:
     """Test that the update_targets method works as expected."""
     unit_converter.update_targets(
         {
-            "fraction": "percent",
+            "fraction": "decimal",
             "dimensionless": "dimensionless",  # possible although nothing changes
         },
     )
-    assert unit_converter.targets["fraction"].name == "percent"
+    assert unit_converter.targets["fraction"].name == "decimal"
     assert unit_converter.targets["dimensionless"].name == "dimensionless"
-    lambda_fraction = unit_converter.get_lambda("decimal", "fraction")
-    assert lambda_fraction(0.42) == 42
+    lambda_fraction = unit_converter.get_lambda("percent", "fraction")
+    assert lambda_fraction(42) == 0.42
     lambda_dimensionless = unit_converter.get_lambda("dimensionless", "dimensionless")
     assert lambda_dimensionless(42) == 42
 
@@ -130,6 +133,13 @@ def test_unit_converter_lambda_dimensionless(unit_converter: UnitConverter) -> N
         ("joule_per_square_centimeter", "joule_per_square_centimeter", 42, 42),
         ("joule_per_square_centimeter", "joule_per_square_meter", 42, 420000),
         ("joule_per_square_meter", "joule_per_square_centimeter", 420000, 42),
+        # 1 MJ/m² is 100 J/cm², 1,000 kJ/m² and 1,000,000 J/m²
+        ("joule_per_square_centimeter", "megajoule_per_square_meter", 42, 0.42),
+        ("megajoule_per_square_meter", "joule_per_square_centimeter", 0.42, 42),
+        ("joule_per_square_meter", "megajoule_per_square_meter", 420000, 0.42),
+        ("megajoule_per_square_meter", "joule_per_square_meter", 0.42, 420000),
+        ("kilojoule_per_square_meter", "megajoule_per_square_meter", 420, 0.42),
+        ("megajoule_per_square_meter", "kilojoule_per_square_meter", 0.42, 420),
         # (energy/time) power_per_area
         ("watt_per_square_centimeter", "watt_per_square_centimeter", 42, 42),
         ("watt_per_square_centimeter", "watt_per_square_meter", 42, 420000),
@@ -201,7 +211,7 @@ def test_unit_converter_lambda_dimensionless(unit_converter: UnitConverter) -> N
         ("degree_fahrenheit", "degree_kelvin", 42, 278.7055555555555),
         ("degree_kelvin", "degree_celsius", 42, -231.14999999999998),
         ("degree_kelvin", "degree_fahrenheit", 42, -384.07),
-        # time
+        # time and duration, the same units
         ("second", "second", 42, 42),
         ("second", "minute", 42, 0.7),
         ("second", "hour", 42, 0.011666666666666667),
@@ -486,6 +496,7 @@ _SI: dict[str, dict[str, tuple[float, float]]] = {
         "joule_per_square_centimeter": (1e4, 0),
         "joule_per_square_meter": (1, 0),
         "kilojoule_per_square_meter": (1e3, 0),
+        "megajoule_per_square_meter": (1e6, 0),
     },
     # 1
     "fraction": {"decimal": (1, 0), "percent": (0.01, 0), "one_eighth": (0.125, 0)},
@@ -534,10 +545,12 @@ _SI: dict[str, dict[str, tuple[float, float]]] = {
 }
 # the types that share their list of units with another one
 _SI["concentration"] = _SI["mass_per_volume"]
-_SI["length_medium"] = _SI["length_long"] = _SI["length_short"]
+_SI["length_tiny"] = _SI["length_medium"] = _SI["length_long"] = _SI["length_short"]
+_SI["duration"] = _SI["time"]
 # types with one unit, which no conversion can get wrong
 _SI_NOTHING_TO_CONVERT = {
     "dimensionless",
+    "length_day",
     "significant_weather",
     "temperature_difference",
     "turbidity",
@@ -641,3 +654,121 @@ def test_a_temperature_is_never_typed_as_what_it_is_not() -> None:
         "error_absolute_temperature_air_2m",
         "error_absolute_temperature_dew_point_2m",
     }
+
+
+def test_a_length_times_days_has_the_one_unit_and_no_target_moves_it(unit_converter: UnitConverter) -> None:
+    """`snow_depth_sum`, the sum of the daily snow depths, is in cm·d whichever length is asked for (GH-3747).
+
+    A length is no depth times days: 1 m of snow for 31 days is 3,100 cm·d, and no length unit reads that. The type has
+    the one unit, so it is its own only target, as `temperature_difference` is.
+    """
+    assert [(unit.name, unit.symbol) for unit in unit_converter.units["length_day"]] == [("centimeter_day", "cm·d")]
+    unit_converter.update_targets({"length_short": "meter", "length_medium": "kilometer", "length_tiny": "centimeter"})
+    assert unit_converter.targets["length_day"].name == "centimeter_day"
+    assert unit_converter.get_lambda("centimeter_day", "length_day")(3100.0) == 3100.0
+    for target in ("centimeter", "meter", "millimeter"):
+        with pytest.raises(ValueError, match=rf"Unit {target} not supported for type length_day"):
+            unit_converter.update_targets({"length_day": target})
+    assert PARAMETERS["snow_depth_sum"].unit_type == "length_day"
+
+
+def test_a_duration_is_in_hours_and_a_period_or_an_offset_in_seconds(unit_converter: UnitConverter) -> None:
+    """The unit type `duration` holds the lengths of time, in hours; `time` keeps a period and an offset in seconds.
+
+    A year of sunshine is about 1,700 h and a day 24 h at most: WMO-No. 8 gives sunshine in hours. A wave period
+    of 7 s would be 0.0019 h, so it stays with the offset of solar time in `time` (GH-3702).
+    """
+    assert unit_converter.targets["duration"].name == "hour"
+    assert unit_converter.targets["time"].name == "second"
+    assert [unit.name for unit in unit_converter.units["duration"]] == ["second", "minute", "hour"]
+    assert unit_converter.get_lambda("minute", "duration")(90.0) == 1.5
+    assert unit_converter.get_lambda("second", "duration")(5400.0) == 1.5
+    assert unit_converter.get_lambda("hour", "duration")(1.5) == 1.5
+    assert unit_converter.get_lambda("second", "time")(5400.0) == 5400.0
+    unit_converter.update_targets({"duration": "minute"})
+    assert unit_converter.targets["time"].name == "second"
+    assert unit_converter.get_lambda("hour", "duration")(1.5) == 90.0
+
+
+def test_the_moved_parameters_have_the_unit_type_of_the_decision_of_gh_3702() -> None:
+    """Each parameter that changed its unit type is pinned to the new one, and each family is whole.
+
+    Snow, ice and frozen ground stay in cm (`length_short`); the water levels, the waves and the clearance are metres;
+    a film of water on a road is millimetres, in a type of its own: `precipitation` (mm, l/m²) lacks the metre in which
+    `dwd/road` writes it.
+    """
+    types = {parameter.name: parameter.unit_type for parameter in PARAMETER_TABLE}
+    durations = {name for name in types if name.startswith("sunshine_duration") and "relative" not in name}
+    assert durations == {
+        "sunshine_duration",
+        "sunshine_duration_last_3h",
+        "sunshine_duration_normal",
+        "sunshine_duration_uncertainty",
+        "sunshine_duration_yesterday",
+    }
+    for name in (*durations, "precipitation_duration", "leaf_wetness_duration"):
+        assert types[name] == "duration", name
+    assert {name for name, unit_type in types.items() if unit_type == "time"} == {
+        "true_local_time_offset",
+        "wave_period",
+    }
+    lengths = {
+        name
+        for name in types
+        if name.startswith(("stage", "wave_height_")) or name in {"clearance_height", "distance_river_gauge_height"}
+    }
+    assert lengths == {
+        "stage",
+        "stage_max",
+        "stage_mean",
+        "stage_min",
+        "wave_height_max",
+        "wave_height_significant",
+        "clearance_height",
+        "distance_river_gauge_height",
+    }
+    for name in lengths:
+        assert types[name] == "length_medium", name
+    assert types["water_film_thickness"] == "length_tiny"
+    assert types["snow_depth_sum"] == "length_day"
+    assert {name for name, unit_type in types.items() if unit_type == "length_short"} == {
+        "frozen_ground_layer_base",
+        "frozen_ground_layer_thickness",
+        "frozen_ground_layer_thickness_max_month",
+        "frozen_ground_layer_top",
+        "ice_on_water_thickness",
+        "snow_depth",
+        "snow_depth_mean",
+        "snow_depth_sampled",
+        "snow_depth_manual",
+        "snow_depth_max",
+        "snow_depth_new",
+        "snow_depth_new_max",
+        "snow_depth_new_multiday",
+        "snow_depth_new_normal",
+        "thawing_thickness_bare_ground",
+        "thawing_thickness_bare_ground_max_month",
+        "thawing_thickness_plant_cover",
+        "thawing_thickness_plant_cover_max_month",
+    }
+
+
+def test_a_film_of_water_has_the_units_of_a_length_and_reads_in_millimetres(unit_converter: UnitConverter) -> None:
+    """`dwd/road` writes the film in metres, so its type has the metre: 0.0003 m is 0.3 mm, no longer 0.03 cm."""
+    assert unit_converter.get_lambda("meter", "length_tiny")(0.0003) == pytest.approx(0.3)
+    unit_converter.update_targets({"length_tiny": "centimeter"})
+    assert unit_converter.get_lambda("meter", "length_tiny")(0.0003) == pytest.approx(0.03)
+
+
+def test_a_sum_of_radiation_is_in_megajoules_and_a_share_in_percent(unit_converter: UnitConverter) -> None:
+    """A day of DWD's 1,500 J/cm² is 15 MJ/m²; a humidity of 87 % is 87, the number the source writes (GH-3702)."""
+    assert unit_converter.targets["energy_per_area"].name == "megajoule_per_square_meter"
+    assert unit_converter.targets["energy_per_area"].symbol == "MJ/m²"
+    assert unit_converter.get_lambda("joule_per_square_centimeter", "energy_per_area")(1500.0) == 15.0
+    assert unit_converter.get_lambda("kilojoule_per_square_meter", "energy_per_area")(15000.0) == 15.0
+    assert unit_converter.targets["fraction"].name == "percent"
+    assert unit_converter.get_lambda("percent", "fraction")(87.0) == 87.0
+    assert unit_converter.get_lambda("one_eighth", "fraction")(4.0) == 50.0
+    unit_converter.update_targets({"energy_per_area": "joule_per_square_centimeter", "fraction": "decimal"})
+    assert unit_converter.get_lambda("megajoule_per_square_meter", "energy_per_area")(15.0) == 1500.0
+    assert unit_converter.get_lambda("percent", "fraction")(87.0) == 0.87

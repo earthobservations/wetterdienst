@@ -1441,7 +1441,7 @@ def coverage(
     network's. `providers` has the extent of every network.
 
     `unit` of a parameter is the unit its `values` come back in when the request gives no `unit_targets` or
-    `convert_units`, the one `glossary` gives for its `unit_type` (`degree_celsius`, never Kelvin; `decimal`, 0 to 1,
+    `convert_units`, the one `glossary` gives for its `unit_type` (`degree_celsius`, never Kelvin; `percent`
     for a percentage). `unit_source` is the unit the provider publishes it in, which the values come in with
     `convert_units=false`; it is there only where it differs from `unit`, and absent means the same. This takes no
     options: a `unit_targets` of your own changes what `values` return, not this answer.

@@ -1981,7 +1981,7 @@ def test_dmo_radiation_is_read_in_joule_per_square_centimeter(
 
     Frankfurt (10637), run 2026-10-12 00Z: `Rad1h` is 142.09 for the hour ending 11 UTC, where the
     observed sum of the 10-minute global radiation of 01420 is 182.9 J/cm2 (1829 kJ/m2). Read as
-    kJ/m2 it came back as 14.2 J/cm2.
+    kJ/m2 it came back as 14.2 J/cm2. The default unit is MJ/m2 (1 MJ/m2 is 100 J/cm2).
     """
     from tests.provider.value_stubs import dwd_dmo_values  # noqa: PLC0415
 
@@ -1989,6 +1989,10 @@ def test_dmo_radiation_is_read_in_joule_per_square_centimeter(
     parameters = [("hourly", "icon", parameter)]
 
     df = dwd_dmo_values(monkeypatch, elements, parameters, lead_time, Options(drop_nulls=False))
+    assert df.get_column("value").to_list() == pytest.approx([1.4209, 0.0, None])
+
+    in_joule = Options(drop_nulls=False, unit_targets={"energy_per_area": "joule_per_square_centimeter"})
+    df = dwd_dmo_values(monkeypatch, elements, parameters, lead_time, in_joule)
     assert df.get_column("value").to_list() == pytest.approx([142.09, 0.0, None])
 
     in_kilojoule = Options(drop_nulls=False, unit_targets={"energy_per_area": "kilojoule_per_square_meter"})
@@ -2040,7 +2044,8 @@ def test_dmo_radiation_below_zero_is_zero_and_keeps_the_number(
         Options(drop_nulls=False),
     )
     values = df.get_column("value").to_list()
-    assert values == pytest.approx([0.0, 0.0, float(written[2])])
+    # the file's J/cm2 come back in MJ/m2, 100 J/cm2 each
+    assert values == pytest.approx([0.0, 0.0, float(written[2]) / 100])
     assert df.get_column("quality_flags").to_list() == tokens
 
 
@@ -2088,8 +2093,8 @@ def test_dmo_long_wave_balance_below_zero_stays_as_written(monkeypatch: pytest.M
         "long",
         Options(drop_nulls=False),
     )
-    # the file's kJ/m2 come back in J/cm2, like the other radiation of the dataset
-    assert df.get_column("value").to_list() == pytest.approx([-5.23, -0.043, 0.31])
+    # the file's kJ/m2 come back in MJ/m2, like the other radiation of the dataset
+    assert df.get_column("value").to_list() == pytest.approx([-0.0523, -0.00043, 0.0031])
     assert df.get_column("quality_flags").null_count() == df.height
 
 
@@ -2105,7 +2110,7 @@ def test_dmo_radiation_of_minus_zero_is_a_plain_zero(monkeypatch: pytest.MonkeyP
         Options(drop_nulls=False),
     )
     values = df.get_column("value").to_list()
-    assert values == [0.0, 0.0, 3.5]
+    assert values == pytest.approx([0.0, 0.0, 0.035])
     assert [math.copysign(1.0, value) for value in values] == [1.0, 1.0, 1.0]
     assert df.get_column("quality_flags").to_list() == [None, "rejected:floor,raw:-0.16", None]
 

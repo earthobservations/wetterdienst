@@ -883,7 +883,7 @@ def test_metno_frost_sunshine_duration_is_read_as_hours(
     element: str,
     hours: float,
 ) -> None:
-    """Test that the sunshine duration, which Frost answers in hours, comes back in seconds (GH-3137).
+    """Test that the sunshine duration, which Frost answers in hours, comes back in hours (GH-3137, GH-3702).
 
     The metadata said seconds for the element, so 10.4 hours came back as 10.4 seconds, 3,600 times too small.
     """
@@ -904,4 +904,4 @@ def test_metno_frost_sunshine_duration_is_read_as_hours(
         end=dt.datetime(2020, 2, 1, tzinfo=ZoneInfo("UTC")),
     )
     df = values.all().df
-    assert df["value"].to_list() == [pytest.approx(hours * 3600)]
+    assert df["value"].to_list() == [pytest.approx(hours)]

@@ -311,7 +311,7 @@ _SURFACE_WARMER_THAN_AIR = 20.0
 #: a relative humidity under 1 % is no reading: a failed hygrometer writes 0.0, 0.1, 0.4 or 0.99 %, which lies inside
 #: every range (P925 wrote 0.1 % in 43 readings of a 12 h window, GH-3624), and the air of Germany is never that dry
 #: at the road. The one narrow rule of this network that the table of ranges, the same for every provider, cannot hold
-_ROAD_HUMIDITY_FLOOR = Bound(low=0.01, names=("humidity_relative",))
+_ROAD_HUMIDITY_FLOOR = Bound(low=1.0, names=("humidity_relative",))  # percent, the unit of the type `fraction`
 
 #: the 198.15 K (-75.00 C) that the stopped sensors of station group KM write for days (GH-1917) is no reading: a
 #: working sensor spreads across the decimals and this is the same to the hundredth at every station that has it. It

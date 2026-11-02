@@ -70,7 +70,7 @@ def test_imgw_hydrology_monthly_values_come_out_as_the_long_form(monkeypatch: py
     assert df["station_id"].unique().to_list() == [STATION]
     assert df["timestamp"].unique().to_list() == [dt.datetime(2023, 1, 1, tzinfo=UTC)]
     by_parameter = dict(zip(df["parameter"], df["value"], strict=True))
-    assert by_parameter["stage_min"] == 120.0
+    assert by_parameter["stage_min"] == 1.2
     assert by_parameter["discharge_mean"] == 12.5
     assert by_parameter["temperature_water_max"] == 12.3
     assert "stage_max" not in by_parameter
@@ -102,5 +102,5 @@ def test_imgw_hydrology_a_value_that_is_no_number_is_null_and_does_not_raise(mon
     _serve(monkeypatch, "codz_2023_03.zip", "codz_2023_03.csv", csv)
     df = _values("daily", _day(2023, 1, 1), _day(2023, 1, 31), drop_nulls=False)
     stage = df.filter(pl.col("parameter").eq("stage")).sort("timestamp")
-    assert stage["value"].to_list() == [141.0, None]
+    assert stage["value"].to_list() == [1.41, None]
     assert df.filter(pl.col("parameter").eq("discharge")).sort("timestamp")["value"].to_list() == [12.5, 13.5]

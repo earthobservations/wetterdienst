@@ -244,8 +244,8 @@ export const METEOGRAM_SERIES = {
  * canonical names of `METEOGRAM_SERIES`, every station kept, and values in the units the charts
  * label them in. `unit_targets` names each quantity the meteogram draws: the server's
  * `WD_TS_UNIT_TARGETS` entries are merged into the ones a request gives, so only a quantity the
- * request names is sure of its unit. The cloud cover's `decimal` is the default, which the charts
- * scale to percent.
+ * request names is sure of its unit. The cloud cover is asked for as a `decimal` (the server's default
+ * is percent), which the charts scale to percent.
  */
 export const METEOGRAM_VALUES_SETTINGS = {
   shape: 'long',

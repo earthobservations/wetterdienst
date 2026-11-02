@@ -98,8 +98,8 @@ Usage: wetterdienst about coverage [OPTIONS]
   `alerts` for a standalone one (dwd/radar, dwd/alerts), which `stations` and `values` refuse. With
   them, the resolutions, datasets and parameters of that network. A parameter's `unit` is the unit
   its values come back in when no unit target is given (the one `about glossary` gives;
-  `degree_celsius`, `decimal` for a percentage). `unit_source`, the unit the provider publishes it
-  in (`degree_kelvin`, `percent`), is there only where it differs from `unit`; absent, it is the
+  `degree_celsius`, `percent` for a percentage). `unit_source`, the unit the provider publishes it
+  in (`degree_kelvin`, `one_eighth`), is there only where it differs from `unit`; absent, it is the
   same. A unit target of your own changes the values, not this answer.
 
 Options:
@@ -157,7 +157,7 @@ Usage: wetterdienst about glossary [OPTIONS]
 Options:
   --parameter TEXT                Match canonical parameter names containing this text, e.g.
                                   radiation.
-  --unit-type [angle|concentration|conductivity|degree_day|degree_hour|dimensionless|energy_per_area|fraction|length_long|length_medium|length_short|mass_per_volume|power_per_area|precipitation|precipitation_intensity|pressure|significant_weather|speed|temperature|temperature_difference|time|turbidity|volume|volume_per_time|wind_scale]
+  --unit-type [angle|concentration|conductivity|degree_day|degree_hour|dimensionless|duration|energy_per_area|fraction|length_day|length_long|length_medium|length_short|length_tiny|mass_per_volume|power_per_area|precipitation|precipitation_intensity|pressure|significant_weather|speed|temperature|temperature_difference|time|turbidity|volume|volume_per_time|wind_scale]
                                   Restrict to one quantity, e.g. temperature.
   --limit INTEGER RANGE           Return at most this many entries; the full vocabulary runs to
                                   several hundred parameters.  [x>=1]

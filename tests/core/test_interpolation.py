@@ -907,7 +907,7 @@ def test_interpolate_and_summarize_keep_the_precision_values_returns(
     """Interpolating or summarizing a reading keeps the decimals `values` gave it, per parameter.
 
     Both rounded every value to two decimals after `values` had converted it, so under a `mile`
-    target 5 cm of snow came back as 0.0, and under the default targets a cloud cover of 7/8,
+    target 5 cm of snow came back as 0.0, and under a `decimal` target a cloud cover of 7/8,
     0.875 from `values`, came back as 0.88. Four stations around the point all report the same
     readings, so whichever of them a result is drawn from, it is what `values` returned. The
     stations and their readings are stubbed, so nothing leaves the machine.
@@ -919,9 +919,9 @@ def test_interpolate_and_summarize_keep_the_precision_values_returns(
     from wetterdienst.provider.dwd.observation.api import DwdObservationValues  # noqa: PLC0415
 
     unit_converter = UnitConverter()
-    unit_converter.update_targets({"length_short": "mile"})
+    unit_converter.update_targets({"length_short": "mile", "fraction": "decimal"})
     # 5 cm of snow and 7/8 of cloud cover as `values` converts and rounds them, under a `mile` target
-    # and the default one for a fraction
+    # and a `decimal` one for a fraction (the default, percent, keeps 87.5 whole)
     snow_depth = round(
         unit_converter.get_lambda("centimeter", "length_short")(5.0), unit_converter.decimals("centimeter", "mile")
     )
@@ -982,7 +982,7 @@ def test_interpolate_and_summarize_keep_the_precision_values_returns(
         parameters=[("daily", "climate_summary", "snow_depth"), ("daily", "climate_summary", "cloud_cover_total_mean")],
         start=timestamps[0],
         end=timestamps[-1],
-        options=Options(unit_targets={"length_short": "mile"}),
+        options=Options(unit_targets={"length_short": "mile", "fraction": "decimal"}),
     )
     get_df = get_interpolated_df if method == "interpolate" else get_summarized_df
     df = get_df(request, latitude, longitude)
