@@ -439,6 +439,27 @@ def test_a_soft_floor_leaves_the_value_to_the_bounds_as_the_model_wrote_it() -> 
     assert inside.get_column("quality_flags").to_list() == ["suspect:floor"]
 
 
+def test_a_soft_limit_is_told_beside_a_hard_floor_that_leaves_the_value() -> None:
+    """The hard floor sets 0.0 and the value stays: the soft verdict on it is not lost to the hard token (GH-3687)."""
+    dataset = _dataset("dwd/dmo", "hourly", "icon")
+    plan = plan_for("dwd/dmo", dataset)
+    rr1 = next(name for name, c in plan.parameters.items() if c.name == "precipitation_amount_last_1h")
+    df = _frame([(rr1, -0.02), (rr1, 0.0), (rr1, 0.3)])
+    out = judged(
+        df,
+        network="dwd/dmo",
+        dataset=dataset,
+        modes=Plausibility(limits="soft"),
+        limits={"precipitation_amount_last_1h": (0.1, 50)},
+    )
+    assert out.get_column("quality_flags").to_list() == [
+        "suspect:limits,rejected:floor,raw:-0.02",
+        "suspect:limits",
+        None,
+    ]
+    assert out.get_column("value").to_list() == [0.0, 0.0, 0.3]
+
+
 def test_the_spellings_in_a_request_are_one_key_whatever_the_host_holds() -> None:
     """The later of two spellings of one key wins with and without an entry of the host's for it."""
     spelled = "daily/climate_summary/temperature_air_mean_2m"

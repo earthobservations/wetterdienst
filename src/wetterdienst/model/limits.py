@@ -229,7 +229,13 @@ def with_aliases_resolved(values: Mapping[str, object]) -> Mapping[str, object]:
         return values
     for key, alias in aliased.items():
         use_alias(key.strip().lower(), alias)
-    return {(aliased[key].new if key in aliased else key): value for key, value in values.items()}
+    resolved: dict[str, object] = {}
+    for key, value in values.items():
+        name = aliased[key].new if key in aliased else key
+        # a key given again goes to the end, so that the last of its spellings given is the later (`with_normal_names`)
+        resolved.pop(name, None)
+        resolved[name] = value
+    return resolved
 
 
 def checked_limit_names(values: object) -> object:

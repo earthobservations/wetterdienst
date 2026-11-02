@@ -98,7 +98,8 @@ RAW = QualityKind(
     "source wrote a missing-value marker or a number no sensor can have produced; this is what the source wrote in "
     "its place, as it wrote it ('-999', '99.9', '---', '4021'). Also the floor of the quantity (0.0) where a model "
     "wrote a little below it (DWD DMO precipitation and radiation), the number as short as it goes ('-0.1' for "
-    "'-0.10'). Always the last token.",
+    "'-0.10'). After `rejected:<check>` it is the number a check in the mode `hard` rejected, the bounds you set "
+    "(`limits`) included. Always the last token.",
 )
 
 

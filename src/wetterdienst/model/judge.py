@@ -539,20 +539,29 @@ def _verdicts(rows: pl.DataFrame, checks: list[str], modes: Plausibility) -> pl.
         written = pl.coalesce(text.str.replace_all(",", ";"), short)
     else:
         written = short
+    nulled = [hit[c] for c in hard if c != "floor"]
     tokens = []
+    hard_token = None
+    soft_token = None
     if hard:
         hard_names = pl.concat_str([pl.when(hit[c]).then(pl.lit(c)) for c in hard], separator="+", ignore_nulls=True)
-        tokens.append(
-            pl.when(pl.any_horizontal(hit[c] for c in hard)).then(
-                pl.concat_str(pl.lit(f"{REJECTED}:"), hard_names, pl.lit(",raw:"), written)
-            )
+        hard_token = pl.when(pl.any_horizontal(hit[c] for c in hard)).then(
+            pl.concat_str(pl.lit(f"{REJECTED}:"), hard_names, pl.lit(",raw:"), written)
         )
+        tokens.append(hard_token)
     if soft:
         soft_names = pl.concat_str([pl.when(hit[c]).then(pl.lit(c)) for c in soft], separator="+", ignore_nulls=True)
-        tokens.append(
-            pl.when(pl.any_horizontal(hit[c] for c in soft)).then(pl.concat_str(pl.lit(f"{SUSPECT}:"), soft_names))
+        soft_token = pl.when(pl.any_horizontal(hit[c] for c in soft)).then(
+            pl.concat_str(pl.lit(f"{SUSPECT}:"), soft_names)
         )
-    nulled = [hit[c] for c in hard if c != "floor"]
+        tokens.append(soft_token)
+    if hard_token is not None and soft_token is not None and "floor" in hard:
+        # a hard floor does not null the value (it is 0.0 and stays), so a soft check that found it is still told:
+        # `suspect:limits,rejected:floor,raw:-0.02`; where a hard check nulls the value it is the hard verdict alone
+        nulling = pl.any_horizontal(nulled) if nulled else pl.lit(value=False)
+        kept = pl.when(pl.any_horizontal(hit[c] for c in soft) & ~nulling).then(soft_token)
+        both = pl.concat_str([kept, hard_token], separator=",", ignore_nulls=True).replace("", None)
+        tokens = [both, soft_token]
     floored = hit["floor"] if "floor" in hard else None
     new_value = value
     if floored is not None:
