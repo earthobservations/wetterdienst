@@ -53,8 +53,9 @@ def out_of_range(df: pl.DataFrame, names: dict[str, str] | None = None, resoluti
     The frame needs the columns `parameter` and `value`; `resolution`, `dataset`, `station_id` and `timestamp` are
     carried along if it has them. `names` maps the strings of the `parameter` column to canonical names, for a frame
     that has not been humanized and so carries the source's own, whatever the case it is written in; without it the
-    column is read as canonical names. `resolution` is that of the frame, where the frame has no such column; a frame
-    of several resolutions is read at none of them unless it is given.
+    column is read as canonical names, and a name that is not one raises a `KeyError` (GH-3709). `resolution` is that
+    of the frame, where the frame has no such column; a frame of several resolutions is read at none of them unless it
+    is given.
     """
     if df.is_empty() or "parameter" not in df.columns or "value" not in df.columns:
         return pl.DataFrame()

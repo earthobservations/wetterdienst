@@ -949,12 +949,25 @@ def write_to_target(
         _write_file(result, target, connspec, if_exists, with_metadata=with_metadata)
         return
     if with_metadata:
+        refuse_metadata_without_file(target, connspec)
+    sink(result, target, connspec, if_exists)
+
+
+def refuse_metadata_without_file(target: str, connspec: ConnectionString) -> None:
+    """Refuse `with_metadata` for a target that is not a file: the metadata goes beside a file, and a database has none.
+
+    It depends on the target alone, so a caller that has not fetched anything yet (the command line) asks it first.
+
+    Raises:
+        ExportRefusedError: The target is not a file.
+
+    """
+    if find_sink(target, connspec.protocol) is not _write_file:
         msg = (
             "with_metadata writes the metadata beside a file target (file://...); "
             f"a {connspec.protocol or 'database'} target has no file to write it beside"
         )
         raise ExportRefusedError(msg)
-    sink(result, target, connspec, if_exists)
 
 
 def find_sink(target: str, protocol: str) -> Sink:

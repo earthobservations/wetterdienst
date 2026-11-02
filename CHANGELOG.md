@@ -57,6 +57,11 @@ Types of changes:
   a value outside it (a negative leaf wetness) is null with `rejected:range,raw:<number>`, where
   0.181.0 returned it. The deficit is -10 to 200 hPa: DMI publishes slightly negative ones as
   valid (GH-3681)
+- `stations`, `values`, `interpolate` and `summarize` refuse `--with-metadata` with a database
+  `--target` before the fetch, not after it, so a large request no longer downloads its data to be
+  refused. The message and exit code 1 are the same. A request whose result would be empty is
+  refused too, where it exited 0 writing nothing, and so is a target that cannot be read (a path
+  without `file://`): the combination is invalid whatever the data (GH-3711)
 
 ### Fixed
 
