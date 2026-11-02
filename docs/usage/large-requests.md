@@ -415,15 +415,26 @@ does help is to ask for less and to ask in slices:
 
 ## From the app
 
-<!-- GH-3459 (a draft, not merged): the Explorer is to start a default date range that fits and to meet a
-refusal with an explanation, "apply the window that fits" and a streamed CSV download. This section and the matching
-sentence of app.md ("A request the backend refuses ...") say what main does today and have to change when it lands. -->
+The Explorer calls the REST API, so a request it makes is held to the limits of the backend (see the
+[Web app](app.md#large-selections)). It works with them in three ways, and the third is this page's
+[stream](#stream-it) behind a button:
 
-The Explorer calls the REST API, so a request it makes is held to the limits of the backend, and when one is exceeded
-it shows what the backend answered: the limit, the number the request came to and how to narrow it (see the
-[Web app](app.md)). Follow the text in the form: a shorter date range, fewer parameters or, for a listing or a series
-of stations, fewer stations (an interpolation or a summary names no stations: a shorter date range or fewer parameters).
-For more than
-that, leave the app for the data and keep it for finding what to read: the app serves the API of its backend under
-`/api`, so the requests of this page work against the address of the app too (`https://wetterdienst.eobs.org/api/...`
-for the hosted instance), counted by the [rate limit](app.md#rate-limit) of the app.
+- A selection of stations whose whole record is more than 90 % of one answer starts with the newest window that fits
+  in the date range, with a note under the fields. **Clear date range** asks for everything instead, and the dates you type or
+  share are never replaced, as long as the selection stays within one dataset. For the values of stations, a range
+  that is required (1, 5 and 10 minute data) starts with the newest window of at most 100,000 values, where one day
+  of it fits.
+- A request that is refused over its rows, or a series of stations over its stations, is a state of the table, not an
+  error: it says in the page's language what the request comes to and what to narrow (a shorter date range, fewer
+  parameters or, for a series of stations, fewer stations; an interpolation or a summary names no stations).
+  **Show only the newest data** fills the date range with the newest window that fits and asks again.
+- **Download everything as CSV** is the refused request as `format=csv`, held to `stream_rows` instead of `rows` and
+  offered where the rows fit it, for a series of stations (not for an interpolation or a summary, which have no
+  stream). The browser saves it as it arrives. The app does not read the file, so whether a refused or a cut download
+  is saved is the browser's decision (Chrome reports both as failed); take NDJSON from the REST API where the answer
+  must be known to be whole.
+
+For more than that, leave the app for the data and keep it for finding what to read: the app serves the API of its
+backend under `/api`, so the requests of this page work against the address of the app too
+(`https://wetterdienst.eobs.org/api/...` for the hosted instance), counted by the [rate limit](app.md#rate-limit) of
+the app.

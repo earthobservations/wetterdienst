@@ -38,11 +38,34 @@ The settings of a request that the explorer offers are the [options](settings.md
 names the REST API takes them by. The app does not have the weather warnings of DWD (see [Alerts](../data/provider/dwd/alerts/index.md)
 for them) nor the radar products.
 
-<!-- GH-3459 (a draft, not merged): the Explorer is to change how it meets a refusal, see large-requests.md -->
-A request the backend refuses shows what the backend answered: one over a [limit](restapi.md#limits) says which
-and how to narrow it, a provider that is down says so and the request can be made again. See
-[Troubleshooting](troubleshooting.md) for what the answers mean. To get more than a limit allows, see
-[Getting more than the limit](large-requests.md#from-the-app).
+### Large selections
+
+The Explorer asks the REST API, so a request it makes is held to the [limits](restapi.md#limits) of the backend, and it
+meets them in three ways:
+
+- **It starts a range that fits.** A selection of stations whose whole record is more than 90 % of what the server
+  sends as one answer (500,000 rows by default) starts with the newest window that fits in the date range: at most
+  that 90 %, rounded down to whole days, months or years. A note under the date fields says so ("Default range: the newest data
+  (8 months, about 440,000 rows) ..."). **Clear date range** empties the range and keeps it empty (`range=all` in
+  the link), to ask for everything. Dates you type, apply or share in a link are never replaced, as long as the selection stays within one
+  dataset (another dataset starts over). For the values of stations, a range that is required (1, 5 and 10 minute
+  data) starts with the newest window of at most 100,000 values, which its form accepts, where one day of it fits
+  (otherwise the whole span, which the form asks you to narrow); a range that is required has no button to clear it.
+- **It shows a refusal as a state of the table.** A request the server refuses over its limit (too many rows for one
+  answer, or too many stations for a series of stations) is not a red error: the table area says, in the language of
+  the page, how many rows (or stations) the request comes to against the limit, and what can be narrowed (a shorter
+  date range, fewer parameters, fewer stations; an interpolation or a summary names no stations). For the rows it
+  offers, where one fits, **Show only the newest data (...)**, which applies the newest window that fits to the date
+  range and asks again, and, for the values of stations, **Download everything as CSV**.
+- **It streams a CSV.** The download is the request again as `format=csv`, which the server holds to the higher
+  `stream_rows` limit (10,000,000 by default) instead of `rows`, and it is offered where the rows fit that. The browser
+  saves the file as it arrives, so the app does not hold it in memory, and the app does not read it: whether a refused
+  or a cut download is saved is the browser's decision (Chrome reports both as failed). An interpolation or a summary
+  has no stream and no such button.
+
+Any other answer that is not data (a provider that is down, a limit the page has no wording for) shows what the backend
+answered, and the request can be made again. See [Troubleshooting](troubleshooting.md) for what the answers mean. To
+get more than a limit allows, see [Getting more than the limit](large-requests.md#from-the-app).
 
 ## Embed the forecast on another site
 

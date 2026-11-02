@@ -170,7 +170,7 @@ describe('explorer default date range', () => {
   it('leaves the range empty where the whole record fits', async () => {
     const { wrapper, vm, list } = await open()
     await select(wrapper, vm, list.slice(0, 2))
-    await new Promise(resolve => setTimeout(resolve, 100))
+    await new Promise(resolve => setTimeout(resolve, 200))
     expect(dates(vm)).toEqual({ startDate: undefined, endDate: undefined })
     // the note is there, empty, as a live region has to be before it speaks
     expect(note(wrapper)).toBe('')
@@ -198,6 +198,9 @@ describe('explorer default date range', () => {
     // fewer, to where the whole record fits: nothing is asked of the stations beyond what they hold
     vm.stationSelectionState.selection.stations = list.slice(0, 2)
     await vi.waitFor(() => expect(dates(vm)).toEqual({ startDate: undefined, endDate: undefined }))
+    // longer than the selector's delay before it writes a note that came with it
+    expect(vm.defaultWindow).toBeNull()
+    await new Promise(resolve => setTimeout(resolve, 200))
     expect(note(wrapper)).toBe('')
   })
 
@@ -207,6 +210,9 @@ describe('explorer default date range', () => {
     await vi.waitFor(() => expect(dates(vm).endDate).toBe(TODAY))
     await typeDate(wrapper, 0, '2001-05-01')
     expect(dates(vm).startDate).toBe('2001-05-01')
+    // the selector writes a note that came with it a moment after it mounted (150 ms): not in the DOM yet is no proof
+    expect(vm.defaultWindow).toBeNull()
+    await new Promise(resolve => setTimeout(resolve, 200))
     expect(note(wrapper)).toBe('')
     // another selection, which would move the page's window
     vm.stationSelectionState.selection.stations = list.slice(0, 10)
@@ -222,6 +228,9 @@ describe('explorer default date range', () => {
     await vi.waitFor(() => expect(dates(vm).endDate).toBe(TODAY))
     await wrapper.find('[data-testid="clear-date-range"]').trigger('click')
     expect(dates(vm)).toEqual({ startDate: undefined, endDate: undefined })
+    // see above: the page's window is gone, and the DOM has had longer than the selector's delay to show a note
+    expect(vm.defaultWindow).toBeNull()
+    await new Promise(resolve => setTimeout(resolve, 200))
     expect(note(wrapper)).toBe('')
     await vi.waitFor(() => expect(query().range).toBe('all'))
     expect(query().startDate).toBeUndefined()
@@ -269,8 +278,9 @@ describe('explorer default date range', () => {
     it('keeps the dates a link names, whatever the stations hold', async () => {
       const { vm, wrapper } = await open({ route: `/explorer?${LINK}&stations=${IDS(30)}&startDate=2010-01-01&endDate=2010-12-31` })
       await vi.waitFor(() => expect(vm.stationSelectionState.selection.stations.length).toBe(30), { timeout: 5000 })
-      await new Promise(resolve => setTimeout(resolve, 150))
+      await new Promise(resolve => setTimeout(resolve, 200))
       expect(dates(vm)).toEqual({ startDate: '2010-01-01', endDate: '2010-12-31' })
+      expect(vm.defaultWindow).toBeNull()
       expect(note(wrapper)).toBe('')
     })
 
@@ -325,6 +335,8 @@ describe('explorer default date range', () => {
       await vi.waitFor(() => expect(query().startDate).toBe(dates(vm).startDate))
       expect(query().range).toBeUndefined()
       // theirs now: no note, and another selection does not move it
+      expect(vm.defaultWindow).toBeNull()
+      await new Promise(resolve => setTimeout(resolve, 200))
       expect(note(wrapper)).toBe('')
     })
   })

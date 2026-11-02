@@ -70,6 +70,11 @@ Types of changes:
   a value outside it (a negative leaf wetness) is null with `rejected:range,raw:<number>`, where
   0.181.0 returned it. The deficit is -10 to 200 hPa: DMI publishes slightly negative ones as
   valid (GH-3681)
+- `stations`, `values`, `interpolate` and `summarize` refuse `--with-metadata` with a database
+  `--target` before the fetch, not after it, so a large request no longer downloads its data to be
+  refused. The message and exit code 1 are the same. A request whose result would be empty is
+  refused too, where it exited 0 writing nothing, and so is a target that cannot be read (a path
+  without `file://`): the combination is invalid whatever the data (GH-3711)
 
 ### Fixed
 
@@ -82,6 +87,14 @@ Types of changes:
   outside -90..90 or a longitude outside -180..180, or a NaN, with `LocationOutOfRangeError`,
   as `summarize` now does. They ranked the stations by the distance from the point the
   coordinates wrap round to (a longitude of 373.4 as 13.4). Pass a point on the globe (GH-3717)
+- **Breaking**: `interpolate` and `summarize` of `noaa/ghcn` asked about an elevation leave out a
+  station whose elevation is 0.0, as they do one with no elevation, and `*_by_station_id` of a
+  station at 0.0 ask without one. GHCN writes 0.0 for a station it knows no elevation of (54 of
+  its hourly stations at 0.0 stand 150 to 4,329 m), and the readings were corrected as from sea
+  level, by up to 28 K of air temperature. The stations frame keeps the 0.0. A request that
+  leaves everything out is refused as for stations with no elevation
+  (`NoStationsWithElevationError`); ask without an elevation to take the readings as they came
+  (GH-3708)
 
 ## [0.181.0] - 2026-11-01
 
