@@ -24,9 +24,10 @@ Types of changes:
   `resolution/dataset/parameter` (that dataset only, which wins), and a bound is in the unit the
   values come back in. A value outside is null with `rejected:limits,raw:<number>`, or kept and
   flagged `suspect:limits` with `plausibility={"limits": "soft"}`; a forecast network follows the
-  mode too, unlike the built-in checks, which are soft there. Also `WD_TS_LIMITS` (JSON),
-  `--limits name=low:high` or JSON, and `limits` and `plausibility_limits` on REST and MCP
-  `values`. An unknown name or a pair with `low` above `high` is an error (GH-3687)
+  mode too, as `floor` does, where `range` and the other built-in checks are soft. Also
+  `WD_TS_LIMITS` (JSON), `--limits name=low:high` or JSON, and `limits` and `plausibility_limits`
+  on REST and MCP `values`. An unknown name or a pair with `low` above `high` is an error
+  (GH-3687)
 
 ### Changed
 

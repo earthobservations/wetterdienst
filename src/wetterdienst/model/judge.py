@@ -462,7 +462,7 @@ def judge(  # noqa: C901
         outside = (value < low) | (value > high)
         exprs["range"].append(outside)
     if limits:
-        # the bounds the caller set: a check of its own, so that a value outside these and the ranges has both verdicts
+        # the bounds the caller set: a check of its own, so that a value outside these and the ranges is told by both
         low = parameter.replace_strict({n: b[0] for n, b in limits.items()}, default=-_INF, return_dtype=pl.Float64)
         high = parameter.replace_strict({n: b[1] for n, b in limits.items()}, default=_INF, return_dtype=pl.Float64)
         # a value the hard floor maps to the floor is judged as the floor (0.0), the value the answer holds: the

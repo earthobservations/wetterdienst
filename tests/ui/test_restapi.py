@@ -6365,7 +6365,7 @@ def test_settings_parameters_are_the_data_endpoints_settings_parameters() -> Non
             if parameter["name"] in settings:
                 expected.add(parameter["name"])
                 assert taken[parameter["name"]] == parameter, (endpoint, parameter["name"])
-    # `plausibility` is the one mode for every check, which the five `plausibility_<check>` settings report
+    # `plausibility` is the one mode for every check, which the `plausibility_<check>` settings report
     assert taken["plausibility"] == next(
         parameter for parameter in paths["/api/v1/values"]["get"]["parameters"] if parameter["name"] == "plausibility"
     )

@@ -71,7 +71,7 @@ written as short as it goes (`4021.0` as `4021`).
 | `stuck` | a sensor that held one value over a period it should not have | **soft** | DWD observation: a run of consecutive readings of one value of the station pressure (`pressure_air_site`, `pressure_air_site_mean`): 72 hourly readings, 5 days, 36 readings at 10 minutes (HadISD and ECA&D, see [the limits](#the-limit-of-a-run)); a station without a barometer writes its constant in every row. DWD road: 24 readings or more (6 h) of one value of the air, the dew point or the road surface temperature, a gap longer than four times the station's usual one ending the run, melting ice excepted. RMI: the sunshine of station 6477 in the periods its sensor was stuck or dead |
 | `consistency` | a reading that another parameter of the same file contradicts | hard | DWD road: a road surface more than 20 K above the air of the same minute with the sun more than 6 degrees below the horizon, the air counting only where it passed `range` and is not marked suspect by DWD's own flag. Météo-France: the humidity of an hour whose dew point lies below 0 °C at a station without frost (the same hygrometer), and a `tn12` that is the text of the `tx12` beside it (a copy, no minimum) |
 | `floor` | a model value a little below the floor of its quantity | hard | DWD DMO (a forecast, soft in every other built-in check, but `floor` corrects and does not reject, so it keeps its mode): ICON writes -0.02 mm for the precipitation of an hour, down to -0.10, and the radiation of a night below 0. **hard sets the floor**, 0.0, and keeps the number; soft keeps the number as the value |
-| `limits` | a reading outside the bounds **you** set for its parameter ([below](#bounds-of-your-own-limits)) | hard | Judges nothing until you set a bound (`Options(limits=...)`, `WD_TS_LIMITS`, `--limits`, `limits` of REST and MCP), and then only the parameters you name. The bounds are in the unit the values come back in, and are a check of their own beside `range`, whose bounds they neither narrow nor widen: a value outside both carries both verdicts |
+| `limits` | a reading outside the bounds **you** set for its parameter ([below](#bounds-of-your-own-limits)) | hard | Judges nothing until you set a bound (`Options(limits=...)`, `WD_TS_LIMITS`, `--limits`, `limits` of REST and MCP), and then only the parameters you name. The bounds are in the unit the values come back in, and are a check of their own beside `range`, whose bounds they neither narrow nor widen: a value outside both carries both verdicts, as far as both are in one mode ([the tokens](#the-tokens)) |
 
 `stuck` is soft by default because it judges a series and not a value: identical readings are a sign of a stuck sensor
 and no proof, and what is found depends on what was read, which differs by network (see the caveats). Every other check
@@ -187,7 +187,8 @@ The table of ranges is generous on purpose: it finds a value that is a defect of
 you know more (a station in a valley that never reads 45 °C, a rain gauge that cannot have caught 200 mm in an hour), you
 set the bounds yourself, per parameter, and the check `limits` judges every reading against them. It is a separate check
 from `range`: the physical ranges are not changed, and a value outside both carries both verdicts, joined with `+` as with
-any two checks (`rejected:limits+range,raw:4021`).
+any two checks (`rejected:limits+range,raw:4021`) where both are hard or both soft. Where one is hard and nulls the
+value, it is the hard verdict alone (`range` hard and `limits` soft: `rejected:range,raw:4021`).
 
 | | |
 | --- | --- |
@@ -243,7 +244,7 @@ and the MCP tools take `limits` (JSON) and `plausibility_limits` on `values`, an
 `interpolate` and `summarize` take neither as a parameter, but read `WD_TS_LIMITS` of the server like any option, and,
 like the stripes, leave out a value that is `suspect:limits`.
 
-**A forecast follows the mode.** Unlike the built-in checks, `limits` is not made soft on a network whose `kind` is
+**A forecast follows the mode.** Unlike `range` and the other built-in checks but `floor`, `limits` is not made soft on a network whose `kind` is
 `forecast` (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`): the bounds are yours, so a forecast value outside them is null with
 `rejected:limits,raw:<number>` by default and kept, flagged `suspect:limits`, where you set `plausibility_limits` soft,
 as for an observation. The `range` of the same value stays soft there and flags it `suspect:range`, and the token of a
@@ -383,7 +384,8 @@ clean = values.df.filter(~flags.str.contains(r"(^|,)(suspect|rejected):").fill_n
 
 ## Where each check runs
 
-The table is what the core is told to judge: a network that is in no row judges no value. A dataset is
+The table is what the core is told to judge by the library's own tables: a network that is in no row judges no value
+unless you set [bounds of your own](#bounds-of-your-own-limits), which any network is judged by. A dataset is
 `resolution/dataset`; `*` stands for every dataset of the network that has a parameter the check judges, which is how
 `range` and `elevation` run on every network that has one.
 
@@ -457,7 +459,7 @@ What no check covers, and why:
   relation is kept for the check even where nobody asked for it, and dropped after judging. Where the second parameter
   lives in another dataset, the check does not run. DWD observation holds its hourly `temperature_air` and `moisture` in
   two datasets, so the humidity of one is not held to the dew point of the other.
-- **Quantities with no bound.** The hydrology of the Environment Agency and Hub'Eau judges nothing, and no network
+- **Quantities with no bound.** The hydrology of the Environment Agency and Hub'Eau judges nothing without bounds of your own, and no network
   judges its codes, the derived quantities and the gauges listed above: a number there stays as the source wrote it. The
   sources' own "erroneous" flags (GHCN `QFLAG`, Frost `7`, GHCNh `3`, ...) are the source's and are returned as its
   flags, not as a check.
