@@ -16,13 +16,14 @@ Spanish, Italian, Polish, Dutch, Czech, Danish, Luxembourgish and Hamburgisch).
 The four tools, Forecast, Explorer, Climate stripes and History, are tabs in the header; Providers, Glossary and
 API are under **Reference**; the project's pages (about, support, the legal notices, the documentation) are in the
 footer, the same on every page. On a narrow screen (below 64 rem, 1024 px at the default text size) the tools are a
-tab bar at the foot of the screen and its **Menu** opens the rest. **Search** (the button in the header, or Ctrl+K
+tab bar at the foot of the screen (under the header in a window lower than 30 rem, such as a phone on its side) and
+its **Menu** opens the rest. **Search** (the button in the header, or Ctrl+K
 or ⌘K) goes to any page, to the forecast of a DWD station by its name, or to a provider, and sets the theme or the
 language.
 
 | Page | What it does |
 | --- | --- |
-| Home | The four tools, and **Ask the weather**: four suggestions (will it rain tomorrow, was last summer hotter than usual, how windy was a day, where hourly temperatures can be downloaded) that are answered on the page from live data, with the numbers and a chart behind the verdict and a link into the tool that holds the data. The place they are about is a DWD station that can be changed. Nothing is fetched until a question is picked. |
+| Home | The four tools, and **Ask the weather**: four suggestions (will it rain tomorrow, was last summer hotter than usual, how windy was a day, where hourly temperatures can be downloaded) that are answered on the page from live data, with the numbers and a chart behind the verdict and a link into the tool that holds the data. The place they are about is a DWD station that can be changed. Nothing is fetched until a question is picked, apart from the look-up of a place that the link names. |
 | Explorer | Pick a provider and network, a resolution, dataset and parameters, then stations on the map. Three modes: **Station** reads the measurements of the stations, **Interpolation** estimates the values of a point (see [Interpolation & Summary](interpolation.md)), **Summary** takes the nearest station with data at each timestamp. A data viewer shows the table and a chart and downloads the result as CSV, JSON or GeoJSON. |
 | Forecast | The MOSMIX forecast of a DWD station as a meteogram: temperature and dew point, wind with barbs, precipitation by phase, cloud cover and pressure. `/widget?station=<id>` is the same chart without the page around it, for embedding (`&theme=dark` or `&theme=light` sets the colours). |
 | Climate stripes | The warming stripes of a DWD station for temperature or precipitation, see [Climate Stripes](stripes.md). |

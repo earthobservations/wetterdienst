@@ -37,7 +37,9 @@ Types of changes:
   forecast, DWD's monthly means and daily readings, the providers' coverage), each with the
   verdict, the numbers, the chart that backs it and a link into the tool that holds the data,
   already filled in. The place is a DWD station the reader can change; the open question and the
-  place are in the link. Nothing is fetched until a question is picked (GH-3518)
+  place are in the link. Nothing is fetched until a question is picked, but for the look-up of a
+  place a link names. The privacy notice lists the station kept in the browser (`wd-place`)
+  (GH-3518)
 
 ### Changed
 
