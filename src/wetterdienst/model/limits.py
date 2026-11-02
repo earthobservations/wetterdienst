@@ -60,7 +60,8 @@ LIMITS_DESCRIPTION = (
     "where both name a parameter). A bound is in the unit of the values this request returns (`unit_targets`, or the "
     "source's unit with `convert_units` off), either may be null but not both, and `low` may not exceed `high`. "
     "A value outside is judged by the mode of `plausibility.limits`: hard (the default) nulls it and keeps the number "
-    "as `rejected:limits,raw:<number>`, soft keeps it and flags it `suspect:limits`. A forecast network is judged soft."
+    "as `rejected:limits,raw:<number>`, soft keeps it and flags it `suspect:limits`. A forecast network follows this "
+    "mode too."
 )
 
 
@@ -180,22 +181,42 @@ def scope_of(key: str) -> int:
     return sum(1 for parameter in _parameters_of_all_networks() if search.matches(parameter))
 
 
+@functools.lru_cache(maxsize=1024)
+def _parameters_named_by(key: str) -> frozenset[int]:
+    """Identify the parameters, of every network, that a key naming a dataset's parameter names."""
+    search = _search_of(key)
+    return frozenset(id(parameter) for parameter in _parameters_of_all_networks() if search.matches(parameter))
+
+
 def with_normal_names(values: Mapping[str, _T]) -> dict[str, _T]:
     """Give a mapping with the keys that are valid names in their one spelling, and the others as they are.
 
-    A key spelled otherwise than an earlier one is the same key: the later pair replaces the earlier and takes its
-    place after it.
+    Keys that name the very same parameters are one key whatever their spelling (``10_minutes/data/ff`` and
+    ``minute_10/data/ff``), in the spelling that sorts first; the later pair of them replaces the earlier and takes its
+    place after it. The result does not depend on the order of the keys, but for which of them is the later.
     """
+    names = {key: normal_name(key) if _problem_with(key) is None else key for key in values}
+    spelling: dict[frozenset[int], str] = {}
+    for name in names.values():
+        if is_dataset_key(name) and _problem_with(name) is None:
+            named = _parameters_named_by(name)
+            spelling[named] = min(name, spelling.get(named, name))
     spelled: dict[str, _T] = {}
     for key, value in values.items():
-        name = normal_name(key) if _problem_with(key) is None else key
+        name = names[key]
+        if is_dataset_key(name) and _problem_with(name) is None:
+            name = spelling[_parameters_named_by(name)]
         spelled.pop(name, None)
         spelled[name] = value
     return spelled
 
 
 def _with_aliases_resolved(values: Mapping[str, object]) -> Mapping[str, object]:
-    """Write the new name for a key that is an alias of a renamed canonical name, and warn that it was one (GH-2625)."""
+    """Write the new name for a key that is an alias of a renamed canonical name, and warn that it was one (GH-2625).
+
+    Only for a canonical name: inside `resolution/dataset/parameter` the old name is refused. Where the old and the new
+    name are both given the later wins, as for any two spellings of a key.
+    """
     aliased = {
         key: PARAMETER_ALIASES[key.strip().lower()]
         for key in values
@@ -206,11 +227,7 @@ def _with_aliases_resolved(values: Mapping[str, object]) -> Mapping[str, object]
     }
     if not aliased:
         return values
-    given = {key.strip().lower() for key in values if isinstance(key, str)}
     for key, alias in aliased.items():
-        if alias.new in given:
-            msg = f"limits gives '{key}', which was renamed to '{alias.new}', and '{alias.new}' as well: give it once"
-            raise ValueError(msg)
         use_alias(key.strip().lower(), alias)
     return {(aliased[key].new if key in aliased else key): value for key, value in values.items()}
 

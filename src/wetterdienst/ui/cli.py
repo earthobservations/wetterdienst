@@ -302,7 +302,7 @@ def plausibility_opts(command: _CommandT) -> _CommandT:
             "One mode for every plausibility check: soft keeps what a check finds implausible, flagged "
             "`suspect:<check>`, hard nulls it and keeps the number as `rejected:<check>,raw:<number>`. A check "
             "given beside it by --plausibility-<check> wins. A forecast network (kind forecast) is soft in every "
-            "check but floor, whatever is given. Default: WD_TS_PLAUSIBILITY if set, else the mode of "
+            "check but floor and limits, whatever is given. Default: WD_TS_PLAUSIBILITY if set, else the mode of "
             "each check"
         ),
     )(command)
@@ -340,7 +340,7 @@ limits_opt = click.option(
         "parameters. A name is a canonical parameter (every dataset that serves it) or resolution/dataset/parameter "
         "(that dataset only, which wins where both name a parameter). A value outside is judged by "
         "--plausibility-limits: hard (the default) nulls it and keeps the number as `rejected:limits,raw:<number>`, "
-        "soft keeps it and flags it `suspect:limits`. A forecast network is soft in any case. Default: "
+        "soft keeps it and flags it `suspect:limits`. A forecast network follows this mode too. Default: "
         "WD_TS_LIMITS if set, else none; a name given here replaces the one of WD_TS_LIMITS"
     ),
 )

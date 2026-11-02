@@ -375,13 +375,13 @@ def limits_in_canonical(
         if search is None:
             by_name[key.strip().lower()] = pair
         else:
-            by_dataset.append((scope_of(key), search, pair))
+            by_dataset.append((scope_of(key), key, search, pair))
     found: dict[str, tuple[float, float]] = {}
     for parameter in dataset:
-        # of the keys that name the parameter the one that names the fewest parameters wins (`scope_of`), whatever the
-        # order of the keys, and the later one of two as wide
-        named = [(scope, pair) for scope, search, pair in by_dataset if search.matches(parameter)]
-        pair = min(reversed(named), key=lambda scoped: scoped[0])[1] if named else by_name.get(parameter.name)
+        # of the keys that name the parameter the one that names the fewest parameters wins (`scope_of`), of two as wide
+        # the one that sorts first: whatever the order of the keys
+        named = [(scope, key, pair) for scope, key, search, pair in by_dataset if search.matches(parameter)]
+        pair = min(named, key=lambda scoped: scoped[:2])[2] if named else by_name.get(parameter.name)
         if pair is None:
             continue
         conversion = plan.parameters[parameter.name_original]

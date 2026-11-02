@@ -37,6 +37,11 @@ CALLER_CHECKS: tuple[str, ...] = ("limits",)
 #: the checks that correct a value instead of rejecting it, and so run as they are set on a forecast network
 CORRECTING_CHECKS: tuple[str, ...] = ("floor",)
 
+#: the checks that run as they are set on a forecast network: those that correct a value, and the bounds the caller
+#: wrote (``limits``, which a forecast follows as any other network: the caller asked for the values outside to go,
+#: GH-3687)
+FORECAST_KEEPS_MODE: tuple[str, ...] = (*CORRECTING_CHECKS, *CALLER_CHECKS)
+
 #: the kinds of token a check writes into ``quality_flags``, before ``raw:``
 SUSPECT = "suspect"
 REJECTED = "rejected"
@@ -54,11 +59,14 @@ def hard_means(check: str) -> str:
 
 def forecast_note(check: str) -> str:
     """Say what a forecast network does with the mode of a check (``Plausibility.for_forecast``)."""
-    if check in CORRECTING_CHECKS:
+    if check in FORECAST_KEEPS_MODE:
         return (
             "A forecast network (`kind` `forecast`) keeps the mode as set for this check, and judges the others soft."
         )
-    return "A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` keeps its mode)."
+    return (
+        "A forecast network (`kind` `forecast`) is judged soft whatever the mode "
+        "(only `floor` and `limits` keep their mode)."
+    )
 
 
 _HARD_MEANS = (
@@ -74,9 +82,9 @@ class Plausibility(BaseModel):
     and the flag keeps the judgement visible. The missing-value codes and documented meanings a source writes
     (``-999``, ``---``, a trace, a calm) are no check and are not configurable.
 
-    On a forecast network (the ``kind`` of its metadata) every check is soft but ``floor``, whatever is set here
-    (``for_forecast``): a forecast is a model's output and no reading, so a value a check finds is flagged and never
-    nulled.
+    On a forecast network (the ``kind`` of its metadata) every check is soft but ``floor`` and ``limits``, whatever is
+    set here (``for_forecast``): a forecast is a model's output and no reading, so a value a built-in check finds is
+    flagged and never nulled.
 
     The defaults are what the library did for the networks it judged before the modes existed (since GH-3681 ``range``
     and ``elevation`` judge every network), except ``stuck``, which is soft: it judges a
@@ -129,15 +137,19 @@ class Plausibility(BaseModel):
     )
 
     def for_forecast(self) -> Plausibility:
-        """Give the modes a forecast network is judged with: every check soft, whatever mode it was given (GH-3681).
+        """Give the modes a forecast network is judged with: every check soft but two, whatever mode it was given.
 
-        A forecast is a model's output and not a reading, and what a check finds in it (a rain above any record, a
-        pressure the elevation does not allow) is a flag on a value the model wrote, so no check nulls it, however
-        ``hard`` is set (the options, the CLI, the REST API, the environment). The one exception is ``floor``, which
-        does not reject: it sets a value a little below the floor of its quantity to the floor and keeps the number
-        as ``rejected:floor,raw:<number>``, so it keeps the mode it was given.
+        A forecast is a model's output and not a reading, and what a built-in check finds in it (a rain above any
+        record, a pressure the elevation does not allow) is a flag on a value the model wrote, so none of them nulls it,
+        however ``hard`` is set (the options, the CLI, the REST API, the environment; GH-3681). There are two
+        exceptions, which keep the mode they were given:
+
+        - ``floor`` does not reject: it sets a value a little below the floor of its quantity to the floor and keeps the
+          number as ``rejected:floor,raw:<number>``;
+        - ``limits`` are bounds the caller wrote for a parameter, so the caller has said what is to go: hard (the
+          default) nulls a forecast value outside them as ``rejected:limits,raw:<number>``, soft flags it (GH-3687).
         """
-        return Plausibility(**{check: self.mode(check) if check in CORRECTING_CHECKS else "soft" for check in CHECKS})
+        return Plausibility(**{check: self.mode(check) if check in FORECAST_KEEPS_MODE else "soft" for check in CHECKS})
 
     @model_validator(mode="before")
     @classmethod

@@ -718,7 +718,7 @@ The plausibility checks `range`, `elevation`, `stuck`, `consistency`, `floor` an
 `soft`, as the query parameters `plausibility_range`, `plausibility_elevation`, `plausibility_stuck`,
 `plausibility_consistency`, `plausibility_floor` and `plausibility_limits` (the environment variable of a server is
 `WD_TS_PLAUSIBILITY__RANGE` and so on). A hard check nulls the value and writes `rejected:<check>,raw:<number>` into
-`quality_flags`, a soft check keeps the value and writes `suspect:<check>`; a check not named keeps the server's mode. On a forecast network (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`: `kind` `forecast`) every check but `floor` is soft whatever the mode, so `hard` there flags `suspect:<check>` and nulls nothing.
+`quality_flags`, a soft check keeps the value and writes `suspect:<check>`; a check not named keeps the server's mode. On a forecast network (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`: `kind` `forecast`) every check but `floor` and `limits` is soft whatever the mode, so `hard` there flags `suspect:<check>` and nulls nothing (`limits` follows its mode).
 See [plausibility checks](../data/plausibility.md). `interpolate` and `summarize` take no mode: they leave out a
 suspect value in any case, and so do `stripes/values` and `stripes/image`.
 
@@ -727,8 +727,7 @@ parameter to `[low, high]` (`null` for no bound at an end): `{"temperature_air_m
 canonical parameter name, which holds in every dataset that serves it, or `resolution/dataset/parameter`, which holds
 in that dataset and wins where both name a parameter. The bounds are in the unit of the values the request returns (its
 `unit_targets`, or the source's unit with `convert_units` off); a value outside is null with `rejected:limits,raw:<number>`
-by default, or kept and flagged `suspect:limits` with `plausibility_limits=soft`, and a forecast network keeps it flagged
-in any case. A name that is no parameter is a 400 naming it; a pair with `low` above `high`, both ends null, a bound that is not
+by default, or kept and flagged `suspect:limits` with `plausibility_limits=soft`, and a forecast network follows the mode too. A name that is no parameter is a 400 naming it; a pair with `low` above `high`, both ends null, a bound that is not
 a finite number and text that is no JSON object are a 422. The `limits` of a request are merged into the server's `WD_TS_LIMITS`, the request's entry winning
 for a name both give. `/api/settings` reports them in `values`.
 

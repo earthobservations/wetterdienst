@@ -351,7 +351,7 @@ _PlausibilityField = Annotated[
         description="One mode for every plausibility check at once: `soft` keeps every value a check finds "
         "implausible and flags it (`suspect:<check>`), `hard` nulls it and keeps the number "
         "(`rejected:<check>,raw:<number>`), except on a forecast network (`kind` `forecast`), where every check but "
-        "`floor` is soft whatever the mode. A check given beside it by `plausibility_<check>` wins. "
+        "`floor` and `limits` is soft whatever the mode. A check given beside it by `plausibility_<check>` wins. "
         "Default: the server's WD_TS_PLAUSIBILITY if set, else the mode of each check.",
     ),
 ]

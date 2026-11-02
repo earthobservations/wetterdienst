@@ -346,17 +346,22 @@ def test_of_two_keys_naming_one_parameter_the_one_with_the_fewer_parameters_wins
     limits = dict(reversed(pairs) if reverse else pairs)
     bounds = limits_in_canonical(plan, swiss, limits, UnitConverter(), convert_units=True)
     assert bounds["rre150h0"] == pytest.approx((0.0, 100.0), abs=1e-6)
-    # and the options judge the same whichever they were built from
-    assert Options(limits=dict(pairs)) == Options(limits=dict(reversed(pairs)))
 
 
-def test_of_two_keys_equally_wide_the_later_wins() -> None:
-    """One parameter spelled twice: the later pair replaces the earlier, in a mapping and between two mappings."""
+def test_spellings_of_one_key_are_one_key_whatever_the_order() -> None:
+    """Keys that name the very same parameters are one, in the spelling that sorts first; the later pair wins."""
     spelled = "daily/climate_summary/temperature_air_mean_2m"
     limits = Options(
         limits={"daily/kl/tmk": (0, 1), "hourly/data/pressure_air_site": (900, 1100), "Daily/KL/Tmk": (2, 3)}
     )
     assert limits.limits == {"hourly/data/pressure_air_site": (900.0, 1100.0), spelled: (2.0, 3.0)}
+    # two spellings that are no canonical triple (`minute_10` is the member of `Resolution`, `10_minutes` its value)
+    ways = {"10_minutes/data/ff": (0, 1), "minute_10/data/ff": (0, 2)}
+    first = Options(limits=ways).limits
+    reverse = Options(limits=dict(reversed(ways.items()))).limits
+    assert list(first) == list(reverse) == ["10_minutes/data/ff"]
+    assert first == {"10_minutes/data/ff": (0.0, 2.0)}
+    assert reverse == {"10_minutes/data/ff": (0.0, 1.0)}
 
 
 def test_a_pair_that_is_invalid_is_told_by_the_key_as_it_was_written() -> None:
@@ -371,18 +376,38 @@ def test_the_caches_of_the_names_are_bounded() -> None:
     assert normal_name.cache_info().maxsize is not None
 
 
-def test_a_forecast_is_judged_soft_whatever_the_mode() -> None:
-    """The rule of every check but `floor` (`Plausibility.for_forecast`): flagged, never nulled."""
+def test_a_forecast_follows_the_mode_of_limits_and_is_soft_in_the_other_checks() -> None:
+    """The bounds are the caller's: hard (the default) nulls a forecast value outside them, soft flags it (GH-3687)."""
     dataset = _dataset("dwd/dmo", "hourly", "icon")
     plan = plan_for("dwd/dmo", dataset)
     rr1 = next(name for name, c in plan.parameters.items() if c.name == "precipitation_amount_last_1h")
-    df = _frame([(rr1, 5.0), (rr1, 0.3)])
-    for modes in (None, Plausibility(limits="hard"), Plausibility.model_validate("hard")):
-        out = judged(
-            df, network="dwd/dmo", dataset=dataset, modes=modes, limits={"precipitation_amount_last_1h": (0, 1)}
-        )
-        assert out.get_column("value").to_list() == [5.0, 0.3]
-        assert out.get_column("quality_flags").to_list() == ["suspect:limits", None]
+    limits = {"precipitation_amount_last_1h": (0, 1)}
+    df = _frame([(rr1, 5.0), (rr1, 0.3), (rr1, 394.92)])
+    for modes in (None, Plausibility(limits="hard"), Plausibility(limits="hard", range="soft")):
+        out = judged(df, network="dwd/dmo", dataset=dataset, modes=modes, limits=limits)
+        assert out.get_column("value").to_list() == [None, 0.3, None]
+        # the range of 394.92 mm stays soft on a forecast, and a rejected value carries the hard checks alone
+        assert out.get_column("quality_flags").to_list() == [
+            "rejected:limits,raw:5",
+            None,
+            "rejected:limits,raw:394.92",
+        ]
+    soft = judged(df, network="dwd/dmo", dataset=dataset, modes=Plausibility(limits="soft"), limits=limits)
+    assert soft.get_column("value").to_list() == [5.0, 0.3, 394.92]
+    assert soft.get_column("quality_flags").to_list() == ["suspect:limits", None, "suspect:limits+range"]
+    # no bound set: the range is soft there, as before
+    plain = judged(df, network="dwd/dmo", dataset=dataset)
+    assert plain.get_column("quality_flags").to_list() == [None, None, "suspect:range"]
+
+
+def test_the_modes_a_forecast_is_judged_with_keep_the_one_of_limits() -> None:
+    """`Plausibility.for_forecast` keeps `limits` as set, hard by default, like `floor`."""
+    assert Options(limits={"precipitation_amount_last_1h": (0, 1)}).plausibility.for_forecast().limits == "hard"
+    assert Options(
+        limits={"precipitation_amount_last_1h": (0, 1)}, plausibility="soft"
+    ).plausibility.for_forecast() == (
+        Plausibility(floor="soft", limits="soft", range="soft", elevation="soft", stuck="soft", consistency="soft")
+    )
 
 
 # --- the options -----------------------------------------------------------------------------------------------------

@@ -348,8 +348,13 @@ def test_a_limit_set_by_the_alias_of_every_dataset_is_set_for_the_new_name() -> 
         options = Options(limits={OLD: (0, 1)})
 
     assert options.limits == {NEW: (0.0, 1.0)}
-    with pytest.raises(ValueError, match="give it once"):
-        Options(limits={OLD: (0, 1), NEW: (0, 2)})
+    # the old name beside the new one is one key, and the later pair wins, as for the spellings of any key
+    with pytest.warns(DeprecationWarning, match="'air_temp' was renamed"):
+        assert Options(limits={NEW: (0, 2), OLD: (0, 1)}).limits == {NEW: (0.0, 1.0)}
+    with pytest.warns(DeprecationWarning, match="'air_temp' was renamed"):
+        assert core.overlay_options(Options(limits={NEW: (0, 2)}), {"limits": {OLD: (0, 1)}}).limits == {
+            NEW: (0.0, 1.0)
+        }
 
 
 @pytest.mark.usefixtures("alias_everywhere")

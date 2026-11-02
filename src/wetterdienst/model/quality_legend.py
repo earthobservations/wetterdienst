@@ -70,7 +70,7 @@ SUSPECT = QualityKind(
     kind="suspect",
     written="suspect:<check>",
     meaning="The value is kept, and a plausibility check in the mode `soft` (on a forecast network every check but "
-    "`floor` is) finds it implausible: one of "
+    "`floor` and `limits` is) finds it implausible: one of "
     + _CHECKS
     + ", several joined with `+` (`suspect:range+stuck`). The checks and their modes are the `plausibility` option "
     "of the request; the default of `stuck` is soft. No `raw` token: the value is the number the source wrote. "
@@ -86,7 +86,8 @@ REJECTED = QualityKind(
     + _CHECKS
     + ", several joined with `+`. It tells a number rejected by the library from a missing-value code of the "
     "source, which has `raw` alone. A forecast network (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`) never has one but for "
-    "`floor`: its checks are soft whatever the mode, so a value is flagged `suspect:<check>` and not nulled.",
+    "`floor` and `limits`: its other checks are soft whatever the mode, so a value is flagged `suspect:<check>` and "
+    "not nulled.",
 )
 
 #: the last token of any network that maps a missing-value marker or an impossible number to null

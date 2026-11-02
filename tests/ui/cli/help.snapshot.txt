@@ -851,38 +851,41 @@ Options:
                                   finds implausible, flagged `suspect:<check>`, hard nulls it and
                                   keeps the number as `rejected:<check>,raw:<number>`. A check given
                                   beside it by --plausibility-<check> wins. A forecast network (kind
-                                  forecast) is soft in every check but floor, whatever is given.
-                                  Default: WD_TS_PLAUSIBILITY if set, else the mode of each check
+                                  forecast) is soft in every check but floor and limits, whatever is
+                                  given. Default: WD_TS_PLAUSIBILITY if set, else the mode of each
+                                  check
   --plausibility-range [hard|soft]
                                   What the check 'range' does to a value it finds implausible: hard
                                   nulls the value and keeps the number as
                                   `rejected:range,raw:<number>` in `quality_flags`, soft keeps it
                                   and flags it `suspect:range`. A forecast network (`kind`
-                                  `forecast`) is judged soft whatever the mode (only `floor` keeps
-                                  its mode). Default: WD_TS_PLAUSIBILITY__RANGE if set, else hard
+                                  `forecast`) is judged soft whatever the mode (only `floor` and
+                                  `limits` keep their mode). Default: WD_TS_PLAUSIBILITY__RANGE if
+                                  set, else hard
   --plausibility-elevation [hard|soft]
                                   What the check 'elevation' does to a value it finds implausible:
                                   hard nulls the value and keeps the number as
                                   `rejected:elevation,raw:<number>` in `quality_flags`, soft keeps
                                   it and flags it `suspect:elevation`. A forecast network (`kind`
-                                  `forecast`) is judged soft whatever the mode (only `floor` keeps
-                                  its mode). Default: WD_TS_PLAUSIBILITY__ELEVATION if set, else
-                                  hard
+                                  `forecast`) is judged soft whatever the mode (only `floor` and
+                                  `limits` keep their mode). Default: WD_TS_PLAUSIBILITY__ELEVATION
+                                  if set, else hard
   --plausibility-stuck [hard|soft]
                                   What the check 'stuck' does to a value it finds implausible: hard
                                   nulls the value and keeps the number as
                                   `rejected:stuck,raw:<number>` in `quality_flags`, soft keeps it
                                   and flags it `suspect:stuck`. A forecast network (`kind`
-                                  `forecast`) is judged soft whatever the mode (only `floor` keeps
-                                  its mode). Default: WD_TS_PLAUSIBILITY__STUCK if set, else soft
+                                  `forecast`) is judged soft whatever the mode (only `floor` and
+                                  `limits` keep their mode). Default: WD_TS_PLAUSIBILITY__STUCK if
+                                  set, else soft
   --plausibility-consistency [hard|soft]
                                   What the check 'consistency' does to a value it finds implausible:
                                   hard nulls the value and keeps the number as
                                   `rejected:consistency,raw:<number>` in `quality_flags`, soft keeps
                                   it and flags it `suspect:consistency`. A forecast network (`kind`
-                                  `forecast`) is judged soft whatever the mode (only `floor` keeps
-                                  its mode). Default: WD_TS_PLAUSIBILITY__CONSISTENCY if set, else
-                                  hard
+                                  `forecast`) is judged soft whatever the mode (only `floor` and
+                                  `limits` keep their mode). Default:
+                                  WD_TS_PLAUSIBILITY__CONSISTENCY if set, else hard
   --plausibility-floor [hard|soft]
                                   What the check 'floor' does to a value it finds implausible: hard
                                   sets the value to 0.0 and keeps the number as
@@ -895,8 +898,8 @@ Options:
                                   nulls the value and keeps the number as
                                   `rejected:limits,raw:<number>` in `quality_flags`, soft keeps it
                                   and flags it `suspect:limits`. A forecast network (`kind`
-                                  `forecast`) is judged soft whatever the mode (only `floor` keeps
-                                  its mode). Default: WD_TS_PLAUSIBILITY__LIMITS if set, else hard
+                                  `forecast`) keeps the mode as set for this check, and judges the
+                                  others soft. Default: WD_TS_PLAUSIBILITY__LIMITS if set, else hard
   --limits TEXT                   Bounds of your own for the plausibility check limits, in the unit
                                   the values come back in (see --unit-targets): a JSON map of a
                                   parameter to [low, high], null for no bound at one end ({"temperat
@@ -909,9 +912,9 @@ Options:
                                   value outside is judged by --plausibility-limits: hard (the
                                   default) nulls it and keeps the number as
                                   `rejected:limits,raw:<number>`, soft keeps it and flags it
-                                  `suspect:limits`. A forecast network is soft in any case. Default:
-                                  WD_TS_LIMITS if set, else none; a name given here replaces the one
-                                  of WD_TS_LIMITS
+                                  `suspect:limits`. A forecast network follows this mode too.
+                                  Default: WD_TS_LIMITS if set, else none; a name given here
+                                  replaces the one of WD_TS_LIMITS
   --format [json|geojson|csv|ndjson|html|png|jpg|webp|svg|pdf]
                                   Output format: json, geojson, csv or ndjson (the metadata, a line
                                   for each row, then the end) for data, html, png, jpg, webp, svg or
