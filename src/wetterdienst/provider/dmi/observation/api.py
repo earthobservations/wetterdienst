@@ -150,13 +150,17 @@ _STATION_SCHEMA = pl.Schema(
 # the 18 UTC report, whose 12 hours start at 06:00), so the `to` of the record is the report time (GH-3622). The same
 # holds for the mean wind direction at minute 0: the record of `from` 00:00 and `to` 01:00 holds the 10 minute value
 # of 01:00 UTC (208 at 04220 on 2025-11-21, as the 10-minute `wind_dir` of metObs of that minute), the mean of the 10
-# minutes before it (GH-3762).
+# minutes before it (GH-3762). So does the hourly cloud cover, "cloud_cover at minute 0": the record of `from` 11:00
+# and `to` 12:00 at 04250 on 2024-06-03 holds 10, the metObs `cloud_cover` of 12:00 UTC (11:00 reads 60), and over
+# 18 stations the value of a record is the reading at its `to` in 10,287 of 10,559 hours in which the readings at
+# `from` and `to` differ, and the reading at its `from` in 135 (GH-3766).
 _STAMPED_BY_THE_END_OF_THE_WINDOW = (
     "max_temp_12h",
     "min_temperature_12h",
     "acc_precip_past12h",
     "acc_precip_past24h",
     "mean_wind_dir_min0",
+    "mean_cloud_cover",
 )
 
 

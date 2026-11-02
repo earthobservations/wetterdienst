@@ -81,6 +81,10 @@ Types of changes:
   or null, and a `data` entry with no `observations`, or an empty or null one, are no data now on
   every path (a discovered series moves on to the next one), where the reader raised a polars
   error (GH-3750)
+- `dmi/observation` hourly `cloud_cover_total` (DMI's `mean_cloud_cover`, the reading at minute 0)
+  is dated by the end of DMI's record now, as `wind_direction_mean_last_10min`: it was an hour too
+  early (the value stamped 11:00 is the reading of 12:00 UTC, as in metObs). A caller that stored
+  or joined it by the old timestamp finds each value one hour later now (GH-3766)
 
 ## [0.182.0] - 2026-11-02
 

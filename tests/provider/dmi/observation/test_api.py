@@ -660,6 +660,54 @@ def test_collect_serves_the_wind_direction_of_minute_0_as_given_even_where_the_h
     ]
 
 
+def test_collect_stamps_the_hourly_cloud_cover_by_the_end_of_its_record(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The cloud cover "at minute 0" of the record `from` 11:00, `to` 12:00 is the reading of 12:00, not of 11:00.
+
+    Rows as DMI serves them for 04250 (Nuuk, read key-less 2026-11-02) beside the metObs `cloud_cover` of the same
+    station: 60 at 11:00, 10 at 12:00, 40 at 13:00 and 40 at 14:00 UTC on 2024-06-03 (the 10-minute readings at those
+    minutes), which is the value of the record that *ends* there (GH-3766). The mean temperature, a mean of the hour,
+    stays stamped by its `from`.
+    """
+    rows = [
+        # (parameterId, from, value)
+        ("mean_cloud_cover", "2024-06-03T10:00:00+00:00", 60.0),
+        ("mean_cloud_cover", "2024-06-03T11:00:00+00:00", 10.0),
+        ("mean_cloud_cover", "2024-06-03T12:00:00+00:00", 40.0),
+        ("mean_cloud_cover", "2024-06-03T13:00:00+00:00", 40.0),
+        ("mean_temp", "2024-06-03T11:00:00+00:00", 5.1),
+    ]
+    features = [
+        {
+            "properties": {
+                "parameterId": parameter,
+                "from": start,
+                "to": (dt.datetime.fromisoformat(start) + dt.timedelta(hours=1)).isoformat(),
+                "value": value,
+                "qcStatus": "manual",
+                "validity": True,
+            }
+        }
+        for parameter, start, value in rows
+    ]
+    content = json.dumps({"features": features}).encode()
+    monkeypatch.setattr(dmi_api, "download_file", lambda **_: File(url="", content=BytesIO(content), status=200))
+    values = object.__new__(dmi_api.DmiObservationValues)
+    values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
+        start=dt.datetime(2024, 6, 3, 11, tzinfo=UTC),
+        end=dt.datetime(2024, 6, 3, 14, tzinfo=UTC),
+        request=SimpleNamespace(settings=Settings(cache_disable=True)),
+    )
+    dataset = dmi_api.DmiObservationMetadata["hourly"].datasets[0]
+    df = values._collect_station_parameter_or_dataset("04250", dataset)  # noqa: SLF001
+    cloud = df.filter(pl.col("parameter") == "mean_cloud_cover").sort("timestamp")
+    assert cloud.get_column("timestamp").to_list() == [
+        dt.datetime(2024, 6, 3, hour, tzinfo=UTC) for hour in (11, 12, 13, 14)
+    ]
+    assert cloud.get_column("value").to_list() == [60.0, 10.0, 40.0, 40.0]
+    temperature = df.filter(pl.col("parameter") == "mean_temp")
+    assert temperature.get_column("timestamp").to_list() == [dt.datetime(2024, 6, 3, 11, tzinfo=UTC)]
+
+
 def test_the_wind_direction_of_minute_0_is_the_mean_of_ten_minutes_in_degrees() -> None:
     """`mean_wind_dir_min0` is `wind_direction_mean_last_10min` in degrees, at the hour only (GH-3762)."""
     for resolution in ("daily", "monthly", "annual"):

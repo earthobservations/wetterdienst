@@ -2169,7 +2169,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("hourly", "data", "mean_cloud_cover"): (
             "Fraction of the sky covered by cloud of any type or height at minute 0 of the hour (UTC), in "
-            "percent. The source writes the oktas as 0, 10 (1 okta or less, but not 0), 25, 40, 50, 60, "
+            "percent: the reading at the end of the hour DMI's record spans, the time the value is dated by. "
+            "The source writes the oktas as 0, 10 (1 okta or less, but not 0), 25, 40, 50, 60, "
             "75, 90 (7 oktas or more, but not 8) and 100 (8 oktas); a value above 100, such as the 112 of "
             "its observations for an obscured sky, is null."
         ),
