@@ -43,7 +43,14 @@ class Case:
 
 
 #: the modes of the checks, as they are without a setting (GH-3676)
-DEFAULT_PLAUSIBILITY = {"range": "hard", "elevation": "hard", "stuck": "soft", "consistency": "hard", "floor": "hard"}
+DEFAULT_PLAUSIBILITY = {
+    "range": "hard",
+    "elevation": "hard",
+    "stuck": "soft",
+    "consistency": "hard",
+    "floor": "hard",
+    "limits": "hard",
+}
 
 #: what an option is dumped as: the per-parameter radii as the overrides that were given
 CASES = [
@@ -92,10 +99,30 @@ CASES = [
         [{"range": "off"}, {"nonsense": "soft"}, 5],
         '{"range":"off"}',
     ),
+    Case(
+        "limits",
+        {},
+        '{"temperature_air_mean_2m":[-30,45],"precipitation_amount":[null,200]}',
+        {"temperature_air_mean_2m": (-30.0, 45.0), "precipitation_amount": (None, 200.0)},
+        [
+            {"nonsense": [1, 2]},
+            {"temperature_air_mean_2m": [5, 1]},
+            {"temperature_air_mean_2m": [None, None]},
+            {"temperature_air_mean_2m": [float("nan"), 1]},
+            5,
+        ],
+        '{"nonsense":[1,2]}',
+    ),
 ]
 CASE_IDS = [case.name for case in CASES]
 #: the options a mapping is merged into from the environment, so a given value does not replace it
-MAPPINGS = {"unit_targets", "geo_station_distance", "geo_station_distance_resolution_factors", "plausibility"}
+MAPPINGS = {
+    "unit_targets",
+    "geo_station_distance",
+    "geo_station_distance_resolution_factors",
+    "plausibility",
+    "limits",
+}
 
 
 @pytest.fixture(autouse=True)

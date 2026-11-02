@@ -27,7 +27,7 @@ unless the table says so.
   token comes before `raw:`. Where the check is `hard` the value is null and the token is
   `rejected:<check>,raw:<number>`, the number as short as it can be written (`rejected:range,raw:4021`,
   `rejected:range,raw:110.26`; the text the source wrote where it gives one, `raw:-0.80`); where it is `soft` the value is kept and the token is `suspect:<check>`, with no
-  `raw:`. The checks are `range`, `elevation`, `stuck`, `consistency` and `floor`, several joined with `+`
+  `raw:` of its own (a hard `floor` keeps the value as 0.0, and a soft check that also finds it is written before `rejected:floor,raw:`). The checks are `range`, `elevation`, `stuck`, `consistency`, `floor` and `limits` (the bounds you set), several joined with `+`
   (`suspect:range+stuck`); the `plausibility` option sets the mode of each, and every check is hard but `stuck`. The
   ranges are generous and, for the rain and the sunshine of a span, grow with the resolution (what is no reading of a
   minute is one of a day), so a value that is only odd stays. `raw:` without `rejected:` before it is the source's own

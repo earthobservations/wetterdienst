@@ -22,7 +22,7 @@ import wetterdienst
 from tests.provider.value_stubs import STUBS
 from wetterdienst import Wetterdienst
 from wetterdienst.model.judge import CONSTANT_RUNS, FLOORS, RUNS, plan_for
-from wetterdienst.model.plausibility import CHECKS, COVERAGE, Plausibility
+from wetterdienst.model.plausibility import CALLER_CHECKS, CHECKS, COVERAGE, Plausibility
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
@@ -120,8 +120,9 @@ def test_the_table_of_the_page_is_the_coverage_of_the_code() -> None:
 def test_the_coverage_is_the_networks_whose_providers_declare_a_rule_of_each_check() -> None:
     """A network is in a check's coverage if and only if a rule of that check is declared in its provider."""
     declared = _declared()
-    assert set(COVERAGE) == set(CHECKS)
-    for check in CHECKS:
+    # the check the caller sets bounds for (`limits`) runs on any network and has no row: the library's tables name none
+    assert set(COVERAGE) == set(CHECKS) - set(CALLER_CHECKS)
+    for check in COVERAGE:
         assert set(COVERAGE[check]) == declared[check], check
 
 

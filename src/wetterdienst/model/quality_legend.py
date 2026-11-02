@@ -61,8 +61,8 @@ _MESQL = "https://dap.ceda.ac.uk/badc/ukmo-midas/metadata/doc/QC_J_flags.html"
 _CHECKS = (
     "`range` (a number outside the physical range of its parameter), `elevation` (a station pressure the elevation "
     "does not allow), `stuck` (a sensor that held one value, or was dead, over a period), `consistency` (a reading the "
-    "reading of another parameter of the same file contradicts) and `floor` (a model value a little below the floor of "
-    "its quantity)"
+    "reading of another parameter of the same file contradicts), `floor` (a model value a little below the floor of "
+    "its quantity) and `limits` (a number outside the bounds the caller set for its parameter)"
 )
 
 #: the token of a value a plausibility check found implausible and left as it was, in the mode `soft` (GH-3676)
@@ -70,11 +70,11 @@ SUSPECT = QualityKind(
     kind="suspect",
     written="suspect:<check>",
     meaning="The value is kept, and a plausibility check in the mode `soft` (on a forecast network every check but "
-    "`floor` is) finds it implausible: one of "
+    "`floor` and `limits` is) finds it implausible: one of "
     + _CHECKS
     + ", several joined with `+` (`suspect:range+stuck`). The checks and their modes are the `plausibility` option "
-    "of the request; the default of `stuck` is soft. No `raw` token: the value is the number the source wrote. "
-    "Interpolation and summary leave such a value out.",
+    "of the request; the default of `stuck` is soft. No `raw` token of its own: the value is the number the source "
+    "wrote (beside `rejected:floor` it is the floor, 0.0). Interpolation and summary leave such a value out.",
 )
 
 #: the token of a value a plausibility check rejected, in the mode `hard`, written before `raw` (GH-3676)
@@ -86,7 +86,8 @@ REJECTED = QualityKind(
     + _CHECKS
     + ", several joined with `+`. It tells a number rejected by the library from a missing-value code of the "
     "source, which has `raw` alone. A forecast network (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`) never has one but for "
-    "`floor`: its checks are soft whatever the mode, so a value is flagged `suspect:<check>` and not nulled.",
+    "`floor` and `limits`: its other checks are soft whatever the mode, so a value is flagged `suspect:<check>` and "
+    "not nulled.",
 )
 
 #: the last token of any network that maps a missing-value marker or an impossible number to null
@@ -97,7 +98,8 @@ RAW = QualityKind(
     "source wrote a missing-value marker or a number no sensor can have produced; this is what the source wrote in "
     "its place, as it wrote it ('-999', '99.9', '---', '4021'). Also the floor of the quantity (0.0) where a model "
     "wrote a little below it (DWD DMO precipitation and radiation), the number as short as it goes ('-0.1' for "
-    "'-0.10'). Always the last token.",
+    "'-0.10'). After `rejected:<check>` it is the number a check in the mode `hard` rejected, the bounds you set "
+    "(`limits`) included. Always the last token.",
 )
 
 
@@ -370,6 +372,18 @@ LEGENDS: dict[str, list[QualityKind]] = {
     ],
     "wsv/pegel": [SUSPECT, REJECTED, RAW],
 }
+
+
+def _with_the_tokens_of_limits(legend: list[QualityKind]) -> list[QualityKind]:
+    """Add the kinds `suspect`, `rejected` and `raw` where a network's legend has not, as the last ones, `raw` the last.
+
+    The bounds a caller sets (`Options.limits`) judge any network, so any network can write them (GH-3687).
+    """
+    kept = [kind for kind in legend if kind not in (SUSPECT, REJECTED, RAW)]
+    return [*kept, SUSPECT, REJECTED, RAW]
+
+
+LEGENDS = {network: _with_the_tokens_of_limits(legend) for network, legend in LEGENDS.items()}
 
 
 def quality_legend(provider: str, network: str) -> list[QualityKind]:

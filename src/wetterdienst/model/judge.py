@@ -12,9 +12,9 @@ the unit of its source. For a dataset a check applies to, the core then
 3. converts those parameters to the canonical unit of their unit type (``UnitConverter().targets``), without rounding,
    keeping the number as the source wrote it (and its text, where the provider hands it over) for the ``raw:`` token
    (``to_canonical``);
-4. judges the long frame with the five checks of ``Plausibility`` (``judge``), the bounds being the one table of
-   ``plausibility_ranges`` and the relations between parameters being evaluated across the parameters of one station
-   and timestamp;
+4. judges the long frame with the checks of ``Plausibility`` (``judge``), the bounds being the one table of
+   ``plausibility_ranges`` and, beside it, the ones the caller set (``limits_in_canonical``), and the relations between
+   parameters being evaluated across the parameters of one station and timestamp;
 5. converts to the unit the caller wants, in one expression, rounding once (``to_requested``).
 
 What stays with a provider is what only it knows, handed over as rules by ``TimeseriesValues._plausibility_rules``: the
@@ -23,8 +23,9 @@ the air of its minute at night.
 
 Modes and tokens are those of ``Plausibility``: ``hard`` nulls the value (``floor`` sets it to 0) and writes
 ``rejected:<checks>,raw:<text>``, ``soft`` keeps it and writes ``suspect:<checks>``; several checks are joined with
-``+`` in alphabetical order, and a value that a hard check rejects carries only the hard checks. On a forecast network
-(the ``kind`` of its metadata) every check is soft but ``floor``, whatever the request sets
+``+`` in alphabetical order, and a value that a hard check nulls carries only the hard checks (a hard ``floor`` keeps
+the value, so a soft verdict on it is written before ``rejected:floor``). On a forecast network
+(the ``kind`` of its metadata) every check is soft but ``floor`` and ``limits``, whatever the request sets
 (``Plausibility.for_forecast``).
 """
 
@@ -38,7 +39,9 @@ from typing import TYPE_CHECKING, NamedTuple
 
 import polars as pl
 
+from wetterdienst.exceptions import InvalidParameterError
 from wetterdienst.metadata.resolution import reading_step
+from wetterdienst.model.limits import scope_of, search_for
 from wetterdienst.model.plausibility import CHECKS, REJECTED, SUSPECT, Plausibility
 from wetterdienst.model.plausibility_ranges import bounds_for
 from wetterdienst.model.quality_flags import RAW_TOKEN
@@ -209,7 +212,7 @@ class Plan:
     network: str
     parameters: dict[str, Conversion]
     ranges: dict[str, tuple[float, float]]
-    #: the network is a forecast (its metadata ``kind``): its checks are soft whatever the request sets
+    #: the network is a forecast (its metadata ``kind``): its checks are soft whatever the request sets, but two
     forecast: bool = False
     pressure: tuple[str, ...] = ()
     floors: tuple[str, ...] = ()
@@ -340,14 +343,90 @@ def to_requested(plan: Plan, requested: Mapping[str, str], converter: UnitConver
     return pl.coalesce(*branches, value).alias("value")
 
 
+def limits_in_canonical(
+    plan: Plan,
+    dataset: DatasetModel,
+    limits: Mapping[str, tuple[float | None, float | None]],
+    converter: UnitConverter,
+    *,
+    convert_units: bool,
+) -> dict[str, tuple[float, float]]:
+    """Give the bounds the caller set for the parameters of a dataset, in canonical units, by the source's own name.
+
+    ``limits`` is ``Options.limits``: a bound is in the unit of the values the request returns, which is the unit
+    ``converter`` has as the target of the parameter's unit type (``unit_targets``), or the unit of the source where
+    ``convert_units`` is off. A key that names a dataset's parameter (``resolution/dataset/parameter``) beats a
+    canonical name for the parameters it names, whole: the bounds of the two are not combined. A parameter no key names
+    is left out, and so is a dataset none names, for which the result is empty.
+
+    An end that is ``None`` is no bound (``-inf`` or ``inf``). A converted bound is widened by a part in a billion
+    (``_room``), so that a reading on a bound stays whatever unit the bound is in: 318.15 K is 45.00000000000003 °C as a
+    bound, and 0.7 % is 0.007000000000000001 beside a reading of 0.007.
+
+    Raises:
+        InvalidParameterError: A bound that is no value of its unit (a negative Beaufort number as m/s).
+
+    """
+    if not limits:
+        return {}
+    by_name: dict[str, tuple[float | None, float | None]] = {}
+    by_dataset = []
+    for key, pair in limits.items():
+        search = search_for(key)
+        if search is None:
+            by_name[key.strip().lower()] = pair
+        else:
+            by_dataset.append((scope_of(key), key, search, pair))
+    found: dict[str, tuple[float, float]] = {}
+    for parameter in dataset:
+        # of the keys that name the parameter the one that names the fewest parameters wins (`scope_of`), of two as wide
+        # the one that sorts first: whatever the order of the keys
+        named = [(scope, key, pair) for scope, key, search, pair in by_dataset if search.matches(parameter)]
+        pair = min(named, key=lambda scoped: scoped[:2])[2] if named else by_name.get(parameter.name)
+        if pair is None:
+            continue
+        conversion = plan.parameters[parameter.name_original]
+        returned = converter.targets[conversion.unit_type].name if convert_units else conversion.unit
+        convert = converter.lambda_between(returned, conversion.canonical)
+        low, high = (
+            _canonical_bound(bound, convert, returned, parameter.name, end)
+            for bound, end in zip(pair, (-_INF, _INF), strict=True)
+        )
+        low, high = min(low, high), max(low, high)
+        # a reading on a bound stays: the reading is converted with the same arithmetic as the bound, which differs from
+        # it in the last digits (0.7 % is 0.007 and the bound 0.7 % is 0.007000000000000001), so the bound gets the room
+        found[parameter.name_original] = (low - _room(low), high + _room(high))
+    return found
+
+
+def _canonical_bound(bound: float | None, convert: Callable[[float], float], unit: str, name: str, end: float) -> float:
+    """Convert one end of a pair to the canonical unit; ``end`` (infinity) stands for the end that is not set."""
+    if bound is None:
+        return end
+    try:
+        return float(convert(bound))
+    except (TypeError, ValueError, ZeroDivisionError, OverflowError):
+        msg = f"the limit {bound:g} of {name} is no value of {unit}, the unit of its values"
+        raise InvalidParameterError(msg) from None
+
+
+def _room(bound: float) -> float:
+    """Give the margin a converted bound is widened by: a part in a billion, the noise of a conversion."""
+    return 0.0 if math.isinf(bound) else 1e-9 * max(1.0, abs(bound))
+
+
 def judge(  # noqa: C901
     df: pl.DataFrame,
     plan: Plan,
     modes: Plausibility,
     rules: Sequence[Rule] = (),
     elevation: float | None = None,
+    limits: Mapping[str, tuple[float, float]] | None = None,
 ) -> pl.DataFrame:
     """Judge a long frame in canonical units, with ``__source`` beside ``value``, and write the verdicts.
+
+    ``limits`` are the bounds the caller set, by the source's own name of the parameter (``limits_in_canonical``),
+    judged beside the ranges as the check ``limits``.
 
     Returns the frame with ``value`` and ``quality_flags`` as the modes say, and ``__source``, the number the source
     wrote, set where a hard check mapped the value (null, or 0 for a floor), for a caller that does not convert units.
@@ -382,6 +461,16 @@ def judge(  # noqa: C901
         high = parameter.replace_strict({n: b[1] for n, b in bounds.items()}, default=_INF, return_dtype=pl.Float64)
         outside = (value < low) | (value > high)
         exprs["range"].append(outside)
+    if limits:
+        # the bounds the caller set: a check of its own, so that a value outside these and the ranges is told by both
+        low = parameter.replace_strict({n: b[0] for n, b in limits.items()}, default=-_INF, return_dtype=pl.Float64)
+        high = parameter.replace_strict({n: b[1] for n, b in limits.items()}, default=_INF, return_dtype=pl.Float64)
+        # a value the hard floor maps to the floor is judged as the floor (0.0), the value the answer holds: the
+        # bound of a rain at 0 does not take the model's -0.02 mm, which `floor` has made 0, away again
+        floored = value
+        if modes.mode("floor") == "hard":
+            floored = pl.when(parameter.is_in(plan.floors) & (value < 0.0)).then(pl.lit(0.0)).otherwise(value)
+        exprs["limits"].append((floored < low) | (floored > high))
     if plan.pressure and elevation is not None and not (elevation == 0.0 and plan.network in ELEVATION_ZERO_IS_UNKNOWN):
         allowed = station_pressure_bounds(elevation)
         if allowed is not None:
@@ -451,20 +540,29 @@ def _verdicts(rows: pl.DataFrame, checks: list[str], modes: Plausibility) -> pl.
         written = pl.coalesce(text.str.replace_all(",", ";"), short)
     else:
         written = short
+    nulled = [hit[c] for c in hard if c != "floor"]
     tokens = []
+    hard_token = None
+    soft_token = None
     if hard:
         hard_names = pl.concat_str([pl.when(hit[c]).then(pl.lit(c)) for c in hard], separator="+", ignore_nulls=True)
-        tokens.append(
-            pl.when(pl.any_horizontal(hit[c] for c in hard)).then(
-                pl.concat_str(pl.lit(f"{REJECTED}:"), hard_names, pl.lit(",raw:"), written)
-            )
+        hard_token = pl.when(pl.any_horizontal(hit[c] for c in hard)).then(
+            pl.concat_str(pl.lit(f"{REJECTED}:"), hard_names, pl.lit(",raw:"), written)
         )
+        tokens.append(hard_token)
     if soft:
         soft_names = pl.concat_str([pl.when(hit[c]).then(pl.lit(c)) for c in soft], separator="+", ignore_nulls=True)
-        tokens.append(
-            pl.when(pl.any_horizontal(hit[c] for c in soft)).then(pl.concat_str(pl.lit(f"{SUSPECT}:"), soft_names))
+        soft_token = pl.when(pl.any_horizontal(hit[c] for c in soft)).then(
+            pl.concat_str(pl.lit(f"{SUSPECT}:"), soft_names)
         )
-    nulled = [hit[c] for c in hard if c != "floor"]
+        tokens.append(soft_token)
+    if hard_token is not None and soft_token is not None and "floor" in hard:
+        # a hard floor does not null the value (it is 0.0 and stays), so a soft check that found it is still told:
+        # `suspect:limits,rejected:floor,raw:-0.02`; where a hard check nulls the value it is the hard verdict alone
+        nulling = pl.any_horizontal(nulled) if nulled else pl.lit(value=False)
+        kept = pl.when(pl.any_horizontal(hit[c] for c in soft) & ~nulling).then(soft_token)
+        both = pl.concat_str([kept, hard_token], separator=",", ignore_nulls=True).replace("", None)
+        tokens = [both, soft_token]
     floored = hit["floor"] if "floor" in hard else None
     new_value = value
     if floored is not None:

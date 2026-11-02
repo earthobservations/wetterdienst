@@ -1050,6 +1050,21 @@ class ParameterSearch:
         parameter = parts[2] if len(parts) == 3 else None
         return ParameterSearch(parts[0], parts[1], parameter)
 
+    def matches(self, parameter: ParameterModel) -> bool:
+        """Tell whether a parameter is the one this search names, by any of the names each part is addressed by.
+
+        The same names a request finds a parameter by (`search_parameter`): the canonical and the source's own, in any
+        casing, and the name of the `Resolution` member for a resolution. A search that names no parameter (a whole
+        dataset) matches none.
+        """
+        dataset = parameter.dataset
+        return (
+            self.parameter is not None
+            and self.resolution in _names(dataset.resolution)
+            and self.dataset in _names(dataset)
+            and self.parameter in _names(parameter)
+        )
+
     def concat(self) -> str:
         """Concatenate resolution, dataset and parameter with '/'."""
         return "/".join(filter(None, [self.resolution, self.dataset, self.parameter]))

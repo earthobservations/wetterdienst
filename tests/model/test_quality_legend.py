@@ -50,11 +50,7 @@ def _kinds_written() -> dict[str, set[str | None]]:
                 kinds.add(None)
             kinds.update(keyword.arg for keyword in node.keywords)
     for network in _judged_networks():
-        provider, name = network.split("/")
-        # a forecast is judged soft whatever the mode (GH-3681), so it is never `rejected` but by a floor
-        forecast = Wetterdienst.resolve(provider, name).metadata.kind == "forecast"
-        kinds = {"suspect", "raw"} if forecast and network not in FLOORS else {"suspect", "rejected", "raw"}
-        found.setdefault(network, set()).update(kinds)
+        found.setdefault(network, set()).update({"suspect", "rejected", "raw"})
     return found
 
 
@@ -88,7 +84,8 @@ def test_the_kinds_the_readers_write_are_the_kinds_the_legend_tells() -> None:
         if network in NOT_JOINED:
             assert network not in written, f"{network} builds its flags with `join_quality_flags` now: {NOT_JOINED}"
             continue
-        assert {kind.kind for kind in legend} == written[network], network
+        # the bounds a caller sets judge any network (GH-3687), so every legend tells the three kinds of the core
+        assert {kind.kind for kind in legend} == written.get(network, set()) | {"suspect", "rejected", "raw"}, network
 
 
 def test_a_network_not_built_by_join_declares_what_it_writes() -> None:
@@ -98,7 +95,7 @@ def test_a_network_not_built_by_join_declares_what_it_writes() -> None:
         legend = LEGENDS[network]
         plain = [kind for kind in legend if kind.kind is None]
         assert len(plain) == (0 if "no flag" in reason else 1), network
-        assert len(legend) == len(plain), network
+        assert len(legend) == len(plain) + 3, network  # and the tokens of the core, which `limits` writes
 
 
 @pytest.mark.parametrize("network", sorted(LEGENDS))

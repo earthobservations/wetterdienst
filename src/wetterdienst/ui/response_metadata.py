@@ -73,7 +73,7 @@ _QUALITY_FLAGS_DESCRIPTION = (
     "shifted to UTC, `suspect:<check>` where a plausibility check in the mode `soft` found the value implausible "
     "and left it, and, always last, `raw:` where a value was a missing-value marker or a number no sensor can "
     "have produced and is returned as null, with the text the source wrote in its place; a number a check in the "
-    "mode `hard` rejected has `rejected:<check>` before it."
+    "mode `hard` rejected (the bounds you set included) has `rejected:<check>` before it."
 )
 
 

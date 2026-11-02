@@ -19,7 +19,16 @@ from wetterdienst.exceptions import ProviderContractError
 from wetterdienst.metadata.resolution import count_readings, reading_interval
 from wetterdienst.model.fetch_ahead import FetchAhead, FilesAhead
 from wetterdienst.model.judge import SOURCE as SOURCE_COLUMN
-from wetterdienst.model.judge import SOURCE_TEXT, Plan, Rule, judge, plan_for, to_canonical, to_requested
+from wetterdienst.model.judge import (
+    SOURCE_TEXT,
+    Plan,
+    Rule,
+    judge,
+    limits_in_canonical,
+    plan_for,
+    to_canonical,
+    to_requested,
+)
 from wetterdienst.model.metadata import group_parameters_by_dataset
 from wetterdienst.model.parameter_rows import ParameterRows
 from wetterdienst.model.plausibility import REJECTED_TOKEN, leave_out_suspect
@@ -49,7 +58,7 @@ from wetterdienst.util.url import redact_password
 
 if TYPE_CHECKING:
     import datetime as dt
-    from collections.abc import Iterable, Iterator, Sequence
+    from collections.abc import Iterable, Iterator, Mapping, Sequence
 
     from wetterdienst.model.metadata import DatasetModel, ParameterModel
 
@@ -343,6 +352,24 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         self.unit_converter.update_targets(self.sr.options.unit_targets)
         # before the first station is read: a window-less request for such a dataset used to answer an empty frame
         require_window(self.sr.parameters, self.sr.start, self.sr.end)
+        self._check_limits()
+
+    def _check_limits(self) -> None:
+        """Refuse a bound the caller set that is no value of the unit the answer comes in, before anything is read.
+
+        Converted for every dataset the request reads, as it is for each station later (`limits_in_canonical`): a bound
+        outside the domain of a unit (a negative Beaufort number as m/s) is the request's error, a 400 for REST.
+        """
+        if not self.sr.options.limits:
+            return
+        for dataset, _ in group_parameters_by_dataset(cast("Iterable[ParameterModel]", self.sr.request.parameters)):
+            limits_in_canonical(
+                plan_for(self._network(), dataset),
+                dataset,
+                self.sr.options.limits,
+                self.unit_converter,
+                convert_units=self.sr.options.convert_units,
+            )
 
     @classmethod
     def from_stations(cls, stations: StationsResult) -> TimeseriesValues:
@@ -377,7 +404,13 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         return Wetterdienst._network_of(type(getattr(self.sr, "request", None)))  # noqa: SLF001
 
     def _judge_in_canonical_units(
-        self, df: pl.DataFrame, station_id: str, dataset: DatasetModel, plan: Plan, rules: Sequence[Rule]
+        self,
+        df: pl.DataFrame,
+        station_id: str,
+        dataset: DatasetModel,
+        plan: Plan,
+        rules: Sequence[Rule],
+        limits: Mapping[str, tuple[float, float]],
     ) -> pl.DataFrame:
         """Convert every parameter of a collected frame to its canonical unit and judge it there (`model/judge.py`).
 
@@ -389,7 +422,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         if canonical is not None:
             df = df.with_columns(canonical.alias("value"))
         elevation = self._station_elevation(station_id, dataset) if plan.pressure and hasattr(self.sr, "df") else None
-        return judge(df, plan, self.sr.options.plausibility, rules, elevation).drop(SOURCE_TEXT, strict=False)
+        return judge(df, plan, self.sr.options.plausibility, rules, elevation, limits).drop(SOURCE_TEXT, strict=False)
 
     def _to_requested_units(
         self, df: pl.DataFrame, dataset: DatasetModel, plan: Plan, *, canonical: bool
@@ -928,7 +961,15 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         # straight to the unit asked for
         plan = plan_for(self._network(), dataset)
         rules = self._plausibility_rules(station_id, dataset)
-        judged = plan.judges or bool(rules)
+        # the bounds the caller set for the parameters of this dataset, in canonical units (`Options.limits`)
+        limits = limits_in_canonical(
+            plan,
+            dataset,
+            self.sr.options.limits,
+            self.unit_converter,
+            convert_units=self.sr.options.convert_units,
+        )
+        judged = plan.judges or bool(rules) or bool(limits)
         if dataset.grouped:
             df = self._collect_station_parameter_or_dataset(
                 station_id=station_id,
@@ -962,7 +1003,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                 # reads beside it is merged, converted and judged, which is the same answer for a fraction of the work
                 df = df.filter(pl.col("parameter").is_in(parameter_names | plan.read_beside(rules)))
             df = self._judge_in_canonical_units(
-                merge_duplicate_readings(df, ["parameter", "timestamp"]), station_id, dataset, plan, rules
+                merge_duplicate_readings(df, ["parameter", "timestamp"]), station_id, dataset, plan, rules, limits
             )
         if dataset.grouped:
             df = df.filter(pl.col("parameter").is_in(parameter_names))

@@ -18,6 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, WithJsonSchema
 
 from wetterdienst.io.formats import renders_with_kaleido
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.limits import Limit  # noqa: TC001, needed at runtime by pydantic
 from wetterdienst.model.plausibility import CHECKS, Mode, forecast_note, hard_means
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.options import SkipThreshold, StationWindowEndBuffer  # noqa: TC001, needed at runtime by pydantic
@@ -139,6 +140,13 @@ class ValuesSettings(_AppliedSettings):
     plausibility_stuck: Mode = _plausibility_setting("stuck")
     plausibility_consistency: Mode = _plausibility_setting("consistency")
     plausibility_floor: Mode = _plausibility_setting("floor")
+    plausibility_limits: Mode = _plausibility_setting("limits")
+    limits: dict[str, Limit] = Field(
+        validation_alias="limits",
+        description="The bounds set per parameter for the check `limits`, in the unit the values of the request come "
+        "back in: `{name: [low, high]}`, a bound null for none. The server's, with the ones the request gave laid "
+        "over them. Empty where none are set.",
+    )
 
 
 _STATION_DISTANCE_DESCRIPTION = (

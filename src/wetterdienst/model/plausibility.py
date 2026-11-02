@@ -26,13 +26,21 @@ import polars as pl
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 Mode = Literal["soft", "hard"]
-Check = Literal["range", "elevation", "stuck", "consistency", "floor"]
+Check = Literal["range", "elevation", "stuck", "consistency", "floor", "limits"]
 #: the checks, as the issue lists them; several that apply to one value are written in alphabetical order
 #: (``suspect:range+stuck``, ``_WRITE_ORDER`` of ``model/quality_flags.py``)
 CHECKS: tuple[str, ...] = get_args(Check)
+#: the checks that run where the caller sets a bound (``Options(limits=...)``, ``model/limits.py``) and not where the
+#: library's tables say: they have no row in ``COVERAGE``, since any network can be judged by them (GH-3687)
+CALLER_CHECKS: tuple[str, ...] = ("limits",)
 
 #: the checks that correct a value instead of rejecting it, and so run as they are set on a forecast network
 CORRECTING_CHECKS: tuple[str, ...] = ("floor",)
+
+#: the checks that run as they are set on a forecast network: those that correct a value, and the bounds the caller
+#: wrote (``limits``, which a forecast follows as any other network: the caller asked for the values outside to go,
+#: GH-3687)
+FORECAST_KEEPS_MODE: tuple[str, ...] = (*CORRECTING_CHECKS, *CALLER_CHECKS)
 
 #: the kinds of token a check writes into ``quality_flags``, before ``raw:``
 SUSPECT = "suspect"
@@ -51,11 +59,15 @@ def hard_means(check: str) -> str:
 
 def forecast_note(check: str) -> str:
     """Say what a forecast network does with the mode of a check (``Plausibility.for_forecast``)."""
-    if check in CORRECTING_CHECKS:
+    if check in FORECAST_KEEPS_MODE:
         return (
-            "A forecast network (`kind` `forecast`) keeps the mode as set for this check, and judges the others soft."
+            "A forecast network (`kind` `forecast`) keeps the mode as set for `floor` and `limits`, and judges the "
+            "other checks soft."
         )
-    return "A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` keeps its mode)."
+    return (
+        "A forecast network (`kind` `forecast`) is judged soft whatever the mode "
+        "(only `floor` and `limits` keep their mode)."
+    )
 
 
 _HARD_MEANS = (
@@ -71,9 +83,9 @@ class Plausibility(BaseModel):
     and the flag keeps the judgement visible. The missing-value codes and documented meanings a source writes
     (``-999``, ``---``, a trace, a calm) are no check and are not configurable.
 
-    On a forecast network (the ``kind`` of its metadata) every check is soft but ``floor``, whatever is set here
-    (``for_forecast``): a forecast is a model's output and no reading, so a value a check finds is flagged and never
-    nulled.
+    On a forecast network (the ``kind`` of its metadata) every check is soft but ``floor`` and ``limits``, whatever is
+    set here (``for_forecast``): a forecast is a model's output and no reading, so a value a built-in check finds is
+    flagged and never nulled.
 
     The defaults are what the library did for the networks it judged before the modes existed (since GH-3681 ``range``
     and ``elevation`` judge every network), except ``stuck``, which is soft: it judges a
@@ -82,6 +94,9 @@ class Plausibility(BaseModel):
     Set it from ``WD_TS_PLAUSIBILITY__<CHECK>`` (``WD_TS_PLAUSIBILITY__RANGE=soft``) or
     ``Options(plausibility={"range": "soft"})``; a check that is not named keeps its default. A bare mode sets every
     check at once (``Options(plausibility="soft")``, ``WD_TS_PLAUSIBILITY=soft``), and a check named beside it wins.
+
+    ``limits`` is the check of the bounds the caller sets per parameter (``Options(limits=...)``, GH-3687). It is hard
+    by default, as ``range`` is, and judges nothing where no bound is set.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
@@ -116,24 +131,33 @@ class Plausibility(BaseModel):
         "sets the floor (0.0), not null, and keeps the number as `rejected:floor,raw:<number>`; `soft` keeps the "
         "value and flags it `suspect:floor`.",
     )
+    limits: Mode = Field(
+        default="hard",
+        description="A reading outside the bounds you set for its parameter (`Options(limits=...)`), beside the "
+        "physical range of the check `range`, which they leave as it is. " + _HARD_MEANS.format(check="limits"),
+    )
 
     def for_forecast(self) -> Plausibility:
-        """Give the modes a forecast network is judged with: every check soft, whatever mode it was given (GH-3681).
+        """Give the modes a forecast network is judged with: every check soft but two, whatever mode it was given.
 
-        A forecast is a model's output and not a reading, and what a check finds in it (a rain above any record, a
-        pressure the elevation does not allow) is a flag on a value the model wrote, so no check nulls it, however
-        ``hard`` is set (the options, the CLI, the REST API, the environment). The one exception is ``floor``, which
-        does not reject: it sets a value a little below the floor of its quantity to the floor and keeps the number
-        as ``rejected:floor,raw:<number>``, so it keeps the mode it was given.
+        A forecast is a model's output and not a reading, and what a built-in check finds in it (a rain above any
+        record, a pressure the elevation does not allow) is a flag on a value the model wrote, so none of them nulls it,
+        however ``hard`` is set (the options, the CLI, the REST API, the environment; GH-3681). There are two
+        exceptions, which keep the mode they were given:
+
+        - ``floor`` does not reject: it sets a value a little below the floor of its quantity to the floor and keeps the
+          number as ``rejected:floor,raw:<number>``;
+        - ``limits`` are bounds the caller wrote for a parameter, so the caller has said what is to go: hard (the
+          default) nulls a forecast value outside them as ``rejected:limits,raw:<number>``, soft flags it (GH-3687).
         """
-        return Plausibility(**{check: self.mode(check) if check in CORRECTING_CHECKS else "soft" for check in CHECKS})
+        return Plausibility(**{check: self.mode(check) if check in FORECAST_KEEPS_MODE else "soft" for check in CHECKS})
 
     @model_validator(mode="before")
     @classmethod
     def _one_mode_for_every_check(cls, data: object) -> object:
         """Read a bare mode as that mode for every check, which a check named beside it overrides (GH-3676).
 
-        ``Options(plausibility="soft")`` is ``Options(plausibility={"range": "soft", ...})`` with all five listed.
+        ``Options(plausibility="soft")`` is ``Options(plausibility={"range": "soft", ...})`` with all six listed.
         """
         if isinstance(data, str):
             if data not in get_args(Mode):
@@ -157,7 +181,9 @@ class Plausibility(BaseModel):
 #: for every dataset of the network that has a parameter the check judges. The table of `docs/data/plausibility.md` is
 #: this, and `tests/test_docs_plausibility.py` holds the three to one another: the rules the readers declare, this and
 #: the page. `range` and `elevation` run on every network that has a quantity of their tables (GH-3681): the bounds
-#: are the same for every provider (`model/plausibility_ranges.py`). A network that is in no list judges no value
+#: are the same for every provider (`model/plausibility_ranges.py`). `limits` is in none (`CALLER_CHECKS`): it runs
+#: on any network, for the parameters the caller sets a bound for. A network that is in no list judges no value
+#: by the tables of the library
 COVERAGE: dict[str, dict[str, tuple[str, ...]]] = {
     "range": {
         "aemet/observation": ("*",),
