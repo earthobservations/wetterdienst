@@ -38,6 +38,8 @@ const selectedIssue = ref<string>('')
 
 // Prevents watch(selectedStation) from resetting selectedIssue when restoring from URL
 const isRestoringFromUrl = ref(false)
+// the moment the run and the station of the URL are set together: the watchers below leave them to each other
+let applyingUrl = false
 
 // Real list of available runs fetched from the backend — populated when a station is selected.
 const availableIssues = ref<string[]>([])
@@ -149,7 +151,7 @@ async function fetchMeteogram(station: Station) {
 
 watch(selectedIssue, () => {
   // restoring from the URL sets the run and the station together: the station's watch fetches, once
-  if (isRestoringFromUrl.value)
+  if (applyingUrl)
     return
   if (selectedStation.value)
     void fetchMeteogram(selectedStation.value)
@@ -161,7 +163,7 @@ let requestedFromUrl: string | undefined
 
 // Auto-fetch and sync URL whenever a station is chosen or cleared
 watch(selectedStation, (station) => {
-  if (!isRestoringFromUrl.value) {
+  if (!applyingUrl) {
     selectedIssue.value = ''
     // the reader's own choice, or none, ends the memory of what the URL asked for: a station it named before may be
     // asked for again (the header's search for the station that was shown, chosen away from and searched again)
@@ -201,12 +203,16 @@ watch([selectedStation, selectedIssue], ([station, issue]) => {
 
 // Restore selected station and issue from URL query params on page load, and when the URL names another station
 // while the page is shown (the search of the header goes to `/meteogram?station=…`, GH-3518)
+// the request of the URL's station that is the latest: the answer of an earlier one, which the search left for another
+// station, is not applied
+let restoreTicket = 0
 async function restoreFromUrl() {
   const stationId = route.query.station as string | undefined
   const issueFromUrl = route.query.issue?.toString()
   if (!stationId)
     return
   requestedFromUrl = stationId
+  const ticket = ++restoreTicket
   isRestoringFromUrl.value = true
   try {
     const res = await $fetch<{ stations: Station[] }>('/api/stations', {
@@ -218,19 +224,29 @@ async function restoreFromUrl() {
       },
       ...RETRY_TRANSIENT,
     })
+    if (ticket !== restoreTicket)
+      return
     const station = (res.stations ?? [])[0]
     if (station) {
       // a link without a run is the latest one, not the run chosen for the station before
+      applyingUrl = true
       selectedIssue.value = issueFromUrl ?? ''
       selectedStation.value = station
+      // the watchers run before this resolves, and see the flag
+      await nextTick()
+      applyingUrl = false
     }
   }
   catch {
     // ignore – station ID in URL may be invalid, just start fresh
   }
   finally {
-    await nextTick()
-    isRestoringFromUrl.value = false
+    // an earlier request leaves the flags to the later one that is still under way
+    if (ticket === restoreTicket) {
+      applyingUrl = false
+      await nextTick()
+      isRestoringFromUrl.value = false
+    }
   }
 }
 onMounted(restoreFromUrl)

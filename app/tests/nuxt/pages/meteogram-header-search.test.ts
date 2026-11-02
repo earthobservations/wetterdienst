@@ -11,17 +11,25 @@ describe('the meteogram page followed to a station by the search of the header (
   const stations: Record<string, { station_id: string, name: string, latitude: number, longitude: number }> = {
     '01001': { station_id: '01001', name: 'JAN MAYEN', latitude: 70.93, longitude: -8.67 },
     '10381': { station_id: '10381', name: 'BERLIN', latitude: 52.46, longitude: 13.31 },
+    '10147': { station_id: '10147', name: 'HAMBURG', latitude: 53.63, longitude: 10.0 },
   }
   let wrapper: VueWrapper | undefined
   const endpoints: Array<() => void> = []
   const stationRequests: string[] = []
+  // an answer the lookup of one station waits for, where a test holds it
+  let slow: Promise<void> | undefined
+  let slowId = '99999'
 
   beforeEach(() => {
     stationRequests.length = 0
+    slow = undefined
+    slowId = '99999'
     globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ values: [] }), { status: 200 }))
-    endpoints.push(registerEndpoint('/api/stations', (event) => {
+    endpoints.push(registerEndpoint('/api/stations', async (event) => {
       const id = String(getQuery(event).stations)
       stationRequests.push(id)
+      if (id === slowId && slow)
+        await slow
       const station = stations[id]
       return { stations: station ? [station] : [] }
     }))
@@ -78,6 +86,45 @@ describe('the meteogram page followed to a station by the search of the header (
     await vi.waitFor(() => expect(vm.selectedStation?.station_id).toBe('10381'))
     await new Promise(resolve => setTimeout(resolve, 50))
     expect(valuesRequests() - before).toBe(1)
+  })
+
+  it('fetches for a run chosen while the station the search names is still being looked up', async () => {
+    let release: () => void = () => {}
+    const answer = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    wrapper = await mountSuspended(MeteogramPage, { route: '/meteogram?station=01001' })
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.selectedStation?.station_id).toBe('01001'))
+    await new Promise(resolve => setTimeout(resolve, 50))
+    slow = answer
+    const valuesRequests = () => vi.mocked(globalThis.fetch).mock.calls.filter(([url]) => String(url).includes('/api/values?')).length
+    await navigateTo('/meteogram?station=99999')
+    await vi.waitFor(() => expect(stationRequests.filter(id => id === '99999')).toHaveLength(1))
+    const before = valuesRequests()
+    vm.selectedIssue = '2026-10-03T06:00:00'
+    await vi.waitFor(() => expect(valuesRequests()).toBe(before + 1))
+    release()
+  })
+
+  it('shows the station of the later search where the answer of an earlier one comes last', async () => {
+    let release: () => void = () => {}
+    const answer = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    wrapper = await mountSuspended(MeteogramPage, { route: '/meteogram?station=01001' })
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.selectedStation?.station_id).toBe('01001'))
+    slow = answer
+    slowId = '10381'
+    await navigateTo('/meteogram?station=10381')
+    await vi.waitFor(() => expect(stationRequests.filter(id => id === '10381')).toHaveLength(1))
+    await navigateTo('/meteogram?station=10147')
+    await vi.waitFor(() => expect(vm.selectedStation?.station_id).toBe('10147'))
+    release()
+    await new Promise(resolve => setTimeout(resolve, 100))
+    expect(vm.selectedStation?.station_id).toBe('10147')
+    expect(vm.isRestoringFromUrl).toBe(false)
   })
 
   it('asks again for a station that was not found, once the reader has moved the page on to a run', async () => {
