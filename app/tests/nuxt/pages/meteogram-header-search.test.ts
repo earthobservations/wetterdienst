@@ -177,6 +177,43 @@ describe('the meteogram page followed to a station by the search of the header (
     expect(vm.isRestoringFromUrl).toBe(false)
   })
 
+  it('keeps the station cleared where a lookup of the one the search named is under way', async () => {
+    let release: () => void = () => {}
+    const answer = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    wrapper = await mountSuspended(MeteogramPage, { route: '/meteogram?station=01001' })
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.selectedStation?.station_id).toBe('01001'))
+    slow = answer
+    slowId = '10381'
+    await navigateTo('/meteogram?station=10381')
+    await vi.waitFor(() => expect(stationRequests.filter(id => id === '10381')).toHaveLength(1))
+    vm.selectedStation = null
+    await vi.waitFor(() => expect(useRoute().query.station).toBeUndefined())
+    release()
+    await new Promise(resolve => setTimeout(resolve, 100))
+    expect(vm.selectedStation).toBeNull()
+  })
+
+  it('takes the run of the URL as it is when the lookup is answered, not as it was when it began', async () => {
+    let release: () => void = () => {}
+    const answer = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    slow = answer
+    slowId = '01001'
+    wrapper = await mountSuspended(MeteogramPage, { route: '/meteogram?station=01001&issue=2026-10-03T06:00:00' })
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(stationRequests.filter(id => id === '01001')).toHaveLength(1))
+    await navigateTo('/meteogram?station=01001')
+    release()
+    await vi.waitFor(() => expect(vm.selectedStation?.station_id).toBe('01001'))
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(vm.selectedIssue).toBe('')
+    expect(useRoute().query.issue).toBeUndefined()
+  })
+
   it('keeps the station the reader picked where a lookup of the one the search named is under way', async () => {
     let release: () => void = () => {}
     const answer = new Promise<void>((resolve) => {
