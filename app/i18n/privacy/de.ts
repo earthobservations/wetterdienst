@@ -37,7 +37,7 @@ export interface PrivacyPolicy {
 
 export const privacy: PrivacyPolicy = {
   title: 'Datenschutzerklärung',
-  updated: 'Stand: 29. Oktober 2026',
+  updated: 'Stand: 2. November 2026',
   intro: 'Diese Erklärung beschreibt, welche personenbezogenen Daten beim Besuch von wetterdienst.eobs.org und bei der Nutzung der REST-API und des MCP-Servers von Wetterdienst verarbeitet werden. Es gibt keine Benutzerkonten, keine Registrierung, keine Analyse- oder Tracking-Dienste und keine Werbung.',
   controller: {
     title: 'Verantwortlicher',
@@ -79,6 +79,7 @@ export const privacy: PrivacyPolicy = {
         'Cookie wd_lang: speichert die Sprache der Oberfläche. Laufzeit 365 Tage, Pfad /, SameSite=Lax.',
         'localStorage wd_settings: Ihre Darstellungseinstellungen (Parameterbezeichnungen, Einheiten und die Anzeige der Klimastreifen).',
         'localStorage meteogram.view: ob das Meteogramm als Diagramm, in der kompakten Ansicht oder als Tabelle gezeigt wird. Ein früher gespeicherter Wert von meteogram.compact wird einmalig übernommen und gelöscht.',
+        'localStorage wd-place: die Wetterstation, die Sie auf der Startseite als Ort für „Frag das Wetter“ gewählt haben (Nummer, Name, Position und Region). Sie bleibt in Ihrem Browser und wird nicht an den Server gesendet; die Nummer der Station steht in der Adresse der Seite, solange eine Frage geöffnet ist.',
         'localStorage nuxt-color-mode: das gewählte Farbschema (hell, dunkel oder System).',
       ],
     },
