@@ -18,6 +18,10 @@ Types of changes:
 
 ### Added
 
+- `dmi/observation` now serves DMI's `mean_wind_dir_min0`, the mean wind direction of the 10
+  minutes before the end of the hour (hourly, 47 stations), as `wind_direction_mean_last_10min`,
+  stamped by the end of the hour. DMI codes a calm as 0 and gives no speed for that minute, so a 0
+  means "calm or north" and is returned as DMI writes it, not nulled (Part of GH-3762)
 - The check `source` reads the verdict of four more providers' own quality flags: NWS/MADIS `X`,
   `B` and `Q`, Hub'Eau `12` "Douteuse", DWD road `1` (the station's "data suspect") and Met Office
   MIDAS status `1` ("Observed and suspect"), and two more GHCNh cases: `3` of source 345 and
