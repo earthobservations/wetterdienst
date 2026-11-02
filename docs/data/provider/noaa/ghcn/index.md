@@ -20,7 +20,7 @@ writes it, so that a station on a coast at 0.0 m is not lost. Where the elevatio
 read as unknown (`ELEVATION_ZERO_IS_UNKNOWN`): the plausibility check `elevation` of the station
 pressure does not judge a station at 0.0, and `interpolate` and `summarize` asked about an elevation
 leave such a station out, as they do a station with no elevation, instead of bringing its readings
-from a height of 0 m ([interpolation at an elevation](../../../usage/interpolation.md#elevation),
+from a height of 0 m ([interpolation at an elevation](../../../../usage/interpolation.md#elevation),
 GH-3708). A station at 12.0 m is a height and is corrected.
 
 ## One reading an hour
