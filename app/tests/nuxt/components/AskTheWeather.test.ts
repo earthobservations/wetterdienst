@@ -153,6 +153,12 @@ describe('the suggestions', () => {
     expect(asked('values')[0]!.query.get('timestamp')).toBe('2025-12-19/2026-01-02')
   })
 
+  it.each(['2025-13-45', '2025-02-30'])('keep the section, and the last Boxing Day, for a link whose day (%s) is no day', async (day) => {
+    const wrapper = await mountAsk(`/?ask=wind&day=${day}`)
+    expect(wrapper.find('[data-testid="ask"]').exists()).toBe(true)
+    expect(chip(wrapper, 'wind').text()).toMatch(/^How windy was it on 26 December\?$/)
+  })
+
   it('say that the answer could not be worked out, with a way to ask again', async () => {
     failValues = true
     const wrapper = await mountAsk()
@@ -163,6 +169,19 @@ describe('the suggestions', () => {
     failValues = false
     await wrapper.findAll('button').find(button => button.text() === 'Retry')!.trigger('click')
     await vi.waitFor(() => expect(verdict(wrapper).text()).toContain('warmer than usual'))
+  })
+
+  it('hand the focus from the Retry that worked to the heading of the question', async () => {
+    failValues = true
+    const wrapper = await mountAsk()
+    await chip(wrapper, 'summer').trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('The answer could not be worked out.'))
+    const retry = wrapper.findAll('button').find(button => button.text() === 'Retry')!
+    ;(retry.element as HTMLElement).focus()
+    failValues = false
+    await retry.trigger('click')
+    await vi.waitFor(() => expect(verdict(wrapper).text()).toContain('warmer than usual'))
+    expect(document.activeElement).toBe(wrapper.find('#answer-heading').element)
   })
 
   it('are about the place, which names them and which the answers are asked for', async () => {

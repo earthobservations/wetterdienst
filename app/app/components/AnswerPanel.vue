@@ -28,6 +28,10 @@ const { data: providerList } = useProviders()
 type Status = 'loading' | 'ready' | 'empty' | 'error'
 const status = ref<Status>('loading')
 const failure = ref('')
+// a Retry that works takes its notice, and the focus in it, away: the focus goes on to the question's heading
+const failureNotice = useTemplateRef<HTMLElement>('failureNotice')
+const heading = useTemplateRef<HTMLElement>('heading')
+useFocusAfterRetry(() => status.value === 'error', failureNotice, heading)
 
 const rain = ref<{ answer: RainAnswer | null, point: Station } | null>(null)
 const summer = ref<SummerAnswer | null>(null)
@@ -304,7 +308,7 @@ function onDay(value: unknown) {
       <p class="text-sm font-medium text-muted">
         {{ t(`ask.from.${question}`) }}
       </p>
-      <h3 id="answer-heading" class="mt-0.5 break-words text-xl font-bold leading-snug text-highlighted sm:text-2xl">
+      <h3 id="answer-heading" ref="heading" tabindex="-1" class="mt-0.5 break-words outline-none text-xl font-bold leading-snug text-highlighted sm:text-2xl">
         {{ questionText(question, day) }}
       </h3>
     </header>
@@ -329,15 +333,16 @@ function onDay(value: unknown) {
         <div class="h-36 animate-pulse rounded-md bg-elevated" aria-hidden="true" />
       </div>
 
-      <UAlert
-        v-else-if="status === 'error'"
-        color="error"
-        variant="subtle"
-        icon="i-ph-warning-circle"
-        :title="t('ask.failed')"
-        :description="failure"
-        :actions="[{ label: t('common.retry'), onClick: () => ask() }]"
-      />
+      <div v-else-if="status === 'error'" ref="failureNotice">
+        <UAlert
+          color="error"
+          variant="subtle"
+          icon="i-ph-warning-circle"
+          :title="t('ask.failed')"
+          :description="failure"
+          :actions="[{ label: t('common.retry'), onClick: () => ask() }]"
+        />
+      </div>
 
       <p v-else-if="status === 'empty'" class="flex items-start gap-2 text-toned">
         <UIcon name="i-ph-question" class="mt-0.5 size-5 shrink-0 text-muted" />

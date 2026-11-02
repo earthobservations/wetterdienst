@@ -23,7 +23,8 @@ const { questionText } = useQuestions()
 const question = computed<QuestionId | null>(() => isQuestion(route.query.ask) ? route.query.ask : null)
 const day = computed(() => {
   const asked = route.query.day?.toString()
-  return asked && /^\d{4}-\d{2}-\d{2}$/.test(asked) ? asked : lastBoxingDay(DateTime.now())
+  // a day the calendar has: `2025-13-45` and `2025-02-30` are what a link can carry, and are no day
+  return asked && /^\d{4}-\d{2}-\d{2}$/.test(asked) && DateTime.fromISO(asked, { zone: 'utc' }).isValid ? asked : lastBoxingDay(DateTime.now())
 })
 
 /** The link's query with `changes` put over it; a value of null leaves its key out */
