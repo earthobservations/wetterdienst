@@ -430,6 +430,14 @@ _NO_SNOW = "-1"
 _CLOUD_COVER = "cloud_area_fraction"
 _CLOUD_COVER_NOT_ESTIMATED = ("-3", "9")
 _DAILY = "daily"
+# The resolutions whose elements Frost holds as several time series, which the observations query answers only
+# when it names one (`timeseriesids`, `performancecategories`, `exposurecategories`, found through
+# `availableTimeSeries`): the 6-hourly synoptic precipitation, which only the synoptic stations report. Frost
+# answered a query without them with a 404, which the reader takes to discovery as it does for any element. The
+# job logs of 2026-11-02 show a download that arrived, with no value (GH-3748; no key was at hand to see the body).
+# For these an answer with no observations is taken to discovery as well. Elsewhere it is no data, as a station
+# without the element or a window before its series is, and discovery would cost a request for each of them.
+_DISCOVERY_WHEN_EMPTY = frozenset({"6_hours"})
 
 
 def _raise_if_rejected(file: File) -> None:
@@ -451,6 +459,11 @@ def _raise_if_unanswered(file: File) -> None:
         failure = as_outage(file.content, file.url)
         if isinstance(failure, (NoInternetError, DownloadError)):
             raise failure
+
+
+def _has_observations(df: pl.DataFrame) -> bool:
+    """Tell whether Frost's answer holds any observation: a `data` list with an entry in it (GH-3748)."""
+    return "data" in df.columns and not df.get_column("data").explode().drop_nulls().is_empty()
 
 
 def _frost_time(value: datetime) -> str:
@@ -623,8 +636,10 @@ class MetnoFrostValues(TimeseriesValues):
             return pl.DataFrame()
 
         df = pl.read_json(file.content)
-        if "data" not in df.columns:
-            return pl.DataFrame()
+        if not _has_observations(df):
+            return self._collect_after_batch_without_observations(
+                station_id, dataset, parameters, start_date, end_date, settings, client_kwargs, file.url
+            )
 
         df = df.select(pl.col("data").explode(empty_as_null=True))
         df = df.unnest("data")
@@ -648,6 +663,29 @@ class MetnoFrostValues(TimeseriesValues):
             dataset.resolution.name,
         )
 
+    def _collect_after_batch_without_observations(
+        self,
+        station_id: str,
+        dataset: DatasetModel,
+        batched: list[ParameterModel],
+        start_date: datetime,
+        end_date: datetime,
+        settings: Settings,
+        client_kwargs: dict,
+        url: str,
+    ) -> pl.DataFrame:
+        """Resolve the parameters of a 200 without observations as after a 404, for the elements that need it.
+
+        For a synoptic element this is Frost's answer to the query that used to be a 404 (GH-3748); for any other
+        it is no data.
+        """
+        if dataset.resolution.name not in _DISCOVERY_WHEN_EMPTY:
+            return pl.DataFrame()
+        log.info(f"Frost answered {url} without observations, resolving the time series")
+        return self._collect_after_batch_404(
+            station_id, dataset, batched, start_date, end_date, settings, client_kwargs
+        )
+
     def _collect_after_batch_404(
         self,
         station_id: str,
@@ -658,11 +696,11 @@ class MetnoFrostValues(TimeseriesValues):
         settings: Settings,
         client_kwargs: dict,
     ) -> pl.DataFrame:
-        """Resolve the requested parameters one by one after the request for `batched` 404'd.
+        """Resolve the requested parameters one by one after the request for `batched` 404'd, or came back empty.
 
         Only the parameters that were asked for: the batch fetched the whole dataset, but its extra
         rows are dropped later, so resolving them would spend requests on nothing. A batch of one
-        element is the single request itself, which just 404'd, so that goes straight to discovery.
+        element is the single request itself, which just failed, so that goes straight to discovery.
         """
         requested = {
             parameter.name_original
@@ -687,7 +725,7 @@ class MetnoFrostValues(TimeseriesValues):
         settings: Settings,
         client_kwargs: dict,
     ) -> pl.DataFrame:
-        """Fetch a single parameter directly, falling back to time-series discovery on 404.
+        """Fetch a single parameter directly, falling back to time-series discovery on 404 or an empty answer.
 
         Used when a batched multi-element request 404s, to resolve each parameter
         individually (some historical/synoptic elements require time-series discovery,
@@ -730,7 +768,13 @@ class MetnoFrostValues(TimeseriesValues):
             return pl.DataFrame()
 
         df = pl.read_json(file.content)
-        if "data" not in df.columns:
+        if not _has_observations(df):
+            # as in `_collect_station_parameter_or_dataset` (GH-3748)
+            if parameter.dataset.resolution.name in _DISCOVERY_WHEN_EMPTY:
+                log.info(f"Frost answered {file.url} without observations, resolving the time series")
+                return self._collect_via_time_series_discovery(
+                    station_id, parameter, start_date, end_date, settings, client_kwargs
+                )
             return pl.DataFrame()
 
         df = df.select(pl.col("data").explode(empty_as_null=True))
@@ -765,11 +809,12 @@ class MetnoFrostValues(TimeseriesValues):
         settings: Settings,
         client_kwargs: dict,
     ) -> pl.DataFrame:
-        """Fall back to availableTimeSeries discovery when the direct query returns 404.
+        """Fall back to availableTimeSeries discovery when the direct query returns 404 or, for some, nothing.
 
         Some historical/synoptic elements require specific timeseriesids, performancecategories,
         and exposurecategories parameters that can only be discovered via the availableTimeSeries
-        endpoint.
+        endpoint. Frost answers a query without them with a 404, or, as of 2026-11-02 for the elements of
+        `_DISCOVERY_WHEN_EMPTY`, with a 200 that holds no observations (GH-3748).
         """
         element = parameter_or_dataset.name_original
         resolution = parameter_or_dataset.dataset.resolution.name_original

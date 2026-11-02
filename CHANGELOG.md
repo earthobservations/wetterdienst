@@ -109,6 +109,11 @@ Types of changes:
   `unit_targets={"temperature": "degree_fahrenheit"}` was sent to the REST API as a query
   parameter for each key and refused with a 422 ("temperature: Extra inputs are not permitted").
   The JSON text of the object, which worked, still does (GH-3737)
+- `metno/frost` 6-hourly precipitation (`6_hours/data/precipitation_amount`) of a historical
+  window is read again: since 2026-11-02 Frost answers the query for it with a 200 that holds no
+  observations, where it answered 404, and the time series fallback waited for the 404, so a
+  station with readings came back empty. An answer of this kind is resolved through the time
+  series now, for this resolution only (GH-3748)
 
 ## [0.181.0] - 2026-11-01
 
