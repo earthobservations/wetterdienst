@@ -1493,10 +1493,12 @@ def _stub_four_stations_one_at(
     dataset: str,
     elevation: float,
     readings: dict[str, float],
+    *,
+    others: float = 100.0,
 ) -> tuple[object, float, float, dt.datetime]:
     """Stub the stations and the readings of a request class: four around a point, "00001" nearest and at `elevation`.
 
-    The others stand at 100 m. Nothing leaves the machine: the ranking and `query()` are replaced, so the
+    The others stand at `others` (100 m). Nothing leaves the machine: the ranking and `query()` are replaced, so the
     lapse correction of `interpolate` and `summarize` runs on what is given here.
     """
     from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
@@ -1518,7 +1520,7 @@ def _stub_four_stations_one_at(
                 "station_id": station_id,
                 "latitude": latitude + d_lat,
                 "longitude": longitude + d_lon,
-                "elevation": elevation if station_id == "00001" else 100.0,
+                "elevation": elevation if station_id == "00001" else others,
                 "distance": 4.0 + index / 10,
             }
             for index, (station_id, (d_lat, d_lon)) in enumerate(offsets.items())
@@ -1603,6 +1605,45 @@ def test_summarize_takes_a_zero_elevation_of_ghcn_for_none(
         assert df.get_column("taken_station_id").to_list() == ["00002"]
 
 
+@pytest.mark.parametrize("method", ["interpolate", "summarize"])
+def test_a_neighbourhood_of_ghcn_stations_all_at_0_0_is_refused_before_a_download(
+    monkeypatch: pytest.MonkeyPatch,
+    method: str,
+) -> None:
+    """Stations in reach all at 0.0 have no elevation to correct from: refused, nothing downloaded (GH-3708).
+
+    The count taken off the ranking reads the elevations as the walk does, so the refusal of a request that no
+    station in reach can answer at an elevation comes before the first reading is fetched.
+    """
+    from wetterdienst.core.interpolate import get_interpolated_df  # noqa: PLC0415
+    from wetterdienst.core.summarize import get_summarized_df  # noqa: PLC0415
+    from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest  # noqa: PLC0415
+    from wetterdienst.provider.noaa.ghcn.api import NoaaGhcnValues  # noqa: PLC0415
+
+    request, latitude, longitude, _ = _stub_four_stations_one_at(
+        monkeypatch,
+        NoaaGhcnRequest,
+        NoaaGhcnValues,
+        "data",
+        0.0,
+        dict.fromkeys(("00001", "00002", "00003", "00004"), 5.0),
+        others=0.0,
+    )
+    stubbed_query = NoaaGhcnValues.query
+    downloads = 0
+
+    def counting_query(self: NoaaGhcnValues) -> Iterator[object]:
+        nonlocal downloads
+        downloads += 1
+        return stubbed_query(self)
+
+    monkeypatch.setattr(NoaaGhcnValues, "query", counting_query)
+    get_df = get_interpolated_df if method == "interpolate" else get_summarized_df
+    with pytest.raises(NoStationsWithElevationError):
+        get_df(request, latitude, longitude, 100.0)
+    assert downloads == 0
+
+
 @pytest.mark.parametrize(
     ("network", "elevation", "corrected"),
     [
@@ -1641,12 +1682,12 @@ def test_interpolate_takes_a_zero_elevation_of_ghcn_for_none(
         elevation,
         dict.fromkeys(("00001", "00002", "00003", "00004"), 5.0),
     )
-    # the point is where the four stations are centred, so each weighs about a quarter
-    values = get_interpolated_df(request, latitude, longitude, 100.0).get_column("value").to_list()
+    # the point is near the station that differs, which weighs most there
+    values = get_interpolated_df(request, latitude - 0.02, longitude - 0.02, 100.0).get_column("value").to_list()
     if corrected:
         (value,) = values
         assert value is not None
-        assert 5.0 - 0.0065 * (100.0 - elevation) < value < 5.0
+        assert 5.0 - 0.0065 * (100.0 - elevation) < value < 4.8
     else:
         assert values in ([], [None])
 

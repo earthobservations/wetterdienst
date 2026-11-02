@@ -69,12 +69,14 @@ Types of changes:
   outside -90..90 or a longitude outside -180..180, or a NaN, with `LocationOutOfRangeError`,
   as `summarize` now does. They ranked the stations by the distance from the point the
   coordinates wrap round to (a longitude of 373.4 as 13.4). Pass a point on the globe (GH-3717)
-- `interpolate` and `summarize` of `noaa/ghcn` asked about an elevation leave out a station whose
-  elevation is 0.0, as they do one with no elevation. GHCN writes 0.0 for a station it knows no
-  elevation of (54 of its hourly stations at 0.0 stand 150 to 4,329 m), and the readings were
-  corrected as from sea level, by up to 28 K of air temperature. The stations frame keeps the 0.0.
-  Where every station in reach is at 0.0 the request is refused with
-  `NoStationsWithElevationError` (GH-3708)
+- **Breaking**: `interpolate` and `summarize` of `noaa/ghcn` asked about an elevation leave out a
+  station whose elevation is 0.0, as they do one with no elevation, and `*_by_station_id` of a
+  station at 0.0 ask without one. GHCN writes 0.0 for a station it knows no elevation of (54 of
+  its hourly stations at 0.0 stand 150 to 4,329 m), and the readings were corrected as from sea
+  level, by up to 28 K of air temperature. The stations frame keeps the 0.0. A request that
+  leaves everything out is refused as for stations with no elevation
+  (`NoStationsWithElevationError`); ask without an elevation to take the readings as they came
+  (GH-3708)
 
 ## [0.181.0] - 2026-11-01
 
