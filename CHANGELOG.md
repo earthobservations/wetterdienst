@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `metno/frost` no longer fails on an answer of 200 that holds no reading: a `data` that is empty
+  or null, and a `data` entry with no `observations`, or an empty or null one, are no data now on
+  every path (a discovered series moves on to the next one), where the reader raised a polars
+  error (GH-3750)
+
 ## [0.182.0] - 2026-11-02
 
 ### Added
