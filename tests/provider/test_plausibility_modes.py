@@ -14,15 +14,18 @@ import polars as pl
 import pytest
 
 from tests.provider.value_stubs import STUBS, ValueStub
-from wetterdienst.model.plausibility import CHECKS
+from wetterdienst.model.plausibility import CALLER_CHECKS, CHECKS
 
 JUDGING = [stub for stub in STUBS if stub.verdicts and not stub.plausibility]
 
 
 def test_the_stubs_cover_every_check_a_reader_judges_with() -> None:
-    """The five checks are each in some stub, so that each is held to its mode against a real reader."""
+    """The checks of the library are each in some stub, so that each is held to its mode against a real reader.
+
+    `limits` is the caller's: it judges what the options name, and `tests/model/test_limits.py` holds it.
+    """
     covered = {check for stub in STUBS for _, _, checks in stub.verdicts for check in checks.split("+")}
-    assert covered == set(CHECKS)
+    assert covered == set(CHECKS) - set(CALLER_CHECKS)
 
 
 @pytest.mark.parametrize("stub", JUDGING, ids=lambda stub: stub.provider)

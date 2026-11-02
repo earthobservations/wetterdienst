@@ -345,6 +345,7 @@ def test_a_forecast_is_judged_with_every_check_soft_but_the_one_that_corrects() 
         "stuck": "soft",
         "consistency": "soft",
         "floor": "hard",
+        "limits": "soft",
     }
     assert Plausibility(floor="soft").for_forecast() == Plausibility.model_validate("soft")
     assert Plausibility().for_forecast().model_dump()["floor"] == "hard"

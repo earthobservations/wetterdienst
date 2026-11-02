@@ -304,7 +304,8 @@ judge, see below. Add a stub of the source with the sentinel written as the sour
 **A reader judges nothing.** What no sensor can have produced (a number outside the physical range of its parameter, a
 station pressure the elevation does not allow, a sensor that did not move for hours, a reading its neighbour contradicts,
 an amount a little below its floor) is judged by the values core, in canonical units, with the mode the request chose
-for each of the five [plausibility checks](../data/plausibility.md) (GH-3676); it writes `rejected:<check>,raw:<text>`
+for each of the [plausibility checks](../data/plausibility.md) (GH-3676), and the bounds the caller sets per parameter
+(`limits`, GH-3687); it writes `rejected:<check>,raw:<text>`
 (hard) or `suspect:<check>` (soft) itself. The reader decodes the codes its source documents (`Sentinel`, above), hands
 the numbers over in the unit of its source, and:
 

@@ -890,6 +890,28 @@ Options:
                                   and flags it `suspect:floor`. A forecast network (`kind`
                                   `forecast`) keeps the mode as set for this check, and judges the
                                   others soft. Default: WD_TS_PLAUSIBILITY__FLOOR if set, else hard
+  --plausibility-limits [hard|soft]
+                                  What the check 'limits' does to a value it finds implausible: hard
+                                  nulls the value and keeps the number as
+                                  `rejected:limits,raw:<number>` in `quality_flags`, soft keeps it
+                                  and flags it `suspect:limits`. A forecast network (`kind`
+                                  `forecast`) is judged soft whatever the mode (only `floor` keeps
+                                  its mode). Default: WD_TS_PLAUSIBILITY__LIMITS if set, else hard
+  --limits TEXT                   Bounds of your own for the plausibility check limits, in the unit
+                                  the values come back in (see --unit-targets): a JSON map of a
+                                  parameter to [low, high], null for no bound at one end ({"temperat
+                                  ure_air_mean_2m":[-30,45],"precipitation_amount":[null,200]}), or
+                                  name=low:high with an end left empty for none
+                                  (temperature_air_mean_2m=-30:45, precipitation_amount=:200).
+                                  Repeat it for more parameters. A name is a canonical parameter
+                                  (every dataset that serves it) or resolution/dataset/parameter
+                                  (that dataset only, which wins where both name a parameter). A
+                                  value outside is judged by --plausibility-limits: hard (the
+                                  default) nulls it and keeps the number as
+                                  `rejected:limits,raw:<number>`, soft keeps it and flags it
+                                  `suspect:limits`. A forecast network is soft in any case. Default:
+                                  WD_TS_LIMITS if set, else none; a name given here replaces the one
+                                  of WD_TS_LIMITS
   --format [json|geojson|csv|ndjson|html|png|jpg|webp|svg|pdf]
                                   Output format: json, geojson, csv or ndjson (the metadata, a line
                                   for each row, then the end) for data, html, png, jpg, webp, svg or
@@ -957,6 +979,11 @@ Options:
   # keep a number a plausibility check finds implausible, flagged `suspect:range`, instead of nulling it
   wetterdienst values --provider=dwd --network=observation --parameters=hourly/moisture/pressure_air_site \
       --stations=1048 --timestamp=2024-01 --plausibility-range=soft --plausibility-stuck=hard
+
+  # null a temperature outside -30 to 45 degrees (in the unit asked for) and a daily rain above 200 mm, keeping what
+  # the source wrote as `rejected:limits,raw:<number>`; `--plausibility-limits=soft` keeps the value and flags it
+  wetterdienst values --provider=dwd --network=observation --parameters=daily/kl \
+      --stations=1048 --timestamp=2024-01 --limits=temperature_air_mean_2m=-30:45 --limits=precipitation_amount=:200
 
   # MOSMIX and DMO forecasts
   wetterdienst values --provider=dwd --network=mosmix --parameters=hourly/large/ttt,hourly/large/ff --stations=65510

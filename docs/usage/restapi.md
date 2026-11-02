@@ -602,7 +602,7 @@ what each of them takes, keyed by endpoint, with `unit_targets` naming the unit 
 
 It takes the settings query parameters of the three endpoints, and answers what they resolve to
 over the server's, for each endpoint that takes the parameter: `humanize`, `convert_units` and
-`unit_targets` apply to all three, `station_window_end_buffer` and the five `plausibility_<check>` to `values` alone, and
+`unit_targets` apply to all three, `station_window_end_buffer`, `limits` and the `plausibility_<check>` to `values` alone, and
 `min_gain_of_value_pairs` and `num_additional_stations` to `interpolate` and `summarize`. A value an endpoint refuses is refused here the same way, and an
 unknown parameter too, so a set of settings can be checked before fetching. Nothing is stored on
 the server: the parameters apply to that one answer.
@@ -705,19 +705,32 @@ http localhost:7890/api/values provider==dwd network==observation parameters==ho
 
 # Every check soft but the range: what the source wrote, flagged, and the range rejected.
 http localhost:7890/api/values provider==dwd network==observation parameters==hourly/moisture/pressure_air_site stations==01048 timestamp==2024-01 plausibility==soft plausibility_range==hard
+
+# Null a mean temperature outside -30 to 45 degrees (in the unit of the answer) and a rain above 200 mm.
+http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl stations==01048 timestamp==2024-01 limits=='{"temperature_air_mean_2m": [-30, 45], "precipitation_amount": [null, 200]}'
 ```
 
 `plausibility=soft` (or `hard`) sets the mode of every check at once, and a `plausibility_<check>` given beside it wins:
 `plausibility==soft plausibility_range==hard` is every check soft but the range, and everything a source wrote comes back
 flagged.
 
-The plausibility checks `range`, `elevation`, `stuck`, `consistency` and `floor` each take a mode, `hard` or `soft`, as
-the query parameters `plausibility_range`, `plausibility_elevation`, `plausibility_stuck`,
-`plausibility_consistency` and `plausibility_floor` (the environment variable of a server is
+The plausibility checks `range`, `elevation`, `stuck`, `consistency`, `floor` and `limits` each take a mode, `hard` or
+`soft`, as the query parameters `plausibility_range`, `plausibility_elevation`, `plausibility_stuck`,
+`plausibility_consistency`, `plausibility_floor` and `plausibility_limits` (the environment variable of a server is
 `WD_TS_PLAUSIBILITY__RANGE` and so on). A hard check nulls the value and writes `rejected:<check>,raw:<number>` into
 `quality_flags`, a soft check keeps the value and writes `suspect:<check>`; a check not named keeps the server's mode. On a forecast network (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`: `kind` `forecast`) every check but `floor` is soft whatever the mode, so `hard` there flags `suspect:<check>` and nulls nothing.
 See [plausibility checks](../data/plausibility.md). `interpolate` and `summarize` take no mode: they leave out a
 suspect value in any case, and so do `stripes/values` and `stripes/image`.
+
+The check `limits` judges the bounds you set per parameter, which `limits` of `values` takes as a JSON object of a
+parameter to `[low, high]` (`null` for no bound at an end): `{"temperature_air_mean_2m": [-30, 45]}`. A key is a
+canonical parameter name, which holds in every dataset that serves it, or `resolution/dataset/parameter`, which holds
+in that dataset and wins where both name a parameter. The bounds are in the unit of the values the request returns (its
+`unit_targets`, or the source's unit with `convert_units` off); a value outside is null with `rejected:limits,raw:<number>`
+by default, or kept and flagged `suspect:limits` with `plausibility_limits=soft`, and a forecast network keeps it flagged
+in any case. A name that is no parameter is a 400 naming it; a pair with `low` above `high`, both ends null, a bound that is not
+a finite number and text that is no JSON object are a 422. The `limits` of a request are merged into the server's `WD_TS_LIMITS`, the request's entry winning
+for a name both give. `/api/settings` reports them in `values`.
 
 A request that asks for more than the [limits](#limits) allow is refused;
 [Getting more than the limit](large-requests.md) shows how to get the data anyway.

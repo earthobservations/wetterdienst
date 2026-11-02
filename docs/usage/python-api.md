@@ -678,8 +678,8 @@ sentinels that are kept as `raw:<text>` are on the [quality flags](../data/quali
 A number no sensor can have produced (4021 °C for a daily maximum, 1093.3 hPa at a station at sea level, a barometer
 that held one value for a month) is judged by a **check**, and the option `plausibility` chooses what happens to it,
 per check: `"hard"` makes the value null and keeps the number as `rejected:<check>,raw:<number>` in `quality_flags`,
-`"soft"` keeps the value and flags it `suspect:<check>`. The checks are `range`, `elevation`, `stuck`, `consistency`
-and `floor`; all are hard but `stuck`, which is soft because it judges a series and not a value (what it finds depends on what was read, see the
+`"soft"` keeps the value and flags it `suspect:<check>`. The checks are `range`, `elevation`, `stuck`, `consistency`,
+`floor` and `limits`; all are hard but `stuck`, which is soft because it judges a series and not a value (what it finds depends on what was read, see the
 [plausibility page](../data/plausibility.md)). A check not named keeps its mode, and `WD_TS_PLAUSIBILITY__RANGE=soft` sets one for a host. On a forecast network (`kind` `forecast`: `dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`) every check but `floor` is soft whatever you set, so `"hard"` there flags a value `suspect:<check>` and never nulls it: a forecast is a model's output and no reading. The codes a source documents
 (`-999`, a calm, a trace) are no check and have no mode.
 
@@ -701,6 +701,23 @@ suspect = values.df.filter(pl.col("quality_flags").str.contains(r"(^|,)suspect:"
 
 `Options(plausibility="soft")` sets every check at once (everything a source wrote, flagged), and a check named beside
 it, as in the environment (`WD_TS_PLAUSIBILITY=soft` with `WD_TS_PLAUSIBILITY__RANGE=hard`), wins.
+
+The check `limits` judges bounds of your own, per parameter, in the unit the values come back in (`unit_targets`, or the
+source's unit with `convert_units=False`), beside the physical `range`:
+
+```python
+options = Options(
+    limits={
+        "temperature_air_mean_2m": (-30, 45),  # every dataset that serves the parameter
+        "precipitation_amount": (None, 200),  # an end may be None, not both
+        "daily/climate_summary/temperature_air_max_2m": (-25, 45),  # that dataset only, which wins where both name it
+    },
+    plausibility={"limits": "soft"},  # hard (null, `rejected:limits,raw:<number>`) is the default
+)
+```
+
+A name that is no parameter, a `low` above `high`, both ends `None` and a bound that is NaN or infinite are errors
+(`WD_TS_LIMITS` is the JSON of the mapping, with pairs as lists). A forecast network is judged soft in any case.
 
 Interpolation, summary and climate stripes leave out a suspect value in any mode, and `skip_empty` counts the unflagged
 values alone. [Plausibility checks](../data/plausibility.md)

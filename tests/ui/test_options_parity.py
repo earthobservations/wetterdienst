@@ -204,6 +204,14 @@ CASES = [
         {"values": {"plausibility_range": "soft"}},
         {"values": ["--plausibility-range=soft"]},
     ),
+    Case(
+        "limits",
+        {"temperature_air_mean_2m": (-30.0, 45.0), "precipitation_amount": (None, 200.0)},
+        '{"temperature_air_mean_2m": [-30, 45], "precipitation_amount": [null, 200]}',
+        _VALUES,
+        {"values": {"limits": '{"temperature_air_mean_2m": [-30, 45], "precipitation_amount": [null, 200]}'}},
+        {"values": ["--limits=temperature_air_mean_2m=-30:45", "--limits=precipitation_amount=:200"]},
+    ),
     # set by the server alone: no query parameter and no command line option names it
     Case("geo_station_distance_resolution_factors", {"daily": 3.0}, '{"daily": 3.0}', _GEO),
 ]
@@ -394,6 +402,7 @@ def test_a_check_given_is_laid_over_the_checks_the_environment_sets(monkeypatch:
         "stuck": "hard",
         "consistency": "hard",
         "floor": "soft",
+        "limits": "hard",
     }
     cli_options = _cli(monkeypatch, "values", ["--plausibility-range=hard", "--plausibility-floor=soft"])
     assert cli_options.model_dump() == options.model_dump()
@@ -403,8 +412,15 @@ def test_a_check_given_is_laid_over_the_checks_the_environment_sets(monkeypatch:
 
 
 def test_one_mode_for_every_check_and_a_check_that_wins(monkeypatch: pytest.MonkeyPatch) -> None:
-    """`plausibility=soft` sets all five, and `plausibility_range=hard` beside it keeps that one hard (GH-3676)."""
-    every = {"range": "soft", "elevation": "soft", "stuck": "soft", "consistency": "soft", "floor": "soft"}
+    """`plausibility=soft` sets every check, and `plausibility_range=hard` beside it keeps that one hard (GH-3676)."""
+    every = {
+        "range": "soft",
+        "elevation": "soft",
+        "stuck": "soft",
+        "consistency": "soft",
+        "floor": "soft",
+        "limits": "soft",
+    }
     for surface, options in (
         ("rest", _rest(monkeypatch, "values", {"plausibility": "soft"})),
         ("cli", _cli(monkeypatch, "values", ["--plausibility=soft"])),
@@ -421,6 +437,72 @@ def test_one_mode_for_every_check_and_a_check_that_wins(monkeypatch: pytest.Monk
     assert _rest(monkeypatch, "values", {}).plausibility.model_dump() == every
     assert _cli(monkeypatch, "values", ["--plausibility-floor=hard"]).plausibility.floor == "hard"
     assert _rest(monkeypatch, "values", {"plausibility": "hard"}).plausibility.range == "hard"
+
+
+def test_the_limits_of_a_request_are_merged_into_the_ones_the_environment_sets(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A name a request gives replaces the environment's bounds for it; the others stay, as unit targets do."""
+    monkeypatch.setenv("WD_TS_LIMITS", '{"temperature_air_mean_2m": [-30, 45], "humidity_relative": [0, 100]}')
+    monkeypatch.setenv("WD_TS_PLAUSIBILITY__LIMITS", "soft")
+    rest = _rest(monkeypatch, "values", {"limits": '{"temperature_air_mean_2m": [-10, null]}'})
+    assert rest.limits == {"temperature_air_mean_2m": (-10.0, None), "humidity_relative": (0.0, 100.0)}
+    cli_options = _cli(monkeypatch, "values", ["--limits=temperature_air_mean_2m=-10:"])
+    assert cli_options.limits == rest.limits
+    assert rest.plausibility.limits == "soft"
+    # the mode of the check, given beside them
+    assert _rest(monkeypatch, "values", {"plausibility_limits": "hard"}).plausibility.limits == "hard"
+    assert _cli(monkeypatch, "values", ["--plausibility-limits=hard"]).plausibility.limits == "hard"
+
+
+def test_the_command_line_reads_limits_as_json_or_as_name_low_high(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`--limits` is a JSON object or `name=low:high`, repeated for more, an end left empty for none (GH-3687)."""
+    as_json = _cli(monkeypatch, "values", ['--limits={"temperature_air_mean_2m": [-30, 45]}'])
+    as_text = _cli(monkeypatch, "values", ["--limits=temperature_air_mean_2m=-30:45"])
+    assert as_json.limits == as_text.limits == {"temperature_air_mean_2m": (-30.0, 45.0)}
+    both = _cli(
+        monkeypatch,
+        "values",
+        ['--limits={"humidity_relative": [0, 100]}', "--limits=daily/kl/temperature_air_max_2m=:50"],
+    )
+    assert both.limits == {
+        "humidity_relative": (0.0, 100.0),
+        "daily/climate_summary/temperature_air_max_2m": (None, 50.0),
+    }
+
+
+@pytest.mark.parametrize(
+    "limits",
+    [
+        '{"nonsense": [1, 2]}',
+        '{"temperature_air_mean_2m": [5, 1]}',
+        '{"temperature_air_mean_2m": [null, null]}',
+        '{"temperature_air_mean_2m": [1]}',
+        '{"daily/kl/nonsense": [1, 2]}',
+        "[1, 2]",
+        "not json",
+    ],
+)
+def test_limits_that_are_no_limits_are_refused_by_rest(limits: str) -> None:
+    """An unknown name, an inverted or empty pair and text that is no object are the request's 4xx (GH-3687)."""
+    response = TestClient(restapi.app, raise_server_exceptions=False).get(
+        "/api/values", params={**_REST_BASE["values"], "limits": limits}
+    )
+    assert response.status_code in {400, 422}, response.text
+
+
+@pytest.mark.parametrize(
+    "limit",
+    [
+        "nonsense=1:2",
+        "temperature_air_mean_2m=5:1",
+        "temperature_air_mean_2m=:",
+        "temperature_air_mean_2m=1",
+        "t=nan:1",
+    ],
+)
+def test_limits_that_are_no_limits_are_a_usage_error_of_the_command_line(limit: str) -> None:
+    """The same, as a usage error (GH-3687)."""
+    result = CliRunner().invoke(cli, ["values", *_CLI_BASE["values"], f"--limits={limit}"])
+    assert result.exit_code == 2, result.output
 
 
 def test_a_value_that_is_no_mode_is_refused_by_rest_and_the_command_line() -> None:

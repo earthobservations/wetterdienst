@@ -26,6 +26,7 @@ from wetterdienst.metadata.aliases import PARAMETER_ALIASES, use_alias
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
 from wetterdienst.metadata.renamed import RENAMED_PARAMETERS, RENAMED_RESOLUTIONS
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.limits import LIMITS_DESCRIPTION, Limit, checked_limit_names
 from wetterdienst.model.plausibility import CHECKS, Mode, Plausibility
 from wetterdienst.model.unit import UnitConverter
 
@@ -346,6 +347,8 @@ class Options(BaseSettings):
     ``WD_TS_PLAUSIBILITY__RANGE=soft``): a ``hard`` check nulls the value and keeps the number as
     ``rejected:<check>,raw:<number>`` in ``quality_flags``, a ``soft`` one keeps the value and flags it
     ``suspect:<check>`` (GH-3676). A check that is not named keeps its mode, from the environment or its default.
+    ``limits`` sets bounds of your own per parameter (``Options(limits={"temperature_air_mean_2m": (-30, 45)})``,
+    ``WD_TS_LIMITS``), in the unit the request returns, which the check ``limits`` judges (GH-3687).
 
     The defaults are read from ``WD_TS_*`` (``WD_TS_SHAPE`` for `shape`), from the environment and
     from a ``.env``, so that an operator sets them once for the host. An instance is frozen:
@@ -428,6 +431,9 @@ class Options(BaseSettings):
         "summary always leave out a suspect value. A forecast network (metadata `kind` `forecast`) is judged `soft` in "
         "every check but `floor`, whatever is set here.",
     )
+    # the bounds the caller sets per parameter, judged by the check `limits` (mode: `plausibility.limits`), beside the
+    # physical ranges of the check `range`. In the unit of the values the request returns (GH-3687)
+    limits: dict[str, Limit] = Field(default_factory=dict, description=LIMITS_DESCRIPTION)
 
     @classmethod
     def settings_customise_sources(
@@ -451,6 +457,12 @@ class Options(BaseSettings):
             _decode_nested_as_json_would(dotenv_settings),
             file_secret_settings,
         )
+
+    @field_validator("limits", mode="before")
+    @classmethod
+    def validate_limits_names(cls, values: object) -> object:
+        """Check the names the limits are set for: a canonical parameter, or `resolution/dataset/parameter`."""
+        return checked_limit_names(values)
 
     @field_validator("unit_targets", mode="before")
     @classmethod

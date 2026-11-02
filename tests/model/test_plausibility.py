@@ -23,15 +23,15 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
 HARD = Plausibility(stuck="hard")
-SOFT = Plausibility(range="soft", elevation="soft", stuck="soft", consistency="soft", floor="soft")
+SOFT = Plausibility(range="soft", elevation="soft", stuck="soft", consistency="soft", floor="soft", limits="soft")
 
 
 # --- the model and the options ---------------------------------------------------------------------------------------
 
 
-def test_the_checks_are_the_five_the_issue_names() -> None:
-    """The names are the vocabulary of the options, the tokens and the docs."""
-    assert set(CHECKS) == {"range", "elevation", "stuck", "consistency", "floor"}
+def test_the_checks_are_the_vocabulary_of_the_options() -> None:
+    """The names are the vocabulary of the options, the tokens and the docs; `limits` is the caller's own (GH-3687)."""
+    assert set(CHECKS) == {"range", "elevation", "stuck", "consistency", "floor", "limits"}
     assert set(Plausibility.model_fields) == set(CHECKS)
 
 
@@ -43,6 +43,7 @@ def test_every_check_is_hard_but_stuck_by_default() -> None:
         "stuck": "soft",
         "consistency": "hard",
         "floor": "hard",
+        "limits": "hard",
     }
     assert Options().plausibility == Plausibility() == Plausibility()
 

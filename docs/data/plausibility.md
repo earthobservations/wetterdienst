@@ -43,9 +43,10 @@ For a dataset that a check applies to, the core does this for each station, afte
    beside a road surface, the dew point beside a humidity, the air of the road's run rule): a verdict on a parameter
    that is cut afterwards would never be seen, so the others are not merged, converted or judged.
 3. Those parameters are converted to the canonical unit of their unit type (°C, hPa, m/s, mm, J/cm², a fraction as a
-   decimal, seconds), without rounding. The bounds are therefore written once per quantity and not once per source
-   and unit, and a bound does not depend on the unit you ask for.
-4. The five checks judge the frame in canonical units. A check that compares two parameters (a road surface and the air
+   decimal, seconds), without rounding. The bounds of the table are therefore written once per quantity and not once
+   per source and unit, and do not depend on the unit you ask for. (The bounds you set yourself,
+   [`limits`](#bounds-of-your-own-limits), are in the unit you ask for, and the core converts them.)
+4. The checks judge the frame in canonical units. A check that compares two parameters (a road surface and the air
    of its minute) reads both from the frame of the station at the same timestamp, so such a dataset is collected whole.
 5. The frame is cut to the parameters you asked for and converted to the unit you asked for, rounded once.
 
@@ -68,6 +69,7 @@ written as short as it goes (`4021.0` as `4021`).
 | `stuck` | a sensor that held one value over a period it should not have | **soft** | DWD observation: a run of consecutive readings of one value of the station pressure (`pressure_air_site`, `pressure_air_site_mean`): 72 hourly readings, 5 days, 36 readings at 10 minutes (HadISD and ECA&D, see [the limits](#the-limit-of-a-run)); a station without a barometer writes its constant in every row. DWD road: 24 readings or more (6 h) of one value of the air, the dew point or the road surface temperature, a gap longer than four times the station's usual one ending the run, melting ice excepted. RMI: the sunshine of station 6477 in the periods its sensor was stuck or dead |
 | `consistency` | a reading that another parameter of the same file contradicts | hard | DWD road: a road surface more than 20 K above the air of the same minute with the sun more than 6 degrees below the horizon, the air counting only where it passed `range` and is not marked suspect by DWD's own flag. Météo-France: the humidity of an hour whose dew point lies below 0 °C at a station without frost (the same hygrometer), and a `tn12` that is the text of the `tx12` beside it (a copy, no minimum) |
 | `floor` | a model value a little below the floor of its quantity | hard | DWD DMO (a forecast, soft in every other check, but `floor` corrects and does not reject, so it keeps its mode): ICON writes -0.02 mm for the precipitation of an hour, down to -0.10, and the radiation of a night below 0. **hard sets the floor**, 0.0, and keeps the number; soft keeps the number as the value |
+| `limits` | a reading outside the bounds **you** set for its parameter ([below](#bounds-of-your-own-limits)) | hard | Judges nothing until you set a bound (`Options(limits=...)`, `WD_TS_LIMITS`, `--limits`, `limits` of REST and MCP), and then only the parameters you name. The bounds are in the unit the values come back in, and are a check of their own beside `range`, whose bounds they neither narrow nor widen: a value outside both carries both verdicts |
 
 `stuck` is soft by default because it judges a series and not a value: identical readings are a sign of a stuck sensor
 and no proof, and what is found depends on what was read, which differs by network (see the caveats). Every other check
@@ -177,6 +179,85 @@ A bound that holds for every provider cannot see a defect that lies inside it. T
 - **A sensor stuck at a plausible value, a sunshine of 1,440 minutes on a day of December** (RMI, 6477) and other
   quantities that look like data: `stuck` and the rules of a provider, not the table.
 
+## Bounds of your own (`limits`)
+
+The table of ranges is generous on purpose: it finds a value that is a defect of the source and never a record. Where
+you know more (a station in a valley that never reads 45 °C, a rain gauge that cannot have caught 200 mm in an hour), you
+set the bounds yourself, per parameter, and the check `limits` judges every reading against them. It is a separate check
+from `range`: the physical ranges are not changed, and a value outside both carries both verdicts, joined with `+` as with
+any two checks (`rejected:limits+range,raw:4021`).
+
+| | |
+| --- | --- |
+| **bounds** | `(low, high)`, both ends included in what is plausible. Either may be `None` (`null`) for no bound at that end, but not both. `low` may not exceed `high`, and a bound is a finite number: NaN and infinity are refused |
+| **names** | a canonical parameter name (`temperature_air_mean_2m`), which holds in every dataset that serves it, or `resolution/dataset/parameter` (`daily/climate_summary/temperature_air_mean_2m`), which holds in that dataset only. The dataset is named as a request names it: `daily/kl/...`, the source's own names and any casing work. Where both name a parameter, the one with the dataset wins **as a whole**: its pair is used and the other pair is not combined with it |
+| **unit** | the unit of the values the request returns: `unit_targets` if you ask for one (`(-22, 113)` for degrees Fahrenheit), the default unit of the quantity otherwise (a humidity is a decimal, `(0, 0.9)`), and the unit of the source with `convert_units` off. The core converts the bounds to the canonical unit and judges the reading there, as it does for the table, before it is rounded for the answer |
+| **mode** | `plausibility={"limits": ...}`: **hard** by default (`rejected:limits,raw:<number>`, the value null), **soft** keeps the value and flags it `suspect:limits`. A bare `plausibility="soft"` covers it like every check |
+| **a name that is none** | an error, never ignored: a typo would be indistinguishable from having set no bound. A name that is a parameter but that your request does not read does nothing, so one set of bounds can serve requests for any network |
+
+```python
+from wetterdienst import Options
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+request = DwdObservationRequest(
+    parameters=[("daily", "climate_summary", "temperature_air_mean_2m"), ("daily", "climate_summary", "precipitation_amount")],
+    start="2024-01-01",
+    end="2024-01-31",
+    options=Options(
+        limits={"temperature_air_mean_2m": (-30, 45), "precipitation_amount": (None, 200)},
+        plausibility={"limits": "soft"},  # keep what is outside, flagged `suspect:limits` (hard is the default)
+    ),
+)
+values = request.filter_by_station_id("01048").values().all()
+```
+
+A bound in another unit, and one for a single dataset (bounds for `temperature_air_mean_2m` in the daily climate summary
+alone, in degrees Fahrenheit):
+
+```python
+Options(unit_targets={"temperature": "degree_fahrenheit"}, limits={"daily/climate_summary/temperature_air_mean_2m": (-22, 113)})
+```
+
+The same on the other surfaces. A pair is `[low, high]` in JSON, with `null` for an end that is not set:
+
+```bash
+export WD_TS_LIMITS='{"temperature_air_mean_2m": [-30, 45], "precipitation_amount": [null, 200]}'
+export WD_TS_PLAUSIBILITY__LIMITS=soft
+
+wetterdienst values --provider dwd --network observation --parameters daily/kl --stations 01048 --timestamp 2024-01 \
+    --limits temperature_air_mean_2m=-30:45 --limits precipitation_amount=:200 --plausibility-limits soft
+
+curl -G "http://localhost:7890/api/v1/values" --data-urlencode "provider=dwd" --data-urlencode "network=observation" \
+    --data-urlencode "parameters=daily/kl" --data-urlencode "stations=01048" --data-urlencode "timestamp=2024-01" \
+    --data-urlencode 'limits={"temperature_air_mean_2m": [-30, 45], "precipitation_amount": [null, 200]}' \
+    --data-urlencode "plausibility_limits=soft"
+```
+
+`--limits` is repeated for more parameters and takes either `name=low:high` (an end left empty is no bound) or a JSON
+object. The bounds that a command or a request gives are merged into the ones the environment sets, the entry of the
+request winning for a name both give (as the unit targets are); `WD_TS_LIMITS__<NAME>='[low, high]'` sets one name from
+the environment, and a name with a dataset (it has slashes) can only be set in the JSON of `WD_TS_LIMITS`. The REST API
+and the MCP tools take `limits` (JSON) and `plausibility_limits` on `values`, and `/api/settings` reports both as set.
+`interpolate` and `summarize` take neither as a parameter, but read `WD_TS_LIMITS` of the server like any option, and,
+like the stripes, leave out a value that is `suspect:limits`.
+
+**A forecast keeps its values.** As for every check but `floor`, a network whose `kind` is `forecast` (`dwd/mosmix`,
+`dwd/dmo`, `dwd/swsmos`) judges `limits` soft whatever mode is set: a value outside your bounds is kept and flagged
+`suspect:limits`, never nulled, because a forecast is a model's output and no reading. To drop those values, filter on the
+flag (`~pl.col("quality_flags").str.contains(r"(^|,)suspect:limits")`), or interpolate or summarize, which leave them out.
+
+**A value is judged as it was read.** A reading that is exactly on a bound stays, in whatever unit the bound is written
+(the converted bound is given a margin of a part in a billion, the noise of a conversion). The bound is compared with
+the number before it is rounded for the answer, so a 45.00004 °C beside a bound of 45 is outside it although the answer,
+rounded to the decimals of its unit, may read 45.0. A reading that carries a code of the source (`raw:-999`) is the
+source's meaning and is judged by nobody, as for every check. A bound that is no value of the unit it is in (a negative
+Beaufort number as a speed) is the request's error, a 400 for REST, before any station's values are read.
+
+A key is kept in one spelling where that does not change what it names: `daily/kl/tmk` is
+`daily/climate_summary/temperature_air_mean_2m`, so that a bound a request gives replaces the host's for the same
+parameter however either is written. A key of one network's own names (`hourly/ogd-smn/rre150h0`) stays as it is, and
+of two keys that name one parameter the later wins, in one mapping and between a request and the host's.
+
 ## Setting the modes
 
 One mode per check. A check that is not named keeps its mode, from the environment or its default.
@@ -212,8 +293,17 @@ given beside it wins, so `soft` for all but the range is `soft` with `range` har
 ```python
 from wetterdienst import Options
 
-Options(plausibility="soft")  # all five checks soft, the same as listing them
-Options(plausibility={"range": "hard", "elevation": "soft", "stuck": "soft", "consistency": "soft", "floor": "soft"})
+Options(plausibility="soft")  # all six checks soft, the same as listing them
+Options(
+    plausibility={
+        "range": "hard",
+        "elevation": "soft",
+        "stuck": "soft",
+        "consistency": "soft",
+        "floor": "soft",
+        "limits": "soft",
+    }
+)
 ```
 
 ```bash
@@ -231,7 +321,7 @@ and REST have both the shorthand and the checks, and the checks win whatever the
 `hard` is refused.
 
 The REST API and the MCP tools take `plausibility` and `plausibility_range`, `plausibility_elevation`, `plausibility_stuck`,
-`plausibility_consistency` and `plausibility_floor` on `values`; `/api/settings` reports the modes as set (a forecast network is soft in every check but `floor` whatever they are). A value
+`plausibility_consistency`, `plausibility_floor` and `plausibility_limits` on `values`; `/api/settings` reports the modes as set (a forecast network is soft in every check but `floor` whatever they are). A value
 other than `soft` or `hard` is refused.
 
 ## The tokens
@@ -348,7 +438,7 @@ The table is what the core is told to judge: a network that is in no row judges 
 <!-- coverage:end -->
 
 `range` and `elevation` run on every network that serves a quantity of their tables (`*`: every dataset of the network
-that has one). Within a dataset a check covers the parameters its rule names, not every parameter: `range` the
+that has one). `limits` is in no row: it runs on any network, for the parameters you set a bound for. Within a dataset a check covers the parameters its rule names, not every parameter: `range` the
 parameters that have a bound in the table, `elevation` the `pressure_air_site`, `pressure_air_site_mean`,
 `pressure_air_site_min` and `pressure_air_site_max`, `stuck` the `pressure_air_site` and `pressure_air_site_mean` of DWD
 observation. The provider pages and [special values](special_values.md) list them.
