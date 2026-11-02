@@ -119,7 +119,7 @@ function setDate(field: 'startDate' | 'endDate', value: unknown) {
 }
 
 // The button goes with the dates it clears, and the focus it held goes to the two fields as a group (named
-// "Date range", which a screen reader says), where a range is typed with the next Tab. Not to the first
+// "Date Range", which a screen reader says), where a range is typed with the next Tab. Not to the first
 // field itself: focusing a date input from script may open its picker on iOS, which nobody asked for (GH-3722)
 const fieldsBox = ref<HTMLElement | null>(null)
 async function clearRange() {
@@ -174,7 +174,7 @@ defineExpose({ isValid, validationError })
       </UBadge>
     </div>
 
-    <div ref="fieldsBox" role="group" tabindex="-1" :aria-labelledby="labelId" class="flex gap-4 outline-none">
+    <div ref="fieldsBox" role="group" tabindex="-1" :aria-labelledby="labelId" class="flex gap-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--app-focus-ring)">
       <UFormField :label="t('dateRange.startDate')" class="flex-1" :error="!modelValue.startDate && requiresDateRange ? t('dateRange.required') : undefined">
         <UInput
           :model-value="modelValue.startDate"

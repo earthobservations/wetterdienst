@@ -269,9 +269,6 @@ describe('limit notice', () => {
     const heading = wrapper.find(`#${card.attributes('aria-labelledby')}`)
     expect(heading.element.tagName).toBe('H2')
     expect(heading.text()).toBe('Data')
-    // the element the focus goes to is the one that is named
-    ;(card.element as HTMLElement).focus()
-    expect(document.activeElement).toBe(card.element)
   })
 
   it('gives the focus to the table area when the answer replaces the notice a button of which held it', async () => {
@@ -283,8 +280,8 @@ describe('limit notice', () => {
     await fetchData(viewer)
     await vi.waitFor(() => expect(wrapper.find('[data-testid="limit-notice"]').exists()).toBe(false))
     await vi.waitFor(() => expect(wrapper.find('table').exists()).toBe(true))
-    expect(document.activeElement?.tagName).not.toBe('BODY')
-    expect(wrapper.element.contains(document.activeElement)).toBe(true)
+    // the element the focus goes to is the one that is named
+    expect(document.activeElement).toBe(wrapper.find('[tabindex="-1"][role="group"]').element)
   })
 
   it('keeps the focus in the table area when applying the window moves the selection and takes the button away', async () => {
@@ -296,7 +293,7 @@ describe('limit notice', () => {
     const [{ startDate, endDate }] = viewer.emitted('applyRange')![0] as [{ startDate: string, endDate: string }]
     stationSelection.value = { ...stationSelection.value, dateRange: { startDate, endDate } }
     await vi.waitFor(() => expect(wrapper.find('[data-testid="limit-apply"]').exists()).toBe(false))
-    expect(document.activeElement?.tagName).not.toBe('BODY')
-    expect(wrapper.element.contains(document.activeElement)).toBe(true)
+    // the element the focus goes to is the one that is named
+    expect(document.activeElement).toBe(wrapper.find('[tabindex="-1"][role="group"]').element)
   })
 })
