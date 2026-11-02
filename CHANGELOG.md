@@ -29,14 +29,14 @@ Types of changes:
   on REST and MCP `values`. An unknown name or a pair with `low` above `high` is an error
   (GH-3687)
 - A new plausibility check `source` reads the verdict a source gives in its own quality flag and
-  returns the value with: GHCN-Daily `QFLAG`, GHCNh `Suspect` and `Erroneous`, Frost
-  `qualityCode` 7, CHMI `Suspect` and `Poor`, Environment Agency `Suspect`, Météo-France `Q` 2 and
-  DMI `validity:false`, each from the provider's documentation (`docs/data/plausibility.md`). It
-  is soft by default: nothing is nulled, but `quality_flags` gains `suspect:source`, and those
-  values are left out of interpolation, summaries, stripes and `skip_empty`, as every suspect
-  value. `plausibility_source=hard` (`WD_TS_PLAUSIBILITY__SOURCE`, `--plausibility-source`) nulls
-  the worse level as `rejected:source,raw:<text>`, and so does a bare `plausibility="hard"`; name
-  `source` soft beside it to keep the values (GH-3677)
+  returns the value with: GHCN-Daily `QFLAG`, GHCNh `Suspect`/`Erroneous` and the letters of its
+  source 382, Frost `qualityCode` 7, CHMI `Suspect`/`Poor`, Environment Agency `Suspect`,
+  Météo-France `Q` 2 and DMI `validity:false` (`docs/data/plausibility.md`). It is soft by default:
+  nothing is nulled, but `quality_flags` gains `suspect:source`, and those values are left out of
+  interpolation, summaries, stripes and `skip_empty`, as every suspect value.
+  `plausibility_source=hard` (`WD_TS_PLAUSIBILITY__SOURCE`, `--plausibility-source`; a bare
+  `plausibility="hard"` too) nulls the erroneous level as `rejected:source,raw:<text>`, not GHCNh
+  and CHMI `Suspect` or 382 `R`; name `source` soft beside it to keep the values (GH-3677)
 
 ### Changed
 

@@ -151,7 +151,7 @@ def test_a_forecast_flags_both_levels_in_hard_mode_too() -> None:
 
 
 def test_the_levels_of_the_map_are_those_the_documentation_words() -> None:
-    """Only a source with two levels has a suspect level: GHCNh `Suspect`, CHMI `Suspect`; the rest is erroneous."""
+    """Only a source with two levels has a suspect level: GHCNh `Suspect`, 382 `R`, CHMI `Suspect`."""
     levels = {
         (network, code.code): code.level
         for network, rules in SOURCE_FLAGS.items()
