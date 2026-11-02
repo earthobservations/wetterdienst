@@ -2087,6 +2087,12 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "over terrain; in Greenland possibly the reading at minute 0. The source's 0 beside a mean wind speed of "
             "0 (a calm wind) is null."
         ),
+        ("hourly", "data", "mean_wind_dir_min0"): (
+            "Direction the wind blows from, the mean of the 10 minutes before the end of the hour (UTC), the time the "
+            "value is dated by, measured 10 m over terrain. The source writes a calm as 0 and north as 360 (and "
+            "sometimes 0), and its climate data gives no wind speed for that minute, so a 0 is calm or north and is "
+            "returned as the source gives it."
+        ),
         ("daily", "data", "mean_wind_dir"): (
             "Direction the wind blows from (north is 360, 0 means calm) over the day: the mean of components "
             "of the hourly values (the local day in Denmark; 06:00 to 06:00 UTC in Greenland and the Faroe "

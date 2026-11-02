@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `dmi/observation` now serves DMI's `mean_wind_dir_min0`, the mean wind direction of the 10
+  minutes before the end of the hour (hourly, 47 stations), as `wind_direction_mean_last_10min`,
+  stamped by the end of the hour. DMI codes a calm as 0 and gives no speed for that minute, so a 0
+  means "calm or north" and is returned as DMI writes it, not nulled (Part of GH-3762)
+
 ### Changed
 
 - **Breaking**: a length of time that something lasted comes back in hours, no longer in seconds:

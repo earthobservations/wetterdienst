@@ -307,6 +307,20 @@ _VAPOUR_PRESSURE_DEFICIT = {
     "name_original": "vapour_pressure_deficit_mean",
     "unit": "kilopascal",
 }
+# The mean wind direction of the 10 minutes before minute 0 (DMI: "Mean wind direction (10 minutes average) at minute
+# 0", hourly only), beside `mean_wind_dir`, which is the mean of the hour. DMI's record of `from` 00:00 and `to` 01:00
+# holds the value of 01:00 UTC, so the reader stamps it by `to` (`api.py`; at 04220 on 2025-11-21 the records of 00:00,
+# 03:00, 04:00 and 05:00 hold 208, 133, 181 and 171, the 10-minute `wind_dir` of metObs at 01:00, 04:00, 05:00 and
+# 06:00 UTC). DMI codes a calm as 0 at the stations of Greenland, as it does for `mean_wind_dir`, but the
+# climate data gives no speed for minute 0, so a 0 here is "calm or north" and is served as given (GH-3762): the calm
+# rule of `api.py` (GH-2794) needs the mean wind speed of the same record and is written for `mean_wind_dir` alone.
+# At 04220, 35 of the 56 zeros among the 1000 records of 2025-11-20 to 2026-01-01 have a mean wind speed of 0 in the
+# same record and 21 one above 0 (up to 2.0 m/s). 360 comes as well (47 stations; read 2026-11-02).
+_WIND_DIRECTION_MINUTE_0 = {
+    "name": "wind_direction_mean_last_10min",
+    "name_original": "mean_wind_dir_min0",
+    "unit": "degree",
+}
 
 _HOURLY_PARAMETERS = [
     *_BASE_PARAMETERS,
@@ -353,6 +367,7 @@ _HOURLY_PARAMETERS = [
     _GRASS_TEMPERATURE,
     _LEAF_WETNESS,
     _VAPOUR_PRESSURE_DEFICIT,
+    _WIND_DIRECTION_MINUTE_0,
 ]
 
 _DAILY_PARAMETERS = [
