@@ -61,7 +61,8 @@ def forecast_note(check: str) -> str:
     """Say what a forecast network does with the mode of a check (``Plausibility.for_forecast``)."""
     if check in FORECAST_KEEPS_MODE:
         return (
-            "A forecast network (`kind` `forecast`) keeps the mode as set for this check, and judges the others soft."
+            "A forecast network (`kind` `forecast`) keeps the mode as set for `floor` and `limits`, and judges the "
+            "other checks soft."
         )
     return (
         "A forecast network (`kind` `forecast`) is judged soft whatever the mode "

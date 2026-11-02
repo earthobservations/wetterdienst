@@ -891,15 +891,17 @@ Options:
                                   sets the value to 0.0 and keeps the number as
                                   `rejected:floor,raw:<number>` in `quality_flags`, soft keeps it
                                   and flags it `suspect:floor`. A forecast network (`kind`
-                                  `forecast`) keeps the mode as set for this check, and judges the
-                                  others soft. Default: WD_TS_PLAUSIBILITY__FLOOR if set, else hard
+                                  `forecast`) keeps the mode as set for `floor` and `limits`, and
+                                  judges the other checks soft. Default: WD_TS_PLAUSIBILITY__FLOOR
+                                  if set, else hard
   --plausibility-limits [hard|soft]
                                   What the check 'limits' does to a value it finds implausible: hard
                                   nulls the value and keeps the number as
                                   `rejected:limits,raw:<number>` in `quality_flags`, soft keeps it
                                   and flags it `suspect:limits`. A forecast network (`kind`
-                                  `forecast`) keeps the mode as set for this check, and judges the
-                                  others soft. Default: WD_TS_PLAUSIBILITY__LIMITS if set, else hard
+                                  `forecast`) keeps the mode as set for `floor` and `limits`, and
+                                  judges the other checks soft. Default: WD_TS_PLAUSIBILITY__LIMITS
+                                  if set, else hard
   --limits TEXT                   Bounds of your own for the plausibility check limits, in the unit
                                   the values come back in (see --unit-targets): a JSON map of a
                                   parameter to [low, high], null for no bound at one end ({"temperat

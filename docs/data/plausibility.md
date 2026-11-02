@@ -483,8 +483,9 @@ What no check covers, and why:
   elevation: `rejected:elevation+range,raw:1150` with both hard, and `suspect:elevation+range` with both soft. One of
   1093.3 hPa at 100 m is inside the range and outside the elevation: `rejected:elevation,raw:1093.3`.
 - **Where a `floor` covers a value, the range stands aside.** DMO's rain of -0.02 mm is below the 0 of the table and is
-  the floor's, so it becomes 0 as before (`rejected:floor,raw:-0.02`) and not null. `limits` judge such a value as the
-  floor, 0.0, so a bound of 0 for the rain does not take it away again.
+  the floor's, so it becomes 0 as before (`rejected:floor,raw:-0.02`) and not null. Where `floor` is hard, `limits`
+  judge such a value as the floor, 0.0, which is what the answer holds, so a bound of 0 for the rain does not take it away
+  again; where `floor` is soft, the value is kept as the model wrote it and is judged as it is.
 - **A hard check can only judge a number it can read.** A text that is no number (`mq`, `---`) and a NaN or an infinity
   are no judgement: they are null with their text, as a code is, in both modes.
 

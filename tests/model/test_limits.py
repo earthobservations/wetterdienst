@@ -421,6 +421,32 @@ def test_the_floor_of_a_forecast_is_not_taken_away_by_a_bound_of_zero() -> None:
     assert out.get_column("quality_flags").to_list() == ["rejected:floor,raw:-0.02", "rejected:limits,raw:60"]
 
 
+def test_a_soft_floor_leaves_the_value_to_the_bounds_as_the_model_wrote_it() -> None:
+    """Where `floor` is soft the value stays -0.02, and a bound judges that number (GH-3687)."""
+    dataset = _dataset("dwd/dmo", "hourly", "icon")
+    plan = plan_for("dwd/dmo", dataset)
+    rr1 = next(name for name, c in plan.parameters.items() if c.name == "precipitation_amount_last_1h")
+    df = _frame([(rr1, -0.02)])
+    soft = Plausibility(floor="soft")
+    out = judged(df, network="dwd/dmo", dataset=dataset, modes=soft, limits={"precipitation_amount_last_1h": (0, 50)})
+    assert out.get_column("value").to_list() == [None]
+    # a rejected value carries the hard checks alone
+    assert out.get_column("quality_flags").to_list() == ["rejected:limits,raw:-0.02"]
+    inside = judged(
+        df, network="dwd/dmo", dataset=dataset, modes=soft, limits={"precipitation_amount_last_1h": (-1, -0.01)}
+    )
+    assert inside.get_column("value").to_list() == [-0.02]
+    assert inside.get_column("quality_flags").to_list() == ["suspect:floor"]
+
+
+def test_the_spellings_in_a_request_are_one_key_whatever_the_host_holds() -> None:
+    """The later of two spellings of one key wins with and without an entry of the host's for it."""
+    spelled = "daily/climate_summary/temperature_air_mean_2m"
+    given = {"limits": {"daily/kl/tmk": (0, 1), spelled: (5, 6)}}
+    assert overlay_options(Options(), given).limits == {spelled: (5.0, 6.0)}
+    assert overlay_options(Options(limits={spelled: (9, 10)}), given).limits == {spelled: (5.0, 6.0)}
+
+
 @pytest.mark.parametrize("reverse", [False, True], ids=["as given", "reversed"])
 def test_of_two_keys_as_wide_the_one_that_sorts_first_wins(reverse: bool) -> None:  # noqa: FBT001
     """`hourly/data/temperature_air` and `hourly/data/tl` name different parameters and are equally wide in scope."""
