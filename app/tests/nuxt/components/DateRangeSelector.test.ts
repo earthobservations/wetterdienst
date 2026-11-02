@@ -1,6 +1,6 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { describe, expect, it, vi } from 'vitest'
-import { reactive } from 'vue'
+import { nextTick, reactive } from 'vue'
 import { DateRangeSelector } from '#components'
 
 describe('dateRangeSelector Component', () => {
@@ -133,14 +133,21 @@ describe('dateRangeSelector start and clear (GH-3457)', () => {
     expect(wrapper.emitted('edited')).toBeUndefined()
   })
 
-  it('hands the focus of the button it removes to the first date field', async () => {
+  it('hands the focus of the button it removes to the two fields as a group, not to a date input (GH-3722)', async () => {
     const modelValue = reactive({ startDate: '2020-01-01', endDate: '2020-12-31' }) as { startDate?: string, endDate?: string }
     const wrapper = await mountSuspended(DateRangeSelector, { attachTo: document.body, props: { required: false, modelValue } })
     const button = wrapper.find('[data-testid="clear-date-range"]')
     ;(button.element as HTMLElement).focus()
     await button.trigger('click')
     await vi.waitFor(() => expect(wrapper.find('[data-testid="clear-date-range"]').exists()).toBe(false))
-    expect(document.activeElement).toBe(wrapper.findAll('input[type="date"]')[0]!.element)
+    // a date input focused from script may open its picker on iOS: the group takes it, and a Tab reaches the input
+    const group = wrapper.find('[role="group"]')
+    expect(document.activeElement).toBe(group.element)
+    expect(wrapper.findAll('input[type="date"]').some(input => input.element === document.activeElement)).toBe(false)
+    // it has the name of the selector, which a screen reader says on arriving
+    expect(group.attributes('aria-labelledby')).toBeTruthy()
+    expect(wrapper.find(`#${group.attributes('aria-labelledby')}`).text()).toBe('Date Range')
+    expect(group.element.contains(wrapper.findAll('input[type="date"]')[0]!.element)).toBe(true)
     wrapper.unmount()
   })
 
@@ -156,7 +163,7 @@ describe('dateRangeSelector start and clear (GH-3457)', () => {
       props: { required: false, defaultWindow: window, modelValue: { startDate: '2026-02-27', endDate: '2026-10-26' } },
     })
     const status = wrapper.find('[role="status"]')
-    expect(status.text()).toBe('Default range: the newest data (8 months, about 480,000 rows), so that the server can send it at once. Clear the date range to ask for everything.')
+    await vi.waitFor(() => expect(status.text()).toBe('Default range: the newest data (8 months, about 480,000 rows), so that the server can send it at once. Clear the date range to ask for everything.'))
     for (const input of wrapper.findAll('input[type="date"]'))
       expect(input.attributes('aria-describedby')).toBe(status.attributes('id'))
   })
@@ -166,7 +173,7 @@ describe('dateRangeSelector start and clear (GH-3457)', () => {
       props: { required: false, resolution: '1_minute', defaultWindow: window, modelValue: { startDate: '2026-02-27', endDate: '2026-10-26' } },
     })
     const status = wrapper.find('[role="status"]')
-    expect(status.text()).toBe('Default range: the newest data (8 months, about 480,000 rows), so that the server can send it at once.')
+    await vi.waitFor(() => expect(status.text()).toBe('Default range: the newest data (8 months, about 480,000 rows), so that the server can send it at once.'))
     expect(wrapper.find('[data-testid="clear-date-range"]').exists()).toBe(false)
   })
 
@@ -174,5 +181,50 @@ describe('dateRangeSelector start and clear (GH-3457)', () => {
     const wrapper = await mountSuspended(DateRangeSelector, { props: { required: false, modelValue: { startDate: '2026-02-27' } } })
     expect(wrapper.find('[role="status"]').text()).toBe('')
     expect(wrapper.find('input[type="date"]').attributes('aria-describedby')).toBeUndefined()
+  })
+
+  it('writes a note that is there at the start into the status after the status is in the page, where it is announced (GH-3722)', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = await mountSuspended(DateRangeSelector, {
+        props: { required: false, defaultWindow: window, modelValue: { startDate: '2026-02-27', endDate: '2026-10-26' } },
+      })
+      const status = wrapper.find('[role="status"]')
+      // an element that came with its text is no change to a live region: it is the fields' description only
+      expect(status.text()).toBe('')
+      vi.advanceTimersByTime(150)
+      await nextTick()
+      expect(status.text()).toContain('Default range: the newest data')
+      // the same element, so the text was put into a status that was in the page
+      expect(wrapper.find('[role="status"]').element).toBe(status.element)
+    }
+    finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('writes a note that comes later at once: it is a change already', async () => {
+    const wrapper = await mountSuspended(DateRangeSelector, {
+      props: { required: false, modelValue: { startDate: '2026-02-27', endDate: '2026-10-26' } },
+    })
+    const status = wrapper.find('[role="status"]')
+    expect(status.text()).toBe('')
+    await wrapper.setProps({ defaultWindow: window })
+    expect(status.text()).toContain('Default range: the newest data')
+  })
+
+  it('does not write into a selector that is gone', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = await mountSuspended(DateRangeSelector, {
+        props: { required: false, defaultWindow: window, modelValue: { startDate: '2026-02-27', endDate: '2026-10-26' } },
+      })
+      expect(vi.getTimerCount()).toBeGreaterThan(0)
+      wrapper.unmount()
+      expect(vi.getTimerCount()).toBe(0)
+    }
+    finally {
+      vi.useRealTimers()
+    }
   })
 })

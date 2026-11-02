@@ -118,16 +118,19 @@ function setDate(field: 'startDate' | 'endDate', value: unknown) {
   emit('edited')
 }
 
-// the button goes with the dates it clears: the focus it held goes to the first field, where a range is typed
-const startInput = ref<{ inputRef?: HTMLInputElement | null } | null>(null)
+// The button goes with the dates it clears, and the focus it held goes to the two fields as a group (named
+// "Date Range", which a screen reader says), where a range is typed with the next Tab. Not to the first
+// field itself: focusing a date input from script may open its picker on iOS, which nobody asked for (GH-3722)
+const fieldsBox = ref<HTMLElement | null>(null)
 async function clearRange() {
   modelValue.value.startDate = undefined
   modelValue.value.endDate = undefined
   emit('cleared')
   await nextTick()
-  startInput.value?.inputRef?.focus()
+  fieldsBox.value?.focus()
 }
 
+const labelId = useId()
 const noteId = useId()
 // something to clear: a range that is required is never empty, and the dates are the page's to fill
 const canClear = computed(() => !requiresDateRange.value && !!(modelValue.value.startDate || modelValue.value.endDate))
@@ -143,13 +146,26 @@ const note = computed(() => {
   return canClear.value ? `${text} ${t('dateRange.defaultNoteClear')}` : text
 })
 
+// A live region announces text that is put into it, not text that was there when it came: the first station
+// mounts this selector with the note already worded, and it was then only the fields' description. So a note
+// that is there at the start is written into the status a moment after the status is in the page, which is
+// the change a screen reader announces. One that comes later is a change already (GH-3722)
+const ANNOUNCE_AFTER_MS = 150
+const noteWritten = ref(!note.value)
+let announceTimer: ReturnType<typeof setTimeout> | undefined
+onMounted(() => {
+  if (!noteWritten.value)
+    announceTimer = setTimeout(() => { noteWritten.value = true }, ANNOUNCE_AFTER_MS)
+})
+onBeforeUnmount(() => clearTimeout(announceTimer))
+
 defineExpose({ isValid, validationError })
 </script>
 
 <template>
   <div class="space-y-3">
     <div class="flex items-center gap-2">
-      <span class="text-sm font-medium">{{ t('dateRange.label') }}</span>
+      <span :id="labelId" class="text-sm font-medium">{{ t('dateRange.label') }}</span>
       <UBadge v-if="requiresDateRange" size="xs" color="warning" variant="subtle">
         {{ t('dateRange.required') }}
       </UBadge>
@@ -158,10 +174,9 @@ defineExpose({ isValid, validationError })
       </UBadge>
     </div>
 
-    <div class="flex gap-4">
+    <div ref="fieldsBox" role="group" tabindex="-1" :aria-labelledby="labelId" class="flex gap-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--app-focus-ring)">
       <UFormField :label="t('dateRange.startDate')" class="flex-1" :error="!modelValue.startDate && requiresDateRange ? t('dateRange.required') : undefined">
         <UInput
-          ref="startInput"
           :model-value="modelValue.startDate"
           type="date"
           class="w-full"
@@ -180,11 +195,12 @@ defineExpose({ isValid, validationError })
       </UFormField>
     </div>
 
-    <!-- the page's own choice of range, and why: a status, announced as its text changes, and the description
-         of both fields (which is how it is reached where this component is mounted with the note already in it,
-         by the first station). Empty it stays in the accessibility tree (`sr-only`, which also takes no space) -->
+    <!-- the page's own choice of range, and why: a status, announced as its text changes (a note that is there
+         when the component is mounted, by the first station, is written in after `ANNOUNCE_AFTER_MS`, see
+         the script), and the description of both fields. Empty it stays in the accessibility tree
+         (`sr-only`, which also takes no space) -->
     <p :id="noteId" role="status" class="text-sm text-gray-600 empty:sr-only dark:text-gray-400" data-testid="default-range-note">
-      <template v-if="note">
+      <template v-if="note && noteWritten">
         {{ note }}
       </template>
     </p>

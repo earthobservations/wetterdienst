@@ -25,12 +25,15 @@ Types of changes:
   limit, rounded down to days, months or years for the resolution) as one button that fills the
   date range and asks again, and the whole request as a streamed CSV download (`format=csv`,
   for which the server allows more rows). All eleven locales; pl, cs, lb and de-hh are not natively
-  reviewed (GH-3457)
-- `[Explorer]` A selection whose whole record is more than the server sends as one answer starts
-  with the newest window that fits in the date range, with a note under the fields that says so,
-  where the range was empty (the server's limits come from `GET /api/version`). "Clear date range"
-  empties it and keeps it empty (`range=all` in the link); dates you type, apply or share in a link
-  are never replaced (GH-3457)
+  reviewed. The table area that takes the focus after "Show only the newest data" is a group named
+  "Data" (GH-3457, GH-3722)
+- `[Explorer]` A station selection whose whole record is over about 90 % of what the server
+  sends as one answer starts with the newest window that fits in the date range, with a note
+  under the fields that says so, where the range was empty (the server's limits come from
+  `GET /api/version`). "Clear date range" empties it and keeps it empty (`range=all` in the link)
+  and moves the focus to the date fields as a group; the note is announced when the first
+  station is chosen. Dates you type, apply or share in a link are never replaced (GH-3457,
+  GH-3722)
 - `[Home]` "Ask the weather": four suggestions under the tools ("Will it rain in Kiel tomorrow?",
   "Was last summer hotter than usual here?", "How windy was it on 26 December?", "Where can I
   download hourly temperatures?") that are answered on the page from live data (the MOSMIX
@@ -43,10 +46,10 @@ Types of changes:
 
 ### Changed
 
-- `[Explorer]` A date range that is required (1, 5 and 10 minute data) is started with the newest
-  window of at most 100,000 values, which the form accepts, where it used to be the whole span of
-  the stations' records, which it refused. Dates you have edited are no longer replaced when you
-  choose other stations (GH-3457)
+- `[Explorer]` For the values of stations, a date range that is required (1, 5 and 10 minute data)
+  is started with the newest window of at most 100,000 values, which the form accepts, where it
+  used to be the whole span of the stations' records, which it refused. Dates you have edited are
+  no longer replaced when you choose other stations (GH-3457)
 - `[Design]` A new look: the four tools (forecast, explorer, climate stripes, station history)
   are tabs in the header and, on a phone, in a tab bar at the foot of the screen; providers,
   glossary and API are under "Reference", and a search on every page (Ctrl+K) goes to any page,
