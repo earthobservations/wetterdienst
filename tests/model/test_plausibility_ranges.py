@@ -193,7 +193,26 @@ def test_the_error_of_a_forecast_temperature_is_in_no_temperature_rule(name: str
 def test_the_unit_type_temperature_difference_is_held_to_nothing() -> None:
     """A difference in kelvin is signed and no reading: the unit type has no range of its own (GH-3688)."""
     assert plausibility_ranges.UNIT_TYPE_RANGES["temperature_difference"] is None
-    assert bounds_for("a_difference_no_table_names", None, "temperature_difference") is None
+
+
+def test_a_name_that_is_not_a_canonical_parameter_has_no_bound() -> None:
+    """A family holds the canonical names that start with it; a misspelled name that merely starts like one is an error.
+
+    It used to get the bound of the family it begins like (`temperature_air_mean_2n` the air's), or, with a unit type
+    given, that unit type's; now any name that is not a key of `PARAMETERS` raises, whatever its start or the unit
+    type it is given (GH-3709).
+    """
+    from wetterdienst.metadata.parameter_table import PARAMETERS  # noqa: PLC0415
+
+    lookalikes = [f"{prefix}typo" for prefix, _ in plausibility_ranges.PREFIX_RANGES]
+    lookalikes += [f"{name}_typo" for name in plausibility_ranges.PARAMETER_RANGES]
+    lookalikes += ["temperature_air_mean_2n", "precipitation_amount_last_5h", "a_difference_no_table_names"]
+    for name in lookalikes:
+        assert name not in PARAMETERS, name
+        for resolution in (None, "hourly"):
+            for unit_type in (None, "temperature_difference"):
+                with pytest.raises(KeyError):
+                    bounds_for(name, resolution, unit_type)
 
 
 def test_a_bound_is_not_a_record() -> None:
