@@ -373,6 +373,18 @@ LEGENDS: dict[str, list[QualityKind]] = {
 }
 
 
+def _with_the_tokens_of_limits(legend: list[QualityKind]) -> list[QualityKind]:
+    """Add the kinds `suspect`, `rejected` and `raw` where a network's legend has not, as the last ones, `raw` the last.
+
+    The bounds a caller sets (`Options.limits`) judge any network, so any network can write them (GH-3687).
+    """
+    kept = [kind for kind in legend if kind not in (SUSPECT, REJECTED, RAW)]
+    return [*kept, SUSPECT, REJECTED, RAW]
+
+
+LEGENDS = {network: _with_the_tokens_of_limits(legend) for network, legend in LEGENDS.items()}
+
+
 def quality_legend(provider: str, network: str) -> list[QualityKind]:
     """Give the kinds of token the `quality_flags` of a network holds, in the order of the column.
 

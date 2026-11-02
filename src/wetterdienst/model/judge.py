@@ -24,7 +24,7 @@ the air of its minute at night.
 Modes and tokens are those of ``Plausibility``: ``hard`` nulls the value (``floor`` sets it to 0) and writes
 ``rejected:<checks>,raw:<text>``, ``soft`` keeps it and writes ``suspect:<checks>``; several checks are joined with
 ``+`` in alphabetical order, and a value that a hard check rejects carries only the hard checks. On a forecast network
-(the ``kind`` of its metadata) every check is soft but ``floor``, whatever the request sets
+(the ``kind`` of its metadata) every check is soft but ``floor`` and ``limits``, whatever the request sets
 (``Plausibility.for_forecast``).
 """
 
@@ -211,7 +211,7 @@ class Plan:
     network: str
     parameters: dict[str, Conversion]
     ranges: dict[str, tuple[float, float]]
-    #: the network is a forecast (its metadata ``kind``): its checks are soft whatever the request sets
+    #: the network is a forecast (its metadata ``kind``): its checks are soft whatever the request sets, but two
     forecast: bool = False
     pressure: tuple[str, ...] = ()
     floors: tuple[str, ...] = ()
@@ -464,7 +464,10 @@ def judge(  # noqa: C901
         # the bounds the caller set: a check of its own, so that a value outside these and the ranges has both verdicts
         low = parameter.replace_strict({n: b[0] for n, b in limits.items()}, default=-_INF, return_dtype=pl.Float64)
         high = parameter.replace_strict({n: b[1] for n, b in limits.items()}, default=_INF, return_dtype=pl.Float64)
-        exprs["limits"].append((value < low) | (value > high))
+        # a value the floor maps to the floor is judged as the floor (0.0), as the range stands aside for it: the bound
+        # of a rain at 0 does not take the model's -0.02 mm, which `floor` has made 0, away again
+        floored = pl.when(parameter.is_in(plan.floors) & (value < 0.0)).then(pl.lit(0.0)).otherwise(value)
+        exprs["limits"].append((floored < low) | (floored > high))
     if plan.pressure and elevation is not None and not (elevation == 0.0 and plan.network in ELEVATION_ZERO_IS_UNKNOWN):
         allowed = station_pressure_bounds(elevation)
         if allowed is not None:

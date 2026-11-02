@@ -24,9 +24,9 @@ Types of changes:
   `resolution/dataset/parameter` (that dataset only, which wins), and a bound is in the unit the
   values come back in. A value outside is null with `rejected:limits,raw:<number>`, or kept and
   flagged `suspect:limits` with `plausibility={"limits": "soft"}`; a forecast network follows the
-  mode too, unlike the built-in checks, which are soft there. Also `WD_TS_LIMITS` (JSON), `--limits name=low:high` or JSON, and `limits` and
-  `plausibility_limits` on REST and MCP `values`. An unknown name or a pair with `low` above
-  `high` is an error (GH-3687)
+  mode too, unlike the built-in checks, which are soft there. Also `WD_TS_LIMITS` (JSON),
+  `--limits name=low:high` or JSON, and `limits` and `plausibility_limits` on REST and MCP
+  `values`. An unknown name or a pair with `low` above `high` is an error (GH-3687)
 
 ### Changed
 
@@ -40,8 +40,8 @@ Types of changes:
   To keep every number set `plausibility={"range": "soft"}` (`WD_TS_PLAUSIBILITY__RANGE=soft`,
   `--plausibility-range soft`, `plausibility_range=soft`) (GH-3681)
 - A forecast network (its metadata `kind`: `dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`) is judged soft in
-  every built-in check but `floor`, whatever mode is set (options, CLI, REST, environment): a value a check
-  finds is flagged `suspect:<check>` and never null, as a model's output is no reading (ICON's
+  every built-in check but `floor`, whatever mode is set (options, CLI, REST, environment): a value
+  a check finds is flagged `suspect:<check>` and never null, as a model's output is no reading (ICON's
   394.92 mm of rain in an hour is `suspect:range`). `floor` still sets a small negative to 0.0
   (GH-3681)
 - **Breaking**: the bounds of `range` changed: relative humidity is 0 to 100 % (130 in DMI, RMI and

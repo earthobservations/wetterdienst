@@ -12,7 +12,7 @@ unit, and the library judges them all in one place, in one unit per quantity ([h
 
 There is no mode that skips a check. A soft check already keeps the value, and the flag keeps the judgement visible.
 
-**A forecast is judged soft only.** A network whose metadata `kind` is `forecast` (what `coverage` reports: `dwd/mosmix`,
+**A forecast is judged soft, but for two checks.** A network whose metadata `kind` is `forecast` (what `coverage` reports: `dwd/mosmix`,
 `dwd/dmo`, `dwd/swsmos`, and any provider that declares one) has every check soft but two, **whatever mode is set**: the default,
 `hard` given by `Options`, `--plausibility-range=hard`, `plausibility_range=hard` of the REST API or `WD_TS_PLAUSIBILITY`
 in the environment. A forecast is the output of a model and no reading, so a value that a check finds (ICON's 394.92 mm of rain
@@ -483,7 +483,8 @@ What no check covers, and why:
   elevation: `rejected:elevation+range,raw:1150` with both hard, and `suspect:elevation+range` with both soft. One of
   1093.3 hPa at 100 m is inside the range and outside the elevation: `rejected:elevation,raw:1093.3`.
 - **Where a `floor` covers a value, the range stands aside.** DMO's rain of -0.02 mm is below the 0 of the table and is
-  the floor's, so it becomes 0 as before (`rejected:floor,raw:-0.02`) and not null.
+  the floor's, so it becomes 0 as before (`rejected:floor,raw:-0.02`) and not null. `limits` judge such a value as the
+  floor, 0.0, so a bound of 0 for the rain does not take it away again.
 - **A hard check can only judge a number it can read.** A text that is no number (`mq`, `---`) and a NaN or an infinity
   are no judgement: they are null with their text, as a code is, in both modes.
 

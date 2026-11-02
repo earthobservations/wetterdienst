@@ -337,7 +337,7 @@ def test_a_network_is_a_forecast_by_the_kind_its_metadata_declares() -> None:
     assert kinds["dwd/observation"] == "observation"
 
 
-def test_a_forecast_is_judged_with_every_check_soft_but_the_one_that_corrects() -> None:
+def test_a_forecast_is_judged_with_every_check_soft_but_the_ones_that_keep_their_mode() -> None:
     """`hard`, given or default, is `soft` for a forecast; `floor` and `limits` keep the mode they were given."""
     assert Plausibility.model_validate("hard").for_forecast().model_dump() == {
         "range": "soft",

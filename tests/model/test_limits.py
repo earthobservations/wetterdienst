@@ -410,6 +410,31 @@ def test_the_modes_a_forecast_is_judged_with_keep_the_one_of_limits() -> None:
     )
 
 
+def test_the_floor_of_a_forecast_is_not_taken_away_by_a_bound_of_zero() -> None:
+    """ICON writes -0.02 mm of rain: `floor` makes it 0.0, and a bound of 0 keeps it (`rejected:floor` alone)."""
+    dataset = _dataset("dwd/dmo", "hourly", "icon")
+    plan = plan_for("dwd/dmo", dataset)
+    rr1 = next(name for name, c in plan.parameters.items() if c.name == "precipitation_amount_last_1h")
+    df = _frame([(rr1, -0.02), (rr1, 60.0)])
+    out = judged(df, network="dwd/dmo", dataset=dataset, limits={"precipitation_amount_last_1h": (0, 50)})
+    assert out.get_column("value").to_list() == [0.0, None]
+    assert out.get_column("quality_flags").to_list() == ["rejected:floor,raw:-0.02", "rejected:limits,raw:60"]
+
+
+@pytest.mark.parametrize("reverse", [False, True], ids=["as given", "reversed"])
+def test_of_two_keys_as_wide_the_one_that_sorts_first_wins(reverse: bool) -> None:  # noqa: FBT001
+    """`hourly/data/temperature_air` and `hourly/data/tl` name different parameters and are equally wide in scope."""
+    from wetterdienst.model.limits import scope_of  # noqa: PLC0415
+
+    dataset = _dataset("dwd/swsmos", "hourly", "data")
+    plan = plan_for("dwd/swsmos", dataset)
+    pairs = [("hourly/data/tl", (0, 2)), ("hourly/data/temperature_air", (0, 1))]
+    assert scope_of(pairs[0][0]) == scope_of(pairs[1][0])
+    limits = dict(reversed(pairs) if reverse else pairs)
+    bounds = limits_in_canonical(plan, dataset, limits, UnitConverter(), convert_units=True)
+    assert bounds["TL"] == pytest.approx((0.0, 1.0), abs=1e-6)
+
+
 # --- the options -----------------------------------------------------------------------------------------------------
 
 
@@ -587,3 +612,14 @@ def test_a_request_without_limits_is_judged_as_before(monkeypatch: pytest.Monkey
     out = _monthly_rain(monkeypatch)
     assert _flags_and_values(out) == [("", 85.4), ("rejected:range,raw:17802", None)]
     assert "limits" not in "".join(out.get_column("quality_flags").to_list())
+
+
+def test_limits_judge_a_dataset_no_built_in_check_judges(monkeypatch: pytest.MonkeyPatch) -> None:
+    """DWD's weather code has no range: the limits alone send the reading through the core (`judged` in values.py)."""
+    monkeypatch.setattr(
+        value_stubs, "_options", lambda drop_nulls: Options(drop_nulls=drop_nulls, limits={"weather": (0, 99)})
+    )
+    out = value_stubs._dwd_hourly_weather_phenomena(monkeypatch, drop_nulls=False)  # noqa: SLF001
+    tokens = {_tokens(flags) for flags in out.get_column("quality_flags")}
+    assert {"rejected:limits,raw:123", "rejected:limits,raw:100"} <= tokens
+    assert out.filter(pl.col("quality_flags").str.contains("rejected:limits")).get_column("value").is_null().all()
