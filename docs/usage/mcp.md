@@ -76,6 +76,12 @@ parameters are, see [one vocabulary](restapi.md#one-vocabulary)) and the same an
 | `alerts` | `/api/v1/alerts` | the weather warnings of DWD |
 | `stripes_stations`, `stripes_values`, `stripes_image` | `/api/v1/stripes/...` | climate stripes, see [Climate Stripes](stripes.md) |
 
+An argument that is a mapping (`unit_targets`, `limits`, `interpolation_station_distance`,
+`summary_station_distance`) is advertised as an object, and an assistant gives it as one:
+`unit_targets={"temperature": "degree_fahrenheit"}`. The server sends the REST API its JSON text, which is what the
+query parameter takes (`?unit_targets={"temperature": "degree_fahrenheit"}`), so the object and the JSON text of it
+are the same argument.
+
 Every tool has a `title` ("Find stations" for `stations`) and says in its annotations that it only reads:
 `readOnlyHint` true, `destructiveHint` false and `idempotentHint` true, so a client may run it without asking
 first. `openWorldHint` is false for `coverage`, `glossary` and `providers`, which answer from wetterdienst's own

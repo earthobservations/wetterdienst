@@ -104,6 +104,11 @@ Types of changes:
   leaves everything out is refused as for stations with no elevation
   (`NoStationsWithElevationError`); ask without an elevation to take the readings as they came
   (GH-3708)
+- MCP tools take an argument that is an object (`unit_targets`, `interpolation_station_distance`,
+  `summary_station_distance`) as their schema advertises it:
+  `unit_targets={"temperature": "degree_fahrenheit"}` was sent to the REST API as a query
+  parameter for each key and refused with a 422 ("temperature: Extra inputs are not permitted").
+  The JSON text of the object, which worked, still does (GH-3737)
 
 ## [0.181.0] - 2026-11-01
 
