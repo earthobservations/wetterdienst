@@ -79,7 +79,7 @@ export const privacy: PrivacyPolicy = {
         'Cookie wd_lang: speichert die Sprache der Oberfläche. Laufzeit 365 Tage, Pfad /, SameSite=Lax.',
         'localStorage wd_settings: Ihre Darstellungseinstellungen (Parameterbezeichnungen, Einheiten und die Anzeige der Klimastreifen).',
         'localStorage meteogram.view: ob das Meteogramm als Diagramm, in der kompakten Ansicht oder als Tabelle gezeigt wird. Ein früher gespeicherter Wert von meteogram.compact wird einmalig übernommen und gelöscht.',
-        'localStorage wd-place: die Wetterstation, die Sie auf der Startseite als Ort für „Frag das Wetter“ gewählt haben (Nummer, Name, Position und Region). Sie bleibt in Ihrem Browser und wird nicht an den Server gesendet; die Nummer der Station steht in der Adresse der Seite, solange eine Frage geöffnet ist.',
+        'localStorage wd-place: die Wetterstation von „Frag das Wetter“ (Nummer, Name, Position und Region), auf der Startseite gewählt oder von einem Link genannt, den Sie geöffnet haben. Der Eintrag selbst bleibt in Ihrem Browser. Die Nummer und die Position der Station stehen in den Anfragen für die Antworten (siehe „Protokolldaten“), und ihre Nummer steht, einmal gewählt, in der Adresse der Seite (place=).',
         'localStorage nuxt-color-mode: das gewählte Farbschema (hell, dunkel oder System).',
       ],
     },

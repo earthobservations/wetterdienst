@@ -52,7 +52,7 @@ export const privacy: PrivacyPolicy = {
         'Cookie wd_lang: stores the language of the interface. Lifetime 365 days, path /, SameSite=Lax.',
         'localStorage wd_settings: your display settings (parameter names, units and the display of the climate stripes).',
         'localStorage meteogram.view: whether the meteogram is shown as a chart, in its compact view or as a table. A value stored earlier under meteogram.compact is taken over once and deleted.',
-        'localStorage wd-place: the weather station you chose on the home page as the place of "Ask the weather" (its number, name, position and region). It stays in your browser and is not sent to the server; the station\'s number is in the address of the page while a question is open.',
+        'localStorage wd-place: the weather station of "Ask the weather" (its number, name, position and region), chosen on the home page or named by a link you opened. The entry itself stays in your browser. The station\'s number and position are in the requests for the answers (see "Log data"), and its number is in the address of the page (place=) once chosen.',
         'localStorage nuxt-color-mode: the colour scheme you chose (light, dark or system).',
       ],
     },
