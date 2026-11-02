@@ -3,21 +3,24 @@
 """Fixtures for tests."""
 
 import errno
+import faulthandler
 import ipaddress
 import os
 import platform
 import re
+import signal
 import socket
 import ssl
 import sys
 import threading
 import time
+import traceback
 import warnings
 from collections.abc import Collection, Generator
 from contextlib import contextmanager
 from http import HTTPStatus
 from pathlib import Path
-from typing import Any
+from typing import Any, TextIO
 from urllib.parse import urlsplit
 
 import pytest
@@ -741,6 +744,100 @@ def _kaleido_for_image_tests(request: pytest.FixtureRequest) -> Generator[None]:
     with warnings.catch_warnings():
         # plotly hands kaleido its `kopts` (request headers), which a running server says it ignores
         warnings.filterwarnings("ignore", message="The kopts argument is ignored", category=UserWarning)
+        yield
+
+
+#: how long an offline test may run before it is failed as hung, in seconds: the slowest take about a minute, and
+#: the image tests, which start a Chrome each, about 75 s with a dozen of them at once on a loaded machine. Short
+#: enough that the two reruns of a hung test (`--only-rerun HungTestError`) end before the 27 minutes of GH-3723
+_HANG_TIMEOUT = 300
+#: how long after that a process that did not take the interruption is ended, in seconds
+_HANG_BACKSTOP = 60
+
+#: the stderr of the process as it was before pytest captured it, which is where the stacks of a hang can be read;
+#: None before `pytest_configure`
+_REAL_STDERR: TextIO | None = None
+
+
+def pytest_configure(config: pytest.Config) -> None:  # noqa: ARG001
+    """Keep the stderr of the process, which a test's output capture takes over from the first test on."""
+    global _REAL_STDERR  # noqa: PLW0603 -- one per process, set once
+    try:
+        _REAL_STDERR = open(os.dup(2), "w", encoding="utf-8", closefd=True)  # noqa: PTH123, SIM115
+    except OSError:  # no stderr to keep: the stacks then go where the capture sends them
+        _REAL_STDERR = None
+
+
+class HungTestError(Exception):
+    """Say that a test did not end within `_HANG_TIMEOUT`."""
+
+
+def _stacks_of_all_threads() -> str:
+    """Write down where every thread of the process is, which is what a hang is diagnosed from."""
+    names = {thread.ident: thread.name for thread in threading.enumerate()}
+    return "\n".join(
+        f"Thread {names.get(ident, '?')!r}:\n{''.join(traceback.format_stack(frame))}"
+        for ident, frame in sys._current_frames().items()  # noqa: SLF001 -- the only way to see another thread
+    )
+
+
+def _end_the_process_after(seconds: float) -> None:
+    """Arm the end of the process, with the stacks of all threads on the real stderr, in `seconds`."""
+    if _REAL_STDERR is None:
+        faulthandler.dump_traceback_later(seconds, exit=True)
+    else:
+        faulthandler.dump_traceback_later(seconds, exit=True, file=_REAL_STDERR)
+
+
+@contextmanager
+def _fail_if_hung(seconds: float) -> Generator[None]:
+    """Fail the test inside as hung, with the stacks of all threads, once it has run for `seconds`.
+
+    An offline test that does not end holds a whole run: on 2026-11-01 one image test of `test_surface_parity`
+    sat at 99 % CPU in an xdist worker for 27 minutes (GH-3723), until the worker was killed, and the landing queue
+    waited for it. Where `SIGALRM` exists (not on Windows) a test that waits in Python code, or in a call that a
+    signal interrupts, is failed with the stacks and the worker goes on with the next test. A test that is inside
+    native code (a loop of polars, say) or in a call that retries on a signal is not reached by that, and nor is any
+    test on Windows: the process is ended then (`_HANG_BACKSTOP` seconds later, on Windows at `seconds`), with the
+    stacks on its stderr. That ends a serial run, and an xdist worker, which xdist reports as crashed while running
+    this test and replaces.
+
+    It does not nest: the one inside re-arms the timer it found with what was left, not less the time it ran, and
+    ends the one backstop `faulthandler` has. Only the tests of the watchdog itself nest it.
+    """
+    if hasattr(signal, "setitimer") and threading.current_thread() is threading.main_thread():
+
+        def interrupt(_signum: int, _frame: object) -> None:
+            message = f"the test did not end within {seconds:g} seconds.\n{_stacks_of_all_threads()}"
+            raise HungTestError(message)
+
+        previous = signal.signal(signal.SIGALRM, interrupt)
+        earlier_timer = signal.setitimer(signal.ITIMER_REAL, seconds)
+        _end_the_process_after(seconds + _HANG_BACKSTOP)
+        try:
+            yield
+        finally:
+            faulthandler.cancel_dump_traceback_later()
+            signal.setitimer(signal.ITIMER_REAL, *earlier_timer)
+            signal.signal(signal.SIGALRM, previous)
+    else:
+        _end_the_process_after(seconds)
+        try:
+            yield
+        finally:
+            faulthandler.cancel_dump_traceback_later()
+
+
+@pytest.fixture(autouse=True)
+def _offline_test_ends(request: pytest.FixtureRequest) -> Generator[None]:
+    """Fail an offline test that has not ended after `_HANG_TIMEOUT` seconds, see `_fail_if_hung`.
+
+    Not the tests marked `remote`, `slow` or `explorer`, which wait on a network or a browser for as long as they take.
+    """
+    if any(request.node.get_closest_marker(name) for name in ("remote", "slow", "explorer")):
+        yield
+        return
+    with _fail_if_hung(_HANG_TIMEOUT):
         yield
 
 
