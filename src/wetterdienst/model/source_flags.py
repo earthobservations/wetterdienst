@@ -17,8 +17,9 @@ beside it, with the documentation's wording and its URL. What the documentation 
 (``Unchecked``, DMI's ``qcStatus`` ``none``) is no verdict and is not in the map.
 
 A source with two levels of verdict (GHCNh's ``Suspect`` and ``Erroneous``, and source 382's ``R`` and its failed
-checks; CHMI's ``Suspect`` and ``Poor``; MADIS's ``Questioned`` and ``Rejected/erroneous``) has both in the map, each
-code with its ``level``. In the mode ``soft`` both write ``suspect:source``. In the mode ``hard`` only
+checks; CHMI's ``Suspect`` and ``Poor``; MADIS's ``Questioned`` and ``Rejected/erroneous``; GHCNh's ``f`` and ``o`` of
+a derived humidity, where a derived wet bulb temperature has the ``f`` only) has both in the map, each code with its
+``level``. In the mode ``soft`` both write ``suspect:source``. In the mode ``hard`` only
 the ``erroneous`` level (the code the source words as erroneous, failed or poor) nulls the value; the ``suspect`` level
 stays ``suspect:source``, and is never nulled. A source with one level only (GHCN-Daily's ``QFLAG``, Frost's 7, the
 Environment Agency's ``Suspect``, Météo-France's 2, DMI's ``validity:false``, Hub'Eau's 12, DWD road's 1, MIDAS's
