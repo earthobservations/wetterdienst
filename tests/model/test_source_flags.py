@@ -18,6 +18,7 @@ import pytest
 
 from tests.provider.judging import judged
 from wetterdienst import Wetterdienst
+from wetterdienst.model import source_flags
 from wetterdienst.model.judge import Plan, judge
 from wetterdienst.model.plausibility import COVERAGE, Plausibility
 from wetterdienst.model.source_flags import (
@@ -375,21 +376,23 @@ def test_the_plausibility_page_cites_every_code_of_the_map(network: str) -> None
         for dataset in flags.datasets:
             assert f"`{dataset}`" in rows, (network, dataset)
         if any(code.level == "suspect" for code in flags.codes):
-            # the two levels are told apart in the table, each code under the level it is
-            suspect = [code.code for code in flags.codes if code.level == "suspect"]
-            erroneous = [code.code for code in flags.codes if code.level == "erroneous"]
-            # the cell of this rule's codes: the one whose backticked codes are exactly the rule's
-            wanted = {code.code for code in flags.codes}
-            cell = next(
-                part
-                for part in rows.split(" | ")
-                if "suspect level:" in part and set(re.findall(r"`([^`]+)`", part)) == wanted
-            )
-            before, _, after = cell.partition("erroneous level:")
-            assert all(f"`{code}`" in before for code in suspect)
-            # a rule may have a suspect level only (`f` of a derived wet bulb temperature)
-            assert bool(erroneous) == ("erroneous level:" in cell), (network, wanted)
-            assert all(f"`{code}`" in after for code in erroneous)
+            _assert_levels_in_cells(rows, flags, network)
+
+
+def _assert_levels_in_cells(rows: str, flags: SourceFlags, network: str) -> None:
+    """Assert the two levels of a rule are told apart in the table cell of its codes, each code under its level."""
+    suspect = [code.code for code in flags.codes if code.level == "suspect"]
+    erroneous = [code.code for code in flags.codes if code.level == "erroneous"]
+    # the cell of this rule's codes: the one whose backticked codes are exactly the rule's
+    wanted = {code.code for code in flags.codes}
+    cell = next(
+        part for part in rows.split(" | ") if "suspect level:" in part and set(re.findall(r"`([^`]+)`", part)) == wanted
+    )
+    before, _, after = cell.partition("erroneous level:")
+    assert all(f"`{code}`" in before for code in suspect), (network, wanted)
+    # a rule may have a suspect level only (`f` of a derived wet bulb temperature)
+    assert bool(erroneous) == ("erroneous level:" in cell), (network, wanted)
+    assert all(f"`{code}`" in after for code in erroneous), (network, wanted)
 
 
 @pytest.mark.parametrize("network", sorted(SOURCE_FLAGS))
@@ -401,3 +404,123 @@ def test_the_page_of_the_provider_cites_every_code_of_the_map(network: str) -> N
         for code in flags.codes:
             assert code.wording in text, (network, code.code, code.wording)
             assert f"`{code.code}`" in text, (network, code.code)
+
+
+#: how every text names a suspect-level code of the map (the milder level of a source that has two), by network and code
+SUSPECT_NAMES = {
+    ("noaa/ghcn", "2"): "GHCNh `Suspect`",
+    ("noaa/ghcn", "6"): "GHCNh `Suspect`",
+    ("noaa/ghcn", "R"): "382 `R`",
+    ("noaa/ghcn", "f"): "GHCNh `f`",
+    ("chmi/observation", "1"): "CHMI `Suspect`",
+    ("nws/observation", "Q"): "MADIS `Questioned`",
+}
+#: the list of them that the CLI help, the OpenAPI document and the pages give, in the order they all give it: the
+#: plain flag of GHCNh, the letter of source 382, then the others, each named with its provider (`Hub'Eau `12``,
+#: `NWS/MADIS `X`` and `Météo-France `2`` would be read as more of the list), the last one after a comma or an `and`
+_SUSPECT_LIST = re.compile(r"GHCNh `Suspect` and (?:source )?382 `R`(?P<rest>(?:(?:, | and )[A-Z][^,`()]*? `[^`]+`)*)")
+#: the files that name the suspect level, with the number of lists each holds: the pages, the Python strings that make
+#: the CLI help and the OpenAPI document, the snapshots of both (any number: one for every route that has the field),
+#: and the legend of the token `suspect:`. A list written in another form is not found by the expression above, and the
+#: count of the lists is what tells
+_LISTING_FILES: dict[str, int | None] = {
+    "docs/data/plausibility.md": 2,
+    "docs/data/quality-flags.md": 1,
+    "docs/data/special_values.md": 1,
+    "docs/usage/cli.md": 1,
+    "docs/usage/python-api.md": 1,
+    "src/wetterdienst/model/plausibility.py": 2,
+    "src/wetterdienst/model/quality_legend.py": 1,
+    "tests/ui/cli/help.snapshot.txt": 1,
+    "tests/ui/openapi.snapshot.json": None,
+}
+#: the files a list of them is looked for in: not the changelog and the migration guide, which tell a release as it
+#: was, and not the baselines, which are the last release's contract
+_HISTORIC = {"changelog.md", "migrating.md"}
+_SCANNED = (
+    *(path for path in sorted((ROOT / "docs").rglob("*.md")) if path.name not in _HISTORIC),
+    *sorted((ROOT / "src" / "wetterdienst").rglob("*.py")),
+    ROOT / "tests" / "ui" / "cli" / "help.snapshot.txt",
+    ROOT / "tests" / "ui" / "openapi.snapshot.json",
+)
+
+
+def _suspect_codes() -> set[tuple[str, str]]:
+    """Give the suspect-level codes of the map as (network, code): the milder level of a source that has two."""
+    return {
+        (network, code.code)
+        for network, rules in SOURCE_FLAGS.items()
+        for flags in rules
+        for code in flags.codes
+        if code.level == "suspect"
+    }
+
+
+def _listed(path: Path) -> list[set[str]]:
+    """Give the suspect levels each list in a file names, as the names of `SUSPECT_NAMES` (`source 382` is `382`).
+
+    A Python string that the source breaks over several lines is read as the one string it is.
+    """
+    text = path.read_text(encoding="utf-8")
+    if path.suffix == ".py":
+        text = re.sub(r'"\s*\n\s*"', "", text)
+    found = []
+    for match in _SUSPECT_LIST.finditer(_flat(text)):
+        rest = re.split(r", | and ", match["rest"])
+        found.append({"GHCNh `Suspect`", "382 `R`", *(item for item in rest if item)})
+    return found
+
+
+def _assert_the_map_is_listed(path: Path) -> None:
+    """Assert each list of the suspect level in a file names the codes of the map: none missing, none more."""
+    wanted = set(SUSPECT_NAMES.values())
+    for listed in _listed(path):
+        assert listed == wanted, (str(path), "missing", sorted(wanted - listed), "more", sorted(listed - wanted))
+
+
+def test_every_suspect_level_code_of_the_map_has_a_name_in_the_texts() -> None:
+    """A new suspect-level code, or one that goes, is named in `SUSPECT_NAMES` and so in every list that follows."""
+    assert set(SUSPECT_NAMES) == _suspect_codes()
+
+
+@pytest.mark.parametrize(("name", "count"), _LISTING_FILES.items())
+def test_the_texts_that_name_the_suspect_level_list_all_of_it(name: str, count: int | None) -> None:
+    """The list of the codes that stay `suspect:source` in the mode `hard` is the map's, in each place it is given.
+
+    The pages, the field descriptions of the CLI help and of the OpenAPI document and the legend of the token
+    `suspect:` (GH-3763: the `f` of a derived humidity was in the map and in none of them for a time).
+    """
+    found = _listed(ROOT / name)
+    assert bool(found) if count is None else len(found) == count, (name, "lists found", len(found))
+    _assert_the_map_is_listed(ROOT / name)
+
+
+@pytest.mark.parametrize("path", _SCANNED, ids=lambda path: str(path.relative_to(ROOT)))
+def test_no_other_text_lists_the_suspect_level_in_part(path: Path) -> None:
+    """A list in a file that the test above does not name is held to the map as well."""
+    _assert_the_map_is_listed(path)
+
+
+@pytest.mark.parametrize("network", sorted({network for network, _ in SUSPECT_NAMES}))
+def test_the_page_of_the_provider_has_each_code_under_the_level_the_map_gives_it(network: str) -> None:
+    """A table of codes on the pages of a provider that has a suspect level tells it apart from the erroneous one."""
+    for page in sorted((PROVIDER_PAGES / network).glob("*.md")):
+        text = _flat(page.read_text(encoding="utf-8"))
+        for flags in SOURCE_FLAGS[network]:
+            if any(code.level == "suspect" for code in flags.codes) and "suspect level:" in text:
+                _assert_levels_in_cells(text, flags, network)
+
+
+#: what the module docstring and the comment of `SourceCode.level` of the map name as the suspect level, in the
+#: words they use (the letters and words of the codes, not the providers)
+_SUSPECT_WORDS = ("Suspect", "R", "f", "Questioned")
+
+
+def test_the_docstring_of_the_map_names_every_suspect_level() -> None:
+    """The module docstring and the comment of `level` name the suspect level of every source that has one."""
+    text = _flat(Path(source_flags.__file__).read_text(encoding="utf-8"))
+    docstring = _flat(source_flags.__doc__ or "")
+    comment = text[text.index("#: ``erroneous``: the documentation words") :].split("level: Level")[0]
+    for word in _SUSPECT_WORDS:
+        assert f"``{word}``" in docstring, word
+        assert f'"{word}"' in comment, word

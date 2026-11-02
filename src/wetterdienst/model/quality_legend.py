@@ -72,8 +72,8 @@ SUSPECT = QualityKind(
     written="suspect:<check>",
     meaning="The value is kept, and a plausibility check in the mode `soft` (on a forecast network every check but "
     "`floor` and `limits` is; the suspect level of a source's own verdict, GHCNh `Suspect` and 382 `R`, CHMI "
-    "`Suspect`, is "
-    "flagged `source` in the mode `hard` too) finds it implausible: one of "
+    "`Suspect`, MADIS `Questioned`, GHCNh `f`, is flagged `source` in the mode `hard` too) finds it implausible: "
+    "one of "
     + _CHECKS
     + ", several joined with `+` (`suspect:range+stuck`). The checks and their modes are the `plausibility` option "
     "of the request; the defaults of `stuck` and `source` are soft. No `raw` token of its own: the value is the "
