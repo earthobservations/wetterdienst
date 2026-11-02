@@ -66,7 +66,10 @@ REJECTED_TOKEN = rf"(^|,){REJECTED}:"
 def hard_means(check: str) -> str:
     """Say what ``hard`` does for a check: null the value (``floor``: set it to 0.0) and keep the number."""
     does = "sets the value to 0.0" if check == "floor" else "nulls the value"
-    return f"{does} and keeps the number as `rejected:{check},raw:<number>` in `quality_flags`"
+    text = f"{does} and keeps the number as `rejected:{check},raw:<number>` in `quality_flags`"
+    if check == "source":
+        text += " (the milder level of a source that has two, GHCNh and CHMI `Suspect`, stays flagged `suspect:source`)"
+    return text
 
 
 def forecast_note(check: str) -> str:

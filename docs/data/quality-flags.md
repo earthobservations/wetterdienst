@@ -35,7 +35,8 @@ unless the table says so.
 - A code of a source's own flag that the documentation words as erroneous, suspect or doubtful (`QFLAG` `X`, Frost `7`,
   an Environment Agency `Suspect`, DMI `validity:false`, ...) is judged by the check `source`, which is `soft` by default:
   the value is kept and the token is `suspect:source` after the source's own flags (`X,measurement:T,source:0,suspect:source`),
-  and where it is `hard` the value is null and the token `rejected:source,raw:<text>`. The codes of each provider, with the
+  and where it is `hard` the value is null and the token `rejected:source,raw:<text>`, but for the milder level of a source that has
+  two (GHCNh and CHMI `Suspect`), which stays `suspect:source`. The codes of each provider, with the
   wording of its documentation, are on the [plausibility page](plausibility.md#the-sources-own-verdict-source).
 - `str.split(",")` takes the tokens apart; where a numeric code was used before, cast it:
   `pl.col("quality_flags").cast(pl.Int64, strict=False)`; a code that is no number (IMGW's `Z`) and a

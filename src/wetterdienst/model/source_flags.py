@@ -136,7 +136,7 @@ _EA = "https://environment.data.gov.uk/hydrology/doc/reference#readings-section"
 _DMI = "https://www.dmi.dk/friedata/dokumentation/apis/climate-data-api-1"
 _MF = "https://static.data.gouv.fr/resources/donnees-climatologiques-de-base-{name}/{stamp}/{file}"
 _MF_DOUBTFUL = (
-    "Pour certains paramètres, un code qualité est associé à la mesure (noté Qparamètre). Il qualifie l'état de "
+    "Pour certains paramètres, un code qualité est associé à la mesure (noté Qparamètre). Il qualifie l’état de "  # noqa: RUF001
     "validation de la donnée : 9 : donnée filtrée (la donnée a passé les filtres/contrôles de premiers niveaux) ; "
     "0 : donnée protégée (la donnée a été validée définitivement par le climatologue) ; 1 : donnée validée (la donnée "
     "a été validée par contrôle automatique ou par le climatologue) ; 2 : donnée douteuse en cours de vérification "
@@ -180,8 +180,8 @@ SOURCE_FLAGS: dict[str, tuple[SourceFlags, ...]] = {
         # GHCNh: the quality code is read in the list of the source of the element (`source:` token), Table 3 of the
         # documentation: the two lists of the legacy sources, the list of source 345 and the list of source 382 (the
         # precipitation of C-HPD, worded as GHCN-Daily's QFLAG). The letters of the integration's own checks (`c`, `s`,
-        # `f`, ... for six elements) are not read: the letters mean other things in the lists of the sources (`f` and
-        # `o` also flag a derived humidity), and the table names them as checks, not as a verdict on the value
+        # `f`, ... for six elements) are not read: they name the check of this dataset's processing that flagged a value
+        # ("Spike check", "Frequent value") and word no verdict of the source, whose own flag the legacy list carries
         SourceFlags(
             datasets=("hourly/data",),
             codes=(
@@ -225,6 +225,11 @@ SOURCE_FLAGS: dict[str, tuple[SourceFlags, ...]] = {
                 SourceCode("O", "failed climatological outlier check"),
                 SourceCode("Z", "flagged as a result of an official Datzilla investigation"),
                 SourceCode("Q", "Indicates value failed an extreme value test (value will be present)"),
+                SourceCode(
+                    "R",
+                    "Indicates data values are suspect with regard to the times or period of occurrence",
+                    "suspect",
+                ),
             ),
             url=_GHCNH,
             quote="Legacy Codes for Source 382 for precipitation (as given in C-HPD documentation) Blank = did not "
@@ -232,7 +237,9 @@ SOURCE_FLAGS: dict[str, tuple[SourceFlags, ...]] = {
             "precipitation check Y = failed state extreme exceedance check (performed on daily totals) K = failed "
             "streak/frequent-value check G = failed gap check O = failed climatological outlier check Z = flagged as "
             "a result of an official Datzilla investigation ... Q = a carry-over quality flag the legacy DSI-3240 data "
-            "source. Prior to 1996: Indicates value failed an extreme value test (value will be present)",
+            "source. Prior to 1996: Indicates value failed an extreme value test (value will be present) ... R = a "
+            "carry-over quality flag the legacy DSI-3240 data source. Used since January 1996. Indicates data values "
+            "are suspect with regard to the times or period of occurrence",
             beside=("source", ("382",)),
         ),
     ),

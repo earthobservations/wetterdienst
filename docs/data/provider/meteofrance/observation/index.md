@@ -37,7 +37,7 @@ downloaded for the check. With `plausibility={"range":
 `source` is the fourth check, soft by default: the validation code `Q<parameter>` of a value is the plain flag of
 `quality_flags`, and the check reads the one code the four "descriptif" documents of the base climatological data word as a
 doubt, `2`: "donnée douteuse en cours de vérification (la donnée a été mise en doute par contrôle automatique)". The
-documents say "Pour certains paramètres, un code qualité est associé à la mesure (noté Qparamètre). Il qualifie l'état de
+documents say "Pour certains paramètres, un code qualité est associé à la mesure (noté Qparamètre). Il qualifie l’état de
 validation de la donnée : 9 : donnée filtrée (la donnée a passé les filtres/contrôles de premiers niveaux) ; 0 : donnée
 protégée (la donnée a été validée définitivement par le climatologue) ; 1 : donnée validée (la donnée a été validée par
 contrôle automatique ou par le climatologue) ; 2 : donnée douteuse en cours de vérification (la donnée a été mise en doute

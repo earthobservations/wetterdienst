@@ -162,6 +162,7 @@ def test_the_levels_of_the_map_are_those_the_documentation_words() -> None:
     assert set(levels) == {
         ("noaa/ghcn", "2"),
         ("noaa/ghcn", "6"),
+        ("noaa/ghcn", "R"),
         ("chmi/observation", "1"),
     }
 
@@ -240,13 +241,30 @@ def test_the_core_judges_every_code_of_the_map_in_every_dataset_that_carries_it(
 def test_the_codes_of_several_rules_are_extracted_once_and_judged_as_each_rule_alone() -> None:
     """`hits` over a frame is the any of the rules' own expressions, whichever kinds they read."""
     rules = [*SOURCE_FLAGS["noaa/ghcn"]]
-    texts = ["3,source:313", "3,source:345", "3,source:220", "X,source:382", "X,source:313", "7,source:220", "1", None]
+    texts = [
+        "3,source:313",
+        "3,source:345",
+        "3,source:220",
+        "X,source:382",
+        "X,source:313",
+        "7,source:220",
+        "1",
+        None,
+        "2,source:313",
+        "6,source:335",
+        "R,source:382",
+        "R,source:313",
+        "6,source:220",
+    ]
     df = pl.DataFrame({"quality_flags": texts}, schema={"quality_flags": pl.String})
     hourly = [rule for rule in rules if "hourly/data" in rule.datasets]
     alone = df.select(pl.any_horizontal(rule.hit() for rule in hourly).alias("hit")).to_series().to_list()
     erroneous, suspect = hits(df, hourly)
-    assert (erroneous | suspect).to_list() == alone == [True, True, True, True, False, False, False, False]
-    assert suspect.to_list() == [False] * 8
+    mild = df.select(pl.any_horizontal(rule.hit(level="suspect") for rule in hourly).alias("hit")).to_series()
+    assert (erroneous | suspect).to_list() == alone
+    assert alone == [True] * 4 + [False] * 4 + [True] * 3 + [False] * 2
+    assert suspect.to_list() == mild.to_list() == [False] * 8 + [True] * 3 + [False] * 2
+    assert not (erroneous & suspect).any()
 
 
 def test_every_code_has_the_wording_and_the_page_of_its_documentation() -> None:
