@@ -462,8 +462,18 @@ def _raise_if_unanswered(file: File) -> None:
 
 
 def _has_observations(df: pl.DataFrame) -> bool:
-    """Tell whether Frost's answer has a `data` list with an entry in it, which may still hold no reading (GH-3748)."""
-    return "data" in df.columns and not df.get_column("data").explode().drop_nulls().is_empty()
+    """Tell whether Frost's answer has a `data` entry with an observation in it (GH-3748, GH-3750).
+
+    `{"data": []}`, `{"data": null}`, an entry without the key `observations` and one whose `observations` is `[]`
+    or `null` all answer no: read as they are, each is a column of nulls or a missing column that cannot be unnested.
+    """
+    if "data" not in df.columns:
+        return False
+    entries = df.get_column("data").explode().drop_nulls()
+    if entries.dtype != pl.Struct or "observations" not in entries.struct.fields:
+        return False
+    observations = entries.struct.field("observations")
+    return observations.dtype == pl.List and not observations.explode().drop_nulls().is_empty()
 
 
 def _frost_time(value: datetime) -> str:
@@ -898,7 +908,7 @@ class MetnoFrostValues(TimeseriesValues):
                 continue
 
             df = pl.read_json(obs_file.content)
-            if "data" not in df.columns:
+            if not _has_observations(df):
                 continue
             df = df.select(pl.col("data").explode(empty_as_null=True)).unnest("data")
             df = df.with_columns(

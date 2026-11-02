@@ -60,6 +60,13 @@ Types of changes:
   values do not change; with `convert_units=false` they are DMI's megajoules, where they were a
   thousand times larger, and `coverage` has no `unit_source` for them any more (GH-3752)
 
+### Fixed
+
+- `metno/frost` no longer fails on an answer of 200 that holds no reading: a `data` that is empty
+  or null, and a `data` entry with no `observations`, or an empty or null one, are no data now on
+  every path (a discovered series moves on to the next one), where the reader raised a polars
+  error (GH-3750)
+
 ## [0.182.0] - 2026-11-02
 
 ### Added
