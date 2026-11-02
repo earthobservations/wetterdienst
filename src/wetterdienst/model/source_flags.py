@@ -16,8 +16,9 @@ beside it, with the documentation's wording and its URL. What the documentation 
 (Frost's "slightly uncertain"), a treatment (estimated, corrected, interpolated), a missing value or no control at all
 (``Unchecked``, DMI's ``qcStatus`` ``none``) is no verdict and is not in the map.
 
-A source with two levels of verdict (GHCNh's ``Suspect`` and ``Erroneous``, CHMI's ``Suspect`` and ``Poor``) has both
-in the map, each code with its ``level``. In the mode ``soft`` both write ``suspect:source``. In the mode ``hard`` only
+A source with two levels of verdict (GHCNh's ``Suspect`` and ``Erroneous``, and source 382's ``R`` and its failed
+checks; CHMI's ``Suspect`` and ``Poor``) has both in the map, each code with its ``level``. In the mode
+``soft`` both write ``suspect:source``. In the mode ``hard`` only
 the ``erroneous`` level (the code the source words as erroneous, failed or poor) nulls the value; the ``suspect`` level
 stays ``suspect:source``, and is never nulled. A source with one level only (GHCN-Daily's ``QFLAG``, Frost's 7, the
 Environment Agency's ``Suspect``, Météo-France's 2, DMI's ``validity:false``) has it as ``erroneous``.
@@ -55,7 +56,8 @@ class SourceCode:
     #: the documentation's own wording of the code, in the language it is written in
     wording: str
     #: ``erroneous``: the documentation words the value as wrong, failed or poor (and any code of a source that has
-    #: one level only); ``suspect``: the milder level of a source that has two (GHCNh's "Suspect", CHMI's "Suspect").
+    #: one level only); ``suspect``: the milder level of a source that has two (GHCNh's "Suspect" and source 382's
+    #: "R", CHMI's "Suspect").
     #: The check in the mode ``hard`` nulls the first and only flags the second
     level: Level = "erroneous"
 
@@ -116,7 +118,7 @@ def hits(df: pl.DataFrame, rules: Sequence[SourceFlags]) -> tuple[pl.Series, pl.
     """Mark the readings of a frame whose ``quality_flags`` hold a code of any of the rules: erroneous, and suspect.
 
     The code of each kind of token is extracted from the flags once, however many rules read it: the lists of GHCNh
-    are four rules over two kinds, and the extraction is the cost of the check.
+    are three rules over two kinds, and the extraction is the cost of the check.
     """
     kinds = sorted({kind for rule in rules for kind in rule.kinds()}, key=str)
     codes = df.select(*(_code_of(kind).alias(f"__code_{index}") for index, kind in enumerate(kinds)))
