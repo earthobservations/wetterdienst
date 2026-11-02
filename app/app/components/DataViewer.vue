@@ -420,6 +420,9 @@ function streamedCsvHref(request: ValuesRequest): string {
 // focus they held goes on to the table area, where the answer, or the notice again, arrives
 const noticeBox = ref<HTMLElement | null>(null)
 const card = ref<{ $el: HTMLElement } | null>(null)
+// the table area takes the focus (see below), so it has a name of its own to be announced by: the page's
+// own heading for it, which is otherwise only a heading to move by (GH-3722)
+const dataTitleId = useId()
 const contentBox = computed(() => card.value?.$el ?? null)
 useFocusAfterRetry(() => limitNotice.value !== null, noticeBox, contentBox)
 
@@ -1535,7 +1538,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
 <template>
   <div class="space-y-4">
     <div>
-      <h2 class="sr-only">
+      <h2 :id="dataTitleId" class="sr-only">
         {{ t('dataViewer.dataTitle') }}
       </h2>
 
@@ -1631,7 +1634,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
       </UCollapsible>
 
       <!-- Content -->
-      <UCard ref="card" tabindex="-1" class="outline-none" :ui="{ body: valuesPending ? 'flex items-center justify-center min-h-40' : '' }">
+      <UCard ref="card" tabindex="-1" role="group" :aria-labelledby="dataTitleId" class="outline-none" :ui="{ body: valuesPending ? 'flex items-center justify-center min-h-40' : '' }">
         <div v-if="valuesPending" class="flex items-center justify-center py-12">
           <UIcon name="i-ph-circle-notch" class="w-8 h-8 animate-spin text-primary-500" />
         </div>
