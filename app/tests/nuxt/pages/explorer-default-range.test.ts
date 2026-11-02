@@ -278,8 +278,9 @@ describe('explorer default date range', () => {
     it('keeps the dates a link names, whatever the stations hold', async () => {
       const { vm, wrapper } = await open({ route: `/explorer?${LINK}&stations=${IDS(30)}&startDate=2010-01-01&endDate=2010-12-31` })
       await vi.waitFor(() => expect(vm.stationSelectionState.selection.stations.length).toBe(30), { timeout: 5000 })
-      await new Promise(resolve => setTimeout(resolve, 150))
+      await new Promise(resolve => setTimeout(resolve, 200))
       expect(dates(vm)).toEqual({ startDate: '2010-01-01', endDate: '2010-12-31' })
+      expect(vm.defaultWindow).toBeNull()
       expect(note(wrapper)).toBe('')
     })
 
@@ -334,6 +335,8 @@ describe('explorer default date range', () => {
       await vi.waitFor(() => expect(query().startDate).toBe(dates(vm).startDate))
       expect(query().range).toBeUndefined()
       // theirs now: no note, and another selection does not move it
+      expect(vm.defaultWindow).toBeNull()
+      await new Promise(resolve => setTimeout(resolve, 200))
       expect(note(wrapper)).toBe('')
     })
   })

@@ -421,8 +421,9 @@ The Explorer calls the REST API, so a request it makes is held to the limits of 
 
 - A selection of stations whose whole record is more than 90 % of one answer starts with the newest window that fits
   in the date range, with a note under the fields. **Clear date range** asks for everything instead, and the dates you type or
-  share are never replaced. For the values of stations, a range that is required (1, 5 and 10 minute data) starts
-  with at most 100,000 values.
+  share are never replaced, as long as the selection stays within one dataset. For the values of stations, a range
+  that is required (1, 5 and 10 minute data) starts with the newest window of at most 100,000 values, where one day
+  of it fits.
 - A request that is refused over its rows, or a series of stations over its stations, is a state of the table, not an
   error: it says in the page's language what the request comes to and what to narrow (a shorter date range, fewer
   parameters or, for a series of stations, fewer stations; an interpolation or a summary names no stations).

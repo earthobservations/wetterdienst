@@ -47,9 +47,10 @@ meets them in three ways:
   sends as one answer (500,000 rows by default) starts with the newest window that fits in the date range: at most
   that 90 %, rounded down to whole days, months or years. A note under the date fields says so ("Default range: the newest data
   (8 months, about 440,000 rows) ..."). **Clear date range** empties the range and keeps it empty (`range=all` in
-  the link), to ask for everything. Dates you type, apply or share in a link are never replaced. For the values of
-  stations, a range that is required (1, 5 and 10 minute data) starts with at most 100,000 values, which its form
-  accepts; a range that is required has no button to clear it.
+  the link), to ask for everything. Dates you type, apply or share in a link are never replaced, as long as the selection stays within one
+  dataset (another dataset starts over). For the values of stations, a range that is required (1, 5 and 10 minute
+  data) starts with the newest window of at most 100,000 values, which its form accepts, where one day of it fits
+  (otherwise the whole span, which the form asks you to narrow); a range that is required has no button to clear it.
 - **It shows a refusal as a state of the table.** A request the server refuses over its limit (too many rows for one
   answer, or too many stations for a series of stations) is not a red error: the table area says, in the language of
   the page, how many rows (or stations) the request comes to against the limit, and what can be narrowed (a shorter
