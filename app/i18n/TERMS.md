@@ -161,6 +161,20 @@ meant to be understood, not to be the last word, and **a review by a native spea
   certain: `de-hh` `Lizenzen vun annere` and `lb` `Lizenze vun Drëtten` ("licences of others"); `cs`
   `Licence třetích stran` and `pl` `Licencje stron trzecich` are the usual forms of "third-party licences".
 
+- **Machine-made**: the strings of the app's shell and its search (`shell.*`, GH-3518: the skip link, the
+  navigation's groups, the search and its command palette, the one-line purposes of the support, legal,
+  documentation, GitHub and PyPI entries) were written by a language model (Claude) in **all ten locales
+  besides `en`**, `de` included, and no person has read them. Least certain: `de-hh` `Warktüüch` (tools),
+  `Naslaan` (reference), `todrapen deist`; `lb` `Instrumenter` (tools), `Noschloen` (reference), `Prognos`;
+  `pl` `Informacje` and `cs` `Příručka` for "Reference"; `da` `Udsigt` for a forecast, as the catalog has it.
+
+- **Machine-made**: the strings of "Ask the weather" on the home page (`ask.*`, GH-3518: the four questions, the
+  verdicts and the lines under them, the chart captions, the search of a place) were written by a language model
+  (Claude) in **all ten locales besides `en`**, `de` included, and no person has read them. Least certain: `de-hh`
+  `Fraag dat Weer`, `Oort ännern`; `lb` `Fro d'Wieder`, `Méintlech Mëttelwäerter`; `pl` and `cs` for the verdicts
+  of the summer question (`Tak, o {anomaly} °C cieplej`), and in every language the Beaufort wording of the wind
+  verdicts (calm, breezy, windy, stormy), which follows no official word list.
+
 Nothing here says the other locales (`en`, `de`, `fr`, `es`, `it`, `nl`, `da`) were reviewed by a
 native speaker either; these four are the ones known not to have been.
 

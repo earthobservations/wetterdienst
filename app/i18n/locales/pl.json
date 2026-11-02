@@ -62,6 +62,82 @@
     "kindRoadDesc": "Stan i temperatura nawierzchni ze stacji drogowych DWD wraz z ich prognozami.",
     "aboutLink": "O projekcie i ludziach za nim"
   },
+  "ask": {
+    "title": "Zapytaj o pogodę",
+    "lead": "Pytania, które ludzie zadają, z odpowiedziami z oficjalnych pomiarów i prognoz oraz wykresem do sprawdzenia.",
+    "placeLabel": "Pytania o",
+    "placeChange": "zmień miejsce",
+    "placeNotFound": "Nie znaleziono miejsca z linku.",
+    "placeDialogTitle": "Wybierz miejsce",
+    "placePlaceholder": "Nazwa miejscowości lub stacji meteorologicznej …",
+    "placeHint": "Wpisz nazwę miejscowości lub stacji meteorologicznej.",
+    "placeSearching": "Szukanie miejsc …",
+    "placeFailed": "Nie udało się przeszukać miejsc.",
+    "placesGroup": "Stacje meteorologiczne",
+    "questionsLabel": "Pytania",
+    "idle": "Wybierz pytanie, a odpowiedź pojawi się tutaj, na podstawie aktualnych danych.",
+    "q": {
+      "rain": "Czy jutro będzie padać w {place}?",
+      "summer": "Czy ostatnie lato było tu cieplejsze niż zwykle?",
+      "wind": "Jak mocno wiało {day}?",
+      "download": "Gdzie mogę pobrać temperatury godzinowe?"
+    },
+    "from": {
+      "rain": "Prognoza, DWD MOSMIX",
+      "summer": "Średnie miesięczne, DWD",
+      "wind": "Dane dobowe, DWD",
+      "download": "Wszystkie służby meteorologiczne"
+    },
+    "working": "Obliczanie odpowiedzi …",
+    "failed": "Nie udało się obliczyć odpowiedzi.",
+    "showValues": "Pokaż wartości",
+    "tableWhen": "Kiedy",
+    "leadsTo": "Otwórz dane w narzędziu",
+    "rain": {
+      "yes": "Tak, deszcz jest prawdopodobny.",
+      "maybe": "Być może, trochę.",
+      "no": "Raczej nie.",
+      "total": "Prognoza na cały dzień: {amount} mm.",
+      "wettest": "Najbardziej deszczowa godzina: od {from}:00 do {to}:00, {amount} mm.",
+      "chance": "Najwyższe prawdopodobieństwo deszczu w ciągu godziny: {chance}.",
+      "point": "Prognoza dla {name}, punktu prognozy najbliższego {place} ({distance} km).",
+      "pointNoDistance": "Prognoza dla {name}, punktu prognozy najbliższego {place}.",
+      "chart": "Deszcz w każdej godzinie jutra, w {unit}",
+      "none": "Prognoza dla {name} nie sięga jeszcze jutra.",
+      "open": "Otwórz pełną prognozę"
+    },
+    "summer": {
+      "hotter": "Tak, o {anomaly} °C cieplej niż zwykle.",
+      "cooler": "Nie, o {anomaly} °C chłodniej niż zwykle.",
+      "usual": "Nie bardzo: mniej więcej jak zwykle.",
+      "detail": "Lato {year} (od czerwca do sierpnia) miało średnio {mean} °C; lata od {from} do {to} średnio {normal} °C.",
+      "rank": "Miejsce {rank} na {count} od roku {first}, licząc od najcieplejszego lata.",
+      "chart": "Każde lato względem średniej z lat {from}–{to}, w {unit}",
+      "none": "Jest tu za mało pełnych sezonów letnich do porównania.",
+      "open": "Otwórz średnie miesięczne",
+      "stripes": "Zobacz paski klimatyczne"
+    },
+    "wind": {
+      "calm": "Spokojnie.",
+      "breezy": "Lekki wiatr.",
+      "windy": "Wietrznie.",
+      "stormy": "Sztormowo.",
+      "mean": "Średni wiatr {speed} m/s, Beaufort {force}.",
+      "gust": "Najsilniejszy poryw {speed} m/s, Beaufort {force}.",
+      "context": "Dni wokół z silniejszymi porywami: {stronger} z {around}.",
+      "chartGust": "Najsilniejszy poryw w ciągu dnia, w {unit}",
+      "chartMean": "Średni wiatr w ciągu dnia, w {unit}",
+      "none": "Brak tu pomiarów wiatru z dnia {day}.",
+      "dayLabel": "Dzień",
+      "open": "Otwórz te dni w Eksploratorze"
+    },
+    "download": {
+      "answer": "Służby meteorologiczne publikujące godzinową temperaturę powietrza: {count}.",
+      "detail": "Każda otwiera się w Eksploratorze, gotowa do pobrania jako CSV, JSON lub GeoJSON.",
+      "none": "Obecnie żadna służba meteorologiczna nie publikuje godzinowej temperatury powietrza.",
+      "api": "Albo użyj REST API"
+    }
+  },
   "seo": {
     "title": "Wetterdienst – otwarte dane pogodowe i klimatyczne krajowych służb meteorologicznych",
     "description": "Otwarte dane pogodowe i klimatyczne krajowych służb meteorologicznych w jednym formacie: eksplorator, prognoza, paski klimatyczne, REST API i serwer MCP. Otwarte oprogramowanie i bezpłatne.",
@@ -117,6 +193,30 @@
     "api": "API",
     "glossary": "Słownik",
     "support": "Wsparcie"
+  },
+  "shell": {
+    "skipToContent": "Przejdź do treści",
+    "mainNav": "Nawigacja główna",
+    "tools": "Narzędzia",
+    "reference": "Informacje",
+    "project": "Projekt",
+    "search": "Szukaj",
+    "searchPlaceholder": "Przejdź do strony, stacji, dostawcy lub ustawienia",
+    "searchEmpty": "Brak wyników",
+    "results": "Wyniki",
+    "resultsCount": "{count} wynik | {count} wyniki | {count} wyników",
+    "stations": "Prognoza dla stacji",
+    "stationsHint": "Wpisz co najmniej trzy litery, aby znaleźć stację",
+    "stationForecast": "Prognoza dla stacji {id}",
+    "keysHint": "↑ ↓ wybierz, Enter otwórz, Esc zamknij",
+    "desc": {
+      "support": "Zgłoś błąd, zaproponuj funkcję lub wesprzyj projekt",
+      "impressum": "Kto prowadzi tę stronę i jak się z nim skontaktować",
+      "privacy": "Co zapisuje wizyta i dlaczego",
+      "docs": "Jak używać biblioteki Python, wiersza poleceń i API",
+      "github": "Kod, zgłoszenia i pull requesty",
+      "pypi": "Zainstaluj bibliotekę Python przez pip"
+    }
   },
   "header": {
     "github": "GitHub",

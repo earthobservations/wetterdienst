@@ -21,10 +21,10 @@ const { t } = useI18n()
   <UCollapsible class="mt-4">
     <UButton
       :label="t('dataViewer.viewTable')"
-      icon="i-lucide-table"
+      icon="i-ph-table"
       variant="subtle"
       color="neutral"
-      trailing-icon="i-lucide-chevron-down"
+      trailing-icon="i-ph-caret-down"
       size="sm"
     />
     <template #content>

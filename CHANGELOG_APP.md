@@ -31,6 +31,15 @@ Types of changes:
   where the range was empty (the server's limits come from `GET /api/version`). "Clear date range"
   empties it and keeps it empty (`range=all` in the link); dates you type, apply or share in a link
   are never replaced (GH-3457)
+- `[Home]` "Ask the weather": four suggestions under the tools ("Will it rain in Kiel tomorrow?",
+  "Was last summer hotter than usual here?", "How windy was it on 26 December?", "Where can I
+  download hourly temperatures?") that are answered on the page from live data (the MOSMIX
+  forecast, DWD's monthly means and daily readings, the providers' coverage), each with the
+  verdict, the numbers, the chart that backs it and a link into the tool that holds the data,
+  already filled in. The place is a DWD station the reader can change; the open question and the
+  place are in the link. Nothing is fetched until a question is picked, but for the look-up of a
+  place a link names. The privacy notice lists the station kept in the browser (`wd-place`)
+  (GH-3518)
 
 ### Changed
 
@@ -38,6 +47,13 @@ Types of changes:
   window of at most 100,000 values, which the form accepts, where it used to be the whole span of
   the stations' records, which it refused. Dates you have edited are no longer replaced when you
   choose other stations (GH-3457)
+- `[Design]` A new look: the four tools (forecast, explorer, climate stripes, station history)
+  are tabs in the header and, on a phone, in a tab bar at the foot of the screen; providers,
+  glossary and API are under "Reference", and a search on every page (Ctrl+K) goes to any page,
+  a station's forecast or a provider, or sets the theme or the language. Every page has the same
+  margins and a left-aligned title, the tools put their settings beside the result on wide
+  screens, and the app has its own fonts (Atkinson Hyperlegible) and icons (Phosphor), in the
+  logo's colours. Charts print at paper width (GH-3518)
 
 ## [0.42.0] - 2026-11-01
 

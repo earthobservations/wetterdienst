@@ -137,6 +137,7 @@ describe('plural forms', () => {
       'dataViewer.valuesCount',
       'dataViewer.valuesTransformed',
       'glossary.count',
+      'shell.resultsCount',
     ])
   })
 
@@ -338,6 +339,7 @@ const UI_SAME: Record<string, Same> = {
   'header.github': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'header.pypi': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'header.menu': { en: ['da', 'fr', 'it', 'nl', 'pl'], why: COGNATE },
+  'shell.project': { en: ['nl'], de: ['cs', 'da', 'pl'], why: COGNATE },
   'footer.copyright': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'settings.themeSystem': { en: ['da', 'de-hh', 'de', 'lb'], why: COGNATE },
   'settings.unitTemperature': { de: ['da'], why: COGNATE },

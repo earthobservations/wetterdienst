@@ -192,7 +192,7 @@ defineExpose({ isValid, validationError })
     <UButton
       v-if="canClear"
       :label="t('dateRange.clear')"
-      icon="i-lucide-x"
+      icon="i-ph-x"
       size="xs"
       color="neutral"
       variant="ghost"
@@ -212,7 +212,7 @@ defineExpose({ isValid, validationError })
       color="error"
       variant="subtle"
       :title="validationError"
-      icon="i-lucide-alert-circle"
+      icon="i-ph-warning-circle"
     />
   </div>
 </template>

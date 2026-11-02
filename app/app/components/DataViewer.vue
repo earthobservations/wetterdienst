@@ -1551,7 +1551,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
       <div class="flex justify-center">
         <div class="flex items-center gap-2 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
           <UButton
-            icon="i-lucide-table"
+            icon="i-ph-table"
             :aria-label="t('dataViewer.viewTable')"
             :aria-pressed="viewMode === 'table'"
             size="md"
@@ -1560,7 +1560,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
             @click="viewMode = 'table'"
           />
           <UButton
-            icon="i-lucide-chart-line"
+            icon="i-ph-chart-line"
             :aria-label="t('dataViewer.viewChart')"
             :aria-pressed="viewMode === 'graph'"
             size="md"
@@ -1587,19 +1587,19 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
             <template v-if="viewMode === 'table'">
               <UTooltip :text="t('dataViewer.copyCurrentPage')">
                 <UButton
-                  size="xs" variant="ghost" icon="i-lucide-copy" :aria-label="t('dataViewer.copyCurrentPage')" :disabled="valuesPending || !paginatedValues.length"
+                  size="xs" variant="ghost" icon="i-ph-copy" :aria-label="t('dataViewer.copyCurrentPage')" :disabled="valuesPending || !paginatedValues.length"
                   @click="copyCurrentPage"
                 />
               </UTooltip>
               <UTooltip :text="t('dataViewer.copyAllValues')">
                 <UButton
-                  size="xs" variant="ghost" icon="i-lucide-copy-check" :aria-label="t('dataViewer.copyAllValues')" :disabled="valuesPending || !sortedValues.length"
+                  size="xs" variant="ghost" icon="i-ph-check" :aria-label="t('dataViewer.copyAllValues')" :disabled="valuesPending || !sortedValues.length"
                   @click="copyAllValues"
                 />
               </UTooltip>
             </template>
             <UDropdownMenu :items="downloadMenuItems" :modal="false">
-              <UButton size="xs" variant="ghost" icon="i-lucide-download" :aria-label="viewMode === 'graph' ? t('dataViewer.downloadChart') : t('dataViewer.download')" :disabled="valuesPending" />
+              <UButton size="xs" variant="ghost" icon="i-ph-download-simple" :aria-label="viewMode === 'graph' ? t('dataViewer.downloadChart') : t('dataViewer.download')" :disabled="valuesPending" />
             </UDropdownMenu>
           </div>
         </div>
@@ -1611,7 +1611,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
           :label="t('dataViewer.chartSettings')"
           variant="subtle"
           color="neutral"
-          trailing-icon="i-lucide-chevron-down"
+          trailing-icon="i-ph-caret-down"
           block
           size="sm"
         />
@@ -1633,7 +1633,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
       <!-- Content -->
       <UCard ref="card" tabindex="-1" class="outline-none" :ui="{ body: valuesPending ? 'flex items-center justify-center min-h-40' : '' }">
         <div v-if="valuesPending" class="flex items-center justify-center py-12">
-          <UIcon name="i-lucide-loader-circle" class="w-8 h-8 animate-spin text-primary-500" />
+          <UIcon name="i-ph-circle-notch" class="w-8 h-8 animate-spin text-primary-500" />
         </div>
         <template v-else>
           <!-- a refusal of a limit, in either view: the table area says what it is and what can be done -->
@@ -1668,8 +1668,8 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
                   <span class="block text-sm">{{ t('dataViewer.chartCodeNotLoaded') }}</span>
                 </template>
               </span>
-              <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="renderShownChart()" />
-              <UButton v-if="plotlyNotLoaded" :label="t('common.reloadPage')" icon="i-lucide-refresh-cw" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
+              <UButton :label="t('common.retry')" icon="i-ph-arrow-clockwise" size="sm" color="neutral" variant="outline" @click="renderShownChart()" />
+              <UButton v-if="plotlyNotLoaded" :label="t('common.reloadPage')" icon="i-ph-arrows-clockwise" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
             </div>
             <div
               v-if="allValues.length === 0 && fetchErrorMessage"

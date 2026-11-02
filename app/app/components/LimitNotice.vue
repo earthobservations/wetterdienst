@@ -80,7 +80,7 @@ const headingId = useId()
          again with it, and stay in the tab order after it -->
     <div role="alert" class="space-y-2">
       <p :id="headingId" class="flex items-start gap-2 font-medium">
-        <UIcon name="i-lucide-info" class="mt-0.5 size-5 shrink-0 text-primary-700 dark:text-primary-400" aria-hidden="true" />
+        <UIcon name="i-ph-info" class="mt-0.5 size-5 shrink-0 text-primary-700 dark:text-primary-400" aria-hidden="true" />
         <span>{{ title }}</span>
       </p>
       <p class="text-sm text-gray-700 dark:text-gray-300">
@@ -98,7 +98,7 @@ const headingId = useId()
       <UButton
         v-if="window && canApply"
         :label="applyLabel"
-        icon="i-lucide-calendar-range"
+        icon="i-ph-calendar-dots"
         color="primary"
         class="h-auto w-full sm:w-auto"
         :ui="{ label: 'whitespace-normal text-left' }"
@@ -108,7 +108,7 @@ const headingId = useId()
       <UButton
         v-if="csvHref"
         :label="t('dataViewer.limitDownload')"
-        icon="i-lucide-download"
+        icon="i-ph-download-simple"
         color="neutral"
         variant="outline"
         :href="csvHref"
