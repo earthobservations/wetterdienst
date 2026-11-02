@@ -288,6 +288,28 @@ describe('the meteogram page followed to a station by the search of the header (
     await navigateTo('/meteogram?station=01001')
     await vi.waitFor(() => expect(vm.selectedStation?.station_id).toBe('01001'))
   })
+
+  it('shows a station the reader chose and cleared when the header searches it', async () => {
+    wrapper = await mountSuspended(MeteogramPage, { route: '/meteogram' })
+    const vm = wrapper.vm as any
+    vm.selectedStation = stations['10381']
+    await vi.waitFor(() => expect(useRoute().query.station).toBe('10381'))
+    vm.selectedStation = null
+    await vi.waitFor(() => expect(useRoute().query.station).toBeUndefined())
+    await navigateTo('/meteogram?station=10381')
+    await vi.waitFor(() => expect(vm.selectedStation?.station_id).toBe('10381'))
+  })
+
+  it('does not carry the run chosen for one station over to the one the search names', async () => {
+    wrapper = await mountSuspended(MeteogramPage, { route: '/meteogram?station=01001&issue=2026-10-03T06:00:00' })
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.selectedStation?.station_id).toBe('01001'))
+    expect(vm.selectedIssue).toBe('2026-10-03T06:00:00')
+    await navigateTo('/meteogram?station=10381')
+    await vi.waitFor(() => expect(vm.selectedStation?.station_id).toBe('10381'))
+    expect(vm.selectedIssue).toBe('')
+    await vi.waitFor(() => expect(useRoute().query.issue).toBeUndefined())
+  })
 })
 
 describe('the meteogram page\'s requests answered with a 503 once', () => {

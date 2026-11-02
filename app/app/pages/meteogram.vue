@@ -152,10 +152,18 @@ watch(selectedIssue, () => {
     void fetchMeteogram(selectedStation.value)
 })
 
+// the station the URL asked for last, whether it is answered, still coming or failed: asked for once, not again
+// until the reader has chosen (or cleared) another
+let requestedFromUrl: string | undefined
+
 // Auto-fetch and sync URL whenever a station is chosen or cleared
 watch(selectedStation, (station) => {
-  if (!isRestoringFromUrl.value)
+  if (!isRestoringFromUrl.value) {
     selectedIssue.value = ''
+    // the reader's own choice, or none, ends the memory of what the URL asked for: a station it named before may be
+    // asked for again (the header's search for the station that was shown, chosen away from and searched again)
+    requestedFromUrl = undefined
+  }
   if (station) {
     void loadAvailableIssues(station.station_id)
     void fetchMeteogram(station)
@@ -170,15 +178,11 @@ watch(selectedStation, (station) => {
   }
 })
 
-let requestedFromUrl: string | undefined
-
 // Sync station + issue to URL (fires once when both change together)
 watch([selectedStation, selectedIssue], ([station, issue]) => {
   if (!station)
     return
   const q: Record<string, string> = { station: station.station_id }
-  // what the URL names now is the page's own choice: a later search for the station it left is a new request
-  requestedFromUrl = station.station_id
   if (issue)
     q.issue = issue
   // Preserve display params managed by the Meteogram component
@@ -213,8 +217,8 @@ async function restoreFromUrl() {
     })
     const station = (res.stations ?? [])[0]
     if (station) {
-      if (issueFromUrl)
-        selectedIssue.value = issueFromUrl
+      // a link without a run is the latest one, not the run chosen for the station before
+      selectedIssue.value = issueFromUrl ?? ''
       selectedStation.value = station
     }
   }
