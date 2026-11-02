@@ -52,8 +52,8 @@ _STATIONS_ENDPOINT = (
 # 2026-10-22; the 2 `m+PNP` series both have one, 28 of the `cm` series have none), so the
 # datum differs from the cm gauges even after scaling -- see the `gauge_zero` station column.
 # The characteristic levels of a station (`m_i`, `mhw`, `hsw`, ...) are returned in metres, the unit of `stage`, and
-# each carries its own unit in the listing: `cm` at every gauge that has the levels the columns hold (2,731 of them
-# on 2026-11-02), `m` for the `OBW` and `UBW` of the gauges in metres above sea level
+# each carries its own unit in the listing: `cm` for the levels the columns hold (1,734 values at 429 gauges on
+# 2026-11-02), `m` for the `OBW` and `UBW` of the gauges in metres above sea level
 _CHARACTERISTIC_UNITS_PER_METRE: dict[str, float] = {"cm": 100.0, "m": 1.0}
 _SOURCE_UNIT_FACTORS: dict[str, dict[str, float]] = {
     "W": {"cm": 1.0, "m+NN": 100.0, "m+PNP": 100.0},
