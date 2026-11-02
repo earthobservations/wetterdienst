@@ -44,15 +44,22 @@ BESIDE_FLAGS = SourceFlags(
     quote="q",
     beside=("source", ("313", "343")),
 )
+DIGIT_FLAGS = SourceFlags(datasets=("a/b",), codes=(SourceCode("1", "suspect"),), url="u", quote="q", digit=3)
+PARAMETER_FLAGS = SourceFlags(
+    datasets=("a/b",),
+    codes=(SourceCode("3", "Error"),),
+    url="u",
+    quote="q",
+    beside=("source", ("345",)),
+    parameters=("humidity_relative", "wind_speed"),
+)
 
 
-def _hits(flags: SourceFlags, texts: list[str | None]) -> list[bool]:
-    return (
-        pl.DataFrame({"quality_flags": texts}, schema={"quality_flags": pl.String})
-        .select(flags.hit())
-        .to_series()
-        .to_list()
-    )
+def _hits(flags: SourceFlags, texts: list[str | None], parameters: list[str] | None = None) -> list[bool]:
+    frame = pl.DataFrame({"quality_flags": texts}, schema={"quality_flags": pl.String})
+    if parameters is not None:
+        frame = frame.with_columns(pl.Series("parameter", parameters, dtype=pl.String))
+    return frame.select(flags.hit()).to_series().to_list()
 
 
 def test_a_plain_code_is_the_first_token_of_the_flags_and_no_other() -> None:
@@ -85,6 +92,34 @@ def test_a_code_beside_a_source_is_read_in_the_list_of_that_source_alone() -> No
         BESIDE_FLAGS,
         ["3,source:313", "3,measurement:N,source:343", "3,source:345", "3", "2,source:313", "3,source:3130", None],
     ) == [True, True, False, False, False, False, False]
+
+
+def test_a_digit_is_counted_from_the_right_in_the_code_as_the_file_writes_it() -> None:
+    """MIDAS writes `02576` as `2576`: the status is the third digit from the right, and a short code has none."""
+    assert _hits(
+        DIGIT_FLAGS,
+        ["100", "2176", "02176", "20101", "20001", "1", "11", "0100", "100,raw:1", "1.00", "x100", "", None, "-1100"],
+    ) == [True, True, True, True, False, False, False, True, True, False, False, False, False, True]
+
+
+def test_a_code_limited_to_parameters_is_read_for_those_parameters_alone() -> None:
+    """Source 345's `3` is "for relative humidity and wind speed only", so the temperature of the source is no hit."""
+    texts = ["3,source:345"] * 4 + ["3,source:313", None]
+    parameters = [
+        "humidity_relative",
+        "wind_speed",
+        "temperature_air_2m",
+        "relative_humidity",
+        "wind_speed",
+        "wind_speed",
+    ]
+    assert _hits(PARAMETER_FLAGS, texts, parameters) == [True, True, False, False, False, False]
+    # the canonical names are resolved to the names the frame holds, the source's own
+    flags = pl.DataFrame({"quality_flags": texts, "parameter": parameters})
+    names = {"humidity_relative": "relative_humidity"}
+    erroneous, suspect = hits(flags, [PARAMETER_FLAGS], names)
+    assert erroneous.to_list() == [False, True, False, True, False, False]
+    assert not suspect.any()
 
 
 def _plan(*flags: SourceFlags, forecast: bool = False) -> Plan:
@@ -151,7 +186,10 @@ def test_a_forecast_flags_both_levels_in_hard_mode_too() -> None:
 
 
 def test_the_levels_of_the_map_are_those_the_documentation_words() -> None:
-    """Only a source with two levels has a suspect level: GHCNh `Suspect`, 382 `R`, CHMI `Suspect`."""
+    """Only a source with two levels has a suspect level.
+
+    GHCNh `Suspect`, 382 `R` and `f` of a derived humidity or wet bulb, CHMI `Suspect`, MADIS `Questioned`.
+    """
     levels = {
         (network, code.code): code.level
         for network, rules in SOURCE_FLAGS.items()
@@ -163,7 +201,9 @@ def test_the_levels_of_the_map_are_those_the_documentation_words() -> None:
         ("noaa/ghcn", "2"),
         ("noaa/ghcn", "6"),
         ("noaa/ghcn", "R"),
+        ("noaa/ghcn", "f"),
         ("chmi/observation", "1"),
+        ("nws/observation", "Q"),
     }
 
 
@@ -211,6 +251,7 @@ def test_no_forecast_network_has_a_flag_of_its_own_to_read() -> None:
 
 def _flags_with(flags: SourceFlags, code: str) -> str:
     """Write the `quality_flags` a reader writes for a reading of a rule that carries a code of it."""
+    code = code + "0" * ((flags.digit or 1) - 1)
     plain = f"{code}" if flags.kind is None else f"{flags.kind}:{code}"
     if flags.beside is None:
         return plain
@@ -227,9 +268,21 @@ def test_the_core_judges_every_code_of_the_map_in_every_dataset_that_carries_it(
             for dataset_name in flags.datasets:
                 resolution, dataset = dataset_name.split("/")
                 model = metadata[resolution][dataset]
+                # a rule limited to parameters is judged on the first of them, as the dataset names it
+                parameter = next(
+                    (
+                        parameter.name_original
+                        for parameter in model.parameters
+                        if flags.parameters is not None and parameter.name == flags.parameters[0]
+                    ),
+                    "p",
+                )
                 for code in flags.codes:
                     text = _flags_with(flags, code.code)
-                    frame = _frame([text, "unflagged"], [1.0, 1.0]).with_columns(pl.lit("p").alias("parameter"))
+                    frame = _frame([text, "unflagged"], [1.0, 1.0]).with_columns(
+                        pl.lit(parameter).alias("parameter"),
+                        pl.datetime(2026, 1, 1, time_zone="UTC").alias("timestamp"),
+                    )
                     out = judged(frame, network=network, dataset=model)
                     assert out["quality_flags"].to_list() == [f"{text},suspect:source", "unflagged"], (
                         network,
@@ -256,7 +309,10 @@ def test_the_codes_of_several_rules_are_extracted_once_and_judged_as_each_rule_a
         "R,source:313",
         "6,source:220",
     ]
-    df = pl.DataFrame({"quality_flags": texts}, schema={"quality_flags": pl.String})
+    df = pl.DataFrame(
+        {"quality_flags": texts, "parameter": ["p"] * len(texts)},
+        schema=dict.fromkeys(["quality_flags", "parameter"], pl.String),
+    )
     hourly = [rule for rule in rules if "hourly/data" in rule.datasets]
     alone = df.select(pl.any_horizontal(rule.hit() for rule in hourly).alias("hit")).to_series().to_list()
     erroneous, suspect = hits(df, hourly)
@@ -289,7 +345,7 @@ def test_the_datasets_of_the_map_exist_and_the_coverage_follows_them() -> None:
         existing = {f"{resolution.name}/{dataset.name}" for resolution in metadata for dataset in resolution}
         for flags in rules:
             assert set(flags.datasets) <= existing, (network, sorted(set(flags.datasets) - existing))
-    assert len(flags_of("noaa/ghcn", "hourly/data")) == 3
+    assert len(flags_of("noaa/ghcn", "hourly/data")) == 6
     assert source_coverage() == COVERAGE["source"]
 
 
@@ -329,9 +385,10 @@ def test_the_plausibility_page_cites_every_code_of_the_map(network: str) -> None
                 for part in rows.split(" | ")
                 if "suspect level:" in part and set(re.findall(r"`([^`]+)`", part)) == wanted
             )
-            assert cell.index("suspect level:") < cell.index("erroneous level:")
-            before, after = cell.split("erroneous level:")
+            before, _, after = cell.partition("erroneous level:")
             assert all(f"`{code}`" in before for code in suspect)
+            # a rule may have a suspect level only (`f` of a derived wet bulb temperature)
+            assert bool(erroneous) == ("erroneous level:" in cell), (network, wanted)
             assert all(f"`{code}`" in after for code in erroneous)
 
 

@@ -907,11 +907,11 @@ Options:
                                   nulls the value and keeps the number as
                                   `rejected:source,raw:<number>` in `quality_flags` (the suspect
                                   level of a source that has two, GHCNh `Suspect` and source 382
-                                  `R`, CHMI `Suspect`, stays flagged `suspect:source`), soft keeps
-                                  it and flags it `suspect:source`. A forecast network (`kind`
-                                  `forecast`) is judged soft whatever the mode (only `floor` and
-                                  `limits` keep their mode). Default: WD_TS_PLAUSIBILITY__SOURCE if
-                                  set, else soft
+                                  `R`, CHMI `Suspect`, MADIS `Questioned`, GHCNh `f`, stays flagged
+                                  `suspect:source`), soft keeps it and flags it `suspect:source`. A
+                                  forecast network (`kind` `forecast`) is judged soft whatever the
+                                  mode (only `floor` and `limits` keep their mode). Default:
+                                  WD_TS_PLAUSIBILITY__SOURCE if set, else soft
   --limits TEXT                   Bounds of your own for the plausibility check limits, in the unit
                                   the values come back in (see --unit-targets): a JSON map of a
                                   parameter to [low, high], null for no bound at one end ({"temperat

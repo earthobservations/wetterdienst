@@ -95,8 +95,8 @@ it itself.
 | a value inside every range that is no reading, alone (check `range`) or beside another of its minute (check `consistency`) | hard: null, `rejected:range,raw:<value>` or `rejected:consistency,raw:<value>`; soft: the value, `suspect:<check>` | DWD road (a relative humidity below 1 %; a road surface temperature more than 20 K above the air temperature of its minute with the sun more than 6 degrees below the horizon) |
 | a sensor that holds one value for six hours (check `stuck`) | soft: the value, `suspect:stuck`; hard: null, `rejected:stuck,raw:<value>` | DWD road (air, dew point and road surface temperature) |
 | a value the source flags missing | null, the flag | CHMI `4`, EA `Missing`, ECCC `M`, IMGW meteorology `8` |
-| a value the source's own flag marks erroneous or doubtful (check `source`, soft by default) | soft: the value, `suspect:source`; hard: null, `rejected:source,raw:<text>` (the suspect level, GHCNh `Suspect` and 382 `R`, CHMI `Suspect`, stays `suspect:source`) | GHCN `QFLAG` and GHCNh, Frost `7`, CHMI `1` and `2`, EA `Suspect`, Météo-France `2`, DMI `validity:false` |
-| a value the source flags suspect or invalid, with no check yet | the value, with the flag | RMI, Met Office, SMHI `Y`, NWS, DWD road, Hub'Eau ([GH-3745](https://github.com/earthobservations/wetterdienst/issues/3745)) |
+| a value the source's own flag marks erroneous or doubtful (check `source`, soft by default) | soft: the value, `suspect:source`; hard: null, `rejected:source,raw:<text>` (the suspect level, GHCNh `Suspect` and 382 `R`, CHMI `Suspect`, MADIS `Questioned`, GHCNh `f`, stays `suspect:source`) | GHCN `QFLAG` and GHCNh, Frost `7`, CHMI `1` and `2`, EA `Suspect`, Météo-France `2`, DMI `validity:false`, NWS `X`, `Q` and `B`, Hub'Eau `12`, DWD road `1`, MIDAS status `1`, GHCNh `o`, `f` and source 345's `3` |
+| a value the source flags suspect or invalid, with no check yet | the value, with the flag | RMI `validated`, SMHI `Y` (neither is a verdict, see [what is not read](plausibility.md#the-sources-own-verdict-source)) |
 
 ## As published
 

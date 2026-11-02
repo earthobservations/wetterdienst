@@ -278,6 +278,49 @@ def test_nws_values_carry_the_madis_quality_control_flag_of_each_quantity(monkey
     assert "quality_flag" not in df.columns
 
 
+@pytest.mark.parametrize("mode", ["soft", "hard"])
+def test_nws_values_are_judged_by_the_check_source_on_x_q_and_b_alone(
+    monkeypatch: pytest.MonkeyPatch,
+    mode: str,
+) -> None:
+    """Test that `X`, `Q` and `B` of MADIS are the verdict of the check `source`, and `Z C S V G T` are not (GH-3745).
+
+    MADIS (madis.ncep.noaa.gov/madis_sfc_qc_notes.shtml, read 2026-11-02): "X - Rejected/erroneous, failed level 1",
+    "Q - Questioned, passed level 1, failed 2 or 3", "B - Subjective bad"; the NWS API names that page as the definition
+    of `qualityControl`. A sample of 20 stations (2026-11-02) held none of them, so the rows are written as MADIS words
+    them. Soft flags all three; hard nulls `X` and `B` and still only flags `Q`, the milder level.
+    """
+    flags = ["Z", "C", "S", "V", "G", "T", "X", "Q", "B"]
+    features = [
+        {
+            "properties": {
+                "station": "https://api.weather.gov/stations/KDEN",
+                "timestamp": f"2026-08-20T{hour:02d}:00:00+00:00",
+                "temperature": {"unitCode": "wmoUnit:degC", "value": 16 + hour, "qualityControl": flag},
+            }
+        }
+        for hour, flag in enumerate(flags)
+    ]
+    serve(monkeypatch, nws_api, {"/observations": json.dumps({"features": features}).encode()})
+    request = _request(Settings(cache_disable=True), Options(drop_nulls=False, plausibility={"source": mode}))
+    sr = stations_result(request, "hourly", "data", "KDEN")
+    df = NwsObservationValues(sr=sr).all().df
+    rows = df.filter(pl.col("parameter") == "temperature_air_2m").sort("timestamp")
+    texts = rows.get_column("quality_flags").to_list()
+    values = rows.get_column("value").to_list()
+    # Z C S V G T say how far a value got or that a person found it good: no verdict
+    assert texts[:6] == ["Z", "C", "S", "V", "G", "T"]
+    assert values[:6] == [16.0 + hour for hour in range(6)]
+    # Q is the milder level: flagged in both modes, never nulled
+    assert (texts[7], values[7]) == ("Q,suspect:source", 23.0)
+    if mode == "soft":
+        assert texts[6:9:2] == ["X,suspect:source", "B,suspect:source"]
+        assert values[6:9:2] == [22.0, 24.0]
+    else:
+        assert texts[6:9:2] == ["X,rejected:source,raw:22", "B,rejected:source,raw:24"]
+        assert values[6:9:2] == [None, None]
+
+
 def test_nws_values_null_the_wind_direction_of_a_calm_and_keep_north(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that the direction 0 of a METAR `00000KT` is null with `raw:0`, and 360 and a speed of 0 are not (GH-2794).
 

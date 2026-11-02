@@ -488,7 +488,7 @@ def judge(  # noqa: C901
         exprs["limits"].append((floored < low) | (floored > high))
     if plan.source:
         # the verdict of the source itself, read in the flag it returned the value with (`model/source_flags.py`)
-        erroneous, suspect = source_hits(df, plan.source)
+        erroneous, suspect = source_hits(df, plan.source, plan.by_name)
         if modes.mode("source") == "hard":
             # only the code the source words as erroneous is rejected; the milder level of a source that has two stays
             # flagged, as `source` flags it in the soft mode
