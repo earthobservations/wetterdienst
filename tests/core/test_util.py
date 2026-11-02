@@ -755,3 +755,59 @@ def test_report_elevation_exclusions_says_what_the_ranking_already_proved(
             stations_needed=4,
         )
     assert not caplog.text
+
+
+def test_one_row_per_station_reads_a_zero_elevation_as_none_only_where_asked() -> None:
+    """A 0.0 is null before another row's elevation fills it in, and only where the network lists 0.0 as none.
+
+    The hourly row of the station is nearer and lists 0.0, the daily row lists 827.0: the station stands at 827.0
+    (GH-3708).
+    The station listed at 0.0 by both has none. Without the flag the nearest row's 0.0 is the elevation it says.
+    """
+    from wetterdienst.core.util import one_row_per_station  # noqa: PLC0415
+
+    df = pl.DataFrame(
+        {
+            "station_id": ["A", "A", "B", "B"],
+            "resolution": ["hourly", "daily", "hourly", "daily"],
+            "elevation": [0.0, 827.0, 0.0, 0.0],
+            "distance": [1.0, 1.1, 2.0, 2.1],
+        },
+    )
+    unknown = one_row_per_station(df, zero_is_unknown=True)
+    assert unknown.select("station_id", "resolution", "elevation").rows() == [
+        ("A", "hourly", 827.0),
+        ("B", "hourly", None),
+    ]
+    as_listed = one_row_per_station(df)
+    assert as_listed.select("station_id", "elevation").rows() == [("A", 0.0), ("B", 0.0)]
+
+
+@pytest.mark.parametrize(
+    ("request_class_path", "elevation", "expected"),
+    [
+        pytest.param("wetterdienst.provider.noaa.ghcn.NoaaGhcnRequest", 0.0, None, id="ghcn-0.0-is-unknown"),
+        pytest.param("wetterdienst.provider.noaa.ghcn.NoaaGhcnRequest", 12.0, 12.0, id="ghcn-12.0-is-a-height"),
+        pytest.param("wetterdienst.provider.dwd.observation.DwdObservationRequest", 0.0, 0.0, id="dwd-0.0-is-a-coast"),
+    ],
+)
+def test_a_station_named_as_the_point_has_no_elevation_where_the_network_lists_0_0_as_none(
+    request_class_path: str,
+    elevation: float,
+    expected: float | None,
+) -> None:
+    """`interpolate_by_station_id` answers at the station's own elevation, and a placeholder 0.0 is none (GH-3708)."""
+    import importlib  # noqa: PLC0415
+
+    module, _, name = request_class_path.rpartition(".")
+    request_class = getattr(importlib.import_module(module), name)
+    request = request_class(
+        parameters=[("daily", "data" if "ghcn" in module else "climate_summary", "temperature_air_mean_2m")],
+        start=dt.datetime(2021, 2, 1, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(2021, 2, 1, tzinfo=ZoneInfo("UTC")),
+    )
+    df_all = pl.DataFrame(
+        {"station_id": ["USW00024197"], "latitude": [50.0], "longitude": [8.9], "elevation": [elevation]}
+    )
+    request._parse_station_id = lambda series: series  # ty: ignore[invalid-assignment]  # noqa: SLF001
+    assert request._get_position_by_station_id("USW00024197", df_all=df_all) == (50.0, 8.9, expected)  # noqa: SLF001

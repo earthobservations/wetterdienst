@@ -14,6 +14,7 @@ import polars as pl
 from wetterdienst.exceptions import NoStationsWithElevationError
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.metadata.resolution import Frequency
+from wetterdienst.model.judge import ELEVATION_ZERO_IS_UNKNOWN
 from wetterdienst.model.metadata import ParameterModel
 from wetterdienst.util.response_warnings import warn_response
 
@@ -249,16 +250,35 @@ def hold_stations_in_reach(request: TimeseriesRequest, stations_ranked: Stations
     return replace(stations_ranked, df=df)
 
 
-def one_row_per_station(df_stations_ranked: pl.DataFrame) -> pl.DataFrame:
+def zero_elevation_is_unknown(request: TimeseriesRequest) -> bool:
+    """Tell whether the network of a request lists 0.0 for a station of which it knows no elevation.
+
+    The networks are those of `ELEVATION_ZERO_IS_UNKNOWN`, the list the plausibility check of the station pressure
+    reads too (GH-3708).
+    """
+    from wetterdienst.api import Wetterdienst  # noqa: PLC0415
+
+    return Wetterdienst._network_of(type(request)) in ELEVATION_ZERO_IS_UNKNOWN  # noqa: SLF001
+
+
+def one_row_per_station(df_stations_ranked: pl.DataFrame, *, zero_is_unknown: bool = False) -> pl.DataFrame:
     """Keep one row per station, the nearest, with the first elevation any of its rows knows.
 
     The ranking carries a row per station *and* dataset, each with what its own station list
     reported, and the lists can disagree: NOAA GHCN's hourly list gives no elevation for hundreds
     of the stations its daily list does. Read off the nearest row alone, whether a station's
     elevation is known would depend on which resolution the parameters named first.
+
+    Where `zero_is_unknown`, an elevation of exactly 0.0 is none (`zero_elevation_is_unknown`): GHCN writes 0.0 for
+    stations it knows no elevation of, 54 of its hourly list standing between 150 and 4,329 m, so it is null here
+    before another row's elevation fills it in, and a station of it is treated as one the provider reports none for
+    (GH-3708). The frame of stations the caller is handed keeps the 0.0, as GHCN writes it.
     """
+    elevation = pl.col("elevation")
+    if zero_is_unknown:
+        elevation = pl.when(elevation.eq(0.0)).then(None).otherwise(elevation)
     return df_stations_ranked.with_columns(
-        pl.col("elevation").fill_null(pl.col("elevation").drop_nulls().first().over("station_id")),
+        elevation.fill_null(elevation.drop_nulls().first().over("station_id")).alias("elevation"),
     ).unique(subset=["station_id"], keep="first", maintain_order=True)
 
 
@@ -267,6 +287,8 @@ def count_stations_in_reach(
     parameters: Iterable[object],
     options: Options,
     interpolatable: Collection[str],
+    *,
+    zero_is_unknown: bool = False,
 ) -> dict[tuple[str, str, str], StationsInReach]:
     """Count what each parameter has within its own radius, before a single value is downloaded.
 
@@ -289,7 +311,7 @@ def count_stations_in_reach(
     # `one_row_per_station` too, the nearest row with an elevation from any of the station's rows.
     # Two dataset indexes can disagree about a station's elevation, and reading it differently here
     # than the walk does would refuse a request the walk would have answered
-    as_the_walk_reads_it = one_row_per_station(df_stations_ranked)
+    as_the_walk_reads_it = one_row_per_station(df_stations_ranked, zero_is_unknown=zero_is_unknown)
     for parameter in parameters:
         if not isinstance(parameter, ParameterModel) or parameter.name not in interpolatable:
             continue
