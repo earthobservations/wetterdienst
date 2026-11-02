@@ -3,12 +3,12 @@
 """The one table of bounds of the ``range`` check: the same for every provider (GH-3681).
 
 The values core judges a reading in the canonical unit of its unit type (``UnitConverter().targets``: °C, hPa, m/s,
-mm, J/cm², a fraction as a decimal, seconds), whatever unit the source writes and whatever unit the caller asks for,
-so a bound is written once per quantity. It is written once for all providers, too: a quantity has the bound of the
-quantity and not of the network that serves it. ``bounds_for`` gives the bound of a canonical parameter at a
-resolution, the lookup being, in this order, the name, the rain of the last so many hours, a family of names (by
-prefix), the unit type. A quantity whose bound grows with the span it is measured over (the rain of a minute and of a
-day) is given by resolution.
+mm, MJ/m², a fraction in percent, a duration in hours, a wave period in seconds), whatever unit the source writes and
+whatever unit the caller asks for, so a bound is written once per quantity. It is written once for all providers,
+too: a quantity has the bound of the quantity and not of the network that serves it. ``bounds_for`` gives the bound
+of a canonical parameter at a resolution, the lookup being, in this order, the name, the rain of the last so many
+hours, a family of names (by prefix), the unit type. A quantity whose bound grows with the span it is measured over
+(the rain of a minute and of a day) is given by resolution.
 
 ``tests/provider/physical_ranges.py`` reads the same table for the remote check of the provider tests and for the
 parameters a test serves; it keeps no bounds of its own (GH-3681).
@@ -71,17 +71,17 @@ The sources, by quantity:
   ground, thawing and ice are at least 0 (D).
 - Sunshine and the duration of precipitation: not longer than the span they are measured over, and 5 % more for a
   reading of a resolution (D, the day-length margin of ECA&D; DWD's urban 10-minute sunshine is written in hours with
-  two decimals, 0.17 h for a full interval, which is 612 s, and RMI's 63.86 min in an hour, 3,831.6 s, is above
-  3,780).
+  two decimals, 0.17 h for a full interval, inside the 0.175 h of the bound, and RMI's 63.86 min in an
+  hour, 1.064 h, is above 1.05). The bounds are in hours, the unit of the type ``duration``: 1 h is 3,600 s and 60 min.
 - Relative humidity 0 to 100 % (D), cloud cover, the probabilities of a model, the relative sunshine and the snow
   cover 0 to 100 % (D); soil moisture is a share of the field capacity, which saturated soil goes past (D, at least 0).
 - Radiation: the short-wave irradiance 0 to 2,000 W/m² (N): WMO-No. 488 (App. VI.2) holds 0 to 1,600 and BSRN 1.5
   times the solar constant (1,361 W/m²) times the cosine of the zenith angle to the 1.2 plus 100 W/m², 2,141 at the
   zenith; the lower bound is 0 as the definition says. A sum of short-wave radiation is at most the solar constant
-  times the span in 10 minutes and an hour (D): 100 J/cm² (82 by that) and 500 (490); a day is 6,000 J/cm², 60 MJ/m²
-  (the top of the atmosphere at 82 degrees north in midsummer is about 45), and a month and a year are that times
-  their days, 186,000 and 2,200,000 (the sunniest places receive about 900,000 J/cm² in a year); the long-wave
-  radiation from the sky is at least 0.
+  times the span in 10 minutes and an hour (D): 1 MJ/m² (0.82 by that) and 5 (4.9); a day is 60 MJ/m² (the top of the
+  atmosphere at 82 degrees north in midsummer is about 45), and a month and a year are that times their days, 1,860 and
+  22,000 (the sunniest places receive about 9,000 MJ/m² in a year); the long-wave radiation from the sky is at
+  least 0. The bounds are in MJ/m², the unit of the type ``energy_per_area``: 1 MJ/m² is 100 J/cm².
 - Degree days: the heating of a day is at most the 25 °C base plus the air record (D), 115, a month 3,600, a year
   42,100; the cooling of a day is the air bound (60 °C) less a base of 15 °C, 45, rounded up to 50 (D), a month 1,600,
   a year 18,300. A degree hour, a volume, a conductivity, a turbidity and a dissolved substance are at least 0 (D).
@@ -121,7 +121,6 @@ Range = Bounds | Mapping[str, Bounds] | None
 """A bound for any resolution, a bound by resolution (``"*"`` for the others), or none: held to nothing."""
 
 _INF = math.inf
-_DAY = 86_400.0
 #: the hours a reading of each resolution stands for, for the quantities that grow with the span; a subdaily value is
 #: the bucket of the 3-hourly SYNOP of Météo-France
 SPAN_HOURS: dict[str, float] = {
@@ -165,12 +164,13 @@ _RAIN_BY_SPAN: dict[str, Bounds] = {
     "monthly": Bounds(0.0, 10_000.0),
     "annual": Bounds(0.0, 30_000.0),
 }
-#: a duration is not longer than its span, and 5 % more (the margin for the day length of ECA&D)
+#: a duration is not longer than its span, and 5 % more (the margin for the day length of ECA&D), in hours (the unit of
+#: the type ``duration``; the seconds of this bound were its hours times 3,600)
 _DURATION_BY_SPAN: dict[str, Bounds] = {
-    resolution: Bounds(0.0, round(hours * 3600.0 * 1.05, 1)) for resolution, hours in SPAN_HOURS.items()
+    resolution: Bounds(0.0, round(hours * 1.05, 6)) for resolution, hours in SPAN_HOURS.items()
 }
 _NON_NEGATIVE = Bounds(0.0, _INF)
-_SHARE = Bounds(0.0, 1.0)
+_SHARE = Bounds(0.0, 100.0)  # in percent, the unit of the type ``fraction``
 _AIR = Bounds(-90.0, 60.0)
 _SEA_LEVEL = Bounds(850.0, 1_100.0)
 _WIND = Bounds(0.0, 115.0)
@@ -233,17 +233,17 @@ PARAMETER_RANGES: dict[str, Range] = {
     "snow_depth_sum": _by_days(1_200.0),
     # the share of the ground covered by snow, 0 to 100 % (D)
     "snow_cover": _SHARE,
-    # sunshine, the duration of precipitation and of a wet leaf: the span and 5 % more (D5). DMI's daily leaf wetness is
-    # a sum of minutes, 0 to 1,440
+    # sunshine, the duration of precipitation and of a wet leaf: the span and 5 % more (D5), in hours. DMI's daily leaf
+    # wetness is a sum of minutes, 0 to 1,440, which is 0 to 24 hours
     "sunshine_duration": _DURATION_BY_SPAN,
     "leaf_wetness_duration": _DURATION_BY_SPAN,
     "precipitation_duration": _DURATION_BY_SPAN,
     # these three are the span itself, with no margin: they are not a reading of a resolution
-    "sunshine_duration_last_3h": Bounds(0.0, 3 * 3_600.0),
-    "sunshine_duration_yesterday": Bounds(0.0, _DAY),
-    "sunshine_duration_normal": Bounds(0.0, 31 * _DAY),
-    "sunshine_duration_uncertainty": Bounds(0.0, 3_600.0),  # (D) the uncertainty of an hour is not more than the hour
-    "true_local_time_offset": Bounds(-45_000.0, 45_000.0),  # 12 hours and the equation of time
+    "sunshine_duration_last_3h": Bounds(0.0, 3.0),  # h
+    "sunshine_duration_yesterday": Bounds(0.0, 24.0),  # h
+    "sunshine_duration_normal": Bounds(0.0, 31 * 24.0),  # h, a month
+    "sunshine_duration_uncertainty": Bounds(0.0, 1.0),  # h, (D) the uncertainty of an hour is not more than the hour
+    "true_local_time_offset": Bounds(-45_000.0, 45_000.0),  # s: 12 hours and the equation of time
     # the heat the air lacks to 25 degrees over a day at the air record, and the cold it brings over one
     "heating_degree_day": {
         "daily": Bounds(0.0, 115.0),
@@ -337,14 +337,15 @@ PREFIX_RANGES: tuple[tuple[str, Range], ...] = (
 
 #: a sum of short-wave radiation is at most the solar constant (1,361 W/m²) times the span, rounded outward, in 10
 #: minutes and an hour; a day is 60 MJ/m² at most (the top of the atmosphere at 82 degrees north in midsummer is about
-#: 45), and a month and a year are that times their days
+#: 45), and a month and a year are that times their days. In MJ/m², the unit of the type ``energy_per_area``: the bounds
+#: were 100, 500, 6,000, 186,000 and 2,200,000 J/cm², and 1 MJ/m² is 100 J/cm²
 _ENERGY_BY_SPAN: dict[str, Bounds] = {
     "*": _NON_NEGATIVE,
-    "10_minutes": Bounds(0.0, 100.0),
-    "hourly": Bounds(0.0, 500.0),
-    "daily": Bounds(0.0, 6_000.0),
-    "monthly": Bounds(0.0, 186_000.0),
-    "annual": Bounds(0.0, 2_200_000.0),
+    "10_minutes": Bounds(0.0, 1.0),
+    "hourly": Bounds(0.0, 5.0),
+    "daily": Bounds(0.0, 60.0),
+    "monthly": Bounds(0.0, 1_860.0),
+    "annual": Bounds(0.0, 22_000.0),
 }
 
 #: by unit type, for what the tables above do not name. ``None``: held to nothing, a code, a flag or a quantity that has
@@ -356,11 +357,15 @@ UNIT_TYPE_RANGES: dict[str, Range] = {
     "degree_day": None,
     "degree_hour": _NON_NEGATIVE,
     "dimensionless": None,
+    "duration": _NON_NEGATIVE,  # h; the sunshine and the precipitation of a span have their bound by name above
     "energy_per_area": _ENERGY_BY_SPAN,
     "fraction": None,
+    # the sum of daily snow depths has its bound by name above
+    "length_day": None,
     "length_long": None,
     "length_medium": None,
     "length_short": None,
+    "length_tiny": None,
     "mass_per_volume": None,
     "power_per_area": Bounds(0.0, 2_000.0),  # WMO-No. 488: 1,600; BSRN: 2,141 at the zenith
     "precipitation": None,

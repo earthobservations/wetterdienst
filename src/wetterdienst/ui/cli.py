@@ -1319,8 +1319,8 @@ def coverage(
     `derived` for a timeseries network, which has stations and values, and `radar` or `alerts` for a
     standalone one (dwd/radar, dwd/alerts), which `stations` and `values` refuse. With them, the
     resolutions, datasets and parameters of that network. A parameter's `unit` is the unit its values come
-    back in when no unit target is given (the one `about glossary` gives; `degree_celsius`, `decimal` for a
-    percentage). `unit_source`, the unit the provider publishes it in (`degree_kelvin`, `percent`), is there
+    back in when no unit target is given (the one `about glossary` gives; `degree_celsius`, `percent` for a
+    percentage). `unit_source`, the unit the provider publishes it in (`degree_kelvin`, `one_eighth`), is there
     only where it differs from `unit`; absent, it is the same. A unit target of your own changes the values,
     not this answer.
     """

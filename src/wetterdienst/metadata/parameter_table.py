@@ -139,7 +139,7 @@ def _phase(event: str) -> str:
 # 0 07 032) of 4.0, 4.05 or 5.0 m, or none, never 2 m (GH-2614); the provider's description of the field says so.
 PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
-        "clearance_height", "length_short", "Vertical clearance between the water surface and the structure above it."
+        "clearance_height", "length_medium", "Vertical clearance between the water surface and the structure above it."
     ),
     CanonicalParameter(
         "climate_correction_factor", "dimensionless", "Factor correcting a degree-day total for the local climate."
@@ -462,7 +462,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter("discharge_mean", "volume_per_time", "Mean discharge over the period."),
     CanonicalParameter("discharge_min", "volume_per_time", "Lowest discharge observed over the period."),
     CanonicalParameter(
-        "distance_river_gauge_height", "length_short", "Height of the gauge zero point above the reference datum."
+        "distance_river_gauge_height", "length_medium", "Height of the gauge zero point above the reference datum."
     ),
     CanonicalParameter(
         "electric_conductivity",
@@ -611,7 +611,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter("ice_on_water_thickness", "length_short", "Thickness of the ice covering the water surface."),
     CanonicalParameter(
         "leaf_wetness_duration",
-        "time",
+        "duration",
         "Length of time during which the leaves of a plant were wet.",
     ),
     CanonicalParameter("count_days_in_month", "dimensionless", "Number of days in the month the record covers."),
@@ -843,7 +843,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     ),
     CanonicalParameter(
         "precipitation_duration",
-        "time",
+        "duration",
         "Length of time during which precipitation fell.",
         interpolation="heterogeneous",
         zero_inflated=True,
@@ -1684,7 +1684,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     ),
     CanonicalParameter(
         "snow_depth_sum",
-        "length_short",
+        "length_day",
         "Sum of the daily depths of the snow lying on the ground over the days of the period, in cm times days.",
         interpolation="homogeneous",
     ),
@@ -1895,23 +1895,23 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "dimensionless",
         "Coded state of the ground surface, such as dry, moist, frozen or snow-covered.",
     ),
-    CanonicalParameter("stage", "length_short", "Water level at the gauge, measured against the gauge datum."),
-    CanonicalParameter("stage_max", "length_short", "Highest water level at the gauge over the period."),
-    CanonicalParameter("stage_mean", "length_short", "Mean water level at the gauge over the period."),
-    CanonicalParameter("stage_min", "length_short", "Lowest water level at the gauge over the period."),
+    CanonicalParameter("stage", "length_medium", "Water level at the gauge, measured against the gauge datum."),
+    CanonicalParameter("stage_max", "length_medium", "Highest water level at the gauge over the period."),
+    CanonicalParameter("stage_mean", "length_medium", "Mean water level at the gauge over the period."),
+    CanonicalParameter("stage_min", "length_medium", "Lowest water level at the gauge over the period."),
     CanonicalParameter("sun_zenith_angle", "angle", "Angle between the sun and the vertical."),
     CanonicalParameter(
-        "sunshine_duration", "time", "Length of time the sun shone unobstructed.", interpolation="homogeneous"
+        "sunshine_duration", "duration", "Length of time the sun shone unobstructed.", interpolation="homogeneous"
     ),
     CanonicalParameter(
         "sunshine_duration_last_3h",
-        "time",
+        "duration",
         "Length of time the sun shone unobstructed in the preceding 3 hours.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
         "sunshine_duration_normal",
-        "time",
+        "duration",
         "Climatological normal of the sunshine duration for the period.",
         interpolation="homogeneous",
     ),
@@ -1928,11 +1928,11 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "sunshine_duration_uncertainty", "time", "Uncertainty attached to the reported sunshine duration."
+        "sunshine_duration_uncertainty", "duration", "Uncertainty attached to the reported sunshine duration."
     ),
     CanonicalParameter(
         "sunshine_duration_yesterday",
-        "time",
+        "duration",
         "Length of time the sun shone unobstructed on the previous day.",
         interpolation="homogeneous",
     ),
@@ -3198,14 +3198,14 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         zero_inflated=True,
     ),
     CanonicalParameter(
-        "water_film_thickness", "length_short", "Thickness of the film of water lying on the road surface."
+        "water_film_thickness", "length_tiny", "Thickness of the film of water lying on the road surface."
     ),
     CanonicalParameter(
-        "wave_height_max", "length_short", "Height of the highest single wave observed over the period."
+        "wave_height_max", "length_medium", "Height of the highest single wave observed over the period."
     ),
     CanonicalParameter(
         "wave_height_significant",
-        "length_short",
+        "length_medium",
         "Significant wave height, the mean height of the highest third of the waves.",
     ),
     CanonicalParameter("wave_period", "time", "Mean time between successive wave crests."),

@@ -798,8 +798,9 @@ def test_interpolated_or_summarized_ogc_feature_collection_without_values(
 @pytest.mark.parametrize(
     ("options_kwargs", "parameter_in_frame", "expected"),
     [
-        ({}, "sunshine_duration", "sunshine_duration (s)"),
-        ({"humanize": False}, "sd_10", "sd_10 (s)"),
+        ({}, "sunshine_duration", "sunshine_duration (h)"),
+        ({"unit_targets": {"duration": "second"}}, "sunshine_duration", "sunshine_duration (s)"),
+        ({"humanize": False, "unit_targets": {"duration": "second"}}, "sd_10", "sd_10 (s)"),
         ({"convert_units": False}, "sunshine_duration", "sunshine_duration (h)"),
         ({"humanize": False, "convert_units": False}, "sd_10", "sd_10 (h)"),
     ],
@@ -816,6 +817,7 @@ def test_values_plot_labels_the_unit_the_values_carry(
     label repeated the name: `sd_10 (sd_10)`. And the symbol was always the target unit's, though
     `convert_units=False` leaves the values as the source published them -- sunshine duration
     comes in hours and was labelled seconds, a factor of 3600 between the number and its unit.
+    Hours are the default of the type now, so a target of seconds is what tells the two apart.
     """
     request = DwdObservationRequest(
         parameters=["10_minutes/solar/sunshine_duration"],

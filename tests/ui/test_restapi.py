@@ -518,8 +518,8 @@ def test_coverage_unit_is_the_unit_of_the_values_and_unit_source_the_providers(c
     parameters = {p["name"]: p for p in response.json()["hourly"]["datasets"]["large"]["parameters"]}
     temperature = parameters["temperature_air_2m"]
     assert (temperature["unit"], temperature["unit_source"]) == ("degree_celsius", "degree_kelvin")
-    probability = parameters["probability_precipitation_amount_gt_0_2mm_last_24h"]
-    assert (probability["unit"], probability["unit_source"]) == ("decimal", "percent")
+    sunshine = parameters["sunshine_duration"]
+    assert (sunshine["unit"], sunshine["unit_source"]) == ("hour", "second")
     # where the provider's unit is the one the values come in, the answer does not repeat it
     unconverted = [p for p in parameters.values() if "unit_source" not in p]
     assert unconverted
@@ -993,9 +993,9 @@ def test_values_dwd_sql_tabular(client: TestClient, monkeypatch: pytest.MonkeyPa
         "timestamp": "2020-01-25T00:00:00.000000+00:00",
         "resolution": "daily",
         "dataset": "climate_summary",
-        "cloud_cover_total_mean": 0.8625,
+        "cloud_cover_total_mean": 86.25,
         "cloud_cover_total_mean_quality_flags": "10",
-        "humidity_relative_mean": 0.89,
+        "humidity_relative_mean": 89.0,
         "humidity_relative_mean_quality_flags": "10",
         "precipitation_form": 0.0,
         "precipitation_form_quality_flags": "10",

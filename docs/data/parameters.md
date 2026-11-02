@@ -369,7 +369,7 @@ The two DMO names are net balances, positive downward into the surface. Read off
 50 J/cm² (never more than 0.95), which is the share the surface absorbs, and 99.7 % of the 182,714 values of `RadL3` are
 negative, down to -3,573 kJ/m², because the surface emits more long-wave radiation than the sky returns. The unit of
 each stays as it was declared, `rads3` in J/cm² and `radl3` in kJ/m², which differ inside one file; with the default
-unit targets both come back in J/cm². The 10-minute and hourly `tsmin` of Geosphere stay
+unit targets both come back in MJ/m². The 10-minute and hourly `tsmin` of Geosphere stay
 `temperature_air_min_0_05m`: they are the minimum of their interval.
 
 #### The road stations and IPMA

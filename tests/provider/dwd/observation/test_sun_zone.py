@@ -123,8 +123,8 @@ def test_the_values_of_a_period_in_true_solar_time_carry_zone_woz(monkeypatch: p
     """Test that the hourly sun stamps of a WOZ period are returned unshifted and flagged `zone:woz` (GH-2816).
 
     DWD's `Metadaten_Parameter` names the periods of 00769 `Stundenwerte in WOZ` (to 2004-06-30, then 08-01 to 09-30)
-    and `Stundenwerte in UTC` (07-01 to 07-31). Neither stamp nor value is changed (the value is in seconds: 6
-    minutes are 360), as the true solar hour of a station is no whole hour from UTC. The quality level of the file
+    and `Stundenwerte in UTC` (07-01 to 07-31). Neither stamp nor value is changed (the value is in hours: 6
+    minutes are 0.1), as the true solar hour of a station is no whole hour from UTC. The quality level of the file
     stays first and a reading of -999 keeps its text last: `10,zone:woz,raw:-999`.
     """
     archive = _archive(_METADATA_00769, _PRODUCT_00769)
@@ -144,9 +144,9 @@ def test_the_values_of_a_period_in_true_solar_time_carry_zone_woz(monkeypatch: p
     )
     df = stations_result(request, "hourly", "sun", "00769").values().all().df.sort("timestamp")
     assert df.select("timestamp", "value", "quality_flags").rows() == [
-        (dt.datetime(2004, 6, 30, 12, tzinfo=UTC), 360.0, "10,zone:woz"),
-        (dt.datetime(2004, 7, 1, 12, tzinfo=UTC), 360.0, "10"),
-        (dt.datetime(2004, 7, 31, 13, tzinfo=UTC), 3600.0, "10"),
-        (dt.datetime(2004, 8, 1, 12, tzinfo=UTC), 3600.0, "10,zone:woz"),
+        (dt.datetime(2004, 6, 30, 12, tzinfo=UTC), 0.1, "10,zone:woz"),
+        (dt.datetime(2004, 7, 1, 12, tzinfo=UTC), 0.1, "10"),
+        (dt.datetime(2004, 7, 31, 13, tzinfo=UTC), 1.0, "10"),
+        (dt.datetime(2004, 8, 1, 12, tzinfo=UTC), 1.0, "10,zone:woz"),
         (dt.datetime(2004, 8, 10, 12, tzinfo=UTC), None, "10,zone:woz,raw:-999"),
     ]

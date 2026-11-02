@@ -381,7 +381,7 @@ def test_meteofrance_observation_api_hourly_invisible_sky_is_null(monkeypatch: p
     _serve_climate(monkeypatch, files)
     df = _values("hourly", "others", "cloud_cover_total", "31069001", _utc(2025, 6, 3), _utc(2025, 6, 4))
     assert df.get_column("timestamp").to_list() == [_utc(2025, 6, 3, 0), _utc(2025, 6, 3, 4), _utc(2025, 6, 3, 7)]
-    assert df.get_column("value").to_list() == [0.0, 0.875, 1.0]
+    assert df.get_column("value").to_list() == [0.0, 87.5, 100.0]
 
 
 def test_meteofrance_observation_api_hourly_ten_minute_wind_is_named_for_its_window(
@@ -1664,7 +1664,7 @@ def test_meteofrance_observation_api_the_humidity_beside_a_dew_point_below_zero_
         "hourly", "others", "humidity_relative", station, _utc(2025, 6, 10), _utc(2025, 6, 11), drop_nulls=False
     )
     assert df.get_column("parameter").unique().to_list() == ["humidity_relative"]
-    assert df.get_column("value").to_list() == ([None, 0.78, 0.15] if not kept else [0.15, 0.78, 0.15])
+    assert df.get_column("value").to_list() == ([None, 78.0, 15.0] if not kept else [15.0, 78.0, 15.0])
     flags = df.get_column("quality_flags").to_list()
     assert flags[0] == ("9" if kept else "9,rejected:consistency,raw:15")
     assert flags[1] == "1"

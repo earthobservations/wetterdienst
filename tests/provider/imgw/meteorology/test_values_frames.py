@@ -145,7 +145,7 @@ def test_imgw_meteorology_daily_climate_comes_out_as_the_long_form(monkeypatch: 
     _assert_the_long_form(df, resolution="daily", dataset="climate", station_id="250190390")
     assert df["timestamp"].unique().to_list() == [dt.datetime(2024, 4, 1, tzinfo=UTC)]
     by_parameter = dict(zip(df["parameter"], df["value"], strict=True))
-    assert by_parameter["humidity_relative_mean"] == 0.605
+    assert by_parameter["humidity_relative_mean"] == 60.5
     assert by_parameter["temperature_air_max_2m"] == 26.4
 
 
