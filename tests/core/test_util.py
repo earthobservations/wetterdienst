@@ -755,3 +755,29 @@ def test_report_elevation_exclusions_says_what_the_ranking_already_proved(
             stations_needed=4,
         )
     assert not caplog.text
+
+
+def test_one_row_per_station_reads_a_zero_elevation_as_none_only_where_asked() -> None:
+    """A 0.0 is null before another row's elevation fills it in, and only where the network lists 0.0 as none.
+
+    The hourly row of the station is nearer and lists 0.0, the daily row lists 827.0: the station stands at 827.0
+    (GH-3708).
+    The station listed at 0.0 by both has none. Without the flag the nearest row's 0.0 is the elevation it says.
+    """
+    from wetterdienst.core.util import one_row_per_station  # noqa: PLC0415
+
+    df = pl.DataFrame(
+        {
+            "station_id": ["A", "A", "B", "B"],
+            "resolution": ["hourly", "daily", "hourly", "daily"],
+            "elevation": [0.0, 827.0, 0.0, 0.0],
+            "distance": [1.0, 1.1, 2.0, 2.1],
+        },
+    )
+    unknown = one_row_per_station(df, zero_is_unknown=True)
+    assert unknown.select("station_id", "resolution", "elevation").rows() == [
+        ("A", "hourly", 827.0),
+        ("B", "hourly", None),
+    ]
+    as_listed = one_row_per_station(df)
+    assert as_listed.select("station_id", "elevation").rows() == [("A", 0.0), ("B", 0.0)]

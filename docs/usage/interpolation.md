@@ -144,7 +144,11 @@ at all: the air temperatures measured at 2 m and the dew point. Not the readings
 10 cm, which are made in the air but governed by the ground radiating beneath them, nor anything
 measured in or on the ground, nor pressure, which falls exponentially rather than linearly. A
 station whose own elevation the provider does not report is left out of an answer about an elevation
-rather than contributing at its own altitude while its neighbours are moved.
+rather than contributing at its own altitude while its neighbours are moved. So is a station of
+`noaa/ghcn` whose elevation is 0.0: GHCN writes 0.0 for a station it knows no elevation of (54 of
+its 271 hourly stations at 0.0 stand between 150 and 4,329 m), so an elevation of exactly 0.0 is
+none there, unless the other list of the station (hourly or daily) gives a height. The stations frame keeps
+the 0.0 as GHCN writes it, and a 0.0 of any other provider, a coast, is a height like any other.
 
 Where that leaves a parameter with no station at all — every station of a few providers reports no
 elevation, FMI's, IPMA's and the Environment Agency's among them — the request is refused rather

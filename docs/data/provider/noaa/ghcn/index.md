@@ -11,6 +11,18 @@ The GHCN-Hourly dataset represents the previously existing ISD (Integrated Surfa
 Each station's `wmo_id` is the WMO station number the lists give it, null for the many stations that
 have none.
 
+## Elevation 0.0 is no elevation
+
+GHCN writes `elevation` 0.0 for a station of which it knows no elevation: 54 of the 271 stations
+at 0.0 in the hourly list stand between 150 and 4,329 m (CHM00052940 reads 500.2 to 998 hPa), and
+BRM00083566 of the daily list is inland at about 827 m. The stations frame keeps the 0.0 as GHCN
+writes it, so that a station on a coast at 0.0 m is not lost. Where the elevation is used, 0.0 is
+read as unknown (`ELEVATION_ZERO_IS_UNKNOWN`): the plausibility check `elevation` of the station
+pressure does not judge a station at 0.0, and `interpolate` and `summarize` asked about an elevation
+leave such a station out, as they do a station with no elevation, instead of bringing its readings
+from a height of 0 m ([interpolation at an elevation](../../../usage/interpolation.md#elevation),
+GH-3708). A station at 12.0 m is a height and is corrected.
+
 ## One reading an hour
 
 The hourly files hold every report of a station, and `hourly` returns one reading for each parameter
