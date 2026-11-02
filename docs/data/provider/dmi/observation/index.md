@@ -26,7 +26,7 @@ generally not correct". It is `false` mostly for Greenland (station 04339 Ittoqq
 precipitation totals of 1978 mm and annual ones of 9574 mm marked so) and rarely for Denmark. The
 library returns those values, flags them `suspect:source` (the check `source`, soft by default, see
 [below](#the-sources-own-verdict-source)) and leaves it to the caller to filter on the flag or to set the check `hard`, which
-nulls them, with one exception that is null in any mode: a value outside the generous physical range of its parameter, the check `range`, hard by default, which is
+nulls them, with one more exception that is null whatever the mode of `source`: a value outside the generous physical range of its parameter, the check `range`, hard by default, which is
 the one table of bounds of every provider (air temperature -90 to 60 °C; for precipitation 350 mm in an
 hour, 1,850 mm in a day, 10,000 mm in a month and 30,000 mm in a year, the records of the WMO rounded outward (the month: Bureau of Meteorology), where DMI
 validated 183.5, 641.8 and 3,291.3 mm at most; the largest amounts of a day or of half an hour, `precipitation_amount_max`

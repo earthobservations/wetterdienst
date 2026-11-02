@@ -607,8 +607,9 @@ def test_api_hourly_quality_code_of_a_verdict_is_judged_by_the_check_source_in_t
     3 = Erroneous, 4 ..., 6 = Suspect, data originate from an NCEI data source, 7 = Erroneous, data originate from an
     NCEI data source, 9 = Passed gross limits check if element is present" and "Legacy Codes for Sources: 220, 221, 222,
     223, 347, 348 include 0 Not Checked, 1 Good, 2 Suspect, 3 Erroneous, 4 Calculated, 5 Removed". The code is read in
-    the list of the source of the element (`source:`), so the same code of a source the table does not list (345, 382,
-    none) is no verdict, and neither are the letters. The first row is the file's own (GHCNh_ACM00078861_por.psv, read
+    the list of the source of the element (`source:`), so the same code of a source the table does not list (345 and
+    382 have lists of their own, which are read too) is no verdict where the source is another or there is none, and
+    only the letters of the list of 382 count. The first row is the file's own (GHCNh_ACM00078861_por.psv, read
     2026-11-02): 1988-01-27 11:00 reads a temperature of 50.0 with code 2 and source 220, in the tropics; the other
     rows are made up from the lists above.
     """

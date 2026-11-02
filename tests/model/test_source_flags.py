@@ -113,7 +113,7 @@ def test_soft_keeps_the_value_and_flags_it_and_hard_nulls_it_and_keeps_the_numbe
 
 TWO_LEVELS = SourceFlags(
     datasets=("a/b",),
-    codes=(SourceCode("1", "Suspect", "suspect"), SourceCode("2", "Poor"), SourceCode("3", "Estimated-not-a-code")),
+    codes=(SourceCode("1", "Suspect", "suspect"), SourceCode("2", "Poor"), SourceCode("4", "Missing-is-no-code")),
     url="u",
     quote="q",
 )
@@ -282,7 +282,7 @@ def test_every_code_has_the_wording_and_the_page_of_its_documentation() -> None:
 
 
 def test_the_datasets_of_the_map_exist_and_are_one_rule_each() -> None:
-    """The datasets are `resolution/dataset` of their network, and none is in two rules with the same codes."""
+    """The datasets are `resolution/dataset` of their network, and a dataset has the rules `flags_of` finds."""
     for network, rules in SOURCE_FLAGS.items():
         provider, name = network.split("/")
         metadata = Wetterdienst.resolve(provider, name).metadata

@@ -130,9 +130,13 @@ but for the `R` of source 382, "suspect with regard to the times or period of oc
 | 345 ("Legacy Codes for Source 345 (for relative humidity and wind speed only)") | `3` "Error (erroneous data)" |
 | 382 ("Legacy Codes for Source 382 for precipitation (as given in C-HPD documentation)") | suspect level: `R` "Indicates data values are suspect with regard to the times or period of occurrence"; erroneous level: `X` "failed global extreme exceedance check"; `N` "failed negative precipitation check"; `Y` "failed state extreme exceedance check (performed on daily totals)"; `K` "failed streak/frequent-value check"; `G` "failed gap check"; `O` "failed climatological outlier check"; `Z` "flagged as a result of an official Datzilla investigation"; `Q` "Indicates value failed an extreme value test (value will be present)" |
 
-Not read: the `0`, `1`, `4`, `5` and `9` of those lists (not checked, good, calculated, removed, passed), the letters of the
-integration's own checks (`c` climatological outlier, `s` spike, `l` failed logistical consistency, ... of Table 3: they
-name the check of the dataset's own processing, not a verdict of the source), the letters `A`, `P`, `U`, `I`, `M`, `R` of the
+Not read: the `0`, `1`, `4`, `5` and `9` of those lists (not checked, good, calculated, removed, passed), the `1` of source 345
+(a field-length overflow of the record), the letters of the integration's own checks (`c` climatological outlier, `s` spike,
+`l` failed logistical consistency, ... of Table 3: they name the check of the dataset's own processing), the `o` ("Out of
+range") and `f` ("Suspect or Error flags for 1 or more of the input measurements") of a relative humidity or wet bulb
+temperature the legacy sources derive (worded as verdicts, but the same letters are the integration's "Odd cluster" and
+"Frequent value" on six elements, and the map does not scope a code by parameter yet,
+[GH-3745](https://github.com/earthobservations/wetterdienst/issues/3745)), the letters `A`, `P`, `U`, `I`, `M`, `R` of the
 legacy lists that say a value was accepted, replaced, inserted or edited, and `D`, `M` and `A` of source 382 (deleted,
 missing, an accumulation).
 

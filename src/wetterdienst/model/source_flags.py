@@ -181,7 +181,9 @@ SOURCE_FLAGS: dict[str, tuple[SourceFlags, ...]] = {
         # documentation: the two lists of the legacy sources, the list of source 345 and the list of source 382 (the
         # precipitation of C-HPD, worded as GHCN-Daily's QFLAG). The letters of the integration's own checks (`c`, `s`,
         # `f`, ... for six elements) are not read: they name the check of this dataset's processing that flagged a value
-        # ("Spike check", "Frequent value") and word no verdict of the source, whose own flag the legacy list carries
+        # ("Spike check", "Frequent value"). Nor are `o` and `f` of a derived humidity or wet bulb, which are worded as
+        # verdicts: the same letters are the integration's on the six elements, and a rule cannot be scoped by
+        # parameter yet (GH-3745)
         SourceFlags(
             datasets=("hourly/data",),
             codes=(

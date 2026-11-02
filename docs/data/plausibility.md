@@ -328,13 +328,17 @@ holds a code the map does not list (a letter the documentation does not word as 
 The tests hold this table to the map of the code (`wetterdienst.model.source_flags.SOURCE_FLAGS`) and to the pages of
 the providers, and a test of each provider's reader pins its codes on a row of the source. What is **not** read, and why:
 
-- **GHCNh letters of the integration's own checks**: `c` climatological outlier, `s` spike, `l` failed logistical
-  consistency, ... name the check of the dataset's own processing that flagged a value (for six elements; `f` and `o`
-  also for a derived humidity or wet bulb), not a verdict of the source, so no letter is read outside the list of source
-  382, where the documentation words each as a failed check or as suspect. The codes `0`, `1`, `4`, `5` and `9` of the
-  legacy lists say the value passed, was calculated or was removed, `D`, `M` and `A` of source 382 that it was deleted,
-  missing or an accumulation, and `A`, `P`, `U`, `I`, `M`, `R` of the legacy lists that a value was accepted, replaced
-  or inserted.
+- **GHCNh letters of the integration's own checks, and `o` and `f` of a derived humidity**: `c` climatological outlier,
+  `s` spike, `l` failed logistical consistency, ... name the check of the dataset's own processing that flagged one of
+  six elements, and `o` ("Out of range") and `f` ("Suspect or Error flags for 1 or more of the input measurements") flag
+  a relative humidity or wet bulb temperature that the legacy sources derive. Those two are worded as verdicts, and are
+  left out because the same letters are the integration's "Odd cluster" and "Frequent value" on the six elements, so a
+  letter can be read only with the parameter beside it, which the map does not scope by yet
+  ([GH-3745](https://github.com/earthobservations/wetterdienst/issues/3745)). No other letter is read outside the list
+  of source 382, where the documentation words each as a failed check or as suspect. The codes `0`, `1`, `4`, `5` and
+  `9` of the legacy lists say the value passed, was calculated or was removed, the `1` of source 345 a field-length
+  overflow of the record, `D`, `M` and `A` of source 382 that it was deleted, missing or an accumulation, and `A`, `P`,
+  `U`, `I`, `M`, `R` of the legacy lists that a value was accepted, replaced or inserted.
 - **Frost 2, 4, 5 and 6**: "slightly uncertain" and "very uncertain" are a degree of confidence, and `6` is model data.
   Frost's own word for a verdict is `7`, "Erroneous": "very uncertain" (`5`) says how sure the control was, not that
   the value failed, where Météo-France's "douteuse" and CHMI's "Suspect" say the control doubted the value itself.
