@@ -58,6 +58,13 @@ wrong. Such parameters have the unit type `temperature_difference`, which has th
 and so one target: they are returned in kelvin, whatever the target of `temperature` is, and any other target is
 refused. The parameters of the type are those `glossary` lists for `unit_type="temperature_difference"`.
 
+Quantities that are not the same are not under one target. How long something lasted -- sunshine, precipitation, a
+wet leaf -- is a `duration` and is returned in hours; a wave period or the offset of solar time is a `time` and stays
+in seconds. A sum of daily snow depths is a depth times days, no length: its unit type `length_day` has the one unit
+`centimeter_day` (`cm·d`) and, like `temperature_difference`, no target moves it. A film of water on a road is a
+`length_tiny` (the units of a length, `millimeter` by default); snow, ice and frozen ground are `length_short`
+(`centimeter`), water levels and waves `length_medium` (`meter`).
+
 The `unit` that `coverage` (`discover()`) gives a parameter is this target of its unit type: the unit of its values
 for a request that passes no options, as `glossary` lists it, with the environment's `WD_TS_UNIT_TARGETS` and
 `WD_TS_CONVERT_UNITS` applied as `values` applies them. The unit the provider publishes the parameter in is

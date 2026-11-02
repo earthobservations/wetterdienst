@@ -449,7 +449,7 @@ def test_dwd_observation_data_result_wide_convert_units(
             "sdk_quality_flags": ["1,raw:-999"],
             "shk_tag": [0.0],
             "shk_tag_quality_flags": ["1"],
-            "nm": [1.0],
+            "nm": [100.0],
             "nm_quality_flags": ["1"],
             "vpm": [6.400],
             "vpm_quality_flags": ["1"],
@@ -457,7 +457,7 @@ def test_dwd_observation_data_result_wide_convert_units(
             "pm_quality_flags": ["1"],
             "tmk": [0.5],
             "tmk_quality_flags": ["1"],
-            "upm": [0.9700],
+            "upm": [97.0],
             "upm_quality_flags": ["1"],
             "txk": [0.7],
             "txk_quality_flags": ["1"],
@@ -671,7 +671,7 @@ def test_dwd_observation_data_result_tidy_convert_units(options_humanize_false_d
                 "dataset": "climate_summary",
                 "parameter": "nm",
                 "timestamp": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 1.0,
+                "value": 100.0,
                 "quality_flags": "1",
             },
             {
@@ -761,7 +761,7 @@ def test_dwd_observation_data_result_tidy_convert_units(options_humanize_false_d
                 "dataset": "climate_summary",
                 "parameter": "upm",
                 "timestamp": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 0.9700,
+                "value": 97.0,
                 "quality_flags": "1",
             },
             {
@@ -807,7 +807,7 @@ def test_dwd_observations_urban_values(default_settings: Settings) -> None:
                 "dataset": "urban_temperature_air",
                 "parameter": "humidity_relative",
                 "timestamp": dt.datetime(2022, 6, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 0.83,
+                "value": 83.0,
                 "quality_flags": "3",
             },
             {
@@ -1333,8 +1333,8 @@ def test_dwd_observations_urban_10_minutes_historical(default_settings: Settings
 def test_dwd_observations_urban_10_minutes_sunshine_duration_is_hours(default_settings: Settings) -> None:
     """The urban 10 minute sunshine duration is in hours: a 10 minute interval holds at most 600 s (GH-2698).
 
-    DWD's parameter sheet says "Minute", the values of station 00399 are 0.00 to 0.17 (10/60 rounded), which
-    in seconds are 0 to 612. Read as minutes they would be at most 10.2 s.
+    DWD's parameter sheet says "Minute", the values of station 00399 are 0.00 to 0.17 (10/60 rounded) hours, the
+    unit it is returned in. Read as minutes they would be at most 0.17 min.
     """
     request = DwdObservationRequest(
         parameters=[("10_minutes", "urban_solar", "sunshine_duration")],
@@ -1342,7 +1342,7 @@ def test_dwd_observations_urban_10_minutes_sunshine_duration_is_hours(default_se
         settings=default_settings,
     ).filter_by_station_id("00399")
     values = request.values().all().df.get_column("value")
-    assert 300 < values.max() <= 612.0
+    assert 0.1 < values.max() <= 0.17
 
 
 @pytest.mark.remote
@@ -1865,7 +1865,8 @@ def test_dwd_observation_solar_hourly_timestamps_off(default_settings: Settings)
     ).filter_by_station_id(station_id="03987")
     values_df = next(request.values().query()).df
     assert len(values_df) == 24
-    assert values_df.get_column("value").sum() == 46.0
+    # 46 J/cm² of the day, in MJ/m² (1 MJ/m² = 100 J/cm²)
+    assert values_df.get_column("value").sum() == pytest.approx(0.46)
 
 
 @pytest.mark.remote

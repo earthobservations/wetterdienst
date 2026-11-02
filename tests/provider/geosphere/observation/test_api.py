@@ -45,8 +45,8 @@ def test_geosphere_observation_api() -> None:
         # cglo, served as irradiance in W / m² and passed through unconverted
         ("minute_10", "radiation_global_intensity_mean", 288, IsNumeric(ge=82770.0, le=82870.0)),
         ("hourly", "radiation_global_intensity_mean", 48, IsNumeric(ge=13790.0, le=13815.0)),
-        # cglo_j, a distinct upstream parameter already accumulated over the day in J / cm²
-        ("daily", "radiation_global", 2, IsNumeric(ge=4966.2000, le=4972.0000)),
+        # cglo_j, accumulated over the day upstream in J / cm², returned in MJ/m² (1 MJ/m² = 100 J/cm²)
+        ("daily", "radiation_global", 2, IsNumeric(ge=49.662, le=49.72)),
     ],
 )
 def test_geosphere_observation_api_radiation(

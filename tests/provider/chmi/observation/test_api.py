@@ -501,7 +501,7 @@ def test_chmi_observation_values_10_minutes() -> None:
     df = _values("10_minutes", dt.datetime(2020, 1, 1, tzinfo=UTC), dt.datetime(2020, 1, 1, 0, 10, tzinfo=UTC))
     when = dt.datetime(2020, 1, 1, tzinfo=UTC)
     assert _value_of(df, "temperature_air_2m", when) == pytest.approx(-2.8)
-    assert _value_of(df, "humidity_relative", when) == pytest.approx(0.92)
+    assert _value_of(df, "humidity_relative", when) == pytest.approx(92.0)
     assert _value_of(df, "pressure_air_site", when) == pytest.approx(975.8)
     assert _value_of(df, "wind_speed", when) == pytest.approx(1.3)
 
@@ -613,10 +613,10 @@ def test_chmi_observation_values_daily() -> None:
     assert _value_of(df, "wind_speed_max", when) == pytest.approx(3.7)
     assert _value_of(df, "pressure_air_site_mean", when) == pytest.approx(974.9)
     assert _value_of(df, "snow_depth", when) == pytest.approx(0.0)
-    # CHMI reports humidity in percent; wetterdienst stores it as a fraction
-    assert _value_of(df, "humidity_relative_mean", when) == pytest.approx(0.92)
-    # CHMI reports sunshine in hours; wetterdienst stores it in seconds (5.9 h -> 21240 s)
-    assert _value_of(df, "sunshine_duration", when) == pytest.approx(21240.0)
+    # CHMI reports humidity in percent, which is returned as it is
+    assert _value_of(df, "humidity_relative_mean", when) == pytest.approx(92.0)
+    # CHMI reports sunshine in hours, which is returned as it is
+    assert _value_of(df, "sunshine_duration", when) == pytest.approx(5.9)
 
 
 @pytest.mark.remote

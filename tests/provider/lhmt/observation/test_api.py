@@ -228,8 +228,8 @@ def test_lhmt_observation_values() -> None:
     assert value_at("wind_speed", 12) == pytest.approx(4.7)
     assert value_at("wind_direction", 12) == pytest.approx(261.0)
     assert value_at("pressure_air_sea_level", 12) == pytest.approx(1007.4)
-    # humidity is converted from percent to the default decimal target (52 % -> 0.52)
-    assert value_at("humidity_relative", 12) == pytest.approx(0.52)
+    # humidity is in percent, the default target, as the source writes it
+    assert value_at("humidity_relative", 12) == pytest.approx(52.0)
 
 
 _STATIONS_JSON = (

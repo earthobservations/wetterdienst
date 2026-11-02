@@ -1494,12 +1494,15 @@ def _wsv(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     celle = {
         "equidistance": 15,
         "gaugeZero": {"value": 31.82, "unit": "m. ü. NN"},
-        "characteristicValues": [{"shortname": key, "value": value} for key, value in values],
+        "characteristicValues": [{"shortname": key, "value": value, "unit": "cm"} for key, value in values],
     }
     korneuburg = {
         "equidistance": 15,
         "gaugeZero": {"value": 159.87, "unit": "m ü. A."},
-        "characteristicValues": [{"shortname": "RNW", "value": 191.0}, {"shortname": "HSW", "value": 549.0}],
+        "characteristicValues": [
+            {"shortname": "RNW", "value": 191.0, "unit": "cm"},
+            {"shortname": "HSW", "value": 549.0, "unit": "cm"},
+        ],
     }
     bare = {"equidistance": 10, "gaugeZero": None, "characteristicValues": []}
     catalogue = [

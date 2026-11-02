@@ -176,12 +176,12 @@ _DAY_COUNTS = [
 
 # The global radiation of a day, a month and a year (the sum of the underlying hourly values), which DMI publishes in
 # MJ/m2: "for hourly time resolution the unit is W/m^2, for all other time resolutions the unit is MJ/m^2"
-# (https://www.dmi.dk/friedata/dokumentation/climate-data, parameter table, read 2026-10-31). The library has no MJ/m2,
-# so the reader multiplies the value by 1000 (`_TO_DECLARED_UNIT` of `api.py`) and the metadata declares kJ/m2.
+# (https://www.dmi.dk/friedata/dokumentation/climate-data, parameter table, read 2026-10-31), declared as it is
+# (before the library had the unit, the reader multiplied it by 1000 to declare kJ/m2: GH-3622, GH-3752).
 _RADIATION_SUM = {
     "name": "radiation_global",
     "name_original": "mean_radiation",
-    "unit": "kilojoule_per_square_meter",
+    "unit": "megajoule_per_square_meter",
 }
 # The mean vapour pressure, from the hourly values of the mean temperature and the mean relative humidity
 # (DMI: "calculation method of mean_vapour_pressure"), published from the day on.

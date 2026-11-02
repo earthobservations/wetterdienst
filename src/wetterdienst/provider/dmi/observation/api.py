@@ -100,13 +100,6 @@ _MISSING_SNOW_DEPTH = Sentinel("999", where=pl.col("parameterId").eq("max_snow_d
 # (04416 Summit on the ice sheet, 2011; 17,747.8 in 2009 and 17,612.7 in 2013) and the highest month 2,114.3 (2011-12),
 # so the bounds of the range table (115 a day, 3,600 a month, 42,100 a year) lie well above both (read 2026-10-31)
 _FIELD_SERVED_AS = {"acc_heating_degree_days_19": "acc_heating_degree_days_17"}
-# DMI's value of a parameter that the metadata declares in another unit is multiplied by this factor: the radiation of
-# a day, a month and a year is a sum in MJ/m2 that the metadata declares in kJ/m2 (GH-3622)
-_TO_DECLARED_UNIT: dict[str, dict[str, float]] = {
-    "daily": {"mean_radiation": 1_000.0},
-    "monthly": {"mean_radiation": 1_000.0},
-    "annual": {"mean_radiation": 1_000.0},
-}
 _STATION_VALUE_SCHEMA = pl.Schema(
     {
         "features": pl.List(
@@ -359,14 +352,6 @@ class DmiObservationValues(TimeseriesValues):
         # made of the value, and stay as `raw:0` (GH-2794), `raw:-0.1` (GH-3621) and `raw:999`; a value outside the
         # range of its parameter is the core's to judge (`model/judge.py`)
         value, raw = null_sentinels(pl.col("value"), _CALM_WIND, _TRACE, _MISSING_SNOW_DEPTH, text=False)
-        # the radiation of a day, a month and a year is written in MJ/m2 and declared in kJ/m2 (GH-3622); the rounding
-        # takes the float error of the product away, DMI's values having one decimal
-        # the megajoules DMI wrote are the text of the value for the `raw:` token of a rejected one (`source_text`)
-        source_text = pl.lit(None, dtype=pl.String)
-        for name, factor in _TO_DECLARED_UNIT.get(dataset.resolution.name, {}).items():
-            converted = pl.col("parameterId").eq(name)
-            value = pl.when(converted).then((value * factor).round(3)).otherwise(value)
-            source_text = pl.when(converted).then(pl.col("value").cast(pl.String)).otherwise(source_text)
         # the station, resolution and dataset, the order of the columns and the dtypes are the core's to write
         # (`shape_provider_frame`); a frame without a row is the empty long form there, whatever it holds
         timestamp = self._date_expression(resolution)
@@ -383,7 +368,6 @@ class DmiObservationValues(TimeseriesValues):
             pl.col("parameterId").alias("parameter"),
             timestamp.alias("timestamp"),
             value.alias("value"),
-            source_text.alias("source_text"),
             _quality_flags(raw),
         )
 

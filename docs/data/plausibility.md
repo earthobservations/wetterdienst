@@ -44,8 +44,8 @@ For a dataset that a check applies to, the core does this for each station, afte
 2. The frame of a grouped dataset is cut to the parameters you asked for and the ones a rule reads beside them (the air
    beside a road surface, the dew point beside a humidity, the air of the road's run rule): a verdict on a parameter
    that is cut afterwards would never be seen, so the others are not merged, converted or judged.
-3. Those parameters are converted to the canonical unit of their unit type (°C, hPa, m/s, mm, J/cm², a fraction as a
-   decimal, seconds), without rounding. The bounds of the table are therefore written once per quantity and not once
+3. Those parameters are converted to the canonical unit of their unit type (°C, hPa, m/s, mm, MJ/m², a fraction in
+   percent, a duration in hours, a wave period in seconds), without rounding. The bounds of the table are therefore written once per quantity and not once
    per source and unit, and do not depend on the unit you ask for. (The bounds you set yourself,
    [`limits`](#bounds-of-your-own-limits), are in the unit you ask for, and the core converts them.)
 4. The checks judge the frame in canonical units. A check that compares two parameters (a road surface and the air
@@ -138,8 +138,9 @@ the main ones are:
 | snow cover | 0 to 100 % | definition |
 | vapour pressure deficit | -10 to 200 hPa | the saturation pressure at the 60 °C of the air bound, 199 hPa by Magnus; DMI writes some hours and days a little below 0 (-3 hPa at 06193, 2025-07-25), so the lower end leaves them |
 | new snow in a day, in a month | 0 to 200 cm, 0 to 6,200 cm | Durre et al. 192.5 cm; a month (the sums of the daily depths, ECCC's normal snowfall) is that times 31 |
-| sunshine, precipitation and leaf wetness duration | 0 to the span + 5 % | definition, with the margin of ECA&D for the length of the day |
+| sunshine, precipitation and leaf wetness duration | 0 to the span + 5 % (1.05 h in an hour, 25.2 h in a day) | definition, with the margin of ECA&D for the length of the day |
 | short-wave irradiance | 0 to 2,000 W/m² | WMO-No. 488 holds 0 to 1,600, BSRN 2,141 at the zenith |
+| a sum of short-wave radiation | 0 to 1 MJ/m² in 10 minutes, 5 in an hour, 60 in a day | the solar constant times the span, rounded outward; a day is at most 60 (the top of the atmosphere at 82 degrees north in midsummer is about 45), a month and a year are that times their days (1,860 and 22,000) |
 | snow depth | -10 to 1,200 cm | ISD 1,200 cm, Durre et al. 1,146 cm; a gauge reads a few centimetres below 0 |
 | water temperature | -5 to 50 °C | MADIS holds the sea surface to -2 to 40 °C |
 | everything else with no record | at least 0 | definition |
@@ -196,7 +197,7 @@ value, it is the hard verdict alone (`range` hard and `limits` soft: `rejected:r
 | --- | --- |
 | **bounds** | `(low, high)`, both ends included in what is plausible. Either may be `None` (`null`) for no bound at that end, but not both. `low` may not exceed `high`, and a bound is a finite number: NaN and infinity are refused |
 | **names** | a canonical parameter name (`temperature_air_mean_2m`), which holds in every dataset that serves it, or `resolution/dataset/parameter` (`daily/climate_summary/temperature_air_mean_2m`), which holds in that dataset only. The dataset is named as a request names it: `daily/kl/...`, the source's own names and any casing work. Where both name a parameter, the one with the dataset wins **as a whole**: its pair is used and the other pair is not combined with it |
-| **unit** | the unit of the values the request returns: `unit_targets` if you ask for one (`(-22, 113)` for degrees Fahrenheit), the default unit of the quantity otherwise (a humidity is a decimal, `(0, 0.9)`), and the unit of the source with `convert_units` off. The core converts the bounds to the canonical unit and judges the reading there, as it does for the table, before it is rounded for the answer |
+| **unit** | the unit of the values the request returns: `unit_targets` if you ask for one (`(-22, 113)` for degrees Fahrenheit), the default unit of the quantity otherwise (a humidity is a percent, `(0, 90)`), and the unit of the source with `convert_units` off. The core converts the bounds to the canonical unit and judges the reading there, as it does for the table, before it is rounded for the answer |
 | **mode** | `plausibility={"limits": ...}`: **hard** by default (`rejected:limits,raw:<number>`, the value null), **soft** keeps the value and flags it `suspect:limits`. A bare `plausibility="soft"` covers it like every check |
 | **a name that is none** | an error, never ignored: a typo would be indistinguishable from having set no bound. A name that is a parameter but that your request does not read does nothing, so one set of bounds can serve requests for any network |
 

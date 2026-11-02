@@ -313,12 +313,12 @@ the numbers over in the unit of its source, and:
 - **hands the text beside the number** where it reads a text and converts or interprets it before the core sees it: a
   column `source_text` of the frame next to `value`. The core writes it in the `raw:` token of a value it rejects
   (`raw:-0.80`, not `raw:-0.8`). A reader whose `value` is a text needs nothing (its `value` is the text), one whose
-  `value` is a number gets the number as short as it goes, and one that converts the unit itself (DMI's megajoules to
-  kilojoules) hands the text it read.
+  `value` is a number gets the number as short as it goes, and one that converts the number itself hands the text it
+  read.
 - **declares no bounds**: the table `wetterdienst/model/plausibility_ranges.py` is the same for every provider, by
   canonical parameter name and, where the quantity grows with the span, by resolution, in the canonical unit (°C, hPa,
-  m/s, mm, J/cm², a fraction as a decimal, seconds), and judges a new network's parameters as soon as they have a
-  canonical name (`tests/test_docs_plausibility.py` holds the coverage table of
+  m/s, mm, MJ/m², a fraction in percent, a duration in hours, a wave period in seconds), and judges a new network's
+  parameters as soon as they have a canonical name (`tests/test_docs_plausibility.py` holds the coverage table of
   [the page](../data/plausibility.md) to it). A parameter the table has no bound for gets the one of its family, or of
   its unit type; a new quantity with a record is added to the table with its source (the WMO record rounded outward, then
   the definition, then a named source), once for all networks, and `tests/provider/physical_ranges.py` reads the same

@@ -85,7 +85,7 @@ def test_the_direct_irradiation_comes_out_under_the_name_of_the_energy_perpendic
     The MIDAS table RO has a pyrheliometer measure it "at normal incidence", in "Kjoules/ sq metre over the observation
     period"; the global and the diffuse radiation are on a horizontal surface. The hourly file holds a 24 hour total
     beside the hour (`ob_hour_count`), which is no value of the hour. The values are the file's kJ/m2 in the unit of the
-    energy type, J/cm2 (1 kJ/m2 = 0.1 J/cm2); the direct one is above the global one here, as it can be.
+    energy type, MJ/m2 (1 kJ/m2 = 0.001 MJ/m2); the direct one is above the global one here, as it can be.
     """
     values = _badc(
         "ob_end_time,ob_hour_count,glbl_irad_amt,glbl_irad_amt_q,difu_irad_amt,difu_irad_amt_q,direct_irad,direct_irad_q",
@@ -111,8 +111,8 @@ def test_the_direct_irradiation_comes_out_under_the_name_of_the_energy_perpendic
     )
     df = stations_result(request, "hourly", "radiation", "00001").values().all().df
     assert dict(df.select("parameter", "value").iter_rows()) == {
-        "radiation_global": 150.0,
-        "radiation_sky_short_wave_diffuse": 40.0,
-        "radiation_sky_short_wave_direct_perpendicular": 210.0,
+        "radiation_global": 1.5,
+        "radiation_sky_short_wave_diffuse": 0.4,
+        "radiation_sky_short_wave_direct_perpendicular": 2.1,
     }
     assert df["timestamp"].unique().to_list() == [dt.datetime(1996, 6, 1, 10, tzinfo=_UTC)]

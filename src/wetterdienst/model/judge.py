@@ -58,8 +58,8 @@ _CONVERTER = UnitConverter()
 _INF = math.inf
 SOURCE = "__source"
 _SOURCE = SOURCE
-#: the column a provider hands the text of the source's value in, beside the value (the cell of a file, the megajoules
-#: of a source that the reader converts): the core writes it in the `raw:` token of a value it rejects
+#: the column a provider hands the text of the source's value in, beside the value (the cell of a file, the number of a
+#: source that the reader converts): the core writes it in the `raw:` token of a value it rejects
 SOURCE_TEXT = "source_text"
 _HIT = "__hit_"
 _ELIGIBLE = "__eligible"

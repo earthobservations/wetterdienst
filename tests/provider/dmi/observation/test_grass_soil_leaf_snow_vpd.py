@@ -76,9 +76,9 @@ def test_the_five_are_served_where_dmi_publishes_them_and_nowhere_else() -> None
 
 
 def test_the_canonical_names_say_what_the_unit_type_converts_to() -> None:
-    """The minutes of leaf wetness are a time, the kPa of the deficit a pressure and the percent a fraction."""
+    """The minutes of leaf wetness are a duration, the kPa of the deficit a pressure and the percent a fraction."""
     expected = {
-        "leaf_wetness_duration": "time",
+        "leaf_wetness_duration": "duration",
         "vapor_pressure_deficit_mean": "pressure",
         "snow_cover": "fraction",
         "temperature_air_mean_grass_height": "temperature",
@@ -133,7 +133,7 @@ def _by_time(df: pl.DataFrame, parameter: str) -> dict[dt.datetime, float]:
 
 
 def test_the_hourly_values_come_back_in_the_default_units(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Minutes of leaf wetness are seconds, the kPa of the deficit hPa; the degrees stay degrees.
+    """Minutes of leaf wetness are hours, the kPa of the deficit hPa; the degrees stay degrees.
 
     The records of 06069 hold the hourly `temp_soil_30` as well, and it is not returned.
 
@@ -143,8 +143,8 @@ def test_the_hourly_values_come_back_in_the_default_units(monkeypatch: pytest.Mo
     start, end = _day(2025, 6, 10), _day(2025, 6, 10, 6)
     leaf = _values(monkeypatch, "hourly", "06072", start, end)
     assert set(leaf["parameter"]) == {"leaf_wetness_duration"}
-    assert _by_time(leaf, "leaf_wetness_duration")[_day(2025, 6, 10)] == 35 * 60.0
-    assert _by_time(leaf, "leaf_wetness_duration")[_day(2025, 6, 10, 1)] == 60 * 60.0
+    assert _by_time(leaf, "leaf_wetness_duration")[_day(2025, 6, 10)] == pytest.approx(35 / 60, abs=1e-5)
+    assert _by_time(leaf, "leaf_wetness_duration")[_day(2025, 6, 10, 1)] == 1.0
     deficit = _values(monkeypatch, "hourly", "06066", start, end)
     assert set(deficit["parameter"]) == {"vapor_pressure_deficit_mean"}
     assert _by_time(deficit, "vapor_pressure_deficit_mean") == pytest.approx(
@@ -180,11 +180,9 @@ def test_the_daily_values_are_stamped_by_the_local_day(monkeypatch: pytest.Monke
     """
     start, end = _day(2025, 6, 10), _day(2025, 6, 12)
     leaf = _values(monkeypatch, "daily", "06135", start, end)
-    assert _by_time(leaf, "leaf_wetness_duration") == {
-        _day(2025, 6, 10): 1332 * 60.0,
-        _day(2025, 6, 11): 39 * 60.0,
-        _day(2025, 6, 12): 364 * 60.0,
-    }
+    assert _by_time(leaf, "leaf_wetness_duration") == pytest.approx(
+        {_day(2025, 6, 10): 1332 / 60, _day(2025, 6, 11): 39 / 60, _day(2025, 6, 12): 364 / 60}, abs=1e-5
+    )
     deficit = _values(monkeypatch, "daily", "06073", start, end)
     assert _by_time(deficit, "vapor_pressure_deficit_mean") == pytest.approx(
         {_day(2025, 6, 11): 4.0, _day(2025, 6, 12): 4.0}
@@ -195,7 +193,7 @@ def test_the_daily_values_are_stamped_by_the_local_day(monkeypatch: pytest.Monke
     assert _by_time(soil, "temperature_soil_mean_0_3m") == {_day(2025, 6, 11): 13.6, _day(2025, 6, 12): 13.8}
 
 
-def test_the_snow_cover_is_a_percent_returned_as_a_decimal_of_the_day_it_begins(
+def test_the_snow_cover_is_a_percent_returned_as_it_is_for_the_day_it_begins(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """06180, January 2011: 99 % on the 14th, 74 % on the 15th, 49 %, 1 % and 0 %; days of 06:00 to 06:00 UTC.
@@ -207,10 +205,10 @@ def test_the_snow_cover_is_a_percent_returned_as_a_decimal_of_the_day_it_begins(
     assert set(df["parameter"]) == {"snow_cover"}
     assert _by_time(df, "snow_cover") == pytest.approx(
         {
-            _day(2011, 1, 14): 0.99,
-            _day(2011, 1, 15): 0.74,
-            _day(2011, 1, 16): 0.49,
-            _day(2011, 1, 17): 0.01,
+            _day(2011, 1, 14): 99.0,
+            _day(2011, 1, 15): 74.0,
+            _day(2011, 1, 16): 49.0,
+            _day(2011, 1, 17): 1.0,
             _day(2011, 1, 18): 0.0,
         }
     )

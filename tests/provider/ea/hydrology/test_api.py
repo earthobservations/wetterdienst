@@ -170,10 +170,10 @@ def test_ea_daily_groundwater_level_is_not_offered(parameter: str, default_setti
 @pytest.mark.parametrize(
     ("parameter", "station_id", "notation", "expected"),
     [
-        # the river level is stage, in centimetres like WSV and IMGW: the endpoint's metres, times 100
-        (("15_minutes", "data", "stage"), "river", "level-i-900", 54.2),
-        (("daily", "data", "stage_max"), "river", "level-max-86400", 54.2),
-        (("daily", "data", "stage_min"), "river", "level-min-86400", 54.2),
+        # the river level is stage, in metres like the groundwater level: the endpoint's metres, as they are
+        (("15_minutes", "data", "stage"), "river", "level-i-900", 0.542),
+        (("daily", "data", "stage_max"), "river", "level-max-86400", 0.542),
+        (("daily", "data", "stage_min"), "river", "level-min-86400", 0.542),
         # the borehole's metres above ordnance datum stay metres
         (("15_minutes", "data", "groundwater_level"), "ground", "gw-logged-i-subdaily", 0.542),
     ],

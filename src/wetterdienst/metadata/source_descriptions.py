@@ -186,8 +186,9 @@ _WSV_PEGEL_PARAMETERS = {
     ),
     "W": (
         "Water level (WASSERSTAND ROHDATEN, or WASSERSTAND at two gauges), published in cm or, at some gauges, in m+NN "
-        "or m+PNP, and returned in cm. The m+PNP series and the cm series that carry a gauge zero (gaugeZero, the "
-        "Pegelnullpunkt) are relative to it, and each gauge zero is that gauge's own. The m+NN series are relative to "
+        "or m+PNP, and read in cm, the unit the model declares (the default unit of a water level is m). The m+PNP "
+        "series and the cm series that carry a gauge zero (gaugeZero, the Pegelnullpunkt) are relative to it, and "
+        "each gauge zero is that gauge's own. The m+NN series are relative to "
         "NN. 28 cm series (stations list of 2026-10-21) publish no gauge zero and the source states no reference for "
         f"them, so values of different stations do not in general share a reference: {_WSV_PEGEL_RAW}."
     ),
@@ -2183,18 +2184,18 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("daily", "data", "mean_radiation"): (
             "Global radiation (305 to 2800 nm) of the day, as the energy summed over the day: the sum of the "
-            "underlying hourly values, which the source publishes in MJ/m² (the library multiplies it by "
-            "1000 and returns kJ/m², converted to the unit asked for). Published for some stations only."
+            "underlying hourly values, which the source publishes in MJ/m² (returned as it is, in the default unit, "
+            "or converted to the unit asked for). Published for some stations only."
         ),
         ("monthly", "data", "mean_radiation"): (
             "Global radiation (305 to 2800 nm) of the month, as the energy summed over the month: the sum of "
-            "the underlying daily values, which the source publishes in MJ/m² (the library multiplies it by "
-            "1000 and returns kJ/m², converted to the unit asked for)."
+            "the underlying daily values, which the source publishes in MJ/m² (returned as it is, in the default unit, "
+            "or converted to the unit asked for)."
         ),
         ("annual", "data", "mean_radiation"): (
             "Global radiation (305 to 2800 nm) of the year, as the energy summed over the year: the sum of "
-            "the underlying daily values, which the source publishes in MJ/m² (the library multiplies it by "
-            "1000 and returns kJ/m², converted to the unit asked for)."
+            "the underlying daily values, which the source publishes in MJ/m² (returned as it is, in the default unit, "
+            "or converted to the unit asked for)."
         ),
         ("daily", "data", "mean_vapour_pressure"): (
             "Mean vapour pressure of the day, in hPa: the mean of the hourly values that could be calculated "

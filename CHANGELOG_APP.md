@@ -16,6 +16,29 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[Glossary]` The new unit types `duration` (how long sunshine, precipitation or a wet leaf
+  lasted), `length_day` (the sum of daily snow depths, in cm·d) and `length_tiny` (a film of water
+  on a road) have their labels in the unit filter, in all eleven languages. The type `time`, which
+  is now the wave period and the offset of solar time only, is labelled "Time" where it was
+  "Duration". Needs the backend that serves them: release the backend first. The Low German and
+  Luxembourgish labels are not reviewed by a native speaker (GH-3702, GH-3747)
+
+### Changed
+
+- `[Glossary]`, `[Explorer]` The numbers the backend returns change with its new default units
+  (GH-3702): sunshine, the duration of precipitation and of a wet leaf in hours (not seconds), a
+  sum of radiation in MJ/m² (not J/cm²), a humidity, a cloud cover or a probability in percent
+  (87 for 87 %, not 0.87), water levels and wave heights in metres (not centimetres) and a film of
+  water on a road in millimetres. The Explorer's "Length (medium)" unit target now moves the water
+  levels; "Length (short)" is snow, ice and frozen ground only. The forecast keeps the cloud cover
+  it asks for as a decimal, so it reads as before. Needs the backend that serves them
+- `[Settings]` A first visit shows the backend's new defaults in the unit choices: "Fraction /
+  coverage" is percent, "Energy per area" MJ/m² (a new choice), and "Duration" is a row of its own
+  in hours; "Time" keeps seconds. What the page stored on an earlier visit is kept, and none of
+  these choices is applied to a request yet (GH-3702)
+
 ## [0.43.0] - 2026-11-02
 
 ### Added
