@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.43.0] - 2026-11-02
+
 ### Added
 
 - `[Explorer]` A request the server refuses over its limits (`limit-exceeded`: too many rows for
@@ -26,7 +28,8 @@ Types of changes:
   date range and asks again, and the whole request as a streamed CSV download (`format=csv`,
   for which the server allows more rows). All eleven locales; pl, cs, lb and de-hh are not natively
   reviewed. The table area that takes the focus after "Show only the newest data" is a group named
-  "Data" (GH-3457, GH-3722)
+  "Data". The app of this release is paired with the backend 0.182.0, the least it is run with:
+  release the backend first (GH-3457, GH-3722)
 - `[Explorer]` A station selection whose whole record is over about 90 % of what the server
   sends as one answer starts with the newest window that fits in the date range, with a note
   under the fields that says so, where the range was empty (the server's limits come from
@@ -1789,7 +1792,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.42.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.43.0...HEAD
+[0.43.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.42.0...app-v0.43.0
 [0.42.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.41.0...app-v0.42.0
 [0.41.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.40.0...app-v0.41.0
 [0.40.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.39.0...app-v0.40.0
