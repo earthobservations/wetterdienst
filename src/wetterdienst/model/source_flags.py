@@ -7,15 +7,20 @@ names the check a value failed, Frost's ``qualityCode`` is 7 for a value it call
 writes ``Suspect``. A reader hands that flag over in ``quality_flags`` as the source wrote it
 (``model/quality_flags.py``) and returns the value, and the core reads it here: a reading whose flag holds one of the
 codes below is judged by the check ``source``, which in the mode ``soft`` (the default) keeps the value and writes
-``suspect:source``, and in the mode ``hard`` nulls it and writes ``rejected:source,raw:<text>`` (``model/judge.py``).
+``suspect:source``, and in the mode ``hard`` nulls it and writes ``rejected:source,raw:<text>`` (``model/judge.py``),
+unless the code is of the milder level of its source (below).
 
 The rule is one for every provider: **a code is in the map where the provider's documentation words it as the verdict
 that the value failed a check, is erroneous, suspect, doubtful or of poor quality**, and every code of the map is cited
 beside it, with the documentation's wording and its URL. What the documentation words as a degree of uncertainty
 (Frost's "slightly uncertain"), a treatment (estimated, corrected, interpolated), a missing value or no control at all
-(``Unchecked``, DMI's ``qcStatus`` ``none``) is no verdict and is not in the map. Both levels of a source that has two
-(GHCNh's ``Suspect`` and ``Erroneous``, CHMI's ``Suspect`` and ``Poor``) are in it, the check judges them alike, and the
-wording of each code is in the page of the provider.
+(``Unchecked``, DMI's ``qcStatus`` ``none``) is no verdict and is not in the map.
+
+A source with two levels of verdict (GHCNh's ``Suspect`` and ``Erroneous``, CHMI's ``Suspect`` and ``Poor``) has both
+in the map, each code with its ``level``. In the mode ``soft`` both write ``suspect:source``. In the mode ``hard`` only
+the ``erroneous`` level (the code the source words as erroneous, failed or poor) nulls the value; the ``suspect`` level
+stays ``suspect:source``, and is never nulled. A source with one level only (GHCN-Daily's ``QFLAG``, Frost's 7, the
+Environment Agency's ``Suspect``, Météo-France's 2, DMI's ``validity:false``) has it as ``erroneous``.
 
 A code is read from the token of ``quality_flags`` that carries it: the plain first token (the source's ordinary quality
 flag, ``3``, ``Suspect``) or a token of a kind (``validity:false``). A rule may be limited to the readings that have one
@@ -28,7 +33,7 @@ value in a flag the reader returns has no entry, and the check judges nothing th
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import polars as pl
 
@@ -37,17 +42,22 @@ if TYPE_CHECKING:
 
 #: the ordinary quality flag of a source: the first token of ``quality_flags``, a code without a ``kind:`` before it
 PLAIN = None
+Level = Literal["suspect", "erroneous"]
 #: a regular expression for the first token of a ``quality_flags`` string that has no ``kind:``: the plain quality flag
 _FIRST_FLAG = r"^([^,:]+)(?:,|$)"
 
 
 @dataclass(frozen=True)
 class SourceCode:
-    """A code the source words as a verdict against the value, with the words it uses."""
+    """A code the source words as a verdict against the value, with the words it uses and how bad it says it is."""
 
     code: str
     #: the documentation's own wording of the code, in the language it is written in
     wording: str
+    #: ``erroneous``: the documentation words the value as wrong, failed or poor (and any code of a source that has
+    #: one level only); ``suspect``: the milder level of a source that has two (GHCNh's "Suspect", CHMI's "Suspect").
+    #: The check in the mode ``hard`` nulls the first and only flags the second
+    level: Level = "erroneous"
 
 
 @dataclass(frozen=True)
@@ -73,15 +83,17 @@ class SourceFlags:
     kind: str | None = PLAIN
     beside: tuple[str, tuple[str, ...]] | None = None
 
-    def hit(self, columns: Mapping[str | None, pl.Expr] | None = None) -> pl.Expr:
+    def hit(self, columns: Mapping[str | None, pl.Expr] | None = None, level: Level | None = None) -> pl.Expr:
         """Give the expression that is true for a reading whose ``quality_flags`` hold one of the codes.
+
+        ``level`` limits it to the codes of that level; without it every code counts.
 
         ``columns`` maps a kind (``PLAIN`` for the plain flag) to the expression of its code, where ``hits`` has
         extracted them once for several rules; without it the codes are extracted from ``quality_flags`` here.
         """
         columns = columns or {}
         code = columns[self.kind] if self.kind in columns else _code_of(self.kind)
-        hit = code.is_in([code_.code for code_ in self.codes])
+        hit = code.is_in([code_.code for code_ in self.codes if level in (None, code_.level)])
         if self.beside is not None:
             beside, values = self.beside
             hit = hit & (columns[beside] if beside in columns else _code_of(beside)).is_in(list(values))
@@ -100,8 +112,8 @@ def _code_of(kind: str | None) -> pl.Expr:
     return flags.str.extract(rf"(?:^|,){kind}:([^,]*)", 1)
 
 
-def hits(df: pl.DataFrame, rules: Sequence[SourceFlags]) -> pl.Series:
-    """Mark the readings of a frame whose ``quality_flags`` hold a code of any of the rules.
+def hits(df: pl.DataFrame, rules: Sequence[SourceFlags]) -> tuple[pl.Series, pl.Series]:
+    """Mark the readings of a frame whose ``quality_flags`` hold a code of any of the rules: erroneous, and suspect.
 
     The code of each kind of token is extracted from the flags once, however many rules read it: the lists of GHCNh
     are four rules over two kinds, and the extraction is the cost of the check.
@@ -109,7 +121,11 @@ def hits(df: pl.DataFrame, rules: Sequence[SourceFlags]) -> pl.Series:
     kinds = sorted({kind for rule in rules for kind in rule.kinds()}, key=str)
     codes = df.select(*(_code_of(kind).alias(f"__code_{index}") for index, kind in enumerate(kinds)))
     columns = {kind: pl.col(f"__code_{index}") for index, kind in enumerate(kinds)}
-    return codes.select(pl.any_horizontal(rule.hit(columns) for rule in rules).alias("hit")).to_series()
+    marked = codes.select(
+        pl.any_horizontal(rule.hit(columns, "erroneous") for rule in rules).alias("erroneous"),
+        pl.any_horizontal(rule.hit(columns, "suspect") for rule in rules).alias("suspect"),
+    )
+    return marked.get_column("erroneous"), marked.get_column("suspect")
 
 
 _GHCND = "https://www.ncei.noaa.gov/pub/data/ghcn/daily/readme.txt"
@@ -169,9 +185,9 @@ SOURCE_FLAGS: dict[str, tuple[SourceFlags, ...]] = {
         SourceFlags(
             datasets=("hourly/data",),
             codes=(
-                SourceCode("2", "Suspect"),
+                SourceCode("2", "Suspect", "suspect"),
                 SourceCode("3", "Erroneous"),
-                SourceCode("6", "Suspect, data originate from an NCEI data source"),
+                SourceCode("6", "Suspect, data originate from an NCEI data source", "suspect"),
                 SourceCode("7", "Erroneous, data originate from an NCEI data source"),
             ),
             url=_GHCNH,
@@ -184,7 +200,7 @@ SOURCE_FLAGS: dict[str, tuple[SourceFlags, ...]] = {
         ),
         SourceFlags(
             datasets=("hourly/data",),
-            codes=(SourceCode("2", "Suspect"), SourceCode("3", "Erroneous")),
+            codes=(SourceCode("2", "Suspect", "suspect"), SourceCode("3", "Erroneous")),
             url=_GHCNH,
             quote="Legacy Codes for Sources: 220, 221, 222, 223, 347, 348 include 0 Not Checked 1 Good 2 Suspect "
             "3 Erroneous 4 Calculated 5 Removed",
@@ -246,7 +262,7 @@ SOURCE_FLAGS: dict[str, tuple[SourceFlags, ...]] = {
         SourceFlags(
             datasets=("10_minutes/data", "hourly/data", "daily/data"),
             codes=(
-                SourceCode("1", "Suspect/Podezřelá hodnota"),
+                SourceCode("1", "Suspect/Podezřelá hodnota", "suspect"),
                 SourceCode("2", "Poor/Hodnota s nízkou kvalitou, podezřelá, zatím nepoužívat"),
             ),
             url=_CHMI,

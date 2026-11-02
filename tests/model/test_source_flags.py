@@ -111,6 +111,61 @@ def test_soft_keeps_the_value_and_flags_it_and_hard_nulls_it_and_keeps_the_numbe
     assert judge(df, _plan(PLAIN_FLAGS), Plausibility()).equals(soft)
 
 
+TWO_LEVELS = SourceFlags(
+    datasets=("a/b",),
+    codes=(SourceCode("1", "Suspect", "suspect"), SourceCode("2", "Poor"), SourceCode("3", "Estimated-not-a-code")),
+    url="u",
+    quote="q",
+)
+
+
+def test_hard_nulls_the_erroneous_level_and_only_flags_the_suspect_level() -> None:
+    """A source with two levels: soft flags both, hard nulls the worse and keeps the milder flagged, never nulled."""
+    df = _frame(["1", "2", "0", "1,raw:-999"], [10.0, 20.0, 30.0, None])
+    plan = _plan(TWO_LEVELS)
+    soft = judge(df, plan, Plausibility(source="soft"))
+    assert soft["quality_flags"].to_list() == ["1,suspect:source", "2,suspect:source", "0", "1,raw:-999"]
+    assert soft["value"].to_list() == [10.0, 20.0, 30.0, None]
+    hard = judge(df, plan, Plausibility(source="hard"))
+    assert hard["quality_flags"].to_list() == ["1,suspect:source", "2,rejected:source,raw:20", "0", "1,raw:-999"]
+    assert hard["value"].to_list() == [10.0, None, 30.0, None]
+
+
+def test_the_suspect_level_joins_the_other_checks_under_the_name_source() -> None:
+    """In hard mode the milder level is `source` among the soft checks, and a hard check that nulls the value wins."""
+    flags = SourceFlags(datasets=("a/b",), codes=(SourceCode("1", "Suspect", "suspect"),), url="u", quote="q")
+    plan = Plan("a/b", {}, {"p": (0.0, 10.0)}, source=(flags,))
+    df = _frame(["1", "1"], [50.0, 5.0])
+    out = judge(df, plan, Plausibility(range="soft", source="hard"))
+    assert out["quality_flags"].to_list() == ["1,suspect:range+source", "1,suspect:source"]
+    out = judge(df, plan, Plausibility(range="hard", source="hard"))
+    assert out["quality_flags"].to_list() == ["1,rejected:range,raw:50", "1,suspect:source"]
+    assert out["value"].to_list() == [None, 5.0]
+
+
+def test_a_forecast_flags_both_levels_in_hard_mode_too() -> None:
+    """A forecast is soft whatever is set: the worse level is flagged, not nulled."""
+    out = judge(_frame(["2"], [20.0]), _plan(TWO_LEVELS, forecast=True), Plausibility(source="hard"))
+    assert out["quality_flags"].to_list() == ["2,suspect:source"]
+    assert out["value"].to_list() == [20.0]
+
+
+def test_the_levels_of_the_map_are_those_the_documentation_words() -> None:
+    """Only a source with two levels has a suspect level: GHCNh `Suspect`, CHMI `Suspect`; the rest is erroneous."""
+    levels = {
+        (network, code.code): code.level
+        for network, rules in SOURCE_FLAGS.items()
+        for flags in rules
+        for code in flags.codes
+        if code.level == "suspect"
+    }
+    assert set(levels) == {
+        ("noaa/ghcn", "2"),
+        ("noaa/ghcn", "6"),
+        ("chmi/observation", "1"),
+    }
+
+
 def test_a_reading_with_a_raw_token_or_without_a_value_is_not_judged() -> None:
     """A value that is a code of the source already (`raw:`), and a reading that has no value, are left alone."""
     df = _frame(["X,raw:-999", "X", "X"], [None, None, 1.0])
@@ -189,7 +244,9 @@ def test_the_codes_of_several_rules_are_extracted_once_and_judged_as_each_rule_a
     df = pl.DataFrame({"quality_flags": texts}, schema={"quality_flags": pl.String})
     hourly = [rule for rule in rules if "hourly/data" in rule.datasets]
     alone = df.select(pl.any_horizontal(rule.hit() for rule in hourly).alias("hit")).to_series().to_list()
-    assert hits(df, hourly).to_list() == alone == [True, True, True, True, False, False, False, False]
+    erroneous, suspect = hits(df, hourly)
+    assert (erroneous | suspect).to_list() == alone == [True, True, True, True, False, False, False, False]
+    assert suspect.to_list() == [False] * 8
 
 
 def test_every_code_has_the_wording_and_the_page_of_its_documentation() -> None:
@@ -244,6 +301,17 @@ def test_the_plausibility_page_cites_every_code_of_the_map(network: str) -> None
             assert code.wording in rows, (network, code.code, code.wording)
         for dataset in flags.datasets:
             assert f"`{dataset}`" in rows, (network, dataset)
+        if any(code.level == "suspect" for code in flags.codes):
+            # the two levels are told apart in the table, each code under the level it is
+            suspect = [code.code for code in flags.codes if code.level == "suspect"]
+            erroneous = [code.code for code in flags.codes if code.level == "erroneous"]
+            cell = next(
+                part for part in rows.split("| ") if "suspect level:" in part and flags.codes[0].wording in part
+            )
+            assert cell.index("suspect level:") < cell.index("erroneous level:")
+            before, after = cell.split("erroneous level:")
+            assert all(f"`{code}`" in before for code in suspect)
+            assert all(f"`{code}`" in after for code in erroneous)
 
 
 @pytest.mark.parametrize("network", sorted(SOURCE_FLAGS))

@@ -33,10 +33,11 @@ Types of changes:
   Frost `qualityCode` 7, CHMI `Suspect` and `Poor`, Environment Agency `Suspect`, Météo-France
   `Q` 2 and DMI `validity:false`, each code from the provider's documentation
   (`docs/data/plausibility.md`). It is soft by default: no value is nulled, but `quality_flags`
-  gains `suspect:source` on those readings, which interpolation, summaries and stripes then leave
-  out. `plausibility={"source": "hard"}` (`WD_TS_PLAUSIBILITY__SOURCE`, `--plausibility-source`,
-  `plausibility_source`) nulls them as `rejected:source,raw:<text>`, and so does a bare
-  `plausibility="hard"`. DMI's `validity:false` totals inside `range` are now flagged (GH-3677)
+  gains `suspect:source` on those readings, which interpolation, summaries, stripes and
+  `skip_empty` then leave out, as for every suspect value. `plausibility={"source": "hard"}`
+  (`WD_TS_PLAUSIBILITY__SOURCE`, `--plausibility-source`, `plausibility_source`; a bare
+  `plausibility="hard"` too) nulls the worse level as `rejected:source,raw:<text>` and only flags
+  GHCNh and CHMI `Suspect`. DMI's `validity:false` totals inside `range` are now flagged (GH-3677)
 
 ### Changed
 

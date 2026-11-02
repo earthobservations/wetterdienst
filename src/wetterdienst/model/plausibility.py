@@ -158,7 +158,9 @@ class Plausibility(BaseModel):
         "the same (a GHCN-Daily value that failed a check, a Frost `qualityCode` 7, an Environment Agency reading "
         "`Suspect`, a DMI `validity:false`): the codes counted are those the provider's documentation words so, listed "
         "per provider. It is soft by default, because the verdict is the source's and not ours. "
-        + _HARD_MEANS.format(check="source"),
+        + _HARD_MEANS.format(check="source")
+        + " The milder level of a source that has two (GHCNh and CHMI `Suspect`) is only flagged `suspect:source` in "
+        "either mode.",
     )
 
     def for_forecast(self) -> Plausibility:

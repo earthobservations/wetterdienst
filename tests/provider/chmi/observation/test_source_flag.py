@@ -74,7 +74,10 @@ def test_chmi_suspect_and_poor_are_the_verdict_of_the_check_source(
     verdicts: set[int],
     mode: str,
 ) -> None:
-    """Test that `QUALITY` 1 (Suspect) and 2 (Poor) are judged, and 0, 3 (Estimated) and 5 (Unknown) are not."""
+    """Test that `QUALITY` 1 (Suspect) and 2 (Poor) are judged, and 0, 3 (Estimated) and 5 (Unknown) are not.
+
+    Soft flags both. Hard nulls the worse level, 2 (Poor), and still only flags 1 (Suspect), the milder one.
+    """
     _serve(monkeypatch, {file: body})
     request = ChmiObservationRequest(
         parameters=[(resolution, "data")],
@@ -91,7 +94,7 @@ def test_chmi_suspect_and_poor_are_the_verdict_of_the_check_source(
     for index, code in enumerate(codes):
         if index in verdicts:
             assert int(code) in {1, 2}
-            if mode == "soft":
+            if mode == "soft" or int(code) == 1:
                 assert flags[index] == f"{code},suspect:source"
                 assert values[index] is not None
             else:

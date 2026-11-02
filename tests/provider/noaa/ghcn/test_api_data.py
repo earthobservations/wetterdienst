@@ -673,7 +673,8 @@ def test_api_hourly_quality_code_of_a_verdict_is_judged_by_the_check_source_in_t
         if hour not in judged:
             assert flags[hour] == plain, (hour, flags[hour])
             assert values[hour] is not None
-        elif mode == "soft":
+        elif mode == "soft" or quality in {"2", "6"}:
+            # soft flags every verdict; hard nulls the code worded as erroneous and only flags "Suspect"
             assert flags[hour] == f"{plain},suspect:source", (hour, flags[hour])
             assert values[hour] is not None
         else:
