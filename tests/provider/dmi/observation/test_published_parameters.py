@@ -109,10 +109,14 @@ def _by_day(df: pl.DataFrame, parameter: str) -> dict[dt.date, float]:
 
 
 def test_hourly_sunshine_radiation_and_cloud_cover(monkeypatch: pytest.MonkeyPatch) -> None:
-    """06041 and 04250, 2024-06-03 11:00 and 12:00 UTC: minutes of sunshine, W/m2 and the cloud cover at minute 0."""
+    """06041 and 04250, 2024-06-03 11:00 and 12:00 UTC: minutes of sunshine, W/m2 and the cloud cover at minute 0.
+
+    The cloud cover is dated by the end of DMI's record (GH-3766): the records of `from` 11:00 and 12:00 are the
+    readings of 12:00 and 13:00 UTC, which are asked for with the end of the range.
+    """
     start, end = dt.datetime(2024, 6, 3, 11, tzinfo=_UTC), dt.datetime(2024, 6, 3, 12, tzinfo=_UTC)
     df = _values(monkeypatch, "hourly", "06041", start, end)
-    nuuk = _values(monkeypatch, "hourly", "04250", start, end)
+    nuuk = _values(monkeypatch, "hourly", "04250", start, end + dt.timedelta(hours=1))
     # minutes come back as hours, the unit of `duration`; the intensity stays in W/m2; the cloud cover stays in percent,
     # the 10 and 40 DMI writes for 1 okta or less and 3 oktas
     assert _by_hour(df, "sunshine_duration") == {
@@ -120,7 +124,7 @@ def test_hourly_sunshine_radiation_and_cloud_cover(monkeypatch: pytest.MonkeyPat
         12: pytest.approx(23.4 / 60, abs=1e-5),
     }
     assert _by_hour(df, "radiation_global_intensity_mean") == {11: 632.0, 12: 808.0}
-    assert _by_hour(nuuk, "cloud_cover_total") == {11: pytest.approx(10.0), 12: pytest.approx(40.0)}
+    assert _by_hour(nuuk, "cloud_cover_total") == {12: pytest.approx(10.0), 13: pytest.approx(40.0)}
     assert set(df["parameter"]) == {"sunshine_duration", "radiation_global_intensity_mean"}
     assert set(nuuk["parameter"]) == {"cloud_cover_total"}
     assert set(df["resolution"]) == {"hourly"}
@@ -221,7 +225,8 @@ def test_a_cloud_cover_above_the_whole_sky_is_null_and_keeps_its_text(monkeypatc
     """MetObs documents 112 for a sky obscured by fog beside the 0 to 100: it is no cloud cover (made-up record).
 
     No record of DMI's climate data carries it (68,107 hourly values of 2019 and 93,519 daily ones of 2011 to 2025
-    read on 2026-10-30), so the 112 of 2024-06-03 12:00 is made up, beside the real 100 of an overcast sky.
+    read on 2026-10-30), so the 112 of the record of 2024-06-03 12:00 (dated 13:00) is made up, beside the real 100
+    of an overcast sky.
     """
     records = [
         {**_RECORDS["hourly"][4], "value": 100.0},
@@ -232,7 +237,7 @@ def test_a_cloud_cover_above_the_whole_sky_is_null_and_keeps_its_text(monkeypatc
         "hourly",
         "04250",
         dt.datetime(2024, 6, 3, 11, tzinfo=_UTC),
-        dt.datetime(2024, 6, 3, 12, tzinfo=_UTC),
+        dt.datetime(2024, 6, 3, 13, tzinfo=_UTC),
         drop_nulls=False,
         records=records,
     ).sort("timestamp")

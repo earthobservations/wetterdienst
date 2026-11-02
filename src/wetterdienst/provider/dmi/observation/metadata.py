@@ -332,7 +332,8 @@ _HOURLY_PARAMETERS = [
         "unit": "watt_per_square_meter",
     },
     {
-        # the reading at minute 0 of the hour (`cloud_cover` of metObs), no mean
+        # the reading at minute 0 of the hour (`cloud_cover` of metObs), no mean, of the minute the record ends at: the
+        # reader stamps it by `to` (`api.py`, GH-3766)
         "name": "cloud_cover_total",
         "name_original": "mean_cloud_cover",
         "unit": "percent",

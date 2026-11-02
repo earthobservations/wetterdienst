@@ -128,6 +128,13 @@ not nulled: the rule that nulls the 0 of `mean_wind_dir` needs the mean wind spe
 no speed at that minute. At 04220 (Aasiaat), 56 of the 1000 records of 2025-11-20 to 2026-01-01 are 0; the mean wind
 speed of the record is 0 in 35 of them and above 0 (up to 2.0 m/s) in 21.
 
+The hourly cloud cover (`mean_cloud_cover`, `cloud_cover_total`, the metObs `cloud_cover` "at minute 0", given by
+part of the stations) is stamped by `to` as well: the record of `from` 11:00 and `to` 12:00 at 04250 on 2024-06-03 holds
+10, the metObs reading of 12:00 UTC (the reading of 11:00 is 60). Against metObs at 18 Greenland stations (up to 30 days each of
+March, July and November 2025), the value of a record is the reading at its `to` in 10,287 of the 10,559 hours in which
+the readings at `from` and `to` differ, and the reading at its `from` in 135. Before this stamp the hourly cloud cover
+was dated an hour too early.
+
 DMI lists `no_days_fog` ("No. of days with fog (vis. < 1 km)") for 10 stations in Greenland, but the service holds no
 value of it at any resolution (hour, day, month, year; read on 2026-11-02 for each of the 10), so it is not served.
 `no_days_snowfall`, `no_days_thunder` and `mean_absolute_humidity` are not served either, until DMI has said what they
