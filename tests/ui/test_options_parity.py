@@ -91,7 +91,11 @@ CASES = [
         _FAHRENHEIT,
         json.dumps(_FAHRENHEIT),
         _VALUES,
-        {"values": {"unit_targets": json.dumps(_FAHRENHEIT)}},
+        {
+            "values": {"unit_targets": json.dumps(_FAHRENHEIT)},
+            "interpolate": {"unit_targets": json.dumps(_FAHRENHEIT)},
+            "summarize": {"unit_targets": json.dumps(_FAHRENHEIT)},
+        },
         {"values": [f"--unit-targets={json.dumps(_FAHRENHEIT)}"]},
     ),
     Case("skip_empty", True, "true", _VALUES, {"values": {"skip_empty": "true"}}, {"values": ["--skip-empty=true"]}),  # noqa: FBT003
@@ -363,6 +367,75 @@ def test_mcp_tool_argument_sets_the_option(
     """Test an argument of an MCP tool gives the request the option."""
     options = _mcp(monkeypatch, mcp_server, endpoint, case.rest[endpoint])
     assert _is_set(options, case)
+
+
+def _object_cases() -> list[Any]:
+    """Give the cases of an argument that is a JSON object, as the object a tool's schema advertises."""
+    return [
+        pytest.param(
+            case,
+            endpoint,
+            {name: json.loads(text) for name, text in case.rest[endpoint].items()},
+            id=f"{case.option}-{endpoint}",
+        )
+        for case in CASES
+        for endpoint in case.rest
+        if all(text.startswith("{") for text in case.rest[endpoint].values())
+    ]
+
+
+@pytest.mark.parametrize(("case", "endpoint", "arguments"), _object_cases())
+def test_mcp_tool_object_argument_sets_the_option(
+    monkeypatch: pytest.MonkeyPatch, mcp_server: object, case: Case, endpoint: str, arguments: dict[str, Any]
+) -> None:
+    """Test an argument that is an object, as its schema advertises it, gives the request the option (GH-3737).
+
+    FastMCP sent it as one query parameter for each key, which the endpoint refused with a 422.
+    """
+    options = _mcp(monkeypatch, mcp_server, endpoint, arguments)
+    assert _is_set(options, case)
+
+
+def test_every_object_argument_of_a_tool_is_held_to_an_object_case(mcp_server: object) -> None:
+    """Test no argument a tool advertises as an object is left out of the object cases of the tools."""
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import _object_arguments  # noqa: PLC0415
+
+    async def tools() -> dict[str, set[str]]:
+        async with Client(mcp_server) as client:
+            return {tool.name: _object_arguments(tool.input_schema) for tool in await client.list_tools()}
+
+    advertised = {(tool, name) for tool, names in asyncio.run(tools()).items() for name in names}
+    held = {(param.values[1], name) for param in _object_cases() for name in param.values[2]}
+    assert advertised == held
+
+
+def test_an_object_is_found_behind_a_reference_and_a_nested_option() -> None:
+    """Test an argument is an object where its schema says so by `$ref`, `oneOf`, `allOf` or an option of an option."""
+    from wetterdienst.ui.mcp import _object_arguments  # noqa: PLC0415
+
+    schema = {
+        "properties": {
+            "inline": {"anyOf": [{"type": "object", "additionalProperties": {"type": "string"}}, {"type": "null"}]},
+            "ref": {"$ref": "#/$defs/Mapping"},
+            "optional_ref": {"anyOf": [{"$ref": "#/$defs/Mapping"}, {"type": "null"}]},
+            "one_of": {"oneOf": [{"type": "string"}, {"type": "object"}]},
+            "all_of": {"allOf": [{"$ref": "#/$defs/Mapping"}]},
+            "nested": {"anyOf": [{"anyOf": [{"type": "null"}, {"type": "object"}]}, {"type": "string"}]},
+            "through_ref": {"$ref": "#/$defs/Wrapper"},
+            "loop": {"$ref": "#/$defs/Loop"},
+            "text": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+            "numbers": {"type": "array", "items": {"type": "object"}},
+            "unknown_ref": {"$ref": "#/$defs/Missing"},
+        },
+        "$defs": {
+            "Mapping": {"type": "object", "additionalProperties": {"type": "number"}},
+            "Wrapper": {"anyOf": [{"$ref": "#/$defs/Mapping"}, {"type": "null"}]},
+            "Loop": {"anyOf": [{"$ref": "#/$defs/Loop"}, {"type": "string"}]},
+        },
+    }
+    assert _object_arguments(schema) == {"inline", "ref", "optional_ref", "one_of", "all_of", "nested", "through_ref"}
 
 
 @pytest.mark.parametrize(("case", "endpoint"), _env_cases())
