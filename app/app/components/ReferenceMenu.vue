@@ -20,12 +20,14 @@ onClickOutside(root, () => {
   open.value = false
 })
 
-function onKeydown(event: KeyboardEvent) {
+// Escape is heard on the whole document while the panel is open: a click on its padding leaves the focus on the
+// body, where a listener of the panel itself would not hear it
+useEventListener(document, 'keydown', (event: KeyboardEvent) => {
   if (event.key === 'Escape' && open.value) {
     open.value = false
     trigger.value?.focus()
   }
-}
+})
 function onFocusout(event: FocusEvent) {
   // a focus that goes nowhere (`relatedTarget` null: a click on the panel's padding, a link a browser does not
   // focus on mousedown, the window losing focus) leaves it open: a click elsewhere is `onClickOutside`'s
@@ -36,7 +38,7 @@ function onFocusout(event: FocusEvent) {
 </script>
 
 <template>
-  <div ref="root" class="relative" @keydown="onKeydown" @focusout="onFocusout">
+  <div ref="root" class="relative" @focusout="onFocusout">
     <button
       ref="trigger"
       type="button"
@@ -60,6 +62,7 @@ function onFocusout(event: FocusEvent) {
             :to="section.to"
             class="flex items-start gap-3 rounded-lg p-3 hover:bg-elevated aria-[current=page]:bg-elevated"
             :aria-current="inSection(section, route.path) ? 'page' : undefined"
+            @click="open = false"
           >
             <ToolTile tile="navy" :icon="section.icon" size="2.25rem" />
             <span class="min-w-0">

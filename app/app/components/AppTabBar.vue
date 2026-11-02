@@ -78,13 +78,13 @@ const isCurrent = (to: string) => to === '/' ? route.path === '/' : inSection({ 
           </h2>
           <ul class="grid grid-cols-1 gap-0.5">
             <li>
-              <NuxtLink to="/" class="sheet-link" :aria-current="isCurrent('/') ? 'page' : undefined">
+              <NuxtLink to="/" class="sheet-link" :aria-current="isCurrent('/') ? 'page' : undefined" @click="open = false">
                 <span class="tile tile-navy" style="--tile-size: 2rem" aria-hidden="true"><UIcon name="i-ph-house-fill" /></span>
                 {{ t('nav.home') }}
               </NuxtLink>
             </li>
             <li v-for="tool in TOOLS" :key="tool.key">
-              <NuxtLink :to="tool.to" class="sheet-link" :aria-current="isCurrent(tool.to) ? 'page' : undefined">
+              <NuxtLink :to="tool.to" class="sheet-link" :aria-current="isCurrent(tool.to) ? 'page' : undefined" @click="open = false">
                 <ToolTile :tile="tool.tile" :icon="tool.icon" size="2rem" />
                 {{ t(tool.label) }}
               </NuxtLink>
@@ -97,7 +97,7 @@ const isCurrent = (to: string) => to === '/' ? route.path === '/' : inSection({ 
           </h2>
           <ul class="grid grid-cols-1 gap-0.5">
             <li v-for="section in REFERENCE" :key="section.key">
-              <NuxtLink :to="section.to" class="sheet-link" :aria-current="isCurrent(section.to) ? 'page' : undefined">
+              <NuxtLink :to="section.to" class="sheet-link" :aria-current="isCurrent(section.to) ? 'page' : undefined" @click="open = false">
                 <UIcon :name="section.icon" class="size-5 shrink-0 text-muted" />
                 {{ t(section.label) }}
               </NuxtLink>
@@ -110,7 +110,7 @@ const isCurrent = (to: string) => to === '/' ? route.path === '/' : inSection({ 
           </h2>
           <ul class="grid grid-cols-1 gap-0.5">
             <li v-for="section in PROJECT" :key="section.key">
-              <NuxtLink :to="section.to" class="sheet-link" :aria-current="isCurrent(section.to) ? 'page' : undefined">
+              <NuxtLink :to="section.to" class="sheet-link" :aria-current="isCurrent(section.to) ? 'page' : undefined" @click="open = false">
                 <UIcon :name="section.icon" class="size-5 shrink-0 text-muted" />
                 {{ t(section.label) }}
               </NuxtLink>

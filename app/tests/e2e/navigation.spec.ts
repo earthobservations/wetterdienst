@@ -50,6 +50,27 @@ test.describe('the wide header', () => {
     await expect(trigger).toBeFocused()
   })
 
+  test('keeps the reference open on a click on its padding, which Escape then closes', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/')
+    const trigger = page.getByRole('button', { name: en.shell.reference, exact: true })
+    await trigger.click()
+    const panel = page.locator(`[id="${await trigger.getAttribute('aria-controls')}"]`)
+    const box = await panel.boundingBox()
+    // the padding of the panel, at the middle of its left edge: no link, so the focus goes nowhere
+    await page.mouse.click(box!.x + 4, box!.y + box!.height / 2)
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    await page.keyboard.press('Escape')
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  test('closes the reference on the link of the page that is shown', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/glossary')
+    const trigger = page.getByRole('button', { name: en.shell.reference, exact: true })
+    await trigger.click()
+    await page.locator(`[id="${await trigger.getAttribute('aria-controls')}"]`).getByRole('link', { name: en.nav.glossary }).click()
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  })
+
   test('closes the reference when the focus leaves it, and on a click elsewhere', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/')
     const trigger = page.getByRole('button', { name: en.shell.reference, exact: true })
@@ -226,6 +247,14 @@ test.describe('the narrow layout', () => {
     await expect(sheet).toBeVisible()
     await sheet.getByRole('link', { name: en.nav.providers }).click()
     await expect(page).toHaveURL(/\/providers$/)
+    await expect(sheet).toBeHidden()
+  })
+
+  test('closes the sheet on the link of the page that is shown', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/glossary')
+    await page.getByRole('button', { name: en.header.menu, exact: true }).click()
+    const sheet = page.getByRole('dialog', { name: en.header.menu })
+    await sheet.getByRole('link', { name: en.nav.glossary }).click()
     await expect(sheet).toBeHidden()
   })
 
