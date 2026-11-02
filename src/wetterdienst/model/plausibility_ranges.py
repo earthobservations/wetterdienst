@@ -403,9 +403,12 @@ def bounds_for(name: str, resolution: str | None = None, unit_type: str | None =
     name (its start), and the unit type last. At a resolution the bound does not depend on, the bound is that for any;
     a quantity that depends on the span and is given a resolution that has none is held to nothing. Without a
     ``resolution`` the bound is the widest the quantity has at any. The unit type is that of the canonical parameter
-    unless given. Raises a ``KeyError`` for a name that is not canonical and needs its unit type, as that is a defect
-    of the provider and not of the check.
+    unless given. Raises a ``KeyError`` for a name that is not a canonical parameter (a key of ``PARAMETERS``), whatever
+    its start: a family holds the names that begin with it and no misspelled name that merely begins like one, which is
+    a defect of the provider and not a bound (GH-3709).
     """
+    if name not in PARAMETERS:
+        raise KeyError(name)
     if name in PARAMETER_RANGES:
         return _at(PARAMETER_RANGES[name], resolution)
     last = _LAST_HOURS.match(name)
