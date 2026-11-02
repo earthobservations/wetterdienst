@@ -460,6 +460,18 @@ def test_a_soft_limit_is_told_beside_a_hard_floor_that_leaves_the_value() -> Non
     assert out.get_column("value").to_list() == [0.0, 0.0, 0.3]
 
 
+def test_a_nulled_value_next_to_a_floored_one_carries_the_hard_verdict_alone() -> None:
+    """With a hard floor firing in the frame, a value a hard check nulls is not given the soft verdicts (GH-3687)."""
+    dataset = _dataset("dwd/dmo", "hourly", "icon")
+    plan = plan_for("dwd/dmo", dataset)
+    rr1 = next(name for name, c in plan.parameters.items() if c.name == "precipitation_amount_last_1h")
+    df = _frame([(rr1, -0.02), (rr1, 400.0)])
+    out = judged(df, network="dwd/dmo", dataset=dataset, limits={"precipitation_amount_last_1h": (None, 300)})
+    assert out.get_column("value").to_list() == [0.0, None]
+    # the range of 400 mm is soft on a forecast and is not listed beside the hard limit that nulled the value
+    assert out.get_column("quality_flags").to_list() == ["rejected:floor,raw:-0.02", "rejected:limits,raw:400"]
+
+
 def test_the_spellings_in_a_request_are_one_key_whatever_the_host_holds() -> None:
     """The later of two spellings of one key wins with and without an entry of the host's for it."""
     spelled = "daily/climate_summary/temperature_air_mean_2m"
