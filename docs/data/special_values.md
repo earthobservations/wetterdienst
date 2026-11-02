@@ -70,9 +70,9 @@ library maps the code to 0.0 and keeps it as `raw:<code>`.
 
 | situation | rule | providers |
 | --- | --- | --- |
-| the sky obscured or not visible | null, `raw:<code>`, never an amount (9 oktas would read 1.125) | DWD observation `-1`, DWD POI `113` and `126`, KNMI `9`, Met Office `9`, Météo-France observation `9`, Météo-France synop `101`, MET Norway Frost `9` and `-3`, SMHI `113` |
+| the sky obscured or not visible | null, `raw:<code>`, never an amount (9 oktas would read 112.5 %) | DWD observation `-1`, DWD POI `113` and `126`, KNMI `9`, Met Office `9`, Météo-France observation `9`, Météo-France synop `101`, MET Norway Frost `9` and `-3`, SMHI `113` |
 | an obscured sky the source writes as no value | null, without a token | LHMT |
-| oktas and percent | a fraction of the sky: oktas are divided by 8, a percent by 100 as the source writes it (Météo-France synop writes 1 okta as 10 %, the others as 12 or 13 %) | all |
+| oktas and percent | a share of the sky in percent: an okta is 12.5 %, a percent stays as the source writes it (Météo-France synop writes 1 okta as 10 %, the others as 12 or 13 %) | all |
 
 ## Missing values and texts
 

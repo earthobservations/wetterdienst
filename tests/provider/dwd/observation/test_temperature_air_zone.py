@@ -207,12 +207,12 @@ def test_the_values_of_an_mez_md_period_are_shifted_to_utc_per_parameter_and_car
     ]
     # the row of 1991-01-01 00 is shifted onto 1990-12-31 23, which the plain MEZ period has; it is the one that goes
     assert rows["humidity_relative"] == [
-        (_at(1990, 12, 31, 23), 0.81, "3"),
-        (_at(1991, 1, 1, 0), 0.83, "3,zone:mez"),
+        (_at(1990, 12, 31, 23), 81.0, "3"),
+        (_at(1991, 1, 1, 0), 83.0, "3,zone:mez"),
         (_at(1991, 10, 31, 22), None, "3,zone:mez,raw:-999"),
-        (_at(1991, 10, 31, 23), 0.91, "3,zone:mez"),
+        (_at(1991, 10, 31, 23), 91.0, "3,zone:mez"),
         (_at(1991, 11, 1, 1), None, "3,raw:-999"),
-        (_at(1991, 11, 2, 0), 0.93, "3"),
+        (_at(1991, 11, 2, 0), 93.0, "3"),
     ]
 
 
@@ -365,12 +365,12 @@ def test_the_values_of_diepholz_are_shifted_inside_the_span_and_not_outside(monk
     # dropped, the stamp 1995-02-01 01 (72) becomes 00
     rf = df.filter(pl.col("parameter") == "humidity_relative").select("timestamp", "value", "quality_flags").rows()
     assert rf == [
-        (_at(1995, 1, 31, 22), 0.65, "3"),
-        (_at(1995, 1, 31, 23), 0.68, "3"),
-        (_at(1995, 2, 1, 0), 0.72, "3,zone:mez"),
-        (_at(1996, 5, 31, 22), 0.75, "10,zone:mez"),
-        (_at(1996, 6, 1, 0), 0.73, "10"),
-        (_at(1996, 6, 1, 1), 0.83, "10"),
+        (_at(1995, 1, 31, 22), 65.0, "3"),
+        (_at(1995, 1, 31, 23), 68.0, "3"),
+        (_at(1995, 2, 1, 0), 72.0, "3,zone:mez"),
+        (_at(1996, 5, 31, 22), 75.0, "10,zone:mez"),
+        (_at(1996, 6, 1, 0), 73.0, "10"),
+        (_at(1996, 6, 1, 1), 83.0, "10"),
     ]
 
 

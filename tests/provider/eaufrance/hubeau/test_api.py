@@ -255,7 +255,7 @@ def test_hubeau_values_carry_the_qualification_code_as_a_whole_number(monkeypatc
     assert df.schema["quality_flags"] == pl.String
     # `12` "Douteuse" is the verdict of the check `source`, soft by default (GH-3745): the code stays the first token
     assert df.get_column("quality_flags").to_list() == ["16", "12,suspect:source", None]
-    assert df.get_column("value").to_list() == [0.15, 0.16, 0.17]
+    assert df.get_column("value").to_list() == [0.0015, 0.0016, 0.0017]
     assert "quality" not in df.columns
 
 
@@ -303,10 +303,10 @@ def test_hubeau_douteuse_is_the_verdict_of_the_check_source_and_no_other_code_is
     assert flags[:3] + flags[4:] == ["0", "4", "8", "16", "20", "30"]
     if mode == "soft":
         assert flags[3] == "12,suspect:source"
-        assert values == [10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0]
+        assert values == [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
     else:
         assert flags[3] == "12,rejected:source,raw:400"
-        assert values == [10.0, 20.0, 30.0, None, 50.0, 60.0, 70.0]
+        assert values == [0.1, 0.2, 0.3, None, 0.5, 0.6, 0.7]
 
 
 @pytest.mark.usefixtures("hubeau_network")

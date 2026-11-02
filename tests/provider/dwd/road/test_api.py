@@ -870,7 +870,7 @@ def test_dwd_road_weather_water_film_has_no_flag_of_its_own(monkeypatch: pytest.
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_converts_the_bufr_units_it_decodes(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A rate published per second and a film published in metres come back per hour and in cm.
+    """A rate published per second and a film published in metres come back per hour and in mm.
 
     This parser labels the BUFR units of what it decodes and converts nothing itself, so what a
     request answers with rests entirely on the declaration. Both of these were declared in a unit
@@ -902,7 +902,7 @@ def test_dwd_road_weather_converts_the_bufr_units_it_decodes(monkeypatch: pytest
     assert df.height == 2
     assert dict(df.select("parameter", "value").iter_rows()) == {
         "precipitation_intensity": 20.16,
-        "water_film_thickness": 0.2,
+        "water_film_thickness": 2.0,
     }
 
 

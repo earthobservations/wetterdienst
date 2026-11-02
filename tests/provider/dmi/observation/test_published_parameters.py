@@ -24,7 +24,6 @@ from wetterdienst.provider.dmi.observation.metadata import DmiObservationMetadat
 
 _UTC = dt.UTC
 _RECORDS = json.loads((Path(__file__).parent / "published_parameters.json").read_text(encoding="utf8"))
-_HOUR = 3600.0
 
 # (resolution, DMI's parameterId) -> the canonical name and the unit it is declared in. Each is the statistic DMI's
 # climate data documentation states ("Calculation Method for stationValue Parameters"): the hourly cloud cover is the
@@ -114,11 +113,14 @@ def test_hourly_sunshine_radiation_and_cloud_cover(monkeypatch: pytest.MonkeyPat
     start, end = dt.datetime(2024, 6, 3, 11, tzinfo=_UTC), dt.datetime(2024, 6, 3, 12, tzinfo=_UTC)
     df = _values(monkeypatch, "hourly", "06041", start, end)
     nuuk = _values(monkeypatch, "hourly", "04250", start, end)
-    # minutes come back as seconds, the unit of `time`; the intensity stays in W/m2; the cloud cover in percent is a
-    # fraction of 1, and the 10 and 40 DMI writes for 1 okta or less and 3 oktas are 0.1 and 0.4
-    assert _by_hour(df, "sunshine_duration") == {11: pytest.approx(5.0 * 60), 12: pytest.approx(23.4 * 60)}
+    # minutes come back as hours, the unit of `duration`; the intensity stays in W/m2; the cloud cover stays in percent,
+    # the 10 and 40 DMI writes for 1 okta or less and 3 oktas
+    assert _by_hour(df, "sunshine_duration") == {
+        11: pytest.approx(5.0 / 60, abs=1e-5),
+        12: pytest.approx(23.4 / 60, abs=1e-5),
+    }
     assert _by_hour(df, "radiation_global_intensity_mean") == {11: 632.0, 12: 808.0}
-    assert _by_hour(nuuk, "cloud_cover_total") == {11: pytest.approx(0.1), 12: pytest.approx(0.4)}
+    assert _by_hour(nuuk, "cloud_cover_total") == {11: pytest.approx(10.0), 12: pytest.approx(40.0)}
     assert set(df["parameter"]) == {"sunshine_duration", "radiation_global_intensity_mean"}
     assert set(nuuk["parameter"]) == {"cloud_cover_total"}
     assert set(df["resolution"]) == {"hourly"}
@@ -130,24 +132,24 @@ def test_daily_humidity_extremes_sunshine_cloud_cover_and_snow_depth(monkeypatch
     df = _values(monkeypatch, "daily", "04250", start, end)
     assert set(df["parameter"]) == {"humidity_relative_max", "humidity_relative_min", "cloud_cover_total_mean"}
     assert _by_day(df, "humidity_relative_max") == {
-        dt.date(2024, 1, 10): pytest.approx(0.99),
-        dt.date(2024, 1, 11): pytest.approx(0.87),
-        dt.date(2024, 1, 12): pytest.approx(0.86),
+        dt.date(2024, 1, 10): pytest.approx(99.0),
+        dt.date(2024, 1, 11): pytest.approx(87.0),
+        dt.date(2024, 1, 12): pytest.approx(86.0),
     }
     assert _by_day(df, "humidity_relative_min") == {
-        dt.date(2024, 1, 10): pytest.approx(0.84),
-        dt.date(2024, 1, 11): pytest.approx(0.70),
-        dt.date(2024, 1, 12): pytest.approx(0.66),
+        dt.date(2024, 1, 10): pytest.approx(84.0),
+        dt.date(2024, 1, 11): pytest.approx(70.0),
+        dt.date(2024, 1, 12): pytest.approx(66.0),
     }
     assert _by_day(df, "cloud_cover_total_mean") == {
-        dt.date(2024, 1, 10): pytest.approx(0.95),
-        dt.date(2024, 1, 11): pytest.approx(0.94),
-        dt.date(2024, 1, 12): pytest.approx(0.85),
+        dt.date(2024, 1, 10): pytest.approx(95.0),
+        dt.date(2024, 1, 11): pytest.approx(94.0),
+        dt.date(2024, 1, 12): pytest.approx(85.0),
     }
     skagen = _values(monkeypatch, "daily", "06041", start, end)
     assert _by_day(skagen, "sunshine_duration") == {
-        dt.date(2024, 6, 3): pytest.approx(7.8 * _HOUR),
-        dt.date(2024, 6, 4): pytest.approx(10.2 * _HOUR),
+        dt.date(2024, 6, 3): pytest.approx(7.8),
+        dt.date(2024, 6, 4): pytest.approx(10.2),
     }
     # the snow depth of the day beginning at 06:00 UTC is the reading of 07:00 UTC of that date (metObs
     # `snow_depth_man`: 4.0 on 2021-02-12, 3.0 on the 13th)
@@ -176,7 +178,7 @@ def test_monthly_sunshine_cloud_cover_and_counts_of_days(monkeypatch: pytest.Mon
     )
     values = {row["parameter"]: row["value"] for row in df.iter_rows(named=True)}
     assert values == {
-        "sunshine_duration": pytest.approx(207.9 * _HOUR),
+        "sunshine_duration": pytest.approx(207.9),
         "count_days_precipitation_amount_ge_0_1mm": 23.0,
         "count_days_precipitation_amount_ge_1mm": 19.0,
         "count_days_precipitation_amount_ge_10mm": 1.0,
@@ -187,7 +189,7 @@ def test_monthly_sunshine_cloud_cover_and_counts_of_days(monkeypatch: pytest.Mon
         monkeypatch, "monthly", "04250", dt.datetime(2023, 7, 1, tzinfo=_UTC), dt.datetime(2023, 7, 1, tzinfo=_UTC)
     )
     assert {row["parameter"]: row["value"] for row in nuuk.iter_rows(named=True)} == {
-        "cloud_cover_total_mean": pytest.approx(0.79)
+        "cloud_cover_total_mean": pytest.approx(79.0)
     }
 
 
@@ -198,9 +200,9 @@ def test_annual_humidity_extremes_sunshine_cloud_cover_and_counts_of_days(monkey
     )
     values = {row["parameter"]: row["value"] for row in df.iter_rows(named=True)}
     assert values == {
-        "humidity_relative_max": pytest.approx(0.998),
-        "humidity_relative_min": pytest.approx(0.527),
-        "sunshine_duration": pytest.approx(1853.1 * _HOUR),
+        "humidity_relative_max": pytest.approx(99.8),
+        "humidity_relative_min": pytest.approx(52.7),
+        "sunshine_duration": pytest.approx(1853.1),
         "count_days_precipitation_amount_ge_0_1mm": 194.0,
         "count_days_precipitation_amount_ge_1mm": 124.0,
         "count_days_precipitation_amount_ge_10mm": 23.0,
@@ -211,7 +213,7 @@ def test_annual_humidity_extremes_sunshine_cloud_cover_and_counts_of_days(monkey
         monkeypatch, "annual", "04250", dt.datetime(2023, 1, 1, tzinfo=_UTC), dt.datetime(2023, 1, 1, tzinfo=_UTC)
     )
     assert {row["parameter"]: row["value"] for row in nuuk.iter_rows(named=True)} == {
-        "cloud_cover_total_mean": pytest.approx(0.80)
+        "cloud_cover_total_mean": pytest.approx(80.0)
     }
 
 
@@ -235,6 +237,6 @@ def test_a_cloud_cover_above_the_whole_sky_is_null_and_keeps_its_text(monkeypatc
         records=records,
     ).sort("timestamp")
     assert df.select("value", "quality_flags").rows() == [
-        (1.0, "manual,validity:true"),
+        (100.0, "manual,validity:true"),
         (None, "manual,validity:true,rejected:range,raw:112"),
     ]

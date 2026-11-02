@@ -470,8 +470,17 @@ PRECIPITATION_6H = {
         },
     ],
 }
-# Frost's answers without an observation: no `data` at all, or an empty list of it (GH-3748)
-EMPTY_ANSWERS = [{"@type": "ObservationResponse", "totalItemCount": 0}, {"totalItemCount": 0, "data": []}]
+# Frost's answers without an observation: no `data` at all, an empty or null list of it (GH-3748), an entry with no
+# `observations`, or with an empty or null one (GH-3750)
+_ENTRY = {"sourceId": "SN18700:0", "referenceTime": "2020-01-01T00:00:00.000Z"}
+EMPTY_ANSWERS = [
+    {"@type": "ObservationResponse", "totalItemCount": 0},
+    {"totalItemCount": 0, "data": []},
+    {"totalItemCount": 0, "data": None},
+    {"totalItemCount": 1, "data": [_ENTRY]},
+    {"totalItemCount": 1, "data": [{**_ENTRY, "observations": []}]},
+    {"totalItemCount": 1, "data": [{**_ENTRY, "observations": None}]},
+]
 
 
 @pytest.mark.parametrize("empty", EMPTY_ANSWERS)
@@ -549,20 +558,88 @@ def test_metno_frost_values_synoptic_single_parameter_200_without_observations_r
     assert df["value"].to_list() == [1.5]
 
 
+@pytest.mark.parametrize("empty", EMPTY_ANSWERS)
 def test_metno_frost_values_single_parameter_200_without_observations_is_no_data_where_no_series_is_needed(
     monkeypatch: pytest.MonkeyPatch,
+    empty: dict,
 ) -> None:
     """Test that after a 404 on the batch, an empty 200 for one parameter of another resolution costs no discovery."""
 
     def observations(url: str) -> File:
         batched = "," in url.split("elements=")[1].split("&", maxsplit=1)[0]
-        return _failed(url, 404) if batched else _ok(url, EMPTY_ANSWERS[0])
+        return _failed(url, 404) if batched else _ok(url, empty)
 
     requested = [("hourly", "data", "temperature_air_2m"), ("hourly", "data", "wind_speed_mean_last_10min")]
     values, seen = _values(monkeypatch, observations, requested)
     assert values.all().df.is_empty()
     assert all("availableTimeSeries" not in url for url in seen)
     assert len(_observation_requests(seen)) == 3
+
+
+AVAILABLE_TWO = {
+    "data": [
+        {
+            "validFrom": "2000-01-01T00:00:00Z",
+            "uri": f"https://frost.met.no/observations/v0.jsonld?sources=SN18700:0&timeseriesids={series}",
+        }
+        for series in (0, 1)
+    ],
+}
+
+
+@pytest.mark.parametrize("empty", EMPTY_ANSWERS)
+def test_metno_frost_values_discovered_series_without_observations_moves_on_to_the_next(
+    monkeypatch: pytest.MonkeyPatch,
+    empty: dict,
+) -> None:
+    """Test that a discovered series answered 200 without observations is skipped, and the next is read (GH-3750)."""
+
+    def observations(url: str) -> File:
+        if "availableTimeSeries" in url:
+            return _ok(url, AVAILABLE_TWO)
+        if "timeseriesids=0" in url:
+            return _ok(url, empty)
+        if "timeseriesids=1" in url:
+            return _ok(url, OBSERVATIONS)
+        return _failed(url, 404)
+
+    values, seen = _values(monkeypatch, observations)
+    df = values.all().df
+    assert sum("timeseriesids=" in url for url in seen) == 2
+    assert df["parameter"].to_list() == ["temperature_air_2m"]
+    assert df["value"].to_list() == [2.7]
+
+
+@pytest.mark.parametrize("empty", EMPTY_ANSWERS)
+def test_metno_frost_values_discovered_series_all_without_observations_is_no_data(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    empty: dict,
+) -> None:
+    """Test that time series that all answer 200 without observations make an empty frame, unwarned (GH-3750)."""
+
+    def observations(url: str) -> File:
+        if "availableTimeSeries" in url:
+            return _ok(url, AVAILABLE_TWO)
+        return _ok(url, empty) if "timeseriesids=" in url else _failed(url, 404)
+
+    values, seen = _values(monkeypatch, observations)
+    with caplog.at_level("WARNING", logger=LOGGER):
+        df = values.all().df
+    assert df.is_empty()
+    assert sum("timeseriesids=" in url for url in seen) == 2
+    assert [record for record in caplog.records if record.name == LOGGER] == []
+
+
+def test_metno_frost_values_a_batch_with_an_entry_without_observations_keeps_the_others(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that an entry with no observations beside one that has them leaves the reading as it is (GH-3750)."""
+    empty_entry = {**_ENTRY, "referenceTime": "2020-01-01T01:00:00.000Z", "observations": []}
+    values, _ = _values(monkeypatch, lambda url: _ok(url, {"data": [empty_entry, *OBSERVATIONS["data"]]}))
+    df = values.all().df
+    assert df["parameter"].to_list() == ["temperature_air_2m"]
+    assert df["value"].to_list() == [2.7]
 
 
 def test_metno_frost_values_404_fallback_for_one_parameter_leaves_its_siblings_alone(
@@ -806,7 +883,7 @@ def test_metno_frost_sunshine_duration_is_read_as_hours(
     element: str,
     hours: float,
 ) -> None:
-    """Test that the sunshine duration, which Frost answers in hours, comes back in seconds (GH-3137).
+    """Test that the sunshine duration, which Frost answers in hours, comes back in hours (GH-3137, GH-3702).
 
     The metadata said seconds for the element, so 10.4 hours came back as 10.4 seconds, 3,600 times too small.
     """
@@ -827,4 +904,4 @@ def test_metno_frost_sunshine_duration_is_read_as_hours(
         end=dt.datetime(2020, 2, 1, tzinfo=ZoneInfo("UTC")),
     )
     df = values.all().df
-    assert df["value"].to_list() == [pytest.approx(hours * 3600)]
+    assert df["value"].to_list() == [pytest.approx(hours)]

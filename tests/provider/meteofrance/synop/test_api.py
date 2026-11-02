@@ -333,7 +333,7 @@ def test_meteofrance_synop_api_obscured_sky_is_null(monkeypatch: pytest.MonkeyPa
         datetime(2024, 1, 1, 3, tzinfo=UTC),
         datetime(2024, 1, 1, 6, tzinfo=UTC),
     ]
-    assert df.get_column("value").to_list() == [0.0, 0.9, 1.0]
+    assert df.get_column("value").to_list() == [0.0, 90.0, 100.0]
 
 
 def test_meteofrance_synop_api_a_reading_no_sensor_produced_is_null_with_its_text(
@@ -617,11 +617,11 @@ def test_meteofrance_synop_api_a_station_pressure_is_null_where_its_elevation_do
     ("station", "humidity", "kept"),
     [
         # MARIPASOULA (Guyane) and TROMELIN (Iles Eparses) are the stations of the issue, no frost
-        ("81415", ["5", "78"], [None, 0.78]),
-        ("61976", ["4", "78"], [None, 0.78]),
+        ("81415", ["5", "78"], [None, 78.0]),
+        ("61976", ["4", "78"], [None, 78.0]),
         # La Reunion has frost at altitude and the mainland has it: the humidity stays beside its dew point
-        ("61980", ["5", "78"], [0.05, 0.78]),
-        ("07005", ["5", "78"], [0.05, 0.78]),
+        ("61980", ["5", "78"], [5.0, 78.0]),
+        ("07005", ["5", "78"], [5.0, 78.0]),
     ],
 )
 def test_meteofrance_synop_api_the_humidity_beside_a_dew_point_below_zero_is_null_where_there_is_no_frost(
@@ -673,7 +673,7 @@ def test_meteofrance_synop_api_the_humidity_beside_a_dew_point_of_zero_or_a_miss
         station_id="81415",
     )
     humidity = df.filter(pl.col("parameter").eq("humidity_relative")).sort("timestamp")
-    assert humidity.get_column("value").to_list() == [0.4, 0.41]
+    assert humidity.get_column("value").to_list() == [40.0, 41.0]
 
 
 @pytest.mark.remote

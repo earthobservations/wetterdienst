@@ -186,7 +186,8 @@ def test_the_heavy_parts_are_with_metadata_alone(client: TestClient, monkeypatch
 def test_the_unit_is_the_sources_where_nothing_is_converted(*, convert_units: bool, unit: str) -> None:
     """The unit named is the target of the quantity, or, with `convert_units` off, the one the source publishes."""
     request = DwdObservationRequest(
-        parameters=[("daily", "climate_summary", "sunshine_duration")], options=Options(convert_units=convert_units)
+        parameters=[("daily", "climate_summary", "sunshine_duration")],
+        options=Options(convert_units=convert_units, unit_targets={"duration": "second"}),
     )
     stations = replace(_values_result_of_shape("long").stations, request=request)
 

@@ -260,10 +260,10 @@ def _ipma(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFr
     # (6211213, 1.24), Ponta Delgada (1200512, 1.23) and Castro Marim (1210867, 1,395 kJ/m2 at 07 UTC, before the sun
     # is up at 576, so a station on another clock). Not a unit: the median station is 0.73 of the extraterrestrial
     # value, a kJ/m2 per hour that fits, a sum of 10 minutes or a MJ/m2 would be off by 6 or 1,000, and the reader's
-    # kJ/m2 to J/cm2 is exact (2,551.2 becomes 255.12). The documentation says "radiacao : radiacao solar (kJ/m2)"
+    # kJ/m2 to MJ/m2 is exact (2,551.2 becomes 2.5512). The documentation says "radiacao : radiacao solar (kJ/m2)"
     # beside "valor acumulado da hora" for `precAcumulada` and "media da hora" for `humidade` and `pressao`, so it names
     # no period for the radiation. A sensor that reads 20 to 27 % high is a fault the source documents no code for,
-    # and the range check (500,000 J/cm2) is not meant for it: left a value.
+    # and the range check (5 MJ/m2 an hour) is not meant for it: left a value.
     # The feed read in full on 2026-10-21 (174 stations, 24 hours, 4,079 station hours; the Oct 19 feed again for
     # 203 stations) has the -99.0 in every field and nothing else that is a code: `intensidadeVento` and
     # `intensidadeVentoKM` are -99.0 in the same 415 hours (and agree to 0.04 km/h otherwise), the direction code 0
@@ -2358,10 +2358,9 @@ STUBS = [
         "ipma/observation hourly/data",
         _ipma,
         reading=("temperature_air_mean_2m", 21.5),
-        # the humidity is converted from percent to a decimal on its way
         sentinels=(
             ("temperature_air_mean_2m", -99.0),
-            ("humidity_relative_mean", -0.99),
+            ("humidity_relative_mean", -99.0),
             ("precipitation_amount", -99.0),
         ),
         tokens=(
@@ -2388,7 +2387,7 @@ STUBS = [
         reading=("temperature_air_2m", -0.1),
         sentinels=(
             ("humidity_absolute", -99.9),
-            ("humidity_relative", -0.999),
+            ("humidity_relative", -99.9),
             ("pressure_vapor", -99.9),
             ("temperature_dew_point_2m", -99.9),
             ("temperature_wet_2m", -99.9),
@@ -2487,9 +2486,9 @@ STUBS = [
     ValueStub(
         "dwd/observation 10_minutes/urban_solar",
         _dwd_10_minutes_urban_solar,
-        # hours in the file, seconds in the output: 0.17 h
-        reading=("sunshine_duration", 612.0),
-        sentinels=(("radiation_global", -999.0), ("sunshine_duration", -999.0)),
+        # hours in the file and in the output: 0.17 h; the J/cm² of the radiation are MJ/m² in the output
+        reading=("sunshine_duration", 0.17),
+        sentinels=(("radiation_global", -9.99), ("sunshine_duration", -999.0)),
         tokens=(("radiation_global", "-999", None), ("sunshine_duration", "-999", None)),
     ),
     ValueStub(
@@ -2515,9 +2514,9 @@ STUBS = [
     ValueStub(
         "dwd/observation hourly/cloudiness",
         _dwd_hourly_cloudiness,
-        reading=("cloud_cover_total", 0.5),
-        # in eighths the -1 converts to -0.125 of the sky
-        sentinels=(("cloud_cover_total", -0.125),),
+        reading=("cloud_cover_total", 50.0),
+        # in eighths the -1 converts to -12.5 % of the sky
+        sentinels=(("cloud_cover_total", -12.5),),
         tokens=(("cloud_cover_total", "-1", None),),
     ),
     ValueStub(
@@ -2584,24 +2583,24 @@ STUBS = [
         "metoffice/observation hourly/weather",
         _metoffice_hourly_weather,
         reading=("wind_direction_mean_last_10min", 250.0),
-        # the oktas are converted to a fraction on their way
-        sentinels=(("wind_direction_mean_last_10min", 0.0), ("cloud_cover_total", 1.125)),
+        # the oktas are converted to percent on their way
+        sentinels=(("wind_direction_mean_last_10min", 0.0), ("cloud_cover_total", 112.5)),
         tokens=(("wind_direction_mean_last_10min", "0", None), ("cloud_cover_total", "9", None)),
     ),
     ValueStub(
         "metno/frost hourly/data",
         _metno_frost_hourly,
-        reading=("cloud_cover_total", 0.5),
-        # the cloud cover is converted from eighths to a decimal on its way
-        sentinels=(("cloud_cover_total", 1.125), ("snow_depth", -1.0)),
+        reading=("cloud_cover_total", 50.0),
+        # the cloud cover is converted from eighths to percent on its way
+        sentinels=(("cloud_cover_total", 112.5), ("snow_depth", -1.0)),
         tokens=(("cloud_cover_total", "9", None), ("snow_depth", "-1", 0.0)),
     ),
     ValueStub(
         "knmi/observation daily/data",
         _knmi_daily,
         reading=("temperature_air_mean_2m", 3.2),
-        # the sunshine duration is converted from hours to seconds and the cloud cover from octants to a fraction
-        sentinels=(("precipitation_amount", -1.0), ("sunshine_duration", -3600.0), ("cloud_cover_total_mean", 1.125)),
+        # the cloud cover is converted from octants to percent; the sunshine duration is in hours, as the file has it
+        sentinels=(("precipitation_amount", -1.0), ("sunshine_duration", -1.0), ("cloud_cover_total_mean", 112.5)),
         tokens=(
             ("temperature_air_mean_2m", "NaN", None),
             ("precipitation_amount", "-1", 0.0),
@@ -2613,8 +2612,8 @@ STUBS = [
         "knmi/observation 10_minutes/data",
         _knmi_10_minutes,
         reading=("wind_direction_mean", 250.0),
-        # the octants are converted to a fraction on their way
-        sentinels=(("cloud_cover_total", 1.125),),
+        # the octants are converted to percent on their way
+        sentinels=(("cloud_cover_total", 112.5),),
         tokens=(("cloud_cover_total", "9", None), ("wind_direction_mean", "NaN", None)),
     ),
     ValueStub(
@@ -2622,13 +2621,13 @@ STUBS = [
         _knmi_hourly,
         reading=("wind_direction_mean_last_10min", 250.0),
         # 0 is a calm and 990 a variable wind, neither a bearing (GH-2850)
-        # the octants are converted to a fraction on their way
+        # the octants are converted to percent on their way
         sentinels=(
             ("wind_direction_mean_last_10min", 0.0),
             ("wind_direction_mean_last_10min", 990.0),
-            ("cloud_cover_total", 1.125),
+            ("cloud_cover_total", 112.5),
             ("precipitation_amount", -1.0),
-            ("sunshine_duration", -3600.0),
+            ("sunshine_duration", -1.0),
         ),
         # a trace of precipitation or of sunshine is 0.0 with the code beside it
         tokens=(
@@ -2672,8 +2671,8 @@ STUBS = [
         "smhi/observation hourly/data",
         _smhi_hourly,
         reading=("wind_direction_mean_last_10min", 360.0),
-        # the percent is converted to a decimal on its way: 113 % is the 9 oktas of an obscured sky
-        sentinels=(("cloud_cover_total", 1.13),),
+        # the percent stays percent on its way: 113 % is the 9 oktas of an obscured sky
+        sentinels=(("cloud_cover_total", 113.0),),
         tokens=(("wind_direction_mean_last_10min", "0", None), ("cloud_cover_total", "113", None)),
     ),
     ValueStub(
@@ -2707,7 +2706,7 @@ STUBS = [
         "dmi/observation hourly/data",
         _dmi_hourly,
         reading=("wind_direction_mean", 250.0),
-        sentinels=(("wind_direction_mean", 0.0), ("cloud_cover_total", 1.12)),
+        sentinels=(("wind_direction_mean", 0.0), ("cloud_cover_total", 112.0)),
         tokens=(("wind_direction_mean", "0", None), ("cloud_cover_total", "112", None)),
         verdicts=(("cloud_cover_total", "112", "range"),),
     ),
@@ -2780,7 +2779,7 @@ STUBS = [
         ),
         verdicts=(("temperature_air_mean_2m", "110.26", "range"), ("temperature_air_max_2m", "4021", "range")),
         # the sunshine of a day of 1,440 minutes of a station whose sensor was dead is kept, flagged `suspect:stuck`
-        suspects=(("sunshine_duration", 86400.0, "stuck"),),
+        suspects=(("sunshine_duration", 24.0, "stuck"),),
     ),
     ValueStub(
         "rmi/observation daily/data (stuck hard)",
@@ -2848,8 +2847,9 @@ STUBS = [
     ValueStub(
         "dwd/derived hourly/radiation_global",
         _dwd_derived_radiation,
-        reading=("radiation_global", 103.0),
-        sentinels=(("radiation_global", -999.0), ("radiation_global", -9999.0)),
+        # the J/cm² of the file are MJ/m² in the output: 103 J/cm² is 1.03, the sentinels -9.99 and -99.99
+        reading=("radiation_global", 1.03),
+        sentinels=(("radiation_global", -9.99), ("radiation_global", -99.99)),
         tokens=(
             ("radiation_global", "-999", None),
             ("radiation_global_uncertainty", "-999", None),
@@ -2882,8 +2882,8 @@ STUBS = [
         "dwd/poi hourly/data",
         _dwd_poi,
         reading=("temperature_air_2m", 15.3),
-        # the percent is converted to a decimal on its way
-        sentinels=(("cloud_cover_total", 1.13), ("cloud_cover_total", 1.26)),
+        # the percent stays percent on its way
+        sentinels=(("cloud_cover_total", 113.0), ("cloud_cover_total", 126.0)),
         tokens=(
             ("cloud_cover_total", "---", None),
             ("cloud_cover_total", "113", None),
@@ -2959,16 +2959,16 @@ STUBS = [
         "meteofrance/observation hourly/others (Mayotte, no frost)",
         _meteofrance_observation_hourly_mayotte,
         reading=("temperature_dew_point_2m", 20.0),
-        sentinels=(("temperature_dew_point_2m", -4.5), ("humidity_relative", 0.15)),
+        sentinels=(("temperature_dew_point_2m", -4.5), ("humidity_relative", 15.0)),
         tokens=(("temperature_dew_point_2m", "-4.5", None), ("humidity_relative", "15", None)),
         verdicts=(("temperature_dew_point_2m", "-4.5", "range"), ("humidity_relative", "15", "consistency")),
     ),
     ValueStub(
         "meteofrance/observation hourly/others",
         _meteofrance_observation_hourly_others,
-        reading=("cloud_cover_total", 0.5),
-        # the octas are converted to a fraction on their way
-        sentinels=(("cloud_cover_total", 1.125),),
+        reading=("cloud_cover_total", 50.0),
+        # the octas are converted to percent on their way
+        sentinels=(("cloud_cover_total", 112.5),),
         tokens=(("cloud_cover_total", "9", None),),
     ),
     ValueStub(
@@ -3045,7 +3045,7 @@ STUBS = [
         reading=("precipitation_amount_last_1h", 0.4),
         sentinels=(
             ("precipitation_amount_last_6h", -0.1),
-            ("cloud_cover_total", 1.01),
+            ("cloud_cover_total", 101.0),
             ("wind_direction_mean_last_10min", 400.0),
         ),
         # a trace is 0.0 with the code beside it; an obscured sky has no amount; a calm and a 400 are no direction,

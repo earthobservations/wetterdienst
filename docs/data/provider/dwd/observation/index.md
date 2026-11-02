@@ -130,7 +130,7 @@ SYNOP's N = 9. It says that no amount could be given, rather than giving one, so
 returns it as null.
 
 Left as it stands it would be read as −1 eighths and converted like any other cloud cover, so a
-default request would report −0.125 of the sky covered.
+default request would report −12.5 % of the sky covered.
 
 DWD's own dataset description documents only `-999` as a missing value and says nothing about `-1`,
 so the reading is from the data: across station 00003's hourly record `-1` stands in 1.2% of
@@ -199,8 +199,8 @@ minutes, its monthly mean tracing the equation of time about a 54.7 minute longi
 | May | 57.6 min |
 | November | 69.1 min |
 
-Being a time, it follows the `time` unit target like any other duration, so it arrives in seconds
-unless you ask for something else.
+Being a time and not a duration of sunshine or rain, it follows the `time` unit target (not `duration`, which is in
+hours), so it arrives in seconds unless you ask for something else.
 
 ```python
 from wetterdienst.provider.dwd.observation import DwdObservationRequest

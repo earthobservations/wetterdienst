@@ -55,24 +55,37 @@ def _datasets(network: str) -> list:
         ("precipitation_amount", "daily", (0.0, 1850.0)),
         ("precipitation_amount", "monthly", (0.0, 10000.0)),
         ("precipitation_amount", "annual", (0.0, 30000.0)),
-        # a definition
-        ("humidity_relative", "hourly", (0.0, 1.0)),
-        ("humidity_relative_mean", "daily", (0.0, 1.0)),
-        ("cloud_cover_total", "hourly", (0.0, 1.0)),
-        ("sunshine_duration", "10_minutes", (0.0, 630.0)),
-        ("sunshine_duration", "hourly", (0.0, 3780.0)),
-        ("sunshine_duration", "daily", (0.0, 90720.0)),
-        ("precipitation_duration", "hourly", (0.0, 3780.0)),
+        # a definition; a share is in percent (the bounds were 0 to 1 as a decimal) and a duration in hours (the bounds
+        # were 630, 3,780 and 90,720 s: the span and 5 %, divided by 3,600)
+        ("humidity_relative", "hourly", (0.0, 100.0)),
+        ("humidity_relative_mean", "daily", (0.0, 100.0)),
+        ("cloud_cover_total", "hourly", (0.0, 100.0)),
+        ("sunshine_duration", "10_minutes", (0.0, 0.175)),
+        ("sunshine_duration", "hourly", (0.0, 1.05)),
+        ("sunshine_duration", "daily", (0.0, 25.2)),
+        ("precipitation_duration", "hourly", (0.0, 1.05)),
         ("count_days_frost", "monthly", (0.0, 31.0)),
         ("count_days_frost", "annual", (0.0, 366.0)),
-        ("snow_cover", "daily", (0.0, 1.0)),
-        ("leaf_wetness_duration", "hourly", (0.0, 3780.0)),
-        ("leaf_wetness_duration", "daily", (0.0, 90720.0)),  # DMI's sum of the minutes of a day, 1,440 at most
+        ("snow_cover", "daily", (0.0, 100.0)),
+        ("leaf_wetness_duration", "hourly", (0.0, 1.05)),
+        ("leaf_wetness_duration", "daily", (0.0, 25.2)),  # DMI's sum of the minutes of a day, 1,440 (24 h) at most
         # a month of ECCC's normal snowfall is the day's 200 cm times 31, as the sums of the daily depths are
         ("snow_depth_new_normal", "monthly", (0.0, 6200.0)),
         ("snow_depth_new", "monthly", (0.0, 6200.0)),
         ("precipitation_amount_normal", "monthly", (0.0, 10000.0)),
-        ("sunshine_duration_normal", "monthly", (0.0, 2678400.0)),
+        ("sunshine_duration_normal", "monthly", (0.0, 744.0)),  # 31 days of 24 h; it was 2,678,400 s
+        # the offset of solar time and a wave period stay in seconds, the unit of the type `time`
+        ("true_local_time_offset", "daily", (-45000.0, 45000.0)),
+        ("wave_period", "hourly", (0.0, INF)),
+        # a sum of radiation in MJ/m² (the bounds were 100, 500, 6,000, 186,000, 2,200,000 J/cm²; 1 MJ/m² = 100 J/cm²)
+        ("radiation_global", "10_minutes", (0.0, 1.0)),
+        ("radiation_global", "hourly", (0.0, 5.0)),
+        ("radiation_global", "daily", (0.0, 60.0)),
+        ("radiation_global", "monthly", (0.0, 1860.0)),
+        ("radiation_global", "annual", (0.0, 22000.0)),
+        # the sum of the daily snow depths, in cm·d: the bound did not change with the unit type
+        ("snow_depth_sum", "daily", (0.0, 1200.0)),
+        ("snow_depth_sum", "monthly", (0.0, 37200.0)),
         # a named source
         ("pressure_air_site", "hourly", (300.0, 1100.0)),
         ("pressure_vapor_mean", "daily", (0.0, 60.0)),

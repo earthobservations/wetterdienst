@@ -172,7 +172,7 @@ def test_imgw_meteorology_api_daily() -> None:
                 "dataset": "climate",
                 "parameter": "cloud_cover_total_mean",
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 0.2875,
+                "value": 28.75,
                 "quality_flags": None,
             },
             {
@@ -301,7 +301,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "dataset": "synop",
                 "parameter": "cloud_cover_total_mean",
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 0.6,
+                "value": 60.0,
                 "quality_flags": None,
             },
             {
@@ -310,7 +310,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "dataset": "synop",
                 "parameter": "humidity_relative_mean",
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 0.753,
+                "value": 75.3,
                 "quality_flags": None,
             },
             {
@@ -484,7 +484,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                 "dataset": "synop",
                 "parameter": "humidity_relative_mean",
                 "timestamp": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 0.905,
+                "value": 90.5,
                 "quality_flags": None,
             },
             {
