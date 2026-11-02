@@ -72,7 +72,7 @@ written as short as it goes (`4021.0` as `4021`).
 | `consistency` | a reading that another parameter of the same file contradicts | hard | DWD road: a road surface more than 20 K above the air of the same minute with the sun more than 6 degrees below the horizon, the air counting only where it passed `range` and is not marked suspect by DWD's own flag. Météo-France: the humidity of an hour whose dew point lies below 0 °C at a station without frost (the same hygrometer), and a `tn12` that is the text of the `tx12` beside it (a copy, no minimum) |
 | `floor` | a model value a little below the floor of its quantity | hard | DWD DMO (a forecast, soft in every other built-in check, but `floor` corrects and does not reject, so it keeps its mode): ICON writes -0.02 mm for the precipitation of an hour, down to -0.10, and the radiation of a night below 0. **hard sets the floor**, 0.0, and keeps the number; soft keeps the number as the value |
 | `limits` | a reading outside the bounds **you** set for its parameter ([below](#bounds-of-your-own-limits)) | hard | Judges nothing until you set a bound (`Options(limits=...)`, `WD_TS_LIMITS`, `--limits`, `limits` of REST and MCP), and then only the parameters you name. The bounds are in the unit the values come back in, and are a check of their own beside `range`, whose bounds they neither narrow nor widen: a value outside both carries both verdicts, as far as both are in one mode ([the tokens](#the-tokens)) |
-| `source` | a value the source itself marks as erroneous or doubtful in its own quality flag and returns | **soft** | The codes the provider's documentation words as a failed check, erroneous, suspect, doubtful or poor, per provider ([below](#the-sources-own-verdict-source)): GHCN-Daily `QFLAG`, GHCNh `Suspect`/`Erroneous` and the letters of its source 382, Frost `qualityCode` 7, CHMI `Suspect` and `Poor`, Environment Agency `Suspect`, Météo-France `Q` 2, DMI `validity:false`. Soft keeps the value and writes `suspect:source`; hard nulls it and writes `rejected:source,raw:<text>`, except the suspect level of a source that has two (GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`), which stays `suspect:source` |
+| `source` | a value the source itself marks as erroneous or doubtful in its own quality flag and returns | **soft** | The codes the provider's documentation words as a failed check, erroneous, suspect, doubtful or poor, per provider ([below](#the-sources-own-verdict-source)): GHCN-Daily `QFLAG`, GHCNh `Suspect`/`Erroneous`, the letters of its source 382, source 345's `3` and `o`/`f` of a derived humidity, Frost `qualityCode` 7, CHMI `Suspect` and `Poor`, Environment Agency `Suspect`, Météo-France `Q` 2, DMI `validity:false`, NWS/MADIS `X`, `Q` and `B`, Hub'Eau `12`, DWD road `1`, Met Office MIDAS status `1`. Soft keeps the value and writes `suspect:source`; hard nulls it and writes `rejected:source,raw:<text>`, except the suspect level of a source that has two (GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`, MADIS `Questioned`, GHCNh `f`), which stays `suspect:source` |
 
 `stuck` is soft by default because it judges a series and not a value: identical readings are a sign of a stuck sensor
 and no proof, and what is found depends on what was read, which differs by network (see the caveats). `source` is soft
@@ -295,11 +295,11 @@ the verdict that the value failed a check, is erroneous, suspect, doubtful or of
 words as a degree of uncertainty (Frost's "slightly uncertain" and "very uncertain", codes 2, 4 and 5), as a treatment
 (estimated, corrected, interpolated), as a missing value, or as no control at all (`Unchecked`, DMI's `qcStatus`
 `none`) is no verdict and is not read. Where a source has two levels of verdict (GHCNh `Suspect` and `Erroneous`, CHMI
-`Suspect` and `Poor`), both are in the map, each as a *suspect level* or an *erroneous level* code in the table: `soft`
+`Suspect` and `Poor`, MADIS `Questioned` and `Rejected/erroneous`), both are in the map, each as a *suspect level* or an *erroneous level* code in the table: `soft`
 flags both as `suspect:source`, and `hard` nulls only the erroneous level, the code the source words as erroneous,
-failed or poor (GHCNh `Erroneous`, CHMI `Poor`), while the suspect level (GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`) stays
+failed or poor (GHCNh `Erroneous`, CHMI `Poor`, MADIS `Rejected/erroneous`), while the suspect level (GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`, MADIS `Questioned`, GHCNh `f`) stays
 `suspect:source` and is never nulled. A source that has one level only (GHCN-Daily `QFLAG`, Frost 7, EA `Suspect`,
-Météo-France 2, DMI `validity:false`) has it as the erroneous level, so `hard` nulls it. The source's own word stays in
+Météo-France 2, DMI `validity:false`, Hub'Eau 12, DWD road 1, MIDAS status 1) has it as the erroneous level, so `hard` nulls it. The source's own word stays in
 `quality_flags` beside the token, so a code is told from the other by the flag (`3,suspect:source` against
 `2,suspect:source`). A source that has no such wording is not in the map; a network has the check only where its reader
 returns the flag.
@@ -316,37 +316,65 @@ holds a code the map does not list (a letter the documentation does not word as 
 | `noaa/ghcn` | `hourly/data` | the plain first token (`<element>_Quality_Code`), where `source:` is 313, 314, 315, 322, 335, 343, 344 or 346 | suspect level: `2` Suspect; `6` Suspect, data originate from an NCEI data source; erroneous level: `3` Erroneous; `7` Erroneous, data originate from an NCEI data source | [GHCNh documentation](https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh_DOCUMENTATION.pdf), Table 3: "Legacy Codes for Sources 313, 314, 315, 322, 335, 343, 344, 346 include: ... 2 = Suspect 3 = Erroneous ... 6 = Suspect, data originate from an NCEI data source 7 = Erroneous, data originate from an NCEI data source" |
 | `noaa/ghcn` | `hourly/data` | the plain first token, where `source:` is 220, 221, 222, 223, 347 or 348 | suspect level: `2` Suspect; erroneous level: `3` Erroneous | [GHCNh documentation](https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh_DOCUMENTATION.pdf), Table 3: "Legacy Codes for Sources: 220, 221, 222, 223, 347, 348 include 0 Not Checked 1 Good 2 Suspect 3 Erroneous 4 Calculated 5 Removed" |
 | `noaa/ghcn` | `hourly/data` | the plain first token, where `source:` is 382 (the precipitation of C-HPD) | suspect level: `R` Indicates data values are suspect with regard to the times or period of occurrence; erroneous level: `X` failed global extreme exceedance check; `N` failed negative precipitation check; `Y` failed state extreme exceedance check (performed on daily totals); `K` failed streak/frequent-value check; `G` failed gap check; `O` failed climatological outlier check; `Z` flagged as a result of an official Datzilla investigation; `Q` Indicates value failed an extreme value test (value will be present) | [GHCNh documentation](https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh_DOCUMENTATION.pdf), Table 3: "Legacy Codes for Source 382 for precipitation (as given in C-HPD documentation) Blank = did not fail any quality assurance check X = failed global extreme exceedance check ..." |
+| `noaa/ghcn` | `hourly/data` | the plain first token, where `source:` is 345, for `humidity_relative` and `wind_speed` only | `3` Error (erroneous data) | [GHCNh documentation](https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh_DOCUMENTATION.pdf), Table 3: "Legacy Codes for Source 345 (for relative humidity and wind speed only): 0 = Good 1 = Issue (field-length overflow) 3 = Error (erroneous data)" |
+| `noaa/ghcn` | `hourly/data` | the plain first token, where `source:` is 220, 221, 222, 223, 313, 314, 315, 322, 335, 343, 344, 346, 347 or 348 (the sources that derive humidity), for `humidity_relative` only | suspect level: `f` Suspect or Error flags for 1 or more of the input measurements; erroneous level: `o` Out of range (relative humidity only - with values < 1 or > 100) | [GHCNh documentation](https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh_DOCUMENTATION.pdf), Table 3: "Sources: 220, 221, 222, 223, 313, 314, 315, 322, 335, 343, 344, 346, 347, 348 For these sources, relative humidity and wet-bulb temperature are not directly measured, but rather derived from other measured variables. These can have the following QC flags: o - Out of range (relative humidity only - with values < 1 or > 100) f - Suspect or Error flags for 1 or more of the input measurements" |
+| `noaa/ghcn` | `hourly/data` | the same sources, for `temperature_wet_2m` only | suspect level: `f` Suspect or Error flags for 1 or more of the input measurements | the same table of the [GHCNh documentation](https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh_DOCUMENTATION.pdf) |
 | `metno/frost` | `10_minutes/data`, `hourly/data`, `6_hours/data`, `daily/data`, `monthly/data`, `annual/data` | the plain first token (`qualityCode`) | `7` Erroneous, value is not corrected | [Frost data clarifications, Quality code](https://frost.met.no/dataclarifications.html#quality-code): "Frost tries to give the user a single value to represent the general quality of the observation. This value is set in the field qualityCode." `7 Erroneous, value is not corrected` |
 | `chmi/observation` | `10_minutes/data`, `hourly/data`, `daily/data` | the plain first token (`QUALITY`) | suspect level: `1` Suspect/Podezřelá hodnota; erroneous level: `2` Poor/Hodnota s nízkou kvalitou, podezřelá, zatím nepoužívat | [meta4.csv](https://opendata.chmi.cz/meteorology/climate/historical_csv/metadata/meta4.csv): `1,Suspect/Podezřelá hodnota`, `2,Poor/Hodnota s nízkou kvalitou, podezřelá, zatím nepoužívat` |
 | `ea/hydrology` | `15_minutes/data`, `daily/data` | the plain first token (`quality`) | `Suspect` | [Hydrology API reference, Readings](https://environment.data.gov.uk/hydrology/doc/reference#readings-section): "quality: The quality of this reading: Good, Estimated, Suspect, Unchecked, Missing" |
 | `meteofrance/observation` | `6_minutes/data`, `hourly/core`, `hourly/others`, `daily/core`, `daily/others`, `monthly/data` | the plain first token (`Q<parameter>`) | `2` donnée douteuse en cours de vérification (la donnée a été mise en doute par contrôle automatique) | the "descriptif" of each of the four products ([quotidiennes](https://static.data.gouv.fr/resources/donnees-climatologiques-de-base-quotidiennes/20260603-085232/climatologie-donnees-quotidiennes-descriptif-20260603.pdf), [horaires](https://static.data.gouv.fr/resources/donnees-climatologiques-de-base-horaires/20260603-085646/climatologie-donnees-horaires-descriptif-20260603.pdf), [mensuelles](https://static.data.gouv.fr/resources/donnees-climatologiques-de-base-mensuelles/20260603-085345/climatologie-donnees-mensuelles-descriptif-20260603.pdf), [6 minutes](https://static.data.gouv.fr/resources/donnees-climatologiques-de-base-6-minutes/20260401-151040/climatologie-donnees-6-minutes-descriptif-20250604.pdf)): "un code qualité est associé à la mesure (noté Qparamètre). Il qualifie l’état de validation de la donnée : ... 2 : donnée douteuse en cours de vérification (la donnée a été mise en doute par contrôle automatique)" |
 | `dmi/observation` | `hourly/data`, `daily/data`, `monthly/data`, `annual/data` | the token `validity:` | `false`: "Whether or not the value is considered valid by the climatologists. Invalid data is generally not correct" | [DMI climate data API, `stationValue`](https://www.dmi.dk/friedata/dokumentation/apis/climate-data-api-1): `properties.validity`. Its `qcStatus` (`manual`, `none`) says whether the value was controlled and is no verdict |
+| `nws/observation` | `hourly/data` | the plain first token (`qualityControl` of the quantity, MADIS's QC data descriptor) | suspect level: `Q` Questioned, passed level 1, failed 2 or 3; erroneous level: `X` Rejected/erroneous, failed level 1; `B` Subjective bad | [NWS API reference, `QuantitativeValue.qualityControl`](https://api.weather.gov/openapi.json): "For values in observation records, the quality control flag from the MADIS system. The definitions of these flags can be found at https://madis.ncep.noaa.gov/madis_sfc_qc_notes.shtml"; [MADIS surface QC notes](https://madis.ncep.noaa.gov/madis_sfc_qc_notes.shtml), "QC Data Descriptor Values": "X - Rejected/erroneous, failed level 1 Q - Questioned, passed level 1, failed 2 or 3 where level 1 = validity level 2 = internal consistency, temporal consistency, statistical spatial consistency checks level 3 = spatial consistency check ... G - Subjective good B - Subjective bad" |
+| `eaufrance/hubeau` | `5_minutes/data`, `6_minutes/data`, `10_minutes/data`, `15_minutes/data`, `hourly/data` | the plain first token (`code_qualification_obs`) | `12` Douteuse | [Hub'Eau hydrométrie API](https://hubeau.eaufrance.fr/api/v2/hydrometrie/api-docs), `code_qualification_obs`: "Qualification de la donnée d'observation hydrométrique. 7 valeurs possibles : 0, 4, 8, 12, 16, 20, 30 (Neutre, Faible, Forte, Douteuse, Non qualifiée, Bonne, Estimée)"; the Sandre nomenclature 515 it points to words `12` as "Valeur douteuse" |
+| `dwd/road` | `15_minutes/data` | the plain first token, the station's own verdict on the sensor of the reading (`qualityInformationAwsData`, BUFR 0 33 005, read as `1` or `0`), for the wind, `temperature_air`, `humidity_relative`, `visibility` and the precipitation (not `temperature_surface` and `temperature_dew_point`, which the table names no bit for) | `1` Wind data suspect, Air temperature data suspect, Humidity data suspect, Ground temperature data suspect, Visibility data suspect, Precipitation data suspect | [WMO flag table 0 33 005, "Quality information (AWS data)"](https://github.com/wmo-im/BUFR4/blob/master/BUFRCREX_CodeFlag_en_33.csv): "2 Pressure data suspect; 3 Wind data suspect; 4 Air temperature data suspect; 5 Wet-bulb temperature data suspect; 6 Humidity data suspect; 7 Ground temperature data suspect; ... 14 Visibility data suspect; ... 18 Precipitation data suspect" |
+| `metoffice/observation` | `daily/rain`, `daily/temperature`, `daily/weather`, `hourly/rain`, `hourly/weather`, `hourly/wind`, `hourly/radiation`, `hourly/soil_temperature` | the third digit from the right of the plain first token (`MESQL`, `_q`): the status, `qc_status`, as the file writes it without leading zeros (`2176` is `02176`) | `1` Observed and suspect (i.e. has failed the latest QC check), or there are strong grounds for suspecting the accuracy of the observation | [MIDAS QC flags](https://dap.ceda.ac.uk/badc/ukmo-midas/metadata/doc/QC_J_flags.html): "This _q attribute is a five digit number (of the form MESQL), where each digit describes one aspect of the quality of a meteorological element. ... qc_status (code_id 8023) indicates the status of the data value. 0 Observed and not suspect 1 Observed and suspect (i.e. has failed the latest QC check), or there are strong grounds for suspecting the accuracy of the observation" |
 
 <!-- source:end -->
 
 The tests hold this table to the map of the code (`wetterdienst.model.source_flags.SOURCE_FLAGS`) and to the pages of
 the providers, and a test of each provider's reader pins its codes on a row of the source. What is **not** read, and why:
 
-- **GHCNh letters of the integration's own checks, and `o` and `f` of a derived humidity**: `c` climatological outlier,
-  `s` spike, `l` failed logistical consistency, ... name the check of the dataset's own processing that flagged one of
-  six elements, and `o` ("Out of range") and `f` ("Suspect or Error flags for 1 or more of the input measurements") flag
-  a relative humidity or wet bulb temperature that the legacy sources derive. Those two are worded as verdicts, and are
-  left out because the same letters are the integration's "Odd cluster" and "Frequent value" on the six elements, so a
-  letter can be read only with the parameter beside it, which the map does not scope by yet
-  ([GH-3745](https://github.com/earthobservations/wetterdienst/issues/3745)). No other letter is read outside the list
-  of source 382, where the documentation words each as a failed check or as suspect. The codes `0`, `1`, `4`, `5` and
-  `9` of the legacy lists say the value was not checked, passed, was calculated or was removed, `D`, `M`, `A` and `q`
-  of source 382 that it was deleted, missing, an accumulation or leaves out 15 minute periods, and `A`, `P`, `U`, `I`,
-  `M`, `R` of the legacy lists that a value was accepted, replaced or inserted. The list of source 345 (`3` "Error
-  (erroneous data)", for relative humidity and wind speed only) is not read either: a rule is not scoped by parameter
-  yet (GH-3745).
+- **GHCNh letters of the integration's own checks**: `c` climatological outlier, `s` spike, `l` failed logistical
+  consistency, ... name the check of the dataset's own processing that flagged one of six elements (temperature, dew
+  point, both pressures, wind direction, wind speed). The same letters `o` ("Out of range") and `f` ("Suspect or Error
+  flags for 1 or more of the input measurements") are read only for the `humidity_relative` and the `temperature_wet_2m`
+  (`f` alone) of the legacy sources that derive them, where Table 3 words them as verdicts. No other letter is read
+  outside the list of source 382, where the documentation words each as a failed check or as suspect. The codes `0`,
+  `1`, `4`, `5` and `9` of the legacy lists say the value was not checked, passed, was calculated or was removed, `D`,
+  `M`, `A` and `q` of source 382 that it was deleted, missing, an accumulation or leaves out 15 minute periods, and `A`,
+  `P`, `U`, `I`, `M`, `R` of the legacy lists that a value was accepted, replaced or inserted. Source 345's `1`, "Issue
+  (field-length overflow)", is a fault of the record and not a verdict on the value, and `0` is "Good".
 - **Frost 2, 4, 5 and 6**: "slightly uncertain" and "very uncertain" are a degree of confidence, and `6` is model data.
   Frost's own word for a verdict is `7`, "Erroneous": "very uncertain" (`5`) says how sure the control was, not that
   the value failed, where Météo-France's "douteuse" and CHMI's "Suspect" say the control doubted the value itself.
 - **CHMI 3 to 5, EA `Estimated`, `Unchecked` and `Missing`**: an estimate, a value nobody checked and a missing value.
 - **DMI `qcStatus`**: `manual` and `none` say whether a climatologist controlled the value.
-- **Providers whose flag the reader does not return**, or whose documentation words no verdict, and the providers that
-  have a flag and are not read yet, are in [GH-3745](https://github.com/earthobservations/wetterdienst/issues/3745).
+- **NWS/MADIS `Z`, `C`, `S`, `V`, `G` and `T`**: how far a value got through the checks ("Preliminary, no QC", "Coarse
+  pass", "Screened", "Verified"), "Subjective good", and a temperature returned for a virtual temperature that could
+  not be calculated: none says the value failed.
+- **Hub'Eau `0`, `4`, `8`, `16`, `20` and `30`**: "Neutre", "Faible" and "Forte" are the sandre's unknown values ("Valeur
+  inconnue"), `16` "Non qualifiée" is no control, `20` "Bonne" passed and `30` "Valeur estimée" is an estimate.
+- **DWD road `0` and null**: the station checked the quantity and did not find it suspect, or said nothing (the station
+  ran no automated checks).
+- **Met Office MIDAS, the other digits**: `qc_estimate` (an estimate or correction), the status codes `2` to `7` (an
+  estimate, "An unreliable estimate (used in radiation QC)", "A correction (a reported value is assumed to be in
+  error)", "Value reverted to original", "Original value verified by observer"), `qc_query` ("Failed MIDAS validation",
+  "Failed climate QC range check", ... "gives information about the original (as reported) value", which a correction
+  or a verification may have replaced, so the value returned is not the one that failed) and `qc_level`. A value of the
+  qc-version 1 files may be a corrected one, with its original in qc-version 0
+  ([MIDAS Open user guide](https://help.ceda.ac.uk/article/4982-midas-open-user-guide)).
+- **SMHI `Kvalitet` `Y`**: not read. SMHI's [questions and answers](https://www.smhi.se/data/om-smhis-data/fragor-och-svar)
+  do not word the codes `G` and `Y`; they say that values before 2010, which the earlier system could not check, got
+  "en väldigt enkel kontroll för att få bort helt felaktiga värden" and that "de data som passerat kontrollen utan
+  anmärkning har gulmarkerats, då vi inte kan garantera att de verkligen är korrekta" (the data that passed without
+  remark are marked yellow because SMHI cannot guarantee them), and that daily precipitation stays `G` ("godkända")
+  once the automatic checks find nothing wrong. The page does not say that `Y` is that yellow, and the library's own
+  description of `Y` as "suspect or aggregated" has two meanings in one code: neither reading is a verdict on a value.
+- **RMI `qc_flags` `validated`**: RMI words `validated` as a flag and no verdict: `false` is "not validated", the state
+  of most of the series (the sunshine of station 6477 is `false` on 7,720 of 8,134 days), and its documentation says
+  nothing of a value that failed.
+- **Providers whose flag the reader does not return**, or whose documentation words no verdict, are in
+  [GH-3745](https://github.com/earthobservations/wetterdienst/issues/3745).
 
 ## Setting the modes
 
@@ -532,10 +560,14 @@ unless you set [bounds of your own](#bounds-of-your-own-limits), which any netwo
 | `floor` | `dwd/dmo` | `hourly/icon`, `hourly/icon_eu` |
 | `source` | `chmi/observation` | `10_minutes/data`, `hourly/data`, `daily/data` |
 | `source` | `dmi/observation` | `hourly/data`, `daily/data`, `monthly/data`, `annual/data` |
+| `source` | `dwd/road` | `15_minutes/data` |
 | `source` | `ea/hydrology` | `15_minutes/data`, `daily/data` |
+| `source` | `eaufrance/hubeau` | `5_minutes/data`, `6_minutes/data`, `10_minutes/data`, `15_minutes/data`, `hourly/data` |
 | `source` | `meteofrance/observation` | `daily/core`, `daily/others`, `hourly/core`, `hourly/others`, `monthly/data`, `6_minutes/data` |
 | `source` | `metno/frost` | `10_minutes/data`, `hourly/data`, `6_hours/data`, `daily/data`, `monthly/data`, `annual/data` |
+| `source` | `metoffice/observation` | `daily/rain`, `daily/temperature`, `daily/weather`, `hourly/rain`, `hourly/weather`, `hourly/wind`, `hourly/radiation`, `hourly/soil_temperature` |
 | `source` | `noaa/ghcn` | `daily/data`, `hourly/data` |
+| `source` | `nws/observation` | `hourly/data` |
 
 <!-- coverage:end -->
 
@@ -552,7 +584,7 @@ What no check covers, and why:
   relation is kept for the check even where nobody asked for it, and dropped after judging. Where the second parameter
   lives in another dataset, the check does not run. DWD observation holds its hourly `temperature_air` and `moisture` in
   two datasets, so the humidity of one is not held to the dew point of the other.
-- **Quantities with no bound.** The hydrology of Hub'Eau and the Environment Agency (apart from its `Suspect` readings, which `source` flags) judges nothing without bounds of your own, and no network
+- **Quantities with no bound.** The hydrology of Hub'Eau and the Environment Agency (apart from their `Douteuse` and `Suspect` readings, which `source` flags) judges nothing without bounds of your own, and no network
   judges its codes, the derived quantities and the gauges listed above: a number there stays as the source wrote it. The
   sources' own "erroneous" flags are judged by [`source`](#the-sources-own-verdict-source) where a provider is mapped,
   and are the source's own, returned as its flags, where it is not.

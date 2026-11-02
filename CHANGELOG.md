@@ -16,6 +16,17 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- The check `source` reads the verdict of four more providers' own quality flags: NWS/MADIS `X`,
+  `B` and `Q`, Hub'Eau `12` "Douteuse", DWD road `1` (the station's "data suspect") and Met Office
+  MIDAS status `1` ("Observed and suspect"), and two more GHCNh cases: `3` of source 345 and
+  `o`/`f` of a derived humidity or wet bulb, each only for the parameters its documentation names.
+  Soft (the default) keeps the value and adds `suspect:source`, so those values leave
+  interpolation, summaries, stripes and `skip_empty`; `plausibility_source=hard` (a bare
+  `plausibility="hard"` too) nulls all but the milder NWS `Q` and GHCNh `f` as
+  `rejected:source,raw:<text>`: name `source` soft beside it to keep the values (GH-3745)
+
 ## [0.182.0] - 2026-11-02
 
 ### Added

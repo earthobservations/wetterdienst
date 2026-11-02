@@ -1456,6 +1456,42 @@ def test_dwd_road_weather_returns_the_verdict_as_a_quality_flag_string(monkeypat
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+@pytest.mark.parametrize("mode", ["soft", "hard"])
+def test_dwd_road_weather_a_quantity_the_station_reports_suspect_is_the_verdict_of_the_check_source(
+    monkeypatch: pytest.MonkeyPatch,
+    mode: str,
+) -> None:
+    """Test that the `1` of the station's flag is judged by `source` for the quantity its bit names (GH-3745).
+
+    BUFR flag table 0 33 005 (WMO, "Quality information (AWS data)"): "Wind data suspect", "Air temperature data
+    suspect", ... The air and the wind carry their bits here and are judged. The road surface carries its bit too
+    ("Ground temperature data suspect", which the reader reads for a road surface and the table does not word that
+    way), so it is `1` and not judged; the water film, which the table names no bit for, is unknown (null).
+    Soft keeps the value and flags it; hard nulls it and keeps the number DWD wrote.
+    """
+    flagged = (1 << (30 - 3)) | (1 << (30 - 4)) | (1 << (30 - 7))
+    with applying(Plausibility(source=mode)):
+        df = _collect_one(
+            monkeypatch,
+            {
+                "#1#qualityInformationAwsData": flagged,
+                "#1#windSpeed": 3.5,
+                "#1#airTemperature": 285.25,
+                "#1#roadSurfaceTemperature": 286.15,
+                "#1#waterFilmThickness": 0.1,
+            },
+        )
+    rows = _by_parameter(df)
+    suspect = "suspect:source" if mode == "soft" else "rejected:source,raw:{}"
+    assert rows["windSpeed"] == ((3.5, f"1,{suspect}") if mode == "soft" else (None, f"1,{suspect.format('3.5')}"))
+    assert rows["airTemperature"] == (
+        (285.25, f"1,{suspect}") if mode == "soft" else (None, f"1,{suspect.format('285.25')}")
+    )
+    assert rows["roadSurfaceTemperature"] == (286.15, "1")
+    assert rows["waterFilmThickness"] == (0.1, None)
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 @pytest.mark.remote
 def test_dwd_road_weather_a_real_file_decodes() -> None:
     """A published file with bytes in it decodes to readings.
@@ -1753,7 +1789,7 @@ def test_dwd_road_weather_an_air_dwd_marks_suspect_does_not_null_the_surface(
     rows = _by_parameter(df)
     # the bit of the air or of the ground sets the verdict of its own reading, `1` suspect, beside the `raw:` token
     assert rows["roadSurfaceTemperature"] == ((None, "1,rejected:consistency,raw:338.75") if nulled else (338.75, "0"))
-    assert rows["airTemperature"] == ((285.25, "0") if nulled else (285.25, "1"))
+    assert rows["airTemperature"] == ((285.25, "0") if nulled else (285.25, "1,suspect:source"))
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")

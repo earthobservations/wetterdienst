@@ -253,8 +253,60 @@ def test_hubeau_values_carry_the_qualification_code_as_a_whole_number(monkeypatc
     )
     df = request.filter_by_station_id("1011000101").values().all().df.sort("timestamp")
     assert df.schema["quality_flags"] == pl.String
-    assert df.get_column("quality_flags").to_list() == ["16", "12", None]
+    # `12` "Douteuse" is the verdict of the check `source`, soft by default (GH-3745): the code stays the first token
+    assert df.get_column("quality_flags").to_list() == ["16", "12,suspect:source", None]
+    assert df.get_column("value").to_list() == [0.15, 0.16, 0.17]
     assert "quality" not in df.columns
+
+
+@pytest.mark.usefixtures("hubeau_network")
+@pytest.mark.parametrize("mode", ["soft", "hard"])
+def test_hubeau_douteuse_is_the_verdict_of_the_check_source_and_no_other_code_is(
+    monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    """Test that `12` "Douteuse" is judged and `0 4 8 16 20 30` are not (GH-3745).
+
+    The API words the code as "Qualification de la donnée d'observation hydrométrique. 7 valeurs possibles : 0, 4, 8,
+    12, 16, 20, 30 (Neutre, Faible, Forte, Douteuse, Non qualifiée, Bonne, Estimée)" and the Sandre nomenclature 515
+    (api.sandre.eaufrance.fr, read 2026-11-02) words 12 as "Valeur douteuse". The live observations of 2026-11-02 held
+    16 and 12 only (17,830 and 2,170 of 20,000 rows), so the other codes are written as the nomenclature words them.
+    Soft keeps the value and flags it; hard nulls it and keeps the number Hubeau wrote (mm).
+    """
+    codes = [0, 4, 8, 12, 16, 20, 30]
+
+    def _paged_rows(url: str, settings: Settings, *, ttl: object, timeout: int) -> list[dict]:  # noqa: ARG001
+        return [
+            {
+                "code_station": "1011000101",
+                "date_obs": (dt.datetime(2026, 8, 21, 4, tzinfo=dt.UTC) + dt.timedelta(minutes=15 * index)).strftime(
+                    "%Y-%m-%dT%H:%M:%SZ"
+                ),
+                "resultat_obs": 100.0 * (1 + index),
+                "code_qualification_obs": code,
+            }
+            for index, code in enumerate(codes)
+        ]
+
+    monkeypatch.setattr(api, "_paged_rows", _paged_rows)
+    end = dt.datetime(2026, 8, 21, 10, tzinfo=ZoneInfo("UTC"))
+    request = HubeauRequest(
+        parameters=[("15_minutes", "data", "stage")],
+        start=end - dt.timedelta(days=1),
+        end=end,
+        settings=Settings(cache_disable=True),
+        options=Options(drop_nulls=False, plausibility={"source": mode}),
+    )
+    df = request.filter_by_station_id("1011000101").values().all().df.sort("timestamp")
+    flags = df.get_column("quality_flags").to_list()
+    values = df.get_column("value").to_list()
+    assert [flag.split(",")[0] for flag in flags] == [str(code) for code in codes]
+    assert flags[:3] + flags[4:] == ["0", "4", "8", "16", "20", "30"]
+    if mode == "soft":
+        assert flags[3] == "12,suspect:source"
+        assert values == [10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0]
+    else:
+        assert flags[3] == "12,rejected:source,raw:400"
+        assert values == [10.0, 20.0, 30.0, None, 50.0, 60.0, 70.0]
 
 
 @pytest.mark.usefixtures("hubeau_network")

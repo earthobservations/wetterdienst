@@ -1626,7 +1626,11 @@ def _aemet_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> p
     return stations_result(request, "hourly", "data", "3195").values().all().df
 
 
-def _metoffice_daily_rain(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+def _metoffice_daily_rain(
+    monkeypatch: pytest.MonkeyPatch,
+    drop_nulls: bool = True,  # noqa: FBT001, FBT002
+    flag: str = "2576",
+) -> pl.DataFrame:
     # the archive needs a CEDA login, so this is worded after what the reader takes for the files: BADC-CSV, a table
     # between a bare `data` and an `end data` line, and `NA` for a value (and its flag) a report does not have
     def badc(columns: str, rows: str) -> bytes:
@@ -1639,7 +1643,7 @@ def _metoffice_daily_rain(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = Tr
     )
     values = badc(
         "ob_date,ob_day_cnt,prcp_amt,prcp_amt_q",
-        "2000-01-01 00:00:00,1,3.7,2576\n2000-01-02 00:00:00,1,NA,NA\n",
+        f"2000-01-01 00:00:00,1,3.7,{flag}\n2000-01-02 00:00:00,1,NA,NA\n",
     )
 
     def download(_self: object, url: str, *_args: object, **_kwargs: object) -> bytes | None:
@@ -1658,6 +1662,14 @@ def _metoffice_daily_rain(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = Tr
         options=_options(drop_nulls),
     )
     return stations_result(request, "daily", "rain", "00001").values().all().df
+
+
+def _metoffice_daily_rain_suspect(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # the `MESQL` 02100: the status (S, the third digit from the right) is 1, "Observed and suspect (i.e. has failed the
+    # latest QC check), or there are strong grounds for suspecting the accuracy of the observation"
+    # (dap.ceda.ac.uk/badc/ukmo-midas/metadata/doc/QC_J_flags.html, read 2026-11-02); the file writes it as `2100`. The
+    # archive needs a CEDA login, which was not used: the row is worded after the documentation (GH-3745)
+    return _metoffice_daily_rain(monkeypatch, drop_nulls, flag="2100")
 
 
 def _metoffice_hourly_weather(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -1880,7 +1892,11 @@ def _fmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
     return stations_result(request, "hourly", "data", "100971").values().all().df
 
 
-def _nws_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+def _nws_hourly(
+    monkeypatch: pytest.MonkeyPatch,
+    drop_nulls: bool = True,  # noqa: FBT001, FBT002
+    speed_flag: str = "V",
+) -> pl.DataFrame:
     # api.weather.gov/stations/KBOS/observations (read 2026-10-12): 12:54Z is the METAR `36005KT`, a direction of 360,
     # and 14:54Z `00000KT`, a calm, which the endpoint gives as a direction of 0 beside a speed of 0 (GH-2794). The
     # METAR carries the `precipitationLastHour` key and a 5-minute ASOS row, which the endpoint serves beside it at the
@@ -1890,7 +1906,7 @@ def _nws_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
             "station": "https://api.weather.gov/stations/KBOS",
             "timestamp": f"2026-10-12T{timestamp}:00+00:00",
             "windDirection": {"unitCode": "wmoUnit:degree_(angle)", "value": direction, "qualityControl": "V"},
-            "windSpeed": {"unitCode": "wmoUnit:km_h-1", "value": speed, "qualityControl": "V"},
+            "windSpeed": {"unitCode": "wmoUnit:km_h-1", "value": speed, "qualityControl": speed_flag},
         }
         if report:
             properties["precipitationLastHour"] = {"unitCode": "wmoUnit:mm", "value": None, "qualityControl": "Z"}
@@ -1917,6 +1933,13 @@ def _nws_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
         options=_options(drop_nulls),
     )
     return stations_result(request, "hourly", "data", "KBOS").values().all().df
+
+
+def _nws_hourly_rejected(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # the same observations with the wind speed of MADIS's QC data descriptor `X`, "Rejected/erroneous, failed level 1"
+    # (madis.ncep.noaa.gov/madis_sfc_qc_notes.shtml, read 2026-11-02). api.weather.gov gave none of `X`, `Q` or `B` in
+    # 124,272 quantities of 20 stations that day, so the flag is worded after MADIS (GH-3745)
+    return _nws_hourly(monkeypatch, drop_nulls, speed_flag="X")
 
 
 def _smhi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -2549,6 +2572,15 @@ STUBS = [
         empty_at=_day(2000, 1, 2),
     ),
     ValueStub(
+        "metoffice/observation daily/rain (status suspect)",
+        _metoffice_daily_rain_suspect,
+        reading=("precipitation_amount", 3.7),
+        tokens=(("precipitation_amount", "NA", None),),
+        # MIDAS's own verdict, the status digit of `MESQL`, which the check `source` flags and leaves the value
+        suspects=(("precipitation_amount", 3.7, "source"),),
+        empty_at=_day(2000, 1, 2),
+    ),
+    ValueStub(
         "metoffice/observation hourly/weather",
         _metoffice_hourly_weather,
         reading=("wind_direction_mean_last_10min", 250.0),
@@ -2626,6 +2658,15 @@ STUBS = [
         sentinels=(("wind_direction_mean_last_2min", 0.0),),
         # a calm is no direction; the speed of 0 is a reading
         tokens=(("wind_direction_mean_last_2min", "0", None),),
+    ),
+    ValueStub(
+        "nws/observation hourly/data (wind speed rejected by MADIS)",
+        _nws_hourly_rejected,
+        reading=("wind_direction_mean_last_2min", 360.0),
+        sentinels=(("wind_direction_mean_last_2min", 0.0),),
+        tokens=(("wind_direction_mean_last_2min", "0", None),),
+        # MADIS's own verdict on the speed, which the check `source` flags and leaves the value
+        suspects=(("wind_speed_mean_last_2min", 2.6, "source"), ("wind_speed_mean_last_2min", 0.0, "source")),
     ),
     ValueStub(
         "smhi/observation hourly/data",
