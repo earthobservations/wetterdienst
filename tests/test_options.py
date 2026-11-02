@@ -50,6 +50,7 @@ DEFAULT_PLAUSIBILITY = {
     "consistency": "hard",
     "floor": "hard",
     "limits": "hard",
+    "source": "soft",
 }
 
 #: what an option is dumped as: the per-parameter radii as the overrides that were given

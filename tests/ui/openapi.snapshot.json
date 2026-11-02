@@ -396,6 +396,22 @@
             "description": "What the check `limits` does to a reading outside the bounds `limits` sets for its parameter: `hard` nulls the value and keeps the number as `rejected:limits,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:limits`. A forecast network (`kind` `forecast`) keeps the mode as set for `floor` and `limits`, and judges the other checks soft. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__LIMITS if set, else hard."
           },
           {
+            "name": "plausibility_source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `source` does to a value that the source itself marks as erroneous or doubtful in its own quality flag: `hard` nulls the value and keeps the number as `rejected:source,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:source`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__SOURCE if set, else soft.",
+              "default": "soft",
+              "title": "Plausibility Source"
+            },
+            "description": "What the check `source` does to a value that the source itself marks as erroneous or doubtful in its own quality flag: `hard` nulls the value and keeps the number as `rejected:source,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:source`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__SOURCE if set, else soft."
+          },
+          {
             "name": "limits",
             "in": "query",
             "required": false,
@@ -2522,6 +2538,22 @@
               "title": "Plausibility Limits"
             },
             "description": "What the check `limits` does to a reading outside the bounds `limits` sets for its parameter: `hard` nulls the value and keeps the number as `rejected:limits,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:limits`. A forecast network (`kind` `forecast`) keeps the mode as set for `floor` and `limits`, and judges the other checks soft. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__LIMITS if set, else hard."
+          },
+          {
+            "name": "plausibility_source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `source` does to a value that the source itself marks as erroneous or doubtful in its own quality flag: `hard` nulls the value and keeps the number as `rejected:source,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:source`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__SOURCE if set, else soft.",
+              "default": "soft",
+              "title": "Plausibility Source"
+            },
+            "description": "What the check `source` does to a value that the source itself marks as erroneous or doubtful in its own quality flag: `hard` nulls the value and keeps the number as `rejected:source,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:source`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__SOURCE if set, else soft."
           },
           {
             "name": "limits",
@@ -6408,6 +6440,15 @@
             "title": "Plausibility Limits",
             "description": "The mode of the check `limits`: `hard` nulls the value and keeps the number as `rejected:limits,raw:<number>` in `quality_flags`, `soft` keeps the value and flags it (`suspect:limits`). It is the mode as set: A forecast network (`kind` `forecast`) keeps the mode as set for `floor` and `limits`, and judges the other checks soft."
           },
+          "plausibility_source": {
+            "type": "string",
+            "enum": [
+              "soft",
+              "hard"
+            ],
+            "title": "Plausibility Source",
+            "description": "The mode of the check `source`: `hard` nulls the value and keeps the number as `rejected:source,raw:<number>` in `quality_flags`, `soft` keeps the value and flags it (`suspect:source`). It is the mode as set: A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode)."
+          },
           "limits": {
             "additionalProperties": {
               "prefixItems": [
@@ -6459,6 +6500,7 @@
           "plausibility_consistency",
           "plausibility_floor",
           "plausibility_limits",
+          "plausibility_source",
           "limits"
         ],
         "title": "ValuesSettings",

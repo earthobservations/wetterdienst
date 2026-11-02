@@ -403,6 +403,7 @@ def test_a_check_given_is_laid_over_the_checks_the_environment_sets(monkeypatch:
         "consistency": "hard",
         "floor": "soft",
         "limits": "hard",
+        "source": "soft",
     }
     cli_options = _cli(monkeypatch, "values", ["--plausibility-range=hard", "--plausibility-floor=soft"])
     assert cli_options.model_dump() == options.model_dump()
@@ -420,6 +421,7 @@ def test_one_mode_for_every_check_and_a_check_that_wins(monkeypatch: pytest.Monk
         "consistency": "soft",
         "floor": "soft",
         "limits": "soft",
+        "source": "soft",
     }
     for surface, options in (
         ("rest", _rest(monkeypatch, "values", {"plausibility": "soft"})),
@@ -437,6 +439,22 @@ def test_one_mode_for_every_check_and_a_check_that_wins(monkeypatch: pytest.Monk
     assert _rest(monkeypatch, "values", {}).plausibility.model_dump() == every
     assert _cli(monkeypatch, "values", ["--plausibility-floor=hard"]).plausibility.floor == "hard"
     assert _rest(monkeypatch, "values", {"plausibility": "hard"}).plausibility.range == "hard"
+
+
+def test_the_check_source_is_soft_by_default_and_set_the_same_way_on_every_surface(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`plausibility_source` is the mode of the check `source`, soft where nothing sets it, on every surface."""
+    assert _rest(monkeypatch, "values", {}).plausibility.source == "soft"
+    assert _cli(monkeypatch, "values", []).plausibility.source == "soft"
+    assert _rest(monkeypatch, "values", {"plausibility_source": "hard"}).plausibility.source == "hard"
+    assert _cli(monkeypatch, "values", ["--plausibility-source=hard"]).plausibility.source == "hard"
+    monkeypatch.setenv("WD_TS_PLAUSIBILITY__SOURCE", "hard")
+    assert _rest(monkeypatch, "values", {}).plausibility.source == "hard"
+    assert _cli(monkeypatch, "values", []).plausibility.source == "hard"
+    # a request that names the mode wins over the host's
+    assert _rest(monkeypatch, "values", {"plausibility_source": "soft"}).plausibility.source == "soft"
+    assert _cli(monkeypatch, "values", ["--plausibility-source=soft"]).plausibility.source == "soft"
 
 
 def test_the_limits_of_a_request_are_merged_into_the_ones_the_environment_sets(monkeypatch: pytest.MonkeyPatch) -> None:

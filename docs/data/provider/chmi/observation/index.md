@@ -53,6 +53,21 @@ CHMI's station catalogue (`meta1.csv`) also lists two stations abroad, Reykjavik
 (`0-20000-0-04030`) and Marambio Base in Antarctica (`0-20000-0-89055`). The portal has no file
 for them in any resolution (checked 2026-10-29), so they are left out of the station lists.
 
+## The source's own verdict (`source`)
+
+The daily, hourly and 10 minute files give every value a `QUALITY`, the plain flag of `quality_flags`, which CHMI explains in
+[`meta4.csv`](https://opendata.chmi.cz/meteorology/climate/historical_csv/metadata/meta4.csv) (read 2026-11-02). The check
+`source` reads the two codes it words as a verdict: `1` "Suspect/Podezřelá hodnota" and `2` "Poor/Hodnota s nízkou kvalitou,
+podezřelá, zatím nepoužívat" ("value of low quality, suspect, do not use yet"). Not read: `0` "Good/Kvalitní hodnota", `3`
+"Estimated/Odhadnutá hodnota", `4` "Missing/Chybějící hodnota" and `5` "Unknown/Kvalita neznámá". The monthly and annual
+files have no `QUALITY`, so the check judges nothing there. A `QUALITY` of 1 or 2 is rare: none of the files of a sample
+of the three resolutions (the first three files of three directories each, 2026-11-02) holds one, they carry 0, 3 and 4, so
+the test of the mapping is a row written as `meta4.csv` words it.
+
+With `plausibility={"source": "hard"}` the value is null and the token is `rejected:source,raw:<text>`; the
+default is `soft`, which keeps the value and writes `suspect:source`, so interpolation, summaries and climate stripes leave it
+out. See [the check `source`](../../../plausibility.md#the-sources-own-verdict-source).
+
 ## License
 
 Data is © Czech Hydrometeorological Institute (CHMI), licensed under

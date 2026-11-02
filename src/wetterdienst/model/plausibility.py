@@ -25,14 +25,26 @@ from typing import Literal, get_args
 import polars as pl
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from wetterdienst.model.source_flags import source_coverage
+
 Mode = Literal["soft", "hard"]
-Check = Literal["range", "elevation", "stuck", "consistency", "floor", "limits"]
+Check = Literal["range", "elevation", "stuck", "consistency", "floor", "limits", "source"]
 #: the checks, as the issue lists them; several that apply to one value are written in alphabetical order
 #: (``suspect:range+stuck``, ``_WRITE_ORDER`` of ``model/quality_flags.py``)
 CHECKS: tuple[str, ...] = get_args(Check)
 #: the checks that run where the caller sets a bound (``Options(limits=...)``, ``model/limits.py``) and not where the
 #: library's tables say: they have no row in ``COVERAGE``, since any network can be judged by them (GH-3687)
 CALLER_CHECKS: tuple[str, ...] = ("limits",)
+
+#: the checks whose mode is soft by default: ``stuck`` judges a series and not a value, and ``source`` repeats a verdict
+#: the source has given and returned the value with (GH-3677); every other check is hard
+SOFT_BY_DEFAULT: tuple[str, ...] = ("stuck", "source")
+
+
+def default_mode(check: str) -> Mode:
+    """Give the mode a check has where nothing sets it: ``soft`` for ``SOFT_BY_DEFAULT``, ``hard`` for the rest."""
+    return "soft" if check in SOFT_BY_DEFAULT else "hard"
+
 
 #: the checks that correct a value instead of rejecting it, and so run as they are set on a forecast network
 CORRECTING_CHECKS: tuple[str, ...] = ("floor",)
@@ -97,6 +109,10 @@ class Plausibility(BaseModel):
 
     ``limits`` is the check of the bounds the caller sets per parameter (``Options(limits=...)``, GH-3687). It is hard
     by default, as ``range`` is, and judges nothing where no bound is set.
+
+    ``source`` is the check of the source's own verdict: a value the source returns and marks, in its own quality flag,
+    as erroneous or doubtful (``model/source_flags.py``, GH-3677). It is soft by default, so that the value stays and
+    the flag says what the source said, and judges nothing for a network whose source marks no value so.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
@@ -136,6 +152,14 @@ class Plausibility(BaseModel):
         description="A reading outside the bounds you set for its parameter (`Options(limits=...)`), beside the "
         "physical range of the check `range`, which they leave as it is. " + _HARD_MEANS.format(check="limits"),
     )
+    source: Mode = Field(
+        default="soft",
+        description="A value the source itself marks as erroneous or doubtful in its own quality flag and returns all "
+        "the same (a GHCN-Daily value that failed a check, a Frost `qualityCode` 7, an Environment Agency reading "
+        "`Suspect`, a DMI `validity:false`): the codes counted are those the provider's documentation words so, listed "
+        "per provider. It is soft by default, because the verdict is the source's and not ours. "
+        + _HARD_MEANS.format(check="source"),
+    )
 
     def for_forecast(self) -> Plausibility:
         """Give the modes a forecast network is judged with: every check soft but two, whatever mode it was given.
@@ -157,7 +181,7 @@ class Plausibility(BaseModel):
     def _one_mode_for_every_check(cls, data: object) -> object:
         """Read a bare mode as that mode for every check, which a check named beside it overrides (GH-3676).
 
-        ``Options(plausibility="soft")`` is ``Options(plausibility={"range": "soft", ...})`` with all six listed.
+        ``Options(plausibility="soft")`` is ``Options(plausibility={"range": "soft", ...})`` with all seven listed.
         """
         if isinstance(data, str):
             if data not in get_args(Mode):
@@ -252,6 +276,9 @@ COVERAGE: dict[str, dict[str, tuple[str, ...]]] = {
     "floor": {
         "dwd/dmo": ("hourly/icon", "hourly/icon_eu"),
     },
+    # the networks whose source marks a value as erroneous or doubtful in a quality flag the reader returns, and the
+    # datasets that flag is in: derived from the map of the codes (`model/source_flags.py`, GH-3677)
+    "source": source_coverage(),
 }
 
 

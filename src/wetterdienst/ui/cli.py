@@ -35,7 +35,7 @@ from wetterdienst.io.formats import FORMATS, names_of
 from wetterdienst.io.sinks import refuse_metadata_without_file
 from wetterdienst.metadata.unit_type import UnitType
 from wetterdienst.model.limits import read_limit_text
-from wetterdienst.model.plausibility import CHECKS, Mode, forecast_note, hard_means
+from wetterdienst.model.plausibility import CHECKS, Mode, default_mode, forecast_note, hard_means
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.options import Options
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
@@ -283,11 +283,11 @@ def _plausibility_option(check: str) -> Callable[[_CommandT], _CommandT]:
     return click.option(
         f"--plausibility-{check}",
         type=click.Choice(["hard", "soft"]),
-        default="soft" if check == "stuck" else "hard",
+        default=default_mode(check),
         help=(
             f"What the check '{check}' does to a value it finds implausible: hard {hard_means(check)}, soft keeps it "
             f"and flags it `suspect:{check}`. {forecast_note(check)} "
-            f"Default: WD_TS_PLAUSIBILITY__{check.upper()} if set, else {'soft' if check == 'stuck' else 'hard'}"
+            f"Default: WD_TS_PLAUSIBILITY__{check.upper()} if set, else {default_mode(check)}"
         ),
     )
 
@@ -1983,6 +1983,7 @@ def values(
     plausibility_consistency: Mode,
     plausibility_floor: Mode,
     plausibility_limits: Mode,
+    plausibility_source: Mode,
     limits: dict[str, Any] | None,
     pretty: bool,  # noqa: FBT001
     with_metadata: bool,  # noqa: FBT001
@@ -2039,6 +2040,7 @@ def values(
             "plausibility_consistency": plausibility_consistency,
             "plausibility_floor": plausibility_floor,
             "plausibility_limits": plausibility_limits,
+            "plausibility_source": plausibility_source,
             "limits": limits,
             "pretty": pretty,
             "with_metadata": with_metadata,

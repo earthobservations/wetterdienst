@@ -14,10 +14,11 @@ import polars as pl
 import pytest
 
 import wetterdienst.provider.dmi.observation.api as dmi_api
-from tests.provider.judging import judged
+from tests.provider.judging import applying, judged
 from tests.provider.value_stubs import stations_result
 from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.plausibility import Plausibility
 from wetterdienst.model.values import shape_provider_frame
 from wetterdienst.settings import Settings
 from wetterdienst.util.network import File
@@ -641,7 +642,7 @@ def test_collect_carries_qc_status_and_validity_in_quality_flags(monkeypatch: py
         ("acc_precip", 3.4): "manual,validity:true",
         ("mean_temp", 5.1): "none,validity:true",
         ("mean_temp", 5.3): None,
-        ("mean_temp", 5.5): "validity:false",
+        ("mean_temp", 5.5): "validity:false,suspect:source",
     }
 
 
@@ -684,8 +685,10 @@ def test_collect_nulls_a_value_outside_the_range_of_its_parameter_and_keeps_what
     Rows as DMI serves them for 04339 (checked 2026-10-16): the monthly `acc_precip` of 2011-10 is 17802.0 and that of
     2012-10 is 3229.9, both with `qcStatus: manual` and `validity: false`. The 17,802 mm are above the 10,000 mm of a
     month (the most that fell in a month on record is 9,300, the most DMI validated 641.8); the 3,229.9 mm are inside
-    it, as the table of ranges is the same for every provider (GH-3681), and only `validity:false` tells them (the
-    planned `source` check, GH-3677). The 1,200 mm of the month before and the 4021 degrees of `max_temp_w_date` are
+    it, as the table of ranges is the same for every provider (GH-3681), and only `validity:false` tells them, which the
+    check `source` reads (GH-3677): kept and flagged `suspect:source`. The 17,802 mm are `validity:false` too, but a
+    value that the hard `range` nulls carries that verdict alone. The 1,200 mm of the month before and the 4021
+    degrees of `max_temp_w_date` are
     made up: the second is outside the range of an air temperature, each parameter having its own.
     """
     rows = [
@@ -701,7 +704,7 @@ def test_collect_nulls_a_value_outside_the_range_of_its_parameter_and_keeps_what
     assert {key: (row["value"], row["quality_flags"]) for key, row in found.items()} == {
         ("acc_precip", 2011, 9): (1200.0, "manual,validity:true"),
         ("acc_precip", 2011, 10): (None, "manual,validity:false,rejected:range,raw:17802"),
-        ("acc_precip", 2012, 10): (3229.9, "manual,validity:false"),
+        ("acc_precip", 2012, 10): (3229.9, "manual,validity:false,suspect:source"),
         ("max_temp_w_date", 2011, 9): (None, "manual,validity:true,rejected:range,raw:4021"),
         ("max_temp_w_date", 2011, 10): (8.5, "manual,validity:true"),
     }
@@ -793,13 +796,14 @@ def test_collect_holds_the_largest_amount_of_a_part_of_a_day_to_the_day(
     ]
 
 
-def test_collect_leaves_the_rain_that_no_world_range_separates_from_a_validated_one() -> None:
-    """The totals of 04339 that DMI marks `validity:false` and that lie inside the ranges stay (GH-3681, GH-3677).
+def test_collect_flags_the_rain_that_no_world_range_separates_from_a_validated_one() -> None:
+    """The totals of 04339 that DMI marks `validity:false` and that lie inside the ranges are flagged (GH-3677).
 
-    The 3,253.4 mm of 2012 (a sum of the month of 3,229.9 mm) stays: 04390 has 3,291.3 mm, validated. The 989 mm of a
-    day and the 9,574.3 mm of a year are inside the 1,850 and 30,000 mm of the records. No range tells them apart from
-    a wet day or a wet year; `quality_flags` says `validity:false` for the one and `true` for the other, and the
-    planned `source` check is to use it.
+    The 3,253.4 mm of 2012 (a sum of the month of 3,229.9 mm) stays inside the range: 04390 has 3,291.3 mm, validated.
+    The 989 mm of a day and the 9,574.3 mm of a year are inside the 1,850 and 30,000 mm of the records (GH-3681). No
+    range tells them apart from a wet day or a wet year; `quality_flags` says `validity:false` for the one and `true`
+    for the other, which the check `source` reads: they are kept and flagged `suspect:source` (the default), and null
+    with `rejected:source` where the check is hard. The validated 3,291.3 mm are neither.
     """
     rows = [
         ("acc_precip", "2012-01-01T06:00:00+00:00", 3253.4, "none", False),
@@ -808,14 +812,18 @@ def test_collect_leaves_the_rain_that_no_world_range_separates_from_a_validated_
     ]
     df = _collect_station_values("annual", rows).sort("timestamp")
     assert df.select("value", "quality_flags").rows() == [
-        (3253.4, "none,validity:false"),
+        (3253.4, "none,validity:false,suspect:source"),
         (3291.3, "manual,validity:true"),
-        (9574.3, "manual,validity:false"),
+        (9574.3, "manual,validity:false,suspect:source"),
     ]
     rows = [("acc_precip", "2011-07-25T06:00:00+00:00", 989.0, "none", False)]
     assert _collect_station_values("daily", rows).select("value", "quality_flags").rows() == [
-        (989.0, "none,validity:false")
+        (989.0, "none,validity:false,suspect:source")
     ]
+    with applying(Plausibility(source="hard")):
+        assert _collect_station_values("daily", rows).select("value", "quality_flags").rows() == [
+            (None, "none,validity:false,rejected:source,raw:989")
+        ]
 
 
 def _dmi_record(

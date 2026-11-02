@@ -24,20 +24,22 @@ climatologists) or `none` (not controlled), followed by `validity:true` or `vali
 documents `validity` as whether the climatologists consider the value valid: "Invalid data is
 generally not correct". It is `false` mostly for Greenland (station 04339 Ittoqqortoormiit has daily
 precipitation totals of 1978 mm and annual ones of 9574 mm marked so) and rarely for Denmark. The
-library returns those values as they are and leaves it to the caller to filter on the flag, with one
-exception: a value outside the generous physical range of its parameter, the check `range`, hard by default, which is
+library returns those values, flags them `suspect:source` (the check `source`, soft by default, see
+[below](#the-sources-own-verdict-source)) and leaves it to the caller to filter on the flag or to set the check `hard`, which
+nulls them, with one exception that is null in any mode: a value outside the generous physical range of its parameter, the check `range`, hard by default, which is
 the one table of bounds of every provider (air temperature -90 to 60 °C; for precipitation 350 mm in an
 hour, 1,850 mm in a day, 10,000 mm in a month and 30,000 mm in a year, the records of the WMO rounded outward (the month: Bureau of Meteorology), where DMI
 validated 183.5, 641.8 and 3,291.3 mm at most; the largest amounts of a day or of half an hour, `precipitation_amount_max`
 and `precipitation_amount_max_30min`, 1,850 and 350 mm) is null and
-keeps what DMI wrote as the last token of `quality_flags`, `manual,validity:false,rejected:range,raw:17802`. With
-`plausibility={"range": "soft"}` the value is kept and flagged `manual,validity:false,suspect:range`
+keeps what DMI wrote as the last token of `quality_flags`, `manual,validity:false,rejected:range,raw:17802` (the verdicts
+of `range` and `source` on one value are one token, `rejected:range` alone, as the value is null). With
+`plausibility={"range": "soft"}` the value is kept and flagged `manual,validity:false,suspect:range+source`
 ([plausibility checks](../../../plausibility.md)). So the
 monthly 17,802 mm of 04339 for 2011-10 and its daily 1978 mm of 2011 are nulled. Its daily 989 mm of 2011, its monthly
 3,229.9 mm of 2012-10, its yearly 9,574.3 mm (2014), 6,026.5 mm (2015) and 3,253.4 mm (2012, the
-sum of that 3,229.9 mm and two months) are below the bounds and are not: station 04390 has a year of
-3,291.3 mm that DMI validated, so no range separates the two, and only `validity:false` tells (the planned `source`
-check, [GH-3677](https://github.com/earthobservations/wetterdienst/issues/3677), is to use it). The
+sum of that 3,229.9 mm and two months) are below the bounds and are not nulled by `range`: station 04390 has a year of
+3,291.3 mm that DMI validated, so no range separates the two, and only `validity:false` tells, which the check `source`
+reads: each is kept as `manual,validity:false,suspect:source`, and null as `rejected:source,raw:<text>` in `hard`. The
 long shape drops the rows without a value by default, so the token shows with
 `drop_nulls=False`.
 
@@ -136,6 +138,23 @@ directly, but codes are changed to %": all 62,399 values of 91 stations from 201
 0, 25, 50, 75 and 100 the commonest (1,382 of 25 %, 997 of 50 %, 1,231 of 75 %, 4,696 of 100 %), and a 99 is a value
 and no code, as 98 is. DMI publishes no snow cover from 2015-11-22 on and none by the month or the year, and the hours
 of 15 January of each year from 2005 to 2026 hold none.
+
+## The source's own verdict (`source`)
+
+The check `source` reads `validity`, the token `validity:false` of `quality_flags`. DMI's [climate data API
+documentation](https://www.dmi.dk/friedata/dokumentation/apis/climate-data-api-1) words the property of a `stationValue` as
+"properties.validity: Boolean. Whether or not the value is considered valid by the climatologists. Invalid data is
+generally not correct", and its [climate data page](https://www.dmi.dk/friedata/dokumentation/climate-data) says of
+Greenland and the Faroe Islands: "Identified erroneous data will be labeled as excluded (see validity property)". The
+`qcStatus` (`manual` or `none`) says whether a climatologist controlled the value and is no verdict, so it is not read.
+DMI returns `validity:false` for a value of any resolution (read 2026-11-02: the daily `mean_wind_dir` of the day in
+progress at the Faroe and Greenland stations 06014, 06009, 04390, 04208 and 04203, with `qcStatus` `none`), so a
+`suspect:source` is no sign of a gross error: it is DMI's own flag, and the daily wind speeds of 30 to 76 m/s and gusts of 60 to
+114 m/s of 06013 and 04341 that the library has met all carry it.
+
+With `plausibility={"source": "hard"}` the value is null and the token is `rejected:source,raw:<text>`; the
+default is `soft`, which keeps the value and writes `suspect:source`, so interpolation, summaries and climate stripes leave it
+out. See [the check `source`](../../../plausibility.md#the-sources-own-verdict-source).
 
 ## License
 

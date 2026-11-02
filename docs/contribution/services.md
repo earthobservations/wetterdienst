@@ -305,7 +305,8 @@ judge, see below. Add a stub of the source with the sentinel written as the sour
 station pressure the elevation does not allow, a sensor that did not move for hours, a reading its neighbour contradicts,
 an amount a little below its floor) is judged by the values core, in canonical units, with the mode the request chose
 for each of the [plausibility checks](../data/plausibility.md) (GH-3676), and the bounds the caller sets per parameter
-(`limits`, GH-3687); it writes `rejected:<check>,raw:<text>`
+(`limits`, GH-3687), and the verdict of the source's own quality flag (`source`, GH-3677, a map of the codes a
+provider documents as wrong, in `model/source_flags.py`); it writes `rejected:<check>,raw:<text>`
 (hard) or `suspect:<check>` (soft) itself. The reader decodes the codes its source documents (`Sentinel`, above), hands
 the numbers over in the unit of its source, and:
 

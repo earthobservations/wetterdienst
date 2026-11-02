@@ -45,6 +45,7 @@ from wetterdienst.model.limits import scope_of, search_for
 from wetterdienst.model.plausibility import CHECKS, REJECTED, SUSPECT, Plausibility
 from wetterdienst.model.plausibility_ranges import bounds_for
 from wetterdienst.model.quality_flags import RAW_TOKEN
+from wetterdienst.model.source_flags import SourceFlags, flags_of
 from wetterdienst.model.unit import UnitConverter
 
 if TYPE_CHECKING:
@@ -221,6 +222,8 @@ class Plan:
     constant_gap: dt.timedelta | None = None
     runs: tuple[tuple[str, ...], str | None] = ((), None)
     by_name: dict[str, str] = field(default_factory=dict)
+    #: the codes of the source's own quality flag that mark a value as erroneous or doubtful (check ``source``)
+    source: tuple[SourceFlags, ...] = ()
 
     def read_beside(self, rules: Sequence[Rule]) -> set[str]:
         """Name the parameters (as the source does) that the checks read beside the ones asked for.
@@ -238,7 +241,7 @@ class Plan:
     @property
     def judges(self) -> bool:
         """Tell whether any check applies to every station of the dataset."""
-        return bool(self.ranges or self.pressure or self.floors or self.constants or self.runs[0])
+        return bool(self.ranges or self.pressure or self.floors or self.constants or self.runs[0] or self.source)
 
 
 _PLANS: dict[tuple[int, str], tuple[DatasetModel, Plan]] = {}
@@ -293,8 +296,19 @@ def _build_plan(network: str, dataset: DatasetModel) -> Plan:
         names, air = RUNS[network]
         if all(name in original for name in names):
             runs = (tuple(original[name] for name in names), original[air])
+    source = flags_of(network, f"{resolution}/{dataset.name}")
     return Plan(
-        network, parameters, ranges, _is_forecast(network), pressure, floors, constants, constant_gap, runs, by_name
+        network,
+        parameters,
+        ranges,
+        _is_forecast(network),
+        pressure,
+        floors,
+        constants,
+        constant_gap,
+        runs,
+        by_name,
+        source,
     )
 
 
@@ -471,6 +485,9 @@ def judge(  # noqa: C901
         if modes.mode("floor") == "hard":
             floored = pl.when(parameter.is_in(plan.floors) & (value < 0.0)).then(pl.lit(0.0)).otherwise(value)
         exprs["limits"].append((floored < low) | (floored > high))
+    if plan.source:
+        # the verdict of the source itself, read in the flag it returned the value with (`model/source_flags.py`)
+        exprs["source"].append(pl.any_horizontal(flags.hit() for flags in plan.source))
     if plan.pressure and elevation is not None and not (elevation == 0.0 and plan.network in ELEVATION_ZERO_IS_UNKNOWN):
         allowed = station_pressure_bounds(elevation)
         if allowed is not None:

@@ -2127,8 +2127,9 @@ def _dmi_monthly_rain(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) 
     # a month on record is 9,300 mm, Cherrapunji 1861), above the 10,000 mm bound of a month; DMI marks it `validity:
     # false`. The 85.4 mm of September is made up. The annual sums 9,574.3 and 6,026.5 mm of 2014 and 2015, also
     # `validity: false`, lie inside the 30,000 mm of a year, which no range can tell from a wet year: they are for the
-    # `source` check (GH-3677). The stamps are written in the local form of Denmark; DMI serves 04339, a station of
-    # Greenland, as 06:00 UTC, which the reader takes the month from alike
+    # check `source` (GH-3677), as the 3,229.9 mm of 2012-10 of `_dmi_monthly_rain_inside_the_range`. The stamps are
+    # written in the local form of Denmark; DMI serves 04339, a station of Greenland, as 06:00 UTC, which the reader
+    # takes the month from alike
     rows = [
         ("2011-09-01T00:00:00.001000+02:00", "2011-10-01T00:00:00+02:00", 85.4, "none"),
         ("2011-10-01T00:00:00.001000+02:00", "2011-11-01T00:00:00+01:00", 17802.0, "manual"),
@@ -2151,6 +2152,42 @@ def _dmi_monthly_rain(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) 
         parameters=[("monthly", "data", "precipitation_amount")],
         start=_day(2011, 9, 1),
         end=_day(2011, 11, 1),
+        settings=_settings(),
+        options=_options(drop_nulls),
+    )
+    return stations_result(request, "monthly", "data", "04339").values().all().df
+
+
+def _dmi_monthly_rain_inside_the_range(
+    monkeypatch: pytest.MonkeyPatch,
+    drop_nulls: bool = True,  # noqa: FBT001, FBT002
+) -> pl.DataFrame:
+    # stationValue of 04339, `acc_precip` of `timeResolution=month`, 2012-10 (read 2026-10-16): 3,229.9 mm, `qcStatus:
+    # manual`, `validity: false`. It lies inside the 10,000 mm bound of a month, so no range tells it from a wet
+    # month and only DMI's own verdict does, which the check `source` reads (GH-3677); the 85.4 mm of September 2012
+    # are made up
+    rows = [
+        ("2012-09-01T00:00:00.001000+02:00", "2012-10-01T00:00:00+02:00", 85.4, "none", True),
+        ("2012-10-01T00:00:00.001000+02:00", "2012-11-01T00:00:00+01:00", 3229.9, "manual", False),
+    ]
+    features = [
+        {
+            "properties": {
+                "parameterId": "acc_precip",
+                "from": start,
+                "to": end,
+                "value": value,
+                "qcStatus": qc_status,
+                "validity": validity,
+            }
+        }
+        for start, end, value, qc_status, validity in rows
+    ]
+    serve(monkeypatch, dmi_api, {"stationValue": json.dumps({"features": features}).encode()})
+    request = DmiObservationRequest(
+        parameters=[("monthly", "data", "precipitation_amount")],
+        start=_day(2012, 9, 1),
+        end=_day(2012, 11, 1),
         settings=_settings(),
         options=_options(drop_nulls),
     )
@@ -2661,9 +2698,35 @@ STUBS = [
         "dmi/observation monthly/data (rain, range soft)",
         _dmi_monthly_rain,
         reading=("precipitation_amount", 85.4),
-        # a sum no gauge produced is kept where the check `range` is soft, and flagged
-        suspects=(("precipitation_amount", 17802.0, "range"),),
+        # a sum no gauge produced is kept where the check `range` is soft, and flagged, with DMI's verdict beside it
+        suspects=(("precipitation_amount", 17802.0, "range+source"),),
         plausibility=(("range", "soft"),),
+    ),
+    ValueStub(
+        "dmi/observation monthly/data (rain, source hard)",
+        _dmi_monthly_rain,
+        reading=("precipitation_amount", 85.4),
+        # the verdicts of `range` and `source` on one number are one token, as both are hard
+        sentinels=(("precipitation_amount", 17802.0),),
+        tokens=(("precipitation_amount", "17802", None),),
+        verdicts=(("precipitation_amount", "17802", "range+source"),),
+        plausibility=(("source", "hard"),),
+    ),
+    ValueStub(
+        "dmi/observation monthly/data (rain inside the range)",
+        _dmi_monthly_rain_inside_the_range,
+        reading=("precipitation_amount", 85.4),
+        # a month inside the range that DMI marks `validity: false` is DMI's own verdict, which the check `source` flags
+        suspects=(("precipitation_amount", 3229.9, "source"),),
+    ),
+    ValueStub(
+        "dmi/observation monthly/data (rain inside the range, source hard)",
+        _dmi_monthly_rain_inside_the_range,
+        reading=("precipitation_amount", 85.4),
+        # ... and, where the check is hard, nulls, keeping the number DMI wrote
+        tokens=(("precipitation_amount", "3229.9", None),),
+        verdicts=(("precipitation_amount", "3229.9", "source"),),
+        plausibility=(("source", "hard"),),
     ),
     ValueStub(
         "rmi/observation daily/data",

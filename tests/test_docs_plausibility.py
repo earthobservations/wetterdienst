@@ -22,7 +22,8 @@ import wetterdienst
 from tests.provider.value_stubs import STUBS
 from wetterdienst import Wetterdienst
 from wetterdienst.model.judge import CONSTANT_RUNS, FLOORS, RUNS, plan_for
-from wetterdienst.model.plausibility import CALLER_CHECKS, CHECKS, COVERAGE, Plausibility
+from wetterdienst.model.plausibility import CALLER_CHECKS, CHECKS, COVERAGE, SOFT_BY_DEFAULT, Plausibility
+from wetterdienst.model.source_flags import SOURCE_FLAGS
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
@@ -79,6 +80,7 @@ def _declared() -> dict[str, set[str]]:
     found["elevation"] |= set(_everywhere("pressure"))
     found["stuck"] |= set(CONSTANT_RUNS) | set(RUNS)
     found["floor"] |= set(FLOORS)
+    found["source"] |= set(SOURCE_FLAGS)
     for path in sorted(PROVIDER_DIR.rglob("*.py")):
         parts = path.relative_to(PROVIDER_DIR).parts
         if len(parts) < 3:
@@ -180,6 +182,11 @@ def _derived() -> dict[str, dict[str, set[str]]]:
         "floor": {
             "dwd/dmo": _datasets_of("dwd/dmo", has=lambda _, dataset: bool(plan_for("dwd/dmo", dataset).floors)),
         },
+        # the datasets whose plan holds the flags of the source (`SOURCE_FLAGS`), which the reader of each returns
+        "source": {
+            network: _datasets_of(network, has=lambda _, dataset, n=network: bool(plan_for(n, dataset).source))
+            for network in SOURCE_FLAGS
+        },
     }
 
 
@@ -208,9 +215,9 @@ def test_a_stub_names_only_checks_that_run_where_it_reads() -> None:
 
 
 def test_the_modes_the_page_names_are_the_defaults_of_the_option() -> None:
-    """`stuck` is the one check that is soft by default, as the page and the docs of the option say."""
+    """`stuck` and `source` are the checks that are soft by default, as the page and the docs of the option say."""
     soft = {check for check in CHECKS if Plausibility().mode(check) == "soft"}
-    assert soft == {"stuck"}
+    assert soft == set(SOFT_BY_DEFAULT) == {"stuck", "source"}
     text = PAGE.read_text(encoding="utf-8")
     for check in CHECKS:
         row = next(line for line in text.splitlines() if line.startswith(f"| `{check}` | "))

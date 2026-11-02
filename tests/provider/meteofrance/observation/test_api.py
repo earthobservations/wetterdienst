@@ -694,11 +694,99 @@ def test_meteofrance_observation_api_daily_returns_the_validation_code_of_each_v
         ("precipitation_amount", 0.0, None),
         ("precipitation_amount", 1.0, "0"),
         ("temperature_air_min_2m", 3.0, "9"),
-        ("temperature_air_min_2m", 2.5, "2"),
+        ("temperature_air_min_2m", 2.5, "2,suspect:source"),
         ("temperature_air_min_2m", 1.5, "1"),
     ]
     assert "quality" not in df.columns
     assert "quality_flag" not in df.columns
+
+
+@pytest.mark.parametrize(
+    ("resolution", "dataset", "file", "date_column", "stamps", "rain", "start", "end"),
+    [
+        (
+            "daily",
+            "core",
+            "QUOT_departement_75_periode_2025-2026_RR-T-Vent",
+            "AAAAMMJJ",
+            ["20250101", "20250102", "20250103", "20250104", "20250105"],
+            "RR",
+            _utc(2025, 1, 1),
+            _utc(2025, 1, 5),
+        ),
+        (
+            "hourly",
+            "core",
+            "HOR_departement_75_periode_2025-2026",
+            "AAAAMMJJHH",
+            ["2025010100", "2025010101", "2025010102", "2025010103", "2025010104"],
+            "RR1",
+            _utc(2025, 1, 1, 0),
+            _utc(2025, 1, 1, 4),
+        ),
+        (
+            "monthly",
+            "data",
+            "MENS_departement_75_periode_2025-2026",
+            "AAAAMM",
+            ["202501", "202502", "202503", "202504", "202505"],
+            "RR",
+            _utc(2025, 1, 1),
+            _utc(2025, 5, 1),
+        ),
+        (
+            "6_minutes",
+            "data",
+            "MIN_departement_75_periode_2025-2026",
+            "AAAAMMJJHHMN",
+            ["202501010000", "202501010006", "202501010012", "202501010018", "202501010024"],
+            "RR",
+            _utc(2025, 1, 1, 0, 0),
+            _utc(2025, 1, 1, 0, 24),
+        ),
+    ],
+)
+def test_meteofrance_observation_api_a_doubtful_value_is_judged_by_the_check_source(
+    monkeypatch: pytest.MonkeyPatch,
+    resolution: str,
+    dataset: str,
+    file: str,
+    date_column: str,
+    stamps: list[str],
+    rain: str,
+    start: datetime,
+    end: datetime,
+) -> None:
+    """Test that the code 2 of `Q<parameter>`, and no other, is the verdict of the check `source` (GH-3677).
+
+    Each of the descriptions of the base climatological data (daily, hourly, monthly and 6 minutes) words the codes:
+    "9 : donnée filtrée (la donnée a passé les filtres/contrôles de premiers niveaux) ; 0 : donnée protégée (la donnée
+    a été validée définitivement par le climatologue) ; 1 : donnée validée (la donnée a été validée par contrôle
+    automatique ou par le climatologue) ; 2 : donnée douteuse en cours de vérification (la donnée a été mise en doute
+    par contrôle automatique)" (read 2026-11-02). Soft, the default, keeps the value and flags `2`; hard nulls it and
+    keeps the text the file wrote. The other codes and a blank one are no verdict.
+    """
+    rows = [
+        {"NUM_POSTE": "75114001", date_column: stamp, rain: value, f"Q{rain}": code}
+        for stamp, value, code in zip(
+            stamps, ["0.2", "7.5", "1.0", "2.0", "3.0"], ["9", "2", "0", "1", ""], strict=True
+        )
+    ]
+    _serve_climate(monkeypatch, {file: _climate_gz(resolution, dataset, rows)})
+
+    def values(mode: str) -> list[tuple[float | None, str | None]]:
+        request = MeteoFranceObservationRequest(
+            parameters=[(resolution, dataset, "precipitation_amount")],
+            start=start,
+            end=end,
+            settings=Settings(cache_disable=True),
+            options=Options(drop_nulls=False, plausibility={"source": mode}),
+        )
+        df = stations_result(request, resolution, dataset, "75114001").values().all().df.sort("timestamp")
+        return df.select("value", "quality_flags").rows()
+
+    assert values("soft") == [(0.2, "9"), (7.5, "2,suspect:source"), (1.0, "0"), (2.0, "1"), (3.0, None)]
+    assert values("hard") == [(0.2, "9"), (None, "2,rejected:source,raw:7.5"), (1.0, "0"), (2.0, "1"), (3.0, None)]
 
 
 @pytest.mark.parametrize(

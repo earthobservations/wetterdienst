@@ -33,6 +33,22 @@ API, the CLI and MCP refuse a request for values without a start and end date (R
 (a `ValueError`) naming the dataset. Pass `start` and `end` to the request. Stations can be listed
 without a window.
 
+## The source's own verdict (`source`)
+
+Every value carries Frost's `qualityCode` as the plain flag of `quality_flags`. The check `source` reads the one code that
+Frost's [data clarifications](https://frost.met.no/dataclarifications.html#quality-code) word as a verdict: `7`,
+"Erroneous, value is not corrected". The page says "Frost tries to give the user a single value to represent the general
+quality of the observation. This value is set in the field qualityCode", and lists `0` "OK, value is controlled and found
+O.K.", `1` "OK, value is controlled and corrected, or value is missing and interpolated", `2` "Slightly uncertain, value
+is not controlled", `4` "Slightly uncertain, value is not corrected", `5` "Very uncertain, value is not corrected" and
+`6` "Very uncertain, model data. Value is controlled and corrected, or value is missing and is interpolated - automatic".
+Those are a degree of confidence, a treatment or a model, no verdict, and are not read. Frost needs a client id, so this
+mapping rests on the documentation and was not probed live.
+
+With `plausibility={"source": "hard"}` the value is null and the token is `rejected:source,raw:<text>`; the
+default is `soft`, which keeps the value and writes `suspect:source`, so interpolation, summaries and climate stripes leave it
+out. See [the check `source`](../../../plausibility.md#the-sources-own-verdict-source).
+
 ## License
 
 Data is © Norwegian Meteorological Institute (MET Norway). See

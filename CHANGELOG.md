@@ -28,6 +28,15 @@ Types of changes:
   `WD_TS_LIMITS` (JSON), `--limits name=low:high` or JSON, and `limits` and `plausibility_limits`
   on REST and MCP `values`. An unknown name or a pair with `low` above `high` is an error
   (GH-3687)
+- A new plausibility check `source` reads the verdict a source gives in its own quality flag and
+  returns the value with: GHCN-Daily `QFLAG` (a failed check), GHCNh `Suspect` and `Erroneous`,
+  Frost `qualityCode` 7, CHMI `Suspect` and `Poor`, Environment Agency `Suspect`, Météo-France
+  `Q` 2 and DMI `validity:false`, each code from the provider's documentation
+  (`docs/data/plausibility.md`). It is soft by default: no value is nulled, but `quality_flags`
+  gains `suspect:source` on those readings, which interpolation, summaries and stripes then leave
+  out. `plausibility={"source": "hard"}` (`WD_TS_PLAUSIBILITY__SOURCE`, `--plausibility-source`,
+  `plausibility_source`) nulls them as `rejected:source,raw:<text>`. DMI's `validity:false`
+  totals inside the range of `range` are now flagged (GH-3677)
 
 ### Changed
 

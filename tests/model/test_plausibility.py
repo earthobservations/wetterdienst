@@ -23,7 +23,9 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
 HARD = Plausibility(stuck="hard")
-SOFT = Plausibility(range="soft", elevation="soft", stuck="soft", consistency="soft", floor="soft", limits="soft")
+SOFT = Plausibility(
+    range="soft", elevation="soft", stuck="soft", consistency="soft", floor="soft", limits="soft", source="soft"
+)
 
 
 # --- the model and the options ---------------------------------------------------------------------------------------
@@ -31,12 +33,12 @@ SOFT = Plausibility(range="soft", elevation="soft", stuck="soft", consistency="s
 
 def test_the_checks_are_the_vocabulary_of_the_options() -> None:
     """The names are the vocabulary of the options, the tokens and the docs; `limits` is the caller's own (GH-3687)."""
-    assert set(CHECKS) == {"range", "elevation", "stuck", "consistency", "floor", "limits"}
+    assert set(CHECKS) == {"range", "elevation", "stuck", "consistency", "floor", "limits", "source"}
     assert set(Plausibility.model_fields) == set(CHECKS)
 
 
-def test_every_check_is_hard_but_stuck_by_default() -> None:
-    """Every check is hard but `stuck`, whose verdict depends on the request's window."""
+def test_every_check_is_hard_but_stuck_and_source_by_default() -> None:
+    """Every check is hard but `stuck`, whose verdict depends on the window, and `source`, the source's own."""
     assert Plausibility().model_dump() == {
         "range": "hard",
         "elevation": "hard",
@@ -44,6 +46,7 @@ def test_every_check_is_hard_but_stuck_by_default() -> None:
         "consistency": "hard",
         "floor": "hard",
         "limits": "hard",
+        "source": "soft",
     }
     assert Options().plausibility == Plausibility() == Plausibility()
 

@@ -596,6 +596,88 @@ def test_api_hourly_quality_code_is_the_plain_flag_and_the_value_stays(monkeypat
     assert got["USW00026451", "wind_speed", "2006-05-08 09:00"] == (4.0, "P")
 
 
+@pytest.mark.parametrize("mode", ["soft", "hard"])
+def test_api_hourly_quality_code_of_a_verdict_is_judged_by_the_check_source_in_the_list_of_its_source(
+    monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    """The codes Table 3 words as `Suspect` and `Erroneous` are the verdict of the check `source` (GH-3677).
+
+    Table 3 of ghcnh_DOCUMENTATION.pdf lists the codes per source: "Legacy Codes for Sources 313, 314, 315, 322, 335,
+    343, 344, 346 include: 0 = Passed gross limits check, 1 = Passed all quality control checks, 2 = Suspect,
+    3 = Erroneous, 4 ..., 6 = Suspect, data originate from an NCEI data source, 7 = Erroneous, data originate from an
+    NCEI data source, 9 = Passed gross limits check if element is present" and "Legacy Codes for Sources: 220, 221, 222,
+    223, 347, 348 include 0 Not Checked, 1 Good, 2 Suspect, 3 Erroneous, 4 Calculated, 5 Removed". The code is read in
+    the list of the source of the element (`source:`), so the same code of a source the table does not list (345, 382,
+    none) is no verdict, and neither are the letters. The first row is the file's own (GHCNh_ACM00078861_por.psv, read
+    2026-11-02): 1988-01-27 11:00 reads a temperature of 50.0 with code 2 and source 220, in the tropics; the other
+    rows are made up from the lists above.
+    """
+    from tests.provider.value_stubs import ghcnh_psv, serve  # noqa: PLC0415
+    from wetterdienst.provider.noaa.ghcn import api  # noqa: PLC0415
+
+    stations = (
+        b"GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n"
+        b"ACM00078861,17.1167,-61.7833,10.0,,COOLIDGE FIELD ANTIGUA,,,78861,,AG\n"
+    )
+    settings = Settings(cache_disable=True)
+    metadata = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=settings).metadata
+    columns = [parameter.name_original for parameter in metadata["hourly"]["data"]]
+    # (quality code, source code) of the temperature of each hour of 1988-01-27
+    cases = [
+        ("2", "220"),  # the file's own: 50.0 with Suspect, list of 220
+        ("1", "220"),  # Good
+        ("3", "343"),  # Erroneous, list of 343
+        ("7", "343"),  # Erroneous, data originate from an NCEI data source
+        ("6", "335"),  # Suspect, data originate from an NCEI data source
+        ("2", "313"),  # Suspect
+        ("5", "343"),  # Passed all quality control checks, data originate from an NCEI data source
+        ("0", "343"),  # Passed gross limits check
+        ("7", "220"),  # a code the list of 220 does not have
+        ("3", "345"),  # the list of 345 is its own
+        ("2", ""),  # no source, no list
+        ("f", "220"),  # a letter, no verdict
+    ]
+    rows = [
+        (
+            f"1988-01-27T{hour:02d}:00:00",
+            {
+                "temperature": "50.0" if hour == 0 else f"{20 + hour / 10:.1f}",
+                "temperature_Quality_Code": quality,
+                "temperature_Source_Code": source,
+            },
+        )
+        for hour, (quality, source) in enumerate(cases)
+    ]
+    serve(
+        monkeypatch,
+        api,
+        {"ghcnh-station-list": stations, "GHCNh_ACM00078861": ghcnh_psv("ACM00078861", columns, rows)},
+    )
+    request = NoaaGhcnRequest(
+        parameters=[("hourly", "data", "temperature_air_2m")],
+        start=dt.datetime(1988, 1, 27, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(1988, 1, 28, tzinfo=ZoneInfo("UTC")),
+        settings=settings,
+        options=Options(drop_nulls=False, plausibility={"source": mode}),
+    ).filter_by_station_id("ACM00078861")
+    df = request.values().all().df.sort("timestamp")
+    judged = {0, 2, 3, 4, 5}
+    flags = df.get_column("quality_flags").to_list()
+    values = df.get_column("value").to_list()
+    assert len(flags) == len(cases)
+    for hour, (quality, source) in enumerate(cases):
+        plain = f"{quality},source:{source}" if source else quality
+        if hour not in judged:
+            assert flags[hour] == plain, (hour, flags[hour])
+            assert values[hour] is not None
+        elif mode == "soft":
+            assert flags[hour] == f"{plain},suspect:source", (hour, flags[hour])
+            assert values[hour] is not None
+        else:
+            assert flags[hour].startswith(f"{plain},rejected:source,raw:"), (hour, flags[hour])
+            assert values[hour] is None
+
+
 def test_api_hourly_measurement_and_source_codes_follow_the_quality_code(monkeypatch: pytest.MonkeyPatch) -> None:
     """The measurement and source codes are the tokens `measurement:` and `source:` after the quality code (GH-2925).
 
