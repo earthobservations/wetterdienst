@@ -32,6 +32,7 @@ from wetterdienst.exceptions import (
 )
 from wetterdienst.io.export import require_kaleido
 from wetterdienst.io.formats import FORMATS, names_of
+from wetterdienst.io.sinks import refuse_metadata_without_file
 from wetterdienst.metadata.unit_type import UnitType
 from wetterdienst.model.plausibility import CHECKS, Mode, forecast_note, hard_means
 from wetterdienst.model.request import TimeseriesRequest
@@ -87,7 +88,7 @@ from wetterdienst.util.cli import setup_logging
 from wetterdienst.util.extras import import_optional
 from wetterdienst.util.response_warnings import begin_response
 from wetterdienst.util.ui import read_list
-from wetterdienst.util.url import file_target_path, redact_password
+from wetterdienst.util.url import ConnectionString, file_target_path, redact_password
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Mapping
@@ -1072,6 +1073,25 @@ def _export_or_exit(result: Any, target: str, if_exists: str, *, with_metadata: 
         sys.exit(1)
 
 
+def _refuse_database_metadata(target: str | None, *, with_metadata: bool) -> None:
+    """Refuse `--with-metadata` with a database `--target`, before the fetch (GH-3711).
+
+    The metadata goes beside a file, and a database has none: the refusal depends on the target's scheme and the
+    flag alone, so it is told at once, where `to_target` would tell it after the whole request was downloaded. It
+    is told for an empty result too, which is never written: the combination is invalid whatever the data.
+    """
+    if not (target and with_metadata):
+        return
+    try:
+        refuse_metadata_without_file(target, ConnectionString(target))
+    except ValueError:
+        # a target `urlparse` cannot read (`duckdb://[x/obs.duckdb`): the export tells it, as it always did
+        return
+    except ExportRefusedError as e:
+        log.error(str(e))  # noqa: TRY400
+        sys.exit(1)
+
+
 def _refuse_non_file_target(target: str | None, command: str) -> None:
     """Refuse a --target with a scheme other than `file://`, for a command that writes plain text.
 
@@ -1578,6 +1598,7 @@ def stations(
     )
     set_logging_level(debug=debug)
     begin_response()
+    _refuse_database_metadata(target, with_metadata=request.with_metadata)
 
     api = get_timeseries_api(provider=provider, network=network)
 
@@ -1975,6 +1996,7 @@ def values(
     )
     set_logging_level(debug=debug)
     begin_response()
+    _refuse_database_metadata(target, with_metadata=request.with_metadata)
     if request.format == "ndjson" and (refusal := ndjson_refusal(request)) is not None:
         raise click.UsageError(refusal)
 
@@ -2120,6 +2142,7 @@ def interpolate(
 
     set_logging_level(debug=debug)
     begin_response()
+    _refuse_database_metadata(target, with_metadata=request.with_metadata)
 
     api = get_timeseries_api(request.provider, request.network)
 
@@ -2264,6 +2287,7 @@ def summarize(
     )
     set_logging_level(debug=debug)
     begin_response()
+    _refuse_database_metadata(target, with_metadata=request.with_metadata)
 
     api = get_timeseries_api(request.provider, request.network)
 

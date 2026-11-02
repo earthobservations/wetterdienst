@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 import polars as pl
@@ -103,6 +104,93 @@ def test_with_metadata_for_a_database_target_is_refused_before_anything_is_writt
     assert "with_metadata writes the metadata beside a file target (file://...)" in caplog.text
     assert "Failed to export" not in caplog.text
     assert not database.exists()
+
+
+@pytest.mark.parametrize(
+    ("command", "getter", "arguments"),
+    [
+        ("stations", "get_stations", ["--parameters=daily/kl", "--all"]),
+        ("values", "get_values", ["--parameters=daily/kl/temperature_air_mean_2m", "--stations=01048"]),
+        (
+            "interpolate",
+            "get_interpolate",
+            [
+                "--parameters=daily/kl/temperature_air_mean_2m",
+                "--latitude=51",
+                "--longitude=13",
+                "--timestamp=2020-01-01",
+            ],
+        ),
+        (
+            "summarize",
+            "get_summarize",
+            [
+                "--parameters=daily/kl/temperature_air_mean_2m",
+                "--latitude=51",
+                "--longitude=13",
+                "--timestamp=2020-01-01",
+            ],
+        ),
+    ],
+)
+def test_with_metadata_for_a_database_target_is_refused_before_the_fetch(
+    command: str,
+    getter: str,
+    arguments: list[str],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The refusal depends on the target and the flag alone, so nothing is downloaded before it (GH-3711)."""
+    fetched: list[str] = []
+
+    def _fetch(**_kwargs: object) -> None:
+        fetched.append(command)
+        msg = "the request was fetched"
+        raise AssertionError(msg)
+
+    monkeypatch.setattr(f"wetterdienst.ui.cli.{getter}", _fetch)
+    database = tmp_path / "obs.duckdb"
+    with caplog.at_level(logging.ERROR):
+        result = CliRunner().invoke(
+            cli,
+            [
+                command,
+                "--provider=dwd",
+                "--network=observation",
+                *arguments,
+                f"--target=duckdb:///{database}?table=weather",
+                "--with-metadata",
+            ],
+        )
+    assert fetched == []
+    assert result.exit_code == 1
+    assert "with_metadata writes the metadata beside a file target (file://...)" in caplog.text
+    assert not database.exists()
+
+
+def test_with_metadata_for_a_database_target_is_refused_for_an_empty_result_too(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """An empty result writes nothing, but the combination is invalid whatever the data: it is refused all the same."""
+    result = _every_result()["stations"]
+    empty = replace(result, df=result.df.clear())
+    monkeypatch.setattr("wetterdienst.ui.cli.get_stations", lambda **_kwargs: empty)
+    with caplog.at_level(logging.ERROR):
+        invoked = CliRunner().invoke(
+            cli,
+            [
+                "stations",
+                "--provider=dwd",
+                "--network=observation",
+                "--parameters=daily/kl",
+                "--all",
+                f"--target=duckdb:///{tmp_path / 'obs.duckdb'}?table=weather",
+                "--with-metadata",
+            ],
+        )
+    assert invoked.exit_code == 1
+    assert "has no file to write it beside" in caplog.text
 
 
 def test_history_target_matches_its_extension_in_any_case(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
