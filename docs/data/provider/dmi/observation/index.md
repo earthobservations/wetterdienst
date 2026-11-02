@@ -117,6 +117,22 @@ month or the year. The hourly `temp_soil_30` is not served: DMI names no source 
 table; the 10 cm value is documented as the mean of the hour) and states the mean only for the day, "the average of all
 hourly values within a day", so the hour waits for DMI's answer.
 
+The mean wind direction at minute 0 is `mean_wind_dir_min0` (`wind_direction_mean_last_10min`, hourly only, 47
+stations: 40 of Greenland and 7 of the Faroe Islands in the station list of 2026-11-02), beside `mean_wind_dir`, the
+mean of the hour. DMI's record of `from` 00:00 and `to` 01:00 holds the 10 minute value of 01:00 UTC (at 04220 on
+2025-11-21 the records of 00:00, 03:00, 04:00 and 05:00 hold 208, 133, 181 and 171, the 10-minute `wind_dir` of metObs
+at 01:00, 04:00, 05:00 and 06:00 UTC), so it is the mean of the 10 minutes before the end of the hour and is stamped
+by `to`, like the 12 and 24 hour values. DMI codes a calm wind as 0 and writes north as 360 and sometimes as 0, and the
+climate data gives no wind speed for that minute, so a 0 means "calm or north". It is returned as DMI writes it and
+not nulled: the rule that nulls the 0 of `mean_wind_dir` needs the mean wind speed of the same record, which is
+no speed at that minute. At 04220 (Aasiaat), 56 of the 1000 records of 2025-11-20 to 2026-01-01 are 0; the mean wind
+speed of the record is 0 in 35 of them and above 0 (up to 2.0 m/s) in 21.
+
+DMI lists `no_days_fog` ("No. of days with fog (vis. < 1 km)") for 10 stations in Greenland, but the service holds no
+value of it at any resolution (hour, day, month, year; read on 2026-11-02 for each of the 10), so it is not served.
+`no_days_snowfall`, `no_days_thunder` and `mean_absolute_humidity` are not served either, until DMI has said what they
+count and measure.
+
 DMI says of these four (and of `temp_soil_10`) that they "are additional parameters, which are not quality controlled
 by DMI's climatologists. As a result, data can be erronous", and their records carry `qcStatus` `none`. The library
 holds the five new parameters to the table of ranges like any other quantity (snow cover 0 to 100 %, leaf wetness the span and 5 % more,

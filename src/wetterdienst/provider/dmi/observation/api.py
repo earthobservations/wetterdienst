@@ -147,8 +147,17 @@ _STATION_SCHEMA = pl.Schema(
 
 # The extremes and sums of the last 12 and 24 hours are stamped by the end of the window, as dwd/poi, meteofrance/synop
 # and noaa/ghcn stamp theirs: DMI's `from` is the start of the last hour of the window (`from` 17:00, `to` 18:00 UTC for
-# the 18 UTC report, whose 12 hours start at 06:00), so the `to` of the record is the report time (GH-3622).
-_STAMPED_BY_THE_END_OF_THE_WINDOW = ("max_temp_12h", "min_temperature_12h", "acc_precip_past12h", "acc_precip_past24h")
+# the 18 UTC report, whose 12 hours start at 06:00), so the `to` of the record is the report time (GH-3622). The same
+# holds for the mean wind direction at minute 0: the record of `from` 00:00 and `to` 01:00 holds the 10 minute value
+# of 01:00 UTC (208 at 04220 on 2025-11-21, as the 10-minute `wind_dir` of metObs of that minute), the mean of the 10
+# minutes before it (GH-3762).
+_STAMPED_BY_THE_END_OF_THE_WINDOW = (
+    "max_temp_12h",
+    "min_temperature_12h",
+    "acc_precip_past12h",
+    "acc_precip_past24h",
+    "mean_wind_dir_min0",
+)
 
 
 class DmiObservationValues(TimeseriesValues):

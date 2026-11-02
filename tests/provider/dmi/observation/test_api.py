@@ -597,6 +597,81 @@ def test_collect_nulls_the_wind_direction_of_an_hour_without_wind_and_no_other(m
     assert speed.get_column("quality_flags").is_null().all()
 
 
+def test_collect_serves_the_wind_direction_of_minute_0_as_given_even_where_the_hour_is_calm(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A `mean_wind_dir_min0` of 0 is served as DMI writes it: no speed comes with minute 0, so 0 is calm or north.
+
+    Rows as DMI serves them for 04220 (Aasiaat, read key-less 2026-11-02): the record of 2025-11-21 01:00 to 02:00 has
+    a direction of 0 beside a mean wind speed of 0.3 m/s, and those of 02:00 to 03:00 (0) and 03:00 to 04:00 (133)
+    are calm hours (a speed of 0.0), where `mean_wind_dir` of both is 0 and the calm rule (GH-2794) nulls it. The rule
+    is written for `mean_wind_dir` alone (GH-3762): the 0 of minute 0 stays 0.0 with no `raw:` token, as the 133 does.
+    It is stamped by the end of its record, the minute it is the mean up to.
+    """
+    rows = [
+        # (parameterId, from, value, validity)
+        ("mean_wind_dir_min0", "2025-11-21T01:00:00+00:00", 0.0, True),
+        ("mean_wind_dir", "2025-11-21T01:00:00+00:00", 202.0, True),
+        ("mean_wind_speed", "2025-11-21T01:00:00+00:00", 0.3, True),
+        ("mean_wind_dir_min0", "2025-11-21T02:00:00+00:00", 0.0, True),
+        ("mean_wind_dir", "2025-11-21T02:00:00+00:00", 0.0, False),
+        ("mean_wind_speed", "2025-11-21T02:00:00+00:00", 0.0, True),
+        ("mean_wind_dir_min0", "2025-11-21T03:00:00+00:00", 133.0, True),
+        ("mean_wind_dir", "2025-11-21T03:00:00+00:00", 0.0, False),
+        ("mean_wind_speed", "2025-11-21T03:00:00+00:00", 0.0, True),
+    ]
+    features = [
+        {
+            "properties": {
+                "parameterId": parameter,
+                "from": start,
+                "to": (dt.datetime.fromisoformat(start) + dt.timedelta(hours=1)).isoformat(),
+                "value": value,
+                "qcStatus": "manual",
+                "validity": validity,
+            }
+        }
+        for parameter, start, value, validity in rows
+    ]
+    content = json.dumps({"features": features}).encode()
+    monkeypatch.setattr(dmi_api, "download_file", lambda **_: File(url="", content=BytesIO(content), status=200))
+    values = object.__new__(dmi_api.DmiObservationValues)
+    values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
+        start=dt.datetime(2025, 11, 21, tzinfo=UTC),
+        end=dt.datetime(2025, 11, 21, 4, tzinfo=UTC),
+        request=SimpleNamespace(settings=Settings(cache_disable=True)),
+    )
+    dataset = dmi_api.DmiObservationMetadata["hourly"].datasets[0]
+    df = values._collect_station_parameter_or_dataset("04220", dataset)  # noqa: SLF001
+    minute_0 = df.filter(pl.col("parameter") == "mean_wind_dir_min0").sort("timestamp")
+    assert minute_0.get_column("timestamp").to_list() == [
+        dt.datetime(2025, 11, 21, 2, tzinfo=UTC),
+        dt.datetime(2025, 11, 21, 3, tzinfo=UTC),
+        dt.datetime(2025, 11, 21, 4, tzinfo=UTC),
+    ]
+    assert minute_0.get_column("value").to_list() == [0.0, 0.0, 133.0]
+    assert minute_0.get_column("quality_flags").to_list() == ["manual,validity:true"] * 3
+    hour = df.filter(pl.col("parameter") == "mean_wind_dir").sort("timestamp")
+    assert hour.get_column("value").to_list() == [202.0, None, None]
+    assert hour.get_column("quality_flags").to_list() == [
+        "manual,validity:true",
+        "manual,validity:false,raw:0",
+        "manual,validity:false,raw:0",
+    ]
+
+
+def test_the_wind_direction_of_minute_0_is_the_mean_of_ten_minutes_in_degrees() -> None:
+    """`mean_wind_dir_min0` is `wind_direction_mean_last_10min` in degrees, at the hour only (GH-3762)."""
+    for resolution in ("daily", "monthly", "annual"):
+        names = {p.name_original for p in dmi_api.DmiObservationMetadata[resolution].datasets[0].parameters}
+        assert "mean_wind_dir_min0" not in names
+    parameters = {p.name_original: p for p in dmi_api.DmiObservationMetadata["hourly"].datasets[0].parameters}
+    assert (parameters["mean_wind_dir_min0"].name, parameters["mean_wind_dir_min0"].unit) == (
+        "wind_direction_mean_last_10min",
+        "degree",
+    )
+
+
 def test_collect_carries_qc_status_and_validity_in_quality_flags(monkeypatch: pytest.MonkeyPatch) -> None:
     """A flag DMI leaves out is left out; a daily 1978 mm of 04339 is no reading, null with the flags and `raw:1978`."""
     rows = [
