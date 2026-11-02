@@ -332,13 +332,26 @@ def _refuse_unknown_arguments(provider: OpenAPIProvider) -> Middleware:
     return RefuseUnknownArguments()
 
 
+def _is_object(schema: dict[str, Any], definitions: dict[str, Any], seen: frozenset[str] = frozenset()) -> bool:
+    """Tell whether a schema says its value may be an object.
+
+    It is one, or one of the options of its `anyOf`, `oneOf` or `allOf` is, or its `$ref` names one, at any depth.
+    """
+    kind = schema.get("type")
+    if kind == "object" or (isinstance(kind, list) and "object" in kind):
+        return True
+    if (ref := schema.get("$ref")) is not None:
+        name = ref.rsplit("/", 1)[-1]
+        return name not in seen and name in definitions and _is_object(definitions[name], definitions, seen | {name})
+    return any(
+        _is_object(option, definitions, seen) for key in ("anyOf", "oneOf", "allOf") for option in schema.get(key, [])
+    )
+
+
 def _object_arguments(schema: dict[str, Any]) -> set[str]:
     """Name the arguments of a tool whose schema says they are an object, whether or not they may also be null."""
-    return {
-        name
-        for name, argument in schema.get("properties", {}).items()
-        if any(option.get("type") == "object" for option in [argument, *argument.get("anyOf", [])])
-    }
+    definitions = {**schema.get("$defs", {}), **schema.get("definitions", {})}
+    return {name for name, argument in schema.get("properties", {}).items() if _is_object(argument, definitions)}
 
 
 def _send_objects_as_json(provider: OpenAPIProvider) -> Middleware:

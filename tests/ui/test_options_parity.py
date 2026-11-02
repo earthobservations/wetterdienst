@@ -411,6 +411,33 @@ def test_every_object_argument_of_a_tool_is_held_to_an_object_case(mcp_server: o
     assert advertised == held
 
 
+def test_an_object_is_found_behind_a_reference_and_a_nested_option() -> None:
+    """Test an argument is an object where its schema says so by `$ref`, `oneOf`, `allOf` or an option of an option."""
+    from wetterdienst.ui.mcp import _object_arguments  # noqa: PLC0415
+
+    schema = {
+        "properties": {
+            "inline": {"anyOf": [{"type": "object", "additionalProperties": {"type": "string"}}, {"type": "null"}]},
+            "ref": {"$ref": "#/$defs/Mapping"},
+            "optional_ref": {"anyOf": [{"$ref": "#/$defs/Mapping"}, {"type": "null"}]},
+            "one_of": {"oneOf": [{"type": "string"}, {"type": "object"}]},
+            "all_of": {"allOf": [{"$ref": "#/$defs/Mapping"}]},
+            "nested": {"anyOf": [{"anyOf": [{"type": "null"}, {"type": "object"}]}, {"type": "string"}]},
+            "through_ref": {"$ref": "#/$defs/Wrapper"},
+            "loop": {"$ref": "#/$defs/Loop"},
+            "text": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+            "numbers": {"type": "array", "items": {"type": "object"}},
+            "unknown_ref": {"$ref": "#/$defs/Missing"},
+        },
+        "$defs": {
+            "Mapping": {"type": "object", "additionalProperties": {"type": "number"}},
+            "Wrapper": {"anyOf": [{"$ref": "#/$defs/Mapping"}, {"type": "null"}]},
+            "Loop": {"anyOf": [{"$ref": "#/$defs/Loop"}, {"type": "string"}]},
+        },
+    }
+    assert _object_arguments(schema) == {"inline", "ref", "optional_ref", "one_of", "all_of", "nested", "through_ref"}
+
+
 @pytest.mark.parametrize(("case", "endpoint"), _env_cases())
 def test_mcp_environment_sets_the_option(
     monkeypatch: pytest.MonkeyPatch, mcp_server: object, case: Case, endpoint: str
