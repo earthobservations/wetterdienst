@@ -16,11 +16,12 @@ from typing import TYPE_CHECKING
 
 import polars as pl
 
-from wetterdienst.model.judge import SOURCE, judge, plan_for, to_canonical
+from wetterdienst.model.judge import SOURCE, judge, limits_in_canonical, plan_for, to_canonical
 from wetterdienst.model.plausibility import Plausibility
+from wetterdienst.model.unit import UnitConverter
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Sequence
+    from collections.abc import Iterator, Mapping, Sequence
 
     from wetterdienst.model.judge import Rule
     from wetterdienst.model.metadata import DatasetModel
@@ -47,8 +48,15 @@ def judged(
     rules: Sequence[Rule] = (),
     elevation: float | None = None,
     modes: Plausibility | None = None,
+    limits: Mapping[str, tuple[float | None, float | None]] | None = None,
+    unit_targets: Mapping[str, str] | None = None,
+    convert_units: bool = True,
 ) -> pl.DataFrame:
-    """Judge a long frame of the readings of one station and give it back with the values in the unit of the source."""
+    """Judge a long frame of the readings of one station and give it back with the values in the unit of the source.
+
+    `limits` are those of `Options.limits`, in the unit the values come back in (`unit_targets`, or the source's with
+    `convert_units` off).
+    """
     if "quality_flags" not in df.columns:
         df = df.with_columns(pl.lit(None, dtype=pl.String).alias("quality_flags"))
     plan = plan_for(network, dataset)
@@ -56,5 +64,8 @@ def judged(
     canonical = to_canonical(plan)
     if canonical is not None:
         df = df.with_columns(canonical.alias("value"))
-    df = judge(df, plan, modes or _MODES.get() or Plausibility(), rules, elevation)
+    converter = UnitConverter()
+    converter.update_targets(dict(unit_targets or {}))
+    bounds = limits_in_canonical(plan, dataset, limits or {}, converter, convert_units=convert_units)
+    df = judge(df, plan, modes or _MODES.get() or Plausibility(), rules, elevation, bounds)
     return df.with_columns(pl.col(SOURCE).alias("value")).drop(SOURCE)

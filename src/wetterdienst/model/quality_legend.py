@@ -61,8 +61,8 @@ _MESQL = "https://dap.ceda.ac.uk/badc/ukmo-midas/metadata/doc/QC_J_flags.html"
 _CHECKS = (
     "`range` (a number outside the physical range of its parameter), `elevation` (a station pressure the elevation "
     "does not allow), `stuck` (a sensor that held one value, or was dead, over a period), `consistency` (a reading the "
-    "reading of another parameter of the same file contradicts) and `floor` (a model value a little below the floor of "
-    "its quantity)"
+    "reading of another parameter of the same file contradicts), `floor` (a model value a little below the floor of "
+    "its quantity) and `limits` (a number outside the bounds the caller set for its parameter)"
 )
 
 #: the token of a value a plausibility check found implausible and left as it was, in the mode `soft` (GH-3676)

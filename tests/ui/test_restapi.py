@@ -5657,6 +5657,8 @@ _REPORTED_VALUES_SETTINGS = _REPORTED_COMMON_SETTINGS | {
     "plausibility_stuck",
     "plausibility_consistency",
     "plausibility_floor",
+    "plausibility_limits",
+    "limits",
 }
 _REPORTED_GEO_SETTINGS = _REPORTED_COMMON_SETTINGS | {
     "min_gain_of_value_pairs",
@@ -5709,6 +5711,8 @@ def test_settings_reports_wetterdienst_defaults(client: TestClient) -> None:
         "plausibility_stuck": "soft",
         "plausibility_consistency": "hard",
         "plausibility_floor": "hard",
+        "plausibility_limits": "hard",
+        "limits": {},
     }
     assert unit_targets["temperature"] == "degree_celsius"
     for endpoint, kind in (("interpolate", "interpolation"), ("summarize", "summary")):
@@ -6283,6 +6287,7 @@ _SETTINGS_PARAMETERS = [
                 "plausibility_elevation",
                 "plausibility_consistency",
                 "plausibility_floor",
+                "plausibility_limits",
                 "plausibility_range",
             }
         },
@@ -6292,6 +6297,8 @@ _SETTINGS_PARAMETERS = [
     ("plausibility_stuck", "hard", {"values": {"plausibility_stuck"}}),
     ("plausibility_consistency", "soft", {"values": {"plausibility_consistency"}}),
     ("plausibility_floor", "soft", {"values": {"plausibility_floor"}}),
+    ("plausibility_limits", "soft", {"values": {"plausibility_limits"}}),
+    ("limits", '{"temperature_air_mean_2m": [-30, 45]}', {"values": {"limits"}}),
     (
         "interpolation_station_distance",
         '{"temperature_air_mean_2m": 5}',

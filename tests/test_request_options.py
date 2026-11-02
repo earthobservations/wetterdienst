@@ -260,6 +260,8 @@ ESTIMATE_CASES = {
     # the modes of the checks are read by the providers' readers, held in `tests/model/test_plausibility.py`; an
     # estimate leaves out a suspect value in any mode, so the answer is the same
     "plausibility": ({"plausibility": {"range": "soft"}}, {}, ()),
+    # the bounds of the caller are judged by the values core, held in `tests/model/test_limits.py`
+    "limits": ({"limits": {"temperature_air_mean_2m": (-30.0, 45.0)}}, {}, ()),
     "geo_station_distance_homogeneous": ({"geo_station_distance_homogeneous": 3.5}, {}, ("interpolate", "summarize")),
     "geo_station_distance_heterogeneous": (
         {"geo_station_distance_heterogeneous": 1.5},
@@ -362,14 +364,22 @@ CARRIED = {
     "geo_min_gain_of_value_pairs": 0.5,
     "geo_num_additional_stations": 5,
     "station_window_end_buffer": 7,
-    "plausibility": {"range": "soft", "elevation": "hard", "stuck": "hard", "consistency": "hard", "floor": "hard"},
+    "plausibility": {
+        "range": "soft",
+        "elevation": "hard",
+        "stuck": "hard",
+        "consistency": "hard",
+        "floor": "hard",
+        "limits": "soft",
+    },
+    "limits": {"temperature_air_mean_2m": (-30.0, 45.0)},
 }
 #: the options the choice of stations reads and no values frame shows, held in
 #: `tests/model/test_station_window_buffer.py`
 SELECTION_OPTIONS = {"station_window_end_buffer"}
 #: the options the providers' readers read, which the stubbed station here has nothing to judge for, held in
 #: `tests/model/test_plausibility.py` and `tests/provider/test_value_stubs.py`
-READER_OPTIONS = {"plausibility"}
+READER_OPTIONS = {"plausibility", "limits"}
 
 
 def _request(**given: Any) -> DwdObservationRequest:  # noqa: ANN401

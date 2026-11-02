@@ -40,6 +40,7 @@ from wetterdienst.exceptions import (
 from wetterdienst.metadata.aliases import PARAMETER_ALIASES, use_alias
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
+from wetterdienst.model.limits import LIMITS_DESCRIPTION, Limit, with_normal_names
 from wetterdienst.model.metadata import parse_parameters, whole_datasets_kept
 from wetterdienst.model.plausibility import CHECKS, Mode, forecast_note, hard_means, leave_out_suspect
 from wetterdienst.model.request import (
@@ -367,6 +368,14 @@ _PlausibilityConsistencyField = _plausibility_field(
     "consistency", "a reading that another parameter of the same file contradicts (never downloaded for the check)"
 )
 _PlausibilityFloorField = _plausibility_field("floor", "a model value a little below the floor of its quantity")
+_PlausibilityLimitsField = _plausibility_field("limits", "a reading outside the bounds `limits` sets for its parameter")
+_LimitsField = Annotated[
+    dict[str, Limit] | None,
+    Field(
+        description=LIMITS_DESCRIPTION + ' Given as a JSON object, e.g. {"temperature_air_mean_2m": [-30, 45], '
+        '"precipitation_amount": [null, 200]}. A name it leaves out keeps the server\'s WD_TS_LIMITS entry, if set.'
+    ),
+]
 #: the query parameters and command line options that set the mode of a check, by the check they set (GH-3676)
 PLAUSIBILITY_OPTIONS = {f"plausibility_{check}": check for check in CHECKS}
 _SectionsField = Annotated[
@@ -953,11 +962,13 @@ class ValuesRequest(_RefusesRenamedParameters):
     plausibility_stuck: _PlausibilityStuckField = "soft"
     plausibility_consistency: _PlausibilityConsistencyField = "hard"
     plausibility_floor: _PlausibilityFloorField = "hard"
+    plausibility_limits: _PlausibilityLimitsField = "hard"
+    limits: _LimitsField = None
 
-    @field_validator("unit_targets", mode="before")
+    @field_validator("unit_targets", "limits", mode="before")
     @classmethod
-    def validate_unit_targets(cls, v: str | dict | None) -> dict[str, str] | None:
-        """Validate unit targets."""
+    def validate_unit_targets(cls, v: str | dict | None) -> dict | None:
+        """Validate unit targets and limits: a mapping, or the JSON text of one."""
         if not v:
             return None
         if isinstance(v, dict):
@@ -1228,6 +1239,8 @@ class SettingsRequest(BaseModel):
     plausibility_stuck: _PlausibilityStuckField = "soft"
     plausibility_consistency: _PlausibilityConsistencyField = "hard"
     plausibility_floor: _PlausibilityFloorField = "hard"
+    plausibility_limits: _PlausibilityLimitsField = "hard"
+    limits: _LimitsField = None
     # interpolate
     interpolation_station_distance: _RestInterpolationStationDistanceField = None
     interpolation_station_distance_homogeneous: _RestStationDistanceHomogeneousField = None
@@ -1241,7 +1254,9 @@ class SettingsRequest(BaseModel):
     min_gain_of_value_pairs: _RestMinGainOfValuePairsField = 0.10
     num_additional_stations: _RestNumAdditionalStationsField = 3
 
-    @field_validator("unit_targets", "interpolation_station_distance", "summary_station_distance", mode="before")
+    @field_validator(
+        "unit_targets", "limits", "interpolation_station_distance", "summary_station_distance", mode="before"
+    )
     @classmethod
     def validate_json_mapping(cls, v: str | dict | None) -> dict | None:
         """Read a mapping given as JSON, as the requests read it."""
@@ -1784,7 +1799,17 @@ def overlay_options(base: Options, given: Mapping[str, Any]) -> Options:
         given = {**given, "plausibility": dict.fromkeys(CHECKS, every)}
     if checks:
         given = {**given, "plausibility": {**given.get("plausibility", {}), **checks}}
+    # a bound is merged by the one spelling of its name, so that `daily/kl/tmk` replaces the host's bound for
+    # `daily/climate_summary/temperature_air_mean_2m` (GH-3687)
+    if isinstance(given.get("limits"), Mapping):
+        given = {**given, "limits": with_normal_names(given["limits"])}
     merged = {name: {**dumped[name], **value} if isinstance(value, Mapping) else value for name, value in given.items()}
+    if "limits" in merged:
+        # a bound the request gives comes after the host's, so that the later key wins where two name one parameter
+        merged["limits"] = {
+            **{k: v for k, v in dumped["limits"].items() if k not in given["limits"]},
+            **given["limits"],
+        }
     return options_from_mapping(merged, base)
 
 

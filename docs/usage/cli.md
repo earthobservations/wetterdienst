@@ -13,10 +13,10 @@ same output, the `metadata` block of the [response metadata](restapi.md#response
 `settings` block with `--with-metadata` included.
 
 The plausibility checks each have an option, `--plausibility-range`, `--plausibility-elevation`, `--plausibility-stuck`,
-`--plausibility-consistency` and `--plausibility-floor`, which take `hard` (null the value, keep the number as
+`--plausibility-consistency`, `--plausibility-floor` and `--plausibility-limits`, which take `hard` (null the value, keep the number as
 `rejected:<check>,raw:<number>` in `quality_flags`) or `soft` (keep the value, flag it `suspect:<check>`), and
 `WD_TS_PLAUSIBILITY__<CHECK>` sets one for a host. One not given keeps the host's mode, or its default (`stuck` is soft,
-the others hard). `--plausibility soft` (or `hard`) sets all five at once, and a check given beside it wins whatever the
+the others hard). `--plausibility soft` (or `hard`) sets all of them at once, and a check given beside it wins whatever the
 order: `--plausibility soft --plausibility-range hard`; `WD_TS_PLAUSIBILITY=soft` does it for a host. A forecast network (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`: `kind` `forecast`) is judged soft in every check but `floor`, whatever is given: `hard` there is still flagged `suspect:<check>`, never nulled. See [plausibility checks](../data/plausibility.md).
 
 ```bash
@@ -26,6 +26,26 @@ wetterdienst values --provider=dwd --network=observation --parameters=hourly/moi
 # everything the source wrote, flagged: every check soft but the range
 wetterdienst values --provider=dwd --network=observation --parameters=hourly/moisture/pressure_air_site \
     --stations=01048 --timestamp=2024-01 --plausibility=soft --plausibility-range=hard
+```
+
+`--limits` sets bounds of your own for the check `limits`: `name=low:high`, an end left empty for none, or a JSON object
+of `[low, high]` pairs, repeated for more parameters. A name is a canonical parameter (every dataset that serves it) or
+`resolution/dataset/parameter` (that dataset only, which wins where both name a parameter), and a bound is in the unit
+the values come back in (`--unit-targets`, or the source's unit with `--convert-units=false`). A value outside is null
+with `rejected:limits,raw:<number>`, or with `--plausibility-limits=soft` kept and flagged `suspect:limits`; a forecast
+network is soft in any case. `WD_TS_LIMITS` (JSON) sets them for a host, and a name given on the command line replaces
+the host's for that name. An unknown name, a pair with `low` above `high` and a bound that is not a number are a usage
+error.
+
+```bash
+# null a mean temperature outside -30 to 45 degrees and a daily rain above 200 mm, keeping the number as `raw:`
+wetterdienst values --provider=dwd --network=observation --parameters=daily/kl \
+    --stations=01048 --timestamp=2024-01 --limits=temperature_air_mean_2m=-30:45 --limits=precipitation_amount=:200
+
+# the same, in degrees Fahrenheit and for the daily dataset only, as JSON
+wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --stations=01048 --timestamp=2024-01 \
+    --unit-targets='{"temperature": "degree_fahrenheit"}' \
+    --limits='{"daily/climate_summary/temperature_air_mean_2m": [-22, 113]}'
 ```
 
 The command line has none of the limits of the REST API on the rows or stations of a request. A long record or a

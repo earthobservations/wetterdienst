@@ -33,6 +33,7 @@ from wetterdienst.exceptions import (
 from wetterdienst.io.export import require_kaleido
 from wetterdienst.io.formats import FORMATS, names_of
 from wetterdienst.metadata.unit_type import UnitType
+from wetterdienst.model.limits import read_limit_text
 from wetterdienst.model.plausibility import CHECKS, Mode, forecast_note, hard_means
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.options import Options
@@ -291,7 +292,7 @@ def _plausibility_option(check: str) -> Callable[[_CommandT], _CommandT]:
 
 
 def plausibility_opts(command: _CommandT) -> _CommandT:
-    """Add `--plausibility`, the mode of every check, and the five options that set one: `--plausibility-range`..."""
+    """Add `--plausibility`, the mode of every check, and the options that set one: `--plausibility-range`..."""
     for check in reversed(CHECKS):
         command = _plausibility_option(check)(command)
     return click.option(
@@ -306,6 +307,43 @@ def plausibility_opts(command: _CommandT) -> _CommandT:
         ),
     )(command)
 
+
+def _read_limits(_ctx: click.Context, _param: click.Parameter, values: tuple[str, ...]) -> dict[str, Any] | None:
+    """Read the `--limits` given, each a JSON object or `name=low:high`, as one mapping; the later wins for a name."""
+    limits: dict[str, Any] = {}
+    for text in values:
+        try:
+            if text.lstrip().startswith("{"):
+                given = json.loads(text)
+                if not isinstance(given, dict):
+                    msg = f"{text!r} is not a JSON object"
+                    raise ValueError(msg)  # noqa: TRY301
+                limits.update(given)
+            else:
+                name, pair = read_limit_text(text)
+                limits[name] = pair
+        except ValueError as e:
+            raise click.BadParameter(str(e), param_hint="--limits") from e
+    return limits or None
+
+
+limits_opt = click.option(
+    "--limits",
+    "limits",
+    multiple=True,
+    callback=_read_limits,
+    help=(
+        "Bounds of your own for the plausibility check limits, in the unit the values come back in (see "
+        "--unit-targets): a JSON map of a parameter to [low, high], null for no bound at one end "
+        '({"temperature_air_mean_2m":[-30,45],"precipitation_amount":[null,200]}), or name=low:high with an end '
+        "left empty for none (temperature_air_mean_2m=-30:45, precipitation_amount=:200). Repeat it for more "
+        "parameters. A name is a canonical parameter (every dataset that serves it) or resolution/dataset/parameter "
+        "(that dataset only, which wins where both name a parameter). A value outside is judged by "
+        "--plausibility-limits: hard (the default) nulls it and keeps the number as `rejected:limits,raw:<number>`, "
+        "soft keeps it and flags it `suspect:limits`. A forecast network is soft in any case. Default: "
+        "WD_TS_LIMITS if set, else none; a name given here replaces the one of WD_TS_LIMITS"
+    ),
+)
 
 sql_values_opt = click.option(
     "--sql-values",
@@ -832,6 +870,11 @@ VALUES_EXAMPLES = r"""
     # keep a number a plausibility check finds implausible, flagged `suspect:range`, instead of nulling it
     wetterdienst values --provider=dwd --network=observation --parameters=hourly/moisture/pressure_air_site \
         --stations=1048 --timestamp=2024-01 --plausibility-range=soft --plausibility-stuck=hard
+
+    # null a temperature outside -30 to 45 degrees (in the unit asked for) and a daily rain above 200 mm, keeping what
+    # the source wrote as `rejected:limits,raw:<number>`; `--plausibility-limits=soft` keeps the value and flags it
+    wetterdienst values --provider=dwd --network=observation --parameters=daily/kl \
+        --stations=1048 --timestamp=2024-01 --limits=temperature_air_mean_2m=-30:45 --limits=precipitation_amount=:200
 
     # MOSMIX and DMO forecasts
     wetterdienst values --provider=dwd --network=mosmix --parameters=hourly/large/ttt,hourly/large/ff --stations=65510
@@ -1859,6 +1902,7 @@ def history(
 )
 @station_window_end_buffer_opt
 @plausibility_opts
+@limits_opt
 @stream_format_opt
 @width_opt
 @height_opt
@@ -1914,6 +1958,8 @@ def values(
     plausibility_stuck: Mode,
     plausibility_consistency: Mode,
     plausibility_floor: Mode,
+    plausibility_limits: Mode,
+    limits: dict[str, Any] | None,
     pretty: bool,  # noqa: FBT001
     with_metadata: bool,  # noqa: FBT001
     with_stations: bool,  # noqa: FBT001
@@ -1968,6 +2014,8 @@ def values(
             "plausibility_stuck": plausibility_stuck,
             "plausibility_consistency": plausibility_consistency,
             "plausibility_floor": plausibility_floor,
+            "plausibility_limits": plausibility_limits,
+            "limits": limits,
             "pretty": pretty,
             "with_metadata": with_metadata,
             "with_stations": with_stations,
@@ -1996,6 +2044,7 @@ def values(
             "station_window_end_buffer": ("station_window_end_buffer", request.station_window_end_buffer),
             "plausibility": ("plausibility", request.plausibility),
             **{name: (name, getattr(request, name)) for name in PLAUSIBILITY_OPTIONS},
+            "limits": ("limits", request.limits or {}),
         }
     )
 

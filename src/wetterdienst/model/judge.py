@@ -12,9 +12,9 @@ the unit of its source. For a dataset a check applies to, the core then
 3. converts those parameters to the canonical unit of their unit type (``UnitConverter().targets``), without rounding,
    keeping the number as the source wrote it (and its text, where the provider hands it over) for the ``raw:`` token
    (``to_canonical``);
-4. judges the long frame with the five checks of ``Plausibility`` (``judge``), the bounds being the one table of
-   ``plausibility_ranges`` and the relations between parameters being evaluated across the parameters of one station
-   and timestamp;
+4. judges the long frame with the checks of ``Plausibility`` (``judge``), the bounds being the one table of
+   ``plausibility_ranges`` and, beside it, the ones the caller set (``limits_in_canonical``), and the relations between
+   parameters being evaluated across the parameters of one station and timestamp;
 5. converts to the unit the caller wants, in one expression, rounding once (``to_requested``).
 
 What stays with a provider is what only it knows, handed over as rules by ``TimeseriesValues._plausibility_rules``: the
@@ -38,7 +38,9 @@ from typing import TYPE_CHECKING, NamedTuple
 
 import polars as pl
 
+from wetterdienst.exceptions import InvalidParameterError
 from wetterdienst.metadata.resolution import reading_step
+from wetterdienst.model.limits import search_for
 from wetterdienst.model.plausibility import CHECKS, REJECTED, SUSPECT, Plausibility
 from wetterdienst.model.plausibility_ranges import bounds_for
 from wetterdienst.model.quality_flags import RAW_TOKEN
@@ -340,14 +342,90 @@ def to_requested(plan: Plan, requested: Mapping[str, str], converter: UnitConver
     return pl.coalesce(*branches, value).alias("value")
 
 
+def limits_in_canonical(
+    plan: Plan,
+    dataset: DatasetModel,
+    limits: Mapping[str, tuple[float | None, float | None]],
+    converter: UnitConverter,
+    *,
+    convert_units: bool,
+) -> dict[str, tuple[float, float]]:
+    """Give the bounds the caller set for the parameters of a dataset, in canonical units, by the source's own name.
+
+    ``limits`` is ``Options.limits``: a bound is in the unit of the values the request returns, which is the unit
+    ``converter`` has as the target of the parameter's unit type (``unit_targets``), or the unit of the source where
+    ``convert_units`` is off. A key that names a dataset's parameter (``resolution/dataset/parameter``) beats a
+    canonical name for the parameters it names, whole: the bounds of the two are not combined. A parameter no key names
+    is left out, and so is a dataset none names, for which the result is empty.
+
+    An end that is ``None`` is no bound (``-inf`` or ``inf``). A converted bound is widened by a part in a billion
+    (``_room``), so that a reading on a bound stays whatever unit the bound is in: 318.15 K is 45.00000000000003 °C as a
+    bound, and 0.7 % is 0.007000000000000001 beside a reading of 0.007.
+
+    Raises:
+        InvalidParameterError: A bound that is no value of its unit (a negative Beaufort number as m/s).
+
+    """
+    if not limits:
+        return {}
+    by_name: dict[str, tuple[float | None, float | None]] = {}
+    by_dataset = []
+    for key, pair in limits.items():
+        search = search_for(key)
+        if search is None:
+            by_name[key.strip().lower()] = pair
+        else:
+            by_dataset.append((search, pair))
+    found: dict[str, tuple[float, float]] = {}
+    for parameter in dataset:
+        # the last key that names the parameter wins, as in a dict
+        pair = next(
+            (pair for search, pair in reversed(by_dataset) if search.matches(parameter)), by_name.get(parameter.name)
+        )
+        if pair is None:
+            continue
+        conversion = plan.parameters[parameter.name_original]
+        returned = converter.targets[conversion.unit_type].name if convert_units else conversion.unit
+        convert = converter.lambda_between(returned, conversion.canonical)
+        low, high = (
+            _canonical_bound(bound, convert, returned, parameter.name, end)
+            for bound, end in zip(pair, (-_INF, _INF), strict=True)
+        )
+        low, high = min(low, high), max(low, high)
+        # a reading on a bound stays: the reading is converted with the same arithmetic as the bound, which differs from
+        # it in the last digits (0.7 % is 0.007 and the bound 0.7 % is 0.007000000000000001), so the bound gets the room
+        found[parameter.name_original] = (low - _room(low), high + _room(high))
+    return found
+
+
+def _canonical_bound(bound: float | None, convert: Callable[[float], float], unit: str, name: str, end: float) -> float:
+    """Convert one end of a pair to the canonical unit; ``end`` (infinity) stands for the end that is not set."""
+    if bound is None:
+        return end
+    try:
+        return float(convert(bound))
+    except (TypeError, ValueError, ZeroDivisionError, OverflowError):
+        msg = f"the limit {bound:g} of {name} is no value of {unit}, the unit of its values"
+        raise InvalidParameterError(msg) from None
+
+
+def _room(bound: float) -> float:
+    """Give the margin a converted bound is widened by: a part in a billion, the noise of a conversion."""
+    return 0.0 if math.isinf(bound) else 1e-9 * max(1.0, abs(bound))
+
+
 def judge(  # noqa: C901
     df: pl.DataFrame,
     plan: Plan,
     modes: Plausibility,
     rules: Sequence[Rule] = (),
     elevation: float | None = None,
+    limits: Mapping[str, tuple[float, float]] | None = None,
 ) -> pl.DataFrame:
     """Judge a long frame in canonical units, with ``__source`` beside ``value``, and write the verdicts.
+
+    ``limits`` are the bounds the caller set, by the source's own name of the parameter (``limits_in_canonical``),
+    judged beside the ranges as the check ``limits``.
 
     Returns the frame with ``value`` and ``quality_flags`` as the modes say, and ``__source``, the number the source
     wrote, set where a hard check mapped the value (null, or 0 for a floor), for a caller that does not convert units.
@@ -382,6 +460,11 @@ def judge(  # noqa: C901
         high = parameter.replace_strict({n: b[1] for n, b in bounds.items()}, default=_INF, return_dtype=pl.Float64)
         outside = (value < low) | (value > high)
         exprs["range"].append(outside)
+    if limits:
+        # the bounds the caller set: a check of its own, so that a value outside these and the ranges has both verdicts
+        low = parameter.replace_strict({n: b[0] for n, b in limits.items()}, default=-_INF, return_dtype=pl.Float64)
+        high = parameter.replace_strict({n: b[1] for n, b in limits.items()}, default=_INF, return_dtype=pl.Float64)
+        exprs["limits"].append((value < low) | (value > high))
     if plan.pressure and elevation is not None and not (elevation == 0.0 and plan.network in ELEVATION_ZERO_IS_UNKNOWN):
         allowed = station_pressure_bounds(elevation)
         if allowed is not None:
