@@ -2,11 +2,13 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for unit conversion."""
 
+import math
 from itertools import permutations, product
 
 import polars as pl
 import pytest
 
+from wetterdienst.metadata.parameter_table import PARAMETER_TABLE
 from wetterdienst.model.unit import UnitConverter
 
 
@@ -454,3 +456,188 @@ def test_decimals_stay_at_four_unless_a_conversion_shrinks_a_value_by_an_order_o
     assert unit_converter.decimals("millimeter", "centimeter") == 5
     assert unit_converter.decimals("percent", "decimal") == 6
     assert unit_converter.decimals("centimeter", "mile") == 9
+
+
+# What each unit is worth in the SI unit of its quantity, and the offset of its zero from the SI zero: `value_in_si =
+# value * factor + offset`. Written down once from the definitions of the units (the mile is 1609.344 m and the
+# nautical mile 1852 m by definition, a knot a nautical mile per hour, a litre a thousandth of a cubic metre, a °F
+# 5/9 K from a zero at 459.67 °R), not from the converter's own arithmetic, so that a factor that is wrong in both
+# directions, or carried through every route alike -- which the round trip and the route tests cannot see -- fails here
+# (GH-3702). `pint` gave the same for every pair it can express, run once on 2026-11-02 (not a dependency of the tests).
+_SI: dict[str, dict[str, tuple[float, float]]] = {
+    # rad
+    "angle": {"degree": (math.pi / 180, 0), "radian": (1, 0), "gradian": (math.pi / 200, 0)},
+    # kg/m³
+    "mass_per_volume": {
+        "milligram_per_liter": (1e-3, 0),
+        "gram_per_liter": (1, 0),
+        "gram_per_cubic_meter": (1e-3, 0),
+        "kilogram_per_cubic_meter": (1, 0),
+    },
+    # S/m
+    "conductivity": {
+        "microsiemens_per_centimeter": (1e-4, 0),
+        "microsiemens_per_meter": (1e-6, 0),
+        "siemens_per_centimeter": (100, 0),
+        "siemens_per_meter": (1, 0),
+    },
+    # J/m²
+    "energy_per_area": {
+        "joule_per_square_centimeter": (1e4, 0),
+        "joule_per_square_meter": (1, 0),
+        "kilojoule_per_square_meter": (1e3, 0),
+    },
+    # 1
+    "fraction": {"decimal": (1, 0), "percent": (0.01, 0), "one_eighth": (0.125, 0)},
+    # W/m²
+    "power_per_area": {
+        "watt_per_square_centimeter": (1e4, 0),
+        "watt_per_square_meter": (1, 0),
+        "kilowatt_per_square_meter": (1e3, 0),
+    },
+    # m
+    "length_short": {
+        "millimeter": (1e-3, 0),
+        "centimeter": (1e-2, 0),
+        "meter": (1, 0),
+        "kilometer": (1e3, 0),
+        "mile": (1609.344, 0),
+        "nautical_mile": (1852, 0),
+    },
+    # m (a depth of water: 1 l/m² is 1 mm)
+    "precipitation": {"millimeter": (1e-3, 0), "liter_per_square_meter": (1e-3, 0)},
+    # m/s (a depth of water per time)
+    "precipitation_intensity": {
+        "millimeter_per_hour": (1e-3 / 3600, 0),
+        "liter_per_square_meter_per_hour": (1e-3 / 3600, 0),
+        "millimeter_per_second": (1e-3, 0),
+    },
+    # Pa
+    "pressure": {"pascal": (1, 0), "hectopascal": (100, 0), "kilopascal": (1e3, 0)},
+    # m/s; Beaufort is no linear unit and has its own test below
+    "speed": {"meter_per_second": (1, 0), "kilometer_per_hour": (1 / 3.6, 0), "knots": (1852 / 3600, 0)},
+    # K
+    "temperature": {
+        "degree_kelvin": (1, 0),
+        "degree_celsius": (1, 273.15),
+        "degree_fahrenheit": (5 / 9, 273.15 - 32 * 5 / 9),
+    },
+    # s
+    "time": {"second": (1, 0), "minute": (60, 0), "hour": (3600, 0)},
+    # m³
+    "volume": {"cubic_meter": (1, 0), "cubic_hectometer": (1e6, 0)},
+    # m³/s
+    "volume_per_time": {"liter_per_second": (1e-3, 0), "cubic_meter_per_second": (1, 0)},
+    # K day and K hour: a sum of temperature differences, so a scale and never an offset
+    "degree_day": {"degree_celsius_day": (1, 0), "degree_kelvin_day": (1, 0), "degree_fahrenheit_day": (5 / 9, 0)},
+    "degree_hour": {"degree_celsius_hour": (1, 0), "degree_kelvin_hour": (1, 0), "degree_fahrenheit_hour": (5 / 9, 0)},
+}
+# the types that share their list of units with another one
+_SI["concentration"] = _SI["mass_per_volume"]
+_SI["length_medium"] = _SI["length_long"] = _SI["length_short"]
+# types with one unit, which no conversion can get wrong
+_SI_NOTHING_TO_CONVERT = {
+    "dimensionless",
+    "significant_weather",
+    "temperature_difference",
+    "turbidity",
+    "wind_scale",
+}
+
+
+def test_every_unit_type_is_checked_against_the_si_definitions(unit_converter: UnitConverter) -> None:
+    """A unit type that has units to convert between has all of them in the reference table."""
+    for unit_type, units in unit_converter.units.items():
+        if unit_type in _SI_NOTHING_TO_CONVERT:
+            assert len(units) == 1, f"{unit_type} has more than one unit, so it has a conversion to check"
+            continue
+        names = {unit.name for unit in units}
+        # beaufort is the one unit with no linear factor, and is checked by the test of its own
+        assert names - {"beaufort"} == set(_SI[unit_type]), unit_type
+
+
+def test_every_conversion_gives_what_the_si_definitions_give(unit_converter: UnitConverter) -> None:
+    """Each conversion of each type is the value taken to the SI unit and out again, below, at and above 0.
+
+    This is the check against the definitions of the units that the round trip (which a factor wrong both ways
+    passes) and the route test (which a factor wrong on every route passes) are not. It also holds an offset to the
+    temperature: a degree day or a degree hour has none, its zero being a temperature difference.
+    """
+    checked = 0
+    for unit_type, units in _SI.items():
+        for source, target in permutations(units, 2):
+            (source_factor, source_offset), (target_factor, target_offset) = units[source], units[target]
+            for value in (-40.0, 0.0, 1.0, 37.5, 12345.678):
+                expected = (value * source_factor + source_offset - target_offset) / target_factor
+                assert unit_converter.lambdas[source, target](value) == pytest.approx(expected, rel=1e-12, abs=1e-9), (
+                    f"{unit_type}: {value} {source} in {target}"
+                )
+                checked += 1
+    assert checked > 900
+
+
+def test_only_a_temperature_reading_has_an_offset(unit_converter: UnitConverter) -> None:
+    """0 of any unit is 0 of every other, except where the unit is a temperature: a scale with a zero of its own.
+
+    Degree days and degree hours are a sum of temperature differences, and a precipitation or a pressure has a true
+    zero. A conversion that moves 0 anywhere else is an offset on a quantity that has none (GH-3702).
+    """
+    for unit_type, units in unit_converter.units.items():
+        for source, target in permutations([unit.name for unit in units], 2):
+            moved = unit_converter.lambdas[source, target](0.0)
+            if unit_type == "temperature":
+                # kelvin to Celsius, Celsius to Fahrenheit and so on: every pair of the three has an offset
+                assert moved != 0, f"{source} -> {target}"
+            else:
+                assert moved == 0, f"{unit_type}: {source} -> {target} moves 0 to {moved}"
+
+
+def test_beaufort_follows_the_wmo_scale(unit_converter: UnitConverter) -> None:
+    """The forces of the Beaufort scale meet the class limits of the WMO table, in m/s.
+
+    `v = 0.836 * B^(3/2)` m/s is the scale's own formula; the limits of the forces 1 to 12 (0.3, 1.6, 3.4, 5.5, 8.0,
+    10.8, 13.9, 17.2, 20.8, 24.5, 28.5, 32.7 m/s) lie within 0.05 of a force of the half forces 0.5, 1.5, ... 11.5
+    that formula gives. The pairs with km/h and knots are held to the same scale through the speed they stand for.
+    """
+    limits = (0.3, 1.6, 3.4, 5.5, 8.0, 10.8, 13.9, 17.2, 20.8, 24.5, 28.5, 32.7)
+    for source, to_ms in (("meter_per_second", 1.0), ("kilometer_per_hour", 1 / 3.6), ("knots", 1852 / 3600)):
+        to_beaufort = unit_converter.lambdas[source, "beaufort"]
+        for force, limit in enumerate(limits):
+            assert to_beaufort(limit / to_ms) == pytest.approx(force + 0.5, abs=0.05), (source, limit)
+        assert to_beaufort(0.0) == 0.0
+    for target, from_ms in (("meter_per_second", 1.0), ("kilometer_per_hour", 3.6), ("knots", 3600 / 1852)):
+        for force in range(13):
+            assert unit_converter.lambdas["beaufort", target](force) == pytest.approx(0.836 * force**1.5 * from_ms)
+
+
+def test_a_temperature_is_never_typed_as_what_it_is_not() -> None:
+    """A parameter typed `temperature` is a reading of the temperature of something, no error, spread or anomaly.
+
+    A reading has a zero of its own, so a conversion to another scale adds an offset, and a difference of two readings
+    has none: 2 K of error is 2 K, never -271.15 °C (GH-3688). The words that make a name a difference are held out of
+    the `temperature` type, so that the next spread or standard deviation a source publishes is not declared as a
+    reading by accident. The types are the table's: a provider cannot declare another.
+    """
+    difference_words = {
+        "amplitude",
+        "anomaly",
+        "delta",
+        "depression",
+        "deviation",
+        "difference",
+        "error",
+        "range",
+        "spread",
+        "std",
+        "uncertainty",
+    }
+    readings = [parameter for parameter in PARAMETER_TABLE if parameter.unit_type == "temperature"]
+    assert readings
+    for parameter in readings:
+        assert parameter.name.startswith("temperature_"), parameter.name
+        assert not difference_words & set(parameter.name.split("_")), parameter.name
+    # the two errors that were typed as readings stay what they are; a difference added later joins them
+    assert {p.name for p in PARAMETER_TABLE if p.unit_type == "temperature_difference"} >= {
+        "error_absolute_temperature_air_2m",
+        "error_absolute_temperature_dew_point_2m",
+    }
