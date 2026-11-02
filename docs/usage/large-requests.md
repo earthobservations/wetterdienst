@@ -419,8 +419,8 @@ The Explorer calls the REST API, so a request it makes is held to the limits of 
 [Web app](app.md#large-selections)). It works with them in three ways, and the third is this page's
 [stream](#stream-it) behind a button:
 
-- A selection of stations whose whole record is more than 90 % of one answer starts with the newest window that fits in the date
-  range, with a note under the fields. **Clear date range** asks for everything instead, and the dates you type or
+- A selection of stations whose whole record is more than 90 % of one answer starts with the newest window that fits
+  in the date range, with a note under the fields. **Clear date range** asks for everything instead, and the dates you type or
   share are never replaced. For the values of stations, a range that is required (1, 5 and 10 minute data) starts
   with at most 100,000 values.
 - A request that is refused over its rows, or a series of stations over its stations, is a state of the table, not an

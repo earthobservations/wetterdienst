@@ -43,19 +43,19 @@ for them) nor the radar products.
 The Explorer asks the REST API, so a request it makes is held to the [limits](restapi.md#limits) of the backend, and it
 meets them in three ways:
 
-- **It starts a range that fits.** A selection of stations whose whole record is more than 90 % of what the server sends as one
-  answer (500,000 rows by default) starts with the newest window that fits in the date range: at most that 90 %,
-  rounded down to whole days, months or years. A note under the date fields says so ("Default range: the newest data
+- **It starts a range that fits.** A selection of stations whose whole record is more than 90 % of what the server
+  sends as one answer (500,000 rows by default) starts with the newest window that fits in the date range: at most
+  that 90 %, rounded down to whole days, months or years. A note under the date fields says so ("Default range: the newest data
   (8 months, about 440,000 rows) ..."). **Clear date range** empties the range and keeps it empty (`range=all` in
   the link), to ask for everything. Dates you type, apply or share in a link are never replaced. For the values of
   stations, a range that is required (1, 5 and 10 minute data) starts with at most 100,000 values, which its form
   accepts; a range that is required has no button to clear it.
 - **It shows a refusal as a state of the table.** A request the server refuses over its limit (too many rows for one
-  answer, too many stations) is not a red error: the table area says, in the language of the page, how many rows (or
-  stations) the request comes to against the limit, and what can be narrowed (a shorter date range, fewer parameters,
-  fewer stations; an interpolation or a summary names no stations). For the rows it offers
-  **Show only the newest data (...)**, which applies the newest window that fits to the date range and asks again,
-  and, for the values of stations, **Download everything as CSV**.
+  answer, or too many stations for a series of stations) is not a red error: the table area says, in the language of
+  the page, how many rows (or stations) the request comes to against the limit, and what can be narrowed (a shorter
+  date range, fewer parameters, fewer stations; an interpolation or a summary names no stations). For the rows it
+  offers, where one fits, **Show only the newest data (...)**, which applies the newest window that fits to the date
+  range and asks again, and, for the values of stations, **Download everything as CSV**.
 - **It streams a CSV.** The download is the request again as `format=csv`, which the server holds to the higher
   `stream_rows` limit (10,000,000 by default) instead of `rows`, and it is offered where the rows fit that. The browser
   saves the file as it arrives, so the app does not hold it in memory, and the app does not read it: whether a refused

@@ -170,7 +170,7 @@ describe('explorer default date range', () => {
   it('leaves the range empty where the whole record fits', async () => {
     const { wrapper, vm, list } = await open()
     await select(wrapper, vm, list.slice(0, 2))
-    await new Promise(resolve => setTimeout(resolve, 100))
+    await new Promise(resolve => setTimeout(resolve, 200))
     expect(dates(vm)).toEqual({ startDate: undefined, endDate: undefined })
     // the note is there, empty, as a live region has to be before it speaks
     expect(note(wrapper)).toBe('')
@@ -198,6 +198,9 @@ describe('explorer default date range', () => {
     // fewer, to where the whole record fits: nothing is asked of the stations beyond what they hold
     vm.stationSelectionState.selection.stations = list.slice(0, 2)
     await vi.waitFor(() => expect(dates(vm)).toEqual({ startDate: undefined, endDate: undefined }))
+    // longer than the selector's delay before it writes a note that came with it
+    expect(vm.defaultWindow).toBeNull()
+    await new Promise(resolve => setTimeout(resolve, 200))
     expect(note(wrapper)).toBe('')
   })
 
