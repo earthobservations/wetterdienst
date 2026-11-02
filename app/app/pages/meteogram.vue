@@ -237,7 +237,8 @@ async function restoreFromUrl() {
     if (station) {
       // a link without a run is the latest one, not the run chosen for the station before
       applyingUrl = true
-      selectedIssue.value = issueFromUrl ?? ''
+      // the run of the URL as it is now: a link to the same station may have taken the run away while it was looked up
+      selectedIssue.value = (route.query.station === stationId ? route.query.issue?.toString() : issueFromUrl) ?? ''
       selectedStation.value = station
       // the watchers run before this resolves, and see the flag
       try {
@@ -273,9 +274,10 @@ watch(() => route.query.station, (stationId) => {
   if (stationId && stationId !== selectedStation.value?.station_id && stationId !== requestedFromUrl)
     void restoreFromUrl()
 })
-// a link to the station that is shown, without a run (the header's search), is the latest run, as for any other station
-watch(() => route.query.issue?.toString() ?? '', (issue) => {
-  const station = route.query.station
+// a link to the station that is shown, without a run (the header's search), is the latest run, as for any other
+// station: the run follows the URL whenever the URL is at the station that is shown (also where its station changed
+// back to it, a lookup of another having left the run alone)
+watch([() => route.query.station, () => route.query.issue?.toString() ?? ''], ([station, issue]) => {
   if (issue === selectedIssue.value || isRestoringFromUrl.value || !selectedStation.value || station !== selectedStation.value.station_id)
     return
   selectedIssue.value = issue

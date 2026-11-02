@@ -132,6 +132,26 @@ describe('the meteogram page followed to a station by the search of the header (
     const vm = wrapper.vm as any
     await vi.waitFor(() => expect(vm.selectedStation?.station_id).toBe('01001'))
     expect(vm.selectedIssue).toBe('2026-10-03T06:00:00')
+    await new Promise(resolve => setTimeout(resolve, 50))
+    const valuesRequests = () => vi.mocked(globalThis.fetch).mock.calls.filter(([url]) => String(url).includes('/api/values?'))
+    const before = valuesRequests().length
+    await navigateTo('/meteogram?station=01001')
+    await vi.waitFor(() => expect(vm.selectedIssue).toBe(''))
+    await new Promise(resolve => setTimeout(resolve, 50))
+    // the URL stays without a run, and the latest run is fetched once
+    expect(useRoute().query.issue).toBeUndefined()
+    const asked = valuesRequests().slice(before)
+    expect(asked).toHaveLength(1)
+    expect(String(asked[0]![0])).not.toContain('issue=')
+  })
+
+  it('takes the latest run for a search back to the shown station after another that was not found', async () => {
+    wrapper = await mountSuspended(MeteogramPage, { route: '/meteogram?station=01001&issue=2026-10-03T06:00:00' })
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.selectedStation?.station_id).toBe('01001'))
+    await navigateTo('/meteogram?station=99999')
+    await vi.waitFor(() => expect(stationRequests.filter(id => id === '99999')).toHaveLength(1))
+    await vi.waitFor(() => expect(vm.isRestoringFromUrl).toBe(false))
     await navigateTo('/meteogram?station=01001')
     await vi.waitFor(() => expect(vm.selectedIssue).toBe(''))
     expect(useRoute().query.issue).toBeUndefined()
