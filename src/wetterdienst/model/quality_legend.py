@@ -73,8 +73,8 @@ SUSPECT = QualityKind(
     "`floor` and `limits` is) finds it implausible: one of "
     + _CHECKS
     + ", several joined with `+` (`suspect:range+stuck`). The checks and their modes are the `plausibility` option "
-    "of the request; the default of `stuck` is soft. No `raw` token: the value is the number the source wrote. "
-    "Interpolation and summary leave such a value out.",
+    "of the request; the default of `stuck` is soft. No `raw` token of its own: the value is the number the source "
+    "wrote (beside `rejected:floor` it is the floor, 0.0). Interpolation and summary leave such a value out.",
 )
 
 #: the token of a value a plausibility check rejected, in the mode `hard`, written before `raw` (GH-3676)

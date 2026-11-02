@@ -341,10 +341,12 @@ The two kinds sit after the source's own flags and before `raw:`, which stays th
 | several checks, soft | `suspect:range+stuck` | kept |
 | several checks, hard | `rejected:range+stuck,raw:4021` | null |
 
-- One token per kind, the checks joined with `+` in alphabetical order. A value that a hard check rejected carries the
+- One token per kind, the checks joined with `+` in alphabetical order. A value that a hard check nulled carries the
   hard checks alone: it is null, and `rejected:` says why. A value that only soft checks found is `suspect:` of all of
-  them.
-- A soft verdict has no `raw:`: the value is the number the source wrote, after the unit conversion as any other.
+  them. The one exception is a hard `floor`, which keeps the value (as 0.0): a soft check that also finds it comes
+  first, `suspect:limits,rejected:floor,raw:-0.02`.
+- A soft verdict has no `raw:` of its own: the value is the number the source wrote, after the unit conversion as any
+  other (beside a hard `floor` it is the floor, 0.0).
 - The outcome is in the token and not only in the options, because an exported file does not carry the options it was
   made with. `raw:` alone is the source's own code; `rejected:` before it is our judgement.
 
@@ -500,8 +502,9 @@ What no check covers, and why:
   with only such values is skipped. For the checks that used to null (`range`, `elevation`, `consistency`, `floor`, and
   `stuck` of DWD observation and RMI) this is as before. For `stuck` of DWD road, which used to keep the value with
   the flag `1` and count it, it is a change: a road station with long stuck runs can be skipped where it was kept.
-- **A rejected value carries only the hard verdict.** Where a hard check rejects a value and a soft one also finds it
-  suspect, the value is null and the token is `rejected:<hard checks>,raw:<number>`; the soft check is not listed.
+- **A rejected value carries only the hard verdict.** Where a hard check nulls a value and a soft one also finds it
+  suspect, the value is null and the token is `rejected:<hard checks>,raw:<number>`; the soft check is not listed. A
+  hard `floor` keeps the value, so a soft check that also finds it is listed before it.
 - **`drop_nulls=True`** keeps dropping the rows of hard-rejected values, as it drops any null. A soft row has a value and
   stays. `drop_nulls=False`, or the wide shape, shows the rejected rows with their flags.
 - **Unit conversion** acts on a soft value as on any other: the number is converted, and the flag stays. The `raw:` of a

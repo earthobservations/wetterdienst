@@ -23,7 +23,8 @@ the air of its minute at night.
 
 Modes and tokens are those of ``Plausibility``: ``hard`` nulls the value (``floor`` sets it to 0) and writes
 ``rejected:<checks>,raw:<text>``, ``soft`` keeps it and writes ``suspect:<checks>``; several checks are joined with
-``+`` in alphabetical order, and a value that a hard check rejects carries only the hard checks. On a forecast network
+``+`` in alphabetical order, and a value that a hard check nulls carries only the hard checks (a hard ``floor`` keeps
+the value, so a soft verdict on it is written before ``rejected:floor``). On a forecast network
 (the ``kind`` of its metadata) every check is soft but ``floor`` and ``limits``, whatever the request sets
 (``Plausibility.for_forecast``).
 """
