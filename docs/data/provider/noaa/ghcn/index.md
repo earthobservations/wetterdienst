@@ -120,8 +120,8 @@ do with the check of that name, whose token is `suspect:source` or `rejected:sou
 **Hourly.** The first token is `<element>_Quality_Code`, whose meaning depends on the source of the element (the `source:`
 token), as Table 3 of the [GHCNh documentation](https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh_DOCUMENTATION.pdf)
 lists it. The codes read are the ones it words as a verdict. `Suspect` is the milder level: `hard` flags it
-`suspect:source` and nulls `Erroneous` (and every code of the daily `QFLAG` and of source 382, which have one level,
-but for the `R` of source 382, "suspect with regard to the times or period of occurrence", which is the milder level).
+`suspect:source` and nulls `Erroneous`; so it does for every code of the daily `QFLAG`, which has one level, and of source
+382 but its `R`, "suspect with regard to the times or period of occurrence", which is the milder level.
 
 | `source:` | codes read, as the documentation words them |
 | --- | --- |

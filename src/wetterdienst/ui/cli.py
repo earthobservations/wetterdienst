@@ -302,7 +302,8 @@ def plausibility_opts(command: _CommandT) -> _CommandT:
         help=(
             "One mode for every plausibility check: soft keeps what a check finds implausible, flagged "
             "`suspect:<check>`, hard nulls it and keeps the number as `rejected:<check>,raw:<number>`. A check "
-            "given beside it by --plausibility-<check> wins. A forecast network (kind forecast) is soft in every "
+            "given beside it by --plausibility-<check> wins. The suspect level of source stays flagged. A forecast "
+            "network (kind forecast) is soft in every "
             "check but floor and limits, whatever is given. Default: WD_TS_PLAUSIBILITY if set, else the mode of "
             "each check"
         ),

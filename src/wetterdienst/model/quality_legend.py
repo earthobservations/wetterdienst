@@ -171,8 +171,8 @@ LEGENDS: dict[str, list[QualityKind]] = {
             "validity",
             "<true|false>",
             "DMI's validity of the record: whether the climatologists consider the value valid. `false` is "
-            "'generally not correct' by DMI's own words, mostly for Greenland and rarely for Denmark; the value is "
-            "returned as published, so a caller can drop it by this token.",
+            "'generally not correct' by DMI's own words, mostly for Greenland and rarely for Denmark; the check "
+            "`source` flags the value `suspect:source` (soft, the default) or nulls it as `rejected:source` (hard).",
             codes=_codes(true="Considered valid", false="Considered not valid"),
         ),
         SUSPECT,
@@ -313,7 +313,9 @@ LEGENDS: dict[str, list[QualityKind]] = {
             "The quality flag of the source: for the daily data a letter naming the check the value failed, blank "
             "(left out) where it failed none; for the hourly data the quality code of the element, which is read in "
             "the list of the element's source (`source:`), as the codes differ by source. The value is returned "
-            "as the file gives it, suspect or erroneous too.",
+            "as the file gives it, suspect or erroneous too; the check `source` judges the codes that the readme and "
+            "Table 3 word as a verdict (`suspect:source`, or `rejected:source` in the mode `hard` for the erroneous "
+            "level).",
         ),
         _kind(
             "measurement",

@@ -337,7 +337,8 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
         # and `3` are the same and `1` is "Good"; source 345 has its own (`1` "Issue", `3` "Error"). A letter is a check
         # of the integration on six elements (`c` climatological outlier, `s` spike, `f` frequent value) or a legacy
         # flag (`f` and `o` of a derived humidity, `A`, `P`, `U`, `q`). Sources Table 3 does not list occur too (`0` of
-        # source 401). The value stays as the file gives it, suspect or erroneous too, and the code travels with it
+        # source 401). The value stays as the file gives it, suspect or erroneous too (the core's check `source`
+        # judges it then), and the code travels with it
         # through the unpivot as the field of a struct, written as the source writes it, case included (`q` and `Q`
         # differ) (GH-2754).
         # `<element>_Measurement_Code` says how the value was made (Table 2, by element and by source): `N` a normal

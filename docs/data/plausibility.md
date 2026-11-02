@@ -276,8 +276,8 @@ the mode you chose:
 - **soft** (the default): the value is kept and `quality_flags` gains `suspect:source`
   (`X,measurement:T,source:0,suspect:source`). Nothing is nulled, so a default request returns the same values as
   before, with one more token on the readings the source doubts. An interpolation, a summary, climate stripes and
-  `skip_empty` leave a `suspect:` value out, as they do for every soft check, so a station whose values the source
-  flagged is left out of them or skipped where it was counted. A bare `plausibility="hard"` (`WD_TS_PLAUSIBILITY=hard`,
+  `skip_empty` leave a `suspect:` value out, as they do for every soft check, so only the flagged values are left out of them, and a station can be skipped
+  where it was counted. A bare `plausibility="hard"` (`WD_TS_PLAUSIBILITY=hard`,
   `plausibility=hard` of REST) sets `source` too, and nulls those values: name `source` beside it to keep them.
 - **hard**: the value is null and the text the source wrote stays as `rejected:source,raw:<text>`
   (`Suspect,rejected:source,raw:0.359`), except for the milder level of a source that has two (see *Which codes count*, below):
@@ -285,7 +285,7 @@ the mode you chose:
 
 It is soft by default, and the only check but `stuck` that is, because the verdict is the source's and not the
 library's: it is no number outside what a sensor can produce, and a source's own scale (a code that says a value was
-corrected, a value not controlled) is not for the library to read as a rejection unless you ask. A forecast network is
+corrected, a value not controlled) is not for the library to read as a rejection: it is never in the map, and nulling what the source flagged is for you to ask. A forecast network is
 judged soft in `source` as in every check but `floor` and `limits`; none of the forecast networks (DWD MOSMIX, DMO and
 SWSMOS) has a flag of its own that marks a value, so the check judges nothing there.
 
@@ -335,9 +335,11 @@ the providers, and a test of each provider's reader pins its codes on a row of t
   letter can be read only with the parameter beside it, which the map does not scope by yet
   ([GH-3745](https://github.com/earthobservations/wetterdienst/issues/3745)). No other letter is read outside the list
   of source 382, where the documentation words each as a failed check or as suspect. The codes `0`, `1`, `4`, `5` and
-  `9` of the legacy lists say the value passed, was calculated or was removed, the list of source 345 (`3` "Error (erroneous data)", for relative humidity and wind speed only: a rule is not scoped by
-  parameter yet, GH-3745), `D`, `M` and `A` of source 382 that it was deleted, missing or an accumulation, and `A`, `P`,
-  `U`, `I`, `M`, `R` of the legacy lists that a value was accepted, replaced or inserted.
+  `9` of the legacy lists say the value was not checked, passed, was calculated or was removed, `D`, `M`, `A` and `q`
+  of source 382 that it was deleted, missing, an accumulation or leaves out 15 minute periods, and `A`, `P`, `U`, `I`,
+  `M`, `R` of the legacy lists that a value was accepted, replaced or inserted. The list of source 345 (`3` "Error
+  (erroneous data)", for relative humidity and wind speed only) is not read either: a rule is not scoped by parameter
+  yet (GH-3745).
 - **Frost 2, 4, 5 and 6**: "slightly uncertain" and "very uncertain" are a degree of confidence, and `6` is model data.
   Frost's own word for a verdict is `7`, "Erroneous": "very uncertain" (`5`) says how sure the control was, not that
   the value failed, where Météo-France's "douteuse" and CHMI's "Suspect" say the control doubted the value itself.
@@ -596,7 +598,7 @@ What no check covers, and why:
   `stuck` of DWD observation and RMI) this is as before. For `stuck` of DWD road, which used to keep the value with
   the flag `1` and count it, it is a change: a road station with long stuck runs can be skipped where it was kept. So it
   is for `source`: a station of `noaa/ghcn`, `metno/frost`, `chmi/observation`, `ea/hydrology`,
-  `meteofrance/observation` or `dmi/observation` whose values the source flagged is skipped where it was kept.
+  `meteofrance/observation` or `dmi/observation` whose values the source flagged can be skipped where it was kept.
 - **A rejected value carries only the hard verdict.** Where a hard check nulls a value and a soft one also finds it
   suspect, the value is null and the token is `rejected:<hard checks>,raw:<number>`; the soft check is not listed. A
   hard `floor` keeps the value, so a soft check that also finds it is listed before it.
