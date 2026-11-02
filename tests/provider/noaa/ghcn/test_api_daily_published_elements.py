@@ -88,10 +88,10 @@ def test_the_tenths_of_the_readme_come_back_as_degrees_and_hectopascal(monkeypat
         "pressure_air_sea_level_mean": pytest.approx(1017.9),
         "pressure_air_site_mean": pytest.approx(991.5),
         "temperature_wet_mean_2m": pytest.approx(-4.4),
-        # percent becomes the decimal fraction every provider returns it as
-        "humidity_relative_mean": pytest.approx(0.96),
-        "humidity_relative_min": pytest.approx(0.91),
-        "humidity_relative_max": pytest.approx(1.0),
+        # percent stays percent, the unit every provider returns it in
+        "humidity_relative_mean": pytest.approx(96.0),
+        "humidity_relative_min": pytest.approx(91.0),
+        "humidity_relative_max": pytest.approx(100.0),
     }
     last = df.filter(pl.col("timestamp") == dt.datetime(2007, 8, 2, tzinfo=dt.UTC))
     assert {row["parameter"]: row["value"] for row in last.iter_rows(named=True)} == {
@@ -99,9 +99,9 @@ def test_the_tenths_of_the_readme_come_back_as_degrees_and_hectopascal(monkeypat
         "pressure_air_sea_level_mean": pytest.approx(1016.3),
         "pressure_air_site_mean": pytest.approx(992.5),
         "temperature_wet_mean_2m": pytest.approx(21.1),
-        "humidity_relative_mean": pytest.approx(0.61),
-        "humidity_relative_min": pytest.approx(0.42),
-        "humidity_relative_max": pytest.approx(0.81),
+        "humidity_relative_mean": pytest.approx(61.0),
+        "humidity_relative_min": pytest.approx(42.0),
+        "humidity_relative_max": pytest.approx(81.0),
     }
     # the source flag of the summary of the day from ISD is the only flag
     assert df["quality_flags"].unique().to_list() == ["source:W"]

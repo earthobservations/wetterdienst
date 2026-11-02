@@ -94,7 +94,9 @@ def _value_in_the_answer(api: type[TimeseriesRequest], dataset: DatasetModel, pa
             "degree_celsius",
             "degree_kelvin",
         ),
-        # a probability the source publishes as 85.00 and `values` returns as 0.85
+        # a cloud cover the source publishes in eighths and `values` returns in percent, the unit of the type
+        ("dwd", "observation", "hourly", "cloud_type", "cloud_cover_total", "fraction", "percent", "one_eighth"),
+        # a probability the source publishes in percent, which is what `values` returns: no `unit_source`
         (
             "dwd",
             "mosmix",
@@ -102,11 +104,22 @@ def _value_in_the_answer(api: type[TimeseriesRequest], dataset: DatasetModel, pa
             "large",
             "probability_precipitation_amount_gt_0_2mm_last_24h",
             "fraction",
-            "decimal",
             "percent",
+            None,
         ),
-        # minutes the values come back in as seconds
-        ("dwd", "observation", "hourly", "sun", "sunshine_duration", "time", "second", "minute"),
+        # minutes the values come back in as hours, the unit of the type `duration`
+        ("dwd", "observation", "hourly", "sun", "sunshine_duration", "duration", "hour", "minute"),
+        # a sum of radiation the source publishes in J/cm² and `values` returns in MJ/m²
+        (
+            "dwd",
+            "observation",
+            "hourly",
+            "solar",
+            "radiation_global",
+            "energy_per_area",
+            "megajoule_per_square_meter",
+            "joule_per_square_centimeter",
+        ),
         # nothing to convert: no `unit_source`, which says the same as `unit`
         (
             "dwd",
@@ -192,9 +205,10 @@ def test_unit_source_is_there_exactly_where_the_declared_unit_differs_from_unit(
                         wrong.append((provider, network, resolution, dataset, parameter["name"]))
     assert checked > 2000
     assert not wrong, f"{len(wrong)} parameters whose `unit_source` is not the declared unit or absent: {wrong[:5]}"
-    # 362 of 2048 in 29 networks when this was written: a floor, so that a new network does not fail it, and so that
-    # the checks above are not vacuous
-    assert differing >= 300
+    # 192 of 2132 in 29 networks when this was written (362 before percent became the default of `fraction`, which the
+    # sources of 220 rows write): a floor, so that a new network does not fail it, and so that the checks above are
+    # not vacuous
+    assert differing >= 150
 
 
 def test_an_answer_where_nothing_converts_has_no_unit_source_at_all() -> None:
@@ -235,8 +249,8 @@ def test_coverage_follows_the_unit_targets_of_the_environment_as_values_and_glos
     got = _value_in_the_answer(api, dataset, dataset["temperature_air_2m"])
     assert got == pytest.approx(UnitConverter()._get_lambda("degree_kelvin", "degree_fahrenheit")(_SAMPLE), abs=1e-3)  # noqa: SLF001
     # a quantity the target does not name keeps its default
-    probability = next(p for p in parameters if p["name"] == "probability_precipitation_amount_gt_0_2mm_last_24h")
-    assert (probability["unit"], probability["unit_source"]) == ("decimal", "percent")
+    sunshine = next(p for p in parameters if p["name"] == "sunshine_duration")
+    assert (sunshine["unit"], sunshine["unit_source"]) == ("hour", "second")
 
 
 def test_coverage_says_the_unit_the_provider_publishes_where_the_environment_turns_conversion_off(
@@ -253,3 +267,23 @@ def test_coverage_says_the_unit_the_provider_publishes_where_the_environment_tur
     assert "unit_source" not in json.dumps(answer)
     dataset = api.metadata["hourly"]["large"]
     assert _value_in_the_answer(api, dataset, dataset["temperature_air_2m"]) == _SAMPLE
+
+
+def test_a_sum_of_daily_snow_depths_is_in_centimeter_days_whatever_the_lengths_are_asked_for(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`snow_depth_sum` keeps its one unit under a target of every length, where `snow_depth` follows it (GH-3747)."""
+    monkeypatch.setenv("WD_TS_UNIT_TARGETS", '{"length_short": "meter", "length_medium": "kilometer"}')
+    api = resolve_network("dwd", "observation")
+    assert issubclass(api, TimeseriesRequest)
+    parameters = api.discover(resolutions="monthly", datasets="precipitation_more")["monthly"]["datasets"][
+        "precipitation_more"
+    ]["parameters"]
+    total = next(p for p in parameters if p["name"] == "snow_depth_sum")
+    assert (total["unit_type"], total["unit"]) == ("length_day", "centimeter_day")
+    assert "unit_source" not in total
+    dataset = api.metadata["monthly"]["precipitation_more"]
+    assert _value_in_the_answer(api, dataset, dataset["snow_depth_sum"]) == _SAMPLE
+    daily = api.discover(resolutions="daily", datasets="precipitation_more")["daily"]["datasets"]["precipitation_more"]
+    depth = next(p for p in daily["parameters"] if p["name"] == "snow_depth")
+    assert (depth["unit_type"], depth["unit"], depth["unit_source"]) == ("length_short", "meter", "centimeter")

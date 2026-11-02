@@ -156,11 +156,11 @@ def test_a_bound_is_in_the_unit_the_values_come_back_in(unit_targets: dict[str, 
 
 
 def test_a_fraction_is_judged_in_the_unit_the_request_asks_for() -> None:
-    """The source writes percent; the answer is a decimal unless asked otherwise, and the bound is in that unit."""
+    """The source writes percent; the answer is in percent unless asked otherwise, and the bound is in that unit."""
     dataset = _dataset("dwd/observation", "hourly", "moisture")
     rows = [("rf_std", 55.0), ("rf_std", 95.0)]
     for unit_targets, limits in (
-        (None, (0, 0.9)),
+        (None, (0, 90)),
         ({"fraction": "decimal"}, (0, 0.9)),
         ({"fraction": "percent"}, (0, 90)),
     ):
@@ -274,7 +274,7 @@ def test_such_a_bound_is_the_requests_error_before_anything_is_read(monkeypatch:
 def test_a_reading_on_a_bound_stays_in_any_unit(unit_targets: dict[str, str] | None) -> None:
     """Every tenth of a percent, as a low and as a high bound: the conversion adds no digit to be rejected."""
     dataset = _dataset("dwd/observation", "hourly", "moisture")
-    scale = 1.0 if unit_targets == {"fraction": "percent"} else 0.01
+    scale = 0.01 if unit_targets == {"fraction": "decimal"} else 1.0
     values = [tenth / 10 for tenth in range(0, 1001, 3)]
     for end in (0, 1):
         edges = [(value * scale, None) if end == 0 else (None, value * scale) for value in values]

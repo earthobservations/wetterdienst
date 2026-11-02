@@ -66,12 +66,13 @@ def test_wsv_source_unit_factors_convert_the_other_units_correctly() -> None:
 
 
 @pytest.mark.remote
-def test_wsv_wave_height_comes_back_in_centimetres() -> None:
+def test_wsv_wave_height_comes_back_in_metres() -> None:
     """Test that wave height is returned in one unit regardless of what the station publishes.
 
     Pegelonline publishes significant wave height in m at MELLUMPLATE and cm at LT ALTE WESER. The
     metadata declares centimetre, so the metre station used to come back around 100x too small --
-    0.07-1.32 next to 12.66-280.6 for the same quantity, both labelled cm.
+    0.07-1.32 next to 12.66-280.6 for the same quantity, both labelled cm. The default unit is metres now
+    (GH-3702), so the same figures read 0.0007-0.0132 next to 0.1266-2.806 if that were wrong.
 
     Asked of each station's own values rather than by comparing the two. Comparing them assumed the
     same sea at both, and they do not carry the same window: MELLUMPLATE had 98 readings over 1.6
@@ -81,10 +82,10 @@ def test_wsv_wave_height_comes_back_in_centimetres() -> None:
     (GH-1968).
 
     The bounds separate the two readings of the same number rather than describe the sea. A median
-    of 9.5 cm at MELLUMPLATE is 0.095 in metres, so the threshold sits at 1, near the geometric
-    middle of the hundredfold this exists to catch; the ceiling catches the same mistake inverted,
-    centimetres read as metres, which would put that station's median in the thousands. No sea state
-    moves a median across either.
+    of 9.5 cm at MELLUMPLATE is 0.095 m, and read as centimetres it would be 0.00095, so the threshold
+    sits at 0.01, near the geometric middle of the hundredfold this exists to catch; the ceiling
+    catches the same mistake inverted, centimetres read as metres, which would put that station's
+    median in the thousands. No sea state moves a median across either.
     """
     request = WsvPegelRequest(parameters=[("1_minute", "data", "wave_height_significant")], **WINDOW)
     df = request.all().values().all().df.drop_nulls("value")
@@ -93,8 +94,8 @@ def test_wsv_wave_height_comes_back_in_centimetres() -> None:
     # without naming ids here; one that stops publishing drops out rather than failing this
     medians = df.group_by("station_id").agg(pl.col("value").median().alias("median"))
     for row in medians.iter_rows(named=True):
-        assert 1 <= row["median"] <= 2000, (
-            f"{row['station_id']}: median wave height {row['median']} is not a figure in centimetres"
+        assert 0.01 <= row["median"] <= 20, (
+            f"{row['station_id']}: median wave height {row['median']} is not a figure in metres"
         )
 
 
@@ -139,17 +140,18 @@ def test_wsv_flow_direction_is_a_bearing() -> None:
 
 @pytest.mark.remote
 def test_wsv_stage_is_scaled_for_metre_gauges() -> None:
-    """Test that gauges publishing water level in metres are scaled to centimetres.
+    """Test that gauges publishing water level in metres are scaled to the unit of the reader, then to metres.
 
     Most gauges publish cm above gauge zero, but 67 series have no gauge zero and publish metres above
     sea level, which used to be reported unscaled as centimetres -- 56.5 where the true figure is 5650.
+    The default unit is metres now (GH-3702): 56.5 m, and 5650 would be centimetres left unconverted.
     The datum still differs between the two groups; `gauge_zero` in the station metadata says which.
     """
     stations = WsvPegelRequest(parameters=[("1_minute", "data", "stage")], **WINDOW).filter_by_station_id("27800090")
     series = stations.values().all().df.get_column("value").drop_nulls()
     assert not series.is_empty()
-    # metres above sea level for this canal gauge, so thousands of centimetres rather than tens
-    assert series.mean() > 1000
+    # metres above sea level for this canal gauge: tens of metres, where thousands would be centimetres
+    assert 10 < series.mean() < 200
 
 
 @pytest.mark.remote
@@ -674,7 +676,7 @@ def test_wsv_a_scaled_reading_that_is_no_number_is_null_and_does_not_raise(monke
     monkeypatch.setattr(api, "download_file", _download)
 
     values = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")], **WINDOW).all().values().all()
-    assert values.df.sort("timestamp").get_column("value").to_list() == [150.0, 250.0]
+    assert values.df.sort("timestamp").get_column("value").to_list() == [1.5, 2.5]
 
 
 def _stub_values_download(monkeypatch: pytest.MonkeyPatch, measurements: Exception, status: int) -> None:

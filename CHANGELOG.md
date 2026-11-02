@@ -84,6 +84,38 @@ Types of changes:
   refused. The message and exit code 1 are the same. A request whose result would be empty is
   refused too, where it exited 0 writing nothing, and so is a target that cannot be read (a path
   without `file://`): the combination is invalid whatever the data (GH-3711)
+- **Breaking**: a length of time that something lasted comes back in hours, no longer in seconds:
+  `sunshine_duration` and its variants (`_last_3h`, `_yesterday`, `_normal`, `_uncertainty`),
+  `precipitation_duration` and `leaf_wetness_duration` have the new unit type `duration`, whose
+  default is `hour`. A year of sunshine read about 6,000,000 s and now reads about 1,700 h.
+  `wave_period` and `true_local_time_offset` stay in `time`, in seconds. Divide a stored value by
+  3,600, or pass `unit_targets={"duration": "second"}` (or `minute`); `{"time": ...}` no longer
+  moves them. A bound of `limits` is in hours too (GH-3702)
+- **Breaking**: a sum of radiation comes back in MJ/m², no longer in J/cm²: `radiation_global` and
+  the other six parameters of the unit type `energy_per_area`. The new unit
+  `megajoule_per_square_meter` (`MJ/m²`) is its default; a year of 360,000 J/cm² reads 3,600.
+  Divide a stored value by 100, or pass
+  `unit_targets={"energy_per_area": "joule_per_square_centimeter"}` (GH-3702)
+- **Breaking**: a share comes back in percent, as the sources write it, no longer as a decimal from
+  0 to 1: the 112 parameters of the unit type `fraction` (humidity, probabilities, soil moisture,
+  cloud cover, relative sunshine, snow cover). A humidity of 87 % read 0.87 and now reads 87.0;
+  only the eighths of cloud cover of `dwd/observation`, IMGW, KNMI, Météo-France, MET Norway and
+  the Met Office are converted (an eighth is 12.5 %). Multiply a stored value by 100, or pass
+  `unit_targets={"fraction": "decimal"}`; a bound of `limits` is in percent too (GH-3702)
+- **Breaking**: the water levels and the waves are in metres, no longer in centimetres: `stage`,
+  `stage_max`, `stage_mean`, `stage_min`, `wave_height_max`, `wave_height_significant`,
+  `clearance_height` and `distance_river_gauge_height` moved from the unit type `length_short` to
+  `length_medium`, with `groundwater_level` and `visibility`. Divide a stored value by 100, or pass
+  `unit_targets={"length_medium": "centimeter"}` (which moves the others of the type too). Snow, ice
+  and frozen ground stay in centimetres. `water_film_thickness` of `dwd/road` is in millimetres: a
+  new unit type `length_tiny` (units of the other lengths, default `millimeter`, because the
+  road writes metres) holds it; multiply a stored value by 10, or pass
+  `unit_targets={"length_tiny": "centimeter"}` (GH-3702)
+- **Breaking**: `snow_depth_sum`, the sum of the daily snow depths of a month or a year of
+  `dwd/observation`, has the new unit type `length_day` with the one unit `centimeter_day`
+  (`cm·d`), where it was typed as a length in `cm`. The number is the same. No `unit_targets` moves
+  it, as none moves `temperature_difference`: `{"length_short": ...}` no longer applies to it, and
+  naming `length_day` accepts `centimeter_day` only (GH-3747)
 
 ### Fixed
 

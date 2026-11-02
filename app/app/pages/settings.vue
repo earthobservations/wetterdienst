@@ -23,7 +23,7 @@ const themeOptions = computed(() => [
 // empty, so what is chosen here is persisted and read by nothing. Curated rather than a mirror of the
 // backend UnitConverter besides -- precipitation_intensity leaves out millimeter_per_second, which it
 // refuses as a target, concentration the two per-cubic-metre spellings of what it offers per litre,
-// and mass_per_volume, degree_hour and volume are convertible types with no row at all.
+// and mass_per_volume, degree_hour, volume and length_tiny are convertible types with no row at all.
 // Length types share the same unit list.
 const LENGTH = ['millimeter', 'centimeter', 'meter', 'kilometer', 'mile', 'nautical_mile']
 
@@ -38,9 +38,10 @@ const weatherUnitGroups = [
   { key: 'length_short', label: 'settings.unitLengthShort', units: LENGTH },
   { key: 'length_medium', label: 'settings.unitLengthMedium', units: LENGTH },
   { key: 'length_long', label: 'settings.unitLengthLong', units: LENGTH },
-  { key: 'energy_per_area', label: 'settings.unitEnergyPerArea', units: ['joule_per_square_centimeter', 'joule_per_square_meter', 'kilojoule_per_square_meter'] },
+  { key: 'energy_per_area', label: 'settings.unitEnergyPerArea', units: ['joule_per_square_centimeter', 'joule_per_square_meter', 'kilojoule_per_square_meter', 'megajoule_per_square_meter'] },
   { key: 'power_per_area', label: 'settings.unitPowerPerArea', units: ['watt_per_square_centimeter', 'watt_per_square_meter', 'kilowatt_per_square_meter'] },
   { key: 'time', label: 'settings.unitTime', units: ['second', 'minute', 'hour'] },
+  { key: 'duration', label: 'settings.unitDuration', units: ['second', 'minute', 'hour'] },
   { key: 'degree_day', label: 'settings.unitDegreeDay', units: ['degree_celsius_day', 'degree_kelvin_day', 'degree_fahrenheit_day'] },
 ] as const
 

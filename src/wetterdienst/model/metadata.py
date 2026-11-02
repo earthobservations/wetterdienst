@@ -145,10 +145,10 @@ class CoverageParameter(TypedDict):
     """A parameter of a dataset, with the unit its values come back in and, where it differs, the provider's.
 
     `unit` is the unit of the values for a caller who passes no options: the target of the `unit_type`, the one
-    `glossary` gives (`degree_celsius` for a temperature, `decimal` (0 to 1) for a percentage), under the
+    `glossary` gives (`degree_celsius` for a temperature, `percent` for a percentage), under the
     environment's `unit_targets` and `convert_units`. A `unit_targets` a caller passes to `values` is not
     followed: `coverage` takes no options. `unit_source` is the unit the provider publishes the parameter in
-    (`degree_kelvin`, `percent`), which the values come in with `convert_units` off. Absent: the same as `unit`.
+    (`degree_kelvin`, `one_eighth`), which the values come in with `convert_units` off. Absent: the same as `unit`.
     """
 
     name: str

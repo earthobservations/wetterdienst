@@ -166,8 +166,8 @@ def _source(resolution: str, station: str, parameter: str, prefix: str = "") -> 
     ]
 
 
-def test_the_radiation_of_a_day_is_the_megajoules_dmi_writes_times_a_thousand(monkeypatch: pytest.MonkeyPatch) -> None:
-    """06041, 2023-06-22: DMI's 25.4 MJ/m2 is 25,400 kJ/m2, which the default unit returns as 2,540 J/cm2.
+def test_the_radiation_of_a_day_is_the_megajoules_dmi_writes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """06041, 2023-06-22: DMI's 25.4 MJ/m2 is declared as 25,400 kJ/m2, which the default unit returns as 25.4 MJ/m2.
 
     A clear day of June in Denmark brings 15 to 30 MJ/m2. The 24 hourly means of the day, in W/m2, sum to the same
     energy: 25.40196 MJ/m2 (each is the mean over an hour of 3,600 s).
@@ -177,20 +177,20 @@ def test_the_radiation_of_a_day_is_the_megajoules_dmi_writes_times_a_thousand(mo
     assert sum(row["value"] for row in hourly) * 3600 / 1e6 == pytest.approx(25.4, abs=0.01)
     df = _values(monkeypatch, "daily", "06041", _day(2023, 6, 22), _day(2023, 6, 23))
     assert set(df["parameter"]) == {"radiation_global"}
-    assert _by_day(df, "radiation_global") == {dt.date(2023, 6, 22): 2540.0, dt.date(2023, 6, 23): 2420.0}
-    assert all(15 <= row["value"] / 100 <= 30 for row in df.iter_rows(named=True))
+    assert _by_day(df, "radiation_global") == pytest.approx({dt.date(2023, 6, 22): 25.4, dt.date(2023, 6, 23): 24.2})
+    assert all(15 <= row["value"] <= 30 for row in df.iter_rows(named=True))
 
 
 def test_the_radiation_of_a_month_and_a_year_is_converted_the_same_way(monkeypatch: pytest.MonkeyPatch) -> None:
-    """06041: DMI's June 2023 and year 2020 are written in MJ/m2 and returned as 100 times that in J/cm2."""
+    """06041: DMI's June 2023 and year 2020 are written in MJ/m2 and returned as they are, the default unit."""
     month = _source("monthly", "06041", "mean_radiation")
     year = _source("annual", "06041", "mean_radiation")
     assert len(month) == len(year) == 1
     june = _values(monkeypatch, "monthly", "06041", _day(2023, 6, 1), _day(2023, 6, 1))
-    assert _by_parameter(june)["radiation_global"] == pytest.approx(month[0]["value"] * 100)
+    assert _by_parameter(june)["radiation_global"] == pytest.approx(month[0]["value"])
     y2020 = _values(monkeypatch, "annual", "06041", _day(2020, 1, 1), _day(2020, 1, 1))
-    assert _by_parameter(y2020)["radiation_global"] == pytest.approx(year[0]["value"] * 100)
-    assert _by_parameter(y2020)["radiation_global"] == pytest.approx(447_690.0)
+    assert _by_parameter(y2020)["radiation_global"] == pytest.approx(year[0]["value"])
+    assert _by_parameter(y2020)["radiation_global"] == pytest.approx(4_476.9)
 
 
 def test_the_hourly_radiation_is_not_converted(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -212,7 +212,7 @@ def test_a_radiation_no_day_can_bring_is_null_and_keeps_the_text_dmi_wrote(monke
     assert df.select("value", "quality_flags").rows() == [
         (None, "manual,validity:true,rejected:range,raw:278.6"),
         (None, "manual,validity:true,rejected:range,raw:135.8"),
-        (2240.0, "manual,validity:true"),
+        (22.4, "manual,validity:true"),
     ]
 
 
@@ -257,8 +257,8 @@ def test_the_clear_and_cloudy_days_of_dmi_are_below_20_and_above_80_percent(monk
     clear = _by_day(df, "count_days_cloud_cover_total_mean_lt_20pct")
     cloudy = _by_day(df, "count_days_cloud_cover_total_mean_gt_80pct")
     assert len(clear) == len(cloudy) == len(clouds)
-    # the cloud cover comes back as a fraction
-    cover = {day: round(value * 100, 6) for day, value in _by_day(df, "cloud_cover_total_mean").items()}
+    # the cloud cover comes back in percent, as DMI writes it
+    cover = {day: round(value, 6) for day, value in _by_day(df, "cloud_cover_total_mean").items()}
     assert dict(clear) == {day: float(cover[day] < 20) for day in cover}
     assert dict(cloudy) == {day: float(cover[day] > 80) for day in cover}
     assert clear[next(day for day, value in cover.items() if value == 20.0)] == 0.0

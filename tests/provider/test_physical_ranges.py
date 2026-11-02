@@ -220,10 +220,10 @@ def test_a_sum_over_a_month_or_a_year_may_exceed_the_depth_of_one_reading() -> N
         ("precipitation_amount", "hourly", 305.0, 999.0),  # Holt 1947; Shangdi 1975 (401 mm) is not in the WMO table
         ("precipitation_amount", "daily", 1825.0, 2500.0),
         ("precipitation_amount", "monthly", 9300.0, 12_000.0),  # Cherrapunji, July 1861
-        # a span of sunshine in seconds
-        ("sunshine_duration", "10_minutes", 600.0, 3600.0),
-        ("sunshine_duration", "hourly", 3600.0, 86400.0),
-        ("sunshine_duration", "daily", 86400.0, 13_850.0 * 60 + 86400.0),
+        # a span of sunshine in hours, the unit of `duration`
+        ("sunshine_duration", "10_minutes", 10 / 60, 1.0),
+        ("sunshine_duration", "hourly", 1.0, 24.0),
+        ("sunshine_duration", "daily", 24.0, 13_850.0 / 60 + 24.0),
     ],
 )
 def test_a_reading_of_one_span_is_no_reading_of_a_shorter_one(
