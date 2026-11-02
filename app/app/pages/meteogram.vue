@@ -148,6 +148,9 @@ async function fetchMeteogram(station: Station) {
 }
 
 watch(selectedIssue, () => {
+  // restoring from the URL sets the run and the station together: the station's watch fetches, once
+  if (isRestoringFromUrl.value)
+    return
   if (selectedStation.value)
     void fetchMeteogram(selectedStation.value)
 })
@@ -234,6 +237,9 @@ onMounted(restoreFromUrl)
 // the page's own choice is written to the URL as well (the watch above): only a station it did not choose is loaded
 // and a station asked for already (whose answer may still be coming, or was a failure) is not asked for again
 watch(() => route.query.station, (stationId) => {
+  // the URL is back at the station that is shown (the page wrote it): what it asked for before is no longer pending
+  if (stationId && stationId === selectedStation.value?.station_id)
+    requestedFromUrl = undefined
   if (stationId && stationId !== selectedStation.value?.station_id && stationId !== requestedFromUrl)
     void restoreFromUrl()
 })
