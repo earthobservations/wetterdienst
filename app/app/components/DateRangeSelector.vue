@@ -195,9 +195,9 @@ defineExpose({ isValid, validationError })
       </UFormField>
     </div>
 
-    <!-- the page's own choice of range, and why: a status, announced as its text changes, and the description
-         of both fields (which is how it is reached where this component is mounted with the note already in it,
-         by the first station). Empty it stays in the accessibility tree (`sr-only`, which also takes no space) -->
+    <!-- the page's own choice of range, and why: a status, announced as its text changes (a note that is there
+         when the component is mounted, by the first station, is written in after `ANNOUNCE_AFTER_MS`, see the
+         script), and the description of both fields. Empty it stays in the accessibility tree (`sr-only`, which also takes no space) -->
     <p :id="noteId" role="status" class="text-sm text-gray-600 empty:sr-only dark:text-gray-400" data-testid="default-range-note">
       <template v-if="note && noteWritten">
         {{ note }}

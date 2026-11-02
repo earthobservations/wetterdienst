@@ -47,10 +47,10 @@ Types of changes:
 
 ### Changed
 
-- `[Explorer]` A date range that is required (1, 5 and 10 minute data) of stations is started with
-  the newest window of at most 100,000 values, which the form accepts, where it used to be the whole span of
-  the stations' records, which it refused. Dates you have edited are no longer replaced when you
-  choose other stations (GH-3457)
+- `[Explorer]` For the values of stations, a date range that is required (1, 5 and 10 minute data)
+  is started with the newest window of at most 100,000 values, which the form accepts, where it
+  used to be the whole span of the stations' records, which it refused. Dates you have edited are
+  no longer replaced when you choose other stations (GH-3457)
 - `[Design]` A new look: the four tools (forecast, explorer, climate stripes, station history)
   are tabs in the header and, on a phone, in a tab bar at the foot of the screen; providers,
   glossary and API are under "Reference", and a search on every page (Ctrl+K) goes to any page,

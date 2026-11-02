@@ -53,9 +53,9 @@ meets them in three ways:
 - **It shows a refusal as a state of the table.** A request the server refuses over its limit (too many rows for one
   answer, too many stations) is not a red error: the table area says, in the language of the page, how many rows (or
   stations) the request comes to against the limit, and what can be narrowed (a shorter date range, fewer parameters,
-  fewer stations; an interpolation or a summary names no stations). For the rows it offers **Show only the newest data (...)**, which
-  applies the newest window that fits to the date range and asks again, and, for the values of stations, **Download
-  everything as CSV**.
+  fewer stations; an interpolation or a summary names no stations). For the rows it offers
+  **Show only the newest data (...)**, which applies the newest window that fits to the date range and asks again,
+  and, for the values of stations, **Download everything as CSV**.
 - **It streams a CSV.** The download is the request again as `format=csv`, which the server holds to the higher
   `stream_rows` limit (10,000,000 by default) instead of `rows`, and it is offered where the rows fit that. The browser
   saves the file as it arrives, so the app does not hold it in memory, and the app does not read it: whether a refused
