@@ -801,8 +801,10 @@ def test_nws_hourly_fills_every_quantity_of_the_list_and_none_of_the_others(monk
         "windChill": "temperature_wind_chill",
     }
     quantities = {**filled, **not_filled}
-    # readings in the plausible range of each quantity, in the endpoint's units
-    readings = {"relativeHumidity": 70.0, "barometricPressure": 84000.0, "seaLevelPressure": 101000.0}
+    # readings in the plausible range of each quantity, in the endpoint's units: `barometricPressure` is the altimeter
+    # setting of the METAR (the station pressure corrected to sea level), so it is held to the range of a pressure at
+    # sea level, 850 to 1100 hPa, and not to that of a station (GH-3681)
+    readings = {"relativeHumidity": 70.0, "barometricPressure": 101700.0, "seaLevelPressure": 101000.0}
     readings |= {"visibility": 10000.0, "windDirection": 270.0, "windGust": 30.0}
     observations = [
         _raw_observation(_stamp("10-14 14:53"), report=True, **dict.fromkeys(quantities, (None, "Z"))),

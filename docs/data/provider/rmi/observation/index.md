@@ -21,15 +21,17 @@ A value outside the physical range of its parameter, which no sensor can have pr
 default), is null and keeps what the source wrote as the last token of `quality_flags`, `rejected:range,raw:4021`
 (`0,rejected:range,raw:4021`); with `plausibility={"range": "soft"}` it is kept and flagged `suspect:range`
 ([plausibility checks](../../../plausibility.md)). The
-bounds are generous, so a record is never outside them, and depend on the resolution where the
-amount grows with the span: rain is held to 200 mm in 10 minutes, 600 mm in an hour and 2,000 mm in a
-day, sunshine to 10, 60 and 1,440 minutes (the span), and a gust to 60 m/s. The daily layer has a `temp_max` of
+bounds are those of the one table every provider is held to: generous, so a record is never outside them, and dependent
+on the resolution where the amount grows with the span. Rain is held to 350 mm in 10 minutes and an hour and 1,850 mm in a
+day, sunshine to the span and 5 % (10.5, 63 and 1,512 minutes), and a gust to 115 m/s. The daily layer has a `temp_max` of
 1003 to 6013 degrees on 48 days (station 6414 on 2003-08-06: 4021), a `temp_avg` of 72 to 342 degrees
 on 21, a relative humidity of -6999 % (6494), a radiation of -99999 W/m2 (6484), a sunshine of
 3,808 to 13,851 minutes in a day (6459, 6477) and a gust of 81.5 m/s (station 6414 on 2003-10-09);
 the hourly layer has gusts of 569.7 and 445.3 m/s, the 81.5 m/s again, and 29 hours of more than 60
-minutes of sunshine (63.86, 373 and 1,282 minutes among them). The next highest gust of the daily layer is 51.05 m/s (6434, 2002-12-30), which
-stays. The long shape drops the rows without a value by default, so the token shows with
+minutes of sunshine (63.86, 373 and 1,282 minutes among them; those above 63 minutes are null, the others stay). The 81.5 m/s lie inside the 115 m/s of the table, which
+no world bound can tell from the 113.2 m/s on record, so the gust stays (it is `validated: false`; the step check of
+[GH-3681](https://github.com/earthobservations/wetterdienst/issues/3681) is to find it), as does the next highest gust of the daily layer, 51.05 m/s (6434,
+2002-12-30). The long shape drops the rows without a value by default, so the token shows with
 `drop_nulls=False`.
 
 ## Sunshine of station 6477 (GH-3031)

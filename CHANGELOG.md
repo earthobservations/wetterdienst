@@ -16,6 +16,48 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: the `range` check judges every network, against one table of bounds that is the
+  same for every provider (WMO records rounded outward, then the definition, then a named source;
+  `docs/data/plausibility.md`). Five networks were judged before, each with bounds of its own and
+  only for a short list of quantities (`dwd/observation` its winds and pressures), and
+  `meteofrance/observation` by its rule for the temperatures of frost-free stations; every
+  quantity of every network that has a bound now is, and a number outside it, which was returned
+  as the source wrote it, is null, as `rejected:range,raw:<number>`, or flagged `suspect:range`.
+  To keep every number set `plausibility={"range": "soft"}` (`WD_TS_PLAUSIBILITY__RANGE=soft`,
+  `--plausibility-range soft`, `plausibility_range=soft`) (GH-3681)
+- A forecast network (its metadata `kind`: `dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`) is judged soft in
+  every check but `floor`, whatever mode is set (options, CLI, REST, environment): a value a check
+  finds is flagged `suspect:<check>` and never null, as a model's output is no reading (ICON's
+  394.92 mm of rain in an hour is `suspect:range`). `floor` still sets a small negative to 0.0
+  (GH-3681)
+- **Breaking**: the bounds of `range` changed: relative humidity is 0 to 100 % (130 in DMI, RMI and
+  DWD road before, none elsewhere), irradiance 0 to 2,000 W/m² (-200 before), rain 350 mm in an
+  hour, 1,850 in a day, 10,000 in a month, 30,000 in a year, air -90 to 60 °C, station pressure
+  300 to 1100 hPa, snow depth -10 to 1,200 cm, sunshine the span plus 5 %, among others
+  (`docs/usage/migrating.md` lists them). Geosphere's `-1` of rain and new snow outside its daily
+  layer is now null. DMI's 989 mm day, 3,229.9 mm month and 9,574.3 mm year (`validity:false`) and
+  RMI's 81.5 m/s gust are no longer null: no table for the world sees a defect inside it.
+  `range: soft` keeps a number the table now rejects; filter DMI on `validity:false` (GH-3681)
+- **Breaking**: the `elevation` check holds `pressure_air_site` and its `_mean`, `_min`, `_max` in
+  every network whose stations have an elevation (`meteofrance/observation` included), from
+  870/1013.25 of the standard atmosphere at the station (143 hPa below at sea level) to 75 hPa
+  above it, where it was 75 hPa either way in two networks. Hurricane Irma's 917.4 hPa at 3 m is
+  kept; 909.5 hPa at 48 m (DWD) is kept too, 1093.3 hPa there is null. A GHCN station
+  listed at 0.0 m is not judged (its lists write 0.0 for unknown). `plausibility={"elevation":
+  "soft"}` keeps every number (GH-3670, GH-3681)
+- **Breaking**: `dwd/road` keeps no bound of its own but the humidity, so a temperature below
+  -60 °C and down to -90 °C (a dew point -100 °C) is returned. The 198.15 K (-75.00 °C) of the
+  stopped sensors (seen in group KM) stays null in any window, now as a code of the source:
+  `raw:198.15`, no longer `rejected:range,raw:198.15`, so `range: soft` no longer returns it:
+  filter on `raw:198.15` (GH-3681)
+- **Breaking**: the five DMI parameters of 0.181.0 (snow cover, leaf wetness, grass and soil
+  temperature, vapour pressure deficit) are held to the table of ranges like any other quantity, so
+  a value outside it (a negative leaf wetness) is null with `rejected:range,raw:<number>`, where
+  0.181.0 returned it. The deficit is -10 to 200 hPa: DMI publishes slightly negative ones as
+  valid (GH-3681)
+
 ### Fixed
 
 - **Breaking**: `summarize` and `summarize_by_station_id` of the Python API refuse a latitude

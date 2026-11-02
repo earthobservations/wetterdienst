@@ -33,7 +33,7 @@ from wetterdienst.exceptions import (
 from wetterdienst.io.export import require_kaleido
 from wetterdienst.io.formats import FORMATS, names_of
 from wetterdienst.metadata.unit_type import UnitType
-from wetterdienst.model.plausibility import CHECKS, Mode
+from wetterdienst.model.plausibility import CHECKS, Mode, forecast_note, hard_means
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.options import Options
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
@@ -283,8 +283,8 @@ def _plausibility_option(check: str) -> Callable[[_CommandT], _CommandT]:
         type=click.Choice(["hard", "soft"]),
         default="soft" if check == "stuck" else "hard",
         help=(
-            f"What the check '{check}' does to a value it finds implausible: hard nulls it and keeps the number as "
-            f"`rejected:{check},raw:<number>` in quality_flags, soft keeps it and flags it `suspect:{check}`. "
+            f"What the check '{check}' does to a value it finds implausible: hard {hard_means(check)}, soft keeps it "
+            f"and flags it `suspect:{check}`. {forecast_note(check)} "
             f"Default: WD_TS_PLAUSIBILITY__{check.upper()} if set, else {'soft' if check == 'stuck' else 'hard'}"
         ),
     )
@@ -300,7 +300,8 @@ def plausibility_opts(command: _CommandT) -> _CommandT:
         help=(
             "One mode for every plausibility check: soft keeps what a check finds implausible, flagged "
             "`suspect:<check>`, hard nulls it and keeps the number as `rejected:<check>,raw:<number>`. A check "
-            "given beside it by --plausibility-<check> wins. Default: WD_TS_PLAUSIBILITY if set, else the mode of "
+            "given beside it by --plausibility-<check> wins. A forecast network (kind forecast) is soft in every "
+            "check but floor, whatever is given. Default: WD_TS_PLAUSIBILITY if set, else the mode of "
             "each check"
         ),
     )(command)

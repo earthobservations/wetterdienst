@@ -342,20 +342,21 @@ def test_meteofrance_synop_api_a_reading_no_sensor_produced_is_null_with_its_tex
     """Test that pressure, temperature and rain beyond the records are null with the number the file wrote (GH-3135).
 
     The rows are those of the files of 1996 to 2005 (`pres` 11170 Pa at LA DESIRADE, `t` 369.15 K at 07117, `td` 358.95
-    K at 61997, `rr1` 800 mm at 61976), moved to 07005 and to 2024. The first row is the edge of every bound, which
-    stays: 50,000 and 85,000 Pa, 183.15 K, 600 mm; the second the other edge: 110,000 Pa, 333.15 K, 2,000 mm. The trace
-    of -0.1 is still 0.0, and a rr6 of 805 mm and a rr24 of 999.4 mm are inside the records.
+    K at 61997, `rr1` 800 mm at 61976), moved to 07005 and to 2024. The first row is the edge of every bound of the
+    table of ranges (GH-3681), which stays: 30,000 and 85,000 Pa, 183.15 K, 173.15 K for the dew point, 350 mm in an
+    hour, 1,150 mm in 3 hours; the second the other edge: 110,000 Pa, 333.15 K, 1,850 mm. The
+    trace of -0.1 is still 0.0, and a rr6 of 805 mm and a rr24 of 999.4 mm are inside the records.
     """
     rows = [
         {
             "geo_id_wmo": "07005",
             "validity_time": "2024-01-01T00:00:00Z",
-            "pres": "50000",
+            "pres": "30000",
             "pmer": "85000",
             "t": "183.15",
-            "td": "183.15",
-            "rr1": "600.0",
-            "rr3": "1200.0",
+            "td": "173.15",
+            "rr1": "350.0",
+            "rr3": "1150.0",
             "rr6": "805.0",
             "rr24": "999.4",
         },
@@ -367,7 +368,7 @@ def test_meteofrance_synop_api_a_reading_no_sensor_produced_is_null_with_its_tex
             "t": "333.15",
             "td": "333.15",
             "rr1": "-0.1",
-            "rr24": "2000.0",
+            "rr24": "1850.0",
         },
         {
             "geo_id_wmo": "07005",
@@ -377,9 +378,9 @@ def test_meteofrance_synop_api_a_reading_no_sensor_produced_is_null_with_its_tex
             "t": "369.15",
             "td": "358.95",
             "rr1": "800.0",
-            "rr3": "1200.1",
+            "rr3": "1150.1",
             "rr6": "1200.1",
-            "rr24": "2000.1",
+            "rr24": "1850.1",
         },
         {
             "geo_id_wmo": "07005",
@@ -414,27 +415,27 @@ def test_meteofrance_synop_api_a_reading_no_sensor_produced_is_null_with_its_tex
     def raw(parameter: str) -> list[str | None]:
         return by_parameter[parameter].get_column("quality_flags").to_list()
 
-    assert values("pressure_air_site") == [500.0, 1100.0, None, None]
+    assert values("pressure_air_site") == [300.0, 1100.0, None, None]
     assert raw("pressure_air_site") == [None, None, "rejected:range,raw:11170", "rejected:range,raw:110000.5"]
     assert values("pressure_air_sea_level") == [850.0, 1100.0, None, None]
     assert raw("pressure_air_sea_level") == [None, None, "rejected:range,raw:84990", "rejected:range,raw:110000.5"]
     assert values("temperature_air_2m") == [-90.0, 60.0, None, None]
     assert raw("temperature_air_2m") == [None, None, "rejected:range,raw:369.15", "rejected:range,raw:183.1"]
-    assert values("temperature_dew_point_2m") == [-90.0, 60.0, None, None]
+    assert values("temperature_dew_point_2m") == [-100.0, 60.0, None, None]
     assert raw("temperature_dew_point_2m") == [None, None, "rejected:range,raw:358.95", "rejected:range,raw:333.2"]
-    assert values("precipitation_amount_last_1h") == [600.0, 0.0, None, None]
+    assert values("precipitation_amount_last_1h") == [350.0, 0.0, None, None]
     assert raw("precipitation_amount_last_1h") == [
         None,
         "raw:-0.1",
         "rejected:range,raw:800.0",
         "rejected:range,raw:-0.2",
     ]
-    assert values("precipitation_amount_last_3h") == [1200.0, None, None, None]
-    assert raw("precipitation_amount_last_3h") == [None, None, "rejected:range,raw:1200.1", None]
+    assert values("precipitation_amount_last_3h") == [1150.0, None, None, None]
+    assert raw("precipitation_amount_last_3h") == [None, None, "rejected:range,raw:1150.1", None]
     assert values("precipitation_amount_last_6h") == [805.0, None, None, None]
     assert raw("precipitation_amount_last_6h") == [None, None, "rejected:range,raw:1200.1", None]
-    assert values("precipitation_amount_last_24h") == [999.4, 2000.0, None, None]
-    assert raw("precipitation_amount_last_24h") == [None, None, "rejected:range,raw:2000.1", None]
+    assert values("precipitation_amount_last_24h") == [999.4, 1850.0, None, None]
+    assert raw("precipitation_amount_last_24h") == [None, None, "rejected:range,raw:1850.1", None]
 
 
 @pytest.mark.parametrize(
@@ -538,41 +539,42 @@ def test_meteofrance_synop_api_a_temperature_below_zero_is_null_where_there_is_n
 @pytest.mark.parametrize(
     ("elevation", "pressures", "values", "flags"),
     [
-        # LE RAIZET-like, 11 m: 1011.9 hPa expected, 7,500 Pa either way
+        # LE RAIZET-like, 11 m: 1011.9 hPa expected, 868.9 to 1086.9 allowed (GH-3681)
         (
             11.0,
-            ["101500", "41450", "95500", "93000", "107000", "108800"],
+            ["101500", "41450", "95500", "86000", "107000", "108800"],
             [1015.0, None, 955.0, None, 1070.0, None],
             [
                 None,
-                "rejected:elevation+range,raw:41450",
+                "rejected:elevation,raw:41450",
                 None,
-                "rejected:elevation,raw:93000",
+                "rejected:elevation,raw:86000",
                 None,
                 "rejected:elevation,raw:108800",
             ],
         ),
-        # DUMONT D'URVILLE, 43 m: 1008.1 hPa expected; the deep lows of 2010-09-10 (938.2 hPa) and of 2020-12-28 (944.1)
-        # are readings, 909.5 and 932.9 are not
+        # DUMONT D'URVILLE, 43 m: 1008.1 hPa expected, 865.6 to 1083.1 allowed; the deep lows of 2010-09-10 (938.2 hPa)
+        # and of 2020-12-28 (944.1) are readings, and so is 909.5 (98 hPa below, as far as Hurricane Irma's eye was:
+        # the gap the step check of GH-3681 is to close); 863 is not
         (
             43.0,
-            ["93820", "94410", "90950", "93290"],
-            [938.2, 944.1, None, None],
-            [None, None, "rejected:elevation,raw:90950", "rejected:elevation,raw:93290"],
+            ["93820", "94410", "90950", "86300"],
+            [938.2, 944.1, 909.5, None],
+            [None, None, None, "rejected:elevation,raw:86300"],
         ),
-        # MONT AIGOUAL, 1,567 m: 838.6 hPa expected, so what is a pressure at sea level is none
+        # MONT AIGOUAL, 1,567 m: 838.6 hPa expected, 720 to 913.6 allowed, so what is a pressure at sea level is none
         (
             1567.0,
-            ["84000", "100500", "78000", "76000"],
+            ["84000", "100500", "78000", "70000"],
             [840.0, None, 780.0, None],
-            [None, "rejected:elevation,raw:100500", None, "rejected:elevation,raw:76000"],
+            [None, "rejected:elevation,raw:100500", None, "rejected:elevation,raw:70000"],
         ),
-        # no elevation in the list: only the bounds of the world, 50,000 to 110,000 Pa
+        # no elevation in the list: only the bounds of the world, 30,000 to 110,000 Pa
         (
             None,
-            ["41450", "50000", "100500", "110000.5"],
+            ["29990", "50000", "100500", "110000.5"],
             [None, 500.0, 1005.0, None],
-            ["rejected:range,raw:41450", None, None, "rejected:range,raw:110000.5"],
+            ["rejected:range,raw:29990", None, None, "rejected:range,raw:110000.5"],
         ),
     ],
 )
@@ -583,7 +585,7 @@ def test_meteofrance_synop_api_a_station_pressure_is_null_where_its_elevation_do
     values: list[float | None],
     flags: list[str | None],
 ) -> None:
-    """Test that a `pres` further than 75 hPa from the barometric formula at the station's elevation is null (GH-3627).
+    """Test that a `pres` the standard atmosphere does not allow at the station's elevation is null (GH-3627, GH-3681).
 
     The rows of LA DESIRADE (27 m) of 1996-06-02 15:00 (`pres` 41,450 Pa beside a `pmer` of 101,550) and of the
     Mont Aigoual (`pmer`-like 100,500 at 1,567 m) are the kind of the mistyped values that lie inside the bounds of

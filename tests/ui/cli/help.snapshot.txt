@@ -850,35 +850,46 @@ Options:
   --plausibility [hard|soft]      One mode for every plausibility check: soft keeps what a check
                                   finds implausible, flagged `suspect:<check>`, hard nulls it and
                                   keeps the number as `rejected:<check>,raw:<number>`. A check given
-                                  beside it by --plausibility-<check> wins. Default:
-                                  WD_TS_PLAUSIBILITY if set, else the mode of each check
+                                  beside it by --plausibility-<check> wins. A forecast network (kind
+                                  forecast) is soft in every check but floor, whatever is given.
+                                  Default: WD_TS_PLAUSIBILITY if set, else the mode of each check
   --plausibility-range [hard|soft]
                                   What the check 'range' does to a value it finds implausible: hard
-                                  nulls it and keeps the number as `rejected:range,raw:<number>` in
-                                  quality_flags, soft keeps it and flags it `suspect:range`.
-                                  Default: WD_TS_PLAUSIBILITY__RANGE if set, else hard
+                                  nulls the value and keeps the number as
+                                  `rejected:range,raw:<number>` in `quality_flags`, soft keeps it
+                                  and flags it `suspect:range`. A forecast network (`kind`
+                                  `forecast`) is judged soft whatever the mode (only `floor` keeps
+                                  its mode). Default: WD_TS_PLAUSIBILITY__RANGE if set, else hard
   --plausibility-elevation [hard|soft]
                                   What the check 'elevation' does to a value it finds implausible:
-                                  hard nulls it and keeps the number as
-                                  `rejected:elevation,raw:<number>` in quality_flags, soft keeps it
-                                  and flags it `suspect:elevation`. Default:
-                                  WD_TS_PLAUSIBILITY__ELEVATION if set, else hard
+                                  hard nulls the value and keeps the number as
+                                  `rejected:elevation,raw:<number>` in `quality_flags`, soft keeps
+                                  it and flags it `suspect:elevation`. A forecast network (`kind`
+                                  `forecast`) is judged soft whatever the mode (only `floor` keeps
+                                  its mode). Default: WD_TS_PLAUSIBILITY__ELEVATION if set, else
+                                  hard
   --plausibility-stuck [hard|soft]
                                   What the check 'stuck' does to a value it finds implausible: hard
-                                  nulls it and keeps the number as `rejected:stuck,raw:<number>` in
-                                  quality_flags, soft keeps it and flags it `suspect:stuck`.
-                                  Default: WD_TS_PLAUSIBILITY__STUCK if set, else soft
+                                  nulls the value and keeps the number as
+                                  `rejected:stuck,raw:<number>` in `quality_flags`, soft keeps it
+                                  and flags it `suspect:stuck`. A forecast network (`kind`
+                                  `forecast`) is judged soft whatever the mode (only `floor` keeps
+                                  its mode). Default: WD_TS_PLAUSIBILITY__STUCK if set, else soft
   --plausibility-consistency [hard|soft]
                                   What the check 'consistency' does to a value it finds implausible:
-                                  hard nulls it and keeps the number as
-                                  `rejected:consistency,raw:<number>` in quality_flags, soft keeps
-                                  it and flags it `suspect:consistency`. Default:
-                                  WD_TS_PLAUSIBILITY__CONSISTENCY if set, else hard
+                                  hard nulls the value and keeps the number as
+                                  `rejected:consistency,raw:<number>` in `quality_flags`, soft keeps
+                                  it and flags it `suspect:consistency`. A forecast network (`kind`
+                                  `forecast`) is judged soft whatever the mode (only `floor` keeps
+                                  its mode). Default: WD_TS_PLAUSIBILITY__CONSISTENCY if set, else
+                                  hard
   --plausibility-floor [hard|soft]
                                   What the check 'floor' does to a value it finds implausible: hard
-                                  nulls it and keeps the number as `rejected:floor,raw:<number>` in
-                                  quality_flags, soft keeps it and flags it `suspect:floor`.
-                                  Default: WD_TS_PLAUSIBILITY__FLOOR if set, else hard
+                                  sets the value to 0.0 and keeps the number as
+                                  `rejected:floor,raw:<number>` in `quality_flags`, soft keeps it
+                                  and flags it `suspect:floor`. A forecast network (`kind`
+                                  `forecast`) keeps the mode as set for this check, and judges the
+                                  others soft. Default: WD_TS_PLAUSIBILITY__FLOOR if set, else hard
   --format [json|geojson|csv|ndjson|html|png|jpg|webp|svg|pdf]
                                   Output format: json, geojson, csv or ndjson (the metadata, a line
                                   for each row, then the end) for data, html, png, jpg, webp, svg or

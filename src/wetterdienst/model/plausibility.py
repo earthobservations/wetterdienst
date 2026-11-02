@@ -31,6 +31,9 @@ Check = Literal["range", "elevation", "stuck", "consistency", "floor"]
 #: (``suspect:range+stuck``, ``_WRITE_ORDER`` of ``model/quality_flags.py``)
 CHECKS: tuple[str, ...] = get_args(Check)
 
+#: the checks that correct a value instead of rejecting it, and so run as they are set on a forecast network
+CORRECTING_CHECKS: tuple[str, ...] = ("floor",)
+
 #: the kinds of token a check writes into ``quality_flags``, before ``raw:``
 SUSPECT = "suspect"
 REJECTED = "rejected"
@@ -38,6 +41,22 @@ REJECTED = "rejected"
 SUSPECT_TOKEN = rf"(^|,){SUSPECT}:"
 #: and for the one a hard check writes
 REJECTED_TOKEN = rf"(^|,){REJECTED}:"
+
+
+def hard_means(check: str) -> str:
+    """Say what ``hard`` does for a check: null the value (``floor``: set it to 0.0) and keep the number."""
+    does = "sets the value to 0.0" if check == "floor" else "nulls the value"
+    return f"{does} and keeps the number as `rejected:{check},raw:<number>` in `quality_flags`"
+
+
+def forecast_note(check: str) -> str:
+    """Say what a forecast network does with the mode of a check (``Plausibility.for_forecast``)."""
+    if check in CORRECTING_CHECKS:
+        return (
+            "A forecast network (`kind` `forecast`) keeps the mode as set for this check, and judges the others soft."
+        )
+    return "A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` keeps its mode)."
+
 
 _HARD_MEANS = (
     "`hard` nulls the value and keeps the number the source wrote as `rejected:{check},raw:<number>` in "
@@ -52,7 +71,12 @@ class Plausibility(BaseModel):
     and the flag keeps the judgement visible. The missing-value codes and documented meanings a source writes
     (``-999``, ``---``, a trace, a calm) are no check and are not configurable.
 
-    The defaults reproduce what the library did before the modes existed, except ``stuck``, which is soft: it judges a
+    On a forecast network (the ``kind`` of its metadata) every check is soft but ``floor``, whatever is set here
+    (``for_forecast``): a forecast is a model's output and no reading, so a value a check finds is flagged and never
+    nulled.
+
+    The defaults are what the library did for the networks it judged before the modes existed (since GH-3681 ``range``
+    and ``elevation`` judge every network), except ``stuck``, which is soft: it judges a
     series and not a value (identical readings are a sign of a stuck sensor and no proof), and what it finds depends
     on what was read: the window of the request for ``dwd/road``, the periods and files read for ``dwd/observation``.
     Set it from ``WD_TS_PLAUSIBILITY__<CHECK>`` (``WD_TS_PLAUSIBILITY__RANGE=soft``) or
@@ -64,13 +88,13 @@ class Plausibility(BaseModel):
 
     range: Mode = Field(
         default="hard",
-        description="A reading outside the physical range of its parameter (4021 degrees C for a daily mean, "
-        "17,802 mm of rain in a month). " + _HARD_MEANS.format(check="range"),
+        description="A reading outside the physical range of its parameter, the same for every provider (4021 "
+        "degrees C for a daily mean, 17,802 mm of rain in a month). " + _HARD_MEANS.format(check="range"),
     )
     elevation: Mode = Field(
         default="hard",
-        description="A station pressure the barometric formula does not expect at the elevation of the station "
-        "(909.5 hPa at a station at 48 m). " + _HARD_MEANS.format(check="elevation"),
+        description="A station pressure the standard atmosphere does not allow at the elevation of the station "
+        "(1093.3 hPa at a station at 48 m, 968.6 hPa at the Zugspitze). " + _HARD_MEANS.format(check="elevation"),
     )
     stuck: Mode = Field(
         default="soft",
@@ -92,6 +116,17 @@ class Plausibility(BaseModel):
         "sets the floor (0.0), not null, and keeps the number as `rejected:floor,raw:<number>`; `soft` keeps the "
         "value and flags it `suspect:floor`.",
     )
+
+    def for_forecast(self) -> Plausibility:
+        """Give the modes a forecast network is judged with: every check soft, whatever mode it was given (GH-3681).
+
+        A forecast is a model's output and not a reading, and what a check finds in it (a rain above any record, a
+        pressure the elevation does not allow) is a flag on a value the model wrote, so no check nulls it, however
+        ``hard`` is set (the options, the CLI, the REST API, the environment). The one exception is ``floor``, which
+        does not reject: it sets a value a little below the floor of its quantity to the floor and keeps the number
+        as ``rejected:floor,raw:<number>``, so it keeps the mode it was given.
+        """
+        return Plausibility(**{check: self.mode(check) if check in CORRECTING_CHECKS else "soft" for check in CHECKS})
 
     @model_validator(mode="before")
     @classmethod
@@ -118,49 +153,58 @@ class Plausibility(BaseModel):
         return getattr(self, check)
 
 
-#: where each check runs: by check, the networks (`provider/network`) and their datasets (`resolution/dataset`). The
-#: table of `docs/data/plausibility.md` is this, and `tests/test_docs_plausibility.py` holds the three to one another:
-#: the rules the readers declare, this and the page. A network that is in no list judges no value (extending the checks
-#: to the networks that have none is a follow-up)
+#: where each check runs: by check, the networks (`provider/network`) and their datasets (`resolution/dataset`), or `*`
+#: for every dataset of the network that has a parameter the check judges. The table of `docs/data/plausibility.md` is
+#: this, and `tests/test_docs_plausibility.py` holds the three to one another: the rules the readers declare, this and
+#: the page. `range` and `elevation` run on every network that has a quantity of their tables (GH-3681): the bounds
+#: are the same for every provider (`model/plausibility_ranges.py`). A network that is in no list judges no value
 COVERAGE: dict[str, dict[str, tuple[str, ...]]] = {
     "range": {
-        "dmi/observation": ("hourly/data", "daily/data", "monthly/data", "annual/data"),
-        "dwd/observation": (
-            "10_minutes/temperature_air",
-            "10_minutes/urban_pressure",
-            "10_minutes/urban_wind",
-            "10_minutes/urban_wind_extreme",
-            "10_minutes/wind",
-            "10_minutes/wind_extreme",
-            "hourly/moisture",
-            "hourly/pressure",
-            "hourly/urban_pressure",
-            "hourly/urban_wind",
-            "hourly/wind",
-            "hourly/wind_extreme",
-            "hourly/wind_synoptic",
-            "subdaily/pressure",
-            "subdaily/wind_extreme",
-            "daily/climate_summary",
-            "monthly/climate_summary",
-            "annual/climate_summary",
-        ),
-        "dwd/road": ("15_minutes/data",),
-        "meteofrance/observation": ("hourly/core", "hourly/others", "daily/core", "monthly/data"),
-        "meteofrance/synop": ("subdaily/data",),
-        "rmi/observation": ("10_minutes/data", "hourly/data", "daily/data"),
+        "aemet/observation": ("*",),
+        "chmi/observation": ("*",),
+        "dmi/observation": ("*",),
+        "dwd/derived": ("*",),
+        "dwd/dmo": ("*",),
+        "dwd/mosmix": ("*",),
+        "dwd/observation": ("*",),
+        "dwd/phenology": ("*",),
+        "dwd/poi": ("*",),
+        "dwd/road": ("*",),
+        "dwd/swsmos": ("*",),
+        "eccc/observation": ("*",),
+        "fmi/observation": ("*",),
+        "geosphere/observation": ("*",),
+        "imgw/hydrology": ("*",),
+        "imgw/meteorology": ("*",),
+        "ipma/observation": ("*",),
+        "knmi/observation": ("*",),
+        "lhmt/observation": ("*",),
+        "meteofrance/observation": ("*",),
+        "meteofrance/synop": ("*",),
+        "meteoswiss/observation": ("*",),
+        "metno/frost": ("*",),
+        "metoffice/observation": ("*",),
+        "noaa/ghcn": ("*",),
+        "nws/observation": ("*",),
+        "rmi/observation": ("*",),
+        "smhi/observation": ("*",),
+        "wsv/pegel": ("*",),
     },
     "elevation": {
-        "dwd/observation": (
-            "10_minutes/temperature_air",
-            "10_minutes/urban_pressure",
-            "hourly/moisture",
-            "hourly/pressure",
-            "hourly/urban_pressure",
-            "subdaily/pressure",
-            "daily/climate_summary",
-        ),
-        "meteofrance/synop": ("subdaily/data",),
+        "aemet/observation": ("*",),
+        "chmi/observation": ("*",),
+        "dwd/observation": ("*",),
+        "eccc/observation": ("*",),
+        "geosphere/observation": ("*",),
+        "imgw/meteorology": ("*",),
+        "knmi/observation": ("*",),
+        "meteofrance/observation": ("*",),
+        "meteofrance/synop": ("*",),
+        "meteoswiss/observation": ("*",),
+        "metno/frost": ("*",),
+        "metoffice/observation": ("*",),
+        "noaa/ghcn": ("*",),
+        "rmi/observation": ("*",),
     },
     "stuck": {
         "dwd/observation": (

@@ -17,7 +17,7 @@ The plausibility checks each have an option, `--plausibility-range`, `--plausibi
 `rejected:<check>,raw:<number>` in `quality_flags`) or `soft` (keep the value, flag it `suspect:<check>`), and
 `WD_TS_PLAUSIBILITY__<CHECK>` sets one for a host. One not given keeps the host's mode, or its default (`stuck` is soft,
 the others hard). `--plausibility soft` (or `hard`) sets all five at once, and a check given beside it wins whatever the
-order: `--plausibility soft --plausibility-range hard`; `WD_TS_PLAUSIBILITY=soft` does it for a host. See [plausibility checks](../data/plausibility.md).
+order: `--plausibility soft --plausibility-range hard`; `WD_TS_PLAUSIBILITY=soft` does it for a host. A forecast network (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`: `kind` `forecast`) is judged soft in every check but `floor`, whatever is given: `hard` there is still flagged `suspect:<check>`, never nulled. See [plausibility checks](../data/plausibility.md).
 
 ```bash
 wetterdienst values --provider=dwd --network=observation --parameters=hourly/moisture/pressure_air_site \

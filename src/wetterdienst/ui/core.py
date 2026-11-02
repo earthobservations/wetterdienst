@@ -41,7 +41,7 @@ from wetterdienst.metadata.aliases import PARAMETER_ALIASES, use_alias
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
 from wetterdienst.model.metadata import parse_parameters, whole_datasets_kept
-from wetterdienst.model.plausibility import CHECKS, Mode, leave_out_suspect
+from wetterdienst.model.plausibility import CHECKS, Mode, forecast_note, hard_means, leave_out_suspect
 from wetterdienst.model.request import (
     DEFAULT_NAME_RANK,
     DEFAULT_NAME_RANK_LISTING,
@@ -335,9 +335,9 @@ def _plausibility_field(check: str, what: str) -> Any:  # noqa: ANN401
     return Annotated[
         Mode,
         Field(
-            description=f"What the check `{check}` does to {what}: `hard` nulls the value and keeps the number as "
-            f"`rejected:{check},raw:<number>` in `quality_flags`; `soft` keeps the value and flags it "
-            f"`suspect:{check}`. Interpolation and summary leave a suspect value out in any case. "
+            description=f"What the check `{check}` does to {what}: `hard` {hard_means(check)}; `soft` keeps the "
+            f"value and flags it `suspect:{check}`. {forecast_note(check)} "
+            f"Interpolation and summary leave a suspect value out in any case. "
             f"Default: the server's WD_TS_PLAUSIBILITY__{check.upper()} if set, else "
             f"{'soft' if check == 'stuck' else 'hard'}.",
         ),
@@ -349,7 +349,8 @@ _PlausibilityField = Annotated[
     Field(
         description="One mode for every plausibility check at once: `soft` keeps every value a check finds "
         "implausible and flags it (`suspect:<check>`), `hard` nulls it and keeps the number "
-        "(`rejected:<check>,raw:<number>`). A check given beside it by `plausibility_<check>` wins. "
+        "(`rejected:<check>,raw:<number>`), except on a forecast network (`kind` `forecast`), where every check but "
+        "`floor` is soft whatever the mode. A check given beside it by `plausibility_<check>` wins. "
         "Default: the server's WD_TS_PLAUSIBILITY if set, else the mode of each check.",
     ),
 ]
@@ -365,9 +366,7 @@ _PlausibilityStuckField = _plausibility_field(
 _PlausibilityConsistencyField = _plausibility_field(
     "consistency", "a reading that another parameter of the same file contradicts (never downloaded for the check)"
 )
-_PlausibilityFloorField = _plausibility_field(
-    "floor", "a model value a little below the floor of its quantity (`hard` sets the floor, not null)"
-)
+_PlausibilityFloorField = _plausibility_field("floor", "a model value a little below the floor of its quantity")
 #: the query parameters and command line options that set the mode of a check, by the check they set (GH-3676)
 PLAUSIBILITY_OPTIONS = {f"plausibility_{check}": check for check in CHECKS}
 _SectionsField = Annotated[

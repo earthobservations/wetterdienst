@@ -5,8 +5,7 @@
 from __future__ import annotations
 
 import datetime as dt
-import json
-from pathlib import Path
+from dataclasses import replace
 
 import polars as pl
 import pytest
@@ -15,9 +14,7 @@ from tests.provider.judging import judged
 from wetterdienst import Wetterdienst
 from wetterdienst.model.judge import SOURCE, Beside, Bound, StuckPeriod, judge, plan_for, to_canonical
 from wetterdienst.model.plausibility import Plausibility
-from wetterdienst.model.plausibility_ranges import SCOPE
 
-BEFORE = json.loads((Path(__file__).parent / "data" / "ranges_before_the_move.json").read_text(encoding="utf-8"))
 UTC = dt.UTC
 
 
@@ -28,26 +25,6 @@ def _datasets(network: str) -> dict[tuple[str, str], object]:
         for resolution in Wetterdienst.resolve(provider, name).metadata
         for dataset in resolution
     }
-
-
-def test_the_core_holds_every_network_to_the_bounds_its_reader_declared_and_to_no_more() -> None:
-    """The table of the core, converted by the plan of each dataset, is the bounds of the readers before the move.
-
-    `ranges_before_the_move.json` holds them in canonical units, read off the readers before their tables were taken
-    out: the network, the dataset, the name of the source and the bounds. The table of the core says the same, per
-    dataset, and judges no parameter that no reader judged.
-    """
-    expected = {(row["net"], row["res"], row["ds"], row["orig"]): (row["low"], row["high"]) for row in BEFORE}
-    # the road's range of the humidity and its rule of a humidity under 1 % were two rules of `range`: one bound
-    expected["dwd/road", "15_minutes", "data", "relativeHumidity"] = (0.01, 1.3)
-    found = {}
-    for network in SCOPE:
-        for (resolution, name), dataset in _datasets(network).items():
-            for original, bounds in plan_for(network, dataset).ranges.items():
-                found[network, resolution, name, original] = bounds
-    assert set(found) == set(expected)
-    for key, (low, high) in expected.items():
-        assert found[key] == pytest.approx((low, high), rel=1e-6, abs=1e-6), key
 
 
 def _frame(
@@ -81,24 +58,24 @@ def test_the_checks_have_their_modes_and_a_rejected_value_carries_only_the_hard_
     dataset = _datasets("dwd/observation")[("hourly", "pressure")]
     plan = plan_for("dwd/observation", dataset)
     p0 = next(name for name, c in plan.parameters.items() if c.name == "pressure_air_site")
-    df = _frame([(p0, 1093.3), (p0, 1010.0)])
+    df = _frame([(p0, 1150.0), (p0, 1010.0)])
     hard = judged(df, network="dwd/observation", dataset=dataset, elevation=48.0, modes=Plausibility())
-    assert hard.get_column("quality_flags").to_list() == ["rejected:elevation+range,raw:1093.3", None]
+    assert hard.get_column("quality_flags").to_list() == ["rejected:elevation+range,raw:1150", None]
     soft = judged(df, network="dwd/observation", dataset=dataset, elevation=48.0, modes=Plausibility(range="soft"))
-    assert soft.get_column("quality_flags").to_list() == ["rejected:elevation,raw:1093.3", None]
+    assert soft.get_column("quality_flags").to_list() == ["rejected:elevation,raw:1150", None]
     every = judged(
         df, network="dwd/observation", dataset=dataset, elevation=48.0, modes=Plausibility.model_validate("soft")
     )
     assert every.get_column("quality_flags").to_list() == ["suspect:elevation+range", None]
-    assert every.get_column("value").to_list() == [1093.3, 1010.0]
+    assert every.get_column("value").to_list() == [1150.0, 1010.0]
 
 
 def test_a_value_a_source_code_decided_is_judged_by_nobody() -> None:
     """A reading that carries a `raw:` token already is the source's code, which decides first."""
     dataset = _datasets("dmi/observation")[("daily", "data")]
-    df = _frame([("acc_precip", 0.0), ("acc_precip", 900.0)], ["manual,raw:-0.1", "manual"])
+    df = _frame([("acc_precip", 0.0), ("acc_precip", 2000.0)], ["manual,raw:-0.1", "manual"])
     out = judged(df, network="dmi/observation", dataset=dataset)
-    assert out.get_column("quality_flags").to_list() == ["manual,raw:-0.1", "manual,rejected:range,raw:900"]
+    assert out.get_column("quality_flags").to_list() == ["manual,raw:-0.1", "manual,rejected:range,raw:2000"]
 
 
 def test_the_checks_of_a_provider_are_rules_the_core_applies_across_parameters() -> None:
@@ -299,7 +276,7 @@ def test_a_request_class_that_subclasses_a_network_is_judged_as_the_network(monk
     monkeypatch.setattr(value_stubs, "DwdObservationRequest", MyRequest)
     df = value_stubs._dwd_hourly_pressure_typo(monkeypatch, drop_nulls=False)  # noqa: SLF001
     rejected = df.filter(pl.col("quality_flags").str.contains("rejected:"))
-    assert rejected.get_column("quality_flags").to_list() == ["1,rejected:elevation+range,raw:1093.3"]
+    assert rejected.get_column("quality_flags").to_list() == ["1,rejected:elevation,raw:1093.3"]
     assert rejected.get_column("value").to_list() == [None]
 
 
@@ -334,6 +311,104 @@ def test_every_resolution_of_a_constant_run_has_a_step_to_bound_its_gap() -> Non
                     assert plan.constant_gap == reading_step(resolution.value) * RUN_GAP_FACTOR
 
 
+# --- a forecast is judged soft only (GH-3681) -------------------------------------------------------------------------
+
+
+def _all_datasets() -> list[tuple[str, object]]:
+    return [
+        (f"{provider}/{network}", dataset)
+        for provider, networks in Wetterdienst.registry.items()
+        for network in networks
+        if not Wetterdienst.is_standalone(provider, network)
+        for resolution in Wetterdienst.resolve(provider, network).metadata
+        for dataset in resolution
+    ]
+
+
+def test_a_network_is_a_forecast_by_the_kind_its_metadata_declares() -> None:
+    """No list of networks: the plan of every dataset says `forecast` where, and only where, `kind` does."""
+    kinds = {}
+    for network, dataset in _all_datasets():
+        provider, name = network.split("/")
+        kind = Wetterdienst.resolve(provider, name).metadata.kind
+        kinds[network] = kind
+        assert plan_for(network, dataset).forecast is (kind == "forecast"), network
+    assert {network for network, kind in kinds.items() if kind == "forecast"} >= {"dwd/mosmix", "dwd/dmo", "dwd/swsmos"}
+    assert kinds["dwd/observation"] == "observation"
+
+
+def test_a_forecast_is_judged_with_every_check_soft_but_the_one_that_corrects() -> None:
+    """`hard`, given or default, is `soft` for a forecast; `floor` corrects and keeps the mode it was given."""
+    assert Plausibility.model_validate("hard").for_forecast().model_dump() == {
+        "range": "soft",
+        "elevation": "soft",
+        "stuck": "soft",
+        "consistency": "soft",
+        "floor": "hard",
+    }
+    assert Plausibility(floor="soft").for_forecast() == Plausibility.model_validate("soft")
+    assert Plausibility().for_forecast().model_dump()["floor"] == "hard"
+
+
+def test_a_forecast_keeps_the_value_a_hard_range_check_would_null() -> None:
+    """ICON's 394.92 mm of rain in an hour (83827, run of 2026-10-31 12Z) is flagged and kept, in any mode."""
+    dataset = _datasets("dwd/dmo")[("hourly", "icon")]
+    plan = plan_for("dwd/dmo", dataset)
+    rr1 = next(name for name, c in plan.parameters.items() if c.name == "precipitation_amount_last_1h")
+    df = _frame([(rr1, 394.92), (rr1, 0.3)])
+    for modes in (None, Plausibility(range="hard"), Plausibility.model_validate("hard")):
+        out = judged(df, network="dwd/dmo", dataset=dataset, modes=modes)
+        assert out.get_column("value").to_list() == [394.92, 0.3]
+        assert out.get_column("quality_flags").to_list() == ["suspect:range", None]
+
+
+def test_an_observation_in_hard_mode_still_nulls_the_same_value() -> None:
+    """The rule is the network's kind: the same 394.92 mm in an hour at a DWD station is null."""
+    dataset = _datasets("dwd/observation")[("hourly", "precipitation")]
+    plan = plan_for("dwd/observation", dataset)
+    rain = next(name for name, c in plan.parameters.items() if c.name == "precipitation_amount")
+    out = judged(_frame([(rain, 394.92), (rain, 0.3)]), network="dwd/observation", dataset=dataset)
+    assert out.get_column("value").to_list() == [None, 0.3]
+    assert out.get_column("quality_flags").to_list() == ["rejected:range,raw:394.92", None]
+
+
+def test_the_elevation_the_stuck_and_the_consistency_checks_are_soft_on_a_forecast() -> None:
+    """The checks no forecast dataset of the library triggers still never null on a forecast plan."""
+    dataset = _datasets("dwd/dmo")[("hourly", "icon")]
+    plan = plan_for("dwd/dmo", dataset)
+    names = {c.name: name for name, c in plan.parameters.items()}
+    # the elevation: 1090 hPa at 48 m is 82.5 hPa above the standard atmosphere, which hard would null
+    with_pressure = replace(plan, pressure=(names["pressure_air_sea_level"],))
+    df = _frame([(names["pressure_air_sea_level"], 1090.0)]).with_columns(pl.col("value").alias(SOURCE))
+    out = judge(df, with_pressure, Plausibility.model_validate("hard"), elevation=48.0)
+    assert out.get_column("value").to_list() == [1090.0]
+    assert out.get_column("quality_flags").to_list() == ["suspect:elevation"]
+    # the same plan as an observation's would null it
+    out = judge(df, replace(with_pressure, forecast=False), Plausibility.model_validate("hard"), elevation=48.0)
+    assert out.get_column("quality_flags").to_list() == ["rejected:elevation,raw:1090"]
+    # stuck, from a dated period, and consistency, from a relation of two readings of one timestamp
+    air, dew = names["temperature_air_2m"], names["temperature_dew_point_2m"]
+    rules = (
+        StuckPeriod("temperature_air_2m", dt.date(2024, 1, 1), dt.date(2024, 1, 1)),
+        Beside("temperature_dew_point_2m", "temperature_air_2m", lambda dew_point, air_: dew_point.gt(air_)),
+    )
+    df = _frame([(air, 5.0), (dew, 9.0)]).with_columns(pl.lit(dt.datetime(2024, 1, 1, tzinfo=UTC)).alias("timestamp"))
+    df = df.with_columns(pl.col("value").alias(SOURCE))
+    out = judge(df, plan, Plausibility.model_validate("hard"), rules)
+    assert out.get_column("value").to_list() == [5.0, 9.0]
+    assert out.get_column("quality_flags").to_list() == ["suspect:stuck", "suspect:consistency"]
+
+
+def test_a_forecast_floor_still_sets_the_floor() -> None:
+    """`floor` corrects and does not reject, so a forecast keeps its mode: 0.0 and the number as `raw:`."""
+    dataset = _datasets("dwd/dmo")[("hourly", "icon")]
+    plan = plan_for("dwd/dmo", dataset)
+    rr1 = next(name for name, c in plan.parameters.items() if c.name == "precipitation_amount_last_1h")
+    out = judged(_frame([(rr1, -0.02)]), network="dwd/dmo", dataset=dataset, modes=Plausibility.model_validate("hard"))
+    assert out.get_column("value").to_list() == [0.0]
+    assert out.get_column("quality_flags").to_list() == ["rejected:floor,raw:-0.02"]
+
+
 def test_a_temperature_difference_is_held_to_no_temperature_bound() -> None:
     """The error of a temperature is no temperature, so no range of one catches it (GH-3688).
 
@@ -341,12 +416,11 @@ def test_a_temperature_difference_is_held_to_no_temperature_bound() -> None:
     `temperature` (France's frostless stations, `Bound(low=0.0, unit_type="temperature")`) do not select a difference.
     """
     from wetterdienst.metadata.parameter_table import PARAMETER_TABLE  # noqa: PLC0415
-    from wetterdienst.model.plausibility_ranges import RANGES  # noqa: PLC0415
+    from wetterdienst.model.plausibility_ranges import bounds_for  # noqa: PLC0415
 
     differences = {p.name for p in PARAMETER_TABLE if p.unit_type == "temperature_difference"}
     assert differences == {"error_absolute_temperature_air_2m", "error_absolute_temperature_dew_point_2m"}
-    assert not differences & set(RANGES)
-    assert not [network for network, scope in SCOPE.items() if differences & set(scope)]
+    assert [name for name in differences if bounds_for(name) is not None] == []
     plan = plan_for("dwd/mosmix", _datasets("dwd/mosmix")[("hourly", "large")])
     assert {c.name for c in plan.parameters.values() if c.name in differences} == differences
     assert not [name for name, c in plan.parameters.items() if c.name in differences and name in plan.ranges]

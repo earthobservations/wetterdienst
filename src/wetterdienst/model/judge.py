@@ -23,7 +23,9 @@ the air of its minute at night.
 
 Modes and tokens are those of ``Plausibility``: ``hard`` nulls the value (``floor`` sets it to 0) and writes
 ``rejected:<checks>,raw:<text>``, ``soft`` keeps it and writes ``suspect:<checks>``; several checks are joined with
-``+`` in alphabetical order, and a value that a hard check rejects carries only the hard checks.
+``+`` in alphabetical order, and a value that a hard check rejects carries only the hard checks. On a forecast network
+(the ``kind`` of its metadata) every check is soft but ``floor``, whatever the request sets
+(``Plausibility.for_forecast``).
 """
 
 from __future__ import annotations
@@ -38,7 +40,7 @@ import polars as pl
 
 from wetterdienst.metadata.resolution import reading_step
 from wetterdienst.model.plausibility import CHECKS, REJECTED, SUSPECT, Plausibility
-from wetterdienst.model.plausibility_ranges import OVERRIDES, RANGES, SCOPE
+from wetterdienst.model.plausibility_ranges import bounds_for
 from wetterdienst.model.quality_flags import RAW_TOKEN
 from wetterdienst.model.unit import UnitConverter
 
@@ -57,14 +59,29 @@ SOURCE_TEXT = "source_text"
 _HIT = "__hit_"
 _ELIGIBLE = "__eligible"
 
-#: the station pressure that is also held to what the elevation of the station allows (check ``elevation``), by network
+#: the station pressure whose constant run is a barometer that does not work (check ``stuck``, DWD observation)
 STATION_PRESSURE = ("pressure_air_site", "pressure_air_site_mean")
-ELEVATION_NETWORKS = ("dwd/observation", "meteofrance/synop")
+#: the station pressure that is also held to what the elevation of the station allows (check ``elevation``): in every
+#: network, for every station of it that has an elevation
+ELEVATION_PRESSURE = ("pressure_air_site", "pressure_air_site_mean", "pressure_air_site_min", "pressure_air_site_max")
+#: the networks whose list writes 0.0 for a station of which it knows no elevation, so that 0.0 is no elevation there:
+#: GHCN lists 54 hourly stations at 0.0 that stand between 150 and 4,329 m (CHM00052940 reads 500.2 to 998 hPa; the
+#: daily list has BRM00083566, inland at about 827 m), and a pressure of the height they stand at is none for the sea
+#: level the list puts them at (GH-3681). The 0.0 of the lists read is a coast (those of DWD, ECCC, IMGW and
+#: Météo-France, read 2026-11-01, hold no station at 0.0 that stands higher than 75 m)
+ELEVATION_ZERO_IS_UNKNOWN = frozenset({"noaa/ghcn"})
 # the pressure of the standard atmosphere at sea level, in hPa, and what the barometric formula of it (the international
-# standard atmosphere, valid in the troposphere) expects at a height: a station pressure that lies further than
-# `STATION_PRESSURE_TOLERANCE` from it is no reading (GH-3627)
+# standard atmosphere, valid in the troposphere) expects at a height (GH-3627). A station pressure further below it
+# than `STATION_PRESSURE_LOW_SHARE` of it or further above it than `STATION_PRESSURE_HIGH_MARGIN` is no reading
+# (GH-3681). The low end is the lowest pressure the WMO Archive lists at sea level, 870 hPa (Typhoon Tip, 1979-10-12),
+# as a share of the standard atmosphere's 1013.25 hPa, so that it holds at every height: 143 hPa below at sea level,
+# which keeps the 917.4 hPa of Hurricane Irma at St-Barthélemy (3 m, 2017-09-06, quality code 1). The high end is
+# from the highest sea level pressures on record, 1,083.8 hPa (Agata, 261 m, 1968-12-31) and 1,089.1 hPa (Tosontsengel,
+# 1,725 m, 2004-12-30), reduced to the station with the cold column of those days: 59 to 64 hPa over the standard
+# atmosphere at Agata and 14 to 40 at Tosontsengel (a derivation of GH-3681), so 75 hPa leaves room above
 STANDARD_SEA_LEVEL_PRESSURE = 1013.25
-STATION_PRESSURE_TOLERANCE = 75.0
+STATION_PRESSURE_LOW_SHARE = 870.0 / STANDARD_SEA_LEVEL_PRESSURE
+STATION_PRESSURE_HIGH_MARGIN = 75.0
 # the elevations the check is made for, in metres: a catalogue that gives another (a missing-value code, a typo) tells
 # nothing, and the formula is the standard atmosphere's to 11 km
 _STATION_ELEVATIONS = (-500.0, 9000.0)
@@ -114,13 +131,14 @@ def standard_station_pressure(elevation: float) -> float:
 
 
 def station_pressure_bounds(elevation: float | None) -> tuple[float, float] | None:
-    """Give the pressure in hPa a station at an elevation may read: the barometric formula there, 75 hPa either way.
+    """Give the pressure in hPa a station at an elevation may read: the standard atmosphere there, less and more.
 
-    The world-wide bounds of a pressure at the station (500 to 1090 hPa) are too wide to find a reading mistyped by a
-    digit at a station near sea level (a P0 of 909.5 hPa at 48 m) or one that is a pressure of another height (968.6
-    hPa at the Zugspitze, 2,956 m, where 705 hPa are expected): 75 hPa are about 650 m of height, which the weather at
-    the station stays within: the deep lows of Dumont d'Urville (938 hPa at 43 m, where 1008 are expected) are inside
-    (GH-3627).
+    The world-wide bounds of a pressure at the station (300 to 1100 hPa) are too wide to find a reading of another
+    height (968.6 hPa at the Zugspitze, 2,956 m, where 705 hPa are expected) or one mistyped by a digit above the
+    standard atmosphere of the station (a P0 of 1093.3 hPa at 48 m). The low end is the lowest pressure on record at sea
+    level as a share of the standard atmosphere (870/1013.25), which lets the deepest storms through: Irma read 917.4
+    hPa at 3 m, 95.5 hPa below the standard atmosphere there, and Typhoon Tip 143 hPa below it at sea level. A reading
+    mistyped by a digit to a pressure in between (909.5 hPa at 48 m) is for the checks of a step in a series to find.
 
     Returns:
         The bounds, or ``None`` where the station has no elevation or one outside -500 to 9000 m.
@@ -129,7 +147,7 @@ def station_pressure_bounds(elevation: float | None) -> tuple[float, float] | No
     if elevation is None or not _STATION_ELEVATIONS[0] <= elevation <= _STATION_ELEVATIONS[1]:
         return None
     expected = standard_station_pressure(elevation)
-    return expected - STATION_PRESSURE_TOLERANCE, expected + STATION_PRESSURE_TOLERANCE
+    return expected * STATION_PRESSURE_LOW_SHARE, expected + STATION_PRESSURE_HIGH_MARGIN
 
 
 @dataclass(frozen=True)
@@ -191,6 +209,8 @@ class Plan:
     network: str
     parameters: dict[str, Conversion]
     ranges: dict[str, tuple[float, float]]
+    #: the network is a forecast (its metadata ``kind``): its checks are soft whatever the request sets
+    forecast: bool = False
     pressure: tuple[str, ...] = ()
     floors: tuple[str, ...] = ()
     constants: tuple[tuple[str, int], ...] = ()
@@ -230,30 +250,34 @@ def plan_for(network: str, dataset: DatasetModel) -> Plan:
     return cached[1]
 
 
+def _is_forecast(network: str) -> bool:
+    """Tell whether a network is a forecast by the ``kind`` its metadata declares (what ``coverage`` reports)."""
+    from wetterdienst.api import Wetterdienst  # noqa: PLC0415
+    from wetterdienst.exceptions import ApiNotFoundError  # noqa: PLC0415
+
+    provider, _, name = network.partition("/")
+    try:
+        return Wetterdienst.resolve(provider, name).metadata.kind == "forecast"
+    except ApiNotFoundError:
+        return False
+
+
 def _build_plan(network: str, dataset: DatasetModel) -> Plan:
     resolution = dataset.resolution.name
     parameters: dict[str, Conversion] = {}
     by_name: dict[str, str] = {}
     ranges: dict[str, tuple[float, float]] = {}
-    scope = set(SCOPE.get(network, ()))
-    overrides = OVERRIDES.get(network, {})
     for parameter in dataset:
         unit_type = parameter.unit_type
         canonical = _CONVERTER.targets[unit_type].name
         to = None if parameter.unit == canonical else _CONVERTER.lambda_between(parameter.unit, canonical)
         parameters[parameter.name_original] = Conversion(parameter.name, parameter.unit, unit_type, canonical, to)
         by_name.setdefault(parameter.name, parameter.name_original)
-        if parameter.name in scope:
-            bounds = overrides.get(parameter.name, {}).get(resolution)
-            if bounds is None:
-                table = RANGES.get(parameter.name, {})
-                bounds = table.get(resolution, table.get("*"))
-            if bounds is not None:
-                ranges[parameter.name_original] = bounds
+        bounds = bounds_for(parameter.name, resolution, unit_type)
+        if bounds is not None:
+            ranges[parameter.name_original] = tuple(bounds)
     original = by_name
-    pressure = (
-        tuple(original[name] for name in STATION_PRESSURE if name in original) if network in ELEVATION_NETWORKS else ()
-    )
+    pressure = tuple(original[name] for name in ELEVATION_PRESSURE if name in original)
     floors = tuple(original[name] for name in FLOORS.get(network, ()) if name in original)
     names, limits = CONSTANT_RUNS.get(network, ((), {}))
     constants = tuple(
@@ -266,7 +290,9 @@ def _build_plan(network: str, dataset: DatasetModel) -> Plan:
         names, air = RUNS[network]
         if all(name in original for name in names):
             runs = (tuple(original[name] for name in names), original[air])
-    return Plan(network, parameters, ranges, pressure, floors, constants, constant_gap, runs, by_name)
+    return Plan(
+        network, parameters, ranges, _is_forecast(network), pressure, floors, constants, constant_gap, runs, by_name
+    )
 
 
 def to_canonical(plan: Plan) -> pl.Expr | None:
@@ -327,12 +353,19 @@ def judge(  # noqa: C901
     wrote, set where a hard check mapped the value (null, or 0 for a floor), for a caller that does not convert units.
     A reading that carries a ``raw:`` token already is a code of the source, which decides first, and is not judged.
     """
+    if plan.forecast:
+        modes = modes.for_forecast()
     parameter = pl.col("parameter")
     value = pl.col("value")
     exprs: dict[str, list[pl.Expr]] = defaultdict(list)
     series: dict[str, list[pl.Series]] = defaultdict(list)
 
     bounds = dict(plan.ranges)
+    # a value below the floor of a quantity the model writes a little below it is the floor's to map to the floor
+    # (GH-3681): the range stands aside at the low end, as it never judged these networks before
+    for name in plan.floors:
+        if name in bounds:
+            bounds[name] = (-_INF, bounds[name][1])
     for rule in rules:
         if isinstance(rule, Bound):
             names = [
@@ -349,7 +382,7 @@ def judge(  # noqa: C901
         high = parameter.replace_strict({n: b[1] for n, b in bounds.items()}, default=_INF, return_dtype=pl.Float64)
         outside = (value < low) | (value > high)
         exprs["range"].append(outside)
-    if plan.pressure and elevation is not None:
+    if plan.pressure and elevation is not None and not (elevation == 0.0 and plan.network in ELEVATION_ZERO_IS_UNKNOWN):
         allowed = station_pressure_bounds(elevation)
         if allowed is not None:
             exprs["elevation"].append(parameter.is_in(plan.pressure) & ((value < allowed[0]) | (value > allowed[1])))

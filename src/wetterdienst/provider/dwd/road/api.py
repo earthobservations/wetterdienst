@@ -17,14 +17,14 @@ from urllib.parse import urljoin
 import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.model.judge import Beside, Rule
+from wetterdienst.model.judge import Beside, Bound, Rule
 from wetterdienst.model.metadata import (
     DATASET_NAME_DEFAULT,
     DatasetModel,
     ParameterModel,
     build_metadata_model,
 )
-from wetterdienst.model.quality_flags import join_quality_flags
+from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.dwd.metadata import _METADATA, EXTENT_GERMANY
@@ -307,6 +307,21 @@ _QUALITY_BITS = {
 #: an air that DWD's own flag marks suspect is not held against the surface; one stopped at a plausible value
 #: (-25.00 C) is. The rule is one-sided: a surface under the air is an ordinary clear night.
 _SURFACE_WARMER_THAN_AIR = 20.0
+
+#: a relative humidity under 1 % is no reading: a failed hygrometer writes 0.0, 0.1, 0.4 or 0.99 %, which lies inside
+#: every range (P925 wrote 0.1 % in 43 readings of a 12 h window, GH-3624), and the air of Germany is never that dry
+#: at the road. The one narrow rule of this network that the table of ranges, the same for every provider, cannot hold
+_ROAD_HUMIDITY_FLOOR = Bound(low=0.01, names=("humidity_relative",))
+
+#: the 198.15 K (-75.00 C) that the stopped sensors of station group KM write for days (GH-1917) is no reading: a
+#: working sensor spreads across the decimals and this is the same to the hundredth at every station that has it. It
+#: lies inside the table of ranges, which is the same for every provider (-90 to 60 C for the air, -90 to 100 C for the
+#: road surface), so it is a code of this source
+#: and the reader maps it to null, keeping the number as `raw:198.15`, in kelvin as DWD writes it (GH-3681).
+#: GH-1917 read it in the road surface temperature of KM/H659 and KM/H438 (2026-09-16); the air is named by the
+#: decision of GH-3681. The dew point shows no sign of it, and -30.00 and -25.00 stay with the run rule, being
+#: reachable on a German road in winter
+_STOPPED_SENSOR = Sentinel("198.15", where=pl.col("parameter").is_in(["airTemperature", "roadSurfaceTemperature"]))
 
 #: and night is the sun more than 6 degrees below the horizon, the end of civil twilight (`_sun_elevation`): the day's
 #: heat is out of the road by then in the sample (39 of 5,536 readings between -6 and 0 degrees are over 20 K, all of
@@ -634,12 +649,14 @@ class DwdRoadValues(TimeseriesValues[DatasetModel]):
         self._group_cache: tuple[tuple[str, tuple[str, ...]], pl.DataFrame, bool] | None = None
 
     def _plausibility_rules(self, station_id: str, dataset: DatasetModel) -> tuple[Rule, ...]:  # noqa: ARG002
-        """Give the relation of the road surface to the air at night, for a station that has a position."""
+        """Give the humidity floor, and the relation of the road surface to the air at night where there is one."""
         stations = getattr(self.sr, "df", None)
         if stations is None:
-            return ()
+            return (_ROAD_HUMIDITY_FLOOR,)
         station = stations.filter(pl.col("station_id").eq(station_id))
-        return road_rules(*station.select("latitude", "longitude").row(0)) if not station.is_empty() else ()
+        if station.is_empty():
+            return (_ROAD_HUMIDITY_FLOOR,)
+        return (_ROAD_HUMIDITY_FLOOR, *road_rules(*station.select("latitude", "longitude").row(0)))
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -660,13 +677,15 @@ class DwdRoadValues(TimeseriesValues[DatasetModel]):
         # the date DWD wrote the file of a reading travels with it (`_note_files_with_rows`, GH-2567)
         if UPDATED not in df.columns:
             df = df.with_columns(pl.lit(None, dtype=pl.Datetime("us", "UTC")).alias(UPDATED))
-        # no range, no stopped sensor and no relation between the surface and the air is judged here: the readings go to
-        # the core as DWD wrote them (`model/judge.py`), DWD's own 0 / 1 verdict (see `_quality`) being the flag
+        # no range, no stuck run and no relation between the surface and the air is judged here: the readings go
+        # to the core as DWD wrote them (`model/judge.py`), DWD's own 0 / 1 verdict (see `_quality`) being the flag. The
+        # one thing mapped is the code of a stopped sensor, the 198.15 K (`_STOPPED_SENSOR`)
+        value, raw = null_sentinels(pl.col("value"), _STOPPED_SENSOR, text=False)
         df = df.select(
             "parameter",
             "timestamp",
-            "value",
-            join_quality_flags(pl.col("quality").cast(pl.Int8)),
+            value.alias("value"),
+            join_quality_flags(pl.col("quality").cast(pl.Int8), raw=raw),
             UPDATED,
         )
         return self._note_files_with_rows(df, parameter_or_dataset)

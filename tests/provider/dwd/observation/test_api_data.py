@@ -2319,12 +2319,18 @@ def _p0(df: pl.DataFrame) -> list[tuple[float | None, str | None]]:
 @pytest.mark.parametrize(
     ("elevation", "expected"),
     [
-        # Berlin-Tempelhof, 48 m: 1007.5 hPa are expected, so 909.5 is out of the 75 hPa
-        (48.0, [(1038.9, "1"), (None, "1,rejected:elevation,raw:909.5"), (1009.6, "1")]),
+        # Berlin-Tempelhof, 48 m: 1007.5 hPa are expected, so 865 to 1082.5 are allowed: 909.5 is a slip that is 98 hPa
+        # below, as far as Hurricane Irma's eye was (917.4 hPa at 3 m), and stays until the step check of GH-3681
+        (48.0, [(1038.9, "1"), (909.5, "1"), (1009.6, "1")]),
         # a station list without an elevation leaves the reading to the bounds of the world, which it is inside of
         (None, [(1038.9, "1"), (909.5, "1"), (1009.6, "1")]),
-        # the same readings at 500 m (954.6 hPa expected): 1038.9 is out of the 75 hPa, 909.5 is in
+        # the same readings at 500 m (954.6 hPa expected, 820 to 1030 allowed): 1038.9 is out, 909.5 is in
         (500.0, [(None, "1,rejected:elevation,raw:1038.9"), (909.5, "1"), (1009.6, "1")]),
+        # and at 1,500 m (845.6 expected, 726 to 921 allowed): the two above 921 are out
+        (
+            1500.0,
+            [(None, "1,rejected:elevation,raw:1038.9"), (909.5, "1"), (None, "1,rejected:elevation,raw:1009.6")],
+        ),
     ],
 )
 def test_dwd_observation_data_station_pressure_is_held_to_the_elevation_of_the_station(

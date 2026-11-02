@@ -95,13 +95,13 @@ CLOUD_COVER_PARAMETERS = {
     DwdObservationMetadata.hourly.cloud_type.cloud_cover_layer3.name_original,
     DwdObservationMetadata.hourly.cloud_type.cloud_cover_layer4.name_original,
 }
-# The hourly moisture dataset documents `missing value = -999`, but its files write -99.9 for the five
-# moisture columns in every hour without a reading (station 03735, 1949-01-28 06:00, in
+# The hourly moisture dataset documents `missing value = -999`, but its files write -99.9 for the five moisture
+# columns in every hour without a reading (station 03735, 1949-01-28 06:00, in
 # stundenwerte_TF_03735_19490101_19511231_hist.zip; station 14006, 2025-01-05 01:00, in
-# stundenwerte_TF_14006_20201104_20251231_hist.zip). `TT_STD` beside them is a reading, and `P_STD`
-# is not touched by this rule. -99.9 is outside the physical range of all five. Only this dataset:
-# GH-2669 sampled hourly air temperature, dew point and subdaily moisture and found none of them
-# writing it, so the rule stays local rather than a blanket -99.9.
+# stundenwerte_TF_14006_20201104_20251231_hist.zip). `TT_STD` beside them is a reading, and `P_STD` is not touched by
+# this rule. -99.9 is outside the physical range of four of them (the dew point reaches -100 C). Only this dataset:
+# GH-2669 sampled hourly air temperature, dew point and subdaily moisture and found none of them writing it, so the
+# rule stays local rather than a blanket -99.9.
 MOISTURE_MISSING = -99.9
 MOISTURE_MISSING_PARAMETERS = {
     DwdObservationMetadata.hourly.moisture.humidity_absolute.name_original,

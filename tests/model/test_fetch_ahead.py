@@ -250,7 +250,8 @@ def _values_class(
                 {
                     "timestamp": [row[0] for row in rows],
                     "parameter": ["tmk"] * len(rows),
-                    "value": [float(row[1]) for row in rows],
+                    # a hundredth, so that no station reads a temperature the range check rejects (and is left empty)
+                    "value": [float(row[1]) / 100 for row in rows],
                 },
                 schema_overrides={"timestamp": pl.Datetime("us", "UTC")},
             )

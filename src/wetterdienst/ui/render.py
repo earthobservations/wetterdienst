@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, WithJsonSchema
 
 from wetterdienst.io.formats import renders_with_kaleido
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.model.plausibility import CHECKS, Mode
+from wetterdienst.model.plausibility import CHECKS, Mode, forecast_note, hard_means
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.options import SkipThreshold, StationWindowEndBuffer  # noqa: TC001, needed at runtime by pydantic
 from wetterdienst.ui.response_metadata import ResponseMetadata, alerts_metadata, metadata_to_dict, response_metadata
@@ -122,8 +122,8 @@ def _plausibility_setting(check: str) -> Any:  # noqa: ANN401
     """Make the setting that reports the mode of a plausibility check, set by the request field of the same name."""
     return Field(
         validation_alias=f"plausibility_{check}",
-        description=f"The mode of the check `{check}`: `hard` nulls a value it finds implausible "
-        f"(`rejected:{check}` in `quality_flags`), `soft` keeps it and flags it (`suspect:{check}`).",
+        description=f"The mode of the check `{check}`: `hard` {hard_means(check)}, `soft` keeps the value and flags it "
+        f"(`suspect:{check}`). It is the mode as set: {forecast_note(check)}",
     )
 
 

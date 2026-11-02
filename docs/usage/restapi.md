@@ -715,7 +715,7 @@ The plausibility checks `range`, `elevation`, `stuck`, `consistency` and `floor`
 the query parameters `plausibility_range`, `plausibility_elevation`, `plausibility_stuck`,
 `plausibility_consistency` and `plausibility_floor` (the environment variable of a server is
 `WD_TS_PLAUSIBILITY__RANGE` and so on). A hard check nulls the value and writes `rejected:<check>,raw:<number>` into
-`quality_flags`, a soft check keeps the value and writes `suspect:<check>`; a check not named keeps the server's mode.
+`quality_flags`, a soft check keeps the value and writes `suspect:<check>`; a check not named keeps the server's mode. On a forecast network (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`: `kind` `forecast`) every check but `floor` is soft whatever the mode, so `hard` there flags `suspect:<check>` and nulls nothing.
 See [plausibility checks](../data/plausibility.md). `interpolate` and `summarize` take no mode: they leave out a
 suspect value in any case, and so do `stripes/values` and `stripes/image`.
 

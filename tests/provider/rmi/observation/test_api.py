@@ -277,18 +277,21 @@ def _collect_wide(
 
 
 def test_collect_nulls_a_value_outside_the_range_of_its_attribute_and_keeps_what_it_was() -> None:
-    """The 4021 degrees and the 81.5 m/s gust of station 6414 are null with `raw:4021` and `raw:81.5` (GH-2797).
+    """The 4021 degrees and a gust of 569.7 m/s of station 6414 are null with `raw:`; the 81.5 m/s gust stays (GH-3681).
 
     Rows as the WFS serves them for the daily layer of 6414 (checked 2026-10-16): `temp_avg` 110.26 and `temp_max` 4021
-    on 2003-08-06, `wind_gusts_speed` 81.5 on 2003-10-09, `qc_flags` not validated. The highest gust of any of the 14
-    stations in the 36 years of the layer besides is 51.05 m/s (6434, 2002-12-30), which is kept. A source null is
-    dropped as before, and a validated value is left alone.
+    on 2003-08-06, `wind_gusts_speed` 81.5 on 2003-10-09, `qc_flags` not validated. The 81.5 m/s lie inside the
+    115 m/s of the table of ranges, which is the same for every provider (the highest gust on record is 113.2 m/s): it
+    is a regional defect that no world table can see, for the step check of GH-3681 to find. The 569.7 m/s are a gust of
+    the hourly layer, put among the daily rows. The highest gust of any of the 14 stations in the 36 years of the layer
+    besides is 51.05 m/s (6434, 2002-12-30). A source null is dropped as before, and a validated value is left alone.
     """
     qc = {"TEMP_AVG": False, "TEMP_MAX": False, "WIND_GUSTS_SPEED": False, "TEMP_MIN": True}
     rows = [
         {"timestamp": "2003-08-06T00:00:00Z", "temp_avg": 110.26, "temp_max": 4021.0, "temp_min": 16.84},
         {"timestamp": "2003-10-09T00:00:00Z", "temp_avg": 14.05, "temp_max": 17.79, "wind_gusts_speed": 81.5},
         {"timestamp": "2002-12-30T00:00:00Z", "wind_gusts_speed": 51.05},
+        {"timestamp": "2003-10-10T00:00:00Z", "wind_gusts_speed": 569.7},
     ]
     df = _collect_wide("daily", rows, qc)
     found = {(row["parameter"], row["timestamp"].date().isoformat()): row for row in df.iter_rows(named=True)}
@@ -298,8 +301,9 @@ def test_collect_nulls_a_value_outside_the_range_of_its_attribute_and_keeps_what
         ("temp_min", "2003-08-06"): (16.84, "1"),
         ("temp_avg", "2003-10-09"): (14.05, "0"),
         ("temp_max", "2003-10-09"): (17.79, "0"),
-        ("wind_gusts_speed", "2003-10-09"): (None, "0,rejected:range,raw:81.5"),
+        ("wind_gusts_speed", "2003-10-09"): (81.5, "0"),
         ("wind_gusts_speed", "2002-12-30"): (51.05, "0"),
+        ("wind_gusts_speed", "2003-10-10"): (None, "0,rejected:range,raw:569.7"),
     }
 
 

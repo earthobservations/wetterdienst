@@ -1519,9 +1519,10 @@ def _out_of_range(parameter: str, values: list[float]) -> pl.DataFrame:
 @pytest.mark.parametrize(
     ("celsius", "nulled", "case"),
     [
-        (-75.0, True, "the value KM's stopped sensors hold, colder than anywhere on earth has been"),
-        (-61.0, True, "below the line"),
-        (-59.0, False, "cold beyond anything Germany has recorded, but not impossible"),
+        (-95.0, True, "colder than the air record of the world, -89.2 C at Vostok"),
+        (-91.0, True, "below the line"),
+        (-75.0, False, "KM's stopped sensors: inside the range, the reader maps them as a code (see below)"),
+        (-61.0, False, "cold beyond anything Germany has recorded, but the table is the same for every provider"),
         (-45.9, False, "Germany's record low, which the network may legitimately report"),
         (-30.0, False, "reachable on a German road in winter; the run rule judges this one"),
         (-25.0, False, "likewise"),
@@ -1533,7 +1534,7 @@ def test_dwd_road_weather_impossible_temperature_is_null(
     nulled: bool,  # noqa: FBT001
     case: str,
 ) -> None:
-    """A temperature no reading can hold is null with the number DWD wrote; a merely extreme one stays (GH-3222)."""
+    """A temperature no reading can hold is null with the number DWD wrote; a merely extreme one stays (GH-3681)."""
     published = round(_MELTING_POINT + celsius, 2)
     df = _out_of_range("roadSurfaceTemperature", [published] * 3)
 
@@ -1543,18 +1544,29 @@ def test_dwd_road_weather_impossible_temperature_is_null(
     assert df.get_column("raw").to_list() == ([f"rejected:range,raw:{published}"] * 3 if nulled else [None] * 3), case
 
 
-def test_dwd_road_weather_impossible_temperature_needs_no_window() -> None:
-    """The range does not wait for the six hours the run rule needs to see.
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+@pytest.mark.parametrize("parameter", ["airTemperature", "roadSurfaceTemperature"])
+def test_dwd_road_weather_the_stopped_sensors_of_km_are_a_code_of_the_source(
+    monkeypatch: pytest.MonkeyPatch, parameter: str
+) -> None:
+    """The 198.15 K (-75.00 C) a stopped sensor writes is null in any window, with its number as `raw:` (GH-3681).
 
-    Which is the whole of what it adds: asked for twelve hours, the run rule marks KM's stopped
-    sensors; asked for one, it has five readings to judge from and marks nothing, while the station
-    still reports -75 C.
+    It lies inside the -90 to 60 C (air) and -90 to 100 C (road surface) of the table of ranges, which is the same for
+    every provider, so the reader maps it, as it maps a code of any source. One reading is enough: the run rule needs
+    24. The other temperature is left as it is, and so is a dew point of the same number (no station is known to
+    write it): returned as DWD wrote it, with no `raw:` token.
     """
-    # five readings, as an hour of this network holds -- far short of the 24 the run rule wants
-    an_hour = _series("A006", "roadSurfaceTemperature", [198.15] * 5)
-
-    assert not _flag_stuck_sensors(an_hour, "a-group").get_column("quality").eq(1.0).any()
-    assert _out_of_range("roadSurfaceTemperature", [198.15] * 5).get_column("value").is_null().all()
+    other = "roadSurfaceTemperature" if parameter == "airTemperature" else "airTemperature"
+    df = _collect_one(
+        monkeypatch,
+        {**_NIGHT, f"#1#{parameter}": 198.15, f"#1#{other}": 285.25, "#1#dewpointTemperature": 198.15},
+    )
+    rows = _by_parameter(df)
+    assert rows[parameter][0] is None
+    assert rows[parameter][1].split(",")[-1] == "raw:198.15"
+    assert "rejected:" not in rows[parameter][1]
+    assert rows[other] == (285.25, None)
+    assert rows["dewpointTemperature"] == (198.15, None)
 
 
 @pytest.mark.parametrize(
@@ -1591,7 +1603,7 @@ def test_dwd_road_weather_a_code_is_held_to_no_range() -> None:
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_an_impossible_value_is_null_with_its_number(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The reader nulls a value no sensor can hold and keeps the number as the last token (GH-3222).
+    """The reader nulls a value no sensor can hold (-100 C) and keeps the number as the last token (GH-3222).
 
     The station's own verdict stays before it, as the stuck-sensor rule's does: a quality flag says what DWD or the
     data say of a reading, the `raw:` token what it was.
@@ -1603,7 +1615,7 @@ def test_dwd_road_weather_an_impossible_value_is_null_with_its_number(monkeypatc
         {
             "#1#shortStationName": "P034",
             "#1#qualityInformationAwsData": ground_suspect,
-            "#1#roadSurfaceTemperature": 198.15,
+            "#1#roadSurfaceTemperature": 173.15,
             "#1#airTemperature": 285.25,
         },
     )
@@ -1617,7 +1629,7 @@ def test_dwd_road_weather_an_impossible_value_is_null_with_its_number(monkeypatc
     rows = {
         parameter: (value, flags) for parameter, value, flags in df.select("parameter", "value", "quality_flags").rows()
     }
-    assert rows["roadSurfaceTemperature"] == (None, "1,rejected:range,raw:198.15")
+    assert rows["roadSurfaceTemperature"] == (None, "1,rejected:range,raw:173.15")
     assert rows["airTemperature"] == (285.25, "0")
 
 

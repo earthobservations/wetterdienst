@@ -333,7 +333,7 @@ pull request. Regenerate with the task named, after an intended change only, and
 | The parameters of 0.139.0 that are gone | `tests/metadata/gone_since_0_139_0.json` | `uv run poe renames:baseline` |
 | The frames the core hands out for every offline provider test | `tests/provider/frames.snapshot.json` | `uv run poe frames:snapshot` |
 | A provider's station catalogue and values, offline | `tests/provider/station_catalogue_stubs.py`, `tests/provider/value_stubs.py` (a provider without one is named with the reason) | by hand |
-| Physical plausibility of every value | `tests/provider/physical_ranges.py` | by hand |
+| Physical plausibility of every value | `src/wetterdienst/model/plausibility_ranges.py`, the one table every network is judged with, read by `tests/provider/physical_ranges.py` | by hand |
 | Licence and attribution in every answer | `tests/ui/test_response_metadata.py` | by hand |
 | The documentation (provider pages, settings, samples) | `tests/test_docs.py`, `tests/test_docs_samples.py` | by hand, see [Writing the documentation](documentation.md) |
 

@@ -12,8 +12,8 @@ import pytest
 import wetterdienst
 from tests.provider.value_stubs import STUBS, ValueStub
 from wetterdienst import Wetterdienst
-from wetterdienst.model.judge import CONSTANT_RUNS, ELEVATION_NETWORKS, FLOORS, RUNS
-from wetterdienst.model.plausibility_ranges import SCOPE
+from wetterdienst.model.judge import CONSTANT_RUNS, FLOORS, RUNS
+from wetterdienst.model.plausibility import COVERAGE
 from wetterdienst.model.quality_legend import LEGENDS, RAW, quality_legend
 
 PROVIDER_DIR = Path(wetterdienst.__file__).parent / "provider"
@@ -21,8 +21,6 @@ PROVIDER_DIR = Path(wetterdienst.__file__).parent / "provider"
 #: the networks whose `quality_flags` are not built by `join_quality_flags`, and where they come from instead
 NOT_JOINED = {
     "eaufrance/hubeau": "Hub'Eau's code_qualification_obs, written as a plain whole number",
-    "lhmt/observation": "the service publishes no flag",
-    "wsv/pegel": "the service publishes no flag",
 }
 
 
@@ -52,13 +50,17 @@ def _kinds_written() -> dict[str, set[str | None]]:
                 kinds.add(None)
             kinds.update(keyword.arg for keyword in node.keywords)
     for network in _judged_networks():
-        found.setdefault(network, set()).update({"suspect", "rejected", "raw"})
+        provider, name = network.split("/")
+        # a forecast is judged soft whatever the mode (GH-3681), so it is never `rejected` but by a floor
+        forecast = Wetterdienst.resolve(provider, name).metadata.kind == "forecast"
+        kinds = {"suspect", "raw"} if forecast and network not in FLOORS else {"suspect", "rejected", "raw"}
+        found.setdefault(network, set()).update(kinds)
     return found
 
 
 def _judged_networks() -> set[str]:
-    """Name the networks the core judges: a range scope, a floor, a constant, a run or a rule of their own."""
-    networks = set(SCOPE) | set(FLOORS) | set(CONSTANT_RUNS) | set(RUNS) | set(ELEVATION_NETWORKS)
+    """Name the networks the core judges: a range, an elevation, a floor, a constant, a run or a rule of their own."""
+    networks = set(COVERAGE["range"]) | set(COVERAGE["elevation"]) | set(FLOORS) | set(CONSTANT_RUNS) | set(RUNS)
     for path in sorted(PROVIDER_DIR.rglob("*.py")):
         parts = path.relative_to(PROVIDER_DIR).parts
         if len(parts) >= 3 and "def _plausibility_rules" in path.read_text(encoding="utf-8"):
