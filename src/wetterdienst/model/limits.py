@@ -28,10 +28,11 @@ from __future__ import annotations
 import functools
 import math
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, TypeVar
 
 from pydantic import AfterValidator, BeforeValidator, Field
 
+from wetterdienst.metadata.aliases import PARAMETER_ALIASES, use_alias
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.metadata.renamed import RENAMED_PARAMETERS
 from wetterdienst.model.metadata import POSSIBLE_SEPARATORS, ParameterSearch
@@ -47,6 +48,8 @@ def _no_truth_value(bound: object) -> object:
         raise ValueError(msg)  # noqa: TRY004
     return bound
 
+
+_T = TypeVar("_T")
 
 _Bound = Annotated[float, BeforeValidator(_no_truth_value), Field(allow_inf_nan=False)]
 
@@ -119,7 +122,7 @@ def search_for(key: str) -> ParameterSearch | None:
     return _search_of(key) if is_dataset_key(key) else None
 
 
-@functools.cache
+@functools.lru_cache(maxsize=1024)
 def _problem_with(key: object) -> str | None:
     """Say what is wrong with a key, or ``None``."""
     if not isinstance(key, str):
@@ -139,7 +142,7 @@ def _problem_with(key: object) -> str | None:
     return None
 
 
-@functools.cache
+@functools.lru_cache(maxsize=1024)
 def normal_name(key: str) -> str:
     """Give a valid key its one spelling, so that a key merges with, and replaces, the same parameter spelled otherwise.
 
@@ -167,27 +170,66 @@ def normal_name(key: str) -> str:
     return f"{search.resolution}/{search.dataset}/{search.parameter}"
 
 
-def with_normal_names(values: Mapping[str, object]) -> dict[str, object]:
+@functools.lru_cache(maxsize=1024)
+def scope_of(key: str) -> int:
+    """Count the parameters, of every network, that a key naming a dataset's parameter names: fewer is more specific.
+
+    ``hourly/ogd-smn/rre150h0`` is one parameter of one network, ``hourly/data/precipitation_amount`` that of thirteen.
+    """
+    search = _search_of(key)
+    return sum(1 for parameter in _parameters_of_all_networks() if search.matches(parameter))
+
+
+def with_normal_names(values: Mapping[str, _T]) -> dict[str, _T]:
     """Give a mapping with the keys that are valid names in their one spelling, and the others as they are.
 
-    Of two keys that name one parameter the later wins, as a key written twice in a dict does.
+    A key spelled otherwise than an earlier one is the same key: the later pair replaces the earlier and takes its
+    place after it.
     """
-    return {(normal_name(key) if _problem_with(key) is None else key): value for key, value in values.items()}
+    spelled: dict[str, _T] = {}
+    for key, value in values.items():
+        name = normal_name(key) if _problem_with(key) is None else key
+        spelled.pop(name, None)
+        spelled[name] = value
+    return spelled
+
+
+def _with_aliases_resolved(values: Mapping[str, object]) -> Mapping[str, object]:
+    """Write the new name for a key that is an alias of a renamed canonical name, and warn that it was one (GH-2625)."""
+    aliased = {
+        key: PARAMETER_ALIASES[key.strip().lower()]
+        for key in values
+        if isinstance(key, str)
+        and not is_dataset_key(key)
+        and key.strip().lower() not in PARAMETERS
+        and key.strip().lower() in PARAMETER_ALIASES
+    }
+    if not aliased:
+        return values
+    given = {key.strip().lower() for key in values if isinstance(key, str)}
+    for key, alias in aliased.items():
+        if alias.new in given:
+            msg = f"limits gives '{key}', which was renamed to '{alias.new}', and '{alias.new}' as well: give it once"
+            raise ValueError(msg)
+        use_alias(key.strip().lower(), alias)
+    return {(aliased[key].new if key in aliased else key): value for key, value in values.items()}
 
 
 def checked_limit_names(values: object) -> object:
-    """Refuse a key of ``limits`` that names no parameter, before the pairs are read, and spell the others one way.
+    """Refuse a key of ``limits`` that names no parameter, before the pairs are read.
 
     An empty value is no limits, and any other that is not a mapping is left for the field to refuse, which names it.
     A name nothing serves cannot be looked up: the bound would silently do nothing, and a typo would be
     indistinguishable from having set none. A canonical name that no request reaches is not an error, as the options
-    may serve requests for any network. The keys come out in their one spelling (``normal_name``), so that a key
-    given by a request replaces the host's bound for the same parameter, however either is spelled.
+    may serve requests for any network. The old name of a renamed parameter is read as the new one, with a warning.
+    The keys are spelled one way once the pairs are read (``with_normal_names``), so that an invalid pair is told by
+    the key as it was written.
     """
     if not values:
         return {}
     if not isinstance(values, Mapping):
         return values
+    values = _with_aliases_resolved(values)
     problems = [problem for key in values if (problem := _problem_with(key)) is not None]
     if problems:
         msg = (
@@ -195,7 +237,7 @@ def checked_limit_names(values: object) -> object:
             "`resolution/dataset/parameter`"
         )
         raise ValueError(msg)
-    return with_normal_names(values)
+    return values
 
 
 def read_limit_text(text: str) -> tuple[str, tuple[float | None, float | None]]:

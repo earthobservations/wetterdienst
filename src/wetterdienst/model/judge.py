@@ -40,7 +40,7 @@ import polars as pl
 
 from wetterdienst.exceptions import InvalidParameterError
 from wetterdienst.metadata.resolution import reading_step
-from wetterdienst.model.limits import search_for
+from wetterdienst.model.limits import scope_of, search_for
 from wetterdienst.model.plausibility import CHECKS, REJECTED, SUSPECT, Plausibility
 from wetterdienst.model.plausibility_ranges import bounds_for
 from wetterdienst.model.quality_flags import RAW_TOKEN
@@ -375,13 +375,13 @@ def limits_in_canonical(
         if search is None:
             by_name[key.strip().lower()] = pair
         else:
-            by_dataset.append((search, pair))
+            by_dataset.append((scope_of(key), search, pair))
     found: dict[str, tuple[float, float]] = {}
     for parameter in dataset:
-        # the last key that names the parameter wins, as in a dict
-        pair = next(
-            (pair for search, pair in reversed(by_dataset) if search.matches(parameter)), by_name.get(parameter.name)
-        )
+        # of the keys that name the parameter the one that names the fewest parameters wins (`scope_of`), whatever the
+        # order of the keys, and the later one of two as wide
+        named = [(scope, pair) for scope, search, pair in by_dataset if search.matches(parameter)]
+        pair = min(reversed(named), key=lambda scoped: scoped[0])[1] if named else by_name.get(parameter.name)
         if pair is None:
             continue
         conversion = plan.parameters[parameter.name_original]

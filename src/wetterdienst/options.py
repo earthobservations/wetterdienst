@@ -26,7 +26,7 @@ from wetterdienst.metadata.aliases import PARAMETER_ALIASES, use_alias
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
 from wetterdienst.metadata.renamed import RENAMED_PARAMETERS, RENAMED_RESOLUTIONS
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.model.limits import LIMITS_DESCRIPTION, Limit, checked_limit_names
+from wetterdienst.model.limits import LIMITS_DESCRIPTION, Limit, checked_limit_names, with_normal_names
 from wetterdienst.model.plausibility import CHECKS, Mode, Plausibility
 from wetterdienst.model.unit import UnitConverter
 
@@ -463,6 +463,12 @@ class Options(BaseSettings):
     def validate_limits_names(cls, values: object) -> object:
         """Check the names the limits are set for: a canonical parameter, or `resolution/dataset/parameter`."""
         return checked_limit_names(values)
+
+    @field_validator("limits", mode="after")
+    @classmethod
+    def validate_limits_spelling(cls, values: dict[str, Limit]) -> dict[str, Limit]:
+        """Spell the names one way, so that a request's bound replaces the host's for the same parameter."""
+        return with_normal_names(values)
 
     @field_validator("unit_targets", mode="before")
     @classmethod

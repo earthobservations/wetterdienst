@@ -342,6 +342,17 @@ def test_a_radius_set_by_the_alias_of_every_dataset_is_set_for_the_new_name() ->
 
 
 @pytest.mark.usefixtures("alias_everywhere")
+def test_a_limit_set_by_the_alias_of_every_dataset_is_set_for_the_new_name() -> None:
+    """A key of `limits` that is the old name of a renamed parameter sets the bound of the new (GH-3687)."""
+    with pytest.warns(DeprecationWarning, match="'air_temp' was renamed"):
+        options = Options(limits={OLD: (0, 1)})
+
+    assert options.limits == {NEW: (0.0, 1.0)}
+    with pytest.raises(ValueError, match="give it once"):
+        Options(limits={OLD: (0, 1), NEW: (0, 2)})
+
+
+@pytest.mark.usefixtures("alias_everywhere")
 def test_a_radius_key_that_is_no_alias_is_refused_as_it_was() -> None:
     """The other keys are checked as before."""
     with pytest.raises(ValueError, match="not in the canonical parameters"):

@@ -255,8 +255,10 @@ Beaufort number as a speed) is the request's error, a 400 for REST, before any s
 
 A key is kept in one spelling where that does not change what it names: `daily/kl/tmk` is
 `daily/climate_summary/temperature_air_mean_2m`, so that a bound a request gives replaces the host's for the same
-parameter however either is written. A key of one network's own names (`hourly/ogd-smn/rre150h0`) stays as it is, and
-of two keys that name one parameter the later wins, in one mapping and between a request and the host's.
+parameter however either is written; of two spellings of one key the later pair wins. A key of one network's own names
+(`hourly/ogd-smn/rre150h0`) stays as it is, and where it and a wider key (`hourly/data/precipitation_amount`, which
+names that parameter in thirteen networks) both name a parameter, the one that names fewer wins, whatever the order
+they are given in. A name that is the old name of a renamed parameter is read as the new one, with a warning.
 
 ## Setting the modes
 

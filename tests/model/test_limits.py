@@ -16,7 +16,7 @@ from tests.provider.judging import judged
 from wetterdienst import Options, Wetterdienst
 from wetterdienst.exceptions import InvalidParameterError
 from wetterdienst.model.judge import limits_in_canonical, plan_for
-from wetterdienst.model.limits import read_limit_text
+from wetterdienst.model.limits import _problem_with, normal_name, read_limit_text
 from wetterdienst.model.plausibility import Plausibility
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.ui.core import overlay_options
@@ -323,18 +323,52 @@ def test_a_key_keeps_the_scope_it_names() -> None:
     key = "hourly/ogd-smn/rre150h0"
     kept = next(iter(Options(limits={key: (0, 1)}).limits))
     assert kept == key
-    plan_dataset = _dataset("aemet/observation", "hourly", "data")
-    plan = plan_for("aemet/observation", plan_dataset)
-    assert limits_in_canonical(plan, plan_dataset, {kept: (0, 1)}, UnitConverter(), convert_units=True) == {}
+    swiss = _dataset("meteoswiss/observation", "hourly", "data")
+    aemet = _dataset("aemet/observation", "hourly", "data")
+    in_swiss = limits_in_canonical(
+        plan_for("meteoswiss/observation", swiss), swiss, {kept: (0, 1)}, UnitConverter(), convert_units=True
+    )
+    assert set(in_swiss) == {"rre150h0"}
+    assert (
+        limits_in_canonical(
+            plan_for("aemet/observation", aemet), aemet, {kept: (0, 1)}, UnitConverter(), convert_units=True
+        )
+        == {}
+    )
 
 
-def test_of_two_keys_naming_one_parameter_the_later_wins() -> None:
-    """Whatever the spelling: `hourly/data/p` after the canonical key replaces its bound."""
-    dataset = _dataset("chmi/observation", "hourly", "data")
-    plan = plan_for("chmi/observation", dataset)
-    limits = {"hourly/data/pressure_air_site": (900, 1100), "hourly/data/p": (0, 1)}
-    bounds = limits_in_canonical(plan, dataset, limits, UnitConverter(), convert_units=True)
-    assert bounds["P"] == pytest.approx((0.0, 1.0), abs=1e-6)
+@pytest.mark.parametrize("reverse", [False, True], ids=["general first", "specific first"])
+def test_of_two_keys_naming_one_parameter_the_one_with_the_fewer_parameters_wins(reverse: bool) -> None:  # noqa: FBT001
+    """A key of one network's names beats the canonical triple of thirteen, whatever the order they are given in."""
+    swiss = _dataset("meteoswiss/observation", "hourly", "data")
+    plan = plan_for("meteoswiss/observation", swiss)
+    pairs = [("hourly/data/precipitation_amount", (0, 1)), ("hourly/ogd-smn/rre150h0", (0, 100))]
+    limits = dict(reversed(pairs) if reverse else pairs)
+    bounds = limits_in_canonical(plan, swiss, limits, UnitConverter(), convert_units=True)
+    assert bounds["rre150h0"] == pytest.approx((0.0, 100.0), abs=1e-6)
+    # and the options judge the same whichever they were built from
+    assert Options(limits=dict(pairs)) == Options(limits=dict(reversed(pairs)))
+
+
+def test_of_two_keys_equally_wide_the_later_wins() -> None:
+    """One parameter spelled twice: the later pair replaces the earlier, in a mapping and between two mappings."""
+    spelled = "daily/climate_summary/temperature_air_mean_2m"
+    limits = Options(
+        limits={"daily/kl/tmk": (0, 1), "hourly/data/pressure_air_site": (900, 1100), "Daily/KL/Tmk": (2, 3)}
+    )
+    assert limits.limits == {"hourly/data/pressure_air_site": (900.0, 1100.0), spelled: (2.0, 3.0)}
+
+
+def test_a_pair_that_is_invalid_is_told_by_the_key_as_it_was_written() -> None:
+    """The names are spelled one way after the pairs are read, so an invalid pair is not lost to a later spelling."""
+    with pytest.raises(ValidationError, match=r"limits\.daily/kl/tmk"):
+        Options(limits={"daily/kl/tmk": (5, 1), "daily/climate_summary/temperature_air_mean_2m": (0, 1)})
+
+
+def test_the_caches_of_the_names_are_bounded() -> None:
+    """A key the caller makes up (a request's `limits`) does not stay in memory for ever."""
+    assert _problem_with.cache_info().maxsize is not None
+    assert normal_name.cache_info().maxsize is not None
 
 
 def test_a_forecast_is_judged_soft_whatever_the_mode() -> None:

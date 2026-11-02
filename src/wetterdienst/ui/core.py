@@ -40,7 +40,7 @@ from wetterdienst.exceptions import (
 from wetterdienst.metadata.aliases import PARAMETER_ALIASES, use_alias
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
-from wetterdienst.model.limits import LIMITS_DESCRIPTION, Limit, with_normal_names
+from wetterdienst.model.limits import LIMITS_DESCRIPTION, Limit
 from wetterdienst.model.metadata import parse_parameters, whole_datasets_kept
 from wetterdienst.model.plausibility import CHECKS, Mode, forecast_note, hard_means, leave_out_suspect
 from wetterdienst.model.request import (
@@ -1799,17 +1799,7 @@ def overlay_options(base: Options, given: Mapping[str, Any]) -> Options:
         given = {**given, "plausibility": dict.fromkeys(CHECKS, every)}
     if checks:
         given = {**given, "plausibility": {**given.get("plausibility", {}), **checks}}
-    # a bound is merged by the one spelling of its name, so that `daily/kl/tmk` replaces the host's bound for
-    # `daily/climate_summary/temperature_air_mean_2m` (GH-3687)
-    if isinstance(given.get("limits"), Mapping):
-        given = {**given, "limits": with_normal_names(given["limits"])}
     merged = {name: {**dumped[name], **value} if isinstance(value, Mapping) else value for name, value in given.items()}
-    if "limits" in merged:
-        # a bound the request gives comes after the host's, so that the later key wins where two name one parameter
-        merged["limits"] = {
-            **{k: v for k, v in dumped["limits"].items() if k not in given["limits"]},
-            **given["limits"],
-        }
     return options_from_mapping(merged, base)
 
 
