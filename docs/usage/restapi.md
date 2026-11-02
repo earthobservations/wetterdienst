@@ -510,7 +510,7 @@ With a provider and network, each parameter of a dataset has a `unit` and, where
 | Field | |
 | --- | --- |
 | `unit` | the unit the `values` of the parameter come back in when the request gives no `unit_targets` or `convert_units`, which is the unit `glossary` gives for its `unit_type`: `degree_celsius` for a temperature, `percent` for a percentage, `hour` for a duration |
-| `unit_source` | the unit the provider publishes the parameter in (`degree_kelvin`, `one_eighth`, `minute`), which the values come in with `convert_units=false`. It is there only where it differs from `unit` (192 of 2132 parameters); absent means the same as `unit` |
+| `unit_source` | the unit the provider publishes the parameter in (`degree_kelvin`, `one_eighth`, `minute`), which the values come in with `convert_units=false`. It is there only where it differs from `unit` (189 of 2132 parameters); absent means the same as `unit` |
 
 `coverage` takes no options, so a `unit_targets` or `convert_units` a request to `values` gives changes what
 `values` return, not `unit`. The settings of the server (`WD_TS_UNIT_TARGETS`, `WD_TS_CONVERT_UNITS`) are what a
