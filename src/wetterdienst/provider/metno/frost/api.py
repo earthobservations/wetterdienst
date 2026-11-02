@@ -462,7 +462,7 @@ def _raise_if_unanswered(file: File) -> None:
 
 
 def _has_observations(df: pl.DataFrame) -> bool:
-    """Tell whether Frost's answer holds any observation: a `data` list with an entry in it (GH-3748)."""
+    """Tell whether Frost's answer has a `data` list with an entry in it, which may still hold no reading (GH-3748)."""
     return "data" in df.columns and not df.get_column("data").explode().drop_nulls().is_empty()
 
 
@@ -769,7 +769,8 @@ class MetnoFrostValues(TimeseriesValues):
 
         df = pl.read_json(file.content)
         if not _has_observations(df):
-            # as in `_collect_station_parameter_or_dataset` (GH-3748)
+            # as in `_collect_station_parameter_or_dataset` (GH-3748); for the one-parameter 6_hours dataset this is
+            # not reached, a request of one goes to discovery as it is, and it guards the day that dataset has two
             if parameter.dataset.resolution.name in _DISCOVERY_WHEN_EMPTY:
                 log.info(f"Frost answered {file.url} without observations, resolving the time series")
                 return self._collect_via_time_series_discovery(

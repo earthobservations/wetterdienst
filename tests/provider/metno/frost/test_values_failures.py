@@ -549,6 +549,22 @@ def test_metno_frost_values_synoptic_single_parameter_200_without_observations_r
     assert df["value"].to_list() == [1.5]
 
 
+def test_metno_frost_values_single_parameter_200_without_observations_is_no_data_where_no_series_is_needed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that after a 404 on the batch, an empty 200 for one parameter of another resolution costs no discovery."""
+
+    def observations(url: str) -> File:
+        batched = "," in url.split("elements=")[1].split("&", maxsplit=1)[0]
+        return _failed(url, 404) if batched else _ok(url, EMPTY_ANSWERS[0])
+
+    requested = [("hourly", "data", "temperature_air_2m"), ("hourly", "data", "wind_speed_mean_last_10min")]
+    values, seen = _values(monkeypatch, observations, requested)
+    assert values.all().df.is_empty()
+    assert all("availableTimeSeries" not in url for url in seen)
+    assert len(_observation_requests(seen)) == 3
+
+
 def test_metno_frost_values_404_fallback_for_one_parameter_leaves_its_siblings_alone(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
