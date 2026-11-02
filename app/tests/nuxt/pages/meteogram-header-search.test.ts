@@ -127,6 +127,55 @@ describe('the meteogram page followed to a station by the search of the header (
     expect(vm.isRestoringFromUrl).toBe(false)
   })
 
+  it('takes the latest run for a link to the station that is shown, without a run', async () => {
+    wrapper = await mountSuspended(MeteogramPage, { route: '/meteogram?station=01001&issue=2026-10-03T06:00:00' })
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.selectedStation?.station_id).toBe('01001'))
+    expect(vm.selectedIssue).toBe('2026-10-03T06:00:00')
+    await navigateTo('/meteogram?station=01001')
+    await vi.waitFor(() => expect(vm.selectedIssue).toBe(''))
+    expect(useRoute().query.issue).toBeUndefined()
+  })
+
+  it('shows the station the reader searched last where a lookup of an earlier one is under way', async () => {
+    let release: () => void = () => {}
+    const answer = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    wrapper = await mountSuspended(MeteogramPage, { route: '/meteogram?station=01001' })
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.selectedStation?.station_id).toBe('01001'))
+    slow = answer
+    slowId = '10381'
+    await navigateTo('/meteogram?station=10381')
+    await vi.waitFor(() => expect(stationRequests.filter(id => id === '10381')).toHaveLength(1))
+    await navigateTo('/meteogram?station=01001')
+    release()
+    await new Promise(resolve => setTimeout(resolve, 100))
+    expect(vm.selectedStation?.station_id).toBe('01001')
+    expect(useRoute().query.station).toBe('01001')
+    expect(vm.isRestoringFromUrl).toBe(false)
+  })
+
+  it('keeps the station the reader picked where a lookup of the one the search named is under way', async () => {
+    let release: () => void = () => {}
+    const answer = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    wrapper = await mountSuspended(MeteogramPage, { route: '/meteogram?station=01001' })
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.selectedStation?.station_id).toBe('01001'))
+    slow = answer
+    slowId = '10381'
+    await navigateTo('/meteogram?station=10381')
+    await vi.waitFor(() => expect(stationRequests.filter(id => id === '10381')).toHaveLength(1))
+    vm.selectedStation = stations['10147']
+    await vi.waitFor(() => expect(useRoute().query.station).toBe('10147'))
+    release()
+    await new Promise(resolve => setTimeout(resolve, 100))
+    expect(vm.selectedStation?.station_id).toBe('10147')
+  })
+
   it('asks again for a station that was not found, once the reader has moved the page on to a run', async () => {
     wrapper = await mountSuspended(MeteogramPage, { route: '/meteogram?station=01001' })
     const vm = wrapper.vm as any

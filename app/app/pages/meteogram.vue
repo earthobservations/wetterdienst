@@ -160,10 +160,20 @@ watch(selectedIssue, () => {
 // the station the URL asked for last, whether it is answered, still coming or failed: asked for once, not again
 // until the reader has chosen (or cleared) another
 let requestedFromUrl: string | undefined
+// the request of the URL's station that is the latest: the answer of an earlier one, which a later search or the
+// reader's own choice has left behind, is not applied
+let restoreTicket = 0
+function cancelRestore() {
+  restoreTicket++
+  applyingUrl = false
+  isRestoringFromUrl.value = false
+}
 
 // Auto-fetch and sync URL whenever a station is chosen or cleared
 watch(selectedStation, (station) => {
   if (!applyingUrl) {
+    // a lookup of the URL's station that is under way is the reader's no longer
+    cancelRestore()
     selectedIssue.value = ''
     // the reader's own choice, or none, ends the memory of what the URL asked for: a station it named before may be
     // asked for again (the header's search for the station that was shown, chosen away from and searched again)
@@ -203,9 +213,6 @@ watch([selectedStation, selectedIssue], ([station, issue]) => {
 
 // Restore selected station and issue from URL query params on page load, and when the URL names another station
 // while the page is shown (the search of the header goes to `/meteogram?station=…`, GH-3518)
-// the request of the URL's station that is the latest: the answer of an earlier one, which the search left for another
-// station, is not applied
-let restoreTicket = 0
 async function restoreFromUrl() {
   const stationId = route.query.station as string | undefined
   const issueFromUrl = route.query.issue?.toString()
@@ -233,8 +240,12 @@ async function restoreFromUrl() {
       selectedIssue.value = issueFromUrl ?? ''
       selectedStation.value = station
       // the watchers run before this resolves, and see the flag
-      await nextTick()
-      applyingUrl = false
+      try {
+        await nextTick()
+      }
+      finally {
+        applyingUrl = false
+      }
     }
   }
   catch {
@@ -254,10 +265,20 @@ onMounted(restoreFromUrl)
 // and a station asked for already (whose answer may still be coming, or was a failure) is not asked for again
 watch(() => route.query.station, (stationId) => {
   // the URL is back at the station that is shown (the page wrote it): what it asked for before is no longer pending
-  if (stationId && stationId === selectedStation.value?.station_id)
+  if (stationId && stationId === selectedStation.value?.station_id) {
     requestedFromUrl = undefined
+    // a search back to the station that is shown, while one for another is still being looked up, is the later one
+    cancelRestore()
+  }
   if (stationId && stationId !== selectedStation.value?.station_id && stationId !== requestedFromUrl)
     void restoreFromUrl()
+})
+// a link to the station that is shown, without a run (the header's search), is the latest run, as for any other station
+watch(() => route.query.issue?.toString() ?? '', (issue) => {
+  const station = route.query.station
+  if (issue === selectedIssue.value || isRestoringFromUrl.value || !selectedStation.value || station !== selectedStation.value.station_id)
+    return
+  selectedIssue.value = issue
 })
 </script>
 
