@@ -36,6 +36,7 @@ from wetterdienst.core.util import (
     report_elevation_exclusions,
     unanswerable_at_elevation,
     widest_station_distance,
+    zero_elevation_is_unknown,
 )
 from wetterdienst.exceptions import LocationOutOfRangeError
 from wetterdienst.metadata.parameter_table import PARAMETERS
@@ -195,8 +196,11 @@ def request_stations(
     # distance its own dataset's meta index reported. `query()` yields one result per station, and
     # the row that answers for it is the closest one rather than whichever happened to sort last,
     # with an elevation from whichever of its rows has one
+    # a network that lists 0.0 for a station of which it knows no elevation has none for it here (GH-3708)
+    zero_is_unknown = zero_elevation_is_unknown(request)
     stations_by_id = {
-        station["station_id"]: station for station in one_row_per_station(df_stations_ranked).iter_rows(named=True)
+        station["station_id"]: station
+        for station in one_row_per_station(df_stations_ranked, zero_is_unknown=zero_is_unknown).iter_rows(named=True)
     }
     # counted once, off the ranking, before a single value is downloaded: what each parameter has
     # in its own radius, and how much of that reports an elevation
@@ -205,6 +209,7 @@ def request_stations(
         request.parameters,
         options,
         request.interpolatable_parameters,
+        zero_is_unknown=zero_is_unknown,
     )
     unanswerable = unanswerable_at_elevation(counts, elevation, STATIONS_NEEDED)
     if unanswerable and unanswerable == set(counts):

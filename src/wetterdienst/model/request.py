@@ -1570,7 +1570,8 @@ class TimeseriesRequest:
         lists can disagree: NOAA GHCN's hourly list gives no elevation for hundreds of the stations
         its daily list does. The coordinates are the first row's that has both, and the elevation
         the first one known across those rows, so whether either is known does not depend on which
-        resolution the parameters named first.
+        resolution the parameters named first. An elevation of 0.0 is none where the network lists it for a
+        station it knows no elevation of (`ELEVATION_ZERO_IS_UNKNOWN`), so such a station is asked about without one.
 
         Raises:
             StationNotFoundError: Where the station is not listed.
@@ -1585,10 +1586,17 @@ class TimeseriesRequest:
             msg = f"no station found for {station_id}"
             raise StationNotFoundError(msg)
         located = pl.col("latitude").is_not_null() & pl.col("longitude").is_not_null()
+        from wetterdienst.core.util import zero_elevation_is_unknown  # noqa: PLC0415
+
+        known = pl.col("elevation").is_not_null()
+        if zero_elevation_is_unknown(self):
+            # a network that lists 0.0 for a station of which it knows no elevation names no elevation to
+            # answer at, as the stations an estimate is made from have none (GH-3708)
+            known &= pl.col("elevation").ne(0.0)
         lat, lon, elevation = stations.select(
             pl.col("latitude").filter(located).first(),
             pl.col("longitude").filter(located).first(),
-            pl.col("elevation").drop_nulls().first(),
+            pl.col("elevation").filter(known).first(),
         ).row(0)
         if lat is None or lon is None:
             # a postcode of DWD derived's climate_correction_factor, or a NOAA GHCN hourly station
