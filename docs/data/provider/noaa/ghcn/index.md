@@ -125,11 +125,13 @@ lists it. The codes read are the ones it words as a verdict:
 | --- | --- |
 | 313, 314, 315, 322, 335, 343, 344, 346 ("Legacy Codes for Sources 313, 314, 315, 322, 335, 343, 344, 346 include") | `2` "Suspect"; `3` "Erroneous"; `6` "Suspect, data originate from an NCEI data source"; `7` "Erroneous, data originate from an NCEI data source" |
 | 220, 221, 222, 223, 347, 348 ("Legacy Codes for Sources: 220, 221, 222, 223, 347, 348 include") | `2` "Suspect"; `3` "Erroneous" |
+| 345 ("Legacy Codes for Source 345 (for relative humidity and wind speed only)") | `3` "Error (erroneous data)" |
+| 382 ("Legacy Codes for Source 382 for precipitation (as given in C-HPD documentation)") | `X` "failed global extreme exceedance check"; `N` "failed negative precipitation check"; `Y` "failed state extreme exceedance check (performed on daily totals)"; `K` "failed streak/frequent-value check"; `G` "failed gap check"; `O` "failed climatological outlier check"; `Z` "flagged as a result of an official Datzilla investigation"; `Q` "Indicates value failed an extreme value test (value will be present)" |
 
 Not read: the `0`, `1`, `4`, `5` and `9` of those lists (not checked, good, calculated, removed, passed), the letters of the
-integration's own checks (`c` climatological outlier, `s` spike, ... of Table 3: no verdict is worded for them), the
-letters `A`, `P`, `U`, `I`, `M`, `R` that say a value was edited, and the lists of sources 345 and 382, which Table 3
-words on their own.
+integration's own checks (`c` climatological outlier, `s` spike, `l` failed logistical consistency, ... of Table 3: the
+same letters mean other things in the lists of the sources, `f` and `o` among them), the letters `A`, `P`, `U`, `I`, `M`,
+`R` that say a value was edited, and `D`, `M` and `A` of source 382 (deleted, missing, an accumulation).
 
 With `plausibility={"source": "hard"}` the value is null and the token is `rejected:source,raw:<text>`; the
 default is `soft`, which keeps the value and writes `suspect:source`, so interpolation, summaries and climate stripes leave it

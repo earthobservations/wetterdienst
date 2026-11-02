@@ -35,8 +35,8 @@ Types of changes:
   (`docs/data/plausibility.md`). It is soft by default: no value is nulled, but `quality_flags`
   gains `suspect:source` on those readings, which interpolation, summaries and stripes then leave
   out. `plausibility={"source": "hard"}` (`WD_TS_PLAUSIBILITY__SOURCE`, `--plausibility-source`,
-  `plausibility_source`) nulls them as `rejected:source,raw:<text>`. DMI's `validity:false`
-  totals inside the range of `range` are now flagged (GH-3677)
+  `plausibility_source`) nulls them as `rejected:source,raw:<text>`, and so does a bare
+  `plausibility="hard"`. DMI's `validity:false` totals inside `range` are now flagged (GH-3677)
 
 ### Changed
 

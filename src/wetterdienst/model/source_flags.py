@@ -28,8 +28,12 @@ value in a flag the reader returns has no entry, and the check judges nothing th
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import polars as pl
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
 
 #: the ordinary quality flag of a source: the first token of ``quality_flags``, a code without a ``kind:`` before it
 PLAIN = None
@@ -69,20 +73,43 @@ class SourceFlags:
     kind: str | None = PLAIN
     beside: tuple[str, tuple[str, ...]] | None = None
 
-    def hit(self) -> pl.Expr:
-        """Give the expression that is true for a reading whose ``quality_flags`` hold one of the codes."""
-        flags = pl.col("quality_flags")
-        code = flags.str.extract(_FIRST_FLAG, 1) if self.kind is None else _token_of(flags, self.kind)
+    def hit(self, columns: Mapping[str | None, pl.Expr] | None = None) -> pl.Expr:
+        """Give the expression that is true for a reading whose ``quality_flags`` hold one of the codes.
+
+        ``columns`` maps a kind (``PLAIN`` for the plain flag) to the expression of its code, where ``hits`` has
+        extracted them once for several rules; without it the codes are extracted from ``quality_flags`` here.
+        """
+        columns = columns or {}
+        code = columns[self.kind] if self.kind in columns else _code_of(self.kind)
         hit = code.is_in([code_.code for code_ in self.codes])
         if self.beside is not None:
             beside, values = self.beside
-            hit = hit & _token_of(flags, beside).is_in(list(values))
+            hit = hit & (columns[beside] if beside in columns else _code_of(beside)).is_in(list(values))
         return hit.fill_null(value=False)
 
+    def kinds(self) -> set[str | None]:
+        """Name the kinds of token this rule reads a code in (``PLAIN`` for the plain flag)."""
+        return {self.kind} | ({self.beside[0]} if self.beside is not None else set())
 
-def _token_of(flags: pl.Expr, kind: str) -> pl.Expr:
-    """Give the code of the token ``kind:<code>`` of a ``quality_flags`` string, null where there is none."""
+
+def _code_of(kind: str | None) -> pl.Expr:
+    """Give the code of the plain flag (``PLAIN``) or of the token ``kind:<code>`` of ``quality_flags``, or null."""
+    flags = pl.col("quality_flags")
+    if kind is None:
+        return flags.str.extract(_FIRST_FLAG, 1)
     return flags.str.extract(rf"(?:^|,){kind}:([^,]*)", 1)
+
+
+def hits(df: pl.DataFrame, rules: Sequence[SourceFlags]) -> pl.Series:
+    """Mark the readings of a frame whose ``quality_flags`` hold a code of any of the rules.
+
+    The code of each kind of token is extracted from the flags once, however many rules read it: the lists of GHCNh
+    are four rules over two kinds, and the extraction is the cost of the check.
+    """
+    kinds = sorted({kind for rule in rules for kind in rule.kinds()}, key=str)
+    codes = df.select(*(_code_of(kind).alias(f"__code_{index}") for index, kind in enumerate(kinds)))
+    columns = {kind: pl.col(f"__code_{index}") for index, kind in enumerate(kinds)}
+    return codes.select(pl.any_horizontal(rule.hit(columns) for rule in rules).alias("hit")).to_series()
 
 
 _GHCND = "https://www.ncei.noaa.gov/pub/data/ghcn/daily/readme.txt"
@@ -107,7 +134,7 @@ _MF_CODE = (
 
 #: by network, the flags whose codes the check ``source`` reads. Every code is the provider's own, cited with the
 #: wording of its documentation; the pages of the providers and ``docs/data/plausibility.md`` give them again, and
-#: ``tests/test_source_flags.py`` holds the three to one another.
+#: ``tests/model/test_source_flags.py`` holds the three to one another.
 SOURCE_FLAGS: dict[str, tuple[SourceFlags, ...]] = {
     # GHCN-Daily: the quality flag of a value (`QFLAG`) is blank for a value that failed no check, and any letter says
     # the value failed one; the daily CSV returns the value with the flag
@@ -135,8 +162,10 @@ SOURCE_FLAGS: dict[str, tuple[SourceFlags, ...]] = {
             "Blank = did not fail any quality assurance check",
         ),
         # GHCNh: the quality code is read in the list of the source of the element (`source:` token), Table 3 of the
-        # documentation. The two lists of the legacy sources are the ones that have a verdict; the letters of the
-        # integration's own checks and the codes of sources 345 and 382 are not wording of a verdict and are not read
+        # documentation: the two lists of the legacy sources, the list of source 345 and the list of source 382 (the
+        # precipitation of C-HPD, worded as GHCN-Daily's QFLAG). The letters of the integration's own checks (`c`, `s`,
+        # `f`, ... for six elements) are not read: the letters mean other things in the lists of the sources (`f` and
+        # `o` also flag a derived humidity), and the table names them as checks, not as a verdict on the value
         SourceFlags(
             datasets=("hourly/data",),
             codes=(
@@ -160,6 +189,35 @@ SOURCE_FLAGS: dict[str, tuple[SourceFlags, ...]] = {
             quote="Legacy Codes for Sources: 220, 221, 222, 223, 347, 348 include 0 Not Checked 1 Good 2 Suspect "
             "3 Erroneous 4 Calculated 5 Removed",
             beside=("source", ("220", "221", "222", "223", "347", "348")),
+        ),
+        SourceFlags(
+            datasets=("hourly/data",),
+            codes=(SourceCode("3", "Error (erroneous data)"),),
+            url=_GHCNH,
+            quote="Legacy Codes for Source 345 (for relative humidity and wind speed only): 0 = Good 1 = Issue "
+            "(field-length overflow) 3 = Error (erroneous data)",
+            beside=("source", ("345",)),
+        ),
+        SourceFlags(
+            datasets=("hourly/data",),
+            codes=(
+                SourceCode("X", "failed global extreme exceedance check"),
+                SourceCode("N", "failed negative precipitation check"),
+                SourceCode("Y", "failed state extreme exceedance check (performed on daily totals)"),
+                SourceCode("K", "failed streak/frequent-value check"),
+                SourceCode("G", "failed gap check"),
+                SourceCode("O", "failed climatological outlier check"),
+                SourceCode("Z", "flagged as a result of an official Datzilla investigation"),
+                SourceCode("Q", "Indicates value failed an extreme value test (value will be present)"),
+            ),
+            url=_GHCNH,
+            quote="Legacy Codes for Source 382 for precipitation (as given in C-HPD documentation) Blank = did not "
+            "fail any quality assurance check X = failed global extreme exceedance check N = failed negative "
+            "precipitation check Y = failed state extreme exceedance check (performed on daily totals) K = failed "
+            "streak/frequent-value check G = failed gap check O = failed climatological outlier check Z = flagged as "
+            "a result of an official Datzilla investigation ... Q = a carry-over quality flag the legacy DSI-3240 data "
+            "source. Prior to 1996: Indicates value failed an extreme value test (value will be present)",
+            beside=("source", ("382",)),
         ),
     ),
     # Frost: `qualityCode` aggregates the flags of MET Norway's quality control into one value, and 7 is its erroneous

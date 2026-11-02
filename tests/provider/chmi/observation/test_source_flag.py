@@ -62,6 +62,7 @@ _TEN_MINUTES = (
         ("hourly", f"1h-{CHEB}-Td-202001.csv", _HOURLY, dt.datetime(2020, 1, 1, 3, tzinfo=UTC), {1, 2}),
         ("10_minutes", f"10m-{CHEB}-T-202001.csv", _TEN_MINUTES, dt.datetime(2020, 1, 1, 0, 30, tzinfo=UTC), {1, 2}),
     ],
+    ids=["daily", "hourly", "10_minutes"],
 )
 @pytest.mark.parametrize("mode", ["soft", "hard"])
 def test_chmi_suspect_and_poor_are_the_verdict_of_the_check_source(

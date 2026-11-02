@@ -20,7 +20,14 @@ from tests.provider.judging import judged
 from wetterdienst import Wetterdienst
 from wetterdienst.model.judge import Plan, judge
 from wetterdienst.model.plausibility import COVERAGE, Plausibility
-from wetterdienst.model.source_flags import SOURCE_FLAGS, SourceCode, SourceFlags, flags_of, source_coverage
+from wetterdienst.model.source_flags import (
+    SOURCE_FLAGS,
+    SourceCode,
+    SourceFlags,
+    flags_of,
+    hits,
+    source_coverage,
+)
 
 ROOT = Path(__file__).parent.parent.parent
 PLAUSIBILITY_PAGE = ROOT / "docs" / "data" / "plausibility.md"
@@ -146,8 +153,17 @@ def test_no_forecast_network_has_a_flag_of_its_own_to_read() -> None:
     assert forecasts.isdisjoint(SOURCE_FLAGS)
 
 
-def test_the_core_judges_a_network_of_the_map_with_no_other_check_to_find() -> None:
-    """A dataset of the map is judged through the plan of the core, `plan_for`, whatever else it has to check."""
+def _flags_with(flags: SourceFlags, code: str) -> str:
+    """Write the `quality_flags` a reader writes for a reading of a rule that carries a code of it."""
+    plain = f"{code}" if flags.kind is None else f"{flags.kind}:{code}"
+    if flags.beside is None:
+        return plain
+    beside, values = flags.beside
+    return f"{plain},{beside}:{values[0]}"
+
+
+def test_the_core_judges_every_code_of_the_map_in_every_dataset_that_carries_it() -> None:
+    """Through the plan of the core, a reading with any code of the map is flagged, whatever else the dataset checks."""
     for network, rules in SOURCE_FLAGS.items():
         provider, name = network.split("/")
         metadata = Wetterdienst.resolve(provider, name).metadata
@@ -155,9 +171,25 @@ def test_the_core_judges_a_network_of_the_map_with_no_other_check_to_find() -> N
             for dataset_name in flags.datasets:
                 resolution, dataset = dataset_name.split("/")
                 model = metadata[resolution][dataset]
-                frame = _frame([flags.codes[0].code], [1.0])
-                out = judged(frame.with_columns(pl.lit("p").alias("parameter")), network=network, dataset=model)
-                assert out.height == 1
+                for code in flags.codes:
+                    text = _flags_with(flags, code.code)
+                    frame = _frame([text, "unflagged"], [1.0, 1.0]).with_columns(pl.lit("p").alias("parameter"))
+                    out = judged(frame, network=network, dataset=model)
+                    assert out["quality_flags"].to_list() == [f"{text},suspect:source", "unflagged"], (
+                        network,
+                        dataset_name,
+                        code.code,
+                    )
+
+
+def test_the_codes_of_several_rules_are_extracted_once_and_judged_as_each_rule_alone() -> None:
+    """`hits` over a frame is the any of the rules' own expressions, whichever kinds they read."""
+    rules = [*SOURCE_FLAGS["noaa/ghcn"]]
+    texts = ["3,source:313", "3,source:345", "3,source:220", "X,source:382", "X,source:313", "7,source:220", "1", None]
+    df = pl.DataFrame({"quality_flags": texts}, schema={"quality_flags": pl.String})
+    hourly = [rule for rule in rules if "hourly/data" in rule.datasets]
+    alone = df.select(pl.any_horizontal(rule.hit() for rule in hourly).alias("hit")).to_series().to_list()
+    assert hits(df, hourly).to_list() == alone == [True, True, True, True, False, False, False, False]
 
 
 def test_every_code_has_the_wording_and_the_page_of_its_documentation() -> None:
@@ -183,7 +215,7 @@ def test_the_datasets_of_the_map_exist_and_are_one_rule_each() -> None:
         for flags in rules:
             assert set(flags.datasets) <= existing, (network, sorted(set(flags.datasets) - existing))
     for dataset in ("hourly/data",):
-        assert len(flags_of("noaa/ghcn", dataset)) == 2
+        assert len(flags_of("noaa/ghcn", dataset)) == 4
     assert source_coverage() == COVERAGE["source"]
 
 

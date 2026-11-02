@@ -276,7 +276,9 @@ the mode you chose:
 - **soft** (the default): the value is kept and `quality_flags` gains `suspect:source`
   (`X,measurement:T,source:0,suspect:source`). Nothing is nulled, so a default request returns the same values as
   before, with one more token on the readings the source doubts. An interpolation, a summary, climate stripes and
-  `skip_empty` leave a `suspect:` value out, as they do for every soft check.
+  `skip_empty` leave a `suspect:` value out, as they do for every soft check, so a station whose values the source
+  flagged is left out of them or skipped where it was counted. A bare `plausibility="hard"` (`WD_TS_PLAUSIBILITY=hard`,
+  `plausibility=hard` of REST) sets `source` too, and nulls those values: name `source` beside it to keep them.
 - **hard**: the value is null and the text the source wrote stays as `rejected:source,raw:<text>`
   (`Suspect,rejected:source,raw:0.359`).
 
@@ -308,6 +310,8 @@ holds a code the map does not list (a letter the documentation does not word as 
 | `noaa/ghcn` | `daily/data` | the plain first token (`QFLAG`) | `D` failed duplicate check; `G` failed gap check; `I` failed internal consistency check; `K` failed streak/frequent-value check; `L` failed check on length of multiday period; `M` failed megaconsistency check; `N` failed naught check; `O` failed climatological outlier check; `R` failed lagged range check; `S` failed spatial consistency check; `T` failed temporal consistency check; `W` temperature too warm for snow; `X` failed bounds check; `Z` flagged as a result of an official Datzilla investigation | [GHCN-Daily readme.txt](https://www.ncei.noaa.gov/pub/data/ghcn/daily/readme.txt): "QFLAG1 is the quality flag for the first day of the month. There are fourteen possible values: Blank = did not fail any quality assurance check" |
 | `noaa/ghcn` | `hourly/data` | the plain first token (`<element>_Quality_Code`), where `source:` is 313, 314, 315, 322, 335, 343, 344 or 346 | `2` Suspect; `3` Erroneous; `6` Suspect, data originate from an NCEI data source; `7` Erroneous, data originate from an NCEI data source | [GHCNh documentation](https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh_DOCUMENTATION.pdf), Table 3: "Legacy Codes for Sources 313, 314, 315, 322, 335, 343, 344, 346 include: ... 2 = Suspect 3 = Erroneous ... 6 = Suspect, data originate from an NCEI data source 7 = Erroneous, data originate from an NCEI data source" |
 | `noaa/ghcn` | `hourly/data` | the plain first token, where `source:` is 220, 221, 222, 223, 347 or 348 | `2` Suspect; `3` Erroneous | [GHCNh documentation](https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh_DOCUMENTATION.pdf), Table 3: "Legacy Codes for Sources: 220, 221, 222, 223, 347, 348 include 0 Not Checked 1 Good 2 Suspect 3 Erroneous 4 Calculated 5 Removed" |
+| `noaa/ghcn` | `hourly/data` | the plain first token, where `source:` is 345 | `3` Error (erroneous data) | [GHCNh documentation](https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh_DOCUMENTATION.pdf), Table 3: "Legacy Codes for Source 345 (for relative humidity and wind speed only): 0 = Good 1 = Issue (field-length overflow) 3 = Error (erroneous data)" |
+| `noaa/ghcn` | `hourly/data` | the plain first token, where `source:` is 382 (the precipitation of C-HPD) | `X` failed global extreme exceedance check; `N` failed negative precipitation check; `Y` failed state extreme exceedance check (performed on daily totals); `K` failed streak/frequent-value check; `G` failed gap check; `O` failed climatological outlier check; `Z` flagged as a result of an official Datzilla investigation; `Q` Indicates value failed an extreme value test (value will be present) | [GHCNh documentation](https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh_DOCUMENTATION.pdf), Table 3: "Legacy Codes for Source 382 for precipitation (as given in C-HPD documentation) Blank = did not fail any quality assurance check X = failed global extreme exceedance check ..." |
 | `metno/frost` | `10_minutes/data`, `hourly/data`, `6_hours/data`, `daily/data`, `monthly/data`, `annual/data` | the plain first token (`qualityCode`) | `7` Erroneous, value is not corrected | [Frost data clarifications, Quality code](https://frost.met.no/dataclarifications.html#quality-code): "Frost tries to give the user a single value to represent the general quality of the observation. This value is set in the field qualityCode." `7 Erroneous, value is not corrected` |
 | `chmi/observation` | `10_minutes/data`, `hourly/data`, `daily/data` | the plain first token (`QUALITY`) | `1` Suspect/Podezřelá hodnota; `2` Poor/Hodnota s nízkou kvalitou, podezřelá, zatím nepoužívat | [meta4.csv](https://opendata.chmi.cz/meteorology/climate/historical_csv/metadata/meta4.csv): `1,Suspect/Podezřelá hodnota`, `2,Poor/Hodnota s nízkou kvalitou, podezřelá, zatím nepoužívat` |
 | `ea/hydrology` | `15_minutes/data`, `daily/data` | the plain first token (`quality`) | `Suspect` | [Hydrology API reference, Readings](https://environment.data.gov.uk/hydrology/doc/reference#readings-section): "quality: The quality of this reading: Good, Estimated, Suspect, Unchecked, Missing" |
@@ -319,11 +323,15 @@ holds a code the map does not list (a letter the documentation does not word as 
 The tests hold this table to the map of the code (`wetterdienst.model.source_flags.SOURCE_FLAGS`) and to the pages of
 the providers, and a test of each provider's reader pins its codes on a row of the source. What is **not** read, and why:
 
-- **GHCNh letters and the codes of sources 345 and 382**: the letters of the integration's own checks (`c` climatological
-  outlier, `s` spike, ...) are named as checks and the documentation words no verdict for them; source 345 and 382 have
-  lists of their own, which this map does not read. The codes `0`, `1`, `4`, `5` and `9` of the legacy lists say the value
-  passed, was calculated or was removed.
+- **GHCNh letters of the integration's own checks**: `c` climatological outlier, `s` spike, `l` failed logistical
+  consistency, ... are named as checks for six elements, and the same letters mean other things in the lists of the
+  sources (`f` and `o` also flag a derived humidity, `o` a relative humidity out of range), so no letter is read outside
+  the list of source 382, where the documentation words each as a failed check. The codes `0`, `1`, `4`, `5` and `9` of
+  the legacy lists say the value passed, was calculated or was removed, `D`, `M` and `A` of source 382 that it was
+  deleted, missing or an accumulation.
 - **Frost 2, 4, 5 and 6**: "slightly uncertain" and "very uncertain" are a degree of confidence, and `6` is model data.
+  Frost's own word for a verdict is `7`, "Erroneous": "very uncertain" (`5`) says how sure the control was, not that
+  the value failed, where Météo-France's "douteuse" and CHMI's "Suspect" say the control doubted the value itself.
 - **CHMI 3 to 5, EA `Estimated`, `Unchecked` and `Missing`**: an estimate, a value nobody checked and a missing value.
 - **DMI `qcStatus`**: `manual` and `none` say whether a climatologist controlled the value.
 - **Providers whose flag the reader does not return**, or whose documentation words no verdict, and the providers that
@@ -577,7 +585,9 @@ What no check covers, and why:
 - **`skip_empty`** judges a station by its unflagged values alone: a value flagged `suspect` is no coverage, so a station
   with only such values is skipped. For the checks that used to null (`range`, `elevation`, `consistency`, `floor`, and
   `stuck` of DWD observation and RMI) this is as before. For `stuck` of DWD road, which used to keep the value with
-  the flag `1` and count it, it is a change: a road station with long stuck runs can be skipped where it was kept.
+  the flag `1` and count it, it is a change: a road station with long stuck runs can be skipped where it was kept. So it
+  is for `source`: a station of `noaa/ghcn`, `metno/frost`, `chmi/observation`, `ea/hydrology`,
+  `meteofrance/observation` or `dmi/observation` whose values the source flagged is skipped where it was kept.
 - **A rejected value carries only the hard verdict.** Where a hard check nulls a value and a soft one also finds it
   suspect, the value is null and the token is `rejected:<hard checks>,raw:<number>`; the soft check is not listed. A
   hard `floor` keeps the value, so a soft check that also finds it is listed before it.

@@ -633,7 +633,10 @@ def test_api_hourly_quality_code_of_a_verdict_is_judged_by_the_check_source_in_t
         ("5", "343"),  # Passed all quality control checks, data originate from an NCEI data source
         ("0", "343"),  # Passed gross limits check
         ("7", "220"),  # a code the list of 220 does not have
-        ("3", "345"),  # the list of 345 is its own
+        ("3", "345"),  # Error (erroneous data), the list of 345 (relative humidity and wind speed only)
+        ("X", "382"),  # failed global extreme exceedance check, the list of 382 (precipitation)
+        ("X", "220"),  # a letter of the list of 382 in another list
+        ("1", "345"),  # Issue (field-length overflow), no verdict
         ("2", ""),  # no source, no list
         ("f", "220"),  # a letter, no verdict
     ]
@@ -661,7 +664,7 @@ def test_api_hourly_quality_code_of_a_verdict_is_judged_by_the_check_source_in_t
         options=Options(drop_nulls=False, plausibility={"source": mode}),
     ).filter_by_station_id("ACM00078861")
     df = request.values().all().df.sort("timestamp")
-    judged = {0, 2, 3, 4, 5}
+    judged = {0, 2, 3, 4, 5, 9, 10}
     flags = df.get_column("quality_flags").to_list()
     values = df.get_column("value").to_list()
     assert len(flags) == len(cases)

@@ -46,6 +46,7 @@ from wetterdienst.model.plausibility import CHECKS, REJECTED, SUSPECT, Plausibil
 from wetterdienst.model.plausibility_ranges import bounds_for
 from wetterdienst.model.quality_flags import RAW_TOKEN
 from wetterdienst.model.source_flags import SourceFlags, flags_of
+from wetterdienst.model.source_flags import hits as source_hits
 from wetterdienst.model.unit import UnitConverter
 
 if TYPE_CHECKING:
@@ -487,7 +488,7 @@ def judge(  # noqa: C901
         exprs["limits"].append((floored < low) | (floored > high))
     if plan.source:
         # the verdict of the source itself, read in the flag it returned the value with (`model/source_flags.py`)
-        exprs["source"].append(pl.any_horizontal(flags.hit() for flags in plan.source))
+        series["source"].append(source_hits(df, plan.source))
     if plan.pressure and elevation is not None and not (elevation == 0.0 and plan.network in ELEVATION_ZERO_IS_UNKNOWN):
         allowed = station_pressure_bounds(elevation)
         if allowed is not None:
