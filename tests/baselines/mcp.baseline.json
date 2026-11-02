@@ -1677,6 +1677,59 @@
             "hard"
           ],
           "default": "hard"
+        },
+        "plausibility_limits": {
+          "type": "string",
+          "enum": [
+            "soft",
+            "hard"
+          ],
+          "default": "hard"
+        },
+        "plausibility_source": {
+          "type": "string",
+          "enum": [
+            "soft",
+            "hard"
+          ],
+          "default": "soft"
+        },
+        "limits": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "prefixItems": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                ],
+                "type": "array",
+                "maxItems": 2,
+                "minItems": 2
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -1686,5 +1739,5 @@
       ]
     }
   },
-  "x-release": "0.181.0"
+  "x-release": "0.182.0"
 }

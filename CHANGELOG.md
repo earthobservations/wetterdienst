@@ -16,6 +16,52 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: a length of time that something lasted comes back in hours, no longer in seconds:
+  `sunshine_duration` and its variants (`_last_3h`, `_yesterday`, `_normal`, `_uncertainty`),
+  `precipitation_duration` and `leaf_wetness_duration` have the new unit type `duration`, whose
+  default is `hour`. A year of sunshine read about 6,000,000 s and now reads about 1,700 h.
+  `wave_period` and `true_local_time_offset` stay in `time`, in seconds. Divide a stored value by
+  3,600, or pass `unit_targets={"duration": "second"}` (or `minute`); `{"time": ...}` no longer
+  moves them. A bound of `limits` is in hours too (GH-3702)
+- **Breaking**: a sum of radiation comes back in MJ/m², no longer in J/cm²: `radiation_global` and
+  the other six parameters of the unit type `energy_per_area`. The new unit
+  `megajoule_per_square_meter` (`MJ/m²`) is its default; a year of 360,000 J/cm² reads 3,600.
+  Divide a stored value by 100, or pass
+  `unit_targets={"energy_per_area": "joule_per_square_centimeter"}` (GH-3702)
+- **Breaking**: a share comes back in percent, as the sources write it, no longer as a decimal from
+  0 to 1: the 112 parameters of the unit type `fraction` (humidity, probabilities, soil moisture,
+  cloud cover, relative sunshine, snow cover). A humidity of 87 % read 0.87 and now reads 87.0;
+  only the eighths of cloud cover of `dwd/observation`, IMGW, KNMI, Météo-France, MET Norway and
+  the Met Office are converted (an eighth is 12.5 %). Multiply a stored value by 100, or pass
+  `unit_targets={"fraction": "decimal"}`; a bound of `limits` is in percent too (GH-3702)
+- **Breaking**: the water levels and the waves are in metres, no longer in centimetres: `stage`,
+  `stage_max`, `stage_mean`, `stage_min`, `wave_height_max`, `wave_height_significant`,
+  `clearance_height` and `distance_river_gauge_height` moved from the unit type `length_short` to
+  `length_medium`, with `groundwater_level` and `visibility`. Divide a stored value by 100, or pass
+  `unit_targets={"length_medium": "centimeter"}` (which moves the others of the type too). Snow, ice
+  and frozen ground stay in centimetres. `water_film_thickness` of `dwd/road` is in millimetres: a
+  new unit type `length_tiny` (units of the other lengths, default `millimeter`, because the
+  road writes metres) holds it; multiply a stored value by 10, or pass
+  `unit_targets={"length_tiny": "centimeter"}` (GH-3702)
+- **Breaking**: `snow_depth_sum`, the sum of the daily snow depths of a month or a year of
+  `dwd/observation`, has the new unit type `length_day` with the one unit `centimeter_day`
+  (`cm·d`), where it was typed as a length in `cm`. The number is the same. No `unit_targets` moves
+  it, as none moves `temperature_difference`: `{"length_short": ...}` no longer applies to it, and
+  naming `length_day` accepts `centimeter_day` only (GH-3747)
+- **Breaking**: the characteristic water levels of a `wsv/pegel` station (`m_i`, `m_ii`, `m_iii`,
+  `mnw`, `mw`, `mhw`, `hhw`, `hsw`) come back in metres, the unit of `stage`, each converted from
+  the unit Pegelonline lists it in (`cm`, or `m`); they were the number as published, 412.0 for a
+  mean high water of 4.12 m. A level with a unit the reader does not know is null. Multiply a
+  stored value by 0.01 (GH-3752)
+- **Breaking**: `dmi/observation` declares the radiation of a day, a month and a year in MJ/m², as
+  DMI writes it, no longer in kJ/m² (DMI's number times 1,000). Under the default unit targets the
+  values do not change; with `convert_units=false` they are DMI's megajoules, where they were a
+  thousand times larger, and `coverage` has no `unit_source` for them any more (GH-3752)
+
+## [0.182.0] - 2026-11-02
+
 ### Added
 
 - `Options(limits={"temperature_air_mean_2m": (-30, 45), "precipitation_amount": (None, 200)})`
@@ -78,53 +124,12 @@ Types of changes:
   temperature, vapour pressure deficit) are held to the table of ranges like any other quantity, so
   a value outside it (a negative leaf wetness) is null with `rejected:range,raw:<number>`, where
   0.181.0 returned it. The deficit is -10 to 200 hPa: DMI publishes slightly negative ones as
-  valid (GH-3681)
+  valid. `plausibility={"range": "soft"}` keeps the numbers (GH-3681)
 - `stations`, `values`, `interpolate` and `summarize` refuse `--with-metadata` with a database
   `--target` before the fetch, not after it, so a large request no longer downloads its data to be
   refused. The message and exit code 1 are the same. A request whose result would be empty is
   refused too, where it exited 0 writing nothing, and so is a target that cannot be read (a path
   without `file://`): the combination is invalid whatever the data (GH-3711)
-- **Breaking**: a length of time that something lasted comes back in hours, no longer in seconds:
-  `sunshine_duration` and its variants (`_last_3h`, `_yesterday`, `_normal`, `_uncertainty`),
-  `precipitation_duration` and `leaf_wetness_duration` have the new unit type `duration`, whose
-  default is `hour`. A year of sunshine read about 6,000,000 s and now reads about 1,700 h.
-  `wave_period` and `true_local_time_offset` stay in `time`, in seconds. Divide a stored value by
-  3,600, or pass `unit_targets={"duration": "second"}` (or `minute`); `{"time": ...}` no longer
-  moves them. A bound of `limits` is in hours too (GH-3702)
-- **Breaking**: a sum of radiation comes back in MJ/m², no longer in J/cm²: `radiation_global` and
-  the other six parameters of the unit type `energy_per_area`. The new unit
-  `megajoule_per_square_meter` (`MJ/m²`) is its default; a year of 360,000 J/cm² reads 3,600.
-  Divide a stored value by 100, or pass
-  `unit_targets={"energy_per_area": "joule_per_square_centimeter"}` (GH-3702)
-- **Breaking**: a share comes back in percent, as the sources write it, no longer as a decimal from
-  0 to 1: the 112 parameters of the unit type `fraction` (humidity, probabilities, soil moisture,
-  cloud cover, relative sunshine, snow cover). A humidity of 87 % read 0.87 and now reads 87.0;
-  only the eighths of cloud cover of `dwd/observation`, IMGW, KNMI, Météo-France, MET Norway and
-  the Met Office are converted (an eighth is 12.5 %). Multiply a stored value by 100, or pass
-  `unit_targets={"fraction": "decimal"}`; a bound of `limits` is in percent too (GH-3702)
-- **Breaking**: the water levels and the waves are in metres, no longer in centimetres: `stage`,
-  `stage_max`, `stage_mean`, `stage_min`, `wave_height_max`, `wave_height_significant`,
-  `clearance_height` and `distance_river_gauge_height` moved from the unit type `length_short` to
-  `length_medium`, with `groundwater_level` and `visibility`. Divide a stored value by 100, or pass
-  `unit_targets={"length_medium": "centimeter"}` (which moves the others of the type too). Snow, ice
-  and frozen ground stay in centimetres. `water_film_thickness` of `dwd/road` is in millimetres: a
-  new unit type `length_tiny` (units of the other lengths, default `millimeter`, because the
-  road writes metres) holds it; multiply a stored value by 10, or pass
-  `unit_targets={"length_tiny": "centimeter"}` (GH-3702)
-- **Breaking**: `snow_depth_sum`, the sum of the daily snow depths of a month or a year of
-  `dwd/observation`, has the new unit type `length_day` with the one unit `centimeter_day`
-  (`cm·d`), where it was typed as a length in `cm`. The number is the same. No `unit_targets` moves
-  it, as none moves `temperature_difference`: `{"length_short": ...}` no longer applies to it, and
-  naming `length_day` accepts `centimeter_day` only (GH-3747)
-- **Breaking**: the characteristic water levels of a `wsv/pegel` station (`m_i`, `m_ii`, `m_iii`,
-  `mnw`, `mw`, `mhw`, `hhw`, `hsw`) come back in metres, the unit of `stage`, each converted from
-  the unit Pegelonline lists it in (`cm`, or `m`); they were the number as published, 412.0 for a
-  mean high water of 4.12 m. A level with a unit the reader does not know is null. Multiply a
-  stored value by 0.01 (GH-3752)
-- **Breaking**: `dmi/observation` declares the radiation of a day, a month and a year in MJ/m², as
-  DMI writes it, no longer in kJ/m² (DMI's number times 1,000). Under the default unit targets the
-  values do not change; with `convert_units=false` they are DMI's megajoules, where they were a
-  thousand times larger, and `coverage` has no `unit_source` for them any more (GH-3752)
 
 ### Fixed
 
@@ -7346,7 +7351,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.181.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.182.0...HEAD
+[0.182.0]: https://github.com/earthobservations/wetterdienst/compare/v0.181.0...v0.182.0
 [0.181.0]: https://github.com/earthobservations/wetterdienst/compare/v0.180.0...v0.181.0
 [0.180.0]: https://github.com/earthobservations/wetterdienst/compare/v0.179.0...v0.180.0
 [0.179.0]: https://github.com/earthobservations/wetterdienst/compare/v0.178.0...v0.179.0

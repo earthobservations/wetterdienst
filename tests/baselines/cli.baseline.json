@@ -4143,6 +4143,24 @@
           "required": false,
           "default": null
         },
+        "--limits": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": true,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "text",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--limits"
+          ],
+          "required": false,
+          "default": null
+        },
         "--longitude": {
           "param_type_name": "option",
           "nargs": 1,
@@ -4335,6 +4353,27 @@
           "required": false,
           "default": "hard"
         },
+        "--plausibility-limits": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "choice",
+          "choices": [
+            "hard",
+            "soft"
+          ],
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--plausibility-limits"
+          ],
+          "required": false,
+          "default": "hard"
+        },
         "--plausibility-range": {
           "param_type_name": "option",
           "nargs": 1,
@@ -4355,6 +4394,27 @@
           ],
           "required": false,
           "default": "hard"
+        },
+        "--plausibility-source": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "choice",
+          "choices": [
+            "hard",
+            "soft"
+          ],
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--plausibility-source"
+          ],
+          "required": false,
+          "default": "soft"
         },
         "--plausibility-stuck": {
           "param_type_name": "option",
@@ -4783,5 +4843,5 @@
       }
     }
   },
-  "x-release": "0.181.0"
+  "x-release": "0.182.0"
 }
