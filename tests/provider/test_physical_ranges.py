@@ -118,6 +118,18 @@ def test_a_parameter_without_a_range_is_left_alone() -> None:
     assert out_of_range(_frame("quality_general", -999.0)).is_empty()
 
 
+def test_a_misspelled_parameter_is_an_error_not_the_bound_of_a_family() -> None:
+    """The helper reads the library's table, so a name that is no canonical parameter raises (GH-3709)."""
+    assert "temperature_air_mean_2n" not in PARAMETERS
+    with pytest.raises(KeyError):
+        bounds_for("temperature_air_mean_2n")
+    with pytest.raises(KeyError):
+        out_of_range(_frame("temperature_air_mean_2n", -999.0))
+    # a name of the source that `names` does not map is the same defect as a misspelled one
+    with pytest.raises(KeyError):
+        out_of_range(_frame("tmk", -999.0))
+
+
 def test_every_unit_type_has_a_range_or_says_it_has_none() -> None:
     """A unit type added to the converter is checked by name, or this test fails and says which."""
     assert set(UNIT_TYPE_RANGES) == set(get_args(UnitType))
