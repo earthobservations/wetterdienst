@@ -207,6 +207,9 @@ describe('explorer default date range', () => {
     await vi.waitFor(() => expect(dates(vm).endDate).toBe(TODAY))
     await typeDate(wrapper, 0, '2001-05-01')
     expect(dates(vm).startDate).toBe('2001-05-01')
+    // the selector writes a note that came with it a moment after it mounted (150 ms): not in the DOM yet is no proof
+    expect(vm.defaultWindow).toBeNull()
+    await new Promise(resolve => setTimeout(resolve, 200))
     expect(note(wrapper)).toBe('')
     // another selection, which would move the page's window
     vm.stationSelectionState.selection.stations = list.slice(0, 10)
@@ -222,6 +225,9 @@ describe('explorer default date range', () => {
     await vi.waitFor(() => expect(dates(vm).endDate).toBe(TODAY))
     await wrapper.find('[data-testid="clear-date-range"]').trigger('click')
     expect(dates(vm)).toEqual({ startDate: undefined, endDate: undefined })
+    // see above: the page's window is gone, and the DOM has had longer than the selector's delay to show a note
+    expect(vm.defaultWindow).toBeNull()
+    await new Promise(resolve => setTimeout(resolve, 200))
     expect(note(wrapper)).toBe('')
     await vi.waitFor(() => expect(query().range).toBe('all'))
     expect(query().startDate).toBeUndefined()

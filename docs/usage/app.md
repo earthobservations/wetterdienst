@@ -43,7 +43,7 @@ for them) nor the radar products.
 The Explorer asks the REST API, so a request it makes is held to the [limits](restapi.md#limits) of the backend, and it
 meets them in three ways:
 
-- **It starts a range that fits.** A selection whose whole record is more than 90 % of what the server sends as one
+- **It starts a range that fits.** A selection of stations whose whole record is more than 90 % of what the server sends as one
   answer (500,000 rows by default) starts with the newest window that fits in the date range: at most that 90 %,
   rounded down to whole days, months or years. A note under the date fields says so ("Default range: the newest data
   (8 months, about 440,000 rows) ..."). **Clear date range** empties the range and keeps it empty (`range=all` in

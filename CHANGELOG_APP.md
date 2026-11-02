@@ -27,7 +27,7 @@ Types of changes:
   for which the server allows more rows). All eleven locales; pl, cs, lb and de-hh are not natively
   reviewed. The table area that takes the focus after "apply the window" is a group named "Data"
   (GH-3457, GH-3722)
-- `[Explorer]` A selection whose whole record is over about 90 % of what the server sends as one
+- `[Explorer]` A station selection whose whole record is over about 90 % of what the server sends as one
   answer starts with the newest window that fits in the date range, with a note under the
   fields that says so, where the range was empty (the server's limits come from
   `GET /api/version`). "Clear date range" empties it and keeps it empty (`range=all` in the link),
