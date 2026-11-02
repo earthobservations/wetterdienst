@@ -62,7 +62,8 @@ _CHECKS = (
     "`range` (a number outside the physical range of its parameter), `elevation` (a station pressure the elevation "
     "does not allow), `stuck` (a sensor that held one value, or was dead, over a period), `consistency` (a reading the "
     "reading of another parameter of the same file contradicts), `floor` (a model value a little below the floor of "
-    "its quantity) and `limits` (a number outside the bounds the caller set for its parameter)"
+    "its quantity), `limits` (a number outside the bounds the caller set for its parameter) and `source` (a value the "
+    "source itself marks as erroneous or doubtful in its own quality flag)"
 )
 
 #: the token of a value a plausibility check found implausible and left as it was, in the mode `soft` (GH-3676)
@@ -70,11 +71,14 @@ SUSPECT = QualityKind(
     kind="suspect",
     written="suspect:<check>",
     meaning="The value is kept, and a plausibility check in the mode `soft` (on a forecast network every check but "
-    "`floor` and `limits` is) finds it implausible: one of "
+    "`floor` and `limits` is; the suspect level of a source's own verdict, GHCNh `Suspect` and 382 `R`, CHMI "
+    "`Suspect`, is "
+    "flagged `source` in the mode `hard` too) finds it implausible: one of "
     + _CHECKS
     + ", several joined with `+` (`suspect:range+stuck`). The checks and their modes are the `plausibility` option "
-    "of the request; the default of `stuck` is soft. No `raw` token of its own: the value is the number the source "
-    "wrote (beside `rejected:floor` it is the floor, 0.0). Interpolation and summary leave such a value out.",
+    "of the request; the defaults of `stuck` and `source` are soft. No `raw` token of its own: the value is the "
+    "number the source wrote (beside `rejected:floor` it is the floor, 0.0). Interpolation and summary leave such a "
+    "value out.",
 )
 
 #: the token of a value a plausibility check rejected, in the mode `hard`, written before `raw` (GH-3676)
@@ -167,8 +171,8 @@ LEGENDS: dict[str, list[QualityKind]] = {
             "validity",
             "<true|false>",
             "DMI's validity of the record: whether the climatologists consider the value valid. `false` is "
-            "'generally not correct' by DMI's own words, mostly for Greenland and rarely for Denmark; the value is "
-            "returned as published, so a caller can drop it by this token.",
+            "'generally not correct' by DMI's own words, mostly for Greenland and rarely for Denmark; the check "
+            "`source` flags the value `suspect:source` (soft, the default) or nulls it as `rejected:source` (hard).",
             codes=_codes(true="Considered valid", false="Considered not valid"),
         ),
         SUSPECT,
@@ -309,7 +313,9 @@ LEGENDS: dict[str, list[QualityKind]] = {
             "The quality flag of the source: for the daily data a letter naming the check the value failed, blank "
             "(left out) where it failed none; for the hourly data the quality code of the element, which is read in "
             "the list of the element's source (`source:`), as the codes differ by source. The value is returned "
-            "as the file gives it, suspect or erroneous too.",
+            "as the file gives it, suspect or erroneous too; the check `source` judges the codes that the readme and "
+            "Table 3 word as a verdict (`suspect:source`, or `rejected:source` in the mode `hard` for the erroneous "
+            "level).",
         ),
         _kind(
             "measurement",

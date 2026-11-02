@@ -159,12 +159,12 @@ def test_daily_humidity_extremes_sunshine_cloud_cover_and_snow_depth(monkeypatch
 
 
 def test_a_value_dmi_does_not_validate_keeps_its_flag(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The cloud cover of Nuuk in January 2024 is `validity: false`, which stays on its `quality_flags`."""
+    """The cloud cover of Nuuk in January 2024 is `validity: false`: the flag stays, and the check `source` flags it."""
     df = _values(
         monkeypatch, "daily", "04250", dt.datetime(2024, 1, 10, tzinfo=_UTC), dt.datetime(2024, 1, 12, tzinfo=_UTC)
     )
     flags = df.filter(pl.col("parameter") == "cloud_cover_total_mean")["quality_flags"].unique().to_list()
-    assert flags == ["manual,validity:false"]
+    assert flags == ["manual,validity:false,suspect:source"]
     flags = df.filter(pl.col("parameter") == "humidity_relative_max")["quality_flags"].unique().to_list()
     assert flags == ["manual,validity:true"]
 

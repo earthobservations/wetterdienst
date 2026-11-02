@@ -72,11 +72,12 @@ written as short as it goes (`4021.0` as `4021`).
 | `consistency` | a reading that another parameter of the same file contradicts | hard | DWD road: a road surface more than 20 K above the air of the same minute with the sun more than 6 degrees below the horizon, the air counting only where it passed `range` and is not marked suspect by DWD's own flag. Météo-France: the humidity of an hour whose dew point lies below 0 °C at a station without frost (the same hygrometer), and a `tn12` that is the text of the `tx12` beside it (a copy, no minimum) |
 | `floor` | a model value a little below the floor of its quantity | hard | DWD DMO (a forecast, soft in every other built-in check, but `floor` corrects and does not reject, so it keeps its mode): ICON writes -0.02 mm for the precipitation of an hour, down to -0.10, and the radiation of a night below 0. **hard sets the floor**, 0.0, and keeps the number; soft keeps the number as the value |
 | `limits` | a reading outside the bounds **you** set for its parameter ([below](#bounds-of-your-own-limits)) | hard | Judges nothing until you set a bound (`Options(limits=...)`, `WD_TS_LIMITS`, `--limits`, `limits` of REST and MCP), and then only the parameters you name. The bounds are in the unit the values come back in, and are a check of their own beside `range`, whose bounds they neither narrow nor widen: a value outside both carries both verdicts, as far as both are in one mode ([the tokens](#the-tokens)) |
+| `source` | a value the source itself marks as erroneous or doubtful in its own quality flag and returns | **soft** | The codes the provider's documentation words as a failed check, erroneous, suspect, doubtful or poor, per provider ([below](#the-sources-own-verdict-source)): GHCN-Daily `QFLAG`, GHCNh `Suspect`/`Erroneous` and the letters of its source 382, Frost `qualityCode` 7, CHMI `Suspect` and `Poor`, Environment Agency `Suspect`, Météo-France `Q` 2, DMI `validity:false`. Soft keeps the value and writes `suspect:source`; hard nulls it and writes `rejected:source,raw:<text>`, except the suspect level of a source that has two (GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`), which stays `suspect:source` |
 
 `stuck` is soft by default because it judges a series and not a value: identical readings are a sign of a stuck sensor
-and no proof, and what is found depends on what was read, which differs by network (see the caveats). Every other check
-is hard, which is what the library did for the networks it judged before the modes existed; since GH-3681 `range` and
-`elevation` judge every network.
+and no proof, and what is found depends on what was read, which differs by network (see the caveats). `source` is soft
+by default because its verdict is the source's and not ours. Every other check is hard, which is what the library did for
+the networks it judged before the modes existed; since GH-3681 `range` and `elevation` judge every network.
 
 ### The limit of a run
 
@@ -161,13 +162,14 @@ Prediction System) has no chapter on quality control, the gross limits quoted fr
 
 ### What a table for the world cannot catch
 
-A bound that holds for every provider cannot see a defect that lies inside it. These stay, as the source wrote them:
+A bound that holds for every provider cannot see a defect that lies inside it. These stay, as the source wrote them, or are told by another check:
 
 - **Totals that are wrong and plausible.** DMI marks `validity:false` on a daily rain of 989 mm (04339, 2011-07-25), a
   monthly 3,229.9 mm (2012-10), a yearly 9,574.3 and 6,026.5 mm (2014, 2015) and a yearly 3,253.4 mm, all inside the
-  ranges: no range separates the last from the 3,291.3 mm of a year that DMI validated at 04390. They are for the planned
-  `source` check, which will use the source's own verdict ([GH-3677](https://github.com/earthobservations/wetterdienst/issues/3677)).
-  DMI's 1,978 mm of a day and 17,802 mm of a month are above the bounds and are null.
+  ranges: no range separates the last from the 3,291.3 mm of a year that DMI validated at 04390. They are the business
+  of [`source`](#the-sources-own-verdict-source), which reads the source's own verdict: each is kept and flagged
+  `suspect:source`, and is null with `rejected:source` where you set the check hard. DMI's 1,978 mm of a day and 17,802
+  mm of a month are above the bounds and are null by `range`.
 - **A gust of 81.5 m/s in Belgium** (RMI, station 6414, 2003-10-09, `validated: false`): inside the 115 m/s of the
   world, and not a reading. It is for the step check of [GH-3681](https://github.com/earthobservations/wetterdienst/issues/3681);
   the 445.3 and 569.7 m/s of the hourly layer are above the bound and are null.
@@ -264,6 +266,88 @@ parameter however either is written; of two spellings of one key the later pair 
 names that parameter in thirteen networks) both name a parameter, the one that names fewer wins, whatever the order
 they are given in. A name that is the old name of a renamed parameter is read as the new one, with a warning.
 
+## The source's own verdict (`source`)
+
+Many sources mark a value as wrong in a quality flag of their own and return it all the same: a GHCN-Daily value that
+failed a check, a Frost value of quality code 7, an Environment Agency reading that is `Suspect`. The check `source`
+reads that verdict from `quality_flags`, where the reader has put the source's flag as the source wrote it, and applies
+the mode you chose:
+
+- **soft** (the default): the value is kept and `quality_flags` gains `suspect:source`
+  (`X,measurement:T,source:0,suspect:source`). Nothing is nulled, so a default request returns the same values as
+  before, with one more token on the readings the source doubts. An interpolation, a summary, climate stripes and
+  `skip_empty` leave a `suspect:` value out, as they do for every soft check, so only the flagged values are left out of them, and a station can be skipped
+  where it was counted. A bare `plausibility="hard"` (`WD_TS_PLAUSIBILITY=hard`,
+  `plausibility=hard` of REST) sets `source` too, and nulls those values: name `source` beside it to keep them.
+- **hard**: the value is null and the text the source wrote stays as `rejected:source,raw:<text>`
+  (`Suspect,rejected:source,raw:0.359`), except for the milder level of a source that has two (see *Which codes count*, below):
+  that stays `suspect:source` (`2,source:343,suspect:source`) and is never nulled.
+
+It is soft by default, and the only check but `stuck` that is, because the verdict is the source's and not the
+library's: it is no number outside what a sensor can produce, and a source's own scale (a code that says a value was
+corrected, a value not controlled) is not for the library to read as a rejection: it is never in the map, and nulling what the source flagged is for you to ask. A forecast network is
+judged soft in `source` as in every check but `floor` and `limits`; none of the forecast networks (DWD MOSMIX, DMO and
+SWSMOS) has a flag of its own that marks a value, so the check judges nothing there.
+
+**Which codes count.** One rule for every provider, and every code is the provider's own, taken from its documentation
+and cited in the table below with the wording and the page: *a code is in the map where the documentation words it as
+the verdict that the value failed a check, is erroneous, suspect, doubtful or of poor quality.* What the documentation
+words as a degree of uncertainty (Frost's "slightly uncertain" and "very uncertain", codes 2, 4 and 5), as a treatment
+(estimated, corrected, interpolated), as a missing value, or as no control at all (`Unchecked`, DMI's `qcStatus`
+`none`) is no verdict and is not read. Where a source has two levels of verdict (GHCNh `Suspect` and `Erroneous`, CHMI
+`Suspect` and `Poor`), both are in the map, each as a *suspect level* or an *erroneous level* code in the table: `soft`
+flags both as `suspect:source`, and `hard` nulls only the erroneous level, the code the source words as erroneous,
+failed or poor (GHCNh `Erroneous`, CHMI `Poor`), while the suspect level (GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`) stays
+`suspect:source` and is never nulled. A source that has one level only (GHCN-Daily `QFLAG`, Frost 7, EA `Suspect`,
+Météo-France 2, DMI `validity:false`) has it as the erroneous level, so `hard` nulls it. The source's own word stays in
+`quality_flags` beside the token, so a code is told from the other by the flag (`3,suspect:source` against
+`2,suspect:source`). A source that has no such wording is not in the map; a network has the check only where its reader
+returns the flag.
+
+The token of the check is `suspect:source` or `rejected:source`; GHCN's `source:Z` is another thing, the data source of the
+value (the `SFLAG`), and sits among the source's own flags. A value that carries a `raw:` token already is a code of the source (a missing value) and is not judged. A flag that
+holds a code the map does not list (a letter the documentation does not word as a verdict) is not judged either.
+
+<!-- source:start -->
+
+| network | datasets | flag in `quality_flags` | codes that count, as the provider words them | documentation |
+| --- | --- | --- | --- | --- |
+| `noaa/ghcn` | `daily/data` | the plain first token (`QFLAG`) | `D` failed duplicate check; `G` failed gap check; `I` failed internal consistency check; `K` failed streak/frequent-value check; `L` failed check on length of multiday period; `M` failed megaconsistency check; `N` failed naught check; `O` failed climatological outlier check; `R` failed lagged range check; `S` failed spatial consistency check; `T` failed temporal consistency check; `W` temperature too warm for snow; `X` failed bounds check; `Z` flagged as a result of an official Datzilla investigation | [GHCN-Daily readme.txt](https://www.ncei.noaa.gov/pub/data/ghcn/daily/readme.txt): "QFLAG1 is the quality flag for the first day of the month. There are fourteen possible values: Blank = did not fail any quality assurance check" |
+| `noaa/ghcn` | `hourly/data` | the plain first token (`<element>_Quality_Code`), where `source:` is 313, 314, 315, 322, 335, 343, 344 or 346 | suspect level: `2` Suspect; `6` Suspect, data originate from an NCEI data source; erroneous level: `3` Erroneous; `7` Erroneous, data originate from an NCEI data source | [GHCNh documentation](https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh_DOCUMENTATION.pdf), Table 3: "Legacy Codes for Sources 313, 314, 315, 322, 335, 343, 344, 346 include: ... 2 = Suspect 3 = Erroneous ... 6 = Suspect, data originate from an NCEI data source 7 = Erroneous, data originate from an NCEI data source" |
+| `noaa/ghcn` | `hourly/data` | the plain first token, where `source:` is 220, 221, 222, 223, 347 or 348 | suspect level: `2` Suspect; erroneous level: `3` Erroneous | [GHCNh documentation](https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh_DOCUMENTATION.pdf), Table 3: "Legacy Codes for Sources: 220, 221, 222, 223, 347, 348 include 0 Not Checked 1 Good 2 Suspect 3 Erroneous 4 Calculated 5 Removed" |
+| `noaa/ghcn` | `hourly/data` | the plain first token, where `source:` is 382 (the precipitation of C-HPD) | suspect level: `R` Indicates data values are suspect with regard to the times or period of occurrence; erroneous level: `X` failed global extreme exceedance check; `N` failed negative precipitation check; `Y` failed state extreme exceedance check (performed on daily totals); `K` failed streak/frequent-value check; `G` failed gap check; `O` failed climatological outlier check; `Z` flagged as a result of an official Datzilla investigation; `Q` Indicates value failed an extreme value test (value will be present) | [GHCNh documentation](https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh_DOCUMENTATION.pdf), Table 3: "Legacy Codes for Source 382 for precipitation (as given in C-HPD documentation) Blank = did not fail any quality assurance check X = failed global extreme exceedance check ..." |
+| `metno/frost` | `10_minutes/data`, `hourly/data`, `6_hours/data`, `daily/data`, `monthly/data`, `annual/data` | the plain first token (`qualityCode`) | `7` Erroneous, value is not corrected | [Frost data clarifications, Quality code](https://frost.met.no/dataclarifications.html#quality-code): "Frost tries to give the user a single value to represent the general quality of the observation. This value is set in the field qualityCode." `7 Erroneous, value is not corrected` |
+| `chmi/observation` | `10_minutes/data`, `hourly/data`, `daily/data` | the plain first token (`QUALITY`) | suspect level: `1` Suspect/Podezřelá hodnota; erroneous level: `2` Poor/Hodnota s nízkou kvalitou, podezřelá, zatím nepoužívat | [meta4.csv](https://opendata.chmi.cz/meteorology/climate/historical_csv/metadata/meta4.csv): `1,Suspect/Podezřelá hodnota`, `2,Poor/Hodnota s nízkou kvalitou, podezřelá, zatím nepoužívat` |
+| `ea/hydrology` | `15_minutes/data`, `daily/data` | the plain first token (`quality`) | `Suspect` | [Hydrology API reference, Readings](https://environment.data.gov.uk/hydrology/doc/reference#readings-section): "quality: The quality of this reading: Good, Estimated, Suspect, Unchecked, Missing" |
+| `meteofrance/observation` | `6_minutes/data`, `hourly/core`, `hourly/others`, `daily/core`, `daily/others`, `monthly/data` | the plain first token (`Q<parameter>`) | `2` donnée douteuse en cours de vérification (la donnée a été mise en doute par contrôle automatique) | the "descriptif" of each of the four products ([quotidiennes](https://static.data.gouv.fr/resources/donnees-climatologiques-de-base-quotidiennes/20260603-085232/climatologie-donnees-quotidiennes-descriptif-20260603.pdf), [horaires](https://static.data.gouv.fr/resources/donnees-climatologiques-de-base-horaires/20260603-085646/climatologie-donnees-horaires-descriptif-20260603.pdf), [mensuelles](https://static.data.gouv.fr/resources/donnees-climatologiques-de-base-mensuelles/20260603-085345/climatologie-donnees-mensuelles-descriptif-20260603.pdf), [6 minutes](https://static.data.gouv.fr/resources/donnees-climatologiques-de-base-6-minutes/20260401-151040/climatologie-donnees-6-minutes-descriptif-20250604.pdf)): "un code qualité est associé à la mesure (noté Qparamètre). Il qualifie l’état de validation de la donnée : ... 2 : donnée douteuse en cours de vérification (la donnée a été mise en doute par contrôle automatique)" |
+| `dmi/observation` | `hourly/data`, `daily/data`, `monthly/data`, `annual/data` | the token `validity:` | `false`: "Whether or not the value is considered valid by the climatologists. Invalid data is generally not correct" | [DMI climate data API, `stationValue`](https://www.dmi.dk/friedata/dokumentation/apis/climate-data-api-1): `properties.validity`. Its `qcStatus` (`manual`, `none`) says whether the value was controlled and is no verdict |
+
+<!-- source:end -->
+
+The tests hold this table to the map of the code (`wetterdienst.model.source_flags.SOURCE_FLAGS`) and to the pages of
+the providers, and a test of each provider's reader pins its codes on a row of the source. What is **not** read, and why:
+
+- **GHCNh letters of the integration's own checks, and `o` and `f` of a derived humidity**: `c` climatological outlier,
+  `s` spike, `l` failed logistical consistency, ... name the check of the dataset's own processing that flagged one of
+  six elements, and `o` ("Out of range") and `f` ("Suspect or Error flags for 1 or more of the input measurements") flag
+  a relative humidity or wet bulb temperature that the legacy sources derive. Those two are worded as verdicts, and are
+  left out because the same letters are the integration's "Odd cluster" and "Frequent value" on the six elements, so a
+  letter can be read only with the parameter beside it, which the map does not scope by yet
+  ([GH-3745](https://github.com/earthobservations/wetterdienst/issues/3745)). No other letter is read outside the list
+  of source 382, where the documentation words each as a failed check or as suspect. The codes `0`, `1`, `4`, `5` and
+  `9` of the legacy lists say the value was not checked, passed, was calculated or was removed, `D`, `M`, `A` and `q`
+  of source 382 that it was deleted, missing, an accumulation or leaves out 15 minute periods, and `A`, `P`, `U`, `I`,
+  `M`, `R` of the legacy lists that a value was accepted, replaced or inserted. The list of source 345 (`3` "Error
+  (erroneous data)", for relative humidity and wind speed only) is not read either: a rule is not scoped by parameter
+  yet (GH-3745).
+- **Frost 2, 4, 5 and 6**: "slightly uncertain" and "very uncertain" are a degree of confidence, and `6` is model data.
+  Frost's own word for a verdict is `7`, "Erroneous": "very uncertain" (`5`) says how sure the control was, not that
+  the value failed, where Météo-France's "douteuse" and CHMI's "Suspect" say the control doubted the value itself.
+- **CHMI 3 to 5, EA `Estimated`, `Unchecked` and `Missing`**: an estimate, a value nobody checked and a missing value.
+- **DMI `qcStatus`**: `manual` and `none` say whether a climatologist controlled the value.
+- **Providers whose flag the reader does not return**, or whose documentation words no verdict, and the providers that
+  have a flag and are not read yet, are in [GH-3745](https://github.com/earthobservations/wetterdienst/issues/3745).
+
 ## Setting the modes
 
 One mode per check. A check that is not named keeps its mode, from the environment or its default.
@@ -299,7 +383,7 @@ given beside it wins, so `soft` for all but the range is `soft` with `range` har
 ```python
 from wetterdienst import Options
 
-Options(plausibility="soft")  # all six checks soft, the same as listing them
+Options(plausibility="soft")  # all seven checks soft, the same as listing them
 Options(
     plausibility={
         "range": "hard",
@@ -308,6 +392,7 @@ Options(
         "consistency": "soft",
         "floor": "soft",
         "limits": "soft",
+        "source": "soft",
     }
 )
 ```
@@ -327,7 +412,7 @@ and REST have both the shorthand and the checks, and the checks win whatever the
 `hard` is refused.
 
 The REST API and the MCP tools take `plausibility` and `plausibility_range`, `plausibility_elevation`, `plausibility_stuck`,
-`plausibility_consistency`, `plausibility_floor` and `plausibility_limits` on `values`; `/api/settings` reports the modes as set (a forecast network is soft in every check but `floor` and `limits` whatever they are). A value
+`plausibility_consistency`, `plausibility_floor`, `plausibility_limits` and `plausibility_source` on `values`; `/api/settings` reports the modes as set (a forecast network is soft in every check but `floor` and `limits` whatever they are). A value
 other than `soft` or `hard` is refused.
 
 ## The tokens
@@ -341,6 +426,8 @@ The two kinds sit after the source's own flags and before `raw:`, which stays th
 | a missing-value code of the source | `3,raw:-999` | null, or the documented meaning |
 | several checks, soft | `suspect:range+stuck` | kept |
 | several checks, hard | `rejected:range+stuck,raw:4021` | null |
+| the source's own verdict, soft | `X,measurement:T,source:0,suspect:source` | kept |
+| the source's own verdict, hard | `Suspect,rejected:source,raw:0.359` | null |
 
 - One token per kind, the checks joined with `+` in alphabetical order. A value that a hard check nulled carries the
   hard checks alone: it is null, and `rejected:` says why. A value that only soft checks found is `suspect:` of all of
@@ -443,11 +530,17 @@ unless you set [bounds of your own](#bounds-of-your-own-limits), which any netwo
 | `consistency` | `meteofrance/observation` | `hourly/others` |
 | `consistency` | `meteofrance/synop` | `subdaily/data` |
 | `floor` | `dwd/dmo` | `hourly/icon`, `hourly/icon_eu` |
+| `source` | `chmi/observation` | `10_minutes/data`, `hourly/data`, `daily/data` |
+| `source` | `dmi/observation` | `hourly/data`, `daily/data`, `monthly/data`, `annual/data` |
+| `source` | `ea/hydrology` | `15_minutes/data`, `daily/data` |
+| `source` | `meteofrance/observation` | `daily/core`, `daily/others`, `hourly/core`, `hourly/others`, `monthly/data`, `6_minutes/data` |
+| `source` | `metno/frost` | `10_minutes/data`, `hourly/data`, `6_hours/data`, `daily/data`, `monthly/data`, `annual/data` |
+| `source` | `noaa/ghcn` | `daily/data`, `hourly/data` |
 
 <!-- coverage:end -->
 
 `range` and `elevation` run on every network that serves a quantity of their tables (`*`: every dataset of the network
-that has one). `limits` is in no row: it runs on any network, for the parameters you set a bound for. Within a dataset a check covers the parameters its rule names, not every parameter: `range` the
+that has one). `source` runs where a provider's flag is mapped ([the codes](#the-sources-own-verdict-source)). `limits` is in no row: it runs on any network, for the parameters you set a bound for. Within a dataset a check covers the parameters its rule names, not every parameter: `range` the
 parameters that have a bound in the table, `elevation` the `pressure_air_site`, `pressure_air_site_mean`,
 `pressure_air_site_min` and `pressure_air_site_max`, `stuck` the `pressure_air_site` and `pressure_air_site_mean` of DWD
 observation. The provider pages and [special values](special_values.md) list them.
@@ -459,10 +552,10 @@ What no check covers, and why:
   relation is kept for the check even where nobody asked for it, and dropped after judging. Where the second parameter
   lives in another dataset, the check does not run. DWD observation holds its hourly `temperature_air` and `moisture` in
   two datasets, so the humidity of one is not held to the dew point of the other.
-- **Quantities with no bound.** The hydrology of the Environment Agency and Hub'Eau judges nothing without bounds of your own, and no network
+- **Quantities with no bound.** The hydrology of Hub'Eau and the Environment Agency (apart from its `Suspect` readings, which `source` flags) judges nothing without bounds of your own, and no network
   judges its codes, the derived quantities and the gauges listed above: a number there stays as the source wrote it. The
-  sources' own "erroneous" flags (GHCN `QFLAG`, Frost `7`, GHCNh `3`, ...) are the source's and are returned as its
-  flags, not as a check.
+  sources' own "erroneous" flags are judged by [`source`](#the-sources-own-verdict-source) where a provider is mapped,
+  and are the source's own, returned as its flags, where it is not.
 
 ## Caveats
 
@@ -503,7 +596,9 @@ What no check covers, and why:
 - **`skip_empty`** judges a station by its unflagged values alone: a value flagged `suspect` is no coverage, so a station
   with only such values is skipped. For the checks that used to null (`range`, `elevation`, `consistency`, `floor`, and
   `stuck` of DWD observation and RMI) this is as before. For `stuck` of DWD road, which used to keep the value with
-  the flag `1` and count it, it is a change: a road station with long stuck runs can be skipped where it was kept.
+  the flag `1` and count it, it is a change: a road station with long stuck runs can be skipped where it was kept. So it
+  is for `source`: a station of `noaa/ghcn`, `metno/frost`, `chmi/observation`, `ea/hydrology`,
+  `meteofrance/observation` or `dmi/observation` whose values the source flagged can be skipped where it was kept.
 - **A rejected value carries only the hard verdict.** Where a hard check nulls a value and a soft one also finds it
   suspect, the value is null and the token is `rejected:<hard checks>,raw:<number>`; the soft check is not listed. A
   hard `floor` keeps the value, so a soft check that also finds it is listed before it.

@@ -34,6 +34,21 @@ atmosphere does not allow, from 870/1013.25 of it (143 hPa below at sea level) t
 downloaded for the check. With `plausibility={"range":
 "soft"}` the value is kept and flagged `suspect:range`.
 
+`source` is the fourth check, soft by default: the validation code `Q<parameter>` of a value is the plain flag of
+`quality_flags`, and the check reads the one code the four "descriptif" documents of the base climatological data word as a
+doubt, `2`: "donnée douteuse en cours de vérification (la donnée a été mise en doute par contrôle automatique)". The
+documents say "Pour certains paramètres, un code qualité est associé à la mesure (noté Qparamètre). Il qualifie l’état de
+validation de la donnée : 9 : donnée filtrée (la donnée a passé les filtres/contrôles de premiers niveaux) ; 0 : donnée
+protégée (la donnée a été validée définitivement par le climatologue) ; 1 : donnée validée (la donnée a été validée par
+contrôle automatique ou par le climatologue) ; 2 : donnée douteuse en cours de vérification (la donnée a été mise en doute
+par contrôle automatique)." ([quotidiennes](https://static.data.gouv.fr/resources/donnees-climatologiques-de-base-quotidiennes/20260603-085232/climatologie-donnees-quotidiennes-descriptif-20260603.pdf),
+[horaires](https://static.data.gouv.fr/resources/donnees-climatologiques-de-base-horaires/20260603-085646/climatologie-donnees-horaires-descriptif-20260603.pdf),
+[mensuelles](https://static.data.gouv.fr/resources/donnees-climatologiques-de-base-mensuelles/20260603-085345/climatologie-donnees-mensuelles-descriptif-20260603.pdf),
+[6 minutes](https://static.data.gouv.fr/resources/donnees-climatologiques-de-base-6-minutes/20260401-151040/climatologie-donnees-6-minutes-descriptif-20250604.pdf),
+read 2026-11-02). Soft keeps the value and writes `2,suspect:source`; `hard` nulls it, `2,rejected:source,raw:<text>`, with
+the text of the file as `raw:`. The codes `9`, `0` and `1` are no doubt and are not read. A `2` is rare: the daily file of département 75 (`Q_75_latest-2025-2026_RR-T-Vent`, 3,228 rows, read 2026-11-02) holds the codes 9, 1, 0 and blank and no 2, so the test of the mapping is a row written after the documents. The synop network has no such flag.
+See [the check `source`](../../../plausibility.md#the-sources-own-verdict-source).
+
 ```{toctree}
 :hidden:
 

@@ -42,7 +42,7 @@ from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
 from wetterdienst.model.limits import LIMITS_DESCRIPTION, Limit, with_aliases_resolved, with_normal_names
 from wetterdienst.model.metadata import parse_parameters, whole_datasets_kept
-from wetterdienst.model.plausibility import CHECKS, Mode, forecast_note, hard_means, leave_out_suspect
+from wetterdienst.model.plausibility import CHECKS, Mode, default_mode, forecast_note, hard_means, leave_out_suspect
 from wetterdienst.model.request import (
     DEFAULT_NAME_RANK,
     DEFAULT_NAME_RANK_LISTING,
@@ -340,7 +340,7 @@ def _plausibility_field(check: str, what: str) -> Any:  # noqa: ANN401
             f"value and flags it `suspect:{check}`. {forecast_note(check)} "
             f"Interpolation and summary leave a suspect value out in any case. "
             f"Default: the server's WD_TS_PLAUSIBILITY__{check.upper()} if set, else "
-            f"{'soft' if check == 'stuck' else 'hard'}.",
+            f"{default_mode(check)}.",
         ),
     ]
 
@@ -351,7 +351,8 @@ _PlausibilityField = Annotated[
         description="One mode for every plausibility check at once: `soft` keeps every value a check finds "
         "implausible and flags it (`suspect:<check>`), `hard` nulls it and keeps the number "
         "(`rejected:<check>,raw:<number>`), except on a forecast network (`kind` `forecast`), where every check but "
-        "`floor` and `limits` is soft whatever the mode. A check given beside it by `plausibility_<check>` wins. "
+        "`floor` and `limits` is soft whatever the mode. The suspect level of `source` stays flagged. A check given "
+        "beside it by `plausibility_<check>` wins. "
         "Default: the server's WD_TS_PLAUSIBILITY if set, else the mode of each check.",
     ),
 ]
@@ -369,6 +370,9 @@ _PlausibilityConsistencyField = _plausibility_field(
 )
 _PlausibilityFloorField = _plausibility_field("floor", "a model value a little below the floor of its quantity")
 _PlausibilityLimitsField = _plausibility_field("limits", "a reading outside the bounds `limits` sets for its parameter")
+_PlausibilitySourceField = _plausibility_field(
+    "source", "a value that the source itself marks as erroneous or doubtful in its own quality flag"
+)
 _LimitsField = Annotated[
     dict[str, Limit] | None,
     Field(
@@ -963,6 +967,7 @@ class ValuesRequest(_RefusesRenamedParameters):
     plausibility_consistency: _PlausibilityConsistencyField = "hard"
     plausibility_floor: _PlausibilityFloorField = "hard"
     plausibility_limits: _PlausibilityLimitsField = "hard"
+    plausibility_source: _PlausibilitySourceField = "soft"
     limits: _LimitsField = None
 
     @field_validator("unit_targets", "limits", mode="before")
@@ -1240,6 +1245,7 @@ class SettingsRequest(BaseModel):
     plausibility_consistency: _PlausibilityConsistencyField = "hard"
     plausibility_floor: _PlausibilityFloorField = "hard"
     plausibility_limits: _PlausibilityLimitsField = "hard"
+    plausibility_source: _PlausibilitySourceField = "soft"
     limits: _LimitsField = None
     # interpolate
     interpolation_station_distance: _RestInterpolationStationDistanceField = None

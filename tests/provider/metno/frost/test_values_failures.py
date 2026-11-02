@@ -153,8 +153,47 @@ def test_metno_frost_values_carry_the_quality_code_as_a_whole_number(monkeypatch
     )
     df = values.all().df.sort("timestamp")
     assert df.schema["quality_flags"] == pl.String
-    assert df.get_column("quality_flags").to_list() == ["0", "1", "7"]
+    # `7` is the one code Frost words as a verdict, and the check `source` flags it (GH-3677)
+    assert df.get_column("quality_flags").to_list() == ["0", "1", "7,suspect:source"]
     assert "quality" not in df.columns
+
+
+@pytest.mark.parametrize(
+    ("mode", "flags", "values"),
+    [
+        (None, ["0", "1", "2", "4", "5", "6", "7,suspect:source"], [2.7, 3.7, 4.7, 5.7, 6.7, 7.7, 8.7]),
+        ("hard", ["0", "1", "2", "4", "5", "6", "7,rejected:source,raw:8.7"], [2.7, 3.7, 4.7, 5.7, 6.7, 7.7, None]),
+    ],
+)
+def test_metno_frost_flags_the_erroneous_quality_code_and_no_other(
+    monkeypatch: pytest.MonkeyPatch, mode: str | None, flags: list[str], values: list[float | None]
+) -> None:
+    """Test that only `qualityCode` 7 is a verdict the check `source` reads: soft flags it, hard nulls it (GH-3677).
+
+    https://frost.met.no/dataclarifications.html#quality-code words `7` as "Erroneous, value is not corrected". The
+    others are a degree of confidence (2 "Slightly uncertain, value is not controlled", 4 "Slightly uncertain, value
+    is not corrected", 5 "Very uncertain, value is not corrected"), a treatment (1) or model data (6), and none is
+    flagged. The API needs a client id, so this is the documentation's wording on a stub, no live reading.
+    """
+    monkeypatch.setenv("WD_TS_DROP_NULLS", "false")
+    if mode is not None:
+        monkeypatch.setenv("WD_TS_PLAUSIBILITY__SOURCE", mode)
+    payload = {
+        "data": [
+            {
+                "sourceId": "SN18700:0",
+                "referenceTime": f"2020-01-01T0{hour}:00:00.000Z",
+                "observations": [{"elementId": "air_temperature", "value": 2.7 + hour, "qualityCode": code}],
+            }
+            for hour, code in enumerate((0, 1, 2, 4, 5, 6, 7))
+        ],
+    }
+    request_values, _ = _values(
+        monkeypatch, lambda url: _ok(url, payload), end=dt.datetime(2020, 1, 1, 7, tzinfo=ZoneInfo("UTC"))
+    )
+    df = request_values.all().df.sort("timestamp")
+    assert df.get_column("quality_flags").to_list() == flags
+    assert [None if v is None else round(v, 1) for v in df.get_column("value").to_list()] == values
 
 
 def test_metno_frost_hourly_wind_is_named_for_its_ten_minutes(monkeypatch: pytest.MonkeyPatch) -> None:

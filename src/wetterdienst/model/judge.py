@@ -45,6 +45,8 @@ from wetterdienst.model.limits import scope_of, search_for
 from wetterdienst.model.plausibility import CHECKS, REJECTED, SUSPECT, Plausibility
 from wetterdienst.model.plausibility_ranges import bounds_for
 from wetterdienst.model.quality_flags import RAW_TOKEN
+from wetterdienst.model.source_flags import SourceFlags, flags_of
+from wetterdienst.model.source_flags import hits as source_hits
 from wetterdienst.model.unit import UnitConverter
 
 if TYPE_CHECKING:
@@ -221,6 +223,8 @@ class Plan:
     constant_gap: dt.timedelta | None = None
     runs: tuple[tuple[str, ...], str | None] = ((), None)
     by_name: dict[str, str] = field(default_factory=dict)
+    #: the codes of the source's own quality flag that mark a value as erroneous or doubtful (check ``source``)
+    source: tuple[SourceFlags, ...] = ()
 
     def read_beside(self, rules: Sequence[Rule]) -> set[str]:
         """Name the parameters (as the source does) that the checks read beside the ones asked for.
@@ -238,7 +242,7 @@ class Plan:
     @property
     def judges(self) -> bool:
         """Tell whether any check applies to every station of the dataset."""
-        return bool(self.ranges or self.pressure or self.floors or self.constants or self.runs[0])
+        return bool(self.ranges or self.pressure or self.floors or self.constants or self.runs[0] or self.source)
 
 
 _PLANS: dict[tuple[int, str], tuple[DatasetModel, Plan]] = {}
@@ -293,8 +297,19 @@ def _build_plan(network: str, dataset: DatasetModel) -> Plan:
         names, air = RUNS[network]
         if all(name in original for name in names):
             runs = (tuple(original[name] for name in names), original[air])
+    source = flags_of(network, f"{resolution}/{dataset.name}")
     return Plan(
-        network, parameters, ranges, _is_forecast(network), pressure, floors, constants, constant_gap, runs, by_name
+        network,
+        parameters,
+        ranges,
+        _is_forecast(network),
+        pressure,
+        floors,
+        constants,
+        constant_gap,
+        runs,
+        by_name,
+        source,
     )
 
 
@@ -471,6 +486,16 @@ def judge(  # noqa: C901
         if modes.mode("floor") == "hard":
             floored = pl.when(parameter.is_in(plan.floors) & (value < 0.0)).then(pl.lit(0.0)).otherwise(value)
         exprs["limits"].append((floored < low) | (floored > high))
+    if plan.source:
+        # the verdict of the source itself, read in the flag it returned the value with (`model/source_flags.py`)
+        erroneous, suspect = source_hits(df, plan.source)
+        if modes.mode("source") == "hard":
+            # only the code the source words as erroneous is rejected; the milder level of a source that has two stays
+            # flagged, as `source` flags it in the soft mode
+            series["source"].append(erroneous)
+            series[SOURCE_SUSPECT].append(suspect & ~erroneous)
+        else:
+            series["source"].append(erroneous | suspect)
     if plan.pressure and elevation is not None and not (elevation == 0.0 and plan.network in ELEVATION_ZERO_IS_UNKNOWN):
         allowed = station_pressure_bounds(elevation)
         if allowed is not None:
@@ -502,7 +527,7 @@ def judge(  # noqa: C901
         )
     if not columns and not series:
         return df
-    names = [_HIT + check for check in sorted(CHECKS) if _HIT + check in frame.columns]
+    names = [_HIT + check for check in sorted((*CHECKS, SOURCE_SUSPECT)) if _HIT + check in frame.columns]
     counts = frame.select(pl.col(name).fill_null(value=False).any() for name in names).row(0)
     fired = [name for name, any_hit in zip(names, counts, strict=True) if any_hit]
     if not fired:
@@ -524,14 +549,25 @@ def judge(  # noqa: C901
     )
 
 
+#: the verdict of ``source`` on the milder level of a source that has two, which is flagged whatever the mode is: it
+#: is judged as a check of its own that is always soft, and written under the name of ``source``
+SOURCE_SUSPECT = "source_suspect"
+_TOKEN_NAME = {SOURCE_SUSPECT: "source"}
+
+
+def _mode_of(modes: Plausibility, check: str) -> str:
+    """Give the mode a check is written in: ``soft`` for the milder level of ``source``, else the mode of the check."""
+    return "soft" if check == SOURCE_SUSPECT else modes.mode(check)
+
+
 def _verdicts(rows: pl.DataFrame, checks: list[str], modes: Plausibility) -> pl.DataFrame:
     """Write the verdicts of the checks that fired on the rows that have one: the value, the flags and the source.
 
     ``rows`` carries a boolean column ``__hit_<check>`` for each check, true only where the check judged the reading.
     """
     value = pl.col("value")
-    hard = [check for check in checks if modes.mode(check) == "hard"]
-    soft = [check for check in checks if modes.mode(check) == "soft"]
+    hard = [check for check in checks if _mode_of(modes, check) == "hard"]
+    soft = [check for check in checks if _mode_of(modes, check) == "soft"]
     hit = {check: pl.col(_HIT + check) for check in checks}
     # the text the source wrote where the provider gave it, else the number as short as it goes (`4021.0` as `4021`)
     short = pl.col(_SOURCE).cast(pl.String).str.replace(r"\.0$", "")
@@ -545,13 +581,17 @@ def _verdicts(rows: pl.DataFrame, checks: list[str], modes: Plausibility) -> pl.
     hard_token = None
     soft_token = None
     if hard:
-        hard_names = pl.concat_str([pl.when(hit[c]).then(pl.lit(c)) for c in hard], separator="+", ignore_nulls=True)
+        hard_names = pl.concat_str(
+            [pl.when(hit[c]).then(pl.lit(_TOKEN_NAME.get(c, c))) for c in hard], separator="+", ignore_nulls=True
+        )
         hard_token = pl.when(pl.any_horizontal(hit[c] for c in hard)).then(
             pl.concat_str(pl.lit(f"{REJECTED}:"), hard_names, pl.lit(",raw:"), written)
         )
         tokens.append(hard_token)
     if soft:
-        soft_names = pl.concat_str([pl.when(hit[c]).then(pl.lit(c)) for c in soft], separator="+", ignore_nulls=True)
+        soft_names = pl.concat_str(
+            [pl.when(hit[c]).then(pl.lit(_TOKEN_NAME.get(c, c))) for c in soft], separator="+", ignore_nulls=True
+        )
         soft_token = pl.when(pl.any_horizontal(hit[c] for c in soft)).then(
             pl.concat_str(pl.lit(f"{SUSPECT}:"), soft_names)
         )
