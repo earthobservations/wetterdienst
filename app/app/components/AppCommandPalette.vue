@@ -56,6 +56,8 @@ watchDebounced(query, async (value) => {
   if (text.length < MIN_STATION_QUERY.value) {
     stations.value = []
     stationsPending.value = false
+    // a failure was of the text before: the text now is a hint, announced as one
+    stationsFailed.value = false
     return
   }
   stationsPending.value = true
@@ -291,6 +293,16 @@ function onKeydown(event: KeyboardEvent) {
         class="palette-input -ms-2 h-12 min-w-0 flex-1 bg-transparent px-2 text-base text-highlighted placeholder:text-dimmed"
         @keydown="onKeydown"
       >
+      <!-- the way out for a touch screen reader, which cannot reach the overlay a sighted reader taps -->
+      <UButton
+        icon="i-ph-x"
+        color="neutral"
+        variant="ghost"
+        size="sm"
+        :aria-label="t('common.close')"
+        data-testid="palette-close"
+        @click="emit('done')"
+      />
     </div>
 
     <div

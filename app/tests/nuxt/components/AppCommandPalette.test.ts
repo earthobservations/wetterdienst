@@ -1,4 +1,5 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
+import { setResponseStatus } from 'h3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { clearNuxtData } from '#app'
 import AppCommandPalette from '~/components/AppCommandPalette.vue'
@@ -10,7 +11,12 @@ import { providersResponse } from '../fixtures/providers'
 registerEndpoint('/api/providers', () => providersResponse())
 const stationQueries: string[] = []
 const stationNetworks: string[] = []
+let failStations = false
 registerEndpoint('/api/stations', (event) => {
+  if (failStations) {
+    setResponseStatus(event, 500)
+    return { detail: 'down' }
+  }
   const query = new URL(event.path, 'http://localhost').searchParams
   const name = query.get('name') ?? ''
   stationQueries.push(name)
@@ -39,9 +45,18 @@ afterEach(() => {
   clearNuxtData()
   stationQueries.length = 0
   stationNetworks.length = 0
+  failStations = false
 })
 
 describe('the command palette', () => {
+  it('has a button that closes it, for a touch screen reader that cannot reach the overlay', async () => {
+    const wrapper = await mountPalette()
+    const close = wrapper.find('[data-testid="palette-close"]')
+    expect(close.attributes('aria-label')).toBe('Close')
+    await close.trigger('click')
+    expect(wrapper.emitted('done')).toHaveLength(1)
+  })
+
   it('is a combobox that controls a named listbox of grouped, named options', async () => {
     const wrapper = await mountPalette()
     const input = wrapper.find('input[role="combobox"]')
@@ -185,5 +200,15 @@ describe('the command palette as the search of a place', () => {
       vi.useRealTimers()
       usePlace().place.value = DEFAULT_PLACE
     }
+  })
+
+  it('announces the hint, not the failure of the text before, once the text is too short again', async () => {
+    failStations = true
+    const wrapper = await mountPlaces()
+    const input = wrapper.find('input[role="combobox"]')
+    await input.setValue('ar')
+    await vi.waitFor(() => expect(wrapper.find('[role="status"]').text()).toContain('could not'), { timeout: 5000 })
+    await input.setValue('a')
+    await vi.waitFor(() => expect(wrapper.find('[role="status"]').text()).toBe('Type the name of a town or weather station.'), { timeout: 5000 })
   })
 })

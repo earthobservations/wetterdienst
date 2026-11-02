@@ -15,7 +15,7 @@ const open = ref(false)
 // Ctrl+K and ⌘K on every system (Nuxt UI's `meta_k` is ⌘K alone on a Mac, where a reader may well use Ctrl), and
 // from a field as well: the search is where one goes from anywhere
 useEventListener(window, 'keydown', (event: KeyboardEvent) => {
-  if (event.key.toLowerCase() !== 'k' || !(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey || event.repeat)
+  if (typeof event.key !== 'string' || event.key.toLowerCase() !== 'k' || !(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey || event.repeat)
     return
   event.preventDefault()
   open.value = !open.value
