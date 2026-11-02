@@ -683,6 +683,98 @@ def test_api_hourly_quality_code_of_a_verdict_is_judged_by_the_check_source_in_t
             assert values[hour] is None
 
 
+@pytest.mark.parametrize("mode", ["soft", "hard"])
+def test_api_hourly_codes_worded_for_some_parameters_are_judged_for_those_parameters_alone(
+    monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    """The list of source 345 and `o`, `f` of a derived humidity are read for the parameters Table 3 names (GH-3745).
+
+    Table 3 of ghcnh_DOCUMENTATION.pdf: "Legacy Codes for Source 345 (for relative humidity and wind speed only): 0 =
+    Good, 1 = Issue (field-length overflow), 3 = Error (erroneous data)"; and for "Sources: 220, 221, 222, 223, 313,
+    314, 315, 322, 335, 343, 344, 346, 347, 348 ... relative humidity and wet-bulb temperature are not directly
+    measured, but rather derived from other measured variables. These can have the following QC flags: o - Out of range
+    (relative humidity only - with values < 1 or > 100), f - Suspect or Error flags for 1 or more of the input
+    measurements".
+    The same letters are the integration's own checks ("Odd cluster", "Frequent value") on the temperature, the wind
+    speed and four more elements, where they are no verdict. The file of USW00014755 (read 2026-11-02) holds 2,479 `f`
+    and 14 `o` of source 223 on the relative humidity; the rows here are made up from the table. Soft flags every
+    verdict; hard nulls `3` and `o`, and still only flags `f`, the milder level.
+    """
+    from tests.provider.value_stubs import ghcnh_psv, serve  # noqa: PLC0415
+    from wetterdienst.provider.noaa.ghcn import api  # noqa: PLC0415
+
+    stations = (
+        b"GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n"
+        b"ACM00078861,17.1167,-61.7833,10.0,,COOLIDGE FIELD ANTIGUA,,,78861,,AG\n"
+    )
+    settings = Settings(cache_disable=True)
+    metadata = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=settings).metadata
+    columns = [parameter.name_original for parameter in metadata["hourly"]["data"]]
+    elements = {
+        "humidity_relative": "relative_humidity",
+        "temperature_wet_2m": "wet_bulb_temperature",
+        "wind_speed": "wind_speed",
+        "temperature_air_2m": "temperature",
+    }
+    # (quality code, source code) of the four elements of each hour of 1988-01-27, and the elements that are judged
+    hours = [
+        (("3", "345"), {"humidity_relative": "erroneous", "wind_speed": "erroneous"}),  # source 345: Error
+        (("1", "345"), {}),  # Issue (field-length overflow): a fault of the record, no verdict
+        (("3", "313"), dict.fromkeys(elements, "erroneous")),  # the list of 313 is read for every element
+        (("o", "223"), {"humidity_relative": "erroneous"}),  # out of range: the relative humidity only
+        (("f", "223"), {"humidity_relative": "suspect", "temperature_wet_2m": "suspect"}),
+        (("f", "345"), {}),  # source 345 does not derive a humidity
+        (("o", "999"), {}),  # a source the table does not list
+        (("c", "223"), {}),  # a letter of the integration, no verdict
+    ]
+    rows = [
+        (
+            f"1988-01-27T{hour:02d}:00:00",
+            {
+                key: value
+                for column in elements.values()
+                for key, value in (
+                    (column, f"{20 + hour / 10:.1f}"),
+                    (f"{column}_Quality_Code", quality),
+                    (f"{column}_Source_Code", source),
+                )
+            },
+        )
+        for hour, ((quality, source), _) in enumerate(hours)
+    ]
+    serve(
+        monkeypatch,
+        api,
+        {"ghcnh-station-list": stations, "GHCNh_ACM00078861": ghcnh_psv("ACM00078861", columns, rows)},
+    )
+    request = NoaaGhcnRequest(
+        parameters=[("hourly", "data", name) for name in elements],
+        start=dt.datetime(1988, 1, 27, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(1988, 1, 28, tzinfo=ZoneInfo("UTC")),
+        settings=settings,
+        options=Options(drop_nulls=False, plausibility={"source": mode}),
+    ).filter_by_station_id("ACM00078861")
+    df = request.values().all().df
+    got = {
+        (row["parameter"], row["timestamp"].hour): (row["value"], row["quality_flags"])
+        for row in df.iter_rows(named=True)
+    }
+    for hour, ((quality, source), judged) in enumerate(hours):
+        for name in elements:
+            value, flags = got[name, hour]
+            plain = f"{quality},source:{source}"
+            level = judged.get(name)
+            if level is None:
+                assert flags == plain, (name, hour, flags)
+                assert value is not None
+            elif mode == "soft" or level == "suspect":
+                assert flags == f"{plain},suspect:source", (name, hour, flags)
+                assert value is not None
+            else:
+                assert flags.startswith(f"{plain},rejected:source,raw:"), (name, hour, flags)
+                assert value is None
+
+
 def test_api_hourly_measurement_and_source_codes_follow_the_quality_code(monkeypatch: pytest.MonkeyPatch) -> None:
     """The measurement and source codes are the tokens `measurement:` and `source:` after the quality code (GH-2925).
 

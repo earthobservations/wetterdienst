@@ -43,6 +43,27 @@ different aspect of the observation's quality (see the
 [MIDAS QC flag documentation](https://dap.ceda.ac.uk/badc/ukmo-midas/metadata/doc/QC_J_flags.html)),
 so a larger number is not "worse".
 
+## The source's own verdict (`source`)
+
+The `quality_flags` of a value is its `MESQL`, "a five digit number (of the form MESQL), where each digit describes one
+aspect of the quality of a meteorological element" ([MIDAS QC flags](https://dap.ceda.ac.uk/badc/ukmo-midas/metadata/doc/QC_J_flags.html),
+read 2026-11-02). The check `source` reads one digit, the third from the right, the status `S`
+(`qc_status`, "Indicates 1 of up to 8 possible descriptions of the value of the element (e.g. reason for suspecting a
+value)"): `1` "Observed and suspect (i.e. has failed the latest QC check), or there are strong grounds for suspecting the
+accuracy of the observation", against `0` "Observed and not suspect". The file writes the number without leading zeros
+(`2176` is `02176`), so a flag of fewer than three digits has no status and is not read. The other digits are not
+read: the marker, the estimate (`E`) and the level (`L`) say nothing of a failed value; the other statuses are
+estimates, "A correction (a reported value is assumed to be in error)" (the value returned is the corrected one),
+"Value reverted to original" and "Original value verified by observer"; and the query (`Q`, `Failed climate QC range
+check`, ...) "gives information about the original (as reported) value", which a correction may have replaced.
+
+The mapping is made from the documentation and the fixtures of the tests alone: the live data of the archive needs a
+CEDA login, which was not used, so how often a status of `1` occurs in the files is not known.
+
+With `plausibility={"source": "hard"}` the value is null and the token is `rejected:source,raw:<text>`; the default is
+`soft`, which keeps the value and writes `suspect:source`, so interpolation, summaries and climate stripes leave it
+out. See [the check `source`](../../../plausibility.md#the-sources-own-verdict-source).
+
 ## License
 
 MIDAS Open is © Crown Copyright, Met Office, published under the

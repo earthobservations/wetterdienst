@@ -128,19 +128,25 @@ lists it. The codes read are the ones it words as a verdict. `Suspect` is the mi
 | 313, 314, 315, 322, 335, 343, 344, 346 ("Legacy Codes for Sources 313, 314, 315, 322, 335, 343, 344, 346 include") | suspect level: `2` "Suspect"; `6` "Suspect, data originate from an NCEI data source"; erroneous level: `3` "Erroneous"; `7` "Erroneous, data originate from an NCEI data source" |
 | 220, 221, 222, 223, 347, 348 ("Legacy Codes for Sources: 220, 221, 222, 223, 347, 348 include") | suspect level: `2` "Suspect"; erroneous level: `3` "Erroneous" |
 | 382 ("Legacy Codes for Source 382 for precipitation (as given in C-HPD documentation)") | suspect level: `R` "Indicates data values are suspect with regard to the times or period of occurrence"; erroneous level: `X` "failed global extreme exceedance check"; `N` "failed negative precipitation check"; `Y` "failed state extreme exceedance check (performed on daily totals)"; `K` "failed streak/frequent-value check"; `G` "failed gap check"; `O` "failed climatological outlier check"; `Z` "flagged as a result of an official Datzilla investigation"; `Q` "Indicates value failed an extreme value test (value will be present)" |
+| 345 ("Legacy Codes for Source 345 (for relative humidity and wind speed only)"), for `humidity_relative` and `wind_speed` only | erroneous level: `3` "Error (erroneous data)" |
+| 220, 221, 222, 223, 313, 314, 315, 322, 335, 343, 344, 346, 347, 348 ("For these sources, relative humidity and wet-bulb temperature are not directly measured, but rather derived from other measured variables. These can have the following QC flags"), for `humidity_relative` only | suspect level: `f` "Suspect or Error flags for 1 or more of the input measurements"; erroneous level: `o` "Out of range (relative humidity only - with values < 1 or > 100)" |
+| the same sources, for `temperature_wet_2m` only | suspect level: `f` "Suspect or Error flags for 1 or more of the input measurements" |
 
-Not read: the `0`, `1`, `4`, `5` and `9` of those lists (not checked, good, calculated, removed, passed), the list of source 345
-(`3` "Error (erroneous data)", for relative humidity and wind speed only, which the map cannot scope by parameter yet), the letters of the integration's own checks (`c` climatological outlier, `s` spike,
-`l` failed logistical consistency, ... of Table 3: they name the check of the dataset's own processing), the `o` ("Out of
-range") and `f` ("Suspect or Error flags for 1 or more of the input measurements") of a relative humidity or wet bulb
-temperature the legacy sources derive (worded as verdicts, but the same letters are the integration's "Odd cluster" and
-"Frequent value" on six elements, and the map does not scope a code by parameter yet,
-[GH-3745](https://github.com/earthobservations/wetterdienst/issues/3745)), the letters `A`, `P`, `U`, `I`, `M`, `R` of the
-legacy lists that say a value was accepted, replaced, inserted or edited, and `D`, `M` and `A` of source 382 (deleted,
-missing, an accumulation).
+The letters `o` and `f` of the derived humidity occur: the file of station `USW00014755`
+(`GHCNh_USW00014755_por.psv`, read 2026-11-02) has 2,479 `f` and 14 `o` of source 223 on `relative_humidity`. They are read
+for those two parameters alone, as the same letters are the integration's own "Odd cluster" and "Frequent value" on the
+temperature, the dew point, both pressures, the wind direction and the wind speed (a check of the dataset's own
+processing, not read).
+
+Not read: the `0`, `1`, `4`, `5` and `9` of those lists (not checked, good, calculated, removed, passed), the `1` of source
+345 ("Issue (field-length overflow)", a fault of the record, no verdict on the value) and its `0` "Good", the letters of the
+integration's own checks (`c` climatological outlier, `s` spike, `l` failed logistical consistency, ... of Table 3: they
+name the check of the dataset's own processing, and `o` and `f` on the six elements it checks), the letters `A`, `P`,
+`U`, `I`, `M`, `R` of the legacy lists that say a value was accepted, replaced, inserted or edited, and `D`, `M` and `A`
+of source 382 (deleted, missing, an accumulation).
 
 With `plausibility={"source": "hard"}` the value is null and the token is `rejected:source,raw:<text>`, except
-for the milder level (`Suspect`, and `R` of source 382), which stays `suspect:source`; the default is `soft`, which keeps the value and writes
+for the milder level (`Suspect`, `R` of source 382 and `f` of a derived humidity), which stays `suspect:source`; the default is `soft`, which keeps the value and writes
 `suspect:source` for both, so interpolation, summaries, climate stripes and `skip_empty` leave it out. See [the check `source`](../../../plausibility.md#the-sources-own-verdict-source).
 
 ## License
