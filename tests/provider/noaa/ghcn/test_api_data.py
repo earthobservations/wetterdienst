@@ -609,10 +609,10 @@ def test_api_hourly_quality_code_of_a_verdict_is_judged_by_the_check_source_in_t
     223, 347, 348 include 0 Not Checked, 1 Good, 2 Suspect, 3 Erroneous, 4 Calculated, 5 Removed". The code is read in
     the list of the source of the element (`source:`), so the same code of a source the table does not list (345 has
     a list for relative humidity and wind speed only, which is not read) is no verdict where the source is another or
-    there is none, and only the letters of the list of 382 count. The first row is the file's own
-    (GHCNh_ACM00078861_por.psv, read
-    2026-11-02): 1988-01-27 11:00 reads a temperature of 50.0 with code 2 and source 220, in the tropics; the other
-    rows are made up from the lists above.
+    there is none, and only the letters of the list of 382 count. The first row has the value,
+    the code and the source of the file's own 11:00 row (GHCNh_ACM00078861_por.psv, read 2026-11-02, 1988-01-27: a
+    temperature of 50.0 with code 2 and source 220, in the tropics), stamped 00:00 here; the other rows are made up
+    from the lists above.
     """
     from tests.provider.value_stubs import ghcnh_psv, serve  # noqa: PLC0415
     from wetterdienst.provider.noaa.ghcn import api  # noqa: PLC0415

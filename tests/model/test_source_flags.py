@@ -144,10 +144,10 @@ def test_the_suspect_level_joins_the_other_checks_under_the_name_source() -> Non
 
 
 def test_a_forecast_flags_both_levels_in_hard_mode_too() -> None:
-    """A forecast is soft whatever is set: the worse level is flagged, not nulled."""
-    out = judge(_frame(["2"], [20.0]), _plan(TWO_LEVELS, forecast=True), Plausibility(source="hard"))
-    assert out["quality_flags"].to_list() == ["2,suspect:source"]
-    assert out["value"].to_list() == [20.0]
+    """A forecast is soft whatever is set: the worse level is flagged, not nulled, and so is the milder one."""
+    out = judge(_frame(["1", "2"], [10.0, 20.0]), _plan(TWO_LEVELS, forecast=True), Plausibility(source="hard"))
+    assert out["quality_flags"].to_list() == ["1,suspect:source", "2,suspect:source"]
+    assert out["value"].to_list() == [10.0, 20.0]
 
 
 def test_the_levels_of_the_map_are_those_the_documentation_words() -> None:
