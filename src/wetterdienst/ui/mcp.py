@@ -13,6 +13,8 @@ LLM agents -- which otherwise guess parameters and thrash -- this module adds:
 - a ``title`` and the annotations (read-only, not destructive, idempotent, open world or not) on every
   tool, which the Claude connectors directory requires and clients use to skip a confirmation (GH-3482),
 - the refusal of an argument a tool does not take, which FastMCP would drop,
+- an argument that is an object (``unit_targets``, ``limits``, the station distances) sent to the endpoint as the
+  JSON text it reads, where FastMCP would send it as one query parameter for each of its keys (GH-3737),
 - an answer in a format that is not JSON (csv, ndjson, html, svg, and the png, jpg, webp and pdf of a chart) as
   content of the tool result: FastMCP answers a text body without structured content, which the output schema of
   the tool refuses, and fails on a binary one (GH-3464),
@@ -330,6 +332,51 @@ def _refuse_unknown_arguments(provider: OpenAPIProvider) -> Middleware:
     return RefuseUnknownArguments()
 
 
+def _object_arguments(schema: dict[str, Any]) -> set[str]:
+    """Name the arguments of a tool whose schema says they are an object, whether or not they may also be null."""
+    return {
+        name
+        for name, argument in schema.get("properties", {}).items()
+        if any(option.get("type") == "object" for option in [argument, *argument.get("anyOf", [])])
+    }
+
+
+def _send_objects_as_json(provider: OpenAPIProvider) -> Middleware:
+    """Build the middleware that sends an argument that is an object to the endpoint as its JSON text.
+
+    The endpoint takes a mapping (`unit_targets`, `limits`, the station distances) as one query parameter holding
+    its JSON, and the tool advertises it as an object, which tells a model its shape. FastMCP sends an object as the
+    OpenAPI default says, one query parameter for each key (`?temperature=degree_fahrenheit`), which the endpoint
+    refuses as parameters it does not take, a 422 (GH-3737). The object is made its JSON text before the call. The
+    arguments that are objects are the ones the schema of the tool says so of, so that a mapping a later endpoint
+    takes is covered; a JSON text given as the argument is left as it is.
+    """
+    from fastmcp.server.middleware import Middleware  # noqa: PLC0415
+
+    class SendObjectsAsJson(Middleware):
+        async def on_call_tool(
+            self,
+            context: MiddlewareContext[Any],
+            call_next: CallNext[Any, ToolResult],
+        ) -> ToolResult:
+            arguments = context.message.arguments or {}
+            # a call without arguments has none to send, and one to no tool is FastMCP's to refuse
+            tool = await provider.get_tool(context.message.name) if arguments else None
+            if tool is not None:
+                objects = _object_arguments(tool.parameters)
+                sent = {
+                    name: json.dumps(value)
+                    for name, value in arguments.items()
+                    if name in objects and isinstance(value, dict)
+                }
+                if sent:
+                    message = context.message.model_copy(update={"arguments": {**arguments, **sent}})
+                    context = context.copy(message=message)
+            return await call_next(context)
+
+    return SendObjectsAsJson()
+
+
 # The key of the JSON that carries an answer which is not JSON from the REST app to the tool result.
 _BODY_KEY = "x-wetterdienst-body"
 # The headers of the REST answer that say whose data it is and what to know about it: for the formats with no body to
@@ -547,5 +594,9 @@ def build_mcp_server(rest_app: FastAPI) -> FastMCP:
         instructions=INSTRUCTIONS,
         providers=[provider],
         lifespan=lifespan,
-        middleware=[_refuse_unknown_arguments(provider), _return_bodies_as_content(provider)],
+        middleware=[
+            _refuse_unknown_arguments(provider),
+            _send_objects_as_json(provider),
+            _return_bodies_as_content(provider),
+        ],
     )
