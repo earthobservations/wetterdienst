@@ -63,6 +63,21 @@ test.describe('the wide header', () => {
     await expect(trigger).toHaveAttribute('aria-expanded', 'false')
   })
 
+  test('leaves the reference to its own Escape where a dialog of the search is open over it', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/')
+    const trigger = page.getByRole('button', { name: en.shell.reference, exact: true })
+    await trigger.click()
+    const box = await page.locator(`[id="${await trigger.getAttribute('aria-controls')}"]`).boundingBox()
+    await page.mouse.click(box!.x + 4, box!.y + box!.height / 2)
+    await page.keyboard.press('Control+k')
+    const dialog = page.getByRole('dialog', { name: en.shell.search })
+    await expect(dialog).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeHidden()
+    // one Escape closed one layer
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+  })
+
   test('closes the reference on the link of the page that is shown', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/glossary')
     const trigger = page.getByRole('button', { name: en.shell.reference, exact: true })

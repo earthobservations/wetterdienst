@@ -23,7 +23,10 @@ onClickOutside(root, () => {
 // Escape is heard on the whole document while the panel is open: a click on its padding leaves the focus on the
 // body, where a listener of the panel itself would not hear it
 useEventListener(document, 'keydown', (event: KeyboardEvent) => {
-  if (event.key === 'Escape' && open.value) {
+  // not where the focus is in another layer (a dialog the search opened over the panel): its Escape is its own
+  const active = document.activeElement
+  const elsewhere = active && active !== document.body && !root.value?.contains(active)
+  if (event.key === 'Escape' && open.value && !elsewhere) {
     open.value = false
     trigger.value?.focus()
   }
