@@ -116,9 +116,10 @@ Three contracts are held by snapshots, so that a change to one is a diff in the 
 | the `--help` of every command | `tests/ui/cli/help.snapshot.txt` | `uv run poe cli:snapshot` |
 | the public surface of the Python API | `tests/public_surface.snapshot.json` | `uv run poe surface:snapshot` |
 
-`uv run poe contracts:snapshot` does all three. A snapshot shows a change; it does not refuse one. So each contract
-is also checked against what the **last release** offered: a baseline is that surface as released, a test fails when
-the code no longer offers something the baseline does, and additions always pass.
+`uv run poe contracts:snapshot` does all three. The OpenAPI snapshot leaves out `info.version`, so the first
+regeneration after a release does not rewrite that line. A snapshot shows a change; it does not refuse one. So each
+contract is also checked against what the **last release** offered: a baseline is that surface as released, a test
+fails when the code no longer offers something the baseline does, and additions always pass.
 
 | Baseline | File | What must still be offered |
 | --- | --- | --- |

@@ -77,7 +77,7 @@ def _datasets(network: str) -> list:
         ("pressure_air_site", "hourly", (300.0, 1100.0)),
         ("pressure_vapor_mean", "daily", (0.0, 60.0)),
         # a deficit is no pressure of the air: its upper end is the saturation at 60 °C, ~199 hPa; the lower end leaves
-        # DMI's slightly negative days (-0.3 kPa at 06193 on 2025-07-25)
+        # DMI's slightly negative hours and days (-0.3 kPa at 06193 at 06:00 UTC on 2025-07-25)
         ("vapor_pressure_deficit_mean", "hourly", (-10.0, 200.0)),
         ("temperature_dew_point_2m", "hourly", (-100.0, 60.0)),
         ("radiation_global_intensity_mean", "hourly", (0.0, 2000.0)),
@@ -214,7 +214,7 @@ def test_a_bound_is_not_a_record() -> None:
     for name, resolution, value in records:
         low, high = bounds_for(name, resolution)
         assert low <= value <= high, (name, resolution, value)
-    # Shangdi (Inner Mongolia, 1975-08-01): 401 mm in 60 minutes, not in the WMO table, and the one exceedance
+    # Shangdi (Inner Mongolia, 1975-07-03): 401 mm in 60 minutes, not in the WMO table, and the one exceedance
     assert bounds_for("precipitation_amount", "hourly").high < 401.0
 
 
@@ -327,7 +327,7 @@ def test_a_station_without_an_elevation_is_not_judged() -> None:
 
 
 def test_an_elevation_of_zero_is_none_where_the_list_writes_it_for_an_unknown_one() -> None:
-    """GHCN hourly lists CHM00052940 (4,329 m) at 0.0 and it reads 500.2 hPa: no elevation, so no judgement."""
+    """GHCN hourly lists CHM00052940 (a DEM puts it near 4,300 m) at 0.0 and it reads 500.2 hPa: no judgement."""
     dataset = next(d for d in _datasets("noaa/ghcn") if d.resolution.name == "hourly")
     plan = plan_for("noaa/ghcn", dataset)
     name = next(original for original, c in plan.parameters.items() if c.name == "pressure_air_site")
@@ -340,7 +340,7 @@ def test_an_elevation_of_zero_is_none_where_the_list_writes_it_for_an_unknown_on
         None,
         None,
     ]
-    # the same list at 4,329 m would hold the 500.2 and a station at 5 m would not: only the zero is set aside
+    # a station with a known elevation, 5 m, is judged: only the zero is set aside
     assert judged(df, network="noaa/ghcn", dataset=dataset, elevation=5.0).get_column("quality_flags").to_list()[0] == (
         "rejected:elevation,raw:500.2"
     )

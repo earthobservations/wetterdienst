@@ -344,7 +344,7 @@ def test_meteofrance_synop_api_a_reading_no_sensor_produced_is_null_with_its_tex
     The rows are those of the files of 1996 to 2005 (`pres` 11170 Pa at LA DESIRADE, `t` 369.15 K at 07117, `td` 358.95
     K at 61997, `rr1` 800 mm at 61976), moved to 07005 and to 2024. The first row is the edge of every bound of the
     table of ranges (GH-3681), which stays: 30,000 and 85,000 Pa, 183.15 K, 173.15 K for the dew point, 350 mm in an
-    hour, 1,150 mm in 3 hours, 1,850 mm in 24 hours; the second the other edge: 110,000 Pa, 333.15 K, 1,850 mm. The
+    hour, 1,150 mm in 3 hours; the second the other edge: 110,000 Pa, 333.15 K, 1,850 mm. The
     trace of -0.1 is still 0.0, and a rr6 of 805 mm and a rr24 of 999.4 mm are inside the records.
     """
     rows = [
@@ -539,7 +539,7 @@ def test_meteofrance_synop_api_a_temperature_below_zero_is_null_where_there_is_n
 @pytest.mark.parametrize(
     ("elevation", "pressures", "values", "flags"),
     [
-        # LE RAIZET-like, 11 m: 1011.9 hPa expected, 868.8 to 1086.9 allowed (GH-3681)
+        # LE RAIZET-like, 11 m: 1011.9 hPa expected, 868.9 to 1086.9 allowed (GH-3681)
         (
             11.0,
             ["101500", "41450", "95500", "86000", "107000", "108800"],

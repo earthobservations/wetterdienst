@@ -71,6 +71,7 @@ from wetterdienst.settings import Settings
 from wetterdienst.util.datetime import newest, parse_date_window
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.extras import import_optional
+from wetterdienst.util.geo import require_location_in_range
 from wetterdienst.util.logging import get_one_line_logger
 from wetterdienst.util.names import match_names
 from wetterdienst.util.python import to_list
@@ -1095,13 +1096,16 @@ class TimeseriesRequest:
         too little of it, as ``skip_threshold`` and ``skip_criteria`` define.
 
         Args:
-            latlon: Latitude and longitude for the requested point.
+            latlon: Latitude and longitude for the requested point, within -90..90 and -180..180 degrees.
             rank: Number of stations requested.
             df_all: This request's own ``all().df``, for a caller that has it already; built here
                 where left out.
 
         Returns:
             StationsResult: Stations sorted by distance (see note above on ``rank``).
+
+        Raises:
+            LocationOutOfRangeError: Where the latitude or the longitude is outside that range, or is NaN.
 
         """
         from wetterdienst.util.geo import derive_nearest_neighbours  # noqa: PLC0415
@@ -1110,8 +1114,10 @@ class TimeseriesRequest:
         if rank <= 0:
             msg = "'rank' has to be at least 1."
             raise ValueError(msg)
-        # setup spatial parameters
-        q_lat, q_lon = latlon
+        # setup spatial parameters; a point off the globe is refused before the station list is built, as
+        # `summarize` does, and not ranked by the distances its wrapped coordinates have (GH-3717)
+        q_lat, q_lon = float(latlon[0]), float(latlon[1])
+        require_location_in_range(q_lat, q_lon)
         if df_all is None:
             df_all = self.all().df
         latitudes = df_all.get_column("latitude").to_arrow()
@@ -1149,7 +1155,7 @@ class TimeseriesRequest:
         """Filter stations by distance.
 
         Args:
-            latlon: Latitude and longitude for the requested point.
+            latlon: Latitude and longitude for the requested point, within -90..90 and -180..180 degrees.
             distance: Maximum distance to the requested point.
             unit: Unit of the distance.
             df_all: This request's own ``all().df``, for a caller that has it already; built here
@@ -1157,6 +1163,9 @@ class TimeseriesRequest:
 
         Returns:
             StationsResult: Filtered stations.
+
+        Raises:
+            LocationOutOfRangeError: Where the latitude or the longitude is outside that range, or is NaN.
 
         """
         distance = float(distance)
@@ -1375,7 +1384,8 @@ class TimeseriesRequest:
         Summarize means we take any available data of the closest station as representative for the timestamp.
 
         Args:
-            latlon: Latitude and longitude for the requested point.
+            latlon: Latitude and longitude for the requested point, within -90..90 and -180..180 degrees as on
+                the REST API; the poles are allowed, since the nearest station is picked with no projection.
             elevation: Elevation of the requested point in metres above sea level. Given, a reading of a quantity that
                 falls with height is brought from the station's altitude to this one -- which
                 matters more here than in an interpolation, one station's reading standing for the
@@ -1385,6 +1395,7 @@ class TimeseriesRequest:
             SummarizedValuesResult: Summarized values.
 
         Raises:
+            LocationOutOfRangeError: Where the latitude or the longitude is outside that range, or is NaN.
             NoStationsWithElevationError: Where an elevation is asked about and leaving out the
                 stations whose elevation the provider does not report leaves nothing that can answer
                 it. A few providers report no elevation for any station.
@@ -1408,6 +1419,8 @@ class TimeseriesRequest:
         """
         from wetterdienst.core.summarize import get_summarized_df  # noqa: PLC0415
 
+        lat, lon = float(latlon[0]), float(latlon[1])
+        require_location_in_range(lat, lon)
         _require_finite_elevation(elevation)
 
         if not self.start:
@@ -1423,12 +1436,6 @@ class TimeseriesRequest:
         ):
             log.warning("Summary might be slow for high resolutions due to mass of data")
 
-        lat, lon = latlon
-        lat, lon = float(lat), float(lon)
-        # `interpolate` has a point UTM cannot place refused; here a NaN found no station and answered no rows
-        if not (math.isfinite(lat) and math.isfinite(lon)):
-            msg = f"latitude and longitude must be finite numbers, got {lat} and {lon}"
-            raise LocationOutOfRangeError(msg)
         if df_all is None:
             df_all = self.all().df
         data_updated: dict[str, dt.datetime] = {}
@@ -1484,7 +1491,7 @@ class TimeseriesRequest:
                 here, so the reading as it came is asked for by coordinates: pass the station's
                 own to `summarize`.
             LocationOutOfRangeError: Where the station has no position, as `interpolate_by_station_id`
-                says.
+                says, or one outside -90..90 and -180..180 degrees, as `summarize` says.
 
         """
         _require_finite_elevation(elevation)

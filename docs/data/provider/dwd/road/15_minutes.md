@@ -241,10 +241,11 @@ number DWD wrote as the last token of `quality_flags`, `rejected:range,raw:131` 
 0.163.0 it was returned as published and marked `1`. The ranges are those every provider is held to (GH-3681: a humidity
 to 100 %, a wind speed to 115 m/s, a visibility to 200 km, a direction to 360 degrees, a water film to
 at least 0, the rain of 15 minutes to 350 mm, the air and the dew point to -90 and -100 °C at the cold end and 60 °C
-at the warm one, a road surface to -90 and 100 °C), in DWD's own units; the surface condition and the
-precipitation type are codes, held to none. The network keeps one bound of its own, a humidity below 1 % (below). Up to 0.180.0 the temperatures were
-held to **-60 °C** at the cold end, which nulled the `-75.00` of the exact round values above, and only that one; the
-range is the world's now (-90 °C), and the `-75.00` is mapped by the reader.
+at the warm one, a road surface to -90 and 100 °C; the `raw:` number is DWD's own); the surface condition and the
+precipitation type are codes, held to none. The network keeps one bound of its own, a humidity below 1 % (below). Up to 0.181.0 the network was held to bounds of
+its own, the temperatures among them to **-60 °C** at the cold end, which nulled the `-75.00` of the exact round values
+above, and only that one ([what changed](../../../../usage/migrating.md)); the range is the world's now (-90 °C, -100 °C for the dew point), and the
+`-75.00` is mapped by the reader.
 
 Germany's record low air temperature is -45.9 °C, at a sinkhole that traps cold, and a road surface
 tracks the air rather than running far beneath it. The stopped sensors of KM write `-75.00` °C to the

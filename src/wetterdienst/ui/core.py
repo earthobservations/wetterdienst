@@ -53,6 +53,7 @@ from wetterdienst.options import Options, SkipThreshold, StationWindowEndBuffer,
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.util.datetime import format_timestamp, parse_date_window
 from wetterdienst.util.extras import import_optional
+from wetterdienst.util.geo import LATITUDE_MAX, LATITUDE_MIN, LONGITUDE_MAX, LONGITUDE_MIN
 from wetterdienst.util.logging import get_one_line_logger
 from wetterdienst.util.ui import read_list
 
@@ -144,11 +145,19 @@ _NameThresholdField = Annotated[
 ]
 _LatitudeField = Annotated[
     float | None,
-    Field(ge=-90, le=90, description="Latitude of the reference point for geospatial filtering or interpolation."),
+    Field(
+        ge=LATITUDE_MIN,
+        le=LATITUDE_MAX,
+        description="Latitude of the reference point for geospatial filtering or interpolation.",
+    ),
 ]
 _LongitudeField = Annotated[
     float | None,
-    Field(ge=-180, le=180, description="Longitude of the reference point for geospatial filtering or interpolation."),
+    Field(
+        ge=LONGITUDE_MIN,
+        le=LONGITUDE_MAX,
+        description="Longitude of the reference point for geospatial filtering or interpolation.",
+    ),
 ]
 #: the largest count a request may name (`rank`): more than any network has stations, and far below what a
 #: fixed-width integer holds, which a larger number overflows in the conversion (GH-3101)
@@ -175,10 +184,18 @@ _DistanceField = Annotated[
     float | None,
     Field(ge=0, description="Return stations within this many kilometres of the given latitude/longitude."),
 ]
-_LeftField = Annotated[float | None, Field(ge=-180, le=180, description="Western longitude of the bounding box.")]
-_BottomField = Annotated[float | None, Field(ge=-90, le=90, description="Southern latitude of the bounding box.")]
-_RightField = Annotated[float | None, Field(ge=-180, le=180, description="Eastern longitude of the bounding box.")]
-_TopField = Annotated[float | None, Field(ge=-90, le=90, description="Northern latitude of the bounding box.")]
+_LeftField = Annotated[
+    float | None, Field(ge=LONGITUDE_MIN, le=LONGITUDE_MAX, description="Western longitude of the bounding box.")
+]
+_BottomField = Annotated[
+    float | None, Field(ge=LATITUDE_MIN, le=LATITUDE_MAX, description="Southern latitude of the bounding box.")
+]
+_RightField = Annotated[
+    float | None, Field(ge=LONGITUDE_MIN, le=LONGITUDE_MAX, description="Eastern longitude of the bounding box.")
+]
+_TopField = Annotated[
+    float | None, Field(ge=LATITUDE_MIN, le=LATITUDE_MAX, description="Northern latitude of the bounding box.")
+]
 _SqlField = Annotated[
     str | None,
     Field(

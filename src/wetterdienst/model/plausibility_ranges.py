@@ -61,7 +61,7 @@ The sources, by quantity:
   so 1,150, which also holds the 2 to 12 hours in it; 1,825 mm in 24 hours (Foc-Foc), so 1,850; 2,493, 3,930 and 4,936
   mm in 48, 72 and 96 hours, so 2,500, 4,000 and 5,000; 26,470 mm in 12 months (Cherrapunji, 1860/61), so 30,000 a
   year. A month is 10,000 mm (N): 9,300 mm fell in July 1861 at Cherrapunji (Bureau of Meteorology, "World's record
-  rainfall", secondary). The one documented exceedance is Shangdi (Inner Mongolia, 1975-08-01): 401 mm in 60 minutes,
+  rainfall", secondary). The one documented exceedance is Shangdi (Inner Mongolia, 1975-07-03): 401 mm in 60 minutes,
   which is in the lists of the Bureau of Meteorology and the NWS but not in the WMO table. A rain intensity is 31.2 mm
   in a minute, 1,872 mm/h, so 2,000 (W).
 - Snow depth -10 to 1,200 cm (N): the ISD field runs to 1,200 cm and Durre et al. (2010) hold 1,146 cm (Tamarack CA);
@@ -79,9 +79,9 @@ The sources, by quantity:
   times the solar constant (1,361 W/m²) times the cosine of the zenith angle to the 1.2 plus 100 W/m², 2,141 at the
   zenith; the lower bound is 0 as the definition says. A sum of short-wave radiation is at most the solar constant
   times the span in 10 minutes and an hour (D): 100 J/cm² (82 by that) and 500 (490); a day is 6,000 J/cm², 60 MJ/m²
-  (the top of the atmosphere at 82 degrees north in midsummer is 48), and a month and a year are that times their
-  days, 186,000 and 2,200,000 (the sunniest places receive about 900,000 J/cm² in a year); the long-wave radiation
-  from the sky is at least 0.
+  (the top of the atmosphere at 82 degrees north in midsummer is about 45), and a month and a year are that times
+  their days, 186,000 and 2,200,000 (the sunniest places receive about 900,000 J/cm² in a year); the long-wave
+  radiation from the sky is at least 0.
 - Degree days: the heating of a day is at most the 25 °C base plus the air record (D), 115, a month 3,600, a year
   42,100; the cooling of a day is the air bound (60 °C) less a base of 15 °C, 45, rounded up to 50 (D), a month 1,600,
   a year 18,300. A degree hour, a volume, a conductivity, a turbidity and a dissolved substance are at least 0 (D).
@@ -123,7 +123,7 @@ Range = Bounds | Mapping[str, Bounds] | None
 _INF = math.inf
 _DAY = 86_400.0
 #: the hours a reading of each resolution stands for, for the quantities that grow with the span; a subdaily value is
-#: the bucket of the 3-hourly readings of DWD and the SYNOP of Météo-France
+#: the bucket of the 3-hourly SYNOP of Météo-France
 SPAN_HOURS: dict[str, float] = {
     "1_minute": 1 / 60,
     "5_minutes": 5 / 60,
@@ -336,8 +336,8 @@ PREFIX_RANGES: tuple[tuple[str, Range], ...] = (
 )
 
 #: a sum of short-wave radiation is at most the solar constant (1,361 W/m²) times the span, rounded outward, in 10
-#: minutes and an hour; a day is 60 MJ/m² at most (the top of the atmosphere at 82 degrees north in midsummer is 48),
-#: and a month and a year are that times their days
+#: minutes and an hour; a day is 60 MJ/m² at most (the top of the atmosphere at 82 degrees north in midsummer is about
+#: 45), and a month and a year are that times their days
 _ENERGY_BY_SPAN: dict[str, Bounds] = {
     "*": _NON_NEGATIVE,
     "10_minutes": Bounds(0.0, 100.0),

@@ -748,7 +748,7 @@ def test_collect_reads_minus_0_1_of_no_precipitation_amount_as_a_trace() -> None
         ("daily", 183.5, 1978.0),
         ("monthly", 641.8, 17802.0),
         ("annual", 3291.3, 30001.0),
-        # the same number is a reading of a longer span: 989 mm is a day of rain, 9,574.3 mm a year of it
+        # the same numbers are readings of longer spans: 989 mm is a month of rain, 9,574.3 mm a year of it
         ("monthly", 989.0, 17802.0),
         ("annual", 9574.3, 31000.0),
     ],
@@ -774,7 +774,7 @@ def test_collect_holds_the_rain_to_the_span_of_the_resolution(
         # the largest amount of a day of a month (04339 2011-10: 1978) and of a year: no more than 1,850 mm, a day
         ("monthly", "max_precip_24h", 183.5, 1978.0),
         ("annual", "max_precip_24h", 183.5, 1978.0),
-        # the largest of 30 minutes of the day can be no more than the 60 minutes on record, 350 mm
+        # the largest of 30 minutes of the day can be no more than the bound of 60 minutes, 350 mm
         ("daily", "max_precip_30m", 40.0, 989.0),
     ],
 )
@@ -812,9 +812,9 @@ def test_collect_leaves_the_rain_that_no_world_range_separates_from_a_validated_
         (3291.3, "manual,validity:true"),
         (9574.3, "manual,validity:false"),
     ]
-    rows = [("acc_precip", "2011-07-25T06:00:00+00:00", 989.0, "manual", False)]
+    rows = [("acc_precip", "2011-07-25T06:00:00+00:00", 989.0, "none", False)]
     assert _collect_station_values("daily", rows).select("value", "quality_flags").rows() == [
-        (989.0, "manual,validity:false")
+        (989.0, "none,validity:false")
     ]
 
 

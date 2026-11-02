@@ -69,8 +69,8 @@ _CHECKS = (
 SUSPECT = QualityKind(
     kind="suspect",
     written="suspect:<check>",
-    meaning="The value is kept, and a plausibility check in the mode `soft` (always, on a forecast network) finds it "
-    "implausible: one of "
+    meaning="The value is kept, and a plausibility check in the mode `soft` (on a forecast network every check but "
+    "`floor` is) finds it implausible: one of "
     + _CHECKS
     + ", several joined with `+` (`suspect:range+stuck`). The checks and their modes are the `plausibility` option "
     "of the request; the default of `stuck` is soft. No `raw` token: the value is the number the source wrote. "

@@ -930,7 +930,7 @@ describe('dataViewer columns', () => {
 
 // the graph view, faceted by parameter where asked, as its toggle and checkbox are clicked
 async function showChart(wrapper: Awaited<ReturnType<typeof mountDataViewer>>['wrapper'], faceted: boolean) {
-  await wrapper.findAll('button').find(button => button.find('[class~="i-lucide:chart-line"]').exists())!.trigger('click')
+  await wrapper.findAll('button').find(button => button.find('[class~="i-ph:chart-line"]').exists())!.trigger('click')
   if (faceted) {
     const label = wrapper.findAll('label').find(label => label.text() === 'Facet by parameter')!
     await wrapper.find(`#${label.attributes('for')}`).trigger('click')
@@ -2001,14 +2001,14 @@ describe('dataViewer chart series apart from the table\'s sort', () => {
     expect(unsorted.map(([name]) => name)).toEqual(faceted ? ['01048', '04411'] : [`01048 - ${airTemperature}`, `04411 - ${airTemperature}`])
     // back to the table, sorted by value descending, the second station's row first: the stations
     // swapped their legend places and colours
-    await wrapper.findAll('button').find(button => button.find('[class~="i-lucide:table"]').exists())!.trigger('click')
+    await wrapper.findAll('button').find(button => button.find('[class~="i-ph:table"]').exists())!.trigger('click')
     const value = () => wrapper.findAll('thead th span').find(span => span.text().replace(/[↕↑↓]/g, '') === 'value')!
     await value().trigger('click')
     await value().trigger('click')
     expect(wrapper.findAll('tbody tr').map(tr => tr.findAll('td')[0]!.text())).toEqual(['04411', '01048'])
     plotly.newPlot.mockClear()
     plotly.react.mockClear()
-    await wrapper.findAll('button').find(button => button.find('[class~="i-lucide:chart-line"]').exists())!.trigger('click')
+    await wrapper.findAll('button').find(button => button.find('[class~="i-ph:chart-line"]').exists())!.trigger('click')
     await flushPromises()
     await vi.waitFor(() => expect(faceted ? plotly.react : plotly.newPlot).toHaveBeenCalled())
     expect(seriesDrawn(faceted)).toEqual(unsorted)

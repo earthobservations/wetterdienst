@@ -22,6 +22,12 @@ importers:
       '@duckdb/duckdb-wasm':
         specifier: 1.33.1-dev57.0
         version: 1.33.1-dev57.0
+      '@fontsource-variable/atkinson-hyperlegible-mono':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@fontsource-variable/atkinson-hyperlegible-next':
+        specifier: ^5.3.0
+        version: 5.3.0
       '@nuxt/icon':
         specifier: ^2.5.1
         version: 2.5.1(@nuxt/schema@4.6.2)(confbox@0.2.4)(dotenv@17.4.2)(giget@3.3.1)(jiti@2.7.0)(magic-string@1.4.3)(oxc-parser@0.141.0)(rolldown@1.2.12)(unplugin@3.4.0(esbuild@0.28.2)(rolldown@1.2.12)(rollup@4.63.6)(vite@8.3.4(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1)))(vite@8.3.4(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))(vue@3.5.44(typescript@5.9.3))
@@ -92,12 +98,9 @@ importers:
       '@axe-core/playwright':
         specifier: ^4.13.0
         version: 4.13.0(playwright-core@1.63.0)
-      '@iconify-json/heroicons':
-        specifier: ^1.2.3
-        version: 1.2.3
-      '@iconify-json/lucide':
-        specifier: ^1.2.144
-        version: 1.2.144
+      '@iconify-json/ph':
+        specifier: ^1.2.2
+        version: 1.2.2
       '@iconify-json/simple-icons':
         specifier: ^1.2.100
         version: 1.2.100
@@ -878,6 +881,12 @@ packages:
   '@floating-ui/vue@1.1.11':
     resolution: {integrity: sha512-HzHKCNVxnGS35r9fCHBc3+uCnjw9IWIlCPL683cGgM9Kgj2BiAl8x1mS7vtvP6F9S/e/q4O6MApwSHj8hNLGfw==}
 
+  '@fontsource-variable/atkinson-hyperlegible-mono@5.3.0':
+    resolution: {integrity: sha512-0IbthhO18EEpLe69h+cmrsxCkl4yk80gMk+fAN3+9M5zQvoR1JlkzoJRR6U9/UXLYpVBGEXu+Md2LO8TIp30dw==}
+
+  '@fontsource-variable/atkinson-hyperlegible-next@5.3.0':
+    resolution: {integrity: sha512-UnLzNUy1RWoLDfydAatP4NaRm99X/WbQEph7q/PymJnCFIOOwKOx3pBmp5ys8trO0dM+CKGuJgeZP9fAR4mQpA==}
+
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
     engines: {node: '>=18.18.0'}
@@ -898,11 +907,8 @@ packages:
     resolution: {integrity: sha512-bV0Tgo9K4hfPCek+aMAn81RppFKv2ySDQeMoSZuvTASywNTnVJCArCZE2FWqpvIatKu7VMRLWlR1EazvVhDyhQ==}
     engines: {node: '>=18.18'}
 
-  '@iconify-json/heroicons@1.2.3':
-    resolution: {integrity: sha512-n+vmCEgTesRsOpp5AB5ILB6srsgsYK+bieoQBNlafvoEhjVXLq8nIGN4B0v/s4DUfa0dOrjwE/cKJgIKdJXOEg==}
-
-  '@iconify-json/lucide@1.2.144':
-    resolution: {integrity: sha512-b1+e91RGPd4lLck6nTXeoQFiu8z/G3pXNl/tbsqfleTSzDdI9hUzKYQSGiA6T86NmaI0FtrCDM9MjMhoCwtTMg==}
+  '@iconify-json/ph@1.2.2':
+    resolution: {integrity: sha512-PgkEZNtqa8hBGjHXQa4pMwZa93hmfu8FUSjs/nv4oUU6yLsgv+gh9nu28Kqi8Fz9CCVu4hj1MZs9/60J57IzFw==}
 
   '@iconify-json/simple-icons@1.2.100':
     resolution: {integrity: sha512-536pN2RCEQyy5bYwzayrs4e9egr8cmtVcbdSHLaQl/ULUsihzn1eZ0+Hhn50zgz9cbEotiynKsKQSEjFJ7qKmw==}
@@ -7493,6 +7499,10 @@ snapshots:
       - '@vue/composition-api'
       - vue
 
+  '@fontsource-variable/atkinson-hyperlegible-mono@5.3.0': {}
+
+  '@fontsource-variable/atkinson-hyperlegible-next@5.3.0': {}
+
   '@humanfs/core@0.19.2':
     dependencies:
       '@humanfs/types': 0.15.0
@@ -7509,11 +7519,7 @@ snapshots:
 
   '@humanwhocodes/retry@0.4.3': {}
 
-  '@iconify-json/heroicons@1.2.3':
-    dependencies:
-      '@iconify/types': 2.0.0
-
-  '@iconify-json/lucide@1.2.144':
+  '@iconify-json/ph@1.2.2':
     dependencies:
       '@iconify/types': 2.0.0
 

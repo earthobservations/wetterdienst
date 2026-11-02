@@ -29,9 +29,9 @@ export type Handler = (url: URL, route: Route) => unknown | Promise<unknown>
 /** The answers by `/api/<path>`, to be replaced one by one where a state needs a different one */
 export type Handlers = Record<string, Handler>
 
-/** What a handler returns to answer with an error instead of a body */
+/** What a handler returns to answer with an error instead of a body; `extra` are the fields of a problem beside `detail` */
 export class ApiFailure {
-  constructor(readonly status: number, readonly detail: string) {}
+  constructor(readonly status: number, readonly detail: string, readonly extra: Record<string, unknown> = {}) {}
 }
 
 const DWD = { name_short: 'DWD', country: 'Germany', auth: false, configured: false, date_required: false }
@@ -137,7 +137,7 @@ const PROVIDER_LIST: ProvidersResponse = {
     api_version: '1',
     schema_version: '1',
     retrieved_at: '2026-10-17T10:00:00.000000+00:00',
-    counts: { providers: 2, networks: 3 },
+    counts: { providers: 2, networks: 3, parameters: 18 },
     warnings: [],
   },
   providers: [
@@ -319,7 +319,11 @@ const HISTORY: HistoryResponse = {
 /** The answers a state starts from: a backend with the DWD observation data and nothing else wrong */
 export function defaultHandlers(now: Date = new Date()): Handlers {
   return {
-    'version': () => ({ version: '0.0.0-accessibility', mcp_enabled: false }),
+    'version': () => ({
+      version: '0.0.0-accessibility',
+      mcp_enabled: false,
+      limits: { max_stations: 100, max_rows: 500_000, max_stream_rows: 10_000_000, timeout: 60, max_concurrent: 32 },
+    }),
     'coverage': (url) => {
       if (!url.searchParams.get('provider'))
         return PROVIDERS
@@ -333,6 +337,10 @@ export function defaultHandlers(now: Date = new Date()): Handlers {
       const all = mosmix ? MOSMIX_STATIONS : STATIONS
       // a list is comma-separated, and the key given more than once is read as the same list
       const wanted = url.searchParams.getAll('stations').flatMap(ids => ids.split(','))
+      // a place by its name: the backend answers its best five matches, here the ones whose name holds the text
+      const name = url.searchParams.get('name')?.toLowerCase()
+      if (name)
+        return { stations: all.filter(station => station.name?.toLowerCase().includes(name)).slice(0, 5) }
       return { stations: wanted.length ? all.filter(station => wanted.includes(station.station_id)) : all }
     },
     'values': url => ({ values: url.searchParams.get('network') === 'mosmix' ? forecastValues(url, now) : observationValues(url) }),
@@ -402,7 +410,7 @@ export async function mockBackend(
         }
         const body = await handler(url, route)
         if (body instanceof ApiFailure)
-          await route.fulfill({ status: body.status, json: { detail: body.detail } })
+          await route.fulfill({ status: body.status, json: { ...body.extra, detail: body.detail } })
         else
           await route.fulfill({ status: 200, json: body })
       }

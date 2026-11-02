@@ -62,6 +62,82 @@
     "kindRoadDesc": "Road surface conditions and temperatures from the DWD road weather stations, and their forecasts.",
     "aboutLink": "About the project and the people behind it"
   },
+  "ask": {
+    "title": "Ask the weather",
+    "lead": "The questions people bring, answered from official measurements and forecasts, with the chart to check the answer.",
+    "placeLabel": "Asking about",
+    "placeChange": "change the place",
+    "placeNotFound": "The place in the link was not found.",
+    "placeDialogTitle": "Choose a place",
+    "placePlaceholder": "The name of a town or weather station …",
+    "placeHint": "Type the name of a town or weather station.",
+    "placeSearching": "Looking for places …",
+    "placeFailed": "Places could not be searched.",
+    "placesGroup": "Weather stations",
+    "questionsLabel": "Questions",
+    "idle": "Pick a question and it is answered here, from live data.",
+    "q": {
+      "rain": "Will it rain in {place} tomorrow?",
+      "summer": "Was last summer hotter than usual here?",
+      "wind": "How windy was it on {day}?",
+      "download": "Where can I download hourly temperatures?"
+    },
+    "from": {
+      "rain": "Forecast, DWD MOSMIX",
+      "summer": "Monthly means, DWD",
+      "wind": "Daily readings, DWD",
+      "download": "All weather services"
+    },
+    "working": "Working out the answer …",
+    "failed": "The answer could not be worked out.",
+    "showValues": "Show the values",
+    "tableWhen": "When",
+    "leadsTo": "Open the data in the tool",
+    "rain": {
+      "yes": "Yes, rain is likely.",
+      "maybe": "Maybe, a little.",
+      "no": "Probably not.",
+      "total": "{amount} mm forecast for the whole day.",
+      "wettest": "Wettest hour: {from}:00 to {to}:00, {amount} mm.",
+      "chance": "Highest chance of rain in any hour: {chance}.",
+      "point": "Forecast for {name}, the forecast point nearest to {place} ({distance} km away).",
+      "pointNoDistance": "Forecast for {name}, the forecast point nearest to {place}.",
+      "chart": "Rain per hour tomorrow, in {unit}",
+      "none": "The forecast for {name} does not reach tomorrow yet.",
+      "open": "Open the full forecast"
+    },
+    "summer": {
+      "hotter": "Yes, {anomaly} °C warmer than usual.",
+      "cooler": "No, {anomaly} °C cooler than usual.",
+      "usual": "Not really: about as warm as usual.",
+      "detail": "Summer {year} (June to August) averaged {mean} °C; the summers from {from} to {to} averaged {normal} °C.",
+      "rank": "Number {rank} of {count} summers since {first}, counted from the warmest.",
+      "chart": "Each summer against the average of {from} to {to}, in {unit}",
+      "none": "There are too few complete summers here to compare.",
+      "open": "Open the monthly means",
+      "stripes": "See the climate stripes"
+    },
+    "wind": {
+      "calm": "Calm.",
+      "breezy": "Breezy.",
+      "windy": "Windy.",
+      "stormy": "Stormy.",
+      "mean": "Mean wind {speed} m/s, Beaufort {force}.",
+      "gust": "Strongest gust {speed} m/s, Beaufort {force}.",
+      "context": "Days around it with stronger gusts: {stronger} of {around}.",
+      "chartGust": "Strongest gust per day, in {unit}",
+      "chartMean": "Mean wind per day, in {unit}",
+      "none": "There are no wind readings here for {day}.",
+      "dayLabel": "Day",
+      "open": "Open these days in the Explorer"
+    },
+    "download": {
+      "answer": "Weather services that publish hourly air temperature: {count}.",
+      "detail": "Each one opens in the Explorer, ready to download as CSV, JSON or GeoJSON.",
+      "none": "No weather service lists hourly air temperature right now.",
+      "api": "Or use the REST API"
+    }
+  },
   "seo": {
     "title": "Wetterdienst – open weather and climate data from national weather services",
     "description": "Open weather and climate data from national weather services, in one format: explorer, forecast, climate stripes, REST API and MCP server. Open source and free.",
@@ -117,6 +193,30 @@
     "api": "API",
     "glossary": "Glossary",
     "support": "Support"
+  },
+  "shell": {
+    "skipToContent": "Skip to content",
+    "mainNav": "Main",
+    "tools": "Tools",
+    "reference": "Reference",
+    "project": "Project",
+    "search": "Search",
+    "searchPlaceholder": "Go to a page, a station, a provider or a setting",
+    "searchEmpty": "Nothing found",
+    "results": "Results",
+    "resultsCount": "{count} result | {count} results",
+    "stations": "Forecast for a station",
+    "stationsHint": "Type three letters or more to find a station",
+    "stationForecast": "Forecast for station {id}",
+    "keysHint": "↑ ↓ to choose, Enter to open, Esc to close",
+    "desc": {
+      "support": "Report a bug, ask for a feature or support the project",
+      "impressum": "Who runs this site, and how to reach them",
+      "privacy": "What a visit records, and why",
+      "docs": "How to use the Python library, the command line and the API",
+      "github": "The code, the issues and the pull requests",
+      "pypi": "Install the Python library with pip"
+    }
   },
   "header": {
     "github": "GitHub",
@@ -653,7 +753,10 @@
     "errStartRequired": "Start date is required",
     "errEndRequired": "End date is required",
     "errEndAfterStart": "End date must be after start date",
-    "errExceedsLimit": "Estimated {count} values exceeds limit of {max}. Please narrow the date range."
+    "errExceedsLimit": "Estimated {count} values exceeds limit of {max}. Please narrow the date range.",
+    "defaultNote": "Default range: the newest data ({span}, about {rows} rows), so that the server can send it at once.",
+    "defaultNoteClear": "Clear the date range to ask for everything.",
+    "clear": "Clear date range"
   },
   "map": {
     "centerAll": "Center on all stations",
@@ -702,7 +805,26 @@
     "statMin": "Min",
     "statMax": "Max",
     "statMean": "Mean",
-    "statSum": "Sum"
+    "statSum": "Sum",
+    "limitRowsTitle": "Too many rows for one answer",
+    "limitRowsBody": "This selection comes to about {requested} rows, more than this server sends as one answer (limit: {maximum}).",
+    "limitStationsTitle": "Too many stations for one request",
+    "limitStationsBody": "You selected more stations than this server reads in one request: {requested} selected, {maximum} allowed.",
+    "limitNarrow": "To see it here, narrow the selection: choose a shorter date range, fewer parameters or fewer stations. You have selected {stations} and {parameters}.",
+    "limitNarrowPoint": "To see it here, narrow the selection: choose a shorter date range or fewer parameters. You have selected {parameters}.",
+    "limitNarrowStations": "Remove stations from the selection and look at the rest in a further step. You have selected {stations}.",
+    "limitApply": "Show only the newest data ({span}, about {rows} rows)",
+    "limitNoWindow": "Not even the shortest date range fits into one answer.",
+    "limitDownload": "Download everything as CSV",
+    "limitDownloadHint": "The CSV is streamed, so it can hold more rows than one answer.",
+    "limitDownloadHintMax": "The CSV is streamed, so it can hold more rows than one answer: up to {maximum}.",
+    "limitStationsCount": "{count} station | {count} stations",
+    "limitParametersCount": "{count} parameter | {count} parameters",
+    "limitUnit": {
+      "days": "{count} day | {count} days",
+      "months": "{count} month | {count} months",
+      "years": "{count} year | {count} years"
+    }
   },
   "query": {
     "enable": "Transform with SQL Query",

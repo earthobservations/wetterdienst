@@ -209,16 +209,17 @@ Frozen:
   `provider.license`, `request`, `counts`, `crs` and `warnings`, and the headers the OpenAPI document declares;
 - the **timestamp**: ISO 8601 in UTC, to the microsecond, with its offset.
 
-`tests/ui/openapi.snapshot.json` is the OpenAPI document as last reviewed (`uv run poe openapi:snapshot` writes it
-anew), so that every change shows in a diff. `tests/ui/openapi.baseline.json` is the document of the last release, and
-`tests/ui/test_openapi_baseline.py` fails when the served document no longer offers something the baseline did: a
-path, a method, an `operationId`, a parameter and its type, an enum member, a status, a media type, a header, a member
-of an answer and its type, or a request that asks for more. Additions pass. A break that is meant is named in
-`ACCEPTED_BREAKS` of `tests/ui/openapi_diff.py` with its reason, together with a **Breaking** changelog entry; the
-baseline is refreshed in each release commit and `ACCEPTED_BREAKS` emptied. From 1.0.0 a break of `/api/v1` is not
-made: it is `/api/v2`, and `/api/v1` is served for at least two minor releases after `/api/v2` appears, announced by
-the `Deprecation` and `Sunset` headers (see [Deprecation](restapi.md#deprecation)). The routes, the problem kinds and
-the statuses they are answered with are also held by `tests/ui/test_api_contract.py` and `tests/ui/test_operations.py`.
+`tests/ui/openapi.snapshot.json` is the OpenAPI document as last reviewed, without its `info.version`
+(`uv run poe openapi:snapshot` writes it anew), so that every change shows in a diff, and a release leaves it as it is.
+`tests/ui/openapi.baseline.json` is the document of the last release, and `tests/ui/test_openapi_baseline.py` fails
+when the served document no longer offers something the baseline did: a path, a method, an `operationId`, a parameter
+and its type, an enum member, a status, a media type, a header, a member of an answer and its type, or a request that
+asks for more. Additions pass. A break that is meant is named in `ACCEPTED_BREAKS` of `tests/ui/openapi_diff.py` with
+its reason, together with a **Breaking** changelog entry; the baseline is refreshed in each release commit and
+`ACCEPTED_BREAKS` emptied. From 1.0.0 a break of `/api/v1` is not made: it is `/api/v2`, and `/api/v1` is served for
+at least two minor releases after `/api/v2` appears, announced by the `Deprecation` and `Sunset` headers (see
+[Deprecation](restapi.md#deprecation)). The routes, the problem kinds and the statuses they are answered with are also
+held by `tests/ui/test_api_contract.py` and `tests/ui/test_operations.py`.
 
 A request is asked more of when a parameter, or a member of a request body, takes less than it did, and by convention
 that is a break: a changed `default` (what an omitted parameter means), a tighter bound (a larger `minimum`,

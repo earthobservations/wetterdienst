@@ -248,7 +248,8 @@ describe('the tokens in main.css', () => {
 // white, and slate-900 (#0f172b, `--ui-bg` of the dark mode, as button-contrast.test.ts has it);
 // tests/e2e/chart-theme.spec.ts holds the drawn charts.
 describe('the colours of the text that names a series', () => {
-  const PAPER = { light: '#ffffff', dark: '#0f172b' }
+  // the paper of a chart is the card it stands on (--ui-bg): white, and the logo's night blue
+  const PAPER = { light: '#ffffff', dark: '#12233f' }
   const luminance = (hex: string) => {
     const [r, g, b] = [1, 3, 5].map(i => Number.parseInt(hex.slice(i, i + 2), 16) / 255).map(c => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
     return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!

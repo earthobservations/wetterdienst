@@ -1059,19 +1059,20 @@ def _meteofrance_observation_hourly_irma(
 ) -> pl.DataFrame:
     # HOR_departement_971 of data.gouv.fr (St-Barthelemy, 97123005, 3 m, where the standard atmosphere expects 1012.9
     # hPa): the `PSTAT` of Hurricane Irma on 2017-09-06 as the file writes them, all with the validation code 1: 990.9,
-    # 977.1, 936.0 and 917.4 hPa at 07 h to 10 h and 960.4 at 11 h, the eye 95.5 hPa below the standard atmosphere
+    # 977.1, 936.0 and 917.4 hPa at 03 h to 06 h and 960.4 at 07 h of the file's `AAAAMMJJHH` (the FU hours of the
+    # department 971, 4 h behind UTC: 07 h to 11 h UTC), the eye 95.5 hPa below the standard atmosphere
     # (GH-3670, GH-3681). The elevation check keeps them: it allows a pressure down to the 870 hPa of Typhoon Tip at sea
     # level (143 hPa below). The last row is worded by the stub, the one-digit slip of Berlin-Tempelhof (1093.3 hPa,
     # GH-3627), which no hurricane reads and which lies 80 hPa above the standard atmosphere at 3 m. The files read on
     # 2026-11-01 hold no such reading (14.6 million `PSTAT`)
     hour = {"NUM_POSTE": "97123005", "QPSTAT": "1"}
     rows = [
-        {**hour, "AAAAMMJJHH": "2017090607", "PSTAT": "990.9"},
-        {**hour, "AAAAMMJJHH": "2017090608", "PSTAT": "977.1"},
-        {**hour, "AAAAMMJJHH": "2017090609", "PSTAT": "936.0"},
-        {**hour, "AAAAMMJJHH": "2017090610", "PSTAT": "917.4"},
-        {**hour, "AAAAMMJJHH": "2017090611", "PSTAT": "960.4"},
-        {**hour, "AAAAMMJJHH": "2017090612", "PSTAT": "1093.3"},
+        {**hour, "AAAAMMJJHH": "2017090603", "PSTAT": "990.9"},
+        {**hour, "AAAAMMJJHH": "2017090604", "PSTAT": "977.1"},
+        {**hour, "AAAAMMJJHH": "2017090605", "PSTAT": "936.0"},
+        {**hour, "AAAAMMJJHH": "2017090606", "PSTAT": "917.4"},
+        {**hour, "AAAAMMJJHH": "2017090607", "PSTAT": "960.4"},
+        {**hour, "AAAAMMJJHH": "2017090608", "PSTAT": "1093.3"},
     ]
     _serve_meteofrance(monkeypatch, "hourly", "others", "HOR_departement_971_periode_2010-2019", rows)
     request = MeteoFranceObservationRequest(
@@ -2126,7 +2127,8 @@ def _dmi_monthly_rain(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) 
     # a month on record is 9,300 mm, Cherrapunji 1861), above the 10,000 mm bound of a month; DMI marks it `validity:
     # false`. The 85.4 mm of September is made up. The annual sums 9,574.3 and 6,026.5 mm of 2014 and 2015, also
     # `validity: false`, lie inside the 30,000 mm of a year, which no range can tell from a wet year: they are for the
-    # `source` check (GH-3677)
+    # `source` check (GH-3677). The stamps are written in the local form of Denmark; DMI serves 04339, a station of
+    # Greenland, as 06:00 UTC, which the reader takes the month from alike
     rows = [
         ("2011-09-01T00:00:00.001000+02:00", "2011-10-01T00:00:00+02:00", 85.4, "none"),
         ("2011-10-01T00:00:00.001000+02:00", "2011-11-01T00:00:00+01:00", 17802.0, "manual"),

@@ -62,6 +62,82 @@
     "kindRoadDesc": "Fahrbunnzoustand an -temperature vun de DWD-Stroossewiederstatiounen, mat hire Prognosen.",
     "aboutLink": "Iwwer d'Projet an d'Leit dohannert"
   },
+  "ask": {
+    "title": "Fro d'Wieder",
+    "lead": "D'Froen, déi d'Leit hunn, beäntwert aus offiziellen Miessungen a Prognosen, mat der Grafik fir nozekucken.",
+    "placeLabel": "Froe fir",
+    "placeChange": "aneren Uert wielen",
+    "placeNotFound": "Den Uert aus dem Link gouf net fonnt.",
+    "placeDialogTitle": "Een Uert wielen",
+    "placePlaceholder": "Den Numm vun enger Uertschaft oder Wiederstatioun …",
+    "placeHint": "Tipp den Numm vun enger Uertschaft oder Wiederstatioun.",
+    "placeSearching": "Plaze gi gesicht …",
+    "placeFailed": "D'Plazen konnten net duerchsicht ginn.",
+    "placesGroup": "Wiederstatiounen",
+    "questionsLabel": "Lëscht vun de Froen",
+    "idle": "Wiel eng Fro, d'Äntwert kënnt hei, aus aktuellen Daten.",
+    "q": {
+      "rain": "Reent et muer zu {place}?",
+      "summer": "War de leschte Summer hei méi waarm wéi soss?",
+      "wind": "Wéi windeg war et den {day}?",
+      "download": "Wou kann ech Stonnentemperaturen eroflueden?"
+    },
+    "from": {
+      "rain": "Prognos, DWD MOSMIX",
+      "summer": "Méintlech Mëttelwäerter, DWD",
+      "wind": "Deeglech Wäerter, DWD",
+      "download": "All d'Wiederdéngschter"
+    },
+    "working": "D'Äntwert gëtt ausgerechent …",
+    "failed": "D'Äntwert konnt net ausgerechent ginn.",
+    "showValues": "Wäerter weisen",
+    "tableWhen": "Wéini",
+    "leadsTo": "D'Daten am Instrument opmaachen",
+    "rain": {
+      "yes": "Jo, wahrscheinlech Reen.",
+      "maybe": "Vläicht, e bëssen.",
+      "no": "Éischter net.",
+      "total": "{amount} mm fir de ganzen Dag virausgesot.",
+      "wettest": "Naassst Stonn: vun {from}:00 bis {to}:00, {amount} mm.",
+      "chance": "Héchst Reechance an enger Stonn: {chance}.",
+      "point": "Prognos fir {name}, den nootste Prognosepunkt bei {place} ({distance} km ewech).",
+      "pointNoDistance": "Prognos fir {name}, den nootste Prognosepunkt bei {place}.",
+      "chart": "Reen pro Stonn muer, an {unit}",
+      "none": "D'Prognos fir {name} geet nach net bis muer.",
+      "open": "Ganz Prognos opmaachen"
+    },
+    "summer": {
+      "hotter": "Jo, {anomaly} °C méi waarm wéi soss.",
+      "cooler": "Neen, {anomaly} °C méi kill wéi soss.",
+      "usual": "Net wierklech: ongeféier wéi soss.",
+      "detail": "De Summer {year} (Juni bis August) hat am Mëttel {mean} °C; d'Summere vun {from} bis {to} am Mëttel {normal} °C.",
+      "rank": "Plaz {rank} vun {count} Summeren zënter {first}, vum wäermsten un gezielt.",
+      "chart": "All Summer géint de Mëttelwäert vun {from} bis {to}, an {unit}",
+      "none": "Hei ginn et ze wéineg komplett Summere fir ze vergläichen.",
+      "open": "Méintlech Mëttelwäerter opmaachen",
+      "stripes": "Klimasträifen ukucken"
+    },
+    "wind": {
+      "calm": "Roueg.",
+      "breezy": "E bësse Wand.",
+      "windy": "Windeg.",
+      "stormy": "Stiermesch.",
+      "mean": "Mëttlere Wand {speed} m/s, Beaufort {force}.",
+      "gust": "Stäerkste Rafal {speed} m/s, Beaufort {force}.",
+      "context": "Deeg ronderëm mat méi staarke Rafalen: {stronger} vun {around}.",
+      "chartGust": "Stäerkste Rafal pro Dag, an {unit}",
+      "chartMean": "Mëttlere Wand pro Dag, an {unit}",
+      "none": "Hei ginn et keng Wandmiessunge fir den {day}.",
+      "dayLabel": "Datum",
+      "open": "Dës Deeg am Explorer opmaachen"
+    },
+    "download": {
+      "answer": "Wiederdéngschter, déi d'Lofttemperatur pro Stonn publizéieren: {count}.",
+      "detail": "All eenzelen geet am Explorer op, prett fir als CSV, JSON oder GeoJSON erofzelueden.",
+      "none": "Elo publizéiert kee Wiederdéngscht d'Lofttemperatur pro Stonn.",
+      "api": "Oder benotz d'REST-API"
+    }
+  },
   "seo": {
     "title": "Wetterdienst – oppen Wieder- a Klimadaten vun nationale Wiederdéngschter",
     "description": "Oppen Wieder- a Klimadaten vun nationale Wiederdéngschter an engem eenzege Format: Explorer, Wiederprognos, Klimasträifen, REST-API an MCP-Server. Open Source a gratis.",
@@ -117,6 +193,30 @@
     "api": "API",
     "glossary": "Glossar",
     "support": "Ënnerstëtzung"
+  },
+  "shell": {
+    "skipToContent": "Op den Inhalt sprangen",
+    "mainNav": "Haaptnavigatioun",
+    "tools": "Instrumenter",
+    "reference": "Noschloen",
+    "project": "Projet",
+    "search": "Sichen",
+    "searchPlaceholder": "Op eng Säit, eng Statioun, en Ubidder oder eng Astellung goen",
+    "searchEmpty": "Näischt fonnt",
+    "results": "Resultater",
+    "resultsCount": "{count} Resultat | {count} Resultater",
+    "stations": "Prognos fir eng Statioun",
+    "stationsHint": "Tipp dräi Buschtawen oder méi, fir eng Statioun ze fannen",
+    "stationForecast": "Prognos fir d'Statioun {id}",
+    "keysHint": "↑ ↓ wielen, Enter opmaachen, Esc zoumaachen",
+    "desc": {
+      "support": "E Feeler mellen, eng Funktioun froen oder de Projet ënnerstëtzen",
+      "impressum": "Wien dëse Site bedreift, a wéi s du se erreechs",
+      "privacy": "Wat e Besuch festhält, a firwat",
+      "docs": "D'Python-Bibliothéik, d'Kommandozeil an d'API notzen",
+      "github": "De Code, d'Issues an d'Pull Requests",
+      "pypi": "D'Python-Bibliothéik mat pip installéieren"
+    }
   },
   "header": {
     "github": "GitHub",
@@ -653,7 +753,10 @@
     "errStartRequired": "Ufanksdatum ass erfuerderlech",
     "errEndRequired": "Schlussdatum ass erfuerderlech",
     "errEndAfterStart": "Schlussdatum muss no dem Ufanksdatum leien",
-    "errExceedsLimit": "Geschate {count} Wäerter iwwerschreiden d'Limit vu {max}. Schränk w.e.g. de Datumberäich an."
+    "errExceedsLimit": "Geschate {count} Wäerter iwwerschreiden d'Limit vu {max}. Schränk w.e.g. de Datumberäich an.",
+    "defaultNote": "Standardberäich: déi neisten Daten ({span}, ongeféier {rows} Zeilen), sou datt de Server se op eemol ka schécken.",
+    "defaultNoteClear": "Läsch den Datumberäich, fir alles unzefroen.",
+    "clear": "Datumberäich läschen"
   },
   "map": {
     "centerAll": "Op all Statioune zentréieren",
@@ -702,7 +805,26 @@
     "statMin": "Min.",
     "statMax": "Max.",
     "statMean": "Duerchschnëtt",
-    "statSum": "Zomm"
+    "statSum": "Zomm",
+    "limitRowsTitle": "Ze vill Zeilen fir eng Äntwert",
+    "limitRowsBody": "Dës Auswiel gëtt ongeféier {requested} Zeilen, méi wéi dëse Server an enger Äntwert schéckt (Limit: {maximum}).",
+    "limitStationsTitle": "Ze vill Statioune fir eng Ufro",
+    "limitStationsBody": "Du hues méi Statioune gewielt, wéi dëse Server an enger Ufro liest: {requested} gewielt, {maximum} erlaabt.",
+    "limitNarrow": "Fir d'Daten hei ze gesinn, schränk d'Auswiel an: Wiel e méi kuerzen Datumberäich, manner Parameter oder manner Statioune. Du hues {stations} an {parameters} gewielt.",
+    "limitNarrowPoint": "Fir d'Daten hei ze gesinn, schränk d'Auswiel an: Wiel e méi kuerzen Datumberäich oder manner Parameter. Du hues {parameters} gewielt.",
+    "limitNarrowStations": "Huel Statioune aus der Auswiel eraus a kuck de Rescht an engem weidere Schrëtt. Du hues {stations} gewielt.",
+    "limitApply": "Nëmmen déi neisten Daten uweisen ({span}, ongeféier {rows} Zeilen)",
+    "limitNoWindow": "Och dee kuerzsten Datumberäich passt net an eng Äntwert.",
+    "limitDownload": "Alles als CSV eroflueden",
+    "limitDownloadHint": "De CSV gëtt gestreamt an dofir kann en méi Zeilen enthalen wéi eng Äntwert.",
+    "limitDownloadHintMax": "De CSV gëtt gestreamt an dofir kann en méi Zeilen enthalen wéi eng Äntwert: bis zu {maximum}.",
+    "limitStationsCount": "{count} Statioun | {count} Statioune",
+    "limitParametersCount": "{count} Parameter | {count} Parameteren",
+    "limitUnit": {
+      "days": "{count} Dag | {count} Deeg",
+      "months": "{count} Mount | {count} Méint",
+      "years": "{count} Joer | {count} Joer"
+    }
   },
   "query": {
     "enable": "Mat enger SQL-Ufro transforméieren",

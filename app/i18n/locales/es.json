@@ -62,6 +62,82 @@
     "kindRoadDesc": "Estado y temperatura del firme de las estaciones viales del DWD, junto con sus predicciones.",
     "aboutLink": "Sobre el proyecto y las personas que lo hacen posible"
   },
+  "ask": {
+    "title": "Pregúntale al tiempo",
+    "lead": "Las preguntas que la gente se hace, respondidas con mediciones y pronósticos oficiales, y el gráfico para comprobarlo.",
+    "placeLabel": "Preguntando por",
+    "placeChange": "cambiar el lugar",
+    "placeNotFound": "No se encontró el lugar del enlace.",
+    "placeDialogTitle": "Elegir un lugar",
+    "placePlaceholder": "El nombre de un pueblo o de una estación meteorológica …",
+    "placeHint": "Escribe el nombre de un pueblo o de una estación meteorológica.",
+    "placeSearching": "Buscando lugares …",
+    "placeFailed": "No se pudieron buscar los lugares.",
+    "placesGroup": "Estaciones meteorológicas",
+    "questionsLabel": "Preguntas",
+    "idle": "Elige una pregunta: se responde aquí, con datos en directo.",
+    "q": {
+      "rain": "¿Lloverá mañana en {place}?",
+      "summer": "¿Fue el verano pasado más caluroso de lo normal aquí?",
+      "wind": "¿Cuánto viento hizo el {day}?",
+      "download": "¿Dónde puedo descargar temperaturas horarias?"
+    },
+    "from": {
+      "rain": "Pronóstico, DWD MOSMIX",
+      "summer": "Medias mensuales, DWD",
+      "wind": "Datos diarios, DWD",
+      "download": "Todos los servicios meteorológicos"
+    },
+    "working": "Calculando la respuesta …",
+    "failed": "No se pudo calcular la respuesta.",
+    "showValues": "Mostrar los valores",
+    "tableWhen": "Cuándo",
+    "leadsTo": "Abrir los datos en la herramienta",
+    "rain": {
+      "yes": "Sí, es probable que llueva.",
+      "maybe": "Quizá, un poco.",
+      "no": "Probablemente no.",
+      "total": "{amount} mm previstos para todo el día.",
+      "wettest": "Hora más lluviosa: de {from}:00 a {to}:00, {amount} mm.",
+      "chance": "Mayor probabilidad de lluvia en una hora: {chance}.",
+      "point": "Pronóstico para {name}, el punto de pronóstico más cercano a {place} (a {distance} km).",
+      "pointNoDistance": "Pronóstico para {name}, el punto de pronóstico más cercano a {place}.",
+      "chart": "Lluvia por hora mañana, en {unit}",
+      "none": "El pronóstico para {name} aún no llega hasta mañana.",
+      "open": "Abrir el pronóstico completo"
+    },
+    "summer": {
+      "hotter": "Sí, {anomaly} °C más cálido de lo normal.",
+      "cooler": "No, {anomaly} °C más fresco de lo normal.",
+      "usual": "No mucho: más o menos como siempre.",
+      "detail": "El verano de {year} (junio a agosto) tuvo una media de {mean} °C; los veranos de {from} a {to}, de {normal} °C.",
+      "rank": "Puesto {rank} de {count} veranos desde {first}, empezando por el más cálido.",
+      "chart": "Cada verano frente a la media de {from} a {to}, en {unit}",
+      "none": "Aquí hay muy pocos veranos completos para comparar.",
+      "open": "Abrir las medias mensuales",
+      "stripes": "Ver las franjas climáticas"
+    },
+    "wind": {
+      "calm": "En calma.",
+      "breezy": "Algo de brisa.",
+      "windy": "Ventoso.",
+      "stormy": "Tempestuoso.",
+      "mean": "Viento medio {speed} m/s, Beaufort {force}.",
+      "gust": "Racha más fuerte {speed} m/s, Beaufort {force}.",
+      "context": "Días cercanos con rachas más fuertes: {stronger} de {around}.",
+      "chartGust": "Racha más fuerte por día, en {unit}",
+      "chartMean": "Viento medio por día, en {unit}",
+      "none": "Aquí no hay mediciones de viento para el {day}.",
+      "dayLabel": "Día",
+      "open": "Abrir estos días en el Explorador"
+    },
+    "download": {
+      "answer": "Servicios meteorológicos que publican la temperatura horaria del aire: {count}.",
+      "detail": "Cada uno se abre en el Explorador, listo para descargar en CSV, JSON o GeoJSON.",
+      "none": "Ahora mismo ningún servicio meteorológico publica la temperatura horaria del aire.",
+      "api": "O usa la API REST"
+    }
+  },
   "seo": {
     "title": "Wetterdienst – datos meteorológicos y climáticos abiertos de los servicios meteorológicos nacionales",
     "description": "Datos meteorológicos y climáticos abiertos de los servicios meteorológicos nacionales, en un único formato: explorador, pronóstico, franjas climáticas, API REST y servidor MCP. De código abierto y gratuito.",
@@ -117,6 +193,30 @@
     "api": "API",
     "glossary": "Glosario",
     "support": "Ayuda"
+  },
+  "shell": {
+    "skipToContent": "Saltar al contenido",
+    "mainNav": "Navegación principal",
+    "tools": "Herramientas",
+    "reference": "Referencia",
+    "project": "Proyecto",
+    "search": "Buscar",
+    "searchPlaceholder": "Ir a una página, una estación, un proveedor o un ajuste",
+    "searchEmpty": "Sin resultados",
+    "results": "Resultados",
+    "resultsCount": "{count} resultado | {count} resultados",
+    "stations": "Pronóstico para una estación",
+    "stationsHint": "Escribe tres letras o más para encontrar una estación",
+    "stationForecast": "Pronóstico para la estación {id}",
+    "keysHint": "↑ ↓ para elegir, Intro para abrir, Esc para cerrar",
+    "desc": {
+      "support": "Informar de un error, pedir una función o apoyar el proyecto",
+      "impressum": "Quién gestiona este sitio y cómo contactar",
+      "privacy": "Qué registra una visita y por qué",
+      "docs": "Cómo usar la biblioteca de Python, la línea de comandos y la API",
+      "github": "El código, las incidencias y las pull requests",
+      "pypi": "Instalar la biblioteca de Python con pip"
+    }
   },
   "header": {
     "github": "GitHub",
@@ -653,7 +753,10 @@
     "errStartRequired": "La fecha de inicio es obligatoria",
     "errEndRequired": "La fecha de fin es obligatoria",
     "errEndAfterStart": "La fecha de fin debe ser posterior a la fecha de inicio",
-    "errExceedsLimit": "Los {count} valores estimados superan el límite de {max}. Reduce el rango de fechas."
+    "errExceedsLimit": "Los {count} valores estimados superan el límite de {max}. Reduce el rango de fechas.",
+    "defaultNote": "Rango predeterminado: los datos más recientes ({span}, unas {rows} filas), para que el servidor pueda enviarlos de una vez.",
+    "defaultNoteClear": "Borra el rango de fechas para pedirlo todo.",
+    "clear": "Borrar rango de fechas"
   },
   "map": {
     "centerAll": "Centrar en todas las estaciones",
@@ -702,7 +805,26 @@
     "statMin": "Mín",
     "statMax": "Máx",
     "statMean": "Media",
-    "statSum": "Suma"
+    "statSum": "Suma",
+    "limitRowsTitle": "Demasiadas filas para una sola respuesta",
+    "limitRowsBody": "Esta selección da unas {requested} filas, más de las que este servidor envía en una respuesta (límite: {maximum}).",
+    "limitStationsTitle": "Demasiadas estaciones para una sola solicitud",
+    "limitStationsBody": "Has seleccionado más estaciones de las que este servidor lee en una solicitud: {requested} seleccionadas, {maximum} permitidas.",
+    "limitNarrow": "Para verlos aquí, reduce la selección: elige un rango de fechas más corto, menos parámetros o menos estaciones. Has seleccionado {stations} y {parameters}.",
+    "limitNarrowPoint": "Para verlos aquí, reduce la selección: elige un rango de fechas más corto o menos parámetros. Has seleccionado {parameters}.",
+    "limitNarrowStations": "Quita estaciones de la selección y consulta el resto en otro paso. Has seleccionado {stations}.",
+    "limitApply": "Mostrar solo los datos más recientes ({span}, unas {rows} filas)",
+    "limitNoWindow": "Ni siquiera el rango de fechas más corto cabe en una respuesta.",
+    "limitDownload": "Descargar todo como CSV",
+    "limitDownloadHint": "El CSV se transmite en flujo continuo, así que puede contener más filas que una respuesta.",
+    "limitDownloadHintMax": "El CSV se transmite en flujo continuo, así que puede contener más filas que una respuesta: hasta {maximum}.",
+    "limitStationsCount": "{count} estación | {count} estaciones",
+    "limitParametersCount": "{count} parámetro | {count} parámetros",
+    "limitUnit": {
+      "days": "{count} día | {count} días",
+      "months": "{count} mes | {count} meses",
+      "years": "{count} año | {count} años"
+    }
   },
   "query": {
     "enable": "Transformar con consulta SQL",

@@ -315,8 +315,9 @@ _ROAD_HUMIDITY_FLOOR = Bound(low=0.01, names=("humidity_relative",))
 
 #: the 198.15 K (-75.00 C) that the stopped sensors of station group KM write for days (GH-1917) is no reading: a
 #: working sensor spreads across the decimals and this is the same to the hundredth at every station that has it. It
-#: lies inside the -90 to 60 C of the table of ranges, which is the same for every provider, so it is a code of this
-#: source and the reader maps it to null, keeping the number as `raw:198.15`, in kelvin as DWD writes it (GH-3681).
+#: lies inside the table of ranges, which is the same for every provider (-90 to 60 C for the air, -90 to 100 C for the
+#: road surface), so it is a code of this source
+#: and the reader maps it to null, keeping the number as `raw:198.15`, in kelvin as DWD writes it (GH-3681).
 #: GH-1917 read it in the road surface temperature of KM/H659 and KM/H438 (2026-09-16); the air is named by the
 #: decision of GH-3681. The dew point shows no sign of it, and -30.00 and -25.00 stay with the run rule, being
 #: reachable on a German road in winter

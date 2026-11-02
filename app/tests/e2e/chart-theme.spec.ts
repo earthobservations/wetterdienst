@@ -84,14 +84,29 @@ async function setColorScheme(page: Page, label: 'Light' | 'Dark') {
   await expect(page.getByRole('dialog')).toHaveCount(0)
 }
 
-/** The page's own background as rgb(), through a canvas as the app resolves its tokens: the browser reports an oklch() as it was written */
-async function bodyBackground(page: Page) {
+/**
+ * The colour behind the chart as rgb(): the first opaque background from the chart outwards (its card, in the design
+ * of GH-3518, where the body is the page's canvas), through a canvas as the app resolves its tokens: the browser
+ * reports an oklch() as it was written
+ */
+async function behindChart(page: Page) {
   return page.evaluate(() => {
     const context = document.createElement('canvas').getContext('2d', { willReadFrequently: true })!
-    context.fillStyle = getComputedStyle(document.body).backgroundColor
-    context.fillRect(0, 0, 1, 1)
-    const [r, g, b] = context.getImageData(0, 0, 1, 1).data
-    return `rgb(${r}, ${g}, ${b})`
+    const rgb = (color: string) => {
+      context.clearRect(0, 0, 1, 1)
+      context.fillStyle = color
+      context.fillRect(0, 0, 1, 1)
+      const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data
+      return { text: `rgb(${r}, ${g}, ${b})`, opaque: a === 255 }
+    }
+    let element: Element | null = document.querySelector('.js-plotly-plot')?.parentElement ?? document.body
+    while (element) {
+      const found = rgb(getComputedStyle(element).backgroundColor)
+      if (found.opaque)
+        return found.text
+      element = element.parentElement
+    }
+    return rgb(getComputedStyle(document.body).backgroundColor).text
   })
 }
 
@@ -174,8 +189,8 @@ for (const chart of CASES) {
       expect(luminance(dark.paper)).toBeLessThan(0.05)
       expect(dark.plot).toBe(dark.paper)
       expect(dark.svg).toBe(dark.paper)
-      // and it is the page's own dark: the same colour as the body behind the chart
-      expect(dark.paper).toBe(await bodyBackground(page))
+      // and it is the page's own dark: the same colour as what is behind the chart
+      expect(dark.paper).toBe(await behindChart(page))
       if (chart.seriesFixed)
         expect(dark.data).toBe(light.data)
 

@@ -122,10 +122,23 @@ describe('plural forms', () => {
     expect(Object.keys(pluralForms).sort()).toEqual(locales)
   })
 
-  it('writes the counts of the four messages that have one in plural forms', () => {
+  it('writes the counts of the messages that have one in plural forms', () => {
     // not a list of everything with a count: `dateRange.estimatedValues` and `errExceedsLimit` carry one
-    // where one is no case, and `query.success` words it ("Returned rows: 1") so that it needs no form
-    expect(usedIn(ui.en!).sort()).toEqual(['dataViewer.copiedRows', 'dataViewer.valuesCount', 'dataViewer.valuesTransformed', 'glossary.count'])
+    // where one is no case, and `query.success` words it ("Returned rows: 1") so that it needs no form.
+    // The three units of a window and the counts of a selection are the pieces of the limit notice and of
+    // the note under the date range (GH-3457): they stand where a noun follows a number that may be 1
+    expect(usedIn(ui.en!).sort()).toEqual([
+      'dataViewer.copiedRows',
+      'dataViewer.limitParametersCount',
+      'dataViewer.limitStationsCount',
+      'dataViewer.limitUnit.days',
+      'dataViewer.limitUnit.months',
+      'dataViewer.limitUnit.years',
+      'dataViewer.valuesCount',
+      'dataViewer.valuesTransformed',
+      'glossary.count',
+      'shell.resultsCount',
+    ])
   })
 
   it.each(others)('has plural forms in %s for the messages that en has them in', (locale) => {
@@ -314,6 +327,8 @@ const UI_SAME: Record<string, Same> = {
   'stripes.table.classes.temperature.high': { en: ['nl'], why: COGNATE },
   'common.documentation': { en: ['fr'], de: ['da'], why: COGNATE },
   'home.statParameters': { en: ['nl'], why: COGNATE },
+  'dataViewer.limitStationsCount': { en: ['fr', 'nl'], why: COGNATE },
+  'dataViewer.limitParametersCount': { en: ['nl'], why: COGNATE },
   'home.kindRadarTitle': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: COGNATE },
   'about.linksTitle': { en: ['da', 'de-hh', 'de', 'nl'], why: COGNATE },
   'about.linkDocs': { en: ['fr'], de: ['da'], why: COGNATE },
@@ -324,6 +339,7 @@ const UI_SAME: Record<string, Same> = {
   'header.github': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'header.pypi': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'header.menu': { en: ['da', 'fr', 'it', 'nl', 'pl'], why: COGNATE },
+  'shell.project': { en: ['nl'], de: ['cs', 'da', 'pl'], why: COGNATE },
   'footer.copyright': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'settings.themeSystem': { en: ['da', 'de-hh', 'de', 'lb'], why: COGNATE },
   'settings.unitTemperature': { de: ['da'], why: COGNATE },

@@ -13,7 +13,7 @@ check to the remote tests as well, which is how a leak the offline fixtures do n
 The ranges are those of the one table the values core judges every network with
 (`wetterdienst.model.plausibility_ranges`, the check `range`): this module keeps none of its own, so that the tests and
 the library read one source (GH-3681). They are in the unit a value is returned in (`UnitConverter.targets`, the default
-of `Settings`; a unit type converted to another unit is not checked) and are generous on purpose: a value outside is a
+of `Options`; a unit type converted to another unit is not checked) and are generous on purpose: a value outside is a
 sentinel, a unit that was not converted or a column read from the wrong place, never a record. What they cannot catch is
 a sentinel that looks like data, such as 99.9 % relative humidity, a -1 for "no snow" in a depth that may be read from a
 gauge, or 0 for "not measured"; that part of #2615 is read off the source's own documentation, not off the numbers.

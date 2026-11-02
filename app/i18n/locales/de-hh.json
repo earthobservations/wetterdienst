@@ -62,6 +62,82 @@
     "kindRoadDesc": "Fahrbahntostand un -temperaturen vun de DWD-Straatenwedderstationen, mitsamt ehr Utsichten.",
     "aboutLink": "Över dat Projekt un de Lüüd dorachter"
   },
+  "ask": {
+    "title": "Fraag dat Weer",
+    "lead": "De Fragen, de Lüüd an dat Weer hebbt, beantert ut amtliche Meten un Utsichten, mit dat Diagramm to'n Nakieken.",
+    "placeLabel": "Fraagt för",
+    "placeChange": "Oort ännern",
+    "placeNotFound": "Den Oort ut den Link gifft dat nich.",
+    "placeDialogTitle": "Oort utsöken",
+    "placePlaceholder": "Naam vun en Oort oder en Weerstation …",
+    "placeHint": "Tipp den Naam vun en Oort oder en Weerstation.",
+    "placeSearching": "Öörd warrt söcht …",
+    "placeFailed": "De Öörd leten sik nich dörsöken.",
+    "placesGroup": "Weerstationen",
+    "questionsLabel": "Fragen",
+    "idle": "Söök di en Fraag ut, se warrt hier ut aktuelle Daten beantert.",
+    "q": {
+      "rain": "Regent dat morgen in {place}?",
+      "summer": "Weer de leste Sommer hier hitter as anners?",
+      "wind": "Wo windig weer dat an'n {day}?",
+      "download": "Woneem kann ik stünnlike Temperaturen daalladen?"
+    },
+    "from": {
+      "rain": "Utsicht, DWD MOSMIX",
+      "summer": "Maandmiddel, DWD",
+      "wind": "Dagwerten, DWD",
+      "download": "All Wedderdeenste"
+    },
+    "working": "De Antwoort warrt utrekent …",
+    "failed": "De Antwoort leet sik nich utreken.",
+    "showValues": "Werten wiesen",
+    "tableWhen": "Wannehr",
+    "leadsTo": "De Daten in dat Warktüüch apenmaken",
+    "rain": {
+      "yes": "Jo, dat gifft wohrschienlich Regen.",
+      "maybe": "Villicht, en beten.",
+      "no": "Eher nich.",
+      "total": "{amount} mm för den hele Dag vörutseggt.",
+      "wettest": "Natteste Stünn: {from}:00 bit {to}:00, {amount} mm.",
+      "chance": "Hööchste Regenkans in een Stünn: {chance}.",
+      "point": "Utsicht för {name}, den neegsten Utsichtspunkt to {place} ({distance} km weg).",
+      "pointNoDistance": "Utsicht för {name}, den neegsten Utsichtspunkt to {place}.",
+      "chart": "Regen per Stünn morgen, in {unit}",
+      "none": "De Utsicht för {name} recht noch nich bit morgen.",
+      "open": "Hele Utsicht opmaken"
+    },
+    "summer": {
+      "hotter": "Jo, {anomaly} °C warmer as anners.",
+      "cooler": "Nee, {anomaly} °C köhler as anners.",
+      "usual": "Nich würklich: so warm as anners.",
+      "detail": "De Sommer {year} (Juni bit August) harr in'n Middel {mean} °C, de Sommers vun {from} bit {to} in'n Middel {normal} °C.",
+      "rank": "Platz {rank} vun {count} Sommers siet {first}, vun'n warmsten an tellt.",
+      "chart": "Elk Sommer gegen dat Middel vun {from} bit {to}, in {unit}",
+      "none": "Hier gifft dat to wenig hele Sommers för en Vergliek.",
+      "open": "Maandmiddel opmaken",
+      "stripes": "Klimastrepen ankieken"
+    },
+    "wind": {
+      "calm": "Still.",
+      "breezy": "En beten windig.",
+      "windy": "Windig.",
+      "stormy": "Stormig.",
+      "mean": "Middel-Wind {speed} m/s, Beaufort {force}.",
+      "gust": "Stärkste Böö {speed} m/s, Beaufort {force}.",
+      "context": "Daag rundüm mit stärkere Bööen: {stronger} vun {around}.",
+      "chartGust": "Stärkste Böö per Dag, in {unit}",
+      "chartMean": "Middel-Wind per Dag, in {unit}",
+      "none": "För den {day} gifft dat hier keen Windmeten.",
+      "dayLabel": "Dag",
+      "open": "Disse Daag in'n Explorer opmaken"
+    },
+    "download": {
+      "answer": "Wedderdeenste mit stünnlike Lufttemperatur: {count}.",
+      "detail": "Elkeen geiht in'n Explorer op, klaar to'n Daalladen as CSV, JSON oder GeoJSON.",
+      "none": "Jüst nu nennt keen Wedderdeenst en stünnlike Lufttemperatur.",
+      "api": "Oder de REST-API bruken"
+    }
+  },
   "seo": {
     "title": "Wetterdienst – apen Wedder- un Klimadaten vun nationale Wedderdeenste",
     "description": "Apen Wedder- un Klimadaten vun nationale Wedderdeenste in een Format: Explorer, Wedderutsicht, Klimastrepen, REST-API un MCP-Server. Apen Quelltext un gratis.",
@@ -117,6 +193,30 @@
     "api": "API",
     "glossary": "Glossar",
     "support": "Ünnerstütten"
+  },
+  "shell": {
+    "skipToContent": "Na'n Inholt springen",
+    "mainNav": "Hööftnavigatschoon",
+    "tools": "Warktüüch",
+    "reference": "Naslaan",
+    "project": "Projekt",
+    "search": "Söken",
+    "searchPlaceholder": "Na en Siet, en Station, en Anbeder oder en Instellen gahn",
+    "searchEmpty": "Nix funnen",
+    "results": "Resultaten",
+    "resultsCount": "{count} Resultat | {count} Resultaten",
+    "stations": "Utsicht för en Station",
+    "stationsHint": "Tipp dree Bookstaven oder mehr, üm en Station to finnen",
+    "stationForecast": "Utsicht för Station {id}",
+    "keysHint": "↑ ↓ utsöken, Enter opmaken, Esc dichtmaken",
+    "desc": {
+      "support": "En Fehler mellen, wat Nees wünschen oder dat Projekt ünnerstütten",
+      "impressum": "Wokeen disse Siet bedrifft, un woans du em todrapen deist",
+      "privacy": "Wat en Besöök fasthöllt, un worüm",
+      "docs": "De Python-Bibliothek, de Kommandozeil un de API bruken",
+      "github": "De Code, de Issues un de Pull Requests",
+      "pypi": "De Python-Bibliothek mit pip installeren"
+    }
   },
   "header": {
     "github": "GitHub",
@@ -653,7 +753,10 @@
     "errStartRequired": "Anfangsdatum is nödig",
     "errEndRequired": "Enndatum is nödig",
     "errEndAfterStart": "Enndatum mutt na dat Anfangsdatum liggen",
-    "errExceedsLimit": "Schätte {count} Weerten överschrieden dat Limit vun {max}. Grenz den Tietruum bitte in."
+    "errExceedsLimit": "Schätte {count} Weerten överschrieden dat Limit vun {max}. Grenz den Tietruum bitte in.",
+    "defaultNote": "Standard-Tietruum: de niegsten Daten ({span}, rund {rows} Reegen), dormit de Server se up eenmal schicken kann.",
+    "defaultNoteClear": "Wisch den Tietruum, wenn du allens afragen wullt.",
+    "clear": "Tietruum wischen"
   },
   "map": {
     "centerAll": "Op all Stationen zentreren",
@@ -702,7 +805,26 @@
     "statMin": "Sietst",
     "statMax": "Hööchst",
     "statMean": "Middel",
-    "statSum": "Summ"
+    "statSum": "Summ",
+    "limitRowsTitle": "Tovöl Reegen för een Antwoort",
+    "limitRowsBody": "Disse Utwahl gifft rund {requested} Reegen, mehr as disse Server in een Antwoort schickt (Grenz: {maximum}).",
+    "limitStationsTitle": "Tovöl Stationen för een Afraag",
+    "limitStationsBody": "Du hest mehr Stationen utwählt, as disse Server in een Afraag liest: {requested} utwählt, {maximum} verlöövt.",
+    "limitNarrow": "Üm de Daten hier to sehn, maak de Utwahl lütter: Wähl en körtern Tietruum, weniger Parameter oder weniger Stationen. Du hest {stations} un {parameters} utwählt.",
+    "limitNarrowPoint": "Üm de Daten hier to sehn, maak de Utwahl lütter: Wähl en körtern Tietruum oder weniger Parameter. Du hest {parameters} utwählt.",
+    "limitNarrowStations": "Nimm Stationen ut de Utwahl rut un kiek di den Rest in en annern Schritt an. Du hest {stations} utwählt.",
+    "limitApply": "Blots de niegsten Daten wiesen ({span}, rund {rows} Reegen)",
+    "limitNoWindow": "Nich mal de körtste Tietruum passt in een Antwoort.",
+    "limitDownload": "Allens as CSV daalladen",
+    "limitDownloadHint": "De CSV warrt streamt un kann dorüm mehr Reegen hebben as een Antwoort.",
+    "limitDownloadHintMax": "De CSV warrt streamt un kann dorüm mehr Reegen hebben as een Antwoort: bit to {maximum}.",
+    "limitStationsCount": "{count} Station | {count} Stationen",
+    "limitParametersCount": "{count} Parameter | {count} Parameter",
+    "limitUnit": {
+      "days": "{count} Dag | {count} Daag",
+      "months": "{count} Maand | {count} Maanden",
+      "years": "{count} Johr | {count} Johren"
+    }
   },
   "query": {
     "enable": "Mit SQL-Afraag transformeren",
