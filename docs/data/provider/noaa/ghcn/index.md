@@ -120,18 +120,17 @@ do with the check of that name, whose token is `suspect:source` or `rejected:sou
 **Hourly.** The first token is `<element>_Quality_Code`, whose meaning depends on the source of the element (the `source:`
 token), as Table 3 of the [GHCNh documentation](https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh_DOCUMENTATION.pdf)
 lists it. The codes read are the ones it words as a verdict. `Suspect` is the milder level: `hard` flags it
-`suspect:source` and nulls `Erroneous` (and every code of the daily `QFLAG` and of sources 345 and 382, which have one level,
+`suspect:source` and nulls `Erroneous` (and every code of the daily `QFLAG` and of source 382, which have one level,
 but for the `R` of source 382, "suspect with regard to the times or period of occurrence", which is the milder level).
 
 | `source:` | codes read, as the documentation words them |
 | --- | --- |
 | 313, 314, 315, 322, 335, 343, 344, 346 ("Legacy Codes for Sources 313, 314, 315, 322, 335, 343, 344, 346 include") | suspect level: `2` "Suspect"; `6` "Suspect, data originate from an NCEI data source"; erroneous level: `3` "Erroneous"; `7` "Erroneous, data originate from an NCEI data source" |
 | 220, 221, 222, 223, 347, 348 ("Legacy Codes for Sources: 220, 221, 222, 223, 347, 348 include") | suspect level: `2` "Suspect"; erroneous level: `3` "Erroneous" |
-| 345 ("Legacy Codes for Source 345 (for relative humidity and wind speed only)") | `3` "Error (erroneous data)" |
 | 382 ("Legacy Codes for Source 382 for precipitation (as given in C-HPD documentation)") | suspect level: `R` "Indicates data values are suspect with regard to the times or period of occurrence"; erroneous level: `X` "failed global extreme exceedance check"; `N` "failed negative precipitation check"; `Y` "failed state extreme exceedance check (performed on daily totals)"; `K` "failed streak/frequent-value check"; `G` "failed gap check"; `O` "failed climatological outlier check"; `Z` "flagged as a result of an official Datzilla investigation"; `Q` "Indicates value failed an extreme value test (value will be present)" |
 
-Not read: the `0`, `1`, `4`, `5` and `9` of those lists (not checked, good, calculated, removed, passed), the `1` of source 345
-(a field-length overflow of the record), the letters of the integration's own checks (`c` climatological outlier, `s` spike,
+Not read: the `0`, `1`, `4`, `5` and `9` of those lists (not checked, good, calculated, removed, passed), the list of source 345
+(`3` "Error (erroneous data)", for relative humidity and wind speed only, which the map cannot scope by parameter yet), the letters of the integration's own checks (`c` climatological outlier, `s` spike,
 `l` failed logistical consistency, ... of Table 3: they name the check of the dataset's own processing), the `o` ("Out of
 range") and `f` ("Suspect or Error flags for 1 or more of the input measurements") of a relative humidity or wet bulb
 temperature the legacy sources derive (worded as verdicts, but the same letters are the integration's "Odd cluster" and

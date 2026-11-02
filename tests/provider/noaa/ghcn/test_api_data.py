@@ -607,9 +607,10 @@ def test_api_hourly_quality_code_of_a_verdict_is_judged_by_the_check_source_in_t
     3 = Erroneous, 4 ..., 6 = Suspect, data originate from an NCEI data source, 7 = Erroneous, data originate from an
     NCEI data source, 9 = Passed gross limits check if element is present" and "Legacy Codes for Sources: 220, 221, 222,
     223, 347, 348 include 0 Not Checked, 1 Good, 2 Suspect, 3 Erroneous, 4 Calculated, 5 Removed". The code is read in
-    the list of the source of the element (`source:`), so the same code of a source the table does not list (345 and
-    382 have lists of their own, which are read too) is no verdict where the source is another or there is none, and
-    only the letters of the list of 382 count. The first row is the file's own (GHCNh_ACM00078861_por.psv, read
+    the list of the source of the element (`source:`), so the same code of a source the table does not list (345 has
+    a list for relative humidity and wind speed only, which is not read) is no verdict where the source is another or
+    there is none, and only the letters of the list of 382 count. The first row is the file's own
+    (GHCNh_ACM00078861_por.psv, read
     2026-11-02): 1988-01-27 11:00 reads a temperature of 50.0 with code 2 and source 220, in the tropics; the other
     rows are made up from the lists above.
     """
@@ -634,10 +635,9 @@ def test_api_hourly_quality_code_of_a_verdict_is_judged_by_the_check_source_in_t
         ("5", "343"),  # Passed all quality control checks, data originate from an NCEI data source
         ("0", "343"),  # Passed gross limits check
         ("7", "220"),  # a code the list of 220 does not have
-        ("3", "345"),  # Error (erroneous data), the list of 345 (relative humidity and wind speed only)
+        ("3", "345"),  # the list of 345 is not read (relative humidity and wind speed only)
         ("X", "382"),  # failed global extreme exceedance check, the list of 382 (precipitation)
         ("X", "220"),  # a letter of the list of 382 in another list
-        ("1", "345"),  # Issue (field-length overflow), no verdict
         ("2", ""),  # no source, no list
         ("f", "220"),  # a letter, no verdict
     ]
@@ -665,7 +665,7 @@ def test_api_hourly_quality_code_of_a_verdict_is_judged_by_the_check_source_in_t
         options=Options(drop_nulls=False, plausibility={"source": mode}),
     ).filter_by_station_id("ACM00078861")
     df = request.values().all().df.sort("timestamp")
-    judged = {0, 2, 3, 4, 5, 9, 10}
+    judged = {0, 2, 3, 4, 5, 10}
     flags = df.get_column("quality_flags").to_list()
     values = df.get_column("value").to_list()
     assert len(flags) == len(cases)

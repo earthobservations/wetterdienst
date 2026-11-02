@@ -19,7 +19,7 @@ The plausibility checks each have an option, `--plausibility-range`, `--plausibi
 the others hard). `--plausibility soft` (or `hard`) sets all of them at once, and a check given beside it wins whatever the
 order: `--plausibility soft --plausibility-range hard`; `WD_TS_PLAUSIBILITY=soft` does it for a host. A forecast network (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`: `kind` `forecast`) is judged soft in every check but `floor` and `limits`, whatever is given: `hard` there is still flagged `suspect:<check>`, never nulled (`limits` follows its mode). `--plausibility-source` is the verdict of the source's own quality flag (GHCN-Daily `QFLAG`, Frost `qualityCode` 7, an
 Environment Agency `Suspect`, DMI `validity:false`, ...): soft by default, it keeps the value and adds `suspect:source`, and `hard`
-nulls it as `rejected:source,raw:<text>`, except the milder level of a source that has two (GHCNh and CHMI `Suspect`), which stays
+nulls it as `rejected:source,raw:<text>`, except the suspect level of a source that has two (GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`), which stays
 `suspect:source`. See [plausibility checks](../data/plausibility.md).
 
 ```bash

@@ -395,8 +395,9 @@ def _quality_flags(raw: pl.Expr) -> pl.Expr:
     plain code and ``validity`` follows as ``validity:true`` or ``validity:false``. DMI documents
     ``validity`` as "whether or not the value is considered valid by the climatologists. Invalid data is
     generally not correct", and sets it ``false`` for Greenland and, rarely, Denmark. The value of such a
-    record is kept unless it is outside the physical range of its parameter, so a caller can drop it by the flag
-    (GH-2797). ``raw`` is the text a mapped sentinel or an impossible value was written with (``raw:0`` of a calm
+    record is kept and flagged ``suspect:source`` (the check ``source``, which nulls it in the mode ``hard``), unless
+    it is outside the physical range of its parameter (GH-2797). ``raw`` is the text a mapped sentinel or an
+    impossible value was written with (``raw:0`` of a calm
     wind, GH-2794; ``raw:-0.1`` of a trace of precipitation, GH-3621; ``raw:17802`` of a month of rain, GH-2797),
     which closes the column.
     """

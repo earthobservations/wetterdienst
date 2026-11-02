@@ -243,8 +243,8 @@ def test_the_codes_of_several_rules_are_extracted_once_and_judged_as_each_rule_a
     rules = [*SOURCE_FLAGS["noaa/ghcn"]]
     texts = [
         "3,source:313",
-        "3,source:345",
         "3,source:220",
+        "3,source:345",
         "X,source:382",
         "X,source:313",
         "7,source:220",
@@ -262,7 +262,7 @@ def test_the_codes_of_several_rules_are_extracted_once_and_judged_as_each_rule_a
     erroneous, suspect = hits(df, hourly)
     mild = df.select(pl.any_horizontal(rule.hit(level="suspect") for rule in hourly).alias("hit")).to_series()
     assert (erroneous | suspect).to_list() == alone
-    assert alone == [True] * 4 + [False] * 4 + [True] * 3 + [False] * 2
+    assert alone == [True, True, False, True, False, False, False, False, True, True, True, False, False]
     assert suspect.to_list() == mild.to_list() == [False] * 8 + [True] * 3 + [False] * 2
     assert not (erroneous & suspect).any()
 
@@ -281,7 +281,7 @@ def test_every_code_has_the_wording_and_the_page_of_its_documentation() -> None:
             assert len({code.code for code in flags.codes}) == len(flags.codes), network
 
 
-def test_the_datasets_of_the_map_exist_and_are_one_rule_each() -> None:
+def test_the_datasets_of_the_map_exist_and_the_coverage_follows_them() -> None:
     """The datasets are `resolution/dataset` of their network, and a dataset has the rules `flags_of` finds."""
     for network, rules in SOURCE_FLAGS.items():
         provider, name = network.split("/")
@@ -289,8 +289,7 @@ def test_the_datasets_of_the_map_exist_and_are_one_rule_each() -> None:
         existing = {f"{resolution.name}/{dataset.name}" for resolution in metadata for dataset in resolution}
         for flags in rules:
             assert set(flags.datasets) <= existing, (network, sorted(set(flags.datasets) - existing))
-    for dataset in ("hourly/data",):
-        assert len(flags_of("noaa/ghcn", dataset)) == 4
+    assert len(flags_of("noaa/ghcn", "hourly/data")) == 3
     assert source_coverage() == COVERAGE["source"]
 
 
@@ -323,8 +322,12 @@ def test_the_plausibility_page_cites_every_code_of_the_map(network: str) -> None
             # the two levels are told apart in the table, each code under the level it is
             suspect = [code.code for code in flags.codes if code.level == "suspect"]
             erroneous = [code.code for code in flags.codes if code.level == "erroneous"]
+            # the cell of this rule's codes: the one whose backticked codes are exactly the rule's
+            wanted = {code.code for code in flags.codes}
             cell = next(
-                part for part in rows.split("| ") if "suspect level:" in part and flags.codes[0].wording in part
+                part
+                for part in rows.split(" | ")
+                if "suspect level:" in part and set(re.findall(r"`([^`]+)`", part)) == wanted
             )
             assert cell.index("suspect level:") < cell.index("erroneous level:")
             before, after = cell.split("erroneous level:")

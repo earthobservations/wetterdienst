@@ -68,7 +68,10 @@ def hard_means(check: str) -> str:
     does = "sets the value to 0.0" if check == "floor" else "nulls the value"
     text = f"{does} and keeps the number as `rejected:{check},raw:<number>` in `quality_flags`"
     if check == "source":
-        text += " (the milder level of a source that has two, GHCNh and CHMI `Suspect`, stays flagged `suspect:source`)"
+        text += (
+            " (the suspect level of a source that has two, GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`, "
+            "stays flagged `suspect:source`)"
+        )
     return text
 
 
@@ -162,8 +165,8 @@ class Plausibility(BaseModel):
         "`Suspect`, a DMI `validity:false`): the codes counted are those the provider's documentation words so, listed "
         "per provider. It is soft by default, because the verdict is the source's and not ours. "
         + _HARD_MEANS.format(check="source")
-        + " The milder level of a source that has two (GHCNh and CHMI `Suspect`) is only flagged `suspect:source` in "
-        "either mode.",
+        + " The suspect level of a source that has two (GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`) is only "
+        "flagged `suspect:source` in either mode.",
     )
 
     def for_forecast(self) -> Plausibility:

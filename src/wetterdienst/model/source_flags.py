@@ -178,8 +178,10 @@ SOURCE_FLAGS: dict[str, tuple[SourceFlags, ...]] = {
             "Blank = did not fail any quality assurance check",
         ),
         # GHCNh: the quality code is read in the list of the source of the element (`source:` token), Table 3 of the
-        # documentation: the two lists of the legacy sources, the list of source 345 and the list of source 382 (the
-        # precipitation of C-HPD, worded as GHCN-Daily's QFLAG). The letters of the integration's own checks (`c`, `s`,
+        # documentation: the two lists of the legacy sources and the list of source 382 (the precipitation of C-HPD,
+        # worded as GHCN-Daily's QFLAG). The list of source 345 is for relative humidity and wind speed only, and a
+        # rule cannot be scoped by parameter yet (GH-3745), so it is not read. The letters of the integration's own
+        # checks (`c`, `s`,
         # `f`, ... for six elements) are not read: they name the check of this dataset's processing that flagged a value
         # ("Spike check", "Frequent value"). Nor are `o` and `f` of a derived humidity or wet bulb, which are worded as
         # verdicts: the same letters are the integration's on the six elements, and a rule cannot be scoped by
@@ -207,14 +209,6 @@ SOURCE_FLAGS: dict[str, tuple[SourceFlags, ...]] = {
             quote="Legacy Codes for Sources: 220, 221, 222, 223, 347, 348 include 0 Not Checked 1 Good 2 Suspect "
             "3 Erroneous 4 Calculated 5 Removed",
             beside=("source", ("220", "221", "222", "223", "347", "348")),
-        ),
-        SourceFlags(
-            datasets=("hourly/data",),
-            codes=(SourceCode("3", "Error (erroneous data)"),),
-            url=_GHCNH,
-            quote="Legacy Codes for Source 345 (for relative humidity and wind speed only): 0 = Good 1 = Issue "
-            "(field-length overflow) 3 = Error (erroneous data)",
-            beside=("source", ("345",)),
         ),
         SourceFlags(
             datasets=("hourly/data",),
