@@ -2184,18 +2184,18 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("daily", "data", "mean_radiation"): (
             "Global radiation (305 to 2800 nm) of the day, as the energy summed over the day: the sum of the "
-            "underlying hourly values, which the source publishes in MJ/m² (the library multiplies it by "
-            "1000 and returns kJ/m², converted to the unit asked for). Published for some stations only."
+            "underlying hourly values, which the source publishes in MJ/m² (returned as it is, in the default unit, "
+            "or converted to the unit asked for). Published for some stations only."
         ),
         ("monthly", "data", "mean_radiation"): (
             "Global radiation (305 to 2800 nm) of the month, as the energy summed over the month: the sum of "
-            "the underlying daily values, which the source publishes in MJ/m² (the library multiplies it by "
-            "1000 and returns kJ/m², converted to the unit asked for)."
+            "the underlying daily values, which the source publishes in MJ/m² (returned as it is, in the default unit, "
+            "or converted to the unit asked for)."
         ),
         ("annual", "data", "mean_radiation"): (
             "Global radiation (305 to 2800 nm) of the year, as the energy summed over the year: the sum of "
-            "the underlying daily values, which the source publishes in MJ/m² (the library multiplies it by "
-            "1000 and returns kJ/m², converted to the unit asked for)."
+            "the underlying daily values, which the source publishes in MJ/m² (returned as it is, in the default unit, "
+            "or converted to the unit asked for)."
         ),
         ("daily", "data", "mean_vapour_pressure"): (
             "Mean vapour pressure of the day, in hPa: the mean of the hourly values that could be calculated "

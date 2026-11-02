@@ -772,3 +772,58 @@ def test_wsv_visibility_and_reservoir_volume_come_back_as_published(monkeypatch:
     # a station is listed at the interval of the series and at no other
     assert WsvPegelRequest(parameters=[("15_minutes", "data", "visibility")]).all().df.is_empty()
     assert WsvPegelRequest(parameters=[("1_minute", "data", "volume_reservoir")]).all().df.is_empty()
+
+
+def test_wsv_characteristic_levels_come_back_in_metres_beside_the_stage(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The characteristic levels of a station are in metres, the unit of `stage`, each from its own unit (GH-3752).
+
+    Pegelonline lists them in the unit the value carries: `cm` at CELLE (MHW 412, HSW 310, as in the listing of
+    2026-11-02), `m` for the `OBW` and `UBW` of a gauge in metres above sea level, which are no column. A value
+    without a unit, or in one the reader does not know, is null, not a number of the wrong size.
+    """
+    from io import BytesIO  # noqa: PLC0415
+
+    from wetterdienst.provider.wsv.pegel import api  # noqa: PLC0415
+
+    def _station(number: str, characteristic_values: list[dict]) -> dict:
+        return {
+            "number": number,
+            "shortname": number,
+            "km": 1.0,
+            "latitude": 50.0,
+            "longitude": 10.0,
+            "water": {"shortname": "TEST"},
+            "timeseries": [
+                {"shortname": "W", "equidistance": 15, "unit": "cm", "characteristicValues": characteristic_values}
+            ],
+        }
+
+    in_cm = [
+        {"shortname": "MHW", "value": 412.0, "unit": "cm"},
+        {"shortname": "HSW", "value": 310.0, "unit": "cm"},
+        {"shortname": "MNW", "value": 117.0, "unit": "cm"},
+    ]
+    other = [
+        {"shortname": "MHW", "value": 4.12, "unit": "m"},
+        {"shortname": "HSW", "value": 310.0},
+        {"shortname": "MNW", "value": 117.0, "unit": "ft"},
+    ]
+    listing = json.dumps([_station("cm", in_cm), _station("other", other)]).encode()
+    measurements = json.dumps([{"timestamp": "2025-06-10T10:00:00+02:00", "value": 150}]).encode()
+
+    def _download(**kwargs: object) -> File:
+        url = str(kwargs["url"])
+        content = measurements if url.endswith("measurements.json") else listing
+        return File(url=url, content=BytesIO(content), status=200)
+
+    monkeypatch.setattr(api, "download_file", _download)
+
+    request = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")], **WINDOW)
+    stations = request.all().df.sort("station_id")
+    assert stations.select("station_id", "mhw", "hsw", "mnw", "m_i").rows() == [
+        ("cm", 4.12, 3.1, 1.17, None),
+        ("other", 4.12, None, None, None),
+    ]
+    # the stage of the gauge is in the same unit: 150 cm is 1.5 m, below the 4.12 m of the mean high water
+    stage = request.filter_by_station_id("cm").values().all().df.get_column("value").to_list()
+    assert stage == [1.5]

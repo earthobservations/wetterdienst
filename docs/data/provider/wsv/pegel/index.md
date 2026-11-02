@@ -23,9 +23,10 @@ fragmentary provided per each station:
 - hhw -> highest water level
 - hsw -> highest of shipping water level
 
-These are returned as Pegelonline publishes them, in the unit of the gauge (centimetres at most gauges), and
-are not converted: `stage` comes back in metres by default, so a stage compared with one of them is off by 100
-unless it is asked for in centimetres (`unit_targets={"length_medium": "centimeter"}`).
+These are returned in metres, the unit `stage` comes back in by default, each converted from the unit
+Pegelonline lists it in (`cm` at every gauge that has these levels, `m` otherwise); a level in a unit the reader does
+not know is null. `unit_targets` does not apply to them, as they are no parameters: a stage asked for in centimetres
+(`unit_targets={"length_medium": "centimeter"}`) is 100 times these.
 
 Each station also lists the altitude of its stage gauge's zero, in metres, as `gauge_zero`, and the
 vertical datum that altitude is given in, as Pegelonline publishes it, as `gauge_zero_datum`: mostly

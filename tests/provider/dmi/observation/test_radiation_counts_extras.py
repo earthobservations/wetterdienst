@@ -40,9 +40,9 @@ _RECORDS = json.loads(
 
 # (resolution, DMI's parameterId) -> the canonical name and the unit it is declared in
 _MAPPING = {
-    ("daily", "mean_radiation"): ("radiation_global", "kilojoule_per_square_meter"),
-    ("monthly", "mean_radiation"): ("radiation_global", "kilojoule_per_square_meter"),
-    ("annual", "mean_radiation"): ("radiation_global", "kilojoule_per_square_meter"),
+    ("daily", "mean_radiation"): ("radiation_global", "megajoule_per_square_meter"),
+    ("monthly", "mean_radiation"): ("radiation_global", "megajoule_per_square_meter"),
+    ("annual", "mean_radiation"): ("radiation_global", "megajoule_per_square_meter"),
     ("monthly", "no_cold_days"): ("count_days_temperature_air_min_2m_lt_minus_10c", "dimensionless"),
     ("annual", "no_cold_days"): ("count_days_temperature_air_min_2m_lt_minus_10c", "dimensionless"),
     ("monthly", "no_windy_days"): ("count_days_wind_speed_rolling_mean_max_ge_10_8mps", "dimensionless"),
@@ -167,7 +167,7 @@ def _source(resolution: str, station: str, parameter: str, prefix: str = "") -> 
 
 
 def test_the_radiation_of_a_day_is_the_megajoules_dmi_writes(monkeypatch: pytest.MonkeyPatch) -> None:
-    """06041, 2023-06-22: DMI's 25.4 MJ/m2 is declared as 25,400 kJ/m2, which the default unit returns as 25.4 MJ/m2.
+    """06041, 2023-06-22: DMI's 25.4 MJ/m2 is declared and returned as 25.4 MJ/m2, the default unit.
 
     A clear day of June in Denmark brings 15 to 30 MJ/m2. The 24 hourly means of the day, in W/m2, sum to the same
     energy: 25.40196 MJ/m2 (each is the mean over an hour of 3,600 s).
@@ -208,7 +208,7 @@ def test_a_radiation_no_day_can_bring_is_null_and_keeps_the_text_dmi_wrote(monke
     # 2021-06-10 is a day of the midnight sun at 70 degrees north, 22.4 MJ/m2 by DMI, inside the bound
     [june] = _source("daily", "04339", "mean_radiation", "2021-06-10")
     assert june["value"] == 22.4
-    # the token holds the megajoules DMI wrote (the reader hands them over as `source_text`), not its kJ/m2
+    # the token holds the megajoules DMI wrote
     assert df.select("value", "quality_flags").rows() == [
         (None, "manual,validity:true,rejected:range,raw:278.6"),
         (None, "manual,validity:true,rejected:range,raw:135.8"),

@@ -116,6 +116,15 @@ Types of changes:
   (`cm·d`), where it was typed as a length in `cm`. The number is the same. No `unit_targets` moves
   it, as none moves `temperature_difference`: `{"length_short": ...}` no longer applies to it, and
   naming `length_day` accepts `centimeter_day` only (GH-3747)
+- **Breaking**: the characteristic water levels of a `wsv/pegel` station (`m_i`, `m_ii`, `m_iii`,
+  `mnw`, `mw`, `mhw`, `hhw`, `hsw`) come back in metres, the unit of `stage`, each converted from
+  the unit Pegelonline lists it in (`cm`, or `m`); they were the number as published, 412.0 for a
+  mean high water of 4.12 m. A level with a unit the reader does not know is null. Multiply a
+  stored value by 0.01 (GH-3752)
+- **Breaking**: `dmi/observation` declares the radiation of a day, a month and a year in MJ/m², as
+  DMI writes it, no longer in kJ/m² (DMI's number times 1,000). Under the default unit targets the
+  values do not change; with `convert_units=false` they are DMI's megajoules, where they were a
+  thousand times larger, and `coverage` has no `unit_source` for them any more (GH-3752)
 
 ### Fixed
 

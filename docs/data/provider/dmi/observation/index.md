@@ -79,10 +79,10 @@ and not for the stations of Denmark proper.
 
 The global radiation of a day, a month and a year (`mean_radiation`) is the energy summed over the span, which DMI
 publishes in MJ/m² ("for all other time resolutions the unit is MJ/m^2"; the sum of the underlying hourly values times
-3600 / 10^6). The library returns it as `radiation_global` in the unit asked for (MJ/m² by default, DMI's own number),
-reading the value as kJ/m² (DMI's value times 1000), from before the library had an MJ/m² unit. A clear June day in Denmark brings 15 to 30 MJ/m² (25.4 MJ/m² at
-06041 on 2023-06-22, which the 24 hourly means of that day add up to). The hour stays `radiation_global_intensity_mean`
-in W/m². A day above 60 MJ/m², a month above 1860 and a year above 5000 are read as null: 04339 has days of 135 to 284
+3600 / 10^6). The library returns it as `radiation_global` in the unit asked for (MJ/m² by default, DMI's own
+number). A clear June day in Denmark brings 15 to 30 MJ/m² (25.4 MJ/m² at 06041 on 2023-06-22, which the 24 hourly
+means of that day add up to). The hour stays `radiation_global_intensity_mean`
+in W/m². A day above 60 MJ/m², a month above 1,860 and a year above 22,000 are read as null: 04339 has days of 135 to 284
 MJ/m² in the polar night of January 2021 that DMI marks valid.
 
 The counts of days are `count_days_*` with the threshold of DMI's own definition (its calculation table, read on

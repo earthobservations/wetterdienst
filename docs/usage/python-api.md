@@ -531,7 +531,7 @@ columns of its own that its station list has, null for a station the source give
 | `noaa/ghcn` | `wmo_id` | the WMO station number, five digits, null for a station without one |
 | `wsv/pegel` | `river`, `river_kilometer` | the river the gauge is on, as Pegelonline publishes it (`ELBE`), and its position along it in kilometres, the waterway kilometre, which grows downstream |
 | `wsv/pegel` | `gauge_zero`, `gauge_zero_datum` | the altitude of the gauge's zero and the datum it is given in |
-| `wsv/pegel` | `m_i`, `m_ii`, `m_iii`, `mnw`, `mw`, `mhw`, `hhw`, `hsw` | the characteristic water levels of the gauge, in the unit of the gauge as Pegelonline publishes it (centimetres at most), where `stage` is in metres by default |
+| `wsv/pegel` | `m_i`, `m_ii`, `m_iii`, `mnw`, `mw`, `mhw`, `hhw`, `hsw` | the characteristic water levels of the gauge, in metres, converted from the unit Pegelonline lists them in, as `stage` is by default |
 
 A test holds this table to the columns the providers declare, so a column added to a provider is added here.
 
