@@ -28,16 +28,16 @@
 | {term}`quality` | qn_8 | Quality flag. | -             | - |
 | {term}`cloud_cover_total` | v_n | Total cloud cover. | 1/8 | >=0,<=8 |
 | {term}`cloud_cover_total_measurement_method` | v_n_i | Index how measurement is taken, P = by human person,I = by instrument. Returned as 1 for P and 2 for I. | - | ∈ {1, 2} |
-| {term}`cloud_type_layer1` | v_s1_cs | Cloud type of 1. layer. | - | ∈ {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1} |
+| {term}`cloud_type_layer1` | v_s1_cs | Cloud type of 1. layer. | - | ∈ {0, 1, 2, 3, 4, 5, 6, 7, 8, 9} |
 | {term}`cloud_height_layer1` | v_s1_hhs | Lower boundary height of 1.layer. | m | >=0 |
 | {term}`cloud_cover_layer1` | v_s1_ns | Cloud cover in the first layer. | 1/8 | >=0,<=8 |
-| {term}`cloud_type_layer2` | v_s2_cs | Cloud type of 2. layer. | - | ∈ {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1} |
+| {term}`cloud_type_layer2` | v_s2_cs | Cloud type of 2. layer. | - | ∈ {0, 1, 2, 3, 4, 5, 6, 7, 8, 9} |
 | {term}`cloud_height_layer2` | v_s2_hhs | Lower boundary height of 2.layer. | m | >=0 |
 | {term}`cloud_cover_layer2` | v_s2_ns | Cloud cover in the second layer. | 1/8 | >=0,<=8 |
-| {term}`cloud_type_layer3` | v_s3_cs | Cloud type of 3. layer. | - | ∈ {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1} |
+| {term}`cloud_type_layer3` | v_s3_cs | Cloud type of 3. layer. | - | ∈ {0, 1, 2, 3, 4, 5, 6, 7, 8, 9} |
 | {term}`cloud_height_layer3` | v_s3_hhs | Lower boundary height of 3.layer. | m | >=0 |
 | {term}`cloud_cover_layer3` | v_s3_ns | Cloud cover in the third layer. | 1/8 | >=0,<=8 |
-| {term}`cloud_type_layer4` | v_s4_cs | Cloud type of 4. layer. | - | ∈ {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1} |
+| {term}`cloud_type_layer4` | v_s4_cs | Cloud type of 4. layer. | - | ∈ {0, 1, 2, 3, 4, 5, 6, 7, 8, 9} |
 | {term}`cloud_height_layer4` | v_s4_hhs | Lower boundary height of 4.layer. | m | >=0 |
 | {term}`cloud_cover_layer4` | v_s4_ns | Cloud cover in the fourth layer. | 1/8 | >=0,<=8 |
 
@@ -55,7 +55,6 @@ Codes (cloud_type_layer):
 | 7    | stratus       |
 | 8    | cumulus       |
 | 9    | cumulonimbus  |
-| -1   | automated     |
 
 ### cloudiness
 
@@ -238,8 +237,8 @@ Codes (precipitation_form):
 
 | name                            | original name | description          | unit | constraints |
 |---------------------------------|---------------|----------------------|------|-------------|
-| {term}`temperature_air_2m`      | tt_tu | Air temperature 2 m above ground. The stamps of the periods that DWD's Metadaten_Parameter calls "Stundenwerte in MEZ (MD)" (the eMD archive of 80 East German stations, up to 1991) are MEZ, UTC+1: they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`), and so are those of Diepholz from 1995-02-01 to 1996-05-31, a period the label calls plain MEZ that is MEZ in the values from the stamp 1995-02-01 00 to the stamp 1996-05-31 23. The other stamps are UTC. | °C | - |
-| {term}`humidity_relative` | rf_tu | Relative humidity. The stamps of the periods that DWD's Metadaten_Parameter calls "Stundenwerte in MEZ (MD)" (the eMD archive of 76 East German stations, up to 1991) are MEZ, UTC+1: they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`), and so are those of Diepholz from 1995-02-01 to 1996-05-31, a period the label calls plain MEZ that is MEZ in the values from the stamp 1995-02-01 00 to the stamp 1996-05-31 23. The other stamps are UTC. | % | >=0,<=100 |
+| {term}`temperature_air_2m`      | tt_tu | Air temperature 2 m above ground. The stamps of the periods that DWD's Metadaten_Parameter calls "Stundenwerte in MEZ (MD)" (the eMD archive of 80 East German stations, up to 1991) are MEZ, UTC+1: they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`), and so are those of Diepholz from the stamp 1995-02-01 00 to the stamp 1996-05-31 23, Nürnberg from 1986-01-01 01 to 1988-11-01 00, Frankfurt/Main from 1990-05-01 01 to 1990-06-01 00, Trier-Petrisberg from 1989-08-01 01 to 1989-09-01 00 and Bremen from 1990-11-01 01 to 1991-03-01 00, periods the label calls plain MEZ that are MEZ in the values. The other stamps are UTC. | °C | - |
+| {term}`humidity_relative` | rf_tu | Relative humidity. The stamps of the periods that DWD's Metadaten_Parameter calls "Stundenwerte in MEZ (MD)" (the eMD archive of 76 East German stations, up to 1991) are MEZ, UTC+1: they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`), and so are those of Diepholz from the stamp 1995-02-01 00 to the stamp 1996-05-31 23, Nürnberg from 1986-01-01 01 to 1988-11-01 00, Frankfurt/Main from 1990-05-01 01 to 1990-06-01 00, Trier-Petrisberg from 1989-08-01 01 to 1989-09-01 00 and Bremen from 1990-11-01 01 to 1991-03-01 00, periods the label calls plain MEZ that are MEZ in the values. The other stamps are UTC. | % | >=0,<=100 |
 
 ### temperature_soil
 

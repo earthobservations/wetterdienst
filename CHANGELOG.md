@@ -79,6 +79,15 @@ Types of changes:
   spell and never counts. 55 stations (the 53 of group `KO`, `B338`, `B773`) wrote 21.6 or 20.16 mm/h in every
   reading. Soft by default, so the values stay, but they now leave `interpolate`, `summarize`,
   stripes and `skip_empty` like every suspect value; `stuck=hard` nulls them (GH-3771)
+- **Breaking**: `dwd/observation` `hourly/temperature_air` `historical` (`temperature_air_2m`,
+  `humidity_relative`): four blocks of whole days inside periods that DWD labels plain
+  "Stundenwerte in MEZ" are MEZ in the values and come back one hour earlier, with `zone:mez` in
+  `quality_flags`: Nürnberg (03668) from 1986-01-01 01 to 1988-11-01 00, Frankfurt/Main (01420)
+  from 1990-05-01 01 to 1990-06-01 00, Trier-Petrisberg (05100) from 1989-08-01 01 to
+  1989-09-01 00 and Bremen (00691) from 1990-11-01 01 to 1991-03-01 00. Add an hour to flagged
+  stamps to get the old ones. Where the shift lands a stamp on one the file has, the moved row now
+  wins in these blocks and in Diepholz's (the humidity of Diepholz at 1995-01-31 23 is 72, was 68);
+  the other plain MEZ periods stay as written (Part of GH-3029)
 
 ### Fixed
 
@@ -98,6 +107,10 @@ Types of changes:
   series one hour later. The page now says that the hourly temperature, relative humidity, wind
   direction and gust in Greenland are a value of the hour or a reading at minute 0, by station
   and hour, up to one hour from their stamp (GH-3768)
+- `dwd/observation` hourly `cloud_type_layer1` to `cloud_type_layer4` is null now where DWD writes
+  `-1`, with `raw:-1` in `quality_flags`, as the obscured-sky cloud cover beside it: the `-1` was
+  returned as a value and the docs called it "Automated", which no DWD description says. A caller
+  that counted `-1` as a category finds those rows in `quality_flags` (GH-3772)
 
 ## [0.182.0] - 2026-11-02
 

@@ -84,8 +84,10 @@ MEASUREMENT_METHOD_CODES = {"P": "1", "I": "2"}
 # 47, "fog, sky invisible", most of all. It is a statement that no amount could be given, not an
 # amount: left alone it is read as -1 eighths and converts to -0.125 of the sky.
 #
-# Only the cover fields. `v_sN_cs` beside them is a cloud *type* code where -1 is DWD's own value
-# for an automated observation, and dimensionless, so nothing distorts it.
+# The cloud *type* fields `v_sN_cs` write the same -1 (GH-3772; read 2026-11-03, stations 00433, 01420, 02014
+# and 03921, all periods): 2,633 of the 2,641 hours with a type of -1 have an obscured first layer beside it, 2,627 an
+# obscured total cover. DWD's descriptions name no -1 for the type (only -999), so it is not a type but the same
+# absence, and it is not returned either; the older reading, "DWD's value for an automated observation", had no source.
 SKY_OBSCURED = "-1"
 CLOUD_COVER_PARAMETERS = {
     DwdObservationMetadata.hourly.cloudiness.cloud_cover_total.name_original,
@@ -94,6 +96,12 @@ CLOUD_COVER_PARAMETERS = {
     DwdObservationMetadata.hourly.cloud_type.cloud_cover_layer2.name_original,
     DwdObservationMetadata.hourly.cloud_type.cloud_cover_layer3.name_original,
     DwdObservationMetadata.hourly.cloud_type.cloud_cover_layer4.name_original,
+}
+CLOUD_TYPE_PARAMETERS = {
+    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer1.name_original,
+    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer2.name_original,
+    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer3.name_original,
+    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer4.name_original,
 }
 # The hourly moisture dataset documents `missing value = -999`, but its files write -99.9 for the five moisture
 # columns in every hour without a reading (station 03735, 1949-01-28 06:00, in
@@ -116,8 +124,7 @@ MOISTURE_MISSING_PARAMETERS = {
 # nicht gemeldet;eor` (stundenwerte_WW_01869_akt.zip; 9263 of the 13088 records of station 01869 are
 # that row, and no other `WW_Text` goes with -1 nor does -1 go with another text). No description states
 # it. It is "not reported", not a weather: left alone it is counted, maxed and averaged as one. Only
-# this column: `v_sN_cs` of hourly cloud_type is a code where -1 is DWD's own value for an automated
-# observation.
+# this column: the -1 of `v_sN_cs` in hourly cloud_type is the obscured sky (see `SKY_OBSCURED`).
 WEATHER_NOT_REPORTED = -1
 WEATHER_NOT_REPORTED_PARAMETERS = {
     DwdObservationMetadata.hourly.weather_phenomena.weather.name_original,
@@ -360,12 +367,14 @@ WOZ_COLUMN = "woz"
 # fixed UTC+1, not UTC, and are shifted by -1 h (GH-2709): against NOAA ISD the value of the stamp HH is the report of
 # HH-1 UTC, 95 to 99.9 % identical at 38 of 39 stations with a twin (5 to 16 % before the shift), and none contradicts.
 # So are the hourly soil temperature stamps of the periods whose source is "Archiv des eMD" (74 stations, up to 1991:
-# the terms 01, 04, ..., 22 MEZ, GH-3029), and the air temperature stamps `MEZ_BY_COMPARISON` names (Diepholz, from
-# 1995-02-01 to 1996-05-31). Only these: the plain `Stundenwerte in MEZ` of 160 stations is UTC in the values at most
-# of the stations checked and no rule on the file tells the others. The periods come from `ProductFile.mez_md_spans`,
-# per parameter as `TT_TU` and `RF_TU` have their own table of periods at 42 stations and one stamp column cannot
-# carry two clocks, so the shift is made after the wide frame is unpivoted (`DwdObservationValues._tidy_up_df`), from
-# one boolean column per parameter named here. The rows are flagged `zone:mez`.
+# the terms 01, 04, ..., 22 MEZ, GH-3029), and the air temperature stamps `MEZ_BY_COMPARISON` names (Diepholz, Nürnberg,
+# Frankfurt/Main, Trier-Petrisberg and Bremen, in blocks of whole days). Only these: the plain `Stundenwerte in MEZ`
+# of 160 stations is UTC in the values in most of the months ISD tells apart (6,021 against 141 at lag -1,
+# docs/data/time_reference.md) and no rule on the file tells the others. The periods come from
+# `ProductFile.mez_md_spans`, per parameter as `TT_TU` and `RF_TU` have their own table of periods at 42 stations and
+# one stamp column cannot carry two clocks, so the shift is made after the wide frame is unpivoted
+# (`DwdObservationValues._tidy_up_df`), from one boolean column per parameter named here. The rows are flagged
+# `zone:mez`.
 MEZ_MD_PREFIX = "mez_md__"
 
 
@@ -445,7 +454,7 @@ def _parse_climate_observations_data(  # noqa: C901
         pl.col(parameter).map_batches(_decode_measurement_method, return_dtype=pl.String)
         for parameter in sorted(CODED_STRING_PARAMETERS & columns)
     )
-    df = clear_sentinels(df, sorted(CLOUD_COVER_PARAMETERS & columns), _SKY_OBSCURED)
+    df = clear_sentinels(df, sorted((CLOUD_COVER_PARAMETERS | CLOUD_TYPE_PARAMETERS) & columns), _SKY_OBSCURED)
     if dataset == DwdObservationMetadata.hourly.moisture:
         df = clear_sentinels(df, sorted(MOISTURE_MISSING_PARAMETERS & columns), _MOISTURE_MISSING)
     if dataset == DwdObservationMetadata.hourly.weather_phenomena:
