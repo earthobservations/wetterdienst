@@ -55,7 +55,7 @@ For a dataset that a check applies to, the core does this for each station, afte
 The bounds are one table for every provider, by canonical name and by resolution where the quantity grows with the
 span (`wetterdienst.model.plausibility_ranges`, [below](#the-table-of-ranges)). What only a provider knows it hands the
 core as data, through one hook: the stations without frost, the periods in which one sensor of one station did not work,
-the relation of a road surface to the air at night, and DWD road's humidity floor
+the relation of a road surface to the air at night
 ([contributing a provider](../contribution/services.md)).
 
 A judged value's `raw:` is the text the source wrote for it (`raw:-0.80`), in the unit of the source: the reader hands
@@ -66,7 +66,7 @@ written as short as it goes (`4021.0` as `4021`).
 
 | check | judges | default | rule and bounds |
 | --- | --- | --- | --- |
-| `range` | a reading outside the physical range of its parameter | hard | One table of bounds for every network, by canonical parameter and resolution (the rain of a minute and of a day differ), in the canonical unit, and generous: each rests on a record with room above it, so that a value that is only odd stays ([the table](#the-table-of-ranges)). No network has bounds of its own in the table; a provider's `Bound` rule can only narrow it (Météo-France: no air below 0 °C at a station without frost). DWD road holds a relative humidity below 1 % to this check as well: a failed hygrometer writes a value inside every range, and 1 % is far below any humidity the air of Germany reaches |
+| `range` | a reading outside the physical range of its parameter | hard | One table of bounds for every network, by canonical parameter and resolution (the rain of a minute and of a day differ), in the canonical unit, and generous: each rests on a record with room above it (the relative humidity's 1 % floor, which is no record, is the one exception), so that a value that is only odd stays ([the table](#the-table-of-ranges)). No network has bounds of its own in the table; a provider's `Bound` rule can only narrow it (Météo-France: no air below 0 °C at a station without frost). A relative humidity is held to 1 to 100 %, not 0 to 100: a failed hygrometer and a dropout write 0.0 (or 0.1, 0.4), which is inside every range of 0 up, and 1 % is far below any humidity the air of Germany reaches ([why 1](#relative-humidity-under-one-percent)) |
 | `elevation` | a station pressure the standard atmosphere does not allow at the station's elevation | hard | In every network that serves a station pressure (`pressure_air_site`, `_mean`, `_min`, `_max`), for each station of the list that has an elevation. Against the pressure of the international standard atmosphere at that elevation, from **870/1013.25 of it** (143 hPa below at sea level: the lowest pressure on record, 870 hPa in Typhoon Tip, as a share of the standard atmosphere) to **75 hPa above it** (the 1,083.8 hPa of Agata, 261 m, the highest sea level pressure of a low station, reduced to the station with the cold column of that day lies 59 to 64 hPa above the standard atmosphere there, the 1,089.1 hPa of Tosontsengel, 1,725 m, 14 to 40: a derivation of GH-3681). The world-wide bounds (300 to 1100 hPa) let through the pressure of another height (968.6 hPa at the Zugspitze, 2,956 m, where 705 are expected) and a P0 mistyped by a digit above the standard atmosphere (1093.3 hPa at 48 m, 85.8 above). A station without an elevation, or one outside -500 to 9,000 m, is not judged. So is a `noaa/ghcn` station at 0.0 m: its lists write 0.0 for stations they know no elevation of (the daily one BRM00083566, inland at about 827 m), and 54 of the 271 at 0.0 in the hourly one stand between 150 and 4,329 m (CHM00052940 reads 500.2 to 998 hPa), while the 0.0 of the lists read (DWD, ECCC, IMGW, Météo-France) is a coast. The margin below keeps Hurricane Irma (917.4 hPa at 10:00 UTC and 936.0 hPa an hour earlier at St-Barthélemy, 3 m, 2017-09-06, quality code 1) and the deep lows of Dumont d'Urville (938 hPa at 43 m, where 1,008 are expected); it lets 3 of the 19 readings of DWD's hourly station pressure beyond 75 hPa of the standard atmosphere (the research of GH-3681, over Berlin-Tempelhof, List auf Sylt and the Zugspitze) pass: 909.5, 910.1 and 908.5 hPa, 98 to 102 hPa below, which the step check planned in [GH-3681](https://github.com/earthobservations/wetterdienst/issues/3681) is to catch |
 | `stuck` | a sensor that held one value over a period it should not have | **soft** | DWD observation: a run of consecutive readings of one value of the station pressure (`pressure_air_site`, `pressure_air_site_mean`): 72 hourly readings, 5 days, 36 readings at 10 minutes (HadISD and ECA&D, see [the limits](#the-limit-of-a-run)); a station without a barometer writes its constant in every row. DWD road: 24 readings or more (6 h) of one value of the air, the dew point or the road surface temperature, a gap longer than four times the station's usual one ending the run, melting ice excepted. RMI: the sunshine of station 6477 in the periods its sensor was stuck or dead |
 | `consistency` | a reading that another parameter of the same file contradicts | hard | DWD road: a road surface more than 20 K above the air of the same minute with the sun more than 6 degrees below the horizon, the air counting only where it passed `range` and is not marked suspect by DWD's own flag. Météo-France: the humidity of an hour whose dew point lies below 0 °C at a station without frost (the same hygrometer), and a `tn12` that is the text of the `tx12` beside it (a copy, no minimum) |
@@ -134,7 +134,7 @@ the main ones are:
 | rain in up to 24 hours | 0 to 1,850 mm | WMO: 1,825 mm in 24 hours (Foc-Foc, 1966) |
 | rain in a month | 0 to 10,000 mm | 9,300 mm in July 1861 (Cherrapunji; Bureau of Meteorology, a secondary source) |
 | rain in a year | 0 to 30,000 mm | WMO: 26,470 mm in 12 months (Cherrapunji, 1860/61) |
-| relative humidity | 0 to 100 % | definition |
+| relative humidity | 1 to 100 % | 100 % by definition; 1 % is the floor of what a hygrometer reports, see [below](#relative-humidity-under-one-percent) |
 | snow cover | 0 to 100 % | definition |
 | vapour pressure deficit | -10 to 200 hPa | the saturation pressure at the 60 °C of the air bound, 199 hPa by Magnus; DMI writes some hours and days a little below 0 (-3 hPa at 06193, 2025-07-25), so the lower end leaves them |
 | new snow in a day, in a month | 0 to 200 cm, 0 to 6,200 cm | Durre et al. 192.5 cm; a month (the sums of the daily depths, ECCC's normal snowfall) is that times 31 |
@@ -161,6 +161,38 @@ years, or its climatological extremes); and the current WMO-No. 305 (Guide to th
 Prediction System) has no chapter on quality control, the gross limits quoted from it come from the withdrawn edition of
 1993. The table is compared with these, not taken from them.
 
+### Relative humidity under one percent
+
+The table holds a relative humidity to **1 to 100 %**. An exact 0.0 % is what a dropout writes (DWD's urban
+`10_minutes` `humidity_relative` has five of 1,837,972 readings, each a dropout between normal ones with quality level
+3: 72.3 % before and null after at Dresden-Neustadt, 32.0 and 33.1 % at Berlin-Alexanderplatz, 48.0 and 48.8 % at
+Regensburg-Mitte; GH-3773), a failed hygrometer writes 0.0, 0.1 or 0.4 % (DWD road, GH-3624), and the
+air of Germany is never that dry; the minima of the other DWD humidity columns are 7 to 12 %. Every relative humidity is
+held to it (`humidity_relative` and its `_mean`, `_max` and `_min`), at every resolution, and no other humidity: not
+the absolute humidity, the vapour pressure or the dew point.
+
+Why 1 and not the smallest number above 0, or 0.5:
+
+- GHCNh derives its humidity from air and dew point temperature in whole percents and calls a value under 1 "out of
+  range" itself ([documentation](https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh_DOCUMENTATION.pdf),
+  Table 3, `o`). Read on 2026-11-03 (2023, the two nearest stations of Death Valley, Phoenix, Yuma, Las Vegas, Aswan,
+  Tamanrasset, Alice Springs, Riyadh, Kuwait, Concordia, Atacama, Bechar, Ouargla and Turpan, 14 places): the hourly
+  readings of 0 are three, two at Death Valley (USW00053139) and one at Tamanrasset (AGM00060679), of which GHCNh marks
+  two itself (`o` out of range, and the legacy code `3` of source 345). There are 103 hours of exactly 1 % (Death Valley
+  23, Tamanrasset 73, Atacama 5, Turpan 2), between neighbours of 0 to 4 %: a whole percent of 1 is a reading and stays.
+- The lowest values the literature reports are derived from a temperature and a dew point, not read from a hygrometer:
+  0.36 % at Safi-Abad Dezful (Iran, 2017-06-20, 46.5 °C and a dew point of -33.2 °C) and 0.33 % at Needles
+  (California, 2014-05-04, 38.9 °C and -38 °C), per [Weather Underground](https://www.wunderground.com/cat6/world-record-low-humidity-116f-036-humidity-iran),
+  which notes that humidity cannot be measured to hundredths of a percent. **A floor of 1 % would null such an hour**
+  if a source wrote it as a decimal; the cost is a handful of hours the world has seen, against the dropouts of
+  every network, and the readings of whole percents that GHCNh rounds to 0 are the same hours.
+- The WMO World Weather and Climate Extremes Archive lists no humidity record, so this bound rests on the sources above
+  (N), not on a record.
+
+The monthly mean of a station that reads 6 % (Météo-France, Crozet, 1997-07, validated) is not a dropout of a
+hygrometer and is not found by any floor that leaves the deserts alone; it stays a value, as the source published it
+([special values](special_values.md)).
+
 ### What a table for the world cannot catch
 
 A bound that holds for every provider cannot see a defect that lies inside it. These stay, as the source wrote them, or are told by another check:
@@ -179,14 +211,14 @@ A bound that holds for every provider cannot see a defect that lies inside it. T
   (917.4 hPa at 3 m). Steps of 90 to 129 hPa in an hour, against the 43 of Irma, tell them; that is the step check, too.
 - **The stopped sensors of DWD road at -75.00 °C** (station group KM): inside the -90 °C of the air record, so no
   bound finds them. They are a code of the source and the reader of DWD road maps them to null, keeping `raw:198.15`.
-  DWD road keeps one narrow rule of its own beside it: a humidity below 1 % is no reading (a `Bound`). The `-30.00` and
-  `-25.00` of other stopped sensors are readings a German winter reaches, and stay with the check `stuck`.
+  The `-30.00` and `-25.00` of other stopped sensors are readings a German winter reaches, and stay with the check `stuck`.
 - **A sensor stuck at a plausible value, a sunshine of 1,440 minutes on a day of December** (RMI, 6477) and other
   quantities that look like data: `stuck` and the rules of a provider, not the table.
 
 ## Bounds of your own (`limits`)
 
-The table of ranges is generous on purpose: it finds a value that is a defect of the source and never a record. Where
+The table of ranges is generous on purpose: it finds a value that is a defect of the source and never a record (the one
+exception is the 1 % floor of a relative humidity, [above](#relative-humidity-under-one-percent)). Where
 you know more (a station in a valley that never reads 45 °C, a rain gauge that cannot have caught 200 mm in an hour), you
 set the bounds yourself, per parameter, and the check `limits` judges every reading against them. It is a separate check
 from `range`: the physical ranges are not changed, and a value outside both carries both verdicts, joined with `+` as with

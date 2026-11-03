@@ -504,6 +504,22 @@ def _dwd_hourly_urban_wind(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = T
     return _dwd_observation(monkeypatch, "hourly", "urban_wind", product, "13667", year=2018, drop_nulls=drop_nulls)
 
 
+def _dwd_10_minutes_urban_humidity_dropout(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # climate_urban/10_minutes/air_temperature/historical/10minutenwerte_TU_STADT_00399_20150701_20251231_hist.zip, read
+    # 2026-11-03 (Berlin-Alexanderplatz): the description documents -999 only, and the file reads a relative humidity of
+    # 0.00 % at 2023-03-16 17:40 UTC (quality 3) between 32.00 and 33.10 %, with the air at 7.4 C. The same file holds
+    # no other humidity under 20 %; four more such dropouts lie at Dresden-Neustadt and Regensburg-Mitte (GH-3773)
+    product = (
+        "STATIONS_ID;MESS_DATUM;  QN;TT_ST_10;RF_ST_10;STRAHL_ST_10;TT5_ST_10;eor\n"
+        "        399;202303161730;    3;   7.6;   32.00;  -999;   5.0;eor\n"
+        "        399;202303161740;    3;   7.4;    0.00;  -999;   4.8;eor\n"
+        "        399;202303161750;    3;   7.3;   33.10;  -999;   5.3;eor\n"
+    )
+    return _dwd_observation(
+        monkeypatch, "10_minutes", "urban_temperature_air", product, "00399", year=2023, drop_nulls=drop_nulls
+    )
+
+
 def _dwd_hourly_urban_wind_below_zero(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # climate_urban/hourly/wind/recent/stundenwerte_wind_399_akt.zip, read 2026-10-30 (Berlin-Alexanderplatz): the
     # description documents -999 only, and the file reads -0.80 m/s at 2017-06-07 00:00 UTC (direction 70, quality 2),
@@ -2480,6 +2496,14 @@ STUBS = [
         reading=("wind_direction_mean", 360.0),
         sentinels=(("wind_direction_mean", 0.0),),
         tokens=(("wind_direction_mean", "0", None),),
+    ),
+    ValueStub(
+        "dwd/observation 10_minutes/urban_temperature_air (a humidity of 0.0)",
+        _dwd_10_minutes_urban_humidity_dropout,
+        reading=("humidity_relative", 32.0),
+        sentinels=(("humidity_relative", 0.0),),
+        tokens=(("humidity_relative", "0.00", None),),
+        verdicts=(("humidity_relative", "0.00", "range"),),
     ),
     ValueStub(
         "dwd/observation hourly/urban_wind (a speed below 0)",

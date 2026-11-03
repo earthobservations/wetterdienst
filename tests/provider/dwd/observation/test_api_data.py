@@ -2352,3 +2352,29 @@ def test_dwd_observation_data_station_pressure_is_held_to_the_elevation_of_the_s
         monkeypatch, "hourly", "pressure", product, "00433", year=1994, drop_nulls=False, elevation=elevation
     )
     assert _p0(df) == expected
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected"),
+    [
+        # hard (the default): the dropout is null and the number DWD wrote is the last token
+        ("hard", [(32.0, "3"), (None, "3,rejected:range,raw:0.00"), (33.1, "3")]),
+        # soft: the value stays and is told suspect
+        ("soft", [(32.0, "3"), (0.0, "3,suspect:range"), (33.1, "3")]),
+    ],
+)
+def test_dwd_observation_data_urban_humidity_of_zero_is_outside_the_range(
+    monkeypatch: pytest.MonkeyPatch,
+    mode: str,
+    expected: list[tuple[float | None, str]],
+) -> None:
+    """Test that the 0.00 % of Berlin-Alexanderplatz (2023-03-16 17:40) between 32 and 33.1 % is no reading (GH-3773).
+
+    The rows are those of the file of DWD, read on 2026-11-03; the range of a relative humidity is 1 to 100 %.
+    """
+    from tests.provider.value_stubs import _dwd_10_minutes_urban_humidity_dropout  # noqa: PLC0415
+
+    monkeypatch.setenv("WD_TS_PLAUSIBILITY__RANGE", mode)
+    df = _dwd_10_minutes_urban_humidity_dropout(monkeypatch, drop_nulls=False)
+    rows = df.filter(pl.col("parameter").eq("humidity_relative")).sort("timestamp")
+    assert rows.select("value", "quality_flags").rows() == expected

@@ -17,7 +17,7 @@ from urllib.parse import urljoin
 import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.model.judge import Beside, Bound, Rule
+from wetterdienst.model.judge import Beside, Rule
 from wetterdienst.model.metadata import (
     DATASET_NAME_DEFAULT,
     DatasetModel,
@@ -307,11 +307,6 @@ _QUALITY_BITS = {
 #: an air that DWD's own flag marks suspect is not held against the surface; one stopped at a plausible value
 #: (-25.00 C) is. The rule is one-sided: a surface under the air is an ordinary clear night.
 _SURFACE_WARMER_THAN_AIR = 20.0
-
-#: a relative humidity under 1 % is no reading: a failed hygrometer writes 0.0, 0.1, 0.4 or 0.99 %, which lies inside
-#: every range (P925 wrote 0.1 % in 43 readings of a 12 h window, GH-3624), and the air of Germany is never that dry
-#: at the road. The one narrow rule of this network that the table of ranges, the same for every provider, cannot hold
-_ROAD_HUMIDITY_FLOOR = Bound(low=1.0, names=("humidity_relative",))  # percent, the unit of the type `fraction`
 
 #: the 198.15 K (-75.00 C) that the stopped sensors of station group KM write for days (GH-1917) is no reading: a
 #: working sensor spreads across the decimals and this is the same to the hundredth at every station that has it. It
@@ -649,14 +644,14 @@ class DwdRoadValues(TimeseriesValues[DatasetModel]):
         self._group_cache: tuple[tuple[str, tuple[str, ...]], pl.DataFrame, bool] | None = None
 
     def _plausibility_rules(self, station_id: str, dataset: DatasetModel) -> tuple[Rule, ...]:  # noqa: ARG002
-        """Give the humidity floor, and the relation of the road surface to the air at night where there is one."""
+        """Give the relation of the road surface to the air at night, where the station has a position."""
         stations = getattr(self.sr, "df", None)
         if stations is None:
-            return (_ROAD_HUMIDITY_FLOOR,)
+            return ()
         station = stations.filter(pl.col("station_id").eq(station_id))
         if station.is_empty():
-            return (_ROAD_HUMIDITY_FLOOR,)
-        return (_ROAD_HUMIDITY_FLOOR, *road_rules(*station.select("latitude", "longitude").row(0)))
+            return ()
+        return road_rules(*station.select("latitude", "longitude").row(0))
 
     def _collect_station_parameter_or_dataset(
         self,

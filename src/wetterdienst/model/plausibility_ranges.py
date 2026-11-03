@@ -16,7 +16,7 @@ parameters a test serves; it keeps no bounds of its own (GH-3681).
 Where the bounds come from. A bound is the first of these that exists, rounded outward to a round number (31.2 is 40,
 1,144 is 1,150, 1,825 is 1,850, 26,470 is 30,000; the irradiance of 2,000 W/m² is a round number between the 1,600
 of WMO-No. 488 and the 2,141 of BSRN), so that it finds a
-value that is a defect of the source and never a record:
+value that is a defect of the source and never a record (but for the 1 % floor of the relative humidity, below):
 
 1. **W**: the extreme the WMO World Weather and Climate Extremes Archive lists, table of 31 July 2025
    (https://public.wmo.int/sites/default/files/2025-07/Table_Records_25Jul2025.pdf);
@@ -73,8 +73,16 @@ The sources, by quantity:
   reading of a resolution (D, the day-length margin of ECA&D; DWD's urban 10-minute sunshine is written in hours with
   two decimals, 0.17 h for a full interval, inside the 0.175 h of the bound, and RMI's 63.86 min in an
   hour, 1.064 h, is above 1.05). The bounds are in hours, the unit of the type ``duration``: 1 h is 3,600 s and 60 min.
-- Relative humidity 0 to 100 % (D), cloud cover, the probabilities of a model, the relative sunshine and the snow
-  cover 0 to 100 % (D); soil moisture is a share of the field capacity, which saturated soil goes past (D, at least 0).
+- Relative humidity 1 to 100 % (N, the upper end D): the air never saturates past 100 %, and 1 is the floor of what a
+  hygrometer or a derivation from air and dew point reports as a reading. GHCNh calls a derived humidity under 1 "out
+  of range" (Table 3 of its documentation), and an exact 0.0 is what a dropout writes (DWD's urban 10-minute 0.0 %,
+  five dropouts between normal readings: 72.3 before and null after, 32.0 and 33.1, 48.0 and 48.8, GH-3773). This is
+  the one bound that is no record: it costs the readings under 1 % that exist but are derived from a temperature and a
+  dew point (0.36 % at Dezful on 2017-06-20, 0.33 % at Needles on 2014-05-04, Weather Underground, secondary), which
+  no hygrometer resolves. The hourly data of the desert stations read (Death Valley, Tamanrasset, Atacama, Turpan,
+  2023) have 103 hours of 1 %, which stay, and three of 0. Cloud cover, the probabilities of a model, the relative
+  sunshine and the snow cover are 0 to 100 % (D); soil moisture is a share of the field capacity, which saturated soil
+  goes past (D, at least 0).
 - Radiation: the short-wave irradiance 0 to 2,000 W/m² (N): WMO-No. 488 (App. VI.2) holds 0 to 1,600 and BSRN 1.5
   times the solar constant (1,361 W/m²) times the cosine of the zenith angle to the 1.2 plus 100 W/m², 2,141 at the
   zenith; the lower bound is 0 as the definition says. A sum of short-wave radiation is at most the solar constant
@@ -171,6 +179,8 @@ _DURATION_BY_SPAN: dict[str, Bounds] = {
 }
 _NON_NEGATIVE = Bounds(0.0, _INF)
 _SHARE = Bounds(0.0, 100.0)  # in percent, the unit of the type ``fraction``
+# not 0: an exact 0.0 % is a dropout (GH-3773), and 1 % is the floor of what a hygrometer reports (see the docstring)
+_HUMIDITY_RELATIVE = Bounds(1.0, 100.0)
 _AIR = Bounds(-90.0, 60.0)
 _SEA_LEVEL = Bounds(850.0, 1_100.0)
 _WIND = Bounds(0.0, 115.0)
@@ -306,7 +316,7 @@ PREFIX_RANGES: tuple[tuple[str, Range], ...] = (
     ("cloud_cover_", _SHARE),
     ("probability_", _SHARE),
     ("sunshine_duration_relative", _SHARE),
-    ("humidity_relative", _SHARE),
+    ("humidity_relative", _HUMIDITY_RELATIVE),
     ("soil_moisture_", _NON_NEGATIVE),
     ("temperature_air", _AIR),
     ("temperature_dew", Bounds(-100.0, 60.0)),
