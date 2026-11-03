@@ -1914,8 +1914,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         # snow depth of 28240 is that of metObs `snow_depth_man` (07:00 UTC) of the day beginning at 06:00 UTC: 4.0
         # on 12 February 2021 and 3.0 on the 13th.
         ("hourly", "data", "mean_temp"): (
-            "Mean air temperature of the hour (UTC), measured 2 m over terrain; in Greenland possibly the "
-            "reading at minute 0."
+            "Mean air temperature of the hour (UTC), measured 2 m over terrain. In Greenland DMI names the mean of "
+            "the past hour or, alternatively, the reading at minute 0, and which one a record holds depends on the "
+            "station and the hour; the reading is taken at the end of the hour the record spans, so the value may "
+            "lie up to an hour from its stamp."
         ),
         ("daily", "data", "mean_temp"): (
             "Mean air temperature of the day: the average of all hourly values within the day (the local day "
@@ -1968,8 +1970,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "values of the lowest temperature."
         ),
         ("hourly", "data", "mean_relative_hum"): (
-            "Mean relative humidity of the hour (UTC), measured 2 m over terrain: in Denmark the average of "
-            "the 6 underlying values within the hour."
+            "Mean relative humidity of the hour (UTC), measured 2 m over terrain: in Denmark the average of the 6 "
+            "underlying values within the hour. In Greenland DMI names the mean of the past hour or, alternatively, "
+            "the reading at minute 0, and which one a record holds depends on the station and the hour; the reading "
+            "is taken at the end of the hour the record spans, so the value may lie up to an hour from its stamp."
         ),
         ("daily", "data", "mean_relative_hum"): (
             "Mean relative humidity of the day: the average of all hourly values within the day (the local "
@@ -1990,8 +1994,9 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "hourly mean relative humidity of its day."
         ),
         ("hourly", "data", "mean_pressure"): (
-            "Mean atmospheric pressure of the hour (UTC), reduced to mean sea level: in Denmark the average "
-            "of the 6 underlying values within the hour."
+            "Atmospheric pressure of the hour (UTC), reduced to mean sea level: in Denmark the average of the 6 "
+            "underlying values within the hour, dated by the start of the hour; in Greenland and the Faroe Islands "
+            "the reading at minute 0, dated by the end of the hour DMI's record spans."
         ),
         ("daily", "data", "mean_pressure"): (
             "Mean atmospheric pressure of the day, reduced to mean sea level: the average of all hourly "
@@ -2074,7 +2079,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Highest 10 minute average wind speed of the year: the highest of the underlying daily values."
         ),
         ("hourly", "data", "max_wind_speed_3sec"): (
-            "Highest 3 second average wind speed (gust) of the hour (UTC), measured 10 m over terrain."
+            "Highest 3 second average wind speed (gust) of the hour (UTC), measured 10 m over terrain. In Greenland "
+            "DMI names the highest gust of the past hour or, alternatively, the highest wind at minute 0 "
+            "(`wind_max`), and which one a record holds depends on the station and the hour; the second is taken at "
+            "the end of the hour the record spans, so the value may lie up to an hour from its stamp."
         ),
         ("daily", "data", "max_wind_speed_3sec"): (
             "Highest 3 second average wind speed (gust) of the day: the highest of all hourly values within "
@@ -2087,9 +2095,11 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Highest 3 second average wind speed (gust) of the year: the highest of the underlying daily values."
         ),
         ("hourly", "data", "mean_wind_dir"): (
-            "Direction the wind blows from (north is 360, 0 means calm) over the hour (UTC), measured 10 m "
-            "over terrain; in Greenland possibly the reading at minute 0. The source's 0 beside a mean wind speed of "
-            "0 (a calm wind) is null."
+            "Direction the wind blows from (north is 360, 0 means calm) over the hour (UTC), measured 10 m over "
+            "terrain. In Greenland DMI names the mean of the past hour or, alternatively, the reading at minute 0, "
+            "and which one a record holds depends on the station and the hour; the reading is taken at the end of "
+            "the hour the record spans, so the value may lie up to an hour from its stamp. The source's 0 beside a "
+            "mean wind speed of 0 (a calm wind) is null."
         ),
         ("hourly", "data", "mean_wind_dir_min0"): (
             "Direction the wind blows from, the mean of the 10 minutes before the end of the hour (UTC), the time the "

@@ -23,6 +23,7 @@ from urllib.parse import parse_qs, urlparse
 import polars as pl
 import pytest
 
+from tests.provider.dmi.observation import country_of
 from tests.provider.value_stubs import _settings, serve, stations_result
 from wetterdienst import Options
 from wetterdienst.metadata.parameter_table import PARAMETERS
@@ -120,7 +121,7 @@ def _values(
         settings=_settings(),
         options=options or Options(),
     )
-    return stations_result(request, resolution, "data", station).values().all().df
+    return stations_result(request, resolution, "data", station, country=country_of(station)).values().all().df
 
 
 def _day(year: int, month: int, day: int, hour: int = 0) -> dt.datetime:

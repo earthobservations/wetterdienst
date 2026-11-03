@@ -43,7 +43,7 @@ def _hourly(monkeypatch: pytest.MonkeyPatch, parameters: list[str]) -> pl.DataFr
         settings=_settings(),
         options=_options(drop_nulls=True),
     )
-    return stations_result(request, "hourly", "data", "06070").values().all().df
+    return stations_result(request, "hourly", "data", "06070", country="DNK").values().all().df
 
 
 @pytest.mark.parametrize(

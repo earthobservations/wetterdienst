@@ -24,6 +24,7 @@ from urllib.parse import parse_qs, urlparse
 import polars as pl
 import pytest
 
+from tests.provider.dmi.observation import country_of
 from tests.provider.value_stubs import _options, _settings, serve, stations_result
 from wetterdienst.provider.dmi.observation import DmiObservationRequest
 from wetterdienst.provider.dmi.observation import api as dmi_api
@@ -114,7 +115,7 @@ def _values(
         settings=_settings(),
         options=_options(drop_nulls),
     )
-    return stations_result(request, resolution, "data", station).values().all().df
+    return stations_result(request, resolution, "data", station, country=country_of(station)).values().all().df
 
 
 def _by_day(df: pl.DataFrame, parameter: str) -> dict[dt.date, float]:
