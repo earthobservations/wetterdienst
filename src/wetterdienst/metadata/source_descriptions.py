@@ -1617,16 +1617,20 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Relative humidity. The stamps of the periods that DWD's Metadaten_Parameter calls "
             '"Stundenwerte in MEZ (MD)" (the eMD archive of 76 East German stations, up to 1991) are MEZ, UTC+1: '
             "they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`), "
-            "and so are those of Diepholz from 1995-02-01 to 1996-05-31, a period the label calls plain MEZ "
-            "that is MEZ in the values from the stamp 1995-02-01 00 to the stamp 1996-05-31 23. "
+            "and so are those of Diepholz from the stamp 1995-02-01 00 to the stamp 1996-05-31 23, Nürnberg from "
+            "1986-01-01 01 to 1988-11-01 00, Frankfurt/Main from 1990-05-01 01 to 1990-06-01 00, Trier-Petrisberg "
+            "from 1989-08-01 01 to 1989-09-01 00 and Bremen from 1990-11-01 01 to 1991-03-01 00, periods the "
+            "label calls plain MEZ that are MEZ in the values. "
             "The other stamps are UTC."
         ),
         ("hourly", "temperature_air", "tt_tu"): (
             "Air temperature 2 m above ground. The stamps of the periods that DWD's Metadaten_Parameter calls "
             '"Stundenwerte in MEZ (MD)" (the eMD archive of 80 East German stations, up to 1991) are MEZ, UTC+1: '
             "they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`), "
-            "and so are those of Diepholz from 1995-02-01 to 1996-05-31, a period the label calls plain MEZ "
-            "that is MEZ in the values from the stamp 1995-02-01 00 to the stamp 1996-05-31 23. "
+            "and so are those of Diepholz from the stamp 1995-02-01 00 to the stamp 1996-05-31 23, Nürnberg from "
+            "1986-01-01 01 to 1988-11-01 00, Frankfurt/Main from 1990-05-01 01 to 1990-06-01 00, Trier-Petrisberg "
+            "from 1989-08-01 01 to 1989-09-01 00 and Bremen from 1990-11-01 01 to 1991-03-01 00, periods the "
+            "label calls plain MEZ that are MEZ in the values. "
             "The other stamps are UTC."
         ),
         ("hourly", "temperature_soil", "v_te002"): (
