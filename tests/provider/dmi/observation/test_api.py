@@ -26,6 +26,8 @@ from wetterdienst.util.network import File
 # Copenhagen (Zealand) — the reference station used across the remote tests.
 COPENHAGEN_LANDBOHOJSKOLEN = "06180"
 UTC = ZoneInfo("UTC")
+# the stations the collection tests read, as the station list gives them: Copenhagen, Nuuk and Torshavn
+_STATIONS = pl.DataFrame({"station_id": ["06180", "04250", "06011"], "country": ["DNK", "GRL", "FRO"]})
 
 
 def _dates_for(from_value: str, resolution: Resolution, to_value: str | None = None) -> dt.datetime:
@@ -368,6 +370,7 @@ def _collect_hourly(
     monkeypatch.setattr(dmi_api, "download_file", download_file or server)
     values = object.__new__(dmi_api.DmiObservationValues)
     values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
+        df=_STATIONS,
         start=start,
         end=end,
         request=SimpleNamespace(settings=Settings(cache_disable=True)),
@@ -418,7 +421,7 @@ def test_collect_sends_the_bounds_of_a_request_in_local_time_as_utc(
         settings=Settings(cache_disable=True),
     )
     values = dmi_api.DmiObservationValues(
-        sr=stations_result(request, resolution, "data", COPENHAGEN_LANDBOHOJSKOLEN),
+        sr=stations_result(request, resolution, "data", COPENHAGEN_LANDBOHOJSKOLEN, country="DNK"),
     )
 
     values._collect_station_parameter_or_dataset(COPENHAGEN_LANDBOHOJSKOLEN, request.parameters[0])  # noqa: SLF001
@@ -521,6 +524,7 @@ def test_collect_dates_daily_max_precipitation_by_the_day_it_ends_on(monkeypatch
     monkeypatch.setattr(dmi_api, "download_file", lambda **_: File(url="", content=BytesIO(content), status=200))
     values = object.__new__(dmi_api.DmiObservationValues)
     values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
+        df=_STATIONS,
         start=dt.datetime(2025, 3, 28, tzinfo=UTC),
         end=dt.datetime(2025, 4, 1, tzinfo=UTC),
         request=SimpleNamespace(settings=Settings(cache_disable=True)),
@@ -576,6 +580,7 @@ def test_collect_nulls_the_wind_direction_of_an_hour_without_wind_and_no_other(m
     monkeypatch.setattr(dmi_api, "download_file", lambda **_: File(url="", content=BytesIO(content), status=200))
     values = object.__new__(dmi_api.DmiObservationValues)
     values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
+        df=_STATIONS,
         start=dt.datetime(2020, 2, 14, tzinfo=UTC),
         end=dt.datetime(2020, 5, 2, 6, tzinfo=UTC),
         request=SimpleNamespace(settings=Settings(cache_disable=True)),
@@ -637,6 +642,7 @@ def test_collect_serves_the_wind_direction_of_minute_0_as_given_even_where_the_h
     monkeypatch.setattr(dmi_api, "download_file", lambda **_: File(url="", content=BytesIO(content), status=200))
     values = object.__new__(dmi_api.DmiObservationValues)
     values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
+        df=_STATIONS,
         start=dt.datetime(2025, 11, 21, tzinfo=UTC),
         end=dt.datetime(2025, 11, 21, 4, tzinfo=UTC),
         request=SimpleNamespace(settings=Settings(cache_disable=True)),
@@ -693,6 +699,7 @@ def test_collect_stamps_the_hourly_cloud_cover_by_the_end_of_its_record(monkeypa
     monkeypatch.setattr(dmi_api, "download_file", lambda **_: File(url="", content=BytesIO(content), status=200))
     values = object.__new__(dmi_api.DmiObservationValues)
     values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
+        df=_STATIONS,
         start=dt.datetime(2024, 6, 3, 11, tzinfo=UTC),
         end=dt.datetime(2024, 6, 3, 14, tzinfo=UTC),
         request=SimpleNamespace(settings=Settings(cache_disable=True)),
@@ -706,6 +713,98 @@ def test_collect_stamps_the_hourly_cloud_cover_by_the_end_of_its_record(monkeypa
     assert cloud.get_column("value").to_list() == [60.0, 10.0, 40.0, 40.0]
     temperature = df.filter(pl.col("parameter") == "mean_temp")
     assert temperature.get_column("timestamp").to_list() == [dt.datetime(2024, 6, 3, 11, tzinfo=UTC)]
+
+
+def _collect_hourly_pressure(
+    monkeypatch: pytest.MonkeyPatch,
+    station_id: str,
+    country: str | None,
+    rows: list[tuple[str, float]],
+) -> list[tuple[dt.datetime, float]]:
+    """Serve hourly `mean_pressure` records `(from, value)` of a station of a country through the reader."""
+    features = [
+        {
+            "properties": {
+                "parameterId": "mean_pressure",
+                "from": start,
+                "to": (dt.datetime.fromisoformat(start) + dt.timedelta(hours=1)).isoformat(),
+                "value": value,
+                "qcStatus": "manual",
+                "validity": True,
+            }
+        }
+        for start, value in rows
+    ]
+    content = json.dumps({"features": features}).encode()
+    monkeypatch.setattr(dmi_api, "download_file", lambda **_: File(url="", content=BytesIO(content), status=200))
+    values = object.__new__(dmi_api.DmiObservationValues)
+    values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
+        df=pl.DataFrame({"station_id": [station_id, "99999"], "country": [country, "DNK"]}, schema=_STATIONS.schema),
+        start=dt.datetime(2025, 11, 1, 1, tzinfo=UTC),
+        end=dt.datetime(2025, 11, 1, 4, tzinfo=UTC),
+        request=SimpleNamespace(settings=Settings(cache_disable=True)),
+    )
+    dataset = dmi_api.DmiObservationMetadata["hourly"].datasets[0]
+    df = values._collect_station_parameter_or_dataset(station_id, dataset)  # noqa: SLF001
+    return sorted(zip(df.get_column("timestamp").to_list(), df.get_column("value").to_list(), strict=True))
+
+
+@pytest.mark.parametrize(
+    ("station_id", "country", "rows", "stamps"),
+    [
+        # Nuuk (GRL), key-less climateData 2025-11-01 beside the metObs `pressure_at_sea` of the station: 1005.2 at
+        # 01:00, 1004.9 at 02:00, 1004.5 at 03:00 and 1004.0 at 04:00 UTC. The record of `from` 01:00 holds the reading
+        # of 02:00, not that of 01:00 ("GRL: derived directly ... pressure_at_sea at minute 0")
+        (
+            "04250",
+            "GRL",
+            [
+                ("2025-11-01T01:00:00+00:00", 1004.9),
+                ("2025-11-01T02:00:00+00:00", 1004.5),
+                ("2025-11-01T03:00:00+00:00", 1004.0),
+            ],
+            [(2, 1004.9), (3, 1004.5), (4, 1004.0)],
+        ),
+        # Torshavn (FRO): metObs 981.8 at 01:00, 981.3 at 02:00, 980.9 at 03:00 UTC
+        (
+            "06011",
+            "FRO",
+            [("2025-11-01T01:00:00+00:00", 981.3), ("2025-11-01T02:00:00+00:00", 980.9)],
+            [(2, 981.3), (3, 980.9)],
+        ),
+        # Copenhagen airport (DNK): "average of the 6 underlying values within the hour". The metObs readings of 02:10
+        # to 03:00 UTC (1013.0 four times, 1012.9, 1012.7) average 1012.93, which is the record of `from` 02:00, so it
+        # stays dated by its `from`, the start of the hour
+        (
+            "06180",
+            "DNK",
+            [("2025-11-01T02:00:00+00:00", 1012.9), ("2025-11-01T03:00:00+00:00", 1012.3)],
+            [(2, 1012.9), (3, 1012.3)],
+        ),
+    ],
+)
+def test_collect_stamps_the_hourly_pressure_of_greenland_and_the_faroe_islands_by_the_end_of_its_record(
+    monkeypatch: pytest.MonkeyPatch,
+    station_id: str,
+    country: str,
+    rows: list[tuple[str, float]],
+    stamps: list[tuple[int, float]],
+) -> None:
+    """The reading at minute 0 of GRL and FRO is dated by the `to` of its record, the Danish mean by its `from`.
+
+    The station's country in DMI's station list decides (GH-3768): the records are real ones, read key-less on
+    2025-11-01, and their stamps are the hour of the metObs reading (GRL, FRO) or of the start of the hour (DNK).
+    """
+    result = _collect_hourly_pressure(monkeypatch, station_id, country, rows)
+    assert result == [(dt.datetime(2025, 11, 1, hour, tzinfo=UTC), value) for hour, value in stamps]
+
+
+def test_collect_dates_the_pressure_of_a_station_by_its_from_where_the_list_gives_no_country(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A station the list gives no country for keeps the stamp of the mean of the hour, the one of Denmark."""
+    result = _collect_hourly_pressure(monkeypatch, "04250", None, [("2025-11-01T01:00:00+00:00", 1004.9)])
+    assert result == [(dt.datetime(2025, 11, 1, 1, tzinfo=UTC), 1004.9)]
 
 
 def test_the_wind_direction_of_minute_0_is_the_mean_of_ten_minutes_in_degrees() -> None:
@@ -747,6 +846,7 @@ def test_collect_carries_qc_status_and_validity_in_quality_flags(monkeypatch: py
     monkeypatch.setattr(dmi_api, "download_file", lambda **_: File(url="", content=BytesIO(content), status=200))
     values = object.__new__(dmi_api.DmiObservationValues)
     values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
+        df=_STATIONS,
         start=dt.datetime(2011, 7, 24, tzinfo=UTC),
         end=dt.datetime(2011, 7, 27, tzinfo=UTC),
         request=SimpleNamespace(settings=Settings(cache_disable=True)),
@@ -787,6 +887,7 @@ def _collect_station_values(resolution: str, rows: list[tuple[str, str, float, s
     content = json.dumps({"features": features}).encode()
     values = object.__new__(dmi_api.DmiObservationValues)
     values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
+        df=_STATIONS,
         start=dt.datetime(2011, 7, 24, tzinfo=UTC),
         end=dt.datetime(2015, 1, 1, tzinfo=UTC),
         request=SimpleNamespace(settings=Settings(cache_disable=True)),
