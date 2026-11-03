@@ -272,10 +272,13 @@ def test_such_a_bound_is_the_requests_error_before_anything_is_read(monkeypatch:
 
 @pytest.mark.parametrize("unit_targets", [None, {"fraction": "percent"}, {"fraction": "decimal"}])
 def test_a_reading_on_a_bound_stays_in_any_unit(unit_targets: dict[str, str] | None) -> None:
-    """Every tenth of a percent, as a low and as a high bound: the conversion adds no digit to be rejected."""
+    """Every tenth of a percent from 1 %, as a low and as a high bound: the conversion adds no digit to be rejected.
+
+    It starts at 1 %, the lower end of the range of a relative humidity (GH-3773): a 0.0 is rejected by `range`.
+    """
     dataset = _dataset("dwd/observation", "hourly", "moisture")
     scale = 0.01 if unit_targets == {"fraction": "decimal"} else 1.0
-    values = [tenth / 10 for tenth in range(0, 1001, 3)]
+    values = [tenth / 10 for tenth in range(10, 1001, 3)]
     for end in (0, 1):
         edges = [(value * scale, None) if end == 0 else (None, value * scale) for value in values]
         for value, edge in zip(values, edges, strict=True):

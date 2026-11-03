@@ -111,6 +111,12 @@ Types of changes:
   `-1`, with `raw:-1` in `quality_flags`, as the obscured-sky cloud cover beside it: the `-1` was
   returned as a value and the docs called it "Automated", which no DWD description says. A caller
   that counted `-1` as a category finds those rows in `quality_flags` (GH-3772)
+- **Breaking**: a relative humidity under 1 % is outside the physical range of every network now
+  (`humidity_relative` and its `_mean`, `_max`, `_min`; no other humidity): the 0.0 % that DWD's
+  urban 10-minute data write in five dropouts, between readings of 32 to 73 %, was returned as a
+  reading and is null now (`rejected:range,raw:0.00`), or kept as `suspect:range` with
+  `plausibility_range=soft`. 1 % is the floor DWD road already held to. Monthly means such as
+  Crozet's 6 % and 20 % (Météo-France) stay values (GH-3773)
 
 ## [0.182.0] - 2026-11-02
 

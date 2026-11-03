@@ -172,8 +172,8 @@ every provider is held to, a humidity of 131 % for one) is **null**, with the nu
 [special values](../../../special_values.md)). The `-75.00` of the exact round values lies inside that range and is a
 code of the source, null with `raw:198.15` (below). The stuck sensors it **flags** `suspect:stuck` (the check `stuck`, soft by default), which is a different thing: the reading stays
 exactly as published, and a caller who wants the extremes keeps them. `plausibility={"stuck": "hard"}` nulls them as well, `plausibility={"range": "soft"}` keeps a value outside
-a range. Two rules (the section "readings inside every range that
-are no reading" below) null a value as well, and keep the number the same way.
+a range. One rule (the section "readings inside every range that
+are no reading" below) nulls a value as well, and keeps the number the same way.
 
 Which of the first bullet's readings are marked depends on the sensor rather than the value: its
 cold outliers are marked where the sensor that took them has stopped, and its warm ones are not
@@ -275,7 +275,7 @@ number DWD wrote as the last token of `quality_flags`, `rejected:range,raw:131` 
 to 100 %, a wind speed to 115 m/s, a visibility to 200 km, a direction to 360 degrees, a water film to
 at least 0, the rain of 15 minutes to 350 mm, the air and the dew point to -90 and -100 °C at the cold end and 60 °C
 at the warm one, a road surface to -90 and 100 °C; the `raw:` number is DWD's own); the surface condition and the
-precipitation type are codes, held to none. The network keeps one bound of its own, a humidity below 1 % (below). Up to 0.181.0 the network was held to bounds of
+precipitation type are codes, held to none. A humidity below 1 % is outside the range as well (below). Up to 0.181.0 the network was held to bounds of
 its own, the temperatures among them to **-60 °C** at the cold end, which nulled the `-75.00` of the exact round values
 above, and only that one ([what changed](../../../../usage/migrating.md)); the range is the world's now (-90 °C, -100 °C for the dew point), and the
 `-75.00` is mapped by the reader.
@@ -301,18 +301,19 @@ cannot reach.
 
 ##### readings inside every range that are no reading
 
-Two rules null a value that is inside every range (GH-3624): the first reads the value alone (the check `range`), the
-second the value beside the air temperature of its minute (the check `consistency`, which reads the air of the same minute
-from the same dataset and stands aside where it has none). The reading is null in `value` and the number DWD wrote is the last token of
+One rule nulls a value that is inside every range (GH-3624): it reads the road surface beside the air temperature of
+its minute (the check `consistency`, which reads the air of the same minute from the same dataset and stands aside
+where it has none). A relative humidity under 1 % is outside the range of the table, which the check `range` reads
+(GH-3773). The reading is null in `value` and the number DWD wrote is the last token of
 `quality_flags`, `rejected:range,raw:0.1` or `rejected:consistency,raw:338.75` (the unit of the source: %, K), as for a
 value outside a range; with the check soft the value stays and is flagged `suspect:range` or `suspect:consistency`. Nothing else of the sensors is judged, and there is
 no comparison with neighbouring stations.
 
-- **a relative humidity below 1 %** is no reading (the table of ranges holds 0 %, and this is the one bound the
-  network keeps for itself). A hygrometer that has failed writes it for hours
+- **a relative humidity below 1 %** is no reading (the table of ranges, the same for every provider, holds 1 to 100 %, GH-3773).
+  A hygrometer that has failed writes it for hours
   while the value varies: P925 gave 0.1 % for 43 readings of a 12 hour window. The run rule does not
   look at a humidity at all, only at the air, the dew point and the road surface temperature. In the
-  39 hours of every station group read on 2026-10-31 no humidity was below 5 %, so the rule nulled
+  39 hours of every station group read on 2026-10-31 no humidity was below 5 %, so the floor nulled
   none there. From 1 % up the value is returned as the sensor wrote it, a dry one included.
 - **a road surface temperature more than 20 K above the air temperature of the same minute, with the
   sun more than 6 degrees below the horizon** (the end of civil twilight, from the station's

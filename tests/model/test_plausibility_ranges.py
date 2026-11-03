@@ -57,8 +57,8 @@ def _datasets(network: str) -> list:
         ("precipitation_amount", "annual", (0.0, 30000.0)),
         # a definition; a share is in percent (the bounds were 0 to 1 as a decimal) and a duration in hours (the bounds
         # were 630, 3,780 and 90,720 s: the span and 5 %, divided by 3,600)
-        ("humidity_relative", "hourly", (0.0, 100.0)),
-        ("humidity_relative_mean", "daily", (0.0, 100.0)),
+        ("humidity_relative", "hourly", (1.0, 100.0)),
+        ("humidity_relative_mean", "daily", (1.0, 100.0)),
         ("cloud_cover_total", "hourly", (0.0, 100.0)),
         ("sunshine_duration", "10_minutes", (0.0, 0.175)),
         ("sunshine_duration", "hourly", (0.0, 1.05)),
@@ -104,6 +104,35 @@ def _datasets(network: str) -> list:
 def test_the_bounds_the_maintainer_decided(name: str, resolution: str, expected: tuple[float, float]) -> None:
     """The bounds of the decisions D1 to D7 of GH-3681, at the resolution they depend on."""
     assert tuple(bounds_for(name, resolution)) == expected
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["humidity_relative", "humidity_relative_mean", "humidity_relative_max", "humidity_relative_min"],
+)
+@pytest.mark.parametrize("resolution", ["10_minutes", "hourly", "daily", "monthly", None])
+def test_a_relative_humidity_is_at_least_one_percent(name: str, resolution: str | None) -> None:
+    """A relative humidity of exactly 0 is a dropout, not a reading, at every resolution (GH-3773).
+
+    The floor is 1 %, which is what DWD road held to itself (GH-3624) and what GHCNh calls out of range for a derived
+    humidity; the deserts of the world read whole percents of 1 (Death Valley, Tamanrasset, Atacama, 2023).
+    """
+    assert tuple(bounds_for(name, resolution)) == (1.0, 100.0)
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("humidity_absolute", (0.0, 40.0)),
+        ("pressure_vapor_mean", (0.0, 60.0)),
+        ("temperature_dew_point_2m", (-100.0, 60.0)),
+        ("temperature_humidex", None),
+    ],
+)
+def test_the_other_humidities_keep_the_bounds_of_their_own(name: str, expected: tuple[float, float] | None) -> None:
+    """The floor of 1 % is for a relative humidity only: a dry air has an absolute humidity of 0."""
+    bounds = bounds_for(name)
+    assert (tuple(bounds) if bounds is not None else None) == expected
 
 
 @pytest.mark.parametrize(
