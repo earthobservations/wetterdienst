@@ -271,13 +271,17 @@ def test_the_library_does_not_cut_to_a_window_so_it_tells_the_station(hubeau: Hu
     assert [warning["code"] for warning in recorded_warnings()] == [CODE]
 
 
+@pytest.mark.usefixtures("no_readings")
 def test_the_values_of_a_whole_list_are_told_once(hubeau: HubeauRequest, caplog: pytest.LogCaptureFixture) -> None:
     """Test that `all().values().all()` carries the warning once, in the answer and in the log."""
+    request = HubeauRequest(
+        parameters=[("5_minutes", "data")], start="2026-10-15", end="2026-10-16", settings=hubeau.settings
+    )
     with caplog.at_level(logging.DEBUG, logger=api.log.name):
-        stations = hubeau.all()
+        stations = request.all()
         stations.values().all()
 
-    assert [warning["code"] for warning in recorded_warnings()] == [CODE]
+    assert [warning["code"] for warning in recorded_warnings() if warning["code"] == CODE] == [CODE]
     assert [record.levelname for record in caplog.records if "Hub'Eau lists" in record.getMessage()] == ["WARNING"]
 
 
@@ -292,12 +296,15 @@ VALUES_AND_ESTIMATES = {
 
 
 def _answer(path: str, **query: str) -> list[str]:
-    """Make the request on REST and give the codes of the warnings of the answer."""
+    """Make the request on REST and give the codes of its warnings of a station without a position.
+
+    The stubs have no readings, so the answer also says `parameter-without-rows`, which is not what is asked here.
+    """
     response = TestClient(restapi.app, raise_server_exceptions=False).get(
         path, params={"provider": "eaufrance", "network": "hubeau", "parameters": "5_minutes/data", **query}
     )
     assert response.status_code == 200, response.text
-    return [warning["code"] for warning in response.json()["metadata"]["warnings"]]
+    return [warning["code"] for warning in response.json()["metadata"]["warnings"] if warning["code"] == CODE]
 
 
 @pytest.fixture
@@ -366,7 +373,7 @@ def test_the_library_cuts_an_estimate_to_its_window_as_the_user_interfaces_do(
 def test_the_streamed_values_are_cut_to_the_window_too(fmt: str) -> None:
     """Test that the values streamed station by station tell the Blavet after it opened and not before."""
 
-    def header(window: dict[str, str]) -> str:
+    def header(window: dict[str, str]) -> list[str]:
         response = TestClient(restapi.app, raise_server_exceptions=False).get(
             "/api/values",
             params={
@@ -379,7 +386,8 @@ def test_the_streamed_values_are_cut_to_the_window_too(fmt: str) -> None:
             },
         )
         assert response.status_code == 200, response.text
-        return response.headers.get("X-Wetterdienst-Warnings", "")
+        # the stubs have no readings, so the header names `parameter-without-rows` too
+        return [code for code in response.headers.get("X-Wetterdienst-Warnings", "").split(", ") if code == CODE]
 
-    assert header(BEFORE_IT_OPENED) == ""
-    assert header(AFTER_IT_OPENED) == CODE
+    assert header(BEFORE_IT_OPENED) == []
+    assert header(AFTER_IT_OPENED) == [CODE]
