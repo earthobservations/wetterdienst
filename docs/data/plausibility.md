@@ -68,7 +68,7 @@ written as short as it goes (`4021.0` as `4021`).
 | --- | --- | --- | --- |
 | `range` | a reading outside the physical range of its parameter | hard | One table of bounds for every network, by canonical parameter and resolution (the rain of a minute and of a day differ), in the canonical unit, and generous: each rests on a record with room above it (the relative humidity's 1 % floor, which is no record, is the one exception), so that a value that is only odd stays ([the table](#the-table-of-ranges)). No network has bounds of its own in the table; a provider's `Bound` rule can only narrow it (Météo-France: no air below 0 °C at a station without frost). A relative humidity is held to 1 to 100 %, not 0 to 100: a failed hygrometer and a dropout write 0.0 (or 0.1, 0.4), which is inside every range of 0 up, and 1 % is far below any humidity the air of Germany reaches ([why 1](#relative-humidity-under-one-percent)) |
 | `elevation` | a station pressure the standard atmosphere does not allow at the station's elevation | hard | In every network that serves a station pressure (`pressure_air_site`, `_mean`, `_min`, `_max`), for each station of the list that has an elevation. Against the pressure of the international standard atmosphere at that elevation, from **870/1013.25 of it** (143 hPa below at sea level: the lowest pressure on record, 870 hPa in Typhoon Tip, as a share of the standard atmosphere) to **75 hPa above it** (the 1,083.8 hPa of Agata, 261 m, the highest sea level pressure of a low station, reduced to the station with the cold column of that day lies 59 to 64 hPa above the standard atmosphere there, the 1,089.1 hPa of Tosontsengel, 1,725 m, 14 to 40: a derivation of GH-3681). The world-wide bounds (300 to 1100 hPa) let through the pressure of another height (968.6 hPa at the Zugspitze, 2,956 m, where 705 are expected) and a P0 mistyped by a digit above the standard atmosphere (1093.3 hPa at 48 m, 85.8 above). A station without an elevation, or one outside -500 to 9,000 m, is not judged. So is a `noaa/ghcn` station at 0.0 m: its lists write 0.0 for stations they know no elevation of (the daily one BRM00083566, inland at about 827 m), and 54 of the 271 at 0.0 in the hourly one stand between 150 and 4,329 m (CHM00052940 reads 500.2 to 998 hPa), while the 0.0 of the lists read (DWD, ECCC, IMGW, Météo-France) is a coast. The margin below keeps Hurricane Irma (917.4 hPa at 10:00 UTC and 936.0 hPa an hour earlier at St-Barthélemy, 3 m, 2017-09-06, quality code 1) and the deep lows of Dumont d'Urville (938 hPa at 43 m, where 1,008 are expected); it lets 3 of the 19 readings of DWD's hourly station pressure beyond 75 hPa of the standard atmosphere (the research of GH-3681, over Berlin-Tempelhof, List auf Sylt and the Zugspitze) pass: 909.5, 910.1 and 908.5 hPa, 98 to 102 hPa below, which the step check planned in [GH-3681](https://github.com/earthobservations/wetterdienst/issues/3681) is to catch |
-| `stuck` | a sensor that held one value over a period it should not have | **soft** | DWD observation: a run of consecutive readings of one value of the station pressure (`pressure_air_site`, `pressure_air_site_mean`): 72 hourly readings, 5 days, 36 readings at 10 minutes (HadISD and ECA&D, see [the limits](#the-limit-of-a-run)); a station without a barometer writes its constant in every row. DWD road: 24 readings or more (6 h) of one value of the air, the dew point or the road surface temperature, a gap longer than four times the station's usual one ending the run, melting ice excepted; and 24 readings or more of one value **above zero** of the precipitation intensity, a run of zeros being a dry spell and no fault (55 of the 575 stations that report one write 21.6 or 20.16 mm/h in every reading; the longest run of one non-zero intensity at the others is 13 readings, and 10 for the 10-minute precipitation of 148 stations of DWD observation over 400 days). RMI: the sunshine of station 6477 in the periods its sensor was stuck or dead |
+| `stuck` | a sensor that held one value over a period it should not have | **soft** | **Every observation network**: a run of consecutive readings of one value of one station and parameter, as long as the table of [the limit of a run](#the-limit-of-a-run) says for the parameter, the resolution (10 minutes, hourly, daily) and the step the series is written at. The air temperature (an hour: 24 readings at tenths of a degree, 30 at halves, 40 at whole degrees; a day: 5), the dew point (twice that, hourly and at 10 minutes, not daily), the pressure (72 hourly readings, 36 at 10 minutes, 5 days; a station without a barometer writes its constant in every row), the mean wind speed (a calm is exempt) and, of a day, the rain above 1 mm, the gust, the snow depth and the new snow above 0: the limits of HadISD, ECA&D and GHCN-Daily, and this library's own derivation where none is published (10 minutes, a coarser daily step), each cited in the table. Not judged: where no source gives a limit ([the list](#what-stuck-does-not-judge)). DWD road: 24 readings or more (6 h) of one value of the air, the dew point or the road surface temperature, a gap longer than four times the station's usual one ending the run, melting ice excepted; and 24 readings or more of one value **above zero** of the precipitation intensity, a run of zeros being a dry spell and no fault (55 of the 575 stations that report one write 21.6 or 20.16 mm/h in every reading; the longest run of one non-zero intensity at the others is 13 readings, and 10 for the 10-minute precipitation of 148 stations of DWD observation over 400 days). RMI: the sunshine of station 6477 in the periods its sensor was stuck or dead |
 | `consistency` | a reading that another parameter of the same file contradicts | hard | DWD road: a road surface more than 20 K above the air of the same minute with the sun more than 6 degrees below the horizon, the air counting only where it passed `range` and is not marked suspect by DWD's own flag. Météo-France: the humidity of an hour whose dew point lies below 0 °C at a station without frost (the same hygrometer), and a `tn12` that is the text of the `tx12` beside it (a copy, no minimum) |
 | `floor` | a model value a little below the floor of its quantity | hard | DWD DMO (a forecast, soft in every other built-in check, but `floor` corrects and does not reject, so it keeps its mode): ICON writes -0.02 mm for the precipitation of an hour, down to -0.10, and the radiation of a night below 0. **hard sets the floor**, 0.0, and keeps the number; soft keeps the number as the value |
 | `limits` | a reading outside the bounds **you** set for its parameter ([below](#bounds-of-your-own-limits)) | hard | Judges nothing until you set a bound (`Options(limits=...)`, `WD_TS_LIMITS`, `--limits`, `limits` of REST and MCP), and then only the parameters you name. The bounds are in the unit the values come back in, and are a check of their own beside `range`, whose bounds they neither narrow nor widen: a value outside both carries both verdicts, as far as both are in one mode ([the tokens](#the-tokens)) |
@@ -77,29 +77,151 @@ written as short as it goes (`4021.0` as `4021`).
 `stuck` is soft by default because it judges a series and not a value: identical readings are a sign of a stuck sensor
 and no proof, and what is found depends on what was read, which differs by network (see the caveats). `source` is soft
 by default because its verdict is the source's and not ours. Every other check is hard, which is what the library did for
-the networks it judged before the modes existed; since GH-3681 `range` and `elevation` judge every network.
+the networks it judged before the modes existed; since GH-3681 `range`, `elevation` and `stuck` judge every network.
 
 ### The limit of a run
 
-A barometer that writes one pressure for hours reflects the station and not the weather. The limit is the number of
-consecutive readings of one value that is taken for it, per resolution, from the research for
-[GH-3681](https://github.com/earthobservations/wetterdienst/issues/3681) (section 4.1, persistence of station and sea
-level pressure):
+A sensor that holds one value for as long as the weather cannot has stopped: a thermometer that reads the same tenth of a
+degree for a day, a barometer that writes its station constant, an anemometer that is jammed. The check flags **every
+reading of a run**, consecutive readings of one station and one parameter that hold one value, once the run is as long
+as the table below says. The table is **one for every observation network**
+([GH-3681](https://github.com/earthobservations/wetterdienst/issues/3681)), by canonical parameter, resolution and the
+step the series is written at, and it holds what a published quality control gives a limit for and nothing else
+([what is not judged](#what-stuck-does-not-judge)). `wetterdienst.model.persistence` holds it with the same sources in
+its docstring; a test holds this table to it.
 
-| resolution | readings | source |
-| --- | --- | --- |
-| hourly | 72 | HadISD (Dunn et al. 2012, Climate of the Past 8, 1649-1679, table 4): a straight repeat of 72 values of the sea level pressure at a resolution of 0.1 hPa, which DWD's pressures have |
-| daily | 5 | ECA&D (KNMI, Algorithm Theoretical Basis Document v11, 2021, section 3): the daily pressure may not be exactly the same 5 days in a row |
-| 10 minutes | 36 (6 hours) | **derived, not published**: no source publishes a count at 10 minutes; the research derives 36 readings (6 hours) from the hourly one and marks it as its own derivation |
+**Where a limit comes from.** A limit is the level at which a service calls a value *certainly wrong*, not the
+strictest tolerance, so that a `suspect:stuck` rarely falls on a good value. Zahumenský's tolerance (60 minutes of
+1-minute data, 6 readings at 10 minutes) is not used. Where ECA&D and GHCN-Daily disagree on a daily series in tenths,
+the shorter count of ECA&D is taken (5 days for a temperature and a pressure, 10 and 5 for the rain), as the maintainer
+decided on 2026-11-01, and not the 20 identical values that GHCN-Daily takes for a temperature or a rain. The sources:
 
-Sub-daily, monthly and annual values have no source and are not judged. The run is judged in the series the core is
-handed, after the periods are merged, so a station whose historical file is constant and whose recent file is not is
-flagged for the stretch that is.
+- **HadISD** (Dunn et al. 2012, *Climate of the Past* 8, 1649-1679, table 4; Dunn et al. 2016, *Geoscientific
+  Instrumentation, Methods and Data Systems* 5, 473-491), the streak test the GHCN hourly archive (GHCNh) has adopted. A
+  limit depends on the resolution a station reports at: a temperature 40 values at 1 K, 30 at 0.5 K and 24 at 0.1 K,
+  the dew point twice that, the sea level pressure 120, 100 and 72 values at 1, 0.5 and 0.1 hPa (or 28, 21 and 14 days),
+  the wind speed 40, 30 and 24 values at 1, 0.5 and 0.1 m/s, where "all values below 0.5 m/s (or 1 m/s for coarse
+  resolution) are also discounted in the streak search".
+- **ECA&D** (KNMI, Algorithm Theoretical Basis Document v11, 2021, section 3): a daily value is flagged suspect that is
+  "not exactly the same value n days in a row", n being 5 for TX, TN, TG and PP, 10 for RR if more than 1.0 mm and 5 if
+  more than 5.0 mm, 6 for FG if at least 2.0 m/s and 5 for FX if at least 4.0 m/s.
+- **Durre et al.** (2010, *Journal of Applied Meteorology and Climatology* 49, 1615-1633, table 1), GHCN-Daily: 20
+  identical values of TMAX or TMIN, 20 of PRCP (zeros skipped), 90 identical nonzero snow depths (a depth is not tested for duplication, because the
+  same depth can last more than a month) and 10 identical nonzero new snows.
+- **Zahumenský** (2004, WMO CBS/OPAG-IOS/ET AWS-3/Doc. 4(1)) has a test too, under 0.1 K over 60 minutes of 1-minute
+  data. It is the strictest tolerance, written for the firmware of a station, and it is not the level at which a value
+  is certainly wrong; it is not used.
 
+A limit that **no source publishes** is this library's own derivation and says so in the table. There are four: the
+10-minute counts of the temperature, the dew point and the wind speed are the **span of the hourly limit** in readings
+(24 hours are 144 readings), and the 36 readings (6 hours) of a pressure at 10 minutes were derived in the research for
+GH-3681 and are kept from GH-3680; and two limits of a coarser step: the 21 and 28 days of a daily pressure (HadISD's
+span in days for a streak of hourly values, read as a count of daily values) and the 20 identical values of a daily
+temperature (Durre's rule for TMAX and TMIN, applied to every daily temperature). The 10-minute counts rest on measured runs, read on 2026-11-03 in 91 million 10-minute readings (all
+parameters; 52.8 million of the four judged ones) of 8 DWD stations: the longest run of one non-zero air temperature is 78 readings and of one pressure 31, so
+the 18 readings (3 hours) that the research derived by tripling Zahumenský's 60 minutes would flag 1,163 runs of the
+temperature that are weather, where 144
+flags five runs in all the readings (two of 0.0 °C at the Zugspitze, 171 and 147 readings, the melting point, and three
+of 51.7 m/s at Helgoland, 180 to 308 readings, an anemometer that stopped in a storm).
+
+<!-- persistence:start -->
+
+| parameters | resolution | fine | half | whole | readings that count | source |
+| --- | --- | --- | --- | --- | --- | --- |
+| `pressure_air_sea_level`, `pressure_air_sea_level_mean`, `pressure_air_site`, `pressure_air_site_mean` | hourly | 72 | 100 | 120 | all | HadISD (Dunn et al. 2012, table 4): sea level pressure, straight repeat of values |
+| `temperature_air`, `temperature_air_2m`, `temperature_air_mean_2m` | hourly | 24 | 30 | 40 | all | HadISD (Dunn et al. 2012, table 4): temperature, straight repeat of values |
+| `temperature_dew_point`, `temperature_dew_point_2m`, `temperature_dew_point_mean_2m` | hourly | 48 | 60 | 80 | all | HadISD (Dunn et al. 2012, table 4): dew point, twice the straight repeat of a temperature |
+| `wind_speed`, `wind_speed_mean`, `wind_speed_mean_last_10min`, `wind_speed_mean_last_2min` | hourly | 24 | 30 | 40 | from 0.5 m/s (1 at a whole step) | HadISD (Dunn et al. 2012, table 4): wind speed, straight repeat of values; values below 0.5 m/s (1 m/s at a whole step) discounted |
+| `pressure_air_sea_level`, `pressure_air_sea_level_mean`, `pressure_air_site`, `pressure_air_site_mean` | 10_minutes | 36 | 36 | 36 | all | own derivation: 6 hours, from the research for GH-3681 and kept from GH-3680 (the longest run of one pressure in 13.3 million readings of 8 DWD stations is 31) |
+| `temperature_air`, `temperature_air_2m`, `temperature_air_mean_2m` | 10_minutes | 144 | 180 | 240 | all | own derivation: the span of HadISD's hourly limit in readings of 10 minutes (Zahumenský's 60 minutes of 1-minute data, 6 readings, or 18 as the research tripled them, are inside what working sensors do) |
+| `temperature_dew_point`, `temperature_dew_point_2m`, `temperature_dew_point_mean_2m` | 10_minutes | 288 | 360 | 480 | all | own derivation: the span of HadISD's hourly limit in readings of 10 minutes (Zahumenský's 60 minutes of 1-minute data, 6 readings, or 18 as the research tripled them, are inside what working sensors do) |
+| `wind_speed`, `wind_speed_mean`, `wind_speed_mean_last_10min`, `wind_speed_mean_last_2min` | 10_minutes | 144 | 180 | 240 | from 0.5 m/s (1 at a whole step) | own derivation: the span of HadISD's hourly limit in readings of 10 minutes (Zahumenský's 60 minutes of 1-minute data, 6 readings, or 18 as the research tripled them, are inside what working sensors do) |
+| `precipitation_amount` | daily | 10 | 10 | 10 | above 1 mm | ECA&D (ATBD v11, section 3): RR not the same value 10 days in a row if more than 1.0 mm, 5 days if more than 5.0 mm |
+| `precipitation_amount` | daily | 5 | 5 | 5 | above 5 mm | ECA&D (ATBD v11, section 3): RR not the same value 10 days in a row if more than 1.0 mm, 5 days if more than 5.0 mm |
+| `pressure_air_sea_level`, `pressure_air_sea_level_mean`, `pressure_air_site`, `pressure_air_site_mean` | daily | 5 | 21 | 28 | all | ECA&D (ATBD v11, section 3): PP not the same value 5 days in a row; own derivation for a coarser step: HadISD's 21 and 28 days at 0.5 and 1 hPa (table 4), read as counts of daily values |
+| `snow_depth` | daily | 90 | 90 | 90 | above 0 cm | Durre et al. 2010 (table 1): SNWD, 90 consecutive identical nonzero values |
+| `snow_depth_new` | daily | 10 | 10 | 10 | above 0 cm | Durre et al. 2010 (table 1): SNOW, 10 consecutive identical nonzero values |
+| `temperature_air_2m`, `temperature_air_max_2m`, `temperature_air_mean_2m`, `temperature_air_min_2m` | daily | 5 | 20 | 20 | all | ECA&D (ATBD v11, section 3): TX, TN, TG not the same value 5 days in a row; own derivation for a coarser step: the 20 identical values of Durre et al. 2010 (table 1) for TMAX and TMIN, applied to every daily temperature |
+| `wind_gust_max` | daily | 5 | - | - | from 4 m/s | ECA&D (ATBD v11, section 3): FX not the same value 5 days in a row if at least 4.0 m/s |
+| `wind_speed`, `wind_speed_mean` | daily | 6 | - | - | from 2 m/s | ECA&D (ATBD v11, section 3): FG not the same value 6 days in a row if at least 2.0 m/s |
+
+<!-- persistence:end -->
+
+Counts are consecutive readings (days at a daily resolution). `-` means that no source gives a limit for a series at
+that step and none is judged: ECA&D's daily wind rules are for series in tenths of a metre per second, and a daily
+wind written in whole metres per second or in knots holds one value for days.
+
+**The step a series is written at.** A source that writes whole degrees holds one value for longer than one that writes
+tenths, so a limit has three counts. A series is **whole** where at least 80 % of its values are whole numbers of the
+canonical unit (a series in tenths has about a tenth of them) and **half** where that many are multiples of 0.5; else
+the typical gap between its different values tells (**fine** below 0.25, half below 0.75, else whole: a Fahrenheit
+degree is 0.56 K, a knot 0.51 m/s). The step is read **per calendar year** of the parameter, because a source changes it
+(DWD's hourly temperature of `hourly/moisture` is in whole degrees until 1981 and in tenths after, which a station-wide
+reading would take for tenths and flag the whole-degree years by the limit of 24), and the values are counted where
+they change, so a stretch of one value for hours does not decide the step of the rest. A year with fewer than 10 changes of value
+(the start of a run at a year boundary) tells nothing of the step, and the step of all the readings is taken instead. A
+year, or a series, that holds one value in 500 readings or more (a barometer that writes 1012.0 for decades) is
+**fine**, the strictest limit, whatever number it writes: a stopped sensor. One value in fewer readings (a short
+window) is read by what it is: a whole number may be whole degrees, anything else is fine.
+
+**Readings that do not count.** A reading below the floor in the column "readings that count" is exempt (a calm wind, a
+dry day, no snow): it never counts and **ends a run**, so a dry day between two falls of 7.0 mm is no run of 7.0 mm.
 A reading that is missing does not break a run: a null inside a short stretch is skipped, and the equal values on both
 sides are one run. A **gap** does: where two readings are more than four times the interval of the resolution apart
 (more than 4 hours at hourly, 40 minutes at 10 minutes, 4 days at daily), the run ends there, as the road rule's does. A
-month of `-999` between two readings of 997.3 hPa is two stretches and not one.
+month of `-999` between two readings of 997.3 hPa is two stretches and not one. The run is judged in the series the core
+is handed, after the periods are merged, so a station whose historical file is constant and whose recent file is not is
+flagged for the stretch that is.
+
+### What `stuck` does not judge
+
+Where no source gives a limit the check stands aside, however long the run: it does not invent one.
+
+- **Relative humidity.** The only source is Zahumenský's 1 % over 60 minutes of 1-minute data. DWD's hourly humidity, in
+  whole percents, holds one value for long stretches that are weather: 97 to 99 % for 41 to 160 hours, 100 % for up to
+  243 (Zugspitze, Feldberg, Straubing), so an exemption of 100 % would not be enough and a derived limit would flag them.
+- **Wind direction.** The only source is ECA&D's daily mean direction. DWD's hourly direction, in steps of 10 degrees,
+  holds one value for 30 to 206 hours (206 hours of 80 degrees at Potsdam in March 1969).
+- **A calm wind, no rain, no snow, no sunshine, no radiation** are the normal state and exempt where the parameter is
+  judged at all; sunshine, radiation, cloud cover (0 or 8 oktas), soil temperature and the sub-daily rain have no source
+  for a run and are not judged.
+- **The extremes of an interval shorter than a day** (the maximum temperature of an hour), **gusts** at any resolution
+  but the daily one, and the **amounts of an interval** (the rain of an hour).
+- **Any resolution but 10 minutes, hourly and daily** (1, 5, 6 and 15 minutes, 6 hours, subdaily reports, months,
+  years), **forecasts** (a model holds one value without a sensor failing) and **derived quantities**.
+
+#### How it relates to the rules that were there
+
+- **The barometer of DWD observation** (72 hourly readings, 5 days, 36 at 10 minutes of a station pressure, GH-2699) is
+  **merged**: those are the limits of the pressure rows above, now for every network and for the sea level pressure.
+  Nothing changes for DWD in practice: the hourly `moisture` pressure of the ten stations read flags 1,054,736 readings
+  (635 runs) where the earlier rule, written out, flags 1,054,738.
+- **DWD road** (24 readings at 15 minutes of the air, the dew point and the road surface temperature, melting ice
+  excepted, and of a precipitation intensity above zero) **stays a provider rule**: 15 minutes is not a resolution the
+  table has a source for, and the rule rests on the measured runs of 700 road stations and on the melting-ice exception
+  that only the road knows.
+- **RMI's dated periods** of the sunshine sensor of station 6477 stay a provider rule as well (a dated fact, not a run).
+
+#### What it found in real data
+
+Read on 2026-11-03 from DWD's open data (historical and recent files merged, whole histories, 10 stations for hourly
+and daily, 8 for 10 minutes: Dresden-Klotzsche, Hamburg, Potsdam, Zugspitze, Helgoland, Arkona, Feldberg,
+Berlin-Tempelhof, and for hourly and daily Straubing and Trier as well):
+
+| resolution | parameter (dataset) | readings | runs flagged | readings flagged | what they are |
+| --- | --- | --- | --- | --- | --- |
+| hourly | air temperature (`temperature_air`) | 6,298,984 | 2 | 67 | 0.0 °C for 43 hours (Straubing, 1999-11) and 24 (Trier, 2001-03) |
+| hourly | air temperature (`moisture`) | 4,505,460 | 3 | 125 | 40 to 43 hours of 1.0 to 4.0 °C in 1979 to 1981, when DWD wrote whole degrees (Helgoland, Potsdam) |
+| hourly | dew point (`moisture`) | 4,501,287 | 3 | 354 | 0.0 °C for 184, 75 and 95 hours (Berlin-Tempelhof 2019-05 and 2014-03, Potsdam 2022-10) |
+| hourly | station pressure (`moisture`) | 4,505,396 | 635 | 1,054,736 | the constants of stations without a barometer; the earlier rule, written out, flags 1,054,738 |
+| hourly | mean wind speed (`wind`, `wind_synoptic`), pressure (`pressure`) | 17,370,526 | 0 | 0 | |
+| 10 minutes | air temperature, dew point, pressure, mean wind speed (`temperature_air`, `wind`) | 52,770,020 | 5 | 987 | 0.0 °C for 171 and 147 readings at the Zugspitze (the melting point), 51.7 m/s for 308, 181 and 180 readings at Helgoland (an anemometer that stopped in a storm) |
+| daily | air temperature, pressure, mean wind, gust, rain, snow depth, new snow (`climate_summary`, `precipitation_more`, `water_equivalent`) | 2,700,000 | 2 | 11 | 5 days of 10.1 °C as a minimum (Arkona, 2019-05), 6 days of 13.0 m/s as a gust (Dresden-Klotzsche, 1992-06) |
+
+The hourly humidity and wind direction and the 10-minute ones, which are not judged, hold runs of 97 to 100 % for up to
+243 hours and of 10 degrees for up to 206 hours. Other key-less networks, one year (2023) and two stations each: CHMI (hourly
+17,520 readings, daily 3,650), IMGW (daily, 5,601), SMHI (hourly 35,740, daily 2,921) and RMI (hourly 218,848, daily
+10,571) have no run flagged.
 
 ## The table of ranges
 
@@ -535,7 +657,7 @@ clean = values.df.filter(~flags.str.contains(r"(^|,)(suspect|rejected):").fill_n
 The table is what the core is told to judge by the library's own tables: a network that is in no row judges no value
 unless you set [bounds of your own](#bounds-of-your-own-limits), which any network is judged by. A dataset is
 `resolution/dataset`; `*` stands for every dataset of the network that has a parameter the check judges, which is how
-`range` and `elevation` run on every network that has one.
+`range`, `elevation` and `stuck` run on every network that has one.
 
 <!-- coverage:start -->
 
@@ -584,9 +706,28 @@ unless you set [bounds of your own](#bounds-of-your-own-limits), which any netwo
 | `elevation` | `metoffice/observation` | `*` |
 | `elevation` | `noaa/ghcn` | `*` |
 | `elevation` | `rmi/observation` | `*` |
-| `stuck` | `dwd/observation` | `10_minutes/temperature_air`, `10_minutes/urban_pressure`, `hourly/moisture`, `hourly/pressure`, `hourly/urban_pressure`, `daily/climate_summary` |
-| `stuck` | `dwd/road` | `15_minutes/data` |
-| `stuck` | `rmi/observation` | `10_minutes/data`, `hourly/data`, `daily/data` |
+| `stuck` | `aemet/observation` | `*` |
+| `stuck` | `chmi/observation` | `*` |
+| `stuck` | `dmi/observation` | `*` |
+| `stuck` | `dwd/observation` | `*` |
+| `stuck` | `dwd/poi` | `*` |
+| `stuck` | `dwd/road` | `*` |
+| `stuck` | `eccc/observation` | `*` |
+| `stuck` | `fmi/observation` | `*` |
+| `stuck` | `geosphere/observation` | `*` |
+| `stuck` | `imgw/meteorology` | `*` |
+| `stuck` | `ipma/observation` | `*` |
+| `stuck` | `knmi/observation` | `*` |
+| `stuck` | `lhmt/observation` | `*` |
+| `stuck` | `meteofrance/observation` | `*` |
+| `stuck` | `meteoswiss/observation` | `*` |
+| `stuck` | `metno/frost` | `*` |
+| `stuck` | `metoffice/observation` | `*` |
+| `stuck` | `noaa/ghcn` | `*` |
+| `stuck` | `nws/observation` | `*` |
+| `stuck` | `rmi/observation` | `*` |
+| `stuck` | `smhi/observation` | `*` |
+| `stuck` | `wsv/pegel` | `*` |
 | `consistency` | `dwd/road` | `15_minutes/data` |
 | `consistency` | `meteofrance/observation` | `hourly/others` |
 | `consistency` | `meteofrance/synop` | `subdaily/data` |
@@ -604,11 +745,11 @@ unless you set [bounds of your own](#bounds-of-your-own-limits), which any netwo
 
 <!-- coverage:end -->
 
-`range` and `elevation` run on every network that serves a quantity of their tables (`*`: every dataset of the network
-that has one). `source` runs where a provider's flag is mapped ([the codes](#the-sources-own-verdict-source)). `limits` is in no row: it runs on any network, for the parameters you set a bound for. Within a dataset a check covers the parameters its rule names, not every parameter: `range` the
+`range`, `elevation` and `stuck` run on every network that serves a quantity of their tables (`*`: every dataset of the
+network that has one; for `stuck` also the road and RMI datasets of their own rules). `source` runs where a provider's flag is mapped ([the codes](#the-sources-own-verdict-source)). `limits` is in no row: it runs on any network, for the parameters you set a bound for. Within a dataset a check covers the parameters its rule names, not every parameter: `range` the
 parameters that have a bound in the table, `elevation` the `pressure_air_site`, `pressure_air_site_mean`,
-`pressure_air_site_min` and `pressure_air_site_max`, `stuck` the `pressure_air_site` and `pressure_air_site_mean` of DWD
-observation. The provider pages and [special values](special_values.md) list them.
+`pressure_air_site_min` and `pressure_air_site_max`, `stuck` the parameters of [its table](#the-limit-of-a-run), at the
+resolutions it names. The provider pages and [special values](special_values.md) list them.
 
 What no check covers, and why:
 
@@ -625,17 +766,31 @@ What no check covers, and why:
 ## Caveats
 
 - **What `stuck` finds depends on what was read, which differs by network.** The check judges a series and not a value,
-  which is why it is soft by default: the value stays and you decide.
-  - *DWD road*: the verdict depends on the window of the request, because the reader cuts to the window. A run of
-    identical values that crosses the start of the request is only found when the window covers enough of it, and a
-    request for an hour has fewer readings than the 24 that mark a run: the same day can answer differently for a
-    different window, for the precipitation intensity as for the temperatures. For this reason the road surface rule of `consistency` does not use the stuck verdict.
-  - *DWD observation*: the verdict depends on the periods and files read (historical, recent, now), not on the window:
-    the core judges the merged series before the window is cut, so the same file answers the same for any window inside
-    it. A request for the recent period alone sees the runs of the recent file alone. A constant stretch below the limit
-    of a run (71 hourly readings, 4 days) is not flagged, where the earlier rule on a whole file of at most three values
-    flagged it whatever its length.
-  - *RMI*: the periods are fixed dates of one station (6477), so the verdict depends on neither.
+  which is why it is soft by default: the value stays and you decide. It judges the series the reader hands the core,
+  merged over the periods it read, **before** the window of the request is cut, and it never reads more than the reader
+  did (a check never downloads): the earlier values of a run that crosses the start of the window are in the verdict
+  where the reader read them anyway, and are not where it did not. So:
+  - *A reader that reads whole files* (DWD observation: the historical, recent and now files of a station) judges the
+    merged series of the files: the same file answers the same for any window inside it, and a run that crosses the start
+    of the window is found. A request for the recent period alone sees the runs of the recent file alone.
+  - *A reader that asks its source for the window only* (DWD road, FMI, DMI) has nothing before the start of the window,
+    so a run that crosses it is found only when the window covers enough of it, and a request for an hour has fewer
+    readings than any limit: the same day can answer differently for a different window. For this reason the road
+    surface rule of `consistency` does not use the stuck verdict. Extending such a read by the length of a run would be a
+    larger download, which the check does not trigger, and is not done.
+  - *A short series reads as a coarser one.* The step a series is written at is read off its own values
+    ([above](#the-limit-of-a-run)), and a window of a few days has few different values, so a series in tenths can read
+    as halves or wholes there, where the limit is the more lenient one (30 or 40 hourly readings instead of 24, a daily
+    wind rule not judged). The exception is a window in which the sensor never changed: that series reads as the finest
+    step, whatever the file it was cut from.
+  - *A constant stretch below the limit of a run* (71 hourly readings of a pressure, 4 days) is not flagged, where the
+    earlier rule on a whole file of at most three values flagged it whatever its length.
+  - *RMI's sunshine*: the periods are fixed dates of one station (6477), so the verdict depends on neither.
+- **Melting point and the whole-degree years.** A temperature pinned at 0.0 °C (snow or ice melting, a mountain in cloud)
+  can hold one value for a day, and the limits do not exempt it: seven runs of 0.0 °C of the air temperature or the dew
+  point in the readings read are flagged, the Zugspitze's 171 readings of 0.0 °C among them. And three runs of 40 to 43
+  hours at 1.0 to 4.0 °C in 1979 to 1981 (Helgoland, Potsdam), when DWD wrote whole degrees and the limit is HadISD's
+  40, are weather by all appearances and flagged. Both are `suspect:stuck`, soft, and left out of an interpolation.
 - **`elevation` uses the station list's current elevation for every period.** A station that was moved by 500 m or more
   keeps the readings of its other site only while they lie within the margins. DWD's historical outliers were checked
   against the station list and are bad readings, not station moves.
@@ -660,9 +815,11 @@ What no check covers, and why:
   rejected one does.
 - **`skip_empty`** judges a station by its unflagged values alone: a value flagged `suspect` is no coverage, so a station
   with only such values is skipped. For the checks that used to null (`range`, `elevation`, `consistency`, `floor`, and
-  `stuck` of DWD observation and RMI) this is as before. For `stuck` of DWD road, which used to keep the value with
-  the flag `1` and count it, it is a change: a road station with long stuck runs can be skipped where it was kept. So it
-  is for `source`: a station of `noaa/ghcn`, `metno/frost`, `chmi/observation`, `ea/hydrology`,
+  `stuck` of the DWD observation barometer and RMI) this is as before. For `stuck` of DWD road, which used to keep the
+  value with the flag `1` and count it, it is a change: a road station with long stuck runs can be skipped where it was
+  kept. So it is for the run rule of every other network and parameter (GH-3681), where a stuck run is left out of an
+  interpolation and a summary, and a station that has only stuck readings in the window is skipped, as before it was
+  not: in the DWD data read, about 1,500 of 93 million judged readings, apart from the barometer constants. So it is for `source`: a station of `noaa/ghcn`, `metno/frost`, `chmi/observation`, `ea/hydrology`,
   `meteofrance/observation` or `dmi/observation` whose values the source flagged can be skipped where it was kept.
 - **A rejected value carries only the hard verdict.** Where a hard check nulls a value and a soft one also finds it
   suspect, the value is null and the token is `rejected:<hard checks>,raw:<number>`; the soft check is not listed. A

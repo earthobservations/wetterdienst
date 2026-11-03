@@ -2366,7 +2366,8 @@ def test_skip_empty_spans_are_those_of_the_station_in_hand(
             {
                 "timestamp": [dt.datetime(1990, 1, day, tzinfo=utc) for day in days[station_id]],
                 "parameter": [name] * len(days[station_id]),
-                "value": [1.0] * len(days[station_id]),
+                # a temperature that changes: five days of one value would be a run of the check `stuck`
+                "value": [1.0 + 0.1 * day for day in days[station_id]],
                 "quality_flags": [None] * len(days[station_id]),
             },
             schema_overrides={"quality_flags": pl.String},

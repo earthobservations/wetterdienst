@@ -108,7 +108,8 @@ class Plausibility(BaseModel):
     The defaults are what the library did for the networks it judged before the modes existed (since GH-3681 ``range``
     and ``elevation`` judge every network), except ``stuck`` and ``source``, which are soft. ``stuck`` judges a
     series and not a value (identical readings are a sign of a stuck sensor and no proof), and what it finds depends
-    on what was read: the window of the request for ``dwd/road``, the periods and files read for ``dwd/observation``.
+    on what was read: the window of the request where the provider asks its source for the window only (``dwd/road``,
+    FMI, DMI), the periods and files read where it reads whole files (``dwd/observation``).
     Set it from ``WD_TS_PLAUSIBILITY__<CHECK>`` (``WD_TS_PLAUSIBILITY__RANGE=soft``) or
     ``Options(plausibility={"range": "soft"})``; a check that is not named keeps its default. A bare mode sets every
     check at once (``Options(plausibility="soft")``, ``WD_TS_PLAUSIBILITY=soft``), and a check named beside it wins.
@@ -135,10 +136,12 @@ class Plausibility(BaseModel):
     )
     stuck: Mode = Field(
         default="soft",
-        description="A sensor that held one value over a period it should not have (a station pressure that is one "
-        "value for 72 hourly readings in a row, a road sensor that did not move for hours, a dated period of a dead "
-        "sensor): the check judges a series and not a value, and what it finds depends on what was read, which is "
-        "why it is soft by default. " + _HARD_MEANS.format(check="stuck"),
+        description="A sensor that held one value over a period it should not have (an hourly air temperature "
+        "that is one value for 24 readings in a row, a station pressure for 72, a daily rain of one value above "
+        "5 mm for 5 days, a road sensor that did not move for hours, a dated period of a dead sensor): the limits "
+        "are those of published quality controls, per parameter and resolution. The check judges a series and not "
+        "a value, and what it finds depends on what was read, which is why it is soft by default. "
+        + _HARD_MEANS.format(check="stuck"),
     )
     consistency: Mode = Field(
         default="hard",
@@ -212,10 +215,10 @@ class Plausibility(BaseModel):
 #: where each check runs: by check, the networks (`provider/network`) and their datasets (`resolution/dataset`), or `*`
 #: for every dataset of the network that has a parameter the check judges. The table of `docs/data/plausibility.md` is
 #: this, and `tests/test_docs_plausibility.py` holds the three to one another: the rules the readers declare, this and
-#: the page. `range` and `elevation` run on every network that has a quantity of their tables (GH-3681): the bounds
-#: are the same for every provider (`model/plausibility_ranges.py`). `limits` is in none (`CALLER_CHECKS`): it runs
-#: on any network, for the parameters the caller sets a bound for. A network that is in no list judges no value
-#: by the tables of the library
+#: the page. `range`, `elevation` and `stuck` run on every network that has a quantity of their tables (GH-3681): the
+#: bounds and the runs are the same for every provider (`model/plausibility_ranges.py`, `model/persistence.py`).
+#: `limits` is in none (`CALLER_CHECKS`): it runs on any network, for the parameters the caller sets a bound for. A
+#: network that is in no list judges no value by the tables of the library
 COVERAGE: dict[str, dict[str, tuple[str, ...]]] = {
     "range": {
         "aemet/observation": ("*",),
@@ -264,17 +267,32 @@ COVERAGE: dict[str, dict[str, tuple[str, ...]]] = {
         "noaa/ghcn": ("*",),
         "rmi/observation": ("*",),
     },
+    # every observation network that serves a parameter of the run table (`model/persistence.py`, GH-3681) at 10
+    # minutes, an hour or a day, and the ones whose provider hands the core a run rule of its own (the road sensors,
+    # RMI's dated periods)
     "stuck": {
-        "dwd/observation": (
-            "10_minutes/temperature_air",
-            "10_minutes/urban_pressure",
-            "hourly/moisture",
-            "hourly/pressure",
-            "hourly/urban_pressure",
-            "daily/climate_summary",
-        ),
-        "dwd/road": ("15_minutes/data",),
-        "rmi/observation": ("10_minutes/data", "hourly/data", "daily/data"),
+        "aemet/observation": ("*",),
+        "chmi/observation": ("*",),
+        "dmi/observation": ("*",),
+        "dwd/observation": ("*",),
+        "dwd/poi": ("*",),
+        "dwd/road": ("*",),
+        "eccc/observation": ("*",),
+        "fmi/observation": ("*",),
+        "geosphere/observation": ("*",),
+        "imgw/meteorology": ("*",),
+        "ipma/observation": ("*",),
+        "knmi/observation": ("*",),
+        "lhmt/observation": ("*",),
+        "meteofrance/observation": ("*",),
+        "meteoswiss/observation": ("*",),
+        "metno/frost": ("*",),
+        "metoffice/observation": ("*",),
+        "noaa/ghcn": ("*",),
+        "nws/observation": ("*",),
+        "rmi/observation": ("*",),
+        "smhi/observation": ("*",),
+        "wsv/pegel": ("*",),
     },
     "consistency": {
         "dwd/road": ("15_minutes/data",),
