@@ -16,13 +16,16 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.44.0] - 2026-11-03
+
 ### Added
 
 - `[Glossary]` The new unit types `duration` (how long sunshine, precipitation or a wet leaf
   lasted), `length_day` (the sum of daily snow depths, in cm·d) and `length_tiny` (a film of water
   on a road) have their labels in the unit filter, in all eleven languages. The type `time`, which
   is now the wave period and the offset of solar time only, is labelled "Time" where it was
-  "Duration". Needs the backend that serves them: release the backend first. The Low German and
+  "Duration". Needs the backend that serves them: the app of this release is paired with the
+  backend 0.183.0, the least it is run with, so release the backend first. The Low German and
   Luxembourgish labels are not reviewed by a native speaker (GH-3702, GH-3747)
 
 ### Changed
@@ -1815,7 +1818,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.43.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.44.0...HEAD
+[0.44.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.43.0...app-v0.44.0
 [0.43.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.42.0...app-v0.43.0
 [0.42.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.41.0...app-v0.42.0
 [0.41.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.40.0...app-v0.41.0
