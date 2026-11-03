@@ -104,9 +104,8 @@ Types of changes:
   and hour, up to one hour from their stamp (GH-3768)
 - `dwd/observation` hourly `cloud_type_layer1` to `cloud_type_layer4` is null now where DWD writes
   `-1`, with `raw:-1` in `quality_flags`, as the obscured-sky cloud cover beside it: the `-1` was
-  returned as a value and the docs called it "Automated", which no DWD description says; 2,633 of
-  2,641 such hours sit beside an obscured first layer. A caller that counted `-1` as a category
-  finds those rows in `quality_flags` (GH-3772)
+  returned as a value and the docs called it "Automated", which no DWD description says. A caller
+  that counted `-1` as a category finds those rows in `quality_flags` (GH-3772)
 
 ## [0.182.0] - 2026-11-02
 

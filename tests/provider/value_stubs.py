@@ -658,9 +658,9 @@ def _dwd_hourly_cloudiness(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = T
 def _dwd_hourly_cloud_type(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # stundenwerte_CS_02014_19490101_20251231_hist.zip (read 2026-11-03, GH-3772): DWD's descriptions give -999 as the
     # missing value and no -1 for a cloud type, yet the files write -1 in V_S1_CS (and in the letters V_S1_CSA beside
-    # it) 493 times at this station, in 1990 to 2006, beside an obscured cover V_N and V_S1_NS in all but two hours
-    # (2003-03-23 09:00, 2003-09-17 20:00: a 7500 m layer of cover 1 or 2). Those are the 2,633 of 2,641 hours of the
-    # four stations read. The rows are 1990-07-26 05:00 to 08:00 of the file, whole.
+    # it) 493 times at this station, in 1990 to 2005, beside an obscured first-layer cover V_S1_NS in all but two hours
+    # (2003-03-23 09:00, 2003-09-17 20:00: a 7500 m layer of cover 1 or 2); across the four stations read it is 2,633
+    # of 2,641. The rows are those of 1990-07-26 05:00, 06:00 and 08:00 of the file, whole.
     product = (
         "STATIONS_ID;MESS_DATUM;QN_8; V_N;V_N_I;V_S1_CS;V_S1_CSA;V_S1_HHS;V_S1_NS;V_S2_CS;V_S2_CSA;V_S2_HHS;V_S2_NS;"
         "V_S3_CS;V_S3_CSA;V_S3_HHS;V_S3_NS;V_S4_CS;V_S4_CSA;V_S4_HHS;V_S4_NS;eor\n"

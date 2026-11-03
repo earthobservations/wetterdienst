@@ -116,7 +116,7 @@ of which only `rs_05` and `rs_ind_05` are available in the `recent` and `now` pe
 | Cumulus         | 8      |
 | Cumulonimbus    | 9      |
 
-DWD's descriptions of the dataset give no code below 0 for a cloud type. The files write `-1` in the
+DWD's descriptions of the dataset name no cloud type codes and only `-999` as a missing value. The files write `-1` in the
 type fields as well, and wetterdienst returns it as null; see below.
 
 ### Obscured sky

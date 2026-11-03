@@ -264,8 +264,8 @@ def test_parse_dwd_data_nulls_the_cloud_type_minus_one_beside_a_layer_that_was_s
     """Test that the cloud type -1 is null in every layer, also where the cover beside it is an amount (GH-3772).
 
     The rows are 2003-03-23 09:00 of station 02014 (stundenwerte_CS_02014_19490101_20251231_hist.zip, read
-    2026-11-03), one of the 8 of 2,641 hours with a type of -1 beside a first layer that was seen, and an hour
-    before it (made up, as is the -1 in the second layer of the later row; the file has none there). The text DWD wrote
+    2026-11-03), one of the 8 of 2,641 hours with a type of -1 beside a first layer that was seen, and the hour
+    before it. The -1 in the second layer of the later row is made up (the file has none there). The text DWD wrote
     stays in `<column>__raw`; the letters `V_S1_CSA` beside the type are dropped.
     """
     payload = (
