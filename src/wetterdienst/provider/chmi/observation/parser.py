@@ -11,12 +11,24 @@ the number it writes (``shape_provider_frame``).
 
 from __future__ import annotations
 
+import logging
+
 import polars as pl
 
 from wetterdienst.model.quality_flags import join_quality_flags
 
 # CHMI encodes timestamps without seconds, e.g. ``1863-10-01T00:00Z``.
 _DATE_FORMAT = "%Y-%m-%dT%H:%MZ"
+
+log = logging.getLogger(__name__)
+
+# `GH_ID` of the stations CHMI lists beside its own that lie abroad (`ZIS04030` is Reykjavik, `ZAR89055` is Marambio
+# Base in Antarctica; the Czech ones start with the letter of their region: `L3CHEB01`, `O1JAVR01`, ...). They are the
+# only two stations of `meta1.csv` of this kind (5576 rows, 2026-10-29), and the portal has no file for them in any
+# resolution: probed 2026-10-29, neither id occurs in any directory of daily, monthly, yearly, 10min and 1hour (every
+# element, every year), and requests for their files answer 404. A list of them would never come to a value, and the
+# 10 minute and hourly lists are not narrowed by the files (GH-3259), so the reader drops them (GH-3589)
+FOREIGN_STATION_PREFIX = "Z"
 
 
 def parse_chmi_stations(content: bytes) -> pl.DataFrame:
@@ -30,10 +42,18 @@ def parse_chmi_stations(content: bytes) -> pl.DataFrame:
     relocated sensor appears multiple times. Collapse to a single row using the most recent
     position for the coordinates/name and the full operational extent for the dates. An
     ``END_DATE`` in year 3999 marks a still-active station and leaves ``end_timestamp`` null.
+
+    The stations of abroad (``GH_ID`` starting with ``FOREIGN_STATION_PREFIX``) are left out: the portal has no file
+    for them (GH-3589).
     """
     df = pl.read_csv(content, has_header=True, infer_schema_length=0)
     if df.is_empty():
         return pl.DataFrame()
+    foreign = pl.col("GH_ID").str.starts_with(FOREIGN_STATION_PREFIX).fill_null(value=False)
+    dropped = df.filter(foreign)["WSI"].unique(maintain_order=True).to_list()
+    if dropped:
+        log.debug("CHMI stations without files, left out: %s", ", ".join(dropped))
+    df = df.filter(~foreign)
     df = df.with_columns(
         pl.col("BEGIN_DATE").str.to_datetime(_DATE_FORMAT, time_unit="us"),
         pl.col("END_DATE").str.to_datetime(_DATE_FORMAT, time_unit="us"),

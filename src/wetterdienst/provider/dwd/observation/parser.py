@@ -21,13 +21,13 @@ from wetterdienst.model.quality_flags import (
     calm,
     clear_sentinels,
     no_direction_code,
-    raw_column,
 )
 from wetterdienst.provider.dwd.observation.download import MEZ_DATASETS, ProductFile
 from wetterdienst.provider.dwd.observation.fileindex import DATE_RANGE_REGEX, MEZ_UNTIL_YEAR, is_mez_file
 from wetterdienst.provider.dwd.observation.metadata import (
     DwdObservationMetadata,
 )
+from wetterdienst.util.response_warnings import note_skipped_download
 
 if TYPE_CHECKING:
     from wetterdienst.util.network import File
@@ -84,8 +84,10 @@ MEASUREMENT_METHOD_CODES = {"P": "1", "I": "2"}
 # 47, "fog, sky invisible", most of all. It is a statement that no amount could be given, not an
 # amount: left alone it is read as -1 eighths and converts to -0.125 of the sky.
 #
-# Only the cover fields. `v_sN_cs` beside them is a cloud *type* code where -1 is DWD's own value
-# for an automated observation, and dimensionless, so nothing distorts it.
+# The cloud *type* fields `v_sN_cs` write the same -1 (GH-3772; read 2026-11-03, stations 00433, 01420, 02014
+# and 03921, all periods): 2,633 of the 2,641 hours with a type of -1 have an obscured first layer beside it, 2,627 an
+# obscured total cover. DWD's descriptions name no -1 for the type (only -999), so it is not a type but the same
+# absence, and it is not returned either; the older reading, "DWD's value for an automated observation", had no source.
 SKY_OBSCURED = "-1"
 CLOUD_COVER_PARAMETERS = {
     DwdObservationMetadata.hourly.cloudiness.cloud_cover_total.name_original,
@@ -95,13 +97,19 @@ CLOUD_COVER_PARAMETERS = {
     DwdObservationMetadata.hourly.cloud_type.cloud_cover_layer3.name_original,
     DwdObservationMetadata.hourly.cloud_type.cloud_cover_layer4.name_original,
 }
-# The hourly moisture dataset documents `missing value = -999`, but its files write -99.9 for the five
-# moisture columns in every hour without a reading (station 03735, 1949-01-28 06:00, in
+CLOUD_TYPE_PARAMETERS = {
+    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer1.name_original,
+    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer2.name_original,
+    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer3.name_original,
+    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer4.name_original,
+}
+# The hourly moisture dataset documents `missing value = -999`, but its files write -99.9 for the five moisture
+# columns in every hour without a reading (station 03735, 1949-01-28 06:00, in
 # stundenwerte_TF_03735_19490101_19511231_hist.zip; station 14006, 2025-01-05 01:00, in
-# stundenwerte_TF_14006_20201104_20251231_hist.zip). `TT_STD` beside them is a reading, and `P_STD`
-# is not touched by this rule. -99.9 is outside the physical range of all five. Only this dataset:
-# GH-2669 sampled hourly air temperature, dew point and subdaily moisture and found none of them
-# writing it, so the rule stays local rather than a blanket -99.9.
+# stundenwerte_TF_14006_20201104_20251231_hist.zip). `TT_STD` beside them is a reading, and `P_STD` is not touched by
+# this rule. -99.9 is outside the physical range of four of them (the dew point reaches -100 C). Only this dataset:
+# GH-2669 sampled hourly air temperature, dew point and subdaily moisture and found none of them writing it, so the
+# rule stays local rather than a blanket -99.9.
 MOISTURE_MISSING = -99.9
 MOISTURE_MISSING_PARAMETERS = {
     DwdObservationMetadata.hourly.moisture.humidity_absolute.name_original,
@@ -111,37 +119,12 @@ MOISTURE_MISSING_PARAMETERS = {
     DwdObservationMetadata.hourly.moisture.temperature_dew_point_2m.name_original,
 }
 
-# The hourly moisture file of a station without a barometer carries one pressure for the whole file, which is no
-# reading (GH-2699; read 2026-10-15 in all 1314 files of recent/ and historical/ of opendata.dwd.de). `P_STD` is
-# "Stundenwerte Luftdruck" ("hourly value of barometric pressure") in DWD's sheet, from SYNOP reports, and the sheet
-# says nothing of a constant. 761 files hold a single distinct value in every one of their 8 to 202,384 readings
-# (stundenwerte_TF_14072_akt.zip: 997.3 in 12,844 rows). 736 of them, and 55 more with two values, are zips without a
-# `Metadaten_Geraete_Luftdruck_*.txt`, the instrument list of the barometer (818 files have none); 471 of the 496 zips
-# that have one hold 10 or more distinct values (the others, 25, are constant). A mean, a trend or a pressure
-# reduction over the constant reflects the station, not the weather.
-#
-# Judged per file, here, before the files of the periods are put together: a file of at least
-# `STATION_CONSTANT_MIN_READINGS` readings with at most `STATION_CONSTANT_MAX_VALUES` distinct values has them nulled,
-# and each value stays as the text of `quality_flags`' `raw` token (`raw:997.3`). Fewer readings are no evidence (a
-# file of 24 rows is one day). A constant that changed once is two values (953.1 and then 954.8 from 2026-10-13 at
-# station 00142; 55 files, GH-3139, all without a barometer list; 00091's historical file holds 977.1 and then 977.6
-# from 2024-03-25). Read on the same 1314 files on 2026-10-19: of the 1,305 files with 500 or more readings
-# none holds 3 to 46 distinct values; the constants hold 1 (752) or 2 (55), the fewest of any other file is 47
-# (stundenwerte_TF_19271_akt.zip, a barometer in 7,643 readings) and the next 50, 53, 54, 57, 58, ... A threshold of
-# three sits in that gap, with room for a second step.
-STATION_CONSTANT_MIN_READINGS = 500
-STATION_CONSTANT_MAX_VALUES = 3
-STATION_CONSTANT_PARAMETERS = (
-    (DwdObservationMetadata.hourly.moisture, DwdObservationMetadata.hourly.moisture.pressure_air_site.name_original),
-)
-
 # The hourly weather phenomena file writes -1 in `WW` for every hour in which the present weather was not
 # reported, and says so in the text column beside it: `       1869;2025040900;    3;  -1;Wetter wurde
 # nicht gemeldet;eor` (stundenwerte_WW_01869_akt.zip; 9263 of the 13088 records of station 01869 are
 # that row, and no other `WW_Text` goes with -1 nor does -1 go with another text). No description states
 # it. It is "not reported", not a weather: left alone it is counted, maxed and averaged as one. Only
-# this column: `v_sN_cs` of hourly cloud_type is a code where -1 is DWD's own value for an automated
-# observation.
+# this column: the -1 of `v_sN_cs` in hourly cloud_type is the obscured sky (see `SKY_OBSCURED`).
 WEATHER_NOT_REPORTED = -1
 WEATHER_NOT_REPORTED_PARAMETERS = {
     DwdObservationMetadata.hourly.weather_phenomena.weather.name_original,
@@ -280,6 +263,7 @@ _WEATHER_NOT_REPORTED = Sentinel(str(WEATHER_NOT_REPORTED))
 _PRECIPITATION_FORM_MISSING = Sentinel(str(PRECIPITATION_FORM_MISSING))
 _WIND_DIRECTION_VARIABLE = no_direction_code(str(WIND_DIRECTION_VARIABLE))
 _NO_WIND_DIRECTION = no_direction_code("0")
+
 # the columns that identify a row or describe a station and are no parameter: no text is kept of their sentinel
 _NO_RAW_COLUMNS = {
     "stations_id",
@@ -304,25 +288,6 @@ CODED_STRING_PARAMETERS = {
     DwdObservationMetadata.hourly.cloudiness.cloud_cover_total_measurement_method.name_original,
     DwdObservationMetadata.hourly.visibility.visibility_measurement_method.name_original,
 }
-
-
-def _null_station_constant(df: pl.LazyFrame, column: str) -> pl.LazyFrame:
-    """Null a column of one file that holds at most a few values, keeping the text of each as `raw` (GH-2699).
-
-    A file is the unit: this runs on one file before the files are put together, so a station whose
-    recent file is constant and whose historical file is not is judged on each. The value is judged
-    as a number (`997.3` and `997.30` are one), and the `raw` token is the text the file wrote.
-    """
-    value = pl.col(column)
-    readings = value.cast(pl.Float64, strict=False).drop_nulls()
-    constant = (readings.len() >= STATION_CONSTANT_MIN_READINGS) & (readings.n_unique() <= STATION_CONSTANT_MAX_VALUES)
-    raw = pl.when(constant & value.is_not_null()).then(value)
-    if raw_column(column) in df.collect_schema():
-        raw = pl.coalesce(pl.col(raw_column(column)), raw)
-    return df.with_columns(
-        pl.when(constant).then(pl.lit(None, dtype=pl.String)).otherwise(value).alias(column),
-        raw.alias(raw_column(column)),
-    )
 
 
 def _decode_measurement_method(series: pl.Series) -> pl.Series:
@@ -402,12 +367,14 @@ WOZ_COLUMN = "woz"
 # fixed UTC+1, not UTC, and are shifted by -1 h (GH-2709): against NOAA ISD the value of the stamp HH is the report of
 # HH-1 UTC, 95 to 99.9 % identical at 38 of 39 stations with a twin (5 to 16 % before the shift), and none contradicts.
 # So are the hourly soil temperature stamps of the periods whose source is "Archiv des eMD" (74 stations, up to 1991:
-# the terms 01, 04, ..., 22 MEZ, GH-3029), and the air temperature stamps `MEZ_BY_COMPARISON` names (Diepholz, from
-# 1995-02-01 to 1996-05-31). Only these: the plain `Stundenwerte in MEZ` of 160 stations is UTC in the values at most
-# of the stations checked and no rule on the file tells the others. The periods come from `ProductFile.mez_md_spans`,
-# per parameter as `TT_TU` and `RF_TU` have their own table of periods at 42 stations and one stamp column cannot
-# carry two clocks, so the shift is made after the wide frame is unpivoted (`DwdObservationValues._tidy_up_df`), from
-# one boolean column per parameter named here. The rows are flagged `zone:mez`.
+# the terms 01, 04, ..., 22 MEZ, GH-3029), and the air temperature stamps `MEZ_BY_COMPARISON` names (Diepholz, Nürnberg,
+# Frankfurt/Main, Trier-Petrisberg and Bremen, in blocks of whole days). Only these: the plain `Stundenwerte in MEZ`
+# of 160 stations is UTC in the values in most of the months ISD tells apart (6,021 against 141 at lag -1,
+# docs/data/time_reference.md) and no rule on the file tells the others. The periods come from
+# `ProductFile.mez_md_spans`, per parameter as `TT_TU` and `RF_TU` have their own table of periods at 42 stations and
+# one stamp column cannot carry two clocks, so the shift is made after the wide frame is unpivoted
+# (`DwdObservationValues._tidy_up_df`), from one boolean column per parameter named here. The rows are flagged
+# `zone:mez`.
 MEZ_MD_PREFIX = "mez_md__"
 
 
@@ -462,9 +429,11 @@ def _parse_climate_observations_data(  # noqa: C901
             infer_schema=False,
         )
     except pl.exceptions.SchemaError:
+        note_skipped_download()
         log.warning(f"The file representing {file.filename} could not be parsed and is skipped.")
         return pl.LazyFrame()
     except ValueError:
+        note_skipped_download()
         log.warning(f"The file representing {file.filename} is None and is skipped.")
         return pl.LazyFrame()
     df = df.with_columns(cs.string().str.strip_chars())
@@ -485,12 +454,9 @@ def _parse_climate_observations_data(  # noqa: C901
         pl.col(parameter).map_batches(_decode_measurement_method, return_dtype=pl.String)
         for parameter in sorted(CODED_STRING_PARAMETERS & columns)
     )
-    df = clear_sentinels(df, sorted(CLOUD_COVER_PARAMETERS & columns), _SKY_OBSCURED)
+    df = clear_sentinels(df, sorted((CLOUD_COVER_PARAMETERS | CLOUD_TYPE_PARAMETERS) & columns), _SKY_OBSCURED)
     if dataset == DwdObservationMetadata.hourly.moisture:
         df = clear_sentinels(df, sorted(MOISTURE_MISSING_PARAMETERS & columns), _MOISTURE_MISSING)
-    for constant_dataset, parameter in STATION_CONSTANT_PARAMETERS:
-        if dataset == constant_dataset and parameter in columns:
-            df = _null_station_constant(df, parameter)
     if dataset == DwdObservationMetadata.hourly.weather_phenomena:
         df = clear_sentinels(df, sorted(WEATHER_NOT_REPORTED_PARAMETERS & columns), _WEATHER_NOT_REPORTED)
     if dataset == DwdObservationMetadata.hourly.precipitation:

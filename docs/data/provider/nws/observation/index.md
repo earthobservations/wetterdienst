@@ -153,6 +153,30 @@ The endpoint answers at most 500 observations per request, about 40 hours, and t
 not read the next page, so a longer window returns the latest 40 hours only, the oldest of them
 decided on a partial hour (GH-2994).
 
+## The source's own verdict (`source`)
+
+Every quantity carries MADIS's QC data descriptor as `qualityControl`, the plain flag of `quality_flags` (`V`, `Z`, ...).
+The NWS API words it as "For values in observation records, the quality control flag from the MADIS system. The
+definitions of these flags can be found at https://madis.ncep.noaa.gov/madis_sfc_qc_notes.shtml"
+([`QuantitativeValue.qualityControl`](https://api.weather.gov/openapi.json), read 2026-11-02), and the
+[MADIS surface QC notes](https://madis.ncep.noaa.gov/madis_sfc_qc_notes.shtml) (read 2026-11-02) give the values: "X -
+Rejected/erroneous, failed level 1", "Q - Questioned, passed level 1, failed 2 or 3" ("level 1 = validity, level 2 =
+internal consistency, temporal consistency, statistical spatial consistency checks, level 3 = spatial consistency
+check") and, as a person's intervention, "B - Subjective bad" (the reject list: "observations ... that will be labeled as
+bad, regardless of the outcome of the QC checks"). The check `source` reads these three. `Q` "Questioned" is the milder
+level, so `hard` nulls `X` and `B` and only flags `Q` as `Q,suspect:source`. Not read: `Z` "Preliminary, no QC", `C`
+"Coarse pass, passed level 1", `S` "Screened, passed levels 1 and 2", `V` "Verified, passed levels 1, 2, and 3", `G`
+"Subjective good" and `T` ("Virtual temperature could not be calculated, air temperature passing all QC checks has been
+returned").
+
+The API returns these flags rarely: of 124,272 quantities in the latest 500 observations of 20 large stations
+(2026-11-02) 78,582 were `V`, 34,883 `Z`, 10,570 `C`, 237 `S` and none `X`, `Q` or `B`, so the test of the mapping is a
+row written as MADIS words it.
+
+With `plausibility={"source": "hard"}` the value is null and the token is `rejected:source,raw:<text>`, except `Q`; the
+default is `soft`, which keeps the value and writes `suspect:source`, so interpolation, summaries and climate stripes
+leave it out. See [the check `source`](../../../plausibility.md#the-sources-own-verdict-source).
+
 ```{toctree}
 :hidden:
 

@@ -12,7 +12,9 @@ it, what was checked by hand, and what is known not to conform.
 - every page, as it is first shown, in light and dark mode and in English and German,
 - and, in light/English and dark/German, the states a first paint does not show: a station map with
   stations, a drawn chart (explorer, stripes, meteogram, widget), the table of the stripes' and the meteogram's values opened, the meteogram's compact day cards, an open
-  menu or popover, and an error notice.
+  menu or popover, an error notice, the explorer's notice for a request the server refused over a limit
+  (`values-limit-refused`, and at 320 px `values-limit-refused-narrow`) and the note under the date range that
+  says the page started one (`default-range-note`).
 
 The spec answers every `/api/*` request itself, in the browser (`tests/e2e/accessibility/mock-backend.ts`),
 so it reaches neither the backend nor a provider. Map tiles and every other request to another host are
@@ -27,14 +29,15 @@ The same pages and states (in light/English and dark/German) are scanned twice m
 - **hover**: every link, button, tab, option, menu item and element with a `hover:` style is hovered, once
   for each look (the same classes under a parent of the same classes are one), and axe's `color-contrast` is
   run on it (1.4.3; the scans at rest never hover, GH-2991),
-- **keyboard**: the page is walked Tab by Tab from its top to where the order comes round (an open menu or
-  dialog, from where it holds the focus). Each stop is checked for a focus indicator, an outline, a ring
+- **keyboard**: the page is walked Tab by Tab from its top to where the order comes round, or to where a
+  focus guard keeps the focus through more than three Tabs (an open menu or dialog, from where it holds the
+  focus). Each stop is checked for a focus indicator, an outline, a ring
   (`box-shadow`, also on `::before` and `::after`) or Reka's highlight (2.4.7, `focus-not-visible`); for that
   indicator having 3:1 against what it lies on (1.4.11, `focus-indicator-contrast`); for not being hidden
   behind other content or outside what a map shows, sampled at five points of the part in the window and
   again half a second later (2.4.11, `focus-obscured`); for the focus leaving the page at once (2.1.2,
-  `focus-lost`); and for the contrast of the text with the focus on it. Reka's invisible focus guards are not
-  stops. The rules are the app's own ids, in `CUSTOM_RULES` of `interact.ts`.
+  `focus-lost`); and for the contrast of the text with the focus on it. Reka's invisible focus guards, and
+  the proxies at either end of the toast region, are not stops. The rules are the app's own ids, in `CUSTOM_RULES` of `interact.ts`.
 
 Beside the scans, `accessibility.spec.ts` drives widgets by keys alone (`keyboard operation`: the station
 picker, a collapsible, a menu, and the narrow layout's menu, which is a dialog that keeps the focus and gives
@@ -61,21 +64,58 @@ What is left in it, and why it is not fixed in the app's own markup:
 - `aria-hidden-focus`, the error toast: the two focus proxies in Reka UI's toast viewport are
   `aria-hidden` and focusable. Also upstream.
 
-There is no `color-contrast` entry left. The brand green, `#00c950`, stays the fill of a solid primary
-button; its label is `#0f172b` (`--app-text-on-primary` in `app/assets/css/main.css`, set for the
-button in `app/app.config.ts`), 8.0:1 on the fill and 9.5:1 hovered in light mode, where the white
-label it replaces was 2.2:1 and 1.9:1. Dark mode has the same label on its lighter fill, as Nuxt UI
-already had it (10.0:1, and 6.1:1 hovered). A disabled button is exempt from 1.4.3 and from the scans; its
-label is at 75 % opacity with its fill (4.2:1 in light mode). Text in the primary colour on white is
-shade 700 and a fifth of the way to 800 (`.text-primary`), a hovered link button shade 800 (7.1:1; Nuxt UI's
-75 % of the first was 3.4:1), and a hovered chip of the home page shade 700 (4.9:1; shade 500 was 2.2:1).
-`tests/unit/button-contrast.test.ts` computes the hovered ratio of a solid button, as 75 % of the fill over
-the page; the hover scan measures the rest.
+There is no `color-contrast` entry left. The colours are the tokens of `app/assets/css/main.css` (GH-3518):
+the primary colour is the logo's blue, `#2E6FD1` (`brand-600`), the fill of a solid primary button with a
+white label (4.9:1); hovered and pressed, the fill darkens to shades 700 and 800 (6.9:1 and 9.4:1) instead of
+Nuxt UI's 75 % of the fill, which lightens it (`app/app.config.ts`). In dark mode the fill is shade 400 with
+the logo's navy as the label (7.0:1), lightening to 300 and 200. Text in the primary colour on white is shade
+700 (6.9:1, 5.9:1 on its own tint), a hovered link shade 800 by day and 300 at night. The neutrals are grey
+with the logo's navy in it (`ink-*`): dimmed text is 5.4:1 on white and 4.7:1 on a hovered field, muted text
+at night 6.2:1 on a card. A disabled button is exempt from 1.4.3 and from the scans. The edge of a field, a
+checkbox and an unchecked switch is `--ui-border-accented`, 3.3:1 on white and 3.1:1 at night (1.4.11).
+`tests/unit/button-contrast.test.ts` reads the tokens from `main.css` and holds each pair to its ratio; the
+hover scan measures the rest.
 
 The focus indicator is one solid 2 px outline for everything a keyboard reaches (`--app-focus-ring` in
-`main.css`: shade 700 of the primary colour on light, 4.9:1 on white, shade 400 on dark, 10:1; the map takes
-the light one in both modes). Nuxt UI's own is an outline at 25 % of the primary colour (1.2:1 to 1.7:1 on
-white) and a ring in the primary colour (2.2:1), and its menu search fields draw none; they stay, beside it.
+`main.css`: shade 700 of the primary colour on light, 6.9:1 on white, shade 300 on dark, 9.6:1; the map takes
+the light one in both modes). Nuxt UI's own is an outline at 25 % of the primary colour and a ring in the
+primary colour, and its menu search fields draw none; they stay, beside it.
+
+The shell (GH-3518) has a skip link, the first stop of every page, to the page's `main`; the header and the
+tab bar of the narrow layout are fixed, and the page scrolls a focused control clear of them
+(`scroll-padding`); in a window lower than 30 rem (a phone on its side, 400 % zoom) neither is fixed. In forced
+colours (Windows contrast themes) the icons are painted in the colour of their text, so an icon-only button
+keeps its icon, the tiles of the tools are outlined, and the tab of the current page is underlined.
+
+The Plotly charts take their chrome from the same tokens as the page (GH-3528): paper, plot, text, grid,
+zero line, hover label and modebar are the `--app-chart-*` properties of `main.css`, made of Nuxt UI's
+`--ui-*` tokens, which switch with the colour mode. `utils/chart-theme.ts` reads them with
+`getComputedStyle` (resolved to `rgb()` by the browser's computed colour of a probe element, as Plotly does
+not parse `oklch()`; no canvas, whose pixels a browser that resists fingerprinting scrambles), and
+`useChartTheme()` reads them again when the class of `<html>` changes, so a chart follows a switch
+without a reload. A chart that is saved (the download menus, and the camera of the modebar) or printed is
+always the light one, whatever the screen shows: it is drawn again, off screen, in the light theme
+(`utils/chart-export.ts`), and a print is drawn light for as long as it lasts (a light page is printed as
+it is, and a zoom is kept), with a `@media print` rule in `main.css` for a chart that says it is still drawn dark
+(`data-chart-scheme="dark"`) when the print comes before the redraw: transparent paper, black text and
+wind barbs; a chart drawn light is left as drawn. On the themed chrome (the Explorer, the stripes, the
+Forecast's hour labels) text and tick labels are the page's text and muted text (4.5:1 or more on the page
+in both modes) and the zero line the muted text colour (3:1 or more), checked on the drawn charts by
+`tests/e2e/chart-theme.spec.ts`; the grid is decoration. The series and the stripes' palette are data and
+keep their colours, and the text that names a series is the series' hue at 4.5:1 or more on the paper
+(`SERIES_LABEL` in `utils/chart-theme.ts`, GH-3618): the Forecast's y-axis titles and tick labels and its
+weekend day labels, and the stripes' "data availability" label. On white that is a darker step of the
+hue, #0e7490 for the wind's cyan (5.4:1; the line is #06b6d4, 2.4:1), #2563eb for the precipitation's blue
+(5.2:1; 3.7:1), #dc2626 for the temperature's red and the weekend (4.8:1; 3.8:1), #4d7c0f for the pressure's
+lime (5.0:1; 2.0:1) and #b45309 for the availability's gold (5.0:1; 2.2:1); on the dark paper (#0f172b) the
+series' own colours already read (7.3:1, 4.9:1, 4.7:1, 9.0:1) and gold is #daa520 (8.0:1). The Forecast's
+temperature zero line is the muted text colour like the Explorer's (3:1 or more). Not held to those ratios:
+the Plotly logo of the modebar, Plotly's own black tile with coloured dots.
+
+Every chart speaks the language of the page (GH-3625, 3.1.2): the names of the modebar's buttons and of
+the weekdays and months of a date axis, through `plotly.js-locales` and Intl (`utils/plotly-locale.ts`,
+which follows a switch of the language like a switch of the scheme). Plotly has no button names in Polish
+or Danish and only some in Dutch, which stay English; Luxembourgish and Hamburg's German take German's.
 
 There is no sepia mode. `main.css` once held a `html.sepia` block that redefined the `--ui-*` tokens, which
 nothing in the app ever set (`colorMode` knows `light`, `dark` and `system`, and the settings offer those
@@ -130,16 +170,17 @@ WCAG 2.2 first, as axe has no rule for most of them.
 | Criterion | Result |
 | --- | --- |
 | 2.4.7 Focus visible, 1.4.11 Non-text contrast of the focus indicator | The keyboard scan measures it at every stop. **Was failing** nearly everywhere: 382 stops, counted per page so that the header links count on each, in 27 of the light/English scans had under 3:1; see above. |
-| 2.4.11 Focus not obscured (minimum) | The keyboard scan checks it on every page and state. The sticky header hides no focused element. Leaflet draws markers beyond what the map shows and lets Tab reach them: a marker that takes the focus now pans the map until it is in view (`MapStations.vue`). |
+| 2.4.11 Focus not obscured (minimum) | The keyboard scan checks it on every page and state. The sticky header hides no focused element. Leaflet draws markers beyond what the map shows and lets Tab reach them: a marker that takes the focus now pans the map until it is in view (`MapStations.vue`). The toasts stand over the foot of the page: while one is shown the page has room for it below the footer and a focused element scrolls clear of it (`useToastInset`, `html { scroll-padding-bottom }`; the footer's licences link was under the error toast at 1280x720, GH-3575). Tested (`keyboard operation`). |
 | 2.5.7 Dragging movements | The map pans by drag, and by the arrow keys with the map focused, and zooms by its buttons and `+`/`-`; a station is also chosen in the list beside it. Plotly's charts zoom and pan by drag, with the modebar's buttons (zoom in, out, reset) as the single-pointer way. |
 | 2.5.8 Target size (minimum) | axe's `target-size` is among the tags scanned (wcag22aa), on every page and state in both modes: no entry. |
-| 3.2.6 Consistent help | The support and documentation links are in the header (icons) and the footer of every page, in the same order; the narrow layout has them in its menu. The widget has no header or footer by design. |
+| 3.2.6 Consistent help | The support and documentation links are in the footer of every page, in the same order, and support is also a heart in the header from 80 rem; the narrow layout has them in its menu sheet, and the search finds them. The widget has no header or footer by design. |
 | 3.3.7 Redundant entry | Nothing is asked twice in a process. The explorer, forecast and stripes keep their selection in the URL, the settings in local storage. |
 | 3.3.8 Accessible authentication | The app has no log-in and no cognitive test. |
 | 2.4.2 Page titled | **Was failing**: every page was titled `Wetterdienst`. Each page names itself now, and a navigation is announced (`NuxtRouteAnnouncer`). |
 | 2.2.2 Pause, stop, hide | **Was failing**: the emoji of the forecast's compact cards bounced for ever. They bounce once, and not at all under `prefers-reduced-motion`. Loading placeholders pulse while loading, which is a progress indication. |
 | 1.4.10 Reflow | No page scrolls sideways at 320 px (tested). A table or chart scrolls in its own box. |
-| 2.1.2, 2.4.3 on the narrow layout's menu | **Was failing**: the menu was a fixed overlay that Tab walked out of. It is a dialog. |
+| 4.1.3 Status messages, 1.3.1, 2.4.3 Notice of a refused request (GH-3457) | A request the server refuses over a limit is a state of the table, not an error: its text (what the request comes to, what the server sends, what can be narrowed, with the selection's counts) is one `role="alert"` in a `section` that names itself by its heading, and the buttons (apply the window that fits, download everything as CSV) come after it in the tab order and outside the alert, so they are not read twice. A button's label wraps (320 px: no part of the notice reaches past the screen; tested), and it says what it does and how much, in the page's language. The notice raises no toast. When applying the window removes the notice while a button of it holds the focus, the focus goes to the table area (`applyWindow`, with `useFocusAfterRetry` as the fallback), which is where the answer, or the notice again, arrives; that area is a `role="group"` named by the page's own "Data" heading, so that the focus it takes is announced with a name (GH-3722). The note under the date range is a `role="status"` that stays in the page, hidden visually, when it has no text (announced as the text changes; the first station mounts the selector with the note in it, so the selector writes a note that is there at the start into the status 150 ms after the status is in the page, which is the change a screen reader announces; not checked with a screen reader), and the description (`aria-describedby`) of both date fields. "Clear date range" hands the focus it held to the two date fields as a group (`role="group"`, named "Date Range", with the focus ring when the button was pressed by keyboard) and not to the first date input, which iOS may answer by opening its picker (not checked on a device). Tested in `tests/nuxt/components/limit-notice.test.ts`, `DateRangeSelector.test.ts` and the three states of the accessibility spec. |
+| 2.1.2, 2.4.3 on the narrow layout's menu | **Was failing**: the menu was a fixed overlay that Tab walked out of. It is a dialog (the sheet the tab bar's Menu opens, GH-3518), as is the search. |
 
 The charts' text alternatives and keyboard access (#3145), checked on 2026-10-19:
 

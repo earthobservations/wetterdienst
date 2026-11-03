@@ -11,6 +11,7 @@ import pytest
 from click.testing import CliRunner
 
 from tests.conftest import IS_WINDOWS
+from tests.ui.test_restapi import _without_plotly
 from wetterdienst.exceptions import NotEnoughDataError, StationNotFoundError
 from wetterdienst.ui.cli import cli
 
@@ -348,6 +349,24 @@ def test_stripes_image_without_kaleido_is_one_logged_line(
     )
     assert [record.getMessage() for record in caplog.records if record.levelno >= logging.ERROR] == [message]
     assert all(record.exc_info is None for record in caplog.records)
+
+
+def test_stripes_image_without_plotly_reads_nothing_first(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Without the `plotting` extra the command says what to install before it reads a record (GH-3581)."""
+
+    def read(_request: object) -> None:
+        pytest.fail("read the record although plotly is missing")
+
+    _without_plotly(monkeypatch)
+    monkeypatch.setattr("wetterdienst.ui.core._get_stripes_data", read)
+
+    with caplog.at_level(logging.ERROR):
+        result = CliRunner().invoke(cli, ["stripes", "image", "--kind=temperature", "--station=99999"])
+
+    assert result.exit_code == 1
+    assert "pip install wetterdienst[plotting]" in " ".join(record.getMessage() for record in caplog.records)
 
 
 def test_stripes_values_is_no_command(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -529,6 +529,7 @@
             "significant_weather",
             "speed",
             "temperature",
+            "temperature_difference",
             "time",
             "turbidity",
             "volume",
@@ -4142,6 +4143,24 @@
           "required": false,
           "default": null
         },
+        "--limits": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": true,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "text",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--limits"
+          ],
+          "required": false,
+          "default": null
+        },
         "--longitude": {
           "param_type_name": "option",
           "nargs": 1,
@@ -4249,6 +4268,174 @@
           ],
           "required": false,
           "default": null
+        },
+        "--plausibility": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "choice",
+          "choices": [
+            "hard",
+            "soft"
+          ],
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--plausibility"
+          ],
+          "required": false,
+          "default": null
+        },
+        "--plausibility-consistency": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "choice",
+          "choices": [
+            "hard",
+            "soft"
+          ],
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--plausibility-consistency"
+          ],
+          "required": false,
+          "default": "hard"
+        },
+        "--plausibility-elevation": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "choice",
+          "choices": [
+            "hard",
+            "soft"
+          ],
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--plausibility-elevation"
+          ],
+          "required": false,
+          "default": "hard"
+        },
+        "--plausibility-floor": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "choice",
+          "choices": [
+            "hard",
+            "soft"
+          ],
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--plausibility-floor"
+          ],
+          "required": false,
+          "default": "hard"
+        },
+        "--plausibility-limits": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "choice",
+          "choices": [
+            "hard",
+            "soft"
+          ],
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--plausibility-limits"
+          ],
+          "required": false,
+          "default": "hard"
+        },
+        "--plausibility-range": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "choice",
+          "choices": [
+            "hard",
+            "soft"
+          ],
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--plausibility-range"
+          ],
+          "required": false,
+          "default": "hard"
+        },
+        "--plausibility-source": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "choice",
+          "choices": [
+            "hard",
+            "soft"
+          ],
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--plausibility-source"
+          ],
+          "required": false,
+          "default": "soft"
+        },
+        "--plausibility-stuck": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "choice",
+          "choices": [
+            "hard",
+            "soft"
+          ],
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--plausibility-stuck"
+          ],
+          "required": false,
+          "default": "soft"
         },
         "--pretty": {
           "param_type_name": "option",
@@ -4656,5 +4843,5 @@
       }
     }
   },
-  "x-release": "0.178.0"
+  "x-release": "0.182.0"
 }

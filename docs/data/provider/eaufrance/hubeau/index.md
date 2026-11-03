@@ -62,6 +62,22 @@ of the thousand-odd gauges the referential still marks as in service. And a stat
 on its own phase rather than on the wall clock — hourly at seven minutes past, say — is described
 correctly by its interval even though its timestamps do not land on the wall-clock hour.
 
+## The source's own verdict (`source`)
+
+Every observation carries a `code_qualification_obs`, the plain flag of `quality_flags`. The
+[API documentation](https://hubeau.eaufrance.fr/api/v2/hydrometrie/api-docs) (read 2026-11-02) words it as
+"Qualification de la donnée d'observation hydrométrique. 7 valeurs possibles : 0, 4, 8, 12, 16, 20, 30 (Neutre, Faible,
+Forte, Douteuse, Non qualifiée, Bonne, Estimée)" and points to the Sandre nomenclature 515, which words `12` as
+"Valeur douteuse". The check `source` reads `12` "Douteuse". Not read: `0` "Neutre", `4` "Faible" and `8` "Forte" (the
+Sandre's "Valeur inconnue" with its direction, no verdict on a measured value), `16` "Non qualifiée" (no control),
+`20` "Bonne" and `30` "Valeur estimée". The code is the only one that says a value is doubtful, and it is common: of the
+first 20,000 rows of the real time observations of 2026-11-02 (the last day, all stations) 17,830 were `16` and 2,170 `12`,
+so in `hard` mode a doubtful value of the rolling 30 days is null.
+
+With `plausibility={"source": "hard"}` the value is null and the token is `rejected:source,raw:<text>`; the default is
+`soft`, which keeps the value and writes `12,suspect:source`, so interpolation, summaries and climate stripes leave it
+out. See [the check `source`](../../../plausibility.md#the-sources-own-verdict-source).
+
 ```{toctree}
 :hidden:
 

@@ -115,12 +115,9 @@ of which only `rs_05` and `rs_ind_05` are available in the `recent` and `now` pe
 | Stratus         | 7      |
 | Cumulus         | 8      |
 | Cumulonimbus    | 9      |
-| Automated       | -1     |
 
-Note that `-1` means two different things in the hourly cloud datasets, depending on the column. In
-the cloud *type* codes above it is DWD's value for an automated observation, and it is returned as
-`-1`. In the cloud *cover* fields it is not a type but an absence, and it is not returned at all —
-see below.
+DWD's descriptions of the dataset name no cloud type codes and only `-999` as a missing value. The files write `-1` in the
+type fields as well, and wetterdienst returns it as null; see below.
 
 ### Obscured sky
 
@@ -130,7 +127,7 @@ SYNOP's N = 9. It says that no amount could be given, rather than giving one, so
 returns it as null.
 
 Left as it stands it would be read as −1 eighths and converted like any other cloud cover, so a
-default request would report −0.125 of the sky covered.
+default request would report −12.5 % of the sky covered.
 
 DWD's own dataset description documents only `-999` as a missing value and says nothing about `-1`,
 so the reading is from the data: across station 00003's hourly record `-1` stands in 1.2% of
@@ -138,6 +135,13 @@ observations, and fog codes (`ww` 40 to 49) accompany 69.1% of those against 0.8
 `45` and `47`, "fog, sky invisible", most of all. If you need to tell an obscured sky from a plain
 gap in the record, the **hourly weather_phenomena** dataset still carries the weather code for that
 hour.
+
+The cloud *type* fields — `cloud_type_layer1` to `cloud_type_layer4` (`v_sN_cs`) — write the same
+`-1`, and it is returned as null too, with the text DWD wrote kept as `raw:-1` in `quality_flags`.
+It is not a type of cloud and DWD documents no such code: in the hours of stations 00433, 01420,
+02014 and 03921 (all periods, read 2026-11-03) that have a type of `-1` in the first layer, 2,633 of
+2,641 have an obscured first layer beside it. Before this was read as null, these docs called it
+"Automated", which no DWD description says.
 
 ### Measurement method indicators
 
@@ -199,8 +203,8 @@ minutes, its monthly mean tracing the equation of time about a 54.7 minute longi
 | May | 57.6 min |
 | November | 69.1 min |
 
-Being a time, it follows the `time` unit target like any other duration, so it arrives in seconds
-unless you ask for something else.
+Being a time and not a duration of sunshine or rain, it follows the `time` unit target (not `duration`, which is in
+hours), so it arrives in seconds unless you ask for something else.
 
 ```python
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
@@ -332,6 +336,25 @@ Quality level (column header: ``QN``):
     2- Controlled with individually defined criteria
     3- ROUTINE automatic control and correction with QUALIMET
 ```
+
+## Plausibility checks
+
+Three [checks](../../../plausibility.md) judge values of this network. `range` (hard by default): the one table of
+bounds of every provider, such as a wind speed below 0 or above 115 m/s, and a station pressure outside 300 to 1100 hPa or
+a sea level pressure outside 850 to 1100 hPa. `elevation` (hard): a `pressure_air_site`, `pressure_air_site_mean`,
+`_min` or `_max` that the standard atmosphere does not allow at the elevation of the station in the station list, from 870/1013.25 of it
+(143 hPa below at sea level) to 75 hPa above it (`rejected:elevation,raw:1093.3`: the hourly `pressure` of 00433, 48 m,
+where 1007.5 hPa are expected). Three of the 19 readings of 00433, 03032 and the Zugspitze beyond 75 hPa of the standard atmosphere (909.5, 910.1 and 908.5 hPa) lie between the
+margins and stay, for the step check of [GH-3681](https://github.com/earthobservations/wetterdienst/issues/3681). `stuck` (**soft** by default):
+a run of 72 hourly readings (5 days; 36 readings at 10 minutes, a limit the research for GH-3681 derives and no source
+publishes) of one value of `pressure_air_site` or `pressure_air_site_mean`, the constant a station without a barometer
+writes (HadISD and ECA&D, see [the limit of a run](../../../plausibility.md#the-limit-of-a-run)); the value is kept and
+flagged `suspect:stuck`, and null with `rejected:stuck,raw:997.3` where the check is hard (`plausibility={"stuck":
+"hard"}`). The run is judged in the series of the periods read, the historical archive before the recent file, so a
+station whose historical file is constant and whose recent one is not is flagged for the stretch that is; a gap of more
+than four times the interval ends a run. The `-999` of every dataset and the other codes of the files are no check: they
+are null with `raw:` alone. The datasets each check covers are in the [table of the plausibility
+page](../../../plausibility.md#where-each-check-runs).
 
 ```{toctree}
 :hidden:

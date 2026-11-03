@@ -91,7 +91,11 @@ CASES = [
         _FAHRENHEIT,
         json.dumps(_FAHRENHEIT),
         _VALUES,
-        {"values": {"unit_targets": json.dumps(_FAHRENHEIT)}},
+        {
+            "values": {"unit_targets": json.dumps(_FAHRENHEIT)},
+            "interpolate": {"unit_targets": json.dumps(_FAHRENHEIT)},
+            "summarize": {"unit_targets": json.dumps(_FAHRENHEIT)},
+        },
         {"values": [f"--unit-targets={json.dumps(_FAHRENHEIT)}"]},
     ),
     Case("skip_empty", True, "true", _VALUES, {"values": {"skip_empty": "true"}}, {"values": ["--skip-empty=true"]}),  # noqa: FBT003
@@ -195,6 +199,22 @@ CASES = [
         _VALUES,
         {"values": {"station_window_end_buffer": "7"}},
         {"values": ["--station-window-end-buffer=7"]},
+    ),
+    Case(
+        "plausibility",
+        {"range": "soft"},
+        '{"range": "soft"}',
+        _VALUES,
+        {"values": {"plausibility_range": "soft"}},
+        {"values": ["--plausibility-range=soft"]},
+    ),
+    Case(
+        "limits",
+        {"temperature_air_mean_2m": (-30.0, 45.0), "precipitation_amount": (None, 200.0)},
+        '{"temperature_air_mean_2m": [-30, 45], "precipitation_amount": [null, 200]}',
+        _VALUES,
+        {"values": {"limits": '{"temperature_air_mean_2m": [-30, 45], "precipitation_amount": [null, 200]}'}},
+        {"values": ["--limits=temperature_air_mean_2m=-30:45", "--limits=precipitation_amount=:200"]},
     ),
     # set by the server alone: no query parameter and no command line option names it
     Case("geo_station_distance_resolution_factors", {"daily": 3.0}, '{"daily": 3.0}', _GEO),
@@ -349,6 +369,75 @@ def test_mcp_tool_argument_sets_the_option(
     assert _is_set(options, case)
 
 
+def _object_cases() -> list[Any]:
+    """Give the cases of an argument that is a JSON object, as the object a tool's schema advertises."""
+    return [
+        pytest.param(
+            case,
+            endpoint,
+            {name: json.loads(text) for name, text in case.rest[endpoint].items()},
+            id=f"{case.option}-{endpoint}",
+        )
+        for case in CASES
+        for endpoint in case.rest
+        if all(text.startswith("{") for text in case.rest[endpoint].values())
+    ]
+
+
+@pytest.mark.parametrize(("case", "endpoint", "arguments"), _object_cases())
+def test_mcp_tool_object_argument_sets_the_option(
+    monkeypatch: pytest.MonkeyPatch, mcp_server: object, case: Case, endpoint: str, arguments: dict[str, Any]
+) -> None:
+    """Test an argument that is an object, as its schema advertises it, gives the request the option (GH-3737).
+
+    FastMCP sent it as one query parameter for each key, which the endpoint refused with a 422.
+    """
+    options = _mcp(monkeypatch, mcp_server, endpoint, arguments)
+    assert _is_set(options, case)
+
+
+def test_every_object_argument_of_a_tool_is_held_to_an_object_case(mcp_server: object) -> None:
+    """Test no argument a tool advertises as an object is left out of the object cases of the tools."""
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import _object_arguments  # noqa: PLC0415
+
+    async def tools() -> dict[str, set[str]]:
+        async with Client(mcp_server) as client:
+            return {tool.name: _object_arguments(tool.input_schema) for tool in await client.list_tools()}
+
+    advertised = {(tool, name) for tool, names in asyncio.run(tools()).items() for name in names}
+    held = {(param.values[1], name) for param in _object_cases() for name in param.values[2]}
+    assert advertised == held
+
+
+def test_an_object_is_found_behind_a_reference_and_a_nested_option() -> None:
+    """Test an argument is an object where its schema says so by `$ref`, `oneOf`, `allOf` or an option of an option."""
+    from wetterdienst.ui.mcp import _object_arguments  # noqa: PLC0415
+
+    schema = {
+        "properties": {
+            "inline": {"anyOf": [{"type": "object", "additionalProperties": {"type": "string"}}, {"type": "null"}]},
+            "ref": {"$ref": "#/$defs/Mapping"},
+            "optional_ref": {"anyOf": [{"$ref": "#/$defs/Mapping"}, {"type": "null"}]},
+            "one_of": {"oneOf": [{"type": "string"}, {"type": "object"}]},
+            "all_of": {"allOf": [{"$ref": "#/$defs/Mapping"}]},
+            "nested": {"anyOf": [{"anyOf": [{"type": "null"}, {"type": "object"}]}, {"type": "string"}]},
+            "through_ref": {"$ref": "#/$defs/Wrapper"},
+            "loop": {"$ref": "#/$defs/Loop"},
+            "text": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+            "numbers": {"type": "array", "items": {"type": "object"}},
+            "unknown_ref": {"$ref": "#/$defs/Missing"},
+        },
+        "$defs": {
+            "Mapping": {"type": "object", "additionalProperties": {"type": "number"}},
+            "Wrapper": {"anyOf": [{"$ref": "#/$defs/Mapping"}, {"type": "null"}]},
+            "Loop": {"anyOf": [{"$ref": "#/$defs/Loop"}, {"type": "string"}]},
+        },
+    }
+    assert _object_arguments(schema) == {"inline", "ref", "optional_ref", "one_of", "all_of", "nested", "through_ref"}
+
+
 @pytest.mark.parametrize(("case", "endpoint"), _env_cases())
 def test_mcp_environment_sets_the_option(
     monkeypatch: pytest.MonkeyPatch, mcp_server: object, case: Case, endpoint: str
@@ -373,6 +462,157 @@ def test_an_argument_outranks_the_environment_and_a_dict_is_merged_into_it(monke
     assert options.shape == "long"
     cli_options = _cli(monkeypatch, "values", [f"--unit-targets={given['unit_targets']}", "--shape=long"])
     assert cli_options.model_dump() == options.model_dump()
+
+
+def test_a_check_given_is_laid_over_the_checks_the_environment_sets(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The mode of one check given as an argument leaves the modes the environment sets for the others (GH-3676)."""
+    monkeypatch.setenv("WD_TS_PLAUSIBILITY__STUCK", "hard")
+    monkeypatch.setenv("WD_TS_PLAUSIBILITY__RANGE", "soft")
+    options = _rest(monkeypatch, "values", {"plausibility_range": "hard", "plausibility_floor": "soft"})
+    assert options.plausibility.model_dump() == {
+        "range": "hard",
+        "elevation": "hard",
+        "stuck": "hard",
+        "consistency": "hard",
+        "floor": "soft",
+        "limits": "hard",
+        "source": "soft",
+    }
+    cli_options = _cli(monkeypatch, "values", ["--plausibility-range=hard", "--plausibility-floor=soft"])
+    assert cli_options.model_dump() == options.model_dump()
+    # a request that names none takes the server's
+    assert _rest(monkeypatch, "values", {}).plausibility.range == "soft"
+    assert _cli(monkeypatch, "values", []).plausibility.stuck == "hard"
+
+
+def test_one_mode_for_every_check_and_a_check_that_wins(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`plausibility=soft` sets every check, and `plausibility_range=hard` beside it keeps that one hard (GH-3676)."""
+    every = {
+        "range": "soft",
+        "elevation": "soft",
+        "stuck": "soft",
+        "consistency": "soft",
+        "floor": "soft",
+        "limits": "soft",
+        "source": "soft",
+    }
+    for surface, options in (
+        ("rest", _rest(monkeypatch, "values", {"plausibility": "soft"})),
+        ("cli", _cli(monkeypatch, "values", ["--plausibility=soft"])),
+    ):
+        assert options.plausibility.model_dump() == every, surface
+    rest = _rest(monkeypatch, "values", {"plausibility": "soft", "plausibility_range": "hard"})
+    cli = _cli(monkeypatch, "values", ["--plausibility=soft", "--plausibility-range=hard"])
+    assert rest.plausibility.model_dump() == {**every, "range": "hard"} == cli.plausibility.model_dump()
+    # the order on the command line is no matter: the check named wins
+    reverse = _cli(monkeypatch, "values", ["--plausibility-range=hard", "--plausibility=soft"])
+    assert reverse.plausibility.model_dump() == {**every, "range": "hard"}
+    # and the environment's `WD_TS_PLAUSIBILITY` is the shorthand the request leaves out
+    monkeypatch.setenv("WD_TS_PLAUSIBILITY", "soft")
+    assert _rest(monkeypatch, "values", {}).plausibility.model_dump() == every
+    assert _cli(monkeypatch, "values", ["--plausibility-floor=hard"]).plausibility.floor == "hard"
+    assert _rest(monkeypatch, "values", {"plausibility": "hard"}).plausibility.range == "hard"
+
+
+def test_the_check_source_is_soft_by_default_and_set_the_same_way_on_every_surface(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`plausibility_source` is the mode of the check `source`, soft where nothing sets it, on every surface."""
+    assert _rest(monkeypatch, "values", {}).plausibility.source == "soft"
+    assert _cli(monkeypatch, "values", []).plausibility.source == "soft"
+    assert _rest(monkeypatch, "values", {"plausibility_source": "hard"}).plausibility.source == "hard"
+    assert _cli(monkeypatch, "values", ["--plausibility-source=hard"]).plausibility.source == "hard"
+    monkeypatch.setenv("WD_TS_PLAUSIBILITY__SOURCE", "hard")
+    assert _rest(monkeypatch, "values", {}).plausibility.source == "hard"
+    assert _cli(monkeypatch, "values", []).plausibility.source == "hard"
+    # a request that names the mode wins over the host's
+    assert _rest(monkeypatch, "values", {"plausibility_source": "soft"}).plausibility.source == "soft"
+    assert _cli(monkeypatch, "values", ["--plausibility-source=soft"]).plausibility.source == "soft"
+
+
+def test_the_limits_of_a_request_are_merged_into_the_ones_the_environment_sets(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A name a request gives replaces the environment's bounds for it; the others stay, as unit targets do."""
+    monkeypatch.setenv("WD_TS_LIMITS", '{"temperature_air_mean_2m": [-30, 45], "humidity_relative": [0, 100]}')
+    monkeypatch.setenv("WD_TS_PLAUSIBILITY__LIMITS", "soft")
+    rest = _rest(monkeypatch, "values", {"limits": '{"temperature_air_mean_2m": [-10, null]}'})
+    assert rest.limits == {"temperature_air_mean_2m": (-10.0, None), "humidity_relative": (0.0, 100.0)}
+    cli_options = _cli(monkeypatch, "values", ["--limits=temperature_air_mean_2m=-10:"])
+    assert cli_options.limits == rest.limits
+    assert rest.plausibility.limits == "soft"
+    # the mode of the check, given beside them
+    assert _rest(monkeypatch, "values", {"plausibility_limits": "hard"}).plausibility.limits == "hard"
+    assert _cli(monkeypatch, "values", ["--plausibility-limits=hard"]).plausibility.limits == "hard"
+
+
+def test_the_command_line_reads_limits_as_json_or_as_name_low_high(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`--limits` is a JSON object or `name=low:high`, repeated for more, an end left empty for none (GH-3687)."""
+    as_json = _cli(monkeypatch, "values", ['--limits={"temperature_air_mean_2m": [-30, 45]}'])
+    as_text = _cli(monkeypatch, "values", ["--limits=temperature_air_mean_2m=-30:45"])
+    assert as_json.limits == as_text.limits == {"temperature_air_mean_2m": (-30.0, 45.0)}
+    both = _cli(
+        monkeypatch,
+        "values",
+        ['--limits={"humidity_relative": [0, 100]}', "--limits=daily/kl/temperature_air_max_2m=:50"],
+    )
+    assert both.limits == {
+        "humidity_relative": (0.0, 100.0),
+        "daily/climate_summary/temperature_air_max_2m": (None, 50.0),
+    }
+
+
+def test_the_last_limit_given_wins_for_a_key_spelled_in_two_ways(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A name repeated moves to the end, so that it is the later spelling of its key (GH-3687)."""
+    spelled = "daily/climate_summary/temperature_air_mean_2m"
+    options = _cli(
+        monkeypatch,
+        "values",
+        ["--limits=daily/kl/tmk=1:2", f"--limits={spelled}=3:4", "--limits=daily/kl/tmk=5:6"],
+    )
+    assert options.limits == {spelled: (5.0, 6.0)}
+
+
+@pytest.mark.parametrize(
+    "limits",
+    [
+        '{"nonsense": [1, 2]}',
+        '{"temperature_air_mean_2m": [5, 1]}',
+        '{"temperature_air_mean_2m": [null, null]}',
+        '{"temperature_air_mean_2m": [1]}',
+        '{"daily/kl/nonsense": [1, 2]}',
+        "[1, 2]",
+        "not json",
+    ],
+)
+def test_limits_that_are_no_limits_are_refused_by_rest(limits: str) -> None:
+    """An unknown name, an inverted or empty pair and text that is no object are the request's 4xx (GH-3687)."""
+    response = TestClient(restapi.app, raise_server_exceptions=False).get(
+        "/api/values", params={**_REST_BASE["values"], "limits": limits}
+    )
+    assert response.status_code in {400, 422}, response.text
+
+
+@pytest.mark.parametrize(
+    "limit",
+    [
+        "nonsense=1:2",
+        "temperature_air_mean_2m=5:1",
+        "temperature_air_mean_2m=:",
+        "temperature_air_mean_2m=1",
+        "t=nan:1",
+    ],
+)
+def test_limits_that_are_no_limits_are_a_usage_error_of_the_command_line(limit: str) -> None:
+    """The same, as a usage error (GH-3687)."""
+    result = CliRunner().invoke(cli, ["values", *_CLI_BASE["values"], f"--limits={limit}"])
+    assert result.exit_code == 2, result.output
+
+
+def test_a_value_that_is_no_mode_is_refused_by_rest_and_the_command_line() -> None:
+    """`plausibility=off` is a 422 and a usage error, as `plausibility_range=off` is."""
+    response = TestClient(restapi.app).get("/api/values", params={**_REST_BASE["values"], "plausibility": "off"})
+    assert response.status_code == 422
+    result = CliRunner().invoke(cli, ["values", *_CLI_BASE["values"], "--plausibility=off"])
+    assert result.exit_code == 2
 
 
 def _getter_options(getter: Callable[..., object], monkeypatch: pytest.MonkeyPatch, request: object) -> Options:

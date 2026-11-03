@@ -25,7 +25,70 @@ export default defineNuxtConfig({
         { rel: 'icon', type: 'image/svg+xml', href: '/icon.svg' },
         { rel: 'icon', href: '/favicon.ico', sizes: '32x32' },
         { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
+        // the body face, asked for by the shell while the app's script loads, so the text the script lays out is
+        // laid out in it once (`modules/fonts.ts`, main.css). `crossorigin`: a font is fetched in CORS mode, and a
+        // preload in another mode would be fetched twice.
+        { rel: 'preload', as: 'font', type: 'font/woff2', href: '/_typefaces/atkinson-hyperlegible-next-latin-wght-normal.woff2', crossorigin: '' },
       ],
+      // the colour of the browser's own bar on a phone: the header's, white by day and the logo's navy by night
+      meta: [
+        { name: 'theme-color', content: '#ffffff', media: '(prefers-color-scheme: light)' },
+        { name: 'theme-color', content: '#0b1a33', media: '(prefers-color-scheme: dark)' },
+      ],
+    },
+  },
+
+  // The icons of Nuxt UI's own components (a select's chevron, a dialog's close button, the spinner of a button
+  // that loads), in the app's one set, Phosphor (GH-3518). Here rather than in app/app.config.ts because the
+  // build reads them from here for the client bundle of @nuxt/icon (Nuxt UI's `icon:clientBundleIcons` hook);
+  // the app config of the build and of the page is the same object.
+  appConfig: {
+    ui: {
+      icons: {
+        arrowDown: 'i-ph-arrow-down',
+        arrowLeft: 'i-ph-arrow-left',
+        arrowRight: 'i-ph-arrow-right',
+        arrowUp: 'i-ph-arrow-up',
+        caution: 'i-ph-warning-circle',
+        check: 'i-ph-check',
+        chevronDoubleLeft: 'i-ph-caret-double-left',
+        chevronDoubleRight: 'i-ph-caret-double-right',
+        chevronDown: 'i-ph-caret-down',
+        chevronLeft: 'i-ph-caret-left',
+        chevronRight: 'i-ph-caret-right',
+        chevronUp: 'i-ph-caret-up',
+        close: 'i-ph-x',
+        copy: 'i-ph-copy',
+        copyCheck: 'i-ph-check',
+        dark: 'i-ph-moon',
+        drag: 'i-ph-dots-six-vertical',
+        ellipsis: 'i-ph-dots-three',
+        error: 'i-ph-x-circle',
+        external: 'i-ph-arrow-up-right',
+        eye: 'i-ph-eye',
+        eyeOff: 'i-ph-eye-slash',
+        file: 'i-ph-file',
+        folder: 'i-ph-folder',
+        folderOpen: 'i-ph-folder-open',
+        hash: 'i-ph-hash',
+        info: 'i-ph-info',
+        light: 'i-ph-sun',
+        loading: 'i-ph-circle-notch',
+        menu: 'i-ph-list',
+        minus: 'i-ph-minus',
+        panelClose: 'i-ph-sidebar-simple',
+        panelOpen: 'i-ph-sidebar-simple',
+        plus: 'i-ph-plus',
+        reload: 'i-ph-arrow-counter-clockwise',
+        search: 'i-ph-magnifying-glass',
+        stop: 'i-ph-square',
+        star: 'i-ph-star',
+        success: 'i-ph-check-circle',
+        system: 'i-ph-monitor',
+        tip: 'i-ph-lightbulb',
+        upload: 'i-ph-upload-simple',
+        warning: 'i-ph-warning',
+      },
     },
   },
 
@@ -72,15 +135,21 @@ export default defineNuxtConfig({
 
   devtools: { enabled: true },
 
-  // The icons come from this app's own server (GH-3111): the three sets are installed (`@iconify-json/*`) and
-  // the server bundle serves them. `provider` is set because @nuxt/icon picks `iconify`, which asks
+  // The icons come from this app's own server (GH-3111): the two sets are installed (`@iconify-json/*`) and
+  // the server bundle serves them. Phosphor is the app's one set (GH-3518); Simple Icons is for the marks of the
+  // brands Phosphor has none of (JetBrains, Anthropic, Python). The icons the app names in its own files are
+  // bundled with the page as well (`clientBundle.scan`), so a page draws them with its first paint, without a
+  // request each. `provider` is set because @nuxt/icon picks `iconify`, which asks
   // api.iconify.design for every icon, whenever `ssr` is false, as it is here. `localApiEndpoint` is outside
   // `/api`, which the app proxies to the backend. `fallbackToApi: false` keeps a name that no set has from
   // being asked of the third party: it is an icon missing, not a request.
   icon: {
     provider: 'server',
     serverBundle: {
-      collections: ['lucide', 'heroicons', 'simple-icons'],
+      collections: ['ph', 'simple-icons'],
+    },
+    clientBundle: {
+      scan: true,
     },
     localApiEndpoint: '/_nuxt_icon',
     fallbackToApi: false,

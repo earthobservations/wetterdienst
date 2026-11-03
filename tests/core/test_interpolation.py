@@ -907,7 +907,7 @@ def test_interpolate_and_summarize_keep_the_precision_values_returns(
     """Interpolating or summarizing a reading keeps the decimals `values` gave it, per parameter.
 
     Both rounded every value to two decimals after `values` had converted it, so under a `mile`
-    target 5 cm of snow came back as 0.0, and under the default targets a cloud cover of 7/8,
+    target 5 cm of snow came back as 0.0, and under a `decimal` target a cloud cover of 7/8,
     0.875 from `values`, came back as 0.88. Four stations around the point all report the same
     readings, so whichever of them a result is drawn from, it is what `values` returned. The
     stations and their readings are stubbed, so nothing leaves the machine.
@@ -919,9 +919,9 @@ def test_interpolate_and_summarize_keep_the_precision_values_returns(
     from wetterdienst.provider.dwd.observation.api import DwdObservationValues  # noqa: PLC0415
 
     unit_converter = UnitConverter()
-    unit_converter.update_targets({"length_short": "mile"})
+    unit_converter.update_targets({"length_short": "mile", "fraction": "decimal"})
     # 5 cm of snow and 7/8 of cloud cover as `values` converts and rounds them, under a `mile` target
-    # and the default one for a fraction
+    # and a `decimal` one for a fraction (the default, percent, keeps 87.5 whole)
     snow_depth = round(
         unit_converter.get_lambda("centimeter", "length_short")(5.0), unit_converter.decimals("centimeter", "mile")
     )
@@ -982,7 +982,7 @@ def test_interpolate_and_summarize_keep_the_precision_values_returns(
         parameters=[("daily", "climate_summary", "snow_depth"), ("daily", "climate_summary", "cloud_cover_total_mean")],
         start=timestamps[0],
         end=timestamps[-1],
-        options=Options(unit_targets={"length_short": "mile"}),
+        options=Options(unit_targets={"length_short": "mile", "fraction": "decimal"}),
     )
     get_df = get_interpolated_df if method == "interpolate" else get_summarized_df
     df = get_df(request, latitude, longitude)
@@ -1484,6 +1484,212 @@ def test_interpolate_and_summarize_take_an_elevation_any_resolution_of_a_station
     get_df = get_interpolated_df if method == "interpolate" else get_summarized_df
     df = get_df(request, latitude, longitude, 100.0)
     assert dict(df.select("resolution", "value").iter_rows()) == {"hourly": 5.0, "daily": 5.0}
+
+
+def _stub_four_stations_one_at(
+    monkeypatch: pytest.MonkeyPatch,
+    request_class: type,
+    values_class: type,
+    dataset: str,
+    elevation: float,
+    readings: dict[str, float],
+    *,
+    others: float = 100.0,
+) -> tuple[object, float, float, dt.datetime]:
+    """Stub the stations and the readings of a request class: four around a point, "00001" nearest and at `elevation`.
+
+    The others stand at `others` (100 m). Nothing leaves the machine: the ranking and `query()` are replaced, so the
+    lapse correction of `interpolate` and `summarize` runs on what is given here.
+    """
+    from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
+
+    latitude, longitude = 50.0, 8.9
+    offsets = {"00001": (-0.03, -0.03), "00002": (-0.03, 0.03), "00003": (0.03, 0.03), "00004": (0.03, -0.03)}
+    timestamp = dt.datetime(2021, 2, 1, tzinfo=ZoneInfo("UTC"))
+    request = request_class(
+        parameters=[("daily", dataset, "temperature_air_mean_2m")],
+        start=timestamp,
+        end=timestamp,
+    )
+    (parameter,) = request.parameters
+    stations = pl.DataFrame(
+        [
+            {
+                "resolution": parameter.dataset.resolution.name,
+                "dataset": parameter.dataset.name,
+                "station_id": station_id,
+                "latitude": latitude + d_lat,
+                "longitude": longitude + d_lon,
+                "elevation": elevation if station_id == "00001" else others,
+                "distance": 4.0 + index / 10,
+            }
+            for index, (station_id, (d_lat, d_lon)) in enumerate(offsets.items())
+        ],
+    )
+
+    def _filter_by_distance(
+        self: object,
+        latlon: tuple[float, float],  # noqa: ARG001
+        distance: float,  # noqa: ARG001
+        df_all: pl.DataFrame | None = None,  # noqa: ARG001
+    ) -> StationsResult:
+        return StationsResult(request=self, df=stations, _df_all=stations, _stations_filter=StationsFilter.BY_DISTANCE)
+
+    def _query(self: object) -> Iterator[object]:  # noqa: ARG001
+        for station_id in offsets:
+            yield SimpleNamespace(
+                df=pl.DataFrame(
+                    [
+                        {
+                            "station_id": station_id,
+                            "resolution": parameter.dataset.resolution.name,
+                            "dataset": parameter.dataset.name,
+                            "parameter": parameter.name,
+                            "timestamp": timestamp,
+                            "value": readings[station_id],
+                            "quality_flags": "10",
+                        }
+                    ],
+                ),
+            )
+
+    monkeypatch.setattr(request_class, "filter_by_distance", _filter_by_distance)
+    monkeypatch.setattr(values_class, "query", _query)
+    return request, latitude, longitude, timestamp
+
+
+@pytest.mark.parametrize(
+    ("network", "elevation", "corrected"),
+    [
+        pytest.param("noaa_ghcn", 0.0, False, id="ghcn-0.0-is-unknown"),
+        pytest.param("noaa_ghcn", 12.0, True, id="ghcn-12.0-is-a-height"),
+        pytest.param("dwd_observation", 0.0, True, id="dwd-0.0-is-a-coast"),
+    ],
+)
+def test_summarize_takes_a_zero_elevation_of_ghcn_for_none(
+    monkeypatch: pytest.MonkeyPatch,
+    network: str,
+    elevation: float,
+    *,
+    corrected: bool,
+) -> None:
+    """A station of a network that lists 0.0 for an elevation it does not know is left out of an elevation (GH-3708).
+
+    `ELEVATION_ZERO_IS_UNKNOWN` names the networks. The nearest station reads 5.0 and the next 7.0, at 100 m, and
+    the point is at 100 m. The nearest is lapse-corrected at 12.0 m in GHCN and at 0.0 m in DWD (a coast), and
+    left out, as a station of no elevation is, at 0.0 m in GHCN, which leaves the 7.0 of the next.
+    """
+    from wetterdienst.core.summarize import get_summarized_df  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation.api import DwdObservationValues  # noqa: PLC0415
+    from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest  # noqa: PLC0415
+    from wetterdienst.provider.noaa.ghcn.api import NoaaGhcnValues  # noqa: PLC0415
+
+    request_class, values_class, dataset = {
+        "noaa_ghcn": (NoaaGhcnRequest, NoaaGhcnValues, "data"),
+        "dwd_observation": (DwdObservationRequest, DwdObservationValues, "climate_summary"),
+    }[network]
+    request, latitude, longitude, _ = _stub_four_stations_one_at(
+        monkeypatch,
+        request_class,
+        values_class,
+        dataset,
+        elevation,
+        {"00001": 5.0, "00002": 7.0, "00003": 7.0, "00004": 7.0},
+    )
+    df = get_summarized_df(request, latitude, longitude, 100.0)
+    (value,) = df.get_column("value").to_list()
+    if corrected:
+        assert value == pytest.approx(5.0 - 0.0065 * (100.0 - elevation), abs=1e-3)
+    else:
+        assert value == 7.0
+        assert df.get_column("taken_station_id").to_list() == ["00002"]
+
+
+@pytest.mark.parametrize("method", ["interpolate", "summarize"])
+def test_a_neighbourhood_of_ghcn_stations_all_at_0_0_is_refused_before_a_download(
+    monkeypatch: pytest.MonkeyPatch,
+    method: str,
+) -> None:
+    """Stations in reach all at 0.0 have no elevation to correct from: refused, nothing downloaded (GH-3708).
+
+    The count taken off the ranking reads the elevations as the walk does, so the refusal of a request that no
+    station in reach can answer at an elevation comes before the first reading is fetched.
+    """
+    from wetterdienst.core.interpolate import get_interpolated_df  # noqa: PLC0415
+    from wetterdienst.core.summarize import get_summarized_df  # noqa: PLC0415
+    from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest  # noqa: PLC0415
+    from wetterdienst.provider.noaa.ghcn.api import NoaaGhcnValues  # noqa: PLC0415
+
+    request, latitude, longitude, _ = _stub_four_stations_one_at(
+        monkeypatch,
+        NoaaGhcnRequest,
+        NoaaGhcnValues,
+        "data",
+        0.0,
+        dict.fromkeys(("00001", "00002", "00003", "00004"), 5.0),
+        others=0.0,
+    )
+    stubbed_query = NoaaGhcnValues.query
+    downloads = 0
+
+    def counting_query(self: NoaaGhcnValues) -> Iterator[object]:
+        nonlocal downloads
+        downloads += 1
+        return stubbed_query(self)
+
+    monkeypatch.setattr(NoaaGhcnValues, "query", counting_query)
+    get_df = get_interpolated_df if method == "interpolate" else get_summarized_df
+    with pytest.raises(NoStationsWithElevationError):
+        get_df(request, latitude, longitude, 100.0)
+    assert downloads == 0
+
+
+@pytest.mark.parametrize(
+    ("network", "elevation", "corrected"),
+    [
+        pytest.param("noaa_ghcn", 0.0, False, id="ghcn-0.0-is-unknown"),
+        pytest.param("noaa_ghcn", 12.0, True, id="ghcn-12.0-is-a-height"),
+        pytest.param("dwd_observation", 0.0, True, id="dwd-0.0-is-a-coast"),
+    ],
+)
+def test_interpolate_takes_a_zero_elevation_of_ghcn_for_none(
+    monkeypatch: pytest.MonkeyPatch,
+    network: str,
+    elevation: float,
+    *,
+    corrected: bool,
+) -> None:
+    """A station of a network that lists 0.0 for an elevation it does not know is left out of an elevation (GH-3708).
+
+    Four stations read 5.0, all but the nearest at 100 m, and the point is at 100 m. A station lapse-corrected from
+    its own height reads lower there, so the interpolation is under 5.0; one left out as a station of no elevation
+    leaves three, which surround nothing, and the answer is null.
+    """
+    from wetterdienst.core.interpolate import get_interpolated_df  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation.api import DwdObservationValues  # noqa: PLC0415
+    from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest  # noqa: PLC0415
+    from wetterdienst.provider.noaa.ghcn.api import NoaaGhcnValues  # noqa: PLC0415
+
+    request_class, values_class, dataset = {
+        "noaa_ghcn": (NoaaGhcnRequest, NoaaGhcnValues, "data"),
+        "dwd_observation": (DwdObservationRequest, DwdObservationValues, "climate_summary"),
+    }[network]
+    request, latitude, longitude, _ = _stub_four_stations_one_at(
+        monkeypatch,
+        request_class,
+        values_class,
+        dataset,
+        elevation,
+        dict.fromkeys(("00001", "00002", "00003", "00004"), 5.0),
+    )
+    # the point is near the station that differs, which weighs most there
+    values = get_interpolated_df(request, latitude - 0.02, longitude - 0.02, 100.0).get_column("value").to_list()
+    if corrected:
+        (value,) = values
+        assert value is not None
+        assert 5.0 - 0.0065 * (100.0 - elevation) < value < 4.8
+    else:
+        assert values in ([], [None])
 
 
 @pytest.mark.parametrize("method", ["interpolate", "summarize"])

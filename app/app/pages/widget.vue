@@ -23,10 +23,19 @@ const stationId = computed(() => route.query.station as string | undefined)
 const themeParam = computed(() => route.query.theme as string | undefined)
 
 const colorMode = useColorMode()
-// Apply theme from query param if provided
+// The scheme of the widget's `?theme=` is the widget's alone (GH-3619). The colour-mode module saves a
+// `preference` to localStorage, which the whole origin shares, so a widget embedded with `?theme=dark` would
+// have switched the app's scheme for whoever opened it. A forced mode is its page's, as `colorMode` of
+// `definePageMeta` is: the module puts the class on <html> and saves nothing, and puts the saved preference
+// back with the next navigation. That navigation also covers a change of the query, so the scheme is set
+// again after each (the route's path is read for that).
 watchEffect(() => {
-  if (themeParam.value === 'dark' || themeParam.value === 'light')
-    colorMode.preference = themeParam.value
+  void route.fullPath
+  if (themeParam.value === 'dark' || themeParam.value === 'light') {
+    colorMode.forced = true
+    // typed read-only, as the module's own watcher is what sets it for a preference
+    ;(colorMode as { value: string }).value = themeParam.value
+  }
 })
 
 const station = ref<Station | null>(null)
@@ -120,7 +129,7 @@ onMounted(async () => {
         :title="t('widget.openFull')"
       >
         {{ t('common.open') }}
-        <UIcon name="i-lucide-external-link" class="w-3 h-3" />
+        <UIcon name="i-ph-arrow-square-out" class="w-3 h-3" />
       </a>
     </div>
 
@@ -133,7 +142,7 @@ onMounted(async () => {
       </i18n-t>
 
       <div v-else-if="pending" class="flex items-center justify-center gap-2 py-16 text-gray-500 dark:text-gray-400 text-sm">
-        <UIcon name="i-lucide-loader-circle" class="w-4 h-4 animate-spin text-primary-500" />
+        <UIcon name="i-ph-circle-notch" class="w-4 h-4 animate-spin text-primary-500" />
         {{ t('widget.loading') }}
       </div>
 
@@ -153,7 +162,7 @@ onMounted(async () => {
       <UEmpty
         v-else-if="station && !pending"
         size="sm"
-        icon="i-lucide-cloud-off"
+        icon="i-ph-cloud-slash"
         :title="t('widget.noData')"
       />
     </div>

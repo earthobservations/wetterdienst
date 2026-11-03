@@ -45,8 +45,8 @@ def test_geosphere_observation_api() -> None:
         # cglo, served as irradiance in W / m² and passed through unconverted
         ("minute_10", "radiation_global_intensity_mean", 288, IsNumeric(ge=82770.0, le=82870.0)),
         ("hourly", "radiation_global_intensity_mean", 48, IsNumeric(ge=13790.0, le=13815.0)),
-        # cglo_j, a distinct upstream parameter already accumulated over the day in J / cm²
-        ("daily", "radiation_global", 2, IsNumeric(ge=4966.2000, le=4972.0000)),
+        # cglo_j, accumulated over the day upstream in J / cm², returned in MJ/m² (1 MJ/m² = 100 J/cm²)
+        ("daily", "radiation_global", 2, IsNumeric(ge=49.662, le=49.72)),
     ],
 )
 def test_geosphere_observation_api_radiation(
@@ -130,6 +130,7 @@ def test_geosphere_observation_request_window_carries_the_minutes(monkeypatch: p
 
 
 @freeze_time(datetime(2020, 12, 2, 13, 37, 21, tzinfo=ZoneInfo("UTC")))
+@pytest.mark.usefixtures("window_not_required")
 def test_geosphere_observation_open_ended_window_ends_on_the_hour(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that a request without dates ends its window on the hour, not on the current minute.
 
@@ -205,6 +206,7 @@ def _serve_archive(
     ],
 )
 @freeze_time(datetime(2020, 12, 2, 13, 37, 21, tzinfo=ZoneInfo("UTC")))
+@pytest.mark.usefixtures("window_not_required")
 def test_geosphere_observation_values_without_dates_stay_under_the_api_limit(
     monkeypatch: pytest.MonkeyPatch,
     resolution: str,
@@ -392,6 +394,7 @@ def _serve_archive_of_parameters(
     ],
 )
 @freeze_time(datetime(2020, 12, 2, 13, 37, 21, tzinfo=ZoneInfo("UTC")))
+@pytest.mark.usefixtures("window_not_required")
 def test_geosphere_observation_values_of_a_whole_dataset_batch_the_parameters(
     monkeypatch: pytest.MonkeyPatch,
     resolution: str,
@@ -409,7 +412,7 @@ def test_geosphere_observation_values_of_a_whole_dataset_batch_the_parameters(
     requests = _serve_archive_of_parameters(monkeypatch, step, archive_start, archive_end)
     request = GeosphereObservationRequest(
         parameters=[(resolution, "data")],
-        options=Options(humanize=False, convert_units=False),
+        options=Options(humanize=False, convert_units=False, plausibility="soft"),
     )
     names = [parameter.name_original for parameter in request.parameters]
     df = request.filter_by_station_id("4821").values().all().df
@@ -439,7 +442,7 @@ def test_geosphere_observation_values_ask_for_the_requested_parameters_only(monk
         ],
         start=start,
         end=end,
-        options=Options(humanize=False, convert_units=False),
+        options=Options(humanize=False, convert_units=False, plausibility="soft"),
     )
     df = request.filter_by_station_id("4821").values().all().df
     assert [(names, dataset) for _, _, names, dataset in requests] == [
@@ -459,6 +462,7 @@ def test_geosphere_observation_values_ask_for_the_requested_parameters_only(monk
     [("daily", "temperature_air_mean_minmax_2m"), ("monthly", "temperature_air_mean_2m")],
 )
 @freeze_time(datetime(2020, 12, 2, 13, 37, 21, tzinfo=ZoneInfo("UTC")))
+@pytest.mark.usefixtures("window_not_required")
 def test_geosphere_observation_values_of_one_daily_or_monthly_parameter_are_one_request(
     monkeypatch: pytest.MonkeyPatch,
     resolution: str,
@@ -471,7 +475,9 @@ def test_geosphere_observation_values_of_one_daily_or_monthly_parameter_are_one_
     """
     start = datetime(1900, 1, 1, tzinfo=ZoneInfo("UTC"))
     requests = _serve_archive_of_parameters(monkeypatch, timedelta(days=30), start, start + timedelta(days=90))
-    request = GeosphereObservationRequest(parameters=[(resolution, "data", parameter)])
+    request = GeosphereObservationRequest(
+        parameters=[(resolution, "data", parameter)], options=Options(plausibility="soft")
+    )
     df = request.filter_by_station_id("4821").values().all().df
     assert len(requests) == 1
     assert df.height == 4
@@ -614,14 +620,16 @@ def test_geosphere_observation_daily_none_code_is_zero_not_minus_one(
 
 @pytest.mark.synthetic_values  # the -1 is served on purpose, where it would be no reading
 @pytest.mark.parametrize(
-    ("resolution", "parameter", "original"),
+    ("resolution", "parameter", "original", "rejected"),
     [
-        ("10_minutes", "precipitation_amount", "rr"),
-        ("hourly", "precipitation_amount", "rr"),
-        ("10_minutes", "snow_depth_mean", "sh"),
-        ("hourly", "snow_depth", "sh"),
-        ("monthly", "precipitation_amount", "rr"),
-        ("monthly", "snow_depth_new", "shneu_manu"),
+        # an amount of rain or new snow below 0 is no reading: the table of ranges, the same for every provider, says so
+        ("10_minutes", "precipitation_amount", "rr", True),
+        ("hourly", "precipitation_amount", "rr", True),
+        ("monthly", "precipitation_amount", "rr", True),
+        ("monthly", "snow_depth_new", "shneu_manu", True),
+        # a snow depth may read a few centimetres below zero (MeteoSwiss' gauge at PLF), so a -1 stays one
+        ("10_minutes", "snow_depth_mean", "sh", False),
+        ("hourly", "snow_depth", "sh", False),
     ],
 )
 def test_geosphere_observation_none_code_is_a_daily_one(
@@ -629,17 +637,28 @@ def test_geosphere_observation_none_code_is_a_daily_one(
     resolution: str,
     parameter: str,
     original: str,
+    rejected: bool,  # noqa: FBT001
 ) -> None:
-    """Test that the other resolutions are left alone: their metadata states no such code (GH-2671)."""
+    """Test that the other resolutions read the -1 as a number, not as the daily code (GH-2671).
+
+    A -1 is no amount of rain or new snow, and since the range of a quantity is the same for every provider
+    (GH-3681) it is rejected as such, with the number it was as `rejected:range,raw:-1`. In a snow depth it lies
+    inside the range and stays.
+    """
     _serve_values(monkeypatch, {original: [0.3, -1.0, 0.0]})
     request = GeosphereObservationRequest(
         parameters=[(resolution, "data", parameter)],
         start=datetime(2024, 1, 8, tzinfo=ZoneInfo("UTC")),
         end=datetime(2024, 1, 10, tzinfo=ZoneInfo("UTC")),
         settings=Settings(cache_disable=True),
+        options=Options(drop_nulls=False),
     )
-    df = request.filter_by_station_id("4821").values().all().df
-    assert -1.0 in df.get_column("value").to_list()
+    df = request.filter_by_station_id("4821").values().all().df.sort("timestamp")
+    if rejected:
+        assert df.get_column("value").to_list() == [0.3, None, 0.0]
+        assert df.get_column("quality_flags").to_list()[1] == "rejected:range,raw:-1"
+    else:
+        assert df.get_column("value").to_list() == [0.3, -1.0, 0.0]
 
 
 @pytest.mark.parametrize("resolution", ["10_minutes", "hourly"])

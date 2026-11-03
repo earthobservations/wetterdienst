@@ -109,7 +109,10 @@ export async function scanHover(page: Page, backend: Backend, where: Where, _opt
 interface Focused {
   /** Nothing in the page has the focus: the browser has it, or the body */
   none: boolean
-  /** Reka's focus guard: an invisible stop at either end of an open menu that hands the focus on the moment it has it */
+  /**
+   * Reka's focus guard: an invisible stop at either end of an open menu, or the focus proxy at either end of
+   * the toast region, which hands the focus on or which the next Tab leaves
+   */
   guard?: boolean
   /** A short description for a message */
   name: string
@@ -128,7 +131,15 @@ async function describeFocus(page: Page): Promise<Focused> {
     const node = document.activeElement as HTMLElement | null
     if (!node || node === document.body || node === document.documentElement)
       return { none: true, name: '', indicator: true, obscured: false, key: '' }
-    if (node.hasAttribute('data-reka-focus-guard'))
+    // the toast region's proxies (`ToastViewport`'s `FocusProxy`) are a span, `aria-hidden`, a pixel clipped to
+    // nothing at the window's corner, first and last in the region beside the list of the toasts: they send the
+    // focus into the toasts or out of them in the order of the page, and the next Tab leaves them. They are not
+    // content that could be covered (Firefox's walk ended on one, at -2,-2, as `focus-obscured`).
+    const region = node.parentElement
+    const toastProxy = node.tagName === 'SPAN' && node.getAttribute('aria-hidden') === 'true'
+      && region?.getAttribute('role') === 'region' && region.querySelector(':scope > ol[data-slot="viewport"]') != null
+      && (node === region.firstElementChild || node === region.lastElementChild)
+    if (node.hasAttribute('data-reka-focus-guard') || toastProxy)
       return { none: false, guard: true, name: '', indicator: true, obscured: false, key: '' }
     node.setAttribute(probe, '')
     const text = (node.getAttribute('aria-label') ?? node.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 40)
@@ -245,6 +256,7 @@ export async function scanKeyboard(page: Page, backend: Backend, where: Where, o
     })
   }
   const seen = new Set<string>()
+  let guards = 0
   let engine = ''
   if (options.keepFocus) {
     await transitionsDone(page)
@@ -269,8 +281,13 @@ export async function scanKeyboard(page: Page, backend: Backend, where: Where, o
       await transitionsDone(page)
       focused = await describeFocus(page)
     }
-    if (focused.guard)
+    if (focused.guard) {
+      // a guard hands the focus on at once; one that keeps it through three Tabs has nothing after it
+      if (++guards > 3)
+        break
       continue
+    }
+    guards = 0
     if (focused.none) {
       // the end of the order, or the browser's own chrome taking the focus
       if (seen.size === 0)

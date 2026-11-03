@@ -265,11 +265,21 @@ what the answer is missing:
 - **`warnings`** is what the answer is missing but did not fail on, so that a partial answer can be told
   from a whole one. Each has a `code` that stays and a `message` that may be improved. The codes are
   `unknown-station` (an id of `stations` the network has no station for), `station-skipped` (a station with too
-  few readings, by `skip_empty` and `skip_threshold`), `period-not-published` and `period-not-narrowing`
-  (a period that was asked for and does not apply), `elevation-unknown` (the stations of unknown
+  few readings, by `skip_empty` and `skip_threshold`, whether `drop_nulls` is on or off), `period-not-published`
+  and `period-not-narrowing` (a period that was asked for and does not apply), `elevation-unknown` (the stations of unknown
   elevation that an estimate at an elevation had to leave out), `missing-value-marker` (readings that are
   `null` because the source wrote a marker for a missing value: with `drop_nulls` they are not in the
-  answer, and this counts them; without it the `raw:` token of their `quality_flags` keeps the marker),
+  answer, and this counts them; without it the `raw:` token of their `quality_flags` keeps the marker; a number
+  that a plausibility check rejected is no marker and is told by the next code; a calm wind direction is none
+  either, see `calm-wind-direction`),
+  `rejected-by-plausibility` (values that are `null` because a hard [plausibility check](../data/plausibility.md)
+  rejected the number the source wrote, with the count per check in the message, a value several checks rejected
+  counted under each: with `drop_nulls` they are not in the answer, without it `rejected:<check>,raw:<number>` in
+  their `quality_flags` keeps them; a soft check keeps the value and raises nothing),
+  `calm-wind-direction` (wind directions that are `null` because the source wrote 0 for a calm, which has no
+  direction: no reading is missing. Counted apart from the markers, with the same `raw:0` token in `quality_flags`
+  and the same `drop_nulls` behaviour; a 0 that is a code for no direction or the direction of a gust that was
+  not reported stays a `missing-value-marker`),
   `parameter-ended` (the window reaches years in which the source no longer publishes a parameter, such as
   the hourly `pressure_air_site` of `chmi/observation` after 2024, so it has no values for them),
   `position-unplaced` (a station whose position the source writes where no swap of latitude and
@@ -278,8 +288,64 @@ what the answer is missing:
   search by place, a `rank`, a `distance` or a bounding box, or an estimate by `interpolate` or
   `summarize`, had to leave it out, which is every search by place of a resolution that lists it;
   for a `timestamp`, the whole list and a search by place tell it, in a listing, in the values and in
-  an estimate, only if the station has a record in the window) and `deprecated-parameter` (issued when a parameter is deprecated; none is at the moment). Codes are added as
-  more are told; a client reads the ones it knows.
+  an estimate, only if the station has a record in the window),
+  `deprecated-parameter` (issued when a parameter is deprecated; none is at the moment),
+  `network-not-importable` (a network of `providers` that this server cannot import, which is left out),
+  `parameter-without-rows` (a requested parameter that the source holds no values for, see below) and
+  `file-skipped` (the stations whose file the provider let go, see below). Codes are added as more are told; a
+  client reads the ones it knows.
+
+  `parameter-without-rows` says that the request succeeded and the source has no values of a parameter that was
+  asked for, so that it is not taken for a failure and asked again in a loop. It carries `parameter`
+  (`resolution/dataset/parameter`, or `resolution/dataset`) and `stations` (the stations it was asked at, the
+  first ten if there are more). It is told for a parameter asked for by its name when no station of the answer
+  has a row of it, and for a dataset asked for whole only when no station has a row of any of its parameters, so
+  that a dataset with a few empty parameters says nothing of them. A parameter that some stations have is not
+  told for the ones that lack it. A station that begins after the window is not read and not named, one skipped
+  by `skip_empty` had rows (with `drop_nulls` too), and readings that are all null and left out by `drop_nulls` are
+  no rows. A dataset that needs a window is refused without one (GH-3562), so it is never told of without one.
+  The message gives the window and says `in the periods
+  asked for` (for the datasets where `periods` left out a period the window would have read), `in the run issued`
+  or `in the lead time asked for` where the request narrowed itself that way; the other `periods`, run or
+  `lead_time` is suggested only where it can hold values (the `icon_eu` product has no long run). It says nothing
+  of the source being behind for a window that reaches the present, and nothing of what a later request will find:
+  a source that is late cannot be told from one that never reports the parameter.
+
+  What it does not say is limited by what the library can see. A provider that gives up on a file it expected and
+  answers with the others (a refused download, a file withdrawn since the listing, a timestamp that is not there,
+  a maintenance page or an exception report answered with HTTP 200, a file that would not parse) tells the walk, and
+  the station whose file was let go is not one of the stations named: the others still are, and where none is left
+  nothing is said (a file that serves a whole station group or a whole network is every station's of it). A
+  download that failed and was made again with success is no file let go, and what the source answers is told:
+  that it has nothing (a 404 for a station that does not report the parameter, Frost's 404 "No data was found for the
+  query parameters" and 412 "No available time series for the query parameters", an AEMET `estado` of 404,
+  Pegelonline's 404 "Timeseries does not exist.") or a month file of `dwd/derived` that the index never listed.
+  This is done for `aemet/observation`, `dwd/derived`, `dwd/observation`, `dwd/poi`, `dwd/road`, `dwd/swsmos`,
+  `fmi/observation`, `knmi/observation`, `meteofrance/observation`, `meteofrance/synop`, `metno/frost`,
+  `smhi/observation` and `wsv/pegel`, each at the places where it lets a file go and no other; for any other
+  provider a file it lets go without telling is not known, so the warning may name a station whose file was let go.
+  The message says nothing of the stations that were let go: `file-skipped` does (below). A parameter
+  another warning already names (`parameter-ended`) is not told again, nor is anything told for `interpolate` and
+  `summarize`. In Python it is a log line at level `WARNING`, as the other warnings that say a request returned less
+  than it asked for are, and `wetterdienst.util.response_warnings.recorded_warnings` gives it after
+  `begin_response()`, as the REST API and the command line do.
+
+  `file-skipped` says that the answer may be missing values for want of a file the provider let go: the cases just
+  listed (a refused download, a file withdrawn since the listing, a maintenance page answered with HTTP 200, a file
+  that would not parse), so that a partial answer can be told from a whole one. There is one for the request. It
+  carries `stations` (the stations whose file was let go, the first ten if there are more), and its message names the
+  datasets the request read at them: a provider says which station, not which of its files. A file that serves every
+  station of the request is every station's. A station is named whether its frame came back empty or `skip_empty`
+  dropped it below its threshold: it is missing for the failure, not for lack of data, so it may carry
+  `station-skipped` as well, for a different cause. The one exception is a rank walk (`rank`, a point) that passed a
+  station over for the next candidate and went on to fill its `rank`: the answer holds as many stations as were asked
+  for, and the replaced ones are not named. A rank walk that ends short, or empty, after an outage names them all.
+  Retry later: what is missing may well be there then, which is the
+  difference to `parameter-without-rows`, whose stations are never among them. It is told for the providers listed
+  above, nothing is told when no file was let go (a 404 that is the source's answer of no data, a download made
+  again with success), and not for `interpolate` and `summarize`, which read the stations around a point as
+  candidates and fall back to the next one, as they do not tell `parameter-without-rows`. The provider logs each file
+  it lets go at level `WARNING` as before. In Python the warning is a log line at that level too.
 - **`api_version`** is the version of the API (`/api/version`), and **`schema_version`** that of this
   block, so that a stored answer can be told from one in a later shape.
 
@@ -329,7 +395,8 @@ tools return the REST answer, and so the block.
 ## The OpenAPI document
 
 `/openapi.json` (and `/docs`, the interactive reference) is the contract of the API. `tests/ui/openapi.snapshot.json`
-is that document as last reviewed: a test fails when the served document is not it, and
+is that document as last reviewed, without its `info.version` (the version of the package, which a release
+changes and which a test holds to the served one): a test fails when the served document is not it, and
 `uv run poe openapi:snapshot` writes it anew, for the diff to be read in the pull request that changes the contract.
 A second test holds the served document to `tests/ui/openapi.baseline.json`, the document of the last release: a path, a
 parameter, a status, a member or an enum member that release offered must still be there, with its type, and a
@@ -449,8 +516,8 @@ With a provider and network, each parameter of a dataset has a `unit` and, where
 
 | Field | |
 | --- | --- |
-| `unit` | the unit the `values` of the parameter come back in when the request gives no `unit_targets` or `convert_units`, which is the unit `glossary` gives for its `unit_type`: `degree_celsius` for a temperature, `decimal` (0 to 1) for a percentage, `second` for a duration |
-| `unit_source` | the unit the provider publishes the parameter in (`degree_kelvin`, `percent`, `minute`), which the values come in with `convert_units=false`. It is there only where it differs from `unit` (362 of 2048 parameters); absent means the same as `unit` |
+| `unit` | the unit the `values` of the parameter come back in when the request gives no `unit_targets` or `convert_units`, which is the unit `glossary` gives for its `unit_type`: `degree_celsius` for a temperature, `percent` for a percentage, `hour` for a duration |
+| `unit_source` | the unit the provider publishes the parameter in (`degree_kelvin`, `one_eighth`, `minute`), which the values come in with `convert_units=false`. It is there only where it differs from `unit` (189 of 2132 parameters); absent means the same as `unit` |
 
 `coverage` takes no options, so a `unit_targets` or `convert_units` a request to `values` gives changes what
 `values` return, not `unit`. The settings of the server (`WD_TS_UNIT_TARGETS`, `WD_TS_CONVERT_UNITS`) are what a
@@ -542,13 +609,16 @@ what each of them takes, keyed by endpoint, with `unit_targets` naming the unit 
 
 It takes the settings query parameters of the three endpoints, and answers what they resolve to
 over the server's, for each endpoint that takes the parameter: `humanize`, `convert_units` and
-`unit_targets` apply to all three, `station_window_end_buffer` to `values` alone, and
+`unit_targets` apply to all three, `station_window_end_buffer`, `limits` and the `plausibility_<check>` to `values` alone, and
 `min_gain_of_value_pairs` and `num_additional_stations` to `interpolate` and `summarize`. A value an endpoint refuses is refused here the same way, and an
 unknown parameter too, so a set of settings can be checked before fetching. Nothing is stored on
 the server: the parameters apply to that one answer.
 
 ```bash
 http localhost:7890/api/settings
+
+# What a values request with a soft range check would get.
+http localhost:7890/api/settings plausibility_range==soft
 
 # What a values request with shape=wide would get: the wide shape turns drop_nulls off.
 http localhost:7890/api/settings shape==wide
@@ -636,7 +706,38 @@ http localhost:7890/api/values provider==dwd network==observation parameters==da
 
 # Acquire ICON data (the latest forecast run; a past timestamp has none).
 http localhost:7890/api/values provider==dwd network==dmo parameters==hourly/icon/temperature_air_2m stations==01001
+
+# Keep a number the range check finds implausible, flagged `suspect:range`, and null a stuck sensor (`rejected:stuck`).
+http localhost:7890/api/values provider==dwd network==observation parameters==hourly/moisture/pressure_air_site stations==01048 timestamp==2024-01 plausibility_range==soft plausibility_stuck==hard
+
+# Every check soft but the range: what the source wrote, flagged, and the range rejected.
+http localhost:7890/api/values provider==dwd network==observation parameters==hourly/moisture/pressure_air_site stations==01048 timestamp==2024-01 plausibility==soft plausibility_range==hard
+
+# Null a mean temperature outside -30 to 45 degrees (in the unit of the answer) and a rain above 200 mm.
+http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl stations==01048 timestamp==2024-01 limits=='{"temperature_air_mean_2m": [-30, 45], "precipitation_amount": [null, 200]}'
 ```
+
+`plausibility=soft` (or `hard`) sets the mode of every check at once, and a `plausibility_<check>` given beside it wins:
+`plausibility==soft plausibility_range==hard` is every check soft but the range, and everything a source wrote comes back
+flagged.
+
+The plausibility checks `range`, `elevation`, `stuck`, `consistency`, `floor`, `limits` and `source` each take a mode,
+`hard` or `soft`, as the query parameters `plausibility_range`, `plausibility_elevation`, `plausibility_stuck`,
+`plausibility_consistency`, `plausibility_floor`, `plausibility_limits` and `plausibility_source` (soft by default: the
+verdict of the source's own quality flag, such as GHCN-Daily `QFLAG` or DMI `validity:false`; the environment variable of a server is
+`WD_TS_PLAUSIBILITY__RANGE` and so on). A hard check nulls the value and writes `rejected:<check>,raw:<number>` into
+`quality_flags`, a soft check keeps the value and writes `suspect:<check>`; a check not named keeps the server's mode. On a forecast network (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`: `kind` `forecast`) every check but `floor` and `limits` is soft whatever the mode, so `hard` there flags `suspect:<check>` and nulls nothing (`limits` follows its mode).
+See [plausibility checks](../data/plausibility.md). `interpolate` and `summarize` take no mode: they leave out a
+suspect value in any case, and so do `stripes/values` and `stripes/image`.
+
+The check `limits` judges the bounds you set per parameter, which `limits` of `values` takes as a JSON object of a
+parameter to `[low, high]` (`null` for no bound at an end): `{"temperature_air_mean_2m": [-30, 45]}`. A key is a
+canonical parameter name, which holds in every dataset that serves it, or `resolution/dataset/parameter`, which holds
+in that dataset and wins where both name a parameter. The bounds are in the unit of the values the request returns (its
+`unit_targets`, or the source's unit with `convert_units` off); a value outside is null with `rejected:limits,raw:<number>`
+by default, or kept and flagged `suspect:limits` with `plausibility_limits=soft`, and a forecast network follows the mode too. A name that is no parameter is a 400 naming it; a pair with `low` above `high`, both ends null, a bound that is not
+a finite number and text that is no JSON object are a 422. The `limits` of a request are merged into the server's `WD_TS_LIMITS`, the request's entry winning
+for a name both give. `/api/settings` reports them in `values`.
 
 A request that asks for more than the [limits](#limits) allow is refused;
 [Getting more than the limit](large-requests.md) shows how to get the data anyway.

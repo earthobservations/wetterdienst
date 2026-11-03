@@ -99,6 +99,24 @@ every language (`toFixed`): a position is copied into a map or a query, and the 
 takes one reads a point. Chrome has no data for Luxembourgish, so `withData` writes `lb` as German
 (`de-LU`) is written, which is the same.
 
+## Parameter glossaries
+
+The labels of the parameters, resolutions and datasets (`glossary/<locale>.ts`) are held by
+`tests/unit/glossary-translations.test.ts` to more than being there and being translated:
+
+- an English label that names a "Maximum", "Minimum" or "Mean" (also "Highest", "Greatest",
+  "Strongest"), wherever in the label, is translated with the locale's word for it; the stems are in
+  the test and a new locale adds its own;
+- one English label has one translation;
+- an hour after a number is `h` (`u` in nl, `t` in da), with the English number;
+- a soil temperature of a cover or a texture has the word for the soil, and in fr, es and it it opens
+  with the words of the plain soil temperature, so that "Maximum soil temperature under grass" is not
+  "Maximum temperature under grass" (the other languages put an adjective before the noun, and a
+  correct label of theirs has no fixed opening);
+- French sets a no-break space before a colon, as the catalog does.
+
+There is no list of exceptions: a label that is right and breaks one of these changes the rule.
+
 ## Review status: not natively reviewed
 
 The text of four locales was written without a native speaker, and none has read it since. It is
@@ -107,6 +125,11 @@ meant to be understood, not to be the last word, and **a review by a native spea
 
 - `pl` and `cs`: the whole catalogs and, since GH-2968, the three plural forms of the counts; since
   GH-2971 the fallbacks `common.requestFailed` and `common.backendError*`.
+- the text of the limit notice and of the note under the date range (GH-3457: `dataViewer.limit*` and
+  `dateRange.defaultNote`, `dateRange.clear`) in `pl`, `cs`, `lb` and `de-hh`; the unit plurals of `pl` and `cs`
+  (`dataViewer.limitUnit.*`, `limitStationsCount`, `limitParametersCount`) are the ones to look at first, and in
+  `pl` the "Aktualny wybór:" of the selection's counts, which stands where English says "You have selected" to
+  avoid a case; `de-hh` is German-looking where the Low German could not be told (`Reegen`, `Antwoort`, `Tietruum`).
 - `lb` (Luxembourgish): the whole catalog; the explorer mode descriptions, the SQL panel (`query.*`)
   and `history.colMethod` were English until GH-2970, and the fallbacks `common.requestFailed` and
   `common.backendError*` until GH-2971; they are the newest text. The dataset is a
@@ -137,6 +160,20 @@ meant to be understood, not to be the last word, and **a review by a native spea
 - The footer link to the third-party licences (`footer.licenses`, GH-3469), in all four locales. Least
   certain: `de-hh` `Lizenzen vun annere` and `lb` `Lizenze vun Drëtten` ("licences of others"); `cs`
   `Licence třetích stran` and `pl` `Licencje stron trzecich` are the usual forms of "third-party licences".
+
+- **Machine-made**: the strings of the app's shell and its search (`shell.*`, GH-3518: the skip link, the
+  navigation's groups, the search and its command palette, the one-line purposes of the support, legal,
+  documentation, GitHub and PyPI entries) were written by a language model (Claude) in **all ten locales
+  besides `en`**, `de` included, and no person has read them. Least certain: `de-hh` `Warktüüch` (tools),
+  `Naslaan` (reference), `todrapen deist`; `lb` `Instrumenter` (tools), `Noschloen` (reference), `Prognos`;
+  `pl` `Informacje` and `cs` `Příručka` for "Reference"; `da` `Udsigt` for a forecast, as the catalog has it.
+
+- **Machine-made**: the strings of "Ask the weather" on the home page (`ask.*`, GH-3518: the four questions, the
+  verdicts and the lines under them, the chart captions, the search of a place) were written by a language model
+  (Claude) in **all ten locales besides `en`**, `de` included, and no person has read them. Least certain: `de-hh`
+  `Fraag dat Weer`, `Oort ännern`; `lb` `Fro d'Wieder`, `Méintlech Mëttelwäerter`; `pl` and `cs` for the verdicts
+  of the summer question (`Tak, o {anomaly} °C cieplej`), and in every language the Beaufort wording of the wind
+  verdicts (calm, breezy, windy, stormy), which follows no official word list.
 
 Nothing here says the other locales (`en`, `de`, `fr`, `es`, `it`, `nl`, `da`) were reviewed by a
 native speaker either; these four are the ones known not to have been.
@@ -179,3 +216,33 @@ the language, not a decision; `pl`, `cs`, `lb` and `de-hh` are as unreviewed as 
 | `pl` | `widget.poweredBy` | `Obsługiwane przez` ("served by") | `Działa dzięki` | low |
 | `pl` | `explorer.minGain` | `Min. zysk par wartości` | `Min. przyrost par wartości` | low |
 | `cs` | `glossary.noResults`, `providers.noResults` | `Hledání neodpovídá žádný parametr.` | `Hledanému výrazu neodpovídá žádný parametr.` | low |
+
+The parameter glossaries (`glossary/<locale>.ts`) were read for GH-2610 as well (801 labels in each
+of the ten languages, against `en`, this file and the weather service's own terms). What was
+shown to be wrong is fixed; what follows is a proposal from a reader and waits for a native speaker.
+The key is a glossary key (a family is named by its stem, `...` standing for the depths and covers).
+
+| Locale | Key | Now | Suggestion | Sure |
+| --- | --- | --- | --- | --- |
+| `lb` | `annual_*`, `immediate_*` (about 100 labels) | `Jahresmelder: Rüben`, `Mais`, `Hafer`, `Weißkohl`, `frühe Reife`: the German label, 101 datasets equal to `de` | translate the prefix and the plants (`Jahresmelder`/`Sofortmelder` have no Luxembourgish word here yet) | high that it is German |
+| `lb` | `cloud_cover_*`, `cloud_cover_total*`, `cloudiness` | `Bewölkungsgrad`, `Gesamtbewölkung`, `Bewölkung` (German) | the Luxembourgish word for cloud cover, as for the UI row above | low |
+| `lb` | `*_manual`, `phenology_flowering_end_observation_area`, `road_surface_condition*`, `precipitation_amount_normal`, `temperature_dew_point*`, `temperature_wind_chill` | `Aebeobachtung`, `Beobachtungsgebitt`, `Fahrbunn`, `Klimanormalwäert`, `Taupunkt`, `Windchill` | a Luxembourgish word each | low |
+| `lb` | `sunshine_duration`, `sunshine_duration_*` | `Sonnenscheindauer` (parameter, dataset) next to `Sonnendauer` (the other eleven) | one word, `Sonnenschäindauer` as the dataset `sun` is `Sonnenschäin` | medium |
+| `de-hh` | `annual_*`, `immediate_*`, `temperature_air*`, `temperature_soil*`, `ph_value`, `turbidity` | 91 datasets and 25 parameters equal to `de` (`Jahresmelder: Mais`, `Lufttemperatur`, `Trübung`) | Low German words where there are any; `Jahresmelder`/`Sofortmelder` | low |
+| `de-hh` | `cooling_degree_*`, `heating_degree*` | `Köhlgradstunnen`, `Heizgraddaag` (parameters) and `Köhlgraadstünn`, `Heizgraaddaag` (datasets) | one spelling of `grad`/`graad` | medium |
+| `de-hh` | `snow_depth*`, `water_equivalent*` and the labels with `Snee`/`Snéé`/`Schnee`, `Snééhööchd`/`Snehööch`/`Neeschneehööch` | snow spelt three ways and height `hööch`/`hööchd` | one spelling, `Snee` as the UI has it | medium |
+| `fr` | `*loamy_silt*` (soil moisture, evaporation, soil temperature) | `limon argileux` (argileux is clayey) | `limon` | low |
+| `fr` | `pressure_vapor`, `pressure_vapor_mean` | `Pression de vapeur` | `Tension de vapeur`, the term of Météo-France | low |
+| `es` | `*loamy_silt*` | `limo franco` | `franco limoso`, the name of the texture class | low |
+| `es` | `count_days_glaze`, `weather_type_glaze_rime` | `Días con hielo`, `hielo o escarcha`: the same word as `count_days_ice` (`Días de hielo`) | a word for glaze ice that is not `hielo` alone | low |
+| `it` | `*loamy_silt*` | `limo argilloso` (argilloso is clayey) | `franco limoso` | low |
+| `pl` | `temperature_soil_max_*`, `temperature_soil_min_*` | `Maksymalna temperatura gleby ...` (about 100 labels) next to `Temperatura gruntu` for the other soil temperatures; IMGW says `temperatura gruntu` | one word, `gruntu`, with the covers rephrased (`pod gruntem odkrytym` reads badly after it) | low |
+| `pl` | `frozen_ground_layer_*` | `Warstwa zmarzliny` (`zmarzlina` is permafrost) | `Przemarznięta warstwa gruntu` (IMGW: `przemarznięcie gruntu`) | low |
+| `pl` | `*loamy_silt*` | `pył gliniasty` | the name from the soil texture classes of PTG | low |
+| `pl` | `snow_depth*`, `snow_depth_new*` | `Grubość pokrywy śnieżnej`, `Grubość świeżego śniegu` | IMGW writes `wysokość pokrywy śnieżnej` and `wysokość świeżo spadłego śniegu` | medium |
+| `cs` | `*loamy_silt*` (soil moisture, evaporation, soil temperature) | `hlinitá hlína`, `hlinitou hlínou` ("loamy loam") | `prachovitá hlína` | medium |
+| `cs` | `phenology_bud_swelling` | `Nalévání pupenů` (`nalévání` is the filling of grain and fruit; it may be ČHMÚ's own name of the phase) | `Bobtnání pupenů` if it is not | low |
+| `nl` | `water_equivalent_snow_depth*`, `water_equivalent` | `Sneeuwwatergehalte` next to `Waterequivalent versgevallen sneeuw` | one term | low |
+| `da` | `sunshine_duration`, `sunshine_duration_*` | `Solskinstimer` (parameter, dataset) next to `Relativ solskinsvarighed` | `Solskinsvarighed` | low |
+| `da` | `phenology_turning_green_beginning`, `phenology_panicle_emergence_beginning`, `phenology_tassel_tip_visible` | `Grønnes` (a verb), `Toplysskridning`, `Toppens spids synlig` | `Grønning, begyndelse`; a word for panicle emergence | low |
+| `da` | `*loamy_sand`, `*loamy_silt*` | `leret sand`, `leret silt` (`leret` is clayey) | `lerblandet sand` | low |

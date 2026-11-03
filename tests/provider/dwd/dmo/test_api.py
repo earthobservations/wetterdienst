@@ -5,6 +5,7 @@
 import datetime as dt
 import io
 import logging
+import math
 from typing import Literal
 from zoneinfo import ZoneInfo
 
@@ -1980,7 +1981,7 @@ def test_dmo_radiation_is_read_in_joule_per_square_centimeter(
 
     Frankfurt (10637), run 2026-10-12 00Z: `Rad1h` is 142.09 for the hour ending 11 UTC, where the
     observed sum of the 10-minute global radiation of 01420 is 182.9 J/cm2 (1829 kJ/m2). Read as
-    kJ/m2 it came back as 14.2 J/cm2.
+    kJ/m2 it came back as 14.2 J/cm2. The default unit is MJ/m2 (1 MJ/m2 is 100 J/cm2).
     """
     from tests.provider.value_stubs import dwd_dmo_values  # noqa: PLC0415
 
@@ -1988,6 +1989,10 @@ def test_dmo_radiation_is_read_in_joule_per_square_centimeter(
     parameters = [("hourly", "icon", parameter)]
 
     df = dwd_dmo_values(monkeypatch, elements, parameters, lead_time, Options(drop_nulls=False))
+    assert df.get_column("value").to_list() == pytest.approx([1.4209, 0.0, None])
+
+    in_joule = Options(drop_nulls=False, unit_targets={"energy_per_area": "joule_per_square_centimeter"})
+    df = dwd_dmo_values(monkeypatch, elements, parameters, lead_time, in_joule)
     assert df.get_column("value").to_list() == pytest.approx([142.09, 0.0, None])
 
     in_kilojoule = Options(drop_nulls=False, unit_targets={"energy_per_area": "kilojoule_per_square_meter"})
@@ -1996,20 +2001,35 @@ def test_dmo_radiation_is_read_in_joule_per_square_centimeter(
 
 
 @pytest.mark.parametrize(
-    ("parameter", "element", "lead_time", "written"),
+    ("parameter", "element", "lead_time", "written", "tokens"),
     [
-        pytest.param("radiation_global", "Rad1h", "short", ["-0.16", "0.00", "142.09"], id="rad1h"),
-        pytest.param("radiation_short_wave_net_last_3h", "RadS3", "long", ["-0.43", "0.00", "52.10"], id="rads3"),
+        pytest.param(
+            "radiation_global",
+            "Rad1h",
+            "short",
+            ["-0.16", "0.00", "142.09"],
+            ["rejected:floor,raw:-0.16", None, None],
+            id="rad1h",
+        ),
+        pytest.param(
+            "radiation_short_wave_net_last_3h",
+            "RadS3",
+            "long",
+            ["-0.43", "0.00", "52.10"],
+            ["rejected:floor,raw:-0.43", None, None],
+            id="rads3",
+        ),
     ],
 )
-def test_dmo_returns_the_small_negative_radiation_of_the_model_as_written(
+def test_dmo_radiation_below_zero_is_zero_and_keeps_the_number(
     monkeypatch: pytest.MonkeyPatch,
     parameter: str,
     element: str,
     lead_time: Literal["short", "long"],
     written: list[str],
+    tokens: list[str | None],
 ) -> None:
-    """ICON's radiation below 0 at night is returned as the model writes it, with no flag (GH-3263).
+    """ICON's radiation below 0 at night is 0.0 with the number as `raw:` (GH-3263).
 
     Station 10382, run 2026-10-22 00Z: `Rad1h` is negative in 18 of 78 hourly steps, to -0.17 J/cm2, and `RadS3` to
     -0.21; all stations of the icon run of 12Z go to -0.77 and -0.46. MOSMIX_L of the same station has none.
@@ -2023,8 +2043,10 @@ def test_dmo_returns_the_small_negative_radiation_of_the_model_as_written(
         lead_time,
         Options(drop_nulls=False),
     )
-    assert df.get_column("value").to_list() == pytest.approx([float(value) for value in written])
-    assert df.get_column("quality_flags").null_count() == df.height
+    values = df.get_column("value").to_list()
+    # the file's J/cm2 come back in MJ/m2, 100 J/cm2 each
+    assert values == pytest.approx([0.0, 0.0, float(written[2]) / 100])
+    assert df.get_column("quality_flags").to_list() == tokens
 
 
 @pytest.mark.parametrize(
@@ -2057,7 +2079,40 @@ def test_dmo_precipitation_below_zero_is_zero_and_keeps_the_number(
         Options(drop_nulls=False),
     ).filter(pl.col("parameter") == parameter)
     assert df.get_column("value").to_list() == pytest.approx([0.0, 1.2, None], nan_ok=True)
-    assert df.get_column("quality_flags").to_list() == ["raw:-0.1", None, "raw:-"]
+    assert df.get_column("quality_flags").to_list() == ["rejected:floor,raw:-0.1", None, "raw:-"]
+
+
+def test_dmo_long_wave_balance_below_zero_stays_as_written(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`radl3`, the long wave balance, is negative by nature (it loses heat), so it is not clipped (GH-3263)."""
+    from tests.provider.value_stubs import dwd_dmo_values  # noqa: PLC0415
+
+    df = dwd_dmo_values(
+        monkeypatch,
+        {"RadL3": "-52.30 -0.43 3.10"},
+        [("hourly", "icon", "radiation_long_wave_net_last_3h")],
+        "long",
+        Options(drop_nulls=False),
+    )
+    # the file's kJ/m2 come back in MJ/m2, like the other radiation of the dataset
+    assert df.get_column("value").to_list() == pytest.approx([-0.0523, -0.00043, 0.0031])
+    assert df.get_column("quality_flags").null_count() == df.height
+
+
+def test_dmo_radiation_of_minus_zero_is_a_plain_zero(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`-0.00` is not below 0, so it has no `raw:` token, but it must not print a minus sign (GH-3263)."""
+    from tests.provider.value_stubs import dwd_dmo_values  # noqa: PLC0415
+
+    df = dwd_dmo_values(
+        monkeypatch,
+        {"Rad1h": "-0.00 -0.16 3.50"},
+        [("hourly", "icon", "radiation_global")],
+        "short",
+        Options(drop_nulls=False),
+    )
+    values = df.get_column("value").to_list()
+    assert values == pytest.approx([0.0, 0.0, 0.035])
+    assert [math.copysign(1.0, value) for value in values] == [1.0, 1.0, 1.0]
+    assert df.get_column("quality_flags").to_list() == [None, "rejected:floor,raw:-0.16", None]
 
 
 def test_dmo_precipitation_of_minus_zero_is_a_plain_zero(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -2080,7 +2135,7 @@ def test_dmo_precipitation_of_minus_zero_is_a_plain_zero(monkeypatch: pytest.Mon
     values = df.get_column("value").to_list()
     assert values == [0.0, 0.0, 0.4]
     assert [math.copysign(1.0, value) for value in values] == [1.0, 1.0, 1.0]
-    assert df.get_column("quality_flags").to_list() == [None, "raw:-0.1", None]
+    assert df.get_column("quality_flags").to_list() == [None, "rejected:floor,raw:-0.1", None]
 
 
 def test_dmo_radiation_is_declared_in_joule_per_square_centimeter_by_both_products() -> None:

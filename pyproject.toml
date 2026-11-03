@@ -1,6 +1,6 @@
 [project]
 name = "wetterdienst"
-version = "0.178.0"
+version = "0.182.0"
 authors = [
     { name = "Benjamin Gutzmann", email = "benjamin@eobs.org" },
     { name = "Andreas Motl", email = "andreas.motl@panodata.org" },
@@ -109,6 +109,7 @@ dependencies = [
     "aiohttp>=3.14.4,<4",
     "certifi>=2026.10.19",  # drops the emSign ECC Root CA - G3 (GHSA-6q48-6c7w-9gw2, GH-3331)
     "click>=8.2,<9",
+    "filelock>=3.30,<5",  # first release that honours fallback_to_soft=False (GH-3485)
     "fsspec[http]>=2026.6.0",
     "lxml>=4.9.1,<7",
     "measurement>=3.2,<4",
@@ -484,7 +485,7 @@ DEP001 = ["mcp_types", "pyproj", "tabula"]
 DEP003 = ["mcp_types", "pyproj"]
 
 [tool.pytest.ini_options]
-addopts = "-rsfEX -p pytester --strict-markers --verbosity=3 --only-rerun FSTimeoutError --only-rerun ConnectionTimeoutError --only-rerun ClientResponseError"
+addopts = "-rsfEX -p pytester --strict-markers --verbosity=3 --only-rerun FSTimeoutError --only-rerun ConnectionTimeoutError --only-rerun ClientResponseError --only-rerun HungTestError"
 #log_cli = true
 #log_cli_level = "DEBUG"
 log_date_format = "%Y-%m-%dT%H:%M:%S"

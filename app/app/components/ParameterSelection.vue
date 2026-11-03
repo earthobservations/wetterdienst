@@ -435,7 +435,7 @@ watch([provider, network, resolution, dataset, parameters, dateRequired], () => 
   <UCard>
     <template #header>
       <div class="flex items-center gap-2">
-        <UIcon name="i-lucide-database" class="text-primary-500 shrink-0" />
+        <UIcon name="i-ph-database" class="text-primary-500 shrink-0" />
         <h2 class="text-lg font-bold">
           {{ t('parameterSelection.title') }}
         </h2>
@@ -448,7 +448,7 @@ watch([provider, network, resolution, dataset, parameters, dateRequired], () => 
       color="error"
       variant="subtle"
       :title="t('parameterSelection.providerRestrictionUnavailable', { provider: restrictProvider })"
-      icon="i-lucide-alert-circle"
+      icon="i-ph-warning-circle"
       class="mx-6 mt-4"
     />
     <UAlert
@@ -456,7 +456,7 @@ watch([provider, network, resolution, dataset, parameters, dateRequired], () => 
       color="error"
       variant="subtle"
       :title="t('parameterSelection.networkRestrictionUnavailable', { network: restrictNetwork })"
-      icon="i-lucide-alert-circle"
+      icon="i-ph-warning-circle"
       class="mx-6 mt-4"
     />
     <UContainer class="flex flex-col gap-4">
@@ -487,7 +487,7 @@ watch([provider, network, resolution, dataset, parameters, dateRequired], () => 
             size="xs"
             variant="ghost"
             color="neutral"
-            icon="i-lucide-check-check"
+            icon="i-ph-checks"
             @click="selectAllParameters"
           >
             {{ t('common.all') }}
@@ -497,7 +497,7 @@ watch([provider, network, resolution, dataset, parameters, dateRequired], () => 
             size="xs"
             variant="ghost"
             color="neutral"
-            icon="i-lucide-x"
+            icon="i-ph-x"
             @click="clearParameters"
           >
             {{ t('parameterSelection.clear') }}

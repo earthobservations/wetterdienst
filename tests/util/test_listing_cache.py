@@ -581,6 +581,9 @@ def _fork_children(count: int, child: Callable[[], bool]) -> list[int]:
         if pid == 0:  # pragma: no cover - the child
             status = 1
             try:
+                # the handler of the watchdog is inherited and runs in Python only, which a hang in SQLite's C
+                # does not return to: the default kills the child
+                signal.signal(signal.SIGALRM, signal.SIG_DFL)
                 signal.alarm(30)  # a hang is a failure, not a test that never ends
                 status = 0 if child() else 2
             finally:

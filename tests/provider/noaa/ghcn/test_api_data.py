@@ -596,6 +596,185 @@ def test_api_hourly_quality_code_is_the_plain_flag_and_the_value_stays(monkeypat
     assert got["USW00026451", "wind_speed", "2006-05-08 09:00"] == (4.0, "P")
 
 
+@pytest.mark.parametrize("mode", ["soft", "hard"])
+def test_api_hourly_quality_code_of_a_verdict_is_judged_by_the_check_source_in_the_list_of_its_source(
+    monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    """The codes Table 3 words as `Suspect` and `Erroneous` are the verdict of the check `source` (GH-3677).
+
+    Table 3 of ghcnh_DOCUMENTATION.pdf lists the codes per source: "Legacy Codes for Sources 313, 314, 315, 322, 335,
+    343, 344, 346 include: 0 = Passed gross limits check, 1 = Passed all quality control checks, 2 = Suspect,
+    3 = Erroneous, 4 ..., 6 = Suspect, data originate from an NCEI data source, 7 = Erroneous, data originate from an
+    NCEI data source, 9 = Passed gross limits check if element is present" and "Legacy Codes for Sources: 220, 221, 222,
+    223, 347, 348 include 0 Not Checked, 1 Good, 2 Suspect, 3 Erroneous, 4 Calculated, 5 Removed". The code is read in
+    the list of the source of the element (`source:`), so the same code of a source the table does not list (345 has
+    a list for relative humidity and wind speed only, which is not read) is no verdict where the source is another or
+    there is none, and only the letters of the list of 382 count. The first row has the value,
+    the code and the source of the file's own 11:00 row (GHCNh_ACM00078861_por.psv, read 2026-11-02, 1988-01-27: a
+    temperature of 50.0 with code 2 and source 220, in the tropics), stamped 00:00 here; the other rows are made up
+    from the lists above.
+    """
+    from tests.provider.value_stubs import ghcnh_psv, serve  # noqa: PLC0415
+    from wetterdienst.provider.noaa.ghcn import api  # noqa: PLC0415
+
+    stations = (
+        b"GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n"
+        b"ACM00078861,17.1167,-61.7833,10.0,,COOLIDGE FIELD ANTIGUA,,,78861,,AG\n"
+    )
+    settings = Settings(cache_disable=True)
+    metadata = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=settings).metadata
+    columns = [parameter.name_original for parameter in metadata["hourly"]["data"]]
+    # (quality code, source code) of the temperature of each hour of 1988-01-27
+    cases = [
+        ("2", "220"),  # the file's own: 50.0 with Suspect, list of 220
+        ("1", "220"),  # Good
+        ("3", "343"),  # Erroneous, list of 343
+        ("7", "343"),  # Erroneous, data originate from an NCEI data source
+        ("6", "335"),  # Suspect, data originate from an NCEI data source
+        ("2", "313"),  # Suspect
+        ("5", "343"),  # Passed all quality control checks, data originate from an NCEI data source
+        ("0", "343"),  # Passed gross limits check
+        ("7", "220"),  # a code the list of 220 does not have
+        ("3", "345"),  # the list of 345 is not read (relative humidity and wind speed only)
+        ("X", "382"),  # failed global extreme exceedance check, the list of 382 (precipitation)
+        ("X", "220"),  # a letter of the list of 382 in another list
+        ("2", ""),  # no source, no list
+        ("f", "220"),  # a letter, no verdict
+    ]
+    rows = [
+        (
+            f"1988-01-27T{hour:02d}:00:00",
+            {
+                "temperature": "50.0" if hour == 0 else f"{20 + hour / 10:.1f}",
+                "temperature_Quality_Code": quality,
+                "temperature_Source_Code": source,
+            },
+        )
+        for hour, (quality, source) in enumerate(cases)
+    ]
+    serve(
+        monkeypatch,
+        api,
+        {"ghcnh-station-list": stations, "GHCNh_ACM00078861": ghcnh_psv("ACM00078861", columns, rows)},
+    )
+    request = NoaaGhcnRequest(
+        parameters=[("hourly", "data", "temperature_air_2m")],
+        start=dt.datetime(1988, 1, 27, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(1988, 1, 28, tzinfo=ZoneInfo("UTC")),
+        settings=settings,
+        options=Options(drop_nulls=False, plausibility={"source": mode}),
+    ).filter_by_station_id("ACM00078861")
+    df = request.values().all().df.sort("timestamp")
+    judged = {0, 2, 3, 4, 5, 10}
+    flags = df.get_column("quality_flags").to_list()
+    values = df.get_column("value").to_list()
+    assert len(flags) == len(cases)
+    for hour, (quality, source) in enumerate(cases):
+        plain = f"{quality},source:{source}" if source else quality
+        if hour not in judged:
+            assert flags[hour] == plain, (hour, flags[hour])
+            assert values[hour] is not None
+        elif mode == "soft" or quality in {"2", "6"}:
+            # soft flags every verdict; hard nulls the code worded as erroneous and only flags "Suspect"
+            assert flags[hour] == f"{plain},suspect:source", (hour, flags[hour])
+            assert values[hour] is not None
+        else:
+            assert flags[hour].startswith(f"{plain},rejected:source,raw:"), (hour, flags[hour])
+            assert values[hour] is None
+
+
+@pytest.mark.parametrize("mode", ["soft", "hard"])
+def test_api_hourly_codes_worded_for_some_parameters_are_judged_for_those_parameters_alone(
+    monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    """The list of source 345 and `o`, `f` of a derived humidity are read for the parameters Table 3 names (GH-3745).
+
+    Table 3 of ghcnh_DOCUMENTATION.pdf: "Legacy Codes for Source 345 (for relative humidity and wind speed only): 0 =
+    Good, 1 = Issue (field-length overflow), 3 = Error (erroneous data)"; and for "Sources: 220, 221, 222, 223, 313,
+    314, 315, 322, 335, 343, 344, 346, 347, 348 ... relative humidity and wet-bulb temperature are not directly
+    measured, but rather derived from other measured variables. These can have the following QC flags: o - Out of range
+    (relative humidity only - with values < 1 or > 100), f - Suspect or Error flags for 1 or more of the input
+    measurements".
+    The same letters are the integration's own checks ("Odd cluster", "Frequent value") on the temperature, the wind
+    speed and four more elements, where they are no verdict. The file of USW00014755 (read 2026-11-02) holds 2,479 `f`
+    and 14 `o` of source 223 on the relative humidity; the rows here are made up from the table. Soft flags every
+    verdict; hard nulls `3` and `o`, and still only flags `f`, the milder level.
+    """
+    from tests.provider.value_stubs import ghcnh_psv, serve  # noqa: PLC0415
+    from wetterdienst.provider.noaa.ghcn import api  # noqa: PLC0415
+
+    stations = (
+        b"GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n"
+        b"ACM00078861,17.1167,-61.7833,10.0,,COOLIDGE FIELD ANTIGUA,,,78861,,AG\n"
+    )
+    settings = Settings(cache_disable=True)
+    metadata = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=settings).metadata
+    columns = [parameter.name_original for parameter in metadata["hourly"]["data"]]
+    elements = {
+        "humidity_relative": "relative_humidity",
+        "temperature_wet_2m": "wet_bulb_temperature",
+        "wind_speed": "wind_speed",
+        "temperature_air_2m": "temperature",
+    }
+    # (quality code, source code) of the four elements of each hour of 1988-01-27, and the elements that are judged
+    hours = [
+        (("3", "345"), {"humidity_relative": "erroneous", "wind_speed": "erroneous"}),  # source 345: Error
+        (("1", "345"), {}),  # Issue (field-length overflow): a fault of the record, no verdict
+        (("3", "313"), dict.fromkeys(elements, "erroneous")),  # the list of 313 is read for every element
+        (("o", "223"), {"humidity_relative": "erroneous"}),  # out of range: the relative humidity only
+        (("f", "223"), {"humidity_relative": "suspect", "temperature_wet_2m": "suspect"}),
+        (("f", "345"), {}),  # source 345 does not derive a humidity
+        (("o", "999"), {}),  # a source the table does not list
+        (("c", "223"), {}),  # a letter of the integration, no verdict
+    ]
+    rows = [
+        (
+            f"1988-01-27T{hour:02d}:00:00",
+            {
+                key: value
+                for column in elements.values()
+                for key, value in (
+                    (column, f"{20 + hour / 10:.1f}"),
+                    (f"{column}_Quality_Code", quality),
+                    (f"{column}_Source_Code", source),
+                )
+            },
+        )
+        for hour, ((quality, source), _) in enumerate(hours)
+    ]
+    serve(
+        monkeypatch,
+        api,
+        {"ghcnh-station-list": stations, "GHCNh_ACM00078861": ghcnh_psv("ACM00078861", columns, rows)},
+    )
+    request = NoaaGhcnRequest(
+        parameters=[("hourly", "data", name) for name in elements],
+        start=dt.datetime(1988, 1, 27, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(1988, 1, 28, tzinfo=ZoneInfo("UTC")),
+        settings=settings,
+        options=Options(drop_nulls=False, plausibility={"source": mode}),
+    ).filter_by_station_id("ACM00078861")
+    df = request.values().all().df
+    got = {
+        (row["parameter"], row["timestamp"].hour): (row["value"], row["quality_flags"])
+        for row in df.iter_rows(named=True)
+    }
+    for hour, ((quality, source), judged) in enumerate(hours):
+        for name in elements:
+            value, flags = got[name, hour]
+            plain = f"{quality},source:{source}"
+            level = judged.get(name)
+            if level is None:
+                assert flags == plain, (name, hour, flags)
+                assert value is not None
+            elif mode == "soft" or level == "suspect":
+                assert flags == f"{plain},suspect:source", (name, hour, flags)
+                assert value is not None
+            else:
+                assert flags.startswith(f"{plain},rejected:source,raw:"), (name, hour, flags)
+                assert value is None
+
+
 def test_api_hourly_measurement_and_source_codes_follow_the_quality_code(monkeypatch: pytest.MonkeyPatch) -> None:
     """The measurement and source codes are the tokens `measurement:` and `source:` after the quality code (GH-2925).
 

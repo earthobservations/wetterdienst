@@ -21,14 +21,9 @@ from urllib.parse import quote
 import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.model.judge import Rule, StuckPeriod
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
-from wetterdienst.model.quality_flags import (
-    NoReading,
-    OutOfRange,
-    clear_sentinels,
-    join_quality_flags,
-    unpivot_with_raw,
-)
+from wetterdienst.model.quality_flags import join_quality_flags, unpivot_with_raw
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.rmi.observation.metadata import RmiObservationMetadata
@@ -50,61 +45,6 @@ _PAGE_LIMIT = 500_000
 # legitimate result, but guarantees termination even against a server that ignores startIndex or
 # omits numberMatched (which would otherwise loop forever fetching duplicate full pages).
 _MAX_PAGES = 10_000
-
-# The range of a reading per attribute and resolution, in the unit RMI writes it in, outside which no sensor can have
-# produced it: the physical ranges of `tests/provider/physical_ranges.py`, generous on purpose, in the unit of the
-# source and no wider than they are (`test_physical_ranges.py` holds them to it). The gust is held to a range of
-# Belgium's own. Read on 2026-10-15, the daily layer of its 14 stations (108,889 rows, 1990 to 2026) has 21 `temp_avg`
-# of 72.74 to 342.3 and 48 `temp_max` of 1003 to 6013 degrees (110.26 and 4021 of station 6414 on 2003-08-06 among
-# them), 8 `temp_soil_avg_20cm` of -141 to -147, 27 humidities of -6999 to -0.01 %, 9 pressures of 1100.6 to
-# 1114.1 hPa, 3 radiations of -928 to -99999 W/m2, and 3 `sun_duration` of 3,808 to 13,851 minutes in a day of 1,440;
-# the hourly layer has gusts of 569.7 (6414) and 445.3 m/s (6494) and 29 sunshines of 63.9 to 2,586 minutes in an hour.
-# Such a value is read as null and keeps its text as `raw:4021` (GH-2797). The gust of 81.5 m/s that 6414 wrote for
-# 2003-10-09 (`validated: false`) is no reading either: the next highest gust of the daily layer, and of the hourly
-# one, is 51.05 m/s (6434, 2002-12-30; one hour, stamped 2002-12-31T00:00Z in the hourly layer). The 115 m/s of the
-# physical range is the highest gust anywhere (a typhoon); Belgium's bound is 60. The sunshine is held to the span
-# itself: RMI writes minutes to two decimals, and on 6459 2013-03-24 the hours run 6.61, 63.86, 170.93, 257.15,
-# 373.08, 1282.45, 1377, 152.56, 53.88 and add up to the 3,807.66 minutes of that day, which no day holds.
-_AIR_TEMPERATURE = (-90.0, 60.0)  # degree Celsius
-_SOIL_TEMPERATURE = (-90.0, 100.0)  # also the surface, which may be hotter than the air
-_GUST = (0.0, 60.0)  # m/s
-_WIND_SPEED = (0.0, 115.0)  # m/s
-_COMMON_RANGES: dict[str, tuple[float, float]] = {
-    "temp_grass_pt100_avg": _SOIL_TEMPERATURE,  # a surface temperature, not an air one
-    "temp_soil_avg_5cm": _SOIL_TEMPERATURE,
-    "temp_soil_avg_10cm": _SOIL_TEMPERATURE,
-    "temp_soil_avg_20cm": _SOIL_TEMPERATURE,
-    "temp_soil_avg_50cm": _SOIL_TEMPERATURE,
-    "wind_speed_10m": _WIND_SPEED,
-    "wind_gusts_speed": _GUST,
-    "humidity_rel_shelter_avg": (0.0, 130.0),  # percent; a hygrometer reads past 100 now and then
-    "pressure": (300.0, 1_100.0),  # hPa
-    "short_wave_from_sky_avg": (-200.0, 2_000.0),  # W/m2
-}
-# the amounts of a span, which grow with it: rain in mm, sunshine in minutes (the metadata converts them to seconds)
-_RANGES: dict[str, dict[str, tuple[float, float]]] = {
-    "10_minutes": {
-        **_COMMON_RANGES,
-        "precip_quantity": (0.0, 200.0),
-        "sun_duration": (0.0, 10.0),
-        "temp_dry_shelter_avg": _AIR_TEMPERATURE,
-        "wind_direction": (0.0, 360.0),  # degree, published at 10 minutes only
-    },
-    "hourly": {
-        **_COMMON_RANGES,
-        "precip_quantity": (0.0, 600.0),
-        "sun_duration": (0.0, 60.0),
-        "temp_dry_shelter_avg": _AIR_TEMPERATURE,
-    },
-    "daily": {
-        **_COMMON_RANGES,
-        "precip_quantity": (0.0, 2_000.0),
-        "sun_duration": (0.0, 1_440.0),
-        "temp_avg": _AIR_TEMPERATURE,
-        "temp_max": _AIR_TEMPERATURE,
-        "temp_min": _AIR_TEMPERATURE,
-    },
-}
 
 # The periods (first and last day, both included, UTC) in which the `sun_duration` of a station is no reading, though
 # it lies inside the range, and the source does not say so: its `validated` flag for sunshine is false on 7,720 of the
@@ -238,6 +178,10 @@ class RmiObservationValues(TimeseriesValues):
         # startIndex or omitting numberMatched). Bail out with a warning rather than loop forever.
         log.warning(f"RMI pagination exceeded {_MAX_PAGES} pages (filter {cql_filter!r}); stopping early")
 
+    def _plausibility_rules(self, station_id: str, dataset: DatasetModel) -> tuple[Rule, ...]:  # noqa: ARG002
+        """Give the periods in which the sunshine sensor of a station did not work (`_NO_SUNSHINE`)."""
+        return tuple(StuckPeriod("sunshine_duration", first, last) for first, last in _NO_SUNSHINE.get(station_id, ()))
+
     def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
@@ -276,28 +220,6 @@ class RmiObservationValues(TimeseriesValues):
         param_names = [parameter.name_original for parameter in dataset.parameters]
         # Reshape the wide feature (one column per parameter) into the long value frame. The
         # column name is already `name_original`, which `_process_dataset` filters against.
-        # a value outside the range of its attribute is nulled, and its text goes with the row as `raw`
-        ranges = _RANGES[dataset.resolution.name]
-        for name in param_names:
-            rules: list[NoReading | OutOfRange] = []
-            if name == "sun_duration" and station_id in _NO_SUNSHINE:
-                stamp = _parse_utc_z(pl.col("timestamp"))
-                rules.append(
-                    NoReading(
-                        where=pl.any_horizontal(
-                            (stamp >= pl.lit(dt.datetime.combine(first, dt.time(), tzinfo=dt.UTC)))
-                            & (
-                                stamp
-                                < pl.lit(dt.datetime.combine(last + dt.timedelta(days=1), dt.time(), tzinfo=dt.UTC))
-                            )
-                            for first, last in _NO_SUNSHINE[station_id]
-                        )
-                    )
-                )
-            if name in ranges:
-                rules.append(OutOfRange(*ranges[name]))
-            if rules:
-                df = clear_sentinels(df, [name], *rules)
         values = unpivot_with_raw(df, index=["timestamp"], on=param_names, variable_name="parameter")
         # Attach the per-parameter validation flag from qc_flags as the quality flag. A row without a value is
         # dropped, but not one whose value was nulled: that carries what it was.

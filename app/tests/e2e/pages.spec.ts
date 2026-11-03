@@ -10,19 +10,16 @@ test.describe('Home Page', () => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
 
-    // Check for navigation links
-    const explorerLink = page.getByRole('link', { name: /explorer/i })
-    // Exact, not /api/i: the home page's developer row links to the backend's Swagger UI as
-    // "REST API", which a loose match picks up alongside the nav entry and fails on strict mode.
-    const apiLink = page.getByRole('link', { name: 'API', exact: true })
-
-    await expect(explorerLink).toBeVisible()
-    await expect(apiLink).toBeVisible()
+    // the tools are tabs of the header; the API is in its reference, a disclosure (GH-3518)
+    const nav = page.getByRole('navigation')
+    await expect(nav.getByRole('link', { name: /explorer/i })).toBeVisible()
+    await nav.getByRole('button', { name: 'Reference', exact: true }).click()
+    await expect(nav.getByRole('link', { name: /^API/ })).toBeVisible()
   })
 
   // The weather services are the backend's (`/api/providers`), so for a moment there are none to show: the
   // block holds its place with placeholders. What is under the card must not move by more than a row of chips
-  // when the answer comes (a row is a chip of 30px and a gap of 8), however wide the window is.
+  // when the answer comes (a row is a chip of 34px and a gap of 8), however wide the window is.
   for (const width of [1280, 768, 375]) {
     test(`keeps the weather services block about as tall before the backend answers as after, at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 })
@@ -43,7 +40,7 @@ test.describe('Home Page', () => {
       await expect(page.getByTestId('home-providers')).toBeVisible({ timeout: 30_000 })
       const after = (await card.boundingBox())!.height
 
-      expect(Math.abs(after - before), `the card was ${before}px tall before and ${after}px after`).toBeLessThanOrEqual(38)
+      expect(Math.abs(after - before), `the card was ${before}px tall before and ${after}px after`).toBeLessThanOrEqual(42)
     })
   }
 
@@ -91,7 +88,7 @@ test.describe('Explorer Page', () => {
   test('should navigate to explorer page', async ({ page }) => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
-    await page.getByRole('link', { name: /explorer/i }).click()
+    await page.getByRole('navigation').getByRole('link', { name: /explorer/i }).click()
 
     await expect(page).toHaveURL(/\/explorer/)
   })
@@ -144,7 +141,9 @@ test.describe('Providers Page', () => {
   test('should be reachable from the navigation', async ({ page }) => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
-    await page.getByRole('navigation').getByRole('link', { name: 'Providers', exact: true }).click()
+    // the providers are in the header's reference, a disclosure (GH-3518)
+    await page.getByRole('navigation').getByRole('button', { name: 'Reference', exact: true }).click()
+    await page.getByRole('navigation').getByRole('link', { name: /^Providers/ }).click()
 
     await expect(page).toHaveURL(/\/providers$/)
     await expect(page.getByRole('heading', { name: 'Providers', level: 1 })).toBeVisible()

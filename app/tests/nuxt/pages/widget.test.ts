@@ -81,14 +81,68 @@ describe('widget Page', () => {
     expect(wrapper.text()).not.toContain('proxy page')
   })
 
-  it('applies the theme query param to color mode', async () => {
-    registerEndpoint('/api/stations', () => ({ stations: [] }))
+  describe('?theme=', () => {
+    // The colour-mode module saves a `preference` to localStorage, which every page of the origin reads: a
+    // widget embedded with ?theme=dark must not change what the app shows the next time it is opened (GH-3619)
+    function colorModeState() {
+      return useNuxtApp().$colorMode as { preference: string, value: string, forced: boolean }
+    }
 
-    const wrapper = await mountSuspended(WidgetPage, { route: '/widget?theme=dark' })
-    const vm = wrapper.vm as any
-    await wrapper.vm.$nextTick()
+    // the visitor's saved choice, the one the widget must leave as it is: the system's
+    beforeEach(async () => {
+      colorModeState().preference = 'system'
+      await navigateTo('/')
+    })
 
-    expect(vm.colorMode.preference).toBe('dark')
+    afterEach(async () => {
+      // leaves the widget, as a navigation does, for the scheme of the preference
+      await navigateTo('/')
+    })
+
+    it('shows the widget in the scheme of the query param', async () => {
+      registerEndpoint('/api/stations', () => ({ stations: [] }))
+      const wrapper = await mountSuspended(WidgetPage, { route: '/widget?theme=dark' })
+      onTestFinished(() => wrapper.unmount())
+      await wrapper.vm.$nextTick()
+
+      expect(colorModeState().value).toBe('dark')
+    })
+
+    it('leaves the saved preference of the app as it is', async () => {
+      registerEndpoint('/api/stations', () => ({ stations: [] }))
+
+      const wrapper = await mountSuspended(WidgetPage, { route: '/widget?theme=dark' })
+      onTestFinished(() => wrapper.unmount())
+      await wrapper.vm.$nextTick()
+
+      expect(colorModeState().value).toBe('dark')
+      // the module saves a preference to localStorage when it changes (tests/e2e/chart-theme.spec.ts reads
+      // it there), which this environment has none of
+      expect(colorModeState().preference).toBe('system')
+    })
+
+    it('puts the app\'s scheme back where the widget is left', async () => {
+      registerEndpoint('/api/stations', () => ({ stations: [] }))
+      const wrapper = await mountSuspended(WidgetPage, { route: '/widget?theme=dark' })
+      onTestFinished(() => wrapper.unmount())
+      await wrapper.vm.$nextTick()
+      expect(colorModeState().value).toBe('dark')
+
+      await navigateTo('/')
+
+      expect(colorModeState().forced).toBe(false)
+      expect(colorModeState().value).toBe('light')
+    })
+
+    it('keeps the scheme through a change of another param of the query', async () => {
+      registerEndpoint('/api/stations', () => ({ stations: [] }))
+      const wrapper = await mountSuspended(WidgetPage, { route: '/widget?theme=dark' })
+      onTestFinished(() => wrapper.unmount())
+      await wrapper.vm.$nextTick()
+
+      await navigateTo('/widget?theme=dark&station=00001')
+      await vi.waitFor(() => expect(colorModeState().value).toBe('dark'))
+    })
   })
 
   it('links back to the full meteogram page', async () => {

@@ -50,6 +50,13 @@ _PLAIN_ON_PURPOSE = {
     # is right for the merged dataset (GH-3010)
     ("DwdRoadMetadata", "15_minutes", "data", "windSpeed"),
     ("DwdRoadMetadata", "15_minutes", "data", "windDirection"),
+    # the glossary says "the one-, two- or ten-minute period ending at the time of observation", so no one window
+    # fits the column (GH-2837); its direction states two minutes and is named for them
+    ("EcccObservationMetadata", "hourly", "data", "wind_speed"),
+    # DMI's field is called `mean_cloud_cover` at every resolution, but its calculation table gives the hourly one as
+    # "derived directly", from the `cloud_cover` of metObs "at minute 0", a reading, and the mean from the day on
+    # ("average of the underlying hourly values"), which `cloud_cover_total_mean` names (GH-3622)
+    ("DmiObservationMetadata", "hourly", "data", "mean_cloud_cover"),
 }
 # a provider whose "average" is not evidence yet: PEGELONLINE publishes raw data at the equidistance of each station and
 # the audit of GH-2614 doubts the descriptions, so its rows wait for WSV's confirmation (GH-3151)

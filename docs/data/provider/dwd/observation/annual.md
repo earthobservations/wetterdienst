@@ -40,7 +40,7 @@
 |---------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | name          | climate_summary                                                                                                                                                                                                                                                        |
 | original name | kl                                                                                                                                                                                                                                                                     |
-| description   | Historical annual station observations (temperature, pressure, precipitation, sunshine duration, etc.) for Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
+| description   | Historical annual station observations (temperature, precipitation, sunshine duration, wind and cloud cover) for Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
 | access        | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/annual/kl/)                                                                                                                                                                        |
 
 #### parameters
@@ -104,7 +104,7 @@
 | {term}`quality` | qn_6 | Quality flag published by the source for the values in the same dataset. | -             | - |
 | {term}`snow_depth_new` | ja_nsh | Annual sum of daily fresh snow. | cm | >=0 |
 | {term}`precipitation_amount` | ja_rr | Annual sum of daily precipitation height. | mm | >=0 |
-| {term}`snow_depth_sum` | ja_sh_s | Annual sum of daily height of snow pack. | cm | >=0 |
+| {term}`snow_depth_sum` | ja_sh_s | Annual sum of daily height of snow pack. | cm·d | >=0 |
 | {term}`precipitation_amount_max` | ja_mx_rs | Annual max of daily precipitation height. | mm | >=0 |
 
 ### weather_phenomena
@@ -115,7 +115,7 @@
 |---------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | name          | weather_phenomena                                                                                                                                                                                                                                                                                  |
 | original name | weather_phenomena                                                                                                                                                                                                                                                                                  |
-| description   | Counts of weather phenomena fog, thunder, storm (strong wind), storm (stormier wind), dew, glaze, graupel and hail for stations of Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
+| description   | Counts of days with the weather phenomena fog, thunder, storm (strong wind), storm (stormier wind), dew, glaze, graupel and hail for stations of Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
 | access        | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/annual/weather_phenomena/)                                                                                                                                                                                     |
 
 #### parameters

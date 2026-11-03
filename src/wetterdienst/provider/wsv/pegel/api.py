@@ -16,6 +16,7 @@ from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, LicenseModel, Para
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.util.network import download_file
+from wetterdienst.util.response_warnings import note_skipped_download
 
 if TYPE_CHECKING:
     from wetterdienst.settings import Settings
@@ -50,6 +51,10 @@ _STATIONS_ENDPOINT = (
 # `m+NN` is metres above sea level and is used by 67 series, none of which has a gauge zero (stations list of
 # 2026-10-22; the 2 `m+PNP` series both have one, 28 of the `cm` series have none), so the
 # datum differs from the cm gauges even after scaling -- see the `gauge_zero` station column.
+# The characteristic levels of a station (`m_i`, `mhw`, `hsw`, ...) are returned in metres, the unit of `stage`, and
+# each carries its own unit in the listing: `cm` for the levels the columns hold (1,734 values at 429 gauges on
+# 2026-11-02), `m` for the `OBW` and `UBW` of the gauges in metres above sea level
+_CHARACTERISTIC_UNITS_PER_METRE: dict[str, float] = {"cm": 100.0, "m": 1.0}
 _SOURCE_UNIT_FACTORS: dict[str, dict[str, float]] = {
     "W": {"cm": 1.0, "m+NN": 100.0, "m+PNP": 100.0},
     "LF": {"µS/cm": 1.0, "mS/cm": 1000.0},
@@ -399,6 +404,7 @@ class WsvPegelValues(TimeseriesValues[ParameterModel]):
             if source_unit is None:
                 # the timeseries is listed but declares no unit, so the unit is unknown rather than
                 # known to be unhandled; the unreachable-listing case is already gone by here
+                note_skipped_download()
                 log.error(
                     f"WSV station {station_id} has no published unit for {name_original} in the "
                     f"station listing; skipping rather than assuming {parameter_or_dataset.unit}",
@@ -409,6 +415,7 @@ class WsvPegelValues(TimeseriesValues[ParameterModel]):
                 # passed through as if every station published the declared unit. Dropping the
                 # series is worse than returning it, but returning a number that is silently wrong
                 # by a factor of 100 is worse still.
+                note_skipped_download()
                 log.error(
                     f"WSV station {station_id} publishes {name_original} in unhandled unit "
                     f"{source_unit!r}; skipping rather than reporting it as "
@@ -467,6 +474,26 @@ class WsvPegelRequest(TimeseriesRequest):
         *characteristic_values.keys(),
     )
 
+    @staticmethod
+    def _characteristic_level(name: str) -> pl.Expr:
+        """Give a characteristic water level of a gauge in metres, the unit of `stage`, as an expression.
+
+        Each value carries its own unit (`cm`, or `m` for the upper and lower limit of a gauge in metres above sea
+        level, which are no column here), so it is converted from that one. A unit this table does not know, or none,
+        gives null: a level in the wrong unit is worse than none (GH-3752).
+        """
+        level = (
+            pl.col("ts_water")
+            .struct.field("characteristicValues")
+            .list.eval(pl.element().filter(pl.element().struct.field("shortname") == name.upper()))
+            .list.first()
+        )
+        units_per_metre = level.struct.field("unit").replace_strict(
+            _CHARACTERISTIC_UNITS_PER_METRE, default=None, return_dtype=pl.Float64
+        )
+        # divided, not multiplied by 0.01, so that 412 cm is 4.12 and no 4.119999
+        return (level.struct.field("value") / units_per_metre).alias(name)
+
     def _all(self) -> pl.LazyFrame:
         """Get stations for WSV Pegelonline.
 
@@ -516,6 +543,7 @@ class WsvPegelRequest(TimeseriesRequest):
                                     {
                                         "shortname": pl.String,
                                         "value": pl.Float64,
+                                        "unit": pl.String,
                                     },
                                 ),
                             ),
@@ -592,52 +620,5 @@ class WsvPegelRequest(TimeseriesRequest):
             pl.col("ts_water").struct.field("gaugeZero").struct.field("value").alias("gauge_zero"),
             # the datum, as published: Pegelonline names it in the unit, such as `m. ü. NHN` or `m. ü. NN`
             pl.col("ts_water").struct.field("gaugeZero").struct.field("unit").alias("gauge_zero_datum"),
-            pl.col("ts_water")
-            .struct.field("characteristicValues")
-            .list.eval(pl.element().filter(pl.element().struct.field("shortname") == "M_I"))
-            .list.first()
-            .struct.field("value")
-            .alias("m_i"),
-            pl.col("ts_water")
-            .struct.field("characteristicValues")
-            .list.eval(pl.element().filter(pl.element().struct.field("shortname") == "M_II"))
-            .list.first()
-            .struct.field("value")
-            .alias("m_ii"),
-            pl.col("ts_water")
-            .struct.field("characteristicValues")
-            .list.eval(pl.element().filter(pl.element().struct.field("shortname") == "M_III"))
-            .list.first()
-            .struct.field("value")
-            .alias("m_iii"),
-            pl.col("ts_water")
-            .struct.field("characteristicValues")
-            .list.eval(pl.element().filter(pl.element().struct.field("shortname") == "MNW"))
-            .list.first()
-            .struct.field("value")
-            .alias("mnw"),
-            pl.col("ts_water")
-            .struct.field("characteristicValues")
-            .list.eval(pl.element().filter(pl.element().struct.field("shortname") == "MW"))
-            .list.first()
-            .struct.field("value")
-            .alias("mw"),
-            pl.col("ts_water")
-            .struct.field("characteristicValues")
-            .list.eval(pl.element().filter(pl.element().struct.field("shortname") == "MHW"))
-            .list.first()
-            .struct.field("value")
-            .alias("mhw"),
-            pl.col("ts_water")
-            .struct.field("characteristicValues")
-            .list.eval(pl.element().filter(pl.element().struct.field("shortname") == "HHW"))
-            .list.first()
-            .struct.field("value")
-            .alias("hhw"),
-            pl.col("ts_water")
-            .struct.field("characteristicValues")
-            .list.eval(pl.element().filter(pl.element().struct.field("shortname") == "HSW"))
-            .list.first()
-            .struct.field("value")
-            .alias("hsw"),
+            *(self._characteristic_level(name) for name in self.characteristic_values),
         )

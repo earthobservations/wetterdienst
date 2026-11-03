@@ -11,8 +11,8 @@ const modelValue = defineModel<InterpolationSelection>({ required: true })
 const { t } = useI18n()
 
 const sourceOptions = computed(() => [
-  { value: 'manual' as InterpolationSource, label: t('interpolation.manualCoords'), icon: 'i-lucide-pencil' },
-  { value: 'station' as InterpolationSource, label: t('interpolation.fromStation'), icon: 'i-lucide-map-pin' },
+  { value: 'manual' as InterpolationSource, label: t('interpolation.manualCoords'), icon: 'i-ph-pencil-simple' },
+  { value: 'station' as InterpolationSource, label: t('interpolation.fromStation'), icon: 'i-ph-map-pin' },
 ])
 
 // the point, and the boxes that describe it -- see `useInterpolationPoint` for why the coordinates
@@ -224,7 +224,7 @@ const displayCoords = computed(() => {
           <p v-if="!stationsPending" role="alert" class="text-sm text-error">
             {{ t('interpolation.loadError') }}
           </p>
-          <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="refreshStations({ dedupe: 'defer' })" />
+          <UButton :label="t('common.retry')" icon="i-ph-arrow-clockwise" size="sm" color="neutral" variant="outline" @click="refreshStations({ dedupe: 'defer' })" />
         </div>
       </UFormField>
     </div>

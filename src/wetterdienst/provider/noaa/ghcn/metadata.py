@@ -235,7 +235,9 @@ _NoaaGhcnMetadataSpec = {
                             "name_original": "tmin",
                             "unit": "degree_celsius",
                         },
-                        # the source's own TAVG, no (TMAX + TMIN) / 2: that is TAXN, which is not served (GH-2839)
+                        # the source's own TAVG, no (TMAX + TMIN) / 2: that is TAXN, which is not served (GH-2839).
+                        # ghcnd-inventory.txt lists TAXN for no station (read 2026-10-30), so there is nothing to map
+                        # to `temperature_air_mean_minmax_2m` (GH-3622)
                         {
                             "name": "temperature_air_mean_2m",
                             "name_original": "tavg",
@@ -271,6 +273,36 @@ _NoaaGhcnMetadataSpec = {
                             "name": "wind_speed_mean",
                             "name_original": "awnd",
                             "unit": "meter_per_second",
+                        },
+                        # Average Dew Point Temperature for the day (tenths of degrees C)
+                        {
+                            "name": "temperature_dew_point_mean_2m",
+                            "name_original": "adpt",
+                            "unit": "degree_celsius",
+                        },
+                        # Average Sea Level Pressure for the day (hPa * 10)
+                        {
+                            "name": "pressure_air_sea_level_mean",
+                            "name_original": "aslp",
+                            "unit": "hectopascal",
+                        },
+                        # Average Station Level Pressure for the day (hPa * 10)
+                        {
+                            "name": "pressure_air_site_mean",
+                            "name_original": "astp",
+                            "unit": "hectopascal",
+                        },
+                        # Average Wet Bulb Temperature for the day (tenths of degrees C)
+                        {
+                            "name": "temperature_wet_mean_2m",
+                            "name_original": "awbt",
+                            "unit": "degree_celsius",
+                        },
+                        # Average daily wind direction (degrees)
+                        {
+                            "name": "wind_direction_mean",
+                            "name_original": "awdr",
+                            "unit": "degree",
                         },
                         # Number of days included in the multiday evaporation total (MDEV)
                         {
@@ -402,6 +434,24 @@ _NoaaGhcnMetadataSpec = {
                         {
                             "name": "sunshine_duration_relative",
                             "name_original": "psun",
+                            "unit": "percent",
+                        },
+                        # Average relative humidity for the day (percent)
+                        {
+                            "name": "humidity_relative_mean",
+                            "name_original": "rhav",
+                            "unit": "percent",
+                        },
+                        # Minimum relative humidity for the day (percent)
+                        {
+                            "name": "humidity_relative_min",
+                            "name_original": "rhmn",
+                            "unit": "percent",
+                        },
+                        # Maximum relative humidity for the day (percent)
+                        {
+                            "name": "humidity_relative_max",
+                            "name_original": "rhmx",
                             "unit": "percent",
                         },
                         # soil temperature
@@ -1357,6 +1407,11 @@ DAILY_PARAMETER_MULTIPLICATION_FACTORS = {
     NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_air_min_2m_multiday.name_original: 1 / 10,
     NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_air_mean_2m.name_original: 1 / 10,
     NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].wind_speed_mean.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_dew_point_mean_2m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_wet_mean_2m.name_original: 1 / 10,
+    # hPa * 10
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].pressure_air_sea_level_mean.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].pressure_air_site_mean.name_original: 1 / 10,
     NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].evaporation_amount.name_original: 1 / 10,
     NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].evaporation_amount_multiday.name_original: 1 / 10,
     NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_water_evaporation_pan_max.name_original: 1 / 10,

@@ -962,3 +962,50 @@ def test_mosmix_large_declares_the_elements_mosmix_l_delivers() -> None:
     declared = {parameter.name_original for parameter in api.DwdMosmixMetadata.hourly.large.parameters}
     assert declared == MOSMIX_L_DELIVERED
     assert len(declared) == 114
+
+
+@pytest.mark.parametrize(
+    "unit_targets",
+    [
+        pytest.param({}, id="default"),
+        pytest.param({"temperature_difference": "degree_kelvin"}, id="kelvin"),
+        # the target of a reading does not move the error of one: it is in kelvin whatever the temperature is in
+        pytest.param({"temperature": "degree_fahrenheit"}, id="reading-in-fahrenheit"),
+    ],
+)
+def test_mosmix_the_error_of_a_temperature_is_a_difference_in_kelvin_with_no_offset(
+    monkeypatch: pytest.MonkeyPatch,
+    unit_targets: dict[str, str],
+) -> None:
+    """`E_TTT` and `E_Td` are a difference in K and an error of 2 K is 2.0, not -271.15 (GH-3688).
+
+    The values are those of a run's expected absolute error, which the file writes in Kelvin: the third hour has none.
+    The reading beside them, `TTT` of 275.15 K, is 2.0 degrees Celsius, or what the temperature target makes of it.
+    """
+    from tests.provider.value_stubs import dwd_mosmix_values  # noqa: PLC0415
+
+    elements = {"TTT": "275.15 276.15 -", "E_TTT": "2.00 0.50 -", "E_Td": "2.00 0.50 -"}
+    parameters = [
+        ("hourly", "large", "ttt"),
+        ("hourly", "large", "e_ttt"),
+        ("hourly", "large", "e_td"),
+    ]
+    options = Options(drop_nulls=False, unit_targets=unit_targets)
+    df = dwd_mosmix_values(monkeypatch, elements, parameters, options)
+    for parameter in ("error_absolute_temperature_air_2m", "error_absolute_temperature_dew_point_2m"):
+        values = df.filter(pl.col("parameter") == parameter).sort("timestamp").get_column("value").to_list()
+        assert values == pytest.approx([2.0, 0.5, None])
+    reading = df.filter(pl.col("parameter") == "temperature_air_2m").sort("timestamp").get_column("value").to_list()
+    expected_reading = (
+        [35.6, 37.4, None] if unit_targets.get("temperature") == "degree_fahrenheit" else [2.0, 3.0, None]
+    )
+    assert reading == pytest.approx(expected_reading)
+
+
+def test_mosmix_the_error_of_a_temperature_refuses_a_target_other_than_kelvin() -> None:
+    """The unit of an error is fixed: degrees Celsius or Fahrenheit are not offered for it (GH-3688)."""
+    with pytest.raises(ValueError, match=r"Unit degree_celsius not supported for type temperature_difference"):
+        Options(unit_targets={"temperature_difference": "degree_celsius"})
+    parameter = DwdMosmixRequest(parameters=[("hourly", "large", "e_ttt")]).parameters[0]
+    assert parameter.unit == "degree_kelvin"
+    assert parameter.unit_type == "temperature_difference"

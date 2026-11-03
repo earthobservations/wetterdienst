@@ -256,17 +256,17 @@ function removeStation(station: Station) {
     <UCollapsible v-model="showMap" class="mt-4">
       <UButton
         :label="t('stationSelection.chooseOnMap')"
-        icon="i-lucide-map-pin"
+        icon="i-ph-map-pin"
         variant="subtle"
         color="primary"
-        trailing-icon="i-lucide-chevron-down"
+        trailing-icon="i-ph-caret-down"
         block
         @click="showMap = !showMap"
       />
       <template #content>
         <ClientOnly>
           <p v-if="!mapNotLoaded" class="flex items-center justify-center gap-2 mt-3 text-sm text-gray-500 dark:text-gray-400">
-            <UIcon name="i-lucide-hand-pointer-2" class="w-4 h-4 text-primary-500" />
+            <UIcon name="i-ph-hand-pointing" class="w-4 h-4 text-primary-500" />
             {{ multiple ? t('stationSelection.mapHintMultiple') : t('stationSelection.mapHint') }}
           </p>
           <MapStations

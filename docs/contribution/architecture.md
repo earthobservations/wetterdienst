@@ -97,7 +97,10 @@ The other results are made the same way. `history()` builds a `TimeseriesHistory
 request's `_history` and raises `NotImplementedError` when the provider has none; its hook is `_collect_station_history`.
 `InterpolatedValuesResult` and `SummarizedValuesResult` share their base with `ValuesResult` and come out of
 `request.interpolate()` and `request.summarize()` (see [Interpolation, summary and export](#interpolation-summary-and-export)).
-The stations and values results share `ExportMixin` for their formats and targets; `HistoryResult` does not have it.
+The stations and values results share `ExportMixin` for their formats and targets; `HistoryResult` does not have it,
+and has `to_format` for JSON on its own. What the results have in common is the `FormattableResult` protocol
+(`to_dict`, `to_json`, `to_format`) of `model/result.py`, which the alerts result satisfies
+too; `tests/test_formattable_result.py` holds all six to it.
 
 ## The registry
 
@@ -306,9 +309,12 @@ which decides whether a quantity is interpolated at all. The REST API and MCP se
 **Export** (`wetterdienst/io/export.py`) is `ExportMixin`, shared by the stations and values results. It renders to a
 dictionary, JSON, an OGC feature collection and GeoJSON, CSV, a plot and an image, and writes to a target named by a
 connection string with `to_target`: a `file://` path (CSV, Excel, JSON, JSON lines, Feather, Parquet, Zarr or NetCDF,
-by its extension), `duckdb://`, `influxdb*://`, `crate://` or any SQLAlchemy URL. `filtered_by_sql` filters a result with
-DuckDB. Each writer imports its dependency when it is used (`import_optional`) and raises `MissingDependencyError`,
-naming the extra, if it is not installed. The optional dependency groups are listed under
+by its extension), `duckdb://`, `influxdb*://`, `crate://` or any SQLAlchemy URL. The writers are in `io/sinks.py`,
+the file ones by extension and the database ones by scheme (`FILE_WRITERS`, `SINKS`). `filtered_by_sql` filters a result
+with DuckDB (`io/sql_filter.py`). Each writer imports its dependency when it is used (`import_optional`) and raises
+`MissingDependencyError`, naming the extra, if it is not installed. A Parquet, NetCDF or Zarr file carries the
+`metadata` block of the REST API, which `io/file_metadata.py` takes from `ui/response_metadata.py`, and `with_metadata`
+writes it beside any other file. The optional dependency groups are listed under
 `[project.optional-dependencies]` in `pyproject.toml`; among them are `export`, `sql`, `duckdb`, `excel`, `plotting`
 (image export), `influxdb`, `cratedb`, `postgresql`, `mysql`, `interpolation`, `restapi`, `mcp`, `bufr` and `radar`. See [Export](../usage/export.md) and [Interpolation & Summary](../usage/interpolation.md).
 
@@ -327,7 +333,7 @@ pull request. Regenerate with the task named, after an intended change only, and
 | The parameters of 0.139.0 that are gone | `tests/metadata/gone_since_0_139_0.json` | `uv run poe renames:baseline` |
 | The frames the core hands out for every offline provider test | `tests/provider/frames.snapshot.json` | `uv run poe frames:snapshot` |
 | A provider's station catalogue and values, offline | `tests/provider/station_catalogue_stubs.py`, `tests/provider/value_stubs.py` (a provider without one is named with the reason) | by hand |
-| Physical plausibility of every value | `tests/provider/physical_ranges.py` | by hand |
+| Physical plausibility of every value | `src/wetterdienst/model/plausibility_ranges.py`, the one table every network is judged with, read by `tests/provider/physical_ranges.py` | by hand |
 | Licence and attribution in every answer | `tests/ui/test_response_metadata.py` | by hand |
 | The documentation (provider pages, settings, samples) | `tests/test_docs.py`, `tests/test_docs_samples.py` | by hand, see [Writing the documentation](documentation.md) |
 

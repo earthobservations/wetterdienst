@@ -12,6 +12,8 @@ import pytest
 import wetterdienst
 from tests.provider.value_stubs import STUBS, ValueStub
 from wetterdienst import Wetterdienst
+from wetterdienst.model.judge import CONSTANT_RUNS, FLOORS, RUNS
+from wetterdienst.model.plausibility import COVERAGE
 from wetterdienst.model.quality_legend import LEGENDS, RAW, quality_legend
 
 PROVIDER_DIR = Path(wetterdienst.__file__).parent / "provider"
@@ -19,19 +21,26 @@ PROVIDER_DIR = Path(wetterdienst.__file__).parent / "provider"
 #: the networks whose `quality_flags` are not built by `join_quality_flags`, and where they come from instead
 NOT_JOINED = {
     "eaufrance/hubeau": "Hub'Eau's code_qualification_obs, written as a plain whole number",
-    "lhmt/observation": "the service publishes no flag",
-    "wsv/pegel": "the service publishes no flag",
 }
 
 
+#: what a reader names when a plausibility check judges its values: the rules of `model/quality_flags.py`, which a
+#: `raw` text turns into the tokens `suspect` and `rejected`, written before `raw` (GH-3676)
+
+
 def _kinds_written() -> dict[str, set[str | None]]:
-    """Read from the readers what each network passes to `join_quality_flags`: `None` for a plain flag, else a kind."""
+    """Read from the readers what each network passes to `join_quality_flags`: `None` for a plain flag, else a kind.
+
+    A network the core judges writes the kinds `suspect` and `rejected` as well, though no reader passes them: the
+    core writes them (`model/judge.py`).
+    """
     found: dict[str, set[str | None]] = {}
     for path in sorted(PROVIDER_DIR.rglob("*.py")):
         parts = path.relative_to(PROVIDER_DIR).parts
         if len(parts) < 3:
             continue
-        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
             is_call = isinstance(node, ast.Call) and getattr(node.func, "id", getattr(node.func, "attr", None))
             if is_call != "join_quality_flags":
                 continue
@@ -40,7 +49,19 @@ def _kinds_written() -> dict[str, set[str | None]]:
             if node.args and not (isinstance(node.args[0], ast.Constant) and node.args[0].value is None):
                 kinds.add(None)
             kinds.update(keyword.arg for keyword in node.keywords)
+    for network in _judged_networks():
+        found.setdefault(network, set()).update({"suspect", "rejected", "raw"})
     return found
+
+
+def _judged_networks() -> set[str]:
+    """Name the networks the core judges: a range, an elevation, a floor, a constant, a run or a rule of their own."""
+    networks = set(COVERAGE["range"]) | set(COVERAGE["elevation"]) | set(FLOORS) | set(CONSTANT_RUNS) | set(RUNS)
+    for path in sorted(PROVIDER_DIR.rglob("*.py")):
+        parts = path.relative_to(PROVIDER_DIR).parts
+        if len(parts) >= 3 and "def _plausibility_rules" in path.read_text(encoding="utf-8"):
+            networks.add(f"{parts[0]}/{parts[1]}")
+    return networks
 
 
 def test_every_network_has_a_legend_or_says_it_has_no_flag() -> None:
@@ -63,7 +84,8 @@ def test_the_kinds_the_readers_write_are_the_kinds_the_legend_tells() -> None:
         if network in NOT_JOINED:
             assert network not in written, f"{network} builds its flags with `join_quality_flags` now: {NOT_JOINED}"
             continue
-        assert {kind.kind for kind in legend} == written[network], network
+        # the bounds a caller sets judge any network (GH-3687), so every legend tells the three kinds of the core
+        assert {kind.kind for kind in legend} == written.get(network, set()) | {"suspect", "rejected", "raw"}, network
 
 
 def test_a_network_not_built_by_join_declares_what_it_writes() -> None:
@@ -73,7 +95,7 @@ def test_a_network_not_built_by_join_declares_what_it_writes() -> None:
         legend = LEGENDS[network]
         plain = [kind for kind in legend if kind.kind is None]
         assert len(plain) == (0 if "no flag" in reason else 1), network
-        assert len(legend) == len(plain), network
+        assert len(legend) == len(plain) + 3, network  # and the tokens of the core, which `limits` writes
 
 
 @pytest.mark.parametrize("network", sorted(LEGENDS))

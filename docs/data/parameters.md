@@ -61,8 +61,9 @@ reads a few centimetres below its zero (MeteoSwiss' gauge at station PLF reads -
 What the library does enforce is another thing and is not this column. A source writes a missing value as a number
 outside every range (`-999`); the provider's reader maps it to null and keeps the text the source wrote in the
 `quality_flags` of the reading (`raw:-999`). Where a source also has values no instrument can produce (4021 degrees
-for a daily maximum), its reader nulls those too, with a range per provider and resolution that is generous, since it
-is there to catch a sentinel and not a record. Both are told in [Quality flags](quality-flags.md).
+for a daily maximum), the values core nulls those too, against one table of ranges that is the same for every provider and depends on
+the resolution where the bound grows with the span, generous since it is there to catch a defect and not a record
+([plausibility](plausibility.md)). Both are told in [Quality flags](quality-flags.md).
 
 ## The statistic in a name
 
@@ -368,7 +369,7 @@ The two DMO names are net balances, positive downward into the surface. Read off
 50 J/cm² (never more than 0.95), which is the share the surface absorbs, and 99.7 % of the 182,714 values of `RadL3` are
 negative, down to -3,573 kJ/m², because the surface emits more long-wave radiation than the sky returns. The unit of
 each stays as it was declared, `rads3` in J/cm² and `radl3` in kJ/m², which differ inside one file; with the default
-unit targets both come back in J/cm². The 10-minute and hourly `tsmin` of Geosphere stay
+unit targets both come back in MJ/m². The 10-minute and hourly `tsmin` of Geosphere stay
 `temperature_air_min_0_05m`: they are the minimum of their interval.
 
 #### The road stations and IPMA

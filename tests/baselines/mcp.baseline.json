@@ -156,6 +156,7 @@
                 "significant_weather",
                 "speed",
                 "temperature",
+                "temperature_difference",
                 "time",
                 "turbidity",
                 "volume",
@@ -1622,6 +1623,113 @@
               "type": "null"
             }
           ]
+        },
+        "plausibility": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "soft",
+                "hard"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "plausibility_range": {
+          "type": "string",
+          "enum": [
+            "soft",
+            "hard"
+          ],
+          "default": "hard"
+        },
+        "plausibility_elevation": {
+          "type": "string",
+          "enum": [
+            "soft",
+            "hard"
+          ],
+          "default": "hard"
+        },
+        "plausibility_stuck": {
+          "type": "string",
+          "enum": [
+            "soft",
+            "hard"
+          ],
+          "default": "soft"
+        },
+        "plausibility_consistency": {
+          "type": "string",
+          "enum": [
+            "soft",
+            "hard"
+          ],
+          "default": "hard"
+        },
+        "plausibility_floor": {
+          "type": "string",
+          "enum": [
+            "soft",
+            "hard"
+          ],
+          "default": "hard"
+        },
+        "plausibility_limits": {
+          "type": "string",
+          "enum": [
+            "soft",
+            "hard"
+          ],
+          "default": "hard"
+        },
+        "plausibility_source": {
+          "type": "string",
+          "enum": [
+            "soft",
+            "hard"
+          ],
+          "default": "soft"
+        },
+        "limits": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "prefixItems": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                ],
+                "type": "array",
+                "maxItems": 2,
+                "minItems": 2
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -1631,5 +1739,5 @@
       ]
     }
   },
-  "x-release": "0.178.0"
+  "x-release": "0.182.0"
 }

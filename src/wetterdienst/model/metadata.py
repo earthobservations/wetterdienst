@@ -145,10 +145,10 @@ class CoverageParameter(TypedDict):
     """A parameter of a dataset, with the unit its values come back in and, where it differs, the provider's.
 
     `unit` is the unit of the values for a caller who passes no options: the target of the `unit_type`, the one
-    `glossary` gives (`degree_celsius` for a temperature, `decimal` (0 to 1) for a percentage), under the
+    `glossary` gives (`degree_celsius` for a temperature, `percent` for a percentage), under the
     environment's `unit_targets` and `convert_units`. A `unit_targets` a caller passes to `values` is not
     followed: `coverage` takes no options. `unit_source` is the unit the provider publishes the parameter in
-    (`degree_kelvin`, `percent`), which the values come in with `convert_units` off. Absent: the same as `unit`.
+    (`degree_kelvin`, `one_eighth`), which the values come in with `convert_units` off. Absent: the same as `unit`.
     """
 
     name: str
@@ -1050,6 +1050,21 @@ class ParameterSearch:
         parameter = parts[2] if len(parts) == 3 else None
         return ParameterSearch(parts[0], parts[1], parameter)
 
+    def matches(self, parameter: ParameterModel) -> bool:
+        """Tell whether a parameter is the one this search names, by any of the names each part is addressed by.
+
+        The same names a request finds a parameter by (`search_parameter`): the canonical and the source's own, in any
+        casing, and the name of the `Resolution` member for a resolution. A search that names no parameter (a whole
+        dataset) matches none.
+        """
+        dataset = parameter.dataset
+        return (
+            self.parameter is not None
+            and self.resolution in _names(dataset.resolution)
+            and self.dataset in _names(dataset)
+            and self.parameter in _names(parameter)
+        )
+
     def concat(self) -> str:
         """Concatenate resolution, dataset and parameter with '/'."""
         return "/".join(filter(None, [self.resolution, self.dataset, self.parameter]))
@@ -1124,6 +1139,56 @@ def parse_parameters(
     for problem in problems:
         log.warning(problem)
     return parameters_found
+
+
+def requested_by_kind(
+    parameters: _PARAMETER_TYPE, metadata: MetadataModel
+) -> tuple[frozenset[tuple[str, str]], frozenset[tuple[str, str, str]]]:
+    """Tell which of what was asked for was a whole dataset and which a parameter by its name.
+
+    A request for ``hourly/large`` is read as every parameter of the dataset, which ``parse_parameters`` returns as
+    such: the flat list has lost that the caller named none of them. This keeps it, for what an answer says of a
+    parameter nobody named (``parameter-without-rows``). Returns the ``(resolution, dataset)`` of each entry that was a
+    dataset and the ``(resolution, dataset, name_original)`` of each that was a parameter, which one of a dataset also
+    asked for whole stays. An entry that does not resolve is left out: ``parse_parameters`` has said what is wrong with
+    it.
+    """
+    whole: set[tuple[str, str]] = set()
+    named: set[tuple[str, str, str]] = set()
+    for entry in _entries(parameters):
+        try:
+            search = ParameterSearch.parse(entry)
+            found = metadata.search_parameter(search)
+        except (ValueError, KeyError):
+            continue
+        for parameter in found:
+            key = (parameter.dataset.resolution.name, parameter.dataset.name)
+            if search.parameter is None:
+                whole.add(key)
+            else:
+                named.add((*key, parameter.name_original))
+    return frozenset(whole), frozenset(named)
+
+
+def whole_datasets_kept(parameters: _PARAMETER_TYPE, metadata: MetadataModel) -> list[DatasetModel | ParameterModel]:
+    """Resolve what was asked for as `parse_parameters` does, but keep an entry that was a dataset as that dataset.
+
+    For a caller that hands the result to a request, which reads a ``DatasetModel`` as every parameter of the dataset
+    and so gives the same parameters, and knows from it that none of them was named (`requested_by_kind`).
+    """
+    kept: list[DatasetModel | ParameterModel] = []
+    for entry in _entries(parameters):
+        try:
+            search = ParameterSearch.parse(entry)
+            found = metadata.search_parameter(search)
+        except (ValueError, KeyError):
+            continue
+        if search.parameter is None:
+            if found:
+                kept.append(found[0].dataset)
+        else:
+            kept.extend(found)
+    return kept
 
 
 def group_parameters_by_dataset(

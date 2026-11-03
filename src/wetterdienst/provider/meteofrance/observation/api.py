@@ -16,6 +16,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.model.judge import Beside, Bound, Rule
 from wetterdienst.model.quality_flags import (
     SPEED_BESIDE,
     Sentinel,
@@ -37,6 +38,7 @@ from wetterdienst.util.network import (
     download_files,
     fetchable_link,
 )
+from wetterdienst.util.response_warnings import note_skipped_download
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel, ParameterModel
@@ -648,6 +650,49 @@ _NO_WIND_DIRECTION = ("999",)
 _DAILY_NO_WIND_DIRECTION = (*_NO_WIND_DIRECTION, "400")
 
 
+# No frost at the stations of these departments (GH-3135), the first digits of the id of the station: Guadeloupe 971
+# (with Saint-Martin and Saint-Barthelemy; 15.9 to 18.1 N, 1 to 1,417 m at La Soufriere), Martinique 972 (14.4 to 14.9
+# N, 2 to 690 m), Guyane 973 (2.3 to 5.7 N, 2 to 290 m), the Iles Eparses 98403 (Glorieuses, Juan de Nova, Europa,
+# Tromelin; 11.6 to 22.3 S, 3 to 9 m; the daily minima run from 10.2 C at Europa), Mayotte 985 (12.7 to 13.0 S, 6 to 594
+# m), Wallis-et-Futuna 986 (13.2 to 14.3 S, 4 to 75 m; T stays at or above 17.8 C in every period, and the lowest hourly
+# dew point is 9.7 C, of 2010 to 2019) and French Polynesia 987 (8.0 to 27.6 S). Of the 226 stations of 987 in the
+# registry the 93 with a temperature stand at 0 to 816 m (TOOVII-PLATEAU); the one above, FAAA 5 (1,420 m), closed in
+# 1993 and has no temperature, and no station lies above 1,500 m. The southernmost, RAPA (98741001, 27.6 S, 2 m), reads
+# 9.1 C of T (8.9 C of TN) at the lowest hour of 2020 to 2024 and 8.5 C of TN at the lowest day since 1950 (1972), its
+# dew point 4.3 C; TUBUAI and MANGAREVA stay above 12 C. A temperature below 0 C of the air at 2 m, its extremes or its
+# dew point is no reading there. The hourly files of 971 (2000 to 2024) and of the six others (2020 to 2024) hold 20 T,
+# 18 TN, 1 TX and 734 TD hours below 0 C, at stations of 3 to 441 m and, for the dew point, at ST-CLAUDE CITERNE
+# (97124009, 1,141 m): runs of failed sensors, such as TD -39.5 C with U 1 % in 227 hours of 2010 to 2019 there, -20.0 C
+# of T, TN and TX at GROS-MORNE BOISLEZ (97212007, 441 m, 2021-05-10 12 h and 13 h), -26.6 C of the dew point at
+# FRANCOIS-CHOPOT (97210001, 39 hours) or -4.5 C at VAHIBE_SAPC (98511003, 222 m). The daily and monthly files add -10.9
+# C at ST-MARTIN GRAND-CASE (97127004, 5 m) and -11.5 C; TNSOL and TN50, which the library does not offer, hold -40.0
+# and -34.1 C at PETIT-BOURG (110 m) and MARIPASOULA (106 m). The value is null, and the number stays as the `raw`
+# token. Out of the list: La Reunion 974 (to 2,580 m, where frost occurs: -2.3 C at the PLAINE DES CHICOTS, 1,834 m,
+# quality 1), Saint-Pierre-et-Miquelon 975 (47 N), the southern territories 98404 (Kerguelen, Crozet,
+# Nouvelle-Amsterdam, Dumont d'Urville, Port-Martin: sub-Antarctic and Antarctic, where frost is the rule) and New
+# Caledonia 988. The registry's `department_id` is the prefix for every station of 97x and 98x.
+_FROSTLESS_PREFIXES = ("971", "972", "973", "98403", "985", "986", "987")
+_FROSTLESS_RULES: tuple[Rule, ...] = (
+    # a temperature below 0 C of the air at 2 m, its extremes or its dew point
+    Bound(low=0.0, unit_type="temperature"),
+    # the humidity beside such a dew point (the hourly files hold both columns)
+    Beside(target="humidity_relative", partner="temperature_dew_point_2m", when=lambda _, dew_point: dew_point.lt(0.0)),
+)
+
+
+# The relative humidity `U` of an hour whose dew point `TD` that rule nulls is null too (GH-3629): the same hygrometer
+# failed, and its `U` is as wrong as the `TD` computed from it (1 to 3 % at ST-CLAUDE CITERNE 97124009, 15 % at VAHIBE
+# 98511003, 13 to 20 % at DZOUMOGNE and COCONI, 3 % at TROMELIN beside a TD of -21.6 C). The dew point is read for it
+# whether it is asked for or not. No floor on the
+# humidity itself: a `U` of 20 % is a reading in a dry spell, and only the dew point tells. Only the hourly files hold
+# both columns.
+
+
+def _is_frostless(station_id: str) -> bool:
+    """Tell whether a station lies where there is no frost (``_FROSTLESS_PREFIXES``)."""
+    return station_id.startswith(_FROSTLESS_PREFIXES)
+
+
 def _department_from_station_id(station_id: str) -> str:
     """Get the French department code from an 8-digit NUM_POSTE station id."""
     return station_id[:3] if station_id[:2] in ("97", "98") else station_id[:2]
@@ -975,6 +1020,10 @@ _STATIONS_REGISTRY_SCHEMA = {
 class MeteoFranceObservationValues(TimeseriesValues):
     """Values class for Météo-France observation data."""
 
+    def _plausibility_rules(self, station_id: str, dataset: DatasetModel) -> tuple[Rule, ...]:  # noqa: ARG002
+        """Give the rules of a station without frost (`_FROSTLESS_PREFIXES`), none for any other."""
+        return _FROSTLESS_RULES if _is_frostless(station_id) else ()
+
     def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
@@ -1003,7 +1052,7 @@ class MeteoFranceObservationValues(TimeseriesValues):
         parameter_columns = [parameter.name_original for parameter in dataset]
         # a parameter's validation code is published in the column of its name with a Q in front (QRR for RR)
         flag_columns = {name: f"Q{name}" for name in parameter_columns}
-        read_columns = ["NUM_POSTE", date_column, *parameter_columns, *flag_columns.values()]
+        read_columns = ["NUM_POSTE", date_column, *dict.fromkeys(parameter_columns), *flag_columns.values()]
         files_by_url = _download_climate_resources(matches, settings)
         # _download_climate_resources already retried each once; a failure other than a 404 surviving
         # that is an outage, and is raised rather than leaving the bucket out of a result that reads
@@ -1015,6 +1064,7 @@ class MeteoFranceObservationValues(TimeseriesValues):
         for resource in matches:
             file = files_by_url[resource["url"]]
             if isinstance(file.content, Exception):
+                note_skipped_download()
                 log.warning(f"Failed to download {file.url}: {file.content}")
                 continue
             df = pl.read_csv(
@@ -1052,7 +1102,7 @@ class MeteoFranceObservationValues(TimeseriesValues):
         # the codes the source writes in place of a number become null before the unit conversion (GH-2687, GH-2720),
         # and keep their text as `raw:` after the validation code; a text that is no number was nulled by the cast
         # alone (the files hold none: GH-2719) and now keeps its text too
-        value, raw = null_sentinels(pl.col("value"), *_sentinels(resolution_name), non_numeric=True)
+        value, raw = null_sentinels(pl.col("value"), *_codes(resolution_name), non_numeric=True)
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`)
         df = df.select(
             # kept as published (e.g. "RR", "TN"), matching the case of name_original in the
@@ -1061,6 +1111,8 @@ class MeteoFranceObservationValues(TimeseriesValues):
             pl.col("parameter"),
             _parse_climate_date(pl.col(date_column), resolution_name, fu_hours).alias("timestamp"),
             value.alias("value"),
+            # the text the file wrote, which the core writes in the `raw:` token of a value it rejects
+            pl.col("value").alias("source_text"),
             # the validation code (9 filtered, 0 protected, 1 validated, 2 doubtful), verbatim and null where the
             # source leaves it blank (GH-2018)
             join_quality_flags(pl.col("quality_flags"), raw=raw),
@@ -1069,7 +1121,7 @@ class MeteoFranceObservationValues(TimeseriesValues):
         return self._note_files_with_rows(df, dataset)
 
 
-def _sentinels(resolution_name: str) -> list[Sentinel]:
+def _codes(resolution_name: str) -> list[Sentinel]:
     """List the codes the source writes in place of a number, for the files of a resolution."""
     directions = list(_WIND_SPEED_OF_DIRECTION.get(resolution_name, {}))
     # the speed of a direction's own reading, which `with_speed_beside` has laid beside it

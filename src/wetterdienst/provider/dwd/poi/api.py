@@ -44,6 +44,7 @@ from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.dwd.catalogue import read_mosmix_station_catalogue
 from wetterdienst.provider.dwd.poi.metadata import DwdPoiMetadata
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
+from wetterdienst.util.response_warnings import note_skipped_download
 
 if TYPE_CHECKING:
     from wetterdienst.settings import Settings
@@ -132,12 +133,14 @@ class DwdPoiValues(TimeseriesValues):
         if file.status != 404:
             file.raise_if_exception()
         if isinstance(file.content, Exception):
+            note_skipped_download()
             log.warning(f"Failed to fetch POI report for station {station_id}: {file.content}")
             return pl.DataFrame()
         # DWD rewrites all ~970 files every hour, and a rewrite in progress can be served as an
         # empty 200. polars raises NoDataError on those bytes, which would abort a whole
         # multi-station query over one file
         if file.is_empty:
+            note_skipped_download()
             log.warning(f"POI report for station {station_id} is empty")
             return pl.DataFrame()
         df = _read_poi_csv(file.content.read())

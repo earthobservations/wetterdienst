@@ -84,8 +84,8 @@ def test_hourly_sunshine_duration_comes_out_as_the_long_form(monkeypatch: pytest
     assert set(df["parameter"]) == {"sunshine_duration", "sunshine_duration_uncertainty"}
     sunshine = df.filter(pl.col("parameter") == "sunshine_duration").sort("timestamp")
     assert sunshine["timestamp"].to_list() == [_day(2025, 4, 9, hour) for hour in (10, 11, 12)]
-    # the unit of the source is the minute, which the core converts to the second
-    assert sunshine["value"].to_list() == [42.0 * 60, 60.0 * 60, None]
+    # the unit of the source is the minute, which the core converts to the hour
+    assert sunshine["value"].to_list() == [0.7, 1.0, None]
     assert sunshine["quality_flags"].to_list() == ["500", "500", "500,raw:-999"]
 
 

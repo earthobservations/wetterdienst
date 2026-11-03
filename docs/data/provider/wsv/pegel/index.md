@@ -23,6 +23,12 @@ fragmentary provided per each station:
 - hhw -> highest water level
 - hsw -> highest of shipping water level
 
+These are returned in metres, the unit `stage` comes back in by default, each converted from the unit
+Pegelonline lists it in (`cm` for all of them at present; `m` is the unit of the limits of a gauge in metres above
+sea level, which are no column); a level in a unit the reader does not know is null. `unit_targets` does not apply
+to them, as they are no parameters: a stage asked for in centimetres
+(`unit_targets={"length_medium": "centimeter"}`) is 100 times these.
+
 Each station also lists the altitude of its stage gauge's zero, in metres, as `gauge_zero`, and the
 vertical datum that altitude is given in, as Pegelonline publishes it, as `gauge_zero_datum`: mostly
 `m. ü. NHN`, but `m. ü. NN` for some gauges, `m ü. A.` for the Austrian ones on the Danube and
@@ -30,7 +36,8 @@ vertical datum that altitude is given in, as Pegelonline publishes it, as `gauge
 
 It also names the river the gauge is on, as Pegelonline publishes it (`ELBE`), as `river`, and the
 gauge's position along it, in kilometres, as `river_kilometer`; the latter is null for the few gauges
-that have none.
+that have none. It is the German waterway kilometre, which grows downstream; `imgw/hydrology` counts
+its `river_kilometer` from the river's mouth instead.
 
 ```{toctree}
 :hidden:

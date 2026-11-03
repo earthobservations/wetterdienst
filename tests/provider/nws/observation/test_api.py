@@ -121,11 +121,12 @@ def test_nws_url_names_the_window_in_utc_whatever_zone_it_was_asked_in(
     assert "end=2026-08-21T00%3A30%3A00Z" in url
 
 
+@pytest.mark.usefixtures("window_not_required")
 def test_nws_url_names_no_window_where_the_request_carries_no_dates() -> None:
     """Test that a request without dates asks for the endpoint's own default, a page of 500 observations.
 
-    `date_required` is enforced at the CLI and the REST API but not in the Python API, so a
-    request can reach the endpoint with nothing to narrow it to.
+    `TimeseriesValues` refuses a request without dates (GH-3562), so this takes the fixture that lets the
+    reader be built: the URL is what it asked for before.
     """
     request = NwsObservationRequest(parameters=[("hourly", "data", "temperature_air_2m")])
 
@@ -275,6 +276,49 @@ def test_nws_values_carry_the_madis_quality_control_flag_of_each_quantity(monkey
     assert temperature.select("value", "quality_flags").rows() == [(16.0, "V"), (15.0, "S"), (None, "Z")]
     assert "quality" not in df.columns
     assert "quality_flag" not in df.columns
+
+
+@pytest.mark.parametrize("mode", ["soft", "hard"])
+def test_nws_values_are_judged_by_the_check_source_on_x_q_and_b_alone(
+    monkeypatch: pytest.MonkeyPatch,
+    mode: str,
+) -> None:
+    """Test that `X`, `Q` and `B` of MADIS are the verdict of the check `source`, and `Z C S V G T` are not (GH-3745).
+
+    MADIS (madis.ncep.noaa.gov/madis_sfc_qc_notes.shtml, read 2026-11-02): "X - Rejected/erroneous, failed level 1",
+    "Q - Questioned, passed level 1, failed 2 or 3", "B - Subjective bad"; the NWS API names that page as the definition
+    of `qualityControl`. A sample of 20 stations (2026-11-02) held none of them, so the rows are written as MADIS words
+    them. Soft flags all three; hard nulls `X` and `B` and still only flags `Q`, the milder level.
+    """
+    flags = ["Z", "C", "S", "V", "G", "T", "X", "Q", "B"]
+    features = [
+        {
+            "properties": {
+                "station": "https://api.weather.gov/stations/KDEN",
+                "timestamp": f"2026-08-20T{hour:02d}:00:00+00:00",
+                "temperature": {"unitCode": "wmoUnit:degC", "value": 16 + hour, "qualityControl": flag},
+            }
+        }
+        for hour, flag in enumerate(flags)
+    ]
+    serve(monkeypatch, nws_api, {"/observations": json.dumps({"features": features}).encode()})
+    request = _request(Settings(cache_disable=True), Options(drop_nulls=False, plausibility={"source": mode}))
+    sr = stations_result(request, "hourly", "data", "KDEN")
+    df = NwsObservationValues(sr=sr).all().df
+    rows = df.filter(pl.col("parameter") == "temperature_air_2m").sort("timestamp")
+    texts = rows.get_column("quality_flags").to_list()
+    values = rows.get_column("value").to_list()
+    # Z C S V G T say how far a value got or that a person found it good: no verdict
+    assert texts[:6] == ["Z", "C", "S", "V", "G", "T"]
+    assert values[:6] == [16.0 + hour for hour in range(6)]
+    # Q is the milder level: flagged in both modes, never nulled
+    assert (texts[7], values[7]) == ("Q,suspect:source", 23.0)
+    if mode == "soft":
+        assert texts[6:9:2] == ["X,suspect:source", "B,suspect:source"]
+        assert values[6:9:2] == [22.0, 24.0]
+    else:
+        assert texts[6:9:2] == ["X,rejected:source,raw:22", "B,rejected:source,raw:24"]
+        assert values[6:9:2] == [None, None]
 
 
 def test_nws_values_null_the_wind_direction_of_a_calm_and_keep_north(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -800,8 +844,10 @@ def test_nws_hourly_fills_every_quantity_of_the_list_and_none_of_the_others(monk
         "windChill": "temperature_wind_chill",
     }
     quantities = {**filled, **not_filled}
-    # readings in the plausible range of each quantity, in the endpoint's units
-    readings = {"relativeHumidity": 70.0, "barometricPressure": 84000.0, "seaLevelPressure": 101000.0}
+    # readings in the plausible range of each quantity, in the endpoint's units: `barometricPressure` is the altimeter
+    # setting of the METAR (the station pressure corrected to sea level), so it is held to the range of a pressure at
+    # sea level, 850 to 1100 hPa, and not to that of a station (GH-3681)
+    readings = {"relativeHumidity": 70.0, "barometricPressure": 101700.0, "seaLevelPressure": 101000.0}
     readings |= {"visibility": 10000.0, "windDirection": 270.0, "windGust": 30.0}
     observations = [
         _raw_observation(_stamp("10-14 14:53"), report=True, **dict.fromkeys(quantities, (None, "Z"))),
@@ -1187,8 +1233,9 @@ def test_nws_hourly_reads_the_report_of_an_hour_that_two_pages_split(monkeypatch
     assert all(value != round(value) for value in df.sort("timestamp").get_column("value").to_list()[1:])
 
 
+@pytest.mark.usefixtures("window_not_required")
 def test_nws_hourly_without_dates_reads_the_pages_to_the_end_of_the_week(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that a request without dates, which the Python API allows, is not cut at 500 observations (GH-2994)."""
+    """Test that a request without dates (no longer allowed) is not cut at 500 observations (GH-2994)."""
     urls = _serve_pages(monkeypatch, _three_days())
     request = NwsObservationRequest(
         parameters=[("hourly", "data", "temperature_air_2m")],

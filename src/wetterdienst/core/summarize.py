@@ -27,8 +27,10 @@ from wetterdienst.core.util import (
     report_elevation_exclusions,
     unanswerable_at_elevation,
     widest_station_distance,
+    zero_elevation_is_unknown,
 )
 from wetterdienst.model.metadata import ParameterModel
+from wetterdienst.model.plausibility import leave_out_suspect
 from wetterdienst.model.schema import SUMMARIZED_SCHEMA, select_schema
 from wetterdienst.util.logging import TqdmToLogger
 
@@ -125,8 +127,11 @@ def request_stations(
     # distance its own dataset's meta index reported. `query()` yields one result per station, and
     # the row that answers for it is the closest one rather than whichever happened to sort last,
     # with an elevation from whichever of its rows has one
+    # a network that lists 0.0 for a station of which it knows no elevation has none for it here (GH-3708)
+    zero_is_unknown = zero_elevation_is_unknown(request)
     stations_by_id = {
-        station["station_id"]: station for station in one_row_per_station(df_stations_ranked).iter_rows(named=True)
+        station["station_id"]: station
+        for station in one_row_per_station(df_stations_ranked, zero_is_unknown=zero_is_unknown).iter_rows(named=True)
     }
     # counted once, off the ranking, before a single value is downloaded: what each parameter has
     # in its own radius, and how much of that reports an elevation
@@ -135,6 +140,7 @@ def request_stations(
         request.parameters,
         options,
         request.interpolatable_parameters,
+        zero_is_unknown=zero_is_unknown,
     )
     unanswerable = unanswerable_at_elevation(counts, elevation, STATIONS_NEEDED)
     if unanswerable and unanswerable == set(counts):
@@ -146,6 +152,10 @@ def request_stations(
     # no files are fetched ahead of this walk: it stops where the stations found are enough, which only the data says,
     # so what was fetched ahead of that point would be downloaded and never read (GH-3454)
     values._fetch_ahead_allowed = False  # noqa: SLF001
+    # what it hands out is an estimate, not the readings of the source: the markers of the stations it reads are not
+    # the markers of its answer (GH-3554)
+    values._count_missing_value_markers = False  # noqa: SLF001
+    values._warn_without_rows = False  # noqa: SLF001
     for result in tqdm(
         values.query(),
         total=len(stations_by_id),
@@ -154,15 +164,17 @@ def request_stations(
         file=tqdm_out,
     ):
         station = stations_by_id[result.df.get_column("station_id")[0]]
+        # a value a soft check flags suspect is left out, whatever the mode of the request (GH-3676)
+        result_df = leave_out_suspect(result.df)
         # check if all parameters found enough stations and the stations build a valid station group
         if collection_is_done(
             param_dict, dropped_for_elevation.keys() & parameters_still_in_reach(counts, station["distance"])
         ):
             break
-        if result.df.drop_nulls("value").is_empty():
+        if result_df.drop_nulls("value").is_empty():
             continue
         if apply_station_values_per_parameter(
-            result.df,
+            result_df,
             stations_ranked,
             param_dict,
             station,

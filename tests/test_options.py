@@ -42,6 +42,17 @@ class Case:
         return self.name
 
 
+#: the modes of the checks, as they are without a setting (GH-3676)
+DEFAULT_PLAUSIBILITY = {
+    "range": "hard",
+    "elevation": "hard",
+    "stuck": "soft",
+    "consistency": "hard",
+    "floor": "hard",
+    "limits": "hard",
+    "source": "soft",
+}
+
 #: what an option is dumped as: the per-parameter radii as the overrides that were given
 CASES = [
     Case("humanize", default=True, env="false", parsed=False, bad=["maybe"], bad_env="maybe"),
@@ -81,10 +92,38 @@ CASES = [
     Case("geo_min_gain_of_value_pairs", 0.1, "0.2", 0.2, [-0.1], "-0.1"),
     Case("geo_num_additional_stations", 3, "5", 5, [-1], "-1"),
     Case("station_window_end_buffer", None, "7", 7, [-1, 3661, 1.5], "-1"),
+    Case(
+        "plausibility",
+        DEFAULT_PLAUSIBILITY,
+        '{"range":"soft"}',
+        {**DEFAULT_PLAUSIBILITY, "range": "soft"},
+        [{"range": "off"}, {"nonsense": "soft"}, 5],
+        '{"range":"off"}',
+    ),
+    Case(
+        "limits",
+        {},
+        '{"temperature_air_mean_2m":[-30,45],"precipitation_amount":[null,200]}',
+        {"temperature_air_mean_2m": (-30.0, 45.0), "precipitation_amount": (None, 200.0)},
+        [
+            {"nonsense": [1, 2]},
+            {"temperature_air_mean_2m": [5, 1]},
+            {"temperature_air_mean_2m": [None, None]},
+            {"temperature_air_mean_2m": [float("nan"), 1]},
+            5,
+        ],
+        '{"nonsense":[1,2]}',
+    ),
 ]
 CASE_IDS = [case.name for case in CASES]
 #: the options a mapping is merged into from the environment, so a given value does not replace it
-MAPPINGS = {"unit_targets", "geo_station_distance", "geo_station_distance_resolution_factors"}
+MAPPINGS = {
+    "unit_targets",
+    "geo_station_distance",
+    "geo_station_distance_resolution_factors",
+    "plausibility",
+    "limits",
+}
 
 
 @pytest.fixture(autouse=True)

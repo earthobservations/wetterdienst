@@ -139,7 +139,7 @@ def _phase(event: str) -> str:
 # 0 07 032) of 4.0, 4.05 or 5.0 m, or none, never 2 m (GH-2614); the provider's description of the field says so.
 PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
-        "clearance_height", "length_short", "Vertical clearance between the water surface and the structure above it."
+        "clearance_height", "length_medium", "Vertical clearance between the water surface and the structure above it."
     ),
     CanonicalParameter(
         "climate_correction_factor", "dimensionless", "Factor correcting a degree-day total for the local climate."
@@ -263,6 +263,16 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Cooling degree hours, the temperature excess above a base value summed over each hour.",
         interpolation="homogeneous",
     ),
+    CanonicalParameter(
+        "count_days_cloud_cover_total_mean_gt_80pct",
+        "dimensionless",
+        "Number of days on which the mean total cloud cover was more than 80 percent.",
+    ),
+    CanonicalParameter(
+        "count_days_cloud_cover_total_mean_lt_20pct",
+        "dimensionless",
+        "Number of days on which the mean total cloud cover was less than 20 percent.",
+    ),
     CanonicalParameter("count_days_cooling_degree", "dimensionless", "Number of days on which cooling was required."),
     CanonicalParameter(
         "count_days_frost",
@@ -340,6 +350,12 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Number of days on which at least 5 mm of precipitation fell.",
     ),
     CanonicalParameter(
+        "count_days_snow_cover_gt_50pct",
+        "dimensionless",
+        "Number of days on which the snow depth was more than 0 and more than 50 percent of the ground was covered "
+        "by snow.",
+    ),
+    CanonicalParameter(
         "count_days_snow_depth_ge_1cm",
         "dimensionless",
         "Number of days on which the snow depth reached at least 1 cm.",
@@ -353,6 +369,11 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "count_days_summer",
         "dimensionless",
         "Number of days on which the maximum air temperature reached at least 25 degrees Celsius.",
+    ),
+    CanonicalParameter(
+        "count_days_temperature_air_min_2m_lt_minus_10c",
+        "dimensionless",
+        "Number of days on which the minimum air temperature fell below -10 degrees Celsius.",
     ),
     CanonicalParameter(
         "count_days_tropical_night",
@@ -391,6 +412,30 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Number of days in the period carrying a valid minimum air temperature observation.",
     ),
     CanonicalParameter(
+        "count_days_wind_speed_rolling_mean_max_ge_10_8mps",
+        "dimensionless",
+        "Number of days on which the highest rolling mean wind speed (`wind_speed_rolling_mean_max`) reached at "
+        "least 10.8 m/s.",
+    ),
+    CanonicalParameter(
+        "count_days_wind_speed_rolling_mean_max_ge_20_8mps",
+        "dimensionless",
+        "Number of days on which the highest rolling mean wind speed (`wind_speed_rolling_mean_max`) reached at "
+        "least 20.8 m/s.",
+    ),
+    CanonicalParameter(
+        "count_days_wind_speed_rolling_mean_max_ge_24_5mps",
+        "dimensionless",
+        "Number of days on which the highest rolling mean wind speed (`wind_speed_rolling_mean_max`) reached at "
+        "least 24.5 m/s.",
+    ),
+    CanonicalParameter(
+        "count_days_wind_speed_rolling_mean_max_ge_28_5mps",
+        "dimensionless",
+        "Number of days on which the highest rolling mean wind speed (`wind_speed_rolling_mean_max`) reached at "
+        "least 28.5 m/s.",
+    ),
+    CanonicalParameter(
         "count_hours_cooling_degree", "dimensionless", "Number of hours during which cooling was required."
     ),
     CanonicalParameter("count_weather_type_dew", "dimensionless", "Number of days on which dew was observed."),
@@ -417,7 +462,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter("discharge_mean", "volume_per_time", "Mean discharge over the period."),
     CanonicalParameter("discharge_min", "volume_per_time", "Lowest discharge observed over the period."),
     CanonicalParameter(
-        "distance_river_gauge_height", "length_short", "Height of the gauge zero point above the reference datum."
+        "distance_river_gauge_height", "length_medium", "Height of the gauge zero point above the reference datum."
     ),
     CanonicalParameter(
         "electric_conductivity",
@@ -429,13 +474,13 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     ),
     CanonicalParameter(
         "error_absolute_temperature_air_2m",
-        "temperature",
-        "Absolute error attached to the reported air temperature.",
+        "temperature_difference",
+        "Absolute error attached to the reported air temperature, a temperature difference in kelvin.",
     ),
     CanonicalParameter(
         "error_absolute_temperature_dew_point_2m",
-        "temperature",
-        "Absolute error attached to the reported dew point.",
+        "temperature_difference",
+        "Absolute error attached to the reported dew point, a temperature difference in kelvin.",
     ),
     CanonicalParameter(
         "error_absolute_wind_direction", "angle", "Absolute error attached to the reported wind direction."
@@ -564,6 +609,11 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "humidity_relative_min", "fraction", "Lowest relative humidity over the period.", interpolation="homogeneous"
     ),
     CanonicalParameter("ice_on_water_thickness", "length_short", "Thickness of the ice covering the water surface."),
+    CanonicalParameter(
+        "leaf_wetness_duration",
+        "duration",
+        "Length of time during which the leaves of a plant were wet.",
+    ),
     CanonicalParameter("count_days_in_month", "dimensionless", "Number of days in the month the record covers."),
     CanonicalParameter("count_hours_in_month", "dimensionless", "Number of hours in the month the record covers."),
     CanonicalParameter("oxygen_level", "concentration", "Concentration of oxygen dissolved in the water."),
@@ -583,7 +633,9 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "phenology_bleeding_first", "dimensionless", _phase("on which sap first bled from the pruned vine")
     ),
     CanonicalParameter(
-        "phenology_bud_formation_beginning", "dimensionless", _phase("on which flower bud formation began")
+        "phenology_bud_formation_beginning",
+        "dimensionless",
+        _phase("on which the terminal or flower bud of about half of the plants became visible"),
     ),
     CanonicalParameter("phenology_bud_swelling", "dimensionless", _phase("on which the buds first swelled noticeably")),
     CanonicalParameter(
@@ -592,17 +644,39 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         _phase("on which the grain reached dough (wax-ripe) stage"),
     ),
     CanonicalParameter(
-        "phenology_emergence_beginning", "dimensionless", _phase("on which the first seedlings emerged")
+        "phenology_emergence_beginning",
+        "dimensionless",
+        _phase("on which the plants or seedlings had broken through the soil"),
     ),
-    CanonicalParameter("phenology_flowering_beginning", "dimensionless", _phase("on which the first flowers opened")),
-    CanonicalParameter("phenology_flowering_end", "dimensionless", _phase("on which the last flowers had faded")),
+    CanonicalParameter(
+        "phenology_flowering_beginning",
+        "dimensionless",
+        _phase(
+            "on which flowering began, as DWD defines it per plant: mostly the first flowers opened, for some plants "
+            "the first pollen released, for a few a share of the flowers, ears, flower heads or plants (5%, for elder "
+            "50%)"
+        ),
+    ),
+    CanonicalParameter(
+        "phenology_flowering_end",
+        "dimensionless",
+        _phase(
+            "on which flowering was nearly over: about 95% of the flowers, of the stand (rapeseed) or of the "
+            "inflorescences (grapevine) had faded"
+        ),
+    ),
     CanonicalParameter(
         "phenology_flowering_end_observation_area",
         "dimensionless",
         _phase("on which flowering ended across the whole observation area"),
     ),
     CanonicalParameter(
-        "phenology_flowering_general", "dimensionless", _phase("on which about half of the flowers were open")
+        "phenology_flowering_general",
+        "dimensionless",
+        _phase(
+            "on which about half of the flowers were open (for rye, the grasses and maize: about half of the ears, "
+            "spike-like panicles, spikelets or plants releasing pollen)"
+        ),
     ),
     CanonicalParameter(
         "phenology_fruit_ripe_first", "dimensionless", _phase("on which the first fruits were fully ripe")
@@ -622,10 +696,16 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "phenology_grape_ripeness_beginning",
         "dimensionless",
-        _phase("on which the grapes began to ripen (veraison)"),
+        _phase(
+            "on which the berries began to soften and lighten (veraison), on about a quarter of the bunches or berries"
+        ),
     ),
     CanonicalParameter("phenology_harvest", "dimensionless", _phase("on which the crop was harvested")),
-    CanonicalParameter("phenology_harvest_by_hand", "dimensionless", _phase("on which the crop was harvested by hand")),
+    CanonicalParameter(
+        "phenology_harvest_by_hand",
+        "dimensionless",
+        _phase("on which the harvest began with a scythe or a simple machine"),
+    ),
     CanonicalParameter("phenology_hay_cut_first", "dimensionless", _phase("of the first cut of the grassland for hay")),
     CanonicalParameter(
         "phenology_hay_cut_second", "dimensionless", _phase("of the second cut of the grassland for hay")
@@ -643,9 +723,13 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "phenology_heading_beginning",
         "dimensionless",
-        _phase("on which the first ears emerged from the flag leaf"),
+        _phase("on which the tips of the ears pushed out of the leaf sheaths on about half of the stems"),
     ),
-    CanonicalParameter("phenology_height_growth_beginning", "dimensionless", _phase("on which growth in height began")),
+    CanonicalParameter(
+        "phenology_height_growth_beginning",
+        "dimensionless",
+        _phase("on which about half of the plants had begun to grow in height"),
+    ),
     CanonicalParameter(
         "phenology_leaf_colouring_autumn",
         "dimensionless",
@@ -654,11 +738,15 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "phenology_leaf_fall_autumn", "dimensionless", _phase("on which about half of the leaves had fallen")
     ),
-    CanonicalParameter("phenology_leaf_formation_beginning", "dimensionless", _phase("on which leaf formation began")),
+    CanonicalParameter(
+        "phenology_leaf_formation_beginning",
+        "dimensionless",
+        _phase("on which about half of the plants had unfolded their first pair of leaves"),
+    ),
     CanonicalParameter(
         "phenology_leaf_unfolding_beginning",
         "dimensionless",
-        _phase("on which the first leaves had fully unfolded"),
+        _phase("on which the first leaves had unfolded (for the horse chestnut, the leaflets risen into a hand)"),
     ),
     CanonicalParameter(
         "phenology_may_sprouting",
@@ -686,7 +774,9 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         _phase("on which the first needle bundles unfolded"),
     ),
     CanonicalParameter(
-        "phenology_panicle_emergence_beginning", "dimensionless", _phase("on which the panicle first emerged")
+        "phenology_panicle_emergence_beginning",
+        "dimensionless",
+        _phase("on which the tips of the panicles pushed out of the leaf sheaths on about half of the stems"),
     ),
     CanonicalParameter(
         "phenology_picking_ripeness_beginning",
@@ -697,10 +787,14 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "phenology_planting_beginning", "dimensionless", _phase("on which planting out of the crop began")
     ),
     CanonicalParameter(
-        "phenology_rosette_formation_beginning", "dimensionless", _phase("on which rosette formation began")
+        "phenology_rosette_formation_beginning",
+        "dimensionless",
+        _phase("on which about half of the plants had formed the fourth leaf of the rosette"),
     ),
     CanonicalParameter(
-        "phenology_shooting_beginning", "dimensionless", _phase("on which stem elongation (shooting) began")
+        "phenology_shooting_beginning",
+        "dimensionless",
+        _phase("on which about half of the plants were elongating clearly and the first stem node was palpable"),
     ),
     CanonicalParameter(
         "phenology_silage_cut_first", "dimensionless", _phase("of the first cut of the grassland for silage")
@@ -714,7 +808,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "phenology_silk_emergence_beginning",
         "dimensionless",
-        _phase("on which the silks of the maize first emerged"),
+        _phase("on which the female inflorescences, with long silks, appeared on about half of the maize plants"),
     ),
     CanonicalParameter(
         "phenology_sowing_beginning", "dimensionless", _phase("on which sowing or drilling of the crop began")
@@ -722,7 +816,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "phenology_sprouting_beginning",
         "dimensionless",
-        _phase("on which the first buds broke and leaf green became visible"),
+        _phase("on which the first buds broke open, for most plants with the first leaf green visible"),
     ),
     CanonicalParameter(
         "phenology_st_johns_sprouting",
@@ -730,15 +824,17 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         _phase("on which the midsummer (St. John's) shoot appeared"),
     ),
     CanonicalParameter(
-        "phenology_stand_closed", "dimensionless", _phase("on which the crop stand had closed over the rows")
+        "phenology_stand_closed", "dimensionless", _phase("on which about half of the plants touched across the rows")
     ),
     CanonicalParameter(
         "phenology_tassel_tip_visible",
         "dimensionless",
-        _phase("on which the tip of the maize tassel first became visible"),
+        _phase("on which the tassel became visible on about half of the maize plants"),
     ),
     CanonicalParameter(
-        "phenology_turning_green_beginning", "dimensionless", _phase("on which the plant began to turn green")
+        "phenology_turning_green_beginning",
+        "dimensionless",
+        _phase("on which about a quarter of the grassland showed fresh green"),
     ),
     CanonicalParameter(
         "phenology_yellow_ripeness_beginning",
@@ -747,7 +843,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     ),
     CanonicalParameter(
         "precipitation_duration",
-        "time",
+        "duration",
         "Length of time during which precipitation fell.",
         interpolation="heterogeneous",
         zero_inflated=True,
@@ -975,9 +1071,22 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
+        "pressure_air_sea_level_max",
+        "pressure",
+        "Highest air pressure reduced to mean sea level over the period, so that stations at different heights "
+        "compare.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
         "pressure_air_sea_level_mean",
         "pressure",
         "Mean air pressure reduced to mean sea level over the period, so that stations at different heights compare.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "pressure_air_sea_level_min",
+        "pressure",
+        "Lowest air pressure reduced to mean sea level over the period, so that stations at different heights compare.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
@@ -1549,6 +1658,12 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "road stations' `road_surface_condition` (0 dry, 1 moist, 2 wet, ...).",
     ),
     CanonicalParameter(
+        "snow_cover",
+        "fraction",
+        "Fraction of the ground that is covered by snow.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
         "snow_depth",
         "length_short",
         "Depth of the snow lying on the ground, where the source states no statistic or a reading at one "
@@ -1569,7 +1684,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     ),
     CanonicalParameter(
         "snow_depth_sum",
-        "length_short",
+        "length_day",
         "Sum of the daily depths of the snow lying on the ground over the days of the period, in cm times days.",
         interpolation="homogeneous",
     ),
@@ -1780,23 +1895,23 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "dimensionless",
         "Coded state of the ground surface, such as dry, moist, frozen or snow-covered.",
     ),
-    CanonicalParameter("stage", "length_short", "Water level at the gauge, measured against the gauge datum."),
-    CanonicalParameter("stage_max", "length_short", "Highest water level at the gauge over the period."),
-    CanonicalParameter("stage_mean", "length_short", "Mean water level at the gauge over the period."),
-    CanonicalParameter("stage_min", "length_short", "Lowest water level at the gauge over the period."),
+    CanonicalParameter("stage", "length_medium", "Water level at the gauge, measured against the gauge datum."),
+    CanonicalParameter("stage_max", "length_medium", "Highest water level at the gauge over the period."),
+    CanonicalParameter("stage_mean", "length_medium", "Mean water level at the gauge over the period."),
+    CanonicalParameter("stage_min", "length_medium", "Lowest water level at the gauge over the period."),
     CanonicalParameter("sun_zenith_angle", "angle", "Angle between the sun and the vertical."),
     CanonicalParameter(
-        "sunshine_duration", "time", "Length of time the sun shone unobstructed.", interpolation="homogeneous"
+        "sunshine_duration", "duration", "Length of time the sun shone unobstructed.", interpolation="homogeneous"
     ),
     CanonicalParameter(
         "sunshine_duration_last_3h",
-        "time",
+        "duration",
         "Length of time the sun shone unobstructed in the preceding 3 hours.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
         "sunshine_duration_normal",
-        "time",
+        "duration",
         "Climatological normal of the sunshine duration for the period.",
         interpolation="homogeneous",
     ),
@@ -1813,11 +1928,11 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "sunshine_duration_uncertainty", "time", "Uncertainty attached to the reported sunshine duration."
+        "sunshine_duration_uncertainty", "duration", "Uncertainty attached to the reported sunshine duration."
     ),
     CanonicalParameter(
         "sunshine_duration_yesterday",
-        "time",
+        "duration",
         "Length of time the sun shone unobstructed on the previous day.",
         interpolation="homogeneous",
     ),
@@ -1901,6 +2016,12 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "temperature_air_mean_0_1m",
         "temperature",
         "Mean air temperature at 0.1 m above ground.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "temperature_air_mean_grass_height",
+        "temperature",
+        "Mean air temperature at grass height, 5 to 20 cm above ground.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
@@ -2518,6 +2639,12 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
+        "temperature_soil_mean_0_3m",
+        "temperature",
+        "Mean soil temperature at 0.3 m depth.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
         "temperature_soil_mean_0_5m",
         "temperature",
         "Mean soil temperature at 0.5 m depth.",
@@ -3007,6 +3134,13 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     ),
     CanonicalParameter("turbidity", "turbidity", "Cloudiness of the water caused by suspended particles."),
     CanonicalParameter(
+        "vapor_pressure_deficit_mean",
+        "pressure",
+        "Mean difference between the pressure of water vapour in saturated air and the partial pressure of water "
+        "vapour in the air, at the temperature of the air, over the period.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
         "visibility",
         "length_medium",
         "Horizontal distance at which an object can still be made out, where the source states no statistic "
@@ -3064,14 +3198,14 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         zero_inflated=True,
     ),
     CanonicalParameter(
-        "water_film_thickness", "length_short", "Thickness of the film of water lying on the road surface."
+        "water_film_thickness", "length_tiny", "Thickness of the film of water lying on the road surface."
     ),
     CanonicalParameter(
-        "wave_height_max", "length_short", "Height of the highest single wave observed over the period."
+        "wave_height_max", "length_medium", "Height of the highest single wave observed over the period."
     ),
     CanonicalParameter(
         "wave_height_significant",
-        "length_short",
+        "length_medium",
         "Significant wave height, the mean height of the highest third of the waves.",
     ),
     CanonicalParameter("wave_period", "time", "Mean time between successive wave crests."),

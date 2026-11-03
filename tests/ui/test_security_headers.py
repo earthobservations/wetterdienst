@@ -18,7 +18,13 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from tests.ui.test_restapi import _OBSERVATION, _stub_result, _stub_stream, _values_result_of_shape
+from tests.ui.test_restapi import (
+    _OBSERVATION,
+    _stub_result,
+    _stub_stream,
+    _stub_stripes_station,
+    _values_result_of_shape,
+)
 from wetterdienst.ui import restapi
 from wetterdienst.ui.middleware import RequestContextMiddleware
 from wetterdienst.ui.problems import problem_headers
@@ -120,7 +126,8 @@ def test_stripes_image_answers_nosniff_in_every_image_format(
         def to_image(self, *_args: object, **_kwargs: object) -> bytes:
             return b"image"
 
-    monkeypatch.setattr(restapi, "_plot_stripes", lambda _request: _Figure())
+    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
     response = client.get("/api/stripes/image", params={"kind": "temperature", "station": "01048", "format": fmt})
 
     assert response.status_code == 200
@@ -288,7 +295,8 @@ def test_stripes_svg_has_the_policy_and_the_other_images_none(
         def to_image(self, *_args: object, **_kwargs: object) -> bytes:
             return b"image"
 
-    monkeypatch.setattr(restapi, "_plot_stripes", lambda _request: _Figure())
+    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
     policies = {}
     for fmt in ("png", "jpg", "svg", "pdf"):
         response = client.get("/api/stripes/image", params={"kind": "temperature", "station": "01048", "format": fmt})

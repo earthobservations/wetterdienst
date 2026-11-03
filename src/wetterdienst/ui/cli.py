@@ -31,12 +31,17 @@ from wetterdienst.exceptions import (
     ReversedTimeIntervalError,
 )
 from wetterdienst.io.export import require_kaleido
+from wetterdienst.io.formats import FORMATS, names_of
+from wetterdienst.io.sinks import refuse_metadata_without_file
 from wetterdienst.metadata.unit_type import UnitType
+from wetterdienst.model.limits import read_limit_text
+from wetterdienst.model.plausibility import CHECKS, Mode, default_mode, forecast_note, hard_means
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.options import Options
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.settings import check_settings
 from wetterdienst.ui.core import (
+    PLAUSIBILITY_OPTIONS,
     RENAMED_REQUEST_PARAMETERS,
     HistoryRequest,
     InterpolationRequest,
@@ -84,10 +89,10 @@ from wetterdienst.util.cli import setup_logging
 from wetterdienst.util.extras import import_optional
 from wetterdienst.util.response_warnings import begin_response
 from wetterdienst.util.ui import read_list
-from wetterdienst.util.url import file_target_path, redact_password
+from wetterdienst.util.url import ConnectionString, file_target_path, redact_password
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping
+    from collections.abc import Callable, Iterable, Mapping
 
     from pydantic_core import ErrorDetails
 
@@ -271,6 +276,80 @@ station_window_end_buffer_opt = click.option(
         "two days up to daily, 62 for monthly and 732 for annual"
     ),
 )
+
+
+def _plausibility_option(check: str) -> Callable[[_CommandT], _CommandT]:
+    """Make the option that sets the mode of a plausibility check: `--plausibility-<check> soft|hard`."""
+    return click.option(
+        f"--plausibility-{check}",
+        type=click.Choice(["hard", "soft"]),
+        default=default_mode(check),
+        help=(
+            f"What the check '{check}' does to a value it finds implausible: hard {hard_means(check)}, soft keeps it "
+            f"and flags it `suspect:{check}`. {forecast_note(check)} "
+            f"Default: WD_TS_PLAUSIBILITY__{check.upper()} if set, else {default_mode(check)}"
+        ),
+    )
+
+
+def plausibility_opts(command: _CommandT) -> _CommandT:
+    """Add `--plausibility`, the mode of every check, and the options that set one: `--plausibility-range`..."""
+    for check in reversed(CHECKS):
+        command = _plausibility_option(check)(command)
+    return click.option(
+        "--plausibility",
+        type=click.Choice(["hard", "soft"]),
+        help=(
+            "One mode for every plausibility check: soft keeps what a check finds implausible, flagged "
+            "`suspect:<check>`, hard nulls it and keeps the number as `rejected:<check>,raw:<number>`. A check "
+            "given beside it by --plausibility-<check> wins. The suspect level of source stays flagged. A forecast "
+            "network (kind forecast) is soft in every "
+            "check but floor and limits, whatever is given. Default: WD_TS_PLAUSIBILITY if set, else the mode of "
+            "each check"
+        ),
+    )(command)
+
+
+def _read_limits(_ctx: click.Context, _param: click.Parameter, values: tuple[str, ...]) -> dict[str, Any] | None:
+    """Read the `--limits` given, each a JSON object or `name=low:high`, as one mapping; the later wins for a name."""
+    limits: dict[str, Any] = {}
+    for text in values:
+        try:
+            if text.lstrip().startswith("{"):
+                given = json.loads(text)
+                if not isinstance(given, dict):
+                    msg = f"{text!r} is not a JSON object"
+                    raise ValueError(msg)  # noqa: TRY301
+                pairs = list(given.items())
+            else:
+                pairs = [read_limit_text(text)]
+            for name, pair in pairs:
+                # a name given again goes to the end, so that the last of its spellings given is the later
+                limits.pop(name, None)
+                limits[name] = pair
+        except ValueError as e:
+            raise click.BadParameter(str(e), param_hint="--limits") from e
+    return limits or None
+
+
+limits_opt = click.option(
+    "--limits",
+    "limits",
+    multiple=True,
+    callback=_read_limits,
+    help=(
+        "Bounds of your own for the plausibility check limits, in the unit the values come back in (see "
+        "--unit-targets): a JSON map of a parameter to [low, high], null for no bound at one end "
+        '({"temperature_air_mean_2m":[-30,45],"precipitation_amount":[null,200]}), or name=low:high with an end '
+        "left empty for none (temperature_air_mean_2m=-30:45, precipitation_amount=:200). Repeat it for more "
+        "parameters. A name is a canonical parameter (every dataset that serves it) or resolution/dataset/parameter "
+        "(that dataset only, which wins where both name a parameter). A value outside is judged by "
+        "--plausibility-limits: hard (the default) nulls it and keeps the number as `rejected:limits,raw:<number>`, "
+        "soft keeps it and flags it `suspect:limits`. A forecast network follows this mode too. Default: "
+        "WD_TS_LIMITS if set, else none; a name given here replaces the one of WD_TS_LIMITS"
+    ),
+)
+
 sql_values_opt = click.option(
     "--sql-values",
     type=click.STRING,
@@ -295,23 +374,34 @@ humanize_opt = _bool_opt(
     help="Use canonical parameter names instead of the provider's own codes. Default: WD_TS_HUMANIZE if set, else true",
 )
 
+
+def _or_list(names: Iterable[str]) -> str:
+    """Write names as a list ending in "or": `json, geojson or csv`."""
+    *head, last = names
+    return f"{', '.join(head)} or {last}"
+
+
+# the formats of a command that answers in one body: `ndjson`, which `to_format` has, is the stream of `stations` and
+# `values` only, as `interpolate` and `summarize` name no stations to stream by (GH-3590)
+_BODY_FORMATS = [name for name in FORMATS if name != "ndjson"]
+_BODY_DATA_FORMATS = [name for name in names_of("data") if name != "ndjson"]
+
 format_opt = click.option(
     "--format",
     "fmt",
-    type=click.Choice(["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"], case_sensitive=False),
+    type=click.Choice(_BODY_FORMATS, case_sensitive=False),
     default="json",
-    help="Output format: json, geojson or csv for data, html, png, jpg, webp, svg or pdf for a chart. Default: json",
+    help=f"Output format: {_or_list(_BODY_DATA_FORMATS)} for data, {_or_list(names_of('chart'))} for a chart. "
+    "Default: json",
 )
 # of `stations` and `values`, whose csv is streamed by the REST API and which have ndjson (GH-3065)
 stream_format_opt = click.option(
     "--format",
     "fmt",
-    type=click.Choice(
-        ["json", "geojson", "csv", "ndjson", "html", "png", "jpg", "webp", "svg", "pdf"], case_sensitive=False
-    ),
+    type=click.Choice(list(FORMATS), case_sensitive=False),
     default="json",
-    help="Output format: json, geojson, csv or ndjson (the metadata, a line for each row, then the end) for data, "
-    "html, png, jpg, webp, svg or pdf for a chart. Default: json",
+    help=f"Output format: {_or_list(names_of('data'))} (the metadata, a line for each row, then the end) "
+    f"for data, {_or_list(names_of('chart'))} for a chart. Default: json",
 )
 # the size of a chart, for --format of html, png, jpg, webp, svg or pdf
 width_opt = click.option("--width", type=click.IntRange(min=1), help="Width of a rendered chart in pixels.")
@@ -326,7 +416,9 @@ target_opt = click.option(
 )
 # what a target that already holds data does with the next write. `to_target` has taken this since
 # it was written, and the docs advertise it, but no command passed it, so every CLI export replaced
-# -- which is only the wrong default for a schedule, where the point is usually to accumulate
+# -- which is only the wrong default for a schedule, where the point is usually to accumulate.
+# `replace` is the default of a result's `to_target`, which the command writes: one frame, written as a whole,
+# where `TimeseriesValues.to_target` defaults to `fail` as it fills one table station by station
 if_exists_opt = click.option(
     "--if-exists",
     type=click.Choice(["replace", "append", "fail", "skip"]),
@@ -352,6 +444,17 @@ with_metadata_opt = _bool_opt(
     help=(
         "Add the units and the quality flags to the metadata block of JSON/GeoJSON output, "
         "which is always there. Default: false"
+    ),
+)
+# for the commands that write a result to a `--target`: it reaches the file as `to_target(..., with_metadata=True)`
+with_metadata_target_opt = _bool_opt(
+    "--with-metadata",
+    default=False,
+    help=(
+        "Add the units and the quality flags to the metadata block of JSON/GeoJSON output, "
+        "which is always there. With a file --target it writes the block beside the file as "
+        "<file>.metadata.json (CSV, Excel, JSON, GeoJSON and the other bare types) and adds those parts to the "
+        "block in a Parquet, NetCDF or Zarr file; a database --target is refused. Default: false"
     ),
 )
 with_stations_opt = _bool_opt(
@@ -473,6 +576,16 @@ def get_timeseries_api(provider: str, network: str, *, history: bool = False) ->
         raise click.UsageError(str(e)) from e
 
 
+def _lead_time_named(lead_time: str | None) -> str | None:
+    """Give the lead time the caller named on the command line, and None for the `short` the option defaults to.
+
+    The option defaults to `short`, which is what a DMO request reads where none is named; passed on as if it were
+    named, a request said it had asked for `short` (`parameter-without-rows` names what was asked for).
+    """
+    context = click.get_current_context()
+    return None if context.get_parameter_source("lead_time") is ParameterSource.DEFAULT else lead_time
+
+
 def _validate_request(model: type[_RequestT], values: dict[str, Any]) -> _RequestT:
     """Build a request model, reporting a rejected value as a usage error rather than a traceback.
 
@@ -508,8 +621,12 @@ def _build_options(options: dict[str, tuple[str, Any]]) -> Options:
         for param, (option, value) in options.items()
         if ctx.get_parameter_source(param) is not ParameterSource.DEFAULT
     }
-    replacing = {option: value for option, (_, value) in given.items() if not isinstance(value, dict)}
-    merging = {option: value for option, (_, value) in given.items() if isinstance(value, dict)}
+    # a dict, and the mode of a plausibility check, which lays itself over the modes the environment sets
+    merged_kinds = [
+        option for option, (_, value) in given.items() if isinstance(value, dict) or option in PLAUSIBILITY_OPTIONS
+    ]
+    replacing = {option: value for option, (_, value) in given.items() if option not in merged_kinds}
+    merging = {option: value for option, (_, value) in given.items() if option in merged_kinds}
     try:
         # the environment is read here for what no option replaces
         built = Options(**replacing)
@@ -755,6 +872,15 @@ VALUES_EXAMPLES = r"""
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl \
         --latitude=49.9195 --longitude=8.9671 --rank=5 --timestamp=2020-06-30
 
+    # keep a number a plausibility check finds implausible, flagged `suspect:range`, instead of nulling it
+    wetterdienst values --provider=dwd --network=observation --parameters=hourly/moisture/pressure_air_site \
+        --stations=1048 --timestamp=2024-01 --plausibility-range=soft --plausibility-stuck=hard
+
+    # null a temperature outside -30 to 45 degrees (in the unit asked for) and a daily rain above 200 mm, keeping what
+    # the source wrote as `rejected:limits,raw:<number>`; `--plausibility-limits=soft` keeps the value and flags it
+    wetterdienst values --provider=dwd --network=observation --parameters=daily/kl \
+        --stations=1048 --timestamp=2024-01 --limits=temperature_air_mean_2m=-30:45 --limits=precipitation_amount=:200
+
     # MOSMIX and DMO forecasts
     wetterdienst values --provider=dwd --network=mosmix --parameters=hourly/large/ttt,hourly/large/ff --stations=65510
     wetterdienst values --provider=dwd --network=dmo --parameters=hourly/icon/ttt --stations=65510 --lead-time=long
@@ -961,12 +1087,12 @@ def _finish(
         if empty:
             log.warning(NOTHING_WRITTEN)
             return
-        _export_or_exit(values_, target, if_exists)
+        _export_or_exit(values_, target, if_exists, with_metadata=request.with_metadata)
         return
     _echo(render(values_, request, applied, options))
 
 
-def _export_or_exit(result: Any, target: str, if_exists: str) -> None:  # noqa: ANN401
+def _export_or_exit(result: Any, target: str, if_exists: str, *, with_metadata: bool = False) -> None:  # noqa: ANN401
     """Write to the target, telling a sink that refuses apart from a sink that broke.
 
     A refusal is a finished sentence and wants nothing else -- `Append mode is not supported for
@@ -979,15 +1105,37 @@ def _export_or_exit(result: Any, target: str, if_exists: str) -> None:  # noqa: 
     got that right for long. A `KeyError` from inside a sink was reported as advice and printed its
     own argument and nothing else -- exporting a stations frame to InfluxDB pops a `timestamp` column
     that only values carry, and the whole report was `ERROR date`, as the column was then called.
+
+    `--with-metadata` goes to `to_target` as it is: a file target gets `<file>.metadata.json` beside it, or the
+    heavy parts in the block of a Parquet, NetCDF or Zarr file, and a database target is refused (GH-3704).
     """
     try:
-        result.to_target(target, if_exists=if_exists)
+        result.to_target(target, if_exists=if_exists, with_metadata=with_metadata)
     except (ExportRefusedError, MissingDependencyError) as e:
         # a refusal, or a sink whose package is not installed: the message is the whole of it
         log.error(str(e))  # noqa: TRY400
         sys.exit(1)
     except Exception:
         log.exception(f"Failed to export to {redact_password(target)}")
+        sys.exit(1)
+
+
+def _refuse_database_metadata(target: str | None, *, with_metadata: bool) -> None:
+    """Refuse `--with-metadata` with a database `--target`, before the fetch (GH-3711).
+
+    The metadata goes beside a file, and a database has none: the refusal depends on the target's scheme and the
+    flag alone, so it is told at once, where `to_target` would tell it after the whole request was downloaded. It
+    is told for an empty result too, which is never written: the combination is invalid whatever the data.
+    """
+    if not (target and with_metadata):
+        return
+    try:
+        refuse_metadata_without_file(target, ConnectionString(target))
+    except ValueError:
+        # a target `urlparse` cannot read (`duckdb://[x/obs.duckdb`): the export tells it, as it always did
+        return
+    except ExportRefusedError as e:
+        log.error(str(e))  # noqa: TRY400
         sys.exit(1)
 
 
@@ -1171,8 +1319,8 @@ def coverage(
     `derived` for a timeseries network, which has stations and values, and `radar` or `alerts` for a
     standalone one (dwd/radar, dwd/alerts), which `stations` and `values` refuse. With them, the
     resolutions, datasets and parameters of that network. A parameter's `unit` is the unit its values come
-    back in when no unit target is given (the one `about glossary` gives; `degree_celsius`, `decimal` for a
-    percentage). `unit_source`, the unit the provider publishes it in (`degree_kelvin`, `percent`), is there
+    back in when no unit target is given (the one `about glossary` gives; `degree_celsius`, `percent` for a
+    percentage). `unit_source`, the unit the provider publishes it in (`degree_kelvin`, `one_eighth`), is there
     only where it differs from `unit`; absent, it is the same. A unit target of your own changes the values,
     not this answer.
     """
@@ -1421,7 +1569,7 @@ def fields(
 @target_opt
 @if_exists_opt
 @pretty_opt
-@with_metadata_opt
+@with_metadata_target_opt
 @debug_opt
 def stations(
     provider: str,
@@ -1497,6 +1645,7 @@ def stations(
     )
     set_logging_level(debug=debug)
     begin_response()
+    _refuse_database_metadata(target, with_metadata=request.with_metadata)
 
     api = get_timeseries_api(provider=provider, network=network)
 
@@ -1531,7 +1680,7 @@ def stations(
         if empty:
             log.warning(NOTHING_WRITTEN)
             return
-        _export_or_exit(stations_, target, if_exists)
+        _export_or_exit(stations_, target, if_exists, with_metadata=request.with_metadata)
         return
 
     _echo(render_stations(stations_, request))
@@ -1652,7 +1801,7 @@ def history(
     _refuse_non_file_target(target, "history")
     # a local path, or a `file://` URI read as `alerts` reads it; the `.json` check reads the path it names
     path = file_target_path(target) if target else None
-    if path is not None and not path.endswith(".json"):
+    if path is not None and not path.lower().endswith(".json"):
         msg = "--target for history endpoint must end with .json"
         raise click.BadParameter(msg)
 
@@ -1777,6 +1926,8 @@ def history(
     help="Drop rows with null values from the output. Default: WD_TS_DROP_NULLS if set, else true",
 )
 @station_window_end_buffer_opt
+@plausibility_opts
+@limits_opt
 @stream_format_opt
 @width_opt
 @height_opt
@@ -1784,7 +1935,7 @@ def history(
 @target_opt
 @if_exists_opt
 @pretty_opt
-@with_metadata_opt
+@with_metadata_target_opt
 @with_stations_opt
 @debug_opt
 def values(
@@ -1826,6 +1977,15 @@ def values(
     skip_threshold: float,
     drop_nulls: bool,  # noqa: FBT001
     station_window_end_buffer: int | None,
+    plausibility: Mode | None,
+    plausibility_range: Mode,
+    plausibility_elevation: Mode,
+    plausibility_stuck: Mode,
+    plausibility_consistency: Mode,
+    plausibility_floor: Mode,
+    plausibility_limits: Mode,
+    plausibility_source: Mode,
+    limits: dict[str, Any] | None,
     pretty: bool,  # noqa: FBT001
     with_metadata: bool,  # noqa: FBT001
     with_stations: bool,  # noqa: FBT001
@@ -1844,7 +2004,7 @@ def values(
             "network": network,
             "parameters": parameters,
             "periods": periods,
-            "lead_time": lead_time,
+            "lead_time": _lead_time_named(lead_time),
             "timestamp": timestamp_resolved,
             "issue": issue,
             "all": all_,
@@ -1874,6 +2034,15 @@ def values(
             "skip_threshold": skip_threshold,
             "drop_nulls": drop_nulls,
             "station_window_end_buffer": station_window_end_buffer,
+            "plausibility": plausibility,
+            "plausibility_range": plausibility_range,
+            "plausibility_elevation": plausibility_elevation,
+            "plausibility_stuck": plausibility_stuck,
+            "plausibility_consistency": plausibility_consistency,
+            "plausibility_floor": plausibility_floor,
+            "plausibility_limits": plausibility_limits,
+            "plausibility_source": plausibility_source,
+            "limits": limits,
             "pretty": pretty,
             "with_metadata": with_metadata,
             "with_stations": with_stations,
@@ -1881,6 +2050,7 @@ def values(
     )
     set_logging_level(debug=debug)
     begin_response()
+    _refuse_database_metadata(target, with_metadata=request.with_metadata)
     if request.format == "ndjson" and (refusal := ndjson_refusal(request)) is not None:
         raise click.UsageError(refusal)
 
@@ -1900,6 +2070,9 @@ def values(
             "skip_threshold": ("skip_threshold", request.skip_threshold),
             "drop_nulls": ("drop_nulls", request.drop_nulls),
             "station_window_end_buffer": ("station_window_end_buffer", request.station_window_end_buffer),
+            "plausibility": ("plausibility", request.plausibility),
+            **{name: (name, getattr(request, name)) for name in PLAUSIBILITY_OPTIONS},
+            "limits": ("limits", request.limits or {}),
         }
     )
 
@@ -1942,7 +2115,7 @@ def values(
 @target_opt
 @if_exists_opt
 @pretty_opt
-@with_metadata_opt
+@with_metadata_target_opt
 @with_stations_opt
 @debug_opt
 def interpolate(
@@ -1995,7 +2168,7 @@ def interpolate(
             "network": network,
             "parameters": parameters,
             "periods": periods,
-            "lead_time": lead_time,
+            "lead_time": _lead_time_named(lead_time),
             "interpolation_station_distance": interpolation_station_distance,
             "interpolation_station_distance_homogeneous": interpolation_station_distance_homogeneous,
             "interpolation_station_distance_heterogeneous": interpolation_station_distance_heterogeneous,
@@ -2024,6 +2197,7 @@ def interpolate(
 
     set_logging_level(debug=debug)
     begin_response()
+    _refuse_database_metadata(target, with_metadata=request.with_metadata)
 
     api = get_timeseries_api(request.provider, request.network)
 
@@ -2089,7 +2263,7 @@ def interpolate(
 @target_opt
 @if_exists_opt
 @pretty_opt
-@with_metadata_opt
+@with_metadata_target_opt
 @with_stations_opt
 @debug_opt
 def summarize(
@@ -2141,7 +2315,7 @@ def summarize(
             "network": network,
             "parameters": parameters,
             "periods": periods,
-            "lead_time": lead_time,
+            "lead_time": _lead_time_named(lead_time),
             "summary_station_distance": summary_station_distance,
             "summary_station_distance_homogeneous": summary_station_distance_homogeneous,
             "summary_station_distance_heterogeneous": summary_station_distance_heterogeneous,
@@ -2168,6 +2342,7 @@ def summarize(
     )
     set_logging_level(debug=debug)
     begin_response()
+    _refuse_database_metadata(target, with_metadata=request.with_metadata)
 
     api = get_timeseries_api(request.provider, request.network)
 

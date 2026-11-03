@@ -84,12 +84,13 @@ def limits_of(settings: Settings) -> Limits:
     )
 
 
-def _refuse(limit: str, maximum: int, requested: int, message: str) -> ProblemError:
+def _refuse(limit: str, maximum: int, requested: int, message: str, *, tool_message: str | None = None) -> ProblemError:
     return ProblemError(
         400,
         message,
         ProblemKind.LIMIT_EXCEEDED,
         extra={"limit": limit, "maximum": maximum, "requested": requested},
+        tool_detail=tool_message,
     )
 
 
@@ -134,7 +135,9 @@ def check_stations_in_reach(count: int, limits: Limits, *, distance: str) -> Non
 def check_rows(rows: int, limits: Limits, *, streamed: bool) -> None:
     """Refuse an answer of more rows than the limit of its kind, saying what to change.
 
-    An answer sent as one body that would fit a stream is told to stream.
+    An answer sent as one body that would fit a stream is told to stream. An MCP tool is told the three ways that
+    work through a tool (a shorter window, fewer parameters, fewer stations) and not to stream: a tool's answer is
+    one body that an assistant reads whole, so a longer one is no help to it (GH-3464).
     """
     maximum = limits.max_stream_rows if streamed else limits.max_rows
     if not maximum or rows <= maximum:
@@ -150,8 +153,27 @@ def check_rows(rows: int, limits: Limits, *, streamed: bool) -> None:
             if streamable
             else f"{narrow}."
         )
-    message = f"This request would return about {rows:,} rows, more than the {maximum:,} {what}. {advice}"
-    error = _refuse(name, maximum, rows, message)
+    head = f"This request would return about {rows:,} rows, more than the {maximum:,} {what}."
+    error = _refuse(name, maximum, rows, f"{head} {advice}", tool_message=f"{head} {narrow}.")
+    raise error
+
+
+def check_point_rows(rows: int, limits: Limits) -> None:
+    """Refuse an `interpolate` or `summarize` answer of more rows than `rows`, saying what to change.
+
+    The answer is one body, and a point request names no stations (the radius chooses them), so the advice is a
+    shorter window or fewer parameters, the same over REST and through a tool (the CLI has no limits). Not fewer
+    stations, and not `format=ndjson` or `format=csv`: these routes have no ndjson and their csv is not streamed, it
+    is one body held to this same limit (GH-3576).
+    """
+    if not limits.max_rows or rows <= limits.max_rows:
+        return
+    head = (
+        f"This request would return about {rows:,} rows, more than the {limits.max_rows:,} "
+        "this server sends as one answer."
+    )
+    message = f"{head} Ask for a shorter `timestamp` window or fewer `parameters`."
+    error = _refuse("rows", limits.max_rows, rows, message)
     raise error
 
 

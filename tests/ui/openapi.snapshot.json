@@ -13,7 +13,6 @@
       "identifier": "MIT",
       "url": "https://github.com/earthobservations/wetterdienst/blob/main/LICENSE.md"
     },
-    "version": "0.173.0",
     "x-api-version": "1"
   },
   "servers": [
@@ -277,6 +276,185 @@
               "title": "Station Window End Buffer"
             },
             "description": "How many days after the end its catalogue publishes a station is still kept for the window of `timestamp`, for every resolution: 0 compares the end exactly, 7 keeps a station that ended up to a week before the window. Left out, the buffer is two days up to daily, 62 for monthly and 732 for annual, as the end a source publishes lags a station that is still reporting. The start is compared exactly. Applies where stations are matched by `name` and in a listing of `stations`. Default: the server's WD_TS_STATION_WINDOW_END_BUFFER if set, else the buffer by resolution."
+          },
+          {
+            "name": "plausibility",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "soft",
+                    "hard"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "One mode for every plausibility check at once: `soft` keeps every value a check finds implausible and flags it (`suspect:<check>`), `hard` nulls it and keeps the number (`rejected:<check>,raw:<number>`), except on a forecast network (`kind` `forecast`), where every check but `floor` and `limits` is soft whatever the mode. The suspect level of `source` stays flagged. A check given beside it by `plausibility_<check>` wins. Default: the server's WD_TS_PLAUSIBILITY if set, else the mode of each check.",
+              "title": "Plausibility"
+            },
+            "description": "One mode for every plausibility check at once: `soft` keeps every value a check finds implausible and flags it (`suspect:<check>`), `hard` nulls it and keeps the number (`rejected:<check>,raw:<number>`), except on a forecast network (`kind` `forecast`), where every check but `floor` and `limits` is soft whatever the mode. The suspect level of `source` stays flagged. A check given beside it by `plausibility_<check>` wins. Default: the server's WD_TS_PLAUSIBILITY if set, else the mode of each check."
+          },
+          {
+            "name": "plausibility_range",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `range` does to a reading outside the physical range of its parameter: `hard` nulls the value and keeps the number as `rejected:range,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:range`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__RANGE if set, else hard.",
+              "default": "hard",
+              "title": "Plausibility Range"
+            },
+            "description": "What the check `range` does to a reading outside the physical range of its parameter: `hard` nulls the value and keeps the number as `rejected:range,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:range`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__RANGE if set, else hard."
+          },
+          {
+            "name": "plausibility_elevation",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `elevation` does to a station pressure the barometric formula does not expect at the station's elevation: `hard` nulls the value and keeps the number as `rejected:elevation,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:elevation`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__ELEVATION if set, else hard.",
+              "default": "hard",
+              "title": "Plausibility Elevation"
+            },
+            "description": "What the check `elevation` does to a station pressure the barometric formula does not expect at the station's elevation: `hard` nulls the value and keeps the number as `rejected:elevation,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:elevation`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__ELEVATION if set, else hard."
+          },
+          {
+            "name": "plausibility_stuck",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `stuck` does to a sensor that held one value over a period it should not have (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:stuck,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:stuck`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STUCK if set, else soft.",
+              "default": "soft",
+              "title": "Plausibility Stuck"
+            },
+            "description": "What the check `stuck` does to a sensor that held one value over a period it should not have (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:stuck,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:stuck`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STUCK if set, else soft."
+          },
+          {
+            "name": "plausibility_consistency",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `consistency` does to a reading that another parameter of the same file contradicts (never downloaded for the check): `hard` nulls the value and keeps the number as `rejected:consistency,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:consistency`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__CONSISTENCY if set, else hard.",
+              "default": "hard",
+              "title": "Plausibility Consistency"
+            },
+            "description": "What the check `consistency` does to a reading that another parameter of the same file contradicts (never downloaded for the check): `hard` nulls the value and keeps the number as `rejected:consistency,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:consistency`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__CONSISTENCY if set, else hard."
+          },
+          {
+            "name": "plausibility_floor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `floor` does to a model value a little below the floor of its quantity: `hard` sets the value to 0.0 and keeps the number as `rejected:floor,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:floor`. A forecast network (`kind` `forecast`) keeps the mode as set for `floor` and `limits`, and judges the other checks soft. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__FLOOR if set, else hard.",
+              "default": "hard",
+              "title": "Plausibility Floor"
+            },
+            "description": "What the check `floor` does to a model value a little below the floor of its quantity: `hard` sets the value to 0.0 and keeps the number as `rejected:floor,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:floor`. A forecast network (`kind` `forecast`) keeps the mode as set for `floor` and `limits`, and judges the other checks soft. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__FLOOR if set, else hard."
+          },
+          {
+            "name": "plausibility_limits",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `limits` does to a reading outside the bounds `limits` sets for its parameter: `hard` nulls the value and keeps the number as `rejected:limits,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:limits`. A forecast network (`kind` `forecast`) keeps the mode as set for `floor` and `limits`, and judges the other checks soft. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__LIMITS if set, else hard.",
+              "default": "hard",
+              "title": "Plausibility Limits"
+            },
+            "description": "What the check `limits` does to a reading outside the bounds `limits` sets for its parameter: `hard` nulls the value and keeps the number as `rejected:limits,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:limits`. A forecast network (`kind` `forecast`) keeps the mode as set for `floor` and `limits`, and judges the other checks soft. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__LIMITS if set, else hard."
+          },
+          {
+            "name": "plausibility_source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `source` does to a value that the source itself marks as erroneous or doubtful in its own quality flag: `hard` nulls the value and keeps the number as `rejected:source,raw:<number>` in `quality_flags` (the suspect level of a source that has two, GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`, MADIS `Questioned`, GHCNh `f`, stays flagged `suspect:source`); `soft` keeps the value and flags it `suspect:source`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__SOURCE if set, else soft.",
+              "default": "soft",
+              "title": "Plausibility Source"
+            },
+            "description": "What the check `source` does to a value that the source itself marks as erroneous or doubtful in its own quality flag: `hard` nulls the value and keeps the number as `rejected:source,raw:<number>` in `quality_flags` (the suspect level of a source that has two, GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`, MADIS `Questioned`, GHCNh `f`, stays flagged `suspect:source`); `soft` keeps the value and flags it `suspect:source`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__SOURCE if set, else soft."
+          },
+          {
+            "name": "limits",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    ],
+                    "minItems": 2,
+                    "maxItems": 2
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Bounds you set per parameter, `{name: [low, high]}`, for the plausibility check `limits`. A key is a canonical parameter name (every dataset that serves it) or `resolution/dataset/parameter` (that dataset only, which wins where both name a parameter). A bound is in the unit of the values this request returns (`unit_targets`, or the source's unit with `convert_units` off), either may be null but not both, and `low` may not exceed `high`. A value outside is judged by the mode of `plausibility.limits`: hard (the default) nulls it and keeps the number as `rejected:limits,raw:<number>`, soft keeps it and flags it `suspect:limits`. A forecast network follows this mode too. Given as a JSON object, e.g. {\"temperature_air_mean_2m\": [-30, 45], \"precipitation_amount\": [null, 200]}. A name it leaves out keeps the server's WD_TS_LIMITS entry, if set.",
+              "title": "Limits"
+            },
+            "description": "Bounds you set per parameter, `{name: [low, high]}`, for the plausibility check `limits`. A key is a canonical parameter name (every dataset that serves it) or `resolution/dataset/parameter` (that dataset only, which wins where both name a parameter). A bound is in the unit of the values this request returns (`unit_targets`, or the source's unit with `convert_units` off), either may be null but not both, and `low` may not exceed `high`. A value outside is judged by the mode of `plausibility.limits`: hard (the default) nulls it and keeps the number as `rejected:limits,raw:<number>`, soft keeps it and flags it `suspect:limits`. A forecast network follows this mode too. Given as a JSON object, e.g. {\"temperature_air_mean_2m\": [-30, 45], \"precipitation_amount\": [null, 200]}. A name it leaves out keeps the server's WD_TS_LIMITS entry, if set."
           },
           {
             "name": "interpolation_station_distance",
@@ -561,7 +739,7 @@
           "Catalogue"
         ],
         "summary": "Coverage",
-        "description": "List available data: providers/networks, or the resolutions, datasets and parameters within one.\n\nCall with no arguments to list every provider and its networks. Pass provider+network (e.g.\nprovider=\"dwd\", network=\"observation\") to list its resolutions/datasets/parameters; narrow with\nresolutions=... or datasets=... (e.g. datasets=\"climate_summary\") to discover parameter names.\n\nThe list of every provider downloads nothing, so it answers at once. Per network it gives\n`name_short`, `country`, `url`, `scope` (how far it reaches: `global`, `national` or `regional`, which `country`\ndoes not say) and `kind`. `kind` is `observation`, `forecast` or `derived` for a\ntimeseries network, which has stations and values (every network but two); `radar` and `alerts`\nare standalone (`dwd/radar`, `dwd/alerts`): the other endpoints answer 404 for them. For a network\nthat needs credentials, `configured` says whether they are present; whether the provider accepts\nthem is not checked here, `/api/auth` (the MCP `auth` tool) does, for one network. With a provider and\nnetwork, each dataset has its `extent` (where its stations are: `scope`, `continents`, `bbox`, and\n`country_codes` for a regional one): the dataset's own where it is narrower than its network's, else the\nnetwork's. `providers` has the extent of every network.\n\n`unit` of a parameter is the unit its `values` come back in when the request gives no `unit_targets` or\n`convert_units`, the one `glossary` gives for its `unit_type` (`degree_celsius`, never Kelvin; `decimal`, 0 to 1,\nfor a percentage). `unit_source` is the unit the provider publishes it in, which the values come in with\n`convert_units=false`; it is there only where it differs from `unit`, and absent means the same. This takes no\noptions: a `unit_targets` of your own changes what `values` return, not this answer.",
+        "description": "List available data: providers/networks, or the resolutions, datasets and parameters within one.\n\nCall with no arguments to list every provider and its networks. Pass provider+network (e.g.\nprovider=\"dwd\", network=\"observation\") to list its resolutions/datasets/parameters; narrow with\nresolutions=... or datasets=... (e.g. datasets=\"climate_summary\") to discover parameter names.\n\nThe list of every provider downloads nothing, so it answers at once. Per network it gives\n`name_short`, `country`, `url`, `scope` (how far it reaches: `global`, `national` or `regional`, which `country`\ndoes not say) and `kind`. `kind` is `observation`, `forecast` or `derived` for a\ntimeseries network, which has stations and values (every network but two); `radar` and `alerts`\nare standalone (`dwd/radar`, `dwd/alerts`): the other endpoints answer 404 for them. For a network\nthat needs credentials, `configured` says whether they are present; whether the provider accepts\nthem is not checked here, `/api/auth` (the MCP `auth` tool) does, for one network. With a provider and\nnetwork, each dataset has its `extent` (where its stations are: `scope`, `continents`, `bbox`, and\n`country_codes` for a regional one): the dataset's own where it is narrower than its network's, else the\nnetwork's. `providers` has the extent of every network.\n\n`unit` of a parameter is the unit its `values` come back in when the request gives no `unit_targets` or\n`convert_units`, the one `glossary` gives for its `unit_type` (`degree_celsius`, never Kelvin; `percent`\nfor a percentage). `unit_source` is the unit the provider publishes it in, which the values come in with\n`convert_units=false`; it is there only where it differs from `unit`, and absent means the same. This takes no\noptions: a `unit_targets` of your own changes what `values` return, not this answer.",
         "operationId": "coverage_api_coverage_get",
         "parameters": [
           {
@@ -835,11 +1013,14 @@
                     "degree_day",
                     "degree_hour",
                     "dimensionless",
+                    "duration",
                     "energy_per_area",
                     "fraction",
+                    "length_day",
                     "length_long",
                     "length_medium",
                     "length_short",
+                    "length_tiny",
                     "mass_per_volume",
                     "power_per_area",
                     "precipitation",
@@ -848,6 +1029,7 @@
                     "significant_weather",
                     "speed",
                     "temperature",
+                    "temperature_difference",
                     "time",
                     "turbidity",
                     "volume",
@@ -1314,11 +1496,11 @@
                 "pdf"
               ],
               "type": "string",
-              "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). ndjson, and csv as well, are sent as they are built, station by station, so they allow a longer answer than the others: see the limits of the server.",
+              "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server.",
               "default": "json",
               "title": "Format"
             },
-            "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). ndjson, and csv as well, are sent as they are built, station by station, so they allow a longer answer than the others: see the limits of the server."
+            "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server."
           },
           {
             "name": "pretty",
@@ -1995,11 +2177,11 @@
                 "pdf"
               ],
               "type": "string",
-              "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). ndjson, and csv as well, are sent as they are built, station by station, so they allow a longer answer than the others: see the limits of the server.",
+              "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server.",
               "default": "json",
               "title": "Format"
             },
-            "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). ndjson, and csv as well, are sent as they are built, station by station, so they allow a longer answer than the others: see the limits of the server."
+            "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server."
           },
           {
             "name": "pretty",
@@ -2241,6 +2423,185 @@
               "title": "Station Window End Buffer"
             },
             "description": "How many days after the end its catalogue publishes a station is still kept for the window of `timestamp`, for every resolution: 0 compares the end exactly, 7 keeps a station that ended up to a week before the window. Left out, the buffer is two days up to daily, 62 for monthly and 732 for annual, as the end a source publishes lags a station that is still reporting. The start is compared exactly. Applies where stations are matched by `name` and in a listing of `stations`. Default: the server's WD_TS_STATION_WINDOW_END_BUFFER if set, else the buffer by resolution."
+          },
+          {
+            "name": "plausibility",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "soft",
+                    "hard"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "One mode for every plausibility check at once: `soft` keeps every value a check finds implausible and flags it (`suspect:<check>`), `hard` nulls it and keeps the number (`rejected:<check>,raw:<number>`), except on a forecast network (`kind` `forecast`), where every check but `floor` and `limits` is soft whatever the mode. The suspect level of `source` stays flagged. A check given beside it by `plausibility_<check>` wins. Default: the server's WD_TS_PLAUSIBILITY if set, else the mode of each check.",
+              "title": "Plausibility"
+            },
+            "description": "One mode for every plausibility check at once: `soft` keeps every value a check finds implausible and flags it (`suspect:<check>`), `hard` nulls it and keeps the number (`rejected:<check>,raw:<number>`), except on a forecast network (`kind` `forecast`), where every check but `floor` and `limits` is soft whatever the mode. The suspect level of `source` stays flagged. A check given beside it by `plausibility_<check>` wins. Default: the server's WD_TS_PLAUSIBILITY if set, else the mode of each check."
+          },
+          {
+            "name": "plausibility_range",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `range` does to a reading outside the physical range of its parameter: `hard` nulls the value and keeps the number as `rejected:range,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:range`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__RANGE if set, else hard.",
+              "default": "hard",
+              "title": "Plausibility Range"
+            },
+            "description": "What the check `range` does to a reading outside the physical range of its parameter: `hard` nulls the value and keeps the number as `rejected:range,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:range`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__RANGE if set, else hard."
+          },
+          {
+            "name": "plausibility_elevation",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `elevation` does to a station pressure the barometric formula does not expect at the station's elevation: `hard` nulls the value and keeps the number as `rejected:elevation,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:elevation`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__ELEVATION if set, else hard.",
+              "default": "hard",
+              "title": "Plausibility Elevation"
+            },
+            "description": "What the check `elevation` does to a station pressure the barometric formula does not expect at the station's elevation: `hard` nulls the value and keeps the number as `rejected:elevation,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:elevation`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__ELEVATION if set, else hard."
+          },
+          {
+            "name": "plausibility_stuck",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `stuck` does to a sensor that held one value over a period it should not have (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:stuck,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:stuck`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STUCK if set, else soft.",
+              "default": "soft",
+              "title": "Plausibility Stuck"
+            },
+            "description": "What the check `stuck` does to a sensor that held one value over a period it should not have (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:stuck,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:stuck`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STUCK if set, else soft."
+          },
+          {
+            "name": "plausibility_consistency",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `consistency` does to a reading that another parameter of the same file contradicts (never downloaded for the check): `hard` nulls the value and keeps the number as `rejected:consistency,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:consistency`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__CONSISTENCY if set, else hard.",
+              "default": "hard",
+              "title": "Plausibility Consistency"
+            },
+            "description": "What the check `consistency` does to a reading that another parameter of the same file contradicts (never downloaded for the check): `hard` nulls the value and keeps the number as `rejected:consistency,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:consistency`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__CONSISTENCY if set, else hard."
+          },
+          {
+            "name": "plausibility_floor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `floor` does to a model value a little below the floor of its quantity: `hard` sets the value to 0.0 and keeps the number as `rejected:floor,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:floor`. A forecast network (`kind` `forecast`) keeps the mode as set for `floor` and `limits`, and judges the other checks soft. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__FLOOR if set, else hard.",
+              "default": "hard",
+              "title": "Plausibility Floor"
+            },
+            "description": "What the check `floor` does to a model value a little below the floor of its quantity: `hard` sets the value to 0.0 and keeps the number as `rejected:floor,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:floor`. A forecast network (`kind` `forecast`) keeps the mode as set for `floor` and `limits`, and judges the other checks soft. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__FLOOR if set, else hard."
+          },
+          {
+            "name": "plausibility_limits",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `limits` does to a reading outside the bounds `limits` sets for its parameter: `hard` nulls the value and keeps the number as `rejected:limits,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:limits`. A forecast network (`kind` `forecast`) keeps the mode as set for `floor` and `limits`, and judges the other checks soft. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__LIMITS if set, else hard.",
+              "default": "hard",
+              "title": "Plausibility Limits"
+            },
+            "description": "What the check `limits` does to a reading outside the bounds `limits` sets for its parameter: `hard` nulls the value and keeps the number as `rejected:limits,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:limits`. A forecast network (`kind` `forecast`) keeps the mode as set for `floor` and `limits`, and judges the other checks soft. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__LIMITS if set, else hard."
+          },
+          {
+            "name": "plausibility_source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `source` does to a value that the source itself marks as erroneous or doubtful in its own quality flag: `hard` nulls the value and keeps the number as `rejected:source,raw:<number>` in `quality_flags` (the suspect level of a source that has two, GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`, MADIS `Questioned`, GHCNh `f`, stays flagged `suspect:source`); `soft` keeps the value and flags it `suspect:source`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__SOURCE if set, else soft.",
+              "default": "soft",
+              "title": "Plausibility Source"
+            },
+            "description": "What the check `source` does to a value that the source itself marks as erroneous or doubtful in its own quality flag: `hard` nulls the value and keeps the number as `rejected:source,raw:<number>` in `quality_flags` (the suspect level of a source that has two, GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`, MADIS `Questioned`, GHCNh `f`, stays flagged `suspect:source`); `soft` keeps the value and flags it `suspect:source`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__SOURCE if set, else soft."
+          },
+          {
+            "name": "limits",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    ],
+                    "minItems": 2,
+                    "maxItems": 2
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Bounds you set per parameter, `{name: [low, high]}`, for the plausibility check `limits`. A key is a canonical parameter name (every dataset that serves it) or `resolution/dataset/parameter` (that dataset only, which wins where both name a parameter). A bound is in the unit of the values this request returns (`unit_targets`, or the source's unit with `convert_units` off), either may be null but not both, and `low` may not exceed `high`. A value outside is judged by the mode of `plausibility.limits`: hard (the default) nulls it and keeps the number as `rejected:limits,raw:<number>`, soft keeps it and flags it `suspect:limits`. A forecast network follows this mode too. Given as a JSON object, e.g. {\"temperature_air_mean_2m\": [-30, 45], \"precipitation_amount\": [null, 200]}. A name it leaves out keeps the server's WD_TS_LIMITS entry, if set.",
+              "title": "Limits"
+            },
+            "description": "Bounds you set per parameter, `{name: [low, high]}`, for the plausibility check `limits`. A key is a canonical parameter name (every dataset that serves it) or `resolution/dataset/parameter` (that dataset only, which wins where both name a parameter). A bound is in the unit of the values this request returns (`unit_targets`, or the source's unit with `convert_units` off), either may be null but not both, and `low` may not exceed `high`. A value outside is judged by the mode of `plausibility.limits`: hard (the default) nulls it and keeps the number as `rejected:limits,raw:<number>`, soft keeps it and flags it `suspect:limits`. A forecast network follows this mode too. Given as a JSON object, e.g. {\"temperature_air_mean_2m\": [-30, 45], \"precipitation_amount\": [null, 200]}. A name it leaves out keeps the server's WD_TS_LIMITS entry, if set."
           }
         ],
         "responses": {
@@ -4511,11 +4872,14 @@
               "degree_day",
               "degree_hour",
               "dimensionless",
+              "duration",
               "energy_per_area",
               "fraction",
+              "length_day",
               "length_long",
               "length_medium",
               "length_short",
+              "length_tiny",
               "mass_per_volume",
               "power_per_area",
               "precipitation",
@@ -4524,6 +4888,7 @@
               "significant_weather",
               "speed",
               "temperature",
+              "temperature_difference",
               "time",
               "turbidity",
               "volume",
@@ -4574,7 +4939,7 @@
           "description"
         ],
         "title": "CoverageParameter",
-        "description": "A parameter of a dataset, with the unit its values come back in and, where it differs, the provider's.\n\n`unit` is the unit of the values for a caller who passes no options: the target of the `unit_type`, the one\n`glossary` gives (`degree_celsius` for a temperature, `decimal` (0 to 1) for a percentage), under the\nenvironment's `unit_targets` and `convert_units`. A `unit_targets` a caller passes to `values` is not\nfollowed: `coverage` takes no options. `unit_source` is the unit the provider publishes the parameter in\n(`degree_kelvin`, `percent`), which the values come in with `convert_units` off. Absent: the same as `unit`."
+        "description": "A parameter of a dataset, with the unit its values come back in and, where it differs, the provider's.\n\n`unit` is the unit of the values for a caller who passes no options: the target of the `unit_type`, the one\n`glossary` gives (`degree_celsius` for a temperature, `percent` for a percentage), under the\nenvironment's `unit_targets` and `convert_units`. A `unit_targets` a caller passes to `values` is not\nfollowed: `coverage` takes no options. `unit_source` is the unit the provider publishes the parameter in\n(`degree_kelvin`, `one_eighth`), which the values come in with `convert_units` off. Absent: the same as `unit`."
       },
       "CoverageResolution": {
         "properties": {
@@ -4714,11 +5079,14 @@
               "degree_day",
               "degree_hour",
               "dimensionless",
+              "duration",
               "energy_per_area",
               "fraction",
+              "length_day",
               "length_long",
               "length_medium",
               "length_short",
+              "length_tiny",
               "mass_per_volume",
               "power_per_area",
               "precipitation",
@@ -4727,6 +5095,7 @@
               "significant_weather",
               "speed",
               "temperature",
+              "temperature_difference",
               "time",
               "turbidity",
               "volume",
@@ -5314,7 +5683,7 @@
           "format": {
             "type": "string",
             "title": "Format",
-            "default": "One nullable string per reading, comma-separated. The first token without a `kind:` prefix is the source's own quality flag as the source writes it. Every further token is `kind:code`: the kinds a provider publishes beside it (for instance `measurement:T`), `zone:` where the source's timestamps were shifted to UTC, and, always last, `raw:` where a value was a missing-value marker or a number no sensor can have produced and is returned as null, with the text the source wrote in its place."
+            "default": "One nullable string per reading, comma-separated. The first token without a `kind:` prefix is the source's own quality flag as the source writes it. Every further token is `kind:code`: the kinds a provider publishes beside it (for instance `measurement:T`), `zone:` where the source's timestamps were shifted to UTC, `suspect:<check>` where a plausibility check in the mode `soft` found the value implausible and left it (the suspect level of `source` is flagged in either mode), and, always last, `raw:` where a value was a missing-value marker or a number no sensor can have produced and is returned as null, with the text the source wrote in its place; a number a check in the mode `hard` rejected (the bounds you set included) has `rejected:<check>` before it."
           },
           "source_flags": {
             "items": {
@@ -5603,6 +5972,17 @@
           "message": {
             "type": "string",
             "title": "Message"
+          },
+          "parameter": {
+            "type": "string",
+            "title": "Parameter"
+          },
+          "stations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Stations"
           }
         },
         "additionalProperties": false,
@@ -6014,6 +6394,101 @@
             ],
             "title": "Station Window End Buffer",
             "description": "How many days after the end its catalogue publishes a station is still kept for the window of the request, for every resolution; 0 is the exact end. Null: the buffer of the resolution, two days up to daily, 62 for monthly and 732 for annual. The start is compared exactly."
+          },
+          "plausibility_range": {
+            "type": "string",
+            "enum": [
+              "soft",
+              "hard"
+            ],
+            "title": "Plausibility Range",
+            "description": "The mode of the check `range`: `hard` nulls the value and keeps the number as `rejected:range,raw:<number>` in `quality_flags`, `soft` keeps the value and flags it (`suspect:range`). It is the mode as set: A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode)."
+          },
+          "plausibility_elevation": {
+            "type": "string",
+            "enum": [
+              "soft",
+              "hard"
+            ],
+            "title": "Plausibility Elevation",
+            "description": "The mode of the check `elevation`: `hard` nulls the value and keeps the number as `rejected:elevation,raw:<number>` in `quality_flags`, `soft` keeps the value and flags it (`suspect:elevation`). It is the mode as set: A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode)."
+          },
+          "plausibility_stuck": {
+            "type": "string",
+            "enum": [
+              "soft",
+              "hard"
+            ],
+            "title": "Plausibility Stuck",
+            "description": "The mode of the check `stuck`: `hard` nulls the value and keeps the number as `rejected:stuck,raw:<number>` in `quality_flags`, `soft` keeps the value and flags it (`suspect:stuck`). It is the mode as set: A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode)."
+          },
+          "plausibility_consistency": {
+            "type": "string",
+            "enum": [
+              "soft",
+              "hard"
+            ],
+            "title": "Plausibility Consistency",
+            "description": "The mode of the check `consistency`: `hard` nulls the value and keeps the number as `rejected:consistency,raw:<number>` in `quality_flags`, `soft` keeps the value and flags it (`suspect:consistency`). It is the mode as set: A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode)."
+          },
+          "plausibility_floor": {
+            "type": "string",
+            "enum": [
+              "soft",
+              "hard"
+            ],
+            "title": "Plausibility Floor",
+            "description": "The mode of the check `floor`: `hard` sets the value to 0.0 and keeps the number as `rejected:floor,raw:<number>` in `quality_flags`, `soft` keeps the value and flags it (`suspect:floor`). It is the mode as set: A forecast network (`kind` `forecast`) keeps the mode as set for `floor` and `limits`, and judges the other checks soft."
+          },
+          "plausibility_limits": {
+            "type": "string",
+            "enum": [
+              "soft",
+              "hard"
+            ],
+            "title": "Plausibility Limits",
+            "description": "The mode of the check `limits`: `hard` nulls the value and keeps the number as `rejected:limits,raw:<number>` in `quality_flags`, `soft` keeps the value and flags it (`suspect:limits`). It is the mode as set: A forecast network (`kind` `forecast`) keeps the mode as set for `floor` and `limits`, and judges the other checks soft."
+          },
+          "plausibility_source": {
+            "type": "string",
+            "enum": [
+              "soft",
+              "hard"
+            ],
+            "title": "Plausibility Source",
+            "description": "The mode of the check `source`: `hard` nulls the value and keeps the number as `rejected:source,raw:<number>` in `quality_flags` (the suspect level of a source that has two, GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`, MADIS `Questioned`, GHCNh `f`, stays flagged `suspect:source`), `soft` keeps the value and flags it (`suspect:source`). It is the mode as set: A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode)."
+          },
+          "limits": {
+            "additionalProperties": {
+              "prefixItems": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              ],
+              "type": "array",
+              "maxItems": 2,
+              "minItems": 2
+            },
+            "type": "object",
+            "title": "Limits",
+            "description": "The bounds set per parameter for the check `limits`, in the unit the values of the request come back in: `{name: [low, high]}`, a bound null for none. The server's, with the ones the request gave laid over them. Empty where none are set."
           }
         },
         "additionalProperties": false,
@@ -6027,7 +6502,15 @@
           "skip_criteria",
           "drop_nulls",
           "shape",
-          "station_window_end_buffer"
+          "station_window_end_buffer",
+          "plausibility_range",
+          "plausibility_elevation",
+          "plausibility_stuck",
+          "plausibility_consistency",
+          "plausibility_floor",
+          "plausibility_limits",
+          "plausibility_source",
+          "limits"
         ],
         "title": "ValuesSettings",
         "description": "The settings of `/api/values`."

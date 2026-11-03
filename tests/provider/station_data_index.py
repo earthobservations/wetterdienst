@@ -255,8 +255,18 @@ NOT_HELD: dict[str, str] = {
 
 # the datasets of a network that is held that are not: `<network> <resolution>/<dataset>` and the reason
 NOT_HELD_DATASETS: dict[str, str] = {
-    "chmi/observation 10_minutes/data": "one file for each element, station and month under a directory for each year",
-    "chmi/observation hourly/data": "one file for each element, station and month under a directory for each year",
+    "chmi/observation 10_minutes/data": (
+        "one file for each element, station and month under a directory for each year; the list is cut by the end "
+        "of the period (2018) and the daily files, so it holds stations that have none here; "
+        "`test_chmi_observation_sub_daily_stations_with_files_are_listed` holds that the stations with a file in the "
+        "first and the latest year of each category are listed (GH-3623)"
+    ),
+    "chmi/observation hourly/data": (
+        "one file for each element, station and month under a directory for each year; the list is cut by the end "
+        "of the period (2018) and the daily files, so it holds stations that have none here; "
+        "`test_chmi_observation_sub_daily_stations_with_files_are_listed` holds that the stations with a file in the "
+        "first and the latest year of each category are listed (GH-3623)"
+    ),
     "dwd/derived monthly/heating_degreedays": "one file for each month holds every station",
     "dwd/derived monthly/cooling_degreehours_13": "one file for each month holds every station",
     "dwd/derived monthly/cooling_degreehours_16": "one file for each month holds every station",
@@ -268,38 +278,6 @@ NOT_HELD_DATASETS: dict[str, str] = {
     "noaa/ghcn hourly/data": "the server lists no directory of the files of the stations, which are 404 for it",
 }
 
-_CHMI_PREFIX = "0-203-0-"
-
-
-def _chmi_ids(*suffixes: str) -> frozenset[str]:
-    """Name stations of `chmi/observation` by what follows the `0-203-0-` they all begin with."""
-    return frozenset(f"{_CHMI_PREFIX}{suffix}" for suffix in suffixes)
-
-
-# the files of stations that `meta1.csv` does not carry, read from the directories of the elements on 2026-10-21
-# (GH-3259); the stations it lists without a file are narrowed away by the provider
-_CHMI_NO_STATION = {
-    "monthly": _chmi_ids(
-        *("10101019002", "10201037002", "10501061001", "10501066001", "10502008001", "10602027002", "10801007001"),
-        *("10803007001", "10902036001", "11001055001", "11002001002", "11101006001", "11302058001", "11401001001"),
-        *("11403042001", "11405002001", "20201004002", "20202006001", "20202012001", "20301004002", "20301006001"),
-        *("20301006002", "20303019001", "20410008001", "40102028001", "41001017002", "41101024001", "41101078002"),
-        "41101095001",
-    ),
-    "annual": _chmi_ids(
-        *("10101019002", "10201037002", "10501061001", "10502008001", "10602027002", "10801007001", "10803007001"),
-        *("10902036001", "11001055001", "11002001002", "11101006001", "11302058001", "11401001001", "11405002001"),
-        *("20201004002", "20202012001", "20303019001", "20410008001", "41001017002", "41101024001", "41101078002"),
-        "41101095001",
-    ),
-}
-
-CHMI_NO_STATION = Accepted(
-    "data_orphan",
-    "the monthly and annual files of stations that `meta1.csv` does not carry, 8 of them beside another suffix of the "
-    "same station (GH-3259)",
-    where=lambda row: row["station_id"] in _CHMI_NO_STATION.get(row["resolution"], ()),
-)
 DWD_NO_DESCRIPTION = Accepted(
     "data_orphan",
     "the historical file of station 01018 has no line in the description of its period, as those of 02996 and 05047 "
@@ -313,7 +291,6 @@ ACCEPTED_STUB: dict[str, tuple[Accepted, ...]] = {
 
 # the exceptions of the live lists, by network
 ACCEPTED_LIVE: dict[str, tuple[Accepted, ...]] = {
-    "chmi/observation": (CHMI_NO_STATION,),
     "dwd/derived": (
         Accepted(
             "data_orphan",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { classifyPrecip, extremeWindowHours, extremeWindowSteps, findNearestIndex, interpSeries, METEOGRAM_SERIES, wetBulbApprox } from '../../app/utils/meteogram'
+import { classifyPrecip, extremeWindowHours, extremeWindowSteps, findNearestIndex, interpSeries, METEOGRAM_SERIES, meteogramView, meteogramViewFromQuery, wetBulbApprox } from '../../app/utils/meteogram'
 import { parameters } from '../../i18n/glossary/en'
 
 describe('findNearestIndex', () => {
@@ -268,5 +268,39 @@ describe('extremeWindowSteps', () => {
     const hoursOfDay = highs.x.map(x => x.toISOString().slice(11, 13))
     expect(hoursOfDay).toContain('09')
     expect(hoursOfDay).not.toContain('08')
+  })
+})
+
+describe('meteogramView', () => {
+  it.each(['chart', 'compact', 'table'])('knows %s', (view) => {
+    expect(meteogramView(view)).toBe(view)
+  })
+
+  it.each([null, undefined, '', 'Table', 'true', 'sunny', 1, ['table']])('knows %s as no view', (value) => {
+    expect(meteogramView(value)).toBeNull()
+  })
+})
+
+describe('meteogramViewFromQuery', () => {
+  it.each([
+    [{ view: 'table' }, 'table'],
+    [{ view: 'compact' }, 'compact'],
+    [{ view: 'chart' }, 'chart'],
+    // links from before the table was a view
+    [{ compact: 'true' }, 'compact'],
+    [{ compact: '1' }, 'compact'],
+    [{ compact: 'false' }, 'chart'],
+    [{ compact: '0' }, 'chart'],
+    // the new parameter wins, the first of a repeated one counts
+    [{ compact: 'true', view: 'table' }, 'table'],
+    [{ compact: 'true', view: 'sunny' }, 'compact'],
+    [{ view: ['table', 'chart'] }, 'table'],
+    // nothing to say
+    [{}, null],
+    [{ compact: 'maybe' }, null],
+    [{ view: 'sunny' }, null],
+    [{ station: '10384' }, null],
+  ])('reads %j as %s', (query, expected) => {
+    expect(meteogramViewFromQuery(query)).toBe(expected)
   })
 })

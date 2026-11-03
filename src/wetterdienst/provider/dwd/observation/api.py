@@ -36,6 +36,7 @@ from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.coverage import warn_files_without_description
 from wetterdienst.provider.dwd.observation.download import (
+    MEZ_BY_COMPARISON,
     download_climate_observations_data,
 )
 from wetterdienst.provider.dwd.observation.fileindex import (
@@ -79,8 +80,9 @@ log = logging.getLogger(__name__)
 # are read oldest first, so their read order is that precedence; it rides through the concatenation
 # as a column under this name and is dropped again straight after.
 _PERIOD_RANK = "period_rank"
-# marks the rows of a parameter whose stamp was shifted to UTC, in the frame of `_tidy_up_df` only
-_SHIFTED = "shifted_to_utc"
+# the order in which a row is kept where two rows of a parameter have the same stamp once the shifted ones are moved to
+# UTC (smallest first), in the frame of `_tidy_up_df` only: see there
+_SHIFTED = "shift_order"
 # whether a row holds a value in any parameter, which settles a stamp that is listed twice, in the frame of the
 # collection only (GH-2996)
 _HAS_VALUE = "has_value"
@@ -97,6 +99,17 @@ def _is_value_column(column: str) -> bool:
 
 class DwdObservationValues(TimeseriesValues):
     """Values class for DWD observation data."""
+
+    def _zero_direction_is_no_bearing(self) -> pl.Expr:
+        """Have the hourly directions of 0 that are no calm alone stay with `missing-value-marker` (GH-3696).
+
+        The synoptic wind's `DD=00` is the code of a variable ("umlaufend") or calm wind, which the file does not tell
+        apart, and the 0 of the hourly urban wind is neither a calm nor north (`NO_DIRECTION_CODE_PARAMETERS`).
+        """
+        return self._rows_of(
+            DwdObservationMetadata.hourly.wind_synoptic.wind_direction,
+            DwdObservationMetadata.hourly.urban_wind.wind_direction_mean,
+        )
 
     def _periods_and_date_ranges(
         self, station_id: str, dataset: DatasetModel, settings: Settings
@@ -245,6 +258,23 @@ class DwdObservationValues(TimeseriesValues):
                 if WOZ_COLUMN in df.columns:
                     zone = pl.when(pl.col(WOZ_COLUMN)).then(pl.lit("woz")).otherwise(zone)
                 zone = pl.when(shifted).then(pl.lit("mez")).otherwise(zone).alias("zone")
+                # a shifted row of a block `MEZ_BY_COMPARISON` names is kept before the row that was not moved, the
+                # row of every other shifted period after it
+                compared = [
+                    (pl.col("station_id").cast(pl.Int64, strict=False) == int(station))
+                    & pl.col("timestamp").is_between(first, last, closed="both")
+                    for station, parameters in MEZ_BY_COMPARISON.items()
+                    for first, last in parameters.get(column, ())
+                ]
+                shift_order = (
+                    pl.when(shifted & pl.any_horizontal(compared))
+                    .then(pl.lit(0))
+                    .when(~shifted)
+                    .then(pl.lit(1))
+                    .otherwise(pl.lit(2))
+                    if compared
+                    else pl.when(shifted).then(pl.lit(2)).otherwise(pl.lit(1))
+                )
                 df_parameter = df.select(
                     "station_id",
                     pl.when(shifted)
@@ -259,12 +289,14 @@ class DwdObservationValues(TimeseriesValues):
                     (pl.col(raw_column(column)) if raw_column(column) in df.columns else pl.lit(None, pl.String)).alias(
                         "raw"
                     ),
-                    shifted.alias(_SHIFTED),
+                    shift_order.alias(_SHIFTED),
                 )
                 if mez_md_column(column) in df.columns:
                     # a stamp the shift moves onto one that is there already (at the start of a MEZ span: 30 stamps at
-                    # 26 of the 80 MD stations, 28 hold the same value on both; Diepholz 1995-02-01 00) goes: the row
-                    # that was not moved is kept
+                    # 26 of the 80 MD stations, 28 hold the same value on both) goes: the row that was not moved is
+                    # kept. In a block of `MEZ_BY_COMPARISON` it is the row that was moved (Nürnberg 1986-01-01 01,
+                    # -6.6, the report of 00 UTC in ISD, against the stamp 00, -7.0, which equals none; Diepholz
+                    # 1995-02-01 00, the humidity 72 against 68)
                     df_parameter = (
                         df_parameter.sort(_SHIFTED, maintain_order=True)
                         .unique(subset=["station_id", "timestamp"], keep="first", maintain_order=True)

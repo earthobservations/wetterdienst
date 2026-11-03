@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import json
 import os
-import sys
 import time
 from pathlib import Path
 
@@ -31,6 +30,12 @@ def _another_process_caches(storage: Path, name: str = "/seeded.txt") -> Path:
     other = WholeFileCacheFileSystem(fs=source, cache_storage=str(storage), expiry_time=3600)
     other.cat_file(name)
     return storage / other._mapper(name)  # noqa: SLF001
+
+
+def _aged(path: Path, seconds: float) -> Path:
+    when = time.time() - seconds
+    os.utime(path, (when, when))
+    return path
 
 
 def _entries(storage: Path) -> dict:
@@ -60,6 +65,7 @@ def test_a_sweep_that_expires_every_entry_removes_those_and_not_the_directory(tm
     entries = _entries(storage)
     entries["/seeded.txt"]["time"] = time.time() - 7200
     (storage / "cache").write_text(json.dumps(entries), encoding="utf-8")
+    _aged(blob, 7200)  # a blob written within the expiry is kept whatever its row says (GH-3485)
     first = _view(storage)
     # a copy another process has written since this one read the metadata: its entry is not in the snapshot
     elsewhere = storage / "written-by-another-process"
@@ -106,12 +112,6 @@ def test_the_directory_that_is_removed_between_the_check_and_the_creation_is_mad
 
     assert answered == [target]
     assert target.is_dir()
-
-
-def _aged(path: Path, seconds: float) -> Path:
-    when = time.time() - seconds
-    os.utime(path, (when, when))
-    return path
 
 
 def test_a_sweep_collects_the_files_no_row_names_that_are_older_than_the_expiry(tmp_path: Path) -> None:
@@ -181,6 +181,7 @@ def test_a_blob_that_cannot_be_removed_does_not_stop_the_sweep(tmp_path: Path, m
     orphan = storage / "an-orphan"
     orphan.write_bytes(b"payload")
     _aged(orphan, 7200)
+    _aged(blob, 7200)
     first = _view(storage)
     original = Path.unlink
 
@@ -197,20 +198,18 @@ def test_a_blob_that_cannot_be_removed_does_not_stop_the_sweep(tmp_path: Path, m
     assert not orphan.exists()
 
 
-@pytest.mark.skipif(
-    sys.platform == "win32",
-    reason="Windows cannot replace the metadata file while another process has it open: PermissionError in "
-    "save_cache, which needs a cross-process lock (GH-3485)",
-)
+@pytest.mark.slow
 @pytest.mark.cflake
 def test_processes_that_start_together_on_an_empty_directory_neither_crash_nor_leave_it(tmp_path: Path) -> None:
     """Six fresh processes at a barrier, the same twelve urls: no process raises, none goes private.
 
-    It counts crashes (`FileExistsError` and the like) and fallbacks, not misses: `python -m
-    tests.util.cache_first_start_stress ROUNDS` runs more rounds and counts the misses too, which are rows lost to
-    another process's save (GH-3485) and not a thing the sweep decides.
+    It counts crashes (`FileExistsError` and the like) and fallbacks, and also the files that were fetched and are not
+    in the cache afterwards, which are rows lost to another process's save (GH-3485). `python -m
+    tests.util.cache_first_start_stress ROUNDS` runs more rounds. On Windows the crash was `PermissionError` in
+    `save_cache`: the metadata file cannot be replaced while another process has it open.
     """
-    found = run_round(tmp_path, processes=6)
+    found = [run_round(tmp_path / str(index), processes=6) for index in range(5)]
 
-    assert found.crashes == []
-    assert found.fallbacks == 0
+    assert [round_.crashes for round_ in found] == [[]] * 5
+    assert [round_.fallbacks for round_ in found] == [0] * 5
+    assert [round_.misses for round_ in found] == [0] * 5

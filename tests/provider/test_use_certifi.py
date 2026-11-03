@@ -107,7 +107,7 @@ def _ea(monkeypatch: pytest.MonkeyPatch) -> Seen:
         return _ok(url, json.dumps(responses.get(url, readings)).encode())
 
     seen = _record(monkeypatch, ea_api, answer)
-    EAHydrologyRequest(parameters=[("daily", "data", "discharge_mean")]).all().values().all()
+    EAHydrologyRequest(parameters=[("daily", "data", "discharge_mean")], start=START, end=END).all().values().all()
     return seen
 
 

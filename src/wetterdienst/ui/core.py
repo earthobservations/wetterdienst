@@ -40,23 +40,28 @@ from wetterdienst.exceptions import (
 from wetterdienst.metadata.aliases import PARAMETER_ALIASES, use_alias
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
-from wetterdienst.model.metadata import parse_parameters
+from wetterdienst.model.limits import LIMITS_DESCRIPTION, Limit, with_aliases_resolved, with_normal_names
+from wetterdienst.model.metadata import parse_parameters, whole_datasets_kept
+from wetterdienst.model.plausibility import CHECKS, Mode, default_mode, forecast_note, hard_means, leave_out_suspect
 from wetterdienst.model.request import (
     DEFAULT_NAME_RANK,
     DEFAULT_NAME_RANK_LISTING,
     TimeseriesRequest,
     answer_cut_to_window,
     limit_to_window,
+    require_window,
 )
 from wetterdienst.options import Options, SkipThreshold, StationWindowEndBuffer, options_from_mapping
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.util.datetime import format_timestamp, parse_date_window
 from wetterdienst.util.extras import import_optional
+from wetterdienst.util.geo import LATITUDE_MAX, LATITUDE_MIN, LONGITUDE_MAX, LONGITUDE_MIN
 from wetterdienst.util.logging import get_one_line_logger
 from wetterdienst.util.ui import read_list
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Hashable
+    from types import ModuleType
 
     import plotly.graph_objs as go
 
@@ -103,6 +108,7 @@ _PeriodsField = Annotated[
 _ElevationField = Annotated[
     float | None,
     Field(
+        allow_inf_nan=False,
         description="Elevation of the requested point in metres above sea level. Given, a quantity "
         "that falls with height -- air temperature, dew point -- is brought from each station's "
         "altitude to this one, which is what tells a valley reading from a summit one. "
@@ -141,11 +147,19 @@ _NameThresholdField = Annotated[
 ]
 _LatitudeField = Annotated[
     float | None,
-    Field(ge=-90, le=90, description="Latitude of the reference point for geospatial filtering or interpolation."),
+    Field(
+        ge=LATITUDE_MIN,
+        le=LATITUDE_MAX,
+        description="Latitude of the reference point for geospatial filtering or interpolation.",
+    ),
 ]
 _LongitudeField = Annotated[
     float | None,
-    Field(ge=-180, le=180, description="Longitude of the reference point for geospatial filtering or interpolation."),
+    Field(
+        ge=LONGITUDE_MIN,
+        le=LONGITUDE_MAX,
+        description="Longitude of the reference point for geospatial filtering or interpolation.",
+    ),
 ]
 #: the largest count a request may name (`rank`): more than any network has stations, and far below what a
 #: fixed-width integer holds, which a larger number overflows in the conversion (GH-3101)
@@ -172,10 +186,18 @@ _DistanceField = Annotated[
     float | None,
     Field(ge=0, description="Return stations within this many kilometres of the given latitude/longitude."),
 ]
-_LeftField = Annotated[float | None, Field(ge=-180, le=180, description="Western longitude of the bounding box.")]
-_BottomField = Annotated[float | None, Field(ge=-90, le=90, description="Southern latitude of the bounding box.")]
-_RightField = Annotated[float | None, Field(ge=-180, le=180, description="Eastern longitude of the bounding box.")]
-_TopField = Annotated[float | None, Field(ge=-90, le=90, description="Northern latitude of the bounding box.")]
+_LeftField = Annotated[
+    float | None, Field(ge=LONGITUDE_MIN, le=LONGITUDE_MAX, description="Western longitude of the bounding box.")
+]
+_BottomField = Annotated[
+    float | None, Field(ge=LATITUDE_MIN, le=LATITUDE_MAX, description="Southern latitude of the bounding box.")
+]
+_RightField = Annotated[
+    float | None, Field(ge=LONGITUDE_MIN, le=LONGITUDE_MAX, description="Eastern longitude of the bounding box.")
+]
+_TopField = Annotated[
+    float | None, Field(ge=LATITUDE_MIN, le=LATITUDE_MAX, description="Northern latitude of the bounding box.")
+]
 _SqlField = Annotated[
     str | None,
     Field(
@@ -215,8 +237,9 @@ _StreamFormatField = Annotated[
     Literal["json", "geojson", "csv", "ndjson", "html", "png", "jpg", "webp", "svg", "pdf"],
     Field(
         description="Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, "
-        "svg, pdf). ndjson, and csv as well, are sent as they are built, station by station, so they allow a "
-        "longer answer than the others: see the limits of the server."
+        "svg, pdf). Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to "
+        "the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the "
+        "limits of the server."
     ),
 ]
 _PrettyField = Annotated[bool, Field(description="Pretty-print JSON/GeoJSON output.")]
@@ -307,6 +330,59 @@ _DropNullsField = Annotated[
         "Default: the server's WD_TS_DROP_NULLS if set, else true."
     ),
 ]
+
+
+def _plausibility_field(check: str, what: str) -> Any:  # noqa: ANN401
+    """Make the field of a plausibility check: its mode, `hard` or `soft`, as `plausibility_<check>`."""
+    return Annotated[
+        Mode,
+        Field(
+            description=f"What the check `{check}` does to {what}: `hard` {hard_means(check)}; `soft` keeps the "
+            f"value and flags it `suspect:{check}`. {forecast_note(check)} "
+            f"Interpolation and summary leave a suspect value out in any case. "
+            f"Default: the server's WD_TS_PLAUSIBILITY__{check.upper()} if set, else "
+            f"{default_mode(check)}.",
+        ),
+    ]
+
+
+_PlausibilityField = Annotated[
+    Mode | None,
+    Field(
+        description="One mode for every plausibility check at once: `soft` keeps every value a check finds "
+        "implausible and flags it (`suspect:<check>`), `hard` nulls it and keeps the number "
+        "(`rejected:<check>,raw:<number>`), except on a forecast network (`kind` `forecast`), where every check but "
+        "`floor` and `limits` is soft whatever the mode. The suspect level of `source` stays flagged. A check given "
+        "beside it by `plausibility_<check>` wins. "
+        "Default: the server's WD_TS_PLAUSIBILITY if set, else the mode of each check.",
+    ),
+]
+_PlausibilityRangeField = _plausibility_field("range", "a reading outside the physical range of its parameter")
+_PlausibilityElevationField = _plausibility_field(
+    "elevation", "a station pressure the barometric formula does not expect at the station's elevation"
+)
+_PlausibilityStuckField = _plausibility_field(
+    "stuck",
+    "a sensor that held one value over a period it should not have "
+    "(a verdict on a series, which depends on what was read)",
+)
+_PlausibilityConsistencyField = _plausibility_field(
+    "consistency", "a reading that another parameter of the same file contradicts (never downloaded for the check)"
+)
+_PlausibilityFloorField = _plausibility_field("floor", "a model value a little below the floor of its quantity")
+_PlausibilityLimitsField = _plausibility_field("limits", "a reading outside the bounds `limits` sets for its parameter")
+_PlausibilitySourceField = _plausibility_field(
+    "source", "a value that the source itself marks as erroneous or doubtful in its own quality flag"
+)
+_LimitsField = Annotated[
+    dict[str, Limit] | None,
+    Field(
+        description=LIMITS_DESCRIPTION + ' Given as a JSON object, e.g. {"temperature_air_mean_2m": [-30, 45], '
+        '"precipitation_amount": [null, 200]}. A name it leaves out keeps the server\'s WD_TS_LIMITS entry, if set.'
+    ),
+]
+#: the query parameters and command line options that set the mode of a check, by the check they set (GH-3676)
+PLAUSIBILITY_OPTIONS = {f"plausibility_{check}": check for check in CHECKS}
 _SectionsField = Annotated[
     set[Literal["name", "parameter", "device", "geography", "missing_data"]] | None,
     Field(
@@ -885,11 +961,20 @@ class ValuesRequest(_RefusesRenamedParameters):
     skip_criteria: _SkipCriteriaField = "min"
     drop_nulls: _DropNullsField = True
     station_window_end_buffer: _StationWindowEndBufferField = None
+    plausibility: _PlausibilityField = None
+    plausibility_range: _PlausibilityRangeField = "hard"
+    plausibility_elevation: _PlausibilityElevationField = "hard"
+    plausibility_stuck: _PlausibilityStuckField = "soft"
+    plausibility_consistency: _PlausibilityConsistencyField = "hard"
+    plausibility_floor: _PlausibilityFloorField = "hard"
+    plausibility_limits: _PlausibilityLimitsField = "hard"
+    plausibility_source: _PlausibilitySourceField = "soft"
+    limits: _LimitsField = None
 
-    @field_validator("unit_targets", mode="before")
+    @field_validator("unit_targets", "limits", mode="before")
     @classmethod
-    def validate_unit_targets(cls, v: str | dict | None) -> dict[str, str] | None:
-        """Validate unit targets."""
+    def validate_unit_targets(cls, v: str | dict | None) -> dict | None:
+        """Validate unit targets and limits: a mapping, or the JSON text of one."""
         if not v:
             return None
         if isinstance(v, dict):
@@ -1154,6 +1239,15 @@ class SettingsRequest(BaseModel):
     skip_criteria: _SkipCriteriaField = "min"
     drop_nulls: _DropNullsField = True
     station_window_end_buffer: _StationWindowEndBufferField = None
+    plausibility: _PlausibilityField = None
+    plausibility_range: _PlausibilityRangeField = "hard"
+    plausibility_elevation: _PlausibilityElevationField = "hard"
+    plausibility_stuck: _PlausibilityStuckField = "soft"
+    plausibility_consistency: _PlausibilityConsistencyField = "hard"
+    plausibility_floor: _PlausibilityFloorField = "hard"
+    plausibility_limits: _PlausibilityLimitsField = "hard"
+    plausibility_source: _PlausibilitySourceField = "soft"
+    limits: _LimitsField = None
     # interpolate
     interpolation_station_distance: _RestInterpolationStationDistanceField = None
     interpolation_station_distance_homogeneous: _RestStationDistanceHomogeneousField = None
@@ -1167,7 +1261,9 @@ class SettingsRequest(BaseModel):
     min_gain_of_value_pairs: _RestMinGainOfValuePairsField = 0.10
     num_additional_stations: _RestNumAdditionalStationsField = 3
 
-    @field_validator("unit_targets", "interpolation_station_distance", "summary_station_distance", mode="before")
+    @field_validator(
+        "unit_targets", "limits", "interpolation_station_distance", "summary_station_distance", mode="before"
+    )
     @classmethod
     def validate_json_mapping(cls, v: str | dict | None) -> dict | None:
         """Read a mapping given as JSON, as the requests read it."""
@@ -1399,7 +1495,7 @@ def _caller_refusal_status(e: Exception, request: BaseModel) -> int | None:
     Beyond the hierarchy (`failure_status`): the caller's own `sql` or `sql_values` is the only SQL
     run on the way, so a DuckDB error about the statement -- its syntax, a column or function it
     names, a value it compares -- is theirs, a 400. So, where the request carries a clause, are the
-    refusals of the connection the clause runs on (`ExportMixin._filter_by_sql`): a file, URL or
+    refusals of the connection the clause runs on (`wetterdienst.io.sql_filter.filter_by_sql`): a file, URL or
     extension it may not touch (`PermissionException`), more memory than the limit sized to the
     frame lets it build (`OutOfMemoryException`), a construct DuckDB does not implement, such as an
     outer join on a correlated column (`NotSupportedError`), and an extension DuckDB would install
@@ -1700,6 +1796,20 @@ def overlay_options(base: Options, given: Mapping[str, Any]) -> Options:
 
     """
     dumped = base.model_dump()
+    # the mode of a check is named by `plausibility_<check>` and laid over the checks the base has, as the mapping of
+    # one named `plausibility` is: a check not named keeps its mode (GH-3676)
+    checks = {PLAUSIBILITY_OPTIONS[name]: value for name, value in given.items() if name in PLAUSIBILITY_OPTIONS}
+    given = {name: value for name, value in given.items() if name not in PLAUSIBILITY_OPTIONS}
+    # a bare mode is that mode for every check, and a check named beside it wins
+    every = given.get("plausibility")
+    if isinstance(every, str):
+        given = {**given, "plausibility": dict.fromkeys(CHECKS, every)}
+    if checks:
+        given = {**given, "plausibility": {**given.get("plausibility", {}), **checks}}
+    # the names of the bounds are spelled one way before they are merged, so that the host's entry cannot decide which
+    # of two spellings of one key in the request is the later one (GH-3687)
+    if isinstance(given.get("limits"), Mapping):
+        given = {**given, "limits": with_normal_names(with_aliases_resolved(given["limits"]))}
     merged = {name: {**dumped[name], **value} if isinstance(value, Mapping) else value for name, value in given.items()}
     return options_from_mapping(merged, base)
 
@@ -1740,16 +1850,21 @@ def _get_stations_request(
         msg = f"No valid parameters could be parsed from {request.parameters!r} for {api.__name__}"
         raise NoParametersFoundError(msg)
 
-    any_date_required = any(parameter.dataset.date_required for parameter in parameters)
-    if any_date_required and (not start_date or not end_date) and not isinstance(request, StationsRequest):
-        msg = "Start and end date required for single period datasets"
-        # a history request takes no window at all, so there is no option to tell its caller to pass
-        if isinstance(request, HistoryRequest):
-            raise StartDateEndDateError(msg)
-        raise DateRequiredError(msg)
+    # a stations request lists the stations of such a dataset without a window; the others need one
+    if not isinstance(request, StationsRequest):
+        try:
+            require_window(parameters, start_date, end_date)
+        except DateRequiredError as e:
+            # a history request takes no window at all, so there is no option to tell its caller to pass
+            if isinstance(request, HistoryRequest):
+                msg = "Start and end date required for single period datasets"
+                raise StartDateEndDateError(msg) from e
+            raise
 
     kwargs: dict[str, Any] = {
-        "parameters": parameters,
+        # a dataset stays one entry, which the request reads as all its parameters: it then knows that none of them was
+        # named, which `parameter-without-rows` is told by
+        "parameters": whole_datasets_kept(request.parameters, api.metadata),
         "start": start_date,
         "end": end_date,
         # every request takes periods and validates them against what its datasets publish, so pass
@@ -2184,7 +2299,8 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
         raise StationNotFoundError(msg)
     station = found[0]
 
-    df = stations.values().all().df.sort("timestamp")
+    # a value a soft plausibility check flagged suspect is no year with data, whatever the mode (GH-3676)
+    df = leave_out_suspect(stations.values().all().df).sort("timestamp")
     df = df.set_sorted("timestamp")
     df = df.select("timestamp", "value")
     # a station that returns no rows has no first and last year to upsample between (polars raises
@@ -2245,12 +2361,26 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
     return StripesData(series=series, df=df)
 
 
+def _require_plotting() -> ModuleType:
+    """Give plotly's graph objects, or raise the `MissingDependencyError` that says to install the `plotting` extra.
+
+    Asked before a station's record is downloaded, so that a server without the extra refuses at once (GH-3581).
+    """
+    return import_optional("plotly.graph_objects", "Plotting warming stripes", extra="plotting")
+
+
 def _plot_stripes(stripes: StripesImageRequest) -> go.Figure:
-    """Create warming stripes for station in Germany, for a request its model has checked.
+    """Create warming stripes for station in Germany, for a request its model has checked."""
+    _require_plotting()
+    return _draw_stripes(_get_stripes_data(stripes), stripes)
+
+
+def _draw_stripes(stripes_data: StripesData, stripes: StripesImageRequest) -> go.Figure:
+    """Draw the warming stripes of data `_get_stripes_data` has read, so that the caller can tell whose they are.
 
     Code similar to: https://www.s4f-freiburg.de/temperaturstreifen/
     """
-    go = import_optional("plotly.graph_objects", "Plotting warming stripes", extra="plotting")
+    go = _require_plotting()
 
     kind = stripes.kind
     show_title, show_years, show_data_availability = (
@@ -2258,7 +2388,6 @@ def _plot_stripes(stripes: StripesImageRequest) -> go.Figure:
         stripes.show_years,
         stripes.show_data_availability,
     )
-    stripes_data = _get_stripes_data(stripes)
 
     df = stripes_data.df
     station_dict = stripes_data.series.station

@@ -15,10 +15,18 @@ is still active. The catalogue is one list for every resolution and element, so 
 `monthly` and `annual` resolutions a stations request lists only the stations that have a file of
 one of the requested parameters (each parameter is one element, such as `T` or `SRA`; a whole
 dataset requests them all), read from the directories of the portal, one per category of the
-requested elements. The `10_minutes` and `hourly` resolutions list the whole catalogue: their files
-are one per month under a directory per year (about 1.6 MB each, eight years), which every request
-would have to read. Files of stations that `meta1.csv` does not carry stay unlisted, as no file
-gives them a position.
+requested elements. The `10_minutes` and `hourly` resolutions list the stations that can have files
+there. Their files are one per month under a directory per year (up to about 2.4 MB each, eight
+years), which every request would have to read, so the list is cut by what is known without them:
+the files begin with 2018, so a station whose period ended before it is left out, and so is one with
+no daily file of an element that is read (the daily directories are cached, as a daily request reads
+them). A live test holds that no year directory is before 2018 and that the stations with a file of
+an element read in the first and the latest year of each category (252 of the 257 with a 10 minute
+file, all 435 with an hourly one, in 2018-2025) have a daily file and are listed; the other five
+have files in the years between only, and pass as well. Of the 1,603 stations of `meta1.csv`, 767
+are listed (read 2026-10-30). Every file of the `daily`, `monthly` and `annual` directories has a
+station in `meta1.csv` (read 2026-10-30; before CHMI updated it, the files of 29 monthly and 22
+annual stations had none).
 
 Observations are addressed per station and element. The `daily`, `monthly` and `annual`
 resolutions store one flat CSV per station/element (e.g. `dly-<WSI>-T.csv`); the `10_minutes`
@@ -40,6 +48,26 @@ precipitation.
 
 Not every station measures every parameter — a station/parameter combination that CHMI doesn't
 have simply contributes no rows.
+
+CHMI's station catalogue (`meta1.csv`) also lists two stations abroad, Reykjavik
+(`0-20000-0-04030`) and Marambio Base in Antarctica (`0-20000-0-89055`). The portal has no file
+for them in any resolution (checked 2026-10-29), so they are left out of the station lists.
+
+## The source's own verdict (`source`)
+
+The daily, hourly and 10 minute files give every value a `QUALITY`, the plain flag of `quality_flags`, which CHMI explains in
+[`meta4.csv`](https://opendata.chmi.cz/meteorology/climate/historical_csv/metadata/meta4.csv) (read 2026-11-02). The check
+`source` reads the two codes it words as a verdict: `1` "Suspect/Podezřelá hodnota", the milder level, and `2`
+"Poor/Hodnota s nízkou kvalitou, podezřelá, zatím nepoužívat" ("value of low quality, suspect, do not use yet"), the
+worse one. `hard` nulls `2` and only flags `1` as `1,suspect:source`. Not read: `0` "Good/Kvalitní hodnota", `3`
+"Estimated/Odhadnutá hodnota", `4` "Missing/Chybějící hodnota" and `5` "Unknown/Kvalita neznámá". The monthly and annual
+files have no `QUALITY`, so the check judges nothing there. A `QUALITY` of 1 or 2 is rare: none of the files of a sample
+of the three resolutions (the first three files of three directories each, 2026-11-02) holds one, they carry 0, 3 and 4, so
+the test of the mapping is a row written as `meta4.csv` words it.
+
+With `plausibility={"source": "hard"}` the value is null and the token is `rejected:source,raw:<text>`, except
+for the milder level `Suspect`, which stays `suspect:source`; the default is `soft`, which keeps the value and writes
+`suspect:source` for both, so interpolation, summaries, climate stripes and `skip_empty` leave it out. See [the check `source`](../../../plausibility.md#the-sources-own-verdict-source).
 
 ## License
 

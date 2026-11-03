@@ -71,7 +71,13 @@ result.to_dict()                    # {"snapshot": ..., "alerts": [...]} with ne
 result.to_ogc_feature_collection()  # GeoJSON FeatureCollection (geometry = MultiPolygon, + snapshot)
 result.to_geojson()                 # GeoJSON string
 result.to_csv()                     # CSV (list columns comma-joined, nested fields JSON-encoded)
+result.to_format("GeoJSON", indent=2, with_metadata=True)  # "json", "geojson" or "csv", in any case
 ```
+
+`to_json` and `to_geojson` take `indent` (a number of spaces, `True` for 4, `False` or `None` for one line, which is
+the default here) and `with_metadata`, which puts the `metadata` block (provider, licence, credit line and the date of
+the data) first, as the other results do; CSV has no place for it. The result is outside the
+[frozen results](../../../../usage/compatibility.md#python-api) of the Python API, and there is no `to_target` for it yet.
 
 ## CLI
 

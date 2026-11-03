@@ -518,8 +518,8 @@ def test_coverage_unit_is_the_unit_of_the_values_and_unit_source_the_providers(c
     parameters = {p["name"]: p for p in response.json()["hourly"]["datasets"]["large"]["parameters"]}
     temperature = parameters["temperature_air_2m"]
     assert (temperature["unit"], temperature["unit_source"]) == ("degree_celsius", "degree_kelvin")
-    probability = parameters["probability_precipitation_amount_gt_0_2mm_last_24h"]
-    assert (probability["unit"], probability["unit_source"]) == ("decimal", "percent")
+    sunshine = parameters["sunshine_duration"]
+    assert (sunshine["unit"], sunshine["unit_source"]) == ("hour", "second")
     # where the provider's unit is the one the values come in, the answer does not repeat it
     unconverted = [p for p in parameters.values() if "unit_source" not in p]
     assert unconverted
@@ -993,9 +993,9 @@ def test_values_dwd_sql_tabular(client: TestClient, monkeypatch: pytest.MonkeyPa
         "timestamp": "2020-01-25T00:00:00.000000+00:00",
         "resolution": "daily",
         "dataset": "climate_summary",
-        "cloud_cover_total_mean": 0.8625,
+        "cloud_cover_total_mean": 86.25,
         "cloud_cover_total_mean_quality_flags": "10",
-        "humidity_relative_mean": 0.89,
+        "humidity_relative_mean": 89.0,
         "humidity_relative_mean_quality_flags": "10",
         "precipitation_form": 0.0,
         "precipitation_form_quality_flags": "10",
@@ -2019,10 +2019,42 @@ def test_stripes_image_is_sent_as_its_media_type(
         def to_image(self, *_args: object, **_kwargs: object) -> bytes:
             return b"image"
 
-    monkeypatch.setattr(restapi, "_plot_stripes", lambda _request: _Figure())
+    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
     response = client.get("/api/stripes/image", params={"kind": "temperature", "station": "01048", "format": fmt})
     assert response.status_code == 200
     assert response.headers["content-type"] == media_type
+
+
+def _without_plotly(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make plotly not installed: its import raises what a missing package raises, imported before or not."""
+    import importlib  # noqa: PLC0415
+
+    real = importlib.import_module
+
+    def import_module(name: str, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+        if name.split(".", maxsplit=1)[0] == "plotly":
+            msg = "No module named 'plotly'"
+            raise ModuleNotFoundError(msg, name="plotly")
+        return real(name, *args, **kwargs)
+
+    monkeypatch.setattr(importlib, "import_module", import_module)
+
+
+def test_stripes_image_without_plotly_is_a_501_before_anything_is_fetched(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A server without the `plotting` extra refuses at once: the record of the station is not downloaded (GH-3581).
+
+    An unknown station would otherwise be a 404 and a known one a download, for the same 501 at the end.
+    """
+    _without_plotly(monkeypatch)
+    monkeypatch.setattr(restapi, "_get_stripes_data", _unreached)
+
+    response = client.get("/api/stripes/image", params={"kind": "temperature", "station": "99999"})
+
+    assert response.status_code == 501
+    assert "optional dependency" in response.json()["detail"]
 
 
 def test_stripes_image_without_kaleido_is_a_501(
@@ -2040,7 +2072,8 @@ def test_stripes_image_without_kaleido_is_a_501(
             pytest.fail("rendered although Kaleido is missing")
 
     monkeypatch.setitem(sys.modules, "kaleido", None)
-    monkeypatch.setattr(restapi, "_plot_stripes", lambda _request: _Figure())
+    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
 
     with caplog.at_level(logging.ERROR):
         response = client.get("/api/stripes/image", params={"kind": "temperature", "station": "01048"})
@@ -3832,9 +3865,9 @@ def _raise_unit_target_refusal(**_kwargs: object) -> None:
 def _raise_sql_refusal(**_kwargs: object) -> None:
     import polars as pl  # noqa: PLC0415
 
-    from wetterdienst.io.export import ExportMixin  # noqa: PLC0415
+    from wetterdienst.io.sql_filter import filter_by_sql  # noqa: PLC0415
 
-    ExportMixin._filter_by_sql(pl.DataFrame({"value": [1.0]}), "foo = 1")  # noqa: SLF001
+    filter_by_sql(pl.DataFrame({"value": [1.0]}), "foo = 1")
 
 
 def _raise_station_not_found(**_kwargs: object) -> None:
@@ -4535,7 +4568,7 @@ class _HistoryFails:
         ),
         pytest.param(
             "/api/stripes/image",
-            "_plot_stripes",
+            "_get_stripes_data",
             _fail,
             {"kind": "temperature", "station": "01048"},
             id="stripes-image",
@@ -5616,7 +5649,18 @@ _REPORTED_COMMON_SETTINGS = {
     "skip_criteria",
     "drop_nulls",
 }
-_REPORTED_VALUES_SETTINGS = _REPORTED_COMMON_SETTINGS | {"shape", "station_window_end_buffer"}
+_REPORTED_VALUES_SETTINGS = _REPORTED_COMMON_SETTINGS | {
+    "shape",
+    "station_window_end_buffer",
+    "plausibility_range",
+    "plausibility_elevation",
+    "plausibility_stuck",
+    "plausibility_consistency",
+    "plausibility_floor",
+    "plausibility_limits",
+    "plausibility_source",
+    "limits",
+}
 _REPORTED_GEO_SETTINGS = _REPORTED_COMMON_SETTINGS | {
     "min_gain_of_value_pairs",
     "num_additional_stations",
@@ -5663,6 +5707,14 @@ def test_settings_reports_wetterdienst_defaults(client: TestClient) -> None:
         "skip_criteria": "min",
         "drop_nulls": True,
         "station_window_end_buffer": None,
+        "plausibility_range": "hard",
+        "plausibility_elevation": "hard",
+        "plausibility_stuck": "soft",
+        "plausibility_consistency": "hard",
+        "plausibility_floor": "hard",
+        "plausibility_limits": "hard",
+        "plausibility_source": "soft",
+        "limits": {},
     }
     assert unit_targets["temperature"] == "degree_celsius"
     for endpoint, kind in (("interpolate", "interpolation"), ("summarize", "summary")):
@@ -5990,8 +6042,11 @@ def test_each_reported_setting_is_a_field_of_the_request_but_the_servers_own(
     reported = set(model.model_fields)
     requested = set(getattr(core, request_model).model_fields)
     assert reported - requested == server_only
-    # each read off the setting its alias names
-    assert {field.validation_alias for field in model.model_fields.values()} <= Options.model_fields.keys()
+    # each read off the setting its alias names, the mode of a plausibility check off the one `plausibility` holds
+    from wetterdienst.model.plausibility import CHECKS  # noqa: PLC0415
+
+    aliases = {field.validation_alias for field in model.model_fields.values()}
+    assert aliases - {f"plausibility_{check}" for check in CHECKS} <= Options.model_fields.keys()
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
@@ -6227,6 +6282,27 @@ _SETTINGS_PARAMETERS = [
     ("drop_nulls", "false", {"values": {"drop_nulls"}}),
     ("station_window_end_buffer", "7", {"values": {"station_window_end_buffer"}}),
     (
+        "plausibility",
+        "soft",
+        {
+            "values": {
+                "plausibility_elevation",
+                "plausibility_consistency",
+                "plausibility_floor",
+                "plausibility_limits",
+                "plausibility_range",
+            }
+        },
+    ),
+    ("plausibility_range", "soft", {"values": {"plausibility_range"}}),
+    ("plausibility_elevation", "soft", {"values": {"plausibility_elevation"}}),
+    ("plausibility_stuck", "hard", {"values": {"plausibility_stuck"}}),
+    ("plausibility_consistency", "soft", {"values": {"plausibility_consistency"}}),
+    ("plausibility_floor", "soft", {"values": {"plausibility_floor"}}),
+    ("plausibility_limits", "soft", {"values": {"plausibility_limits"}}),
+    ("plausibility_source", "hard", {"values": {"plausibility_source"}}),
+    ("limits", '{"temperature_air_mean_2m": [-30, 45]}', {"values": {"limits"}}),
+    (
         "interpolation_station_distance",
         '{"temperature_air_mean_2m": 5}',
         {"interpolate": {"interpolation_station_distance"}},
@@ -6292,6 +6368,11 @@ def test_settings_parameters_are_the_data_endpoints_settings_parameters() -> Non
             if parameter["name"] in settings:
                 expected.add(parameter["name"])
                 assert taken[parameter["name"]] == parameter, (endpoint, parameter["name"])
+    # `plausibility` is the one mode for every check, which the `plausibility_<check>` settings report
+    assert taken["plausibility"] == next(
+        parameter for parameter in paths["/api/v1/values"]["get"]["parameters"] if parameter["name"] == "plausibility"
+    )
+    expected.add("plausibility")
     assert set(taken) == expected
     assert {name for name, _, _ in _SETTINGS_PARAMETERS} == expected
 
@@ -8157,7 +8238,7 @@ _LOOKUPS = [
     ),
     pytest.param(
         "/api/stripes/image",
-        "_plot_stripes",
+        "_get_stripes_data",
         {"kind": "temperature", "station": "01048"},
         "plot stripes",
         id="stripes-image",
@@ -9214,7 +9295,7 @@ def test_image_within_the_limit_goes_on_to_the_provider(size: dict[str, int]) ->
 
 def test_oversized_stripes_image_is_refused_before_anything_is_fetched(monkeypatch: pytest.MonkeyPatch) -> None:
     """The stripes image is plotly's 700 x 500 times `dpi / 100`, and is refused above 8192 px on a side."""
-    monkeypatch.setattr(restapi, "_plot_stripes", _unreached)
+    monkeypatch.setattr(restapi, "_get_stripes_data", _unreached)
     client = TestClient(restapi.app, raise_server_exceptions=False)
     params = {"kind": "temperature", "station": "01048"}
 

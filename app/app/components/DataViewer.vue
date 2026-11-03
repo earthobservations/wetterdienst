@@ -1,13 +1,19 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
 import type { Config as PlotlyConfig, Data as PlotlyData, Layout as PlotlyLayout } from 'plotly.js-basic-dist-min'
+import type { Station } from '#shared/types/api'
 import type { DataSettings } from '~/types/data-settings.type'
 import type { ParameterSelectionState } from '~/types/parameter-selection-state.type'
 import type { StationMode, StationSelectionState } from '~/types/station-selection-state.type'
+import type { OffscreenChart } from '~/utils/chart-export'
 import { h } from 'vue'
+import LimitNotice from '~/components/LimitNotice.vue'
 import QueryPanel from '~/components/QueryPanel.vue'
 import { describeFetchError } from '~/utils/api-error'
 import { formatDate, formatNumber, plotlySeparators } from '~/utils/format'
+import { limitRefusal } from '~/utils/limit-refusal'
+import { plotlyLocaleConfigOrFailure, plotlyText } from '~/utils/plotly-locale'
+import { estimateRows, windowForRefusal } from '~/utils/row-window'
 import { timestampDate } from '~/utils/timestamp'
 import { pinnedUnitTargets } from '~/utils/unit-targets'
 import { exportColumns, field, fieldText, valuesToCsv, valuesToJson } from '~/utils/values-export'
@@ -22,7 +28,13 @@ const props = defineProps<{
   unitTargetDefaults?: Record<string, string>
 }>()
 
-const { t, locale } = useI18n()
+const emit = defineEmits<{
+  /** the window that fits what the server refused, to be written to the date fields; the request is asked again by the page */
+  applyRange: [range: { startDate: string, endDate: string }]
+}>()
+
+const { t, locale, localeProperties } = useI18n()
+const serverLimits = useServerLimits()
 const { parameterLabel, resolutionLabel, datasetLabel } = useParameterLabel()
 const { settings: appSettings } = useSettings()
 
@@ -252,14 +264,39 @@ const apiQuery = computed(() => {
   }
 })
 
+// What the selection comes to, as the refusal of a limit needs it to offer a window that fits (see
+// `limitNotice`): kept with the request it was sent as, as the selection moves on while the answer is
+// on its way. A point (interpolation, summary) has no stations, and its window is the range alone
+interface RefusalContext {
+  resolution: Resolution | undefined
+  records: { start_timestamp?: string | null, end_timestamp?: string | null }[]
+  stationCount: number
+  parameterCount: number
+  tidy: boolean
+  range: { startDate?: string, endDate?: string }
+}
+
+const refusalContext = computed((): RefusalContext => {
+  const stations: Partial<Station>[] = stationSelection.value.selection?.stations ?? []
+  const point = stationSelection.value.mode !== 'station'
+  return {
+    resolution: parameterSelection.value.resolution,
+    records: point ? [{}] : stations.map(station => ({ start_timestamp: station.start_timestamp, end_timestamp: station.end_timestamp })),
+    stationCount: point ? 0 : stations.length,
+    parameterCount: parameterSelection.value.parameters.length,
+    tidy: point || props.settings.shape !== 'wide',
+    range: { startDate: stationSelection.value.dateRange?.startDate, endDate: stationSelection.value.dateRange?.endDate },
+  }
+})
+
 // the request the selection makes: what Fetch sends, and what holdsSelection compares with
-const selectedRequest = computed(() => ({ ...selectedEndpoint.value, query: apiQuery.value }))
+const selectedRequest = computed(() => ({ ...selectedEndpoint.value, query: apiQuery.value, context: refusalContext.value }))
 
 // The request behind the table: set by Fetch alone, and the one the table's values are fetched with,
 // so the table, its error and a GeoJSON download of it answer to the same request whatever is
 // selected since. Bound to the live selection instead, the fetch kept a request of its own beside
 // this one, which a selection changed mid-fetch, or Clear, could part from what the table showed.
-interface ValuesRequest { endpoint: string, filename: string, mode: StationMode, query: Record<string, unknown> }
+interface ValuesRequest { endpoint: string, filename: string, mode: StationMode, query: Record<string, unknown>, context: RefusalContext }
 const fetchedRequest = shallowRef<ValuesRequest | null>(null)
 // the request Fetch sent last, which the table's values are fetched with; it becomes fetchedRequest
 // only once it has answered, so until then the table, the file name and GeoJSON keep to the last one
@@ -304,8 +341,101 @@ const fetchErrorMessage = computed(() => valuesError.value ? describeFetchError(
 
 const toast = useToast()
 
+// The refusal of a limit (400, `limit-exceeded`) is a state of the table area and not a failure: the
+// numbers of the refusal, what can be done and the ways on, in the page's language (GH-3457). Any other
+// failure is the error below, with the backend's text. A refusal the page has no wording for stays an
+// error: the stream limit, which the page never asks for, and the stations a point reaches, where the
+// remedy is the radius and not the selection
+function noticeFor(error: unknown, request: ValuesRequest | null) {
+  const refusal = limitRefusal(error)
+  if (!refusal || !request || refusal.limit === 'stream_rows')
+    return null
+  if (refusal.limit === 'stations' && request.mode !== 'station')
+    return null
+  return refusal
+}
+
+const limitNotice = computed(() => {
+  if (valuesPending.value || allValues.value.length > 0)
+    return null
+  const request = sentRequest.value
+  const refusal = valuesError.value ? noticeFor(valuesError.value, request) : null
+  if (!refusal || !request)
+    return null
+  const { context } = request
+  const stationMode = request.mode === 'station'
+  // a window helps against the rows, not against the stations
+  const window = refusal.limit === 'rows' && context.resolution
+    ? windowForRefusal({
+        requested: refusal.requested,
+        maximum: refusal.maximum,
+        resolution: context.resolution,
+        records: context.records,
+        parameterCount: context.parameterCount,
+        tidy: context.tidy,
+        range: context.range,
+      })
+    : null
+  // not even the shortest window fits: said only where the span is known (else the page cannot tell)
+  const noWindow = refusal.limit === 'rows' && !window && !!context.resolution && estimateRows({
+    resolution: context.resolution,
+    records: context.records,
+    parameterCount: context.parameterCount,
+    tidy: context.tidy,
+    range: context.range,
+  }).span !== null
+  const stream = serverLimits.value.max_stream_rows
+  // streamed, the rows are held to the stream limit (`values` only): offered where they fit it
+  const csv = refusal.limit === 'rows' && stationMode && (stream === 0 || refusal.requested <= stream)
+    ? streamedCsvHref(request)
+    : null
+  return {
+    refusal,
+    point: !stationMode,
+    stationCount: context.stationCount,
+    parameterCount: context.parameterCount,
+    window,
+    noWindow,
+    // the window is for the selection the refusal was for, not one made since
+    canApply: requestKey(request) === requestKey(selectedRequest.value),
+    csvHref: csv,
+    maxStreamRows: stream,
+  }
+})
+
+// The refused request as a link to its streamed CSV (`format=csv`, which the server holds to its stream
+// limit and not to the one of a single body): the browser saves it as it comes, where the app would hold
+// every row of it in memory. The same query, so that what is saved is what the table would have shown
+function streamedCsvHref(request: ValuesRequest): string {
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(request.query)) {
+    if (value !== undefined && value !== null && value !== '')
+      params.append(key, String(value))
+  }
+  params.set('format', 'csv')
+  return `${request.endpoint}?${params}`
+}
+
+// the notice takes its buttons with it when a window is applied and the request is made again: the
+// focus they held goes on to the table area, where the answer, or the notice again, arrives
+const noticeBox = ref<HTMLElement | null>(null)
+const card = ref<{ $el: HTMLElement } | null>(null)
+// the table area takes the focus (see below), so it has a name of its own to be announced by: the page's
+// own heading for it, which is otherwise only a heading to move by (GH-3722)
+const dataTitleId = useId()
+const contentBox = computed(() => card.value?.$el ?? null)
+useFocusAfterRetry(() => limitNotice.value !== null, noticeBox, contentBox)
+
+// Applying a window changes the dates before the request is made again, and the button goes with the
+// change (the window is for the selection that was refused): the focus goes to the table area first,
+// while the button still has it
+function applyWindow(window: { startDate: string, endDate: string }) {
+  contentBox.value?.focus()
+  emit('applyRange', { startDate: window.startDate, endDate: window.endDate })
+}
+
 watch(valuesError, (err) => {
-  if (!err)
+  if (!err || noticeFor(err, sentRequest.value))
     return
   toast.add({
     title: t('dataViewer.fetchErrorToastTitle'),
@@ -1037,19 +1167,7 @@ async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {
   // the export itself can fail too, such as a stack of many facets past the browser's canvas size,
   // which turning it into PNG or JPEG draws on: nothing is saved, and that is told
   try {
-    const plotly = await ensurePlotly()
-    if (faceted) {
-      saveBlob(await stackCharts(plotly, charts as HTMLDivElement[], format), `chart.${format}`)
-    }
-    else {
-      await plotly.downloadImage(charts[0]!, {
-        format,
-        filename: 'chart',
-        // Plotly expects number | undefined for width/height; use undefined to let it auto-size
-        width: undefined,
-        height: undefined,
-      })
-    }
+    await saveLightImage(await ensurePlotly(), charts as HTMLDivElement[], format, faceted)
   }
   catch (error) {
     console.error('The chart image could not be saved', error)
@@ -1094,6 +1212,12 @@ async function stackCharts(plotly: typeof import('plotly.js-basic-dist-min'), ch
   return new Blob([Uint8Array.from(atob(data), c => c.charCodeAt(0))], { type: `image/${format}` })
 }
 
+// The chart's chrome (paper, text, grid, axis lines, hover label) is the app's, read from its CSS tokens
+// (utils/chart-theme.ts). It is put under the layout where a chart is drawn and not in `chartLayout`,
+// so that a switch of the colour scheme restyles the charts in place (below) rather than drawing them
+// again, and a zoomed chart stays zoomed.
+const { theme } = useChartTheme()
+
 // Plotly layout, apart from its hover mode, which is each chart's own: see hoverMode
 const chartLayout = computed((): Partial<PlotlyLayout> => {
   return {
@@ -1101,12 +1225,13 @@ const chartLayout = computed((): Partial<PlotlyLayout> => {
     // the hover texts and the axes write the language's decimal separator, as Plotly writes a point otherwise
     separators: plotlySeparators(locale.value),
     margin: { l: 60, r: 20, t: 40, b: 60 },
+    // no axis line, as before: the theme gives an axis line its colour, and Plotly draws a line for any axis that has one
     xaxis: {
-      title: t('dataViewer.axisDate'),
       type: 'date',
+      showline: false,
     },
     yaxis: {
-      title: t('dataViewer.axisValue'),
+      showline: false,
     },
     // Plotly cuts a series' name in a hover label after 15 characters, which a label such as
     // "Mean air temperature (2 m)" is longer than
@@ -1127,10 +1252,60 @@ function hoverMode(large: boolean): PlotlyLayout['hovermode'] {
   return large ? 'closest' : 'x unified'
 }
 
-const plotlyConfig: Partial<PlotlyConfig> = {
-  responsive: true,
-  displayModeBar: true,
-  modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+// The modebar's camera is Plotly's own with one difference: what it saves is the light chart, as every
+// chart this page saves is (utils/chart-export.ts). It is the last button but the logo, and the title
+// is Plotly's own ("Download plot as a PNG"), which names it; the file is Plotly's own `newplot.png`. One
+// config for the page, as a new `click` for each drawing would make Plotly see a config that changed;
+// it changes with the page's language, which the buttons' names and the dates are written in (GH-3625)
+let config: { of: unknown, language: string, value: Partial<PlotlyConfig> } | undefined
+async function plotlyConfig(plotly: typeof import('plotly.js-basic-dist-min')): Promise<Partial<PlotlyConfig>> {
+  const language = localeProperties.value.language ?? locale.value
+  const key = `${locale.value}/${language}`
+  if (config?.of === plotly && config.language === key)
+    return config.value
+  const { config: plotLocale, failed } = await plotlyLocaleConfigOrFailure(locale.value, language)
+  const value: Partial<PlotlyConfig> = {
+    ...plotLocale,
+    responsive: true,
+    displayModeBar: true,
+    modeBarButtonsToRemove: ['lasso2d', 'select2d', 'toImage'],
+    modeBarButtonsToAdd: [{
+      name: 'toImage',
+      // Plotly translates the names of its own buttons, not of one that is added to it
+      title: plotlyText(plotLocale, 'Download plot as a PNG'),
+      icon: plotly.Icons.camera,
+      click: (chart: HTMLDivElement) => void saveLightImage(plotly, [chart], 'png', false, 'newplot').then(() => {
+        toast.add({ title: t('dataViewer.downloaded'), description: t('dataViewer.downloadedChart', { format: 'PNG' }), color: 'success' })
+      }, (error: unknown) => {
+        console.error('The chart image could not be saved', error)
+        toast.add({ title: t('dataViewer.chartImageNotSaved'), color: 'error' })
+      }),
+    }],
+  }
+  // the English fallback of a language whose buttons could not be loaded is not kept as the language's: the next drawing asks again
+  if (!failed)
+    config = { of: plotly, language: key, value }
+  return value
+}
+
+// Saves `charts` in the light theme, whatever the page shows: each drawn again, off screen, for the export.
+// Stacked into one image where they are the facets, the single chart through Plotly's own download
+async function saveLightImage(plotly: typeof import('plotly.js-basic-dist-min'), charts: HTMLDivElement[], format: 'png' | 'jpeg' | 'svg', stacked: boolean, filename = 'chart') {
+  const copies: OffscreenChart[] = []
+  try {
+    // the image is in the language of the page, as the chart is: the names of its dates
+    const { locale: copyLocale, locales } = await plotlyConfig(plotly)
+    for (const chart of charts)
+      copies.push(await drawLightCopy(plotly, chart, { locale: copyLocale, locales }))
+    const elements = copies.map(copy => copy.element) as HTMLDivElement[]
+    if (stacked)
+      saveBlob(await stackCharts(plotly, elements, format), `chart.${format}`)
+    else
+      await plotly.downloadImage(elements[0]!, { format, filename, width: undefined, height: undefined })
+  }
+  finally {
+    copies.forEach(copy => copy.dispose())
+  }
 }
 
 function startRender(renders: ChartRenders, draw: (newest: () => boolean) => Promise<void>) {
@@ -1180,14 +1355,18 @@ async function drawMainChart(newest: () => boolean) {
   if (viewMode.value !== 'graph' || facetByParameter.value)
     return
   const plotly = await ensurePlotly()
+  const drawConfig = await plotlyConfig(plotly)
 
   await nextTick()
   if (!newest())
     return
   if (chartRef.value && chartTraces.value.length > 0) {
-    // Use newPlot for clean initialization
+    // Use newPlot for clean initialization. The theme it is drawn in is taken before the drawing, which a
+    // switch of the scheme can come in the middle of
+    const drawnIn = theme.value
     plotly.purge(chartRef.value)
-    await plotly.newPlot(chartRef.value, chartTraces.value, { ...chartLayout.value, hovermode: hoverMode(isLargeChart.value) }, plotlyConfig)
+    await plotly.newPlot(chartRef.value, chartTraces.value, themedLayout({ ...chartLayout.value, hovermode: hoverMode(isLargeChart.value) }, drawnIn), drawConfig)
+    markChartScheme(chartRef.value, drawnIn)
   }
 }
 
@@ -1195,6 +1374,7 @@ async function drawFacetedCharts(newest: () => boolean) {
   if (viewMode.value !== 'graph' || !facetByParameter.value)
     return
   const plotly = await ensurePlotly()
+  const drawConfig = await plotlyConfig(plotly)
 
   await nextTick()
   for (const facet of facetedChartData.value) {
@@ -1202,22 +1382,18 @@ async function drawFacetedCharts(newest: () => boolean) {
       return
     const el = facetChartRefs.value.get(facet.parameter)
     if (el) {
-      // Ensure y-axis title does not overflow by enabling automargin and using standoff
-      // For long parameter labels (e.g., resolution/dataset/parameter) split title into multiple lines,
-      // one per part: a translated label may hold a slash of its own
-      const splitTitle = facet.parts.join('<br>')
       const layout: Partial<PlotlyLayout> = {
         ...chartLayout.value,
         hovermode: hoverMode(facet.large),
         yaxis: {
-          // Plotly yaxis.title can be either string or object; ensure we pass a string for typing
-          title: splitTitle,
+          showline: false,
           automargin: true,
-          // Use standoff via layout annotations when necessary instead of nested object to satisfy types
         },
         autosize: true,
       }
-      await plotly.react(el, facet.traces, layout, plotlyConfig)
+      const drawnIn = theme.value
+      await plotly.react(el, facet.traces, themedLayout(layout, drawnIn), drawConfig)
+      markChartScheme(el, drawnIn)
     }
   }
 }
@@ -1226,6 +1402,40 @@ async function drawFacetedCharts(newest: () => boolean) {
 // and, importantly, does not reach for Plotly.
 onMounted(async () => {
   await renderShownChart()
+})
+
+// Plotly keeps a `resize` listener of the window for each chart drawn with `responsive`, which holds the
+// chart (and its detached element) until it is purged: every chart goes with the viewer (GH-3619). Before
+// the unmount, as the template refs are cleared by then
+onBeforeUnmount(() => {
+  if (!Plotly)
+    return
+  for (const chart of [chartRef.value, ...facetChartRefs.value.values()]) {
+    if (chart)
+      Plotly.purge(chart)
+  }
+})
+
+// And a chart whose element goes while the viewer stays: the table shown in its place, the facets turned off
+// or on, an answer of other parameters or of none (GH-3619). The single chart's ref is null then; the
+// facets' go through `setFacetChartRef`
+watch(chartRef, (chart, gone) => {
+  if (gone && gone !== chart)
+    Plotly?.purge(gone)
+})
+
+// The colour scheme switched: every chart drawn takes the new chrome as it is
+watch(theme, async (next) => {
+  if (!Plotly)
+    return
+  const plotly = Plotly
+  const charts = [chartRef.value, ...facetChartRefs.value.values()]
+  // a chart that cannot be restyled keeps its colours, and the scheme it says it is in; the others take theirs
+  const results = await Promise.allSettled(charts.map(chart => restyleChart(plotly, chart, next)))
+  results.forEach((result, index) => {
+    if (result.status === 'fulfilled' && result.value)
+      markChartScheme(charts[index], next)
+  })
 })
 
 // Render main chart when data changes
@@ -1317,6 +1527,9 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
     facetChartRefs.value.set(parameter, el)
   }
   else {
+    const gone = facetChartRefs.value.get(parameter)
+    if (gone)
+      Plotly?.purge(gone)
     facetChartRefs.value.delete(parameter)
   }
 }
@@ -1325,7 +1538,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
 <template>
   <div class="space-y-4">
     <div>
-      <h2 class="sr-only">
+      <h2 :id="dataTitleId" class="sr-only">
         {{ t('dataViewer.dataTitle') }}
       </h2>
 
@@ -1341,7 +1554,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
       <div class="flex justify-center">
         <div class="flex items-center gap-2 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
           <UButton
-            icon="i-lucide-table"
+            icon="i-ph-table"
             :aria-label="t('dataViewer.viewTable')"
             :aria-pressed="viewMode === 'table'"
             size="md"
@@ -1350,7 +1563,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
             @click="viewMode = 'table'"
           />
           <UButton
-            icon="i-lucide-chart-line"
+            icon="i-ph-chart-line"
             :aria-label="t('dataViewer.viewChart')"
             :aria-pressed="viewMode === 'graph'"
             size="md"
@@ -1377,19 +1590,19 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
             <template v-if="viewMode === 'table'">
               <UTooltip :text="t('dataViewer.copyCurrentPage')">
                 <UButton
-                  size="xs" variant="ghost" icon="i-lucide-copy" :aria-label="t('dataViewer.copyCurrentPage')" :disabled="valuesPending || !paginatedValues.length"
+                  size="xs" variant="ghost" icon="i-ph-copy" :aria-label="t('dataViewer.copyCurrentPage')" :disabled="valuesPending || !paginatedValues.length"
                   @click="copyCurrentPage"
                 />
               </UTooltip>
               <UTooltip :text="t('dataViewer.copyAllValues')">
                 <UButton
-                  size="xs" variant="ghost" icon="i-lucide-copy-check" :aria-label="t('dataViewer.copyAllValues')" :disabled="valuesPending || !sortedValues.length"
+                  size="xs" variant="ghost" icon="i-ph-check" :aria-label="t('dataViewer.copyAllValues')" :disabled="valuesPending || !sortedValues.length"
                   @click="copyAllValues"
                 />
               </UTooltip>
             </template>
             <UDropdownMenu :items="downloadMenuItems" :modal="false">
-              <UButton size="xs" variant="ghost" icon="i-lucide-download" :aria-label="viewMode === 'graph' ? t('dataViewer.downloadChart') : t('dataViewer.download')" :disabled="valuesPending" />
+              <UButton size="xs" variant="ghost" icon="i-ph-download-simple" :aria-label="viewMode === 'graph' ? t('dataViewer.downloadChart') : t('dataViewer.download')" :disabled="valuesPending" />
             </UDropdownMenu>
           </div>
         </div>
@@ -1401,7 +1614,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
           :label="t('dataViewer.chartSettings')"
           variant="subtle"
           color="neutral"
-          trailing-icon="i-lucide-chevron-down"
+          trailing-icon="i-ph-caret-down"
           block
           size="sm"
         />
@@ -1421,12 +1634,16 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
       </UCollapsible>
 
       <!-- Content -->
-      <UCard :ui="{ body: valuesPending ? 'flex items-center justify-center min-h-40' : '' }">
+      <UCard ref="card" tabindex="-1" role="group" :aria-labelledby="dataTitleId" class="outline-none" :ui="{ body: valuesPending ? 'flex items-center justify-center min-h-40' : '' }">
         <div v-if="valuesPending" class="flex items-center justify-center py-12">
-          <UIcon name="i-lucide-loader-circle" class="w-8 h-8 animate-spin text-primary-500" />
+          <UIcon name="i-ph-circle-notch" class="w-8 h-8 animate-spin text-primary-500" />
         </div>
         <template v-else>
-          <div v-if="allValues.length === 0 && fetchErrorMessage" class="flex flex-col items-center justify-center gap-1 py-12 text-center text-red-600 dark:text-red-400">
+          <!-- a refusal of a limit, in either view: the table area says what it is and what can be done -->
+          <div v-if="limitNotice" ref="noticeBox">
+            <LimitNotice v-bind="limitNotice" @apply="applyWindow" />
+          </div>
+          <div v-else-if="allValues.length === 0 && fetchErrorMessage" class="flex flex-col items-center justify-center gap-1 py-12 text-center text-red-600 dark:text-red-400">
             <span class="font-medium">{{ t('dataViewer.fetchError') }}</span>
             <span class="text-sm">{{ fetchErrorMessage }}</span>
           </div>
@@ -1454,8 +1671,8 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
                   <span class="block text-sm">{{ t('dataViewer.chartCodeNotLoaded') }}</span>
                 </template>
               </span>
-              <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="renderShownChart()" />
-              <UButton v-if="plotlyNotLoaded" :label="t('common.reloadPage')" icon="i-lucide-refresh-cw" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
+              <UButton :label="t('common.retry')" icon="i-ph-arrow-clockwise" size="sm" color="neutral" variant="outline" @click="renderShownChart()" />
+              <UButton v-if="plotlyNotLoaded" :label="t('common.reloadPage')" icon="i-ph-arrows-clockwise" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
             </div>
             <div
               v-if="allValues.length === 0 && fetchErrorMessage"

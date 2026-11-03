@@ -19,7 +19,7 @@ async function mountHome() {
   return wrapper
 }
 function tile(wrapper: Awaited<ReturnType<typeof mountHome>>, label: string) {
-  return wrapper.findAll('.text-2xl').find(el => el.element.parentElement?.textContent?.includes(label))
+  return wrapper.findAll('.stat-value').find(el => el.element.parentElement?.textContent?.includes(label))
 }
 function servicesTile(wrapper: Awaited<ReturnType<typeof mountHome>>) {
   return tile(wrapper, 'weather services')
@@ -269,5 +269,19 @@ describe('index Page', () => {
     // the maintainers used to be listed here; the home page is about the data now
     expect(text).not.toContain('Benjamin Gutzmann')
     expect(text).not.toContain('Andreas Motl')
+  })
+
+  it('puts the questions of "Ask the weather" under the four tools, before the description of the data', async () => {
+    const wrapper = await mountHome()
+    const headings = wrapper.findAll('h1, h2').map(heading => heading.text())
+    const ask = headings.indexOf('Ask the weather')
+    expect(ask).toBeGreaterThan(0)
+    // the page's own title and the four tools come first, the description of the data after the questions
+    expect(headings[0]).toBe('Wetterdienst')
+    expect(ask).toBeLessThan(headings.indexOf('What data you get'))
+    expect(wrapper.findAll('[data-testid="questions"] button')).toHaveLength(4)
+    // the four tools of the hero are still there, each a link to its tool
+    const tools = wrapper.findAll('.home-tasks a').map(link => link.attributes('href'))
+    expect(tools).toEqual(['/meteogram', '/explorer', '/stripes', '/history'])
   })
 })

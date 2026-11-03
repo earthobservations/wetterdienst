@@ -18,7 +18,7 @@
 |---------------|--------------------------------------------------------------------------------|
 | name          | data                                                                           |
 | original name | data                                                                           |
-| description   | Historical daily station observations of flow and river water level for the UK |
+| description   | Daily station observations of flow (mean, minimum, maximum) and river water level (minimum, maximum) for England |
 | access        | [here](https://environment.data.gov.uk/hydrology/doc/reference)                |
 
 #### parameters

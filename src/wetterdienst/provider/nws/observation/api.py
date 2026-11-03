@@ -333,8 +333,8 @@ class NwsObservationValues(TimeseriesValues[DatasetModel]):
         hour at the edge of the window keeps does not depend on where the window is cut. What lies
         outside the request's own window is cut away after the hours have been decided.
 
-        A request carries no dates unless it is made to: `date_required` is enforced at the CLI and
-        the REST API but not in the Python API, and without them there is no window to name.
+        A request carries no dates unless it is made to, and the reader refuses one without (`date_required`,
+        GH-3562): the branch below, for no window, is reached only without the library's check (the test fixture).
 
         The endpoint answers 500 observations at most, and the limit is named so that a page shorter than it
         can be taken for the last one (GH-2994).

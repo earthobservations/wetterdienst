@@ -59,7 +59,7 @@ def test_dwd_observation_metadata_discover_parameters() -> None:
     precipitation = metadata["1_minute"]["datasets"]["precipitation"]
     assert all(p["description"] for p in precipitation["parameters"])
     assert precipitation["description"]
-    assert metadata["subdaily"]["description"] == "measurements at 7am, 2pm, 9pm."
+    assert "06, 12 and 18 UTC" in metadata["subdaily"]["description"]
 
 
 @pytest.mark.remote
