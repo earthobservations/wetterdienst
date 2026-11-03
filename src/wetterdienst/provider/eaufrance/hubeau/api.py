@@ -237,11 +237,6 @@ POSITION_UNPLACED = "position-unplaced"
 _UNPLACED_LISTED = 10
 
 
-def _written(row: dict) -> str:
-    """Say what the referential wrote for a station's position, in the form of the `raw:` token of a reading."""
-    return f"{row['station_id']} raw:{row['latitude']},{row['longitude']}"
-
-
 def _swap_misplaced_positions(df: pl.DataFrame) -> pl.DataFrame:
     """Swap latitude and longitude of the stations the referential lists with the two the wrong way round.
 
@@ -271,10 +266,11 @@ def _swap_misplaced_positions(df: pl.DataFrame) -> pl.DataFrame:
     swapped = df.filter(swap)
     if swapped.is_empty():
         return df
-    written = ", ".join(_written(row) for row in swapped.iter_rows(named=True))
+    # the ids only: the referential wrote each pair the other way round from the one returned
+    swapped_ids = ", ".join(swapped.get_column("station_id").to_list())
     log.debug(
         f"Hubeau: swapped latitude and longitude of {swapped.height} stations whose position is in no area of "
-        f"France, as the referential wrote them: {written}"
+        f"France: {swapped_ids}"
     )
     return df.with_columns(
         pl.when(swap).then(longitude).otherwise(latitude).alias("latitude"),

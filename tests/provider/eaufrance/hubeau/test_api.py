@@ -785,15 +785,12 @@ def test_swapping_leaves_the_other_stations_and_columns_as_they_are() -> None:
     assert result.schema == df.schema
 
 
-def test_swapping_reports_the_stations_it_swapped_as_the_source_wrote_them(caplog: pytest.LogCaptureFixture) -> None:
-    """Test that the stations swapped are logged at debug with the pair the source wrote, and nothing when none was."""
+def test_swapping_reports_the_stations_it_swapped(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that the ids of the stations swapped are logged at debug, and nothing when none was."""
     with caplog.at_level("DEBUG", logger=api.log.name):
         api._swap_misplaced_positions(_positions((4.1, 50.0), (2.0, 44.6), (48.0, 2.0)))  # noqa: SLF001
     assert [record.getMessage() for record in caplog.records if "swapped" in record.getMessage()] == [
-        (
-            "Hubeau: swapped latitude and longitude of 2 stations whose position is in no area of France, as the "
-            "referential wrote them: S0 raw:4.1,50.0, S1 raw:2.0,44.6"
-        )
+        ("Hubeau: swapped latitude and longitude of 2 stations whose position is in no area of France: S0, S1")
     ]
 
     caplog.clear()
