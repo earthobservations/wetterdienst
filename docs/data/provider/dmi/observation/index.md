@@ -10,7 +10,7 @@ no authentication is required.
 The provider queries the `climateData` `stationValue` collection, which returns every
 available parameter for a station/resolution/date-range in a single request.
 
-Hourly aggregates are aligned to UTC and labelled by the start of the hour. Daily, monthly
+Hourly aggregates are aligned to UTC and labelled by the start of the hour (the 12 and 24 hour values and the readings at minute 0 by the end of it, see below). Daily, monthly
 and annual aggregates use *local civil* period boundaries (e.g. a Danish day runs from local
 midnight to local midnight); the provider labels each such aggregate by its civil calendar
 date at UTC midnight. The requested date range is widened internally by a day on each side so
@@ -105,7 +105,7 @@ and lowest temperature and the precipitation of the last 12 and 24 hours (`tempe
 (`temperature_soil_mean_0_1m`). The 12 hour values are reports of 06:00 and 18:00 UTC (the temperatures also of 12:00
 and 00:00 UTC for a few stations), the 24 hour values of 00:00, 06:00, 12:00 and 18:00 UTC, and they are stamped at
 the end of their window, the report time: DMI's `from` is the start of the last hour of the window (17:00 for the
-18:00 report), where the other values of the hour are stamped by their `from`.
+18:00 report), where the other values of the hour are stamped by their `from`, the readings at minute 0 apart.
 
 Five more parameters are served (read on 2026-11-01). `temp_grass`
 (`temperature_air_mean_grass_height`) is the air temperature at grass height, "5-20 cm over terrain", `temp_soil_30`
@@ -130,10 +130,37 @@ speed of the record is 0 in 35 of them and above 0 (up to 2.0 m/s) in 21.
 
 The hourly cloud cover (`mean_cloud_cover`, `cloud_cover_total`, the metObs `cloud_cover` "at minute 0", given by
 part of the stations) is stamped by `to` as well: the record of `from` 11:00 and `to` 12:00 at 04250 on 2024-06-03 holds
-10, the metObs reading of 12:00 UTC (the reading of 11:00 is 60). Against metObs at 18 Greenland stations (up to 30 days each of
-March, July and November 2025), the value of a record is the reading at its `to` in 10,287 of the 10,559 hours in which
+10, the metObs reading of 12:00 UTC (the reading of 11:00 is 60). Against metObs at 18 Greenland stations (up to
+30 days each of March, July and November 2025), the value of a record is the reading at its `to` in 10,287 of the 10,559 hours in which
 the readings at `from` and `to` differ, and the reading at its `from` in 135. Before this stamp the hourly cloud cover
 was dated an hour too early.
+
+The hourly pressure (`mean_pressure`, `pressure_air_sea_level_mean`) is of two kinds, and the station's country in
+the station list decides. In Denmark (`DNK`) it is "the average of the 6 underlying values within the hour": at 4 days
+of November 2025 it equals the mean of the 10-minute `pressure_at_sea` of metObs stamped H+10 to H+60 in 97 of 97 hours
+at most of the 60 stations with an hourly pressure (82 to 97 at most of the others; at 06070 and 06193 the
+climate pressure is a steady offset from metObs's `pressure_at_sea` and matches in no or few hours), so the start of the record, `from`, is the
+start of the hour it is the mean of, and it is stamped by `from`. In Greenland (`GRL`) and the Faroe Islands (`FRO`) it
+is "pressure_at_sea at minute 0", the reading at the end of the record, and is stamped by `to`, like the wind direction
+and the cloud cover at minute 0: against metObs at 39 stations of both (8 days each of July and November 2025), the
+value is the reading at the `to` of the record in 13,862 of 13,862 hours (in 1,206 of them the reading at `from` is
+the same); 06009 (4 days of November 2025) has 96 of 96 at `to`. At 04250 (Nuuk) on 2025-11-01 the records of `from` 01:00, 02:00 and
+03:00 hold 1004.9, 1004.5 and 1004.0, the metObs readings of 02:00, 03:00 and 04:00 UTC (the readings of 01:00, 02:00
+and 03:00 are 1005.2, 1004.9 and 1004.5). Before this stamp the pressure of Greenland and the Faroe Islands was dated
+an hour too early; the name `pressure_air_sea_level_mean` is the same for all three, though it is a reading there.
+
+In Greenland the hourly `mean_temp`, `mean_relative_hum`, `mean_wind_dir` and `max_wind_speed_3sec` are, by DMI's
+calculation table, the value of the past hour or alternatively the one at minute 0 (`temp_mean_past1h` or `temp_dry`
+at minute 0, `humidity_past1h` or `humidity`, `wind_dir_past1h` or `wind_dir`, `wind_gust_always_past1h`, the highest
+gust of the hour, or `wind_max` at minute 0). Which of the two a record holds depends on the station and at some stations on the hour, and the record
+carries nothing that tells them apart (`qcStatus`, `validity` and the times are the same kinds). Against metObs, in
+8 days each of July and November 2025 the temperature of 16 stations (among them 04203, 04208, 04214, 04228 and 04312) is the
+`temp_dry` of the `to` of the record in all of 386 hours, that of 20 stations (among them 04205, 04211 and 04250)
+the `temp_mean_past1h` stamped `to`, and at 04221 261 of 386 hours are the mean and 155 the reading. The
+humidity, the wind direction and the gust split the same way, by other sets of stations. They are served as DMI gives
+them and stamped by `from`, so a reading at minute 0 lies an hour after its stamp (a value of the hour does not): a
+value may lie up to one hour from its stamp, and the library does not tell the two apart (this would need a second
+request to metObs for each station).
 
 DMI lists `no_days_fog` ("No. of days with fog (vis. < 1 km)") for 10 stations in Greenland, but the service holds no
 value of it at any resolution (hour, day, month, year; read on 2026-11-02 for each of the 10), so it is not served.
