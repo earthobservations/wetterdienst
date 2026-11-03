@@ -74,6 +74,14 @@ Types of changes:
   DMI writes it, no longer in kJ/m² (DMI's number times 1,000). Under the default unit targets the
   values do not change; with `convert_units=false` they are DMI's megajoules, where they were a
   thousand times larger, and `coverage` has no `unit_source` for them any more (GH-3752)
+- **Breaking**: `dwd/observation` `hourly/temperature_air` `historical` (`temperature_air_2m`,
+  `humidity_relative`): three blocks of whole days inside periods that DWD labels plain
+  "Stundenwerte in MEZ" are MEZ in the values and come back one hour earlier, with `zone:mez` in
+  `quality_flags`: Nürnberg (03668) from 1986-01-01 01 to 1988-11-01 00, Frankfurt/Main (01420)
+  from 1990-05-01 01 to 1990-06-01 00 and Trier-Petrisberg (05100) from 1989-08-01 01 to
+  1989-09-01 00. Add an hour to flagged stamps to get the old ones; the first stamp of a block
+  would land on the day's stamp 00 and its row is dropped. The other plain MEZ periods stay as
+  written (Part of GH-3029)
 
 ### Fixed
 
