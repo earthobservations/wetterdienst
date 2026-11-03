@@ -516,11 +516,14 @@
             "degree_day",
             "degree_hour",
             "dimensionless",
+            "duration",
             "energy_per_area",
             "fraction",
+            "length_day",
             "length_long",
             "length_medium",
             "length_short",
+            "length_tiny",
             "mass_per_volume",
             "power_per_area",
             "precipitation",
@@ -4843,5 +4846,5 @@
       }
     }
   },
-  "x-release": "0.182.0"
+  "x-release": "0.183.0"
 }
