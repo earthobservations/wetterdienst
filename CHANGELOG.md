@@ -30,14 +30,15 @@ Types of changes:
   interpolation, summaries, stripes and `skip_empty`; `plausibility_source=hard` (a bare
   `plausibility="hard"` too) nulls all but the milder NWS `Q` and GHCNh `f` as
   `rejected:source,raw:<text>`: name `source` soft beside it to keep the values (GH-3745)
-- The check `stuck` now judges every observation network, not only the DWD station pressure: a
-  run of one value of the air temperature, pressure and mean wind speed (10 minutes, hourly, daily),
-  the dew point (10 minutes, hourly) and, daily, the rain above 1 mm, gust and snow, as long as
-  HadISD, ECA&D and GHCN-Daily call certainly wrong (24 hourly readings of a temperature in tenths,
-  5 days; own derivations at 10 minutes and for a coarser daily step; calm wind, dry days and no snow exempt). Soft by default:
-  the value is kept as `suspect:stuck` and leaves interpolation, summaries and `skip_empty`; hard
-  nulls it as `rejected:stuck,raw:<text>`. Humidity and wind direction have no published limit and
-  are not judged. What it finds depends on what the reader read (Part of GH-3681)
+- The check `stuck` now judges every observation network, not only the DWD station pressure: a run
+  of one value of the air temperature, pressure and mean wind speed (10 minutes, hourly, daily), the
+  dew point (10 minutes, hourly) and, daily, the rain above 1 mm, gust and snow, as long as HadISD,
+  ECA&D and GHCN-Daily call certainly wrong (24 hourly readings of a temperature in tenths, 5 days;
+  own derivations at 10 minutes and for a coarser daily step; calm wind, dry days and no snow
+  exempt). Soft by default: the value is kept as `suspect:stuck` and leaves interpolation, summaries
+  and `skip_empty`; hard nulls it as `rejected:stuck,raw:<text>`. Humidity and wind direction have
+  no published limit and are not judged. What it finds depends on what the reader read (Part of
+  GH-3681)
 
 ### Changed
 
