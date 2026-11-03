@@ -104,7 +104,10 @@ These values are returned as the source writes them, with no token:
 
 - visibility at the top of the sensor's range (DWD 75,000 m, SMHI 75,000, 99,999 and, at one 1 minute station, 50,000 m,
   FMI 50,000 m, NWS and NOAA GHCN 16,093 m, ECCC 24.1 km, Météo-France synop 60,000 to 80,000 m): a lower bound, not
-  the visibility. A visibility at that value says only that it was at least that far;
+  the visibility. A visibility at that value says only that it was at least that far. The DWD readings of 1949 to 1953
+  end their scale at 99,990 m (25 readings at three of eight stations read, alone or in runs of up to three, beside
+  readings of 50,000, 60,000 and 80,000 m): it marks a visibility beyond the last step of the scale, 80,000 m, and is
+  no code; the description names `-999` only;
 - a radiation of 0 at night; a long wave radiation balance that is negative (DWD DMO `radl3`);
 - a snow depth below 0 that no source documents: MeteoSwiss' automatic gauge `htoautd0` reads -1 to -5 cm on warm
   days (11 % of the hours at PLF), a spread around a bare ground and not a code;
