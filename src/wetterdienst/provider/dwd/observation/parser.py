@@ -124,8 +124,7 @@ MOISTURE_MISSING_PARAMETERS = {
 # nicht gemeldet;eor` (stundenwerte_WW_01869_akt.zip; 9263 of the 13088 records of station 01869 are
 # that row, and no other `WW_Text` goes with -1 nor does -1 go with another text). No description states
 # it. It is "not reported", not a weather: left alone it is counted, maxed and averaged as one. Only
-# this column: `v_sN_cs` of hourly cloud_type is a code where -1 is DWD's own value for an automated
-# observation.
+# this column: the -1 of `v_sN_cs` in hourly cloud_type is the obscured sky (see `SKY_OBSCURED`).
 WEATHER_NOT_REPORTED = -1
 WEATHER_NOT_REPORTED_PARAMETERS = {
     DwdObservationMetadata.hourly.weather_phenomena.weather.name_original,
