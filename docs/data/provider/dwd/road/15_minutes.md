@@ -210,13 +210,46 @@ That threshold is measured, not chosen. Over a day of five station groups and ar
 per quantity, a working sensor's longest run of one identical value was 14 readings for the air
 temperature, 17 for the dew point and 9 for the road surface; a broken one held its value for 86 to
 96 of the day's 96, every one of them reporting a single distinct value for the whole day. It is
-applied only to those three quantities, because only for those is standing still a fault: the road
-surface condition and the water film sit at `0` for the whole of a dry day, as does the
-precipitation type, the humidity saturates in fog, and the wind falls calm.
+applied to those three quantities and to the precipitation intensity (below), because only for those
+is standing still a fault: the road surface condition and the water film sit at `0` for the whole of
+a dry day, as does the precipitation type, the humidity saturates in fog, and the wind falls calm.
 
 This is also what the exact round values are. `-75.00`, `-30.00` and `-25.00` are not a sentinel to
 be recognised but sensors that have stopped, and matching them by value would be worse than useless
 for two of the three -- -25 °C and -30 °C are both reachable in a German winter.
+
+**A precipitation intensity that never changes** is the same rule with a zero exception (GH-3771).
+{term}`precipitation_intensity` is 0 in every dry quarter hour, so a run of zeros is no fault and is
+never flagged, however long; a run of 24 readings or more of **one value above zero** is, and is
+flagged `suspect:stuck` (hard: null with `rejected:stuck,raw:<value>`, the number in kg m-2 s-1 as
+DWD writes it). Read on 2026-11-03 (generic User-Agent, no credentials, the reader), the 575
+stations that report an intensity in 48 hours split in two:
+
+- 55 stations hold one value in every reading: 53 of group `KO` (`K030`, `K031`, `K050` ... `K921`)
+  write `0.006` (21.6 mm/h) and `B338` and `B773` write `0.0056` (20.16 mm/h), in every reading
+  (192 of 192 for most; `K341` reports only since the morning of 2 November, 83). The `KO` stations report no `precipitation_amount` at all and set a
+  precipitation type in 2 % of their readings; 21.6 mm/h held for 48 hours would be about 1,040 mm. The
+  two others write a `precipitation_amount` of 5.0 mm in every reading too. No DWD document gives
+  either number a meaning, and the data cannot say whether it is a configured default or a failed
+  sensor, so the number is not matched: a shower of 21.6 mm/h is a heavy one and no sensor can be
+  told from it by its value.
+- The other 520 never hold one non-zero value for long: the longest run is 13 readings (3 h 15 min,
+  the lowest step of 0.36 mm/h, P469), 6 stations reach 10 or more, and none ever reads 21.6.
+
+The 24 readings are nearly twice the longest run of rain. The 10-minute precipitation of DWD observation, the
+intensity of its interval in mm per 10 minutes, was read at 148 stations over 400 days (8.2 million
+readings) and has no run of one non-zero amount beyond 10 readings (100 minutes). That series steps in 0.01 mm (0.06 mm/h), six times finer than this gauge's lowest step
+of 0.36 mm/h, and the road figure is 48 hours of one November, so a drizzle at the lowest step for six
+hours or more, not seen yet, would be flagged: that is why the check is soft. The precipitation
+amount of this network is **not** judged this way: the 15-minute amount of group `C` repeats one
+non-zero value for up to 57 readings beside an intensity of 0, because it grows by tenths over hours, so
+a repeat of it is no fault. The `B338` and `B773` amount of 5.0 mm is therefore not flagged, only their
+intensity.
+
+The values come back flagged and unchanged by default, and a flagged value drops out of
+`interpolate`, `summarize`, the climate stripes and `skip_empty`, like every value a check finds
+`suspect`. A run shorter than the window cannot be seen (a request for under six hours), as for the
+temperatures.
 
 Two things the run rule does not catch, and one it cannot:
 
