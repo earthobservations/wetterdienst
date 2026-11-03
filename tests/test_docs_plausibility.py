@@ -5,8 +5,8 @@
 `wetterdienst.model.plausibility.COVERAGE` names the networks and datasets each check runs on, and
 `docs/data/plausibility.md` has them as a table. Three things are held to one another so that none can drift: what the
 values core is told to judge (the tables of `model/judge.py` and `model/plausibility_ranges.py`, and the rules a
-provider hands it: `Bound`, `Beside`, `StuckPeriod`), `COVERAGE`, and the table. `range` and `elevation` run on every
-network that has a quantity of their tables; their rows say `*`, every dataset that has one (GH-3681).
+provider hands it: `Bound`, `Beside`, `StuckPeriod`), `COVERAGE`, and the table. `range`, `elevation` and `stuck` run on
+every network that has a quantity of their tables; their rows say `*`, every dataset that has one (GH-3681).
 """
 
 from __future__ import annotations
@@ -21,7 +21,8 @@ import pytest
 import wetterdienst
 from tests.provider.value_stubs import STUBS
 from wetterdienst import Wetterdienst
-from wetterdienst.model.judge import CONSTANT_RUNS, FLOORS, RUNS, plan_for
+from wetterdienst.model.judge import FLOORS, RUNS, plan_for
+from wetterdienst.model.persistence import rule_for
 from wetterdienst.model.plausibility import CALLER_CHECKS, CHECKS, COVERAGE, SOFT_BY_DEFAULT, Plausibility
 from wetterdienst.model.source_flags import SOURCE_FLAGS
 
@@ -61,7 +62,7 @@ def _datasets_of(network: str, *, has: Callable[[str, DatasetModel], bool]) -> s
 
 
 def _everywhere(attribute: str) -> dict[str, set[str]]:
-    """Give the networks and datasets for which the plan of the core has a bound (`ranges`) or a pressure."""
+    """Give the networks and datasets for which the plan of the core has a bound, a pressure or a run rule."""
     found = {
         network: _datasets_of(network, has=lambda _, dataset, n=network: bool(getattr(plan_for(n, dataset), attribute)))
         for network in _networks()
@@ -78,7 +79,7 @@ def _declared() -> dict[str, set[str]]:
     found: dict[str, set[str]] = {check: set() for check in CHECKS}
     found["range"] |= set(_everywhere("ranges"))
     found["elevation"] |= set(_everywhere("pressure"))
-    found["stuck"] |= set(CONSTANT_RUNS) | set(RUNS)
+    found["stuck"] |= set(_everywhere("persistence")) | set(RUNS)
     found["floor"] |= set(FLOORS)
     found["source"] |= set(SOURCE_FLAGS)
     for path in sorted(PROVIDER_DIR.rglob("*.py")):
@@ -92,10 +93,25 @@ def _declared() -> dict[str, set[str]]:
     return found
 
 
+def _stuck_datasets(network: str) -> set[str]:
+    """Give the datasets of a network with a run rule of the core or of its provider, which `*` stands for."""
+    datasets = set(_everywhere("persistence").get(network, ()))
+    if network in RUNS:
+        names = RUNS[network][0]
+        datasets |= _datasets_of(
+            network, has=lambda _, dataset: all(any(p.name == name for p in dataset) for name in names)
+        )
+    if network == "rmi/observation":
+        datasets |= _datasets_of(network, has=lambda _, dataset: any(p.name == "sunshine_duration" for p in dataset))
+    return datasets
+
+
 def _covered(check: str, network: str) -> set[str]:
     """Give the datasets the coverage names for a check and a network, `*` being every dataset that has a quantity."""
     datasets = COVERAGE[check].get(network, ())
     if datasets == ("*",):
+        if check == "stuck":
+            return _stuck_datasets(network)
         return _everywhere({"range": "ranges", "elevation": "pressure"}[check])[network]
     return set(datasets)
 
@@ -129,18 +145,38 @@ def test_the_coverage_is_the_networks_whose_providers_declare_a_rule_of_each_che
 
 
 def test_every_dataset_of_the_coverage_exists() -> None:
-    """The datasets are `resolution/dataset` of their network, or `*` alone for `range` and `elevation`."""
+    """The datasets are `resolution/dataset` of their network, or `*` alone for `range`, `elevation` and `stuck`."""
     for check, networks in COVERAGE.items():
         for network, datasets in networks.items():
             if "*" in datasets:
                 assert datasets == ("*",), f"{check} {network}: `*` stands for all of them and alone"
-                assert check in {"range", "elevation"}, f"{check} {network}: only range and elevation run everywhere"
+                assert check in {"range", "elevation", "stuck"}, f"{check} {network}: `*` is for the generic checks"
                 continue
             provider, name = network.split("/")
             metadata = Wetterdienst.resolve(provider, name).metadata
             existing = {f"{resolution.name}/{dataset.name}" for resolution in metadata for dataset in resolution}
             assert set(datasets) <= existing, f"{check} {network}: {sorted(set(datasets) - existing)}"
             assert len(datasets) == len(set(datasets)), f"{check} {network}: a dataset is listed twice"
+
+
+def _stuck_derived(everything: dict[str, tuple[str, ...]]) -> dict[str, set[str]]:
+    """Derive the datasets with a run rule: the table of the core (by name and resolution), the road, RMI's sunshine."""
+    found: dict[str, set[str]] = {}
+    for network in _networks():
+        provider, name = network.split("/")
+        if Wetterdienst.resolve(provider, name).metadata.kind != "observation":
+            continue
+        datasets = _datasets_of(network, has=lambda res, dataset: any(rule_for(p.name, res) for p in dataset))
+        if network == "dwd/road":
+            datasets |= set(everything[network])
+        if network == "rmi/observation":
+            # the periods of a station are read for the sunshine, a parameter of every resolution of the network
+            datasets |= _datasets_of(
+                network, has=lambda _, dataset: any(p.name == "sunshine_duration" for p in dataset)
+            )
+        if datasets:
+            found[network] = datasets
+    return found
 
 
 def _derived() -> dict[str, dict[str, set[str]]]:
@@ -159,16 +195,7 @@ def _derived() -> dict[str, dict[str, set[str]]]:
     return {
         "range": _everywhere("ranges"),
         "elevation": _everywhere("pressure"),
-        "stuck": {
-            "dwd/observation": _datasets_of(
-                "dwd/observation", has=lambda _, dataset: bool(plan_for("dwd/observation", dataset).constants)
-            ),
-            "dwd/road": set(everything["dwd/road"]),
-            # the periods of a station are read for the sunshine, a parameter of every resolution of the network
-            "rmi/observation": _datasets_of(
-                "rmi/observation", has=lambda _, dataset: named(dataset, ["sunshine_duration"])
-            ),
-        },
+        "stuck": _stuck_derived(everything),
         "consistency": {
             "dwd/road": set(everything["dwd/road"]),
             "meteofrance/observation": _datasets_of(

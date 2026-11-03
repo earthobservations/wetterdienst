@@ -346,11 +346,16 @@ a sea level pressure outside 850 to 1100 hPa. `elevation` (hard): a `pressure_ai
 (143 hPa below at sea level) to 75 hPa above it (`rejected:elevation,raw:1093.3`: the hourly `pressure` of 00433, 48 m,
 where 1007.5 hPa are expected). Three of the 19 readings of 00433, 03032 and the Zugspitze beyond 75 hPa of the standard atmosphere (909.5, 910.1 and 908.5 hPa) lie between the
 margins and stay, for the step check of [GH-3681](https://github.com/earthobservations/wetterdienst/issues/3681). `stuck` (**soft** by default):
-a run of 72 hourly readings (5 days; 36 readings at 10 minutes, a limit the research for GH-3681 derives and no source
-publishes) of one value of `pressure_air_site` or `pressure_air_site_mean`, the constant a station without a barometer
-writes (HadISD and ECA&D, see [the limit of a run](../../../plausibility.md#the-limit-of-a-run)); the value is kept and
-flagged `suspect:stuck`, and null with `rejected:stuck,raw:997.3` where the check is hard (`plausibility={"stuck":
-"hard"}`). The run is judged in the series of the periods read, the historical archive before the recent file, so a
+a run of consecutive readings of one value as long as the table of [the limit of a run](../../../plausibility.md#the-limit-of-a-run)
+says for the parameter, the resolution and the step the series is written at: of `pressure_air_site` and
+`pressure_air_site_mean` 72 hourly readings (5 days; 36 readings at 10 minutes, a limit the research for GH-3681 derives
+and no source publishes), the constant a station without a barometer writes; and, since GH-3681, of the air temperature,
+the dew point and the mean wind speed of the hourly and 10-minute datasets (24 hourly readings of a temperature at tenths
+of a degree, 40 at whole degrees, the years until 1981 of the hourly `moisture` and `dew_point`; 144 at 10 minutes) and of
+the daily climate summary (5 days of a temperature or a pressure, the rain above 1 mm, the gust, the snow depth); the
+value is kept and flagged `suspect:stuck`, and null with `rejected:stuck,raw:997.3` where the check is hard
+(`plausibility={"stuck": "hard"}`). The relative humidity and the wind direction are not judged: no source gives a
+limit, and DWD's hold one value for hundreds of hours in the weather. The run is judged in the series of the periods read, the historical archive before the recent file, so a
 station whose historical file is constant and whose recent one is not is flagged for the stretch that is; a gap of more
 than four times the interval ends a run. The `-999` of every dataset and the other codes of the files are no check: they
 are null with `raw:` alone. The datasets each check covers are in the [table of the plausibility

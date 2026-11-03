@@ -42,6 +42,20 @@ import polars as pl
 from wetterdienst.exceptions import InvalidParameterError
 from wetterdienst.metadata.resolution import reading_step
 from wetterdienst.model.limits import scope_of, search_for
+from wetterdienst.model.persistence import (
+    DECIMALS,
+    FINE,
+    HALF,
+    MIN_CHANGES,
+    MIN_ROWS,
+    SHARE_TOLERANCE,
+    STEP_BOUNDS,
+    STEP_SHARE,
+    WHOLE,
+    RunRule,
+    rule_for,
+    shortest_run,
+)
 from wetterdienst.model.plausibility import CHECKS, REJECTED, SUSPECT, Plausibility
 from wetterdienst.model.plausibility_ranges import bounds_for
 from wetterdienst.model.quality_flags import RAW_TOKEN
@@ -64,8 +78,6 @@ SOURCE_TEXT = "source_text"
 _HIT = "__hit_"
 _ELIGIBLE = "__eligible"
 
-#: the station pressure whose constant run is a barometer that does not work (check ``stuck``, DWD observation)
-STATION_PRESSURE = ("pressure_air_site", "pressure_air_site_mean")
 #: the station pressure that is also held to what the elevation of the station allows (check ``elevation``): in every
 #: network, for every station of it that has an elevation
 ELEVATION_PRESSURE = ("pressure_air_site", "pressure_air_site_mean", "pressure_air_site_min", "pressure_air_site_max")
@@ -99,20 +111,14 @@ FLOORS: dict[str, tuple[str, ...]] = {
         "radiation_short_wave_net_last_3h",
     ),
 }
-#: a barometer that writes one pressure for hours reflects the station and not the weather (check ``stuck``, GH-2699):
-#: by network, the quantities, and by resolution the number of consecutive readings of one value that makes it so. The
-#: run is judged in the series the core is handed, the periods of the archive merged (the historical file first), so a
-#: station whose historical file is constant and whose recent one is not is flagged for the stretch that is.
-#:
-#: The numbers are those of the research for GH-3681 (section 4.1, persistence of station and sea level pressure).
-#: Hourly, 72 readings: HadISD (Dunn et al. 2012, Clim. Past 8, 1649-1679, Table 4) holds a straight repeat of 72
-#: values at a resolution of 0.1 hPa, which DWD's pressures have (it says 100 at 0.5 hPa and 120 at 1 hPa). Daily, 5
-#: days: ECA&D (KNMI, Algorithm Theoretical Basis Document v11, 2021, section 3: PP, "not exactly the same value 5 days
-#: in a row"). 10 minutes, 36 readings (6 hours): derived by the research, since no source publishes a 10-minute
-#: count. Sub-daily, monthly and annual values have no source and are not judged.
-CONSTANT_RUNS: dict[str, tuple[tuple[str, ...], dict[str, int]]] = {
-    "dwd/observation": (STATION_PRESSURE, {"10_minutes": 36, "hourly": 72, "daily": 5}),
-}
+#: a sensor that holds one value for as long as the weather cannot is a sensor that has stopped (check ``stuck``): for
+#: every observation network, the quantities and resolutions of ``model/persistence.py`` (GH-3681), whose limits are
+#: each a source's: the number of consecutive readings of one value that makes a run, by the reporting step of the
+#: series (tenths, halves, wholes). The run is judged in the series the core is handed, the periods of the archive
+#: merged (the historical file first), so a station whose historical file is constant and whose recent one is not is
+#: flagged for the stretch that is. The barometer of ``dwd/observation`` (72 hourly readings, 5 days, 36 at 10
+#: minutes of a station pressure, GH-2699) is the pressure rule of that table, with the same limits
+
 #: a sensor that did not move for hours (check ``stuck``), by network: the quantities, and the one whose reading of the
 #: same minute tells whether melting ice can hold a road surface at its melting point (GH-1917)
 RUNS: dict[str, tuple[tuple[str, ...], str]] = {
@@ -232,9 +238,11 @@ class Plan:
     forecast: bool = False
     pressure: tuple[str, ...] = ()
     floors: tuple[str, ...] = ()
-    constants: tuple[tuple[str, int], ...] = ()
+    #: the parameters (as the source names them) a run of one value is judged for, with their rule
+    #: (`model/persistence.py`)
+    persistence: tuple[tuple[str, RunRule], ...] = ()
     #: the time between two readings that ends a run of one value: four times the interval of the resolution
-    constant_gap: dt.timedelta | None = None
+    persistence_gap: dt.timedelta | None = None
     runs: tuple[tuple[str, ...], str | None] = ((), None)
     by_name: dict[str, str] = field(default_factory=dict)
     #: the codes of the source's own quality flag that mark a value as erroneous or doubtful (check ``source``)
@@ -262,7 +270,7 @@ class Plan:
             self.ranges
             or self.pressure
             or self.floors
-            or self.constants
+            or self.persistence
             or self.runs[0]
             or self.runs_from_zero
             or self.source
@@ -281,16 +289,16 @@ def plan_for(network: str, dataset: DatasetModel) -> Plan:
     return cached[1]
 
 
-def _is_forecast(network: str) -> bool:
-    """Tell whether a network is a forecast by the ``kind`` its metadata declares (what ``coverage`` reports)."""
+def _kind_of(network: str) -> str | None:
+    """Give the ``kind`` the metadata of a network declares (what ``coverage`` reports), None for an unknown one."""
     from wetterdienst.api import Wetterdienst  # noqa: PLC0415
     from wetterdienst.exceptions import ApiNotFoundError  # noqa: PLC0415
 
     provider, _, name = network.partition("/")
     try:
-        return Wetterdienst.resolve(provider, name).metadata.kind == "forecast"
+        return Wetterdienst.resolve(provider, name).metadata.kind
     except ApiNotFoundError:
-        return False
+        return None
 
 
 def _build_plan(network: str, dataset: DatasetModel) -> Plan:
@@ -310,12 +318,20 @@ def _build_plan(network: str, dataset: DatasetModel) -> Plan:
     original = by_name
     pressure = tuple(original[name] for name in ELEVATION_PRESSURE if name in original)
     floors = tuple(original[name] for name in FLOORS.get(network, ()) if name in original)
-    names, limits = CONSTANT_RUNS.get(network, ((), {}))
-    constants = tuple(
-        (original[name], limits[resolution]) for name in names if name in original and resolution in limits
+    kind = _kind_of(network)
+    # a run of one value is a sensor that does not work: judged in a reading, not in a forecast of a model or in what is
+    # derived from readings
+    persistence = (
+        tuple(
+            (parameter.name_original, rule)
+            for parameter in dataset
+            if (rule := rule_for(parameter.name, resolution)) is not None
+        )
+        if kind == "observation"
+        else ()
     )
     step = reading_step(dataset.resolution.value)
-    constant_gap = step * RUN_GAP_FACTOR if constants and step is not None else None
+    persistence_gap = step * RUN_GAP_FACTOR if persistence and step is not None else None
     runs: tuple[tuple[str, ...], str | None] = ((), None)
     if network in RUNS:
         names, air = RUNS[network]
@@ -327,11 +343,11 @@ def _build_plan(network: str, dataset: DatasetModel) -> Plan:
         network,
         parameters,
         ranges,
-        _is_forecast(network),
+        kind == "forecast",
         pressure,
         floors,
-        constants,
-        constant_gap,
+        persistence,
+        persistence_gap,
         runs,
         by_name,
         source,
@@ -528,8 +544,8 @@ def judge(  # noqa: C901
             exprs["elevation"].append(parameter.is_in(plan.pressure) & ((value < allowed[0]) | (value > allowed[1])))
     if plan.floors:
         exprs["floor"].append(parameter.is_in(plan.floors) & (value < 0.0))
-    if plan.constants:
-        series["stuck"].append(_constant_runs(df, plan))
+    if plan.persistence:
+        series["stuck"].append(_persistent_runs(df, plan))
     for rule in rules:
         if isinstance(rule, StuckPeriod) and rule.parameter in plan.by_name:
             stamp = pl.col("timestamp")
@@ -651,39 +667,152 @@ def _verdicts(rows: pl.DataFrame, checks: list[str], modes: Plausibility) -> pl.
     )
 
 
-def _constant_runs(df: pl.DataFrame, plan: Plan) -> pl.Series:
-    """Mark the readings of a quantity that held one value for as many consecutive readings as its limit says.
+def _persistent_runs(df: pl.DataFrame, plan: Plan) -> pl.Series:
+    """Mark the readings of a run of one value that the table of ``model/persistence.py`` takes for a stopped sensor.
 
-    The nulls are skipped (a reading that is missing does not break a run) but a gap of more than four times the
-    interval of the resolution between two readings does.
+    A run is consecutive readings of one value of one parameter (the nulls skipped, a reading that is missing does not
+    break it) and ends where the value changes or where two readings are more than four times the interval of the
+    resolution apart. A run is a stuck one if it is as long as the limit of the parameter at the reporting step of its
+    series, for a reading that counts (a calm wind and a dry day are exempt and end a run, as any other change of value
+    does). The step is read off the parameter's own readings, by calendar year (``_with_reporting_step``), and only for
+    the years that have a run as long as the shortest limit there is: the series that has none costs the runs alone.
     """
-    limits = dict(plan.constants)
-    runs = (
+    rules = dict(plan.persistence)
+    readings = (
         df.select("parameter", "timestamp", "value")
         .with_row_index("_row")
-        .filter(pl.col("parameter").is_in(list(limits)) & pl.col("value").is_not_null())
+        .filter(pl.col("parameter").is_in(list(rules)) & pl.col("value").is_not_null() & pl.col("value").is_not_nan())
+        .with_columns(_v=pl.col("value").round(DECIMALS), _year=pl.col("timestamp").dt.year())
         .sort("parameter", "timestamp", "_row")
-        .with_columns(_gap=pl.col("timestamp").diff().over("parameter"))
-        .with_columns(
-            # a run ends where the value changes, and where the readings are further apart than the gap: a null
-            # between two readings of a short stretch is bridged, a month without readings is not
-            _run=(
-                pl.col("value").ne(pl.col("value").shift().over("parameter")).fill_null(value=True)
-                | (pl.col("_gap") > plan.constant_gap).fill_null(value=False)
-            )
-            .cum_sum()
-            .over("parameter")
-        )
-        .with_columns(
-            _length=pl.len().over("parameter", "_run"),
-            _limit=pl.col("parameter").replace_strict(limits, return_dtype=pl.Int64),
-        )
-        .filter(pl.col("_length") >= pl.col("_limit"))
     )
-    if runs.is_empty():
+    if readings.is_empty():
         return _no_hits(df)
-    mask = pl.repeat(value=False, n=df.height, dtype=pl.Boolean, eager=True)
-    return mask.scatter(runs.get_column("_row"), True).alias("hit")  # noqa: FBT003
+    # the readings are sorted by parameter and time, so a run starts where the parameter, the value or the gap changes
+    # (a null between two readings of a short stretch is bridged, a month without readings is not)
+    readings = readings.with_columns(
+        _start=(
+            pl.col("parameter").ne(pl.col("parameter").shift())
+            | pl.col("_v").ne(pl.col("_v").shift())
+            | (pl.col("timestamp").diff() > plan.persistence_gap)
+        ).fill_null(value=True)
+    )
+    first = readings.get_column("_start").arg_true()
+    last = first.shift(-1).fill_null(readings.height)
+    long_enough = (last - first) >= readings.get_column("parameter").gather(first).replace_strict(
+        {name: shortest_run(rule) for name, rule in rules.items()}, return_dtype=pl.Int64
+    )
+    if not long_enough.any():
+        return _no_hits(df)
+    # only the runs as long as the shortest limit are looked at any further: their rows, numbered by run
+    first, last = first.filter(long_enough), last.filter(long_enough)
+    spans = pl.DataFrame({"_run": pl.int_range(first.len(), eager=True), "_first": first, "_last": last})
+    rows = spans.select(
+        "_run", _at=pl.int_ranges("_first", "_last"), _length=pl.col("_last") - pl.col("_first")
+    ).explode("_at")
+    candidates = readings[rows.get_column("_at")].with_columns(
+        _run=rows.get_column("_run"), _length=rows.get_column("_length")
+    )
+    runs = _with_reporting_step(candidates, readings.filter(pl.col("_start"))).with_columns(
+        _tier=pl.col("_tier").first().over("_run")
+    )
+    limit = pl.coalesce(*[pl.when(pl.col("parameter").eq(name)).then(_limit_of(rule)) for name, rule in rules.items()])
+    hits = runs.filter(pl.col("_length") >= limit).get_column("_row")
+    if hits.is_empty():
+        return _no_hits(df)
+    return pl.repeat(value=False, n=df.height, dtype=pl.Boolean, eager=True).scatter(hits, True).alias("hit")  # noqa: FBT003
+
+
+def _with_reporting_step(candidates: pl.DataFrame, changes: pl.DataFrame) -> pl.DataFrame:
+    """Give the readings of the candidate runs the tier of the step their parameter is reported at (``_tier``).
+
+    ``changes`` are the first readings of every run of the series, which the step is read off: of the parameter in the
+    calendar year of the reading (DWD's hourly temperature is in whole degrees up to 1981 and in tenths after), else of
+    all its years, where the year has fewer than ``MIN_CHANGES`` of them or holds one value only. A group of one value
+    in ``MIN_ROWS`` readings or more is fine, the strictest limit: a barometer that writes its station constant for a
+    year is stopped whatever step the constant was written at (996.4 as much as 1012.0). A series is whole where at
+    least 80 % of its values are whole numbers of the unit (a series in tenths has about 10 %) and half where that many
+    are multiples of 0.5; otherwise the typical gap between its different values tells (fine below 0.25, half below
+    0.75, else whole: a Fahrenheit degree is 0.56 K, a knot 0.51 m/s); a series of one value that is neither is fine.
+    The share and not the smallest gap, because a few readings of a finer step among whole ones (a thermometer read to
+    a tenth now and then) are no change of the step; and the values where they change, so that a stuck stretch, a value
+    written for hours, does not decide what step the rest of the series was written in.
+    """
+    low, high = STEP_BOUNDS
+
+    def tiers(by: list[str], name: str, *, year: bool) -> pl.DataFrame:
+        # only the groups that have a candidate run are read: the others have no run to judge
+        own = changes.join(candidates.select(by).unique(), on=by, how="semi")
+        value = pl.col("_v")
+        stats = own.group_by(by).agg(
+            value.sub(value.round(0)).abs().lt(SHARE_TOLERANCE).mean().alias("_whole"),
+            value.mul(2).sub(value.mul(2).round(0)).abs().lt(SHARE_TOLERANCE).mean().alias("_half"),
+            value.n_unique().alias("_distinct"),
+            pl.len().alias("_changes"),
+        )
+        distinct = own.select(*by, "_v").unique().sort(*by, "_v")
+        gaps = (
+            distinct.with_columns(_d=pl.col("_v").diff().over(by))
+            .filter(pl.col("_d").is_not_null())
+            .group_by(by)
+            .agg(pl.col("_d").median().alias("_gap"))
+        )
+        gap = pl.col("_gap")
+        # a year with few changes of value tells nothing of the step: the series as a whole does. A group that holds one
+        # value in at least MIN_ROWS readings is a sensor that has stopped, whatever step it would have been written at;
+        # fewer readings (a run that starts at the end of a year, a short window) say nothing of the step either
+        values = own.select(*by, "_v").unique()
+        rows = candidates.join(values, on=[*by, "_v"]).group_by(by).len().rename({"len": "_rows"})
+        stats = stats.join(rows, on=by, how="left")
+        one_value = pl.col("_distinct") < 2
+        tier = (
+            pl.when(one_value & (pl.col("_rows") >= MIN_ROWS))
+            .then(FINE)
+            .when(one_value & pl.lit(year))
+            .then(None)
+            .when(pl.lit(year) & (pl.col("_changes") < MIN_CHANGES))
+            .then(None)
+            .when(pl.col("_whole") >= STEP_SHARE)
+            .then(WHOLE)
+            .when(pl.col("_half") >= STEP_SHARE)
+            .then(HALF)
+            .when(gap < low)
+            .then(FINE)
+            .when(gap < high)
+            .then(HALF)
+            .when(gap.is_not_null())
+            .then(WHOLE)
+            # one value that is no whole number or half: no whole or half step wrote it
+            .otherwise(None if year else FINE)
+        )
+        return stats.join(gaps, on=by, how="left").select(*by, tier.cast(pl.Int8).alias(name))
+
+    return (
+        candidates.join(
+            tiers(["parameter", "_year"], "_year_tier", year=True),
+            on=["parameter", "_year"],
+            how="left",
+            maintain_order="left",
+        )
+        .join(tiers(["parameter"], "_overall_tier", year=False), on="parameter", how="left", maintain_order="left")
+        .with_columns(_tier=pl.coalesce("_year_tier", "_overall_tier").fill_null(WHOLE).cast(pl.Int8))
+        .drop("_year_tier", "_overall_tier")
+    )
+
+
+def _limit_of(rule: RunRule) -> pl.Expr:
+    """Give the readings of a run that make it stuck, by reading: null where the reading is exempt or has no limit.
+
+    The bands of a rule are ordered by floor, and the highest band the value reaches that has a count at the step
+    decides: the rain of a day is 10 days of one value above 1.0 mm and 5 days above 5.0 mm.
+    """
+    value, tier = pl.col("_v"), pl.col("_tier")
+    limit = pl.lit(None, dtype=pl.Int64)
+    for band in rule.bands:
+        floor = tier.replace_strict(dict(enumerate(band.floors)), return_dtype=pl.Float64)
+        count = tier.replace_strict(dict(enumerate(band.counts)), return_dtype=pl.Int64)
+        reached = (value > floor) if band.strict else (value >= floor)
+        limit = pl.when(reached & count.is_not_null()).then(count).otherwise(limit)
+    return limit
 
 
 def _no_hits(df: pl.DataFrame) -> pl.Series:

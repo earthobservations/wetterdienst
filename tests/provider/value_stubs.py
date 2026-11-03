@@ -407,7 +407,9 @@ def _dwd_hourly_moisture(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = Tru
     # pressure of a station without a barometer: the sheet ("Stundenwerte Luftdruck") says nothing of it, the core
     # judges a run of 72 hourly readings of one value (GH-2699), so the file is served with 500 rows. The constant that
     # changed once is two stretches, as at 00091 (977.1, then 977.6 from 2024-03-25) and 54 more files (GH-3139): the
-    # second half of the rows write 996.4, which the file of 14006 does not, so that both stretches are runs
+    # second half of the rows write 996.4, which the file of 14006 does not, so that both stretches are runs. The air
+    # temperature (-0.2) and the dew point (-0.9) of the 498 rows are one value each as well, and runs of the hourly
+    # limits of the generic rule (24 readings and 48 at a step of tenths, GH-3681)
     rows = [
         "   14006;2025010500;    3;   4.6;   5.8;  -0.3;  995.9;  -0.1;  95.7;  -0.7;eor",
         "   14006;2025010501;    3; -99.9; -99.9; -99.9;  995.9;  -0.7; -99.9; -99.9;eor",
@@ -2438,8 +2440,14 @@ STUBS = [
             ("temperature_wet_2m", "-99.9", None),
         ),
         # GH-2699, GH-3139, GH-3676: the pressure of a file that holds one value, or one that changed once, is kept
-        # and flagged: the check `stuck` is soft by default
-        suspects=(("pressure_air_site", 995.9, "stuck"), ("pressure_air_site", 996.4, "stuck")),
+        # and flagged: the check `stuck` is soft by default, and so are the air temperature and the dew point that hold
+        # one value for 498 hours (GH-3681)
+        suspects=(
+            ("pressure_air_site", 995.9, "stuck"),
+            ("pressure_air_site", 996.4, "stuck"),
+            ("temperature_air_2m", -0.2, "stuck"),
+            ("temperature_dew_point_2m", -0.9, "stuck"),
+        ),
     ),
     ValueStub(
         "dwd/observation hourly/moisture (stuck hard)",
@@ -2447,11 +2455,19 @@ STUBS = [
         reading=("temperature_air_2m", -0.1),
         tokens=(
             # the pressure of a file that holds one value, or one that changed once, is null with the text the file
-            # wrote, where the check `stuck` is hard
+            # wrote, where the check `stuck` is hard, and so are the air temperature and the dew point that hold one
+            # value for 498 hours (GH-3681)
             ("pressure_air_site", "995.9", None),
             ("pressure_air_site", "996.4", None),
+            ("temperature_air_2m", "-0.2", None),
+            ("temperature_dew_point_2m", "-0.9", None),
         ),
-        verdicts=(("pressure_air_site", "995.9", "stuck"), ("pressure_air_site", "996.4", "stuck")),
+        verdicts=(
+            ("pressure_air_site", "995.9", "stuck"),
+            ("pressure_air_site", "996.4", "stuck"),
+            ("temperature_air_2m", "-0.2", "stuck"),
+            ("temperature_dew_point_2m", "-0.9", "stuck"),
+        ),
         plausibility=(("stuck", "hard"),),
     ),
     ValueStub(
