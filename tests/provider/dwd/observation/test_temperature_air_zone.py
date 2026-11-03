@@ -334,8 +334,9 @@ def test_the_stamps_compared_with_isd_are_left_where_the_label_is_not_plain_mez_
 def test_the_values_of_diepholz_are_shifted_inside_the_span_and_not_outside(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that the stamps of 1995-02-01 to 1996-05-31 are returned one hour earlier, flagged `zone:mez` (GH-3029).
 
-    The stamp 1995-02-01 00 is the report of 1995-01-31 23 UTC, which the file has under that stamp already: the
-    row that was not moved is kept. The last MEZ stamp 1996-05-31 23 is 22 UTC, the first UTC stamp is 1996-06-01 00.
+    The stamp 1995-02-01 00 is the report of 1995-01-31 23 UTC, which the file has under that stamp already: in a
+    block of `MEZ_BY_COMPARISON` the row that was moved is kept, not the one that was not. The last MEZ stamp
+    1996-05-31 23 is 22 UTC, the first UTC stamp is 1996-06-01 00.
     """
     monkeypatch.setattr(
         dwd_observation_api,
@@ -355,18 +356,18 @@ def test_the_values_of_diepholz_are_shifted_inside_the_span_and_not_outside(monk
     tt = df.filter(pl.col("parameter") == "temperature_air_2m").select("timestamp", "value", "quality_flags").rows()
     assert tt == [
         (_at(1995, 1, 31, 22), 5.3, "3"),
-        (_at(1995, 1, 31, 23), 5.3, "3"),
+        (_at(1995, 1, 31, 23), 5.3, "3,zone:mez"),
         (_at(1995, 2, 1, 0), 5.3, "3,zone:mez"),
         (_at(1996, 5, 31, 22), 15.6, "10,zone:mez"),
         (_at(1996, 6, 1, 0), 15.0, "10"),
         (_at(1996, 6, 1, 1), 13.2, "10"),
     ]
     # the humidity has a value of its own at each stamp: the row that was moved onto 1995-01-31 23 (72) is the one
-    # dropped, the stamp 1995-02-01 01 (72) becomes 00
+    # kept, and the unmoved row it lands on (68) is dropped; the stamp 1995-02-01 01 (72) becomes 00
     rf = df.filter(pl.col("parameter") == "humidity_relative").select("timestamp", "value", "quality_flags").rows()
     assert rf == [
         (_at(1995, 1, 31, 22), 65.0, "3"),
-        (_at(1995, 1, 31, 23), 68.0, "3"),
+        (_at(1995, 1, 31, 23), 72.0, "3,zone:mez"),
         (_at(1995, 2, 1, 0), 72.0, "3,zone:mez"),
         (_at(1996, 5, 31, 22), 75.0, "10,zone:mez"),
         (_at(1996, 6, 1, 0), 73.0, "10"),
@@ -417,12 +418,11 @@ _BLOCK_CASES = {
             ("1988110102", 3.9, 80.0),
         ],
         # the stamp 1986-01-01 01 (-6.6, the report of 00 UTC in ISD) is moved onto the stamp 00 that the file has
-        # (-7.0, equal to no report of ISD at any lag): the row that was not moved is kept, so the kept row is the
-        # doubtful one and the moved one is dropped; the stamp 1988-11-01 00 is the last of the block (the 24 of
-        # the day), and 01 is at lag 0
+        # (-7.0, equal to no report of ISD at any lag): inside the block the moved row is kept and the one it lands on
+        # is dropped; the stamp 1988-11-01 00 is the last of the block (the 24 of the day), and 01 is at lag 0
         [
             (_at(1985, 12, 31, 23), "3"),
-            (_at(1986, 1, 1, 0), "3"),
+            (_at(1986, 1, 1, 0), "3,zone:mez"),
             (_at(1986, 1, 1, 1), "3,zone:mez"),
             (_at(1988, 10, 31, 21), "3,zone:mez"),
             (_at(1988, 10, 31, 22), "3,zone:mez"),
@@ -430,8 +430,8 @@ _BLOCK_CASES = {
             (_at(1988, 11, 1, 1), "3"),
             (_at(1988, 11, 1, 2), "3"),
         ],
-        [-8.4, -7.0, -6.1, 5.2, 4.5, 4.5, 4.1, 3.9],
-        [87.0, 86.0, 78.0, 74.0, 74.0, 75.0, 78.0, 80.0],
+        [-8.4, -6.6, -6.1, 5.2, 4.5, 4.5, 4.1, 3.9],
+        [87.0, 80.0, 78.0, 74.0, 74.0, 75.0, 78.0, 80.0],
     ),
     "01420": (
         "Frankfurt/Main",
@@ -449,7 +449,7 @@ _BLOCK_CASES = {
         ],
         [
             (_at(1990, 4, 30, 23), "3"),
-            (_at(1990, 5, 1, 0), "3"),
+            (_at(1990, 5, 1, 0), "3,zone:mez"),
             (_at(1990, 5, 1, 1), "3,zone:mez"),
             (_at(1990, 5, 31, 22), "3,zone:mez"),
             (_at(1990, 5, 31, 23), "3,zone:mez"),
@@ -458,6 +458,32 @@ _BLOCK_CASES = {
         ],
         [14.6, 13.4, 13.2, 13.8, 12.7, 9.6, 8.3],
         [69.0, 76.0, 76.0, 50.0, 55.0, 69.0, 75.0],
+    ),
+    "00691": (
+        "Bremen",
+        "19490101",
+        "19911031",
+        [
+            ("1990103123", 9.1, 88.0),
+            ("1990110100", 8.8, 86.0),
+            ("1990110101", 8.8, 86.0),
+            ("1990110102", 8.7, 91.0),
+            ("1991022823", 1.1, 76.0),
+            ("1991030100", 1.0, 78.0),
+            ("1991030101", 1.0, 73.0),
+            ("1991030102", 0.9, 74.0),
+        ],
+        [
+            (_at(1990, 10, 31, 23), "3"),
+            (_at(1990, 11, 1, 0), "3,zone:mez"),
+            (_at(1990, 11, 1, 1), "3,zone:mez"),
+            (_at(1991, 2, 28, 22), "3,zone:mez"),
+            (_at(1991, 2, 28, 23), "3,zone:mez"),
+            (_at(1991, 3, 1, 1), "3"),
+            (_at(1991, 3, 1, 2), "3"),
+        ],
+        [9.1, 8.8, 8.7, 1.1, 1.0, 1.0, 0.9],
+        [88.0, 86.0, 91.0, 76.0, 78.0, 73.0, 74.0],
     ),
     "05100": (
         "Trier-Petrisberg",
@@ -475,7 +501,7 @@ _BLOCK_CASES = {
         ],
         [
             (_at(1989, 7, 31, 23), "3"),
-            (_at(1989, 8, 1, 0), "3"),
+            (_at(1989, 8, 1, 0), "3,zone:mez"),
             (_at(1989, 8, 1, 1), "3,zone:mez"),
             (_at(1989, 8, 31, 22), "3,zone:mez"),
             (_at(1989, 8, 31, 23), "3,zone:mez"),
@@ -535,7 +561,7 @@ def test_the_values_of_a_block_of_whole_days_that_is_mez_in_a_plain_mez_period_a
         parameters=[("hourly", "temperature_air")],
         periods={Period.HISTORICAL},
         start=_at(1985, 7, 1),
-        end=_at(1991, 3, 1),
+        end=_at(1991, 3, 2),
         settings=Settings(cache_disable=True),
         options=Options(drop_nulls=False),
     )

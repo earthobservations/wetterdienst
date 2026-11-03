@@ -46,9 +46,13 @@ MEZ_EMD_SOIL_SOURCE = "Daten der Erdbodentemperatur aus dem Archiv des eMD"
 #: correlate best at one hour before with the mean of the neighbouring stations that are UTC. The label of the stations
 #: with a plain `Stundenwerte in MEZ` period does not tell: at most of them the values are UTC (the scan of all of them
 #: is in docs/data/time_reference.md). Only spans whose bounds were read hour by hour (the end of Nürnberg's by the
-#: pattern of the others) and that are as good as the first are here; the others, which change the clock inside the
-#: period or are only partly identical to ISD (Regensburg-Oberhub 04104, Stötten 04887, Bremen 00691, ...), are
-#: returned as written.
+#: pattern of the others) and that are as good as the first are here (Bremen, at 88.2 %, by the maintainer's
+#: decision); the others, which change the clock inside the period or are only partly identical to ISD
+#: (Regensburg-Oberhub 04104, Stötten 04887, Lübeck-Blankensee 03086, ...), are returned as written.
+#:
+#: Where the shift moves the first stamp of a block onto a stamp the file has (the stamp 00 of its day; for Diepholz
+#: 1995-01-31 23), the moved row is kept: Nürnberg 1986-01-01 01 is -6.6 against -7.0 at the stamp 00, which equals no
+#: report of ISD; elsewhere the row that was not moved is kept (`DwdObservationValues._tidy_up_df`).
 #:
 #: Diepholz 00963, label MEZ from 1994-04-01 to 1996-06-01: UTC up to the stamp 1995-01-31 23 (24 of 24 hours equal to
 #: ISD at lag 0 on 1995-01-31), MEZ from the stamp 1995-02-01 00 (24 of 24 at lag -1) to the stamp 1996-05-31 23 (24 of
@@ -56,7 +60,7 @@ MEZ_EMD_SOIL_SOURCE = "Daten der Erdbodentemperatur aus dem Archiv des eMD"
 #: against 1,075 at lag 0, 729 of 735 hours before it at lag 0 against 68 at lag -1. Relative humidity has the same
 #: span: against the neighbours lag -1 beats lag 0 in 14 of the 16 months, and lag 0 beats it before and after.
 #:
-#: Three more, each a block of whole UTC days of the SYNOP reports stamped 01 to 24 (the 24 written as 00 of the next
+#: Four more, each a block of whole UTC days of the SYNOP reports stamped 01 to 24 (the 24 written as 00 of the next
 #: day), the stamps next to it at lag 0 or equal to no ISD report:
 #:
 #: - Nürnberg 03668, label MEZ 1951-01-01 to 1995-08-31: from the stamp 1986-01-01 01 to the stamp 1988-11-01 00,
@@ -65,6 +69,10 @@ MEZ_EMD_SOIL_SOURCE = "Daten der Erdbodentemperatur aus dem Archiv des eMD"
 #:   1988-10-31, so the last stamp is the 24 of the day by the pattern of the other blocks. The months before 1986
 #:   are not identical to ISD at any lag (analog values) and are returned as written. Relative humidity is within 3 %
 #:   of ISD's at lag -1 in 98.9 % of the hours (lag 0: 56.9 %).
+#: - Bremen 00691, label MEZ 1949-01-01 to 1991-10-31: from the stamp 1990-11-01 01 to the stamp 1991-03-01 00,
+#:   2,491 of 2,825 hours equal ISD 102240 at lag -1 (88.2 %), 296 at lag 0 (10.5 %); mean absolute difference
+#:   0.028 K against 0.447 K, 93.5 % within 0.15 K; lag 0 in 1985-06 to 1990-10 and from the stamp 1991-03-01 01.
+#:   Relative humidity within 3 % of ISD's at lag -1 in 98.7 % (lag 0: 71.9 %).
 #: - Frankfurt/Main 01420, label MEZ 1981-01-01 to 1993-10-31: from the stamp 1990-05-01 01 to the stamp 1990-06-01 00,
 #:   734 of 743 hours equal ISD 106370 at lag -1 (98.8 %), 21 at lag 0 (2.8 %); lag 0 in 1990-02 to 04 and 06 to 08.
 #: - Trier-Petrisberg 05100, label MEZ 1941-01-01 to 1999-12-31: from the stamp 1989-08-01 01 to the stamp 1989-09-01
@@ -72,7 +80,8 @@ MEZ_EMD_SOIL_SOURCE = "Daten der Erdbodentemperatur aus dem Archiv des eMD"
 #:
 #: Against the mean of the nearest stations that are UTC the days vote for lag -1 in the span and for lag 0 around it
 #: (Nürnberg 1986 and 1987: 529 of 730 days at lag -1; Frankfurt 1990-05: 21 of 31 against 10 at lag 0, where 57 of 89
-#: days before it are at lag 0; Trier 1989-08: 28 of 31). Relative humidity has the same span (Frankfurt 98.4 %, Trier
+#: days before it are at lag 0; Trier 1989-08: 28 of 31; Bremen 1990-11 to 1991-02: 77 of 120 days against 30, where
+#: 180 of 304 days of 1990-01 to 10 are at lag 0). Relative humidity has the same span (Frankfurt 98.4 %, Trier
 #: 96.3 % within 3 % of ISD's at lag -1).
 MEZ_BY_COMPARISON: dict[str, dict[str, tuple[tuple[dt.datetime, dt.datetime], ...]]] = {
     station: dict.fromkeys(("tt_tu", "rf_tu"), (span,))
@@ -81,6 +90,7 @@ MEZ_BY_COMPARISON: dict[str, dict[str, tuple[tuple[dt.datetime, dt.datetime], ..
         "03668": (dt.datetime(1986, 1, 1, 1, tzinfo=dt.UTC), dt.datetime(1988, 11, 1, 0, tzinfo=dt.UTC)),
         "01420": (dt.datetime(1990, 5, 1, 1, tzinfo=dt.UTC), dt.datetime(1990, 6, 1, 0, tzinfo=dt.UTC)),
         "05100": (dt.datetime(1989, 8, 1, 1, tzinfo=dt.UTC), dt.datetime(1989, 9, 1, 0, tzinfo=dt.UTC)),
+        "00691": (dt.datetime(1990, 11, 1, 1, tzinfo=dt.UTC), dt.datetime(1991, 3, 1, 0, tzinfo=dt.UTC)),
     }.items()
 }
 

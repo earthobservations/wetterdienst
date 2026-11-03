@@ -361,12 +361,13 @@ WOZ_COLUMN = "woz"
 # HH-1 UTC, 95 to 99.9 % identical at 38 of 39 stations with a twin (5 to 16 % before the shift), and none contradicts.
 # So are the hourly soil temperature stamps of the periods whose source is "Archiv des eMD" (74 stations, up to 1991:
 # the terms 01, 04, ..., 22 MEZ, GH-3029), and the air temperature stamps `MEZ_BY_COMPARISON` names (Diepholz, Nürnberg,
-# Frankfurt/Main and Trier-Petrisberg, in blocks of whole days). Only these: the plain `Stundenwerte in MEZ` of 160
-# stations is UTC in the values in most of the months ISD tells apart (6,021 against 141 at lag -1, docs/data/
-# time_reference.md) and no rule on the file tells the others. The periods come from `ProductFile.mez_md_spans`,
-# per parameter as `TT_TU` and `RF_TU` have their own table of periods at 42 stations and one stamp column cannot
-# carry two clocks, so the shift is made after the wide frame is unpivoted (`DwdObservationValues._tidy_up_df`), from
-# one boolean column per parameter named here. The rows are flagged `zone:mez`.
+# Frankfurt/Main, Trier-Petrisberg and Bremen, in blocks of whole days). Only these: the plain `Stundenwerte in MEZ`
+# of 160 stations is UTC in the values in most of the months ISD tells apart (6,021 against 141 at lag -1,
+# docs/data/time_reference.md) and no rule on the file tells the others. The periods come from
+# `ProductFile.mez_md_spans`, per parameter as `TT_TU` and `RF_TU` have their own table of periods at 42 stations and
+# one stamp column cannot carry two clocks, so the shift is made after the wide frame is unpivoted
+# (`DwdObservationValues._tidy_up_df`), from one boolean column per parameter named here. The rows are flagged
+# `zone:mez`.
 MEZ_MD_PREFIX = "mez_md__"
 
 
