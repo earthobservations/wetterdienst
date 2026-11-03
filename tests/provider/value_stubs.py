@@ -655,6 +655,25 @@ def _dwd_hourly_cloudiness(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = T
     return _dwd_observation(monkeypatch, "hourly", "cloudiness", product, "00003", drop_nulls=drop_nulls)
 
 
+def _dwd_hourly_cloud_type(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # stundenwerte_CS_02014_19490101_20251231_hist.zip (read 2026-11-03, GH-3772): DWD's descriptions give -999 as the
+    # missing value and no -1 for a cloud type, yet the files write -1 in V_S1_CS (and in the letters V_S1_CSA beside
+    # it) 493 times at this station, in 1990 to 2006, beside an obscured cover V_N and V_S1_NS in all but two hours
+    # (2003-03-23 09:00, 2003-09-17 20:00: a 7500 m layer of cover 1 or 2). Those are the 2,633 of 2,641 hours of the
+    # four stations read. The rows are 1990-07-26 05:00 to 08:00 of the file, whole.
+    product = (
+        "STATIONS_ID;MESS_DATUM;QN_8; V_N;V_N_I;V_S1_CS;V_S1_CSA;V_S1_HHS;V_S1_NS;V_S2_CS;V_S2_CSA;V_S2_HHS;V_S2_NS;"
+        "V_S3_CS;V_S3_CSA;V_S3_HHS;V_S3_NS;V_S4_CS;V_S4_CSA;V_S4_HHS;V_S4_NS;eor\n"
+        "       2014;1990072605;    1;   7;   P;   7;  ST;    30;   7;-999;-999;  -999;-999;"
+        "-999;-999;  -999;-999;-999;-999;  -999;-999;eor\n"
+        "       2014;1990072606;    1;  -1;   P;  -1;  -1;    30;  -1;-999;-999;  -999;-999;"
+        "-999;-999;  -999;-999;-999;-999;  -999;-999;eor\n"
+        "       2014;1990072608;    1;   1;   P;   8;  CU;   240;   1;-999;-999;  -999;-999;"
+        "-999;-999;  -999;-999;-999;-999;  -999;-999;eor\n"
+    )
+    return _dwd_observation(monkeypatch, "hourly", "cloud_type", product, "02014", year=1990, drop_nulls=drop_nulls)
+
+
 # the first row of klima-v2-1d/metadata/stations with the list's header, as Geosphere publishes it (read 2026-10-14)
 _GEOSPHERE_STATIONS = (
     "id,Synopstationsnummer,Stationsname,Länge [°E],Breite [°N],Höhe [m],Startdatum,Enddatum,Bundesland,"
@@ -2521,6 +2540,14 @@ STUBS = [
         # in eighths the -1 converts to -12.5 % of the sky
         sentinels=(("cloud_cover_total", -12.5),),
         tokens=(("cloud_cover_total", "-1", None),),
+    ),
+    ValueStub(
+        "dwd/observation hourly/cloud_type",
+        _dwd_hourly_cloud_type,
+        reading=("cloud_type_layer1", 7.0),
+        # the -1 is no type; it read as a value of the type, and beside it as -12.5 % of the sky
+        sentinels=(("cloud_type_layer1", -1.0), ("cloud_cover_layer1", -12.5)),
+        tokens=(("cloud_type_layer1", "-1", None), ("cloud_cover_layer1", "-1", None)),
     ),
     ValueStub(
         "geosphere/observation daily/data",

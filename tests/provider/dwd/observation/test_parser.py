@@ -235,12 +235,13 @@ def test_parse_dwd_data_reports_unknown_true_local_time(caplog: pytest.LogCaptur
 
 
 def test_parse_dwd_data_drops_obscured_sky_cloud_cover() -> None:
-    """Test that -1 in the hourly cloud cover fields becomes null, while cloud type keeps its -1.
+    """Test that -1 in the hourly cloud cover and cloud type fields becomes null.
 
     DWD writes -1 where the sky could not be seen at all, SYNOP's N = 9. It is a statement that no
     amount could be given, not an amount: left alone it is read as -1 eighths and converts to
-    -0.125 of the sky. `v_sN_cs` beside it is a cloud *type* code where -1 is DWD's own value for
-    an automated observation, so that one has to survive.
+    -0.125 of the sky. `v_sN_cs` beside it writes the same -1 for a cloud *type*, which no DWD
+    description names and which sits beside an obscured cover in 2,633 of 2,641 hours (GH-3772), so
+    that one is null too, with the text DWD wrote kept in `v_s1_cs__raw`.
     """
     payload = (
         "STATIONS_ID;MESS_DATUM;QN_8;V_N_I;V_N;V_S1_CS;V_S1_CSA;V_S1_HHS;V_S1_NS;eor\n"
@@ -255,8 +256,40 @@ def test_parse_dwd_data_drops_obscured_sky_cloud_cover() -> None:
     ).collect()
     assert df.get_column("v_n").to_list() == [None, "7"]
     assert df.get_column("v_s1_ns").to_list() == [None, "4"]
-    # the cloud type code keeps it: -1 is what DWD writes for an automated observation
-    assert df.get_column("v_s1_cs").to_list() == ["-1", "6"]
+    assert df.get_column("v_s1_cs").to_list() == [None, "6"]
+    assert df.get_column("v_s1_cs__raw").to_list() == ["-1", None]
+
+
+def test_parse_dwd_data_nulls_the_cloud_type_minus_one_beside_a_layer_that_was_seen() -> None:
+    """Test that the cloud type -1 is null in every layer, also where the cover beside it is an amount (GH-3772).
+
+    The rows are 2003-03-23 09:00 of station 02014 (stundenwerte_CS_02014_19490101_20251231_hist.zip, read
+    2026-11-03), one of the 8 of 2,641 hours with a type of -1 beside a first layer that was seen, and an hour
+    before it (made up, as is the -1 in the second layer of the later row; the file has none there). The text DWD wrote
+    stays in `<column>__raw`; the letters `V_S1_CSA` beside the type are dropped.
+    """
+    payload = (
+        "STATIONS_ID;MESS_DATUM;QN_8; V_N;V_N_I;V_S1_CS;V_S1_CSA;V_S1_HHS;V_S1_NS;V_S2_CS;V_S2_CSA;V_S2_HHS;V_S2_NS;"
+        "V_S3_CS;V_S3_CSA;V_S3_HHS;V_S3_NS;V_S4_CS;V_S4_CSA;V_S4_HHS;V_S4_NS;eor\n"
+        "       2014;2003032308;    1;   1;   P;   0;  CI;  7500;   1;-999;-999;  -999;-999;"
+        "-999;-999;  -999;-999;-999;-999;  -999;-999;eor\n"
+        "       2014;2003032309;    1;   1;   P;  -1;  -1;  7500;   1;  -1;  -1;  -999;-999;"
+        "-999;-999;  -999;-999;-999;-999;  -999;-999;eor\n"
+    )
+    file = File(url="", content=BytesIO(payload.encode("utf8")), status=200)
+    df = parse_climate_observations_data(
+        files=[file],
+        dataset=DwdObservationMetadata.hourly.cloud_type,
+        period=Period.HISTORICAL,
+    ).collect()
+    assert df.get_column("v_s1_cs").to_list() == ["0", None]
+    assert df.get_column("v_s1_cs__raw").to_list() == [None, "-1"]
+    # the second layer is held to it too
+    assert df.get_column("v_s2_cs").to_list() == [None, None]
+    assert df.get_column("v_s2_cs__raw").to_list() == ["-999", "-1"]
+    # the cover beside a seen layer is an amount and stays
+    assert df.get_column("v_s1_ns").to_list() == ["1", "1"]
+    assert "v_s1_csa" not in df.columns
 
 
 def test_parse_dwd_data_reports_unknown_measurement_method(caplog: pytest.LogCaptureFixture) -> None:
@@ -284,12 +317,12 @@ def test_parse_dwd_data_reports_unknown_measurement_method(caplog: pytest.LogCap
 
 
 def test_parse_dwd_hourly_weather_phenomena_nulls_weather_not_reported() -> None:
-    """Test that -1 in `WW` becomes null, while the same -1 in the cloud type code `v_s1_cs` stays.
+    """Test that -1 in `WW` becomes null, for the dataset's own column only.
 
     Station 01869 writes -1 for every hour whose present weather was not reported and says so in
     `WW_Text` beside it (stundenwerte_WW_01869_akt.zip, 2025-04-09 00:00). It is no weather, so
-    it must not be counted, maxed or averaged as one. In `v_s1_cs` of the hourly cloud type, -1 is
-    DWD's own value for an automated observation.
+    it must not be counted, maxed or averaged as one. The rule is the dataset's: the `WW` of the
+    hourly cloud type file is not touched by it.
     """
     payload = (
         "STATIONS_ID;MESS_DATUM;QN_8;  WW;WW_Text;eor\n"
@@ -318,7 +351,7 @@ def test_parse_dwd_hourly_weather_phenomena_nulls_weather_not_reported() -> None
         dataset=DwdObservationMetadata.hourly.cloud_type,
         period=Period.HISTORICAL,
     ).collect()
-    assert df.get_column("v_s1_cs").to_list() == ["-1"]
+    assert df.get_column("v_s1_cs").to_list() == [None]
     # the rule is the dataset's: the same column name elsewhere is not its business
     assert df.get_column("ww").to_list() == ["-1"]
 

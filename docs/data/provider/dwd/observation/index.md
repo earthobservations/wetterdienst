@@ -115,12 +115,9 @@ of which only `rs_05` and `rs_ind_05` are available in the `recent` and `now` pe
 | Stratus         | 7      |
 | Cumulus         | 8      |
 | Cumulonimbus    | 9      |
-| Automated       | -1     |
 
-Note that `-1` means two different things in the hourly cloud datasets, depending on the column. In
-the cloud *type* codes above it is DWD's value for an automated observation, and it is returned as
-`-1`. In the cloud *cover* fields it is not a type but an absence, and it is not returned at all —
-see below.
+DWD's descriptions of the dataset give no code below 0 for a cloud type. The files write `-1` in the
+type fields as well, and wetterdienst returns it as null; see below.
 
 ### Obscured sky
 
@@ -138,6 +135,13 @@ observations, and fog codes (`ww` 40 to 49) accompany 69.1% of those against 0.8
 `45` and `47`, "fog, sky invisible", most of all. If you need to tell an obscured sky from a plain
 gap in the record, the **hourly weather_phenomena** dataset still carries the weather code for that
 hour.
+
+The cloud *type* fields — `cloud_type_layer1` to `cloud_type_layer4` (`v_sN_cs`) — write the same
+`-1`, and it is returned as null too, with the text DWD wrote kept as `raw:-1` in `quality_flags`.
+It is not a type of cloud and DWD documents no such code: in the hours of stations 00433, 01420,
+02014 and 03921 (all periods, read 2026-11-03) that have a type of `-1` in the first layer, 2,633 of
+2,641 have an obscured first layer beside it. Before this was read as null, these docs called it
+"Automated", which no DWD description says.
 
 ### Measurement method indicators
 
