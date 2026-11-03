@@ -17,6 +17,28 @@ is required.
 A station's `end_timestamp` is the closing date the referential gives it, and null where it gives
 none. Only stations in service are listed, and none of them had a closing date on 2026-10-07.
 
+The referential writes the position of some stations wrongly: on 2026-10-28, 54 metropolitan
+stations with latitude and longitude swapped (Anor at latitude 4.10 and longitude 49.99, a point
+near Somalia) and the Blavet (`J543211003`) at 35.1 N, 0.84 E, in Algeria. A position that lies in
+none of metropolitan France, Guadeloupe and Martinique, Guyane, Reunion and Mayotte is swapped
+back when the swapped one lies in one of them, so that Anor is at 50.0 N, 4.1 E; no station
+overseas is moved. One that no swap puts right is listed with a null `latitude` and `longitude`,
+and the answer carries the warning `position-unplaced`, which names the station and the position
+the referential wrote as `raw:<latitude>,<longitude>`. It is there when the station is in the answer
+(selected by id, name or SQL, or the whole list) and when a search by place (a rank, a distance, a
+bounding box, an interpolation or a summary) had to leave it out, which every search by place of a
+resolution that lists the station does, whether or not the place is near where the source put it;
+a request for other stations, or for a resolution that does not list it, does not carry it. An
+answer for a window (`timestamp`), whether a stations listing, the values of stations or an
+interpolation or a summary, tells it for the whole list and for a search by place only if the
+station has a record in the window, as it would otherwise not be in the answer; a station named
+by id or SQL is told whatever the window does to it, and a name is matched among the stations with
+a record in the window like any other. In the Python library `all()` and the filters by id, SQL,
+rank, distance and bounding box tell it whatever the `start` and `end` of the request, as they cut
+nothing to them; a name is matched among the stations with a record in the window there too, and
+`interpolate` and `summarize` cut to it as the command line and REST do. The warning is also a log line there, once
+for the process.
+
 A site publishes no altitude for about a quarter of the stations, and a few publish 0 or a value
 no ground in France lies at (-999 m, or 12 km and more); their `elevation` is null. The altitude
 of the gauge's zero, the datum a stage is read from, is listed separately as `gauge_zero`, and the
