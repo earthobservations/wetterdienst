@@ -159,6 +159,7 @@
           "temperature_soil_mean_0_1m",
           "vapor_pressure_deficit_mean",
           "wind_direction_mean",
+          "wind_direction_mean_last_10min",
           "wind_gust_max",
           "wind_speed_mean",
           "wind_speed_rolling_mean_max"
@@ -3538,5 +3539,5 @@
     "parameters": {},
     "in_dataset": {}
   },
-  "x-release": "0.182.0"
+  "x-release": "0.183.0"
 }
