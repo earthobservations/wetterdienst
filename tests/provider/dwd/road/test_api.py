@@ -1874,6 +1874,104 @@ def test_dwd_road_weather_a_stopped_sensor_is_null_with_its_number_where_stuck_i
     assert set(air.get_column("quality_flags")) == {"rejected:stuck,raw:248.15"}
 
 
+def _intensity_subsets(start: dt.datetime, intensities: list[float]) -> list[dict[str, object]]:
+    """Give a subset per quarter hour from `start`, each with the intensity in kg m-2 s-1 as the file writes it."""
+    subsets = []
+    for i, intensity in enumerate(intensities):
+        at = start + dt.timedelta(minutes=15 * i)
+        subsets.append(
+            {
+                "#1#day": at.day,
+                "#1#hour": at.hour,
+                "#1#minute": at.minute,
+                "#1#intensityOfPrecipitation": intensity,
+            }
+        )
+    return subsets
+
+
+# station P469 on 2026-11-03 (read 2026-11-03): eight dry quarter hours, four of the lowest step, a dry one, then 13
+# of the lowest step, 0.0001 kg m-2 s-1 or 0.36 mm/h -- the longest run of one non-zero intensity at the 520 stations
+# of the network that report a varying one in the 48 hours read
+_P469_RAIN = [0.0] * 8 + [0.0001] * 4 + [0.0] + [0.0001] * 13
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_a_precipitation_intensity_that_never_changes_is_flagged_suspect_and_kept(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Station K030 writes 0.006 kg m-2 s-1 (21.6 mm/h) in every reading; the 30 readings stay, flagged (GH-3771).
+
+    The same constant is the 53 stations of group KO's and, as 0.0056 (20.16 mm/h), those of B338 and B773 -- found
+    by the run of one non-zero value and not by the number, which a real shower can write.
+    """
+    start = dt.datetime(2026, 11, 1, 6, 30, tzinfo=dt.UTC)
+    df = _collect_many(monkeypatch, _intensity_subsets(start, [0.006] * 30))
+    rain = df.filter(pl.col("parameter").eq("intensityOfPrecipitation"))
+    assert rain.get_column("value").to_list() == [0.006] * 30
+    assert set(rain.get_column("quality_flags")) == {"suspect:stuck"}
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_a_precipitation_intensity_that_never_changes_is_null_where_stuck_is_hard(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With `plausibility={"stuck": "hard"}` the constant intensity is null and keeps the number DWD wrote."""
+    start = dt.datetime(2026, 11, 1, 6, 30, tzinfo=dt.UTC)
+    with applying(Plausibility(stuck="hard")):
+        df = _collect_many(monkeypatch, _intensity_subsets(start, [0.0056] * 30))
+    rain = df.filter(pl.col("parameter").eq("intensityOfPrecipitation"))
+    assert rain.get_column("value").null_count() == 30
+    assert set(rain.get_column("quality_flags")) == {"rejected:stuck,raw:0.0056"}
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_a_real_rain_event_and_a_dry_spell_are_not_flagged(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Station P469's 13 readings of one drizzle and a dry day of zeros are no stuck gauge (GH-3771)."""
+    start = dt.datetime(2026, 11, 3, 0, 0, tzinfo=dt.UTC)
+    df = _collect_many(monkeypatch, _intensity_subsets(start, _P469_RAIN))
+    rain = df.filter(pl.col("parameter").eq("intensityOfPrecipitation"))
+    assert rain.get_column("value").to_list() == _P469_RAIN
+    assert rain.get_column("quality_flags").null_count() == len(_P469_RAIN)
+    # a day of zeros: a dry spell is the normal state of the gauge, whatever its length
+    df = _collect_many(monkeypatch, _intensity_subsets(start, [0.0] * 96))
+    rain = df.filter(pl.col("parameter").eq("intensityOfPrecipitation"))
+    assert rain.get_column("quality_flags").null_count() == 96
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+@pytest.mark.parametrize(("length", "flagged"), [(23, False), (24, True)])
+def test_dwd_road_weather_a_precipitation_intensity_is_stuck_from_24_readings(
+    monkeypatch: pytest.MonkeyPatch,
+    length: int,
+    flagged: bool,  # noqa: FBT001
+) -> None:
+    """The run is that of the temperatures, 24 quarter hours (six hours); one reading less is rain (GH-3771)."""
+    start = dt.datetime(2026, 11, 3, 0, 0, tzinfo=dt.UTC)
+    df = _collect_many(monkeypatch, _intensity_subsets(start, [0.0] * 4 + [0.0001] * length + [0.0003, 0.0]))
+    rain = df.filter(pl.col("parameter").eq("intensityOfPrecipitation")).sort("timestamp")
+    marked = rain.get_column("quality_flags").to_list()
+    assert marked[4 : 4 + length] == (["suspect:stuck"] * length if flagged else [None] * length)
+    assert marked[:4] == [None] * 4
+    assert marked[4 + length :] == [None, None]
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_a_precipitation_amount_that_repeats_is_not_judged_by_the_run(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The 15-minute amount of group C grows by tenths over hours, so a repeat of it is no stuck gauge (GH-3771)."""
+    start = dt.datetime(2026, 11, 1, 6, 30, tzinfo=dt.UTC)
+    subsets = [
+        {**subset, "#1#totalPrecipitationOrTotalWaterEquivalent": 0.1}
+        for subset in _intensity_subsets(start, [0.0] * 57)
+    ]
+    df = _collect_many(monkeypatch, subsets)
+    amount = df.filter(pl.col("parameter").eq("totalPrecipitationOrTotalWaterEquivalent"))
+    assert amount.get_column("value").to_list() == [0.1] * 57
+    assert amount.get_column("quality_flags").null_count() == 57
+
+
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_a_surface_far_above_the_air_is_kept_and_flagged_where_consistency_is_soft(
     monkeypatch: pytest.MonkeyPatch,

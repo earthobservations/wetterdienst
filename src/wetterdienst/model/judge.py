@@ -118,6 +118,20 @@ CONSTANT_RUNS: dict[str, tuple[tuple[str, ...], dict[str, int]]] = {
 RUNS: dict[str, tuple[tuple[str, ...], str]] = {
     "dwd/road": (("temperature_air", "temperature_dew_point", "temperature_surface"), "temperature_air"),
 }
+#: a quantity that rests at zero and whose run of one value *above* zero is a gauge that does not work (check
+#: ``stuck``, GH-3771), by network: every dry quarter hour of a precipitation intensity is 0, so a run of zeros is no
+#: fault, but rain does not hold one intensity for hours. Read 2026-11-03: of 520 road stations, the longest run of one
+#: non-zero intensity was 13 readings (3 h 15 min, the lowest step of 0.36 mm/h); 55 stations hold one value (21.6 or
+#: 20.16 mm/h) in every reading they write in 48 hours (192 for most). The 10-minute precipitation of 148 stations of
+#: DWD observation, the intensity of its interval in another unit, has no run of one non-zero amount beyond 10 readings
+#: (100 minutes) in 400 days, though it steps in 0.06 mm/h and the road gauge in 0.36: a drizzle at that step for six
+#: hours is not seen yet, and would be flagged (soft by default). The amount of the road stations is not held to this:
+#: that of its group ``C`` repeats one non-zero value for up to 57 readings beside an intensity of 0 (it grows by
+#: tenths over hours, so it is no interval sum). Judged with the run of ``RUNS`` (24 readings, six hours), a gap
+#: ending it as it does there
+RUNS_FROM_ZERO: dict[str, tuple[str, ...]] = {
+    "dwd/road": ("precipitation_intensity",),
+}
 # a working sensor's longest run of one value over a day was 14 readings for the air temperature, 17 for the dew point
 # and 9 for the road surface (about 700 stations each); a broken one holds it for 86 to 96 of the day's 96. 24 readings
 # (six hours) sit between, over a span of 23 intervals of the quarter hour; a gap above four times the station's usual
@@ -225,6 +239,8 @@ class Plan:
     by_name: dict[str, str] = field(default_factory=dict)
     #: the codes of the source's own quality flag that mark a value as erroneous or doubtful (check ``source``)
     source: tuple[SourceFlags, ...] = ()
+    #: the quantities of which a run of one value above zero is a sensor that does not work (check ``stuck``)
+    runs_from_zero: tuple[str, ...] = ()
 
     def read_beside(self, rules: Sequence[Rule]) -> set[str]:
         """Name the parameters (as the source does) that the checks read beside the ones asked for.
@@ -242,7 +258,15 @@ class Plan:
     @property
     def judges(self) -> bool:
         """Tell whether any check applies to every station of the dataset."""
-        return bool(self.ranges or self.pressure or self.floors or self.constants or self.runs[0] or self.source)
+        return bool(
+            self.ranges
+            or self.pressure
+            or self.floors
+            or self.constants
+            or self.runs[0]
+            or self.runs_from_zero
+            or self.source
+        )
 
 
 _PLANS: dict[tuple[int, str], tuple[DatasetModel, Plan]] = {}
@@ -297,6 +321,7 @@ def _build_plan(network: str, dataset: DatasetModel) -> Plan:
         names, air = RUNS[network]
         if all(name in original for name in names):
             runs = (tuple(original[name] for name in names), original[air])
+    runs_from_zero = tuple(original[name] for name in RUNS_FROM_ZERO.get(network, ()) if name in original)
     source = flags_of(network, f"{resolution}/{dataset.name}")
     return Plan(
         network,
@@ -310,6 +335,7 @@ def _build_plan(network: str, dataset: DatasetModel) -> Plan:
         runs,
         by_name,
         source,
+        runs_from_zero,
     )
 
 
@@ -510,7 +536,7 @@ def judge(  # noqa: C901
             first = dt.datetime.combine(rule.first, dt.time(), tzinfo=dt.UTC)
             end = dt.datetime.combine(rule.last + dt.timedelta(days=1), dt.time(), tzinfo=dt.UTC)
             exprs["stuck"].append(parameter.eq(plan.by_name[rule.parameter]) & (stamp >= first) & (stamp < end))
-    if plan.runs[0]:
+    if plan.runs[0] or plan.runs_from_zero:
         series["stuck"].append(_stuck_runs(df, plan))
     for rule in rules:
         if isinstance(rule, Beside) and rule.target in plan.by_name and rule.partner in plan.by_name:
@@ -701,9 +727,11 @@ def _stuck_runs(df: pl.DataFrame, plan: Plan) -> pl.Series:
     The rule of ``dwd/road`` (GH-1917), judged on the station's own readings: a working sensor's longest run of one
     value is 14 readings for the air, 17 for the dew point and 9 for the road surface, a stopped one holds it for the
     day. A reading of a road surface at the melting point beside an air near freezing is no stuck sensor: ice melts.
-    The values are in °C, the melting point 0.
+    The values are in °C, the melting point 0. A quantity that rests at zero (the precipitation intensity, GH-3771) is
+    judged by the same run, but a run of zeros is a dry spell and no fault: only a run of one value above zero counts.
     """
     names, air_name = plan.runs
+    names = (*names, *plan.runs_from_zero)
     keys = ["parameter"]
     readings = (
         df.select("parameter", "timestamp", "value")
@@ -711,7 +739,7 @@ def _stuck_runs(df: pl.DataFrame, plan: Plan) -> pl.Series:
         .unique(subset=[*keys, "timestamp"], keep="first")
         .sort(*keys, "timestamp")
     )
-    air = readings.filter(pl.col("parameter").eq(air_name)).select("timestamp", pl.col("value").alias("_air"))
+    air = readings.filter(pl.col("parameter").eq(air_name or "")).select("timestamp", pl.col("value").alias("_air"))
     marked = (
         readings.join(air, on="timestamp", how="left")
         .sort(*keys, "timestamp")
@@ -732,8 +760,9 @@ def _stuck_runs(df: pl.DataFrame, plan: Plan) -> pl.Series:
         )
         .with_columns(
             _stuck=pl.col("_stuck")
+            & ~(pl.col("parameter").is_in(plan.runs_from_zero) & pl.col("value").le(0.0))
             & ~(
-                pl.col("parameter").eq(plan.by_name["temperature_surface"])
+                pl.col("parameter").eq(plan.by_name.get("temperature_surface", ""))
                 & pl.col("value").le(MELTING_PLATEAU)
                 & pl.col("value").ge(-MELTING_BRINE_DEPRESSION)
                 & pl.col("_air").is_between(-MELTING_AIR_MARGIN, MELTING_AIR_MARGIN).fill_null(value=True)

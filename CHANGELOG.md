@@ -74,6 +74,11 @@ Types of changes:
   DMI writes it, no longer in kJ/m² (DMI's number times 1,000). Under the default unit targets the
   values do not change; with `convert_units=false` they are DMI's megajoules, where they were a
   thousand times larger, and `coverage` has no `unit_source` for them any more (GH-3752)
+- The check `stuck` of `dwd/road` also judges `precipitation_intensity`: 24 readings (six hours) of
+  one value above zero are flagged `suspect:stuck`, as the temperatures are; a run of zeros is a dry
+  spell and never counts. 55 stations (the 53 of group `KO`, `B338`, `B773`) wrote 21.6 or 20.16 mm/h in every
+  reading. Soft by default, so the values stay, but they now leave `interpolate`, `summarize`,
+  stripes and `skip_empty` like every suspect value; `stuck=hard` nulls them (GH-3771)
 
 ### Fixed
 
