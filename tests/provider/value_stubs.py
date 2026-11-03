@@ -190,11 +190,12 @@ def stations_result(
     station_id: str,
     *,
     elevation: float | None = 100.0,
+    country: str | None = None,
 ) -> StationsResult:
     """Stand a station up rather than look it up, for a provider whose catalogue is not worth serving.
 
     The station lies at ``elevation`` m (none where the catalogue gives none), which the check of a station pressure
-    reads (GH-3627).
+    reads (GH-3627). A ``country`` adds the column of that name, for a provider whose reader reads it (DMI, GH-3768).
     """
     df = pl.DataFrame(
         [
@@ -208,6 +209,7 @@ def stations_result(
                 "longitude": 10.0,
                 "elevation": elevation,
                 "name": "Stub",
+                **({"country": country} if country else {}),
             }
         ],
         schema={
@@ -220,6 +222,7 @@ def stations_result(
             "longitude": pl.Float64,
             "elevation": pl.Float64,
             "name": pl.String,
+            **({"country": pl.String} if country else {}),
         },
     )
     return StationsResult(request=request, df=df, _df_all=df, _stations_filter=StationsFilter.BY_STATION_ID)
@@ -2141,7 +2144,7 @@ def _dmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
         settings=_settings(),
         options=_options(drop_nulls),
     )
-    return stations_result(request, "hourly", "data", "06070").values().all().df
+    return stations_result(request, "hourly", "data", "06070", country="DNK").values().all().df
 
 
 def _dmi_monthly_rain(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002

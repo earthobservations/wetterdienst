@@ -85,6 +85,13 @@ Types of changes:
   is dated by the end of DMI's record now, as `wind_direction_mean_last_10min`: it was an hour too
   early (the value stamped 11:00 is the reading of 12:00 UTC, as in metObs). A caller that stored
   or joined it by the old timestamp finds each value one hour later now (GH-3766)
+- **Breaking**: `dmi/observation` hourly `pressure_air_sea_level_mean` of a station in Greenland or
+  the Faroe Islands (by the country of DMI's station list) is dated by the end of DMI's record
+  now: there it is the reading at minute 0, as in metObs, and was an hour too early. Denmark's, the
+  mean of the hour, stays dated by its start. Shift a stored Greenland or Faroe hourly pressure
+  series one hour later. The page now says that the hourly temperature, relative humidity, wind
+  direction and gust in Greenland are a value of the hour or a reading at minute 0, by station
+  and hour, up to one hour from their stamp (GH-3768)
 
 ## [0.182.0] - 2026-11-02
 

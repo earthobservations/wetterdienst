@@ -162,6 +162,14 @@ _STAMPED_BY_THE_END_OF_THE_WINDOW = (
     "mean_wind_dir_min0",
     "mean_cloud_cover",
 )
+# The hourly pressure is the reading at minute 0 in Greenland and the Faroe Islands ("GRL: derived directly ...
+# pressure_at_sea at minute 0") and the average of the 6 underlying values within the hour in Denmark ("DNK: average of
+# the 6 underlying values within the hour"), so the station's country decides the stamp: the reading is dated by the
+# `to` of the record, the mean by its `from`, the start of the hour it is the mean of. Against the metObs
+# `pressure_at_sea`, the value is the reading at its `to` in 13,862 of 13,862 hours at 39 stations of Greenland and the
+# Faroe Islands (the one at its `from` in 1,206); at Danish stations it is the mean of the readings stamped H+10 to
+# H+60 in 97 of 97 hours at most of them (GH-3768). The station list gives the country, as DMI's three-letter code
+_STAMPED_BY_THE_END_OF_THE_WINDOW_IN = {"mean_pressure": frozenset({"GRL", "FRO"})}
 
 
 class DmiObservationValues(TimeseriesValues):
@@ -298,6 +306,24 @@ class DmiObservationValues(TimeseriesValues):
             self._fetch_station_value_pages(station_id, time_resolution, start, middle, settings, records)
             self._fetch_station_value_pages(station_id, time_resolution, middle, end, settings, records)
 
+    def _stamped_by_the_end(self, station_id: str) -> pl.Expr:
+        """Select the hourly records of a station dated by their ``to``: the window ones, and some by the country.
+
+        The country is DMI's three-letter code (``DNK``, ``GRL`` or ``FRO``) of the station list; a station the list
+        does not hold, or gives none, has none of the country ones.
+        """
+        countries = (
+            self.sr.df.filter(pl.col("station_id") == station_id).get_column("country")
+            if "country" in self.sr.df.columns
+            else pl.Series(dtype=pl.String)
+        )
+        country = countries[0] if len(countries) else None
+        by_the_end = pl.col("parameterId").is_in(_STAMPED_BY_THE_END_OF_THE_WINDOW)
+        for parameter, in_countries in _STAMPED_BY_THE_END_OF_THE_WINDOW_IN.items():
+            if country in in_countries:
+                by_the_end = by_the_end | (pl.col("parameterId") == parameter)
+        return by_the_end
+
     def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
@@ -325,8 +351,8 @@ class DmiObservationValues(TimeseriesValues):
         # TimeseriesValues.query() trims the result back to the exact requested range by the
         # assigned `timestamp`. Hourly aggregates are already UTC-aligned (label == `from`), so no
         # margin is needed at the end and none is added -- widening would only fetch extra data. The
-        # values of the last 12 and 24 hours are stamped by their `to`, an hour after their `from`, so
-        # a value stamped at the start of the window has its `from` an hour before it. The
+        # values stamped by their `to` (the last 12 and 24 hours, the readings at minute 0) are an hour after
+        # their `from`, so a value stamped at the start of the window has its `from` an hour before it. The
         # request's bounds are UTC, so the "Z" filter is true.
         margin = dt.timedelta(0) if resolution == Resolution.HOURLY else dt.timedelta(days=1)
         start = start_date - (dt.timedelta(hours=1) if resolution == Resolution.HOURLY else margin)
@@ -372,11 +398,7 @@ class DmiObservationValues(TimeseriesValues):
             end_of_window = (
                 pl.col("to").str.to_datetime("%Y-%m-%dT%H:%M:%S%.f%z", time_unit="us").dt.convert_time_zone("UTC")
             )
-            timestamp = (
-                pl.when(pl.col("parameterId").is_in(_STAMPED_BY_THE_END_OF_THE_WINDOW))
-                .then(end_of_window)
-                .otherwise(timestamp)
-            )
+            timestamp = pl.when(self._stamped_by_the_end(station_id)).then(end_of_window).otherwise(timestamp)
         return df.select(
             pl.col("parameterId").alias("parameter"),
             timestamp.alias("timestamp"),
