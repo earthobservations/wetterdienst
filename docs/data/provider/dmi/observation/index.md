@@ -10,7 +10,7 @@ no authentication is required.
 The provider queries the `climateData` `stationValue` collection, which returns every
 available parameter for a station/resolution/date-range in a single request.
 
-Hourly aggregates are aligned to UTC and labelled by the start of the hour. Daily, monthly
+Hourly aggregates are aligned to UTC and labelled by the start of the hour (the 12 and 24 hour values and the readings at minute 0 by the end of it, see below). Daily, monthly
 and annual aggregates use *local civil* period boundaries (e.g. a Danish day runs from local
 midnight to local midnight); the provider labels each such aggregate by its civil calendar
 date at UTC midnight. The requested date range is widened internally by a day on each side so
@@ -105,7 +105,7 @@ and lowest temperature and the precipitation of the last 12 and 24 hours (`tempe
 (`temperature_soil_mean_0_1m`). The 12 hour values are reports of 06:00 and 18:00 UTC (the temperatures also of 12:00
 and 00:00 UTC for a few stations), the 24 hour values of 00:00, 06:00, 12:00 and 18:00 UTC, and they are stamped at
 the end of their window, the report time: DMI's `from` is the start of the last hour of the window (17:00 for the
-18:00 report), where most other values of the hour are stamped by their `from`.
+18:00 report), where the other values of the hour are stamped by their `from`, the readings at minute 0 apart.
 
 Five more parameters are served (read on 2026-11-01). `temp_grass`
 (`temperature_air_mean_grass_height`) is the air temperature at grass height, "5-20 cm over terrain", `temp_soil_30`
@@ -130,8 +130,8 @@ speed of the record is 0 in 35 of them and above 0 (up to 2.0 m/s) in 21.
 
 The hourly cloud cover (`mean_cloud_cover`, `cloud_cover_total`, the metObs `cloud_cover` "at minute 0", given by
 part of the stations) is stamped by `to` as well: the record of `from` 11:00 and `to` 12:00 at 04250 on 2024-06-03 holds
-10, the metObs reading of 12:00 UTC (the reading of 11:00 is 60). Against metObs at 18 Greenland stations (up to 30 days each of
-March, July and November 2025), the value of a record is the reading at its `to` in 10,287 of the 10,559 hours in which
+10, the metObs reading of 12:00 UTC (the reading of 11:00 is 60). Against metObs at 18 Greenland stations (up to
+30 days each of March, July and November 2025), the value of a record is the reading at its `to` in 10,287 of the 10,559 hours in which
 the readings at `from` and `to` differ, and the reading at its `from` in 135. Before this stamp the hourly cloud cover
 was dated an hour too early.
 
