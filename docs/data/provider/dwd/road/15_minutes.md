@@ -115,6 +115,8 @@ have to collapse onto `wrtr`'s liquid/solid/unknown, and the freezing and deposi
 glaze, rime, clear ice -- have no home there at all. On a road weather network that is exactly the
 distinction worth keeping.
 
+(dwd-road-quality-flags)=
+
 #### quality_flags
 
 Each reading carries the station's own verdict on the sensor that took it, as the first token of the `quality_flags`
