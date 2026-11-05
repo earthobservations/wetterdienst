@@ -4499,11 +4499,12 @@ RESOLUTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
             "time, from 1987 07:30, 14:30 and 21:30 CET; the files stamp them as 07, 14 and 21), from April 2001 at "
             "06, 12 and 18 UTC (some stations also at 00 UTC; East German stations 1960-1990 at 00, 06, 12 and 18 "
             "UTC); the extreme wind at 03, 09, 15 and 21 UTC (3-hour maximum) and 00, 06, 12 and 18 UTC (6-hour "
-            "maximum). Compared with NOAA ISD, the stations that also have an hourly product give the reading of the "
-            "stamp's UTC hour from 1987 on (before that the reading precedes the stamp hour by a fraction of an "
-            "hour at the West German ones); the stations without an hourly product (546 of the 1,178 air "
-            "temperature archives) do not (the secular station Potsdam gives local mean time up to 1991-10). The "
-            "stamps are returned as written (see the time reference page)."
+            "maximum). Compared with NOAA ISD at 41 stations in 1987 to March 2001, the terms of 27 equal ISD's "
+            "report of the stamp's UTC hour in every year compared (Lahr from 1995 on, not in 1989), those of 13 do "
+            "not equal it in any year compared and their clock is not shown (the secular station Potsdam gives local "
+            "mean time up to 1991-10), and other stations were not measured. At the West German stations compared the "
+            "reading precedes the stamp hour by a fraction of an hour from 1947 to 1986 and by about 1 h up to 1946. "
+            "The stamps are returned as written (see the time reference page)."
         ),
     },
     "MeteoFranceSynopMetadata": {
