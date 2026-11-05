@@ -19,11 +19,12 @@ withdrawn) tolerates. Every rule names its source, and the sources are:
 
 - **ISD** (Lott 2004, "The quality control of the Integrated Surface Hourly database", 84th AMS Annual Meeting,
   section 4): a rise of 8 degrees C in one hour triggers a look at the next report, and if the temperature falls back
-  by 8 degrees C or more the value in the middle is an improbable spike. The same continuity test is applied to the dew
-  point, the wind speed and the pressure, with limits the paper does not give.
+  by 8 degrees C or more the value in the middle is an improbable spike. The paper applies the same continuity test
+  to the dew point, the wind speed and the pressure and gives no limit for them. It writes "or more"; the code flags a
+  change of more than the limit, so a change of exactly 8.0 K is no spike.
 - **DMI** (Vejen et al. 2002, "Quality control of meteorological observations. Automatic methods used in the Nordic
   countries", NORDKLIM / MET Report 8/2002, table 3.1): the step limits per month, flag 3 being a "certain error": for
-  one hour, 6 K (December to March) to 8 K (May to August) of the air temperature, 5 to 8 hPa of the pressure and 15
+  one hour, 6 K (October to March) to 8 K (May to August) of the air temperature, 5 to 8 hPa of the pressure and 15
   m/s of the wind speed. The pressure limit is not taken (below).
 - **MADIS** (NOAA / NWS, "MADIS surface data QC", temporal consistency): 35 F (19.4 K) per hour of the air and the dew
   point temperature, 50 % of the relative humidity, 15 hPa of the sea level pressure, 10.3 m/s of the wind speed and
@@ -32,7 +33,7 @@ withdrawn) tolerates. Every rule names its source, and the sources are:
   humidity, 7.46 m/s of the wind speed and 5.0 degrees C of the temperature; it is not in operation and flags nothing.
 - **Durre et al.** (2010, Journal of Applied Meteorology and Climatology 49, 1615-1633, table 3), the GHCN-Daily
   checks: a daily TMAX or TMIN that is at least 25 K above or below both the day before and the day after is a
-  spike or dip.
+  spike or dip (the code flags more than 25 K).
 - **Zahumenský** (2004, WMO CBS/OPAG-IOS/ET AWS-3/Doc. 4(1)) has step limits for 1-minute data (3 K for the air
   temperature, 0.5 hPa for the pressure) and the **WMO-No. 305** (1993, withdrawn) tolerances of 4 K and 3 hPa per
   hour: the strictest tolerances, written for the firmware of a station and for the checks of a forecast centre, and
@@ -66,13 +67,13 @@ What is **not judged**, because no source gives a limit, or because real data sh
 flag good readings (``docs/data/plausibility.md`` has the numbers, read on 2026-11-05 from DWD's open data, the whole
 histories of 10 stations):
 
-- the **relative humidity**: the only limits are DNMI's dip test of 30 % (not in operation) and MADIS's 50 % an hour
-  (a reading that is questioned, not rejected), and fog and cloud move it that far at the summits: 30 % as a spike and
-  50 % as a step flag 1,452 of 6.3 million hourly readings, 1,309 of them at the Zugspitze and the Feldberg;
+- the **relative humidity**: the limits that exist are DNMI's dip test of 30 % (not in operation) and MADIS's 50 % an
+  hour, and measured they flag 1,453 of 6.3 million hourly readings, 1,310 of them at the Zugspitze and the Feldberg,
+  where fog and cloud move the humidity that far and back: the false alarms are the reason;
 - the **gusts**: no source (the research's 15 m/s is its own derivation), and a thunderstorm gust is a real step: a step
   of 15 m/s flags 376 of 2.3 million hourly readings, 7.0 to 29 m/s in an hour among them;
-- the **soil temperature**: MADIS's 2.8 K an hour is a questioned reading, and the sun on bare soil moves the
-  temperature at 5 cm more than that (a step of 3 K flags 17,690 of 2.1 million hourly readings);
+- the **soil temperature**: the limit that exists is MADIS's 2.8 K an hour, and measured a step of 3 K flags 17,690
+  of 2.1 million hourly readings at 5 cm (the sun on bare soil): the false alarms are the reason;
 - **radiation**, and the amounts and sums of an interval (rain, sunshine, snow, which jump from 0 and back and which no
   Nordic service tests for a step);
 - the **wind direction** (circular: 350 degrees to 10 is a change of 20);
@@ -138,17 +139,18 @@ _hourly_and_10_minutes(
     _TEMPERATURE,
     8.0,
     20.0,
-    "ISD (Lott 2004, section 4): a rise of 8 K in an hour that falls back by 8 K is a spike; MADIS (temporal "
-    "consistency): 35 F (19.4 K) in an hour",
+    "ISD (Lott 2004, section 4): a rise of 8 K in an hour that falls back by 8 K is a spike (here: more than 8 K); "
+    "MADIS (temporal consistency): 35 F (19.4 K) in an hour",
     "°C",
 )
-# the dew point is judged like the air: ISD applies its continuity test to both, and MADIS has 35 F for both
+# the dew point is judged like the air: MADIS has 35 F for both, and ISD's test gives no limit for the dew point
 _hourly_and_10_minutes(
     _DEW_POINT,
     8.0,
     20.0,
-    "ISD (Lott 2004, section 4): the continuity test of the temperature, applied to the dew point as well; MADIS "
-    "(temporal consistency): 35 F (19.4 K) in an hour",
+    "own derivation for the spike: the temperature's 8 K (ISD applies its continuity test to the dew point as well "
+    "but gives no limit for it); MADIS (temporal consistency) for the step: 35 F (19.4 K) in an hour, for the "
+    "dew point as for the air",
     "°C",
 )
 # the pressure: 60 hPa for the spike and for the step (own data); DMI's 5 to 8 hPa would flag a hurricane
@@ -179,7 +181,8 @@ _add(
         25.0,
         None,
         "Durre et al. 2010 (table 3): a daily TMAX or TMIN at least 25 K above or below both the day before and the "
-        "day after; own derivation for the daily mean, which is smoother than an extreme: the same limit",
+        "day after (here: more than 25 K); own derivation for the daily mean, which is smoother than an extreme: "
+        "the same limit",
         "°C",
     ),
 )

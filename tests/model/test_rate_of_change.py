@@ -19,6 +19,7 @@ from tests.provider.judging import judged
 from wetterdienst import Wetterdienst
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.model import judge
+from wetterdienst.model.judge import Beside, Bound
 from wetterdienst.model.persistence import rule_for as run_rule_for
 from wetterdienst.model.plausibility import Plausibility
 from wetterdienst.model.rate_of_change import RESOLUTIONS, RULES, StepRule, rule_for
@@ -156,14 +157,46 @@ def test_the_limits_on_the_page_are_the_table_of_the_code() -> None:
     assert _page_table() == expected
 
 
-def test_a_parameter_that_has_a_run_rule_and_no_jump_rule_is_listed_as_not_judged_on_the_page() -> None:
-    """The page says what the check does not judge, by the parameters the run table judges and this table does not."""
+def test_the_page_says_what_the_check_does_not_judge() -> None:
+    """The page names what `step` leaves out, with the measured reason for humidity and soil temperature."""
     text = PAGE.read_text(encoding="utf-8")
     section = text.split("### What `step` does not judge")[1].split("\n## ")[0]
     for word in ("relative humidity", "gusts", "soil temperature", "wind direction", "radiation"):
         assert word in section.lower(), word
-    assert run_rule_for("wind_speed", "hourly") is not None
-    assert rule_for("wind_speed", "hourly") is not None
+    assert "1,453" in section
+    assert "17,690" in section
+
+
+@pytest.mark.parametrize(
+    ("network", "resolution", "dataset", "canonical", "quiet", "jump"),
+    [
+        # a quantity the run table judges (`stuck`) and this table does not: the jump is no judgement of `step`
+        ("dwd/observation", "daily", "climate_summary", "wind_gust_max", 5.0, 60.0),
+        ("dwd/observation", "daily", "climate_summary", "pressure_air_site_mean", 1010.0, 960.0),
+        ("dwd/observation", "daily", "precipitation_more", "snow_depth", 5.0, 400.0),
+        ("dwd/observation", "daily", "climate_summary", "precipitation_amount", 1.0, 300.0),
+    ],
+)
+def test_a_parameter_with_a_run_rule_and_no_jump_rule_is_not_judged_for_jumps_on_a_frame(
+    network: str, resolution: str, dataset: str, canonical: str, quiet: float, jump: float
+) -> None:
+    """A jump of a parameter that has only a run rule is no verdict, in either mode, where a temperature's is."""
+    assert run_rule_for(canonical, resolution) is not None
+    assert rule_for(canonical, resolution) is None
+    ds = _dataset(network, resolution, dataset)
+    df = _frame(_name(ds, canonical), [quiet, quiet, jump, quiet, quiet], STEPS[resolution])
+    for modes in (SOFT, Plausibility.model_validate("hard")):
+        out = judged(df, network=network, dataset=ds, modes=modes)
+        assert out.get_column("value").null_count() == 0
+        assert "step" not in " ".join(out.get_column("quality_flags").drop_nulls().to_list())
+    if dataset == "climate_summary":
+        # while a jump of the daily mean temperature of the same dataset is a spike
+        air = _frame(_name(ds, "temperature_air_mean_2m"), [5.0, 5.0, 35.0, 5.0, 5.0], STEPS[resolution])
+        assert _flags_of(judged(air, network=network, dataset=ds)) == [None, None, "suspect:step", None, None]
+
+
+def _flags_of(df: pl.DataFrame) -> list[str | None]:
+    return df.get_column("quality_flags").to_list()
 
 
 # --- the limits ---------------------------------------------------------------------------------------------------
@@ -215,6 +248,20 @@ def test_the_jump_out_of_a_spike_is_no_step_but_a_second_jump_after_a_step_is() 
     assert _flagged(*AIR, [5.0, 5.0, 30.0, 55.0, 55.0]) == [2, 3]
     # a zigzag is spikes all the way: every reading but the first and the last
     assert _flagged(*AIR, [5.0, 15.0, 5.0, 15.0, 5.0, 15.0]) == [1, 2, 3, 4]
+
+
+def test_a_small_spike_does_not_hide_a_level_shift_after_it() -> None:
+    """The reading after a spike is judged against the one before the spike: 10, 10, 19, -20 hides a shift."""
+    # the 19 is the spike (up 9, down 39); the -20 is 30 K below the 10 before the spike, which is a step
+    assert _flagged(*AIR, [10.0, 10.0, 19.0, -20.0, -21.0, -21.0]) == [2, 3]
+    # back where the series was, or less than the limit from it, is no step
+    assert _flagged(*AIR, [10.0, 10.0, 19.0, 10.0, 10.0]) == [2]
+    assert _flagged(*AIR, [10.0, 10.0, 19.0, -9.0, -9.0, -9.0]) == [2]  # 19 K below the 10: under the limit of 20
+    assert _flagged(*AIR, [10.0, 10.0, 19.0, -10.1, -10.1]) == [2, 3]  # 20.1 K below it
+    # a missing hour before the 19 leaves it no spike (it has no predecessor), and the -20 is a step from it
+    hour = dt.timedelta(hours=1)
+    stamps = [START + hour * i for i in (0, 1, 3, 4, 5)]
+    assert _flagged(*AIR, [10.0, 10.0, 19.0, -20.0, -20.0], stamps=stamps) == [3]
 
 
 def test_the_first_reading_is_never_flagged_and_the_last_is_no_spike() -> None:
@@ -359,22 +406,87 @@ def test_a_jump_is_flagged_soft_and_rejected_hard_with_the_number_the_source_wro
     assert Plausibility.model_validate("soft").mode("step") == "soft"
 
 
-def test_a_jump_that_another_check_also_finds_carries_both_in_alphabetical_order() -> None:
-    """The first reading of a stuck run that a step brought in is both: `step` sorts before `stuck`."""
+def test_a_stuck_run_is_judged_by_stuck_alone_and_the_reading_after_it_is_no_step() -> None:
+    """A thermometer stuck at -40 for 30 hours is `stuck`'s: the 5.0 after it is no step of 45 K, bare hard or not."""
     ds = _dataset(*AIR[:3])
-    # the air jumps to 40 degrees (a step of 34.6 K) and holds it for 45 hours (a stuck run, 24 at tenths)
-    values = [5.0, 5.1, 5.2, 5.3, 5.4, *[40.0] * 45]
+    values = [*[5.0 + 0.1 * (i % 7) for i in range(30)], *[-40.0] * 30, 5.0, 5.1, 5.2]
     df = _frame(_name(ds, AIR[3]), values, STEPS["hourly"])
-    soft = judged(df, network=AIR[0], dataset=ds, modes=Plausibility.model_validate("soft"))
-    flags = soft.get_column("quality_flags").to_list()
-    assert flags[:5] == [None] * 5
-    assert flags[5] == "suspect:step+stuck"
-    assert flags[6:] == ["suspect:stuck"] * 44
-    hard = judged(df, network=AIR[0], dataset=ds, modes=Plausibility.model_validate("hard"))
-    assert hard.get_column("quality_flags").to_list()[5] == "rejected:step+stuck,raw:40"
-    # where only `step` is hard, the stuck run stays flagged and the first reading is null
-    only = judged(df, network=AIR[0], dataset=ds, modes=HARD)
-    assert only.get_column("quality_flags").to_list()[5:7] == ["rejected:step,raw:40", "suspect:stuck"]
+    for modes in (Plausibility.model_validate("soft"), Plausibility.model_validate("hard"), SOFT):
+        out = judged(df, network=AIR[0], dataset=ds, modes=modes)
+        flags = out.get_column("quality_flags").to_list()
+        assert flags[:30] == [None] * 30
+        assert all(flag is not None and "stuck" in flag for flag in flags[30:60])
+        assert "step" not in " ".join(flag for flag in flags if flag)
+        assert flags[60:] == [None] * 3, modes
+    # where the run is shorter than the limit it is no run: the jump into it is a step and the jump out of it another
+    short = _frame(_name(ds, AIR[3]), [*values[:30], *[-40.0] * 5, 5.0, 5.1, 5.2], STEPS["hourly"])
+    assert judged(short, network=AIR[0], dataset=ds).get_column("quality_flags").to_list()[30:36] == [
+        "suspect:step",
+        *[None] * 4,
+        "suspect:step",
+    ]
+
+
+GHCN = ("noaa/ghcn", "hourly", "data", "temperature_air_2m")
+#: the file's own flags of a value that the check `source` takes for erroneous, as GHCNh writes them (source 220)
+ERRONEOUS = "3,source:220"
+
+
+def _ghcn(values: list[float], flags: list[str | None]) -> tuple[pl.DataFrame, object]:
+    ds = _dataset(*GHCN[:3])
+    df = _frame(_name(ds, GHCN[3]), values, STEPS["hourly"]).with_columns(
+        quality_flags=pl.Series(flags, dtype=pl.String)
+    )
+    return df, ds
+
+
+@pytest.mark.parametrize("mode", ["soft", "hard"])
+def test_a_reading_the_source_flags_is_no_neighbour_whatever_the_mode_of_that_check(mode: str) -> None:
+    """GHCN hourly 5, 5, 40, 41, 5, 5 with 40 and 41 flagged erroneous: the good 5.0 after them is no step of 36 K."""
+    df, ds = _ghcn([5.0, 5.0, 40.0, 41.0, 5.0, 5.0], [None, None, ERRONEOUS, ERRONEOUS, None, None])
+    for modes in (Plausibility(source=mode), Plausibility.model_validate(mode)):
+        out = judged(df, network=GHCN[0], dataset=ds, modes=modes)
+        flags = out.get_column("quality_flags").to_list()
+        assert flags[:2] == [None, None], (mode, flags)
+        assert flags[4:] == [None, None], (mode, flags)
+        assert "step" not in " ".join(flag for flag in flags if flag), (mode, flags)
+        assert all("source" in flag for flag in flags[2:4]), (mode, flags)
+
+
+def test_a_reading_a_bound_of_your_own_rejects_is_no_neighbour() -> None:
+    """The check `limits` (the caller's bounds), soft or hard: 40 and 41 are out, the 5.0 after is no step."""
+    ds = _dataset(*AIR[:3])
+    df = _frame(_name(ds, AIR[3]), [5.0, 5.0, 40.0, 41.0, 5.0, 5.0], STEPS["hourly"])
+    for modes in (Plausibility(limits="soft"), Plausibility(limits="hard"), Plausibility.model_validate("hard")):
+        out = judged(df, network=AIR[0], dataset=ds, modes=modes, limits={"temperature_air_2m": (None, 30.0)})
+        flags = out.get_column("quality_flags").to_list()
+        assert flags[4:] == [None, None], flags
+        assert "step" not in " ".join(flag for flag in flags if flag), flags
+
+
+def test_a_reading_a_provider_rule_rejects_is_no_neighbour() -> None:
+    """A `Beside` rule (`consistency`) and a `Bound` (`range`) judge 40 and 41: the 5.0 after is no step."""
+    ds = _dataset("dwd/observation", "hourly", "moisture")
+    air, dew = _name(ds, "temperature_air_2m"), _name(ds, "temperature_dew_point_2m")
+    stamps = [START + dt.timedelta(hours=i) for i in range(6)]
+    frame = pl.concat(
+        [
+            _frame(air, [5.0, 5.0, 40.0, 41.0, 5.0, 5.0], STEPS["hourly"], stamps),
+            _frame(dew, [4.0, 4.0, 4.0, 4.0, 4.0, 4.0], STEPS["hourly"], stamps),
+        ]
+    )
+    # the air that is more than 20 K above its own dew point is no reading, and says so: `consistency`
+    rule = Beside("temperature_air_2m", "temperature_dew_point_2m", lambda target, partner: target - partner > 20.0)
+    for modes in (SOFT, Plausibility.model_validate("hard"), Plausibility(consistency="soft")):
+        out = judged(frame, network="dwd/observation", dataset=ds, modes=modes, rules=[rule])
+        flags = out.filter(pl.col("parameter") == air).get_column("quality_flags").to_list()
+        assert flags[4:] == [None, None], (modes, flags)
+        assert all("consistency" in flag for flag in flags[2:4]), (modes, flags)
+        assert "step" not in " ".join(flag for flag in flags if flag)
+    bound = Bound(high=30.0, names=("temperature_air_2m",))
+    out = judged(frame, network="dwd/observation", dataset=ds, rules=[bound])
+    flags = out.filter(pl.col("parameter") == air).get_column("quality_flags").to_list()
+    assert flags[4:] == [None, None], flags
 
 
 def test_a_forecast_is_not_judged_for_jumps() -> None:
@@ -414,11 +526,73 @@ def test_what_no_source_gives_a_limit_for_is_not_judged(
     assert "step" not in " ".join(out.get_column("quality_flags").drop_nulls().to_list())
 
 
-def test_a_dataset_of_a_resolution_with_no_limit_is_not_judged_even_for_a_judged_quantity() -> None:
-    """The air temperature at 15 minutes (the road) and at 6 hours is not in the table."""
-    assert rule_for("temperature_air_2m", "15_minutes") is None
-    assert rule_for("temperature_air_2m", "subdaily") is None
-    assert rule_for("temperature_air_2m", "monthly") is None
+@pytest.mark.parametrize(
+    ("network", "resolution", "dataset", "canonical", "quiet", "jump", "step"),
+    [
+        # the road's quarter hour, the SYNOP reports of three hours (in kelvin) and the months of DWD
+        ("dwd/road", "15_minutes", "data", "temperature_air", 5.0, 45.0, dt.timedelta(minutes=15)),
+        ("meteofrance/synop", "subdaily", "data", "temperature_air_2m", 278.15, 318.15, dt.timedelta(hours=3)),
+        ("dwd/observation", "monthly", "climate_summary", "temperature_air_mean_2m", 5.0, 45.0, dt.timedelta(days=30)),
+    ],
+)
+def test_the_air_temperature_of_a_resolution_with_no_limit_is_not_judged_for_jumps_on_a_frame(
+    network: str, resolution: str, dataset: str, canonical: str, quiet: float, jump: float, step: dt.timedelta
+) -> None:
+    """The air temperature at 15 minutes, in reports of 3 hours and by the month has a jump of 40 K and no verdict."""
+    assert rule_for(canonical, resolution) is None
+    ds = _dataset(network, resolution, dataset)
+    df = _frame(_name(ds, canonical), [quiet, quiet, jump, quiet, quiet], step)
+    out = judged(df, network=network, dataset=ds, modes=Plausibility.model_validate("hard"))
+    flags = out.get_column("quality_flags").drop_nulls().to_list()
+    assert "step" not in " ".join(flags), flags
+
+
+@pytest.mark.parametrize(
+    ("pressure", "wind", "flagged"),
+    [
+        # kPa and km/h, as ECCC writes them: 6.1 kPa are 61 hPa, 37 km/h are 10.3 m/s; 5.9 kPa and 35 km/h are under
+        ([101.0, 101.0, 107.1, 101.0, 101.0], [20, 20, 57, 20, 20], True),
+        ([101.0, 101.0, 106.9, 101.0, 101.0], [20, 20, 55, 20, 20], False),
+    ],
+)
+def test_the_limits_hold_in_the_canonical_unit_whatever_the_unit_of_the_file_and_the_unit_asked_for(
+    monkeypatch: pytest.MonkeyPatch,
+    pressure: list[float],
+    wind: list[int],
+    flagged: bool,  # noqa: FBT001
+) -> None:
+    """ECCC writes the station pressure in kPa and the wind in km/h, and the caller asks for hPa and m/s: end to end."""
+    import json  # noqa: PLC0415
+
+    from tests.provider.value_stubs import _day, _settings, serve, stations_result  # noqa: PLC0415
+    from wetterdienst import Options  # noqa: PLC0415
+    from wetterdienst.provider.eccc.observation import EcccObservationRequest  # noqa: PLC0415
+    from wetterdienst.provider.eccc.observation import api as eccc_api  # noqa: PLC0415
+
+    rows = [
+        {"UTC_DATE": f"2019-01-01T{hour:02d}:00:00", "STATION_PRESSURE": pressure[hour], "WIND_SPEED": wind[hour]}
+        for hour in range(5)
+    ]
+    body = json.dumps({"features": [{"type": "Feature", "properties": row} for row in rows]}).encode()
+    serve(monkeypatch, eccc_api, {"climate-hourly": body})
+    request = EcccObservationRequest(
+        parameters=[("hourly", "data", "pressure_air_site"), ("hourly", "data", "wind_speed")],
+        start=_day(2019, 1, 1),
+        end=_day(2019, 1, 2),
+        settings=_settings(),
+        options=Options(unit_targets={"pressure": "hectopascal", "speed": "meter_per_second"}),
+    )
+    result = stations_result(request, "hourly", "data", "51459", elevation=None)
+    df = result.values().all().df.sort("parameter", "timestamp")
+    expected = {
+        "pressure_air_site": [1010.0, 1010.0, pressure[2] * 10, 1010.0, 1010.0],
+        "wind_speed": [speed / 3.6 for speed in wind],
+    }
+    for name, values in expected.items():
+        part = df.filter(pl.col("parameter") == name)
+        assert part.get_column("value").to_list() == pytest.approx(values, abs=0.01), name
+        marked = part.get_column("quality_flags").str.contains("suspect:step").fill_null(value=False).to_list()
+        assert marked == [False, False, flagged, False, False], (name, marked)
 
 
 def test_hurricane_irma_is_kept_at_the_limit_of_the_table_and_flagged_at_the_limit_of_dmi(
@@ -440,7 +614,7 @@ def test_hurricane_irma_is_kept_at_the_limit_of_the_table_and_flagged_at_the_lim
     assert out.get_column("quality_flags").to_list() == [None, None, None, "suspect:step", None]
 
 
-def _reference(
+def _reference(  # noqa: C901
     readings: list[tuple[dt.datetime, float | None]], spike: float, step: float, interval: dt.timedelta
 ) -> set[int]:
     """Judge a series by the definition, reading by reading: the positions of the readings a step or a spike flags."""
@@ -460,7 +634,16 @@ def _reference(
                 spiked.add(k)
     flagged = {kept[k][2] for k in spiked}
     for k in range(1, len(kept)):
-        if close(k - 1, k) and abs(change(k - 1, k)) > step and (k - 1) not in spiked:
+        if not close(k - 1, k):
+            continue
+        # a reading is judged against the one before it, and, where that is a spike, against the one before the spike
+        # (which has to be one step before the spike): the spike is the mistake, and the series is where it was
+        before = k - 1
+        if before in spiked:
+            if before < 1 or not close(before - 1, before):
+                continue
+            before -= 1
+        if abs(change(before, k)) > step:
             flagged.add(kept[k][2])
     return flagged
 

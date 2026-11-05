@@ -558,19 +558,15 @@ def judge(  # noqa: C901
             series[SOURCE_SUSPECT].append(suspect & ~erroneous)
         else:
             series["source"].append(erroneous | suspect)
-    impossible = [outside] if outside is not None else []
     if plan.pressure and elevation is not None and not (elevation == 0.0 and plan.network in ELEVATION_ZERO_IS_UNKNOWN):
         allowed = station_pressure_bounds(elevation)
         if allowed is not None:
             no_pressure = parameter.is_in(plan.pressure) & ((value < allowed[0]) | (value > allowed[1]))
             exprs["elevation"].append(no_pressure)
-            impossible.append(no_pressure)
     if plan.floors:
         exprs["floor"].append(parameter.is_in(plan.floors) & (value < 0.0))
     if plan.persistence:
         series["stuck"].append(_persistent_runs(df, plan))
-    if plan.steps:
-        series["step"].append(_jumps(df, plan, impossible))
     for rule in rules:
         if isinstance(rule, StuckPeriod) and rule.parameter in plan.by_name:
             stamp = pl.col("timestamp")
@@ -582,6 +578,16 @@ def judge(  # noqa: C901
     for rule in rules:
         if isinstance(rule, Beside) and rule.target in plan.by_name and rule.partner in plan.by_name:
             series["consistency"].append(_beside(df, plan, rule, outside))
+    if plan.steps:
+        # last: a reading any other check found bad, soft or hard, is no neighbour of a jump (`_jumps`)
+        series["step"].append(
+            _jumps(
+                df,
+                plan,
+                [expr for items in exprs.values() for expr in items],
+                [s for items in series.values() for s in items],
+            )
+        )
 
     columns = {check: pl.any_horizontal(*items) for check, items in exprs.items() if items}
     frame = df.with_columns(*(expr.alias(_HIT + check) for check, expr in columns.items()))
@@ -747,7 +753,7 @@ def _persistent_runs(df: pl.DataFrame, plan: Plan) -> pl.Series:
     return pl.repeat(value=False, n=df.height, dtype=pl.Boolean, eager=True).scatter(hits, True).alias("hit")  # noqa: FBT003
 
 
-def _jumps(df: pl.DataFrame, plan: Plan, impossible: Sequence[pl.Expr]) -> pl.Series:
+def _jumps(df: pl.DataFrame, plan: Plan, elsewhere: Sequence[pl.Expr], found: Sequence[pl.Series]) -> pl.Series:
     """Mark the readings that jump by more than the table of ``model/rate_of_change.py`` allows (the check ``step``).
 
     Readings of one parameter, in time order, are judged against their neighbours in the series: a **step** is a
@@ -755,21 +761,30 @@ def _jumps(df: pl.DataFrame, plan: Plan, impossible: Sequence[pl.Expr]) -> pl.Se
     **spike** a reading that departs from both neighbours by more than the limit, in opposite directions (the middle
     one is flagged). A neighbour counts only if it is one step of the resolution away at most, so a null or a gap
     between two readings leaves them unjudged; the first reading has no predecessor and is no step, the last no
-    successor and is no spike. A reading that another check has already found impossible (outside the range, or a
-    station pressure the elevation does not allow) or that the source wrote as a code is no neighbour: it would flag
-    the good reading beside it. The jump out of a spike is no step, since the spike is the mistake.
+    successor and is no spike.
+
+    A reading that any other check judged bad, whatever the mode of that check (``elsewhere``: the row-wise checks,
+    ``found``: the verdicts on the series, which the caller has made first), or that the source wrote as a code, is no
+    neighbour and is not judged: a thermometer that is stuck at -40 for a day (``stuck``), a value the source flags
+    erroneous (``source``) or a reading ``range`` rejects would flag the good reading beside it.
+
+    The reading after a spike is judged against the reading before the spike, not against the spike, which is the
+    mistake: a jump back to where the series was is no step, and a jump to somewhere else (10, 10, 19, -20) is one.
     """
     rules = dict(plan.steps)
     names = list(rules)
     usable = pl.col("value").is_not_null() & pl.col("value").is_not_nan()
     usable &= ~pl.col("quality_flags").str.contains(RAW_TOKEN).fill_null(value=False)
-    for expr in impossible:
+    for expr in elsewhere:
         usable &= ~expr.fill_null(value=False)
+    frame = df.with_row_index("_row")
+    if found:
+        frame = frame.with_columns(_any_of(list(found)).alias("_found"))
+        usable &= ~pl.col("_found")
     # the parameters are numbered, so that a series is told from the next by comparing numbers and not names
     number = pl.col("parameter").replace_strict({name: i for i, name in enumerate(names)}, return_dtype=pl.Int16)
     readings = (
-        df.with_row_index("_row")
-        .filter(pl.col("parameter").is_in(names) & usable)
+        frame.filter(pl.col("parameter").is_in(names) & usable)
         .select("_row", number.alias("_p"), "timestamp", pl.col("value").alias("_v"))
         .sort("_p", "timestamp", "_row")
     )
@@ -781,6 +796,8 @@ def _jumps(df: pl.DataFrame, plan: Plan, impossible: Sequence[pl.Expr]) -> pl.Se
     # the change from the reading before and to the one after, rounded so that 8.0 K is not 8.000000000000002
     change_in = value.sub(value.shift(1)).round(DECIMALS)
     change_out = value.shift(-1).sub(value).round(DECIMALS)
+    # and from the reading two before, which is the one before a spike when the reading before is one
+    change_back = value.sub(value.shift(2)).round(DECIMALS)
     # a neighbour counts if it is of the same series and no more than one step of the resolution away: a gap or a null
     # in between does not
     close_in = series.eq(series.shift(1)) & stamp.sub(stamp.shift(1)).is_between(
@@ -796,11 +813,14 @@ def _jumps(df: pl.DataFrame, plan: Plan, impossible: Sequence[pl.Expr]) -> pl.Se
         & change_out.abs().gt(spike)
         & change_in.sign().ne(change_out.sign())
     ).fill_null(value=False)
-    marked = readings.with_columns(_in=close_in & change_in.abs().gt(step), _spiked=spiked).with_columns(
-        # the jump out of a spike is the spike's, not a step of the good reading after it
-        _hit=pl.col("_spiked")
-        | (pl.col("_in").fill_null(value=False) & ~pl.col("_spiked").shift(1).fill_null(value=False))
+    after_spike = spiked.shift(1).fill_null(value=False)
+    # a step is the change from the reading before, or from the reading before a spike where that is the reading before
+    jumped = (
+        pl.when(after_spike)
+        .then(close_in.shift(1).fill_null(value=False) & change_back.abs().gt(step))
+        .otherwise(change_in.abs().gt(step))
     )
+    marked = readings.with_columns(_hit=spiked | (close_in & jumped.fill_null(value=False)))
     hits = marked.filter(pl.col("_hit")).get_column("_row")
     if hits.is_empty():
         return _no_hits(df)

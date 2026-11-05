@@ -236,7 +236,9 @@ observation network, for one station and one parameter
   The **later** reading is flagged, the one that arrives with the jump: nothing says which of the two is wrong;
 - a **spike**: a reading that departs from the one before it by more than the limit and from the one after it by more
   than the limit, in the opposite direction, so that it comes back within one step. Only the **middle** reading is
-  flagged. A spike is judged first, and the jump out of it is not a step of the good reading after it.
+  flagged. A spike is judged first. The reading after it is judged against the reading **before the spike**, not
+  against the spike, which is the mistake: a jump back to where the series was is no step, and a jump somewhere else
+  (10, 10, 19, -20: a spike of 19 and a step of 30 K from the 10) is one.
 
 A change has to *exceed* the limit: 8.0 K is no spike of 8 K. The limits are per parameter and resolution, in the
 canonical unit, and `wetterdienst.model.rate_of_change` holds them with the same sources in its docstring; a test holds
@@ -249,17 +251,19 @@ WMO-No. 305 (1993, withdrawn), or Zahumenský's 3 K a minute, written for the fi
 
 - **ISD** (Lott 2004, "The quality control of the Integrated Surface Hourly database", AMS 84th Annual Meeting,
   section 4): a rise of 8 °C in one hour triggers a look at the next report, and if the temperature falls back by 8 °C
-  or more the value in the middle is "an improbable spike". The same continuity test is applied to the dew point, the
-  wind speed and the pressure, with limits the paper does not give.
+  or more the value in the middle is "an improbable spike". The paper applies the same continuity test to the dew
+  point, the wind speed and the pressure and **gives no limit for them**. It writes "or more"; the code flags a change
+  of *more than* the limit, so a change of exactly 8.0 K is no spike.
 - **DMI** (Vejen et al. 2002, *Quality control of meteorological observations. Automatic methods used in the Nordic
   countries*, NORDKLIM / MET Report 8/2002, table 3.1): the step limits per month, flag 3 being a "certain error": for one
-  hour 6 K (December to March) to 8 K (May to August) of the air temperature, 5 to 8 hPa of the pressure and 15 m/s of
+  hour 6 K (October to March) to 8 K (May to August) of the air temperature, 5 to 8 hPa of the pressure and 15 m/s of
   the wind speed.
 - **MADIS** (NOAA / NWS, *MADIS surface data QC*, temporal consistency): 35 F (19.4 K) an hour of the air and the dew
   point temperature, 50 % of the relative humidity, 15 hPa of the sea level pressure, 20 kt (10.3 m/s) of the wind speed
   and 5 F (2.8 K) of the soil temperature. A reading that fails is questioned, not rejected.
 - **Durre et al.** (2010, *Journal of Applied Meteorology and Climatology* 49, 1615-1633, table 3), GHCN-Daily: a daily
-  TMAX or TMIN at least 25 K above or below both the day before and the day after is a spike or dip.
+  TMAX or TMIN at least 25 K above or below both the day before and the day after is a spike or dip. The code flags
+  *more than* 25 K, so a change of exactly 25.0 K is no spike.
 - **WMO-No. 100** (2018, 3.3.6) says that a drop of 10 K in an hour "may be suspect, but could be quite realistic if
   associated with the passage of a cold front or onset of a sea breeze": the reason for two limits, a low one for a
   spike and a high one for a step.
@@ -267,7 +271,7 @@ WMO-No. 305 (1993, withdrawn), or Zahumenský's 3 K a minute, written for the fi
 
 Where no source publishes a limit, the table says "own derivation" and why: the limits at **10 minutes** are those of the
 hour (a change in 10 minutes cannot be larger than the weather's in an hour, so the hourly limit is the more lenient
-there); the dew point is judged like the air (ISD applies one test to both, MADIS has one limit); a daily mean is judged
+there); the hourly dew point is judged like the air (ISD applies its test to both but gives no limit for the dew point, MADIS has one limit for both); a daily mean is judged
 like the daily extremes it lies between; and the **pressure** is 60 hPa an hour for the step and for the spike, which
 lies between the 43 hPa an hour of Hurricane Irma at Saint-Barthélemy (2017-09-06: 936.0, 917.4, 960.4 hPa in three
 hours, a good reading, which `elevation` keeps too) and the 64 hPa an hour of the smallest of the 19 keying slips found in
@@ -280,10 +284,10 @@ DWD's hourly station pressure. DMI's 5 to 8 hPa and MADIS's 15 hPa would flag th
 | --- | --- | --- | --- | --- | --- |
 | `pressure_air_sea_level`, `pressure_air_sea_level_mean`, `pressure_air_site`, `pressure_air_site_mean` | 10_minutes | 60 | 60 | hPa | own derivation: the limits of the hour, which a change in 10 minutes cannot exceed by the weather (Zahumenský's step limits are for 1-minute data and the strictest tolerance, and are not used) |
 | `pressure_air_sea_level`, `pressure_air_sea_level_mean`, `pressure_air_site`, `pressure_air_site_mean` | hourly | 60 | 60 | hPa | own derivation from data: 60 hPa, between 43 hPa an hour of Hurricane Irma at Saint-Barthélemy (2017-09-06; the minimum of 917.4 hPa is 18.6 hPa below the hour before) and 64 hPa an hour of the smallest of the 19 keying slips found in DWD's hourly station pressure; the limits of the sources would flag that hurricane (DMI: a change of 5 hPa (May to August) to 8 hPa (October to March) in an hour is a certain error; MADIS: 15 hPa questioned) |
-| `temperature_air_2m`, `temperature_air_max_2m`, `temperature_air_mean_2m`, `temperature_air_min_2m` | daily | 25 | - | °C | Durre et al. 2010 (table 3): a daily TMAX or TMIN at least 25 K above or below both the day before and the day after; own derivation for the daily mean, which is smoother than an extreme: the same limit |
-| `temperature_air`, `temperature_air_2m`, `temperature_air_mean_2m` | hourly | 8 | 20 | °C | ISD (Lott 2004, section 4): a rise of 8 K in an hour that falls back by 8 K is a spike; MADIS (temporal consistency): 35 F (19.4 K) in an hour |
+| `temperature_air_2m`, `temperature_air_max_2m`, `temperature_air_mean_2m`, `temperature_air_min_2m` | daily | 25 | - | °C | Durre et al. 2010 (table 3): a daily TMAX or TMIN at least 25 K above or below both the day before and the day after (here: more than 25 K); own derivation for the daily mean, which is smoother than an extreme: the same limit |
+| `temperature_air`, `temperature_air_2m`, `temperature_air_mean_2m` | hourly | 8 | 20 | °C | ISD (Lott 2004, section 4): a rise of 8 K in an hour that falls back by 8 K is a spike (here: more than 8 K); MADIS (temporal consistency): 35 F (19.4 K) in an hour |
 | `temperature_air`, `temperature_air_2m`, `temperature_air_mean_2m`, `temperature_dew_point`, `temperature_dew_point_2m`, `temperature_dew_point_mean_2m` | 10_minutes | 8 | 20 | °C | own derivation: the limits of the hour, which a change in 10 minutes cannot exceed by the weather (Zahumenský's step limits are for 1-minute data and the strictest tolerance, and are not used) |
-| `temperature_dew_point`, `temperature_dew_point_2m`, `temperature_dew_point_mean_2m` | hourly | 8 | 20 | °C | ISD (Lott 2004, section 4): the continuity test of the temperature, applied to the dew point as well; MADIS (temporal consistency): 35 F (19.4 K) in an hour |
+| `temperature_dew_point`, `temperature_dew_point_2m`, `temperature_dew_point_mean_2m` | hourly | 8 | 20 | °C | own derivation for the spike: the temperature's 8 K (ISD applies its continuity test to the dew point as well but gives no limit for it); MADIS (temporal consistency) for the step: 35 F (19.4 K) in an hour, for the dew point as for the air |
 | `temperature_dew_point`, `temperature_dew_point_2m`, `temperature_dew_point_mean_2m` | daily | 25 | - | °C | own derivation: the spike of Durre et al. 2010 (table 3), 25 K for a daily TMAX or TMIN, applied to the daily dew point |
 | `wind_speed`, `wind_speed_mean`, `wind_speed_mean_last_10min`, `wind_speed_mean_last_2min` | 10_minutes | 10 | 15 | m/s | own derivation: the limits of the hour, which a change in 10 minutes cannot exceed by the weather (Zahumenský's step limits are for 1-minute data and the strictest tolerance, and are not used) |
 | `wind_speed`, `wind_speed_mean`, `wind_speed_mean_last_10min`, `wind_speed_mean_last_2min` | hourly | 10 | 15 | m/s | MADIS (temporal consistency): 20 kt (10.3 m/s) of the wind speed in an hour; DMI (Vejen et al. 2002, table 3.1): a change of 15 m/s in an hour is a certain error |
@@ -301,9 +305,13 @@ coverage; the limit is not scaled up for the longer time. A reading that is *clo
 irregular series: a METAR between two hourly ones) is judged with the limit of the step, which is the more lenient for
 it.
 
-**What a neighbour is.** A reading that another check has found impossible (outside the range, or a station pressure the
-elevation does not allow) or that the source wrote as a code (`raw:-999`) is no neighbour and is not judged: it would
-flag the good reading beside it. The reading next to it has no neighbour on that side, and is judged against the one on the other side only.
+**What a neighbour is.** A reading that **any other check judged bad, soft or hard** (`range`, `elevation`, `limits`,
+`source`, `stuck`, `consistency`: the verdicts are made first and `step` runs last, whatever their modes) or that the
+source wrote as a code (`raw:-999`) is no neighbour and is not judged: it would flag the good reading beside it. A
+thermometer stuck at -40 °C for 30 hours is `stuck`'s, and the 5.0 that follows it is no step of 45 K; GHCN hourly 5, 5,
+40, 41, 5, 5 with 40 and 41 flagged erroneous by the source is the same. The reading next to such a one has no
+neighbour on that side, and is judged against the one on the other side only (the first reading of a stuck run is
+`stuck`'s too, so the jump into the run is not told as a step).
 
 **The first and the last reading.** The first reading of a series has no predecessor: it is never flagged, and the second
 is flagged for a step if the jump is there (a bad first reading flags the good second one). The last reading has no
@@ -318,18 +326,20 @@ are what the check would flag with the limit, in the whole histories of the 10 D
 
 | parameter | limit measured | readings flagged | of | what they are |
 | --- | --- | --- | --- | --- |
-| relative humidity | spike 30 %, step 50 % (DNMI, MADIS), hourly | 1,452 | 6.3 million | 1,309 at the Zugspitze and the Feldberg: fog and cloud take the humidity from 100 to 40 % and back in an hour |
+| relative humidity | spike 30 %, step 50 % (DNMI, MADIS), hourly | 1,453 | 6.3 million | 1,310 at the Zugspitze and the Feldberg: fog and cloud take the humidity from 100 to 40 % and back in an hour |
 | gusts | step 15 m/s (the research's own derivation), hourly | 376 | 2.3 million | thunderstorm gusts: 3.0, 27.0, 20.0, 10.0 m/s in four hours (Dresden, 2001-07-07) |
 | soil temperature at 5 cm | step 3 K (MADIS 2.8 K), hourly | 17,690 | 2.1 million | the sun on bare soil |
 | air temperature | one-sided step 8 K instead of the spike, hourly | 300 | 6.3 million | fronts: 33.8 to 24.3 °C at Berlin-Tempelhof, 2022-07-25 (the table's 7 are spikes) |
 | pressure | spike 5 hPa, step 60 hPa (DMI), hourly | 811 | 6.8 million | 52 are the table's; the rest are single readings 5 to 60 hPa off their neighbours (1018.9, 1008.0, 1019.3 hPa), and a hurricane's minimum |
 
-- **Relative humidity.** DNMI's dip test of 30 % is not in operation and flags nothing; MADIS's 50 % an hour is a reading
-  that is *questioned*, not rejected. Neither is the level at which a value is certainly wrong, and a mountain station is
-  in cloud one hour and out of it the next.
+- **Relative humidity.** The limits that exist are DNMI's dip test of 30 % (not in operation, it flags nothing) and
+  MADIS's 50 % an hour. Measured, they flag 1,453 of 6.3 million hourly readings of these stations, 1,310 of them at
+  the two summits, where a station is in cloud one hour and out of it the next. That rate of false alarms is the
+  reason it is not judged, and the only one.
 - **Gusts.** Nothing publishes a limit for them; the research derived 15 m/s, and a thunderstorm gust is a real step.
-- **Soil temperature.** MADIS's 2.8 K an hour is a questioned reading too, and a bare soil at 5 cm warms by more in an hour.
-  Zahumenský's 1 K is for 1-minute data.
+- **Soil temperature.** The limit that exists is MADIS's 2.8 K an hour (Zahumenský's 1 K is for 1-minute data).
+  Measured, a step of 3 K flags 17,690 of 2.1 million hourly readings at 5 cm, which is bare soil in the sun: the false
+  alarms are the reason it is not judged.
 - **The pressure is the one parameter where a source's limit is not taken.** DMI calls a change of 5 hPa (May to August)
   to 8 hPa (October to March) in an hour a certain error, and MADIS questions 15 hPa. Hurricane Irma at Saint-Barthélemy
   (2017-09-06, quality code 1) read 977.1, 936.0, 917.4, 960.4 hPa in four hours: its minimum is 18.6 hPa below the hour
@@ -351,10 +361,10 @@ are what the check would flag with the limit, in the whole histories of the 10 D
 ### How `step` relates to `elevation` and `range`
 
 `range` and `elevation` judge a reading by itself and stay as they are; `step` judges it beside its neighbours, and
-treats a reading either of them has found as no neighbour. The 19 readings of DWD's hourly station pressure that lie
+treats a reading either of them (or any other check) has found as no neighbour. The 19 readings of DWD's hourly station pressure that lie
 beyond 75 hPa of the standard atmosphere were the research's start of this check: `elevation` rejects 16 of them, and the
 other three (909.5 hPa at Berlin-Tempelhof, 1994-08-29, and 910.1 and 908.5 hPa at List auf Sylt, 1990-09-18 and
-1992-10-22, 98 to 103 hPa below the standard atmosphere) are spikes of about 100 hPa, which `step` flags
+1992-10-22, 98 to 102 hPa below the standard atmosphere) are spikes of about 100 hPa, which `step` flags
 (`suspect:step`).
 
 ### What `step` found in real data
@@ -369,25 +379,25 @@ and 88 % of it is judged).
 | --- | --- | --- | --- | --- |
 | hourly | air temperature (`temperature_air`) | 6,299,464 | 7 | 2.8 °C between 20.6 and 22.0 (Hamburg, 1950), 8.0 between 17.1 and 19.4 (1960), 15.4 between 5.6 and 4.8 (1975), 0.0 between 11.9 and 12.2 (1997), a sign: 6.5 between -6.6 and -5.7 (Feldberg, 1995), 5.5 between -5.0 and -6.3 (Potsdam, 1936), 5.4 between -5.4 and -5.6 (Zugspitze, 1957) |
 | hourly | air temperature (`moisture`) | 4,505,940 | 380 | 184 are 0.0 between other values, 351 are before 1995, 110 at the Zugspitze and the Feldberg: the old whole-degree decades |
-| hourly | dew point (`moisture`) | 4,501,767 | 1,110 | 316 are 0.0 between other values, 602 at the Zugspitze and the Feldberg (the dubious ones) |
+| hourly | dew point (`moisture`) | 4,501,767 | 1,113 | 316 are 0.0 between other values, 605 at the Zugspitze and the Feldberg (the dubious ones) |
 | hourly | station pressure (`moisture`, `pressure`) | 4,505,876 | 38 | single readings about 100 hPa off their neighbours (33), 1989 to 2001; the three that `elevation` lets through are among them |
 | hourly | sea level pressure (`pressure`) | 3,539,284 | 14 | the same: 10 of 14 differ by a multiple of 10 hPa, 8 at Trier-Petrisberg |
-| hourly | mean wind speed (`wind`) | 5,841,991 | 165 | 139 at the Zugspitze (the dubious ones), 157 before 1995 |
-| 10 minutes | air temperature (`temperature_air`) | 16,287,927 | 213 | the Zugspitze's thermometer alternating between -20.2 and 15.1 °C on 2001-05-31 and 06-01 (88), Arkona down to -85.2 °C in September 1993 (23), 52 are 0.0 |
-| 10 minutes | dew point (`temperature_air`) | 15,470,459 | 501 | 355 at the Zugspitze and the Feldberg (the dubious ones), 95 in 2001 |
+| hourly | mean wind speed (`wind`) | 5,841,991 | 166 | 140 at the Zugspitze (the dubious ones), 157 before 1995 |
+| 10 minutes | air temperature (`temperature_air`) | 16,287,927 | 217 | the Zugspitze's thermometer alternating between -20.2 and 15.1 °C on 2001-05-31 and 06-01 (88), Arkona down to -85.2 °C in September 1993 (23), 52 are 0.0 |
+| 10 minutes | dew point (`temperature_air`) | 15,470,459 | 504 | 355 at the Zugspitze and the Feldberg (the dubious ones), 95 in 2001 |
 | 10 minutes | station pressure (`temperature_air`) | 16,263,915 | 8 | 100 hPa off their neighbours (7), 1991 to 1997 |
-| 10 minutes | mean wind speed (`wind`) | 16,183,841 | 36 | 14 at the summits, 16 at Helgoland |
+| 10 minutes | mean wind speed (`wind`) | 16,183,841 | 37 | 14 at the summits, 16 at Helgoland |
 | daily | air temperature mean, minimum, maximum (`climate_summary`) | 964,596 | 0 | |
 
 The daily temperature has no reading flagged: GHCN-Daily's 25 K is a spike no station of these ten has made. The
 readings flagged are, by what they look like: a **0.0** between other values, which DWD wrote for a missing value in the
-whole-degree decades of the hourly `moisture` (184 of the 380 temperatures, 316 of the 1,110 dew points); a **sign or a
+whole-degree decades of the hourly `moisture` (184 of the 380 temperatures, 316 of the 1,113 dew points); a **sign or a
 digit** that is wrong (5.5 °C between -5.0 and -6.3, 15.4 between 5.6 and 4.8; 33 of the 38 site pressures differ from
 their neighbours by a multiple of 10 hPa, within 1.5); a **sensor that fails**: the Zugspitze's thermometer alternated between -20.2 and 15.1 °C for 88 readings on
 2001-05-31 and 06-01, and Arkona's wrote values down to -85.2 °C in September 1993 (23 readings). Neither `range` (-90 to
 60 °C) nor `stuck` finds them. The cases that are **probably good**, the known false positives, are two: the hourly mean
-**wind speed of the Zugspitze** (139 of the 165, in storms, 38.5 m/s one hour and 7.8 the next in November 1983), and the
-**dew point of the two summit stations** (602 of the 1,110, a value derived from the temperature and the humidity in cold
+**wind speed of the Zugspitze** (140 of the 166, in storms, 38.5 m/s one hour and 7.8 the next in November 1983), and the
+**dew point of the two summit stations** (605 of the 1,113, a value derived from the temperature and the humidity in cold
 dry air that swings 8 K and back); the rest of the wind and dew point flags are at lowland stations and are mostly
 errors (a dew point of 0.0 or -59 between values of 10).
 
@@ -494,8 +504,8 @@ A bound that holds for every provider cannot see a defect that lies inside it. T
   `suspect:source`, and is null with `rejected:source` where you set the check hard. DMI's 1,978 mm of a day and 17,802
   mm of a month are above the bounds and are null by `range`.
 - **A gust of 81.5 m/s in Belgium** (RMI, station 6414, 2003-10-09, `validated: false`): inside the 115 m/s of the
-  world, and not a reading. It is for the step check of [GH-3681](https://github.com/earthobservations/wetterdienst/issues/3681);
-  the 445.3 and 569.7 m/s of the hourly layer are above the bound and are null.
+  world, and not a reading. **No check finds it**: `step` does not judge gusts ([why](#what-step-does-not-judge)), so
+  it is returned as RMI writes it, and a caller who wants it gone sets a bound of their own (`limits`); the 445.3 and 569.7 m/s of the hourly layer are above the bound and are null.
 - **A station pressure keyed in by a digit, between the margins of `elevation`**: 909.5, 910.1 and 908.5 hPa at DWD's
   Berlin-Tempelhof and List auf Sylt, 98 to 102 hPa under the standard atmosphere, as far as the eye of a hurricane
   (917.4 hPa at 3 m). Steps of 90 to 129 hPa in an hour, against the 43 of Irma, tell them; that is the step check, too.
@@ -984,15 +994,16 @@ What no check covers, and why:
   spike.
 - **A front is a real step, and the check judges a series and not a value.** A cold front or a thunderstorm can lower an
   hourly air temperature by 10 K, which is why the spike limit (8 K) is the lower and the step limit (20 K) the higher. A one-sided
-  limit of 8 K an hour would flag 280 hourly steps of 6.3 million in the DWD data read, nearly all of them weather
+  limit of 8 K an hour would flag 300 hourly steps of 6.3 million in the DWD data read, nearly all of them weather
   (33.8 to 24.3 °C at Berlin-Tempelhof, 2022-07-25), and is not used.
 - **A step flags the later reading of the pair.** Nothing says which of two readings is wrong. A level shift (a sensor
   that jumped by 25 K and stays) flags the first reading after the jump; a bad value that is held for two readings or
   more is a spike of two, which is no spike, so its first reading is flagged as a step, and the first good reading after
-  it as another. The jump out of a single spike is the spike's: the good reading after it is not flagged.
+  it as another. The jump out of a single spike is the spike's: the good reading after it is judged against the reading
+  before the spike, and is not flagged where it is back within the limit.
 - **A hurricane's pressure.** The limit of 60 hPa an hour keeps the readings of Hurricane Irma at Saint-Barthélemy
   (936.0, 917.4, 960.4 hPa in three hours); the limits of the sources (DMI 5 to 8 hPa, MADIS 15 hPa) would flag its
-  minimum, and also hundreds of slips of a digit that 60 does not ([what step does not judge](#what-step-does-not-judge)).
+  minimum, and also 759 more readings of DWD's hourly pressure, typing slips of 5 to 60 hPa, which 60 does not ([what step does not judge](#what-step-does-not-judge)).
 - **Melting point and the whole-degree years.** A temperature pinned at 0.0 °C (snow or ice melting, a mountain in cloud)
   can hold one value for a day, and the limits do not exempt it: seven runs of 0.0 °C of the air temperature or the dew
   point in the readings read are flagged, the Zugspitze's 171 readings of 0.0 °C among them. And three runs of 40 to 43
