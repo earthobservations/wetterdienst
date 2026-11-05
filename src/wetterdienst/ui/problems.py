@@ -80,6 +80,7 @@ class ProblemKind(StrEnum):
     UPSTREAM_UNREACHABLE = "upstream-unreachable"
     UPSTREAM_TIMEOUT = "upstream-timeout"
     REQUEST_TIMEOUT = "request-timeout"
+    IMAGE_TIMEOUT = "image-timeout"
     INTERNAL_ERROR = "internal-error"
 
 
@@ -157,6 +158,11 @@ PROBLEMS: dict[ProblemKind, ProblemSpec] = {
         504,
         "The server did not answer within its request timeout. Narrow the request, or retry it: what the server "
         "had fetched is cached.",
+    ),
+    ProblemKind.IMAGE_TIMEOUT: ProblemSpec(
+        504,
+        "The browser that draws a chart as an image did not finish in time and was closed. The request was valid; "
+        "retry it. Whoever runs the server should look at Chrome if it keeps happening.",
     ),
     ProblemKind.INTERNAL_ERROR: ProblemSpec(500, "The server's own error, a defect. The cause is in the server log."),
 }

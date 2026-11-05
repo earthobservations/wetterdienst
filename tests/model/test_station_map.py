@@ -142,6 +142,7 @@ def test_the_center_is_the_middle_of_the_box_as_the_map_draws_it() -> None:
     assert _northing(layout.map.center.lat) == pytest.approx((_northing(20.0) + _northing(80.0)) / 2)
 
 
+@pytest.mark.usefixtures("figure_draws_itself")
 def test_a_picture_of_another_size_is_fitted_to_its_size(monkeypatch: pytest.MonkeyPatch) -> None:
     """The zoom for the size plotly draws by default would crop a smaller picture: `width` and `height` refit it."""
     go = pytest.importorskip("plotly.graph_objects")
@@ -166,6 +167,7 @@ def test_a_picture_of_another_size_is_fitted_to_its_size(monkeypatch: pytest.Mon
     assert small.map.zoom < default.map.zoom < wide.map.zoom
 
 
+@pytest.mark.usefixtures("figure_draws_itself")
 def test_a_picture_smaller_than_its_margins_is_still_drawn(monkeypatch: pytest.MonkeyPatch) -> None:
     """No map is left at a width of 20 pixels, and the zoom is a number, not a `ValueError` of `log2`."""
     go = pytest.importorskip("plotly.graph_objects")

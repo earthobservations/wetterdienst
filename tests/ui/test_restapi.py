@@ -2004,6 +2004,7 @@ def test_every_image_format_has_its_media_type(fmt: str) -> None:
         ("pdf", "application/pdf"),
     ],
 )
+@pytest.mark.usefixtures("figure_draws_itself")
 def test_stripes_image_is_sent_as_its_media_type(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,

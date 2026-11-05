@@ -12,7 +12,8 @@ command line can tell what to answer from the class instead of keeping a list of
     ├── NotFoundError     what the request names does not exist (a `LookupError`)
     ├── ConfigurationError  this installation is not set up to serve it
     ├── UpstreamError     the provider's side failed or sent what the parser does not expect
-    └── ExportRefusedError  a sink will not perform the export it was asked for
+    ├── ExportRefusedError  a sink will not perform the export it was asked for
+    └── ImageTimeoutError   the browser that draws an image did not finish in time (also a `TimeoutError`)
 
 Each class that was an exception of its own before keeps the built-in classes it derived from, so an
 `except ValueError`, `except OSError`, `except FileNotFoundError` or `except IndexError` that caught
@@ -291,6 +292,32 @@ class ImageTooLargeError(RequestError):
     def __reduce__(self) -> tuple:
         """Rebuild from the size and the limit, not from the message in `args`, so the error pickles."""
         return type(self), (self.width, self.height, self.max_side), self.__dict__
+
+
+class ImageTimeoutError(WetterdienstError, TimeoutError):
+    """Raised when a chart was not rendered to an image in time, and the browser that draws it was closed (GH-3723).
+
+    Kaleido draws an image in a Chrome of its own. One that is stuck (a start that does not end, a page that is
+    never ready) used to hold the caller for ever. The render has `IMAGE_TIMEOUT` seconds, the start of the browser
+    included, and then the browser is shut down, its processes with it, so that nothing is left behind.
+
+    Neither the caller's mistake nor the provider's: the request was valid, the renderer of this machine did not
+    answer, and the same one can succeed on a retry. The REST API answers it with a 504 of the kind `image-timeout`
+    and the command line with one line, exit 1. A `TimeoutError` too.
+    """
+
+    def __init__(self, timeout: float) -> None:
+        """Keep the limit of the render, in seconds."""
+        self.timeout = timeout
+        super().__init__(
+            f"The image was not rendered in time (the limit is {timeout:g} seconds): the browser that draws it "
+            "did not finish and was closed. Try again; if it keeps happening, check that Chrome starts on this "
+            "machine."
+        )
+
+    def __reduce__(self) -> tuple:
+        """Rebuild from the seconds, not from the message in `args`, so the error pickles."""
+        return type(self), (self.timeout,), self.__dict__
 
 
 class UnknownFormatError(RequestError, KeyError):

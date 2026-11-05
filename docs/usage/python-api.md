@@ -960,7 +960,7 @@ record or many stations, `stations.values().query()` and `to_target` hold one st
 
 Every class of `wetterdienst.exceptions` derives from `WetterdienstError`
 (`from wetterdienst import WetterdienstError`), so one `except` catches them all. A bad argument
-the library refuses with a plain `ValueError` or `KeyError` is not one of them yet. Five classes
+the library refuses with a plain `ValueError` or `KeyError` is not one of them yet. Six classes
 below it say what kind of failure it is:
 
 | Class | Raised when | Also a |
@@ -970,6 +970,7 @@ below it say what kind of failure it is:
 | `ConfigurationError` | this installation cannot serve it: a missing credential or optional package | |
 | `UpstreamError` | the provider's side failed or sent what the parser does not expect: `DownloadError`, `NoInternetError` | |
 | `ExportRefusedError` | a sink will not perform the export, for a reason the caller can act on | |
+| `ImageTimeoutError` | the browser that draws an image did not finish in `wetterdienst.io.export.IMAGE_TIMEOUT` (120) seconds, start included, and was closed with its processes | `TimeoutError` |
 
 ```python
 from wetterdienst import RequestError, UpstreamError, WetterdienstError
@@ -992,7 +993,7 @@ a `RequestError` and a `ValueError`, `NoInternetError` an `UpstreamError` and an
 credential you configured) a `ConfigurationError` and a `PermissionError`. The REST API, the MCP tools
 and the command line decide by the class what to answer: a `RequestError` is a 400 or a usage error
 (exit 2), a `NotFoundError` a 404, a `ConfigurationError` a 501, a `NoInternetError` a 503, any other
-`UpstreamError` a 502 (a 504 where a timeout was its cause), and anything else, an unclassified
+`UpstreamError` a 502 (a 504 where a timeout was its cause), an `ImageTimeoutError` a 504 (exit 1), and anything else, an unclassified
 `WetterdienstError` included, the server's error, a 500. See [REST API](restapi.md#errors) for the body.
 
 ### Offline

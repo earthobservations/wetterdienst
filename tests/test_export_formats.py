@@ -337,6 +337,7 @@ def test_the_table_holds_each_surface_to_the_formats_it_takes(surface: str, colu
 
 
 @pytest.mark.parametrize("name", _WITH_FORMATS)
+@pytest.mark.usefixtures("figure_draws_itself")
 @pytest.mark.parametrize("format_name", list(names_of("chart")))
 def test_every_chart_format_of_the_registry_is_rendered(
     name: str, format_name: str, monkeypatch: pytest.MonkeyPatch
@@ -353,6 +354,7 @@ def test_every_chart_format_of_the_registry_is_rendered(
     assert result._to_image(format_name) in (b"image", "<html>")  # noqa: SLF001
 
 
+@pytest.mark.usefixtures("figure_draws_itself")
 def test_a_format_added_to_the_registry_is_rendered_and_guarded_without_another_list(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

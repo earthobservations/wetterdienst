@@ -25,6 +25,13 @@ Types of changes:
 
 ### Fixed
 
+- An image that Kaleido does not draw in 120 seconds is now an `ImageTimeoutError` (also a
+  `TimeoutError`): the Chrome and its processes are closed, `/api/stripes/image` and every other
+  image route answer a 504 problem of the kind `image-timeout`, and the command line prints one
+  line and exits 1. Before, a Chrome that did not start or a page that never became ready held
+  the call for ever (Kaleido's own 90 seconds bound only the drawing), and a REST request that
+  timed out left its thread, and its place in `WD_RESTAPI_MAX_CONCURRENT`, to wait as long. A
+  `kaleido.start_sync_server()` you started yourself is still drawn without this limit (GH-3723)
 - The `bufr` and `eccodes` extras now require `findlibs>=0.1.4`. On Linux, `findlibs` 0.1.3 and
   older loaded the PROJ bundled in the `eckitlib` wheel of `eccodes` 2.43+ globally, so a process
   that loaded `eccodes` and then imported `pyproj` aborted at exit with status 134 or 139

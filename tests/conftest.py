@@ -747,6 +747,22 @@ def _kaleido_for_image_tests(request: pytest.FixtureRequest) -> Generator[None]:
         yield
 
 
+@pytest.fixture
+def figure_draws_itself(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Have `render_image` ask the figure for its image, so a test can stand in a figure or stub `to_image` (GH-3723).
+
+    `render_image` hands a plotly figure to Kaleido itself, to put a clock on the whole of the render, and starts a
+    Chrome for it. A test that is about what happens to the image, not about drawing it, gives a figure of its own
+    that answers `to_image`, or replaces `Figure.to_image`, and uses this to have that answer reach the caller.
+    """
+    from wetterdienst.io import export  # noqa: PLC0415 -- the `plotting` extra is not needed to collect tests
+
+    def draw(fig: Any, fmt: str, width: int | None, height: int | None, scale: float | None, _timeout: float) -> Any:  # noqa: ANN401
+        return fig.to_image(format=fmt, width=width, height=height, scale=scale)
+
+    monkeypatch.setattr(export, "_draw", draw)
+
+
 #: how long an offline test may run before it is failed as hung, in seconds: the slowest take about a minute, and
 #: the image tests, which start a Chrome each, about 75 s with a dozen of them at once on a loaded machine. Short
 #: enough that the two reruns of a hung test (`--only-rerun HungTestError`) end before the 27 minutes of GH-3723

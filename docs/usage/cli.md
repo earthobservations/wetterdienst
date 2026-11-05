@@ -67,7 +67,7 @@ command line raises to these three, and each failure of the library to the statu
 | Code | Meaning | REST | For instance |
 | --- | --- | --- | --- |
 | `0` | an answer, empty or not | 200 | the values; a window without readings, a name nothing is called or an id the network has no station for (the sentence is on stderr, and a `--target` is left as it is); `--help`, `--version` |
-| `1` | a failure that is not the request's to rephrase | 5xx | a provider that failed or cannot be reached (`DownloadError`, `NoInternetError`), a credential or an extra the machine lacks, a malformed `WD_*` setting, a `--target` that cannot be written, a defect, Ctrl-C |
+| `1` | a failure that is not the request's to rephrase | 5xx | a provider that failed or cannot be reached (`DownloadError`, `NoInternetError`), an image the browser did not draw in time (`ImageTimeoutError`), a credential or an extra the machine lacks, a malformed `WD_*` setting, a `--target` that cannot be written, a defect, Ctrl-C |
 | `2` | a request that cannot be served as phrased | 400, 404, 422 | no command or an unknown one, an unknown or missing option, a value out of range, a selection that is not exactly one, a provider, network or station that does not exist, a window that ends before it starts |
 
 What the REST API answers with a 400, 404 or 422 is `2` here, and what it answers with a 5xx is `1`, so the

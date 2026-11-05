@@ -38,6 +38,7 @@ from wetterdienst.io.export import (
     check_image_size,
     figure_to_html,
     render_data_format,
+    render_image,
     require_kaleido,
 )
 from wetterdienst.io.formats import names_of, renders_with_kaleido
@@ -675,7 +676,7 @@ class StationsResult(_EqualByFields, ExportMixin):
                 # the zoom of `to_plot` fits the default size: a picture of another size is fitted again
                 center, zoom = self._map_view(width or _DEFAULT_IMAGE_WIDTH, height or _DEFAULT_IMAGE_HEIGHT)
                 fig.update_layout(map={"center": center, "zoom": zoom})
-            img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
+            img = render_image(fig, fmt, width=width, height=height, scale=scale)
         else:
             raise UnknownFormatError(fmt, names_of("chart"))
         return img
@@ -1128,7 +1129,7 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
         elif renders_with_kaleido(fmt):
             check_image_size(fig, width, height, scale, max_side)
             require_kaleido()
-            img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
+            img = render_image(fig, fmt, width=width, height=height, scale=scale)
         else:
             raise UnknownFormatError(fmt, names_of("chart"))
         return img
@@ -1478,7 +1479,7 @@ class InterpolatedValuesResult(_ValuesResult[list[_InterpolatedValuesItemDict], 
         elif renders_with_kaleido(fmt):
             check_image_size(fig, width, height, scale, max_side)
             require_kaleido()
-            img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
+            img = render_image(fig, fmt, width=width, height=height, scale=scale)
         else:
             raise UnknownFormatError(fmt, names_of("chart"))
         return img
@@ -1669,7 +1670,7 @@ class SummarizedValuesResult(_ValuesResult[list[_SummarizedValuesItemDict], _Sum
         elif renders_with_kaleido(fmt):
             check_image_size(fig, width, height, scale, max_side)
             require_kaleido()
-            img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
+            img = render_image(fig, fmt, width=width, height=height, scale=scale)
         else:
             raise UnknownFormatError(fmt, names_of("chart"))
         return img
