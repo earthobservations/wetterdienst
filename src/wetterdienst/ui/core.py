@@ -374,6 +374,11 @@ _PlausibilityLimitsField = _plausibility_field("limits", "a reading outside the 
 _PlausibilitySourceField = _plausibility_field(
     "source", "a value that the source itself marks as erroneous or doubtful in its own quality flag"
 )
+_PlausibilityStepField = _plausibility_field(
+    "step",
+    "a change between two consecutive readings beyond what the weather does, or a reading that jumps away and back "
+    "(a verdict on a series, which depends on what was read)",
+)
 _LimitsField = Annotated[
     dict[str, Limit] | None,
     Field(
@@ -969,6 +974,7 @@ class ValuesRequest(_RefusesRenamedParameters):
     plausibility_floor: _PlausibilityFloorField = "hard"
     plausibility_limits: _PlausibilityLimitsField = "hard"
     plausibility_source: _PlausibilitySourceField = "soft"
+    plausibility_step: _PlausibilityStepField = "soft"
     limits: _LimitsField = None
 
     @field_validator("unit_targets", "limits", mode="before")
@@ -1247,6 +1253,7 @@ class SettingsRequest(BaseModel):
     plausibility_floor: _PlausibilityFloorField = "hard"
     plausibility_limits: _PlausibilityLimitsField = "hard"
     plausibility_source: _PlausibilitySourceField = "soft"
+    plausibility_step: _PlausibilityStepField = "soft"
     limits: _LimitsField = None
     # interpolate
     interpolation_station_distance: _RestInterpolationStationDistanceField = None

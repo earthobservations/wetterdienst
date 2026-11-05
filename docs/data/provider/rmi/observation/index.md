@@ -29,8 +29,7 @@ on 21, a relative humidity of -6999 % (6494), a radiation of -99999 W/m2 (6484),
 3,808 to 13,851 minutes in a day (6459, 6477) and a gust of 81.5 m/s (station 6414 on 2003-10-09);
 the hourly layer has gusts of 569.7 and 445.3 m/s, the 81.5 m/s again, and 29 hours of more than 60
 minutes of sunshine (63.86, 373 and 1,282 minutes among them; those above 63 minutes are null, the others stay). The 81.5 m/s lie inside the 115 m/s of the table, which
-no world bound can tell from the 113.2 m/s on record, so the gust stays (it is `validated: false`; the step check of
-[GH-3681](https://github.com/earthobservations/wetterdienst/issues/3681) is to find it), as does the next highest gust of the daily layer, 51.05 m/s (6434,
+no world bound can tell from the 113.2 m/s on record, so the gust stays (it is `validated: false`; no check finds it, since `step` does not judge gusts), as does the next highest gust of the daily layer, 51.05 m/s (6434,
 2002-12-30). The long shape drops the rows without a value by default, so the token shows with
 `drop_nulls=False`.
 

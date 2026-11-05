@@ -28,7 +28,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from wetterdienst.model.source_flags import source_coverage
 
 Mode = Literal["soft", "hard"]
-Check = Literal["range", "elevation", "stuck", "consistency", "floor", "limits", "source"]
+Check = Literal["range", "elevation", "stuck", "consistency", "floor", "limits", "source", "step"]
 #: the checks, as the issue lists them; several that apply to one value are written in alphabetical order
 #: (``suspect:range+stuck``, ``_WRITE_ORDER`` of ``model/quality_flags.py``)
 CHECKS: tuple[str, ...] = get_args(Check)
@@ -36,9 +36,9 @@ CHECKS: tuple[str, ...] = get_args(Check)
 #: library's tables say: they have no row in ``COVERAGE``, since any network can be judged by them (GH-3687)
 CALLER_CHECKS: tuple[str, ...] = ("limits",)
 
-#: the checks whose mode is soft by default: ``stuck`` judges a series and not a value, and ``source`` repeats a verdict
-#: the source has given and returned the value with (GH-3677); every other check is hard
-SOFT_BY_DEFAULT: tuple[str, ...] = ("stuck", "source")
+#: the checks whose mode is soft by default: ``stuck`` and ``step`` judge a series and not a value, and ``source``
+#: repeats a verdict the source has given and returned the value with (GH-3677); every other check is hard
+SOFT_BY_DEFAULT: tuple[str, ...] = ("stuck", "source", "step")
 
 
 def default_mode(check: str) -> Mode:
@@ -106,10 +106,12 @@ class Plausibility(BaseModel):
     flagged and never nulled.
 
     The defaults are what the library did for the networks it judged before the modes existed (since GH-3681 ``range``
-    and ``elevation`` judge every network), except ``stuck`` and ``source``, which are soft. ``stuck`` judges a
-    series and not a value (identical readings are a sign of a stuck sensor and no proof), and what it finds depends
+    and ``elevation`` judge every network), except ``stuck``, ``step`` and ``source``, which are soft. ``stuck`` judges
+    a series and not a value (identical readings are a sign of a stuck sensor and no proof), and what it finds depends
     on what was read: the window of the request where the provider asks its source for the window only (``dwd/road``,
-    FMI, DMI), the periods and files read where it reads whole files (``dwd/observation``).
+    FMI, DMI), the periods and files read where it reads whole files (``dwd/observation``). ``step`` judges a series
+    as well: a change between two consecutive readings beyond what the weather does, or a reading that jumps away and
+    back (``model/rate_of_change.py``); real weather has fronts, and the check is a judgement with false positives.
     Set it from ``WD_TS_PLAUSIBILITY__<CHECK>`` (``WD_TS_PLAUSIBILITY__RANGE=soft``) or
     ``Options(plausibility={"range": "soft"})``; a check that is not named keeps its default. A bare mode sets every
     check at once (``Options(plausibility="soft")``, ``WD_TS_PLAUSIBILITY=soft``), and a check named beside it wins.
@@ -171,6 +173,14 @@ class Plausibility(BaseModel):
         + " The suspect level of a source that has two (GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`, MADIS "
         "`Questioned`, GHCNh `f`) is only flagged `suspect:source` in either mode.",
     )
+    step: Mode = Field(
+        default="soft",
+        description="A change between two consecutive readings of one parameter beyond what the weather does in that "
+        "time (an hourly air temperature that jumps 20 K, a pressure that moves 60 hPa in an hour), or a reading that "
+        "jumps away from both neighbours and back (a spike: 8 K up and 8 K down at an hour): the limits are those of "
+        "published quality controls, per parameter and resolution. Fronts are real, and the check judges a series and "
+        "not a value, which is why it is soft by default. " + _HARD_MEANS.format(check="step"),
+    )
 
     def for_forecast(self) -> Plausibility:
         """Give the modes a forecast network is judged with: every check soft but two, whatever mode it was given.
@@ -192,7 +202,7 @@ class Plausibility(BaseModel):
     def _one_mode_for_every_check(cls, data: object) -> object:
         """Read a bare mode as that mode for every check, which a check named beside it overrides (GH-3676).
 
-        ``Options(plausibility="soft")`` is ``Options(plausibility={"range": "soft", ...})`` with all seven listed.
+        ``Options(plausibility="soft")`` is ``Options(plausibility={"range": "soft", ...})`` with all eight listed.
         """
         if isinstance(data, str):
             if data not in get_args(Mode):
@@ -215,8 +225,9 @@ class Plausibility(BaseModel):
 #: where each check runs: by check, the networks (`provider/network`) and their datasets (`resolution/dataset`), or `*`
 #: for every dataset of the network that has a parameter the check judges. The table of `docs/data/plausibility.md` is
 #: this, and `tests/test_docs_plausibility.py` holds the three to one another: the rules the readers declare, this and
-#: the page. `range`, `elevation` and `stuck` run on every network that has a quantity of their tables (GH-3681): the
-#: bounds and the runs are the same for every provider (`model/plausibility_ranges.py`, `model/persistence.py`).
+#: the page. `range`, `elevation`, `stuck` and `step` run on every network that has a quantity of their tables
+#: (GH-3681): the bounds, the runs and the jumps are the same for every provider (`model/plausibility_ranges.py`,
+#: `model/persistence.py`, `model/rate_of_change.py`).
 #: `limits` is in none (`CALLER_CHECKS`): it runs on any network, for the parameters the caller sets a bound for. A
 #: network that is in no list judges no value by the tables of the library
 COVERAGE: dict[str, dict[str, tuple[str, ...]]] = {
@@ -277,6 +288,31 @@ COVERAGE: dict[str, dict[str, tuple[str, ...]]] = {
         "dwd/observation": ("*",),
         "dwd/poi": ("*",),
         "dwd/road": ("*",),
+        "eccc/observation": ("*",),
+        "fmi/observation": ("*",),
+        "geosphere/observation": ("*",),
+        "imgw/meteorology": ("*",),
+        "ipma/observation": ("*",),
+        "knmi/observation": ("*",),
+        "lhmt/observation": ("*",),
+        "meteofrance/observation": ("*",),
+        "meteoswiss/observation": ("*",),
+        "metno/frost": ("*",),
+        "metoffice/observation": ("*",),
+        "noaa/ghcn": ("*",),
+        "nws/observation": ("*",),
+        "rmi/observation": ("*",),
+        "smhi/observation": ("*",),
+        "wsv/pegel": ("*",),
+    },
+    # every observation network that serves a parameter of the table of jumps (`model/rate_of_change.py`, GH-3681) at 10
+    # minutes, an hour or a day
+    "step": {
+        "aemet/observation": ("*",),
+        "chmi/observation": ("*",),
+        "dmi/observation": ("*",),
+        "dwd/observation": ("*",),
+        "dwd/poi": ("*",),
         "eccc/observation": ("*",),
         "fmi/observation": ("*",),
         "geosphere/observation": ("*",),

@@ -24,6 +24,16 @@ Types of changes:
   it. A snapshot without a warning still writes the file: no alerts, and the block in a JSON one. A
   database target or another file type is an `ExportRefusedError` (GH-3706)
 
+- The new check `step` judges every observation network for a jump between consecutive readings:
+  a reading that differs from the one before it by more than the limit (the later one is flagged)
+  or that jumps away from both neighbours and back (the middle one). Limits per parameter and
+  resolution from ISD, DMI, MADIS and GHCN-Daily: air temperature and dew point 8 K as a spike and
+  20 K as a step in an hour, 25 K as a spike in a day, pressure 60 hPa, mean wind 10 and 15 m/s.
+  Soft by default: the value is kept as `suspect:step` and leaves interpolation, summaries and
+  `skip_empty`; hard nulls it as `rejected:step,raw:<text>`. A null or gap between readings leaves
+  them unjudged; humidity, gusts, soil temperature and wind direction are not judged (Part of
+  GH-3681)
+
 ### Changed
 
 - **Breaking**: `wetterdienst alerts --target` now decides the format by the extension (`.json`,

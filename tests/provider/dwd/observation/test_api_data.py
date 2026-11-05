@@ -2321,12 +2321,14 @@ def _p0(df: pl.DataFrame) -> list[tuple[float | None, str | None]]:
     ("elevation", "expected"),
     [
         # Berlin-Tempelhof, 48 m: 1007.5 hPa are expected, so 865 to 1082.5 are allowed: 909.5 is a slip that is 98 hPa
-        # below, as far as Hurricane Irma's eye was (917.4 hPa at 3 m), and stays until the step check of GH-3681
-        (48.0, [(1038.9, "1"), (909.5, "1"), (1009.6, "1")]),
+        # below, as far as Hurricane Irma's eye was (917.4 hPa at 3 m), and stays for the check `step`, which flags it:
+        # a spike of 129 hPa down and 100 up (GH-3681)
+        (48.0, [(1038.9, "1"), (909.5, "1,suspect:step"), (1009.6, "1")]),
         # a station list without an elevation leaves the reading to the bounds of the world, which it is inside of
-        (None, [(1038.9, "1"), (909.5, "1"), (1009.6, "1")]),
-        # the same readings at 500 m (954.6 hPa expected, 820 to 1030 allowed): 1038.9 is out, 909.5 is in
-        (500.0, [(None, "1,rejected:elevation,raw:1038.9"), (909.5, "1"), (1009.6, "1")]),
+        (None, [(1038.9, "1"), (909.5, "1,suspect:step"), (1009.6, "1")]),
+        # the same readings at 500 m (954.6 hPa expected, 820 to 1030 allowed): 1038.9 is out, 909.5 is in, and has no
+        # neighbour before it, so the 100 hPa up to 1009.6 is a step of the reading that comes after it
+        (500.0, [(None, "1,rejected:elevation,raw:1038.9"), (909.5, "1"), (1009.6, "1,suspect:step")]),
         # and at 1,500 m (845.6 expected, 726 to 921 allowed): the two above 921 are out
         (
             1500.0,
