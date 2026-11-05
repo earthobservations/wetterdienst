@@ -9,8 +9,8 @@ shape drops the rows without a value by default, so the token shows with `drop_n
 
 What the library finds implausible, rather than what the source writes as a code, is a [plausibility check](plausibility.md)
 with a mode of its own: the rows of the table "Missing values and texts" that name a range, an elevation, a stuck
-sensor, a jump between readings, a reading another contradicts or a floor are such checks, and write
-`rejected:<check>,raw:<number>` (hard, the default but for `stuck`, `step` and `source`) or keep the value as
+sensor, a jump between readings, a reading another contradicts (`consistency`, or both readings of a pair, `relations`) or a floor are such checks, and write
+`rejected:<check>,raw:<number>` (hard, the default but for `stuck`, `step`, `source` and `relations`) or keep the value as
 `suspect:<check>` (soft). The codes of a source (`-999`, a calm, a trace)
 are no check and have no mode.
 

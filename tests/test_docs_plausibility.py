@@ -26,6 +26,7 @@ from wetterdienst.model.judge import FLOORS, RUNS, plan_for
 from wetterdienst.model.persistence import rule_for
 from wetterdienst.model.plausibility import CALLER_CHECKS, CHECKS, COVERAGE, SOFT_BY_DEFAULT, Plausibility
 from wetterdienst.model.rate_of_change import rule_for as step_rule_for
+from wetterdienst.model.relations import daylight_for, relations_for
 from wetterdienst.model.source_flags import SOURCE_FLAGS
 
 if TYPE_CHECKING:
@@ -83,6 +84,7 @@ def _declared() -> dict[str, set[str]]:
     found["elevation"] |= set(_everywhere("pressure"))
     found["stuck"] |= set(_everywhere("persistence")) | set(RUNS)
     found["step"] |= set(_everywhere("steps"))
+    found["relations"] |= set(_everywhere("relational"))
     found["floor"] |= set(FLOORS)
     found["source"] |= set(SOURCE_FLAGS)
     for path in sorted(PROVIDER_DIR.rglob("*.py")):
@@ -115,7 +117,9 @@ def _covered(check: str, network: str) -> set[str]:
     if datasets == ("*",):
         if check == "stuck":
             return _stuck_datasets(network)
-        return _everywhere({"range": "ranges", "elevation": "pressure", "step": "steps"}[check])[network]
+        return _everywhere(
+            {"range": "ranges", "elevation": "pressure", "step": "steps", "relations": "relational"}[check]
+        )[network]
     return set(datasets)
 
 
@@ -153,7 +157,7 @@ def test_every_dataset_of_the_coverage_exists() -> None:
         for network, datasets in networks.items():
             if "*" in datasets:
                 assert datasets == ("*",), f"{check} {network}: `*` stands for all of them and alone"
-                assert check in {"range", "elevation", "stuck", "step"}, (
+                assert check in {"range", "elevation", "stuck", "step", "relations"}, (
                     f"{check} {network}: `*` is for the generic checks"
                 )
                 continue
@@ -197,6 +201,25 @@ def _step_derived() -> dict[str, set[str]]:
     return found
 
 
+def _relations_derived() -> dict[str, set[str]]:
+    """Derive the datasets with a relation: two parameters of one file in the table, or a sunshine duration."""
+    found: dict[str, set[str]] = {}
+    for network in _networks():
+        provider, name = network.split("/")
+        if Wetterdienst.resolve(provider, name).metadata.kind != "observation":
+            continue
+        datasets = _datasets_of(
+            network,
+            has=lambda res, dataset: (
+                dataset.grouped
+                and bool(relations_for({p.name for p in dataset}, res) or daylight_for({p.name for p in dataset}, res))
+            ),
+        )
+        if datasets:
+            found[network] = datasets
+    return found
+
+
 def _derived() -> dict[str, dict[str, set[str]]]:
     """Derive the datasets of `COVERAGE` from what the core is told and from the metadata of the networks.
 
@@ -215,6 +238,7 @@ def _derived() -> dict[str, dict[str, set[str]]]:
         "elevation": _everywhere("pressure"),
         "stuck": _stuck_derived(everything),
         "step": _step_derived(),
+        "relations": _relations_derived(),
         "consistency": {
             "dwd/road": set(everything["dwd/road"]),
             "meteofrance/observation": _datasets_of(
@@ -261,9 +285,9 @@ def test_a_stub_names_only_checks_that_run_where_it_reads() -> None:
 
 
 def test_the_modes_the_page_names_are_the_defaults_of_the_option() -> None:
-    """`stuck`, `step` and `source` are soft by default, as the page and the docs of the option say."""
+    """`stuck`, `step`, `source` and `relations` are soft by default, as the page and the docs of the option say."""
     soft = {check for check in CHECKS if Plausibility().mode(check) == "soft"}
-    assert soft == set(SOFT_BY_DEFAULT) == {"stuck", "source", "step"}
+    assert soft == set(SOFT_BY_DEFAULT) == {"stuck", "source", "step", "relations"}
     text = PAGE.read_text(encoding="utf-8")
     for check in CHECKS:
         row = next(line for line in text.splitlines() if line.startswith(f"| `{check}` | "))

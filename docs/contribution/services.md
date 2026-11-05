@@ -327,7 +327,7 @@ the numbers over in the unit of its source, and:
   (`ELEVATION_PRESSURE`, for every network that has an elevation; a list that writes 0.0 for an elevation it does not
   know is named in `ELEVATION_ZERO_IS_UNKNOWN`), the amounts a model writes below zero (`FLOORS`), the runs of one
   value that `stuck` takes for a stopped sensor (the table `RULES` of `model/persistence.py`, with the source of each limit), the road's run rule (`RUNS`), and
-  the jumps that `step` takes for a reading that is none (the table `RULES` of `model/rate_of_change.py`, a spike and a step per parameter and resolution, with the source of each limit).
+  the jumps that `step` takes for a reading that is none (the table `RULES` of `model/rate_of_change.py`, a spike and a step per parameter and resolution, with the source of each limit), and the relations that `relations` holds two readings of one file to (the table of `model/relations.py`: a maximum, a mean and a minimum, a dew point, a gust, and the sunshine of a day against the day length of `model/sun.py`; a provider that collects a dataset whole, `grouped`, gets them without a line of its own, and a rule only it knows is a `Beside` of `consistency`).
 - **hands over what only it knows** by overriding `TimeseriesValues._plausibility_rules(station_id, dataset)` and
   returning rules of `wetterdienst.model.judge`, in canonical names and units: `Bound` (a range for one station, such as
   the stations without frost), `Beside` (a reading that the reading of another parameter at the same timestamp

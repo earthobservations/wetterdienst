@@ -421,8 +421,12 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         canonical = to_canonical(plan)
         if canonical is not None:
             df = df.with_columns(canonical.alias("value"))
-        elevation = self._station_elevation(station_id, dataset) if plan.pressure and hasattr(self.sr, "df") else None
-        return judge(df, plan, self.sr.options.plausibility, rules, elevation, limits).drop(SOURCE_TEXT, strict=False)
+        needs_elevation = plan.pressure or plan.daylight
+        elevation = self._station_elevation(station_id, dataset) if needs_elevation and hasattr(self.sr, "df") else None
+        position = self._station_position(station_id, dataset) if plan.daylight and hasattr(self.sr, "df") else None
+        return judge(df, plan, self.sr.options.plausibility, rules, elevation, limits, position).drop(
+            SOURCE_TEXT, strict=False
+        )
 
     def _to_requested_units(
         self, df: pl.DataFrame, dataset: DatasetModel, plan: Plan, *, canonical: bool
@@ -925,6 +929,23 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             rows = rows.filter(pl.col("resolution").eq(dataset.resolution.name) & pl.col("dataset").eq(dataset.name))
         elevations = rows.get_column("elevation").cast(pl.Float64, strict=False).drop_nulls().drop_nans()
         return None if elevations.is_empty() else float(elevations[0])
+
+    def _station_position(self, station_id: str, dataset: DatasetModel | None = None) -> tuple[float, float] | None:
+        """Give the latitude and longitude in degrees the station list holds for a station, or ``None`` if it has none.
+
+        The row of the resolution and dataset is the one read, where the list has a row for each, as for the elevation
+        (`_station_elevation`).
+        """
+        columns = self.sr.df.columns
+        if "latitude" not in columns or "longitude" not in columns:
+            return None
+        rows = self.sr.df.filter(pl.col("station_id").eq(station_id))
+        if dataset is not None and "resolution" in columns and "dataset" in columns:
+            rows = rows.filter(pl.col("resolution").eq(dataset.resolution.name) & pl.col("dataset").eq(dataset.name))
+        rows = rows.select(
+            pl.col("latitude").cast(pl.Float64, strict=False), pl.col("longitude").cast(pl.Float64, strict=False)
+        ).drop_nulls()
+        return None if rows.is_empty() else (float(rows["latitude"][0]), float(rows["longitude"][0]))
 
     def _get_available_datasets(self, df: pl.DataFrame) -> list[DatasetModel]:
         """Extract available datasets for the station."""

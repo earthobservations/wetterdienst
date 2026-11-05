@@ -61,8 +61,10 @@ from wetterdienst.model.plausibility_ranges import bounds_for
 from wetterdienst.model.quality_flags import RAW_TOKEN
 from wetterdienst.model.rate_of_change import StepRule
 from wetterdienst.model.rate_of_change import rule_for as step_rule_for
+from wetterdienst.model.relations import DAYLIGHT_MARGIN, Relation, daylight_for, relations_for
 from wetterdienst.model.source_flags import SourceFlags, flags_of
 from wetterdienst.model.source_flags import hits as source_hits
+from wetterdienst.model.sun import daylight_hours
 from wetterdienst.model.unit import UnitConverter
 
 if TYPE_CHECKING:
@@ -256,6 +258,11 @@ class Plan:
     steps: tuple[tuple[str, StepRule], ...] = ()
     #: the time between two consecutive readings of the resolution: a pair of readings further apart is not judged
     step_interval: dt.timedelta | None = None
+    #: the pairs of parameters (as the source names them) of one file that are held to each other
+    #: (`model/relations.py`, check ``relations``): ``high`` is not below ``low``, less the tolerance
+    relations: tuple[Relation, ...] = ()
+    #: the sunshine durations (as the source names them) that are held to the day length at the station's position
+    daylight: tuple[str, ...] = ()
 
     def read_beside(self, rules: Sequence[Rule]) -> set[str]:
         """Name the parameters (as the source does) that the checks read beside the ones asked for.
@@ -266,9 +273,16 @@ class Plan:
         names = {
             self.by_name[rule.partner] for rule in rules if isinstance(rule, Beside) and rule.partner in self.by_name
         }
+        # both of a pair are judged, so a pair is read whole whichever of its two was asked for
+        names.update(name for relation in self.relations for name in (relation.high, relation.low))
         if self.runs[1] is not None:
             names.add(self.runs[1])
         return names
+
+    @property
+    def relational(self) -> bool:
+        """Tell whether the check ``relations`` applies to the dataset: a pair of one file, or a sunshine duration."""
+        return bool(self.relations or self.daylight)
 
     @property
     def judges(self) -> bool:
@@ -282,6 +296,7 @@ class Plan:
             or self.runs_from_zero
             or self.source
             or self.steps
+            or self.relational
         )
 
 
@@ -356,6 +371,21 @@ def _build_plan(network: str, dataset: DatasetModel) -> Plan:
         if kind == "observation"
         else ()
     )
+    # two readings of one row that contradict each other are judged in readings of a file, and only for the parameters
+    # that one file holds: a dataset that is collected a parameter at a time has no partner to judge against
+    relations: tuple[Relation, ...] = ()
+    daylight: tuple[str, ...] = ()
+    if kind == "observation" and dataset.grouped:
+        named = frozenset(by_name)
+        relations = tuple(
+            relation._replace(
+                high=by_name[relation.high],
+                low=by_name[relation.low],
+                via=None if relation.via is None else by_name[relation.via],
+            )
+            for relation in relations_for(named, resolution)
+        )
+        daylight = tuple(by_name[name] for name in daylight_for(named, resolution))
     source = flags_of(network, f"{resolution}/{dataset.name}")
     return Plan(
         network,
@@ -372,6 +402,8 @@ def _build_plan(network: str, dataset: DatasetModel) -> Plan:
         runs_from_zero,
         steps,
         step if steps else None,
+        relations,
+        daylight,
     )
 
 
@@ -499,11 +531,13 @@ def judge(  # noqa: C901
     rules: Sequence[Rule] = (),
     elevation: float | None = None,
     limits: Mapping[str, tuple[float, float]] | None = None,
+    position: tuple[float, float] | None = None,
 ) -> pl.DataFrame:
     """Judge a long frame in canonical units, with ``__source`` beside ``value``, and write the verdicts.
 
     ``limits`` are the bounds the caller set, by the source's own name of the parameter (``limits_in_canonical``),
-    judged beside the ranges as the check ``limits``.
+    judged beside the ranges as the check ``limits``. ``position`` is the latitude and the longitude of the station, for
+    the day length that bounds a sunshine duration (check ``relations``); none, and that relation stands aside.
 
     Returns the frame with ``value`` and ``quality_flags`` as the modes say, and ``__source``, the number the source
     wrote, set where a hard check mapped the value (null, or 0 for a floor), for a caller that does not convert units.
@@ -578,6 +612,19 @@ def judge(  # noqa: C901
     for rule in rules:
         if isinstance(rule, Beside) and rule.target in plan.by_name and rule.partner in plan.by_name:
             series["consistency"].append(_beside(df, plan, rule, outside))
+    if plan.relations or plan.daylight:
+        # after the checks that say a reading is bad, which are no partner of a relation, and before `step`, which
+        # leaves a reading a relation flagged out of its neighbours
+        series["relations"].append(
+            _related(
+                df,
+                plan,
+                position,
+                elevation,
+                [expr for items in exprs.values() for expr in items],
+                [s for items in series.values() for s in items],
+            )
+        )
     if plan.steps:
         # last: a reading any other check found bad, soft or hard, is no neighbour of a jump (`_jumps`)
         series["step"].append(
@@ -774,14 +821,7 @@ def _jumps(df: pl.DataFrame, plan: Plan, elsewhere: Sequence[pl.Expr], found: Se
     """
     rules = dict(plan.steps)
     names = list(rules)
-    usable = pl.col("value").is_not_null() & pl.col("value").is_not_nan()
-    usable &= ~pl.col("quality_flags").str.contains(RAW_TOKEN).fill_null(value=False)
-    for expr in elsewhere:
-        usable &= ~expr.fill_null(value=False)
-    frame = df.with_row_index("_row")
-    if found:
-        frame = frame.with_columns(_any_of(list(found)).alias("_found"))
-        usable &= ~pl.col("_found")
+    frame, usable = _usable(df, elsewhere, found)
     # the parameters are numbered, so that a series is told from the next by comparing numbers and not names
     number = pl.col("parameter").replace_strict({name: i for i, name in enumerate(names)}, return_dtype=pl.Int16)
     readings = (
@@ -821,6 +861,93 @@ def _jumps(df: pl.DataFrame, plan: Plan, elsewhere: Sequence[pl.Expr], found: Se
     if hits.is_empty():
         return _no_hits(df)
     return pl.repeat(value=False, n=df.height, dtype=pl.Boolean, eager=True).scatter(hits, True).alias("hit")  # noqa: FBT003
+
+
+def _related(
+    df: pl.DataFrame,
+    plan: Plan,
+    position: tuple[float, float] | None,
+    elevation: float | None,
+    elsewhere: Sequence[pl.Expr],
+    found: Sequence[pl.Series],
+) -> pl.Series:
+    """Mark the readings that break a relation of the table of ``model/relations.py`` (the check ``relations``).
+
+    A **pair** is two parameters of one station and one timestamp, of which ``high`` is not below ``low``, less the
+    tolerance of the relation; both readings of a broken pair are marked, since nothing says which is wrong. A
+    **sunshine duration** is no longer than the longest day length of its date at the station, and 5 % more
+    (``DAYLIGHT_MARGIN``); the one reading is marked. A reading is judged only if it is a reading: no null, no code of
+    the source (a ``raw:`` token) and nothing another check found bad, whatever its mode (``elsewhere``: the row-wise
+    checks, ``found``: the verdicts on the series made before this one), as for the neighbours of ``step``. A station
+    without a position has no day length, and the sunshine is not judged; its ``elevation`` lowers the horizon the
+    sun rises over (``daylight_hours``).
+    """
+    frame, usable = _usable(df, elsewhere, found)
+    names = {name for relation in plan.relations for name in (relation.high, relation.low, relation.via)} | set(
+        plan.daylight
+    )
+    names.discard(None)
+    readings = frame.filter(pl.col("parameter").is_in(list(names)) & usable).select(
+        "_row", "parameter", "timestamp", pl.col("value").alias("_v")
+    )
+    if readings.is_empty():
+        return _no_hits(df)
+    hits: list[pl.Series] = []
+    by_name = readings.partition_by("parameter", as_dict=True)
+    for relation in plan.relations:
+        high, low = by_name.get((relation.high,)), by_name.get((relation.low,))
+        if high is None or low is None:
+            continue
+        pairs = high.select("timestamp", pl.col("_row").alias("_high_row"), pl.col("_v").alias("_high")).join(
+            low.select("timestamp", pl.col("_row").alias("_low_row"), pl.col("_v").alias("_low")), on="timestamp"
+        )
+        if relation.via is not None and (middle := by_name.get((relation.via,))) is not None:
+            # a pair that skips a rung is judged where that rung has no reading to judge
+            pairs = pairs.join(middle.select("timestamp").unique(), on="timestamp", how="anti")
+        broken = pairs.filter(pl.col("_low").sub(pl.col("_high")).round(DECIMALS).gt(relation.tolerance))
+        hits.extend((broken.get_column("_high_row"), broken.get_column("_low_row")))
+    if plan.daylight and position is not None and _is_position(*position):
+        latitude, _ = position
+        sun = readings.filter(pl.col("parameter").is_in(plan.daylight))
+        # an elevation the catalogue gives that is no height on Earth (a missing-value code) lowers no horizon
+        height = (
+            elevation
+            if elevation is not None and _STATION_ELEVATIONS[0] <= elevation <= _STATION_ELEVATIONS[1]
+            else 0.0
+        )
+        longest = daylight_hours(pl.col("timestamp"), latitude, height).mul(1.0 + DAYLIGHT_MARGIN)
+        broken = sun.filter(pl.col("_v").round(DECIMALS).gt(longest.round(DECIMALS)))
+        hits.append(broken.get_column("_row"))
+    if not hits:
+        return _no_hits(df)
+    rows = pl.concat(hits)
+    if rows.is_empty():
+        return _no_hits(df)
+    return pl.repeat(value=False, n=df.height, dtype=pl.Boolean, eager=True).scatter(rows, True).alias("hit")  # noqa: FBT003
+
+
+def _is_position(latitude: float | None, longitude: float | None) -> bool:
+    """Tell whether a latitude and a longitude are a place: on the globe, and not the 0, 0 of a list with none."""
+    if latitude is None or longitude is None or math.isnan(latitude) or math.isnan(longitude):
+        return False
+    return abs(latitude) <= 90.0 and abs(longitude) <= 180.0 and (latitude, longitude) != (0.0, 0.0)
+
+
+def _usable(df: pl.DataFrame, elsewhere: Sequence[pl.Expr], found: Sequence[pl.Series]) -> tuple[pl.DataFrame, pl.Expr]:
+    """Give the frame numbered by ``_row`` and the expression of its readings that other checks leave to judge.
+
+    A reading is usable if it has a number, was not written as a code of the source (``raw:``), and no other check
+    judged it bad (``elsewhere``: the row-wise verdicts, ``found``: those on the series), whatever its mode.
+    """
+    usable = pl.col("value").is_not_null() & pl.col("value").is_not_nan()
+    usable &= ~pl.col("quality_flags").str.contains(RAW_TOKEN).fill_null(value=False)
+    for expr in elsewhere:
+        usable &= ~expr.fill_null(value=False)
+    frame = df.with_row_index("_row")
+    if found:
+        frame = frame.with_columns(_any_of(list(found)).alias("_found"))
+        usable &= ~pl.col("_found")
+    return frame, usable
 
 
 def _with_reporting_step(candidates: pl.DataFrame, changes: pl.DataFrame) -> pl.DataFrame:

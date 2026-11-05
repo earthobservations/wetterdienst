@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import logging
-import math
 import re
 from dataclasses import dataclass
 from enum import Enum
@@ -26,6 +25,7 @@ from wetterdienst.model.metadata import (
 )
 from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
+from wetterdienst.model.sun import sun_elevation
 from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.dwd.metadata import _METADATA, EXTENT_GERMANY
 from wetterdienst.util.eccodes import bufr_file, require_bufr
@@ -316,44 +316,11 @@ _SURFACE_WARMER_THAN_AIR = 20.0
 #: reachable on a German road in winter
 _STOPPED_SENSOR = Sentinel("198.15", where=pl.col("parameter").is_in(["airTemperature", "roadSurfaceTemperature"]))
 
-#: and night is the sun more than 6 degrees below the horizon, the end of civil twilight (`_sun_elevation`): the day's
-#: heat is out of the road by then in the sample (39 of 5,536 readings between -6 and 0 degrees are over 20 K, all of
-#: them at six of the seven stations above). The line falls at a time that depends on the place and the date, which no
-#: hour of the clock can name.
+#: and night is the sun more than 6 degrees below the horizon, the end of civil twilight (`sun_elevation` of
+#: `model/sun.py`): the day's heat is out of the road by then in the sample (39 of 5,536 readings between -6 and 0
+#: degrees are over 20 K, all of them at six of the seven stations above). The line falls at a time that depends on
+#: the place and the date, which no hour of the clock can name.
 _NIGHT_BELOW_DEGREES = -6.0
-
-#: the seconds of a day, and of the epoch J2000 (2000-01-01 12:00 UTC) the sun's position is counted from
-_DAY = 86_400.0
-_J2000_EPOCH_SECONDS = 946_728_000.0
-
-
-def _sun_elevation(timestamp: pl.Expr, latitude: float, longitude: float) -> pl.Expr:
-    """Give the elevation of the sun above the horizon in degrees, at a UTC instant and a place.
-
-    The low-precision formulas of the Astronomical Almanac, which place the sun within 0.01 degrees and so the end of
-    twilight within a minute, far inside the margin that `_NIGHT_BELOW_DEGREES` needs. The refraction is not added,
-    which is half a degree at the horizon and nothing six degrees below it.
-
-    Args:
-        timestamp: the instant, a datetime in UTC.
-        latitude: the latitude of the place in degrees north.
-        longitude: the longitude of the place in degrees east.
-
-    """
-    days = (timestamp.dt.epoch("s").cast(pl.Float64) - _J2000_EPOCH_SECONDS) / _DAY
-    mean_longitude = 280.460 + 0.9856474 * days
-    mean_anomaly = (357.528 + 0.9856003 * days).radians()
-    ecliptic_longitude = (mean_longitude + 1.915 * mean_anomaly.sin() + 0.020 * (2 * mean_anomaly).sin()).radians()
-    obliquity = (23.439 - 4.0e-7 * days).radians()
-    right_ascension = pl.arctan2(obliquity.cos() * ecliptic_longitude.sin(), ecliptic_longitude.cos())
-    declination = (obliquity.sin() * ecliptic_longitude.sin()).arcsin()
-    # the Greenwich mean sidereal time in hours, and from it the hour angle of the sun at the place
-    sidereal_hours = (18.697374558 + 24.06570982441908 * days) % 24
-    hour_angle = (sidereal_hours * 15 + longitude).radians() - right_ascension
-    sine = math.sin(math.radians(latitude)) * declination.sin() + (
-        math.cos(math.radians(latitude)) * declination.cos() * hour_angle.cos()
-    )
-    return sine.arcsin().degrees()
 
 
 def road_rules(latitude: float | None, longitude: float | None) -> tuple[Beside, ...]:
@@ -365,7 +332,7 @@ def road_rules(latitude: float | None, longitude: float | None) -> tuple[Beside,
     """
     if latitude is None or longitude is None:
         return ()
-    night = _sun_elevation(pl.col("timestamp"), latitude, longitude).lt(_NIGHT_BELOW_DEGREES)
+    night = sun_elevation(pl.col("timestamp"), latitude, longitude).lt(_NIGHT_BELOW_DEGREES)
     return (
         Beside(
             target="temperature_surface",

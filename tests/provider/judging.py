@@ -47,6 +47,7 @@ def judged(
     dataset: DatasetModel,
     rules: Sequence[Rule] = (),
     elevation: float | None = None,
+    position: tuple[float, float] | None = None,
     modes: Plausibility | None = None,
     limits: Mapping[str, tuple[float | None, float | None]] | None = None,
     unit_targets: Mapping[str, str] | None = None,
@@ -67,5 +68,5 @@ def judged(
     converter = UnitConverter()
     converter.update_targets(dict(unit_targets or {}))
     bounds = limits_in_canonical(plan, dataset, limits or {}, converter, convert_units=convert_units)
-    df = judge(df, plan, modes or _MODES.get() or Plausibility(), rules, elevation, bounds)
+    df = judge(df, plan, modes or _MODES.get() or Plausibility(), rules, elevation, bounds, position)
     return df.with_columns(pl.col(SOURCE).alias("value")).drop(SOURCE)

@@ -28,7 +28,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from wetterdienst.model.source_flags import source_coverage
 
 Mode = Literal["soft", "hard"]
-Check = Literal["range", "elevation", "stuck", "consistency", "floor", "limits", "source", "step"]
+Check = Literal["range", "elevation", "stuck", "consistency", "floor", "limits", "source", "step", "relations"]
 #: the checks, as the issue lists them; several that apply to one value are written in alphabetical order
 #: (``suspect:range+stuck``, ``_WRITE_ORDER`` of ``model/quality_flags.py``)
 CHECKS: tuple[str, ...] = get_args(Check)
@@ -36,9 +36,10 @@ CHECKS: tuple[str, ...] = get_args(Check)
 #: library's tables say: they have no row in ``COVERAGE``, since any network can be judged by them (GH-3687)
 CALLER_CHECKS: tuple[str, ...] = ("limits",)
 
-#: the checks whose mode is soft by default: ``stuck`` and ``step`` judge a series and not a value, and ``source``
-#: repeats a verdict the source has given and returned the value with (GH-3677); every other check is hard
-SOFT_BY_DEFAULT: tuple[str, ...] = ("stuck", "source", "step")
+#: the checks whose mode is soft by default: ``stuck`` and ``step`` judge a series and not a value, ``source``
+#: repeats a verdict the source has given and returned the value with (GH-3677), and ``relations`` holds two readings
+#: to each other without telling which of the two is wrong, so it flags both (GH-3681); every other check is hard
+SOFT_BY_DEFAULT: tuple[str, ...] = ("stuck", "source", "step", "relations")
 
 
 def default_mode(check: str) -> Mode:
@@ -105,16 +106,23 @@ class Plausibility(BaseModel):
     set here (``for_forecast``): a forecast is a model's output and no reading, so a value a built-in check finds is
     flagged and never nulled.
 
-    The defaults are what the library did for the networks it judged before the modes existed (since GH-3681 ``range``
-    and ``elevation`` judge every network), except ``stuck``, ``step`` and ``source``, which are soft. ``stuck`` judges
-    a series and not a value (identical readings are a sign of a stuck sensor and no proof), and what it finds depends
-    on what was read: the window of the request where the provider asks its source for the window only (``dwd/road``,
-    FMI, DMI), the periods and files read where it reads whole files (``dwd/observation``). ``step`` judges a series
-    as well: a change between two consecutive readings beyond what the weather does, or a reading that jumps away and
-    back (``model/rate_of_change.py``); real weather has fronts, and the check is a judgement with false positives.
-    Set it from ``WD_TS_PLAUSIBILITY__<CHECK>`` (``WD_TS_PLAUSIBILITY__RANGE=soft``) or
-    ``Options(plausibility={"range": "soft"})``; a check that is not named keeps its default. A bare mode sets every
-    check at once (``Options(plausibility="soft")``, ``WD_TS_PLAUSIBILITY=soft``), and a check named beside it wins.
+    The defaults are what the library did for the networks it judged before the modes existed (since GH-3681
+    ``range`` and ``elevation`` judge every network), except ``stuck``, ``step``, ``source`` and ``relations``,
+    which are soft. ``stuck`` judges a series and not a value (identical readings are a sign of a stuck sensor and
+    no proof), and what it finds depends on what was read: the window of the request where the provider asks its
+    source for the window only (``dwd/road``, FMI, DMI), the periods and files read where it reads whole files
+    (``dwd/observation``). ``step`` judges a series as well: a change between two consecutive readings beyond what
+    the weather does, or a reading that jumps away and back (``model/rate_of_change.py``); real weather has fronts,
+    and the check is a judgement with false positives. Set it from ``WD_TS_PLAUSIBILITY__<CHECK>``
+    (``WD_TS_PLAUSIBILITY__RANGE=soft``) or ``Options(plausibility={"range": "soft"})``; a check that is not named
+    keeps its default. A bare mode sets every check at once (``Options(plausibility="soft")``,
+    ``WD_TS_PLAUSIBILITY=soft``), and a check named beside it wins.
+
+    ``relations`` holds the readings of one row to each other (a maximum below the mean, a dew point above the air
+    temperature, a gust below the mean wind, a day of sunshine longer than the day, ``model/relations.py``). It is soft
+    by default and flags **both** readings of a broken pair, since nothing says which one is wrong. It is not
+    ``consistency``, which is the hard check of the rules a provider hands the core for its own source (a road surface
+    far above the air at night): ``consistency`` rejects, ``relations`` only flags.
 
     ``limits`` is the check of the bounds the caller sets per parameter (``Options(limits=...)``, GH-3687). It is hard
     by default, as ``range`` is, and judges nothing where no bound is set.
@@ -182,6 +190,16 @@ class Plausibility(BaseModel):
         "not a value, which is why it is soft by default. " + _HARD_MEANS.format(check="step"),
     )
 
+    relations: Mode = Field(
+        default="soft",
+        description="Two readings of one row that contradict each other (a daily maximum below the daily mean, a dew "
+        "point more than 0.2 K above the air temperature, a gust below the mean wind of its interval) or a day of "
+        "sunshine longer than the day at the station: both readings of a broken pair are flagged, since nothing says "
+        "which is wrong, and the check never downloads the other parameter. It is not `consistency`, the hard rules "
+        "a provider has for its own source. It is soft by default, because it flags a good reading beside a bad one. "
+        + _HARD_MEANS.format(check="relations"),
+    )
+
     def for_forecast(self) -> Plausibility:
         """Give the modes a forecast network is judged with: every check soft but two, whatever mode it was given.
 
@@ -228,6 +246,8 @@ class Plausibility(BaseModel):
 #: the page. `range`, `elevation`, `stuck` and `step` run on every network that has a quantity of their tables
 #: (GH-3681): the bounds, the runs and the jumps are the same for every provider (`model/plausibility_ranges.py`,
 #: `model/persistence.py`, `model/rate_of_change.py`).
+#: `relations` runs on every observation network that has two parameters of a relation in one dataset
+#: (`model/relations.py`, GH-3681).
 #: `limits` is in none (`CALLER_CHECKS`): it runs on any network, for the parameters the caller sets a bound for. A
 #: network that is in no list judges no value by the tables of the library
 COVERAGE: dict[str, dict[str, tuple[str, ...]]] = {
@@ -329,6 +349,29 @@ COVERAGE: dict[str, dict[str, tuple[str, ...]]] = {
         "rmi/observation": ("*",),
         "smhi/observation": ("*",),
         "wsv/pegel": ("*",),
+    },
+    # every observation network that has two parameters of the table of relations (`model/relations.py`, GH-3681) in
+    # one file, or a sunshine duration and a position of the station
+    "relations": {
+        "aemet/observation": ("*",),
+        "chmi/observation": ("*",),
+        "dmi/observation": ("*",),
+        "dwd/observation": ("*",),
+        "dwd/poi": ("*",),
+        "dwd/road": ("*",),
+        "eccc/observation": ("*",),
+        "fmi/observation": ("*",),
+        "geosphere/observation": ("*",),
+        "imgw/meteorology": ("*",),
+        "knmi/observation": ("*",),
+        "meteofrance/observation": ("*",),
+        "meteofrance/synop": ("*",),
+        "meteoswiss/observation": ("*",),
+        "metno/frost": ("*",),
+        "metoffice/observation": ("*",),
+        "noaa/ghcn": ("*",),
+        "nws/observation": ("*",),
+        "rmi/observation": ("*",),
     },
     "consistency": {
         "dwd/road": ("15_minutes/data",),

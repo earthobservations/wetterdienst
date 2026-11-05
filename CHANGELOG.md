@@ -18,6 +18,13 @@ Types of changes:
 
 ### Added
 
+- The new check `relations` holds the readings of one row (the same station, timestamp and file) to
+  each other on every observation network: a maximum is not below the mean and the mean not below
+  the minimum, the dew point is at most 0.2 K above the air, a gust is not below the mean wind, and
+  a day's sunshine is at most the day length at the station plus 5 %. **Both** readings of a broken
+  pair are flagged. Soft by default (`suspect:relations`, value kept, left out of interpolation,
+  summaries and `skip_empty`); `hard` nulls both as `rejected:relations,raw:<text>`. It is not
+  `consistency`, whose provider rules stay hard (GH-3681)
 - The new check `step` judges every observation network for a jump between consecutive readings:
   a reading that differs from the one before it by more than the limit (the later one is flagged)
   or that jumps away from both neighbours and back (the middle one). Limits per parameter and

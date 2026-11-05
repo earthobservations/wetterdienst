@@ -446,6 +446,59 @@ def _dwd_hourly_temperature_air_spike(monkeypatch: pytest.MonkeyPatch, drop_null
     )
 
 
+def _dwd_daily_climate_summary_mean_above_gust(
+    monkeypatch: pytest.MonkeyPatch,
+    drop_nulls: bool = True,  # noqa: FBT001, FBT002
+) -> pl.DataFrame:
+    # historical/tageswerte_KL_01048_19340101_20241231_hist.zip (Dresden-Klotzsche), read 2026-11-05: the day of
+    # 1994-05-01 writes a mean wind of 4.9 m/s (FM, quality level 3) beside a highest gust of 4.8 m/s (FX): a gust is
+    # not below the mean of its day, and neither value is a code or out of range, so `relations` flags both (GH-3681)
+    columns = [
+        "STATIONS_ID",
+        "MESS_DATUM",
+        "QN_3",
+        "FX",
+        "FM",
+        "QN_4",
+        "RSK",
+        "RSKF",
+        "SDK",
+        "SHK_TAG",
+        "NM",
+        "VPM",
+        "PM",
+        "TMK",
+        "UPM",
+        "TXK",
+        "TNK",
+        "TGK",
+    ]
+    reading = [
+        "1048",
+        "19940501",
+        "3",
+        "4.8",
+        "4.9",
+        "10",
+        "0.3",
+        "6",
+        "0.7",
+        "0",
+        "7.7",
+        "7.8",
+        "995.9",
+        "7.1",
+        "77.0",
+        "16.6",
+        "6.3",
+        "4.9",
+    ]
+    lines = [";".join(f"{cell:>8}" for cell in row) + ";eor" for row in (columns, reading)]
+    return _dwd_observation(
+        monkeypatch, "daily", "climate_summary", "\n".join(lines) + "\n", "01048", year=1994, drop_nulls=drop_nulls
+    )
+
+
 def _dwd_hourly_wind(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # historical/stundenwerte_FF_00003_19370101_20110331_hist.zip: the description says `missing value=-999`, the files
     # of 1975 to 1994 write 990 for a direction there is none of, and 0 for a calm (a speed of 0.0) beside 360 for north
@@ -2505,6 +2558,22 @@ STUBS = [
         tokens=(("temperature_air_2m", "0.0", None),),
         verdicts=(("temperature_air_2m", "0.0", "step"),),
         plausibility=(("step", "hard"),),
+    ),
+    ValueStub(
+        "dwd/observation daily/climate_summary (a mean wind above the gust)",
+        _dwd_daily_climate_summary_mean_above_gust,
+        reading=("temperature_air_mean_2m", 7.1),
+        # both readings of the pair are kept and flagged: the check `relations` is soft by default
+        suspects=(("wind_gust_max", 4.8, "relations"), ("wind_speed_mean", 4.9, "relations")),
+    ),
+    ValueStub(
+        "dwd/observation daily/climate_summary (relations hard)",
+        _dwd_daily_climate_summary_mean_above_gust,
+        reading=("temperature_air_mean_2m", 7.1),
+        # the same pair is null with the text the file wrote, both of them, where the check `relations` is hard
+        tokens=(("wind_gust_max", "4.8", None), ("wind_speed_mean", "4.9", None)),
+        verdicts=(("wind_gust_max", "4.8", "relations"), ("wind_speed_mean", "4.9", "relations")),
+        plausibility=(("relations", "hard"),),
     ),
     ValueStub(
         "dwd/observation hourly/wind",

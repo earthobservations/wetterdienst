@@ -42,7 +42,8 @@ For a dataset that a check applies to, the core does this for each station, afte
    series, the first reading that has a value winning (for DWD the historical archive before the recent one), so that
    no check sees a reading twice.
 2. The frame of a grouped dataset is cut to the parameters you asked for and the ones a rule reads beside them (the air
-   beside a road surface, the dew point beside a humidity, the air of the road's run rule): a verdict on a parameter
+   beside a road surface, the dew point beside a humidity, the air of the road's run rule, the partner of a
+   [relation](#the-relations-of-one-row-relations): asking for the daily maximum reads the mean and the minimum too): a verdict on a parameter
    that is cut afterwards would never be seen, so the others are not merged, converted or judged.
 3. Those parameters are converted to the canonical unit of their unit type (°C, hPa, m/s, mm, MJ/m², a fraction in
    percent, a duration in hours, a wave period in seconds), without rounding. The bounds of the table are therefore written once per quantity and not once
@@ -70,6 +71,7 @@ written as short as it goes (`4021.0` as `4021`).
 | `elevation` | a station pressure the standard atmosphere does not allow at the station's elevation | hard | In every network that serves a station pressure (`pressure_air_site`, `_mean`, `_min`, `_max`), for each station of the list that has an elevation. Against the pressure of the international standard atmosphere at that elevation, from **870/1013.25 of it** (143 hPa below at sea level: the lowest pressure on record, 870 hPa in Typhoon Tip, as a share of the standard atmosphere) to **75 hPa above it** (the 1,083.8 hPa of Agata, 261 m, the highest sea level pressure of a low station, reduced to the station with the cold column of that day lies 59 to 64 hPa above the standard atmosphere there, the 1,089.1 hPa of Tosontsengel, 1,725 m, 14 to 40: a derivation of GH-3681). The world-wide bounds (300 to 1100 hPa) let through the pressure of another height (968.6 hPa at the Zugspitze, 2,956 m, where 705 are expected) and a P0 mistyped by a digit above the standard atmosphere (1093.3 hPa at 48 m, 85.8 above). A station without an elevation, or one outside -500 to 9,000 m, is not judged. So is a `noaa/ghcn` station at 0.0 m: its lists write 0.0 for stations they know no elevation of (the daily one BRM00083566, inland at about 827 m), and 54 of the 271 at 0.0 in the hourly one stand between 150 and 4,329 m (CHM00052940 reads 500.2 to 998 hPa), while the 0.0 of the lists read (DWD, ECCC, IMGW, Météo-France) is a coast. The margin below keeps Hurricane Irma (917.4 hPa at 10:00 UTC and 936.0 hPa an hour earlier at St-Barthélemy, 3 m, 2017-09-06, quality code 1) and the deep lows of Dumont d'Urville (938 hPa at 43 m, where 1,008 are expected); it lets 3 of the 19 readings of DWD's hourly station pressure beyond 75 hPa of the standard atmosphere (the research of GH-3681, over Berlin-Tempelhof, List auf Sylt and the Zugspitze) pass: 909.5, 910.1 and 908.5 hPa, 98 to 102 hPa below, which the check [`step`](#the-limits-of-a-jump-step) finds as spikes of about 100 hPa |
 | `stuck` | a sensor that held one value over a period it should not have | **soft** | **Every observation network**: a run of consecutive readings of one value of one station and parameter, as long as the table of [the limit of a run](#the-limit-of-a-run) says for the parameter, the resolution (10 minutes, hourly, daily) and the step the series is written at. The air temperature (an hour: 24 readings at tenths of a degree, 30 at halves, 40 at whole degrees; a day: 5), the dew point (twice that, hourly and at 10 minutes, not daily), the pressure (72 hourly readings, 36 at 10 minutes, 5 days; a station without a barometer writes its constant in every row), the mean wind speed (a calm is exempt) and, of a day, the rain above 1 mm, the gust, the snow depth and the new snow above 0: the limits of HadISD, ECA&D and GHCN-Daily, and this library's own derivation where none is published (10 minutes, a coarser daily step), each cited in the table. Not judged: where no source gives a limit ([the list](#what-stuck-does-not-judge)). DWD road: 24 readings or more (6 h) of one value of the air, the dew point or the road surface temperature, a gap longer than four times the station's usual one ending the run, melting ice excepted; and 24 readings or more of one value **above zero** of the precipitation intensity, a run of zeros being a dry spell and no fault (55 of the 575 stations that report one write 21.6 or 20.16 mm/h in every reading; the longest run of one non-zero intensity at the others is 13 readings, and 10 for the 10-minute precipitation of 148 stations of DWD observation over 400 days). RMI: the sunshine of station 6477 in the periods its sensor was stuck or dead |
 | `step` | a reading that differs from the one before it by more than the weather does in that time, or that jumps away from both neighbours and back | **soft** | **Every observation network**: of one station and parameter, a **step** (the change from the reading one step of the resolution before it is larger than the limit; the later reading is flagged) and a **spike** (a reading that departs from both neighbours by more than the limit, in opposite directions; the middle reading is flagged), as the table of [the limits of a jump](#the-limits-of-a-jump-step) says for the parameter and the resolution (10 minutes, hourly, daily): the air temperature and the dew point (an hour: a spike of 8 K, a step of 20 K; a day: a spike of 25 K), the pressure (60 hPa), the mean wind speed (a spike of 10 m/s, a step of 15 m/s): the limits of ISD, DMI, MADIS and GHCN-Daily, and this library's own data and derivation where none is published, each cited in the table. A reading further than one step from its neighbour (a null or a gap between) is not judged, nor is the first reading of a series. Not judged: where no source gives a limit, or the limit flags good readings ([the list](#what-step-does-not-judge)) |
+| `relations` | two readings of one row that contradict each other (a maximum below the mean, a dew point above the air temperature, a gust below the mean wind), or a day of sunshine longer than the day | **soft** | **Every observation network**, for the parameters of one file (a dataset the provider collects whole), as [the table of relations](#the-relations-of-one-row-relations) says: the maximum is not below the mean and the mean not below the minimum (temperature, humidity, pressure, wind), the dew point is at most 0.2 K above the air temperature, a gust is not below the mean wind of its interval, and the sunshine of a day is at most the longest day length of its date at the station, and 5 % more. **Both readings of a broken pair are flagged**, since nothing says which is wrong; the check never downloads the other parameter and stands aside where it is missing. Not `consistency`, which is the hard check of a provider's own rules ([how they differ](#how-relations-differs-from-consistency)) |
 | `consistency` | a reading that another parameter of the same file contradicts | hard | DWD road: a road surface more than 20 K above the air of the same minute with the sun more than 6 degrees below the horizon, the air counting only where it passed `range` and is not marked suspect by DWD's own flag. Météo-France: the humidity of an hour whose dew point lies below 0 °C at a station without frost (the same hygrometer), and a `tn12` that is the text of the `tx12` beside it (a copy, no minimum) |
 | `floor` | a model value a little below the floor of its quantity | hard | DWD DMO (a forecast, soft in every other built-in check, but `floor` corrects and does not reject, so it keeps its mode): ICON writes -0.02 mm for the precipitation of an hour, down to -0.10, and the radiation of a night below 0. **hard sets the floor**, 0.0, and keeps the number; soft keeps the number as the value |
 | `limits` | a reading outside the bounds **you** set for its parameter ([below](#bounds-of-your-own-limits)) | hard | Judges nothing until you set a bound (`Options(limits=...)`, `WD_TS_LIMITS`, `--limits`, `limits` of REST and MCP), and then only the parameters you name. The bounds are in the unit the values come back in, and are a check of their own beside `range`, whose bounds they neither narrow nor widen: a value outside both carries both verdicts, as far as both are in one mode ([the tokens](#the-tokens)) |
@@ -78,8 +80,9 @@ written as short as it goes (`4021.0` as `4021`).
 `stuck` is soft by default because it judges a series and not a value: identical readings are a sign of a stuck sensor
 and no proof, and what is found depends on what was read, which differs by network (see the caveats). `step` is soft
 for the same reason, and because a front is a real step. `source` is soft by default because its verdict is the source's
-and not ours. Every other check is hard, which is what the library did for the networks it judged before the modes
-existed; since GH-3681 `range`, `elevation`, `stuck` and `step` judge every network.
+and not ours. `relations` is soft because it cannot tell which of two readings is wrong and flags both, so a false alarm
+puts a good reading beside the bad one. Every other check is hard, which is what the library did for the networks it
+judged before the modes existed; since GH-3681 `range`, `elevation`, `stuck`, `step` and `relations` judge every network.
 
 ### The limit of a run
 
@@ -400,6 +403,169 @@ their neighbours by a multiple of 10 hPa, within 1.5); a **sensor that fails**: 
 **dew point of the two summit stations** (612 of the 1,120, a value derived from the temperature and the humidity in cold
 dry air that swings 8 K and back); the rest of the wind and dew point flags are at lowland stations and are mostly
 errors (a dew point of 0.0 or -59 between values of 10).
+
+## The relations of one row (`relations`)
+
+Two readings of one station at one timestamp can contradict each other though each is plausible alone: a daily maximum
+of 4.8 m/s of gust beside a mean wind of 4.9 m/s, a dew point 40 K above the air. The check `relations` holds the
+readings of **one row** (the same station, the same timestamp, the same file: a dataset the provider collects whole) to
+the relations of the table below, and the sunshine of a day to the length of the day at the station
+([the sources](#the-relations-and-where-they-come-from)). It judges every observation network that has two parameters of
+the table in one dataset, in both modes: **soft** by default, **hard** nulls both readings of a broken pair.
+
+**Both readings of a broken pair are flagged** (the maintainer's decision of 2026-11-05; Durre et al. flag every value
+of an inconsistency, and MADIS flags both of a dew point above the air): nothing says which of the two is wrong. For a
+triple of a maximum, a mean and a minimum the flagged readings are those of the **broken pair** and no more: a maximum
+below the mean flags the maximum and the mean, and not the minimum. Where the mean is no reading to judge (null, a
+code, or judged bad by another check) the maximum and the minimum are held to each other. The sunshine of a day has no
+partner reading, and that one reading is flagged.
+
+<!-- relations:start -->
+
+| quantity | parameters, highest first (the first of a rung that the dataset has) | tolerance | source |
+| --- | --- | --- | --- |
+| air temperature (2 m) | `temperature_air_max_2m`, `temperature_air_mean_2m` or `temperature_air_mean_minmax_2m`, `temperature_air_min_2m` | none | WMO-No. 100 (3.3.6), Durre et al. 2010, ECA&D, Vejen et al. 2002 (3.2.1 to 3.2.3): a maximum is not below the mean, nor the mean below the minimum |
+| air temperature (5 cm) | `temperature_air_max_0_05m`, `temperature_air_mean_0_05m`, `temperature_air_min_0_05m` | none | the same, for the thermometer at 5 cm |
+| relative humidity | `humidity_relative_max`, `humidity_relative_mean`, `humidity_relative_min` | none | WMO-No. 100 (3.3.6): a maximum is not below a minimum, and the mean of the same period lies between |
+| pressure (site) | `pressure_air_site_max`, `pressure_air_site_mean`, `pressure_air_site_min` | none | the same |
+| pressure (sea level) | `pressure_air_sea_level_max`, `pressure_air_sea_level_mean`, `pressure_air_sea_level_min` | none | the same |
+| wind speed (interval) | `wind_gust_max`, `wind_speed_mean` | none | Zahumenský 2004 (II.c): a gust is not below the wind speed, of the same period (the gust of the resolution's interval beside its mean) |
+| wind speed (10 minutes) | `wind_gust_max_last_10min`, `wind_speed_mean_last_10min` | none | the same, where the names say that both are of the last ten minutes |
+| wind speed (highest rolling mean) | `wind_speed_rolling_mean_max`, `wind_speed_mean` | none | own derivation: the highest mean of ten minutes in an interval is not below the mean of the interval |
+| wind speed (lowest rolling mean) | `wind_speed_rolling_mean_max`, `wind_speed_min` | none | own derivation: the highest mean of ten minutes in an interval is not below the lowest |
+| dew point | `temperature_air_2m` and `temperature_dew_point_2m`; `temperature_air_mean_2m` and `temperature_dew_point_mean_2m`; `temperature_air` and `temperature_dew_point` | 0.2 K | WMO-No. 8 (Vol. V, real-time quality control), Zahumenský 2004 (II.c), HadISD (Dunn et al. 2012, test 11) and MADIS: the dew point is not above the air temperature; Vejen et al. 2002 (3.2.1): a tolerance of gamma = 0.2 K recommended, which the table takes |
+| sunshine | `sunshine_duration`: at most the longest day length of the date (the day, the day before and the day after) at the station's position and elevation | the day length +5 % | WMO-No. 100 (3.3.6): sunshine is limited by the length of the day; ECA&D: below the maximum day length for the day of the year and the latitude, plus 5 % (the margin of the table of ranges, D5) |
+
+<!-- relations:end -->
+
+Every relation holds with **no tolerance** but two: the dew point may exceed the air by 0.2 K, and the sunshine of a
+day may exceed the day length by 5 %. Numbers are compared after rounding to six decimals, so that 8.0 K is not
+8.000000000000002. Rounding in the source cannot break an order: a rounding is monotone, so a mean that is not above the
+maximum before rounding is not above it after, whatever step the source writes in (whole degrees, tenths).
+
+**The day length** is the time the centre of the sun is higher than -0.833 degrees (the disc and the refraction),
+lowered at a station above sea level by the dip of its horizon (1.76 minutes of arc times the root of its elevation in
+metres: 1.6 degrees at the Zugspitze, 2,962 m, which makes a December day 20 to 30 minutes longer than at its foot).
+The sun is the one of the road rule of `consistency` (the low-precision formulas of the Astronomical Almanac, within
+0.01 degrees: `wetterdienst.model.sun`). It is the **longest of three days**, the date of the reading and the day before
+and after, because the date of a source's clock is not always UTC's and, near the polar circles, the day grows or
+shrinks by an hour or more in a day: 0 in the polar night, 24 in the polar day, and a reading is never held to a day
+that the date, read one day off, made too short. A station with no position, or the 0, 0 of a list that has none, has
+no day length, and its sunshine is not judged.
+
+### How `relations` differs from `consistency`
+
+Both hold two readings of one file to each other, and they are two checks with two modes, so that a reader can choose:
+
+| | `consistency` | `relations` |
+| --- | --- | --- |
+| rules | **a provider's own**, for its source: DWD road (a road surface far above the air at night), Météo-France (a humidity beside a dew point below frost at a station without frost, a `tn12` that copies `tx12`) | **one table for every provider** ([above](#the-relations-of-one-row-relations)): orders that hold by definition (maximum, mean, minimum), the dew point, the gust, the day |
+| flagged | the one reading the rule names (the surface, the humidity) | **both** readings of the pair (the one sunshine of a day) |
+| default | **hard** (what the library did before the modes existed): the value is null, `rejected:consistency,raw:<text>` | **soft**: the value is kept, `suspect:relations` |
+| set with | `plausibility_consistency`, `--plausibility-consistency`, `WD_TS_PLAUSIBILITY__CONSISTENCY`, `Options(plausibility={"consistency": ...})` | `plausibility_relations`, `--plausibility-relations`, `WD_TS_PLAUSIBILITY__RELATIONS`, `Options(plausibility={"relations": ...})` |
+
+To null the road surface a rule of `consistency` rejects, set `consistency`; to null both readings of a maximum below the
+mean, set `relations`. The bare `plausibility="hard"` (or `"soft"`) sets both, as it sets every check, and a check named
+beside it wins. Neither check changes what the other does: `plausibility_relations=hard` leaves `consistency` hard and
+`plausibility_consistency=soft` leaves `relations` soft, and each writes its own token. A reading that `consistency`
+has judged bad, soft or hard, is no partner of a relation (as is none that `range`, `elevation`, `stuck`, `source` or
+`limits` judged bad, or that the source wrote as a code): the relation stands aside for it.
+
+### What `relations` does not judge
+
+Where a relation does not hold by the source's own definition, or no relation of the table has both parameters in one
+file, the check stands aside. The numbers are from the whole histories of 10 DWD stations (below).
+
+- **A total equal to the sum of its parts** is not built (the maintainer's decision of 2026-11-05).
+- **A relation across two files.** A check never triggers a download. DWD observation holds the hourly air temperature
+  and moisture, wind and wind extremes in different datasets: the hourly gust of `wind_extreme` is not held to the mean
+  of `wind`, nor the 10-minute extremes of `temperature_extreme` to the mean of `temperature_air`. A dataset that a
+  provider collects a parameter at a time (**SMHI, WSV, the Environment Agency, Hub'Eau, IMGW's hydrology**) has no
+  second parameter in the frame, and nothing is judged there.
+- **A gust held to the highest rolling mean of ten minutes**, though the gust of an interval is above every mean in it.
+  DWD's 10-minute `wind_extreme` has both (`FX_10` and `FMX_10`), and the order fails in **137,356 of 9.8 million**
+  readings (1.4 %): by more than 0.1 m/s in 81,308, 0.5 in 11,709, 1 in 2,371, 2 in 348 and 5 m/s in 8 (a gust of 0.0 at the
+  Zugspitze beside a mean of 11.5). The rolling mean is a window that begins before the interval does, so by the
+  source's own definition the two are not of one period. That is the false alarm of the relation, and it is not built.
+  The same dataset's highest and lowest rolling mean are held to each other (5 broken of 9.8 million).
+- **A gust and a mean of different windows**: an hourly gust (`wind_gust_max`) beside a mean of ten minutes
+  (`wind_speed_mean_last_10min`, AEMET), a gust of ten minutes beside a mean of two (NWS), or `wind_speed`, which no source
+  says is a mean. The table pairs only what the names pair.
+- **The instantaneous air temperature** (`temperature_air_2m` of an hour) beside an hourly maximum and minimum: a
+  thermometer read at the end of the hour is a sample, not an average, and the sensor's own maximum need not reach it.
+  The extremes of `_last_12h`, `_last_24h` and `_yesterday` (DWD POI, DMI, Météo-France SYNOP) are of another window than
+  the report beside them.
+- **A month and a year**, whose extremes and means are made from the days by the source's own rule; **1, 5 and 15 minutes
+  and the other resolutions** have a pair only where a dataset holds one: the check judges the resolutions up to a day
+  (`1_minute` to `daily`, and `subdaily` reports). **Forecasts and derived quantities** (a model writes no readings).
+- **Sunshine under a cloudless sky** (radiation against sunshine), which Zahumenský's draft judges for periods of up to 10
+  minutes only, and cloud cover against precipitation or sunshine: no source gives a limit that holds at the resolutions
+  of the networks.
+
+### What `relations` found in real data
+
+Read on 2026-11-05 from DWD's open data (historical and recent files merged, whole histories, 10 stations for each
+resolution: Dresden-Klotzsche, Hamburg, Potsdam, Zugspitze, Helgoland, Arkona, Feldberg, Berlin-Tempelhof, Straubing,
+Trier-Petrisberg), with the check as it ships. "Judged" are the pairs (or sunshine readings) that have both values and
+that no other check found bad; "broken" are the pairs the check flags (twice that many readings).
+
+| resolution | relation (dataset) | judged | broken | what they are |
+| --- | --- | --- | --- | --- |
+| daily | maximum, mean, minimum of the air temperature (`climate_summary`) | 321,379 / 321,375 | 0 / 0 | DWD's daily extremes and mean are made from one day's readings, whichever window each uses: no order is broken, in tenths or in whole degrees |
+| daily | gust, mean wind (`climate_summary`) | 208,959 | 2 | the Zugspitze, 1994-08-10 (a mean of 10.3 m/s beside a gust of 8.7) and Dresden-Klotzsche, 1994-05-01 (4.9 beside 4.8), both with quality level 3: real inconsistencies of the daily wind, which `range` cannot see |
+| daily | sunshine, the day (`climate_summary`, `solar`) | 306,534; 94,005 | 1; 0 | the Zugspitze, 1919-11-04: 11.0 hours of sunshine on a day of 10.28 hours at the summit (limit 10.8). **Without the dip of the horizon** the day lengths of the plain would put 638 readings above the day, 85 above it by 2 % and 6 by 5 % (5 at the Zugspitze, 1 at the Feldberg), which the summits' lower horizon explains; with it 27, 5 and 1 |
+| hourly | dew point, air (`dew_point`) | 4,513,204 | 398 | 354 at the Zugspitze (143), the Feldberg (153) and Trier-Petrisberg (58), 1940s to 2000; 116 by more than 5 K (an air of -30.0 beside a dew point of 32.0, Trier 1964; -23.0 and 25.0, the Zugspitze 1970: a sign or a digit), 80 by 1 to 5 K, 174 by 0.5 to 1 K (169 by exactly 1.0 K, 166 of them before 1981, in whole degrees: an air of 1 beside a dew point of 2), 28 by 0.2 to 0.5 K |
+| hourly | dew point, air (`moisture`) | 4,501,288 | 0 | the dew point there is derived from the temperature and the humidity |
+| hourly | sunshine, the day (`sun`) | 4,905,458 | 0 | (hourly sunshine is held to the day, which only the polar night can break) |
+| 10 minutes | dew point, air (`temperature_air`) | 15,470,302 | 925 | **912 of the 928 broken by more than 0.2 K are at a relative humidity of 100 %** (Arkona 727 in 1991 to 2005, Potsdam 190 in 1993): the dew point of a saturated hygrometer, which reads 0.2 to 1.0 K above the thermometer beside it; 617 are by 0.2 to 0.5 K, 243 by 0.5 to 1 K, 59 by 1 to 5 K, 9 by more than 5 (a dew point of 72.8 °C beside 24.4 at Dresden, 1992-05-21, with the humidity missing) |
+| 10 minutes | maximum, minimum of the air at 2 m (`temperature_extreme`) | 16,286,918 | 42 | the Helgoland maximum below its minimum for 26 readings on 2008-12-01 (4.2 below 5.0, up to 0.8 K), Straubing 14 on 2010-11-17 (0.2 K), one each at Trier and the Zugspitze |
+| 10 minutes | maximum, minimum at 5 cm (`temperature_extreme`) | 5,388,500 | 1 | Arkona |
+| 10 minutes | highest and lowest rolling mean wind (`wind_extreme`) | 9,821,075 | 5 | Berlin-Tempelhof 2, Helgoland 3 |
+| 10 minutes | sunshine, the day (`solar`) | 15,906,485 | 0 | |
+
+The false alarms the data show are one class: **the dew point of a saturated reading.** At a relative humidity of 100 %
+the dew point is the temperature of the hygrometer, and a thermometer beside it that reads 0.3 K lower is no mistake
+of either: 617 pairs of 15.5 million at 10 minutes, all by less than 0.5 K, flagged at a tolerance of 0.2 K and not at
+0.5 K. The tolerance of 0.2 K is Vejen et al.'s (the Nordic report recommends it), the sources that name none take 0;
+raising it to 0.5 K would leave 311 of the 928 pairs, a choice of the table that this page states and a test pins. In
+the whole-degree decades of the hourly `dew_point` a dew point cannot exceed the air by a rounding, because a rounding is
+monotone: the 166 readings 1.0 K above before 1981 are two instruments that differ, and **flagging both** costs a good
+air temperature its `suspect:relations` and its place in an interpolation.
+
+Other key-less networks, 2023 (one year, two stations unless stated), all in the mode as it ships, **0 pairs broken**:
+CHMI daily (365 days of the maximum, mean and minimum, and of the sunshine), Geosphere daily (365), hourly (17,474 of the
+gust and the mean, and of the sunshine) and 10 minutes (8,354 of the extremes at 2 m and 5 cm, the gust and the sunshine),
+RMI daily (728 days, and 730 of the sunshine) and hourly (17,466 of the sunshine), FMI at Sodankylä hourly (8,734 of the gust and the mean of ten
+minutes, 8,737 of the dew point), IMGW `synop` daily (365), MeteoSwiss hourly (8,737 of the extremes and the mean, at 2 m and 5 cm, of the gust,
+of the dew point and the air; 17,474 of the sunshine) and daily (365, and the 5 cm extremes), ECCC hourly (8,731 of the dew point), DMI daily (365) and hourly (697),
+GHCN-Daily 2018 to 2023 (62,144 days of TMAX against TMIN at six ASOS stations, 40 cooperative stations, whose observers read at
+different hours, and three European ones; 13,101 days of the humidity extremes and the mean at the ASOS stations), DWD POI (100 dew points, 25 sunshine
+readings of one day), and DWD road, one day (3,750 dew points against the air, 7 of them broken: station O329 holds a
+dew point of 2.3 beside an air of 1.6). **Not measured**: Météo-France, NWS and the keyed providers (KNMI, MET Norway,
+Met Office, AEMET) returned no readings or need a key; IMGW `climate`; GHCN-Daily's mean air against its mean dew
+point (no station of the sample reports both); a sunshine duration at a polar station (no key-less one reports it),
+for which the tests of the polar night and day stand (Tromsø).
+
+### How `relations` relates to `step`
+
+`relations` runs **before** `step`, which treats a reading any other check found bad as no neighbour. A reading
+`relations` flagged is therefore no neighbour of a jump either, whatever mode it is in: the check does not judge it, and it
+can hide a real spike beside it and **move the flag to a good reading**. A good air temperature flagged beside a wrong
+maximum, then a real jump of 35 K, then the old level (an hourly series 10, 10, 10, 45, 10 with a maximum of 5 beside the
+third): the third mean is flagged `suspect:relations`, the 45 has no neighbour one step before it and is not judged, and
+the 10 after it is flagged `suspect:step` as the step from the 45. This follows from the rule, is kept (it is the same
+rule that `stuck`, `source` and the others follow) and is pinned by a test.
+
+### The effect on `step`
+
+`relations` runs before `step`, so the readings it flags leave the series `step` judges (above). On the DWD data of the
+table, with the code as it ships and as it was before: the hourly `dew_point` has 991 flags of `step` before and **944
+after** (47 lost, every one at a reading that is now `suspect:relations`, 796 of them: 398 pairs), the 10-minute
+`temperature_air` 738 before and **732** after (6 lost: 4 at readings that are now `relations`, and the air and the dew
+point of Arkona, 1993-09-11 11:50, whose neighbour was flagged by the relation); the daily and the hourly `moisture`
+data are unchanged. **No flag of `step` was gained**: no spike was hidden so that its flag moved to the good reading
+after it, in the 10 stations' histories. Where a *good* reading is flagged by a relation (a sound air temperature
+beside a wrong dew point) a spike beside it can move its flag, as the line above says, and the test pins it.
 
 ## The table of ranges
 
@@ -744,7 +910,7 @@ given beside it wins, so `soft` for all but the range is `soft` with `range` har
 ```python
 from wetterdienst import Options
 
-Options(plausibility="soft")  # all eight checks soft, the same as listing them
+Options(plausibility="soft")  # all nine checks soft, the same as listing them
 Options(
     plausibility={
         "range": "hard",
@@ -755,6 +921,7 @@ Options(
         "limits": "soft",
         "source": "soft",
         "step": "soft",
+        "relations": "soft",
     }
 )
 ```
@@ -774,7 +941,7 @@ and REST have both the shorthand and the checks, and the checks win whatever the
 `hard` is refused.
 
 The REST API and the MCP tools take `plausibility` and `plausibility_range`, `plausibility_elevation`, `plausibility_stuck`,
-`plausibility_consistency`, `plausibility_floor`, `plausibility_limits`, `plausibility_source` and `plausibility_step` on `values`; `/api/settings` reports the modes as set (a forecast network is soft in every check but `floor` and `limits` whatever they are). A value
+`plausibility_consistency`, `plausibility_floor`, `plausibility_limits`, `plausibility_source`, `plausibility_step` and `plausibility_relations` on `values`; `/api/settings` reports the modes as set (a forecast network is soft in every check but `floor` and `limits` whatever they are). A value
 other than `soft` or `hard` is refused.
 
 ## The tokens
@@ -788,6 +955,8 @@ The two kinds sit after the source's own flags and before `raw:`, which stays th
 | a missing-value code of the source | `3,raw:-999` | null, or the documented meaning |
 | several checks, soft | `suspect:range+stuck` | kept |
 | several checks, hard | `rejected:range+stuck,raw:4021` | null |
+| a relation, soft (both readings of the pair) | `10,suspect:relations` | kept |
+| a relation, hard (both readings of the pair) | `3,rejected:relations,raw:4.9` | null |
 | the source's own verdict, soft | `X,measurement:T,source:0,suspect:source` | kept |
 | the source's own verdict, hard | `Suspect,rejected:source,raw:0.359` | null |
 
@@ -836,7 +1005,7 @@ clean = values.df.filter(~flags.str.contains(r"(^|,)(suspect|rejected):").fill_n
 The table is what the core is told to judge by the library's own tables: a network that is in no row judges no value
 unless you set [bounds of your own](#bounds-of-your-own-limits), which any network is judged by. A dataset is
 `resolution/dataset`; `*` stands for every dataset of the network that has a parameter the check judges, which is how
-`range`, `elevation`, `stuck` and `step` run on every network that has one.
+`range`, `elevation`, `stuck`, `step` and `relations` run on every network that has one.
 
 <!-- coverage:start -->
 
@@ -928,6 +1097,25 @@ unless you set [bounds of your own](#bounds-of-your-own-limits), which any netwo
 | `step` | `rmi/observation` | `*` |
 | `step` | `smhi/observation` | `*` |
 | `step` | `wsv/pegel` | `*` |
+| `relations` | `aemet/observation` | `*` |
+| `relations` | `chmi/observation` | `*` |
+| `relations` | `dmi/observation` | `*` |
+| `relations` | `dwd/observation` | `*` |
+| `relations` | `dwd/poi` | `*` |
+| `relations` | `dwd/road` | `*` |
+| `relations` | `eccc/observation` | `*` |
+| `relations` | `fmi/observation` | `*` |
+| `relations` | `geosphere/observation` | `*` |
+| `relations` | `imgw/meteorology` | `*` |
+| `relations` | `knmi/observation` | `*` |
+| `relations` | `meteofrance/observation` | `*` |
+| `relations` | `meteofrance/synop` | `*` |
+| `relations` | `meteoswiss/observation` | `*` |
+| `relations` | `metno/frost` | `*` |
+| `relations` | `metoffice/observation` | `*` |
+| `relations` | `noaa/ghcn` | `*` |
+| `relations` | `nws/observation` | `*` |
+| `relations` | `rmi/observation` | `*` |
 | `consistency` | `dwd/road` | `15_minutes/data` |
 | `consistency` | `meteofrance/observation` | `hourly/others` |
 | `consistency` | `meteofrance/synop` | `subdaily/data` |
@@ -944,11 +1132,13 @@ unless you set [bounds of your own](#bounds-of-your-own-limits), which any netwo
 | `source` | `nws/observation` | `hourly/data` |
 <!-- coverage:end -->
 
-`range`, `elevation`, `stuck` and `step` run on every network that serves a quantity of their tables (`*`: every
-dataset of the network that has one; for `stuck` also the road and RMI datasets of their own rules). `source` runs where a provider's flag is mapped ([the codes](#the-sources-own-verdict-source)). `limits` is in no row: it runs on any network, for the parameters you set a bound for. Within a dataset a check covers the parameters its rule names, not every parameter: `range` the
+`range`, `elevation`, `stuck`, `step` and `relations` run on every network that serves a quantity of their tables (`*`:
+every dataset of the network that has one; for `stuck` also the road and RMI datasets of their own rules; for `relations`
+every dataset that holds two parameters of [its table](#the-relations-of-one-row-relations) in one file, or a sunshine
+duration, which is every dataset whose provider collects it whole). `source` runs where a provider's flag is mapped ([the codes](#the-sources-own-verdict-source)). `limits` is in no row: it runs on any network, for the parameters you set a bound for. Within a dataset a check covers the parameters its rule names, not every parameter: `range` the
 parameters that have a bound in the table, `elevation` the `pressure_air_site`, `pressure_air_site_mean`,
 `pressure_air_site_min` and `pressure_air_site_max`, `stuck` the parameters of [its table](#the-limit-of-a-run), at the
-resolutions it names, and `step` those of [its table](#the-limits-of-a-jump-step). The provider pages and [special values](special_values.md) list them.
+resolutions it names, `step` those of [its table](#the-limits-of-a-jump-step) and `relations` the pairs of [its table](#the-relations-of-one-row-relations). The provider pages and [special values](special_values.md) list them.
 
 What no check covers, and why:
 
@@ -1017,6 +1207,21 @@ What no check covers, and why:
 - **`elevation` uses the station list's current elevation for every period.** A station that was moved by 500 m or more
   keeps the readings of its other site only while they lie within the margins. DWD's historical outliers were checked
   against the station list and are bad readings, not station moves.
+- **`relations` flags a good reading beside a bad one, by design.** A broken pair has one wrong reading at most (or
+  two), and nothing says which; both are flagged, so each false alarm costs two readings and not one, and an
+  interpolation, a summary and `skip_empty` leave both out. That is why the check is soft by default. The false alarms
+  measured are one class, the dew point of a saturated hygrometer ([above](#what-relations-found-in-real-data)); a
+  tolerance of 0.2 K is the table's, and a different one is a change of the table.
+- **A relation reads its partner whether or not you asked for it.** Asking for the daily maximum alone reads the mean
+  and the minimum of the file as well (the dataset is collected whole), judges the pairs, and returns the maximum with
+  its flag: the verdict does not depend on what you asked for. The partner is dropped after the judging, as the air beside a
+  road surface is.
+- **The sunshine reads the station list.** The day length uses the latitude and the elevation the list holds, so a
+  position that is wrong but on Earth is not seen: a degree of latitude moves the December day by 0.13 to 0.22 h at 45 to
+  55 degrees north (the margin is 5 %, 0.4 to 0.9 h) and the June day of 65 degrees by 2 h. A 0, 0, a missing position
+  and a number off the globe are stood aside for. A polar station is judged by the same formulas (the day is 0 in the
+  polar night and 24 in the polar day), which no key-less network reading sunshine lets the page measure: the tests
+  hold it to the day lengths of Tromsø.
 - **A check stands aside where the second value is missing.** A consistency check that finds no second value for a row
   (null, not a number, outside its own range, or marked suspect by the source's own flag) returns the value unflagged.
 - **Every check judges the same number.** A pressure of 1150 hPa at 100 m is outside the range and outside the
@@ -1042,7 +1247,7 @@ What no check covers, and why:
   value with the flag `1` and count it, it is a change: a road station with long stuck runs can be skipped where it was
   kept. So it is for the run rule of every other network and parameter (GH-3681), where a stuck run is left out of an
   interpolation and a summary, and a station that has only stuck readings in the window is skipped, as before it was
-  not: in the DWD data read, about 1,500 of 93 million judged readings, apart from the barometer constants. So it is for `step`: a reading flagged `suspect:step` is left out of an interpolation and a summary (a spike of 100 hPa in the pressure of a station is no pressure to interpolate), and a window whose readings are all flagged skips the station, which the readings read (a few hundred in millions) do not make. So it is for `source`: a station of `noaa/ghcn`, `metno/frost`, `chmi/observation`, `ea/hydrology`,
+  not: in the DWD data read, about 1,500 of 93 million judged readings, apart from the barometer constants. So it is for `step`: a reading flagged `suspect:step` is left out of an interpolation and a summary (a spike of 100 hPa in the pressure of a station is no pressure to interpolate), and a window whose readings are all flagged skips the station, which the readings read (a few hundred in millions) do not make. So it is for `relations`, with a cost the others do not have: **both** readings of a broken pair are left out, so a good air temperature beside a wrong dew point is no air to interpolate either (in the DWD data read, 796 hourly, 1,850 10-minute and 5 daily readings, of 93 million judged). So it is for `source`: a station of `noaa/ghcn`, `metno/frost`, `chmi/observation`, `ea/hydrology`,
   `meteofrance/observation` or `dmi/observation` whose values the source flagged can be skipped where it was kept.
 - **A rejected value carries only the hard verdict.** Where a hard check nulls a value and a soft one also finds it
   suspect, the value is null and the token is `rejected:<hard checks>,raw:<number>`; the soft check is not listed. A
