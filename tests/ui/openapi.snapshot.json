@@ -412,6 +412,22 @@
             "description": "What the check `source` does to a value that the source itself marks as erroneous or doubtful in its own quality flag: `hard` nulls the value and keeps the number as `rejected:source,raw:<number>` in `quality_flags` (the suspect level of a source that has two, GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`, MADIS `Questioned`, GHCNh `f`, stays flagged `suspect:source`); `soft` keeps the value and flags it `suspect:source`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__SOURCE if set, else soft."
           },
           {
+            "name": "plausibility_step",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `step` does to a change between two consecutive readings beyond what the weather does, or a reading that jumps away and back (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:step,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:step`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STEP if set, else soft.",
+              "default": "soft",
+              "title": "Plausibility Step"
+            },
+            "description": "What the check `step` does to a change between two consecutive readings beyond what the weather does, or a reading that jumps away and back (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:step,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:step`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STEP if set, else soft."
+          },
+          {
             "name": "limits",
             "in": "query",
             "required": false,
@@ -2557,6 +2573,22 @@
               "title": "Plausibility Source"
             },
             "description": "What the check `source` does to a value that the source itself marks as erroneous or doubtful in its own quality flag: `hard` nulls the value and keeps the number as `rejected:source,raw:<number>` in `quality_flags` (the suspect level of a source that has two, GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`, MADIS `Questioned`, GHCNh `f`, stays flagged `suspect:source`); `soft` keeps the value and flags it `suspect:source`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__SOURCE if set, else soft."
+          },
+          {
+            "name": "plausibility_step",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `step` does to a change between two consecutive readings beyond what the weather does, or a reading that jumps away and back (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:step,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:step`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STEP if set, else soft.",
+              "default": "soft",
+              "title": "Plausibility Step"
+            },
+            "description": "What the check `step` does to a change between two consecutive readings beyond what the weather does, or a reading that jumps away and back (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:step,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:step`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STEP if set, else soft."
           },
           {
             "name": "limits",
@@ -6458,6 +6490,15 @@
             "title": "Plausibility Source",
             "description": "The mode of the check `source`: `hard` nulls the value and keeps the number as `rejected:source,raw:<number>` in `quality_flags` (the suspect level of a source that has two, GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`, MADIS `Questioned`, GHCNh `f`, stays flagged `suspect:source`), `soft` keeps the value and flags it (`suspect:source`). It is the mode as set: A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode)."
           },
+          "plausibility_step": {
+            "type": "string",
+            "enum": [
+              "soft",
+              "hard"
+            ],
+            "title": "Plausibility Step",
+            "description": "The mode of the check `step`: `hard` nulls the value and keeps the number as `rejected:step,raw:<number>` in `quality_flags`, `soft` keeps the value and flags it (`suspect:step`). It is the mode as set: A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode)."
+          },
           "limits": {
             "additionalProperties": {
               "prefixItems": [
@@ -6510,6 +6551,7 @@
           "plausibility_floor",
           "plausibility_limits",
           "plausibility_source",
+          "plausibility_step",
           "limits"
         ],
         "title": "ValuesSettings",

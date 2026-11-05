@@ -721,10 +721,10 @@ http localhost:7890/api/values provider==dwd network==observation parameters==da
 `plausibility==soft plausibility_range==hard` is every check soft but the range, and everything a source wrote comes back
 flagged.
 
-The plausibility checks `range`, `elevation`, `stuck`, `consistency`, `floor`, `limits` and `source` each take a mode,
+The plausibility checks `range`, `elevation`, `stuck`, `consistency`, `floor`, `limits`, `source` and `step` each take a mode,
 `hard` or `soft`, as the query parameters `plausibility_range`, `plausibility_elevation`, `plausibility_stuck`,
-`plausibility_consistency`, `plausibility_floor`, `plausibility_limits` and `plausibility_source` (soft by default: the
-verdict of the source's own quality flag, such as GHCN-Daily `QFLAG` or DMI `validity:false`; the environment variable of a server is
+`plausibility_consistency`, `plausibility_floor`, `plausibility_limits`, `plausibility_source` (soft by default: the
+verdict of the source's own quality flag, such as GHCN-Daily `QFLAG` or DMI `validity:false`) and `plausibility_step` (soft by default: a jump between consecutive readings; the environment variable of a server is
 `WD_TS_PLAUSIBILITY__RANGE` and so on). A hard check nulls the value and writes `rejected:<check>,raw:<number>` into
 `quality_flags`, a soft check keeps the value and writes `suspect:<check>`; a check not named keeps the server's mode. On a forecast network (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`: `kind` `forecast`) every check but `floor` and `limits` is soft whatever the mode, so `hard` there flags `suspect:<check>` and nulls nothing (`limits` follows its mode).
 See [plausibility checks](../data/plausibility.md). `interpolate` and `summarize` take no mode: they leave out a

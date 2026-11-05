@@ -372,6 +372,7 @@ CARRIED = {
         "floor": "hard",
         "limits": "soft",
         "source": "hard",
+        "step": "hard",
     },
     "limits": {"temperature_air_mean_2m": (-30.0, 45.0)},
 }

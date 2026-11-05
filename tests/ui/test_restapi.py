@@ -5660,6 +5660,7 @@ _REPORTED_VALUES_SETTINGS = _REPORTED_COMMON_SETTINGS | {
     "plausibility_floor",
     "plausibility_limits",
     "plausibility_source",
+    "plausibility_step",
     "limits",
 }
 _REPORTED_GEO_SETTINGS = _REPORTED_COMMON_SETTINGS | {
@@ -5715,6 +5716,7 @@ def test_settings_reports_wetterdienst_defaults(client: TestClient) -> None:
         "plausibility_floor": "hard",
         "plausibility_limits": "hard",
         "plausibility_source": "soft",
+        "plausibility_step": "soft",
         "limits": {},
     }
     assert unit_targets["temperature"] == "degree_celsius"
@@ -6302,6 +6304,7 @@ _SETTINGS_PARAMETERS = [
     ("plausibility_floor", "soft", {"values": {"plausibility_floor"}}),
     ("plausibility_limits", "soft", {"values": {"plausibility_limits"}}),
     ("plausibility_source", "hard", {"values": {"plausibility_source"}}),
+    ("plausibility_step", "hard", {"values": {"plausibility_step"}}),
     ("limits", '{"temperature_air_mean_2m": [-30, 45]}', {"values": {"limits"}}),
     (
         "interpolation_station_distance",
