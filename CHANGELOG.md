@@ -30,6 +30,14 @@ Types of changes:
   `license.url` is now the licence text. Those terms still apply beside it, and `attribution` is
   unchanged. A commercial use needs an agreement with IMGW-PIB (Part of GH-2567)
 
+### Fixed
+
+- The `bufr` and `eccodes` extras now require `findlibs>=0.1.4`. On Linux, `findlibs` 0.1.3 and
+  older loaded the PROJ bundled in the `eckitlib` wheel of `eccodes` 2.43+ globally, so a process
+  that loaded `eccodes` and then imported `pyproj` aborted at exit with status 134 or 139
+  (ecmwf/eckit#354). DWD road reads no longer import `pyproj` ahead of `eccodes`; with an older
+  `findlibs` that something else keeps, upgrade it (GH-2441)
+
 ## [0.183.0] - 2026-11-03
 
 ### Added
