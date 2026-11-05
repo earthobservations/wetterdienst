@@ -95,19 +95,27 @@ _CLOSE_GRACE = 5.0
 
 
 def _kill_group(process: Any) -> None:  # noqa: ANN401
-    """Kill a browser process and, where the system has them, everything in its process group."""
-    if os.name == "nt":
-        subprocess.run(  # noqa: S603
-            ["taskkill", "/F", "/T", "/PID", str(process.pid)],  # noqa: S607
-            capture_output=True,
-            timeout=6,
-            check=False,
-        )
-        return
+    """Kill a browser process and, where the system has them, everything in its process group.
+
+    A kill that fails is told and not raised: it comes after the render has an answer (an image or a timeout), which
+    it must not replace. On macOS `killpg` on a group whose leader is a zombie that nobody has reaped yet raises
+    `PermissionError`; on Windows `taskkill` may be missing or slow.
+    """
     try:
-        os.killpg(process.pid, signal.SIGKILL)
-    except ProcessLookupError:
-        process.kill()
+        if os.name == "nt":
+            subprocess.run(  # noqa: S603
+                ["taskkill", "/F", "/T", "/PID", str(process.pid)],  # noqa: S607
+                capture_output=True,
+                timeout=6,
+                check=False,
+            )
+            return
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            process.kill()
+    except (OSError, subprocess.SubprocessError) as e:
+        log.warning(f"The browser of an image could not be killed: {e!r}")
 
 
 async def _make_sure_it_is_gone(browser: Any) -> None:  # noqa: ANN401

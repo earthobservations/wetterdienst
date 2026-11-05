@@ -13,17 +13,19 @@ starts a real Chrome is told so.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 import re
 import shutil
+import signal
 import struct
 import subprocess
 import sys
 import time
 import types
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from click.testing import CliRunner
@@ -36,6 +38,9 @@ from wetterdienst.io import export
 from wetterdienst.io.export import IMAGE_TIMEOUT, render_image
 from wetterdienst.ui import restapi
 from wetterdienst.ui.cli import cli
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 go = pytest.importorskip("plotly.graph_objects")
 pytest.importorskip("kaleido")
@@ -88,7 +93,11 @@ def _fake_kaleido(  # noqa: C901
         async def close(self) -> None:
             events.append("close")
             if "close" in stuck:
-                await asyncio.Event().wait()
+                try:
+                    await asyncio.Event().wait()
+                except asyncio.CancelledError:
+                    events.append("close cancelled")
+                    raise
 
     kaleido = types.ModuleType("kaleido")
     kaleido.Kaleido = Kaleido  # ty: ignore[unresolved-attribute]
@@ -141,7 +150,7 @@ def test_a_browser_that_does_not_close_does_not_hold_the_error_back(monkeypatch:
         render_image(go.Figure(), "png", timeout=_SHORT)
 
     assert time.monotonic() - started < 10
-    assert events[-1] == "close"
+    assert events[-2:] == ["close", "close cancelled"]
 
 
 def test_an_image_is_drawn_with_the_options_it_is_given_and_the_browser_is_closed(
@@ -214,29 +223,98 @@ def test_a_caller_with_a_running_loop_is_served(monkeypatch: pytest.MonkeyPatch)
     assert asyncio.run(call()) == b"image"
 
 
+#: a browser in a session of its own, as choreographer starts one, that ignores the request to terminate and has a
+#: child, as Chrome has: it prints the pid of the child
+_BROWSER = (
+    "import signal, subprocess, sys, time\n"
+    "signal.signal(signal.SIGTERM, signal.SIG_IGN)\n"
+    "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])\n"
+    "print(child.pid, flush=True)\n"
+    "time.sleep(60)\n"
+)
+
+
+@contextlib.contextmanager
+def _a_browser_with_a_child() -> Iterator[tuple[subprocess.Popen[str], int]]:
+    """Start a stand-in for the browser, and make sure nothing of it outlives the test."""
+    process = subprocess.Popen(  # noqa: S603
+        [sys.executable, "-c", _BROWSER], start_new_session=True, stdout=subprocess.PIPE, text=True
+    )
+    assert process.stdout is not None
+    child = int(process.stdout.readline())
+    try:
+        yield process, child
+    finally:
+        for pid in (child, process.pid):
+            with contextlib.suppress(ProcessLookupError, PermissionError):
+                os.kill(pid, signal.SIGKILL)
+        process.wait()
+
+
+def _is_gone(pid: int) -> bool:
+    """Tell whether a process has ended, given a moment for its parent, or init, to reap it."""
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return True
+        time.sleep(0.1)
+    return False
+
+
 @pytest.mark.skipif(IS_WINDOWS, reason="a process group is a POSIX thing")
 @pytest.mark.parametrize("stuck", [("draw", "close"), ("draw",)], ids=["close-never-answers", "close-answers-late"])
 def test_a_browser_that_is_still_there_after_the_close_is_killed_with_its_group(
     monkeypatch: pytest.MonkeyPatch, stuck: tuple[str, ...]
 ) -> None:
-    """A close that was given up on, or that returned with the browser alive, is not the end: the group is killed."""
-    # a browser that ignores the request to terminate, with a child of its own, as Chrome has
-    process = subprocess.Popen(
-        [sys.executable, "-c", "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(60)"],
-        start_new_session=True,
-    )
-    try:
-        _fake_kaleido(monkeypatch, stuck=stuck, process=process)
+    """A close that was given up on, or that returned with the browser alive, is not the end: the group is killed.
+
+    The child is the proof that it is the group: killing the browser's process alone leaves it running.
+    """
+    with _a_browser_with_a_child() as (process, child):
+        _fake_kaleido(monkeypatch, stuck=stuck, process=process)  # ty: ignore[invalid-argument-type]
         with pytest.raises(ImageTimeoutError):
             render_image(go.Figure(), "png", timeout=_SHORT)
 
         assert process.poll() is not None
-        with pytest.raises(ProcessLookupError):
-            os.killpg(process.pid, 0)
-    finally:
-        if process.poll() is None:
-            process.kill()
-            process.wait()
+        assert _is_gone(child)
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="a process group is a POSIX thing")
+@pytest.mark.parametrize("error", [PermissionError("zombie"), OSError("no"), subprocess.TimeoutExpired("taskkill", 6)])
+def test_a_kill_that_fails_does_not_replace_the_image(monkeypatch: pytest.MonkeyPatch, error: Exception) -> None:
+    """On macOS `killpg` on a zombie leader raises `PermissionError`: the image that was drawn is still the result."""
+
+    def failing(_pid: int, _signal: int) -> None:
+        raise error
+
+    with _a_browser_with_a_child() as (process, _child):
+        _fake_kaleido(monkeypatch, process=process)  # ty: ignore[invalid-argument-type]
+        monkeypatch.setattr(os, "killpg", failing)
+
+        assert render_image(go.Figure(), "png", timeout=5) == b"image"
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="a process group is a POSIX thing")
+def test_a_kill_that_fails_does_not_replace_the_timeout_nor_skip_the_cancelling_of_the_close(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The timeout stands, and the close that was given up on is cancelled all the same."""
+
+    def failing(_pid: int, _signal: int) -> None:
+        msg = "zombie"
+        raise PermissionError(msg)
+
+    with _a_browser_with_a_child() as (process, _child):
+        events = _fake_kaleido(monkeypatch, stuck=("draw", "close"), process=process)  # ty: ignore[invalid-argument-type]
+        monkeypatch.setattr(os, "killpg", failing)
+
+        with caplog.at_level(logging.WARNING), pytest.raises(ImageTimeoutError):
+            render_image(go.Figure(), "png", timeout=_SHORT)
+
+    assert "close cancelled" in events
+    assert "could not be killed" in caplog.text
 
 
 def test_a_server_the_caller_started_draws_the_image_as_plotly_does(monkeypatch: pytest.MonkeyPatch) -> None:
