@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import io
 import logging
 import os
 import subprocess
@@ -21,6 +22,12 @@ from wetterdienst.exceptions import NoInternetError
 from wetterdienst.ui import cli as cli_module
 from wetterdienst.ui.cli import cli
 from wetterdienst.util.cli import no_color
+from wetterdienst.util.response_warnings import (
+    FILE_SKIPPED,
+    REJECTED_BY_PLAUSIBILITY,
+    RESPONSE_WARNING_RECORD,
+    warn_response,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -187,8 +194,13 @@ def levels() -> Iterator[None]:
 
 
 @pytest.mark.usefixtures("levels")
-def test_quiet_keeps_the_data_and_the_exit_code_and_drops_the_warning(caplog: pytest.LogCaptureFixture) -> None:
-    """The warning of an empty answer is written without `--quiet` and not with it; stdout and the code are the same."""
+def test_quiet_keeps_the_data_and_the_exit_code_and_drops_a_warning_that_is_no_response_warning(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The warning of an empty answer is written without `--quiet` and not with it; stdout and the code are the same.
+
+    It is the command's own sentence, not a warning the answer carries: the empty answer is stdout.
+    """
     runner = CliRunner()
     with caplog.at_level(logging.INFO):
         loud = runner.invoke(cli, _NOTHING)
@@ -214,30 +226,81 @@ def test_quiet_gives_the_level_back_when_the_command_ends(caplog: pytest.LogCapt
 
 
 @pytest.mark.usefixtures("levels")
-def test_quiet_drops_warnings_and_progress_of_the_libraries_and_keeps_an_error(
+def test_quiet_keeps_the_errors_and_the_warnings_about_the_answer_and_drops_the_rest(
     caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Below ERROR nothing is written, from the package or from a library; an error and its exit code stay."""
+    """Below ERROR only the warnings about the answer are written, not progress, other warnings or a library's."""
+    skipped = "2 files were skipped: the answer lacks them"
 
     def failing(**_kwargs: Any) -> None:  # noqa: ANN401
         # the progress bars log at INFO through `TqdmToLogger`, the retries of a download at WARNING
         logging.getLogger("wetterdienst.model.values").info("progress 1/3")
-        logging.getLogger("wetterdienst.model.values").warning("a file was skipped")
+        logging.getLogger("wetterdienst.model.values").warning("a retry")
         logging.getLogger("fsspec").warning("from a library")
         logging.getLogger().warning("from the root")
+        # what the answer carries in `metadata.warnings` as well, and the log line of it
+        warn_response(logging.getLogger("wetterdienst.model.values"), FILE_SKIPPED, skipped)
+        warn_response(
+            logging.getLogger("wetterdienst.model.values"), REJECTED_BY_PLAUSIBILITY, "3 values were rejected"
+        )
         raise NoInternetError("no connection could be made to https://opendata.example.org")  # noqa: EM101, TRY003
 
     monkeypatch.setattr(cli_module, "get_glossary", failing)
     runner = CliRunner()
     with caplog.at_level(logging.DEBUG):
         loud = runner.invoke(cli, _NOTHING)
-        assert {"progress 1/3", "a file was skipped", "from a library", "from the root"} <= set(caplog.messages)
+        assert {"progress 1/3", "a retry", "from a library", "from the root", skipped} <= set(caplog.messages)
         caplog.clear()
         quiet = runner.invoke(cli, [*_NOTHING, "--quiet"])
 
-    assert caplog.messages == ["no connection could be made to https://opendata.example.org"]
-    assert [record.levelno for record in caplog.records] == [logging.ERROR]
+    assert caplog.messages == [
+        skipped,
+        "3 values were rejected",
+        "no connection could be made to https://opendata.example.org",
+    ]
+    assert [record.levelno for record in caplog.records] == [logging.WARNING, logging.WARNING, logging.ERROR]
     assert (loud.exit_code, quiet.exit_code) == (1, 1)
+
+
+@pytest.mark.usefixtures("levels")
+def test_quiet_filters_the_handlers_for_the_length_of_the_command_only(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The handler that writes to stderr gets the filter while the command runs and is given back as it was."""
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    root = logging.getLogger()
+    root.addHandler(handler)
+    root.setLevel(logging.INFO)
+    log = logging.getLogger("wetterdienst.model.values")
+
+    def noisy(**_kwargs: Any) -> list[Any]:  # noqa: ANN401
+        log.info("progress")
+        log.warning("a retry")
+        warn_response(log, FILE_SKIPPED, "a file was skipped")
+        return []
+
+    monkeypatch.setattr(cli_module, "get_glossary", noisy)
+    try:
+        CliRunner().invoke(cli, [*_NOTHING, "--quiet"])
+        assert stream.getvalue().splitlines() == ["a file was skipped"]
+        assert handler.filters == []
+        stream.truncate(0)
+        stream.seek(0)
+        CliRunner().invoke(cli, _NOTHING)
+        assert {"progress", "a retry", "a file was skipped"} <= set(stream.getvalue().splitlines())
+    finally:
+        root.removeHandler(handler)
+
+
+def test_a_response_warning_is_marked_in_its_log_record(caplog: pytest.LogCaptureFixture) -> None:
+    """`--quiet` tells the warnings of the answer by the attribute `warn_response` sets, holding the code."""
+    log = logging.getLogger("wetterdienst.test_quiet")
+    with caplog.at_level(logging.INFO):
+        warn_response(log, FILE_SKIPPED, "a file was skipped")
+        log.warning("an ordinary warning")
+
+    marked, ordinary = caplog.records
+    assert getattr(marked, RESPONSE_WARNING_RECORD) == FILE_SKIPPED
+    assert not hasattr(ordinary, RESPONSE_WARNING_RECORD)
 
 
 def test_quiet_leaves_a_usage_error_to_click() -> None:

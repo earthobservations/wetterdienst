@@ -58,24 +58,30 @@ whole network is written with `--target` to a file or a database, see
 ## Logging
 
 The data a command writes goes to stdout, and what it says about them to stderr as log lines: the warnings about the
-answer (an empty one, values a plausibility check rejected, a file the provider let go), the progress of a long
-request, and the errors. Every command but `restapi` takes `--debug`, which adds the debug lines of the package, and
-`--quiet`, which leaves **errors only**:
+answer (values a plausibility check rejected, a file the provider let go, a parameter without rows, a station id
+left out), the progress of a
+long request, other warnings and notes, and the errors. Every command but `restapi` takes `--debug`, which adds the
+debug lines of the package, and `--quiet`, which leaves **the errors and the warnings about the answer**:
 
 ```bash
-# a scheduled job: nothing on stderr unless it failed
+# a scheduled job: nothing on stderr unless it failed or the answer is not whole
 wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --stations=01048 \
     --timestamp=2024-01 --target=file://values.json --quiet
 ```
 
-`--quiet` changes the level of the log and nothing else: stdout holds what it held (a `--target` is written as without it), a failure is still its one line on
-stderr (a provider that cannot be reached, a missing credential or extra, a `--target` that cannot be written), a
-usage error is still click's and the exit code is the one the command would have had, `0`, `1` or `2`. The warnings
-about the answer are what it does silence, so a script that must tell a partial answer from a whole one reads them
-where they are kept as well: the `warnings` of the `metadata` block of JSON and GeoJSON output (see
-[response metadata](restapi.md#response-metadata)). CSV and a file `--target` carry none. `--quiet` and `--debug` are
-a usage error together, `--quiet=false` being no `--quiet`. The server, `restapi`, has `--debug` alone: its log is
-also uvicorn's, which `--quiet` would not reach.
+`--quiet` changes the level of the log and nothing else: stdout holds what it held (a `--target` is written as without
+it), a failure is still its one line on stderr (a provider that cannot be reached, a missing credential or extra, a
+`--target` that cannot be written), a usage error is still click's and the exit code is the one the command would have
+had, `0`, `1` or `2`.
+
+What it keeps besides the errors are the warnings that qualify the answer, the lines that are also in the `warnings` of
+the `metadata` block of JSON and GeoJSON output (see [response metadata](restapi.md#response-metadata)): they tell a
+partial answer from a whole one, and CSV and a file `--target` carry no such block, so stderr is where a script reads
+them. What it drops is the progress, the notes (the cache that is enabled), the other warnings of the package and
+everything the libraries underneath write below an error, among them the sentence that a request returned no data or
+that nothing was written to the `--target`: an empty answer is empty on stdout. `--quiet` and `--debug` are a usage
+error together, `--quiet=false` being no `--quiet`. The server, `restapi`, has `--debug` alone: its log is also
+uvicorn's, which `--quiet` would not reach.
 
 ## Colour
 

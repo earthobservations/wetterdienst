@@ -89,7 +89,7 @@ from wetterdienst.ui.render import (
 from wetterdienst.ui.response_metadata import issues_metadata, result_metadata
 from wetterdienst.util.cli import no_color, setup_logging
 from wetterdienst.util.extras import import_optional
-from wetterdienst.util.response_warnings import begin_response
+from wetterdienst.util.response_warnings import RESPONSE_WARNING_RECORD, begin_response
 from wetterdienst.util.ui import read_list
 from wetterdienst.util.url import ConnectionString, file_target_path, redact_password
 
@@ -144,14 +144,23 @@ def _remember_quiet(ctx: click.Context, param: click.Parameter, value: bool) -> 
     return value
 
 
-def _apply_log_level(*, debug: bool) -> None:
-    """Set how much the command logs: `--debug` for the package's debug lines, `--quiet` for errors only, else as it is.
+class _QuietFilter(logging.Filter):
+    """Let a handler write errors and the warnings about the answer only: what `--quiet` leaves of the log."""
 
-    `--quiet` raises the level of the root logger and of `wetterdienst` to ERROR for the length of the command, so the
-    warnings and the progress (which is logged at INFO) are not written, and neither are those of the libraries
-    underneath. An error is a `log.error` or `log.exception`, which stay, as do the data on stdout, a usage error that
-    click writes itself and the exit code: nothing but the log's level changes. With `--debug` it is a usage error,
-    which of the two wins is not for the command to guess.
+    def filter(self, record: logging.LogRecord) -> bool:
+        return record.levelno >= logging.ERROR or hasattr(record, RESPONSE_WARNING_RECORD)
+
+
+def _apply_log_level(*, debug: bool) -> None:
+    """Set how much the command logs: `--debug` for the package's debug lines, `--quiet` for less, else as it is.
+
+    `--quiet` keeps the errors (`log.error`, `log.exception`) and the warnings about the answer itself, the ones that
+    are also in the `warnings` of its `metadata` (a file the provider let go, readings a check rejected, a parameter
+    without rows: `warn_response` marks their log records), and drops the rest: the progress (logged at INFO), the
+    other warnings of the package and everything the libraries underneath write below ERROR. The levels of the root
+    logger and of `wetterdienst` are raised to WARNING, and the handlers they have are given a filter for the rest,
+    both for the length of the command. The data on stdout, a usage error that click writes itself and the exit code
+    are untouched. With `--debug` it is a usage error, which of the two wins is not for the command to guess.
     """
     ctx = click.get_current_context()
     if not ctx.meta.get(_QUIET_KEY, False):
@@ -162,12 +171,18 @@ def _apply_log_level(*, debug: bool) -> None:
         raise click.UsageError(msg)
     loggers = [logging.getLogger(), logging.getLogger("wetterdienst")]
     levels = [logger.level for logger in loggers]
+    handlers = list({id(h): h for logger in loggers for h in logger.handlers}.values())
+    quiet = _QuietFilter()
     for logger in loggers:
-        logger.setLevel(logging.ERROR)
+        logger.setLevel(logging.WARNING)
+    for handler in handlers:
+        handler.addFilter(quiet)
 
     def restore() -> None:
         for logger, level in zip(loggers, levels, strict=True):
             logger.setLevel(level)
+        for handler in handlers:
+            handler.removeFilter(quiet)
 
     ctx.call_on_close(restore)
 
@@ -534,7 +549,7 @@ _debug_only_opt = _bool_opt("--debug", default=False, help="Log at debug level. 
 _quiet_opt = _bool_opt(
     "--quiet",
     default=False,
-    help="Log errors only: no warnings, no progress. Not with --debug. Default: false",
+    help="Log errors and warnings about the answer only: no progress. Not with --debug. Default: false",
     expose_value=False,
     callback=_remember_quiet,
 )

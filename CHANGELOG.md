@@ -18,11 +18,12 @@ Types of changes:
 
 ### Added
 
-- Command line: `--quiet`, beside `--debug` on every command but `restapi`, logs errors only (no
-  warnings, no progress) while stdout and the exit code stay as they are; with `--debug` it is a
-  usage error. Shell completion is click's own (`_WETTERDIENST_COMPLETE`, see the command line
-  page) and now offers `--provider` and `--network` from the registry. `NO_COLOR` is honoured by
-  `wetterdienst restapi`, whose log lines uvicorn coloured on a terminal (Part of GH-3134)
+- Command line: `--quiet`, beside `--debug` on every command but `restapi`, logs the errors and
+  the warnings about the answer (the ones in its `metadata.warnings`) only: no progress, no other
+  warning. Stdout and the exit code stay as they are; with `--debug` it is a usage error. Shell
+  completion is click's own (`_WETTERDIENST_COMPLETE`, see the command line page) and now offers
+  `--provider` and `--network` from the registry. `NO_COLOR` is honoured by `wetterdienst restapi`,
+  whose log lines uvicorn coloured on a terminal (Part of GH-3134)
 - The new check `relations` holds the readings of one row (the same station, timestamp and file) to
   each other on every observation network: a maximum is not below the mean and the mean not below
   the minimum (not Météo-France's and FMI's daily means, whose windows differ), the dew point is at
