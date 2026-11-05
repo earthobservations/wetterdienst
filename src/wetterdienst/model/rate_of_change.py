@@ -68,7 +68,7 @@ flag good readings (``docs/data/plausibility.md`` has the numbers, read on 2026-
 histories of 10 stations):
 
 - the **relative humidity**: the limits that exist are DNMI's dip test of 30 % (not in operation) and MADIS's 50 % an
-  hour, and measured they flag 1,453 of 6.3 million hourly readings, 1,310 of them at the Zugspitze and the Feldberg,
+  hour, and measured they flag 1,463 of 6.3 million hourly readings, 1,319 of them at the Zugspitze and the Feldberg,
   where fog and cloud move the humidity that far and back: the false alarms are the reason;
 - the **gusts**: no source (the research's 15 m/s is its own derivation), and a thunderstorm gust is a real step: a step
   of 15 m/s flags 376 of 2.3 million hourly readings, 7.0 to 29 m/s in an hour among them;

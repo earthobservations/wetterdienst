@@ -163,7 +163,7 @@ def test_the_page_says_what_the_check_does_not_judge() -> None:
     section = text.split("### What `step` does not judge")[1].split("\n## ")[0]
     for word in ("relative humidity", "gusts", "soil temperature", "wind direction", "radiation"):
         assert word in section.lower(), word
-    assert "1,453" in section
+    assert "1,463" in section
     assert "17,690" in section
 
 
@@ -262,6 +262,38 @@ def test_a_small_spike_does_not_hide_a_level_shift_after_it() -> None:
     hour = dt.timedelta(hours=1)
     stamps = [START + hour * i for i in (0, 1, 3, 4, 5)]
     assert _flagged(*AIR, [10.0, 10.0, 19.0, -20.0, -20.0], stamps=stamps) == [3]
+
+
+def test_adjacent_spikes_are_both_skipped_and_the_reading_after_them_is_judged_against_the_one_before_them() -> None:
+    """10, 40, 0, 10 has two spikes in a row, and the good 10 is not compared with the 0 (or the 40)."""
+    # the good 10 after two spikes is back where the series was: no step (it was flagged against the 0)
+    assert _flagged(*AIR, [10.0, 40.0, 0.0, 10.0, 10.0]) == [1, 2]
+    # the 35 after them is 25 K from the 10 before them, which is a step (it went unflagged against the 0)
+    assert _flagged(*AIR, [10.0, 40.0, 0.0, 35.0, 35.0]) == [1, 2, 3]
+    # three in a row
+    assert _flagged(*AIR, [10.0, 40.0, 0.0, 40.0, 10.0, 10.0]) == [1, 2, 3]
+    # Zugspitze, hourly mean wind, 1983-11-27 (m/s): 38.5 and 7.8 are the spikes, the 21.7 after them is not a step
+    wind = ("dwd/observation", "hourly", "wind", "wind_speed_mean")
+    assert _flagged(*wind, [20.6, 38.5, 7.8, 21.7, 23.2]) == [1, 2]
+    # a missing hour between the spikes and the reading leaves that reading unjudged, as any other
+    hour = dt.timedelta(hours=1)
+    stamps = [START + hour * i for i in (0, 1, 2, 4, 5)]
+    assert _flagged(*AIR, [10.0, 40.0, 0.0, 35.0, 35.0], stamps=stamps) == [1]
+    # and a missing hour before the 0: the 40 has no successor to come back to and is a step, the 0 has no
+    # predecessor, and the 35 after it is a step from the 0
+    stamps = [START + hour * i for i in (0, 1, 3, 4, 5)]
+    assert _flagged(*AIR, [10.0, 40.0, 0.0, 35.0, 35.0], stamps=stamps) == [1, 3]
+
+
+def test_a_false_alarm_of_another_check_can_hide_a_spike_and_move_the_flag_to_the_good_reading() -> None:
+    """40 h pinned at 0.0 are `stuck`'s: the 30.0 after them has no neighbour, and the good 0.2 after it is the step."""
+    ds = _dataset(*AIR[:3])
+    values = [*[0.0] * 50, 30.0, 0.2, 0.3, 0.2]
+    out = judged(_frame(_name(ds, AIR[3]), values, STEPS["hourly"]), network=AIR[0], dataset=ds)
+    flags = out.get_column("quality_flags").to_list()
+    assert flags[:50] == ["suspect:stuck"] * 50
+    # the consequence of the rule that a reading another check flagged is no neighbour, documented on the page
+    assert flags[50:] == [None, "suspect:step", None, None]
 
 
 def test_the_first_reading_is_never_flagged_and_the_last_is_no_spike() -> None:
@@ -614,7 +646,7 @@ def test_hurricane_irma_is_kept_at_the_limit_of_the_table_and_flagged_at_the_lim
     assert out.get_column("quality_flags").to_list() == [None, None, None, "suspect:step", None]
 
 
-def _reference(  # noqa: C901
+def _reference(
     readings: list[tuple[dt.datetime, float | None]], spike: float, step: float, interval: dt.timedelta
 ) -> set[int]:
     """Judge a series by the definition, reading by reading: the positions of the readings a step or a spike flags."""
@@ -636,12 +668,10 @@ def _reference(  # noqa: C901
     for k in range(1, len(kept)):
         if not close(k - 1, k):
             continue
-        # a reading is judged against the one before it, and, where that is a spike, against the one before the spike
-        # (which has to be one step before the spike): the spike is the mistake, and the series is where it was
+        # a reading is judged against the last reading before it that is no spike (the one before it, or, past one
+        # spike or several in a row, the one before them): a spike is the mistake, and the series is where it was
         before = k - 1
-        if before in spiked:
-            if before < 1 or not close(before - 1, before):
-                continue
+        while before in spiked:
             before -= 1
         if abs(change(before, k)) > step:
             flagged.add(kept[k][2])

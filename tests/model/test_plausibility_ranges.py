@@ -347,7 +347,7 @@ def test_the_bounds_of_the_station_pressure_at_an_elevation() -> None:
         (2956.0, 968.6, False, "the Zugspitze reading a sea level pressure"),
         (2956.0, 908.6, False, "the Zugspitze, 1990-05-31"),
         (7.0, 1097.3, False, "Tromelin, 2000-07-17"),
-        # the known gap, for the step check of GH-3681 to close: a slip that lies between the margins
+        # the gap `elevation` leaves, which the check `step` flags: a slip that lies between the margins
         (48.0, 909.5, True, "Berlin-Tempelhof 1994-08-29: 98 hPa below, as far as Irma's eye is"),
         (25.0, 910.1, True, "List auf Sylt 1990-09-18"),
         (25.0, 908.5, True, "List auf Sylt 1992-10-22"),

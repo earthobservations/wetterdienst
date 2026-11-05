@@ -588,7 +588,7 @@ def _dwd_hourly_pressure_off_the_elevation(monkeypatch: pytest.MonkeyPatch, drop
     # the 1093.3 above, and 03032 (List auf Sylt, 25 m) 5 of 332,702: 910.1, 908.5, 795.0, 1098.2 and 1099.3 (GH-3627).
     # The margin below the standard atmosphere is 143 hPa at sea level (the 870 hPa of Typhoon Tip), since Hurricane
     # Irma read 917.4 hPa at 3 m, so this 909.5 (98 hPa below) and the two of 03032 (910.1, 908.5) are kept: the known
-    # gap, for the step check of GH-3681 to close (steps of 90 to 129 hPa in an hour, against 43 of Irma)
+    # gap `elevation` leaves, which the check `step` flags (steps of 90 to 129 hPa in an hour, against 43 of Irma)
     product = (
         "STATIONS_ID;MESS_DATUM;QN_8;   P;  P0;eor\n"
         "        433;1994082920;    1; 1014.7; 1038.9;eor\n"

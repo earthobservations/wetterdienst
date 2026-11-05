@@ -236,8 +236,8 @@ observation network, for one station and one parameter
   The **later** reading is flagged, the one that arrives with the jump: nothing says which of the two is wrong;
 - a **spike**: a reading that departs from the one before it by more than the limit and from the one after it by more
   than the limit, in the opposite direction, so that it comes back within one step. Only the **middle** reading is
-  flagged. A spike is judged first. The reading after it is judged against the reading **before the spike**, not
-  against the spike, which is the mistake: a jump back to where the series was is no step, and a jump somewhere else
+  flagged. A spike is judged first. The reading after it is judged against the last reading **before it that is no spike**
+  (before the spike, or before several in a row), not against the spike, which is the mistake: a jump back to where the series was is no step, and a jump somewhere else
   (10, 10, 19, -20: a spike of 19 and a step of 30 K from the 10) is one.
 
 A change has to *exceed* the limit: 8.0 K is no spike of 8 K. The limits are per parameter and resolution, in the
@@ -326,14 +326,14 @@ are what the check would flag with the limit, in the whole histories of the 10 D
 
 | parameter | limit measured | readings flagged | of | what they are |
 | --- | --- | --- | --- | --- |
-| relative humidity | spike 30 %, step 50 % (DNMI, MADIS), hourly | 1,453 | 6.3 million | 1,310 at the Zugspitze and the Feldberg: fog and cloud take the humidity from 100 to 40 % and back in an hour |
+| relative humidity | spike 30 %, step 50 % (DNMI, MADIS), hourly | 1,463 | 6.3 million | 1,319 at the Zugspitze and the Feldberg: fog and cloud take the humidity from 100 to 40 % and back in an hour |
 | gusts | step 15 m/s (the research's own derivation), hourly | 376 | 2.3 million | thunderstorm gusts: 3.0, 27.0, 20.0, 10.0 m/s in four hours (Dresden, 2001-07-07) |
 | soil temperature at 5 cm | step 3 K (MADIS 2.8 K), hourly | 17,690 | 2.1 million | the sun on bare soil |
 | air temperature | one-sided step 8 K instead of the spike, hourly | 300 | 6.3 million | fronts: 33.8 to 24.3 °C at Berlin-Tempelhof, 2022-07-25 (the table's 7 are spikes) |
 | pressure | spike 5 hPa, step 60 hPa (DMI), hourly | 811 | 6.8 million | 52 are the table's; the rest are single readings 5 to 60 hPa off their neighbours (1018.9, 1008.0, 1019.3 hPa), and a hurricane's minimum |
 
 - **Relative humidity.** The limits that exist are DNMI's dip test of 30 % (not in operation, it flags nothing) and
-  MADIS's 50 % an hour. Measured, they flag 1,453 of 6.3 million hourly readings of these stations, 1,310 of them at
+  MADIS's 50 % an hour. Measured, they flag 1,463 of 6.3 million hourly readings of these stations, 1,319 of them at
   the two summits, where a station is in cloud one hour and out of it the next. That rate of false alarms is the
   reason it is not judged, and the only one.
 - **Gusts.** Nothing publishes a limit for them; the research derived 15 m/s, and a thunderstorm gust is a real step.
@@ -379,25 +379,25 @@ and 88 % of it is judged).
 | --- | --- | --- | --- | --- |
 | hourly | air temperature (`temperature_air`) | 6,299,464 | 7 | 2.8 °C between 20.6 and 22.0 (Hamburg, 1950), 8.0 between 17.1 and 19.4 (1960), 15.4 between 5.6 and 4.8 (1975), 0.0 between 11.9 and 12.2 (1997), a sign: 6.5 between -6.6 and -5.7 (Feldberg, 1995), 5.5 between -5.0 and -6.3 (Potsdam, 1936), 5.4 between -5.4 and -5.6 (Zugspitze, 1957) |
 | hourly | air temperature (`moisture`) | 4,505,940 | 380 | 184 are 0.0 between other values, 351 are before 1995, 110 at the Zugspitze and the Feldberg: the old whole-degree decades |
-| hourly | dew point (`moisture`) | 4,501,767 | 1,113 | 316 are 0.0 between other values, 605 at the Zugspitze and the Feldberg (the dubious ones) |
+| hourly | dew point (`moisture`) | 4,501,767 | 1,120 | 316 are 0.0 between other values, 612 at the Zugspitze and the Feldberg (the dubious ones) |
 | hourly | station pressure (`moisture`, `pressure`) | 4,505,876 | 38 | single readings about 100 hPa off their neighbours (33), 1989 to 2001; the three that `elevation` lets through are among them |
 | hourly | sea level pressure (`pressure`) | 3,539,284 | 14 | the same: 10 of 14 differ by a multiple of 10 hPa, 8 at Trier-Petrisberg |
-| hourly | mean wind speed (`wind`) | 5,841,991 | 166 | 140 at the Zugspitze (the dubious ones), 157 before 1995 |
-| 10 minutes | air temperature (`temperature_air`) | 16,287,927 | 217 | the Zugspitze's thermometer alternating between -20.2 and 15.1 °C on 2001-05-31 and 06-01 (88), Arkona down to -85.2 °C in September 1993 (23), 52 are 0.0 |
-| 10 minutes | dew point (`temperature_air`) | 15,470,459 | 504 | 355 at the Zugspitze and the Feldberg (the dubious ones), 95 in 2001 |
+| hourly | mean wind speed (`wind`) | 5,841,991 | 167 | 141 at the Zugspitze (the dubious ones), 159 before 1995 |
+| 10 minutes | air temperature (`temperature_air`) | 16,287,927 | 220 | the Zugspitze's thermometer alternating between -20.2 and 15.1 °C on 2001-05-31 and 06-01 (89), Arkona down to -85.2 °C in September 1993 (26), 52 are 0.0 |
+| 10 minutes | dew point (`temperature_air`) | 15,470,459 | 510 | 359 at the Zugspitze and the Feldberg (the dubious ones), 97 in 2001 |
 | 10 minutes | station pressure (`temperature_air`) | 16,263,915 | 8 | 100 hPa off their neighbours (7), 1991 to 1997 |
-| 10 minutes | mean wind speed (`wind`) | 16,183,841 | 37 | 14 at the summits, 16 at Helgoland |
+| 10 minutes | mean wind speed (`wind`) | 16,183,841 | 37 | 14 at the summits, 17 at Helgoland |
 | daily | air temperature mean, minimum, maximum (`climate_summary`) | 964,596 | 0 | |
 
 The daily temperature has no reading flagged: GHCN-Daily's 25 K is a spike no station of these ten has made. The
 readings flagged are, by what they look like: a **0.0** between other values, which DWD wrote for a missing value in the
-whole-degree decades of the hourly `moisture` (184 of the 380 temperatures, 316 of the 1,113 dew points); a **sign or a
+whole-degree decades of the hourly `moisture` (184 of the 380 temperatures, 316 of the 1,120 dew points); a **sign or a
 digit** that is wrong (5.5 °C between -5.0 and -6.3, 15.4 between 5.6 and 4.8; 33 of the 38 site pressures differ from
-their neighbours by a multiple of 10 hPa, within 1.5); a **sensor that fails**: the Zugspitze's thermometer alternated between -20.2 and 15.1 °C for 88 readings on
-2001-05-31 and 06-01, and Arkona's wrote values down to -85.2 °C in September 1993 (23 readings). Neither `range` (-90 to
+their neighbours by a multiple of 10 hPa, within 1.5); a **sensor that fails**: the Zugspitze's thermometer alternated between -20.2 and 15.1 °C for 89 readings on
+2001-05-31 and 06-01, and Arkona's wrote values down to -85.2 °C in September 1993 (26 readings). Neither `range` (-90 to
 60 °C) nor `stuck` finds them. The cases that are **probably good**, the known false positives, are two: the hourly mean
-**wind speed of the Zugspitze** (140 of the 166, in storms, 38.5 m/s one hour and 7.8 the next in November 1983), and the
-**dew point of the two summit stations** (605 of the 1,113, a value derived from the temperature and the humidity in cold
+**wind speed of the Zugspitze** (141 of the 167, in storms, 38.5 m/s one hour and 7.8 the next in November 1983), and the
+**dew point of the two summit stations** (612 of the 1,120, a value derived from the temperature and the humidity in cold
 dry air that swings 8 K and back); the rest of the wind and dew point flags are at lowland stations and are mostly
 errors (a dew point of 0.0 or -59 between values of 10).
 
@@ -996,6 +996,11 @@ What no check covers, and why:
   hourly air temperature by 10 K, which is why the spike limit (8 K) is the lower and the step limit (20 K) the higher. A one-sided
   limit of 8 K an hour would flag 300 hourly steps of 6.3 million in the DWD data read, nearly all of them weather
   (33.8 to 24.3 °C at Berlin-Tempelhof, 2022-07-25), and is not used.
+- **A false alarm of another check can hide a spike and move the flag to the good reading.** A reading any other
+  check flagged is no neighbour, soft or hard, so a flag that is wrong takes its reading out of the series: 50 hours
+  pinned at 0.0 (`suspect:stuck`, a melting point), then 30.0, 0.2, 0.3 leaves the 30.0 without a neighbour and
+  unflagged, and flags the good 0.2 after it as the step from the 30.0. This follows from the rule and is kept. In the
+  hourly DWD data read the rule lost no flag and added 4.
 - **A step flags the later reading of the pair.** Nothing says which of two readings is wrong. A level shift (a sensor
   that jumped by 25 K and stays) flags the first reading after the jump; a bad value that is held for two readings or
   more is a spike of two, which is no spike, so its first reading is flagged as a step, and the first good reading after

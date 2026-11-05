@@ -768,8 +768,9 @@ def _jumps(df: pl.DataFrame, plan: Plan, elsewhere: Sequence[pl.Expr], found: Se
     neighbour and is not judged: a thermometer that is stuck at -40 for a day (``stuck``), a value the source flags
     erroneous (``source``) or a reading ``range`` rejects would flag the good reading beside it.
 
-    The reading after a spike is judged against the reading before the spike, not against the spike, which is the
-    mistake: a jump back to where the series was is no step, and a jump to somewhere else (10, 10, 19, -20) is one.
+    The reading after a spike is judged against the last reading before it that is no spike, not against the spike,
+    which is the mistake: a jump back to where the series was is no step, and a jump to somewhere else (10, 10, 19,
+    -20) is one. Two spikes in a row (10, 40, 0, 10) are both skipped, and a gap before the reading leaves it unjudged.
     """
     rules = dict(plan.steps)
     names = list(rules)
@@ -796,8 +797,6 @@ def _jumps(df: pl.DataFrame, plan: Plan, elsewhere: Sequence[pl.Expr], found: Se
     # the change from the reading before and to the one after, rounded so that 8.0 K is not 8.000000000000002
     change_in = value.sub(value.shift(1)).round(DECIMALS)
     change_out = value.shift(-1).sub(value).round(DECIMALS)
-    # and from the reading two before, which is the one before a spike when the reading before is one
-    change_back = value.sub(value.shift(2)).round(DECIMALS)
     # a neighbour counts if it is of the same series and no more than one step of the resolution away: a gap or a null
     # in between does not
     close_in = series.eq(series.shift(1)) & stamp.sub(stamp.shift(1)).is_between(
@@ -813,14 +812,11 @@ def _jumps(df: pl.DataFrame, plan: Plan, elsewhere: Sequence[pl.Expr], found: Se
         & change_out.abs().gt(spike)
         & change_in.sign().ne(change_out.sign())
     ).fill_null(value=False)
-    after_spike = spiked.shift(1).fill_null(value=False)
-    # a step is the change from the reading before, or from the reading before a spike where that is the reading before
-    jumped = (
-        pl.when(after_spike)
-        .then(close_in.shift(1).fill_null(value=False) & change_back.abs().gt(step))
-        .otherwise(change_in.abs().gt(step))
-    )
-    marked = readings.with_columns(_hit=spiked | (close_in & jumped.fill_null(value=False)))
+    # a reading is judged against the last reading before it that is no spike: the one before it, or where that is a
+    # spike (or several in a row, each of which has both its neighbours one step away) the one before the spikes
+    last_good = pl.when(spiked).then(pl.lit(None, dtype=pl.Float64)).otherwise(value).forward_fill().shift(1)
+    change_back = value.sub(last_good).round(DECIMALS)
+    marked = readings.with_columns(_hit=spiked | (close_in & change_back.abs().gt(step)).fill_null(value=False))
     hits = marked.filter(pl.col("_hit")).get_column("_row")
     if hits.is_empty():
         return _no_hits(df)
