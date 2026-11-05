@@ -108,7 +108,7 @@ of areas it covers. Its columns are those of `df` in the same order, written as 
   `geometry` (the `MultiPolygon` of all the polygon areas, empty for an alert of warn cells alone) as JSON text in one
   field, which a CSV reader hands back and `json.loads` reads.
 
-```csv
+```text
 alert_id,status,msg_type,event,severity,sent,warncell_ids,area_names,parameters,geometry
 2.49.0.0.276.0.DWD.PVW.1785050580000.6bd1534c-....ENG,Actual,Alert,gale-force gusts,Moderate,2026-07-26T07:23:00.000000+00:00,"809272121,809276148","Gemeinde Grainet,Stadt Zwiesel","[{""name"": ""gusts"", ""value"": ""65-75 [km/h]""}, {""name"": ""wind direction"", ""value"": ""west""}]","{""type"": ""MultiPolygon"", ""coordinates"": [[[[12.0, 49.0], ...]]]}"
 ```
