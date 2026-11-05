@@ -121,7 +121,6 @@ def stations_mock() -> TimeseriesRequest:
         url = "https://opendata.dwd.de/climate_environment/CDC/"
         license = CC_BY_4_0
         attribution = "Source: Deutscher Wetterdienst"
-        notice = None
 
     class StationsMock:
         metadata = MetadataMock

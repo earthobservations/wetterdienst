@@ -733,9 +733,6 @@ class ProviderTerms:
     attribution: str | None
     url: str
     extent: Extent
-    #: a restriction in the provider's terms beyond the licence and the credit line that a reader of an answer must
-    #: know of; null where there is none (GH-2567)
-    notice: str | None = None
 
     def __post_init__(self) -> None:
         """Hold a national network to the country of its provider, as `MetadataModel` does."""
@@ -791,11 +788,6 @@ class MetadataModel(BaseModel):
     #: the credit line a user of the data has to give: the provider's own wording where it states one, else
     #: its name as the rights holder; null where the provider states none or asks for none
     attribution: str | None
-    #: a restriction in the provider's terms beyond the licence and the credit line that a reader of an answer must
-    #: know of, which every answer reports as `provider.notice` and in the `X-Wetterdienst-Notice` header: ECCC's
-    #: redistribution clause. It is information and no switch: nothing is refused for it. Null where there is none,
-    #: which is every provider but one; a declaration may leave it out (GH-2567)
-    notice: str | None = None
     url: str
     kind: TimeseriesKind
     #: where the stations of the network are, which is no statement about the provider's `country` (a declaration

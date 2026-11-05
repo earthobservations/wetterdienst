@@ -1,10 +1,10 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""Sphinx extension rendering the licence, credit line and notice of every provider as one table (GH-2567).
+"""Sphinx extension rendering the licence and credit line of every provider as one table (GH-2567).
 
 Provides a ``provider-licenses`` directive so ``docs/data/provider/licenses.md`` builds its table from the provider
-metadata at build time: what the answers of the library report as ``metadata.provider.license``, ``attribution`` and
-``notice`` is what the page says, because it is read from the same declarations. Nothing generated is committed.
+metadata at build time: what the answers of the library report as ``metadata.provider.license`` and ``attribution`` is
+what the page says, because it is read from the same declarations. Nothing generated is committed.
 
 The table has a row for every provider and the terms its networks declare: the networks of a provider that agree
 (they all do, which ``tests/ui/test_providers.py`` holds them to) share a row, and a network that did not would get a
@@ -32,8 +32,8 @@ if TYPE_CHECKING:
 
     from wetterdienst.model.metadata import LicenseModel, MetadataModel, ProviderTerms
 
-_COLUMNS = ("Provider", "Networks", "Licence", "Credit line", "Notice")
-_WIDTHS = (16, 12, 24, 28, 20)
+_COLUMNS = ("Provider", "Networks", "Licence", "Credit line")
+_WIDTHS = (18, 14, 32, 36)
 
 
 @dataclass(frozen=True)
@@ -45,7 +45,6 @@ class LicenseRow:
     networks: tuple[str, ...]
     license: LicenseModel | None
     attribution: str | None
-    notice: str | None
 
     @property
     def licence_label(self) -> str:
@@ -75,8 +74,8 @@ def license_rows() -> list[LicenseRow]:
     Sorted by the English name of the provider, as `/api/providers` is. The networks of a row are in the order of the
     registry.
     """
-    grouped: dict[tuple[str, str | None, str | None, str | None], list[str]] = {}
-    declared: dict[tuple[str, str | None, str | None, str | None], LicenseRow] = {}
+    grouped: dict[tuple[str, str | None, str | None], list[str]] = {}
+    declared: dict[tuple[str, str | None, str | None], LicenseRow] = {}
     for provider, networks in Wetterdienst.registry.items():
         for network in networks:
             terms = _terms(provider, network)
@@ -84,7 +83,6 @@ def license_rows() -> list[LicenseRow]:
                 provider,
                 terms.license.model_dump_json() if terms.license else None,
                 terms.attribution,
-                terms.notice,
             )
             grouped.setdefault(key, []).append(network)
             declared.setdefault(
@@ -95,7 +93,6 @@ def license_rows() -> list[LicenseRow]:
                     networks=(),
                     license=terms.license,
                     attribution=terms.attribution,
-                    notice=terms.notice,
                 ),
             )
     rows = [
@@ -105,7 +102,6 @@ def license_rows() -> list[LicenseRow]:
             networks=tuple(grouped[key]),
             license=row.license,
             attribution=row.attribution,
-            notice=row.notice,
         )
         for key, row in declared.items()
     ]
@@ -127,7 +123,7 @@ def _entry(*children: nodes.Node) -> nodes.entry:
 
 
 class ProviderLicensesDirective(SphinxDirective):
-    """Render the licence, the credit line and the notice of every provider as a table."""
+    """Render the licence and the credit line of every provider as a table."""
 
     has_content = False
     option_spec: ClassVar[dict[str, Any]] = {}
@@ -164,18 +160,30 @@ class ProviderLicensesDirective(SphinxDirective):
             head_row += _entry(_text(title, missing=""))
         body = nodes.tbody()
         tgroup += body
-        for row in license_rows():
+        for row in _ROWS if _ROWS is not None else license_rows():
             line = nodes.row()
             line += self._provider_cell(row)
             line += _entry(_text(", ".join(row.networks), missing=""))
             line += self._licence_cell(row)
             line += _entry(_text(row.attribution, missing="None stated"))
-            line += _entry(_text(row.notice, missing="None"))
             body += line
         return [table]
 
 
+#: the rows, collected once in the process that builds, before Sphinx forks the workers that read the pages in
+#: parallel (`-j`): a worker that imported the providers itself died on macOS, where a native module of one (eccodes,
+#: radar) does not survive the fork
+_ROWS: list[LicenseRow] | None = None
+
+
+def _collect_rows(app: Sphinx) -> None:  # noqa: ARG001
+    """Read the terms of every network, once, when the builder is made and nothing has been forked yet."""
+    global _ROWS  # noqa: PLW0603
+    _ROWS = license_rows()
+
+
 def setup(app: Sphinx) -> dict[str, Any]:
-    """Register the directive."""
+    """Register the directive, and the collection of the rows before the pages are read."""
+    app.connect("builder-inited", _collect_rows)
     app.add_directive("provider-licenses", ProviderLicensesDirective)
     return {"version": "1.0", "parallel_read_safe": True, "parallel_write_safe": True}

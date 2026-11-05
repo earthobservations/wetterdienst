@@ -32,6 +32,7 @@ from mcp_types import EmbeddedResource, ImageContent, TextContent
 
 from tests.ui.test_operations import _VALUES, _no_ambient_settings, _selection_of  # noqa: F401
 from tests.ui.test_restapi import _stub_stream, _values_result_of_shape
+from wetterdienst.model.processing_note import PROCESSING_NOTE
 from wetterdienst.ui import restapi
 from wetterdienst.ui.mcp import _mark_tool_requests, _report_of, _sentence_of, build_mcp_server
 
@@ -145,6 +146,9 @@ def test_a_tool_that_advertises_a_format_answers_in_it(tool: str, monkeypatch: p
             # the `Link` header of the answer is carried, and the sentence names the terms
             assert result.meta["wetterdienst"]["license_url"] == "https://creativecommons.org/licenses/by/4.0/", fmt
             assert "(https://creativecommons.org/licenses/by/4.0/)" in told, fmt
+            # what wetterdienst did to the data is carried the same way, from the `X-Wetterdienst-Processing` header
+            assert result.meta["wetterdienst"]["processing_note"] == PROCESSING_NOTE, fmt
+            assert PROCESSING_NOTE in told, fmt
             if tool == "values":
                 assert result.meta["wetterdienst"]["warnings"] == ["station-skipped"], fmt
 

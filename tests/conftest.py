@@ -1010,7 +1010,6 @@ def metadata() -> dict:
             },
             "name_english": "German Weather Service",
             "name_local": "Deutscher Wetterdienst",
-            "notice": None,
             "url": "https://opendata.dwd.de/climate_environment/CDC/",
         },
         "data_updated_at": None,

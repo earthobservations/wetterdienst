@@ -18,20 +18,22 @@ Types of changes:
 
 ### Added
 
-- Every answer has a `processing_note` in its `metadata` (REST, MCP, command line, Python
-  `with_metadata=True`, files of an export) and an `X-Wetterdienst-Processing` header: that
-  wetterdienst reshaped the provider's data into one table and converted its units, which licences
-  such as CC BY ask to be indicated. `interpolate`, `summarize` and the climate stripes add that the
-  values are derived. One text for all providers, no legal advice (Part of GH-2567)
-- `provider.notice` in every answer, with an `X-Wetterdienst-Notice` header and in `providers`: a
-  restriction of the provider's terms beyond licence and credit line. ECCC has one (its data may be
-  passed on only if every recipient agrees to the same restrictions and no fee is charged for it);
-  ECCC is still served, `null` for every other provider (Part of GH-2567)
-- The docs have a page of the licence, credit line and notice of every provider, built from the
-  provider metadata, and the overview no longer calls all the data open (Part of GH-2567)
+- Every answer that holds provider data has a `processing_note` in its `metadata` (REST, MCP,
+  command line, Python `with_metadata=True`, files of an export) and an `X-Wetterdienst-Processing`
+  header: that wetterdienst reshaped the data into one table and converted its units where they
+  differ, which licences such as CC BY ask to be indicated. `interpolate` and `summarize` add that
+  the values were selected or calculated, the stripes' image that it is drawn from annual values.
+  One text for all providers, no legal advice (Part of GH-2567)
+- The docs have a page of the licence and credit line of every provider, built from the provider
+  metadata, and the overview no longer calls all the data open (Part of GH-2567)
 
 ### Changed
 
+- `eccc/observation` now reports the licence of the data server it reads, the Environment and
+  Climate Change Canada Data Server End-use Licence (`spdx_id` null, `license.url` its text; before
+  the Climate Data Online agreement, whose redistribution clause does not apply to it in our
+  reading), and its `attribution` is "Data Source: Environment and Climate Change Canada" (before
+  "based on Environment and Climate Change Canada data") (Part of GH-2567)
 - `imgw/meteorology` and `imgw/hydrology` now report CC BY-NC-ND 4.0 as `license` for all their
   data (`spdx_id` `CC-BY-NC-ND-4.0`, before `null` with a link to IMGW-PIB's terms), so
   `license.url` is now the licence text. Those terms still apply beside it, and `attribution` is

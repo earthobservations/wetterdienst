@@ -3,9 +3,9 @@
 This chapter provides an informative overview of the data accessible via the `wetterdienst` service and the associated
 usage conditions. `wetterdienst` facilitates user access to data from various agencies, including the German Weather
 Service (DWD). The data is published by the agencies under licences that differ, and not all of them are open: some ask
-for the source to be named, one restricts passing the data on (ECCC), one is reported under a non-commercial licence
-without derivatives (IMGW). The page on [licences and credit lines](provider/licenses.md) lists the licence, the credit line and any
-restriction of every provider in one table, and each provider's page links its terms and quotes the clauses that matter.
+for the source to be named, one is reported under a non-commercial licence without derivatives (IMGW). The page on
+[licences and credit lines](provider/licenses.md) lists the licence and the credit line of every provider in one table,
+and each provider's page links its terms and says what they ask of you.
 Please take a moment to review them and to give the credit line the provider asks for. `wetterdienst` changes the
 data it hands over (it is reshaped into one table and its units are converted), which every answer says in its
 `metadata`; the page on licences says how.

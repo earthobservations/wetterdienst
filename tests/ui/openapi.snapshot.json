@@ -5508,18 +5508,6 @@
             "title": "Attribution",
             "description": "The credit line a user of the data has to give; null where the provider states none or asks for none."
           },
-          "notice": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Notice",
-            "description": "A restriction in the provider's terms, beyond the licence and the credit line, that a user of the data has to know of; null where there is none. Every answer of the provider reports it as `metadata.provider.notice`."
-          },
           "networks": {
             "items": {
               "$ref": "#/components/schemas/ProviderNetwork"
@@ -5539,7 +5527,6 @@
           "country_code",
           "license",
           "attribution",
-          "notice",
           "networks"
         ],
         "title": "Provider",
@@ -5910,7 +5897,7 @@
           },
           "provider": {
             "$ref": "#/components/schemas/_Provider",
-            "description": "Who published the data, under which licence (`license`, null where the provider states none), with which credit line (`attribution`) and under which further restriction of its terms (`notice`, null where there is none)."
+            "description": "Who published the data, under which licence (`license`, null where the provider states none) and with which credit line (`attribution`)."
           },
           "producer": {
             "$ref": "#/components/schemas/_Producer"
@@ -5918,7 +5905,7 @@
           "processing_note": {
             "type": "string",
             "title": "Processing Note",
-            "description": "What wetterdienst did to the data: it was reshaped into a uniform table and its units were converted (unless turned off). The answers of `interpolate`, `summarize` and the climate stripes add that the values are derived, calculated from the provider's readings. The same text for every provider and licence, so that a licence that asks for changes to be indicated has them said; no legal advice."
+            "description": "What wetterdienst did to the data: it was reshaped into a uniform table and its units converted where they differ. The answers of `interpolate` and `summarize` add that the values were selected or calculated from the provider's readings, and the headers of the climate stripes' image that it is drawn from the provider's annual values. The same text for every provider and licence, so that a licence that asks for changes to be indicated has them said; no legal advice."
           },
           "request": {
             "$ref": "#/components/schemas/ResolvedRequest"
@@ -7137,17 +7124,6 @@
               }
             ],
             "title": "Attribution"
-          },
-          "notice": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Notice"
           }
         },
         "additionalProperties": false,
@@ -7159,8 +7135,7 @@
           "copyright",
           "url",
           "license",
-          "attribution",
-          "notice"
+          "attribution"
         ],
         "title": "_Provider",
         "description": "Type definition for provider metadata."

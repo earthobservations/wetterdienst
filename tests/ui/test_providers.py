@@ -44,7 +44,7 @@ def _untimed(body: dict[str, Any]) -> dict[str, Any]:
 
 
 @pytest.mark.parametrize(
-    "field", ["name_short", "name_english", "name_local", "country", "country_code", "license", "attribution", "notice"]
+    "field", ["name_short", "name_english", "name_local", "country", "country_code", "license", "attribution"]
 )
 def test_the_networks_of_a_provider_agree_on_what_the_provider_is(field: str) -> None:
     """A provider is described once, by its first network, so the others must say the same of it."""
@@ -135,7 +135,6 @@ def test_a_provider_carries_the_terms_its_metadata_declares() -> None:
         metadata = Wetterdienst.resolve(provider.provider, provider.networks[0].network).metadata
         assert provider.license == metadata.license
         assert provider.attribution == metadata.attribution
-        assert provider.notice == metadata.notice
         assert (provider.country, provider.country_code) == (metadata.country, metadata.country_code)
         assert provider.name_short == metadata.name_short
     dwd = next(provider for provider in answer.providers if provider.provider == "dwd")
@@ -144,19 +143,15 @@ def test_a_provider_carries_the_terms_its_metadata_declares() -> None:
     assert (dwd.country, dwd.country_code) == ("Germany", "DE")
 
 
-def test_only_eccc_has_a_notice_and_it_names_the_licence_agreement() -> None:
-    """ECCC's redistribution clause is the one restriction a notice carries; no other provider has one (GH-2567).
-
-    A notice is information and no switch: the provider is listed and served all the same.
-    """
-    notices = {provider.provider: provider.notice for provider in get_providers().providers if provider.notice}
-
-    assert set(notices) == {"eccc"}
-    assert "same restrictions" in notices["eccc"]
-    assert "no fee" in notices["eccc"]
+def test_eccc_carries_the_end_use_licence_of_its_data_server() -> None:
+    """ECCC's licence is the one the API it is read from declares in its OpenAPI document (GH-2567)."""
     eccc = next(provider for provider in get_providers().providers if provider.provider == "eccc")
+
     assert eccc.license is not None
-    assert eccc.license.url in notices["eccc"]
+    assert eccc.license.spdx_id is None
+    assert eccc.license.name == "Environment and Climate Change Canada Data Server End-use Licence"
+    assert eccc.license.url == "https://eccc-msc.github.io/open-data/licence/readme_en/"
+    assert eccc.attribution == "Data Source: Environment and Climate Change Canada"
 
 
 def test_the_networks_are_those_coverage_lists_with_what_they_offer(client: TestClient) -> None:

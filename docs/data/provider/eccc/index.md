@@ -9,49 +9,57 @@
 
 ## License
 
-The license for the use of ECCC data is given [here](https://climate.weather.gc.ca/prods_servs/attachment1_e.html).
+Wetterdienst reports the
+[Environment and Climate Change Canada Data Server End-use Licence](https://eccc-msc.github.io/open-data/licence/readme_en/)
+(version 2.1.1, August 2026) as `license` for ECCC, with the credit line "Data Source: Environment and Climate Change
+Canada" as `attribution`.
 
-**Notice.** The redistribution restriction quoted below allows ECCC's data to be passed on only if no fee is charged
-for it and every recipient agrees to the same restrictions before use. The hosted instance of wetterdienst (REST API,
-MCP server, app) serves ECCC data to whoever asks, as does any server run from the library, and the library hands it
-to the programs that use it. Every answer for ECCC therefore carries the restriction, so that whoever passes the data
-on knows of it: as `notice` in the `provider` block of the
-[response metadata](../../../usage/restapi.md#response-metadata), in the `X-Wetterdienst-Notice` header, in the files
-the library writes and in the [`providers`](../../../usage/restapi.md#providers) list. The notice informs and refuses
-nothing: ECCC data is still served. Whether the use the hosted instance makes of the data is within the agreement is
-not settled. If you run a public instance or build a product on ECCC data, read the agreement and ask ECCC.
+**How we know.** The OpenAPI document of the API the library reads, MSC GeoMet (`https://api.weather.gc.ca/openapi?f=json`,
+read 2026-11-05), names that licence in its `info.license` and lists the collections `climate-stations`,
+`climate-hourly`, `climate-daily` and `climate-monthly`, which are the ones the library reads. The collections state no
+licence of their own.
 
-**Which terms.** The agreement quoted here is the one of Climate Data Online. The library reads the data from the
-MSC GeoMet OGC API (`api.weather.gc.ca`), whose collections state no licence, and the MSC Open Data pages publish a
-second text, the
-[Data Services End-use Licence](https://eccc-msc.github.io/open-data/licence/readme_en/) (version 2.1.1, August
-2026), which allows copying, modification and distribution, commercial use included, with attribution, and has no
-redistribution condition. Which of the two covers the data the library reads is not stated by ECCC. Wetterdienst
-reports the agreement and its notice until that is settled.
+**What the licence allows.** In our words, from the text read on 2026-11-05: a worldwide, royalty-free, perpetual,
+non-exclusive licence to use the information, commercial use included, to copy, modify, publish, translate, adapt and
+distribute it in any medium or format for any lawful purpose. Weather alerts must be reproduced without altering their
+content or intent. The conditions are in section 3:
 
-Specifically we want to quote and therewith highlight two passages from ECCC:
+> Acknowledge the source of the Information by including any attribution statement specified by the Information
+> Provider and/or Third Party Information Contributor and as indicated when you access the Information from
+> Environment and Climate Change Canada (ECCC) data servers and, where possible, provide a link to this licence.
+> [...] For example; "Data Source: Environment and Climate Change Canada" [...] If the Information Provider or the
+> Third Party Information Contributor does not provide a specific attribution statement, or if you are using
+> Information from several information providers and multiple attributions are not practical for your product or
+> application, you must use the following attribution statement: Contains information licenced under the Data Server
+> End-use Licence of Environment and Climate Change Canada.
 
-- REDISTRIBUTION RESTRICTIONS
+The collections specify no attribution statement, so the credit line is the example the licence gives, and the
+licence's URL is the `Link` header of every answer (the `license.url` of the block). The licence grants no right to
+personal information, to rights of third parties, to ECCC's names and logos, or to use the information in a way that
+suggests ECCC endorses you (sections 4 and 5), and it comes with no warranty (section 6). Wetterdienst changes the data
+it hands over (it is reshaped into one table, parameters are renamed and units converted, see
+[licences and credit lines](../licenses.md#what-wetterdienst-does-to-the-data)), which the licence allows and which
+every answer says in its `processing_note`. The MSC Open Data pages also publish a Services Usage Policy that
+complements the licence; it has not been reviewed here.
 
-    > You are authorized to further distribute the data or software, including any portion
-    > of it, contained in this product under the following conditions only. No fee will be
-    > charged explicitly for this Environment and Climate Change Canada product to any party
-    > to whom it is distributed. (Charges for value-added services are permitted.). In
-    > consideration of the licence you are herein granted, you have the obligation to
-    > acknowledge the source of the Environment and Climate Change Canada Data with the
-    > following layout or something similar: based on Environment and Climate Change Canada
-    > data. Redistribution must occur so that any other party must agree to the same
-    > redistribution restrictions before use of the redistributed product is allowed.
+**What points the other way.** The climate collections' canonical link goes to Climate Data Online
+(`https://climate.weather.gc.ca`), and the
+[Licence Agreement for Use of Environment and Climate Change Canada Data](https://climate.weather.gc.ca/prods_servs/attachment1_e.html)
+of that site restricts redistribution:
 
-- NO WARRANTIES
+> You are authorized to further distribute the data or software, including any portion
+> of it, contained in this product under the following conditions only. No fee will be
+> charged explicitly for this Environment and Climate Change Canada product to any party
+> to whom it is distributed. (Charges for value-added services are permitted.). In
+> consideration of the licence you are herein granted, you have the obligation to
+> acknowledge the source of the Environment and Climate Change Canada Data with the
+> following layout or something similar: based on Environment and Climate Change Canada
+> data. Redistribution must occur so that any other party must agree to the same
+> redistribution restrictions before use of the redistributed product is allowed.
 
-    > Environment and Climate Change Canada does not warrant the quality,
-    > accuracy, or completeness of any information or data. Such information and data is
-    > provided "AS IS" without warranty or condition of any nature. Environment and Climate
-    > Change Canada disclaims all other warranties, expressed or implied, including but not
-    > limited to implied warranties of merchantability and fitness for a particular purpose,
-    > with respect to the software, the data retrieved from this product, and any accompanying
-    > materials.
+Our reading is that this agreement belongs to Climate Data Online's bulk download product, which the library does not
+read, and that the licence of the data server is the one that covers what it reads. That is our reading and not a
+statement from ECCC. If your use depends on the difference, for instance because you pass the data on, ask ECCC.
 
 ```{toctree}
 :hidden:

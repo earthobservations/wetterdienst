@@ -73,7 +73,6 @@ def block_attributes(block: dict[str, Any]) -> dict[str, str]:
         "license": None if license_ is None else license_["spdx_id"] or license_["name"],
         "license_url": None if license_ is None else license_["url"],
         "attribution": provider["attribution"],
-        "notice": provider["notice"],
         "processing_note": block["processing_note"],
         "retrieved_at": block["retrieved_at"],
         "data_updated_at": block["data_updated_at"],

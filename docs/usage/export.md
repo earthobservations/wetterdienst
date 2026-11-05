@@ -135,8 +135,8 @@ it, with `retrieved_at` the time the file is written:
 
 A Parquet file, a NetCDF file and a Zarr group hold the whole block as JSON under `wetterdienst_metadata` and, for a
 tool that lists the keys (`parquet-tools`, `ncdump -h`), its parts as `provider`, `license`, `license_url`,
-`attribution`, `notice` (a restriction of the provider's terms, ECCC's), `processing_note` (what wetterdienst did to the
-data, derived values said so), `retrieved_at` and `data_updated_at`; a part the provider or the source does not state
+`attribution`, `processing_note` (what wetterdienst did to the
+data, selected or calculated values said so), `retrieved_at` and `data_updated_at`; a part the provider or the source does not state
 is left out. The sidecar holds the block, `processing_note` included. A CSV, a spreadsheet or a Feather file without a
 sidecar carries none of it: if you publish such a file, give the credit line of the provider and say that the data
 was processed.

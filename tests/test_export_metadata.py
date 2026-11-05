@@ -88,8 +88,6 @@ def test_parquet_carries_the_block_of_the_rest_api_by_default(name: str, tmp_pat
     assert stored["processing_note"] == _block_of(stored)["processing_note"]
     assert stored["processing_note"].startswith(PROCESSING_NOTE)
     assert stored["processing_note"].endswith(DERIVED_NOTE) == (name in {"interpolated", "summarized"})
-    # the provider of these results has no notice, so there is no key of that name
-    assert "notice" not in stored
     # nothing is written beside it
     assert [path.name for path in tmp_path.iterdir()] == ["data.parquet"]
 
@@ -348,7 +346,7 @@ def test_a_self_describing_file_of_a_frame_without_a_provider_is_written_without
 def test_a_provider_that_states_no_licence_writes_none() -> None:
     """A part the block has no value for is left out, not written as null: NetCDF has no null attribute."""
     block = {
-        "provider": {"name_english": "Somebody", "license": None, "attribution": None, "notice": None},
+        "provider": {"name_english": "Somebody", "license": None, "attribution": None},
         "retrieved_at": "2026-11-01T00:00:00Z",
         "data_updated_at": None,
         "processing_note": PROCESSING_NOTE,
@@ -360,7 +358,7 @@ def test_a_provider_that_states_no_licence_writes_none() -> None:
 
 def test_a_licence_is_named_by_its_spdx_identifier_or_else_by_its_name() -> None:
     """As the `X-Wetterdienst-License` header names it."""
-    provider = {"name_english": "A", "attribution": "credit", "notice": None}
+    provider = {"name_english": "A", "attribution": "credit"}
     spdx = block_attributes(
         {
             "provider": {**provider, "license": {"spdx_id": "CC-BY-4.0", "name": "n", "url": "u"}},
@@ -394,22 +392,7 @@ def test_the_block_is_the_one_the_rest_api_builds(tmp_path: Path) -> None:
     assert block["counts"]["stations"] == stations.df.height
 
 
-# --- the note and the notice (GH-2567) ----------------------------------------------------------------------------
-
-
-def test_a_notice_of_the_provider_is_a_key_of_the_file() -> None:
-    """A restriction of the provider's terms (ECCC's) is listed with the licence and the credit line."""
-    notice = "pass these terms on"
-    attributes = block_attributes(
-        {
-            "provider": {"name_english": "A", "license": None, "attribution": "credit", "notice": notice},
-            "retrieved_at": "t",
-            "data_updated_at": None,
-            "processing_note": "p",
-        }
-    )
-    assert attributes["notice"] == notice
-    assert attributes["processing_note"] == "p"
+# --- the note (GH-2567) ----------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("name", ["values", "interpolated"])

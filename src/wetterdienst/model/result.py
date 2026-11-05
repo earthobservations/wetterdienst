@@ -98,9 +98,6 @@ class _Provider(TypedDict):
     # null where the provider states no terms, or asks for no credit
     license: _License | None
     attribution: str | None
-    # a restriction of the provider's terms that the reader of the answer must know of, beyond the licence and the
-    # credit line; null where there is none (GH-2567)
-    notice: str | None
 
 
 class _Producer(TypedDict):
@@ -121,8 +118,8 @@ class _Metadata(TypedDict):
     #: when the source says the data was last updated, in UTC, in the library's timestamp format; null where it
     #: states none, for a list of stations and for a history (GH-2567)
     data_updated_at: str | None
-    #: what wetterdienst did to the data: reshaped, units converted, and for an interpolation, a summary and
-    #: climate stripes, that the values are derived (GH-2567)
+    #: what wetterdienst did to the data: reshaped, units converted, and for an interpolation and a summary, that the
+    #: values were selected or calculated from the readings (GH-2567)
     processing_note: str
 
 
@@ -219,7 +216,6 @@ class _ProviderTerms(Protocol):
     url: str
     license: LicenseModel | None
     attribution: str | None
-    notice: str | None
 
 
 def describe_producer() -> _Producer:
@@ -241,11 +237,13 @@ def describe_provider(
     data_updated_at: datetime | None = None,
     *,
     derived: bool = False,
+    image: bool = False,
 ) -> _Metadata:
     """Give the `provider` and `producer` blocks of an answer: who published the data, under which terms, and us.
 
     And `data_updated_at`, the date the source states for the data, where the answer has one, and the
-    `processing_note` that says what wetterdienst did to it, with `derived` for values that were calculated (GH-2567).
+    `processing_note` that says what wetterdienst did to it, with `derived` for values that were selected or calculated
+    and `image` for an image drawn from them (GH-2567).
     """
     return {
         "provider": {
@@ -256,11 +254,10 @@ def describe_provider(
             "url": terms.url,
             "license": cast("_License", terms.license.model_dump()) if terms.license else None,
             "attribution": terms.attribution,
-            "notice": terms.notice,
         },
         "producer": describe_producer(),
         "data_updated_at": None if data_updated_at is None else format_timestamp(data_updated_at),
-        "processing_note": processing_note(derived=derived),
+        "processing_note": processing_note(derived=derived, image=image),
     }
 
 

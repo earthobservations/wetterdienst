@@ -4,7 +4,8 @@
 
 The rows are collected offline from the registry, so a provider that is added is on the page, and one that cannot be
 imported fails the build rather than leaving it out. The glue to Sphinx runs on a minimal project (the extension and the
-markdown of MyST); these need the `docs` group and are skipped without it (`docs.yml` runs the file with it).
+markdown of MyST). The extension imports docutils and Sphinx, which are of the `docs` group: without it the whole file
+is skipped (`docs.yml` runs it with it), as the offline selection of the test matrix has no such group.
 """
 
 from __future__ import annotations
@@ -19,6 +20,10 @@ from pathlib import Path
 import pytest
 
 from wetterdienst.api import Wetterdienst
+
+# before the extension is loaded, which imports them: a collection error would fail the whole run without the group
+pytest.importorskip("docutils")
+pytest.importorskip("sphinx")
 
 _EXT = Path(__file__).resolve().parents[1] / "docs" / "_ext"
 _SPEC = importlib.util.spec_from_file_location("provider_licenses", _EXT / "provider_licenses.py")
@@ -64,13 +69,12 @@ def test_the_networks_of_a_provider_share_a_row_while_they_agree() -> None:
 
 @pytest.mark.parametrize(("provider", "network"), _networks())
 def test_a_row_has_the_terms_the_network_declares(provider: str, network: str) -> None:
-    """Licence, credit line and notice are read from the declaration: the page is not a second copy of them."""
+    """Licence and credit line are read from the declaration: the page is not a second copy of them."""
     terms = _terms(provider, network)
     row = next(row for row in provider_licenses.license_rows() if row.provider == provider and network in row.networks)
 
     assert row.license == terms.license  # ty: ignore[unresolved-attribute]
     assert row.attribution == terms.attribution  # ty: ignore[unresolved-attribute]
-    assert row.notice == terms.notice  # ty: ignore[unresolved-attribute]
     assert row.name_english == terms.name_english  # ty: ignore[unresolved-attribute]
 
 
@@ -81,12 +85,13 @@ def test_the_rows_are_in_the_order_of_the_providers_list() -> None:
     assert names == sorted(names)
 
 
-def test_eccc_is_the_row_with_a_notice() -> None:
-    """The one restriction beyond a licence is shown on the page."""
-    noticed = {row.provider: row.notice for row in provider_licenses.license_rows() if row.notice}
+def test_eccc_is_the_row_of_the_end_use_licence() -> None:
+    """The licence of ECCC's data server, linked to its text, with the credit line its section 3 gives as example."""
+    row = next(row for row in provider_licenses.license_rows() if row.provider == "eccc")
 
-    assert set(noticed) == {"eccc"}
-    assert "same restrictions" in noticed["eccc"]
+    assert row.license is not None
+    assert row.license.url == "https://eccc-msc.github.io/open-data/licence/readme_en/"
+    assert row.attribution == "Data Source: Environment and Climate Change Canada"
 
 
 def test_a_network_that_differs_gets_a_row_of_its_own(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -160,8 +165,8 @@ def _build(root: Path) -> tuple[subprocess.CompletedProcess[str], Path]:
     return process, out / "data" / "provider" / "licenses.html"
 
 
-def test_the_directive_builds_a_table_with_every_licence_link_and_the_notice(tmp_path: Path) -> None:
-    """The licence URLs are links of the page, so the link check reaches them; notice and credit lines are text."""
+def test_the_directive_builds_a_table_with_every_licence_link(tmp_path: Path) -> None:
+    """The licence URLs are links of the page, so the link check reaches them; the credit lines are text."""
     process, page = _build(tmp_path)
 
     # -W: any warning of the build is an error
@@ -176,6 +181,5 @@ def test_the_directive_builds_a_table_with_every_licence_link_and_the_notice(tmp
         assert network in text
         if terms.attribution:  # ty: ignore[unresolved-attribute]
             assert terms.attribution in text  # ty: ignore[unresolved-attribute]
-    # the notice of ECCC, and the link of each provider to its own page
-    assert "ECCC data may be passed on only if every recipient agrees to the same restrictions" in text
+    # the link of each provider to its own page
     assert {f"{provider}/index.html" for provider in Wetterdienst.registry} <= hrefs

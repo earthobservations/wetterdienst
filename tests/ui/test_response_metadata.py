@@ -821,6 +821,23 @@ def test_the_licence_a_provider_states_is_the_one_declared(network: tuple[str, s
     assert metadata.attribution
 
 
+def test_eccc_reports_the_end_use_licence_of_the_data_server_it_reads() -> None:
+    """The MSC GeoMet API declares it in `info.license` of its OpenAPI document (read 2026-11-05), spdx_id has none.
+
+    Section 3 of the licence asks for the attribution statement the provider specifies, else for "Data Source:
+    Environment and Climate Change Canada", its own example; the collections specify none. The agreement of Climate
+    Data Online (`attachment1`), whose clause restricts redistribution, is not the licence reported.
+    """
+    metadata = Wetterdienst.resolve("eccc", "observation").metadata
+
+    assert metadata.license is not None
+    assert metadata.license.spdx_id is None
+    assert metadata.license.name == "Environment and Climate Change Canada Data Server End-use Licence"
+    assert metadata.license.url == "https://eccc-msc.github.io/open-data/licence/readme_en/"
+    assert metadata.attribution == "Data Source: Environment and Climate Change Canada"
+    assert "attachment1" not in metadata.license.url
+
+
 def test_imgw_asks_for_its_own_words() -> None:
     """§ 5 ust. 3 and 4 of IMGW-PIB's terms prescribe two statements, in Polish, carried as written."""
     source = "Źródłem pochodzenia danych jest Instytut Meteorologii i Gospodarki Wodnej – Państwowy Instytut Badawczy"  # noqa: RUF001 -- the dash the terms write

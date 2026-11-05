@@ -320,18 +320,18 @@ name as kept, and does not know how long ago it was renamed).
 ## Provider metadata, licence and credit line
 
 Every answer says where the data comes from and under what terms (`metadata.provider`, and `GET /api/providers`):
-`license` with `spdx_id`, `name` and `url`, `attribution`, `notice`, `copyright`, the names and the country of the
+`license` with `spdx_id`, `name` and `url`, `attribution`, `copyright`, the names and the country of the
 provider (`country_code` is null for a provider of several countries), and, beside `provider` in the block,
 `processing_note`. The members are frozen with the answer's model. The
 values are what the provider states, taken from its own terms: they change when a provider changes its terms or the
 library reads them more closely, which is a fix and not a break; `spdx_id` is null where the terms have none (ECCC,
 AEMET, IPMA, NWS), and `license` is null only where a provider states no terms that could be read, which is then
 named with its reason in `LICENSE_NOT_STATED` of `tests/ui/test_response_metadata.py` (empty today). The licence of the
-data is the provider's, not wetterdienst's. `notice` and `processing_note` were added as members (additions, after
-0.183.0): `notice` is null where the provider's terms have no restriction beyond the licence and the credit line (every
-provider but ECCC), and `processing_note` is one fixed text for every answer, longer by a sentence for an answer of
-`interpolate`, `summarize` and the climate stripes. Their wording may be improved, which is a fix; that an answer
-carries them is not changed. Every provider's terms are listed on
+data is the provider's, not wetterdienst's. `processing_note` was added as a member (an addition, after 0.183.0): one fixed text for every
+answer that holds provider data, longer by a sentence for an answer of `interpolate` and `summarize` and for the
+headers of the climate stripes' image. Its wording may be improved, which is a fix; that an answer carries it is not
+changed. ECCC's `license` and `attribution` changed once, to the licence of the data server it is read from (a
+correction). Every provider's terms are listed on
 [licences and credit lines](../data/provider/licenses.md).
 
 `GET /api/providers` gives each network an `extent` (`scope`, `continents`, `country_codes`, `bbox`: where its stations are,
