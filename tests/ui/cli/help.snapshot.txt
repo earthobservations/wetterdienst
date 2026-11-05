@@ -912,6 +912,13 @@ Options:
                                   forecast network (`kind` `forecast`) is judged soft whatever the
                                   mode (only `floor` and `limits` keep their mode). Default:
                                   WD_TS_PLAUSIBILITY__SOURCE if set, else soft
+  --plausibility-step [hard|soft]
+                                  What the check 'step' does to a value it finds implausible: hard
+                                  nulls the value and keeps the number as
+                                  `rejected:step,raw:<number>` in `quality_flags`, soft keeps it and
+                                  flags it `suspect:step`. A forecast network (`kind` `forecast`) is
+                                  judged soft whatever the mode (only `floor` and `limits` keep
+                                  their mode). Default: WD_TS_PLAUSIBILITY__STEP if set, else soft
   --limits TEXT                   Bounds of your own for the plausibility check limits, in the unit
                                   the values come back in (see --unit-targets): a JSON map of a
                                   parameter to [low, high], null for no bound at one end ({"temperat

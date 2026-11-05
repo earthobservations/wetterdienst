@@ -5,8 +5,9 @@
 `wetterdienst.model.plausibility.COVERAGE` names the networks and datasets each check runs on, and
 `docs/data/plausibility.md` has them as a table. Three things are held to one another so that none can drift: what the
 values core is told to judge (the tables of `model/judge.py` and `model/plausibility_ranges.py`, and the rules a
-provider hands it: `Bound`, `Beside`, `StuckPeriod`), `COVERAGE`, and the table. `range`, `elevation` and `stuck` run on
-every network that has a quantity of their tables; their rows say `*`, every dataset that has one (GH-3681).
+provider hands it: `Bound`, `Beside`, `StuckPeriod`), `COVERAGE`, and the table. `range`, `elevation`, `stuck` and
+`step` run on every network that has a quantity of their tables; their rows say `*`, every dataset that has one
+(GH-3681).
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ from wetterdienst import Wetterdienst
 from wetterdienst.model.judge import FLOORS, RUNS, plan_for
 from wetterdienst.model.persistence import rule_for
 from wetterdienst.model.plausibility import CALLER_CHECKS, CHECKS, COVERAGE, SOFT_BY_DEFAULT, Plausibility
+from wetterdienst.model.rate_of_change import rule_for as step_rule_for
 from wetterdienst.model.source_flags import SOURCE_FLAGS
 
 if TYPE_CHECKING:
@@ -62,7 +64,7 @@ def _datasets_of(network: str, *, has: Callable[[str, DatasetModel], bool]) -> s
 
 
 def _everywhere(attribute: str) -> dict[str, set[str]]:
-    """Give the networks and datasets for which the plan of the core has a bound, a pressure or a run rule."""
+    """Give the networks and datasets for which the plan of the core has a bound, a pressure, a run or a jump rule."""
     found = {
         network: _datasets_of(network, has=lambda _, dataset, n=network: bool(getattr(plan_for(n, dataset), attribute)))
         for network in _networks()
@@ -80,6 +82,7 @@ def _declared() -> dict[str, set[str]]:
     found["range"] |= set(_everywhere("ranges"))
     found["elevation"] |= set(_everywhere("pressure"))
     found["stuck"] |= set(_everywhere("persistence")) | set(RUNS)
+    found["step"] |= set(_everywhere("steps"))
     found["floor"] |= set(FLOORS)
     found["source"] |= set(SOURCE_FLAGS)
     for path in sorted(PROVIDER_DIR.rglob("*.py")):
@@ -112,7 +115,7 @@ def _covered(check: str, network: str) -> set[str]:
     if datasets == ("*",):
         if check == "stuck":
             return _stuck_datasets(network)
-        return _everywhere({"range": "ranges", "elevation": "pressure"}[check])[network]
+        return _everywhere({"range": "ranges", "elevation": "pressure", "step": "steps"}[check])[network]
     return set(datasets)
 
 
@@ -145,12 +148,14 @@ def test_the_coverage_is_the_networks_whose_providers_declare_a_rule_of_each_che
 
 
 def test_every_dataset_of_the_coverage_exists() -> None:
-    """The datasets are `resolution/dataset` of their network, or `*` alone for `range`, `elevation` and `stuck`."""
+    """The datasets are `resolution/dataset` of their network, or `*` alone for the generic checks."""
     for check, networks in COVERAGE.items():
         for network, datasets in networks.items():
             if "*" in datasets:
                 assert datasets == ("*",), f"{check} {network}: `*` stands for all of them and alone"
-                assert check in {"range", "elevation", "stuck"}, f"{check} {network}: `*` is for the generic checks"
+                assert check in {"range", "elevation", "stuck", "step"}, (
+                    f"{check} {network}: `*` is for the generic checks"
+                )
                 continue
             provider, name = network.split("/")
             metadata = Wetterdienst.resolve(provider, name).metadata
@@ -179,6 +184,19 @@ def _stuck_derived(everything: dict[str, tuple[str, ...]]) -> dict[str, set[str]
     return found
 
 
+def _step_derived() -> dict[str, set[str]]:
+    """Derive the datasets with a jump rule: the table of the core, by canonical name and resolution."""
+    found: dict[str, set[str]] = {}
+    for network in _networks():
+        provider, name = network.split("/")
+        if Wetterdienst.resolve(provider, name).metadata.kind != "observation":
+            continue
+        datasets = _datasets_of(network, has=lambda res, dataset: any(step_rule_for(p.name, res) for p in dataset))
+        if datasets:
+            found[network] = datasets
+    return found
+
+
 def _derived() -> dict[str, dict[str, set[str]]]:
     """Derive the datasets of `COVERAGE` from what the core is told and from the metadata of the networks.
 
@@ -196,6 +214,7 @@ def _derived() -> dict[str, dict[str, set[str]]]:
         "range": _everywhere("ranges"),
         "elevation": _everywhere("pressure"),
         "stuck": _stuck_derived(everything),
+        "step": _step_derived(),
         "consistency": {
             "dwd/road": set(everything["dwd/road"]),
             "meteofrance/observation": _datasets_of(
@@ -242,9 +261,9 @@ def test_a_stub_names_only_checks_that_run_where_it_reads() -> None:
 
 
 def test_the_modes_the_page_names_are_the_defaults_of_the_option() -> None:
-    """`stuck` and `source` are the checks that are soft by default, as the page and the docs of the option say."""
+    """`stuck`, `step` and `source` are soft by default, as the page and the docs of the option say."""
     soft = {check for check in CHECKS if Plausibility().mode(check) == "soft"}
-    assert soft == set(SOFT_BY_DEFAULT) == {"stuck", "source"}
+    assert soft == set(SOFT_BY_DEFAULT) == {"stuck", "source", "step"}
     text = PAGE.read_text(encoding="utf-8")
     for check in CHECKS:
         row = next(line for line in text.splitlines() if line.startswith(f"| `{check}` | "))

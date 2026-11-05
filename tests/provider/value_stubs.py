@@ -426,6 +426,26 @@ def _dwd_hourly_moisture(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = Tru
     return _dwd_observation(monkeypatch, "hourly", "moisture", product, "14006", drop_nulls=drop_nulls)
 
 
+def _dwd_hourly_temperature_air_spike(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # historical/stundenwerte_TU_01975_19500101_20241231_hist.zip (Hamburg-Fuhlsbuettel), read 2026-11-05: the hour of
+    # 1997-10-07 02:00 writes 0.0 between 11.9 and 12.2 degrees C and a humidity of 89 %, quality level 10. No code, no
+    # range, no run: the check `step` finds it, a spike of 11.9 K up and 12.2 K down in hours of 0.1 K steps (GH-3681)
+    rows = [
+        "    1975;1997100622;   10;  11.5;  90;eor",
+        "    1975;1997100623;   10;  11.4;  92;eor",
+        "    1975;1997100700;   10;  12.0;  89;eor",
+        "    1975;1997100701;   10;  11.9;  89;eor",
+        "    1975;1997100702;   10;   0.0;  89;eor",
+        "    1975;1997100703;   10;  12.2;  90;eor",
+        "    1975;1997100704;   10;  12.0;  90;eor",
+        "    1975;1997100705;   10;  12.5;  91;eor",
+    ]
+    product = "STATIONS_ID;MESS_DATUM;QN_9;TT_TU;RF_TU;eor\n" + "\n".join(rows) + "\n"
+    return _dwd_observation(
+        monkeypatch, "hourly", "temperature_air", product, "01975", year=1997, drop_nulls=drop_nulls
+    )
+
+
 def _dwd_hourly_wind(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # historical/stundenwerte_FF_00003_19370101_20110331_hist.zip: the description says `missing value=-999`, the files
     # of 1975 to 1994 write 990 for a direction there is none of, and 0 for a calm (a speed of 0.0) beside 360 for north
@@ -2469,6 +2489,22 @@ STUBS = [
             ("temperature_dew_point_2m", "-0.9", "stuck"),
         ),
         plausibility=(("stuck", "hard"),),
+    ),
+    ValueStub(
+        "dwd/observation hourly/temperature_air (a spike)",
+        _dwd_hourly_temperature_air_spike,
+        reading=("temperature_air_2m", 12.0),
+        # the air of an hour that jumps to 0.0 and back is kept and flagged: the check `step` is soft by default
+        suspects=(("temperature_air_2m", 0.0, "step"),),
+    ),
+    ValueStub(
+        "dwd/observation hourly/temperature_air (step hard)",
+        _dwd_hourly_temperature_air_spike,
+        reading=("temperature_air_2m", 12.0),
+        # the same hour is null with the text the file wrote, where the check `step` is hard
+        tokens=(("temperature_air_2m", "0.0", None),),
+        verdicts=(("temperature_air_2m", "0.0", "step"),),
+        plausibility=(("step", "hard"),),
     ),
     ValueStub(
         "dwd/observation hourly/wind",

@@ -59,6 +59,8 @@ from wetterdienst.model.persistence import (
 from wetterdienst.model.plausibility import CHECKS, REJECTED, SUSPECT, Plausibility
 from wetterdienst.model.plausibility_ranges import bounds_for
 from wetterdienst.model.quality_flags import RAW_TOKEN
+from wetterdienst.model.rate_of_change import StepRule
+from wetterdienst.model.rate_of_change import rule_for as step_rule_for
 from wetterdienst.model.source_flags import SourceFlags, flags_of
 from wetterdienst.model.source_flags import hits as source_hits
 from wetterdienst.model.unit import UnitConverter
@@ -249,6 +251,11 @@ class Plan:
     source: tuple[SourceFlags, ...] = ()
     #: the quantities of which a run of one value above zero is a sensor that does not work (check ``stuck``)
     runs_from_zero: tuple[str, ...] = ()
+    #: the parameters (as the source names them) a jump between consecutive readings is judged for, with their limits
+    #: (`model/rate_of_change.py`, check ``step``)
+    steps: tuple[tuple[str, StepRule], ...] = ()
+    #: the time between two consecutive readings of the resolution: a pair of readings further apart is not judged
+    step_interval: dt.timedelta | None = None
 
     def read_beside(self, rules: Sequence[Rule]) -> set[str]:
         """Name the parameters (as the source does) that the checks read beside the ones asked for.
@@ -274,6 +281,7 @@ class Plan:
             or self.runs[0]
             or self.runs_from_zero
             or self.source
+            or self.steps
         )
 
 
@@ -338,6 +346,16 @@ def _build_plan(network: str, dataset: DatasetModel) -> Plan:
         if all(name in original for name in names):
             runs = (tuple(original[name] for name in names), original[air])
     runs_from_zero = tuple(original[name] for name in RUNS_FROM_ZERO.get(network, ()) if name in original)
+    # a jump between readings is a mistake in a reading: judged in a reading, not in a forecast or in what is derived
+    steps = (
+        tuple(
+            (parameter.name_original, rule)
+            for parameter in dataset
+            if (rule := step_rule_for(parameter.name, resolution)) is not None
+        )
+        if kind == "observation"
+        else ()
+    )
     source = flags_of(network, f"{resolution}/{dataset.name}")
     return Plan(
         network,
@@ -352,6 +370,8 @@ def _build_plan(network: str, dataset: DatasetModel) -> Plan:
         by_name,
         source,
         runs_from_zero,
+        steps,
+        step if steps else None,
     )
 
 
@@ -538,14 +558,19 @@ def judge(  # noqa: C901
             series[SOURCE_SUSPECT].append(suspect & ~erroneous)
         else:
             series["source"].append(erroneous | suspect)
+    impossible = [outside] if outside is not None else []
     if plan.pressure and elevation is not None and not (elevation == 0.0 and plan.network in ELEVATION_ZERO_IS_UNKNOWN):
         allowed = station_pressure_bounds(elevation)
         if allowed is not None:
-            exprs["elevation"].append(parameter.is_in(plan.pressure) & ((value < allowed[0]) | (value > allowed[1])))
+            no_pressure = parameter.is_in(plan.pressure) & ((value < allowed[0]) | (value > allowed[1]))
+            exprs["elevation"].append(no_pressure)
+            impossible.append(no_pressure)
     if plan.floors:
         exprs["floor"].append(parameter.is_in(plan.floors) & (value < 0.0))
     if plan.persistence:
         series["stuck"].append(_persistent_runs(df, plan))
+    if plan.steps:
+        series["step"].append(_jumps(df, plan, impossible))
     for rule in rules:
         if isinstance(rule, StuckPeriod) and rule.parameter in plan.by_name:
             stamp = pl.col("timestamp")
@@ -717,6 +742,66 @@ def _persistent_runs(df: pl.DataFrame, plan: Plan) -> pl.Series:
     )
     limit = pl.coalesce(*[pl.when(pl.col("parameter").eq(name)).then(_limit_of(rule)) for name, rule in rules.items()])
     hits = runs.filter(pl.col("_length") >= limit).get_column("_row")
+    if hits.is_empty():
+        return _no_hits(df)
+    return pl.repeat(value=False, n=df.height, dtype=pl.Boolean, eager=True).scatter(hits, True).alias("hit")  # noqa: FBT003
+
+
+def _jumps(df: pl.DataFrame, plan: Plan, impossible: Sequence[pl.Expr]) -> pl.Series:
+    """Mark the readings that jump by more than the table of ``model/rate_of_change.py`` allows (the check ``step``).
+
+    Readings of one parameter, in time order, are judged against their neighbours in the series: a **step** is a
+    change from the reading before it of more than the limit of the parameter (the later reading is flagged), a
+    **spike** a reading that departs from both neighbours by more than the limit, in opposite directions (the middle
+    one is flagged). A neighbour counts only if it is one step of the resolution away at most, so a null or a gap
+    between two readings leaves them unjudged; the first reading has no predecessor and is no step, the last no
+    successor and is no spike. A reading that another check has already found impossible (outside the range, or a
+    station pressure the elevation does not allow) or that the source wrote as a code is no neighbour: it would flag
+    the good reading beside it. The jump out of a spike is no step, since the spike is the mistake.
+    """
+    rules = dict(plan.steps)
+    names = list(rules)
+    usable = pl.col("value").is_not_null() & pl.col("value").is_not_nan()
+    usable &= ~pl.col("quality_flags").str.contains(RAW_TOKEN).fill_null(value=False)
+    for expr in impossible:
+        usable &= ~expr.fill_null(value=False)
+    # the parameters are numbered, so that a series is told from the next by comparing numbers and not names
+    number = pl.col("parameter").replace_strict({name: i for i, name in enumerate(names)}, return_dtype=pl.Int16)
+    readings = (
+        df.with_row_index("_row")
+        .filter(pl.col("parameter").is_in(names) & usable)
+        .select("_row", number.alias("_p"), "timestamp", pl.col("value").alias("_v"))
+        .sort("_p", "timestamp", "_row")
+    )
+    if readings.height < 2:
+        return _no_hits(df)
+    series, value, stamp = pl.col("_p"), pl.col("_v"), pl.col("timestamp")
+    spike = series.replace_strict({i: rules[name].spike for i, name in enumerate(names)}, return_dtype=pl.Float64)
+    step = series.replace_strict({i: rules[name].step for i, name in enumerate(names)}, return_dtype=pl.Float64)
+    # the change from the reading before and to the one after, rounded so that 8.0 K is not 8.000000000000002
+    change_in = value.sub(value.shift(1)).round(DECIMALS)
+    change_out = value.shift(-1).sub(value).round(DECIMALS)
+    # a neighbour counts if it is of the same series and no more than one step of the resolution away: a gap or a null
+    # in between does not
+    close_in = series.eq(series.shift(1)) & stamp.sub(stamp.shift(1)).is_between(
+        dt.timedelta(0), plan.step_interval, "right"
+    )
+    close_out = series.eq(series.shift(-1)) & stamp.shift(-1).sub(stamp).is_between(
+        dt.timedelta(0), plan.step_interval, "right"
+    )
+    spiked = (
+        close_in
+        & close_out
+        & change_in.abs().gt(spike)
+        & change_out.abs().gt(spike)
+        & change_in.sign().ne(change_out.sign())
+    ).fill_null(value=False)
+    marked = readings.with_columns(_in=close_in & change_in.abs().gt(step), _spiked=spiked).with_columns(
+        # the jump out of a spike is the spike's, not a step of the good reading after it
+        _hit=pl.col("_spiked")
+        | (pl.col("_in").fill_null(value=False) & ~pl.col("_spiked").shift(1).fill_null(value=False))
+    )
+    hits = marked.filter(pl.col("_hit")).get_column("_row")
     if hits.is_empty():
         return _no_hits(df)
     return pl.repeat(value=False, n=df.height, dtype=pl.Boolean, eager=True).scatter(hits, True).alias("hit")  # noqa: FBT003
