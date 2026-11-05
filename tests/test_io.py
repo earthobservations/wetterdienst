@@ -31,6 +31,7 @@ from wetterdienst.exceptions import ExportRefusedError, MissingDependencyError
 from wetterdienst.io.export import ExportMixin
 from wetterdienst.metadata.period import Period
 from wetterdienst.model.metadata import CC_BY_4_0
+from wetterdienst.model.processing_note import processing_note
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.result import (
     InterpolatedValuesResult,
@@ -553,7 +554,8 @@ def test_interpolated_values_to_dict_with_metadata(
         with_metadata=True,
     )
     assert data.keys() == {"values", "metadata"}
-    assert data["metadata"] == metadata
+    # the values are calculated, which the note says (GH-2567)
+    assert data["metadata"] == {**metadata, "processing_note": processing_note(derived=True)}
 
 
 def test_interpolated_values_to_ogc_feature_collection(
@@ -614,7 +616,8 @@ def test_interpolated_values_to_ogc_feature_collection_with_metadata(
         latlon=(1.2345, 2.3456),
     ).to_ogc_feature_collection(with_metadata=True)
     assert data.keys() == {"data", "metadata"}
-    assert data["metadata"] == metadata
+    # the values are calculated, which the note says (GH-2567)
+    assert data["metadata"] == {**metadata, "processing_note": processing_note(derived=True)}
 
 
 def test_summarized_values_to_dict(df_summarized_values: pl.DataFrame) -> None:
@@ -656,7 +659,8 @@ def test_summarized_values_to_dict_with_metadata(
         latlon=(1.2345, 2.3456),
     ).to_dict(with_metadata=True)
     assert data.keys() == {"values", "metadata"}
-    assert data["metadata"] == metadata
+    # the values are calculated, which the note says (GH-2567)
+    assert data["metadata"] == {**metadata, "processing_note": processing_note(derived=True)}
 
 
 def test_summarized_values_to_ogc_feature_collection(
@@ -715,7 +719,8 @@ def test_summarized_values_to_ogc_feature_collection_with_metadata(
         latlon=(1.2345, 2.3456),
     ).to_ogc_feature_collection(with_metadata=True)
     assert data.keys() == {"data", "metadata"}
-    assert data["metadata"] == metadata
+    # the values are calculated, which the note says (GH-2567)
+    assert data["metadata"] == {**metadata, "processing_note": processing_note(derived=True)}
 
 
 def test_the_metadata_of_a_result_has_the_date_the_source_states(

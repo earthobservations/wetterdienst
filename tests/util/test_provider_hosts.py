@@ -30,10 +30,10 @@ PROVIDER_ROOT = Path(wetterdienst.__file__).parent / "provider"
 NOT_FETCHED = {
     "api.met.no": "the licence of met.no",
     "catalogue.ceda.ac.uk": "the catalogue page of the Met Office dataset, in its metadata",
-    "climate.weather.gc.ca": "the glossary of ECCC, in its metadata",
     "creativecommons.org": "the licence of LHMT",
     "dataplatform.knmi.nl": "the home page of KNMI's data platform, in its metadata",
     "developer.dataplatform.knmi.nl": "the documentation of KNMI's API",
+    "eccc-msc.github.io": "the licence of the data server of ECCC, in its metadata",
     "en.ilmatieteenlaitos.fi": "the home page of FMI",
     "imgw.pl": "the home page of IMGW",
     "meteo.data.gouv.fr": "the catalogue page of Météo-France, in its metadata",

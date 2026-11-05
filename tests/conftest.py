@@ -28,6 +28,7 @@ from aiohttp import ClientResponseError, ClientSSLError
 
 from wetterdienst import Info, Options, Settings
 from wetterdienst.exceptions import DownloadError, NoInternetError
+from wetterdienst.model.processing_note import PROCESSING_NOTE
 from wetterdienst.util.eccodes import bufr_is_available
 from wetterdienst.util.network import UpstreamMaintenanceError, _worth_retrying
 
@@ -48,6 +49,7 @@ RESPONSE_METADATA_ALWAYS = frozenset(
         "data_updated_at",
         "provider",
         "producer",
+        "processing_note",
         "request",
         "counts",
         "crs",
@@ -56,6 +58,12 @@ RESPONSE_METADATA_ALWAYS = frozenset(
 )
 #: the members `with_metadata` adds to the block
 RESPONSE_METADATA_HEAVY = frozenset({"parameters", "quality"})
+#: ECCC's credit line: the second sentence is the one section 3 of its data server licence says "you must use" where
+#: no statement is specified, the first is the licence's example of attributing the originator
+ECCC_ATTRIBUTION = (
+    "Data Source: Environment and Climate Change Canada. Contains information licenced under the Data Server "
+    "End-use Licence of Environment and Climate Change Canada."
+)
 
 
 def assert_response_metadata(block: dict, metadata: dict, *, with_metadata: bool = False) -> None:
@@ -1027,6 +1035,7 @@ def metadata() -> dict:
             "url": "https://opendata.dwd.de/climate_environment/CDC/",
         },
         "data_updated_at": None,
+        "processing_note": PROCESSING_NOTE,
     }
 
 

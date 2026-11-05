@@ -22,7 +22,7 @@ import pytest
 from click.testing import CliRunner
 from fastapi.testclient import TestClient
 
-from tests.conftest import RESPONSE_METADATA_ALWAYS
+from tests.conftest import ECCC_ATTRIBUTION, RESPONSE_METADATA_ALWAYS
 from tests.provider.test_data_updated_files import READERS
 from tests.ui.cli.test_cli_history import _stations_without_histories
 from tests.ui.test_restapi import (
@@ -822,6 +822,24 @@ def test_the_licence_a_provider_states_is_the_one_declared(network: tuple[str, s
     assert metadata.license is not None
     assert metadata.license.spdx_id == spdx_id
     assert metadata.attribution
+
+
+def test_eccc_reports_the_end_use_licence_of_the_data_server_it_reads() -> None:
+    """The MSC GeoMet API declares it in `info.license` of its OpenAPI document (read 2026-11-05), spdx_id has none.
+
+    Section 3 of the licence asks for the attribution statement the provider specifies, else for "Data Source:
+    Environment and Climate Change Canada", its own example; the collections specify none. The agreement of Climate
+    Data Online (`attachment1`), whose clause restricts redistribution, is not the licence reported.
+    """
+    metadata = Wetterdienst.resolve("eccc", "observation").metadata
+
+    assert metadata.license is not None
+    assert metadata.license.spdx_id is None
+    assert metadata.license.name == "Environment and Climate Change Canada Data Server End-use Licence"
+    assert metadata.license.url == "https://eccc-msc.github.io/open-data/licence/readme_en/"
+    assert metadata.attribution == ECCC_ATTRIBUTION
+    assert metadata.url == "https://api.weather.gc.ca/"
+    assert "attachment1" not in metadata.license.url
 
 
 def test_imgw_asks_for_its_own_words() -> None:

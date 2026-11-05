@@ -154,6 +154,7 @@ what the answer is missing:
       "documentation": "https://wetterdienst.readthedocs.io",
       "doi": "10.5281/zenodo.3960624"
     },
+    "processing_note": "Processed by wetterdienst: the provider's data was reshaped into a uniform table, and its units converted where they differ.",
     "request": {
       "provider": "dwd",
       "network": "observation",
@@ -187,12 +188,23 @@ what the answer is missing:
   the licence in the [SPDX list](https://spdx.org/licenses/) (or an expression, `CC-BY-4.0 AND NLOD-2.0`,
   where the provider names two that both apply, as MET Norway does), `name` and `url`. `spdx_id` is `null` where the
   terms have none
-  (ECCC's licence agreement, AEMET's legal notice, IPMA's statement that the
+  (ECCC's data server end-use licence, AEMET's legal notice, IPMA's statement that the
   data may be reused with the source named). `url` is the licence, or the provider's own page that states it. The
   whole of `license` is `null` where the provider states no terms that could be read: no provider does at present,
   and it is then for the user to ask the provider. **`provider.attribution`** is the credit line to give, in the provider's own words where it
   states one (DWD's "Source: Deutscher Wetterdienst") and else its name as the rights holder; `null` where the
-  provider states none or asks for none. `copyright` stays the free text it was.
+  provider states none or asks for none.
+  `copyright` stays the free text it was. All providers are listed with their licence and credit line on
+  [licences and credit lines](../data/provider/licenses.md).
+- **`processing_note`** says what wetterdienst did to the data, in the same words for every provider and licence:
+  "Processed by wetterdienst: the provider's data was reshaped into a uniform table, and its units converted where they differ." Licences such as CC BY ask that changes be indicated. The answers of `interpolate` and `summarize` add
+  "The values were selected or calculated from the provider's readings.", and the headers of `stripes/image` add
+  "The image is drawn from the provider's annual values."; `stripes/values` and `stripes/stations` have the plain note,
+  as their values are DWD's own annual values and a list of its stations. It is always there on an answer that holds
+  provider data (`issues` and `alerts` too, not `providers` or `coverage`), whatever `with_metadata` says, and it is a
+  statement of fact about the processing: it does not replace the credit line, and it is not legal advice about what
+  your licence asks of you. Where it does not go is on [licences and credit
+  lines](../data/provider/licenses.md#what-wetterdienst-does-to-the-data).
 - **`request`** is the request as resolved, not as typed: `daily/kl` is the list of parameters it means,
   `periods` the periods read, `start` and `end` the window applied in UTC (`null` without one), and
   `stations` how they were selected (`filter`: `all`, `by_station_id`, `by_name`, `by_rank`,
@@ -232,8 +244,8 @@ what the answer is missing:
   is cleared, and `meteofrance/synop` downloads its finished years once more, once, to date them. For a file
   `retrieved_at` less `data_updated_at` is how long ago the source wrote it, which is not how old the readings in it
   are. The Python results carry it as `data_updated_at`, and the `metadata` of `to_dict`, `to_json` and
-  `to_ogc_feature_collection` with `with_metadata=True` has it as a key of its own next to `provider` and `producer`
-  (`null` for a list of stations). Which networks state a date, and why the others do not, is `DATA_UPDATED_STATED`
+  `to_ogc_feature_collection` with `with_metadata=True` has it as a key of its own next to `provider`, `producer` and
+  the `processing_note` (`null` for a list of stations). Which networks state a date, and why the others do not, is `DATA_UPDATED_STATED`
   and `DATA_UPDATED_NOT_STATED` in `tests/ui/test_response_metadata.py`.
 
   For `meteofrance/observation` a copy of a file made before the date the listing gives it is fetched again, and
@@ -383,6 +395,7 @@ A format with no body to put the block in carries the same in headers, and so do
 | `X-Wetterdienst-License` | the SPDX identifier of the licence, else its name; left out without a licence |
 | `Link` | `<licence url>; rel="license"`, left out without a licence |
 | `X-Wetterdienst-Attribution` | the credit line; left out without one |
+| `X-Wetterdienst-Processing` | `processing_note` |
 | `X-Wetterdienst-Stations`, `X-Wetterdienst-Rows` | the `counts` |
 | `X-Wetterdienst-Warnings` | the `code` of each warning, comma-separated; left out without warnings |
 
@@ -541,7 +554,7 @@ ask the same question and give the same answer.
 
 What each provider is, for a page that lists them or a client that has to credit the data: the names it goes
 by (`name_short` for a chip beside a flag, `name_english`, `name_local`), the country of the agency that runs it (`country_code` is the ISO 3166-1 alpha-2 code, null for a provider of several countries; it is the operator's country, not the extent of its data: the `extent` of each network says where its stations are), the
-terms it publishes its data under (`license`, as in the `metadata` of a data answer) and the credit line
+terms it publishes its data under (`license`, as in the `metadata` of a data answer), the credit line
 (`attribution`), and its networks with their `kind`, `extent`, source `url`, whether they need credentials (`auth`) and
 the resolutions and datasets they offer, with how many parameters each has. Nothing is downloaded and no
 credential is read, so it answers at once: `coverage` lists the parameters of a network and `auth` checks

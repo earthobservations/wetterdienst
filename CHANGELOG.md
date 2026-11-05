@@ -18,6 +18,14 @@ Types of changes:
 
 ### Added
 
+- Every answer that holds provider data has a `processing_note` in its `metadata` (REST, MCP,
+  command line, Python `with_metadata=True`, files of an export) and an `X-Wetterdienst-Processing`
+  header: that wetterdienst reshaped the data into one table and converted its units where they
+  differ, which licences such as CC BY ask to be indicated. `interpolate` and `summarize` add that
+  the values were selected or calculated, the stripes' image that it is drawn from annual values.
+  One text for all providers, no legal advice (Part of GH-2567)
+- The docs have a page of the licence and credit line of every provider, built from the provider
+  metadata, and the overview no longer calls all the data open (Part of GH-2567)
 - The new check `step` judges every observation network for a jump between consecutive readings:
   a reading that differs from the one before it by more than the limit (the later one is flagged)
   or that jumps away from both neighbours and back (the middle one). Limits per parameter and
@@ -34,6 +42,13 @@ Types of changes:
   images are drawn by our own call to Kaleido under a time limit (see Fixed), which needs
   `plotly.io.defaults.plotlyjs` (plotly 6.2.0) and a choreographer that kills the browser's process
   group (1.3.0, which kaleido 1.3.0 requires). Upgrade both where an older pair is pinned (GH-3723)
+- `eccc/observation` now reports the licence of the data server it reads, the Environment and
+  Climate Change Canada Data Server End-use Licence (`spdx_id` null, `license.url` its text; before
+  the Climate Data Online agreement, whose redistribution clause does not apply to it in our
+  reading). Its `attribution` is "Data Source: Environment and Climate Change Canada. Contains
+  information licenced under the Data Server End-use Licence of Environment and Climate Change
+  Canada." (before "based on Environment and Climate Change Canada data"), and its source `url`
+  is `https://api.weather.gc.ca/` (before the Climate Data Online bulk page) (Part of GH-2567)
 - The description of the `dwd/observation` `subdaily` resolution, which `coverage` reports and the
   docs page carries, gave DWD's "local mean time, from 1987 07:30, 14:30 and 21:30 CET" as the
   time of the 07, 14 and 21 terms. It now says that this is DWD's metadata and what NOAA ISD
@@ -54,7 +69,10 @@ Types of changes:
   line and exits 1. Before, a Chrome that did not start or a page that never became ready held
   the call for ever (Kaleido's own 90 seconds bound only the drawing), and a REST request that
   timed out left its thread, and its place in `WD_RESTAPI_MAX_CONCURRENT`, to wait as long. A
-  `kaleido.start_sync_server()` you started yourself is still drawn without this limit (GH-3723)
+  `kaleido.start_sync_server()` you started yourself is still drawn without this limit. Two
+  things change beside it: a Chrome that dies mid-draw is now a `RuntimeError`, not an
+  `asyncio.CancelledError`, and a figure with a layout size of its own is drawn at that size on
+  plotly 6.2 too (700x500 before, as its `to_image` ignores it there) (GH-3723)
 - The `bufr` and `eccodes` extras now require `findlibs>=0.1.4`. On Linux, `findlibs` 0.1.3 and
   older loaded the PROJ bundled in the `eckitlib` wheel of `eccodes` 2.43+ globally, so a process
   that loaded `eccodes` and then imported `pyproj` aborted at exit with status 134 or 139
