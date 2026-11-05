@@ -18,6 +18,19 @@ Types of changes:
 
 ### Added
 
+- The new check `relations` holds the readings of one row (the same station, timestamp and file) to
+  each other on every observation network: a maximum is not below the mean and the mean not below
+  the minimum (not Météo-France's and FMI's daily means, whose windows differ), the dew point is at
+  most 0.2 K above the air, a gust is not below the mean wind, and a day's sunshine is at most the
+  day length at the station plus 5 %. **Both** readings of a broken pair are flagged. Soft by
+  default (`suspect:relations`, value kept, left out of interpolation, summaries, stripes and
+  `skip_empty`); `hard` nulls both as `rejected:relations,raw:<text>`. It is not `consistency`,
+  whose provider rules stay hard (GH-3681)
+- The alerts result of `dwd/alerts` has `to_target`: `file://alerts.json`, `.geojson` or `.csv`, the
+  file the REST API answers for that format, a CSV row being one alert (areas comma-joined,
+  `parameters` and `geometry` as JSON text). `with_metadata=True` writes the metadata block beside
+  it. A snapshot without a warning still writes the file: no alerts, and the block in a JSON one. A
+  database target or another file type is an `ExportRefusedError` (GH-3706)
 - Every answer that holds provider data has a `processing_note` in its `metadata` (REST, MCP,
   command line, Python `with_metadata=True`, files of an export) and an `X-Wetterdienst-Processing`
   header: that wetterdienst reshaped the data into one table and converted its units where they
@@ -42,6 +55,11 @@ Types of changes:
   images are drawn by our own call to Kaleido under a time limit (see Fixed), which needs
   `plotly.io.defaults.plotlyjs` (plotly 6.2.0) and a choreographer that kills the browser's process
   group (1.3.0, which kaleido 1.3.0 requires). Upgrade both where an older pair is pinned (GH-3723)
+- **Breaking**: `wetterdienst alerts --target` now decides the format by the extension (`.json`,
+  `.geojson`, `.csv`) and takes `--if-exists` and `--with-metadata`. `--target=feed.txt` or a name
+  without an extension, which exited 0 and wrote JSON, and `--format=geojson --target=x.json` now
+  exit 2; `--target=x.csv` without `--format` wrote JSON and now writes CSV. Name the file after
+  the format you want, or leave `--target` out and redirect stdout (GH-3706)
 - `eccc/observation` now reports the licence of the data server it reads, the Environment and
   Climate Change Canada Data Server End-use Licence (`spdx_id` null, `license.url` its text; before
   the Climate Data Online agreement, whose redistribution clause does not apply to it in our

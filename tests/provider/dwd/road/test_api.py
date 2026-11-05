@@ -21,6 +21,7 @@ from wetterdienst.model.metadata import DatasetModel
 from wetterdienst.model.plausibility import Plausibility
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.model.schema import LONG_SCHEMA
+from wetterdienst.model.sun import sun_elevation
 from wetterdienst.model.values import shape_provider_frame
 from wetterdienst.provider.dwd.road.api import DwdRoadRequest, DwdRoadStationGroup
 from wetterdienst.util.network import File, download_files, list_remote_files_fsspec
@@ -2050,12 +2051,10 @@ def test_dwd_road_weather_the_sun_stands_where_the_observatory_puts_it(
     tolerance: float,
 ) -> None:
     """The sun that defines the night stands where published times put it, to a fraction of a degree."""
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
     frame = pl.DataFrame({"timestamp": [timestamp]}).with_columns(
         pl.col("timestamp").str.to_datetime("%Y-%m-%d %H:%M", time_zone="UTC")
     )
-    computed = frame.select(api._sun_elevation(pl.col("timestamp"), latitude, longitude)).item()  # noqa: SLF001
+    computed = frame.select(sun_elevation(pl.col("timestamp"), latitude, longitude)).item()
     assert computed == pytest.approx(elevation, abs=tolerance)
 
 

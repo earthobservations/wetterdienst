@@ -428,6 +428,22 @@
             "description": "What the check `step` does to a change between two consecutive readings beyond what the weather does, or a reading that jumps away and back (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:step,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:step`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STEP if set, else soft."
           },
           {
+            "name": "plausibility_relations",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `relations` does to two readings of one file that contradict each other (a maximum below the mean, a dew point above the air temperature, a gust below the mean wind) or a day of sunshine longer than the day; both readings of a pair are flagged: `hard` nulls the value and keeps the number as `rejected:relations,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:relations`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__RELATIONS if set, else soft.",
+              "default": "soft",
+              "title": "Plausibility Relations"
+            },
+            "description": "What the check `relations` does to two readings of one file that contradict each other (a maximum below the mean, a dew point above the air temperature, a gust below the mean wind) or a day of sunshine longer than the day; both readings of a pair are flagged: `hard` nulls the value and keeps the number as `rejected:relations,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:relations`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__RELATIONS if set, else soft."
+          },
+          {
             "name": "limits",
             "in": "query",
             "required": false,
@@ -2589,6 +2605,22 @@
               "title": "Plausibility Step"
             },
             "description": "What the check `step` does to a change between two consecutive readings beyond what the weather does, or a reading that jumps away and back (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:step,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:step`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STEP if set, else soft."
+          },
+          {
+            "name": "plausibility_relations",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `relations` does to two readings of one file that contradict each other (a maximum below the mean, a dew point above the air temperature, a gust below the mean wind) or a day of sunshine longer than the day; both readings of a pair are flagged: `hard` nulls the value and keeps the number as `rejected:relations,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:relations`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__RELATIONS if set, else soft.",
+              "default": "soft",
+              "title": "Plausibility Relations"
+            },
+            "description": "What the check `relations` does to two readings of one file that contradict each other (a maximum below the mean, a dew point above the air temperature, a gust below the mean wind) or a day of sunshine longer than the day; both readings of a pair are flagged: `hard` nulls the value and keeps the number as `rejected:relations,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:relations`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__RELATIONS if set, else soft."
           },
           {
             "name": "limits",
@@ -6505,6 +6537,15 @@
             "title": "Plausibility Step",
             "description": "The mode of the check `step`: `hard` nulls the value and keeps the number as `rejected:step,raw:<number>` in `quality_flags`, `soft` keeps the value and flags it (`suspect:step`). It is the mode as set: A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode)."
           },
+          "plausibility_relations": {
+            "type": "string",
+            "enum": [
+              "soft",
+              "hard"
+            ],
+            "title": "Plausibility Relations",
+            "description": "The mode of the check `relations`: `hard` nulls the value and keeps the number as `rejected:relations,raw:<number>` in `quality_flags`, `soft` keeps the value and flags it (`suspect:relations`). It is the mode as set: A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode)."
+          },
           "limits": {
             "additionalProperties": {
               "prefixItems": [
@@ -6558,6 +6599,7 @@
           "plausibility_limits",
           "plausibility_source",
           "plausibility_step",
+          "plausibility_relations",
           "limits"
         ],
         "title": "ValuesSettings",

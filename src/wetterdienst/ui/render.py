@@ -143,6 +143,7 @@ class ValuesSettings(_AppliedSettings):
     plausibility_limits: Mode = _plausibility_setting("limits")
     plausibility_source: Mode = _plausibility_setting("source")
     plausibility_step: Mode = _plausibility_setting("step")
+    plausibility_relations: Mode = _plausibility_setting("relations")
     limits: dict[str, Limit] = Field(
         validation_alias="limits",
         description="The bounds set per parameter for the check `limits`, in the unit the values of the request come "

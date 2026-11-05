@@ -40,12 +40,22 @@ SOFT = Plausibility(
 
 def test_the_checks_are_the_vocabulary_of_the_options() -> None:
     """The names are the vocabulary of the options, the tokens and the docs; `limits` is the caller's own (GH-3687)."""
-    assert set(CHECKS) == {"range", "elevation", "stuck", "consistency", "floor", "limits", "source", "step"}
+    assert set(CHECKS) == {
+        "range",
+        "elevation",
+        "stuck",
+        "consistency",
+        "floor",
+        "limits",
+        "source",
+        "step",
+        "relations",
+    }
     assert set(Plausibility.model_fields) == set(CHECKS)
 
 
-def test_every_check_is_hard_but_stuck_step_and_source_by_default() -> None:
-    """Every check is hard but `stuck` and `step`, whose verdicts depend on the series, and `source`, the source's."""
+def test_every_check_is_hard_but_stuck_step_source_and_relations_by_default() -> None:
+    """Every check is hard but `stuck` and `step` (verdicts on a series), `source` (the source's) and `relations`."""
     assert Plausibility().model_dump() == {
         "range": "hard",
         "elevation": "hard",
@@ -55,6 +65,7 @@ def test_every_check_is_hard_but_stuck_step_and_source_by_default() -> None:
         "limits": "hard",
         "source": "soft",
         "step": "soft",
+        "relations": "soft",
     }
     assert Options().plausibility == Plausibility() == Plausibility()
 

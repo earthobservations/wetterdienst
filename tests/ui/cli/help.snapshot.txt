@@ -192,6 +192,8 @@ Usage: wetterdienst alerts [OPTIONS]
   Returns all warnings active at the selected time (the latest snapshot by default), one row per
   alert, with a GeoJSON MultiPolygon geometry. An empty result means there were no active warnings.
 
+  With --target the extension decides the format (.json, .geojson, .csv), as for the other commands.
+
 Options:
   --granularity [community|district]
                                   Spatial granularity: 'community' (per Gemeinde, default) or
@@ -201,10 +203,19 @@ Options:
                                   warnings snapshot for. Defaults to the latest snapshot. Must fall
                                   within DWD's rolling ~48-hour window.
   --format [json|geojson|csv]     Output format. Default: json
-  --target TEXT                   Write output to this file instead of stdout. Example:
-                                  file://alerts.geojson
+  --target TEXT                   Write the alerts to this file instead of stdout, in the format its
+                                  extension names: .json, .geojson or .csv. Databases are refused. A
+                                  snapshot without a warning still writes the file. Example:
+                                  file://alerts.csv
+  --if-exists [replace|append|fail|skip]
+                                  What to do when the --target file is there: 'replace' (default),
+                                  'fail' or 'skip'. A file takes no 'append'. Default: replace
   --pretty BOOLEAN                Pretty-print JSON with 4-space indentation, as REST's pretty=true.
                                   Default: false
+  --with-metadata BOOLEAN         Write the metadata block (provider, licence, credit line, date of
+                                  the data) beside the --target file as <file>.metadata.json. A
+                                  .json or .geojson file holds it already; a .csv file does not.
+                                  Needs --target. Default: false
   --debug BOOLEAN                 Log at debug level. Default: false
   --help                          Show this message and exit.
 
@@ -919,6 +930,14 @@ Options:
                                   flags it `suspect:step`. A forecast network (`kind` `forecast`) is
                                   judged soft whatever the mode (only `floor` and `limits` keep
                                   their mode). Default: WD_TS_PLAUSIBILITY__STEP if set, else soft
+  --plausibility-relations [hard|soft]
+                                  What the check 'relations' does to a value it finds implausible:
+                                  hard nulls the value and keeps the number as
+                                  `rejected:relations,raw:<number>` in `quality_flags`, soft keeps
+                                  it and flags it `suspect:relations`. A forecast network (`kind`
+                                  `forecast`) is judged soft whatever the mode (only `floor` and
+                                  `limits` keep their mode). Default: WD_TS_PLAUSIBILITY__RELATIONS
+                                  if set, else soft
   --limits TEXT                   Bounds of your own for the plausibility check limits, in the unit
                                   the values come back in (see --unit-targets): a JSON map of a
                                   parameter to [low, high], null for no bound at one end ({"temperat

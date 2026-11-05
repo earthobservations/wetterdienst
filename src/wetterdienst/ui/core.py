@@ -380,6 +380,12 @@ _PlausibilityStepField = _plausibility_field(
     "a change between two consecutive readings beyond what the weather does, or a reading that jumps away and back "
     "(a verdict on a series, which depends on what was read)",
 )
+_PlausibilityRelationsField = _plausibility_field(
+    "relations",
+    "two readings of one file that contradict each other (a maximum below the mean, a dew point above the air "
+    "temperature, a gust below the mean wind) or a day of sunshine longer than the day; both readings of a pair are "
+    "flagged",
+)
 _LimitsField = Annotated[
     dict[str, Limit] | None,
     Field(
@@ -976,6 +982,7 @@ class ValuesRequest(_RefusesRenamedParameters):
     plausibility_limits: _PlausibilityLimitsField = "hard"
     plausibility_source: _PlausibilitySourceField = "soft"
     plausibility_step: _PlausibilityStepField = "soft"
+    plausibility_relations: _PlausibilityRelationsField = "soft"
     limits: _LimitsField = None
 
     @field_validator("unit_targets", "limits", mode="before")
@@ -1255,6 +1262,7 @@ class SettingsRequest(BaseModel):
     plausibility_limits: _PlausibilityLimitsField = "hard"
     plausibility_source: _PlausibilitySourceField = "soft"
     plausibility_step: _PlausibilityStepField = "soft"
+    plausibility_relations: _PlausibilityRelationsField = "soft"
     limits: _LimitsField = None
     # interpolate
     interpolation_station_distance: _RestInterpolationStationDistanceField = None

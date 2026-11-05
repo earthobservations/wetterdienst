@@ -871,10 +871,24 @@ def test_metno_frost_discovered_daily_series_starting_on_the_end_date_is_asked_f
 
 
 @pytest.mark.parametrize(
-    ("resolution", "element", "hours"),
+    ("resolution", "element", "hours", "day"),
     [
-        ("daily", "sum(duration_of_sunshine P1D)", 10.4),
-        ("monthly", "sum(duration_of_sunshine P1M)", 258.3),
+        # a June day at Oslo (18.7 hours of day): 10.4 hours of sunshine on the 1st of January (6 hours of day) is none
+        # the check `relations` accepts (GH-3681), and this test is about the unit
+        pytest.param(
+            "daily",
+            "sum(duration_of_sunshine P1D)",
+            10.4,
+            dt.datetime(2020, 6, 1, tzinfo=ZoneInfo("UTC")),
+            id="daily-sum(duration_of_sunshine P1D)-10.4",
+        ),
+        pytest.param(
+            "monthly",
+            "sum(duration_of_sunshine P1M)",
+            258.3,
+            dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
+            id="monthly-sum(duration_of_sunshine P1M)-258.3",
+        ),
     ],
 )
 def test_metno_frost_sunshine_duration_is_read_as_hours(
@@ -882,6 +896,7 @@ def test_metno_frost_sunshine_duration_is_read_as_hours(
     resolution: str,
     element: str,
     hours: float,
+    day: dt.datetime,
 ) -> None:
     """Test that the sunshine duration, which Frost answers in hours, comes back in hours (GH-3137, GH-3702).
 
@@ -891,7 +906,7 @@ def test_metno_frost_sunshine_duration_is_read_as_hours(
         "data": [
             {
                 "sourceId": "SN18700:0",
-                "referenceTime": "2020-01-01T00:00:00.000Z",
+                "referenceTime": f"{day:%Y-%m-%d}T00:00:00.000Z",
                 "observations": [{"elementId": element, "value": hours, "unit": "hours", "qualityCode": 2}],
             },
         ],
@@ -900,8 +915,8 @@ def test_metno_frost_sunshine_duration_is_read_as_hours(
         monkeypatch,
         lambda url: _ok(url, payload),
         [(resolution, "data", "sunshine_duration")],
-        start=START,
-        end=dt.datetime(2020, 2, 1, tzinfo=ZoneInfo("UTC")),
+        start=day,
+        end=day + dt.timedelta(days=31 if resolution == "monthly" else 1),
     )
     df = values.all().df
     assert df["value"].to_list() == [pytest.approx(hours)]
