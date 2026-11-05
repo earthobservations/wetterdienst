@@ -65,6 +65,24 @@ container and is healthy when `/health` answers on one of them. A server bound t
 is not reached that way, and the probe is meant for a container that runs one server, not one that
 shares the network namespace of the host or of another container (`--network host`).
 
+The image's check stays on `/health` on purpose: it asks whether the process answers, and an unhealthy container is
+one a platform restarts or stops routing to. `/ready` is the other question, whether the server can serve data (its
+settings are valid and its cache directory is usable, see [Health and readiness](restapi.md#health-and-readiness)),
+for a platform that keeps the two apart, such as the readiness probe of Kubernetes. A platform that has only one
+check and routes by it (Traefik with the image's check) would take the whole instance out for a cache directory that
+a restart does not mend, so point it at `/ready` only when that is what you want:
+
+```yaml
+services:
+  backend:
+    image: ghcr.io/earthobservations/wetterdienst
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--max-time", "3", "--output", "/dev/null", "http://localhost:7890/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+```
+
 When a platform defines a health check of its own, it replaces the image's. Where it defines none
 (Coolify's default), the image's check is what a proxy such as Traefik routes by: it sends traffic only
 to containers that are healthy or have no health state. `docker run --no-healthcheck` or, in a Compose
