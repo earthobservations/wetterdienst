@@ -40,6 +40,8 @@ jobs:
 
       - name: Sets and checks
         run: |
+          # a check that aborts is the result, not the end of the script
+          set +e +o pipefail
           PY="$RUNNER_TEMP/venv/bin/python"
           export PATH="$RUNNER_TEMP/venv/bin:$PATH"
 
