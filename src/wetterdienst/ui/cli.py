@@ -11,7 +11,6 @@ import textwrap
 from pathlib import Path
 from pprint import pformat
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, get_args
-from urllib.parse import quote
 
 import click
 from click.core import ParameterSource
@@ -33,7 +32,7 @@ from wetterdienst.exceptions import (
 )
 from wetterdienst.io.export import require_kaleido
 from wetterdienst.io.formats import FORMATS, names_of
-from wetterdienst.io.sinks import refuse_metadata_without_file
+from wetterdienst.io.sinks import ALERT_FILE_FORMATS, refuse_metadata_without_file
 from wetterdienst.metadata.unit_type import UnitType
 from wetterdienst.model.limits import read_limit_text
 from wetterdienst.model.plausibility import CHECKS, Mode, default_mode, forecast_note, hard_means
@@ -1140,10 +1139,6 @@ def _refuse_database_metadata(target: str | None, *, with_metadata: bool) -> Non
         sys.exit(1)
 
 
-#: the format each file type of the alerts result is written as
-_ALERTS_FILE_FORMATS = {".json": "json", ".geojson": "geojson", ".csv": "csv"}
-
-
 def _alerts_target(target: str | None, fmt: str, *, with_metadata: bool) -> str | None:
     """Check the `--target` of `alerts` before the fetch and give it as `to_target` takes it, a `file://` URI.
 
@@ -1165,25 +1160,26 @@ def _alerts_target(target: str | None, fmt: str, *, with_metadata: bool) -> str 
             raise click.UsageError(msg)
         return None
     path = file_target_path(target)
-    extension = next((ext for ext in _ALERTS_FILE_FORMATS if path.lower().endswith(ext)), None)
+    extension = next((ext for ext in ALERT_FILE_FORMATS if path.lower().endswith(ext)), None)
     if extension is None:
         msg = (
-            f"{path!r} is none of the files alerts are written as ({', '.join(_ALERTS_FILE_FORMATS)}): the extension "
+            f"{path!r} is none of the files alerts are written as ({', '.join(ALERT_FILE_FORMATS)}): the extension "
             "decides the format. Leave out --target to write to stdout"
         )
         raise click.BadParameter(msg, param_hint="--target")
     context = click.get_current_context()
     if (
         context.get_parameter_source("fmt") is not ParameterSource.DEFAULT
-        and fmt.lower() != _ALERTS_FILE_FORMATS[extension]
+        and fmt.lower() != ALERT_FILE_FORMATS[extension]
     ):
         msg = (
             f"--format={fmt.lower()} does not match {extension}, which is written as "
-            f"{_ALERTS_FILE_FORMATS[extension]}: the extension decides what --target holds"
+            f"{ALERT_FILE_FORMATS[extension]}: the extension decides what --target holds"
         )
         raise click.BadParameter(msg, param_hint="--format")
-    # the path of a file named without the scheme is read as a path, `%` and all
-    return target if target.startswith("file://") else f"file://{quote(path, safe='/')}"
+    # a file named without the scheme is read as a path, `%` and all: only the two characters the URI reads are written
+    # as it reads them, and the rest, a name that is not UTF-8 included (`quote` raises on its surrogates), as it is
+    return target if target.startswith("file://") else "file://" + path.replace("%", "%25").replace("?", "%3F")
 
 
 def _refuse_non_file_target(target: str | None, command: str) -> None:
@@ -2531,7 +2527,7 @@ def radar(
     type=click.STRING,
     help=(
         "Write the alerts to this file instead of stdout, in the format its extension names: .json, .geojson or "
-        ".csv. Databases are refused. An empty result writes an empty file. Example: file://alerts.csv"
+        ".csv. Databases are refused. A snapshot without a warning still writes the file. Example: file://alerts.csv"
     ),
 )
 @click.option(
@@ -2609,7 +2605,7 @@ def alerts(
         # an empty snapshot is written as it is, as no warning is an answer a file should say, where a table of
         # stations or values is left alone (a schedule that rewrites the file must not keep yesterday's warnings)
         try:
-            result.to_target(target_url, if_exists=if_exists, with_metadata=with_metadata)
+            result.to_target(target_url, if_exists=if_exists, with_metadata=with_metadata, pretty=pretty)
         except (ExportRefusedError, MissingDependencyError) as e:
             # a refusal, the message the whole of it: `--if-exists=fail` on a file that is there, `append`
             raise click.ClickException(str(e)) from e

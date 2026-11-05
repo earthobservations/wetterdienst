@@ -113,8 +113,9 @@ def test_a_json_file_holds_what_the_rest_api_answers(tmp_path: Path) -> None:
     assert data["alerts"][0]["warncell_ids"] == ["809272121", "809276148"]
     # without the block, it is `to_dict`
     assert {key: data[key] for key in ("snapshot", "alerts")} == result.to_dict()
-    # indented, as a file that is read by a person
-    assert file.read_text(encoding="utf-8").startswith('{\n    "metadata"')
+    # on one line, as the answer and as the file always was
+    assert file.read_text(encoding="utf-8").startswith('{"metadata"')
+    assert len(file.read_text(encoding="utf-8").splitlines()) == 1
     assert not (tmp_path / "alerts.json.metadata.json").exists()
 
 
@@ -337,8 +338,12 @@ def test_append_to_a_file_is_refused(tmp_path: Path) -> None:
         "postgresql://user:secret@localhost/dwd?table=alerts",
     ],
 )
-def test_a_database_target_is_refused_with_nothing_written(tmp_path: Path, target: str) -> None:
+def test_a_database_target_is_refused_with_nothing_written(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target: str
+) -> None:
     """An alert is nested (areas, parameters, a polygon) and no table is designed for it: every sink says so."""
+    # the file of a relative target would land in the working directory, where the check below looks for it
+    monkeypatch.chdir(tmp_path)
     result = _result(CAP_XML)
     with pytest.raises(ExportRefusedError, match="written to a file only") as refused:
         result.to_target(target)
@@ -371,3 +376,70 @@ def test_a_plain_path_is_refused_as_any_target_that_is_no_url() -> None:
     """A library target is a `file://` URI, as it is for the other results; the command line reads a path itself."""
     with pytest.raises(ExportRefusedError, match="not a URL"):
         _result(CAP_XML).to_target("alerts.csv")
+
+
+def test_an_upper_case_scheme_is_told_as_such_and_not_as_a_refused_file_target() -> None:
+    """`FILE://x.csv` is read by no sink, and the refusal does not say that a file target is refused."""
+    with pytest.raises(ExportRefusedError, match="lower case") as refused:
+        _result(CAP_XML).to_target("FILE://alerts.csv")
+    assert "is refused" not in str(refused.value)
+
+
+# --- the type is read before the file is looked for -------------------------------------------------------------
+
+
+@pytest.mark.parametrize("if_exists", ["replace", "fail", "skip", "append"])
+@pytest.mark.parametrize("name", ["alerts.parquet", "alerts.txt", "alerts"])
+def test_a_file_of_another_type_is_refused_by_its_type_whether_it_is_there_or_not(
+    tmp_path: Path, name: str, if_exists: str
+) -> None:
+    """`skip` returned in silence for an existing `.parquet`, and `fail` said it was there: now each names the type."""
+    file = tmp_path / name
+    file.write_text("old")
+    for there in (True, False):
+        if not there:
+            file.unlink()
+        with pytest.raises(ExportRefusedError, match="Unknown export file type") as refused:
+            _result(CAP_XML).to_target(f"file://{file}", if_exists=if_exists)  # ty: ignore[invalid-argument-type]
+        assert "this result is written as .csv, .geojson, .json" in str(refused.value)
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_the_files_of_the_other_results_are_still_looked_for_before_their_type(tmp_path: Path) -> None:
+    """Only the alerts read the extension first: a frame's `skip` of an existing file of any name is as it was."""
+    from wetterdienst.io.sinks import _write_file  # noqa: PLC0415
+    from wetterdienst.util.url import ConnectionString  # noqa: PLC0415
+
+    file = tmp_path / "frame.unknown"
+    file.write_text("old")
+    target = f"file://{file}"
+    _write_file(_result(CAP_XML), target, ConnectionString(target), "skip")  # ty: ignore[invalid-argument-type]
+    assert file.read_text() == "old"
+
+
+# --- pretty -----------------------------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("name", ["alerts.json", "alerts.geojson"])
+def test_a_json_file_is_on_one_line_unless_pretty(tmp_path: Path, name: str) -> None:
+    """A district snapshot is 614 KB on a line and 3.7 MB indented: the file is compact as it was, `pretty` indents."""
+    result = _result(CAP_XML, CAP_TWO_INFOS)
+    compact, pretty = tmp_path / f"compact_{name}", tmp_path / f"pretty_{name}"
+    result.to_target(f"file://{compact}")
+    result.to_target(f"file://{pretty}", pretty=True)
+    assert len(compact.read_text(encoding="utf-8").splitlines()) == 1
+    assert len(pretty.read_text(encoding="utf-8").splitlines()) > 50
+    assert pretty.read_text(encoding="utf-8").startswith("{\n    ")
+    # the same document
+    assert (
+        json.loads(compact.read_text(encoding="utf-8")).keys() == json.loads(pretty.read_text(encoding="utf-8")).keys()
+    )
+    assert compact.stat().st_size < pretty.stat().st_size
+
+
+def test_pretty_changes_nothing_in_a_csv_file(tmp_path: Path) -> None:
+    """A CSV has no indentation to give."""
+    result = _result(CAP_XML)
+    result.to_target(f"file://{tmp_path / 'a.csv'}")
+    result.to_target(f"file://{tmp_path / 'b.csv'}", pretty=True)
+    assert (tmp_path / "a.csv").read_bytes() == (tmp_path / "b.csv").read_bytes()

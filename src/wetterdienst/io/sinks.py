@@ -13,6 +13,7 @@ Parquet, Zarr, NetCDF), and any other file gets them as a sidecar where the call
 
 from __future__ import annotations
 
+import functools
 import logging
 from collections.abc import Callable, Mapping
 from copy import copy
@@ -346,8 +347,8 @@ def _write_file(
 ) -> None:
     """Write the frame to the file a `file://` target names, by its extension.
 
-    `writers` are the file types of the result: those of `FILE_WRITERS` for a frame, `ALERT_FILE_WRITERS` for the
-    alerts result, whose refusal of an unknown extension then lists them.
+    `writers` are the file types of the result: those of `FILE_WRITERS` for a frame, those of `ALERT_FILE_FORMATS`
+    for the alerts result, whose refusal of an unknown extension then lists them.
 
     A self-describing file carries the metadata block of the REST API, light by default and with its units and quality
     legend under `with_metadata`. Any other file is bare unless `with_metadata` asks for `<file>.metadata.json` beside
@@ -355,11 +356,15 @@ def _write_file(
     `with_metadata` for a result with no provider to describe is refused before the file is written, for any type.
     A sidecar of an earlier write is overwritten by the next `with_metadata` write and left as it is by one without.
     """
+    filepath = connspec.path
+    if writers is not FILE_WRITERS:
+        # a file type the result is not written as is refused first, whatever the file is there or `append` is asked:
+        # `skip` would else return in silence for a `.parquet` that exists, and `fail` call it "already exists"
+        _find_writer(target, filepath, writers)
+
     if if_exists == "append":
         msg = "Append mode is not supported for file exports."
         raise ExportRefusedError(msg)
-
-    filepath = connspec.path
 
     if Path(filepath).exists():
         if if_exists == "fail":
@@ -369,10 +374,20 @@ def _write_file(
             log.info(f"File '{filepath}' exists, skipping write due to if_exists='skip'.")
             return
 
+    extension, writer = _find_writer(target, filepath, writers)
+    _write_with_metadata(writer, extension, result, filepath, with_metadata=with_metadata)
+
+
+def _find_writer(target: str, filepath: str, writers: Mapping[str, FileWriter]) -> tuple[str, FileWriter]:
+    """Find the writer of the file type the path ends in, or refuse the target as one nothing here writes.
+
+    Raises:
+        ExportRefusedError: The path ends in none of the extensions of `writers`.
+
+    """
     for extension, writer in writers.items():
         if filepath.lower().endswith(extension):
-            _write_with_metadata(writer, extension, result, filepath, with_metadata=with_metadata)
-            return
+            return extension, writer
     msg = f"Unknown export file type for target '{target}'"
     if writers is not FILE_WRITERS:
         msg += f": this result is written as {', '.join(sorted(writers))}"
@@ -970,43 +985,25 @@ def write_to_target(
     sink(result, target, connspec, if_exists)
 
 
-def _write_alerts(result: DwdWeatherAlertResult, filepath: str, fmt: str) -> None:
+def _write_alerts(result: DwdWeatherAlertResult, filepath: str, fmt: str, *, pretty: bool) -> None:
     """Write the answer that `render_alerts` gives for `fmt`, which is what the REST API and the command line send.
 
     So a JSON or a GeoJSON file holds the `metadata` block as the answer does, built by the one function that builds
-    it, and a CSV file is bare, as the answer's body is: its block goes beside it, under `with_metadata`.
+    it, and a CSV file is bare, as the answer's body is: its block goes beside it, under `with_metadata`. JSON is on one
+    line unless `pretty`, as the answer is and as the file always was (a district snapshot: 614 KB, 3.7 MB indented).
     """
     # the module imports the results, which import this one
     from wetterdienst.ui.render import render_alerts  # noqa: PLC0415
 
     log.info(f"Writing alerts to {fmt} file '{filepath}'")
-    content, _ = render_alerts(result, fmt, pretty=True)
+    content, _ = render_alerts(result, fmt, pretty=pretty)
     # bytes, as `ensure_ascii=False` writes UTF-8 and a text file would translate the newlines on Windows
     Path(filepath).write_bytes(content.encode("utf-8"))
 
 
-def _write_alerts_json(result: DwdWeatherAlertResult, filepath: str) -> None:
-    """Write the alerts as JSON: `metadata`, `snapshot` and `alerts`, each alert nested as `to_dict` has it."""
-    _write_alerts(result, filepath, "json")
-
-
-def _write_alerts_geojson(result: DwdWeatherAlertResult, filepath: str) -> None:
-    """Write the alerts as a GeoJSON `FeatureCollection` with the `metadata` block as a foreign member."""
-    _write_alerts(result, filepath, "geojson")
-
-
-def _write_alerts_csv(result: DwdWeatherAlertResult, filepath: str) -> None:
-    """Write the alerts as CSV: the text `to_csv` returns, a row for each alert."""
-    _write_alerts(result, filepath, "csv")
-
-
-#: the file types of the alerts result, by extension, each the answer the REST API gives for that format. An alert is
-#: nested (areas, parameters, a geometry), so a database has no table for it yet (GH-3706)
-ALERT_FILE_WRITERS: dict[str, FileWriter] = {
-    ".json": _write_alerts_json,
-    ".geojson": _write_alerts_geojson,
-    ".csv": _write_alerts_csv,
-}
+#: the file types of the alerts result, by extension, and the format of each: the answer the REST API gives for it. An
+#: alert is nested (areas, parameters, a geometry), so a database has no table for it yet (GH-3706)
+ALERT_FILE_FORMATS: dict[str, str] = {".json": "json", ".geojson": "geojson", ".csv": "csv"}
 
 
 def write_alerts_to_target(
@@ -1016,11 +1013,12 @@ def write_alerts_to_target(
     if_exists: IfExists,
     *,
     with_metadata: bool = False,
+    pretty: bool = False,
 ) -> None:
     """Write the alerts result to the file a target names, by its extension: `.json`, `.geojson` or `.csv`.
 
     The rules of a file target are those of any result (`_write_file`): `if_exists`, no append, and the sidecar of
-    `with_metadata`.
+    `with_metadata`; the extension is read first, so a file of another type is refused whether it is there or not.
 
     Raises:
         ExportRefusedError: A target that is not a file (an alert holds several areas and parameters, and no table
@@ -1028,13 +1026,21 @@ def write_alerts_to_target(
 
     """
     if find_sink(target, connspec.protocol) is not _write_file:
-        msg = (
-            "the alerts result is written to a file only (file://alerts.json, alerts.geojson or alerts.csv); "
-            f"a {connspec.protocol or 'database'} target is refused, as an alert holds several areas and parameters "
-            "and there is no table for it"
-        )
+        if connspec.protocol == "file":
+            # `FILE://x.csv`: the sink reads the scheme in lower case only, and is not a database
+            msg = f"a file target is written as file://, in lower case, and not as '{target.split(':', 1)[0]}://'"
+        else:
+            msg = (
+                "the alerts result is written to a file only (file://alerts.json, alerts.geojson or alerts.csv); "
+                f"a {connspec.protocol or 'database'} target is refused, as an alert holds several areas and "
+                "parameters and there is no table for it"
+            )
         raise ExportRefusedError(msg)
-    _write_file(result, target, connspec, if_exists, with_metadata=with_metadata, writers=ALERT_FILE_WRITERS)
+    writers = {
+        extension: functools.partial(_write_alerts, fmt=fmt, pretty=pretty)
+        for extension, fmt in ALERT_FILE_FORMATS.items()
+    }
+    _write_file(result, target, connspec, if_exists, with_metadata=with_metadata, writers=writers)
 
 
 def refuse_metadata_without_file(target: str, connspec: ConnectionString) -> None:

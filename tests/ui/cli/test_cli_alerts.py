@@ -5,6 +5,7 @@
 import json
 from pathlib import Path
 
+import click
 import polars as pl
 import pytest
 from click.testing import CliRunner
@@ -266,6 +267,48 @@ def test_cli_alerts_target_writes_the_file_its_extension_names(
         assert len(json.loads(written)["alerts"]) == 2
         assert json.loads(written)["metadata"]["provider"]["license"]["spdx_id"] == "CC-BY-4.0"
     assert not (tmp_path / f"{name}.metadata.json").exists()
+    if not name.endswith(".csv"):
+        # on one line, as the file was before `to_target`
+        assert len(written.splitlines()) == 1
+
+
+@pytest.mark.parametrize("name", ["alerts.json", "alerts.geojson"])
+def test_cli_alerts_pretty_indents_the_file_and_the_help_says_so(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, name: str
+) -> None:
+    """`--pretty` with `--target` indents, and is the only thing that does."""
+    _serve(monkeypatch, _two_alerts())
+    run = CliRunner().invoke(cli, ["alerts", f"--target={tmp_path / name}", "--pretty"])
+    assert run.exit_code == 0, run.output
+    assert (tmp_path / name).read_text(encoding="utf-8").startswith("{\n    ")
+    assert "Pretty-print JSON with 4-space indentation" in CliRunner().invoke(cli, ["alerts", "--help"]).output
+
+
+@pytest.mark.parametrize("name", ["100%.csv", "a%20b.csv", "what?.csv", "a#b.csv", "caf\u00e9 \u00fc.csv"])
+def test_cli_alerts_a_plain_path_names_the_file_it_says(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, name: str
+) -> None:
+    """`%`, `?`, `#` and non-ASCII letters of a path without the scheme are in the name of the file, as written."""
+    _serve(monkeypatch, _two_alerts())
+    run = CliRunner().invoke(cli, ["alerts", f"--target={tmp_path / name}"])
+    assert run.exit_code == 0, run.output
+    assert [file.name for file in tmp_path.iterdir()] == [name]
+
+
+def test_cli_alerts_a_name_that_is_not_utf8_is_read_back_as_it_is() -> None:
+    """`quote` raised `UnicodeEncodeError` on the surrogates of a name that is not UTF-8: the URI keeps them."""
+    import os  # noqa: PLC0415
+
+    from wetterdienst.ui.cli import _alerts_target  # noqa: PLC0415
+    from wetterdienst.util.url import ConnectionString, file_target_path  # noqa: PLC0415
+
+    name = os.fsdecode(b"/tmp/caf\xe9 100%?.csv")
+    with click.Context(cli.commands["alerts"]) as context:
+        context.params["fmt"] = "csv"
+        url = _alerts_target(name, "csv", with_metadata=False)
+    assert url is not None
+    assert file_target_path(url) == name
+    assert ConnectionString(url).path == name
 
 
 def test_cli_alerts_target_reads_a_percent_of_a_plain_path_as_it_is(

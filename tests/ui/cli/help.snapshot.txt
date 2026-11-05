@@ -204,8 +204,9 @@ Options:
                                   within DWD's rolling ~48-hour window.
   --format [json|geojson|csv]     Output format. Default: json
   --target TEXT                   Write the alerts to this file instead of stdout, in the format its
-                                  extension names: .json, .geojson or .csv. Databases are refused.
-                                  An empty result writes an empty file. Example: file://alerts.csv
+                                  extension names: .json, .geojson or .csv. Databases are refused. A
+                                  snapshot without a warning still writes the file. Example:
+                                  file://alerts.csv
   --if-exists [replace|append|fail|skip]
                                   What to do when the --target file is there: 'replace' (default),
                                   'fail' or 'skip'. A file takes no 'append'. Default: replace

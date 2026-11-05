@@ -254,10 +254,11 @@ class DwdWeatherAlertResult:
         if_exists: Literal["replace", "append", "fail", "skip"] = "replace",
         *,
         with_metadata: bool = False,
+        pretty: bool = False,
     ) -> None:
         """Write the alerts to a file: JSON, GeoJSON or CSV, by the extension of the target.
 
-        A file holds what the REST API answers for the format (``render_alerts``), indented:
+        A file holds what the REST API answers for the format (``render_alerts``), on one line unless ``pretty``:
 
         - ``file://alerts.json``: ``{"metadata": ..., "snapshot": ..., "alerts": [...]}``, an alert with its areas,
           parameters and geometry nested as they are in ``to_dict``
@@ -265,16 +266,17 @@ class DwdWeatherAlertResult:
         - ``file://alerts.csv``: the text of ``to_csv``, bare, a row for each alert: its areas are the comma-joined
           ``warncell_ids`` and ``area_names``, its ``parameters`` and ``geometry`` JSON text, its times ISO strings
 
-        A snapshot without a warning is written as it is (an empty ``alerts`` list, a CSV of the header alone), so a
-        file that a schedule rewrites does not keep the warnings of the run before. The ``metadata`` block (provider,
-        licence, credit line and the date of the data) is in a JSON and a GeoJSON file, and ``with_metadata`` writes it
-        beside any file as ``<file>.metadata.json``, which is how a CSV file gets it. A database target is refused:
-        an alert is nested, and there is no table for it yet.
+        A snapshot without a warning is written as it is (an empty ``alerts`` list and the block in a JSON file, a CSV
+        of the header alone), so a file that a schedule rewrites does not keep the warnings of the run before. The
+        ``metadata`` block (provider, licence, credit line and the date of the data) is in a JSON and a GeoJSON file,
+        and ``with_metadata`` writes it beside any file as ``<file>.metadata.json``, which is how a CSV file gets it.
+        A database target is refused: an alert is nested, and there is no table for it yet.
 
         Args:
             target: ``file://`` and a path, ending in ``.json``, ``.geojson`` or ``.csv``
             if_exists: ``replace`` (default), ``fail`` or ``skip``; ``append`` is refused for a file
             with_metadata: write ``<file>.metadata.json`` beside the file
+            pretty: indent a JSON or GeoJSON file with 4 spaces (a district snapshot is 614 KB on one line, 3.7 MB so)
 
         Raises:
             ExportRefusedError: a target that is no file of those three types, ``append``, a file that exists under
@@ -283,7 +285,7 @@ class DwdWeatherAlertResult:
         """
         connspec = ConnectionString(target)
         log.info(f"Exporting {self.df.height} alerts to {redact_password(target)}")
-        write_alerts_to_target(self, target, connspec, if_exists, with_metadata=with_metadata)
+        write_alerts_to_target(self, target, connspec, if_exists, with_metadata=with_metadata, pretty=pretty)
 
 
 class DwdWeatherAlertRequest:
