@@ -647,6 +647,9 @@ _CLI_ONLY = {
 }
 _CLI_ONLY_OF = {
     ("history",): {"format": "history writes JSON only, as REST does without a `format`"},
+    ("alerts",): {
+        "with_metadata": "writes <file>.metadata.json beside the --target file; a REST answer carries the block always"
+    },
 }
 _REST_ONLY_OF = {
     core.CoverageRequest: {"pretty": "the command line always indents"},

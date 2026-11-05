@@ -18,6 +18,11 @@ Types of changes:
 
 ### Added
 
+- The alerts result of `dwd/alerts` has `to_target`: `file://alerts.json`, `.geojson` or `.csv`, the
+  file the REST API answers for that format, a CSV row being one alert (areas comma-joined,
+  `parameters` and `geometry` as JSON text). `with_metadata=True` writes the metadata block beside
+  it. A snapshot without a warning still writes the file: no alerts, and the block in a JSON one. A
+  database target or another file type is an `ExportRefusedError` (GH-3706)
 - Every answer that holds provider data has a `processing_note` in its `metadata` (REST, MCP,
   command line, Python `with_metadata=True`, files of an export) and an `X-Wetterdienst-Processing`
   header: that wetterdienst reshaped the data into one table and converted its units where they
@@ -38,6 +43,11 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: `wetterdienst alerts --target` now decides the format by the extension (`.json`,
+  `.geojson`, `.csv`) and takes `--if-exists` and `--with-metadata`. `--target=feed.txt` or a name
+  without an extension, which exited 0 and wrote JSON, and `--format=geojson --target=x.json` now
+  exit 2; `--target=x.csv` without `--format` wrote JSON and now writes CSV. Name the file after
+  the format you want, or leave `--target` out and redirect stdout (GH-3706)
 - `eccc/observation` now reports the licence of the data server it reads, the Environment and
   Climate Change Canada Data Server End-use Licence (`spdx_id` null, `license.url` its text; before
   the Climate Data Online agreement, whose redistribution clause does not apply to it in our
