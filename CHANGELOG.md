@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.184.0] - 2026-11-05
+
 ### Added
 
 - The new check `relations` holds the readings of one row (the same station, timestamp and file) to
@@ -7511,7 +7513,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.183.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.184.0...HEAD
+[0.184.0]: https://github.com/earthobservations/wetterdienst/compare/v0.183.0...v0.184.0
 [0.183.0]: https://github.com/earthobservations/wetterdienst/compare/v0.182.0...v0.183.0
 [0.182.0]: https://github.com/earthobservations/wetterdienst/compare/v0.181.0...v0.182.0
 [0.181.0]: https://github.com/earthobservations/wetterdienst/compare/v0.180.0...v0.181.0

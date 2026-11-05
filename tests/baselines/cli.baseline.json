@@ -706,6 +706,29 @@
           "required": false,
           "default": false
         },
+        "--if-exists": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "choice",
+          "choices": [
+            "append",
+            "fail",
+            "replace",
+            "skip"
+          ],
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--if-exists"
+          ],
+          "required": false,
+          "default": "replace"
+        },
         "--language": {
           "param_type_name": "option",
           "nargs": 1,
@@ -783,6 +806,24 @@
           ],
           "required": false,
           "default": null
+        },
+        "--with-metadata": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": "true",
+          "type": "boolean",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--with-metadata"
+          ],
+          "required": false,
+          "default": false
         }
       }
     },
@@ -4398,6 +4439,27 @@
           "required": false,
           "default": "hard"
         },
+        "--plausibility-relations": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "choice",
+          "choices": [
+            "hard",
+            "soft"
+          ],
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--plausibility-relations"
+          ],
+          "required": false,
+          "default": "soft"
+        },
         "--plausibility-source": {
           "param_type_name": "option",
           "nargs": 1,
@@ -4415,6 +4477,27 @@
           "max": null,
           "spellings": [
             "--plausibility-source"
+          ],
+          "required": false,
+          "default": "soft"
+        },
+        "--plausibility-step": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "choice",
+          "choices": [
+            "hard",
+            "soft"
+          ],
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--plausibility-step"
           ],
           "required": false,
           "default": "soft"
@@ -4846,5 +4929,5 @@
       }
     }
   },
-  "x-release": "0.183.0"
+  "x-release": "0.184.0"
 }

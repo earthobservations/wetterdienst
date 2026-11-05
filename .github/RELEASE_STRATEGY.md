@@ -369,7 +369,7 @@ Not decided anywhere this checklist could read, and each changes a line above.
 
 ## Version Management
 
-- **Backend**: Version in `pyproject.toml` (currently `0.183.0`)
+- **Backend**: Version in `pyproject.toml` (currently `0.184.0`)
 - **App**: Version in `app/package.json` (currently `0.44.0`; the package is also marked `private`)
 - Both can be versioned independently
 - Consider semantic versioning for both
