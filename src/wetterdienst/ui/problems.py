@@ -151,8 +151,9 @@ PROBLEMS: dict[ProblemKind, ProblemSpec] = {
     ),
     ProblemKind.NOT_READY: ProblemSpec(
         503,
-        "The server is running but cannot serve data: its settings are invalid or its cache directory is unusable. "
-        "Only `GET /ready` answers it; the server still answers `/health`. `checks` names what failed.",
+        "The server is running but cannot serve data: its settings are invalid, or neither its cache directory nor "
+        "the temporary directory can be written to. Only `GET /ready` answers it; the server still answers `/health`. "
+        "`checks` names what failed.",
     ),
     ProblemKind.UPSTREAM_UNREACHABLE: ProblemSpec(
         503, "The server could not reach the data provider (no connection). The request was valid; retry it."

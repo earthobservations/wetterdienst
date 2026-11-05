@@ -891,7 +891,7 @@ and where an answer cannot be reasoned about it stays out.
 | Route | `Cache-Control` | `ETag` | `Last-Modified` | Why |
 | --- | --- | --- | --- | --- |
 | `coverage`, `providers`, `glossary` | `public, max-age=300` | yes | yes | Read nothing from a provider: they change with a release, or with the server's settings. A deploy that changes one is seen after five minutes at the latest. |
-| `history` | `public, max-age=3600` | yes | no | Changes when the source does (a new sensor, a move), rarely, and the server itself reads its files at most every twelve hours (`CacheExpiry.METAINDEX`). The source says no time it changed, so there is no date to send. |
+| `history` | `public, max-age=3600` | yes | no | Changes when the source does (a new sensor, a move), rarely, and the server itself reads its files at most every twelve hours (`CacheExpiry.METAINDEX`). The source says no time it changed, so there is no date to send. Only an answer with rows and no `warnings` is kept: an empty one, or one that left ids out, may be a source that answered nothing for the moment, and carries no cache header. A dataset the server skipped without a warning cannot be told from a station that has no file in it, so a partial history is kept like a whole one. |
 | `stations`, `issues` | none | no | no | A list changes with the provider's catalogue, which the server is not told about. |
 | `values`, `interpolate`, `summarize` | none | no | no | A window in the past is not stable by itself: a provider revises data (the DWD `recent` readings are checked and moved to `historical`, others publish corrections), and an estimate is made from them. |
 | `ndjson` and `csv` of `stations` and `values` | none | no | no | Streamed station by station, before the answer is known: there is no body to tag when the headers go out. |
@@ -915,7 +915,9 @@ from a 304 keeps the `X-Wetterdienst-Retrieved-At` that matches the body it hold
 `retrieved_at` does not send a condition.
 
 **`Last-Modified`** of the catalogue is when the server last changed: the start of its process, or the change of its
-`.env` where that is later (the settings of a request are read from it each time). The catalogue is a function of the
+`.env` where that is later (the settings of a request are read from it each time). It only moves forward: an `.env` that
+is edited, replaced by an older file or removed moves it on by at least a second, as each changes what `coverage` says
+(`configured`), so a client holding the earlier answer is not told it is current. The catalogue is a function of the
 code and of those settings, so it cannot be older than that. Behind several instances each has its own, and a date
 from one is never taken as proof by another that is newer; the worst case is a 200 in full.
 
@@ -1022,7 +1024,7 @@ failed:
 | Check | Fails when |
 | --- | --- |
 | `settings` | A `WD_*` or `WD_TS_*` setting does not build. They are checked as the server starts, and every request reads them again, so a `.env` edited into something invalid afterwards makes every data request a 500. The server log names the variable, never its value. |
-| `cache` | `WD_CACHE_DIR` is not a directory the server can write to, or make below one it can write to (the library makes it on its first download), unless `WD_CACHE_DISABLE` is set. A full disk is not found: that takes a write. |
+| `cache` | Neither `WD_CACHE_DIR` (a directory the server can write to, or make below one it can write to) nor the temporary directory can be written to, and `WD_CACHE_DISABLE` is not set. A cache directory alone that cannot be used is **not** a failure: the library then caches in a temporary directory, warns once, and serves every request ([Docker](docker.md#upgrading-from-an-image-that-ran-as-root)); what stops a download is that fallback failing too. A full disk is not found: that takes a write. |
 
 Neither probe is held to the host check, the cap on requests served at once or the timeout, so a probe that reaches the
 server by an address of its own is answered; neither needs a credential, and neither is an MCP tool. `/ready` asks
@@ -1106,7 +1108,7 @@ are these, and a kind keeps its status:
 | `urn:wetterdienst:problem:not-configured` | 501 | The server is not configured to serve the request. |
 | `urn:wetterdienst:problem:upstream-failed` | 502 | The data provider failed or sent an answer the server cannot read. The request was valid; retry it. |
 | `urn:wetterdienst:problem:server-busy` | 503 | The server is working on as many requests as it allows at once (`WD_RESTAPI_MAX_CONCURRENT`). The request was not started; retry it after `Retry-After`. |
-| `urn:wetterdienst:problem:not-ready` | 503 | The server is running but cannot serve data: its settings are invalid or its cache directory is unusable. Only `GET /ready` answers it; the server still answers `/health`. `checks` names what failed. |
+| `urn:wetterdienst:problem:not-ready` | 503 | The server is running but cannot serve data: its settings are invalid, or neither its cache directory nor the temporary directory can be written to. Only `GET /ready` answers it; the server still answers `/health`. `checks` names what failed. |
 | `urn:wetterdienst:problem:upstream-unreachable` | 503 | The server could not reach the data provider (no connection). The request was valid; retry it. |
 | `urn:wetterdienst:problem:upstream-timeout` | 504 | The data provider did not answer in time. The request was valid; retry it. |
 | `urn:wetterdienst:problem:request-timeout` | 504 | The server did not answer within its request timeout. Narrow the request, or retry it: what the server had fetched is cached. |

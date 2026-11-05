@@ -2551,6 +2551,11 @@ def history(
         content, metadata = render_history(stations_, history_provider, request)
     except Exception as e:
         raise _logged_server_error(e, "collect station history") from e
+    if not metadata.counts.rows or metadata.warnings:
+        # an empty history, or one that came with warnings, may be a source that answered nothing for the moment, or
+        # ids left out: the next request can give another, so it is not kept (a dataset skipped without a warning
+        # cannot be told from a station that has no file in it)
+        return _answer(content, "json", metadata)
     return cached_json(
         http_request,
         content,

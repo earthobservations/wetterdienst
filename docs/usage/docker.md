@@ -67,10 +67,11 @@ shares the network namespace of the host or of another container (`--network hos
 
 The image's check stays on `/health` on purpose: it asks whether the process answers, and an unhealthy container is
 one a platform restarts or stops routing to. `/ready` is the other question, whether the server can serve data (its
-settings are valid and its cache directory is usable, see [Health and readiness](restapi.md#health-and-readiness)),
+settings are valid and the library can cache and download at all, see [Health and readiness](restapi.md#health-and-readiness)),
 for a platform that keeps the two apart, such as the readiness probe of Kubernetes. A platform that has only one
-check and routes by it (Traefik with the image's check) would take the whole instance out for a cache directory that
-a restart does not mend, so point it at `/ready` only when that is what you want:
+check and routes by it (Traefik with the image's check) would take the whole instance out for a fault that a restart
+does not mend, such as a `.env` edited into an invalid setting, so point it at `/ready` only when that is what you
+want. An unwritable cache volume is not one: the cache falls back to a temporary directory and requests work:
 
 ```yaml
 services:

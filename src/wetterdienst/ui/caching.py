@@ -3,7 +3,8 @@
 """Cache headers and conditional requests for the answers that are stable (GH-3134).
 
 Four routes say how long their answer may be reused and how to ask whether it changed: `coverage`, `providers`
-and `glossary` (`CATALOGUE_CACHE_CONTROL`) and `history` (`HISTORY_CACHE_CONTROL`). No other route does, and an error
+and `glossary` (`CATALOGUE_CACHE_CONTROL`) and `history` (`HISTORY_CACHE_CONTROL`, where it holds rows and came with
+no warning: an empty one may be a source that answered nothing for the moment). No other route does, and an error
 never does: a route whose answer cannot be reasoned about carries no `Cache-Control`, `ETag` or `Last-Modified`,
 so no cache keeps it.
 
@@ -18,7 +19,7 @@ so no cache keeps it.
 - **`Last-Modified`** is sent where the answer changes only with the server: `coverage`, `providers` and
   `glossary` read nothing from a provider, so they change when wetterdienst or the server's settings do, and both
   are read at start (`settings_changed_at`: the start of the process, or the change of its `.env` where that is
-  later). `history` has no such time: its source says none, so it has an `ETag` alone.
+  later, a time that only moves forward). `history` has no such time: its source says none, so it has an `ETag` alone.
 - **`304 Not Modified`** answers a `GET` whose `If-None-Match` lists the tag, or, where it has none, whose
   `If-Modified-Since` is not before `Last-Modified`, RFC 9110 13.2.2. It has no body and carries the headers that
   say how the answer is cached. It means that the copy the client holds differs from a fresh answer at most in its
@@ -32,6 +33,7 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import re
+import threading
 from dataclasses import dataclass
 from email.utils import format_datetime, parsedate_to_datetime
 from pathlib import Path
@@ -56,19 +58,53 @@ _ENTITY_TAG = re.compile(r'(?:W/)?("[^"]*")')
 
 #: the start of this process, to the second as an HTTP date is
 _STARTED = dt.datetime.now(dt.UTC).replace(microsecond=0)
+_ONE_SECOND = dt.timedelta(seconds=1)
+
+
+class _Epoch:
+    """When the server, as the catalogue reads it, last changed: a mark that only moves forward.
+
+    The catalogue is a function of the code and the settings. The code is the process, and the environment is fixed
+    for one, but a `.env` is read by every request, so an edit reaches the answers without a restart. The mark is
+    the start of the process or the change of that file, whichever is later, and it moves forward, by at least a
+    second, whenever the file is not what the last request saw: edited, replaced by an older one, or gone. An older
+    file or none changes what the catalogue says (`configured` of a credential) as much as a newer one does, and a
+    `Last-Modified` that went back would let a client holding the earlier answer be told by `If-Modified-Since` that
+    it is current.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._changed = _STARTED
+        self._seen: object = None
+        self._first = True
+
+    def changed_at(self) -> dt.datetime:
+        """Give the time of the last change this process has seen."""
+        try:
+            stat = Path(".env").stat()
+        except OSError:
+            seen, modified = None, None
+        else:
+            seen = (stat.st_mtime_ns, stat.st_size)
+            modified = dt.datetime.fromtimestamp(stat.st_mtime, dt.UTC).replace(microsecond=0)
+        with self._lock:
+            if self._first:
+                self._first = False
+                self._changed = max(self._changed, modified or _STARTED)
+            elif seen != self._seen:
+                now = dt.datetime.now(dt.UTC).replace(microsecond=0)
+                self._changed = max(self._changed + _ONE_SECOND, now, modified or _STARTED)
+            self._seen = seen
+            return self._changed
+
+
+_EPOCH = _Epoch()
 
 
 def settings_changed_at() -> dt.datetime:
-    """Give the time the server, as the catalogue reads it, last changed: it started, or its `.env` changed.
-
-    The catalogue is a function of the code and the settings. The code is the process, and the environment is fixed for
-    one, but a `.env` is read by every request, so an edit to it reaches the answers without a restart.
-    """
-    try:
-        changed = dt.datetime.fromtimestamp(Path(".env").stat().st_mtime, dt.UTC).replace(microsecond=0)
-    except OSError:
-        return _STARTED
-    return max(_STARTED, changed)
+    """Give the time the server, as the catalogue reads it, last changed: it started, or its `.env` changed."""
+    return _EPOCH.changed_at()
 
 
 def weak_etag(content: str | bytes, *, ignoring: Iterable[str] = ()) -> str:
@@ -92,7 +128,8 @@ def _not_modified_since(header: str, last_modified: dt.datetime) -> bool:
     """Tell whether an `If-Modified-Since` is no earlier than the time of the last change; a bad date is not."""
     try:
         since = parsedate_to_datetime(header)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
+        # an offset or a year that does not fit in a date raises the third
         return False
     if since.tzinfo is None:
         since = since.replace(tzinfo=dt.UTC)

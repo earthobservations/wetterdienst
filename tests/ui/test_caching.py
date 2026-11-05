@@ -5,8 +5,13 @@
 from __future__ import annotations
 
 import datetime as dt
+import http.server
 import itertools
+import logging
 import os
+import shutil
+import tempfile
+import threading
 from email.utils import format_datetime
 from typing import TYPE_CHECKING, Any
 
@@ -21,7 +26,8 @@ from tests.ui.test_restapi import (
     _stub_stripes_station,
     _values_result_of_shape,
 )
-from wetterdienst.ui import restapi
+from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.ui import caching, restapi
 from wetterdienst.ui.caching import (
     CATALOGUE_CACHE_CONTROL,
     HISTORY_CACHE_CONTROL,
@@ -29,6 +35,8 @@ from wetterdienst.ui.caching import (
     weak_etag,
 )
 from wetterdienst.ui.problems import PROBLEMS, ProblemKind
+from wetterdienst.util import network
+from wetterdienst.util.response_warnings import warn_response
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -53,6 +61,12 @@ def _no_ambient_settings(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Non
     monkeypatch.chdir(tmp_path)
 
 
+@pytest.fixture(autouse=True)
+def _fresh_epoch(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Start each test with the time of the last change unseen, as at the start of a process."""
+    monkeypatch.setattr(caching, "_EPOCH", caching._Epoch())  # noqa: SLF001
+
+
 @pytest.fixture
 def client() -> TestClient:
     """Make a client that answers an unhandled exception as the server does, with its 500."""
@@ -61,15 +75,17 @@ def client() -> TestClient:
 
 @pytest.fixture
 def history_of_one_station(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Answer the history of a station offline: the lookup of its stations has one, without sections."""
-    monkeypatch.setattr(restapi, "get_stations", lambda **_kwargs: _stations_without_histories())
+    """Answer the history of a station offline: one entry, and no warning."""
+    _history_of(monkeypatch, [{"station_id": "02564"}])
 
 
-def _history_of(monkeypatch: pytest.MonkeyPatch, entries: list[dict[str, Any]]) -> None:
+def _history_of(monkeypatch: pytest.MonkeyPatch, entries: list[dict[str, Any]], *, warning: bool = False) -> None:
     """Answer the history of the station with these entries, as the provider's files say them."""
 
     class _History:
         def to_dict(self, **_kwargs: object) -> dict[str, Any]:
+            if warning:
+                warn_response(logging.getLogger(__name__), "unknown-station", "an id was left out", stations=["99999"])
             return {"histories": entries}
 
     def stations(**_kwargs: object) -> Any:  # noqa: ANN401
@@ -273,7 +289,18 @@ def test_if_modified_since_is_answered_with_a_304_while_the_server_has_not_chang
     assert earlier.headers["ETag"] == first.headers["ETag"]
 
 
-@pytest.mark.parametrize("value", ["yesterday", "", "32 Jan 2026", "Thu, 05 Nov 2026"])
+@pytest.mark.parametrize(
+    "value",
+    [
+        "yesterday",
+        "",
+        "32 Jan 2026",
+        "Thu, 05 Nov 2026",
+        # dates `parsedate_to_datetime` raises an `OverflowError` for, which was a 500
+        "Mon, 01 Jan 2026 00:00:00 +999999999999999999",
+        "01 Jan 99999999999999999999 00:00:00 GMT",
+    ],
+)
 def test_a_date_that_is_not_one_is_ignored(client: TestClient, value: str) -> None:
     """An `If-Modified-Since` that is not an HTTP date is no condition: the answer in full."""
     response = client.get("/api/v1/glossary", params={"limit": 4}, headers={"If-Modified-Since": value})
@@ -309,7 +336,7 @@ def test_a_history_has_no_time_to_compare_with(client: TestClient) -> None:
     )
 
     assert response.status_code == 200
-    assert response.json()["histories"] == []
+    assert response.json()["histories"] == [{"station_id": "02564"}]
 
 
 def test_the_time_of_the_catalogue_moves_with_the_env_file_that_every_request_reads(
@@ -336,6 +363,48 @@ def test_the_time_of_the_catalogue_moves_with_the_env_file_that_every_request_re
     assert after.status_code == 200
     assert after.headers["Last-Modified"] == _http_date(edited.replace(microsecond=0))
     assert settings_changed_at() == edited.replace(microsecond=0)
+
+
+def _aemet_configured(response: Any) -> bool:  # noqa: ANN401
+    return response.json()["aemet"]["observation"]["configured"]
+
+
+def _read_date(value: str) -> dt.datetime:
+    return dt.datetime.strptime(value, "%a, %d %b %Y %H:%M:%S GMT").replace(tzinfo=dt.UTC)
+
+
+@pytest.mark.parametrize("how", ["removed", "replaced by an older file"])
+def test_the_time_of_the_catalogue_does_not_go_back_when_the_env_file_goes_or_gets_older(
+    client: TestClient, tmp_path: Path, how: str
+) -> None:
+    """`configured` follows `.env`: with the file gone the answer changes, and its date must not be an earlier one.
+
+    A client that holds the answer with a credential and sends its `Last-Modified` as `If-Modified-Since` must not be
+    told it is current once the credential is gone.
+    """
+    env = tmp_path / ".env"
+    env.write_text("WD_AUTH__AEMET=a-token\n")
+    now = dt.datetime.now(dt.UTC)
+    os.utime(env, (now.timestamp(), now.timestamp()))
+    first = client.get("/api/v1/coverage")
+    assert _aemet_configured(first) is True
+
+    if how == "removed":
+        env.unlink()
+    else:
+        env.write_text("# no credential\n")
+        old = (now - dt.timedelta(days=30)).timestamp()
+        os.utime(env, (old, old))
+    second = client.get("/api/v1/coverage", headers={"If-Modified-Since": first.headers["Last-Modified"]})
+
+    assert second.status_code == 200
+    assert _aemet_configured(second) is False
+    assert second.headers["ETag"] != first.headers["ETag"]
+    assert _read_date(second.headers["Last-Modified"]) > _read_date(first.headers["Last-Modified"])
+    # and it stays where it is while nothing changes
+    third = client.get("/api/v1/coverage", headers={"If-Modified-Since": second.headers["Last-Modified"]})
+    assert third.status_code == 304
+    assert third.headers["Last-Modified"] == second.headers["Last-Modified"]
 
 
 # --- the history ----------------------------------------------------------------------------------------------------
@@ -371,6 +440,40 @@ def test_a_history_that_changed_is_sent_again_whatever_the_client_holds(
     assert second.json()["histories"] == [{"station_id": "02564", "name": "renamed"}]
     assert second.headers["ETag"] != first.headers["ETag"]
     assert third.status_code == 304
+
+
+def test_a_history_without_rows_is_not_kept(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A source that answered nothing for the moment gives an empty history, and the next request can give the whole."""
+    _history_of(monkeypatch, [])
+
+    response = client.get(_HISTORY[0], params=_HISTORY[1], headers={"If-None-Match": "*"})
+
+    assert response.status_code == 200
+    assert response.json()["histories"] == []
+    assert response.json()["metadata"]["counts"]["rows"] == 0
+    assert _cache_headers(response) == {}
+
+
+def test_a_history_with_warnings_is_not_kept(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """An answer that left something out is not kept, whatever rows it has, and is never a 304."""
+    _history_of(monkeypatch, [{"station_id": "02564"}], warning=True)
+
+    response = client.get(_HISTORY[0], params=_HISTORY[1], headers={"If-None-Match": "*"})
+
+    assert response.status_code == 200
+    assert response.json()["histories"] == [{"station_id": "02564"}]
+    assert [warning["code"] for warning in response.json()["metadata"]["warnings"]] == ["unknown-station"]
+    assert _cache_headers(response) == {}
+
+
+def test_a_history_with_rows_and_no_warning_is_kept(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The case that is kept, beside the two above."""
+    _history_of(monkeypatch, [{"station_id": "02564"}])
+
+    response = client.get(_HISTORY[0], params=_HISTORY[1])
+
+    assert response.headers["Cache-Control"] == HISTORY_CACHE_CONTROL
+    assert response.json()["metadata"]["warnings"] == []
 
 
 # --- what carries none ---------------------------------------------------------------------------------------------
@@ -546,6 +649,28 @@ def test_a_server_that_can_serve_is_ready(client: TestClient) -> None:
     assert client.get("/health").json() == {"status": "OK"}
 
 
+def test_a_probe_of_a_healthy_server_writes_no_log_line(client: TestClient, caplog: pytest.LogCaptureFixture) -> None:
+    """A probe every few seconds must not fill the log: building the settings logs a line, which a probe leaves out.
+
+    The access line is the web server's, and `/health` has no more.
+    """
+    with caplog.at_level(logging.DEBUG):
+        client.get("/health")
+        health = [record.name for record in caplog.records if record.name.startswith("wetterdienst")]
+        caplog.clear()
+        response = client.get("/ready")
+        ready = [record.name for record in caplog.records if record.name.startswith("wetterdienst")]
+        # the same build, outside a probe, is the line the test looks for
+        caplog.clear()
+        client.get("/api/v1/glossary", params={"limit": 1})
+        data = [record.getMessage() for record in caplog.records if record.name.startswith("wetterdienst")]
+
+    assert response.status_code == 200
+    assert health == []
+    assert ready == []
+    assert any("cache is" in line for line in data), "the settings no longer log a line, and this test checks nothing"
+
+
 def test_a_server_whose_settings_are_invalid_is_not_ready_but_alive(
     client: TestClient, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -570,19 +695,130 @@ def test_a_server_whose_settings_are_invalid_is_not_ready_but_alive(
     assert client.get("/health").status_code == 200
 
 
-def test_a_cache_directory_that_cannot_be_used_is_not_ready(
+_NEEDS_MODES = pytest.mark.skipif(
+    os.name == "nt" or (hasattr(os, "geteuid") and os.geteuid() == 0), reason="file modes are not enforced for root"
+)
+
+
+def test_a_cache_directory_that_cannot_be_used_is_still_ready(
     client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """A cache directory that is a file, or lies below one, fails every download; the path is not told."""
+    """The library caches in a temporary directory instead and serves (GH-2860): a file, or one below a file."""
     blocker = tmp_path / "blocker"
     blocker.write_text("a file")
 
     for directory in (blocker, blocker / "cache"):
         monkeypatch.setenv("WD_CACHE_DIR", str(directory))
-        response = client.get("/ready")
-        assert response.status_code == 503, directory
-        assert response.json()["checks"] == ["cache"]
-        assert str(tmp_path) not in response.text
+        assert client.get("/ready").json() == {"status": "ready"}, directory
+
+
+@_NEEDS_MODES
+def test_a_cache_directory_nobody_may_write_to_is_still_ready(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The volume a root container filled: `docker.md` says requests work."""
+    directory = tmp_path / "read-only"
+    directory.mkdir(mode=0o500)
+    monkeypatch.setenv("WD_CACHE_DIR", str(directory))
+    try:
+        assert client.get("/ready").status_code == 200
+    finally:
+        directory.chmod(0o700)
+
+
+def test_a_cache_directory_that_cannot_be_used_and_no_temporary_one_is_not_ready(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Where the fallback of the library cannot be made either a download fails: not ready; the path is not told."""
+    blocker = tmp_path / "blocker"
+    blocker.write_text("a file")
+    monkeypatch.setenv("WD_CACHE_DIR", str(blocker))
+
+    def no_temporary_directory() -> str:
+        raise FileNotFoundError(tempfile.tempdir)
+
+    monkeypatch.setattr(tempfile, "gettempdir", no_temporary_directory)
+
+    response = client.get("/ready")
+
+    assert response.status_code == 503
+    assert response.json()["checks"] == ["cache"]
+    assert str(tmp_path) not in response.text
+
+
+@_NEEDS_MODES
+def test_readiness_agrees_with_what_a_download_does(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """With the cache directory unusable a download is served from a temporary directory, and fails without one."""
+
+    class _Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            self.send_response(200)
+            self.send_header("Content-Length", "2")
+            self.end_headers()
+            self.wfile.write(b"ok")
+
+        def log_message(self, *_args: object) -> None:
+            pass
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    read_only = tmp_path / "read-only"
+    read_only.mkdir(mode=0o500)
+    fallbacks: dict[Any, Any] = {}
+    monkeypatch.setattr(network, "_cache_dir_fallbacks", fallbacks)
+    outcomes = {}
+    try:
+        for name, temporary in (("with a temporary directory", tmp_path), ("without", read_only)):
+            blocker = tmp_path / f"blocker-{len(outcomes)}"
+            blocker.write_text("a file")
+            monkeypatch.setenv("WD_CACHE_DIR", str(blocker))
+            monkeypatch.setattr(tempfile, "tempdir", str(temporary))
+            try:
+                file = network.download_file(
+                    url=f"http://127.0.0.1:{server.server_port}/{len(outcomes)}",
+                    cache_dir=blocker,
+                    ttl=CacheExpiry.TWELVE_HOURS,
+                )
+                file.raise_if_exception()
+                downloaded = True
+            except OSError:
+                downloaded = False
+            outcomes[name] = (downloaded, client.get("/ready").status_code)
+    finally:
+        server.shutdown()
+        read_only.chmod(0o700)
+        for fallback in fallbacks.values():
+            shutil.rmtree(fallback, ignore_errors=True)
+
+    assert outcomes == {"with a temporary directory": (True, 200), "without": (False, 503)}
+
+
+def test_a_cache_directory_below_one_that_cannot_be_searched_is_not_a_500(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """`Path.exists` raises `PermissionError` for an ancestor that cannot be traversed, before Python 3.14."""
+    real = type(tmp_path).exists
+    locked = str(tmp_path / "locked")
+
+    def exists(self: Path) -> bool:
+        if str(self).startswith(locked):
+            raise PermissionError(13, "Permission denied")
+        return real(self)
+
+    monkeypatch.setattr(type(tmp_path), "exists", exists)
+    monkeypatch.setenv("WD_CACHE_DIR", str(tmp_path / "locked" / "inside" / "cache"))
+
+    # with a temporary directory to fall back to, the server is ready
+    assert client.get("/ready").status_code == 200
+
+    # and without one it says so, as a problem
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path / "locked" / "tmp"))
+    monkeypatch.setattr("wetterdienst.ui.readiness.os.access", lambda *_args: False)
+    response = client.get("/ready")
+    assert response.status_code == 503
+    assert response.json()["checks"] == ["cache"]
 
 
 def test_a_cache_directory_that_does_not_exist_yet_is_ready_where_it_can_be_made(
@@ -594,20 +830,6 @@ def test_a_cache_directory_that_does_not_exist_yet_is_ready_where_it_can_be_made
 
     assert client.get("/ready").status_code == 200
     assert not directory.exists()
-
-
-@pytest.mark.skipif(os.name == "nt" or (hasattr(os, "geteuid") and os.geteuid() == 0), reason="needs permissions")
-def test_a_cache_directory_nobody_may_write_to_is_not_ready(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    """A directory that exists and is read-only fails every download."""
-    directory = tmp_path / "read-only"
-    directory.mkdir(mode=0o500)
-    monkeypatch.setenv("WD_CACHE_DIR", str(directory))
-    try:
-        assert client.get("/ready").status_code == 503
-    finally:
-        directory.chmod(0o700)
 
 
 def test_a_disabled_cache_needs_no_directory(
