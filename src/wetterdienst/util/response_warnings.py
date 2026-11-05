@@ -186,6 +186,19 @@ def warn_response(
         recorded.append(warning)
 
 
+def log_counted_warnings(log: logging.Logger) -> None:
+    """Log each warning that counts something across the request, once, with its total, as the command line does.
+
+    `warn_response` logs as it records, but a counted warning (`count_response_warning`: the values a check rejected,
+    the markers of the source, the calms) is only added up for the answer's `metadata`, and a CSV or a file target has
+    no place for that block. The command line calls this when the walk is over, so that what it says is the whole
+    count, in one line each, marked as `warn_response` marks its lines (`RESPONSE_WARNING_RECORD`, which `--quiet`
+    lets through). A library call and a REST answer carry the same counts in `warnings` and log nothing here.
+    """
+    for code, (count, message, details) in (_COUNTED.get() or {}).items():
+        log.warning(message.format(count=count, details=_tell_details(details)), extra={RESPONSE_WARNING_RECORD: code})
+
+
 def recorded_warnings() -> list[ResponseWarning]:
     """Give the warnings recorded since `begin_response`, in the order they were raised, the counted ones last."""
     counted = [

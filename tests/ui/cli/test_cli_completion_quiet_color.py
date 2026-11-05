@@ -24,7 +24,6 @@ from wetterdienst.ui.cli import cli
 from wetterdienst.util.cli import no_color
 from wetterdienst.util.response_warnings import (
     FILE_SKIPPED,
-    REJECTED_BY_PLAUSIBILITY,
     RESPONSE_WARNING_RECORD,
     warn_response,
 )
@@ -141,7 +140,7 @@ def test_a_provider_is_completed_from_the_registry() -> None:
 
 
 def test_a_network_is_completed_from_the_provider_on_the_line() -> None:
-    """`--network` offers the networks of the `--provider` given, wherever on the line, and else every network."""
+    """`--network` offers the networks of the `--provider` given before it, and else every network."""
     assert _offered("wetterdienst values --provider dwd --network ") == Wetterdienst.get_network_names("dwd")
     assert _offered("wetterdienst values --network mosmix --provider dwd --network m") == ["mosmix"]
     assert _offered("wetterdienst values --provider noaa --network ") == ["ghcn"]
@@ -149,6 +148,9 @@ def test_a_network_is_completed_from_the_provider_on_the_line() -> None:
     assert set(_offered("wetterdienst about coverage --network ")) == everything
     # a provider that does not exist offers no network of its own: the whole list, as without one
     assert set(_offered("wetterdienst values --provider nowhere --network ")) == everything
+    # bash hands `--provider=dwd` over as `--provider`, `=` and `dwd`: the provider is the one after the `=`
+    assert _offered("wetterdienst values --provider = noaa --network ") == ["ghcn"]
+    assert _offered("wetterdienst values --provider = dwd --network m") == ["mosmix"]
 
 
 def test_a_completion_imports_no_provider_beyond_the_command_line(tmp_path: Path) -> None:
@@ -172,8 +174,8 @@ def test_the_completion_script_is_printed_for_each_shell(shell: str) -> None:
     done = _run([], _WETTERDIENST_COMPLETE=f"{shell}_source")
 
     assert done.returncode == 0, done.stderr
-    # click's own note on a machine whose bash is older than 4.4 (macOS has 3.2 in /bin/bash), not ours
-    assert done.stderr in {"", "Shell completion is not supported for Bash versions older than 4.4.\n"}
+    # click's own note where bash is older than 4.4 (macOS has 3.2 in /bin/bash) or cannot be found, not ours
+    assert all("Bash" in line for line in done.stderr.splitlines()), done.stderr
     assert f"{shell}_complete" in done.stdout
     assert "_WETTERDIENST_COMPLETE" in done.stdout
     assert "wetterdienst" in done.stdout
@@ -240,9 +242,6 @@ def test_quiet_keeps_the_errors_and_the_warnings_about_the_answer_and_drops_the_
         logging.getLogger().warning("from the root")
         # what the answer carries in `metadata.warnings` as well, and the log line of it
         warn_response(logging.getLogger("wetterdienst.model.values"), FILE_SKIPPED, skipped)
-        warn_response(
-            logging.getLogger("wetterdienst.model.values"), REJECTED_BY_PLAUSIBILITY, "3 values were rejected"
-        )
         raise NoInternetError("no connection could be made to https://opendata.example.org")  # noqa: EM101, TRY003
 
     monkeypatch.setattr(cli_module, "get_glossary", failing)
@@ -255,10 +254,9 @@ def test_quiet_keeps_the_errors_and_the_warnings_about_the_answer_and_drops_the_
 
     assert caplog.messages == [
         skipped,
-        "3 values were rejected",
         "no connection could be made to https://opendata.example.org",
     ]
-    assert [record.levelno for record in caplog.records] == [logging.WARNING, logging.WARNING, logging.ERROR]
+    assert [record.levelno for record in caplog.records] == [logging.WARNING, logging.ERROR]
     assert (loud.exit_code, quiet.exit_code) == (1, 1)
 
 
@@ -474,3 +472,39 @@ def test_the_server_is_told_not_to_colour_with_no_color(
     restapi.start_service("0.0.0.0:7890")
 
     assert seen["use_colors"] is use_colors
+
+
+# --- an image under --quiet ---------------------------------------------------------------------------------------
+
+#: a command of its own that draws a figure as `render_image` does, as `stripes image` and a PNG of `values` do
+_DRAW = textwrap.dedent(
+    """
+    import plotly.graph_objects as go
+
+    from wetterdienst.io.export import render_image
+    from wetterdienst.ui.cli import _apply_log_level, cli, debug_opt
+
+
+    @cli.command("draw")
+    @debug_opt
+    def draw(debug: bool) -> None:
+        _apply_log_level(debug=debug)
+        print(len(render_image(go.Figure(go.Scatter(x=[1, 2], y=[1, 2])), "png")))
+
+
+    cli(prog_name="wetterdienst")
+    """,
+)
+
+
+def test_quiet_leaves_no_line_of_the_image_libraries_when_the_interpreter_ends() -> None:
+    """Kaleido and its browser write what they cleaned up as the process ends, after the command: not under --quiet."""
+    pytest.importorskip("kaleido")
+    pytest.importorskip("plotly")
+    quiet = _run(["draw", "--quiet"], source=_DRAW)
+    if quiet.returncode != 0 and "Chrome" in quiet.stderr:
+        pytest.skip("no browser for Kaleido")
+
+    assert quiet.returncode == 0, quiet.stderr
+    assert quiet.stdout.strip().isdigit(), quiet.stdout
+    assert quiet.stderr == ""

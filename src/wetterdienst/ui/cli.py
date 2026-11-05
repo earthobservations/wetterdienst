@@ -89,7 +89,7 @@ from wetterdienst.ui.render import (
 from wetterdienst.ui.response_metadata import issues_metadata, result_metadata
 from wetterdienst.util.cli import no_color, setup_logging
 from wetterdienst.util.extras import import_optional
-from wetterdienst.util.response_warnings import RESPONSE_WARNING_RECORD, begin_response
+from wetterdienst.util.response_warnings import RESPONSE_WARNING_RECORD, begin_response, log_counted_warnings
 from wetterdienst.util.ui import read_list
 from wetterdienst.util.url import ConnectionString, file_target_path, redact_password
 
@@ -125,8 +125,16 @@ def _complete_provider(ctx: click.Context, param: click.Parameter, incomplete: s
 
 
 def _complete_network(ctx: click.Context, param: click.Parameter, incomplete: str) -> list[CompletionItem]:  # noqa: ARG001
-    """Complete `--network` with the networks of the `--provider` already on the line, else of every provider."""
+    """Complete `--network` with the networks of the `--provider` already on the line, else of every provider.
+
+    Bash hands over `--provider=dwd` as three words, `--provider`, `=` and `dwd`: click reads the `=` as the value and
+    `dwd` is left over in `ctx.args`, where the provider is taken from. The word being completed itself is not: a
+    value after an `=` is not offered (zsh would replace the whole word `--provider=dw` by `dwd`, too), which the
+    docs say, so a space is the spelling to complete with.
+    """
     provider = ctx.params.get("provider")
+    if provider == "=":
+        provider = next((word for word in ctx.args if word.strip().lower() in Wetterdienst.registry), None)
     if isinstance(provider, str) and provider.strip().lower() in Wetterdienst.registry:
         names = Wetterdienst.get_network_names(provider)
     else:
@@ -144,6 +152,10 @@ def _remember_quiet(ctx: click.Context, param: click.Parameter, value: bool) -> 
     return value
 
 
+#: the loggers of the libraries behind an image, which write what they cleaned up as the interpreter ends
+_IMAGE_LIBRARIES = ("choreographer", "kaleido")
+
+
 class _QuietFilter(logging.Filter):
     """Let a handler write errors, the warnings about the answer and `NOTHING_WRITTEN`: what `--quiet` leaves."""
 
@@ -156,12 +168,15 @@ def _apply_log_level(*, debug: bool) -> None:
 
     `--quiet` keeps the errors (`log.error`, `log.exception`), the sentence that nothing was written to the
     `--target`, and the warnings about the answer itself, the ones that are also in the `warnings` of its
-    `metadata` (a file the provider let go, readings a check rejected, a parameter without rows: `warn_response`
-    marks their log records). It drops the rest: the progress (logged at INFO), the other warnings of the package
-    and everything the libraries underneath write below ERROR. The levels of the root logger and of `wetterdienst`
-    are raised to WARNING, and the handlers they have are given a filter for the rest, both for the length of the
-    command. The data on stdout, a usage error that click writes itself and the exit code are untouched. With
-    `--debug` it is a usage error, which of the two wins is not for the command to guess.
+    `metadata` (a file the provider let go, a station left out, readings a check rejected, a parameter without rows:
+    `warn_response` marks their log records, and `log_counted_warnings` those that are only counted). It drops the
+    rest: the progress (logged at INFO), the other warnings of the package and everything the libraries underneath
+    write below ERROR. The levels of the root logger and of `wetterdienst` are set to INFO (`station-skipped` is
+    logged there) and the handlers they have are given a filter for the rest, both for the length of the command.
+    The libraries that draw an image (`choreographer`, `kaleido`) write their INFO lines when the interpreter ends,
+    after the command, so they are kept at WARNING for good. The data on stdout, a usage error that click writes
+    itself and the exit code are untouched. With `--debug` it is a usage error, which of the two wins is not for
+    the command to guess.
     """
     ctx = click.get_current_context()
     if not ctx.meta.get(_QUIET_KEY, False):
@@ -174,8 +189,10 @@ def _apply_log_level(*, debug: bool) -> None:
     levels = [logger.level for logger in loggers]
     handlers = list({id(h): h for logger in loggers for h in logger.handlers}.values())
     quiet = _QuietFilter()
+    for name in _IMAGE_LIBRARIES:
+        logging.getLogger(name).setLevel(logging.WARNING)
     for logger in loggers:
-        logger.setLevel(logging.WARNING)
+        logger.setLevel(logging.INFO)
     for handler in handlers:
         handler.addFilter(quiet)
 
@@ -1179,6 +1196,9 @@ def _finish(
     (GH-2635). A target is left as it is, since nothing is there to write: replacing a table with an
     empty one is not what a schedule that found no reading yet is after.
     """
+    # the sums of the warnings that count something, which only the answer's metadata carries otherwise
+    # the sums of the warnings that count something, which only the answer's metadata carries otherwise
+    log_counted_warnings(log)
     empty = values_.df.is_empty()
     if empty:
         log.warning(NO_DATA)
