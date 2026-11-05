@@ -33,7 +33,8 @@ Three properties of the CLI matter for a scheduler:
   `No data available for given constraints` on stderr and, where the REST API would answer an empty
   list, the same on stdout -- a schedule that asks for today's value before it is published does not
   fail. A `--target` is then left as it is: nothing is written, so the table or file keeps what the
-  last run wrote instead of being replaced with an empty one. Exit `1` is for a failure, and `2` for
+  last run wrote instead of being replaced with an empty one (`alerts` is the exception: no warning is its answer, and
+  the file is rewritten without one). Exit `1` is for a failure, and `2` for
   a request that cannot be served as phrased. A wrapper that wants an empty result to count as one
   tests the output, or the sentence on stderr.
 - **A run without a network connection fails, it does not write an empty result.** When the

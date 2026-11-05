@@ -161,7 +161,9 @@ sidecar is overwritten by the next write with `with_metadata=True` and left as i
 passes `--with-metadata` to `--target` of `stations`, `values`, `interpolate` and `summarize` as `to_target` takes it:
 `<file>.metadata.json` beside any file but a Parquet, NetCDF or Zarr one (CSV, spreadsheet, JSON, JSON Lines, GeoJSON,
 Feather), the heavy parts in the block of those three, and a refusal, with the message of the `ExportRefusedError` and exit code 1, for a database target (a result with no
-rows writes nothing, to any target). The REST
+rows writes nothing, to any target). `alerts` is the exception to both: its `--target` is a file only, and a database
+target is a usage error with exit code 2 before anything is fetched, and a snapshot without a warning is written
+(replacing the file), as the alerts page says. The REST
 API has no `--target`: it answers with the block, which `with_metadata=true` completes. Charts are not files of `to_target`
 and carry nothing (#2567).
 
@@ -196,7 +198,11 @@ small `typing.Protocol` of `to_dict`, `to_json` and `to_format`, so that one fun
 result is a set of arrays, not a table, and does not). The history result has JSON
 and no other format: `to_format("json")`, in any case, is its `to_json`, and `to_format("csv")` is an
 `UnknownFormatError` naming `json` as the only one supported. The alerts result of `dwd/alerts` has `json`, `geojson`
-and `csv`, in any case, and takes the `indent` and the `with_metadata` of the others; it has no `to_target` yet.
+and `csv`, in any case, and takes the `indent` and the `with_metadata` of the others. Its `to_target` writes files
+only, `.json`, `.geojson` and `.csv` (the table above lists them, but those are the files of the other results; the
+alerts have writers of their own, which read the extension before the file is looked for): an
+alert is nested, so a database target and every other file type is an `ExportRefusedError` naming the three. What a
+row of its CSV is, and what the files hold, is on the [alerts page](../data/provider/dwd/alerts/index.md#to-a-file).
 
 `to_format` takes one set of arguments for any format and gives each format those it takes: `with_metadata`,
 `with_stations` and `indent` for JSON (a stations result has no `with_stations`), `with_metadata` and `indent` for

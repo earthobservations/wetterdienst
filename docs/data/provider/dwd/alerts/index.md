@@ -77,7 +77,66 @@ result.to_format("GeoJSON", indent=2, with_metadata=True)  # "json", "geojson" o
 `to_json` and `to_geojson` take `indent` (a number of spaces, `True` for 4, `False` or `None` for one line, which is
 the default here) and `with_metadata`, which puts the `metadata` block (provider, licence, credit line and the date of
 the data) first, as the other results do; CSV has no place for it. The result is outside the
-[frozen results](../../../../usage/compatibility.md#python-api) of the Python API, and there is no `to_target` for it yet.
+[frozen results](../../../../usage/compatibility.md#python-api) of the Python API.
+
+## To a file
+
+`result.to_target("file://alerts.csv")` writes the alerts to a file, in the format its extension names, as
+`to_target` of the other results does ([Export](../../../../usage/export.md)):
+
+| File | Holds |
+| --- | --- |
+| `.json` | what the REST API answers for `format=json`: `metadata`, `snapshot`, `alerts`; an alert has its areas, `parameters` and `geometry` nested, as `to_dict` has them |
+| `.geojson` | the `FeatureCollection` of `to_geojson`, with `metadata` and `snapshot` as foreign members |
+| `.csv` | `to_csv`, bare: no `metadata` block, which `with_metadata=True` writes beside it |
+
+A JSON or GeoJSON file is on one line, as the answer is (a district snapshot is about 614 KB so and 3.7 MB indented);
+`pretty=True` (`--pretty` on the command line) indents it with 4 spaces. A CSV file has nothing to indent.
+
+Nothing else is written. A database target (`duckdb://`, `sqlite://`, ...) is refused with an `ExportRefusedError`, as
+are `.parquet`, `.xlsx` and the other file types, with the message naming the three the result is written as: an
+alert is nested (one alert has several areas, `parameters` and a polygon), and there is no table for it yet.
+`if_exists` is `replace` (the default), `fail` or `skip`; `append` is refused for a file, as for the other results.
+
+**A row of the CSV is an alert**, the row of `result.df`: one CAP message, so one line per warning, whatever number
+of areas it covers. Its columns are the 28 of `df`, in its order (`alert_id`, `status`, ..., `parameters`, `warncell_ids`, `area_names`,
+`geometry`, `references`, `language`), written as follows:
+
+- text and the codes (`event`, `severity`, `event_code`, ...) as they are; a gap is an empty field;
+- `effective`, `onset`, `expires` and `sent` as ISO 8601 strings in UTC, `2026-07-26T07:23:00.000000+00:00`;
+- the areas are two fields, `warncell_ids` and `area_names`, each the values of all the alert's entity areas joined
+  with a comma: `809272121,809276148` and `Gemeinde Grainet,Stadt Zwiesel`. A name that itself holds a comma cannot be told
+  from two names, so read the ids, or use JSON, which keeps both as lists;
+- `groups` joined with a comma in the same way;
+- `parameters` (the ordered `{name, value}` list, which repeats a name such as `wind direction` where DWD does) and
+  `geometry` (the `MultiPolygon` of all the polygon areas, empty for an alert of warn cells alone) as JSON text in one
+  field, which `json.loads` reads. A geometry is long: that of a large warning passes the 32,767 characters that
+  Excel keeps of a cell (4 of the 11 on one district snapshot), and the 131,072 that Python's `csv` module reads of a
+  field unless `csv.field_size_limit` is raised, where it raises `_csv.Error: field larger than field limit`. Read
+  the geometry from the `.json` or `.geojson` file.
+
+```text
+alert_id,status,event,severity,sent,parameters,warncell_ids,area_names,geometry
+2.49.0.0.276.0.DWD.PVW.1785050580000.6bd1534c-....ENG,Actual,gale-force gusts,Moderate,2026-07-26T07:23:00.000000+00:00,"[{""name"": ""gusts"", ""value"": ""65-75 [km/h]""}, {""name"": ""wind direction"", ""value"": ""west""}]","809272121,809276148","Gemeinde Grainet,Stadt Zwiesel","{""type"": ""MultiPolygon"", ""coordinates"": [[[[12.0, 49.0], ...]]]}"
+```
+
+(The real file has all 28 columns; 9 are shown, in their order, and the geometry is cut.) What a row holds is what
+the frame holds, in every format: of the `<info>` blocks of a CAP message the parser reads the first, which for the
+single-language products is the only one and for the `mul` product, which bundles 8, is the first language, so the
+other languages of a `mul` snapshot are in no file, JSON and GeoJSON included
+([#3801](https://github.com/earthobservations/wetterdienst/issues/3801)).
+
+A snapshot without a warning is written as it is: `"alerts": []` beside the `metadata` block in JSON, no features
+in GeoJSON and the header alone in CSV, where the other results leave a target as it is for an empty result. No warning is an answer, and a file
+that a schedule rewrites must not keep the warnings of the run before.
+
+The JSON and the GeoJSON file carry the licence, the credit line and the date of the data in their `metadata` block. A
+CSV file has no place for it, so `with_metadata=True` writes the block beside any of the three, as
+`alerts.csv.metadata.json`, the block `/api/alerts` answers with:
+
+```python
+result.to_target("file://alerts.csv", with_metadata=True)  # alerts.csv and alerts.csv.metadata.json
+```
 
 ## CLI
 
@@ -91,9 +150,16 @@ wetterdienst alerts --granularity=district --language=de --format=geojson
 # warnings active 6 hours ago (UTC, within the rolling ~48h window; GNU date)
 wetterdienst alerts --granularity=district --timestamp="$(date -u -d '6 hours ago' +%Y-%m-%dT%H:%M:%S)"
 
-# write current warnings to a GeoJSON file
-wetterdienst alerts --format=geojson --target=file://alerts.geojson
+# write current warnings to a GeoJSON file, or a CSV one with its metadata beside it
+wetterdienst alerts --target=file://alerts.geojson
+wetterdienst alerts --target=alerts.csv --with-metadata
 ```
+
+With `--target` the extension (`.json`, `.geojson` or `.csv`) decides the format, as it does for `stations` and
+`values`, so a `--format` that names another one, or a file of another type, is a usage error (exit code 2), and a
+database `--target` is refused. `--pretty` indents a JSON or GeoJSON file. `--if-exists` is `replace` by default, and `--with-metadata` writes
+`<file>.metadata.json` beside the file, so it needs a `--target`. A file that cannot be written, or that `--if-exists=fail`
+finds there, is an error with exit code 1.
 
 ## REST API
 
