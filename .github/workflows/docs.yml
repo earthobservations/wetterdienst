@@ -11,6 +11,7 @@ on:
     paths:
       - 'docs/**'
       - 'tests/test_docs_notebook_errors.py'
+      - 'tests/test_docs_provider_licenses.py'
       - 'tests/conftest.py'
       - 'README.md'
       - 'CHANGELOG.md'
@@ -24,6 +25,7 @@ on:
     paths:
       - 'docs/**'
       - 'tests/test_docs_notebook_errors.py'
+      - 'tests/test_docs_provider_licenses.py'
       - 'tests/conftest.py'
       - 'README.md'
       - 'CHANGELOG.md'
@@ -72,6 +74,10 @@ jobs:
       # the check that fails the Read the Docs build for a cell that failed, with the myst-nb and Sphinx it runs on
       - name: Test the check of the notebook cells
         run: uv run --group docs pytest tests/test_docs_notebook_errors.py
+
+      # the table of licences is built from the provider metadata by an extension of ours
+      - name: Test the table of licences
+        run: uv run --group docs pytest tests/test_docs_provider_licenses.py
 
       - name: Build
         run: uv run --group docs sphinx-build --builder html --fail-on-warning --keep-going -D nb_execution_mode=off docs docs/_build/html

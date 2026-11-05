@@ -22,6 +22,7 @@ from wetterdienst.exceptions import ExportRefusedError
 from wetterdienst.io.export import ExportMixin
 from wetterdienst.io.file_metadata import BLOCK_KEY, SIDECAR_SUFFIX, block_attributes
 from wetterdienst.io.sinks import FILE_WRITERS, SELF_DESCRIBING
+from wetterdienst.model.processing_note import DERIVED_NOTE, PROCESSING_NOTE
 from wetterdienst.ui.response_metadata import metadata_to_dict, response_metadata
 
 if TYPE_CHECKING:
@@ -83,6 +84,10 @@ def test_parquet_carries_the_block_of_the_rest_api_by_default(name: str, tmp_pat
     assert stored["license_url"] == provider.license.url
     assert stored["license"] == (provider.license.spdx_id or provider.license.name)
     assert stored["retrieved_at"] == json.loads(stored[BLOCK_KEY])["retrieved_at"]
+    # what wetterdienst did to the data, as a key of its own and in the block, derived where the values are (GH-2567)
+    assert stored["processing_note"] == _block_of(stored)["processing_note"]
+    assert stored["processing_note"].startswith(PROCESSING_NOTE)
+    assert stored["processing_note"].endswith(DERIVED_NOTE) == (name in {"interpolated", "summarized"})
     # nothing is written beside it
     assert [path.name for path in tmp_path.iterdir()] == ["data.parquet"]
 
@@ -344,9 +349,10 @@ def test_a_provider_that_states_no_licence_writes_none() -> None:
         "provider": {"name_english": "Somebody", "license": None, "attribution": None},
         "retrieved_at": "2026-11-01T00:00:00Z",
         "data_updated_at": None,
+        "processing_note": PROCESSING_NOTE,
     }
     attributes = block_attributes(block)
-    assert set(attributes) == {"provider", "retrieved_at", BLOCK_KEY}
+    assert set(attributes) == {"provider", "retrieved_at", "processing_note", BLOCK_KEY}
     assert json.loads(attributes[BLOCK_KEY]) == block
 
 
@@ -358,6 +364,7 @@ def test_a_licence_is_named_by_its_spdx_identifier_or_else_by_its_name() -> None
             "provider": {**provider, "license": {"spdx_id": "CC-BY-4.0", "name": "n", "url": "u"}},
             "retrieved_at": "t",
             "data_updated_at": "d",
+            "processing_note": "p",
         }
     )
     named = block_attributes(
@@ -365,6 +372,7 @@ def test_a_licence_is_named_by_its_spdx_identifier_or_else_by_its_name() -> None
             "provider": {**provider, "license": {"spdx_id": None, "name": "Own terms", "url": "u"}},
             "retrieved_at": "t",
             "data_updated_at": "d",
+            "processing_note": "p",
         }
     )
     assert spdx["license"] == "CC-BY-4.0"
@@ -382,3 +390,15 @@ def test_the_block_is_the_one_the_rest_api_builds(tmp_path: Path) -> None:
     assert block["request"]["provider"] == "dwd"
     assert block["request"]["network"] == "observation"
     assert block["counts"]["stations"] == stations.df.height
+
+
+# --- the note (GH-2567) ----------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("name", ["values", "interpolated"])
+def test_the_sidecar_says_what_wetterdienst_did_to_the_data(name: str, tmp_path: Path) -> None:
+    """The file beside a CSV carries the note, and the derived wording where the values were calculated."""
+    _result(name).to_target(f"file://{tmp_path / 'data.csv'}", with_metadata=True)
+    block = json.loads((tmp_path / f"data.csv{SIDECAR_SUFFIX}").read_text(encoding="utf-8"))
+    assert block["processing_note"].startswith(PROCESSING_NOTE)
+    assert block["processing_note"].endswith(DERIVED_NOTE) == (name == "interpolated")

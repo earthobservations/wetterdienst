@@ -79,7 +79,10 @@ http --download localhost:7890/api/stripes/image kind==temperature station==1048
 ```
 
 The JSON answer of `values` has the `metadata` block every answer has, a `series` that says what the values
-are of (`station`, `resolution`, `dataset`, `parameter`, and the `unit` of `value`), and the `values`.
+are of (`station`, `resolution`, `dataset`, `parameter`, and the `unit` of `value`), and the `values`. The values are DWD's
+own annual values, the same numbers as `/api/values` gives for the parameter, so the `processing_note` of the block is
+the plain note every answer has. An image has no place for it in itself: the `X-Wetterdienst-Processing` header of
+`image` has it, and adds "The image is drawn from the provider's annual values."
 
 The `image` endpoint accepts the same rendering options as the CLI (`start_year`,
 `end_year`, `show_title`, `show_years`, `show_data_availability`, `format`, `dpi`): the command line

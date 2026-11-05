@@ -41,6 +41,7 @@ from wetterdienst.io.export import (
     require_kaleido,
 )
 from wetterdienst.io.formats import names_of, renders_with_kaleido
+from wetterdienst.model.processing_note import processing_note
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.model.util import create_station_id_from_string, filter_by_date
 from wetterdienst.util.datetime import format_timestamp, timestamps_to_string
@@ -117,6 +118,9 @@ class _Metadata(TypedDict):
     #: when the source says the data was last updated, in UTC, in the library's timestamp format; null where it
     #: states none, for a list of stations and for a history (GH-2567)
     data_updated_at: str | None
+    #: what wetterdienst did to the data: reshaped, units converted, and for an interpolation and a summary, that the
+    #: values were selected or calculated from the readings (GH-2567)
+    processing_note: str
 
 
 # Extra keys are allowed so the schema admits the station columns a provider adds to the core ones,
@@ -228,10 +232,18 @@ def describe_producer() -> _Producer:
     }
 
 
-def describe_provider(terms: _ProviderTerms | ProviderTerms, data_updated_at: datetime | None = None) -> _Metadata:
+def describe_provider(
+    terms: _ProviderTerms | ProviderTerms,
+    data_updated_at: datetime | None = None,
+    *,
+    derived: bool = False,
+    image: bool = False,
+) -> _Metadata:
     """Give the `provider` and `producer` blocks of an answer: who published the data, under which terms, and us.
 
-    And `data_updated_at`, the date the source states for the data, where the answer has one (GH-2567).
+    And `data_updated_at`, the date the source states for the data, where the answer has one, and the
+    `processing_note` that says what wetterdienst did to it, with `derived` for values that were selected or calculated
+    and `image` for an image drawn from them (GH-2567).
     """
     return {
         "provider": {
@@ -245,6 +257,7 @@ def describe_provider(terms: _ProviderTerms | ProviderTerms, data_updated_at: da
         },
         "producer": describe_producer(),
         "data_updated_at": None if data_updated_at is None else format_timestamp(data_updated_at),
+        "processing_note": processing_note(derived=derived, image=image),
     }
 
 
@@ -313,16 +326,19 @@ def _factory_method(func: _MethodT) -> _MethodT:
     return cast("_MethodT", _FactoryMethod(cast("FunctionType", func)))
 
 
-def _metadata_of(stations: StationsResult, data_updated_at: datetime | None = None) -> _Metadata:
+def _metadata_of(
+    stations: StationsResult, data_updated_at: datetime | None = None, *, derived: bool = False
+) -> _Metadata:
     """Get the ``metadata`` block that the formats carry under ``with_metadata=True``.
 
-    It is the ``{"provider": {...}, "producer": {...}, "data_updated_at": ...}`` block of the dictionary, JSON and
-    GeoJSON formats, the shape the REST API and the command line answer with. The provider's part is
-    ``request.metadata`` (a `MetadataModel`) as a dictionary, the producer's is ``Info()`` and the library's DOI, and
-    ``data_updated_at`` is the date the source states for the data (the result's own, null where there is none). A
-    caller who wants the provider's metadata as an object reads ``stations.request.metadata``.
+    It is the ``{"provider": {...}, "producer": {...}, "data_updated_at": ..., "processing_note": ...}`` block of the
+    dictionary, JSON and GeoJSON formats, the shape the REST API and the command line answer with. The provider's
+    part is ``request.metadata`` (a `MetadataModel`) as a dictionary, the producer's is ``Info()`` and the library's
+    DOI, and ``data_updated_at`` is the date the source states for the data (the result's own, null where there is
+    none). A caller who wants the provider's metadata as an object reads ``stations.request.metadata``. ``derived`` is
+    for the values of an interpolation or a summary, which the block's ``processing_note`` then says are calculated.
     """
-    return describe_provider(stations.request.metadata, data_updated_at)
+    return describe_provider(stations.request.metadata, data_updated_at, derived=derived)
 
 
 def _is_finite(value: float | None) -> bool:
@@ -780,6 +796,9 @@ class _ValuesResult(_EqualByFields, ExportMixin, Generic[_RowsT, _DictT]):
     #: what was read, UTC. Null where the source states none; never the time the answer was made, which is
     #: `retrieved_at` of the answer's `metadata` block, and null for a result with no rows left (GH-2567)
     data_updated_at: datetime | None = None
+    #: whether the values are calculated by wetterdienst from readings (interpolation, summary) and not read: the
+    #: `processing_note` of the answer's `metadata` block then says so (GH-2567)
+    _derived: ClassVar[bool] = False
 
     @property
     def df_stations(self) -> pl.DataFrame:
@@ -810,7 +829,7 @@ class _ValuesResult(_EqualByFields, ExportMixin, Generic[_RowsT, _DictT]):
         # assembled key by key, as the keys come in this order and two of them are optional
         data: dict[str, object] = {}
         if with_metadata:
-            data["metadata"] = _metadata_of(self.stations, self.data_updated_at)
+            data["metadata"] = _metadata_of(self.stations, self.data_updated_at, derived=self._derived)
         if with_stations:
             data["stations"] = self.stations.to_dict(with_metadata=False)["stations"]
         data["values"] = self._to_dict(self.df)
@@ -979,7 +998,10 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
             )
         collection: _ValuesOgcFeatureCollectionData = {"type": "FeatureCollection", "features": features}
         if with_metadata:
-            return {"metadata": _metadata_of(self.stations, self.data_updated_at), "data": collection}
+            return {
+                "metadata": _metadata_of(self.stations, self.data_updated_at, derived=self._derived),
+                "data": collection,
+            }
         return {"data": collection}
 
     def to_plot(self) -> go.Figure:
@@ -1351,6 +1373,8 @@ class _InterpolatedValuesOgcFeatureCollection(_InterpolatedValuesOgcFeatureColle
 class InterpolatedValuesResult(_ValuesResult[list[_InterpolatedValuesItemDict], _InterpolatedValuesDict]):
     """Result class for interpolated values."""
 
+    _derived: ClassVar[bool] = True
+
     stations: StationsResult
     df: pl.DataFrame
     latlon: tuple[float, float]
@@ -1392,7 +1416,10 @@ class InterpolatedValuesResult(_ValuesResult[list[_InterpolatedValuesItemDict], 
         }
         collection: _InterpolatedValuesOgcFeatureCollectionData = {"type": "FeatureCollection", "features": [feature]}
         if with_metadata:
-            return {"metadata": _metadata_of(self.stations, self.data_updated_at), "data": collection}
+            return {
+                "metadata": _metadata_of(self.stations, self.data_updated_at, derived=self._derived),
+                "data": collection,
+            }
         return {"data": collection}
 
     def to_plot(self) -> go.Figure:
@@ -1543,6 +1570,8 @@ class _SummarizedValuesOgcFeatureCollection(_SummarizedValuesOgcFeatureCollectio
 class SummarizedValuesResult(_ValuesResult[list[_SummarizedValuesItemDict], _SummarizedValuesDict]):
     """Calculate summary of stations and parameters."""
 
+    _derived: ClassVar[bool] = True
+
     stations: StationsResult
     df: pl.DataFrame
     latlon: tuple[float, float]
@@ -1584,7 +1613,10 @@ class SummarizedValuesResult(_ValuesResult[list[_SummarizedValuesItemDict], _Sum
         }
         collection: _SummarizedValuesOgcFeatureCollectionData = {"type": "FeatureCollection", "features": [feature]}
         if with_metadata:
-            return {"metadata": _metadata_of(self.stations, self.data_updated_at), "data": collection}
+            return {
+                "metadata": _metadata_of(self.stations, self.data_updated_at, derived=self._derived),
+                "data": collection,
+            }
         return {"data": collection}
 
     def to_plot(self) -> go.Figure:

@@ -110,7 +110,8 @@ Every `format` a tool offers is answered, as one body held to the `rows` limit. 
 structured content of the result. The other formats are content blocks: `csv`, `ndjson`, `html` and `svg` are text, as
 the REST API sends them; `png`, `jpg` and `webp` are image content and `pdf` is an embedded resource. The structured
 content that the output schema of the tool requires is then one sentence about the answer: its media type and size in
-bytes, and the licence, the attribution and the warnings that the REST API sends in headers for these formats (the same
+bytes, and the licence, the attribution, the note on what wetterdienst did to the
+data and the warnings that the REST API sends in headers for these formats (the same
 in the `_meta` of the result, under `wetterdienst`). The body is not repeated in it. An `html` chart loads plotly.js
 from the CDN, so the page is a few kilobytes (9 KB for one station) where the REST API sends it inline, about 4.8 MB,
 and the page needs the network to draw. The default is `json` (`png` for `stripes_image`, which only draws), which

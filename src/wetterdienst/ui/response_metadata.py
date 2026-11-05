@@ -235,6 +235,13 @@ class ResponseMetadata(BaseModel):
         "none) and with which credit line (`attribution`).",
     )
     producer: _Producer
+    processing_note: str = Field(
+        description="What wetterdienst did to the data: it was reshaped into a uniform table and its units "
+        "converted where they differ. The answers of `interpolate` and `summarize` add that the values were selected "
+        "or calculated from the provider's readings, and the headers of the climate stripes' image that it is drawn "
+        "from the provider's annual values. The same text for every provider and licence, so that a licence that asks "
+        "for changes to be indicated has them said; no legal advice.",
+    )
     request: ResolvedRequest
     counts: Counts
     crs: Crs
@@ -309,7 +316,11 @@ def result_metadata(
         api_version=API_VERSION,
         schema_version=SCHEMA_VERSION,
         retrieved_at=_retrieved_at(),
-        **_metadata_of(stations, None if isinstance(result, StationsResult) else result.data_updated_at),
+        **_metadata_of(
+            stations,
+            None if isinstance(result, StationsResult) else result.data_updated_at,
+            derived=not isinstance(result, StationsResult) and result._derived,  # noqa: SLF001
+        ),
         request=ResolvedRequest(
             provider=provider.lower(),
             network=network.lower(),
@@ -385,16 +396,18 @@ def _block_without_result(
     stations: int,
     rows: int,
     data_updated_at: dt.datetime | None = None,
+    image: bool = False,
 ) -> ResponseMetadata:
     """Build the block of an answer that is made from no stations result: the provider's terms and the request.
 
-    The date the source states for the data is the caller's to give, for an answer that has one (the warnings).
+    The date the source states for the data is the caller's to give, for an answer that has one (the warnings), and
+    so is whether the answer is an `image` drawn from the values (the climate stripes' image).
     """
     return ResponseMetadata(
         api_version=API_VERSION,
         schema_version=SCHEMA_VERSION,
         retrieved_at=_retrieved_at(),
-        **describe_provider(_provider_terms(api), data_updated_at),
+        **describe_provider(_provider_terms(api), data_updated_at, image=image),
         request=request,
         counts=Counts(stations=stations, rows=rows),
         crs=Crs(),
@@ -420,8 +433,12 @@ def issues_metadata(api: object, request: IssuesRequest, issues: Sequence[str]) 
     )
 
 
-def stripes_metadata(data: StripesData, request: StripesRequest) -> ResponseMetadata:
-    """Build the block of climate stripes (`/api/stripes/values` and `/image`), made of DWD observation's values."""
+def stripes_metadata(data: StripesData, request: StripesRequest, *, image: bool = False) -> ResponseMetadata:
+    """Build the block of climate stripes (`/api/stripes/values` and `/image`), made of DWD observation's values.
+
+    The values are DWD's own annual values, so the block has the plain note; `image` is for the headers of the image,
+    which add that it is drawn from them.
+    """
     from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
 
     stripes = data.series
@@ -442,6 +459,7 @@ def stripes_metadata(data: StripesData, request: StripesRequest) -> ResponseMeta
         ),
         stations=1,
         rows=data.df.height,
+        image=image,
     )
 
 
@@ -494,6 +512,7 @@ def response_headers(metadata: ResponseMetadata) -> Mapping[str, str]:
         headers["Link"] = f'<{license_["url"]}>; rel="license"'
     if provider["attribution"]:
         headers["X-Wetterdienst-Attribution"] = _header_text(provider["attribution"])
+    headers["X-Wetterdienst-Processing"] = _header_text(metadata.processing_note)
     if metadata.warnings:
         headers["X-Wetterdienst-Warnings"] = ", ".join(dict.fromkeys(w["code"] for w in metadata.warnings))
     return headers
