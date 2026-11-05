@@ -34,6 +34,7 @@ from wetterdienst.provider.dwd.observation.api import DwdObservationValues
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+    from pathlib import Path
 
 pytest.importorskip("shapely")
 pytest.importorskip("utm")
@@ -253,7 +254,7 @@ def test_summarize_names_the_station_each_row_was_taken_from(stubbed: pl.DataFra
 
     assert rows.get_column("taken_station_id").to_list() == SUMMARIZED_FROM
     assert set(stations) == {station_id for station_id in SUMMARIZED_FROM if station_id}
-    # the stations that have a reading and are nearer than the one taken are not named, as nothing was taken from them
+    # the stations that have a reading and are farther than the one taken are not named, as nothing was taken from them
     assert "00004" not in stations
     assert "00006" not in stations
     for station_id, station in stations.items():
@@ -373,3 +374,105 @@ def test_cli_answers_with_the_distances_of_the_stations(stubbed: pl.DataFrame, c
     for station in stations:
         assert station["distance"] == pytest.approx(_distance(station["station_id"]), abs=0.01)
         assert station["elevation_difference"] == ELEVATION - STATIONS[station["station_id"]][2]
+
+
+def _stub_precipitation(
+    monkeypatch: pytest.MonkeyPatch,
+    request_class: type,
+    values_class: type,
+    parameter: tuple[str, str, str],
+    nearby_elevation: float | None,
+) -> object:
+    """Serve the six stations for a quantity that does not fall with height, the nearby one at `nearby_elevation`.
+
+    Precipitation is not corrected for height, so a station of unknown elevation is not left out of an answer at an
+    elevation, and shows what its difference is.
+    """
+    stations = _stations_frame().with_columns(
+        pl.when(pl.col("station_id") == "00001")
+        .then(nearby_elevation)
+        .otherwise(pl.col("elevation"))
+        .alias("elevation")
+    )
+    resolution, dataset, name = parameter
+
+    def _all(self: object) -> StationsResult:
+        return StationsResult(request=self, df=stations, _df_all=stations, _stations_filter=StationsFilter.ALL)
+
+    def _query(self: object) -> Iterator[SimpleNamespace]:  # noqa: ARG001
+        for station_id in STATIONS:
+            rows = [
+                {
+                    "station_id": station_id,
+                    "resolution": resolution,
+                    "dataset": dataset,
+                    "parameter": name,
+                    "timestamp": timestamp,
+                    "value": 1.0 + index,
+                    "quality_flags": "10",
+                }
+                for index, timestamp in enumerate(TIMESTAMPS[:1])
+            ]
+            yield SimpleNamespace(df=pl.DataFrame(rows), data_updated_at=None)
+
+    monkeypatch.setattr(request_class, "all", _all)
+    monkeypatch.setattr(values_class, "query", _query)
+    return request_class(parameters=[parameter], start=TIMESTAMPS[0], end=TIMESTAMPS[0])
+
+
+@pytest.mark.parametrize("method", ["interpolate", "summarize"])
+@pytest.mark.parametrize("network", ["dwd_observation", "noaa_ghcn"])
+def test_a_station_with_no_elevation_has_no_elevation_difference(
+    monkeypatch: pytest.MonkeyPatch, network: str, method: str
+) -> None:
+    """A station that has no elevation has a null difference, not the point's elevation as if it stood at sea level.
+
+    The nearby station answers (alone, in an interpolation) a quantity that is not corrected for height, so it is not
+    left out of the answer at an elevation. DWD lists none for it; GHCN lists 0.0 for the elevation it does not know
+    (GH-3708), which is none here as well. The other stations of the answer keep theirs where they are named.
+    """
+    from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest  # noqa: PLC0415
+    from wetterdienst.provider.noaa.ghcn.api import NoaaGhcnValues  # noqa: PLC0415
+
+    request_class, values_class, parameter, listed = {
+        "dwd_observation": (
+            DwdObservationRequest,
+            DwdObservationValues,
+            ("hourly", "precipitation", "precipitation_amount"),
+            None,
+        ),
+        "noaa_ghcn": (NoaaGhcnRequest, NoaaGhcnValues, ("daily", "data", "precipitation_amount"), 0.0),
+    }[network]
+    request = _stub_precipitation(monkeypatch, request_class, values_class, parameter, listed)
+
+    result = getattr(request, method)((LATITUDE, LONGITUDE), elevation=ELEVATION)
+
+    stations = _stations_of(result)
+    assert set(stations) == {"00001"}
+    assert stations["00001"]["elevation"] == listed
+    assert stations["00001"]["elevation_difference"] is None
+    assert stations["00001"]["distance"] == pytest.approx(_distance("00001"), abs=0.01)
+    # and a station that has one is placed against the point, so that the null is the station's and not the answer's
+    request = _stub_precipitation(monkeypatch, request_class, values_class, parameter, 460.0)
+    stations = _stations_of(getattr(request, method)((LATITUDE, LONGITUDE), elevation=ELEVATION))
+    assert stations["00001"]["elevation_difference"] == -10.0
+
+
+def test_the_stations_table_has_the_two_members_in_csv_and_parquet_and_not_in_its_geojson(
+    stubbed: pl.DataFrame,  # noqa: ARG001
+    tmp_path: Path,
+) -> None:
+    """The columns reach the files that hold the frame of the stations, not the GeoJSON of a stations result.
+
+    A stations result writes the properties of a station in a feature, which are the core ones and the provider's own.
+    The GeoJSON of the answer of `interpolate` and `summarize` is the one that lists the two (the REST test above).
+    """
+    result = _request().interpolate((LATITUDE, LONGITUDE), elevation=ELEVATION)
+
+    result.stations.to_target(f"file://{tmp_path / 'stations.csv'}")
+    result.stations.to_target(f"file://{tmp_path / 'stations.parquet'}")
+
+    assert {"distance", "elevation_difference"} <= set(pl.read_csv(tmp_path / "stations.csv").columns)
+    assert {"distance", "elevation_difference"} <= set(pl.read_parquet(tmp_path / "stations.parquet").columns)
+    feature = json.loads(result.stations.to_geojson())["data"]["features"][0]
+    assert not {"distance", "elevation_difference"} & set(feature["properties"])

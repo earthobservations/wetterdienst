@@ -29,9 +29,10 @@ was got with, named as the endpoint's query parameters are. `interpolate` and `s
 for them, which no query parameter of theirs changes: `skip_empty`, `skip_threshold`,
 `skip_criteria`, `drop_nulls` and `station_distance_resolution_factors`.
 
-For `interpolate` and `summarize`, `with_stations=true` lists the stations the rows were made from, each once with
-its `distance` from the point (km) and its `elevation_difference` to it (m). The rows name their stations by id
-(`taken_station_ids`, `taken_station_id`), and this list says where each stands: see
+For `interpolate` and `summarize`, `with_stations=true` lists the stations (once for each dataset of the request),
+each with its `distance` from the point (km) and its `elevation_difference` to it (m); the GeoJSON always lists them.
+The rows name their stations by id (`taken_station_ids`, `taken_station_id`) and decide which station gave a value;
+this list says where each stands: see
 [Interpolation](interpolation.md#which-stations-an-answer-was-made-from). A CSV holds the rows only.
 
 The command line renders through the same function, so the same request gives the same body there:

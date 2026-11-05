@@ -468,8 +468,9 @@ with_estimate_stations_opt = _bool_opt(
     "--with-stations",
     default=False,
     help=(
-        "Include in JSON/GeoJSON output the stations the values were made from, each once with its distance from the "
-        "point (km) and, with --elevation, its elevation difference to it (m). Default: false"
+        "Include in JSON output the stations used, one entry per dataset, with their distance from the point (km) and "
+        "elevation difference to it (m; null if the point has no elevation). The rows' ids say which gave a value. "
+        "GeoJSON always lists them. Default: false"
     ),
 )
 debug_opt = _bool_opt("--debug", default=False, help="Log at debug level. Default: false")

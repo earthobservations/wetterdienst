@@ -233,8 +233,8 @@ _WithStationsField = Annotated[bool, Field(description="Include the queried stat
 _WithEstimateStationsField = Annotated[
     bool,
     Field(
-        description="Include the stations used, each with its `distance` from the point (km) and, with `elevation`, "
-        "its `elevation_difference` to it (m).",
+        description="Include the stations used, one entry per dataset, with their `distance` from the point (km) and "
+        "`elevation_difference` to it (m; null if the point has no elevation). The rows' ids say which gave a value.",
     ),
 ]
 _FormatField = Annotated[
