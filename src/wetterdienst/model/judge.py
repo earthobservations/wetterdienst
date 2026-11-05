@@ -68,7 +68,7 @@ from wetterdienst.model.sun import daylight_hours
 from wetterdienst.model.unit import UnitConverter
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping, Sequence
+    from collections.abc import Callable, Collection, Mapping, Sequence
 
     from wetterdienst.model.metadata import DatasetModel
 
@@ -264,17 +264,23 @@ class Plan:
     #: the sunshine durations (as the source names them) that are held to the day length at the station's position
     daylight: tuple[str, ...] = ()
 
-    def read_beside(self, rules: Sequence[Rule]) -> set[str]:
+    def read_beside(self, rules: Sequence[Rule], asked: Collection[str] = ()) -> set[str]:
         """Name the parameters (as the source does) that the checks read beside the ones asked for.
 
-        The neighbour of a relation (`Beside`: the air beside a road surface, the dew point beside a humidity) and the
-        air of the road's run rule, which tells whether melting ice holds a surface at its melting point.
+        The neighbour of a rule (`Beside`: the air beside a road surface, the dew point beside a humidity), the air of
+        the road's run rule, which tells whether melting ice holds a surface at its melting point, and the partners of
+        a relation that holds a parameter asked for (a request for the daily maximum reads the mean and the minimum, one
+        for the absolute humidity reads nothing): ``asked`` are the parameters, as the source names them.
         """
         names = {
             self.by_name[rule.partner] for rule in rules if isinstance(rule, Beside) and rule.partner in self.by_name
         }
-        # both of a pair are judged, so a pair is read whole whichever of its two was asked for
-        names.update(name for relation in self.relations for name in (relation.high, relation.low))
+        # both of a pair are judged, so a pair is read whole whichever of its two was asked for; a pair none of whose
+        # parameters was asked for is not read
+        for relation in self.relations:
+            members = {name for name in (relation.high, relation.low, relation.via) if name is not None}
+            if members & set(asked):
+                names |= members
         if self.runs[1] is not None:
             names.add(self.runs[1])
         return names
@@ -383,7 +389,7 @@ def _build_plan(network: str, dataset: DatasetModel) -> Plan:
                 low=by_name[relation.low],
                 via=None if relation.via is None else by_name[relation.via],
             )
-            for relation in relations_for(named, resolution)
+            for relation in relations_for(named, resolution, network)
         )
         daylight = tuple(by_name[name] for name in daylight_for(named, resolution))
     source = flags_of(network, f"{resolution}/{dataset.name}")

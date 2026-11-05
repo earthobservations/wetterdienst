@@ -152,13 +152,50 @@ DEW_POINTS: tuple[tuple[str, str], ...] = (
 SUNSHINE: tuple[str, ...] = ("sunshine_duration",)
 
 
-def relations_for(names: set[str] | frozenset[str], resolution: str) -> tuple[Relation, ...]:
-    """Give the pairs of canonical parameters the check judges in a dataset that has ``names``, at a resolution."""
+#: where the parameters of a ladder are not of one window by the source's own definition, by network and resolution:
+#: the ladder (its quantity) and the names that are left out of it (``GH-3681``).
+#:
+#: - **Météo-France**, `daily/core`: ``TM`` is the "daily mean of the hourly temperatures", while ``TN`` and ``TX`` are
+#:   the extremes "under shelter" of a window the description of the fields does not give (the description gives one
+#:   only for the rain, 06h to 06h), and the extremes of its climatological day are not those of the hours of the mean:
+#:   at Bordeaux-Mérignac (33281001) on 2023-12-01 TX is 9.3, TM 8.3 and TN 8.5, the lowest value from 18 UTC of the
+#:   evening before to 18 UTC and not of the day that the mean averages (the hourly series falls to 5.8 °C by 23 UTC).
+#:   All three are left out, the maximum against the minimum too, since no window is given that makes it hold.
+#: - **FMI**, `daily/data`: ``tday`` is "mean over 1 day" (aggregation period P1D), ``tmax`` and ``tmin`` are over
+#:   "24 hours" (PT24H): two periods of the source's own naming. The mean is left out, the maximum and the minimum, both
+#:   of PT24H, stay.
+NOT_ONE_WINDOW: dict[tuple[str, str], dict[str, frozenset[str]]] = {
+    ("meteofrance/observation", "daily"): {
+        "air temperature (2 m)": frozenset(
+            {
+                "temperature_air_max_2m",
+                "temperature_air_mean_2m",
+                "temperature_air_mean_minmax_2m",
+                "temperature_air_min_2m",
+            }
+        )
+    },
+    ("fmi/observation", "daily"): {
+        "air temperature (2 m)": frozenset({"temperature_air_mean_2m", "temperature_air_mean_minmax_2m"})
+    },
+}
+
+
+def relations_for(
+    names: set[str] | frozenset[str], resolution: str, network: str | None = None
+) -> tuple[Relation, ...]:
+    """Give the pairs of canonical parameters the check judges in a dataset that has ``names``, at a resolution.
+
+    ``network`` is ``provider/network``: a few networks have a ladder whose rungs are not of one window by the source's
+    own definition (``NOT_ONE_WINDOW``), which is left out for them.
+    """
     if resolution not in RESOLUTIONS:
         return ()
+    dropped = NOT_ONE_WINDOW.get((network or "", resolution), {})
     found: list[Relation] = []
     for ladder in LADDERS:
-        members = [next((name for name in rung if name in names), None) for rung in ladder.rungs]
+        present_names = names - dropped.get(ladder.quantity, frozenset())
+        members = [next((name for name in rung if name in present_names), None) for rung in ladder.rungs]
         present = [name for name in members if name is not None]
         found.extend(Relation(high, low, 0.0, ladder.kind) for high, low in pairwise(present))
         found.extend(

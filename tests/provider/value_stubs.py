@@ -191,11 +191,13 @@ def stations_result(
     *,
     elevation: float | None = 100.0,
     country: str | None = None,
+    position: tuple[float, float] = (50.0, 10.0),
 ) -> StationsResult:
     """Stand a station up rather than look it up, for a provider whose catalogue is not worth serving.
 
     The station lies at ``elevation`` m (none where the catalogue gives none), which the check of a station pressure
     reads (GH-3627). A ``country`` adds the column of that name, for a provider whose reader reads it (DMI, GH-3768).
+    The ``position`` is its latitude and longitude, which the day length of the check ``relations`` reads (GH-3681).
     """
     df = pl.DataFrame(
         [
@@ -205,8 +207,8 @@ def stations_result(
                 "station_id": station_id,
                 "start_timestamp": None,
                 "end_timestamp": None,
-                "latitude": 50.0,
-                "longitude": 10.0,
+                "latitude": position[0],
+                "longitude": position[1],
                 "elevation": elevation,
                 "name": "Stub",
                 **({"country": country} if country else {}),
@@ -324,10 +326,14 @@ def _dwd_observation(
     *,
     drop_nulls: bool = True,
     elevation: float | None = 100.0,
+    position: tuple[float, float] = (50.0, 10.0),
+    parameters: list[tuple[str, ...]] | None = None,
 ) -> pl.DataFrame:
     """Give the values of one station from a product file of DWD, as the parser and the framework make them.
 
-    The station lies at ``elevation`` m, which the check of a station pressure reads (GH-3627).
+    The station lies at ``elevation`` m, which the check of a station pressure and the day length of the check
+    ``relations`` read (GH-3627, GH-3681), at ``position`` (latitude, longitude). ``parameters`` asks for some of the
+    dataset's parameters (`("daily", "climate_summary", "temperature_air_max_2m")`) and not the whole of it.
     """
     monkeypatch.setattr(
         dwd_observation_api,
@@ -342,14 +348,19 @@ def _dwd_observation(
         ],
     )
     request = DwdObservationRequest(
-        parameters=[(resolution, dataset)],
+        parameters=parameters or [(resolution, dataset)],
         periods={Period.RECENT},
         start=_day(year, 1, 1),
         end=_day(year, 12, 31),
         settings=_settings(),
         options=_options(drop_nulls),
     )
-    return stations_result(request, resolution, dataset, station_id, elevation=elevation).values().all().df
+    return (
+        stations_result(request, resolution, dataset, station_id, elevation=elevation, position=position)
+        .values()
+        .all()
+        .df
+    )
 
 
 def _dwd_daily_climate_summary(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -496,6 +507,34 @@ def _dwd_daily_climate_summary_mean_above_gust(
     lines = [";".join(f"{cell:>8}" for cell in row) + ";eor" for row in (columns, reading)]
     return _dwd_observation(
         monkeypatch, "daily", "climate_summary", "\n".join(lines) + "\n", "01048", year=1994, drop_nulls=drop_nulls
+    )
+
+
+def _dwd_daily_climate_summary_sunshine_beyond_the_day(
+    monkeypatch: pytest.MonkeyPatch,
+    drop_nulls: bool = True,  # noqa: FBT001, FBT002
+) -> pl.DataFrame:
+    # historical/tageswerte_KL_05792_19010801_20241231_hist.zip (the Zugspitze, 47.421 N, 10.9848 E, 2,956 m in the
+    # station list), read 2026-11-05: the day of 1919-11-04 writes 11.0 hours of sunshine (SDK, quality level 5). The
+    # sun was above the horizon of the summit for 10.28 hours that day (the horizon dipped 1.6 degrees), and 5 % more
+    # is 10.79: no recorder shows more sunshine than the day has, so `relations` flags it (GH-3681). The sunshine, the
+    # temperatures, the humidity, the pressure and the snow depth are the file's; the wind and the ground temperature,
+    # which a file of 1919 does not have, are filled in
+    columns = ["STATIONS_ID", "MESS_DATUM", "QN_3", "FX", "FM", "QN_4", "RSK", "RSKF", "SDK", "SHK_TAG", "NM", "VPM"]
+    columns += ["PM", "TMK", "UPM", "TXK", "TNK", "TGK"]
+    reading = ["5792", "19191104", "5", "6.0", "3.0", "5", "0.0", "0", "11.0", "70", "2.0", "1.6"]
+    reading += ["698.5", "-8.0", "55.0", "-6.4", "-10.8", "-9.0"]
+    lines = [";".join(f"{cell:>8}" for cell in row) + ";eor" for row in (columns, reading)]
+    return _dwd_observation(
+        monkeypatch,
+        "daily",
+        "climate_summary",
+        "\n".join(lines) + "\n",
+        "05792",
+        year=1919,
+        drop_nulls=drop_nulls,
+        elevation=2956.0,
+        position=(47.421, 10.9848),
     )
 
 
@@ -2573,6 +2612,22 @@ STUBS = [
         # the same pair is null with the text the file wrote, both of them, where the check `relations` is hard
         tokens=(("wind_gust_max", "4.8", None), ("wind_speed_mean", "4.9", None)),
         verdicts=(("wind_gust_max", "4.8", "relations"), ("wind_speed_mean", "4.9", "relations")),
+        plausibility=(("relations", "hard"),),
+    ),
+    ValueStub(
+        "dwd/observation daily/climate_summary (sunshine beyond the day)",
+        _dwd_daily_climate_summary_sunshine_beyond_the_day,
+        reading=("temperature_air_mean_2m", -8.0),
+        # 11.0 hours on a day of 10.28 hours at the summit are kept and flagged: `relations` is soft by default
+        suspects=(("sunshine_duration", 11.0, "relations"),),
+    ),
+    ValueStub(
+        "dwd/observation daily/climate_summary (sunshine beyond the day, hard)",
+        _dwd_daily_climate_summary_sunshine_beyond_the_day,
+        reading=("temperature_air_mean_2m", -8.0),
+        # the same day is null with the text the file wrote where the check `relations` is hard
+        tokens=(("sunshine_duration", "11.0", None),),
+        verdicts=(("sunshine_duration", "11.0", "relations"),),
         plausibility=(("relations", "hard"),),
     ),
     ValueStub(

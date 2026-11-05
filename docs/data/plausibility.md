@@ -424,7 +424,7 @@ partner reading, and that one reading is flagged.
 
 | quantity | parameters, highest first (the first of a rung that the dataset has) | tolerance | source |
 | --- | --- | --- | --- |
-| air temperature (2 m) | `temperature_air_max_2m`, `temperature_air_mean_2m` or `temperature_air_mean_minmax_2m`, `temperature_air_min_2m` | none | WMO-No. 100 (3.3.6), Durre et al. 2010, ECA&D, Vejen et al. 2002 (3.2.1 to 3.2.3): a maximum is not below the mean, nor the mean below the minimum |
+| air temperature (2 m) | `temperature_air_max_2m`, `temperature_air_mean_2m` or `temperature_air_mean_minmax_2m`, `temperature_air_min_2m` | none | WMO-No. 100 (3.3.6), Durre et al. 2010, ECA&D, Vejen et al. 2002 (3.2.1 to 3.2.3): a maximum is not below the mean, nor the mean below the minimum (not for the daily temperatures of Météo-France, nor the daily mean of FMI: [below](#what-relations-does-not-judge)) |
 | air temperature (5 cm) | `temperature_air_max_0_05m`, `temperature_air_mean_0_05m`, `temperature_air_min_0_05m` | none | the same, for the thermometer at 5 cm |
 | relative humidity | `humidity_relative_max`, `humidity_relative_mean`, `humidity_relative_min` | none | WMO-No. 100 (3.3.6): a maximum is not below a minimum, and the mean of the same period lies between |
 | pressure (site) | `pressure_air_site_max`, `pressure_air_site_mean`, `pressure_air_site_min` | none | the same |
@@ -445,7 +445,7 @@ maximum before rounding is not above it after, whatever step the source writes i
 
 **The day length** is the time the centre of the sun is higher than -0.833 degrees (the disc and the refraction),
 lowered at a station above sea level by the dip of its horizon (1.76 minutes of arc times the root of its elevation in
-metres: 1.6 degrees at the Zugspitze, 2,962 m, which makes a December day 20 to 30 minutes longer than at its foot).
+metres: 1.6 degrees at the Zugspitze, 2,962 m, which makes a December day about 20 minutes longer than at its foot).
 The sun is the one of the road rule of `consistency` (the low-precision formulas of the Astronomical Almanac, within
 0.01 degrees: `wetterdienst.model.sun`). It is the **longest of three days**, the date of the reading and the day before
 and after, because the date of a source's clock is not always UTC's and, near the polar circles, the day grows or
@@ -496,6 +496,18 @@ file, the check stands aside. The numbers are from the whole histories of 10 DWD
   thermometer read at the end of the hour is a sample, not an average, and the sensor's own maximum need not reach it.
   The extremes of `_last_12h`, `_last_24h` and `_yesterday` (DWD POI, DMI, Météo-France SYNOP) are of another window than
   the report beside them.
+- **The daily mean against the extremes where the source's windows differ.** Météo-France's `TM` is the "moyenne
+  quotidienne des températures horaires" and the description of the fields gives no window for `TN` and `TX` (it gives
+  one for the rain only, 06h to 06h), so nothing says that they are the hours of the mean's day: at Bordeaux-Mérignac
+  (33281001) on 2023-12-01 `TX` is 9.3, `TM` 8.3 and `TN` 8.5, all three good (`TN` is the lowest value from 18 UTC of the
+  evening before to 18 UTC; the hourly series falls to 5.8 °C by 23 UTC). In the 36 stations still reporting, 2019 to
+  2025: `TM` below `TN` on 6 of 17,565 days, above `TX` on 2 of 17,563 (a reviewer counted 9 of 32,646 at 7 stations),
+  and `TX` against `TN` holds on 20,312 days but no window is given that makes it hold, so the whole daily temperature
+  ladder of `meteofrance/observation daily` is left out (its hourly `TX` and `TN` are "within the hour" and stay, its
+  gust against the mean wind stays: 0 of 5,555). FMI's `tday` is "mean over 1 day" (aggregation period P1D) and
+  `tmax`, `tmin` are over "24 hours" (PT24H): the mean is left out (3 days of 65,316 have it above the minimum) and the
+  maximum against the minimum, both PT24H, stays. DMI defines the mean and the minimum over the same hours, and keeps its
+  pair (14 broken days of 7,138, one station). `NOT_ONE_WINDOW` in `wetterdienst.model.relations` lists the exceptions.
 - **A month and a year**, whose extremes and means are made from the days by the source's own rule; **1, 5 and 15 minutes
   and the other resolutions** have a pair only where a dataset holds one: the check judges the resolutions up to a day
   (`1_minute` to `daily`, and `subdaily` reports). **Forecasts and derived quantities** (a model writes no readings).
@@ -533,19 +545,32 @@ the whole-degree decades of the hourly `dew_point` a dew point cannot exceed the
 monotone: the 166 readings 1.0 K above before 1981 are two instruments that differ, and **flagging both** costs a good
 air temperature its `suspect:relations` and its place in an interpolation.
 
-Other key-less networks, 2023 (one year, two stations unless stated), all in the mode as it ships, **0 pairs broken**:
-CHMI daily (365 days of the maximum, mean and minimum, and of the sunshine), Geosphere daily (365), hourly (17,474 of the
-gust and the mean, and of the sunshine) and 10 minutes (8,354 of the extremes at 2 m and 5 cm, the gust and the sunshine),
-RMI daily (728 days, and 730 of the sunshine) and hourly (17,466 of the sunshine), FMI at Sodankylä hourly (8,734 of the gust and the mean of ten
-minutes, 8,737 of the dew point), IMGW `synop` daily (365), MeteoSwiss hourly (8,737 of the extremes and the mean, at 2 m and 5 cm, of the gust,
-of the dew point and the air; 17,474 of the sunshine) and daily (365, and the 5 cm extremes), ECCC hourly (8,731 of the dew point), DMI daily (365) and hourly (697),
-GHCN-Daily 2018 to 2023 (62,144 days of TMAX against TMIN at six ASOS stations, 40 cooperative stations, whose observers read at
-different hours, and three European ones; 13,101 days of the humidity extremes and the mean at the ASOS stations), DWD POI (100 dew points, 25 sunshine
-readings of one day), and DWD road, one day (3,750 dew points against the air, 7 of them broken: station O329 holds a
-dew point of 2.3 beside an air of 1.6). **Not measured**: Météo-France, NWS and the keyed providers (KNMI, MET Norway,
-Met Office, AEMET) returned no readings or need a key; IMGW `climate`; GHCN-Daily's mean air against its mean dew
-point (no station of the sample reports both); a sunshine duration at a polar station (no key-less one reports it),
-for which the tests of the polar night and day stand (Tromsø).
+Other key-less networks (a random sample of up to 40 stations that are still reporting, daily 2019 to 2023 unless
+stated; each pair is judged at the days that have both values):
+
+| network, resolution | relation | judged | broken | what they are |
+| --- | --- | --- | --- | --- |
+| Météo-France `daily/core`, 36 stations, 2019 to 2025 | TX against TM; TM against TN; TX against TN (where TM is null); gust against mean wind | 17,563; 17,565; 2,749; 5,555 | 2; 6; 0; 0 | **not judged** since the windows differ (below): at Bordeaux-Mérignac (33281001), 2023-12-01, TX 9.3, TM 8.3, TN 8.5 (a reviewer found 9 days in 32,646 at 7 stations) |
+| Météo-France `hourly/core`, 30 stations, September 2025 | TX against TN of the hour | 10,454 | 0 | |
+| Météo-France SYNOP, 40 stations, 2023 to October 2025 | dew point against air; gust against mean of ten minutes | 126,344; 87,708 | 0; 0 | |
+| NWS, 40 stations, one week | dew point against air | 3,841 | 0 | |
+| FMI `daily/data`, 40 stations, 2010 to 2023 | TX against TM; TM against TN | 65,317; 65,316 | 0; 3 | **not judged** (the mean is of P1D, the extremes of PT24H, below): 3 days of 0.1 K |
+| DMI `daily/data`, 40 stations | TX against TM; **TM against TN**; humidity and sea level pressure triples; gust and highest rolling mean against mean wind | 7,138; 7,138; 3,523 and 3,556; 6,647 and 6,651 | 0; **14**; 0; 0 | the 14 are one station, Vestervig (06051): a mean up to 2.2 K below the lowest hourly value of the day, which the source defines as the mean and the minimum of the same hours (kept, a real inconsistency) |
+| MeteoSwiss `daily/data`, 40 stations | triple at 2 m and 5 cm; gust against mean; sunshine | 67,438; 36,443; 69,170; 51,333 | 0 | |
+| Geosphere `daily/data`, 18 stations | max, (max + min) / 2, min; gust against mean; sunshine | 18,161; 18,140; 15,209 | 0; **13**; 0 | the 13 are one station (15300): a gust 0.2 to 0.3 m/s below the daily mean wind |
+| CHMI, RMI, IMGW `synop` daily | triple; sunshine | 3,652 and 3,651; 23,712 and 21,305; 5,478 | 0 | |
+
+Also 0 broken in the first look at 2023 (two stations each): Geosphere hourly (17,474 of the gust and the mean, and of the
+sunshine) and 10 minutes (8,354), RMI hourly (17,466 of the sunshine), FMI at Sodankylä hourly (8,734 of the gust and the
+mean of ten minutes, 8,737 of the dew point), MeteoSwiss hourly (8,737 of the extremes and the mean, at 2 m and 5 cm, of the
+gust, of the dew point; 17,474 of the sunshine), ECCC hourly (8,731 dew points), DMI hourly (697), GHCN-Daily 2018 to 2023
+(62,144 days of TMAX against TMIN at six ASOS stations, 40 cooperative stations whose observers read at different hours
+and three European ones; 13,101 days of the humidity extremes and the mean at the ASOS stations), DWD POI (100 dew points,
+25 sunshine readings of one day), and DWD road, one day (3,750 dew points against the air, 7 of them broken: station O329
+holds a dew point of 2.3 beside an air of 1.6). **Not measured**: the keyed providers (KNMI, MET Norway, Met Office, AEMET),
+IMGW `climate` (no rows came back for the stations asked), GHCN-Daily's mean air against mean dew point (no station of
+the sample reports both: it is in the table and unmeasured there), and a sunshine duration at a polar station (no
+key-less one reports it), for which the tests of the polar night and day stand (Tromsø).
 
 ### How `relations` relates to `step`
 

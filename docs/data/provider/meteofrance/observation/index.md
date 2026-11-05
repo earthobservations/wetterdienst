@@ -22,7 +22,7 @@ and not the name, and the registry does not tell Corsica's two départements apa
 
 ## Plausibility checks
 
-Three [checks](../../../plausibility.md) judge values here, all hard by default: `range`, the one table of bounds of
+Three [checks](../../../plausibility.md) judge values here that are hard by default: `range`, the one table of bounds of
 every provider and a temperature below 0 °C (the air at 2 m, its extremes and the dew point) at a station of Guadeloupe,
 Martinique, Guyane, Mayotte, Wallis-et-Futuna, French Polynesia or the Îles Éparses, where there is no frost
 (`rejected:range,raw:-20.0`; the datasets `hourly/core`, `hourly/others`, `daily/core` and `monthly/data`);
@@ -33,6 +33,9 @@ atmosphere does not allow, from 870/1013.25 of it (143 hPa below at sea level) t
 `TD` is such a temperature (`rejected:consistency,raw:15`; `hourly/others`). The dew point is read from the same dataset (collected whole), whether it is asked for or not, and nothing is
 downloaded for the check. With `plausibility={"range":
 "soft"}` the value is kept and flagged `suspect:range`.
+
+Four more checks are soft by default and keep the value, flagged `suspect:<check>`: `stuck` and `step` (a run of one value and a jump between consecutive readings of the air temperature, the dew point, the pressure and the mean wind, [their tables](../../../plausibility.md#the-limit-of-a-run)), `source` (below) and
+[`relations`](../../../plausibility.md#the-relations-of-one-row-relations), which holds two readings of one dataset to each other and flags **both**: in `daily/core` the daily gust `FXI` is not below the mean wind `FFM`, in `hourly/core` the maximum `TX` of an hour is not below its minimum `TN`, and the sunshine of `daily/others` and `hourly/others` is at most the day length at the station. **The daily `TN`, `TM` and `TX` are not held to each other**: `TM` is the "moyenne quotidienne des températures horaires" and the description of the fields gives no window for the extremes, which are not those of the hours of the mean: at Bordeaux-Mérignac (33281001) on 2023-12-01 `TX` is 9.3, `TM` 8.3 and `TN` 8.5, all good (`TN` is the lowest value from 18 UTC of the evening before to 18 UTC; the hourly series falls to 5.8 °C by 23 UTC).
 
 `source` is the fourth check, soft by default: the validation code `Q<parameter>` of a value is the plain flag of
 `quality_flags`, and the check reads the one code the four "descriptif" documents of the base climatological data word as a

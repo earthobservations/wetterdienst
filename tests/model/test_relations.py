@@ -607,6 +607,124 @@ def test_a_sunshine_a_range_rejected_is_not_judged_by_the_relation() -> None:
     assert out == ["suspect:range"]
 
 
+# --- where the mean is not of the window of the extremes -------------------------------------------------------
+
+
+def test_the_daily_temperatures_of_meteofrance_are_not_held_to_each_other() -> None:
+    """Bordeaux-Mérignac, 2023-12-01: TX 9.3, TM 8.3, TN 8.5, all good (TN is of another window than the mean)."""
+    network, resolution, dataset = "meteofrance/observation", "daily", "core"
+    out = _judge(network, resolution, dataset, {MAX: [9.3], MEAN: [8.3], MIN: [8.5]})
+    assert out == {MAX: [None], MEAN: [None], MIN: [None]}
+    # the maximum against the minimum goes with them: the source gives no window that makes it hold
+    assert _relations(_judge(network, resolution, dataset, {MAX: [2.0], MIN: [3.0]})) == {MAX: [False], MIN: [False]}
+    # the gust and the mean wind of the day are still held to each other
+    wind = _judge(network, resolution, dataset, {"wind_gust_max": [4.0], "wind_speed_mean": [5.0]})
+    assert _relations(wind) == {"wind_gust_max": [True], "wind_speed_mean": [True]}
+    # the hourly extremes are of one hour, and the 10-minute and daily ones of other networks are untouched
+    assert _relations(_judge(network, "hourly", "core", {MAX: [2.0], MIN: [3.0]})) == {MAX: [True], MIN: [True]}
+    assert _relations(_judge(*DAILY, {MAX: [10.0], MEAN: [12.0], MIN: [5.0]}))[MAX] == [True]
+
+
+def test_fmis_daily_mean_is_not_held_to_its_extremes_and_the_extremes_are_held_to_each_other() -> None:
+    """FMI, Sodankylä, 2012-11-12: 1.3, -0.1, 0.1: the mean is of one day (P1D), the extremes of 24 hours (PT24H)."""
+    network, resolution, dataset = "fmi/observation", "daily", "data"
+    out = _judge(network, resolution, dataset, {MAX: [1.3, 2.0], MEAN: [-0.1, 0.0], MIN: [0.1, 3.0]})
+    assert _relations(out) == {MAX: [False, True], MEAN: [False, False], MIN: [False, True]}
+
+
+# --- through the values core: what a request reads and where a station is --------------------------------------
+
+
+_DAILY_COLUMNS = ["STATIONS_ID", "MESS_DATUM", "QN_3", "FX", "FM", "QN_4", "RSK", "RSKF", "SDK", "SHK_TAG", "NM", "VPM"]
+_DAILY_COLUMNS += ["PM", "TMK", "UPM", "TXK", "TNK", "TGK"]
+
+
+def _daily_product(day: str, **cells: str) -> str:
+    """Give the file of one day of DWD's `climate_summary` (the fields of the cells given replace the quiet ones)."""
+    quiet = {
+        "STATIONS_ID": "44", "MESS_DATUM": day, "QN_3": "10", "FX": "8.3", "FM": "3.2", "QN_4": "3", "RSK": "0.0",
+        "RSKF": "0", "SDK": "1.0", "SHK_TAG": "0", "NM": "7.3", "VPM": "6.6", "PM": "1008.7", "TMK": "2.9",
+        "UPM": "86.0", "TXK": "4.0", "TNK": "1.2", "TGK": "0.8",
+    }  # fmt: skip
+    quiet.update(cells)
+    return (
+        "\n".join(
+            ";".join(f"{cell:>8}" for cell in row) + ";eor"
+            for row in (_DAILY_COLUMNS, [quiet[c] for c in _DAILY_COLUMNS])
+        )
+        + "\n"
+    )
+
+
+def test_a_request_for_one_parameter_reads_its_partners_and_is_judged(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Asking for the daily maximum alone reads the mean and the minimum, judges the pair and returns the maximum."""
+    from tests.provider.value_stubs import _dwd_observation  # noqa: PLC0415
+
+    product = _daily_product("20250101", TXK="10.0", TMK="12.0", TNK="5.0")
+    df = _dwd_observation(
+        monkeypatch, "daily", "climate_summary", product, parameters=[("daily", "climate_summary", MAX)]
+    )
+    assert df["parameter"].to_list() == [MAX]
+    assert df["value"].to_list() == [10.0]
+    assert df["quality_flags"].to_list()[0].endswith("suspect:relations")
+
+
+def test_a_request_for_a_parameter_in_no_relation_reads_no_partner(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The pressure of a day is in no relation: the broken pair beside it is not read, and the answer is unchanged."""
+    from tests.provider.value_stubs import _dwd_observation  # noqa: PLC0415
+
+    product = _daily_product("20250101", TXK="10.0", TMK="12.0", TNK="5.0")
+    df = _dwd_observation(
+        monkeypatch,
+        "daily",
+        "climate_summary",
+        product,
+        parameters=[("daily", "climate_summary", "pressure_air_site_mean")],
+    )
+    assert df["value"].to_list() == [1008.7]
+    assert "relations" not in " ".join(df["quality_flags"].drop_nulls().to_list())
+    plan = plan_for(DWD, _dataset(*DAILY))
+    names = {p.name: p.name_original for p in _dataset(*DAILY)}
+    assert plan.read_beside([], {names["pressure_air_site_mean"]}) == set()
+    assert plan.read_beside([], {names[MAX]}) == {names[MAX], names[MEAN], names[MIN]}
+    assert plan.read_beside([], {names["wind_gust_max"]}) == {names["wind_gust_max"], names["wind_speed_mean"]}
+
+
+def test_the_elevation_of_the_station_list_lowers_the_horizon_of_the_day(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A summit's sunshine in December is within its day and beyond the day at the foot of the mountain.
+
+    The dataset (`daily/solar`) has no station pressure, so the elevation reaches the check by the sunshine alone.
+    """
+    from tests.provider.value_stubs import _dwd_observation  # noqa: PLC0415
+
+    december = dt.datetime(2024, 12, 21, tzinfo=UTC)
+    summit = _day_length(47.421, december, 2956.0) * (1 + DAYLIGHT_MARGIN)
+    foot = _day_length(47.421, december, 0.0) * (1 + DAYLIGHT_MARGIN)
+    sunshine = round((summit + foot) / 2, 1)
+    assert foot < sunshine < summit
+    product = (
+        "STATIONS_ID;MESS_DATUM;QN_592;ATMO_STRAHL;FD_STRAHL;FG_STRAHL;SD_STRAHL;eor\n"
+        f"      44;20241221;      10;      20.0;      30.0;      50.0;    {sunshine};eor\n"
+    )
+
+    def flags(elevation: float) -> list[str | None]:
+        out = _dwd_observation(
+            monkeypatch,
+            "daily",
+            "solar",
+            product,
+            year=2024,
+            elevation=elevation,
+            position=(47.421, 10.9848),
+            parameters=[("daily", "solar", SUN)],
+        )
+        return out["quality_flags"].to_list()
+
+    assert not plan_for(DWD, _dataset(DWD, "daily", "solar")).pressure
+    assert "relations" not in (flags(2956.0)[0] or "")
+    assert "suspect:relations" in (flags(0.0)[0] or "")
+
+
 # --- where the check does not run ----------------------------------------------------------------------------------
 
 

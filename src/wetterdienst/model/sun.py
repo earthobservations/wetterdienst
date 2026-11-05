@@ -69,8 +69,8 @@ def daylight_hours(timestamp: pl.Expr, latitude: float, elevation: float = 0.0) 
 
     The day length is the hours the centre of the sun is higher than ``SUNRISE_ALTITUDE``, lowered by the dip of the
     horizon at the elevation of the station (``HORIZON_DIP_PER_ROOT_METRE``): 0 in the polar night, 24 in the polar
-    day. The Zugspitze, at 2,962 m, sees the sun 1.6 degrees below the sea-level horizon, which makes a November day an
-    hour longer than at the foot of the mountain.
+    day. The Zugspitze, at 2,962 m, sees the sun 1.6 degrees below the sea-level horizon, which makes a December day
+    about 20 minutes longer than at the foot of the mountain (0.34 h at 47.4 degrees north).
 
     It is the longest of three days: the day of the instant (its UTC date), the day before and the one after. The date
     of a reading is the date of the source's clock and not necessarily of UTC, and near the polar circles the day grows

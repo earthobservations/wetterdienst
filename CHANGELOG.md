@@ -20,11 +20,12 @@ Types of changes:
 
 - The new check `relations` holds the readings of one row (the same station, timestamp and file) to
   each other on every observation network: a maximum is not below the mean and the mean not below
-  the minimum, the dew point is at most 0.2 K above the air, a gust is not below the mean wind, and
-  a day's sunshine is at most the day length at the station plus 5 %. **Both** readings of a broken
-  pair are flagged. Soft by default (`suspect:relations`, value kept, left out of interpolation,
-  summaries and `skip_empty`); `hard` nulls both as `rejected:relations,raw:<text>`. It is not
-  `consistency`, whose provider rules stay hard (GH-3681)
+  the minimum (not Météo-France's and FMI's daily means, whose windows differ), the dew point is at
+  most 0.2 K above the air, a gust is not below the mean wind, and a day's sunshine is at most the
+  day length at the station plus 5 %. **Both** readings of a broken pair are flagged. Soft by
+  default (`suspect:relations`, value kept, left out of interpolation, summaries, stripes and
+  `skip_empty`); `hard` nulls both as `rejected:relations,raw:<text>`. It is not `consistency`,
+  whose provider rules stay hard (GH-3681)
 - Every answer that holds provider data has a `processing_note` in its `metadata` (REST, MCP,
   command line, Python `with_metadata=True`, files of an export) and an `X-Wetterdienst-Processing`
   header: that wetterdienst reshaped the data into one table and converted its units where they

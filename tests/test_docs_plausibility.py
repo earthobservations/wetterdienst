@@ -210,9 +210,11 @@ def _relations_derived() -> dict[str, set[str]]:
             continue
         datasets = _datasets_of(
             network,
-            has=lambda res, dataset: (
+            has=lambda res, dataset, n=network: (
                 dataset.grouped
-                and bool(relations_for({p.name for p in dataset}, res) or daylight_for({p.name for p in dataset}, res))
+                and bool(
+                    relations_for({p.name for p in dataset}, res, n) or daylight_for({p.name for p in dataset}, res)
+                )
             ),
         )
         if datasets:
