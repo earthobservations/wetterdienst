@@ -70,12 +70,6 @@ Extras: `bufr`, `cratedb`, `duckdb`, `eccodes`, `excel`, `export`, `influxdb`, `
 Check the installation with `wetterdienst --help`. On conda-forge the extras are packages of their own,
 such as `wetterdienst-with-interpolation`.
 
-On Linux, a process that imports ecCodes (`bufr` or `eccodes` extra) itself, before wetterdienst
-does, and then imports `pyproj` (which `radarplus` brings) can crash at exit
-([ecmwf/eckit#354](https://github.com/ecmwf/eckit/issues/354)). See
-[known issues](https://wetterdienst.readthedocs.io/en/latest/known_issues.html#crash-at-exit-with-eccodes-and-pyproj-on-linux)
-for the workaround.
-
 Prefer Docker? The image ships with most of the extras:
 
 ```bash
