@@ -339,7 +339,7 @@ Quality level (column header: ``QN``):
 
 ## Plausibility checks
 
-Four [checks](../../../plausibility.md) judge values of this network. `range` (hard by default): the one table of
+Five [checks](../../../plausibility.md) judge values of this network. `range` (hard by default): the one table of
 bounds of every provider, such as a wind speed below 0 or above 115 m/s, and a station pressure outside 300 to 1100 hPa or
 a sea level pressure outside 850 to 1100 hPa. `elevation` (hard): a `pressure_air_site`, `pressure_air_site_mean`,
 `_min` or `_max` that the standard atmosphere does not allow at the elevation of the station in the station list, from 870/1013.25 of it
@@ -362,7 +362,16 @@ temperature and the dew point (hourly and 10 minutes: a spike of 8 K, a step of 
 `pressure_air_site`, `pressure_air_site_mean` and sea level pressure (60 hPa) and the mean wind speed (a spike of 10 m/s,
 a step of 15 m/s). The relative humidity, the gusts and the soil temperature are not judged: their limits would flag
 fog, thunderstorms and the sun. The first reading of a series is never flagged, and a null or a missing hour between two
-readings leaves them unjudged. The run of `stuck` is judged in the series of the periods read, the historical archive before the recent file, so a
+readings leaves them unjudged. `relations` (**soft** by default): two readings of one dataset that contradict each other, **both** flagged
+`suspect:relations` ([the table](../../../plausibility.md#the-relations-of-one-row-relations)): in `climate_summary` the
+daily maximum is not below the mean nor the mean below the minimum of the air temperature, and the daily gust is not
+below the mean wind; the dew point is at most 0.2 K above the air temperature in the hourly `dew_point` and `moisture`
+and the 10-minute `temperature_air`; the 10-minute `temperature_extreme` has the maximum at 2 m and at 5 cm not below the
+minimum, and `wind_extreme` the highest rolling mean not below the lowest; and the sunshine of a `climate_summary`
+day, an hour (`sun`, `solar`) or 10 minutes is at most the longest day length at the station, and 5 % more, at its
+elevation. A relation across two datasets (the hourly gust of `wind_extreme` and the mean of `wind`) is not judged. In
+the 10 stations' whole histories it flags 398 hourly dew points, 925 at 10 minutes, 42 maxima at 2 m below the minimum, 2 gusts
+below the mean and 1 sunshine, none of the daily temperatures. The run of `stuck` is judged in the series of the periods read, the historical archive before the recent file, so a
 station whose historical file is constant and whose recent one is not is flagged for the stretch that is; a gap of more
 than four times the interval ends a run. The `-999` of every dataset and the other codes of the files are no check: they
 are null with `raw:` alone. The datasets each check covers are in the [table of the plausibility

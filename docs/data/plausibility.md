@@ -406,15 +406,15 @@ errors (a dew point of 0.0 or -59 between values of 10).
 
 ## The relations of one row (`relations`)
 
-Two readings of one station at one timestamp can contradict each other though each is plausible alone: a daily maximum
-of 4.8 m/s of gust beside a mean wind of 4.9 m/s, a dew point 40 K above the air. The check `relations` holds the
+Two readings of one station at one timestamp can contradict each other though each is plausible alone: a daily mean
+wind of 4.9 m/s beside a gust of 4.8 m/s, a dew point 40 K above the air. The check `relations` holds the
 readings of **one row** (the same station, the same timestamp, the same file: a dataset the provider collects whole) to
-the relations of the table below, and the sunshine of a day to the length of the day at the station
-([the sources](#the-relations-and-where-they-come-from)). It judges every observation network that has two parameters of
+the relations of the table below, and the sunshine of a day to the length of the day at the station (the
+sources are in the table). It judges every observation network that has two parameters of
 the table in one dataset, in both modes: **soft** by default, **hard** nulls both readings of a broken pair.
 
-**Both readings of a broken pair are flagged** (the maintainer's decision of 2026-11-05; Durre et al. flag every value
-of an inconsistency, and MADIS flags both of a dew point above the air): nothing says which of the two is wrong. For a
+**Both readings of a broken pair are flagged** (Durre et al. flag every value of an inconsistency, and MADIS flags both
+of a dew point above the air): nothing says which of the two is wrong. For a
 triple of a maximum, a mean and a minimum the flagged readings are those of the **broken pair** and no more: a maximum
 below the mean flags the maximum and the mean, and not the minimum. Where the mean is no reading to judge (null, a
 code, or judged bad by another check) the maximum and the minimum are held to each other. The sunshine of a day has no
@@ -476,7 +476,8 @@ has judged bad, soft or hard, is no partner of a relation (as is none that `rang
 Where a relation does not hold by the source's own definition, or no relation of the table has both parameters in one
 file, the check stands aside. The numbers are from the whole histories of 10 DWD stations (below).
 
-- **A total equal to the sum of its parts** is not built (the maintainer's decision of 2026-11-05).
+- **A total equal to the sum of its parts** (an hourly or daily amount against its parts in one file) is not built: it
+  is the optional relation of the research, and only where a source documents it.
 - **A relation across two files.** A check never triggers a download. DWD observation holds the hourly air temperature
   and moisture, wind and wind extremes in different datasets: the hourly gust of `wind_extreme` is not held to the mean
   of `wind`, nor the 10-minute extremes of `temperature_extreme` to the mean of `temperature_air`. A dataset that a

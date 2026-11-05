@@ -915,8 +915,23 @@ def _related(
             if elevation is not None and _STATION_ELEVATIONS[0] <= elevation <= _STATION_ELEVATIONS[1]
             else 0.0
         )
-        longest = daylight_hours(pl.col("timestamp"), latitude, height).mul(1.0 + DAYLIGHT_MARGIN)
-        broken = sun.filter(pl.col("_v").round(DECIMALS).gt(longest.round(DECIMALS)))
+        # the day length is a function of the date: computed once for each date there is, and not for every reading
+        date = pl.col("timestamp").dt.truncate("1d")
+        limits = (
+            sun.select(date.alias("_date"))
+            .unique()
+            .with_columns(
+                daylight_hours(pl.col("_date"), latitude, height)
+                .mul(1.0 + DAYLIGHT_MARGIN)
+                .round(DECIMALS)
+                .alias("_limit")
+            )
+        )
+        broken = (
+            sun.with_columns(date.alias("_date"))
+            .join(limits, on="_date", how="left")
+            .filter(pl.col("_v").round(DECIMALS).gt(pl.col("_limit")))
+        )
         hits.append(broken.get_column("_row"))
     if not hits:
         return _no_hits(df)
