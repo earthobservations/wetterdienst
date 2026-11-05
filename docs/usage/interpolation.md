@@ -518,6 +518,10 @@ http localhost:7890/api/summarize \
   timestamp==2022-01-01/2022-01-20
 ```
 
+The values of both are calculated by wetterdienst from the readings of one or more stations, and the `metadata` of
+the answer says so: its `processing_note` adds "The values are derived" to the note every answer has (see
+[response metadata](restapi.md#response-metadata)), so a licence that asks for changes to be indicated has them said.
+
 The radii are query parameters of their own, again per request rather than per server:
 
 ```bash

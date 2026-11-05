@@ -113,6 +113,11 @@ class Provider(BaseModel):
         description="The credit line a user of the data has to give; null where the provider states none or asks for "
         "none.",
     )
+    notice: str | None = Field(
+        description="A restriction in the provider's terms, beyond the licence and the credit line, that a user of "
+        "the data has to know of; null where there is none. Every answer of the provider reports it as "
+        "`metadata.provider.notice`.",
+    )
     networks: list[ProviderNetwork]
 
 
@@ -219,6 +224,7 @@ def get_providers(provider: str | None = None) -> ProvidersAnswer:
                 country_code=first.country_code,
                 license=first.license,
                 attribution=first.attribution,
+                notice=first.notice,
                 networks=[network for network, _ in networks],
             )
         )

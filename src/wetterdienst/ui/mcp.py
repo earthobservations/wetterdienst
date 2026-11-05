@@ -394,7 +394,14 @@ def _send_objects_as_json(provider: OpenAPIProvider) -> Middleware:
 _BODY_KEY = "x-wetterdienst-body"
 # The headers of the REST answer that say whose data it is and what to know about it: for the formats with no body to
 # put the `metadata` block in, they are all of it. Carried in the envelope, and told in the result.
-_REPORTING_HEADERS = ("x-wetterdienst-license", "link", "x-wetterdienst-attribution", "x-wetterdienst-warnings")
+_REPORTING_HEADERS = (
+    "x-wetterdienst-license",
+    "link",
+    "x-wetterdienst-attribution",
+    "x-wetterdienst-notice",
+    "x-wetterdienst-processing",
+    "x-wetterdienst-warnings",
+)
 # The media types that are text though they are not `text/*`.
 _TEXT_MEDIA_TYPES = frozenset({"application/x-ndjson", "image/svg+xml", "application/xml"})
 
@@ -462,7 +469,7 @@ def _carry_bodies_as_json(inner: AsyncBaseTransport) -> AsyncBaseTransport:
 
 
 def _report_of(headers: dict[str, str]) -> dict[str, Any]:
-    """Read the licence, the attribution and the warnings off the headers of an answer, as plain text."""
+    """Read the licence, credit line, notice, processing note and warnings off the headers of an answer, as text."""
     report: dict[str, Any] = {}
     if license_ := headers.get("x-wetterdienst-license"):
         report["license"] = unquote(license_)
@@ -470,6 +477,10 @@ def _report_of(headers: dict[str, str]) -> dict[str, Any]:
             report["license_url"] = link[1 : link.index(">")]
     if attribution := headers.get("x-wetterdienst-attribution"):
         report["attribution"] = unquote(attribution)
+    if notice := headers.get("x-wetterdienst-notice"):
+        report["notice"] = unquote(notice)
+    if processing := headers.get("x-wetterdienst-processing"):
+        report["processing_note"] = unquote(processing)
     if warnings := headers.get("x-wetterdienst-warnings"):
         report["warnings"] = [code.strip() for code in warnings.split(",") if code.strip()]
     return report
@@ -483,6 +494,10 @@ def _sentence_of(media_type: str, size: int, kind: str, report: dict[str, Any]) 
         sentence += f" Licence: {report['license']}{url}."
     if "attribution" in report:
         sentence += f" Attribution: {report['attribution'].rstrip('.')}."
+    if "notice" in report:
+        sentence += f" Notice: {report['notice']}"
+    if "processing_note" in report:
+        sentence += f" {report['processing_note']}"
     if "warnings" in report:
         sentence += f" Warnings: {', '.join(report['warnings'])}."
     return sentence
@@ -505,10 +520,10 @@ def _return_bodies_as_content(provider: OpenAPIProvider) -> Middleware:
 
     A text body (csv, ndjson, html, svg) is a text content block, as the REST API answers it; an image (png, jpg,
     webp) an image content block and any other binary body (pdf) an embedded resource. The structured content, which
-    the output schema of a tool requires, is a sentence about the answer, with its licence, attribution and warnings,
-    which the REST API sends in headers for these formats: the schema of every tool that has one admits a string as
-    its `result` (the `str` of the REST route's response model), and the body is not repeated in it. The same,
-    structured, is in the `_meta` of the result under `wetterdienst`.
+    the output schema of a tool requires, is a sentence about the answer, with its licence, attribution, notice,
+    processing note and warnings, which the REST API sends in headers for these formats: the schema of every tool that
+    has one admits a string as its `result` (the `str` of the REST route's response model), and the body is not
+    repeated in it. The same, structured, is in the `_meta` of the result under `wetterdienst`.
     """
     from fastmcp.server.middleware import Middleware  # noqa: PLC0415
     from fastmcp.tools import ToolResult  # noqa: PLC0415

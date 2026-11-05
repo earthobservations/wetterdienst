@@ -28,6 +28,7 @@ from aiohttp import ClientResponseError, ClientSSLError
 
 from wetterdienst import Info, Options, Settings
 from wetterdienst.exceptions import DownloadError, NoInternetError
+from wetterdienst.model.processing_note import PROCESSING_NOTE
 from wetterdienst.util.eccodes import bufr_is_available
 from wetterdienst.util.network import UpstreamMaintenanceError, _worth_retrying
 
@@ -48,6 +49,7 @@ RESPONSE_METADATA_ALWAYS = frozenset(
         "data_updated_at",
         "provider",
         "producer",
+        "processing_note",
         "request",
         "counts",
         "crs",
@@ -1008,9 +1010,11 @@ def metadata() -> dict:
             },
             "name_english": "German Weather Service",
             "name_local": "Deutscher Wetterdienst",
+            "notice": None,
             "url": "https://opendata.dwd.de/climate_environment/CDC/",
         },
         "data_updated_at": None,
+        "processing_note": PROCESSING_NOTE,
     }
 
 

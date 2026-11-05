@@ -19,6 +19,13 @@ _EcccObservationMetadataSpec = {
         url="https://climate.weather.gc.ca/prods_servs/attachment1_e.html",
     ),
     "attribution": "based on Environment and Climate Change Canada data",
+    # the redistribution clause of the licence agreement, quoted on docs/data/provider/eccc/index.md; the hosted
+    # instance serves the data and tells every answer so (GH-2567)
+    "notice": (
+        "ECCC data may be passed on only if every recipient agrees to the same restrictions, and no fee is charged "
+        "for the data itself. If you pass it on, pass these terms on: "
+        "https://climate.weather.gc.ca/prods_servs/attachment1_e.html"
+    ),
     "url": "https://climate.weather.gc.ca/climate_data/bulk_data_e.html",
     "kind": "observation",
     "extent": {

@@ -129,7 +129,7 @@ declaration fails when the module is imported.
 
 - **The provider** is described by the fields above `resolutions` (`name_short`, `country`, `license`, `attribution`,
   `url`, `kind`, `timezone`, `auth`, ...). The `metadata` block of every REST answer reports its `name_local`,
-  `name_english`, `country`, `copyright`, `url`, `license` and `attribution`; `Wetterdienst.discover()` reads
+  `name_english`, `country`, `copyright`, `url`, `license`, `attribution` and `notice`; `Wetterdienst.discover()` reads
   `name_short`, `country`, `kind`, `url` and `auth` from them, and `date_required` from the datasets. `kind` is
   `observation`, `forecast` or `derived`.
 - **Periods and `date_required`** can be declared on the resolution and are copied to every dataset that does not

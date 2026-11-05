@@ -79,7 +79,10 @@ http --download localhost:7890/api/stripes/image kind==temperature station==1048
 ```
 
 The JSON answer of `values` has the `metadata` block every answer has, a `series` that says what the values
-are of (`station`, `resolution`, `dataset`, `parameter`, and the `unit` of `value`), and the `values`.
+are of (`station`, `resolution`, `dataset`, `parameter`, and the `unit` of `value`), and the `values`. The yearly
+values of the stripes are calculated from the station's readings, which the `processing_note` of the block says
+(and the `X-Wetterdienst-Processing` header of `values` and `image`, an image having no place for it in itself): the
+values are derived.
 
 The `image` endpoint accepts the same rendering options as the CLI (`start_year`,
 `end_year`, `show_title`, `show_years`, `show_data_availability`, `format`, `dpi`): the command line

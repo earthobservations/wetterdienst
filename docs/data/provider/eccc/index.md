@@ -11,6 +11,24 @@
 
 The license for the use of ECCC data is given [here](https://climate.weather.gc.ca/prods_servs/attachment1_e.html).
 
+**Notice.** The redistribution restriction quoted below allows ECCC's data to be passed on only if no fee is charged
+for it and every recipient agrees to the same restrictions before use. The hosted instance of wetterdienst (REST API,
+MCP server, app) serves ECCC data to whoever asks, as does any server run from the library, and the library hands it
+to the programs that use it. Every answer for ECCC therefore carries the restriction, so that whoever passes the data
+on knows of it: as `notice` in the `provider` block of the
+[response metadata](../../../usage/restapi.md#response-metadata), in the `X-Wetterdienst-Notice` header, in the files
+the library writes and in the [`providers`](../../../usage/restapi.md#providers) list. The notice informs and refuses
+nothing: ECCC data is still served. Whether the use the hosted instance makes of the data is within the agreement is
+not settled. If you run a public instance or build a product on ECCC data, read the agreement and ask ECCC.
+
+**Which terms.** The agreement quoted here is the one of Climate Data Online. The library reads the data from the
+MSC GeoMet OGC API (`api.weather.gc.ca`), whose collections state no licence, and the MSC Open Data pages publish a
+second text, the
+[Data Services End-use Licence](https://eccc-msc.github.io/open-data/licence/readme_en/) (version 2.1.1, August
+2026), which allows copying, modification and distribution, commercial use included, with attribution, and has no
+redistribution condition. Which of the two covers the data the library reads is not stated by ECCC. Wetterdienst
+reports the agreement and its notice until that is settled.
+
 Specifically we want to quote and therewith highlight two passages from ECCC:
 
 - REDISTRIBUTION RESTRICTIONS

@@ -16,6 +16,20 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- Every answer has a `processing_note` in its `metadata` (REST, MCP, command line, Python
+  `with_metadata=True`, files of an export) and an `X-Wetterdienst-Processing` header: that
+  wetterdienst reshaped the provider's data into one table and converted its units, which licences
+  such as CC BY ask to be indicated. `interpolate`, `summarize` and the climate stripes add that the
+  values are derived. One text for all providers, no legal advice (Part of GH-2567)
+- `provider.notice` in every answer, with an `X-Wetterdienst-Notice` header and in `providers`: a
+  restriction of the provider's terms beyond licence and credit line. ECCC has one (its data may be
+  passed on only if every recipient agrees to the same restrictions and no fee is charged for it);
+  ECCC is still served, `null` for every other provider (Part of GH-2567)
+- The docs have a page of the licence, credit line and notice of every provider, built from the
+  provider metadata, and the overview no longer calls all the data open (Part of GH-2567)
+
 ### Changed
 
 - `imgw/meteorology` and `imgw/hydrology` now report CC BY-NC-ND 4.0 as `license` for all their

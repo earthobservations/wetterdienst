@@ -6,9 +6,14 @@ The `unit` column of those tables is the unit the provider publishes the paramet
 answer of `coverage` where it differs from `unit`; the values come back in the unit `coverage` gives as `unit` and
 `glossary` lists (Kelvin as degrees Celsius, eighths of the sky as a percentage), unless `convert_units` is off.
 
+The licence each provider publishes its data under, the credit line it asks for and any restriction of its terms are in
+one table on [licences and credit lines](licenses.md), built from the provider metadata. Each provider's page below
+keeps the clauses that matter, quoted, and the terms beyond the licence.
+
 ```{toctree}
 :hidden:
 
+licenses.md
 aemet/index.md
 chmi/index.md
 dmi/index.md

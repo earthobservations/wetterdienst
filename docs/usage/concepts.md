@@ -69,5 +69,6 @@ see [Troubleshooting](troubleshooting.md).
 
 The library downloads from the providers' own open-data servers when you ask, and keeps what it downloaded in a
 [cache](python-api.md#caching). It holds no data of its own. The terms the data is published under differ per provider
-and are part of every answer of the REST API (`metadata.provider.license` and `attribution`); the
-[provider pages](../data/index.md) give them.
+and are part of every answer of the REST API (`metadata.provider.license`, `attribution` and, for ECCC, `notice`),
+with a `processing_note` that says wetterdienst reshaped the data and converted its units; they are listed on
+[licences and credit lines](../data/provider/licenses.md), and the [provider pages](../data/index.md) give them.

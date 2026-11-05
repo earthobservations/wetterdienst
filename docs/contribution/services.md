@@ -345,7 +345,12 @@ The tests hold every provider to the same rules, and fail until a new one has wh
   registry, and the README states how many services there are.
 - **Its licence and credit line**: `license` and `attribution` in the metadata (Step 1). A provider that states no
   terms declares `"license": None` and is named with the reason in `LICENSE_NOT_STATED` of
-  `tests/ui/test_response_metadata.py`.
+  `tests/ui/test_response_metadata.py`. A provider whose terms restrict what may be done with the data beyond the
+  licence and the credit line (ECCC's redistribution clause) declares a `notice` as well, a sentence that every answer
+  carries; it informs and switches nothing off. The provider is listed on the
+  [licences and credit lines](../data/provider/licenses.md) page by itself, which is built from these fields. The
+  answers carry the note of what wetterdienst did to the data on their own (`model/processing_note.py`), the same for
+  every provider.
 - **A stub of its station catalogue** in `tests/provider/station_catalogue_stubs.py`: rows of the real list, served
   through the provider's own reader. The rules of `tests/provider/station_catalogue.py` apply to it, and to the live
   list in `test_station_catalogues_live.py` (marker `remote`). A provider of one country adds its bounding box to
