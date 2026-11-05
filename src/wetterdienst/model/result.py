@@ -143,6 +143,14 @@ class _Station(TypedDict):
     region: str | None
 
 
+class _EstimateStation(_Station):
+    """A station an interpolation or a summary was made from: the station, and where it stands against the point."""
+
+    distance: float
+    # null where no elevation was asked about, or the station has none
+    elevation_difference: float | None
+
+
 class _StationsDictBody(TypedDict):
     """The members of `_StationsDict` other than `metadata`."""
 
@@ -1331,7 +1339,7 @@ class _InterpolatedValuesItemDict(TypedDict):
 class _InterpolatedValuesDictBody(TypedDict):
     """The members of `_InterpolatedValuesDict` other than `metadata`."""
 
-    stations: NotRequired[list[_Station]]
+    stations: NotRequired[list[_EstimateStation]]
     values: list[_InterpolatedValuesItemDict]
 
 
@@ -1347,7 +1355,7 @@ class _InterpolatedValuesOgcFeature(TypedDict):
     type: Literal["Feature"]
     properties: _InterpolatedOrSummarizedOgcFeatureProperties
     geometry: _OgcFeatureGeometry
-    stations: list[_Station]
+    stations: list[_EstimateStation]
     values: list[_InterpolatedValuesItemDict]
 
 
@@ -1412,7 +1420,7 @@ class InterpolatedValuesResult(_ValuesResult[list[_InterpolatedValuesItemDict], 
                 if self.elevation is None
                 else [longitude, latitude, self.elevation],
             },
-            "stations": self.stations.to_dict(with_metadata=False)["stations"],
+            "stations": cast("list[_EstimateStation]", self.stations.to_dict(with_metadata=False)["stations"]),
             "values": self.to_dict(with_metadata=False, with_stations=False)["values"],
         }
         collection: _InterpolatedValuesOgcFeatureCollectionData = {"type": "FeatureCollection", "features": [feature]}
@@ -1528,7 +1536,7 @@ class _SummarizedValuesItemDict(TypedDict):
 class _SummarizedValuesDictBody(TypedDict):
     """The members of `_SummarizedValuesDict` other than `metadata`."""
 
-    stations: NotRequired[list[_Station]]
+    stations: NotRequired[list[_EstimateStation]]
     values: list[_SummarizedValuesItemDict]
 
 
@@ -1544,7 +1552,7 @@ class _SummarizedValuesOgcFeature(TypedDict):
     type: Literal["Feature"]
     properties: _InterpolatedOrSummarizedOgcFeatureProperties
     geometry: _OgcFeatureGeometry
-    stations: list[_Station]
+    stations: list[_EstimateStation]
     values: list[_SummarizedValuesItemDict]
 
 
@@ -1609,7 +1617,7 @@ class SummarizedValuesResult(_ValuesResult[list[_SummarizedValuesItemDict], _Sum
                 if self.elevation is None
                 else [longitude, latitude, self.elevation],
             },
-            "stations": self.stations.to_dict(with_metadata=False)["stations"],
+            "stations": cast("list[_EstimateStation]", self.stations.to_dict(with_metadata=False)["stations"]),
             "values": self.to_dict(with_metadata=False, with_stations=False)["values"],
         }
         collection: _SummarizedValuesOgcFeatureCollectionData = {"type": "FeatureCollection", "features": [feature]}

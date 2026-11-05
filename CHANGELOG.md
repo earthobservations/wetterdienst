@@ -48,6 +48,11 @@ Types of changes:
   `skip_empty`; hard nulls it as `rejected:step,raw:<text>`. A null or gap between readings leaves
   them unjudged; humidity, gusts, soil temperature and wind direction are not judged (Part of
   GH-3681)
+- The stations of `interpolate` and `summarize` (`with_stations=true`, `--with-stations`,
+  `result.stations`) now carry `distance`, the km from the point, and `elevation_difference`, the
+  point's elevation less the station's in m (null without an `elevation`). The rows name the
+  stations each timestamp was made from by id, as before; one id in an interpolation is a nearby
+  station answering alone. A CSV holds the rows only (Part of GH-3134)
 
 ### Changed
 

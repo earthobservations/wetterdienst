@@ -23,6 +23,7 @@ from wetterdienst.core.util import (
     one_row_per_station,
     open_parameter_data,
     parameters_still_in_reach,
+    place_station,
     reduce_to_elevation,
     report_elevation_exclusions,
     unanswerable_at_elevation,
@@ -37,6 +38,7 @@ from wetterdienst.util.logging import TqdmToLogger
 if TYPE_CHECKING:
     import datetime as dt
 
+    from wetterdienst.core.util import StationPlacement
     from wetterdienst.model.request import TimeseriesRequest
     from wetterdienst.model.result import StationsResult
     from wetterdienst.options import Options
@@ -55,6 +57,7 @@ def get_summarized_df(
     *,
     df_all: pl.DataFrame | None = None,
     data_updated: dict[str, dt.datetime] | None = None,
+    placements: dict[str, StationPlacement] | None = None,
 ) -> pl.DataFrame:
     """Get summarized DataFrame.
 
@@ -67,6 +70,8 @@ def get_summarized_df(
             where left out
         data_updated: a dict the date is put into that the source states for the data of each station that gave a
             value (`data_updated_at` of its values), by `station_id`; the answer has the newest of those it was made of
+        placements: a dict the distance of each station that gave a value, and its elevation against the point's, is
+            put into, by `station_id`; the answer names them for the stations its rows were taken from
 
     Returns:
         Summarized DataFrame
@@ -77,7 +82,7 @@ def get_summarized_df(
 
     """
     stations_dict, param_dict, dropped_for_elevation, unanswerable = request_stations(
-        request, latitude, longitude, elevation, df_all=df_all, data_updated=data_updated
+        request, latitude, longitude, elevation, df_all=df_all, data_updated=data_updated, placements=placements
     )
     df = calculate_summary(stations_dict, param_dict)
     report_elevation_exclusions(
@@ -99,6 +104,7 @@ def request_stations(
     *,
     df_all: pl.DataFrame | None = None,
     data_updated: dict[str, dt.datetime] | None = None,
+    placements: dict[str, StationPlacement] | None = None,
 ) -> tuple[dict, dict, dict[tuple[str, str, str], DroppedForElevation], set[tuple[str, str, str]]]:
     """Request stations.
 
@@ -184,6 +190,8 @@ def request_stations(
             if data_updated is not None and result.data_updated_at is not None:
                 data_updated[station["station_id"]] = result.data_updated_at
             stations_dict[station["station_id"]] = (station["longitude"], station["latitude"], station["distance"])
+            if placements is not None:
+                placements[station["station_id"]] = place_station(station, elevation)
     return stations_dict, param_dict, dropped_for_elevation, unanswerable
 
 

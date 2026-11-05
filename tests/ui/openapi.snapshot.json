@@ -3142,11 +3142,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Include the queried stations' metadata block in the output.",
+              "description": "Include the stations used, each with its `distance` from the point (km) and, with `elevation`, its `elevation_difference` to it (m).",
               "default": false,
               "title": "With Stations"
             },
-            "description": "Include the queried stations' metadata block in the output."
+            "description": "Include the stations used, each with its `distance` from the point (km) and, with `elevation`, its `elevation_difference` to it (m)."
           },
           {
             "name": "pretty",
@@ -3668,11 +3668,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Include the queried stations' metadata block in the output.",
+              "description": "Include the stations used, each with its `distance` from the point (km) and, with `elevation`, its `elevation_difference` to it (m).",
               "default": false,
               "title": "With Stations"
             },
-            "description": "Include the queried stations' metadata block in the output."
+            "description": "Include the stations used, each with its `distance` from the point (km) and, with `elevation`, its `elevation_difference` to it (m)."
           },
           {
             "name": "pretty",
@@ -6752,6 +6752,132 @@
         ],
         "title": "_AlertsWithMetadataOgcFeatureCollection"
       },
+      "_EstimateStation": {
+        "properties": {
+          "resolution": {
+            "type": "string",
+            "title": "Resolution"
+          },
+          "dataset": {
+            "type": "string",
+            "title": "Dataset"
+          },
+          "station_id": {
+            "type": "string",
+            "title": "Station Id"
+          },
+          "start_timestamp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Timestamp"
+          },
+          "end_timestamp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Timestamp"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "elevation": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elevation"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
+          "distance": {
+            "type": "number",
+            "title": "Distance"
+          },
+          "elevation_difference": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elevation Difference"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "resolution",
+          "dataset",
+          "station_id",
+          "start_timestamp",
+          "end_timestamp",
+          "latitude",
+          "longitude",
+          "elevation",
+          "name",
+          "region",
+          "distance",
+          "elevation_difference"
+        ],
+        "title": "_EstimateStation",
+        "description": "A station an interpolation or a summary was made from: the station, and where it stands against the point."
+      },
       "_HistoryWithMetadataDict": {
         "properties": {
           "metadata": {
@@ -6880,7 +7006,7 @@
           },
           "stations": {
             "items": {
-              "$ref": "#/components/schemas/_Station"
+              "$ref": "#/components/schemas/_EstimateStation"
             },
             "type": "array",
             "title": "Stations"
@@ -6931,7 +7057,7 @@
         "properties": {
           "stations": {
             "items": {
-              "$ref": "#/components/schemas/_Station"
+              "$ref": "#/components/schemas/_EstimateStation"
             },
             "type": "array",
             "title": "Stations"
@@ -7563,7 +7689,7 @@
           },
           "stations": {
             "items": {
-              "$ref": "#/components/schemas/_Station"
+              "$ref": "#/components/schemas/_EstimateStation"
             },
             "type": "array",
             "title": "Stations"
@@ -7614,7 +7740,7 @@
         "properties": {
           "stations": {
             "items": {
-              "$ref": "#/components/schemas/_Station"
+              "$ref": "#/components/schemas/_EstimateStation"
             },
             "type": "array",
             "title": "Stations"

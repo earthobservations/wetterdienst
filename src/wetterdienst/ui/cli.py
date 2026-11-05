@@ -463,6 +463,15 @@ with_stations_opt = _bool_opt(
     default=False,
     help="Include the stations in JSON/GeoJSON output. Default: false",
 )
+# of `interpolate` and `summarize`, whose stations are the ones the rows were made from
+with_estimate_stations_opt = _bool_opt(
+    "--with-stations",
+    default=False,
+    help=(
+        "Include in JSON/GeoJSON output the stations the values were made from, each once with its distance from the "
+        "point (km) and, with --elevation, its elevation difference to it (m). Default: false"
+    ),
+)
 debug_opt = _bool_opt("--debug", default=False, help="Log at debug level. Default: false")
 
 # the reference point `interpolate` and `summarize` estimate for: exactly one of a station or a point,
@@ -2170,7 +2179,7 @@ def values(
 @if_exists_opt
 @pretty_opt
 @with_metadata_target_opt
-@with_stations_opt
+@with_estimate_stations_opt
 @debug_opt
 def interpolate(
     provider: str,
@@ -2318,7 +2327,7 @@ def interpolate(
 @if_exists_opt
 @pretty_opt
 @with_metadata_target_opt
-@with_stations_opt
+@with_estimate_stations_opt
 @debug_opt
 def summarize(
     provider: str,

@@ -392,7 +392,9 @@ Options:
                                   Excel, JSON, GeoJSON and the other bare types) and adds those
                                   parts to the block in a Parquet, NetCDF or Zarr file; a database
                                   --target is refused. Default: false
-  --with-stations BOOLEAN         Include the stations in JSON/GeoJSON output. Default: false
+  --with-stations BOOLEAN         Include in JSON/GeoJSON output the stations the values were made
+                                  from, each once with its distance from the point (km) and, with
+                                  --elevation, its elevation difference to it (m). Default: false
   --debug BOOLEAN                 Log at debug level. Default: false
   --help                          Show this message and exit.
 
@@ -765,7 +767,9 @@ Options:
                                   Excel, JSON, GeoJSON and the other bare types) and adds those
                                   parts to the block in a Parquet, NetCDF or Zarr file; a database
                                   --target is refused. Default: false
-  --with-stations BOOLEAN         Include the stations in JSON/GeoJSON output. Default: false
+  --with-stations BOOLEAN         Include in JSON/GeoJSON output the stations the values were made
+                                  from, each once with its distance from the point (km) and, with
+                                  --elevation, its elevation difference to it (m). Default: false
   --debug BOOLEAN                 Log at debug level. Default: false
   --help                          Show this message and exit.
 
