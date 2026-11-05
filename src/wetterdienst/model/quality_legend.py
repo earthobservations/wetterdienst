@@ -63,8 +63,10 @@ _CHECKS = (
     "does not allow), `stuck` (a sensor that held one value, or was dead, over a period), `consistency` (a reading the "
     "reading of another parameter of the same file contradicts), `floor` (a model value a little below the floor of "
     "its quantity), `limits` (a number outside the bounds the caller set for its parameter), `source` (a value the "
-    "source itself marks as erroneous or doubtful in its own quality flag) and `step` (a change between two "
-    "consecutive readings, or a jump away and back, beyond what the weather does)"
+    "source itself marks as erroneous or doubtful in its own quality flag), `step` (a change between two "
+    "consecutive readings, or a jump away and back, beyond what the weather does) and `relations` (two readings of "
+    "one file that contradict each other, a maximum below the mean or a dew point above the air temperature, both "
+    "flagged, or a day of sunshine longer than the day)"
 )
 
 #: the token of a value a plausibility check found implausible and left as it was, in the mode `soft` (GH-3676)
@@ -77,7 +79,8 @@ SUSPECT = QualityKind(
     "one of "
     + _CHECKS
     + ", several joined with `+` (`suspect:range+stuck`). The checks and their modes are the `plausibility` option "
-    "of the request; the defaults of `stuck`, `step` and `source` are soft. No `raw` token of its own: the value is "
+    "of the request; the defaults of `stuck`, `step`, `source` and `relations` are soft. No `raw` token of its own: "
+    "the value is "
     "the number the source wrote (beside `rejected:floor` it is the floor, 0.0). Interpolation and summary leave such "
     "a value out.",
 )

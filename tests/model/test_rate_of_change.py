@@ -401,9 +401,9 @@ def test_two_parameters_of_one_frame_are_judged_apart() -> None:
     frame = pl.concat([_frame(air, [5.0] * 4, STEPS["hourly"]), _frame(dew, [40.0] * 4, STEPS["hourly"], later)])
     out = judged(frame, network="dwd/observation", dataset=ds)
     assert out.get_column("quality_flags").null_count() == 8
-    # a spike of the dew point is the dew point's
+    # a spike of the dew point is the dew point's (the air is above it, as the check `relations` wants)
     frame = pl.concat(
-        [_frame(air, [5.0] * 5, STEPS["hourly"]), _frame(dew, [3.0, 3.0, 13.0, 3.0, 3.0], STEPS["hourly"])]
+        [_frame(air, [15.0] * 5, STEPS["hourly"]), _frame(dew, [3.0, 3.0, 13.0, 3.0, 3.0], STEPS["hourly"])]
     )
     out = judged(frame, network="dwd/observation", dataset=ds)
     assert out.get_column("quality_flags").to_list() == [None] * 7 + ["suspect:step", None, None]

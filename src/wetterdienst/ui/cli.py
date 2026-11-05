@@ -2030,6 +2030,7 @@ def values(
     plausibility_limits: Mode,
     plausibility_source: Mode,
     plausibility_step: Mode,
+    plausibility_relations: Mode,
     limits: dict[str, Any] | None,
     pretty: bool,  # noqa: FBT001
     with_metadata: bool,  # noqa: FBT001
@@ -2088,6 +2089,7 @@ def values(
             "plausibility_limits": plausibility_limits,
             "plausibility_source": plausibility_source,
             "plausibility_step": plausibility_step,
+            "plausibility_relations": plausibility_relations,
             "limits": limits,
             "pretty": pretty,
             "with_metadata": with_metadata,

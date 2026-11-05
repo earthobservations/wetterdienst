@@ -18,6 +18,14 @@ Types of changes:
 
 ### Added
 
+- The new check `relations` holds the readings of one row (the same station, timestamp and file) to
+  each other on every observation network: a maximum is not below the mean and the mean not below
+  the minimum (not Météo-France's and FMI's daily means, whose windows differ), the dew point is at
+  most 0.2 K above the air, a gust is not below the mean wind, and a day's sunshine is at most the
+  day length at the station plus 5 %. **Both** readings of a broken pair are flagged. Soft by
+  default (`suspect:relations`, value kept, left out of interpolation, summaries, stripes and
+  `skip_empty`); `hard` nulls both as `rejected:relations,raw:<text>`. It is not `consistency`,
+  whose provider rules stay hard (GH-3681)
 - The alerts result of `dwd/alerts` has `to_target`: `file://alerts.json`, `.geojson` or `.csv`, the
   file the REST API answers for that format, a CSV row being one alert (areas comma-joined,
   `parameters` and `geometry` as JSON text). `with_metadata=True` writes the metadata block beside
