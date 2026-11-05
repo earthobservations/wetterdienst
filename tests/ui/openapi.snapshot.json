@@ -8018,7 +8018,7 @@
         "properties": {
           "type": {
             "type": "string",
-            "description": "`urn:wetterdienst:problem:<kind>`, the kind being one of `invalid-parameters`, `request-refused`, `limit-exceeded`, `image-too-large`, `host-not-allowed`, `origin-not-allowed`, `sql-disabled`, `not-found`, `unknown-network`, `method-not-allowed`, `not-implemented`, `dependency-missing`, `credential-missing`, `credential-rejected`, `not-configured`, `upstream-failed`, `server-busy`, `upstream-unreachable`, `upstream-timeout`, `request-timeout`, `internal-error`. A client branches on it; the docs list when each is answered."
+            "description": "`urn:wetterdienst:problem:<kind>`, the kind being one of `invalid-parameters`, `request-refused`, `limit-exceeded`, `image-too-large`, `host-not-allowed`, `origin-not-allowed`, `sql-disabled`, `not-found`, `unknown-network`, `method-not-allowed`, `not-implemented`, `dependency-missing`, `credential-missing`, `credential-rejected`, `not-configured`, `upstream-failed`, `server-busy`, `upstream-unreachable`, `upstream-timeout`, `request-timeout`, `image-timeout`, `internal-error`. A client branches on it; the docs list when each is answered."
           },
           "title": {
             "type": "string",
@@ -8173,7 +8173,7 @@
         }
       },
       "GatewayTimeout": {
-        "description": "Gateway Timeout. The body is a problem (`Problem`) of one of the kinds:\n\n- `upstream-timeout`: The data provider did not answer in time. The request was valid; retry it.\n- `request-timeout`: The server did not answer within its request timeout. Narrow the request, or retry it: what the server had fetched is cached.",
+        "description": "Gateway Timeout. The body is a problem (`Problem`) of one of the kinds:\n\n- `upstream-timeout`: The data provider did not answer in time. The request was valid; retry it.\n- `request-timeout`: The server did not answer within its request timeout. Narrow the request, or retry it: what the server had fetched is cached.\n- `image-timeout`: The browser that draws a chart as an image did not finish in time and was closed. The request was valid; retry it. Whoever runs the server should look at Chrome if it keeps happening.",
         "content": {
           "application/problem+json": {
             "schema": {

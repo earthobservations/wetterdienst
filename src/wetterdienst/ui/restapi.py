@@ -35,6 +35,7 @@ from wetterdienst.exceptions import (
     CredentialRejectedError,
     DateRequiredError,
     DownloadError,
+    ImageTimeoutError,
     ImageTooLargeError,
     MissingDependencyError,
     MissingTimeIntervalError,
@@ -43,7 +44,7 @@ from wetterdienst.exceptions import (
     UpstreamError,
     WetterdienstError,
 )
-from wetterdienst.io.export import require_kaleido
+from wetterdienst.io.export import render_image, require_kaleido
 from wetterdienst.io.formats import renders_with_kaleido
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import CoverageNetwork, CoverageParameter, Extent
@@ -2012,6 +2013,21 @@ def _upstream_failure(e: UpstreamError, what: str) -> HTTPException:
     return ProblemError(status, detail, kind)
 
 
+def _image_timeout(e: ImageTimeoutError, what: str) -> HTTPException:
+    """Answer a chart whose browser did not finish in time with a 504 of the kind `image-timeout` (GH-3723).
+
+    No provider is involved and the request was well formed: the renderer of this server did not answer, was closed,
+    and the same request can succeed on a retry, so the client is told that and nothing of the server's machine. The
+    seconds are the server's own limit and go to the log.
+    """
+    log.warning(f"Failed to {what}: {e}")
+    return ProblemError(
+        504,
+        "The image was not rendered in time. The request was valid; try again later.",
+        ProblemKind.IMAGE_TIMEOUT,
+    )
+
+
 def _server_error(e: Exception) -> HTTPException:
     """Answer a failure that is the server's with a 500 that names its type and nothing else (GH-2767).
 
@@ -2080,6 +2096,8 @@ def _server_side_failure(e: Exception, request: BaseModel, what: str) -> HTTPExc
         return _credential_rejected_on_the_server(e, request, what)
     if isinstance(e, ConfigurationError):
         return _configuration_missing_on_the_server(e, what)
+    if isinstance(e, ImageTimeoutError):
+        return _image_timeout(e, what)
     if isinstance(e, UpstreamError):
         return _upstream_failure(e, what)
     if failure_status(e) == 501:
@@ -2354,7 +2372,7 @@ def stripes_image(
     # the licence, the credit line and the warnings are told in the headers, as for every answer: an image holds
     # none of it (GH-3581)
     return Response(
-        content=fig.to_image(request.format, scale=request.dpi / 100),
+        content=render_image(fig, request.format, scale=request.dpi / 100),
         media_type=_MEDIA_TYPES.get(request.format, "application/octet-stream"),
         headers={
             **response_headers(stripes_metadata(stripes_data, request, image=True)),

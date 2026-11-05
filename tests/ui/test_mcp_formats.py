@@ -182,6 +182,7 @@ def test_each_kind_of_body_arrives_as_its_own_content(monkeypatch: pytest.Monkey
 
 
 @pytest.mark.parametrize(("fmt", "block"), [("png", ImageContent), ("svg", TextContent), ("pdf", EmbeddedResource)])
+@pytest.mark.usefixtures("figure_draws_itself")
 def test_the_stripes_image_tool_reports_the_licence_the_attribution_and_the_warnings(
     fmt: str, block: type, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -211,8 +211,8 @@ pdf = [
     "pypdf>=6.21.2,<7",
 ]
 plotting = [
-    "kaleido>=1.0.0",
-    "plotly>=6.1.1",
+    "kaleido>=1.3.0",
+    "plotly>=6.2.0",
 ]
 postgresql = [
     "pandas>=2.2.2,<4",

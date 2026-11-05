@@ -777,6 +777,16 @@ the image is longer than 8192 px, `scale` applied; for `/api/stripes/image` the 
 times `dpi / 100`. A chart of several parameters is 300 px tall for each, and is measured as drawn.
 The limit holds for the REST API and the MCP tools; the library and the CLI have none.
 
+A chart is drawn by a Chrome that Kaleido starts for the image, and the start of that browser and the
+drawing have 120 seconds, on every surface (a normal image takes 1 to 4 seconds; the heaviest this server lets
+through, a PDF of 8192 x 8192 px with 100000 points, took 24 to 31). A browser that does not finish is closed, and
+killed with its processes if closing it does not end it, and the request is a 504 problem of the kind
+`image-timeout` with `Retry-After`. Unlike the
+[request timeout](#timeout), which answers the client and leaves the work running, this one ends the work, so a
+stuck Chrome keeps its thread and its place in the [limit on requests served at once](#concurrency) for at most
+about 130 seconds (the limit and up to 10 seconds to close the browser), not for ever. Under the default request
+timeout of 60 seconds the client is answered `request-timeout` first, and the work ends on its own after that.
+
 ## Limits
 
 A request that would return more than the server allows is refused with a 400 before anything is
@@ -881,7 +891,8 @@ connection is cut).
 
 The work already begun is not cancelled, so what the request had downloaded is cached, and the same request
 made again after the `Retry-After` is likely to succeed. The request keeps its place in the
-[limit on requests served at once](#concurrency) until that work is done. A reverse proxy in front of the server has a timeout of its
+[limit on requests served at once](#concurrency) until that work is done; an image that does not get drawn has its
+own end, [the time it is given](#image-size). A reverse proxy in front of the server has a timeout of its
 own, usually 60 seconds too; set this one below it for the answer to be this problem.
 
 ### Concurrency
@@ -995,7 +1006,7 @@ entry for each invalid parameter, where `loc` names it:
 | 501 | the server cannot serve it: a credential it lacks or the provider rejects, or an optional package it lacks, which the body does not name |
 | 502 | the data provider failed or sent an answer the server cannot read: a download that was refused or cut short, a file in a layout it does not expect; the request was valid and can be retried |
 | 503 | the server could not reach the data provider (no network connection), or it is working on as many requests as it allows ([Concurrency](#concurrency)); the request was valid and can be retried, the body says so and does not name the provider's address |
-| 504 | the data provider did not answer in time; the request was valid and can be retried |
+| 504 | the data provider did not answer in time, or the server's own work did not finish in time (the request timeout, an image that was not rendered); the request was valid and can be retried |
 | 500 | the server's own error, a defect: the body names the exception's type and nothing else, the cause is in the server log |
 
 Read `type` for what kind of error it is, `status` for what happened and `detail` for a sentence to show; the
@@ -1027,6 +1038,7 @@ are these, and a kind keeps its status:
 | `urn:wetterdienst:problem:upstream-unreachable` | 503 | The server could not reach the data provider (no connection). The request was valid; retry it. |
 | `urn:wetterdienst:problem:upstream-timeout` | 504 | The data provider did not answer in time. The request was valid; retry it. |
 | `urn:wetterdienst:problem:request-timeout` | 504 | The server did not answer within its request timeout. Narrow the request, or retry it: what the server had fetched is cached. |
+| `urn:wetterdienst:problem:image-timeout` | 504 | The browser that draws a chart as an image did not finish within `120` seconds and was closed. The request was valid; retry it. Whoever runs the server should look at Chrome if it keeps happening. |
 | `urn:wetterdienst:problem:internal-error` | 500 | The server's own error, a defect. The cause is in the server log. |
 
 Every problem has `instance`, `urn:wetterdienst:request:<id>`, and `request_id`, the id of the request. The id

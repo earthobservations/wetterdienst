@@ -739,6 +739,7 @@ _STATUS_OF = {
     "DateRequiredError": 400,
     "DownloadError": 502,
     "ExportRefusedError": 500,
+    "ImageTimeoutError": 504,
     "ImageTooLargeError": 400,
     "InvalidBoundingBoxError": 400,
     "InvalidEnumerationError": 400,

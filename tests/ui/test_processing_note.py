@@ -187,6 +187,7 @@ def test_the_header_is_on_a_json_answer_too(client: TestClient, monkeypatch: pyt
 # --- stripes -------------------------------------------------------------------------------------------------------
 
 
+@pytest.mark.usefixtures("figure_draws_itself")
 def test_the_stripes_values_have_the_plain_note_and_the_image_says_it_is_drawn(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:

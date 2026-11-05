@@ -134,6 +134,7 @@ def test_climate_stripes_target_wrong_dpi() -> None:
     assert "Error: Invalid value for '--dpi': 0 is not in the range x>0.\n" in result.stderr
 
 
+@pytest.mark.usefixtures("figure_draws_itself")
 def test_stripes_image_target_in_missing_directory_is_a_readable_error(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -141,7 +142,7 @@ def test_stripes_image_target_in_missing_directory_is_a_readable_error(
     """Test a --target in a directory that does not exist is a runtime error naming the option, not a traceback."""
 
     class _Figure:
-        def to_image(self, _fmt: str, scale: float) -> bytes:  # noqa: ARG002
+        def to_image(self, **_kwargs: object) -> bytes:
             return b"png"
 
     monkeypatch.setattr("wetterdienst.ui.cli._plot_stripes", lambda _request: _Figure())
@@ -175,8 +176,8 @@ def test_stripes_image_target_naming_a_directory_is_a_usage_error(
 
 
 class _StubFigure:
-    def to_image(self, fmt: str, scale: float) -> bytes:  # noqa: ARG002
-        return fmt.encode()
+    def to_image(self, format: str, **_kwargs: object) -> bytes:  # noqa: A002
+        return format.encode()
 
 
 @pytest.mark.parametrize(
@@ -191,6 +192,7 @@ class _StubFigure:
         pytest.param("pdf", "stripes.pdf", id="pdf"),
     ],
 )
+@pytest.mark.usefixtures("figure_draws_itself")
 def test_stripes_image_target_with_the_format_suffix_is_written(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

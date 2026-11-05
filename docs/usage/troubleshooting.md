@@ -15,6 +15,7 @@ tables). Problems of one machine (a proxy, a certificate, an old Raspberry Pi) a
 | `NoInternetError`, exit 1, 503 `upstream-unreachable` | the provider could not be reached | see [Upstream outages](#upstream-outages) |
 | `DownloadError`, 502 `upstream-failed`, 504 `upstream-timeout` | the provider answered badly or too late | the same |
 | 400 `limit-exceeded`, 504 `request-timeout` | the REST API or MCP server holds a request to its limits | see [Limits](#limits-and-timeouts) |
+| `ImageTimeoutError`, exit 1, 504 `image-timeout` | the browser that draws an image did not finish within 120 seconds and was closed | try again; if it keeps happening, check that Chrome starts on this machine, see [Other things that go wrong](#other-things-that-go-wrong) |
 | 503 `server-busy` | the server works on as many requests as it is set to | wait the `Retry-After` and ask again, see [Limits](#limits-and-timeouts) |
 | 400 `host-not-allowed` or `origin-not-allowed` | the server answers only to the `Host` names it lists (`WD_RESTAPI_ALLOWED_HOSTS`) | reach it by a name it lists, or add yours, see [Allowed hosts](restapi.md#allowed-hosts) |
 | 429 `rate-limited` | the web app limits what a client may count against it | wait the `Retry-After`, see [Web app](app.md#rate-limit) |
@@ -123,6 +124,10 @@ the answer, see [Concurrency](restapi.md#concurrency).
 - **`403 sql-disabled`**: the server does not enable the `sql` and `sql_values` filters (`WD_RESTAPI_SQL=true` does).
   In the library and the command line they work.
 - **`400 image-too-large`**: a chart longer than 8192 px on a side; lower `width`, `height` or `scale`.
+- **`ImageTimeoutError`, exit 1, `504 image-timeout`**: Chrome, which Kaleido starts for every image, did not finish
+  within 120 seconds and was closed with its processes. A retry usually works. If it keeps happening, start Chrome
+  by hand on that machine (a sandbox, a missing library or a full disk keep it from starting), and see
+  [Image size](restapi.md#image-size) for what the server does about a stuck one.
 - **Stale or odd results from the cache.** `wetterdienst cache` prints the cache directory; delete it, or set
   `WD_CACHE_DISABLE=true` to run without it. A cache directory that cannot be written (a Docker volume that root
   filled) does not fail a request: wetterdienst warns once and keeps a cache in a temporary directory, see

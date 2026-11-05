@@ -24,13 +24,14 @@ from wetterdienst.exceptions import (
     CredentialRejectedError,
     DateRequiredError,
     ExportRefusedError,
+    ImageTimeoutError,
     InvalidTimeIntervalError,
     MetadataNotFoundError,
     MissingDependencyError,
     NoInternetError,
     ReversedTimeIntervalError,
 )
-from wetterdienst.io.export import require_kaleido
+from wetterdienst.io.export import render_image, require_kaleido
 from wetterdienst.io.formats import FORMATS, names_of
 from wetterdienst.io.sinks import ALERT_FILE_FORMATS, refuse_metadata_without_file
 from wetterdienst.metadata.unit_type import UnitType
@@ -1260,6 +1261,11 @@ class _Cli(_Group):
         except MissingDependencyError as e:
             # whatever the command was doing when it reached for a package that is not installed,
             # such as rendering an image: the message names what to install, and is the whole of it
+            log.error(str(e))  # noqa: TRY400
+            sys.exit(1)
+        except ImageTimeoutError as e:
+            # whatever image the command was drawing: the browser did not finish, and was closed. One line, as
+            # for an outage, where a traceback says nothing the line does not (GH-3723)
             log.error(str(e))  # noqa: TRY400
             sys.exit(1)
         except NoInternetError as e:
@@ -2749,7 +2755,7 @@ def stripes_image(
         raise click.ClickException(str(e)) from e
 
     require_kaleido()
-    image = fig.to_image(fmt, scale=dpi / 100)
+    image = render_image(fig, fmt, scale=dpi / 100)
 
     if target_path is not None:
         # rendered outside the handler: talking to the renderer's browser can raise an `OSError` of its own

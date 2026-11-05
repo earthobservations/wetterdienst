@@ -51,6 +51,10 @@ Types of changes:
 
 ### Changed
 
+- The `plotting` extra now requires `plotly>=6.2.0` and `kaleido>=1.3.0` (before 6.1.1 and 1.0.0):
+  images are drawn by our own call to Kaleido under a time limit (see Fixed), which needs
+  `plotly.io.defaults.plotlyjs` (plotly 6.2.0) and a choreographer that kills the browser's process
+  group (1.3.0, which kaleido 1.3.0 requires). Upgrade both where an older pair is pinned (GH-3723)
 - **Breaking**: `wetterdienst alerts --target` now decides the format by the extension (`.json`,
   `.geojson`, `.csv`) and takes `--if-exists` and `--with-metadata`. `--target=feed.txt` or a name
   without an extension, which exited 0 and wrote JSON, and `--format=geojson --target=x.json` now
@@ -77,6 +81,16 @@ Types of changes:
 
 ### Fixed
 
+- An image that Kaleido does not draw in 120 seconds is now an `ImageTimeoutError` (also a
+  `TimeoutError`): the Chrome and its processes are closed, `/api/stripes/image` and every other
+  image route answer a 504 problem of the kind `image-timeout`, and the command line prints one
+  line and exits 1. Before, a Chrome that did not start or a page that never became ready held
+  the call for ever (Kaleido's own 90 seconds bound only the drawing), and a REST request that
+  timed out left its thread, and its place in `WD_RESTAPI_MAX_CONCURRENT`, to wait as long. A
+  `kaleido.start_sync_server()` you started yourself is still drawn without this limit. Two
+  things change beside it: a Chrome that dies mid-draw is now a `RuntimeError`, not an
+  `asyncio.CancelledError`, and a figure with a layout size of its own is drawn at that size on
+  plotly 6.2 too (700x500 before, as its `to_image` ignores it there) (GH-3723)
 - The `bufr` and `eccodes` extras now require `findlibs>=0.1.4`. On Linux, `findlibs` 0.1.3 and
   older loaded the PROJ bundled in the `eckitlib` wheel of `eccodes` 2.43+ globally, so a process
   that loaded `eccodes` and then imported `pyproj` aborted at exit with status 134 or 139

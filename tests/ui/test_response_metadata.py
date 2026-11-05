@@ -424,6 +424,7 @@ def _read_and_warn(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.usefixtures("_no_ambient_settings")
 @pytest.mark.parametrize("prefix", ["/api", "/api/v1"])
 @pytest.mark.parametrize("fmt", ["png", "jpg", "svg", "pdf"])
+@pytest.mark.usefixtures("figure_draws_itself")
 def test_the_stripes_image_has_the_headers_of_every_answer(
     client: TestClient, monkeypatch: pytest.MonkeyPatch, prefix: str, fmt: str
 ) -> None:
@@ -446,6 +447,7 @@ def test_the_stripes_image_has_the_headers_of_every_answer(
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.usefixtures("figure_draws_itself")
 def test_the_stripes_image_names_the_same_terms_as_the_stripes_values(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -592,6 +594,7 @@ def _read_stripes_values(monkeypatch: pytest.MonkeyPatch) -> None:
 def _draw_stripes_image(monkeypatch: pytest.MonkeyPatch) -> None:
     _read_stripes_values(monkeypatch)
     monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
+    monkeypatch.setattr("wetterdienst.io.export._draw", lambda fig, *_args, **_kwargs: fig.to_image())
 
 
 def _read_values_of(endpoint: str) -> Callable[[pytest.MonkeyPatch], None]:
